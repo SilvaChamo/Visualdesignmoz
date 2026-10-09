@@ -45,7 +45,7 @@ export function EncomendasClientesSection({ isActive }: { isActive: boolean }) {
   const { setChrome } = useAdminSectionChrome();
   useEffect(() => {
     if (!isActive) return;
-    setChrome({ description: 'Contas de clientes que já submeteram encomendas — seleccione para enviar mailmarketing.' });
+    setChrome({ description: 'Contas de clientes das encomendas (com ou sem encomendas submetidas) — seleccione para enviar mailmarketing.' });
     return () => setChrome(null);
   }, [isActive, setChrome]);
 

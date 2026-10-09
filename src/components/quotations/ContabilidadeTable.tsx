@@ -9,6 +9,8 @@ import {
 import { formatMt } from '@/lib/pricing-catalog'
 import { ImageLightbox } from './ImageLightbox'
 import { Spinner } from '@/components/ui/spinner'
+import { useBatchNumeros, displayNumero } from '@/lib/use-batch-numeros'
+import { encomendaPaymentSplit } from '@/lib/encomenda-checkout'
 
 // Valores negativos (lucro pode ficar negativo quando os custos ultrapassam
 // a receita) saem sempre a vermelho, seja qual for a tabela/linha.
@@ -92,12 +94,13 @@ function openDocumentPopup(itemId: string, tipo?: 'factura', fase?: 'adiantament
   window.open(`/cotacao/${itemId}${query}`, `documento-${itemId}-${tipo ?? 'cotacao'}-${fase ?? ''}`, `width=${w},height=${h},left=${left},top=${top},resizable=yes,scrollbars=yes`)
 }
 
-type ContabilidadeTab = 'balanco' | 'cotacoes' | 'facturas' | 'creditos' | 'renovacoes' | 'dominios' | 'hospedagem' | 'emails' | 'eliminadas'
+type ContabilidadeTab = 'balanco' | 'cotacoes' | 'facturas' | 'encomendas' | 'creditos' | 'renovacoes' | 'dominios' | 'hospedagem' | 'emails' | 'eliminadas'
 
 const TABS: { id: ContabilidadeTab; label: string }[] = [
   { id: 'balanco', label: 'Balanço' },
   { id: 'cotacoes', label: 'Cotações' },
   { id: 'facturas', label: 'Facturas' },
+  { id: 'encomendas', label: 'Encomendas' },
   { id: 'creditos', label: 'Créditos' },
   { id: 'renovacoes', label: 'Renovações' },
   { id: 'dominios', label: 'Domínios' },
@@ -112,7 +115,7 @@ export function ContabilidadeTable() {
   const [eliminados, setEliminados] = useState<RegistoRow[] | null>(null)
   const [fechos, setFechos] = useState<FechoRow[] | null>(null)
   const [activeTab, setActiveTab] = useState<ContabilidadeTab>('balanco')
-  // Balão por separador (Créditos/Renovações/Domínios/Hospedagem/E-mails) —
+  // Balão por separador (Encomendas/Créditos/Renovações/Domínios/Hospedagem/E-mails) —
   // para não ter de ir a cada separador só para ver onde há algo pendente.
   const [pendentesPorTab, setPendentesPorTab] = useState<Partial<Record<ContabilidadeTab, number>>>({})
 
@@ -187,6 +190,7 @@ export function ContabilidadeTable() {
       )}
       {activeTab === 'cotacoes' && <RegistosTable registos={registos} variant="cotacao" />}
       {activeTab === 'facturas' && <RegistosTable registos={registos} variant="factura" />}
+      {activeTab === 'encomendas' && <EncomendaPagamentosTable />}
       {activeTab === 'creditos' && <ResellerCreditsTable />}
       {activeTab === 'renovacoes' && <RenewalPaymentsTable />}
       {activeTab === 'dominios' && <CheckoutItemsByType types={['domain']} />}
@@ -355,50 +359,77 @@ function ResellerCreditsTable() {
 }
 
 /**
- * dados de contacto de quem for preciso falar sobre este pedido — o anexo já
- * tem link directo ("Ver anexo") na linha compacta, não precisa de expandir.
- * 1ª coluna: a própria VisualDesign (fixo). 2ª coluna: o cliente do pedido
- * (do formulário de checkout — nome/telefone/morada/cidade/email já
- * recolhidos lá, ver accountForm em app/checkout/page.tsx).
+ * Linha expandida (Encomendas/Renovações/Domínios/Hospedagem/E-mails) — grelha
+ * apertada, de ponta a ponta: 1ª coluna com os dados de contacto do cliente
+ * (sempre as mesmas DETAIL_ROWS linhas), a seguir os itens do pedido em
+ * colunas com o mesmo número de linhas — quando há mais itens do que isso,
+ * abre-se outra coluna à direita em vez de a linha crescer para baixo. Cada
+ * coluna ocupa só a largura do seu conteúdo; a última estica até ao fim
+ * para o cabeçalho cinzento ir de ponta a ponta.
  */
-function InfoLine({ label, value }: { label: string; value: string }) {
+const DETAIL_ROWS = 4
+
+type DetailColumn = { titulo?: string; conteudo: React.ReactNode }
+
+function DetailLine({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <p className="text-sm">
-      <span className="font-bold text-gray-500 dark:text-zinc-400">{label}: </span>
-      <span className="text-gray-700 dark:text-zinc-300">{value}</span>
+    <p className="whitespace-nowrap text-sm leading-6">
+      <span className="font-bold text-gray-700 dark:text-zinc-300">{label}</span>
+      <span className="text-gray-600 dark:text-zinc-400">{children}</span>
     </p>
   )
 }
 
-function ClienteInfoInline({ cliente, domainSlot }: { cliente: Cliente | null; domainSlot?: React.ReactNode }) {
+function DetailGrid({ columns }: { columns: DetailColumn[] }) {
   return (
-    <div>
-      {/* Cabeçalho único, de ponta a ponta, com fundo — diferente do checkout (que não tem fundo nenhum). */}
-      <div className="mb-2 grid grid-cols-1 gap-x-4 overflow-hidden rounded-md bg-gray-100 sm:grid-cols-2 dark:bg-zinc-800">
-        <p className="px-3 py-2 text-[11px] font-bold uppercase tracking-wide text-gray-500 dark:text-zinc-400">
-          Dados da Empresa
-        </p>
-        <p className="border-t border-gray-200 px-3 py-2 text-[11px] font-bold uppercase tracking-wide text-gray-500 sm:border-l sm:border-t-0 dark:border-zinc-600 dark:text-zinc-400">
-          Dados do Responsável
-        </p>
-      </div>
-      <div className="grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
-        <div className="space-y-1">
-          <InfoLine label="Empresa" value="VisualDesign" />
-          <InfoLine label="Morada" value="Av. Karl Marx, Nº 177, Maputo — Moçambique" />
-          <InfoLine label="Telefone" value="+258 87 757 5288" />
-          <InfoLine label="Email" value="geral@visualdesignmoz.com" />
+    <div className="flex w-full items-stretch bg-gray-50 dark:bg-zinc-900/40">
+      {columns.map((col, idx) => (
+        <div
+          key={idx}
+          className={`flex flex-col ${idx === columns.length - 1 ? 'min-w-0 flex-1' : 'flex-none'} ${idx > 0 ? 'border-l border-gray-200 dark:border-zinc-700' : ''}`}
+        >
+          <p className="bg-gray-100 px-4 py-2 text-[11px] font-bold uppercase tracking-wide text-gray-500 dark:bg-zinc-800 dark:text-zinc-400">
+            {col.titulo || '\u00a0'}
+          </p>
+          <div className="px-4 py-2">{col.conteudo}</div>
         </div>
-        <div className="space-y-1 sm:border-l sm:border-gray-200 sm:pl-4 dark:border-zinc-700">
-          <InfoLine label="Responsável" value={cliente?.nome || '—'} />
-          <InfoLine label="Residência" value={[cliente?.morada, cliente?.cidade].filter(Boolean).join(', ') || '—'} />
-          <InfoLine label="WhatsApp" value={cliente?.telefone || '—'} />
-          <InfoLine label="Email" value={cliente?.email || '—'} />
-          {domainSlot}
-        </div>
-      </div>
+      ))}
     </div>
   )
+}
+
+/** Divide as linhas de itens em colunas de DETAIL_ROWS (a 1ª com título, as seguintes sem). */
+function itemColumns(titulo: string, linhas: React.ReactNode[]): DetailColumn[] {
+  const columns: DetailColumn[] = []
+  for (let i = 0; i < linhas.length; i += DETAIL_ROWS) {
+    columns.push({ titulo: i === 0 ? titulo : undefined, conteudo: <>{linhas.slice(i, i + DETAIL_ROWS)}</> })
+  }
+  return columns
+}
+
+function ClienteDetailRow({
+  cliente,
+  itensTitulo,
+  itens = [],
+  extra = [],
+}: {
+  cliente: Cliente | null
+  itensTitulo?: string
+  itens?: React.ReactNode[]
+  extra?: DetailColumn[]
+}) {
+  const clienteColumn: DetailColumn = {
+    titulo: 'Dados da Empresa',
+    conteudo: (
+      <>
+        <DetailLine label="Responsável: ">{cliente?.nome || cliente?.empresa || '—'}</DetailLine>
+        <DetailLine label="Residência: ">{[cliente?.morada, cliente?.cidade].filter(Boolean).join(', ') || '—'}</DetailLine>
+        <DetailLine label="WhatsApp: ">{cliente?.telefone || '—'}</DetailLine>
+        <DetailLine label="Email: ">{cliente?.email || '—'}</DetailLine>
+      </>
+    ),
+  }
+  return <DetailGrid columns={[clienteColumn, ...itemColumns(itensTitulo || 'Itens', itens), ...extra]} />
 }
 
 /**
@@ -422,8 +453,7 @@ function HostingDomainFixField({
   const domainItems = pedidoItems.filter((i) => i.type === 'domain')
 
   return (
-    <div className="mt-2">
-      <p className="mb-1 text-xs font-bold text-gray-500 dark:text-zinc-400">Domínio da hospedagem</p>
+    <div className="max-w-xs">
       <select
         value={showManual ? '__manual__' : value}
         onChange={(e) => {
@@ -736,7 +766,8 @@ function toFacturaDocs(registos: RegistoRow[]): FacturaDoc[] {
         numero: r.advance_invoice_number,
         empresa: r.empresa,
         resumo: r.resumo,
-        valorMt: Math.round(r.receita_mt * 0.7 * 100) / 100,
+        // Valor da própria factura (IVA acrescido) — o mesmo que o documento mostra.
+        valorMt: encomendaPaymentSplit(r.receita_mt).adiantamentoMt,
         done_at: r.done_at,
         primary_item_id: r.primary_item_id,
         fase: 'adiantamento',
@@ -748,7 +779,7 @@ function toFacturaDocs(registos: RegistoRow[]): FacturaDoc[] {
         numero: r.remainder_invoice_number,
         empresa: r.empresa,
         resumo: r.resumo,
-        valorMt: Math.round(r.receita_mt * 0.3 * 100) / 100,
+        valorMt: encomendaPaymentSplit(r.receita_mt).remanescenteMt,
         done_at: r.done_at,
         primary_item_id: r.primary_item_id,
         fase: 'remanescente',
@@ -1101,9 +1132,17 @@ function RenewalPaymentsTable() {
                   </td>
                 </tr>
                 {isExpanded && (
-                  <tr className="bg-gray-50 dark:bg-zinc-900/40">
-                    <td colSpan={8} className="px-4 py-4">
-                      <ClienteInfoInline cliente={p.cliente} />
+                  <tr>
+                    <td colSpan={8} className="p-0">
+                      <ClienteDetailRow
+                        cliente={p.cliente}
+                        itensTitulo="Renovação"
+                        itens={[
+                          <DetailLine key="servico" label={p.renewal_type === 'domain' ? 'Domínio: ' : 'Hospedagem: '}>
+                            {p.service_name}
+                          </DetailLine>,
+                        ]}
+                      />
                     </td>
                   </tr>
                 )}
@@ -1138,6 +1177,8 @@ type CheckoutPedido = {
   comprovativo_url: string | null
   created_at: string
 }
+
+const CHECKOUT_ITEM_TYPE_LABEL: Record<string, string> = { domain: 'Domínio', hosting: 'Hospedagem', ssl: 'SSL', email: 'E-mail' }
 
 const ITEM_STATUS_META: Record<'pending' | 'paid' | 'failed' | 'expired', { label: string; className: string }> = {
   pending: { label: 'Pendente', className: 'bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400' },
@@ -1353,20 +1394,265 @@ function CheckoutItemsByType({ types }: { types: string[] }) {
                   </td>
                 </tr>
                 {isExpanded && (
-                  <tr className="bg-gray-50 dark:bg-zinc-900/40">
-                    <td colSpan={8} className="px-4 py-4">
-                      <ClienteInfoInline
+                  <tr>
+                    <td colSpan={8} className="p-0">
+                      <ClienteDetailRow
                         cliente={p.cliente}
-                        domainSlot={
-                          item.type === 'hosting' ? (
-                            <HostingDomainFixField
-                              pedidoItems={p.items}
-                              currentDomain={item.hostingDomain}
-                              value={domainDraft[key] ?? item.hostingDomain ?? ''}
-                              onChange={(v) => setDomainDraft((d) => ({ ...d, [key]: v }))}
-                            />
-                          ) : undefined
+                        itensTitulo="Itens do Pedido"
+                        itens={(p.items || []).map((i, idx) => (
+                          <DetailLine key={idx} label={`${CHECKOUT_ITEM_TYPE_LABEL[i.type] || i.type}: `}>
+                            {i.name}
+                            {i.type === 'hosting' && i.hostingDomain ? ` (${i.hostingDomain})` : ''}
+                          </DetailLine>
+                        ))}
+                        extra={
+                          item.type === 'hosting'
+                            ? [{
+                                titulo: 'Domínio da Hospedagem',
+                                conteudo: (
+                                  <HostingDomainFixField
+                                    pedidoItems={p.items}
+                                    currentDomain={item.hostingDomain}
+                                    value={domainDraft[key] ?? item.hostingDomain ?? ''}
+                                    onChange={(v) => setDomainDraft((d) => ({ ...d, [key]: v }))}
+                                  />
+                                ),
+                              }]
+                            : []
                         }
+                      />
+                    </td>
+                  </tr>
+                )}
+                </Fragment>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+      {lightboxUrl && <ImageLightbox url={lightboxUrl} onClose={() => setLightboxUrl(null)} />}
+    </div>
+  )
+}
+
+type EncomendaPagamento = {
+  key: string
+  batchId: string
+  anchorId: string
+  phase: 'advance' | 'remainder'
+  status: 'pending' | 'paid'
+  metodo: string | null
+  valorMt: number
+  createdAt: string
+  itens: { id: string; status: string; categoria_label: string; produto: string; quantidade: number }[]
+  cliente: Cliente | null
+  comprovativoUrl: string | null
+}
+
+const ENCOMENDA_FASE_LABEL: Record<EncomendaPagamento['phase'], string> = {
+  advance: 'Adiantamento (70%)',
+  remainder: 'Remanescente (30%)',
+}
+
+/**
+ * Pagamentos das encomendas VisualDesign (adiantamento e remanescente) —
+ * mesmo papel dos separadores Domínios/Hospedagem/E-mails: o comprovativo
+ * enviado no checkout (ou na página de pagamento da encomenda) chega aqui
+ * para a equipa confirmar ou rejeitar. Confirmar usa o mesmo PATCH do painel
+ * das Encomendas, item a item (adiantamento → "Em produção", remanescente →
+ * "Entregue"), por isso a factura, o livro de pagamentos e o email ao cliente
+ * saem exactamente como se fosse lá.
+ */
+function EncomendaPagamentosTable() {
+  const [pagamentos, setPagamentos] = useState<EncomendaPagamento[] | null>(null)
+  const [updatingKey, setUpdatingKey] = useState<string | null>(null)
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
+  const [expandedKey, setExpandedKey] = useState<string | null>(null)
+  const numeros = useBatchNumeros()
+
+  const load = () => {
+    fetch('/api/admin/encomendas-pagamentos')
+      .then((r) => r.json())
+      .then((data) => { if (data.success) setPagamentos(data.pagamentos) })
+      .catch((error) => console.error('Erro ao carregar pagamentos de encomendas:', error))
+  }
+
+  useEffect(() => {
+    load()
+  }, [])
+
+  const confirmar = async (p: EncomendaPagamento) => {
+    const aviso = p.phase === 'advance'
+      ? 'Confirmar o adiantamento? A encomenda passa a "Em produção" e a factura é emitida.'
+      : 'Confirmar o remanescente? A encomenda passa a "Entregue".'
+    if (!window.confirm(aviso)) return
+
+    const from = p.phase === 'advance' ? 'payment_selected' : 'delivered'
+    const to = p.phase === 'advance' ? 'approved' : 'done'
+    setUpdatingKey(p.key)
+    try {
+      // Um item de cada vez — o último a mudar é que fecha a encomenda
+      // (factura do remanescente, registo na contabilidade).
+      for (const item of p.itens.filter((i) => i.status === from)) {
+        const res = await fetch('/api/admin/cotacoes', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: item.id, status: to }),
+        })
+        const data = await res.json()
+        if (!data.success) throw new Error(data.error || 'Não foi possível confirmar o pagamento.')
+      }
+      load()
+    } catch (error: any) {
+      window.alert(error.message || 'Falha ao comunicar com o servidor.')
+      load()
+    } finally {
+      setUpdatingKey(null)
+    }
+  }
+
+  const rejeitar = async (p: EncomendaPagamento) => {
+    const motivo = window.prompt('Motivo da rejeição (fica na conversa da encomenda, para o cliente ver):', '')
+    if (motivo === null) return
+
+    setUpdatingKey(p.key)
+    try {
+      const res = await fetch('/api/admin/encomendas-pagamentos', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ batchId: p.batchId, phase: p.phase, motivo }),
+      })
+      const data = await res.json()
+      if (!data.success) throw new Error(data.error || 'Não foi possível rejeitar o comprovativo.')
+      load()
+    } catch (error: any) {
+      window.alert(error.message || 'Falha ao comunicar com o servidor.')
+    } finally {
+      setUpdatingKey(null)
+    }
+  }
+
+  if (!pagamentos) {
+    return <div className="flex items-center justify-center gap-2 py-12 text-sm text-gray-400 dark:text-zinc-500"><Spinner /> A carregar pagamentos de encomendas...</div>
+  }
+
+  if (pagamentos.length === 0) {
+    return <div className={`${panelSectionCard} p-8 text-center text-sm text-gray-500 dark:text-zinc-400`}>Ainda não há pagamentos de encomendas por confirmar.</div>
+  }
+
+  return (
+    <div className={`${panelSectionCard} overflow-hidden`}>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-gray-200 bg-gray-50 text-xs font-bold uppercase tracking-wide text-gray-500 dark:border-zinc-700 dark:bg-zinc-900/50 dark:text-zinc-400">
+              <th className="px-4 py-2 align-middle text-left">Encomenda</th>
+              <th className="px-4 py-2 align-middle text-left whitespace-nowrap">Fase</th>
+              <th className="px-4 py-2 align-middle text-left whitespace-nowrap">Valor</th>
+              <th className="px-4 py-2 align-middle text-left whitespace-nowrap">Método</th>
+              <th className="px-4 py-2 align-middle text-left whitespace-nowrap">Data</th>
+              <th className="px-4 py-2 align-middle text-left">Cliente</th>
+              <th className="px-4 py-2 align-middle text-left whitespace-nowrap">Anexo</th>
+              <th className="px-4 py-2 align-middle text-left whitespace-nowrap">Estado</th>
+              <th className="px-4 py-2 align-middle text-left whitespace-nowrap">Aceitação</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100 dark:divide-zinc-800">
+            {pagamentos.map((p) => {
+              const meta = ITEM_STATUS_META[p.status] || ITEM_STATUS_META.pending
+              const isExpanded = expandedKey === p.key
+              const resumo = p.itens.map((i) => i.categoria_label).join(', ')
+              return (
+                <Fragment key={p.key}>
+                <tr className="hover:bg-gray-50 dark:hover:bg-zinc-800/30">
+                  <td className="max-w-[16rem] px-4 py-2.5 font-medium text-gray-900 dark:text-white">
+                    <div className="flex items-start gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setExpandedKey(isExpanded ? null : p.key)}
+                        className="mt-0.5 shrink-0 text-gray-400 hover:text-gray-700 dark:text-zinc-500 dark:hover:text-zinc-200"
+                        title="Ver itens e dados do cliente"
+                      >
+                        {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                      </button>
+                      <div className="min-w-0">
+                        <button
+                          type="button"
+                          onClick={() => openDocumentPopup(p.anchorId)}
+                          className="font-bold hover:text-red-600 hover:underline dark:hover:text-red-400"
+                          title="Abrir a cotação"
+                        >
+                          Nº {displayNumero(numeros, p.batchId)}
+                        </button>
+                        <p className="truncate text-xs font-normal text-gray-400 dark:text-zinc-500">{resumo}</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-2.5 text-gray-500 dark:text-zinc-400">
+                    {ENCOMENDA_FASE_LABEL[p.phase]}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-2.5 text-left font-bold tabular-nums text-gray-900 dark:text-white">
+                    {formatMt(p.valorMt)} MT
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-2.5 text-gray-500 dark:text-zinc-400">
+                    {(p.metodo && METODO_LABEL[p.metodo]) || p.metodo || '—'}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-2.5 text-gray-500 dark:text-zinc-400">
+                    {new Date(p.createdAt).toLocaleDateString('pt-PT')}
+                  </td>
+                  <td className="max-w-[12rem] truncate px-4 py-2.5 text-gray-500 dark:text-zinc-400">
+                    {p.cliente?.empresa || p.cliente?.nome || p.cliente?.email || '—'}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-2.5">
+                    {p.comprovativoUrl ? (
+                      <button
+                        type="button"
+                        onClick={() => setLightboxUrl(p.comprovativoUrl)}
+                        className="text-xs font-medium text-red-600 hover:underline dark:text-red-400"
+                      >
+                        Ver anexo
+                      </button>
+                    ) : (
+                      <span className="text-xs text-gray-400 dark:text-zinc-500">Sem comprovativo</span>
+                    )}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-2.5 text-left">
+                    <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${meta.className}`}>{meta.label}</span>
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-2.5 text-left">
+                    {p.status === 'pending' && (
+                      <div className="flex items-center justify-start gap-2">
+                        <button
+                          type="button"
+                          disabled={updatingKey === p.key}
+                          onClick={() => confirmar(p)}
+                          className="text-xs font-medium text-green-600 hover:underline disabled:opacity-50 dark:text-green-400"
+                        >
+                          Confirmar
+                        </button>
+                        <button
+                          type="button"
+                          disabled={updatingKey === p.key}
+                          onClick={() => rejeitar(p)}
+                          className="text-xs font-medium text-rose-600 hover:underline disabled:opacity-50 dark:text-rose-400"
+                        >
+                          Rejeitar
+                        </button>
+                      </div>
+                    )}
+                  </td>
+                </tr>
+                {isExpanded && (
+                  <tr>
+                    <td colSpan={9} className="p-0">
+                      <ClienteDetailRow
+                        cliente={p.cliente}
+                        itensTitulo="Itens da Encomenda"
+                        itens={p.itens.map((item) => (
+                          <DetailLine key={item.id} label={item.categoria_label}>
+                            {' '}— {item.produto} × {item.quantidade}
+                          </DetailLine>
+                        ))}
                       />
                     </td>
                   </tr>

@@ -6,7 +6,7 @@ import {
   resolveUserRole,
   type UserRole,
 } from '@/lib/user-roles'
-import { defaultLandingPath } from '@/lib/panel-origin'
+import { defaultLandingPath, isEncomendasAccount } from '@/lib/panel-origin'
 import { getOAuthCallbackUrl } from '@/lib/oauth-callback'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co'
@@ -318,8 +318,18 @@ export const auth = {
   async getRedirectPath(userHint?: User | null, cachedRole?: UserRole | null): Promise<string> {
     const role = cachedRole ?? (await this.getUserRole(userHint))
 
+    // Conta criada no percurso das encomendas — vai para /encomendas mesmo
+    // antes de ter a primeira encomenda gravada.
     let hasEncomendas = false
     if (role === 'guest') {
+      let user = userHint ?? null
+      if (!user) {
+        const { data: { session } } = await supabase.auth.getSession()
+        user = session?.user ?? null
+      }
+      hasEncomendas = isEncomendasAccount(user?.user_metadata)
+    }
+    if (role === 'guest' && !hasEncomendas) {
       try {
         const res = await fetch('/api/cotacoes', { credentials: 'include' })
         if (res.ok) {

@@ -5,6 +5,7 @@ import {
   PUBLIC_PANEL_ENTRY,
   panelRouteFromPublicEntry,
   resolveInnerPanelPath,
+  isEncomendasAccount,
   resolvePanelInnerRedirect,
   getPublicSiteOrigin,
 } from '@/lib/panel-origin'
@@ -53,7 +54,8 @@ export default async function PainelEntryPage({ params }: Props) {
     hasPaidProducts: products.hasPaidProducts,
   })
 
-  const hasEncomendas = role === 'guest' ? await userHasQuotationRequests(user.id) : false
+  const hasEncomendas =
+    role === 'guest' ? isEncomendasAccount(user.user_metadata) || (await userHasQuotationRequests(user.id)) : false
 
   const inner =
     panelRouteFromPublicEntry(pathname) ?? resolveInnerPanelPath(null, role, hasEncomendas)

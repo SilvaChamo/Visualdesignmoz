@@ -6,6 +6,7 @@ import {
   buildPanelLoginUrl,
   PUBLIC_PANEL_ENTRY,
   resolvePostLoginUrl,
+  isEncomendasAccount,
   applySharedAuthCookieOptions,
   getPublicSiteOrigin,
 } from '@/lib/panel-origin'
@@ -68,7 +69,8 @@ export async function GET(request: NextRequest) {
 
   const role = await resolveRoleForAuthUser(supabase, user)
   const from = readPanelFromCookie(request.headers.get('cookie'))
-  const hasEncomendas = role === 'guest' ? await userHasQuotationRequests(user.id) : false
+  const hasEncomendas =
+    role === 'guest' ? isEncomendasAccount(user.user_metadata) || (await userHasQuotationRequests(user.id)) : false
 
   const target = resolvePostLoginUrl({
     origin: siteOrigin,

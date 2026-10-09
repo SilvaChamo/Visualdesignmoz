@@ -5,9 +5,18 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { supabase } from '@/lib/supabase-client';
+import { ENCOMENDAS_ACCOUNT_ORIGIN } from '@/lib/panel-origin';
 import { BRANDS, CATEGORIES, findItem, formatMt, SELECAO_STORAGE_KEY, CUSTOM_CATEGORIA_ID, type SelectedCatalogItem } from '@/lib/pricing-catalog';
+import {
+  ENCOMENDA_CHECKOUT_PATH,
+  descartarEncomendaRegistada,
+  encomendaDraftSignature,
+  loadEncomendaDraft,
+  saveEncomendaDraft,
+  type EncomendaDraft,
+} from '@/lib/encomenda-checkout';
 import { NotchSection } from '@/components/home/NotchSection';
-import { Loader2, AlertCircle, ArrowRight, ArrowLeft, Building2, User, Lock, Package, ChevronDown, Trash2, Plus, Sparkles } from 'lucide-react';
+import { AlertCircle, ArrowRight, ArrowLeft, Building2, User, Lock, Package, ChevronDown, Trash2, Plus, Sparkles, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
 
 interface OrderLineItem {
@@ -83,12 +92,8 @@ function CotacaoContent() {
 
   const [currentStep, setCurrentStep] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [status, setStatus] = useState<'idle' | 'registering' | 'submitting' | 'error'>('idle');
+  const [status, setStatus] = useState<'idle' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
-  // Distingue o erro "já tem conta" dos restantes só para poder mostrar um
-  // link directo para "Entrar" na faixa de erro, em vez de só o texto a dizer
-  // para fazer login — mais rápido do que ter de encontrar o link sozinho.
-  const [accountExists, setAccountExists] = useState(false);
 
   // Dados da Empresa (ou pessoa singular)
   const [tipoCliente, setTipoCliente] = useState<'empresa' | 'individual'>('empresa');
@@ -105,11 +110,14 @@ function CotacaoContent() {
   const [telefoneResponsavel, setTelefoneResponsavel] = useState('+258 ');
   const [emailResponsavel, setEmailResponsavel] = useState('');
 
-  // Criar Conta (só para visitantes sem sessão) — auto-preenchido a partir do responsável
-  const [nome, setNome] = useState('');
-  const [accountEmail, setAccountEmail] = useState('');
+  // Passo 2 — "Criar Conta": a conta (e o contacto da encomenda) nasce com
+  // os dados do responsável ou com os da própria empresa, à escolha do
+  // cliente. É criada aqui, ao avançar deste passo — o checkout fica só para
+  // pagar, sem um segundo formulário de conta. Para pessoa singular usa
+  // sempre os dados do passo "Os Seus Dados".
+  const [contaDados, setContaDados] = useState<'responsavel' | 'empresa'>('responsavel');
   const [password, setPassword] = useState('');
-
+  const [showPassword, setShowPassword] = useState(false);
   // Segurança contra bots no registo: campo-armadilha invisível (só bots que
   // preenchem tudo o caem aqui) + um desafio simples de soma.
   const [honeypot, setHoneypot] = useState('');
@@ -118,13 +126,16 @@ function CotacaoContent() {
     b: 1 + Math.floor(Math.random() * 8),
   }));
   const [captchaResposta, setCaptchaResposta] = useState('');
+  // Email da conta criada neste formulário — mantém o passo "Criar Conta" na
+  // lista depois de a sessão abrir (o número de passos não muda a meio) e
+  // mostra-o como concluído se o cliente voltar atrás.
+  const [contaCriada, setContaCriada] = useState<string | null>(null);
+  // Email já com conta (e outra palavra-passe) — mostra o link para entrar.
+  const [accountExists, setAccountExists] = useState(false);
+  // Encomenda em curso retomada do rascunho — o passo só se decide depois de
+  // se saber se há sessão ('dados' = "Editar dados" vindo do checkout).
+  const [retomarPara, setRetomarPara] = useState<'dados' | 'servico' | null>(null);
 
-  const handleResponsavelBlur = () => {
-    if (!nome && responsavel) setNome(responsavel);
-  };
-  const handleEmailResponsavelBlur = () => {
-    if (!accountEmail && emailResponsavel) setAccountEmail(emailResponsavel);
-  };
   // Pré-preenche o email do responsável com o email institucional — poupa
   // reescrever o mesmo email quando é a mesma pessoa — mas fica editável.
   const handleEmailInstitucionalBlur = () => {
@@ -184,32 +195,77 @@ function CotacaoContent() {
     ]);
   };
 
-  // Selecção feita por checkboxes em /precos (vários serviços, possivelmente
-  // de categorias diferentes) — cada um vira a sua própria linha, todas no
-  // mesmo formato de cartão.
+  // Ao abrir o formulário: a selecção feita por checkboxes em /precos
+  // (vários serviços, possivelmente de categorias diferentes — cada um vira a
+  // sua própria linha) e a encomenda em curso guardada no rascunho local
+  // (ver src/lib/encomenda-checkout.ts). Assim nada se perde a meio — nem ao
+  // voltar atrás no browser a partir do checkout, nem ao "Editar dados" /
+  // "Alterar encomenda" de lá (?retomar=1). Uma selecção nova de /precos
+  // substitui só os serviços; a empresa/conta continuam as do rascunho.
   useEffect(() => {
+    let selecao: OrderLineItem[] | null = null;
     const raw = sessionStorage.getItem(SELECAO_STORAGE_KEY);
-    if (!raw) return;
-    sessionStorage.removeItem(SELECAO_STORAGE_KEY);
-    try {
-      const items: SelectedCatalogItem[] = JSON.parse(raw);
-      if (!items.length) return;
-      setLineItems(
-        items.map((item) => ({
-          id: crypto.randomUUID(),
-          categoriaId:
-            item.categoriaId === CUSTOM_CATEGORIA_ID || CATEGORIES.some((c) => c.id === item.categoriaId)
-              ? item.categoriaId
-              : CATEGORIES[0].id,
-          produto: item.produto,
-          quantidade: 1,
-        }))
-      );
-    } catch (e) {
-      console.error('Erro ao ler selecção de /precos:', e);
+    if (raw) {
+      sessionStorage.removeItem(SELECAO_STORAGE_KEY);
+      try {
+        const items: SelectedCatalogItem[] = JSON.parse(raw);
+        if (items.length) {
+          selecao = items.map((item) => ({
+            id: crypto.randomUUID(),
+            categoriaId:
+              item.categoriaId === CUSTOM_CATEGORIA_ID || CATEGORIES.some((c) => c.id === item.categoriaId)
+                ? item.categoriaId
+                : CATEGORIES[0].id,
+            produto: item.produto,
+            quantidade: 1,
+          }));
+          setLineItems(selecao);
+        }
+      } catch (e) {
+        console.error('Erro ao ler selecção de /precos:', e);
+      }
     }
+
+    // O "Nova Encomenda" do painel (?panel=1) começa dos dados da última
+    // encomenda, não de um rascunho — a não ser que se venha retomar um.
+    const retomar = searchParams.get('retomar') === '1';
+    if (!retomar && searchParams.get('panel') === '1') return;
+    const draft = loadEncomendaDraft();
+    if (!draft) return;
+    setTipoCliente(draft.tipoCliente);
+    setEmpresa(draft.empresa);
+    setNif(draft.nif);
+    setEndereco(draft.endereco);
+    setTelefoneInstitucional(draft.telefoneInstitucional || '+258 ');
+    setEmailInstitucional(draft.emailInstitucional);
+    setWebsite(draft.website || 'https://');
+    const dados = draft.contaDados ?? (draft.responsavel === draft.empresa ? 'empresa' : 'responsavel');
+    setContaDados(dados);
+    if (draft.tipoCliente === 'empresa' && dados === 'responsavel') {
+      setResponsavel(draft.responsavel);
+      setCargo(draft.cargo);
+      setTelefoneResponsavel(draft.telefone || '+258 ');
+      setEmailResponsavel(draft.email);
+    }
+    if (!selecao) {
+      setLineItems(draft.itens.map((item) => ({ id: crypto.randomUUID(), ...item })));
+      setDataLimite(draft.dataLimiteEntrega || minDeliveryDate());
+      setNotas(draft.notas);
+    }
+    setRetomarPara(retomar && searchParams.get('passo') === 'dados' ? 'dados' : 'servico');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Com sessão (conta já criada, ou acabou de entrar) volta directo ao passo
+  // "Serviço"; sem sessão (ex.: expirou) fica no "Criar Conta" para entrar
+  // ou criar a conta antes de pagar. "Editar dados" abre no primeiro passo.
+  useEffect(() => {
+    if (!retomarPara || isAuthenticated === null) return;
+    setRetomarPara(null);
+    if (retomarPara === 'dados') setCurrentStep(0);
+    else if (isAuthenticated) setCurrentStep(tipoCliente === 'individual' ? 1 : 2);
+    else setCurrentStep(1);
+  }, [retomarPara, isAuthenticated, tipoCliente]);
 
   // Painel de encomendas: reaproveita a empresa/responsável da encomenda mais
   // recente do próprio cliente, para não ter de os preencher outra vez.
@@ -274,20 +330,20 @@ function CotacaoContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isPanelEmbed, isAuthenticated]);
 
-  // isAuthenticated pode passar de false a true a meio da submissão (login
-  // automático logo a seguir a criar a conta, no passo "Criar Conta") — os
-  // passos disponíveis (STEPS, mais abaixo) encolhem nesse momento, por isso o
-  // passo actual tem de ser reancorado para não apontar para fora do novo
-  // array e rebentar o render.
+  // O passo "Criar Conta" só existe para empresa (é também o do responsável)
+  // ou para quem ainda não tem sessão — trocar Empresa ↔ Particular, ou a
+  // sessão mudar, pode mudar o número de passos (STEPS, mais abaixo), por
+  // isso o passo actual tem de ser reancorado para não apontar para fora do
+  // novo array e rebentar o render.
+  const mostraPassoConta = tipoCliente === 'empresa' || isAuthenticated === false || Boolean(contaCriada);
   useEffect(() => {
     if (isPanelEmbed) {
       setCurrentStep(0);
       return;
     }
-    const baseLen = tipoCliente === 'individual' ? 1 : 2;
-    const stepCount = isAuthenticated ? baseLen + 1 : baseLen + 2;
-    setCurrentStep((s) => Math.min(s, stepCount - 1));
-  }, [isAuthenticated, tipoCliente, isPanelEmbed]);
+    const ultimoPasso = mostraPassoConta ? 2 : 1;
+    setCurrentStep((s) => Math.min(s, ultimoPasso));
+  }, [tipoCliente, isPanelEmbed, mostraPassoConta]);
 
   const minDate = minDeliveryDate();
   const dataLimiteCedoDemais = dataLimite !== '' && dataLimite < minDate;
@@ -324,7 +380,12 @@ function CotacaoContent() {
   // imediatamente anterior ter mesmo conteúdo preenchido — nunca ficam duas
   // linhas seguidas sem nada entre elas.
   const entidadeTemDados = Boolean(empresa || endereco || telefoneInstitucionalPreenchido || emailInstitucional || nif || websitePreenchido);
-  const mostrarSeccaoResponsavel = tipoCliente === 'empresa' && (isPanelEmbed || currentStep >= 1);
+  // Conta/contacto com os dados da própria empresa → não há "ponto focal" à parte.
+  const usaDadosEmpresa = tipoCliente === 'individual' || contaDados === 'empresa';
+  const contacto = usaDadosEmpresa
+    ? { nome: empresa, cargo: '', telefone: telefoneInstitucional, email: emailInstitucional }
+    : { nome: responsavel, cargo, telefone: telefoneResponsavel, email: emailResponsavel };
+  const mostrarSeccaoResponsavel = tipoCliente === 'empresa' && !usaDadosEmpresa && (isPanelEmbed || currentStep >= 1);
   const responsavelTemDados = Boolean(responsavel || telefoneResponsavelPreenchido || emailResponsavel);
   const mostrarLinhaAntesServicos = mostrarSeccaoResponsavel ? responsavelTemDados : entidadeTemDados;
 
@@ -336,13 +397,18 @@ function CotacaoContent() {
     );
   }
 
-  const baseSteps =
+  // Sem sessão (ou conta criada aqui mesmo) o passo 2 é "Criar Conta"; quem
+  // já tinha sessão antes só confirma o responsável a contactar.
+  const precisaCriarConta = !isAuthenticated && !contaCriada;
+  const passoContaLabel = isAuthenticated && !contaCriada ? 'Responsável' : 'Criar Conta';
+  const baseSteps = [
     tipoCliente === 'individual'
-      ? [{ key: 'empresa', label: 'Os Seus Dados', icon: User }]
-      : [
-          { key: 'empresa', label: 'Empresa', icon: Building2 },
-          { key: 'responsavel', label: 'Responsável', icon: User },
-        ];
+      ? { key: 'empresa', label: 'Os Seus Dados', icon: User }
+      : { key: 'empresa', label: 'Empresa', icon: Building2 },
+    ...(mostraPassoConta
+      ? [{ key: 'conta', label: passoContaLabel, icon: passoContaLabel === 'Criar Conta' ? Lock : User }]
+      : []),
+  ];
   // No painel embutido só se salta directo para "Serviço" se já houver dados
   // institucionais de uma cotação anterior — sem isso, o pedido falhava sempre
   // com "Preencha todos os campos obrigatórios" sem o cliente ver nenhum campo
@@ -355,11 +421,9 @@ function CotacaoContent() {
         );
   const STEPS = isPanelEmbed && hasUsableEntityData
     ? [{ key: 'servico', label: 'Serviço', icon: Package }]
-    : isAuthenticated
-    ? [...baseSteps, { key: 'servico', label: 'Serviço', icon: Package }]
-    : [...baseSteps, { key: 'conta', label: 'Criar Conta', icon: Lock }, { key: 'servico', label: 'Serviço', icon: Package }];
+    : [...baseSteps, { key: 'servico', label: 'Serviço', icon: Package }];
   // currentStep pode ficar temporariamente fora dos limites no primeiro render
-  // a seguir a isAuthenticated mudar (STEPS encolhe) — o useEffect acima já o
+  // a seguir a STEPS encolher (Empresa → Particular) — o useEffect acima já o
   // reancora, mas isto evita rebentar nesse render intermédio.
   const safeStep = Math.min(currentStep, STEPS.length - 1);
   const stepKey = STEPS[safeStep].key;
@@ -372,18 +436,18 @@ function CotacaoContent() {
       if (!isValidMzPhone(telefoneInstitucional)) return 'Indique um número de telefone moçambicano válido (ex: +258 84 000 0000).';
       if (!emailInstitucional.trim()) return 'Preencha o email.';
     }
-    if (key === 'responsavel') {
-      if (!responsavel.trim()) return 'Preencha o nome do responsável.';
-      if (!telefoneResponsavel.trim()) return 'Preencha o telefone do responsável.';
-      if (!isValidMzPhone(telefoneResponsavel)) return 'Indique um número de telefone moçambicano válido (ex: +258 84 000 0000).';
-      if (!emailResponsavel.trim()) return 'Preencha o email do responsável.';
-    }
     if (key === 'conta') {
-      if (!nome.trim()) return 'Preencha o seu nome completo.';
-      if (!accountEmail.trim()) return 'Preencha o seu email.';
-      if (password.length < 6) return 'A palavra-passe deve ter no mínimo 6 caracteres.';
-      if (honeypot.trim()) return 'Não foi possível validar o formulário.';
-      if (Number(captchaResposta) !== captcha.a + captcha.b) return 'Resposta da verificação de segurança está incorrecta.';
+      if (!usaDadosEmpresa) {
+        if (!responsavel.trim()) return 'Preencha o nome do responsável.';
+        if (!telefoneResponsavel.trim()) return 'Preencha o telefone do responsável.';
+        if (!isValidMzPhone(telefoneResponsavel)) return 'Indique um número de telefone moçambicano válido (ex: +258 84 000 0000).';
+        if (!emailResponsavel.trim()) return 'Preencha o email do responsável.';
+      }
+      if (precisaCriarConta) {
+        if (password.length < 6) return 'A palavra-passe deve ter no mínimo 6 caracteres.';
+        if (honeypot.trim()) return 'Não foi possível validar o formulário.';
+        if (Number(captchaResposta) !== captcha.a + captcha.b) return 'Resposta da verificação de segurança está incorrecta.';
+      }
     }
     if (key === 'servico') {
       if (lineItems.length === 0) return 'Adicione pelo menos um serviço.';
@@ -399,13 +463,97 @@ function CotacaoContent() {
     return null;
   };
 
-  const goNext = () => {
+  // Rascunho da encomenda (ver src/lib/encomenda-checkout.ts) — o contacto
+  // da encomenda é o mesmo com que a conta foi criada (responsável ou empresa).
+  const buildDraft = (): Omit<EncomendaDraft, 'savedAt'> => ({
+    tipoCliente,
+    empresa,
+    nif,
+    endereco,
+    telefoneInstitucional,
+    emailInstitucional,
+    website: websitePreenchido ? website.trim() : '',
+    responsavel: contacto.nome,
+    cargo: contacto.cargo,
+    telefone: contacto.telefone,
+    email: contacto.email || authUser?.email || '',
+    contaDados: usaDadosEmpresa ? 'empresa' : 'responsavel',
+    itens: lineItems.map((li) => ({ categoriaId: li.categoriaId, produto: li.produto, quantidade: li.quantidade })),
+    dataLimiteEntrega: dataLimite,
+    notas,
+  });
+
+  // "Já tem conta? Inicie sessão" — guarda o que já foi preenchido e volta
+  // aqui (?retomar=1) depois do login, sem perder nada.
+  const irParaLogin = () => {
+    const registada = loadEncomendaDraft()?.registada;
+    saveEncomendaDraft(registada ? { ...buildDraft(), registada } : buildDraft());
+    const loginUrl = `/login?redirect=${encodeURIComponent('/cotacao?retomar=1')}`;
+    const inFrame = typeof window !== 'undefined' && window.top && window.top !== window.self;
+    if (inFrame) window.top!.location.href = loginUrl;
+    else router.push(loginUrl);
+  };
+
+  // Cria a conta com os dados escolhidos no passo "Criar Conta" e deixa a
+  // sessão aberta (o /api/auth/register já autentica no servidor). Marcada
+  // como conta das encomendas: entra sempre na lista de contas das encomendas
+  // do admin e o login leva-a ao painel /encomendas.
+  const criarConta = async (): Promise<boolean> => {
+    setIsSubmitting(true);
+    setAccountExists(false);
+    const email = contacto.email.trim().toLowerCase();
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          password,
+          nome: contacto.nome,
+          telefone: contacto.telefone,
+          empresa: tipoCliente === 'empresa' ? empresa : '',
+          endereco,
+          honeypot,
+          origem: ENCOMENDAS_ACCOUNT_ORIGIN,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        if (res.status !== 409) throw new Error(data.error || 'Não foi possível criar a sua conta.');
+        // Já existe conta com este email — se a palavra-passe for a mesma,
+        // entra nela em vez de criar outra.
+        const { error: loginError } = await supabase.auth.signInWithPassword({ email, password });
+        if (loginError) {
+          setAccountExists(true);
+          throw new Error('Já existe uma conta com este email. Inicie sessão nela para continuar a encomenda — os dados preenchidos ficam guardados.');
+        }
+      } else if (!data.sessionReady) {
+        const { error: loginError } = await supabase.auth.signInWithPassword({ email, password });
+        if (loginError) throw new Error('A conta foi criada, mas não foi possível iniciar sessão. Tente de novo.');
+      }
+      // Sincroniza a sessão aberta no servidor com o browser (AuthProvider).
+      await supabase.auth.refreshSession();
+      setContaCriada(email);
+      setPassword('');
+      return true;
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Falha ao comunicar com o servidor.');
+      setStatus('error');
+      return false;
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const goNext = async () => {
+    if (isSubmitting) return;
     const err = validateStep(stepKey);
     if (err) {
       setErrorMessage(err);
       setStatus('error');
       return;
     }
+    if (stepKey === 'conta' && precisaCriarConta && !(await criarConta())) return;
     setErrorMessage('');
     setStatus('idle');
     setCurrentStep((s) => Math.min(s + 1, STEPS.length - 1));
@@ -414,10 +562,15 @@ function CotacaoContent() {
   const goBack = () => {
     setErrorMessage('');
     setStatus('idle');
+    setAccountExists(false);
     setCurrentStep((s) => Math.max(s - 1, 0));
   };
 
-  const handleApprove = async () => {
+  // "Pagar factura": a conta já existe (passo "Criar Conta") e a encomenda
+  // fica num rascunho local até ser paga — segue para o checkout único (o
+  // mesmo das compras de domínio/hospedagem) só para escolher o método e
+  // pagar; é lá que a encomenda é submetida. Ver src/lib/encomenda-checkout.ts.
+  const handlePagarFactura = async () => {
     if (isSubmitting) return;
     const err = validateStep('servico');
     if (err) {
@@ -425,112 +578,54 @@ function CotacaoContent() {
       setStatus('error');
       return;
     }
+
+    // Já há uma encomenda gravada no checkout (à espera do comprovativo) e o
+    // cliente voltou para editar: se os dados mudaram, essa sai agora — a
+    // nova é gravada ao pagar — para nunca ficarem duas. Se não mudaram, o
+    // checkout continua a usar a mesma.
+    const novo = buildDraft();
+    let registada = loadEncomendaDraft()?.registada;
+    if (registada && registada.assinatura !== encomendaDraftSignature(novo)) {
+      setIsSubmitting(true);
+      const descartada = await descartarEncomendaRegistada(registada.quotationId);
+      setIsSubmitting(false);
+      // 409: essa já tem comprovativo/está com a equipa — segue como está, e
+      // esta passa a ser uma encomenda nova à parte.
+      if (!descartada.ok && descartada.status !== 409) {
+        setErrorMessage(descartada.error || 'Não foi possível actualizar a encomenda.');
+        setStatus('error');
+        return;
+      }
+      registada = undefined;
+    }
+
+    const saved = saveEncomendaDraft(registada ? { ...novo, registada } : novo);
+    if (!saved) {
+      setErrorMessage('O seu navegador bloqueou o armazenamento local — não é possível seguir para o pagamento. Active os cookies/armazenamento deste site e tente de novo.');
+      setStatus('error');
+      return;
+    }
+
+    // Sessão perdida pelo caminho (ex.: expirou) — volta ao passo da conta
+    // para entrar de novo; o rascunho já ficou guardado acima.
+    if (!isAuthenticated) {
+      setCurrentStep(1);
+      setAccountExists(true);
+      setErrorMessage('A sua sessão terminou. Inicie sessão (ou crie a conta) para pagar a encomenda.');
+      setStatus('error');
+      return;
+    }
+
     setIsSubmitting(true);
     setErrorMessage('');
-    setAccountExists(false);
     setStatus('idle');
-
-    try {
-      // isAuthenticated vem do contexto, verificado só uma vez ao abrir a página —
-      // se o cliente demorou a preencher o formulário, a sessão (1h) pode já ter
-      // expirado entretanto. Revalida agora, em vez de descobrir isso só na resposta
-      // 401 do /api/cotacoes, para poder dar uma mensagem clara em vez da genérica.
-      const { data: { user: liveUser } } = await supabase.auth.getUser();
-      const stillAuthenticated = !!liveUser;
-
-      if (isAuthenticated && !stillAuthenticated) {
-        throw new Error('A sua sessão expirou enquanto preenchia o formulário. Por favor, inicie sessão novamente e volte a submeter o pedido.');
-      }
-
-      // Para pessoa singular, o passo "Responsável" nem chega a aparecer —
-      // usa os próprios dados do passo "Os Seus Dados" como contacto. Calculado
-      // aqui (e não só mais abaixo) porque o registo da conta também precisa
-      // do telefone — a API exige-o desde a reestruturação do /auth/register.
-      const telefoneParaConta = tipoCliente === 'individual' ? telefoneInstitucional : telefoneResponsavel;
-
-      if (!stillAuthenticated) {
-        setStatus('registering');
-        const res = await fetch('/api/auth/register', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: accountEmail, password, nome, telefone: telefoneParaConta, honeypot }),
-        });
-        const data = await res.json();
-
-        if (!res.ok) {
-          if (data.error?.includes('Já existe uma conta') || data.error?.includes('already')) {
-            try {
-              await supabase.auth.signInWithPassword({ email: accountEmail, password });
-            } catch (loginErr) {
-              setAccountExists(true);
-              throw new Error('Já tem uma conta criada com este email — faça login para acompanhar a sua encomenda, em vez de criar uma conta nova.');
-            }
-          } else {
-            throw new Error(data.error || 'Erro ao criar a sua conta.');
-          }
-        } else if (!data.sessionReady) {
-          // Salvaguarda rara: a sessão normalmente já vem pronta na resposta
-          // de /api/auth/register (autenticada no servidor). Só cai aqui se
-          // esse passo falhar por algum motivo — tenta uma vez a partir do browser.
-          try {
-            await supabase.auth.signInWithPassword({ email: accountEmail, password });
-          } catch (e) {
-            throw new Error('Não foi possível iniciar sessão com a conta criada. Tente submeter novamente.');
-          }
-        }
-      }
-
-      // Para pessoa singular, o passo "Responsável" nem chega a aparecer —
-      // usa os próprios dados do passo "Os Seus Dados" como contacto.
-      const finalResponsavel = tipoCliente === 'individual' ? empresa : responsavel;
-      const finalCargo = tipoCliente === 'individual' ? '' : cargo;
-      const finalTelefoneResponsavel = telefoneParaConta;
-      const finalEmailResponsavel = tipoCliente === 'individual' ? emailInstitucional : emailResponsavel;
-
-      const itens = lineItems.map((li) => ({
-        categoriaId: li.categoriaId,
-        produto: li.produto,
-        quantidade: li.quantidade,
-      }));
-
-      setStatus('submitting');
-      const res = await fetch('/api/cotacoes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          empresa,
-          nif,
-          endereco,
-          telefoneInstitucional,
-          emailInstitucional,
-          website: websitePreenchido ? website.trim() : '',
-          responsavel: finalResponsavel,
-          cargo: finalCargo,
-          telefone: finalTelefoneResponsavel,
-          email: isAuthenticated ? finalEmailResponsavel || authUser?.email : finalEmailResponsavel,
-          itens,
-          dataLimiteEntrega: dataLimite,
-          notas,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Não foi possível gerar a cotação.');
-      }
-      if (isPanelEmbed) {
-        // Embutido num iframe dentro de /encomendas — navegar o próprio
-        // iframe não faz sentido (ficaria /encomendas dentro de /encomendas).
-        // Avisa a janela-mãe para voltar à lista e recarregar.
-        window.parent.postMessage({ type: 'visualdesign:cotacao-submitted' }, window.location.origin);
-      } else {
-        // Painel próprio da VisualDesign (design), separado da hospedagem —
-        // é onde a encomenda fica visível para acompanhamento e aprovação.
-        router.push('/encomendas');
-      }
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Falha ao comunicar com o servidor.');
-      setStatus('error');
-      setIsSubmitting(false);
+    // Dentro do iframe "Nova Encomenda" do painel, o checkout abre na janela
+    // de topo — ficar preso dentro da caixinha do iframe não faria sentido.
+    const inFrame = typeof window !== 'undefined' && window.top && window.top !== window.self;
+    if (inFrame) {
+      window.top!.location.href = ENCOMENDA_CHECKOUT_PATH;
+    } else {
+      router.push(ENCOMENDA_CHECKOUT_PATH);
     }
   };
 
@@ -613,12 +708,13 @@ function CotacaoContent() {
                 <div className="text-sm text-red-800 dark:text-red-300">
                   <p>{errorMessage}</p>
                   {accountExists && (
-                    <Link
-                      href={`/login?redirect=${encodeURIComponent('/encomendas')}`}
+                    <button
+                      type="button"
+                      onClick={irParaLogin}
                       className="inline-flex items-center gap-1 mt-2 font-bold underline hover:no-underline"
                     >
                       Entrar na minha conta <ArrowRight className="w-3.5 h-3.5" />
-                    </Link>
+                    </button>
                   )}
                 </div>
               </div>
@@ -679,70 +775,128 @@ function CotacaoContent() {
               </>
             )}
 
-            {stepKey === 'responsavel' && (
-              <>
-                <h2 className={sectionTitleClass}>Responsável a Contactar</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className={labelClass}>Nome do Responsável</label>
-                    <input className={inputClass} value={responsavel} onChange={(e) => setResponsavel(e.target.value)} onBlur={handleResponsavelBlur} required />
-                  </div>
-                  <div>
-                    <label className={labelClass}>Cargo (opcional)</label>
-                    <input className={inputClass} value={cargo} onChange={(e) => setCargo(e.target.value)} />
-                  </div>
-                  <div>
-                    <label className={labelClass}>Telefone do Responsável</label>
-                    <input type="tel" placeholder="+258 84 000 0000" className={inputClass} value={telefoneResponsavel} onChange={(e) => setTelefoneResponsavel(e.target.value)} required />
-                  </div>
-                  <div>
-                    <label className={labelClass}>Email do Responsável</label>
-                    <input type="email" className={inputClass} value={emailResponsavel} onChange={(e) => setEmailResponsavel(e.target.value)} onBlur={handleEmailResponsavelBlur} required />
-                  </div>
-                </div>
-              </>
-            )}
-
             {stepKey === 'conta' && (
               <>
-                <h2 className={sectionTitleClass}>Criar Conta</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="sm:col-span-2">
-                    <label className={labelClass}>Nome Completo</label>
-                    <input className={inputClass} value={nome} onChange={(e) => setNome(e.target.value)} required />
+                <h2 className={sectionTitleClass}>{passoContaLabel === 'Criar Conta' ? 'Criar Conta' : 'Responsável a Contactar'}</h2>
+
+                {precisaCriarConta && (
+                  <p className="-mt-2 mb-5 text-sm text-zinc-600 dark:text-zinc-400">
+                    Já tem conta?{' '}
+                    <button type="button" onClick={irParaLogin} className="font-bold text-red-600 dark:text-red-500 hover:underline">
+                      Inicie sessão
+                    </button>{' '}
+                    — os dados que já preencheu ficam guardados.
+                  </p>
+                )}
+
+                {tipoCliente === 'empresa' && (
+                  <div className="mb-5">
+                    <label className={labelClass}>
+                      {passoContaLabel === 'Criar Conta' ? 'Criar a conta com os dados de' : 'Contacto da encomenda'}
+                    </label>
+                    <div className="flex items-center gap-2 p-1 bg-zinc-100 dark:bg-zinc-800 rounded-md w-fit">
+                      {(['responsavel', 'empresa'] as const).map((opcao) => (
+                        <button
+                          key={opcao}
+                          type="button"
+                          onClick={() => setContaDados(opcao)}
+                          className={`px-4 py-1.5 rounded text-sm font-bold transition-colors ${
+                            contaDados === opcao ? 'bg-white dark:bg-zinc-950 text-zinc-900 dark:text-white shadow-sm' : 'text-zinc-500 dark:text-zinc-400'
+                          }`}
+                        >
+                          {opcao === 'responsavel' ? 'Responsável' : 'Empresa'}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                  <div>
-                    <label className={labelClass}>Email</label>
-                    <input type="email" className={inputClass} value={accountEmail} onChange={(e) => setAccountEmail(e.target.value)} required />
+                )}
+
+                {usaDadosEmpresa ? (
+                  <div className="mb-5 rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-4 text-sm space-y-1">
+                    <p className="text-xs font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400 mb-1">
+                      {passoContaLabel === 'Criar Conta' ? 'A conta fica com estes dados' : 'Contacto'}
+                    </p>
+                    <p><span className="font-bold text-zinc-900 dark:text-white">Nome: </span><span className="text-zinc-600 dark:text-zinc-300">{empresa}</span></p>
+                    <p><span className="font-bold text-zinc-900 dark:text-white">Email: </span><span className="text-zinc-600 dark:text-zinc-300">{emailInstitucional}</span></p>
+                    <p><span className="font-bold text-zinc-900 dark:text-white">Telefone: </span><span className="text-zinc-600 dark:text-zinc-300">{telefoneInstitucional}</span></p>
                   </div>
-                  <div>
-                    <label className={labelClass}>Palavra-passe</label>
-                    <input type="password" className={inputClass} value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} />
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
+                    <div>
+                      <label className={labelClass}>Nome do Responsável</label>
+                      <input className={inputClass} value={responsavel} onChange={(e) => setResponsavel(e.target.value)} required />
+                    </div>
+                    <div>
+                      <label className={labelClass}>Cargo (opcional)</label>
+                      <input className={inputClass} value={cargo} onChange={(e) => setCargo(e.target.value)} />
+                    </div>
+                    <div>
+                      <label className={labelClass}>Telefone do Responsável</label>
+                      <input type="tel" placeholder="+258 84 000 0000" className={inputClass} value={telefoneResponsavel} onChange={(e) => setTelefoneResponsavel(e.target.value)} required />
+                    </div>
+                    <div>
+                      <label className={labelClass}>{precisaCriarConta ? 'Email do Responsável (email da conta)' : 'Email do Responsável'}</label>
+                      <input type="email" className={inputClass} value={emailResponsavel} onChange={(e) => setEmailResponsavel(e.target.value)} required />
+                    </div>
                   </div>
-                  <div className="sm:col-span-2">
-                    <label className={labelClass}>Verificação de segurança — quanto é {captcha.a} + {captcha.b}?</label>
-                    <input
-                      type="number"
-                      className={inputClass}
-                      value={captchaResposta}
-                      onChange={(e) => setCaptchaResposta(e.target.value)}
-                      required
-                    />
+                )}
+
+                {precisaCriarConta && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className={labelClass}>Palavra-passe (mín. 6 caracteres)</label>
+                      <div className="relative">
+                        <input
+                          type={showPassword ? 'text' : 'password'}
+                          autoComplete="new-password"
+                          className={`${inputClass} pr-10`}
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          required
+                          minLength={6}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword((v) => !v)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
+                          aria-label={showPassword ? 'Esconder palavra-passe' : 'Mostrar palavra-passe'}
+                        >
+                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+                    <div>
+                      <label className={labelClass}>Verificação — quanto é {captcha.a} + {captcha.b}?</label>
+                      <input
+                        type="number"
+                        className={inputClass}
+                        value={captchaResposta}
+                        onChange={(e) => setCaptchaResposta(e.target.value)}
+                        required
+                      />
+                    </div>
+                    {/* Campo-armadilha: invisível para pessoas, mas bots que preenchem
+                        todos os campos do formulário costumam preenchê-lo também. */}
+                    <div className="absolute -left-[9999px] w-px h-px overflow-hidden" aria-hidden="true">
+                      <label htmlFor="hp_confirmar">Não preencher este campo</label>
+                      <input
+                        id="hp_confirmar"
+                        type="text"
+                        tabIndex={-1}
+                        autoComplete="off"
+                        value={honeypot}
+                        onChange={(e) => setHoneypot(e.target.value)}
+                      />
+                    </div>
                   </div>
-                  {/* Campo-armadilha: invisível para pessoas, mas bots que preenchem
-                      todos os campos do formulário costumam preenchê-lo também. */}
-                  <div className="absolute -left-[9999px] w-px h-px overflow-hidden" aria-hidden="true">
-                    <label htmlFor="hp_confirmar">Não preencher este campo</label>
-                    <input
-                      id="hp_confirmar"
-                      type="text"
-                      tabIndex={-1}
-                      autoComplete="off"
-                      value={honeypot}
-                      onChange={(e) => setHoneypot(e.target.value)}
-                    />
+                )}
+
+                {contaCriada && (
+                  <div className="flex items-center gap-2 rounded-md border border-green-200 dark:border-green-900/50 bg-green-50 dark:bg-green-950/20 p-3 text-sm text-green-800 dark:text-green-300">
+                    <CheckCircle2 className="w-4 h-4 shrink-0" />
+                    <span>Conta criada com o email <strong>{contaCriada}</strong> — já tem sessão iniciada.</span>
                   </div>
-                </div>
+                )}
               </>
             )}
 
@@ -986,10 +1140,16 @@ function CotacaoContent() {
                   <button
                     type="button"
                     onClick={goNext}
-                    className="inline-flex items-center gap-2 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 font-bold px-6 py-2.5 rounded-md text-sm hover:opacity-90 transition-opacity"
+                    disabled={isSubmitting}
+                    className="inline-flex items-center gap-2 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 font-bold px-6 py-2.5 rounded-md text-sm hover:opacity-90 disabled:opacity-60 transition-opacity"
                   >
-                    <span>Seguinte</span>
-                    <ArrowRight className="w-4 h-4" />
+                    {isSubmitting ? <Spinner className="w-4 h-4" /> : null}
+                    <span>
+                      {stepKey === 'conta' && precisaCriarConta
+                        ? isSubmitting ? 'A criar a conta...' : 'Criar conta e continuar'
+                        : 'Seguinte'}
+                    </span>
+                    {!isSubmitting && <ArrowRight className="w-4 h-4" />}
                   </button>
                 </>
               )}
@@ -1092,18 +1252,20 @@ function CotacaoContent() {
                   <div className="flex justify-end pt-2">
                     <button
                       type="button"
-                      onClick={handleApprove}
+                      onClick={handlePagarFactura}
                       disabled={isSubmitting}
                       className="inline-flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white font-bold px-6 py-3 rounded-md transition-all shadow-lg shadow-red-600/20 text-sm"
                     >
                       {isSubmitting ? (
                         <>
                           <Spinner className="w-4 h-4" />
-                          <span>{status === 'registering' ? 'A criar a sua conta...' : 'A gerar a cotação...'}</span>
+                          <span>A abrir o pagamento...</span>
                         </>
                       ) : (
                         <>
-                          <span>Submeter Pedido</span>
+                          {/* Só Sob Consulta: não há valor a pagar ainda — segue
+                              para o checkout só para confirmar conta e pedido. */}
+                          <span>{multiTotal > 0 ? 'Pagar factura' : 'Continuar'}</span>
                           <ArrowRight className="w-4 h-4" />
                         </>
                       )}

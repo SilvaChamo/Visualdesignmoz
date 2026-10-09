@@ -3,6 +3,7 @@ import { createClient as createAdminClient, type SupabaseClient } from '@supabas
 import { createClient as createServerClient } from '@/utils/supabase/server';
 import { PANEL_SLUG } from '@/lib/panel-tenant';
 import { findProtectedEmailClaim, PROTECTED_EMAIL_MESSAGE } from '@/lib/protected-account-email';
+import { ENCOMENDAS_ACCOUNT_ORIGIN } from '@/lib/panel-origin';
 
 const EXISTING_ACCOUNT_MESSAGE = 'Já existe uma conta com este email. Use «Entrar» em vez de «Criar conta».';
 
@@ -18,7 +19,7 @@ async function authUserExists(admin: SupabaseClient, email: string): Promise<boo
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, password, nome, telefone, empresa, endereco, cidade, provincia, pais, emailEmpresa, contacto, honeypot } = await request.json();
+    const { email, password, nome, telefone, empresa, endereco, cidade, provincia, pais, emailEmpresa, contacto, honeypot, origem } = await request.json();
 
     // Campo-armadilha: só bots que preenchem todos os campos do formulário
     // (incluindo os escondidos) chegam a mandar isto preenchido.
@@ -73,6 +74,9 @@ export async function POST(request: NextRequest) {
         email_empresa: emailEmpresa ? String(emailEmpresa).trim() : '',
         contacto: contacto ? String(contacto).trim() : '',
         site: PANEL_SLUG,
+        // Conta criada no formulário das encomendas (/cotacao) — entra sempre
+        // na lista de contas das encomendas e no painel /encomendas.
+        ...(origem === ENCOMENDAS_ACCOUNT_ORIGIN ? { origem: ENCOMENDAS_ACCOUNT_ORIGIN } : {}),
       },
     });
 

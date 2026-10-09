@@ -80,6 +80,18 @@ function isPanelPathAllowedForRole(pathname: string, role: UserRole): boolean {
   return normalizedPath === roleBase || normalizedPath.startsWith(`${roleBase}/`)
 }
 
+/** Marca gravada no user_metadata das contas criadas no percurso das
+ * encomendas (/cotacao → "Criar Conta", ou pelo admin na lista de contas das
+ * encomendas) — ver /api/auth/register. */
+export const ENCOMENDAS_ACCOUNT_ORIGIN = 'encomendas'
+
+/** Conta nascida nas encomendas — conta como "tem encomendas" para o destino
+ * pós-login mesmo antes de submeter a primeira (ex.: criou a conta e ainda
+ * não pagou), para nunca cair no painel guest genérico. */
+export function isEncomendasAccount(userMetadata: Record<string, unknown> | null | undefined): boolean {
+  return userMetadata?.origem === ENCOMENDAS_ACCOUNT_ORIGIN
+}
+
 /** Destino por defeito: guest com encomendas já submetidas vai directo ao
  * painel de encomendas, em vez do painel guest genérico. */
 export function defaultLandingPath(role: UserRole, hasEncomendas: boolean): string {

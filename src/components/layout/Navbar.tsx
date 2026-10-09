@@ -7,6 +7,7 @@ import { useI18n } from '@/lib/i18n'
 import { Globe, User, ShoppingCart, HelpCircle, Rocket, Server, CreditCard, Shield, Grid, Layers, Package, BookOpen, Lock, Camera, Palette, Monitor, Mail, FileText, Megaphone, PenTool, Film, Search as SearchIcon } from 'lucide-react'
 import Link from 'next/link'
 import { useCart } from '@/contexts/CartContext'
+import { useEncomendaDraft } from '@/lib/use-encomenda-draft'
 import { useCurrency } from '@/contexts/CurrencyContext'
 import { cn } from '@/lib/utils'
 import { PANEL_LOGIN_HREF, PUBLIC_PANEL_ENTRY } from '@/lib/panel-origin'
@@ -16,6 +17,10 @@ import { useAuth } from '@/components/auth/AuthProvider'
 export function Navbar() {
   const { t } = useI18n()
   const { items, setIsCartOpen } = useCart()
+  // Encomenda VisualDesign a meio do pagamento — conta no balão do carrinho
+  // até ser paga ou cancelada (ver CartDrawer).
+  const encomendaPendente = useEncomendaDraft()
+  const cartCount = items.length + (encomendaPendente ? 1 : 0)
   const { currency, setCurrency } = useCurrency()
   const { user, userRole } = useAuth()
   // Só mostra o link a quem tem mesmo encomendas de design gráfico — um
@@ -333,9 +338,9 @@ export function Navbar() {
               className="text-slate-300 hover:text-red-500 transition-colors relative group"
             >
               <ShoppingCart className="w-4 h-4" />
-              {items.length > 0 && (
+              {cartCount > 0 && (
                 <span className="absolute -top-2 -right-2 inline-flex items-center justify-center w-4 h-4 text-[9px] font-bold text-white bg-red-600 border border-black rounded-full">
-                  {items.length}
+                  {cartCount}
                 </span>
               )}
               <span className="absolute top-full mt-2 right-0 md:left-1/2 md:-translate-x-1/2 whitespace-nowrap w-max bg-slate-800 text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg">Carrinho de Compras</span>

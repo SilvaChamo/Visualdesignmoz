@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, useMemo, Suspense } from 'react';
 import { useCart } from '@/contexts/CartContext';
 import { useCurrency } from '@/contexts/CurrencyContext';
 import { supabase } from '@/lib/supabase-client';
@@ -8,6 +8,29 @@ import { useAuth } from '@/components/auth/AuthProvider';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { RenewalCheckout } from './RenewalCheckout';
+import {
+  ENCOMENDA_EDIT_PATH,
+  EncomendaFaturadoPara,
+  EncomendaLoginNecessario,
+  EncomendaResumoCard,
+  EncomendaVazia,
+  dadosFacturaResponsavel,
+  podeFacturarResponsavel,
+  type FacturarEm,
+} from './EncomendaCheckoutParts';
+import {
+  ENCOMENDA_CHECKOUT_PATH,
+  clearEncomendaDraft,
+  descartarEncomendaRegistada,
+  encomendaComprovativoPath,
+  encomendaDraftSignature,
+  encomendaRegistadaValida,
+  priceEncomendaItems,
+  resolveEncomendaLandingPath,
+  setEncomendaRegistada,
+  type MetodoEncomenda,
+} from '@/lib/encomenda-checkout';
+import { useEncomendaDraft } from '@/lib/use-encomenda-draft';
 import { MPESA_NUMBER, BANK_NAME, BANK_ACCOUNT, BANK_NIB } from '@/lib/quotation-payment-info';
 import { formatMt } from '@/lib/pricing-catalog';
 import { DOMAIN_TLD_PRICES, domainRegistrationPriceMt } from '@/lib/domain-tld-prices';
@@ -104,14 +127,58 @@ function CheckoutContent() {
   const renewalId = searchParams.get('renewalId');
   const { currency, formatPrice } = useCurrency();
 
+  // Encomenda VisualDesign vinda de /cotacao ("Pagar factura") — o mesmo
+  // checkout, mas o que se paga é a encomenda guardada no rascunho local (ver
+  // src/lib/encomenda-checkout.ts), não o carrinho de domínios/hospedagem.
+  const isEncomenda = searchParams.get('encomenda') === '1';
+  // Sempre actualizado (o rascunho só é apagado depois do comprovativo ou de
+  // um cancelamento) — voltar atrás no browser nunca perde a encomenda.
+  const encomendaDraft = useEncomendaDraft();
+  const [encomendaDraftLoaded, setEncomendaDraftLoaded] = useState(false);
+  useEffect(() => {
+    setEncomendaDraftLoaded(true);
+  }, []);
+  const encomendaPricing = useMemo(
+    () => (encomendaDraft ? priceEncomendaItems(encomendaDraft.itens) : null),
+    [encomendaDraft],
+  );
+  // Só Sob Consulta: não há adiantamento — o checkout só confirma o pedido.
+  const encomendaTemValor = (encomendaPricing?.adiantamentoMt ?? 0) > 0;
+  // Em nome de quem sai a factura — por omissão a empresa.
+  const [facturarEm, setFacturarEm] = useState<FacturarEm>('empresa');
+  // Encomenda já gravada, à espera do comprovativo. Vem do URL (passo
+  // próprio no histórico do browser): "voltar" regressa ao resumo para rever
+  // ou editar, "avançar"/o balão do carrinho regressa aqui.
+  const pendingQuotationIdParam = searchParams.get('pendingQuotationId');
+  const pendingMetodoParam = searchParams.get('metodo');
+  const encomendaPending =
+    isEncomenda && pendingQuotationIdParam && (pendingMetodoParam === 'mpesa' || pendingMetodoParam === 'transferencia')
+      ? {
+          quotationId: pendingQuotationIdParam,
+          metodoPagamento: pendingMetodoParam as MetodoEncomenda,
+          valorMt: encomendaDraft?.registada?.quotationId === pendingQuotationIdParam ? encomendaDraft.registada.valorMt : undefined,
+        }
+      : null;
+  // A encomenda gravada ainda corresponde ao que está no rascunho (não foi
+  // editada depois) — o resumo mostra o atalho para o comprovativo.
+  const encomendaRegistada = encomendaRegistadaValida(encomendaDraft);
+  // Ao voltar ao resumo, o método e a factura escolhidos ficam como estavam.
+  const registadaPreenchidaRef = React.useRef<string | null>(null);
+  useEffect(() => {
+    if (!encomendaRegistada || registadaPreenchidaRef.current === encomendaRegistada.quotationId) return;
+    registadaPreenchidaRef.current = encomendaRegistada.quotationId;
+    setMetodoPagamento(encomendaRegistada.metodo);
+    setFacturarEm(encomendaRegistada.facturarEm);
+  }, [encomendaRegistada]);
+
   // Hospedagem sem domínio associado não deve chegar a esta página — manda
   // sempre primeiro para /checkout/dominio (rede de segurança para quem
   // chega aqui directamente, ex. voltar atrás no browser).
   useEffect(() => {
-    if (renewalId) return;
+    if (renewalId || isEncomenda) return;
     const entry = checkoutEntryPath(items);
     if (entry !== '/checkout') router.replace(entry);
-  }, [items, renewalId, router]);
+  }, [items, renewalId, isEncomenda, router]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [metodoPagamento, setMetodoPagamento] = useState<MetodoPagamento>('transferencia');
@@ -146,8 +213,14 @@ function CheckoutContent() {
   // moeda no topo do site enquanto está no checkout, o método tem de
   // acompanhar para nunca ficar um valor em USD "por pagar" com M-Pesa.
   useEffect(() => {
+    // Encomendas pagam-se sempre em MT por M-Pesa/Transferência (é o que a
+    // Contabilidade › Encomendas confirma) — nem Cartão nem Saldo.
+    if (isEncomenda) {
+      if (metodoPagamento === 'stripe' || metodoPagamento === 'saldo') setMetodoPagamento('transferencia');
+      return;
+    }
     if (currency === 'USD' && metodoPagamento !== 'stripe') setMetodoPagamento('stripe');
-  }, [currency, metodoPagamento]);
+  }, [currency, metodoPagamento, isEncomenda]);
 
   // Saldo do revendedor (reseller_credits) — null enquanto não se sabe, ou
   // se a conta nem é de revendedor (a rota devolve 403, ignorado em silêncio:
@@ -282,6 +355,12 @@ function CheckoutContent() {
   const handlePay = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmitting) return; // Evita duplo-clique / duplo pagamento
+    // Encomendas: a conta cria-se no formulário /cotacao — aqui só se paga.
+    if (isEncomenda && isAuthenticated === false) {
+      setErrorMessage('Inicie sessão na conta criada no pedido para pagar a encomenda.');
+      setStatus('error');
+      return;
+    }
     setIsSubmitting(true);
     setErrorMessage('');
 
@@ -366,6 +445,78 @@ function CheckoutContent() {
         // evento que pode não disparar a tempo (era isto que causava o falso
         // "faça login" mesmo com a conta e a sessão já certas).
         await supabase.auth.refreshSession();
+      }
+
+      if (isEncomenda) {
+        if (!encomendaDraft) {
+          throw new Error('Não encontrámos a encomenda a pagar — volte a escolher os serviços.');
+        }
+        // A encomenda só é gravada agora, já com o método escolhido (fica
+        // logo "Pagamento em confirmação"), e o comprovativo é pedido a seguir
+        // no mesmo passo de upload das compras de domínio/hospedagem — mas vai
+        // para os anexos da encomenda, que a Contabilidade › Encomendas lê.
+        const metodoEncomenda: MetodoEncomenda = metodoPagamento === 'mpesa' ? 'mpesa' : 'transferencia';
+        const facturaResponsavel = facturarEm === 'responsavel' && podeFacturarResponsavel(encomendaDraft);
+        const facturarEscolhido: FacturarEm = facturaResponsavel ? 'responsavel' : 'empresa';
+
+        // Voltou atrás sem mudar nada — a encomenda já está gravada, segue
+        // para o comprovativo dela em vez de gravar outra.
+        if (
+          encomendaTemValor &&
+          encomendaRegistada &&
+          encomendaRegistada.metodo === metodoEncomenda &&
+          encomendaRegistada.facturarEm === facturarEscolhido
+        ) {
+          router.push(encomendaComprovativoPath(encomendaRegistada));
+          setIsSubmitting(false);
+          return;
+        }
+
+        setStatus('redirecting');
+        // Mudou o método ou em nome de quem sai a factura — a encomenda
+        // gravada antes (ainda sem comprovativo) sai, para não ficar duplicada.
+        if (encomendaDraft.registada) {
+          const descartada = await descartarEncomendaRegistada(encomendaDraft.registada.quotationId);
+          if (!descartada.ok) throw new Error(descartada.error);
+          setEncomendaRegistada(null);
+        }
+
+        const { savedAt: _savedAt, tipoCliente: _tipoCliente, contaDados: _contaDados, registada: _registada, ...dadosEncomenda } = encomendaDraft;
+        const res = await fetch('/api/cotacoes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...dadosEncomenda,
+            ...(facturaResponsavel ? dadosFacturaResponsavel(encomendaDraft) : {}),
+            metodoPagamento: encomendaTemValor ? metodoEncomenda : undefined,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+          throw new Error(data.error || 'Não foi possível submeter a encomenda.');
+        }
+
+        if (!data.metodoPagamento) {
+          // Só Sob Consulta — nada a pagar ainda: o pedido fica feito, segue
+          // directo para o painel.
+          clearEncomendaDraft();
+          router.push(await resolveEncomendaLandingPath());
+          return;
+        }
+        // O rascunho fica (marcado como gravado) até o comprovativo seguir —
+        // é o que deixa voltar atrás, e o que o balão do carrinho mostra.
+        const registada = {
+          quotationId: data.id as string,
+          metodo: metodoEncomenda,
+          facturarEm: facturarEscolhido,
+          valorMt: encomendaPricing?.adiantamentoMt ?? 0,
+          assinatura: encomendaDraftSignature(encomendaDraft),
+        };
+        setEncomendaRegistada(registada);
+        router.push(encomendaComprovativoPath(registada));
+        setStatus('idle');
+        setIsSubmitting(false);
+        return;
       }
 
       if (metodoPagamento === 'saldo') {
@@ -476,21 +627,115 @@ function CheckoutContent() {
   };
 
   const clientName = authUser?.user_metadata?.full_name || authUser?.user_metadata?.nome || authUser?.email?.split('@')[0];
+  // Depois de "Fazer login" volta ao mesmo checkout — no caso da encomenda,
+  // o rascunho continua guardado e é retomado.
+  const checkoutReturnPath = isEncomenda ? '/checkout?encomenda=1' : '/checkout';
+  const payTotalLabel = isEncomenda ? `${formatMt(encomendaPricing?.adiantamentoMt ?? 0)} MT` : formatPrice(total);
+
+  // Editar ou cancelar a meio do pagamento: a encomenda já gravada (sem
+  // comprovativo) sai da base de dados; ao editar, os dados continuam no
+  // rascunho e voltam ao formulário; ao cancelar, o rascunho também sai.
+  const [encomendaAccao, setEncomendaAccao] = useState<'editar' | 'cancelar' | null>(null);
+  const editarEncomenda = async () => {
+    setEncomendaAccao('editar');
+    const quotationId = encomendaPending?.quotationId ?? encomendaDraft?.registada?.quotationId;
+    if (quotationId) {
+      const descartada = await descartarEncomendaRegistada(quotationId);
+      if (!descartada.ok) {
+        window.alert(descartada.error);
+        setEncomendaAccao(null);
+        return;
+      }
+      setEncomendaRegistada(null);
+    }
+    router.push(`${ENCOMENDA_EDIT_PATH}&passo=dados`);
+  };
+  const cancelarEncomenda = async () => {
+    if (!window.confirm('Cancelar esta encomenda? Os dados preenchidos e o pedido são apagados.')) return;
+    setEncomendaAccao('cancelar');
+    const quotationId = encomendaPending?.quotationId ?? encomendaDraft?.registada?.quotationId;
+    if (quotationId) {
+      const descartada = await descartarEncomendaRegistada(quotationId);
+      if (!descartada.ok) {
+        window.alert(descartada.error);
+        // 409: já tem comprovativo/está com a equipa — segue no painel, não aqui.
+        if (descartada.status === 409) {
+          clearEncomendaDraft();
+          router.push(await resolveEncomendaLandingPath());
+          return;
+        }
+        setEncomendaAccao(null);
+        return;
+      }
+    }
+    clearEncomendaDraft();
+    router.push('/precos');
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 pt-32 pb-16 transition-colors duration-200">
       <div className="max-w-7xl mx-auto px-[40px] mt-4">
 
-        {manualSession ? (
+        {isEncomenda && encomendaPending ? (
           <ManualPaymentUploadStep
-            sessionId={manualSession.id}
+            uploadUrl={`/api/cotacoes/${encomendaPending.quotationId}/anexos`}
+            uploadFields={{ fase: 'adiantamento' }}
+            metodoPagamento={encomendaPending.metodoPagamento}
+            valorMt={encomendaPending.valorMt}
+            successMessage="A nossa equipa confirma o pagamento e dá início à produção — acompanhe a encomenda no seu painel."
+            // Pago — a encomenda sai do balão do carrinho.
+            onSent={clearEncomendaDraft}
+            secondaryActions={
+              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 dark:border-zinc-800 pt-4">
+                <button
+                  type="button"
+                  onClick={() => router.push(ENCOMENDA_CHECKOUT_PATH)}
+                  disabled={encomendaAccao !== null}
+                  className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-slate-800 dark:text-zinc-400 dark:hover:text-zinc-100 disabled:opacity-50"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" /> Voltar ao resumo
+                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={editarEncomenda}
+                    disabled={encomendaAccao !== null}
+                    className="border border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-300 font-bold text-xs px-3 py-2 rounded-md hover:border-slate-300 disabled:opacity-50"
+                  >
+                    {encomendaAccao === 'editar' ? 'A abrir...' : 'Editar dados'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={cancelarEncomenda}
+                    disabled={encomendaAccao !== null}
+                    className="text-xs font-bold text-rose-600 hover:underline px-2 py-2 disabled:opacity-50"
+                  >
+                    {encomendaAccao === 'cancelar' ? 'A cancelar...' : 'Cancelar encomenda'}
+                  </button>
+                </div>
+              </div>
+            }
+            onContinue={async () => {
+              // Sem domínio/hospedagem/produtos VisualWeb → painel das encomendas.
+              router.push(await resolveEncomendaLandingPath());
+            }}
+          />
+        ) : isEncomenda && !encomendaDraftLoaded ? (
+          <div className="flex items-center justify-center py-24">
+            <Spinner className="w-10 h-10" />
+          </div>
+        ) : isEncomenda && !encomendaDraft ? (
+          <EncomendaVazia />
+        ) : manualSession ? (
+          <ManualPaymentUploadStep
+            uploadUrl={`/api/checkout/${manualSession.id}/comprovativo`}
             metodoPagamento={manualSession.metodoPagamento}
             onContinue={async () => {
               const { data: { session: refreshedSession } } = await supabase.auth.refreshSession();
               router.push(redirectPathForSession(refreshedSession));
             }}
           />
-        ) : items.length === 0 ? (
+        ) : !isEncomenda && items.length === 0 ? (
           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg p-12 text-center max-w-lg mx-auto space-y-6 shadow-sm">
             <ShoppingCart className="w-16 h-16 text-slate-300 dark:text-zinc-700 mx-auto" />
             <h2 className="text-xl font-bold text-slate-800 dark:text-zinc-100 font-panel">O seu carrinho está vazio</h2>
@@ -526,6 +771,9 @@ function CheckoutContent() {
                     <p className="text-xs text-slate-500 dark:text-zinc-400 mt-2">NUIT: 400597243</p>
                   </div>
 
+                  {isEncomenda && encomendaDraft ? (
+                    <EncomendaFaturadoPara draft={encomendaDraft} facturarEm={facturarEm} onFacturarEmChange={setFacturarEm} />
+                  ) : (
                   <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg p-6 shadow-sm">
                     <div className="flex items-center justify-between mb-3">
                       <p className="text-[11px] font-bold uppercase tracking-wide text-red-600 dark:text-red-400 flex items-center gap-1.5">
@@ -606,6 +854,7 @@ function CheckoutContent() {
                       </>
                     )}
                   </div>
+                  )}
                 </div>
               )}
 
@@ -614,7 +863,7 @@ function CheckoutContent() {
                 <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg p-10 text-center space-y-4 shadow-sm">
                   <Spinner className="w-12 h-12 mx-auto" />
                   <h3 className="text-lg font-bold text-slate-800 dark:text-zinc-100 font-panel">
-                    {status === 'registering' ? 'A criar a sua conta...' : 'A abrir o pagamento seguro da Stripe...'}
+                    {status === 'registering' ? 'A criar a sua conta...' : isEncomenda ? 'A registar a encomenda...' : 'A abrir o pagamento seguro da Stripe...'}
                   </h3>
                 </div>
               )}
@@ -627,7 +876,7 @@ function CheckoutContent() {
                     <h4 className="font-bold text-red-800 dark:text-red-300 text-sm font-panel">Falha na Transação</h4>
                     <p className="text-xs text-red-700 dark:text-red-400 mt-1 leading-normal">{errorMessage}</p>
                     {(errorMessage.toLowerCase().includes('login') || errorMessage.toLowerCase().includes('já existe')) && (
-                      <Link href={`/auth/login?redirect=${encodeURIComponent('/checkout')}`} className="mt-4 bg-red-600 text-white font-bold text-xs px-4 py-2 rounded-lg hover:bg-red-700 transition-colors inline-block">
+                      <Link href={`/auth/login?redirect=${encodeURIComponent(checkoutReturnPath)}`} className="mt-4 bg-red-600 text-white font-bold text-xs px-4 py-2 rounded-lg hover:bg-red-700 transition-colors inline-block">
                         Fazer Login
                       </Link>
                     )}
@@ -648,11 +897,33 @@ function CheckoutContent() {
               {(status === 'idle' || status === 'error') && (
                 <div className="space-y-5">
 
-                  {isAuthenticated === false && (
+                  {isEncomenda && encomendaRegistada && (
+                    <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/50 rounded-lg p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-bold text-blue-800 dark:text-blue-300">Esta encomenda já está registada — falta anexar o comprovativo</p>
+                        <p className="text-xs text-blue-700 dark:text-blue-400 mt-0.5">
+                          Pode rever os dados, mudar o método ou cancelar. Se mudar alguma coisa, o pedido é actualizado ao clicar em "Pagar".
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => router.push(encomendaComprovativoPath(encomendaRegistada))}
+                        className="shrink-0 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-4 py-2.5 rounded-md transition-colors"
+                      >
+                        Anexar comprovativo
+                      </button>
+                    </div>
+                  )}
+
+                  {isAuthenticated === false && isEncomenda && (
+                    <EncomendaLoginNecessario loginHref={`/auth/login?redirect=${encodeURIComponent(checkoutReturnPath)}`} />
+                  )}
+
+                  {isAuthenticated === false && !isEncomenda && (
                     <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg p-6 shadow-sm">
                       <div className="mb-6 pb-4 border-b border-slate-100 dark:border-zinc-800 flex justify-between items-center">
                         <p className="text-sm text-slate-600 dark:text-zinc-400">
-                          Já tem uma conta? <Link href={`/auth/login?redirect=${encodeURIComponent('/checkout')}`} className="text-blue-600 font-bold hover:underline">Inicie sessão</Link> para concluir o processo de pagamento.
+                          Já tem uma conta? <Link href={`/auth/login?redirect=${encodeURIComponent(checkoutReturnPath)}`} className="text-blue-600 font-bold hover:underline">Inicie sessão</Link> para concluir o processo de pagamento.
                         </p>
                       </div>
 
@@ -750,6 +1021,9 @@ function CheckoutContent() {
                     </div>
                   )}
 
+                  {isEncomenda && encomendaDraft && encomendaPricing ? (
+                    <EncomendaResumoCard draft={encomendaDraft} pricing={encomendaPricing} />
+                  ) : (
                   <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg p-6 shadow-sm">
                     <h3 className="text-[11px] font-bold uppercase tracking-wide text-red-600 dark:text-red-400 flex items-center gap-1.5 mb-4">
                       <ShoppingCart className="w-3.5 h-3.5" />
@@ -866,16 +1140,33 @@ function CheckoutContent() {
                       </p>
                     </div>
                   </div>
+                  )}
 
                   <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg p-6 space-y-5 shadow-sm">
                     <div>
-                      <h2 className="text-xl font-bold text-slate-800 dark:text-zinc-50 font-panel">Finalizar Pagamento</h2>
+                      <h2 className="text-xl font-bold text-slate-800 dark:text-zinc-50 font-panel">
+                        {isEncomenda && !encomendaTemValor ? 'Submeter Encomenda' : 'Finalizar Pagamento'}
+                      </h2>
                       <p className="text-xs text-slate-400 dark:text-zinc-550 mt-1">
-                        Escolha o método de pagamento ao lado e conclua a compra.
+                        {isEncomenda && !encomendaTemValor
+                          ? 'Não há valor a pagar agora — submeta o pedido e a equipa entra em contacto.'
+                          : 'Escolha o método de pagamento ao lado e conclua a compra.'}
                       </p>
                     </div>
 
-                    {metodoPagamento === 'saldo' ? (
+                    {isEncomenda && !encomendaTemValor ? (
+                      <div className="p-4 rounded-lg bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 flex items-start gap-3">
+                        <div className="p-3 rounded-md bg-slate-100 dark:bg-zinc-800 flex-shrink-0">
+                          <Info className="w-6 h-6 text-slate-500 dark:text-zinc-400" />
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-sm text-slate-800 dark:text-zinc-200">Encomenda Sob Consulta</h4>
+                          <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1 leading-relaxed">
+                            Ao clicar em "Submeter Pedido", a encomenda fica registada no seu painel. Depois de a equipa confirmar o valor, paga o adiantamento a partir de lá.
+                          </p>
+                        </div>
+                      </div>
+                    ) : metodoPagamento === 'saldo' ? (
                       <div className="p-4 rounded-lg bg-teal-50 dark:bg-teal-900/10 border border-teal-100 dark:border-teal-800/60 flex items-start gap-3">
                         <div className="p-3 rounded-md bg-teal-100 dark:bg-teal-800/30 flex-shrink-0">
                           <Wallet className="w-6 h-6 text-teal-600 dark:text-teal-300" />
@@ -913,7 +1204,9 @@ function CheckoutContent() {
                             M-Pesa
                           </h4>
                           <p className="text-xs text-red-700 dark:text-red-400 mt-1 leading-relaxed">
-                            Ao clicar em "Pagar", o pedido fica registado e vai receber o número M-Pesa para concluir — depois anexa o comprovativo e a nossa equipa confirma a activação.
+                            {isEncomenda
+                              ? 'Ao clicar em "Pagar", a encomenda fica registada e vai receber o número M-Pesa para pagar o adiantamento — depois anexa o comprovativo e a nossa equipa confirma e dá início à produção.'
+                              : 'Ao clicar em "Pagar", o pedido fica registado e vai receber o número M-Pesa para concluir — depois anexa o comprovativo e a nossa equipa confirma a activação.'}
                           </p>
                         </div>
                       </div>
@@ -927,7 +1220,9 @@ function CheckoutContent() {
                             Transferência Bancária
                           </h4>
                           <p className="text-xs text-amber-700 dark:text-amber-400 mt-1 leading-relaxed">
-                            Ao clicar em "Pagar", o pedido fica registado e vai receber os dados de transferência para concluir — depois anexa o comprovativo e a nossa equipa confirma a activação.
+                            {isEncomenda
+                              ? 'Ao clicar em "Pagar", a encomenda fica registada e vai receber os dados de transferência para pagar o adiantamento — depois anexa o comprovativo e a nossa equipa confirma e dá início à produção.'
+                              : 'Ao clicar em "Pagar", o pedido fica registado e vai receber os dados de transferência para concluir — depois anexa o comprovativo e a nossa equipa confirma a activação.'}
                           </p>
                         </div>
                       </div>
@@ -937,7 +1232,11 @@ function CheckoutContent() {
                       <button
                         type="button"
                         onClick={handlePay}
-                        disabled={isSubmitting || (metodoPagamento === 'saldo' && (saldoDisponivel ?? 0) < total)}
+                        disabled={
+                          isSubmitting ||
+                          (isEncomenda && isAuthenticated === false) ||
+                          (metodoPagamento === 'saldo' && (saldoDisponivel ?? 0) < total)
+                        }
                         className={`disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold py-3 px-6 rounded-md flex items-center justify-center gap-2 transition-all cursor-pointer ${
                           metodoPagamento === 'mpesa'
                             ? 'bg-red-600 hover:bg-red-700'
@@ -946,12 +1245,17 @@ function CheckoutContent() {
                               : 'bg-indigo-600 hover:bg-indigo-700'
                         }`}
                       >
-                        <Lock className="w-5 h-5 animate-pulse" /> {isSubmitting ? 'A processar...' : `Pagar ${formatPrice(total)}`}
+                        <Lock className="w-5 h-5 animate-pulse" />{' '}
+                        {isSubmitting
+                          ? 'A processar...'
+                          : isEncomenda && !encomendaTemValor
+                            ? 'Submeter Pedido'
+                            : `Pagar ${payTotalLabel}`}
                       </button>
                       <button
                         type="button"
-                        onClick={() => window.history.back()}
-                        disabled={isSubmitting}
+                        onClick={() => (isEncomenda ? cancelarEncomenda() : window.history.back())}
+                        disabled={isSubmitting || encomendaAccao !== null}
                         className="bg-transparent border border-slate-200 hover:border-slate-300 dark:border-zinc-800 dark:hover:border-zinc-700 text-slate-600 dark:text-zinc-400 font-bold py-3 px-6 rounded-md transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                       >
                         Cancelar
@@ -966,10 +1270,20 @@ function CheckoutContent() {
             <div className="lg:col-span-3 space-y-5 sticky top-28">
               <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg p-5 space-y-4 shadow-sm">
                 <div>
-                  <span className="text-xs font-bold uppercase tracking-wide text-slate-600 dark:text-zinc-300">Valor Total</span>
-                  <p className="text-2xl font-black text-slate-900 dark:text-zinc-50 mt-0.5">{formatPrice(total)}</p>
+                  <span className="text-xs font-bold uppercase tracking-wide text-slate-600 dark:text-zinc-300">
+                    {isEncomenda ? 'A Pagar Agora' : 'Valor Total'}
+                  </span>
+                  <p className="text-2xl font-black text-slate-900 dark:text-zinc-50 mt-0.5">
+                    {isEncomenda && !encomendaTemValor ? 'Sob Consulta' : payTotalLabel}
+                  </p>
+                  {isEncomenda && encomendaTemValor && encomendaPricing && (
+                    <p className="text-[11px] text-slate-400 dark:text-zinc-500 mt-0.5">
+                      Adiantamento de 70% da factura de {formatMt(encomendaPricing.totalComIvaMt)} MT
+                    </p>
+                  )}
                 </div>
 
+                {!(isEncomenda && !encomendaTemValor) && (
                 <div>
                   <label htmlFor="checkout-metodo-pagamento" className="text-xs font-bold uppercase tracking-wide text-slate-600 dark:text-zinc-300 block mb-1.5">
                     Método de Pagamento
@@ -983,20 +1297,23 @@ function CheckoutContent() {
                   >
                     {Object.entries(METODO_META)
                       .filter(([value]) => value !== 'saldo' || saldoDisponivel !== null)
+                      // Encomendas: só os métodos que a Contabilidade › Encomendas confirma.
+                      .filter(([value]) => !isEncomenda || value === 'mpesa' || value === 'transferencia')
                       // Em USD só o Cartão processa o pagamento — M-Pesa/Transferência
                       // são sempre MZN (redes moçambicanas), e o Saldo é um crédito
                       // interno também em MZN.
-                      .filter(([value]) => currency === 'MZN' || value === 'stripe')
+                      .filter(([value]) => isEncomenda || currency === 'MZN' || value === 'stripe')
                       .map(([value, meta]) => (
                         <option key={value} value={value}>{meta.label}</option>
                       ))}
                   </select>
-                  {currency === 'USD' && (
+                  {currency === 'USD' && !isEncomenda && (
                     <p className="text-[11px] text-slate-400 dark:text-zinc-500 mt-1.5">
                       Em USD só é possível pagar por Cartão — M-Pesa e Transferência são sempre em MZN.
                     </p>
                   )}
                 </div>
+                )}
 
                 <div className="text-sm space-y-1.5 pt-2 border-t border-dashed border-slate-200 dark:border-zinc-800">
                   {metodoPagamento === 'saldo' && (
@@ -1011,13 +1328,13 @@ function CheckoutContent() {
                       )}
                     </div>
                   )}
-                  {metodoPagamento === 'mpesa' && (
+                  {metodoPagamento === 'mpesa' && !(isEncomenda && !encomendaTemValor) && (
                     <div className="space-y-2">
                       <p className="text-slate-700 dark:text-zinc-300">Número M-Pesa: <span className="font-mono font-bold">{MPESA_NUMBER}</span></p>
                       <button
                         type="button"
                         onClick={handlePay}
-                        disabled={isSubmitting || (status !== 'idle' && status !== 'error')}
+                        disabled={isSubmitting || (isEncomenda && isAuthenticated === false) || (status !== 'idle' && status !== 'error')}
                         className="w-full flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold py-3 rounded-md transition-colors cursor-pointer"
                       >
                         <Smartphone className="w-4 h-4" />
@@ -1027,7 +1344,7 @@ function CheckoutContent() {
                       <p className="text-[11px] text-center text-slate-400 dark:text-zinc-500">Clique aqui para Pagar com M-Pesa</p>
                     </div>
                   )}
-                  {metodoPagamento === 'transferencia' && (
+                  {metodoPagamento === 'transferencia' && !(isEncomenda && !encomendaTemValor) && (
                     <>
                       <p className="text-slate-700 dark:text-zinc-300">Titular: <span className="font-medium">{BANK_NAME}</span></p>
                       <p className="text-slate-700 dark:text-zinc-300">Nº Conta: <span className="font-mono font-bold">{BANK_ACCOUNT}</span></p>
@@ -1036,7 +1353,7 @@ function CheckoutContent() {
                   )}
                   {metodoPagamento === 'stripe' && (
                     <p className="text-slate-500 dark:text-zinc-400 text-xs leading-relaxed">
-                      Clique em "Pagar {formatPrice(total)}" à esquerda para continuar para a página segura da Stripe.
+                      Clique em "Pagar {payTotalLabel}" à esquerda para continuar para a página segura da Stripe.
                     </p>
                   )}
                 </div>
@@ -1061,7 +1378,7 @@ function CheckoutContent() {
                 <button type="button" onClick={() => window.print()} className="w-full flex items-center gap-2.5 px-5 py-3 text-sm text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 hover:text-red-600 dark:hover:text-red-400 cursor-pointer border-t border-slate-100 dark:border-zinc-800">
                   <FileDown className="w-4 h-4 text-slate-400" /> Download PDF
                 </button>
-                <button type="button" onClick={() => router.push('/cliente')} className="w-full flex items-center gap-2.5 px-5 py-3 text-sm text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 hover:text-red-600 dark:hover:text-red-400 cursor-pointer border-t border-slate-100 dark:border-zinc-800">
+                <button type="button" onClick={() => router.push(isEncomenda ? '/encomendas' : '/cliente')} className="w-full flex items-center gap-2.5 px-5 py-3 text-sm text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 hover:text-red-600 dark:hover:text-red-400 cursor-pointer border-t border-slate-100 dark:border-zinc-800">
                   <ArrowLeft className="w-4 h-4 text-slate-400" /> Retornar ao Painel
                 </button>
               </div>
@@ -1070,13 +1387,27 @@ function CheckoutContent() {
                 <p className="text-xs font-bold uppercase tracking-wide text-slate-600 dark:text-zinc-300 flex items-center gap-1.5 mb-2">
                   <Info className="w-3.5 h-3.5" /> Informações Importantes
                 </p>
-                <p className="text-xs text-slate-500 dark:text-zinc-400 leading-relaxed">
-                  Pagamentos por M-Pesa ou Transferência são, por enquanto, confirmados manualmente pela nossa equipa — o serviço é activado assim que o comprovativo for verificado.
-                </p>
-                <div className="border-t border-dashed border-slate-200 dark:border-zinc-800 my-3" />
-                <p className="text-xs text-slate-500 dark:text-zinc-400 leading-relaxed">
-                  Pagamentos por Cartão (Stripe) são confirmados e activados automaticamente.
-                </p>
+                {isEncomenda ? (
+                  <>
+                    <p className="text-xs text-slate-500 dark:text-zinc-400 leading-relaxed">
+                      A produção começa depois de confirmado o adiantamento de 70% — a nossa equipa verifica o comprovativo do M-Pesa ou da Transferência.
+                    </p>
+                    <div className="border-t border-dashed border-slate-200 dark:border-zinc-800 my-3" />
+                    <p className="text-xs text-slate-500 dark:text-zinc-400 leading-relaxed">
+                      Os restantes 30% pagam-se na entrega, a partir do painel das encomendas.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-xs text-slate-500 dark:text-zinc-400 leading-relaxed">
+                      Pagamentos por M-Pesa ou Transferência são, por enquanto, confirmados manualmente pela nossa equipa — o serviço é activado assim que o comprovativo for verificado.
+                    </p>
+                    <div className="border-t border-dashed border-slate-200 dark:border-zinc-800 my-3" />
+                    <p className="text-xs text-slate-500 dark:text-zinc-400 leading-relaxed">
+                      Pagamentos por Cartão (Stripe) são confirmados e activados automaticamente.
+                    </p>
+                  </>
+                )}
                 <p className="text-xs text-slate-500 dark:text-zinc-400 leading-relaxed mt-1.5">
                   Em caso de dúvidas, entre em contacto com o nosso suporte técnico.
                 </p>
@@ -1094,15 +1425,29 @@ function CheckoutContent() {
  * Passo de anexar o comprovativo, embutido no próprio checkout (sem popup) —
  * mesmo padrão de `ComprovativoInline` em `cotacao/[id]/pagamento/page.tsx`.
  * Só depois de o envio ter sucesso é que aparece o botão para entrar no
- * painel — nunca antes (confirmado com o utilizador).
+ * painel — nunca antes (confirmado com o utilizador). Serve as compras do
+ * carrinho (comprovativo do checkout_sessions) e as encomendas VisualDesign
+ * (anexo da encomenda, marcado com a fase) — muda só o `uploadUrl`.
  */
 function ManualPaymentUploadStep({
-  sessionId,
+  uploadUrl,
+  uploadFields,
   metodoPagamento,
+  valorMt,
+  successMessage = 'Aguarde a aprovação da nossa equipa para aceder à gestão do(s) seu(s) produto(s).',
+  onSent,
+  secondaryActions,
   onContinue,
 }: {
-  sessionId: string;
+  uploadUrl: string;
+  uploadFields?: Record<string, string>;
   metodoPagamento: 'mpesa' | 'transferencia';
+  valorMt?: number;
+  successMessage?: string;
+  /** Depois de o comprovativo seguir com sucesso. */
+  onSent?: () => void;
+  /** Por baixo do envio, enquanto ainda não foi enviado (ex.: editar/cancelar a encomenda). */
+  secondaryActions?: React.ReactNode;
   onContinue: () => Promise<void> | void;
 }) {
   const [file, setFile] = useState<File | null>(null);
@@ -1119,10 +1464,12 @@ function ManualPaymentUploadStep({
     try {
       const formData = new FormData();
       formData.append('file', file);
-      const res = await fetch(`/api/checkout/${sessionId}/comprovativo`, { method: 'POST', body: formData });
+      for (const [key, value] of Object.entries(uploadFields ?? {})) formData.append(key, value);
+      const res = await fetch(uploadUrl, { method: 'POST', body: formData });
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error || 'Não foi possível enviar o comprovativo.');
       setSent(true);
+      onSent?.();
     } catch (err: any) {
       setError(err.message || 'Não foi possível enviar o comprovativo.');
     } finally {
@@ -1138,9 +1485,7 @@ function ManualPaymentUploadStep({
           <h2 className="text-lg font-bold text-slate-800 dark:text-zinc-100 font-panel">
             Comprovativo enviado com sucesso
           </h2>
-          <p className="text-sm text-slate-500 dark:text-zinc-400">
-            Aguarde a aprovação da nossa equipa para aceder à gestão do(s) seu(s) produto(s).
-          </p>
+          <p className="text-sm text-slate-500 dark:text-zinc-400">{successMessage}</p>
           <button
             type="button"
             disabled={enteringPanel}
@@ -1166,6 +1511,9 @@ function ManualPaymentUploadStep({
           </div>
 
           <div className="bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg p-4 text-sm text-slate-700 dark:text-zinc-300 space-y-0.5">
+            {valorMt ? (
+              <p className="pb-1">Valor a pagar: <span className="font-mono font-bold">{formatMt(valorMt)} MT</span></p>
+            ) : null}
             {metodoPagamento === 'mpesa' ? (
               <p>Envie o valor para <span className="font-mono font-bold">{MPESA_NUMBER}</span>.</p>
             ) : (
@@ -1206,6 +1554,8 @@ function ManualPaymentUploadStep({
             {sending ? <Spinner className="w-4 h-4" /> : null}
             {sending ? 'A enviar...' : 'Enviar comprovativo'}
           </button>
+
+          {secondaryActions}
         </>
       )}
     </div>

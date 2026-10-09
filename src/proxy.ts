@@ -4,6 +4,7 @@ import { resolveUserRole, getRedirectPathForRole } from '@/lib/user-roles'
 import {
   buildPanelLoginUrl,
   getPublicSiteOrigin,
+  isEncomendasAccount,
   isPanelRoute,
   panelRouteFromPublicEntry,
   PUBLIC_LOGIN_ENTRY,
@@ -184,7 +185,11 @@ export async function proxy(request: NextRequest) {
       userMetadata: user.user_metadata,
       appMetadata: user.app_metadata,
     })
-    const inner = panelRouteFromPublicEntry(pathname) ?? resolveInnerPanelPath(null, role)
+    // Sem consulta à base de dados aqui (proxy corre em todos os pedidos) — só
+    // a marca de conta das encomendas no próprio user_metadata.
+    const inner =
+      panelRouteFromPublicEntry(pathname) ??
+      resolveInnerPanelPath(null, role, role === 'guest' && isEncomendasAccount(user.user_metadata))
     const target = resolvePanelInnerRedirect(request.url, inner, request.nextUrl.search)
     return redirectWithSession(target)
   }

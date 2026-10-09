@@ -8,6 +8,7 @@ import { panelCard, panelBtnPrimary, panelBtnSecondary } from '@/lib/panel-ui';
 import { Spinner } from '@/components/ui/spinner';
 import { groupIntoBatches, type BatchItem } from '@/lib/quotation-batch';
 import { useBatchNumeros, displayNumero } from '@/lib/use-batch-numeros';
+import { encomendaPaymentSplit } from '@/lib/encomenda-checkout';
 
 const FACTURA_STATUSES = ['approved', 'delivered', 'done'];
 
@@ -89,7 +90,9 @@ export function EncomendasPagamentosSection() {
         const isRemainder = batch.status === 'delivered';
         const metodoPagamento = batch.items.find((i) => i.metodo_pagamento)?.metodo_pagamento;
         const remanescenteMetodo = batch.items.find((i) => i.remanescente_metodo_pagamento)?.remanescente_metodo_pagamento;
-        const remanescenteValor = Math.round(batch.totalMt * 0.3 * 100) / 100;
+        // Mesmos valores do documento da cotação e do checkout (IVA acrescido).
+        const split = encomendaPaymentSplit(batch.totalMt);
+        const remanescenteValor = split.remanescenteMt;
         const resumo =
           batch.items.length === 1
             ? `${anchor.categoria_label} — ${anchor.produto}`
@@ -103,7 +106,7 @@ export function EncomendasPagamentosSection() {
                   <p className="font-bold text-black dark:text-white">Encomenda Nº {displayNumero(numeros, batch.batchId)}</p>
                   <p className="text-sm text-gray-500 dark:text-zinc-400">{resumo}</p>
                   <p className="text-sm text-gray-500 dark:text-zinc-400">
-                    {batch.sobConsulta ? 'Sob Consulta' : `${formatMt(batch.totalMt)} MT`}
+                    {batch.sobConsulta ? 'Sob Consulta' : `${formatMt(split.totalComIvaMt)} MT (IVA incluído)`}
                   </p>
                 </div>
                 {batch.status === 'approved' && (

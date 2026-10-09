@@ -44,19 +44,9 @@ export function EncomendasListSection() {
   }, [fetchQuotations]);
 
   // O formulário de "Nova Encomenda" corre num iframe (reaproveita /cotacao
-  // tal como já acontece na aba "Cotação"/"Facturas") — ao submeter, o
-  // próprio iframe não pode navegar para si mesmo, por isso avisa esta janela
-  // por postMessage para voltar à lista e mostrar a encomenda recém-criada.
-  useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      if (event.origin !== window.location.origin) return;
-      if (event.data?.type !== 'visualdesign:cotacao-submitted') return;
-      setCreatingNew(false);
-      fetchQuotations();
-    };
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, [fetchQuotations]);
+  // tal como já acontece na aba "Cotação"/"Facturas"). "Pagar factura" leva a
+  // janela de topo para o checkout único (/checkout?encomenda=1), que no fim
+  // volta a este painel — já não há submissão dentro do iframe a avisar aqui.
 
   // Cada encomenda é um lote (batch_id) — pode ter vários serviços de
   // categorias diferentes, tal como foi submetida. Uma lista só, uma vez

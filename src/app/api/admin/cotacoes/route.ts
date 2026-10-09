@@ -8,6 +8,7 @@ import { computeNumeroMap, letterForCategoria } from '@/lib/quotation-numero';
 import { QUOTATION_ATTACHMENTS_BUCKET, extractStoragePath } from '@/lib/quotation-attachments-bucket';
 import { QUOTATION_LAYOUTS_BUCKET } from '@/lib/quotation-layouts-bucket';
 import { computeUnreadByBatch } from '@/lib/quotation-unread';
+import { encomendaPaymentSplit } from '@/lib/encomenda-checkout';
 
 const IVA_PERCENT = 16;
 
@@ -303,7 +304,10 @@ export async function PATCH(request: Request) {
     if (status === 'approved' || (status === 'done' && computeBatchStatus(siblings) === 'done')) {
       try {
         const phase = status === 'approved' ? 'advance' : 'remainder';
-        const valorMt = Math.round(batchTotal * (phase === 'advance' ? 0.7 : 0.3) * 100) / 100;
+        // Valor efectivamente pago pelo cliente — com IVA acrescido, igual ao
+        // documento da cotação/factura e ao checkout (encomendaPaymentSplit).
+        const split = encomendaPaymentSplit(batchTotal);
+        const valorMt = phase === 'advance' ? split.adiantamentoMt : split.remanescenteMt;
         const metodo = phase === 'advance' ? data.metodo_pagamento : data.remanescente_metodo_pagamento;
 
         const { error: paymentError } = await supabase

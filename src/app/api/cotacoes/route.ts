@@ -7,6 +7,8 @@ import { resolveRoleForAuthUser } from '@/lib/server-auth-role';
 import { resolveEffectiveClientUserId } from '@/lib/client-impersonation';
 import { computeUnreadByBatch } from '@/lib/quotation-unread';
 
+const VALID_PAYMENT_METHODS = ['mpesa', 'transferencia'];
+
 // Lista as cotações do próprio utilizador autenticado — usada no painel da
 // conta para mostrar o que já foi submetido, sem expor cotações de outros clientes.
 export async function GET() {
@@ -87,7 +89,16 @@ export async function POST(request: NextRequest) {
       itens,
       dataLimiteEntrega,
       notas,
+      metodoPagamento: rawMetodoPagamento,
     } = body ?? {};
+
+    // Vem do checkout único (/checkout?encomenda=1): a encomenda só é gravada
+    // depois de o cliente escolher como paga, por isso já nasce com o método
+    // registado — mesmo efeito de /api/cotacoes/[id]/pagamento, sem um segundo
+    // pedido que podia falhar e deixar uma encomenda órfã por pagar.
+    if (rawMetodoPagamento !== undefined && rawMetodoPagamento !== null && !VALID_PAYMENT_METHODS.includes(rawMetodoPagamento)) {
+      return NextResponse.json({ error: 'Método de pagamento inválido.' }, { status: 400 });
+    }
 
     if (
       !empresa ||
@@ -183,6 +194,12 @@ export async function POST(request: NextRequest) {
     // diferentes (ex.: cartões + webdesign na mesma cotação).
     const batchId = crypto.randomUUID();
 
+    // Só faz sentido registar o pagamento se houver algum valor fixo a pagar —
+    // uma encomenda só com itens Sob Consulta continua 'pending' (aguarda
+    // contacto), tal como a página de pagamento já a ignorava.
+    const metodoPagamento =
+      rawMetodoPagamento && validatedItems.some((i) => !i.sobConsulta) ? (rawMetodoPagamento as string) : null;
+
     const rows = validatedItems.map(({ categoriaId, categoriaLabel, produto, precoUnitario, quantidadeNum, sobConsulta, totalMt }) => ({
       user_id: user.id,
       batch_id: batchId,
@@ -206,7 +223,8 @@ export async function POST(request: NextRequest) {
       sob_consulta: sobConsulta,
       sob_consulta_original: sobConsulta,
       notas: notas || null,
-      status: 'pending',
+      status: metodoPagamento ? 'payment_selected' : 'pending',
+      metodo_pagamento: metodoPagamento,
     }));
 
     const { data: quotations, error: insertError } = await admin
@@ -228,13 +246,18 @@ export async function POST(request: NextRequest) {
     // Não aguardar o envio do email — a notificação à equipa é um efeito
     // secundário; se o SMTP estiver lento/em baixo, o cliente não deve ficar
     // à espera nem arriscar ver o pedido falhar por causa disso.
+    const pagamentoNota = metodoPagamento
+      ? ` Vai pagar o adiantamento por ${metodoPagamento === 'mpesa' ? 'M-Pesa' : 'Transferência Bancária'} — o comprovativo chega à Contabilidade › Encomendas.`
+      : '';
     notifyQuoteTeam({
       title: validatedItems.length > 1 ? `Nova cotação recebida (${validatedItems.length} serviços)` : 'Nova cotação recebida',
-      message: `${empresa} (${responsavel}) pediu cotação: ${resumo}. Contacto: ${telefone} / ${email}. Entrega pretendida até ${dataLimiteEntrega}.`,
+      message: `${empresa} (${responsavel}) pediu cotação: ${resumo}. Contacto: ${telefone} / ${email}. Entrega pretendida até ${dataLimiteEntrega}.${pagamentoNota}`,
       link: `${process.env.NEXT_PUBLIC_SITE_URL || ''}/dashboard?section=cotacoes`,
     }).catch((err) => console.error('[cotacoes] falha ao notificar equipa:', err));
 
-    return NextResponse.json({ success: true, id: quotations[0].id, ids: quotations.map((q) => q.id) });
+    // O primeiro id serve de âncora da encomenda (anexos/mensagens agregam
+    // todas as linhas do mesmo batch — ver resolveQuotationAccess).
+    return NextResponse.json({ success: true, id: quotations[0].id, ids: quotations.map((q) => q.id), batchId, metodoPagamento });
   } catch (error: unknown) {
     // Nunca expor a mensagem interna (ex.: "fetch failed" de uma falha de rede
     // a chegar ao Supabase) — o cliente só precisa de saber que falhou e que
