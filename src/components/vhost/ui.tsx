@@ -114,7 +114,8 @@ export function HxCard({ hx }: { hx: MenuItem['hx'] }) {
 function DomSelector() {
   const { s, a, t, setDominio } = useVH();
   const doms = a.domains.map((d) => d.name).sort((x, y) => x.localeCompare(y));
-  const atual = s.dominio && doms.includes(s.dominio) ? s.dominio : doms[0] || '';
+  // sem escolha feita: o domínio principal da conta (vem à cabeça da lista — ver vhost-dados.ts)
+  const atual = s.dominio && doms.includes(s.dominio) ? s.dominio : a.domains[0]?.name || '';
   const [aberto, setAberto] = useState(false);
   const [q, setQ] = useState('');
   const [i, setI] = useState(0);

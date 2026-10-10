@@ -159,7 +159,7 @@ function EmailBody() {
   const vh = useVH();
   const { a, t, toast, openM } = vh;
   const doms = a.domains.map((d) => d.name).sort((x, y) => x.localeCompare(y));
-  const dom = vh.s.dominio && doms.includes(vh.s.dominio) ? vh.s.dominio : doms[0] || '';
+  const dom = vh.s.dominio && doms.includes(vh.s.dominio) ? vh.s.dominio : a.domains[0]?.name || '';
   const list = a.mails.map((m, i) => ({ ...m, i })).filter((m) => !dom || m.dom === dom);
   const used = a.mails.reduce((n, m) => n + m.used, 0);
   const full = a.mails.filter((m) => m.quota > 0 && m.used / m.quota > 0.8).length;

@@ -351,12 +351,8 @@
    (a maquete pintava-a com a cor do cartão e deixava de se distinguir) */
 .vh[data-theme=dark] .da-switcher-bar,.vh[data-theme=dark] .cols .da-switcher-bar{background:var(--soft);border-color:var(--line)}
 /* Separadores Domínios / Registar domínio: barra própria (não fica fixa nem passa por cima da faixa de navegação) */
-.vh .dom-abas{display:flex;align-items:flex-end;height:44px;padding:0 16px;margin:0 0 20px;background:var(--soft);border:1px solid var(--line);border-radius:var(--r) var(--r) 0 0}
-.vh .dom-abas .da-switcher-tabs{height:100%}
 
 /* Domínios: separadores Domínios / Registar domínio no topo do cartão principal, de ponta a ponta (pedido do Silva) */
-.vh .dom-abas-topo{display:flex;align-items:flex-end;gap:4px;height:42px;padding:0 24px;margin:-24px -24px 24px;background:var(--soft);border-bottom:1px solid var(--line);border-radius:var(--r) var(--r) 0 0}
-@media(max-width:768px){.vh .dom-abas-topo{padding:0 12px}}
 /* Registar domínio: o componente do site usa margens do Tailwind, que o painel anula (.vh *{margin:0}) — repor as que ele usa */
 .vh .dom-registar .mt-1{margin-top:4px}.vh .dom-registar .mt-2{margin-top:8px}.vh .dom-registar .mt-5{margin-top:20px}.vh .dom-registar .mt-6{margin-top:28px}.vh .dom-registar .mt-auto{margin-top:auto}
 .vh .dom-registar .mb-2{margin-bottom:8px}.vh .dom-registar .mb-3{margin-bottom:12px}.vh .dom-registar .mb-4{margin-bottom:16px}.vh .dom-registar .mb-6{margin-bottom:24px}.vh .dom-registar .mb-8{margin-bottom:32px}.vh .dom-registar .ml-1{margin-left:4px}
@@ -420,3 +416,19 @@
  .vh .av-cmd{max-width:180px}
  .vh .em-filtros label,.vh .em-filtros input,.vh .em-filtros select{flex:1 1 100%;min-width:0}
 }
+/* Separadores de página (pedido do Silva, 10/10): iguais aos de Domínios — barra de fundo suave de ponta a ponta no topo do
+   cartão principal; o separador ativo parece uma pasta ligada ao conteúdo. A linha de baixo é uma sombra interior, para o
+   separador ativo a tapar sem sair da barra (a barra pode deslizar na horizontal em ecrãs pequenos). */
+.vh .ptabs{align-items:flex-end;gap:4px;height:42px;padding:0 24px;margin:0 0 24px;background:var(--soft);border-bottom:0;box-shadow:inset 0 -1px 0 var(--line);overflow-y:hidden;flex:none}
+.vh .da-main-card>.ptabs:first-child{margin:-24px -24px 24px;border-radius:var(--r) var(--r) 0 0}
+.vh .ptabs button{height:32px;padding:0 16px;margin:0;gap:6px;font-size:13px;font-weight:500;color:var(--muted);background:none;border:1px solid transparent;border-bottom:0;border-radius:4px 4px 0 0}
+.vh .ptabs button:hover{color:var(--red)}
+.vh .ptabs button.on{background:var(--card);border-color:var(--line);color:var(--red);font-weight:700}
+.vh .tabcard>.ptabs{padding:0 18px}
+@media(max-width:768px){.vh .ptabs,.vh .tabcard>.ptabs{padding:0 12px}}
+/* separadores dentro de um separador: só sublinhados */
+.vh .ptabs.sub{height:auto;padding:0;background:none;box-shadow:inset 0 -1px 0 var(--line);border-radius:0;margin:0 0 18px}
+.vh .ptabs.sub button{height:38px;padding:0 14px;border:0;border-bottom:2px solid transparent;border-radius:0;background:none}
+.vh .ptabs.sub button.on{border-bottom-color:var(--red);background:none}
+/* barra da tabela sem nada lá dentro (só o espaçador): não ocupa espaço */
+.vh .dt-bar:not(:has(> :not(.sp))){display:none}

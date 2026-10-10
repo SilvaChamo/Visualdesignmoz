@@ -71,7 +71,7 @@ function lerEmail(me: string, d: string): Promise<InfoEmail> {
 
 /** Domínio em que se trabalha: o escolhido no seletor (todos os domínios da conta, também os só de e-mail) */
 function dominioEmail(vh: VH): string {
-  const doms = vh.a.domains.map((x) => x.name).sort((x, y) => x.localeCompare(y));
+  const doms = vh.a.domains.map((x) => x.name); // o primeiro é o principal da conta
   return vh.s.dominio && doms.includes(vh.s.dominio) ? vh.s.dominio : doms[0] || '';
 }
 

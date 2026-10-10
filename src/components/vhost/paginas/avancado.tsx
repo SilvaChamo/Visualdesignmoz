@@ -111,7 +111,7 @@ function Campo({ label, hint, children, id }: { label: string; hint?: string; ch
 
 /** Domínio do seletor, só entre os sites da conta */
 function siteAtual(vh: VH): string {
-  const sites = vh.a.domains.filter((x) => !x.soEmail).map((x) => x.name).sort((a, b) => a.localeCompare(b));
+  const sites = vh.a.domains.filter((x) => !x.soEmail).map((x) => x.name); // o primeiro é o principal da conta
   return vh.s.dominio && sites.includes(vh.s.dominio) ? vh.s.dominio : sites[0] || '';
 }
 
@@ -215,6 +215,7 @@ function ListaTipos({ d, qual, aba, dados, ler }: { d: string; qual: 'handlers' 
   return (
     <>
       <Tabs
+        sub
         tabs={[
           ['meus', qual === 'handlers' ? 'Handlers definidos por si' : 'Tipos MIME definidos por si'],
           ['sistema', qual === 'handlers' ? 'Handlers do sistema' : 'Tipos MIME do sistema'],

@@ -81,7 +81,7 @@ function useDetalhe(d: string, so?: 'dns') {
 
 /** Domínio em que se trabalha: o escolhido no seletor (só com site, se a página o pedir) */
 function dominioAtual(vh: VH, soSite = true): Domain | undefined {
-  const lista = vh.a.domains.filter((x) => !soSite || !x.soEmail).sort((x, y) => x.name.localeCompare(y.name));
+  const lista = vh.a.domains.filter((x) => !soSite || !x.soEmail); // o primeiro é o principal da conta
   return lista.find((x) => x.name === vh.s.dominio) || lista[0];
 }
 const ehSub = (nome: string, de: string) => nome.endsWith('.' + de);
@@ -165,94 +165,15 @@ function ListaDominios({ abaDom = 'meus' }: { abaDom?: 'meus' | 'registar' }) {
     keys.reduce<Promise<unknown>>((p, k) => p.then(() => noServidor(vh, { acao, dominio: k }, msg + ': ' + k)), Promise.resolve());
 
   return (
-    <div className="w-full space-y-4">
-      {/* Separadores no topo do cartão principal (de ponta a ponta, barra de fundo suave); sem cartão à parte */}
-      <div className="dom-abas-topo">
-        <button
-          type="button"
-          style={
-            abaDom === 'meus'
-              ? {
-                  backgroundColor: 'var(--card, #ffffff)',
-                  borderLeft: '1px solid var(--line, #cbd5e1)',
-                  borderRight: '1px solid var(--line, #cbd5e1)',
-                  borderTop: '1px solid var(--line, #cbd5e1)',
-                  borderBottom: '1px solid var(--card, #ffffff)',
-                  borderRadius: '4px 4px 0 0',
-                  color: 'var(--red, #dc2626)',
-                  fontWeight: 700,
-                  fontSize: '13px',
-                  position: 'relative',
-                  marginBottom: '-1px',
-                  height: '32px',
-                  padding: '0 16px',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  cursor: 'pointer',
-                  zIndex: 10,
-                }
-              : {
-                  backgroundColor: 'transparent',
-                  border: '1px solid transparent',
-                  color: 'var(--muted, #6b7280)',
-                  fontWeight: 500,
-                  fontSize: '13px',
-                  height: '32px',
-                  padding: '0 16px',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  cursor: 'pointer',
-                }
-          }
-          onClick={() => nav('/utilizador/dominios')}
-        >
-          <i className="fa-solid fa-globe" /> {t('Domínios')}
-        </button>
-        <button
-          type="button"
-          style={
-            abaDom === 'registar'
-              ? {
-                  backgroundColor: 'var(--card, #ffffff)',
-                  borderLeft: '1px solid var(--line, #cbd5e1)',
-                  borderRight: '1px solid var(--line, #cbd5e1)',
-                  borderTop: '1px solid var(--line, #cbd5e1)',
-                  borderBottom: '1px solid var(--card, #ffffff)',
-                  borderRadius: '4px 4px 0 0',
-                  color: 'var(--red, #dc2626)',
-                  fontWeight: 700,
-                  fontSize: '13px',
-                  position: 'relative',
-                  marginBottom: '-1px',
-                  height: '32px',
-                  padding: '0 16px',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  cursor: 'pointer',
-                  zIndex: 10,
-                }
-              : {
-                  backgroundColor: 'transparent',
-                  border: '1px solid transparent',
-                  color: 'var(--muted, #6b7280)',
-                  fontWeight: 500,
-                  fontSize: '13px',
-                  height: '32px',
-                  padding: '0 16px',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  cursor: 'pointer',
-                }
-          }
-          onClick={() => nav('/utilizador/dominios/registar')}
-        >
-          <i className="fa-solid fa-cart-shopping" /> {t('Registar domínio')}
-        </button>
-      </div>
+    <>
+      <Tabs
+        tabs={[
+          ['meus', 'Domínios', 'fa-globe'],
+          ['registar', 'Registar domínio', 'fa-cart-shopping'],
+        ]}
+        on={abaDom}
+        onChange={(k) => nav(k === 'registar' ? '/utilizador/dominios/registar' : '/utilizador/dominios')}
+      />
 
       {abaDom === 'registar' ? (
         <div className="dom-registar">
@@ -300,7 +221,7 @@ function ListaDominios({ abaDom = 'meus' }: { abaDom?: 'meus' | 'registar' }) {
           )}
         />
       )}
-    </div>
+    </>
   );
 }
 
@@ -1693,12 +1614,12 @@ function BasesDados() {
   };
   return (
     <>
+      <SeparadoresBd on="bases" />
       <DataTable
         id="bd"
         rows={rows}
         rowKey={(r) => r.nome}
         search={(r) => r.nome + ' ' + r.user}
-        cabecalho={<SeparadoresBd on="bases" />}
         onRecarregar={() => {
           ler();
           vh.recarregar(true);
@@ -2177,12 +2098,12 @@ function UtilizadoresBd() {
   const lista = info?.utilizadores || [];
   return (
     <>
+      <SeparadoresBd on="utilizadores" />
       <DataTable
         id="bd-users"
         rows={lista}
         rowKey={(r) => r.dbuser}
         search={(r) => r.dbuser + ' ' + r.bases.join(' ')}
-        cabecalho={<SeparadoresBd on="utilizadores" />}
         onRecarregar={ler}
         barra2={
           <Seccao

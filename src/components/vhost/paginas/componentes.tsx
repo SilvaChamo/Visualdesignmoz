@@ -140,10 +140,12 @@ export function Funcionalidades({ campos, feats, set }: { campos: Campo[]; feats
 }
 
 // ---------- Separadores ----------
-export function Tabs<K extends string>({ tabs, on, onChange }: { tabs: [K, string, string?][]; on: K; onChange: (k: K) => void }) {
+/** No topo da página ficam numa barra de ponta a ponta do cartão principal (como em Domínios); `sub` = separadores
+ *  dentro de um separador (só sublinhados, para não haver duas barras seguidas) */
+export function Tabs<K extends string>({ tabs, on, onChange, sub }: { tabs: [K, string, string?][]; on: K; onChange: (k: K) => void; sub?: boolean }) {
   const { t } = useVH();
   return (
-    <div className="ptabs" role="tablist">
+    <div className={'ptabs' + (sub ? ' sub' : '')} role="tablist">
       {tabs.map(([k, label, fa]) => (
         <button key={k} role="tab" aria-selected={on === k} className={on === k ? 'on' : ''} onClick={() => onChange(k)}>
           {fa && <i className={'fa-solid ' + fa} />}
