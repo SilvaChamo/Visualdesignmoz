@@ -1,10 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { Check, X, Loader2, Globe } from 'lucide-react'
+import { Check, X, Globe } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
 import { useCart } from '@/contexts/CartContext'
-import { DomainPricingCarousel } from '@/components/DomainPricingCarousel'
 import { DOMAIN_TLD_PRICES, domainRegistrationPriceMt, domainRenewalPriceMt } from '@/lib/domain-tld-prices'
 import { Spinner } from '@/components/ui/spinner'
 import { panelTabBtn, panelTabList } from '@/lib/panel-ui'
@@ -23,6 +22,7 @@ interface SearchResult {
   loading?: boolean
   error?: string
   costPennies?: number
+  chosen?: boolean
 }
 
 interface DomainSearchProps {
@@ -54,9 +54,6 @@ export default function DomainSearch({
   const { t } = useI18n()
   const { addItem, setIsCartOpen } = useCart()
   const { formatPrice } = useCurrency()
-  // Os preços de domínio vêm em USD (catálogo de TLDs) — converte sempre
-  // para MT primeiro (o valor real cobrado) antes de formatar na moeda
-  // escolhida, para nunca divergir do que o checkout depois calcula.
   const formatDomainPrice = (usdPrice: number) => formatPrice(usdPrice * MZN_TO_USD_RATE)
   const findTld = (domain: string) => TLDS.find((t) => domain.toLowerCase().endsWith(t.value))
   const [searchQuery, setSearchQuery] = useState('')
@@ -68,34 +65,30 @@ export default function DomainSearch({
   const [resultsTab, setResultsTab] = useState<'domains' | 'pricing' | 'plans'>('domains')
   const [billingCycle, setBillingCycle] = useState<'mensal' | 'anual'>('anual')
 
-  const searchRound = isAdmin || panelFieldRounding ? 'rounded' : 'rounded-lg'
-  const fieldPaddingY = spacious ? 'py-2.5' : 'py-2'
-  const fieldClass = isAdmin
-    ? `w-full px-4 ${fieldPaddingY} ${searchRound} bg-white text-zinc-900 border border-zinc-300 focus:border-red-600 focus:outline-none focus:ring-1 focus:ring-red-600 transition-all font-medium shadow-sm`
-    : `w-full px-4 ${fieldPaddingY} ${searchRound} bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 border border-slate-300 dark:border-zinc-700 focus:border-red-600 focus:outline-none focus:ring-1 focus:ring-red-600 transition-all font-medium`
+  const searchRound = isAdmin || panelFieldRounding ? 'rounded-[4px]' : 'rounded-md'
+  const fieldPaddingY = 'py-2.5 sm:py-3'
+  const fieldClass = `w-full px-4 ${fieldPaddingY} ${searchRound} bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 border border-zinc-300 dark:border-zinc-700 focus:border-red-600 focus:outline-none focus:ring-1 focus:ring-red-600 transition-all font-medium min-h-[42px] sm:min-h-[44px]`
   const mutedText = isAdmin ? 'text-zinc-600 dark:text-zinc-400' : lightSection ? 'text-slate-500 dark:text-zinc-400' : 'text-slate-500'
   const headingText = isAdmin ? 'text-zinc-900 dark:text-zinc-100' : lightSection ? 'text-zinc-900 dark:text-white' : 'text-white'
 
-  const renderPricingCards = () => <DomainPricingCarousel items={TLDS} />
-
   const renderPricingTable = () => (
-    <div className="w-full overflow-hidden rounded border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">
+    <div className="w-full overflow-hidden rounded border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
       <table className="w-full text-left text-sm">
-        <thead className="border-b border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800/80">
+        <thead className="border-b border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-800/90">
           <tr>
-            <th className="p-3 font-bold text-zinc-700 dark:text-zinc-300">Extensão</th>
-            <th className="p-3 font-bold text-zinc-700 dark:text-zinc-300">Registo</th>
-            <th className="p-3 font-bold text-zinc-700 dark:text-zinc-300">Renovação</th>
-            <th className="p-3 font-bold text-zinc-700 dark:text-zinc-300">Transferência</th>
+            <th className="p-3 font-bold text-zinc-700 dark:text-zinc-200">Extensão</th>
+            <th className="p-3 font-bold text-zinc-700 dark:text-zinc-200">Registo</th>
+            <th className="p-3 font-bold text-zinc-700 dark:text-zinc-200">Renovação</th>
+            <th className="p-3 font-bold text-zinc-700 dark:text-zinc-200">Transferência</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
           {TLDS.map((domain) => (
-            <tr key={domain.value} className="hover:bg-zinc-50/80 dark:hover:bg-zinc-800/40">
+            <tr key={domain.value} className="hover:bg-zinc-50/80 dark:hover:bg-zinc-800/50">
               <td className="p-3 font-semibold text-zinc-900 dark:text-zinc-100">{domain.label}</td>
-              <td className="p-3 text-zinc-600 dark:text-zinc-400">{formatPrice(domainRegistrationPriceMt(domain, 1))}</td>
-              <td className="p-3 text-zinc-600 dark:text-zinc-400">{formatDomainPrice(domain.renewPrice)}</td>
-              <td className="p-3 text-zinc-600 dark:text-zinc-400">{formatDomainPrice(domain.transfer)}</td>
+              <td className="p-3 text-zinc-600 dark:text-zinc-300">{formatPrice(domainRegistrationPriceMt(domain, 1))}</td>
+              <td className="p-3 text-zinc-600 dark:text-zinc-300">{formatDomainPrice(domain.renewPrice)}</td>
+              <td className="p-3 text-zinc-600 dark:text-zinc-300">{formatDomainPrice(domain.transfer)}</td>
             </tr>
           ))}
         </tbody>
@@ -114,11 +107,10 @@ export default function DomainSearch({
     if (onResultsAction) onResultsAction([])
 
     try {
-      // Otimização: Pesquisa apenas o TLD seleccionado e os TLDs mais populares para reduzir latência e evitar 429
       const POPULAR_TLDS = ['.com', '.net', '.org', '.online', '.tech', '.co', '.site']
       const tldsToSearch = Array.from(new Set([selectedTLD, ...POPULAR_TLDS]))
       
-      const fetchPromises = tldsToSearch.map(async (tld) => {
+      const checkTld = async (tld: string): Promise<SearchResult> => {
         try {
           const controller = new AbortController()
           const timeoutId = setTimeout(() => controller.abort(), 15000)
@@ -153,9 +145,21 @@ export default function DomainSearch({
             error: 'Erro de verificação',
           } as SearchResult
         }
-      })
+      }
 
-      const allResults = await Promise.all(fetchPromises)
+      let allResults = await Promise.all(tldsToSearch.map(checkTld))
+      allResults.forEach((r, i) => (r.chosen = tldsToSearch[i] === selectedTLD))
+
+      // No painel: o que falhou (o registador às vezes não responde) volta a ser perguntado, um de cada vez;
+      // o que continuar sem resposta não aparece — nada de linhas "não foi possível confirmar".
+      if (isAdmin) {
+        for (let i = 0; i < allResults.length; i++) {
+          if (!allResults[i].error) continue
+          const again = await checkTld(tldsToSearch[i])
+          allResults[i] = { ...again, chosen: allResults[i].chosen }
+        }
+        allResults = allResults.filter((r) => !r.error)
+      }
 
       allResults.sort((a, b) => {
         if (a.domain.endsWith(selectedTLD)) return -1
@@ -191,10 +195,6 @@ export default function DomainSearch({
     if (onResultsAction) onResultsAction([])
   }
 
-  // Uma falha a verificar disponibilidade (timeout, limite do registador sob
-  // os vários pedidos em paralelo) não significa que o domínio esteja
-  // indisponível — só que não sabemos ainda. Deixa tentar de novo só essa
-  // linha, em vez de a app afirmar "Indisponível" sem ter a certeza.
   const retryDomainCheck = async (domain: string) => {
     setResults((prev) => prev.map((r) => (r.domain === domain ? { ...r, loading: true, error: undefined } : r)))
     try {
@@ -230,8 +230,6 @@ export default function DomainSearch({
     const row = results.find((r) => r.domain === domain)
     if (row && row.price !== undefined) {
       setActionLoading(domain)
-      // Regista sempre por 1 ano a partir da pesquisa — o número de anos
-      // escolhe-se depois, no carrinho/checkout (selector lá, não aqui).
       const tld = findTld(domain)
       setTimeout(() => {
         setActionLoading(null)
@@ -262,25 +260,30 @@ export default function DomainSearch({
 
   const renderDomainResults = () => (
     <div className="flex flex-col gap-3">
-      {results.map((result, index) => (
+      {isAdmin && results.length === 0 ? (
+        <p className={`py-6 text-center text-sm ${mutedText}`}>
+          O registador não respondeu agora. Volte a carregar em Buscar daqui a pouco.
+        </p>
+      ) : null}
+      {results.map((result) => (
         <div
           key={result.domain}
-          className={`flex w-full flex-col items-start gap-3 rounded border bg-white py-3 px-3 sm:grid sm:grid-cols-3 sm:items-center sm:px-4 dark:bg-zinc-900 ${
-            index === 0 && result.available
+          className={`flex w-full flex-col items-start gap-3 rounded border bg-white py-3 px-3 sm:grid sm:grid-cols-3 sm:items-center sm:px-4 dark:bg-zinc-900 dark:border-zinc-800 ${
+            result.chosen && result.available
               ? 'border-red-200 ring-1 ring-red-50 dark:border-red-900/50 dark:ring-red-950/30'
-              : 'border-zinc-200 dark:border-zinc-700'
+              : 'border-zinc-200 dark:border-zinc-800'
           }`}
         >
           <div className="flex w-full items-center justify-start gap-3">
             {result.available ? (
-              <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-green-100 text-green-600">
+              <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-green-100 text-green-600 dark:bg-green-950/60 dark:text-green-400">
                 <Check className="h-3.5 w-3.5" />
               </div>
             ) : null}
             <div className="flex flex-wrap items-center gap-2 text-base font-normal text-zinc-900 dark:text-zinc-100">
               {result.domain}
-              {index === 0 ? (
-                <span className="inline-block rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-red-700 dark:bg-red-950/40 dark:text-red-400">
+              {result.chosen ? (
+                <span className="inline-block rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-red-700 dark:bg-red-950/50 dark:text-red-300">
                   A sua escolha
                 </span>
               ) : null}
@@ -289,7 +292,7 @@ export default function DomainSearch({
 
           <div className="flex w-full flex-col items-start gap-1 sm:items-end sm:pr-4">
             {result.error && !result.available ? (
-              <span className="text-left text-xs font-medium text-amber-600 sm:text-right">
+              <span className="text-left text-xs font-medium text-amber-600 dark:text-amber-400 sm:text-right">
                 Não foi possível confirmar disponibilidade agora.
               </span>
             ) : result.price !== undefined ? (
@@ -303,13 +306,13 @@ export default function DomainSearch({
                     <span className="text-xs font-normal text-zinc-400">/1º ano</span>
                   </span>
                   {result.renewPrice ? (
-                    <span className="text-[11px] font-medium text-zinc-500">
-                      Renovação: <span className="text-red-500">{formatDomainPrice(result.renewPrice)}/ano</span>
+                    <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+                      Renovação: <span className="text-red-500 dark:text-red-400">{formatDomainPrice(result.renewPrice)}/ano</span>
                     </span>
                   ) : null}
                 </div>
-                {findTld(result.domain)?.manualRegistration ? (
-                  <span className="text-[11px] font-medium text-amber-600 dark:text-amber-500">
+                {!isAdmin && findTld(result.domain)?.manualRegistration ? (
+                  <span className="text-[11px] font-medium text-amber-600 dark:text-amber-400">
                     Activação em até 1 dia útil (registo confirmado pela nossa equipa).
                   </span>
                 ) : null}
@@ -348,7 +351,7 @@ export default function DomainSearch({
               <button
                 type="button"
                 disabled
-                className="w-auto cursor-not-allowed rounded bg-zinc-400 px-5 py-2 text-left text-sm font-bold text-white sm:min-w-[130px] dark:bg-zinc-600"
+                className="w-auto cursor-not-allowed rounded bg-zinc-400 px-5 py-2 text-left text-sm font-bold text-white sm:min-w-[130px] dark:bg-zinc-700 dark:text-zinc-300"
               >
                 Indisponível
               </button>
@@ -363,7 +366,7 @@ export default function DomainSearch({
     <div className="w-full text-left">
       <div
         className={`mb-4 flex flex-col items-start gap-4 border-b pb-2 sm:flex-row sm:items-center sm:justify-between ${
-          isAdmin ? 'border-zinc-200 dark:border-zinc-700' : 'border-slate-700/60'
+          isAdmin ? 'border-zinc-200 dark:border-zinc-800' : 'border-slate-700/60'
         }`}
       >
         <h3 className={`flex items-center gap-2 text-lg font-bold ${headingText}`}>
@@ -375,43 +378,45 @@ export default function DomainSearch({
               : 'Planos e serviços'}
         </h3>
         <div className="flex w-full flex-wrap items-center justify-start gap-2 sm:w-auto">
-          <div className={panelTabList}>
-            <button
-              type="button"
-              onClick={() => setResultsTab('domains')}
-              className={`${panelTabBtn} font-bold ${
-                resultsTab === 'domains'
-                  ? 'border-b-red-600 text-red-600'
-                  : `border-transparent ${mutedText} hover:text-red-600`
-              }`}
-            >
-              Domínios
-            </button>
-            {!panelMode ? (
+          {!panelMode ? (
+            <div className={panelTabList}>
               <button
                 type="button"
-                onClick={() => setResultsTab('pricing')}
+                onClick={() => setResultsTab('domains')}
                 className={`${panelTabBtn} font-bold ${
-                  resultsTab === 'pricing'
-                    ? 'border-b-red-600 text-red-600'
-                    : `border-transparent ${mutedText} hover:text-red-600`
+                  resultsTab === 'domains'
+                    ? 'border-b-red-600 text-red-600 dark:text-red-500'
+                    : `border-transparent ${mutedText} hover:text-red-600 dark:hover:text-red-400`
                 }`}
               >
-                Preços
+                Domínios
               </button>
-            ) : null}
-            <button
-              type="button"
-              onClick={() => setResultsTab('plans')}
-              className={`${panelTabBtn} font-bold ${
-                resultsTab === 'plans'
-                  ? 'border-b-red-600 text-red-600'
-                  : `border-transparent ${mutedText} hover:text-red-600`
-              }`}
-            >
-              Planos e preços
-            </button>
-          </div>
+              {!panelMode ? (
+                <button
+                  type="button"
+                  onClick={() => setResultsTab('pricing')}
+                  className={`${panelTabBtn} font-bold ${
+                    resultsTab === 'pricing'
+                      ? 'border-b-red-600 text-red-600 dark:text-red-500'
+                      : `border-transparent ${mutedText} hover:text-red-600 dark:hover:text-red-400`
+                  }`}
+                >
+                  Preços
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => setResultsTab('plans')}
+                className={`${panelTabBtn} font-bold ${
+                  resultsTab === 'plans'
+                    ? 'border-b-red-600 text-red-600 dark:text-red-500'
+                    : `border-transparent ${mutedText} hover:text-red-600 dark:hover:text-red-400`
+                }`}
+              >
+                Planos e preços
+              </button>
+            </div>
+          ) : null}
           {panelMode ? (
             <button
               type="button"
@@ -452,32 +457,36 @@ export default function DomainSearch({
     return (
       <div className="mt-2">
         <div className="mb-8 flex justify-center">
-          <div className="inline-flex gap-1 rounded-full bg-slate-100 p-1">
+          <div className="inline-flex gap-1 rounded-full bg-slate-100 p-1 dark:bg-zinc-800">
             <button
               type="button"
               onClick={() => setBillingCycle('mensal')}
-              className={`rounded-full px-5 py-1.5 text-sm font-semibold transition-all ${billingCycle === 'mensal' ? 'bg-white text-slate-900 shadow' : 'text-slate-500'}`}
+              className={`rounded-full px-5 py-1.5 text-sm font-semibold transition-all ${
+                billingCycle === 'mensal' ? 'bg-white text-slate-900 shadow dark:bg-zinc-700 dark:text-zinc-100' : 'text-slate-500 dark:text-zinc-400'
+              }`}
             >
               Mensal
             </button>
             <button
               type="button"
               onClick={() => setBillingCycle('anual')}
-              className={`flex items-center gap-2 rounded-full px-5 py-1.5 text-sm font-semibold transition-all ${billingCycle === 'anual' ? 'bg-white text-slate-900 shadow' : 'text-slate-500'}`}
+              className={`flex items-center gap-2 rounded-full px-5 py-1.5 text-sm font-semibold transition-all ${
+                billingCycle === 'anual' ? 'bg-white text-slate-900 shadow dark:bg-zinc-700 dark:text-zinc-100' : 'text-slate-500 dark:text-zinc-400'
+              }`}
             >
               Anual <span className="rounded-full bg-green-500 px-1.5 py-0.5 text-[10px] text-white">até -20%</span>
             </button>
           </div>
         </div>
         <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-          <div className="flex flex-col rounded-xl border border-slate-200 bg-white p-6 transition-all duration-300 hover:shadow-lg">
-            <h4 className="mb-2 text-xl font-bold text-slate-800">Webhost Básico</h4>
-            <p className="mb-4 text-sm text-slate-500">Ideal para sites e blogs pessoais.</p>
+          <div className="flex flex-col rounded-xl border border-slate-200 bg-white p-6 transition-all duration-300 hover:shadow-lg dark:border-zinc-800 dark:bg-zinc-900">
+            <h4 className="mb-2 text-xl font-bold text-slate-800 dark:text-zinc-100">Webhost Básico</h4>
+            <p className="mb-4 text-sm text-slate-500 dark:text-zinc-400">Ideal para sites e blogs pessoais.</p>
             <div className="mb-6">
-              <span className="text-3xl font-black text-red-600">{formatPrice(basicoPrice)}</span>
-              <span className="ml-1 text-sm font-normal text-slate-500">/{billingCycle === 'anual' ? 'ano' : 'mês'}</span>
+              <span className="text-3xl font-black text-red-600 dark:text-red-500">{formatPrice(basicoPrice)}</span>
+              <span className="ml-1 text-sm font-normal text-slate-500 dark:text-zinc-400">/{billingCycle === 'anual' ? 'ano' : 'mês'}</span>
               {billingCycle === 'anual' && basicoSavings > 0 && (
-                <p className="mt-1 text-xs font-semibold text-green-600">Poupe {formatPrice(basicoSavings)}/mês!</p>
+                <p className="mt-1 text-xs font-semibold text-green-600 dark:text-green-400">Poupe {formatPrice(basicoSavings)}/mês!</p>
               )}
             </div>
             <button
@@ -491,17 +500,17 @@ export default function DomainSearch({
               Adicionar
             </button>
           </div>
-          <div className="relative flex flex-col rounded-xl border-2 border-red-600 bg-white p-6 shadow-lg">
+          <div className="relative flex flex-col rounded-xl border-2 border-red-600 bg-white p-6 shadow-lg dark:bg-zinc-900">
             <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-red-600 px-4 py-1 text-[10px] font-bold text-white">
               MAIS POPULAR
             </div>
-            <h4 className="mb-2 mt-1 text-xl font-bold text-slate-800">Webhost Pro</h4>
-            <p className="mb-4 text-sm text-slate-500">Para negócios e lojas online.</p>
+            <h4 className="mb-2 mt-1 text-xl font-bold text-slate-800 dark:text-zinc-100">Webhost Pro</h4>
+            <p className="mb-4 text-sm text-slate-500 dark:text-zinc-400">Para negócios e lojas online.</p>
             <div className="mb-6">
-              <span className="text-3xl font-black text-red-600">{formatPrice(proPrice)}</span>
-              <span className="ml-1 text-sm font-normal text-slate-500">/{billingCycle === 'anual' ? 'ano' : 'mês'}</span>
+              <span className="text-3xl font-black text-red-600 dark:text-red-500">{formatPrice(proPrice)}</span>
+              <span className="ml-1 text-sm font-normal text-slate-500 dark:text-zinc-400">/{billingCycle === 'anual' ? 'ano' : 'mês'}</span>
               {billingCycle === 'anual' && proSavings > 0 && (
-                <p className="mt-1 text-xs font-semibold text-green-600">Poupe {formatPrice(proSavings)}/mês!</p>
+                <p className="mt-1 text-xs font-semibold text-green-600 dark:text-green-400">Poupe {formatPrice(proSavings)}/mês!</p>
               )}
             </div>
             <button
@@ -515,12 +524,12 @@ export default function DomainSearch({
               Adicionar
             </button>
           </div>
-          <div className="flex flex-col rounded-xl border border-slate-200 bg-white p-6 transition-all duration-300 hover:shadow-lg">
-            <h4 className="mb-2 text-xl font-bold text-slate-800">Email Básico</h4>
-            <p className="mb-4 text-sm text-slate-500">Emails corporativos. O domínio escolhe-se depois, no painel.</p>
+          <div className="flex flex-col rounded-xl border border-slate-200 bg-white p-6 transition-all duration-300 hover:shadow-lg dark:border-zinc-800 dark:bg-zinc-900">
+            <h4 className="mb-2 text-xl font-bold text-slate-800 dark:text-zinc-100">Email Básico</h4>
+            <p className="mb-4 text-sm text-slate-500 dark:text-zinc-400">Emails corporativos. O domínio escolhe-se depois, no painel.</p>
             <div className="mb-6">
-              <span className="text-3xl font-black text-red-600">{formatPrice(EMAIL_BASICO_PRICE_MT)}</span>
-              <span className="ml-1 text-sm font-normal text-slate-500">/mês</span>
+              <span className="text-3xl font-black text-red-600 dark:text-red-500">{formatPrice(EMAIL_BASICO_PRICE_MT)}</span>
+              <span className="ml-1 text-sm font-normal text-slate-500 dark:text-zinc-400">/mês</span>
             </div>
             <button
               type="button"
@@ -566,7 +575,7 @@ export default function DomainSearch({
         className={`${fieldClass} w-full shrink-0 cursor-pointer shadow-sm sm:w-56`}
       >
         {TLDS.map((tld) => (
-          <option key={tld.value} value={tld.value}>
+          <option key={tld.value} value={tld.value} className="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100">
             {tld.label}
           </option>
         ))}
@@ -577,7 +586,7 @@ export default function DomainSearch({
         onClick={() => void handleSearch()}
         disabled={loading}
         aria-disabled={loading || !searchQuery.trim()}
-        className={`flex w-full shrink-0 items-center justify-start gap-2 ${searchRound} bg-red-600 px-8 ${fieldPaddingY} font-bold text-white shadow-md transition-colors hover:bg-red-700 sm:w-auto sm:justify-center ${
+        className={`flex w-full shrink-0 items-center justify-start gap-2 ${searchRound} bg-red-600 px-8 ${fieldPaddingY} min-h-[42px] sm:min-h-[44px] font-bold text-white shadow-md transition-colors hover:bg-red-700 sm:w-auto sm:justify-center ${
           loading ? 'cursor-not-allowed opacity-50' : !searchQuery.trim() ? 'cursor-not-allowed opacity-100' : 'cursor-pointer'
         }`}
       >
@@ -587,35 +596,24 @@ export default function DomainSearch({
   )
 
   const showAdminResults = isAdmin && hasSearched && !loading
-  const showAdminCarousel = isAdmin && (!hasSearched || loading)
 
   return (
     <div className="flex w-full flex-col items-stretch">
-      {isAdmin ? (
-        <div className="rounded-lg border border-zinc-200 bg-white p-[25px] shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-          <div className="mb-4 flex items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-red-200 bg-red-50 text-red-600 dark:border-red-900/50 dark:bg-red-950/40">
-              <Globe className="h-5 w-5" />
-            </div>
-            <div>
-              <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-100">Registo de domínios</h3>
-              <p className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
-                Pesquise disponibilidade e registe domínios com preço em tempo real.
-              </p>
-            </div>
-          </div>
-          <div className="rounded-lg bg-zinc-100/90 p-[20px] dark:bg-zinc-800/50">{renderSearchRow()}</div>
-        </div>
-      ) : (
-        renderSearchRow()
-      )}
-
-      {showAdminCarousel ? <div className="mt-5 w-full min-w-0">{renderPricingCards()}</div> : null}
+      {renderSearchRow()}
 
       {showAdminResults ? <div className="mt-5 w-full">{renderResultsPanel(true)}</div> : null}
 
       {!isAdmin && !hideResultsInternal && hasSearched && results.length > 0 ? (
         <div className="mt-6 w-full transition-all duration-300">{renderResultsPanel(false)}</div>
+      ) : null}
+
+      {!showAdminResults ? (
+        <div className="mt-6 w-full">
+          <h3 className={`mb-3 text-base font-bold ${headingText}`}>
+            Tabela de Preços de Domínios
+          </h3>
+          {renderPricingTable()}
+        </div>
       ) : null}
     </div>
   )

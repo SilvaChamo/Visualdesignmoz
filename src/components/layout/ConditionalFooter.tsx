@@ -12,7 +12,7 @@ export function ConditionalFooter() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
 
-  const excludedRoutes = ['/dashboard', '/cliente', '/auth', '/login', '/revendedor', '/guest', '/encomendas', '/contabilidade']
+  const excludedRoutes = ['/dashboard', '/cliente', '/auth', '/login', '/revendedor', '/guest', '/encomendas', '/contabilidade', '/vhost']
   const isExcluded = excludedRoutes.some((route) => pathname.startsWith(route))
   const isEmbedded = searchParams?.get('embed') === '1'
 

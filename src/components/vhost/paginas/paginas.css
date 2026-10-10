@@ -1,0 +1,422 @@
+/* Estilos das páginas de gestão (Gestão de contas e seguintes). Escrito à mão (não é gerado da maquete).
+   Usa as mesmas cores e medidas da maquete (variáveis de generated/maquete.css). Tudo preso a .vh. */
+
+.vh .btn:disabled{opacity:.45;cursor:not-allowed}
+.vh .btn.g:disabled:hover{background:var(--card)}
+.vh input[type=checkbox],.vh input[type=radio]{accent-color:var(--red);width:15px;height:15px;cursor:pointer;flex:none}
+
+/* Formulário em linhas: nome à esquerda, campo à direita (como o Add New User do DirectAdmin) */
+.vh .frm{background:var(--card);border:1px solid var(--line);border-radius:var(--r);margin-bottom:24px}
+.vh .frm-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;border-bottom:1px solid var(--line);background:var(--soft);border-radius:var(--r) var(--r) 0 0}
+.vh .frm-head h3{font-size:15px;font-weight:800}
+.vh .frm-head p{color:var(--muted);font-size:12.5px;margin-top:2px}
+.vh .frm-row{display:grid;grid-template-columns:280px minmax(0,1fr);gap:20px;align-items:center;padding:10px 18px;border-top:1px solid var(--line-soft)}
+.vh .frm-head+.frm-row,.vh .frm>.frm-row:first-child{border-top:0}
+.vh .frm-row>.frm-lb{font-weight:600;font-size:13.5px;line-height:1.3}
+.vh .frm-row:has(textarea){align-items:start}
+.vh .frm-row:has(textarea)>.frm-lb{padding-top:10px}
+.vh .frm-row>.frm-lb small{display:block;color:var(--muted);font-weight:500;font-size:12px;margin-top:3px;line-height:1.4}
+.vh .frm-ctl{display:flex;gap:8px;align-items:center;min-width:0;flex-wrap:wrap}
+.vh .frm-ctl>input:not([type=checkbox]):not([type=radio]),.vh .frm-ctl>select,.vh .frm-ctl>textarea,.vh .inp{height:36px;border:1px solid var(--line);border-radius:var(--r);padding:0 10px;background:var(--card);color:var(--ink);flex:1;min-width:0;font-size:14px}
+.vh .frm-ctl>textarea,.vh textarea.inp{height:auto;padding:10px;line-height:1.5;resize:vertical;font-family:inherit}
+.vh .frm-ctl>input:focus,.vh .frm-ctl>select:focus,.vh .frm-ctl>textarea:focus,.vh .inp:focus,.vh .igrp input:focus{outline:2px solid rgba(229,32,46,.25);border-color:var(--red)}
+.vh .frm-ctl>input:disabled,.vh .inp:disabled,.vh .igrp input:disabled{background:var(--soft);color:var(--muted)}
+.vh .frm-foot{display:flex;justify-content:flex-end;gap:8px;padding:14px 18px;border-top:1px solid var(--line);background:var(--soft);border-radius:0 0 var(--r) var(--r)}
+.vh .frm-tag{font-size:10.5px;font-weight:700;color:var(--muted);border:1px solid var(--line);border-radius:var(--r);padding:0 5px;line-height:16px;margin-left:6px;vertical-align:1px}
+
+/* Campo com botões colados (palavra-passe: gerar · campo · mostrar; limite: valor · unidade) */
+.vh .igrp{display:flex;flex:1;min-width:0}
+.vh .igrp>*{border-radius:0}
+.vh .igrp>:first-child{border-radius:var(--r) 0 0 var(--r)}
+.vh .igrp>:last-child{border-radius:0 var(--r) var(--r) 0}
+.vh .igrp>:only-child{border-radius:var(--r)}
+.vh .igrp input{height:36px;border:1px solid var(--line);padding:0 10px;background:var(--card);color:var(--ink);flex:1;min-width:0;font-size:14px}
+.vh .igrp>*+*{margin-left:-1px}
+.vh .igrp .ib{height:36px;min-width:38px;border:1px solid var(--line);background:var(--soft);color:var(--muted);cursor:pointer;display:grid;place-items:center;padding:0 10px;font-size:13.5px}
+.vh .igrp .ib:hover{color:var(--red)}
+.vh .igrp select{height:36px;border:1px solid var(--line);background:var(--soft);color:var(--ink);padding:0 8px;font-size:13.5px}
+.vh .chk{display:inline-flex;align-items:flex-start;gap:7px;color:var(--ink);font-size:13.5px;line-height:1.35;cursor:pointer;user-select:none;min-width:0}
+.vh .chk input{margin-top:1px}
+.vh .chk.mut{color:var(--muted);white-space:nowrap}
+
+/* Interruptor (funcionalidades) */
+.vh .sw{position:relative;display:inline-block;width:36px;height:20px;flex:none}
+.vh .sw input{opacity:0;width:0;height:0;position:absolute}
+.vh .sw span{position:absolute;inset:0;border-radius:20px;background:var(--line);transition:background .18s;cursor:pointer}
+.vh .sw span::after{content:"";position:absolute;left:3px;top:3px;width:14px;height:14px;border-radius:50%;background:#fff;transition:transform .18s}
+.vh .sw input:checked+span{background:var(--red)}
+.vh .sw input:checked+span::after{transform:translateX(16px)}
+.vh .sw input:focus-visible+span{outline:2px solid rgba(229,32,46,.35);outline-offset:2px}
+.vh .feats{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
+.vh .feats>label{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 18px;border-top:1px solid var(--line-soft);cursor:pointer;font-size:13.5px;font-weight:500}
+.vh .feats>label small{display:block;color:var(--muted);font-size:12px;font-weight:500;margin-top:2px}
+
+/* Separadores da página (Ver/Modificar, Boas-vindas/Suspensão, Utilizadores/Estatísticas/…) */
+.vh .ptabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:18px;overflow-x:auto}
+.vh .ptabs button{border:0;background:none;padding:0 14px;height:38px;font-weight:600;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px;cursor:pointer;display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+.vh .ptabs button:hover{color:var(--red)}
+.vh .ptabs button.on{color:var(--red);border-bottom-color:var(--red);font-weight:700}
+.vh .tabcard{background:var(--card);border:1px solid var(--line);border-radius:var(--r);margin-bottom:24px}
+.vh .tabcard>.ptabs{margin:0;padding:0 10px;background:var(--soft);border-radius:var(--r) var(--r) 0 0}
+.vh .tabcard>.tc{padding:18px}
+.vh .tabcard>.tc>.frm:last-child,.vh .tabcard>.tc>.tbl:last-child{margin-bottom:0}
+
+/* Tabela com pesquisa, colunas, seleção e ações em massa */
+.vh .dt-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.vh .dt-bar .search{max-width:320px;height:32px}
+/* Linha da tabela: [separadores/filtros] … [Ações] [pesquisa] [Colunas] [Atualizar] [páginas] */
+.vh .dt-bar.com-cab{border-bottom:1px solid var(--line);align-items:flex-end;margin-bottom:14px;row-gap:8px}
+.vh .dt-bar.com-cab>.ptabs{border-bottom:0;margin:0}
+.vh .dt-bar.com-cab>:not(.ptabs):not(.sp){margin-bottom:5px}
+.vh .dt-bar .dt-pesq{width:220px;flex:0 1 220px;position:relative}
+.vh .dt-bar .dt-pesq input{padding-right:26px}
+.vh .dt-bar .dt-pesq .limpar{position:absolute;right:10px;left:auto;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--muted)}
+.vh .dt-acoes .btn .n{background:var(--red);color:#fff;border-radius:9px;font-size:11px;font-weight:700;padding:0 6px;line-height:16px}
+.vh .dt-acoes .menu{left:0;right:auto;min-width:200px}
+.vh .dt-acoes .menu button{display:flex;align-items:center;gap:8px;width:100%;border:0;background:none;color:var(--ink);font:inherit;font-size:13.5px;padding:7px 8px;border-radius:var(--r);cursor:pointer;text-align:left}
+.vh .dt-acoes .menu button:hover{background:var(--soft);color:var(--red)}
+.vh .dt-pag{display:flex;align-items:center;gap:4px;font-size:13px;color:var(--ink)}
+.vh .dt-pag .btn{min-width:30px;justify-content:center;padding:0 8px}
+.vh .dt-pag span{padding:0 6px;white-space:nowrap}
+.vh .dt-pag small{color:var(--muted);margin-left:6px;white-space:nowrap}
+.vh .dt-fundo{display:flex;justify-content:flex-start;align-items:center;gap:8px;padding:12px;border-top:1px solid var(--line)}
+.vh .dt-pag .btn:disabled{opacity:.45;cursor:default}
+.vh .dt-barra2{gap:10px}
+.vh .dt-bar .sp{flex:1}
+.vh .dt-bulk{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.vh .dt-bulk .n{color:var(--muted);font-size:12.5px;margin-right:6px}
+.vh .dt-cols{position:relative}
+.vh .dt-cols .menu{position:absolute;right:0;top:calc(100% + 6px);z-index:30;min-width:220px;background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:0 12px 32px rgba(0,0,0,.15);padding:6px}
+.vh .dt-cols .menu label{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:var(--r);cursor:pointer;font-size:13.5px}
+.vh .dt-cols .menu label:hover{background:var(--soft)}
+.vh .ssl-pop-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:90;min-width:220px;background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:0 14px 34px rgba(0,0,0,.22);padding:6px;display:flex;flex-direction:column;gap:2px}
+.vh .ssl-pop-menu button{display:flex;align-items:center;gap:10px;width:100%;padding:8px 12px;border:0;background:none;color:var(--ink);font:inherit;font-size:13px;font-weight:500;border-radius:calc(var(--r) - 2px);cursor:pointer;text-align:left;white-space:nowrap}
+.vh .ssl-pop-menu button:hover{background:var(--soft);color:var(--red)}
+.vh .ssl-pop-menu button.danger{color:var(--red)}
+.vh .ssl-pop-menu button.danger:hover{background:color-mix(in srgb,var(--red) 12%,transparent)}
+.vh .tbl th.ck,.vh .tbl td.ck{width:36px;padding-right:0}
+.vh .tbl th.srt{cursor:pointer;user-select:none}
+.vh .tbl th.srt:hover{color:var(--ink)}
+.vh .tbl th .si{margin-left:6px;font-size:10px;opacity:.6}
+.vh .tbl tr.sel td{background:var(--tint)}
+.vh a.lk{color:var(--red);font-weight:700;cursor:pointer;text-decoration:none}
+.vh a.lk:hover{text-decoration:underline}
+.vh .doms{display:flex;flex-direction:column;gap:2px}
+.vh .doms a{color:var(--app);text-decoration:none;font-size:13px}
+.vh .doms a:hover{text-decoration:underline}
+
+/* Passos (Mover clientes) e blocos com título */
+.vh .passo{margin-bottom:22px}
+.vh .passo h3{font-size:16px;font-weight:800;margin-bottom:4px}
+.vh .passo p{color:var(--muted);margin-bottom:10px}
+.vh .passo.off{opacity:.5;pointer-events:none}
+.vh .bloco-h{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:4px 0 10px}
+.vh .bloco-h h3{font-size:16px;font-weight:800}
+.vh .bloco-h p{color:var(--muted);font-size:12.5px}
+.vh .acoes-topo{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.vh .vars{display:flex;flex-wrap:wrap;gap:6px;padding:10px 18px;border-top:1px solid var(--line-soft);color:var(--muted);font-size:12.5px;align-items:center}
+.vh .vars code{cursor:pointer}
+.vh .vars code:hover{border-color:var(--red);color:var(--red)}
+
+/* Caminho na faixa de navegação: encolhe com reticências quando falta espaço (subpáginas têm caminhos longos) */
+.vh .da-breadcrumb{flex:1 1 auto;min-width:0;overflow:hidden}
+.vh .da-breadcrumb>a,.vh .da-breadcrumb>span,.vh .da-breadcrumb>i{white-space:nowrap;flex:none}
+.vh .da-breadcrumb>span:last-child{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
+
+/* Personalizar painel: cores da barra de ícones vindas do tema escolhido. Sem tema (padrão) as variáveis
+   não existem e ficam os valores da maquete. Escrito aqui e não em generated/maquete.css (que é gerado). */
+.vh .rail .rb{color:var(--rail-ink,var(--muted))}
+.vh .rail .rb:hover{color:var(--rail-ink-hover,var(--ink))}
+.vh .rail .rb.on{color:var(--rail-ink-on,var(--ink))}
+.vh .rail .rb small{background:var(--rail-badge-bg,var(--red));color:var(--rail-badge-ink,#fff)}
+
+/* Ecrã de espera: o painel em esqueleto (cinzento animado) enquanto chegam os dados do servidor; avisos de sessão */
+.vh .sk{display:inline-block;height:12px;max-width:100%;border-radius:var(--r);vertical-align:middle;background:linear-gradient(90deg,var(--soft) 25%,var(--line-soft) 45%,var(--soft) 65%);background-size:400% 100%;animation:vh-sk 1.4s ease-in-out infinite}
+@keyframes vh-sk{0%{background-position:100% 50%}100%{background-position:0 50%}}
+@media (prefers-reduced-motion:reduce){.vh .sk{animation:none}}
+.vh .espera .rail .rb,.vh .espera .side .grp{cursor:default}
+.vh .espera .rail .rb:hover{background:none}
+.vh .sk-ic{width:20px;height:20px}
+.vh .rail .sk{background:currentColor;opacity:.28;animation:vh-pulso 1.4s ease-in-out infinite}
+@keyframes vh-pulso{50%{opacity:.12}}
+.vh .espera-nota{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:13px;margin:4px 0 18px}
+.vh .espera-nota i{color:var(--red)}
+.vh .espera-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:24px;margin-bottom:24px}
+.vh .espera-stats .card{display:flex;flex-direction:column;justify-content:center;gap:12px;min-height:106px}
+.vh .espera-tbl{padding:0;overflow:hidden}
+.vh .espera-tbl>div{display:flex;align-items:center;gap:24px;padding:14px 16px;border-top:1px solid var(--line)}
+.vh .espera-tbl>div:first-child{border-top:0}
+.vh .espera-msg{max-width:520px;margin:48px auto;padding:36px 28px;display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center}
+.vh .espera-msg .big{font-size:36px;color:var(--red);margin-bottom:4px}
+.vh .espera-msg b{font-size:17px;font-weight:800;color:var(--ink)}
+.vh .espera-msg p{color:var(--muted);line-height:1.5;margin-bottom:8px}
+@media(max-width:768px){.vh .espera-tbl>div span:nth-child(n+3){display:none}}
+
+/* Seletor de domínio (faixa de navegação, à direita): botão + lista com filtro, como no DirectAdmin */
+.vh .dom-sel{position:relative;margin-left:auto;flex:none}
+.vh .dom-btn{display:inline-flex;align-items:center;gap:8px;border:0;background:none;color:var(--app);font:inherit;font-size:13.5px;font-weight:500;cursor:pointer;padding:4px 2px;max-width:280px}
+.vh .dom-btn span:not(.chevs){overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vh .dom-btn:hover{opacity:.8}
+.vh .dom-btn:focus-visible{outline:2px solid color-mix(in srgb,var(--app) 40%,transparent);outline-offset:2px;border-radius:var(--r)}
+.vh .dom-btn .chevs{display:inline-flex;flex-direction:column;line-height:0;gap:1px;font-size:7px;margin-left:2px}
+.vh .dom-menu{position:absolute;right:-8px;top:calc(100% + 8px);z-index:60;width:max-content;min-width:220px;max-width:calc(100vw - 24px);background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:0 14px 34px rgba(0,0,0,.18);overflow:hidden}
+.vh .dom-filtro{display:flex;align-items:center;gap:10px;padding:0 12px;height:40px;border-bottom:1px solid var(--line);color:var(--muted)}
+.vh .dom-filtro i.fa-filter{font-size:12px}
+.vh .dom-filtro input{flex:1;width:0;min-width:0;height:100%;border:0;outline:0;background:none;color:var(--ink);font:inherit;font-size:14px}
+.vh .dom-filtro input::placeholder{color:var(--muted)}
+.vh .dom-filtro button{border:0;background:none;color:var(--muted);cursor:pointer;font-size:14px;padding:4px}
+.vh .dom-filtro button:hover{color:var(--red)}
+.vh .dom-lista{max-height:300px;overflow-y:auto;padding:4px 0 18px}
+.vh .dom-lista button{display:flex;align-items:center;gap:8px;width:100%;border:0;background:none;color:var(--ink);font:inherit;font-size:14px;text-align:left;padding:8px 26px;cursor:pointer;position:relative}
+.vh .dom-lista button.foco{background:var(--soft)}
+.vh .dom-lista button.on{background:color-mix(in srgb,var(--app) 16%,transparent);color:var(--app)}
+.vh .dom-lista button.on i{position:absolute;left:8px;font-size:11px}
+.vh .dom-lista button span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vh .dom-vazio{padding:12px 14px;color:var(--muted);font-size:13px}
+
+.vh .dom-ctx{display:flex;align-items:center;gap:6px;flex-wrap:wrap;color:var(--muted);font-size:13px;margin:0 0 16px}
+.vh .dom-ctx b{color:var(--ink)}
+.vh .dom-ctx i{color:var(--app)}
+.vh .dom-ctx span{font-size:12px}
+
+/* DNS: tipos com cores e botões Editar / Remover (organização do modelo DNS central do painel da VisualDesign) */
+.vh .dns-bar{gap:6px}
+.vh .dns-tipo{display:inline-block;min-width:44px;text-align:center;font-size:12px;font-weight:700;padding:3px 9px;border-radius:var(--r);background:#e5e7eb;color:#1f2937}
+.vh .dns-tipo.t-A,.vh .dns-tipo.t-AAAA{background:#dbeafe;color:#1e40af}
+.vh .dns-tipo.t-CNAME{background:#dcfce7;color:#166534}
+.vh .dns-tipo.t-MX{background:#ffedd5;color:#9a3412}
+.vh .dns-tipo.t-TXT{background:#f3e8ff;color:#6b21a8}
+.vh .dns-tipo.t-SRV{background:#fce7f3;color:#9d174d}
+.vh .dns-tipo.t-NS,.vh .dns-tipo.t-CAA{background:#f3f4f6;color:#1f2937}
+.vh[data-theme=dark] .dns-tipo{background:#374151;color:#e5e7eb}
+.vh[data-theme=dark] .dns-tipo.t-A,.vh[data-theme=dark] .dns-tipo.t-AAAA{background:rgba(59,130,246,.18);color:#93c5fd}
+.vh[data-theme=dark] .dns-tipo.t-CNAME{background:rgba(34,197,94,.16);color:#86efac}
+.vh[data-theme=dark] .dns-tipo.t-MX{background:rgba(249,115,22,.16);color:#fdba74}
+.vh[data-theme=dark] .dns-tipo.t-TXT{background:rgba(168,85,247,.16);color:#d8b4fe}
+.vh[data-theme=dark] .dns-tipo.t-SRV{background:rgba(236,72,153,.16);color:#f9a8d4}
+.vh .dns-acoes{display:inline-flex;gap:6px}
+.vh .btn.btn-ed{background:transparent;border:1px solid #3b82f6;color:#2563eb}
+.vh .btn.btn-ed:hover{background:rgba(59,130,246,.08)}
+.vh .btn.btn-rm{background:transparent;border:1px solid #ef4444;color:#dc2626}
+.vh .btn.btn-rm:hover{background:rgba(239,68,68,.08)}
+.vh[data-theme=dark] .btn.btn-ed{color:#93c5fd}
+.vh[data-theme=dark] .btn.btn-rm{color:#fca5a5}
+.vh .modal textarea{width:100%;border:1px solid var(--line);border-radius:var(--r);padding:8px 10px;background:var(--card);color:var(--ink);font-family:ui-monospace,Menlo,monospace;font-size:12px;resize:vertical}
+.vh pre.resultado{max-height:320px;overflow:auto;background:var(--soft);border:1px solid var(--line);border-radius:var(--r);padding:10px;font-size:12px;white-space:pre-wrap}
+
+/* Secções como no DirectAdmin (título + descrição + números à direita), ícones nas células, tabelas pequenas */
+.vh .seccao-h{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;width:100%}
+.vh .seccao-h h3{font-size:16px;font-weight:800;margin-bottom:3px}
+.vh .seccao-h p{color:var(--muted);font-size:12.5px;line-height:1.45;max-width:760px}
+.vh .seccao-h .numeros{display:flex;gap:18px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);white-space:nowrap}
+.vh .seccao-h .numeros b{color:var(--ink);margin-left:4px}
+.vh .cel-ic{display:inline-flex;align-items:center;gap:10px}
+.vh .cel-ic>i{color:var(--muted);font-size:15px;width:18px;text-align:center}
+.vh .sob-tabela{display:flex;justify-content:flex-end;margin:10px 0 22px}
+.vh .tbl.dt{margin-bottom:24px}
+.vh .tbl.dt+.sob-tabela{margin-top:-14px}
+.vh .tbl.mini{margin:12px 18px;border-radius:var(--r)}
+.vh .privs{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px 14px;margin-bottom:6px}
+.vh .dns-filtros{display:flex;gap:6px;flex-wrap:wrap}
+.vh .btn.filtro-on{background:var(--tint);border:1px solid var(--red);color:var(--red)}
+.vh .dns-dom{height:34px;max-width:240px;min-width:180px;flex:none}
+.vh .dns-ns{font-size:12.5px;color:var(--ink)}
+.vh .dns-ns b{font-weight:700;color:var(--muted);margin-right:4px}
+.vh .dt-bar:has(.dns-filtros){border-bottom:0;margin-bottom:8px}
+
+/* Páginas "Gerir" das bases de dados como no DirectAdmin: secções, grelha do resumo, caixa de acessos, operações */
+.vh .da-sec{margin:0 0 44px}
+.vh .da-sec>.seccao-h{margin-bottom:14px}
+.vh .da-grelha,.vh .da-caixa{border:1px solid var(--line);border-radius:var(--r);background:var(--card);overflow:hidden}
+.vh .da-lin{display:grid;grid-template-columns:1fr}
+.vh .da-lin.n2{grid-template-columns:1fr 1fr}
+.vh .da-lin.n3{grid-template-columns:1fr 1fr 1fr}
+.vh .da-lin+.da-lin{border-top:1px solid var(--line)}
+.vh .da-cel{display:flex;align-items:center;gap:14px;padding:14px 16px;min-width:0}
+.vh .da-cel+.da-cel{border-left:1px solid var(--line)}
+.vh .da-cel>i{font-size:18px;color:var(--muted);width:22px;text-align:center;flex:none}
+.vh .da-cel small{display:block;font-size:12px;color:var(--muted);margin-bottom:2px}
+.vh .da-cel span{display:block;font-size:14px;color:var(--ink);overflow-wrap:anywhere}
+.vh .da-tbl{width:100%;border-collapse:collapse}
+.vh .da-tbl th{font-size:12.5px;font-weight:700;color:var(--ink);text-align:left;padding:11px 12px;border-bottom:1px solid var(--line);background:none;text-transform:none;letter-spacing:0}
+.vh .da-tbl td{padding:8px 12px;border-bottom:1px solid var(--line);font-size:14px;vertical-align:middle;color:var(--ink)}
+.vh .da-tbl .da-ic{width:46px;text-align:center;color:var(--muted);font-size:17px;padding-right:0}
+.vh .da-tbl td.nome{overflow-wrap:anywhere}
+.vh .da-tbl td.acoes{white-space:nowrap;width:1%}
+.vh .da-tbl tr.on>td{background:color-mix(in srgb,var(--app) 16%,transparent)}
+.vh .da-tbl tr.on .da-selo{background:none;padding-left:0}
+.vh .da-tbl tr.da-privs-lin>td{padding:14px 12px}
+.vh .da-tbl td.empty{text-align:center;color:var(--muted);padding:18px}
+.vh .da-selo{display:inline-block;padding:2px 6px;border-radius:3px;background:color-mix(in srgb,var(--app) 22%,transparent);color:var(--ink);font-size:13.5px;cursor:default}
+.vh .da-selo.parcial{background:var(--soft);border:1px solid var(--line)}
+.vh .da-privs .privs{grid-template-columns:repeat(4,minmax(0,1fr));gap:9px 14px;margin-bottom:12px}
+.vh .da-dar{padding:18px 12px 14px 40px}
+.vh .da-dar>label,.vh .da-campo>label{display:block;font-size:15px;color:var(--ink);margin-bottom:7px}
+.vh .da-dar select,.vh .da-dar input{width:100%;height:40px;border:1px solid var(--line);border-radius:var(--r);background:var(--card);color:var(--ink);font:inherit;font-size:14px;padding:0 12px}
+.vh .da-dar select:focus,.vh .da-dar input:focus{outline:0;border-color:var(--app)}
+.vh .da-pe{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:6px;flex-wrap:wrap}
+.vh .da-pe small,.vh .da-campo small{font-size:12px;color:var(--muted)}
+.vh .da-ops{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.vh .btn.da-op{justify-content:center;background:transparent;border:1px solid var(--app);color:var(--app);height:38px;width:100%;cursor:pointer}
+.vh .btn.da-op:hover{background:color-mix(in srgb,var(--app) 9%,transparent)}
+.vh .da-campo{margin-bottom:14px}
+.vh .da-campo>.igrp{width:100%;max-width:none}
+.vh .da-campo small{display:block;margin-top:5px}
+.vh .da-sec>.btn.r{margin-top:2px}
+.vh .da-fim{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:4px}
+.vh .btn-link{border:0;background:none;color:var(--ink);font:inherit;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:8px;padding:6px 12px}
+.vh .btn-link:hover{color:var(--app)}
+.vh .da-lista>div{display:grid;grid-template-columns:minmax(120px,40%) 1fr;gap:12px;padding:15px 0;border-bottom:1px solid var(--line-soft,var(--line));font-size:14px;align-items:center}
+.vh .da-lista>div>span:first-child{color:var(--ink)}
+.vh .da-lista>div>span:last-child{color:var(--muted);display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.vh .da-lista code{font-size:12px;background:var(--soft);border:1px solid var(--line);border-radius:3px;padding:1px 5px;color:var(--ink)}
+
+/* Menu E-mail (paginas/email.tsx): campos com "Sem limite" ao lado, notas, etiquetas de endereços, filtros */
+.vh .da-campo>input,.vh .da-campo>select,.vh .da-campo>textarea,.vh .em-sel,.vh .em-bloq>input,.vh .em-filtros input,.vh .em-filtros select,.vh .da-max>input,.vh .em-datas input{height:40px;border:1px solid var(--line);border-radius:var(--r);background:var(--card);color:var(--ink);font:inherit;font-size:14px;padding:0 12px}
+.vh .da-campo>input,.vh .da-campo>select,.vh .da-campo>textarea{width:100%}
+.vh .em-txt{width:100%;height:auto!important;min-height:120px;padding:10px 12px!important;resize:vertical;line-height:1.5}
+.vh .da-campo>input:focus,.vh .da-campo>select:focus,.vh .da-campo>textarea:focus,.vh .em-sel:focus,.vh .em-bloq>input:focus,.vh .em-filtros input:focus,.vh .em-filtros select:focus,.vh .da-max>input:focus,.vh .em-datas input:focus{outline:0;border-color:var(--app)}
+.vh .da-campo>select:disabled,.vh .da-campo>textarea:disabled,.vh .em-sel:disabled{background:var(--soft);color:var(--muted)}
+.vh .da-max{display:flex;align-items:center;gap:12px;width:100%}
+.vh .da-max>input,.vh .da-max>.igrp{flex:1;min-width:0}
+.vh .da-max>.chk{white-space:nowrap;flex:none}
+.vh .em-sub{font-size:14px;font-weight:800;margin:18px 0 2px}
+.vh .em-nota{color:var(--muted);font-size:12.5px;line-height:1.5;margin:8px 0 14px}
+.vh .em-chip{display:inline-flex;align-items:center;gap:6px;background:var(--soft);border:1px solid var(--line);border-radius:3px;padding:2px 8px;margin:2px 6px 2px 0;font-size:13px}
+.vh .em-chip i{cursor:pointer;color:var(--muted);font-size:11px}
+.vh .em-chip i:hover{color:var(--red)}
+.vh .em-datas{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.vh .em-datas input{width:100%}
+.vh .em-bloq{display:flex;align-items:center;gap:8px;margin:0 0 14px;flex-wrap:wrap}
+.vh .em-bloq>.em-sel{min-width:150px}
+.vh .em-bloq>input{flex:1;min-width:200px}
+.vh .em-aviso{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.vh .em-opcoes>div{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 0;border-bottom:1px solid var(--line-soft,var(--line));font-size:14px;flex-wrap:wrap}
+.vh .em-opcoes>div>span:first-child{color:var(--ink)}
+.vh .em-radio{display:flex;gap:18px;flex-wrap:wrap;color:var(--ink)}
+.vh .em-radio label{display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+.vh .em-filtros{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+.vh .em-filtros label{display:flex;flex-direction:column;gap:5px;font-size:12.5px;color:var(--muted);font-weight:600}
+.vh .em-filtros input,.vh .em-filtros select{height:36px;min-width:140px}
+.vh .em-log{white-space:nowrap;color:var(--muted)}
+.vh .tag.bad{background:color-mix(in srgb,var(--red) 14%,transparent);color:var(--red)}
+.vh .vh-mailmarketing,.vh .vh-fm-site{min-height:400px}
+
+/* Menu Avançado (paginas/avancado.tsx) e Catch-all */
+.vh .em-catch{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:var(--r);background:var(--card);overflow:hidden;margin-bottom:14px}
+.vh .em-catch>label{display:flex;gap:12px;align-items:flex-start;padding:14px 16px;cursor:pointer}
+.vh .em-catch>label+label{border-top:1px solid var(--line)}
+.vh .em-catch>label.on{background:color-mix(in srgb,var(--app) 7%,transparent)}
+.vh .em-catch>label.mut{cursor:default;opacity:.6}
+.vh .em-catch>label input[type=radio]{margin-top:3px}
+.vh .em-catch>label>span{display:flex;flex-direction:column;gap:4px;flex:1;min-width:0}
+.vh .em-catch small{color:var(--muted);font-size:12.5px;line-height:1.45}
+.vh .em-catch input[type=text],.vh .em-catch input:not([type]){height:38px;border:1px solid var(--line);border-radius:var(--r);background:var(--card);color:var(--ink);font:inherit;padding:0 12px;max-width:420px;margin-top:4px}
+.vh .av-excl{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px 24px;margin-bottom:6px}
+.vh .av-excl h4{font-size:13px;font-weight:800;margin-bottom:6px}
+.vh .av-excl .chk{display:flex;margin:4px 0}
+.vh .av-parte{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px solid var(--line-soft,var(--line))}
+.vh .av-parte small{color:var(--muted);font-size:12px;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:55%}
+.vh .av-sw{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--ink);cursor:pointer}
+.vh .av-sw small{color:var(--muted)}
+.vh .av-cmd{display:inline-block;max-width:420px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle;font-family:ui-monospace,Menlo,monospace;font-size:12.5px;cursor:default}
+.vh code.av-cmd{cursor:copy}
+.vh .av-cron{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+.vh .av-explica{margin:0 0 14px;color:var(--muted);font-size:13px}
+.vh .av-explica b{color:var(--ink)}
+.vh .av-ajuda{margin-top:18px}
+.vh .av-ajuda ul{margin:6px 0 0 18px;line-height:1.7;font-size:12.5px}
+.vh .av-dom{border:1px solid var(--line);border-radius:var(--r);background:var(--card);padding:14px 16px;margin-bottom:14px;overflow-x:auto;max-width:100%}
+.vh .av-dom-h{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;flex-wrap:wrap}
+.vh .av-dom-h b{font-size:14px}
+.vh .av-dom-h b i{color:var(--app);margin-right:4px}
+.vh .av-alvos{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
+.vh .av-alvo{display:flex;flex-direction:column;align-items:flex-start;gap:6px;padding:16px;border:1px solid var(--line);border-radius:var(--r);background:var(--card);color:var(--ink);font:inherit;text-align:left;cursor:pointer}
+.vh button.av-alvo:hover{border-color:var(--app);background:color-mix(in srgb,var(--app) 6%,transparent)}
+.vh .av-alvo>i{font-size:20px;color:var(--app)}
+.vh .av-alvo small{color:var(--muted);font-size:12px}
+.vh .av-alvo.outro{cursor:default;grid-column:span 2}
+.vh .av-alvo.outro .igrp{width:100%}
+
+/* Faixa de navegação (Widgets/Menu no painel inicial; caminho + seletor de domínio nas páginas): de ponta a ponta,
+   sem margens dos lados nem em cima, encostada ao cabeçalho e fixa ao fazer scroll (pedido do Silva, 10/10).
+   Em todas as larguras; as margens negativas são o espaço interior do <main> em cada largura. */
+.vh .da-switcher-bar,.vh .cols .da-switcher-bar{position:sticky;top:76px;z-index:19;margin:-24px -24px 24px -24px;padding:0 24px;height:40px;width:calc(100% + 48px);max-width:none;background:var(--soft);border:0;border-bottom:1px solid var(--line);border-radius:0;box-shadow:none;backdrop-filter:none}
+@media(max-width:1600px){.vh .da-switcher-bar,.vh .cols .da-switcher-bar{margin:-20px -24px 18px -24px;padding:0 24px;width:calc(100% + 48px)}}
+@media(max-width:1300px){.vh .da-switcher-bar,.vh .cols .da-switcher-bar{margin:-18px -20px 16px -20px;padding:0 20px;width:calc(100% + 40px)}}
+@media(max-width:1050px){.vh .da-switcher-bar,.vh .cols .da-switcher-bar{margin:-16px -16px 16px -16px;padding:0 16px;width:calc(100% + 32px)}}
+@media(max-width:768px){.vh .da-switcher-bar,.vh .cols .da-switcher-bar{top:60px;margin:-12px -12px 14px -12px;padding:0 12px;width:calc(100% + 24px)}}
+
+/* No tema escuro a faixa Widgets/Menu (e caminho) tem o mesmo fundo do separador "Gestão" ativo, como no claro
+   (a maquete pintava-a com a cor do cartão e deixava de se distinguir) */
+.vh[data-theme=dark] .da-switcher-bar,.vh[data-theme=dark] .cols .da-switcher-bar{background:var(--soft);border-color:var(--line)}
+/* Separadores Domínios / Registar domínio: barra própria (não fica fixa nem passa por cima da faixa de navegação) */
+.vh .dom-abas{display:flex;align-items:flex-end;height:44px;padding:0 16px;margin:0 0 20px;background:var(--soft);border:1px solid var(--line);border-radius:var(--r) var(--r) 0 0}
+.vh .dom-abas .da-switcher-tabs{height:100%}
+
+/* Domínios: separadores Domínios / Registar domínio no topo do cartão principal, de ponta a ponta (pedido do Silva) */
+.vh .dom-abas-topo{display:flex;align-items:flex-end;gap:4px;height:42px;padding:0 24px;margin:-24px -24px 24px;background:var(--soft);border-bottom:1px solid var(--line);border-radius:var(--r) var(--r) 0 0}
+@media(max-width:768px){.vh .dom-abas-topo{padding:0 12px}}
+/* Registar domínio: o componente do site usa margens do Tailwind, que o painel anula (.vh *{margin:0}) — repor as que ele usa */
+.vh .dom-registar .mt-1{margin-top:4px}.vh .dom-registar .mt-2{margin-top:8px}.vh .dom-registar .mt-5{margin-top:20px}.vh .dom-registar .mt-6{margin-top:28px}.vh .dom-registar .mt-auto{margin-top:auto}
+.vh .dom-registar .mb-2{margin-bottom:8px}.vh .dom-registar .mb-3{margin-bottom:12px}.vh .dom-registar .mb-4{margin-bottom:16px}.vh .dom-registar .mb-6{margin-bottom:24px}.vh .dom-registar .mb-8{margin-bottom:32px}.vh .dom-registar .ml-1{margin-left:4px}
+@media(min-width:640px){.vh .dom-registar .sm\:ml-2{margin-left:8px}}
+
+/* Painel inicial (Widgets): a coluna da direita também dentro de um cartão, igual ao cartão principal (pedido do Silva, 10/10) */
+.vh .cols>.cols-side{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:0 10px 32px rgba(0,0,0,.08);padding:20px;align-self:stretch;min-height:calc(100vh - 120px);display:flex;flex-direction:column;gap:15px}
+.vh .cols>.cols-side>*{margin-top:0!important;margin-bottom:0!important}
+@media(max-width:1050px){.vh .cols>.cols-side{min-height:0;padding:16px}}
+
+/* Sistema e ficheiros (paginas/sistema.tsx): gestor de ficheiros, editor, terminal, gráfico mensal, registos */
+.vh .fm-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.vh .fm-caminho{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:13.5px;font-weight:600;min-width:0}
+.vh .fm-caminho a{cursor:pointer;color:var(--ink)}
+.vh .fm-caminho a:hover{color:var(--red)}
+.vh .fm-caminho i.fa-chevron-right{font-size:9px;color:var(--muted);margin-right:6px}
+.vh .fm-caminho i.fa-house{color:var(--app)}
+.vh .fm-nome{display:inline-flex;align-items:center;gap:8px;color:var(--ink);cursor:default;word-break:break-all}
+.vh .fm-nome.lk{cursor:pointer}
+.vh .fm-nome i{width:16px;text-align:center;color:var(--muted)}
+.vh .fm-nome i.pasta{color:#e0a526}
+.vh .fm-perm{width:100%;border-collapse:collapse}
+.vh .fm-perm th,.vh .fm-perm td{padding:6px 8px;text-align:center;border-bottom:1px solid var(--line);background:none;text-transform:none;letter-spacing:0;font-size:13px}
+.vh .fm-perm td:first-child{text-align:left;font-weight:600}
+.vh .fm-ficheiro{font-size:12.5px;word-break:break-all}
+.vh .fm-editor{width:100%;min-height:calc(100vh - 330px);border:1px solid var(--line);border-radius:var(--r);background:var(--card);color:var(--ink);font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;line-height:1.55;padding:12px 14px;resize:vertical;tab-size:2;white-space:pre}
+.vh .fm-editor:focus{outline:0;border-color:var(--app)}
+.vh .term{background:#0d1117;color:#e6edf3;border-radius:var(--r);padding:14px 16px;min-height:calc(100vh - 340px);max-height:calc(100vh - 260px);overflow:auto;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;line-height:1.5;cursor:text}
+.vh .term pre{margin:2px 0 10px;white-space:pre-wrap;word-break:break-word;color:#c9d1d9;font:inherit}
+.vh .term pre.term-err{color:#ffa198}
+.vh .term-cmd{display:flex;align-items:center;gap:8px}
+.vh .term-ps{color:#7ee787;white-space:nowrap}
+.vh .term-cmd input{flex:1;min-width:0;background:none;border:0;outline:0;color:#e6edf3;font:inherit;padding:0}
+.vh .st-graf{display:flex;align-items:flex-end;gap:10px;height:140px;padding:10px 4px 0;margin-bottom:16px;border-bottom:1px solid var(--line)}
+.vh .st-graf>div{flex:1;max-width:70px;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:6px}
+.vh .st-graf>div>span{width:100%;background:color-mix(in srgb,var(--red) 75%,transparent);border-radius:3px 3px 0 0}
+.vh .st-graf small{font-size:11px;color:var(--muted);white-space:nowrap}
+.vh .log-txt{background:var(--soft);border:1px solid var(--line);border-radius:var(--r);padding:12px;max-height:calc(100vh - 330px);overflow:auto;font-size:12px;line-height:1.5;white-space:pre-wrap;word-break:break-all}
+
+/* Espaço no fim das páginas de gestão, para o quadro "Maquete" (canto inferior direito) não tapar os botões */
+.vh main>.tema-pg,.vh main>.da-sec:last-child,.vh main>.frm:last-child,.vh main>.acoes-topo:last-child,.vh main>.tabcard:last-child,.vh main>.tbl.dt:last-child,.vh main>.passo:last-child{margin-bottom:110px}
+
+@media(max-width:768px){
+ .vh .frm-row{grid-template-columns:1fr;gap:6px;padding:10px 14px}
+ .vh .frm-head,.vh .frm-foot,.vh .feats>label{padding-left:14px;padding-right:14px}
+ .vh .dt-bar .search{max-width:none;flex:1 1 100%}
+ .vh .dt-bar .dt-pesq{flex:1 1 160px;width:auto}
+ .vh .dt-bar.com-cab>.ptabs{flex:1 1 100%}
+ .vh .tabcard>.tc{padding:12px}
+ /* na barra de cima do telemóvel só fica o botão principal da página */
+ .vh #pageact .btn.sec-m{display:none}
+ .vh .feats{grid-template-columns:1fr}
+ .vh .da-lin.n2,.vh .da-lin.n3{grid-template-columns:1fr}
+ .vh .da-cel+.da-cel{border-left:0;border-top:1px solid var(--line)}
+ .vh .da-privs .privs,.vh .da-ops{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .vh .da-dar{padding-left:14px}
+ .vh .da-tbl td.acoes .dns-acoes{flex-wrap:wrap}
+ .vh .em-datas{grid-template-columns:1fr}
+ .vh .av-cron{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .vh .av-alvo.outro{grid-column:auto}
+ .vh .av-cmd{max-width:180px}
+ .vh .em-filtros label,.vh .em-filtros input,.vh .em-filtros select{flex:1 1 100%;min-width:0}
+}

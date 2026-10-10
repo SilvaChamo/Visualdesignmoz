@@ -184,6 +184,8 @@ jobs:
             # Nameservers deste servidor (Hestia do Contabo). O Hetzner usa ns1/ns2;
             # um domínio nunca deve misturar os dois pares (ver visualdesign-dns.ts).
             set_env_var NEXT_PUBLIC_VD_NAMESERVERS "ns3.visualdesignmoz.com,ns4.visualdesignmoz.com"
+            # Painel VisualHost (/vhost): alterações às contas do servidor ligadas para todas as contas (aprovado pelo Silva, 10/10/2026)
+            set_env_var VHOST_ACOES_TODAS "1"
             # O projecto pede Node 24 (package.json "engines"); com o Node do
             # sistema o build falhava. Instala o Node oficial (com verificação
             # do checksum) só se ainda não existir. Vem do commit 8dc91244.

@@ -336,3 +336,46 @@ export function uploadFileViaSsh(remotePath: string, fileData: Buffer | import('
     });
   });
 }
+
+/** Lê um ficheiro do servidor aos poucos (ex.: descarregar uma cópia de segurança grande sem a guardar em memória).
+ *  No servidor lê direto do disco; fora dele, por `ssh … cat`. Com `comoUtilizador`, a leitura é feita por esse
+ *  utilizador (`sudo -u … cat`), para nunca ler o que ele próprio não pode ler (ex.: um atalho trocado à pressa). */
+export function streamServerFile(remotePath: string, comoUtilizador?: string): import('stream').Readable {
+  const { spawn } = require('child_process') as typeof import('child_process');
+  const { PassThrough } = require('stream') as typeof import('stream');
+  if (comoUtilizador && !/^[a-z0-9][a-z0-9_.-]{0,31}$/.test(comoUtilizador)) throw new Error('Utilizador inválido');
+  if (useLocalServerExec()) {
+    if (!comoUtilizador) return fs.createReadStream(remotePath);
+    const local = new PassThrough();
+    const p = spawn('sudo', ['-u', comoUtilizador, 'cat', '--', remotePath]);
+    p.stdout.pipe(local);
+    p.on('close', (code) => code && local.destroy(new Error('Leitura do ficheiro falhou')));
+    local.on('close', () => p.kill());
+    return local;
+  }
+  const out = new PassThrough();
+  const opts = getSshConnectOptions();
+  const keyPath = resolveSshKeyPath();
+  let tempKeyPath: string | undefined;
+  let identityArg: string[];
+  if (keyPath) identityArg = ['-i', keyPath];
+  else {
+    const key = resolveSshPrivateKey();
+    if (!key) {
+      out.destroy(new Error('Chave SSH indisponível'));
+      return out;
+    }
+    tempKeyPath = path.join(os.tmpdir(), `vd-ssh-${process.pid}-${Date.now()}.key`);
+    fs.writeFileSync(tempKeyPath, key, { mode: 0o600 });
+    identityArg = ['-i', tempKeyPath];
+  }
+  const quoted = `'${remotePath.replace(/'/g, `'\\''`)}'`;
+  const p = spawn('ssh', [...identityArg, '-p', String(opts.port), '-o', 'StrictHostKeyChecking=no', '-o', 'UserKnownHostsFile=/dev/null', '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=15', `${opts.username}@${opts.host}`, `${comoUtilizador ? `sudo -u ${comoUtilizador} ` : ''}cat -- ${quoted}`]);
+  p.stdout.pipe(out);
+  p.on('close', (code) => {
+    if (tempKeyPath) fs.rm(tempKeyPath, () => undefined);
+    if (code) out.destroy(new Error('Leitura do ficheiro falhou'));
+  });
+  out.on('close', () => p.kill());
+  return out;
+}

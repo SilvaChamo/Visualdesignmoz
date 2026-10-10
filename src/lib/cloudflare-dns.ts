@@ -367,6 +367,32 @@ export async function deleteCloudflareDnsRecord(
   }
 }
 
+/** Altera um registo existente pelo id (PUT), mantendo o "proxied" (nuvem laranja) que já tinha.
+ *  Usado pelo painel VisualHost (Gestão de domínios → DNS → Editar). */
+export async function updateCloudflareDnsRecord(
+  zoneId: string,
+  recordId: string,
+  domain: string,
+  record: CloudflareRecordInput,
+): Promise<{ ok: boolean; error?: string }> {
+  const headers = getCloudflareAuthHeaders();
+  if (!headers) return { ok: false, error: 'Cloudflare não configurada' };
+  if (!CLOUDFLARE_ID_RE.test(zoneId) || !CLOUDFLARE_ID_RE.test(recordId)) return { ok: false, error: 'Id de zona/registo inválido' };
+  try {
+    const atual = await fetch(`${CF_API_BASE}/zones/${zoneId}/dns_records/${recordId}`, { headers });
+    const antes = atual.ok ? ((await atual.json()) as { result?: { proxied?: boolean } }).result : undefined;
+    const content = record.type === 'MX' || record.type === 'CNAME' ? stripTrailingDot(record.content) : record.content;
+    const body: Record<string, unknown> = { type: record.type, name: normalizeRecordName(record.name, domain), content, ttl: record.ttl || 1 };
+    if (record.type === 'MX') body.priority = record.priority ?? 10;
+    if (['A', 'AAAA', 'CNAME'].includes(record.type)) body.proxied = record.proxied ?? antes?.proxied ?? false;
+    const res = await fetch(`${CF_API_BASE}/zones/${zoneId}/dns_records/${recordId}`, { method: 'PUT', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const data = (await res.json().catch(() => ({}))) as { success?: boolean; errors?: { message?: string }[] };
+    return data.success ? { ok: true } : { ok: false, error: data.errors?.[0]?.message || `HTTP ${res.status}` };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : 'Erro ao alterar registo' };
+  }
+}
+
 /** Aponta o domínio (e www, se for o apex da zona) para o IP deste servidor.
  *  Subdomínios (`app.mltmark.com`) gravam o A na zona do domínio pai. */
 export async function pointDomainToServerIp(

@@ -67,7 +67,7 @@ const nextConfig: NextConfig = {
           },
           {
             key: 'Content-Security-Policy',
-            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' *.supabase.co *.google.com accounts.google.com; style-src 'self' 'unsafe-inline' fonts.googleapis.com; img-src 'self' blob: data: *.supabase.co supabase.visualdesignmoz.com visualdesignmoz.com *.visualdesignmoz.com res.cloudinary.com provisualcorporate.co.mz *.provisualcorporate.co.mz *.vercel.app; font-src 'self' fonts.gstatic.com; connect-src 'self' *.supabase.co supabase.visualdesignmoz.com *.google.com accounts.google.com *.visualdesignmoz.com vps.visualdesignmoz.com provisualcorporate.co.mz *.provisualcorporate.co.mz *.vercel.app; frame-src 'self' *.visualdesignmoz.com *.google.com accounts.google.com https://37.27.17.25:8090; object-src 'none';"
+            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' *.supabase.co *.google.com accounts.google.com; style-src 'self' 'unsafe-inline' fonts.googleapis.com; img-src 'self' blob: data: *.gravatar.com *.supabase.co supabase.visualdesignmoz.com visualdesignmoz.com *.visualdesignmoz.com res.cloudinary.com provisualcorporate.co.mz *.provisualcorporate.co.mz *.vercel.app; font-src 'self' fonts.gstatic.com; connect-src 'self' *.supabase.co supabase.visualdesignmoz.com *.google.com accounts.google.com *.visualdesignmoz.com vps.visualdesignmoz.com provisualcorporate.co.mz *.provisualcorporate.co.mz *.vercel.app; frame-src 'self' *.visualdesignmoz.com *.google.com accounts.google.com https://37.27.17.25:8090; object-src 'none';"
           }
         ]
       }
