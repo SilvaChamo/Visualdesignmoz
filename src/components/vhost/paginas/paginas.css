@@ -490,7 +490,8 @@
 .vh .fmda-sep{flex:none;width:1px;height:60px;background:color-mix(in srgb,var(--rail-ink,#fff) 25%,transparent)}
 .vh .fmda-voltar{flex:none}
 .vh .fmda-corpo{flex:1;display:flex;min-height:0}
-.vh .fmda-arvore{flex:none;width:360px;border-right:1px solid var(--line);overflow:auto;padding:8px 5px}
+/* barra dos domínios do gestor: encolhe nos portáteis pequenos (360 px nos ecrãs grandes, até 220 px) */
+.vh .fmda-arvore{flex:none;width:clamp(220px,19vw,360px);border-right:1px solid var(--line);overflow:auto;padding:8px 5px}
 .vh .fmda-raiz{display:flex;align-items:center;gap:14px;height:30px;padding:0 18px;border-radius:4px;background:color-mix(in srgb,var(--red) 72%,#fff);color:#fff;font-weight:500;font-size:15px;cursor:pointer}
 .vh .fmda-raiz.on{background:color-mix(in srgb,var(--red) 88%,#fff)}
 .vh .fmda-lixo{margin-top:4px}
@@ -801,3 +802,17 @@
 .vh .doms-mais:hover{color:var(--red);text-decoration:underline}
 /* Barra do topo: um botão pequeno ali fica com a altura dos outros (estava desalinhado) */
 .vh .topact .btn.sm{height:34px;padding:0 12px;font-size:13.5px}
+/* Separadores Widgets | Menu: uma linha vertical entre os dois */
+.vh .da-sw-tab+.da-sw-tab{position:relative}
+.vh .da-sw-tab+.da-sw-tab::before{content:"";position:absolute;left:0;top:11px;bottom:11px;width:1px;background:var(--line)}
+/* Formulários do Perfil e do Suporte (.frm com .row/.field): como os outros do painel e do DA — uma linha por campo, título
+   à esquerda e campo à direita, botões no rodapé do cartão */
+.vh .frm .row{display:contents}
+.vh .frm .field{display:grid;grid-template-columns:280px minmax(0,1fr);gap:20px;align-items:center;padding:10px 18px;border-top:1px solid var(--line-soft)}
+.vh .frm>.field:first-child,.vh .frm>.row:first-child>.field:first-child{border-top:0}
+.vh .frm .field>label{font-weight:600;font-size:13.5px;line-height:1.3;margin:0}
+.vh .frm .field>:not(label){width:100%;max-width:560px}
+.vh .frm .field:has(textarea){align-items:start}
+.vh .frm .field:has(textarea)>label{padding-top:10px}
+.vh .frm>.mfoot{display:flex;gap:8px;padding:14px 18px;margin:0;border-top:1px solid var(--line);background:var(--soft);border-radius:0 0 var(--r) var(--r)}
+@media(max-width:768px){.vh .frm .field{grid-template-columns:1fr;gap:6px;padding:10px 14px}}

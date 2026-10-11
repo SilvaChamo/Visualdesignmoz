@@ -25,6 +25,10 @@ const H = '/usr/local/hestia/bin';
 const b64 = (s: string) => Buffer.from(s, 'utf8').toString('base64');
 const q = (s: string) => `'${s.replace(/'/g, `'\\''`)}'`;
 const ADMINS_DO_SERVIDOR = new Set(['admin', 'root']);
+// Progresso dos envios aos bocados, contado aqui à medida que os bytes passam para o servidor: a janela pergunta a cada
+// segundo e a resposta não espera pelo SSH (no painel local, o SSH ocupado com o bocado fazia a percentagem andar aos
+// saltos de um bocado inteiro — pedido do Silva: "mostrar o processo 1 a 1%, mesmo com gigas")
+const progressoEnvio = new Map<string, { dono: string; conta: string; base: number; feitos: number; ate: number }>();
 
 type Sessao = { userId: string; email: string; role: string };
 
@@ -73,6 +77,11 @@ export async function GET(req: NextRequest) {
   const conta = sp.get('conta') || '';
   const ver = sp.get('ver') || '';
   const d = sp.get('d') ? (sp.get('d') || '').toLowerCase() : null;
+  // progresso de um envio desta sessão: responde já, sem ler o servidor (nem esperar pelo SSH ocupado com o envio)
+  if (ver === 'envio') {
+    const p = progressoEnvio.get(sp.get('id') || '');
+    if (p && p.dono === r.s.userId && p.conta === conta) return NextResponse.json({ bytes: p.base + p.feitos }, { headers: { 'Cache-Control': 'no-store' } });
+  }
   const srv = await lerServidor();
   const e = await verificar(r.s, conta, d, srv);
   if (e) return NextResponse.json({ erro: e }, { status: 403 });
@@ -203,14 +212,28 @@ export async function POST(req: NextRequest) {
     if (inicio === 0) await executeServerCommand(`install -d -m 700 ${dir} && rm -f ${junto} && find ${dir} -maxdepth 1 -type f -mmin +240 -delete`, { timeoutMs: 20_000 });
     // cada bocado continua exatamente onde o anterior acabou (senão o ficheiro ficava trocado)
     else if ((await tam()) !== inicio) return NextResponse.json({ erro: 'O envio perdeu-se a meio; volte a tentar.' }, { status: 409 });
+    // conta os bytes deste bocado à medida que seguem para o servidor (é o que a janela mostra, 1 % de cada vez)
+    const prog = { dono: r.s.userId, conta, base: inicio, feitos: 0, ate: Date.now() + 6 * 3600_000 };
+    for (const [k, v] of progressoEnvio) if (v.ate < Date.now()) progressoEnvio.delete(k);
+    progressoEnvio.set(envio, prog);
+    const contador = new TransformStream<Uint8Array, Uint8Array>({
+      transform(pedaco, ctl) {
+        prog.feitos += pedaco.byteLength;
+        ctl.enqueue(pedaco);
+      },
+    });
     try {
-      await uploadFileViaSsh(`${junto}.p`, req.body ? (req.body as unknown as import('stream/web').ReadableStream) : Buffer.alloc(0));
+      await uploadFileViaSsh(`${junto}.p`, req.body ? (req.body.pipeThrough(contador) as unknown as import('stream/web').ReadableStream) : Buffer.alloc(0));
       await executeServerCommand(`cat ${junto}.p >> ${junto} && rm -f ${junto}.p`, { timeoutMs: 120_000 });
+      prog.base = inicio + prog.feitos;
+      prog.feitos = 0;
     } catch {
+      progressoEnvio.delete(envio);
       await executeServerCommand(`rm -f ${junto} ${junto}.p`, { timeoutMs: 20_000 });
       return NextResponse.json({ erro: 'O envio falhou; volte a tentar.' }, { status: 500 });
     }
     if (req.headers.get('x-vh-fim') !== '1') return NextResponse.json({ ok: true });
+    progressoEnvio.delete(envio);
     const nome = decodeURIComponent(req.headers.get('x-vh-nome') || '');
     const pasta = decodeURIComponent(req.headers.get('x-vh-pasta') || '');
     if ((await tam()) !== total) {
