@@ -600,8 +600,9 @@ function temaScreen(vh: VH): Screen {
 export const SCREENS: Record<string, ScreenFn> = {
   'admin/inicio': home('Painel do servidor', AdminWidgets, newClientBtn),
   'revenda/inicio': home('Painel de revenda', RevendaWidgets, newClientBtn),
+  // botão principal do topo: com a cor do tema e a altura dos outros (como "Novo cliente" no Admin)
   'utilizador/inicio': home('Painel', UserWidgets, (vh) => (
-    <button className="btn g sm" onClick={() => vh.nav('/utilizador/dominios/novo')}>
+    <button className="btn r" onClick={() => vh.nav('/utilizador/dominios/novo')}>
       <i className="fa-solid fa-plus" />
       {vh.t('Adicionar domínio')}
     </button>

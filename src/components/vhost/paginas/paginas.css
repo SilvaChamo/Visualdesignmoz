@@ -613,13 +613,22 @@
 .vh[data-theme=dark] .da-lado{box-shadow:0 12px 36px rgba(0,0,0,.35)}
 .vh .em-lado-stats{grid-template-columns:1fr;margin:0;gap:6px}
 .vh .em-lado-stats .stat{border:0;background:none;box-shadow:none;border-radius:0;padding:10px 2px 14px}
+/* coluna da direita dos e-mails: uma linha suave por baixo de cada indicador (quando estão uns por baixo dos outros) */
+.vh .em-lado-stats .stat{border-bottom:1px solid var(--line)}
+@media(max-width:1700px){.vh .em-lado-stats .stat{border-bottom:0}}
 .vh .em-lado-botoes{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .vh .em-lado-botoes .btn{justify-content:center;white-space:nowrap}
 /* ecrãs mais estreitos: a coluna passa para baixo da tabela, com os números lado a lado (a tabela fica inteira) */
 @media(max-width:1700px){.vh .da-com-lado{grid-template-columns:1fr;grid-template-rows:auto 1fr}.vh .da-com-lado>.da-main-card{min-height:0}.vh .da-lado{min-height:0;order:-1}.vh .em-lado-stats{grid-template-columns:repeat(4,1fr)}.vh .em-lado-botoes{grid-template-columns:repeat(4,max-content);justify-content:end}}
 @media(max-width:900px){.vh .em-lado-stats{grid-template-columns:repeat(2,1fr)}.vh .em-lado-botoes{grid-template-columns:1fr 1fr}}
-/* Espaço de 24px à volta do cartão principal (em cima, à esquerda e à direita), em todas as larguras de computador */
-@media(min-width:769px){.vh main{padding-top:24px;padding-left:24px;padding-right:24px}}
+/* Espaço de 20 px à volta do cartão principal (em cima, à esquerda e à direita) e entre ele e a coluna da direita, em todas
+   as larguras de computador (pedido do Silva: mais compacto); a barra do seletor acompanha e a coluna da direita sobe junto */
+@media(min-width:769px){
+  .vh main{padding-top:20px;padding-left:20px;padding-right:20px}
+  .vh .da-switcher-bar,.vh .cols .da-switcher-bar{margin:-20px -20px 20px -20px;padding:0 20px;width:calc(100% + 40px)}
+  .vh .cols{gap:20px;padding-top:0}
+  .vh .da-com-lado{gap:20px}
+}
 /* Gestor de ficheiros: caminho e barra de ações ficam presos por baixo da barra de cima ao deslizar */
 .vh .fmda-fixa{position:sticky;top:0;z-index:6;background:var(--card)}
 .vh .fmda-fixa .fmda-acoes{background:var(--card)}
@@ -790,3 +799,5 @@
 /* "+2 mais" nos domínios de uma conta: abre a lista toda */
 .vh .doms-mais{border:0;background:none;padding:0;font:inherit;font-size:12px;color:var(--muted);cursor:pointer;text-align:left}
 .vh .doms-mais:hover{color:var(--red);text-decoration:underline}
+/* Barra do topo: um botão pequeno ali fica com a altura dos outros (estava desalinhado) */
+.vh .topact .btn.sm{height:34px;padding:0 12px;font-size:13.5px}

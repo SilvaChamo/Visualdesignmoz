@@ -16,6 +16,15 @@ name: Deploy to Contabo (teste)
 
 on:
   workflow_dispatch:
+  # cada push no ramo de trabalho publica sozinho no teste (pedido do Silva, 11/10/2026)
+  push:
+    branches:
+      - fix/contabo-websites-audit
+
+# uma publicação de cada vez: um push novo espera que a anterior acabe
+concurrency:
+  group: deploy-contabo-teste
+  cancel-in-progress: false
 
 jobs:
   deploy:
