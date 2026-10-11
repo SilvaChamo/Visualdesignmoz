@@ -78,6 +78,10 @@ export async function installWordPressSite(input: {
   if (!site) return { ok: false, output: 'Domínio não encontrado no servidor.' };
 
   const subdir = (input.directory || '').replace(/^\/+|\/+$/g, '');
+  // só uma subpasta do site (letras, números, ponto, hífen e _; sem "..")
+  if (subdir && (!/^[A-Za-z0-9._/-]{1,120}$/.test(subdir) || subdir.split('/').some((x) => !x || x === '.' || x === '..'))) {
+    return { ok: false, output: 'Pasta inválida.' };
+  }
   const wpPath = subdir ? `${site.path}/${subdir}` : site.path;
   const configPath = `${wpPath}/wp-config.php`;
 
@@ -88,7 +92,8 @@ export async function installWordPressSite(input: {
     return { ok: false, output: 'WordPress já está instalado neste caminho.' };
   }
 
-  await executeServerCommand(`mkdir -p ${shellQuote(wpPath)} && chown ${shellQuote(site.user)}:${shellQuote(site.user)} ${shellQuote(wpPath)}`);
+  // criada como o dono do site (nunca root + chown dentro da pasta do cliente)
+  await executeServerCommand(`sudo -u ${shellQuote(site.user)} mkdir -p ${shellQuote(wpPath)}`);
 
   const proto = input.protocol === 'http' ? 'http' : 'https';
   const url = subdir
@@ -517,7 +522,9 @@ if ($user) {
 `;
 
   const base64Content = Buffer.from(phpContent).toString('base64');
-  const writeCmd = `echo '${base64Content}' | base64 -d > ${shellQuote(filePath)} && chown ${shellQuote(install.user)}:${shellQuote(install.user)} ${shellQuote(filePath)}`;
+  // escrito como o dono do site (nunca root + chown: a pasta é do cliente e uma ligação simbólica posta lá
+  // faria o root mudar o dono de um ficheiro do sistema)
+  const writeCmd = `echo '${base64Content}' | base64 -d | sudo -u ${shellQuote(install.user)} sh -c 'cat > "$1"' _ ${shellQuote(filePath)}`;
 
   try {
     await executeServerCommand(writeCmd);

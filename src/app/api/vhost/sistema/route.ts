@@ -52,8 +52,9 @@ const json = <T,>(t: string | undefined, vazio: T): T => {
 };
 
 /** Corre o gestor de ficheiros como o utilizador da conta e devolve a resposta (ou { erro }) */
-async function fm(conta: string, args: Record<string, unknown>): Promise<Record<string, unknown>> {
-  const out = await executeServerCommand(`sudo -u ${conta} -H python3 -c "$(echo ${b64(FM_PY)} | base64 -d)" ${b64(JSON.stringify({ conta, ...args }))} 2>&1`, { timeoutMs: 120_000 });
+async function fm(conta: string, args: Record<string, unknown>, entrada?: string): Promise<Record<string, unknown>> {
+  // `entrada`: ficheiro (pasta só do root) lido pela entrada do programa e apagado a seguir — para textos grandes
+  const out = await executeServerCommand(`sudo -u ${conta} -H python3 -c "$(echo ${b64(FM_PY)} | base64 -d)" ${b64(JSON.stringify({ conta, ...args, ...(entrada ? { stdin: true } : {}) }))}${entrada ? ' < ' + entrada : ''} 2>&1${entrada ? '; rm -f ' + entrada : ''}`, { timeoutMs: 120_000 });
   const l = out.split('\n').reverse().find((x) => x.trim().startsWith('{'));
   return json<Record<string, unknown>>(l, { erro: out.slice(0, 200) || 'Sem resposta do servidor.' });
 }
@@ -170,6 +171,49 @@ export async function POST(req: NextRequest) {
   if ('erro' in r) return r.erro;
   const srv = await lerServidor();
 
+  // carregar um ficheiro aos bocados de 16 MB (como o envio do gestor do site: o ficheiro vai em bruto, sem formulário,
+  // e pode ser grande). Os bocados juntam-se numa pasta só do root; no último, o ficheiro passa para a pasta escolhida
+  // como o utilizador da conta (o programa do gestor valida o destino)
+  const envio = req.headers.get('x-vh-up');
+  if (envio) {
+    const conta = req.headers.get('x-vh-conta') || '';
+    const e = await verificar(r.s, conta, null, srv);
+    if (e) return NextResponse.json({ erro: e }, { status: 403 });
+    const inicio = Number(req.headers.get('x-vh-inicio'));
+    const total = Number(req.headers.get('x-vh-total'));
+    if (!/^[a-f0-9]{24}$/.test(envio) || !Number.isSafeInteger(inicio) || inicio < 0 || !Number.isSafeInteger(total) || total < 0) return NextResponse.json({ erro: 'Envio inválido.' }, { status: 400 });
+    if (total > 10 * 1024 ** 3) return NextResponse.json({ erro: 'Cada ficheiro pode ter até 10 GB.' }, { status: 400 });
+    const dir = '/var/tmp/vhost-up';
+    const junto = `${dir}/${envio}`;
+    const tam = async () => Number((await executeServerCommand(`stat -c %s ${junto} 2>/dev/null || echo 0`, { timeoutMs: 20_000 })).trim()) || 0;
+    if (inicio === 0) await executeServerCommand(`install -d -m 700 ${dir} && rm -f ${junto} && find ${dir} -maxdepth 1 -type f -mmin +240 -delete`, { timeoutMs: 20_000 });
+    // cada bocado continua exatamente onde o anterior acabou (senão o ficheiro ficava trocado)
+    else if ((await tam()) !== inicio) return NextResponse.json({ erro: 'O envio perdeu-se a meio; volte a tentar.' }, { status: 409 });
+    try {
+      await uploadFileViaSsh(`${junto}.p`, req.body ? (req.body as unknown as import('stream/web').ReadableStream) : Buffer.alloc(0));
+      await executeServerCommand(`cat ${junto}.p >> ${junto} && rm -f ${junto}.p`, { timeoutMs: 120_000 });
+    } catch {
+      await executeServerCommand(`rm -f ${junto} ${junto}.p`, { timeoutMs: 20_000 });
+      return NextResponse.json({ erro: 'O envio falhou; volte a tentar.' }, { status: 500 });
+    }
+    if (req.headers.get('x-vh-fim') !== '1') return NextResponse.json({ ok: true });
+    const nome = decodeURIComponent(req.headers.get('x-vh-nome') || '');
+    const pasta = decodeURIComponent(req.headers.get('x-vh-pasta') || '');
+    if ((await tam()) !== total) {
+      await executeServerCommand(`rm -f ${junto}`, { timeoutMs: 20_000 });
+      return NextResponse.json({ erro: 'O ficheiro chegou incompleto; volte a tentar.' }, { status: 400 });
+    }
+    // passa para /tmp com um nome novo (mktemp) e fica do utilizador, que o move para a pasta escolhida
+    const tmp = (await executeServerCommand(`t=$(mktemp /tmp/vhost-up-XXXXXXXXXXXX) && mv -f ${junto} "$t" && chown ${conta}:${conta} "$t" && chmod 600 "$t" && echo "$t"`, { timeoutMs: 120_000 })).trim().split('\n').pop() || '';
+    if (!/^\/tmp\/vhost-up-[A-Za-z0-9]{12}$/.test(tmp)) return NextResponse.json({ erro: 'Não foi possível guardar o ficheiro.' }, { status: 500 });
+    const x = await fm(conta, { op: 'colocar', pasta, nome, tmp, substituir: req.headers.get('x-vh-substituir') === '1' });
+    if (x.erro) {
+      await executeServerCommand(`rm -f ${tmp}`, { timeoutMs: 20_000 });
+      return NextResponse.json({ erro: String(x.erro) }, { status: 400 });
+    }
+    return NextResponse.json({ ok: true });
+  }
+
   // carregar ficheiros (formulário com os ficheiros)
   if ((req.headers.get('content-type') || '').includes('multipart/form-data')) {
     const f = await req.formData();
@@ -212,9 +256,15 @@ export async function POST(req: NextRequest) {
   if (ops[acao]) {
     const permitido = ['pasta', 'nome', 'caminho', 'caminhos', 'destino', 'modo', 'novo', 'definitivo', 'ids'];
     const args: Record<string, unknown> = Object.fromEntries(Object.entries(c).filter(([k]) => permitido.includes(k)));
-    if (acao === 'fm-guardar') args.texto64 = Buffer.from(String(c.texto ?? ''), 'utf8').toString('base64');
     if (acao === 'fm-guardar' && String(c.texto ?? '').length > 2 * 1024 * 1024) return recusa('O texto passa de 2 MB.');
-    const x = await fm(conta, { op: ops[acao], ...args });
+    // o texto do editor vai num ficheiro (um comando não pode passar de ~128 KB) e entra pela entrada do programa
+    let entrada: string | undefined;
+    if (acao === 'fm-guardar') {
+      entrada = '/var/tmp/vhost-up/ed-' + Array.from(crypto.getRandomValues(new Uint8Array(12)), (x) => x.toString(16).padStart(2, '0')).join('');
+      await executeServerCommand('install -d -m 700 /var/tmp/vhost-up', { timeoutMs: 20_000 });
+      await uploadFileViaSsh(entrada, Buffer.from(String(c.texto ?? ''), 'utf8'));
+    }
+    const x = await fm(conta, { op: ops[acao], ...args }, entrada);
     return x.erro ? recusa(String(x.erro)) : NextResponse.json({ ok: true });
   }
 

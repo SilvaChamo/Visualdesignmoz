@@ -89,7 +89,7 @@ try:
         if a.get('novo') and os.path.lexists(p): erro('Já existe um ficheiro com esse nome.')
         if os.path.isdir(p): erro('É uma pasta.')
         tmp = p + '.vhost-tmp'
-        open(tmp, 'wb').write(base64.b64decode(a.get('texto64', '')))
+        open(tmp, 'wb').write(sys.stdin.buffer.read() if a.get('stdin') else base64.b64decode(a.get('texto64', '')))
         if os.path.exists(p): shutil.copymode(p, tmp)
         os.replace(tmp, p)
         fim({'ok': True})
@@ -262,6 +262,7 @@ try:
         pasta = seguro(a.get('pasta'))
         dest = seguro(os.path.join(rel(pasta), nome_ok(a['nome'])), existe=False)
         if os.path.isdir(dest): erro('Já existe uma pasta com esse nome.')
+        if a.get('substituir') is False and os.path.lexists(dest): erro('Já existe um ficheiro com esse nome.')
         tmp = a['tmp']
         if not tmp.startswith('/tmp/vhost-up-') or '/' in tmp[len('/tmp/'):]: erro('Envio inválido.')
         shutil.move(tmp, dest)

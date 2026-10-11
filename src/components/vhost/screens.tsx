@@ -31,6 +31,12 @@ export interface Screen {
   crumbs?: Crumb[];
   /** descrição na barra de cima (por defeito: a da página, em DESC) */
   desc?: string;
+  /** domínios do seletor nesta página: 'sites' = só os que têm site neste servidor (por defeito: todos) */
+  dominios?: 'sites';
+  /** página de um domínio que está no endereço: o seletor mostra esse domínio e, ao mudar, abre a mesma página do novo */
+  dominioUrl?: { d: string; ir: (novo: string) => string };
+  /** cartão à direita do cartão principal (ex.: números e botões de Contas de e-mail) */
+  lado?: ReactNode;
 }
 export type ScreenFn = (vh: VH) => Screen;
 

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Readable } from 'stream';
 import { requirePanelBootstrapAccess } from '@/lib/panel-api-auth';
-import { executeServerCommand, streamServerFile } from '@/lib/server-ssh-exec';
+import { executeServerCommand, streamServerFile, uploadFileViaSsh } from '@/lib/server-ssh-exec';
 import { hestiaCall } from '@/lib/hestia-client';
 import * as hestia from '@/lib/hestia-adapter';
 import { generateWpAutoLoginToken, installWordPressSite, listWpPlugins, listWpUsers, toggleWpPlugin, updateAllWpPlugins, updateWpPlugin, updateWpUserPassword } from '@/lib/wp-cli-server';
@@ -233,6 +233,60 @@ export async function GET(req: NextRequest) {
       const v = (k: string) => (out.match(new RegExp('@@' + k + '=(.*)')) || [])[1]?.trim() || '';
       if (!v('DB_NAME')) return NextResponse.json({ erro: 'WordPress não encontrado neste domínio.' }, { status: 400 });
       return ok({ nome: v('DB_NAME'), user: v('DB_USER'), host: v('DB_HOST'), prefixo: v('table_prefix'), daConta: Object.prototype.hasOwnProperty.call(srv.db[conta] || {}, v('DB_NAME')) });
+    }
+    case 'wppaginas': {
+      // separador "Páginas" do Gerir WordPress: as páginas do site (e quais foram feitas com o Elementor)
+      if (!d) return NextResponse.json({ erro: 'Escolha o domínio.' }, { status: 400 });
+      const raiz = raizSite(srv, conta, d);
+      const wp = `sudo -u ${conta} /usr/local/bin/wp --path=${q(raiz)} --skip-plugins --skip-themes`;
+      const out = await executeServerCommand(
+        `echo @@P; ${wp} post list --post_type=page --post_status=publish,draft,pending,private,future --orderby=title --order=asc --fields=ID,post_title,post_status,post_modified,post_name,url --format=json 2>/dev/null; echo; echo @@E; ${wp} post list --post_type=page --post_status=any --meta_key=_elementor_edit_mode --meta_value=builder --format=ids 2>/dev/null`,
+        { timeoutMs: 40_000 },
+      );
+      const parte = (k: string) => (out.split('@@' + k)[1] || '').split('@@')[0].trim();
+      let paginas: Record<string, unknown>[] = [];
+      try {
+        paginas = JSON.parse(parte('P') || '[]');
+      } catch {
+        return NextResponse.json({ erro: 'WordPress não encontrado neste domínio.' }, { status: 400 });
+      }
+      const elementor = parte('E').split(/\s+/).filter(Boolean).map(Number);
+      return ok({ paginas: paginas.map((x) => ({ ...x, elementor: elementor.includes(Number(x.ID)) })) });
+    }
+    case 'wpidioma': {
+      // traduções do editor de blocos que o próprio site já tem (wp-content/languages/<língua>-*.json): com o site em
+      // português, o editor do painel aparece em português, como no WordPress
+      if (!d) return NextResponse.json({ erro: 'Escolha o domínio.' }, { status: 400 });
+      const raiz = raizSite(srv, conta, d);
+      const out = await executeServerCommand(
+        `l=$(sudo -u ${conta} /usr/local/bin/wp --path=${q(raiz)} --skip-plugins --skip-themes option get WPLANG 2>/dev/null); case "$l" in ''|*[!A-Za-z_]*) exit 0;; esac; echo "@@L$l"; ` +
+          `for f in ${q(raiz)}/wp-content/languages/"$l"-*.json; do [ -f "$f" ] && { echo @@F; sudo -u ${conta} cat -- "$f"; }; done`,
+        { timeoutMs: 40_000 },
+      );
+      const lingua = (out.match(/@@L([A-Za-z_]+)/) || [])[1] || '';
+      const mensagens: Record<string, unknown> = {};
+      for (const parte of out.split('@@F').slice(1)) {
+        try {
+          const j = JSON.parse(parte.trim()) as { source?: string; locale_data?: Record<string, Record<string, unknown>> };
+          if (!/dist\/(block-editor|block-library|blocks|components|format-library|rich-text|keyboard-shortcuts)\b/.test(j.source || '')) continue;
+          const m = j.locale_data?.messages || j.locale_data?.default || {};
+          Object.assign(mensagens, m, mensagens[''] ? {} : { '': m[''] });
+        } catch {}
+      }
+      return ok({ lingua, mensagens });
+    }
+    case 'wppagina': {
+      // uma página para o editor de blocos do painel (o texto tal como o WordPress o guarda)
+      const id = Number(sp.get('id'));
+      if (!d || !Number.isSafeInteger(id) || id <= 0) return NextResponse.json({ erro: 'Página inválida.' }, { status: 400 });
+      const raiz = raizSite(srv, conta, d);
+      const out = await executeServerCommand(`sudo -u ${conta} /usr/local/bin/wp --path=${q(raiz)} --skip-plugins --skip-themes post get ${id} --fields=ID,post_title,post_status,post_type,post_content,url --format=json 2>/dev/null`, { timeoutMs: 40_000 });
+      let p: Record<string, unknown> = {};
+      try {
+        p = JSON.parse(out.slice(out.indexOf('{')));
+      } catch {}
+      if (p.post_type !== 'page') return NextResponse.json({ erro: 'Página não encontrada.' }, { status: 404 });
+      return ok({ id: p.ID, titulo: p.post_title, estado: p.post_status, conteudo: p.post_content, url: p.url });
     }
     case 'clamav': {
       const out = await executeServerCommand(
@@ -549,7 +603,10 @@ export async function POST(req: NextRequest) {
         { timeoutMs: 30_000 },
       ).catch(() => '');
       if (!visto.includes(prova)) return recusa(d + ' ainda abre noutro servidor (o DNS ainda não aponta para este). O painel do WordPress abre aqui depois da mudança do DNS.');
-      const x = await generateWpAutoLoginToken(d);
+      // "Entrar" de um utilizador da lista (como "Sign In" no DA); sem utilizador: o primeiro administrador
+      const wpUser = linha(c.user);
+      if (wpUser && !/^[A-Za-z0-9._@ -]{1,60}$/.test(wpUser)) return recusa('Utilizador inválido.');
+      const x = await generateWpAutoLoginToken(d, wpUser || undefined);
       return resposta({ ok: x.success, error: x.error }, false, { url: x.url });
     }
     case 'wp-senha': {
@@ -561,6 +618,29 @@ export async function POST(req: NextRequest) {
       if (senha.length < 8 || /[\r\n]/.test(senha)) return recusa('A palavra-passe precisa de pelo menos 8 caracteres.');
       const x = await updateWpUserPassword(d, user, senha);
       return resposta({ ok: x.ok, error: x.output });
+    }
+    case 'wp-pagina-guardar': {
+      // editor de blocos do painel: guarda o título e o conteúdo da página (como um administrador do site, para o
+      // WordPress não cortar o HTML dos blocos); o texto vai pela entrada do wp, nunca pela linha de comandos
+      if (!d) return recusa('Escolha o domínio.');
+      const id = Number(c.id);
+      const titulo = linha(c.titulo).slice(0, 300);
+      const conteudo = String(c.conteudo ?? '');
+      if (!Number.isSafeInteger(id) || id <= 0) return recusa('Página inválida.');
+      if (conteudo.length > 4 * 1024 * 1024) return recusa('A página passa de 4 MB.');
+      const raiz = raizSite(srv, conta, d);
+      const wp = `sudo -u ${conta} /usr/local/bin/wp --path=${q(raiz)} --skip-plugins --skip-themes`;
+      const tipo = (await executeServerCommand(`${wp} post get ${id} --field=post_type 2>/dev/null`, { timeoutMs: 40_000 })).trim();
+      if (tipo !== 'page') return recusa('Página não encontrada.');
+      // o texto vai num ficheiro numa pasta só do root (um comando não pode passar de ~128 KB) e entra pela entrada do wp
+      const tmp = '/var/tmp/vhost-up/pg-' + Array.from(crypto.getRandomValues(new Uint8Array(12)), (x) => x.toString(16).padStart(2, '0')).join('');
+      await executeServerCommand('install -d -m 700 /var/tmp/vhost-up', { timeoutMs: 20_000 });
+      await uploadFileViaSsh(tmp, Buffer.from(conteudo, 'utf8'));
+      const out = await executeServerCommand(
+        `adm=$(${wp} user list --role=administrator --field=user_login --orderby=ID 2>/dev/null | head -1); ${wp} post update ${id} - ${titulo ? '--post_title=' + q(titulo) : ''} \${adm:+--user="$adm"} < ${tmp} 2>&1; rm -f ${tmp}`,
+        { timeoutMs: 60_000 },
+      );
+      return resposta({ ok: /Success/i.test(out), error: out.slice(0, 300) });
     }
     case 'wp-bd-senha': {
       // nova palavra-passe da base do WordPress: no MySQL (Hestia) e no wp-config.php — a antiga nunca é lida

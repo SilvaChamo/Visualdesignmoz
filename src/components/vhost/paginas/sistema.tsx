@@ -4,6 +4,7 @@
 // por /api/vhost/sistema: Gestor de ficheiros (+ editor), Terminal, Módulos Perl, Informação do sistema,
 // Estatísticas, Resumo do site e registos, Uso de recursos.
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import dynamic from 'next/dynamic';
 import { useVH, type VH } from '../context';
 import type { ScreenFn } from '../screens';
 import { Stat } from '../ui';
@@ -12,6 +13,12 @@ import { Confirmar } from './pacotes';
 import { lerUrl, naMemoria, useGet } from '../carga';
 import { LOGO } from '../state';
 import { lerPref } from './suporte';
+
+/** Editor com cores no código (o mesmo do gestor de ficheiros do site: CodeMirror), carregado só quando se abre um ficheiro */
+const EditorCodigo = dynamic(() => import('@/app/dashboard/FileManagerCodeEditor').then((m) => m.FileManagerCodeEditor), {
+  ssr: false,
+  loading: () => <div className="fmda-codigo-espera" />,
+});
 
 const url = (me: string, ver: string, extra: Record<string, string> = {}) => '/api/vhost/sistema?' + new URLSearchParams({ conta: me, ver, ...extra }).toString();
 
@@ -161,10 +168,13 @@ function PermModal({ inicial, onOk }: { inicial: string; onOk: (m: string) => vo
 
 // ---------- Gestor de ficheiros — igual ao do DirectAdmin (VisualHost/06-da-gestor-de-ficheiros.md) ----------
 // Página inteira (sem o menu do painel): barra de cima com Nova pasta · Novo ficheiro · Carregar · Pesquisar ·
-// Tamanhos das pastas · Voltar ao painel; árvore de pastas à esquerda (Os meus ficheiros … Reciclagem); caminho;
+// Tamanhos das pastas · Voltar ao painel; árvore à esquerda (Os meus domínios … Reciclagem); caminho;
 // barra "Selecionados: n / total" com as ações; tabela Nome · Tamanho · Permissões · Última alteração · UID/GID;
 // botão direito com as mesmas ações. Clique seleciona, duplo clique abre.
 const encC = (c: string) => c.split('/').filter(Boolean).map(encodeURIComponent).join('/');
+/** O que o cliente vê como raiz: a pasta dos domínios da conta (/home/<conta>/web), pedido do Silva a 11/10 — as
+ *  pastas do sistema (mail, conf, tmp…) ficam fora da vista; o gestor abre no domínio do seletor (o principal) */
+const RAIZ_FM = 'web';
 const rotaFm = (c: string) => '/utilizador/ficheiros' + (c ? '/' + encC(c) : '');
 const rotaEditar = (c: string) => '/utilizador/ficheiros/_editar/' + encC(c);
 /** drwxr-xr-x a partir do número (644) e do tipo */
@@ -202,10 +212,10 @@ function IconeFicheiro({ x }: { x: Item }) {
   );
 }
 
-/** Ramo da árvore de pastas: as subpastas de `c` (quem decide se está aberto é RamoFilhos; as pastas do caminho
- *  atual abrem sozinhas, as outras pela seta) */
+/** Ramo da árvore de pastas: as subpastas de `c` (quem decide se está aberto é RamoFilhos: só abre pela seta, pedido
+ *  do Silva a 11/10 — entrar numa pasta não abre a árvore sozinha) */
 function Ramo({ c, nivel, atual, ir }: { c: string; nivel: number; atual: string; ir: (c: string) => void }) {
-  const { me } = useVH();
+  const { me, a } = useVH();
   const [pastas, setPastas] = useState<Item[] | null>(() => naMemoria<{ itens: Item[] }>(url(me, 'ficheiros', { caminho: c }))?.itens.filter((x) => x.pasta) || null);
   useEffect(() => {
     lerUrl<{ itens: Item[] }>(url(me, 'ficheiros', { caminho: c }), { fundo: true })
@@ -213,14 +223,15 @@ function Ramo({ c, nivel, atual, ir }: { c: string; nivel: number; atual: string
       .catch(() => setPastas([]));
   }, [c, me]);
   if (!pastas) return null;
+  const meus = new Set(a.domains.map((d) => d.name));
   return (
     <ul className="fmda-ramo">
-      {pastas.map((x) => {
+      {pastas.filter((x) => c !== RAIZ_FM || !meus.size || meus.has(x.nome)).map((x) => {
         const cc = juntar(c, x.nome);
         return (
           <li key={cc}>
             <div className={'fmda-no' + (atual === cc ? ' on' : '')} style={{ paddingLeft: 14 + nivel * 14 }} onClick={() => ir(cc)}>
-              <RamoSeta c={cc} atual={atual} />
+              <RamoSeta c={cc} />
               <i className="fa-solid fa-folder" />
               <span>{x.nome}</span>
               {x.atalho && <i className="fa-solid fa-link fmda-lig" />}
@@ -235,14 +246,14 @@ function Ramo({ c, nivel, atual, ir }: { c: string; nivel: number; atual: string
 // seta e filhos partilham o estado "aberto" através de um pequeno registo por caminho
 const abertosFm = new Set<string>();
 const ouvintesFm = new Set<() => void>();
-function RamoSeta({ c, atual }: { c: string; atual: string }) {
+function RamoSeta({ c }: { c: string }) {
   const [, f] = useState(0);
   useEffect(() => {
     const g = () => f((x) => x + 1);
     ouvintesFm.add(g);
     return () => void ouvintesFm.delete(g);
   }, []);
-  const aberto = abertosFm.has(c) || atual === c || atual.startsWith(c + '/');
+  const aberto = abertosFm.has(c);
   return (
     <button
       className="fmda-seta"
@@ -250,13 +261,12 @@ function RamoSeta({ c, atual }: { c: string; atual: string }) {
         e.stopPropagation();
         if (aberto) abertosFm.delete(c);
         else abertosFm.add(c);
-        if (aberto && (atual === c || atual.startsWith(c + '/'))) abertosFm.add('!' + c);
-        else abertosFm.delete('!' + c);
         ouvintesFm.forEach((g) => g());
       }}
-      aria-label="abrir"
+      aria-label={aberto ? 'fechar' : 'abrir'}
+      aria-expanded={aberto}
     >
-      <i className={'fa-solid ' + (aberto && !abertosFm.has('!' + c) ? 'fa-chevron-down' : 'fa-chevron-right')} />
+      <i className={'fa-solid ' + (aberto ? 'fa-chevron-down' : 'fa-chevron-right')} />
     </button>
   );
 }
@@ -267,8 +277,7 @@ function RamoFilhos({ c, nivel, atual, ir }: { c: string; nivel: number; atual: 
     ouvintesFm.add(g);
     return () => void ouvintesFm.delete(g);
   }, []);
-  const aberto = (abertosFm.has(c) || atual === c || atual.startsWith(c + '/')) && !abertosFm.has('!' + c);
-  return aberto ? <Ramo c={c} nivel={nivel} atual={atual} ir={ir} /> : null;
+  return abertosFm.has(c) ? <Ramo c={c} nivel={nivel} atual={atual} ir={ir} /> : null;
 }
 
 /** Copiar/Mover para… (pasta de destino, a partir da pasta da conta) */
@@ -358,6 +367,203 @@ function MolduraFm({ botoes, children }: { botoes: ReactNode; children: ReactNod
   );
 }
 
+/** Envio de ficheiros, como a janela "Upload" do DA: zona para largar ou escolher, lista com o progresso de cada um.
+ *  Cada ficheiro vai aos bocados de 16 MB, em bruto (o mesmo método rápido do gestor do site), por isso aceita
+ *  ficheiros grandes; um de cada vez, pela ordem em que entraram. */
+type Envio = { id: string; f: File; feito: number; estado: 'espera' | 'envio' | 'ok' | 'erro' | 'cancelado'; erro?: string };
+const BOCADO = 16 * 1024 * 1024;
+const idEnvio = () => Array.from(crypto.getRandomValues(new Uint8Array(12)), (x) => x.toString(16).padStart(2, '0')).join('');
+function CarregarModal({ pasta, iniciais, onFeito }: { pasta: string; iniciais: File[]; onFeito: () => void }) {
+  const vh = useVH();
+  const { t, closeM, me } = vh;
+  const [lista, setLista] = useState<Envio[]>([]);
+  const [substituir, setSubstituir] = useState(false);
+  const [arrasto, setArrasto] = useState(false);
+  const entrada = useRef<HTMLInputElement>(null);
+  const fila = useRef<Envio[]>([]);
+  const xhr = useRef<XMLHttpRequest | null>(null);
+  const aCorrer = useRef(false);
+  const fechado = useRef(false);
+  const algumOk = useRef(false);
+  const subst = useRef(substituir);
+  subst.current = substituir;
+  const mostrar = () => !fechado.current && setLista([...fila.current]);
+  const bocado = (e: Envio, ini: number, fim: number) =>
+    new Promise<void>((ok, ko) => {
+      const x = new XMLHttpRequest();
+      xhr.current = x;
+      x.upload.onprogress = (ev) => {
+        e.feito = ini + ev.loaded;
+        mostrar();
+      };
+      x.onload = () => {
+        let j: { ok?: boolean; erro?: string } = {};
+        try {
+          j = JSON.parse(x.responseText);
+        } catch {}
+        if (x.status === 200 && j.ok) ok();
+        else ko(new Error(j.erro || 'O envio falhou'));
+      };
+      x.onerror = () => ko(new Error('Sem ligação ao site.'));
+      x.onabort = () => ko(new Error('cancelado'));
+      x.open('POST', '/api/vhost/sistema');
+      x.setRequestHeader('Content-Type', 'application/octet-stream');
+      x.setRequestHeader('x-vh-up', e.id);
+      x.setRequestHeader('x-vh-conta', me);
+      x.setRequestHeader('x-vh-inicio', String(ini));
+      x.setRequestHeader('x-vh-total', String(e.f.size));
+      if (fim >= e.f.size) {
+        x.setRequestHeader('x-vh-fim', '1');
+        x.setRequestHeader('x-vh-nome', encodeURIComponent(e.f.name));
+        x.setRequestHeader('x-vh-pasta', encodeURIComponent(pasta));
+        x.setRequestHeader('x-vh-substituir', subst.current ? '1' : '0');
+      }
+      x.send(e.f.slice(ini, fim));
+    });
+  const correr = async () => {
+    if (aCorrer.current) return;
+    aCorrer.current = true;
+    for (let e = fila.current.find((x) => x.estado === 'espera'); e && !fechado.current; e = fila.current.find((x) => x.estado === 'espera')) {
+      e.estado = 'envio';
+      mostrar();
+      try {
+        for (let ini = 0; ini < e.f.size || ini === 0; ini += BOCADO) {
+          if (e.estado !== 'envio') throw new Error('cancelado');
+          await bocado(e, ini, Math.min(e.f.size, ini + BOCADO));
+          if (e.f.size === 0) break;
+        }
+        e.estado = 'ok';
+        e.feito = e.f.size;
+        algumOk.current = true;
+      } catch (er) {
+        const m = er instanceof Error ? er.message : 'O envio falhou';
+        e.estado = m === 'cancelado' ? 'cancelado' : 'erro';
+        e.erro = m;
+      }
+      mostrar();
+    }
+    aCorrer.current = false;
+  };
+  const juntarFicheiros = (fs: File[]) => {
+    if (!fs.length) return;
+    fila.current.push(...fs.map((f) => ({ id: idEnvio(), f, feito: 0, estado: 'espera' as const })));
+    mostrar();
+    correr();
+  };
+  const cancelar = (e: Envio) => {
+    if (e.estado === 'envio') xhr.current?.abort();
+    if (e.estado === 'envio' || e.estado === 'espera') e.estado = 'cancelado';
+    mostrar();
+  };
+  useEffect(() => {
+    // começa no tique seguinte: se o React montar a janela duas vezes (modo de desenvolvimento), a primeira não envia
+    fechado.current = false;
+    const tm = setTimeout(() => juntarFicheiros(iniciais), 0);
+    return () => {
+      // janela fechada: para o que está a ir e atualiza a lista se algum chegou
+      clearTimeout(tm);
+      fechado.current = true;
+      xhr.current?.abort();
+      if (algumOk.current) onFeito();
+    };
+    // só ao abrir a janela
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const ativos = lista.filter((e) => e.estado === 'envio' || e.estado === 'espera').length;
+  const feitos = lista.filter((e) => e.estado === 'ok').length;
+  const destino = '/' + pasta.replace(new RegExp('^' + RAIZ_FM + '(/|$)'), '');
+  return (
+    <div className="fmda-up">
+      <h3>{t('Carregar ficheiros')}</h3>
+      <p className="fmda-up-para">
+        {t('Para')}: <b>{destino}</b>
+      </p>
+      <div
+        className={'fmda-up-zona' + (arrasto ? ' on' : '')}
+        onClick={() => entrada.current?.click()}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setArrasto(true);
+        }}
+        onDragLeave={() => setArrasto(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setArrasto(false);
+          juntarFicheiros(Array.from(e.dataTransfer.files));
+        }}
+      >
+        <i className="fa-solid fa-cloud-arrow-up" />
+        <b>{t('Arraste os ficheiros para aqui')}</b>
+        <span>
+          {t('ou')} <u>{t('escolha no computador')}</u>
+        </span>
+      </div>
+      <input
+        ref={entrada}
+        type="file"
+        multiple
+        hidden
+        onChange={(e) => {
+          juntarFicheiros(Array.from(e.target.files || []));
+          e.target.value = '';
+        }}
+      />
+      <label className="fmda-up-subst">
+        <input type="checkbox" checked={substituir} onChange={(e) => setSubstituir(e.target.checked)} />
+        {t('Substituir os ficheiros com o mesmo nome')}
+      </label>
+      {lista.length > 0 && (
+        <ul className="fmda-up-lista">
+          {lista.map((e) => {
+            const p = e.f.size ? Math.round((e.feito / e.f.size) * 100) : e.estado === 'ok' ? 100 : 0;
+            return (
+              <li key={e.id} className={'est-' + e.estado}>
+                <IconeFicheiro x={{ nome: e.f.name, pasta: false, atalho: false, tam: e.f.size, data: '', perm: '' }} />
+                <div className="fmda-up-info">
+                  <div className="fmda-up-linha">
+                    <b title={e.f.name}>{e.f.name}</b>
+                    <span>{tam(e.f.size)}</span>
+                  </div>
+                  <div className="bar">
+                    <span style={{ width: (e.estado === 'ok' ? 100 : p) + '%' }} />
+                  </div>
+                  <small>
+                    {e.estado === 'espera'
+                      ? t('Em espera')
+                      : e.estado === 'envio'
+                        ? t('A enviar…') + ' ' + p + '%'
+                        : e.estado === 'ok'
+                          ? t('Concluído')
+                          : e.estado === 'cancelado'
+                            ? t('Cancelado')
+                            : e.erro}
+                  </small>
+                </div>
+                {(e.estado === 'envio' || e.estado === 'espera') && (
+                  <button className="fmda-up-x" onClick={() => cancelar(e)} title={t('Cancelar')} aria-label={t('Cancelar')}>
+                    <i className="fa-solid fa-xmark" />
+                  </button>
+                )}
+                {e.estado === 'ok' && <i className="fa-solid fa-circle-check fmda-up-ok" />}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      <div className="mfoot">
+        {lista.length > 0 && (
+          <span className="fmda-up-resumo">
+            {feitos} {t('de')} {lista.length} {t('carregados')}
+          </span>
+        )}
+        <button className={'btn ' + (ativos ? 'g' : 'r')} onClick={closeM}>
+          {t(ativos ? 'Cancelar e fechar' : 'Fechar')}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function Ficheiros({ caminho, lixo = false }: { caminho: string; lixo?: boolean }) {
   const vh = useVH();
   const { t, nav, openM, me } = vh;
@@ -368,11 +574,12 @@ function Ficheiros({ caminho, lixo = false }: { caminho: string; lixo?: boolean 
   const [tamanhos, setTamanhos] = useState<Record<string, number> | null>(null);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const [pesquisa, setPesquisa] = useState<{ q: string; itens: Item[] | null } | null>(null);
-  const entrada = useRef<HTMLInputElement>(null);
   // Preferências → Gestor de ficheiros: mostrar (ou não) os ficheiros que começam por ponto
-  const itens = (dados?.itens || []).filter((x) => lerPref('vh-fm-ocultos', '1') === '1' || !x.nome.startsWith('.'));
+  const meus = new Set(vh.a.domains.map((d) => d.name));
+  const itens = (dados?.itens || []).filter((x) => (lerPref('vh-fm-ocultos', '1') === '1' || !x.nome.startsWith('.')) && (caminho !== RAIZ_FM || !meus.size || meus.has(x.nome)));
   const ir = (c: string) => nav(rotaFm(c));
   const partes = caminho ? caminho.split('/') : [];
+  const ini = partes[0] === RAIZ_FM ? 1 : 0; // o caminho mostrado começa nos domínios
   const fazer = async (corpo: Record<string, unknown>, msg: string) => {
     if (await noServidor(vh, corpo, msg)) {
       setSel([]);
@@ -398,22 +605,8 @@ function Ficheiros({ caminho, lixo = false }: { caminho: string; lixo?: boolean 
   const um = escolhidos.length === 1 ? escolhidos[0] : null;
   const caminhos = () => escolhidos.map((x) => juntar(caminho, x.nome));
   const abrir = (x: Item) => (x.pasta ? ir(juntar(caminho, x.nome)) : TEXTO.test(x.nome) ? nav(rotaEditar(juntar(caminho, x.nome))) : window.location.assign(url(me, 'descarregar', { caminho: juntar(caminho, x.nome) })));
-  const carregar = async (fs: FileList | null) => {
-    if (!fs || !fs.length) return;
-    vh.toast('A carregar ' + fs.length + ' ficheiro(s)…');
-    const fd = new FormData();
-    fd.set('conta', me);
-    fd.set('pasta', caminho);
-    for (const f of Array.from(fs)) fd.append('ficheiros', f);
-    try {
-      const r = await fetch('/api/vhost/sistema', { method: 'POST', body: fd });
-      const j = await r.json().catch(() => ({}));
-      vh.toast(r.ok ? 'Ficheiro(s) carregado(s)' : j.erro || 'O carregamento falhou');
-    } catch {
-      vh.toast('Sem ligação ao site.');
-    }
-    ler();
-  };
+  // "Carregar" abre a janela de envio (como no DA); arrastar ficheiros para a lista abre-a já com eles
+  const carregar = (fs?: FileList | null) => openM(<CarregarModal pasta={caminho} iniciais={fs ? Array.from(fs) : []} onFeito={ler} />);
   const novaPasta = () => openM(<NomeModal titulo="Criar pasta" rotulo="Nome da pasta" inicial={t('Nova pasta')} botao="Criar" onOk={(n) => fazer({ acao: 'fm-pasta', pasta: caminho, nome: n }, 'Pasta criada')} />);
   const novoFicheiro = () =>
     openM(<NomeModal titulo="Criar ficheiro" rotulo="Nome do ficheiro" botao="Criar" onOk={async (n) => (await noServidor(vh, { acao: 'fm-guardar', pasta: caminho, nome: n, texto: '', novo: true }, 'Ficheiro criado')) && (TEXTO.test(n) ? nav(rotaEditar(juntar(caminho, n))) : ler())} />);
@@ -473,11 +666,10 @@ function Ficheiros({ caminho, lixo = false }: { caminho: string; lixo?: boolean 
         <i className="fa-solid fa-file-circle-plus" />
         <span>{t('Novo ficheiro')}</span>
       </button>
-      <button className="fmda-tb" disabled={lixo} onClick={() => entrada.current?.click()}>
+      <button className="fmda-tb" disabled={lixo} onClick={() => carregar()}>
         <i className="fa-solid fa-cloud-arrow-up" />
         <span>{t('Carregar')}</span>
       </button>
-      <input ref={entrada} type="file" multiple hidden onChange={(e) => { carregar(e.target.files); e.target.value = ''; }} />
       <span className="fmda-sep" />
       <button className="fmda-tb" disabled={lixo} onClick={() => setPesquisa({ q: '', itens: [] })}>
         <i className="fa-solid fa-magnifying-glass" />
@@ -503,11 +695,11 @@ function Ficheiros({ caminho, lixo = false }: { caminho: string; lixo?: boolean 
   );
   const arvore = (
     <aside className="fmda-arvore">
-      <div className={'fmda-raiz' + (!lixo && !caminho ? ' on' : '')} onClick={() => ir('')}>
+      <div className={'fmda-raiz' + (!lixo && caminho === RAIZ_FM ? ' on' : '')} onClick={() => ir(RAIZ_FM)}>
         <i className="fa-solid fa-house" />
-        <span>{t('Os meus ficheiros')}</span>
+        <span>{t('Os meus domínios')}</span>
       </div>
-      <Ramo c="" nivel={1} atual={lixo ? '\u0000' : caminho} ir={ir} />
+      <Ramo c={RAIZ_FM} nivel={1} atual={lixo ? '\u0000' : caminho} ir={ir} />
       <div className={'fmda-raiz fmda-lixo' + (lixo ? ' on' : '')} onClick={() => nav('/utilizador/ficheiros/_lixo')}>
         <i className="fa-solid fa-trash-can" />
         <span>{t('Reciclagem')}</span>
@@ -595,17 +787,18 @@ function Ficheiros({ caminho, lixo = false }: { caminho: string; lixo?: boolean 
           onDragOver={(e) => e.preventDefault()}
           onDrop={(e) => {
             e.preventDefault();
-            carregar(e.dataTransfer.files);
+            if (e.dataTransfer.files.length) carregar(e.dataTransfer.files);
           }}
         >
+          <div className="fmda-fixa">
           <div className="fmda-caminho">
-            <a onClick={() => ir('')} aria-label={t('Os meus ficheiros')}>
+            <a onClick={() => ir(RAIZ_FM)} aria-label={t('Os meus domínios')}>
               <i className="fa-solid fa-house" />
             </a>
-            {partes.map((p, i) => (
+            {partes.slice(ini).map((p, i) => (
               <span key={i}>
                 <i className="fa-solid fa-chevron-right" />
-                <a className={i === partes.length - 1 ? 'on' : ''} onClick={() => ir(partes.slice(0, i + 1).join('/'))}>
+                <a className={ini + i === partes.length - 1 ? 'on' : ''} onClick={() => ir(partes.slice(0, ini + i + 1).join('/'))}>
                   {p}
                 </a>
               </span>
@@ -644,6 +837,7 @@ function Ficheiros({ caminho, lixo = false }: { caminho: string; lixo?: boolean 
                 </div>
               )}
             </span>
+          </div>
           </div>
           {pesquisa && (
             <div className="fmda-pesq">
@@ -789,43 +983,38 @@ function Editor({ caminho }: { caminho: string }) {
     >
       <div className="fmda-ed">
         <div className="fmda-caminho">
-          <a onClick={() => nav(rotaFm(''))} aria-label={t('Os meus ficheiros')}>
+          <a onClick={() => nav(rotaFm(RAIZ_FM))} aria-label={t('Os meus domínios')}>
             <i className="fa-solid fa-house" />
           </a>
-          {caminho.split('/').map((p, i, l) => (
-            <span key={i}>
-              <i className="fa-solid fa-chevron-right" />
-              <a className={i === l.length - 1 ? 'on' : ''} onClick={() => i < l.length - 1 && nav(rotaFm(l.slice(0, i + 1).join('/')))}>
-                {p}
-              </a>
-            </span>
-          ))}
+          {caminho.split('/').map((p, i, l) =>
+            i === 0 && p === RAIZ_FM ? null : (
+              <span key={i}>
+                <i className="fa-solid fa-chevron-right" />
+                <a className={i === l.length - 1 ? 'on' : ''} onClick={() => i < l.length - 1 && nav(rotaFm(l.slice(0, i + 1).join('/')))}>
+                  {p}
+                </a>
+              </span>
+            ),
+          )}
           <span className="sp" />
           {mudou && <span className="tag w">{t('Por guardar')}</span>}
         </div>
         {!dados ? (
           <Carregando erro={erro} ler={ler} />
         ) : (
-          <textarea
-            className="fmda-texto"
+          // código com cores, números de linha e realce da linha atual (como no VS Code); Ctrl+S / ⌘S guarda
+          <div
+            className="fmda-codigo"
             style={{ fontSize: Number(lerPref('vh-fm-letra', '13')) || 13 }}
-            spellCheck={false}
-            value={v}
-            onChange={(e) => setTexto(e.target.value)}
-            onKeyDown={(e) => {
-              if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+            onKeyDownCapture={(e) => {
+              if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
                 e.preventDefault();
                 if (mudou) guardar();
               }
-              if (e.key === 'Tab') {
-                e.preventDefault();
-                const el = e.currentTarget;
-                const i = el.selectionStart;
-                setTexto(v.slice(0, i) + '  ' + v.slice(el.selectionEnd));
-                requestAnimationFrame(() => el.setSelectionRange(i + 2, i + 2));
-              }
             }}
-          />
+          >
+            <EditorCodigo fileName={nome} value={v} onChange={(x) => setTexto(x)} fillHeight dark={vh.s.theme === 'dark'} />
+          </div>
         )}
         <p className="fmda-nota">{t('Ctrl+S (ou ⌘S) guarda. O ficheiro fica com o utilizador da conta como dono.')}</p>
       </div>
@@ -841,8 +1030,10 @@ export const ficheirosPagina: ScreenFn = (vh) => {
     return { title: 'Editar ficheiro', desc: c.split('/').pop(), crumbs: [base, { t: 'Editar' }], body: <Editor key={c} caminho={c} /> };
   }
   if (sub[0] === '_lixo') return { title: 'Reciclagem', crumbs: [base, { t: 'Reciclagem' }], body: <Ficheiros key="_lixo" caminho="" lixo /> };
-  const c = sub.join('/');
-  return { title: 'Gestor de ficheiros', crumbs: c ? [base, { t: c.split('/').pop() || c }] : undefined, body: <Ficheiros key={c} caminho={c} /> };
+  // sem pasta no endereço: a pasta do domínio do seletor (ao entrar, o principal da conta)
+  const d = siteAtual(vh);
+  const c = sub.join('/') || (d ? juntar(RAIZ_FM, d) : RAIZ_FM);
+  return { title: 'Gestor de ficheiros', crumbs: sub.length ? [base, { t: c.split('/').pop() || c }] : undefined, body: <Ficheiros key={c} caminho={c} /> };
 };
 
 // ---------- Terminal (comandos não interativos, com o utilizador da conta) ----------
@@ -1162,7 +1353,7 @@ function Logs({ tipo }: { tipo: 'acesso' | 'erros' }) {
 }
 export const logsPagina: ScreenFn = (vh) => {
   const e = vh.s.sub[0] === 'erros';
-  return { title: 'Resumo do site e registos', crumbs: e ? [{ t: 'Resumo do site e registos', path: '/utilizador/logs-site' }, { t: 'Registo de erros' }] : undefined, body: <Logs tipo={e ? 'erros' : 'acesso'} /> };
+  return { title: 'Resumo do site e registos', crumbs: e ? [{ t: 'Resumo do site e registos', path: '/utilizador/logs-site' }, { t: 'Registo de erros' }] : undefined, dominios: 'sites', body: <Logs tipo={e ? 'erros' : 'acesso'} /> };
 };
 
 // ---------- Uso de recursos ----------

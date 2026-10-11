@@ -9,6 +9,7 @@ import { noServidor } from './paginas/acoes';
 import { HX, LEVELS, MENU, ROLES } from './generated/data';
 import { findItem, gItem, ico, initials, route } from './state';
 import type { Account, HxState, MenuItem, Role } from './types';
+import type { Screen } from './screens';
 import { GLOBAL } from './generated/data';
 
 export const RC: Record<Role, string> = { admin: 'c8', revenda: 'c2', profissional: 'c3', cliente: 'c5' };
@@ -112,11 +113,13 @@ export function HxCard({ hx }: { hx: MenuItem['hx'] }) {
 
 /** Faixa por baixo da barra de cima: Widgets/Menu no painel inicial, caminho nas outras páginas, e o domínio. */
 /** Seletor de domínio (lado direito da faixa de navegação): botão com o domínio e lista com filtro, como no DA */
-function DomSelector() {
-  const { s, a, t, setDominio } = useVH();
-  const doms = a.domains.map((d) => d.name).sort((x, y) => x.localeCompare(y));
-  // sem escolha feita: o domínio principal da conta (vem à cabeça da lista — ver vhost-dados.ts)
-  const atual = s.dominio && doms.includes(s.dominio) ? s.dominio : a.domains[0]?.name || '';
+function DomSelector({ soSites, url }: { soSites?: boolean; url?: Screen['dominioUrl'] }) {
+  const { s, a, t, setDominio, nav } = useVH();
+  // só os domínios com que a página trabalha: o seletor mostra sempre o mesmo domínio que a página
+  const daPagina = a.domains.filter((d) => !soSites || !d.soEmail).map((d) => d.name); // o principal vem à cabeça (vhost-dados.ts)
+  const doms = [...daPagina].sort((x, y) => x.localeCompare(y));
+  // domínio do endereço; senão o escolhido; sem escolha (ou fora desta página): o principal da conta
+  const atual = url?.d || (s.dominio && daPagina.includes(s.dominio) ? s.dominio : daPagina[0] || '');
   const [aberto, setAberto] = useState(false);
   const [q, setQ] = useState('');
   const [i, setI] = useState(0);
@@ -137,7 +140,11 @@ function DomSelector() {
   const escolher = (d?: string) => {
     if (!d) return;
     setAberto(false);
-    if (d !== atual) setDominio(d);
+    if (d === atual) return;
+    if (url) {
+      setDominio(d, false);
+      nav(url.ir(d));
+    } else setDominio(d);
   };
   const teclas = (e: ReactKeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'ArrowDown') (e.preventDefault(), setI((x) => Math.min(x + 1, lista.length - 1)));
@@ -198,7 +205,7 @@ function DomSelector() {
   );
 }
 
-export function SwitcherBar({ title, crumbs }: { title: string; crumbs?: { t: string; path?: string }[] }) {
+export function SwitcherBar({ title, crumbs, dominios, dominioUrl }: { title: string; crumbs?: { t: string; path?: string }[]; dominios?: Screen['dominios']; dominioUrl?: Screen['dominioUrl'] }) {
   const { s, a, t, go, nav, toast, setDashTab } = useVH();
   const trail = crumbs && crumbs.length ? crumbs : [{ t: title || s.page }];
   const doms = a && a.domains && a.domains.length ? a.domains : [{ name: '—' }];
@@ -236,7 +243,7 @@ export function SwitcherBar({ title, crumbs }: { title: string; crumbs?: { t: st
           ))}
         </div>
       )}
-      <DomSelector />
+      <DomSelector soSites={dominios === 'sites'} url={dominioUrl} />
     </div>
   );
 }

@@ -434,13 +434,15 @@
 .vh .dt-bar:not(:has(> :not(.sp))){display:none}
 /* Linha de carregamento do topo, copiada do DirectAdmin (barra indeterminada de 2 px do Quasar: mesmas animações e
    curvas), na cor principal do tema (carga.tsx) */
-.vh .vh-barra-topo{position:fixed;top:0;left:0;right:0;height:2px;overflow:hidden;background:transparent;z-index:10000;opacity:0;pointer-events:none;transition:opacity .2s}
+.vh .vh-barra-topo{position:fixed;top:0;left:0;right:0;height:4px;overflow:hidden;background:transparent;z-index:10000;opacity:0;pointer-events:none;transition:opacity .25s}
 .vh .vh-barra-topo.on{opacity:1}
-.vh .vh-barra-topo::before,.vh .vh-barra-topo::after{content:"";position:absolute;inset:0;background:var(--red);transform-origin:0 0;transform:translate3d(-101%,0,0) scaleX(1)}
-.vh .vh-barra-topo.on::before{animation:vh-ind 2.1s cubic-bezier(.65,.815,.735,.395) infinite}
-.vh .vh-barra-topo.on::after{animation:vh-ind-curto 2.1s cubic-bezier(.165,.84,.44,1) 1.15s infinite}
-@keyframes vh-ind{0%{transform:translate3d(-35%,0,0) scaleX(.35)}60%{transform:translate3d(100%,0,0) scaleX(.9)}100%{transform:translate3d(100%,0,0) scaleX(.9)}}
-@keyframes vh-ind-curto{0%{transform:translate3d(-101%,0,0) scaleX(1)}60%{transform:translate3d(107%,0,0) scaleX(.01)}100%{transform:translate3d(107%,0,0) scaleX(.01)}}
+/* Linha de carregamento (pedido do Silva, 11/10): uma só barra, discreta — 4px, 16% da largura, devagar, esbatida
+   nas pontas (o primeiro e o último quarto). Entra por um lado, atravessa, sai por completo pelo outro e volta */
+.vh .vh-barra-topo::before{content:"";position:absolute;top:0;bottom:0;left:0;width:16%;background:linear-gradient(90deg,transparent 0,var(--red) 25%,var(--red) 75%,transparent 100%);transform:translate3d(-100%,0,0)}
+.vh .vh-barra-topo.on::before{animation:vh-vaivem 1.7s ease-in-out infinite alternate}
+/* sai por completo de cada lado (fica escondida) antes de voltar na direção contrária */
+@keyframes vh-vaivem{from{transform:translate3d(-100%,0,0)}to{transform:translate3d(625%,0,0)}}
+@media (prefers-reduced-motion:reduce){.vh .vh-barra-topo.on::before{animation-duration:3.4s}}
 /* Gestor de WordPress, como o "WordPress Manager" do DirectAdmin (avancado.tsx) */
 .vh .wp-pontos{display:inline-flex}
 .vh .wp-pontos-btn{width:30px;height:30px;border-radius:50%;border:0;background:var(--soft);color:var(--ink);display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
@@ -468,19 +470,20 @@
 .vh .fmda{position:fixed;inset:0;z-index:400;display:flex;flex-direction:column;background:var(--card);color:var(--ink);font-size:14px}
 .vh .modal-bg{z-index:550;backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}
 .vh .toast{z-index:600}
-.vh .fmda-top{flex:none;height:60px;display:flex;align-items:center;background:var(--red);color:#fff}
+/* barra de cima na cor da barra compacta do painel (a dos ícones), mais transparente, só o fundo (sem linhas) — pedido do Silva a 11/10 */
+.vh .fmda-top{flex:none;height:60px;display:flex;align-items:center;background:color-mix(in srgb,var(--rail-bg) 78%,transparent);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);color:var(--rail-ink,#fff)}
 .vh .fmda-logo{flex:none;width:360px;display:flex;align-items:center;gap:10px;padding:0 14px;overflow:hidden}
 .vh .fmda-logo img{width:36px;height:36px;object-fit:contain;border-radius:6px}
 .vh .fmda-logo span{display:flex;flex-direction:column;line-height:1.05}
-.vh .fmda-logo b{font-size:21px;font-weight:700;color:#fff;letter-spacing:.2px}
-.vh .fmda-logo small{font-size:11px;letter-spacing:2.4px;color:rgba(255,255,255,.85)}
+.vh .fmda-logo b{font-size:21px;font-weight:700;color:var(--rail-ink,#fff);letter-spacing:.2px}
+.vh .fmda-logo small{font-size:11px;letter-spacing:2.4px;color:var(--rail-ink,#fff);opacity:.85}
 .vh .fmda-tbs{flex:1;display:flex;align-items:center;min-width:0;height:100%}
 .vh .fmda-tbs .sp{flex:1}
-.vh .fmda-tb{height:60px;display:inline-flex;align-items:center;gap:10px;padding:0 16px;border:0;background:none;color:#fff;font-size:14.5px;cursor:pointer;white-space:nowrap}
+.vh .fmda-tb{height:60px;display:inline-flex;align-items:center;gap:10px;padding:0 16px;border:0;background:none;color:var(--rail-ink,#fff);font-size:14.5px;cursor:pointer;white-space:nowrap}
 .vh .fmda-tb i{font-size:19px}
-.vh .fmda-tb:hover:not(:disabled){background:rgba(255,255,255,.12)}
+.vh .fmda-tb:hover:not(:disabled){background:var(--railhov);color:var(--rail-ink-hover,#fff)}
 .vh .fmda-tb:disabled{opacity:.5;cursor:default}
-.vh .fmda-sep{flex:none;width:1px;height:60px;background:rgba(255,255,255,.28)}
+.vh .fmda-sep{flex:none;width:1px;height:60px;background:color-mix(in srgb,var(--rail-ink,#fff) 25%,transparent)}
 .vh .fmda-voltar{flex:none}
 .vh .fmda-corpo{flex:1;display:flex;min-height:0}
 .vh .fmda-arvore{flex:none;width:360px;border-right:1px solid var(--line);overflow:auto;padding:8px 5px}
@@ -589,3 +592,87 @@
 .vh .msg-cel.nova b{font-weight:800}
 .vh .msg-cel span{color:var(--muted);line-height:1.45}
 .vh .msg-cel small{color:var(--muted);font-size:12px}
+/* Utilizadores do WordPress: "Mudar palavra-passe" por baixo da tabela, como no DA */
+.vh .wp-senha{margin-top:34px;display:flex;flex-direction:column}
+.vh .wp-senha h3{font-size:19px;font-weight:700;color:var(--ink);margin-bottom:10px}
+.vh .wp-senha p{color:var(--muted);font-size:14px;margin-bottom:14px}
+.vh .wp-senha label{font-size:15px;color:var(--ink);margin:4px 0 6px}
+.vh .wp-senha select,.vh .wp-senha .igrp{width:100%;margin-bottom:12px}
+.vh .wp-senha select{flex:none;height:40px;-webkit-appearance:none;appearance:none;padding-right:34px;background:var(--card) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='14' viewBox='0 0 10 14'%3E%3Cpath d='M1 5l4-4 4 4M1 9l4 4 4-4' fill='none' stroke='%238a8f98' stroke-width='1.6'/%3E%3C/svg%3E") no-repeat right 12px center;color:var(--ink)}
+.vh .wp-senha .igrp input{height:40px}
+.vh .wp-senha-pe{display:flex;justify-content:flex-end;margin-top:6px}
+/* Página com cartão à direita (Contas de e-mail, no formato escolhido pelo Silva) */
+.vh .da-com-lado{flex:1;display:grid;grid-template-columns:minmax(0,1fr) 348px;gap:24px;min-width:0}
+.vh .da-com-lado>.da-main-card{min-width:0}
+.vh .da-lado{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:0 10px 32px rgba(0,0,0,.08);padding:20px 18px;min-height:calc(100vh - 120px);display:flex;flex-direction:column;gap:22px}
+.vh[data-theme=dark] .da-lado{box-shadow:0 12px 36px rgba(0,0,0,.35)}
+.vh .em-lado-stats{grid-template-columns:1fr;margin:0;gap:6px}
+.vh .em-lado-stats .stat{border:0;background:none;box-shadow:none;border-radius:0;padding:10px 2px 14px}
+.vh .em-lado-botoes{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.vh .em-lado-botoes .btn{justify-content:center;white-space:nowrap}
+/* ecrãs mais estreitos: a coluna passa para baixo da tabela, com os números lado a lado (a tabela fica inteira) */
+@media(max-width:1700px){.vh .da-com-lado{grid-template-columns:1fr;grid-template-rows:auto 1fr}.vh .da-com-lado>.da-main-card{min-height:0}.vh .da-lado{min-height:0;order:-1}.vh .em-lado-stats{grid-template-columns:repeat(4,1fr)}.vh .em-lado-botoes{grid-template-columns:repeat(4,max-content);justify-content:end}}
+@media(max-width:900px){.vh .em-lado-stats{grid-template-columns:repeat(2,1fr)}.vh .em-lado-botoes{grid-template-columns:1fr 1fr}}
+/* Espaço de 24px à volta do cartão principal (em cima, à esquerda e à direita), em todas as larguras de computador */
+@media(min-width:769px){.vh main{padding-top:24px;padding-left:24px;padding-right:24px}}
+/* Gestor de ficheiros: caminho e barra de ações ficam presos por baixo da barra de cima ao deslizar */
+.vh .fmda-fixa{position:sticky;top:0;z-index:6;background:var(--card)}
+.vh .fmda-fixa .fmda-acoes{background:var(--card)}
+/* Editor do gestor de ficheiros: CodeMirror com cores (o do site), a ocupar o espaço todo */
+.vh .fmda-codigo{flex:1;min-height:300px;margin-top:6px;display:flex;flex-direction:column;overflow:hidden}
+.vh .fmda-codigo>div{flex:1;min-height:0;font-size:inherit}
+.vh .fmda-codigo .cm-editor{height:100%;font-size:inherit}
+.vh .fmda-codigo-espera{flex:1;border:1px solid var(--line);border-radius:4px;background:var(--soft)}
+/* Janela de envio do gestor de ficheiros (como o "Upload" do DA) */
+.vh .modal:has(.fmda-up){max-width:680px}
+.vh .fmda-up-para{color:var(--muted);margin:-6px 0 12px;font-size:13.5px}
+.vh .fmda-up-para b{color:var(--ink);font-weight:600;word-break:break-all}
+.vh .fmda-up-zona{display:flex;flex-direction:column;align-items:center;gap:6px;padding:26px 16px;border:2px dashed var(--line);border-radius:var(--r);background:var(--soft);color:var(--muted);cursor:pointer;text-align:center;transition:border-color .15s,background .15s}
+.vh .fmda-up-zona i{font-size:34px;color:var(--red)}
+.vh .fmda-up-zona b{color:var(--ink);font-size:15px}
+.vh .fmda-up-zona u{color:var(--red);text-decoration:none;font-weight:600}
+.vh .fmda-up-zona:hover,.vh .fmda-up-zona.on{border-color:var(--red);background:var(--tint)}
+.vh .fmda-up-subst{display:flex;align-items:center;gap:8px;margin:12px 0 4px;font-size:13.5px;cursor:pointer}
+.vh .fmda-up-lista{list-style:none;margin:10px 0 0;padding:0;max-height:300px;overflow:auto;border:1px solid var(--line);border-radius:var(--r)}
+.vh .fmda-up-lista li{display:flex;align-items:center;gap:12px;padding:10px 12px;border-bottom:1px solid var(--line)}
+.vh .fmda-up-lista li:last-child{border-bottom:0}
+.vh .fmda-up-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
+.vh .fmda-up-linha{display:flex;justify-content:space-between;gap:10px;font-size:13.5px}
+.vh .fmda-up-linha b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vh .fmda-up-linha span{flex:none;color:var(--muted)}
+.vh .fmda-up-info small{font-size:12px;color:var(--muted)}
+.vh .fmda-up-lista li.est-erro small{color:var(--red)}
+.vh .fmda-up-lista li.est-ok .bar span{background:var(--ok)}
+.vh .fmda-up-x{flex:none;width:28px;height:28px;border:0;border-radius:50%;background:none;color:var(--muted);cursor:pointer}
+.vh .fmda-up-x:hover{background:var(--soft);color:var(--red)}
+.vh .fmda-up-ok{flex:none;color:var(--ok);font-size:18px}
+.vh .fmda-up .mfoot{align-items:center}
+.vh .fmda-up-resumo{margin-right:auto;color:var(--muted);font-size:13px}
+/* Gerir WordPress: botão à direita dos números da secção */
+.vh .seccao-h .numeros{align-items:center}
+.vh .wp-pg-tit{display:inline-flex;align-items:center;gap:8px}
+/* Editor de páginas (Gutenberg dentro do painel) */
+.vh .gb-pagina{display:flex;flex-direction:column;gap:14px;flex:1;min-height:0}
+.vh .gb-barra{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.vh .gb-barra .sp{flex:1}
+.vh .gb-titulo{width:100%;border:0;border-bottom:1px solid var(--line);background:none;color:var(--ink);font-size:28px;font-weight:700;padding:8px 2px 10px;outline:0}
+.vh .gb-titulo:focus{border-bottom-color:var(--red)}
+.vh .gb-espera{flex:1;min-height:420px;border:1px solid var(--line);border-radius:var(--r);background:var(--soft)}
+.vh .gb-editor{flex:1;display:grid;grid-template-columns:minmax(0,1fr) 280px;min-height:520px;border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.vh .gb-conteudo{background:#fff;color:#1e1e1e;padding:28px 40px 120px;overflow:auto;font-size:16px;line-height:1.7}
+.vh .gb-conteudo .block-editor-block-list__layout{max-width:840px;margin:0 auto}
+/* o painel tira as margens e os estilos de títulos/listas a tudo: no texto da página voltam ao normal */
+.vh .gb-conteudo :where(p,ul,ol,blockquote,figure,pre,table,hr,h1,h2,h3,h4,h5,h6){margin:0 0 1em}
+.vh .gb-conteudo h1{font-size:2.2em;font-weight:700;line-height:1.2}
+.vh .gb-conteudo h2{font-size:1.8em;font-weight:700;line-height:1.25}
+.vh .gb-conteudo h3{font-size:1.5em;font-weight:700;line-height:1.3}
+.vh .gb-conteudo h4{font-size:1.25em;font-weight:700}
+.vh .gb-conteudo h5{font-size:1.1em;font-weight:700}
+.vh .gb-conteudo h6{font-size:1em;font-weight:700}
+.vh .gb-conteudo ul{list-style:disc;padding-left:1.6em}
+.vh .gb-conteudo ol{list-style:decimal;padding-left:1.6em}
+.vh .gb-conteudo a{color:#2271b1;text-decoration:underline}
+.vh .gb-conteudo img{max-width:100%;height:auto}
+.vh .gb-conteudo blockquote{border-left:4px solid currentColor;padding-left:1em}
+.vh .gb-lateral{border-left:1px solid var(--line);background:#fff;color:#1e1e1e;overflow:auto}
+@media(max-width:1100px){.vh .gb-editor{grid-template-columns:1fr}.vh .gb-lateral{display:none}}

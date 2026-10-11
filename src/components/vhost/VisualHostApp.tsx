@@ -2,7 +2,7 @@
 
 // Painel VisualHost — versão React da maquete aprovada (VisualHost/maquete-visualhost.html).
 // Mesma estrutura de HTML e mesmas classes, para o CSS da maquete (generated/maquete.css) se aplicar tal e qual.
-import { Fragment, useCallback, useEffect, useMemo, useReducer, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
+import { Component, Fragment, useCallback, useEffect, useMemo, useReducer, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import { VHContext, type VH } from './context';
 import { GLOBAL, LEVELS, MENU, ROLES } from './generated/data';
@@ -94,6 +94,31 @@ type Pop = { kind: 'lang' | 'conta'; left: number; top?: number; bottom?: number
 /** Uma página do painel como ficou desenhada (o que se vê enquanto a seguinte ainda não está pronta) */
 type Pagina = { chave: string; ok: boolean; vh: VH; scr: Screen; title: string; desc: string; semCartao: boolean; deny: boolean; home: boolean };
 
+/** Um erro numa página fica nessa página: o resto do painel continua a funcionar */
+class FalhaPagina extends Component<{ children: ReactNode; t: (s: string) => string; onFalha: () => void }, { erro: boolean }> {
+  state = { erro: false };
+  static getDerivedStateFromError() {
+    return { erro: true };
+  }
+  componentDidCatch(e: unknown) {
+    console.error('[VisualHost] erro na página', e);
+    this.props.onFalha(); // se estava à espera para aparecer, aparece já com o aviso
+  }
+  render() {
+    if (!this.state.erro) return this.props.children;
+    const { t } = this.props;
+    return (
+      <div className="card empty">
+        <p>{t('Esta página não abriu por causa de um erro. Volte a tentar; se continuar, fale com o suporte.')}</p>
+        <button className="btn r" onClick={() => location.reload()}>
+          <i className="fa-solid fa-rotate-right" />
+          {t('Recarregar')}
+        </button>
+      </div>
+    );
+  }
+}
+
 /** Lugar de uma página: escondido enquanto as leituras sem nada em memória não acabam; depois avisa (uma vez) */
 function PaginaSlot({ p, oculta, onPronta }: { p: Pagina; oculta: boolean; onPronta: (chave: string) => void }) {
   const falta = useRef(0);
@@ -131,11 +156,30 @@ function PaginaSlot({ p, oculta, onPronta }: { p: Pagina; oculta: boolean; onPro
     verificar();
     return () => clearTimeout(timer.current);
   }, [verificar]);
-  const corpo = <Fragment>{p.scr.body}</Fragment>;
+  const corpo = (
+    <FalhaPagina t={p.vh.t} onFalha={() => onPronta(chave)}>
+      {p.scr.body}
+    </FalhaPagina>
+  );
   return (
     <div className="pg-slot" style={{ display: oculta ? 'none' : 'contents' }} aria-hidden={oculta || undefined}>
       <VHContext.Provider value={p.vh}>
-        <EsperaPagina.Provider value={espera}>{p.semCartao ? corpo : <div className="da-main-card">{corpo}</div>}</EsperaPagina.Provider>
+        <EsperaPagina.Provider value={espera}>
+          {p.semCartao ? (
+            corpo
+          ) : p.scr.lado ? (
+            <div className="da-com-lado">
+              <div className="da-main-card">{corpo}</div>
+              <aside className="da-lado">
+                <FalhaPagina t={p.vh.t} onFalha={() => onPronta(chave)}>
+                  {p.scr.lado}
+                </FalhaPagina>
+              </aside>
+            </div>
+          ) : (
+            <div className="da-main-card">{corpo}</div>
+          )}
+        </EsperaPagina.Provider>
       </VHContext.Provider>
     </div>
   );
@@ -445,9 +489,9 @@ export function VisualHostApp() {
       } catch {}
       toast('Cantos atualizados');
     },
-    setDominio: (d) => {
+    setDominio: (d, aviso = true) => {
       commit({ ...ref.current, dominio: d });
-      toast('Domínio: ' + d);
+      if (aviso) toast('Domínio: ' + d);
     },
     setBrand: (b) => {
       commit({ ...ref.current, brand: b });
@@ -804,7 +848,7 @@ export function VisualHostApp() {
             </header>
             <main id="main">
               <ImpBanner />
-              {!mostra.deny && <SwitcherBar title={mostra.scr.title} crumbs={mostra.scr.crumbs} />}
+              {!mostra.deny && <SwitcherBar title={mostra.scr.title} crumbs={mostra.scr.crumbs} dominios={mostra.scr.dominios} dominioUrl={mostra.scr.dominioUrl} />}
               {(aEspera ? [mostra, atual] : [atual]).map((p) => (
                 <PaginaSlot key={p.chave} p={p} oculta={aEspera && p === atual} onPronta={libertar} />
               ))}

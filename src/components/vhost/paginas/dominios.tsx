@@ -285,7 +285,7 @@ function VerDominio({ d }: { d: string }) {
   const x = a.domains.find((y) => y.name === d);
   const { det, erro, ler } = useDetalhe(x && !x.soEmail ? d : '');
   useEffect(() => {
-    if (s.dominio !== d) setDominio(d);
+    if (s.dominio !== d) setDominio(d, false);
     // só ao abrir a página de um domínio
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [d]);
@@ -394,7 +394,7 @@ export const dominios: ScreenFn = (vh) => {
   );
   if (sub === 'registar') return { title: 'Domínios', actions: novoBtn, crumbs: [{ t: 'Domínios', path: '/utilizador/dominios' }, { t: 'Registar domínio' }], body: <ListaDominios abaDom="registar" /> };
   if (sub === 'novo') return { title: 'Adicionar domínio', crumbs: [{ t: 'Domínios', path: '/utilizador/dominios' }, { t: 'Adicionar domínio' }], body: <NovoDominio /> };
-  if (sub) return { title: sub, desc: 'Resumo e atalhos do domínio', crumbs: [{ t: 'Domínios', path: '/utilizador/dominios' }, { t: sub }], body: <VerDominio d={sub} /> };
+  if (sub) return { title: sub, desc: 'Resumo e atalhos do domínio', crumbs: [{ t: 'Domínios', path: '/utilizador/dominios' }, { t: sub }], dominioUrl: { d: sub, ir: (n) => '/utilizador/dominios/' + n }, body: <VerDominio d={sub} /> };
   return { title: 'Domínios', actions: novoBtn, body: <ListaDominios /> };
 };
 
@@ -463,7 +463,7 @@ function Subdominios() {
     </>
   );
 }
-export const subdominios: ScreenFn = () => ({ title: 'Subdomínios', body: <Subdominios /> });
+export const subdominios: ScreenFn = () => ({ title: 'Subdomínios', dominios: 'sites', body: <Subdominios /> });
 
 // ---------- DNS (organização do modelo DNS central do painel da VisualDesign; adicionar/editar em janela) ----------
 const TIPOS_DNS = ['A', 'AAAA', 'CNAME', 'MX', 'TXT', 'NS', 'SRV', 'CAA'];
@@ -1301,10 +1301,10 @@ function Ssl({ tab, verCertDomain }: { tab: TabSsl; verCertDomain: string | null
 export const sslPagina: ScreenFn = (vh) => {
   const [a, b] = vh.s.sub;
   const base = { t: 'SSL/TLS', path: '/utilizador/ssl' };
-  if (a === 'certificado' && b) return { title: 'Ver certificado', crumbs: [base, { t: 'Ver certificado' }, { t: b }], body: <Ssl tab="gerir" verCertDomain={b} /> };
-  if (a === 'acme') return { title: 'SSL/TLS', crumbs: [base, { t: 'Configurações ACME' }], body: <Ssl tab="acme" verCertDomain={null} /> };
-  if (a === 'historico') return { title: 'SSL/TLS', crumbs: [base, { t: 'Histórico de aprovisionamento' }], body: <Ssl tab="historico" verCertDomain={null} /> };
-  return { title: 'SSL/TLS', body: <Ssl tab="gerir" verCertDomain={null} /> };
+  if (a === 'certificado' && b) return { title: 'Ver certificado', crumbs: [base, { t: 'Ver certificado' }, { t: b }], dominios: 'sites', dominioUrl: { d: b, ir: (n) => '/utilizador/ssl/certificado/' + n }, body: <Ssl tab="gerir" verCertDomain={b} /> };
+  if (a === 'acme') return { title: 'SSL/TLS', crumbs: [base, { t: 'Configurações ACME' }], dominios: 'sites', body: <Ssl tab="acme" verCertDomain={null} /> };
+  if (a === 'historico') return { title: 'SSL/TLS', crumbs: [base, { t: 'Histórico de aprovisionamento' }], dominios: 'sites', body: <Ssl tab="historico" verCertDomain={null} /> };
+  return { title: 'SSL/TLS', dominios: 'sites', body: <Ssl tab="gerir" verCertDomain={null} /> };
 };
 
 // ---------- FTP ----------
@@ -1417,7 +1417,7 @@ function Ftp() {
     </>
   );
 }
-export const ftpPagina: ScreenFn = () => ({ title: 'FTP', body: <Ftp /> });
+export const ftpPagina: ScreenFn = () => ({ title: 'FTP', dominios: 'sites', body: <Ftp /> });
 
 // ---------- Bases de dados (como no DirectAdmin: lista, utilizadores, gerir base, gerir utilizador) ----------
 type InfoMysql = { utilizadores: { dbuser: string; hosts: string[]; bases: string[] }[]; bases: Record<string, { bytes: number; tabelas: number }>; mysql?: { versao: string; modo: string[]; socket: string } };
@@ -2368,7 +2368,7 @@ function Apontadores() {
     </>
   );
 }
-export const apontadores: ScreenFn = () => ({ title: 'Apontadores', body: <Apontadores /> });
+export const apontadores: ScreenFn = () => ({ title: 'Apontadores', dominios: 'sites', body: <Apontadores /> });
 
 // ---------- Redirecionamentos e hotlink (regras do VisualHost no .htaccess do site) ----------
 type Regra = { de: string; tipo: string; para: string };
@@ -2495,7 +2495,7 @@ function Redirecionamentos() {
     </>
   );
 }
-export const redirecionamentos: ScreenFn = () => ({ title: 'Redirecionamentos', body: <Redirecionamentos /> });
+export const redirecionamentos: ScreenFn = () => ({ title: 'Redirecionamentos', dominios: 'sites', body: <Redirecionamentos /> });
 
 function Hotlink() {
   const vh = useVH();
@@ -2568,7 +2568,7 @@ function Hotlink() {
     </>
   );
 }
-export const hotlink: ScreenFn = () => ({ title: 'Proteção hotlink', body: <Hotlink /> });
+export const hotlink: ScreenFn = () => ({ title: 'Proteção hotlink', dominios: 'sites', body: <Hotlink /> });
 
 // ---------- Definições PHP ----------
 const DIRETIVAS = ['memory_limit', 'upload_max_filesize', 'post_max_size', 'max_execution_time', 'max_input_time', 'max_input_vars', 'display_errors', 'error_reporting', 'date.timezone', 'allow_url_fopen', 'short_open_tag', 'session.gc_maxlifetime'];
@@ -2644,4 +2644,4 @@ function Php() {
     </>
   );
 }
-export const phpPagina: ScreenFn = () => ({ title: 'Definições PHP', body: <Php /> });
+export const phpPagina: ScreenFn = () => ({ title: 'Definições PHP', dominios: 'sites', body: <Php /> });

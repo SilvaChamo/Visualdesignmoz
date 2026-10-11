@@ -42,7 +42,7 @@ export interface VH {
   previewThemeColors: (c: CustomComponents | null) => void;
   setRadius: (r: string) => void;
   /** escolhe o domínio no seletor da faixa de navegação */
-  setDominio: (d: string) => void;
+  setDominio: (d: string, aviso?: boolean) => void;
   setBrand: (b: { name: string; logo: string }) => void;
   openSearch: () => void;
   logout: () => void;

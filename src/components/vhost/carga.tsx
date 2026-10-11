@@ -43,8 +43,9 @@ export function instalarContador() {
   };
 }
 
-/** A linha do DirectAdmin (barra "indeterminada" de 2 px: duas faixas que correm da esquerda para a direita, ciclos de
- *  2,1 s — as mesmas curvas do DA), visível enquanto houver pedidos; não aparece em pedidos de menos de 80 ms */
+/** Linha de carregamento no topo: uma barra discreta (4 px, esbatida nas pontas) que atravessa de um lado ao outro,
+ *  sai por completo e volta (pedido do Silva a 11/10); visível enquanto houver pedidos; não aparece em pedidos de menos
+ *  de 80 ms */
 export function BarraTopo() {
   const [vis, setVis] = useState(false);
   const t = useRef<{ atraso?: ReturnType<typeof setTimeout>; fim?: ReturnType<typeof setTimeout>; desde: number }>({ desde: 0 });
@@ -66,8 +67,8 @@ export function BarraTopo() {
           return;
         }
         if (!t.current.desde) return;
-        // fica pelo menos meio ciclo, para não piscar
-        const falta = Math.max(0, 450 - (Date.now() - t.current.desde));
+        // fica pelo menos 0,9 s, para não piscar
+        const falta = Math.max(0, 900 - (Date.now() - t.current.desde));
         t.current.fim = setTimeout(() => {
           t.current.desde = 0;
           t.current.fim = undefined;

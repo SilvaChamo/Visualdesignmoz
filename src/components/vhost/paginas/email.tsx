@@ -131,7 +131,11 @@ async function noEmail(vh: VH, d: string, corpo: Record<string, unknown>, ok: st
 
 const mb = (n: number) => (n >= 1024 ? (n / 1024).toFixed(2).replace('.', ',') + ' GB' : n.toLocaleString('pt-PT') + ' MB');
 const pct = (v: number, max: number) => (max > 0 ? Math.min(100, Math.round((v / max) * 100)) : 0);
-const webmailUrl = (d: string, acc?: string) => 'https://webmail.' + d + '/' + (acc ? '?_user=' + encodeURIComponent(acc + '@' + d) : '');
+/** Webmail: com uma caixa, o painel entra já nela sem palavra-passe (bilhete de uso único, rota /api/vhost/email);
+ *  sem caixa, o ecrã de entrada do Roundcube */
+const webmailUrl = (conta: string, d: string, acc?: string) => '/api/vhost/email?conta=' + encodeURIComponent(conta) + '&d=' + encodeURIComponent(d) + '&webmail=' + encodeURIComponent(acc || '_');
+/** Endereço do webmail para quem o escreve à mão, como no DA: https://<domínio>/webmail */
+const webmailEndereco = (d: string) => 'https://' + d + '/webmail';
 const caixasNormais = (info: InfoEmail) => info.caixas.filter((c) => !c.soReencaminha && !info.listas.includes(c.nome));
 
 function Carregando({ erro, ler }: { erro: string; ler: () => void }) {
@@ -314,7 +318,7 @@ function DadosConta({ acc, d, senha }: { acc: string; d: string; senha?: string 
     ['Servidor de entrada (IMAP)', 'mail.' + d + ' · 993 (SSL)'],
     ['Servidor de saída (SMTP)', 'mail.' + d + ' · 465 (SSL) ou 587 (STARTTLS)'],
     ['Utilizador', acc + '@' + d],
-    ['Webmail', webmailUrl(d)],
+    ['Webmail', webmailEndereco(d)],
   ];
   return (
     <>
@@ -474,21 +478,10 @@ function ContasLista() {
     <ComEmail>
       {({ d, info, ler }) => {
         const rows = caixasNormais(info);
-        const usado = rows.reduce((n, c) => n + c.usadoMb, 0);
-        const enviados = rows.reduce((n, c) => n + c.enviadosHoje, 0);
-        const cheias = rows.filter((c) => c.quotaMb > 0 && c.usadoMb / c.quotaMb > 0.8).length;
-        const lim = pacoteDe(vh.s, vh.me)?.lim.emails;
-        const max = !lim || lim.unl ? null : Number(lim.v) || null;
         const apagar = (us: string[]) =>
           openM(<Confirmar titulo="Apagar contas de e-mail?" texto={'Vai apagar ' + us.join(', ') + ' e todas as mensagens. Não se pode desfazer.'} ok="Apagar" onOk={() => noEmail(vh, d, { acao: 'contas-apagar', users: us }, 'Conta(s) apagada(s)', true)} />);
         return (
           <>
-            <div className="stats">
-              <Stat title="Contas" v={rows.length} m={'/ ' + (max ?? '∞')} p={max ? pct(rows.length, max) : 0} />
-              <Stat title="Espaço usado" v={mb(usado)} m="em todas as caixas" p={pct(usado, rows.reduce((n, c) => n + c.quotaMb, 0))} />
-              <Stat title="Envios hoje" v={enviados} m="mensagens enviadas" p={0} />
-              <Stat title="Caixas quase cheias" v={cheias} m="acima de 80%" p={cheias * 20} />
-            </div>
             <DataTable
               id="email-contas"
               rows={rows}
@@ -556,11 +549,11 @@ function ContasLista() {
                     </span>
                   ),
                 },
-                { k: 'criada', t: 'Criada', cell: (r) => r.criada || '—', hidden: true },
+                { k: 'criada', t: 'Criada', cell: (r) => r.criada || '—' },
               ]}
               actions={(r) => (
                 <span className="dns-acoes">
-                  <a className="btn g sm iconbtn" href={webmailUrl(d, r.nome)} target="_blank" rel="noreferrer" title={t('Abrir webmail')} aria-label={t('Abrir webmail')}>
+                  <a className="btn g sm iconbtn" href={webmailUrl(vh.me, d, r.nome)} target="_blank" rel="noreferrer" title={t('Abrir webmail')} aria-label={t('Abrir webmail')}>
                     <i className="fa-solid fa-inbox" />
                   </a>
                   <MaisOpcoes
@@ -670,32 +663,48 @@ function UsoEmail() {
   );
 }
 
-/** Botões do topo de Contas de e-mail: Uso · DKIM · Webmail · Criar conta (como no DA: CREATE ACCOUNT, DISABLE DKIM, E-mail Usage) */
-function AcoesContas() {
+/** Coluna da direita de Contas de e-mail (formato escolhido pelo Silva, 11/10): números uns por baixo dos outros e,
+ *  por baixo, Uso de e-mail · DKIM · Abrir webmail · Criar conta (as ações do DA: E-mail Usage, DISABLE DKIM, CREATE ACCOUNT) */
+function ContasLado() {
   const vh = useVH();
   const { t, nav } = vh;
   const { d, info } = useEmail();
-  const dkim = !!info?.dominio?.dkim;
+  if (!info) return null;
+  const rows = caixasNormais(info);
+  const usado = rows.reduce((n, c) => n + c.usadoMb, 0);
+  const enviados = rows.reduce((n, c) => n + c.enviadosHoje, 0);
+  const cheias = rows.filter((c) => c.quotaMb > 0 && c.usadoMb / c.quotaMb > 0.8).length;
+  const lim = pacoteDe(vh.s, vh.me)?.lim.emails;
+  const max = !lim || lim.unl ? null : Number(lim.v) || null;
+  const dkim = !!info.dominio?.dkim;
   return (
     <>
-      <button className="btn g sec-m" onClick={() => nav('/utilizador/email/uso')}>
-        <i className="fa-solid fa-chart-pie" />
-        {t('Uso de e-mail')}
-      </button>
-      {info?.temMail && (
-        <button className="btn g sec-m" onClick={() => noEmail(vh, d, { acao: 'dkim', ligar: !dkim }, dkim ? 'DKIM desligado' : 'DKIM ligado')}>
-          <i className="fa-solid fa-signature" />
-          {t(dkim ? 'Desligar DKIM' : 'Ligar DKIM')}
+      <div className="stats em-lado-stats">
+        <Stat title="Contas" v={rows.length} m={'/ ' + (max ?? '∞')} p={max ? pct(rows.length, max) : 0} />
+        <Stat title="Espaço usado" v={mb(usado)} m="em todas as caixas" p={pct(usado, rows.reduce((n, c) => n + c.quotaMb, 0))} />
+        <Stat title="Envios hoje" v={enviados} m="mensagens enviadas" p={0} />
+        <Stat title="Caixas quase cheias" v={cheias} m="acima de 80%" p={cheias * 20} />
+      </div>
+      <div className="em-lado-botoes">
+        <button className="btn g" onClick={() => nav('/utilizador/email/uso')}>
+          <i className="fa-solid fa-chart-pie" />
+          {t('Uso de e-mail')}
         </button>
-      )}
-      <a className="btn g sec-m" href={webmailUrl(d)} target="_blank" rel="noreferrer">
-        <i className="fa-solid fa-inbox" />
-        {t('Abrir webmail')}
-      </a>
-      <button className="btn r" onClick={() => nav('/utilizador/email/nova')}>
-        <i className="fa-solid fa-plus" />
-        {t('Criar conta')}
-      </button>
+        {info.temMail && (
+          <button className="btn g" onClick={() => noEmail(vh, d, { acao: 'dkim', ligar: !dkim }, dkim ? 'DKIM desligado' : 'DKIM ligado')}>
+            <i className="fa-solid fa-signature" />
+            {t(dkim ? 'Desligar DKIM' : 'Ligar DKIM')}
+          </button>
+        )}
+        <a className="btn g" href={webmailUrl(vh.me, d)} target="_blank" rel="noreferrer">
+          <i className="fa-solid fa-inbox" />
+          {t('Abrir webmail')}
+        </a>
+        <button className="btn r" onClick={() => nav('/utilizador/email/nova')}>
+          <i className="fa-solid fa-plus" />
+          {t('Criar conta')}
+        </button>
+      </div>
     </>
   );
 }
@@ -705,7 +714,7 @@ export const emailPagina: ScreenFn = (vh) => {
   const base = { t: 'Contas de e-mail', path: '/utilizador/email' };
   if (a === 'nova') return { title: 'Criar conta de e-mail', crumbs: [base, { t: 'Criar conta' }], body: <ContaNova /> };
   if (a === 'uso') return { title: 'Uso de e-mail', crumbs: [base, { t: 'Uso de e-mail' }], body: <UsoEmail /> };
-  return { title: 'Contas de e-mail', actions: <AcoesContas />, body: <ContasLista /> };
+  return { title: 'Contas de e-mail', body: <ContasLista />, lado: <ContasLado /> };
 };
 
 // ---------- Reencaminhamentos ----------
@@ -2019,7 +2028,7 @@ export const catchAllPagina: ScreenFn = () => ({ title: 'Catch-all', body: <Catc
 
 // ---------- Extras: Webmail (Roundcube) ----------
 function Webmail() {
-  const { t } = useVH();
+  const { t, me } = useVH();
   return (
     <ComEmail>
       {({ d, info }) => {
@@ -2027,7 +2036,7 @@ function Webmail() {
         return (
           <>
             <div className="note">
-              {t('O Roundcube abre noutra janela, em')} <b>webmail.{d}</b>. {t('Entra-se com o endereço completo e a palavra-passe da conta.')}
+              {t('Carregue em Abrir ao lado de uma conta: o Roundcube abre noutra janela já dentro da caixa, sem pedir a palavra-passe.')}
               {!info.dominio?.webmail && ' ' + t('O webmail está desligado neste domínio.')}
             </div>
             <DataTable
@@ -2040,7 +2049,7 @@ function Webmail() {
                 { k: 'uso', t: 'Uso da caixa', cell: (r) => mb(r.usadoMb) + (r.quotaMb ? ' / ' + mb(r.quotaMb) : '') },
               ]}
               actions={(r) => (
-                <a className="btn g sm" href={webmailUrl(d, r.nome)} target="_blank" rel="noreferrer">
+                <a className="btn g sm" href={webmailUrl(me, d, r.nome)} target="_blank" rel="noreferrer">
                   <i className="fa-solid fa-inbox" />
                   {t('Abrir')}
                 </a>
@@ -2055,7 +2064,7 @@ function Webmail() {
 export const webmailPagina: ScreenFn = (vh) => ({
   title: 'Webmail',
   actions: (
-    <a className="btn r" href={webmailUrl(dominioEmail(vh))} target="_blank" rel="noreferrer">
+    <a className="btn r" href={webmailUrl(vh.me, dominioEmail(vh))} target="_blank" rel="noreferrer">
       <i className="fa-solid fa-inbox" />
       {vh.t('Abrir webmail')}
     </a>
