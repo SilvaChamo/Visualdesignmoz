@@ -758,4 +758,35 @@
 /* depois de entrar: página da roda sempre com o fundo branco, seja qual for o tema (pedido do Silva) */
 .vh .ent-espera{position:fixed;inset:0;display:grid;place-items:center;background:#fff}
 @media(max-width:560px){.vh .ent-cartao{padding:30px 22px 24px;border-radius:20px}.vh .ent-cima{gap:16px}}
-.vh .ent-aviso{margin:-8px 0 18px;padding:10px 12px;border-radius:6px;background:color-mix(in srgb,var(--warn,#9a6a00) 12%,transparent);color:var(--ink);font-size:13.5px;line-height:1.45}
+.vh .ent-voltar{display:inline-flex;align-items:center;flex-wrap:wrap;justify-content:center;gap:4px 6px;font-size:12.5px;color:color-mix(in srgb,var(--ink) 75%,transparent)}
+.vh[data-theme=dark] .ent-voltar{color:#d1d5db}
+.vh .ent-voltar b{font-weight:600;word-break:break-all}
+/* Admin / Gestão: o botão não ativo com o fundo da página (branco no claro, o da coluna no escuro); o selecionado um pouco
+   mais escuro, no tom da barra do seletor de domínio */
+.vh .lvl button.on{background:color-mix(in srgb,var(--soft) 92%,#000)}
+.vh[data-theme=dark] .lvl button.on{background:color-mix(in srgb,var(--soft) 65%,#000)}
+/* Tema escuro: os cartões dentro do cartão central (e da coluna da direita) com o mesmo fundo dos do Menu — suave e
+   transparente, para se distinguirem do fundo; os clicáveis com um realce subtil ao passar o rato */
+.vh[data-theme=dark] .da-card,
+.vh[data-theme=dark] :is(.da-main-card,.cols-side) :is(.card,.tbl):not(.server-card-box){background:rgba(255,255,255,.045);border-color:rgba(255,255,255,.12)}
+.vh[data-theme=dark] .da-card:hover,
+.vh[data-theme=dark] :is(.da-main-card,.cols-side) .card.tool:hover{background:rgba(255,255,255,.07)}
+/* Barra compacta um pouco mais larga (60 → 70 px) e ícones ligeiramente maiores (pedido do Silva) */
+.vh .rail{width:70px}
+.vh .rail .rlogo{width:46px;height:46px}
+.vh .rail .rb{height:52px;font-size:19px}
+.vh .rail .rb.lang{height:56px}
+.vh .rail .rb.lang b{font-size:11px}
+.vh .rail .rb small{right:15px}
+/* Janelas: destacam-se do fundo — atrás mais escuro; a janela com borda e sombra (no escuro, num tom mais claro que os cartões) */
+.vh .modal-bg{background:rgba(10,11,14,.55)}
+.vh .modal{border:1px solid var(--line);box-shadow:0 24px 64px rgba(0,0,0,.22)}
+.vh[data-theme=dark] .modal-bg{background:rgba(5,6,9,.72)}
+.vh[data-theme=dark] .modal{background:#2f323d;border-color:rgba(255,255,255,.14);box-shadow:0 28px 80px rgba(0,0,0,.6)}
+/* Contas do Admin: "Colunas" e "Ações" sempre à vista, à esquerda (os menus abrem para a direita); pesquisa com 1/4 da largura */
+.vh .dt-bar.dt-fixas .dt-cols .menu{left:0;right:auto}
+.vh .dt-bar.dt-fixas .dt-pesq{flex:0 0 25%;width:25%;min-width:200px}
+@media(max-width:768px){.vh .dt-bar.dt-fixas .dt-pesq{flex:1 1 100%;width:auto}}
+/* "+2 mais" nos domínios de uma conta: abre a lista toda */
+.vh .doms-mais{border:0;background:none;padding:0;font:inherit;font-size:12px;color:var(--muted);cursor:pointer;text-align:left}
+.vh .doms-mais:hover{color:var(--red);text-decoration:underline}

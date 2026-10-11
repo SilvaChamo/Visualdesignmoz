@@ -86,15 +86,22 @@ function CellConta({ u, a }: { u: string; a: Account }) {
 }
 
 function Doms({ a }: { a: Account }) {
+  const { t } = useVH();
+  const [todos, setTodos] = useState(false);
   if (!a.domains.length) return <span style={{ color: 'var(--muted)' }}>—</span>;
   return (
     <div className="doms">
-      {a.domains.slice(0, 3).map((d) => (
+      {(todos ? a.domains : a.domains.slice(0, 3)).map((d) => (
         <a key={d.name} href={'http://' + d.name} target="_blank" rel="noreferrer">
           {d.name}
         </a>
       ))}
-      {a.domains.length > 3 && <span style={{ color: 'var(--muted)', fontSize: 12 }}>+{a.domains.length - 3} mais</span>}
+      {/* "+2 mais" abre a lista toda; "Mostrar menos" volta a fechar */}
+      {a.domains.length > 3 && (
+        <button type="button" className="doms-mais" aria-expanded={todos} onClick={() => setTodos(!todos)}>
+          {todos ? t('Mostrar menos') : '+' + (a.domains.length - 3) + ' ' + t('mais')}
+        </button>
+      )}
     </div>
   );
 }
@@ -301,6 +308,9 @@ function ListaContas({ kind }: { kind: Kind }) {
       rowKey={(r) => r[0]}
       search={([u, a]) => u + ' ' + a.name + ' ' + a.email + ' ' + a.domains.map((d) => d.name).join(' ')}
       bulk={bulk}
+      acoesFixas
+      semBusca={false}
+      semCols={false}
       empty="Ainda não há contas aqui"
       actions={([u, a]) =>
         u === me ? (

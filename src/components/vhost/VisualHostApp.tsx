@@ -13,7 +13,7 @@ import { auth } from '@/lib/supabase-client';
 import { MoreMenuModal } from './modals';
 import { SCREENS, denyScreen, placeholder, type Screen } from './screens';
 import { BarraTopo, EsperaPagina, atividadeComeca, instalarContador, type Espera } from './carga';
-import { aplicarCoresNoSite, badgeColors, getThemeColors, hexToRgb, paletaDoSite, type CustomComponents } from './theme';
+import { aplicarCoresNoSite, badgeColors, getThemeColors, hexToRgb, luminancia, paletaDoSite, type CustomComponents } from './theme';
 import { useTheme } from '@/contexts/ThemeContext';
 import { FUNDO } from './carga';
 
@@ -197,7 +197,6 @@ export function VisualHostApp({ temSessao = true }: { temSessao?: boolean }) {
   const [st, setSt] = useState<St>(() => initialState(stripBase(pathname)));
   // página de entrada (sem sessão): modo do tema escolhido lá (claro · automático · escuro) e "a entrar" (roda a girar)
   const [aEntrar, setAEntrar] = useState(false);
-  const [inativo, setInativo] = useState(false);
   const [semSessao, setSemSessao] = useState(!temSessao);
   const [modoTema, setModoTema] = useState<ModoTema>('light');
   useEffect(() => {
@@ -446,7 +445,6 @@ export function VisualHostApp({ temSessao = true }: { temSessao?: boolean }) {
       await auth.signOut();
     } catch {}
     setAEntrar(false);
-    setInativo(false);
     setSemSessao(true);
     setModal(null);
     inicial.current = '/';
@@ -671,7 +669,8 @@ export function VisualHostApp({ temSessao = true }: { temSessao?: boolean }) {
         await auth.signOut();
       } catch {}
       setAEntrar(false);
-      setInativo(true);
+      // como no DA: a entrada mostra o caminho da página onde estava e volta para lá depois de entrar
+      inicial.current = ref.current.path || '/';
       commit({ ...ref.current, carga: 'erro', erro: { msg: 'Sessão terminada por inatividade.', codigo: 401 } });
     }, 30_000);
     return () => {
@@ -692,7 +691,10 @@ export function VisualHostApp({ temSessao = true }: { temSessao?: boolean }) {
   const darkGlassRail = rgbPrim && st.colorPreset !== 'black' && st.colorPreset !== 'puro_black'
     ? `rgba(${rgbPrim.r}, ${rgbPrim.g}, ${rgbPrim.b}, 0.16)`
     : 'rgba(255, 255, 255, 0.06)';
-  const railBg = isDark && !over?.railBg ? darkGlassRail : colors.railBg;
+  // No escuro, a barra compacta adapta-se: a cor do Personalizar só fica se já for escura; uma cor clara (ex.: cinzento)
+  // passa ao vidro escuro do tema, com os ícones claros
+  const railAdapta = isDark && (!over?.railBg || luminancia(colors.railBg) > 0.35);
+  const railBg = railAdapta ? darkGlassRail : colors.railBg;
   const badge = badgeColors(railBg, colors.primary);
   const themeStyles: Record<string, string> = {
     '--red': colors.primary,
@@ -701,9 +703,9 @@ export function VisualHostApp({ temSessao = true }: { temSessao?: boolean }) {
     '--ok': colors.safe,
     '--warn': colors.warning,
     '--rail-bg': railBg,
-    '--railon': colors.railOn,
-    '--railhov': colors.railHov,
-    '--rail-ink': colors.railInk,
+    '--railon': railAdapta ? 'rgba(255, 255, 255, 0.10)' : colors.railOn,
+    '--railhov': railAdapta ? 'rgba(255, 255, 255, 0.06)' : colors.railHov,
+    '--rail-ink': railAdapta && luminancia(colors.railInk) < 0.4 ? '#CBD5E1' : colors.railInk,
     '--rail-ink-hover': colors.railInkHover,
     '--rail-ink-on': colors.railInkOn,
     '--btn': colors.botoes,
@@ -733,7 +735,7 @@ export function VisualHostApp({ temSessao = true }: { temSessao?: boolean }) {
             escuro={isDark}
             modo={modoTema}
             lang={st.lang}
-            inativo={inativo}
+            voltarA={inicial.current && inicial.current !== '/' ? BASE + inicial.current : undefined}
             onModo={(m) => {
               setModoTema(m);
               const dark = m === 'dark' || (m === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
@@ -751,7 +753,6 @@ export function VisualHostApp({ temSessao = true }: { temSessao?: boolean }) {
             }}
             onEntrou={() => {
               setAEntrar(true);
-              setInativo(false);
               setSemSessao(false);
               commit({ ...ref.current, carga: 'a-carregar', erro: null });
               // usa a leitura guardada no servidor (abre logo); se tiver mais de 1 min, atualiza por trás, sem roda

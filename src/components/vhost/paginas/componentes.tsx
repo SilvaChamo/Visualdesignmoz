@@ -210,6 +210,7 @@ export function DataTable<T>({
   semCols: semColsPedido,
   semRecarregar = true,
   semBusca = true,
+  acoesFixas = false,
 }: {
   id: string;
   rows: T[];
@@ -238,6 +239,9 @@ export function DataTable<T>({
   semCols?: boolean;
   semRecarregar?: boolean;
   semBusca?: boolean;
+  /** à esquerda, "Colunas" e "Ações" sempre à vista (Ações inativo sem linhas escolhidas); a pesquisa com 1/4 da largura
+   *  do cartão, à direita (pedido do Silva para as contas do Admin) */
+  acoesFixas?: boolean;
 }) {
   // Preferências → Tabelas (neste navegador): linhas por página e botão Colunas, quando a página não escolhe
   const porPagina = porPaginaPedido ?? (Number(lerPrefTabela('vh-linhas', '20')) || 20);
@@ -348,37 +352,43 @@ export function DataTable<T>({
     </div>
   );
 
+  // Pesquisa e botão "Colunas" (escolher as colunas que se veem)
+  const pesquisa = search && !semBusca && (
+    <div className="search dt-pesq">
+      <i className="fa-solid fa-magnifying-glass" />
+      <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('Pesquisar')} aria-label={t('Pesquisar')} />
+      {q && <i className="fa-solid fa-xmark limpar" onClick={() => setQ('')} />}
+    </div>
+  );
+  const colunas = !semCols && (
+    <div className="dt-cols" ref={colsRef}>
+      <button className="btn g sm" onClick={() => setColsOpen(!colsOpen)}>
+        <i className="fa-solid fa-table-columns" />
+        {t('Colunas')}
+      </button>
+      {colsOpen && (
+        <div className="menu">
+          {cols.map((c) => (
+            <label key={c.k}>
+              <input type="checkbox" checked={vis.includes(c.k)} onChange={() => toggleCol(c.k)} />
+              {t(c.t)}
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <>
-      <div className={'dt-bar' + (cabecalho ? ' com-cab' : '')}>
+      <div className={'dt-bar' + (cabecalho ? ' com-cab' : '') + (acoesFixas ? ' dt-fixas' : '')}>
+        {acoesFixas && colunas}
+        {acoesFixas && !barra2 && menuAcoes(true)}
         {cabecalho}
         <span className="sp" />
-        {!barra2 && menuAcoes(false)}
-        {search && !semBusca && (
-          <div className="search dt-pesq">
-            <i className="fa-solid fa-magnifying-glass" />
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('Pesquisar')} aria-label={t('Pesquisar')} />
-            {q && <i className="fa-solid fa-xmark limpar" onClick={() => setQ('')} />}
-          </div>
-        )}
-        {!semCols && (
-          <div className="dt-cols" ref={colsRef}>
-            <button className="btn g sm" onClick={() => setColsOpen(!colsOpen)}>
-              <i className="fa-solid fa-table-columns" />
-              {t('Colunas')}
-            </button>
-            {colsOpen && (
-              <div className="menu">
-                {cols.map((c) => (
-                  <label key={c.k}>
-                    <input type="checkbox" checked={vis.includes(c.k)} onChange={() => toggleCol(c.k)} />
-                    {t(c.t)}
-                  </label>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+        {!acoesFixas && !barra2 && menuAcoes(false)}
+        {pesquisa}
+        {!acoesFixas && colunas}
         {!semRecarregar && (
           <button className="btn g sm iconbtn" title={t('Atualizar')} onClick={() => (onRecarregar ? onRecarregar() : toast('Tabela atualizada'))}>
             <i className="fa-solid fa-rotate" />

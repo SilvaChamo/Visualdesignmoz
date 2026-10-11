@@ -18,11 +18,11 @@ export type ModoTema = 'light' | 'auto' | 'dark';
 export const LINGUA_LS = 'visualhost_lang';
 
 const TXT = {
-  pt: { user: 'Utilizador', userPh: 'Escreva o nome de utilizador ou e-mail', senha: 'Palavra-passe', senhaPh: 'Escreva a sua palavra-passe', entrar: 'Entrar', falta: 'Escreva o utilizador e a palavra-passe.', errado: 'Utilizador ou palavra-passe errados.', mostrar: 'Mostrar a palavra-passe', esconder: 'Esconder a palavra-passe', claro: 'Claro', auto: 'Automático', escuro: 'Escuro', saiu: 'Por segurança, a sessão terminou depois de 20 minutos sem atividade. Entre de novo.' },
-  en: { user: 'Username', userPh: 'Please enter username or email', senha: 'Password', senhaPh: 'Please enter your password', entrar: 'Sign in', falta: 'Please enter your username and password.', errado: 'Wrong username or password.', mostrar: 'Show password', esconder: 'Hide password', claro: 'Light', auto: 'Auto', escuro: 'Dark', saiu: 'For your security, you were signed out after 20 minutes without activity. Please sign in again.' },
+  pt: { user: 'Utilizador', userPh: 'Escreva o nome de utilizador ou e-mail', senha: 'Palavra-passe', senhaPh: 'Escreva a sua palavra-passe', entrar: 'Entrar', falta: 'Escreva o utilizador e a palavra-passe.', errado: 'Utilizador ou palavra-passe errados.', mostrar: 'Mostrar a palavra-passe', esconder: 'Esconder a palavra-passe', claro: 'Claro', auto: 'Automático', escuro: 'Escuro', voltar: 'Depois de entrar, volta a' },
+  en: { user: 'Username', userPh: 'Please enter username or email', senha: 'Password', senhaPh: 'Please enter your password', entrar: 'Sign in', falta: 'Please enter your username and password.', errado: 'Wrong username or password.', mostrar: 'Show password', esconder: 'Hide password', claro: 'Light', auto: 'Auto', escuro: 'Dark', voltar: 'After signing in, you return to' },
 };
 
-export function EntradaPainel({ escuro, modo, lang, inativo, onModo, onLang, onEntrou }: { escuro: boolean; modo: ModoTema; lang: Lang; inativo?: boolean; onModo: (m: ModoTema) => void; onLang: (l: Lang) => void; onEntrou: () => void }) {
+export function EntradaPainel({ escuro, modo, lang, voltarA, onModo, onLang, onEntrou }: { escuro: boolean; modo: ModoTema; lang: Lang; voltarA?: string; onModo: (m: ModoTema) => void; onLang: (l: Lang) => void; onEntrou: () => void }) {
   const tx = TXT[lang === 'en' ? 'en' : 'pt'];
   const [user, setUser] = useState('');
   const [senha, setSenha] = useState('');
@@ -69,7 +69,6 @@ export function EntradaPainel({ escuro, modo, lang, inativo, onModo, onLang, onE
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img className="ent-logo" src={escuro ? '/assets/logo-entrada-escuro.png' : '/assets/logo-entrada.jpg'} alt="VisualDesign" />
           </a>
-          {inativo && <p className="ent-aviso">{tx.saiu}</p>}
           <label htmlFor="ent-user">{tx.user}</label>
           <input id="ent-user" autoComplete="username" autoCapitalize="none" spellCheck={false} value={user} onChange={(e) => setUser(e.target.value)} placeholder={tx.userPh} autoFocus />
           <label htmlFor="ent-senha">{tx.senha}</label>
@@ -89,7 +88,16 @@ export function EntradaPainel({ escuro, modo, lang, inativo, onModo, onLang, onE
             {aEntrar ? <Roda tamanho={16} traco={2} /> : tx.entrar}
           </button>
         </form>
-        <small className="ent-hora">{quando || '\u00a0'}</small>
+        {/* como no DA: o caminho da página onde estava (sessão terminada, ou endereço aberto sem sessão), discreto no lugar
+            da data e hora; volta lá depois de entrar */}
+        {voltarA ? (
+          <small className="ent-voltar">
+            <i className="fa-solid fa-arrow-turn-up fa-rotate-90" aria-hidden />
+            {tx.voltar} <b>{voltarA}</b>
+          </small>
+        ) : (
+          <small className="ent-hora">{quando || '\u00a0'}</small>
+        )}
       </div>
     </div>
   );

@@ -371,7 +371,7 @@ export function getThemeColors(
 }
 
 /** Luminância relativa (0 = preto, 1 = branco) */
-function luminancia(hex: string) {
+export function luminancia(hex: string) {
   const c = hexToRgb(hex);
   if (!c) return 0;
   const [r, g, b] = [c.r, c.g, c.b].map((x) => {
