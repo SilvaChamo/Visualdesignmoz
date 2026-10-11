@@ -2,7 +2,6 @@
 
 // Janelas (na maquete: openM(...) com o HTML de cada formulário).
 import { useState, type ReactNode } from 'react';
-import { supabase } from '@/lib/supabase-client';
 import { useVH, type VH } from './context';
 import { noServidor } from './paginas/acoes';
 import { LEVELS, MENU, ROLE_LEVELS, ROLE_PKGS, ROLES } from './generated/data';
@@ -57,30 +56,6 @@ export function ChangeRoleModal({ u }: { u: string }) {
         <CancelBtn />
         <button className="btn r" onClick={save}>
           {t('Guardar')}
-        </button>
-      </Foot>
-    </>
-  );
-}
-
-export function LogoutModal() {
-  const { t, toast, closeM } = useVH();
-  return (
-    <>
-      <h3>{t('Terminar sessão?')}</h3>
-      <p>Vai sair do painel VisualHost.</p>
-      <Foot>
-        <CancelBtn />
-        <button
-          className="btn r"
-          onClick={async () => {
-            closeM();
-            toast('A terminar a sessão…');
-            await supabase.auth.signOut().catch(() => null);
-            window.location.assign('/login?redirect=/vhost');
-          }}
-        >
-          {t('Sair')}
         </button>
       </Foot>
     </>

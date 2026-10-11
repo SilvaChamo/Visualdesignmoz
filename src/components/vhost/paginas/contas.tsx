@@ -360,7 +360,7 @@ function TabDominios({ a }: { a: Account }) {
       rows={a.domains}
       rowKey={(d) => d.name}
       cols={[
-        { k: 'dom', t: 'Domínio', sort: (d) => d.name, cell: (d) => <a className="lk" href={'http://' + d.name} target="_blank" rel="noreferrer">{d.name}</a> },
+        { k: 'dom', t: 'Domínio', sort: (d) => d.name, cell: (d) => <a className="lk lk-dom" href={'http://' + d.name} target="_blank" rel="noreferrer">{d.name}</a> },
         { k: 'ssl', t: 'SSL', cell: (d) => (d.ssl === 'ok' ? <span className="tag ok">{t('Válido')}</span> : <span className="tag w">{t('Expira em 12 dias')}</span>) },
         { k: 'php', t: 'PHP', cell: (d) => d.php },
         { k: 'disk', t: 'Disco', cell: (d) => d.disk },

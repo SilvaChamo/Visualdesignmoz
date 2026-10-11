@@ -55,6 +55,17 @@ def protegido(p):
     if s[0] in ('web', 'mail') and len(s) == 2: return True
     if s[0] == 'web' and len(s) == 3 and s[2] in DO_SITE: return True
     return False
+# No Hestia a pasta de cada domínio (web/<domínio>) fica só de leitura, mesmo para o dono. Como o DA deixa escrever
+# lá, o programa (que corre como o dono) abre a escrita só durante a operação e repõe as permissões no fim.
+RESTAURAR = []
+def escrita(*ps):
+    for q in ps:
+        r = rel(q).split('/')
+        if len(r) != 2 or r[0] != 'web' or not os.path.isdir(q) or os.path.islink(q) or os.access(q, os.W_OK): continue
+        st = os.stat(q)
+        if st.st_uid != os.getuid(): continue
+        os.chmod(q, stat.S_IMODE(st.st_mode) | 0o200)
+        RESTAURAR.append((q, stat.S_IMODE(st.st_mode)))
 def nome_ok(n):
     if not n or n in ('.', '..') or '/' in n or '\0' in n or len(n) > 255:
         erro('Nome inválido.')
@@ -86,6 +97,7 @@ try:
         pasta = seguro(a.get('pasta'))
         n = nome_ok(a['nome'])
         p = seguro(os.path.join(rel(pasta), n), existe=False)
+        escrita(pasta)
         if a.get('novo') and os.path.lexists(p): erro('Já existe um ficheiro com esse nome.')
         if os.path.isdir(p): erro('É uma pasta.')
         tmp = p + '.vhost-tmp'
@@ -96,6 +108,7 @@ try:
     if op == 'pasta':
         pasta = seguro(a.get('pasta'))
         p = seguro(os.path.join(rel(pasta), nome_ok(a['nome'])), existe=False)
+        escrita(pasta)
         os.mkdir(p, 0o755)
         fim({'ok': True})
     if op == 'renomear':
@@ -103,13 +116,16 @@ try:
         if protegido(p): erro('Esta pasta é do servidor; não se muda o nome.')
         dest = seguro(os.path.join(rel(os.path.dirname(p)), nome_ok(a['nome'])), existe=False)
         if os.path.lexists(dest): erro('Já existe um item com esse nome.')
+        escrita(os.path.dirname(p))
         os.rename(p, dest)
         fim({'ok': True})
     if op in ('copiar', 'mover'):
         destino = seguro(a.get('destino'))
         if not os.path.isdir(destino): erro('O destino tem de ser uma pasta.')
+        escrita(destino)
         for c in a.get('caminhos', []):
             p = seguro(c)
+            if op == 'mover': escrita(os.path.dirname(p))
             if op == 'mover' and protegido(p): erro('Esta pasta é do servidor; não se move: ' + rel(p))
             if p == BASE: erro('Não se copia a pasta da conta inteira.')
             alvo = os.path.join(destino, os.path.basename(p))
@@ -132,6 +148,7 @@ try:
             if not os.path.lexists(p): erro('Não existe: ' + rel(p))
             alvos.append(p)
         for p in alvos:
+            escrita(os.path.dirname(p))
             if not a.get('definitivo') and not (p + '/').startswith(LIXO + '/'):
                 # vai para a reciclagem (pode ser restaurado)
                 caixa = os.path.join(LIXO, time.strftime('%Y%m%d%H%M%S') + '-' + uuid.uuid4().hex[:6])
@@ -169,6 +186,7 @@ try:
         for c in a.get('caminhos', []):
             src = seguro(c)
             if protegido(src): erro('Esta pasta é do servidor; não se duplica: ' + rel(src))
+            escrita(os.path.dirname(src))
             base, ext = os.path.splitext(os.path.basename(src))
             if os.path.isdir(src): base, ext = os.path.basename(src), ''
             i = 1
@@ -205,6 +223,7 @@ try:
             nomes = [n for n in os.listdir(cx) if n != 'info.json']
             destino = seguro(info.get('orig', ''), existe=False)
             if os.path.lexists(destino): erro('Já existe um ficheiro no sítio original: ' + rel(destino))
+            escrita(os.path.dirname(destino))
             os.makedirs(os.path.dirname(destino), exist_ok=True)
             shutil.move(os.path.join(cx, nomes[0]), destino)
             shutil.rmtree(cx)
@@ -223,6 +242,7 @@ try:
         if not formato: erro('O nome tem de acabar em .zip ou .tar.gz')
         dest = seguro(os.path.join(rel(pasta), n), existe=False)
         if os.path.lexists(dest): erro('Já existe um ficheiro com esse nome.')
+        escrita(pasta)
         itens = [seguro(c) for c in a.get('caminhos', [])]
         if formato == 'zip':
             with zipfile.ZipFile(dest, 'w', zipfile.ZIP_DEFLATED) as z:
@@ -240,6 +260,7 @@ try:
     if op == 'extrair':
         p = seguro(a.get('caminho'))
         destino = seguro(a.get('destino') or rel(os.path.dirname(p)))
+        escrita(destino)
         def dentro(n):
             alvo = os.path.realpath(os.path.join(destino, n))
             if alvo != destino and not alvo.startswith(destino + '/'): erro('O arquivo tenta escrever fora da pasta (recusado).')
@@ -263,6 +284,7 @@ try:
         dest = seguro(os.path.join(rel(pasta), nome_ok(a['nome'])), existe=False)
         if os.path.isdir(dest): erro('Já existe uma pasta com esse nome.')
         if a.get('substituir') is False and os.path.lexists(dest): erro('Já existe um ficheiro com esse nome.')
+        escrita(pasta)
         tmp = a['tmp']
         if not tmp.startswith('/tmp/vhost-up-') or '/' in tmp[len('/tmp/'):]: erro('Envio inválido.')
         shutil.move(tmp, dest)
@@ -277,4 +299,9 @@ except FileExistsError:
     erro('Já existe.')
 except Exception as e:
     erro(str(e)[:200])
+finally:
+    # repõe as pastas dos domínios só de leitura (como o Hestia as deixa)
+    for q, m in RESTAURAR:
+        try: os.chmod(q, m)
+        except OSError: pass
 `;

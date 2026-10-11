@@ -25,6 +25,8 @@ export interface CustomComponents {
   warning?: string;
   railBg?: string;
   railInk?: string;
+  /** fundo dos botões com cor (por defeito: a cor principal) */
+  botoes?: string;
 }
 
 export const THEME_PRESETS: ThemePreset[] = [
@@ -316,6 +318,9 @@ export function getThemeColors(
   railInk: string;
   railInkHover: string;
   railInkOn: string;
+  botoes: string;
+  botoesD: string;
+  botoesInk: string;
 } {
   const normalizedId = presetId === 'red' ? 'visualdesign' : presetId === 'blue' ? 'visualpro' : presetId;
   const preset = THEME_PRESETS.find((p) => p.id === normalizedId) || THEME_PRESETS[0];
@@ -358,7 +363,22 @@ export function getThemeColors(
     railInk,
     railInkHover: preset.railInkHover || '#FFFFFF',
     railInkOn: preset.railInkOn || '#FFFFFF',
+    // botões com cor: a escolhida no Personalizar, senão a principal; a letra fica branca ou escura conforme o fundo
+    botoes: customComponents?.botoes || primary,
+    botoesD: darkenHex(customComponents?.botoes || primary, 12),
+    botoesInk: luminancia(customComponents?.botoes || primary) > 0.45 ? '#1E1E1E' : '#FFFFFF',
   };
+}
+
+/** Luminância relativa (0 = preto, 1 = branco) */
+function luminancia(hex: string) {
+  const c = hexToRgb(hex);
+  if (!c) return 0;
+  const [r, g, b] = [c.r, c.g, c.b].map((x) => {
+    const v = x / 255;
+    return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
 
 /** Contador de mensagens na barra de ícones: vermelho sobre uma barra da mesma cor deixa de se ver → fundo branco */
@@ -377,3 +397,39 @@ export function badgeColors(railBg: string, primary: string): { bg: string; ink:
 }
 
 export const isHex = (c?: string): c is string => !!c && /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(c.trim());
+
+/** Variáveis CSS para o site inteiro seguir a cor principal do painel: a escala do vermelho do Tailwind (a cor de
+ *  marca do site) e a cor de destaque — 600 é a principal, as mais claras misturam com branco, as mais escuras escurecem */
+export function paletaDoSite(primary: string): Record<string, string> {
+  const p = primary.toUpperCase();
+  return {
+    '--color-red-50': blendWithWhiteHex(p, 0.06),
+    '--color-red-100': blendWithWhiteHex(p, 0.12),
+    '--color-red-200': blendWithWhiteHex(p, 0.25),
+    '--color-red-300': blendWithWhiteHex(p, 0.45),
+    '--color-red-400': blendWithWhiteHex(p, 0.7),
+    '--color-red-500': blendWithWhiteHex(p, 0.88),
+    '--color-red-600': p,
+    '--color-red-700': darkenHex(p, 14),
+    '--color-red-800': darkenHex(p, 28),
+    '--color-red-900': darkenHex(p, 40),
+    '--color-red-950': darkenHex(p, 55),
+    '--panel-accent': p,
+  };
+}
+
+/** Aplica as cores do site neste navegador já (e guarda-as num cookie para as próximas páginas abrirem com elas) */
+export function aplicarCoresNoSite(vars: Record<string, string> | null) {
+  if (typeof document === 'undefined') return;
+  const s = document.documentElement.style;
+  const chaves = Object.keys(paletaDoSite('#000000'));
+  chaves.forEach((k) => s.removeProperty(k));
+  try {
+    if (!vars) {
+      document.cookie = 'vd-cores=; path=/; max-age=0; SameSite=Lax';
+      return;
+    }
+    for (const k of chaves) if (vars[k]) s.setProperty(k, vars[k]);
+    document.cookie = 'vd-cores=' + encodeURIComponent(JSON.stringify(vars)) + '; path=/; max-age=31536000; SameSite=Lax' + (location.protocol === 'https:' ? '; Secure' : '');
+  } catch {}
+}

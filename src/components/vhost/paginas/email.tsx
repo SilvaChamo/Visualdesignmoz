@@ -232,27 +232,42 @@ function Endereco({ id, value, onChange, d, placeholder }: { id?: string; value:
 /** Menu "…" de uma linha (o mesmo aspeto do menu da página SSL) */
 function MaisOpcoes({ itens }: { itens: [string, string, () => void, boolean?][] }) {
   const { t } = useVH();
-  const [aberto, setAberto] = useState(false);
+  // posição fixa (calculada do botão): a tabela, que pode deslizar, não corta o menu; sem espaço por baixo, abre para cima
+  const [pos, setPos] = useState<{ top?: number; bottom?: number; right: number } | null>(null);
   const ref = useRef<HTMLDivElement>(null);
+  const alternar = () => {
+    const r = ref.current?.getBoundingClientRect();
+    if (pos || !r) return setPos(null);
+    const altura = itens.length * 36 + 16;
+    const right = Math.max(8, window.innerWidth - r.right);
+    setPos(window.innerHeight - r.bottom < altura + 12 && r.top > altura + 12 ? { bottom: window.innerHeight - r.top + 6, right } : { top: r.bottom + 6, right });
+  };
   useEffect(() => {
-    if (!aberto) return;
-    const fechar = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && setAberto(false);
+    if (!pos) return;
+    const fechar = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && setPos(null);
+    const sair = () => setPos(null);
     document.addEventListener('mousedown', fechar);
-    return () => document.removeEventListener('mousedown', fechar);
-  }, [aberto]);
+    window.addEventListener('scroll', sair, true);
+    window.addEventListener('resize', sair);
+    return () => {
+      document.removeEventListener('mousedown', fechar);
+      window.removeEventListener('scroll', sair, true);
+      window.removeEventListener('resize', sair);
+    };
+  }, [pos]);
   return (
     <div ref={ref} style={{ position: 'relative', display: 'inline-block' }}>
-      <button className="btn g sm iconbtn" title={t('Mais opções')} aria-label={t('Mais opções')} onClick={() => setAberto(!aberto)}>
+      <button className={'btn g sm iconbtn' + (pos ? ' on' : '')} title={t('Mais opções')} aria-label={t('Mais opções')} aria-expanded={!!pos} onClick={alternar}>
         <i className="fa-solid fa-ellipsis" />
       </button>
-      {aberto && (
-        <div className="ssl-pop-menu">
+      {pos && (
+        <div className="ssl-pop-menu" style={{ position: 'fixed', top: pos.top, bottom: pos.bottom, right: pos.right, zIndex: 520 }}>
           {itens.map(([fa, txt, f, perigo]) => (
             <button
               key={txt}
               className={perigo ? 'danger' : undefined}
               onClick={() => {
-                setAberto(false);
+                setPos(null);
                 f();
               }}
             >

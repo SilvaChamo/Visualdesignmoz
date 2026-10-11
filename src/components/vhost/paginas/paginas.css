@@ -102,7 +102,8 @@
 .vh a.lk{color:var(--red);font-weight:700;cursor:pointer;text-decoration:none}
 .vh a.lk:hover{text-decoration:underline}
 .vh .doms{display:flex;flex-direction:column;gap:2px}
-.vh .doms a{color:var(--app);text-decoration:none;font-size:13px}
+.vh .doms a{color:var(--ink);text-decoration:none;font-size:13px}
+.vh .doms a:hover{color:var(--red)}
 .vh .doms a:hover{text-decoration:underline}
 
 /* Passos (Mover clientes) e blocos com título */
@@ -154,10 +155,10 @@
 
 /* Seletor de domínio (faixa de navegação, à direita): botão + lista com filtro, como no DirectAdmin */
 .vh .dom-sel{position:relative;margin-left:auto;flex:none}
-.vh .dom-btn{display:inline-flex;align-items:center;gap:8px;border:0;background:none;color:var(--app);font:inherit;font-size:13.5px;font-weight:500;cursor:pointer;padding:4px 2px;max-width:280px}
+.vh .dom-btn{display:inline-flex;align-items:center;gap:8px;border:0;background:none;color:var(--ink);font:inherit;font-size:13.5px;font-weight:500;cursor:pointer;padding:4px 2px;max-width:280px}
 .vh .dom-btn span:not(.chevs){overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.vh .dom-btn:hover{opacity:.8}
-.vh .dom-btn:focus-visible{outline:2px solid color-mix(in srgb,var(--app) 40%,transparent);outline-offset:2px;border-radius:var(--r)}
+.vh .dom-btn:hover,.vh .dom-btn.on{color:var(--red)}
+.vh .dom-btn:focus-visible{outline:2px solid color-mix(in srgb,var(--red) 40%,transparent);outline-offset:2px;border-radius:var(--r)}
 .vh .dom-btn .chevs{display:inline-flex;flex-direction:column;line-height:0;gap:1px;font-size:7px;margin-left:2px}
 .vh .dom-menu{position:absolute;right:-8px;top:calc(100% + 8px);z-index:60;width:max-content;min-width:220px;max-width:calc(100vw - 24px);background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:0 14px 34px rgba(0,0,0,.18);overflow:hidden}
 .vh .dom-filtro{display:flex;align-items:center;gap:10px;padding:0 12px;height:40px;border-bottom:1px solid var(--line);color:var(--muted)}
@@ -169,14 +170,15 @@
 .vh .dom-lista{max-height:300px;overflow-y:auto;padding:4px 0 18px}
 .vh .dom-lista button{display:flex;align-items:center;gap:8px;width:100%;border:0;background:none;color:var(--ink);font:inherit;font-size:14px;text-align:left;padding:8px 26px;cursor:pointer;position:relative}
 .vh .dom-lista button.foco{background:var(--soft)}
-.vh .dom-lista button.on{background:color-mix(in srgb,var(--app) 16%,transparent);color:var(--app)}
+.vh .dom-lista button.on{background:var(--soft);color:var(--ink);font-weight:600}
+.vh .dom-lista button:hover{color:var(--red)}
 .vh .dom-lista button.on i{position:absolute;left:8px;font-size:11px}
 .vh .dom-lista button span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .vh .dom-vazio{padding:12px 14px;color:var(--muted);font-size:13px}
 
 .vh .dom-ctx{display:flex;align-items:center;gap:6px;flex-wrap:wrap;color:var(--muted);font-size:13px;margin:0 0 16px}
 .vh .dom-ctx b{color:var(--ink)}
-.vh .dom-ctx i{color:var(--app)}
+.vh .dom-ctx i{color:var(--red)}
 .vh .dom-ctx span{font-size:12px}
 
 /* DNS: tipos com cores e botões Editar / Remover (organização do modelo DNS central do painel da VisualDesign) */
@@ -195,11 +197,11 @@
 .vh[data-theme=dark] .dns-tipo.t-TXT{background:rgba(168,85,247,.16);color:#d8b4fe}
 .vh[data-theme=dark] .dns-tipo.t-SRV{background:rgba(236,72,153,.16);color:#f9a8d4}
 .vh .dns-acoes{display:inline-flex;gap:6px}
-.vh .btn.btn-ed{background:transparent;border:1px solid #3b82f6;color:#2563eb}
-.vh .btn.btn-ed:hover{background:rgba(59,130,246,.08)}
+.vh .btn.btn-ed{background:transparent;border:1px solid var(--btn,var(--red));color:var(--btn,var(--red))}
+.vh .btn.btn-ed:hover{background:color-mix(in srgb,var(--btn,var(--red)) 8%,transparent)}
 .vh .btn.btn-rm{background:transparent;border:1px solid #ef4444;color:#dc2626}
 .vh .btn.btn-rm:hover{background:rgba(239,68,68,.08)}
-.vh[data-theme=dark] .btn.btn-ed{color:#93c5fd}
+.vh[data-theme=dark] .btn.btn-ed{color:color-mix(in srgb,var(--btn,var(--red)) 70%,#fff)}
 .vh[data-theme=dark] .btn.btn-rm{color:#fca5a5}
 .vh .modal textarea{width:100%;border:1px solid var(--line);border-radius:var(--r);padding:8px 10px;background:var(--card);color:var(--ink);font-family:ui-monospace,Menlo,monospace;font-size:12px;resize:vertical}
 .vh pre.resultado{max-height:320px;overflow:auto;background:var(--soft);border:1px solid var(--line);border-radius:var(--r);padding:10px;font-size:12px;white-space:pre-wrap}
@@ -257,8 +259,8 @@
 .vh .da-pe{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:6px;flex-wrap:wrap}
 .vh .da-pe small,.vh .da-campo small{font-size:12px;color:var(--muted)}
 .vh .da-ops{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
-.vh .btn.da-op{justify-content:center;background:transparent;border:1px solid var(--app);color:var(--app);height:38px;width:100%;cursor:pointer}
-.vh .btn.da-op:hover{background:color-mix(in srgb,var(--app) 9%,transparent)}
+.vh .btn.da-op{justify-content:center;background:transparent;border:1px solid var(--btn,var(--red));color:var(--btn,var(--red));height:38px;width:100%;cursor:pointer}
+.vh .btn.da-op:hover{background:color-mix(in srgb,var(--btn,var(--red)) 9%,transparent)}
 .vh .da-campo{margin-bottom:14px}
 .vh .da-campo>.igrp{width:100%;max-width:none}
 .vh .da-campo small{display:block;margin-top:5px}
@@ -470,8 +472,10 @@
 .vh .fmda{position:fixed;inset:0;z-index:400;display:flex;flex-direction:column;background:var(--card);color:var(--ink);font-size:14px}
 .vh .modal-bg{z-index:550;backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}
 .vh .toast{z-index:600}
-/* barra de cima na cor da barra compacta do painel (a dos ícones), mais transparente, só o fundo (sem linhas) — pedido do Silva a 11/10 */
-.vh .fmda-top{flex:none;height:60px;display:flex;align-items:center;background:color-mix(in srgb,var(--rail-bg) 78%,transparent);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);color:var(--rail-ink,#fff)}
+/* barra de cima na cor da barra compacta do painel (a dos ícones), mais transparente — pedido do Silva a 11/10; com uma
+   linha suave fixa por baixo (desenhada fora do fundo da barra, por isso vê-se sempre), para não se confundir com a
+   página quando a barra compacta é branca */
+.vh .fmda-top{flex:none;height:60px;display:flex;align-items:center;background:color-mix(in srgb,var(--rail-bg) 78%,transparent);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);color:var(--rail-ink,#fff);position:relative;z-index:8;box-shadow:0 1px 0 var(--line)}
 .vh .fmda-logo{flex:none;width:360px;display:flex;align-items:center;gap:10px;padding:0 14px;overflow:hidden}
 .vh .fmda-logo img{width:36px;height:36px;object-fit:contain;border-radius:6px}
 .vh .fmda-logo span{display:flex;flex-direction:column;line-height:1.05}
@@ -539,7 +543,8 @@
 .vh .fmda-ic.c-pdf i{color:#f39b9b}.vh .fmda-ic.c-pdf b{background:#dc2626}
 .vh .fmda-ic.c-txt i{color:#a3b1c2}.vh .fmda-ic.c-txt b{background:#64748b}
 .vh .fmda-vazio td{text-align:center;color:var(--muted);height:90px;white-space:normal}
-.vh .fmda-pesq{position:absolute;inset:0;z-index:20;padding-top:46px;background:rgba(20,20,22,.35);backdrop-filter:blur(3px)}
+/* pesquisa: o fundo escuro cobre a página inteira (também a barra de cima e a árvore), sem desfoque, como no DA */
+.vh .fmda-pesq{position:fixed;inset:0;z-index:30;padding-top:70px;background:rgba(15,16,20,.62)}
 .vh .fmda-pesq-cx{position:relative;width:min(640px,92%);margin:0 auto;height:42px;display:flex;align-items:center;gap:10px;padding:0 12px;background:var(--card);border:1px solid var(--line);border-radius:4px}
 .vh .fmda-pesq-cx input{flex:1;border:0;background:none;color:var(--ink);font-size:15px;outline:none}
 .vh .fmda-pesq-cx>i{color:var(--muted)}
@@ -676,3 +681,81 @@
 .vh .gb-conteudo blockquote{border-left:4px solid currentColor;padding-left:1em}
 .vh .gb-lateral{border-left:1px solid var(--line);background:#fff;color:#1e1e1e;overflow:auto}
 @media(max-width:1100px){.vh .gb-editor{grid-template-columns:1fr}.vh .gb-lateral{display:none}}
+/* Pesquisa do gestor: entra a deslizar de cima, como no DA (o fundo escurece ao mesmo tempo, sem desfoque) */
+.vh .fmda-pesq{animation:fmda-pesq-fundo .22s ease-out}
+.vh .fmda-pesq-cx{animation:fmda-pesq-desce .3s cubic-bezier(.2,.8,.3,1)}
+@keyframes fmda-pesq-fundo{from{background:rgba(15,16,20,0)}}
+@keyframes fmda-pesq-desce{from{opacity:0;transform:translateY(-36px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.vh .fmda-pesq,.vh .fmda-pesq-cx{animation:none}}
+/* Botões com cor: o fundo vem do Personalizar → "Botões" (por defeito a cor principal); a letra ajusta-se ao fundo */
+.vh .btn.r{background:var(--btn,var(--red));color:var(--btn-ink,#fff)}
+.vh .btn.r:hover{background:var(--btn-d,var(--red-d))}
+/* Campo de progresso da janela de envio: 56px (a barra fina + 50px), enche-se com uma cor suave e mostra a percentagem */
+.vh .fmda-up-campo{position:relative;height:56px;border:1px solid var(--line);border-radius:var(--r);background:var(--soft);overflow:hidden;display:flex;align-items:center;justify-content:center}
+.vh .fmda-up-enche{position:absolute;left:0;top:0;bottom:0;background:color-mix(in srgb,var(--btn,var(--red)) 20%,var(--card));transition:width 40ms linear}
+.vh .fmda-up-campo b{position:relative;font-size:15px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums}
+.vh .fmda-up-campo.est-erro b{color:var(--red);font-size:13px;font-weight:600;padding:0 10px;text-align:center}
+.vh .fmda-up-campo.est-espera b,.vh .fmda-up-campo.est-cancelado b{color:var(--muted);font-weight:600}
+/* Nomes de domínio (pedido do Silva a 11/10): cor normal; vermelho (cor do tema) só ao passar o rato */
+.vh a.lk.lk-dom{color:var(--ink)}
+.vh a.lk.lk-dom:hover{color:var(--red);text-decoration:none}
+/* ---------- Página de entrada no modelo do DirectAdmin (entrada.tsx) ---------- */
+.vh .ent{position:fixed;inset:0;overflow:auto;display:flex;flex-direction:column;background:color-mix(in srgb,var(--red) 22%,#fff);color:var(--ink)}
+.vh[data-theme=dark] .ent{background:#1c1d21}
+.vh .ent-fundo{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
+/* canto superior direito: modo (claro · automático · escuro) e língua */
+.vh .ent-cima{position:relative;z-index:3;display:flex;justify-content:flex-end;align-items:center;gap:34px;padding:10px 16px 0}
+.vh .ent-modos{display:flex;align-items:center;gap:14px;position:relative}
+.vh .ent-modos::before{content:"";position:absolute;left:18px;right:18px;top:50%;height:1px;background:color-mix(in srgb,var(--ink) 25%,transparent)}
+.vh[data-theme=dark] .ent-modos::before{background:rgba(255,255,255,.25)}
+.vh .ent-modos button{position:relative;width:34px;height:34px;border-radius:50%;border:0;background:color-mix(in srgb,#fff 55%,transparent);color:var(--ink);font-size:15px;cursor:pointer;display:grid;place-items:center}
+.vh[data-theme=dark] .ent-modos button{background:#25262b;color:#e5e7eb}
+.vh .ent-modos button.on{background:var(--red);color:#fff;box-shadow:0 0 0 3px color-mix(in srgb,var(--red) 30%,transparent)}
+.vh .ent-lingua{position:relative}
+.vh .ent-lingua>button{display:inline-flex;align-items:center;gap:8px;border:0;padding:0;background:none;color:var(--ink);font:inherit;font-size:15px;cursor:pointer}
+.vh[data-theme=dark] .ent-lingua>button{color:#e5e7eb}
+.vh .ent-lingua>button i{font-size:18px}
+/* menu da língua como no DA: encostado à direita do ecrã, borda e línguas na cor do tema — mas mais estreito */
+.vh .ent-linguas{position:absolute;right:-16px;top:calc(100% + 12px);width:180px;max-height:calc(100vh - 70px);overflow:auto;background:#fff;border:1px solid var(--red);border-right:0;border-radius:10px 0 0 10px;box-shadow:0 14px 34px rgba(0,0,0,.22);z-index:5}
+.vh[data-theme=dark] .ent-linguas{background:#18181b}
+.vh .ent-linguas button{display:block;width:100%;text-align:left;border:0;background:none;color:var(--red);font:inherit;font-size:14.5px;padding:11px 16px;cursor:pointer}
+.vh .ent-linguas button:hover{background:color-mix(in srgb,var(--red) 8%,transparent)}
+.vh .ent-linguas button.on{background:color-mix(in srgb,var(--red) 16%,transparent)}
+.vh .ent-meio{position:relative;z-index:1;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px 16px 50px;gap:14px}
+/* medidas iguais às da entrada do DA (medidas na captura do Silva, 1872×966): cartão 488×460, cantos 30, logótipo
+   visível 320 px, campos 400×58, botão 400×64, cantos 8 */
+.vh .ent-cartao{width:min(488px,100%);background:#fff;border-radius:30px;padding:31px 44px 28px;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.08)}
+.vh[data-theme=dark] .ent-cartao{background:#18181b;box-shadow:inset 0 0 0 1px #27272a,0 20px 60px rgba(0,0,0,.45)}
+/* logótipo maior (pedido do Silva): visível com a altura do do DA (72 px), na mesma faixa; os campos não mudam de sítio */
+.vh .ent-logo-link{align-self:center;display:block;width:min(386px,100%);margin:8px 0 25px;line-height:0}
+.vh .ent-logo{display:block;width:100%;height:auto}
+.vh .ent-cartao label{font-size:17.5px;line-height:1.25;color:#2b2d33;margin:0 0 11px}
+.vh[data-theme=dark] .ent-cartao label{color:#e5e7eb}
+.vh .ent-cartao input{width:100%;height:58px;border:1px solid #dcdde1;border-radius:8px;padding:0 16px;font:inherit;font-size:16px;color:#2b2d33;background:#fff;outline:0}
+.vh[data-theme=dark] .ent-cartao input{background:#09090b;border-color:#3f3f46;color:#f1f2f4}
+.vh .ent-cartao input::placeholder{color:#5b5f69}
+.vh[data-theme=dark] .ent-cartao input::placeholder{color:#9aa0aa}
+.vh .ent-cartao input:focus{border-color:var(--red);box-shadow:0 0 0 3px color-mix(in srgb,var(--red) 18%,transparent)}
+.vh .ent-cartao>input{margin-bottom:24px}
+.vh .ent-senha{position:relative;margin-bottom:22px}
+.vh .ent-senha input{padding-right:46px}
+.vh .ent-senha button{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:34px;height:34px;border:0;background:none;color:#2b2d33;cursor:pointer;font-size:15px}
+.vh[data-theme=dark] .ent-senha button{color:var(--red)}
+.vh .ent-erro{color:var(--red);font-size:14px;margin:-8px 0 14px}
+.vh .ent-botao{height:64px;border:0;border-radius:8px;background:var(--btn,var(--red));color:var(--btn-ink,#fff);font:inherit;font-size:18px;font-weight:500;cursor:pointer;display:grid;place-items:center;transition:background-color .2s}
+.vh .ent-botao:hover:not(:disabled){background:var(--btn-d,var(--red-d))}
+.vh .ent-botao:disabled{cursor:default}
+.vh .ent-botao.a-entrar{height:51px}
+.vh .ent-hora{font-size:11px;color:color-mix(in srgb,var(--ink) 75%,transparent)}
+.vh[data-theme=dark] .ent-hora{color:#d1d5db}
+/* roda como a do DA: arco que cresce (90° → 270°) e encolhe enquanto gira; ciclo de 1,25 s */
+.vh .ent-roda{display:block;animation:ent-gira 2s linear infinite}
+.vh .ent-roda circle{stroke:currentColor;stroke-dasharray:25 75;animation:ent-arco 1.25s ease-in-out infinite}
+.vh .ent-botao .ent-roda{color:color-mix(in srgb,#fff 55%,var(--btn,var(--red)))}
+.vh .ent-roda.grande{color:var(--red)}
+@keyframes ent-gira{to{transform:rotate(360deg)}}
+@keyframes ent-arco{0%{stroke-dasharray:25 75;stroke-dashoffset:0}50%{stroke-dasharray:75 25;stroke-dashoffset:0}100%{stroke-dasharray:25 75;stroke-dashoffset:-100}}
+/* depois de entrar: página da roda sempre com o fundo branco, seja qual for o tema (pedido do Silva) */
+.vh .ent-espera{position:fixed;inset:0;display:grid;place-items:center;background:#fff}
+@media(max-width:560px){.vh .ent-cartao{padding:30px 22px 24px;border-radius:20px}.vh .ent-cima{gap:16px}}
+.vh .ent-aviso{margin:-8px 0 18px;padding:10px 12px;border-radius:6px;background:color-mix(in srgb,var(--warn,#9a6a00) 12%,transparent);color:var(--ink);font-size:13.5px;line-height:1.45}

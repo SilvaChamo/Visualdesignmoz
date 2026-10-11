@@ -8,9 +8,9 @@ import { LOGO, route, type St } from '../state';
 /** Onde a página está aberta: em Preferências → Aparência (todas as contas) ou no menu do painel (Admin/Revenda) */
 export const temaBase = (s: St) => (s.page === 'preferencias' ? '/preferencias/aparencia' : route(s.level, 'tema'));
 
-type Cores = { primary: string; safe: string; danger: string; warning: string; railBg: string; railInk: string };
-const CHAVES: (keyof Cores)[] = ['primary', 'safe', 'danger', 'warning', 'railBg', 'railInk'];
-const coresDe = (c: ReturnType<typeof getThemeColors>): Cores => ({ primary: c.primary, safe: c.safe, danger: c.danger, warning: c.warning, railBg: c.railBg, railInk: c.railInk });
+type Cores = { primary: string; safe: string; danger: string; warning: string; railBg: string; railInk: string; botoes: string };
+const CHAVES: (keyof Cores)[] = ['primary', 'safe', 'danger', 'warning', 'railBg', 'railInk', 'botoes'];
+const coresDe = (c: ReturnType<typeof getThemeColors>): Cores => ({ primary: c.primary, safe: c.safe, danger: c.danger, warning: c.warning, railBg: c.railBg, railInk: c.railInk, botoes: c.botoes });
 
 export function ThemeCustomizerView() {
   const vh = useVH();
@@ -466,6 +466,27 @@ export function ThemeCustomizerView() {
                       type="text"
                       value={compColors.railBg}
                       onChange={(e) => handleCompColorChange('railBg', e.target.value)}
+                      style={{ flex: 1, height: 36, border: '1px solid var(--line)', borderRadius: 4, padding: '0 10px', fontSize: 13, fontWeight: 700, background: 'var(--card)', color: 'var(--ink)' }}
+                    />
+                  </div>
+                </div>
+
+                {/* Componente: Botões (fundo de todos os botões com cor) */}
+                <div style={{ background: 'var(--soft)', padding: 14, borderRadius: 'var(--r)', border: '1px solid var(--line)' }}>
+                  <label style={{ display: 'block', fontSize: 13, fontWeight: 700, marginBottom: 8, color: 'var(--ink)' }}>
+                    Botões (Fundo de todos os botões com cor)
+                  </label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <input
+                      type="color"
+                      value={compColors.botoes}
+                      onChange={(e) => handleCompColorChange('botoes', e.target.value)}
+                      style={{ width: 40, height: 36, border: '1px solid var(--line)', borderRadius: 4, cursor: 'pointer', background: 'transparent' }}
+                    />
+                    <input
+                      type="text"
+                      value={compColors.botoes}
+                      onChange={(e) => handleCompColorChange('botoes', e.target.value)}
                       style={{ flex: 1, height: 36, border: '1px solid var(--line)', borderRadius: 4, padding: '0 10px', fontSize: 13, fontWeight: 700, background: 'var(--card)', color: 'var(--ink)' }}
                     />
                   </div>

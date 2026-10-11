@@ -8,10 +8,14 @@ import { VHContext, type VH } from './context';
 import { GLOBAL, LEVELS, MENU, ROLES } from './generated/data';
 import { dominioVisivel, type DadosServidor } from './servidor';
 import { translate, type Lang } from './i18n';
-import { LogoutModal, MoreMenuModal } from './modals';
+import { EntradaPainel, EsperaEntrada, LINGUA_LS, type ModoTema } from './entrada';
+import { auth } from '@/lib/supabase-client';
+import { MoreMenuModal } from './modals';
 import { SCREENS, denyScreen, placeholder, type Screen } from './screens';
 import { BarraTopo, EsperaPagina, atividadeComeca, instalarContador, type Espera } from './carga';
-import { badgeColors, getThemeColors, hexToRgb, type CustomComponents } from './theme';
+import { aplicarCoresNoSite, badgeColors, getThemeColors, hexToRgb, paletaDoSite, type CustomComponents } from './theme';
+import { useTheme } from '@/contexts/ThemeContext';
+import { FUNDO } from './carga';
 
 /** nomes antigos dos temas → nome atual (as cores gravadas ficam sempre no mesmo nome) */
 const presetId = (id: string) => ({ red: 'visualdesign', blue: 'visualpro' })[id] || id;
@@ -185,11 +189,23 @@ function PaginaSlot({ p, oculta, onPronta }: { p: Pagina; oculta: boolean; onPro
   );
 }
 
-export function VisualHostApp() {
+/** temSessao: o servidor já viu se há cookie de sessão — sem sessão, a página de entrada aparece logo (sem piscar) */
+export function VisualHostApp({ temSessao = true }: { temSessao?: boolean }) {
   // conta os pedidos ao site para a linha de carregamento do topo (antes de o painel pedir os dados)
   useState(() => instalarContador());
   const pathname = usePathname() || BASE;
   const [st, setSt] = useState<St>(() => initialState(stripBase(pathname)));
+  // página de entrada (sem sessão): modo do tema escolhido lá (claro · automático · escuro) e "a entrar" (roda a girar)
+  const [aEntrar, setAEntrar] = useState(false);
+  const [inativo, setInativo] = useState(false);
+  const [semSessao, setSemSessao] = useState(!temSessao);
+  const [modoTema, setModoTema] = useState<ModoTema>('light');
+  useEffect(() => {
+    try {
+      const tm = localStorage.getItem('visualhost_theme');
+      setModoTema(tm === 'dark' ? 'dark' : tm === 'auto' ? 'auto' : 'light');
+    } catch {}
+  }, []);
   /** endereço com que o painel abriu (para o reabrir depois de chegarem os dados do servidor) */
   const inicial = useRef(stripBase(pathname));
   const ref = useRef(st);
@@ -209,6 +225,18 @@ export function VisualHostApp() {
     if (!allowed.includes(next.level)) next = { ...next, level: allowed[0] };
     ref.current = next;
     setSt(next);
+  }, []);
+
+  // Claro/escuro do site todo (o painel e o site usam a mesma escolha)
+  const siteTema = useTheme();
+  /** Cores escolhidas no painel → site inteiro (pedido do Silva a 11/10): aplicadas já neste navegador e gravadas no
+   *  servidor para todos os visitantes (o servidor só aceita do administrador) */
+  const publicarTema = useCallback(() => {
+    const n = ref.current;
+    const over = n.themeOver[n.colorPreset];
+    const vars = paletaDoSite(getThemeColors(n.colorPreset, n.customPrimary, over).primary);
+    aplicarCoresNoSite(vars);
+    fetch('/api/vhost/tema', { method: 'POST', headers: { 'Content-Type': 'application/json', ...FUNDO }, body: JSON.stringify({ preset: n.colorPreset, customPrimary: n.customPrimary || undefined, over: over || {}, radius: n.radius, vars }) }).catch(() => {});
   }, []);
 
   const pushUrl = (path: string, replace = false) => {
@@ -246,8 +274,15 @@ export function VisualHostApp() {
   useEffect(() => {
     const n = { ...ref.current };
     try {
-      if (localStorage.getItem('visualhost_theme') === 'dark') n.theme = 'dark';
+      // claro/escuro: o mesmo do site todo (cookie vd-theme); "automático" (escolhido na página de entrada) segue o sistema
+      const tm = localStorage.getItem('visualhost_theme');
+      const doSite = (document.cookie.match(/(?:^|; )vd-theme=(light|dark)/) || [])[1] || localStorage.getItem('vd-theme');
+      if (tm === 'auto') n.theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      else if (doSite === 'dark' || doSite === 'light') n.theme = doSite;
+      else if (tm === 'dark') n.theme = 'dark';
       if (localStorage.getItem('visualhost_dashtab') === 'menu') n.dashTab = 'menu';
+      const lg = localStorage.getItem(LINGUA_LS);
+      if (lg === 'pt' || lg === 'en') n.lang = lg;
       n.colorPreset = presetId(localStorage.getItem(LS.preset) || n.colorPreset);
       n.customPrimary = localStorage.getItem(LS.customPrimary) || '';
       n.radius = localStorage.getItem(LS.radius) || n.radius;
@@ -266,6 +301,21 @@ export function VisualHostApp() {
     } catch {}
     commit(n);
     pushUrl(ref.current.path, true);
+    // cores do site escolhidas pelo administrador: valem aqui também, salvo se esta pessoa escolheu outras no painel
+    fetch('/api/vhost/tema', { headers: FUNDO })
+      .then((r) => r.json())
+      .then((j: { tema?: { preset: string; customPrimary?: string; over?: CustomComponents; radius?: string; vars?: Record<string, string> } | null }) => {
+        const g = j.tema;
+        if (!g) return;
+        let local = false;
+        try {
+          local = !!localStorage.getItem(LS.preset);
+        } catch {}
+        if (local) return;
+        const preset = presetId(g.preset);
+        commit({ ...ref.current, colorPreset: preset, customPrimary: g.customPrimary || ref.current.customPrimary, radius: g.radius || ref.current.radius, themeOver: g.over && Object.keys(g.over).length ? { ...ref.current.themeOver, [preset]: g.over } : ref.current.themeOver });
+      })
+      .catch(() => {});
     const onPop = () => commit(fromPath(ref.current, stripBase(window.location.pathname)));
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
@@ -389,6 +439,21 @@ export function VisualHostApp() {
     recusadoEm.current = Date.now();
   };
 
+  // Sair: termina a sessão e mostra logo a página de entrada, sem perguntar nem recarregar (pedido do Silva: a página
+  // piscava entre dois ecrãs antes do formulário)
+  const sair = async () => {
+    try {
+      await auth.signOut();
+    } catch {}
+    setAEntrar(false);
+    setInativo(false);
+    setSemSessao(true);
+    setModal(null);
+    inicial.current = '/';
+    commit({ ...ref.current, carga: 'erro', erro: { msg: 'Inicie sessão no site.', codigo: 401 } });
+    window.history.replaceState(null, '', BASE);
+  };
+
   const vh: VH = {
     s,
     t,
@@ -447,6 +512,9 @@ export function VisualHostApp() {
     setNotes: (on) => commit({ ...ref.current, notes: on }),
     setLang: (l: Lang) => {
       commit({ ...ref.current, lang: l });
+      try {
+        localStorage.setItem(LINGUA_LS, l);
+      } catch {}
       closePop();
       toast(l === 'en' ? 'Language: English' : 'Idioma: Português');
     },
@@ -457,6 +525,7 @@ export function VisualHostApp() {
       try {
         localStorage.setItem('visualhost_theme', theme);
       } catch {}
+      siteTema.setTheme(theme); // o site todo fica no mesmo modo
       toast(dark ? 'Tema escuro' : 'Tema claro');
     },
     // Cores: o tema escolhido e as cores mudadas à mão em cada tema ficam guardados no navegador
@@ -468,6 +537,7 @@ export function VisualHostApp() {
         localStorage.setItem(LS.preset, colorPreset);
         if (cp) localStorage.setItem(LS.customPrimary, cp);
       } catch {}
+      publicarTema();
       toast('Tema de cores aplicado');
     },
     saveThemeColors: (c) => {
@@ -479,6 +549,7 @@ export function VisualHostApp() {
       try {
         localStorage.setItem(LS.over, JSON.stringify(themeOver));
       } catch {}
+      publicarTema();
       toast(c ? 'Cores guardadas neste tema' : 'Cores do tema repostas');
     },
     previewThemeColors: (c) => commit({ ...ref.current, themePreview: c }),
@@ -487,6 +558,7 @@ export function VisualHostApp() {
       try {
         localStorage.setItem(LS.radius, r);
       } catch {}
+      publicarTema();
       toast('Cantos atualizados');
     },
     setDominio: (d, aviso = true) => {
@@ -501,7 +573,9 @@ export function VisualHostApp() {
       toast('Marca guardada');
     },
     openSearch,
-    logout: () => setModal(<LogoutModal />),
+    logout: () => {
+      sair();
+    },
   };
 
   const screenKey = GLOBAL[s.page] ? (s.gsub ? s.page + '/' + s.gsub : s.page) : level + '/' + s.page;
@@ -567,19 +641,52 @@ export function VisualHostApp() {
 
   // Cores do tema escolhido, com as cores mudadas à mão nesse tema (ou as que estão a ser editadas), e cantos
   const over = st.themePreview || st.themeOver[st.colorPreset];
+  // Sessão: nunca pede para entrar enquanto se mexe no painel (os pedidos /api/vhost renovam-na — src/proxy.ts); ao fim
+  // de 20 minutos sem tocar em nada (em nenhum separador), termina a sessão e mostra a página de entrada
+  useEffect(() => {
+    if (st.carga !== 'ok') return;
+    const LIMITE = 20 * 60_000;
+    const K = 'vh-ultimo-toque';
+    let ultimo = Date.now();
+    let gravado = 0;
+    const toque = () => {
+      ultimo = Date.now();
+      if (ultimo - gravado < 15_000) return;
+      gravado = ultimo;
+      try {
+        localStorage.setItem(K, String(ultimo));
+      } catch {}
+    };
+    toque();
+    const evs = ['pointerdown', 'pointermove', 'keydown', 'wheel', 'touchstart', 'scroll'] as const;
+    evs.forEach((e) => window.addEventListener(e, toque, { passive: true, capture: true }));
+    const iv = setInterval(async () => {
+      let outro = 0;
+      try {
+        outro = Number(localStorage.getItem(K)) || 0;
+      } catch {}
+      if (Date.now() - Math.max(ultimo, outro) < LIMITE) return;
+      clearInterval(iv);
+      try {
+        await auth.signOut();
+      } catch {}
+      setAEntrar(false);
+      setInativo(true);
+      commit({ ...ref.current, carga: 'erro', erro: { msg: 'Sessão terminada por inatividade.', codigo: 401 } });
+    }, 30_000);
+    return () => {
+      evs.forEach((e) => window.removeEventListener(e, toque, { capture: true }));
+      clearInterval(iv);
+    };
+  }, [st.carga, commit]);
+
   const colors = getThemeColors(st.colorPreset, st.customPrimary, over);
   const isDark = st.theme === 'dark';
-  // As peças do site metidas no painel (procura de domínios, Mailmarketing, gestor de ficheiros) usam o modo
-  // escuro do site (classe "dark" no <html>): enquanto o painel está aberto, segue o tema do painel.
+  // O modo claro/escuro é o do site todo (classe "dark" no <html>): o painel aplica-o e não o desfaz ao sair
   useEffect(() => {
     const h = document.documentElement;
-    const antes = { dark: h.classList.contains('dark'), esquema: h.style.colorScheme };
     h.classList.toggle('dark', isDark);
     h.style.colorScheme = isDark ? 'dark' : 'light';
-    return () => {
-      h.classList.toggle('dark', antes.dark);
-      h.style.colorScheme = antes.esquema;
-    };
   }, [isDark]);
   const rgbPrim = hexToRgb(colors.primary);
   const darkGlassRail = rgbPrim && st.colorPreset !== 'black' && st.colorPreset !== 'puro_black'
@@ -599,51 +706,83 @@ export function VisualHostApp() {
     '--rail-ink': colors.railInk,
     '--rail-ink-hover': colors.railInkHover,
     '--rail-ink-on': colors.railInkOn,
+    '--btn': colors.botoes,
+    '--btn-d': colors.botoesD,
+    '--btn-ink': colors.botoesInk,
     ...(badge ? { '--rail-badge-bg': badge.bg, '--rail-badge-ink': badge.ink } : {}),
     '--r': st.radius || '4px',
   };
   const logo = st.brand.logo || LOGO;
   const marca = st.brand.name.trim() || 'VisualHost';
 
-  // Enquanto os dados do servidor não chegam: o próprio painel em esqueleto (cinzento animado), sem menus nem
-  // números. Sem sessão / sem acesso / servidor indisponível: aviso no mesmo desenho, com o que fazer a seguir.
+  // Enquanto os dados do servidor não chegam: a página branca com a roda (como no DA), sem esqueleto — o painel aparece
+  // já com o menu. Sem sessão: a página de entrada. Sem acesso / servidor indisponível: aviso com o que fazer a seguir.
   if (st.carga !== 'ok') {
     const er = st.erro;
+    // sem sessão (cookie visto já no servidor) ou sessão recusada: a página de entrada no modelo do DA, sem piscar
+    const entrada = er?.codigo === 401 || (!er && !aEntrar && semSessao);
+    if (!er && !entrada) return (
+      <div className="vh" data-theme={st.theme} style={themeStyles as React.CSSProperties} lang="pt-PT" suppressHydrationWarning>
+        <EsperaEntrada />
+      </div>
+    );
+    if (entrada)
+      return (
+        <div className="vh" data-theme={st.theme} style={themeStyles as React.CSSProperties} lang={st.lang === 'en' ? 'en' : 'pt-PT'} suppressHydrationWarning>
+          <EntradaPainel
+            escuro={isDark}
+            modo={modoTema}
+            lang={st.lang}
+            inativo={inativo}
+            onModo={(m) => {
+              setModoTema(m);
+              const dark = m === 'dark' || (m === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+              commit({ ...ref.current, theme: dark ? 'dark' : 'light' });
+              siteTema.setTheme(dark ? 'dark' : 'light');
+              try {
+                localStorage.setItem('visualhost_theme', m);
+              } catch {}
+            }}
+            onLang={(l) => {
+              commit({ ...ref.current, lang: l });
+              try {
+                localStorage.setItem(LINGUA_LS, l);
+              } catch {}
+            }}
+            onEntrou={() => {
+              setAEntrar(true);
+              setInativo(false);
+              setSemSessao(false);
+              commit({ ...ref.current, carga: 'a-carregar', erro: null });
+              // usa a leitura guardada no servidor (abre logo); se tiver mais de 1 min, atualiza por trás, sem roda
+              carregar().then(() => {
+                const lido = ref.current.carga === 'ok' && ref.current.lidoEm ? Date.parse(ref.current.lidoEm) : 0;
+                if (lido && Date.now() - lido > 60_000) carregar(true);
+              });
+            }}
+          />
+        </div>
+      );
     const aviso =
-      er?.codigo === 401
-        ? { fa: 'fa-lock', titulo: 'Inicie sessão para abrir o painel', texto: 'O painel mostra as contas, os domínios e os e-mails do servidor ligados à sua conta.', botao: <a className="btn r" href="/login?redirect=/vhost"><i className="fa-solid fa-right-to-bracket" />{t('Iniciar sessão')}</a> }
-        : er?.codigo === 403
+      er?.codigo === 403
           ? { fa: 'fa-user-lock', titulo: er.msg, texto: 'Se acha que é um engano, fale connosco: ligamos a sua conta ao servidor.', botao: <a className="btn g" href="/"><i className="fa-solid fa-arrow-left" />{t('Voltar ao site')}</a> }
           : { fa: 'fa-plug-circle-xmark', titulo: er?.msg || '', texto: 'O servidor não respondeu a tempo. Os seus dados estão seguros.', botao: <button className="btn r" onClick={() => { commit({ ...ref.current, carga: 'a-carregar', erro: null }); carregar(); }}><i className="fa-solid fa-rotate" />{t('Tentar de novo')}</button> };
-    const largura = [128, 152, 140, 118, 160, 134];
     return (
       <div className="vh" data-theme={st.theme} style={themeStyles as React.CSSProperties} lang="pt-PT" suppressHydrationWarning>
         <BarraTopo />
-        <div className="app espera" aria-busy={st.carga === 'a-carregar'}>
+        <div className="app espera">
           <aside className="sidebar">
             <div className="rail">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img className="rlogo" src={logo} alt={marca} style={st.brand.logo ? { objectFit: 'contain' } : undefined} />
-              {!er &&
-                [0, 1, 2, 3, 4].map((i) => (
-                  <div key={i} className="rb">
-                    <span className="sk sk-ic" />
-                  </div>
-                ))}
               <div className="grow" />
             </div>
             <div className="navcol">
               <div className="navhead">
                 <h1 className="dash">Dashboard</h1>
-                <p>{er ? t('Painel de alojamento') : <span className="sk" style={{ width: 90 }} />}</p>
+                <p>{t('Painel de alojamento')}</p>
               </div>
-              <nav className="side">
-                {!er && largura.map((w, i) => (
-                  <div key={i} className="grp">
-                    <span className="sk" style={{ width: w }} />
-                  </div>
-                ))}
-              </nav>
+              <nav className="side" />
             </div>
           </aside>
           <div className="right">
@@ -652,8 +791,7 @@ export function VisualHostApp() {
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img className="only-m" src={logo} alt="" />
                 <div className="bt">
-                  <h1>{er ? t('Painel VisualHost') : <span className="sk" style={{ width: 220, height: 20 }} />}</h1>
-                  <small>{er ? '' : <span className="sk" style={{ width: 320 }} />}</small>
+                  <h1>{t('Painel VisualHost')}</h1>
                 </div>
               </div>
               <div className="sp" />
@@ -664,36 +802,12 @@ export function VisualHostApp() {
               </div>
             </header>
             <main id="main">
-              {er ? (
-                <div className="card espera-msg" id="espera">
-                  <i className={'fa-solid ' + aviso.fa + ' big'} />
-                  <b>{t(aviso.titulo)}</b>
-                  <p>{t(aviso.texto)}</p>
-                  {aviso.botao}
-                </div>
-              ) : (
-                <div id="espera">
-                  <div className="espera-stats">
-                    {[0, 1, 2, 3].map((i) => (
-                      <div key={i} className="card">
-                        <span className="sk" style={{ width: '45%' }} />
-                        <span className="sk" style={{ width: '30%', height: 22 }} />
-                        <span className="sk" style={{ width: '100%', height: 6 }} />
-                      </div>
-                    ))}
-                  </div>
-                  <div className="card espera-tbl">
-                    {[0, 1, 2, 3, 4].map((i) => (
-                      <div key={i}>
-                        <span className="sk sk-ic" style={{ width: 32, height: 32 }} />
-                        <span className="sk" style={{ width: 160 + ((i * 37) % 80) }} />
-                        <span className="sk" style={{ width: 90 }} />
-                        <span className="sk" style={{ width: 70, marginLeft: 'auto' }} />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+              <div className="card espera-msg" id="espera">
+                <i className={'fa-solid ' + aviso.fa + ' big'} />
+                <b>{t(aviso.titulo)}</b>
+                <p>{t(aviso.texto)}</p>
+                {aviso.botao}
+              </div>
             </main>
           </div>
         </div>

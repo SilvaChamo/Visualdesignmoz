@@ -10,7 +10,7 @@ import type { ScreenFn } from '../screens';
 import { Stat } from '../ui';
 import { DataTable, Switch, Tabs } from './componentes';
 import { Confirmar } from './pacotes';
-import { lerUrl, naMemoria, useGet } from '../carga';
+import { FUNDO, lerUrl, naMemoria, useGet } from '../carga';
 import { LOGO } from '../state';
 import { lerPref } from './suporte';
 
@@ -373,6 +373,37 @@ function MolduraFm({ botoes, children }: { botoes: ReactNode; children: ReactNod
 type Envio = { id: string; f: File; feito: number; estado: 'espera' | 'envio' | 'ok' | 'erro' | 'cancelado'; erro?: string };
 const BOCADO = 16 * 1024 * 1024;
 const idEnvio = () => Array.from(crypto.getRandomValues(new Uint8Array(12)), (x) => x.toString(16).padStart(2, '0')).join('');
+/** Campo de progresso de um envio (pedido do Silva a 11/10): alto, enche-se com uma cor suave e a percentagem conta de
+ *  um em um (1, 2, 3…), a um ritmo que se vê, até ao valor real — e enche o campo todo quando o ficheiro chega */
+function CampoEnvio({ p, estado, erro }: { p: number; estado: Envio['estado']; erro?: string }) {
+  const { t } = useVH();
+  const [v, setV] = useState(0);
+  useEffect(() => {
+    if (v >= p) return;
+    // um número de cada vez, ~40 ms cada (nunca salta números, nem em ficheiros que chegam depressa)
+    const tm = setTimeout(() => setV((x) => Math.min(p, x + 1)), 40);
+    return () => clearTimeout(tm);
+  }, [v, p]);
+  const texto =
+    estado === 'espera'
+      ? t('Em espera')
+      : estado === 'cancelado'
+        ? t('Cancelado')
+        : estado === 'erro'
+          ? erro || t('O envio falhou')
+          : estado === 'ok' && v >= 100
+            ? '100% · ' + t('Concluído')
+            : estado === 'envio' && v >= 100
+              ? '100% · ' + t('A guardar no servidor…')
+              : v + '%';
+  return (
+    <div className={'fmda-up-campo est-' + estado} role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={v}>
+      <span className="fmda-up-enche" style={{ width: v + '%' }} />
+      <b>{texto}</b>
+    </div>
+  );
+}
+
 function CarregarModal({ pasta, iniciais, onFeito }: { pasta: string; iniciais: File[]; onFeito: () => void }) {
   const vh = useVH();
   const { t, closeM, me } = vh;
@@ -388,14 +419,25 @@ function CarregarModal({ pasta, iniciais, onFeito }: { pasta: string; iniciais: 
   const subst = useRef(substituir);
   subst.current = substituir;
   const mostrar = () => !fechado.current && setLista([...fila.current]);
+  // A percentagem conta o que já chegou ao servidor (perguntado a cada segundo), não o que o navegador já entregou:
+  // o navegador entrega cada bocado ao painel num instante e o tempo verdadeiro é a passagem para o servidor
+  const vigiar = (e: Envio, limite: () => number) => {
+    const iv = setInterval(async () => {
+      try {
+        const r = await fetch(url(me, 'envio', { id: e.id }), { headers: FUNDO });
+        const j = (await r.json()) as { bytes?: number };
+        if (e.estado === 'envio' && typeof j.bytes === 'number') {
+          e.feito = Math.max(e.feito, Math.min(j.bytes, limite()));
+          mostrar();
+        }
+      } catch {}
+    }, 1000);
+    return () => clearInterval(iv);
+  };
   const bocado = (e: Envio, ini: number, fim: number) =>
     new Promise<void>((ok, ko) => {
       const x = new XMLHttpRequest();
       xhr.current = x;
-      x.upload.onprogress = (ev) => {
-        e.feito = ini + ev.loaded;
-        mostrar();
-      };
       x.onload = () => {
         let j: { ok?: boolean; erro?: string } = {};
         try {
@@ -426,10 +468,15 @@ function CarregarModal({ pasta, iniciais, onFeito }: { pasta: string; iniciais: 
     for (let e = fila.current.find((x) => x.estado === 'espera'); e && !fechado.current; e = fila.current.find((x) => x.estado === 'espera')) {
       e.estado = 'envio';
       mostrar();
+      let fimAtual = 0;
+      const parar = vigiar(e, () => fimAtual);
       try {
         for (let ini = 0; ini < e.f.size || ini === 0; ini += BOCADO) {
           if (e.estado !== 'envio') throw new Error('cancelado');
-          await bocado(e, ini, Math.min(e.f.size, ini + BOCADO));
+          fimAtual = Math.min(e.f.size, ini + BOCADO);
+          await bocado(e, ini, fimAtual);
+          e.feito = Math.max(e.feito, fimAtual);
+          mostrar();
           if (e.f.size === 0) break;
         }
         e.estado = 'ok';
@@ -439,6 +486,8 @@ function CarregarModal({ pasta, iniciais, onFeito }: { pasta: string; iniciais: 
         const m = er instanceof Error ? er.message : 'O envio falhou';
         e.estado = m === 'cancelado' ? 'cancelado' : 'erro';
         e.erro = m;
+      } finally {
+        parar();
       }
       mostrar();
     }
@@ -524,20 +573,7 @@ function CarregarModal({ pasta, iniciais, onFeito }: { pasta: string; iniciais: 
                     <b title={e.f.name}>{e.f.name}</b>
                     <span>{tam(e.f.size)}</span>
                   </div>
-                  <div className="bar">
-                    <span style={{ width: (e.estado === 'ok' ? 100 : p) + '%' }} />
-                  </div>
-                  <small>
-                    {e.estado === 'espera'
-                      ? t('Em espera')
-                      : e.estado === 'envio'
-                        ? t('A enviar…') + ' ' + p + '%'
-                        : e.estado === 'ok'
-                          ? t('Concluído')
-                          : e.estado === 'cancelado'
-                            ? t('Cancelado')
-                            : e.erro}
-                  </small>
+                  <CampoEnvio p={e.estado === 'ok' ? 100 : p} estado={e.estado} erro={e.erro} />
                 </div>
                 {(e.estado === 'envio' || e.estado === 'espera') && (
                   <button className="fmda-up-x" onClick={() => cancelar(e)} title={t('Cancelar')} aria-label={t('Cancelar')}>

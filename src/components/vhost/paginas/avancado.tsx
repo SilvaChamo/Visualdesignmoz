@@ -1320,7 +1320,7 @@ function WordPressLista() {
           rowKey={(r) => r.d}
           empty="Não há WordPress instalados"
           cols={[
-            { k: 'd', t: 'Domínio', cell: (r) => <a className="lk" href={r.url || 'https://' + r.d} target="_blank" rel="noreferrer">{r.d}</a> },
+            { k: 'd', t: 'Domínio', cell: (r) => <a className="lk lk-dom" href={r.url || 'https://' + r.d} target="_blank" rel="noreferrer">{r.d}</a> },
             { k: 'pasta', t: 'Pasta', cell: (r) => <a className="lk wp-pasta" onClick={() => nav('/utilizador/ficheiros/' + r.pasta.split('/').map(enc).join('/'))}>{r.pasta}</a> },
             { k: 'v', t: 'Versão', cell: (r) => (r.versao ? <span className="wp-versao">{r.versao}</span> : '—') },
             { k: 'titulo', t: 'Título', cell: (r) => r.titulo || '—' },

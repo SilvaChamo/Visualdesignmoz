@@ -1,0 +1,181 @@
+'use client';
+
+/**
+ * Página de entrada do painel, no modelo da do DirectAdmin (pedido do Silva a 11/10: os clientes não devem notar a
+ * troca). Só para entrar no painel: o registo e a recuperação da palavra-passe continuam no site. Fundo com a foto,
+ * cartão com o logótipo horizontal da VisualDesign, Utilizador e Palavra-passe, botão Entrar, data e hora por baixo;
+ * em cima, à direita, o modo (claro · automático · escuro) e a língua. Entra pelo mesmo caminho do site (auth.signIn:
+ * aceita o nome de utilizador ou o e-mail).
+ */
+import { useEffect, useRef, useState } from 'react';
+import { auth } from '@/lib/supabase-client';
+import type { Lang } from './i18n';
+import { FundoPainel } from './triangulos';
+
+export type ModoTema = 'light' | 'auto' | 'dark';
+
+/** Língua escolhida na entrada ou no painel (fica guardada no navegador) */
+export const LINGUA_LS = 'visualhost_lang';
+
+const TXT = {
+  pt: { user: 'Utilizador', userPh: 'Escreva o nome de utilizador ou e-mail', senha: 'Palavra-passe', senhaPh: 'Escreva a sua palavra-passe', entrar: 'Entrar', falta: 'Escreva o utilizador e a palavra-passe.', errado: 'Utilizador ou palavra-passe errados.', mostrar: 'Mostrar a palavra-passe', esconder: 'Esconder a palavra-passe', claro: 'Claro', auto: 'Automático', escuro: 'Escuro', saiu: 'Por segurança, a sessão terminou depois de 20 minutos sem atividade. Entre de novo.' },
+  en: { user: 'Username', userPh: 'Please enter username or email', senha: 'Password', senhaPh: 'Please enter your password', entrar: 'Sign in', falta: 'Please enter your username and password.', errado: 'Wrong username or password.', mostrar: 'Show password', esconder: 'Hide password', claro: 'Light', auto: 'Auto', escuro: 'Dark', saiu: 'For your security, you were signed out after 20 minutes without activity. Please sign in again.' },
+};
+
+export function EntradaPainel({ escuro, modo, lang, inativo, onModo, onLang, onEntrou }: { escuro: boolean; modo: ModoTema; lang: Lang; inativo?: boolean; onModo: (m: ModoTema) => void; onLang: (l: Lang) => void; onEntrou: () => void }) {
+  const tx = TXT[lang === 'en' ? 'en' : 'pt'];
+  const [user, setUser] = useState('');
+  const [senha, setSenha] = useState('');
+  const [ver, setVer] = useState(false);
+  const [aEntrar, setAEntrar] = useState(false);
+  const [erro, setErro] = useState('');
+  // a hora só no navegador (a página também é desenhada no servidor, noutro fuso)
+  const [agora, setAgora] = useState<Date | null>(null);
+  useEffect(() => {
+    setAgora(new Date());
+    const iv = setInterval(() => setAgora(new Date()), 30_000);
+    return () => clearInterval(iv);
+  }, []);
+  const entrar = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user.trim() || !senha) return setErro(tx.falta);
+    setErro('');
+    setAEntrar(true);
+    try {
+      // nome de utilizador (o do DA/Hestia): o servidor confirma a palavra-passe e diz o e-mail da conta; e-mail: direto
+      const login = user.trim();
+      let email = login;
+      if (!login.includes('@')) {
+        const r = await fetch('/api/vhost/entrar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ utilizador: login, senha }) }).catch(() => null);
+        const j = r && r.ok ? ((await r.json().catch(() => ({}))) as { email?: string }) : {};
+        if (j.email) email = j.email;
+      }
+      await auth.signIn(email, senha);
+      onEntrou();
+    } catch {
+      setErro(tx.errado);
+      setAEntrar(false);
+    }
+  };
+  const quando = agora ? agora.toLocaleDateString('pt-PT') + ', ' + agora.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' }) : '';
+  return (
+    <div className="ent">
+      <FundoPainel escuro={escuro} />
+      <TopoEntrada modo={modo} lang={lang} onModo={onModo} onLang={onLang} />
+      <div className="ent-meio">
+        <form className="ent-cartao" onSubmit={entrar} noValidate>
+          {/* o logótipo leva ao site da VisualDesign; no escuro, a versão com as letras brancas */}
+          <a className="ent-logo-link" href="/" title="VisualDesign">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img className="ent-logo" src={escuro ? '/assets/logo-entrada-escuro.png' : '/assets/logo-entrada.jpg'} alt="VisualDesign" />
+          </a>
+          {inativo && <p className="ent-aviso">{tx.saiu}</p>}
+          <label htmlFor="ent-user">{tx.user}</label>
+          <input id="ent-user" autoComplete="username" autoCapitalize="none" spellCheck={false} value={user} onChange={(e) => setUser(e.target.value)} placeholder={tx.userPh} autoFocus />
+          <label htmlFor="ent-senha">{tx.senha}</label>
+          <div className="ent-senha">
+            <input id="ent-senha" type={ver ? 'text' : 'password'} autoComplete="current-password" value={senha} onChange={(e) => setSenha(e.target.value)} placeholder={tx.senhaPh} />
+            <button type="button" onClick={() => setVer(!ver)} title={ver ? tx.esconder : tx.mostrar} aria-label={ver ? tx.esconder : tx.mostrar}>
+              <i className={'fa-regular ' + (ver ? 'fa-eye-slash' : 'fa-eye')} />
+            </button>
+          </div>
+          {erro && (
+            <p className="ent-erro" role="alert">
+              {erro}
+            </p>
+          )}
+          {/* como no DA: a processar, o botão fica mais baixo (64 → 51 px, a largura não muda) com um arco pequeno a girar */}
+          <button className={'ent-botao' + (aEntrar ? ' a-entrar' : '')} type="submit" disabled={aEntrar} aria-busy={aEntrar}>
+            {aEntrar ? <Roda tamanho={16} traco={2} /> : tx.entrar}
+          </button>
+        </form>
+        <small className="ent-hora">{quando || '\u00a0'}</small>
+      </div>
+    </div>
+  );
+}
+
+/** Canto superior direito da entrada: modo claro · automático · escuro e a língua, num menu encostado à direita do ecrã
+ *  como no DA (mais estreito) */
+function TopoEntrada({ modo, lang, onModo, onLang }: { modo: ModoTema; lang: Lang; onModo: (m: ModoTema) => void; onLang: (l: Lang) => void }) {
+  const tx = TXT[lang === 'en' ? 'en' : 'pt'];
+  const [linguas, setLinguas] = useState(false);
+  const caixa = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!linguas) return;
+    const fora = (e: MouseEvent) => {
+      if (!caixa.current?.contains(e.target as Node)) setLinguas(false);
+    };
+    const esc = (e: KeyboardEvent) => e.key === 'Escape' && setLinguas(false);
+    document.addEventListener('mousedown', fora);
+    document.addEventListener('keydown', esc);
+    return () => {
+      document.removeEventListener('mousedown', fora);
+      document.removeEventListener('keydown', esc);
+    };
+  }, [linguas]);
+  return (
+    <div className="ent-cima">
+      <div className="ent-modos" role="radiogroup" aria-label="Tema">
+        {(
+          [
+            ['light', 'fa-sun', tx.claro],
+            ['auto', 'fa-circle-half-stroke', tx.auto],
+            ['dark', 'fa-moon', tx.escuro],
+          ] as const
+        ).map(([m, fa, nome]) => (
+          <button key={m} type="button" role="radio" aria-checked={modo === m} className={modo === m ? 'on' : ''} onClick={() => onModo(m)} title={nome} aria-label={nome}>
+            <i className={'fa-solid ' + fa} />
+          </button>
+        ))}
+      </div>
+      <div className="ent-lingua" ref={caixa}>
+        <button type="button" onClick={() => setLinguas(!linguas)} aria-expanded={linguas}>
+          <i className="fa-solid fa-globe" />
+          {lang === 'en' ? 'English' : 'Português'}
+        </button>
+        {linguas && (
+          <div className="ent-linguas">
+            {(
+              [
+                ['pt', 'Português'],
+                ['en', 'English'],
+              ] as const
+            ).map(([k, nome]) => (
+              <button
+                key={k}
+                type="button"
+                className={lang === k ? 'on' : ''}
+                onClick={() => {
+                  onLang(k);
+                  setLinguas(false);
+                }}
+              >
+                {nome}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Roda como a do DA (medida no vídeo do Silva): um arco que cresce e encolhe enquanto gira */
+function Roda({ tamanho, traco, grande }: { tamanho: number; traco: number; grande?: boolean }) {
+  const meio = tamanho / 2;
+  return (
+    <svg className={'ent-roda' + (grande ? ' grande' : '')} width={tamanho} height={tamanho} viewBox={`0 0 ${tamanho} ${tamanho}`} aria-hidden>
+      <circle cx={meio} cy={meio} r={meio - traco / 2} fill="none" strokeWidth={traco} pathLength={100} />
+    </svg>
+  );
+}
+
+/** Depois de entrar, enquanto o painel lê os dados: página lisa com a roda a girar (como no DA), na cor do tema */
+export function EsperaEntrada() {
+  return (
+    <div className="ent-espera" role="status" aria-label="A abrir o painel">
+      <Roda tamanho={97} traco={10} grande />
+    </div>
+  );
+}

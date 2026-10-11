@@ -122,7 +122,7 @@ function ListaDominios({ abaDom = 'meus' }: { abaDom?: 'meus' | 'registar' }) {
             <i className={r.soEmail ? 'fa-solid fa-envelope' : r.wp ? 'fa-brands fa-wordpress' : 'fa-solid fa-globe'} />
           </div>
           <div>
-            <a className="lk" style={{ display: 'block' }} onClick={() => nav('/utilizador/dominios/' + encodeURIComponent(r.name))}>
+            <a className="lk lk-dom" style={{ display: 'block' }} onClick={() => nav('/utilizador/dominios/' + encodeURIComponent(r.name))}>
               {r.name}
             </a>
             <span>{r.soEmail ? t('Só e-mail') : r.wp ? 'WordPress' : t('Site')}</span>

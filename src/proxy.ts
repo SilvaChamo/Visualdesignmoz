@@ -76,6 +76,17 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next()
   }
 
+  // Login antigo a caminho do painel → entrada do painel no modelo do DA (que já trata da sessão)
+  if ((pathname === PUBLIC_LOGIN_ENTRY || pathname === '/auth/login') && request.method === 'GET') {
+    const destino = request.nextUrl.searchParams.get('redirect') || ''
+    if (/^\/vhost(\/[\w\-\/]*)?$/.test(destino)) {
+      const painel = request.nextUrl.clone()
+      painel.pathname = destino
+      painel.search = ''
+      return NextResponse.redirect(painel)
+    }
+  }
+
   // Login — página estática; limpar ?from= legado (evita loops)
   if (pathname === PUBLIC_LOGIN_ENTRY) {
     if (request.nextUrl.searchParams.has('from')) {
@@ -123,7 +134,9 @@ export async function proxy(request: NextRequest) {
     pathname.startsWith('/api/server-exec/') ||
     pathname.startsWith('/api/admin/') ||
     pathname === '/api/panel/bootstrap' ||
-    pathname.startsWith('/api/panel/')
+    pathname.startsWith('/api/panel/') ||
+    // painel VisualHost (/vhost): sem isto a sessão expirava ao fim de ~1h e o painel pedia para entrar a meio do trabalho
+    pathname.startsWith('/api/vhost/')
   ) {
     const { updateSession } = await import('@/utils/supabase/middleware')
     return updateSession(request)

@@ -52,6 +52,13 @@ const json = <T,>(t: string | undefined, vazio: T): T => {
 };
 
 /** Corre o gestor de ficheiros como o utilizador da conta e devolve a resposta (ou { erro }) */
+/** Reciclagem em /home/<conta>/.vh-lixo: no Hestia a pasta da conta é do root, por isso o próprio utilizador não a
+ *  consegue criar (era o "Sem permissão" ao remover). Criada pelo root e logo entregue à conta; o mkdir falha se já
+ *  houver alguma coisa com esse nome e o chown -h nunca segue ligações */
+async function garantirLixo(conta: string) {
+  await executeServerCommand(`p=/home/${conta}/.vh-lixo; [ -e "$p" ] || { mkdir -m 700 "$p" 2>/dev/null && chown -h ${conta}:${conta} "$p"; }; true`, { timeoutMs: 20_000 });
+}
+
 async function fm(conta: string, args: Record<string, unknown>, entrada?: string): Promise<Record<string, unknown>> {
   // `entrada`: ficheiro (pasta só do root) lido pela entrada do programa e apagado a seguir — para textos grandes
   const out = await executeServerCommand(`sudo -u ${conta} -H python3 -c "$(echo ${b64(FM_PY)} | base64 -d)" ${b64(JSON.stringify({ conta, ...args, ...(entrada ? { stdin: true } : {}) }))}${entrada ? ' < ' + entrada : ''} 2>&1${entrada ? '; rm -f ' + entrada : ''}`, { timeoutMs: 120_000 });
@@ -76,6 +83,13 @@ export async function GET(req: NextRequest) {
     case 'ficheiros': {
       const x = await fm(conta, { op: 'listar', caminho: sp.get('caminho') || '' });
       return x.erro ? falha(x) : ok(x);
+    }
+    case 'envio': {
+      // quantos bytes de um envio aos bocados já chegaram ao servidor (o que conta para a percentagem da janela)
+      const id = sp.get('id') || '';
+      if (!/^[a-f0-9]{24}$/.test(id)) return NextResponse.json({ erro: 'Envio inválido.' }, { status: 400 });
+      const out = await executeServerCommand(`s=0; for f in /var/tmp/vhost-up/${id} /var/tmp/vhost-up/${id}.p; do [ -f "$f" ] && s=$((s + $(stat -c %s "$f"))); done; echo $s`, { timeoutMs: 20_000 });
+      return ok({ bytes: Number(out.trim().split('\n').pop()) || 0 });
     }
     case 'ler': {
       const x = await fm(conta, { op: 'ler', caminho: sp.get('caminho') || '' });
@@ -264,6 +278,7 @@ export async function POST(req: NextRequest) {
       await executeServerCommand('install -d -m 700 /var/tmp/vhost-up', { timeoutMs: 20_000 });
       await uploadFileViaSsh(entrada, Buffer.from(String(c.texto ?? ''), 'utf8'));
     }
+    if (['fm-apagar', 'fm-restaurar', 'fm-esvaziar'].includes(acao)) await garantirLixo(conta);
     const x = await fm(conta, { op: ops[acao], ...args }, entrada);
     return x.erro ? recusa(String(x.erro)) : NextResponse.json({ ok: true });
   }
