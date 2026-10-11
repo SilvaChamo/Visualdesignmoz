@@ -80,6 +80,12 @@ export async function GET(req: NextRequest) {
       const x = await fm(conta, { op: 'ler', caminho: sp.get('caminho') || '' });
       return x.erro ? falha(x) : ok(x);
     }
+    case 'tamanhos':
+    case 'pesquisar':
+    case 'lixo': {
+      const x = await fm(conta, { op: ver, caminho: sp.get('caminho') || '', q: sp.get('q') || '' });
+      return x.erro ? falha(x) : ok(x);
+    }
     case 'descarregar': {
       const x = await fm(conta, { op: 'confirmar', caminho: sp.get('caminho') || '' });
       if (x.erro || typeof x.real !== 'string' || !x.real.startsWith(`/home/${conta}/`)) return falha(x.erro ? x : { erro: 'Ficheiro inválido.' });
@@ -202,9 +208,9 @@ export async function POST(req: NextRequest) {
   const acao = String(c.acao || '');
 
   // gestor de ficheiros: as operações passam diretamente ao programa (que valida tudo como o utilizador)
-  const ops: Record<string, string> = { 'fm-guardar': 'guardar', 'fm-pasta': 'pasta', 'fm-renomear': 'renomear', 'fm-copiar': 'copiar', 'fm-mover': 'mover', 'fm-apagar': 'apagar', 'fm-permissoes': 'permissoes', 'fm-comprimir': 'comprimir', 'fm-extrair': 'extrair' };
+  const ops: Record<string, string> = { 'fm-guardar': 'guardar', 'fm-pasta': 'pasta', 'fm-renomear': 'renomear', 'fm-copiar': 'copiar', 'fm-mover': 'mover', 'fm-apagar': 'apagar', 'fm-permissoes': 'permissoes', 'fm-comprimir': 'comprimir', 'fm-extrair': 'extrair', 'fm-duplicar': 'duplicar', 'fm-restaurar': 'restaurar', 'fm-esvaziar': 'esvaziar' };
   if (ops[acao]) {
-    const permitido = ['pasta', 'nome', 'caminho', 'caminhos', 'destino', 'modo', 'novo'];
+    const permitido = ['pasta', 'nome', 'caminho', 'caminhos', 'destino', 'modo', 'novo', 'definitivo', 'ids'];
     const args: Record<string, unknown> = Object.fromEntries(Object.entries(c).filter(([k]) => permitido.includes(k)));
     if (acao === 'fm-guardar') args.texto64 = Buffer.from(String(c.texto ?? ''), 'utf8').toString('base64');
     if (acao === 'fm-guardar' && String(c.texto ?? '').length > 2 * 1024 * 1024) return recusa('O texto passa de 2 MB.');

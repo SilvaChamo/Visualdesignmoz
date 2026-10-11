@@ -4,37 +4,21 @@
 // por /api/vhost/sistema: Gestor de ficheiros (+ editor), Terminal, Módulos Perl, Informação do sistema,
 // Estatísticas, Resumo do site e registos, Uso de recursos.
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import dynamic from 'next/dynamic';
 import { useVH, type VH } from '../context';
 import type { ScreenFn } from '../screens';
 import { Stat } from '../ui';
 import { DataTable, Switch, Tabs } from './componentes';
 import { Confirmar } from './pacotes';
+import { lerUrl, naMemoria, useGet } from '../carga';
+import { LOGO } from '../state';
+import { lerPref } from './suporte';
 
 const url = (me: string, ver: string, extra: Record<string, string> = {}) => '/api/vhost/sistema?' + new URLSearchParams({ conta: me, ver, ...extra }).toString();
 
-function useLer<T>(ver: string, extra: Record<string, string> = {}, ativo = true) {
+/** Lê um endereço da API (memória comum do painel: aparece logo ao voltar e atualiza-se por trás) */
+function useLer<T>(ver: string, extra: Record<string, string> = {}, ativo = true, fundo = false) {
   const { me } = useVH();
-  const u = url(me, ver, extra);
-  const [dados, setDados] = useState<T | null>(null);
-  const [erro, setErro] = useState('');
-  const ler = useCallback(async () => {
-    if (!ativo) return;
-    setErro('');
-    try {
-      const r = await fetch(u, { cache: 'no-store' });
-      const j = await r.json();
-      if (!r.ok) throw new Error(j.erro || 'Erro a ler o servidor');
-      setDados(j as T);
-    } catch (e) {
-      setErro(e instanceof Error ? e.message : 'Erro a ler o servidor');
-    }
-  }, [u, ativo]);
-  useEffect(() => {
-    setDados(null);
-    ler();
-  }, [ler]);
-  return { dados, erro, ler };
+  return useGet<T>(ativo ? url(me, ver, extra) : null, { fundo });
 }
 
 async function noServidor(vh: VH, corpo: Record<string, unknown>, ok: string): Promise<Record<string, unknown> | null> {
@@ -64,11 +48,7 @@ function Carregando({ erro, ler }: { erro: string; ler: () => void }) {
         {t('Tentar de novo')}
       </button>
     </div>
-  ) : (
-    <div className="espera-nota">
-      <i className="fa-solid fa-circle-notch fa-spin" /> {t('A ler o servidor…')}
-    </div>
-  );
+  ) : null; // a carregar: só a linha do topo
 }
 
 function Sec({ titulo, desc, numeros, children }: { titulo: string; desc?: string; numeros?: [string, string][]; children: ReactNode }) {
@@ -105,7 +85,7 @@ function siteAtual(vh: VH): string {
 }
 
 // ---------- Gestor de ficheiros ----------
-type Item = { nome: string; pasta: boolean; atalho: boolean; tam: number; data: string; perm: string };
+type Item = { nome: string; pasta: boolean; atalho: boolean; tam: number; data: string; perm: string; dono?: string; grupo?: string; rel?: string };
 const juntar = (...p: string[]) => p.filter(Boolean).join('/').replace(/\/+/g, '/').replace(/^\/|\/$/g, '');
 const ARQUIVO = /\.(zip|tar|tar\.gz|tgz)$/i;
 const TEXTO = /\.(php|html?|css|js|mjs|json|txt|md|xml|svg|csv|ini|conf|htaccess|env|yml|yaml|sql|py|pl|sh|log|tsx?|jsx?|twig|tpl|vue)$|^\.(htaccess|user\.ini|env)$/i;
@@ -119,7 +99,7 @@ function NomeModal({ titulo, rotulo, inicial, botao, onOk }: { titulo: string; r
       <h3>{t(titulo)}</h3>
       <div className="f">
         <label>{t(rotulo)}</label>
-        <input value={v} onChange={(e) => setV(e.target.value)} autoFocus onKeyDown={(e) => e.key === 'Enter' && v.trim() && (closeM(), onOk(v.trim()))} />
+        <input value={v} onChange={(e) => setV(e.target.value)} autoFocus onFocus={(e) => e.target.select()} onKeyDown={(e) => e.key === 'Enter' && v.trim() && (closeM(), onOk(v.trim()))} />
       </div>
       <div className="mfoot">
         <button className="btn g" onClick={closeM}>
@@ -179,19 +159,247 @@ function PermModal({ inicial, onOk }: { inicial: string; onOk: (m: string) => vo
   );
 }
 
-function Ficheiros({ caminho }: { caminho: string }) {
+// ---------- Gestor de ficheiros — igual ao do DirectAdmin (VisualHost/06-da-gestor-de-ficheiros.md) ----------
+// Página inteira (sem o menu do painel): barra de cima com Nova pasta · Novo ficheiro · Carregar · Pesquisar ·
+// Tamanhos das pastas · Voltar ao painel; árvore de pastas à esquerda (Os meus ficheiros … Reciclagem); caminho;
+// barra "Selecionados: n / total" com as ações; tabela Nome · Tamanho · Permissões · Última alteração · UID/GID;
+// botão direito com as mesmas ações. Clique seleciona, duplo clique abre.
+const encC = (c: string) => c.split('/').filter(Boolean).map(encodeURIComponent).join('/');
+const rotaFm = (c: string) => '/utilizador/ficheiros' + (c ? '/' + encC(c) : '');
+const rotaEditar = (c: string) => '/utilizador/ficheiros/_editar/' + encC(c);
+/** drwxr-xr-x a partir do número (644) e do tipo */
+const permTexto = (x: Item) => {
+  const m = x.perm.slice(-3);
+  const r = m
+    .split('')
+    .map((d) => {
+      const n = Number(d);
+      return (n & 4 ? 'r' : '-') + (n & 2 ? 'w' : '-') + (n & 1 ? 'x' : '-');
+    })
+    .join('');
+  return (x.atalho ? 'l' : x.pasta ? 'd' : '-') + r;
+};
+/** "2026-10-07 11:31" → "07/10/2026, 11:31" (como no DA) */
+const dataDa = (d: string) => (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(d) ? (lerPref('vh-data', 'dmy') === 'ymd' ? d.slice(0, 16) : `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}, ${d.slice(11, 16)}`) : d);
+const tipoFicheiro = (n: string) => {
+  const e = (n.match(/\.([a-z0-9]+)$/i) || [])[1]?.toLowerCase() || '';
+  if (/^(zip|tar|gz|tgz|rar|7z)$/.test(e)) return ['fa-file-zipper', 'c-arq', e.toUpperCase()];
+  if (/^(png|jpe?g|gif|webp|svg|ico|bmp)$/.test(e)) return ['fa-file-image', 'c-img', e.toUpperCase()];
+  if (/^(html?|php|js|mjs|css|json|xml|py|sh|ts|tsx|jsx|vue|twig|tpl)$/.test(e)) return ['fa-file-code', 'c-cod', e.toUpperCase()];
+  if (e === 'pdf') return ['fa-file-pdf', 'c-pdf', 'PDF'];
+  if (/^(txt|md|log|csv|ini|conf|sql|yml|yaml|env|htaccess)$/.test(e)) return ['fa-file-lines', 'c-txt', e.toUpperCase()];
+  return ['fa-file', 'c-txt', ''];
+};
+
+function IconeFicheiro({ x }: { x: Item }) {
+  if (x.pasta) return <i className="fa-solid fa-folder fmda-ic-pasta" />;
+  const [fa, cor, rotulo] = tipoFicheiro(x.nome);
+  return (
+    <span className={'fmda-ic ' + cor}>
+      <i className={'fa-solid ' + fa} />
+      {rotulo && <b>{rotulo.slice(0, 4)}</b>}
+    </span>
+  );
+}
+
+/** Ramo da árvore de pastas: as subpastas de `c` (quem decide se está aberto é RamoFilhos; as pastas do caminho
+ *  atual abrem sozinhas, as outras pela seta) */
+function Ramo({ c, nivel, atual, ir }: { c: string; nivel: number; atual: string; ir: (c: string) => void }) {
+  const { me } = useVH();
+  const [pastas, setPastas] = useState<Item[] | null>(() => naMemoria<{ itens: Item[] }>(url(me, 'ficheiros', { caminho: c }))?.itens.filter((x) => x.pasta) || null);
+  useEffect(() => {
+    lerUrl<{ itens: Item[] }>(url(me, 'ficheiros', { caminho: c }), { fundo: true })
+      .then((j) => setPastas(j.itens.filter((x) => x.pasta)))
+      .catch(() => setPastas([]));
+  }, [c, me]);
+  if (!pastas) return null;
+  return (
+    <ul className="fmda-ramo">
+      {pastas.map((x) => {
+        const cc = juntar(c, x.nome);
+        return (
+          <li key={cc}>
+            <div className={'fmda-no' + (atual === cc ? ' on' : '')} style={{ paddingLeft: 14 + nivel * 14 }} onClick={() => ir(cc)}>
+              <RamoSeta c={cc} atual={atual} />
+              <i className="fa-solid fa-folder" />
+              <span>{x.nome}</span>
+              {x.atalho && <i className="fa-solid fa-link fmda-lig" />}
+            </div>
+            <RamoFilhos c={cc} nivel={nivel + 1} atual={atual} ir={ir} />
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+// seta e filhos partilham o estado "aberto" através de um pequeno registo por caminho
+const abertosFm = new Set<string>();
+const ouvintesFm = new Set<() => void>();
+function RamoSeta({ c, atual }: { c: string; atual: string }) {
+  const [, f] = useState(0);
+  useEffect(() => {
+    const g = () => f((x) => x + 1);
+    ouvintesFm.add(g);
+    return () => void ouvintesFm.delete(g);
+  }, []);
+  const aberto = abertosFm.has(c) || atual === c || atual.startsWith(c + '/');
+  return (
+    <button
+      className="fmda-seta"
+      onClick={(e) => {
+        e.stopPropagation();
+        if (aberto) abertosFm.delete(c);
+        else abertosFm.add(c);
+        if (aberto && (atual === c || atual.startsWith(c + '/'))) abertosFm.add('!' + c);
+        else abertosFm.delete('!' + c);
+        ouvintesFm.forEach((g) => g());
+      }}
+      aria-label="abrir"
+    >
+      <i className={'fa-solid ' + (aberto && !abertosFm.has('!' + c) ? 'fa-chevron-down' : 'fa-chevron-right')} />
+    </button>
+  );
+}
+function RamoFilhos({ c, nivel, atual, ir }: { c: string; nivel: number; atual: string; ir: (c: string) => void }) {
+  const [, f] = useState(0);
+  useEffect(() => {
+    const g = () => f((x) => x + 1);
+    ouvintesFm.add(g);
+    return () => void ouvintesFm.delete(g);
+  }, []);
+  const aberto = (abertosFm.has(c) || atual === c || atual.startsWith(c + '/')) && !abertosFm.has('!' + c);
+  return aberto ? <Ramo c={c} nivel={nivel} atual={atual} ir={ir} /> : null;
+}
+
+/** Copiar/Mover para… (pasta de destino, a partir da pasta da conta) */
+function DestinoModal({ titulo, inicial, botao, onOk }: { titulo: string; inicial: string; botao: string; onOk: (d: string) => void }) {
+  const { t, closeM, me } = useVH();
+  const [v, setV] = useState(inicial);
+  return (
+    <>
+      <h3>{t(titulo)}</h3>
+      <div className="f">
+        <label>{t('Pasta de destino')}</label>
+        <div className="fmda-dest">
+          <span>/home/{me}/</span>
+          <input value={v} onChange={(e) => setV(e.target.value.replace(/^\/+/, ''))} autoFocus onFocus={(e) => e.target.select()} onKeyDown={(e) => e.key === 'Enter' && (closeM(), onOk(v))} />
+        </div>
+      </div>
+      <div className="mfoot">
+        <button className="btn g" onClick={closeM}>
+          {t('Cancelar')}
+        </button>
+        <button className="btn r" onClick={() => (closeM(), onOk(v))}>
+          {t(botao)}
+        </button>
+      </div>
+    </>
+  );
+}
+
+/** Arquivar (zip ou tar.gz), como "Archive" no DA */
+function ArquivarModal({ inicial, onOk }: { inicial: string; onOk: (nome: string) => void }) {
+  const { t, closeM } = useVH();
+  const [n, setN] = useState(inicial);
+  const [f, setF] = useState<'zip' | 'tar.gz'>('zip');
+  const final = n.replace(/\.(zip|tar\.gz|tgz)$/i, '') + '.' + f;
+  return (
+    <>
+      <h3>{t('Arquivar')}</h3>
+      <div className="f">
+        <label>{t('Nome do arquivo')}</label>
+        <input value={n} onChange={(e) => setN(e.target.value)} autoFocus onFocus={(e) => e.target.select()} />
+      </div>
+      <div className="f">
+        <label>{t('Formato')}</label>
+        <select className="inp" value={f} onChange={(e) => setF(e.target.value as 'zip' | 'tar.gz')}>
+          <option value="zip">.zip</option>
+          <option value="tar.gz">.tar.gz</option>
+        </select>
+      </div>
+      <div className="mfoot">
+        <button className="btn g" onClick={closeM}>
+          {t('Cancelar')}
+        </button>
+        <button className="btn r" disabled={!n.trim()} onClick={() => (closeM(), onOk(final))}>
+          {t('Arquivar')}
+        </button>
+      </div>
+    </>
+  );
+}
+
+type AcaoFm = { k: string; fa: string; t: string; ativo: boolean; run: () => void; perigo?: boolean };
+
+/** Moldura de página inteira do gestor (barra de cima do DA na cor do tema) */
+function MolduraFm({ botoes, children }: { botoes: ReactNode; children: ReactNode }) {
+  const vh = useVH();
+  const { t, nav, s } = vh;
+  return (
+    <div className="fmda">
+      <header className="fmda-top">
+        <div className="fmda-logo">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={s.brand.logo || LOGO} alt="" />
+          <span>
+            <b>{s.brand.name.trim() || 'VisualHost'}</b>
+            <small>{t('painel de alojamento')}</small>
+          </span>
+        </div>
+        {botoes}
+        <span className="sp" />
+        <button className="fmda-tb fmda-voltar" onClick={() => nav('/utilizador')}>
+          <i className="fa-solid fa-arrow-right-from-bracket fa-flip-horizontal" />
+          <span>{t('Voltar ao painel')}</span>
+        </button>
+      </header>
+      {children}
+    </div>
+  );
+}
+
+function Ficheiros({ caminho, lixo = false }: { caminho: string; lixo?: boolean }) {
   const vh = useVH();
   const { t, nav, openM, me } = vh;
-  const { dados, erro, ler } = useLer<{ caminho: string; itens: Item[] }>('ficheiros', { caminho });
-  const [area, setArea] = useState<{ op: 'copiar' | 'mover'; caminhos: string[] } | null>(null);
-  const [enviando, setEnviando] = useState(false);
+  const { dados, erro, ler } = useLer<{ caminho: string; itens: Item[] }>('ficheiros', { caminho }, !lixo);
+  const lixoD = useLer<{ itens: { id: string; nome: string; orig: string; data: string; pasta: boolean; tam: number }[] }>('lixo', {}, lixo);
+  const [sel, setSel] = useState<string[]>([]);
+  const [ultimo, setUltimo] = useState('');
+  const [tamanhos, setTamanhos] = useState<Record<string, number> | null>(null);
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+  const [pesquisa, setPesquisa] = useState<{ q: string; itens: Item[] | null } | null>(null);
   const entrada = useRef<HTMLInputElement>(null);
-  const ir = (c: string) => nav('/utilizador/ficheiros' + (c ? '/' + c.split('/').map(encodeURIComponent).join('/') : ''));
-  const fazer = async (corpo: Record<string, unknown>, msg: string) => (await noServidor(vh, corpo, msg)) && ler();
+  // Preferências → Gestor de ficheiros: mostrar (ou não) os ficheiros que começam por ponto
+  const itens = (dados?.itens || []).filter((x) => lerPref('vh-fm-ocultos', '1') === '1' || !x.nome.startsWith('.'));
+  const ir = (c: string) => nav(rotaFm(c));
   const partes = caminho ? caminho.split('/') : [];
+  const fazer = async (corpo: Record<string, unknown>, msg: string) => {
+    if (await noServidor(vh, corpo, msg)) {
+      setSel([]);
+      setTamanhos(null);
+      ler();
+      if (lixo) lixoD.ler();
+    }
+  };
+  useEffect(() => {
+    if (!menu) return;
+    const fechar = () => setMenu(null);
+    const esc = (e: KeyboardEvent) => e.key === 'Escape' && setMenu(null);
+    document.addEventListener('click', fechar);
+    document.addEventListener('keydown', esc);
+    window.addEventListener('scroll', fechar, true);
+    return () => {
+      document.removeEventListener('click', fechar);
+      document.removeEventListener('keydown', esc);
+      window.removeEventListener('scroll', fechar, true);
+    };
+  }, [menu]);
+  const escolhidos = itens.filter((x) => sel.includes(x.nome));
+  const um = escolhidos.length === 1 ? escolhidos[0] : null;
+  const caminhos = () => escolhidos.map((x) => juntar(caminho, x.nome));
+  const abrir = (x: Item) => (x.pasta ? ir(juntar(caminho, x.nome)) : TEXTO.test(x.nome) ? nav(rotaEditar(juntar(caminho, x.nome))) : window.location.assign(url(me, 'descarregar', { caminho: juntar(caminho, x.nome) })));
   const carregar = async (fs: FileList | null) => {
     if (!fs || !fs.length) return;
-    setEnviando(true);
     vh.toast('A carregar ' + fs.length + ' ficheiro(s)…');
     const fd = new FormData();
     fd.set('conta', me);
@@ -204,121 +412,346 @@ function Ficheiros({ caminho }: { caminho: string }) {
     } catch {
       vh.toast('Sem ligação ao site.');
     }
-    setEnviando(false);
     ler();
   };
-  const apagar = (ns: string[]) => openM(<Confirmar titulo="Apagar?" texto={'Vai apagar ' + ns.join(', ') + (ns.some((n) => dados?.itens.find((x) => x.nome === n)?.pasta) ? ' (as pastas com tudo o que têm dentro)' : '') + '. Não se pode desfazer.'} ok="Apagar" onOk={() => fazer({ acao: 'fm-apagar', caminhos: ns.map((n) => juntar(caminho, n)) }, 'Apagado')} />);
-  return (
-    <>
-      <div className="fm-bar">
-        <nav className="fm-caminho" aria-label={t('Pasta')}>
-          <a onClick={() => ir('')}>
-            <i className="fa-solid fa-house" /> /home/{me}
-          </a>
-          {partes.map((p, i) => (
-            <span key={i}>
-              <i className="fa-solid fa-chevron-right" />
-              <a onClick={() => ir(partes.slice(0, i + 1).join('/'))}>{p}</a>
-            </span>
-          ))}
-        </nav>
-        <span className="sp" />
-        {area && (
-          <button className="btn sm btn-ed" onClick={async () => { const op = area.op; setArea(null); await fazer({ acao: op === 'copiar' ? 'fm-copiar' : 'fm-mover', caminhos: area.caminhos, destino: caminho }, op === 'copiar' ? 'Copiado' : 'Movido'); }}>
-            <i className="fa-solid fa-paste" />
-            {t(area.op === 'copiar' ? 'Colar cópia aqui' : 'Mover para aqui')} ({area.caminhos.length})
-          </button>
-        )}
-        {area && (
-          <button className="btn sm g" onClick={() => setArea(null)}>
-            {t('Cancelar')}
-          </button>
-        )}
-        <button className="btn sm g" onClick={() => openM(<NomeModal titulo="Nova pasta" rotulo="Nome da pasta" botao="Criar" onOk={(n) => fazer({ acao: 'fm-pasta', pasta: caminho, nome: n }, 'Pasta criada')} />)}>
-          <i className="fa-solid fa-folder-plus" />
-          {t('Nova pasta')}
-        </button>
-        <button className="btn sm g" onClick={() => openM(<NomeModal titulo="Novo ficheiro" rotulo="Nome do ficheiro" botao="Criar" onOk={async (n) => (await noServidor(vh, { acao: 'fm-guardar', pasta: caminho, nome: n, texto: '', novo: true }, 'Ficheiro criado')) && (TEXTO.test(n) ? nav('/utilizador/ficheiros/_editar/' + juntar(caminho, n).split('/').map(encodeURIComponent).join('/')) : ler())} />)}>
-          <i className="fa-solid fa-file-circle-plus" />
-          {t('Novo ficheiro')}
-        </button>
-        <button className="btn sm r" disabled={enviando} onClick={() => entrada.current?.click()}>
-          <i className={'fa-solid ' + (enviando ? 'fa-circle-notch fa-spin' : 'fa-upload')} />
-          {t('Carregar ficheiros')}
-        </button>
-        <input ref={entrada} type="file" multiple hidden onChange={(e) => { carregar(e.target.files); e.target.value = ''; }} />
-      </div>
-      {!dados ? (
-        <Carregando erro={erro} ler={ler} />
-      ) : (
-        <DataTable
-          id="ficheiros"
-          rows={[...(caminho ? [{ nome: '..', pasta: true, atalho: false, tam: 0, data: '', perm: '' }] : []), ...dados.itens]}
-          rowKey={(r) => r.nome}
-          onRecarregar={ler}
-          porPagina={100}
-          empty="Pasta vazia"
-          cols={[
-            {
-              k: 'nome',
-              t: 'Nome',
-              sort: (r) => (r.pasta ? '0' : '1') + r.nome.toLowerCase(),
-              cell: (r) =>
-                r.nome === '..' ? (
-                  <a className="lk fm-nome" onClick={() => ir(partes.slice(0, -1).join('/'))}>
-                    <i className="fa-solid fa-turn-up" /> ..
-                  </a>
-                ) : (
-                  <a className={'fm-nome' + (r.pasta || TEXTO.test(r.nome) ? ' lk' : '')} onClick={() => (r.pasta ? ir(juntar(caminho, r.nome)) : TEXTO.test(r.nome) ? nav('/utilizador/ficheiros/_editar/' + juntar(caminho, r.nome).split('/').map(encodeURIComponent).join('/')) : undefined)}>
-                    <i className={'fa-solid ' + icone(r) + (r.pasta ? ' pasta' : '')} /> {r.nome}
-                    {r.atalho && <small> ↪</small>}
-                  </a>
-                ),
-            },
-            { k: 'tam', t: 'Tamanho', sort: (r) => r.tam, cell: (r) => (r.nome === '..' || r.pasta ? '—' : tam(r.tam)) },
-            { k: 'data', t: 'Alterado', sort: (r) => r.data, cell: (r) => r.data || '' },
-            { k: 'perm', t: 'Permissões', cell: (r) => (r.perm ? <code>{r.perm}</code> : '') },
-          ]}
-          actions={(r) =>
-            r.nome === '..' ? null : (
-              <span className="dns-acoes">
-                {!r.pasta && TEXTO.test(r.nome) && (
-                  <button className="btn sm btn-ed" onClick={() => nav('/utilizador/ficheiros/_editar/' + juntar(caminho, r.nome).split('/').map(encodeURIComponent).join('/'))}>
-                    {t('Editar')}
-                  </button>
-                )}
-                {!r.pasta && (
-                  <a className="btn sm g iconbtn" href={url(me, 'descarregar', { caminho: juntar(caminho, r.nome) })} title={t('Descarregar')} aria-label={t('Descarregar')}>
-                    <i className="fa-solid fa-download" />
-                  </a>
-                )}
-                {!r.pasta && ARQUIVO.test(r.nome) && (
-                  <button className="btn sm g" onClick={() => fazer({ acao: 'fm-extrair', caminho: juntar(caminho, r.nome), destino: caminho }, 'Extraído')}>
-                    {t('Extrair')}
-                  </button>
-                )}
-                <button className="btn sm g iconbtn" title={t('Mudar o nome')} aria-label={t('Mudar o nome')} onClick={() => openM(<NomeModal titulo="Mudar o nome" rotulo="Nome novo" inicial={r.nome} botao="Guardar" onOk={(n) => fazer({ acao: 'fm-renomear', caminho: juntar(caminho, r.nome), nome: n }, 'Nome mudado')} />)}>
-                  <i className="fa-solid fa-i-cursor" />
-                </button>
-                <button className="btn sm g iconbtn" title={t('Permissões')} aria-label={t('Permissões')} onClick={() => openM(<PermModal inicial={r.perm} onOk={(m) => fazer({ acao: 'fm-permissoes', caminhos: [juntar(caminho, r.nome)], modo: m }, 'Permissões mudadas')} />)}>
-                  <i className="fa-solid fa-lock" />
-                </button>
-                <button className="btn sm btn-rm iconbtn" title={t('Apagar')} aria-label={t('Apagar')} onClick={() => apagar([r.nome])}>
-                  <i className="fa-solid fa-trash-can" />
-                </button>
-              </span>
-            )
+  const novaPasta = () => openM(<NomeModal titulo="Criar pasta" rotulo="Nome da pasta" inicial={t('Nova pasta')} botao="Criar" onOk={(n) => fazer({ acao: 'fm-pasta', pasta: caminho, nome: n }, 'Pasta criada')} />);
+  const novoFicheiro = () =>
+    openM(<NomeModal titulo="Criar ficheiro" rotulo="Nome do ficheiro" botao="Criar" onOk={async (n) => (await noServidor(vh, { acao: 'fm-guardar', pasta: caminho, nome: n, texto: '', novo: true }, 'Ficheiro criado')) && (TEXTO.test(n) ? nav(rotaEditar(juntar(caminho, n))) : ler())} />);
+  const apagar = () => {
+    const ns = escolhidos.map((x) => x.nome);
+    openM(<Confirmar titulo="Mover para a reciclagem?" texto={ns.join(', ') + ' — ' + t('vai para a Reciclagem; pode restaurá-lo de lá.')} ok="Remover" onOk={() => fazer({ acao: 'fm-apagar', caminhos: caminhos() }, 'Movido para a reciclagem')} />);
+  };
+  const acoes: AcaoFm[] = [
+    um?.pasta
+      ? { k: 'abrir', fa: 'fa-folder-open', t: 'Abrir', ativo: true, run: () => abrir(um) }
+      : { k: 'editar', fa: 'fa-pen-to-square', t: 'Editar', ativo: !!um && TEXTO.test(um.nome), run: () => um && nav(rotaEditar(juntar(caminho, um.nome))) },
+    { k: 'copiar', fa: 'fa-copy', t: 'Copiar', ativo: escolhidos.length > 0, run: () => openM(<DestinoModal titulo="Copiar para" inicial={caminho} botao="Copiar" onOk={(d) => fazer({ acao: 'fm-copiar', caminhos: caminhos(), destino: d }, 'Copiado')} />) },
+    { k: 'duplicar', fa: 'fa-clone', t: 'Duplicar', ativo: escolhidos.length > 0, run: () => fazer({ acao: 'fm-duplicar', caminhos: caminhos() }, 'Duplicado') },
+    { k: 'mover', fa: 'fa-arrow-right-to-bracket', t: 'Mover', ativo: escolhidos.length > 0, run: () => openM(<DestinoModal titulo="Mover para" inicial={caminho} botao="Mover" onOk={(d) => fazer({ acao: 'fm-mover', caminhos: caminhos(), destino: d }, 'Movido')} />) },
+    { k: 'descarregar', fa: 'fa-download', t: 'Descarregar', ativo: !!um && !um.pasta, run: () => um && window.location.assign(url(me, 'descarregar', { caminho: juntar(caminho, um.nome) })) },
+    { k: 'arquivar', fa: 'fa-box-archive', t: 'Arquivar', ativo: escolhidos.length > 0, run: () => openM(<ArquivarModal inicial={um ? um.nome.replace(/\.[^.]+$/, '') || um.nome : 'arquivo'} onOk={(n) => fazer({ acao: 'fm-comprimir', pasta: caminho, nome: n, caminhos: caminhos() }, 'Arquivo criado')} />) },
+    { k: 'nome', fa: 'fa-pen', t: 'Mudar nome', ativo: !!um, run: () => um && openM(<NomeModal titulo="Mudar nome" rotulo="Nome novo" inicial={um.nome} botao="Guardar" onOk={(n) => fazer({ acao: 'fm-renomear', caminho: juntar(caminho, um.nome), nome: n }, 'Nome mudado')} />) },
+  ];
+  const mais: AcaoFm[] = [
+    ...(um && !um.pasta && ARQUIVO.test(um.nome) ? [{ k: 'extrair', fa: 'fa-box-open', t: 'Extrair aqui', ativo: true, run: () => fazer({ acao: 'fm-extrair', caminho: juntar(caminho, um.nome), destino: caminho }, 'Extraído') }] : []),
+    { k: 'perm', fa: 'fa-gear', t: 'Permissões', ativo: escolhidos.length > 0, run: () => openM(<PermModal inicial={um?.perm || '644'} onOk={(m) => fazer({ acao: 'fm-permissoes', caminhos: caminhos(), modo: m }, 'Permissões mudadas')} />) },
+    { k: 'remover', fa: 'fa-trash-can', t: 'Remover', ativo: escolhidos.length > 0, perigo: true, run: apagar },
+  ];
+  const [maisAberto, setMaisAberto] = useState(false);
+  useEffect(() => {
+    if (!maisAberto) return;
+    const f = () => setMaisAberto(false);
+    document.addEventListener('click', f);
+    return () => document.removeEventListener('click', f);
+  }, [maisAberto]);
+  const clicar = (e: React.MouseEvent, x: Item) => {
+    if (e.shiftKey && ultimo) {
+      const a = itens.findIndex((y) => y.nome === ultimo);
+      const b = itens.findIndex((y) => y.nome === x.nome);
+      setSel(itens.slice(Math.min(a, b), Math.max(a, b) + 1).map((y) => y.nome));
+    } else if (e.metaKey || e.ctrlKey) setSel(sel.includes(x.nome) ? sel.filter((n) => n !== x.nome) : [...sel, x.nome]);
+    else setSel([x.nome]);
+    setUltimo(x.nome);
+  };
+  const procurar = async (q: string) => {
+    setPesquisa({ q, itens: null });
+    try {
+      const j = await lerUrl<{ itens: Item[] }>(url(me, 'pesquisar', { caminho, q }));
+      setPesquisa({ q, itens: j.itens });
+    } catch (e) {
+      vh.toast(e instanceof Error ? e.message : 'A pesquisa falhou');
+      setPesquisa({ q, itens: [] });
+    }
+  };
+  const botoes = (
+    <nav className="fmda-tbs">
+      <button className="fmda-tb" disabled={lixo} onClick={novaPasta}>
+        <i className="fa-solid fa-folder-plus" />
+        <span>{t('Nova pasta')}</span>
+      </button>
+      <button className="fmda-tb" disabled={lixo} onClick={novoFicheiro}>
+        <i className="fa-solid fa-file-circle-plus" />
+        <span>{t('Novo ficheiro')}</span>
+      </button>
+      <button className="fmda-tb" disabled={lixo} onClick={() => entrada.current?.click()}>
+        <i className="fa-solid fa-cloud-arrow-up" />
+        <span>{t('Carregar')}</span>
+      </button>
+      <input ref={entrada} type="file" multiple hidden onChange={(e) => { carregar(e.target.files); e.target.value = ''; }} />
+      <span className="fmda-sep" />
+      <button className="fmda-tb" disabled={lixo} onClick={() => setPesquisa({ q: '', itens: [] })}>
+        <i className="fa-solid fa-magnifying-glass" />
+        <span>{t('Pesquisar')}</span>
+      </button>
+      <span className="sp" />
+      <button
+        className="fmda-tb"
+        disabled={lixo}
+        onClick={async () => {
+          try {
+            setTamanhos((await lerUrl<{ tamanhos: Record<string, number> }>(url(me, 'tamanhos', { caminho }))).tamanhos);
+          } catch (e) {
+            vh.toast(e instanceof Error ? e.message : 'Não foi possível calcular');
           }
-          bulk={[
-            { t: 'Copiar', fa: 'fa-copy', run: (k) => (setArea({ op: 'copiar', caminhos: k.filter((n) => n !== '..').map((n) => juntar(caminho, n)) }), vh.toast('Abra a pasta de destino e carregue em "Colar cópia aqui"')) },
-            { t: 'Mover', fa: 'fa-up-down-left-right', run: (k) => (setArea({ op: 'mover', caminhos: k.filter((n) => n !== '..').map((n) => juntar(caminho, n)) }), vh.toast('Abra a pasta de destino e carregue em "Mover para aqui"')) },
-            { t: 'Comprimir', fa: 'fa-file-zipper', run: (k) => openM(<NomeModal titulo="Comprimir" rotulo="Nome do arquivo (.zip ou .tar.gz)" inicial="arquivo.zip" botao="Comprimir" onOk={(n) => fazer({ acao: 'fm-comprimir', pasta: caminho, nome: n, caminhos: k.filter((x) => x !== '..').map((x) => juntar(caminho, x)) }, 'Arquivo criado')} />) },
-            { t: 'Permissões', fa: 'fa-lock', run: (k) => openM(<PermModal inicial="644" onOk={(m) => fazer({ acao: 'fm-permissoes', caminhos: k.filter((x) => x !== '..').map((x) => juntar(caminho, x)), modo: m }, 'Permissões mudadas')} />) },
-            { t: 'Apagar', fa: 'fa-trash', run: (k) => apagar(k.filter((x) => x !== '..')) },
-          ]}
-        />
-      )}
-    </>
+        }}
+      >
+        <i className="fa-solid fa-arrows-rotate" />
+        <span>{t('Tamanhos das pastas')}</span>
+      </button>
+      <span className="fmda-sep" />
+    </nav>
+  );
+  const arvore = (
+    <aside className="fmda-arvore">
+      <div className={'fmda-raiz' + (!lixo && !caminho ? ' on' : '')} onClick={() => ir('')}>
+        <i className="fa-solid fa-house" />
+        <span>{t('Os meus ficheiros')}</span>
+      </div>
+      <Ramo c="" nivel={1} atual={lixo ? '\u0000' : caminho} ir={ir} />
+      <div className={'fmda-raiz fmda-lixo' + (lixo ? ' on' : '')} onClick={() => nav('/utilizador/ficheiros/_lixo')}>
+        <i className="fa-solid fa-trash-can" />
+        <span>{t('Reciclagem')}</span>
+      </div>
+    </aside>
+  );
+  if (lixo) {
+    const l = lixoD.dados?.itens || [];
+    const sl = l.filter((x) => sel.includes(x.id));
+    return (
+      <MolduraFm botoes={botoes}>
+        <div className="fmda-corpo">
+          {arvore}
+          <section className="fmda-main">
+            <div className="fmda-caminho">
+              <i className="fa-solid fa-trash-can" />
+              <i className="fa-solid fa-chevron-right" />
+              <b>{t('Reciclagem')}</b>
+            </div>
+            <div className="fmda-acoes">
+              <span className="fmda-cont">
+                {t('Selecionados')}: {sl.length} / {l.length}
+              </span>
+              <button className="fmda-ac" disabled={!sl.length} onClick={() => fazer({ acao: 'fm-restaurar', ids: sl.map((x) => x.id) }, 'Restaurado')}>
+                <i className="fa-solid fa-rotate-left" />
+                {t('Restaurar')}
+              </button>
+              <button className="fmda-ac" disabled={!sl.length} onClick={() => openM(<Confirmar titulo="Apagar para sempre?" texto={sl.map((x) => x.nome).join(', ') + ' — não se pode desfazer.'} ok="Apagar" onOk={() => fazer({ acao: 'fm-esvaziar', ids: sl.map((x) => x.id) }, 'Apagado')} />)}>
+                <i className="fa-solid fa-trash-can" />
+                {t('Apagar para sempre')}
+              </button>
+              <button className="fmda-ac" disabled={!l.length} onClick={() => openM(<Confirmar titulo="Esvaziar a reciclagem?" texto="Tudo o que está na reciclagem é apagado para sempre." ok="Esvaziar" onOk={() => fazer({ acao: 'fm-esvaziar' }, 'Reciclagem vazia')} />)}>
+                <i className="fa-solid fa-broom" />
+                {t('Esvaziar a reciclagem')}
+              </button>
+            </div>
+            {!lixoD.dados ? (
+              <Carregando erro={lixoD.erro} ler={lixoD.ler} />
+            ) : (
+              <table className="fmda-tab">
+                <thead>
+                  <tr>
+                    <th className="fmda-chk">
+                      <input type="checkbox" checked={!!l.length && sl.length === l.length} onChange={(e) => setSel(e.target.checked ? l.map((x) => x.id) : [])} aria-label={t('Selecionar tudo')} />
+                    </th>
+                    <th className="fmda-icc" />
+                    <th>{t('Nome')}</th>
+                    <th>{t('Sítio original')}</th>
+                    <th>{t('Apagado em')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {l.map((x) => (
+                    <tr key={x.id} className={sel.includes(x.id) ? 'on' : ''} onClick={() => setSel(sel.includes(x.id) ? sel.filter((y) => y !== x.id) : [...sel, x.id])}>
+                      <td className="fmda-chk">
+                        <input type="checkbox" checked={sel.includes(x.id)} readOnly aria-label={x.nome} />
+                      </td>
+                      <td className="fmda-icc">
+                        <IconeFicheiro x={{ nome: x.nome, pasta: x.pasta, atalho: false, tam: x.tam, data: x.data, perm: '' }} />
+                      </td>
+                      <td>{x.nome}</td>
+                      <td>/home/{me}/{x.orig}</td>
+                      <td>{dataDa(x.data)}</td>
+                    </tr>
+                  ))}
+                  {!l.length && (
+                    <tr className="fmda-vazio">
+                      <td colSpan={5}>{t('A reciclagem está vazia.')}</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            )}
+          </section>
+        </div>
+      </MolduraFm>
+    );
+  }
+  return (
+    <MolduraFm botoes={botoes}>
+      <div className="fmda-corpo">
+        {arvore}
+        <section
+          className="fmda-main"
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => {
+            e.preventDefault();
+            carregar(e.dataTransfer.files);
+          }}
+        >
+          <div className="fmda-caminho">
+            <a onClick={() => ir('')} aria-label={t('Os meus ficheiros')}>
+              <i className="fa-solid fa-house" />
+            </a>
+            {partes.map((p, i) => (
+              <span key={i}>
+                <i className="fa-solid fa-chevron-right" />
+                <a className={i === partes.length - 1 ? 'on' : ''} onClick={() => ir(partes.slice(0, i + 1).join('/'))}>
+                  {p}
+                </a>
+              </span>
+            ))}
+          </div>
+          <div className="fmda-acoes">
+            <span className="fmda-cont">
+              {t('Selecionados')}: {escolhidos.length} / {itens.length}
+            </span>
+            {acoes.map((a) => (
+              <button key={a.k} className="fmda-ac" disabled={!a.ativo} onClick={a.run}>
+                <i className={'fa-solid ' + a.fa} />
+                {t(a.t)}
+              </button>
+            ))}
+            <span className="fmda-mais">
+              <button
+                className="fmda-ac"
+                disabled={!escolhidos.length}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMaisAberto(!maisAberto);
+                }}
+              >
+                <i className="fa-solid fa-ellipsis-vertical" />
+                {t('Mais')}
+              </button>
+              {maisAberto && (
+                <div className="fmda-menu fmda-menu-mais">
+                  {mais.map((a) => (
+                    <button key={a.k} className={a.perigo ? 'perigo' : ''} disabled={!a.ativo} onClick={a.run}>
+                      <i className={'fa-solid ' + a.fa} />
+                      {t(a.t)}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </span>
+          </div>
+          {pesquisa && (
+            <div className="fmda-pesq">
+              <div className="fmda-pesq-cx">
+                <i className="fa-solid fa-magnifying-glass" />
+                <input autoFocus placeholder={t('Escreva o que procura…')} defaultValue={pesquisa.q} onKeyDown={(e) => e.key === 'Enter' && procurar((e.target as HTMLInputElement).value)} />
+                <button className="fmda-pesq-fechar" onClick={() => setPesquisa(null)}>
+                  <i className="fa-solid fa-xmark" />
+                  {t('Fechar')}
+                </button>
+              </div>
+              {pesquisa.q && (
+                <div className="fmda-pesq-res">
+                  {!pesquisa.itens ? null : pesquisa.itens.length ? (
+                    pesquisa.itens.map((x) => (
+                      <a
+                        key={x.rel}
+                        onClick={() => {
+                          const pai = (x.rel || '').split('/').slice(0, -1).join('/');
+                          setPesquisa(null);
+                          x.pasta ? ir(x.rel || '') : ir(pai);
+                        }}
+                      >
+                        <IconeFicheiro x={x} /> <span>/home/{me}/{x.rel}</span>
+                      </a>
+                    ))
+                  ) : (
+                    <p>{t('Nada encontrado.')}</p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+          {!dados ? (
+            <Carregando erro={erro} ler={ler} />
+          ) : (
+            <table className="fmda-tab">
+              <thead>
+                <tr>
+                  <th className="fmda-chk">
+                    <input type="checkbox" checked={!!itens.length && escolhidos.length === itens.length} ref={(el) => { if (el) el.indeterminate = escolhidos.length > 0 && escolhidos.length < itens.length; }} onChange={(e) => setSel(e.target.checked ? itens.map((x) => x.nome) : [])} aria-label={t('Selecionar tudo')} />
+                  </th>
+                  <th className="fmda-icc" />
+                  <th>{t('Nome')}</th>
+                  <th>{t('Tamanho')}</th>
+                  <th>{t('Permissões')}</th>
+                  <th>{t('Última alteração')}</th>
+                  <th>UID/GID</th>
+                </tr>
+              </thead>
+              <tbody>
+                {itens.map((x) => (
+                  <tr
+                    key={x.nome}
+                    className={sel.includes(x.nome) ? 'on' : ''}
+                    onClick={(e) => clicar(e, x)}
+                    onDoubleClick={() => abrir(x)}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      if (!sel.includes(x.nome)) setSel([x.nome]);
+                      setMenu({ x: Math.min(e.clientX, window.innerWidth - 230), y: Math.min(e.clientY, window.innerHeight - 380) });
+                    }}
+                  >
+                    <td className="fmda-chk" onClick={(e) => { e.stopPropagation(); setSel(sel.includes(x.nome) ? sel.filter((n) => n !== x.nome) : [...sel, x.nome]); setUltimo(x.nome); }}>
+                      <input type="checkbox" checked={sel.includes(x.nome)} readOnly aria-label={x.nome} />
+                    </td>
+                    <td className="fmda-icc">
+                      <IconeFicheiro x={x} />
+                    </td>
+                    <td className="fmda-nome">
+                      {x.nome}
+                      {x.atalho && <i className="fa-solid fa-link fmda-lig" />}
+                    </td>
+                    <td>{x.pasta ? (tamanhos && tamanhos[x.nome] != null ? (tamanhos[x.nome] < 0 ? '…' : tam(tamanhos[x.nome])) : '') : tam(x.tam)}</td>
+                    <td className="fmda-mono">{permTexto(x)}</td>
+                    <td>{dataDa(x.data)}</td>
+                    <td>{(x.dono || me) + '/' + (x.grupo || me)}</td>
+                  </tr>
+                ))}
+                {!itens.length && (
+                  <tr className="fmda-vazio">
+                    <td colSpan={7}>{t('Esta pasta está vazia. Arraste ficheiros para aqui para os carregar.')}</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          )}
+          {menu && (
+            <div className="fmda-menu" style={{ left: menu.x, top: menu.y }} onClick={(e) => e.stopPropagation()}>
+              {[...acoes, ...mais].map((a) => (
+                <button
+                  key={a.k}
+                  className={a.perigo ? 'perigo' : ''}
+                  disabled={!a.ativo}
+                  onClick={() => {
+                    setMenu(null);
+                    a.run();
+                  }}
+                >
+                  <i className={'fa-solid ' + a.fa} />
+                  {t(a.t)}
+                </button>
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
+    </MolduraFm>
   );
 }
 
@@ -329,10 +762,9 @@ function Editor({ caminho }: { caminho: string }) {
   const [texto, setTexto] = useState<string | null>(null);
   const pasta = caminho.split('/').slice(0, -1).join('/');
   const nome = caminho.split('/').pop() || '';
-  const voltar = () => nav('/utilizador/ficheiros' + (pasta ? '/' + pasta.split('/').map(encodeURIComponent).join('/') : ''));
-  if (!dados) return <Carregando erro={erro} ler={ler} />;
-  const v = texto ?? dados.texto;
-  const mudou = texto !== null && texto !== dados.texto;
+  const voltar = () => nav(rotaFm(pasta));
+  const v = texto ?? dados?.texto ?? '';
+  const mudou = !!dados && texto !== null && texto !== dados.texto;
   const guardar = async () => {
     if (await noServidor(vh, { acao: 'fm-guardar', pasta, nome, texto: v }, 'Guardado')) {
       setTexto(null);
@@ -340,74 +772,75 @@ function Editor({ caminho }: { caminho: string }) {
     }
   };
   return (
-    <>
-      <div className="fm-bar">
-        <code className="fm-ficheiro">/home/{vh.me}/{caminho}</code>
-        <span className="sp" />
-        {mudou && <span className="tag w">{t('Por guardar')}</span>}
-        <button className="btn sm g" onClick={voltar}>
-          <i className="fa-solid fa-arrow-left" />
-          {t('Voltar')}
-        </button>
-        <button className="btn sm r" disabled={!mudou} onClick={guardar}>
-          <i className="fa-solid fa-floppy-disk" />
-          {t('Guardar')}
-        </button>
+    <MolduraFm
+      botoes={
+        <nav className="fmda-tbs">
+          <button className="fmda-tb" disabled={!mudou} onClick={guardar}>
+            <i className="fa-solid fa-floppy-disk" />
+            <span>{t('Guardar')}</span>
+          </button>
+          <button className="fmda-tb" onClick={voltar}>
+            <i className="fa-solid fa-xmark" />
+            <span>{t('Fechar')}</span>
+          </button>
+          <span className="fmda-sep" />
+        </nav>
+      }
+    >
+      <div className="fmda-ed">
+        <div className="fmda-caminho">
+          <a onClick={() => nav(rotaFm(''))} aria-label={t('Os meus ficheiros')}>
+            <i className="fa-solid fa-house" />
+          </a>
+          {caminho.split('/').map((p, i, l) => (
+            <span key={i}>
+              <i className="fa-solid fa-chevron-right" />
+              <a className={i === l.length - 1 ? 'on' : ''} onClick={() => i < l.length - 1 && nav(rotaFm(l.slice(0, i + 1).join('/')))}>
+                {p}
+              </a>
+            </span>
+          ))}
+          <span className="sp" />
+          {mudou && <span className="tag w">{t('Por guardar')}</span>}
+        </div>
+        {!dados ? (
+          <Carregando erro={erro} ler={ler} />
+        ) : (
+          <textarea
+            className="fmda-texto"
+            style={{ fontSize: Number(lerPref('vh-fm-letra', '13')) || 13 }}
+            spellCheck={false}
+            value={v}
+            onChange={(e) => setTexto(e.target.value)}
+            onKeyDown={(e) => {
+              if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                e.preventDefault();
+                if (mudou) guardar();
+              }
+              if (e.key === 'Tab') {
+                e.preventDefault();
+                const el = e.currentTarget;
+                const i = el.selectionStart;
+                setTexto(v.slice(0, i) + '  ' + v.slice(el.selectionEnd));
+                requestAnimationFrame(() => el.setSelectionRange(i + 2, i + 2));
+              }
+            }}
+          />
+        )}
+        <p className="fmda-nota">{t('Ctrl+S (ou ⌘S) guarda. O ficheiro fica com o utilizador da conta como dono.')}</p>
       </div>
-      <textarea
-        className="fm-editor"
-        spellCheck={false}
-        value={v}
-        onChange={(e) => setTexto(e.target.value)}
-        onKeyDown={(e) => {
-          if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-            e.preventDefault();
-            if (mudou) guardar();
-          }
-          if (e.key === 'Tab') {
-            e.preventDefault();
-            const el = e.currentTarget;
-            const i = el.selectionStart;
-            setTexto(v.slice(0, i) + '  ' + v.slice(el.selectionEnd));
-            requestAnimationFrame(() => el.setSelectionRange(i + 2, i + 2));
-          }
-        }}
-      />
-      <p className="em-nota">{t('Ctrl+S (ou ⌘S) guarda. O ficheiro fica com o utilizador da conta como dono.')}</p>
-    </>
+    </MolduraFm>
   );
 }
-
-// O gestor de ficheiros do site da VisualDesign (pedido do Silva: mais simples, com seletor de domínio).
-// O site só o abre a administradores e revendedores; para as outras contas fica o gestor acima (mesmas funções).
-const FileManagerSection = dynamic(() => import('@/app/dashboard/HostingSections').then((m) => m.FileManagerSection), {
-  ssr: false,
-  loading: () => (
-    <div className="espera-nota">
-      <i className="fa-solid fa-circle-notch fa-spin" /> A abrir o gestor de ficheiros…
-    </div>
-  ),
-});
-function GestorDoSite() {
-  const vh = useVH();
-  const sites = vh.a.domains.filter((x) => !x.soEmail).map((x) => ({ domain: x.name, owner: vh.me }));
-  return (
-    <div className="vh-fm-site">
-      <FileManagerSection domain={siteAtual(vh)} sites={sites as never} isActive loggedInOwner={vh.me} />
-    </div>
-  );
-}
-/** Quem entrou no painel é administrador ou revendedor (é o que o gestor do site aceita) */
-const entrouComoGestor = (vh: VH) => ['admin', 'revenda'].includes(vh.s.acc[vh.s.login]?.role || '');
 
 export const ficheirosPagina: ScreenFn = (vh) => {
   const sub = vh.s.sub;
-  if (entrouComoGestor(vh)) return { title: 'Gestor de ficheiros', body: <GestorDoSite /> };
   const base = { t: 'Gestor de ficheiros', path: '/utilizador/ficheiros' };
   if (sub[0] === '_editar') {
     const c = sub.slice(1).join('/');
     return { title: 'Editar ficheiro', desc: c.split('/').pop(), crumbs: [base, { t: 'Editar' }], body: <Editor key={c} caminho={c} /> };
   }
+  if (sub[0] === '_lixo') return { title: 'Reciclagem', crumbs: [base, { t: 'Reciclagem' }], body: <Ficheiros key="_lixo" caminho="" lixo /> };
   const c = sub.join('/');
   return { title: 'Gestor de ficheiros', crumbs: c ? [base, { t: c.split('/').pop() || c }] : undefined, body: <Ficheiros key={c} caminho={c} /> };
 };
@@ -489,7 +922,7 @@ function Terminal() {
             aria-label={t('Comando')}
             autoFocus
           />
-          {a && <i className="fa-solid fa-circle-notch fa-spin" />}
+          
         </div>
       </div>
     </>
@@ -738,7 +1171,7 @@ function UsoRecursos() {
   const { t } = useVH();
   const { dados, erro, ler } = useLer<Recursos>('recursos');
   useEffect(() => {
-    const i = setInterval(ler, 15000);
+    const i = setInterval(() => ler(true), 15000); // em segundo plano: sem a linha do topo
     return () => clearInterval(i);
   }, [ler]);
   if (!dados) return <Carregando erro={erro} ler={ler} />;

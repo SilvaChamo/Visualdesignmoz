@@ -6,6 +6,8 @@ export type AcaoServidor =
   | { acao: 'suspender' | 'reativar' | 'apagar'; contas: string[] }
   | { acao: 'pacote'; contas: string[]; pacote: string }
   | { acao: 'senha'; contas: string[]; senha: string }
+  | { acao: 'mover'; contas: string[]; para: string }
+  | { acao: 'tipo'; contas: string[]; tipo: string }
   | { acao: 'criar'; criar: { user: string; nome?: string; email: string; senha: string; dominio?: string; pacote: string } };
 
 /** Faz a alteração no servidor; devolve as contas alteradas (vazio se nada mudou) */

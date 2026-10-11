@@ -5,6 +5,7 @@ import * as hestia from '@/lib/hestia-adapter';
 import * as acl from '@/lib/hestia-mysql-acl';
 import { esquecerLeitura, lerServidor, type LeituraServidor } from '@/lib/vhost-servidor';
 import { lerRegisto, montarDados } from '@/lib/vhost-dados';
+import { createPhpMyAdminSsoUrl } from '@/lib/hestia-pma-sso';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,6 +14,7 @@ export const dynamic = 'force-dynamic';
  * GET  ?conta=           utilizadores (com as bases a que têm acesso), tamanho e nº de tabelas de cada base,
  *                         versão e modo do MySQL
  * GET  ?conta=&exportar=bd   descarrega a base de dados (.sql.gz)
+ * GET  ?conta=&pma=1[&bd=]   abre o phpMyAdmin já com sessão (acesso temporário só às bases da conta, ou só à base indicada)
  * POST { acao, conta, … }    utilizadores (criar, apagar, senha, dar/tirar acesso), verificar/reparar/otimizar
  * POST multipart (acao=importar, conta, bd, limpar, ficheiro)   importa um .sql / .sql.gz
  * Usa as funções do site (hestia-mysql-acl / hestia-adapter); só nas contas que a sessão pode ver.
@@ -96,6 +98,20 @@ export async function GET(req: NextRequest) {
   const negado = await autorizar(conta);
   if (negado) return negado;
   const sp = req.nextUrl.searchParams;
+  // phpMyAdmin com as mesmas regras do painel (o cliente também entra, só nas suas bases) — a rota antiga do site
+  // (/api/db-manager) só aceitava administrador/revendedor/gestor
+  if (sp.get('pma') === '1') {
+    const bd = sp.get('bd') || '';
+    if (bd && !bdDaConta(await lerServidor(), conta, bd)) return NextResponse.json({ erro: 'Base de dados fora da conta.' }, { status: 403 });
+    try {
+      const url = await createPhpMyAdminSsoUrl(conta, bd || undefined);
+      const res = NextResponse.redirect(new URL(url, req.nextUrl.origin), 302);
+      res.headers.set('Cache-Control', 'no-store');
+      return res;
+    } catch (e) {
+      return NextResponse.json({ erro: e instanceof Error ? e.message : 'Não foi possível abrir o phpMyAdmin.' }, { status: 502 });
+    }
+  }
   const exportar = sp.get('exportar') || '';
   if (exportar) {
     if (!bdDaConta(await lerServidor(), conta, exportar)) return NextResponse.json({ erro: 'Base de dados fora da conta.' }, { status: 403 });

@@ -3,40 +3,20 @@
 // Menu Avançado do painel Utilizador (páginas copiadas do DirectAdmin, ligadas ao Hestia por /api/vhost/avancado):
 // Handlers e MIME, Cópias de segurança, Tarefas cron, Chaves de login, Pastas protegidas, Chaves SSH,
 // Firewall de aplicação (ModSecurity), Git, WordPress e Antivírus. O Catch-all está em paginas/email.tsx.
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useVH, type VH } from '../context';
 import type { ScreenFn } from '../screens';
 import { Check, DataTable, Senha, Switch, Tabs } from './componentes';
 import { Confirmar } from './pacotes';
+import { useGet } from '../carga';
 
 // ---------- Peças comuns ----------
 const url = (me: string, ver: string, extra: Record<string, string> = {}) => '/api/vhost/avancado?' + new URLSearchParams({ conta: me, ver, ...extra }).toString();
 
-/** Lê um endereço da API (com o que já foi lido guardado: aparece logo ao voltar) */
-const lidos = new Map<string, unknown>();
+/** Lê um endereço da API (memória comum do painel: aparece logo ao voltar e atualiza-se por trás) */
 function useLer<T>(ver: string, extra: Record<string, string> = {}, ativo = true) {
   const { me } = useVH();
-  const u = url(me, ver, extra);
-  const [dados, setDados] = useState<T | null>(() => (lidos.get(u) as T) || null);
-  const [erro, setErro] = useState('');
-  const ler = useCallback(async () => {
-    if (!ativo) return;
-    setErro('');
-    try {
-      const r = await fetch(u, { cache: 'no-store' });
-      const j = await r.json();
-      if (!r.ok) throw new Error(j.erro || 'Erro a ler o servidor');
-      lidos.set(u, j);
-      setDados(j as T);
-    } catch (e) {
-      setErro(e instanceof Error ? e.message : 'Erro a ler o servidor');
-    }
-  }, [u, ativo]);
-  useEffect(() => {
-    setDados((lidos.get(u) as T) || null);
-    ler();
-  }, [ler, u]);
-  return { dados, erro, ler };
+  return useGet<T>(ativo ? url(me, ver, extra) : null);
 }
 
 async function noServidor(vh: VH, corpo: Record<string, unknown>, ok: string, recarregar = false): Promise<Record<string, unknown> | null> {
@@ -67,11 +47,7 @@ function Carregando({ erro, ler }: { erro: string; ler: () => void }) {
         {t('Tentar de novo')}
       </button>
     </div>
-  ) : (
-    <div className="espera-nota">
-      <i className="fa-solid fa-circle-notch fa-spin" /> {t('A ler o servidor…')}
-    </div>
-  );
+  ) : null; // a carregar: só a linha do topo
 }
 
 function Sec({ titulo, desc, numeros, children }: { titulo: string; desc?: string; numeros?: [string, string][]; children: ReactNode }) {
@@ -1169,67 +1145,392 @@ type Plugin = { name: string; title?: string; status: string; version: string; u
 type WpUser = { ID?: number; user_login: string; display_name?: string; user_email?: string; roles?: string };
 const AUTO: Record<string, string> = { true: 'Todas', minor: 'Só de segurança', false: 'Desligada' };
 
+/** Abre o painel do WordPress já com sessão. A janela abre-se logo no clique (depois de esperar pelo servidor o
+ *  navegador bloqueava-a) e recebe o endereço quando ele chega; se falhar, fecha-se e aparece o motivo. */
 async function entrarWp(vh: VH, d: string) {
+  const w = window.open('about:blank', '_blank');
   const j = await noServidor(vh, { acao: 'wp-entrar', dominio: d }, 'A abrir o painel do WordPress…');
-  if (j?.url) window.open(String(j.url), '_blank', 'noopener');
+  if (j?.url && w) {
+    w.opener = null;
+    w.location.href = String(j.url);
+  } else if (j?.url) window.location.href = String(j.url);
+  else w?.close();
 }
 
-function WordPressLista() {
+/** Menu "⋯" de uma linha (como no DirectAdmin): opções com ícone, título e explicação; fecha ao clicar fora ou Esc */
+function MenuPontos({ itens }: { itens: { fa: string; t: string; sub?: string; perigo?: boolean; run: () => void }[] }) {
+  const { t } = useVH();
+  // posição fixa (calculada do botão): a tabela, que pode deslizar, não corta o menu
+  const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
+  const caixa = useRef<HTMLSpanElement>(null);
+  const aberto = !!pos;
+  const setAberto = (v: boolean) => {
+    const r = caixa.current?.getBoundingClientRect();
+    setPos(v && r ? { top: r.bottom + 6, right: Math.max(8, window.innerWidth - r.right) } : null);
+  };
+  useEffect(() => {
+    if (!aberto) return;
+    const fora = (e: MouseEvent) => !caixa.current?.contains(e.target as Node) && setPos(null);
+    const esc = (e: KeyboardEvent) => e.key === 'Escape' && setPos(null);
+    const fechar = () => setPos(null);
+    document.addEventListener('mousedown', fora);
+    document.addEventListener('keydown', esc);
+    window.addEventListener('scroll', fechar);
+    window.addEventListener('resize', fechar);
+    return () => {
+      document.removeEventListener('mousedown', fora);
+      document.removeEventListener('keydown', esc);
+      window.removeEventListener('scroll', fechar);
+      window.removeEventListener('resize', fechar);
+    };
+  }, [aberto]);
+  return (
+    <span className="wp-pontos" ref={caixa}>
+      <button className={'wp-pontos-btn' + (aberto ? ' on' : '')} onClick={() => setAberto(!aberto)} title={t('Mais opções')} aria-label={t('Mais opções')} aria-expanded={aberto}>
+        <i className="fa-solid fa-ellipsis" />
+      </button>
+      {pos && (
+        <div className="wp-menu" role="menu" style={{ top: pos.top, right: pos.right }}>
+          {itens.map((x) => (
+            <button
+              key={x.t}
+              role="menuitem"
+              className={x.perigo ? 'perigo' : ''}
+              onClick={() => {
+                setAberto(false);
+                x.run();
+              }}
+            >
+              <i className={'fa-solid ' + x.fa} />
+              <span>
+                <b>{t(x.t)}</b>
+                {x.sub && <small>{t(x.sub)}</small>}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+    </span>
+  );
+}
+
+/** "Manage Auto-Update" do DA */
+function WpAutoModal({ d, atual, depois }: { d: string; atual: string; depois: () => void }) {
   const vh = useVH();
-  const { t, nav } = vh;
-  const { dados, erro, ler } = useLer<{ instalados: Wp[]; livres: { d: string; pasta: string }[] }>('wordpress');
-  if (!dados) return <Carregando erro={erro} ler={ler} />;
+  const { t, closeM } = vh;
+  const [v, setV] = useState(atual || 'minor');
   return (
     <>
-      <Sec titulo="Instalações do WordPress" desc="Os WordPress desta conta: ver utilizadores e plugins, atualizar, mudar a atualização automática, abrir o site ou o painel.">
+      <h3>{t('Gerir a atualização automática')}</h3>
+      <p style={{ lineHeight: 1.5 }}>{t('Escolha quando o WordPress de')} <b>{d}</b> {t('se atualiza sozinho.')}</p>
+      <div className="wp-opcoes">
+        {(
+          [
+            ['false', 'Nunca', 'O WordPress só se atualiza quando carregar em Atualizar.'],
+            ['minor', 'Só versões de segurança', 'Recomendado: correções (ex.: 6.6.1 → 6.6.2), sem mudanças grandes.'],
+            ['true', 'Todas as versões', 'Também as versões novas (ex.: 6.6 → 6.7).'],
+          ] as [string, string, string][]
+        ).map(([k, l, e]) => (
+          <label key={k} className={v === k ? 'on' : ''}>
+            <input type="radio" name="wp-auto" checked={v === k} onChange={() => setV(k)} />
+            <span>
+              <b>{t(l)}</b>
+              <small>{t(e)}</small>
+            </span>
+          </label>
+        ))}
+      </div>
+      <div className="mfoot">
+        <button className="btn g" onClick={closeM}>
+          {t('Cancelar')}
+        </button>
+        <button
+          className="btn r"
+          onClick={async () => {
+            closeM();
+            if (await noServidor(vh, { acao: 'wp-nucleo', dominio: d, op: 'auto', valor: v }, 'Atualização automática guardada')) depois();
+          }}
+        >
+          {t('Guardar')}
+        </button>
+      </div>
+    </>
+  );
+}
+
+/** "Delete WordPress" do DA */
+function WpApagarModal({ d, depois }: { d: string; depois: () => void }) {
+  const vh = useVH();
+  const { t, closeM } = vh;
+  const [comBd, setComBd] = useState(true);
+  return (
+    <>
+      <h3>{t('Apagar o WordPress?')}</h3>
+      <p style={{ lineHeight: 1.5 }}>
+        {t('Vai apagar os ficheiros do WordPress de')} <b>{d}</b> {t('(wp-admin, wp-includes, wp-content e os ficheiros wp-*.php). Os outros ficheiros da pasta ficam.')}
+      </p>
+      <label className="chk" style={{ margin: '10px 0 4px' }}>
+        <input type="checkbox" checked={comBd} onChange={(e) => setComBd(e.target.checked)} />
+        <span>{t('Apagar também a base de dados do WordPress')}</span>
+      </label>
+      <div className="mfoot">
+        <button className="btn g" onClick={closeM}>
+          {t('Cancelar')}
+        </button>
+        <button
+          className="btn r"
+          onClick={async () => {
+            closeM();
+            if (await noServidor(vh, { acao: 'wp-apagar', dominio: d, comBd }, 'WordPress apagado', true)) depois();
+          }}
+        >
+          {t('Apagar')}
+        </button>
+      </div>
+    </>
+  );
+}
+
+/** Gestor de WordPress — igual ao "WordPress Manager" do DirectAdmin (instalações com o menu ⋯ e locais sem
+ *  WordPress); o botão "Gerir" (plugins, atualizações, utilizadores) é um acrescento do painel */
+function WordPressLista() {
+  const vh = useVH();
+  const { t, nav, openM } = vh;
+  const { dados, erro, ler } = useLer<{ instalados: Wp[]; livres: { d: string; pasta: string }[] }>('wordpress');
+  if (!dados) return <Carregando erro={erro} ler={ler} />;
+  const enc = encodeURIComponent;
+  return (
+    <>
+      <Sec
+        titulo="Instalações do WordPress"
+        desc="Lista das instâncias do WordPress instaladas. Pode ver os utilizadores do WordPress, mudar a atualização automática e a configuração da base de dados, apagar a instância do WordPress, abrir o site ou o painel do WordPress."
+      >
         <DataTable
           id="wp"
           rows={dados.instalados}
           rowKey={(r) => r.d}
-          onRecarregar={ler}
           empty="Não há WordPress instalados"
           cols={[
-            { k: 'd', t: 'Domínio', cell: (r) => <a className="lk" onClick={() => nav('/utilizador/wordpress/' + encodeURIComponent(r.d))}>{r.d}</a> },
-            { k: 'pasta', t: 'Pasta', cell: (r) => <code>{r.pasta}</code> },
-            { k: 'v', t: 'Versão', cell: (r) => r.versao || '—' },
+            { k: 'd', t: 'Domínio', cell: (r) => <a className="lk" href={r.url || 'https://' + r.d} target="_blank" rel="noreferrer">{r.d}</a> },
+            { k: 'pasta', t: 'Pasta', cell: (r) => <a className="lk wp-pasta" onClick={() => nav('/utilizador/ficheiros/' + r.pasta.split('/').map(enc).join('/'))}>{r.pasta}</a> },
+            { k: 'v', t: 'Versão', cell: (r) => (r.versao ? <span className="wp-versao">{r.versao}</span> : '—') },
             { k: 'titulo', t: 'Título', cell: (r) => r.titulo || '—' },
-            { k: 'auto', t: 'Atualização automática', cell: (r) => t(AUTO[r.auto] || r.auto || '—') },
-            { k: 'tema', t: 'Tema', cell: (r) => r.tema || '—' },
+            { k: 'auto', t: 'Atualização automática', cell: (r) => <span className={'tag ' + (r.auto === 'false' ? 'off' : 'ok')}>{t(AUTO[r.auto] || 'Só de segurança')}</span> },
           ]}
           actions={(r) => (
             <span className="dns-acoes">
-              <a className="btn g sm iconbtn" href={r.url || 'https://' + r.d} target="_blank" rel="noreferrer" title={t('Abrir o site')} aria-label={t('Abrir o site')}>
-                <i className="fa-solid fa-arrow-up-right-from-square" />
-              </a>
-              <button className="btn sm btn-ed" onClick={() => entrarWp(vh, r.d)}>
-                <i className="fa-brands fa-wordpress" />
-                {t('Painel')}
-              </button>
-              <button className="btn sm g" onClick={() => nav('/utilizador/wordpress/' + encodeURIComponent(r.d))}>
+              <button className="btn sm g" onClick={() => nav('/utilizador/wordpress/' + enc(r.d))}>
                 {t('Gerir')}
               </button>
+              <MenuPontos
+                itens={[
+                  { fa: 'fa-window-maximize', t: 'Abrir o painel do WordPress', run: () => entrarWp(vh, r.d) },
+                  { fa: 'fa-users', t: 'Abrir a lista de utilizadores', sub: 'Ver os utilizadores do WordPress e mudar as palavras-passe', run: () => nav('/utilizador/wordpress/' + enc(r.d) + '/utilizadores') },
+                  { fa: 'fa-arrows-rotate', t: 'Gerir a atualização automática', sub: 'Escolher quando o WordPress se atualiza sozinho', run: () => openM(<WpAutoModal d={r.d} atual={r.auto} depois={ler} />) },
+                  { fa: 'fa-database', t: 'Gerir a configuração da base de dados', run: () => nav('/utilizador/wordpress/' + enc(r.d) + '/base-de-dados') },
+                  { fa: 'fa-trash-can', t: 'Apagar o WordPress', perigo: true, run: () => openM(<WpApagarModal d={r.d} depois={ler} />) },
+                ]}
+              />
             </span>
           )}
         />
       </Sec>
-      <Sec titulo="Locais sem WordPress" desc="Sites desta conta onde se pode instalar o WordPress.">
-        <DataTable
-          id="wp-livres"
-          rows={dados.livres}
-          rowKey={(r) => r.d}
-          empty="Todos os sites já têm WordPress"
-          cols={[
-            { k: 'd', t: 'Domínio', cell: (r) => <b>{r.d}</b> },
-            { k: 'pasta', t: 'Pasta', cell: (r) => <code>{r.pasta}</code> },
-          ]}
-          actions={(r) => (
-            <button className="btn sm btn-ed" onClick={() => nav('/utilizador/wordpress/instalar/' + encodeURIComponent(r.d))}>
-              <i className="fa-solid fa-download" />
-              {t('Instalar')}
-            </button>
-          )}
-        />
+      <Sec titulo="Locais sem WordPress" desc="Lista dos locais prontos para instalar o WordPress.">
+        {dados.livres.length ? (
+          <DataTable
+            id="wp-livres"
+            rows={dados.livres}
+            rowKey={(r) => r.d}
+            cols={[
+              { k: 'd', t: 'Domínio', cell: (r) => <b>{r.d}</b> },
+              { k: 'pasta', t: 'Pasta', cell: (r) => <code>{r.pasta}</code> },
+            ]}
+            actions={(r) => (
+              <button className="btn sm btn-ed" onClick={() => nav('/utilizador/wordpress/instalar/' + enc(r.d))}>
+                <i className="fa-solid fa-download" />
+                {t('Instalar')}
+              </button>
+            )}
+          />
+        ) : (
+          <div className="tbl wp-vazio">
+            <table>
+              <thead>
+                <tr>
+                  <th>{t('Domínio')}</th>
+                  <th>{t('Pasta')}</th>
+                  <th style={{ textAlign: 'right' }}>{t('Ações')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td colSpan={3}>
+                    <i className="fa-solid fa-triangle-exclamation" /> {t('Não foram encontrados locais possíveis para instalar o WordPress…')}
+                    <button className="wp-recarregar" onClick={() => ler()} title={t('Procurar de novo')} aria-label={t('Procurar de novo')}>
+                      <i className="fa-solid fa-arrows-rotate" />
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        )}
       </Sec>
+    </>
+  );
+}
+
+/** "Open Users List" do DA: utilizadores do WordPress e mudar a palavra-passe */
+function WpUtilizadores({ d }: { d: string }) {
+  const vh = useVH();
+  const { t, openM } = vh;
+  const { dados, erro, ler } = useLer<{ plugins: Plugin[]; users: WpUser[] }>('wp', { d });
+  if (!dados) return <Carregando erro={erro} ler={ler} />;
+  return (
+    <Sec titulo="Utilizadores do WordPress" desc="Os utilizadores deste WordPress. Pode mudar a palavra-passe de cada um." numeros={[['Utilizadores', String(dados.users.length)]]}>
+      <DataTable
+        id="wp-users-da"
+        rows={dados.users}
+        rowKey={(r) => r.user_login}
+        empty="Sem utilizadores"
+        cols={[
+          { k: 'l', t: 'Utilizador', cell: (r) => <b>{r.user_login}</b> },
+          { k: 'n', t: 'Nome', cell: (r) => r.display_name || '—' },
+          { k: 'e', t: 'E-mail', cell: (r) => r.user_email || '—' },
+          { k: 'r', t: 'Papel', cell: (r) => r.roles || '—' },
+        ]}
+        actions={(r) => (
+          <button className="btn sm btn-ed" onClick={() => openM(<WpSenhaModal d={d} user={r.user_login} />)}>
+            <i className="fa-solid fa-key" />
+            {t('Mudar palavra-passe')}
+          </button>
+        )}
+      />
+    </Sec>
+  );
+}
+
+function WpSenhaModal({ d, user }: { d: string; user: string }) {
+  const vh = useVH();
+  const { t, closeM } = vh;
+  const [senha, setSenha] = useState('');
+  return (
+    <>
+      <h3>{t('Mudar a palavra-passe')}</h3>
+      <p style={{ lineHeight: 1.5 }}>
+        {t('Utilizador do WordPress')} <b>{user}</b> · {d}
+      </p>
+      <div className="frm">
+        <div className="field">
+          <label>{t('Nova palavra-passe')}</label>
+          <Senha value={senha} onChange={setSenha} />
+        </div>
+      </div>
+      <div className="mfoot">
+        <button className="btn g" onClick={closeM}>
+          {t('Cancelar')}
+        </button>
+        <button
+          className="btn r"
+          disabled={senha.length < 8}
+          onClick={async () => {
+            if (await noServidor(vh, { acao: 'wp-senha', dominio: d, user, senha }, 'Palavra-passe mudada')) closeM();
+          }}
+        >
+          {t('Guardar')}
+        </button>
+      </div>
+    </>
+  );
+}
+
+/** "Manage Database Configurations" do DA */
+function WpBaseDados({ d }: { d: string }) {
+  const vh = useVH();
+  const { t, openM } = vh;
+  const { dados, erro, ler } = useLer<{ nome: string; user: string; host: string; prefixo: string; daConta: boolean }>('wpbd', { d });
+  if (!dados) return <Carregando erro={erro} ler={ler} />;
+  const mudar = () =>
+    openM(
+      <Confirmar
+        titulo="Mudar a palavra-passe da base de dados?"
+        texto={'É criada uma palavra-passe nova para ' + (dados.user || 'o utilizador da base') + ', aplicada no MySQL e no wp-config.php. O site continua a funcionar.'}
+        ok="Mudar"
+        onOk={async () => {
+          const j = await noServidor(vh, { acao: 'wp-bd-senha', dominio: d }, 'Palavra-passe da base de dados mudada');
+          if (j?.senha) openM(<WpBdSenhaModal user={String(j.user || dados.user)} senha={String(j.senha)} />);
+        }}
+      />,
+    );
+  return (
+    <Sec titulo="Configuração da base de dados" desc="Ligação deste WordPress ao MySQL (do ficheiro wp-config.php).">
+      <div className="da-grelha">
+        <div className="da-lin n2">
+          {(
+            [
+              ['fa-database', 'Base de dados', dados.nome],
+              ['fa-user', 'Utilizador', dados.user],
+              ['fa-server', 'Servidor', dados.host],
+              ['fa-table', 'Prefixo das tabelas', dados.prefixo],
+            ] as [string, string, string][]
+          ).map(([fa, l, v]) => (
+            <div className="da-cel" key={l}>
+              <i className={'fa-solid ' + fa} />
+              <div>
+                <small>{t(l)}</small>
+                <span>{v || '—'}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="em-opcoes">
+        <div>
+          <span>{t('Palavra-passe da base de dados')}</span>
+          {dados.daConta ? (
+            <button className="btn sm btn-ed" onClick={mudar}>
+              <i className="fa-solid fa-key" />
+              {t('Mudar palavra-passe')}
+            </button>
+          ) : (
+            <small style={{ color: 'var(--muted)' }}>{t('A base de dados não é desta conta: muda-se onde foi criada.')}</small>
+          )}
+        </div>
+      </div>
+    </Sec>
+  );
+}
+
+function WpBdSenhaModal({ user, senha }: { user: string; senha: string }) {
+  const { t, closeM, toast } = useVH();
+  return (
+    <>
+      <h3>{t('Palavra-passe nova da base de dados')}</h3>
+      <p style={{ lineHeight: 1.5 }}>{t('Já está no MySQL e no wp-config.php. Guarde-a se precisar dela noutro sítio — não volta a ser mostrada.')}</p>
+      <div className="frm">
+        <div className="field">
+          <label>{t('Utilizador')}</label>
+          <input className="inp" readOnly value={user} />
+        </div>
+        <div className="field">
+          <label>{t('Palavra-passe')}</label>
+          <input className="inp" readOnly value={senha} onFocus={(e) => e.target.select()} />
+        </div>
+      </div>
+      <div className="mfoot">
+        <button
+          className="btn g"
+          onClick={() => {
+            navigator.clipboard?.writeText(senha).then(() => toast('Copiada'));
+          }}
+        >
+          <i className="fa-solid fa-copy" />
+          {t('Copiar')}
+        </button>
+        <button className="btn r" onClick={closeM}>
+          {t('Fechar')}
+        </button>
+      </div>
     </>
   );
 }
@@ -1265,7 +1566,7 @@ function WpInstalar({ d }: { d: string }) {
             if (j) nav('/utilizador/wordpress/' + encodeURIComponent(d));
           }}
         >
-          <i className={'fa-solid ' + (a ? 'fa-circle-notch fa-spin' : 'fa-download')} />
+          <i className="fa-solid fa-download" />
           {t(a ? 'A instalar… (pode levar um minuto)' : 'Instalar')}
         </button>
       </div>
@@ -1388,8 +1689,10 @@ function WpGerir({ d }: { d: string }) {
 
 export const wordpressPagina: ScreenFn = (vh) => {
   const [a, b] = vh.s.sub;
-  const base = { t: 'WordPress', path: '/utilizador/wordpress' };
+  const base = { t: 'Gestor de WordPress', path: '/utilizador/wordpress' };
   if (a === 'instalar' && b) return { title: 'Instalar o WordPress', crumbs: [base, { t: 'Instalar' }], body: <WpInstalar key={b} d={b} /> };
+  if (a && b === 'utilizadores') return { title: 'Utilizadores do WordPress', desc: a, crumbs: [base, { t: a, path: '/utilizador/wordpress/' + encodeURIComponent(a) }, { t: 'Utilizadores' }], body: <WpUtilizadores key={a} d={a} /> };
+  if (a && b === 'base-de-dados') return { title: 'Configuração da base de dados', desc: a, crumbs: [base, { t: a, path: '/utilizador/wordpress/' + encodeURIComponent(a) }, { t: 'Base de dados' }], body: <WpBaseDados key={a} d={a} /> };
   if (a)
     return {
       title: 'Gerir WordPress',
@@ -1409,7 +1712,7 @@ export const wordpressPagina: ScreenFn = (vh) => {
       ),
       body: <WpGerir key={a} d={a} />,
     };
-  return { title: 'WordPress', body: <WordPressLista /> };
+  return { title: 'Gestor de WordPress', body: <WordPressLista /> };
 };
 
 // ---------- Antivírus (ClamAV) ----------
@@ -1467,7 +1770,7 @@ function ClamAv({ aba }: { aba: 'ativas' | 'relatorios' }) {
   const aCorrer = !!dados && (dados.ativos.length > 0 || dados.relatorios.some((r) => r.estado === 'a analisar'));
   useEffect(() => {
     if (!aCorrer) return;
-    const i = setInterval(ler, 8000);
+    const i = setInterval(() => ler(true), 8000); // em segundo plano: sem a linha do topo
     return () => clearInterval(i);
   }, [aCorrer, ler]);
   if (!dados) return <Carregando erro={erro} ler={ler} />;
@@ -1499,7 +1802,7 @@ function ClamAv({ aba }: { aba: 'ativas' | 'relatorios' }) {
               cols={[
                 { k: 'c', t: 'Caminho', cell: (r) => <code>{r.caminho}</code> },
                 { k: 'i', t: 'Começou', cell: (r) => r.inicio },
-                { k: 'e', t: 'Estado', cell: () => <span className="tag w"><i className="fa-solid fa-circle-notch fa-spin" /> {t('a analisar')}</span> },
+                { k: 'e', t: 'Estado', cell: () => <span className="tag w"><i className="fa-solid fa-hourglass-half" /> {t('a analisar')}</span> },
               ]}
             />
           </Sec>

@@ -49,7 +49,9 @@ async function createTempMysqlLogin(
   if (schemas.length === 0) {
     throw new Error('Sem bases de dados disponíveis para abrir no phpMyAdmin.');
   }
-  const user = `pma_vd_${crypto.randomBytes(6).toString('hex')}`;
+  // nome com a hora de criação (base 36) para os acessos antigos poderem ser apagados — ver limparLoginsAntigos
+  const user = `pma_vd_${Math.floor(Date.now() / 1000).toString(36)}_${crypto.randomBytes(4).toString('hex')}`;
+  await limparLoginsAntigos().catch(() => null);
   const password = crypto.randomBytes(18).toString('base64url');
   const grants = schemas.map(
     (name) => `GRANT ALL PRIVILEGES ON \`${name}\`.* TO \`${user}\`@\`localhost\``,
@@ -62,6 +64,22 @@ async function createTempMysqlLogin(
     ].join('; '),
   );
   return { user, password, host: 'localhost' };
+}
+
+/** Apaga os acessos MySQL temporários do phpMyAdmin com mais de 12 h (os de nome antigo, sem hora, também) */
+async function limparLoginsAntigos(): Promise<void> {
+  const lista = await mysqlRoot("SELECT User FROM mysql.user WHERE User LIKE 'pma\\_vd\\_%'");
+  const limite = Math.floor(Date.now() / 1000) - 12 * 3600;
+  const velhos = lista
+    .split('\n')
+    .map((l) => l.trim())
+    .filter((u) => /^pma_vd_[a-z0-9_]+$/.test(u))
+    .filter((u) => {
+      const m = u.match(/^pma_vd_([a-z0-9]{5,7})_[0-9a-f]{8}$/);
+      return !m || parseInt(m[1], 36) < limite;
+    });
+  if (!velhos.length) return;
+  await mysqlRoot(velhos.map((u) => `DROP USER IF EXISTS \`${u}\`@\`localhost\``).join('; ') + '; FLUSH PRIVILEGES');
 }
 
 async function readSsoSecret(): Promise<string> {

@@ -179,13 +179,14 @@ type Corpo = {
 
 /** Reescreve o bloco do VisualHost num ficheiro do site (cria o ficheiro se faltar), com o dono da conta */
 async function escreverBloco(conta: string, ficheiro: string, marca: string[], linhas: string[]) {
-  const atual = await executeServerCommand(`cat ${q(ficheiro)} 2>/dev/null`, { timeoutMs: 20_000 });
+  // Lido e escrito como o dono da conta, nunca root + chown: a pasta é do cliente e uma ligação simbólica lá posta
+  // faria o root ler ou mudar o dono de um ficheiro do sistema
+  const atual = await executeServerCommand(`sudo -u ${conta} cat -- ${q(ficheiro)} 2>/dev/null`, { timeoutMs: 20_000 });
   const i = atual.indexOf(marca[0]);
   const j = atual.indexOf(marca[1]);
   const fora = i >= 0 && j > i ? atual.slice(0, i) + atual.slice(j + marca[1].length) : atual;
   const novo = (linhas.length ? [marca[0], ...linhas, marca[1], ''].join('\n') : '') + fora.replace(/^\n+/, '');
-  const tmp = ficheiro + '.vhost-tmp';
-  await executeServerCommand(`echo ${b64(novo)} | base64 -d > ${q(tmp)} && chown ${conta}:${conta} ${q(tmp)} && mv ${q(tmp)} ${q(ficheiro)}`, { timeoutMs: 20_000 });
+  await executeServerCommand(`echo ${b64(novo)} | base64 -d | sudo -u ${conta} sh -c 'cat > "$1.vhost-tmp" && mv -f -- "$1.vhost-tmp" "$1"' _ ${q(ficheiro)}`, { timeoutMs: 20_000 });
 }
 
 const linhaLimpa = (v: unknown) => String(v ?? '').replace(/[\r\n]/g, ' ').trim();

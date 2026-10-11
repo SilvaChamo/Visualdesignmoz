@@ -5,6 +5,7 @@
 import { Fragment, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
 import { useVH } from './context';
 import { ChangeRoleModal } from './modals';
+import { noServidor } from './paginas/acoes';
 import { HX, LEVELS, MENU, ROLES } from './generated/data';
 import { findItem, gItem, ico, initials, route } from './state';
 import type { Account, HxState, MenuItem, Role } from './types';
@@ -427,13 +428,11 @@ export function DaHomeCards() {
 
 // Contas (admin: todas / por tipo; revenda: só as que criou)
 export function UsersTable({ rows, showCreator = true }: { rows: [string, Account][]; showCreator?: boolean }) {
-  const { s, me, t, toast, openM, enterAs, updateAcc } = useVH();
+  const vh = useVH();
+  const { s, me, t, openM, enterAs } = vh;
   const toggleState = (u: string) => {
-    const next = s.acc[u].state === 'ok' ? 'off' : 'ok';
-    updateAcc((acc) => {
-      acc[u].state = next;
-    });
-    toast(u + ': ' + (next === 'ok' ? 'reativado' : 'suspenso'));
+    const suspender = s.acc[u].state === 'ok';
+    noServidor(vh, { acao: suspender ? 'suspender' : 'reativar', contas: [u] }, () => u + ': ' + (suspender ? 'suspenso' : 'reativado'));
   };
   return (
     <div className="tbl">

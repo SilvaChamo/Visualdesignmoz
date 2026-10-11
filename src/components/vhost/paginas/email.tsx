@@ -4,7 +4,7 @@
 // Contas de e-mail (+ nova, uso), Reencaminhamentos (+ novo, a partir de texto), Respostas automáticas, Mensagens
 // de férias, Filtros anti-spam, Listas de correio, Registos MX, Rastreio de e-mail e Migração de e-mail; nos
 // Extras, Webmail (Roundcube) e Mailmarketing (a plataforma do site). Tudo usa o domínio escolhido no seletor.
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import dynamic from 'next/dynamic';
 import { useVH, type VH } from '../context';
 import type { ScreenFn } from '../screens';
@@ -13,6 +13,7 @@ import { pacoteDe } from '../state';
 import { Stat } from '../ui';
 import { Check, DataTable, Senha, Switch, Tabs, novaSenha } from './componentes';
 import { Confirmar } from './pacotes';
+import { EsperaPagina, FUNDO } from '../carga';
 
 // ---------- Menu: Mailmarketing nos Extras, a seguir ao Webmail (sem mexer nos ficheiros gerados da maquete) ----------
 {
@@ -77,6 +78,7 @@ function dominioEmail(vh: VH): string {
 
 function useEmail() {
   const vh = useVH();
+  const espera = useContext(EsperaPagina);
   const d = dominioEmail(vh);
   const k = vh.me + '|' + d;
   const [info, setInfo] = useState<InfoEmail | null>(() => lidos.get(k) || null);
@@ -84,12 +86,16 @@ function useEmail() {
   const ler = useCallback(async () => {
     if (!d) return;
     setErro('');
+    // sem nada em memória, a página nova espera por esta leitura antes de aparecer
+    const fim = !lidos.has(vh.me + '|' + d) && espera ? espera.comecar() : null;
     try {
       setInfo(await lerEmail(vh.me, d));
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Erro a ler o e-mail');
+    } finally {
+      fim?.();
     }
-  }, [vh.me, d]);
+  }, [vh.me, d, espera]);
   useEffect(() => {
     setInfo(lidos.get(k) || null);
     const s = ouvintes.get(k) || new Set();
@@ -138,11 +144,7 @@ function Carregando({ erro, ler }: { erro: string; ler: () => void }) {
         {t('Tentar de novo')}
       </button>
     </div>
-  ) : (
-    <div className="espera-nota">
-      <i className="fa-solid fa-circle-notch fa-spin" /> {t('A ler o e-mail no servidor…')}
-    </div>
-  );
+  ) : null; // a carregar: só a linha do topo
 }
 
 /** O domínio ainda não tem e-mail neste servidor: liga-se aqui (v-add-mail-domain) */
@@ -1753,7 +1755,7 @@ function Rastreio() {
           </select>
         </label>
         <button className="btn r" disabled={a} onClick={() => procurar()}>
-          <i className={'fa-solid ' + (a ? 'fa-circle-notch fa-spin' : 'fa-magnifying-glass')} />
+          <i className="fa-solid fa-magnifying-glass" />
           {t('Pesquisar')}
         </button>
       </div>
@@ -1794,10 +1796,10 @@ function Migracoes() {
   const d = dominioEmail(vh);
   const [lista, setLista] = useState<Mig[] | null>(null);
   const [auto, setAuto] = useState(true);
-  const ler = useCallback(async () => {
+  const ler = useCallback(async (fundo?: unknown) => {
     if (!d) return;
     try {
-      const r = await fetch('/api/vhost/email?conta=' + encodeURIComponent(vh.me) + '&d=' + encodeURIComponent(d) + '&migracoes=1', { cache: 'no-store' });
+      const r = await fetch('/api/vhost/email?conta=' + encodeURIComponent(vh.me) + '&d=' + encodeURIComponent(d) + '&migracoes=1', { cache: 'no-store', headers: fundo === true ? FUNDO : undefined });
       const j = await r.json();
       if (r.ok) setLista(j.migracoes);
     } catch {}
@@ -1807,7 +1809,7 @@ function Migracoes() {
   }, [ler]);
   useEffect(() => {
     if (!auto) return;
-    const i = setInterval(ler, 15000);
+    const i = setInterval(() => ler(true), 15000); // em segundo plano: sem a linha do topo
     return () => clearInterval(i);
   }, [auto, ler]);
   const corEstado = (e: string) => (e === 'terminada' ? 'ok' : e === 'falhou' || e === 'interrompida' ? 'bad' : e === 'parada' ? 'off' : 'w');
@@ -2064,11 +2066,7 @@ export const webmailPagina: ScreenFn = (vh) => ({
 // ---------- Extras: Mailmarketing (a plataforma do site da VisualDesign, com os domínios desta conta) ----------
 const MailMarketingSection = dynamic(() => import('@/components/dashboard/MailMarketingSection').then((m) => m.MailMarketingSection), {
   ssr: false,
-  loading: () => (
-    <div className="espera-nota">
-      <i className="fa-solid fa-circle-notch fa-spin" /> A abrir o Mailmarketing…
-    </div>
-  ),
+  loading: () => null, // a abrir: só a linha do topo
 });
 
 // separadores do Mailmarketing ↔ endereço (/utilizador/mailmarketing, /contactos, /historico), para o caminho no topo seguir o clique

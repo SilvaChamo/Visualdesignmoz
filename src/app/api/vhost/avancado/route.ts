@@ -4,7 +4,7 @@ import { requirePanelBootstrapAccess } from '@/lib/panel-api-auth';
 import { executeServerCommand, streamServerFile } from '@/lib/server-ssh-exec';
 import { hestiaCall } from '@/lib/hestia-client';
 import * as hestia from '@/lib/hestia-adapter';
-import { generateWpAutoLoginToken, installWordPressSite, listWpPlugins, listWpUsers, toggleWpPlugin, updateAllWpPlugins, updateWpPlugin } from '@/lib/wp-cli-server';
+import { generateWpAutoLoginToken, installWordPressSite, listWpPlugins, listWpUsers, toggleWpPlugin, updateAllWpPlugins, updateWpPlugin, updateWpUserPassword } from '@/lib/wp-cli-server';
 import { esquecerLeitura, lerServidor, type LeituraServidor } from '@/lib/vhost-servidor';
 import { lerRegisto, montarDados } from '@/lib/vhost-dados';
 import { VHOST_DIR } from '@/lib/vhost-email-scripts';
@@ -69,12 +69,13 @@ async function gravarExtra(conta: string, x: Extra) {
 
 /** Reescreve um bloco marcado num ficheiro do site (cria-o se faltar), com o dono da conta */
 async function escreverBloco(conta: string, ficheiro: string, marca: string[], linhas: string[]) {
-  const atual = await executeServerCommand(`cat ${q(ficheiro)} 2>/dev/null`, { timeoutMs: 20_000 });
+  // Lido e escrito como o dono da conta: a pasta é do cliente (ver a nota em 'git-criar')
+  const atual = await executeServerCommand(`sudo -u ${conta} cat -- ${q(ficheiro)} 2>/dev/null`, { timeoutMs: 20_000 });
   const i = atual.indexOf(marca[0]);
   const j = atual.indexOf(marca[1]);
   const fora = i >= 0 && j > i ? atual.slice(0, i) + atual.slice(j + marca[1].length) : atual;
   const novo = (linhas.length ? [marca[0], ...linhas, marca[1], ''].join('\n') : '') + fora.replace(/^\n+/, '');
-  await executeServerCommand(`echo ${b64(novo)} | base64 -d > ${q(ficheiro + '.vhost-tmp')} && chown ${conta}:${conta} ${q(ficheiro + '.vhost-tmp')} && mv ${q(ficheiro + '.vhost-tmp')} ${q(ficheiro)}`, { timeoutMs: 20_000 });
+  await executeServerCommand(`echo ${b64(novo)} | base64 -d | sudo -u ${conta} sh -c 'cat > "$1.vhost-tmp" && mv -f -- "$1.vhost-tmp" "$1"' _ ${q(ficheiro)}`, { timeoutMs: 20_000 });
 }
 const bloco = (txt: string, marca: string[]) => {
   const i = txt.indexOf(marca[0]);
@@ -220,6 +221,18 @@ export async function GET(req: NextRequest) {
       } catch (x) {
         return NextResponse.json({ erro: x instanceof Error ? x.message : 'WordPress não encontrado.' }, { status: 400 });
       }
+    }
+    case 'wpbd': {
+      // "Manage Database Configurations" do DA: base, utilizador, servidor e prefixo (a palavra-passe nunca se lê)
+      if (!d) return NextResponse.json({ erro: 'Escolha o domínio.' }, { status: 400 });
+      const raiz = raizSite(srv, conta, d);
+      const out = await executeServerCommand(
+        ['DB_NAME', 'DB_USER', 'DB_HOST', 'table_prefix'].map((k) => `echo "@@${k}=$(sudo -u ${conta} /usr/local/bin/wp --path=${q(raiz)} --skip-plugins --skip-themes config get ${k} 2>/dev/null)"`).join('; '),
+        { timeoutMs: 40_000 },
+      );
+      const v = (k: string) => (out.match(new RegExp('@@' + k + '=(.*)')) || [])[1]?.trim() || '';
+      if (!v('DB_NAME')) return NextResponse.json({ erro: 'WordPress não encontrado neste domínio.' }, { status: 400 });
+      return ok({ nome: v('DB_NAME'), user: v('DB_USER'), host: v('DB_HOST'), prefixo: v('table_prefix'), daConta: Object.prototype.hasOwnProperty.call(srv.db[conta] || {}, v('DB_NAME')) });
     }
     case 'clamav': {
       const out = await executeServerCommand(
@@ -471,9 +484,11 @@ export async function POST(req: NextRequest) {
       const passos = [
         `sudo -u ${conta} mkdir -p /home/${conta}/git`,
         `sudo -u ${conta} git init -q --bare -b ${q(ramo)} ${q(repo)}`,
-        chave ? `sudo -u ${conta} mkdir -p /home/${conta}/.ssh && echo ${b64(chave + '\n')} | base64 -d > /home/${conta}/.ssh/vhost-git-${nome} && chown ${conta}:${conta} /home/${conta}/.ssh/vhost-git-${nome} && chmod 600 /home/${conta}/.ssh/vhost-git-${nome}` : '',
+        // Escritas dentro da pasta do cliente feitas como o próprio cliente (nunca root + chown: uma ligação simbólica
+        // posta lá pelo cliente faria o root escrever/mudar o dono de um ficheiro do sistema)
+        chave ? `sudo -u ${conta} mkdir -p /home/${conta}/.ssh && echo ${b64(chave + '\n')} | base64 -d | sudo -u ${conta} sh -c 'umask 077; cat > "$1"' _ /home/${conta}/.ssh/vhost-git-${nome}` : '',
         remoto ? `sudo -u ${conta} git --git-dir=${q(repo)} remote add origin ${q(remoto)}` : '',
-        c.publicar ? `echo ${b64(hook)} | base64 -d > ${q(repo + '/hooks/post-receive')} && chown ${conta}:${conta} ${q(repo + '/hooks/post-receive')} && chmod 755 ${q(repo + '/hooks/post-receive')}` : '',
+        c.publicar ? `echo ${b64(hook)} | base64 -d | sudo -u ${conta} sh -c 'cat > "$1" && chmod 755 "$1"' _ ${q(repo + '/hooks/post-receive')}` : '',
         sshCmd ? `sudo -u ${conta} git --git-dir=${q(repo)} config core.sshCommand ${q(sshCmd)}` : '',
       ].filter(Boolean);
       const out = await executeServerCommand(`set -e; ${passos.join('; ')}; echo FEITO`, { timeoutMs: 60_000 });
@@ -525,8 +540,57 @@ export async function POST(req: NextRequest) {
     }
     case 'wp-entrar': {
       if (!d) return recusa('Escolha o domínio.');
+      // O painel do WordPress abre pelo endereço público do domínio: se ele ainda aponta para o servidor antigo, o
+      // ficheiro de entrada (criado aqui) não existe lá — confirma primeiro com um ficheiro de prova
+      const raiz = raizSite(srv, conta, d);
+      const prova = Array.from(crypto.getRandomValues(new Uint8Array(12)), (x) => x.toString(16).padStart(2, '0')).join('');
+      const visto = await executeServerCommand(
+        `f=${q(raiz + '/vh-prova-' + prova + '.txt')}; echo ${prova} | sudo -u ${conta} sh -c 'cat > "$1"' _ "$f" && r=$(curl -sk -m 8 -L ${q('https://' + d + '/vh-prova-' + prova + '.txt')} | head -c 64); sudo -u ${conta} rm -f -- "$f"; echo "$r"`,
+        { timeoutMs: 30_000 },
+      ).catch(() => '');
+      if (!visto.includes(prova)) return recusa(d + ' ainda abre noutro servidor (o DNS ainda não aponta para este). O painel do WordPress abre aqui depois da mudança do DNS.');
       const x = await generateWpAutoLoginToken(d);
       return resposta({ ok: x.success, error: x.error }, false, { url: x.url });
+    }
+    case 'wp-senha': {
+      // "Open Users List" do DA: mudar a palavra-passe de um utilizador do WordPress
+      if (!d) return recusa('Escolha o domínio.');
+      const user = linha(c.user);
+      const senha = String(c.senha || '');
+      if (!/^[A-Za-z0-9._@ -]{1,60}$/.test(user)) return recusa('Utilizador inválido.');
+      if (senha.length < 8 || /[\r\n]/.test(senha)) return recusa('A palavra-passe precisa de pelo menos 8 caracteres.');
+      const x = await updateWpUserPassword(d, user, senha);
+      return resposta({ ok: x.ok, error: x.output });
+    }
+    case 'wp-bd-senha': {
+      // nova palavra-passe da base do WordPress: no MySQL (Hestia) e no wp-config.php — a antiga nunca é lida
+      if (!d) return recusa('Escolha o domínio.');
+      const raiz = raizSite(srv, conta, d);
+      const wpc = (args: string) => executeServerCommand(`sudo -u ${conta} /usr/local/bin/wp --path=${q(raiz)} --skip-plugins --skip-themes ${args} 2>&1`, { timeoutMs: 40_000 });
+      const nome = (await wpc('config get DB_NAME')).trim();
+      const base = (srv.db[conta] || {})[nome];
+      if (!nome || !base) return recusa('A base de dados deste WordPress não pertence a esta conta (não pode ser mudada aqui).');
+      const nova = Array.from(crypto.getRandomValues(new Uint32Array(20)), (x) => 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'[x % 55]).join('');
+      const m = await hestia.changeDatabasePassword(conta, nome, nova);
+      if (!m.ok) return recusa('Não foi possível mudar a palavra-passe no MySQL: ' + (m.error || ''));
+      const w = await wpc(`config set DB_PASSWORD ${q(nova)} --quiet`);
+      if (/error/i.test(w)) return recusa('O MySQL já tem a palavra-passe nova, mas o wp-config.php não foi atualizado: ' + w.slice(0, 200));
+      return resposta({ ok: true }, false, { senha: nova, user: base.DBUSER || '' });
+    }
+    case 'wp-apagar': {
+      // "Delete WordPress" do DA: apaga os ficheiros do WordPress da pasta do site e, se pedido, a base de dados
+      if (!d) return recusa('Escolha o domínio.');
+      const raiz = raizSite(srv, conta, d);
+      const nome = (await executeServerCommand(`sudo -u ${conta} /usr/local/bin/wp --path=${q(raiz)} --skip-plugins --skip-themes config get DB_NAME 2>/dev/null`, { timeoutMs: 30_000 })).trim();
+      const NUCLEO = ['wp-admin', 'wp-includes', 'wp-content', 'index.php', 'license.txt', 'readme.html', 'xmlrpc.php', 'wp-activate.php', 'wp-blog-header.php', 'wp-comments-post.php', 'wp-config.php', 'wp-config-sample.php', 'wp-cron.php', 'wp-links-opml.php', 'wp-load.php', 'wp-login.php', 'wp-mail.php', 'wp-settings.php', 'wp-signup.php', 'wp-trackback.php'];
+      const out = await executeServerCommand(`cd ${q(raiz)} && test -f wp-config.php && sudo -u ${conta} rm -rf -- ${NUCLEO.map(q).join(' ')} && echo FEITO`, { timeoutMs: 120_000 });
+      if (!/FEITO/.test(out)) return recusa('Não foi possível apagar o WordPress: ' + out.slice(0, 200));
+      let bd = '';
+      if (c.comBd && nome && (srv.db[conta] || {})[nome]) {
+        const x = await hestia.deleteDatabase(conta, nome);
+        bd = x.ok ? nome : '';
+      }
+      return resposta({ ok: true }, true, { bd });
     }
     case 'wp-plugin': {
       if (!d) return recusa('Escolha o domínio.');

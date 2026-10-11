@@ -111,8 +111,19 @@ export const meOf = (s: St) => (s.stack.length ? s.stack[s.stack.length - 1].u :
 const VAZIA: Account = { name: '', email: '', role: 'admin', creator: '', pkg: '', state: 'ok', disk: '0 MB', domains: [], mails: [] };
 export const acctOf = (s: St) => s.acc[meOf(s)] || VAZIA;
 export const allowedOf = (s: St) => ROLE_LEVELS[acctOf(s).role];
-/** Separador aberto ao entrar numa conta: "Gestão" (os dados da própria conta) em todos os painéis que o têm */
-export const nivelInicial = (s: St): Level => (allowedOf(s).includes('utilizador') ? 'utilizador' : allowedOf(s)[0]);
+/** Separador aberto ao entrar numa conta: "Gestão" (os dados da própria conta) em todos os painéis que o têm.
+ *  `lembrar` (ao abrir o painel): quem tem mais de um separador volta ao último em que trabalhou (pedido do Silva, 10/10). */
+export const NIVEL_LS = 'visualhost_nivel';
+export const nivelInicial = (s: St, lembrar = false): Level => {
+  const permitidos = allowedOf(s);
+  if (lembrar && !s.stack.length) {
+    try {
+      const ultimo = localStorage.getItem(NIVEL_LS) as Level | null;
+      if (ultimo && permitidos.includes(ultimo)) return ultimo;
+    } catch {}
+  }
+  return permitidos.includes('utilizador') ? 'utilizador' : permitidos[0];
+};
 /** Pacote efetivo da conta: os limites próprios (se tiver) ou os do pacote */
 export const pacoteDe = (s: St, u: string) => {
   const a = s.acc[u];
@@ -152,7 +163,7 @@ export function fromPath(s: St, path: string): St {
     }
   };
   const p = path.replace(/^\/+/, '').split('/').filter(Boolean).map(dec);
-  if (!p.length) return fromPath(s, '/' + nivelInicial(s));
+  if (!p.length) return fromPath(s, '/' + nivelInicial(s, true));
   const n: St = { ...s, path: '/' + p.map(encodeURIComponent).join('/'), deny: null, sub: p.slice(2) };
   const g = GLOBAL[p[0]];
   if (g) {

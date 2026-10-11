@@ -2,14 +2,15 @@
 
 // Painel VisualHost — versão React da maquete aprovada (VisualHost/maquete-visualhost.html).
 // Mesma estrutura de HTML e mesmas classes, para o CSS da maquete (generated/maquete.css) se aplicar tal e qual.
-import { Fragment, useCallback, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useReducer, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import { VHContext, type VH } from './context';
 import { GLOBAL, LEVELS, MENU, ROLES } from './generated/data';
 import { dominioVisivel, type DadosServidor } from './servidor';
 import { translate, type Lang } from './i18n';
 import { LogoutModal, MoreMenuModal } from './modals';
-import { SCREENS, denyScreen, placeholder } from './screens';
+import { SCREENS, denyScreen, placeholder, type Screen } from './screens';
+import { BarraTopo, EsperaPagina, atividadeComeca, instalarContador, type Espera } from './carga';
 import { badgeColors, getThemeColors, hexToRgb, type CustomComponents } from './theme';
 
 /** nomes antigos dos temas → nome atual (as cores gravadas ficam sempre no mesmo nome) */
@@ -20,6 +21,7 @@ import {
   acctOf,
   allowedOf,
   nivelInicial,
+  NIVEL_LS,
   descFor,
   findItem,
   fromPath,
@@ -89,7 +91,59 @@ function searchResults(s: St, q: string): Hit[] {
 
 type Pop = { kind: 'lang' | 'conta'; left: number; top?: number; bottom?: number } | null;
 
+/** Uma página do painel como ficou desenhada (o que se vê enquanto a seguinte ainda não está pronta) */
+type Pagina = { chave: string; ok: boolean; vh: VH; scr: Screen; title: string; desc: string; semCartao: boolean; deny: boolean; home: boolean };
+
+/** Lugar de uma página: escondido enquanto as leituras sem nada em memória não acabam; depois avisa (uma vez) */
+function PaginaSlot({ p, oculta, onPronta }: { p: Pagina; oculta: boolean; onPronta: (chave: string) => void }) {
+  const falta = useRef(0);
+  const montada = useRef(false);
+  const avisada = useRef(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const chave = p.chave;
+  const verificar = useCallback(() => {
+    clearTimeout(timer.current);
+    // pequena folga: uma leitura que acaba e outra que começa logo a seguir não abrem a página a meio
+    timer.current = setTimeout(() => {
+      if (montada.current && falta.current === 0 && !avisada.current) {
+        avisada.current = true;
+        onPronta(chave);
+      }
+    }, 40);
+  }, [onPronta, chave]);
+  const espera = useMemo<Espera>(
+    () => ({
+      comecar: () => {
+        falta.current++;
+        let feito = false;
+        return () => {
+          if (feito) return;
+          feito = true;
+          falta.current--;
+          verificar();
+        };
+      },
+    }),
+    [verificar],
+  );
+  useEffect(() => {
+    montada.current = true;
+    verificar();
+    return () => clearTimeout(timer.current);
+  }, [verificar]);
+  const corpo = <Fragment>{p.scr.body}</Fragment>;
+  return (
+    <div className="pg-slot" style={{ display: oculta ? 'none' : 'contents' }} aria-hidden={oculta || undefined}>
+      <VHContext.Provider value={p.vh}>
+        <EsperaPagina.Provider value={espera}>{p.semCartao ? corpo : <div className="da-main-card">{corpo}</div>}</EsperaPagina.Provider>
+      </VHContext.Provider>
+    </div>
+  );
+}
+
 export function VisualHostApp() {
+  // conta os pedidos ao site para a linha de carregamento do topo (antes de o painel pedir os dados)
+  useState(() => instalarContador());
   const pathname = usePathname() || BASE;
   const [st, setSt] = useState<St>(() => initialState(stripBase(pathname)));
   /** endereço com que o painel abriu (para o reabrir depois de chegarem os dados do servidor) */
@@ -178,8 +232,24 @@ export function VisualHostApp() {
   const carregar = useCallback(
     async (fresco = false) => {
       try {
-        const r = await fetch('/api/vhost/dados' + (fresco ? '?fresco=1' : ''), { cache: 'no-store' });
-        const j = await r.json().catch(() => ({}));
+        // primeira leitura: a resposta que a página já pediu ao chegar (layout); depois, pedidos normais
+        const w = window as typeof window & { __vhDados?: Promise<{ ok: boolean; status: number; j: { erro?: string } }> };
+        const pre = !fresco ? w.__vhDados : undefined;
+        if (pre) delete w.__vhDados;
+        let r: { ok: boolean; status: number };
+        let j: { erro?: string };
+        if (pre) {
+          const fim = atividadeComeca();
+          try {
+            ({ j, ...r } = await pre);
+          } finally {
+            fim();
+          }
+        } else {
+          const res = await fetch('/api/vhost/dados' + (fresco ? '?fresco=1' : ''), { cache: 'no-store' });
+          r = res;
+          j = await res.json().catch(() => ({}));
+        }
         if (!r.ok) {
           commit({ ...ref.current, carga: 'erro', erro: { msg: j.erro || 'Não foi possível ler o servidor.', codigo: r.status } });
           return;
@@ -261,6 +331,13 @@ export function VisualHostApp() {
   const t = (text: string) => translate(st.lang, text);
   const go = (id: string) => nav(route(level, id));
   const setLevel = (l: Level) => nav('/' + l);
+  // o separador em que se trabalha fica lembrado para a próxima entrada (só no painel próprio, não no de outra conta)
+  useEffect(() => {
+    if (st.carga !== 'ok' || st.stack.length) return;
+    try {
+      localStorage.setItem(NIVEL_LS, level);
+    } catch {}
+  }, [st.carga, st.stack.length, level]);
 
   const recusarLocal = () => {
     recusadoEm.current = 0;
@@ -390,6 +467,30 @@ export function VisualHostApp() {
   const home = s.page === 'inicio' && !s.deny;
   const sec = GLOBAL[s.page]?.sub ? GLOBAL[s.page] : null;
 
+  // Troca de página como no DirectAdmin: a página nova prepara-se escondida e só substitui a anterior (título,
+  // botões, caminho e conteúdo) quando as suas leituras acabam; com tudo em memória troca logo. Nunca espera > 10 s.
+  const semCartao = (s.page === 'inicio' || !s.page) && s.dashTab !== 'menu' && !s.deny;
+  const chavePag = st.path + (s.deny ? '#' + s.deny.type : '') + (semCartao ? '' : '#cartao');
+  const atual: Pagina = { chave: chavePag, ok: st.carga === 'ok', vh, scr, title, desc, semCartao, deny: !!s.deny, home };
+  const pronta = useRef<Pagina | null>(null);
+  const liberada = useRef('');
+  const chaveAtual = useRef(chavePag);
+  chaveAtual.current = chavePag;
+  const [, refazer] = useReducer((x: number) => x + 1, 0);
+  const aEspera = !!pronta.current && pronta.current.ok && atual.ok && pronta.current.chave !== chavePag && liberada.current !== chavePag;
+  if (!aEspera) pronta.current = atual;
+  const mostra = pronta.current || atual;
+  const libertar = useCallback((k: string) => {
+    if (k !== chaveAtual.current || liberada.current === k) return;
+    liberada.current = k;
+    refazer();
+  }, []);
+  useEffect(() => {
+    if (!aEspera) return;
+    const tm = setTimeout(() => libertar(chavePag), 10_000);
+    return () => clearTimeout(tm);
+  }, [aEspera, chavePag, libertar]);
+
   const toggleGrp = (k: string) => {
     const willOpen = !st.open[k];
     commit({ ...ref.current, open: willOpen ? { [k]: true } : { ...ref.current.open, [k]: false } });
@@ -473,6 +574,7 @@ export function VisualHostApp() {
     const largura = [128, 152, 140, 118, 160, 134];
     return (
       <div className="vh" data-theme={st.theme} style={themeStyles as React.CSSProperties} lang="pt-PT" suppressHydrationWarning>
+        <BarraTopo />
         <div className="app espera" aria-busy={st.carga === 'a-carregar'}>
           <aside className="sidebar">
             <div className="rail">
@@ -558,6 +660,7 @@ export function VisualHostApp() {
   return (
     <VHContext.Provider value={vh}>
       <div className="vh" data-theme={st.theme} style={themeStyles as React.CSSProperties} lang={st.lang === 'en' ? 'en' : 'pt-PT'} suppressHydrationWarning>
+        <BarraTopo />
         <div className="app">
           <aside className="sidebar">
             {/* Barra de ícones: símbolo · mensagens · perfil · preferências · idioma · pesquisa */}
@@ -670,20 +773,20 @@ export function VisualHostApp() {
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img className="only-m" src={logo} alt="" style={st.brand.logo ? { objectFit: 'contain' } : undefined} />
                 <div className="bt">
-                  <h1 id="ptitle" title={title}>
-                    {title}
+                  <h1 id="ptitle" title={mostra.title}>
+                    {mostra.title}
                   </h1>
-                  <small id="pdesc" title={desc}>
-                    {desc}
+                  <small id="pdesc" title={mostra.desc}>
+                    {mostra.desc}
                   </small>
                 </div>
               </div>
               {/* na maquete esta faixa existe (vazia) no painel inicial e ocupa um espaço de 16px na barra */}
-              {home && <div className="dash-tabs-bar" id="dashtabs" style={{ display: 'flex' }} />}
+              {mostra.home && <div className="dash-tabs-bar" id="dashtabs" style={{ display: 'flex' }} />}
               <div className="sp" />
               <div className="topact">
                 <span id="pageact" className="topact">
-                  {scr.actions}
+                  {mostra.scr.actions}
                 </span>
                 <span id="topfix" className="topact">
                   <button className="btn g iconbtn only-m" onClick={openSearch} title={t('Pesquisar')}>
@@ -701,15 +804,11 @@ export function VisualHostApp() {
             </header>
             <main id="main">
               <ImpBanner />
-              {!s.deny && <SwitcherBar title={scr.title} crumbs={scr.crumbs} />}
-              {(s.page === 'inicio' || !s.page) && s.dashTab !== 'menu' && !s.deny ? (
-                <Fragment key={st.path}>{scr.body}</Fragment>
-              ) : (
-                <div className="da-main-card">
-                  <Fragment key={st.path}>{scr.body}</Fragment>
-                </div>
-              )}
-              {!s.deny && <RouteFoot />}
+              {!mostra.deny && <SwitcherBar title={mostra.scr.title} crumbs={mostra.scr.crumbs} />}
+              {(aEspera ? [mostra, atual] : [atual]).map((p) => (
+                <PaginaSlot key={p.chave} p={p} oculta={aEspera && p === atual} onPronta={libertar} />
+              ))}
+              {!mostra.deny && <RouteFoot />}
             </main>
           </div>
         </div>

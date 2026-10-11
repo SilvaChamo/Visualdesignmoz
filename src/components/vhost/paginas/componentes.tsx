@@ -157,6 +157,13 @@ export function Tabs<K extends string>({ tabs, on, onChange, sub }: { tabs: [K, 
 }
 
 // ---------- Tabela ----------
+const lerPrefTabela = (k: string, def: string) => {
+  try {
+    return (typeof localStorage !== 'undefined' && localStorage.getItem(k)) || def;
+  } catch {
+    return def;
+  }
+};
 export interface Col<T> {
   k: string;
   t: string;
@@ -195,12 +202,12 @@ export function DataTable<T>({
   cabecalho,
   barra2,
   onRecarregar,
-  porPagina = 20,
+  porPagina: porPaginaPedido,
   paginasNaBarra2 = false,
   rodape,
   inicioBarra2,
   fimBarra,
-  semCols = true,
+  semCols: semColsPedido,
   semRecarregar = true,
   semBusca = true,
 }: {
@@ -232,6 +239,9 @@ export function DataTable<T>({
   semRecarregar?: boolean;
   semBusca?: boolean;
 }) {
+  // Preferências → Tabelas (neste navegador): linhas por página e botão Colunas, quando a página não escolhe
+  const porPagina = porPaginaPedido ?? (Number(lerPrefTabela('vh-linhas', '20')) || 20);
+  const semCols = semColsPedido ?? lerPrefTabela('vh-colunas', '0') !== '1';
   const { t, toast } = useVH();
   const [q, setQ] = useState('');
   const [pag, setPag] = useState(1);

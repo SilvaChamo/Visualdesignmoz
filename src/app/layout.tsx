@@ -88,6 +88,13 @@ export default function RootLayout({
     <html lang="pt-MZ" suppressHydrationWarning className={siteFont.variable}>
       <head>
         <OrganizationJsonLd />
+        {/* Painel VisualHost: pede os dados do servidor logo que a página chega, em paralelo com o JavaScript
+            (o painel usa esta resposta na primeira leitura — ver VisualHostApp, "carregar") */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{if(location.pathname.indexOf('/vhost')===0){window.__vhDados=fetch('/api/vhost/dados',{cache:'no-store',credentials:'same-origin'}).then(function(r){return r.json().catch(function(){return {}}).then(function(j){return {ok:r.ok,status:r.status,j:j}})})}}catch(e){}`,
+          }}
+        />
         <script
           dangerouslySetInnerHTML={{
             __html: `(function(){try{var m=document.cookie.match(/(?:^|; )vd-theme=(light|dark)(?:;|$)/);var t=m?m[1]:localStorage.getItem('vd-theme');var d=t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.classList.toggle('dark',d);document.documentElement.style.colorScheme=d?'dark':'light';}catch(e){}})();`,

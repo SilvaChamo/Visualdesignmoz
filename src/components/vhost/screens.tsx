@@ -4,7 +4,7 @@
 // e o conteúdo da página.
 import { Fragment, useState, type ReactNode } from 'react';
 import { useVH, type VH } from './context';
-import { DelMailModal, NewDomainModal, newMail } from './modals';
+import { ajudaPagina, apiPagina, msgAvisos, msgNaoLidas, msgTodas, perfilAvisos, perfilDoisPassos, perfilGeral, perfilSenha, perfilSessoes, prefFicheiros, prefIdioma, prefTabelas, ticketsPagina } from './paginas/suporte';
 import { contas, modelos, mover, novaConta, senhas } from './paginas/contas';
 import { pacotes } from './paginas/pacotes';
 import { estatisticasPagina, ficheirosPagina, infoSistemaPagina, logsPagina, perlPagina, recursosPagina, terminalPagina } from './paginas/sistema';
@@ -140,9 +140,9 @@ function UserWidgets() {
         <DomTable />
       </div>
       <div className="cols-side">
-        <Tool fa="fa-envelope" c="c2" title="Criar conta de e-mail" sub="Novo endereço no seu domínio" onClick={() => newMail(vh)} />
+        <Tool fa="fa-envelope" c="c2" title="Criar conta de e-mail" sub="Novo endereço no seu domínio" onClick={() => vh.nav('/utilizador/email/nova')} />
         <Tool fa="fa-box-archive" c="c8" title="Cópias de segurança" sub="Ver e criar cópias da conta" onClick={() => go('backups')} />
-        <Tool fa="fa-key" c="c4" title="Mudar palavra-passe" sub="Conta e e-mails" onClick={() => go('perfil')} />
+        <Tool fa="fa-key" c="c4" title="Mudar palavra-passe" sub="A de entrada no painel" onClick={() => vh.nav('/perfil/senha')} />
         {hasFeat('wordpress') && <Tool fa="fa-brands fa-wordpress" c="c2" title="Instalar WordPress" sub="Pronto em 1 minuto" onClick={() => go('wordpress')} />}
         <Tool fa="fa-life-ring" c="c1" title="Abrir pedido de suporte" sub="Resposta em até 2h" onClick={() => go('tickets')} />
       </div>
@@ -155,113 +155,6 @@ const home =
   (vh) => ({ title, actions: actions(vh), body: vh.s.dashTab === 'menu' ? <DaHomeCards /> : <Widgets /> });
 
 // ---------- Domínios e e-mail ----------
-function EmailBody() {
-  const vh = useVH();
-  const { a, t, toast, openM } = vh;
-  const doms = a.domains.map((d) => d.name).sort((x, y) => x.localeCompare(y));
-  const dom = vh.s.dominio && doms.includes(vh.s.dominio) ? vh.s.dominio : a.domains[0]?.name || '';
-  const list = a.mails.map((m, i) => ({ ...m, i })).filter((m) => !dom || m.dom === dom);
-  const used = a.mails.reduce((n, m) => n + m.used, 0);
-  const full = a.mails.filter((m) => m.quota > 0 && m.used / m.quota > 0.8).length;
-  const comLimite = a.mails.filter((m) => m.quota > 0);
-  const quota = comLimite.reduce((n, m) => n + m.quota, 0);
-  const usadoLim = comLimite.reduce((n, m) => n + m.used, 0);
-  const maxMail = limN(pacoteDe(vh.s, vh.me)?.lim.emails);
-  const nDoms = new Set(a.mails.map((m) => m.dom)).size;
-  return (
-    <>
-      <div className="stats">
-        <Stat title="Contas" v={a.mails.length} m={'/ ' + (maxMail ?? '∞')} p={pctDe(a.mails.length, maxMail)} />
-        <Stat title="Espaço usado" v={mbTexto(used)} m="em todas as caixas" p={pctDe(usadoLim, quota)} />
-        <Stat title="Domínios de e-mail" v={nDoms} m={'/ ' + a.domains.length} p={pctDe(nDoms, a.domains.length)} />
-        <Stat title="Caixas quase cheias" v={full} m="acima de 80%" p={full * 20} />
-      </div>
-      <div className="toolbar">
-        <div className="f" style={{ margin: 0, fontWeight: 700 }}>
-          <i className="fa-solid fa-globe" /> {dom || t('Todos os domínios')}
-        </div>
-        <span style={{ color: 'var(--muted)', fontSize: 13, marginLeft: 'auto' }}>{t(`${list.length} de ${a.mails.length} contas`)}</span>
-      </div>
-      <div className="tbl">
-        <table>
-          <colgroup>
-            <col />
-            <col style={{ width: 210 }} />
-            <col style={{ width: 260 }} />
-            <col style={{ width: 120 }} />
-            <col style={{ width: 190 }} />
-          </colgroup>
-          <thead>
-            <tr>
-              <th>{t('Conta')}</th>
-              <th>{t('Domínio')}</th>
-              <th>{t('Uso da caixa')}</th>
-              <th>{t('Criada')}</th>
-              <th style={{ textAlign: 'right' }}>{t('Ações')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {list.length ? (
-              list.map((m) => {
-                const p = m.quota > 0 ? Math.min(100, Math.round((m.used / m.quota) * 100)) : 0;
-                return (
-                  <tr key={m.user + '@' + m.dom}>
-                    <td>
-                      <div className="cell">
-                        <div className="ic c2">
-                          <i className="fa-solid fa-envelope" />
-                        </div>
-                        <div>
-                          <b>
-                            {m.user}@{m.dom}
-                          </b>
-                          <span>{m.quota > 0 ? t('Quota') + ' ' + mbTexto(m.quota) : t('Sem limite de espaço')}</span>
-                        </div>
-                      </div>
-                    </td>
-                    <td>
-                      <span className="tag off">{m.dom}</span>
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, color: 'var(--muted)', marginBottom: 5 }}>
-                        <span>
-                          {m.quota > 0 ? m.used + ' MB de ' + m.quota + ' MB' : m.used + ' MB · ' + t('sem limite')}
-                        </span>
-                        <b style={{ color: p > 80 ? 'var(--red)' : 'var(--ink)' }}>{p}%</b>
-                      </div>
-                      <div className="bar">
-                        <span style={{ width: p + '%' }} />
-                      </div>
-                    </td>
-                    <td>{m.criada || '—'}</td>
-                    <td style={{ textAlign: 'right' }}>
-                      <button className="btn g sm" onClick={() => toast('Abrir webmail de ' + m.user + ' (próxima fase)')} title="Webmail">
-                        <i className="fa-solid fa-inbox" />
-                      </button>{' '}
-                      <button className="btn g sm" onClick={() => toast('Mudar a senha de e-mail ainda não está ligado ao servidor')}>
-                        <i className="fa-solid fa-key" />
-                        {t('Senha')}
-                      </button>{' '}
-                      <button className="btn g sm" onClick={() => openM(<DelMailModal i={m.i} />)} title="Apagar">
-                        <i className="fa-solid fa-trash" />
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })
-            ) : (
-              <tr>
-                <td colSpan={5} className="empty">
-                  Nenhuma conta encontrada
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </>
-  );
-}
 
 // ---------- Ecrãs previstos e sem acesso ----------
 export const placeholder: ScreenFn = (vh) => {
@@ -770,6 +663,20 @@ export const SCREENS: Record<string, ScreenFn> = {
   'admin/tema': temaScreen,
   'revenda/tema': temaScreen,
   'preferencias/aparencia': temaScreen,
+  'preferencias/idioma': prefIdioma,
+  'preferencias/tabelas': prefTabelas,
+  'preferencias/ficheiros': prefFicheiros,
+  'perfil/geral': perfilGeral,
+  'perfil/senha': perfilSenha,
+  'perfil/sessoes': perfilSessoes,
+  'perfil/dois-passos': perfilDoisPassos,
+  'perfil/notificacoes': perfilAvisos,
+  'mensagens-sistema/todas': msgTodas,
+  'mensagens-sistema/nao-lidas': msgNaoLidas,
+  'mensagens-sistema/avisos': msgAvisos,
+  'utilizador/ajuda': ajudaPagina,
+  'utilizador/tickets': ticketsPagina,
+  'utilizador/api': apiPagina,
   niveis: () => ({ title: 'Níveis e acessos', body: <NiveisBody /> }),
   mapa: () => ({ title: 'Mapa de rotas', body: <MapaBody /> }),
 };

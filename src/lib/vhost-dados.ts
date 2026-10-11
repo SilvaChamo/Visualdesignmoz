@@ -17,9 +17,9 @@ type Linha = Record<string, string>;
 
 export type RegistoSite = {
   /** panel_users: conta → revendedor que a criou, login ligado, data */
-  contas: Map<string, { parent: string | null; authUserId: string | null; criada: string | null }>;
+  contas: Map<string, { parent: string | null; authUserId: string | null; criada: string | null; dominio?: string }>;
   /** profiles por user_id e por conta do servidor (da_username) */
-  perfis: Map<string, { userId: string; role: string; name: string; email: string; conta: string }>;
+  perfis: Map<string, { userId: string; role: string; name: string; email: string; conta: string; dominio?: string }>;
   /** pacote de revenda (essencial/expandido) por user_id */
   revendas: Map<string, string>;
 };
@@ -163,14 +163,16 @@ export function montarDados(srv: LeituraServidor, reg: RegistoSite, sessao: Sess
     for (const [d, m] of Object.entries(srv.mail[u] || {}))
       if (!web[d]) domains.push({ name: d, ssl: (m.SSL || 'no').toLowerCase() === 'yes' ? 'ok' : 'w', php: '—', disk: mbTexto(num(m.U_DISK)), status: (m.SUSPENDED || 'no').toLowerCase() === 'yes' ? 'w' : 'ok', soEmail: true });
     // Domínio principal (o usado para criar a conta) à cabeça — é o que o painel escolhe à partida em todas as páginas.
-    // O Hestia não o guarda: é o mais antigo (data e hora de criação); em empate, o que tem o nome da conta.
+    // Vem do registo do site (da_domain, gravado quando a conta foi criada); sem ele, o mais antigo no Hestia (data e
+    // hora de criação) e, em empate, o que tem o nome da conta.
+    const registado = r?.dominio || p?.dominio || '';
     const criado = (d: string) => {
       const w = web[d] || srv.mail[u]?.[d];
       return w?.DATE ? w.DATE + ' ' + (w.TIME || '') : '~';
     };
-    const principal = domains
-      .map((x) => x.name)
-      .sort((d1, d2) => criado(d1).localeCompare(criado(d2)) || Number(!d1.includes(u)) - Number(!d2.includes(u)))[0];
+    const principal = domains.some((x) => x.name === registado)
+      ? registado
+      : domains.map((x) => x.name).sort((d1, d2) => criado(d1).localeCompare(criado(d2)) || Number(!d1.includes(u)) - Number(!d2.includes(u)))[0];
     if (principal) domains.sort((d1, d2) => Number(d2.name === principal) - Number(d1.name === principal));
     const dbs: BaseDados[] = Object.entries(srv.db[u] || {}).map(([nome, b]) => ({ nome, user: b.DBUSER || '', tipo: b.TYPE || 'mysql', charset: b.CHARSET || '', disco: mbTexto(num(b.U_DISK)), suspensa: (b.SUSPENDED || 'no').toLowerCase() === 'yes', criada: dataPt(b.DATE) }));
 
@@ -274,17 +276,17 @@ async function lerRegistoAgora(): Promise<RegistoSite> {
   const sb = getDaSyncAdmin();
   if (!sb) return reg;
   const [contas, perfis, revendas] = await Promise.all([
-    sb.from('panel_users').select('username, parent_username, auth_user_id, created_at'),
-    sb.from('profiles').select('user_id, role, name, email, da_username'),
+    sb.from('panel_users').select('username, parent_username, auth_user_id, created_at, da_domain'),
+    sb.from('profiles').select('user_id, role, name, email, da_username, da_domain'),
     sb.from('panel_auth_accounts').select('user_id, reseller_tier'),
   ]);
   for (const r of contas.data || []) {
     const u = String(r.username || '').trim().toLowerCase();
-    if (u) reg.contas.set(u, { parent: r.parent_username ? String(r.parent_username).toLowerCase() : null, authUserId: r.auth_user_id ? String(r.auth_user_id) : null, criada: r.created_at ? String(r.created_at) : null });
+    if (u) reg.contas.set(u, { parent: r.parent_username ? String(r.parent_username).toLowerCase() : null, authUserId: r.auth_user_id ? String(r.auth_user_id) : null, criada: r.created_at ? String(r.created_at) : null, dominio: r.da_domain ? String(r.da_domain).trim().toLowerCase() : undefined });
   }
   for (const p of perfis.data || []) {
     if (!p.user_id) continue;
-    reg.perfis.set(String(p.user_id), { userId: String(p.user_id), role: String(p.role || ''), name: String(p.name || ''), email: String(p.email || ''), conta: String(p.da_username || '').trim().toLowerCase() });
+    reg.perfis.set(String(p.user_id), { userId: String(p.user_id), role: String(p.role || ''), name: String(p.name || ''), email: String(p.email || ''), conta: String(p.da_username || '').trim().toLowerCase(), dominio: p.da_domain ? String(p.da_domain).trim().toLowerCase() : undefined });
   }
   for (const r of revendas.data || []) if (r.user_id && r.reseller_tier) reg.revendas.set(String(r.user_id), String(r.reseller_tier).toLowerCase());
   return reg;

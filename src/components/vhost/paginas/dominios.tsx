@@ -13,6 +13,7 @@ import { getPhpMyAdminUrl } from '@/lib/server-config';
 import { Check, DataTable, Frm, Row, Senha, Switch, Tabs, novaSenha, type Col } from './componentes';
 import { Confirmar } from './pacotes';
 import DomainSearch from '@/components/DomainSearch';
+import { useGet } from '../carga';
 
 // ---------- Ligação ao servidor ----------
 type Detalhe = {
@@ -49,34 +50,13 @@ async function noServidor(vh: VH, corpo: Record<string, unknown>, ok: string, re
   }
 }
 
-// O que já foi lido de cada domínio: ao voltar à página aparece logo e atualiza-se por trás
-const lidos = new Map<string, Detalhe>();
-
-/** Detalhe de um domínio (certificado, DNS, redirecionamento, regras PHP e .htaccess), lido quando a página abre.
+/** Detalhe de um domínio (certificado, DNS, redirecionamento, regras PHP e .htaccess), lido quando a página abre
+ *  (memória comum do painel: ao voltar aparece logo e atualiza-se por trás).
  *  `so: 'dns'` lê só os registos e os nameservers (a página de DNS não precisa do resto). */
 function useDetalhe(d: string, so?: 'dns') {
   const { me } = useVH();
-  const chave = me + '|' + d + '|' + (so || '');
-  const [det, setDet] = useState<Detalhe | null>(() => lidos.get(chave) || null);
-  const [erro, setErro] = useState('');
-  const ler = useCallback(async () => {
-    if (!d) return;
-    setErro('');
-    try {
-      const r = await fetch('/api/vhost/dominio?conta=' + encodeURIComponent(me) + '&d=' + encodeURIComponent(d) + (so ? '&so=' + so : ''), { cache: 'no-store' });
-      const j = await r.json();
-      if (!r.ok) throw new Error(j.erro || 'Erro ao ler o domínio');
-      lidos.set(chave, j as Detalhe);
-      setDet(j as Detalhe);
-    } catch (e) {
-      setErro(e instanceof Error ? e.message : 'Erro ao ler o domínio');
-    }
-  }, [me, d, so, chave]);
-  useEffect(() => {
-    setDet(lidos.get(chave) || null);
-    ler();
-  }, [ler, chave]);
-  return { det, erro, ler };
+  const { dados, erro, ler } = useGet<Detalhe>(d ? '/api/vhost/dominio?conta=' + encodeURIComponent(me) + '&d=' + encodeURIComponent(d) + (so ? '&so=' + so : '') : null);
+  return { det: dados, erro, ler };
 }
 
 /** Domínio em que se trabalha: o escolhido no seletor (só com site, se a página o pedir) */
@@ -109,11 +89,7 @@ function Carregar({ erro, ler }: { erro: string; ler: () => void }) {
         {t('Tentar de novo')}
       </button>
     </div>
-  ) : (
-    <div className="espera-nota">
-      <i className="fa-solid fa-circle-notch fa-spin" /> {t('A ler o domínio no servidor…')}
-    </div>
-  );
+  ) : null; // a carregar: só a linha do topo
 }
 
 /** Aviso do domínio em que se está a trabalhar (muda-se no seletor, em cima à direita) */
@@ -1459,26 +1435,9 @@ const resumoPrivs = (p: Privs) => {
   return n === PRIVS.length ? 'Todos os privilégios' : n === 0 ? 'Nenhum' : PRIVS.filter(([k]) => p[k]).map(([, l]) => l).join(', ');
 };
 
-/** Lê um endereço da API e devolve { dados, erro, ler } */
+/** Lê um endereço da API e devolve { dados, erro, ler } (memória comum do painel) */
 function useApi<T>(url: string | null) {
-  const [dados, setDados] = useState<T | null>(null);
-  const [erro, setErro] = useState('');
-  const ler = useCallback(async () => {
-    if (!url) return;
-    setErro('');
-    try {
-      const r = await fetch(url, { cache: 'no-store' });
-      const j = await r.json();
-      if (!r.ok) throw new Error(j.erro || 'Erro a ler o servidor');
-      setDados(j as T);
-    } catch (e) {
-      setErro(e instanceof Error ? e.message : 'Erro a ler o servidor');
-    }
-  }, [url]);
-  useEffect(() => {
-    ler();
-  }, [ler]);
-  return { dados, erro, ler };
+  return useGet<T>(url);
 }
 const urlBd = (me: string, extra = '') => '/api/vhost/bd?conta=' + encodeURIComponent(me) + extra;
 
@@ -1502,11 +1461,8 @@ async function noMysql(vh: VH, corpo: Record<string, unknown>, ok: string, recar
   }
 }
 
-/** phpMyAdmin já com sessão (o mesmo acesso do painel de administração do site), dentro da base indicada */
-const pmaUrl = (vh: VH, bd?: string) => {
-  const dom = vh.a.domains.find((x) => !x.soEmail)?.name || vh.a.domains[0]?.name || '';
-  return '/api/db-manager?action=phpmyadminSso' + (dom ? '&domain=' + encodeURIComponent(dom) : '') + (bd ? '&database=' + encodeURIComponent(bd) : '');
-};
+/** phpMyAdmin já com sessão (acesso temporário só às bases da conta, ou só à base indicada) — rota do painel */
+const pmaUrl = (vh: VH, bd?: string) => '/api/vhost/bd?conta=' + encodeURIComponent(vh.me) + '&pma=1' + (bd ? '&bd=' + encodeURIComponent(bd) : '');
 const tamanho = (b?: number) => (b == null ? '—' : b >= 1048576 ? (b / 1048576).toFixed(2).replace('.', ',') + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB');
 const dominioBd = (vh: VH) => vh.a.domains.find((x) => !x.soEmail)?.name || vh.a.domains[0]?.name || '';
 const limiteBd = (vh: VH) => {

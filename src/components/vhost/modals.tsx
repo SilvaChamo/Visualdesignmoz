@@ -4,6 +4,7 @@
 import { useState, type ReactNode } from 'react';
 import { supabase } from '@/lib/supabase-client';
 import { useVH, type VH } from './context';
+import { noServidor } from './paginas/acoes';
 import { LEVELS, MENU, ROLE_LEVELS, ROLE_PKGS, ROLES } from './generated/data';
 import { ico } from './state';
 import type { Role } from './types';
@@ -21,149 +22,20 @@ function CancelBtn() {
   );
 }
 
-export function NewDomainModal() {
-  const { a, t, toast, closeM, updateAcc, me } = useVH();
-  const [name, setName] = useState('');
-  const [php, setPhp] = useState('8.3');
-  const add = () => {
-    const n = name.trim().toLowerCase();
-    if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(n)) return toast('Escreva um domínio válido');
-    if (a.domains.some((d) => d.name === n)) return toast('Esse domínio já existe');
-    updateAcc((acc) => {
-      acc[me].domains.push({ name: n, ssl: 'ok', php, disk: '0 MB', status: 'ok' });
-    });
-    closeM();
-    toast('Domínio ' + n + ' criado');
-  };
-  return (
-    <>
-      <h3>{t('Adicionar domínio')}</h3>
-      <div className="f">
-        <label>{t('Domínio')}</label>
-        <input placeholder="ex.: minhaempresa.co.mz" value={name} onChange={(e) => setName(e.target.value)} />
-      </div>
-      <div className="f">
-        <label>Versão PHP</label>
-        <select value={php} onChange={(e) => setPhp(e.target.value)}>
-          <option>8.3</option>
-          <option>8.2</option>
-          <option>8.1</option>
-        </select>
-      </div>
-      <div className="f">
-        <label>
-          <input type="checkbox" defaultChecked style={{ width: 'auto', height: 'auto' }} /> Ativar SSL automático
-        </label>
-      </div>
-      <Foot>
-        <CancelBtn />
-        <button className="btn r" onClick={add}>
-          Criar domínio
-        </button>
-      </Foot>
-    </>
-  );
-}
 
-export function newMail(vh: VH) {
-  if (!vh.a.domains.length) return vh.toast('Adicione primeiro um domínio');
-  vh.openM(<NewMailModal />);
-}
 
-function NewMailModal() {
-  const { s, a, t, toast, closeM, updateAcc, me, nav } = useVH();
-  const [user, setUser] = useState('');
-  const [dom, setDom] = useState(a.domains[0]?.name || '');
-  const [pass, setPass] = useState(() => Math.random().toString(36).slice(2, 8) + 'A!' + Math.floor(Math.random() * 90 + 10));
-  const [quota, setQuota] = useState('1000');
-  const add = () => {
-    const u = user.trim().toLowerCase();
-    if (!/^[a-z0-9._-]+$/.test(u)) return toast('Escreva um nome válido');
-    updateAcc((acc) => {
-      acc[me].mails.push({ user: u, dom, used: 0, quota: +quota || 1000, sent: 0 });
-    });
-    closeM();
-    toast('Conta ' + u + '@' + dom + ' criada');
-    if (!(s.level === 'utilizador' && s.page === 'email')) nav('/utilizador/email');
-  };
-  return (
-    <>
-      <h3>Criar conta de e-mail</h3>
-      <div className="f">
-        <label>Endereço</label>
-        <div className="join">
-          <input placeholder="nome" value={user} onChange={(e) => setUser(e.target.value)} />
-          <span>
-            @
-            <select value={dom} onChange={(e) => setDom(e.target.value)} style={{ border: 0, background: 'transparent', height: 'auto', width: 'auto', padding: 0 }}>
-              {a.domains.map((d) => (
-                <option key={d.name}>{d.name}</option>
-              ))}
-            </select>
-          </span>
-        </div>
-      </div>
-      <div className="f">
-        <label>{t('Palavra-passe')}</label>
-        <input type="text" value={pass} onChange={(e) => setPass(e.target.value)} />
-      </div>
-      <div className="f">
-        <label>Quota (MB)</label>
-        <input type="number" value={quota} onChange={(e) => setQuota(e.target.value)} />
-      </div>
-      <Foot>
-        <CancelBtn />
-        <button className="btn r" onClick={add}>
-          {t('Criar conta')}
-        </button>
-      </Foot>
-    </>
-  );
-}
 
-export function DelMailModal({ i }: { i: number }) {
-  const { a, toast, closeM, updateAcc, me } = useVH();
-  const m = a.mails[i];
-  if (!m) return null;
-  const del = () => {
-    updateAcc((acc) => {
-      acc[me].mails.splice(i, 1);
-    });
-    closeM();
-    toast('Conta apagada');
-  };
-  return (
-    <>
-      <h3>Apagar conta?</h3>
-      <p>
-        A conta{' '}
-        <b>
-          {m.user}@{m.dom}
-        </b>{' '}
-        e todas as mensagens serão apagadas.
-      </p>
-      <Foot>
-        <CancelBtn />
-        <button className="btn r" onClick={del}>
-          Apagar
-        </button>
-      </Foot>
-    </>
-  );
-}
 
 // Atribuir função (só no nível Admin): muda o tipo da conta e, com ele, os níveis a que tem acesso
 export function ChangeRoleModal({ u }: { u: string }) {
-  const { s, t, toast, closeM, updateAcc } = useVH();
+  const vh = useVH();
+  const { s, t, closeM } = vh;
   const a = s.acc[u];
   const [r, setR] = useState<Role>(a.role);
+  // o tipo é o papel do utilizador do site ligado à conta (gravado no registo do site)
   const save = () => {
-    updateAcc((acc) => {
-      acc[u].role = r;
-      if (!ROLE_PKGS[r].includes(acc[u].pkg)) acc[u].pkg = ROLE_PKGS[r][0];
-    });
     closeM();
-    toast(u + ' passou a ' + ROLES[r]);
+    noServidor(vh, { acao: 'tipo', contas: [u], tipo: r }, () => u + ' passou a ' + ROLES[r]);
   };
   return (
     <>

@@ -934,7 +934,8 @@ export const senhas: ScreenFn = () => ({ title: 'Mudar senhas', body: <MudarSenh
 
 // ---------- Mover clientes ----------
 function Mover() {
-  const { s, t, toast, updateAcc } = useVH();
+  const vh = useVH();
+  const { s, t, toast } = vh;
   const destinos = Object.entries(s.acc).filter(([, a]) => a.role === 'revenda' || a.role === 'admin');
   const [dest, setDest] = useState('');
   const rows: R[] = dest ? Object.entries(s.acc).filter(([, a]) => isUser(a.role) && a.creator !== dest) : [];
@@ -973,8 +974,7 @@ function Mover() {
               run: (keys) => {
                 const v = vagas(s, dest);
                 if (semVagas(v, keys.length)) return toast('Sem espaço: ' + dest + ' já tem ' + v.usadas + ' de ' + v.limite + ' contas de cliente');
-                updateAcc((acc) => keys.forEach((k) => (acc[k].creator = dest)));
-                toast(keys.length + ' cliente(s) movido(s) para ' + dest);
+                noServidor(vh, { acao: 'mover', contas: keys, para: dest }, (n) => n + ' cliente(s) movido(s) para ' + dest);
               },
             },
           ]}

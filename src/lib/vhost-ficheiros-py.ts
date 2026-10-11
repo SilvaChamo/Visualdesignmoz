@@ -3,7 +3,7 @@
 // Recebe um JSON em base64 no argv: { conta, op, ... } e responde com uma linha JSON.
 
 export const FM_PY = String.raw`
-import base64, json, os, shutil, stat, sys, tarfile, time, zipfile
+import base64, grp, json, os, pwd, shutil, stat, sys, tarfile, time, uuid, zipfile
 a = json.loads(base64.b64decode(sys.argv[1]).decode('utf-8'))
 BASE = os.path.realpath('/home/' + a['conta'])
 def fim(x):
@@ -27,7 +27,23 @@ def item(p):
         st2 = os.stat(p)
     except OSError:
         st2 = st
-    return {'nome': os.path.basename(p), 'pasta': stat.S_ISDIR(st2.st_mode), 'atalho': lig, 'tam': st2.st_size, 'data': time.strftime('%Y-%m-%d %H:%M', time.localtime(st.st_mtime)), 'perm': oct(st2.st_mode & 0o7777)[2:].zfill(3)}
+    return {'nome': os.path.basename(p), 'pasta': stat.S_ISDIR(st2.st_mode), 'atalho': lig, 'tam': st2.st_size, 'data': time.strftime('%Y-%m-%d %H:%M', time.localtime(st.st_mtime)), 'perm': oct(st2.st_mode & 0o7777)[2:].zfill(3), 'dono': nome_uid(st2.st_uid), 'grupo': nome_gid(st2.st_gid)}
+def nome_uid(u):
+    try: return pwd.getpwuid(u).pw_name
+    except KeyError: return str(u)
+def nome_gid(g):
+    try: return grp.getgrgid(g).gr_name
+    except KeyError: return str(g)
+# Reciclagem (como a "Trash Bin" do DirectAdmin): o que se apaga vai para ~/.vh-lixo/<id>/ com a origem em info.json
+LIXO = os.path.join(BASE, '.vh-lixo')
+def tam_pasta(p, ate):
+    t = 0
+    for raiz, ds, fs in os.walk(p):
+        if time.time() > ate: return -1
+        for f in fs:
+            try: t += os.lstat(os.path.join(raiz, f)).st_size
+            except OSError: pass
+    return t
 # pastas de que o servidor precisa: não se apagam, não mudam de nome e não se movem
 TOPO = {'web', 'mail', 'conf', 'tmp', '.ssh', 'git', 'backup', 'hestia', 'cgi-bin'}
 DO_SITE = {'public_html', 'public_shtml', 'logs', 'private', 'stats', 'cgi-bin', 'document_errors'}
@@ -50,6 +66,7 @@ try:
         if not os.path.isdir(p): erro('Não é uma pasta.')
         l = []
         for n in sorted(os.listdir(p), key=lambda x: x.lower()):
+            if p == BASE and n == '.vh-lixo': continue
             try: l.append(item(os.path.join(p, n)))
             except OSError: pass
         l.sort(key=lambda x: (not x['pasta'], x['nome'].lower()))
@@ -115,8 +132,82 @@ try:
             if not os.path.lexists(p): erro('Não existe: ' + rel(p))
             alvos.append(p)
         for p in alvos:
-            if os.path.islink(p) or not os.path.isdir(p): os.remove(p)
+            if not a.get('definitivo') and not (p + '/').startswith(LIXO + '/'):
+                # vai para a reciclagem (pode ser restaurado)
+                caixa = os.path.join(LIXO, time.strftime('%Y%m%d%H%M%S') + '-' + uuid.uuid4().hex[:6])
+                os.makedirs(caixa, mode=0o700)
+                with open(os.path.join(caixa, 'info.json'), 'w') as f:
+                    json.dump({'orig': rel(p), 'data': time.strftime('%Y-%m-%d %H:%M'), 'pasta': os.path.isdir(p) and not os.path.islink(p)}, f)
+                shutil.move(p, os.path.join(caixa, os.path.basename(p)))
+            elif os.path.islink(p) or not os.path.isdir(p): os.remove(p)
             else: shutil.rmtree(p)
+        fim({'ok': True})
+    if op == 'tamanhos':
+        # "Directory sizes": tamanho de cada pasta da lista (no máximo ~25 s no total)
+        p = seguro(a.get('caminho'))
+        ate = time.time() + 25
+        r = {}
+        for n in os.listdir(p):
+            q = os.path.join(p, n)
+            if os.path.isdir(q) and not os.path.islink(q) and not (p == BASE and n == '.vh-lixo'):
+                r[n] = tam_pasta(q, ate)
+        fim({'tamanhos': r})
+    if op == 'pesquisar':
+        p = seguro(a.get('caminho'))
+        q = str(a.get('q') or '').strip().lower()
+        if len(q) < 2: erro('Escreva pelo menos 2 letras.')
+        r = []
+        ate = time.time() + 20
+        for raiz, ds, fs in os.walk(p):
+            ds[:] = [d for d in ds if not (raiz == BASE and d == '.vh-lixo')]
+            for n in ds + fs:
+                if q in n.lower():
+                    x = item(os.path.join(raiz, n)); x['rel'] = rel(os.path.join(raiz, n)); r.append(x)
+            if len(r) >= 300 or time.time() > ate: break
+        fim({'itens': r[:300]})
+    if op == 'duplicar':
+        for c in a.get('caminhos', []):
+            src = seguro(c)
+            if protegido(src): erro('Esta pasta é do servidor; não se duplica: ' + rel(src))
+            base, ext = os.path.splitext(os.path.basename(src))
+            if os.path.isdir(src): base, ext = os.path.basename(src), ''
+            i = 1
+            while True:
+                novo = os.path.join(os.path.dirname(src), base + (' - cópia' if i == 1 else ' - cópia ' + str(i)) + ext)
+                if not os.path.lexists(novo): break
+                i += 1
+            if os.path.isdir(src) and not os.path.islink(src): shutil.copytree(src, novo, symlinks=True)
+            else: shutil.copy2(src, novo, follow_symlinks=False)
+        fim({'ok': True})
+    if op == 'lixo':
+        r = []
+        if os.path.isdir(LIXO):
+            for i in sorted(os.listdir(LIXO), reverse=True):
+                cx = os.path.join(LIXO, i)
+                try:
+                    info = json.load(open(os.path.join(cx, 'info.json')))
+                    nomes = [n for n in os.listdir(cx) if n != 'info.json']
+                    if not nomes: continue
+                    q = os.path.join(cx, nomes[0])
+                    r.append({'id': i, 'nome': nomes[0], 'orig': info.get('orig', ''), 'data': info.get('data', ''), 'pasta': os.path.isdir(q) and not os.path.islink(q), 'tam': os.lstat(q).st_size})
+                except Exception: pass
+        fim({'itens': r})
+    if op in ('restaurar', 'esvaziar'):
+        ids = [str(i) for i in a.get('ids', [])]
+        if op == 'esvaziar' and not ids and os.path.isdir(LIXO): ids = os.listdir(LIXO)
+        for i in ids:
+            if not i or '/' in i or i.startswith('.'): erro('Pedido inválido.')
+            cx = os.path.join(LIXO, i)
+            if not os.path.isdir(cx): continue
+            if op == 'esvaziar':
+                shutil.rmtree(cx); continue
+            info = json.load(open(os.path.join(cx, 'info.json')))
+            nomes = [n for n in os.listdir(cx) if n != 'info.json']
+            destino = seguro(info.get('orig', ''), existe=False)
+            if os.path.lexists(destino): erro('Já existe um ficheiro no sítio original: ' + rel(destino))
+            os.makedirs(os.path.dirname(destino), exist_ok=True)
+            shutil.move(os.path.join(cx, nomes[0]), destino)
+            shutil.rmtree(cx)
         fim({'ok': True})
     if op == 'permissoes':
         m = str(a.get('modo', ''))
