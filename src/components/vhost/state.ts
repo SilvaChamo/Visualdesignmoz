@@ -4,7 +4,7 @@ import { DESC, GLOBAL, LEVELS, MENU, ROLE_LEVELS } from './generated/data';
 import type { Lang } from './i18n';
 import type { Account, Level, MenuItem } from './types';
 import { dbInicial, featsEfetivas, pacoteCompleto, type Db } from './paginas/dados';
-import type { Servidor, ZonaDns } from './servidor';
+import type { Pessoa, Servidor, ZonaDns } from './servidor';
 import type { CustomComponents } from './theme';
 
 export const BASE = '/vhost';
@@ -30,6 +30,8 @@ export interface St {
   php: string[];
   /** quem fez login */
   login: string;
+  /** quem entrou, como está no perfil do site (nome, e-mail, empresa) */
+  pessoa: Pessoa | null;
   /** "entrar como": cada entrada guarda para onde voltar */
   stack: { u: string; lv: Level; pg: string }[];
   path: string;
@@ -82,6 +84,7 @@ export function initialState(path: string): St {
       dominio: '',
       php: [],
       login: '',
+      pessoa: null,
       stack: [],
       path: '',
       level: 'admin',

@@ -19,7 +19,7 @@ export type RegistoSite = {
   /** panel_users: conta → revendedor que a criou, login ligado, data */
   contas: Map<string, { parent: string | null; authUserId: string | null; criada: string | null; dominio?: string }>;
   /** profiles por user_id e por conta do servidor (da_username) */
-  perfis: Map<string, { userId: string; role: string; name: string; email: string; conta: string; dominio?: string }>;
+  perfis: Map<string, { userId: string; role: string; name: string; email: string; conta: string; dominio?: string; empresa?: string }>;
   /** pacote de revenda (essencial/expandido) por user_id */
   revendas: Map<string, string>;
 };
@@ -185,6 +185,7 @@ export function montarDados(srv: LeituraServidor, reg: RegistoSite, sessao: Sess
     contas[u] = {
       name: nome,
       email: p?.email || x.CONTACT || '',
+      ...(p?.empresa ? { empresa: p.empresa } : {}),
       role,
       creator: r?.parent && srv.users[r.parent] ? r.parent : u === adminConta ? u : adminConta,
       pkg: revenda ? (revenda === 'expandido' ? 'Revenda Expandido' : 'Revenda Essencial') : x.PACKAGE || '',
@@ -248,7 +249,9 @@ export function montarDados(srv: LeituraServidor, reg: RegistoSite, sessao: Sess
       .map(([n, p]) => [n, pacoteDoHestia(p, n)]),
   );
 
-  return { me, contas: filtra(contas), pacotes, info: filtra(info), dns, servidor, php: srv.php, lidoEm: srv.lidoEm };
+  // quem entrou (perfil do site): nome, e-mail e empresa para o cabeçalho e o rodapé do painel
+  const pessoa = { nome: (perfil?.name || minha?.name || '').trim(), email: perfil?.email || sessao.email || minha?.email || '', empresa: perfil?.empresa || '' };
+  return { me, pessoa, contas: filtra(contas), pacotes, info: filtra(info), dns, servidor, php: srv.php, lidoEm: srv.lidoEm };
 }
 
 /** Registo do site: que revendedor criou cada conta, que login está ligado, papéis e pacotes de revenda */
@@ -277,7 +280,7 @@ async function lerRegistoAgora(): Promise<RegistoSite> {
   if (!sb) return reg;
   const [contas, perfis, revendas] = await Promise.all([
     sb.from('panel_users').select('username, parent_username, auth_user_id, created_at, da_domain'),
-    sb.from('profiles').select('user_id, role, name, email, da_username, da_domain'),
+    sb.from('profiles').select('user_id, role, name, email, da_username, da_domain, empresa'),
     sb.from('panel_auth_accounts').select('user_id, reseller_tier'),
   ]);
   for (const r of contas.data || []) {
@@ -286,7 +289,7 @@ async function lerRegistoAgora(): Promise<RegistoSite> {
   }
   for (const p of perfis.data || []) {
     if (!p.user_id) continue;
-    reg.perfis.set(String(p.user_id), { userId: String(p.user_id), role: String(p.role || ''), name: String(p.name || ''), email: String(p.email || ''), conta: String(p.da_username || '').trim().toLowerCase(), dominio: p.da_domain ? String(p.da_domain).trim().toLowerCase() : undefined });
+    reg.perfis.set(String(p.user_id), { userId: String(p.user_id), role: String(p.role || ''), name: String(p.name || ''), email: String(p.email || ''), conta: String(p.da_username || '').trim().toLowerCase(), dominio: p.da_domain ? String(p.da_domain).trim().toLowerCase() : undefined, empresa: p.empresa ? String(p.empresa).trim() : undefined });
   }
   for (const r of revendas.data || []) if (r.user_id && r.reseller_tier) reg.revendas.set(String(r.user_id), String(r.reseller_tier).toLowerCase());
   return reg;

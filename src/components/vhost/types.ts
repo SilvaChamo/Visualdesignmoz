@@ -78,6 +78,8 @@ export interface Mailbox {
 export interface Account {
   name: string;
   email: string;
+  /** empresa do perfil do site (nos painéis dos clientes aparece no lugar de "Dashboard") */
+  empresa?: string;
   role: Role;
   creator: string;
   pkg: string;

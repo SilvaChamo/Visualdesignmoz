@@ -38,6 +38,8 @@ export interface Servidor {
 export interface DadosServidor {
   /** conta do servidor de quem tem sessão iniciada */
   me: string;
+  /** quem entrou (perfil do site): nome, e-mail e empresa */
+  pessoa?: Pessoa;
   contas: Record<string, Account>;
   pacotes: Record<string, PacoteUtilizador>;
   info: Record<string, InfoConta>;
@@ -46,6 +48,13 @@ export interface DadosServidor {
   /** versões PHP instaladas no servidor */
   php: string[];
   lidoEm: string;
+}
+
+/** Quem tem a sessão iniciada, como está no perfil do site */
+export interface Pessoa {
+  nome: string;
+  email: string;
+  empresa: string;
 }
 
 /** Resposta de erro da API (sem sessão, sem acesso, servidor indisponível) */

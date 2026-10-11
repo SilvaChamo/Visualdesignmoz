@@ -359,6 +359,7 @@ export function VisualHostApp({ temSessao = true }: { temSessao?: boolean }) {
           ...cur,
           acc: d.contas,
           login: d.me,
+          pessoa: d.pessoa || null,
           stack: primeira ? [] : cur.stack.filter((x) => d.contas[x.u]),
           srv: d.servidor,
           dns: d.dns,
@@ -417,6 +418,15 @@ export function VisualHostApp({ temSessao = true }: { temSessao?: boolean }) {
   // ---------- Estado visto pelos ecrãs ----------
   const me = meOf(st);
   const a: Account = acctOf(st);
+  // Quem aparece no cabeçalho e no rodapé, sempre automático: na própria conta, a pessoa que entrou (perfil do site: nome,
+  // e-mail, empresa); ao "entrar como" outra conta, os dados dessa conta. Nos painéis dos clientes, a empresa no lugar de
+  // "Dashboard" (pedido do Silva: "Olá, Silva" e "Silva Chamo" no rodapé, não o nome da conta do servidor)
+  const eu = me === st.login && st.pessoa?.nome ? st.pessoa : null;
+  const pessoaNome = (eu?.nome || a.name || me).trim();
+  const pessoaEmail = eu?.email || a.email || '';
+  const empresa = ((eu ? eu.empresa : a.empresa) || '').trim();
+  // sem empresa no perfil, o nome da conta (ex.: "Oshercollective")
+  const tituloPainel = a.role !== 'admin' ? empresa || me.charAt(0).toUpperCase() + me.slice(1) : 'Dashboard';
   const allowed = allowedOf(st);
   const level = allowed.includes(st.level) ? st.level : allowed[0];
   const missing = !st.deny && !SCREENS[GLOBAL[st.page] ? st.page : level + '/' + st.page] && !(GLOBAL[st.page] ? gItem(st) : findItem(level, st.page));
@@ -848,9 +858,9 @@ export function VisualHostApp({ temSessao = true }: { temSessao?: boolean }) {
             <div className="navcol">
               <div className="navhead" id="navhead">
                 <h1 className={'dash' + (home ? ' on' : '')} onClick={() => go('inicio')} title={t('Ir para o Dashboard')}>
-                  Dashboard
+                  {tituloPainel}
                 </h1>
-                <p>{t('Olá, ' + s.acc[s.login].name.split(' ')[0])}</p>
+                <p>{t('Olá, ' + pessoaNome.split(' ')[0])}</p>
               </div>
               <div className="lvl" id="lvl" style={allowed.length > 1 ? undefined : { display: 'none' }}>
                 {allowed.map((k) => (
@@ -915,12 +925,12 @@ export function VisualHostApp({ temSessao = true }: { temSessao?: boolean }) {
                 )}
               </nav>
               <div className="acct" id="acct" title={t('Conta')} onClick={(e) => openPop('conta', e.currentTarget)}>
-                <Avatar a={a} />
+                <Avatar a={{ ...a, name: pessoaNome, email: pessoaEmail }} />
                 <div className="ai">
                   <span>
-                    <b>{a.name}</b>
+                    <b>{pessoaNome}</b>
                   </span>
-                  <small title={a.email || ''}>{a.email || ''}</small>
+                  <small title={pessoaEmail}>{pessoaEmail}</small>
                 </div>
               </div>
             </div>
@@ -1008,8 +1018,8 @@ export function VisualHostApp({ temSessao = true }: { temSessao?: boolean }) {
           {pop?.kind === 'conta' && (
             <>
               <div className="pop-acct">
-                <b>{a.name}</b>
-                <span>{a.email || ''}</span>
+                <b>{pessoaNome}</b>
+                <span>{pessoaEmail}</span>
                 <span>
                   {me} · {ROLES[a.role]}
                   {isUser(a.role) ? ' · ' + a.pkg : ''}
