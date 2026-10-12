@@ -19,7 +19,10 @@ with alvo as (
   from profiles p
   left join panel_users u on u.auth_user_id = p.user_id
   where p.role = 'profissional'
-    and lower(coalesce(u.package_name, '')) not in ('vd-host-pro', 'vd-host-business', 'vd-host-enterprise')
+    -- só planos Cliente (Básico, e-mail) ou contas sem alojamento; pacotes antigos/de recurso ("VisualDESIGN",
+    -- "default"…) ficam de fora — podem ser compras Pro, decidir à mão depois de ver a lista do passo 1
+    and (u.package_name is null
+         or lower(u.package_name) in ('vd-host-basico', 'vd-email-basico', 'vd-email-premium', 'vd-email-enterprise'))
 )
 update profiles set role = 'client', updated_at = now()
 where user_id in (select user_id from alvo);
