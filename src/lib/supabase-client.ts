@@ -184,6 +184,13 @@ export interface TicketSuporte {
 }
 
 // Funções de autenticação
+export class LoginRateLimitError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'LoginRateLimitError'
+  }
+}
+
 export const auth = {
   // Login — Auth primeiro; fallback com password guardada (ProvisualCorporate)
   async signIn(loginId: string, password: string) {
@@ -230,21 +237,26 @@ export const auth = {
       error.message?.toLowerCase().includes('invalid credentials');
 
     if (invalid) {
+      let syncRes: Response | null = null
       try {
-        const syncRes = await fetch('/api/auth/panel-login', {
+        syncRes = await fetch('/api/auth/panel-login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email: normalizedEmail, password }),
         });
-        if (syncRes.ok) {
-          const retry = await supabase.auth.signInWithPassword({
-            email: normalizedEmail,
-            password,
-          });
-          if (!retry.error) return retry.data;
-        }
       } catch {
         /* manter erro original */
+      }
+      if (syncRes?.status === 429) {
+        const result = (await syncRes.json().catch(() => ({}))) as { error?: string }
+        throw new LoginRateLimitError(result.error || 'Acesso temporariamente bloqueado por excesso de tentativas.')
+      }
+      if (syncRes?.ok) {
+        const retry = await supabase.auth.signInWithPassword({
+          email: normalizedEmail,
+          password,
+        });
+        if (!retry.error) return retry.data;
       }
     }
 

@@ -8,7 +8,7 @@
  * aceita o nome de utilizador ou o e-mail).
  */
 import { useEffect, useRef, useState } from 'react';
-import { auth } from '@/lib/supabase-client';
+import { auth, LoginRateLimitError } from '@/lib/supabase-client';
 import type { Lang } from './i18n';
 import { FundoPainel } from './triangulos';
 
@@ -18,8 +18,8 @@ export type ModoTema = 'light' | 'auto' | 'dark';
 export const LINGUA_LS = 'visualhost_lang';
 
 const TXT = {
-  pt: { user: 'Utilizador', userPh: 'Escreva o nome de utilizador ou e-mail', senha: 'Palavra-passe', senhaPh: 'Escreva a sua palavra-passe', entrar: 'Entrar', falta: 'Escreva o utilizador e a palavra-passe.', errado: 'Utilizador ou palavra-passe errados.', mostrar: 'Mostrar a palavra-passe', esconder: 'Esconder a palavra-passe', claro: 'Claro', auto: 'Automático', escuro: 'Escuro', voltar: 'Depois de entrar, volta a' },
-  en: { user: 'Username', userPh: 'Please enter username or email', senha: 'Password', senhaPh: 'Please enter your password', entrar: 'Sign in', falta: 'Please enter your username and password.', errado: 'Wrong username or password.', mostrar: 'Show password', esconder: 'Hide password', claro: 'Light', auto: 'Auto', escuro: 'Dark', voltar: 'After signing in, you return to' },
+  pt: { user: 'Utilizador', userPh: 'Escreva o nome de utilizador ou e-mail', senha: 'Palavra-passe', senhaPh: 'Escreva a sua palavra-passe', entrar: 'Entrar', falta: 'Escreva o utilizador e a palavra-passe.', errado: 'Utilizador ou palavra-passe errados.', bloqueado: (min: number) => `Acesso temporariamente bloqueado por demasiadas tentativas de login falhadas. Aguarde ${min} minuto${min === 1 ? '' : 's'} antes de tentar novamente.`, mostrar: 'Mostrar a palavra-passe', esconder: 'Esconder a palavra-passe', claro: 'Claro', auto: 'Automático', escuro: 'Escuro', voltar: 'Depois de entrar, volta a' },
+  en: { user: 'Username', userPh: 'Please enter username or email', senha: 'Password', senhaPh: 'Please enter your password', entrar: 'Sign in', falta: 'Please enter your username and password.', errado: 'Wrong username or password.', bloqueado: (min: number) => `Sign-in temporarily blocked after too many failed attempts. Wait ${min} minute${min === 1 ? '' : 's'} before trying again.`, mostrar: 'Show password', esconder: 'Hide password', claro: 'Light', auto: 'Auto', escuro: 'Dark', voltar: 'After signing in, you return to' },
 };
 
 export function EntradaPainel({ escuro, modo, lang, voltarA, onModo, onLang, onEntrou }: { escuro: boolean; modo: ModoTema; lang: Lang; voltarA?: string; onModo: (m: ModoTema) => void; onLang: (l: Lang) => void; onEntrou: () => void }) {
@@ -47,8 +47,14 @@ export function EntradaPainel({ escuro, modo, lang, voltarA, onModo, onLang, onE
       let email = login;
       if (!login.includes('@')) {
         const r = await fetch('/api/vhost/entrar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ utilizador: login, senha }) }).catch(() => null);
-        const j = r && r.ok ? ((await r.json().catch(() => ({}))) as { email?: string }) : {};
-        if (!j.email) {
+        const j = r ? ((await r.json().catch(() => ({}))) as { email?: string }) : {};
+        if (r?.status === 429) {
+          const retrySeconds = Number(r.headers.get('Retry-After')) || 15 * 60;
+          setErro(tx.bloqueado(Math.max(1, Math.ceil(retrySeconds / 60))));
+          setAEntrar(false);
+          return;
+        }
+        if (!r?.ok || !j.email) {
           setErro(tx.errado);
           setAEntrar(false);
           return;
@@ -57,8 +63,8 @@ export function EntradaPainel({ escuro, modo, lang, voltarA, onModo, onLang, onE
       }
       await auth.signIn(email, senha);
       onEntrou();
-    } catch {
-      setErro(tx.errado);
+    } catch (error) {
+      setErro(error instanceof LoginRateLimitError ? error.message : tx.errado);
       setAEntrar(false);
     }
   };
