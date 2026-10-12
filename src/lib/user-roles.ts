@@ -43,6 +43,28 @@ function readRole(value: unknown): UserRole | null {
   return null;
 }
 
+/**
+ * Painel de quem compra a si próprio, pelo plano (pedido do Silva, 12/10/2026 — corrige a regra de 8 out "com site =
+ * Profissional"): os planos de alojamento Pro, Business e Enterprise dão o painel Profissional; o plano Básico, os
+ * planos de e-mail e os domínios ficam no painel Cliente. Cada conta vê os limites do seu plano.
+ */
+const PROFISSIONAL_HOSTING_PLANS = new Set(['hosting-pro', 'hosting-business', 'hosting-enterprise']);
+const PROFISSIONAL_PACKAGES = new Set(['vd-host-pro', 'vd-host-business', 'vd-host-enterprise']);
+const CLIENT_PACKAGES = new Set(['vd-host-basico', 'vd-email-basico', 'vd-email-premium', 'vd-email-enterprise']);
+
+/** Plano do carrinho (`hosting-pro`, …) que dá o painel Profissional. */
+export function isProfissionalHostingPlan(planId: string | null | undefined): boolean {
+  return PROFISSIONAL_HOSTING_PLANS.has(String(planId || '').trim().toLowerCase());
+}
+
+/** Papel de comprador pelo pacote do servidor (VD-Host-*, VD-Email-*); null para pacotes fora dos planos. */
+export function buyerRoleForPackage(packageName: string | null | undefined): 'profissional' | 'client' | null {
+  const key = String(packageName || '').trim().toLowerCase();
+  if (PROFISSIONAL_PACKAGES.has(key)) return 'profissional';
+  if (CLIENT_PACKAGES.has(key)) return 'client';
+  return null;
+}
+
 /** Resolve o papel efectivo do utilizador */
 export function resolveUserRole(source: RoleSource): UserRole {
   const email = (source.email || '').toLowerCase();
@@ -70,25 +92,29 @@ export function resolveUserRole(source: RoleSource): UserRole {
   if (registryRole) return registryRole;
 
   if (profileRole === 'reseller' || appMetaRole === 'reseller') return 'reseller';
-  if (profileRole === 'profissional' || metaRole === 'profissional') return 'profissional';
-  if (profileRole === 'client' || metaRole === 'client') return 'client';
+  // O perfil manda: corrigir uma conta para "client" no perfil tem de chegar, mesmo que o user_metadata (editável
+  // pelo próprio) ainda diga "profissional".
+  if (profileRole === 'profissional' || profileRole === 'client') return profileRole;
+  if (!profileRole && (metaRole === 'profissional' || metaRole === 'client')) return metaRole;
 
   // #7: tinha de vir antes do "if guest → guest" abaixo — senão uma conta
   // marcada guest com compras confirmadas (hasPaidProducts) nunca chegava a
   // ser avaliada, ficava sempre presa em guest. É precisamente o mecanismo
   // que o botão de sincronizar utilizadores usa para reparar essas contas.
   // Só para contas antigas sem papel gravado: as compras novas gravam já o
-  // papel certo (promoteBuyerAfterPurchase — 'client' sem site,
-  // 'profissional' com site), que é lido acima antes de chegar aqui.
-  if (source.hasPaidProducts) return 'profissional';
+  // papel certo pelo plano (promoteBuyerAfterPurchase), que é lido acima antes
+  // de chegar aqui. Sem saber o plano, fica no painel Cliente — o Profissional
+  // só com plano Pro/Business/Enterprise (antes uma conta só de e-mail caía aqui
+  // em 'profissional').
+  if (source.hasPaidProducts) return 'client';
 
   // Mesma lógica do #7 acima, mas para uma encomenda ainda pendente muito
-  // recente — sem isto, uma conta cuja promoção guest→profissional ainda não
+  // recente — sem isto, uma conta cuja promoção de guest ainda não
   // propagou (ou falhou em silêncio, ver checkout-fulfillment.ts) é mandada
   // para /guest logo depois de pagar, sem nenhum sítio para anexar o
   // comprovativo. A janela curta (RECENT_PENDING_SESSION_WINDOW_MS) evita
   // que isto sirva de acesso permanente — só cobre o momento do checkout.
-  if (source.hasRecentPendingSession) return 'profissional';
+  if (source.hasRecentPendingSession) return 'client';
 
   if (profileRole === 'guest' || metaRole === 'guest') return 'guest';
 

@@ -85,15 +85,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Não foi possível iniciar o pedido.' }, { status: 500 });
     }
 
-    // Promove já para o painel certo ('profissional' com site, 'client' sem
-    // site — ver promoteBuyerAfterPurchase) — deixa o comprador entrar no
+    // Promove já para o painel certo ('profissional' com plano Pro/Business/
+    // Enterprise, 'client' com Básico, email ou domínio — ver promoteBuyerAfterPurchase) — deixa o comprador entrar no
     // painel real (secção do produto visível mas desactivada) enquanto aguarda
     // a equipa confirmar o comprovativo, em vez de ficar preso no /guest
     // genérico. Espera terminar (o browser navega para /profissional logo a
     // seguir a esta resposta) mas nunca falha a criação do pedido por causa
     // disto — o pedido em si já está gravado.
     try {
-      await promoteBuyerAfterPurchase(admin, actor.buyerUserId, resolved.map((r) => r.item.type));
+      await promoteBuyerAfterPurchase(admin, actor.buyerUserId, resolved.map((r) => r.item));
     } catch (err) {
       console.error('[checkout/manual-session] promoteBuyerAfterPurchase falhou:', err);
     }

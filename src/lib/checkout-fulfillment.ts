@@ -14,6 +14,7 @@ import { autoProvisionPurchasedDomain } from '@/lib/domain-purchase-provision';
 import { requiresManualRegistration } from '@/lib/domain-registration-support';
 import { after } from 'next/server';
 import { getProfileForAuthUser, saveProfileForAuthUser } from '@/lib/profile-db';
+import { buyerRoleForPackage, isProfissionalHostingPlan } from '@/lib/user-roles';
 import { emailPlanProductName, getEmailPlan } from '@/lib/email-plans';
 
 // Pacote dedicado por plano — tem de corresponder aos `defaultPackageName` de
@@ -127,6 +128,9 @@ export async function provisionHostingAccountOnPanel(params: {
   packageName: string;
   renewalId: string | null;
   sharedPassword?: string | null;
+  /** Plano comprado (`hosting-basico`, `hosting-pro`, …) — decide o painel Cliente/Profissional. Sem ele, decide o
+   * pacote (packageName). */
+  planId?: string;
   /** Servidor de hospedagem que vai tratar esta conta. Omitir mantém o
    * comportamento actual (DirectAdmin). */
   provider?: 'directadmin' | 'hestia';
@@ -141,15 +145,16 @@ export async function provisionHostingAccountOnPanel(params: {
       email,
       da_password_encrypted: encryptDaSecret(password),
     });
-    // Hospedagem web = site → 'profissional' (ver promoteBuyerAfterPurchase),
-    // também para quem era 'client' (só email/domínio); contas da equipa
+    // Painel pelo plano (ver promoteBuyerAfterPurchase): Pro/Business/Enterprise
+    // → 'profissional'; Básico → 'client'. Contas da equipa
     // (admin/manager/reseller) ficam como estão.
     const existingProfile = await getProfileForAuthUser(admin, userId, email);
     const STAFF_ROLES = ['admin', 'manager', 'reseller'];
     const resolvedRole = STAFF_ROLES.includes(existingProfile?.role || '')
       ? (existingProfile!.role as 'admin' | 'manager' | 'reseller')
-      : 'profissional';
-    if (resolvedRole === 'profissional') await promoteBuyerAfterPurchase(admin, userId, ['hosting']);
+      : ((await promoteBuyerAfterPurchase(admin, userId, [
+          { type: 'hosting', id: params.planId, packageName },
+        ])) ?? 'client');
     await upsertPanelAuthAccount(admin, {
       userId,
       email,
@@ -308,23 +313,25 @@ async function notifyClientOfDomainProvisionResult(
 }
 
 /**
- * Painel de quem compra a si próprio, decidido pelo que comprou (pedido do
- * utilizador, 8 out 2026):
- * - com site (hospedagem web) → 'profissional' (painel /profissional);
- * - sem site (só domínio e/ou plano de email) → 'client' (painel /cliente,
- *   para gerir emails, DNS e nameservers).
- * Um 'client' que compre hospedagem web passa a 'profissional'. Nunca mexe em
- * admin/manager/reseller, nem desce um 'profissional' a 'client'. Corre já na
+ * Painel de quem compra a si próprio, decidido pelo plano (pedido do Silva,
+ * 12/10/2026 — substitui a regra de 8 out "com site = Profissional", que punha
+ * todo o plano Básico no painel Profissional):
+ * - alojamento Pro, Business ou Enterprise → 'profissional';
+ * - alojamento Básico, planos de email e domínios → 'client'.
+ * Um 'client' que compre um plano Pro+ passa a 'profissional'. Nunca mexe em
+ * admin/manager/reseller, nem desce um 'profissional' a 'client' (quem já tem
+ * um plano Pro e compra um email continua Profissional). Corre já na
  * submissão do pedido (para entrar logo no painel certo enquanto aguarda a
- * confirmação do pagamento) e outra vez no fulfillment.
+ * confirmação do pagamento) e outra vez no fulfillment. Devolve o papel
+ * gravado (null para contas da equipa).
  */
 export async function promoteBuyerAfterPurchase(
   admin: SupabaseClient,
   userId: string,
-  itemTypes: string[],
-): Promise<void> {
+  items: { type: string; id?: string; packageName?: string }[],
+): Promise<'profissional' | 'client' | null> {
   const { data: authUser } = await admin.auth.admin.getUserById(userId);
-  if (!authUser?.user) return;
+  if (!authUser?.user) return null;
   const currentMetadata = authUser.user.user_metadata || {};
   const email = authUser.user.email;
   const displayName = currentMetadata.nome || currentMetadata.full_name || email?.split('@')[0];
@@ -335,8 +342,12 @@ export async function promoteBuyerAfterPurchase(
   const STAFF_ROLES = ['admin', 'manager', 'reseller'];
   let nextRole: 'profissional' | 'client' | null = null;
   if (!roles.some((r) => STAFF_ROLES.includes(r))) {
-    const hasSite = itemTypes.includes('hosting');
-    nextRole = hasSite || roles.includes('profissional') ? 'profissional' : 'client';
+    const planoPro = items.some(
+      (i) =>
+        i.type === 'hosting' &&
+        (isProfissionalHostingPlan(i.id) || (!i.id && buyerRoleForPackage(i.packageName) === 'profissional')),
+    );
+    nextRole = planoPro || existingProfile?.role === 'profissional' ? 'profissional' : 'client';
   }
 
   if (nextRole) {
@@ -350,6 +361,7 @@ export async function promoteBuyerAfterPurchase(
     role: nextRole ?? undefined,
     name: displayName,
   });
+  return nextRole;
 }
 
 /**
@@ -674,6 +686,7 @@ export async function fulfillCheckout(
           renewalId,
           sharedPassword: sharedHostingPassword,
           provider: hostingProvider,
+          planId: item.id,
         });
       }
     }
@@ -725,7 +738,7 @@ export async function fulfillCheckout(
   // aqui (idempotente — ver §submissão da encomenda), mas mantém-se também
   // aqui para o caso de `fulfillCheckout` ser invocada por um caminho que
   // nunca passou por lá (ex.: script de correcção manual/admin).
-  if (admin) await promoteBuyerAfterPurchase(admin, userId, items.map((i) => i.type));
+  if (admin) await promoteBuyerAfterPurchase(admin, userId, items);
 
   return { created, total };
 }

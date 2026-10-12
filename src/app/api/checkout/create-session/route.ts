@@ -97,12 +97,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Não foi possível iniciar o pagamento.' }, { status: 500 });
     }
 
-    // Promove já para o painel certo ('profissional' com site, 'client' sem
-    // site — ver promoteBuyerAfterPurchase) — quando o Stripe devolver o
+    // Promove já para o painel certo ('profissional' com plano Pro/Business/
+    // Enterprise, 'client' com Básico, email ou domínio — ver promoteBuyerAfterPurchase) — quando o Stripe devolver o
     // cliente, ele entra logo no painel com a secção pendente visível, sem
     // esperar pelo webhook para conseguir sequer ver o painel.
     try {
-      await promoteBuyerAfterPurchase(admin, actor.buyerUserId, resolved.map((r) => r.item.type));
+      await promoteBuyerAfterPurchase(admin, actor.buyerUserId, resolved.map((r) => r.item));
     } catch (err) {
       console.error('[checkout/create-session] promoteBuyerAfterPurchase falhou:', err);
     }
