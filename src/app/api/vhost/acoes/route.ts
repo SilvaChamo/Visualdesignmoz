@@ -115,7 +115,46 @@ export async function POST(req: NextRequest) {
     case 'senha': {
       const s = String(corpo.senha || '');
       if (s.length < 8) return NextResponse.json({ erro: 'A palavra-passe precisa de pelo menos 8 caracteres.' }, { status: 400 });
-      for (const u of contas) await correr(u, () => hestia.changePassword(u, s));
+      for (const u of contas)
+        await correr(u, async () => {
+          const r = await hestia.changePassword(u, s);
+          if (!r.ok) return r;
+          if (sb) {
+            try {
+              // Sincroniza com Supabase Auth para permitir entrar no painel e no site
+              const { data: prof } = await sb
+                .from('profiles')
+                .select('id, user_id, email')
+                .or(`da_username.eq.${u},name.eq.${u}`)
+                .maybeSingle();
+
+              let authUserId = prof?.user_id || prof?.id;
+              if (!authUserId) {
+                const { data: pu } = await sb
+                  .from('panel_users')
+                  .select('auth_user_id')
+                  .eq('username', u)
+                  .maybeSingle();
+                if (pu?.auth_user_id) authUserId = pu.auth_user_id;
+              }
+
+              if (authUserId) {
+                await sb.auth.admin.updateUserById(authUserId, { password: s });
+              }
+
+              // Atualiza credenciais guardadas no perfil e no registo do painel
+              const { encryptDaSecret } = await import('@/lib/da-credential-store');
+              const enc = encryptDaSecret(s);
+              await sb.from('profiles').update({ da_password_encrypted: enc }).or(`da_username.eq.${u},name.eq.${u}`);
+              const updatePu: Record<string, unknown> = { da_password_encrypted: enc };
+              if (authUserId) updatePu.auth_user_id = authUserId;
+              await sb.from('panel_users').update(updatePu).eq('username', u);
+            } catch (err) {
+              console.error('[acoes/senha] Erro ao sincronizar senha com Supabase:', err);
+            }
+          }
+          return r;
+        });
       break;
     }
     case 'criar': {

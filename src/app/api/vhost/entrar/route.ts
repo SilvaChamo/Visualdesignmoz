@@ -30,8 +30,32 @@ export async function POST(req: NextRequest) {
   const sem = { auth: { persistSession: false, autoRefreshToken: false } };
 
   // o "_" é um coringa no ilike: escapado (o nome só tem letras, números, ".", "_" e "-")
-  const { data: perfis } = await createClient(url, servico, sem).from('profiles').select('email').ilike('da_username', nome.replace(/_/g, '\\_')).limit(2);
-  if (!perfis || perfis.length !== 1 || !perfis[0].email) return falha();
+  const esc = nome.replace(/_/g, '\\_');
+  const adminClient = createClient(url, servico, sem);
+  let { data: perfis } = await adminClient
+    .from('profiles')
+    .select('email')
+    .or(`da_username.ilike.${esc},name.ilike.${esc}`)
+    .limit(2);
+
+  // Fallback: se não encontrar em profiles, procura no registo panel_users
+  if (!perfis || perfis.length !== 1 || !perfis[0]?.email) {
+    const { data: pu } = await adminClient
+      .from('panel_users')
+      .select('email, auth_user_id')
+      .ilike('username', esc)
+      .maybeSingle();
+    if (pu?.email) {
+      perfis = [{ email: pu.email }];
+    } else if (pu?.auth_user_id) {
+      const { data: userAuth } = await adminClient.auth.admin.getUserById(pu.auth_user_id);
+      if (userAuth?.user?.email) {
+        perfis = [{ email: userAuth.user.email }];
+      }
+    }
+  }
+
+  if (!perfis || perfis.length !== 1 || !perfis[0]?.email) return falha();
   const email = String(perfis[0].email).trim().toLowerCase();
 
   // confirma a palavra-passe sem criar sessão aqui (a sessão do navegador é criada pela página, com o e-mail)
