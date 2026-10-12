@@ -925,7 +925,8 @@ export function VisualHostApp({ temSessao = true }: { temSessao?: boolean }) {
                 )}
               </nav>
               <div className="acct" id="acct" title={t('Conta')} onClick={(e) => openPop('conta', e.currentTarget)}>
-                <Avatar a={{ ...a, name: pessoaNome, email: pessoaEmail }} />
+                {/* a foto continua a vir do e-mail da conta, como antes (só as iniciais seguem o nome da pessoa) */}
+                <Avatar a={{ ...a, name: pessoaNome }} />
                 <div className="ai">
                   <span>
                     <b>{pessoaNome}</b>
