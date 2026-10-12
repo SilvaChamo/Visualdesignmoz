@@ -1038,13 +1038,13 @@ function Mover() {
   const infoVagas = dest ? vagas(s, dest) : null;
 
   return (
-    <div className="mover-layout-2col">
-      <div className="passo mover-col-esq">
+    <>
+      <div className="passo">
         <h3>1. {t('Escolher o destino')}</h3>
         <p>{t('Revendedor que vai ficar com os clientes.')}</p>
         <select
           className="inp"
-          style={{ width: '100%' }}
+          style={{ maxWidth: 520, width: '100%' }}
           value={dest}
           onChange={(e) => {
             setDest(e.target.value);
@@ -1076,7 +1076,7 @@ function Mover() {
         )}
       </div>
 
-      <div className={'passo mover-col-dir' + (dest ? '' : ' off')}>
+      <div className={'passo' + (dest ? '' : ' off')}>
         <div className="passo-head">
           <div>
             <h3>2. {t('Escolher os clientes')}</h3>
@@ -1094,24 +1094,22 @@ function Mover() {
           </button>
         </div>
 
-        <div className="passo-tabela">
-          <DataTable
-            id="mover"
-            rows={rows}
-            rowKey={(r) => r[0]}
-            search={([u, a]) => u + ' ' + a.name}
-            cols={[
-              { k: 'user', t: 'Utilizador', sort: (r) => r[0], cell: ([u, a]) => <CellConta u={u} a={a} /> },
-              { k: 'dono', t: 'Revendedor atual', sort: (r) => r[1].creator, cell: ([, a]) => a.creator },
-              { k: 'pkg', t: 'Pacote', cell: ([, a]) => a.pkg },
-              { k: 'doms', t: 'Domínios', cell: ([, a]) => <Doms a={a} /> },
-            ]}
-            onSelChange={setSel}
-            empty={dest ? 'Não há clientes para mover' : 'Escolha primeiro o destino'}
-          />
-        </div>
+        <DataTable
+          id="mover"
+          rows={rows}
+          rowKey={(r) => r[0]}
+          search={([u, a]) => u + ' ' + a.name}
+          cols={[
+            { k: 'user', t: 'Utilizador', sort: (r) => r[0], cell: ([u, a]) => <CellConta u={u} a={a} /> },
+            { k: 'dono', t: 'Revendedor atual', sort: (r) => r[1].creator, cell: ([, a]) => a.creator },
+            { k: 'pkg', t: 'Pacote', cell: ([, a]) => a.pkg },
+            { k: 'doms', t: 'Domínios', cell: ([, a]) => <Doms a={a} /> },
+          ]}
+          onSelChange={setSel}
+          empty={dest ? 'Não há clientes para mover' : 'Escolha primeiro o destino'}
+        />
       </div>
-    </div>
+    </>
   );
 }
 export const mover: ScreenFn = () => ({ title: 'Mover clientes', body: <Mover /> });
