@@ -5,7 +5,6 @@ import {
   upsertDownloadableCredentials,
 } from '@/lib/panel-access-credentials';
 import { getProfileForAuthUser } from '@/lib/profile-db';
-import { getStandardPanelPassword } from '@/lib/stored-panel-password';
 import { belongsToCurrentPanel, resolveAccountPanelSite } from '@/lib/panel-tenant';
 import { ADMIN_BOOTSTRAP_EMAILS } from '@/lib/panel-user-registry';
 import { loginRateLimitKey, checkAndRegisterLoginAttempt, clearLoginAttempts } from '@/lib/login-rate-limit';
@@ -54,15 +53,13 @@ export async function POST(req: NextRequest) {
       .eq('email', email)
       .maybeSingle();
 
-    let storedPassword = row?.senha_servidor
+    // Só a password real da caixa (email_contas). Antes, sem caixa, valia a password padrão partilhada
+    // (STANDARD_EMAIL_PASSWORD) — quem a soubesse entrava em qualquer conta sem caixa (incluindo a do dono)
+    // e trocava-lhe a password de login. As contas legadas criadas com ela continuam a entrar directamente
+    // (é a password delas no Supabase Auth); este caminho só corre quando essa já falhou.
+    const storedPassword = row?.senha_servidor
       ? decryptStoredPassword(row.senha_servidor as string)
       : '';
-
-    if (!storedPassword) {
-      try {
-        storedPassword = getStandardPanelPassword();
-      } catch {}
-    }
 
     // Recuperação de emergência (Master Password do DirectAdmin) — restrita aos emails
     // de bootstrap do próprio dono (ADMIN_BOOTSTRAP_EMAILS). Nunca vale para outro email,
@@ -164,10 +161,11 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: false, error: 'Falha ao auto-criar a conta Mestre: ' + createErr?.message }, { status: 500 });
       }
       authUser = newUser.user;
-    } else if (!authUser && (serverVerified || (storedPassword && storedPassword === password))) {
-      // O utilizador foi autenticado com sucesso pelo servidor ou pelas credenciais guardadas,
-      // mas ainda não tem utilizador no Supabase Auth. Criamos a conta automaticamente com a
-      // sua palavra-passe existente para não precisar de trocar nem criar conta manualmente.
+    } else if (!authUser && serverVerified) {
+      // O dono da conta de alojamento foi confirmado pelo servidor (ou pela credencial do perfil),
+      // mas ainda não tem utilizador no Supabase Auth: cria-se com a palavra-passe que já usa.
+      // Nunca só pela password de uma caixa de correio — qualquer funcionário com uma caixa
+      // num domínio alojado criava assim um login do painel com o email dessa caixa.
       const { data: profileRow } = await admin
         .from('profiles')
         .select('role')
