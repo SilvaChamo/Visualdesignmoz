@@ -1,0 +1,91 @@
+name: "Ops - Contabo: painel em https://host.visualdesignmoz.com:2026/ (nginx + firewall)"
+
+# ============================================================================
+# Autorizado pelo Silva (13/10/2026): https://host.visualdesignmoz.com:2026/ era o
+# endereço do painel (DirectAdmin) no Hetzner e os clientes continuam a usá-lo.
+#  - nginx: um server na porta 2026, com o certificado Let's Encrypt de host. e o
+#    mesmo proxy para a app (127.0.0.1:3002) que o host. já usa na 443;
+#  - firewall do Hestia: abre a TCP 2026;
+#  - se o nginx -t falhar, apaga o ficheiro novo e não recarrega nada.
+# Não mexe em dados, e-mail nem DNS. Corre só quando este ficheiro muda no ramo
+# claude/kind-einstein-r6lyf6.
+# ============================================================================
+
+on:
+  push:
+    branches: [claude/kind-einstein-r6lyf6]
+    paths: ['.github/workflows/ops-claude-contabo-porta2026.yml']
+
+jobs:
+  contabo:
+    name: contabo
+    runs-on: ubuntu-latest
+    steps:
+      - name: Porta 2026 para o painel
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          username: root
+          password: ${{ secrets.CONTABO_ROOT_PASSWORD }}
+          command_timeout: 10m
+          script: |
+            set +e
+            H=/usr/local/hestia/bin
+            SSL=/home/vdadmin/conf/web/host.visualdesignmoz.com/ssl
+            CONF=/etc/nginx/conf.d/visualhost-porta2026.conf
+
+            echo "===== 1. pré-condições ====="
+            if [ ! -f "$SSL/host.visualdesignmoz.com.pem" ] || [ ! -f "$SSL/host.visualdesignmoz.com.key" ]; then
+              echo "ERRO: certificado de host.visualdesignmoz.com não encontrado — paro."; exit 1
+            fi
+            if ss -tlnp | grep -qE ':2026\b'; then
+              echo "  algo já escuta na 2026:"; ss -tlnp | grep -E ':2026\b'
+              [ -f "$CONF" ] || { echo "ERRO: não é o nosso ficheiro — paro."; exit 1; }
+            fi
+
+            echo "===== 2. nginx ====="
+            cat > "$CONF" <<'NGINX'
+            # VisualHost: https://host.visualdesignmoz.com:2026/ — endereço do painel (DirectAdmin) no Hetzner, que os
+            # clientes continuam a usar. Mesmo proxy que o host.visualdesignmoz.com na 443. Criado a 13/10/2026.
+            server {
+                listen 2026 ssl;
+                server_name host.visualdesignmoz.com;
+
+                ssl_certificate     /home/vdadmin/conf/web/host.visualdesignmoz.com/ssl/host.visualdesignmoz.com.pem;
+                ssl_certificate_key /home/vdadmin/conf/web/host.visualdesignmoz.com/ssl/host.visualdesignmoz.com.key;
+
+                # quem escrever http:// nesta porta vai para https://
+                error_page 497 =301 https://$host:2026$request_uri;
+                client_max_body_size 1024m;
+
+                location / {
+                    proxy_pass http://127.0.0.1:3002;
+                    # com a porta: a app mantém :2026 nos redireccionamentos
+                    proxy_set_header Host $http_host;
+                    proxy_set_header X-Forwarded-Host $http_host;
+                    proxy_set_header X-Real-IP $remote_addr;
+                    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                    proxy_set_header X-Forwarded-Proto https;
+                    proxy_read_timeout 300;
+                }
+            }
+            NGINX
+            if nginx -t 2>&1 | tail -3; nginx -t >/dev/null 2>&1; then
+              systemctl reload nginx && echo "  nginx recarregado"
+            else
+              echo "ERRO: nginx -t falhou — apago $CONF e não recarrego"; rm -f "$CONF"; exit 1
+            fi
+
+            echo "===== 3. firewall ====="
+            if $H/v-list-firewall plain | awk '{print $4}' | tr ',' '\n' | grep -qx 2026; then
+              echo "  a 2026 já está aberta"
+            else
+              $H/v-add-firewall-rule ACCEPT 0.0.0.0/0 2026 TCP VisualHost && echo "  TCP 2026 aberta"
+            fi
+
+            echo "===== 4. verificação ====="
+            sleep 2
+            ss -tlnp | grep -E ':2026\b' | awk '{print "  escuta: " $4}'
+            for u in https://host.visualdesignmoz.com:2026/ https://host.visualdesignmoz.com:2026/vhost https://host.visualdesignmoz.com/vhost; do
+              echo -n "  $u -> "; curl -s -o /tmp/r.html -w "%{http_code} %{redirect_url}" --max-time 20 "$u"; echo " | $(grep -o '<title>[^<]*' /tmp/r.html | head -1)"; rm -f /tmp/r.html
+            done
