@@ -113,8 +113,16 @@ export const meOf = (s: St) => (s.stack.length ? s.stack[s.stack.length - 1].u :
 /** Conta vazia enquanto os dados do servidor não chegam (o painel mostra "a carregar") */
 const VAZIA: Account = { name: '', email: '', role: 'admin', creator: '', pkg: '', state: 'ok', disk: '0 MB', domains: [], mails: [] };
 export const acctOf = (s: St) => s.acc[meOf(s)] || VAZIA;
-export const allowedOf = (s: St) => ROLE_LEVELS[acctOf(s).role];
-/** Separador aberto ao entrar numa conta: "Gestão" (os dados da própria conta) em todos os painéis que o têm.
+export const allowedOf = (s: St): Level[] => {
+  const userRole = acctOf(s).role;
+  // Se a sessão iniciada é de administrador (ou a conta é admin), tem SEMPRE os níveis admin e utilizador (Admin | Gestão)
+  const isAdm = s.login === 'vdadmin' || s.acc[s.login]?.role === 'admin' || userRole === 'admin';
+  if (isAdm) {
+    return ['admin', 'utilizador'];
+  }
+  return ROLE_LEVELS[userRole] || ['utilizador'];
+};
+/** Separador aberto ao entrar numa conta: "Admin" para administradores e "Gestão" nos outros painéis.
  *  `lembrar` (ao abrir o painel): quem tem mais de um separador volta ao último em que trabalhou (pedido do Silva, 10/10). */
 export const NIVEL_LS = 'visualhost_nivel';
 export const nivelInicial = (s: St, lembrar = false): Level => {
@@ -125,6 +133,7 @@ export const nivelInicial = (s: St, lembrar = false): Level => {
       if (ultimo && permitidos.includes(ultimo)) return ultimo;
     } catch {}
   }
+  if (permitidos.includes('admin')) return 'admin';
   return permitidos.includes('utilizador') ? 'utilizador' : permitidos[0];
 };
 /** Pacote efetivo da conta: os limites próprios (se tiver) ou os do pacote */
@@ -174,14 +183,21 @@ export function fromPath(s: St, path: string): St {
     n.gsub = g.sub ? (g.sub.some((x) => x.id === p[1]) ? p[1] : g.sub[0].id) : null;
   } else if (isLevel(p[0])) {
     const lv = p[0];
-    const id = p[1] || 'inicio';
+    const isMenuTab = p[1] === 'menu';
+    const id = isMenuTab || !p[1] ? 'inicio' : p[1];
     n.page = id;
+    if (isMenuTab) {
+      n.dashTab = 'menu';
+      try {
+        localStorage.setItem('visualhost_dashtab', 'menu');
+      } catch {}
+    }
     if (!allowedOf(s).includes(lv)) {
       // Se for apenas o início do nível (ex: /admin ao entrar) e o utilizador não tem esse nível,
       // encaminha suavemente para o nível inicial permitido da conta em vez de bloquear com erro
       if (id === 'inicio') {
         const lvValido = nivelInicial(s, true);
-        return fromPath(s, '/' + lvValido);
+        return fromPath(s, '/' + lvValido + (isMenuTab ? '/menu' : ''));
       }
       n.deny = { type: 'nivel', lv };
     }

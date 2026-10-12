@@ -254,6 +254,9 @@ export function VisualHostApp({ temSessao = true }: { temSessao?: boolean }) {
       const n = fromPath(ref.current, path);
       commit(n);
       pushUrl(n.path);
+      try {
+        localStorage.setItem('visualhost_ultimo_caminho', n.path);
+      } catch {}
       window.scrollTo(0, 0);
     },
     [commit],
@@ -464,8 +467,8 @@ export function VisualHostApp({ temSessao = true }: { temSessao?: boolean }) {
     recusadoEm.current = Date.now();
   };
 
-  // Sair: termina a sessão e mostra logo a página de entrada, sem perguntar nem recarregar (pedido do Silva: a página
-  // piscava entre dois ecrãs antes do formulário)
+  // Sair: termina a sessão e mostra logo a página de entrada.
+  // Ao entrar depois de clicar no botão sair, chega à aba admin/menu (cards do menu).
   const sair = async () => {
     try {
       await auth.signOut();
@@ -473,8 +476,13 @@ export function VisualHostApp({ temSessao = true }: { temSessao?: boolean }) {
     setAEntrar(false);
     setSemSessao(true);
     setModal(null);
-    inicial.current = '/';
-    commit({ ...ref.current, carga: 'erro', erro: { msg: 'Inicie sessão no site.', codigo: 401 } });
+    try {
+      sessionStorage.setItem('visualhost_explicit_logout', '1');
+      localStorage.removeItem('visualhost_voltar_a');
+      localStorage.setItem('visualhost_dashtab', 'menu');
+    } catch {}
+    inicial.current = '/admin/menu';
+    commit({ ...ref.current, dashTab: 'menu', carga: 'erro', erro: { msg: 'Inicie sessão no site.', codigo: 401 } });
     window.history.replaceState(null, '', BASE);
   };
 
@@ -695,8 +703,15 @@ export function VisualHostApp({ temSessao = true }: { temSessao?: boolean }) {
         await auth.signOut();
       } catch {}
       setAEntrar(false);
-      // como no DA: a entrada mostra o caminho da página onde estava e volta para lá depois de entrar
-      inicial.current = ref.current.path || '/';
+      // quando sair sozinho (inatividade / expiração): guarda o caminho exato onde estava para voltar lá
+      const ondeEstava = ref.current.path || '/';
+      inicial.current = ondeEstava;
+      try {
+        sessionStorage.removeItem('visualhost_explicit_logout');
+        if (ondeEstava && ondeEstava !== '/') {
+          localStorage.setItem('visualhost_voltar_a', ondeEstava);
+        }
+      } catch {}
       commit({ ...ref.current, carga: 'erro', erro: { msg: 'Sessão terminada por inatividade.', codigo: 401 } });
     }, 30_000);
     return () => {
@@ -761,7 +776,15 @@ export function VisualHostApp({ temSessao = true }: { temSessao?: boolean }) {
             escuro={isDark}
             modo={modoTema}
             lang={st.lang}
-            voltarA={inicial.current && inicial.current !== '/' ? BASE + inicial.current : undefined}
+            voltarA={(() => {
+              try {
+                if (sessionStorage.getItem('visualhost_explicit_logout') === '1') return undefined;
+                const v = localStorage.getItem('visualhost_voltar_a') || (inicial.current && inicial.current !== '/' ? inicial.current : undefined);
+                return v && v !== '/' && v !== '/vhost' && v !== '/admin/menu' ? BASE + v.replace(/^\/vhost/, '') : undefined;
+              } catch {
+                return undefined;
+              }
+            })()}
             onModo={(m) => {
               setModoTema(m);
               const dark = m === 'dark' || (m === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
@@ -781,6 +804,25 @@ export function VisualHostApp({ temSessao = true }: { temSessao?: boolean }) {
               setAEntrar(true);
               setSemSessao(false);
               commit({ ...ref.current, carga: 'a-carregar', erro: null });
+              // Se foi logout explícito pelo botão "Sair", vai para /admin/menu com os cards do menu
+              let destino = '/admin/menu';
+              try {
+                const explicit = sessionStorage.getItem('visualhost_explicit_logout');
+                if (explicit === '1') {
+                  sessionStorage.removeItem('visualhost_explicit_logout');
+                  localStorage.setItem('visualhost_dashtab', 'menu');
+                  destino = '/admin/menu';
+                } else {
+                  // Quando saiu sozinho, volta ao lugar onde estava
+                  const voltar = localStorage.getItem('visualhost_voltar_a') || localStorage.getItem('visualhost_ultimo_caminho');
+                  if (voltar && voltar !== '/' && voltar !== '/vhost' && voltar !== '/admin/menu') {
+                    destino = voltar.replace(/^\/vhost/, '');
+                  } else if (inicial.current && inicial.current !== '/') {
+                    destino = inicial.current;
+                  }
+                }
+              } catch {}
+              inicial.current = destino;
               // usa a leitura guardada no servidor (abre logo); se tiver mais de 1 min, atualiza por trás, sem roda
               carregar().then(() => {
                 const lido = ref.current.carga === 'ok' && ref.current.lidoEm ? Date.parse(ref.current.lidoEm) : 0;
