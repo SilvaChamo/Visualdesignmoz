@@ -36,8 +36,16 @@ export function instalarContador() {
   w.__vhFetch = original;
   window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
     const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
-    const cab = new Headers(init?.headers || (input instanceof Request ? input.headers : undefined));
-    if (!/^(\/|https?:\/\/[^/]*\/)api\//.test(url.replace(location.origin, '')) || cab.has('x-vh-fundo')) return original(input, init);
+    const pathname = url.replace(location.origin, '');
+    const cab = new Headers(init?.headers || (typeof input === 'object' && input && 'headers' in input ? (input as Request).headers : undefined));
+    if (
+      !/^(\/|https?:\/\/[^/]*\/)api\//.test(pathname) ||
+      cab.has('x-vh-fundo') ||
+      pathname.includes('system-status') ||
+      pathname.includes('/api/vhost/tema')
+    ) {
+      return original(input, init);
+    }
     const fim = atividadeComeca();
     return original(input, init).finally(fim);
   };

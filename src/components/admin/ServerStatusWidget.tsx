@@ -397,7 +397,7 @@ function useSystemStatus() {
   const fetchStatus = useCallback(async () => {
     inFlight.current += 1;
     try {
-      const res = await fetch('/api/admin/system-status', { cache: 'no-store' });
+      const res = await fetch('/api/admin/system-status', { cache: 'no-store', headers: { 'x-vh-fundo': '1' } });
       if (!res.ok) throw new Error('Falha ao carregar métricas');
       const json = await res.json();
       setData(json);

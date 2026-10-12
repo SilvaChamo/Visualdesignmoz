@@ -269,7 +269,26 @@ export function VisualHostApp({ temSessao = true }: { temSessao?: boolean }) {
     if (Date.now() - recusadoEm.current < 400) return;
     setToastMsg({ text: translate(ref.current.lang, msg), on: true });
     clearTimeout(toastTimer.current);
-    toastTimer.current = setTimeout(() => setToastMsg((m) => ({ ...m, on: false })), 2200);
+    toastTimer.current = setTimeout(() => setToastMsg((m) => ({ ...m, on: false })), 5500);
+  }, []);
+
+  const pausarToast = useCallback(() => {
+    if (toastTimer.current) {
+      clearTimeout(toastTimer.current);
+      toastTimer.current = undefined;
+    }
+  }, []);
+
+  const retomarToast = useCallback(() => {
+    if (toastMsg.on) {
+      clearTimeout(toastTimer.current);
+      toastTimer.current = setTimeout(() => setToastMsg((m) => ({ ...m, on: false })), 4000);
+    }
+  }, [toastMsg.on]);
+
+  const fecharToast = useCallback(() => {
+    clearTimeout(toastTimer.current);
+    setToastMsg((m) => ({ ...m, on: false }));
   }, []);
 
   const closeM = useCallback(() => setModal(null), []);
@@ -348,11 +367,18 @@ export function VisualHostApp({ temSessao = true }: { temSessao?: boolean }) {
             fim();
           }
         } else {
-          const res = await fetch('/api/vhost/dados' + (fresco ? '?fresco=1' : ''), { cache: 'no-store' });
-          r = res;
-          j = await res.json().catch(() => ({}));
+          const ctrl = new AbortController();
+          const tid = setTimeout(() => ctrl.abort(), 14000);
+          try {
+            const res = await fetch('/api/vhost/dados' + (fresco ? '?fresco=1' : ''), { cache: 'no-store', signal: ctrl.signal });
+            r = res;
+            j = await res.json().catch(() => ({}));
+          } finally {
+            clearTimeout(tid);
+          }
         }
         if (!r.ok) {
+          setAEntrar(false);
           commit({ ...ref.current, carga: 'erro', erro: { msg: j.erro || 'Não foi possível ler o servidor.', codigo: r.status } });
           return;
         }
@@ -392,7 +418,8 @@ export function VisualHostApp({ temSessao = true }: { temSessao?: boolean }) {
         commit(n);
         if (primeira || n.path !== caminhoDesejado) pushUrl(n.path, true);
       } catch {
-        commit({ ...ref.current, carga: 'erro', erro: { msg: 'Sem ligação ao site. Verifique a internet e tente de novo.', codigo: 0 } });
+        setAEntrar(false);
+        commit({ ...ref.current, carga: 'erro', erro: { msg: 'O servidor demorou a responder. Verifique a ligação e tente de novo.', codigo: 0 } });
       }
     },
     [commit],
@@ -835,7 +862,12 @@ export function VisualHostApp({ temSessao = true }: { temSessao?: boolean }) {
     const aviso =
       er?.codigo === 403
           ? { fa: 'fa-user-lock', titulo: er.msg, texto: 'Se acha que é um engano, fale connosco: ligamos a sua conta ao servidor.', botao: <a className="btn g" href="/"><i className="fa-solid fa-arrow-left" />{t('Voltar ao site')}</a> }
-          : { fa: 'fa-plug-circle-xmark', titulo: er?.msg || '', texto: 'O servidor não respondeu a tempo. Os seus dados estão seguros.', botao: <button className="btn r" onClick={() => { commit({ ...ref.current, carga: 'a-carregar', erro: null }); carregar(); }}><i className="fa-solid fa-rotate" />{t('Tentar de novo')}</button> };
+          : { fa: 'fa-plug-circle-xmark', titulo: er?.msg || '', texto: 'O servidor não respondeu a tempo. Os seus dados estão seguros.', botao: (
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+                <button className="btn r" onClick={() => { commit({ ...ref.current, carga: 'a-carregar', erro: null }); carregar(); }}><i className="fa-solid fa-rotate" />{t('Tentar de novo')}</button>
+                <button className="btn g" onClick={() => { setAEntrar(false); setSemSessao(true); commit({ ...ref.current, carga: 'a-carregar', erro: null }); }}><i className="fa-solid fa-arrow-left" />{t('Voltar à entrada')}</button>
+              </div>
+            ) };
     return (
       <div className="vh" data-theme={st.theme} style={themeStyles as React.CSSProperties} lang="pt-PT" suppressHydrationWarning>
         <BarraTopo />
@@ -1056,8 +1088,26 @@ export function VisualHostApp({ temSessao = true }: { temSessao?: boolean }) {
             {modal}
           </div>
         </div>
-        <div className={'toast' + (toastMsg.on ? ' on' : '')} id="toast">
-          {toastMsg.text}
+        <div
+          className={'toast' + (toastMsg.on ? ' on' : '')}
+          id="toast"
+          onMouseEnter={pausarToast}
+          onMouseLeave={retomarToast}
+          onTouchStart={pausarToast}
+          onTouchEnd={retomarToast}
+        >
+          <span>{toastMsg.text}</span>
+          {toastMsg.on && (
+            <button
+              type="button"
+              className="toast-fechar"
+              onClick={fecharToast}
+              title={t('Fechar notificação')}
+              aria-label="Fechar"
+            >
+              &times;
+            </button>
+          )}
         </div>
 
         {/* Pequenos menus da barra de ícones (idioma) e da conta */}

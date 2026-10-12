@@ -128,14 +128,10 @@ export async function GET(req: NextRequest) {
     if (out.includes('SEM_CAIXA')) return NextResponse.json({ erro: 'Essa caixa não existe.' }, { status: 404 });
     if (perguntar) webmailAqui.set(d, { sim: out.includes('AQUI'), ate: Date.now() + 10 * 60_000 });
     const aqui = webmailAqui.get(d)?.sim;
-    const webmailHost = (d === 'visualdesignmoz.com' || d.endsWith('.visualdesignmoz.com'))
-      ? 'webmail.visualdesignmoz.com'
-      : (aqui ? d : `webmail.${d}`);
-    const fallbackBase = aqui ? base : `https://${webmailHost}/`;
-    // entrada direta: no domínio, se já abre aqui; senão no endereço do painel (que também publica o Roundcube)
-    if (out.includes('FEITO')) return ir((aqui ? base : fallbackBase) + '?_vhsso=' + n);
-    // sem entrada direta: o webmail do domínio, com o endereço já escrito
-    return ir(fallbackBase + (fallbackBase.endsWith('/webmail/') ? '' : '') + '?_user=' + encodeURIComponent(`${wm}@${d}`));
+    // entrada direta: no domínio, se já abre aqui; senão no endereço do painel local (Roundcube do servidor atual)
+    if (out.includes('FEITO')) return ir((aqui ? base : '/webmail/') + '?_vhsso=' + n);
+    // sem entrada direta: o webmail com a caixa pré-preenchida
+    return ir((aqui ? base : '/webmail/') + '?_user=' + encodeURIComponent(`${wm}@${d}`));
   }
 
   // texto da resposta automática de uma caixa

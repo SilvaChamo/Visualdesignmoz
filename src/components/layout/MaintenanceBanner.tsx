@@ -13,7 +13,7 @@ export function MaintenanceBanner() {
   useEffect(() => {
     const checkMaintenance = async () => {
       try {
-        const res = await fetch('/api/system-status', { cache: 'no-store' });
+        const res = await fetch('/api/system-status', { cache: 'no-store', headers: { 'x-vh-fundo': '1' } });
         if (!res.ok) return;
         const data = await res.json();
         if (data.maintenance) {

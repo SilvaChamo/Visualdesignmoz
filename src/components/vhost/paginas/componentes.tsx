@@ -142,7 +142,19 @@ export function Funcionalidades({ campos, feats, set }: { campos: Campo[]; feats
 // ---------- Separadores ----------
 /** No topo da página ficam numa barra de ponta a ponta do cartão principal (como em Domínios); `sub` = separadores
  *  dentro de um separador (só sublinhados, para não haver duas barras seguidas) */
-export function Tabs<K extends string>({ tabs, on, onChange, sub }: { tabs: [K, string, string?][]; on: K; onChange: (k: K) => void; sub?: boolean }) {
+export function Tabs<K extends string>({
+  tabs,
+  on,
+  onChange,
+  sub,
+  extra,
+}: {
+  tabs: [K, string, string?][];
+  on: K;
+  onChange: (k: K) => void;
+  sub?: boolean;
+  extra?: ReactNode;
+}) {
   const { t } = useVH();
   return (
     <div className={'ptabs' + (sub ? ' sub' : '')} role="tablist">
@@ -152,6 +164,7 @@ export function Tabs<K extends string>({ tabs, on, onChange, sub }: { tabs: [K, 
           {t(label)}
         </button>
       ))}
+      {extra && <div className="ptabs-extra">{extra}</div>}
     </div>
   );
 }
