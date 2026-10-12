@@ -8,6 +8,10 @@
 
 import { createClient } from '@supabase/supabase-js';
 
+/** DESLIGADO temporariamente a pedido do Silva (13/10/2026, madrugada): o bloqueio de 15 min impedia-o de entrar
+ *  enquanto se corrigia o login. Voltar a pôr `true` quando o login estiver estável. */
+export const BLOQUEIO_POR_TENTATIVAS_ATIVO = false;
+
 const MAX_ATTEMPTS = 5;
 const WINDOW_SECONDS = 5 * 60;
 const BLOCK_SECONDS = 15 * 60;
@@ -125,6 +129,7 @@ export function loginRateLimitKey(request: Request, email: string): string {
 export async function checkAndRegisterLoginAttempt(
   key: string,
 ): Promise<{ allowed: boolean; retryAfterSeconds: number }> {
+  if (!BLOQUEIO_POR_TENTATIVAS_ATIVO) return { allowed: true, retryAfterSeconds: 0 };
   const admin = adminClient();
   if (!admin) return { allowed: true, retryAfterSeconds: 0 };
 

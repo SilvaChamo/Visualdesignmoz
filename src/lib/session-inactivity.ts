@@ -27,7 +27,12 @@ export function getIdleMs(): number {
   return Date.now() - Number(raw)
 }
 
+/** DESLIGADO temporariamente a pedido do Silva (13/10/2026, madrugada): nenhuma sessão termina por inatividade
+ *  (site e painel /vhost). Voltar a pôr `true` no fim. */
+export const SAIR_POR_INATIVIDADE_ATIVO = false
+
 export function isIdleBeyond(limitMs: number): boolean {
+  if (!SAIR_POR_INATIVIDADE_ATIVO) return false
   return getIdleMs() >= limitMs
 }
 

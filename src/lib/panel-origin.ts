@@ -161,6 +161,8 @@ export function getSharedAuthCookieDomain(_hostname?: string): string | undefine
   return undefined
 }
 
+const SESSAO_CURTA_ATIVA = false
+
 export function applySharedAuthCookieOptions(
   options: CookieOptions = {},
   hostname?: string,
@@ -168,10 +170,14 @@ export function applySharedAuthCookieOptions(
 ): CookieOptions {
   const domain = getSharedAuthCookieDomain(hostname)
 
-  const maxAge =
-    role === 'admin'
+  // Prazo curto do cookie (6 h admin, 1 h resto) DESLIGADO temporariamente a pedido do Silva (13/10/2026): fica o
+  // prazo que o Supabase pede (e o maxAge: 0 de quem apaga o cookie, que antes era trocado por 1 h). Voltar a pôr
+  // SESSAO_CURTA_ATIVA = true no fim.
+  const maxAge = SESSAO_CURTA_ATIVA
+    ? role === 'admin'
       ? 60 * 60 * 6 // 6 hours for admin
       : 60 * 60 * 1 // 1 hour for others
+    : (options.maxAge ?? 400 * 24 * 60 * 60) // o mesmo prazo por omissão do @supabase/ssr
 
   const combinedOptions: CookieOptions = {
     ...options,
