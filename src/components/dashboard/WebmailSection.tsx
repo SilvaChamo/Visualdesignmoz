@@ -1041,19 +1041,17 @@ export function WebmailSection({
 
     try {
       const password = await getPasswordForAccount(account)
+      const email = account.email
+      const domain = email.includes('@') ? email.split('@')[1] : ''
+
       if (!password) {
-        newWindow.document.body.innerHTML = `
-          <div style="text-align:center; padding: 2rem; font-family: sans-serif; background: #0f172a; color: #ef4444; height: 100vh; display: flex; align-items: center; justify-content: center;">
-            <div style="border: 1px solid rgba(239, 68, 68, 0.2); padding: 2rem; border-radius: 16px; background: rgba(239, 68, 68, 0.05);">
-              <p style="font-weight: bold; margin-bottom: 0.5rem;">Erro de Autenticação</p>
-              <p style="font-size: 0.9rem; color: rgba(255,255,255,0.7);">Não foi possível obter as credenciais para a conta ${account.email}.</p>
-            </div>
-          </div>
-        `
+        const fallbackUrl = domain
+          ? `https://${domain}/webmail/?_user=${encodeURIComponent(email)}`
+          : `/api/roundcube-sso?email=${encodeURIComponent(email)}`
+        newWindow.location.href = fallbackUrl
         return
       }
 
-      const email = account.email
       const url = `/api/roundcube-sso?email=${encodeURIComponent(email)}&pass=${encodeURIComponent(password)}`
       newWindow.location.href = url
     } catch (e) {

@@ -123,7 +123,7 @@ function ListaDominios({ abaDom = 'meus' }: { abaDom?: 'meus' | 'registar' }) {
             <i className={r.soEmail ? 'fa-solid fa-envelope' : r.wp ? 'fa-brands fa-wordpress' : 'fa-solid fa-globe'} />
           </div>
           <div>
-            <a className="lk lk-dom" style={{ display: 'block' }} onClick={() => nav('/utilizador/dominios/' + encodeURIComponent(r.name))}>
+            <a className="lk lk-dom" style={{ display: 'block' }} onClick={() => nav('/' + vh.s.level + '/dominios/' + encodeURIComponent(r.name))}>
               {r.name}
             </a>
             <span>{r.soEmail ? t('Só e-mail') : r.wp ? 'WordPress' : t('Site')}</span>
@@ -149,7 +149,7 @@ function ListaDominios({ abaDom = 'meus' }: { abaDom?: 'meus' | 'registar' }) {
           ['registar', 'Registar domínio', 'fa-cart-shopping'],
         ]}
         on={abaDom}
-        onChange={(k) => nav(k === 'registar' ? '/utilizador/dominios/registar' : '/utilizador/dominios')}
+        onChange={(k) => nav(k === 'registar' ? '/' + vh.s.level + '/dominios/registar' : '/' + vh.s.level + '/dominios')}
       />
 
       {abaDom === 'registar' ? (
@@ -188,7 +188,7 @@ function ListaDominios({ abaDom = 'meus' }: { abaDom?: 'meus' | 'registar' }) {
                 title={t('Escolher este domínio no seletor')}
                 onClick={() => {
                   setDominio(r.name);
-                  nav('/utilizador/dominios/' + encodeURIComponent(r.name));
+                  nav('/' + vh.s.level + '/dominios/' + encodeURIComponent(r.name));
                 }}
               >
                 <i className="fa-solid fa-gear" />
@@ -213,7 +213,7 @@ function NovoDominio() {
     if (!/^([a-z0-9-]+\.)+[a-z]{2,}$/.test(n)) return vh.toast('Escreva um domínio válido (ex.: empresa.co.mz)');
     if (await noServidor(vh, { acao: 'dominio-criar', dominio: n, ssl }, 'Domínio ' + n + ' criado')) {
       vh.setDominio(n);
-      nav('/utilizador/dominios/' + encodeURIComponent(n));
+      nav('/' + vh.s.level + '/dominios/' + encodeURIComponent(n));
     }
   };
   return (
@@ -222,7 +222,7 @@ function NovoDominio() {
       desc="O site fica no servidor; o DNS do domínio tem de apontar para cá para o site abrir"
       foot={
         <>
-          <button className="btn g" onClick={() => nav('/utilizador/dominios')}>
+          <button className="btn g" onClick={() => nav('/' + vh.s.level + '/dominios')}>
             {t('Cancelar')}
           </button>
           <button className="btn r" onClick={criar}>
@@ -435,7 +435,7 @@ function VerDominio({ d }: { d: string }) {
                 titulo="Apagar domínio?"
                 texto={'Vai apagar ' + d + ' do servidor, com os ficheiros do site. Não se pode desfazer.'}
                 ok="Apagar"
-                onOk={async () => (await noServidor(vh, { acao: 'dominio-apagar', dominio: d }, 'Domínio apagado')) && nav('/utilizador/dominios')}
+                onOk={async () => (await noServidor(vh, { acao: 'dominio-apagar', dominio: d }, 'Domínio apagado')) && nav('/' + vh.s.level + '/dominios')}
               />,
             )
           }
@@ -581,14 +581,14 @@ function VerDominio({ d }: { d: string }) {
 export const dominios: ScreenFn = (vh) => {
   const [sub] = vh.s.sub;
   const novoBtn = (
-    <button className="btn r" onClick={() => vh.nav('/utilizador/dominios/novo')}>
+    <button className="btn r" onClick={() => vh.nav('/' + vh.s.level + '/dominios/novo')}>
       <i className="fa-solid fa-plus" />
       {vh.t('Adicionar domínio')}
     </button>
   );
-  if (sub === 'registar') return { title: 'Domínios', actions: novoBtn, crumbs: [{ t: 'Domínios', path: '/utilizador/dominios' }, { t: 'Registar domínio' }], body: <ListaDominios abaDom="registar" /> };
-  if (sub === 'novo') return { title: 'Adicionar domínio', crumbs: [{ t: 'Domínios', path: '/utilizador/dominios' }, { t: 'Adicionar domínio' }], body: <NovoDominio /> };
-  if (sub) return { title: sub, desc: 'Resumo e atalhos do domínio', crumbs: [{ t: 'Domínios', path: '/utilizador/dominios' }, { t: sub }], dominioUrl: { d: sub, ir: (n) => '/utilizador/dominios/' + n }, body: <VerDominio d={sub} /> };
+  if (sub === 'registar') return { title: 'Domínios', actions: novoBtn, crumbs: [{ t: 'Domínios', path: '/' + vh.s.level + '/dominios' }, { t: 'Registar domínio' }], body: <ListaDominios abaDom="registar" /> };
+  if (sub === 'novo') return { title: 'Adicionar domínio', crumbs: [{ t: 'Domínios', path: '/' + vh.s.level + '/dominios' }, { t: 'Adicionar domínio' }], body: <NovoDominio /> };
+  if (sub) return { title: sub, desc: 'Resumo e atalhos do domínio', crumbs: [{ t: 'Domínios', path: '/' + vh.s.level + '/dominios' }, { t: sub }], dominioUrl: { d: sub, ir: (n) => '/' + vh.s.level + '/dominios/' + n }, body: <VerDominio d={sub} /> };
   return { title: 'Domínios', actions: novoBtn, body: <ListaDominios /> };
 };
 

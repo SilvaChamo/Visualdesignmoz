@@ -525,7 +525,7 @@ export function UsersTable({ rows, showCreator = true }: { rows: [string, Accoun
 }
 
 export function DomTable({ filter = '' }: { filter?: string }) {
-  const { a, t, nav, setDominio } = useVH();
+  const { a, s, t, nav, setDominio } = useVH();
   const rows = a.domains.filter((d) => d.name.includes(filter));
   return (
     <div className="tbl">
@@ -555,7 +555,7 @@ export function DomTable({ filter = '' }: { filter?: string }) {
                         style={{ cursor: 'pointer' }}
                         onClick={() => {
                           setDominio(d.name);
-                          nav('/utilizador/dominios/' + encodeURIComponent(d.name));
+                          nav('/' + (s.level || 'utilizador') + '/dominios/' + encodeURIComponent(d.name));
                         }}
                       >
                         {d.name}
@@ -574,7 +574,7 @@ export function DomTable({ filter = '' }: { filter?: string }) {
                     className="btn g sm"
                     onClick={() => {
                       setDominio(d.name);
-                      nav('/utilizador/dominios/' + encodeURIComponent(d.name));
+                      nav('/' + (s.level || 'utilizador') + '/dominios/' + encodeURIComponent(d.name));
                     }}
                   >
                     {t('Gerir')}
