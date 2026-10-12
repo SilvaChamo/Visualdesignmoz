@@ -30,6 +30,9 @@ const PUBLIC_MARKETING_PREFIXES = [
   '/faq',
 ] as const
 
+/** Endereços que são só do painel: a raiz abre o /vhost */
+const PANEL_HOSTS = new Set(['host.visualdesignmoz.com'])
+
 function isPublicMarketingPath(pathname: string): boolean {
   if (pathname === '/') return true
   return PUBLIC_MARKETING_PREFIXES.some(
@@ -48,6 +51,18 @@ export async function proxy(request: NextRequest) {
     const canonical = request.nextUrl.clone()
     canonical.hostname = 'localhost'
     return NextResponse.redirect(canonical, 308)
+  }
+
+  // host.visualdesignmoz.com é o endereço do painel (pedido do Silva, 13/10/2026) — também na porta 2026, a do
+  // DirectAdmin no Hetzner, que os clientes já usavam: a página inicial e o /login abrem logo o painel VisualHost
+  if (PANEL_HOSTS.has(hostOnly) && (pathname === '/' || pathname === PUBLIC_LOGIN_ENTRY)) {
+    // nome público com a porta (getRequestHostname tira-a) e https sempre: atrás do nginx o pedido chega como
+    // http://localhost:3002
+    const publico = (request.headers.get('x-forwarded-host') || request.headers.get('host') || hostOnly)
+      .split(',')[0]
+      .trim()
+      .toLowerCase()
+    return NextResponse.redirect(new URL(`/vhost${request.nextUrl.search}`, `https://${publico}`), 307)
   }
 
   // www → apex em login/OAuth (PKCE exige o mesmo host no início e no callback)
