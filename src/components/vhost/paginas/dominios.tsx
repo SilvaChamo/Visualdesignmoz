@@ -669,18 +669,42 @@ function DnsForm({ d, fonte, r, onFeito }: { d: string; fonte: Detalhe['dns']['f
   const vh = useVH();
   const { t, closeM } = vh;
   const [f, setF] = useState({ tipo: r?.tipo || 'A', nome: r?.nome || '', ttl: String(r ? (r.ttl === 1 ? 3600 : r.ttl) : 3600), valor: r?.valor || '', prio: r?.prio || '10' });
+  const [txtLinhas, setTxtLinhas] = useState<string[]>(r?.tipo === 'TXT' ? [r.valor] : ['']);
   const tipos = TIPOS_DNS.filter((tp) => fonte === 'hestia' || NA_CLOUDFLARE.includes(tp));
+
   const guardar = async () => {
-    if (!f.valor.trim()) return vh.toast('Escreva o valor do registo');
+    if (f.tipo === 'TXT' && !r) {
+      const valoresValidos = txtLinhas.map((x) => x.trim()).filter(Boolean);
+      if (valoresValidos.length === 0) return vh.toast(t('Escreva pelo menos um valor TXT'));
+      closeM();
+      let okCount = 0;
+      for (const val of valoresValidos) {
+        const ok = await noServidor(vh, { acao: 'dns-criar', dominio: d, tipo: 'TXT', nome: f.nome, ttl: f.ttl, valor: val }, t('Registo TXT adicionado'), false);
+        if (ok) okCount++;
+      }
+      if (okCount > 0) onFeito();
+      return;
+    }
+
+    const valorFinal = f.tipo === 'TXT' ? (txtLinhas[0] || f.valor) : f.valor;
+    if (!valorFinal.trim()) return vh.toast(t('Escreva o valor do registo'));
     closeM();
-    if (await noServidor(vh, { acao: r ? 'dns-editar' : 'dns-criar', dominio: d, ...(r ? { id: r.id } : {}), ...f }, r ? 'Registo alterado' : 'Registo ' + f.tipo + ' adicionado', false)) onFeito();
+    if (await noServidor(vh, { acao: r ? 'dns-editar' : 'dns-criar', dominio: d, ...(r ? { id: r.id } : {}), ...f, valor: valorFinal }, r ? t('Registo alterado') : t('Registo ') + f.tipo + t(' adicionado'), false)) onFeito();
   };
   return (
     <>
       <h3>{t(r ? 'Editar registo' : 'Adicionar registo')}</h3>
       <div className="f">
         <label>{t('Tipo')}</label>
-        <select value={f.tipo} disabled={!!r} onChange={(e) => setF({ ...f, tipo: e.target.value })}>
+        <select
+          value={f.tipo}
+          disabled={!!r}
+          onChange={(e) => {
+            const novoTipo = e.target.value;
+            setF({ ...f, tipo: novoTipo });
+            if (novoTipo === 'TXT' && txtLinhas.length === 0) setTxtLinhas(['']);
+          }}
+        >
           {tipos.map((tp) => (
             <option key={tp}>{tp}</option>
           ))}
@@ -700,10 +724,60 @@ function DnsForm({ d, fonte, r, onFeito }: { d: string; fonte: Detalhe['dns']['f
           <input value={f.prio} onChange={(e) => setF({ ...f, prio: e.target.value })} inputMode="numeric" />
         </div>
       )}
-      <div className="f">
-        <label>{t(f.tipo === 'MX' ? 'Destino' : 'Valor')}</label>
-        <input value={f.valor} onChange={(e) => setF({ ...f, valor: e.target.value })} placeholder={f.tipo === 'A' ? 'ex.: 169.58.148.144' : f.tipo === 'MX' ? 'ex.: mail.' + d : ''} autoFocus />
-      </div>
+      {f.tipo === 'TXT' ? (
+        <div className="f">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+            <label style={{ margin: 0 }}>{t('Valor TXT')}</label>
+            {!r && (
+              <button
+                type="button"
+                className="btn g sm"
+                style={{ fontSize: 12, padding: '2px 8px', height: 'auto' }}
+                onClick={() => setTxtLinhas([...txtLinhas, ''])}
+              >
+                <i className="fa-solid fa-plus" style={{ marginRight: 4 }} />
+                {t('Adicionar outro campo TXT')}
+              </button>
+            )}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {txtLinhas.map((linha, idx) => (
+              <div key={idx} style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
+                <textarea
+                  className="inp dns-txt-area"
+                  value={linha}
+                  onChange={(e) => {
+                    const copia = [...txtLinhas];
+                    copia[idx] = e.target.value;
+                    setTxtLinhas(copia);
+                    if (idx === 0) setF({ ...f, valor: e.target.value });
+                  }}
+                  placeholder="ex.: v=spf1 include:spf.brevo.com ip4:169.58.148.144 ~all"
+                  rows={3}
+                  style={{ width: '100%', minHeight: 68, resize: 'vertical', fontFamily: 'monospace', fontSize: 13 }}
+                  autoFocus={idx === 0}
+                />
+                {!r && txtLinhas.length > 1 && (
+                  <button
+                    type="button"
+                    className="btn g sm"
+                    style={{ padding: '6px 8px', color: 'var(--red)', marginTop: 2 }}
+                    title={t('Remover este campo')}
+                    onClick={() => setTxtLinhas(txtLinhas.filter((_, i) => i !== idx))}
+                  >
+                    <i className="fa-solid fa-trash-can" />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="f">
+          <label>{t(f.tipo === 'MX' ? 'Destino' : 'Valor')}</label>
+          <input value={f.valor} onChange={(e) => setF({ ...f, valor: e.target.value })} placeholder={f.tipo === 'A' ? 'ex.: 169.58.148.144' : f.tipo === 'MX' ? 'ex.: mail.' + d : ''} autoFocus />
+        </div>
+      )}
       <div className="mfoot">
         <button className="btn g" onClick={closeM}>
           {t('Cancelar')}
@@ -906,17 +980,32 @@ function Dns() {
                           style={{ width: 65, flexShrink: 0 }}
                         />
                       )}
-                      <input
-                        className="inp sm dns-inline-inp"
-                        value={fEdit.valor}
-                        onChange={(e) => setFEdit({ ...fEdit, valor: e.target.value })}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') guardarInline(r);
-                          if (e.key === 'Escape') cancelarEdicao();
-                        }}
-                        placeholder={r.tipo === 'A' ? 'ex.: 169.58.148.144' : r.tipo === 'MX' ? 'ex.: mail.' + dns.zona : ''}
-                        style={{ width: '100%', minWidth: 160 }}
-                      />
+                      {r.tipo === 'TXT' ? (
+                        <textarea
+                          className="inp sm dns-inline-inp dns-txt-area"
+                          value={fEdit.valor}
+                          onChange={(e) => setFEdit({ ...fEdit, valor: e.target.value })}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) guardarInline(r);
+                            if (e.key === 'Escape') cancelarEdicao();
+                          }}
+                          placeholder="v=spf1 ... ou texto"
+                          rows={2}
+                          style={{ width: '100%', minWidth: 200, minHeight: 52, resize: 'vertical', fontFamily: 'monospace', fontSize: 12.5 }}
+                        />
+                      ) : (
+                        <input
+                          className="inp sm dns-inline-inp"
+                          value={fEdit.valor}
+                          onChange={(e) => setFEdit({ ...fEdit, valor: e.target.value })}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') guardarInline(r);
+                            if (e.key === 'Escape') cancelarEdicao();
+                          }}
+                          placeholder={r.tipo === 'A' ? 'ex.: 169.58.148.144' : r.tipo === 'MX' ? 'ex.: mail.' + dns.zona : ''}
+                          style={{ width: '100%', minWidth: 160 }}
+                        />
+                      )}
                     </div>
                   );
                 }
@@ -952,7 +1041,7 @@ function Dns() {
             return (
               <span className="dns-acoes">
                 <button
-                  className="btn sm btn-ed"
+                  className="btn sm btn-ed btn-dns-edit"
                   disabled={!editavel(r)}
                   title={editavel(r) ? '' : t('Este tipo muda-se na Cloudflare')}
                   onClick={() => iniciarEdicao(r)}

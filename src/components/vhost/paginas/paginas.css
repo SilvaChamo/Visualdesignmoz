@@ -212,17 +212,23 @@
 .vh[data-theme=dark] .dns-tipo.t-TXT{background:rgba(168,85,247,.16);color:#d8b4fe}
 .vh[data-theme=dark] .dns-tipo.t-SRV{background:rgba(236,72,153,.16);color:#f9a8d4}
 .vh .dns-acoes{display:inline-flex;gap:6px}
-.vh .dns-acoes .btn-ed,.vh #dns .btn-ed{background:transparent;border:1px solid #16a34a;color:#16a34a}
-.vh .dns-acoes .btn-ed:hover,.vh #dns .btn-ed:hover{background:rgba(22,163,74,.08)}
-.vh .dns-acoes .btn-ed:disabled,.vh #dns .btn-ed:disabled{opacity:.45;cursor:not-allowed;border-color:var(--line);color:var(--muted);background:transparent}
+.vh .btn.btn-dns-edit,.vh .dns-acoes .btn-ed,.vh #dns .btn-ed{background:transparent !important;border:1px solid #16a34a !important;color:#16a34a !important}
+.vh .btn.btn-dns-edit i,.vh .dns-acoes .btn-ed i,.vh #dns .btn-ed i{color:#16a34a !important}
+.vh .btn.btn-dns-edit:hover,.vh .dns-acoes .btn-ed:hover,.vh #dns .btn-ed:hover{background:rgba(22,163,74,.1) !important;border-color:#15803d !important;color:#15803d !important}
+.vh .btn.btn-dns-edit:disabled,.vh .dns-acoes .btn-ed:disabled,.vh #dns .btn-ed:disabled{opacity:.45 !important;cursor:not-allowed !important;border-color:var(--line) !important;color:var(--muted) !important;background:transparent !important}
+.vh .btn.btn-dns-edit:disabled i,.vh .dns-acoes .btn-ed:disabled i,.vh #dns .btn-ed:disabled i{color:var(--muted) !important}
 .vh .dns-acoes .btn-save,.vh #dns .btn-save{background:#16a34a;border:1px solid #16a34a;color:#fff}
 .vh .dns-acoes .btn-save:hover,.vh #dns .btn-save:hover{background:#15803d;border-color:#15803d}
-.vh[data-theme=dark] .dns-acoes .btn-ed,.vh[data-theme=dark] #dns .btn-ed{border-color:#22c55e;color:#4ade80}
-.vh[data-theme=dark] .dns-acoes .btn-ed:hover,.vh[data-theme=dark] #dns .btn-ed:hover{background:rgba(34,197,94,.12)}
+.vh[data-theme=dark] .btn.btn-dns-edit,.vh[data-theme=dark] .dns-acoes .btn-ed,.vh[data-theme=dark] #dns .btn-ed{background:transparent !important;border-color:#22c55e !important;color:#4ade80 !important}
+.vh[data-theme=dark] .btn.btn-dns-edit i,.vh[data-theme=dark] .dns-acoes .btn-ed i,.vh[data-theme=dark] #dns .btn-ed i{color:#4ade80 !important}
+.vh[data-theme=dark] .btn.btn-dns-edit:hover,.vh[data-theme=dark] .dns-acoes .btn-ed:hover,.vh[data-theme=dark] #dns .btn-ed:hover{background:rgba(34,197,94,.14) !important}
 .vh[data-theme=dark] .dns-acoes .btn-save,.vh[data-theme=dark] #dns .btn-save{background:#16a34a;border-color:#16a34a;color:#fff}
 .vh[data-theme=dark] .dns-acoes .btn-save:hover,.vh[data-theme=dark] #dns .btn-save:hover{background:#22c55e;border-color:#22c55e}
 .vh .dns-inline-inp{height:28px;font-size:12.5px;padding:2px 8px;border:1px solid var(--line);border-radius:var(--r);background:var(--card);color:var(--ink)}
-.vh .dns-inline-inp:focus{border-color:#16a34a;outline:none;box-shadow:0 0 0 2px rgba(22,163,74,.18)}
+.vh textarea.dns-inline-inp{height:auto;min-height:52px;resize:vertical;padding:6px 8px}
+.vh .dns-txt-area{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:12.5px;line-height:1.45;padding:6px 10px;resize:vertical;border-radius:var(--r);border:1px solid var(--line);background:var(--card);color:var(--ink)}
+.vh[data-theme=dark] .dns-txt-area{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.14);color:#f3f4f6}
+.vh .dns-inline-inp:focus,.vh .dns-txt-area:focus{border-color:#16a34a;outline:none;box-shadow:0 0 0 2px rgba(22,163,74,.18)}
 .vh .tbl.dt tr.dns-row-editando{background:rgba(22,163,74,.05)}
 .vh[data-theme=dark] .tbl.dt tr.dns-row-editando{background:rgba(34,197,94,.08)}
 .vh .btn.btn-ed{background:transparent;border:1px solid var(--btn,var(--red));color:var(--btn,var(--red))}

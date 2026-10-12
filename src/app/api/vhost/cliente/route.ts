@@ -107,6 +107,51 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true });
   }
 
+  if (corpo.acao === 'renomear-conta') {
+    if (!c.admin) return NextResponse.json({ erro: 'Só o administrador pode renomear uma conta.' }, { status: 403 });
+    const novoNome = limpo(corpo.novoNome, 32).toLowerCase();
+    if (!CONTA_OK.test(novoNome)) return NextResponse.json({ erro: 'O novo nome da conta deve começar por uma letra e ter entre 3 e 30 caracteres (apenas letras minúsculas, números, hífen ou sublinhado).' }, { status: 400 });
+    if (novoNome === c.conta) return NextResponse.json({ erro: 'O novo nome da conta é idêntico ao atual.' }, { status: 400 });
+
+    if (c.srv.users[novoNome]) return NextResponse.json({ erro: 'Já existe uma conta com o nome "' + novoNome + '" no servidor.' }, { status: 409 });
+
+    const { data: jaExisteSb } = await c.sb.from('panel_users').select('username').eq('username', novoNome).maybeSingle();
+    if (jaExisteSb) return NextResponse.json({ erro: 'Já existe um utilizador registado como "' + novoNome + '".' }, { status: 409 });
+
+    const u = c.srv.users[c.conta];
+    const pkg = u?.PACKAGE || 'default';
+    const email = u?.CONTACT || '';
+    const nomeCompleto = u?.NAME || c.conta;
+    const [pNome, ...rNome] = nomeCompleto.split(/\s+/);
+
+    const rAdd = await hestiaCall('v-add-user', [novoNome, 'Tmp#' + Math.random().toString(36).slice(2, 10), email || 'admin@' + novoNome + '.com', pkg, pNome || novoNome, rNome.join(' ') || pNome || novoNome]);
+    if (!rAdd.ok) return NextResponse.json({ erro: 'Não foi possível criar a conta ' + novoNome + ' no servidor: ' + (rAdd.error || 'erro') }, { status: 502 });
+
+    const dominiosWeb = Object.keys(c.srv.web[c.conta] || {});
+    const dominiosMail = Object.keys(c.srv.mail[c.conta] || {});
+    const dominiosDns = Object.keys(c.srv.dns[c.conta] || {});
+    const todosDoms = [...new Set([...dominiosWeb, ...dominiosMail, ...dominiosDns])];
+
+    for (const dom of todosDoms) {
+      await hestiaCall('v-change-domain-owner', [dom, novoNome]);
+    }
+
+    const bds = Object.keys(c.srv.db[c.conta] || {});
+    for (const bd of bds) {
+      await hestiaCall('v-change-database-owner', [bd, novoNome]);
+    }
+
+    await hestiaCall('v-delete-user', [c.conta]);
+
+    await c.sb.from('panel_users').update({ username: novoNome }).eq('username', c.conta);
+    await c.sb.from('panel_sites').update({ owner: novoNome }).eq('owner', c.conta);
+    await c.sb.from('profiles').update({ da_username: novoNome }).eq('da_username', c.conta);
+
+    esquecerLeitura();
+    esquecerRegisto();
+    return NextResponse.json({ ok: true, conta: novoNome });
+  }
+
   if (corpo.acao === 'dados') {
     const novo: Record<string, string> = {};
     for (const k of CAMPOS) if (k in corpo) novo[k] = limpo(corpo[k], k === 'morada' ? 240 : 120);

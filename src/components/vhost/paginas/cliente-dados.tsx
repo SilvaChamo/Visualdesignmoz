@@ -22,7 +22,7 @@ const CAMPOS: [string, string, string][] = [
 
 async function pedir(corpo: Record<string, unknown>) {
   const r = await fetch('/api/vhost/cliente', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corpo) }).catch(() => null);
-  const j = r ? ((await r.json().catch(() => ({}))) as { ok?: boolean; erro?: string; feito?: string[]; avisos?: string[] }) : { erro: 'Sem ligação ao site.' };
+  const j = r ? ((await r.json().catch(() => ({}))) as { ok?: boolean; erro?: string; feito?: string[]; avisos?: string[]; conta?: string }) : { erro: 'Sem ligação ao site.' };
   return { ok: !!r?.ok, ...j };
 }
 
@@ -32,6 +32,8 @@ export function EditarDadosModal({ conta }: { conta: string }) {
   const [d, setD] = useState<Dados | null>(null);
   const [erro, setErro] = useState('');
   const [f, setF] = useState<Record<string, string>>({});
+  const [nomeConta, setNomeConta] = useState(conta);
+  const [aRenomear, setARenomear] = useState(false);
   const [email, setEmail] = useState('');
   const [emailLigar, setEmailLigar] = useState('');
   const [aGravar, setAGravar] = useState(false);
@@ -115,6 +117,40 @@ export function EditarDadosModal({ conta }: { conta: string }) {
                   {t('Ligar')}
                 </button>
               </div>
+            )}
+          </div>
+        </div>
+      )}
+      {d.podeLigar && (
+        <div className="f">
+          <label>{t('Identificador da conta (username)')}</label>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <input
+              style={{ flex: 1 }}
+              value={nomeConta}
+              onChange={(e) => setNomeConta(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, ''))}
+              placeholder={conta}
+              disabled={aRenomear}
+            />
+            {nomeConta !== conta && nomeConta.length >= 3 && (
+              <button
+                type="button"
+                className="btn r sm"
+                style={{ flexShrink: 0 }}
+                disabled={aRenomear}
+                onClick={async () => {
+                  setARenomear(true);
+                  const x = await pedir({ acao: 'renomear-conta', conta, novoNome: nomeConta });
+                  setARenomear(false);
+                  if (!x.ok) return toast(x.erro || 'Erro ao renomear conta.');
+                  toast('Conta renomeada com sucesso para ' + (x.conta || nomeConta));
+                  await vh.recarregar(true);
+                  closeM();
+                }}
+              >
+                <i className="fa-solid fa-pen-to-square" />
+                {t(aRenomear ? 'A renomear…' : 'Renomear conta')}
+              </button>
             )}
           </div>
         </div>
