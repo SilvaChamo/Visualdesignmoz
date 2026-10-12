@@ -724,11 +724,64 @@ function Dns() {
   const x = dominioAtual(vh, false);
   const { det, erro, ler } = useDetalhe(x?.name || '', 'dns');
   const [filtro, setFiltro] = useState('');
+  const [editId, setEditId] = useState<string | null>(null);
+  const [fEdit, setFEdit] = useState<{ nome: string; ttl: string; valor: string; prio: string }>({ nome: '', ttl: '3600', valor: '', prio: '10' });
+  const [aGuardar, setAGuardar] = useState(false);
+
+  useEffect(() => {
+    setEditId(null);
+    setAGuardar(false);
+  }, [x?.name, filtro]);
+
   if (!x) return <SemDominio soSite={false} />;
   if (!det) return <Carregar erro={erro} ler={ler} />;
   const dns = det.dns;
   const rows = dns.registos.filter((r) => !filtro || r.tipo === filtro);
   const editavel = (r: RegistoDns) => dns.fonte === 'hestia' || NA_CLOUDFLARE.includes(r.tipo);
+
+  const iniciarEdicao = (r: RegistoDns) => {
+    setEditId(r.id);
+    setFEdit({
+      nome: r.nome,
+      ttl: String(r.ttl === 1 ? 3600 : r.ttl),
+      valor: r.valor,
+      prio: r.prio || '10',
+    });
+  };
+
+  const cancelarEdicao = () => {
+    setEditId(null);
+    setAGuardar(false);
+  };
+
+  const guardarInline = async (r: RegistoDns) => {
+    if (!fEdit.valor.trim()) {
+      vh.toast(t('Escreva o valor do registo'));
+      return;
+    }
+    setAGuardar(true);
+    const ok = await noServidor(
+      vh,
+      {
+        acao: 'dns-editar',
+        dominio: x.name,
+        id: r.id,
+        tipo: r.tipo,
+        nome: fEdit.nome,
+        ttl: fEdit.ttl,
+        valor: fEdit.valor,
+        prio: fEdit.prio,
+      },
+      t('Registo alterado'),
+      false,
+    );
+    setAGuardar(false);
+    if (ok) {
+      setEditId(null);
+      ler();
+    }
+  };
+
   const remover = (ids: string[], texto: string) =>
     openM(
       <Confirmar
@@ -750,6 +803,7 @@ function Dns() {
           id="dns"
           rows={rows}
           rowKey={(r) => r.id}
+          rowClass={(r) => (r.id === editId ? 'dns-row-editando' : '')}
           search={(r) => r.nome + ' ' + r.valor}
           onRecarregar={ler}
           paginasNaBarra2
@@ -782,23 +836,140 @@ function Dns() {
           }
           empty="Nenhum registo encontrado para este filtro"
           cols={[
-            { k: 'nome', t: 'Nome', sort: (r) => r.nome, cell: (r) => <b>{r.nome === '@' ? dns.zona : r.nome}</b> },
-            { k: 'ttl', t: 'TTL', cell: (r) => (r.ttl === 1 ? 'auto' : r.ttl) },
+            {
+              k: 'nome',
+              t: 'Nome',
+              sort: (r) => r.nome,
+              cell: (r) => {
+                if (editId === r.id) {
+                  return (
+                    <input
+                      className="inp sm dns-inline-inp"
+                      value={fEdit.nome}
+                      onChange={(e) => setFEdit({ ...fEdit, nome: e.target.value })}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') guardarInline(r);
+                        if (e.key === 'Escape') cancelarEdicao();
+                      }}
+                      placeholder={'@ = ' + dns.zona}
+                      style={{ width: '100%', minWidth: 90, maxWidth: 160 }}
+                      autoFocus
+                    />
+                  );
+                }
+                return <b>{r.nome === '@' ? dns.zona : r.nome}</b>;
+              },
+            },
+            {
+              k: 'ttl',
+              t: 'TTL',
+              cell: (r) => {
+                if (editId === r.id) {
+                  return (
+                    <input
+                      className="inp sm dns-inline-inp"
+                      value={fEdit.ttl}
+                      onChange={(e) => setFEdit({ ...fEdit, ttl: e.target.value })}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') guardarInline(r);
+                        if (e.key === 'Escape') cancelarEdicao();
+                      }}
+                      inputMode="numeric"
+                      style={{ width: 75 }}
+                    />
+                  );
+                }
+                return r.ttl === 1 ? 'auto' : r.ttl;
+              },
+            },
             { k: 'tipo', t: 'Tipo', sort: (r) => r.tipo, cell: (r) => <span className={'dns-tipo t-' + r.tipo}>{r.tipo}</span> },
-            { k: 'valor', t: 'Registo', cell: (r) => <span style={{ wordBreak: 'break-all' }}>{valorDns(r)}</span> },
+            {
+              k: 'valor',
+              t: 'Registo',
+              cell: (r) => {
+                if (editId === r.id) {
+                  const isMx = r.tipo === 'MX' || r.tipo === 'SRV';
+                  return (
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center', width: '100%' }}>
+                      {isMx && (
+                        <input
+                          className="inp sm dns-inline-inp"
+                          value={fEdit.prio}
+                          onChange={(e) => setFEdit({ ...fEdit, prio: e.target.value })}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') guardarInline(r);
+                            if (e.key === 'Escape') cancelarEdicao();
+                          }}
+                          placeholder="Prio"
+                          title={t('Prioridade')}
+                          inputMode="numeric"
+                          style={{ width: 65, flexShrink: 0 }}
+                        />
+                      )}
+                      <input
+                        className="inp sm dns-inline-inp"
+                        value={fEdit.valor}
+                        onChange={(e) => setFEdit({ ...fEdit, valor: e.target.value })}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') guardarInline(r);
+                          if (e.key === 'Escape') cancelarEdicao();
+                        }}
+                        placeholder={r.tipo === 'A' ? 'ex.: 169.58.148.144' : r.tipo === 'MX' ? 'ex.: mail.' + dns.zona : ''}
+                        style={{ width: '100%', minWidth: 160 }}
+                      />
+                    </div>
+                  );
+                }
+                return <span style={{ wordBreak: 'break-all' }}>{valorDns(r)}</span>;
+              },
+            },
           ]}
-          actions={(r) => (
-            <span className="dns-acoes">
-              <button className="btn sm btn-ed" disabled={!editavel(r)} title={editavel(r) ? '' : t('Este tipo muda-se na Cloudflare')} onClick={() => openM(<DnsForm d={x.name} fonte={dns.fonte} r={r} onFeito={ler} />)}>
-                <i className="fa-solid fa-pen-to-square" />
-                {t('Editar')}
-              </button>
-              <button className="btn sm btn-rm" onClick={() => remover([r.id], 'Vai remover o registo ' + r.tipo + ' ' + (r.nome === '@' ? dns.zona : r.nome) + '.')}>
-                <i className="fa-solid fa-trash-can" />
-                {t('Remover')}
-              </button>
-            </span>
-          )}
+          actions={(r) => {
+            if (editId === r.id) {
+              return (
+                <span className="dns-acoes">
+                  <button
+                    className="btn sm btn-save"
+                    disabled={aGuardar}
+                    onClick={() => guardarInline(r)}
+                    title={t('Guardar alterações')}
+                  >
+                    <i className="fa-solid fa-check" />
+                    {t('Guardar')}
+                  </button>
+                  <button
+                    className="btn sm g"
+                    disabled={aGuardar}
+                    onClick={cancelarEdicao}
+                    title={t('Cancelar')}
+                  >
+                    <i className="fa-solid fa-xmark" />
+                    {t('Cancelar')}
+                  </button>
+                </span>
+              );
+            }
+            return (
+              <span className="dns-acoes">
+                <button
+                  className="btn sm btn-ed"
+                  disabled={!editavel(r)}
+                  title={editavel(r) ? '' : t('Este tipo muda-se na Cloudflare')}
+                  onClick={() => iniciarEdicao(r)}
+                >
+                  <i className="fa-solid fa-pen-to-square" />
+                  {t('Editar')}
+                </button>
+                <button
+                  className="btn sm btn-rm"
+                  onClick={() => remover([r.id], 'Vai remover o registo ' + r.tipo + ' ' + (r.nome === '@' ? dns.zona : r.nome) + '.')}
+                >
+                  <i className="fa-solid fa-trash-can" />
+                  {t('Remover')}
+                </button>
+              </span>
+            );
+          }}
           bulk={[{ t: 'Remover', fa: 'fa-trash', run: (k) => remover(k, 'Vai remover ' + k.length + ' registo(s) de ' + x.name + '.') }]}
         />
       )}
