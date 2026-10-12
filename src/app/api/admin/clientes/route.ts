@@ -940,6 +940,36 @@ export async function PATCH(req: NextRequest) {
             const provider = await getProviderByUsername(userName);
             const r = await changeHostingAccountPassword(provider, userName, String(password));
             data = { success: r.ok, error: r.error };
+            if (r.ok && SUPABASE_URL && SUPABASE_SERVICE_KEY) {
+              try {
+                const authAdmin = createAdminClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+                const { data: prof } = await authAdmin
+                  .from('profiles')
+                  .select('id, user_id, email')
+                  .or(`da_username.eq.${userName},name.eq.${userName}`)
+                  .maybeSingle();
+                let authUserId = prof?.user_id || prof?.id || pwdRow?.auth_user_id;
+                if (!authUserId) {
+                  const { data: puRow } = await authAdmin
+                    .from('panel_users')
+                    .select('auth_user_id, email')
+                    .eq('username', userName)
+                    .maybeSingle();
+                  if (puRow?.auth_user_id) authUserId = puRow.auth_user_id;
+                }
+                if (authUserId) {
+                  await authAdmin.auth.admin.updateUserById(String(authUserId), {
+                    password: String(password),
+                  });
+                }
+                const { encryptDaSecret } = await import('@/lib/da-credential-store');
+                const enc = encryptDaSecret(String(password));
+                await authAdmin.from('profiles').update({ da_password_encrypted: enc }).or(`da_username.eq.${userName},name.eq.${userName}`);
+                await authAdmin.from('panel_users').update({ da_password_encrypted: enc }).eq('username', userName);
+              } catch (syncErr) {
+                console.error('[admin/clientes/changePassword] Erro ao sincronizar com Supabase:', syncErr);
+              }
+            }
           }
         }
         break;

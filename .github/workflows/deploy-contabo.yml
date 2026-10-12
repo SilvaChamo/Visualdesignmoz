@@ -131,6 +131,10 @@ jobs:
             set_env_var NEXT_PUBLIC_SUPABASE_URL "${{ secrets.CONTABO_SUPABASE_URL }}"
             set_env_var NEXT_PUBLIC_SUPABASE_ANON_KEY "${{ secrets.SUPABASE_CONTABO_ANON_KEY }}"
             set_env_var SUPABASE_SERVICE_ROLE_KEY "${{ secrets.SUPABASE_CONTABO_SERVICE_ROLE_KEY }}"
+            # Segredos antigos com que ainda há passwords cifradas (LEGACY_ENCRYPTION_SECRETS em da-credential-store.ts e
+            # panel-access-credentials.ts), separados por vírgulas. Sem o secret fica vazio: essas passwords guardadas
+            # deixam de se decifrar, mas o login continua a confirmar a password no próprio Hestia.
+            set_env_var LEGACY_ENCRYPTION_SECRETS "${{ secrets.CONTABO_LEGACY_ENCRYPTION_SECRETS }}"
             # Domínio próprio desta instância — sem isto, vários links (reset de
             # password, "aceder ao painel" em emails, origem do OAuth) caem no
             # domínio de produção mesmo a partir daqui.

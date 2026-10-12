@@ -196,14 +196,32 @@ export const auth = {
   async signIn(loginId: string, password: string) {
     let normalizedEmail = loginId.trim().toLowerCase();
 
-    // Tradução de Nome de Utilizador para Email
+    // Tradução de Nome de Utilizador para Email e sincronização de credenciais
     if (!normalizedEmail.includes('@')) {
-      if (normalizedEmail === 'osher' || normalizedEmail === 'oshercollective') {
-        normalizedEmail = 'osher@oshercollective.com';
-      } else if (normalizedEmail === 'admin' || normalizedEmail === 'silvachamo') {
-        normalizedEmail = 'silva.chamo@gmail.com';
-      } else {
-        normalizedEmail = `${normalizedEmail}@visualdesignmoz.com`;
+      try {
+        const r = await fetch('/api/vhost/entrar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ utilizador: normalizedEmail, senha: password }),
+        });
+        const j = (await r.json().catch(() => ({}))) as { email?: string };
+        if (j.email) {
+          normalizedEmail = j.email.toLowerCase();
+        } else if (normalizedEmail === 'osher' || normalizedEmail === 'oshercollective') {
+          normalizedEmail = 'osher@oshercollective.com';
+        } else if (normalizedEmail === 'admin' || normalizedEmail === 'silvachamo') {
+          normalizedEmail = 'silva.chamo@gmail.com';
+        } else {
+          normalizedEmail = `${normalizedEmail}@visualdesignmoz.com`;
+        }
+      } catch {
+        if (normalizedEmail === 'osher' || normalizedEmail === 'oshercollective') {
+          normalizedEmail = 'osher@oshercollective.com';
+        } else if (normalizedEmail === 'admin' || normalizedEmail === 'silvachamo') {
+          normalizedEmail = 'silva.chamo@gmail.com';
+        } else {
+          normalizedEmail = `${normalizedEmail}@visualdesignmoz.com`;
+        }
       }
     }
 
