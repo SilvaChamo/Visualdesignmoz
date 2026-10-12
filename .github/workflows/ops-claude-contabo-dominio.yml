@@ -1,0 +1,105 @@
+name: "Ops - Contabo: visualdesignmoz.com, www e host. servidos pela app (aliases + SSL)"
+
+# ============================================================================
+# Autorizado pelo Silva a 13/10/2026 (madrugada): pôr o domínio principal a
+# responder pelo Contabo, com a mesma app de teste.visualdesignmoz.com.
+#  - mostra para onde cada nome manda hoje (antes de mexer);
+#  - junta visualdesignmoz.com, www. e host. como aliases do domínio web do teste
+#    (só se o nome ainda não existir noutro domínio/alias do Hestia);
+#  - tenta pôr o certificado Let's Encrypt a cobrir os aliases;
+#  - não lê nem altera bases de dados nem e-mail; não imprime segredos.
+# Corre só quando este ficheiro muda no ramo claude/kind-einstein-r6lyf6.
+# ============================================================================
+
+on:
+  push:
+    branches: [claude/kind-einstein-r6lyf6]
+    paths: ['.github/workflows/ops-claude-contabo-dominio.yml']
+
+jobs:
+  contabo:
+    name: contabo
+    runs-on: ubuntu-latest
+    steps:
+      - name: Aliases e SSL do domínio principal
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          username: root
+          password: ${{ secrets.CONTABO_ROOT_PASSWORD }}
+          command_timeout: 15m
+          script: |
+            set +e
+            H=/usr/local/hestia/bin
+            BASE=teste.visualdesignmoz.com
+            NOMES="visualdesignmoz.com www.visualdesignmoz.com host.visualdesignmoz.com"
+            campo() { echo "$1" | grep -oP "\b$2='\K[^']*"; }
+
+            echo "===== 0. app e DNS ====="
+            echo "IP deste servidor: $(hostname -I)"
+            for d in $BASE $NOMES; do echo "  $d -> $(dig +short $d A | tr '\n' ' ')"; done
+            echo -n "  app :3002 (Host $BASE): "; curl -s -o /dev/null -w "%{http_code}\n" --max-time 20 -H "Host: $BASE" http://127.0.0.1:3002/
+            pm2 jlist 2>/dev/null | python3 -c "import sys,json;[print('  pm2', p['name'], p['pm2_env']['status'], 'restarts', p['pm2_env'].get('restart_time')) for p in json.load(sys.stdin)]" 2>/dev/null
+
+            echo
+            echo "===== 0b. para onde mandam hoje (antes de mexer) ====="
+            for d in $BASE $NOMES; do
+              echo "  -- $d"
+              curl -sk -I --max-time 20 --resolve $d:443:127.0.0.1 https://$d/ 2>&1 | grep -iE "^HTTP|^location|^server" | sed 's/^/     local:   /'
+              curl -s -I --max-time 20 https://$d/ 2>&1 | grep -iE "^HTTP|^location|^server" | sed 's/^/     publico: /'
+            done
+
+            echo
+            echo "===== 1. domínio web do teste no Hestia ====="
+            CONF=$(grep -l "DOMAIN='$BASE'" /usr/local/hestia/data/users/*/web.conf 2>/dev/null | head -1)
+            if [ -z "$CONF" ]; then echo "ERRO: $BASE não existe no Hestia — paro aqui."; exit 1; fi
+            DONO=$(basename "$(dirname "$CONF")")
+            LINHA=$(grep "DOMAIN='$BASE'" "$CONF")
+            echo "  dono=$DONO alias='$(campo "$LINHA" ALIAS)' proxy=$(campo "$LINHA" PROXY) tpl=$(campo "$LINHA" TPL) ssl=$(campo "$LINHA" SSL) letsencrypt=$(campo "$LINHA" LETSENCRYPT)"
+
+            echo
+            echo "===== 2. onde estes nomes já existem / juntar como alias ====="
+            onde() {
+              for f in /usr/local/hestia/data/users/*/web.conf; do
+                u=$(basename "$(dirname "$f")")
+                while read -r l; do
+                  [ -z "$l" ] && continue
+                  dom=$(campo "$l" DOMAIN); al=$(campo "$l" ALIAS)
+                  [ "$dom" = "$1" ] && echo "dominio:$u:$dom"
+                  echo ",$al," | grep -q ",$1," && echo "alias:$u:$dom"
+                done < "$f"
+              done
+            }
+            MUDOU=0
+            for n in $NOMES; do
+              r=$(onde "$n")
+              if [ -z "$r" ]; then
+                echo "  $n: livre -> junta como alias de $BASE"
+                $H/v-add-web-domain-alias "$DONO" "$BASE" "$n" no && MUDOU=1 && echo "    feito" || echo "    FALHOU a juntar $n"
+              elif echo "$r" | grep -q "^alias:$DONO:$BASE$"; then
+                echo "  $n: já é alias de $BASE"
+              else
+                echo "  $n: JÁ EXISTE noutro sítio ($r) — não mexo"
+              fi
+            done
+            if [ "$MUDOU" = 1 ]; then
+              $H/v-restart-web; $H/v-restart-proxy
+              echo "  servidor web reiniciado"
+            fi
+            LINHA=$(grep "DOMAIN='$BASE'" "$CONF")
+            ALIAS_NOVO=$(campo "$LINHA" ALIAS)
+            echo "  aliases agora: '$ALIAS_NOVO'"
+
+            echo
+            echo "===== 3. certificado Let's Encrypt com os aliases ====="
+            $H/v-add-letsencrypt-domain "$DONO" "$BASE" "$ALIAS_NOVO" 2>&1 | tail -5
+            echo "  código: $?"
+            CRT=/home/$DONO/conf/web/$BASE/ssl/$BASE.crt
+            [ -f "$CRT" ] && openssl x509 -in "$CRT" -noout -enddate -ext subjectAltName 2>/dev/null | tr '\n' ' ' && echo
+
+            echo
+            echo "===== 4. verificação ====="
+            for d in $BASE $NOMES; do
+              echo -n "  local   https $d: "; curl -sk -o /dev/null -w "%{http_code} %{redirect_url}\n" --max-time 25 --resolve $d:443:127.0.0.1 https://$d/
+              echo -n "  publico https $d: "; curl -s -o /dev/null -w "%{http_code} %{redirect_url}\n" --max-time 25 https://$d/
+            done
