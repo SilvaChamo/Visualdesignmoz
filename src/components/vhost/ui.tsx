@@ -525,7 +525,7 @@ export function UsersTable({ rows, showCreator = true }: { rows: [string, Accoun
 }
 
 export function DomTable({ filter = '' }: { filter?: string }) {
-  const { a, t, toast } = useVH();
+  const { a, t, nav, setDominio } = useVH();
   const rows = a.domains.filter((d) => d.name.includes(filter));
   return (
     <div className="tbl">
@@ -551,7 +551,15 @@ export function DomTable({ filter = '' }: { filter?: string }) {
                       <i className={d.wp ? 'fa-brands fa-wordpress' : 'fa-solid fa-globe'} />
                     </div>
                     <div>
-                      <b>{d.name}</b>
+                      <b
+                        style={{ cursor: 'pointer' }}
+                        onClick={() => {
+                          setDominio(d.name);
+                          nav('/utilizador/dominios/' + encodeURIComponent(d.name));
+                        }}
+                      >
+                        {d.name}
+                      </b>
                       <span>{d.wp ? 'WordPress' : 'Site'}</span>
                     </div>
                   </div>
@@ -562,7 +570,13 @@ export function DomTable({ filter = '' }: { filter?: string }) {
                 <td>{d.disk}</td>
                 <td>{d.status === 'ok' ? <span className="tag ok">{t('Ativo')}</span> : <span className="tag w">{t('Atenção')}</span>}</td>
                 <td style={{ textAlign: 'right' }}>
-                  <button className="btn g sm" onClick={() => toast('Detalhe de ' + d.name + ' (próxima fase)')}>
+                  <button
+                    className="btn g sm"
+                    onClick={() => {
+                      setDominio(d.name);
+                      nav('/utilizador/dominios/' + encodeURIComponent(d.name));
+                    }}
+                  >
                     {t('Gerir')}
                   </button>
                 </td>
