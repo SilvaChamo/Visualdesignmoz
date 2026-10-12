@@ -211,6 +211,8 @@ export function DataTable<T>({
   semRecarregar = true,
   semBusca = true,
   acoesFixas = false,
+  acoesDiretas = false,
+  onSelChange,
 }: {
   id: string;
   rows: T[];
@@ -242,6 +244,10 @@ export function DataTable<T>({
   /** à esquerda, "Colunas" e "Ações" sempre à vista (Ações inativo sem linhas escolhidas); a pesquisa com 1/4 da largura
    *  do cartão, à direita (pedido do Silva para as contas do Admin) */
   acoesFixas?: boolean;
+  /** mostra os botões de ação diretamente sem dropdown */
+  acoesDiretas?: boolean;
+  /** notifica chaves das linhas selecionadas */
+  onSelChange?: (keys: string[]) => void;
 }) {
   // Preferências → Tabelas (neste navegador): linhas por página e botão Colunas, quando a página não escolhe
   const porPagina = porPaginaPedido ?? (Number(lerPrefTabela('vh-linhas', '20')) || 20);
@@ -300,9 +306,33 @@ export function DataTable<T>({
   const atual = Math.min(pag, paginas);
   const pagina = shown.slice((atual - 1) * porPagina, atual * porPagina);
 
-  // Menu "Ações" (o que se faz às linhas escolhidas)
-  const menuAcoes = (sempre: boolean) =>
-    bulk.length > 0 && (sempre || selKeys.length > 0) ? (
+  const selKeysStr = selKeys.join(',');
+  useEffect(() => {
+    onSelChange?.(selKeys);
+  }, [selKeysStr]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Menu ou botões de "Ações" (o que se faz às linhas escolhidas)
+  const menuAcoes = (sempre: boolean) => {
+    if (!bulk.length || (!sempre && !selKeys.length)) return null;
+    if (acoesDiretas && bulk.length === 1) {
+      const b = bulk[0];
+      return (
+        <button
+          className="btn r sm dt-btn-direto"
+          disabled={!selKeys.length}
+          onClick={() => {
+            b.run(selKeys);
+            setSel([]);
+          }}
+          title={t(b.t)}
+        >
+          <i className={'fa-solid ' + b.fa} />
+          {t(b.t)}
+          {selKeys.length > 0 && <span className="n">{selKeys.length}</span>}
+        </button>
+      );
+    }
+    return (
       <div className="dt-cols dt-acoes" ref={acoesRef}>
         <button className="btn g sm" disabled={!selKeys.length} onClick={() => setAcoesOpen(!acoesOpen)}>
           {selKeys.length > 0 && <span className="n">{selKeys.length}</span>}
@@ -326,7 +356,8 @@ export function DataTable<T>({
           </div>
         )}
       </div>
-    ) : null;
+    );
+  };
 
   // Setas e "Página x de y"
   const paginador = (

@@ -1024,24 +1024,78 @@ function Mover() {
   const { s, t, toast } = vh;
   const destinos = Object.entries(s.acc).filter(([, a]) => a.role === 'revenda' || a.role === 'admin');
   const [dest, setDest] = useState('');
+  const [sel, setSel] = useState<string[]>([]);
   const rows: R[] = dest ? Object.entries(s.acc).filter(([, a]) => isUser(a.role) && a.creator !== dest) : [];
+
+  const executarMover = (keys: string[]) => {
+    if (!dest) return toast(t('Escolha primeiro o destino'));
+    if (!keys.length) return toast(t('Escolha pelo menos um cliente'));
+    const v = vagas(s, dest);
+    if (semVagas(v, keys.length)) return toast('Sem espaço: ' + dest + ' já tem ' + v.usadas + ' de ' + v.limite + ' contas de cliente');
+    noServidor(vh, { acao: 'mover', contas: keys, para: dest }, (n) => n + ' cliente(s) movido(s) para ' + dest);
+  };
+
+  const infoVagas = dest ? vagas(s, dest) : null;
+
   return (
     <>
-      <div className="passo">
-        <h3>1. {t('Escolher o destino')}</h3>
-        <p>Revendedor que vai ficar com os clientes.</p>
-        <select className="inp" style={{ maxWidth: 520, width: '100%' }} value={dest} onChange={(e) => setDest(e.target.value)}>
-          <option value="">— escolher —</option>
-          {destinos.map(([u, a]) => (
-            <option key={u} value={u}>
-              {u} — {a.name} ({t(ROLES[a.role])})
-            </option>
-          ))}
-        </select>
+      <div className="passos-2col">
+        <div className="passo">
+          <h3>1. {t('Escolher o destino')}</h3>
+          <p>{t('Revendedor que vai ficar com os clientes.')}</p>
+          <select
+            className="inp"
+            style={{ width: '100%' }}
+            value={dest}
+            onChange={(e) => {
+              setDest(e.target.value);
+              setSel([]);
+            }}
+          >
+            <option value="">— {t('escolher')} —</option>
+            {destinos.map(([u, a]) => (
+              <option key={u} value={u}>
+                {u} — {a.name} ({t(ROLES[a.role])})
+              </option>
+            ))}
+          </select>
+          {infoVagas && (
+            <div className="passo-vagas">
+              {infoVagas.limite !== null ? (
+                <>
+                  <span>
+                    {infoVagas.usadas} de {infoVagas.limite} contas
+                  </span>
+                  <span className={'tag ' + (semVagas(infoVagas, 1) ? 'danger' : 'ok')}>
+                    {infoVagas.limite - infoVagas.usadas > 0 ? `${infoVagas.limite - infoVagas.usadas} vagas` : 'Sem vagas'}
+                  </span>
+                </>
+              ) : (
+                <span className="tag ok">{t('Sem limite de contas')}</span>
+              )}
+            </div>
+          )}
+        </div>
+        <div className={'passo' + (dest ? '' : ' off')}>
+          <div className="passo-head">
+            <div>
+              <h3>2. {t('Escolher os clientes')}</h3>
+              <p>{t('Só aparecem os clientes que ainda não são deste revendedor.')}</p>
+            </div>
+            <button
+              className="btn r sm"
+              disabled={!dest || sel.length === 0}
+              onClick={() => executarMover(sel)}
+              title={t('Mover clientes')}
+            >
+              <i className="fa-solid fa-people-arrows" />
+              {t('Mover clientes')}
+              {sel.length > 0 && <span className="n">{sel.length}</span>}
+            </button>
+          </div>
+        </div>
       </div>
-      <div className={'passo' + (dest ? '' : ' off')}>
-        <h3>2. {t('Escolher os clientes')}</h3>
-        <p>Só aparecem os clientes que ainda não são deste revendedor.</p>
+      <div className={'passo-tabela' + (dest ? '' : ' off')}>
         <DataTable
           id="mover"
           rows={rows}
@@ -1057,13 +1111,12 @@ function Mover() {
             {
               t: 'Mover clientes',
               fa: 'fa-people-arrows',
-              run: (keys) => {
-                const v = vagas(s, dest);
-                if (semVagas(v, keys.length)) return toast('Sem espaço: ' + dest + ' já tem ' + v.usadas + ' de ' + v.limite + ' contas de cliente');
-                noServidor(vh, { acao: 'mover', contas: keys, para: dest }, (n) => n + ' cliente(s) movido(s) para ' + dest);
-              },
+              run: (keys) => executarMover(keys),
             },
           ]}
+          acoesFixas
+          acoesDiretas
+          onSelChange={setSel}
           empty={dest ? 'Não há clientes para mover' : 'Escolha primeiro o destino'}
         />
       </div>
