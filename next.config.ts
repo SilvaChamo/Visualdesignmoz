@@ -30,6 +30,8 @@ const nextConfig: NextConfig = {
       { source: '/visualtransporte', destination: '/transporte', permanent: true },
       { source: '/client', destination: '/cliente', permanent: true },
       { source: '/client/:path*', destination: '/cliente/:path*', permanent: true },
+      { source: '/roundcube', destination: '/webmail', permanent: false },
+      { source: '/roundcube/:path*', destination: '/webmail/:path*', permanent: false },
     ]
   },
   async headers() {
