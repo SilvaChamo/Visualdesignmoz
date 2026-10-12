@@ -125,7 +125,10 @@ export function montarDados(srv: LeituraServidor, reg: RegistoSite, sessao: Sess
   const perfil = reg.perfis.get(sessao.userId);
   let me = (perfil?.conta || '').toLowerCase();
   if (!me || !srv.users[me]) me = [...reg.contas].find(([, r]) => r.authUserId === sessao.userId)?.[0] || '';
-  if (!me || !srv.users[me]) me = adminConta || nomes[0] || 'vdadmin';
+  // Sem conta própria ligada, só uma sessão de administrador fica com a conta de administração do servidor. Antes
+  // qualquer sessão caía aqui: um cliente sem conta ligada (ex.: só domínio ou só e-mail) via — e, pelas rotas que
+  // autorizam com esta lista (domínio, e-mail, bd, avançado, sistema), alterava — a conta vdadmin, e tinha o Admin.
+  if (!me || !srv.users[me]) me = sessao.role === 'admin' ? adminConta || nomes[0] || 'vdadmin' : '';
 
   const contas: Record<string, Account> = {};
   const info: Record<string, InfoConta> = {};

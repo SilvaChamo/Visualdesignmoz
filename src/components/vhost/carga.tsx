@@ -126,6 +126,9 @@ export function esquecerMemoria(prefixo = '') {
   for (const k of [...memoria.keys()]) if (k.startsWith(prefixo)) memoria.delete(k);
 }
 
+/** Marca a leitura feita sozinha ao abrir a página (ver `useGet`) */
+export const AO_ABRIR = Symbol('ao-abrir');
+
 // ---------- Página a abrir ----------
 /** Cada leitura sem nada em memória avisa a página que ainda não está pronta (`comecar` devolve o "acabou") */
 export interface Espera {
@@ -140,13 +143,16 @@ export function useGet<T>(url: string | null, opcoes: { fundo?: boolean } = {}) 
   const [erro, setErro] = useState('');
   const fundo = !!opcoes.fundo;
   // `ler()` normal; `ler(true)` em segundo plano (sem a linha do topo). Como botão, recebe o clique: conta como normal.
+  // A leitura automática ao abrir (`ler(AO_ABRIR)`) com a página já em memória (abriu logo) atualiza por trás sem a
+  // linha do topo: a linha só aparece quando há mesmo de esperar (pedido do Silva, 12/10).
   const ler = useCallback(
     async (emFundo?: unknown) => {
       if (!url) return;
       setErro('');
-      const fim = !memoria.has(url) && espera ? espera.comecar() : null;
+      const emMemoria = memoria.has(url);
+      const fim = !emMemoria && espera ? espera.comecar() : null;
       try {
-        setDados(await lerUrl<T>(url, { fundo: emFundo === true || fundo }));
+        setDados(await lerUrl<T>(url, { fundo: emFundo === true || fundo || (emFundo === AO_ABRIR && emMemoria) }));
       } catch (e) {
         setErro(e instanceof Error ? e.message : 'Erro a ler o servidor');
       } finally {
@@ -162,7 +168,7 @@ export function useGet<T>(url: string | null, opcoes: { fundo?: boolean } = {}) 
     const f = (v: unknown) => setDados(v as T);
     s.add(f);
     ouvintes.set(url, s);
-    ler();
+    ler(AO_ABRIR);
     return () => {
       s.delete(f);
     };

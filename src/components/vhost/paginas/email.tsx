@@ -13,7 +13,7 @@ import { pacoteDe } from '../state';
 import { Stat } from '../ui';
 import { Check, DataTable, Senha, Switch, Tabs, novaSenha } from './componentes';
 import { Confirmar } from './pacotes';
-import { EsperaPagina, FUNDO } from '../carga';
+import { AO_ABRIR, EsperaPagina, FUNDO, useGet } from '../carga';
 
 // ---------- Menu: Mailmarketing nos Extras, a seguir ao Webmail (sem mexer nos ficheiros gerados da maquete) ----------
 {
@@ -52,11 +52,11 @@ const lidos = new Map<string, InfoEmail>();
 const aLer = new Map<string, Promise<InfoEmail>>();
 const ouvintes = new Map<string, Set<(x: InfoEmail) => void>>();
 
-function lerEmail(me: string, d: string): Promise<InfoEmail> {
+function lerEmail(me: string, d: string, fundo = false): Promise<InfoEmail> {
   const k = me + '|' + d;
   let p = aLer.get(k);
   if (!p) {
-    p = fetch('/api/vhost/email?conta=' + encodeURIComponent(me) + '&d=' + encodeURIComponent(d), { cache: 'no-store' })
+    p = fetch('/api/vhost/email?conta=' + encodeURIComponent(me) + '&d=' + encodeURIComponent(d), { cache: 'no-store', headers: fundo ? FUNDO : undefined })
       .then(async (r) => {
         const j = await r.json();
         if (!r.ok) throw new Error(j.erro || 'Erro a ler o e-mail');
@@ -83,13 +83,15 @@ function useEmail() {
   const k = vh.me + '|' + d;
   const [info, setInfo] = useState<InfoEmail | null>(() => lidos.get(k) || null);
   const [erro, setErro] = useState('');
-  const ler = useCallback(async () => {
+  // Como no useGet: a leitura automática ao abrir, já em memória, atualiza por trás sem a linha do topo.
+  const ler = useCallback(async (emFundo?: unknown) => {
     if (!d) return;
     setErro('');
     // sem nada em memória, a página nova espera por esta leitura antes de aparecer
-    const fim = !lidos.has(vh.me + '|' + d) && espera ? espera.comecar() : null;
+    const emMemoria = lidos.has(vh.me + '|' + d);
+    const fim = !emMemoria && espera ? espera.comecar() : null;
     try {
-      setInfo(await lerEmail(vh.me, d));
+      setInfo(await lerEmail(vh.me, d, emFundo === true || (emFundo === AO_ABRIR && emMemoria)));
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Erro a ler o e-mail');
     } finally {
@@ -101,7 +103,7 @@ function useEmail() {
     const s = ouvintes.get(k) || new Set();
     s.add(setInfo);
     ouvintes.set(k, s);
-    ler();
+    ler(AO_ABRIR);
     return () => {
       s.delete(setInfo);
     };
@@ -1580,25 +1582,12 @@ function Mx() {
   const { t, openM } = vh;
   const d = dominioEmail(vh);
   const { info } = useEmail();
-  const [dns, setDns] = useState<{ fonte: string; zona: string; registos: Registo[] } | null>(null);
-  const [erro, setErro] = useState('');
   const [modelo, setModelo] = useState('');
-  const ler = useCallback(async () => {
-    if (!d) return;
-    setErro('');
-    try {
-      const r = await fetch('/api/vhost/dominio?conta=' + encodeURIComponent(vh.me) + '&d=' + encodeURIComponent(d) + '&so=dns', { cache: 'no-store' });
-      const j = await r.json();
-      if (!r.ok) throw new Error(j.erro || 'Erro a ler o DNS');
-      setDns(j.dns);
-    } catch (e) {
-      setErro(e instanceof Error ? e.message : 'Erro a ler o DNS');
-    }
-  }, [d, vh.me]);
-  useEffect(() => {
-    setDns(null);
-    ler();
-  }, [ler]);
+  // useGet: a página só aparece quando o DNS chega (como as outras), e ao voltar aparece logo e atualiza por trás
+  const { dados, erro, ler } = useGet<{ dns: { fonte: string; zona: string; registos: Registo[] } }>(
+    d ? '/api/vhost/dominio?conta=' + encodeURIComponent(vh.me) + '&d=' + encodeURIComponent(d) + '&so=dns' : null,
+  );
+  const dns = dados?.dns ?? null;
   if (!d) return <SemEmail d="" />;
   if (!dns) return <Carregando erro={erro} ler={ler} />;
   if (dns.fonte === 'nenhuma') return <div className="note">{t('O DNS deste domínio não está neste servidor nem na Cloudflare da VisualDesign: os registos MX mudam-se onde o domínio foi registado.')}</div>;
@@ -1738,8 +1727,11 @@ function Rastreio() {
     },
     [d, f, vh],
   );
+  const espera = useContext(EsperaPagina);
   useEffect(() => {
-    procurar();
+    // a primeira procura conta como leitura da página: a página só aparece com os resultados
+    const fim = espera ? espera.comecar() : null;
+    procurar().finally(() => fim?.());
   }, [d]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <>
@@ -1828,9 +1820,12 @@ function Migracoes() {
       if (r.ok) setLista(j.migracoes);
     } catch {}
   }, [d, vh.me]);
+  const espera = useContext(EsperaPagina);
   useEffect(() => {
-    ler();
-  }, [ler]);
+    // a primeira leitura conta para a página só aparecer com a lista
+    const fim = espera ? espera.comecar() : null;
+    ler().finally(() => fim?.());
+  }, [ler]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!auto) return;
     const i = setInterval(() => ler(true), 15000); // em segundo plano: sem a linha do topo
