@@ -8,7 +8,7 @@ import { User } from '@supabase/supabase-js'
 import { getRedirectPathForRole, type UserRole } from '@/lib/user-roles'
 import { PUBLIC_PANEL_ENTRY } from '@/lib/panel-origin'
 import { setPanelFromCookie } from '@/lib/panel-oauth-from'
-import { getInactivityConfig, touchPanelActivity, isIdleBeyond, clearPanelActivity } from '@/lib/session-inactivity'
+import { getInactivityConfig, getIdleMs, touchPanelActivity, isIdleBeyond, clearPanelActivity } from '@/lib/session-inactivity'
 import { prefetchPanelContentOnLogin } from '@/lib/panel-prefetch'
 
 interface AuthContextType {
@@ -43,7 +43,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(currentUser)
 
         if (currentUser) {
-          touchPanelActivity()
           try {
             const role = await auth.getUserRole(currentUser)
             setUserRole(role)
@@ -97,6 +96,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const { limitMs, minutes, reason } = getInactivityConfig(pathname)
     let signingOut = false
+    let inactivityTimer: number | undefined
 
     const handleAutomaticSignOut = async () => {
       if (signingOut || !isIdleBeyond(limitMs)) return
@@ -115,8 +115,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
+    const scheduleInactivityCheck = () => {
+      if (inactivityTimer !== undefined) window.clearTimeout(inactivityTimer)
+      const remainingMs = Math.max(limitMs - getIdleMs(), 0)
+      inactivityTimer = window.setTimeout(() => {
+        void handleAutomaticSignOut()
+      }, remainingMs)
+    }
+
     const onActivity = () => {
       touchPanelActivity()
+      scheduleInactivityCheck()
     }
 
     // mousemove dispara dezenas de vezes por segundo — sem limitar, cada
@@ -127,7 +136,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const now = Date.now()
       if (now - lastMouseTouch < 5_000) return
       lastMouseTouch = now
-      touchPanelActivity()
+      onActivity()
     }
 
     const activityEvents = ['mousedown', 'keydown', 'scroll', 'touchstart', 'click'] as const
@@ -137,26 +146,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })
     window.addEventListener('mousemove', onMouseMove, { passive: true })
 
-    // Páginas como o webmail (Roundcube) e outros ecrãs embutidos em
-    // <iframe> não deixam os eventos acima chegarem à janela principal —
-    // um utilizador a trabalhar lá dentro durante 30 min parecia "parado"
-    // e era desligado a meio do uso real. Enquanto o separador do painel
-    // continuar em foco, considera-se utilização activa (só conta como
-    // inactividade quando o separador deixa de estar em foco, ex.: minimizado
-    // ou noutro separador) — fecha a lacuna sem depender do conteúdo do
-    // iframe, que muitas vezes é de origem diferente e inacessível por JS.
-    const onFocusActivity = () => {
-      if (document.hasFocus()) touchPanelActivity()
-    }
-    document.addEventListener('visibilitychange', onFocusActivity)
-    window.addEventListener('focus', onFocusActivity)
-
-    const checkInterval = window.setInterval(() => {
-      if (document.hasFocus()) touchPanelActivity()
-      if (isIdleBeyond(limitMs)) {
+    const onReturnToPage = () => {
+      if (document.visibilityState === 'visible' && document.hasFocus()) {
         void handleAutomaticSignOut()
+        scheduleInactivityCheck()
       }
-    }, 30_000)
+    }
+    document.addEventListener('visibilitychange', onReturnToPage)
+    window.addEventListener('focus', onReturnToPage)
+
+    scheduleInactivityCheck()
 
     const refreshInterval = window.setInterval(() => {
       if (!isIdleBeyond(limitMs)) {
@@ -165,14 +164,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, 10 * 60 * 1000)
 
     return () => {
-      window.clearInterval(checkInterval)
+      if (inactivityTimer !== undefined) window.clearTimeout(inactivityTimer)
       window.clearInterval(refreshInterval)
       activityEvents.forEach((event) => {
         window.removeEventListener(event, onActivity)
       })
       window.removeEventListener('mousemove', onMouseMove)
-      document.removeEventListener('visibilitychange', onFocusActivity)
-      window.removeEventListener('focus', onFocusActivity)
+      document.removeEventListener('visibilitychange', onReturnToPage)
+      window.removeEventListener('focus', onReturnToPage)
     }
   }, [user, pathname])
 
