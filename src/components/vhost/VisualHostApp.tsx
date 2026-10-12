@@ -12,6 +12,7 @@ import { EntradaPainel, EsperaEntrada, LINGUA_LS, type ModoTema } from './entrad
 import { auth } from '@/lib/supabase-client';
 import { MoreMenuModal } from './modals';
 import { SCREENS, denyScreen, placeholder, type Screen } from './screens';
+import { SAIR_POR_INATIVIDADE_ATIVO } from '@/lib/session-inactivity';
 import { BarraTopo, EsperaPagina, atividadeComeca, instalarContador, type Espera } from './carga';
 import { aplicarCoresNoSite, badgeColors, getThemeColors, hexToRgb, luminancia, paletaDoSite, type CustomComponents } from './theme';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -714,6 +715,7 @@ export function VisualHostApp({ temSessao = true }: { temSessao?: boolean }) {
   // de 20 minutos sem tocar em nada (em nenhum separador), termina a sessão e mostra a página de entrada
   useEffect(() => {
     if (st.carga !== 'ok') return;
+    if (!SAIR_POR_INATIVIDADE_ATIVO) return; // desligado por agora (ver session-inactivity.ts)
     const LIMITE = 20 * 60_000;
     const K = 'vh-ultimo-toque';
     let ultimo = Date.now();
