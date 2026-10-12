@@ -24,6 +24,7 @@ import {
   LOGO,
   acctOf,
   allowedOf,
+  isLevel,
   nivelInicial,
   NIVEL_LS,
   descFor,
@@ -221,7 +222,12 @@ export function VisualHostApp({ temSessao = true }: { temSessao?: boolean }) {
   // Grava o estado novo (o painel de uma conta que deixou de ter acesso volta ao primeiro painel permitido)
   const commit = useCallback((next: St) => {
     const allowed = allowedOf(next);
-    if (!allowed.includes(next.level)) next = { ...next, level: allowed[0] };
+    if (!allowed.includes(next.level)) {
+      next = { ...next, level: allowed[0] };
+      if (next.deny?.type === 'nivel' && !allowed.includes(next.deny.lv)) {
+        next = fromPath(next, '/' + next.level);
+      }
+    }
     ref.current = next;
     setSt(next);
   }, []);
@@ -369,9 +375,19 @@ export function VisualHostApp({ temSessao = true }: { temSessao?: boolean }) {
           erro: null,
           db: { ...cur.db, pkgs: d.pacotes, info: d.info },
         };
-        const n = fromPath(n0, primeira ? inicial.current : cur.path);
+        // Se o caminho inicial pedido (ex: /admin vindo de outra sessão) não for permitido para esta conta,
+        // abre diretamente o nível inicial da conta em vez de mostrar "Sem acesso" logo ao entrar
+        const caminhoDesejado = primeira ? inicial.current : cur.path;
+        const segs = caminhoDesejado.replace(/^\/+/, '').split('/');
+        const lvDesejado = segs[0];
+        const permitidos = allowedOf(n0);
+        const caminhoValido =
+          isLevel(lvDesejado) && !permitidos.includes(lvDesejado)
+            ? '/' + nivelInicial(n0, true)
+            : caminhoDesejado;
+        const n = fromPath(n0, caminhoValido);
         commit(n);
-        if (primeira) pushUrl(n.path, true);
+        if (primeira || n.path !== caminhoDesejado) pushUrl(n.path, true);
       } catch {
         commit({ ...ref.current, carga: 'erro', erro: { msg: 'Sem ligação ao site. Verifique a internet e tente de novo.', codigo: 0 } });
       }

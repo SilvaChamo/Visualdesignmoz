@@ -154,7 +154,7 @@ export function findItem(lv: Level, id: string): (MenuItem & { group: string }) 
 
 export const route = (lv: Level, id: string) => (GLOBAL[id] ? '/' + id : id === 'inicio' ? '/' + lv : '/' + lv + '/' + id);
 
-const isLevel = (x: string): x is Level => x in LEVELS;
+export const isLevel = (x: string): x is Level => x in LEVELS;
 
 /** Lê o endereço e atualiza o estado (na maquete: fromHash). Sem endereço, vai para o primeiro painel da conta. */
 export function fromPath(s: St, path: string): St {
@@ -176,7 +176,15 @@ export function fromPath(s: St, path: string): St {
     const lv = p[0];
     const id = p[1] || 'inicio';
     n.page = id;
-    if (!allowedOf(s).includes(lv)) n.deny = { type: 'nivel', lv };
+    if (!allowedOf(s).includes(lv)) {
+      // Se for apenas o início do nível (ex: /admin ao entrar) e o utilizador não tem esse nível,
+      // encaminha suavemente para o nível inicial permitido da conta em vez de bloquear com erro
+      if (id === 'inicio') {
+        const lvValido = nivelInicial(s, true);
+        return fromPath(s, '/' + lvValido);
+      }
+      n.deny = { type: 'nivel', lv };
+    }
     else {
       n.level = lv;
       const it = findItem(lv, id);
