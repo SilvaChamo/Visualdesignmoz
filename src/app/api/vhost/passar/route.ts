@@ -3,7 +3,7 @@ import { requireAdminOrReseller } from '@/lib/panel-api-auth';
 import { getDaSyncAdmin } from '@/lib/da-sync-schema';
 import { esquecerLeitura, lerServidor } from '@/lib/vhost-servidor';
 import { esquecerRegisto } from '@/lib/vhost-dados';
-import { CONTA_OK, DOMINIO_OK, passarDominio, preverPassagem, type Passagem } from '@/lib/vhost-passar';
+import { CONTA_OK, DOMINIO_OK, contaAdmin, passarDominio, preverPassagem, protegidoPassagem, type Passagem } from '@/lib/vhost-passar';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,9 +16,8 @@ export const dynamic = 'force-dynamic';
  * Administrador: entre quaisquer contas (menos as do sistema). Revendedor: entre a sua conta e as dos seus clientes.
  * Proteção combinada com o Silva (como em /api/vhost/acoes): sem VHOST_ACOES_TODAS=1, só domínios e contas de teste.
  */
-const ADMIN_CONTA = () => (process.env.HESTIA_USER || 'vdadmin').trim();
+const ADMIN_CONTA = contaAdmin;
 const SISTEMA = new Set(['admin', 'root']);
-const todasLiberadas = () => process.env.VHOST_ACOES_TODAS === '1';
 type Trabalho = { dono: string; dominio: string; para: string; inicio: number; resultado?: Passagem & { de: string; para: string } };
 const trabalhos = new Map<string, Trabalho>();
 
@@ -45,10 +44,7 @@ async function contexto() {
 }
 
 /** Sem a proteção desligada, só domínios e contas de teste (o destino pode ser a conta do administrador, para voltar) */
-const protegido = (d: string, para: string) =>
-  !todasLiberadas() && (!d.startsWith('teste') || !(para.startsWith('teste') || para === ADMIN_CONTA()))
-    ? 'Por agora só se passam domínios de teste para contas de teste (nomes a começar por "teste").'
-    : null;
+const protegido = protegidoPassagem;
 
 export async function GET(req: NextRequest) {
   const c = await contexto();

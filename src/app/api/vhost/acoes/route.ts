@@ -6,6 +6,7 @@ import * as hestia from '@/lib/hestia-adapter';
 import { esquecerLeitura, lerServidor } from '@/lib/vhost-servidor';
 import { esquecerRegisto } from '@/lib/vhost-dados';
 import { excludeResellerSelfPackages } from '@/lib/panel-contas-enrich';
+import { DOMINIO_OK, instalarWebmail, preverPassagem } from '@/lib/vhost-passar';
 import { assertResellerHostingQuota } from '@/lib/panel-reseller-tier';
 
 export const dynamic = 'force-dynamic';
@@ -126,6 +127,16 @@ export async function POST(req: NextRequest) {
       if (!/^\S+@\S+\.\S+$/.test(c.email || '')) return NextResponse.json({ erro: 'E-mail inválido.' }, { status: 400 });
       if ((c.senha || '').length < 8) return NextResponse.json({ erro: 'A palavra-passe precisa de pelo menos 8 caracteres.' }, { status: 400 });
       if (!pacotePermitido(String(c.pacote || ''))) return NextResponse.json({ erro: 'Esse pacote não existe ou não pode ser atribuído por esta conta.' }, { status: 403 });
+      // Domínio escrito: tem de ser válido e ainda não existir no servidor. Um domínio que já está na conta do
+      // administrador (ou na do revendedor que cria) cria-se sem domínio e passa depois, pelo botão "Passar para outra
+      // conta" (/api/vhost/passar, com cópia e desfazer); verifica-se antes de criar a conta, para não ficar a meio.
+      const d = String(c.dominio || '').trim().toLowerCase();
+      if (d) {
+        if (!DOMINIO_OK.test(d)) return NextResponse.json({ erro: 'Domínio inválido.' }, { status: 400 });
+        const onde = await preverPassagem(d);
+        if ('erro' in onde) return NextResponse.json({ erro: onde.erro }, { status: 400 });
+        if (onde.dono) return NextResponse.json({ erro: 'O domínio ' + d + ' já está no servidor (conta ' + onde.dono + '). Crie a conta sem domínio e passe-o depois para ela.' }, { status: 409 });
+      }
       // Revendedor: limite de contas de cliente do seu plano (Essencial/Expandido), contado no servidor
       if (!admin) {
         const quota = await assertResellerHostingQuota({ userId: auth.user.id, daUsername: eu });
@@ -138,10 +149,11 @@ export async function POST(req: NextRequest) {
         const [primeiro, ...resto] = c.nome.trim().split(/\s+/);
         await hestiaCall('v-change-user-name', [u, primeiro, resto.join(' ') || primeiro]).catch(() => null);
       }
-      const d = String(c.dominio || '').trim().toLowerCase();
       if (d) {
         const w = await hestiaCall('v-add-web-domain', [u, d]);
         if (!w.ok) falhas.push({ conta: u, erro: 'conta criada, mas o domínio não: ' + (w.error || 'erro') });
+        // webmail em https://<domínio>/webmail, como nos outros sites (antes ficava por pôr à mão)
+        else if (!(await instalarWebmail(u, d))) falhas.push({ conta: u, erro: 'conta e domínio criados, mas a regra do webmail não foi posta' });
       }
       if (sb) await sb.from('panel_users').upsert({ username: u, parent_username: admin ? null : eu || null, email: c.email, package_name: c.pacote, created_at: new Date().toISOString() }, { onConflict: 'username' });
       esquecerRegisto();

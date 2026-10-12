@@ -16,6 +16,7 @@ import { patchMirrorUser } from '@/lib/panel-mirror-write';
 import { runHestiaFullSyncDeduped } from '@/lib/hestia-sync-engine';
 import { getProviderByUsername, isHestiaOnlyDeploy } from '@/lib/hosting-provider';
 import { getServerHost } from '@/lib/server-config';
+import { contaAdmin } from '@/lib/vhost-passar';
 import { pointDomainToServerIp } from '@/lib/cloudflare-dns';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -166,7 +167,7 @@ export async function provisionPanelAccountToServer(userName: string): Promise<{
 
   const result =
     provider === 'hestia'
-      ? await hestiaAdapter.createAccount({ username, password, email, domain, packageName })
+      ? await hestiaAdapter.createAccount({ username, password, email, domain, packageName, passarDeContas: [contaAdmin()], quem: 'compra:' + username })
       : await daPostViaSsh(
           acl === 'reseller' ? 'CMD_API_ACCOUNT_RESELLER' : 'CMD_API_ACCOUNT_USER',
           accountCreateFields({ userName: username, email, password, domain, packageName }),
@@ -181,6 +182,11 @@ export async function provisionPanelAccountToServer(userName: string): Promise<{
         : result.error || 'Falha ao criar conta no servidor',
     };
   }
+
+  // Domínio noutra conta de cliente: a conta ficou criada sem ele; fica o aviso para o administrador decidir
+  // (plano 07, ponto 3: nunca passa sozinho de uma conta de cliente).
+  const aviso = (result as { aviso?: string }).aviso;
+  if (aviso) console.error('[panel-server-provision] ATENÇÃO administrador:', aviso);
 
   const displayName =
     `${String(panelUser.first_name || '')} ${String(panelUser.last_name || '')}`.trim() ||

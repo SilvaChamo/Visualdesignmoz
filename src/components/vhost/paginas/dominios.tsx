@@ -14,6 +14,7 @@ import { Check, DataTable, Frm, Row, Senha, Switch, Tabs, novaSenha, type Col } 
 import { Confirmar } from './pacotes';
 import DomainSearch from '@/components/DomainSearch';
 import { useGet } from '../carga';
+import { BotaoPassar } from './passar';
 
 // ---------- Ligação ao servidor ----------
 type Detalhe = {
@@ -192,7 +193,8 @@ function ListaDominios({ abaDom = 'meus' }: { abaDom?: 'meus' | 'registar' }) {
               >
                 <i className="fa-solid fa-gear" />
                 {t('Gerir')}
-              </button>
+              </button>{' '}
+              {!r.soEmail && <BotaoPassar dominio={r.name} />}
             </>
           )}
         />
@@ -316,6 +318,7 @@ function VerDominio({ d }: { d: string }) {
             {t('Mudar nome')}
           </button>
         )}
+        {!x.soEmail && <BotaoPassar dominio={d} etiqueta />}
         <button
           className="btn g"
           onClick={() => noServidor(vh, { acao: x.status === 'ok' ? 'dominio-suspender' : 'dominio-reativar', dominio: d }, x.status === 'ok' ? 'Domínio suspenso' : 'Domínio reativado')}

@@ -816,3 +816,15 @@
 .vh .frm .field:has(textarea)>label{padding-top:10px}
 .vh .frm>.mfoot{display:flex;gap:8px;padding:14px 18px;margin:0;border-top:1px solid var(--line);background:var(--soft);border-radius:0 0 var(--r) var(--r)}
 @media(max-width:768px){.vh .frm .field{grid-template-columns:1fr;gap:6px;padding:10px 14px}}
+
+/* Passar domínio para outra conta (plano 07): lista do que passa, espera, erro e aviso */
+.vh .passar-lista{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.vh .passar-lista li{display:flex;align-items:flex-start;gap:8px;font-size:13.5px;line-height:1.4;color:var(--ink)}
+.vh .passar-lista li i{margin-top:3px;color:var(--ok,#1f9d55);font-size:12px}
+.vh .passar-lista li.aviso i{color:var(--warn,#d9822b)}
+.vh .passar-nota{margin:12px 0;font-size:12.5px;line-height:1.45;color:var(--muted)}
+.vh .passar-erro{margin:0 0 10px;padding:9px 12px;border-radius:8px;font-size:13px;line-height:1.4;color:var(--red);background:color-mix(in srgb,var(--red) 10%,transparent)}
+.vh .passar-espera{display:flex;align-items:center;gap:10px;margin:12px 0;font-size:13px;color:var(--muted)}
+.vh .passar-roda{flex:none;width:16px;height:16px;border-radius:50%;border:2px solid color-mix(in srgb,var(--red) 25%,transparent);border-top-color:var(--red);animation:ent-gira .8s linear infinite}
+.vh .passar-aviso-dom{display:flex;gap:10px;align-items:flex-start;margin:6px 0 0;padding:10px 12px;border-radius:8px;font-size:13px;line-height:1.45;background:var(--soft);border:1px solid var(--line)}
+.vh .passar-aviso-dom i{margin-top:2px;color:var(--red)}

@@ -7,6 +7,7 @@ import * as hestia from '@/lib/hestia-adapter';
 import { deleteCloudflareDnsRecord, findCloudflareZoneId, listCloudflareDnsRecords, updateCloudflareDnsRecord, upsertCloudflareRecord, type CloudflareRecordInput } from '@/lib/cloudflare-dns';
 import { esquecerLeitura, lerServidor, type LeituraServidor } from '@/lib/vhost-servidor';
 import { lerRegisto, montarDados } from '@/lib/vhost-dados';
+import { instalarWebmail } from '@/lib/vhost-passar';
 
 export const dynamic = 'force-dynamic';
 
@@ -226,6 +227,11 @@ export async function POST(req: NextRequest) {
     // só o site no Hestia (sem mexer no DNS da Cloudflare); certificado se pedido
     const x = await call('v-add-web-domain', [conta, novo]);
     if (x.ok && c.ssl) hestiaCall('v-add-letsencrypt-domain', [conta, novo]).catch(() => null);
+    // webmail em https://<domínio>/webmail (antes ficava por pôr à mão em cada domínio novo)
+    if (x.ok && !(await instalarWebmail(conta, novo))) {
+      esquecerLeitura();
+      return NextResponse.json({ erro: 'O domínio foi criado, mas a regra do webmail não foi posta (o nginx recusou).' }, { status: 502 });
+    }
     return resposta(x);
   }
 

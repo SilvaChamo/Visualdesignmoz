@@ -2,7 +2,7 @@
 
 // Gestão de contas: listas, ver/modificar conta, criar contas, mudar senhas, mover clientes e modelos de mensagem.
 // Campos e colunas copiados do DirectAdmin (ver VisualHost/04-da-gestao-de-contas.md).
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useVH, type VH } from '../context';
 import type { ScreenFn } from '../screens';
 import { ChangeRoleModal } from '../modals';
@@ -10,6 +10,8 @@ import { ROLES } from '../generated/data';
 import { noServidor } from './acoes';
 import { isUser, pacoteDe, type St } from '../state';
 import { RC, RI } from '../ui';
+import { correrPassagem, lerPrevisao, type PrevisaoPassagem } from './passar';
+import { EditarDadosModal } from './cliente-dados';
 import type { Account, Role } from '../types';
 import { Check, DataTable, Frm, Row, Senha, Tabs, type Bulk, type Col } from './componentes';
 import { ComoFuncionaRevenda, Confirmar, FormPacoteRevenda, FormPacoteUtilizador } from './pacotes';
@@ -583,7 +585,7 @@ function ContaVer({ u, aba }: { u: string; aba?: TabConta }) {
 }
 
 function ContaAcoes({ u }: { u: string }) {
-  const { s, me, t, nav, enterAs } = useVH();
+  const { s, me, t, nav, enterAs, openM } = useVH();
   const a = s.acc[u];
   return (
     <>
@@ -591,6 +593,12 @@ function ContaAcoes({ u }: { u: string }) {
         <button className="btn g" onClick={() => nav('/admin/utilizadores/' + enc(u))}>
           <i className="fa-solid fa-id-card" />
           {t('Ver dados do utilizador')}
+        </button>
+      )}
+      {u !== me && a.role !== 'admin' && (
+        <button className="btn g" onClick={() => openM(<EditarDadosModal conta={u} />)}>
+          <i className="fa-solid fa-user-pen" />
+          {t('Editar dados')}
         </button>
       )}
       <button className="btn g" onClick={() => nav('/' + s.level + '/senhas/' + enc(u))}>
@@ -683,6 +691,44 @@ function NovaConta({ tipo }: { tipo: TipoNova }) {
   const v = tipo === 'cliente' ? vagas(s, me) : null;
   const cheio = !!v && semVagas(v);
 
+  // Onde está o domínio escrito (plano 07): só passa sozinho se estiver na conta do administrador (ou na do
+  // revendedor que cria); na conta de outro cliente não deixa.
+  type Onde = { passa?: boolean; bloqueia?: string; prev?: PrevisaoPassagem; dono?: string };
+  const [onde, setOnde] = useState<Onde | null>(null);
+  const [passar, setPassar] = useState(true);
+  const [aPassar, setAPassar] = useState<number | null>(null);
+  useEffect(() => {
+    // vindo de "Nova conta…" na janela de passar domínios
+    try {
+      const d0 = sessionStorage.getItem('vh-novo-dominio');
+      if (d0) {
+        setDom(d0);
+        sessionStorage.removeItem('vh-novo-dominio');
+      }
+    } catch {}
+  }, []);
+  useEffect(() => {
+    setOnde(null);
+    const d = dom.trim().toLowerCase();
+    if (tipo !== 'cliente' || !/^([a-z0-9-]+\.)+[a-z]{2,}$/.test(d)) return;
+    let vivo = true;
+    const espera = setTimeout(() => {
+      lerPrevisao(d).then((r) => {
+        if (!vivo || r.erro || !r.previsao) return;
+        if (r.existeNoutraConta) return setOnde({ bloqueia: 'Este domínio já está numa conta fora do seu painel.' });
+        const dono = r.previsao.dono;
+        if (!dono) return setOnde(null);
+        const minha = s.level === 'admin' ? r.contaAdmin : me;
+        if (dono === minha) return setOnde({ passa: true, prev: r.previsao, dono });
+        setOnde({ bloqueia: 'Este domínio está na conta ' + dono + ', de outro cliente: não passa sozinho. Use "Passar para outra conta" na lista de domínios.', dono });
+      });
+    }, 500);
+    return () => {
+      vivo = false;
+      clearTimeout(espera);
+    };
+  }, [dom, tipo, s.level, me]);
+
   const destino = tipo === 'revenda' ? '/admin/revendedores' : tipo === 'admin' ? '/admin/administradores' : s.level === 'revenda' ? '/revenda/clientes' : '/admin/meus-clientes';
   const personalizar = () => setCustom(structuredClone(tipo === 'revenda' ? s.db.rpkgs[pk] : s.db.pkgs[pk]) || (tipo === 'revenda' ? pacoteRevendaVazio() : pacoteVazio()));
   const criar = () => {
@@ -697,9 +743,20 @@ function NovaConta({ tipo }: { tipo: TipoNova }) {
     // Revendedores e administradores precisam também de um login no site (papel e pacote de revenda): ainda não
     if (tipo !== 'cliente') return toast('Criar ' + (tipo === 'revenda' ? 'revendedores' : 'administradores') + ' ainda não está ligado ao servidor');
     if (custom) return toast('Os limites próprios ainda não chegam ao servidor: escolha um pacote');
-    noServidor(vh, { acao: 'criar', criar: { user: u, nome: nome.trim(), email: email.trim(), senha: pass, dominio: d, pacote: pk } }, () => ROLES[role] + ' ' + u + ' criado no servidor').then(
-      (feitas) => feitas.length && nav(destino),
-    );
+    if (onde?.bloqueia) return toast(onde.bloqueia);
+    const comPassagem = !!onde?.passa && passar;
+    // com passagem, a conta nasce sem domínio e o domínio passa para ela a seguir (cópia e desfazer no servidor)
+    noServidor(vh, { acao: 'criar', criar: { user: u, nome: nome.trim(), email: email.trim(), senha: pass, dominio: comPassagem ? '' : d, pacote: pk } }, () => ROLES[role] + ' ' + u + ' criado no servidor').then(async (feitas) => {
+      if (!feitas.length) return;
+      if (comPassagem && onde?.prev) {
+        setAPassar(0);
+        const x = await correrPassagem(d, u, onde.prev.bases, setAPassar);
+        setAPassar(null);
+        await vh.recarregar(true);
+        toast(x.ok ? 'O domínio ' + d + ' passou para ' + u + (x.avisos.length ? '. ' + x.avisos.join(' ') : '') : 'A conta ' + u + ' ficou criada, mas o domínio não passou: ' + (x.erro || 'erro'));
+      }
+      nav(destino);
+    });
   };
 
   return (
@@ -750,7 +807,26 @@ function NovaConta({ tipo }: { tipo: TipoNova }) {
         </Row>
         {tipo !== 'admin' && (
           <Row label="Domínio">
-            <input value={dom} onChange={(e) => setDom(e.target.value)} placeholder="ex.: empresa.co.mz" />
+            <div style={{ width: '100%' }}>
+              <input value={dom} onChange={(e) => setDom(e.target.value)} placeholder="ex.: empresa.co.mz" disabled={aPassar !== null} />
+              {onde?.passa && onde.prev && (
+                <div className="passar-aviso-dom">
+                  <i className="fa-solid fa-right-left" />
+                  <div>
+                    <div>
+                      {t('Este domínio está na conta')} <b>{onde.dono}</b>. {t('Ao criar a conta, passa para ela (site, e-mails, bases de dados).')}
+                    </div>
+                    <Check checked={passar} onChange={setPassar} label="Passar o domínio para a conta nova" />
+                  </div>
+                </div>
+              )}
+              {onde?.bloqueia && (
+                <div className="passar-aviso-dom">
+                  <i className="fa-solid fa-triangle-exclamation" />
+                  <div>{t(onde.bloqueia)}</div>
+                </div>
+              )}
+            </div>
           </Row>
         )}
         {tipo !== 'admin' && (
@@ -805,9 +881,9 @@ function NovaConta({ tipo }: { tipo: TipoNova }) {
         <button className="btn g" onClick={() => nav(destino)}>
           {t('Cancelar')}
         </button>
-        <button className="btn r" onClick={criar} disabled={cheio}>
+        <button className="btn r" onClick={criar} disabled={cheio || aPassar !== null}>
           <i className="fa-solid fa-user-plus" />
-          {t('Criar conta')}
+          {aPassar !== null ? t('A passar o domínio…') + (aPassar > 0 ? ' ' + aPassar + ' s' : '') : t('Criar conta')}
         </button>
       </div>
     </>

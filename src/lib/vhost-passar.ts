@@ -207,6 +207,49 @@ echo "OK=1"`;
   return { ok: true, passos, avisos, bases: basesFeitas, copia };
 }
 
+/** Conta do administrador do servidor, onde ficam os "sites da VisualDesign" */
+export const contaAdmin = () => (process.env.HESTIA_USER || 'vdadmin').trim();
+
+/**
+ * Proteção combinada com o Silva (como em /api/vhost/acoes): sem VHOST_ACOES_TODAS=1 só se passam domínios de
+ * teste para contas de teste (o destino pode ser a conta do administrador, para voltar atrás).
+ * Devolve o motivo da recusa, ou null se pode.
+ */
+export function protegidoPassagem(dominio: string, para: string): string | null {
+  if (process.env.VHOST_ACOES_TODAS === '1') return null;
+  const d = dominio.trim().toLowerCase();
+  const p = para.trim().toLowerCase();
+  if (d.startsWith('teste') && (p.startsWith('teste') || p === contaAdmin())) return null;
+  return 'Por agora só se passam domínios de teste para contas de teste (nomes a começar por "teste").';
+}
+
+export type EstadoDominio =
+  | { estado: 'novo' }
+  | { estado: 'ja-na-conta' }
+  | { estado: 'passou'; passagem: Passagem }
+  | { estado: 'noutra-conta'; dono: string }
+  | { estado: 'falhou'; erro: string; passagem?: Passagem };
+
+/**
+ * Antes de pôr um domínio numa conta que acabou de nascer: onde está agora?
+ *  - não existe no servidor → 'novo' (quem chama cria o site);
+ *  - já está na própria conta → 'ja-na-conta';
+ *  - está numa das contas em `origens` (a do administrador, ou a do revendedor que cria) → passa com tudo o que
+ *    tem (site, e-mails, bases de dados…) e devolve 'passou';
+ *  - está na conta de outro cliente → nunca passa sozinho: 'noutra-conta' (fica para o administrador decidir).
+ */
+export async function dominioParaConta(conta: string, dominio: string, origens: string[], quem: string): Promise<EstadoDominio> {
+  const prev = await preverPassagem(dominio);
+  if ('erro' in prev) return { estado: 'falhou', erro: prev.erro };
+  if (!prev.dono) return { estado: 'novo' };
+  if (prev.dono === conta) return { estado: 'ja-na-conta' };
+  if (!origens.includes(prev.dono)) return { estado: 'noutra-conta', dono: prev.dono };
+  const prot = protegidoPassagem(dominio, conta);
+  if (prot) return { estado: 'falhou', erro: prot };
+  const passagem = await passarDominio(dominio, conta, prev.bases, quem);
+  return passagem.ok ? { estado: 'passou', passagem } : { estado: 'falhou', erro: passagem.erro || 'A passagem não terminou.', passagem };
+}
+
 /** Põe a regra do webmail (/webmail) num domínio da conta (domínios novos); se o nginx a recusar, tira-a */
 export async function instalarWebmail(conta: string, dominio: string): Promise<boolean> {
   const c = conta.trim().toLowerCase();

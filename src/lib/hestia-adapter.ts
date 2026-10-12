@@ -54,7 +54,13 @@ export async function createAccount(input: {
   /** true = uma conta com este nome já existir é erro (nunca junta o domínio
    * a uma conta alheia) — usado nas contas próprias de domínios ligados. */
   requireNewUser?: boolean;
-}): Promise<{ ok: boolean; error?: string; userExists?: boolean }> {
+  /** Contas de onde o domínio pode passar sozinho para a conta nova se já existir no servidor (compra de
+   * alojamento: a conta do administrador, onde ficam os sites da VisualDesign). Sem isto, um domínio que já
+   * existe noutra conta continua a ser tolerado como "já existe" (comportamento antigo). */
+  passarDeContas?: string[];
+  /** Quem pediu (só para o registo da passagem em /root/vh-passagens) */
+  quem?: string;
+}): Promise<{ ok: boolean; error?: string; userExists?: boolean; aviso?: string; passou?: boolean }> {
   const userResult = await hestiaCall('v-add-user', [
     input.username,
     input.password,
@@ -68,9 +74,32 @@ export async function createAccount(input: {
     return { ok: false, error: userResult.error };
   }
 
-  const domainResult = await hestiaCall('v-add-web-domain', [input.username, input.domain]);
-  if (!domainResult.ok && !isAlreadyExistsError(domainResult.error)) {
-    return { ok: false, error: domainResult.error };
+  // Domínio que já está noutra conta (plano 07-plano-passar-dominios-entre-contas.md, ponto 3):
+  //  - na conta do administrador → passa para a conta nova, com tudo o que tem; o domínio só conta como feito
+  //    depois de a passagem acabar bem (quem chama só avisa o cliente depois disto);
+  //  - na conta de outro cliente → nunca passa sozinho: a conta fica criada sem o domínio e devolve-se um aviso
+  //    para o administrador decidir.
+  let passou = false;
+  if (input.passarDeContas?.length) {
+    const { dominioParaConta } = await import('@/lib/vhost-passar');
+    const est = await dominioParaConta(input.username, input.domain, input.passarDeContas, input.quem || 'compra');
+    if (est.estado === 'falhou') return { ok: false, error: est.erro };
+    if (est.estado === 'noutra-conta') {
+      return { ok: true, aviso: `O domínio ${input.domain} está na conta ${est.dono}; a conta ${input.username} ficou criada sem ele. O administrador tem de decidir.` };
+    }
+    passou = est.estado === 'passou';
+  }
+
+  if (!passou) {
+    const domainResult = await hestiaCall('v-add-web-domain', [input.username, input.domain]);
+    if (!domainResult.ok && !isAlreadyExistsError(domainResult.error)) {
+      return { ok: false, error: domainResult.error };
+    }
+    // regra do webmail em https://<domínio>/webmail (só em domínios criados agora; os que passaram já a levam)
+    if (domainResult.ok) {
+      const { instalarWebmail } = await import('@/lib/vhost-passar');
+      await instalarWebmail(input.username, input.domain).catch(() => false);
+    }
   }
 
   // SSL best-effort — a conta e o domínio já ficam criados mesmo que o
@@ -93,7 +122,7 @@ export async function createAccount(input: {
   const { runEmailDnsAutomation } = await import('@/lib/domain-email-auth');
   runEmailDnsAutomation(input.domain);
 
-  return { ok: true };
+  return { ok: true, passou };
 }
 
 /** Remove só este site da conta (`v-delete-web-domain`) — nunca a conta em

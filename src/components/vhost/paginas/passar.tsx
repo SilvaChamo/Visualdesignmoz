@@ -77,12 +77,13 @@ export function OQuePassa({ p }: { p: PrevisaoPassagem }) {
   );
 }
 
-export function BotaoPassar({ dominio }: { dominio: string }) {
+export function BotaoPassar({ dominio, etiqueta }: { dominio: string; etiqueta?: boolean }) {
   const vh = useVH();
   if (!podePassar(vh)) return null;
   return (
-    <button className="btn g sm" title={vh.t('Passar para outra conta')} aria-label={vh.t('Passar para outra conta')} onClick={() => vh.openM(<PassarDominioModal dominio={dominio} />)}>
+    <button className={etiqueta ? 'btn g' : 'btn g sm'} title={vh.t('Passar para outra conta')} aria-label={vh.t('Passar para outra conta')} onClick={() => vh.openM(<PassarDominioModal dominio={dominio} />)}>
       <i className="fa-solid fa-right-left" />
+      {etiqueta && vh.t('Passar para outra conta')}
     </button>
   );
 }
@@ -113,7 +114,11 @@ export function PassarDominioModal({ dominio }: { dominio: string }) {
 
   const fechar = () => {
     closeM();
-    if (res?.ok) vh.recarregar(true);
+    if (res?.ok) {
+      vh.recarregar(true);
+      // o domínio já não é desta conta: volta à lista
+      nav('/utilizador/dominios');
+    }
   };
   const passar = async () => {
     if (!para) return toast('Escolha a conta de destino');
