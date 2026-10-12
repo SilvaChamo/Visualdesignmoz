@@ -12,6 +12,7 @@ import { ACME, IDIOMAS, RECURSOS, TEMAS, type InfoConta, type Lim, type PacoteUt
 import { mbTexto, type DadosServidor, type Servidor, type ZonaDns } from '@/components/vhost/servidor';
 import type { LeituraServidor } from '@/lib/vhost-servidor';
 import { getDaSyncAdmin } from '@/lib/da-sync-schema';
+import { buyerRoleForPackage } from '@/lib/user-roles';
 
 type Linha = Record<string, string>;
 
@@ -133,13 +134,16 @@ export function montarDados(srv: LeituraServidor, reg: RegistoSite, sessao: Sess
     const r = reg.contas.get(u);
     const p = (r?.authUserId && reg.perfis.get(r.authUserId)) || [...reg.perfis.values()].find((pf) => pf.conta === u);
     const web = srv.web[u] || {};
-    const temSites = Object.keys(web).length > 0;
+    // Cliente ou Profissional pelo plano (pedido do Silva, 12/10): VD-Host-Pro/Business/Enterprise → Profissional;
+    // VD-Host-Basico e planos de e-mail → Cliente. Antes bastava a conta ter um site, e todo o plano Básico caía em
+    // Profissional. Pacotes fora dos planos seguem o papel do perfil; "manager" é sempre Profissional.
+    const doPlano = buyerRoleForPackage(x.PACKAGE);
     let role: Role =
       (x.ROLE || '').toLowerCase() === 'admin' || u === apiUser || p?.role === 'admin'
         ? 'admin'
         : p?.role === 'reseller'
           ? 'revenda'
-          : temSites || p?.role === 'profissional'
+          : p?.role === 'manager' || (doPlano ? doPlano === 'profissional' : p?.role === 'profissional')
             ? 'profissional'
             : 'cliente';
     if (u === me && sessao.role === 'admin') role = 'admin';
