@@ -925,8 +925,8 @@ export function VisualHostApp({ temSessao = true }: { temSessao?: boolean }) {
                 )}
               </nav>
               <div className="acct" id="acct" title={t('Conta')} onClick={(e) => openPop('conta', e.currentTarget)}>
-                {/* a foto continua a vir do e-mail da conta, como antes (só as iniciais seguem o nome da pessoa) */}
-                <Avatar a={{ ...a, name: pessoaNome }} />
+                {/* foto do primeiro e-mail com Gravatar: o da conta, o do perfil de quem entrou, o da conta de entrada; senão as iniciais */}
+                <Avatar a={{ ...a, name: pessoaNome }} outros={[pessoaEmail, st.pessoa?.email, st.acc[st.login]?.email]} />
                 <div className="ai">
                   <span>
                     <b>{pessoaNome}</b>

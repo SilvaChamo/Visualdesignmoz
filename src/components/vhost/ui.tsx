@@ -25,8 +25,13 @@ async function gravatarHash(email: string) {
   return GRAV[email];
 }
 
-export function Avatar({ a }: { a: Account }) {
-  const email = (a.email || '').trim().toLowerCase();
+/** Foto do Gravatar do primeiro e-mail que a tiver (o da conta e depois os `outros`); só sem nenhuma ficam as iniciais */
+export function Avatar({ a, outros = [] }: { a: Account; outros?: (string | undefined)[] }) {
+  const lista = [...new Set([a.email, ...outros].map((e) => (e || '').trim().toLowerCase()).filter(Boolean))];
+  const chave = lista.join(',');
+  const [tentativa, setTentativa] = useState({ chave, i: 0 });
+  const i = tentativa.chave === chave ? tentativa.i : 0;
+  const email = lista[i] || '';
   const [src, setSrc] = useState<string | null>(null);
   const [shown, setShown] = useState(false);
   useEffect(() => {
@@ -44,7 +49,7 @@ export function Avatar({ a }: { a: Account }) {
   return (
     <div className="av" title={a.email || a.name}>
       <span>{initials(a.name)}</span>
-      {src && <img alt="" hidden={!shown} src={src} onLoad={() => setShown(true)} onError={() => setSrc(null)} />}
+      {src && <img alt="" hidden={!shown} src={src} onLoad={() => setShown(true)} onError={() => (setSrc(null), setTentativa({ chave, i: i + 1 }))} />}
     </div>
   );
 }
