@@ -48,7 +48,17 @@ export function encryptDaSecret(plain: string): string {
   return `v1:${iv.toString('base64')}:${tag.toString('base64')}:${enc.toString('base64')}`;
 }
 
+// Segredos antigos com que ainda há passwords cifradas (ex.: a chave de serviço do Supabase do Hetzner). Vêm do
+// ambiente (LEGACY_ENCRYPTION_SECRETS, separados por vírgulas) — nunca escritos no código: 7880d285 tinha aqui duas
+// chaves service_role do Supabase em claro.
+const LEGACY_ENCRYPTION_SECRETS = (process.env.LEGACY_ENCRYPTION_SECRETS || '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
+const KNOWN_SALTS = ['visualdesign-da-v1', 'visualdesign-panel-credentials-v1'];
+
 export function decryptDaSecret(stored: string): string {
+  if (!stored) return '';
   if (!stored.startsWith('v1:')) {
     // legado base64 (email_contas)
     try {
@@ -57,15 +67,38 @@ export function decryptDaSecret(stored: string): string {
       return stored;
     }
   }
-  const [, ivB64, tagB64, dataB64] = stored.split(':');
-  const key = encryptionKey();
-  const decipher = crypto.createDecipheriv(ALGO, key, Buffer.from(ivB64, 'base64'));
-  decipher.setAuthTag(Buffer.from(tagB64, 'base64'));
-  const dec = Buffer.concat([
-    decipher.update(Buffer.from(dataB64, 'base64')),
-    decipher.final(),
-  ]);
-  return dec.toString('utf8');
+
+  const parts = stored.split(':');
+  if (parts.length < 4) return '';
+  const [, ivB64, tagB64, dataB64] = parts;
+
+  const secrets = [
+    process.env.DA_CREDENTIALS_SECRET,
+    process.env.PANEL_CREDENTIALS_SECRET,
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
+    process.env.DIRECTADMIN_PASSWORD,
+    ...LEGACY_ENCRYPTION_SECRETS,
+  ].filter((s): s is string => Boolean(s));
+
+  for (const secret of secrets) {
+    for (const salt of KNOWN_SALTS) {
+      try {
+        const key = crypto.scryptSync(secret, salt, 32);
+        const decipher = crypto.createDecipheriv(ALGO, key, Buffer.from(ivB64, 'base64'));
+        decipher.setAuthTag(Buffer.from(tagB64, 'base64'));
+        const dec = Buffer.concat([
+          decipher.update(Buffer.from(dataB64, 'base64')),
+          decipher.final(),
+        ]);
+        const res = dec.toString('utf8');
+        if (res) return res;
+      } catch {
+        // tenta seguinte
+      }
+    }
+  }
+
+  return '';
 }
 
 function adminClient() {
