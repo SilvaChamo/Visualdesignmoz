@@ -212,6 +212,7 @@ export function DataTable<T>({
   semBusca = true,
   acoesFixas = false,
   acoesDiretas = false,
+  comSelecao = false,
   onSelChange,
 }: {
   id: string;
@@ -246,6 +247,8 @@ export function DataTable<T>({
   acoesFixas?: boolean;
   /** mostra os botões de ação diretamente sem dropdown */
   acoesDiretas?: boolean;
+  /** ativa a coluna de checkboxes de seleção nas linhas e cabeçalho */
+  comSelecao?: boolean;
   /** notifica chaves das linhas selecionadas */
   onSelChange?: (keys: string[]) => void;
 }) {
@@ -300,7 +303,8 @@ export function DataTable<T>({
   const selKeys = sel.filter((k) => keys.includes(k));
   const all = keys.length > 0 && selKeys.length === keys.length;
   const vcols = cols.filter((c) => vis.includes(c.k));
-  const span = vcols.length + (bulk.length ? 1 : 0) + (actions ? 1 : 0);
+  const temSelecao = bulk.length > 0 || comSelecao;
+  const span = vcols.length + (temSelecao ? 1 : 0) + (actions ? 1 : 0);
 
   const paginas = Math.max(1, Math.ceil(shown.length / porPagina));
   const atual = Math.min(pag, paginas);
@@ -445,7 +449,7 @@ export function DataTable<T>({
         <table>
           <thead>
             <tr>
-              {bulk.length > 0 && (
+              {temSelecao && (
                 <th className="ck">
                   <input type="checkbox" aria-label={t('Selecionar tudo')} checked={all} disabled={!keys.length} onChange={() => setSel(all ? [] : keys)} />
                 </th>
@@ -471,7 +475,7 @@ export function DataTable<T>({
                 const on = selKeys.includes(k);
                 return (
                   <tr key={k} className={(on ? 'sel ' : '') + (rowClass ? rowClass(r) : '')}>
-                    {bulk.length > 0 && (
+                    {temSelecao && (
                       <td className="ck">
                         <input type="checkbox" aria-label={t('Selecionar')} checked={on} onChange={() => setSel(on ? sel.filter((x) => x !== k) : [...sel, k])} />
                       </td>

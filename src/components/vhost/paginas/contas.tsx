@@ -1105,6 +1105,7 @@ function Mover() {
             { k: 'pkg', t: 'Pacote', cell: ([, a]) => a.pkg },
             { k: 'doms', t: 'Domínios', cell: ([, a]) => <Doms a={a} /> },
           ]}
+          comSelecao
           onSelChange={setSel}
           empty={dest ? 'Não há clientes para mover' : 'Escolha primeiro o destino'}
         />
