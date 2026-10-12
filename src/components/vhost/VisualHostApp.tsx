@@ -362,13 +362,29 @@ export function VisualHostApp({ temSessao = true }: { temSessao?: boolean }) {
         if (pre) {
           const fim = atividadeComeca();
           try {
-            ({ j, ...r } = await pre);
+            const timeoutPre = new Promise<{ ok: boolean; status: number; j: { erro?: string } }>((resolve) =>
+              setTimeout(() => resolve({ ok: false, status: 0, j: { erro: 'Timeout' } }), 9000),
+            );
+            const res = await Promise.race([pre, timeoutPre]);
+            if (res && res.status !== 0) {
+              ({ j, ...r } = res);
+            } else {
+              const ctrl = new AbortController();
+              const tid = setTimeout(() => ctrl.abort(), 10000);
+              try {
+                const resF = await fetch('/api/vhost/dados' + (fresco ? '?fresco=1' : ''), { cache: 'no-store', signal: ctrl.signal });
+                r = resF;
+                j = await resF.json().catch(() => ({}));
+              } finally {
+                clearTimeout(tid);
+              }
+            }
           } finally {
             fim();
           }
         } else {
           const ctrl = new AbortController();
-          const tid = setTimeout(() => ctrl.abort(), 14000);
+          const tid = setTimeout(() => ctrl.abort(), 10000);
           try {
             const res = await fetch('/api/vhost/dados' + (fresco ? '?fresco=1' : ''), { cache: 'no-store', signal: ctrl.signal });
             r = res;

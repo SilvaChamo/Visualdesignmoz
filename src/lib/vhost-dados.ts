@@ -124,7 +124,7 @@ export function montarDados(srv: LeituraServidor, reg: RegistoSite, sessao: Sess
   const perfil = reg.perfis.get(sessao.userId);
   let me = (perfil?.conta || '').toLowerCase();
   if (!me || !srv.users[me]) me = [...reg.contas].find(([, r]) => r.authUserId === sessao.userId)?.[0] || '';
-  if ((!me || !srv.users[me]) && sessao.role === 'admin') me = adminConta;
+  if (!me || !srv.users[me]) me = adminConta || nomes[0] || 'vdadmin';
 
   const contas: Record<string, Account> = {};
   const info: Record<string, InfoConta> = {};
@@ -277,20 +277,46 @@ export function lerRegisto(): Promise<RegistoSite> {
 async function lerRegistoAgora(): Promise<RegistoSite> {
   const reg: RegistoSite = { contas: new Map(), perfis: new Map(), revendas: new Map() };
   const sb = getDaSyncAdmin();
-  if (!sb) return reg;
-  const [contas, perfis, revendas] = await Promise.all([
-    sb.from('panel_users').select('username, parent_username, auth_user_id, created_at, da_domain'),
-    sb.from('profiles').select('user_id, role, name, email, da_username, da_domain, empresa'),
-    sb.from('panel_auth_accounts').select('user_id, reseller_tier'),
-  ]);
-  for (const r of contas.data || []) {
-    const u = String(r.username || '').trim().toLowerCase();
-    if (u) reg.contas.set(u, { parent: r.parent_username ? String(r.parent_username).toLowerCase() : null, authUserId: r.auth_user_id ? String(r.auth_user_id) : null, criada: r.created_at ? String(r.created_at) : null, dominio: r.da_domain ? String(r.da_domain).trim().toLowerCase() : undefined });
+  if (!sb) {
+    if (process.env.NODE_ENV !== 'development') {
+      throw new Error('Supabase indisponível para ler o registo do VisualHost.');
+    }
+    reg.contas.set('vdadmin', { parent: null, authUserId: null, criada: new Date().toISOString() });
+    reg.contas.set('silvachamo', { parent: null, authUserId: null, criada: new Date().toISOString() });
+    return reg;
   }
-  for (const p of perfis.data || []) {
-    if (!p.user_id) continue;
-    reg.perfis.set(String(p.user_id), { userId: String(p.user_id), role: String(p.role || ''), name: String(p.name || ''), email: String(p.email || ''), conta: String(p.da_username || '').trim().toLowerCase(), dominio: p.da_domain ? String(p.da_domain).trim().toLowerCase() : undefined, empresa: p.empresa ? String(p.empresa).trim() : undefined });
+  try {
+    const timeoutPromise = new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Supabase timeout')), 5000));
+    const [contas, perfis, revendas] = await Promise.race([
+      Promise.all([
+        sb.from('panel_users').select('username, parent_username, auth_user_id, created_at, da_domain'),
+        sb.from('profiles').select('user_id, role, name, email, da_username, da_domain, empresa'),
+        sb.from('panel_auth_accounts').select('user_id, reseller_tier'),
+      ]),
+      timeoutPromise,
+    ]);
+    const queryError = contas.error || perfis.error || revendas.error;
+    if (queryError) throw queryError;
+    for (const r of contas.data || []) {
+      const u = String(r.username || '').trim().toLowerCase();
+      if (u) reg.contas.set(u, { parent: r.parent_username ? String(r.parent_username).toLowerCase() : null, authUserId: r.auth_user_id ? String(r.auth_user_id) : null, criada: r.created_at ? String(r.created_at) : null, dominio: r.da_domain ? String(r.da_domain).trim().toLowerCase() : undefined });
+    }
+    for (const p of perfis.data || []) {
+      if (!p.user_id) continue;
+      reg.perfis.set(String(p.user_id), { userId: String(p.user_id), role: String(p.role || ''), name: String(p.name || ''), email: String(p.email || ''), conta: String(p.da_username || '').trim().toLowerCase(), dominio: p.da_domain ? String(p.da_domain).trim().toLowerCase() : undefined, empresa: p.empresa ? String(p.empresa).trim() : undefined });
+    }
+    for (const r of revendas.data || []) if (r.user_id && r.reseller_tier) reg.revendas.set(String(r.user_id), String(r.reseller_tier).toLowerCase());
+  } catch (err) {
+    if (process.env.NODE_ENV !== 'development') {
+      console.error('[vhost-dados] Não foi possível ler o registo do VisualHost:', err);
+      throw err;
+    }
+    console.warn('[vhost-dados] Supabase inacessível em ambiente local. A usar registo de contingência.');
+    reg.contas.set('vdadmin', { parent: null, authUserId: null, criada: new Date().toISOString() });
+    reg.contas.set('silvachamo', { parent: null, authUserId: null, criada: new Date().toISOString() });
+    reg.contas.set('osher', { parent: 'vdadmin', authUserId: null, criada: new Date().toISOString() });
+    reg.contas.set('revenda', { parent: 'vdadmin', authUserId: null, criada: new Date().toISOString() });
+    reg.contas.set('cliente1', { parent: 'vdadmin', authUserId: null, criada: new Date().toISOString() });
   }
-  for (const r of revendas.data || []) if (r.user_id && r.reseller_tier) reg.revendas.set(String(r.user_id), String(r.reseller_tier).toLowerCase());
   return reg;
 }

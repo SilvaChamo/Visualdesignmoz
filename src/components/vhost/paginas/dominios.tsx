@@ -104,231 +104,12 @@ function Contexto({ d, extra }: { d: string; extra?: string }) {
   );
 }
 
-// ---------- Modais de Domínios ----------
-function MudarNomeModal({ d }: { d: string }) {
-  const vh = useVH();
-  const { t, closeM, nav, setDominio } = vh;
-  const [novo, setNovo] = useState('');
-  return (
-    <>
-      <h3>{t('Mudar o nome do domínio')}</h3>
-      <div className="f">
-        <label>{t('Nome atual')}</label>
-        <input value={d} disabled />
-      </div>
-      <div className="f">
-        <label>{t('Nome novo')}</label>
-        <input value={novo} onChange={(e) => setNovo(e.target.value)} placeholder="ex.: novodominio.co.mz" autoFocus />
-      </div>
-      <p style={{ color: 'var(--muted)', fontSize: 12.5 }}>{t('Os ficheiros do site passam para o nome novo. O DNS do nome novo tem de apontar para este servidor.')}</p>
-      <div className="mfoot">
-        <button className="btn g" onClick={closeM}>
-          {t('Cancelar')}
-        </button>
-        <button
-          className="btn r"
-          onClick={async () => {
-            const n = novo.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*$/, '');
-            if (!/^([a-z0-9-]+\.)+[a-z]{2,}$/.test(n)) return vh.toast('Escreva um domínio válido');
-            closeM();
-            if (await noServidor(vh, { acao: 'dominio-nome', dominio: d, novo: n }, d + ' passou a ' + n)) {
-              setDominio(n);
-              nav('/' + vh.s.level + '/dominios/' + encodeURIComponent(n));
-            }
-          }}
-        >
-          {t('Mudar nome')}
-        </button>
-      </div>
-    </>
-  );
-}
-
-function OpcoesDominioModal({ selecionados, onClose }: { selecionados: string[]; onClose: () => void }) {
-  const vh = useVH();
-  const { a, t, nav, setDominio, openM } = vh;
-  const [copiado, setCopiado] = useState(false);
-  const unico = selecionados.length === 1 ? selecionados[0] : null;
-  const ipServidor = '169.58.148.144';
-
-  const copiarIp = () => {
-    navigator.clipboard.writeText(ipServidor);
-    setCopiado(true);
-    setTimeout(() => setCopiado(false), 2000);
-  };
-
-  const varios = (keys: string[], acao: string, msg: string) =>
-    keys.reduce<Promise<unknown>>((p, k) => p.then(() => noServidor(vh, { acao, dominio: k }, msg + ': ' + k)), Promise.resolve());
-
-  return (
-    <div style={{ minWidth: 320, maxWidth: 440 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-        <h3 style={{ margin: 0, fontSize: 17, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <i className="fa-solid fa-sliders" style={{ color: 'var(--red)' }} />
-          {unico ? `${t('Gerir')} ${unico}` : `${t('Opções de Domínios')} (${selecionados.length})`}
-        </h3>
-        <span className="tag" style={{ background: 'var(--soft)', color: 'var(--muted)', fontWeight: 600 }}>
-          {selecionados.length} {selecionados.length === 1 ? t('selecionado') : t('selecionados')}
-        </span>
-      </div>
-
-      {selecionados.length > 1 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 16, maxHeight: 90, overflowY: 'auto', padding: '6px 8px', background: 'var(--soft)', borderRadius: 'var(--r)' }}>
-          {selecionados.map((nome) => (
-            <span key={nome} style={{ fontSize: 12, padding: '2px 8px', background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 4, color: 'var(--ink)' }}>
-              {nome}
-            </span>
-          ))}
-        </div>
-      )}
-
-      {/* Bloco 1: IPs Atribuídos */}
-      <div style={{ background: 'var(--soft)', padding: '12px 14px', borderRadius: 'var(--r)', marginBottom: 16, border: '1px solid var(--line)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div>
-            <div style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-              <i className="fa-solid fa-network-wired" style={{ marginRight: 6 }} />
-              {t('IPs atribuídos')}
-            </div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)', marginTop: 4, fontFamily: 'monospace' }}>
-              {ipServidor}
-            </div>
-          </div>
-          <button
-            type="button"
-            className="btn g sm"
-            onClick={copiarIp}
-            title={t('Copiar endereço IP')}
-            style={{ minWidth: 90 }}
-          >
-            <i className={copiado ? 'fa-solid fa-check' : 'fa-solid fa-copy'} style={{ color: copiado ? '#16a34a' : undefined }} />
-            {copiado ? t('Copiado!') : t('Copiar IP')}
-          </button>
-        </div>
-      </div>
-
-      {/* Bloco 2: Ações Rápidas */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
-        {unico ? (
-          <>
-            {/* Abrir o site */}
-            <a
-              href={'https://' + unico}
-              target="_blank"
-              rel="noreferrer"
-              className="btn g"
-              style={{ justifyContent: 'flex-start', padding: '10px 14px' }}
-            >
-              <i className="fa-solid fa-arrow-up-right-from-square" style={{ width: 18 }} />
-              <span>{t('Abrir o site')}</span>
-              <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--muted)' }}>https://{unico}</span>
-            </a>
-
-            {/* Mudar nome */}
-            <button
-              type="button"
-              className="btn g"
-              style={{ justifyContent: 'flex-start', padding: '10px 14px' }}
-              onClick={() => {
-                onClose();
-                openM(<MudarNomeModal d={unico} />);
-              }}
-            >
-              <i className="fa-solid fa-i-cursor" style={{ width: 18 }} />
-              <span>{t('Mudar nome')}</span>
-              <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--muted)' }}>{t('Renomear domínio')}</span>
-            </button>
-
-            {/* Gerir configurações completas */}
-            <button
-              type="button"
-              className="btn r"
-              style={{ justifyContent: 'flex-start', padding: '10px 14px' }}
-              onClick={() => {
-                setDominio(unico);
-                nav('/' + vh.s.level + '/dominios/' + encodeURIComponent(unico));
-                onClose();
-              }}
-            >
-              <i className="fa-solid fa-sliders" style={{ width: 18 }} />
-              <span>{t('Gerir configurações')}</span>
-              <span style={{ marginLeft: 'auto', fontSize: 12, opacity: 0.85 }}>{t('Modificar, SSL, PHP')}</span>
-            </button>
-          </>
-        ) : (
-          <>
-            <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 4 }}>
-              {t('Ações em lote para')} {selecionados.length} {t('domínios:')}
-            </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button
-                type="button"
-                className="btn g"
-                style={{ flex: 1 }}
-                onClick={async () => {
-                  onClose();
-                  await varios(selecionados, 'dominio-suspender', 'Suspenso');
-                  vh.recarregar(true);
-                }}
-              >
-                <i className="fa-solid fa-pause" />
-                {t('Suspender todos')}
-              </button>
-              <button
-                type="button"
-                className="btn g"
-                style={{ flex: 1 }}
-                onClick={async () => {
-                  onClose();
-                  await varios(selecionados, 'dominio-reativar', 'Reativado');
-                  vh.recarregar(true);
-                }}
-              >
-                <i className="fa-solid fa-play" />
-                {t('Reativar todos')}
-              </button>
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* Rodapé do Modal */}
-      <div className="mfoot" style={{ justifyContent: 'space-between', borderTop: '1px solid var(--line)', paddingTop: 14 }}>
-        {unico && (
-          <button
-            type="button"
-            className="btn g"
-            style={{ color: 'var(--muted)' }}
-            onClick={() => {
-              onClose();
-              openM(
-                <Confirmar
-                  titulo="Apagar domínio?"
-                  texto={'Vai apagar ' + unico + ' do servidor, com os ficheiros do site. Não se pode desfazer.'}
-                  ok="Apagar"
-                  onOk={async () => (await noServidor(vh, { acao: 'dominio-apagar', dominio: unico }, 'Domínio apagado')) && nav('/' + vh.s.level + '/dominios')}
-                />,
-              );
-            }}
-          >
-            <i className="fa-solid fa-trash" />
-            {t('Apagar')}
-          </button>
-        )}
-        <button type="button" className="btn g" onClick={onClose} style={{ marginLeft: 'auto' }}>
-          {t('Fechar')}
-        </button>
-      </div>
-    </div>
-  );
-}
-
 // ---------- Domínios ----------
 type LinhaDom = Domain & { subs: number };
 
 function ListaDominios({ abaDom = 'meus' }: { abaDom?: 'meus' | 'registar' }) {
   const vh = useVH();
-  const { a, t, nav, openM, closeM, setDominio } = vh;
+  const { a, t, nav, openM, setDominio } = vh;
   const sites = a.domains;
   const rows: LinhaDom[] = sites.filter((x) => !sites.some((y) => y !== x && ehSub(x.name, y.name))).map((x) => ({ ...x, subs: sites.filter((y) => ehSub(y.name, x.name)).length }));
   const cols: Col<LinhaDom>[] = [
@@ -357,7 +138,6 @@ function ListaDominios({ abaDom = 'meus' }: { abaDom?: 'meus' | 'registar' }) {
     { k: 'php', t: 'PHP', cell: (r) => (r.soEmail ? '—' : r.php), hidden: true },
     { k: 'estado', t: 'Estado', cell: (r) => <span className={'tag ' + (r.status === 'ok' ? 'ok' : 'off')}>{r.status === 'ok' ? t('Ativo') : t('Suspenso')}</span> },
   ];
-  const [sel, setSel] = useState<string[]>([]);
   const varios = (keys: string[], acao: string, msg: string) =>
     keys.reduce<Promise<unknown>>((p, k) => p.then(() => noServidor(vh, { acao, dominio: k }, msg + ': ' + k)), Promise.resolve());
 
@@ -370,20 +150,6 @@ function ListaDominios({ abaDom = 'meus' }: { abaDom?: 'meus' | 'registar' }) {
         ]}
         on={abaDom}
         onChange={(k) => nav(k === 'registar' ? '/' + vh.s.level + '/dominios/registar' : '/' + vh.s.level + '/dominios')}
-        extra={
-          sel.length > 0 ? (
-            <button
-              type="button"
-              className="ptabs-btn-sel"
-              onClick={() => openM(<OpcoesDominioModal selecionados={sel} onClose={closeM} />)}
-              title={t('Mais opções para os domínios selecionados')}
-            >
-              <i className="fa-solid fa-sliders" />
-              <span>{t('Gerir')} ({sel.length})</span>
-              <i className="fa-solid fa-chevron-down" style={{ fontSize: 10, opacity: 0.8 }} />
-            </button>
-          ) : undefined
-        }
       />
 
       {abaDom === 'registar' ? (
@@ -398,8 +164,6 @@ function ListaDominios({ abaDom = 'meus' }: { abaDom?: 'meus' | 'registar' }) {
           rowKey={(r) => r.name}
           search={(r) => r.name}
           empty="Ainda não há domínios nesta conta"
-          comSelecao={true}
-          onSelChange={setSel}
           bulk={[
             { t: 'Suspender', fa: 'fa-pause', run: (k) => varios(k, 'dominio-suspender', 'Suspenso') },
             { t: 'Reativar', fa: 'fa-play', run: (k) => varios(k, 'dominio-reativar', 'Reativado') },
@@ -419,6 +183,17 @@ function ListaDominios({ abaDom = 'meus' }: { abaDom?: 'meus' | 'registar' }) {
           ]}
           actions={(r) => (
             <>
+              <button
+                className="btn g sm"
+                title={t('Escolher este domínio no seletor')}
+                onClick={() => {
+                  setDominio(r.name);
+                  nav('/' + vh.s.level + '/dominios/' + encodeURIComponent(r.name));
+                }}
+              >
+                <i className="fa-solid fa-gear" />
+                {t('Gerir')}
+              </button>{' '}
               {!r.soEmail && <BotaoPassar dominio={r.name} />}
             </>
           )}
@@ -464,6 +239,45 @@ function NovoDominio() {
         <Check checked={ssl} onChange={setSsl} label="Pedir certificado SSL automático" />
       </Row>
     </Frm>
+  );
+}
+
+function MudarNomeModal({ d }: { d: string }) {
+  const vh = useVH();
+  const { t, closeM, nav, setDominio } = vh;
+  const [novo, setNovo] = useState('');
+  return (
+    <>
+      <h3>{t('Mudar o nome do domínio')}</h3>
+      <div className="f">
+        <label>{t('Nome atual')}</label>
+        <input value={d} disabled />
+      </div>
+      <div className="f">
+        <label>{t('Nome novo')}</label>
+        <input value={novo} onChange={(e) => setNovo(e.target.value)} placeholder="ex.: novodominio.co.mz" autoFocus />
+      </div>
+      <p style={{ color: 'var(--muted)', fontSize: 12.5 }}>{t('Os ficheiros do site passam para o nome novo. O DNS do nome novo tem de apontar para este servidor.')}</p>
+      <div className="mfoot">
+        <button className="btn g" onClick={closeM}>
+          {t('Cancelar')}
+        </button>
+        <button
+          className="btn r"
+          onClick={async () => {
+            const n = novo.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*$/, '');
+            if (!/^([a-z0-9-]+\.)+[a-z]{2,}$/.test(n)) return vh.toast('Escreva um domínio válido');
+            closeM();
+            if (await noServidor(vh, { acao: 'dominio-nome', dominio: d, novo: n }, d + ' passou a ' + n)) {
+              setDominio(n);
+              nav('/utilizador/dominios/' + encodeURIComponent(n));
+            }
+          }}
+        >
+          {t('Mudar nome')}
+        </button>
+      </div>
+    </>
   );
 }
 
@@ -555,7 +369,7 @@ function VerDominio({ d }: { d: string }) {
     }
   };
 
-  const ir = (p: string) => nav('/' + vh.s.level + '/' + p);
+  const ir = (p: string) => nav('/utilizador/' + p);
   const atalhos: [string, string, string, string][] = [
     ['subdominios', 'fa-sitemap', 'Subdomínios', a.domains.filter((y) => ehSub(y.name, d)).length + ''],
     ['apontadores', 'fa-arrow-right-arrow-left', 'Apontadores', (x.aliases || []).length + ''],
@@ -568,6 +382,69 @@ function VerDominio({ d }: { d: string }) {
   ];
   return (
     <>
+      <div className="acoes-topo">
+        {!x.soEmail && (
+          <a className="btn g" href={'https://' + d} target="_blank" rel="noreferrer">
+            <i className="fa-solid fa-arrow-up-right-from-square" />
+            {t('Abrir o site')}
+          </a>
+        )}
+        {!x.soEmail && (
+          <button
+            className="btn g"
+            onClick={() =>
+              openM(
+                <>
+                  <h3>{t('IPs atribuídos')}</h3>
+                  <p style={{ margin: '14px 0', fontSize: 13, color: 'var(--muted)' }}>
+                    {t('Endereço IP do servidor associado a')} <b>{d}</b>:
+                  </p>
+                  <div style={{ padding: '12px 16px', background: 'var(--card-bg, rgba(0,0,0,0.04))', borderRadius: 8, fontWeight: 600, border: '1px solid var(--line-soft, #e2e8f0)' }}>
+                    169.58.148.144
+                  </div>
+                  <div className="mfoot" style={{ marginTop: 20 }}>
+                    <button className="btn g" onClick={vh.closeM}>{t('Fechar')}</button>
+                  </div>
+                </>
+              )
+            }
+          >
+            <i className="fa-solid fa-network-wired" />
+            {t('IPs atribuídos')}
+          </button>
+        )}
+        {!x.soEmail && (
+          <button className="btn g" onClick={() => openM(<MudarNomeModal d={d} />)}>
+            <i className="fa-solid fa-i-cursor" />
+            {t('Mudar nome')}
+          </button>
+        )}
+        {!x.soEmail && <BotaoPassar dominio={d} etiqueta />}
+        <button
+          className="btn g"
+          onClick={() => noServidor(vh, { acao: x.status === 'ok' ? 'dominio-suspender' : 'dominio-reativar', dominio: d }, x.status === 'ok' ? 'Domínio suspenso' : 'Domínio reativado')}
+        >
+          <i className={'fa-solid ' + (x.status === 'ok' ? 'fa-pause' : 'fa-play')} />
+          {t(x.status === 'ok' ? 'Suspender' : 'Reativar')}
+        </button>
+        <button
+          className="btn g"
+          onClick={() =>
+            openM(
+              <Confirmar
+                titulo="Apagar domínio?"
+                texto={'Vai apagar ' + d + ' do servidor, com os ficheiros do site. Não se pode desfazer.'}
+                ok="Apagar"
+                onOk={async () => (await noServidor(vh, { acao: 'dominio-apagar', dominio: d }, 'Domínio apagado')) && nav('/' + vh.s.level + '/dominios')}
+              />,
+            )
+          }
+        >
+          <i className="fa-solid fa-trash" />
+          {t('Apagar')}
+        </button>
+      </div>
+
       <Frm title="Resumo">
         <Row label="Estado">
           <span className={'tag ' + (x.status === 'ok' ? 'ok' : 'off')}>{x.status === 'ok' ? t('Ativo') : t('Suspenso')}</span>
@@ -683,14 +560,16 @@ function VerDominio({ d }: { d: string }) {
 
       {erro && <Carregar erro={erro} ler={ler} />}
       {!x.soEmail && (
-        <div className="vh-dom-atalhos-grid">
+        <div className="tema-cats">
           {atalhos.map(([p, fa, titulo, sub]) => (
-            <div key={p} className="da-card" onClick={() => ir(p)}>
-              <div className="da-card-ic">
+            <div key={p} className="card tool" onClick={() => ir(p)}>
+              <div className="ic c6" style={{ width: 30, height: 30, fontSize: 20 }}>
                 <i className={fa.startsWith('fa-brands') ? fa : 'fa-solid ' + fa} />
               </div>
-              <span className="da-card-title">{t(titulo)}</span>
-              {sub ? <span className="da-card-sub">{sub}</span> : null}
+              <div>
+                <b>{t(titulo)}</b>
+                <span>{sub}</span>
+              </div>
             </div>
           ))}
         </div>

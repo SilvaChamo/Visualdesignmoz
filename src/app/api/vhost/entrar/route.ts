@@ -1,8 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { checkAndRegisterLoginAttempt, clearLoginAttempts, loginRateLimitKey } from '@/lib/login-rate-limit';
+import { isHestiaOnlyDeploy } from '@/lib/hosting-provider';
 
 export const dynamic = 'force-dynamic';
+
+/** Evita o botão "Entrar" ficar a girar para sempre quando Hestia/DA não respondem. */
+function comTempo<T>(p: Promise<T>, ms: number): Promise<T | null> {
+  return Promise.race([
+    p.then((v) => v as T | null).catch(() => null),
+    new Promise<null>((r) => setTimeout(() => r(null), ms)),
+  ]);
+}
 
 /**
  * POST /api/vhost/entrar  { utilizador, senha } — entrada no painel com o nome de utilizador (o mesmo do DA/Hestia,
@@ -106,26 +115,34 @@ export async function POST(req: NextRequest) {
     }
 
     // C) Validação em tempo real no servidor Hestia (v-check-user-password)
+    //    Com timeout: sem isto o botão Entrar ficava a girar quando a API/SSH não respondia.
     if (!senhaValida && serverUsername) {
-      try {
-        const { checkUserPassword } = await import('@/lib/hestia-adapter');
-        const hRes = await checkUserPassword(serverUsername, senha);
-        if (hRes.ok) senhaValida = true;
-      } catch {}
+      const hRes = await comTempo(
+        (async () => {
+          const { checkUserPassword } = await import('@/lib/hestia-adapter');
+          return checkUserPassword(serverUsername, senha);
+        })(),
+        10_000,
+      );
+      if (hRes?.ok) senhaValida = true;
     }
 
-    // D) Validação em tempo real no DirectAdmin (Hetzner legado)
-    if (!senhaValida && serverUsername) {
-      try {
-        const { daRequest } = await import('@/lib/directadmin');
-        const daRes = await daRequest(
-          'CMD_API_SHOW_USER_CONFIG',
-          'GET',
-          { user: serverUsername },
-          { role: 'reseller', user: serverUsername, password: senha, skipSshFallback: true },
-        );
-        if (!daRes.error && daRes.data && Object.keys(daRes.data).length > 0) senhaValida = true;
-      } catch {}
+    // D) DirectAdmin só no Hetzner — neste deploy Contabo/Hestia não existe DA
+    //    e o pedido HTTPS ficava preso em SYN_SENT, a bloquear o login.
+    if (!senhaValida && serverUsername && !isHestiaOnlyDeploy()) {
+      const daRes = await comTempo(
+        (async () => {
+          const { daRequest } = await import('@/lib/directadmin');
+          return daRequest(
+            'CMD_API_SHOW_USER_CONFIG',
+            'GET',
+            { user: serverUsername },
+            { role: 'reseller', user: serverUsername, password: senha, skipSshFallback: true },
+          );
+        })(),
+        8_000,
+      );
+      if (daRes && !daRes.error && daRes.data && Object.keys(daRes.data).length > 0) senhaValida = true;
     }
 
     // Se confirmou no servidor ou nas credenciais guardadas, atualiza no Supabase para manter igual sem trocar
@@ -147,19 +164,16 @@ export async function POST(req: NextRequest) {
         console.error('[vhost/entrar] Erro ao sincronizar senha com Supabase:', err);
       }
 
-      // Tenta novamente após sincronizar
+      // Tenta novamente após sincronizar — só libera se a sessão Supabase existir de facto
       const retry = await cliente.auth.signInWithPassword({ email, password: senha });
       if (retry.data?.session) {
         data = retry.data;
-        error = null;
-      } else {
-        // Se a sessão local ainda não conseguir por lag do Supabase, o utilizador já está confirmado como autêntico
         error = null;
       }
     }
   }
 
-  if (error) return falha();
+  if (error || !data?.session) return falha();
   await cliente.auth.signOut({ scope: 'local' }).catch(() => {});
   await clearLoginAttempts(chave);
   return NextResponse.json({ email });

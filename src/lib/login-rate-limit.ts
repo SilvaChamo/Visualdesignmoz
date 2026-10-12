@@ -77,6 +77,14 @@ $$ LANGUAGE sql;
 
 let schemaReady = false;
 
+/** Sem isto, um RPC Supabase que não responde deixa o botão Entrar a girar para sempre. */
+function comTempo<T>(p: PromiseLike<T>, ms: number): Promise<T | null> {
+  return Promise.race([
+    Promise.resolve(p).then((v) => v as T | null).catch(() => null),
+    new Promise<null>((r) => setTimeout(() => r(null), ms)),
+  ]);
+}
+
 function adminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -89,8 +97,8 @@ async function ensureLoginRateLimitSchema(): Promise<boolean> {
   const admin = adminClient();
   if (!admin) return false;
   try {
-    const { error } = await admin.rpc('exec_sql', { sql: MIGRATION_SQL });
-    if (!error) {
+    const res = await comTempo(admin.rpc('exec_sql', { sql: MIGRATION_SQL }), 3_000);
+    if (res && !res.error) {
       schemaReady = true;
       return true;
     }
@@ -123,12 +131,17 @@ export async function checkAndRegisterLoginAttempt(
   await ensureLoginRateLimitSchema();
 
   try {
-    const { data, error } = await admin.rpc('register_login_attempt', {
-      p_key: key,
-      p_window_seconds: WINDOW_SECONDS,
-      p_max_attempts: MAX_ATTEMPTS,
-      p_block_seconds: BLOCK_SECONDS,
-    });
+    const res = await comTempo(
+      admin.rpc('register_login_attempt', {
+        p_key: key,
+        p_window_seconds: WINDOW_SECONDS,
+        p_max_attempts: MAX_ATTEMPTS,
+        p_block_seconds: BLOCK_SECONDS,
+      }),
+      3_000,
+    );
+    if (!res) return { allowed: true, retryAfterSeconds: 0 };
+    const { data, error } = res;
     const row = Array.isArray(data) ? data[0] : data;
     if (error || !row) return { allowed: true, retryAfterSeconds: 0 };
     return { allowed: Boolean(row.allowed), retryAfterSeconds: Number(row.retry_after_seconds) || 0 };
@@ -141,7 +154,7 @@ export async function clearLoginAttempts(key: string): Promise<void> {
   const admin = adminClient();
   if (!admin) return;
   try {
-    await admin.rpc('clear_login_attempts', { p_key: key });
+    await comTempo(admin.rpc('clear_login_attempts', { p_key: key }), 2_000);
   } catch {
     /* limpeza é best-effort */
   }

@@ -40,11 +40,16 @@ export type HestiaCallResult = {
  */
 const SSH_EXIT_MARK = '__VD_HESTIA_EXIT__=';
 
-async function hestiaCallViaSsh(cmd: string, args: string[]): Promise<HestiaCallResult> {
+async function hestiaCallViaSsh(cmd: string, args: string[], timeoutMs = 20_000): Promise<HestiaCallResult> {
   const { executeServerCommand } = await import('@/lib/server-ssh-exec');
   const quoted = args.map((a) => `'${a.replace(/'/g, `'\\''`)}'`).join(' ');
   try {
-    const raw = (await executeServerCommand(`/usr/local/hestia/bin/${cmd} ${quoted} 2>&1; echo "${SSH_EXIT_MARK}$?"`)).trim();
+    const raw = (
+      await executeServerCommand(`/usr/local/hestia/bin/${cmd} ${quoted} 2>&1; echo "${SSH_EXIT_MARK}$?"`, {
+        fast: timeoutMs <= 12_000,
+        timeoutMs,
+      })
+    ).trim();
     // Os v-add-*/v-change-* não escrevem nada quando correm bem — "sem output"
     // não pode ser falha (era assim que um v-add-user bem-sucedido aparecia
     // como "falhou via SSH" e o resto do provisionamento ficava por fazer).
@@ -74,6 +79,11 @@ async function hestiaCallViaSsh(cmd: string, args: string[]): Promise<HestiaCall
   }
 }
 
+/** Timeout curto no HTTP: sem isto o login fica preso em SYN_SENT quando o
+ * Hestia não está alcançável a partir da rede actual (ex.: Mac fora da VPN). */
+const HESTIA_HTTP_TIMEOUT_MS = 5_000;
+const HESTIA_SSH_FALLBACK_MS = 12_000;
+
 export async function hestiaCall(cmd: string, args: string[] = []): Promise<HestiaCallResult> {
   const { host, port, user, password } = resolveHestiaConfig();
 
@@ -90,9 +100,10 @@ export async function hestiaCall(cmd: string, args: string[] = []): Promise<Hest
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: body.toString(),
       cache: 'no-store',
+      signal: AbortSignal.timeout(HESTIA_HTTP_TIMEOUT_MS),
     });
-  } catch (e: unknown) {
-    return hestiaCallViaSsh(cmd, args);
+  } catch {
+    return hestiaCallViaSsh(cmd, args, HESTIA_SSH_FALLBACK_MS);
   }
 
   const output = (await response.text()).trim();
@@ -101,7 +112,7 @@ export async function hestiaCall(cmd: string, args: string[] = []): Promise<Hest
 
   if (exitCode !== 0) {
     if (/ip is not allowed/i.test(output)) {
-      return hestiaCallViaSsh(cmd, args);
+      return hestiaCallViaSsh(cmd, args, HESTIA_SSH_FALLBACK_MS);
     }
     return { ok: false, exitCode, output, error: output || `Comando ${cmd} falhou (código ${exitCode})` };
   }

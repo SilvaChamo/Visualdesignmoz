@@ -120,6 +120,7 @@ async function executeViaNativeSsh(command: string, fast = false, timeoutMs?: nu
     }
   }
 
+  const connectTimeoutSec = timeoutMs ? Math.max(2, Math.min(Math.floor(timeoutMs / 1000), 15)) : (fast ? 6 : 15);
   const sshOpts = [
     ...identityArg,
     '-p',
@@ -131,7 +132,7 @@ async function executeViaNativeSsh(command: string, fast = false, timeoutMs?: nu
     '-o',
     useSshpass ? 'BatchMode=no' : 'BatchMode=yes',
     '-o',
-    `ConnectTimeout=${fast ? 6 : 15}`,
+    `ConnectTimeout=${connectTimeoutSec}`,
     '-o',
     'ConnectionAttempts=1',
   ];
@@ -191,20 +192,25 @@ export function executeServerCommand(
   // Preferir ssh nativo — mais fiável com chaves OpenSSH multilinha
   return withSshSlot(() =>
     executeViaNativeSsh(command, fast, timeoutMs).catch((nativeErr: Error) => {
-    return new Promise((resolve, reject) => {
-      let connectOptions: ReturnType<typeof getSshConnectOptions>;
-      try {
-        connectOptions = getSshConnectOptions();
-      } catch (e: unknown) {
-        reject(nativeErr);
-        return;
+      const isTimeoutOrNetwork = /timed out|ETIMEDOUT|No route to host|Connection refused|ECONNREFUSED/i.test(nativeErr.message || '');
+      if (isTimeoutOrNetwork) {
+        throw nativeErr;
       }
+      return new Promise((resolve, reject) => {
+        let connectOptions: ReturnType<typeof getSshConnectOptions>;
+        try {
+          connectOptions = getSshConnectOptions();
+          connectOptions.readyTimeout = timeoutMs ? Math.min(timeoutMs, 10_000) : (fast ? 8_000 : 20_000);
+        } catch (e: unknown) {
+          reject(nativeErr);
+          return;
+        }
 
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { Client } = require('ssh2');
-      const conn = new Client();
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { Client } = require('ssh2');
+        const conn = new Client();
 
-      conn.on('ready', () => {
+        conn.on('ready', () => {
         conn.exec(
           command,
           (

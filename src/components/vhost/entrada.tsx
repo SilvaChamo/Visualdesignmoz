@@ -48,7 +48,12 @@ export function EntradaPainel({ escuro, modo, lang, voltarA, onModo, onLang, onE
       if (!login.includes('@')) {
         const r = await fetch('/api/vhost/entrar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ utilizador: login, senha }) }).catch(() => null);
         const j = r && r.ok ? ((await r.json().catch(() => ({}))) as { email?: string }) : {};
-        if (j.email) email = j.email;
+        if (!j.email) {
+          setErro(tx.errado);
+          setAEntrar(false);
+          return;
+        }
+        email = j.email;
       }
       await auth.signIn(email, senha);
       onEntrou();
