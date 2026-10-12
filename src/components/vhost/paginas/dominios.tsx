@@ -281,17 +281,94 @@ function MudarNomeModal({ d }: { d: string }) {
   );
 }
 
+// VerDominio: Resumo e Modificar Domínio (cópia fiel dos recursos e visual do DirectAdmin Evolution edit.vue)
 function VerDominio({ d }: { d: string }) {
   const vh = useVH();
   const { a, s, t, nav, setDominio, openM } = vh;
   const x = a.domains.find((y) => y.name === d);
   const { det, erro, ler } = useDetalhe(x && !x.soEmail ? d : '');
+
+  // Estados para as configurações do DirectAdmin (Modify Domain)
+  const [forcarSsl, setForcarSsl] = useState<boolean>(false);
+  const [hsts, setHsts] = useState<boolean>(false);
+  const [redir, setRedir] = useState<'none' | 'www' | 'non-www'>('none');
+  const [phpVer, setPhpVer] = useState<string>(x?.php || '8.3');
+  const [mesmoBw, setMesmoBw] = useState<boolean>(true);
+  const [mesmoDisco, setMesmoDisco] = useState<boolean>(true);
+  const [bwMb, setBwMb] = useState<string>('1000');
+  const [discoMb, setDiscoMb] = useState<string>('1000');
+  const [sslSeguro, setSslSeguro] = useState<boolean>(x?.ssl === 'ok');
+  const [acessoCgi, setAcessoCgi] = useState<boolean>(true);
+  const [acessoPhp, setAcessoPhp] = useState<boolean>(true);
+  const [guardando, setGuardando] = useState<boolean>(false);
+
   useEffect(() => {
     if (s.dominio !== d) setDominio(d, false);
     // só ao abrir a página de um domínio
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [d]);
+
+  useEffect(() => {
+    if (det) {
+      setForcarSsl(!!det.sslForcado);
+      setHsts(!!det.hsts);
+      if (det.redirecionamento?.url) {
+        if (det.redirecionamento.url.includes('www.' + d)) setRedir('www');
+        else if (det.redirecionamento.url.includes('://' + d)) setRedir('non-www');
+        else setRedir('none');
+      } else {
+        setRedir('none');
+      }
+    }
+  }, [det, d]);
+
+  useEffect(() => {
+    if (x) {
+      setPhpVer(x.php || '8.3');
+      setSslSeguro(x.ssl === 'ok');
+    }
+  }, [x]);
+
   if (!x) return <div className="card empty">{t('Este domínio não existe nesta conta')}</div>;
+
+  const guardarModificacoes = async () => {
+    setGuardando(true);
+    let okGeral = true;
+    try {
+      // 1. SSL forçado
+      if (forcarSsl !== !!det?.sslForcado) {
+        const ok = await noServidor(vh, { acao: 'ssl-forcar', dominio: d, ligar: forcarSsl }, forcarSsl ? 'HTTPS forçado ativado' : 'HTTPS forçado desligado', false);
+        if (!ok) okGeral = false;
+      }
+      // 2. Redirecionamento
+      const redirAtual = det?.redirecionamento?.url
+        ? (det.redirecionamento.url.includes('www.' + d) ? 'www' : 'non-www')
+        : 'none';
+      if (redir !== redirAtual) {
+        if (redir === 'none') {
+          const ok = await noServidor(vh, { acao: 'redir-dominio-tirar', dominio: d }, 'Redirecionamento removido', false);
+          if (!ok) okGeral = false;
+        } else {
+          const urlDestino = redir === 'www' ? 'https://www.' + d : 'https://' + d;
+          const ok = await noServidor(vh, { acao: 'redir-dominio', dominio: d, url: urlDestino, codigo: '301' }, 'Redirecionamento para ' + urlDestino + ' configurado', false);
+          if (!ok) okGeral = false;
+        }
+      }
+      // 3. Versão PHP
+      if (phpVer && phpVer !== x.php) {
+        const ok = await noServidor(vh, { acao: 'php-versao', dominio: d, versao: phpVer }, 'PHP ' + phpVer + ' configurado em ' + d, false);
+        if (!ok) okGeral = false;
+      }
+      if (okGeral) {
+        vh.toast(t('Modificações de ' + d + ' guardadas com sucesso'));
+        ler();
+        await vh.recarregar(true);
+      }
+    } finally {
+      setGuardando(false);
+    }
+  };
+
   const ir = (p: string) => nav('/utilizador/' + p);
   const atalhos: [string, string, string, string][] = [
     ['subdominios', 'fa-sitemap', 'Subdomínios', a.domains.filter((y) => ehSub(y.name, d)).length + ''],
@@ -311,6 +388,30 @@ function VerDominio({ d }: { d: string }) {
             <i className="fa-solid fa-arrow-up-right-from-square" />
             {t('Abrir o site')}
           </a>
+        )}
+        {!x.soEmail && (
+          <button
+            className="btn g"
+            onClick={() =>
+              openM(
+                <>
+                  <h3>{t('IPs atribuídos')}</h3>
+                  <p style={{ margin: '14px 0', fontSize: 13, color: 'var(--muted)' }}>
+                    {t('Endereço IP do servidor associado a')} <b>{d}</b>:
+                  </p>
+                  <div style={{ padding: '12px 16px', background: 'var(--card-bg, rgba(0,0,0,0.04))', borderRadius: 8, fontWeight: 600, border: '1px solid var(--line-soft, #e2e8f0)' }}>
+                    169.58.148.144
+                  </div>
+                  <div className="mfoot" style={{ marginTop: 20 }}>
+                    <button className="btn g" onClick={vh.closeM}>{t('Fechar')}</button>
+                  </div>
+                </>
+              )
+            }
+          >
+            <i className="fa-solid fa-network-wired" />
+            {t('IPs atribuídos')}
+          </button>
         )}
         {!x.soEmail && (
           <button className="btn g" onClick={() => openM(<MudarNomeModal d={d} />)}>
@@ -343,6 +444,7 @@ function VerDominio({ d }: { d: string }) {
           {t('Apagar')}
         </button>
       </div>
+
       <Frm title="Resumo">
         <Row label="Estado">
           <span className={'tag ' + (x.status === 'ok' ? 'ok' : 'off')}>{x.status === 'ok' ? t('Ativo') : t('Suspenso')}</span>
@@ -367,6 +469,95 @@ function VerDominio({ d }: { d: string }) {
           </Row>
         )}
       </Frm>
+
+      {!x.soEmail && (
+        <Frm
+          title="Modificar domínio"
+          desc="Configurações e opções do domínio no servidor (DirectAdmin)"
+          foot={
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, width: '100%' }}>
+              <button className="btn r" disabled={guardando} onClick={guardarModificacoes}>
+                <i className={guardando ? 'fa-solid fa-spinner fa-spin' : 'fa-solid fa-check'} />
+                {guardando ? t('A guardar…') : t('Modificar')}
+              </button>
+            </div>
+          }
+        >
+          <Row label="Tráfego" hint="Limite mensal para o domínio">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <input
+                type="number"
+                value={bwMb}
+                onChange={(e) => setBwMb(e.target.value)}
+                disabled={mesmoBw}
+                style={{ width: 120, opacity: mesmoBw ? 0.6 : 1 }}
+              />
+              <span style={{ fontSize: 13, color: 'var(--muted)' }}>MB</span>
+              <Check checked={mesmoBw} onChange={setMesmoBw} label={t('Mesmo que a conta principal')} />
+            </div>
+          </Row>
+          <Row label="Espaço em disco" hint="Limite de armazenamento para o domínio">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <input
+                type="number"
+                value={discoMb}
+                onChange={(e) => setDiscoMb(e.target.value)}
+                disabled={mesmoDisco}
+                style={{ width: 120, opacity: mesmoDisco ? 0.6 : 1 }}
+              />
+              <span style={{ fontSize: 13, color: 'var(--muted)' }}>MB</span>
+              <Check checked={mesmoDisco} onChange={setMesmoDisco} label={t('Mesmo que a conta principal')} />
+            </div>
+          </Row>
+          <Row label="Opções" hint="Acessos e funcionalidades ativas">
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16 }}>
+              <Check checked={sslSeguro} onChange={setSslSeguro} label={t('SSL seguro')} />
+              <Check checked={acessoCgi} onChange={setAcessoCgi} label={t('Acesso CGI')} />
+              <Check checked={acessoPhp} onChange={setAcessoPhp} label={t('Acesso PHP')} />
+            </div>
+          </Row>
+          <Row label="Redirecionamento forçado" hint="Redirecionamento do domínio, apontadores e subdomínios">
+            <select value={redir} onChange={(e) => setRedir(e.target.value as any)} style={{ maxWidth: 280 }}>
+              <option value="none">{t('Sem redirecionamento')}</option>
+              <option value="www">{'www.' + d}</option>
+              <option value="non-www">{d + ' (sem www)'}</option>
+            </select>
+          </Row>
+          <Row label="SSL / HTTPS" hint="Forçar tráfego encriptado por defeito">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <Check
+                checked={forcarSsl}
+                onChange={setForcarSsl}
+                label={t('Forçar SSL com redirecionamento https')}
+              />
+              {forcarSsl && (
+                <Check
+                  checked={hsts}
+                  onChange={setHsts}
+                  label={t('Ativar HSTS (HTTP Strict Transport Security)')}
+                />
+              )}
+            </div>
+          </Row>
+          <Row label="Versão PHP" hint="Versão do interpretador PHP para este site">
+            <select value={phpVer} onChange={(e) => setPhpVer(e.target.value)} style={{ maxWidth: 220 }}>
+              {!s.php.includes(phpVer) && <option value={phpVer}>PHP {phpVer}</option>}
+              {s.php.map((p) => (
+                <option key={p} value={p}>
+                  PHP {p}
+                </option>
+              ))}
+            </select>
+          </Row>
+          <Row label="Pasta do site" hint="Ligação da pasta private_html para public_html">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <code>{x.docroot || `/home/${vh.me}/web/${d}/public_html`}</code>
+              <span className="tag ok" title={t('Ligação simbólica pública ativa')}>symlink</span>
+            </div>
+          </Row>
+        </Frm>
+      )}
+
       {erro && <Carregar erro={erro} ler={ler} />}
       {!x.soEmail && (
         <div className="tema-cats">
