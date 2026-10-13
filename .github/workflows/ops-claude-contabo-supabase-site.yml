@@ -1,0 +1,56 @@
+name: "Ops - Contabo: Supabase com o endereço visualdesignmoz.com + lista de IPs bloqueados"
+
+# ============================================================================
+# 13/10/2026 (pedido do Silva: "corrija e publique"):
+#  1) lista os IPs bloqueados no firewall/fail2ban (só leitura — nada é desbloqueado);
+#  2) o login do Supabase (GoTrue) tinha SITE_URL=https://teste.visualdesignmoz.com e nenhum outro endereço
+#     permitido: o login com Google e os links de recuperação de password iam para o teste.. Passa a
+#     SITE_URL=https://visualdesignmoz.com e ADDITIONAL_REDIRECT_URLS com o domínio principal (e o teste./www.
+#     enquanto existirem). Cópia de segurança do .env antes; só o serviço "auth" é recriado.
+# Não imprime segredos. Corre só quando este ficheiro muda no ramo claude/kind-einstein-r6lyf6.
+# ============================================================================
+
+on:
+  push:
+    branches: [claude/kind-einstein-r6lyf6]
+    paths: ['.github/workflows/ops-claude-contabo-supabase-site.yml']
+
+jobs:
+  contabo:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Supabase e bloqueios
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          username: root
+          password: ${{ secrets.CONTABO_ROOT_PASSWORD }}
+          command_timeout: 10m
+          script: |
+            set +e
+            echo "===== 1. IPs bloqueados (só leitura) ====="
+            /usr/local/hestia/bin/v-list-firewall-ban plain 2>/dev/null | awk '{print "  " $1 "  " $2 "  " $3 " " $4}' | tail -60
+            fail2ban-client status 2>/dev/null | sed -n '2,3p' | sed 's/^/  /'
+
+            echo
+            echo "===== 2. Supabase: endereços do login ====="
+            D=/opt/supabase-contabo/docker
+            cd "$D" || { echo "ERRO: $D não existe"; exit 1; }
+            cp -a .env ".env.bak-$(date +%Y%m%d%H%M%S)" && echo "  cópia de segurança feita"
+            setv() {
+              local k="$1" v="$2"
+              if grep -q "^$k=" .env; then sed -i "s|^$k=.*|$k=$v|" .env; else echo "$k=$v" >> .env; fi
+            }
+            setv SITE_URL "https://visualdesignmoz.com"
+            setv ADDITIONAL_REDIRECT_URLS "https://visualdesignmoz.com/**,https://www.visualdesignmoz.com/**,https://teste.visualdesignmoz.com/**,http://localhost:3002/**,http://localhost:3003/**"
+            grep -E "^(SITE_URL|ADDITIONAL_REDIRECT_URLS)=" .env | sed 's/^/  /'
+            if docker compose version >/dev/null 2>&1; then DC="docker compose"; else DC="docker-compose"; fi
+            $DC up -d auth 2>&1 | tail -3
+            sleep 8
+            docker ps --format '{{.Names}}\t{{.Status}}' | grep -E "supabase-auth|supabase-kong" | sed 's/^/  /'
+
+            echo
+            echo "===== 3. verificação ====="
+            echo -n "  https://supabase-contabo.visualdesignmoz.com/auth/v1/health -> "
+            curl -s -o /dev/null -w "%{http_code}\n" --max-time 20 https://supabase-contabo.visualdesignmoz.com/auth/v1/health
+            docker logs --since 30s supabase-auth 2>&1 | grep -iE "error|fatal" | tail -5 | sed 's/^/  /'
