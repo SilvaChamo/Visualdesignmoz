@@ -347,7 +347,12 @@ export function DataTable<T>({
   const vcols = cols.filter((c) => vis.includes(c.k));
   // caixas de seleção só quando alguma ação precisa de linhas escolhidas (as `sempre` não precisam)
   const temSelecao = bulk.some((b) => !b.sempre) || comSelecao;
-  const span = vcols.length + (temSelecao ? 1 : 0) + (actions ? 1 : 0);
+  // "Ações" só onde há caixas de seleção (regra do Silva, 13/10/2026: as ações aplicam-se ao que se escolhe). Com
+  // separadores fica à direita da faixa deles; sem separadores, na linha dos títulos das colunas, à direita.
+  const comAcoes = temSelecao && bulk.length > 0;
+  const acoesNoCabecalho = umaLinha && barraFora && comAcoes && !faixaAbas?.el && !cabecalho;
+  const colAcoes = !!actions || acoesNoCabecalho;
+  const span = vcols.length + (temSelecao ? 1 : 0) + (colAcoes ? 1 : 0);
 
   const paginas = Math.max(1, Math.ceil(shown.length / porPagina));
   const atual = Math.min(pag, paginas);
@@ -515,10 +520,10 @@ export function DataTable<T>({
           // sempre à vista e à direita, com tudo o que se faz na página lá dentro (`bulk`; as opções sem linhas
           // escolhidas usam `sempre`). Nunca pesquisa, paginação nem outros botões por cima do cartão: a paginação
           // fica no fundo do cartão.
-          const naFaixa = bulk.length > 0 && barraFora && faixaAbas?.el && !cabecalho;
+          const naFaixa = comAcoes && barraFora && faixaAbas?.el && !cabecalho;
           const outros = !!(inicioBarra2 || barra2 || colunas || recarregar || fimBarra);
           const linha =
-            outros || cabecalho || (!naFaixa && bulk.length > 0) ? (
+            outros || cabecalho || (!naFaixa && !acoesNoCabecalho && comAcoes) ? (
               <div className={'dt-bar dt-uma-linha' + (cabecalho ? ' com-cab' : '') + (barraFora ? ' dt-fora' : '')}>
                 {cabecalho}
                 <span className="sp" />
@@ -527,7 +532,7 @@ export function DataTable<T>({
                 {colunas}
                 {recarregar}
                 {fimBarra}
-                {!naFaixa && menuAcoes(true)}
+                {!naFaixa && !acoesNoCabecalho && comAcoes && menuAcoes(true)}
               </div>
             ) : null;
           return (
@@ -552,7 +557,7 @@ export function DataTable<T>({
         {recarregar}
         {fimBarra}
         {/* "Ações" sempre à vista e sempre o último à direita (regra do Silva, 13/10/2026) */}
-        {!acoesFixas && !barra2 && menuAcoes(true)}
+        {!acoesFixas && !barra2 && comAcoes && menuAcoes(true)}
       </div>
       )}
       {barra2 && !umaLinha && (
@@ -582,7 +587,7 @@ export function DataTable<T>({
                   {sort?.k === c.k && <i className={'fa-solid si ' + (sort.dir === 1 ? 'fa-arrow-up' : 'fa-arrow-down')} />}
                 </th>
               ))}
-              {actions && <th></th>}
+              {colAcoes && <th className={acoesNoCabecalho ? 'dt-th-acoes' : undefined}>{acoesNoCabecalho && menuAcoes(true)}</th>}
             </tr>
           </thead>
           <tbody>
@@ -602,7 +607,7 @@ export function DataTable<T>({
                         {c.cell(r)}
                       </td>
                     ))}
-                    {actions && <td className="dt-acoes-linha" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{actions(r)}</td>}
+                    {colAcoes && <td className="dt-acoes-linha" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{actions ? actions(r) : null}</td>}
                   </tr>
                 );
               })

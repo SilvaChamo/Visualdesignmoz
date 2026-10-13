@@ -1627,9 +1627,8 @@ function Mx() {
   const local = rows.some((r) => r.valor.replace(/\.$/, '') === 'mail.' + d);
   return (
     <>
-      {/* modelo da página de domínio (Silva, 13/10/2026): separador a abrir o cartão com o "Ações" à direita,
-          "+ Adicionar registo" na barra de cima, nenhum botão por cima da tabela */}
-      <Tabs tabs={[['mx', 'Registos MX', 'fa-server']]} on="mx" onChange={() => {}} />
+      {/* modelo da página de domínio (Silva, 13/10/2026): sem separadores, o "Ações" fica na linha dos títulos das
+          colunas; "+ Adicionar registo" na barra de cima; nenhum botão por cima da tabela */}
       <DataTable
         id="email-mx"
         umaLinha
@@ -1842,7 +1841,7 @@ function Migracoes() {
   const { t, openM } = vh;
   const d = dominioEmail(vh);
   const [lista, setLista] = useState<Mig[] | null>(null);
-  const [auto, setAuto] = useState(true);
+  const auto = true; // a lista atualiza-se sozinha a cada 15 s
   const ler = useCallback(async (fundo?: unknown) => {
     if (!d) return;
     try {
@@ -1865,22 +1864,14 @@ function Migracoes() {
   const corEstado = (e: string) => (e === 'terminada' ? 'ok' : e === 'falhou' || e === 'interrompida' ? 'bad' : e === 'parada' ? 'off' : 'w');
   return (
     <>
-      {/* modelo da página de domínio (Silva, 13/10/2026): separador a abrir o cartão e tudo o resto dentro do "Ações"
-          ("Importar e-mails", a ação principal, fica na barra de cima) */}
-      <Tabs tabs={[['migracoes', 'Migrações', 'fa-right-left']]} on="migracoes" onChange={() => {}} />
+      {/* sem caixas de seleção não há "Ações" (Silva, 13/10/2026): só os botões de começar uma migração, na barra de
+          cima; a lista atualiza-se sozinha a cada 15 s */}
       <DataTable
         id="email-migracoes"
-        umaLinha
-        barraFora
         empilhar
         rows={lista || []}
         rowKey={(r) => r.id}
         empty={lista ? 'Nenhuma migração' : 'A ler…'}
-        bulk={[
-          { t: 'Exportar e-mails', fa: 'fa-upload', sempre: true, run: () => vh.nav('/utilizador/imapsync/exportar') },
-          { t: 'Recarregar', fa: 'fa-rotate', sempre: true, run: () => void ler() },
-          { t: auto ? 'Parar a atualização automática' : 'Atualizar a cada 15 s', fa: auto ? 'fa-pause' : 'fa-play', sempre: true, run: () => setAuto(!auto) },
-        ]}
         cols={[
           { k: 'destino', t: 'E-mail de destino', cell: (r) => <b>{r.destino}</b> },
           { k: 'origem', t: 'E-mail de origem', cell: (r) => r.origem },
@@ -1893,7 +1884,7 @@ function Migracoes() {
             cell: (r) => (
               <span title={[r.erro, ...(r.avisos || [])].filter(Boolean).join(' · ')}>
                 <span className={'tag ' + corEstado(r.estado)}>{t(r.estado)}</span>
-                <small style={{ color: 'var(--muted)', display: 'block', marginTop: 3 }}>
+                <small style={{ color: 'var(--muted)', display: 'block', marginTop: 3, whiteSpace: 'normal', minWidth: 140 }}>
                   {r.copiadas}/{r.total} {t('mensagens')}
                   {r.existentes ? ' · ' + r.existentes + ' ' + t('já lá estavam') : ''}
                 </small>
@@ -1913,7 +1904,7 @@ function Migracoes() {
           )
         }
       />
-      <p className="em-nota">{t('Esta página mostra as migrações de caixas de correio começadas aqui. Uma migração nova começa-se em "Importar e-mails" (em cima) ou em "Exportar e-mails" (no menu Ações); corre no servidor mesmo que feche o painel.')}</p>
+      <p className="em-nota">{t('Esta página mostra as migrações de caixas de correio começadas aqui. Uma migração nova começa-se nos botões em cima; a lista atualiza-se sozinha e a migração corre no servidor mesmo que feche o painel.')}</p>
     </>
   );
 }
@@ -1996,10 +1987,16 @@ export const migracaoPagina: ScreenFn = (vh) => {
   return {
     title: 'Migração de e-mail',
     actions: (
-      <button className="btn r" onClick={() => vh.nav('/utilizador/imapsync/importar')}>
-        <i className="fa-solid fa-download" />
-        {vh.t('Importar e-mails')}
-      </button>
+      <>
+        <button className="btn g sec-m" onClick={() => vh.nav('/utilizador/imapsync/exportar')}>
+          <i className="fa-solid fa-upload" />
+          {vh.t('Exportar e-mails')}
+        </button>
+        <button className="btn r" onClick={() => vh.nav('/utilizador/imapsync/importar')}>
+          <i className="fa-solid fa-download" />
+          {vh.t('Importar e-mails')}
+        </button>
+      </>
     ),
     body: <Migracoes />,
   };

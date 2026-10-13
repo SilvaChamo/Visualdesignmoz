@@ -1208,3 +1208,9 @@
 }
 /* telemóveis estreitos: sem o ícone, para o texto dos três botões caber todo */
 @media(max-width:374px){.vh .barra-antiga-m>button svg{display:none}}
+/* "Ações" na linha dos títulos das colunas (tabelas com caixas de seleção e sem separadores) */
+.vh th.dt-th-acoes{text-align:right;padding-top:6px;padding-bottom:6px}
+.vh th.dt-th-acoes .dt-acoes{display:inline-block}
+.vh th.dt-th-acoes .btn{text-transform:none;letter-spacing:0;font-size:13px}
+.vh th.dt-th-acoes .dt-acoes .menu{left:auto;right:0;text-align:left;text-transform:none;letter-spacing:0}
+@media(max-width:768px){.vh .tbl.dt-empilhar thead th.dt-th-acoes{display:block;margin-left:auto;padding:6px 14px}}
