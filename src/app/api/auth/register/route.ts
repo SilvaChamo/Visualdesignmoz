@@ -1,21 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient as createAdminClient, type SupabaseClient } from '@supabase/supabase-js';
+import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { createClient as createServerClient } from '@/utils/supabase/server';
 import { PANEL_SLUG } from '@/lib/panel-tenant';
 import { findProtectedEmailClaim, PROTECTED_EMAIL_MESSAGE } from '@/lib/protected-account-email';
 import { ENCOMENDAS_ACCOUNT_ORIGIN } from '@/lib/panel-origin';
+import { EXISTING_ACCOUNT_MESSAGE, authUserExists } from '@/lib/conta-existe';
 
-const EXISTING_ACCOUNT_MESSAGE = 'Já existe uma conta com este email. Use «Entrar» em vez de «Criar conta».';
-
-async function authUserExists(admin: SupabaseClient, email: string): Promise<boolean> {
-  for (let page = 1; page <= 20; page++) {
-    const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 1000 });
-    if (error) throw error;
-    if (data.users.some((u) => u.email?.toLowerCase() === email)) return true;
-    if (data.users.length < 1000) return false;
-  }
-  return false;
-}
 
 export async function POST(request: NextRequest) {
   try {

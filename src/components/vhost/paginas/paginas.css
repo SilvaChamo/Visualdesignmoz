@@ -849,8 +849,11 @@
 /* linha escolhida na lupa: realce que se apaga */
 @keyframes dtRealce{0%,60%{background:color-mix(in srgb,var(--red) 14%,transparent)}100%{background:transparent}}
 .vh .dt tr.dt-realce td{animation:dtRealce 2.6s ease-out}
-/* Sair no fundo da barra compacta, ao lado do avatar (como no DA) */
-.vh .rail .rb.sair{height:60px;margin-bottom:-10px;border-top:1px solid color-mix(in srgb,var(--line) 70%,transparent)}
+/* Sair no fundo da barra compacta, ao lado do avatar (como no DA): simples, igual aos outros botões, sem linha por cima
+   (pedido do Silva, 13/10/2026). É o único Sair à vista no computador e no tablet; o da barra de cima fica só no
+   telemóvel, onde não há barra compacta */
+.vh .topact .btn.iconbtn.only-m{display:none}
+@media(max-width:768px){.vh .topact .btn.iconbtn.only-m{display:inline-flex}}
 .vh .top .lupa-topo{gap:8px}
 .vh .rail .rb.sair:hover{color:var(--red)}
 /* separador na descrição da barra de cima (Mensagens: "Todas as mensagens | 3 por ler") */
@@ -1298,3 +1301,9 @@
  .vh .tool b{font-size:12.5px}
  .vh .tool span{font-size:11px}
 }
+
+/* Barra de cima (titulo-ajustado.ts): quando os botões tocam no título ou na descrição, primeiro encolhem e, se ainda
+   tocarem, ficam só com o ícone (pedido do Silva, 13/10/2026) */
+.vh .top.acoes-menores .topact .btn:not(.iconbtn){height:30px;padding:0 9px;font-size:12.5px;gap:6px}
+.vh .top.acoes-so-icone .topact .btn:not(.iconbtn){font-size:0;gap:0;width:34px;height:34px;padding:0;justify-content:center}
+.vh .top.acoes-so-icone .topact .btn:not(.iconbtn) i{font-size:14px}

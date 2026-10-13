@@ -7,7 +7,7 @@ import { usePathname } from 'next/navigation';
 import { BarraPagina, FaixaAbas, PesquisaPagina, VHContext, type ItemPesquisa, type VH } from './context';
 import { GLOBAL, LEVELS, MENU, ROLES } from './generated/data';
 import { dominioVisivel, type DadosServidor } from './servidor';
-import { CACHE_DADOS_VHOST, apagarDadosVhost, guardarDadosVhost } from '@/lib/vhost-cache';
+import { CACHE_DADOS_VHOST, apagarDadosVhost, guardarDadosVhost, tirarEntrada } from '@/lib/vhost-cache';
 import { translate, type Lang } from './i18n';
 import { EntradaPainel, EsperaEntrada, LINGUA_LS, type ModoTema } from './entrada';
 import { auth } from '@/lib/supabase-client';
@@ -631,12 +631,18 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
   };
 
   // Sair: termina a sessão e mostra logo a página de entrada, sem perguntar nem recarregar (pedido do Silva: a página
-  // piscava entre dois ecrãs antes do formulário)
+  // piscava entre dois ecrãs antes do formulário). Quem entrou pelo login do site volta ao login do site (pedido do
+  // Silva, 13/10/2026); quem entrou pelo login do painel fica na entrada do painel.
   const sair = async () => {
     apagarCache();
+    const entrada = tirarEntrada();
     try {
       await auth.signOut();
     } catch {}
+    if (entrada === 'site') {
+      window.location.assign('/login');
+      return;
+    }
     setAEntrar(false);
     setSemSessao(true);
     setModal(null);
@@ -1071,7 +1077,7 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
                 <i className="fa-solid fa-magnifying-glass" />
               </div>
               <div className="grow" />
-              {/* Sair também aqui, no fundo, ao lado do avatar (como no DA) — o da barra de cima fica */}
+              {/* Sair no fundo, ao lado do avatar (como no DA) — no computador e no tablet é o único; o da barra de cima fica só no telemóvel */}
               <div className="rb sair" title={t('Sair')} onClick={vh.logout}>
                 <i className="fa-solid fa-right-from-bracket fa-flip-horizontal" />
               </div>

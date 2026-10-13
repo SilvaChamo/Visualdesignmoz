@@ -386,15 +386,16 @@ samp {
   color: #d4d4d8 !important;
 }
 
-/* Login do site (LoginDividido.tsx): campos com a etiqueta que sobe para a linha de cima — no escuro, as cores do tema
+/* Login e registo do site (LoginDividido.tsx): campos com a etiqueta que sobe para a linha de cima — no escuro, as cores do tema
    escuro do painel em vez das regras gerais acima (o fundo do campo é o da página, a dica só aparece com o campo
    escolhido e a linha e a etiqueta ficam vermelhas ao clicar) */
-.dark .site-content .login-dividido input:not([type="checkbox"]):not([type="radio"]) {
+.dark .site-content .login-dividido :is(input, select):not([type="checkbox"]):not([type="radio"]) {
   background-color: transparent !important;
+  color-scheme: dark;
   border-color: #393e4d !important;
   color: #f4f4f5 !important;
 }
-.dark .site-content .login-dividido input:not([type="checkbox"]):not([type="radio"]):focus {
+.dark .site-content .login-dividido :is(input, select):not([type="checkbox"]):not([type="radio"]):focus {
   border-color: #ef4444 !important;
 }
 .dark .site-content .login-dividido input::placeholder {
@@ -406,7 +407,7 @@ samp {
 .dark .site-content .login-dividido label {
   color: #a1a1aa !important;
 }
-.dark .site-content .login-dividido input:focus + label {
+.dark .site-content .login-dividido :is(input, select):focus + label {
   color: #f87171 !important;
 }
 
