@@ -226,6 +226,19 @@ export async function POST(req: NextRequest) {
     for (const [u, w] of Object.entries(srv.web)) if (w[novo]) return NextResponse.json({ erro: 'Esse domínio já existe no servidor' + (u === conta ? ' nesta conta.' : '.') }, { status: 400 });
     // só o site no Hestia (sem mexer no DNS da Cloudflare); certificado se pedido
     const x = await call('v-add-web-domain', [conta, novo]);
+    // Como no DirectAdmin (pedido do Silva, 13/10/2026): o subdomínio "loja" fica na pasta public_html/loja do domínio
+    // principal, por isso abre em loja.dominio.com e também em dominio.com/loja. Sem a opção, fica com pasta própria
+    // (o normal do Hestia).
+    if (x.ok && c.acao === 'subdominio-criar' && c.pasta) {
+      const sub = linhaLimpa(c.sub).toLowerCase();
+      const pasta = `/home/${conta}/web/${d}/public_html/${sub}`;
+      await hestiaCall('v-add-fs-directory', [conta, pasta]).catch(() => null); // se já existir, fica como está
+      const y = await call('v-change-web-domain-docroot', [conta, novo, d, '/' + sub]);
+      if (!y.ok) {
+        esquecerLeitura();
+        return NextResponse.json({ erro: 'O subdomínio foi criado, mas ficou com pasta própria: o servidor não aceitou usar ' + d + '/' + sub + ' (' + (y.error || 'erro') + ').' }, { status: 502 });
+      }
+    }
     if (x.ok && c.ssl) hestiaCall('v-add-letsencrypt-domain', [conta, novo]).catch(() => null);
     // webmail em https://<domínio>/webmail (antes ficava por pôr à mão em cada domínio novo)
     if (x.ok && !(await instalarWebmail(conta, novo))) {

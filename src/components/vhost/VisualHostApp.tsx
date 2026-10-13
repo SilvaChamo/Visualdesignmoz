@@ -4,7 +4,7 @@
 // Mesma estrutura de HTML e mesmas classes, para o CSS da maquete (generated/maquete.css) se aplicar tal e qual.
 import { Component, Fragment, useCallback, useEffect, useMemo, useReducer, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
-import { BarraPagina, VHContext, type VH } from './context';
+import { BarraPagina, PesquisaPagina, VHContext, type ItemPesquisa, type VH } from './context';
 import { GLOBAL, LEVELS, MENU, ROLES } from './generated/data';
 import { dominioVisivel, type DadosServidor } from './servidor';
 import { translate, type Lang } from './i18n';
@@ -12,6 +12,7 @@ import { EntradaPainel, EsperaEntrada, LINGUA_LS, type ModoTema } from './entrad
 import { auth } from '@/lib/supabase-client';
 import { MoreMenuModal } from './modals';
 import { SCREENS, denyScreen, placeholder, type Screen } from './screens';
+import { PesquisaNaPagina } from './pesquisa-pagina';
 import { SAIR_POR_INATIVIDADE_ATIVO } from '@/lib/session-inactivity';
 import { BarraTopo, EsperaPagina, atividadeComeca, instalarContador, type Espera } from './carga';
 import { aplicarCoresNoSite, badgeColors, getThemeColors, hexToRgb, luminancia, paletaDoSite, type CustomComponents } from './theme';
@@ -132,8 +133,11 @@ class FalhaPagina extends Component<{ children: ReactNode; t: (s: string) => str
 }
 
 /** Lugar de uma página: escondido enquanto as leituras sem nada em memória não acabam; depois avisa (uma vez) */
-function PaginaSlot({ p, oculta, onPronta }: { p: Pagina; oculta: boolean; onPronta: (chave: string) => void }) {
+type RegistarFonte = (chave: string, id: string, fonte: () => ItemPesquisa[]) => () => void;
+
+function PaginaSlot({ p, oculta, onPronta, registar }: { p: Pagina; oculta: boolean; onPronta: (chave: string) => void; registar: RegistarFonte }) {
   const [barra, setBarra] = useState<HTMLDivElement | null>(null);
+  const pesquisa = useMemo(() => ({ registar: (id: string, fonte: () => ItemPesquisa[]) => registar(p.chave, id, fonte) }), [registar, p.chave]);
   const falta = useRef(0);
   const montada = useRef(false);
   const avisada = useRef(false);
@@ -178,6 +182,7 @@ function PaginaSlot({ p, oculta, onPronta }: { p: Pagina; oculta: boolean; onPro
     <div className="pg-slot" style={{ display: oculta ? 'none' : 'contents' }} aria-hidden={oculta || undefined}>
       <VHContext.Provider value={p.vh}>
         <EsperaPagina.Provider value={espera}>
+          <PesquisaPagina.Provider value={pesquisa}>
           <BarraPagina.Provider value={barra}>
           {/* pesquisa e botões da página, por cima do cartão (fica escondida enquanto vazia) */}
           <div className="pg-barra" ref={setBarra} />
@@ -196,6 +201,7 @@ function PaginaSlot({ p, oculta, onPronta }: { p: Pagina; oculta: boolean; onPro
             <div className="da-main-card">{corpo}</div>
           )}
           </BarraPagina.Provider>
+          </PesquisaPagina.Provider>
         </EsperaPagina.Provider>
       </VHContext.Provider>
     </div>
@@ -679,6 +685,31 @@ export function VisualHostApp({ temSessao = true }: { temSessao?: boolean }) {
   const aEspera = !!pronta.current && pronta.current.ok && atual.ok && pronta.current.chave !== chavePag && liberada.current !== chavePag;
   if (!aEspera) pronta.current = atual;
   const mostra = pronta.current || atual;
+  // Lupa da barra de cima (pedido do Silva, 13/10/2026): procura na página aberta — as tabelas registam-se por página
+  const fontesPag = useRef(new Map<string, Map<string, () => ItemPesquisa[]>>());
+  const registarFonte = useCallback<RegistarFonte>((chave, id, fonte) => {
+    const m = fontesPag.current.get(chave) || new Map<string, () => ItemPesquisa[]>();
+    m.set(id, fonte);
+    fontesPag.current.set(chave, m);
+    return () => {
+      const mm = fontesPag.current.get(chave);
+      if (mm?.get(id) === fonte) mm.delete(id);
+      if (mm && !mm.size) fontesPag.current.delete(chave);
+    };
+  }, []);
+  const [pesqPag, setPesqPag] = useState({ aberta: false, q: '', i: 0 });
+  // página inicial (ou página sem tabelas): funcionalidades do painel e domínios da conta
+  const itensGerais = (q: string): ItemPesquisa[] => {
+    const qq = q.trim().toLowerCase();
+    return [
+      ...searchResults(s, q).map((h) => ({ k: 'f:' + h.path, txt: t(h.it.t), sub: (h.lv ? t(LEVELS[h.lv]) + ' › ' : '') + t(h.g), fa: ico(h.it.fa), c: h.it.c, ir: () => nav(h.path) })),
+      ...a.domains
+        .filter((d) => !qq || d.name.includes(qq))
+        .slice(0, qq ? 20 : 5)
+        .map((d) => ({ k: 'd:' + d.name, txt: d.name, sub: t('Domínio'), fa: 'fa-solid fa-globe', c: 'c3', ir: () => nav('/' + s.level + '/dominios/' + encodeURIComponent(d.name)) })),
+    ];
+  };
+  useEffect(() => setPesqPag((x) => (x.aberta ? { aberta: false, q: '', i: 0 } : x)), [mostra.chave]);
   const libertar = useCallback((k: string) => {
     if (k !== chaveAtual.current || liberada.current === k) return;
     liberada.current = k;
@@ -932,6 +963,10 @@ export function VisualHostApp({ temSessao = true }: { temSessao?: boolean }) {
                 <i className="fa-solid fa-magnifying-glass" />
               </div>
               <div className="grow" />
+              {/* Sair também aqui, no fundo, ao lado do avatar (como no DA) — o da barra de cima fica */}
+              <div className="rb sair" title={t('Sair')} onClick={vh.logout}>
+                <i className="fa-solid fa-right-from-bracket" />
+              </div>
             </div>
 
             <div className="navcol">
@@ -1038,7 +1073,7 @@ export function VisualHostApp({ temSessao = true }: { temSessao?: boolean }) {
                   {mostra.scr.actions}
                 </span>
                 <span id="topfix" className="topact">
-                  <button className="btn g iconbtn only-m" onClick={openSearch} title={t('Pesquisar')}>
+                  <button className={'btn g iconbtn' + (pesqPag.aberta ? ' on' : '')} onClick={() => setPesqPag((x) => ({ aberta: !x.aberta, q: '', i: 0 }))} title={t(mostra.home ? 'Pesquisar no painel' : 'Pesquisar nesta página')}>
                     <i className="fa-solid fa-magnifying-glass" />
                   </button>
                   <button className="btn g" onClick={vh.logout}>
@@ -1054,8 +1089,23 @@ export function VisualHostApp({ temSessao = true }: { temSessao?: boolean }) {
             <main id="main">
               <ImpBanner />
               {!mostra.deny && <SwitcherBar title={mostra.scr.title} crumbs={mostra.scr.crumbs} dominios={mostra.scr.dominios} dominioUrl={mostra.scr.dominioUrl} />}
+              {pesqPag.aberta && !mostra.deny && (
+                <PesquisaNaPagina
+                  t={t}
+                  gerais={itensGerais}
+                  geral={mostra.home}
+                  titulo={mostra.title}
+                  fontes={() => [...(fontesPag.current.get(mostra.chave)?.values() || [])].flatMap((f) => f())}
+                  estado={pesqPag}
+                  mudar={setPesqPag}
+                  abrirPopup={(q) => {
+                    setPesqPag({ aberta: false, q: '', i: 0 });
+                    setSearch({ open: true, q, si: 0 });
+                  }}
+                />
+              )}
               {(aEspera ? [mostra, atual] : [atual]).map((p) => (
-                <PaginaSlot key={p.chave} p={p} oculta={aEspera && p === atual} onPronta={libertar} />
+                <PaginaSlot key={p.chave} p={p} oculta={aEspera && p === atual} onPronta={libertar} registar={registarFonte} />
               ))}
               {!mostra.deny && <RouteFoot />}
             </main>

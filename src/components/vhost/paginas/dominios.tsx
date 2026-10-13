@@ -611,28 +611,50 @@ export const dominios: ScreenFn = (vh) => {
 };
 
 // ---------- Subdomínios (separador dos Domínios) ----------
+/** Como no DirectAdmin (pedido do Silva, 13/10/2026): nome + domínio; com "também em dominio.com/loja" o subdomínio
+ *  usa a pasta public_html/loja do domínio principal e abre nos dois endereços */
 function NovoSubdominio({ d }: { d: string }) {
   const vh = useVH();
-  const { t, closeM } = vh;
+  const { a, t, closeM } = vh;
+  const principais = a.domains.filter((x) => !x.soEmail && !a.domains.some((y) => y !== x && ehSub(x.name, y.name)));
   const [sub, setSub] = useState('');
+  const [dom, setDom] = useState(d);
+  const [pasta, setPasta] = useState(true);
+  const nome = sub.trim().toLowerCase() || 'loja';
   const criar = async () => {
     const n = sub.trim().toLowerCase();
     if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(n)) return vh.toast('Subdomínio: letras, números e hífen');
     closeM();
-    await noServidor(vh, { acao: 'subdominio-criar', dominio: d, sub: n, ssl: true }, 'Subdomínio ' + n + '.' + d + ' criado');
+    await noServidor(vh, { acao: 'subdominio-criar', dominio: dom, sub: n, ssl: true, pasta }, 'Subdomínio ' + n + '.' + dom + ' criado');
   };
   return (
     <>
       <h3>{t('Adicionar subdomínio')}</h3>
-      <p style={{ color: 'var(--muted)', marginBottom: 10 }}>{t('Fica com pasta própria e certificado SSL automático.')}</p>
       <div className="f">
         <label>{t('Subdomínio')}</label>
-        <span className="igrp">
+        <span className="igrp sub-dom">
           <input value={sub} onChange={(e) => setSub(e.target.value)} placeholder="ex.: loja" autoFocus onKeyDown={(e) => e.key === 'Enter' && criar()} />
           <span className="ib" style={{ cursor: 'default' }}>
-            .{d}
+            .
           </span>
+          <select value={dom} onChange={(e) => setDom(e.target.value)} aria-label={t('Domínio')}>
+            {principais.map((x) => (
+              <option key={x.name}>{x.name}</option>
+            ))}
+          </select>
         </span>
+      </div>
+      <label className="sub-opcao">
+        <input type="checkbox" checked={pasta} onChange={(e) => setPasta(e.target.checked)} />
+        <span>
+          <b>{t('Também em') + ' ' + dom + '/' + nome}</b>
+          <small>{t('Como no DirectAdmin: o subdomínio usa a pasta') + ' public_html/' + nome + ' ' + t('do domínio principal e abre nos dois endereços.')}</small>
+        </span>
+      </label>
+      <div className="sub-enderecos">
+        <span>{t('Vai abrir em')}</span>
+        <code>https://{nome}.{dom}</code>
+        {pasta && <code>https://{dom}/{nome}</code>}
       </div>
       <div className="mfoot">
         <button className="btn g" onClick={closeM}>

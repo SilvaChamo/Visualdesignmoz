@@ -4,7 +4,7 @@
 // separadores e tabela com pesquisa/colunas/seleção/ações em massa (como nas listas do DirectAdmin).
 import { useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { BarraPagina, useVH } from '../context';
+import { BarraPagina, PesquisaPagina, useVH } from '../context';
 import type { Campo, Lim, Unit } from './dados';
 
 // ---------- Formulário ----------
@@ -267,7 +267,11 @@ export function DataTable<T>({
   const semCols = semColsPedido ?? lerPrefTabela('vh-colunas', '0') !== '1';
   const { t, toast } = useVH();
   const faixaFora = useContext(BarraPagina);
+  const pesqPagina = useContext(PesquisaPagina);
   const [q, setQ] = useState('');
+  // linha escolhida na lupa da barra de cima: fica realçada uns segundos
+  const [realce, setRealce] = useState<string | null>(null);
+  const tabelaRef = useRef<HTMLDivElement>(null);
   const [pag, setPag] = useState(1);
   const [acoesOpen, setAcoesOpen] = useState(false);
   const acoesRef = useRef<HTMLDivElement>(null);
@@ -320,6 +324,43 @@ export function DataTable<T>({
   const paginas = Math.max(1, Math.ceil(shown.length / porPagina));
   const atual = Math.min(pag, paginas);
   const pagina = shown.slice((atual - 1) * porPagina, atual * porPagina);
+
+  // Lupa da barra de cima (pedido do Silva): as linhas desta tabela entram na pesquisa da página aberta; escolher uma
+  // limpa o filtro, vai à página da tabela onde ela está, mostra-a e realça-a
+  const vivo = useRef({ rows, search, rowKey, porPagina, sortRows: (r: T[]) => r });
+  vivo.current = {
+    rows,
+    search,
+    rowKey,
+    porPagina,
+    sortRows: (r: T[]) => {
+      const sc = sort && cols.find((c) => c.k === sort.k);
+      return sort && sc?.sort ? [...r].sort((a, b) => (sc.sort!(a) > sc.sort!(b) ? 1 : sc.sort!(a) < sc.sort!(b) ? -1 : 0) * sort.dir) : r;
+    },
+  };
+  useEffect(() => {
+    if (!pesqPagina) return;
+    const irPara = (k: string) => {
+      const v = vivo.current;
+      const idx = v.sortRows(v.rows).findIndex((r) => v.rowKey(r) === k);
+      setQ('');
+      if (idx >= 0) setPag(Math.floor(idx / v.porPagina) + 1);
+      setRealce(k);
+      setTimeout(() => {
+        const tr = tabelaRef.current?.querySelector<HTMLElement>('tr[data-k="' + CSS.escape(k) + '"]');
+        tr?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      }, 80);
+      setTimeout(() => setRealce((x) => (x === k ? null : x)), 2600);
+    };
+    return pesqPagina.registar(id, () => {
+      const v = vivo.current;
+      if (!v.search) return []; // sem texto de pesquisa a tabela não entra (as chaves sozinhas não dizem nada)
+      return v.rows.map((r) => {
+        const k = v.rowKey(r);
+        return { k: id + ':' + k, txt: v.search!(r), ir: () => irPara(k) };
+      });
+    });
+  }, [pesqPagina, id]);
 
   const selKeysStr = selKeys.join(',');
   useEffect(() => {
@@ -436,10 +477,14 @@ export function DataTable<T>({
       {umaLinha ? (
         (() => {
           // tudo numa linha: à esquerda a pesquisa (30%), à direita os botões da página e "Ações" (e as páginas)
+          // sem botões à direita (ações, adicionar…) não há pesquisa à esquerda: procura-se pela lupa da barra de cima
+          // (pedido do Silva, 13/10/2026); sem nada para mostrar, não há barra
+          const temDireita = !!(inicioBarra2 || barra2 || bulk.length || colunas || recarregar || fimBarra || paginas > 1);
+          if (!temDireita && !cabecalho) return null;
           const linha = (
             <div className={'dt-bar dt-uma-linha' + (cabecalho ? ' com-cab' : '') + (barraFora ? ' dt-fora' : '')}>
               {cabecalho}
-              {pesquisa}
+              {(inicioBarra2 || barra2 || bulk.length > 0 || fimBarra) && pesquisa}
               <span className="sp" />
               {inicioBarra2}
               {barra2}
@@ -479,7 +524,7 @@ export function DataTable<T>({
           )}
         </div>
       )}
-      <div className="tbl dt">
+      <div className="tbl dt" ref={tabelaRef}>
         <table>
           <thead>
             <tr>
@@ -508,7 +553,7 @@ export function DataTable<T>({
                 const k = rowKey(r);
                 const on = selKeys.includes(k);
                 return (
-                  <tr key={k} className={(on ? 'sel ' : '') + (rowClass ? rowClass(r) : '')}>
+                  <tr key={k} data-k={k} className={(on ? 'sel ' : '') + (realce === k ? 'dt-realce ' : '') + (rowClass ? rowClass(r) : '')}>
                     {temSelecao && (
                       <td className="ck">
                         <input type="checkbox" aria-label={t('Selecionar')} checked={on} onChange={() => setSel(on ? sel.filter((x) => x !== k) : [...sel, k])} />
