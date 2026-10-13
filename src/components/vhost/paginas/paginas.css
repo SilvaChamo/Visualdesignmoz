@@ -1173,6 +1173,10 @@
 .vh .tw-livre :is(th,td){padding:revert-layer;border-bottom:revert-layer;white-space:revert-layer;font-size:revert-layer;text-transform:revert-layer;letter-spacing:revert-layer;color:revert-layer;background:revert-layer;font-weight:revert-layer;text-align:revert-layer;vertical-align:revert-layer}
 .vh .tw-livre tbody tr:hover{background:revert-layer}
 .vh .tw-livre :is(code,kbd){font-family:revert-layer;font-size:revert-layer;background:revert-layer;border:revert-layer;border-radius:revert-layer;padding:revert-layer;margin-right:revert-layer;color:revert-layer;word-break:revert-layer;display:revert-layer;max-width:revert-layer;white-space:revert-layer}
+/* Arredondamentos das páginas copiadas iguais aos do painel (pedido do Silva, 13/10/2026: "não temos esses
+   arredondamentos no nosso site"): cartões, caixas, campos e botões com o raio do painel (4px), nada em "pílula". Os
+   pontinhos de cor (span redondos) ficam redondos. */
+.vh .tw-livre :is(.rounded-xl,.rounded-lg,.rounded-2xl,.rounded-md,button.rounded-full){border-radius:var(--r)}
 /* os botões que as páginas antigas punham na barra de cima (ex.: Templates: Salvar / Cancelar / Eliminar) */
 .vh .barra-antiga{display:inline-flex;align-items:center;gap:8px}
 .vh .barra-antiga:empty{display:none}

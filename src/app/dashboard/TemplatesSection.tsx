@@ -919,7 +919,7 @@ export function TemplatesSection() {
     }
   }
 
-  // Salvar/Cancelar/Eliminar Definitivamente ficam na barra de menu principal
+  // Salvar/Cancelar/Eliminar (nomes curtos, pedido do Silva 13/10/2026) ficam na barra de menu principal
   // do dashboard (cabeçalho global), não no cabeçalho local desta secção — ver
   // PanelHeader (chrome.toolbar) e o mesmo padrão em CotacoesSection.tsx.
   const { setChrome } = useAdminSectionChrome()
@@ -961,7 +961,7 @@ export function TemplatesSection() {
             className="h-[38px] px-4 bg-emerald-50 text-emerald-600 border border-emerald-200 rounded font-bold hover:bg-emerald-100 hover:text-emerald-700 flex items-center gap-2 transition-colors disabled:opacity-50"
           >
             <Save className="w-4 h-4" />
-            {saveStatus === 'saving' ? 'Salvando...' : 'Salvar Alterações'}
+            {saveStatus === 'saving' ? 'Salvando...' : 'Salvar'}
           </button>
           <button
             onClick={() => setEditingTemplate(null)}
@@ -976,7 +976,7 @@ export function TemplatesSection() {
             title="Restaurar templates padrão — elimina definitivamente as personalizações guardadas"
           >
             <Trash2 className="w-4 h-4" />
-            Eliminar Definitivamente
+            Eliminar
           </button>
         </>
       )
