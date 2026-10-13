@@ -1096,17 +1096,22 @@
  .vh .tbl.dt-empilhar thead th{display:none}
  .vh .tbl.dt-empilhar thead th.ck{display:flex;align-items:center;gap:12px;width:auto;border:0;padding:10px 14px}
  .vh .tbl.dt-empilhar thead th.ck::after{content:attr(data-t)}
- .vh .tbl.dt-empilhar tbody tr{display:grid;grid-template-columns:34px minmax(0,1fr);row-gap:6px;padding:12px 14px;border-bottom:1px solid var(--line)}
+ .vh .tbl.dt-empilhar tbody tr{display:grid;grid-template-columns:34px minmax(0,1fr) auto;row-gap:6px;column-gap:8px;align-items:center;padding:12px 14px;border-bottom:1px solid var(--line)}
  .vh .tbl.dt-empilhar tbody tr:last-child{border-bottom:0}
  .vh .tbl.dt-empilhar tbody td{display:flex;align-items:center;gap:8px;flex-wrap:wrap;grid-column:2;padding:0;border:0;white-space:normal;text-align:left!important}
  .vh .tbl.dt-empilhar tbody td.ck{grid-column:1;grid-row:1;width:auto}
  .vh .tbl.dt-empilhar tbody td.empty{grid-column:1 / -1;display:block}
+ .vh .tbl.dt-empilhar tbody td:not(.ck):not(.dt-acoes-linha){grid-column:2 / -1}
+ .vh .tbl.dt-empilhar tbody td.ck+td{grid-column:2;grid-row:1}
  .vh .tbl.dt-empilhar tbody td[data-t]::before{content:attr(data-t);min-width:110px;font-size:12px;color:var(--muted)}
  .vh .tbl.dt-empilhar tbody td.ck+td::before,.vh .tbl.dt-empilhar tbody td:first-child::before{content:none}
  .vh .tbl.dt-empilhar tbody td.ck+td,.vh .tbl.dt-empilhar tbody td:first-child:not(.ck){font-weight:700}
- .vh .tbl.dt-empilhar tbody td.dt-acoes-linha{margin-top:4px}
+ /* o botão da linha (ex.: Desbloquear) fica à direita do dado principal, na primeira linha */
+ .vh .tbl.dt-empilhar tbody td.dt-acoes-linha{grid-column:-2;grid-row:1;justify-content:flex-end}
+ .vh .tbl.dt-empilhar tbody td.dt-acoes-linha:empty{display:none}
  /* sem caixas de seleção: uma só coluna, sem a linha de cima */
  .vh .tbl.dt-empilhar thead tr:not(:has(th.ck)){display:none}
- .vh .tbl.dt-empilhar tbody tr:not(:has(td.ck)){grid-template-columns:minmax(0,1fr)}
- .vh .tbl.dt-empilhar tbody tr:not(:has(td.ck)) td{grid-column:1}
+ .vh .tbl.dt-empilhar tbody tr:not(:has(td.ck)){grid-template-columns:minmax(0,1fr) auto}
+ .vh .tbl.dt-empilhar tbody tr:not(:has(td.ck)) td:not(.dt-acoes-linha){grid-column:1 / -1}
+ .vh .tbl.dt-empilhar tbody tr:not(:has(td.ck)) td:first-child{grid-column:1;grid-row:1}
 }
