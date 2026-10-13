@@ -559,7 +559,15 @@ export function DomTable({ filter = '' }: { filter?: string }) {
                           nav('/' + (s.level || 'utilizador') + '/dominios/' + encodeURIComponent(d.name));
                         }}
                       >
-                        {d.name}
+                        {/* um nome comprido passa à linha de baixo em vez de ser cortado: quebra só depois dos pontos dos
+                            subdomínios, o domínio principal (ex.: visualdesignmoz.com) fica inteiro */}
+                        {d.name.split('.').map((p, i, partes) => (
+                          <Fragment key={i}>
+                            {i > 0 && '.'}
+                            {i > 0 && partes.length - i >= 2 && <wbr />}
+                            {p}
+                          </Fragment>
+                        ))}
                       </b>
                       <span>{d.wp ? 'WordPress' : 'Site'}</span>
                     </div>

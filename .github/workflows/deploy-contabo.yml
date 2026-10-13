@@ -62,12 +62,14 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan "${{ secrets.CONTABO_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
 
+      # O código novo vai para uma pasta à parte (…-build), não para a do site em funcionamento: o site continua a
+      # servir a versão anterior enquanto a nova é instalada e construída (ver "Publicar sem ecrã branco" mais abaixo).
       - name: Sync files to Contabo
         run: |
           rsync -avz --delete \
             -e "ssh -i ~/.ssh/deploy_key" \
             --exclude 'node_modules' --exclude '.next' --exclude '.git' --exclude '*.env*' --exclude '.DS_Store' \
-            ./ "root@${{ secrets.CONTABO_HOST }}:/opt/visualdesign-site-teste/"
+            ./ "root@${{ secrets.CONTABO_HOST }}:/opt/visualdesign-site-teste-build/"
 
       - name: Build and (re)start on Contabo
         uses: appleboy/ssh-action@v1.2.5
@@ -219,6 +221,16 @@ jobs:
             export PATH="${NODE_ROOT}/bin:$PATH"
             node --version
             npm --version
+            # Publicar sem ecrã branco (pedido do Silva, 13/10/2026): antes, o "npm ci" e o "rm -rf .next" + build corriam
+            # na pasta do site em funcionamento, e durante os ~10 min do build o site ficava sem ficheiros (ecrã
+            # branco). Agora instala-se e constrói-se na pasta à parte (STAGE, onde o rsync acima pôs o código novo)
+            # com o site a servir a versão anterior; no fim troca-se em segundos. Se o build falhar (set -e), o site
+            # fica como estava.
+            LIVE=/opt/visualdesign-site-teste
+            STAGE=/opt/visualdesign-site-teste-build
+            # as variáveis (.env.local, escrito acima na pasta do site) entram no build (NEXT_PUBLIC_*)
+            for f in "$LIVE"/.env*; do if [ -f "$f" ]; then cp -a "$f" "$STAGE"/; fi; done
+            cd "$STAGE"
             npm ci
             # Build sempre limpo — publicações seguidas em cima da mesma pasta
             # .next (nunca apagada pelo rsync, ver --exclude acima) já causaram
@@ -232,12 +244,22 @@ jobs:
             # EADDRINUSE, o GitHub Actions marcava sucesso, e o site público
             # continuava a servir o código velho — abas de domínios vazias.
             pm2 delete visualdesign-panel || true
+            # Troca (o site só pára estes segundos): o código por rsync, com as mesmas exclusões de sempre (os .env*,
+            # .git e .DS_Store da pasta do site ficam intactos); node_modules e .next por mv (instantâneo, mesmo disco).
             pm2 stop visualdesign-site-teste || true
-            sleep 2
-            fuser -k 3002/tcp || true
             sleep 1
+            fuser -k 3002/tcp || true
+            rsync -a --delete --exclude 'node_modules' --exclude '.next' --exclude '.git' --exclude '*.env*' --exclude '.DS_Store' "$STAGE"/ "$LIVE"/
+            rm -rf "$LIVE/node_modules.old" "$LIVE/.next.old"
+            if [ -d "$LIVE/node_modules" ]; then mv "$LIVE/node_modules" "$LIVE/node_modules.old"; fi
+            if [ -d "$LIVE/.next" ]; then mv "$LIVE/.next" "$LIVE/.next.old"; fi
+            mv "$STAGE/node_modules" "$LIVE/node_modules"
+            mv "$STAGE/.next" "$LIVE/.next"
+            cd "$LIVE"
             pm2 start visualdesign-site-teste || pm2 start npm --name "visualdesign-site-teste" --cwd /opt/visualdesign-site-teste -- start -- -p 3002
             pm2 save
+            # a versão anterior só se apaga depois de a nova estar a correr
+            rm -rf "$LIVE/node_modules.old" "$LIVE/.next.old"
             # Reinicia o site sozinho se deixar de responder (commit 373a3863).
             bash scripts/install-site-watchdog.sh
 

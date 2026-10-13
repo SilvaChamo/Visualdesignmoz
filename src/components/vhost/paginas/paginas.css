@@ -1279,11 +1279,13 @@
  .vh .cell .em-conta-sub{display:block;white-space:normal;max-width:230px;line-height:1.35}
 }
 @media(min-width:769px) and (max-width:1300px){.vh .cell .em-conta-sub{max-width:200px}}
-/* portátil (1051–1300): a coluna da direita do Dashboard mais estreita e os nomes de domínio compridos cortados com
-   "…" (o nome inteiro aparece ao passar o rato) — a tabela de domínios cabe sem barra de deslocar */
+/* portátil (1051–1300): a coluna da direita do Dashboard mais estreita e os nomes de domínio com letra menor — a
+   tabela de domínios cabe sem barra de deslocar. Nunca "…" (regra do Silva): se um nome mesmo assim não couber,
+   passa à linha de baixo depois de um ponto (DomTable põe os pontos de quebra) */
 @media(min-width:1051px) and (max-width:1300px){
  .vh .cols{grid-template-columns:minmax(0,1fr) 230px}
- .vh .cols .tbl .cell b{display:block;max-width:150px;overflow:hidden;text-overflow:ellipsis}
+ .vh .cols .tbl .cell{gap:10px}
+ .vh .cols .tbl .cell b{font-size:13px;white-space:normal}
 }
 @media(min-width:769px) and (max-width:1300px){
  .vh .stat strong{font-size:16px}
