@@ -33,11 +33,6 @@ export function LoginDividido({ children }: { children: React.ReactNode }) {
         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/45 to-black/25" />
         <div className="absolute inset-0 bg-gradient-to-br from-red-800/35 via-transparent to-transparent" />
 
-        <a href="/" className="absolute left-10 top-9 transition-opacity hover:opacity-85" title="VisualDesign">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/assets/Logo_horizontal_branco.png" alt="VisualDesign" className="h-[58px] w-auto" />
-        </a>
-
         <div className="absolute inset-x-10 bottom-10 max-w-[540px] text-white">
           <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-medium ring-1 ring-white/20 backdrop-blur">
             <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
@@ -61,7 +56,10 @@ export function LoginDividido({ children }: { children: React.ReactNode }) {
       <section className="relative flex min-h-screen flex-col">
         <BotoesCanto />
         <div className="flex flex-1 items-center justify-center px-6 pb-10 pt-8 lg:pt-20">
-          <div className="w-full max-w-[400px]">{children}</div>
+          <div className="relative w-full max-w-[400px]">
+            <AbaLogo />
+            {children}
+          </div>
         </div>
         <footer className="pb-6 text-center text-xs text-zinc-400 dark:text-zinc-500">
           © {new Date().getFullYear()} VisualDesign ·{' '}
@@ -77,6 +75,29 @@ export function LoginDividido({ children }: { children: React.ReactNode }) {
 
       <div className="fixed bottom-0 left-0 right-0 z-50 h-[3px]" style={{ background: 'linear-gradient(90deg, #7f0000, #cc0000, #7f0000)' }} />
     </div>
+  )
+}
+
+/** No computador, o fundo do formulário entra pela foto dentro na divisão, como uma aba, com o logótipo (pedido do Silva,
+ *  13/10/2026, sobre o modelo de um menu com o item escolhido ligado ao conteúdo): sem curvas, com os cortes a direito
+ *  do site. Fica à altura do título do formulário; a ponta da direita passa 16 px para dentro do fundo branco, para não
+ *  aparecer uma risca da foto se a largura da barra de deslocar mudar a conta. */
+function AbaLogo() {
+  return (
+    <a
+      href="/"
+      title="VisualDesign"
+      className="absolute top-[-62px] z-10 hidden h-[192px] w-[300px] items-center justify-center bg-white pl-3 pr-[30px] dark:bg-[#15161e] lg:flex"
+      style={{
+        right: 'calc(100% + (50vw - 400px) / 2 - 16px)',
+        clipPath: 'polygon(100% 0, calc(100% - 44px) 44px, 20px 44px, 0 64px, 0 128px, 20px 148px, calc(100% - 44px) 148px, 100% 100%)',
+      }}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/assets/logo-entrada.jpg" alt="VisualDesign" className="h-auto w-[214px] dark:hidden" />
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/assets/logo-entrada-escuro.png" alt="VisualDesign" className="hidden h-auto w-[214px] dark:block" />
+    </a>
   )
 }
 

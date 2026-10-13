@@ -106,11 +106,12 @@ function LoginFormInner() {
   return (
     <LoginDividido>
       {/* no telemóvel e no tablet a imagem (com o logótipo) não aparece: o logótipo fica por cima do formulário */}
-      <a href="/" className="mb-5 flex justify-center lg:hidden" title="VisualDesign">
+      {/* maior e perto do título (a imagem do logótipo tem ~13% de margem vazia em cima e em baixo) */}
+      <a href="/" className="-mb-1 -mt-3 flex justify-center lg:hidden" title="VisualDesign">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/assets/logotype.png" alt="VisualDesign" className="h-[80px] w-auto object-contain dark:hidden" />
+        <img src="/assets/logotype.png" alt="VisualDesign" className="h-[124px] w-auto object-contain dark:hidden" />
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/assets/logotipoII.png" alt="VisualDesign" className="hidden h-[80px] w-auto object-contain dark:block" />
+        <img src="/assets/logotipoII.png" alt="VisualDesign" className="hidden h-[124px] w-auto object-contain dark:block" />
       </a>
 
       {/* no telemóvel e no tablet tudo ao centro (pedido do Silva, 13/10/2026) */}
