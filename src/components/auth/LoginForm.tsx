@@ -11,7 +11,7 @@ import { marcarEntrada, preCarregarDadosVhost } from '@/lib/vhost-cache'
 import type { UserRole } from '@/lib/user-roles'
 import { AuthLoadingShell } from '@/components/auth/AuthPageShell'
 import { LoginDividido } from '@/components/auth/LoginDividido'
-import { CampoFlutuante, OlhoSenha, botaoCls, botaoClaroCls, ligacaoCls, subtituloCls, tituloCls } from '@/components/auth/campos'
+import { CampoFlutuante, OlhoSenha, botaoCls, botaoClaroCls, ligacaoCls, subtituloCls, tituloCls, formularioCls } from '@/components/auth/campos'
 import {
   authCardClass,
   authErrorBoxClass,
@@ -129,7 +129,7 @@ function LoginFormInner() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="mt-[clamp(20px,2.2vw,32px)] space-y-[clamp(14px,1.4vw,20px)]">
+      <form onSubmit={handleSubmit} className={formularioCls}>
         <div className="absolute -z-10 opacity-0 pointer-events-none" aria-hidden="true">
           <input
             type="text"
@@ -198,7 +198,7 @@ function LoginFormInner() {
           <a href="/auth/forgot-password" className={ligacaoCls}>
             {t('login.forgot')}
           </a>
-          <span className="text-[clamp(13px,1vw,14px)] text-zinc-700 dark:text-zinc-300">
+          <span className="text-[clamp(12.5px,0.92vw,13.5px)] text-zinc-700 dark:text-zinc-300">
             {t('login.noAccount')}{' '}
             <a href="/auth/register" className={ligacaoCls}>
               {t('login.register')}

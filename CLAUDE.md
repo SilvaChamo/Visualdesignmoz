@@ -1,24 +1,17 @@
-# Esta é a pasta de trabalho prioritária
+# Esta é a pasta de trabalho — e o site em produção
 
-Este projecto (pasta local `visualdesign-producao`, branch `fix/contabo-websites-audit`, deploy em
-`teste.visualdesignmoz.com` via Contabo, dev server na porta 3003) é onde o trabalho
-novo deve acontecer por defeito. **A pasta de trabalho no Mac do Silva passou a ser `visualdesign-producao`**
-(Silva, 14/10/2026 — antes era `visualdesign-teste`, que deixa de se usar); apesar do nome, é esta pasta do Contabo
-(`fix/contabo-websites-audit`), não a produção do Hetzner. Existe uma segunda pasta irmã, `../visualdesign`
-(branch `main`, produção real em `visualdesignmoz.com` no Hetzner, dev server na
-porta 3002) — **não é a mesma pasta, não partilha ficheiros automaticamente**, e um
-`git push` lá despoleta deploy imediato para produção.
+Este projecto (pasta local `visualdesign-producao`, branch `fix/contabo-websites-audit`, dev server na porta 3003) é
+onde todo o trabalho acontece. **O site em produção é o do Contabo** (Silva, 14/10/2026: "esqueça Hetzner… agora o site
+em produção é da Contabo"; o servidor foi reforçado para 200 GB de disco, 12 GB de RAM e 6 núcleos): cada merge em
+`fix/contabo-websites-audit` publica no Contabo (`.github/workflows/deploy-contabo.yml`, que já publica com
+`NEXT_PUBLIC_SITE_URL=https://visualdesignmoz.com`). Como cada publicação vai directa à produção, a regra "só se
+publica quando o Silva disser 'publica'" é ainda mais importante.
 
-As duas pastas partilham a mesma base de dados Supabase, mas código/UI só existe onde
-foi escrito. Se pedires para "adicionar X" sem dizer onde, o agente deve assumir esta
-pasta (`visualdesign-producao`), a não ser que o pedido seja claramente sobre produção
-(ex: "o site principal está em baixo") ou o utilizador diga expressamente "no Hetzner"/
-"em produção". Alterações que façam sentido nos dois sítios só devem ir para `main`
-depois de confirmadas aqui, através do fluxo normal de PR
-(`fix/contabo-websites-audit` → `main`) — nunca directamente.
+**O Hetzner já não faz parte do projecto.** Ignorar o ramo `main`, a pasta irmã `../visualdesign`, o
+`deploy-hetzner.yml` e tudo o que fale de produção no Hetzner — incluindo a memória
+`project_dual-folder-git-topology`, que descreve a topologia antiga. Não propor nem fazer alterações para lá.
 
-Detalhe completo desta topologia (portas, branches, como trazer alterações de um lado
-para o outro) fica na memória `project_dual-folder-git-topology`.
+A pasta de trabalho no Mac do Silva é `visualdesign-producao` (antes `visualdesign-teste`, que deixa de se usar).
 
 # Como se trabalha com o Silva (combinado a 13/10/2026)
 

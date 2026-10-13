@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase-client'
 import { useI18n } from '@/lib/i18n'
 import { LoginDividido } from '@/components/auth/LoginDividido'
-import { CampoFlutuante, ForcaSenha, OlhoSenha, botaoCls, ligacaoCls, subtituloCls, tituloCls } from '@/components/auth/campos'
+import { CampoFlutuante, ForcaSenha, OlhoSenha, botaoCls, ligacaoCls, subtituloCls, tituloCls, formularioCls } from '@/components/auth/campos'
 import { authErrorBoxClass } from '@/components/auth/auth-styles'
 
 export default function ResetPasswordPage() {
@@ -93,7 +93,7 @@ export default function ResetPasswordPage() {
           )}
           {error && <div className={`mt-6 ${authErrorBoxClass}`}>{error}</div>}
 
-          <form onSubmit={handleSubmit} className="mt-[clamp(20px,2.2vw,32px)] space-y-[clamp(14px,1.4vw,20px)]">
+          <form onSubmit={handleSubmit} className={formularioCls}>
             <CampoFlutuante
               id="nova-senha"
               rotulo={t('nova.password')}

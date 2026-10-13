@@ -128,6 +128,9 @@ jobs:
             # deploy, só existia no .env.local local) — descoberto 19 ago via
             # o caso real do aamihe.com.
             set_env_var BREVO_API_KEY "${{ secrets.BREVO_API_KEY }}"
+            # "Não sou um robô" do registo (Turnstile da Cloudflare, 14/10/2026): a chave secreta vem do segredo do GitHub
+            # TURNSTILE_SECRET_KEY; vazia, o registo funciona sem verificar (src/lib/turnstile.ts)
+            set_env_var TURNSTILE_SECRET_KEY "${{ secrets.TURNSTILE_SECRET_KEY }}"
             # Idem ao passo de build acima: secrets próprios do Contabo, nunca
             # os partilhados com o Hetzner.
             set_env_var NEXT_PUBLIC_SUPABASE_URL "${{ secrets.CONTABO_SUPABASE_URL }}"

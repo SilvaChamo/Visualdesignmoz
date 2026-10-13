@@ -5,16 +5,27 @@ import { PANEL_SLUG } from '@/lib/panel-tenant';
 import { findProtectedEmailClaim, PROTECTED_EMAIL_MESSAGE } from '@/lib/protected-account-email';
 import { ENCOMENDAS_ACCOUNT_ORIGIN } from '@/lib/panel-origin';
 import { EXISTING_ACCOUNT_MESSAGE, authUserExists } from '@/lib/conta-existe';
+import { turnstileValido } from '@/lib/turnstile';
 
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, password, nome, telefone, empresa, endereco, cidade, provincia, pais, emailEmpresa, contacto, honeypot, origem } = await request.json();
+    const corpo = await request.json();
+    const { email, password, nome, telefone, empresa, endereco, cidade, provincia, pais, emailEmpresa, contacto, honeypot, origem } = corpo;
 
     // Campo-armadilha: só bots que preenchem todos os campos do formulário
     // (incluindo os escondidos) chegam a mandar isto preenchido.
     if (honeypot) {
       return NextResponse.json({ error: 'Não foi possível concluir o registo.' }, { status: 400 });
+    }
+
+    // "Não sou um robô" (Turnstile da Cloudflare) do formulário de registo (Silva, 14/10/2026). Só esse formulário o
+    // manda: o checkout e a cotação, que também criam contas por aqui, continuam sem ele.
+    if ('turnstile' in corpo) {
+      const ip = request.headers.get('cf-connecting-ip') || request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || null;
+      if (!(await turnstileValido(corpo.turnstile, ip))) {
+        return NextResponse.json({ error: 'A verificação de segurança falhou ou expirou. Confirme de novo que não é um robô.' }, { status: 400 });
+      }
     }
 
     if (!email || !password || !nome || !telefone) {

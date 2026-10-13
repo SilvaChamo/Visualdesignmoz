@@ -2,8 +2,10 @@
 import React, { useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { LoginDividido } from '@/components/auth/LoginDividido'
-import { CampoFlutuante, CampoTelefone, EscolhaFlutuante, ForcaSenha, OlhoSenha, botaoCls, botaoClaroCls, ligacaoCls, subtituloCls, tituloCls } from '@/components/auth/campos'
+import { CampoFlutuante, CampoTelefone, EscolhaFlutuante, ForcaSenha, OlhoSenha, botaoCls, botaoClaroCls, ligacaoCls, subtituloCls, tituloCls, formularioCls } from '@/components/auth/campos'
 import { authErrorBoxClass } from '@/components/auth/auth-styles'
+import { Turnstile } from '@/components/auth/Turnstile'
+import { useI18n } from '@/lib/i18n'
 
 const TOTAL_STEPS = 3
 
@@ -52,6 +54,10 @@ function RegisterPageInner() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [sucesso, setSucesso] = useState(false)
+  const { lang } = useI18n()
+  // "não sou um robô" (Turnstile): o resultado só vale uma vez — depois de uma tentativa falhada a caixa volta a pedir
+  const [robo, setRobo] = useState('')
+  const [roboVez, setRoboVez] = useState(0)
 
   // 1.º passo: o e-mail já tem conta? (pedido do Silva, 13/10/2026 — por causa das contas repetidas, verifica-se logo
   // aqui e só depois se passa ao 2.º passo; o registo final volta a verificar)
@@ -100,6 +106,10 @@ function RegisterPageInner() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+    if (!robo) {
+      setError('Confirme que não é um robô (a caixa de verificação por cima do botão).')
+      return
+    }
     setLoading(true)
     try {
       const res = await fetch('/api/auth/register', {
@@ -116,6 +126,7 @@ function RegisterPageInner() {
           pais,
           emailEmpresa,
           contacto,
+          turnstile: robo,
         }),
       })
       const data = await res.json()
@@ -125,6 +136,8 @@ function RegisterPageInner() {
       setSucesso(true)
     } catch (err: unknown) {
       setError((err as Error).message || 'Erro ao criar conta.')
+      setRobo('')
+      setRoboVez((n) => n + 1)
     } finally {
       setLoading(false)
     }
@@ -151,7 +164,7 @@ function RegisterPageInner() {
     </div>
   )
   const passoTitulo = (txt: string) => <p className="text-center text-sm font-medium text-zinc-600 dark:text-zinc-400 lg:text-left">{txt}</p>
-  const formCls = 'mt-[clamp(18px,1.95vw,26px)] space-y-[clamp(14px,1.4vw,20px)]'
+  const formCls = formularioCls
 
   // Registo no mesmo modelo do login (pedido do Silva, 13/10/2026): foto à esquerda, formulário à direita, os mesmos
   // campos com a etiqueta que sobe ao clicar e os mesmos botões
@@ -242,6 +255,7 @@ function RegisterPageInner() {
               </div>
               <CampoFlutuante id="reg-email-empresa" rotulo="E-mail da empresa" dica="geral@empresa.com" type="email" value={emailEmpresa} onChange={setEmailEmpresa} />
               <CampoTelefone id="reg-contactos" rotulo="Contactos" dica="21 000 000" value={contacto} onChange={setContacto} />
+              <Turnstile key={roboVez} onToken={setRobo} lang={lang} />
               <div className="flex gap-3">
                 <button type="button" onClick={() => setStep(2)} className={botaoClaroCls}>
                   ← Voltar
@@ -253,7 +267,7 @@ function RegisterPageInner() {
             </form>
           )}
 
-          <p className="mt-7 text-center text-[clamp(13px,1vw,14px)] text-zinc-600 dark:text-zinc-400">
+          <p className="mt-6 text-center text-[clamp(12.5px,0.92vw,13.5px)] text-zinc-600 dark:text-zinc-400">
             Já tem conta?{' '}
             <a href={loginLink} className={ligacaoCls}>
               Entrar
