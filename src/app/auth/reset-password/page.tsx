@@ -1,33 +1,33 @@
 'use client'
+// Nova palavra-passe (página aberta pelo link do e-mail de recuperação) no mesmo modelo do login (pedido do Silva,
+// 14/10/2026): imagem | formulário num cartão, olho nos campos e a barra de força da senha como no registo.
 import React, { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase-client'
+import { CircleCheck } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { AuthPageShell } from '@/components/auth/AuthPageShell'
-import {
-  authCardClass,
-  authErrorBoxClass,
-  authInputClass,
-  authLabelClass,
-  authMutedTextClass,
-  authPrimaryBtnClass,
-} from '@/components/auth/auth-styles'
+import { supabase } from '@/lib/supabase-client'
+import { useI18n } from '@/lib/i18n'
+import { LoginDividido } from '@/components/auth/LoginDividido'
+import { CampoFlutuante, ForcaSenha, OlhoSenha, botaoCls, ligacaoCls, subtituloCls, tituloCls } from '@/components/auth/campos'
+import { authErrorBoxClass } from '@/components/auth/auth-styles'
 
 export default function ResetPasswordPage() {
+  const { t } = useI18n()
   const [password, setPassword] = useState('')
   const [confirmar, setConfirmar] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [sucesso, setSucesso] = useState(false)
+  const [semSessao, setSemSessao] = useState(false)
   const [error, setError] = useState('')
   const router = useRouter()
 
   useEffect(() => {
     const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
-        setError('Sessão expirada ou inválida. Solicite um novo link de recuperação.')
-      }
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+      if (!session) setSemSessao(true)
     }
     checkSession()
   }, [])
@@ -37,19 +37,22 @@ export default function ResetPasswordPage() {
     setError('')
 
     if (password !== confirmar) {
-      setError('As passwords não coincidem.')
+      setError(t('nova.mismatch'))
       return
     }
     if (password.length < 6) {
-      setError('A password deve ter no mínimo 6 caracteres.')
+      setError(t('nova.short'))
       return
     }
 
     setLoading(true)
     try {
-      const { data: { session } } = await supabase.auth.getSession()
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
       if (!session) {
-        throw new Error('Sessão inválida. Utilize o link enviado por email novamente.')
+        setSemSessao(true)
+        return
       }
 
       const { error: updateError } = await supabase.auth.updateUser({ password })
@@ -59,84 +62,76 @@ export default function ResetPasswordPage() {
       await supabase.auth.signOut()
       setTimeout(() => router.push('/auth/login?reset=success'), 3000)
     } catch (err: unknown) {
-      setError((err as Error).message || 'Erro ao actualizar a password.')
+      setError((err as Error).message || t('nova.error'))
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <AuthPageShell>
-      <div className={authCardClass}>
-        {sucesso ? (
-          <div className="py-6 text-center">
-            <p className="text-4xl mb-4">🎉</p>
-            <p className="text-lg font-semibold text-zinc-900 dark:text-zinc-50 mb-2">Password actualizada</p>
-            <p className={`text-sm ${authMutedTextClass}`}>A redirecionar para o login...</p>
+    <LoginDividido>
+      {sucesso ? (
+        <div className="text-center">
+          <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600 ring-1 ring-emerald-500/25 dark:text-emerald-400">
+            <CircleCheck className="h-7 w-7" strokeWidth={1.75} aria-hidden />
           </div>
-        ) : (
-          <>
-            <div className="mb-6">
-              <h1 className="text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
-                Nova password
-              </h1>
-              <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-                Defina a sua nova palavra-passe de acesso
-              </p>
+          <h1 className={tituloCls}>{t('nova.doneTitle')}</h1>
+          <p className={subtituloCls}>{t('nova.doneText')}</p>
+        </div>
+      ) : (
+        <>
+          <h1 className={tituloCls}>{t('nova.title')}</h1>
+          <p className={subtituloCls}>{t('nova.subtitle')}</p>
+
+          {semSessao && (
+            <div className={`mt-6 ${authErrorBoxClass}`}>
+              {t('nova.noSession')}{' '}
+              <a href="/auth/forgot-password" className="font-semibold underline">
+                {t('nova.newLink')}
+              </a>
             </div>
+          )}
+          {error && <div className={`mt-6 ${authErrorBoxClass}`}>{error}</div>}
 
-            {error && <div className={authErrorBoxClass}>{error}</div>}
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className={authLabelClass}>Nova password</label>
-                <div className="relative">
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className={`${authInputClass} pr-10`}
-                    placeholder="••••••••"
-                    required
-                    minLength={6}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-zinc-500"
-                  >
-                    {showPassword ? 'Ocultar' : 'Ver'}
-                  </button>
-                </div>
-              </div>
-              <div>
-                <label className={authLabelClass}>Confirmar password</label>
-                <div className="relative">
-                  <input
-                    type={showConfirmPassword ? 'text' : 'password'}
-                    value={confirmar}
-                    onChange={(e) => setConfirmar(e.target.value)}
-                    className={`${authInputClass} pr-10`}
-                    placeholder="••••••••"
-                    required
-                    minLength={6}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-zinc-500"
-                  >
-                    {showConfirmPassword ? 'Ocultar' : 'Ver'}
-                  </button>
-                </div>
-              </div>
-              <button type="submit" disabled={loading} className={`w-full ${authPrimaryBtnClass}`}>
-                {loading ? 'A actualizar...' : 'Actualizar password'}
-              </button>
-            </form>
-          </>
-        )}
-      </div>
-    </AuthPageShell>
+          <form onSubmit={handleSubmit} className="mt-[clamp(20px,2.2vw,32px)] space-y-[clamp(14px,1.4vw,20px)]">
+            <CampoFlutuante
+              id="nova-senha"
+              rotulo={t('nova.password')}
+              dica="••••••••"
+              type={showPassword ? 'text' : 'password'}
+              autoComplete="new-password"
+              minLength={6}
+              obrigatorio
+              value={password}
+              onChange={setPassword}
+            >
+              <OlhoSenha ver={showPassword} onClick={() => setShowPassword(!showPassword)} />
+            </CampoFlutuante>
+            <CampoFlutuante
+              id="nova-confirmar"
+              rotulo={t('nova.confirm')}
+              dica="••••••••"
+              type={showConfirmPassword ? 'text' : 'password'}
+              autoComplete="new-password"
+              minLength={6}
+              obrigatorio
+              value={confirmar}
+              onChange={setConfirmar}
+            >
+              <OlhoSenha ver={showConfirmPassword} onClick={() => setShowConfirmPassword(!showConfirmPassword)} />
+            </CampoFlutuante>
+            <ForcaSenha senha={password} />
+            <button type="submit" disabled={loading} className={botaoCls}>
+              {loading ? t('nova.saving') : t('nova.save')}
+            </button>
+            <div className="text-center">
+              <a href="/login" className={ligacaoCls}>
+                {t('rec.back')}
+              </a>
+            </div>
+          </form>
+        </>
+      )}
+    </LoginDividido>
   )
 }

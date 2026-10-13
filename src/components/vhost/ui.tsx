@@ -327,19 +327,21 @@ export function ServerInfoCard() {
         <i className="fa-solid fa-wrench" style={{ color: 'var(--muted)', fontSize: 13, cursor: 'pointer' }} onClick={() => go('servicos')} title="Gerir servidor" />
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 10 }}>
         <small style={label}>Utilizador</small>
         <strong style={{ fontSize: 13.5, fontWeight: 800, color: 'var(--ink)' }}>{me}</strong>
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+      {/* o nome da marca no lugar do endereço do servidor (pedido do Silva, 14/10/2026: o endereço longo encostava ao
+          título); o endereço, o sistema e há quanto tempo está ligado ficam no texto que aparece ao passar o rato */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 10 }}>
         <small style={label}>Servidor</small>
-        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }} title={v.so + ' · Hestia ' + v.hestia + ' · ligado há ' + v.ligadoHa}>
-          {v.hostname}
+        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', textAlign: 'right' }} title={v.hostname + ' · ' + v.so + ' · Hestia ' + v.hestia + ' · ligado há ' + v.ligadoHa}>
+          VisualDesign
         </span>
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 12 }}>
         <small style={label}>IP do Servidor</small>
         <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{v.ips[0] || '—'}</span>
       </div>

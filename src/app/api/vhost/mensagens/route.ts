@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requirePanelBootstrapAccess } from '@/lib/panel-api-auth';
 import { getDaSyncAdmin } from '@/lib/da-sync-schema';
+import { donoDaConta } from '@/lib/vhost-conta-cliente';
 
 export const dynamic = 'force-dynamic';
 
 /**
  * /api/vhost/mensagens — mensagens do sistema e da equipa para a pessoa com sessão (tabela notifications do site).
  * GET ?filtro=todas|nao-lidas|avisos
+ * GET ?conta=   ao "entrar como" uma conta: as mensagens do cliente dono dela (administrador, ou o revendedor dela), só
+ *               para ler — marcar e apagar ficam para o próprio cliente
  * POST { acao: lidas | apagar, ids?: string[] }   (sem ids: todas)
  */
 async function quem() {
@@ -18,8 +21,10 @@ async function quem() {
 }
 
 export async function GET(req: NextRequest) {
-  const q = await quem();
+  const conta = req.nextUrl.searchParams.get('conta');
+  const q = conta ? await donoDaConta(conta) : await quem();
   if ('erro' in q) return q.erro;
+  if (!q.uid) return NextResponse.json({ mensagens: [], naoLidas: 0, semPerfil: true }, { headers: { 'Cache-Control': 'no-store' } });
   const filtro = req.nextUrl.searchParams.get('filtro') || 'todas';
   let pedido = q.sb.from('notifications').select('id, type, title, message, domain, read, category, link, link_text, created_at').eq('user_id', q.uid).order('created_at', { ascending: false }).limit(300);
   if (filtro === 'nao-lidas') pedido = pedido.eq('read', false);

@@ -13,8 +13,31 @@ import { ico } from '../state';
 import { esquecerMemoria, useGet, useNaMemoria } from '../carga';
 import { DataTable, Senha, Switch, Tabs } from './componentes';
 import { Confirmar } from './pacotes';
+import { EditarDadosModal } from './cliente-dados';
 
 // ---------- Peças comuns ----------
+/** Ao "entrar como" outra conta, as páginas por pessoa (Perfil, Mensagens, Suporte) mostram os dados do cliente dono
+ *  dela e nada de quem tem a sessão (pedido do Silva, 14/10/2026): as leituras levam ?conta= e o que só o próprio
+ *  cliente pode fazer (palavra-passe, sessões, marcar ou apagar mensagens, responder a pedidos) fica de fora. */
+function vista(vh: VH) {
+  const alheia = vh.s.stack.length > 0;
+  return { alheia, rota: (r: string) => (alheia ? r + (r.includes('?') ? '&' : '?') + 'conta=' + encodeURIComponent(vh.me) : r) };
+}
+
+/** Aviso nas páginas que são só da própria pessoa, ao ver o painel de outra conta */
+function SoDoCliente({ texto }: { texto: string }) {
+  const { t, a, me } = useVH();
+  return (
+    <div className="note">
+      <i className="fa-solid fa-user-secret" style={{ color: 'var(--red)' }} /> {t('Está a ver o painel de')}{' '}
+      <b>
+        {a.name} ({me})
+      </b>
+      . {t(texto)}
+    </div>
+  );
+}
+
 function Sec({ titulo, desc, children }: { titulo: string; desc?: string; children: ReactNode }) {
   const { t } = useVH();
   return (
@@ -170,15 +193,15 @@ const estado = (s: string) => ESTADOS[s] || [s || 'Aberto', 'w'];
 function Pedidos() {
   const vh = useVH();
   const { t, nav } = vh;
-  const { dados, erro, ler } = useGet<{ pedidos: Pedido[] }>('/api/vhost/suporte');
+  const { dados, erro, ler } = useGet<{ pedidos: Pedido[] }>(vista(vh).rota('/api/vhost/suporte'));
   if (!dados) return <Carregando erro={erro} ler={ler} />;
   return (
-    <Sec titulo="Pedidos de suporte" desc="Os pedidos que abriu e as respostas da equipa. Respondemos normalmente em até 2 horas, nos dias úteis.">
+    <Sec titulo="Pedidos de suporte" desc={vista(vh).alheia ? 'Os pedidos que o cliente abriu e as respostas da equipa.' : 'Os pedidos que abriu e as respostas da equipa. Respondemos normalmente em até 2 horas, nos dias úteis.'}>
       <DataTable
         id="tickets"
         rows={dados.pedidos}
         rowKey={(r) => r.id}
-        empty="Ainda não abriu nenhum pedido de suporte"
+        empty={vista(vh).alheia ? 'O cliente ainda não abriu nenhum pedido de suporte' : 'Ainda não abriu nenhum pedido de suporte'}
         cols={[
           { k: 'a', t: 'Assunto', sort: (r) => r.assunto, cell: (r) => <a className="lk" onClick={() => nav('/utilizador/tickets/' + r.id)}>{r.assunto}</a> },
           { k: 'c', t: 'Categoria', cell: (r) => t(CATS[r.categoria] || r.categoria) },
@@ -269,7 +292,8 @@ function NovoPedido() {
 function VerPedido({ id }: { id: string }) {
   const vh = useVH();
   const { t, openM } = vh;
-  const { dados, erro, ler } = useGet<{ pedido: Pedido; respostas: Resposta[] }>('/api/vhost/suporte?id=' + encodeURIComponent(id));
+  const { alheia, rota } = vista(vh);
+  const { dados, erro, ler } = useGet<{ pedido: Pedido; respostas: Resposta[] }>(rota('/api/vhost/suporte?id=' + encodeURIComponent(id)));
   const [txt, setTxt] = useState('');
   if (!dados) return <Carregando erro={erro} ler={ler} />;
   const p = dados.pedido;
@@ -298,20 +322,22 @@ function VerPedido({ id }: { id: string }) {
       <div className="tk-fio">
         <div className="tk-msg cliente">
           <div className="tk-cab">
-            <b>{t('Você')}</b> · {dataPt(p.created_at)}
+            <b>{t(alheia ? 'Cliente' : 'Você')}</b> · {dataPt(p.created_at)}
           </div>
           <div className="tk-txt">{p.descricao}</div>
         </div>
         {dados.respostas.map((r) => (
           <div key={r.id} className={'tk-msg ' + (r.respondente === 'cliente' ? 'cliente' : 'equipa')}>
             <div className="tk-cab">
-              <b>{r.respondente === 'cliente' ? t('Você') : t('Equipa de suporte')}</b> · {dataPt(r.created_at)}
+              <b>{r.respondente === 'cliente' ? t(alheia ? 'Cliente' : 'Você') : t('Equipa de suporte')}</b> · {dataPt(r.created_at)}
             </div>
             <div className="tk-txt">{r.resposta}</div>
           </div>
         ))}
       </div>
-      {fechado ? (
+      {alheia ? (
+        <SoDoCliente texto="Só o cliente responde e fecha os seus pedidos, no painel dele." />
+      ) : fechado ? (
         <div className="note">{t('Este pedido está fechado. Se precisar de mais ajuda, abra um pedido novo.')}</div>
       ) : (
         <div className="frm">
@@ -419,15 +445,17 @@ type DadosPerfil = { perfil: Record<string, string | null>; email: string; criad
 function PerfilGeral() {
   const vh = useVH();
   const { t } = vh;
-  const { dados, erro, ler } = useGet<DadosPerfil>('/api/vhost/perfil');
+  const { alheia, rota } = vista(vh);
+  const { dados, erro, ler } = useGet<DadosPerfil & { semPerfil?: boolean }>(rota('/api/vhost/perfil'));
   const [f, setF] = useState<Record<string, string> | null>(null);
   const [novoEmail, setNovoEmail] = useState('');
   if (!dados) return <Carregando erro={erro} ler={ler} />;
+  if (alheia && dados.semPerfil) return <SoDoCliente texto="Esta conta ainda não tem um perfil do site ligado: não há dados pessoais para mostrar." />;
   const v = f || Object.fromEntries(['name', 'telefone', 'empresa', 'morada', 'cidade', 'site', 'nuit'].map((k) => [k, String(dados.perfil[k] || '')]));
   const campo = (k: string, l: string, ph = '') => (
     <div className="field">
       <label>{t(l)}</label>
-      <input className="inp" value={v[k]} placeholder={ph} onChange={(e) => setF({ ...v, [k]: e.target.value })} />
+      <input className="inp" value={v[k]} placeholder={ph} readOnly={alheia} onChange={(e) => setF({ ...v, [k]: e.target.value })} />
     </div>
   );
   return (
@@ -448,13 +476,29 @@ function PerfilGeral() {
           </div>
           {campo('site', 'Site', 'https://…')}
           <div className="mfoot" style={{ justifyContent: 'flex-start' }}>
-            <button className="btn r" disabled={!f} onClick={async () => (await enviar(vh, '/api/vhost/perfil', { acao: 'dados', ...v }, 'Dados guardados')) && (setF(null), ler())}>
-              {t('Guardar')}
-            </button>
+            {alheia ? (
+              // os dados do cliente mudam-se como em Contas → Editar dados (perfil do site e servidor ao mesmo tempo)
+              <button className="btn r" onClick={() => vh.openM(<EditarDadosModal conta={vh.me} />)}>
+                <i className="fa-solid fa-pen" />
+                {t('Editar dados')}
+              </button>
+            ) : (
+              <button className="btn r" disabled={!f} onClick={async () => (await enviar(vh, '/api/vhost/perfil', { acao: 'dados', ...v }, 'Dados guardados')) && (setF(null), ler())}>
+                {t('Guardar')}
+              </button>
+            )}
           </div>
         </div>
       </Sec>
-      <Sec titulo="E-mail de entrada" desc="O endereço com que entra no painel. Ao mudar, chega uma mensagem ao endereço novo para confirmar.">
+      <Sec titulo="E-mail de entrada" desc={alheia ? 'O endereço com que o cliente entra no painel. Só o cliente o muda.' : 'O endereço com que entra no painel. Ao mudar, chega uma mensagem ao endereço novo para confirmar.'}>
+        {alheia ? (
+          <div className="frm" style={{ maxWidth: 520 }}>
+            <div className="field">
+              <label>{t('Atual')}</label>
+              <input className="inp" value={dados.email} readOnly />
+            </div>
+          </div>
+        ) : (
         <div className="frm">
           <div className="row">
             <div className="field">
@@ -480,6 +524,7 @@ function PerfilGeral() {
             </button>
           </div>
         </div>
+        )}
       </Sec>
     </>
   );
@@ -489,6 +534,12 @@ function PerfilSenha() {
   const vh = useVH();
   const { t } = vh;
   const [f, setF] = useState({ atual: '', nova: '', repetir: '' });
+  if (vista(vh).alheia)
+    return (
+      <Sec titulo="Mudar a palavra-passe">
+        <SoDoCliente texto="A palavra-passe de entrada é de cada pessoa: só o cliente a muda, no painel dele." />
+      </Sec>
+    );
   const regras: [string, boolean][] = [
     ['Pelo menos 8 caracteres', f.nova.length >= 8],
     ['Letras maiúsculas e minúsculas', /[a-z]/.test(f.nova) && /[A-Z]/.test(f.nova)],
@@ -542,8 +593,33 @@ function PerfilSenha() {
 function PerfilSessoes() {
   const vh = useVH();
   const { t, openM } = vh;
-  const { dados, erro, ler } = useGet<DadosPerfil>('/api/vhost/perfil');
+  const { alheia, rota } = vista(vh);
+  const { dados, erro, ler } = useGet<DadosPerfil>(rota('/api/vhost/perfil'));
   if (!dados) return <Carregando erro={erro} ler={ler} />;
+  if (alheia)
+    return (
+      <Sec titulo="Sessões do cliente">
+        <div className="da-grelha">
+          <div className="da-lin n3">
+            {(
+              [
+                ['fa-right-to-bracket', 'Última entrada', dataPt(dados.ultimaEntrada)],
+                ['fa-calendar', 'Conta criada', dataPt(dados.criada)],
+              ] as [string, string, string][]
+            ).map(([fa, l, v]) => (
+              <div className="da-cel" key={l}>
+                <i className={'fa-solid ' + fa} />
+                <div>
+                  <small>{t(l)}</small>
+                  <span>{v}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <SoDoCliente texto="As sessões abertas são de cada pessoa: só o cliente as termina, no painel dele." />
+      </Sec>
+    );
   const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
   const nav = /Edg\//.test(ua) ? 'Edge' : /Chrome\//.test(ua) ? 'Chrome' : /Firefox\//.test(ua) ? 'Firefox' : /Safari\//.test(ua) ? 'Safari' : t('Navegador');
   const so = /Windows/.test(ua) ? 'Windows' : /Mac OS/.test(ua) ? 'macOS' : /Android/.test(ua) ? 'Android' : /iPhone|iPad/.test(ua) ? 'iOS' : /Linux/.test(ua) ? 'Linux' : '';
@@ -610,9 +686,11 @@ function PerfilDoisPassos() {
 function PerfilAvisos() {
   const vh = useVH();
   const { t } = vh;
-  const { dados, erro, ler } = useGet<DadosPerfil>('/api/vhost/perfil');
+  const { alheia, rota } = vista(vh);
+  const { dados, erro, ler } = useGet<DadosPerfil>(rota('/api/vhost/perfil'));
   if (!dados) return <Carregando erro={erro} ler={ler} />;
-  const mudar = async (k: 'limite' | 'seguranca', v: boolean) => (await enviar(vh, '/api/vhost/perfil', { acao: 'avisos', ...dados.avisos, [k]: v }, 'Guardado')) && ler();
+  const mudar = async (k: 'limite' | 'seguranca', v: boolean) =>
+    alheia ? vh.toast('Só o cliente muda as notificações dele') : (await enviar(vh, '/api/vhost/perfil', { acao: 'avisos', ...dados.avisos, [k]: v }, 'Guardado')) && ler();
   return (
     <Sec titulo="Notificações" desc="Avisos por e-mail e nas Mensagens do painel.">
       <div className="em-opcoes">
@@ -767,7 +845,7 @@ type Mensagem = { id: string; type: string; title: string; message: string; doma
 const ICONE_MSG: Record<string, [string, string]> = { success: ['fa-circle-check', 'ok'], warning: ['fa-triangle-exclamation', 'w'], error: ['fa-circle-xmark', 'bad'], info: ['fa-circle-info', 'info'] };
 const iconeMsg = (tipo: string) => ICONE_MSG[tipo] || ['fa-envelope', ''];
 
-function VerMensagem({ m, onApagar }: { m: Mensagem; onApagar: () => void }) {
+function VerMensagem({ m, onApagar }: { m: Mensagem; onApagar?: () => void }) {
   const { t, closeM } = useVH();
   const [icone, cor] = iconeMsg(m.type);
   return (
@@ -784,16 +862,18 @@ function VerMensagem({ m, onApagar }: { m: Mensagem; onApagar: () => void }) {
       </div>
       <p className="msg-ver-texto">{m.message}</p>
       <div className="mfoot">
-        <button
-          className="btn g"
-          onClick={() => {
-            closeM();
-            onApagar();
-          }}
-        >
-          <i className="fa-solid fa-trash" />
-          {t('Eliminar')}
-        </button>
+        {onApagar && (
+          <button
+            className="btn g"
+            onClick={() => {
+              closeM();
+              onApagar();
+            }}
+          >
+            <i className="fa-solid fa-trash" />
+            {t('Eliminar')}
+          </button>
+        )}
         {m.link && (
           <a className="btn g" href={m.link} target={/^https?:/.test(m.link) ? '_blank' : undefined} rel="noreferrer" onClick={closeM}>
             {m.link_text || t('Abrir')}
@@ -812,8 +892,9 @@ const ROTULO_MSG = { todas: 'Todas as mensagens', 'nao-lidas': 'Não lidas', avi
 /** Descrição da barra de cima nas Mensagens (pedido do Silva): "Todas as mensagens | 3 por ler", em letra de descrição.
  *  Usa a leitura que a própria página faz (não pede nada ao servidor). */
 function ResumoMensagens({ filtro }: { filtro: keyof typeof ROTULO_MSG }) {
-  const { t } = useVH();
-  const dados = useNaMemoria<{ naoLidas: number }>('/api/vhost/mensagens?filtro=' + filtro);
+  const vh = useVH();
+  const { t } = vh;
+  const dados = useNaMemoria<{ naoLidas: number }>(vista(vh).rota('/api/vhost/mensagens?filtro=' + filtro));
   return (
     <>
       {t(ROTULO_MSG[filtro])}
@@ -830,15 +911,16 @@ function ResumoMensagens({ filtro }: { filtro: keyof typeof ROTULO_MSG }) {
 function Mensagens({ filtro }: { filtro: 'todas' | 'nao-lidas' | 'avisos' }) {
   const vh = useVH();
   const { t } = vh;
-  const rota = '/api/vhost/mensagens?filtro=' + filtro;
+  const { alheia, rota: daConta } = vista(vh);
+  const rota = daConta('/api/vhost/mensagens?filtro=' + filtro);
   const { dados, erro, ler } = useGet<{ mensagens: Mensagem[]; naoLidas: number }>(rota);
   if (!dados) return <Carregando erro={erro} ler={ler} />;
   const marcar = async (ids?: string[]) => (await enviar(vh, '/api/vhost/mensagens', { acao: 'lidas', ids }, 'Marcadas como lidas')) && (esquecerMemoria('/api/vhost/mensagens'), ler());
   const apagar = async (ids: string[]) => (await enviar(vh, '/api/vhost/mensagens', { acao: 'apagar', ids }, 'Apagadas')) && (esquecerMemoria('/api/vhost/mensagens'), ler());
-  // abrir não mostra aviso: só marca como lida em silêncio
+  // abrir não mostra aviso: só marca como lida em silêncio (no painel de outra conta só se lê: fica por ler para o cliente)
   const abrir = (m: Mensagem) => {
-    vh.openM(<VerMensagem m={m} onApagar={() => apagar([m.id])} />);
-    if (!m.read)
+    vh.openM(<VerMensagem m={m} onApagar={alheia ? undefined : () => apagar([m.id])} />);
+    if (!m.read && !alheia)
       void fetch('/api/vhost/mensagens', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ acao: 'lidas', ids: [m.id] }) })
         .then((r) => {
           if (r.ok) {
@@ -890,7 +972,7 @@ function Mensagens({ filtro }: { filtro: 'todas' | 'nao-lidas' | 'avisos' }) {
           },
           { k: 'd', t: 'Data', sort: (r) => r.created_at, cell: (r) => <span className="msg-data">{dataPt(r.created_at)}</span> },
         ]}
-        bulk={[
+        bulk={alheia ? [] : [
           { t: 'Marcar todas como lidas', fa: 'fa-check-double', sempre: true, inativo: !dados.naoLidas, run: () => marcar() },
           { t: 'Marcar como lidas', fa: 'fa-check', run: (k) => marcar(k) },
           { t: 'Apagar', fa: 'fa-trash', run: (k) => vh.openM(<Confirmar titulo="Apagar as mensagens?" texto={k.length + ' ' + t('mensagem(ns) escolhida(s).')} ok="Apagar" onOk={() => apagar(k)} />) },
@@ -911,9 +993,10 @@ export const ticketsPagina: ScreenFn = (vh) => {
       {vh.t('Abrir pedido')}
     </button>
   );
-  if (a === 'novo') return { title: 'Abrir pedido de suporte', crumbs: [base, { t: 'Novo pedido' }], body: <NovoPedido /> };
-  if (a) return { title: 'Pedido de suporte', crumbs: [base, { t: 'Pedido' }], body: <VerPedido key={a} id={a} /> };
-  return { title: 'Suporte', actions: novo, body: <Pedidos /> };
+  const alheia = vh.s.stack.length > 0;
+  if (a === 'novo' && !alheia) return { title: 'Abrir pedido de suporte', crumbs: [base, { t: 'Novo pedido' }], body: <NovoPedido /> };
+  if (a && a !== 'novo') return { title: 'Pedido de suporte', crumbs: [base, { t: 'Pedido' }], body: <VerPedido key={a} id={a} /> };
+  return { title: 'Suporte', actions: alheia ? undefined : novo, body: <Pedidos /> };
 };
 export const apiPagina: ScreenFn = () => ({ title: 'Documentação da API', body: <Api /> });
 export const perfilGeral: ScreenFn = () => ({ title: 'Dados pessoais', body: <PerfilGeral /> });

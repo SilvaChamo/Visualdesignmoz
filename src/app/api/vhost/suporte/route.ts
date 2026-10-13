@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requirePanelBootstrapAccess } from '@/lib/panel-api-auth';
 import { getDaSyncAdmin } from '@/lib/da-sync-schema';
+import { donoDaConta } from '@/lib/vhost-conta-cliente';
 import { getDefaultFrom, getSupportEmail, sendSmtpMail } from '@/lib/smtp-mail';
 
 export const dynamic = 'force-dynamic';
@@ -10,6 +11,8 @@ export const dynamic = 'force-dynamic';
  * Usa as tabelas do site: tickets_suporte (cliente_id = profiles.id) e ticket_respostas.
  * GET            lista dos pedidos
  * GET ?id=       um pedido com as respostas
+ * GET ?conta=    ao "entrar como" uma conta: os pedidos do cliente dono dela (administrador, ou o revendedor dela), só
+ *                para ler — criar, responder e fechar ficam para o próprio cliente
  * POST { acao: criar | responder | fechar, … }
  */
 const CATEGORIAS = ['geral', 'tecnico', 'dominios', 'email', 'faturacao'];
@@ -42,10 +45,19 @@ async function avisarSuporte(assunto: string, corpo: string, de: { name: string 
   }
 }
 
+/** a pessoa cujos pedidos se lêem: quem tem a sessão ou, com ?conta=, o cliente dono da conta aberta com "entrar como" */
+async function quemSeVe(conta: string | null) {
+  if (!conta) return quem();
+  const d = await donoDaConta(conta);
+  if ('erro' in d) return d;
+  return { sb: d.sb, perfil: d.perfil?.id ? { id: String(d.perfil.id) } : null };
+}
+
 export async function GET(req: NextRequest) {
-  const q = await quem();
+  const q = await quemSeVe(req.nextUrl.searchParams.get('conta'));
   if ('erro' in q) return q.erro;
   const id = req.nextUrl.searchParams.get('id') || '';
+  if (!q.perfil) return NextResponse.json(id ? { erro: 'Pedido não encontrado.' } : { pedidos: [], semPerfil: true }, { status: id ? 404 : 200, headers: { 'Cache-Control': 'no-store' } });
   if (id) {
     const { data: t } = await q.sb.from('tickets_suporte').select('id, assunto, descricao, categoria, prioridade, status, created_at, updated_at').eq('id', id).eq('cliente_id', q.perfil.id).maybeSingle();
     if (!t) return NextResponse.json({ erro: 'Pedido não encontrado.' }, { status: 404 });

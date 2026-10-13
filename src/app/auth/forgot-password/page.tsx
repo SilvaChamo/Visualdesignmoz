@@ -1,23 +1,15 @@
 'use client'
+// Recuperar senha no mesmo modelo do login (pedido do Silva, 14/10/2026): imagem | formulário num cartão, com os
+// botões do tema e da língua no canto.
 import React, { useState } from 'react'
-import { AuthPageShell } from '@/components/auth/AuthPageShell'
-import {
-  authCardClass,
-  authErrorBoxClass,
-  authHintBoxClass,
-  authInputClass,
-  authLabelClass,
-  authLinkClass,
-  authMutedTextClass,
-  authPrimaryBtnClass,
-} from '@/components/auth/auth-styles'
-
-function formatResetError(err: unknown): string {
-  if (err instanceof Error && err.message && err.message !== '{}') return err.message
-  return 'Não foi possível enviar o email de recuperação. Tente mais tarde.'
-}
+import { MailCheck } from 'lucide-react'
+import { useI18n } from '@/lib/i18n'
+import { LoginDividido } from '@/components/auth/LoginDividido'
+import { CampoFlutuante, botaoCls, ligacaoCls, subtituloCls, tituloCls } from '@/components/auth/campos'
+import { authErrorBoxClass, authHintBoxClass } from '@/components/auth/auth-styles'
 
 export default function ForgotPasswordPage() {
+  const { t } = useI18n()
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [enviado, setEnviado] = useState(false)
@@ -34,93 +26,68 @@ export default function ForgotPasswordPage() {
         body: JSON.stringify({ email }),
       })
       const ct = res.headers.get('content-type') || ''
-      const data = ct.includes('application/json')
-        ? await res.json().catch(() => ({}))
-        : {
-            error:
-              res.status === 404
-                ? 'Serviço indisponível. Aguarde o redeploy do site.'
-                : `Erro ${res.status} ao enviar email.`,
-          }
-      if (!res.ok) {
-        throw new Error(String(data?.error || 'Erro ao enviar email.'))
-      }
+      const data = ct.includes('application/json') ? await res.json().catch(() => ({})) : {}
+      if (!res.ok) throw new Error(String(data?.error || ''))
       setEnviado(true)
     } catch (err: unknown) {
-      setError(formatResetError(err))
+      const msg = err instanceof Error && err.message && err.message !== '{}' ? err.message : ''
+      setError(msg || t('rec.error'))
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <AuthPageShell>
-      <div className={authCardClass}>
-        {enviado ? (
-          <div className="py-4 text-center">
-            <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full border border-green-500/30 bg-green-500/10">
-              <svg className="h-8 w-8 text-green-500 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-              </svg>
-            </div>
-            <h2 className="mb-2 text-lg font-semibold text-green-600 dark:text-green-400">Email enviado com sucesso</h2>
-            <p className={`text-sm ${authMutedTextClass}`}>
-              Enviámos um link para <span className="font-semibold text-zinc-900 dark:text-zinc-100">{email}</span>
-            </p>
-            <div className={`mt-5 ${authHintBoxClass}`}>
-              <p className="text-left">Verifica a caixa de entrada e a pasta de spam. O link expira em 60 minutos.</p>
-            </div>
-            <div className="mt-6 flex flex-col items-center gap-3">
-              <button
-                type="button"
-                onClick={() => setEnviado(false)}
-                className={`text-xs font-medium uppercase tracking-wider ${authLinkClass}`}
-              >
-                Reenviar email
-              </button>
-              <a href="/auth/login" className={authMutedTextClass}>← Voltar ao login</a>
-            </div>
+    <LoginDividido>
+      {enviado ? (
+        <div className="text-center">
+          <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600 ring-1 ring-emerald-500/25 dark:text-emerald-400">
+            <MailCheck className="h-7 w-7" strokeWidth={1.75} aria-hidden />
           </div>
-        ) : (
-          <>
-            <div className="mb-6">
-              <h1 className="text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
-                Recuperar password
-              </h1>
-              <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-                Enviaremos um link seguro para o seu email
-              </p>
+          <h1 className={tituloCls}>{t('rec.sentTitle')}</h1>
+          <p className={subtituloCls}>
+            {t('rec.sentText')} <span className="font-semibold text-zinc-900 dark:text-zinc-100">{email}</span>
+          </p>
+          <div className={`mt-5 text-left ${authHintBoxClass}`}>{t('rec.sentHint')}</div>
+          <div className="mt-6 flex items-center justify-between gap-4">
+            <button type="button" onClick={() => setEnviado(false)} className={ligacaoCls}>
+              {t('rec.resend')}
+            </button>
+            <a href="/login" className={ligacaoCls}>
+              {t('rec.back')}
+            </a>
+          </div>
+        </div>
+      ) : (
+        <>
+          <h1 className={tituloCls}>{t('rec.title')}</h1>
+          <p className={subtituloCls}>{t('rec.subtitle')}</p>
+
+          {error && <div className={`mt-6 ${authErrorBoxClass}`}>{error}</div>}
+
+          <form onSubmit={handleSubmit} className="mt-[clamp(20px,2.2vw,32px)] space-y-[clamp(14px,1.4vw,20px)]">
+            <CampoFlutuante
+              id="rec-email"
+              rotulo={t('rec.email')}
+              dica="email@dominio.com"
+              type="email"
+              autoComplete="email"
+              obrigatorio
+              value={email}
+              onChange={setEmail}
+            />
+            <button type="submit" disabled={loading} className={botaoCls}>
+              {loading ? t('rec.sending') : t('rec.send')}
+            </button>
+            <p className="text-center text-[clamp(12px,0.95vw,13px)] text-zinc-500 dark:text-zinc-400">{t('rec.hint')}</p>
+            <div className="text-center">
+              <a href="/login" className={ligacaoCls}>
+                {t('rec.back')}
+              </a>
             </div>
-
-            {error && <div className={authErrorBoxClass}>{error}</div>}
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className={authLabelClass}>E-mail</label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className={authInputClass}
-                  placeholder="email@your-domain.com"
-                  required
-                />
-              </div>
-              <button type="submit" disabled={loading} className={`w-full ${authPrimaryBtnClass}`}>
-                {loading ? 'A enviar...' : 'Enviar link de recuperação'}
-              </button>
-            </form>
-
-            <div className={`mt-5 ${authHintBoxClass}`}>
-              Por segurança, não indicamos se o email existe no sistema.
-            </div>
-
-            <p className="mt-6 text-center">
-              <a href="/auth/login" className={authMutedTextClass}>← Voltar ao login</a>
-            </p>
-          </>
-        )}
-      </div>
-    </AuthPageShell>
+          </form>
+        </>
+      )}
+    </LoginDividido>
   )
 }
