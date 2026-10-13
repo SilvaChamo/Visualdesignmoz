@@ -30,9 +30,11 @@ para o outro) fica na memória `project_dual-folder-git-topology`.
 5. **Sempre que o Silva disser "publica"/"publique"**, depois de publicar, mandar-lhe o commit publicado (o hash do
    merge em `fix/contabo-websites-audit`) e os comandos para actualizar o projecto local (pedido dele, 13/10/2026).
 6. **Os comandos para o projecto local vão sempre num único comando** que fecha o servidor que estiver na porta 3003,
-   actualiza o ramo e volta a arrancar o servidor (pedido do Silva, 13/10/2026). Modelo (trocar `RAMO`):
+   guarda à parte alterações locais por gravar (stash, recuperáveis com `git stash pop`), põe a pasta exactamente no
+   ramo do GitHub e volta a arrancar o servidor (pedido do Silva, 13/10/2026 — o `checkout`/`pull` simples falhava e o
+   site local não actualizava). Modelo (trocar `RAMO`), corrido dentro da pasta `visualdesign-teste`:
    ```
-   cd ~/…/visualdesign-teste && (kill $(lsof -ti tcp:3003) 2>/dev/null; true) && git fetch origin RAMO && git checkout RAMO && git pull origin RAMO && npm run dev
+   (kill $(lsof -ti tcp:3003) 2>/dev/null; true); git stash -u -m "antes de RAMO" ; git fetch origin RAMO && git checkout -B RAMO origin/RAMO && npm install && npm run dev
    ```
 
 # Regras de layout do Silva (valem para todas as páginas, sempre)
