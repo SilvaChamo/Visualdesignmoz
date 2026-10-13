@@ -188,6 +188,11 @@ export interface Bulk {
   t: string;
   fa: string;
   run: (keys: string[]) => void;
+  /** não precisa de linhas escolhidas (ex.: "Adicionar subdomínio", "Marcar todas como lidas"): está sempre ativa no
+   *  menu "Ações" — regra do Silva (13/10/2026): todos os botões da página vão para dentro do "Ações" */
+  sempre?: boolean;
+  /** opção inativa por agora (ex.: "Marcar todas como lidas" sem mensagens por ler) */
+  inativo?: boolean;
 }
 
 const lerCols = (id: string): string[] | null => {
@@ -226,7 +231,6 @@ export function DataTable<T>({
   umaLinha = false,
   barraFora = false,
   pesquisaPorCima = false,
-  adicionar,
 }: {
   id: string;
   rows: T[];
@@ -260,9 +264,8 @@ export function DataTable<T>({
   acoesDiretas?: boolean;
   /** ativa a coluna de checkboxes de seleção nas linhas e cabeçalho */
   comSelecao?: boolean;
-  /** Regra do Silva (13/10/2026): "Ações" (e `adicionar`) na faixa dos separadores, à direita; os botões da barra2
-   *  numa linha só por cima do cartão, à direita; sem pesquisa; paginação só no fundo do cartão. Só para barra2 com
-   *  botões; uma barra2 com um bloco de título/números fica por cima. */
+  /** Regra do Silva (13/10/2026): o "Ações" na faixa dos separadores, à direita, com todas as ações da página lá
+   *  dentro; sem pesquisa nem botões por cima do cartão; paginação só no fundo do cartão. */
   umaLinha?: boolean;
   /** com umaLinha: a linha vai para a faixa por cima do cartão principal (modelo do Silva: fora da faixa dos
    *  separadores que abre o cartão, como em Domínios) */
@@ -270,9 +273,6 @@ export function DataTable<T>({
   /** fica com a linha por cima do cartão (pesquisa à esquerda, botões à direita) em vez da faixa dos separadores
    *  (Força bruta, aprovada assim pelo Silva a 13/10/2026 — a única página com pesquisa por cima do cartão) */
   pesquisaPorCima?: boolean;
-  /** com umaLinha: um segundo "+ Adicionar…" que fica na faixa dos separadores, antes do "Ações" — só quando a barra
-   *  de cima já tem o "+ Adicionar…" principal (senão vai para a barra de cima, `actions` do ecrã) */
-  adicionar?: ReactNode;
   /** notifica chaves das linhas selecionadas */
   onSelChange?: (keys: string[]) => void;
 }) {
@@ -382,10 +382,12 @@ export function DataTable<T>({
     onSelChange?.(selKeys);
   }, [selKeysStr]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Menu ou botões de "Ações" (o que se faz às linhas escolhidas)
+  // Menu "Ações": tudo o que se faz na página (regra do Silva, 13/10/2026 — nenhum botão por cima do cartão). As opções
+  // que precisam de linhas escolhidas ficam inativas enquanto nenhuma caixa estiver assinalada; as outras (`sempre`)
+  // estão sempre disponíveis e vêm primeiro.
   const menuAcoes = (sempre: boolean) => {
     if (!bulk.length || (!sempre && !selKeys.length)) return null;
-    if (acoesDiretas && bulk.length === 1) {
+    if (acoesDiretas && bulk.length === 1 && !bulk[0].sempre) {
       const b = bulk[0];
       return (
         <button
@@ -403,27 +405,34 @@ export function DataTable<T>({
         </button>
       );
     }
+    const livres = bulk.filter((b) => b.sempre);
+    const comSel = bulk.filter((b) => !b.sempre);
+    const opcao = (b: Bulk) => (
+      <button
+        key={b.t}
+        disabled={b.inativo || (!b.sempre && !selKeys.length)}
+        onClick={() => {
+          setAcoesOpen(false);
+          if (b.sempre) return b.run(selKeys);
+          b.run(selKeys);
+          setSel([]);
+        }}
+      >
+        <i className={'fa-solid ' + b.fa} />
+        {t(b.t)}
+      </button>
+    );
     return (
       <div className="dt-cols dt-acoes" ref={acoesRef}>
-        <button className="btn g sm" disabled={!selKeys.length} onClick={() => setAcoesOpen(!acoesOpen)}>
+        <button className="btn g sm" onClick={() => setAcoesOpen(!acoesOpen)}>
           {selKeys.length > 0 && <span className="n">{selKeys.length}</span>}
           {t('Ações')} <i className="fa-solid fa-caret-down" />
         </button>
         {acoesOpen && (
           <div className="menu">
-            {bulk.map((b) => (
-              <button
-                key={b.t}
-                onClick={() => {
-                  setAcoesOpen(false);
-                  b.run(selKeys);
-                  setSel([]);
-                }}
-              >
-                <i className={'fa-solid ' + b.fa} />
-                {t(b.t)}
-              </button>
-            ))}
+            {livres.map(opcao)}
+            {livres.length > 0 && comSel.length > 0 && <div className="menu-sep" />}
+            {comSel.map(opcao)}
           </div>
         )}
       </div>
@@ -490,19 +499,18 @@ export function DataTable<T>({
       {umaLinha ? (
         (() => {
           // Regra do Silva (13/10/2026): na faixa dos separadores (cabeçalho do cartão principal) fica só o "Ações",
-          // sempre à vista e à direita (inativo sem linhas escolhidas), e antes dele um segundo "+ Adicionar…"
-          // (`adicionar`) quando a barra de cima já tem o principal. Nunca pesquisa nem paginação lá: a paginação
-          // fica no fundo do cartão. Os outros botões da página ficam por cima do cartão, à direita.
+          // sempre à vista e à direita, com tudo o que se faz na página lá dentro (`bulk`; as opções sem linhas
+          // escolhidas usam `sempre`). Nunca pesquisa, paginação nem outros botões por cima do cartão: a paginação
+          // fica no fundo do cartão.
           if (pesquisaPorCima) {
             // Força bruta (aprovada assim): pesquisa à esquerda e botões à direita, por cima do cartão
             const linha = (
               <div className={'dt-bar dt-uma-linha' + (barraFora ? ' dt-fora' : '')}>
                 {cabecalho}
-                {(inicioBarra2 || barra2 || bulk.length > 0 || adicionar || fimBarra) && pesquisa}
+                {(inicioBarra2 || barra2 || bulk.length > 0 || fimBarra) && pesquisa}
                 <span className="sp" />
                 {inicioBarra2}
                 {barra2}
-                {adicionar}
                 {colunas}
                 {recarregar}
                 {fimBarra}
@@ -511,10 +519,10 @@ export function DataTable<T>({
             );
             return barraFora && faixaFora ? createPortal(linha, faixaFora) : linha;
           }
-          const naFaixa = (adicionar || bulk.length > 0) && barraFora && faixaAbas?.el && !cabecalho;
+          const naFaixa = bulk.length > 0 && barraFora && faixaAbas?.el && !cabecalho;
           const outros = !!(inicioBarra2 || barra2 || colunas || recarregar || fimBarra);
           const linha =
-            outros || cabecalho || (!naFaixa && (adicionar || bulk.length > 0)) ? (
+            outros || cabecalho || (!naFaixa && bulk.length > 0) ? (
               <div className={'dt-bar dt-uma-linha' + (cabecalho ? ' com-cab' : '') + (barraFora ? ' dt-fora' : '')}>
                 {cabecalho}
                 <span className="sp" />
@@ -523,7 +531,6 @@ export function DataTable<T>({
                 {colunas}
                 {recarregar}
                 {fimBarra}
-                {!naFaixa && adicionar}
                 {!naFaixa && menuAcoes(true)}
               </div>
             ) : null;
@@ -532,10 +539,7 @@ export function DataTable<T>({
               {linha && (barraFora && faixaFora ? createPortal(linha, faixaFora) : linha)}
               {naFaixa &&
                 createPortal(
-                  <>
-                    {adicionar}
-                    {menuAcoes(true)}
-                  </>,
+                  menuAcoes(true),
                   faixaAbas.el!,
                 )}
             </>

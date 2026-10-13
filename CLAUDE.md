@@ -35,20 +35,18 @@ para o outro) fica na memória `project_dual-folder-git-topology`.
 - **Nunca pesquisa à esquerda por cima do cartão principal** (regra do Silva, 13/10/2026: "não coloque mais"). A
   "Busca" da barra de cima já procura na página aberta. Única exceção, aprovada por ele: a página Força bruta, que
   fica como está (`DataTable` com `pesquisaPorCima`).
-- **Faixa dos separadores (cabeçalho do cartão principal) = só o botão "Ações", à direita.** Em tabelas com caixas de
-  seleção, o "Ações" está sempre visível nessa faixa, à direita, inativo enquanto nada estiver escolhido. A única coisa
-  que pode ficar ao lado dele (antes dele) é um **segundo "+ Adicionar…"**, e só quando a barra de cima já tem o
-  "+ Adicionar…" principal (ex.: Subdomínios — em cima "Adicionar domínio", na faixa "Adicionar subdomínio").
-  **Nunca** paginação, pesquisa ou outros botões na faixa dos separadores.
-- **"+ Adicionar…" vai para a barra de cima** (a do título da página, `actions` do ecrã) sempre que esse espaço
-  estiver livre — não pode haver "+ Adicionar…" na faixa dos separadores com a barra de cima vazia.
-- **Outros botões da página** (ex.: "Marcar todas como lidas") ficam **por cima do cartão principal, à direita**,
-  numa linha só — nunca na faixa dos separadores.
+- **Faixa dos separadores (cabeçalho do cartão principal) = só o botão "Ações", à direita**, sempre visível nas
+  tabelas da página. **Nenhum botão por cima do cartão nem na faixa:** todas as ações da página vão para **dentro do
+  menu "Ações"** (regra do Silva, 13/10/2026), por exemplo "Adicionar subdomínio", "Marcar todas como lidas" ou
+  "Apagar". As opções que precisam de caixas assinaladas ficam **inativas** no menu enquanto nenhuma linha estiver
+  escolhida; as que não precisam (adicionar, marcar todas…) estão sempre ativas e vêm primeiro no menu.
+- **O "+ Adicionar…" principal da página fica na barra de cima** (a do título, `actions` do ecrã), quando esse espaço
+  está livre (ex.: "Adicionar domínio"). Um segundo "+ Adicionar…" vai para dentro do "Ações".
 - **Paginação só no fundo do cartão principal**, quando é precisa (mais de uma página): setas e "Página x de y", sem o
-  texto "1–20 de 67". Nunca em cima.
+  texto "1–20 de 67". Nunca em cima, nunca na faixa dos separadores.
 - No VisualHost tudo isto é automático no `DataTable` com `umaLinha` + `barraFora`: o "Ações" vai para o lugar que os
-  `Tabs` guardam à direita (`FaixaAbas` em `src/components/vhost/context.tsx`), o segundo "+ Adicionar…" passa-se em
-  `adicionar`, os outros botões em `barra2` (vão para a faixa por cima do cartão) e a paginação sai no fundo.
+  `Tabs` guardam à direita (`FaixaAbas` em `src/components/vhost/context.tsx`); as ações da página passam-se em `bulk`
+  (`sempre: true` nas que não precisam de linhas escolhidas, `inativo` para as desligar); a paginação sai no fundo.
 - **Nunca duas linhas de botões.**
 - **Modelo de página = a página Domínios do painel.** Toda a página nova segue-o: um título na barra de cima com uma
   descrição pequena por baixo (nunca dois títulos grandes juntos — números e resumos vão na descrição, ex.:

@@ -689,12 +689,6 @@ function Subdominios() {
       rowKey={(r) => r.name}
       search={(r) => r.name}
       empty={t('Este domínio ainda não tem subdomínios') + ' (' + x.name + ')'}
-      adicionar={
-        <button className="btn g sm" onClick={() => openM(<NovoSubdominio d={x.name} />)}>
-          <i className="fa-solid fa-plus" />
-          {t('Adicionar subdomínio')}
-        </button>
-      }
       cols={[
         { k: 'nome', t: 'Subdomínio', sort: (r) => r.name, cell: (r) => <b>{r.name}</b> },
         { k: 'bw', t: 'Tráfego', cell: (r) => r.bw || '—' },
@@ -702,6 +696,7 @@ function Subdominios() {
         { k: 'ssl', t: 'SSL', cell: (r) => <span className={'tag ' + (r.ssl === 'ok' ? 'ok' : 'w')}>{r.ssl === 'ok' ? t('Seguro') : t('Sem SSL')}</span> },
       ]}
       bulk={[
+        { t: 'Adicionar subdomínio', fa: 'fa-plus', sempre: true, run: () => openM(<NovoSubdominio d={x.name} />) },
         {
           t: 'Apagar',
           fa: 'fa-trash',
