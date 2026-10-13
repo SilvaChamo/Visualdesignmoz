@@ -1,12 +1,13 @@
-name: "Ops - Contabo: excepção em memória para a rede móvel do Silva (41.220.200.0/23) enquanto trabalhamos"
+name: "Ops - Contabo: IPs de Moçambique nunca bloqueados (como no Hetzner)"
 
 # ============================================================================
-# 13/10/2026 (pedido do Silva: "desactivar isso por agora enquanto trabalhamos"):
-# a 1.ª corrida desbloqueou 14 IPs de Moçambique (todos em 41.220.200.0–41.220.201.255, a rede móvel dele, que
-# muda de IP a cada ligação) e pô-los como excepção. Como o IP muda, a excepção passa a ser a rede inteira
-# 41.220.200.0/23 — em todos os bloqueios menos SSH e FTP (esses continuam a proteger o servidor).
-# Só em memória: deixa de valer quando o fail2ban reiniciar — nada fica escrito na configuração.
-# Os outros ~60 IPs de atacantes continuam bloqueados.
+# 13/10/2026 (pedido do Silva: "Faça o que tinha sido feito no Hetzner: IPs moçambicanos nunca bloqueados"):
+#  1) lista oficial das redes de Moçambique (AFRINIC, delegated-afrinic-latest: linhas |MZ|ipv4| e |MZ|ipv6|;
+#     se falhar, ipdeny.com) → /etc/fail2ban/ip-mocambique.txt;
+#  2) /etc/fail2ban/jail.d/zz-mocambique.local: ignoreip = (o que cada bloqueio já tinha) + redes de Moçambique,
+#     em [DEFAULT] e em cada bloqueio activo — fica permanente (sobrevive a reinícios); cópia de segurança antes;
+#  3) fail2ban-client reload; se falhar, retira o ficheiro e volta a carregar como estava;
+#  4) desbloqueia os IPs de Moçambique que estejam bloqueados agora. Os atacantes de fora continuam bloqueados.
 # Não imprime segredos. Corre só quando este ficheiro muda no ramo claude/kind-einstein-r6lyf6.
 # ============================================================================
 
@@ -19,27 +20,109 @@ jobs:
   contabo:
     runs-on: ubuntu-latest
     steps:
-      - name: Excepção para a rede
+      - name: Moçambique nunca bloqueado
         uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.CONTABO_HOST }}
           username: root
           password: ${{ secrets.CONTABO_ROOT_PASSWORD }}
-          command_timeout: 5m
+          command_timeout: 10m
           script: |
             set +e
             H=/usr/local/hestia/bin
-            REDE=41.220.200.0/23
+            LISTA=/etc/fail2ban/ip-mocambique.txt
+            CONF=/etc/fail2ban/jail.d/zz-mocambique.local
+            BK=/root/fail2ban-backup-$(date +%Y%m%d%H%M%S)
+            mkdir -p "$BK" && cp -a /etc/fail2ban/jail.local /etc/fail2ban/jail.d "$BK"/ 2>/dev/null
+            echo "cópia de segurança em $BK"
+
+            echo "===== 1. redes de Moçambique ====="
+            curl -s --max-time 60 https://ftp.afrinic.net/pub/stats/afrinic/delegated-afrinic-latest -o /tmp/afrinic.txt
+            python3 - "$LISTA" <<'PY'
+            import ipaddress, sys
+            out = []
+            try:
+                for l in open('/tmp/afrinic.txt'):
+                    p = l.strip().split('|')
+                    if len(p) < 7 or p[1] != 'MZ' or p[6] not in ('allocated', 'assigned'):
+                        continue
+                    if p[2] == 'ipv4':
+                        a = ipaddress.IPv4Address(p[3]); n = int(p[4])
+                        out += [str(c) for c in ipaddress.summarize_address_range(a, a + n - 1)]
+                    elif p[2] == 'ipv6':
+                        out.append(f'{p[3]}/{p[4]}')
+            except Exception as e:
+                print('  erro ao ler a AFRINIC:', e)
+            if out:
+                open(sys.argv[1], 'w').write('\n'.join(out) + '\n')
+            print(f'  {len(out)} redes')
+            PY
+            if [ ! -s "$LISTA" ]; then
+              echo "  AFRINIC falhou — a usar ipdeny.com"
+              curl -s --max-time 60 https://www.ipdeny.com/ipblocks/data/aggregated/mz-aggregated.zone | grep -E '^[0-9.]+/[0-9]+$' > "$LISTA"
+            fi
+            N=$(wc -l < "$LISTA" 2>/dev/null || echo 0)
+            echo "  $N redes em $LISTA"
+            if [ "$N" -lt 10 ]; then echo "ERRO: lista demasiado curta — não mexo em nada"; exit 1; fi
+            grep -c "^41\.220\." "$LISTA" | sed 's/^/  redes 41.220.x (Vodacom): /'
+
+            echo "===== 2. configuração permanente ====="
+            MZ=$(tr '\n' ' ' < "$LISTA")
             JAILS=$(fail2ban-client status 2>/dev/null | sed -n 's/.*Jail list:[[:space:]]*//p' | tr ',' ' ')
-            for j in $JAILS; do
-              case "$j" in ssh*|vsftpd*) echo "  $j: fica igual (protege o servidor)"; continue;; esac
-              fail2ban-client set "$j" addignoreip "$REDE" >/dev/null 2>&1 && echo "  $j: excepção $REDE"
-            done
-            echo "===== bloqueios ainda activos nessa rede ====="
-            for l in $($H/v-list-firewall-ban plain 2>/dev/null | awk '$1 ~ /^41\.220\.20[01]\./ {print $1 ":" $2}'); do
-              ip=${l%%:*}; c=${l##*:}
+            # o que cada bloqueio já ignorava (sem as excepções temporárias da rede 41.220.200-201, que ficam cobertas)
+            ja() { fail2ban-client get "$1" ignoreip 2>/dev/null | grep -oE '[0-9a-fA-F:.]+/[0-9]+|[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | grep -vE '^41\.220\.20[01]\.' | sort -u | tr '\n' ' '; }
+            BASE="127.0.0.1/8 ::1 $(hostname -I 2>/dev/null)"
+            {
+              echo "# IPs de Moçambique nunca bloqueados (pedido do Silva, 13/10/2026) — lista em $LISTA (AFRINIC)"
+              echo "[DEFAULT]"
+              echo "ignoreip = $BASE $MZ"
+              for j in $JAILS; do
+                echo
+                echo "[$j]"
+                echo "ignoreip = $BASE $(ja "$j") $MZ"
+              done
+            } > "$CONF"
+            echo "  escrito $CONF ($(echo $JAILS | wc -w) bloqueios)"
+
+            echo "===== 3. recarregar o fail2ban ====="
+            if fail2ban-client -t >/dev/null 2>&1 && fail2ban-client reload >/dev/null 2>&1; then
+              sleep 3
+              echo "  recarregado: $(fail2ban-client status 2>/dev/null | sed -n 's/.*Number of jail:[[:space:]]*//p') bloqueios activos"
+            else
+              fail2ban-client -t 2>&1 | tail -5
+              echo "ERRO: configuração recusada — retiro $CONF e volto a carregar como estava"
+              rm -f "$CONF"; fail2ban-client reload >/dev/null 2>&1
+              exit 1
+            fi
+
+            echo "===== 4. desbloquear IPs de Moçambique bloqueados agora ====="
+            $H/v-list-firewall-ban plain 2>/dev/null | awk '{print $1, $2}' > /tmp/bans.txt
+            python3 - "$LISTA" <<'PY' > /tmp/bans-mz.txt
+            import ipaddress, sys
+            redes = [ipaddress.ip_network(l.strip(), strict=False) for l in open(sys.argv[1]) if l.strip()]
+            for l in open('/tmp/bans.txt'):
+                p = l.split()
+                if len(p) < 2: continue
+                try: ip = ipaddress.ip_address(p[0])
+                except ValueError: continue
+                if any(ip.version == r.version and ip in r for r in redes): print(p[0], p[1])
+            PY
+            while read ip c; do
               $H/v-delete-firewall-ban "$ip" "$c" >/dev/null 2>&1; fail2ban-client unban "$ip" >/dev/null 2>&1
               echo "  $ip ($c) -> desbloqueado"
+            done < /tmp/bans-mz.txt
+            [ -s /tmp/bans-mz.txt ] || echo "  (nenhum)"
+            echo -n "  IPs bloqueados que ficam (atacantes de fora): "; $H/v-list-firewall-ban plain 2>/dev/null | wc -l
+
+            echo "===== 5. verificação ====="
+            python3 - "$LISTA" <<'PY'
+            import ipaddress, sys
+            redes = [ipaddress.ip_network(l.strip(), strict=False) for l in open(sys.argv[1]) if l.strip()]
+            for t in ('41.220.200.237', '41.220.201.142'):
+                r = next((str(x) for x in redes if x.version == 4 and ipaddress.ip_address(t) in x), None)
+                print(f'  {t} (o teu IP de hoje) na lista? ' + (f'sim, rede {r}' if r else 'NÃO'))
+            PY
+            for j in recidive dovecot-iptables; do
+              echo -n "  $j: redes ignoradas = "; fail2ban-client get "$j" ignoreip 2>/dev/null | grep -c '/'
             done
-            echo -n "  restantes na rede: "; $H/v-list-firewall-ban plain 2>/dev/null | awk '$1 ~ /^41\.220\.20[01]\./' | wc -l
-            echo -n "  total de IPs bloqueados (atacantes): "; $H/v-list-firewall-ban plain 2>/dev/null | wc -l
+            rm -f /tmp/afrinic.txt /tmp/bans.txt /tmp/bans-mz.txt
