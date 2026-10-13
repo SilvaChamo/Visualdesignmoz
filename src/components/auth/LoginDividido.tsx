@@ -54,12 +54,10 @@ export function LoginDividido({ children }: { children: React.ReactNode }) {
       </aside>
 
       <section className="relative flex min-h-screen flex-col">
+        <AbaLogo />
         <BotoesCanto />
         <div className="flex flex-1 items-center justify-center px-6 pb-10 pt-8 lg:pt-20">
-          <div className="relative w-full max-w-[400px]">
-            <AbaLogo />
-            {children}
-          </div>
+          <div className="w-full max-w-[400px]">{children}</div>
         </div>
         <footer className="pb-6 text-center text-xs text-zinc-400 dark:text-zinc-500">
           © {new Date().getFullYear()} VisualDesign ·{' '}
@@ -79,19 +77,15 @@ export function LoginDividido({ children }: { children: React.ReactNode }) {
 }
 
 /** No computador, o fundo do formulário entra pela foto dentro na divisão, como uma aba, com o logótipo (pedido do Silva,
- *  13/10/2026, sobre o modelo de um menu com o item escolhido ligado ao conteúdo): sem curvas, com os cortes a direito
- *  do site. Fica à altura do título do formulário; a ponta da direita passa 16 px para dentro do fundo branco, para não
- *  aparecer uma risca da foto se a largura da barra de deslocar mudar a conta. */
+ *  13/10/2026, sobre o modelo de um menu com o item escolhido ligado ao conteúdo): arredondada só do lado esquerdo,
+ *  dentro da foto; do lado direito, onde se junta ao fundo, nada. A 50 px do início da página. A aba passa 16 px para
+ *  dentro do fundo, para a junção nunca deixar ver uma risca da foto. */
 function AbaLogo() {
   return (
     <a
       href="/"
       title="VisualDesign"
-      className="absolute top-[-62px] z-10 hidden h-[192px] w-[300px] items-center justify-center bg-white pl-3 pr-[30px] dark:bg-[#15161e] lg:flex"
-      style={{
-        right: 'calc(100% + (50vw - 400px) / 2 - 16px)',
-        clipPath: 'polygon(100% 0, calc(100% - 44px) 44px, 20px 44px, 0 64px, 0 128px, 20px 148px, calc(100% - 44px) 148px, 100% 100%)',
-      }}
+      className="absolute right-[calc(100%-16px)] top-[50px] z-10 hidden h-[100px] w-[300px] items-center justify-center rounded-l-[50px] bg-white pl-4 pr-[28px] dark:bg-[#15161e] lg:flex"
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src="/assets/logo-entrada.jpg" alt="VisualDesign" className="h-auto w-[214px] dark:hidden" />
