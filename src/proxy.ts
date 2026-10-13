@@ -32,8 +32,29 @@ const PUBLIC_MARKETING_PREFIXES = [
 
 /** Endereços antigos do painel: tudo o que lá chega vai para PAINEL_ENTRADA */
 const PANEL_HOSTS = new Set(['host.visualdesignmoz.com'])
-/** Endereço único do painel que se dá aos clientes (pedido do Silva, 13/10/2026) */
-const PAINEL_ENTRADA = 'https://visualdesignmoz.com/vhost/2026/'
+/** Endereço único do painel que se dá aos clientes (pedido do Silva, 13/10/2026): https://visualdesignmoz.com/host:2026/
+ *  Servido pela rota src/app/host (reescrita aqui, sem redireccionar). */
+const PAINEL_BASE = '/host:2026'
+// sem a barra final: o Next tira-a com mais um salto
+const PAINEL_ENTRADA = `https://visualdesignmoz.com${PAINEL_BASE}`
+/** O endereço único como pode chegar (o ":" às vezes vem codificado) */
+const PAINEL_FORMAS = [PAINEL_BASE, '/host%3A2026', '/host%3a2026']
+/** Endereços antigos do painel neste site (por esta ordem: o mais comprido primeiro) */
+const PAINEL_ANTIGOS = ['/vhost/2026', '/vhost', '/host/2026', '/host']
+
+const comPrefixo = (pathname: string, prefixo: string) => pathname === prefixo || pathname.startsWith(`${prefixo}/`)
+
+/** O resto do caminho depois do endereço único (/host:2026/admin → /admin), ou null se não for o endereço único */
+function restoPainel(pathname: string): string | null {
+  const forma = PAINEL_FORMAS.find((f) => comPrefixo(pathname, f))
+  return forma ? pathname.slice(forma.length) : null
+}
+
+/** O mesmo ecrã do painel no endereço único, para um endereço antigo (/vhost/admin → /host:2026/admin) */
+function caminhoPainelAntigo(pathname: string): string | null {
+  const antigo = PAINEL_ANTIGOS.find((a) => comPrefixo(pathname, a))
+  return antigo ? PAINEL_BASE + pathname.slice(antigo.length) : null
+}
 
 function isPublicMarketingPath(pathname: string): boolean {
   if (pathname === '/') return true
@@ -57,27 +78,34 @@ export async function proxy(request: NextRequest) {
 
   // host.visualdesignmoz.com (também na porta 2026, a do DirectAdmin no Hetzner, e o /evo/ que os clientes têm
   // guardado) deixou de ser endereço do painel (pedido do Silva, 13/10/2026): vai tudo para o endereço único do
-  // painel, https://visualdesignmoz.com/vhost/2026/. O nginx desse nome já redirecciona; isto cobre o resto.
+  // painel, https://visualdesignmoz.com/host:2026/. O nginx desse nome já redirecciona; isto cobre o resto.
   // (menos /api/: um webhook ou integração apontado a este nome não pode ser redireccionado)
   if (PANEL_HOSTS.has(hostOnly) && !pathname.startsWith('/api/')) {
     return NextResponse.redirect(PAINEL_ENTRADA, 307)
   }
-  // O painel vive todo em /vhost/2026/… (endereço único, pedido do Silva a 13/10/2026): o /vhost antigo e os seus
-  // ecrãs (/vhost/admin/…, links de e-mails e favoritos) vão para o mesmo ecrã debaixo de /vhost/2026
-  if ((pathname === '/vhost' || pathname.startsWith('/vhost/')) && pathname !== '/vhost/2026' && !pathname.startsWith('/vhost/2026/')) {
+  // O painel vive todo em /host:2026/… (endereço único, pedido do Silva a 13/10/2026): abre aqui directamente — a rota
+  // do Next é src/app/host, por isso reescreve-se (o endereço no browser não muda), com ou sem a barra final.
+  // Não passa pela verificação de sessão do site: o painel trata da sua.
+  const resto = restoPainel(pathname)
+  if (resto !== null) {
+    const rota = request.nextUrl.clone()
+    rota.pathname = `/host${resto.replace(/\/+$/, '')}`
+    return NextResponse.rewrite(rota)
+  }
+  // Os endereços antigos (/vhost/…, /vhost/2026/…, /host/2026/…, links de e-mails e favoritos) vão, num só salto,
+  // para o mesmo ecrã no endereço único
+  const antigo = caminhoPainelAntigo(pathname)
+  if (antigo) {
     const publico = (request.headers.get('x-forwarded-host') || request.headers.get('host') || hostOnly)
       .split(',')[0]
       .trim()
       .toLowerCase()
-    const destino = new URL(`/vhost/2026${pathname.slice('/vhost'.length)}${request.nextUrl.search}`, `https://${publico}`)
-    return NextResponse.redirect(destino, 308)
+    return NextResponse.redirect(new URL(`${antigo.replace(/\/+$/, '')}${request.nextUrl.search}`, `https://${publico}`), 308)
   }
-  // noutros endereços o /evo segue como antes (página inexistente) e o painel não passa pela verificação de sessão
-  // do site (trata da sua)
-  if (pathname === '/evo' || pathname.startsWith('/evo/') || pathname === '/vhost/2026' || pathname.startsWith('/vhost/2026/')) {
+  // o /evo e outros /host… (que não são do painel) seguem como antes
+  if (pathname === '/evo' || pathname.startsWith('/evo/') || pathname.startsWith('/host')) {
     return NextResponse.next()
   }
-
   // www → apex em login/OAuth (PKCE exige o mesmo host no início e no callback)
   if (
     hostOnly === 'www.visualdesignmoz.com' &&
@@ -107,7 +135,7 @@ export async function proxy(request: NextRequest) {
   // Login antigo a caminho do painel → entrada do painel no modelo do DA (que já trata da sessão)
   if ((pathname === PUBLIC_LOGIN_ENTRY || pathname === '/auth/login') && request.method === 'GET') {
     const destino = request.nextUrl.searchParams.get('redirect') || ''
-    if (/^\/vhost(\/[\w\-\/]*)?$/.test(destino)) {
+    if (/^\/v?host(:2026)?(\/[\w\-\/]*)?$/.test(destino)) {
       const painel = request.nextUrl.clone()
       painel.pathname = destino
       painel.search = ''
@@ -331,10 +359,11 @@ export const config = {
     '/login',
     '/auth/:path*',
     '/autenticacao',
-    // endereço antigo do DirectAdmin e o painel em host.visualdesignmoz.com (só redireccionam nesse nome)
+    // endereço antigo do DirectAdmin, o painel (/host/2026/…) e os seus endereços antigos (/vhost/…, /host:2026/…)
     '/evo',
     '/evo/:path*',
     '/vhost',
     '/vhost/:path*',
+    '/host(.*)',
   ],
 }

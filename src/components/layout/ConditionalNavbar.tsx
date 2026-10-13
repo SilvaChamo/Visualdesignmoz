@@ -13,7 +13,7 @@ export function ConditionalNavbar() {
   const searchParams = useSearchParams()
 
   // Routes that should NOT show the Header
-  const excludedRoutes = ['/dashboard', '/cliente', '/auth', '/login', '/revendedor', '/guest', '/encomendas', '/contabilidade', '/vhost']
+  const excludedRoutes = ['/dashboard', '/cliente', '/auth', '/login', '/revendedor', '/guest', '/encomendas', '/contabilidade', '/vhost', '/host/', '/host:']
 
   const isExcluded = excludedRoutes.some(route => pathname.startsWith(route))
   // ?embed=1 é usado para abrir /cotacao/[id] "limpo" (sem chrome de marketing),

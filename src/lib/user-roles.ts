@@ -144,7 +144,7 @@ export function getLegacyPanelPathForRole(role: UserRole): string {
  *  10/10/2026 — "faça este painel o principal substituindo o antigo"); só os visitantes sem conta de alojamento
  *  continuam no /guest. */
 export function getRedirectPathForRole(role: UserRole): string {
-  return role === 'guest' ? '/guest' : '/vhost/2026';
+  return role === 'guest' ? '/guest' : '/host:2026';
 }
 
 export function isPanelRole(role: UserRole): boolean {
