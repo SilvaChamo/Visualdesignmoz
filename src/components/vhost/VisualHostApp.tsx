@@ -14,6 +14,7 @@ import { auth } from '@/lib/supabase-client';
 import { MoreMenuModal } from './modals';
 import { SCREENS, denyScreen, placeholder, type Screen } from './screens';
 import { PesquisaNaPagina } from './pesquisa-pagina';
+import { useTituloAjustado } from './titulo-ajustado';
 import { SAIR_POR_INATIVIDADE_ATIVO } from '@/lib/session-inactivity';
 import { BarraTopo, EsperaPagina, atividadeComeca, instalarContador, type Espera } from './carga';
 import { aplicarCoresNoSite, badgeColors, getThemeColors, hexToRgb, luminancia, paletaDoSite, type CustomComponents } from './theme';
@@ -730,6 +731,8 @@ export function VisualHostApp({ temSessao = true }: { temSessao?: boolean }) {
   const aEspera = !!pronta.current && pronta.current.ok && atual.ok && pronta.current.chave !== chavePag && liberada.current !== chavePag;
   if (!aEspera) pronta.current = atual;
   const mostra = pronta.current || atual;
+  // título e descrição da barra de cima: a letra diminui até caber, nunca cortados com "…"
+  useTituloAjustado(mostra.chave + '|' + mostra.title + '|' + mostra.desc);
   // Lupa da barra de cima (pedido do Silva, 13/10/2026): procura na página aberta — as tabelas registam-se por página
   const fontesPag = useRef(new Map<string, Map<string, () => ItemPesquisa[]>>());
   const registarFonte = useCallback<RegistarFonte>((chave, id, fonte) => {

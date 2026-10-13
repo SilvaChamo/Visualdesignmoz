@@ -1177,11 +1177,19 @@
 .vh .barra-antiga{display:inline-flex;align-items:center;gap:8px}
 .vh .barra-antiga:empty{display:none}
 /* No telemóvel (pedido do Silva, 13/10/2026: ver a vista de telemóvel) as páginas antigas não podem sair da largura do
-   ecrã: as barras dos editores passam à linha seguinte, as variáveis dos Templates ficam numa coluna e os botões da
-   barra de cima ficam só com o ícone (o texto não cabe ao lado do título). No computador fica tudo como no antigo. */
+   ecrã: as barras dos editores passam à linha seguinte e as variáveis dos Templates ficam numa coluna. Os botões que
+   iam para a barra de cima (Salvar / Cancelar / Eliminar) não cabem ao lado do título: ficam numa linha por cima do
+   conteúdo, como no dashboard antigo no telemóvel — uma só linha, com a letra reduzida e o texto todo à vista (se
+   preciso em duas linhas dentro do botão), nunca cortado. No computador fica tudo como no antigo. */
+.vh .barra-antiga-m{display:none}
 @media(max-width:768px){
   .vh .tw-livre .flex.items-center.gap-1.border-b-0{flex-wrap:wrap}
   .vh .tw-livre .grid.grid-cols-2.divide-x{grid-template-columns:minmax(0,1fr);row-gap:4px}
   .vh .tw-livre .grid.grid-cols-2.divide-x>*{padding-left:0;padding-right:0;border-left-width:0}
-  .vh .barra-antiga button{font-size:0;gap:0;padding:0 11px}
+  .vh .barra-antiga-m:not(:empty){display:flex;align-items:stretch;gap:6px;margin-bottom:14px}
+  .vh .barra-antiga-m>span{align-self:center;flex:none}
+  .vh .barra-antiga-m>button{flex:1 1 auto;min-width:min-content;height:auto;min-height:38px;padding:6px 7px;font-size:11.5px;line-height:1.2;text-align:center;justify-content:center;gap:5px}
+  .vh .barra-antiga-m>button svg{flex:none}
 }
+/* telemóveis estreitos: sem o ícone, para o texto dos três botões caber todo */
+@media(max-width:374px){.vh .barra-antiga-m>button svg{display:none}}

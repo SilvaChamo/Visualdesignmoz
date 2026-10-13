@@ -323,7 +323,7 @@ function LugarBarraAntiga() {
     />
   );
 }
-function PonteBarraAntiga() {
+function PonteBarraAntiga({ noTelemovel }: { noTelemovel: HTMLElement | null }) {
   const { chrome } = useAdminSectionChrome();
   const alvo = useSyncExternalStore(
     (f) => {
@@ -333,11 +333,24 @@ function PonteBarraAntiga() {
     () => alvoBarra,
     () => null,
   );
-  return chrome?.toolbar && alvo ? createPortal(chrome.toolbar, alvo) : null;
+  // no telemóvel não cabem ao lado do título: vão para uma linha por cima do conteúdo, como no dashboard antigo (onde os
+  // botões passavam para uma linha por baixo do título)
+  const telemovel = useSyncExternalStore(
+    (f) => {
+      const m = window.matchMedia('(max-width: 768px)');
+      m.addEventListener('change', f);
+      return () => m.removeEventListener('change', f);
+    },
+    () => window.matchMedia('(max-width: 768px)').matches,
+    () => false,
+  );
+  const onde = telemovel ? noTelemovel : alvo;
+  return chrome?.toolbar && onde ? createPortal(chrome.toolbar, onde) : null;
 }
 
 function MensagemTodos({ aba }: { aba: Aba }) {
   const vh = useVH();
+  const [linhaTelemovel, setLinhaTelemovel] = useState<HTMLDivElement | null>(null);
   return (
     <>
       <Tabs<Aba>
@@ -351,7 +364,8 @@ function MensagemTodos({ aba }: { aba: Aba }) {
       <div className="tw-livre">
         {aba === 'templates' ? (
           <AdminSectionChromeProvider>
-            <PonteBarraAntiga />
+            <PonteBarraAntiga noTelemovel={linhaTelemovel} />
+            <div className="barra-antiga-m" ref={setLinhaTelemovel} />
             <TemplatesSection />
           </AdminSectionChromeProvider>
         ) : (
@@ -367,7 +381,7 @@ export const mensagemTodos: ScreenFn = (vh) => {
   const base = { t: 'Mensagem a todos', path: '/' + vh.s.level + '/mensagem-todos' };
   return {
     title: 'Mensagem a todos',
-    desc: aba === 'templates' ? 'Templates das notificações e dos e-mails enviados aos clientes' : 'Enviar um aviso a todas as contas ou a um cliente',
+    desc: aba === 'templates' ? 'Templates das notificações' : 'Aviso a todas as contas ou a um cliente',
     crumbs: [base, { t: aba === 'templates' ? 'Templates' : 'Escrever mensagem' }],
     actions: aba === 'templates' ? <LugarBarraAntiga /> : undefined,
     body: <MensagemTodos aba={aba} />,

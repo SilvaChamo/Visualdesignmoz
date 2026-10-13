@@ -63,6 +63,10 @@ para o outro) fica na memória `project_dual-folder-git-topology`.
   informações por baixo, cada uma com o nome da coluna. No
   VisualHost: `DataTable` com `empilhar` (já ligado nas tabelas da Força bruta).
 - **Nunca duas linhas de botões.**
+- **Nunca cortar texto com "…"** (regra do Silva, 13/10/2026: "não pode fechar dados, reduzir sempre"): quando um
+  texto não cabe (ex.: título e descrição da barra de cima no telemóvel), a letra diminui até caber; se nem assim
+  couber, passa à linha de baixo. No VisualHost o título/descrição da barra de cima já fazem isto sozinhos
+  (`useTituloAjustado` em `src/components/vhost/titulo-ajustado.ts`).
 - **Modelo de página = a página Domínios do painel.** Toda a página nova segue-o: um título na barra de cima com uma
   descrição pequena por baixo (nunca dois títulos grandes juntos — números e resumos vão na descrição, ex.:
   "Todas as mensagens | 3 por ler"); o conteúdo dentro do cartão principal; os separadores abrem o cartão (faixa
