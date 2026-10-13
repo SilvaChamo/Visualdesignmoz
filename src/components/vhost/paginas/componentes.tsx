@@ -241,7 +241,6 @@ export function DataTable<T>({
   onSelChange,
   umaLinha = false,
   barraFora = false,
-  pesquisaPorCima = false,
 }: {
   id: string;
   rows: T[];
@@ -281,9 +280,6 @@ export function DataTable<T>({
   /** com umaLinha: a linha vai para a faixa por cima do cartão principal (modelo do Silva: fora da faixa dos
    *  separadores que abre o cartão, como em Domínios) */
   barraFora?: boolean;
-  /** fica com a linha por cima do cartão (pesquisa à esquerda, botões à direita) em vez da faixa dos separadores
-   *  (Força bruta, aprovada assim pelo Silva a 13/10/2026 — a única página com pesquisa por cima do cartão) */
-  pesquisaPorCima?: boolean;
   /** notifica chaves das linhas selecionadas */
   onSelChange?: (keys: string[]) => void;
 }) {
@@ -344,7 +340,8 @@ export function DataTable<T>({
   const selKeys = sel.filter((k) => keys.includes(k));
   const all = keys.length > 0 && selKeys.length === keys.length;
   const vcols = cols.filter((c) => vis.includes(c.k));
-  const temSelecao = bulk.length > 0 || comSelecao;
+  // caixas de seleção só quando alguma ação precisa de linhas escolhidas (as `sempre` não precisam)
+  const temSelecao = bulk.some((b) => !b.sempre) || comSelecao;
   const span = vcols.length + (temSelecao ? 1 : 0) + (actions ? 1 : 0);
 
   const paginas = Math.max(1, Math.ceil(shown.length / porPagina));
@@ -513,23 +510,6 @@ export function DataTable<T>({
           // sempre à vista e à direita, com tudo o que se faz na página lá dentro (`bulk`; as opções sem linhas
           // escolhidas usam `sempre`). Nunca pesquisa, paginação nem outros botões por cima do cartão: a paginação
           // fica no fundo do cartão.
-          if (pesquisaPorCima) {
-            // Força bruta (aprovada assim): pesquisa à esquerda e botões à direita, por cima do cartão
-            const linha = (
-              <div className={'dt-bar dt-uma-linha' + (barraFora ? ' dt-fora' : '')}>
-                {cabecalho}
-                {(inicioBarra2 || barra2 || bulk.length > 0 || fimBarra) && pesquisa}
-                <span className="sp" />
-                {inicioBarra2}
-                {barra2}
-                {colunas}
-                {recarregar}
-                {fimBarra}
-                {menuAcoes(true)}
-              </div>
-            );
-            return barraFora && faixaFora ? createPortal(linha, faixaFora) : linha;
-          }
           const naFaixa = bulk.length > 0 && barraFora && faixaAbas?.el && !cabecalho;
           const outros = !!(inicioBarra2 || barra2 || colunas || recarregar || fimBarra);
           const linha =

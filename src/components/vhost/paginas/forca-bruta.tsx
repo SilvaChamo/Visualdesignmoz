@@ -7,7 +7,7 @@ import { useState } from 'react';
 import { useVH, type VH } from '../context';
 import type { ScreenFn } from '../screens';
 import { esquecerMemoria, useGet, useNaMemoria } from '../carga';
-import { DataTable, Tabs } from './componentes';
+import { DataTable, Tabs, type Bulk } from './componentes';
 import { Confirmar } from './pacotes';
 import { Carregando } from './avancado';
 
@@ -143,12 +143,8 @@ function ForcaBruta() {
       ]}
     />
   );
-  const botaoBloquear = (
-    <button className="btn g sm" onClick={() => bloquear()}>
-      <i className="fa-solid fa-plus" />
-      {t('Bloquear IP')}
-    </button>
-  );
+  // "Bloquear IP" dentro do menu "Ações" de cada separador (regra do Silva, 13/10/2026: nenhum botão por cima do cartão)
+  const bloquearIp: Bulk = { t: 'Bloquear IP', fa: 'fa-plus', sempre: true, run: () => bloquear() };
   const servicosBloq = [...new Set(dados.bloqueados.map((b) => b.cadeia))];
   const mais = (c: string) => (dados.duracoes[c] ? ' · ' + duracao(dados.duracoes[c]) : '');
 
@@ -161,12 +157,9 @@ function ForcaBruta() {
           id="fb-bloqueados"
           umaLinha
           barraFora
-          pesquisaPorCima
           rows={dados.bloqueados}
           rowKey={chaveB}
-          semBusca={false}
           search={(r) => r.ip + ' ' + servico(r.cadeia) + (r.mz ? ' moçambique' : '')}
-          barra2={botaoBloquear}
           empty="Não há IPs bloqueados"
           cols={[
             { k: 'ip', t: 'Endereço IP', sort: (r) => r.ip, cell: (r) => <Ip ip={r.ip} mz={r.mz} /> },
@@ -181,6 +174,7 @@ function ForcaBruta() {
             </button>
           )}
           bulk={[
+            bloquearIp,
             {
               t: 'Desbloquear',
               fa: 'fa-unlock',
@@ -194,12 +188,9 @@ function ForcaBruta() {
           id="fb-tentativas"
           umaLinha
           barraFora
-          pesquisaPorCima
           rows={dados.tentativas}
           rowKey={(r) => r.ip}
-          semBusca={false}
           search={(r) => r.ip + ' ' + r.cadeias.map(servico).join(' ') + (r.mz ? ' moçambique' : '')}
-          barra2={botaoBloquear}
           empty="Nenhuma tentativa falhada nas últimas 24 horas"
           cols={[
             { k: 'ip', t: 'Endereço IP', sort: (r) => r.ip, cell: (r) => <Ip ip={r.ip} mz={r.mz} /> },
@@ -216,7 +207,7 @@ function ForcaBruta() {
               </button>
             )
           }
-          bulk={[{ t: 'Bloquear', fa: 'fa-ban', run: (k) => bloquear(k) }]}
+          bulk={[bloquearIp, { t: 'Bloquear', fa: 'fa-ban', run: (k) => bloquear(k) }]}
         />
       )}
       {aba === 'registo' && (
@@ -224,13 +215,11 @@ function ForcaBruta() {
           id="fb-registo"
           umaLinha
           barraFora
-          pesquisaPorCima
           rows={dados.registo.map((e, i) => ({ ...e, k: String(i) }))}
           rowKey={(r) => r.k}
-          semBusca={false}
           search={(r) => r.ip + ' ' + servico(r.cadeia) + ' ' + (ACAO[r.acao]?.[0] || r.acao)}
-          barra2={botaoBloquear}
           empty="Sem registos nas últimas 48 horas"
+          bulk={[bloquearIp]}
           cols={[
             { k: 'd', t: 'Data', sort: (r) => r.data, cell: (r) => quando(r.data) },
             { k: 'a', t: 'Acontecimento', cell: (r) => <span className={'tag ' + (ACAO[r.acao]?.[1] || 'off')}>{t(ACAO[r.acao]?.[0] || r.acao)}</span> },

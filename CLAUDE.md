@@ -33,8 +33,7 @@ para o outro) fica na memória `project_dual-folder-git-topology`.
 # Regras de layout do Silva (valem para todas as páginas, sempre)
 
 - **Nunca pesquisa à esquerda por cima do cartão principal** (regra do Silva, 13/10/2026: "não coloque mais"). A
-  "Busca" da barra de cima já procura na página aberta. Única exceção, aprovada por ele: a página Força bruta, que
-  fica como está (`DataTable` com `pesquisaPorCima`).
+  "Busca" da barra de cima já procura na página aberta. Sem exceções (a Força bruta também segue o modelo).
 - **Faixa dos separadores (cabeçalho do cartão principal) = só o botão "Ações", à direita**, sempre visível nas
   tabelas da página. **Nenhum botão por cima do cartão nem na faixa:** todas as ações da página vão para **dentro do
   menu "Ações"** (regra do Silva, 13/10/2026), por exemplo "Adicionar subdomínio", "Marcar todas como lidas" ou
