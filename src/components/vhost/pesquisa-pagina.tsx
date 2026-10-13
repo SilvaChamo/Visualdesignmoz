@@ -3,8 +3,9 @@
 // Lupa da barra de cima (pedido do Silva, 13/10/2026): procura na página aberta — Domínios procura nos domínios, E-mail
 // nas contas de e-mail, etc. (cada tabela da página regista as suas linhas, ver DataTable); na página inicial procura no
 // painel todo (funcionalidades e domínios). Desliza por baixo da faixa do seletor, colado a ela e com a largura toda:
-// um só cartão sem cabeçalho — o campo, os resultados por baixo e um rodapé. Fecha com Esc ou na lupa. A lupa da barra
-// compacta continua a abrir a janela de pesquisa (Ctrl+K).
+// um só cartão sem cabeçalho — o campo, os resultados por baixo e um rodapé. Fica por cima da página, como um popup (não
+// empurra o conteúdo). Fecha com Esc, na lupa ou com um clique fora. A lupa da barra compacta continua a abrir a janela
+// de pesquisa (Ctrl+K).
 import { useEffect, useRef, type Dispatch, type SetStateAction } from 'react';
 import type { ItemPesquisa } from './context';
 
@@ -34,7 +35,18 @@ export function PesquisaNaPagina({
   abrirPopup: (q: string) => void;
 }) {
   const ref = useRef<HTMLInputElement>(null);
+  const cartao = useRef<HTMLDivElement>(null);
   useEffect(() => ref.current?.focus(), []);
+  // clique fora do cartão fecha (a lupa da barra de cima tem o seu próprio abrir/fechar)
+  useEffect(() => {
+    const fora = (e: MouseEvent) => {
+      const alvo = e.target as Element | null;
+      if (!alvo || cartao.current?.contains(alvo) || alvo.closest?.('.lupa-topo')) return;
+      mudar({ aberta: false, q: '', i: 0 });
+    };
+    document.addEventListener('mousedown', fora);
+    return () => document.removeEventListener('mousedown', fora);
+  }, [mudar]);
   const palavras = norm(estado.q.trim()).split(/\s+/).filter(Boolean);
   const daPagina = geral ? [] : fontes();
   const naPagina = daPagina.length > 0;
@@ -62,7 +74,7 @@ export function PesquisaNaPagina({
   const onde = geral || !naPagina ? t('Painel') : t(titulo);
   return (
     <div className="pesq-pag" role="search">
-      <div className="pesq-pag-card">
+      <div className="pesq-pag-card" ref={cartao}>
         <div className="pesq-pag-in">
           <i className="fa-solid fa-magnifying-glass" />
           <input
