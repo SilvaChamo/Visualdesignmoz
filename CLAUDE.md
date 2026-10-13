@@ -34,8 +34,10 @@ para o outro) fica na memória `project_dual-folder-git-topology`.
    ramo do GitHub e volta a arrancar o servidor (pedido do Silva, 13/10/2026 — o `checkout`/`pull` simples falhava e o
    site local não actualizava). Modelo (trocar `RAMO`), corrido dentro da pasta `visualdesign-teste`:
    ```
-   (kill $(lsof -ti tcp:3003) 2>/dev/null; true); git stash -u -m "antes de RAMO" ; git fetch origin RAMO && git checkout -B RAMO origin/RAMO && npm install && npm run dev
+   (kill $(lsof -ti tcp:3003) 2>/dev/null; true); git stash -u -m "antes de RAMO" ; git fetch origin RAMO && git checkout -B RAMO origin/RAMO && npm install && rm -rf .next && npm run dev
    ```
+   O `rm -rf .next` apaga a cache do servidor local antes de arrancar (uma cache velha depois de mudar de ramo fazia o
+   site local piscar e não abrir — Silva, 14/10/2026); a primeira página demora um pouco mais a compilar.
 
 # Regras de layout do Silva (valem para todas as páginas, sempre)
 

@@ -5,6 +5,7 @@ import '@fortawesome/fontawesome-free/css/all.min.css';
 import '@/components/vhost/generated/maquete.css';
 import '@/components/vhost/paginas/paginas.css';
 import { VisualHostApp } from '@/components/vhost/VisualHostApp';
+import { versaoBuild } from '@/lib/versao-build';
 
 export const metadata = {
   title: 'VisualHost',
@@ -19,7 +20,9 @@ export default async function VisualHostLayout({ children }: { children: React.R
   const temSessao = (await cookies()).getAll().some((c) => /^sb-.+-auth-token(\.\d+)?$/.test(c.name));
   return (
     <>
-      <VisualHostApp temSessao={temSessao} />
+      {/* a versão do servidor que desenhou esta página: o painel compara-a com /api/versao para passar sozinho para
+          a versão nova depois de uma publicação */}
+      <VisualHostApp temSessao={temSessao} versao={versaoBuild()} />
       <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
       {children}
     </>

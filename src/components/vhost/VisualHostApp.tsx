@@ -305,7 +305,7 @@ function PaginaSlot({ p, oculta, onPronta, registar }: { p: Pagina; oculta: bool
 }
 
 /** temSessao: o servidor já viu se há cookie de sessão — sem sessão, a página de entrada aparece logo (sem piscar) */
-export function VisualHostApp({ temSessao = true }: { temSessao?: boolean }) {
+export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?: boolean; versao?: string }) {
   // conta os pedidos ao site para a linha de carregamento do topo (antes de o painel pedir os dados)
   useState(() => instalarContador());
   const pathname = usePathname() || BASE;
@@ -341,6 +341,9 @@ export function VisualHostApp({ temSessao = true }: { temSessao?: boolean }) {
   const [pop, setPop] = useState<Pop>(null);
   const [search, setSearch] = useState({ open: false, q: '', si: 0 });
   const modalRef = useRef<HTMLDivElement>(null);
+  /** há uma janela aberta (o elemento da janela existe sempre, só se mostra com conteúdo) */
+  const modalAberto = useRef(false);
+  modalAberto.current = !!modal;
   const searchRef = useRef<HTMLInputElement>(null);
 
   // Grava o estado novo (o painel de uma conta que deixou de ter acesso volta ao primeiro painel permitido)
@@ -367,9 +370,49 @@ export function VisualHostApp({ temSessao = true }: { temSessao?: boolean }) {
     if (window.location.pathname !== url) window.history[replace ? 'replaceState' : 'pushState'](null, '', url);
   };
 
+  // Versão nova publicada com o painel aberto (pedido do Silva, 14/10/2026: "o site nunca fica actualizado"): o
+  // painel muda de página sem pedir código ao servidor, por isso um separador aberto ficava sempre na versão antiga.
+  // Compara-se a versão com que a página abriu com a do servidor (/api/versao): ao voltar ao separador, sem nenhuma
+  // janela aberta, recarrega já; de resto, o próximo clique no painel abre a página inteira (já na versão nova).
+  const versaoNova = useRef(false);
+  useEffect(() => {
+    if (versao === 'dev') return;
+    let fim = false;
+    const verificar = (recarregar: boolean) => {
+      if (versaoNova.current || document.hidden) return;
+      fetch('/api/versao', { cache: 'no-store', headers: FUNDO })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((j: { versao?: string } | null) => {
+          if (fim || !j?.versao || j.versao === 'dev' || j.versao === versao) return;
+          // nunca em ciclo (nada de piscar): só se passa uma vez para cada versão nova neste separador
+          try {
+            if (sessionStorage.getItem('vh-versao-pedida') === j.versao) return;
+            sessionStorage.setItem('vh-versao-pedida', j.versao);
+          } catch {}
+          versaoNova.current = true;
+          if (recarregar && !modalAberto.current) window.location.reload();
+        })
+        .catch(() => {});
+    };
+    const aoVoltar = () => !document.hidden && verificar(true);
+    const t = setInterval(() => verificar(false), 120_000);
+    document.addEventListener('visibilitychange', aoVoltar);
+    window.addEventListener('focus', aoVoltar);
+    return () => {
+      fim = true;
+      clearInterval(t);
+      document.removeEventListener('visibilitychange', aoVoltar);
+      window.removeEventListener('focus', aoVoltar);
+    };
+  }, [versao]);
+
   const nav = useCallback(
     (path: string) => {
       const n = fromPath(ref.current, path);
+      if (versaoNova.current) {
+        window.location.assign(BASE + n.path);
+        return;
+      }
       commit(n);
       pushUrl(n.path);
       window.scrollTo(0, 0);

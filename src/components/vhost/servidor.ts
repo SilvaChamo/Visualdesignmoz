@@ -64,8 +64,14 @@ export interface ErroDados {
 }
 
 /** Domínios internos do sistema (ferramentas da VisualDesign no servidor): não aparecem nos seletores nem nas
- *  listas de domínios do painel. Continuam no servidor. */
-const DOMINIOS_INTERNOS = [/^files\.visualdesignmoz\.com$/i, /^supabase(-[a-z0-9]+)?\.visualdesignmoz\.com$/i];
+ *  listas de domínios do painel. Continuam no servidor. teste. e painel. ocultos a pedido do Silva (14/10/2026: "não
+ *  precisamos de ver") — não se apagam: o teste. é o próprio site no Contabo. */
+const DOMINIOS_INTERNOS = [
+  /^files\.visualdesignmoz\.com$/i,
+  /^supabase(-[a-z0-9]+)?\.visualdesignmoz\.com$/i,
+  /^teste\.visualdesignmoz\.com$/i,
+  /^painel\.visualdesignmoz\.com$/i,
+];
 export const dominioVisivel = (d: string) => !DOMINIOS_INTERNOS.some((r) => r.test(d));
 
 /** "1,7 GB", "320 MB" a partir de MB */
