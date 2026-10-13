@@ -501,6 +501,9 @@ function ContasLista() {
           <>
             <DataTable
               id="email-contas"
+              umaLinha
+              barraFora
+              empilhar
               rows={rows}
               rowKey={(r) => r.nome}
               search={(r) => r.nome}
@@ -519,9 +522,10 @@ function ContasLista() {
                       </div>
                       <div>
                         <b>
-                          {r.nome}@{d}
+                          {r.nome}@<wbr />
+                          {d}
                         </b>
-                        <span>
+                        <span className="em-conta-sub">
                           {r.suspensa ? t('Suspensa') + ' · ' : ''}
                           {r.quotaMb > 0 ? t('Quota') + ' ' + mb(r.quotaMb) : t('Sem limite de espaço')}
                           {r.fwd.length ? ' · ' + t('reencaminha') : ''}
@@ -538,8 +542,8 @@ function ContasLista() {
                   cell: (r) => {
                     const p = pct(r.usadoMb, r.quotaMb);
                     return (
-                      <div style={{ minWidth: 180 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, color: 'var(--muted)', marginBottom: 5 }}>
+                      <div className="em-uso">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 12.5, color: 'var(--muted)', marginBottom: 5 }}>
                           <span>{r.quotaMb > 0 ? mb(r.usadoMb) + ' / ' + mb(r.quotaMb) : mb(r.usadoMb) + ' · ' + t('sem limite')}</span>
                           {r.quotaMb > 0 && <b style={{ color: p > 80 ? 'var(--red)' : 'var(--ink)' }}>{p}%</b>}
                         </div>
@@ -550,10 +554,22 @@ function ContasLista() {
                     );
                   },
                 },
-                { k: 'env', t: 'Enviados hoje', sort: (r) => r.enviadosHoje, cell: (r) => r.enviadosHoje + ' / ' + (r.limiteHora ? r.limiteHora + ' ' + t('por hora') : t('sem limite próprio')) },
+                {
+                  k: 'env',
+                  t: 'Enviados hoje',
+                  ate: 1300,
+                  sort: (r) => r.enviadosHoje,
+                  cell: (r) => (
+                    <span className="em-env">
+                      {r.enviadosHoje + (r.limiteHora ? ' / ' + r.limiteHora : ' /')}
+                      <small>{r.limiteHora ? t('por hora') : t('sem limite próprio')}</small>
+                    </span>
+                  ),
+                },
                 {
                   k: 'log',
                   t: 'Registo SMTP',
+                  ate: 1600,
                   cell: (r) => (
                     <span className="em-log">
                       <a className="lk" onClick={() => nav('/utilizador/rastreio/entrada/' + encodeURIComponent(r.nome + '@' + d))}>
@@ -566,7 +582,7 @@ function ContasLista() {
                     </span>
                   ),
                 },
-                { k: 'criada', t: 'Criada', cell: (r) => r.criada || '—' },
+                { k: 'criada', t: 'Criada', ate: 1600, cell: (r) => r.criada || '—' },
               ]}
               actions={(r) => (
                 <span className="dns-acoes">
@@ -579,6 +595,8 @@ function ContasLista() {
                       ['fa-sliders', 'Mudar limites', () => openM(<LimitesModal d={d} c={r} />)],
                       ['fa-gear', 'Configurar o e-mail', () => openM(<DadosConta acc={r.nome} d={d} />)],
                       ['fa-download', 'Descarregar configuração Apple (iPhone, iPad, Mac)', () => configApple(r.nome, d)],
+                      ['fa-right-to-bracket', 'Registo SMTP de entrada', () => nav('/utilizador/rastreio/entrada/' + encodeURIComponent(r.nome + '@' + d))],
+                      ['fa-right-from-bracket', 'Registo SMTP de saída', () => nav('/utilizador/rastreio/saida/' + encodeURIComponent(r.nome + '@' + d))],
                       ['fa-trash', 'Apagar', () => apagar([r.nome]), true],
                     ]}
                   />

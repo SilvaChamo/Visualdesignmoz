@@ -194,6 +194,9 @@ export interface Col<T> {
   /** escondida por defeito (pode ser ligada em "Colunas") */
   hidden?: boolean;
   right?: boolean;
+  /** sai nos ecrãs de computador/portátil até esta largura, para a tabela caber sem barra de deslocar (pedido do Silva,
+   *  13/10/2026: colunas apertadas a 1440 e 1280); no telemóvel, em blocos, volta a aparecer */
+  ate?: 1600 | 1300;
 }
 export interface Bulk {
   t: string;
@@ -348,10 +351,12 @@ export function DataTable<T>({
   // caixas de seleção só quando alguma ação precisa de linhas escolhidas (as `sempre` não precisam)
   const temSelecao = bulk.some((b) => !b.sempre) || comSelecao;
   // "Ações" só onde há caixas de seleção (regra do Silva, 13/10/2026: as ações aplicam-se ao que se escolhe). Com
-  // separadores fica à direita da faixa deles; sem separadores, na linha dos títulos das colunas, à direita.
+  // separadores fica à direita da faixa deles; sem separadores aparece no lugar do título da 1.ª coluna quando se
+  // assinala uma caixa (ex.: "Conta" nas contas de e-mail) e o título volta quando já nada está escolhido.
   const comAcoes = temSelecao && bulk.length > 0;
   const acoesNoCabecalho = umaLinha && barraFora && comAcoes && !faixaAbas?.el && !cabecalho;
-  const colAcoes = !!actions || acoesNoCabecalho;
+  const acoesNoTitulo = acoesNoCabecalho && (selKeys.length > 0 || bulk.some((b) => b.sempre));
+  const colAcoes = !!actions;
   const span = vcols.length + (temSelecao ? 1 : 0) + (colAcoes ? 1 : 0);
 
   const paginas = Math.max(1, Math.ceil(shown.length / porPagina));
@@ -576,18 +581,24 @@ export function DataTable<T>({
                   <input type="checkbox" aria-label={t('Selecionar tudo')} checked={all} disabled={!keys.length} onChange={() => setSel(all ? [] : keys)} />
                 </th>
               )}
-              {vcols.map((c) => (
-                <th
-                  key={c.k}
-                  className={c.sort ? 'srt' : undefined}
-                  style={c.right ? { textAlign: 'right' } : undefined}
-                  onClick={c.sort ? () => setSort(sort?.k === c.k ? { k: c.k, dir: sort.dir === 1 ? -1 : 1 } : { k: c.k, dir: 1 }) : undefined}
-                >
-                  {t(c.t)}
-                  {sort?.k === c.k && <i className={'fa-solid si ' + (sort.dir === 1 ? 'fa-arrow-up' : 'fa-arrow-down')} />}
-                </th>
-              ))}
-              {colAcoes && <th className={acoesNoCabecalho ? 'dt-th-acoes' : undefined}>{acoesNoCabecalho && menuAcoes(true)}</th>}
+              {vcols.map((c, i) =>
+                acoesNoTitulo && i === 0 ? (
+                  <th key={c.k} className="dt-th-acoes">
+                    {menuAcoes(true)}
+                  </th>
+                ) : (
+                  <th
+                    key={c.k}
+                    className={[c.sort ? 'srt' : '', c.ate ? 'dt-ate-' + c.ate : ''].filter(Boolean).join(' ') || undefined}
+                    style={c.right ? { textAlign: 'right' } : undefined}
+                    onClick={c.sort ? () => setSort(sort?.k === c.k ? { k: c.k, dir: sort.dir === 1 ? -1 : 1 } : { k: c.k, dir: 1 }) : undefined}
+                  >
+                    {t(c.t)}
+                    {sort?.k === c.k && <i className={'fa-solid si ' + (sort.dir === 1 ? 'fa-arrow-up' : 'fa-arrow-down')} />}
+                  </th>
+                ),
+              )}
+              {colAcoes && <th />}
             </tr>
           </thead>
           <tbody>
@@ -603,7 +614,7 @@ export function DataTable<T>({
                       </td>
                     )}
                     {vcols.map((c) => (
-                      <td key={c.k} data-t={t(c.t)} style={c.right ? { textAlign: 'right' } : undefined}>
+                      <td key={c.k} data-t={t(c.t)} className={c.ate ? 'dt-ate-' + c.ate : undefined} style={c.right ? { textAlign: 'right' } : undefined}>
                         {c.cell(r)}
                       </td>
                     ))}

@@ -553,6 +553,7 @@ export function DomTable({ filter = '' }: { filter?: string }) {
                     <div>
                       <b
                         style={{ cursor: 'pointer' }}
+                        title={d.name}
                         onClick={() => {
                           setDominio(d.name);
                           nav('/' + (s.level || 'utilizador') + '/dominios/' + encodeURIComponent(d.name));
@@ -564,7 +565,7 @@ export function DomTable({ filter = '' }: { filter?: string }) {
                     </div>
                   </div>
                 </td>
-                <td>{d.ssl === 'ok' ? <span className="tag ok">{t('Válido')}</span> : <span className="tag w">{t('Expira em 12 dias')}</span>}</td>
+                <td>{d.ssl === 'ok' ? <span className="tag ok">{t('Válido')}</span> : <span className="tag w">{t('Sem SSL')}</span>}</td>
                 <td>{a.mails.filter((m) => m.dom === d.name).length}</td>
                 <td>{d.php}</td>
                 <td>{d.disk}</td>
