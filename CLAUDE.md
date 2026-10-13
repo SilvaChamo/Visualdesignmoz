@@ -23,7 +23,8 @@ para o outro) fica na memória `project_dual-folder-git-topology`.
 1. O trabalho novo faz-se num ramo de trabalho (o do agente; nunca directamente em `fix/contabo-websites-audit` nem
    em `main`).
 2. Antes de publicar, mostra-se ao Silva: screenshots numerados (Ecrã 1, Ecrã 2, …) e os comandos para ele ver o
-   ramo no projecto local.
+   ramo no projecto local. **Nunca ficheiros HTML de pré-visualização** (Silva, 13/10/2026: "só me confunde") — só as
+   imagens e o comando.
 3. **Só se publica quando o Silva disser "publica"/"publique"** — é a chave para lançar as correcções. Publicar =
    PR do ramo de trabalho para `fix/contabo-websites-audit` + merge (o deploy no Contabo corre sozinho).
 4. Alterações ao servidor também são descritas primeiro e só avançam com o "avança"/"publica" dele.
