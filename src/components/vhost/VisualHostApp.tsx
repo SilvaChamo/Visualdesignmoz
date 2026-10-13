@@ -4,7 +4,7 @@
 // Mesma estrutura de HTML e mesmas classes, para o CSS da maquete (generated/maquete.css) se aplicar tal e qual.
 import { Component, Fragment, useCallback, useEffect, useMemo, useReducer, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
-import { BarraPagina, PesquisaPagina, VHContext, type ItemPesquisa, type VH } from './context';
+import { BarraPagina, FaixaAbas, PesquisaPagina, VHContext, type ItemPesquisa, type VH } from './context';
 import { GLOBAL, LEVELS, MENU, ROLES } from './generated/data';
 import { dominioVisivel, type DadosServidor } from './servidor';
 import { translate, type Lang } from './i18n';
@@ -137,6 +137,8 @@ type RegistarFonte = (chave: string, id: string, fonte: () => ItemPesquisa[]) =>
 
 function PaginaSlot({ p, oculta, onPronta, registar }: { p: Pagina; oculta: boolean; onPronta: (chave: string) => void; registar: RegistarFonte }) {
   const [barra, setBarra] = useState<HTMLDivElement | null>(null);
+  const [abasEl, setAbasEl] = useState<HTMLElement | null>(null);
+  const faixaAbas = useMemo(() => ({ el: abasEl, set: setAbasEl }), [abasEl]);
   const pesquisa = useMemo(() => ({ registar: (id: string, fonte: () => ItemPesquisa[]) => registar(p.chave, id, fonte) }), [registar, p.chave]);
   const falta = useRef(0);
   const montada = useRef(false);
@@ -184,6 +186,7 @@ function PaginaSlot({ p, oculta, onPronta, registar }: { p: Pagina; oculta: bool
         <EsperaPagina.Provider value={espera}>
           <PesquisaPagina.Provider value={pesquisa}>
           <BarraPagina.Provider value={barra}>
+          <FaixaAbas.Provider value={faixaAbas}>
           {/* pesquisa e botões da página, por cima do cartão (fica escondida enquanto vazia) */}
           <div className="pg-barra" ref={setBarra} />
           {p.semCartao ? (
@@ -200,6 +203,7 @@ function PaginaSlot({ p, oculta, onPronta, registar }: { p: Pagina; oculta: bool
           ) : (
             <div className="da-main-card">{corpo}</div>
           )}
+          </FaixaAbas.Provider>
           </BarraPagina.Provider>
           </PesquisaPagina.Provider>
         </EsperaPagina.Provider>

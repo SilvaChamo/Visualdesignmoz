@@ -54,6 +54,11 @@ export const VHContext = createContext<VH | null>(null);
  *  botões de ações (à direita) ficam aqui, fora da faixa dos separadores que abre o cartão. Ver DataTable `barraFora`. */
 export const BarraPagina = createContext<HTMLElement | null>(null);
 
+/** Lado direito da faixa dos separadores que abre o cartão (regra do Silva, 13/10/2026): o botão "Ações" fica aqui,
+ *  sempre à direita, e ao lado dele só um segundo "+ Adicionar…" quando a barra de cima já tem o principal. Os
+ *  separadores (`Tabs`) dão o lugar; as tabelas (`DataTable` com `barraFora`) põem lá os botões. */
+export const FaixaAbas = createContext<{ el: HTMLElement | null; set: (el: HTMLElement | null) => void } | null>(null);
+
 /** Um resultado da lupa da barra de cima (pesquisa na página aberta) */
 export type ItemPesquisa = { k: string; txt: string; sub?: string; fa?: string; c?: string; ir: () => void };
 /** Lupa da barra de cima (pedido do Silva, 13/10/2026): procura na página aberta — cada tabela (DataTable) regista aqui

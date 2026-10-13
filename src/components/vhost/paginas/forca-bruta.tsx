@@ -161,6 +161,7 @@ function ForcaBruta() {
           id="fb-bloqueados"
           umaLinha
           barraFora
+          pesquisaPorCima
           rows={dados.bloqueados}
           rowKey={chaveB}
           semBusca={false}
@@ -193,6 +194,7 @@ function ForcaBruta() {
           id="fb-tentativas"
           umaLinha
           barraFora
+          pesquisaPorCima
           rows={dados.tentativas}
           rowKey={(r) => r.ip}
           semBusca={false}
@@ -222,6 +224,7 @@ function ForcaBruta() {
           id="fb-registo"
           umaLinha
           barraFora
+          pesquisaPorCima
           rows={dados.registo.map((e, i) => ({ ...e, k: String(i) }))}
           rowKey={(r) => r.k}
           semBusca={false}

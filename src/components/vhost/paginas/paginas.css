@@ -68,9 +68,9 @@
 .vh .dt-bar.com-cab{border-bottom:1px solid var(--line);align-items:flex-end;margin-bottom:14px;row-gap:8px}
 .vh .dt-bar.com-cab>.ptabs{border-bottom:0;margin:0}
 .vh .dt-bar.com-cab>:not(.ptabs):not(.sp){margin-bottom:5px}
-.vh .dt-bar .dt-pesq{width:220px;flex:0 1 220px;position:relative}
-.vh .dt-bar .dt-pesq input{padding-right:26px}
-.vh .dt-bar .dt-pesq .limpar{position:absolute;right:10px;left:auto;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--muted)}
+.vh :is(.dt-bar,.ptabs-dir) .dt-pesq{width:220px;flex:0 1 220px;position:relative}
+.vh :is(.dt-bar,.ptabs-dir) .dt-pesq input{padding-right:26px}
+.vh :is(.dt-bar,.ptabs-dir) .dt-pesq .limpar{position:absolute;right:10px;left:auto;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--muted)}
 .vh .dt-acoes .btn .n{background:var(--red);color:#fff;border-radius:9px;font-size:11px;font-weight:700;padding:0 6px;line-height:16px}
 .vh .dt-acoes .menu{left:0;right:auto;min-width:200px}
 .vh .dt-acoes .menu button{display:flex;align-items:center;gap:8px;width:100%;border:0;background:none;color:var(--ink);font:inherit;font-size:13.5px;padding:7px 8px;border-radius:var(--r);cursor:pointer;text-align:left}
@@ -78,8 +78,8 @@
 .vh .dt-pag{display:flex;align-items:center;gap:4px;font-size:13px;color:var(--ink)}
 .vh .dt-pag .btn{min-width:30px;justify-content:center;padding:0 8px}
 .vh .dt-pag span{padding:0 6px;white-space:nowrap}
-.vh .dt-pag small{color:var(--muted);margin-left:6px;white-space:nowrap}
 .vh .dt-fundo{display:flex;justify-content:flex-start;align-items:center;gap:8px;padding:12px;border-top:1px solid var(--line)}
+.vh .dt-fundo .sp{flex:1}
 .vh .dt-pag .btn:disabled{opacity:.45;cursor:default}
 .vh .dt-barra2{gap:10px}
 .vh .dt-bar .sp{flex:1}
@@ -462,6 +462,22 @@
 .vh .ptabs button.on{background:var(--card);border-color:var(--line);color:var(--red);font-weight:700}
 .vh .tabcard>.ptabs{padding:0 18px}
 @media(max-width:768px){.vh .ptabs,.vh .tabcard>.ptabs{padding:0 12px}}
+/* Faixa dos separadores com o lugar do botão "Ações" à direita (regra do Silva, 13/10/2026): a faixa (fundo e linha de
+   baixo) passa para o invólucro; os separadores deslizam na horizontal à esquerda e os botões ficam sempre à vista. */
+.vh .ptabs-faixa{display:flex;align-items:stretch;background:var(--soft);box-shadow:inset 0 -1px 0 var(--line);margin:0 0 24px;flex:none}
+.vh .ptabs-faixa>.ptabs{flex:0 0 auto;min-width:0;margin:0;background:none;box-shadow:none;overflow-x:auto;scrollbar-width:none}
+.vh .ptabs-faixa>.ptabs::-webkit-scrollbar{display:none}
+.vh .ptabs-dir{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex:1 1 auto;min-width:0;padding:0 16px 0 12px}
+.vh .ptabs-dir>*{flex:none}
+.vh .ptabs-dir>.dt-pesq{flex:0 1 220px;min-width:120px}
+.vh .ptabs-dir .dt-pesq{height:30px;background:var(--card)}
+@media(max-width:900px){.vh .ptabs-faixa>.ptabs{flex:1 1 auto}.vh .ptabs-dir{flex:none}}
+.vh .ptabs-dir:empty{display:none}
+.vh .ptabs-dir .dt-pag{margin:0}
+.vh .da-main-card>.ptabs-faixa:first-child{margin:-24px -24px 24px;border-radius:var(--r) var(--r) 0 0}
+.vh .tabcard>.ptabs-faixa{margin:0;border-radius:var(--r) var(--r) 0 0}
+.vh .tabcard>.ptabs-faixa>.ptabs{padding:0 18px}
+@media(max-width:768px){.vh .tabcard>.ptabs-faixa>.ptabs{padding:0 12px}.vh .ptabs-dir{padding:0 12px 0 6px}}
 /* separadores dentro de um separador: só sublinhados */
 .vh .ptabs.sub{height:auto;padding:0;background:none;box-shadow:inset 0 -1px 0 var(--line);border-radius:0;margin:0 0 18px}
 .vh .ptabs.sub button{height:38px;padding:0 14px;border:0;border-bottom:2px solid transparent;border-radius:0;background:none}

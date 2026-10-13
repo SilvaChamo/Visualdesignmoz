@@ -32,22 +32,33 @@ para o outro) fica na memória `project_dual-folder-git-topology`.
 
 # Regras de layout do Silva (valem para todas as páginas, sempre)
 
-- **Nunca duas linhas de botões.** Se uma página precisa de botões, ficam todos na mesma linha. A pesquisa também
-  fica nessa linha, nunca numa linha à parte por cima ou por baixo dos botões. Nas tabelas do painel VisualHost
-  (`DataTable` em `src/components/vhost/paginas/componentes.tsx`) usa-se `umaLinha`: "Ações" e os botões da página à
-  esquerda, a pesquisa à direita.
-- **A pesquisa ocupa 30% da largura da secção** (com um mínimo de 200px; no telemóvel ocupa a largura toda).
+- **Nunca duas linhas de botões.** Se uma página precisa de botões, ficam todos na mesma linha.
+- **Pesquisa por cima do cartão só para fazer companhia a vários botões** (regra revista pelo Silva a 13/10/2026).
+  A "Busca" da barra de cima já procura na página aberta. Por isso:
+  - **Só o botão "Ações"** à direita → o "Ações" vai para a **direita da faixa dos separadores** (a faixa cinzenta
+    que abre o cartão) e **não há pesquisa**. Fica sempre presente nas tabelas com linhas que se podem escolher,
+    inativo enquanto nada estiver escolhido.
+  - **Mais botões à direita** ("Ações" + outro botão, e/ou paginação) → a linha fica **por cima do cartão**:
+    pesquisa à esquerda (30% da largura, a fazer companhia), botões à direita, numa linha só (modelo da Força bruta).
+  - **Sem botões nenhuns** à direita → sem linha e sem pesquisa.
+  - No VisualHost isto é automático no `DataTable` com `umaLinha` + `barraFora` + `semBusca={false}`; o lugar à
+    direita da faixa dos separadores vem dos `Tabs` (`FaixaAbas` em `src/components/vhost/context.tsx`).
+    `pesquisaPorCima` força a linha por cima do cartão.
+- **"+ Adicionar…" vai para a barra de cima** (a do título da página, `actions` do ecrã), nunca ao lado do "Ações".
+  Só quando a barra de cima já tem um "+ Adicionar…" principal (ex.: "Adicionar domínio") é que um segundo (ex.:
+  "Adicionar subdomínio") fica ao lado do "Ações".
+- **Paginação em cima e em baixo do cartão**: com mais de uma página, as setas e "Página x de y" aparecem em cima
+  (na faixa/barra da tabela) e também no fundo do cartão. Sem o texto "1–20 de 67".
 - **Modelo de página = a página Domínios do painel.** Toda a página nova segue-o: um título na barra de cima com uma
   descrição pequena por baixo (nunca dois títulos grandes juntos — números e resumos vão na descrição, ex.:
   "Todas as mensagens | 3 por ler"); o conteúdo dentro do cartão principal; os separadores abrem o cartão (faixa
   cinzenta em cima) e a tabela fica por baixo.
-- **Pesquisa e botões por cima do cartão, fora da faixa dos separadores**: pesquisa sempre à esquerda, botões de
-  ações sempre à direita, numa linha só. No VisualHost: `DataTable` com `umaLinha` e `barraFora` (vai para a faixa
-  `BarraPagina` por cima do cartão).
 - **Screenshots enviados ao Silva vão numerados** ("Ecrã 1", "Ecrã 2", …, também no nome do ficheiro) para ele
   poder dizer qual quer mudar.
-- **Mostrar sempre também a vista de telemóvel** (largura 390px) de cada página/alteração, além da do computador
-  (pedido do Silva, 13/10/2026).
+- **Primeiro só a vista de computador.** A vista de telemóvel (largura 390px) só se mostra depois de todas as
+  alterações estarem feitas e aprovadas pelo Silva (revisto a 13/10/2026).
+- **Antes de publicar:** fazer todas as rectificações, mostrar as imagens, esperar que o Silva diga que está bom, e
+  só publicar quando ele disser "publica" (ver "Como se trabalha com o Silva").
 
 # Verificação visual de alterações de UI
 
