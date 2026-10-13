@@ -45,7 +45,7 @@ export default function PrecosDominios() {
             </p>
             
             <div className="flex justify-center">
-              <DomainSearch abas />
+              <DomainSearch />
             </div>
           </div>
         </div>

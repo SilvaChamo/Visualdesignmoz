@@ -82,7 +82,7 @@ export default function Dominios() {
 
           {/* Motor de busca de domínios */}
           <div className="max-w-4xl mx-auto">
-            <DomainSearch abas />
+            <DomainSearch />
           </div>
         </div>
       </NotchSection>

@@ -2,9 +2,13 @@
 
 // Mensagem a todos (menu do admin) — pedido do Silva (13/10/2026): junta num só sítio o que no dashboard antigo estava
 // em dois: "Escrever mensagem" (1.º separador; o "Enviar Notificação" de src/app/dashboard/NotificationsSection.tsx) e
-// "Templates" (Notificações → Templates, src/app/dashboard/TemplatesSection.tsx). Os dois copiados tal como estavam,
-// com o desenho do dashboard antigo (Tailwind) dentro do cartão principal do painel (.tw-livre, ver paginas.css).
-import { useState } from 'react';
+// "Templates" (Notificações → Templates: o próprio componente do dashboard antigo, src/app/dashboard/TemplatesSection.tsx,
+// sem redesenho — os botões Salvar / Cancelar / Eliminar ficam na barra de cima, como lá). Desenho do dashboard antigo
+// (Tailwind) dentro do cartão principal do painel (.tw-livre, ver paginas.css).
+import { useState, useSyncExternalStore } from 'react';
+import { createPortal } from 'react-dom';
+import { AdminSectionChromeProvider, useAdminSectionChrome } from '@/components/admin/AdminSectionChrome';
+import { TemplatesSection } from '@/app/dashboard/TemplatesSection';
 import { Send, Users, AlertTriangle, CheckCircle, Info, X, Mail, Eye } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
 import { buildSimpleNotificationEmailHtml } from '@/lib/renewal-templates';
@@ -13,7 +17,6 @@ import type { ScreenFn } from '../screens';
 import { useVH } from '../context';
 import { Tabs } from './componentes';
 import { Confirmar } from './pacotes';
-import { TemplatesNotificacoes } from './templates-notificacoes';
 
 type Aba = 'escrever' | 'templates';
 type Tipo = 'info' | 'success' | 'warning' | 'error';
@@ -296,6 +299,43 @@ function EscreverMensagem() {
   );
 }
 
+// Barra de cima das páginas antigas: no dashboard antigo os botões da secção (setChrome({ toolbar })) iam para a barra
+// de cima; aqui vão para o mesmo sítio — o lugar dos botões da página na barra do título (`actions` do ecrã).
+let alvoBarra: HTMLElement | null = null;
+const ouvintesBarra = new Set<() => void>();
+const avisarBarra = () => ouvintesBarra.forEach((f) => f());
+function LugarBarraAntiga() {
+  return (
+    <span
+      className="tw-livre barra-antiga"
+      ref={(el) => {
+        if (el) {
+          alvoBarra = el;
+          avisarBarra();
+        } else
+          setTimeout(() => {
+            if (alvoBarra && !alvoBarra.isConnected) {
+              alvoBarra = null;
+              avisarBarra();
+            }
+          });
+      }}
+    />
+  );
+}
+function PonteBarraAntiga() {
+  const { chrome } = useAdminSectionChrome();
+  const alvo = useSyncExternalStore(
+    (f) => {
+      ouvintesBarra.add(f);
+      return () => void ouvintesBarra.delete(f);
+    },
+    () => alvoBarra,
+    () => null,
+  );
+  return chrome?.toolbar && alvo ? createPortal(chrome.toolbar, alvo) : null;
+}
+
 function MensagemTodos({ aba }: { aba: Aba }) {
   const vh = useVH();
   return (
@@ -308,7 +348,16 @@ function MensagemTodos({ aba }: { aba: Aba }) {
         on={aba}
         onChange={(k) => vh.nav('/' + vh.s.level + '/mensagem-todos' + (k === 'templates' ? '/templates' : ''))}
       />
-      <div className="tw-livre">{aba === 'templates' ? <TemplatesNotificacoes /> : <EscreverMensagem />}</div>
+      <div className="tw-livre">
+        {aba === 'templates' ? (
+          <AdminSectionChromeProvider>
+            <PonteBarraAntiga />
+            <TemplatesSection />
+          </AdminSectionChromeProvider>
+        ) : (
+          <EscreverMensagem />
+        )}
+      </div>
     </>
   );
 }
@@ -320,6 +369,7 @@ export const mensagemTodos: ScreenFn = (vh) => {
     title: 'Mensagem a todos',
     desc: aba === 'templates' ? 'Templates das notificações e dos e-mails enviados aos clientes' : 'Enviar um aviso a todas as contas ou a um cliente',
     crumbs: [base, { t: aba === 'templates' ? 'Templates' : 'Escrever mensagem' }],
+    actions: aba === 'templates' ? <LugarBarraAntiga /> : undefined,
     body: <MensagemTodos aba={aba} />,
   };
 };
