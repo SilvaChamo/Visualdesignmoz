@@ -8,7 +8,7 @@ import { auth } from '@/lib/supabase-client'
 import { useI18n } from '@/lib/i18n'
 import { googleOAuthUserMessage } from '@/lib/auth-messages'
 import { PUBLIC_PANEL_ENTRY } from '@/lib/panel-origin'
-import { fetchPanelBootstrap, type PanelBootstrapScope } from '@/lib/panel-data-from-server'
+import { preCarregarDadosVhost } from '@/lib/vhost-cache'
 import type { UserRole } from '@/lib/user-roles'
 import { AuthPageShell, AuthLoadingShell } from '@/components/auth/AuthPageShell'
 import {
@@ -44,29 +44,12 @@ function LoginFormInner() {
     }
   }, [searchParams])
 
-  const bootstrapScopeForRole = (role: UserRole): PanelBootstrapScope | null => {
-    if (role === 'admin' || role === 'manager') return 'admin'
-    if (role === 'reseller') return 'reseller'
-    if (role === 'client') return 'client'
-    return null
-  }
-
-  /** Começa a carregar os dados do painel ainda no ecrã de login (assim que a
-   * password é confirmada), para a página abrir já pronta em vez de mostrar
-   * o círculo de carregamento outra vez depois do redireccionamento. Tempo
-   * limitado a 4s — se demorar mais, avança na mesma e o painel carrega
-   * normalmente ao abrir. */
+  /** Lê os dados do painel ainda no ecrã de login (o botão fica em "A entrar…") e guarda-os no navegador: o painel
+   * abre logo com o conteúdo, sem o ecrã branco com o círculo depois das credenciais (pedido do Silva, 13/10/2026 —
+   * só na entrada pelo site; a entrada pelo próprio painel fica como está). Se falhar, o painel lê ao abrir. */
   const prefetchPanelData = async (role: UserRole) => {
-    const scope = bootstrapScopeForRole(role)
-    if (!scope) return
-    try {
-      await Promise.race([
-        fetchPanelBootstrap({ fresh: true, scope }),
-        new Promise((resolve) => setTimeout(resolve, 4000)),
-      ])
-    } catch {
-      /* falha ao pré-carregar — painel carrega normalmente ao abrir */
-    }
+    if (role === 'guest') return
+    await preCarregarDadosVhost()
   }
 
   const goToPanel = async (role: Awaited<ReturnType<typeof auth.getUserRole>>) => {

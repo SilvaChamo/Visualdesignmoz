@@ -11,7 +11,7 @@ import type { BaseDados, Domain } from '../types';
 import { pacoteDe } from '../state';
 import { getPhpMyAdminUrl } from '@/lib/server-config';
 import { VISUALDESIGN_DEFAULT_NS } from '@/lib/visualdesign-dns';
-import { Check, DataTable, Esqueleto, Frm, novaSenha, Row, Senha, Switch, Tabs, type Col } from './componentes';
+import { Check, DataTable, Frm, novaSenha, Row, Senha, Switch, Tabs, type Col } from './componentes';
 import { Confirmar } from './pacotes';
 import DomainSearch from '@/components/DomainSearchPainel';
 import { useGet } from '../carga';
@@ -92,9 +92,7 @@ function Carregar({ erro, ler }: { erro: string; ler: () => void }) {
         {t('Tentar de novo')}
       </button>
     </div>
-  ) : (
-    <Esqueleto /> // a carregar: a página em esqueleto, nunca vazia
-  );
+  ) : null; // a carregar: só a linha do topo
 }
 
 /** Aviso do domínio em que se está a trabalhar (muda-se no seletor, em cima à direita) */
@@ -300,97 +298,140 @@ function MudarNomeModal({ d }: { d: string }) {
 
 // VerDominio: Resumo e Modificar Domínio (cópia fiel dos recursos e visual do DirectAdmin Evolution edit.vue)
 
+// ---------- Registo do domínio (registador) ----------
+type Contacto = { name: string; email: string; telefone: string; morada: string; cidade: string; complete: boolean };
+type InfoRegisto = {
+  isLocked: boolean | null;
+  autoRenew: boolean | null;
+  expireDate: string;
+  registrationDate: string;
+  nameservers: string[];
+  privacyEnabled: boolean | null;
+  contactPreview: Contacto | null;
+};
+
+/** Dados do domínio no registador (/api/registrar/domain/manage): lidos uma vez e partilhados pelos cartões da página.
+ *  `erro` quando o domínio não foi registado na Visual Design. */
+function useRegistador(d: string) {
+  const [info, setInfo] = useState<InfoRegisto | null>(null);
+  const [erro, setErro] = useState('');
+  const [renovacao, setRenovacao] = useState<string | null>(null);
+  useEffect(() => {
+    let fim = false;
+    setInfo(null);
+    setErro('');
+    setRenovacao(null);
+    if (!d) return;
+    fetch('/api/registrar/domain/manage?domain=' + encodeURIComponent(d), { credentials: 'include' })
+      .then(async (r) => {
+        const j = (await r.json().catch(() => ({}))) as Partial<InfoRegisto> & { success?: boolean; error?: string };
+        if (fim) return;
+        if (r.ok && j.success)
+          setInfo({
+            isLocked: j.isLocked ?? null,
+            autoRenew: j.autoRenew ?? null,
+            expireDate: j.expireDate || '',
+            registrationDate: j.registrationDate || '',
+            nameservers: Array.isArray(j.nameservers) ? j.nameservers.map(String).filter(Boolean) : [],
+            privacyEnabled: j.privacyEnabled ?? null,
+            contactPreview: j.contactPreview ?? null,
+          });
+        // a mensagem do registador vem em inglês ("Could not find this domain"): o painel diz o que isso quer dizer
+        else setErro('Este domínio não está registado na Visual Design.');
+      })
+      .catch(() => !fim && setErro('Sem ligação ao site. Tente de novo.'));
+    // registo de renovação do domínio (para "Renovar domínio")
+    fetch('/api/renewals?type=domain', { credentials: 'include' })
+      .then((r) => r.json())
+      .then((j: { success?: boolean; domains?: { id: string; domain_name?: string }[] }) => {
+        const row = j.success ? (j.domains || []).find((x) => x.domain_name?.toLowerCase() === d) : undefined;
+        if (!fim && row) setRenovacao(row.id);
+      })
+      .catch(() => {});
+    return () => {
+      fim = true;
+    };
+  }, [d]);
+  return { info, erro, renovacao, mudar: (x: Partial<InfoRegisto>) => setInfo((i) => (i ? { ...i, ...x } : i)) };
+}
+type Registador = ReturnType<typeof useRegistador>;
+
+/** Pedido ao registador (POST); devolve a resposta ou null (já avisou) */
+async function noRegistador(vh: VH, corpo: Record<string, unknown>): Promise<Record<string, unknown> | null> {
+  try {
+    const r = await fetch('/api/registrar/domain/manage', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(corpo) });
+    const j = (await r.json().catch(() => ({}))) as Record<string, unknown> & { success?: boolean; error?: string; message?: string };
+    if (r.ok && j.success) {
+      if (j.message) vh.toast(String(j.message));
+      return j;
+    }
+    vh.toast(j.error || 'O registador recusou a alteração');
+  } catch {
+    vh.toast('Sem ligação ao site. Nada foi alterado.');
+  }
+  return null;
+}
+
+/** "C = US, O = Let's Encrypt, CN = YE1" → "Let's Encrypt" */
+const emissorCurto = (e: string) => (/\bO\s*=\s*([^,]+)/.exec(e)?.[1] || /\bCN\s*=\s*([^,]+)/.exec(e)?.[1] || e).trim();
+/** "Dec 25 11:33:51 2026 GMT" ou "2026-12-25" → "25/12/2026" */
+const dataLegivel = (s: string) => {
+  const t = Date.parse(s);
+  return isNaN(t) ? s : new Date(t).toLocaleDateString('pt-PT');
+};
+const dataCurta = (s: string) => {
+  const m = s && /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+  return m ? m[3] + '/' + m[2] + '/' + m[1] : s || '—';
+};
+
 /** Nameservers do domínio (modelo do painel antigo, pedido do Silva 13/10/2026): DNS predefinido da Visual Design ou
- *  nameservers personalizados (NS1/NS2). Lê e muda no registador por /api/registrar/domain/manage; se o domínio não
- *  foi registado connosco, mostra os nameservers públicos e explica onde se mudam. */
-function Nameservers({ d, publicos }: { d: string; publicos?: string[] }) {
+ *  nameservers personalizados (NS1/NS2). Se o domínio não foi registado connosco, mostra os nameservers públicos. */
+function Nameservers({ d, reg, publicos }: { d: string; reg: Registador; publicos?: string[] }) {
   const vh = useVH();
   const { t } = vh;
   const vd = [VISUALDESIGN_DEFAULT_NS.ns1, VISUALDESIGN_DEFAULT_NS.ns2];
   const ehVd = (l: string[]) => l.length >= 2 && l.every((n) => vd.includes(n.toLowerCase().replace(/\.$/, '')));
-  const [guardados, setGuardados] = useState<string[] | null>(null);
-  const [erro, setErro] = useState('');
+  // domínio registado fora: os nameservers públicos, só para ver (mudam-se no registador onde está)
+  const fora = !!reg.erro;
+  const guardados = reg.info?.nameservers || (fora ? publicos || [] : null);
   const [modo, setModo] = useState<'vd' | 'outros'>('vd');
   const [ns1, setNs1] = useState('');
   const [ns2, setNs2] = useState('');
   const [aGuardar, setAGuardar] = useState(false);
-  const aplicar = (l: string[]) => {
-    setGuardados(l);
-    setModo(ehVd(l) ? 'vd' : 'outros');
+  const chave = (guardados || []).join('|');
+  useEffect(() => {
+    const l = guardados || [];
+    setModo(!l.length || ehVd(l) ? 'vd' : 'outros');
     setNs1(ehVd(l) ? '' : l[0] || '');
     setNs2(ehVd(l) ? '' : l[1] || '');
-  };
-  useEffect(() => {
-    let fim = false;
-    setGuardados(null);
-    setErro('');
-    fetch('/api/registrar/domain/manage?domain=' + encodeURIComponent(d), { credentials: 'include' })
-      .then(async (r) => {
-        const j = (await r.json().catch(() => ({}))) as { success?: boolean; nameservers?: unknown[]; error?: string };
-        if (fim) return;
-        const l = Array.isArray(j.nameservers) ? j.nameservers.map(String).filter(Boolean) : [];
-        if (r.ok && j.success && l.length) aplicar(l);
-        else setErro(j.error || 'Este domínio não está registado na Visual Design: os nameservers mudam-se onde foi registado.');
-      })
-      .catch(() => !fim && setErro('Sem ligação ao site. Tente de novo.'));
-    return () => {
-      fim = true;
-    };
-  }, [d]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [chave]); // eslint-disable-line react-hooks/exhaustive-deps
   const novos = modo === 'vd' ? vd : [ns1.trim(), ns2.trim()].filter(Boolean);
   const mudou = !!guardados && novos.length >= 2 && novos.map((n) => n.toLowerCase()).join('|') !== guardados.map((n) => n.toLowerCase()).join('|');
   const guardar = async () => {
     setAGuardar(true);
-    try {
-      const r = await fetch('/api/registrar/domain/manage', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ domain: d, action: 'set-nameservers', nameservers: novos }),
-      });
-      const j = (await r.json().catch(() => ({}))) as { success?: boolean; nameservers?: unknown[]; error?: string; message?: string };
-      if (r.ok && j.success) {
-        aplicar(Array.isArray(j.nameservers) && j.nameservers.length ? j.nameservers.map(String) : novos);
-        vh.toast(j.message || 'Nameservers alterados');
-      } else vh.toast(j.error || 'Não foi possível alterar os nameservers');
-    } catch {
-      vh.toast('Sem ligação ao site. Nada foi alterado.');
-    } finally {
-      setAGuardar(false);
-    }
+    const j = await noRegistador(vh, { domain: d, action: 'set-nameservers', nameservers: novos });
+    if (j) reg.mudar({ nameservers: Array.isArray(j.nameservers) && j.nameservers.length ? (j.nameservers as unknown[]).map(String) : novos });
+    setAGuardar(false);
   };
   return (
-    <div className="frm dom-ns">
+    <div className="frm dom-ns" id="dom-ns">
       <div className="frm-head">
         <div>
-          <h3>{t('Nameservers')}</h3>
+          <h3>{t('Servidores de nome')}</h3>
           <p>{t('Escolha os nameservers predefinidos ou configure nameservers personalizados.')}</p>
         </div>
       </div>
       <div className="dom-ns-corpo">
-        {erro ? (
+        {!reg.info && !reg.erro ? null : (
           <>
-            <p className="dom-ns-aviso">{t(erro)}</p>
-            <div className="dom-ns-atuais">
-              <span>{t('Nameservers atuais')}</span>
-              {(publicos && publicos.length ? publicos : ['—']).map((n) => (
-                <code key={n}>{n}</code>
-              ))}
-            </div>
-          </>
-        ) : !guardados ? (
-          <div className="esq-linhas">
-            {[0, 1, 2].map((i) => (
-              <div key={i} className="esq-linha">
-                <span className="sk" style={{ width: ['60%', '45%', '30%'][i] }} />
-              </div>
-            ))}
-          </div>
-        ) : (
-          <>
+            {fora && (
+              <p className="dom-fora">
+                <i className="fa-solid fa-circle-info" /> {t(reg.erro)} {t('Os nameservers mudam-se onde o domínio foi registado.')}
+              </p>
+            )}
             <div className="dom-ns-opcoes">
               <label className={'dom-ns-op' + (modo === 'vd' ? ' on' : '')}>
-                <input type="radio" name={'ns-' + d} checked={modo === 'vd'} onChange={() => setModo('vd')} />
+                <input type="radio" name={'ns-' + d} checked={modo === 'vd'} disabled={fora} onChange={() => setModo('vd')} />
                 <span>
                   <b>{t('DNS predefinido Visual Design')}</b>
                   <small>{vd[0]}</small>
@@ -398,7 +439,7 @@ function Nameservers({ d, publicos }: { d: string; publicos?: string[] }) {
                 </span>
               </label>
               <label className={'dom-ns-op' + (modo === 'outros' ? ' on' : '')}>
-                <input type="radio" name={'ns-' + d} checked={modo === 'outros'} onChange={() => setModo('outros')} />
+                <input type="radio" name={'ns-' + d} checked={modo === 'outros'} disabled={fora} onChange={() => setModo('outros')} />
                 <span>
                   <b>{t('Nameservers personalizados')}</b>
                   <small>{t('Aponta este domínio para os nameservers indicados (ex.: Cloudflare, outro fornecedor).')}</small>
@@ -409,16 +450,16 @@ function Nameservers({ d, publicos }: { d: string; publicos?: string[] }) {
               <div className="dom-ns-campos">
                 <label>
                   <span>NS1</span>
-                  <input className="inp" value={ns1} onChange={(e) => setNs1(e.target.value)} placeholder="ns1.exemplo.com" />
+                  <input className="inp" value={ns1} disabled={fora} onChange={(e) => setNs1(e.target.value)} placeholder="ns1.exemplo.com" />
                 </label>
                 <label>
                   <span>NS2</span>
-                  <input className="inp" value={ns2} onChange={(e) => setNs2(e.target.value)} placeholder="ns2.exemplo.com" />
+                  <input className="inp" value={ns2} disabled={fora} onChange={(e) => setNs2(e.target.value)} placeholder="ns2.exemplo.com" />
                 </label>
               </div>
             )}
             <div>
-              <button className="btn r" disabled={!mudou || aGuardar} onClick={guardar}>
+              <button className="btn r" disabled={fora || !mudou || aGuardar} onClick={guardar}>
                 <i className={aGuardar ? 'fa-solid fa-spinner fa-spin' : 'fa-solid fa-check'} />
                 {t(aGuardar ? 'A guardar…' : 'Guardar alterações')}
               </button>
@@ -430,25 +471,164 @@ function Nameservers({ d, publicos }: { d: string; publicos?: string[] }) {
   );
 }
 
+/** Registo do domínio no registador (pedido do Silva, 13/10/2026 — no lugar de "Modificar domínio"): datas, renovação
+ *  automática, trava de registo (desbloquear para transferir), código EPP, privacidade e contactos WHOIS */
+function RegistoDominio({ d, reg }: { d: string; reg: Registador }) {
+  const vh = useVH();
+  const { t } = vh;
+  const [epp, setEpp] = useState('');
+  const [aPedir, setAPedir] = useState('');
+  const pedir = async (chave: string, corpo: Record<string, unknown>) => {
+    setAPedir(chave);
+    const j = await noRegistador(vh, { domain: d, ...corpo });
+    setAPedir('');
+    return j;
+  };
+  // domínio registado fora da Visual Design: a mesma página, com "—" e os controlos desativados (nunca valores
+  // inventados — pedido do Silva, 13/10/2026)
+  const fora = !!reg.erro;
+  const i = reg.info;
+  const c = i?.contactPreview;
+  const sk = <span className="dom-a-ler">{fora ? '—' : '…'}</span>;
+  return (
+    <div className={'frm dom-reg' + (fora ? ' dom-reg-fora' : '')} id="dom-reg">
+      <div className="frm-head">
+        <div>
+          <h3>{t('Registo do domínio')}</h3>
+          <p>{t('Renovação, transferência e contactos no registador')}</p>
+        </div>
+      </div>
+      {fora && (
+        <p className="dom-fora">
+          <i className="fa-solid fa-circle-info" /> {t(reg.erro)} {t('A renovação, a trava de registo e o código EPP tratam-se no registador onde está.')}{' '}
+          <a onClick={() => vh.nav('/' + vh.s.level + '/dominios/transferir')}>{t('Transferir para a Visual Design')}</a>
+        </p>
+      )}
+      <div className="dom-info-grelha">
+        <div className="dom-info-l">
+          <span>{t('Registado em')}</span>
+          <div>{i ? dataCurta(i.registrationDate) : sk}</div>
+        </div>
+        <div className="dom-info-l">
+          <span>{t('Expira em')}</span>
+          <div>{i ? <b>{dataCurta(i.expireDate)}</b> : sk}</div>
+        </div>
+        <div className="dom-info-l" id="dom-renovacao">
+          <span>{t('Renovação automática')}</span>
+          <div>
+            {i ? (
+              <>
+                <Switch
+                  checked={!!i.autoRenew}
+                  label={t('Renovação automática')}
+                  onChange={async (v) => {
+                    const j = await pedir('renovar', { action: 'autorenew', isEnabled: v });
+                    if (j) reg.mudar({ autoRenew: !!j.autoRenew });
+                  }}
+                />
+                <small>{t(i.autoRenew ? 'Ligada' : 'Desligada')}</small>
+              </>
+            ) : fora ? (
+              <>
+                <Switch checked={false} label={t('Renovação automática')} onChange={() => {}} />
+                <small>—</small>
+              </>
+            ) : (
+              sk
+            )}
+          </div>
+        </div>
+        <div className="dom-info-l" id="dom-trava">
+          <span>{t('Trava de registo')}</span>
+          <div>
+            {i ? (
+              <>
+                <Switch
+                  checked={!!i.isLocked}
+                  label={t('Trava de registo')}
+                  onChange={async (v) => {
+                    const j = await pedir('trava', { action: v ? 'lock' : 'unlock' });
+                    if (j) reg.mudar({ isLocked: !!j.isLocked });
+                  }}
+                />
+                <small>{t(i.isLocked ? 'Bloqueado — desligue para transferir' : 'Desbloqueado para transferir')}</small>
+              </>
+            ) : fora ? (
+              <>
+                <Switch checked={false} label={t('Trava de registo')} onChange={() => {}} />
+                <small>—</small>
+              </>
+            ) : (
+              sk
+            )}
+          </div>
+        </div>
+        <div className="dom-info-l" id="dom-epp">
+          <span>{t('Código EPP')}</span>
+          <div>
+            {epp ? (
+              <>
+                <code>{epp}</code>
+                <button className="btn g sm" onClick={() => navigator.clipboard?.writeText(epp).then(() => vh.toast('Código copiado'))}>
+                  <i className="fa-solid fa-copy" />
+                  {t('Copiar')}
+                </button>
+              </>
+            ) : (
+              <button
+                className="btn g sm"
+                disabled={!i || fora || aPedir === 'epp'}
+                onClick={async () => {
+                  const j = await pedir('epp', { action: 'auth-code' });
+                  if (j?.authCode) setEpp(String(j.authCode));
+                }}
+              >
+                <i className={aPedir === 'epp' ? 'fa-solid fa-spinner fa-spin' : 'fa-solid fa-key'} />
+                {t('Obter código')}
+              </button>
+            )}
+          </div>
+        </div>
+        <div className="dom-info-l">
+          <span>{t('Privacidade WHOIS')}</span>
+          <div>{i ? <span className={'tag ' + (i.privacyEnabled ? 'ok' : 'off')}>{t(i.privacyEnabled ? 'Ativa' : 'Desligada')}</span> : sk}</div>
+        </div>
+        <div className="dom-info-l dom-info-larga" id="dom-contactos">
+          <span>{t('Contactos WHOIS')}</span>
+          <div>
+            {i ? (
+              <>
+                <span>{c ? [c.name, c.email].filter(Boolean).join(' · ') : '—'}</span>
+                <button className="btn g sm" disabled={aPedir === 'contactos'} onClick={() => pedir('contactos', { action: 'set-contacts' })}>
+                  <i className={aPedir === 'contactos' ? 'fa-solid fa-spinner fa-spin' : 'fa-solid fa-address-card'} />
+                  {t('Atualizar com os dados da conta')}
+                </button>
+              </>
+            ) : fora ? (
+              <>
+                <span>—</span>
+                <button className="btn g sm" disabled>
+                  <i className="fa-solid fa-address-card" />
+                  {t('Atualizar com os dados da conta')}
+                </button>
+              </>
+            ) : (
+              sk
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function VerDominio({ d }: { d: string }) {
   const vh = useVH();
   const { a, s, t, nav, setDominio, openM } = vh;
   const x = a.domains.find((y) => y.name === d);
   const { det, erro, ler } = useDetalhe(x && !x.soEmail ? d : '');
 
-  // Estados para as configurações do DirectAdmin (Modify Domain)
-  const [forcarSsl, setForcarSsl] = useState<boolean>(false);
-  const [hsts, setHsts] = useState<boolean>(false);
-  const [redir, setRedir] = useState<'none' | 'www' | 'non-www'>('none');
-  const [phpVer, setPhpVer] = useState<string>(x?.php || '8.3');
-  const [mesmoBw, setMesmoBw] = useState<boolean>(true);
-  const [mesmoDisco, setMesmoDisco] = useState<boolean>(true);
-  const [bwMb, setBwMb] = useState<string>('1000');
-  const [discoMb, setDiscoMb] = useState<string>('1000');
-  const [sslSeguro, setSslSeguro] = useState<boolean>(x?.ssl === 'ok');
-  const [acessoCgi, setAcessoCgi] = useState<boolean>(true);
-  const [acessoPhp, setAcessoPhp] = useState<boolean>(true);
-  const [guardando, setGuardando] = useState<boolean>(false);
+  const reg = useRegistador(x && !x.soEmail ? d : '');
 
   useEffect(() => {
     if (s.dominio !== d) setDominio(d, false);
@@ -456,66 +636,7 @@ function VerDominio({ d }: { d: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [d]);
 
-  useEffect(() => {
-    if (det) {
-      setForcarSsl(!!det.sslForcado);
-      setHsts(!!det.hsts);
-      if (det.redirecionamento?.url) {
-        if (det.redirecionamento.url.includes('www.' + d)) setRedir('www');
-        else if (det.redirecionamento.url.includes('://' + d)) setRedir('non-www');
-        else setRedir('none');
-      } else {
-        setRedir('none');
-      }
-    }
-  }, [det, d]);
-
-  useEffect(() => {
-    if (x) {
-      setPhpVer(x.php || '8.3');
-      setSslSeguro(x.ssl === 'ok');
-    }
-  }, [x]);
-
   if (!x) return <div className="card empty">{t('Este domínio não existe nesta conta')}</div>;
-
-  const guardarModificacoes = async () => {
-    setGuardando(true);
-    let okGeral = true;
-    try {
-      // 1. SSL forçado
-      if (forcarSsl !== !!det?.sslForcado) {
-        const ok = await noServidor(vh, { acao: 'ssl-forcar', dominio: d, ligar: forcarSsl }, forcarSsl ? 'HTTPS forçado ativado' : 'HTTPS forçado desligado', false);
-        if (!ok) okGeral = false;
-      }
-      // 2. Redirecionamento
-      const redirAtual = det?.redirecionamento?.url
-        ? (det.redirecionamento.url.includes('www.' + d) ? 'www' : 'non-www')
-        : 'none';
-      if (redir !== redirAtual) {
-        if (redir === 'none') {
-          const ok = await noServidor(vh, { acao: 'redir-dominio-tirar', dominio: d }, 'Redirecionamento removido', false);
-          if (!ok) okGeral = false;
-        } else {
-          const urlDestino = redir === 'www' ? 'https://www.' + d : 'https://' + d;
-          const ok = await noServidor(vh, { acao: 'redir-dominio', dominio: d, url: urlDestino, codigo: '301' }, 'Redirecionamento para ' + urlDestino + ' configurado', false);
-          if (!ok) okGeral = false;
-        }
-      }
-      // 3. Versão PHP
-      if (phpVer && phpVer !== x.php) {
-        const ok = await noServidor(vh, { acao: 'php-versao', dominio: d, versao: phpVer }, 'PHP ' + phpVer + ' configurado em ' + d, false);
-        if (!ok) okGeral = false;
-      }
-      if (okGeral) {
-        vh.toast(t('Modificações de ' + d + ' guardadas com sucesso'));
-        ler();
-        await vh.recarregar(true);
-      }
-    } finally {
-      setGuardando(false);
-    }
-  };
 
   const ir = (p: string) => nav('/utilizador/' + p);
   const nSubs = a.domains.filter((y) => ehSub(y.name, d)).length;
@@ -537,21 +658,21 @@ function VerDominio({ d }: { d: string }) {
             'Certificado SSL',
             det?.certificado ? (
               <>
-                {det.certificado.emissor || t('Certificado')} · {t('válido até')} {det.certificado.ate}
+                {det.certificado.emissor ? emissorCurto(det.certificado.emissor) : t('Certificado')} · {t('válido até')} {dataLegivel(det.certificado.ate)}
               </>
             ) : det ? (
               <span className="tag w">{t('Sem certificado')}</span>
             ) : (
-              <span className="sk" style={{ width: 120 }} />
+              <span className="dom-a-ler">…</span>
             ),
             'ssl',
           ],
           ['Versão PHP', 'PHP ' + x.php, 'php'],
-          ['DNS', det ? (det.dns.fonte === 'cloudflare' ? 'Cloudflare' : det.dns.fonte === 'hestia' ? t('Neste servidor') : t('Fora da Visual Design')) : <span className="sk" style={{ width: 90 }} />, 'dns'],
+          ['DNS', det ? (det.dns.fonte === 'cloudflare' ? 'Cloudflare' : det.dns.fonte === 'hestia' ? t('Neste servidor') : t('Fora da Visual Design')) : <span className="dom-a-ler">…</span>, 'dns'],
           ['Subdomínios', String(nSubs), 'subdominios'],
           ['Apontadores', String((x.aliases || []).length), 'apontadores'],
           ['Contas FTP', String((x.ftp || []).length), 'ftp'],
-          ['Redirecionamento', det ? (det.redirecionamento ? det.redirecionamento.url : t('Nenhum')) : <span className="sk" style={{ width: 90 }} />, 'redirecionamentos'],
+          ['Redirecionamento', det ? (det.redirecionamento ? det.redirecionamento.url : t('Nenhum')) : <span className="dom-a-ler">…</span>, 'redirecionamentos'],
           ['Proteção hotlink', t('Configurar'), 'hotlink'],
           ['Pasta do site', <code key="p">{x.docroot}</code>],
         ] as [string, ReactNode, string?][])),
@@ -562,7 +683,7 @@ function VerDominio({ d }: { d: string }) {
       <div className="dom-principal">
       {/* um só cartão com as informações do domínio, em duas colunas (pedido do Silva, 13/10/2026: o que estava nos
           cartões do fundo da página entra aqui; cada linha com página própria abre-a) */}
-      <div className="frm dom-info">
+      <div className="frm dom-info" id="dom-info">
         <div className="frm-head">
           <div>
             <h3>{t('Informações do domínio')}</h3>
@@ -578,101 +699,54 @@ function VerDominio({ d }: { d: string }) {
           ))}
         </div>
       </div>
-      {!x.soEmail && <Nameservers d={d} publicos={det?.ns} />}
+      {!x.soEmail && <Nameservers d={d} reg={reg} publicos={det?.ns} />}
 
-      {!x.soEmail && (
-        <Frm
-          title="Modificar domínio"
-          desc="Configurações e opções do domínio no servidor (DirectAdmin)"
-          foot={
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, width: '100%' }}>
-              <button className="btn r" disabled={guardando} onClick={guardarModificacoes}>
-                <i className={guardando ? 'fa-solid fa-spinner fa-spin' : 'fa-solid fa-check'} />
-                {guardando ? t('A guardar…') : t('Modificar')}
-              </button>
-            </div>
-          }
-        >
-          <Row label="Tráfego" hint="Limite mensal para o domínio">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <input
-                type="number"
-                value={bwMb}
-                onChange={(e) => setBwMb(e.target.value)}
-                disabled={mesmoBw}
-                style={{ width: 120, opacity: mesmoBw ? 0.6 : 1 }}
-              />
-              <span style={{ fontSize: 13, color: 'var(--muted)' }}>MB</span>
-              <Check checked={mesmoBw} onChange={setMesmoBw} label={t('Mesmo que a conta principal')} />
-            </div>
-          </Row>
-          <Row label="Espaço em disco" hint="Limite de armazenamento para o domínio">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <input
-                type="number"
-                value={discoMb}
-                onChange={(e) => setDiscoMb(e.target.value)}
-                disabled={mesmoDisco}
-                style={{ width: 120, opacity: mesmoDisco ? 0.6 : 1 }}
-              />
-              <span style={{ fontSize: 13, color: 'var(--muted)' }}>MB</span>
-              <Check checked={mesmoDisco} onChange={setMesmoDisco} label={t('Mesmo que a conta principal')} />
-            </div>
-          </Row>
-          <Row label="Opções" hint="Acessos e funcionalidades ativas">
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16 }}>
-              <Check checked={sslSeguro} onChange={setSslSeguro} label={t('SSL seguro')} />
-              <Check checked={acessoCgi} onChange={setAcessoCgi} label={t('Acesso CGI')} />
-              <Check checked={acessoPhp} onChange={setAcessoPhp} label={t('Acesso PHP')} />
-            </div>
-          </Row>
-          <Row label="Redirecionamento forçado" hint="Redirecionamento do domínio, apontadores e subdomínios">
-            <select value={redir} onChange={(e) => setRedir(e.target.value as any)} style={{ maxWidth: 280 }}>
-              <option value="none">{t('Sem redirecionamento')}</option>
-              <option value="www">{'www.' + d}</option>
-              <option value="non-www">{d + ' (sem www)'}</option>
-            </select>
-          </Row>
-          <Row label="SSL / HTTPS" hint="Forçar tráfego encriptado por defeito">
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <Check
-                checked={forcarSsl}
-                onChange={setForcarSsl}
-                label={t('Forçar SSL com redirecionamento https')}
-              />
-              {forcarSsl && (
-                <Check
-                  checked={hsts}
-                  onChange={setHsts}
-                  label={t('Ativar HSTS (HTTP Strict Transport Security)')}
-                />
-              )}
-            </div>
-          </Row>
-          <Row label="Versão PHP" hint="Versão do interpretador PHP para este site">
-            <select value={phpVer} onChange={(e) => setPhpVer(e.target.value)} style={{ maxWidth: 220 }}>
-              {!s.php.includes(phpVer) && <option value={phpVer}>PHP {phpVer}</option>}
-              {s.php.map((p) => (
-                <option key={p} value={p}>
-                  PHP {p}
-                </option>
-              ))}
-            </select>
-          </Row>
-          <Row label="Pasta do site" hint="Ligação da pasta private_html para public_html">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <code>{x.docroot || `/home/${vh.me}/web/${d}/public_html`}</code>
-              <span className="tag ok" title={t('Ligação simbólica pública ativa')}>symlink</span>
-            </div>
-          </Row>
-        </Frm>
-      )}
+      {!x.soEmail && <RegistoDominio d={d} reg={reg} />}
 
       {erro && <Carregar erro={erro} ler={ler} />}
       </div>
       {/* opções do domínio numa barra lateral à direita (pedido do Silva, 13/10/2026), em vez da fila de botões */}
       <aside className="dom-opcoes">
-        <h4>{t('Opções')}</h4>
+        {/* modelo da imagem do Silva (13/10/2026): Gerir (vai à secção da página) · Ações · Alojamento */}
+        <h4>{t('Gerir')}</h4>
+        {(
+          [
+            ['dom-info', 'fa-circle-info', 'Visão geral', true],
+            ['dom-renovacao', 'fa-rotate', 'Renovação automática', true],
+            ['dom-ns', 'fa-server', 'Servidores de nome', true],
+            ['dom-trava', 'fa-lock', 'Trava de registo', true],
+            ['dom-contactos', 'fa-address-card', 'Informações de contacto', true],
+            ['dom-epp', 'fa-key', 'Obter código EPP', true],
+          ] as [string, string, string, boolean][]
+        )
+          .filter(([, , , v]) => v && !x.soEmail)
+          .map(([id, fa, rot]) => (
+            <button key={id} className="dom-op" onClick={() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'center' })}>
+              <i className={'fa-solid ' + fa} />
+              {t(rot)}
+            </button>
+          ))}
+        <h4>{t('Ações')}</h4>
+        {reg.renovacao ? (
+          <a className="dom-op" href={'/renovacao/iniciar/domain/' + reg.renovacao}>
+            <i className="fa-solid fa-rotate-right" />
+            {t('Renovar domínio')}
+          </a>
+        ) : (
+          <button className="dom-op" disabled title={t('Renova-se no registador onde o domínio está')}>
+            <i className="fa-solid fa-rotate-right" />
+            {t('Renovar domínio')}
+          </button>
+        )}
+        <button className="dom-op" onClick={() => nav('/' + vh.s.level + '/dominios/registar')}>
+          <i className="fa-solid fa-globe" />
+          {t('Registar novo domínio')}
+        </button>
+        <button className="dom-op" onClick={() => nav('/' + vh.s.level + '/dominios/transferir')}>
+          <i className="fa-solid fa-share" />
+          {t('Transferir um domínio')}
+        </button>
+        <h4>{t('Alojamento')}</h4>
         {!x.soEmail && (
           <a className="dom-op" href={'https://' + d} target="_blank" rel="noreferrer">
             <i className="fa-solid fa-arrow-up-right-from-square" />
@@ -872,6 +946,7 @@ export const subdominios: ScreenFn = (vh) => ({
 // ---------- DNS (organização do modelo DNS central do painel da VisualDesign; adicionar/editar em janela) ----------
 const TIPOS_DNS = ['A', 'AAAA', 'CNAME', 'MX', 'TXT', 'NS', 'SRV', 'CAA'];
 const NA_CLOUDFLARE = ['A', 'AAAA', 'CNAME', 'MX', 'TXT'];
+const NS_PUBLICO = 'ns-publico-';
 type RegistoDns = Detalhe['dns']['registos'][number];
 
 /** Janela de adicionar / editar um registo (os mesmos campos do DirectAdmin) */
@@ -1020,8 +1095,14 @@ function Dns() {
   if (!x) return <SemDominio soSite={false} />;
   if (!det) return <Carregar erro={erro} ler={ler} />;
   const dns = det.dns;
-  const rows = dns.registos.filter((r) => !filtro || r.tipo === filtro);
-  const editavel = (r: RegistoDns) => dns.fonte === 'hestia' || NA_CLOUDFLARE.includes(r.tipo);
+  // os nameservers do domínio também aparecem (pedido do Silva, 13/10/2026): a Cloudflare não os devolve como
+  // registos — entram como NS só de leitura (mudam-se na gestão do domínio, em "Servidores de nome")
+  const nsPublicos: RegistoDns[] = dns.registos.some((r) => r.tipo === 'NS')
+    ? []
+    : (det.ns || []).map((n, i) => ({ id: NS_PUBLICO + i, nome: '@', tipo: 'NS', valor: n, ttl: 1 }));
+  const rows = [...dns.registos, ...nsPublicos].filter((r) => !filtro || r.tipo === filtro);
+  const soLeitura = (r: RegistoDns) => r.id.startsWith(NS_PUBLICO);
+  const editavel = (r: RegistoDns) => !soLeitura(r) && (dns.fonte === 'hestia' || NA_CLOUDFLARE.includes(r.tipo));
 
   const iniciarEdicao = (r: RegistoDns) => {
     setEditId(r.id);
@@ -1100,6 +1181,7 @@ function Dns() {
           onRecarregar={ler}
           umaLinha
           barraFora
+          empilhar="botoes-em-baixo"
           empty="Nenhum registo encontrado para este filtro"
           cols={[
             {
@@ -1230,6 +1312,15 @@ function Dns() {
                 </span>
               );
             }
+            if (soLeitura(r))
+              return (
+                <span className="dns-acoes dns-so-leitura" title={t('Mudam-se na gestão do domínio, em "Servidores de nome"')}>
+                  <button className="btn sm g" onClick={() => vh.nav('/' + vh.s.level + '/dominios/' + encodeURIComponent(x.name))}>
+                    <i className="fa-solid fa-server" />
+                    {t('Servidores de nome')}
+                  </button>
+                </span>
+              );
             return (
               <span className="dns-acoes">
                 <button
@@ -1252,7 +1343,15 @@ function Dns() {
             );
           }}
           bulk={[
-            { t: 'Remover', fa: 'fa-trash', run: (k) => remover(k, 'Vai remover ' + k.length + ' registo(s) de ' + x.name + '.') },
+            {
+              t: 'Remover',
+              fa: 'fa-trash',
+              run: (k) => {
+                const ids = k.filter((id) => !id.startsWith(NS_PUBLICO));
+                if (!ids.length) return vh.toast('Os nameservers mudam-se na gestão do domínio');
+                remover(ids, 'Vai remover ' + ids.length + ' registo(s) de ' + x.name + '.');
+              },
+            },
           ]}
         />
         </>

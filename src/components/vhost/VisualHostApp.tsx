@@ -7,9 +7,9 @@ import { usePathname } from 'next/navigation';
 import { BarraPagina, FaixaAbas, PesquisaPagina, VHContext, type ItemPesquisa, type VH } from './context';
 import { GLOBAL, LEVELS, MENU, ROLES } from './generated/data';
 import { dominioVisivel, type DadosServidor } from './servidor';
+import { CACHE_DADOS_VHOST, apagarDadosVhost, guardarDadosVhost } from '@/lib/vhost-cache';
 import { translate, type Lang } from './i18n';
-import { EntradaPainel, LINGUA_LS, type ModoTema } from './entrada';
-import { Esqueleto } from './paginas/componentes';
+import { EntradaPainel, EsperaEntrada, LINGUA_LS, type ModoTema } from './entrada';
 import { auth } from '@/lib/supabase-client';
 import { MoreMenuModal } from './modals';
 import { SCREENS, denyScreen, placeholder, type Screen } from './screens';
@@ -136,25 +136,18 @@ class FalhaPagina extends Component<{ children: ReactNode; t: (s: string) => str
 
 // Última leitura da conta guardada neste navegador, para o painel abrir logo com conteúdo (nunca em branco à espera do
 // servidor — pedido do Silva, 13/10/2026). Não tem palavras-passe; apaga-se ao sair e quando a sessão é recusada.
-const CACHE_DADOS = 'vh-dados';
+const CACHE_DADOS = CACHE_DADOS_VHOST;
 function lerCache(): DadosServidor | null {
   try {
+    localStorage.removeItem('vh-dados');
     const v = localStorage.getItem(CACHE_DADOS);
     return v ? (JSON.parse(v) as DadosServidor) : null;
   } catch {
     return null;
   }
 }
-function guardarCache(d: DadosServidor) {
-  try {
-    localStorage.setItem(CACHE_DADOS, JSON.stringify(d));
-  } catch {}
-}
-function apagarCache() {
-  try {
-    localStorage.removeItem(CACHE_DADOS);
-  } catch {}
-}
+const guardarCache = (d: DadosServidor) => guardarDadosVhost(d);
+const apagarCache = apagarDadosVhost;
 
 /** Lugar de uma página: escondido enquanto as leituras sem nada em memória não acabam; depois avisa (uma vez) */
 type RegistarFonte = (chave: string, id: string, fonte: () => ItemPesquisa[]) => () => void;
@@ -886,9 +879,11 @@ export function VisualHostApp({ temSessao = true }: { temSessao?: boolean }) {
     const er = st.erro;
     // sem sessão (cookie visto já no servidor) ou sessão recusada: a página de entrada no modelo do DA, sem piscar
     const entrada = er?.codigo === 401 || (!er && !aEntrar && semSessao);
-    // a ler o servidor pela primeira vez neste navegador (sem leitura guardada): o painel em esqueleto, nunca uma
-    // página em branco (pedido do Silva, 13/10/2026)
-    const aCarregar = !er && !entrada;
+    if (!er && !entrada) return (
+      <div className="vh" data-theme={st.theme} style={themeStyles as React.CSSProperties} lang="pt-PT" suppressHydrationWarning>
+        <EsperaEntrada />
+      </div>
+    );
     if (entrada)
       return (
         <div className="vh" data-theme={st.theme} style={themeStyles as React.CSSProperties} lang={st.lang === 'en' ? 'en' : 'pt-PT'} suppressHydrationWarning>
@@ -949,14 +944,7 @@ export function VisualHostApp({ temSessao = true }: { temSessao?: boolean }) {
                 <h1 className="dash">Dashboard</h1>
                 <p>{t('Painel de alojamento')}</p>
               </div>
-              <nav className="side">
-                {aCarregar &&
-                  [70, 55, 62, 48, 66, 52].map((w, i) => (
-                    <div key={i} className="esq-menu">
-                      <span className="sk" style={{ width: w + '%' }} />
-                    </div>
-                  ))}
-              </nav>
+              <nav className="side" />
             </div>
           </aside>
           <div className="right">
@@ -966,7 +954,6 @@ export function VisualHostApp({ temSessao = true }: { temSessao?: boolean }) {
                 <img className="only-m" src={logo} alt="" />
                 <div className="bt">
                   <h1>{t('Painel VisualHost')}</h1>
-                  {aCarregar && <p>{t('A abrir o painel…')}</p>}
                 </div>
               </div>
               <div className="sp" />
@@ -977,18 +964,12 @@ export function VisualHostApp({ temSessao = true }: { temSessao?: boolean }) {
               </div>
             </header>
             <main id="main">
-              {aCarregar ? (
-                <div className="da-main-card">
-                  <Esqueleto />
-                </div>
-              ) : (
-                <div className="card espera-msg" id="espera">
-                  <i className={'fa-solid ' + aviso.fa + ' big'} />
-                  <b>{t(aviso.titulo)}</b>
-                  <p>{t(aviso.texto)}</p>
-                  {aviso.botao}
-                </div>
-              )}
+              <div className="card espera-msg" id="espera">
+                <i className={'fa-solid ' + aviso.fa + ' big'} />
+                <b>{t(aviso.titulo)}</b>
+                <p>{t(aviso.texto)}</p>
+                {aviso.botao}
+              </div>
             </main>
           </div>
         </div>
