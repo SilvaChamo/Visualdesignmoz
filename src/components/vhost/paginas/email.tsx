@@ -13,7 +13,7 @@ import { pacoteDe } from '../state';
 import { Stat } from '../ui';
 import { Check, DataTable, novaSenha, Senha, Switch, Tabs } from './componentes';
 import { Confirmar } from './pacotes';
-import { AO_ABRIR, EsperaPagina, FUNDO, useGet } from '../carga';
+import { AO_ABRIR, EsperaPagina, FUNDO, useGet, useNaMemoria } from '../carga';
 
 // ---------- Menu: Mailmarketing nos Extras, a seguir ao Webmail (sem mexer nos ficheiros gerados da maquete) ----------
 {
@@ -1585,7 +1585,7 @@ function Mx() {
   const [modelo, setModelo] = useState('');
   // useGet: a página só aparece quando o DNS chega (como as outras), e ao voltar aparece logo e atualiza por trás
   const { dados, erro, ler } = useGet<{ dns: { fonte: string; zona: string; registos: Registo[] } }>(
-    d ? '/api/vhost/dominio?conta=' + encodeURIComponent(vh.me) + '&d=' + encodeURIComponent(d) + '&so=dns' : null,
+    d ? urlDnsEmail(vh.me, d) : null,
   );
   const dns = dados?.dns ?? null;
   if (!d) return <SemEmail d="" />;
@@ -1627,19 +1627,17 @@ function Mx() {
   const local = rows.some((r) => r.valor.replace(/\.$/, '') === 'mail.' + d);
   return (
     <>
+      {/* modelo da página de domínio (Silva, 13/10/2026): separador a abrir o cartão com o "Ações" à direita,
+          "+ Adicionar registo" na barra de cima, nenhum botão por cima da tabela */}
+      <Tabs tabs={[['mx', 'Registos MX', 'fa-server']]} on="mx" onChange={() => {}} />
       <DataTable
         id="email-mx"
+        umaLinha
+        barraFora
+        empilhar="botoes-em-baixo"
         rows={rows}
         rowKey={(r) => r.id}
-        onRecarregar={ler}
         empty="Este domínio não tem registos MX"
-        inicioBarra2={
-          <button className="btn r" onClick={() => openM(<MxModal d={d} onFeito={ler} />)}>
-            <i className="fa-solid fa-plus" />
-            {t('Adicionar registo')}
-          </button>
-        }
-        barra2={<span className="dns-ns">{dns.fonte === 'cloudflare' ? t('DNS na Cloudflare') : t('DNS neste servidor')}</span>}
         cols={[
           { k: 'nome', t: 'Nome', cell: (r) => <b>{r.nome === '@' ? dns.zona : r.nome}</b> },
           { k: 'ttl', t: 'TTL', cell: (r) => (r.ttl === 1 ? 'auto' : r.ttl) },
@@ -1694,7 +1692,40 @@ function Mx() {
     </>
   );
 }
-export const mxPagina: ScreenFn = () => ({ title: 'Registos MX', body: <Mx /> });
+/** Leitura do DNS do domínio de e-mail (a mesma da página: memória comum) */
+const urlDnsEmail = (me: string, d: string) => '/api/vhost/dominio?conta=' + encodeURIComponent(me) + '&d=' + encodeURIComponent(d) + '&so=dns';
+/** "+ Adicionar registo" na barra de cima (o "+ Adicionar…" principal fica lá quando está livre) */
+function NovoMx() {
+  const vh = useVH();
+  const d = dominioEmail(vh);
+  const { dados, ler } = useGet<{ dns: { fonte: string } }>(d ? urlDnsEmail(vh.me, d) : null);
+  if (!d || !dados || dados.dns.fonte === 'nenhuma') return null;
+  return (
+    <button className="btn r" onClick={() => vh.openM(<MxModal d={d} onFeito={ler} />)}>
+      <i className="fa-solid fa-plus" />
+      {vh.t('Adicionar registo')}
+    </button>
+  );
+}
+/** Descrição da barra de cima: "Definir para onde vai o e-mail do domínio | DNS na Cloudflare" */
+function DescMx() {
+  const vh = useVH();
+  const d = dominioEmail(vh);
+  const dados = useNaMemoria<{ dns: { fonte: string } }>(d ? urlDnsEmail(vh.me, d) : '');
+  const f = dados?.dns.fonte;
+  return (
+    <>
+      {vh.t('Definir para onde vai o e-mail do domínio')}
+      {f && f !== 'nenhuma' && (
+        <>
+          <span className="pdesc-sep">|</span>
+          {vh.t(f === 'cloudflare' ? 'DNS na Cloudflare' : 'DNS neste servidor')}
+        </>
+      )}
+    </>
+  );
+}
+export const mxPagina: ScreenFn = () => ({ title: 'Registos MX', descEl: <DescMx />, actions: <NovoMx />, body: <Mx /> });
 
 // ---------- Rastreio de e-mail ----------
 type Msg = { id: string; data: string; de: string; para: string[]; estado: string; tam: number; dir: string; motivo: string };
@@ -1834,21 +1865,22 @@ function Migracoes() {
   const corEstado = (e: string) => (e === 'terminada' ? 'ok' : e === 'falhou' || e === 'interrompida' ? 'bad' : e === 'parada' ? 'off' : 'w');
   return (
     <>
+      {/* modelo da página de domínio (Silva, 13/10/2026): separador a abrir o cartão e tudo o resto dentro do "Ações"
+          ("Importar e-mails", a ação principal, fica na barra de cima) */}
+      <Tabs tabs={[['migracoes', 'Migrações', 'fa-right-left']]} on="migracoes" onChange={() => {}} />
       <DataTable
         id="email-migracoes"
+        umaLinha
+        barraFora
+        empilhar
         rows={lista || []}
         rowKey={(r) => r.id}
-        onRecarregar={ler}
         empty={lista ? 'Nenhuma migração' : 'A ler…'}
-        barra2={
-          <>
-            <Check checked={auto} onChange={setAuto} label="Atualizar a cada 15 s" />
-            <button className="btn g sm" onClick={ler}>
-              <i className="fa-solid fa-rotate" />
-              {t('Recarregar')}
-            </button>
-          </>
-        }
+        bulk={[
+          { t: 'Exportar e-mails', fa: 'fa-upload', sempre: true, run: () => vh.nav('/utilizador/imapsync/exportar') },
+          { t: 'Recarregar', fa: 'fa-rotate', sempre: true, run: () => void ler() },
+          { t: auto ? 'Parar a atualização automática' : 'Atualizar a cada 15 s', fa: auto ? 'fa-pause' : 'fa-play', sempre: true, run: () => setAuto(!auto) },
+        ]}
         cols={[
           { k: 'destino', t: 'E-mail de destino', cell: (r) => <b>{r.destino}</b> },
           { k: 'origem', t: 'E-mail de origem', cell: (r) => r.origem },
@@ -1860,8 +1892,8 @@ function Migracoes() {
             t: 'Estado',
             cell: (r) => (
               <span title={[r.erro, ...(r.avisos || [])].filter(Boolean).join(' · ')}>
-                <span className={'tag ' + corEstado(r.estado)}>{t(r.estado)}</span>{' '}
-                <small style={{ color: 'var(--muted)' }}>
+                <span className={'tag ' + corEstado(r.estado)}>{t(r.estado)}</span>
+                <small style={{ color: 'var(--muted)', display: 'block', marginTop: 3 }}>
                   {r.copiadas}/{r.total} {t('mensagens')}
                   {r.existentes ? ' · ' + r.existentes + ' ' + t('já lá estavam') : ''}
                 </small>
@@ -1881,7 +1913,7 @@ function Migracoes() {
           )
         }
       />
-      <p className="em-nota">{t('Esta página mostra as migrações de caixas de correio começadas aqui. Uma migração nova começa-se nos botões em cima; corre no servidor mesmo que feche o painel.')}</p>
+      <p className="em-nota">{t('Esta página mostra as migrações de caixas de correio começadas aqui. Uma migração nova começa-se em "Importar e-mails" (em cima) ou em "Exportar e-mails" (no menu Ações); corre no servidor mesmo que feche o painel.')}</p>
     </>
   );
 }
@@ -1964,16 +1996,10 @@ export const migracaoPagina: ScreenFn = (vh) => {
   return {
     title: 'Migração de e-mail',
     actions: (
-      <>
-        <button className="btn g sec-m" onClick={() => vh.nav('/utilizador/imapsync/exportar')}>
-          <i className="fa-solid fa-upload" />
-          {vh.t('Exportar e-mails')}
-        </button>
-        <button className="btn r" onClick={() => vh.nav('/utilizador/imapsync/importar')}>
-          <i className="fa-solid fa-download" />
-          {vh.t('Importar e-mails')}
-        </button>
-      </>
+      <button className="btn r" onClick={() => vh.nav('/utilizador/imapsync/importar')}>
+        <i className="fa-solid fa-download" />
+        {vh.t('Importar e-mails')}
+      </button>
     ),
     body: <Migracoes />,
   };
