@@ -177,6 +177,50 @@ export function Tabs<K extends string>({ tabs, on, onChange, sub }: { tabs: [K, 
   );
 }
 
+/** Menu "Ações" na faixa dos separadores para as páginas sem tabela (ex.: editores): o mesmo botão das tabelas, com
+ *  tudo o que se faz na página lá dentro (modelo global do painel, CLAUDE.md). `inativo` desliga uma opção; `perigo`
+ *  pinta-a de vermelho, depois de um separador. */
+export function MenuAcoes({ itens }: { itens: { t: string; fa: string; run: () => void; inativo?: boolean; perigo?: boolean }[] }) {
+  const { t } = useVH();
+  const faixa = useContext(FaixaAbas);
+  const [aberto, setAberto] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!aberto) return;
+    const fechar = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && setAberto(false);
+    document.addEventListener('mousedown', fechar);
+    return () => document.removeEventListener('mousedown', fechar);
+  }, [aberto]);
+  const menu = (
+    <div className="dt-cols dt-acoes" ref={ref}>
+      <button className="btn g sm" onClick={() => setAberto(!aberto)}>
+        {t('Ações')} <i className="fa-solid fa-caret-down" />
+      </button>
+      {aberto && (
+        <div className="menu">
+          {itens.map((x, i) => (
+            <span key={x.t} style={{ display: 'contents' }}>
+              {x.perigo && i > 0 && <div className="menu-sep" />}
+              <button
+                disabled={x.inativo}
+                className={x.perigo ? 'perigo' : undefined}
+                onClick={() => {
+                  setAberto(false);
+                  x.run();
+                }}
+              >
+                <i className={'fa-solid ' + x.fa} />
+                {t(x.t)}
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+  return faixa?.el ? createPortal(menu, faixa.el) : menu;
+}
+
 /** O que se vê no cartão enquanto os dados da página chegam: a página em esqueleto (cinzento animado), nunca um cartão
  *  vazio (pedido do Silva, 13/10/2026: a página nunca pode ficar sem conteúdo por ainda estar a carregar) */
 export function Esqueleto({ linhas = 6 }: { linhas?: number }) {

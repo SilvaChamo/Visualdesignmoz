@@ -1164,3 +1164,14 @@
 .vh .dom-info-l.lk{cursor:pointer}
 .vh .dom-info-l.lk:hover>div,.vh .dom-info-l.lk:hover>i{color:var(--red)}
 @media(max-width:900px){.vh .dom-info-grelha{grid-template-columns:minmax(0,1fr)}}
+/* Páginas copiadas tal como estavam do dashboard antigo (Tailwind), ex.: Mensagem a todos → Escrever mensagem e
+   Templates. O painel anula margens, letra dos botões/campos e o estilo das tabelas com regras fora das camadas
+   (.vh *{margin:0}, .vh button{font-size:14px}, .vh th/td…), que ganham sempre ao Tailwind (que está em camadas).
+   Aqui dentro essas regras voltam atrás (revert-layer) e o Tailwind manda, como no dashboard antigo. */
+.vh .tw-livre *{margin:revert-layer}
+.vh .tw-livre :is(button,input,select,textarea){font-family:revert-layer;font-size:revert-layer}
+.vh .tw-livre :is(th,td){padding:revert-layer;border-bottom:revert-layer;white-space:revert-layer;font-size:revert-layer;text-transform:revert-layer;letter-spacing:revert-layer;color:revert-layer;background:revert-layer;font-weight:revert-layer;text-align:revert-layer;vertical-align:revert-layer}
+.vh .tw-livre tbody tr:hover{background:revert-layer}
+.vh .tw-livre :is(code,kbd){font-family:revert-layer;font-size:revert-layer;background:revert-layer;border:revert-layer;border-radius:revert-layer;padding:revert-layer;margin-right:revert-layer;color:revert-layer}
+/* opção perigosa no menu "Ações" (ex.: Eliminar definitivamente) */
+.vh .dt-acoes .menu button.perigo{color:var(--red)}

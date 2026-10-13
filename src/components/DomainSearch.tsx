@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { Check, X, Globe } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
 import { useCart } from '@/contexts/CartContext'
@@ -37,7 +38,20 @@ interface DomainSearchProps {
   /** Padding vertical ligeiramente maior nos campos e no botão de busca. */
   spacious?: boolean
   searchContainerClassName?: string
+  /** Separadores por baixo do motor de busca (Domínios | Hospedagem | SSL | Email | Suporte), como no banner da home
+   *  antes do redesenho de 17/07/2026 (commit 5a2b5b21) — pedido do Silva (13/10/2026): em todo o site onde há motor de
+   *  busca de domínios, menos no painel (o separador "Registar domínio" fica como está). */
+  abas?: boolean
 }
+
+/** Os separadores do motor de busca: Domínios (ativo) e os outros serviços, cada um para a sua página */
+const ABAS_BUSCA: [string, string][] = [
+  ['home.tabs.domains', '/servicos/dominios'],
+  ['home.tabs.hosting', '/precos/hospedagem'],
+  ['home.tabs.ssl', '/precos/ssl'],
+  ['home.tabs.email', '/precos/email'],
+  ['home.tabs.support', '/precos/suporte'],
+]
 
 const TLDS = DOMAIN_TLD_PRICES
 
@@ -50,6 +64,7 @@ export default function DomainSearch({
   lightSection = false,
   spacious = false,
   searchContainerClassName = '',
+  abas = false,
 }: DomainSearchProps) {
   const { t } = useI18n()
   const { addItem, setIsCartOpen } = useCart()
@@ -600,6 +615,26 @@ export default function DomainSearch({
   return (
     <div className="flex w-full flex-col items-stretch">
       {renderSearchRow()}
+
+      {abas ? (
+        <div className="mt-6 flex justify-center">
+          <div className="flex flex-wrap justify-center gap-1 px-2 sm:gap-2 sm:px-0">
+            {ABAS_BUSCA.map(([tabKey, href]) => (
+              <Link
+                key={tabKey}
+                href={href}
+                className={`relative flex items-center justify-center rounded-md px-2 py-1 text-center text-xs font-medium text-white transition-all sm:px-3 sm:text-sm md:px-4 ${
+                  tabKey === 'home.tabs.domains'
+                    ? 'bg-red-600'
+                    : 'bg-black hover:bg-red-600 dark:border dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800'
+                }`}
+              >
+                {t(tabKey)}
+              </Link>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       {showAdminResults ? <div className="mt-5 w-full">{renderResultsPanel(true)}</div> : null}
 

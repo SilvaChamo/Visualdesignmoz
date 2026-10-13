@@ -108,7 +108,7 @@ export function VisualWebBody() {
       <NotchSection shape="mid" bg="bg-white dark:bg-[#141414]" className="py-[30px]">
         <div className="container mx-auto max-w-7xl px-4 sm:px-6">
           <div className="max-w-4xl mx-auto">
-            <DomainSearch panelFieldRounding lightSection spacious />
+            <DomainSearch panelFieldRounding lightSection spacious abas />
           </div>
         </div>
       </NotchSection>
