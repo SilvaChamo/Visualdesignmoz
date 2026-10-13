@@ -1,0 +1,104 @@
+name: "Ops - Contabo: desbloqueia os IPs de Moçambique desta noite + host. vai directo para /host:2026/"
+
+# ============================================================================
+# 13/10/2026 (pedido do Silva: "Do site não consigo entrar no painel, corrija e publique"):
+#  1) O site passa pela Cloudflare, mas o login fala directamente com supabase-contabo.visualdesignmoz.com
+#     (Contabo). A lista de bloqueios do Contabo tem 5 IPs 41.220.200-201.x (jail RECIDIVE) bloqueados entre
+#     17:23 de 12/10 e 02:47 de 13/10 (hora do servidor) — as horas em que o Silva estava a tentar entrar
+#     ("nem no hestia, nem no painel, nem local, nem online"). Desbloqueia SÓ esses IPs, e só se o registo
+#     (RDAP/whois) disser que são de Moçambique; mostra antes qual serviço causou o bloqueio (para não voltar).
+#  2) Depois de a versão nova (PR #47) estar no ar, o host. (443/80 e porta 2026, incluindo /evo/) passa a
+#     redireccionar directamente para https://visualdesignmoz.com/host:2026/ (um só salto, em vez de dois).
+#     Cópia de segurança antes; se o nginx -t falhar, repõe como estava.
+# Não imprime segredos. Corre só quando este ficheiro muda no ramo claude/kind-einstein-r6lyf6.
+# ============================================================================
+
+on:
+  push:
+    branches: [claude/kind-einstein-r6lyf6]
+    paths: ['.github/workflows/ops-claude-contabo-desbloqueio-host2026.yml']
+
+jobs:
+  contabo:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Desbloqueio e redireccionamento
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          username: root
+          password: ${{ secrets.CONTABO_ROOT_PASSWORD }}
+          command_timeout: 30m
+          script: |
+            set +e
+            H=/usr/local/hestia/bin
+
+            echo "===== 1. IPs 41.220.200-201.x bloqueados ====="
+            IPS=$($H/v-list-firewall-ban plain 2>/dev/null | awk '$1 ~ /^41\.220\.20[01]\./ {print $1}' | sort -u)
+            [ -z "$IPS" ] && echo "  (nenhum bloqueado agora)"
+            for ip in $IPS; do
+              PAIS=$(curl -s --max-time 15 "https://rdap.afrinic.net/rdap/ip/$ip" | grep -o '"country" *: *"[A-Z]*"' | head -1 | grep -o '[A-Z][A-Z]')
+              [ -z "$PAIS" ] && PAIS=$(whois "$ip" 2>/dev/null | grep -im1 '^country:' | awk '{print toupper($2)}')
+              REDE=$(curl -s --max-time 15 "https://rdap.afrinic.net/rdap/ip/$ip" | grep -o '"name" *: *"[^"]*"' | head -1 | cut -d'"' -f4)
+              echo "  $ip  país=${PAIS:-?}  rede=${REDE:-?}"
+              echo "    origem do bloqueio (fail2ban):"
+              { zcat -f /var/log/fail2ban.log* 2>/dev/null; } | grep -E "\] (Found|Ban) $ip( |$)" | grep -v recidive | awk '{print $6, $7}' | sort | uniq -c | sed 's/^/      /' | head -8
+              echo -n "    e-mail (dovecot) falhas: "; zcat -f /var/log/dovecot.log* 2>/dev/null | grep "rip=$ip" | grep -ciE "auth failed|password mismatch|unknown user"
+              zcat -f /var/log/dovecot.log* 2>/dev/null | grep "rip=$ip" | grep -iE "auth failed|password mismatch|unknown user" | grep -o "user=<[^>]*>" | sort | uniq -c | sed 's/^/      /' | head -5
+              echo -n "    e-mail (exim) falhas: "; zcat -f /var/log/exim4/mainlog* 2>/dev/null | grep "\[$ip\]" | grep -ci "authenticator failed"
+              zcat -f /var/log/exim4/mainlog* 2>/dev/null | grep "\[$ip\]" | grep -i "authenticator failed" | grep -o "set_id=[^ )]*" | sort | uniq -c | sed 's/^/      /' | head -5
+              echo -n "    hestia falhas: "; grep -h "$ip" /usr/local/hestia/log/auth.log 2>/dev/null | grep -ci "fail"
+              grep -h "$ip" /usr/local/hestia/log/auth.log 2>/dev/null | grep -i "fail" | awk '{print $3}' | sort | uniq -c | sed 's/^/      /' | head -5
+              echo -n "    ssh falhas: "; zcat -f /var/log/auth.log* 2>/dev/null | grep "from $ip " | grep -c "Failed\|Invalid"
+
+              if [ "$PAIS" = "MZ" ]; then
+                for c in $($H/v-list-firewall-ban plain 2>/dev/null | awk -v ip="$ip" '$1==ip {print $2}'); do
+                  $H/v-delete-firewall-ban "$ip" "$c" >/dev/null 2>&1
+                done
+                fail2ban-client unban "$ip" >/dev/null 2>&1
+                if iptables -S 2>/dev/null | grep -q -- "-s $ip/"; then echo "    ATENÇÃO: ainda aparece no iptables"; else echo "    -> DESBLOQUEADO"; fi
+              else
+                echo "    -> não é de Moçambique (ou sem registo): fica bloqueado"
+              fi
+            done
+
+            echo
+            echo "===== 2. esperar pela versão nova (PR #47) ====="
+            NOVA=0
+            for i in $(seq 1 60); do
+              R=$(curl -s -o /dev/null -w "%{redirect_url}" --max-time 15 https://visualdesignmoz.com/vhost/2026/)
+              case "$R" in *"/host:2026"*) NOVA=1; break;; esac
+              sleep 20
+            done
+            if [ "$NOVA" != 1 ]; then
+              echo "  a versão nova ainda não está no ar — host. fica como está (vai para /vhost/2026/, que funciona)"
+              exit 0
+            fi
+            echo "  versão nova no ar"
+
+            echo
+            echo "===== 3. host. -> https://visualdesignmoz.com/host:2026/ ====="
+            DIR=/home/vdadmin/conf/web/host.visualdesignmoz.com
+            P2026=/etc/nginx/conf.d/visualhost-porta2026.conf
+            BK=/root/visualhost-backup-$(date +%Y%m%d%H%M%S)
+            mkdir -p "$BK" && cp -a "$P2026" "$DIR/nginx.ssl.conf_vhost2026" "$DIR/nginx.conf_vhost2026" "$BK"/ 2>/dev/null
+            echo "  cópia de segurança em $BK"
+            sed -i 's#https://visualdesignmoz.com/vhost/2026/#https://visualdesignmoz.com/host:2026/#g' "$P2026" "$DIR/nginx.ssl.conf_vhost2026" "$DIR/nginx.conf_vhost2026"
+            grep -h "return\|error_page" "$P2026" "$DIR/nginx.ssl.conf_vhost2026" | sed 's/^ */  /'
+            if nginx -t >/dev/null 2>&1; then
+              systemctl reload nginx && echo "  nginx recarregado"
+            else
+              nginx -t 2>&1 | tail -5
+              echo "ERRO: nginx -t falhou — reponho como estava"
+              cp -a "$BK/$(basename "$P2026")" "$P2026"
+              cp -a "$BK/nginx.ssl.conf_vhost2026" "$BK/nginx.conf_vhost2026" "$DIR"/
+              nginx -t >/dev/null 2>&1 && systemctl reload nginx
+              exit 1
+            fi
+
+            echo
+            echo "===== 4. verificação ====="
+            sleep 2
+            for u in https://host.visualdesignmoz.com:2026/evo/ https://host.visualdesignmoz.com:2026/ https://host.visualdesignmoz.com/ https://visualdesignmoz.com/host:2026/ https://visualdesignmoz.com/vhost/2026/ https://visualdesignmoz.com/login https://visualdesignmoz.com/; do
+              echo -n "  $u -> "; curl -s -o /tmp/r.html -w "%{http_code} %{redirect_url}" --max-time 20 "$u"; echo " | $(grep -o '<title>[^<]*' /tmp/r.html | head -1)"; rm -f /tmp/r.html
+            done
