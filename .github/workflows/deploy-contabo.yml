@@ -62,12 +62,16 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan "${{ secrets.CONTABO_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
 
+      # Publicar sem deitar o site abaixo (pedido do Silva, 13/10/2026 — desde que visualdesignmoz.com passou para o
+      # Contabo, cada publicação deixava o site ~10 min com página branca / "Internal Server Error"): o código novo vai
+      # para uma pasta À PARTE (-novo), é instalado e construído lá enquanto o site continua a servir a versão anterior,
+      # e só no fim as pastas trocam (segundos). Ver o passo seguinte.
       - name: Sync files to Contabo
         run: |
           rsync -avz --delete \
             -e "ssh -i ~/.ssh/deploy_key" \
             --exclude 'node_modules' --exclude '.next' --exclude '.git' --exclude '*.env*' --exclude '.DS_Store' \
-            ./ "root@${{ secrets.CONTABO_HOST }}:/opt/visualdesign-site-teste/"
+            ./ "root@${{ secrets.CONTABO_HOST }}:/opt/visualdesign-site-teste-novo/"
 
       - name: Build and (re)start on Contabo
         uses: appleboy/ssh-action@v1.2.5
@@ -84,7 +88,14 @@ jobs:
           command_timeout: 30m
           script: |
             set -e
-            cd /opt/visualdesign-site-teste
+            SITE=/opt/visualdesign-site-teste
+            NOVO=/opt/visualdesign-site-teste-novo
+            ANTIGO=/opt/visualdesign-site-teste-antigo
+            # Tudo (variáveis, instalação, build) acontece na pasta nova; o site em $SITE continua a responder até à
+            # troca no fim. Os ficheiros .env* do servidor nunca vêm do GitHub: passam do site em funcionamento para a
+            # pasta nova antes de serem actualizados abaixo.
+            cd "$NOVO"
+            cp -a "$SITE"/.env* "$NOVO"/ 2>/dev/null || true
             touch .env.local
             set_env_var() {
               # grep -v + reescrever em vez de "sed -i s|...|...|" — um valor
@@ -227,17 +238,25 @@ jobs:
             # Apagar antes de reconstruir elimina essa classe de corrupção.
             rm -rf .next
             npm run build
+            # Troca rápida: só agora o site pára, por segundos (antes parava durante toda a instalação e o build).
+            # Se a instalação ou o build falharem (set -e), o script pára antes daqui e o site fica na versão anterior.
             # Um processo antigo (visualdesign-panel em /opt/visualdesign-panel)
             # ficava a escutar a 3002. O restart desta app falhava com
             # EADDRINUSE, o GitHub Actions marcava sucesso, e o site público
             # continuava a servir o código velho — abas de domínios vazias.
             pm2 delete visualdesign-panel || true
             pm2 stop visualdesign-site-teste || true
-            sleep 2
+            rm -rf "$ANTIGO"
+            mv "$SITE" "$ANTIGO"
+            mv "$NOVO" "$SITE"
+            cd "$SITE"
+            sleep 1
             fuser -k 3002/tcp || true
             sleep 1
             pm2 start visualdesign-site-teste || pm2 start npm --name "visualdesign-site-teste" --cwd /opt/visualdesign-site-teste -- start -- -p 3002
             pm2 save
+            # A versão anterior fica como base da próxima publicação (o rsync só envia o que mudou).
+            mv "$ANTIGO" "$NOVO"
             # Reinicia o site sozinho se deixar de responder (commit 373a3863).
             bash scripts/install-site-watchdog.sh
 
