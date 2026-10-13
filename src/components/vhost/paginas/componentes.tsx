@@ -4,7 +4,7 @@
 // separadores e tabela com pesquisa/colunas/seleção/ações em massa (como nas listas do DirectAdmin).
 import { useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { BarraPagina, FaixaAbas, PesquisaPagina, useVH } from '../context';
+import { BarraPagina, FaixaAbas, PesquisaPagina, VHContext, useVH } from '../context';
 import type { Campo, Lim, Unit } from './dados';
 
 // ---------- Formulário ----------
@@ -173,6 +173,38 @@ export function Tabs<K extends string>({ tabs, on, onChange, sub }: { tabs: [K, 
         <i className="fa-solid fa-chevron-down" />
       </label>
       <div className="ptabs-dir" ref={faixa.set} />
+    </div>
+  );
+}
+
+/** O que se vê no cartão enquanto os dados da página chegam: a página em esqueleto (cinzento animado), nunca um cartão
+ *  vazio (pedido do Silva, 13/10/2026: a página nunca pode ficar sem conteúdo por ainda estar a carregar) */
+export function Esqueleto({ linhas = 6 }: { linhas?: number }) {
+  // também aparece antes de o painel ter os dados da conta (fora do VHContext)
+  const vh = useContext(VHContext);
+  const t = vh ? vh.t : (x: string) => x;
+  const larg = [[34, 22, 14, 16], [28, 18, 16, 12], [38, 16, 12, 18], [24, 20, 18, 14], [32, 14, 16, 16], [26, 22, 12, 12]];
+  return (
+    <div className="esq-pag" role="status" aria-label={t('A carregar')}>
+      <div className="esq-faixa">
+        <span className="sk" style={{ width: 110 }} />
+        <span className="sk" style={{ width: 90 }} />
+        <span className="sk" style={{ width: 120 }} />
+      </div>
+      <div className="esq-linhas">
+        <div className="esq-linha esq-cab">
+          {[18, 14, 12, 10].map((w, i) => (
+            <span key={i} className="sk" style={{ width: w + '%' }} />
+          ))}
+        </div>
+        {Array.from({ length: linhas }, (_, i) => (
+          <div key={i} className="esq-linha">
+            {larg[i % larg.length].map((w, j) => (
+              <span key={j} className="sk" style={{ width: w + '%' }} />
+            ))}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

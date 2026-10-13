@@ -152,6 +152,18 @@
 /* Ecrã de espera: o painel em esqueleto (cinzento animado) enquanto chegam os dados do servidor; avisos de sessão */
 .vh .sk{display:inline-block;height:12px;max-width:100%;border-radius:var(--r);vertical-align:middle;background:linear-gradient(90deg,var(--soft) 25%,var(--line-soft) 45%,var(--soft) 65%);background-size:400% 100%;animation:vh-sk 1.4s ease-in-out infinite}
 @keyframes vh-sk{0%{background-position:100% 50%}100%{background-position:0 50%}}
+/* esqueleto da página dentro do cartão (componente Esqueleto) enquanto chegam os dados dela */
+.vh .esq-faixa{display:none}
+.vh .da-main-card>.esq-pag:first-child>.esq-faixa{display:flex;align-items:center;gap:28px;height:42px;padding:0 24px;margin:-24px -24px 24px;background:var(--soft);box-shadow:inset 0 -1px 0 var(--line);border-radius:var(--r) var(--r) 0 0}
+.vh .esq-faixa .sk{background:linear-gradient(90deg,var(--line) 25%,var(--line-soft) 45%,var(--line) 65%);background-size:400% 100%}
+.vh .esq-linhas{border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.vh .esq-linha{display:flex;align-items:center;gap:6%;padding:18px 14px;border-bottom:1px solid var(--line)}
+.vh .esq-linha:last-child{border-bottom:0}
+.vh .esq-cab{background:var(--soft);padding:13px 14px}
+.vh .esq-cab .sk{height:10px;background:linear-gradient(90deg,var(--line) 25%,var(--line-soft) 45%,var(--line) 65%);background-size:400% 100%}
+@media(max-width:768px){.vh .da-main-card>.esq-pag:first-child>.esq-faixa{padding:0 12px}}
+.vh .esq-menu{padding:13px 20px 13px 10px;border-bottom:1px solid var(--line)}
+.vh .esq-menu .sk{height:13px}
 @media (prefers-reduced-motion:reduce){.vh .sk{animation:none}}
 .vh .espera .rail .rb,.vh .espera .side .grp{cursor:default}
 .vh .espera .rail .rb:hover{background:none}

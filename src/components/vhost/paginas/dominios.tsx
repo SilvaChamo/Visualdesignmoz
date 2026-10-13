@@ -10,7 +10,7 @@ import type { ScreenFn } from '../screens';
 import type { BaseDados, Domain } from '../types';
 import { pacoteDe } from '../state';
 import { getPhpMyAdminUrl } from '@/lib/server-config';
-import { Check, DataTable, Frm, Row, Senha, Switch, Tabs, novaSenha, type Col } from './componentes';
+import { Check, DataTable, Esqueleto, Frm, novaSenha, Row, Senha, Switch, Tabs, type Col } from './componentes';
 import { Confirmar } from './pacotes';
 import DomainSearch from '@/components/DomainSearch';
 import { useGet } from '../carga';
@@ -91,7 +91,9 @@ function Carregar({ erro, ler }: { erro: string; ler: () => void }) {
         {t('Tentar de novo')}
       </button>
     </div>
-  ) : null; // a carregar: só a linha do topo
+  ) : (
+    <Esqueleto /> // a carregar: a página em esqueleto, nunca vazia
+  );
 }
 
 /** Aviso do domínio em que se está a trabalhar (muda-se no seletor, em cima à direita) */

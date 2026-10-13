@@ -8,7 +8,7 @@ import dynamic from 'next/dynamic';
 import { useVH, type VH } from '../context';
 import type { ScreenFn } from '../screens';
 import { Stat } from '../ui';
-import { DataTable, Switch, Tabs } from './componentes';
+import { DataTable, Esqueleto, Switch, Tabs } from './componentes';
 import { Confirmar } from './pacotes';
 import { FUNDO, lerUrl, naMemoria, useGet } from '../carga';
 import { LOGO } from '../state';
@@ -55,7 +55,9 @@ function Carregando({ erro, ler }: { erro: string; ler: () => void }) {
         {t('Tentar de novo')}
       </button>
     </div>
-  ) : null; // a carregar: só a linha do topo
+  ) : (
+    <Esqueleto /> // a carregar: a página em esqueleto, nunca vazia
+  );
 }
 
 function Sec({ titulo, desc, numeros, children }: { titulo: string; desc?: string; numeros?: [string, string][]; children: ReactNode }) {
