@@ -45,6 +45,8 @@ para o outro) fica na memória `project_dual-folder-git-topology`.
   `BarraPagina` por cima do cartão).
 - **Screenshots enviados ao Silva vão numerados** ("Ecrã 1", "Ecrã 2", …, também no nome do ficheiro) para ele
   poder dizer qual quer mudar.
+- **Mostrar sempre também a vista de telemóvel** (largura 390px) de cada página/alteração, além da do computador
+  (pedido do Silva, 13/10/2026).
 
 # Verificação visual de alterações de UI
 
