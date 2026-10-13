@@ -4,6 +4,7 @@ name: "Ops - Força bruta (só leitura): página e avisos com os dados reais do 
 #  1) corre no servidor o mesmo script da página (/api/vhost/forca-bruta, acao=listar) e mostra os totais e 3 linhas
 #     de cada separador — confirma que lê bem o Hestia e o fail2ban de verdade;
 #  2) confirma que o cron dos avisos ficou instalado, o que ele respondeu e o registo dos já avisados.
+# (2.ª corrida: depois da 1.ª passagem do cron; o cron primeiro para o resultado do script ficar no fim do registo)
 # Corre só quando este ficheiro muda no ramo claude/kind-einstein-r6lyf6.
 
 on:
@@ -16,6 +17,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Cron dos avisos
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          username: root
+          password: ${{ secrets.CONTABO_ROOT_PASSWORD }}
+          command_timeout: 5m
+          script: |
+            set +e
+            echo -n "cron instalado: "; crontab -l 2>/dev/null | grep -c "# visualdesign-forca-bruta"
+            echo "últimas respostas do cron:"; grep -o '{"ok"[^}]*}\|{"error"[^}]*}' /var/log/visualdesign-cron.log 2>/dev/null | grep -E 'bloqueados|forca-bruta|primeiraVez|novos' | tail -3 | sed 's/^/  /'
+            echo -n "registo dos já avisados: "; ls -la /var/lib/visualdesign/forca-bruta-avisados.json 2>/dev/null || echo "ainda não existe"
+
       - name: Script da página com os dados reais
         env:
           SSHPASS: ${{ secrets.CONTABO_ROOT_PASSWORD }}
@@ -38,16 +52,3 @@ jobs:
               for x in d[k][:3]: print(' ', k, x)
           print('com fim calculado:', sum(1 for b in d['bloqueados'] if b['ate']), '| só à mão:', sum(1 for b in d['bloqueados'] if not b['ate']), '| de Moçambique:', sum(1 for b in d['bloqueados'] if b['mz']))
           PY
-
-      - name: Cron dos avisos
-        uses: appleboy/ssh-action@v1.2.5
-        with:
-          host: ${{ secrets.CONTABO_HOST }}
-          username: root
-          password: ${{ secrets.CONTABO_ROOT_PASSWORD }}
-          command_timeout: 5m
-          script: |
-            set +e
-            echo -n "cron instalado: "; crontab -l 2>/dev/null | grep -c "# visualdesign-forca-bruta"
-            echo "últimas respostas do cron:"; grep -o '{"ok"[^}]*}\|{"error"[^}]*}' /var/log/visualdesign-cron.log 2>/dev/null | grep -E 'bloqueados|forca-bruta|primeiraVez|novos' | tail -3 | sed 's/^/  /'
-            echo -n "registo dos já avisados: "; ls -la /var/lib/visualdesign/forca-bruta-avisados.json 2>/dev/null || echo "ainda não existe"
