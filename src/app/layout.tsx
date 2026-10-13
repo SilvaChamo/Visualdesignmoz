@@ -88,6 +88,15 @@ export default function RootLayout({
     <html lang="pt-MZ" suppressHydrationWarning className={siteFont.variable}>
       <head>
         <OrganizationJsonLd />
+        {/* Só no projecto local (npm run dev): um service worker que tenha ficado de um build antigo neste endereço
+            servia ficheiros velhos e fazia a página piscar (Silva, 14/10/2026). Tira-o e limpa as caches dele. */}
+        {process.env.NODE_ENV === 'development' && (
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `try{if('serviceWorker' in navigator){navigator.serviceWorker.getRegistrations().then(function(r){r.forEach(function(x){x.unregister()})})}if(window.caches){caches.keys().then(function(k){k.forEach(function(n){caches.delete(n)})})}}catch(e){}`,
+            }}
+          />
+        )}
         {/* Painel VisualHost: pede os dados do servidor logo que a página chega, em paralelo com o JavaScript
             (o painel usa esta resposta na primeira leitura — ver VisualHostApp, "carregar") */}
         <script

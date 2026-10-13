@@ -68,6 +68,11 @@ function dominioAtual(vh: VH, soSite = true): Domain | undefined {
   return lista.find((x) => x.name === vh.s.dominio) || lista[0];
 }
 const ehSub = (nome: string, de: string) => nome.endsWith('.' + de);
+/** Como `dominioAtual`, mas com um subdomínio escolhido dá o domínio de que ele faz parte */
+function principalAtual(vh: VH): Domain | undefined {
+  const x = dominioAtual(vh);
+  return x && (vh.a.domains.find((y) => y !== x && ehSub(x.name, y.name)) || x);
+}
 
 function SemDominio({ soSite = true }: { soSite?: boolean }) {
   const { t, nav } = useVH();
@@ -669,7 +674,7 @@ function VerDominio({ d }: { d: string }) {
           ],
           ['Versão PHP', 'PHP ' + x.php, 'php'],
           ['DNS', det ? (det.dns.fonte === 'cloudflare' ? 'Cloudflare' : det.dns.fonte === 'hestia' ? t('Neste servidor') : t('Fora da Visual Design')) : <span className="dom-a-ler">…</span>, 'dns'],
-          ['Subdomínios', String(nSubs), 'subdominios'],
+          ['Subdomínios', String(nSubs), 'dominios/subdominios'],
           ['Apontadores', String((x.aliases || []).length), 'apontadores'],
           ['Contas FTP', String((x.ftp || []).length), 'ftp'],
           ['Redirecionamento', det ? (det.redirecionamento ? det.redirecionamento.url : t('Nenhum')) : <span className="dom-a-ler">…</span>, 'redirecionamentos'],
@@ -821,9 +826,17 @@ export const dominios: ScreenFn = (vh) => {
       {vh.t('Adicionar domínio')}
     </button>
   );
+  // no separador Subdomínios o botão da barra de cima é o do subdomínio (o Silva clicava no "Adicionar domínio", o único
+  // à vista, e a página saltava para Adicionar domínio)
+  const novoSub = (
+    <button className="btn r" onClick={() => vh.openM(<NovoSubdominio d={principalAtual(vh)?.name || ''} />)}>
+      <i className="fa-solid fa-plus" />
+      {vh.t('Adicionar subdomínio')}
+    </button>
+  );
   const base = { t: 'Domínios', path: '/' + vh.s.level + '/dominios' };
   if (sub === 'registar') return { title: 'Domínios', actions: novoBtn, crumbs: [base, { t: 'Registar domínio' }], body: <ListaDominios abaDom="registar" /> };
-  if (sub === 'subdominios') return { title: 'Domínios', actions: novoBtn, dominios: 'sites', crumbs: [base, { t: 'Subdomínios' }], body: <ListaDominios abaDom="subdominios" /> };
+  if (sub === 'subdominios') return { title: 'Domínios', actions: novoSub, dominios: 'sites', crumbs: [base, { t: 'Subdomínios' }], body: <ListaDominios abaDom="subdominios" /> };
   if (sub === 'transferir') return { title: 'Domínios', actions: novoBtn, crumbs: [base, { t: 'Transferir domínio' }], body: <ListaDominios abaDom="transferir" /> };
   if (sub === 'novo') return { title: 'Adicionar domínio', crumbs: [{ t: 'Domínios', path: '/' + vh.s.level + '/dominios' }, { t: 'Adicionar domínio' }], body: <NovoDominio /> };
   if (sub) return { title: sub, desc: 'Resumo e atalhos do domínio', crumbs: [{ t: 'Domínios', path: '/' + vh.s.level + '/dominios' }, { t: sub }], dominioUrl: { d: sub, ir: (n) => '/' + vh.s.level + '/dominios/' + n }, body: <VerDominio d={sub} /> };
@@ -839,7 +852,7 @@ function NovoSubdominio({ d }: { d: string }) {
   const { a, t, closeM } = vh;
   const principais = a.domains.filter((x) => !x.soEmail && !a.domains.some((y) => y !== x && ehSub(x.name, y.name)));
   const [sub, setSub] = useState('');
-  const [dom, setDom] = useState(d);
+  const [dom, setDom] = useState(() => (principais.some((p) => p.name === d) ? d : principais[0]?.name || ''));
   const [frente, setFrente] = useState(true);
   const [atras, setAtras] = useState(false);
   const nome = sub.trim().toLowerCase() || 'loja';
@@ -898,7 +911,7 @@ function NovoSubdominio({ d }: { d: string }) {
 function Subdominios() {
   const vh = useVH();
   const { a, t, openM } = vh;
-  const x = dominioAtual(vh);
+  const x = principalAtual(vh);
   if (!x) return <SemDominio />;
   const rows = a.domains.filter((y) => ehSub(y.name, x.name));
   return (
@@ -917,7 +930,6 @@ function Subdominios() {
         { k: 'ssl', t: 'SSL', cell: (r) => <span className={'tag ' + (r.ssl === 'ok' ? 'ok' : 'w')}>{r.ssl === 'ok' ? t('Seguro') : t('Sem SSL')}</span> },
       ]}
       bulk={[
-        { t: 'Adicionar subdomínio', fa: 'fa-plus', sempre: true, run: () => openM(<NovoSubdominio d={x.name} />) },
         {
           t: 'Apagar',
           fa: 'fa-trash',
@@ -935,13 +947,6 @@ function Subdominios() {
     />
   );
 }
-// o endereço antigo (/subdominios, links e favoritos) abre o separador Subdomínios dos Domínios
-export const subdominios: ScreenFn = (vh) => ({
-  title: 'Domínios',
-  dominios: 'sites',
-  crumbs: [{ t: 'Domínios', path: '/' + vh.s.level + '/dominios' }, { t: 'Subdomínios' }],
-  body: <ListaDominios abaDom="subdominios" />,
-});
 
 // ---------- DNS (organização do modelo DNS central do painel da VisualDesign; adicionar/editar em janela) ----------
 const TIPOS_DNS = ['A', 'AAAA', 'CNAME', 'MX', 'TXT', 'NS', 'SRV', 'CAA'];
