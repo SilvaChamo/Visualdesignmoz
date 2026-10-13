@@ -1,0 +1,80 @@
+name: "Ops - Hetzner (só leitura): DirectAdmin ligado? regra de Moçambique? palavras-passe do e-mail iguais às do Contabo?"
+
+# ============================================================================
+# 13/10/2026 (pergunta do Silva: "ainda consegues entrar no DirectAdmin? mesmo desligado?"). SÓ LEITURA nos dois
+# servidores — nada é alterado:
+#  1) Hetzner: o servidor responde? o DirectAdmin está a correr? como estava feito "Moçambique nunca bloqueado"
+#     (CSF CC_IGNORE/CC_ALLOW, listas de IPs permitidos do DirectAdmin);
+#  2) as 5 caixas com falhas (silva.chamo, info, suporte, mailmarketing, geral @visualdesignmoz.com): a palavra-passe
+#     guardada no Hetzner é a mesma do Contabo? Só mostra uma impressão digital curta (sha256 do hash, 10 letras) —
+#     nunca a palavra-passe nem o hash.
+# Corre só quando este ficheiro muda no ramo claude/kind-einstein-r6lyf6.
+# ============================================================================
+
+on:
+  push:
+    branches: [claude/kind-einstein-r6lyf6]
+    paths: ['.github/workflows/ops-claude-hetzner-da-leitura.yml']
+
+jobs:
+  hetzner:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Hetzner (só leitura)
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.HETZNER_HOST }}
+          port: ${{ secrets.HETZNER_PORT }}
+          username: ${{ secrets.HETZNER_USER }}
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          command_timeout: 5m
+          script: |
+            set +e
+            echo "===== 1. servidor e DirectAdmin ====="
+            echo "  servidor ligado (este SSH entrou): $(hostname), ligado há $(uptime -p 2>/dev/null)"
+            echo "  DirectAdmin: $(systemctl is-active directadmin 2>/dev/null)"
+
+            echo "===== 2. regra 'Moçambique nunca bloqueado' ====="
+            if [ -f /etc/csf/csf.conf ]; then
+              echo "  CSF instalado:"; grep -E '^(CC_IGNORE|CC_ALLOW|CC_ALLOW_FILTER|CC_DENY|CC_LOOKUPS|LF_TRIGGER) ' /etc/csf/csf.conf | sed 's/^/    /'
+              for f in /etc/csf/csf.allow /etc/csf/csf.ignore; do echo "  $f: $(grep -vcE '^\s*(#|$)' $f 2>/dev/null) linhas"; grep -iE 'mz|mo[cç]ambi' "$f" 2>/dev/null | head -5 | sed 's/^/    /'; done
+            else
+              echo "  sem CSF"
+            fi
+            grep -iE '^(brute|bruteforce|ip_brutecount|clear_brute|brute_force)' /usr/local/directadmin/conf/directadmin.conf 2>/dev/null | head -10 | sed 's/^/  DA: /'
+            for f in /usr/local/directadmin/data/admin/ip_whitelist /usr/local/directadmin/data/admin/brute_skip.list; do
+              [ -f "$f" ] && { echo "  $f: $(grep -vcE '^\s*(#|$)' "$f") linhas"; head -5 "$f" | sed 's/^/    /'; }
+            done
+            command -v fail2ban-client >/dev/null && fail2ban-client status 2>/dev/null | sed -n '2,3p' | sed 's/^/  fail2ban: /'
+
+            echo "===== 3. e-mail: impressões digitais (Hetzner) ====="
+            P=/etc/virtual/visualdesignmoz.com/passwd
+            S=""; [ "$(id -u)" != 0 ] && S="sudo -n"
+            for u in silva.chamo info suporte mailmarketing geral; do
+              h=$($S grep "^$u:" "$P" 2>/dev/null | cut -d: -f2)
+              [ -n "$h" ] && echo "  $u  $(printf %s "$h" | sha256sum | cut -c1-10)  tipo=$(printf %s "$h" | cut -c1-3)" || echo "  $u  (não existe no Hetzner)"
+            done
+
+  contabo:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Contabo (só leitura)
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          username: root
+          password: ${{ secrets.CONTABO_ROOT_PASSWORD }}
+          command_timeout: 5m
+          script: |
+            set +e
+            echo "===== e-mail: impressões digitais (Contabo) ====="
+            DONO=$(/usr/local/hestia/bin/v-search-domain-owner visualdesignmoz.com mail 2>/dev/null)
+            P=/home/$DONO/conf/mail/visualdesignmoz.com/passwd
+            for u in silva.chamo info suporte mailmarketing geral; do
+              # Hestia guarda {ESQUEMA}hash; sem o {ESQUEMA} fica comparável com o do DirectAdmin
+              h=$(grep "^$u:" "$P" 2>/dev/null | cut -d: -f2 | sed 's/^{[^}]*}//')
+              [ -n "$h" ] && echo "  $u  $(printf %s "$h" | sha256sum | cut -c1-10)  tipo=$(printf %s "$h" | cut -c1-3)" || echo "  $u  (não existe no Contabo)"
+            done
+            echo "===== aplicação de e-mail identificada desde que ligámos o registo ====="
+            grep -h "ID sent" /var/log/dovecot.log 2>/dev/null | grep -oE "ID sent: [^:]*|rip=[0-9.]+" | paste - - | cut -c1-160 | sort | uniq -c | sort -rn | head -12 | sed 's/^/  /'
+            grep -qh "ID sent" /var/log/dovecot.log 2>/dev/null || echo "  (ainda nenhuma — a aplicação ainda não voltou a tentar)"
