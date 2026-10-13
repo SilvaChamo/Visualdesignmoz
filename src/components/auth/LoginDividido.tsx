@@ -77,7 +77,7 @@ export function LoginDividido({ children }: { children: React.ReactNode }) {
 }
 
 /** No computador, o fundo do formulário entra pela foto dentro na divisão, como uma aba, com o logótipo (pedido do Silva,
- *  13/10/2026, sobre o modelo de um menu com o item escolhido ligado ao conteúdo): arredondada só do lado esquerdo,
+ *  13/10/2026, sobre o modelo de um menu com o item escolhido ligado ao conteúdo): arredondada (10 px) só do lado esquerdo,
  *  dentro da foto; do lado direito, onde se junta ao fundo, nada. A 50 px do início da página. A aba passa 16 px para
  *  dentro do fundo, para a junção nunca deixar ver uma risca da foto. */
 function AbaLogo() {
@@ -85,12 +85,12 @@ function AbaLogo() {
     <a
       href="/"
       title="VisualDesign"
-      className="absolute right-[calc(100%-16px)] top-[50px] z-10 hidden h-[100px] w-[300px] items-center justify-center rounded-l-[50px] bg-white pl-4 pr-[28px] dark:bg-[#15161e] lg:flex"
+      className="absolute right-[calc(100%-16px)] top-[50px] z-10 hidden h-[112px] w-[350px] items-center justify-center rounded-l-[10px] bg-white pl-5 pr-[32px] dark:bg-[#15161e] lg:flex"
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/assets/logo-entrada.jpg" alt="VisualDesign" className="h-auto w-[214px] dark:hidden" />
+      <img src="/assets/logo-entrada.jpg" alt="VisualDesign" className="h-auto w-[280px] dark:hidden" />
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/assets/logo-entrada-escuro.png" alt="VisualDesign" className="hidden h-auto w-[214px] dark:block" />
+      <img src="/assets/logo-entrada-escuro.png" alt="VisualDesign" className="hidden h-auto w-[280px] dark:block" />
     </a>
   )
 }
