@@ -11,7 +11,7 @@ import type { ScreenFn } from '../screens';
 import { DESC, MENU } from '../generated/data';
 import { ico } from '../state';
 import { esquecerMemoria, useGet, useNaMemoria } from '../carga';
-import { DataTable, Senha, Switch, Tabs } from './componentes';
+import { DataTable, Esqueleto, Senha, Switch, Tabs } from './componentes';
 import { Confirmar } from './pacotes';
 
 // ---------- Peças comuns ----------
@@ -40,7 +40,9 @@ function Carregando({ erro, ler }: { erro: string; ler: () => void }) {
         {t('Tentar de novo')}
       </button>
     </div>
-  ) : null; // a carregar: só a linha do topo
+  ) : (
+    <Esqueleto /> // a carregar: a página em esqueleto, nunca vazia
+  );
 }
 
 /** Pedido ao site; mostra o resultado no aviso e devolve a resposta (ou null) */
@@ -868,18 +870,9 @@ function Mensagens({ filtro }: { filtro: 'todas' | 'nao-lidas' | 'avisos' }) {
         rowKey={(r) => r.id}
         empty={vazio}
         search={(r) => r.title + ' ' + r.message + ' ' + (r.domain || '')}
-        semBusca={false}
         umaLinha
         barraFora
         rowClass={(r) => 'msg-tipo-' + (ICONE_MSG[r.type] ? r.type : 'info') + (r.read ? '' : ' msg-por-ler')}
-        barra2={
-          dados.naoLidas ? (
-            <button className="btn sm g" onClick={() => marcar()}>
-              <i className="fa-solid fa-check-double" />
-              {t('Marcar todas como lidas')}
-            </button>
-          ) : undefined
-        }
         cols={[
           {
             k: 'm',
@@ -900,6 +893,7 @@ function Mensagens({ filtro }: { filtro: 'todas' | 'nao-lidas' | 'avisos' }) {
           { k: 'd', t: 'Data', sort: (r) => r.created_at, cell: (r) => <span className="msg-data">{dataPt(r.created_at)}</span> },
         ]}
         bulk={[
+          { t: 'Marcar todas como lidas', fa: 'fa-check-double', sempre: true, inativo: !dados.naoLidas, run: () => marcar() },
           { t: 'Marcar como lidas', fa: 'fa-check', run: (k) => marcar(k) },
           { t: 'Apagar', fa: 'fa-trash', run: (k) => vh.openM(<Confirmar titulo="Apagar as mensagens?" texto={k.length + ' ' + t('mensagem(ns) escolhida(s).')} ok="Apagar" onOk={() => apagar(k)} />) },
         ]}

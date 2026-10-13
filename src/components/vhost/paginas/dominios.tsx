@@ -10,9 +10,10 @@ import type { ScreenFn } from '../screens';
 import type { BaseDados, Domain } from '../types';
 import { pacoteDe } from '../state';
 import { getPhpMyAdminUrl } from '@/lib/server-config';
-import { Check, DataTable, Frm, Row, Senha, Switch, Tabs, novaSenha, type Col } from './componentes';
+import { VISUALDESIGN_DEFAULT_NS } from '@/lib/visualdesign-dns';
+import { Check, DataTable, Esqueleto, Frm, novaSenha, Row, Senha, Switch, Tabs, type Col } from './componentes';
 import { Confirmar } from './pacotes';
-import DomainSearch from '@/components/DomainSearch';
+import DomainSearch from '@/components/DomainSearchPainel';
 import { useGet } from '../carga';
 import { BotaoPassar } from './passar';
 import { TransferirDominio } from './transferir-dominio';
@@ -91,7 +92,9 @@ function Carregar({ erro, ler }: { erro: string; ler: () => void }) {
         {t('Tentar de novo')}
       </button>
     </div>
-  ) : null; // a carregar: só a linha do topo
+  ) : (
+    <Esqueleto /> // a carregar: a página em esqueleto, nunca vazia
+  );
 }
 
 /** Aviso do domínio em que se está a trabalhar (muda-se no seletor, em cima à direita) */
@@ -173,7 +176,6 @@ function ListaDominios({ abaDom = 'meus' }: { abaDom?: AbaDom }) {
           id="dominios"
           umaLinha
           barraFora
-          semBusca={false}
           rows={rows}
           cols={cols}
           rowKey={(r) => r.name}
@@ -297,6 +299,137 @@ function MudarNomeModal({ d }: { d: string }) {
 }
 
 // VerDominio: Resumo e Modificar Domínio (cópia fiel dos recursos e visual do DirectAdmin Evolution edit.vue)
+
+/** Nameservers do domínio (modelo do painel antigo, pedido do Silva 13/10/2026): DNS predefinido da Visual Design ou
+ *  nameservers personalizados (NS1/NS2). Lê e muda no registador por /api/registrar/domain/manage; se o domínio não
+ *  foi registado connosco, mostra os nameservers públicos e explica onde se mudam. */
+function Nameservers({ d, publicos }: { d: string; publicos?: string[] }) {
+  const vh = useVH();
+  const { t } = vh;
+  const vd = [VISUALDESIGN_DEFAULT_NS.ns1, VISUALDESIGN_DEFAULT_NS.ns2];
+  const ehVd = (l: string[]) => l.length >= 2 && l.every((n) => vd.includes(n.toLowerCase().replace(/\.$/, '')));
+  const [guardados, setGuardados] = useState<string[] | null>(null);
+  const [erro, setErro] = useState('');
+  const [modo, setModo] = useState<'vd' | 'outros'>('vd');
+  const [ns1, setNs1] = useState('');
+  const [ns2, setNs2] = useState('');
+  const [aGuardar, setAGuardar] = useState(false);
+  const aplicar = (l: string[]) => {
+    setGuardados(l);
+    setModo(ehVd(l) ? 'vd' : 'outros');
+    setNs1(ehVd(l) ? '' : l[0] || '');
+    setNs2(ehVd(l) ? '' : l[1] || '');
+  };
+  useEffect(() => {
+    let fim = false;
+    setGuardados(null);
+    setErro('');
+    fetch('/api/registrar/domain/manage?domain=' + encodeURIComponent(d), { credentials: 'include' })
+      .then(async (r) => {
+        const j = (await r.json().catch(() => ({}))) as { success?: boolean; nameservers?: unknown[]; error?: string };
+        if (fim) return;
+        const l = Array.isArray(j.nameservers) ? j.nameservers.map(String).filter(Boolean) : [];
+        if (r.ok && j.success && l.length) aplicar(l);
+        else setErro(j.error || 'Este domínio não está registado na Visual Design: os nameservers mudam-se onde foi registado.');
+      })
+      .catch(() => !fim && setErro('Sem ligação ao site. Tente de novo.'));
+    return () => {
+      fim = true;
+    };
+  }, [d]); // eslint-disable-line react-hooks/exhaustive-deps
+  const novos = modo === 'vd' ? vd : [ns1.trim(), ns2.trim()].filter(Boolean);
+  const mudou = !!guardados && novos.length >= 2 && novos.map((n) => n.toLowerCase()).join('|') !== guardados.map((n) => n.toLowerCase()).join('|');
+  const guardar = async () => {
+    setAGuardar(true);
+    try {
+      const r = await fetch('/api/registrar/domain/manage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ domain: d, action: 'set-nameservers', nameservers: novos }),
+      });
+      const j = (await r.json().catch(() => ({}))) as { success?: boolean; nameservers?: unknown[]; error?: string; message?: string };
+      if (r.ok && j.success) {
+        aplicar(Array.isArray(j.nameservers) && j.nameservers.length ? j.nameservers.map(String) : novos);
+        vh.toast(j.message || 'Nameservers alterados');
+      } else vh.toast(j.error || 'Não foi possível alterar os nameservers');
+    } catch {
+      vh.toast('Sem ligação ao site. Nada foi alterado.');
+    } finally {
+      setAGuardar(false);
+    }
+  };
+  return (
+    <div className="frm dom-ns">
+      <div className="frm-head">
+        <div>
+          <h3>{t('Nameservers')}</h3>
+          <p>{t('Escolha os nameservers predefinidos ou configure nameservers personalizados.')}</p>
+        </div>
+      </div>
+      <div className="dom-ns-corpo">
+        {erro ? (
+          <>
+            <p className="dom-ns-aviso">{t(erro)}</p>
+            <div className="dom-ns-atuais">
+              <span>{t('Nameservers atuais')}</span>
+              {(publicos && publicos.length ? publicos : ['—']).map((n) => (
+                <code key={n}>{n}</code>
+              ))}
+            </div>
+          </>
+        ) : !guardados ? (
+          <div className="esq-linhas">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="esq-linha">
+                <span className="sk" style={{ width: ['60%', '45%', '30%'][i] }} />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <>
+            <div className="dom-ns-opcoes">
+              <label className={'dom-ns-op' + (modo === 'vd' ? ' on' : '')}>
+                <input type="radio" name={'ns-' + d} checked={modo === 'vd'} onChange={() => setModo('vd')} />
+                <span>
+                  <b>{t('DNS predefinido Visual Design')}</b>
+                  <small>{vd[0]}</small>
+                  <small>{vd[1]}</small>
+                </span>
+              </label>
+              <label className={'dom-ns-op' + (modo === 'outros' ? ' on' : '')}>
+                <input type="radio" name={'ns-' + d} checked={modo === 'outros'} onChange={() => setModo('outros')} />
+                <span>
+                  <b>{t('Nameservers personalizados')}</b>
+                  <small>{t('Aponta este domínio para os nameservers indicados (ex.: Cloudflare, outro fornecedor).')}</small>
+                </span>
+              </label>
+            </div>
+            {modo === 'outros' && (
+              <div className="dom-ns-campos">
+                <label>
+                  <span>NS1</span>
+                  <input className="inp" value={ns1} onChange={(e) => setNs1(e.target.value)} placeholder="ns1.exemplo.com" />
+                </label>
+                <label>
+                  <span>NS2</span>
+                  <input className="inp" value={ns2} onChange={(e) => setNs2(e.target.value)} placeholder="ns2.exemplo.com" />
+                </label>
+              </div>
+            )}
+            <div>
+              <button className="btn r" disabled={!mudou || aGuardar} onClick={guardar}>
+                <i className={aGuardar ? 'fa-solid fa-spinner fa-spin' : 'fa-solid fa-check'} />
+                {t(aGuardar ? 'A guardar…' : 'Guardar alterações')}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function VerDominio({ d }: { d: string }) {
   const vh = useVH();
   const { a, s, t, nav, setDominio, openM } = vh;
@@ -385,105 +518,67 @@ function VerDominio({ d }: { d: string }) {
   };
 
   const ir = (p: string) => nav('/utilizador/' + p);
-  const atalhos: [string, string, string, string][] = [
-    ['subdominios', 'fa-sitemap', 'Subdomínios', a.domains.filter((y) => ehSub(y.name, d)).length + ''],
-    ['apontadores', 'fa-arrow-right-arrow-left', 'Apontadores', (x.aliases || []).length + ''],
-    ['ssl', 'fa-lock', 'SSL/TLS', x.ssl === 'ok' ? t('Seguro') : t('Sem SSL')],
-    ['ftp', 'fa-folder-open', 'FTP', (x.ftp || []).length + ''],
-    ['dns', 'fa-network-wired', 'DNS', det ? (det.dns.fonte === 'cloudflare' ? 'Cloudflare' : det.dns.fonte === 'hestia' ? t('servidor') : '—') : '…'],
-    ['redirecionamentos', 'fa-diamond-turn-right', 'Redirecionamentos', det?.redirecionamento ? '1' : '0'],
-    ['php', 'fa-brands fa-php', 'Definições PHP', x.php],
-    ['hotlink', 'fa-link-slash', 'Proteção hotlink', ''],
-  ];
-  return (
-    <>
-      <div className="acoes-topo">
-        {!x.soEmail && (
-          <a className="btn g" href={'https://' + d} target="_blank" rel="noreferrer">
-            <i className="fa-solid fa-arrow-up-right-from-square" />
-            {t('Abrir o site')}
-          </a>
-        )}
-        {!x.soEmail && (
-          <button
-            className="btn g"
-            onClick={() =>
-              openM(
-                <>
-                  <h3>{t('IPs atribuídos')}</h3>
-                  <p style={{ margin: '14px 0', fontSize: 13, color: 'var(--muted)' }}>
-                    {t('Endereço IP do servidor associado a')} <b>{d}</b>:
-                  </p>
-                  <div style={{ padding: '12px 16px', background: 'var(--card-bg, rgba(0,0,0,0.04))', borderRadius: 8, fontWeight: 600, border: '1px solid var(--line-soft, #e2e8f0)' }}>
-                    169.58.148.144
-                  </div>
-                  <div className="mfoot" style={{ marginTop: 20 }}>
-                    <button className="btn g" onClick={vh.closeM}>{t('Fechar')}</button>
-                  </div>
-                </>
-              )
-            }
-          >
-            <i className="fa-solid fa-network-wired" />
-            {t('IPs atribuídos')}
-          </button>
-        )}
-        {!x.soEmail && (
-          <button className="btn g" onClick={() => openM(<MudarNomeModal d={d} />)}>
-            <i className="fa-solid fa-i-cursor" />
-            {t('Mudar nome')}
-          </button>
-        )}
-        {!x.soEmail && <BotaoPassar dominio={d} etiqueta />}
-        <button
-          className="btn g"
-          onClick={() => noServidor(vh, { acao: x.status === 'ok' ? 'dominio-suspender' : 'dominio-reativar', dominio: d }, x.status === 'ok' ? 'Domínio suspenso' : 'Domínio reativado')}
-        >
-          <i className={'fa-solid ' + (x.status === 'ok' ? 'fa-pause' : 'fa-play')} />
-          {t(x.status === 'ok' ? 'Suspender' : 'Reativar')}
-        </button>
-        <button
-          className="btn g"
-          onClick={() =>
-            openM(
-              <Confirmar
-                titulo="Apagar domínio?"
-                texto={'Vai apagar ' + d + ' do servidor, com os ficheiros do site. Não se pode desfazer.'}
-                ok="Apagar"
-                onOk={async () => (await noServidor(vh, { acao: 'dominio-apagar', dominio: d }, 'Domínio apagado')) && nav('/' + vh.s.level + '/dominios')}
-              />,
-            )
-          }
-        >
-          <i className="fa-solid fa-trash" />
-          {t('Apagar')}
-        </button>
-      </div>
-
-      <Frm title="Resumo">
-        <Row label="Estado">
-          <span className={'tag ' + (x.status === 'ok' ? 'ok' : 'off')}>{x.status === 'ok' ? t('Ativo') : t('Suspenso')}</span>
-          {x.soEmail && <span className="tag off">{t('Só e-mail')}</span>}
-          {x.wp && <span className="tag ok">WordPress</span>}
-        </Row>
-        <Row label="Espaço em disco">{x.disk}</Row>
-        {!x.soEmail && <Row label="Tráfego">{x.bw || '—'}</Row>}
-        {!x.soEmail && <Row label="Pasta do site">{<code>{x.docroot}</code>}</Row>}
-        {!x.soEmail && <Row label="Versão PHP">{x.php}</Row>}
-        {!x.soEmail && (
-          <Row label="Certificado SSL">
-            {det?.certificado ? (
-              <span>
+  const nSubs = a.domains.filter((y) => ehSub(y.name, d)).length;
+  const info: [string, ReactNode, string?][] = [
+    [
+      'Estado',
+      <>
+        <span className={'tag ' + (x.status === 'ok' ? 'ok' : 'off')}>{x.status === 'ok' ? t('Ativo') : t('Suspenso')}</span>
+        {x.soEmail && <span className="tag off">{t('Só e-mail')}</span>}
+        {x.wp && <span className="tag ok">WordPress</span>}
+      </>,
+    ],
+    ['Espaço em disco', x.disk],
+    ...(x.soEmail
+      ? []
+      : ([
+          ['Tráfego', x.bw || '—'],
+          [
+            'Certificado SSL',
+            det?.certificado ? (
+              <>
                 {det.certificado.emissor || t('Certificado')} · {t('válido até')} {det.certificado.ate}
-              </span>
+              </>
             ) : det ? (
               <span className="tag w">{t('Sem certificado')}</span>
             ) : (
-              <span style={{ color: 'var(--muted)' }}>…</span>
-            )}
-          </Row>
-        )}
-      </Frm>
+              <span className="sk" style={{ width: 120 }} />
+            ),
+            'ssl',
+          ],
+          ['Versão PHP', 'PHP ' + x.php, 'php'],
+          ['DNS', det ? (det.dns.fonte === 'cloudflare' ? 'Cloudflare' : det.dns.fonte === 'hestia' ? t('Neste servidor') : t('Fora da Visual Design')) : <span className="sk" style={{ width: 90 }} />, 'dns'],
+          ['Subdomínios', String(nSubs), 'subdominios'],
+          ['Apontadores', String((x.aliases || []).length), 'apontadores'],
+          ['Contas FTP', String((x.ftp || []).length), 'ftp'],
+          ['Redirecionamento', det ? (det.redirecionamento ? det.redirecionamento.url : t('Nenhum')) : <span className="sk" style={{ width: 90 }} />, 'redirecionamentos'],
+          ['Proteção hotlink', t('Configurar'), 'hotlink'],
+          ['Pasta do site', <code key="p">{x.docroot}</code>],
+        ] as [string, ReactNode, string?][])),
+  ];
+  return (
+    <>
+      <div className="dom-gestao">
+      <div className="dom-principal">
+      {/* um só cartão com as informações do domínio, em duas colunas (pedido do Silva, 13/10/2026: o que estava nos
+          cartões do fundo da página entra aqui; cada linha com página própria abre-a) */}
+      <div className="frm dom-info">
+        <div className="frm-head">
+          <div>
+            <h3>{t('Informações do domínio')}</h3>
+          </div>
+        </div>
+        <div className="dom-info-grelha">
+          {info.map(([rot, valor, p]) => (
+            <div key={rot} className={'dom-info-l' + (p ? ' lk' : '')} onClick={p ? () => ir(p) : undefined}>
+              <span>{t(rot)}</span>
+              <div>{valor}</div>
+              {p && <i className="fa-solid fa-chevron-right" />}
+            </div>
+          ))}
+        </div>
+      </div>
+      {!x.soEmail && <Nameservers d={d} publicos={det?.ns} />}
 
       {!x.soEmail && (
         <Frm
@@ -574,21 +669,72 @@ function VerDominio({ d }: { d: string }) {
       )}
 
       {erro && <Carregar erro={erro} ler={ler} />}
-      {!x.soEmail && (
-        <div className="tema-cats">
-          {atalhos.map(([p, fa, titulo, sub]) => (
-            <div key={p} className="card tool" onClick={() => ir(p)}>
-              <div className="ic c6" style={{ width: 30, height: 30, fontSize: 20 }}>
-                <i className={fa.startsWith('fa-brands') ? fa : 'fa-solid ' + fa} />
-              </div>
-              <div>
-                <b>{t(titulo)}</b>
-                <span>{sub}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+      </div>
+      {/* opções do domínio numa barra lateral à direita (pedido do Silva, 13/10/2026), em vez da fila de botões */}
+      <aside className="dom-opcoes">
+        <h4>{t('Opções')}</h4>
+        {!x.soEmail && (
+          <a className="dom-op" href={'https://' + d} target="_blank" rel="noreferrer">
+            <i className="fa-solid fa-arrow-up-right-from-square" />
+            {t('Abrir o site')}
+          </a>
+        )}
+        {!x.soEmail && (
+          <button
+            className="dom-op"
+            onClick={() =>
+              openM(
+                <>
+                  <h3>{t('IPs atribuídos')}</h3>
+                  <p style={{ margin: '14px 0', fontSize: 13, color: 'var(--muted)' }}>
+                    {t('Endereço IP do servidor associado a')} <b>{d}</b>:
+                  </p>
+                  <div style={{ padding: '12px 16px', background: 'var(--card-bg, rgba(0,0,0,0.04))', borderRadius: 8, fontWeight: 600, border: '1px solid var(--line-soft, #e2e8f0)' }}>
+                    169.58.148.144
+                  </div>
+                  <div className="mfoot" style={{ marginTop: 20 }}>
+                    <button className="dom-op" onClick={vh.closeM}>{t('Fechar')}</button>
+                  </div>
+                </>
+              )
+            }
+          >
+            <i className="fa-solid fa-network-wired" />
+            {t('IPs atribuídos')}
+          </button>
+        )}
+        {!x.soEmail && (
+          <button className="dom-op" onClick={() => openM(<MudarNomeModal d={d} />)}>
+            <i className="fa-solid fa-i-cursor" />
+            {t('Mudar nome')}
+          </button>
+        )}
+        {!x.soEmail && <BotaoPassar dominio={d} etiqueta />}
+        <button
+          className="dom-op"
+          onClick={() => noServidor(vh, { acao: x.status === 'ok' ? 'dominio-suspender' : 'dominio-reativar', dominio: d }, x.status === 'ok' ? 'Domínio suspenso' : 'Domínio reativado')}
+        >
+          <i className={'fa-solid ' + (x.status === 'ok' ? 'fa-pause' : 'fa-play')} />
+          {t(x.status === 'ok' ? 'Suspender' : 'Reativar')}
+        </button>
+        <button
+          className="dom-op"
+          onClick={() =>
+            openM(
+              <Confirmar
+                titulo="Apagar domínio?"
+                texto={'Vai apagar ' + d + ' do servidor, com os ficheiros do site. Não se pode desfazer.'}
+                ok="Apagar"
+                onOk={async () => (await noServidor(vh, { acao: 'dominio-apagar', dominio: d }, 'Domínio apagado')) && nav('/' + vh.s.level + '/dominios')}
+              />,
+            )
+          }
+        >
+          <i className="fa-solid fa-trash" />
+          {t('Apagar')}
+        </button>
+      </aside>
+      </div>
     </>
   );
 }
@@ -686,17 +832,10 @@ function Subdominios() {
       id="subdominios"
       umaLinha
       barraFora
-      semBusca={false}
       rows={rows}
       rowKey={(r) => r.name}
       search={(r) => r.name}
       empty={t('Este domínio ainda não tem subdomínios') + ' (' + x.name + ')'}
-      barra2={
-        <button className="btn g sm" onClick={() => openM(<NovoSubdominio d={x.name} />)}>
-          <i className="fa-solid fa-plus" />
-          {t('Adicionar subdomínio')}
-        </button>
-      }
       cols={[
         { k: 'nome', t: 'Subdomínio', sort: (r) => r.name, cell: (r) => <b>{r.name}</b> },
         { k: 'bw', t: 'Tráfego', cell: (r) => r.bw || '—' },
@@ -704,6 +843,7 @@ function Subdominios() {
         { k: 'ssl', t: 'SSL', cell: (r) => <span className={'tag ' + (r.ssl === 'ok' ? 'ok' : 'w')}>{r.ssl === 'ok' ? t('Seguro') : t('Sem SSL')}</span> },
       ]}
       bulk={[
+        { t: 'Adicionar subdomínio', fa: 'fa-plus', sempre: true, run: () => openM(<NovoSubdominio d={x.name} />) },
         {
           t: 'Apagar',
           fa: 'fa-trash',
@@ -943,6 +1083,14 @@ function Dns() {
       {dns.fonte === 'nenhuma' ? (
         <div className="note">{t('O DNS deste domínio não está neste servidor nem na Cloudflare da VisualDesign: os registos mudam-se onde o domínio foi registado.')}</div>
       ) : (
+        <>
+        {/* modelo global (regra do Silva, 13/10/2026): os filtros por tipo são os separadores — a faixa cinzenta que abre
+            o cartão principal — e o "Ações" fica à direita dessa faixa */}
+        <Tabs<string>
+          tabs={['', 'A', 'CNAME', 'MX', 'TXT', 'SRV', 'NS'].map((f) => [f || 'todos', f || 'Todos'] as [string, string])}
+          on={filtro || 'todos'}
+          onChange={(k) => setFiltro(k === 'todos' ? '' : k)}
+        />
         <DataTable
           id="dns"
           rows={rows}
@@ -950,34 +1098,8 @@ function Dns() {
           rowClass={(r) => (r.id === editId ? 'dns-row-editando' : '')}
           search={(r) => r.nome + ' ' + r.valor}
           onRecarregar={ler}
-          paginasNaBarra2
-          cabecalho={
-            <div className="dns-filtros">
-              {['', 'A', 'CNAME', 'MX', 'TXT', 'SRV', 'NS'].map((f) => (
-                <button key={f} className={'btn sm ' + (filtro === f ? 'filtro-on' : 'g')} onClick={() => setFiltro(f)}>
-                  {f || t('Todos')}
-                </button>
-              ))}
-            </div>
-          }
-          fimBarra={
-            <button className="btn r sm dns-novo" onClick={() => openM(<DnsForm d={x.name} fonte={dns.fonte} onFeito={ler} />)}>
-              <i className="fa-solid fa-plus" />
-              {t('Adicionar registo')}
-            </button>
-          }
-          barra2={
-            <>
-              <select className="inp dns-dom" value={x.name} onChange={(e) => vh.setDominio(e.target.value)} aria-label={t('Domínio')}>
-                {vh.a.domains.map((y) => (
-                  <option key={y.name}>{y.name}</option>
-                ))}
-              </select>
-              <span className="dns-ns">
-                <b>NAMESERVERS:</b> {(det.ns && det.ns.length ? det.ns : vh.a.ns || []).join('; ') || '—'}
-              </span>
-            </>
-          }
+          umaLinha
+          barraFora
           empty="Nenhum registo encontrado para este filtro"
           cols={[
             {
@@ -1129,13 +1251,30 @@ function Dns() {
               </span>
             );
           }}
-          bulk={[{ t: 'Remover', fa: 'fa-trash', run: (k) => remover(k, 'Vai remover ' + k.length + ' registo(s) de ' + x.name + '.') }]}
+          bulk={[
+            { t: 'Remover', fa: 'fa-trash', run: (k) => remover(k, 'Vai remover ' + k.length + ' registo(s) de ' + x.name + '.') },
+          ]}
         />
+        </>
       )}
     </>
   );
 }
-export const dnsPagina: ScreenFn = () => ({ title: 'DNS', body: <Dns /> });
+/** "+ Adicionar registo" na barra de cima (regra do Silva: o "+ Adicionar…" principal vai para a barra de cima quando
+ *  está livre); usa a mesma leitura do DNS que a página (memória comum), e a tabela atualiza-se sozinha */
+function NovoRegistoDns() {
+  const vh = useVH();
+  const x = dominioAtual(vh, false);
+  const { det, ler } = useDetalhe(x?.name || '', 'dns');
+  if (!x || !det || det.dns.fonte === 'nenhuma') return null;
+  return (
+    <button className="btn r" onClick={() => vh.openM(<DnsForm d={x.name} fonte={det.dns.fonte} onFeito={ler} />)}>
+      <i className="fa-solid fa-plus" />
+      {vh.t('Adicionar registo')}
+    </button>
+  );
+}
+export const dnsPagina: ScreenFn = () => ({ title: 'DNS', actions: <NovoRegistoDns />, body: <Dns /> });
 
 // ---------- SSL/TLS ----------
 function CertificadoModal({ d, onFeito }: { d: string; onFeito: () => void }) {

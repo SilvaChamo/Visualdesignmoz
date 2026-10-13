@@ -4,15 +4,17 @@
 // Mesma estrutura de HTML e mesmas classes, para o CSS da maquete (generated/maquete.css) se aplicar tal e qual.
 import { Component, Fragment, useCallback, useEffect, useMemo, useReducer, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
-import { BarraPagina, PesquisaPagina, VHContext, type ItemPesquisa, type VH } from './context';
+import { BarraPagina, FaixaAbas, PesquisaPagina, VHContext, type ItemPesquisa, type VH } from './context';
 import { GLOBAL, LEVELS, MENU, ROLES } from './generated/data';
 import { dominioVisivel, type DadosServidor } from './servidor';
 import { translate, type Lang } from './i18n';
-import { EntradaPainel, EsperaEntrada, LINGUA_LS, type ModoTema } from './entrada';
+import { EntradaPainel, LINGUA_LS, type ModoTema } from './entrada';
+import { Esqueleto } from './paginas/componentes';
 import { auth } from '@/lib/supabase-client';
 import { MoreMenuModal } from './modals';
 import { SCREENS, denyScreen, placeholder, type Screen } from './screens';
 import { PesquisaNaPagina } from './pesquisa-pagina';
+import { useTituloAjustado } from './titulo-ajustado';
 import { SAIR_POR_INATIVIDADE_ATIVO } from '@/lib/session-inactivity';
 import { BarraTopo, EsperaPagina, atividadeComeca, instalarContador, type Espera } from './carga';
 import { aplicarCoresNoSite, badgeColors, getThemeColors, hexToRgb, luminancia, paletaDoSite, type CustomComponents } from './theme';
@@ -132,11 +134,35 @@ class FalhaPagina extends Component<{ children: ReactNode; t: (s: string) => str
   }
 }
 
+// Última leitura da conta guardada neste navegador, para o painel abrir logo com conteúdo (nunca em branco à espera do
+// servidor — pedido do Silva, 13/10/2026). Não tem palavras-passe; apaga-se ao sair e quando a sessão é recusada.
+const CACHE_DADOS = 'vh-dados';
+function lerCache(): DadosServidor | null {
+  try {
+    const v = localStorage.getItem(CACHE_DADOS);
+    return v ? (JSON.parse(v) as DadosServidor) : null;
+  } catch {
+    return null;
+  }
+}
+function guardarCache(d: DadosServidor) {
+  try {
+    localStorage.setItem(CACHE_DADOS, JSON.stringify(d));
+  } catch {}
+}
+function apagarCache() {
+  try {
+    localStorage.removeItem(CACHE_DADOS);
+  } catch {}
+}
+
 /** Lugar de uma página: escondido enquanto as leituras sem nada em memória não acabam; depois avisa (uma vez) */
 type RegistarFonte = (chave: string, id: string, fonte: () => ItemPesquisa[]) => () => void;
 
 function PaginaSlot({ p, oculta, onPronta, registar }: { p: Pagina; oculta: boolean; onPronta: (chave: string) => void; registar: RegistarFonte }) {
   const [barra, setBarra] = useState<HTMLDivElement | null>(null);
+  const [abasEl, setAbasEl] = useState<HTMLElement | null>(null);
+  const faixaAbas = useMemo(() => ({ el: abasEl, set: setAbasEl }), [abasEl]);
   const pesquisa = useMemo(() => ({ registar: (id: string, fonte: () => ItemPesquisa[]) => registar(p.chave, id, fonte) }), [registar, p.chave]);
   const falta = useRef(0);
   const montada = useRef(false);
@@ -184,6 +210,7 @@ function PaginaSlot({ p, oculta, onPronta, registar }: { p: Pagina; oculta: bool
         <EsperaPagina.Provider value={espera}>
           <PesquisaPagina.Provider value={pesquisa}>
           <BarraPagina.Provider value={barra}>
+          <FaixaAbas.Provider value={faixaAbas}>
           {/* pesquisa e botões da página, por cima do cartão (fica escondida enquanto vazia) */}
           <div className="pg-barra" ref={setBarra} />
           {p.semCartao ? (
@@ -200,6 +227,7 @@ function PaginaSlot({ p, oculta, onPronta, registar }: { p: Pagina; oculta: bool
           ) : (
             <div className="da-main-card">{corpo}</div>
           )}
+          </FaixaAbas.Provider>
           </BarraPagina.Provider>
           </PesquisaPagina.Provider>
         </EsperaPagina.Provider>
@@ -363,10 +391,55 @@ export function VisualHostApp({ temSessao = true }: { temSessao?: boolean }) {
     return () => window.removeEventListener('popstate', onPop);
   }, [commit]);
 
+  // Põe no painel os dados de uma leitura (do servidor, ou a última guardada neste navegador ao abrir)
+  const aplicar = useCallback(
+    (d: DadosServidor) => {
+      // domínios internos do sistema (files., supabase-…) fora de todas as listas do painel
+      for (const c of Object.values(d.contas)) {
+        c.domains = c.domains.filter((x) => dominioVisivel(x.name));
+        c.mails = c.mails.filter((m) => dominioVisivel(m.dom));
+      }
+      const cur = ref.current;
+      const primeira = cur.carga !== 'ok';
+      const n0: St = {
+        ...cur,
+        acc: d.contas,
+        login: d.me,
+        pessoa: d.pessoa || null,
+        stack: primeira ? [] : cur.stack.filter((x) => d.contas[x.u]),
+        srv: d.servidor,
+        dns: d.dns,
+        php: d.php || [],
+        lidoEm: d.lidoEm,
+        carga: 'ok',
+        erro: null,
+        db: { ...cur.db, pkgs: d.pacotes, info: d.info },
+      };
+      // Se o caminho inicial pedido (ex: /admin vindo de outra sessão) não for permitido para esta conta,
+      // abre diretamente o nível inicial da conta em vez de mostrar "Sem acesso" logo ao entrar
+      const caminhoDesejado = primeira ? inicial.current : cur.path;
+      const segs = caminhoDesejado.replace(/^\/+/, '').split('/');
+      const lvDesejado = segs[0];
+      const permitidos = allowedOf(n0);
+      const caminhoValido =
+        isLevel(lvDesejado) && !permitidos.includes(lvDesejado)
+          ? '/' + nivelInicial(n0, true)
+          : caminhoDesejado;
+      const n = fromPath(n0, caminhoValido);
+      commit(n);
+      if (primeira || n.path !== caminhoDesejado) pushUrl(n.path, true);
+    },
+    [commit],
+  );
+
   // Dados reais do servidor (Hestia + registo do site): contas, pacotes, informação, zonas DNS e estado do servidor.
   // Sem sessão no site → pede para iniciar sessão. Depois de uma alteração, volta a ler (fresco).
   const carregar = useCallback(
     async (fresco = false) => {
+      // Nunca uma página em branco enquanto se lê o servidor (pedido do Silva): ao abrir, mostra logo a última leitura
+      // guardada neste navegador e atualiza por trás quando a resposta chegar
+      const daCache = !fresco && ref.current.carga !== 'ok' && temSessao ? lerCache() : null;
+      if (daCache) aplicar(daCache);
       try {
         // primeira leitura: a resposta que a página já pediu ao chegar (layout); depois, pedidos normais
         const w = window as typeof window & { __vhDados?: Promise<{ ok: boolean; status: number; j: { erro?: string } }> };
@@ -409,51 +482,23 @@ export function VisualHostApp({ temSessao = true }: { temSessao?: boolean }) {
           }
         }
         if (!r.ok) {
+          if (r.status === 401 || r.status === 403) apagarCache();
+          // servidor lento ou em baixo com o painel já à vista (da última leitura): fica como está
+          else if (ref.current.carga === 'ok') return;
           setAEntrar(false);
           commit({ ...ref.current, carga: 'erro', erro: { msg: j.erro || 'Não foi possível ler o servidor.', codigo: r.status } });
           return;
         }
         const d = j as DadosServidor;
-        // domínios internos do sistema (files., supabase-…) fora de todas as listas do painel
-        for (const c of Object.values(d.contas)) {
-          c.domains = c.domains.filter((x) => dominioVisivel(x.name));
-          c.mails = c.mails.filter((m) => dominioVisivel(m.dom));
-        }
-        const cur = ref.current;
-        const primeira = cur.carga !== 'ok';
-        const n0: St = {
-          ...cur,
-          acc: d.contas,
-          login: d.me,
-          pessoa: d.pessoa || null,
-          stack: primeira ? [] : cur.stack.filter((x) => d.contas[x.u]),
-          srv: d.servidor,
-          dns: d.dns,
-          php: d.php || [],
-          lidoEm: d.lidoEm,
-          carga: 'ok',
-          erro: null,
-          db: { ...cur.db, pkgs: d.pacotes, info: d.info },
-        };
-        // Se o caminho inicial pedido (ex: /admin vindo de outra sessão) não for permitido para esta conta,
-        // abre diretamente o nível inicial da conta em vez de mostrar "Sem acesso" logo ao entrar
-        const caminhoDesejado = primeira ? inicial.current : cur.path;
-        const segs = caminhoDesejado.replace(/^\/+/, '').split('/');
-        const lvDesejado = segs[0];
-        const permitidos = allowedOf(n0);
-        const caminhoValido =
-          isLevel(lvDesejado) && !permitidos.includes(lvDesejado)
-            ? '/' + nivelInicial(n0, true)
-            : caminhoDesejado;
-        const n = fromPath(n0, caminhoValido);
-        commit(n);
-        if (primeira || n.path !== caminhoDesejado) pushUrl(n.path, true);
+        guardarCache(d);
+        aplicar(d);
       } catch {
+        if (ref.current.carga === 'ok') return; // o painel já está à vista (última leitura): fica como está
         setAEntrar(false);
         commit({ ...ref.current, carga: 'erro', erro: { msg: 'O servidor demorou a responder. Verifique a ligação e tente de novo.', codigo: 0 } });
       }
     },
-    [commit],
+    [commit, aplicar, temSessao],
   );
   useEffect(() => {
     carregar();
@@ -528,6 +573,7 @@ export function VisualHostApp({ temSessao = true }: { temSessao?: boolean }) {
   // Sair: termina a sessão e mostra logo a página de entrada, sem perguntar nem recarregar (pedido do Silva: a página
   // piscava entre dois ecrãs antes do formulário)
   const sair = async () => {
+    apagarCache();
     try {
       await auth.signOut();
     } catch {}
@@ -685,6 +731,8 @@ export function VisualHostApp({ temSessao = true }: { temSessao?: boolean }) {
   const aEspera = !!pronta.current && pronta.current.ok && atual.ok && pronta.current.chave !== chavePag && liberada.current !== chavePag;
   if (!aEspera) pronta.current = atual;
   const mostra = pronta.current || atual;
+  // título e descrição da barra de cima: a letra diminui até caber, nunca cortados com "…"
+  useTituloAjustado(mostra.chave + '|' + mostra.title + '|' + mostra.desc);
   // Lupa da barra de cima (pedido do Silva, 13/10/2026): procura na página aberta — as tabelas registam-se por página
   const fontesPag = useRef(new Map<string, Map<string, () => ItemPesquisa[]>>());
   const registarFonte = useCallback<RegistarFonte>((chave, id, fonte) => {
@@ -838,11 +886,9 @@ export function VisualHostApp({ temSessao = true }: { temSessao?: boolean }) {
     const er = st.erro;
     // sem sessão (cookie visto já no servidor) ou sessão recusada: a página de entrada no modelo do DA, sem piscar
     const entrada = er?.codigo === 401 || (!er && !aEntrar && semSessao);
-    if (!er && !entrada) return (
-      <div className="vh" data-theme={st.theme} style={themeStyles as React.CSSProperties} lang="pt-PT" suppressHydrationWarning>
-        <EsperaEntrada />
-      </div>
-    );
+    // a ler o servidor pela primeira vez neste navegador (sem leitura guardada): o painel em esqueleto, nunca uma
+    // página em branco (pedido do Silva, 13/10/2026)
+    const aCarregar = !er && !entrada;
     if (entrada)
       return (
         <div className="vh" data-theme={st.theme} style={themeStyles as React.CSSProperties} lang={st.lang === 'en' ? 'en' : 'pt-PT'} suppressHydrationWarning>
@@ -903,7 +949,14 @@ export function VisualHostApp({ temSessao = true }: { temSessao?: boolean }) {
                 <h1 className="dash">Dashboard</h1>
                 <p>{t('Painel de alojamento')}</p>
               </div>
-              <nav className="side" />
+              <nav className="side">
+                {aCarregar &&
+                  [70, 55, 62, 48, 66, 52].map((w, i) => (
+                    <div key={i} className="esq-menu">
+                      <span className="sk" style={{ width: w + '%' }} />
+                    </div>
+                  ))}
+              </nav>
             </div>
           </aside>
           <div className="right">
@@ -913,6 +966,7 @@ export function VisualHostApp({ temSessao = true }: { temSessao?: boolean }) {
                 <img className="only-m" src={logo} alt="" />
                 <div className="bt">
                   <h1>{t('Painel VisualHost')}</h1>
+                  {aCarregar && <p>{t('A abrir o painel…')}</p>}
                 </div>
               </div>
               <div className="sp" />
@@ -923,12 +977,18 @@ export function VisualHostApp({ temSessao = true }: { temSessao?: boolean }) {
               </div>
             </header>
             <main id="main">
-              <div className="card espera-msg" id="espera">
-                <i className={'fa-solid ' + aviso.fa + ' big'} />
-                <b>{t(aviso.titulo)}</b>
-                <p>{t(aviso.texto)}</p>
-                {aviso.botao}
-              </div>
+              {aCarregar ? (
+                <div className="da-main-card">
+                  <Esqueleto />
+                </div>
+              ) : (
+                <div className="card espera-msg" id="espera">
+                  <i className={'fa-solid ' + aviso.fa + ' big'} />
+                  <b>{t(aviso.titulo)}</b>
+                  <p>{t(aviso.texto)}</p>
+                  {aviso.botao}
+                </div>
+              )}
             </main>
           </div>
         </div>

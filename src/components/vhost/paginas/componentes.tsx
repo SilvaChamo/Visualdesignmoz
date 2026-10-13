@@ -4,7 +4,7 @@
 // separadores e tabela com pesquisa/colunas/seleção/ações em massa (como nas listas do DirectAdmin).
 import { useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { BarraPagina, PesquisaPagina, useVH } from '../context';
+import { BarraPagina, FaixaAbas, PesquisaPagina, VHContext, useVH } from '../context';
 import type { Campo, Lim, Unit } from './dados';
 
 // ---------- Formulário ----------
@@ -145,7 +145,8 @@ export function Funcionalidades({ campos, feats, set }: { campos: Campo[]; feats
  *  dentro de um separador (só sublinhados, para não haver duas barras seguidas) */
 export function Tabs<K extends string>({ tabs, on, onChange, sub }: { tabs: [K, string, string?][]; on: K; onChange: (k: K) => void; sub?: boolean }) {
   const { t } = useVH();
-  return (
+  const faixa = useContext(FaixaAbas);
+  const abas = (
     <div className={'ptabs' + (sub ? ' sub' : '')} role="tablist">
       {tabs.map(([k, label, fa]) => (
         <button key={k} role="tab" aria-selected={on === k} className={on === k ? 'on' : ''} onClick={() => onChange(k)}>
@@ -153,6 +154,57 @@ export function Tabs<K extends string>({ tabs, on, onChange, sub }: { tabs: [K, 
           {t(label)}
         </button>
       ))}
+    </div>
+  );
+  if (sub || !faixa) return abas;
+  // a faixa dos separadores guarda à direita o lugar do botão "Ações" — ver FaixaAbas. No telemóvel os separadores
+  // passam a uma caixa de escolha (pedido do Silva, 13/10/2026: com muitos separadores não se viam os outros)
+  return (
+    <div className="ptabs-faixa">
+      {abas}
+      <label className="ptabs-sel">
+        <select value={on} onChange={(e) => onChange(e.target.value as K)} aria-label={t('Separador')}>
+          {tabs.map(([k, label]) => (
+            <option key={k} value={k}>
+              {t(label)}
+            </option>
+          ))}
+        </select>
+        <i className="fa-solid fa-chevron-down" />
+      </label>
+      <div className="ptabs-dir" ref={faixa.set} />
+    </div>
+  );
+}
+
+/** O que se vê no cartão enquanto os dados da página chegam: a página em esqueleto (cinzento animado), nunca um cartão
+ *  vazio (pedido do Silva, 13/10/2026: a página nunca pode ficar sem conteúdo por ainda estar a carregar) */
+export function Esqueleto({ linhas = 6 }: { linhas?: number }) {
+  // também aparece antes de o painel ter os dados da conta (fora do VHContext)
+  const vh = useContext(VHContext);
+  const t = vh ? vh.t : (x: string) => x;
+  const larg = [[34, 22, 14, 16], [28, 18, 16, 12], [38, 16, 12, 18], [24, 20, 18, 14], [32, 14, 16, 16], [26, 22, 12, 12]];
+  return (
+    <div className="esq-pag" role="status" aria-label={t('A carregar')}>
+      <div className="esq-faixa">
+        <span className="sk" style={{ width: 110 }} />
+        <span className="sk" style={{ width: 90 }} />
+        <span className="sk" style={{ width: 120 }} />
+      </div>
+      <div className="esq-linhas">
+        <div className="esq-linha esq-cab">
+          {[18, 14, 12, 10].map((w, i) => (
+            <span key={i} className="sk" style={{ width: w + '%' }} />
+          ))}
+        </div>
+        {Array.from({ length: linhas }, (_, i) => (
+          <div key={i} className="esq-linha">
+            {larg[i % larg.length].map((w, j) => (
+              <span key={j} className="sk" style={{ width: w + '%' }} />
+            ))}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -179,6 +231,11 @@ export interface Bulk {
   t: string;
   fa: string;
   run: (keys: string[]) => void;
+  /** não precisa de linhas escolhidas (ex.: "Adicionar subdomínio", "Marcar todas como lidas"): está sempre ativa no
+   *  menu "Ações" — regra do Silva (13/10/2026): todos os botões da página vão para dentro do "Ações" */
+  sempre?: boolean;
+  /** opção inativa por agora (ex.: "Marcar todas como lidas" sem mensagens por ler) */
+  inativo?: boolean;
 }
 
 const lerCols = (id: string): string[] | null => {
@@ -204,7 +261,6 @@ export function DataTable<T>({
   barra2,
   onRecarregar,
   porPagina: porPaginaPedido,
-  paginasNaBarra2 = false,
   rodape,
   inicioBarra2,
   fimBarra,
@@ -217,6 +273,7 @@ export function DataTable<T>({
   onSelChange,
   umaLinha = false,
   barraFora = false,
+  empilhar = false,
 }: {
   id: string;
   rows: T[];
@@ -234,8 +291,6 @@ export function DataTable<T>({
   /** o que "Atualizar" faz (sem isto, só avisa) */
   onRecarregar?: () => void;
   porPagina?: number;
-  /** setas e "Página x de y" à direita da segunda linha (a do seletor), sempre visíveis (inativas se só houver uma página) */
-  paginasNaBarra2?: boolean;
   /** no fundo do cartão da tabela, à esquerda (ex.: botão Adicionar) */
   rodape?: ReactNode;
   /** encostado à esquerda da segunda linha, antes do menu "Ações" (ex.: botão Adicionar) */
@@ -252,13 +307,15 @@ export function DataTable<T>({
   acoesDiretas?: boolean;
   /** ativa a coluna de checkboxes de seleção nas linhas e cabeçalho */
   comSelecao?: boolean;
-  /** Pesquisa (30% da largura, à esquerda) e "Ações" + os botões da barra2 (à direita) numa linha só — regra do Silva
-   *  (13/10/2026): nunca duas linhas de botões. Só para barra2 com botões; uma barra2 com um bloco de título/números
-   *  fica por cima. */
+  /** Regra do Silva (13/10/2026): o "Ações" na faixa dos separadores, à direita, com todas as ações da página lá
+   *  dentro; sem pesquisa nem botões por cima do cartão; paginação só no fundo do cartão. */
   umaLinha?: boolean;
   /** com umaLinha: a linha vai para a faixa por cima do cartão principal (modelo do Silva: fora da faixa dos
    *  separadores que abre o cartão, como em Domínios) */
   barraFora?: boolean;
+  /** no telemóvel cada linha passa a um bloco numa só coluna: a caixa e a primeira coluna em cima, o resto por baixo
+   *  com o nome de cada coluna (pedido do Silva, 13/10/2026 — lista de IPs da Força bruta) */
+  empilhar?: boolean;
   /** notifica chaves das linhas selecionadas */
   onSelChange?: (keys: string[]) => void;
 }) {
@@ -267,6 +324,7 @@ export function DataTable<T>({
   const semCols = semColsPedido ?? lerPrefTabela('vh-colunas', '0') !== '1';
   const { t, toast } = useVH();
   const faixaFora = useContext(BarraPagina);
+  const faixaAbas = useContext(FaixaAbas);
   const pesqPagina = useContext(PesquisaPagina);
   const [q, setQ] = useState('');
   // linha escolhida na lupa da barra de cima: fica realçada uns segundos
@@ -318,7 +376,8 @@ export function DataTable<T>({
   const selKeys = sel.filter((k) => keys.includes(k));
   const all = keys.length > 0 && selKeys.length === keys.length;
   const vcols = cols.filter((c) => vis.includes(c.k));
-  const temSelecao = bulk.length > 0 || comSelecao;
+  // caixas de seleção só quando alguma ação precisa de linhas escolhidas (as `sempre` não precisam)
+  const temSelecao = bulk.some((b) => !b.sempre) || comSelecao;
   const span = vcols.length + (temSelecao ? 1 : 0) + (actions ? 1 : 0);
 
   const paginas = Math.max(1, Math.ceil(shown.length / porPagina));
@@ -367,10 +426,12 @@ export function DataTable<T>({
     onSelChange?.(selKeys);
   }, [selKeysStr]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Menu ou botões de "Ações" (o que se faz às linhas escolhidas)
+  // Menu "Ações": tudo o que se faz na página (regra do Silva, 13/10/2026 — nenhum botão por cima do cartão). As opções
+  // que precisam de linhas escolhidas ficam inativas enquanto nenhuma caixa estiver assinalada; as outras (`sempre`)
+  // estão sempre disponíveis e vêm primeiro.
   const menuAcoes = (sempre: boolean) => {
     if (!bulk.length || (!sempre && !selKeys.length)) return null;
-    if (acoesDiretas && bulk.length === 1) {
+    if (acoesDiretas && bulk.length === 1 && !bulk[0].sempre) {
       const b = bulk[0];
       return (
         <button
@@ -388,34 +449,42 @@ export function DataTable<T>({
         </button>
       );
     }
+    const livres = bulk.filter((b) => b.sempre);
+    const comSel = bulk.filter((b) => !b.sempre);
+    const opcao = (b: Bulk) => (
+      <button
+        key={b.t}
+        disabled={b.inativo || (!b.sempre && !selKeys.length)}
+        onClick={() => {
+          setAcoesOpen(false);
+          if (b.sempre) return b.run(selKeys);
+          b.run(selKeys);
+          setSel([]);
+        }}
+      >
+        <i className={'fa-solid ' + b.fa} />
+        {t(b.t)}
+      </button>
+    );
     return (
       <div className="dt-cols dt-acoes" ref={acoesRef}>
-        <button className="btn g sm" disabled={!selKeys.length} onClick={() => setAcoesOpen(!acoesOpen)}>
+        <button className="btn g sm" onClick={() => setAcoesOpen(!acoesOpen)}>
           {selKeys.length > 0 && <span className="n">{selKeys.length}</span>}
           {t('Ações')} <i className="fa-solid fa-caret-down" />
         </button>
         {acoesOpen && (
           <div className="menu">
-            {bulk.map((b) => (
-              <button
-                key={b.t}
-                onClick={() => {
-                  setAcoesOpen(false);
-                  b.run(selKeys);
-                  setSel([]);
-                }}
-              >
-                <i className={'fa-solid ' + b.fa} />
-                {t(b.t)}
-              </button>
-            ))}
+            {livres.map(opcao)}
+            {livres.length > 0 && comSel.length > 0 && <div className="menu-sep" />}
+            {comSel.map(opcao)}
           </div>
         )}
       </div>
     );
   };
 
-  // Setas e "Página x de y"
+  // Setas e "Página x de y" (sem o "1–20 de 67"): só no fundo do cartão, quando há mais de uma página (regra do Silva,
+  // 13/10/2026 — nunca na faixa dos separadores nem por cima da tabela)
   const paginador = (
     <div className="dt-pag">
       <button className="btn g sm" disabled={atual === 1} onClick={() => setPag(1)} aria-label={t('Primeira página')}>
@@ -433,9 +502,6 @@ export function DataTable<T>({
       <button className="btn g sm" disabled={atual === paginas} onClick={() => setPag(paginas)} aria-label={t('Última página')}>
         »
       </button>
-      <small>
-        {shown.length ? (atual - 1) * porPagina + 1 : 0}–{Math.min(atual * porPagina, shown.length)} {t('de')} {shown.length}
-      </small>
     </div>
   );
 
@@ -476,26 +542,35 @@ export function DataTable<T>({
     <>
       {umaLinha ? (
         (() => {
-          // tudo numa linha: à esquerda a pesquisa (30%), à direita os botões da página e "Ações" (e as páginas)
-          // sem botões à direita (ações, adicionar…) não há pesquisa à esquerda: procura-se pela lupa da barra de cima
-          // (pedido do Silva, 13/10/2026); sem nada para mostrar, não há barra
-          const temDireita = !!(inicioBarra2 || barra2 || bulk.length || colunas || recarregar || fimBarra || paginas > 1);
-          if (!temDireita && !cabecalho) return null;
-          const linha = (
-            <div className={'dt-bar dt-uma-linha' + (cabecalho ? ' com-cab' : '') + (barraFora ? ' dt-fora' : '')}>
-              {cabecalho}
-              {(inicioBarra2 || barra2 || bulk.length > 0 || fimBarra) && pesquisa}
-              <span className="sp" />
-              {inicioBarra2}
-              {barra2}
-              {menuAcoes(true)}
-              {colunas}
-              {recarregar}
-              {paginas > 1 && paginador}
-              {fimBarra}
-            </div>
+          // Regra do Silva (13/10/2026): na faixa dos separadores (cabeçalho do cartão principal) fica só o "Ações",
+          // sempre à vista e à direita, com tudo o que se faz na página lá dentro (`bulk`; as opções sem linhas
+          // escolhidas usam `sempre`). Nunca pesquisa, paginação nem outros botões por cima do cartão: a paginação
+          // fica no fundo do cartão.
+          const naFaixa = bulk.length > 0 && barraFora && faixaAbas?.el && !cabecalho;
+          const outros = !!(inicioBarra2 || barra2 || colunas || recarregar || fimBarra);
+          const linha =
+            outros || cabecalho || (!naFaixa && bulk.length > 0) ? (
+              <div className={'dt-bar dt-uma-linha' + (cabecalho ? ' com-cab' : '') + (barraFora ? ' dt-fora' : '')}>
+                {cabecalho}
+                <span className="sp" />
+                {inicioBarra2}
+                {barra2}
+                {colunas}
+                {recarregar}
+                {fimBarra}
+                {!naFaixa && menuAcoes(true)}
+              </div>
+            ) : null;
+          return (
+            <>
+              {linha && (barraFora && faixaFora ? createPortal(linha, faixaFora) : linha)}
+              {naFaixa &&
+                createPortal(
+                  menuAcoes(true),
+                  faixaAbas.el!,
+                )}
+            </>
           );
-          return barraFora && faixaFora ? createPortal(linha, faixaFora) : linha;
         })()
       ) : (
       <div className={'dt-bar' + (cabecalho ? ' com-cab' : '') + (acoesFixas ? ' dt-fixas' : '')}>
@@ -503,12 +578,12 @@ export function DataTable<T>({
         {acoesFixas && !barra2 && menuAcoes(true)}
         {cabecalho}
         <span className="sp" />
-        {!acoesFixas && !barra2 && menuAcoes(false)}
         {pesquisa}
         {!acoesFixas && colunas}
         {recarregar}
-        {!paginasNaBarra2 && paginas > 1 && paginador}
         {fimBarra}
+        {/* "Ações" sempre à vista e sempre o último à direita (regra do Silva, 13/10/2026) */}
+        {!acoesFixas && !barra2 && menuAcoes(true)}
       </div>
       )}
       {barra2 && !umaLinha && (
@@ -516,20 +591,14 @@ export function DataTable<T>({
           {inicioBarra2}
           {menuAcoes(true)}
           {barra2}
-          {paginasNaBarra2 && (
-            <>
-              <span className="sp" />
-              {paginador}
-            </>
-          )}
         </div>
       )}
-      <div className="tbl dt" ref={tabelaRef}>
+      <div className={'tbl dt' + (empilhar ? ' dt-empilhar' : '')} ref={tabelaRef}>
         <table>
           <thead>
             <tr>
               {temSelecao && (
-                <th className="ck">
+                <th className="ck" data-t={t('Selecionar tudo')}>
                   <input type="checkbox" aria-label={t('Selecionar tudo')} checked={all} disabled={!keys.length} onChange={() => setSel(all ? [] : keys)} />
                 </th>
               )}
@@ -560,11 +629,11 @@ export function DataTable<T>({
                       </td>
                     )}
                     {vcols.map((c) => (
-                      <td key={c.k} style={c.right ? { textAlign: 'right' } : undefined}>
+                      <td key={c.k} data-t={t(c.t)} style={c.right ? { textAlign: 'right' } : undefined}>
                         {c.cell(r)}
                       </td>
                     ))}
-                    {actions && <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{actions(r)}</td>}
+                    {actions && <td className="dt-acoes-linha" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{actions(r)}</td>}
                   </tr>
                 );
               })
@@ -577,7 +646,17 @@ export function DataTable<T>({
             )}
           </tbody>
         </table>
-        {rodape && <div className="dt-fundo">{rodape}</div>}
+        {(rodape || paginas > 1) && (
+          <div className="dt-fundo">
+            {rodape}
+            {paginas > 1 && (
+              <>
+                <span className="sp" />
+                {paginador}
+              </>
+            )}
+          </div>
+        )}
       </div>
     </>
   );

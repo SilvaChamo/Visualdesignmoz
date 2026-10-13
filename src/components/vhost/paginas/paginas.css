@@ -75,11 +75,14 @@
 .vh .dt-acoes .menu{left:0;right:auto;min-width:200px}
 .vh .dt-acoes .menu button{display:flex;align-items:center;gap:8px;width:100%;border:0;background:none;color:var(--ink);font:inherit;font-size:13.5px;padding:7px 8px;border-radius:var(--r);cursor:pointer;text-align:left}
 .vh .dt-acoes .menu button:hover{background:var(--soft);color:var(--red)}
+.vh .dt-acoes .menu button:disabled{opacity:.45;cursor:default;background:none;color:var(--ink)}
+.vh .dt-acoes .menu .menu-sep{height:1px;background:var(--line);margin:5px 4px}
+.vh .ptabs-dir .dt-acoes .menu,.vh .dt-bar>.dt-acoes:last-child .menu{left:auto;right:0}
 .vh .dt-pag{display:flex;align-items:center;gap:4px;font-size:13px;color:var(--ink)}
 .vh .dt-pag .btn{min-width:30px;justify-content:center;padding:0 8px}
 .vh .dt-pag span{padding:0 6px;white-space:nowrap}
-.vh .dt-pag small{color:var(--muted);margin-left:6px;white-space:nowrap}
 .vh .dt-fundo{display:flex;justify-content:flex-start;align-items:center;gap:8px;padding:12px;border-top:1px solid var(--line)}
+.vh .dt-fundo .sp{flex:1}
 .vh .dt-pag .btn:disabled{opacity:.45;cursor:default}
 .vh .dt-barra2{gap:10px}
 .vh .dt-bar .sp{flex:1}
@@ -149,6 +152,18 @@
 /* Ecrã de espera: o painel em esqueleto (cinzento animado) enquanto chegam os dados do servidor; avisos de sessão */
 .vh .sk{display:inline-block;height:12px;max-width:100%;border-radius:var(--r);vertical-align:middle;background:linear-gradient(90deg,var(--soft) 25%,var(--line-soft) 45%,var(--soft) 65%);background-size:400% 100%;animation:vh-sk 1.4s ease-in-out infinite}
 @keyframes vh-sk{0%{background-position:100% 50%}100%{background-position:0 50%}}
+/* esqueleto da página dentro do cartão (componente Esqueleto) enquanto chegam os dados dela */
+.vh .esq-faixa{display:none}
+.vh .da-main-card>.esq-pag:first-child>.esq-faixa{display:flex;align-items:center;gap:28px;height:42px;padding:0 24px;margin:-24px -24px 24px;background:var(--soft);box-shadow:inset 0 -1px 0 var(--line);border-radius:var(--r) var(--r) 0 0}
+.vh .esq-faixa .sk{background:linear-gradient(90deg,var(--line) 25%,var(--line-soft) 45%,var(--line) 65%);background-size:400% 100%}
+.vh .esq-linhas{border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.vh .esq-linha{display:flex;align-items:center;gap:6%;padding:18px 14px;border-bottom:1px solid var(--line)}
+.vh .esq-linha:last-child{border-bottom:0}
+.vh .esq-cab{background:var(--soft);padding:13px 14px}
+.vh .esq-cab .sk{height:10px;background:linear-gradient(90deg,var(--line) 25%,var(--line-soft) 45%,var(--line) 65%);background-size:400% 100%}
+@media(max-width:768px){.vh .da-main-card>.esq-pag:first-child>.esq-faixa{padding:0 12px}}
+.vh .esq-menu{padding:13px 20px 13px 10px;border-bottom:1px solid var(--line)}
+.vh .esq-menu .sk{height:13px}
 @media (prefers-reduced-motion:reduce){.vh .sk{animation:none}}
 .vh .espera .rail .rb,.vh .espera .side .grp{cursor:default}
 .vh .espera .rail .rb:hover{background:none}
@@ -462,6 +477,30 @@
 .vh .ptabs button.on{background:var(--card);border-color:var(--line);color:var(--red);font-weight:700}
 .vh .tabcard>.ptabs{padding:0 18px}
 @media(max-width:768px){.vh .ptabs,.vh .tabcard>.ptabs{padding:0 12px}}
+/* Faixa dos separadores com o lugar do botão "Ações" à direita (regra do Silva, 13/10/2026): a faixa (fundo e linha de
+   baixo) passa para o invólucro; os separadores deslizam na horizontal à esquerda e os botões ficam sempre à vista. */
+.vh .ptabs-faixa{display:flex;align-items:stretch;background:var(--soft);box-shadow:inset 0 -1px 0 var(--line);margin:0 0 24px;flex:none}
+.vh .ptabs-faixa>.ptabs{flex:0 0 auto;min-width:0;margin:0;background:none;box-shadow:none;overflow-x:auto;scrollbar-width:none}
+.vh .ptabs-faixa>.ptabs::-webkit-scrollbar{display:none}
+.vh .ptabs-dir{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex:1 1 auto;min-width:0;padding:0 16px 0 12px}
+.vh .ptabs-dir>*{flex:none}
+@media(max-width:900px){.vh .ptabs-faixa>.ptabs{flex:1 1 auto}.vh .ptabs-dir{flex:none}}
+.vh .ptabs-dir:empty{display:none}
+.vh .da-main-card>.ptabs-faixa:first-child{margin:-24px -24px 24px;border-radius:var(--r) var(--r) 0 0}
+.vh .tabcard>.ptabs-faixa{margin:0;border-radius:var(--r) var(--r) 0 0}
+.vh .tabcard>.ptabs-faixa>.ptabs{padding:0 18px}
+@media(max-width:768px){.vh .tabcard>.ptabs-faixa>.ptabs{padding:0 12px}.vh .ptabs-dir{padding:0 12px 0 6px}}
+/* no telemóvel os separadores passam a uma caixa de escolha, à esquerda da faixa (o "Ações" fica à direita) */
+.vh .ptabs-sel{display:none}
+@media(max-width:768px){
+ .vh .ptabs-faixa{align-items:center;min-height:50px}
+ .vh .ptabs-faixa>.ptabs{display:none}
+ .vh .ptabs-sel{display:flex;align-items:center;position:relative;flex:1 1 auto;min-width:0;margin:0 12px}
+ .vh .ptabs-dir{padding:0 12px 0 0}
+ .vh .ptabs-sel select{appearance:none;-webkit-appearance:none;width:100%;height:34px;padding:0 32px 0 12px;border:1px solid var(--line);border-radius:var(--r);background:var(--card);color:var(--red);font:inherit;font-size:14px;font-weight:700;text-overflow:ellipsis}
+ .vh .ptabs-sel i{position:absolute;right:11px;font-size:11px;color:var(--muted);pointer-events:none}
+}
+
 /* separadores dentro de um separador: só sublinhados */
 .vh .ptabs.sub{height:auto;padding:0;background:none;box-shadow:inset 0 -1px 0 var(--line);border-radius:0;margin:0 0 18px}
 .vh .ptabs.sub button{height:38px;padding:0 14px;border:0;border-bottom:2px solid transparent;border-radius:0;background:none}
@@ -1060,3 +1099,97 @@
 .vh .passar-roda{flex:none;width:16px;height:16px;border-radius:50%;border:2px solid color-mix(in srgb,var(--red) 25%,transparent);border-top-color:var(--red);animation:ent-gira .8s linear infinite}
 .vh .passar-aviso-dom{display:flex;gap:10px;align-items:flex-start;margin:6px 0 0;padding:10px 12px;border-radius:8px;font-size:13px;line-height:1.45;background:var(--soft);border:1px solid var(--line)}
 .vh .passar-aviso-dom i{margin-top:2px;color:var(--red)}
+
+/* Tabelas empilhadas no telemóvel (DataTable `empilhar`, pedido do Silva 13/10/2026): cada linha é um bloco numa só
+   coluna — a caixa e a primeira coluna em cima, o resto por baixo com o nome da coluna à esquerda */
+@media(max-width:768px){
+ .vh .tbl.dt-empilhar table,.vh .tbl.dt-empilhar thead,.vh .tbl.dt-empilhar tbody{display:block}
+ .vh .tbl.dt-empilhar thead tr{display:flex;align-items:center;background:var(--soft);border-bottom:1px solid var(--line)}
+ .vh .tbl.dt-empilhar thead th{display:none}
+ .vh .tbl.dt-empilhar thead th.ck{display:flex;align-items:center;gap:12px;width:auto;border:0;padding:10px 14px}
+ .vh .tbl.dt-empilhar thead th.ck::after{content:attr(data-t)}
+ .vh .tbl.dt-empilhar tbody tr{display:grid;grid-template-columns:34px minmax(0,1fr) auto;row-gap:6px;column-gap:8px;align-items:center;padding:12px 14px;border-bottom:1px solid var(--line)}
+ .vh .tbl.dt-empilhar tbody tr:last-child{border-bottom:0}
+ .vh .tbl.dt-empilhar tbody td{display:flex;align-items:center;gap:8px;flex-wrap:wrap;grid-column:2;padding:0;border:0;white-space:normal;text-align:left!important}
+ .vh .tbl.dt-empilhar tbody td.ck{grid-column:1;grid-row:1;width:auto}
+ .vh .tbl.dt-empilhar tbody td.empty{grid-column:1 / -1;display:block}
+ .vh .tbl.dt-empilhar tbody td:not(.ck):not(.dt-acoes-linha){grid-column:2 / -1}
+ .vh .tbl.dt-empilhar tbody td.ck+td{grid-column:2;grid-row:1}
+ .vh .tbl.dt-empilhar tbody td[data-t]::before{content:attr(data-t);min-width:110px;font-size:12px;color:var(--muted)}
+ .vh .tbl.dt-empilhar tbody td.ck+td::before,.vh .tbl.dt-empilhar tbody td:first-child::before{content:none}
+ .vh .tbl.dt-empilhar tbody td.ck+td,.vh .tbl.dt-empilhar tbody td:first-child:not(.ck){font-weight:700}
+ /* o botão da linha (ex.: Desbloquear) fica à direita do dado principal, na primeira linha */
+ .vh .tbl.dt-empilhar tbody td.dt-acoes-linha{grid-column:-2;grid-row:1;justify-content:flex-end}
+ .vh .tbl.dt-empilhar tbody td.dt-acoes-linha:empty{display:none}
+ /* sem caixas de seleção: uma só coluna, sem a linha de cima */
+ .vh .tbl.dt-empilhar thead tr:not(:has(th.ck)){display:none}
+ .vh .tbl.dt-empilhar tbody tr:not(:has(td.ck)){grid-template-columns:minmax(0,1fr) auto}
+ .vh .tbl.dt-empilhar tbody tr:not(:has(td.ck)) td:not(.dt-acoes-linha){grid-column:1 / -1}
+ .vh .tbl.dt-empilhar tbody tr:not(:has(td.ck)) td:first-child{grid-column:1;grid-row:1}
+}
+
+/* Gestão de um domínio (pedido do Silva, 13/10/2026): conteúdo à esquerda e as opções numa barra lateral à direita; o
+   1.º cartão em duas colunas — informações do domínio | nameservers */
+.vh .dom-gestao{display:grid;grid-template-columns:minmax(0,1fr) 240px;gap:24px;align-items:start}
+.vh .dom-opcoes{position:sticky;top:90px;background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:8px}
+.vh .dom-opcoes h4{font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);padding:6px 8px 8px;margin:0}
+.vh .dom-opcoes :is(.dom-op,.btn){display:flex;align-items:center;justify-content:flex-start;gap:10px;width:100%;height:auto;padding:9px 10px;border:0;border-radius:var(--r);background:none;color:var(--ink);font:inherit;font-size:13.5px;font-weight:500;text-align:left;cursor:pointer;text-decoration:none;box-shadow:none}
+.vh .dom-opcoes :is(.dom-op,.btn) i{width:16px;text-align:center;color:var(--muted)}
+.vh .dom-opcoes :is(.dom-op,.btn):hover{background:var(--soft);color:var(--red)}
+.vh .dom-opcoes :is(.dom-op,.btn):hover i{color:var(--red)}
+.vh .dom-opcoes>:last-child{color:var(--red)}
+.vh .dom-opcoes>:last-child i{color:var(--red)}
+.vh .dom-ns-corpo{padding:16px 18px;display:flex;flex-direction:column;gap:14px}
+.vh .dom-ns-opcoes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.vh .dom-ns-op{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border:1px solid var(--line);border-radius:var(--r);cursor:pointer}
+.vh .dom-ns-op.on{border-color:var(--red);background:color-mix(in srgb,var(--red) 4%,var(--card))}
+.vh .dom-ns-op input{margin-top:3px;accent-color:var(--red)}
+.vh .dom-ns-op b{display:block;font-size:13.5px}
+.vh .dom-ns-op small{display:block;color:var(--muted);font-size:12px;margin-top:2px;line-height:1.4}
+.vh .dom-ns-campos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+@media(max-width:700px){.vh .dom-ns-opcoes,.vh .dom-ns-campos{grid-template-columns:minmax(0,1fr)}}
+.vh .dom-ns-campos label span{display:block;font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:5px}
+.vh .dom-ns-campos input{width:100%}
+.vh .dom-ns-aviso{color:var(--muted);font-size:13px;margin:0}
+.vh .dom-ns-atuais{display:flex;flex-direction:column;gap:6px;font-size:13px}
+.vh .dom-ns-atuais span{font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase}
+@media(max-width:1000px){.vh .dom-gestao{grid-template-columns:minmax(0,1fr)}.vh .dom-opcoes{position:static;order:-1}}
+
+/* cartão "Informações do domínio": um só cartão, linhas em duas colunas; as linhas com página própria abrem-na */
+.vh .dom-info-grelha{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:28px;padding:4px 18px 8px}
+.vh .dom-info-l{display:grid;grid-template-columns:150px minmax(0,1fr) 14px;gap:12px;align-items:center;min-height:46px;padding:8px 0;border-bottom:1px solid var(--line-soft)}
+.vh .dom-info-l>span{font-weight:600;font-size:13.5px;color:var(--muted)}
+.vh .dom-info-l>div{font-size:13.5px;min-width:0;overflow-wrap:anywhere;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.vh .dom-info-l>i{font-size:11px;color:var(--muted)}
+.vh .dom-info-l.lk{cursor:pointer}
+.vh .dom-info-l.lk:hover>div,.vh .dom-info-l.lk:hover>i{color:var(--red)}
+@media(max-width:900px){.vh .dom-info-grelha{grid-template-columns:minmax(0,1fr)}}
+/* Páginas copiadas tal como estavam do dashboard antigo (Tailwind), ex.: Mensagem a todos → Escrever mensagem e
+   Templates. O painel anula margens, letra dos botões/campos e o estilo das tabelas com regras fora das camadas
+   (.vh *{margin:0}, .vh button{font-size:14px}, .vh th/td…), que ganham sempre ao Tailwind (que está em camadas).
+   Aqui dentro essas regras voltam atrás (revert-layer) e o Tailwind manda, como no dashboard antigo. */
+.vh .tw-livre *{margin:revert-layer}
+.vh .tw-livre :is(button,input,select,textarea){font-family:revert-layer;font-size:revert-layer}
+.vh .tw-livre :is(th,td){padding:revert-layer;border-bottom:revert-layer;white-space:revert-layer;font-size:revert-layer;text-transform:revert-layer;letter-spacing:revert-layer;color:revert-layer;background:revert-layer;font-weight:revert-layer;text-align:revert-layer;vertical-align:revert-layer}
+.vh .tw-livre tbody tr:hover{background:revert-layer}
+.vh .tw-livre :is(code,kbd){font-family:revert-layer;font-size:revert-layer;background:revert-layer;border:revert-layer;border-radius:revert-layer;padding:revert-layer;margin-right:revert-layer;color:revert-layer;word-break:revert-layer;display:revert-layer;max-width:revert-layer;white-space:revert-layer}
+/* os botões que as páginas antigas punham na barra de cima (ex.: Templates: Salvar / Cancelar / Eliminar) */
+.vh .barra-antiga{display:inline-flex;align-items:center;gap:8px}
+.vh .barra-antiga:empty{display:none}
+/* No telemóvel (pedido do Silva, 13/10/2026: ver a vista de telemóvel) as páginas antigas não podem sair da largura do
+   ecrã: as barras dos editores passam à linha seguinte e as variáveis dos Templates ficam numa coluna. Os botões que
+   iam para a barra de cima (Salvar / Cancelar / Eliminar) não cabem ao lado do título: ficam numa linha por cima do
+   conteúdo, como no dashboard antigo no telemóvel — uma só linha, com a letra reduzida e o texto todo à vista (se
+   preciso em duas linhas dentro do botão), nunca cortado. No computador fica tudo como no antigo. */
+.vh .barra-antiga-m{display:none}
+@media(max-width:768px){
+  .vh .tw-livre .flex.items-center.gap-1.border-b-0{flex-wrap:wrap}
+  .vh .tw-livre .grid.grid-cols-2.divide-x{grid-template-columns:minmax(0,1fr);row-gap:4px}
+  .vh .tw-livre .grid.grid-cols-2.divide-x>*{padding-left:0;padding-right:0;border-left-width:0}
+  .vh .barra-antiga-m:not(:empty){display:flex;align-items:stretch;gap:6px;margin-bottom:14px}
+  .vh .barra-antiga-m>span{align-self:center;flex:none}
+  .vh .barra-antiga-m>button{flex:1 1 auto;min-width:min-content;height:auto;min-height:38px;padding:6px 7px;font-size:11.5px;line-height:1.2;text-align:center;justify-content:center;gap:5px}
+  .vh .barra-antiga-m>button svg{flex:none}
+}
+/* telemóveis estreitos: sem o ícone, para o texto dos três botões caber todo */
+@media(max-width:374px){.vh .barra-antiga-m>button svg{display:none}}

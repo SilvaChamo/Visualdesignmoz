@@ -29,25 +29,54 @@ para o outro) fica na memória `project_dual-folder-git-topology`.
 4. Alterações ao servidor também são descritas primeiro e só avançam com o "avança"/"publica" dele.
 5. **Sempre que o Silva disser "publica"/"publique"**, depois de publicar, mandar-lhe o commit publicado (o hash do
    merge em `fix/contabo-websites-audit`) e os comandos para actualizar o projecto local (pedido dele, 13/10/2026).
+6. **Os comandos para o projecto local vão sempre num único comando** que fecha o servidor que estiver na porta 3003,
+   actualiza o ramo e volta a arrancar o servidor (pedido do Silva, 13/10/2026). Modelo (trocar `RAMO`):
+   ```
+   cd ~/…/visualdesign-teste && (kill $(lsof -ti tcp:3003) 2>/dev/null; true) && git fetch origin RAMO && git checkout RAMO && git pull origin RAMO && npm run dev
+   ```
 
 # Regras de layout do Silva (valem para todas as páginas, sempre)
 
-- **Nunca duas linhas de botões.** Se uma página precisa de botões, ficam todos na mesma linha. A pesquisa também
-  fica nessa linha, nunca numa linha à parte por cima ou por baixo dos botões. Nas tabelas do painel VisualHost
-  (`DataTable` em `src/components/vhost/paginas/componentes.tsx`) usa-se `umaLinha`: "Ações" e os botões da página à
-  esquerda, a pesquisa à direita.
-- **A pesquisa ocupa 30% da largura da secção** (com um mínimo de 200px; no telemóvel ocupa a largura toda).
+- **Nunca pesquisa à esquerda por cima do cartão principal** (regra do Silva, 13/10/2026: "não coloque mais"). A
+  "Busca" da barra de cima já procura na página aberta. Sem exceções (a Força bruta também segue o modelo).
+- **MODELO GLOBAL DO PAINEL — vale para TODAS as páginas, não só para a que se está a mexer** (o Silva já teve de o
+  repetir várias vezes). Antes de entregar qualquer página, confirmar estes pontos um a um.
+- **Toda a página com tabela de caixas de seleção abre o cartão principal com a faixa cinzenta de separadores.** Se a
+  página não tem separadores mas tem filtros (ex.: DNS — Todos, A, CNAME, MX…), **os filtros são os separadores** e
+  vão para essa faixa (`Tabs`). Nunca filtros soltos numa linha de botões por cima da tabela.
+- **Faixa dos separadores (cabeçalho do cartão principal) = só o botão "Ações", à direita**, sempre visível nas
+  tabelas da página. **Nenhum botão por cima do cartão nem na faixa:** todas as ações da página vão para **dentro do
+  menu "Ações"** (regra do Silva, 13/10/2026), por exemplo "Adicionar subdomínio", "Marcar todas como lidas" ou
+  "Apagar". As opções que precisam de caixas assinaladas ficam **inativas** no menu enquanto nenhuma linha estiver
+  escolhida; as que não precisam (adicionar, marcar todas…) estão sempre ativas e vêm primeiro no menu.
+- **O "+ Adicionar…" principal da página fica na barra de cima** (a do título, `actions` do ecrã), quando esse espaço
+  está livre (ex.: "Adicionar domínio"). Um segundo "+ Adicionar…" vai para dentro do "Ações".
+- **Paginação só no fundo do cartão principal**, quando é precisa (mais de uma página): setas e "Página x de y", sem o
+  texto "1–20 de 67". Nunca em cima, nunca na faixa dos separadores.
+- No VisualHost tudo isto é automático no `DataTable` com `umaLinha` + `barraFora`: o "Ações" vai para o lugar que os
+  `Tabs` guardam à direita (`FaixaAbas` em `src/components/vhost/context.tsx`); as ações da página passam-se em `bulk`
+  (`sempre: true` nas que não precisam de linhas escolhidas, `inativo` para as desligar); a paginação sai no fundo.
+- **No telemóvel os separadores passam a uma caixa de escolha** (selector), à esquerda da faixa, com o "Ações" à
+  direita — assim vêem-se todos, mesmo quando são muitos (pedido do Silva, 13/10/2026). Automático nos `Tabs`.
+- **Listas no telemóvel numa só coluna** (pedido do Silva, 13/10/2026): cada linha passa a um bloco — a caixa de seleção
+  e o dado principal (ex.: o IP) em cima, com o botão da linha (ex.: Desbloquear) à direita dele; as outras
+  informações por baixo, cada uma com o nome da coluna. No
+  VisualHost: `DataTable` com `empilhar` (já ligado nas tabelas da Força bruta).
+- **Nunca duas linhas de botões.**
+- **Nunca cortar texto com "…"** (regra do Silva, 13/10/2026: "não pode fechar dados, reduzir sempre"): quando um
+  texto não cabe (ex.: título e descrição da barra de cima no telemóvel), a letra diminui até caber; se nem assim
+  couber, passa à linha de baixo. No VisualHost o título/descrição da barra de cima já fazem isto sozinhos
+  (`useTituloAjustado` em `src/components/vhost/titulo-ajustado.ts`).
 - **Modelo de página = a página Domínios do painel.** Toda a página nova segue-o: um título na barra de cima com uma
   descrição pequena por baixo (nunca dois títulos grandes juntos — números e resumos vão na descrição, ex.:
   "Todas as mensagens | 3 por ler"); o conteúdo dentro do cartão principal; os separadores abrem o cartão (faixa
   cinzenta em cima) e a tabela fica por baixo.
-- **Pesquisa e botões por cima do cartão, fora da faixa dos separadores**: pesquisa sempre à esquerda, botões de
-  ações sempre à direita, numa linha só. No VisualHost: `DataTable` com `umaLinha` e `barraFora` (vai para a faixa
-  `BarraPagina` por cima do cartão).
 - **Screenshots enviados ao Silva vão numerados** ("Ecrã 1", "Ecrã 2", …, também no nome do ficheiro) para ele
   poder dizer qual quer mudar.
-- **Mostrar sempre também a vista de telemóvel** (largura 390px) de cada página/alteração, além da do computador
-  (pedido do Silva, 13/10/2026).
+- **Primeiro só a vista de computador.** A vista de telemóvel (largura 390px) só se mostra depois de todas as
+  alterações estarem feitas e aprovadas pelo Silva (revisto a 13/10/2026).
+- **Antes de publicar:** fazer todas as rectificações, mostrar as imagens, esperar que o Silva diga que está bom, e
+  só publicar quando ele disser "publica" (ver "Como se trabalha com o Silva").
 
 # Verificação visual de alterações de UI
 
