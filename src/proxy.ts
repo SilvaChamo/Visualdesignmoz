@@ -40,7 +40,9 @@ const PAINEL_ENTRADA = `https://visualdesignmoz.com${PAINEL_BASE}`
 /** O endereço único como pode chegar (o ":" às vezes vem codificado) */
 const PAINEL_FORMAS = [PAINEL_BASE, '/host%3A2026', '/host%3a2026']
 /** Endereços antigos do painel neste site (por esta ordem: o mais comprido primeiro) */
-const PAINEL_ANTIGOS = ['/vhost/2026', '/vhost', '/host/2026', '/host']
+const PAINEL_ANTIGOS = ['/vhost', '/host/2026', '/host']
+/** Deixam de existir — "página não encontrada" (pedido do Silva, 13/10/2026: /vhost/2026 só serviu uma noite) */
+const PAINEL_INEXISTENTES = ['/vhost/2026']
 
 const comPrefixo = (pathname: string, prefixo: string) => pathname === prefixo || pathname.startsWith(`${prefixo}/`)
 
@@ -92,7 +94,11 @@ export async function proxy(request: NextRequest) {
     rota.pathname = `/host${resto.replace(/\/+$/, '')}`
     return NextResponse.rewrite(rota)
   }
-  // Os endereços antigos (/vhost/…, /vhost/2026/…, /host/2026/…, links de e-mails e favoritos) vão, num só salto,
+  // sem rota no Next (o painel está em src/app/host): mostra a página "não encontrada"
+  if (PAINEL_INEXISTENTES.some((p) => comPrefixo(pathname, p))) {
+    return NextResponse.next()
+  }
+  // Os endereços antigos (/vhost/…, /host/2026/…, links de e-mails e favoritos) vão, num só salto,
   // para o mesmo ecrã no endereço único
   const antigo = caminhoPainelAntigo(pathname)
   if (antigo) {
