@@ -70,6 +70,10 @@ para o outro) fica na memória `project_dual-folder-git-topology`.
   sem o ecrã branco com o círculo. Entrada pelo **login do próprio painel**: fica como está. Não mexer no
   carregamento sem o Silva pedir.
 - **Nunca duas linhas de botões.**
+- **Nunca cortar texto com "…"** (regra do Silva, 13/10/2026: "não pode fechar dados, reduzir sempre"): quando um
+  texto não cabe (ex.: título e descrição da barra de cima no telemóvel), a letra diminui até caber; se nem assim
+  couber, passa à linha de baixo. No VisualHost o título/descrição da barra de cima já fazem isto sozinhos
+  (`useTituloAjustado` em `src/components/vhost/titulo-ajustado.ts`).
 - **Modelo de página = a página Domínios do painel.** Toda a página nova segue-o: um título na barra de cima com uma
   descrição pequena por baixo (nunca dois títulos grandes juntos — números e resumos vão na descrição, ex.:
   "Todas as mensagens | 3 por ler"); o conteúdo dentro do cartão principal; os separadores abrem o cartão (faixa

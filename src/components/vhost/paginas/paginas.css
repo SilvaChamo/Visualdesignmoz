@@ -1179,3 +1179,32 @@
 .vh .dom-opcoes .dom-op:disabled{opacity:.45;cursor:default;background:none;color:var(--ink)}
 .vh .dom-opcoes .dom-op:disabled i{color:var(--muted)}
 .vh .dom-ns-op:has(input:disabled){cursor:default}
+/* Páginas copiadas tal como estavam do dashboard antigo (Tailwind), ex.: Mensagem a todos → Escrever mensagem e
+   Templates. O painel anula margens, letra dos botões/campos e o estilo das tabelas com regras fora das camadas
+   (.vh *{margin:0}, .vh button{font-size:14px}, .vh th/td…), que ganham sempre ao Tailwind (que está em camadas).
+   Aqui dentro essas regras voltam atrás (revert-layer) e o Tailwind manda, como no dashboard antigo. */
+.vh .tw-livre *{margin:revert-layer}
+.vh .tw-livre :is(button,input,select,textarea){font-family:revert-layer;font-size:revert-layer}
+.vh .tw-livre :is(th,td){padding:revert-layer;border-bottom:revert-layer;white-space:revert-layer;font-size:revert-layer;text-transform:revert-layer;letter-spacing:revert-layer;color:revert-layer;background:revert-layer;font-weight:revert-layer;text-align:revert-layer;vertical-align:revert-layer}
+.vh .tw-livre tbody tr:hover{background:revert-layer}
+.vh .tw-livre :is(code,kbd){font-family:revert-layer;font-size:revert-layer;background:revert-layer;border:revert-layer;border-radius:revert-layer;padding:revert-layer;margin-right:revert-layer;color:revert-layer;word-break:revert-layer;display:revert-layer;max-width:revert-layer;white-space:revert-layer}
+/* os botões que as páginas antigas punham na barra de cima (ex.: Templates: Salvar / Cancelar / Eliminar) */
+.vh .barra-antiga{display:inline-flex;align-items:center;gap:8px}
+.vh .barra-antiga:empty{display:none}
+/* No telemóvel (pedido do Silva, 13/10/2026: ver a vista de telemóvel) as páginas antigas não podem sair da largura do
+   ecrã: as barras dos editores passam à linha seguinte e as variáveis dos Templates ficam numa coluna. Os botões que
+   iam para a barra de cima (Salvar / Cancelar / Eliminar) não cabem ao lado do título: ficam numa linha por cima do
+   conteúdo, como no dashboard antigo no telemóvel — uma só linha, com a letra reduzida e o texto todo à vista (se
+   preciso em duas linhas dentro do botão), nunca cortado. No computador fica tudo como no antigo. */
+.vh .barra-antiga-m{display:none}
+@media(max-width:768px){
+  .vh .tw-livre .flex.items-center.gap-1.border-b-0{flex-wrap:wrap}
+  .vh .tw-livre .grid.grid-cols-2.divide-x{grid-template-columns:minmax(0,1fr);row-gap:4px}
+  .vh .tw-livre .grid.grid-cols-2.divide-x>*{padding-left:0;padding-right:0;border-left-width:0}
+  .vh .barra-antiga-m:not(:empty){display:flex;align-items:stretch;gap:6px;margin-bottom:14px}
+  .vh .barra-antiga-m>span{align-self:center;flex:none}
+  .vh .barra-antiga-m>button{flex:1 1 auto;min-width:min-content;height:auto;min-height:38px;padding:6px 7px;font-size:11.5px;line-height:1.2;text-align:center;justify-content:center;gap:5px}
+  .vh .barra-antiga-m>button svg{flex:none}
+}
+/* telemóveis estreitos: sem o ícone, para o texto dos três botões caber todo */
+@media(max-width:374px){.vh .barra-antiga-m>button svg{display:none}}

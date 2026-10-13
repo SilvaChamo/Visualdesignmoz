@@ -13,7 +13,7 @@ import { getPhpMyAdminUrl } from '@/lib/server-config';
 import { VISUALDESIGN_DEFAULT_NS } from '@/lib/visualdesign-dns';
 import { Check, DataTable, Frm, novaSenha, Row, Senha, Switch, Tabs, type Col } from './componentes';
 import { Confirmar } from './pacotes';
-import DomainSearch from '@/components/DomainSearch';
+import DomainSearch from '@/components/DomainSearchPainel';
 import { useGet } from '../carga';
 import { BotaoPassar } from './passar';
 import { TransferirDominio } from './transferir-dominio';
