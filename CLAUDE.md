@@ -18,6 +18,17 @@ depois de confirmadas aqui, através do fluxo normal de PR
 Detalhe completo desta topologia (portas, branches, como trazer alterações de um lado
 para o outro) fica na memória `project_dual-folder-git-topology`.
 
+# Como se trabalha com o Silva (combinado a 13/10/2026)
+
+1. O trabalho novo faz-se num ramo de trabalho (o do agente; nunca directamente em `fix/contabo-websites-audit` nem
+   em `main`).
+2. Antes de publicar, mostra-se ao Silva: screenshots numerados (Ecrã 1, Ecrã 2, …) e os comandos para ele ver o
+   ramo no projecto local.
+3. **Só se publica quando o Silva disser "publica"/"publique"** — é a chave para lançar as correcções. Publicar =
+   PR do ramo de trabalho para `fix/contabo-websites-audit` + merge (o deploy no Contabo corre sozinho).
+4. Alterações ao servidor também são descritas primeiro e só avançam com o "avança"/"publica" dele.
+5. Depois de cada publicação, mandar-lhe os comandos para actualizar o projecto local.
+
 # Regras de layout do Silva (valem para todas as páginas, sempre)
 
 - **Nunca duas linhas de botões.** Se uma página precisa de botões, ficam todos na mesma linha. A pesquisa também
