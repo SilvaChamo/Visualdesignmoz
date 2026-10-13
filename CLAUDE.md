@@ -18,6 +18,34 @@ depois de confirmadas aqui, através do fluxo normal de PR
 Detalhe completo desta topologia (portas, branches, como trazer alterações de um lado
 para o outro) fica na memória `project_dual-folder-git-topology`.
 
+# Como se trabalha com o Silva (combinado a 13/10/2026)
+
+1. O trabalho novo faz-se num ramo de trabalho (o do agente; nunca directamente em `fix/contabo-websites-audit` nem
+   em `main`).
+2. Antes de publicar, mostra-se ao Silva: screenshots numerados (Ecrã 1, Ecrã 2, …) e os comandos para ele ver o
+   ramo no projecto local.
+3. **Só se publica quando o Silva disser "publica"/"publique"** — é a chave para lançar as correcções. Publicar =
+   PR do ramo de trabalho para `fix/contabo-websites-audit` + merge (o deploy no Contabo corre sozinho).
+4. Alterações ao servidor também são descritas primeiro e só avançam com o "avança"/"publica" dele.
+5. Depois de cada publicação, mandar-lhe os comandos para actualizar o projecto local.
+
+# Regras de layout do Silva (valem para todas as páginas, sempre)
+
+- **Nunca duas linhas de botões.** Se uma página precisa de botões, ficam todos na mesma linha. A pesquisa também
+  fica nessa linha, nunca numa linha à parte por cima ou por baixo dos botões. Nas tabelas do painel VisualHost
+  (`DataTable` em `src/components/vhost/paginas/componentes.tsx`) usa-se `umaLinha`: "Ações" e os botões da página à
+  esquerda, a pesquisa à direita.
+- **A pesquisa ocupa 30% da largura da secção** (com um mínimo de 200px; no telemóvel ocupa a largura toda).
+- **Modelo de página = a página Domínios do painel.** Toda a página nova segue-o: um título na barra de cima com uma
+  descrição pequena por baixo (nunca dois títulos grandes juntos — números e resumos vão na descrição, ex.:
+  "Todas as mensagens | 3 por ler"); o conteúdo dentro do cartão principal; os separadores abrem o cartão (faixa
+  cinzenta em cima) e a tabela fica por baixo.
+- **Pesquisa e botões por cima do cartão, fora da faixa dos separadores**: pesquisa sempre à esquerda, botões de
+  ações sempre à direita, numa linha só. No VisualHost: `DataTable` com `umaLinha` e `barraFora` (vai para a faixa
+  `BarraPagina` por cima do cartão).
+- **Screenshots enviados ao Silva vão numerados** ("Ecrã 1", "Ecrã 2", …, também no nome do ficheiro) para ele
+  poder dizer qual quer mudar.
+
 # Verificação visual de alterações de UI
 
 Antes de reportar qualquer alteração visual (CSS/layout/alinhamentos) como concluída,

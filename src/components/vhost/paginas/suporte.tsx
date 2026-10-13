@@ -10,8 +10,8 @@ import { useVH, type VH } from '../context';
 import type { ScreenFn } from '../screens';
 import { DESC, MENU } from '../generated/data';
 import { ico } from '../state';
-import { esquecerMemoria, useGet } from '../carga';
-import { DataTable, Senha, Switch } from './componentes';
+import { esquecerMemoria, useGet, useNaMemoria } from '../carga';
+import { DataTable, Senha, Switch, Tabs } from './componentes';
 import { Confirmar } from './pacotes';
 
 // ---------- Peças comuns ----------
@@ -760,8 +760,72 @@ function PrefFicheiros() {
 }
 
 // ---------- Mensagens ----------
+// Como a página "Messages" do DirectAdmin (pedido do Silva, 13/10/2026; o mesmo que o painel antigo já tinha): uma
+// linha por mensagem (ícone, ponto de não lida, assunto, data), cor suave pelo tipo; clicar abre um popup com a
+// mensagem completa — e marca-a como lida.
 type Mensagem = { id: string; type: string; title: string; message: string; domain: string | null; read: boolean; category: string; link: string | null; link_text: string | null; created_at: string };
 const ICONE_MSG: Record<string, [string, string]> = { success: ['fa-circle-check', 'ok'], warning: ['fa-triangle-exclamation', 'w'], error: ['fa-circle-xmark', 'bad'], info: ['fa-circle-info', 'info'] };
+const iconeMsg = (tipo: string) => ICONE_MSG[tipo] || ['fa-envelope', ''];
+
+function VerMensagem({ m, onApagar }: { m: Mensagem; onApagar: () => void }) {
+  const { t, closeM } = useVH();
+  const [icone, cor] = iconeMsg(m.type);
+  return (
+    <div className="msg-ver">
+      <div className="msg-ver-topo">
+        <i className={'fa-solid ' + icone + ' ' + cor} />
+        <div>
+          <h3>{m.title}</h3>
+          <small>
+            {dataPt(m.created_at)}
+            {m.domain ? ' · ' + m.domain : ''}
+          </small>
+        </div>
+      </div>
+      <p className="msg-ver-texto">{m.message}</p>
+      <div className="mfoot">
+        <button
+          className="btn g"
+          onClick={() => {
+            closeM();
+            onApagar();
+          }}
+        >
+          <i className="fa-solid fa-trash" />
+          {t('Eliminar')}
+        </button>
+        {m.link && (
+          <a className="btn g" href={m.link} target={/^https?:/.test(m.link) ? '_blank' : undefined} rel="noreferrer" onClick={closeM}>
+            {m.link_text || t('Abrir')}
+          </a>
+        )}
+        <button className="btn r" onClick={closeM}>
+          {t('Fechar')}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+const ROTULO_MSG = { todas: 'Todas as mensagens', 'nao-lidas': 'Não lidas', avisos: 'Avisos do sistema' } as const;
+
+/** Descrição da barra de cima nas Mensagens (pedido do Silva): "Todas as mensagens | 3 por ler", em letra de descrição.
+ *  Usa a leitura que a própria página faz (não pede nada ao servidor). */
+function ResumoMensagens({ filtro }: { filtro: keyof typeof ROTULO_MSG }) {
+  const { t } = useVH();
+  const dados = useNaMemoria<{ naoLidas: number }>('/api/vhost/mensagens?filtro=' + filtro);
+  return (
+    <>
+      {t(ROTULO_MSG[filtro])}
+      {dados && (
+        <>
+          <span className="pdesc-sep">|</span>
+          {dados.naoLidas ? dados.naoLidas + ' ' + t('por ler') : t('todas lidas')}
+        </>
+      )}
+    </>
+  );
+}
 
 function Mensagens({ filtro }: { filtro: 'todas' | 'nao-lidas' | 'avisos' }) {
   const vh = useVH();
@@ -771,14 +835,43 @@ function Mensagens({ filtro }: { filtro: 'todas' | 'nao-lidas' | 'avisos' }) {
   if (!dados) return <Carregando erro={erro} ler={ler} />;
   const marcar = async (ids?: string[]) => (await enviar(vh, '/api/vhost/mensagens', { acao: 'lidas', ids }, 'Marcadas como lidas')) && (esquecerMemoria('/api/vhost/mensagens'), ler());
   const apagar = async (ids: string[]) => (await enviar(vh, '/api/vhost/mensagens', { acao: 'apagar', ids }, 'Apagadas')) && (esquecerMemoria('/api/vhost/mensagens'), ler());
+  // abrir não mostra aviso: só marca como lida em silêncio
+  const abrir = (m: Mensagem) => {
+    vh.openM(<VerMensagem m={m} onApagar={() => apagar([m.id])} />);
+    if (!m.read)
+      void fetch('/api/vhost/mensagens', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ acao: 'lidas', ids: [m.id] }) })
+        .then((r) => {
+          if (r.ok) {
+            esquecerMemoria('/api/vhost/mensagens');
+            void ler();
+          }
+        })
+        .catch(() => {});
+  };
   const vazio = filtro === 'nao-lidas' ? 'Não há mensagens por ler' : filtro === 'avisos' ? 'Não há avisos do sistema' : 'Não há mensagens';
   return (
-    <Sec titulo={filtro === 'nao-lidas' ? 'Não lidas' : filtro === 'avisos' ? 'Avisos do sistema' : 'Todas as mensagens'} desc={dados.naoLidas ? dados.naoLidas + ' ' + t(dados.naoLidas === 1 ? 'mensagem por ler' : 'mensagens por ler') : undefined}>
+    // modelo de Domínios: os separadores abrem o cartão, a pesquisa e os botões ficam por cima do cartão; sem título por
+    // cima da tabela — o resumo fica na descrição da barra de cima (ResumoMensagens)
+    <>
+      <Tabs
+        tabs={[
+          ['todas', 'Todas as mensagens', 'fa-inbox'],
+          ['nao-lidas', 'Não lidas', 'fa-envelope'],
+          ['avisos', 'Avisos do sistema', 'fa-triangle-exclamation'],
+        ]}
+        on={filtro}
+        onChange={(k) => vh.nav('/mensagens-sistema/' + k)}
+      />
       <DataTable
         id={'msg-' + filtro}
         rows={dados.mensagens}
         rowKey={(r) => r.id}
         empty={vazio}
+        search={(r) => r.title + ' ' + r.message + ' ' + (r.domain || '')}
+        semBusca={false}
+        umaLinha
+        barraFora
+        rowClass={(r) => 'msg-tipo-' + (ICONE_MSG[r.type] ? r.type : 'info') + (r.read ? '' : ' msg-por-ler')}
         barra2={
           dados.naoLidas ? (
             <button className="btn sm g" onClick={() => marcar()}>
@@ -790,40 +883,28 @@ function Mensagens({ filtro }: { filtro: 'todas' | 'nao-lidas' | 'avisos' }) {
         cols={[
           {
             k: 'm',
-            t: 'Mensagem',
-            cell: (r) => (
-              <div className={'msg-cel' + (r.read ? '' : ' nova')}>
-                <i className={'fa-solid ' + (ICONE_MSG[r.type]?.[0] || 'fa-envelope') + ' ' + (ICONE_MSG[r.type]?.[1] || '')} />
-                <div>
+            t: 'Assunto',
+            sort: (r) => r.title,
+            cell: (r) => {
+              const [icone, cor] = iconeMsg(r.type);
+              return (
+                <button type="button" className={'msg-linha' + (r.read ? '' : ' nova')} onClick={() => abrir(r)} title={t('Abrir a mensagem')}>
+                  <i className={'fa-solid ' + icone + ' ' + cor} />
+                  {!r.read && <span className="msg-ponto" title={t('Não lida')} />}
                   <b>{r.title}</b>
-                  <span>{r.message}</span>
                   {r.domain && <small>{r.domain}</small>}
-                </div>
-              </div>
-            ),
+                </button>
+              );
+            },
           },
-          { k: 'd', t: 'Data', sort: (r) => r.created_at, cell: (r) => dataPt(r.created_at) },
+          { k: 'd', t: 'Data', sort: (r) => r.created_at, cell: (r) => <span className="msg-data">{dataPt(r.created_at)}</span> },
         ]}
-        actions={(r) => (
-          <span className="dns-acoes">
-            {r.link && (
-              <a className="btn sm g" href={r.link} target={/^https?:/.test(r.link) ? '_blank' : undefined} rel="noreferrer" onClick={() => !r.read && marcar([r.id])}>
-                {r.link_text || t('Abrir')}
-              </a>
-            )}
-            {!r.read && (
-              <button className="btn sm g iconbtn" title={t('Marcar como lida')} aria-label={t('Marcar como lida')} onClick={() => marcar([r.id])}>
-                <i className="fa-solid fa-check" />
-              </button>
-            )}
-          </span>
-        )}
         bulk={[
           { t: 'Marcar como lidas', fa: 'fa-check', run: (k) => marcar(k) },
           { t: 'Apagar', fa: 'fa-trash', run: (k) => vh.openM(<Confirmar titulo="Apagar as mensagens?" texto={k.length + ' ' + t('mensagem(ns) escolhida(s).')} ok="Apagar" onOk={() => apagar(k)} />) },
         ]}
       />
-    </Sec>
+    </>
   );
 }
 
@@ -851,6 +932,6 @@ export const perfilAvisos: ScreenFn = () => ({ title: 'Notificações', body: <P
 export const prefIdioma: ScreenFn = () => ({ title: 'Idioma e data', body: <PrefIdioma /> });
 export const prefTabelas: ScreenFn = () => ({ title: 'Tabelas', body: <PrefTabelas /> });
 export const prefFicheiros: ScreenFn = () => ({ title: 'Gestor de ficheiros', body: <PrefFicheiros /> });
-export const msgTodas: ScreenFn = () => ({ title: 'Mensagens', body: <Mensagens key="todas" filtro="todas" /> });
-export const msgNaoLidas: ScreenFn = () => ({ title: 'Não lidas', body: <Mensagens key="nao-lidas" filtro="nao-lidas" /> });
-export const msgAvisos: ScreenFn = () => ({ title: 'Avisos do sistema', body: <Mensagens key="avisos" filtro="avisos" /> });
+export const msgTodas: ScreenFn = () => ({ title: 'Mensagens', desc: ROTULO_MSG['todas'], descEl: <ResumoMensagens filtro="todas" />, body: <Mensagens key="todas" filtro="todas" /> });
+export const msgNaoLidas: ScreenFn = () => ({ title: 'Mensagens', desc: ROTULO_MSG['nao-lidas'], descEl: <ResumoMensagens filtro="nao-lidas" />, body: <Mensagens key="nao-lidas" filtro="nao-lidas" /> });
+export const msgAvisos: ScreenFn = () => ({ title: 'Mensagens', desc: ROTULO_MSG['avisos'], descEl: <ResumoMensagens filtro="avisos" />, body: <Mensagens key="avisos" filtro="avisos" /> });

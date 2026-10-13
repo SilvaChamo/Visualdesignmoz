@@ -50,6 +50,10 @@ export interface VH {
 
 export const VHContext = createContext<VH | null>(null);
 
+/** Faixa por cima do cartão principal de cada página (modelo do Silva, 13/10/2026): a pesquisa (à esquerda) e os
+ *  botões de ações (à direita) ficam aqui, fora da faixa dos separadores que abre o cartão. Ver DataTable `barraFora`. */
+export const BarraPagina = createContext<HTMLElement | null>(null);
+
 export function useVH(): VH {
   const vh = useContext(VHContext);
   if (!vh) throw new Error('useVH fora do VisualHostApp');

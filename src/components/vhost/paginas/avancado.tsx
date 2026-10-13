@@ -41,7 +41,7 @@ async function noServidor(vh: VH, corpo: Record<string, unknown>, ok: string, re
   }
 }
 
-function Carregando({ erro, ler }: { erro: string; ler: () => void }) {
+export function Carregando({ erro, ler }: { erro: string; ler: () => void }) {
   const { t } = useVH();
   return erro ? (
     <div className="imp">
@@ -54,7 +54,7 @@ function Carregando({ erro, ler }: { erro: string; ler: () => void }) {
   ) : null; // a carregar: só a linha do topo
 }
 
-function Sec({ titulo, desc, numeros, extra, children }: { titulo: string; desc?: string; numeros?: [string, string][]; extra?: ReactNode; children: ReactNode }) {
+export function Sec({ titulo, desc, numeros, extra, children }: { titulo: string; desc?: string; numeros?: [string, string][]; extra?: ReactNode; children: ReactNode }) {
   const { t } = useVH();
   return (
     <section className="da-sec">

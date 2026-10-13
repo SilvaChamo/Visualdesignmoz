@@ -9,6 +9,7 @@ import { contas, modelos, mover, novaConta, senhas } from './paginas/contas';
 import { pacotes } from './paginas/pacotes';
 import { estatisticasPagina, ficheirosPagina, infoSistemaPagina, logsPagina, perlPagina, recursosPagina, terminalPagina } from './paginas/sistema';
 import { backupsPagina, chavesPagina, clamavPagina, cronPagina, gitPagina, handlersPagina, modsecPagina, protegidasPagina, sshPagina, wordpressPagina } from './paginas/avancado';
+import { forcaBrutaPagina } from './paginas/forca-bruta';
 import { catchAllPagina, emailPagina, feriasPagina, listasPagina, mailmarketingPagina, migracaoPagina, mxPagina, rastreioPagina, reencaminhamentosPagina, respostasPagina, spamPagina, webmailPagina } from './paginas/email';
 import { apontadores, bdPagina, dnsPagina, dominios, ftpPagina, hotlink, phpPagina, phpmyadminPagina, redirecionamentos, sslPagina, subdominios } from './paginas/dominios';
 import { ThemeCustomizerView, temaBase } from './paginas/tema';
@@ -31,6 +32,8 @@ export interface Screen {
   crumbs?: Crumb[];
   /** descrição na barra de cima (por defeito: a da página, em DESC) */
   desc?: string;
+  /** descrição com dados vivos, no lugar de desc (ex.: Mensagens — "Todas as mensagens | 3 por ler") */
+  descEl?: ReactNode;
   /** domínios do seletor nesta página: 'sites' = só os que têm site neste servidor (por defeito: todos) */
   dominios?: 'sites';
   /** página de um domínio que está no endereço: o seletor mostra esse domínio e, ao mudar, abre a mesma página do novo */
@@ -681,6 +684,7 @@ export const SCREENS: Record<string, ScreenFn> = {
   'admin/mover': mover,
   'admin/modelos-mensagem': modelos,
   'admin/senhas': senhas,
+  'admin/forca-bruta': forcaBrutaPagina,
   'admin/revendedores': contas('revenda'),
   'admin/pacotes-revenda': pacotes('revenda'),
   'admin/administradores': contas('admin'),

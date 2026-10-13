@@ -268,3 +268,5 @@ jobs:
             bash scripts/install-hestia-cron.sh
             bash scripts/install-mailmarketing-cron.sh
             bash scripts/install-backup-schedule-cron.sh
+            # avisos de força bruta nas Mensagens dos administradores (como o DirectAdmin fazia no Hetzner)
+            bash scripts/install-forca-bruta-cron.sh
