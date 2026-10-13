@@ -213,7 +213,6 @@ export function DataTable<T>({
   barra2,
   onRecarregar,
   porPagina: porPaginaPedido,
-  paginasNaBarra2 = false,
   rodape,
   inicioBarra2,
   fimBarra,
@@ -227,6 +226,7 @@ export function DataTable<T>({
   umaLinha = false,
   barraFora = false,
   pesquisaPorCima = false,
+  adicionar,
 }: {
   id: string;
   rows: T[];
@@ -244,8 +244,6 @@ export function DataTable<T>({
   /** o que "Atualizar" faz (sem isto, só avisa) */
   onRecarregar?: () => void;
   porPagina?: number;
-  /** setas e "Página x de y" à direita da segunda linha (a do seletor), sempre visíveis (inativas se só houver uma página) */
-  paginasNaBarra2?: boolean;
   /** no fundo do cartão da tabela, à esquerda (ex.: botão Adicionar) */
   rodape?: ReactNode;
   /** encostado à esquerda da segunda linha, antes do menu "Ações" (ex.: botão Adicionar) */
@@ -262,16 +260,19 @@ export function DataTable<T>({
   acoesDiretas?: boolean;
   /** ativa a coluna de checkboxes de seleção nas linhas e cabeçalho */
   comSelecao?: boolean;
-  /** Os botões da barra2 e o "Ações" (sempre o último) numa linha só, à direita da faixa dos separadores — regra do
-   *  Silva (13/10/2026): nunca duas linhas de botões. Só o "Ações": sem pesquisa. Mais botões: a pesquisa vem antes
-   *  deles. Só para barra2 com botões; uma barra2 com um bloco de título/números fica por cima. */
+  /** Regra do Silva (13/10/2026): "Ações" (e `adicionar`) na faixa dos separadores, à direita; os botões da barra2
+   *  numa linha só por cima do cartão, à direita; sem pesquisa; paginação só no fundo do cartão. Só para barra2 com
+   *  botões; uma barra2 com um bloco de título/números fica por cima. */
   umaLinha?: boolean;
   /** com umaLinha: a linha vai para a faixa por cima do cartão principal (modelo do Silva: fora da faixa dos
    *  separadores que abre o cartão, como em Domínios) */
   barraFora?: boolean;
   /** fica com a linha por cima do cartão (pesquisa à esquerda, botões à direita) em vez da faixa dos separadores
-   *  (Força bruta, aprovada assim pelo Silva a 13/10/2026) */
+   *  (Força bruta, aprovada assim pelo Silva a 13/10/2026 — a única página com pesquisa por cima do cartão) */
   pesquisaPorCima?: boolean;
+  /** com umaLinha: um segundo "+ Adicionar…" que fica na faixa dos separadores, antes do "Ações" — só quando a barra
+   *  de cima já tem o "+ Adicionar…" principal (senão vai para a barra de cima, `actions` do ecrã) */
+  adicionar?: ReactNode;
   /** notifica chaves das linhas selecionadas */
   onSelChange?: (keys: string[]) => void;
 }) {
@@ -429,8 +430,8 @@ export function DataTable<T>({
     );
   };
 
-  // Setas e "Página x de y" (sem o "1–20 de 67": pedido do Silva, 13/10/2026). Com mais de uma página, aparece em cima
-  // (na barra da tabela) e também em baixo, no fundo do cartão
+  // Setas e "Página x de y" (sem o "1–20 de 67"): só no fundo do cartão, quando há mais de uma página (regra do Silva,
+  // 13/10/2026 — nunca na faixa dos separadores nem por cima da tabela)
   const paginador = (
     <div className="dt-pag">
       <button className="btn g sm" disabled={atual === 1} onClick={() => setPag(1)} aria-label={t('Primeira página')}>
@@ -488,41 +489,57 @@ export function DataTable<T>({
     <>
       {umaLinha ? (
         (() => {
-          // Regra do Silva (13/10/2026): os botões vão para a direita da faixa dos separadores (o cabeçalho do cartão
-          // principal), com o "Ações" sempre em último (inativo sem linhas escolhidas). Só com o "Ações" não há pesquisa
-          // (procura-se pela "Busca" da barra de cima); com mais botões (outro botão, paginação…), a pesquisa vem antes
-          // deles, a fazer-lhes companhia. Sem separadores, a mesma linha vai para a faixa por cima do cartão.
-          const temAlgo = !!(inicioBarra2 || barra2 || bulk.length || colunas || recarregar || fimBarra || paginas > 1);
-          if (!temAlgo && !cabecalho) return null;
-          const maisBotoes = pesquisaPorCima || !!(inicioBarra2 || barra2 || colunas || recarregar || fimBarra || paginas > 1);
-          const botoes = (
+          // Regra do Silva (13/10/2026): na faixa dos separadores (cabeçalho do cartão principal) fica só o "Ações",
+          // sempre à vista e à direita (inativo sem linhas escolhidas), e antes dele um segundo "+ Adicionar…"
+          // (`adicionar`) quando a barra de cima já tem o principal. Nunca pesquisa nem paginação lá: a paginação
+          // fica no fundo do cartão. Os outros botões da página ficam por cima do cartão, à direita.
+          if (pesquisaPorCima) {
+            // Força bruta (aprovada assim): pesquisa à esquerda e botões à direita, por cima do cartão
+            const linha = (
+              <div className={'dt-bar dt-uma-linha' + (barraFora ? ' dt-fora' : '')}>
+                {cabecalho}
+                {(inicioBarra2 || barra2 || bulk.length > 0 || adicionar || fimBarra) && pesquisa}
+                <span className="sp" />
+                {inicioBarra2}
+                {barra2}
+                {adicionar}
+                {colunas}
+                {recarregar}
+                {fimBarra}
+                {menuAcoes(true)}
+              </div>
+            );
+            return barraFora && faixaFora ? createPortal(linha, faixaFora) : linha;
+          }
+          const naFaixa = (adicionar || bulk.length > 0) && barraFora && faixaAbas?.el && !cabecalho;
+          const outros = !!(inicioBarra2 || barra2 || colunas || recarregar || fimBarra);
+          const linha =
+            outros || cabecalho || (!naFaixa && (adicionar || bulk.length > 0)) ? (
+              <div className={'dt-bar dt-uma-linha' + (cabecalho ? ' com-cab' : '') + (barraFora ? ' dt-fora' : '')}>
+                {cabecalho}
+                <span className="sp" />
+                {inicioBarra2}
+                {barra2}
+                {colunas}
+                {recarregar}
+                {fimBarra}
+                {!naFaixa && adicionar}
+                {!naFaixa && menuAcoes(true)}
+              </div>
+            ) : null;
+          return (
             <>
-              {inicioBarra2}
-              {barra2}
-              {colunas}
-              {recarregar}
-              {paginas > 1 && paginador}
-              {fimBarra}
-              {menuAcoes(true)}
+              {linha && (barraFora && faixaFora ? createPortal(linha, faixaFora) : linha)}
+              {naFaixa &&
+                createPortal(
+                  <>
+                    {adicionar}
+                    {menuAcoes(true)}
+                  </>,
+                  faixaAbas.el!,
+                )}
             </>
           );
-          if (barraFora && faixaAbas?.el && !cabecalho && !pesquisaPorCima)
-            return createPortal(
-              <>
-                {maisBotoes && pesquisa}
-                {botoes}
-              </>,
-              faixaAbas.el,
-            );
-          const linha = (
-            <div className={'dt-bar dt-uma-linha' + (cabecalho ? ' com-cab' : '') + (barraFora ? ' dt-fora' : '')}>
-              {cabecalho}
-              {maisBotoes && pesquisa}
-              <span className="sp" />
-              {botoes}
-            </div>
-          );
-          return barraFora && faixaFora ? createPortal(linha, faixaFora) : linha;
         })()
       ) : (
       <div className={'dt-bar' + (cabecalho ? ' com-cab' : '') + (acoesFixas ? ' dt-fixas' : '')}>
@@ -534,7 +551,6 @@ export function DataTable<T>({
         {pesquisa}
         {!acoesFixas && colunas}
         {recarregar}
-        {!paginasNaBarra2 && paginas > 1 && paginador}
         {fimBarra}
       </div>
       )}
@@ -543,12 +559,6 @@ export function DataTable<T>({
           {inicioBarra2}
           {menuAcoes(true)}
           {barra2}
-          {paginasNaBarra2 && (
-            <>
-              <span className="sp" />
-              {paginador}
-            </>
-          )}
         </div>
       )}
       <div className="tbl dt" ref={tabelaRef}>

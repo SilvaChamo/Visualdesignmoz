@@ -868,7 +868,6 @@ function Mensagens({ filtro }: { filtro: 'todas' | 'nao-lidas' | 'avisos' }) {
         rowKey={(r) => r.id}
         empty={vazio}
         search={(r) => r.title + ' ' + r.message + ' ' + (r.domain || '')}
-        semBusca={false}
         umaLinha
         barraFora
         rowClass={(r) => 'msg-tipo-' + (ICONE_MSG[r.type] ? r.type : 'info') + (r.read ? '' : ' msg-por-ler')}

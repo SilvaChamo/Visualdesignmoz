@@ -173,7 +173,6 @@ function ListaDominios({ abaDom = 'meus' }: { abaDom?: AbaDom }) {
           id="dominios"
           umaLinha
           barraFora
-          semBusca={false}
           rows={rows}
           cols={cols}
           rowKey={(r) => r.name}
@@ -686,12 +685,11 @@ function Subdominios() {
       id="subdominios"
       umaLinha
       barraFora
-      semBusca={false}
       rows={rows}
       rowKey={(r) => r.name}
       search={(r) => r.name}
       empty={t('Este domínio ainda não tem subdomínios') + ' (' + x.name + ')'}
-      barra2={
+      adicionar={
         <button className="btn g sm" onClick={() => openM(<NovoSubdominio d={x.name} />)}>
           <i className="fa-solid fa-plus" />
           {t('Adicionar subdomínio')}
@@ -950,7 +948,6 @@ function Dns() {
           rowClass={(r) => (r.id === editId ? 'dns-row-editando' : '')}
           search={(r) => r.nome + ' ' + r.valor}
           onRecarregar={ler}
-          paginasNaBarra2
           cabecalho={
             <div className="dns-filtros">
               {['', 'A', 'CNAME', 'MX', 'TXT', 'SRV', 'NS'].map((f) => (
