@@ -611,21 +611,25 @@ export const dominios: ScreenFn = (vh) => {
 };
 
 // ---------- Subdomínios (separador dos Domínios) ----------
-/** Como no DirectAdmin (pedido do Silva, 13/10/2026): nome + domínio; com "também em dominio.com/loja" o subdomínio
- *  usa a pasta public_html/loja do domínio principal e abre nos dois endereços */
+/** Adicionar subdomínio (pedido do Silva, 13/10/2026): nome + domínio e os dois endereços com caixa de escolha —
+ *  à frente (loja.dominio.com: subdomínio com pasta própria, em separado) e/ou atrás (dominio.com/loja: pasta no site
+ *  principal). Com os dois, o mesmo conteúdo abre nos dois endereços. */
 function NovoSubdominio({ d }: { d: string }) {
   const vh = useVH();
   const { a, t, closeM } = vh;
   const principais = a.domains.filter((x) => !x.soEmail && !a.domains.some((y) => y !== x && ehSub(x.name, y.name)));
   const [sub, setSub] = useState('');
   const [dom, setDom] = useState(d);
-  const [pasta, setPasta] = useState(true);
+  const [frente, setFrente] = useState(true);
+  const [atras, setAtras] = useState(false);
   const nome = sub.trim().toLowerCase() || 'loja';
   const criar = async () => {
     const n = sub.trim().toLowerCase();
     if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(n)) return vh.toast('Subdomínio: letras, números e hífen');
+    if (!frente && !atras) return vh.toast('Escolha pelo menos um dos endereços');
     closeM();
-    await noServidor(vh, { acao: 'subdominio-criar', dominio: dom, sub: n, ssl: true, pasta }, 'Subdomínio ' + n + '.' + dom + ' criado');
+    if (frente) await noServidor(vh, { acao: 'subdominio-criar', dominio: dom, sub: n, ssl: true, pasta: atras }, 'Subdomínio ' + n + '.' + dom + ' criado');
+    else await noServidor(vh, { acao: 'subpasta-criar', dominio: dom, sub: n }, 'Endereço ' + dom + '/' + n + ' criado');
   };
   return (
     <>
@@ -644,23 +648,25 @@ function NovoSubdominio({ d }: { d: string }) {
           </select>
         </span>
       </div>
-      <label className="sub-opcao">
-        <input type="checkbox" checked={pasta} onChange={(e) => setPasta(e.target.checked)} />
-        <span>
-          <b>{t('Também em') + ' ' + dom + '/' + nome}</b>
-          <small>{t('Como no DirectAdmin: o subdomínio usa a pasta') + ' public_html/' + nome + ' ' + t('do domínio principal e abre nos dois endereços.')}</small>
-        </span>
-      </label>
       <div className="sub-enderecos">
-        <span>{t('Vai abrir em')}</span>
-        <code>https://{nome}.{dom}</code>
-        {pasta && <code>https://{dom}/{nome}</code>}
+        <span className="sub-enderecos-t">{t('Endereço')}</span>
+        <label className={'sub-end' + (frente ? ' on' : '')}>
+          <input type="checkbox" checked={frente} onChange={(e) => setFrente(e.target.checked)} />
+          <code>https://{nome}.{dom}</code>
+          <small>{t('à frente do domínio — pasta própria')}</small>
+        </label>
+        <label className={'sub-end' + (atras ? ' on' : '')}>
+          <input type="checkbox" checked={atras} onChange={(e) => setAtras(e.target.checked)} />
+          <code>https://{dom}/{nome}</code>
+          <small>{t('atrás do domínio — pasta no site principal')}</small>
+        </label>
+        {frente && atras && <p className="sub-nota">{t('Com os dois, o mesmo conteúdo abre nos dois endereços.')}</p>}
       </div>
       <div className="mfoot">
         <button className="btn g" onClick={closeM}>
           {t('Cancelar')}
         </button>
-        <button className="btn r" onClick={criar}>
+        <button className="btn r" onClick={criar} disabled={!frente && !atras}>
           <i className="fa-solid fa-plus" />
           {t('Adicionar subdomínio')}
         </button>

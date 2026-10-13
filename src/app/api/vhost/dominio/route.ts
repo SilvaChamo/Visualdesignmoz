@@ -226,9 +226,9 @@ export async function POST(req: NextRequest) {
     for (const [u, w] of Object.entries(srv.web)) if (w[novo]) return NextResponse.json({ erro: 'Esse domínio já existe no servidor' + (u === conta ? ' nesta conta.' : '.') }, { status: 400 });
     // só o site no Hestia (sem mexer no DNS da Cloudflare); certificado se pedido
     const x = await call('v-add-web-domain', [conta, novo]);
-    // Como no DirectAdmin (pedido do Silva, 13/10/2026): o subdomínio "loja" fica na pasta public_html/loja do domínio
-    // principal, por isso abre em loja.dominio.com e também em dominio.com/loja. Sem a opção, fica com pasta própria
-    // (o normal do Hestia).
+    // Endereço "atrás" também marcado (pedido do Silva, 13/10/2026): o subdomínio "loja" passa a usar a pasta
+    // public_html/loja do domínio principal, por isso abre em loja.dominio.com e em dominio.com/loja. Só "à frente":
+    // fica com pasta própria, em separado (o normal do Hestia).
     if (x.ok && c.acao === 'subdominio-criar' && c.pasta) {
       const sub = linhaLimpa(c.sub).toLowerCase();
       const pasta = `/home/${conta}/web/${d}/public_html/${sub}`;
@@ -250,6 +250,14 @@ export async function POST(req: NextRequest) {
 
   const e = await verificar(r.s, conta, d, srv);
   if (e) return NextResponse.json({ erro: e }, { status: 403 });
+
+  // Só o endereço "atrás" (dominio.com/loja): uma pasta no site principal, sem subdomínio (pedido do Silva, 13/10/2026)
+  if (c.acao === 'subpasta-criar') {
+    const sub = linhaLimpa(c.sub).toLowerCase();
+    if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(sub)) return NextResponse.json({ erro: 'Nome inválido: letras, números e hífen.' }, { status: 400 });
+    if (!srv.web[conta]?.[d]) return NextResponse.json({ erro: 'Este domínio não tem site.' }, { status: 400 });
+    return resposta(call('v-add-fs-directory', [conta, `/home/${conta}/web/${d}/public_html/${sub}`]), false);
+  }
   const w = srv.web[conta]?.[d];
   const raiz = (w?.DOCUMENT_ROOT || `/home/${conta}/web/${d}/public_html/`).replace(/\/+$/, '');
 

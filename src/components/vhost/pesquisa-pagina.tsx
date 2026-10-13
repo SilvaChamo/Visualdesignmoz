@@ -2,8 +2,9 @@
 
 // Lupa da barra de cima (pedido do Silva, 13/10/2026): procura na página aberta — Domínios procura nos domínios, E-mail
 // nas contas de e-mail, etc. (cada tabela da página regista as suas linhas, ver DataTable); na página inicial procura no
-// painel todo (funcionalidades e domínios). Desliza por baixo da faixa do seletor, com a largura toda, num cartão com
-// o campo e os resultados por baixo. A lupa da barra compacta continua a abrir a janela de pesquisa (Ctrl+K).
+// painel todo (funcionalidades e domínios). Desliza por baixo da faixa do seletor, colado a ela e com a largura toda:
+// um só cartão sem cabeçalho — o campo, os resultados por baixo e um rodapé. Fecha com Esc ou na lupa. A lupa da barra
+// compacta continua a abrir a janela de pesquisa (Ctrl+K).
 import { useEffect, useRef, type Dispatch, type SetStateAction } from 'react';
 import type { ItemPesquisa } from './context';
 
@@ -73,10 +74,6 @@ export function PesquisaNaPagina({
             autoComplete="off"
             aria-label={t('Pesquisar')}
           />
-          <span className="pesq-onde">{onde}</span>
-          <button onClick={fechar} title={t('Fechar')} aria-label={t('Fechar')}>
-            <i className="fa-solid fa-xmark" />
-          </button>
         </div>
         <div className="pesq-pag-lista">
           {itens.length ? (
@@ -95,14 +92,18 @@ export function PesquisaNaPagina({
             <div className="pesq-pag-vazio">{t(naPagina ? 'Nada encontrado nesta página.' : 'Nada encontrado.')}</div>
           )}
         </div>
-        {naPagina && (
-          <div className="pesq-pag-pe">
+        <div className="pesq-pag-pe">
+          <span>
+            {t('A procurar em')} <b>{onde}</b> · <kbd>↑</kbd>
+            <kbd>↓</kbd> {t('escolher')} · <kbd>↵</kbd> {t('abrir')} · <kbd>Esc</kbd> {t('fechar')}
+          </span>
+          {naPagina && (
             <a onClick={() => abrirPopup(estado.q)}>
               <i className="fa-solid fa-magnifying-glass" />
-              {t('Procurar no painel todo')} <kbd>Ctrl K</kbd>
+              {t('Procurar no painel todo')}
             </a>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

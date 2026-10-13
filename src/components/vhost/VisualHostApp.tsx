@@ -965,7 +965,7 @@ export function VisualHostApp({ temSessao = true }: { temSessao?: boolean }) {
               <div className="grow" />
               {/* Sair também aqui, no fundo, ao lado do avatar (como no DA) — o da barra de cima fica */}
               <div className="rb sair" title={t('Sair')} onClick={vh.logout}>
-                <i className="fa-solid fa-right-from-bracket" />
+                <i className="fa-solid fa-right-from-bracket fa-flip-horizontal" />
               </div>
             </div>
 
@@ -1073,12 +1073,14 @@ export function VisualHostApp({ temSessao = true }: { temSessao?: boolean }) {
                   {mostra.scr.actions}
                 </span>
                 <span id="topfix" className="topact">
-                  <button className={'btn g iconbtn' + (pesqPag.aberta ? ' on' : '')} onClick={() => setPesqPag((x) => ({ aberta: !x.aberta, q: '', i: 0 }))} title={t(mostra.home ? 'Pesquisar no painel' : 'Pesquisar nesta página')}>
+                  {/* Busca: procura na página aberta (o cartão desliza por baixo da faixa do seletor) */}
+                  <button className={'btn g lupa-topo' + (pesqPag.aberta ? ' on' : '')} onClick={() => setPesqPag((x) => ({ aberta: !x.aberta, q: '', i: 0 }))} title={t(mostra.home ? 'Pesquisar no painel' : 'Pesquisar nesta página')}>
                     <i className="fa-solid fa-magnifying-glass" />
+                    {t('Busca')}
                   </button>
-                  <button className="btn g" onClick={vh.logout}>
-                    <i className="fa-solid fa-right-from-bracket" />
-                    {t('Sair')}
+                  {/* Sair fica na barra compacta, ao lado do avatar; no telemóvel (sem barra compacta) fica só o ícone aqui */}
+                  <button className="btn g iconbtn only-m" onClick={vh.logout} title={t('Sair')} aria-label={t('Sair')}>
+                    <i className="fa-solid fa-right-from-bracket fa-flip-horizontal" />
                   </button>
                   <button className="btn g iconbtn" onClick={vh.toggleTheme} title={t('Tema claro/escuro')}>
                     <i className={'fa-solid ' + (st.theme === 'dark' ? 'fa-sun' : 'fa-moon')} />
