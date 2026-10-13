@@ -75,24 +75,26 @@ export default function DomainSearchPainel({
   const mutedText = isAdmin ? 'text-zinc-600 dark:text-zinc-400' : lightSection ? 'text-slate-500 dark:text-zinc-400' : 'text-slate-500'
   const headingText = isAdmin ? 'text-zinc-900 dark:text-zinc-100' : lightSection ? 'text-zinc-900 dark:text-white' : 'text-white'
 
+  // Tabela de preços (pedido do Silva, 13/10/2026): linhas mais baixas, alternadas branco / fundo suave, e a extensão
+  // ligeiramente maior
   const renderPricingTable = () => (
     <div className="w-full overflow-hidden rounded border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
       <table className="w-full text-left text-sm">
         <thead className="border-b border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-800/90">
           <tr>
-            <th className="p-3 font-bold text-zinc-700 dark:text-zinc-200">Extensão</th>
-            <th className="p-3 font-bold text-zinc-700 dark:text-zinc-200">Registo</th>
-            <th className="p-3 font-bold text-zinc-700 dark:text-zinc-200">Renovação</th>
-            <th className="p-3 font-bold text-zinc-700 dark:text-zinc-200">Transferência</th>
+            <th className="px-3 py-2 font-bold text-zinc-700 dark:text-zinc-200">Extensão</th>
+            <th className="px-3 py-2 font-bold text-zinc-700 dark:text-zinc-200">Registo</th>
+            <th className="px-3 py-2 font-bold text-zinc-700 dark:text-zinc-200">Renovação</th>
+            <th className="px-3 py-2 font-bold text-zinc-700 dark:text-zinc-200">Transferência</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
           {TLDS.map((domain) => (
-            <tr key={domain.value} className="hover:bg-zinc-50/80 dark:hover:bg-zinc-800/50">
-              <td className="p-3 font-semibold text-zinc-900 dark:text-zinc-100">{domain.label}</td>
-              <td className="p-3 text-zinc-600 dark:text-zinc-300">{formatPrice(domainRegistrationPriceMt(domain, 1))}</td>
-              <td className="p-3 text-zinc-600 dark:text-zinc-300">{formatDomainPrice(domain.renewPrice)}</td>
-              <td className="p-3 text-zinc-600 dark:text-zinc-300">{formatDomainPrice(domain.transfer)}</td>
+            <tr key={domain.value} className="odd:bg-white even:bg-zinc-100/80 dark:odd:bg-zinc-900 dark:even:bg-zinc-800/50 hover:bg-zinc-200/70 dark:hover:bg-zinc-800">
+              <td className="px-3 py-1.5 text-[15px] font-semibold text-zinc-900 dark:text-zinc-100">{domain.label}</td>
+              <td className="px-3 py-1.5 text-zinc-600 dark:text-zinc-300">{formatPrice(domainRegistrationPriceMt(domain, 1))}</td>
+              <td className="px-3 py-1.5 text-zinc-600 dark:text-zinc-300">{formatDomainPrice(domain.renewPrice)}</td>
+              <td className="px-3 py-1.5 text-zinc-600 dark:text-zinc-300">{formatDomainPrice(domain.transfer)}</td>
             </tr>
           ))}
         </tbody>
