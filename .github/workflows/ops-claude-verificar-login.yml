@@ -1,0 +1,36 @@
+name: "Ops - Porque o login em visualdesignmoz.com dá Failed to fetch (SÓ LEITURA)"
+
+# SÓ LEITURA, a partir do GitHub (sem segredos nem acesso ao servidor): que endereço do Supabase a página de login
+# usa e se esse endereço responde de fora. Corre só quando este ficheiro muda no ramo claude/kind-einstein-r6lyf6.
+on:
+  push:
+    branches: [claude/kind-einstein-r6lyf6]
+    paths: ['.github/workflows/ops-claude-verificar-login.yml']
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verificar
+        run: |
+          set +e
+          echo "===== DNS ====="
+          for d in visualdesignmoz.com supabase-contabo.visualdesignmoz.com supabase.visualdesignmoz.com; do
+            echo "  $d -> $(dig +short $d A | tr '\n' ' ')"
+          done
+          echo
+          echo "===== endereços do Supabase dentro da página de login ====="
+          curl -s --max-time 30 https://visualdesignmoz.com/login -o login.html -D head.txt
+          grep -iE "^HTTP|^server|^x-powered-by|^cf-cache" head.txt | sed 's/^/  /'
+          for js in $(grep -oE '/_next/static/[^"]+\.js' login.html | sort -u); do
+            curl -s --max-time 20 "https://visualdesignmoz.com$js" | grep -oE 'https://[a-z0-9.-]*supabase[a-z0-9.-]*'
+          done | sort | uniq -c | sed 's/^/  /'
+          echo
+          echo "===== o Supabase responde de fora? ====="
+          for s in https://supabase-contabo.visualdesignmoz.com https://supabase.visualdesignmoz.com; do
+            echo -n "  $s/auth/v1/health -> "; curl -s -o /dev/null -w "%{http_code} (%{remote_ip}) %{errormsg}\n" --max-time 20 "$s/auth/v1/health"
+            echo -n "  pré-voo CORS com Origin visualdesignmoz.com -> "
+            curl -s -o /dev/null -D - -X OPTIONS --max-time 20 "$s/auth/v1/token?grant_type=password" \
+              -H "Origin: https://visualdesignmoz.com" -H "Access-Control-Request-Method: POST" \
+              -H "Access-Control-Request-Headers: apikey,authorization,content-type,x-client-info" | grep -iE "^HTTP|^access-control-allow-origin" | tr '\r\n' '  '; echo
+          done
