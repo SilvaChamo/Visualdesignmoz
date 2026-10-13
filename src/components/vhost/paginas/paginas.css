@@ -659,6 +659,10 @@
 .vh .fb-ip .tag{font-size:11px;padding:2px 7px}
 .vh .fb-manual{color:var(--muted)}
 .vh .fb-nota{color:var(--muted);font-size:12.5px;margin-top:10px}
+/* Faixa por cima do cartão principal (modelo do Silva): pesquisa à esquerda, botões à direita; escondida se vazia */
+.vh .pg-barra{flex:none;margin-bottom:12px}
+.vh .pg-barra:empty{display:none}
+.vh .pg-barra>.dt-bar{margin-bottom:0}
 /* separador na descrição da barra de cima (Mensagens: "Todas as mensagens | 3 por ler") */
 .vh .pdesc-sep{margin:0 8px;opacity:.55}
 /* popup com a mensagem completa */

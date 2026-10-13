@@ -2,8 +2,9 @@
 
 // Peças das páginas de gestão: formulário em linhas, limites com "Ilimitado", palavra-passe,
 // separadores e tabela com pesquisa/colunas/seleção/ações em massa (como nas listas do DirectAdmin).
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { useVH } from '../context';
+import { useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
+import { BarraPagina, useVH } from '../context';
 import type { Campo, Lim, Unit } from './dados';
 
 // ---------- Formulário ----------
@@ -215,6 +216,7 @@ export function DataTable<T>({
   comSelecao = false,
   onSelChange,
   umaLinha = false,
+  barraFora = false,
 }: {
   id: string;
   rows: T[];
@@ -250,9 +252,13 @@ export function DataTable<T>({
   acoesDiretas?: boolean;
   /** ativa a coluna de checkboxes de seleção nas linhas e cabeçalho */
   comSelecao?: boolean;
-  /** "Ações", os botões da barra2 e a pesquisa (30% da largura) numa linha só — regra do Silva (13/10/2026): nunca
-   *  duas linhas de botões. Só para barra2 com botões; uma barra2 com um bloco de título/números fica por cima. */
+  /** Pesquisa (30% da largura, à esquerda) e "Ações" + os botões da barra2 (à direita) numa linha só — regra do Silva
+   *  (13/10/2026): nunca duas linhas de botões. Só para barra2 com botões; uma barra2 com um bloco de título/números
+   *  fica por cima. */
   umaLinha?: boolean;
+  /** com umaLinha: a linha vai para a faixa por cima do cartão principal (modelo do Silva: fora da faixa dos
+   *  separadores que abre o cartão, como em Domínios) */
+  barraFora?: boolean;
   /** notifica chaves das linhas selecionadas */
   onSelChange?: (keys: string[]) => void;
 }) {
@@ -260,6 +266,7 @@ export function DataTable<T>({
   const porPagina = porPaginaPedido ?? (Number(lerPrefTabela('vh-linhas', '20')) || 20);
   const semCols = semColsPedido ?? lerPrefTabela('vh-colunas', '0') !== '1';
   const { t, toast } = useVH();
+  const faixaFora = useContext(BarraPagina);
   const [q, setQ] = useState('');
   const [pag, setPag] = useState(1);
   const [acoesOpen, setAcoesOpen] = useState(false);
@@ -427,19 +434,24 @@ export function DataTable<T>({
   return (
     <>
       {umaLinha ? (
-        // tudo numa linha: à esquerda Ações e os botões da página, à direita a pesquisa (30%), colunas e páginas
-        <div className={'dt-bar dt-uma-linha' + (cabecalho ? ' com-cab' : '')}>
-          {cabecalho}
-          {inicioBarra2}
-          {menuAcoes(true)}
-          {barra2}
-          <span className="sp" />
-          {pesquisa}
-          {colunas}
-          {recarregar}
-          {paginas > 1 && paginador}
-          {fimBarra}
-        </div>
+        (() => {
+          // tudo numa linha: à esquerda a pesquisa (30%), à direita os botões da página e "Ações" (e as páginas)
+          const linha = (
+            <div className={'dt-bar dt-uma-linha' + (cabecalho ? ' com-cab' : '') + (barraFora ? ' dt-fora' : '')}>
+              {cabecalho}
+              {pesquisa}
+              <span className="sp" />
+              {inicioBarra2}
+              {barra2}
+              {menuAcoes(true)}
+              {colunas}
+              {recarregar}
+              {paginas > 1 && paginador}
+              {fimBarra}
+            </div>
+          );
+          return barraFora && faixaFora ? createPortal(linha, faixaFora) : linha;
+        })()
       ) : (
       <div className={'dt-bar' + (cabecalho ? ' com-cab' : '') + (acoesFixas ? ' dt-fixas' : '')}>
         {acoesFixas && colunas}

@@ -4,7 +4,7 @@
 // Mesma estrutura de HTML e mesmas classes, para o CSS da maquete (generated/maquete.css) se aplicar tal e qual.
 import { Component, Fragment, useCallback, useEffect, useMemo, useReducer, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
-import { VHContext, type VH } from './context';
+import { BarraPagina, VHContext, type VH } from './context';
 import { GLOBAL, LEVELS, MENU, ROLES } from './generated/data';
 import { dominioVisivel, type DadosServidor } from './servidor';
 import { translate, type Lang } from './i18n';
@@ -133,6 +133,7 @@ class FalhaPagina extends Component<{ children: ReactNode; t: (s: string) => str
 
 /** Lugar de uma página: escondido enquanto as leituras sem nada em memória não acabam; depois avisa (uma vez) */
 function PaginaSlot({ p, oculta, onPronta }: { p: Pagina; oculta: boolean; onPronta: (chave: string) => void }) {
+  const [barra, setBarra] = useState<HTMLDivElement | null>(null);
   const falta = useRef(0);
   const montada = useRef(false);
   const avisada = useRef(false);
@@ -177,6 +178,9 @@ function PaginaSlot({ p, oculta, onPronta }: { p: Pagina; oculta: boolean; onPro
     <div className="pg-slot" style={{ display: oculta ? 'none' : 'contents' }} aria-hidden={oculta || undefined}>
       <VHContext.Provider value={p.vh}>
         <EsperaPagina.Provider value={espera}>
+          <BarraPagina.Provider value={barra}>
+          {/* pesquisa e botões da página, por cima do cartão (fica escondida enquanto vazia) */}
+          <div className="pg-barra" ref={setBarra} />
           {p.semCartao ? (
             corpo
           ) : p.scr.lado ? (
@@ -191,6 +195,7 @@ function PaginaSlot({ p, oculta, onPronta }: { p: Pagina; oculta: boolean; onPro
           ) : (
             <div className="da-main-card">{corpo}</div>
           )}
+          </BarraPagina.Provider>
         </EsperaPagina.Provider>
       </VHContext.Provider>
     </div>

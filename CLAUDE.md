@@ -25,6 +25,15 @@ para o outro) fica na memória `project_dual-folder-git-topology`.
   (`DataTable` em `src/components/vhost/paginas/componentes.tsx`) usa-se `umaLinha`: "Ações" e os botões da página à
   esquerda, a pesquisa à direita.
 - **A pesquisa ocupa 30% da largura da secção** (com um mínimo de 200px; no telemóvel ocupa a largura toda).
+- **Modelo de página = a página Domínios do painel.** Toda a página nova segue-o: um título na barra de cima com uma
+  descrição pequena por baixo (nunca dois títulos grandes juntos — números e resumos vão na descrição, ex.:
+  "Todas as mensagens | 3 por ler"); o conteúdo dentro do cartão principal; os separadores abrem o cartão (faixa
+  cinzenta em cima) e a tabela fica por baixo.
+- **Pesquisa e botões por cima do cartão, fora da faixa dos separadores**: pesquisa sempre à esquerda, botões de
+  ações sempre à direita, numa linha só. No VisualHost: `DataTable` com `umaLinha` e `barraFora` (vai para a faixa
+  `BarraPagina` por cima do cartão).
+- **Screenshots enviados ao Silva vão numerados** ("Ecrã 1", "Ecrã 2", …, também no nome do ficheiro) para ele
+  poder dizer qual quer mudar.
 
 # Verificação visual de alterações de UI
 

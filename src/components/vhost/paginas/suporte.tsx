@@ -11,7 +11,7 @@ import type { ScreenFn } from '../screens';
 import { DESC, MENU } from '../generated/data';
 import { ico } from '../state';
 import { esquecerMemoria, useGet, useNaMemoria } from '../carga';
-import { DataTable, Senha, Switch } from './componentes';
+import { DataTable, Senha, Switch, Tabs } from './componentes';
 import { Confirmar } from './pacotes';
 
 // ---------- Peças comuns ----------
@@ -850,8 +850,18 @@ function Mensagens({ filtro }: { filtro: 'todas' | 'nao-lidas' | 'avisos' }) {
   };
   const vazio = filtro === 'nao-lidas' ? 'Não há mensagens por ler' : filtro === 'avisos' ? 'Não há avisos do sistema' : 'Não há mensagens';
   return (
-    // sem título por cima da tabela: o título é "Mensagens" e o resumo fica na descrição da barra de cima (ResumoMensagens)
-    <section className="da-sec">
+    // modelo de Domínios: os separadores abrem o cartão, a pesquisa e os botões ficam por cima do cartão; sem título por
+    // cima da tabela — o resumo fica na descrição da barra de cima (ResumoMensagens)
+    <>
+      <Tabs
+        tabs={[
+          ['todas', 'Todas as mensagens', 'fa-inbox'],
+          ['nao-lidas', 'Não lidas', 'fa-envelope'],
+          ['avisos', 'Avisos do sistema', 'fa-triangle-exclamation'],
+        ]}
+        on={filtro}
+        onChange={(k) => vh.nav('/mensagens-sistema/' + k)}
+      />
       <DataTable
         id={'msg-' + filtro}
         rows={dados.mensagens}
@@ -860,6 +870,7 @@ function Mensagens({ filtro }: { filtro: 'todas' | 'nao-lidas' | 'avisos' }) {
         search={(r) => r.title + ' ' + r.message + ' ' + (r.domain || '')}
         semBusca={false}
         umaLinha
+        barraFora
         rowClass={(r) => 'msg-tipo-' + (ICONE_MSG[r.type] ? r.type : 'info') + (r.read ? '' : ' msg-por-ler')}
         barra2={
           dados.naoLidas ? (
@@ -893,7 +904,7 @@ function Mensagens({ filtro }: { filtro: 'todas' | 'nao-lidas' | 'avisos' }) {
           { t: 'Apagar', fa: 'fa-trash', run: (k) => vh.openM(<Confirmar titulo="Apagar as mensagens?" texto={k.length + ' ' + t('mensagem(ns) escolhida(s).')} ok="Apagar" onOk={() => apagar(k)} />) },
         ]}
       />
-    </section>
+    </>
   );
 }
 

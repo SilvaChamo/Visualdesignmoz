@@ -6,10 +6,10 @@
 import { useState } from 'react';
 import { useVH, type VH } from '../context';
 import type { ScreenFn } from '../screens';
-import { esquecerMemoria, useGet } from '../carga';
+import { esquecerMemoria, useGet, useNaMemoria } from '../carga';
 import { DataTable, Tabs } from './componentes';
 import { Confirmar } from './pacotes';
-import { Carregando, Sec } from './avancado';
+import { Carregando } from './avancado';
 
 type Bloqueado = { ip: string; cadeia: string; desde: string; ate: string | null; mz: boolean };
 type Tentativa = { ip: string; cadeias: string[]; n: number; ultima: string; bloqueado: boolean; mz: boolean };
@@ -153,20 +153,14 @@ function ForcaBruta() {
   const mais = (c: string) => (dados.duracoes[c] ? ' · ' + duracao(dados.duracoes[c]) : '');
 
   return (
-    <Sec
-      titulo="Monitor de tentativas falhadas"
-      desc="Endereços que o servidor bloqueou por tentativas de entrada falhadas (e-mail, SSH, painel, FTP…). Cada bloqueio fecha só o serviço indicado; quem reincide fica bloqueado em todos. Os IPs de Moçambique nunca perdem o acesso ao site, ao painel e ao login."
-      numeros={[
-        ['IPs bloqueados', String(dados.bloqueados.length)],
-        ['Tentativas em 24 h', String(dados.tentativas.reduce((s, x) => s + x.n, 0))],
-        ['IPs a tentar', String(dados.tentativas.length)],
-      ]}
-    >
+    <>
+      {/* os separadores abrem o cartão (faixa cinzenta, como em Domínios); a pesquisa e os botões ficam por cima do cartão */}
+      {abas}
       {aba === 'bloqueados' && (
         <DataTable
           id="fb-bloqueados"
           umaLinha
-          cabecalho={abas}
+          barraFora
           rows={dados.bloqueados}
           rowKey={chaveB}
           semBusca={false}
@@ -198,7 +192,7 @@ function ForcaBruta() {
         <DataTable
           id="fb-tentativas"
           umaLinha
-          cabecalho={abas}
+          barraFora
           rows={dados.tentativas}
           rowKey={(r) => r.ip}
           semBusca={false}
@@ -227,7 +221,7 @@ function ForcaBruta() {
         <DataTable
           id="fb-registo"
           umaLinha
-          cabecalho={abas}
+          barraFora
           rows={dados.registo.map((e, i) => ({ ...e, k: String(i) }))}
           rowKey={(r) => r.k}
           semBusca={false}
@@ -244,6 +238,7 @@ function ForcaBruta() {
       )}
       {aba === 'bloqueados' && servicosBloq.length > 0 && (
         <p className="fb-nota">
+          {t('Cada bloqueio fecha só o serviço indicado; quem reincide fica bloqueado em todos. Os IPs de Moçambique nunca perdem o acesso ao site, ao painel e ao login.')}{' '}
           {t('Duração dos bloqueios automáticos:')}{' '}
           {Object.entries(dados.duracoes)
             .filter(([c]) => SERVICO[c])
@@ -251,8 +246,28 @@ function ForcaBruta() {
             .join(' · ')}
         </p>
       )}
-    </Sec>
+    </>
   );
 }
 
-export const forcaBrutaPagina: ScreenFn = () => ({ title: 'Força bruta', body: <ForcaBruta /> });
+/** Descrição da barra de cima: "Monitor de tentativas falhadas | 6 IPs bloqueados | 86 tentativas em 24 h" (sem segundo
+ *  título no cartão — pedido do Silva). Usa a leitura que a página já faz. */
+function ResumoForcaBruta() {
+  const { t } = useVH();
+  const d = useNaMemoria<Dados>(ROTA);
+  return (
+    <>
+      {t('Monitor de tentativas falhadas')}
+      {d && (
+        <>
+          <span className="pdesc-sep">|</span>
+          {d.bloqueados.length} {t(d.bloqueados.length === 1 ? 'IP bloqueado' : 'IPs bloqueados')}
+          <span className="pdesc-sep">|</span>
+          {d.tentativas.reduce((n, x) => n + x.n, 0)} {t('tentativas em 24 h')}
+        </>
+      )}
+    </>
+  );
+}
+
+export const forcaBrutaPagina: ScreenFn = () => ({ title: 'Força bruta', desc: 'Monitor de tentativas falhadas', descEl: <ResumoForcaBruta />, body: <ForcaBruta /> });
