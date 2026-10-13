@@ -1172,7 +1172,16 @@
 .vh .tw-livre :is(button,input,select,textarea){font-family:revert-layer;font-size:revert-layer}
 .vh .tw-livre :is(th,td){padding:revert-layer;border-bottom:revert-layer;white-space:revert-layer;font-size:revert-layer;text-transform:revert-layer;letter-spacing:revert-layer;color:revert-layer;background:revert-layer;font-weight:revert-layer;text-align:revert-layer;vertical-align:revert-layer}
 .vh .tw-livre tbody tr:hover{background:revert-layer}
-.vh .tw-livre :is(code,kbd){font-family:revert-layer;font-size:revert-layer;background:revert-layer;border:revert-layer;border-radius:revert-layer;padding:revert-layer;margin-right:revert-layer;color:revert-layer}
+.vh .tw-livre :is(code,kbd){font-family:revert-layer;font-size:revert-layer;background:revert-layer;border:revert-layer;border-radius:revert-layer;padding:revert-layer;margin-right:revert-layer;color:revert-layer;word-break:revert-layer;display:revert-layer;max-width:revert-layer;white-space:revert-layer}
 /* os botões que as páginas antigas punham na barra de cima (ex.: Templates: Salvar / Cancelar / Eliminar) */
 .vh .barra-antiga{display:inline-flex;align-items:center;gap:8px}
 .vh .barra-antiga:empty{display:none}
+/* No telemóvel (pedido do Silva, 13/10/2026: ver a vista de telemóvel) as páginas antigas não podem sair da largura do
+   ecrã: as barras dos editores passam à linha seguinte, as variáveis dos Templates ficam numa coluna e os botões da
+   barra de cima ficam só com o ícone (o texto não cabe ao lado do título). No computador fica tudo como no antigo. */
+@media(max-width:768px){
+  .vh .tw-livre .flex.items-center.gap-1.border-b-0{flex-wrap:wrap}
+  .vh .tw-livre .grid.grid-cols-2.divide-x{grid-template-columns:minmax(0,1fr);row-gap:4px}
+  .vh .tw-livre .grid.grid-cols-2.divide-x>*{padding-left:0;padding-right:0;border-left-width:0}
+  .vh .barra-antiga button{font-size:0;gap:0;padding:0 11px}
+}
