@@ -1,15 +1,17 @@
 # Esta é a pasta de trabalho prioritária
 
-Este projecto (`visualdesign-teste`, branch `fix/contabo-websites-audit`, deploy em
+Este projecto (pasta local `visualdesign-producao`, branch `fix/contabo-websites-audit`, deploy em
 `teste.visualdesignmoz.com` via Contabo, dev server na porta 3003) é onde o trabalho
-novo deve acontecer por defeito. Existe uma segunda pasta irmã, `../visualdesign`
+novo deve acontecer por defeito. **A pasta de trabalho no Mac do Silva passou a ser `visualdesign-producao`**
+(Silva, 14/10/2026 — antes era `visualdesign-teste`, que deixa de se usar); apesar do nome, é esta pasta do Contabo
+(`fix/contabo-websites-audit`), não a produção do Hetzner. Existe uma segunda pasta irmã, `../visualdesign`
 (branch `main`, produção real em `visualdesignmoz.com` no Hetzner, dev server na
 porta 3002) — **não é a mesma pasta, não partilha ficheiros automaticamente**, e um
 `git push` lá despoleta deploy imediato para produção.
 
 As duas pastas partilham a mesma base de dados Supabase, mas código/UI só existe onde
 foi escrito. Se pedires para "adicionar X" sem dizer onde, o agente deve assumir esta
-pasta (`visualdesign-teste`), a não ser que o pedido seja claramente sobre produção
+pasta (`visualdesign-producao`), a não ser que o pedido seja claramente sobre produção
 (ex: "o site principal está em baixo") ou o utilizador diga expressamente "no Hetzner"/
 "em produção". Alterações que façam sentido nos dois sítios só devem ir para `main`
 depois de confirmadas aqui, através do fluxo normal de PR
@@ -33,10 +35,13 @@ para o outro) fica na memória `project_dual-folder-git-topology`.
 6. **Os comandos para o projecto local vão sempre num único comando** que fecha o servidor que estiver na porta 3003,
    guarda à parte alterações locais por gravar (stash, recuperáveis com `git stash pop`), põe a pasta exactamente no
    ramo do GitHub e volta a arrancar o servidor (pedido do Silva, 13/10/2026 — o `checkout`/`pull` simples falhava e o
-   site local não actualizava). Modelo (trocar `RAMO`), corrido dentro da pasta `visualdesign-teste`:
+   site local não actualizava). Modelo (trocar `RAMO`), corrido dentro da pasta `visualdesign-producao`:
    ```
-   (kill $(lsof -ti tcp:3003) 2>/dev/null; true); git stash -u -m "antes de RAMO" ; git fetch origin RAMO && git checkout -B RAMO origin/RAMO && npm install && rm -rf .next && npm run dev
+   (lsof -ti tcp:3003 -sTCP:LISTEN | xargs kill -9 2>/dev/null; sleep 1; true); git stash -u -m "antes de RAMO" ; git fetch origin RAMO && git checkout -B RAMO origin/RAMO && npm install && rm -rf .next && npm run dev
    ```
+   O fecho é só do servidor que escuta na 3003 (`-sTCP:LISTEN`, para não apanhar as ligações do navegador), à força
+   (`kill -9`) e com 1 s de espera antes de arrancar — com o `kill` simples a porta continuava ocupada e o arranque
+   falhava com `EADDRINUSE` (Silva, 14/10/2026).
    O `rm -rf .next` apaga a cache do servidor local antes de arrancar (uma cache velha depois de mudar de ramo fazia o
    site local piscar e não abrir — Silva, 14/10/2026); a primeira página demora um pouco mais a compilar.
 
