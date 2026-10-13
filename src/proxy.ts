@@ -62,9 +62,19 @@ export async function proxy(request: NextRequest) {
   if (PANEL_HOSTS.has(hostOnly) && !pathname.startsWith('/api/')) {
     return NextResponse.redirect(PAINEL_ENTRADA, 307)
   }
-  // noutros endereços o /evo segue como antes (página inexistente) e o /vhost não passa pela verificação de sessão
-  // do site (o painel trata da sua)
-  if (pathname === '/evo' || pathname.startsWith('/evo/') || pathname === '/vhost' || pathname.startsWith('/vhost/')) {
+  // O painel vive todo em /vhost/2026/… (endereço único, pedido do Silva a 13/10/2026): o /vhost antigo e os seus
+  // ecrãs (/vhost/admin/…, links de e-mails e favoritos) vão para o mesmo ecrã debaixo de /vhost/2026
+  if ((pathname === '/vhost' || pathname.startsWith('/vhost/')) && pathname !== '/vhost/2026' && !pathname.startsWith('/vhost/2026/')) {
+    const publico = (request.headers.get('x-forwarded-host') || request.headers.get('host') || hostOnly)
+      .split(',')[0]
+      .trim()
+      .toLowerCase()
+    const destino = new URL(`/vhost/2026${pathname.slice('/vhost'.length)}${request.nextUrl.search}`, `https://${publico}`)
+    return NextResponse.redirect(destino, 308)
+  }
+  // noutros endereços o /evo segue como antes (página inexistente) e o painel não passa pela verificação de sessão
+  // do site (trata da sua)
+  if (pathname === '/evo' || pathname.startsWith('/evo/') || pathname === '/vhost/2026' || pathname.startsWith('/vhost/2026/')) {
     return NextResponse.next()
   }
 

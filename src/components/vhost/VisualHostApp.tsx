@@ -45,11 +45,7 @@ import {
 import { Avatar, ImpBanner, RouteFoot, SwitcherBar } from './ui';
 import type { Account, Level, MenuItem } from './types';
 
-/** Endereço de entrada do painel que se dá aos clientes (pedido do Silva, 13/10/2026): /vhost/2026/ abre o painel
- *  como /vhost (para onde redirecciona também o antigo https://host.visualdesignmoz.com:2026/evo/) */
-const ENTRADA = BASE + '/2026';
-const stripBase = (p: string) =>
-  (p === ENTRADA || p.startsWith(ENTRADA + '/') ? p.slice(ENTRADA.length) : p.startsWith(BASE) ? p.slice(BASE.length) : p) || '/';
+const stripBase = (p: string) => (p.startsWith(BASE) ? p.slice(BASE.length) : p) || '/';
 
 const TABBAR: Record<Level, [string, string, string][]> = {
   admin: [

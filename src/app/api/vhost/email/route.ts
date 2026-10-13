@@ -128,7 +128,10 @@ export async function GET(req: NextRequest) {
     if (out.includes('SEM_CAIXA')) return NextResponse.json({ erro: 'Essa caixa não existe.' }, { status: 404 });
     if (perguntar) webmailAqui.set(d, { sim: out.includes('AQUI'), ate: Date.now() + 10 * 60_000 });
     const aqui = webmailAqui.get(d)?.sim;
-    const srvHost = (process.env.HESTIA_HOST || 'teste.visualdesignmoz.com').trim();
+    // webmail no endereço público do site (o que os clientes vêem), não no nome interno do servidor
+    const srvHost =
+      (process.env.NEXT_PUBLIC_SITE_URL || '').replace(/^https?:\/\//, '').replace(/\/.*$/, '').trim() ||
+      (process.env.HESTIA_HOST || 'visualdesignmoz.com').trim();
     const fallbackBase = `https://${srvHost}/webmail/`;
     // entrada direta: no domínio, se já abre aqui; senão no endereço do painel local (Roundcube do servidor atual)
     if (out.includes('FEITO')) return ir((aqui ? base : fallbackBase) + '?_vhsso=' + n);

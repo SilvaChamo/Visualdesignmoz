@@ -135,10 +135,9 @@ jobs:
             # panel-access-credentials.ts), separados por vírgulas. Sem o secret fica vazio: essas passwords guardadas
             # deixam de se decifrar, mas o login continua a confirmar a password no próprio Hestia.
             set_env_var LEGACY_ENCRYPTION_SECRETS "${{ secrets.CONTABO_LEGACY_ENCRYPTION_SECRETS }}"
-            # Domínio próprio desta instância — sem isto, vários links (reset de
-            # password, "aceder ao painel" em emails, origem do OAuth) caem no
-            # domínio de produção mesmo a partir daqui.
-            set_env_var NEXT_PUBLIC_SITE_URL "https://teste.visualdesignmoz.com"
+            # Endereço público do site: desde 13/10/2026 o Contabo é o site principal (pedido do Silva — o teste.
+            # deixou de ser mostrado; os links de e-mails, recuperação de password e "aceder ao painel" usam este).
+            set_env_var NEXT_PUBLIC_SITE_URL "https://visualdesignmoz.com"
             # Só para LEITURA (listar contas antigas do DirectAdmin no painel
             # admin) — sem isto a página "Contas" falhava sempre a mostrar as
             # contas antigas e ficava lenta/com erro. Suspender/apagar/mudar
