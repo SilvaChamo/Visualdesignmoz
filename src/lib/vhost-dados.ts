@@ -314,16 +314,9 @@ async function lerRegistoAgora(): Promise<RegistoSite> {
     }
     for (const r of revendas.data || []) if (r.user_id && r.reseller_tier) reg.revendas.set(String(r.user_id), String(r.reseller_tier).toLowerCase());
   } catch (err) {
-    if (process.env.NODE_ENV !== 'development') {
-      console.error('[vhost-dados] Não foi possível ler o registo do VisualHost:', err);
-      throw err;
-    }
-    console.warn('[vhost-dados] Supabase inacessível em ambiente local. A usar registo de contingência.');
-    reg.contas.set('vdadmin', { parent: null, authUserId: null, criada: new Date().toISOString() });
-    reg.contas.set('silvachamo', { parent: null, authUserId: null, criada: new Date().toISOString() });
-    reg.contas.set('osher', { parent: 'vdadmin', authUserId: null, criada: new Date().toISOString() });
-    reg.contas.set('revenda', { parent: 'vdadmin', authUserId: null, criada: new Date().toISOString() });
-    reg.contas.set('cliente1', { parent: 'vdadmin', authUserId: null, criada: new Date().toISOString() });
+    // nunca contas inventadas no lugar das reais (pedido do Silva, 13/10/2026)
+    console.error('[vhost-dados] Não foi possível ler o registo do VisualHost:', err);
+    throw err;
   }
   return reg;
 }

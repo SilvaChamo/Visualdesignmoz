@@ -141,6 +141,8 @@
 .vh .da-breadcrumb{flex:1 1 auto;min-width:0;overflow:hidden}
 .vh .da-breadcrumb>a,.vh .da-breadcrumb>span,.vh .da-breadcrumb>i{white-space:nowrap;flex:none}
 .vh .da-breadcrumb>span:last-child{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
+/* telemóvel: só a página atual no caminho (com o seletor do domínio ao lado não cabia tudo e o último ficava cortado) */
+@media(max-width:768px){.vh .da-breadcrumb>:not(.fa-folder-tree):not(:last-child){display:none}}
 
 /* Personalizar painel: cores da barra de ícones vindas do tema escolhido. Sem tema (padrão) as variáveis
    não existem e ficam os valores da maquete. Escrito aqui e não em generated/maquete.css (que é gerado). */

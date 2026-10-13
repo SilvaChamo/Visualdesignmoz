@@ -135,9 +135,11 @@ class FalhaPagina extends Component<{ children: ReactNode; t: (s: string) => str
 
 // Última leitura da conta guardada neste navegador, para o painel abrir logo com conteúdo (nunca em branco à espera do
 // servidor — pedido do Silva, 13/10/2026). Não tem palavras-passe; apaga-se ao sair e quando a sessão é recusada.
-const CACHE_DADOS = 'vh-dados';
+// 'vh-dados-2': as leituras guardadas antes de 13/10 podiam ter os dados inventados do local — ficam esquecidas
+const CACHE_DADOS = 'vh-dados-2';
 function lerCache(): DadosServidor | null {
   try {
+    localStorage.removeItem('vh-dados');
     const v = localStorage.getItem(CACHE_DADOS);
     return v ? (JSON.parse(v) as DadosServidor) : null;
   } catch {
