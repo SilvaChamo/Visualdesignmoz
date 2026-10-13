@@ -30,8 +30,10 @@ const PUBLIC_MARKETING_PREFIXES = [
   '/faq',
 ] as const
 
-/** Endereços que são só do painel: a raiz abre o /vhost */
+/** Endereços antigos do painel: tudo o que lá chega vai para PAINEL_ENTRADA */
 const PANEL_HOSTS = new Set(['host.visualdesignmoz.com'])
+/** Endereço único do painel que se dá aos clientes (pedido do Silva, 13/10/2026) */
+const PAINEL_ENTRADA = 'https://visualdesignmoz.com/vhost/2026/'
 
 function isPublicMarketingPath(pathname: string): boolean {
   if (pathname === '/') return true
@@ -53,23 +55,18 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(canonical, 308)
   }
 
-  // host.visualdesignmoz.com é o endereço do painel (pedido do Silva, 13/10/2026) — também na porta 2026, a do
-  // DirectAdmin no Hetzner: a página inicial, o /login e o /evo/ (o endereço do DirectAdmin que os clientes têm
-  // guardado, https://host.visualdesignmoz.com:2026/evo/) abrem logo o painel VisualHost
-  if (
-    PANEL_HOSTS.has(hostOnly) &&
-    (pathname === '/' || pathname === PUBLIC_LOGIN_ENTRY || pathname === '/evo' || pathname.startsWith('/evo/'))
-  ) {
-    // nome público com a porta (getRequestHostname tira-a) e https sempre: atrás do nginx o pedido chega como
-    // http://localhost:3002
-    const publico = (request.headers.get('x-forwarded-host') || request.headers.get('host') || hostOnly)
-      .split(',')[0]
-      .trim()
-      .toLowerCase()
-    return NextResponse.redirect(new URL(`/vhost${request.nextUrl.search}`, `https://${publico}`), 307)
+  // host.visualdesignmoz.com (também na porta 2026, a do DirectAdmin no Hetzner, e o /evo/ que os clientes têm
+  // guardado) deixou de ser endereço do painel (pedido do Silva, 13/10/2026): vai tudo para o endereço único do
+  // painel, https://visualdesignmoz.com/vhost/2026/. O nginx desse nome já redirecciona; isto cobre o resto.
+  // (menos /api/: um webhook ou integração apontado a este nome não pode ser redireccionado)
+  if (PANEL_HOSTS.has(hostOnly) && !pathname.startsWith('/api/')) {
+    return NextResponse.redirect(PAINEL_ENTRADA, 307)
   }
-  // noutros endereços o /evo segue como antes (página inexistente), sem passar pela verificação de sessão
-  if (pathname === '/evo' || pathname.startsWith('/evo/')) return NextResponse.next()
+  // noutros endereços o /evo segue como antes (página inexistente) e o /vhost não passa pela verificação de sessão
+  // do site (o painel trata da sua)
+  if (pathname === '/evo' || pathname.startsWith('/evo/') || pathname === '/vhost' || pathname.startsWith('/vhost/')) {
+    return NextResponse.next()
+  }
 
   // www → apex em login/OAuth (PKCE exige o mesmo host no início e no callback)
   if (
@@ -324,8 +321,10 @@ export const config = {
     '/login',
     '/auth/:path*',
     '/autenticacao',
-    // endereço antigo do DirectAdmin (só redirecciona em host.visualdesignmoz.com)
+    // endereço antigo do DirectAdmin e o painel em host.visualdesignmoz.com (só redireccionam nesse nome)
     '/evo',
     '/evo/:path*',
+    '/vhost',
+    '/vhost/:path*',
   ],
 }
