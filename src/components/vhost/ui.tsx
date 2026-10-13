@@ -553,18 +553,27 @@ export function DomTable({ filter = '' }: { filter?: string }) {
                     <div>
                       <b
                         style={{ cursor: 'pointer' }}
+                        title={d.name}
                         onClick={() => {
                           setDominio(d.name);
                           nav('/' + (s.level || 'utilizador') + '/dominios/' + encodeURIComponent(d.name));
                         }}
                       >
-                        {d.name}
+                        {/* um nome comprido passa à linha de baixo em vez de ser cortado: quebra só depois dos pontos dos
+                            subdomínios, o domínio principal (ex.: visualdesignmoz.com) fica inteiro */}
+                        {d.name.split('.').map((p, i, partes) => (
+                          <Fragment key={i}>
+                            {i > 0 && '.'}
+                            {i > 0 && partes.length - i >= 2 && <wbr />}
+                            {p}
+                          </Fragment>
+                        ))}
                       </b>
                       <span>{d.wp ? 'WordPress' : 'Site'}</span>
                     </div>
                   </div>
                 </td>
-                <td>{d.ssl === 'ok' ? <span className="tag ok">{t('Válido')}</span> : <span className="tag w">{t('Expira em 12 dias')}</span>}</td>
+                <td>{d.ssl === 'ok' ? <span className="tag ok">{t('Válido')}</span> : <span className="tag w">{t('Sem SSL')}</span>}</td>
                 <td>{a.mails.filter((m) => m.dom === d.name).length}</td>
                 <td>{d.php}</td>
                 <td>{d.disk}</td>

@@ -194,6 +194,9 @@ export interface Col<T> {
   /** escondida por defeito (pode ser ligada em "Colunas") */
   hidden?: boolean;
   right?: boolean;
+  /** sai nos ecrãs de computador/portátil até esta largura, para a tabela caber sem barra de deslocar (pedido do Silva,
+   *  13/10/2026: colunas apertadas a 1440 e 1280); no telemóvel, em blocos, volta a aparecer */
+  ate?: 1600 | 1300;
 }
 export interface Bulk {
   t: string;
@@ -301,6 +304,9 @@ export function DataTable<T>({
   const tabelaRef = useRef<HTMLDivElement>(null);
   const [pag, setPag] = useState(1);
   const [acoesOpen, setAcoesOpen] = useState(false);
+  // "Ações" no título da 1.ª coluna: o menu abre em posição fixa (calculada do botão) para a tabela, que pode
+  // deslizar, não o cortar quando tem poucas linhas — como o menu "⋯" das linhas
+  const [acoesPos, setAcoesPos] = useState<{ top: number; left: number } | null>(null);
   const acoesRef = useRef<HTMLDivElement>(null);
   const [vis, setVis] = useState<string[]>(() => cols.map((c) => c.k));
   const [colsOpen, setColsOpen] = useState(false);
@@ -315,9 +321,18 @@ export function DataTable<T>({
   useEffect(() => {
     if (!acoesOpen) return;
     const close = (e: MouseEvent) => !acoesRef.current?.contains(e.target as Node) && setAcoesOpen(false);
+    const sair = () => setAcoesOpen(false);
     document.addEventListener('mousedown', close);
-    return () => document.removeEventListener('mousedown', close);
-  }, [acoesOpen]);
+    if (acoesPos) {
+      window.addEventListener('scroll', sair, true);
+      window.addEventListener('resize', sair);
+    }
+    return () => {
+      document.removeEventListener('mousedown', close);
+      window.removeEventListener('scroll', sair, true);
+      window.removeEventListener('resize', sair);
+    };
+  }, [acoesOpen, acoesPos]);
   useEffect(() => setPag(1), [q, rows.length]);
   useEffect(() => {
     if (!colsOpen) return;
@@ -347,7 +362,14 @@ export function DataTable<T>({
   const vcols = cols.filter((c) => vis.includes(c.k));
   // caixas de seleção só quando alguma ação precisa de linhas escolhidas (as `sempre` não precisam)
   const temSelecao = bulk.some((b) => !b.sempre) || comSelecao;
-  const span = vcols.length + (temSelecao ? 1 : 0) + (actions ? 1 : 0);
+  // "Ações" só onde há caixas de seleção (regra do Silva, 13/10/2026: as ações aplicam-se ao que se escolhe). Com
+  // separadores fica à direita da faixa deles; sem separadores aparece no lugar do título da 1.ª coluna quando se
+  // assinala uma caixa (ex.: "Conta" nas contas de e-mail) e o título volta quando já nada está escolhido.
+  const comAcoes = temSelecao && bulk.length > 0;
+  const acoesNoCabecalho = umaLinha && barraFora && comAcoes && !faixaAbas?.el && !cabecalho;
+  const acoesNoTitulo = acoesNoCabecalho && (selKeys.length > 0 || bulk.some((b) => b.sempre));
+  const colAcoes = !!actions;
+  const span = vcols.length + (temSelecao ? 1 : 0) + (colAcoes ? 1 : 0);
 
   const paginas = Math.max(1, Math.ceil(shown.length / porPagina));
   const atual = Math.min(pag, paginas);
@@ -393,6 +415,8 @@ export function DataTable<T>({
   const selKeysStr = selKeys.join(',');
   useEffect(() => {
     onSelChange?.(selKeys);
+    // sem nada escolhido o "Ações" do título da 1.ª coluna sai: o menu não fica aberto para a próxima vez
+    if (!selKeys.length) setAcoesOpen(false);
   }, [selKeysStr]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Menu "Ações": tudo o que se faz na página (regra do Silva, 13/10/2026 — nenhum botão por cima do cartão). As opções
@@ -437,12 +461,22 @@ export function DataTable<T>({
     );
     return (
       <div className="dt-cols dt-acoes" ref={acoesRef}>
-        <button className="btn g sm" onClick={() => setAcoesOpen(!acoesOpen)}>
+        <button
+          className="btn g sm"
+          onClick={(e) => {
+            if (!acoesOpen && acoesNoTitulo) {
+              const r = e.currentTarget.getBoundingClientRect();
+              const altura = bulk.length * 34 + 20;
+              setAcoesPos({ top: window.innerHeight - r.bottom < altura + 12 && r.top > altura + 12 ? r.top - altura - 6 : r.bottom + 6, left: r.left });
+            } else if (!acoesOpen) setAcoesPos(null);
+            setAcoesOpen(!acoesOpen);
+          }}
+        >
           {selKeys.length > 0 && <span className="n">{selKeys.length}</span>}
           {t('Ações')} <i className="fa-solid fa-caret-down" />
         </button>
         {acoesOpen && (
-          <div className="menu">
+          <div className="menu" style={acoesPos ? { position: 'fixed', top: acoesPos.top, left: acoesPos.left, right: 'auto' } : undefined}>
             {livres.map(opcao)}
             {livres.length > 0 && comSel.length > 0 && <div className="menu-sep" />}
             {comSel.map(opcao)}
@@ -515,10 +549,10 @@ export function DataTable<T>({
           // sempre à vista e à direita, com tudo o que se faz na página lá dentro (`bulk`; as opções sem linhas
           // escolhidas usam `sempre`). Nunca pesquisa, paginação nem outros botões por cima do cartão: a paginação
           // fica no fundo do cartão.
-          const naFaixa = bulk.length > 0 && barraFora && faixaAbas?.el && !cabecalho;
+          const naFaixa = comAcoes && barraFora && faixaAbas?.el && !cabecalho;
           const outros = !!(inicioBarra2 || barra2 || colunas || recarregar || fimBarra);
           const linha =
-            outros || cabecalho || (!naFaixa && bulk.length > 0) ? (
+            outros || cabecalho || (!naFaixa && !acoesNoCabecalho && comAcoes) ? (
               <div className={'dt-bar dt-uma-linha' + (cabecalho ? ' com-cab' : '') + (barraFora ? ' dt-fora' : '')}>
                 {cabecalho}
                 <span className="sp" />
@@ -527,7 +561,7 @@ export function DataTable<T>({
                 {colunas}
                 {recarregar}
                 {fimBarra}
-                {!naFaixa && menuAcoes(true)}
+                {!naFaixa && !acoesNoCabecalho && comAcoes && menuAcoes(true)}
               </div>
             ) : null;
           return (
@@ -552,7 +586,7 @@ export function DataTable<T>({
         {recarregar}
         {fimBarra}
         {/* "Ações" sempre à vista e sempre o último à direita (regra do Silva, 13/10/2026) */}
-        {!acoesFixas && !barra2 && menuAcoes(true)}
+        {!acoesFixas && !barra2 && comAcoes && menuAcoes(true)}
       </div>
       )}
       {barra2 && !umaLinha && (
@@ -571,18 +605,24 @@ export function DataTable<T>({
                   <input type="checkbox" aria-label={t('Selecionar tudo')} checked={all} disabled={!keys.length} onChange={() => setSel(all ? [] : keys)} />
                 </th>
               )}
-              {vcols.map((c) => (
-                <th
-                  key={c.k}
-                  className={c.sort ? 'srt' : undefined}
-                  style={c.right ? { textAlign: 'right' } : undefined}
-                  onClick={c.sort ? () => setSort(sort?.k === c.k ? { k: c.k, dir: sort.dir === 1 ? -1 : 1 } : { k: c.k, dir: 1 }) : undefined}
-                >
-                  {t(c.t)}
-                  {sort?.k === c.k && <i className={'fa-solid si ' + (sort.dir === 1 ? 'fa-arrow-up' : 'fa-arrow-down')} />}
-                </th>
-              ))}
-              {actions && <th></th>}
+              {vcols.map((c, i) =>
+                acoesNoTitulo && i === 0 ? (
+                  <th key={c.k} className="dt-th-acoes">
+                    {menuAcoes(true)}
+                  </th>
+                ) : (
+                  <th
+                    key={c.k}
+                    className={[c.sort ? 'srt' : '', c.ate ? 'dt-ate-' + c.ate : ''].filter(Boolean).join(' ') || undefined}
+                    style={c.right ? { textAlign: 'right' } : undefined}
+                    onClick={c.sort ? () => setSort(sort?.k === c.k ? { k: c.k, dir: sort.dir === 1 ? -1 : 1 } : { k: c.k, dir: 1 }) : undefined}
+                  >
+                    {t(c.t)}
+                    {sort?.k === c.k && <i className={'fa-solid si ' + (sort.dir === 1 ? 'fa-arrow-up' : 'fa-arrow-down')} />}
+                  </th>
+                ),
+              )}
+              {colAcoes && <th />}
             </tr>
           </thead>
           <tbody>
@@ -598,11 +638,11 @@ export function DataTable<T>({
                       </td>
                     )}
                     {vcols.map((c) => (
-                      <td key={c.k} data-t={t(c.t)} style={c.right ? { textAlign: 'right' } : undefined}>
+                      <td key={c.k} data-t={t(c.t)} className={c.ate ? 'dt-ate-' + c.ate : undefined} style={c.right ? { textAlign: 'right' } : undefined}>
                         {c.cell(r)}
                       </td>
                     ))}
-                    {actions && <td className="dt-acoes-linha" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{actions(r)}</td>}
+                    {colAcoes && <td className="dt-acoes-linha" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{actions ? actions(r) : null}</td>}
                   </tr>
                 );
               })
