@@ -2,7 +2,7 @@
 import React, { useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { LoginDividido } from '@/components/auth/LoginDividido'
-import { CampoFlutuante, EscolhaFlutuante, OlhoSenha, botaoCls, botaoClaroCls, ligacaoCls, subtituloCls, tituloCls } from '@/components/auth/campos'
+import { CampoFlutuante, CampoTelefone, EscolhaFlutuante, ForcaSenha, OlhoSenha, botaoCls, botaoClaroCls, ligacaoCls, subtituloCls, tituloCls } from '@/components/auth/campos'
 import { authErrorBoxClass } from '@/components/auth/auth-styles'
 
 const TOTAL_STEPS = 3
@@ -160,8 +160,8 @@ function RegisterPageInner() {
       {sucesso ? (
         <div className="py-6 text-center">
           <p className="mb-4 text-4xl">📧</p>
-          <h1 className={`${tituloCls} lg:text-center`}>Conta criada</h1>
-          <p className={`${subtituloCls} lg:text-center`}>Pode entrar agora com:</p>
+          <h1 className={`${tituloCls}`}>Conta criada</h1>
+          <p className={`${subtituloCls}`}>Pode entrar agora com:</p>
           <p className="mt-2 break-all font-semibold text-red-600 dark:text-red-400">{email}</p>
           <p className="mt-4 text-xs text-zinc-500 dark:text-zinc-400">A conta começa como visitante — após a primeira compra passa a cliente.</p>
           <a href={loginLink} className={`mt-6 ${botaoCls}`}>
@@ -208,6 +208,7 @@ function RegisterPageInner() {
                   <OlhoSenha ver={showConfirmPassword} onClick={() => setShowConfirmPassword(!showConfirmPassword)} />
                 </CampoFlutuante>
               </div>
+              <ForcaSenha senha={password} />
               <button type="submit" disabled={verificando} className={botaoCls}>
                 {verificando ? 'A verificar o e-mail…' : 'Continuar →'}
               </button>
@@ -218,7 +219,7 @@ function RegisterPageInner() {
             <form onSubmit={goToStep3} className={formCls}>
               {passoTitulo('Dados pessoais')}
               <CampoFlutuante id="reg-nome" rotulo="Nome completo" dica="O seu nome" autoComplete="name" obrigatorio value={nome} onChange={setNome} />
-              <CampoFlutuante id="reg-telefone" rotulo="Telefone" dica="+258 8..." type="tel" autoComplete="tel" obrigatorio value={telefone} onChange={setTelefone} />
+              <CampoTelefone id="reg-telefone" rotulo="Telefone" dica="84 000 0000" obrigatorio value={telefone} onChange={setTelefone} />
               <div className="flex gap-3">
                 <button type="button" onClick={() => setStep(1)} className={botaoClaroCls}>
                   ← Voltar
@@ -240,7 +241,7 @@ function RegisterPageInner() {
                 <CampoFlutuante id="reg-pais" rotulo="País" dica="País" autoComplete="country-name" value={pais} onChange={setPais} />
               </div>
               <CampoFlutuante id="reg-email-empresa" rotulo="E-mail da empresa" dica="geral@empresa.com" type="email" value={emailEmpresa} onChange={setEmailEmpresa} />
-              <CampoFlutuante id="reg-contactos" rotulo="Contactos" dica="+258 8... / +258 2..." type="tel" value={contacto} onChange={setContacto} />
+              <CampoTelefone id="reg-contactos" rotulo="Contactos" dica="21 000 000" value={contacto} onChange={setContacto} />
               <div className="flex gap-3">
                 <button type="button" onClick={() => setStep(2)} className={botaoClaroCls}>
                   ← Voltar

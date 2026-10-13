@@ -410,6 +410,25 @@ samp {
 .dark .site-content .login-dividido :is(input, select):focus + label {
   color: #f87171 !important;
 }
+/* Campos que o navegador preenche sozinho (e-mail e palavra-passe guardados): sem o fundo azul dele (pedido do Silva,
+   13/10/2026) — o fundo fica o da página, no claro e no escuro */
+.login-dividido input:-webkit-autofill,
+.login-dividido input:-webkit-autofill:hover,
+.login-dividido input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px #fff inset !important;
+  box-shadow: 0 0 0 1000px #fff inset !important;
+  -webkit-text-fill-color: #18181b !important;
+  caret-color: #18181b;
+  transition: background-color 99999s ease-in-out 0s;
+}
+.dark .login-dividido input:-webkit-autofill,
+.dark .login-dividido input:-webkit-autofill:hover,
+.dark .login-dividido input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px #15161e inset !important;
+  box-shadow: 0 0 0 1000px #15161e inset !important;
+  -webkit-text-fill-color: #f4f4f5 !important;
+  caret-color: #f4f4f5;
+}
 
 .dark .site-content :is(
   .bg-red-50, .bg-green-50, .bg-blue-50, .bg-amber-50, .bg-orange-50,

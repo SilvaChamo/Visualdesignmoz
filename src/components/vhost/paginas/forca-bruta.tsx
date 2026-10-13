@@ -3,11 +3,11 @@
 // Força bruta — no modelo do Brute Force Monitor do DirectAdmin (pedido do Silva, 13/10/2026). Só o administrador.
 // No Contabo quem bloqueia é o fail2ban do Hestia: IPs bloqueados (desbloquear / bloquear), tentativas falhadas das
 // últimas 24 h e o registo das últimas 48 h, por /api/vhost/forca-bruta. Barra numa linha só (regra do Silva).
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useVH, type VH } from '../context';
 import type { ScreenFn } from '../screens';
 import { esquecerMemoria, useGet, useNaMemoria } from '../carga';
-import { DataTable, Tabs, type Bulk } from './componentes';
+import { DataTable, Tabs } from './componentes';
 import { Confirmar } from './pacotes';
 import { Carregando } from './avancado';
 
@@ -120,6 +120,12 @@ function ForcaBruta() {
   const { t } = vh;
   const [aba, setAba] = useState<Aba>('bloqueados');
   const { dados, erro, ler } = useGet<Dados>(ROTA);
+  // o "+ Bloquear IP" da barra de cima avisa quando bloqueou, para a lista se atualizar
+  useEffect(() => {
+    const atualizar = () => void ler();
+    window.addEventListener(EVT_BLOQUEOU, atualizar);
+    return () => window.removeEventListener(EVT_BLOQUEOU, atualizar);
+  }, [ler]);
   if (!dados) return <Carregando erro={erro} ler={ler} />;
   const chaveB = (b: Bloqueado) => b.ip + '|' + b.cadeia;
   const desbloquear = (itens: { ip: string; cadeia: string }[]) =>
@@ -143,8 +149,6 @@ function ForcaBruta() {
       ]}
     />
   );
-  // "Bloquear IP" dentro do menu "Ações" de cada separador (regra do Silva, 13/10/2026: nenhum botão por cima do cartão)
-  const bloquearIp: Bulk = { t: 'Bloquear IP', fa: 'fa-plus', sempre: true, run: () => bloquear() };
   const servicosBloq = [...new Set(dados.bloqueados.map((b) => b.cadeia))];
   const mais = (c: string) => (dados.duracoes[c] ? ' · ' + duracao(dados.duracoes[c]) : '');
 
@@ -174,8 +178,8 @@ function ForcaBruta() {
               {t('Desbloquear')}
             </button>
           )}
+          acoesNaColuna
           bulk={[
-            bloquearIp,
             {
               t: 'Desbloquear',
               fa: 'fa-unlock',
@@ -209,7 +213,8 @@ function ForcaBruta() {
               </button>
             )
           }
-          bulk={[bloquearIp, { t: 'Bloquear', fa: 'fa-ban', run: (k) => bloquear(k) }]}
+          acoesNaColuna
+          bulk={[{ t: 'Bloquear', fa: 'fa-ban', run: (k) => bloquear(k) }]}
         />
       )}
       {aba === 'registo' && (
@@ -222,7 +227,6 @@ function ForcaBruta() {
           rowKey={(r) => r.k}
           search={(r) => r.ip + ' ' + servico(r.cadeia) + ' ' + (ACAO[r.acao]?.[0] || r.acao)}
           empty="Sem registos nas últimas 48 horas"
-          bulk={[bloquearIp]}
           cols={[
             { k: 'd', t: 'Data', sort: (r) => r.data, cell: (r) => quando(r.data) },
             { k: 'a', t: 'Acontecimento', cell: (r) => <span className={'tag ' + (ACAO[r.acao]?.[1] || 'off')}>{t(ACAO[r.acao]?.[0] || r.acao)}</span> },
@@ -265,4 +269,16 @@ function ResumoForcaBruta() {
   );
 }
 
-export const forcaBrutaPagina: ScreenFn = () => ({ title: 'Força bruta', desc: 'Monitor de tentativas falhadas', descEl: <ResumoForcaBruta />, body: <ForcaBruta /> });
+/** "+ Bloquear IP" na barra de cima (o "+" principal da página fica na barra do título — modelo do Silva, 13/10/2026) */
+const EVT_BLOQUEOU = 'vh-fb-bloqueou';
+function BotaoBloquearIp() {
+  const vh = useVH();
+  return (
+    <button className="btn r" onClick={() => vh.openM(<BloquearIp onFeito={() => window.dispatchEvent(new Event(EVT_BLOQUEOU))} />)}>
+      <i className="fa-solid fa-plus" />
+      {vh.t('Bloquear IP')}
+    </button>
+  );
+}
+
+export const forcaBrutaPagina: ScreenFn = () => ({ title: 'Força bruta', desc: 'Monitor de tentativas falhadas', descEl: <ResumoForcaBruta />, actions: <BotaoBloquearIp />, body: <ForcaBruta /> });

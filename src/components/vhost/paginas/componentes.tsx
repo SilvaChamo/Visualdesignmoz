@@ -245,6 +245,7 @@ export function DataTable<T>({
   umaLinha = false,
   barraFora = false,
   empilhar = false,
+  acoesNaColuna = false,
 }: {
   id: string;
   rows: T[];
@@ -288,6 +289,8 @@ export function DataTable<T>({
    *  com o nome de cada coluna (pedido do Silva, 13/10/2026 — lista de IPs da Força bruta). Com 'botoes-em-baixo', os
    *  botões da linha vão para o fundo do bloco, a toda a largura, divididos por igual (DNS) */
   empilhar?: boolean | 'botoes-em-baixo';
+  /** o "Ações" no lugar do título da 1.ª coluna mesmo com separadores (Força bruta — modelo do Silva, 13/10/2026) */
+  acoesNaColuna?: boolean;
   /** notifica chaves das linhas selecionadas */
   onSelChange?: (keys: string[]) => void;
 }) {
@@ -366,7 +369,7 @@ export function DataTable<T>({
   // separadores fica à direita da faixa deles; sem separadores aparece no lugar do título da 1.ª coluna quando se
   // assinala uma caixa (ex.: "Conta" nas contas de e-mail) e o título volta quando já nada está escolhido.
   const comAcoes = temSelecao && bulk.length > 0;
-  const acoesNoCabecalho = umaLinha && barraFora && comAcoes && !faixaAbas?.el && !cabecalho;
+  const acoesNoCabecalho = umaLinha && barraFora && comAcoes && (acoesNaColuna || !faixaAbas?.el) && !cabecalho;
   const acoesNoTitulo = acoesNoCabecalho && (selKeys.length > 0 || bulk.some((b) => b.sempre));
   const colAcoes = !!actions;
   const span = vcols.length + (temSelecao ? 1 : 0) + (colAcoes ? 1 : 0);
@@ -549,7 +552,7 @@ export function DataTable<T>({
           // sempre à vista e à direita, com tudo o que se faz na página lá dentro (`bulk`; as opções sem linhas
           // escolhidas usam `sempre`). Nunca pesquisa, paginação nem outros botões por cima do cartão: a paginação
           // fica no fundo do cartão.
-          const naFaixa = comAcoes && barraFora && faixaAbas?.el && !cabecalho;
+          const naFaixa = comAcoes && barraFora && faixaAbas?.el && !cabecalho && !acoesNaColuna;
           const outros = !!(inicioBarra2 || barra2 || colunas || recarregar || fimBarra);
           const linha =
             outros || cabecalho || (!naFaixa && !acoesNoCabecalho && comAcoes) ? (

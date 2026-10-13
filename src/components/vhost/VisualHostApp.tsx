@@ -1077,7 +1077,7 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
                 <i className="fa-solid fa-magnifying-glass" />
               </div>
               <div className="grow" />
-              {/* Sair no fundo, ao lado do avatar (como no DA) — no computador e no tablet é o único; o da barra de cima fica só no telemóvel */}
+              {/* Sair também aqui, no fundo, ao lado do avatar (como no DA) — o da barra de cima fica */}
               <div className="rb sair" title={t('Sair')} onClick={vh.logout}>
                 <i className="fa-solid fa-right-from-bracket fa-flip-horizontal" />
               </div>
