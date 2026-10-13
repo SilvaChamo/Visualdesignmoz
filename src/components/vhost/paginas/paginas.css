@@ -480,7 +480,8 @@
 .vh .ptabs-faixa>.ptabs::-webkit-scrollbar{display:none}
 .vh .ptabs-dir{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex:1 1 auto;min-width:0;padding:0 16px 0 12px}
 .vh .ptabs-dir>*{flex:none}
-@media(max-width:900px){.vh .ptabs-faixa>.ptabs{flex:1 1 auto}.vh .ptabs-dir{flex:none}}
+/* portátil e tablet: os separadores encolhem (deslizam) para o "Ações" caber sempre na faixa */
+@media(max-width:1300px){.vh .ptabs-faixa>.ptabs{flex:1 1 auto}.vh .ptabs-dir{flex:none}}
 .vh .ptabs-dir:empty{display:none}
 .vh .da-main-card>.ptabs-faixa:first-child{margin:-24px -24px 24px;border-radius:var(--r) var(--r) 0 0}
 .vh .tabcard>.ptabs-faixa{margin:0;border-radius:var(--r) var(--r) 0 0}
@@ -879,11 +880,16 @@
 .vh .em-lado-stats .stat{border:0;background:none;box-shadow:none;border-radius:0;padding:10px 2px 14px}
 /* coluna da direita dos e-mails: uma linha suave por baixo de cada indicador (quando estão uns por baixo dos outros) */
 .vh .em-lado-stats .stat{border-bottom:1px solid var(--line)}
-@media(max-width:1700px){.vh .em-lado-stats .stat{border-bottom:0}}
+@media(max-width:1050px){.vh .em-lado-stats .stat{border-bottom:0}}
 .vh .em-lado-botoes{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .vh .em-lado-botoes .btn{justify-content:center;white-space:nowrap}
-/* ecrãs mais estreitos: a coluna passa para baixo da tabela, com os números lado a lado (a tabela fica inteira) */
-@media(max-width:1700px){.vh .da-com-lado{grid-template-columns:1fr;grid-template-rows:auto 1fr}.vh .da-com-lado>.da-main-card{min-height:0}.vh .da-lado{min-height:0;order:-1}.vh .em-lado-stats{grid-template-columns:repeat(4,1fr)}.vh .em-lado-botoes{grid-template-columns:repeat(4,max-content);justify-content:end}}
+/* Os 5 pontos de quebra do painel (os mesmos da maquete — pedido do Silva, 13/10/2026: a página fica organizada da
+   mesma forma em todas as larguras): nos 3 de computador (>1600, 1301–1600, 1051–1300) a coluna fica à direita, mais
+   estreita em cada um, como a coluna da Dashboard; no tablet (769–1050) e no telemóvel (≤768) não há largura para
+   duas colunas e ela passa para cima da tabela, com os números lado a lado. */
+@media(max-width:1600px){.vh .da-com-lado{grid-template-columns:minmax(0,1fr) 300px}.vh .em-lado-botoes{grid-template-columns:1fr}.vh .da-lado{min-width:0}}
+@media(max-width:1300px){.vh .da-com-lado{grid-template-columns:minmax(0,1fr) 260px}.vh .da-lado{padding:16px 14px}.vh .em-lado-botoes{grid-template-columns:1fr}}
+@media(max-width:1050px){.vh .da-com-lado{grid-template-columns:1fr;grid-template-rows:auto 1fr}.vh .da-com-lado>.da-main-card{min-height:0}.vh .da-lado{min-height:0;order:-1}.vh .em-lado-stats{grid-template-columns:repeat(4,1fr)}.vh .em-lado-botoes{grid-template-columns:repeat(4,max-content);justify-content:end}}
 @media(max-width:900px){.vh .em-lado-stats{grid-template-columns:repeat(2,1fr)}.vh .em-lado-botoes{grid-template-columns:1fr 1fr}}
 /* Espaço de 20 px à volta do cartão principal (em cima, à esquerda e à direita) e entre ele e a coluna da direita, em todas
    as larguras de computador (pedido do Silva: mais compacto); a barra do seletor acompanha e a coluna da direita sobe junto */
@@ -1110,7 +1116,7 @@
  .vh .tbl.dt-empilhar tbody td.ck{grid-column:1;grid-row:1;width:auto}
  .vh .tbl.dt-empilhar tbody td.empty{grid-column:1 / -1;display:block}
  .vh .tbl.dt-empilhar tbody td:not(.ck):not(.dt-acoes-linha){grid-column:2 / -1}
- .vh .tbl.dt-empilhar tbody td.ck+td{grid-column:2;grid-row:1}
+ .vh .tbl.dt-empilhar tbody tr td.ck+td:not(.dt-acoes-linha){grid-column:2;grid-row:1}
  .vh .tbl.dt-empilhar tbody td[data-t]::before{content:attr(data-t);min-width:110px;font-size:12px;color:var(--muted)}
  .vh .tbl.dt-empilhar tbody td.ck+td::before,.vh .tbl.dt-empilhar tbody td:first-child::before{content:none}
  .vh .tbl.dt-empilhar tbody td.ck+td,.vh .tbl.dt-empilhar tbody td:first-child:not(.ck){font-weight:700}
@@ -1150,7 +1156,10 @@
 .vh .dom-ns-aviso{color:var(--muted);font-size:13px;margin:0}
 .vh .dom-ns-atuais{display:flex;flex-direction:column;gap:6px;font-size:13px}
 .vh .dom-ns-atuais span{font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase}
-@media(max-width:1000px){.vh .dom-gestao{grid-template-columns:minmax(0,1fr)}.vh .dom-opcoes{position:static}}
+/* tablet e telemóvel: as opções passam para o fim da página (os mesmos pontos de quebra do resto do painel) */
+@media(max-width:1050px){.vh .dom-gestao{grid-template-columns:minmax(0,1fr)}.vh .dom-opcoes{position:static}}
+@media(max-width:1300px){.vh .dom-gestao{grid-template-columns:minmax(0,1fr) 220px;gap:20px}}
+@media(max-width:1050px){.vh .dom-gestao{grid-template-columns:minmax(0,1fr)}}
 
 /* cartão "Informações do domínio": um só cartão, linhas em duas colunas; as linhas com página própria abrem-na */
 .vh .dom-info-grelha{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:28px;padding:4px 18px 8px}
@@ -1160,7 +1169,8 @@
 .vh .dom-info-l>i{font-size:11px;color:var(--muted)}
 .vh .dom-info-l.lk{cursor:pointer}
 .vh .dom-info-l.lk:hover>div,.vh .dom-info-l.lk:hover>i{color:var(--red)}
-@media(max-width:900px){.vh .dom-info-grelha{grid-template-columns:minmax(0,1fr)}}
+/* portátil, tablet e telemóvel: o cartão de informações numa coluna (em duas não cabia e os textos encavalitavam) */
+@media(max-width:1300px){.vh .dom-info-grelha{grid-template-columns:minmax(0,1fr)}}
 .vh .dom-info-larga{grid-column:1 / -1}
 .vh .dom-info-l small{color:var(--muted);font-size:12px}
 .vh .dom-info-l .btn{white-space:normal;height:auto;min-height:30px;text-align:left}
@@ -1227,3 +1237,64 @@
 }
 /* telemóveis estreitos: sem o ícone, para o texto dos três botões caber todo */
 @media(max-width:374px){.vh .barra-antiga-m>button svg{display:none}}
+/* "Ações" no lugar do título da 1.ª coluna quando se assinala uma caixa (tabelas sem separadores) — a linha dos
+   títulos mantém a altura: o botão encolhe para caber no espaço do texto */
+.vh .tbl th.dt-th-acoes{padding-top:0;padding-bottom:0;font-weight:400}
+.vh th.dt-th-acoes .dt-acoes{display:inline-block;vertical-align:middle}
+.vh th.dt-th-acoes .btn{height:28px;text-transform:none;letter-spacing:0;font-size:13px}
+.vh th.dt-th-acoes .dt-acoes .menu{left:0;right:auto;text-align:left;text-transform:none;letter-spacing:0;font-weight:400}
+@media(max-width:768px){
+ .vh .tbl.dt-empilhar thead th.dt-th-acoes{display:block;margin-left:auto;padding:6px 14px}
+ /* no telemóvel, em blocos, o nome e a descrição passam à linha seguinte em vez de ficarem cortados pelos botões */
+ .vh .tbl.dt-empilhar tbody td .cell>div{min-width:0}
+ .vh .tbl.dt-empilhar tbody td .cell :is(b,span){white-space:normal;overflow-wrap:anywhere}
+ .vh .tbl.dt-empilhar tbody td .cell>.ic{display:none}
+}
+/* Computador (1301–1600) e portátil (1051–1300) — pedido do Silva, 13/10/2026: Dashboard mais compacta (cartões mais
+   baixos, letra menor, títulos sempre numa linha, menos espaço vertical) e tabelas com as colunas mais juntas (10 a
+   15 px entre colunas). Nos ecrãs grandes (>1600) e no telemóvel (≤768) fica como estava. */
+@media(min-width:769px) and (max-width:1600px){
+ .vh .stats{gap:12px;margin-bottom:18px}
+ .vh .card.stat{padding:10px 12px}
+ .vh .stat small{font-size:11.5px;white-space:nowrap}
+ .vh .stat strong{font-size:17px;line-height:1.2;margin:3px 0 7px;white-space:nowrap}
+ .vh .stat strong span{font-size:11.5px}
+ .vh .cols>.cols-side{padding:14px}
+ .vh .tool{gap:10px;padding:10px 12px;margin-bottom:10px}
+ .vh .tool b{font-size:13px;white-space:nowrap;line-height:1.3}
+ .vh .tool span{font-size:11.5px;line-height:1.35}
+ /* tabelas: 6 px de cada lado de cada célula = 12 px entre colunas; as pontas ficam com 12 px */
+ .vh .tbl :is(th,td){padding-left:6px;padding-right:6px}
+ .vh .tbl :is(th,td):first-child{padding-left:12px}
+ .vh .tbl :is(th,td):last-child{padding-right:12px}
+ /* linhas mais baixas (pedido do Silva, 13/10/2026: "reduza ainda mais o padding vertical entre as linhas") */
+ .vh .tbl td{padding-top:5px;padding-bottom:5px}
+ .vh .tbl th{padding-top:7px;padding-bottom:7px;font-size:11.5px}
+ .vh .tbl .cell b{line-height:1.3}
+ .vh .tbl .cell span{line-height:1.25}
+}
+/* colunas que saem nos ecrãs mais estreitos para a tabela caber (DataTable `ate`); no telemóvel voltam, em blocos */
+@media(min-width:769px) and (max-width:1600px){.vh .tbl .dt-ate-1600{display:none}}
+@media(min-width:769px) and (max-width:1300px){.vh .tbl .dt-ate-1300{display:none}}
+/* Contas de e-mail: barra de uso e "Enviados hoje" mais estreitos; a descrição da conta passa a duas linhas */
+.vh .em-uso{min-width:180px}
+.vh .em-env small{font-size:inherit;color:inherit;margin-left:4px}
+@media(min-width:769px) and (max-width:1600px){
+ .vh .em-uso{min-width:130px}
+ .vh .em-env small{display:block;margin:2px 0 0;font-size:11.5px;color:var(--muted)}
+ .vh .cell .em-conta-sub{display:block;white-space:normal;max-width:230px;line-height:1.35}
+}
+@media(min-width:769px) and (max-width:1300px){.vh .cell .em-conta-sub{max-width:200px}}
+/* portátil (1051–1300): a coluna da direita do Dashboard mais estreita e os nomes de domínio com letra menor — a
+   tabela de domínios cabe sem barra de deslocar. Nunca "…" (regra do Silva): se um nome mesmo assim não couber,
+   passa à linha de baixo depois de um ponto (DomTable põe os pontos de quebra) */
+@media(min-width:1051px) and (max-width:1300px){
+ .vh .cols{grid-template-columns:minmax(0,1fr) 230px}
+ .vh .cols .tbl .cell{gap:10px}
+ .vh .cols .tbl .cell b{font-size:13px;white-space:normal}
+}
+@media(min-width:769px) and (max-width:1300px){
+ .vh .stat strong{font-size:16px}
+ .vh .tool b{font-size:12.5px}
+ .vh .tool span{font-size:11px}
+}
