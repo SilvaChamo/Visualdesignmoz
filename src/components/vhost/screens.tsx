@@ -12,7 +12,7 @@ import { backupsPagina, chavesPagina, clamavPagina, cronPagina, gitPagina, handl
 import { mensagemTodos } from './paginas/mensagem-todos';
 import { forcaBrutaPagina } from './paginas/forca-bruta';
 import { catchAllPagina, emailPagina, feriasPagina, listasPagina, mailmarketingPagina, migracaoPagina, mxPagina, rastreioPagina, reencaminhamentosPagina, respostasPagina, spamPagina, webmailPagina } from './paginas/email';
-import { apontadores, bdPagina, dnsPagina, dominios, ftpPagina, hotlink, phpPagina, phpmyadminPagina, redirecionamentos, sslPagina, subdominios } from './paginas/dominios';
+import { apontadores, bdPagina, dnsPagina, dominios, ftpPagina, hotlink, phpPagina, phpmyadminPagina, redirecionamentos, sslPagina } from './paginas/dominios';
 import { ThemeCustomizerView, temaBase } from './paginas/tema';
 import { FEATS, GLOBAL, HX, HX_INFO, LEVELS, LOGIN_AS, MENU, PKGS, REMOVED, ROLE_INFO, ROLE_LEVELS, ROLES } from './generated/data';
 import { findItem, gItem, pacoteDe, route } from './state';
@@ -615,9 +615,6 @@ export const SCREENS: Record<string, ScreenFn> = {
   'admin/dominios': dominios,
   'revenda/dominios': dominios,
   'utilizador/dominios': dominios,
-  'admin/subdominios': subdominios,
-  'revenda/subdominios': subdominios,
-  'utilizador/subdominios': subdominios,
   'admin/dns': dnsPagina,
   'revenda/dns': dnsPagina,
   'utilizador/dns': dnsPagina,

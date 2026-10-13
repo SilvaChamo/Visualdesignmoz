@@ -162,6 +162,9 @@ export const route = (lv: Level, id: string) => (GLOBAL[id] ? '/' + id : id === 
 
 export const isLevel = (x: string): x is Level => x in LEVELS;
 
+/** Páginas que passaram a separador de outra: o endereço antigo (links, favoritos) abre o separador */
+const MUDOU: Record<string, string> = { subdominios: '/utilizador/dominios/subdominios' };
+
 /** Lê o endereço e atualiza o estado (na maquete: fromHash). Sem endereço, vai para o primeiro painel da conta. */
 export function fromPath(s: St, path: string): St {
   const dec = (x: string) => {
@@ -173,6 +176,7 @@ export function fromPath(s: St, path: string): St {
   };
   const p = path.replace(/^\/+/, '').split('/').filter(Boolean).map(dec);
   if (!p.length) return fromPath(s, '/' + nivelInicial(s, true));
+  if (isLevel(p[0]) && p[1] && MUDOU[p[1]] && !findItem(p[0], p[1])) return fromPath(s, MUDOU[p[1]]);
   const n: St = { ...s, path: '/' + p.map(encodeURIComponent).join('/'), deny: null, sub: p.slice(2) };
   const g = GLOBAL[p[0]];
   if (g) {
