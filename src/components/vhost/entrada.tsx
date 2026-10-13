@@ -10,7 +10,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { auth, LoginNetworkError, LoginRateLimitError, MSG_LIGACAO } from '@/lib/supabase-client';
 import type { Lang } from './i18n';
-import { FundoPainel } from './triangulos';
+import { FundoPainel } from './fundo-entrada';
 
 export type ModoTema = 'light' | 'auto' | 'dark';
 

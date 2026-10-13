@@ -969,7 +969,6 @@
 /* ---------- Página de entrada no modelo do DirectAdmin (entrada.tsx) ---------- */
 .vh .ent{position:fixed;inset:0;overflow:auto;display:flex;flex-direction:column;background:color-mix(in srgb,var(--red) 22%,#fff);color:var(--ink)}
 .vh[data-theme=dark] .ent{background:#1c1d21}
-.vh .ent-fundo{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
 /* canto superior direito: modo (claro · automático · escuro) e língua */
 .vh .ent-cima{position:relative;z-index:3;display:flex;justify-content:flex-end;align-items:center;gap:34px;padding:10px 16px 0}
 .vh .ent-modos{display:flex;align-items:center;gap:14px;position:relative}
