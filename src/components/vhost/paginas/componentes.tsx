@@ -241,6 +241,7 @@ export function DataTable<T>({
   onSelChange,
   umaLinha = false,
   barraFora = false,
+  empilhar = false,
 }: {
   id: string;
   rows: T[];
@@ -280,6 +281,9 @@ export function DataTable<T>({
   /** com umaLinha: a linha vai para a faixa por cima do cartão principal (modelo do Silva: fora da faixa dos
    *  separadores que abre o cartão, como em Domínios) */
   barraFora?: boolean;
+  /** no telemóvel cada linha passa a um bloco numa só coluna: a caixa e a primeira coluna em cima, o resto por baixo
+   *  com o nome de cada coluna (pedido do Silva, 13/10/2026 — lista de IPs da Força bruta) */
+  empilhar?: boolean;
   /** notifica chaves das linhas selecionadas */
   onSelChange?: (keys: string[]) => void;
 }) {
@@ -556,12 +560,12 @@ export function DataTable<T>({
           {barra2}
         </div>
       )}
-      <div className="tbl dt" ref={tabelaRef}>
+      <div className={'tbl dt' + (empilhar ? ' dt-empilhar' : '')} ref={tabelaRef}>
         <table>
           <thead>
             <tr>
               {temSelecao && (
-                <th className="ck">
+                <th className="ck" data-t={t('Selecionar tudo')}>
                   <input type="checkbox" aria-label={t('Selecionar tudo')} checked={all} disabled={!keys.length} onChange={() => setSel(all ? [] : keys)} />
                 </th>
               )}
@@ -592,11 +596,11 @@ export function DataTable<T>({
                       </td>
                     )}
                     {vcols.map((c) => (
-                      <td key={c.k} style={c.right ? { textAlign: 'right' } : undefined}>
+                      <td key={c.k} data-t={t(c.t)} style={c.right ? { textAlign: 'right' } : undefined}>
                         {c.cell(r)}
                       </td>
                     ))}
-                    {actions && <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{actions(r)}</td>}
+                    {actions && <td className="dt-acoes-linha" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{actions(r)}</td>}
                   </tr>
                 );
               })

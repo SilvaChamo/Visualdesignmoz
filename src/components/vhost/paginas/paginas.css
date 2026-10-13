@@ -1087,3 +1087,26 @@
 .vh .passar-roda{flex:none;width:16px;height:16px;border-radius:50%;border:2px solid color-mix(in srgb,var(--red) 25%,transparent);border-top-color:var(--red);animation:ent-gira .8s linear infinite}
 .vh .passar-aviso-dom{display:flex;gap:10px;align-items:flex-start;margin:6px 0 0;padding:10px 12px;border-radius:8px;font-size:13px;line-height:1.45;background:var(--soft);border:1px solid var(--line)}
 .vh .passar-aviso-dom i{margin-top:2px;color:var(--red)}
+
+/* Tabelas empilhadas no telemóvel (DataTable `empilhar`, pedido do Silva 13/10/2026): cada linha é um bloco numa só
+   coluna — a caixa e a primeira coluna em cima, o resto por baixo com o nome da coluna à esquerda */
+@media(max-width:768px){
+ .vh .tbl.dt-empilhar table,.vh .tbl.dt-empilhar thead,.vh .tbl.dt-empilhar tbody{display:block}
+ .vh .tbl.dt-empilhar thead tr{display:flex;align-items:center;background:var(--soft);border-bottom:1px solid var(--line)}
+ .vh .tbl.dt-empilhar thead th{display:none}
+ .vh .tbl.dt-empilhar thead th.ck{display:flex;align-items:center;gap:12px;width:auto;border:0;padding:10px 14px}
+ .vh .tbl.dt-empilhar thead th.ck::after{content:attr(data-t)}
+ .vh .tbl.dt-empilhar tbody tr{display:grid;grid-template-columns:34px minmax(0,1fr);row-gap:6px;padding:12px 14px;border-bottom:1px solid var(--line)}
+ .vh .tbl.dt-empilhar tbody tr:last-child{border-bottom:0}
+ .vh .tbl.dt-empilhar tbody td{display:flex;align-items:center;gap:8px;flex-wrap:wrap;grid-column:2;padding:0;border:0;white-space:normal;text-align:left!important}
+ .vh .tbl.dt-empilhar tbody td.ck{grid-column:1;grid-row:1;width:auto}
+ .vh .tbl.dt-empilhar tbody td.empty{grid-column:1 / -1;display:block}
+ .vh .tbl.dt-empilhar tbody td[data-t]::before{content:attr(data-t);min-width:110px;font-size:12px;color:var(--muted)}
+ .vh .tbl.dt-empilhar tbody td.ck+td::before,.vh .tbl.dt-empilhar tbody td:first-child::before{content:none}
+ .vh .tbl.dt-empilhar tbody td.ck+td,.vh .tbl.dt-empilhar tbody td:first-child:not(.ck){font-weight:700}
+ .vh .tbl.dt-empilhar tbody td.dt-acoes-linha{margin-top:4px}
+ /* sem caixas de seleção: uma só coluna, sem a linha de cima */
+ .vh .tbl.dt-empilhar thead tr:not(:has(th.ck)){display:none}
+ .vh .tbl.dt-empilhar tbody tr:not(:has(td.ck)){grid-template-columns:minmax(0,1fr)}
+ .vh .tbl.dt-empilhar tbody tr:not(:has(td.ck)) td{grid-column:1}
+}

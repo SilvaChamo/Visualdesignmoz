@@ -157,6 +157,7 @@ function ForcaBruta() {
           id="fb-bloqueados"
           umaLinha
           barraFora
+          empilhar
           rows={dados.bloqueados}
           rowKey={chaveB}
           search={(r) => r.ip + ' ' + servico(r.cadeia) + (r.mz ? ' moçambique' : '')}
@@ -188,6 +189,7 @@ function ForcaBruta() {
           id="fb-tentativas"
           umaLinha
           barraFora
+          empilhar
           rows={dados.tentativas}
           rowKey={(r) => r.ip}
           search={(r) => r.ip + ' ' + r.cadeias.map(servico).join(' ') + (r.mz ? ' moçambique' : '')}
@@ -215,6 +217,7 @@ function ForcaBruta() {
           id="fb-registo"
           umaLinha
           barraFora
+          empilhar
           rows={dados.registo.map((e, i) => ({ ...e, k: String(i) }))}
           rowKey={(r) => r.k}
           search={(r) => r.ip + ' ' + servico(r.cadeia) + ' ' + (ACAO[r.acao]?.[0] || r.acao)}

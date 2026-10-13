@@ -48,6 +48,9 @@ para o outro) fica na memória `project_dual-folder-git-topology`.
   (`sempre: true` nas que não precisam de linhas escolhidas, `inativo` para as desligar); a paginação sai no fundo.
 - **No telemóvel os separadores passam a uma caixa de escolha** (selector), à esquerda da faixa, com o "Ações" à
   direita — assim vêem-se todos, mesmo quando são muitos (pedido do Silva, 13/10/2026). Automático nos `Tabs`.
+- **Listas no telemóvel numa só coluna** (pedido do Silva, 13/10/2026): cada linha passa a um bloco — a caixa de seleção
+  e o dado principal (ex.: o IP) em cima, as outras informações por baixo, cada uma com o nome da coluna. No
+  VisualHost: `DataTable` com `empilhar` (já ligado nas tabelas da Força bruta).
 - **Nunca duas linhas de botões.**
 - **Modelo de página = a página Domínios do painel.** Toda a página nova segue-o: um título na barra de cima com uma
   descrição pequena por baixo (nunca dois títulos grandes juntos — números e resumos vão na descrição, ex.:
