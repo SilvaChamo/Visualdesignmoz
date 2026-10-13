@@ -1021,7 +1021,7 @@ export function VisualHostApp({ temSessao = true }: { temSessao?: boolean }) {
                     {mostra.title}
                   </h1>
                   <small id="pdesc" title={mostra.desc}>
-                    {mostra.desc}
+                    {mostra.scr.descEl ?? mostra.desc}
                   </small>
                 </div>
               </div>

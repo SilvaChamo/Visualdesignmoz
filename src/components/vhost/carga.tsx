@@ -121,6 +121,23 @@ export function lerUrl<T>(url: string, opcoes: { fundo?: boolean } = {}): Promis
 
 export const naMemoria = <T,>(url: string) => memoria.get(url) as T | undefined;
 
+/** O que já foi lido de `url`, atualizado sempre que alguém o volta a ler — sem pedir nada ao servidor (ex.: a
+ *  descrição da barra de cima com o número de mensagens por ler, que a própria página já está a ler) */
+export function useNaMemoria<T>(url: string): T | undefined {
+  const [v, setV] = useState<T | undefined>(() => memoria.get(url) as T | undefined);
+  useEffect(() => {
+    setV(memoria.get(url) as T | undefined);
+    const s = ouvintes.get(url) || new Set();
+    const f = (x: unknown) => setV(x as T);
+    s.add(f);
+    ouvintes.set(url, s);
+    return () => {
+      s.delete(f);
+    };
+  }, [url]);
+  return v;
+}
+
 /** Esquece leituras guardadas (todas, ou as que começam por `prefixo`) — ao sair ou depois de uma alteração */
 export function esquecerMemoria(prefixo = '') {
   for (const k of [...memoria.keys()]) if (k.startsWith(prefixo)) memoria.delete(k);

@@ -659,6 +659,8 @@
 .vh .fb-ip .tag{font-size:11px;padding:2px 7px}
 .vh .fb-manual{color:var(--muted)}
 .vh .fb-nota{color:var(--muted);font-size:12.5px;margin-top:10px}
+/* separador na descrição da barra de cima (Mensagens: "Todas as mensagens | 3 por ler") */
+.vh .pdesc-sep{margin:0 8px;opacity:.55}
 /* popup com a mensagem completa */
 .vh .modal:has(.msg-ver){max-width:640px}
 .vh .msg-ver-topo{display:flex;gap:12px;align-items:flex-start;padding-bottom:12px;margin-bottom:14px;border-bottom:1px solid var(--line)}

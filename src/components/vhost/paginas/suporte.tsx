@@ -10,7 +10,7 @@ import { useVH, type VH } from '../context';
 import type { ScreenFn } from '../screens';
 import { DESC, MENU } from '../generated/data';
 import { ico } from '../state';
-import { esquecerMemoria, useGet } from '../carga';
+import { esquecerMemoria, useGet, useNaMemoria } from '../carga';
 import { DataTable, Senha, Switch } from './componentes';
 import { Confirmar } from './pacotes';
 
@@ -807,6 +807,26 @@ function VerMensagem({ m, onApagar }: { m: Mensagem; onApagar: () => void }) {
   );
 }
 
+const ROTULO_MSG = { todas: 'Todas as mensagens', 'nao-lidas': 'Não lidas', avisos: 'Avisos do sistema' } as const;
+
+/** Descrição da barra de cima nas Mensagens (pedido do Silva): "Todas as mensagens | 3 por ler", em letra de descrição.
+ *  Usa a leitura que a própria página faz (não pede nada ao servidor). */
+function ResumoMensagens({ filtro }: { filtro: keyof typeof ROTULO_MSG }) {
+  const { t } = useVH();
+  const dados = useNaMemoria<{ naoLidas: number }>('/api/vhost/mensagens?filtro=' + filtro);
+  return (
+    <>
+      {t(ROTULO_MSG[filtro])}
+      {dados && (
+        <>
+          <span className="pdesc-sep">|</span>
+          {dados.naoLidas ? dados.naoLidas + ' ' + t('por ler') : t('todas lidas')}
+        </>
+      )}
+    </>
+  );
+}
+
 function Mensagens({ filtro }: { filtro: 'todas' | 'nao-lidas' | 'avisos' }) {
   const vh = useVH();
   const { t } = vh;
@@ -830,7 +850,8 @@ function Mensagens({ filtro }: { filtro: 'todas' | 'nao-lidas' | 'avisos' }) {
   };
   const vazio = filtro === 'nao-lidas' ? 'Não há mensagens por ler' : filtro === 'avisos' ? 'Não há avisos do sistema' : 'Não há mensagens';
   return (
-    <Sec titulo={filtro === 'nao-lidas' ? 'Não lidas' : filtro === 'avisos' ? 'Avisos do sistema' : 'Todas as mensagens'} desc={dados.naoLidas ? dados.naoLidas + ' ' + t(dados.naoLidas === 1 ? 'mensagem por ler' : 'mensagens por ler') : undefined}>
+    // sem título por cima da tabela: o título é "Mensagens" e o resumo fica na descrição da barra de cima (ResumoMensagens)
+    <section className="da-sec">
       <DataTable
         id={'msg-' + filtro}
         rows={dados.mensagens}
@@ -872,7 +893,7 @@ function Mensagens({ filtro }: { filtro: 'todas' | 'nao-lidas' | 'avisos' }) {
           { t: 'Apagar', fa: 'fa-trash', run: (k) => vh.openM(<Confirmar titulo="Apagar as mensagens?" texto={k.length + ' ' + t('mensagem(ns) escolhida(s).')} ok="Apagar" onOk={() => apagar(k)} />) },
         ]}
       />
-    </Sec>
+    </section>
   );
 }
 
@@ -900,6 +921,6 @@ export const perfilAvisos: ScreenFn = () => ({ title: 'Notificações', body: <P
 export const prefIdioma: ScreenFn = () => ({ title: 'Idioma e data', body: <PrefIdioma /> });
 export const prefTabelas: ScreenFn = () => ({ title: 'Tabelas', body: <PrefTabelas /> });
 export const prefFicheiros: ScreenFn = () => ({ title: 'Gestor de ficheiros', body: <PrefFicheiros /> });
-export const msgTodas: ScreenFn = () => ({ title: 'Mensagens', body: <Mensagens key="todas" filtro="todas" /> });
-export const msgNaoLidas: ScreenFn = () => ({ title: 'Não lidas', body: <Mensagens key="nao-lidas" filtro="nao-lidas" /> });
-export const msgAvisos: ScreenFn = () => ({ title: 'Avisos do sistema', body: <Mensagens key="avisos" filtro="avisos" /> });
+export const msgTodas: ScreenFn = () => ({ title: 'Mensagens', desc: ROTULO_MSG['todas'], descEl: <ResumoMensagens filtro="todas" />, body: <Mensagens key="todas" filtro="todas" /> });
+export const msgNaoLidas: ScreenFn = () => ({ title: 'Mensagens', desc: ROTULO_MSG['nao-lidas'], descEl: <ResumoMensagens filtro="nao-lidas" />, body: <Mensagens key="nao-lidas" filtro="nao-lidas" /> });
+export const msgAvisos: ScreenFn = () => ({ title: 'Mensagens', desc: ROTULO_MSG['avisos'], descEl: <ResumoMensagens filtro="avisos" />, body: <Mensagens key="avisos" filtro="avisos" /> });

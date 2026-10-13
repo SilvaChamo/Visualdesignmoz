@@ -32,6 +32,8 @@ export interface Screen {
   crumbs?: Crumb[];
   /** descrição na barra de cima (por defeito: a da página, em DESC) */
   desc?: string;
+  /** descrição com dados vivos, no lugar de desc (ex.: Mensagens — "Todas as mensagens | 3 por ler") */
+  descEl?: ReactNode;
   /** domínios do seletor nesta página: 'sites' = só os que têm site neste servidor (por defeito: todos) */
   dominios?: 'sites';
   /** página de um domínio que está no endereço: o seletor mostra esse domínio e, ao mudar, abre a mesma página do novo */
