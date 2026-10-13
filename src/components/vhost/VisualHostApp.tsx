@@ -2,7 +2,7 @@
 
 // Painel VisualHost — versão React da maquete aprovada (VisualHost/maquete-visualhost.html).
 // Mesma estrutura de HTML e mesmas classes, para o CSS da maquete (generated/maquete.css) se aplicar tal e qual.
-import { Component, Fragment, useCallback, useEffect, useMemo, useReducer, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
+import { Component, Fragment, useCallback, useEffect, useMemo, useReducer, useRef, useState, useSyncExternalStore, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import { BarraPagina, FaixaAbas, PesquisaPagina, VHContext, type ItemPesquisa, type VH } from './context';
 import { GLOBAL, LEVELS, MENU, ROLES } from './generated/data';
@@ -149,6 +149,81 @@ function lerCache(): DadosServidor | null {
 const guardarCache = (d: DadosServidor) => guardarDadosVhost(d);
 const apagarCache = apagarDadosVhost;
 
+/** Aparência guardada no navegador (tema claro/escuro, separador do painel inicial, língua, cores, cantos e marca) */
+function comPreferencias(s: St): St {
+  const n = { ...s };
+  try {
+    // claro/escuro: o mesmo do site todo (cookie vd-theme); "automático" (escolhido na página de entrada) segue o sistema
+    const tm = localStorage.getItem('visualhost_theme');
+    const doSite = (document.cookie.match(/(?:^|; )vd-theme=(light|dark)/) || [])[1] || localStorage.getItem('vd-theme');
+    if (tm === 'auto') n.theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    else if (doSite === 'dark' || doSite === 'light') n.theme = doSite;
+    else if (tm === 'dark') n.theme = 'dark';
+    if (localStorage.getItem('visualhost_dashtab') === 'menu') n.dashTab = 'menu';
+    const lg = localStorage.getItem(LINGUA_LS);
+    if (lg === 'pt' || lg === 'en') n.lang = lg;
+    n.colorPreset = presetId(localStorage.getItem(LS.preset) || n.colorPreset);
+    n.customPrimary = localStorage.getItem(LS.customPrimary) || '';
+    n.radius = localStorage.getItem(LS.radius) || n.radius;
+    const over = localStorage.getItem(LS.over);
+    if (over) n.themeOver = Object.fromEntries(Object.entries(JSON.parse(over) as Record<string, CustomComponents>).map(([k, v]) => [presetId(k), v]));
+    // formato antigo (antes de 10/10): umas só cores para todos os temas → ficam no tema escolhido
+    const antigo = localStorage.getItem(LS.overAntigo);
+    if (antigo) {
+      const c = JSON.parse(antigo) as CustomComponents | null;
+      if (c && !n.themeOver[n.colorPreset]) n.themeOver = { ...n.themeOver, [n.colorPreset]: c };
+      localStorage.setItem(LS.over, JSON.stringify(n.themeOver));
+      localStorage.removeItem(LS.overAntigo);
+    }
+    const brand = localStorage.getItem(LS.brand);
+    if (brand) n.brand = { name: '', logo: '', ...JSON.parse(brand) };
+  } catch {}
+  return n;
+}
+
+/** O painel de uma conta que deixou de ter acesso volta ao primeiro painel permitido */
+function noNivelPermitido(next: St): St {
+  const allowed = allowedOf(next);
+  if (!allowed.includes(next.level)) {
+    next = { ...next, level: allowed[0] };
+    if (next.deny?.type === 'nivel' && !allowed.includes(next.deny.lv)) {
+      next = fromPath(next, '/' + next.level);
+    }
+  }
+  return next;
+}
+
+/** Estado com uma leitura do servidor, a abrir `caminhoDesejado` (o endereço com que o painel abriu, na primeira) */
+function comDados(cur: St, d: DadosServidor, caminhoDesejado: string): St {
+  // domínios internos do sistema (files., supabase-…) fora de todas as listas do painel
+  for (const c of Object.values(d.contas)) {
+    c.domains = c.domains.filter((x) => dominioVisivel(x.name));
+    c.mails = c.mails.filter((m) => dominioVisivel(m.dom));
+  }
+  const primeira = cur.carga !== 'ok';
+  const n0: St = {
+    ...cur,
+    acc: d.contas,
+    login: d.me,
+    pessoa: d.pessoa || null,
+    stack: primeira ? [] : cur.stack.filter((x) => d.contas[x.u]),
+    srv: d.servidor,
+    dns: d.dns,
+    php: d.php || [],
+    lidoEm: d.lidoEm,
+    carga: 'ok',
+    erro: null,
+    db: { ...cur.db, pkgs: d.pacotes, info: d.info },
+  };
+  // Se o caminho inicial pedido (ex: /admin vindo de outra sessão) não for permitido para esta conta,
+  // abre diretamente o nível inicial da conta em vez de mostrar "Sem acesso" logo ao entrar
+  const lvDesejado = caminhoDesejado.replace(/^\/+/, '').split('/')[0];
+  const caminhoValido = isLevel(lvDesejado) && !allowedOf(n0).includes(lvDesejado) ? '/' + nivelInicial(n0, true) : caminhoDesejado;
+  return fromPath(n0, caminhoValido);
+}
+
+const nadaMuda = () => () => {};
+
 /** Lugar de uma página: escondido enquanto as leituras sem nada em memória não acabam; depois avisa (uma vez) */
 type RegistarFonte = (chave: string, id: string, fonte: () => ItemPesquisa[]) => () => void;
 
@@ -234,7 +309,17 @@ export function VisualHostApp({ temSessao = true }: { temSessao?: boolean }) {
   // conta os pedidos ao site para a linha de carregamento do topo (antes de o painel pedir os dados)
   useState(() => instalarContador());
   const pathname = usePathname() || BASE;
-  const [st, setSt] = useState<St>(() => initialState(stripBase(pathname)));
+  // Entrada pelo login do site: o painel abre sem recarregar a página (src/components/auth/LoginForm.tsx), por isso não
+  // há página do servidor a acertar — abre logo com a aparência guardada e a leitura que o login acabou de fazer, sem a
+  // página branca com a roda (pedido do Silva, 13/10/2026). Aberto pelo endereço, começa como a página do servidor.
+  const semServidor = useSyncExternalStore(nadaMuda, () => true, () => false);
+  const [st, setSt] = useState<St>(() => {
+    const s0 = initialState(stripBase(pathname));
+    if (!semServidor) return s0;
+    const n = comPreferencias(s0);
+    const d = temSessao ? lerCache() : null;
+    return d ? noNivelPermitido(comDados(n, d, stripBase(pathname))) : n;
+  });
   // página de entrada (sem sessão): modo do tema escolhido lá (claro · automático · escuro) e "a entrar" (roda a girar)
   const [aEntrar, setAEntrar] = useState(false);
   const [semSessao, setSemSessao] = useState(!temSessao);
@@ -260,13 +345,7 @@ export function VisualHostApp({ temSessao = true }: { temSessao?: boolean }) {
 
   // Grava o estado novo (o painel de uma conta que deixou de ter acesso volta ao primeiro painel permitido)
   const commit = useCallback((next: St) => {
-    const allowed = allowedOf(next);
-    if (!allowed.includes(next.level)) {
-      next = { ...next, level: allowed[0] };
-      if (next.deny?.type === 'nivel' && !allowed.includes(next.deny.lv)) {
-        next = fromPath(next, '/' + next.level);
-      }
-    }
+    next = noNivelPermitido(next);
     ref.current = next;
     setSt(next);
   }, []);
@@ -335,34 +414,7 @@ export function VisualHostApp({ temSessao = true }: { temSessao?: boolean }) {
   // Aparência guardada no navegador (tema claro/escuro, separador do painel inicial, cores, cantos e marca);
   // endereço sem ecrã → primeiro painel da conta
   useEffect(() => {
-    const n = { ...ref.current };
-    try {
-      // claro/escuro: o mesmo do site todo (cookie vd-theme); "automático" (escolhido na página de entrada) segue o sistema
-      const tm = localStorage.getItem('visualhost_theme');
-      const doSite = (document.cookie.match(/(?:^|; )vd-theme=(light|dark)/) || [])[1] || localStorage.getItem('vd-theme');
-      if (tm === 'auto') n.theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-      else if (doSite === 'dark' || doSite === 'light') n.theme = doSite;
-      else if (tm === 'dark') n.theme = 'dark';
-      if (localStorage.getItem('visualhost_dashtab') === 'menu') n.dashTab = 'menu';
-      const lg = localStorage.getItem(LINGUA_LS);
-      if (lg === 'pt' || lg === 'en') n.lang = lg;
-      n.colorPreset = presetId(localStorage.getItem(LS.preset) || n.colorPreset);
-      n.customPrimary = localStorage.getItem(LS.customPrimary) || '';
-      n.radius = localStorage.getItem(LS.radius) || n.radius;
-      const over = localStorage.getItem(LS.over);
-      if (over) n.themeOver = Object.fromEntries(Object.entries(JSON.parse(over) as Record<string, CustomComponents>).map(([k, v]) => [presetId(k), v]));
-      // formato antigo (antes de 10/10): umas só cores para todos os temas → ficam no tema escolhido
-      const antigo = localStorage.getItem(LS.overAntigo);
-      if (antigo) {
-        const c = JSON.parse(antigo) as CustomComponents | null;
-        if (c && !n.themeOver[n.colorPreset]) n.themeOver = { ...n.themeOver, [n.colorPreset]: c };
-        localStorage.setItem(LS.over, JSON.stringify(n.themeOver));
-        localStorage.removeItem(LS.overAntigo);
-      }
-      const brand = localStorage.getItem(LS.brand);
-      if (brand) n.brand = { name: '', logo: '', ...JSON.parse(brand) };
-    } catch {}
-    commit(n);
+    commit(comPreferencias(ref.current));
     pushUrl(ref.current.path, true);
     // cores do site escolhidas pelo administrador: valem aqui também, salvo se esta pessoa escolheu outras no painel
     fetch('/api/vhost/tema', { headers: FUNDO })
@@ -387,38 +439,10 @@ export function VisualHostApp({ temSessao = true }: { temSessao?: boolean }) {
   // Põe no painel os dados de uma leitura (do servidor, ou a última guardada neste navegador ao abrir)
   const aplicar = useCallback(
     (d: DadosServidor) => {
-      // domínios internos do sistema (files., supabase-…) fora de todas as listas do painel
-      for (const c of Object.values(d.contas)) {
-        c.domains = c.domains.filter((x) => dominioVisivel(x.name));
-        c.mails = c.mails.filter((m) => dominioVisivel(m.dom));
-      }
       const cur = ref.current;
       const primeira = cur.carga !== 'ok';
-      const n0: St = {
-        ...cur,
-        acc: d.contas,
-        login: d.me,
-        pessoa: d.pessoa || null,
-        stack: primeira ? [] : cur.stack.filter((x) => d.contas[x.u]),
-        srv: d.servidor,
-        dns: d.dns,
-        php: d.php || [],
-        lidoEm: d.lidoEm,
-        carga: 'ok',
-        erro: null,
-        db: { ...cur.db, pkgs: d.pacotes, info: d.info },
-      };
-      // Se o caminho inicial pedido (ex: /admin vindo de outra sessão) não for permitido para esta conta,
-      // abre diretamente o nível inicial da conta em vez de mostrar "Sem acesso" logo ao entrar
       const caminhoDesejado = primeira ? inicial.current : cur.path;
-      const segs = caminhoDesejado.replace(/^\/+/, '').split('/');
-      const lvDesejado = segs[0];
-      const permitidos = allowedOf(n0);
-      const caminhoValido =
-        isLevel(lvDesejado) && !permitidos.includes(lvDesejado)
-          ? '/' + nivelInicial(n0, true)
-          : caminhoDesejado;
-      const n = fromPath(n0, caminhoValido);
+      const n = comDados(cur, d, caminhoDesejado);
       commit(n);
       if (primeira || n.path !== caminhoDesejado) pushUrl(n.path, true);
     },
