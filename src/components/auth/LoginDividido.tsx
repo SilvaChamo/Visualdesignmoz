@@ -18,7 +18,9 @@ const LINGUA_LS = 'visualhost_lang'
 
 type Modo = 'light' | 'auto' | 'dark'
 
-export function LoginDividido({ children }: { children: React.ReactNode }) {
+/** Duas versões do logótipo no computador, para o Silva escolher (13/10/2026): 1 = aba branca a entrar pela foto
+ *  (/login); 2 = logótipo branco no canto da foto com uma linha branca de 12 px encostada à esquerda (/login?modelo=2) */
+export function LoginDividido({ children, modelo = 1 }: { children: React.ReactNode; modelo?: 1 | 2 }) {
   const { t } = useI18n()
   const itens: [LucideIcon, string][] = [
     [Server, t('login.heroFeat1')],
@@ -32,6 +34,17 @@ export function LoginDividido({ children }: { children: React.ReactNode }) {
         <img src="/assets/design_grafico_branding.jpg" alt="" aria-hidden className="absolute inset-0 h-full w-full object-cover" />
         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/45 to-black/25" />
         <div className="absolute inset-0 bg-gradient-to-br from-red-800/35 via-transparent to-transparent" />
+
+        {modelo === 2 && (
+          <>
+            {/* a linha fica à altura do desenho do logótipo (a imagem tem ~6 px vazios em cima e em baixo) */}
+            <span aria-hidden className="absolute left-0 top-[42px] h-[46px] w-[12px] bg-white" />
+            <a href="/" className="absolute left-10 top-9 transition-opacity hover:opacity-85" title="VisualDesign">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/assets/Logo_horizontal_branco.png" alt="VisualDesign" className="h-[58px] w-auto" />
+            </a>
+          </>
+        )}
 
         <div className="absolute inset-x-10 bottom-10 max-w-[540px] text-white">
           <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-medium ring-1 ring-white/20 backdrop-blur">
@@ -54,7 +67,7 @@ export function LoginDividido({ children }: { children: React.ReactNode }) {
       </aside>
 
       <section className="relative flex min-h-screen flex-col">
-        <AbaLogo />
+        {modelo === 1 && <AbaLogo />}
         <BotoesCanto />
         <div className="flex flex-1 items-center justify-center px-6 pb-10 pt-8 lg:pt-20">
           <div className="w-full max-w-[400px]">{children}</div>
@@ -78,19 +91,21 @@ export function LoginDividido({ children }: { children: React.ReactNode }) {
 
 /** No computador, o fundo do formulário entra pela foto dentro na divisão, como uma aba, com o logótipo (pedido do Silva,
  *  13/10/2026, sobre o modelo de um menu com o item escolhido ligado ao conteúdo): arredondada (10 px) só do lado esquerdo,
- *  dentro da foto; do lado direito, onde se junta ao fundo, nada. A 50 px do início da página. A aba passa 16 px para
- *  dentro do fundo, para a junção nunca deixar ver uma risca da foto. */
+ *  dentro da foto; do lado direito, onde se junta ao fundo, nada. A 50 px do início da página; leve (pouco espaço à volta
+ *  do logótipo) e com uma sombra suave só sobre a foto. */
 function AbaLogo() {
   return (
     <a
       href="/"
       title="VisualDesign"
-      className="absolute right-[calc(100%-16px)] top-[50px] z-10 hidden h-[112px] w-[350px] items-center justify-center rounded-l-[10px] bg-white pl-5 pr-[32px] dark:bg-[#15161e] lg:flex"
+      className="absolute right-[calc(100%-16px)] top-[50px] z-10 hidden h-[72px] w-[288px] items-center rounded-l-[10px] bg-white pl-4 pr-[32px] shadow-[-10px_8px_30px_-12px_rgba(0,0,0,0.35)] dark:bg-[#15161e] lg:flex"
+      // a sombra só do lado da foto: corta-se na divisão (os 16 px que entram no fundo ficam de fora)
+      style={{ clipPath: 'inset(-40px 16px -40px -40px)' }}
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/assets/logo-entrada.jpg" alt="VisualDesign" className="h-auto w-[280px] dark:hidden" />
+      <img src="/assets/logo-entrada.jpg" alt="VisualDesign" className="h-auto w-[240px] dark:hidden" />
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/assets/logo-entrada-escuro.png" alt="VisualDesign" className="hidden h-auto w-[280px] dark:block" />
+      <img src="/assets/logo-entrada-escuro.png" alt="VisualDesign" className="hidden h-auto w-[240px] dark:block" />
     </a>
   )
 }

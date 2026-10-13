@@ -104,7 +104,7 @@ function LoginFormInner() {
   }
 
   return (
-    <LoginDividido>
+    <LoginDividido modelo={searchParams.get('modelo') === '2' ? 2 : 1}>
       {/* no telemóvel e no tablet a imagem (com o logótipo) não aparece: o logótipo fica por cima do formulário */}
       {/* maior e perto do título (a imagem do logótipo tem ~13% de margem vazia em cima e em baixo) */}
       <a href="/" className="-mb-1 -mt-3 flex justify-center lg:hidden" title="VisualDesign">
