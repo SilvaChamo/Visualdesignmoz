@@ -157,10 +157,21 @@ export function Tabs<K extends string>({ tabs, on, onChange, sub }: { tabs: [K, 
     </div>
   );
   if (sub || !faixa) return abas;
-  // a faixa dos separadores guarda à direita o lugar do botão "Ações" (e de um segundo "+ Adicionar…") — ver FaixaAbas
+  // a faixa dos separadores guarda à direita o lugar do botão "Ações" — ver FaixaAbas. No telemóvel os separadores
+  // passam a uma caixa de escolha (pedido do Silva, 13/10/2026: com muitos separadores não se viam os outros)
   return (
     <div className="ptabs-faixa">
       {abas}
+      <label className="ptabs-sel">
+        <select value={on} onChange={(e) => onChange(e.target.value as K)} aria-label={t('Separador')}>
+          {tabs.map(([k, label]) => (
+            <option key={k} value={k}>
+              {t(label)}
+            </option>
+          ))}
+        </select>
+        <i className="fa-solid fa-chevron-down" />
+      </label>
       <div className="ptabs-dir" ref={faixa.set} />
     </div>
   );

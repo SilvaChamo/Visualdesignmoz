@@ -47,6 +47,8 @@ para o outro) fica na memória `project_dual-folder-git-topology`.
 - No VisualHost tudo isto é automático no `DataTable` com `umaLinha` + `barraFora`: o "Ações" vai para o lugar que os
   `Tabs` guardam à direita (`FaixaAbas` em `src/components/vhost/context.tsx`); as ações da página passam-se em `bulk`
   (`sempre: true` nas que não precisam de linhas escolhidas, `inativo` para as desligar); a paginação sai no fundo.
+- **No telemóvel os separadores passam a uma caixa de escolha** (selector), à esquerda da faixa, com o "Ações" à
+  direita — assim vêem-se todos, mesmo quando são muitos (pedido do Silva, 13/10/2026). Automático nos `Tabs`.
 - **Nunca duas linhas de botões.**
 - **Modelo de página = a página Domínios do painel.** Toda a página nova segue-o: um título na barra de cima com uma
   descrição pequena por baixo (nunca dois títulos grandes juntos — números e resumos vão na descrição, ex.:

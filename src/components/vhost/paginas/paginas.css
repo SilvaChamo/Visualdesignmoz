@@ -478,6 +478,17 @@
 .vh .tabcard>.ptabs-faixa{margin:0;border-radius:var(--r) var(--r) 0 0}
 .vh .tabcard>.ptabs-faixa>.ptabs{padding:0 18px}
 @media(max-width:768px){.vh .tabcard>.ptabs-faixa>.ptabs{padding:0 12px}.vh .ptabs-dir{padding:0 12px 0 6px}}
+/* no telemóvel os separadores passam a uma caixa de escolha, à esquerda da faixa (o "Ações" fica à direita) */
+.vh .ptabs-sel{display:none}
+@media(max-width:768px){
+ .vh .ptabs-faixa{align-items:center;min-height:50px}
+ .vh .ptabs-faixa>.ptabs{display:none}
+ .vh .ptabs-sel{display:flex;align-items:center;position:relative;flex:1 1 auto;min-width:0;margin:0 12px}
+ .vh .ptabs-dir{padding:0 12px 0 0}
+ .vh .ptabs-sel select{appearance:none;-webkit-appearance:none;width:100%;height:34px;padding:0 32px 0 12px;border:1px solid var(--line);border-radius:var(--r);background:var(--card);color:var(--red);font:inherit;font-size:14px;font-weight:700;text-overflow:ellipsis}
+ .vh .ptabs-sel i{position:absolute;right:11px;font-size:11px;color:var(--muted);pointer-events:none}
+}
+
 /* separadores dentro de um separador: só sublinhados */
 .vh .ptabs.sub{height:auto;padding:0;background:none;box-shadow:inset 0 -1px 0 var(--line);border-radius:0;margin:0 0 18px}
 .vh .ptabs.sub button{height:38px;padding:0 14px;border:0;border-bottom:2px solid transparent;border-radius:0;background:none}
