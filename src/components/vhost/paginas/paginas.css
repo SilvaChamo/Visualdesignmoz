@@ -1133,6 +1133,7 @@
 .vh .dom-gestao{display:grid;grid-template-columns:minmax(0,1fr) 240px;gap:24px;align-items:start}
 .vh .dom-opcoes{position:sticky;top:90px;background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:8px}
 .vh .dom-opcoes h4{font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);padding:6px 8px 8px;margin:0}
+.vh .dom-opcoes h4:not(:first-child){margin-top:8px;padding-top:14px;border-top:1px solid var(--line)}
 .vh .dom-opcoes :is(.dom-op,.btn){display:flex;align-items:center;justify-content:flex-start;gap:10px;width:100%;height:auto;padding:9px 10px;border:0;border-radius:var(--r);background:none;color:var(--ink);font:inherit;font-size:13.5px;font-weight:500;text-align:left;cursor:pointer;text-decoration:none;box-shadow:none}
 .vh .dom-opcoes :is(.dom-op,.btn) i{width:16px;text-align:center;color:var(--muted)}
 .vh .dom-opcoes :is(.dom-op,.btn):hover{background:var(--soft);color:var(--red)}
@@ -1164,3 +1165,5 @@
 .vh .dom-info-l.lk{cursor:pointer}
 .vh .dom-info-l.lk:hover>div,.vh .dom-info-l.lk:hover>i{color:var(--red)}
 @media(max-width:900px){.vh .dom-info-grelha{grid-template-columns:minmax(0,1fr)}}
+.vh .dom-info-larga{grid-column:1 / -1}
+.vh .dom-info-l small{color:var(--muted);font-size:12px}
