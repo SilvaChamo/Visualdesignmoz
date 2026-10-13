@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useVH, type VH } from '../context';
 import type { ScreenFn } from '../screens';
-import { Check, DataTable, Esqueleto, Senha, Switch, Tabs } from './componentes';
+import { Check, DataTable, ACarregar, Senha, Switch, Tabs } from './componentes';
 import { Confirmar } from './pacotes';
 import { useGet } from '../carga';
 import dynamic from 'next/dynamic';
@@ -52,7 +52,7 @@ export function Carregando({ erro, ler }: { erro: string; ler: () => void }) {
       </button>
     </div>
   ) : (
-    <Esqueleto /> // a carregar: a página em esqueleto, nunca vazia
+    <ACarregar /> // a carregar: a roda, nunca vazia
   );
 }
 

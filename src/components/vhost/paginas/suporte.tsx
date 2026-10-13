@@ -11,7 +11,7 @@ import type { ScreenFn } from '../screens';
 import { DESC, MENU } from '../generated/data';
 import { ico } from '../state';
 import { esquecerMemoria, useGet, useNaMemoria } from '../carga';
-import { DataTable, Esqueleto, Senha, Switch, Tabs } from './componentes';
+import { DataTable, ACarregar, Senha, Switch, Tabs } from './componentes';
 import { Confirmar } from './pacotes';
 
 // ---------- Peças comuns ----------
@@ -41,7 +41,7 @@ function Carregando({ erro, ler }: { erro: string; ler: () => void }) {
       </button>
     </div>
   ) : (
-    <Esqueleto /> // a carregar: a página em esqueleto, nunca vazia
+    <ACarregar /> // a carregar: a roda, nunca vazia
   );
 }
 

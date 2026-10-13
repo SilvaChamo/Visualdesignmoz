@@ -8,7 +8,7 @@ import dynamic from 'next/dynamic';
 import { useVH, type VH } from '../context';
 import type { ScreenFn } from '../screens';
 import { Stat } from '../ui';
-import { DataTable, Esqueleto, Switch, Tabs } from './componentes';
+import { DataTable, ACarregar, Switch, Tabs } from './componentes';
 import { Confirmar } from './pacotes';
 import { FUNDO, lerUrl, naMemoria, useGet } from '../carga';
 import { LOGO } from '../state';
@@ -56,7 +56,7 @@ function Carregando({ erro, ler }: { erro: string; ler: () => void }) {
       </button>
     </div>
   ) : (
-    <Esqueleto /> // a carregar: a página em esqueleto, nunca vazia
+    <ACarregar /> // a carregar: a roda, nunca vazia
   );
 }
 

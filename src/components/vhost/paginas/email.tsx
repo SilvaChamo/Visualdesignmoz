@@ -11,7 +11,7 @@ import type { ScreenFn } from '../screens';
 import { DESC, MENU } from '../generated/data';
 import { pacoteDe } from '../state';
 import { Stat } from '../ui';
-import { Check, DataTable, Esqueleto, novaSenha, Senha, Switch, Tabs } from './componentes';
+import { Check, DataTable, ACarregar, novaSenha, Senha, Switch, Tabs } from './componentes';
 import { Confirmar } from './pacotes';
 import { AO_ABRIR, EsperaPagina, FUNDO, useGet } from '../carga';
 
@@ -151,7 +151,7 @@ function Carregando({ erro, ler }: { erro: string; ler: () => void }) {
       </button>
     </div>
   ) : (
-    <Esqueleto /> // a carregar: a página em esqueleto, nunca vazia
+    <ACarregar /> // a carregar: a roda, nunca vazia
   );
 }
 

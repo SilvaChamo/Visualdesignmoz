@@ -9,7 +9,7 @@ import { GLOBAL, LEVELS, MENU, ROLES } from './generated/data';
 import { dominioVisivel, type DadosServidor } from './servidor';
 import { translate, type Lang } from './i18n';
 import { EntradaPainel, LINGUA_LS, type ModoTema } from './entrada';
-import { Esqueleto } from './paginas/componentes';
+import { ACarregar } from './paginas/componentes';
 import { auth } from '@/lib/supabase-client';
 import { MoreMenuModal } from './modals';
 import { SCREENS, denyScreen, placeholder, type Screen } from './screens';
@@ -885,8 +885,8 @@ export function VisualHostApp({ temSessao = true }: { temSessao?: boolean }) {
     const er = st.erro;
     // sem sessão (cookie visto já no servidor) ou sessão recusada: a página de entrada no modelo do DA, sem piscar
     const entrada = er?.codigo === 401 || (!er && !aEntrar && semSessao);
-    // a ler o servidor pela primeira vez neste navegador (sem leitura guardada): o painel em esqueleto, nunca uma
-    // página em branco (pedido do Silva, 13/10/2026)
+    // a ler o servidor pela primeira vez neste navegador (sem leitura guardada): a moldura do painel com a roda a girar,
+    // nunca uma página em branco e sem esqueleto (pedidos do Silva, 13/10/2026)
     const aCarregar = !er && !entrada;
     if (entrada)
       return (
@@ -948,14 +948,7 @@ export function VisualHostApp({ temSessao = true }: { temSessao?: boolean }) {
                 <h1 className="dash">Dashboard</h1>
                 <p>{t('Painel de alojamento')}</p>
               </div>
-              <nav className="side">
-                {aCarregar &&
-                  [70, 55, 62, 48, 66, 52].map((w, i) => (
-                    <div key={i} className="esq-menu">
-                      <span className="sk" style={{ width: w + '%' }} />
-                    </div>
-                  ))}
-              </nav>
+              <nav className="side" />
             </div>
           </aside>
           <div className="right">
@@ -978,7 +971,7 @@ export function VisualHostApp({ temSessao = true }: { temSessao?: boolean }) {
             <main id="main">
               {aCarregar ? (
                 <div className="da-main-card">
-                  <Esqueleto />
+                  <ACarregar />
                 </div>
               ) : (
                 <div className="card espera-msg" id="espera">
