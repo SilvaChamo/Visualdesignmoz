@@ -184,6 +184,36 @@ function ComEmail({ children }: { children: (x: { d: string; info: InfoEmail; le
   return <>{children({ d, info, ler })}</>;
 }
 
+/** Descrição da barra de cima das listas do e-mail (modelo da página Domínios: um título e, por baixo, uma descrição
+ *  pequena com os números — ex.: "Reencaminhar e-mails para outros endereços | 2 reencaminhamentos"). Usa o que a página
+ *  já leu do servidor (não faz outro pedido). */
+function DescEmail({ texto, conta }: { texto: string; conta?: (info: InfoEmail) => [number, string, string] }) {
+  const vh = useVH();
+  const k = vh.me + '|' + dominioEmail(vh);
+  const [info, setInfo] = useState<InfoEmail | null>(() => lidos.get(k) || null);
+  useEffect(() => {
+    setInfo(lidos.get(k) || null);
+    const s = ouvintes.get(k) || new Set();
+    s.add(setInfo);
+    ouvintes.set(k, s);
+    return () => {
+      s.delete(setInfo);
+    };
+  }, [k]);
+  const n = conta && info?.temMail ? conta(info) : null;
+  return (
+    <>
+      {vh.t(texto)}
+      {n && (
+        <>
+          <span className="pdesc-sep">|</span>
+          {n[0]} {vh.t(n[0] === 1 ? n[1] : n[2])}
+        </>
+      )}
+    </>
+  );
+}
+
 /** Secção como nas páginas do DirectAdmin (título, descrição, números à direita) */
 function Sec({ titulo, desc, numeros, children }: { titulo: string; desc?: string; numeros?: [string, string][]; children: ReactNode }) {
   const { t } = useVH();
@@ -801,35 +831,37 @@ function ReencaminhamentosLista() {
               onOk={() => noEmail(vh, d, { acao: 'fwd-apagar', nomes: ns }, 'Reencaminhamento(s) apagado(s)', true)}
             />,
           );
+        // modelo global: a tabela abre o cartão; o "Ações" aparece no lugar do título da 1.ª coluna ao assinalar uma caixa
         return (
-          <Sec titulo="Reencaminhamentos" desc="Endereços que enviam o e-mail que recebem para outros endereços." numeros={[['Reencaminhamentos', rows.length + ' / ' + t('ilimitado')]]}>
-            <DataTable
-              id="email-fwd"
-              rows={rows}
-              rowKey={(r) => r.nome}
-              search={(r) => r.nome + ' ' + r.fwd.join(' ')}
-              onRecarregar={ler}
-              empty="Nenhum reencaminhamento…"
-              cols={[
-                { k: 'nome', t: 'Reencaminhamento', sort: (r) => r.nome, cell: (r) => <b>{r.nome + '@' + d}</b> },
-                { k: 'dest', t: 'Destinos', cell: (r) => <span style={{ whiteSpace: 'normal', wordBreak: 'break-all' }}>{r.fwd.join(', ')}</span> },
-                { k: 'copia', t: 'Cópia na caixa', cell: (r) => <span className={'tag ' + (r.soReencaminha ? 'off' : 'ok')}>{t(r.soReencaminha ? 'Não' : 'Sim')}</span> },
-              ]}
-              actions={(r) => (
-                <span className="dns-acoes">
-                  <button className="btn sm btn-ed" onClick={() => openM(<EditarFwdModal d={d} c={r} />)}>
-                    <i className="fa-solid fa-pen-to-square" />
-                    {t('Editar')}
-                  </button>
-                  <button className="btn sm btn-rm" onClick={() => apagar([r.nome])}>
-                    <i className="fa-solid fa-trash-can" />
-                    {t('Apagar')}
-                  </button>
-                </span>
-              )}
-              bulk={[{ t: 'Apagar', fa: 'fa-trash', run: (k) => apagar(k) }]}
-            />
-          </Sec>
+          <DataTable
+            id="email-fwd"
+            umaLinha
+            barraFora
+            empilhar="botoes-em-baixo"
+            rows={rows}
+            rowKey={(r) => r.nome}
+            search={(r) => r.nome + ' ' + r.fwd.join(' ')}
+            onRecarregar={ler}
+            empty="Este domínio ainda não tem reencaminhamentos"
+            cols={[
+              { k: 'nome', t: 'Reencaminhamento', sort: (r) => r.nome, cell: (r) => <b>{r.nome + '@' + d}</b> },
+              { k: 'dest', t: 'Destinos', cell: (r) => <span style={{ whiteSpace: 'normal', wordBreak: 'break-all' }}>{r.fwd.join(', ')}</span> },
+              { k: 'copia', t: 'Cópia na caixa', cell: (r) => <span className={'tag ' + (r.soReencaminha ? 'off' : 'ok')}>{t(r.soReencaminha ? 'Não' : 'Sim')}</span> },
+            ]}
+            actions={(r) => (
+              <span className="dns-acoes">
+                <button className="btn sm btn-ed" onClick={() => openM(<EditarFwdModal d={d} c={r} />)}>
+                  <i className="fa-solid fa-pen-to-square" />
+                  {t('Editar')}
+                </button>
+                <button className="btn sm btn-rm" onClick={() => apagar([r.nome])}>
+                  <i className="fa-solid fa-trash-can" />
+                  {t('Apagar')}
+                </button>
+              </span>
+            )}
+            bulk={[{ t: 'Apagar', fa: 'fa-trash', run: (k) => apagar(k) }]}
+          />
         );
       }}
     </ComEmail>
@@ -1017,6 +1049,7 @@ export const reencaminhamentosPagina: ScreenFn = (vh) => {
   if (a === 'texto') return { title: 'Criar a partir de texto', crumbs: [base, { t: 'A partir de texto' }], body: <FwdTexto /> };
   return {
     title: 'Reencaminhamentos',
+    descEl: <DescEmail texto="Reencaminhar e-mails para outros endereços" conta={(i) => [i.caixas.filter((c) => c.fwd.length && !i.listas.includes(c.nome)).length, 'reencaminhamento', 'reencaminhamentos']} />,
     actions: (
       <>
         <button className="btn g sec-m" onClick={() => vh.nav('/utilizador/reencaminhamentos/texto')}>
@@ -1047,29 +1080,30 @@ function RespostasLista() {
         const apagar = (us: string[]) =>
           openM(<Confirmar titulo="Apagar respostas automáticas?" texto={'As contas ' + us.join(', ') + ' deixam de responder sozinhas.'} ok="Apagar" onOk={() => noEmail(vh, d, { acao: 'resposta-apagar', users: us }, 'Resposta(s) apagada(s)', true)} />);
         return (
-          <Sec titulo="Respostas automáticas" desc="Contas que respondem sozinhas a quem lhes escreve." numeros={[['Respostas automáticas', rows.length + ' / ' + t('ilimitado')]]}>
-            <DataTable
-              id="email-respostas"
-              rows={rows}
-              rowKey={(r) => r.nome}
-              onRecarregar={ler}
-              empty="Nenhuma resposta automática"
-              cols={[{ k: 'conta', t: 'Resposta automática', sort: (r) => r.nome, cell: (r) => <b>{r.nome + '@' + d}</b> }]}
-              actions={(r) => (
-                <span className="dns-acoes">
-                  <button className="btn sm btn-ed" onClick={() => nav('/utilizador/respostas/' + encodeURIComponent(r.nome))}>
-                    <i className="fa-solid fa-pen-to-square" />
-                    {t('Editar')}
-                  </button>
-                  <button className="btn sm btn-rm" onClick={() => apagar([r.nome])}>
-                    <i className="fa-solid fa-trash-can" />
-                    {t('Apagar')}
-                  </button>
-                </span>
-              )}
-              bulk={[{ t: 'Apagar', fa: 'fa-trash', run: (k) => apagar(k) }]}
-            />
-          </Sec>
+          <DataTable
+            id="email-respostas"
+            umaLinha
+            barraFora
+            empilhar="botoes-em-baixo"
+            rows={rows}
+            rowKey={(r) => r.nome}
+            onRecarregar={ler}
+            empty="Nenhuma conta deste domínio responde sozinha"
+            cols={[{ k: 'conta', t: 'Conta', sort: (r) => r.nome, cell: (r) => <b>{r.nome + '@' + d}</b> }]}
+            actions={(r) => (
+              <span className="dns-acoes">
+                <button className="btn sm btn-ed" onClick={() => nav('/utilizador/respostas/' + encodeURIComponent(r.nome))}>
+                  <i className="fa-solid fa-pen-to-square" />
+                  {t('Editar')}
+                </button>
+                <button className="btn sm btn-rm" onClick={() => apagar([r.nome])}>
+                  <i className="fa-solid fa-trash-can" />
+                  {t('Apagar')}
+                </button>
+              </span>
+            )}
+            bulk={[{ t: 'Apagar', fa: 'fa-trash', run: (k) => apagar(k) }]}
+          />
         );
       }}
     </ComEmail>
@@ -1138,6 +1172,15 @@ export const respostasPagina: ScreenFn = (vh) => {
   if (a) return { title: 'Editar resposta automática', crumbs: [base, { t: a }], body: <RespostaForm key={a} acc={a} /> };
   return {
     title: 'Respostas automáticas',
+    descEl: (
+      <DescEmail
+        texto="Contas que respondem sozinhas a quem lhes escreve"
+        conta={(i) => {
+          const ferias = new Set(i.ferias.map((f) => f.acc));
+          return [i.caixas.filter((c) => c.resposta && !ferias.has(c.nome)).length, 'resposta automática', 'respostas automáticas'];
+        }}
+      />
+    ),
     actions: (
       <button className="btn r" onClick={() => vh.nav('/utilizador/respostas/nova')}>
         <i className="fa-solid fa-plus" />
@@ -1160,34 +1203,35 @@ function FeriasLista() {
         const apagar = (us: string[]) =>
           openM(<Confirmar titulo="Apagar mensagens de férias?" texto={'As contas ' + us.join(', ') + ' deixam de ter mensagem de férias.'} ok="Apagar" onOk={() => noEmail(vh, d, { acao: 'ferias-apagar', users: us }, 'Mensagem(ns) apagada(s)', true)} />);
         return (
-          <Sec titulo="Mensagens de férias" desc="Resposta automática que se liga e desliga sozinha nas datas escolhidas (o servidor verifica de 15 em 15 minutos).">
-            <DataTable
-              id="email-ferias"
-              rows={info.ferias}
-              rowKey={(r) => r.acc}
-              onRecarregar={ler}
-              empty="Nenhuma mensagem de férias"
-              cols={[
-                { k: 'conta', t: 'Conta', sort: (r) => r.acc, cell: (r) => <b>{r.acc + '@' + d}</b> },
-                { k: 'de', t: 'De', sort: (r) => r.de, cell: (r) => dataPt(r.de) },
-                { k: 'ate', t: 'Até', sort: (r) => r.ate, cell: (r) => dataPt(r.ate) },
-                { k: 'estado', t: 'Estado', cell: (r) => <span className={'tag ' + (r.ativa ? 'ok' : 'off')}>{t(r.ativa ? 'Ligada agora' : 'Marcada')}</span> },
-              ]}
-              actions={(r) => (
-                <span className="dns-acoes">
-                  <button className="btn sm btn-ed" onClick={() => nav('/utilizador/ferias/' + encodeURIComponent(r.acc))}>
-                    <i className="fa-solid fa-pen-to-square" />
-                    {t('Editar')}
-                  </button>
-                  <button className="btn sm btn-rm" onClick={() => apagar([r.acc])}>
-                    <i className="fa-solid fa-trash-can" />
-                    {t('Apagar')}
-                  </button>
-                </span>
-              )}
-              bulk={[{ t: 'Apagar', fa: 'fa-trash', run: (k) => apagar(k) }]}
-            />
-          </Sec>
+          <DataTable
+            id="email-ferias"
+            umaLinha
+            barraFora
+            empilhar="botoes-em-baixo"
+            rows={info.ferias}
+            rowKey={(r) => r.acc}
+            onRecarregar={ler}
+            empty="Nenhuma mensagem de férias marcada neste domínio"
+            cols={[
+              { k: 'conta', t: 'Conta', sort: (r) => r.acc, cell: (r) => <b>{r.acc + '@' + d}</b> },
+              { k: 'de', t: 'De', sort: (r) => r.de, cell: (r) => dataPt(r.de) },
+              { k: 'ate', t: 'Até', sort: (r) => r.ate, cell: (r) => dataPt(r.ate) },
+              { k: 'estado', t: 'Estado', cell: (r) => <span className={'tag ' + (r.ativa ? 'ok' : 'off')}>{t(r.ativa ? 'Ligada agora' : 'Marcada')}</span> },
+            ]}
+            actions={(r) => (
+              <span className="dns-acoes">
+                <button className="btn sm btn-ed" onClick={() => nav('/utilizador/ferias/' + encodeURIComponent(r.acc))}>
+                  <i className="fa-solid fa-pen-to-square" />
+                  {t('Editar')}
+                </button>
+                <button className="btn sm btn-rm" onClick={() => apagar([r.acc])}>
+                  <i className="fa-solid fa-trash-can" />
+                  {t('Apagar')}
+                </button>
+              </span>
+            )}
+            bulk={[{ t: 'Apagar', fa: 'fa-trash', run: (k) => apagar(k) }]}
+          />
         );
       }}
     </ComEmail>
@@ -1259,6 +1303,7 @@ export const feriasPagina: ScreenFn = (vh) => {
   if (a) return { title: 'Editar mensagem de férias', crumbs: [base, { t: a }], body: <FeriasForm key={a} acc={a} /> };
   return {
     title: 'Mensagens de férias',
+    descEl: <DescEmail texto="Respostas que se ligam e desligam sozinhas nas datas escolhidas" conta={(i) => [i.ferias.length, 'mensagem marcada', 'mensagens marcadas']} />,
     actions: (
       <button className="btn r" onClick={() => vh.nav('/utilizador/ferias/nova')}>
         <i className="fa-solid fa-plus" />
@@ -1270,11 +1315,66 @@ export const feriasPagina: ScreenFn = (vh) => {
 };
 
 // ---------- Filtros anti-spam ----------
-function Spam() {
+// Modelo global (Silva, 14/10/2026): duas partes = dois separadores (Bloqueios | Opções) a abrir o cartão; o "Bloquear"
+// que estava numa linha por cima da tabela passa ao botão principal da barra de cima, com uma janela
+function BloquearModal({ d }: { d: string }) {
   const vh = useVH();
-  const { t, openM } = vh;
+  const { t, closeM } = vh;
   const [tipo, setTipo] = useState('email');
   const [valor, setValor] = useState('');
+  return (
+    <>
+      <h3>{t('Bloquear remetente')}</h3>
+      <p style={{ color: 'var(--muted)', marginBottom: 10 }}>
+        {t('O domínio')} {d} {t('deixa de aceitar e-mail deste remetente.')}
+      </p>
+      <div className="f">
+        <label>{t('Bloquear por')}</label>
+        <select value={tipo} onChange={(e) => setTipo(e.target.value)}>
+          <option value="email">{t('Endereço de e-mail')}</option>
+          <option value="dominio">{t('Domínio inteiro')}</option>
+        </select>
+      </div>
+      <div className="f">
+        <label>{t(tipo === 'email' ? 'Endereço' : 'Domínio')}</label>
+        <input autoFocus value={valor} onChange={(e) => setValor(e.target.value)} placeholder={tipo === 'email' ? 'nome@exemplo.com' : 'exemplo.com'} />
+      </div>
+      <div className="mfoot">
+        <button className="btn g" onClick={closeM}>
+          {t('Cancelar')}
+        </button>
+        <button
+          className="btn r"
+          disabled={!valor.trim()}
+          onClick={async () => {
+            const v = valor.trim().toLowerCase();
+            closeM();
+            await noEmail(vh, d, { acao: 'bloqueio-juntar', tipo, valores: [v] }, 'Bloqueado');
+          }}
+        >
+          <i className="fa-solid fa-ban" />
+          {t('Bloquear')}
+        </button>
+      </div>
+    </>
+  );
+}
+
+function NovoBloqueio() {
+  const vh = useVH();
+  const d = dominioEmail(vh);
+  return (
+    <button className="btn r" disabled={!d} onClick={() => vh.openM(<BloquearModal d={d} />)}>
+      <i className="fa-solid fa-ban" />
+      {vh.t('Bloquear remetente')}
+    </button>
+  );
+}
+
+type AbaSpam = 'bloqueios' | 'opcoes';
+function Spam({ aba }: { aba: AbaSpam }) {
+  const vh = useVH();
+  const { t, openM } = vh;
   return (
     <ComEmail>
       {({ d, info, ler }) => {
@@ -1284,68 +1384,64 @@ function Spam() {
         const admin = vh.a.role === 'admin';
         return (
           <>
-            <Sec titulo="Bloqueios" desc="Remetentes ou domínios inteiros de quem este domínio não aceita e-mail.">
-              {!info.regraBloqueios && (
-                <div className="note em-aviso">
-                  <i className="fa-solid fa-circle-info" /> {t('A regra que aplica estes bloqueios ainda não está ligada no servidor de e-mail; os bloqueios ficam guardados e passam a valer quando for ligada.')}{' '}
-                  {admin ? (
-                    <button
-                      className="btn sm btn-ed"
-                      onClick={() =>
-                        openM(
-                          <Confirmar
-                            titulo="Ligar a regra de bloqueios?"
-                            texto="Acrescenta uma regra à configuração do servidor de e-mail (exim), com cópia da atual; se o exim não a aceitar, a configuração anterior é reposta. Vale para todos os domínios do servidor."
-                            ok="Ligar"
-                            onOk={() => noEmail(vh, d, { acao: 'bloqueios-ativar' }, 'Regra de bloqueios ligada')}
-                          />,
-                        )
-                      }
-                    >
-                      {t('Ligar no servidor')}
-                    </button>
-                  ) : (
-                    t('Peça ao administrador para a ligar.')
-                  )}
-                </div>
-              )}
-              <div className="em-bloq">
-                <select className="em-sel" value={tipo} onChange={(e) => setTipo(e.target.value)} aria-label={t('Bloquear por')}>
-                  <option value="email">{t('E-mail')}</option>
-                  <option value="dominio">{t('Domínio')}</option>
-                </select>
-                <input value={valor} onChange={(e) => setValor(e.target.value)} placeholder={tipo === 'email' ? 'nome@exemplo.com' : 'exemplo.com'} aria-label={t('Valor')} />
-                <button
-                  className="btn r"
-                  disabled={!valor.trim()}
-                  onClick={async () => {
-                    if (await noEmail(vh, d, { acao: 'bloqueio-juntar', tipo, valores: [valor.trim().toLowerCase()] }, 'Bloqueado')) setValor('');
-                  }}
-                >
-                  <i className="fa-solid fa-ban" />
-                  {t('Bloquear')}
-                </button>
-              </div>
-              <DataTable
-                id="email-bloqueios"
-                rows={rows}
-                rowKey={(r) => r.v}
-                onRecarregar={ler}
-                empty="Nenhum bloqueio"
-                cols={[
-                  { k: 'tipo', t: 'Bloquear por', cell: (r) => t(r.tipo) },
-                  { k: 'v', t: 'Valor', sort: (r) => r.v, cell: (r) => <b>{r.v.startsWith('@') ? r.v.slice(1) : r.v}</b> },
-                ]}
-                actions={(r) => (
-                  <button className="btn sm btn-rm" onClick={() => tirar([r.v])}>
-                    <i className="fa-solid fa-trash-can" />
-                    {t('Tirar')}
-                  </button>
+            <Tabs<AbaSpam>
+              tabs={[
+                ['bloqueios', 'Bloqueios', 'fa-ban'],
+                ['opcoes', 'Opções', 'fa-shield-halved'],
+              ]}
+              on={aba}
+              onChange={(k) => vh.nav('/utilizador/spam' + (k === 'opcoes' ? '/opcoes' : ''))}
+            />
+            {aba === 'bloqueios' && (
+              <>
+                {!info.regraBloqueios && (
+                  <div className="note em-aviso">
+                    <i className="fa-solid fa-circle-info" /> {t('A regra que aplica estes bloqueios ainda não está ligada no servidor de e-mail; os bloqueios ficam guardados e passam a valer quando for ligada.')}{' '}
+                    {admin ? (
+                      <button
+                        className="btn sm btn-ed"
+                        onClick={() =>
+                          openM(
+                            <Confirmar
+                              titulo="Ligar a regra de bloqueios?"
+                              texto="Acrescenta uma regra à configuração do servidor de e-mail (exim), com cópia da atual; se o exim não a aceitar, a configuração anterior é reposta. Vale para todos os domínios do servidor."
+                              ok="Ligar"
+                              onOk={() => noEmail(vh, d, { acao: 'bloqueios-ativar' }, 'Regra de bloqueios ligada')}
+                            />,
+                          )
+                        }
+                      >
+                        {t('Ligar no servidor')}
+                      </button>
+                    ) : (
+                      t('Peça ao administrador para a ligar.')
+                    )}
+                  </div>
                 )}
-                bulk={[{ t: 'Tirar', fa: 'fa-trash', run: (k) => tirar(k) }]}
-              />
-            </Sec>
-            <Sec titulo="Opções" desc="Proteção do domínio pelo SpamAssassin e pelo antivírus ClamAV.">
+                <DataTable
+                  id="email-bloqueios"
+                  umaLinha
+                  barraFora
+                  empilhar
+                  rows={rows}
+                  rowKey={(r) => r.v}
+                  onRecarregar={ler}
+                  empty="Este domínio não tem remetentes bloqueados"
+                  cols={[
+                    { k: 'tipo', t: 'Bloquear por', cell: (r) => t(r.tipo) },
+                    { k: 'v', t: 'Valor', sort: (r) => r.v, cell: (r) => <b>{r.v.startsWith('@') ? r.v.slice(1) : r.v}</b> },
+                  ]}
+                  actions={(r) => (
+                    <button className="btn sm btn-rm" onClick={() => tirar([r.v])}>
+                      <i className="fa-solid fa-trash-can" />
+                      {t('Tirar')}
+                    </button>
+                  )}
+                  bulk={[{ t: 'Tirar', fa: 'fa-trash', run: (k) => tirar(k) }]}
+                />
+              </>
+            )}
+            {aba === 'opcoes' && (
               <div className="em-opcoes">
                 <div>
                   <span>{t('Filtro anti-spam (SpamAssassin)')}</span>
@@ -1367,14 +1463,23 @@ function Spam() {
                   <Switch checked={dom.antivirus} onChange={(v) => noEmail(vh, d, { acao: 'antivirus', ligar: v }, v ? 'Antivírus ligado' : 'Antivírus desligado')} label="Antivírus" />
                 </div>
               </div>
-            </Sec>
+            )}
           </>
         );
       }}
     </ComEmail>
   );
 }
-export const spamPagina: ScreenFn = () => ({ title: 'Filtros anti-spam', body: <Spam /> });
+export const spamPagina: ScreenFn = (vh) => {
+  const aba: AbaSpam = vh.s.sub[0] === 'opcoes' ? 'opcoes' : 'bloqueios';
+  return {
+    title: 'Filtros anti-spam',
+    descEl: <DescEmail texto="Remetentes bloqueados e proteção do domínio pelo SpamAssassin e pelo ClamAV" conta={(i) => [i.bloqueios.length, 'remetente bloqueado', 'remetentes bloqueados']} />,
+    crumbs: aba === 'opcoes' ? [{ t: 'Filtros anti-spam', path: '/utilizador/spam' }, { t: 'Opções' }] : undefined,
+    actions: <NovoBloqueio />,
+    body: <Spam aba={aba} />,
+  };
+};
 
 // ---------- Listas de correio ----------
 function ListasLista() {
@@ -1386,30 +1491,31 @@ function ListasLista() {
         const rows = info.listas.map((n) => ({ nome: n, subs: info.caixas.find((c) => c.nome === n)?.fwd.length || 0 }));
         const apagar = (ns: string[]) => openM(<Confirmar titulo="Apagar listas?" texto={'Vai apagar ' + ns.map((n) => n + '@' + d).join(', ') + ' e a lista de subscritores.'} ok="Apagar" onOk={() => noEmail(vh, d, { acao: 'lista-apagar', nomes: ns }, 'Lista(s) apagada(s)', true)} />);
         return (
-          <Sec titulo="Listas de correio" desc="Uma mensagem enviada para o endereço da lista chega a todos os subscritores." numeros={[['Listas de correio', rows.length + ' / ' + t('ilimitado')]]}>
-            <DataTable
-              id="email-listas"
-              rows={rows}
-              rowKey={(r) => r.nome}
-              onRecarregar={ler}
-              empty="Nenhuma lista de correio…"
-              cols={[
-                { k: 'nome', t: 'Lista de correio', sort: (r) => r.nome, cell: (r) => <a className="lk" onClick={() => nav('/utilizador/listas/' + encodeURIComponent(r.nome))}>{r.nome + '@' + d}</a> },
-                { k: 'subs', t: 'Subscritores', sort: (r) => r.subs, cell: (r) => r.subs },
-              ]}
-              actions={(r) => (
-                <span className="dns-acoes">
-                  <button className="btn sm btn-ed" onClick={() => nav('/utilizador/listas/' + encodeURIComponent(r.nome))}>
-                    {t('Gerir')}
-                  </button>
-                  <button className="btn sm btn-rm" onClick={() => apagar([r.nome])}>
-                    {t('Apagar')}
-                  </button>
-                </span>
-              )}
-              bulk={[{ t: 'Apagar', fa: 'fa-trash', run: (k) => apagar(k) }]}
-            />
-          </Sec>
+          <DataTable
+            id="email-listas"
+            umaLinha
+            barraFora
+            empilhar="botoes-em-baixo"
+            rows={rows}
+            rowKey={(r) => r.nome}
+            onRecarregar={ler}
+            empty="Este domínio ainda não tem listas de correio"
+            cols={[
+              { k: 'nome', t: 'Lista de correio', sort: (r) => r.nome, cell: (r) => <a className="lk" onClick={() => nav('/utilizador/listas/' + encodeURIComponent(r.nome))}>{r.nome + '@' + d}</a> },
+              { k: 'subs', t: 'Subscritores', sort: (r) => r.subs, cell: (r) => r.subs },
+            ]}
+            actions={(r) => (
+              <span className="dns-acoes">
+                <button className="btn sm btn-ed" onClick={() => nav('/utilizador/listas/' + encodeURIComponent(r.nome))}>
+                  {t('Gerir')}
+                </button>
+                <button className="btn sm btn-rm" onClick={() => apagar([r.nome])}>
+                  {t('Apagar')}
+                </button>
+              </span>
+            )}
+            bulk={[{ t: 'Apagar', fa: 'fa-trash', run: (k) => apagar(k) }]}
+          />
         );
       }}
     </ComEmail>
@@ -1518,6 +1624,7 @@ export const listasPagina: ScreenFn = (vh) => {
   if (a) return { title: 'Gerir lista de correio', desc: a + '@' + dominioEmail(vh), crumbs: [base, { t: a }], body: <ListaGerir key={a} nome={a} /> };
   return {
     title: 'Listas de correio',
+    descEl: <DescEmail texto="Uma mensagem para a lista chega a todos os subscritores" conta={(i) => [i.listas.length, 'lista', 'listas']} />,
     actions: (
       <button className="btn r" onClick={() => vh.nav('/utilizador/listas/nova')}>
         <i className="fa-solid fa-plus" />
