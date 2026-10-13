@@ -1,0 +1,68 @@
+name: "Ops - Contabo: desbloqueia o IP do Silva outra vez e põe-no como excepção até o fail2ban reiniciar"
+
+# ============================================================================
+# 13/10/2026 (o Silva continua com "Failed to fetch" no login, também no projecto local):
+# o IP dele (Vodacom Moçambique) volta a ser bloqueado porque uma aplicação de e-mail num dispositivo dele tenta
+# entrar com palavras-passe erradas (silva.chamo@, info@, mailmarketing@, geral@, " suporte@" com um espaço) e,
+# depois de vários bloqueios do e-mail, o "recidive" bloqueia o IP em tudo — incluindo o Supabase do login.
+# Isto:
+#  1) desbloqueia SÓ IPs de Moçambique de onde vieram falhas nas contas @visualdesignmoz.com (os dispositivos dele);
+#  2) põe esses IPs como excepção (addignoreip) só em memória: deixa de valer quando o fail2ban reiniciar —
+#     nada fica escrito na configuração;
+#  3) mostra se essas caixas de e-mail existem no Contabo e a hora da última falha (para ele corrigir a aplicação).
+# Não imprime segredos. Corre só quando este ficheiro muda no ramo claude/kind-einstein-r6lyf6.
+# ============================================================================
+
+on:
+  push:
+    branches: [claude/kind-einstein-r6lyf6]
+    paths: ['.github/workflows/ops-claude-contabo-excepcao-ip.yml']
+
+jobs:
+  contabo:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Desbloqueio e excepção
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          username: root
+          password: ${{ secrets.CONTABO_ROOT_PASSWORD }}
+          command_timeout: 10m
+          script: |
+            set +e
+            H=/usr/local/hestia/bin
+            JAILS=$(fail2ban-client status 2>/dev/null | sed -n 's/.*Jail list:[[:space:]]*//p' | tr ',' ' ')
+            DOV=$(zcat -f /var/log/dovecot.log /var/log/dovecot.log.1 2>/dev/null)
+
+            echo "===== 1. IPs com falhas nas contas @visualdesignmoz.com (últimos registos) ====="
+            CAND=$(echo "$DOV" | grep -iE "auth failed|password mismatch|unknown user" | grep -i "@visualdesignmoz.com" | grep -o "rip=[0-9.]*" | cut -d= -f2 | sort | uniq -c | sort -rn | awk '$1>=3 {print $2}' | head -15)
+            for ip in $CAND; do
+              PAIS=$(curl -s --max-time 15 "https://rdap.afrinic.net/rdap/ip/$ip" | grep -o '"country" *: *"[A-Z]*"' | head -1 | grep -o '[A-Z][A-Z]')
+              [ -z "$PAIS" ] && PAIS=$(whois "$ip" 2>/dev/null | grep -im1 '^country:' | awk '{print toupper($2)}')
+              BAN=$($H/v-list-firewall-ban plain 2>/dev/null | awk -v ip="$ip" '$1==ip {print $2}' | tr '\n' ' ')
+              ULT=$(echo "$DOV" | grep -F "rip=$ip," | grep -iE "auth failed|password mismatch" | tail -1 | awk '{print $1, $2, $3}')
+              echo "  $ip  país=${PAIS:-?}  bloqueado=[${BAN}]  última falha: ${ULT:-?}"
+              if [ "$PAIS" = "MZ" ]; then
+                for c in $BAN; do $H/v-delete-firewall-ban "$ip" "$c" >/dev/null 2>&1; done
+                fail2ban-client unban "$ip" >/dev/null 2>&1
+                for j in $JAILS; do fail2ban-client set "$j" addignoreip "$ip" >/dev/null 2>&1; done
+                if iptables -S 2>/dev/null | grep -q -- "-s $ip/"; then echo "    ATENÇÃO: ainda aparece no iptables"; else echo "    -> desbloqueado e em excepção (até o fail2ban reiniciar)"; fi
+              else
+                echo "    -> não é de Moçambique: fica como está"
+              fi
+            done
+
+            echo
+            echo "===== 2. contas com falhas: existem no Contabo? ====="
+            DONO=$($H/v-search-domain-owner visualdesignmoz.com mail 2>/dev/null)
+            CAIXAS=$($H/v-list-mail-accounts "$DONO" visualdesignmoz.com plain 2>/dev/null | awk '{print $1}')
+            echo "$DOV" | grep -iE "auth failed|password mismatch|unknown user" | grep -o "user=<[^>]*@visualdesignmoz.com>" | sed 's/user=<//; s/>$//' | sort | uniq -c | sort -rn | head -10 | while read n u; do
+              nome=$(echo "$u" | sed 's/^ *//; s/@visualdesignmoz.com$//')
+              if echo "$CAIXAS" | grep -qx "$nome"; then e="existe (palavra-passe errada na aplicação)"; else e="NÃO existe no Contabo"; fi
+              echo "  $n falhas  <$u>  $e"
+            done
+
+            echo
+            echo "===== 3. excepções activas (dovecot e recidive) ====="
+            for j in dovecot-iptables recidive; do echo -n "  $j: "; fail2ban-client get "$j" ignoreip 2>/dev/null | tr -d '\n' | sed 's/[|`-]//g; s/  */ /g'; echo; done
