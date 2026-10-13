@@ -191,6 +191,37 @@ export class LoginRateLimitError extends Error {
   }
 }
 
+/** O navegador não chegou ao servidor de login: o site abriu (passa pela Cloudflare), mas o login liga directo ao
+ *  servidor — quase sempre é o IP bloqueado pela protecção do servidor (fail2ban), não a palavra-passe. */
+export type FalhaLigacao = 'ip' | 'internet' | 'servidor'
+export const MSG_LIGACAO: Record<FalhaLigacao, string> = {
+  ip: 'Sem ligação ao servidor de login: o servidor bloqueou o acesso a partir do seu IP por demasiadas tentativas falhadas nesta rede (por exemplo, uma aplicação de e-mail com uma palavra-passe antiga). Peça ao suporte para desbloquear o IP.',
+  internet: 'Sem ligação à internet. Verifique a rede e tente outra vez.',
+  servidor: 'O servidor de login não está a responder. Tente outra vez daqui a um minuto.',
+}
+
+export class LoginNetworkError extends Error {
+  readonly tipo: FalhaLigacao
+  constructor(tipo: FalhaLigacao) {
+    super(MSG_LIGACAO[tipo])
+    this.name = 'LoginNetworkError'
+    this.tipo = tipo
+  }
+}
+
+/** Sem resposta do servidor de login (rede, IP bloqueado) ou servidor em baixo — nunca é "palavra-passe errada" */
+function erroDeLigacao(e: unknown): LoginNetworkError | null {
+  const err = e as { name?: string; status?: number; message?: string } | null
+  const msg = String(err?.message || '')
+  const semResposta = err?.status === 0 || err instanceof TypeError || /failed to fetch|load failed|networkerror|fetch failed/i.test(msg)
+  if (semResposta) {
+    const offline = typeof navigator !== 'undefined' && navigator.onLine === false
+    return new LoginNetworkError(offline ? 'internet' : 'ip')
+  }
+  if (err?.name === 'AuthRetryableFetchError') return new LoginNetworkError('servidor')
+  return null
+}
+
 export const auth = {
   // Login — Auth primeiro; fallback com password guardada (ProvisualCorporate)
   async signIn(loginId: string, password: string) {
@@ -225,12 +256,20 @@ export const auth = {
       }
     }
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: normalizedEmail,
-      password,
-    });
+    let primeira: Awaited<ReturnType<typeof supabase.auth.signInWithPassword>>
+    try {
+      primeira = await supabase.auth.signInWithPassword({
+        email: normalizedEmail,
+        password,
+      });
+    } catch (e) {
+      throw erroDeLigacao(e) ?? e;
+    }
+    const { data, error } = primeira;
 
     if (!error) return data;
+    const ligacao = erroDeLigacao(error);
+    if (ligacao) throw ligacao;
 
     const invalid =
       error.message?.toLowerCase().includes('invalid login credentials') ||

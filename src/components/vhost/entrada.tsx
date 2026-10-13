@@ -8,7 +8,7 @@
  * aceita o nome de utilizador ou o e-mail).
  */
 import { useEffect, useRef, useState } from 'react';
-import { auth, LoginRateLimitError } from '@/lib/supabase-client';
+import { auth, LoginNetworkError, LoginRateLimitError, MSG_LIGACAO } from '@/lib/supabase-client';
 import type { Lang } from './i18n';
 import { FundoPainel } from './triangulos';
 
@@ -18,8 +18,8 @@ export type ModoTema = 'light' | 'auto' | 'dark';
 export const LINGUA_LS = 'visualhost_lang';
 
 const TXT = {
-  pt: { user: 'Utilizador', userPh: 'Escreva o nome de utilizador ou e-mail', senha: 'Palavra-passe', senhaPh: 'Escreva a sua palavra-passe', entrar: 'Entrar', falta: 'Escreva o utilizador e a palavra-passe.', errado: 'Utilizador ou palavra-passe errados.', bloqueado: (min: number) => `Acesso temporariamente bloqueado por demasiadas tentativas de login falhadas. Aguarde ${min} minuto${min === 1 ? '' : 's'} antes de tentar novamente.`, mostrar: 'Mostrar a palavra-passe', esconder: 'Esconder a palavra-passe', claro: 'Claro', auto: 'Automático', escuro: 'Escuro', voltar: 'Depois de entrar, volta a' },
-  en: { user: 'Username', userPh: 'Please enter username or email', senha: 'Password', senhaPh: 'Please enter your password', entrar: 'Sign in', falta: 'Please enter your username and password.', errado: 'Wrong username or password.', bloqueado: (min: number) => `Sign-in temporarily blocked after too many failed attempts. Wait ${min} minute${min === 1 ? '' : 's'} before trying again.`, mostrar: 'Show password', esconder: 'Hide password', claro: 'Light', auto: 'Auto', escuro: 'Dark', voltar: 'After signing in, you return to' },
+  pt: { user: 'Utilizador', userPh: 'Escreva o nome de utilizador ou e-mail', senha: 'Palavra-passe', senhaPh: 'Escreva a sua palavra-passe', entrar: 'Entrar', falta: 'Escreva o utilizador e a palavra-passe.', errado: 'Utilizador ou palavra-passe errados.', bloqueado: (min: number) => `Acesso temporariamente bloqueado por demasiadas tentativas de login falhadas. Aguarde ${min} minuto${min === 1 ? '' : 's'} antes de tentar novamente.`, ligacao: MSG_LIGACAO, mostrar: 'Mostrar a palavra-passe', esconder: 'Esconder a palavra-passe', claro: 'Claro', auto: 'Automático', escuro: 'Escuro', voltar: 'Depois de entrar, volta a' },
+  en: { user: 'Username', userPh: 'Please enter username or email', senha: 'Password', senhaPh: 'Please enter your password', entrar: 'Sign in', falta: 'Please enter your username and password.', errado: 'Wrong username or password.', bloqueado: (min: number) => `Sign-in temporarily blocked after too many failed attempts. Wait ${min} minute${min === 1 ? '' : 's'} before trying again.`, ligacao: { ip: 'No connection to the sign-in server: the server blocked access from your IP after too many failed attempts on this network (for example, an email app with an old password). Ask support to unblock the IP.', internet: 'No internet connection. Check your network and try again.', servidor: 'The sign-in server is not responding. Try again in a minute.' }, mostrar: 'Show password', esconder: 'Hide password', claro: 'Light', auto: 'Auto', escuro: 'Dark', voltar: 'After signing in, you return to' },
 };
 
 export function EntradaPainel({ escuro, modo, lang, voltarA, onModo, onLang, onEntrou }: { escuro: boolean; modo: ModoTema; lang: Lang; voltarA?: string; onModo: (m: ModoTema) => void; onLang: (l: Lang) => void; onEntrou: () => void }) {
@@ -54,7 +54,13 @@ export function EntradaPainel({ escuro, modo, lang, voltarA, onModo, onLang, onE
           setAEntrar(false);
           return;
         }
-        if (!r?.ok || !j.email) {
+        // sem resposta ou servidor em baixo não é "palavra-passe errada"
+        if (!r || r.status >= 500) {
+          setErro(!r && navigator.onLine === false ? tx.ligacao.internet : tx.ligacao.servidor);
+          setAEntrar(false);
+          return;
+        }
+        if (!r.ok || !j.email) {
           setErro(tx.errado);
           setAEntrar(false);
           return;
@@ -64,7 +70,7 @@ export function EntradaPainel({ escuro, modo, lang, voltarA, onModo, onLang, onE
       await auth.signIn(email, senha);
       onEntrou();
     } catch (error) {
-      setErro(error instanceof LoginRateLimitError ? error.message : tx.errado);
+      setErro(error instanceof LoginNetworkError ? tx.ligacao[error.tipo] : error instanceof LoginRateLimitError ? error.message : tx.errado);
       setAEntrar(false);
     }
   };
