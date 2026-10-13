@@ -11,7 +11,7 @@ import type { ScreenFn } from '../screens';
 import { DESC, MENU } from '../generated/data';
 import { ico } from '../state';
 import { esquecerMemoria, useGet, useNaMemoria } from '../carga';
-import { DataTable, ACarregar, Senha, Switch, Tabs } from './componentes';
+import { DataTable, Senha, Switch, Tabs } from './componentes';
 import { Confirmar } from './pacotes';
 
 // ---------- Peças comuns ----------
@@ -40,9 +40,7 @@ function Carregando({ erro, ler }: { erro: string; ler: () => void }) {
         {t('Tentar de novo')}
       </button>
     </div>
-  ) : (
-    <ACarregar /> // a carregar: a roda, nunca vazia
-  );
+  ) : null; // a carregar: só a linha do topo
 }
 
 /** Pedido ao site; mostra o resultado no aviso e devolve a resposta (ou null) */

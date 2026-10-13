@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useVH, type VH } from '../context';
 import type { ScreenFn } from '../screens';
-import { Check, DataTable, ACarregar, Senha, Switch, Tabs } from './componentes';
+import { Check, DataTable, Senha, Switch, Tabs } from './componentes';
 import { Confirmar } from './pacotes';
 import { useGet } from '../carga';
 import dynamic from 'next/dynamic';
@@ -51,9 +51,7 @@ export function Carregando({ erro, ler }: { erro: string; ler: () => void }) {
         {t('Tentar de novo')}
       </button>
     </div>
-  ) : (
-    <ACarregar /> // a carregar: a roda, nunca vazia
-  );
+  ) : null; // a carregar: só a linha do topo
 }
 
 export function Sec({ titulo, desc, numeros, extra, children }: { titulo: string; desc?: string; numeros?: [string, string][]; extra?: ReactNode; children: ReactNode }) {

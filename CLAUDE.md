@@ -64,6 +64,11 @@ para o outro) fica na memória `project_dual-folder-git-topology`.
   e o dado principal (ex.: o IP) em cima, com o botão da linha (ex.: Desbloquear) à direita dele; as outras
   informações por baixo, cada uma com o nome da coluna. No
   VisualHost: `DataTable` com `empilhar` (já ligado nas tabelas da Força bruta).
+- **Dentro do painel: nunca roda (spinner) nem esqueleto (skeleton)** (Silva, 13/10/2026). Ao mudar de página, a
+  página anterior fica à vista até a seguinte estar pronta. Entrada pelo **login do site**: o login lê os dados do
+  painel antes de sair do ecrã de login (`preCarregarDadosVhost` em `src/lib/vhost-cache.ts`) e o painel abre logo,
+  sem o ecrã branco com o círculo. Entrada pelo **login do próprio painel**: fica como está. Não mexer no
+  carregamento sem o Silva pedir.
 - **Nunca duas linhas de botões.**
 - **Modelo de página = a página Domínios do painel.** Toda a página nova segue-o: um título na barra de cima com uma
   descrição pequena por baixo (nunca dois títulos grandes juntos — números e resumos vão na descrição, ex.:

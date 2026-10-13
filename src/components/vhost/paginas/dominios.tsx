@@ -11,7 +11,7 @@ import type { BaseDados, Domain } from '../types';
 import { pacoteDe } from '../state';
 import { getPhpMyAdminUrl } from '@/lib/server-config';
 import { VISUALDESIGN_DEFAULT_NS } from '@/lib/visualdesign-dns';
-import { Check, DataTable, ACarregar, Frm, novaSenha, Row, Senha, Switch, Tabs, type Col } from './componentes';
+import { Check, DataTable, Frm, novaSenha, Row, Senha, Switch, Tabs, type Col } from './componentes';
 import { Confirmar } from './pacotes';
 import DomainSearch from '@/components/DomainSearch';
 import { useGet } from '../carga';
@@ -92,9 +92,7 @@ function Carregar({ erro, ler }: { erro: string; ler: () => void }) {
         {t('Tentar de novo')}
       </button>
     </div>
-  ) : (
-    <ACarregar /> // a carregar: a roda, nunca vazia
-  );
+  ) : null; // a carregar: só a linha do topo
 }
 
 /** Aviso do domínio em que se está a trabalhar (muda-se no seletor, em cima à direita) */
@@ -424,9 +422,7 @@ function Nameservers({ d, reg, publicos }: { d: string; reg: Registador; publico
         </div>
       </div>
       <div className="dom-ns-corpo">
-        {!reg.info && !reg.erro ? (
-          <ACarregar baixo />
-        ) : (
+        {!reg.info && !reg.erro ? null : (
           <>
             {fora && (
               <p className="dom-fora">

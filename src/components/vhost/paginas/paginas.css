@@ -1172,8 +1172,6 @@
  .vh .tbl.dt-empilhar-baixo tbody td.dt-acoes-linha .btn{justify-content:center;height:36px}
  .vh .tbl.dt-empilhar-baixo tbody tr>td.ck+td{grid-column:2 / -1}
 }
-.vh .a-carregar{display:grid;place-items:center;min-height:260px;color:var(--red)}
-.vh .a-carregar.baixo{min-height:90px}
 .vh .dom-a-ler{color:var(--muted)}
 .vh .dom-fora{margin:0;padding:10px 18px 0;color:var(--muted);font-size:12.5px;line-height:1.5}
 .vh .dom-ns-corpo>.dom-fora{padding:0}

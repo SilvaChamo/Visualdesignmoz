@@ -4,8 +4,7 @@
 // separadores e tabela com pesquisa/colunas/seleção/ações em massa (como nas listas do DirectAdmin).
 import { useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { BarraPagina, FaixaAbas, PesquisaPagina, VHContext, useVH } from '../context';
-import { Roda } from '../entrada';
+import { BarraPagina, FaixaAbas, PesquisaPagina, useVH } from '../context';
 import type { Campo, Lim, Unit } from './dados';
 
 // ---------- Formulário ----------
@@ -174,19 +173,6 @@ export function Tabs<K extends string>({ tabs, on, onChange, sub }: { tabs: [K, 
         <i className="fa-solid fa-chevron-down" />
       </label>
       <div className="ptabs-dir" ref={faixa.set} />
-    </div>
-  );
-}
-
-/** O que se vê no cartão enquanto os dados da página chegam: a roda a girar (sem esqueleto — pedido do Silva,
- *  13/10/2026), nunca um cartão vazio */
-export function ACarregar({ baixo = false }: { baixo?: boolean }) {
-  // também aparece antes de o painel ter os dados da conta (fora do VHContext)
-  const vh = useContext(VHContext);
-  const t = vh ? vh.t : (x: string) => x;
-  return (
-    <div className={'a-carregar' + (baixo ? ' baixo' : '')} role="status" aria-label={t('A carregar')}>
-      <Roda tamanho={baixo ? 28 : 46} traco={baixo ? 3 : 5} />
     </div>
   );
 }
