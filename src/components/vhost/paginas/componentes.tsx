@@ -304,6 +304,9 @@ export function DataTable<T>({
   const tabelaRef = useRef<HTMLDivElement>(null);
   const [pag, setPag] = useState(1);
   const [acoesOpen, setAcoesOpen] = useState(false);
+  // "Ações" no título da 1.ª coluna: o menu abre em posição fixa (calculada do botão) para a tabela, que pode
+  // deslizar, não o cortar quando tem poucas linhas — como o menu "⋯" das linhas
+  const [acoesPos, setAcoesPos] = useState<{ top: number; left: number } | null>(null);
   const acoesRef = useRef<HTMLDivElement>(null);
   const [vis, setVis] = useState<string[]>(() => cols.map((c) => c.k));
   const [colsOpen, setColsOpen] = useState(false);
@@ -318,9 +321,18 @@ export function DataTable<T>({
   useEffect(() => {
     if (!acoesOpen) return;
     const close = (e: MouseEvent) => !acoesRef.current?.contains(e.target as Node) && setAcoesOpen(false);
+    const sair = () => setAcoesOpen(false);
     document.addEventListener('mousedown', close);
-    return () => document.removeEventListener('mousedown', close);
-  }, [acoesOpen]);
+    if (acoesPos) {
+      window.addEventListener('scroll', sair, true);
+      window.addEventListener('resize', sair);
+    }
+    return () => {
+      document.removeEventListener('mousedown', close);
+      window.removeEventListener('scroll', sair, true);
+      window.removeEventListener('resize', sair);
+    };
+  }, [acoesOpen, acoesPos]);
   useEffect(() => setPag(1), [q, rows.length]);
   useEffect(() => {
     if (!colsOpen) return;
@@ -403,6 +415,8 @@ export function DataTable<T>({
   const selKeysStr = selKeys.join(',');
   useEffect(() => {
     onSelChange?.(selKeys);
+    // sem nada escolhido o "Ações" do título da 1.ª coluna sai: o menu não fica aberto para a próxima vez
+    if (!selKeys.length) setAcoesOpen(false);
   }, [selKeysStr]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Menu "Ações": tudo o que se faz na página (regra do Silva, 13/10/2026 — nenhum botão por cima do cartão). As opções
@@ -447,12 +461,22 @@ export function DataTable<T>({
     );
     return (
       <div className="dt-cols dt-acoes" ref={acoesRef}>
-        <button className="btn g sm" onClick={() => setAcoesOpen(!acoesOpen)}>
+        <button
+          className="btn g sm"
+          onClick={(e) => {
+            if (!acoesOpen && acoesNoTitulo) {
+              const r = e.currentTarget.getBoundingClientRect();
+              const altura = bulk.length * 34 + 20;
+              setAcoesPos({ top: window.innerHeight - r.bottom < altura + 12 && r.top > altura + 12 ? r.top - altura - 6 : r.bottom + 6, left: r.left });
+            } else if (!acoesOpen) setAcoesPos(null);
+            setAcoesOpen(!acoesOpen);
+          }}
+        >
           {selKeys.length > 0 && <span className="n">{selKeys.length}</span>}
           {t('Ações')} <i className="fa-solid fa-caret-down" />
         </button>
         {acoesOpen && (
-          <div className="menu">
+          <div className="menu" style={acoesPos ? { position: 'fixed', top: acoesPos.top, left: acoesPos.left, right: 'auto' } : undefined}>
             {livres.map(opcao)}
             {livres.length > 0 && comSel.length > 0 && <div className="menu-sep" />}
             {comSel.map(opcao)}

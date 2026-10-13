@@ -1249,10 +1249,10 @@
    15 px entre colunas). Nos ecrãs grandes (>1600) e no telemóvel (≤768) fica como estava. */
 @media(min-width:769px) and (max-width:1600px){
  .vh .stats{gap:12px;margin-bottom:18px}
- .vh .card.stat{padding:12px 14px}
+ .vh .card.stat{padding:10px 12px}
  .vh .stat small{font-size:11.5px;white-space:nowrap}
- .vh .stat strong{font-size:20px;margin:4px 0 8px;white-space:nowrap}
- .vh .stat strong span{font-size:12.5px}
+ .vh .stat strong{font-size:17px;line-height:1.2;margin:3px 0 7px;white-space:nowrap}
+ .vh .stat strong span{font-size:11.5px}
  .vh .cols>.cols-side{padding:14px}
  .vh .tool{gap:10px;padding:10px 12px;margin-bottom:10px}
  .vh .tool b{font-size:13px;white-space:nowrap;line-height:1.3}
@@ -1261,8 +1261,11 @@
  .vh .tbl :is(th,td){padding-left:6px;padding-right:6px}
  .vh .tbl :is(th,td):first-child{padding-left:12px}
  .vh .tbl :is(th,td):last-child{padding-right:12px}
- .vh .tbl td{padding-top:9px;padding-bottom:9px}
- .vh .tbl th{padding-top:9px;padding-bottom:9px;font-size:11.5px}
+ /* linhas mais baixas (pedido do Silva, 13/10/2026: "reduza ainda mais o padding vertical entre as linhas") */
+ .vh .tbl td{padding-top:5px;padding-bottom:5px}
+ .vh .tbl th{padding-top:7px;padding-bottom:7px;font-size:11.5px}
+ .vh .tbl .cell b{line-height:1.3}
+ .vh .tbl .cell span{line-height:1.25}
 }
 /* colunas que saem nos ecrãs mais estreitos para a tabela caber (DataTable `ate`); no telemóvel voltam, em blocos */
 @media(min-width:769px) and (max-width:1600px){.vh .tbl .dt-ate-1600{display:none}}
@@ -1283,7 +1286,7 @@
  .vh .cols .tbl .cell b{display:block;max-width:150px;overflow:hidden;text-overflow:ellipsis}
 }
 @media(min-width:769px) and (max-width:1300px){
- .vh .stat strong{font-size:18px}
+ .vh .stat strong{font-size:16px}
  .vh .tool b{font-size:12.5px}
  .vh .tool span{font-size:11px}
 }
