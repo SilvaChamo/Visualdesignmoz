@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAdminOrReseller } from '@/lib/panel-api-auth';
-import { getDaSyncAdmin } from '@/lib/da-sync-schema';
 import { hestiaCall } from '@/lib/hestia-client';
-import { esquecerLeitura, lerServidor } from '@/lib/vhost-servidor';
+import { esquecerLeitura } from '@/lib/vhost-servidor';
 import { esquecerRegisto } from '@/lib/vhost-dados';
+import { CONTA_OK, acessoConta as contexto, perfilDaConta } from '@/lib/vhost-conta-cliente';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,48 +19,9 @@ export const dynamic = 'force-dynamic';
  */
 const PREFIXO_TESTE = 'teste';
 const todasLiberadas = () => process.env.VHOST_ACOES_TODAS === '1';
-const CONTA_OK = /^[a-z][a-z0-9_-]{2,30}$/;
 const EMAIL_OK = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const CAMPOS = ['name', 'empresa', 'telefone', 'morada', 'cidade', 'nuit'] as const;
 const limpo = (v: unknown, max: number) => String(v ?? '').replace(/[\r\n\t]+/g, ' ').trim().slice(0, max);
-
-async function contexto(contaPedida: string) {
-  const auth = await requireAdminOrReseller();
-  if ('error' in auth) return { erro: NextResponse.json({ erro: 'Sem permissão.' }, { status: auth.error.status }) };
-  const sb = getDaSyncAdmin();
-  if (!sb) return { erro: NextResponse.json({ erro: 'Registo do site indisponível.' }, { status: 503 }) };
-  const admin = auth.user.role === 'admin';
-  const conta = contaPedida.trim().toLowerCase();
-  if (!CONTA_OK.test(conta)) return { erro: NextResponse.json({ erro: 'Conta inválida.' }, { status: 400 }) };
-  const srv = await lerServidor();
-  const x = srv.users[conta];
-  if (!x) return { erro: NextResponse.json({ erro: 'Conta não encontrada no servidor.' }, { status: 404 }) };
-  if ((x.ROLE || '').toLowerCase() === 'admin' && !admin) return { erro: NextResponse.json({ erro: 'Conta fora do seu painel.' }, { status: 403 }) };
-  if (!admin) {
-    const [{ data: perfil }, { data: registo }] = await Promise.all([
-      sb.from('profiles').select('da_username').eq('user_id', auth.user.id).maybeSingle(),
-      sb.from('panel_users').select('username, parent_username, auth_user_id'),
-    ]);
-    const eu = String(perfil?.da_username || (registo || []).find((r) => r.auth_user_id === auth.user.id)?.username || '').toLowerCase();
-    const meus = new Set((registo || []).filter((r) => eu && String(r.parent_username || '').toLowerCase() === eu).map((r) => String(r.username).toLowerCase()));
-    if (!eu || !meus.has(conta)) return { erro: NextResponse.json({ erro: 'Conta fora do seu painel.' }, { status: 403 }) };
-  }
-  return { sb, admin, conta, auth, srv };
-}
-
-/** Perfil do site ligado à conta: pelo registo (panel_users.auth_user_id) ou pelo nome da conta (profiles.da_username) */
-async function perfilDaConta(sb: NonNullable<ReturnType<typeof getDaSyncAdmin>>, conta: string) {
-  const { data: pu } = await sb.from('panel_users').select('username, first_name, last_name, email, auth_user_id').eq('username', conta).maybeSingle();
-  let uid = pu?.auth_user_id ? String(pu.auth_user_id) : '';
-  const cols = 'user_id, name, email, telefone, empresa, morada, cidade, site, nuit, da_username';
-  let perfil: Record<string, string | null> | null = null;
-  if (uid) perfil = ((await sb.from('profiles').select(cols).eq('user_id', uid).maybeSingle()).data as Record<string, string | null> | null) || null;
-  if (!perfil) {
-    perfil = ((await sb.from('profiles').select(cols).eq('da_username', conta).maybeSingle()).data as Record<string, string | null> | null) || null;
-    uid = perfil?.user_id ? String(perfil.user_id) : '';
-  }
-  return { pu, perfil, uid };
-}
 
 export async function GET(req: NextRequest) {
   const c = await contexto(req.nextUrl.searchParams.get('conta') || '');

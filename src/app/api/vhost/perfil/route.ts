@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requirePanelBootstrapAccess } from '@/lib/panel-api-auth';
 import { getDaSyncAdmin } from '@/lib/da-sync-schema';
+import { donoDaConta } from '@/lib/vhost-conta-cliente';
 
 export const dynamic = 'force-dynamic';
 
 /**
  * /api/vhost/perfil — dados pessoais e preferências de avisos da pessoa com sessão (painel → Perfil).
  * GET                       dados do perfil (profiles) + datas da conta + avisos escolhidos
+ * GET ?conta=               ao "entrar como" uma conta: os mesmos dados, do cliente dono dela (administrador, ou o
+ *                           revendedor dela), só para ler — os dados mudam-se em "Editar dados" (/api/vhost/cliente)
  * POST { acao: 'dados', … } nome, telefone, empresa, morada, cidade, site, NUIT
  * POST { acao: 'avisos', limite, seguranca }
  * A palavra-passe, as sessões e o e-mail de entrada mudam-se no navegador (Supabase Auth, com a sessão da pessoa).
@@ -21,9 +24,11 @@ async function quem() {
   return { sb, uid: auth.user.id, email: auth.user.email };
 }
 
-export async function GET() {
-  const q = await quem();
+export async function GET(req: NextRequest) {
+  const conta = req.nextUrl.searchParams.get('conta');
+  const q = conta ? await donoDaConta(conta) : await quem();
   if ('erro' in q) return q.erro;
+  if (!q.uid) return NextResponse.json({ perfil: {}, email: '', criada: null, ultimaEntrada: null, avisos: { limite: true, seguranca: true }, semPerfil: true }, { headers: { 'Cache-Control': 'no-store' } });
   const [{ data: p }, { data: u }] = await Promise.all([
     q.sb.from('profiles').select('name, email, telefone, empresa, morada, cidade, site, nuit, logo_url').eq('user_id', q.uid).maybeSingle(),
     q.sb.auth.admin.getUserById(q.uid),
@@ -32,7 +37,7 @@ export async function GET() {
   return NextResponse.json(
     {
       perfil: p || {},
-      email: u?.user?.email || q.email,
+      email: u?.user?.email || ('email' in q ? q.email : '') || '',
       criada: u?.user?.created_at || null,
       ultimaEntrada: u?.user?.last_sign_in_at || null,
       avisos: { limite: meta.vh_avisos?.limite !== false, seguranca: meta.vh_avisos?.seguranca !== false },
