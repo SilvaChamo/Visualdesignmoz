@@ -18,7 +18,17 @@ const ALVOS: [string, number][] = [
 /** passos dos botões da barra de cima, por ordem: mais pequenos; só o ícone */
 const PASSOS = ['acoes-menores', 'acoes-so-icone'];
 
-const transborda = (el: HTMLElement) => el.scrollWidth > el.clientWidth + 1;
+/** o texto passa da caixa? Medido ao píxel (Range): o scrollWidth arredonda e o "…" aparece logo com uma fração a mais */
+function transborda(el: HTMLElement) {
+  if (el.scrollWidth > el.clientWidth) return true;
+  const cs = getComputedStyle(el);
+  const livre =
+    el.getBoundingClientRect().width -
+    ['paddingLeft', 'paddingRight', 'borderLeftWidth', 'borderRightWidth'].reduce((s, k) => s + (parseFloat(cs[k as 'paddingLeft']) || 0), 0);
+  const texto = document.createRange();
+  texto.selectNodeContents(el);
+  return texto.getBoundingClientRect().width > livre + 0.05;
+}
 
 function ajustar() {
   const els = ALVOS.map(([id]) => document.getElementById(id)).filter((el): el is HTMLElement => !!el);
@@ -40,11 +50,11 @@ function ajustar() {
     const el = document.getElementById(id);
     if (!el) continue;
     let tam = parseFloat(getComputedStyle(el).fontSize) || 14;
-    while (el.scrollWidth > el.clientWidth + 1 && tam > minimo) {
+    while (transborda(el) && tam > minimo) {
       tam = Math.max(minimo, tam - 0.5);
       el.style.fontSize = tam + 'px';
     }
-    if (el.scrollWidth > el.clientWidth + 1) {
+    if (transborda(el)) {
       if (id === 'pdesc') el.style.display = 'none';
       else {
         el.style.whiteSpace = 'normal';
@@ -60,8 +70,18 @@ export function useTituloAjustado(chave: unknown) {
     // as letras do site podem chegar depois do primeiro desenho
     const t = setTimeout(ajustar, 300);
     window.addEventListener('resize', ajustar);
+    // a descrição pode crescer depois (ex.: "| 17 tentativas em 24 h" chega com os dados): volta a ajustar
+    let quadro = 0;
+    const mudou = new MutationObserver(() => {
+      cancelAnimationFrame(quadro);
+      quadro = requestAnimationFrame(ajustar);
+    });
+    const topo = document.querySelector('.vh header.top');
+    if (topo) mudou.observe(topo, { childList: true, characterData: true, subtree: true });
     return () => {
       clearTimeout(t);
+      cancelAnimationFrame(quadro);
+      mudou.disconnect();
       window.removeEventListener('resize', ajustar);
     };
   }, [chave]);

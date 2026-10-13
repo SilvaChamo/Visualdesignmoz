@@ -161,7 +161,7 @@ function ForcaBruta() {
           id="fb-bloqueados"
           umaLinha
           barraFora
-          empilhar
+          empilhar="tablet"
           rows={dados.bloqueados}
           rowKey={chaveB}
           search={(r) => r.ip + ' ' + servico(r.cadeia) + (r.mz ? ' moçambique' : '')}
@@ -169,13 +169,13 @@ function ForcaBruta() {
           cols={[
             { k: 'ip', t: 'Endereço IP', sort: (r) => r.ip, cell: (r) => <Ip ip={r.ip} mz={r.mz} /> },
             { k: 's', t: 'Serviço', sort: (r) => servico(r.cadeia), cell: (r) => <span className={'tag ' + (r.cadeia === 'RECIDIVE' ? 'bad' : 'w')}>{t(servico(r.cadeia))}</span> },
-            { k: 'd', t: 'Bloqueado em', sort: (r) => r.desde, cell: (r) => quando(r.desde) },
+            { k: 'd', t: 'Bloqueado em', ate: 1300, sort: (r) => r.desde, cell: (r) => quando(r.desde) },
             { k: 'a', t: 'Desbloqueia', sort: (r) => r.ate || '9999', cell: (r) => (r.ate ? quando(r.ate) : <span className="fb-manual">{t('Só à mão')}</span>) },
           ]}
           actions={(r) => (
-            <button className="btn sm g" onClick={() => desbloquear([{ ip: r.ip, cadeia: r.cadeia }])}>
+            <button className="btn sm g fb-btn" title={t('Desbloquear')} onClick={() => desbloquear([{ ip: r.ip, cadeia: r.cadeia }])}>
               <i className="fa-solid fa-unlock" />
-              {t('Desbloquear')}
+              <span>{t('Desbloquear')}</span>
             </button>
           )}
           acoesNaColuna
@@ -193,7 +193,7 @@ function ForcaBruta() {
           id="fb-tentativas"
           umaLinha
           barraFora
-          empilhar
+          empilhar="tablet"
           rows={dados.tentativas}
           rowKey={(r) => r.ip}
           search={(r) => r.ip + ' ' + r.cadeias.map(servico).join(' ') + (r.mz ? ' moçambique' : '')}
@@ -202,14 +202,14 @@ function ForcaBruta() {
             { k: 'ip', t: 'Endereço IP', sort: (r) => r.ip, cell: (r) => <Ip ip={r.ip} mz={r.mz} /> },
             { k: 's', t: 'Serviços', cell: (r) => r.cadeias.map((c) => t(servico(c))).join(', ') },
             { k: 'n', t: 'Tentativas', right: true, sort: (r) => r.n, cell: (r) => <b>{r.n}</b> },
-            { k: 'u', t: 'Última', sort: (r) => r.ultima, cell: (r) => quando(r.ultima) },
+            { k: 'u', t: 'Última', ate: 1300, sort: (r) => r.ultima, cell: (r) => quando(r.ultima) },
             { k: 'e', t: 'Estado', sort: (r) => (r.bloqueado ? 1 : 0), cell: (r) => <span className={'tag ' + (r.bloqueado ? 'bad' : 'off')}>{t(r.bloqueado ? 'Bloqueado' : 'Livre')}</span> },
           ]}
           actions={(r) =>
             r.bloqueado ? null : (
-              <button className="btn sm g" onClick={() => bloquear([r.ip])}>
+              <button className="btn sm g fb-btn" title={t('Bloquear')} onClick={() => bloquear([r.ip])}>
                 <i className="fa-solid fa-ban" />
-                {t('Bloquear')}
+                <span>{t('Bloquear')}</span>
               </button>
             )
           }
@@ -222,7 +222,7 @@ function ForcaBruta() {
           id="fb-registo"
           umaLinha
           barraFora
-          empilhar
+          empilhar="tablet"
           rows={dados.registo.map((e, i) => ({ ...e, k: String(i) }))}
           rowKey={(r) => r.k}
           search={(r) => r.ip + ' ' + servico(r.cadeia) + ' ' + (ACAO[r.acao]?.[0] || r.acao)}

@@ -287,8 +287,9 @@ export function DataTable<T>({
   barraFora?: boolean;
   /** no telemóvel cada linha passa a um bloco numa só coluna: a caixa e a primeira coluna em cima, o resto por baixo
    *  com o nome de cada coluna (pedido do Silva, 13/10/2026 — lista de IPs da Força bruta). Com 'botoes-em-baixo', os
-   *  botões da linha vão para o fundo do bloco, a toda a largura, divididos por igual (DNS) */
-  empilhar?: boolean | 'botoes-em-baixo';
+   *  botões da linha vão para o fundo do bloco, a toda a largura, divididos por igual (DNS). Com 'tablet', também no
+   *  tablet ao alto (769–1000), onde a tabela não cabe ao lado do menu (Força bruta) */
+  empilhar?: boolean | 'botoes-em-baixo' | 'tablet';
   /** o "Ações" no lugar do título da 1.ª coluna mesmo com separadores (Força bruta — modelo do Silva, 13/10/2026) */
   acoesNaColuna?: boolean;
   /** notifica chaves das linhas selecionadas */
@@ -599,7 +600,7 @@ export function DataTable<T>({
           {barra2}
         </div>
       )}
-      <div className={'tbl dt' + (empilhar ? ' dt-empilhar' : '') + (empilhar === 'botoes-em-baixo' ? ' dt-empilhar-baixo' : '')} ref={tabelaRef}>
+      <div className={'tbl dt' + (empilhar ? ' dt-empilhar' : '') + (empilhar === 'botoes-em-baixo' ? ' dt-empilhar-baixo' : '') + (empilhar === 'tablet' ? ' dt-empilhar-tablet' : '')} ref={tabelaRef}>
         <table>
           <thead>
             <tr>

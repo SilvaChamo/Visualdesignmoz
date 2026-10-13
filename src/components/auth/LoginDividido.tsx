@@ -29,11 +29,12 @@ export function LoginDividido({ children, modelo = 1 }: { children: React.ReactN
   ]
   return (
     <div className="login-dividido font-panel relative grid min-h-screen bg-[#fff] text-zinc-900 transition-colors duration-300 dark:bg-[#15161e] dark:text-zinc-100 lg:grid-cols-2">
-      <aside className="relative hidden overflow-hidden bg-zinc-950 lg:sticky lg:top-0 lg:block lg:h-screen">
+      <aside className="relative hidden bg-zinc-950 lg:sticky lg:top-0 lg:block lg:h-screen">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/assets/design_grafico_branding.jpg" alt="" aria-hidden className="absolute inset-0 h-full w-full object-cover" />
         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/45 to-black/25" />
         <div className="absolute inset-0 bg-gradient-to-br from-red-800/35 via-transparent to-transparent" />
+        {modelo === 1 && <FaixaBranca />}
 
         {modelo === 2 && (
           <>
@@ -74,8 +75,9 @@ export function LoginDividido({ children, modelo = 1 }: { children: React.ReactN
         {modelo === 1 && <AbaLogo />}
         <BotoesCanto />
         <div className="flex flex-1 items-center justify-center px-6 pb-10 pt-8 lg:pt-20">
-          {/* a largura acompanha o ecrã: 400 px a 1440, vai reduzindo aos poucos até 340 px a 1024 */}
-          <div className="w-full max-w-[400px] lg:max-w-[clamp(340px,27.8vw,420px)]">
+          {/* a largura acompanha o ecrã: o formulário tem 400 px a 1440 e vai reduzindo aos poucos até 340 px a 1024; no
+              computador fica num cartão (modelo do Silva, 13/10/2026), com o espaço de dentro a acompanhar também */}
+          <div className="w-full max-w-[400px] lg:max-w-[calc(clamp(340px,27.8vw,420px)+clamp(48px,4.4vw,68px)+2px)]">
             {/* no telemóvel e no tablet não há foto: o logótipo fica por cima do formulário, grande e junto ao título
                 (a imagem tem ~13% de margem vazia em cima e em baixo) */}
             <a href="/" className="-mb-1 -mt-3 flex justify-center lg:hidden" title="VisualDesign">
@@ -84,7 +86,9 @@ export function LoginDividido({ children, modelo = 1 }: { children: React.ReactN
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src="/assets/logotipoII.png" alt="VisualDesign" className="hidden h-[124px] w-auto object-contain dark:block" />
             </a>
-            {children}
+            <div className="lg:rounded-[10px] lg:border lg:border-zinc-200 lg:bg-[#fff] lg:px-[clamp(24px,2.2vw,34px)] lg:pb-[clamp(28px,2.6vw,40px)] lg:pt-[clamp(24px,2.2vw,32px)] lg:shadow-[0_12px_40px_-14px_rgba(24,24,27,0.22)] lg:dark:border-[#2a2d3a] lg:dark:bg-[#15161e] lg:dark:shadow-[0_12px_40px_-14px_rgba(0,0,0,0.7)]">
+              {children}
+            </div>
           </div>
         </div>
         <footer className="pb-6 text-center text-xs text-zinc-400 dark:text-zinc-500">
@@ -120,6 +124,19 @@ function AbaLogo() {
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src="/assets/logo-entrada-escuro.png" alt="VisualDesign" className="hidden h-auto w-[clamp(184px,16.7vw,240px)] dark:block" />
     </a>
+  )
+}
+
+/** Por baixo da aba do logótipo, o fundo do formulário volta a entrar 16 px pela foto, quase até ao fundo, com as pontas
+ *  cortadas a 45° (modelo do Silva, 13/10/2026). Fica dentro da foto, encostada à divisão, e passa 1 px para o lado
+ *  do formulário: em larguras ímpares a divisão cai a meio de um píxel e via-se uma linha cinzenta na junção. */
+function FaixaBranca() {
+  return (
+    <span
+      aria-hidden
+      className="absolute -right-px bottom-[15vh] top-[calc(clamp(56px,5vw,72px)+90px)] w-[17px] bg-[#fff] dark:bg-[#15161e]"
+      style={{ clipPath: 'polygon(100% 0, 100% 100%, 0 calc(100% - 16px), 0 16px)' }}
+    />
   )
 }
 

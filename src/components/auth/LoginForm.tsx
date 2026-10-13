@@ -198,9 +198,12 @@ function LoginFormInner() {
           <a href="/auth/forgot-password" className={ligacaoCls}>
             {t('login.forgot')}
           </a>
-          <a href="/auth/register" className={ligacaoCls}>
-            {t('login.register')}
-          </a>
+          <span className="text-[clamp(13px,1vw,14px)] text-zinc-700 dark:text-zinc-300">
+            {t('login.noAccount')}{' '}
+            <a href="/auth/register" className={ligacaoCls}>
+              {t('login.register')}
+            </a>
+          </span>
         </div>
       </form>
 
