@@ -28,17 +28,18 @@ export function LoginDividido({ children, modelo = 1 }: { children: React.ReactN
     [Mail, t('login.heroFeat3')],
   ]
   return (
-    <div className="login-dividido font-panel relative grid min-h-screen bg-white text-zinc-900 transition-colors duration-300 dark:bg-[#15161e] dark:text-zinc-100 lg:grid-cols-2">
-      <aside className="relative hidden overflow-hidden bg-zinc-950 lg:block">
+    <div className="login-dividido font-panel relative grid min-h-screen bg-[#fff] text-zinc-900 transition-colors duration-300 dark:bg-[#15161e] dark:text-zinc-100 lg:grid-cols-2">
+      <aside className="relative hidden bg-zinc-950 lg:sticky lg:top-0 lg:block lg:h-screen">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/assets/design_grafico_branding.jpg" alt="" aria-hidden className="absolute inset-0 h-full w-full object-cover" />
         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/45 to-black/25" />
         <div className="absolute inset-0 bg-gradient-to-br from-red-800/35 via-transparent to-transparent" />
+        {modelo === 1 && <FaixaBranca />}
 
         {modelo === 2 && (
           <>
             {/* a linha fica à altura do desenho do logótipo (a imagem tem ~6 px vazios em cima e em baixo) */}
-            <span aria-hidden className="absolute left-0 top-[42px] h-[46px] w-[12px] bg-white" />
+            <span aria-hidden className="absolute left-0 top-[42px] h-[46px] w-[12px] bg-[#fff]" />
             <a href="/" className="absolute left-10 top-9 transition-opacity hover:opacity-85" title="VisualDesign">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src="/assets/Logo_horizontal_branco.png" alt="VisualDesign" className="h-[58px] w-auto" />
@@ -46,16 +47,20 @@ export function LoginDividido({ children, modelo = 1 }: { children: React.ReactN
           </>
         )}
 
-        <div className="absolute inset-x-10 bottom-10 max-w-[540px] text-white">
+        <div className="absolute inset-x-[clamp(24px,2.8vw,40px)] bottom-[clamp(24px,2.8vw,40px)] max-w-[540px] text-white">
           <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-medium ring-1 ring-white/20 backdrop-blur">
-            <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
+            {/* o ponto pisca devagar, como "no ar" (pedido do Silva, 13/10/2026) */}
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-75 motion-reduce:animate-none" />
+              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-red-500" />
+            </span>
             {t('login.heroTag')}
           </span>
-          <h2 className="mt-4 text-[28px] font-semibold xl:text-[34px] leading-[1.15] tracking-tight">{t('login.heroTitle')}</h2>
-          <p className="mt-3 max-w-[460px] text-[15px] leading-relaxed text-white/75">{t('login.heroText')}</p>
-          <ul className="mt-7 grid grid-cols-3 gap-3">
+          <h2 className="mt-4 text-[clamp(24px,2.36vw,34px)] font-semibold leading-[1.15] tracking-tight">{t('login.heroTitle')}</h2>
+          <p className="mt-3 max-w-[460px] text-[clamp(13px,1.05vw,15px)] leading-relaxed text-white/75">{t('login.heroText')}</p>
+          <ul className="mt-[clamp(18px,1.95vw,28px)] grid grid-cols-3 gap-3">
             {itens.map(([Icone, texto]) => (
-              <li key={texto} className="flex items-center gap-2.5 rounded-lg bg-white/[0.07] px-3 py-2.5 text-[13px] leading-snug text-white/90 ring-1 ring-white/10 backdrop-blur">
+              <li key={texto} className="flex items-center gap-2.5 rounded-lg bg-white/[0.07] px-3 py-2.5 text-[clamp(11.5px,0.9vw,13px)] leading-snug text-white/90 ring-1 ring-white/10 backdrop-blur">
                 <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-red-600/90 text-white">
                   <Icone className="h-4 w-4" strokeWidth={2} aria-hidden />
                 </span>
@@ -70,7 +75,21 @@ export function LoginDividido({ children, modelo = 1 }: { children: React.ReactN
         {modelo === 1 && <AbaLogo />}
         <BotoesCanto />
         <div className="flex flex-1 items-center justify-center px-6 pb-10 pt-8 lg:pt-20">
-          <div className="w-full max-w-[400px]">{children}</div>
+          {/* a largura acompanha o ecrã: o formulário tem 400 px a 1440 e vai reduzindo aos poucos até 340 px a 1024; no
+              computador fica num cartão (modelo do Silva, 13/10/2026), com o espaço de dentro a acompanhar também */}
+          <div className="w-full max-w-[400px] lg:max-w-[calc(clamp(340px,27.8vw,420px)+clamp(48px,4.4vw,68px)+2px)]">
+            {/* no telemóvel e no tablet não há foto: o logótipo fica por cima do formulário, grande e junto ao título
+                (a imagem tem ~13% de margem vazia em cima e em baixo) */}
+            <a href="/" className="-mb-1 -mt-3 flex justify-center lg:hidden" title="VisualDesign">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/assets/logotype.png" alt="VisualDesign" className="h-[124px] w-auto object-contain dark:hidden" />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/assets/logotipoII.png" alt="VisualDesign" className="hidden h-[124px] w-auto object-contain dark:block" />
+            </a>
+            <div className="lg:rounded-[10px] lg:border lg:border-zinc-200 lg:bg-[#fff] lg:px-[clamp(24px,2.2vw,34px)] lg:pb-[clamp(28px,2.6vw,40px)] lg:pt-[clamp(24px,2.2vw,32px)] lg:shadow-[0_12px_40px_-14px_rgba(24,24,27,0.22)] lg:dark:border-[#2a2d3a] lg:dark:bg-[#15161e] lg:dark:shadow-[0_12px_40px_-14px_rgba(0,0,0,0.7)]">
+              {children}
+            </div>
+          </div>
         </div>
         <footer className="pb-6 text-center text-xs text-zinc-400 dark:text-zinc-500">
           © {new Date().getFullYear()} VisualDesign ·{' '}
@@ -91,22 +110,33 @@ export function LoginDividido({ children, modelo = 1 }: { children: React.ReactN
 
 /** No computador, o fundo do formulário entra pela foto dentro na divisão, como uma aba, com o logótipo (pedido do Silva,
  *  13/10/2026, sobre o modelo de um menu com o item escolhido ligado ao conteúdo): arredondada (10 px) só do lado esquerdo,
- *  dentro da foto; do lado direito, onde se junta ao fundo, nada. A 50 px do início da página; leve (pouco espaço à volta
- *  do logótipo) e com uma sombra suave só sobre a foto. */
+ *  dentro da foto; do lado direito, onde se junta ao fundo, nada — passa 16 px por baixo do fundo, sem sombra, para nunca
+ *  aparecer uma linha na junção (nem no claro nem no escuro). A 50 px do início da página; o tamanho acompanha o ecrã. */
 function AbaLogo() {
   return (
     <a
       href="/"
       title="VisualDesign"
-      className="absolute right-[calc(100%-16px)] top-[50px] z-10 hidden h-[72px] w-[288px] items-center rounded-l-[10px] bg-white pl-4 pr-[32px] shadow-[-10px_8px_30px_-12px_rgba(0,0,0,0.35)] dark:bg-[#15161e] lg:flex"
-      // a sombra só do lado da foto: corta-se na divisão (os 16 px que entram no fundo ficam de fora)
-      style={{ clipPath: 'inset(-40px 16px -40px -40px)' }}
+      className="absolute right-[calc(100%-16px)] top-[50px] z-10 hidden h-[clamp(56px,5vw,72px)] w-[calc(clamp(184px,16.7vw,240px)+48px)] items-center rounded-l-[10px] bg-[#fff] pl-4 pr-8 dark:bg-[#15161e] lg:flex"
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/assets/logo-entrada.jpg" alt="VisualDesign" className="h-auto w-[240px] dark:hidden" />
+      <img src="/assets/logo-entrada.jpg" alt="VisualDesign" className="h-auto w-[clamp(184px,16.7vw,240px)] dark:hidden" />
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/assets/logo-entrada-escuro.png" alt="VisualDesign" className="hidden h-auto w-[240px] dark:block" />
+      <img src="/assets/logo-entrada-escuro.png" alt="VisualDesign" className="hidden h-auto w-[clamp(184px,16.7vw,240px)] dark:block" />
     </a>
+  )
+}
+
+/** Por baixo da aba do logótipo, o fundo do formulário volta a entrar 16 px pela foto, quase até ao fundo, com as pontas
+ *  cortadas a 45° (modelo do Silva, 13/10/2026). Fica dentro da foto, encostada à divisão, e passa 1 px para o lado
+ *  do formulário: em larguras ímpares a divisão cai a meio de um píxel e via-se uma linha cinzenta na junção. */
+function FaixaBranca() {
+  return (
+    <span
+      aria-hidden
+      className="absolute -right-px bottom-[15vh] top-[calc(clamp(56px,5vw,72px)+90px)] w-[17px] bg-[#fff] dark:bg-[#15161e]"
+      style={{ clipPath: 'polygon(100% 0, 100% 100%, 0 calc(100% - 16px), 0 16px)' }}
+    />
   )
 }
 
@@ -195,7 +225,7 @@ function BotoesCanto() {
           {lang === 'en' ? 'English' : 'Português'}
         </button>
         {linguas && (
-          <div className="absolute right-0 top-[calc(100%+12px)] z-30 w-[180px] overflow-hidden rounded-[10px] border border-red-600 lg:right-[-16px] lg:rounded-r-none lg:border-r-0 bg-white shadow-[0_14px_34px_rgba(0,0,0,0.22)] dark:bg-[#272a34]">
+          <div className="absolute right-0 top-[calc(100%+12px)] z-30 w-[180px] overflow-hidden rounded-[10px] border border-red-600 lg:right-[-16px] lg:rounded-r-none lg:border-r-0 bg-[#fff] shadow-[0_14px_34px_rgba(0,0,0,0.22)] dark:bg-[#272a34]">
             {(
               [
                 ['pt', 'Português'],

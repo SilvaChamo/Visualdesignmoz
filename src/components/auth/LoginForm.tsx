@@ -2,20 +2,19 @@
 
 import React, { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { auth } from '@/lib/supabase-client'
 import { useI18n } from '@/lib/i18n'
 import { googleOAuthUserMessage } from '@/lib/auth-messages'
 import { PUBLIC_PANEL_ENTRY } from '@/lib/panel-origin'
-import { preCarregarDadosVhost } from '@/lib/vhost-cache'
+import { marcarEntrada, preCarregarDadosVhost } from '@/lib/vhost-cache'
 import type { UserRole } from '@/lib/user-roles'
 import { AuthLoadingShell } from '@/components/auth/AuthPageShell'
 import { LoginDividido } from '@/components/auth/LoginDividido'
+import { CampoFlutuante, OlhoSenha, botaoCls, botaoClaroCls, ligacaoCls, subtituloCls, tituloCls } from '@/components/auth/campos'
 import {
   authCardClass,
   authErrorBoxClass,
-  authLinkClass,
   authPrimaryBtnClass,
 } from '@/components/auth/auth-styles'
 
@@ -72,6 +71,7 @@ function LoginFormInner() {
     setError('')
     try {
       const role = await signIn(email, password)
+      marcarEntrada('site') // ao sair do painel, volta a este login
       await prefetchPanelData(role)
       // o botão fica em "A entrar…" até a página seguinte aparecer
       await goToPanel(role)
@@ -93,6 +93,7 @@ function LoginFormInner() {
     setLoadingGoogle(true)
     setError('')
     try {
+      marcarEntrada('site')
       await signInWithGoogle(PUBLIC_PANEL_ENTRY)
     } catch (err: unknown) {
       setLoadingGoogle(false)
@@ -106,17 +107,9 @@ function LoginFormInner() {
   return (
     <LoginDividido modelo={searchParams.get('modelo') === '2' ? 2 : 1}>
       {/* no telemóvel e no tablet a imagem (com o logótipo) não aparece: o logótipo fica por cima do formulário */}
-      {/* maior e perto do título (a imagem do logótipo tem ~13% de margem vazia em cima e em baixo) */}
-      <a href="/" className="-mb-1 -mt-3 flex justify-center lg:hidden" title="VisualDesign">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/assets/logotype.png" alt="VisualDesign" className="h-[124px] w-auto object-contain dark:hidden" />
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/assets/logotipoII.png" alt="VisualDesign" className="hidden h-[124px] w-auto object-contain dark:block" />
-      </a>
-
       {/* no telemóvel e no tablet tudo ao centro (pedido do Silva, 13/10/2026) */}
-      <h1 className="text-center text-[28px] font-semibold leading-tight tracking-tight text-zinc-900 dark:text-zinc-50 lg:text-left">{t('login.title')}</h1>
-      <p className="mt-2 text-center text-[15px] text-zinc-500 dark:text-zinc-400 lg:text-left">{t('login.subtitle')}</p>
+      <h1 className={tituloCls}>{t('login.title')}</h1>
+      <p className={subtituloCls}>{t('login.subtitle')}</p>
 
       {error && <div className={`mt-6 ${authErrorBoxClass}`}>{error}</div>}
 
@@ -136,7 +129,7 @@ function LoginFormInner() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="mt-6 space-y-4 lg:mt-8 lg:space-y-5">
+      <form onSubmit={handleSubmit} className="mt-[clamp(20px,2.2vw,32px)] space-y-[clamp(14px,1.4vw,20px)]">
         <div className="absolute -z-10 opacity-0 pointer-events-none" aria-hidden="true">
           <input
             type="text"
@@ -153,6 +146,7 @@ function LoginFormInner() {
           rotulo={t('login.user')}
           dica={t('login.userPlaceholder')}
           autoComplete="username"
+          obrigatorio
           value={email}
           onChange={setEmail}
         />
@@ -165,25 +159,15 @@ function LoginFormInner() {
             type={showPassword ? 'text' : 'password'}
             autoComplete="current-password"
             minLength={6}
+            obrigatorio
             value={password}
             onChange={setPassword}
           >
-            <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 transition-colors hover:text-zinc-600 dark:hover:text-zinc-300"
-              aria-label={showPassword ? 'Ocultar palavra-passe' : 'Mostrar palavra-passe'}
-            >
-              {showPassword ? (
-                <EyeOff className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden />
-              ) : (
-                <Eye className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden />
-              )}
-            </button>
+            <OlhoSenha ver={showPassword} onClick={() => setShowPassword(!showPassword)} />
           </CampoFlutuante>
         </div>
 
-        <button type="submit" disabled={loading} className={`h-11 w-full ${authPrimaryBtnClass} text-[15px] font-semibold`}>
+        <button type="submit" disabled={loading} className={botaoCls}>
           {loading ? t('login.signingIn') : t('login.signIn')}
         </button>
 
@@ -198,7 +182,7 @@ function LoginFormInner() {
           type="button"
           onClick={handleGoogleLogin}
           disabled={loadingGoogle}
-          className="inline-flex h-11 w-full items-center justify-center gap-2.5 rounded-md border border-zinc-300 bg-white text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-60 dark:border-[#393e4d] dark:bg-[#272a34] dark:text-zinc-200 dark:hover:bg-[#303440]"
+          className={botaoClaroCls}
         >
           <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden>
             <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -210,77 +194,20 @@ function LoginFormInner() {
         </button>
 
         {/* por baixo do Google: recuperar a senha à esquerda, registar à direita (pedido do Silva, 13/10/2026) */}
-        <div className="flex items-center justify-between gap-4 text-sm">
-          <a href="/auth/forgot-password" className={authLinkClass}>
+        <div className="flex items-center justify-between gap-4">
+          <a href="/auth/forgot-password" className={ligacaoCls}>
             {t('login.forgot')}
           </a>
-          <a href="/auth/register" className={authLinkClass}>
-            {t('login.register')}
-          </a>
+          <span className="text-[clamp(13px,1vw,14px)] text-zinc-700 dark:text-zinc-300">
+            {t('login.noAccount')}{' '}
+            <a href="/auth/register" className={ligacaoCls}>
+              {t('login.register')}
+            </a>
+          </span>
         </div>
       </form>
 
     </LoginDividido>
-  )
-}
-
-/** Campo com a etiqueta a meio; ao clicar (ou já preenchido) a etiqueta sobe para a linha de cima do campo
- *  (pedido do Silva, 13/10/2026). A dica (ex.: o formato do e-mail) só aparece com o campo escolhido. No telemóvel e no
- *  tablet a etiqueta e o texto ficam ao centro. */
-function CampoFlutuante({
-  id,
-  rotulo,
-  dica,
-  type = 'text',
-  autoComplete,
-  minLength,
-  value,
-  onChange,
-  children,
-}: {
-  id: string
-  rotulo: string
-  dica?: string
-  type?: string
-  autoComplete?: string
-  minLength?: number
-  value: string
-  onChange: (v: string) => void
-  children?: React.ReactNode
-}) {
-  return (
-    <div className="relative">
-      <input
-        id={id}
-        type={type}
-        autoComplete={autoComplete}
-        autoCapitalize="none"
-        spellCheck={false}
-        minLength={minLength}
-        required
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={dica || ' '}
-        className={
-          'peer h-12 w-full rounded-md border border-zinc-300 bg-transparent px-3.5 text-center text-[15px] text-zinc-900 outline-none transition-colors lg:text-left ' +
-          'placeholder:text-transparent focus:border-red-500 focus:ring-2 focus:ring-red-500/20 focus:placeholder:text-zinc-400 ' +
-          'dark:border-[#393e4d] dark:text-zinc-100 dark:focus:border-red-500 dark:focus:placeholder:text-zinc-500 ' +
-          (children ? 'px-10 lg:pl-3.5' : '')
-        }
-      />
-      <label
-        htmlFor={id}
-        className={
-          'pointer-events-none absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap bg-white px-1 text-xs font-medium text-zinc-500 transition-all duration-150 lg:left-2.5 lg:translate-x-0 ' +
-          'peer-placeholder-shown:top-1/2 peer-placeholder-shown:text-[15px] peer-placeholder-shown:font-normal ' +
-          'peer-focus:top-0 peer-focus:text-xs peer-focus:font-medium peer-focus:text-red-600 ' +
-          'dark:bg-[#15161e] dark:text-zinc-400 dark:peer-focus:text-red-400'
-        }
-      >
-        {rotulo}
-      </label>
-      {children}
-    </div>
   )
 }
 

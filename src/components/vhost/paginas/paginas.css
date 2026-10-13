@@ -690,8 +690,17 @@
 .vh tr.msg-por-ler.msg-tipo-error:not(.sel) td{background:rgba(220,38,38,.11)}
 .vh tr.msg-por-ler.msg-tipo-info:not(.sel) td{background:rgba(37,99,235,.08)}
 /* Força bruta (modelo do Brute Force Monitor do DirectAdmin) */
-.vh .fb-ip{display:inline-flex;align-items:center;gap:8px}
-.vh .fb-ip code{font-size:13px}
+/* o IP fica sempre numa só linha (pedido do Silva, 13/10/2026: "não quero duas linhas no ip") */
+.vh .fb-ip{display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+.vh .fb-ip code{font-size:13px;white-space:nowrap}
+@media(max-width:1600px){.vh .fb-ip code{font-size:12px}}
+/* em blocos (telemóvel, tablet ao alto) o selo "Moçambique" passa para baixo do IP em vez de ficar por baixo do botão */
+@media(max-width:768px){.vh .dt-empilhar .fb-ip{flex-wrap:wrap;row-gap:4px;min-width:0}}
+@media(min-width:769px) and (max-width:1000px){.vh .dt-empilhar-tablet .fb-ip{flex-wrap:wrap;row-gap:4px;min-width:0}}
+/* portátil e tablet (769–1300): o botão da linha (Desbloquear, Bloquear) só com o ícone, para a tabela caber sem
+   cortar; em blocos (tablet ao alto, telemóvel) volta o texto */
+@media(min-width:769px) and (max-width:1300px){.vh .fb-btn{width:30px;padding:0;justify-content:center}.vh .fb-btn span{display:none}}
+@media(min-width:769px) and (max-width:1000px){.vh .dt-empilhar-tablet .fb-btn{width:auto;padding:0 10px}.vh .dt-empilhar-tablet .fb-btn span{display:inline}}
 .vh .fb-ip .tag{font-size:11px;padding:2px 7px}
 .vh .fb-manual{color:var(--muted)}
 .vh .fb-nota{color:var(--muted);font-size:12.5px;margin-top:10px}
@@ -849,8 +858,8 @@
 /* linha escolhida na lupa: realce que se apaga */
 @keyframes dtRealce{0%,60%{background:color-mix(in srgb,var(--red) 14%,transparent)}100%{background:transparent}}
 .vh .dt tr.dt-realce td{animation:dtRealce 2.6s ease-out}
-/* Sair no fundo da barra compacta, ao lado do avatar (como no DA) */
-.vh .rail .rb.sair{height:60px;margin-bottom:-10px;border-top:1px solid color-mix(in srgb,var(--line) 70%,transparent)}
+/* Sair no fundo da barra compacta, ao lado do avatar (como no DA): simples, igual aos outros botões, sem linha por cima
+   (pedido do Silva, 13/10/2026) */
 .vh .top .lupa-topo{gap:8px}
 .vh .rail .rb.sair:hover{color:var(--red)}
 /* separador na descrição da barra de cima (Mensagens: "Todas as mensagens | 3 por ler") */
@@ -1250,6 +1259,35 @@
  .vh .tbl.dt-empilhar tbody td .cell :is(b,span){white-space:normal;overflow-wrap:anywhere}
  .vh .tbl.dt-empilhar tbody td .cell>.ic{display:none}
 }
+/* DataTable empilhar="tablet" (Força bruta): no tablet ao alto (769–1000), ao lado do menu, a tabela não cabe — cada
+   linha passa a um bloco, igual ao telemóvel (as mesmas regras de cima, só para estas tabelas) */
+@media(min-width:769px) and (max-width:1000px){
+ .vh .tbl.dt-empilhar-tablet table,.vh .tbl.dt-empilhar-tablet thead,.vh .tbl.dt-empilhar-tablet tbody{display:block}
+ .vh .tbl.dt-empilhar-tablet thead tr{display:flex;align-items:center;background:var(--soft);border-bottom:1px solid var(--line)}
+ .vh .tbl.dt-empilhar-tablet thead th{display:none}
+ .vh .tbl.dt-empilhar-tablet thead th.ck{display:flex;align-items:center;gap:12px;width:auto;border:0;padding:10px 14px}
+ .vh .tbl.dt-empilhar-tablet thead th.ck::after{content:attr(data-t)}
+ .vh .tbl.dt-empilhar-tablet thead th.dt-th-acoes{display:block;margin-left:auto;padding:6px 14px}
+ .vh .tbl.dt-empilhar-tablet thead tr:not(:has(th.ck)){display:none}
+ .vh .tbl.dt-empilhar-tablet tbody tr{display:grid;grid-template-columns:34px minmax(0,1fr) auto;row-gap:6px;column-gap:0;align-items:center;padding:12px 14px;border-bottom:1px solid var(--line)}
+ .vh .tbl.dt-empilhar-tablet tbody tr:last-child{border-bottom:0}
+ .vh .tbl.dt-empilhar-tablet tbody td{display:flex;align-items:center;gap:8px;flex-wrap:wrap;grid-column:2;padding:0;border:0;white-space:normal;text-align:left!important}
+ .vh .tbl.dt-empilhar-tablet tbody td.ck{grid-column:1;grid-row:1;width:auto}
+ .vh .tbl.dt-empilhar-tablet tbody td.empty{grid-column:1 / -1;display:block}
+ .vh .tbl.dt-empilhar-tablet tbody td:not(.ck):not(.dt-acoes-linha){grid-column:2 / -1}
+ .vh .tbl.dt-empilhar-tablet tbody tr td.ck+td:not(.dt-acoes-linha){grid-column:2;grid-row:1}
+ .vh .tbl.dt-empilhar-tablet tbody td[data-t]::before{content:attr(data-t);min-width:110px;font-size:12px;color:var(--muted)}
+ .vh .tbl.dt-empilhar-tablet tbody td.ck+td::before,.vh .tbl.dt-empilhar-tablet tbody td:first-child::before{content:none}
+ .vh .tbl.dt-empilhar-tablet tbody td.ck+td,.vh .tbl.dt-empilhar-tablet tbody td:first-child:not(.ck){font-weight:700}
+ .vh .tbl.dt-empilhar-tablet tbody td.dt-acoes-linha{grid-column:-2;grid-row:1;justify-content:flex-end;padding-left:8px}
+ .vh .tbl.dt-empilhar-tablet tbody td.dt-acoes-linha:empty{display:none}
+ .vh .tbl.dt-empilhar-tablet tbody tr:not(:has(td.ck)){grid-template-columns:minmax(0,1fr) auto}
+ .vh .tbl.dt-empilhar-tablet tbody tr:not(:has(td.ck)) td:not(.dt-acoes-linha){grid-column:1 / -1}
+ .vh .tbl.dt-empilhar-tablet tbody tr:not(:has(td.ck)) td:first-child{grid-column:1;grid-row:1}
+ .vh .tbl.dt-empilhar-tablet tbody tr:has(td.ck)>td:is(.ck,.ck+td),.vh .tbl.dt-empilhar-tablet tbody tr:has(td.ck)>td.dt-acoes-linha,.vh .tbl.dt-empilhar-tablet tbody tr:not(:has(td.ck))>td:is(:first-child,.dt-acoes-linha){padding-bottom:10px;border-bottom:1px solid var(--line);margin-bottom:4px;align-self:stretch}
+ /* em blocos cabe tudo: as colunas que saem no portátil voltam */
+ .vh .tbl.dt-empilhar-tablet tbody td:is(.dt-ate-1300,.dt-ate-1600){display:flex}
+}
 /* Computador (1301–1600) e portátil (1051–1300) — pedido do Silva, 13/10/2026: Dashboard mais compacta (cartões mais
    baixos, letra menor, títulos sempre numa linha, menos espaço vertical) e tabelas com as colunas mais juntas (10 a
    15 px entre colunas). Nos ecrãs grandes (>1600) e no telemóvel (≤768) fica como estava. */
@@ -1298,3 +1336,9 @@
  .vh .tool b{font-size:12.5px}
  .vh .tool span{font-size:11px}
 }
+
+/* Barra de cima (titulo-ajustado.ts): quando os botões tocam no título ou na descrição, primeiro encolhem e, se ainda
+   tocarem, ficam só com o ícone (pedido do Silva, 13/10/2026) */
+.vh .top.acoes-menores .topact .btn:not(.iconbtn){height:30px;padding:0 9px;font-size:12.5px;gap:6px}
+.vh .top.acoes-so-icone .topact .btn:not(.iconbtn){font-size:0;gap:0;width:34px;height:34px;padding:0;justify-content:center}
+.vh .top.acoes-so-icone .topact .btn:not(.iconbtn) i{font-size:14px}

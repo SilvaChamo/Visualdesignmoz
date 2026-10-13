@@ -11,6 +11,7 @@ import { useEffect, useRef, useState } from 'react';
 import { auth, LoginNetworkError, LoginRateLimitError, MSG_LIGACAO } from '@/lib/supabase-client';
 import type { Lang } from './i18n';
 import { FundoPainel } from './triangulos';
+import { marcarEntrada } from '@/lib/vhost-cache';
 
 export type ModoTema = 'light' | 'auto' | 'dark';
 
@@ -68,6 +69,7 @@ export function EntradaPainel({ escuro, modo, lang, voltarA, onModo, onLang, onE
         email = j.email;
       }
       await auth.signIn(email, senha);
+      marcarEntrada('painel'); // ao sair, volta a esta entrada
       onEntrou();
     } catch (error) {
       setErro(error instanceof LoginNetworkError ? tx.ligacao[error.tipo] : error instanceof LoginRateLimitError ? error.message : tx.errado);

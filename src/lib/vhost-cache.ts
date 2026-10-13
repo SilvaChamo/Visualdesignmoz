@@ -32,3 +32,25 @@ export async function preCarregarDadosVhost(limiteMs = 30_000): Promise<boolean>
     return false;
   }
 }
+
+/** Por onde se entrou no painel (pedido do Silva, 13/10/2026): ao sair, quem entrou pelo login do site volta ao login do
+ *  site; quem entrou pelo login do próprio painel volta ao login do painel */
+const ENTRADA_LS = 'vh-entrada';
+export type EntradaPainel = 'site' | 'painel';
+
+export function marcarEntrada(origem: EntradaPainel) {
+  try {
+    localStorage.setItem(ENTRADA_LS, origem);
+  } catch {}
+}
+
+/** Lê e esquece por onde se entrou (só serve para a saída seguinte) */
+export function tirarEntrada(): EntradaPainel | null {
+  try {
+    const v = localStorage.getItem(ENTRADA_LS);
+    localStorage.removeItem(ENTRADA_LS);
+    return v === 'site' || v === 'painel' ? v : null;
+  } catch {
+    return null;
+  }
+}

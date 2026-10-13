@@ -497,7 +497,7 @@ const dict: Record<Lang, Dict> = {
     'market.priceIncluded': 'Incluído nos Planos Business',
 
     // Login page
-    'login.title': 'Entrar na sua conta',
+    'login.title': 'Bem-vindo à VisualDesign',
     'login.subtitle': 'Gira o alojamento, os domínios e o e-mail da sua empresa.',
     'login.user': 'E-mail ou nome de utilizador',
     'login.userPlaceholder': 'email@dominio.com ou nome de utilizador',
@@ -519,7 +519,7 @@ const dict: Record<Lang, Dict> = {
     'login.forgotPassword': 'ESQUECEU A SENHA?',
     'login.submit': 'ENTRAR',
     'login.submitting': 'A ENTRAR...',
-    'login.noAccount': 'Ainda não tens conta?',
+    'login.noAccount': 'Não tem uma conta?',
     'login.register': 'Registe-se',
     'login.close': 'Fechar',
     'login.errorAuth': 'Erro de Autenticação',
@@ -1333,7 +1333,7 @@ const dict: Record<Lang, Dict> = {
     'market.priceIncluded': 'Included in Business Plans',
 
     // Login page
-    'login.title': 'Sign in to your account',
+    'login.title': 'Welcome to VisualDesign',
     'login.subtitle': 'Manage your company’s hosting, domains and email.',
     'login.user': 'Email or username',
     'login.userPlaceholder': 'email@domain.com or username',
@@ -1355,7 +1355,7 @@ const dict: Record<Lang, Dict> = {
     'login.forgotPassword': 'FORGOT PASSWORD?',
     'login.submit': 'SIGN IN',
     'login.submitting': 'SIGNING IN...',
-    'login.noAccount': 'Don\'t have an account yet?',
+    'login.noAccount': 'Don\'t have an account?',
     'login.register': 'Register',
     'login.close': 'Close',
     'login.errorAuth': 'Authentication Error',
