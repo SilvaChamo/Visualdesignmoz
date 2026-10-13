@@ -1198,6 +1198,10 @@
 .vh .tw-livre :is(th,td){padding:revert-layer;border-bottom:revert-layer;white-space:revert-layer;font-size:revert-layer;text-transform:revert-layer;letter-spacing:revert-layer;color:revert-layer;background:revert-layer;font-weight:revert-layer;text-align:revert-layer;vertical-align:revert-layer}
 .vh .tw-livre tbody tr:hover{background:revert-layer}
 .vh .tw-livre :is(code,kbd){font-family:revert-layer;font-size:revert-layer;background:revert-layer;border:revert-layer;border-radius:revert-layer;padding:revert-layer;margin-right:revert-layer;color:revert-layer;word-break:revert-layer;display:revert-layer;max-width:revert-layer;white-space:revert-layer}
+/* Arredondamentos das páginas copiadas iguais aos do painel (pedido do Silva, 13/10/2026: "não temos esses
+   arredondamentos no nosso site"): cartões, caixas, campos e botões com o raio do painel (4px), nada em "pílula". Os
+   pontinhos de cor (span redondos) ficam redondos. */
+.vh .tw-livre :is(.rounded-xl,.rounded-lg,.rounded-2xl,.rounded-md,button.rounded-full){border-radius:var(--r)}
 /* os botões que as páginas antigas punham na barra de cima (ex.: Templates: Salvar / Cancelar / Eliminar) */
 .vh .barra-antiga{display:inline-flex;align-items:center;gap:8px}
 .vh .barra-antiga:empty{display:none}
@@ -1215,6 +1219,15 @@
   .vh .barra-antiga-m>span{align-self:center;flex:none}
   .vh .barra-antiga-m>button{flex:1 1 auto;min-width:min-content;height:auto;min-height:38px;padding:6px 7px;font-size:11.5px;line-height:1.2;text-align:center;justify-content:center;gap:5px}
   .vh .barra-antiga-m>button svg{flex:none}
+}
+/* Templates no telemóvel (pedido do Silva, 13/10/2026): os 8 separadores dos templates (60 dias … Confirmação) numa
+   grelha de 4 colunas × 2 linhas, mais leves (letra normal e mais pequena, sem o anel do escolhido — fica a borda).
+   As cores ficam como no dashboard antigo (a rever mais tarde). No computador ficam numa linha, à esquerda. */
+@media(max-width:768px){
+  .vh .tw-livre .flex.flex-wrap.items-center.justify-start.gap-4{display:block}
+  .vh .tw-livre .flex.flex-wrap.items-center.justify-start.gap-2{display:grid;grid-template-columns:repeat(4,minmax(min-content,1fr));gap:6px}
+  .vh .tw-livre .flex.flex-wrap.items-center.justify-start.gap-2>button>span{flex:none}
+  .vh .tw-livre .flex.flex-wrap.items-center.justify-start.gap-2>button{justify-content:center;min-width:min-content;padding:6px 4px;gap:4px;font-size:clamp(9.5px,2.8vw,11.5px);font-weight:500;white-space:nowrap;box-shadow:none}
 }
 /* telemóveis estreitos: sem o ícone, para o texto dos três botões caber todo */
 @media(max-width:374px){.vh .barra-antiga-m>button svg{display:none}}
