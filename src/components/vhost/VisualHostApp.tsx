@@ -9,7 +9,7 @@ import { GLOBAL, LEVELS, MENU, ROLES } from './generated/data';
 import { dominioVisivel, type DadosServidor } from './servidor';
 import { CACHE_DADOS_VHOST, apagarDadosVhost, guardarDadosVhost } from '@/lib/vhost-cache';
 import { translate, type Lang } from './i18n';
-import { EntradaPainel, EsperaEntrada, LINGUA_LS, type ModoTema } from './entrada';
+import { EntradaPainel, LINGUA_LS, type ModoTema } from './entrada';
 import { auth } from '@/lib/supabase-client';
 import { MoreMenuModal } from './modals';
 import { SCREENS, denyScreen, placeholder, type Screen } from './screens';
@@ -873,21 +873,18 @@ export function VisualHostApp({ temSessao = true }: { temSessao?: boolean }) {
   const logo = st.brand.logo || LOGO;
   const marca = st.brand.name.trim() || 'VisualHost';
 
-  // Enquanto os dados do servidor não chegam: a página branca com a roda (como no DA), sem esqueleto — o painel aparece
-  // já com o menu. Sem sessão: a página de entrada. Sem acesso / servidor indisponível: aviso com o que fazer a seguir.
+  // Só dois ecrãs (pedido do Silva, 13/10): a entrada e o painel — nada de páginas de espera. Sem sessão (confirmada
+  // já no servidor) ou sessão recusada: a entrada. A abrir o painel (depois de Entrar, ou sessão sem leitura guardada
+  // neste navegador): continua a entrada, com o botão a girar. Sem acesso / servidor indisponível: aviso.
   if (st.carga !== 'ok') {
     const er = st.erro;
-    // sem sessão (cookie visto já no servidor) ou sessão recusada: a página de entrada no modelo do DA, sem piscar
     const entrada = er?.codigo === 401 || (!er && !aEntrar && semSessao);
-    if (!er && !entrada) return (
-      <div className="vh" data-theme={st.theme} style={themeStyles as React.CSSProperties} lang="pt-PT" suppressHydrationWarning>
-        <EsperaEntrada />
-      </div>
-    );
-    if (entrada)
+    const aAbrir = !er && !entrada;
+    if (entrada || aAbrir)
       return (
         <div className="vh" data-theme={st.theme} style={themeStyles as React.CSSProperties} lang={st.lang === 'en' ? 'en' : 'pt-PT'} suppressHydrationWarning>
           <EntradaPainel
+            ocupado={aAbrir}
             escuro={isDark}
             modo={modoTema}
             lang={st.lang}

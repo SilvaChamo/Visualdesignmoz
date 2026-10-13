@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { resolveUserRole, getRedirectPathForRole } from '@/lib/user-roles'
 import {
+  applySharedAuthCookieOptions,
   buildPanelLoginUrl,
   getPublicSiteOrigin,
   isEncomendasAccount,
@@ -15,6 +16,8 @@ import {
 import { OAUTH_CALLBACK_PATH } from '@/lib/oauth-callback'
 import { getRequestHostname } from '@/lib/request-host'
 import { createAppServerClient } from '@/lib/supabase-cookies'
+import { COOKIE_SESSAO, SESSAO_PAINEL } from '@/lib/vhost-sessao'
+import { createServerClient, type CookieOptions } from '@supabase/ssr'
 
 // Simulação de Rate Limiting
 const RATE_LIMIT_MS = 2000
@@ -43,6 +46,36 @@ const PAINEL_FORMAS = [PAINEL_BASE, '/host%3A2026', '/host%3a2026']
 const PAINEL_ANTIGOS = ['/vhost', '/host/2026', '/host']
 /** Deixam de existir — "página não encontrada" (pedido do Silva, 13/10/2026: /vhost/2026 só serviu uma noite) */
 const PAINEL_INEXISTENTES = ['/vhost/2026']
+
+/** Página do painel: a sessão confirma-se aqui (só aqui se podem gravar os cookies renovados) e o layout recebe o
+ *  resultado no cabeçalho SESSAO_PAINEL — sem sessão válida desenha logo a entrada, sem ecrã de espera antes */
+async function reescreverPainel(request: NextRequest, rota: URL) {
+  const renovados: { name: string; value: string; options: CookieOptions }[] = []
+  let sessao = false
+  if (request.cookies.getAll().some((c) => COOKIE_SESSAO.test(c.name) && c.value)) {
+    const supabase = createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
+      cookies: {
+        getAll: () => request.cookies.getAll(),
+        setAll: (lista) =>
+          lista.forEach((c) => {
+            request.cookies.set(c.name, c.value)
+            renovados.push(c)
+          }),
+      },
+    })
+    try {
+      sessao = !!(await supabase.auth.getUser()).data.user
+    } catch (error) {
+      console.error('[proxy] painel: sessão inválida', error)
+    }
+  }
+  const headers = new Headers(request.headers)
+  headers.set(SESSAO_PAINEL, sessao ? '1' : '0')
+  const resposta = NextResponse.rewrite(rota, { request: { headers } })
+  const hostname = request.headers.get('host') ?? undefined
+  renovados.forEach((c) => resposta.cookies.set(c.name, c.value, applySharedAuthCookieOptions(c.options, hostname)))
+  return resposta
+}
 
 const comPrefixo = (pathname: string, prefixo: string) => pathname === prefixo || pathname.startsWith(`${prefixo}/`)
 
@@ -92,7 +125,7 @@ export async function proxy(request: NextRequest) {
   if (resto !== null) {
     const rota = request.nextUrl.clone()
     rota.pathname = `/host${resto.replace(/\/+$/, '')}`
-    return NextResponse.rewrite(rota)
+    return reescreverPainel(request, rota)
   }
   // sem rota no Next (o painel está em src/app/host): mostra a página "não encontrada"
   if (PAINEL_INEXISTENTES.some((p) => comPrefixo(pathname, p))) {

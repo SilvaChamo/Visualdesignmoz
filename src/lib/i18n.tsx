@@ -1,6 +1,7 @@
 'use client'
 
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { usePathname } from 'next/navigation'
 
 export type Lang = 'pt' | 'en'
 
@@ -1623,6 +1624,7 @@ const dict: Record<Lang, Dict> = {
 export function I18nProvider({ children }: { children: React.ReactNode }) {
   const [lang, setLang] = useState<Lang>('pt')
   const [isLoaded, setIsLoaded] = useState(false)
+  const painel = (usePathname() || '').startsWith('/host')
 
   useEffect(() => {
     const saved = localStorage.getItem('vd-lang')
@@ -1653,7 +1655,8 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     return { lang, t, toggleLang }
   }, [lang])
 
-  if (!isLoaded) return null
+  // o painel (/host:2026) tem as suas línguas: desenha-se já no servidor, sem página em branco antes da entrada
+  if (!isLoaded && !painel) return null
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>
 }
