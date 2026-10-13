@@ -635,6 +635,31 @@
 .vh .msg-cel.nova b{font-weight:800}
 .vh .msg-cel span{color:var(--muted);line-height:1.45}
 .vh .msg-cel small{color:var(--muted);font-size:12px}
+/* Mensagens como no DirectAdmin: uma linha por mensagem (clicar abre o popup) e cor suave pelo tipo */
+.vh .msg-linha{display:flex;align-items:center;gap:10px;width:100%;min-width:0;max-width:820px;background:none;border:0;padding:0;font:inherit;color:var(--ink);text-align:left;cursor:pointer}
+.vh .msg-linha>i{font-size:15px;color:var(--muted);flex:none}
+.vh .msg-linha>i.ok,.vh .msg-ver-topo>i.ok{color:#16a34a}.vh .msg-linha>i.w,.vh .msg-ver-topo>i.w{color:#d97706}.vh .msg-linha>i.bad,.vh .msg-ver-topo>i.bad{color:var(--red)}.vh .msg-linha>i.info,.vh .msg-ver-topo>i.info{color:#2563eb}
+.vh .msg-linha b{font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.vh .msg-linha.nova b{font-weight:700}
+.vh .msg-linha small{color:var(--muted);font-size:12px;white-space:nowrap;flex:none}
+.vh .msg-linha:hover b{text-decoration:underline}
+.vh .msg-ponto{width:7px;height:7px;border-radius:50%;background:var(--red);flex:none}
+.vh .msg-data{white-space:nowrap;color:var(--muted)}
+.vh tr.msg-tipo-success:not(.sel) td{background:rgba(22,163,74,.045)}
+.vh tr.msg-tipo-warning:not(.sel) td{background:rgba(217,119,6,.055)}
+.vh tr.msg-tipo-error:not(.sel) td{background:rgba(220,38,38,.055)}
+.vh tr.msg-tipo-info:not(.sel) td{background:rgba(37,99,235,.04)}
+.vh tr.msg-por-ler.msg-tipo-success:not(.sel) td{background:rgba(22,163,74,.1)}
+.vh tr.msg-por-ler.msg-tipo-warning:not(.sel) td{background:rgba(217,119,6,.12)}
+.vh tr.msg-por-ler.msg-tipo-error:not(.sel) td{background:rgba(220,38,38,.11)}
+.vh tr.msg-por-ler.msg-tipo-info:not(.sel) td{background:rgba(37,99,235,.08)}
+/* popup com a mensagem completa */
+.vh .modal:has(.msg-ver){max-width:640px}
+.vh .msg-ver-topo{display:flex;gap:12px;align-items:flex-start;padding-bottom:12px;margin-bottom:14px;border-bottom:1px solid var(--line)}
+.vh .msg-ver-topo>i{font-size:20px;margin-top:3px;color:var(--muted);flex:none}
+.vh .msg-ver-topo h3{margin:0 0 4px}
+.vh .msg-ver-topo small{color:var(--muted);font-size:12.5px}
+.vh .msg-ver-texto{white-space:pre-wrap;word-break:break-word;line-height:1.55;margin:0 0 6px;user-select:text}
 /* Utilizadores do WordPress: "Mudar palavra-passe" por baixo da tabela, como no DA */
 .vh .wp-senha{margin-top:34px;display:flex;flex-direction:column}
 .vh .wp-senha h3{font-size:19px;font-weight:700;color:var(--ink);margin-bottom:10px}
