@@ -1197,12 +1197,12 @@
 }
 /* Templates no telemóvel (pedido do Silva, 13/10/2026): os 8 separadores dos templates (60 dias … Confirmação) numa
    grelha de 4 colunas × 2 linhas, mais leves (letra normal e mais pequena, sem o anel do escolhido — fica a borda).
-   As cores ficam como no dashboard antigo (a rever mais tarde). No computador ficam como estavam, numa linha. */
+   As cores ficam como no dashboard antigo (a rever mais tarde). No computador ficam numa linha, à esquerda. */
 @media(max-width:768px){
-  .vh .tw-livre .flex.flex-wrap.items-center.justify-end.gap-4{display:block}
-  .vh .tw-livre .flex.flex-wrap.items-center.justify-end.gap-2{display:grid;grid-template-columns:repeat(4,minmax(min-content,1fr));gap:6px}
-  .vh .tw-livre .flex.flex-wrap.items-center.justify-end.gap-2>button>span{flex:none}
-  .vh .tw-livre .flex.flex-wrap.items-center.justify-end.gap-2>button{justify-content:center;min-width:min-content;padding:6px 4px;gap:4px;font-size:clamp(9.5px,2.8vw,11.5px);font-weight:500;white-space:nowrap;box-shadow:none}
+  .vh .tw-livre .flex.flex-wrap.items-center.justify-start.gap-4{display:block}
+  .vh .tw-livre .flex.flex-wrap.items-center.justify-start.gap-2{display:grid;grid-template-columns:repeat(4,minmax(min-content,1fr));gap:6px}
+  .vh .tw-livre .flex.flex-wrap.items-center.justify-start.gap-2>button>span{flex:none}
+  .vh .tw-livre .flex.flex-wrap.items-center.justify-start.gap-2>button{justify-content:center;min-width:min-content;padding:6px 4px;gap:4px;font-size:clamp(9.5px,2.8vw,11.5px);font-weight:500;white-space:nowrap;box-shadow:none}
 }
 /* telemóveis estreitos: sem o ícone, para o texto dos três botões caber todo */
 @media(max-width:374px){.vh .barra-antiga-m>button svg{display:none}}

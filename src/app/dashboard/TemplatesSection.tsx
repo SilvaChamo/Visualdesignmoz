@@ -996,8 +996,8 @@ export function TemplatesSection() {
       {/* Header — título/descrição e, na mesma linha, os tabs de tipos de template
           (Salvar/Cancelar/Eliminar Definitivamente passaram para a barra de menu
           principal do dashboard, ver o useEffect de useAdminSectionChrome acima). */}
-      <div className="flex flex-wrap items-center justify-end gap-4">
-        <div className="flex flex-wrap items-center justify-end gap-2">
+      <div className="flex flex-wrap items-center justify-start gap-4">
+        <div className="flex flex-wrap items-center justify-start gap-2">
           {templates.map(template => (
             <button
               key={template.id}
@@ -1467,21 +1467,6 @@ export function TemplatesSection() {
                 Preview ao Vivo
               </h4>
                 
-                {/* Preview Dashboard */}
-                <div className={`p-4 rounded border-l-4 mb-4 ${
-                  editingTemplate.type === 'error' ? 'bg-red-50 border-red-400' :
-                  editingTemplate.type === 'warning' ? 'bg-yellow-50 border-yellow-400' :
-                  editingTemplate.type === 'success' ? 'bg-green-50 border-green-400' :
-                  'bg-blue-50 border-blue-400'
-                }`}>
-                  <p className="font-medium">
-                    {processTemplate(editingTemplate, previewVariables).title}
-                  </p>
-                  <p className="text-sm mt-1 opacity-80">
-                    {processTemplate(editingTemplate, previewVariables).message}
-                  </p>
-                </div>
-
                 {/* Preview Email */}
                 <div className="border border-gray-200 rounded overflow-hidden">
                   <div className="bg-gray-100 px-4 py-2 border-b border-gray-200">
