@@ -1148,7 +1148,7 @@ function Dns() {
           onRecarregar={ler}
           umaLinha
           barraFora
-          empilhar
+          empilhar="botoes-em-baixo"
           empty="Nenhum registo encontrado para este filtro"
           cols={[
             {
