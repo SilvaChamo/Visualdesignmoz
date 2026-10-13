@@ -578,11 +578,12 @@ export function DataTable<T>({
         {acoesFixas && !barra2 && menuAcoes(true)}
         {cabecalho}
         <span className="sp" />
-        {!acoesFixas && !barra2 && menuAcoes(false)}
         {pesquisa}
         {!acoesFixas && colunas}
         {recarregar}
         {fimBarra}
+        {/* "Ações" sempre à vista e sempre o último à direita (regra do Silva, 13/10/2026) */}
+        {!acoesFixas && !barra2 && menuAcoes(true)}
       </div>
       )}
       {barra2 && !umaLinha && (
