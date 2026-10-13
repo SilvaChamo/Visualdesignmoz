@@ -146,7 +146,7 @@ export const MENU: Record<Level, MenuGroup[]> = {
   ]],
   ["Gestão de domínios", [
    {"id":"dominios","fa":"fa-globe","t":"Domínios","c":"c1","da":"/domains","f":["Adicionar, renomear, ver detalhe","Tráfego e disco por domínio"],"hx":{"s":"sim","cmd":"v-list-web-domains, v-add-web-domain, v-change-web-domain-name, v-delete-web-domain","n":""}},
-   {"id":"subdominios","fa":"fa-sitemap","t":"Subdomínios","c":"c2","da":"/subdomains","f":["Adicionar e apagar subdomínios","Pasta própria por subdomínio"],"hx":{"s":"sim","cmd":"v-add-web-domain","n":"No Hestia cada subdomínio é um domínio web próprio"},"feat":"web"},
+   // "Subdomínios" passou a separador da página Domínios (pedido do Silva, 13/10/2026) — editado à mão: o gerador não está neste projecto
    {"id":"dns","fa":"fa-network-wired","t":"DNS","c":"c6","da":"/dns-records","f":["Registos dos SEUS domínios: A, AAAA, CNAME, MX, TXT, SRV, CAA","DNSSEC","TTL por registo"],"hx":{"s":"sim","cmd":"v-list-dns-records, v-add-dns-record, v-change-dns-record, v-delete-dns-record, v-change-dns-domain-dnssec","n":""},"feat":"dns"},
    {"id":"ssl","fa":"fa-lock","t":"SSL/TLS","c":"c3","da":"/ssl","f":["Certificados automáticos (Let’s Encrypt)","Carregar ou substituir certificado"],"hx":{"s":"sim","cmd":"v-add-letsencrypt-domain, v-add-web-domain-ssl, v-change-web-domain-sslcert, v-list-web-domain-ssl","n":""},"feat":"ssl"},
    {"id":"ftp","fa":"fa-server","t":"FTP","c":"c8","da":"/ftp-accounts","f":["Criar contas FTP por pasta","Mudar senha e pasta"],"hx":{"s":"sim","cmd":"v-add-web-domain-ftp, v-change-web-domain-ftp-password, v-change-web-domain-ftp-path, v-delete-web-domain-ftp","n":""},"feat":"ftp"},

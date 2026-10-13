@@ -15,6 +15,7 @@ import { Confirmar } from './pacotes';
 import DomainSearch from '@/components/DomainSearch';
 import { useGet } from '../carga';
 import { BotaoPassar } from './passar';
+import { TransferirDominio } from './transferir-dominio';
 
 // ---------- Ligação ao servidor ----------
 type Detalhe = {
@@ -107,7 +108,12 @@ function Contexto({ d, extra }: { d: string; extra?: string }) {
 // ---------- Domínios ----------
 type LinhaDom = Domain & { subs: number };
 
-function ListaDominios({ abaDom = 'meus' }: { abaDom?: 'meus' | 'registar' }) {
+// Tudo o que é sobre domínios fica num só menu, "Domínios", com separadores (pedido do Silva, 13/10/2026):
+// Domínios | Subdomínios | Registar domínio | Transferir domínio (a transferência vem do painel antigo da VisualDesign)
+type AbaDom = 'meus' | 'subdominios' | 'registar' | 'transferir';
+const ROTA_ABA: Record<AbaDom, string> = { meus: '', subdominios: '/subdominios', registar: '/registar', transferir: '/transferir' };
+
+function ListaDominios({ abaDom = 'meus' }: { abaDom?: AbaDom }) {
   const vh = useVH();
   const { a, t, nav, openM, setDominio } = vh;
   const sites = a.domains;
@@ -143,22 +149,31 @@ function ListaDominios({ abaDom = 'meus' }: { abaDom?: 'meus' | 'registar' }) {
 
   return (
     <>
-      <Tabs
+      <Tabs<AbaDom>
         tabs={[
           ['meus', 'Domínios', 'fa-globe'],
+          ['subdominios', 'Subdomínios', 'fa-sitemap'],
           ['registar', 'Registar domínio', 'fa-cart-shopping'],
+          ['transferir', 'Transferir domínio', 'fa-right-left'],
         ]}
         on={abaDom}
-        onChange={(k) => nav(k === 'registar' ? '/' + vh.s.level + '/dominios/registar' : '/' + vh.s.level + '/dominios')}
+        onChange={(k) => nav('/' + vh.s.level + '/dominios' + ROTA_ABA[k])}
       />
 
       {abaDom === 'registar' ? (
         <div className="dom-registar">
           <DomainSearch isAdmin />
         </div>
+      ) : abaDom === 'subdominios' ? (
+        <Subdominios />
+      ) : abaDom === 'transferir' ? (
+        <TransferirDominio />
       ) : (
         <DataTable
           id="dominios"
+          umaLinha
+          barraFora
+          semBusca={false}
           rows={rows}
           cols={cols}
           rowKey={(r) => r.name}
@@ -586,78 +601,105 @@ export const dominios: ScreenFn = (vh) => {
       {vh.t('Adicionar domínio')}
     </button>
   );
-  if (sub === 'registar') return { title: 'Domínios', actions: novoBtn, crumbs: [{ t: 'Domínios', path: '/' + vh.s.level + '/dominios' }, { t: 'Registar domínio' }], body: <ListaDominios abaDom="registar" /> };
+  const base = { t: 'Domínios', path: '/' + vh.s.level + '/dominios' };
+  if (sub === 'registar') return { title: 'Domínios', actions: novoBtn, crumbs: [base, { t: 'Registar domínio' }], body: <ListaDominios abaDom="registar" /> };
+  if (sub === 'subdominios') return { title: 'Domínios', actions: novoBtn, dominios: 'sites', crumbs: [base, { t: 'Subdomínios' }], body: <ListaDominios abaDom="subdominios" /> };
+  if (sub === 'transferir') return { title: 'Domínios', actions: novoBtn, crumbs: [base, { t: 'Transferir domínio' }], body: <ListaDominios abaDom="transferir" /> };
   if (sub === 'novo') return { title: 'Adicionar domínio', crumbs: [{ t: 'Domínios', path: '/' + vh.s.level + '/dominios' }, { t: 'Adicionar domínio' }], body: <NovoDominio /> };
   if (sub) return { title: sub, desc: 'Resumo e atalhos do domínio', crumbs: [{ t: 'Domínios', path: '/' + vh.s.level + '/dominios' }, { t: sub }], dominioUrl: { d: sub, ir: (n) => '/' + vh.s.level + '/dominios/' + n }, body: <VerDominio d={sub} /> };
   return { title: 'Domínios', actions: novoBtn, body: <ListaDominios /> };
 };
 
-// ---------- Subdomínios ----------
+// ---------- Subdomínios (separador dos Domínios) ----------
+function NovoSubdominio({ d }: { d: string }) {
+  const vh = useVH();
+  const { t, closeM } = vh;
+  const [sub, setSub] = useState('');
+  const criar = async () => {
+    const n = sub.trim().toLowerCase();
+    if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(n)) return vh.toast('Subdomínio: letras, números e hífen');
+    closeM();
+    await noServidor(vh, { acao: 'subdominio-criar', dominio: d, sub: n, ssl: true }, 'Subdomínio ' + n + '.' + d + ' criado');
+  };
+  return (
+    <>
+      <h3>{t('Adicionar subdomínio')}</h3>
+      <p style={{ color: 'var(--muted)', marginBottom: 10 }}>{t('Fica com pasta própria e certificado SSL automático.')}</p>
+      <div className="f">
+        <label>{t('Subdomínio')}</label>
+        <span className="igrp">
+          <input value={sub} onChange={(e) => setSub(e.target.value)} placeholder="ex.: loja" autoFocus onKeyDown={(e) => e.key === 'Enter' && criar()} />
+          <span className="ib" style={{ cursor: 'default' }}>
+            .{d}
+          </span>
+        </span>
+      </div>
+      <div className="mfoot">
+        <button className="btn g" onClick={closeM}>
+          {t('Cancelar')}
+        </button>
+        <button className="btn r" onClick={criar}>
+          <i className="fa-solid fa-plus" />
+          {t('Adicionar subdomínio')}
+        </button>
+      </div>
+    </>
+  );
+}
+
 function Subdominios() {
   const vh = useVH();
   const { a, t, openM } = vh;
   const x = dominioAtual(vh);
-  const [sub, setSub] = useState('');
   if (!x) return <SemDominio />;
   const rows = a.domains.filter((y) => ehSub(y.name, x.name));
-  const criar = async () => {
-    const n = sub.trim().toLowerCase();
-    if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(n)) return vh.toast('Subdomínio: letras, números e hífen');
-    if (await noServidor(vh, { acao: 'subdominio-criar', dominio: x.name, sub: n, ssl: true }, 'Subdomínio ' + n + '.' + x.name + ' criado')) setSub('');
-  };
   return (
-    <>
-      <Contexto d={x.name} />
-      <Frm
-        title="Adicionar subdomínio"
-        foot={
-          <button className="btn r" onClick={criar}>
-            <i className="fa-solid fa-plus" />
-            {t('Adicionar subdomínio')}
-          </button>
-        }
-      >
-        <Row label="Subdomínio" hint="Fica com pasta própria e certificado SSL automático">
-          <span className="igrp">
-            <input value={sub} onChange={(e) => setSub(e.target.value)} placeholder="ex.: loja" />
-            <span className="ib" style={{ cursor: 'default' }}>
-              .{x.name}
-            </span>
-          </span>
-        </Row>
-      </Frm>
-      <DataTable
-        id="subdominios"
-        rows={rows}
-        rowKey={(r) => r.name}
-        search={(r) => r.name}
-        empty="Este domínio ainda não tem subdomínios"
-        cols={[
-          { k: 'nome', t: 'Subdomínio', sort: (r) => r.name, cell: (r) => <b>{r.name}</b> },
-          { k: 'bw', t: 'Tráfego', cell: (r) => r.bw || '—' },
-          { k: 'raiz', t: 'Pasta', cell: (r) => <code>{r.docroot}</code> },
-          { k: 'ssl', t: 'SSL', cell: (r) => <span className={'tag ' + (r.ssl === 'ok' ? 'ok' : 'w')}>{r.ssl === 'ok' ? t('Seguro') : t('Sem SSL')}</span> },
-        ]}
-        bulk={[
-          {
-            t: 'Apagar',
-            fa: 'fa-trash',
-            run: (k) =>
-              openM(
-                <Confirmar
-                  titulo="Apagar subdomínios?"
-                  texto={'Vai apagar ' + k.join(', ') + ' e os ficheiros de cada um.'}
-                  ok="Apagar"
-                  onOk={() => k.reduce<Promise<unknown>>((p, n) => p.then(() => noServidor(vh, { acao: 'dominio-apagar', dominio: n }, 'Apagado: ' + n)), Promise.resolve())}
-                />,
-              ),
-          },
-        ]}
-      />
-    </>
+    <DataTable
+      id="subdominios"
+      umaLinha
+      barraFora
+      semBusca={false}
+      rows={rows}
+      rowKey={(r) => r.name}
+      search={(r) => r.name}
+      empty={t('Este domínio ainda não tem subdomínios') + ' (' + x.name + ')'}
+      barra2={
+        <button className="btn g sm" onClick={() => openM(<NovoSubdominio d={x.name} />)}>
+          <i className="fa-solid fa-plus" />
+          {t('Adicionar subdomínio')}
+        </button>
+      }
+      cols={[
+        { k: 'nome', t: 'Subdomínio', sort: (r) => r.name, cell: (r) => <b>{r.name}</b> },
+        { k: 'bw', t: 'Tráfego', cell: (r) => r.bw || '—' },
+        { k: 'raiz', t: 'Pasta', cell: (r) => <code>{r.docroot}</code> },
+        { k: 'ssl', t: 'SSL', cell: (r) => <span className={'tag ' + (r.ssl === 'ok' ? 'ok' : 'w')}>{r.ssl === 'ok' ? t('Seguro') : t('Sem SSL')}</span> },
+      ]}
+      bulk={[
+        {
+          t: 'Apagar',
+          fa: 'fa-trash',
+          run: (k) =>
+            openM(
+              <Confirmar
+                titulo="Apagar subdomínios?"
+                texto={'Vai apagar ' + k.join(', ') + ' e os ficheiros de cada um.'}
+                ok="Apagar"
+                onOk={() => k.reduce<Promise<unknown>>((p, n) => p.then(() => noServidor(vh, { acao: 'dominio-apagar', dominio: n }, 'Apagado: ' + n)), Promise.resolve())}
+              />,
+            ),
+        },
+      ]}
+    />
   );
 }
-export const subdominios: ScreenFn = () => ({ title: 'Subdomínios', dominios: 'sites', body: <Subdominios /> });
+// o endereço antigo (/subdominios, links e favoritos) abre o separador Subdomínios dos Domínios
+export const subdominios: ScreenFn = (vh) => ({
+  title: 'Domínios',
+  dominios: 'sites',
+  crumbs: [{ t: 'Domínios', path: '/' + vh.s.level + '/dominios' }, { t: 'Subdomínios' }],
+  body: <ListaDominios abaDom="subdominios" />,
+});
 
 // ---------- DNS (organização do modelo DNS central do painel da VisualDesign; adicionar/editar em janela) ----------
 const TIPOS_DNS = ['A', 'AAAA', 'CNAME', 'MX', 'TXT', 'NS', 'SRV', 'CAA'];
