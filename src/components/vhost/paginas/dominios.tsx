@@ -393,7 +393,9 @@ function Nameservers({ d, reg, publicos }: { d: string; reg: Registador; publico
   const { t } = vh;
   const vd = [VISUALDESIGN_DEFAULT_NS.ns1, VISUALDESIGN_DEFAULT_NS.ns2];
   const ehVd = (l: string[]) => l.length >= 2 && l.every((n) => vd.includes(n.toLowerCase().replace(/\.$/, '')));
-  const guardados = reg.info?.nameservers || null;
+  // domínio registado fora: os nameservers públicos, só para ver (mudam-se no registador onde está)
+  const fora = !!reg.erro;
+  const guardados = reg.info?.nameservers || (fora ? publicos || [] : null);
   const [modo, setModo] = useState<'vd' | 'outros'>('vd');
   const [ns1, setNs1] = useState('');
   const [ns2, setNs2] = useState('');
@@ -422,23 +424,18 @@ function Nameservers({ d, reg, publicos }: { d: string; reg: Registador; publico
         </div>
       </div>
       <div className="dom-ns-corpo">
-        {reg.erro ? (
-          <>
-            <p className="dom-ns-aviso">{t(reg.erro)} {t('Os nameservers mudam-se onde o domínio foi registado.')}</p>
-            <div className="dom-ns-atuais">
-              <span>{t('Nameservers atuais')}</span>
-              {(publicos && publicos.length ? publicos : ['—']).map((n) => (
-                <code key={n}>{n}</code>
-              ))}
-            </div>
-          </>
-        ) : !reg.info ? (
+        {!reg.info && !reg.erro ? (
           <ACarregar baixo />
         ) : (
           <>
+            {fora && (
+              <p className="dom-fora">
+                <i className="fa-solid fa-circle-info" /> {t(reg.erro)} {t('Os nameservers mudam-se onde o domínio foi registado.')}
+              </p>
+            )}
             <div className="dom-ns-opcoes">
               <label className={'dom-ns-op' + (modo === 'vd' ? ' on' : '')}>
-                <input type="radio" name={'ns-' + d} checked={modo === 'vd'} onChange={() => setModo('vd')} />
+                <input type="radio" name={'ns-' + d} checked={modo === 'vd'} disabled={fora} onChange={() => setModo('vd')} />
                 <span>
                   <b>{t('DNS predefinido Visual Design')}</b>
                   <small>{vd[0]}</small>
@@ -446,7 +443,7 @@ function Nameservers({ d, reg, publicos }: { d: string; reg: Registador; publico
                 </span>
               </label>
               <label className={'dom-ns-op' + (modo === 'outros' ? ' on' : '')}>
-                <input type="radio" name={'ns-' + d} checked={modo === 'outros'} onChange={() => setModo('outros')} />
+                <input type="radio" name={'ns-' + d} checked={modo === 'outros'} disabled={fora} onChange={() => setModo('outros')} />
                 <span>
                   <b>{t('Nameservers personalizados')}</b>
                   <small>{t('Aponta este domínio para os nameservers indicados (ex.: Cloudflare, outro fornecedor).')}</small>
@@ -457,16 +454,16 @@ function Nameservers({ d, reg, publicos }: { d: string; reg: Registador; publico
               <div className="dom-ns-campos">
                 <label>
                   <span>NS1</span>
-                  <input className="inp" value={ns1} onChange={(e) => setNs1(e.target.value)} placeholder="ns1.exemplo.com" />
+                  <input className="inp" value={ns1} disabled={fora} onChange={(e) => setNs1(e.target.value)} placeholder="ns1.exemplo.com" />
                 </label>
                 <label>
                   <span>NS2</span>
-                  <input className="inp" value={ns2} onChange={(e) => setNs2(e.target.value)} placeholder="ns2.exemplo.com" />
+                  <input className="inp" value={ns2} disabled={fora} onChange={(e) => setNs2(e.target.value)} placeholder="ns2.exemplo.com" />
                 </label>
               </div>
             )}
             <div>
-              <button className="btn r" disabled={!mudou || aGuardar} onClick={guardar}>
+              <button className="btn r" disabled={fora || !mudou || aGuardar} onClick={guardar}>
                 <i className={aGuardar ? 'fa-solid fa-spinner fa-spin' : 'fa-solid fa-check'} />
                 {t(aGuardar ? 'A guardar…' : 'Guardar alterações')}
               </button>
@@ -491,40 +488,26 @@ function RegistoDominio({ d, reg }: { d: string; reg: Registador }) {
     setAPedir('');
     return j;
   };
-  // domínio registado noutro sítio: renovação, trava e EPP fazem-se lá; aqui só se diz isso e como o trazer
-  if (reg.erro)
-    return (
-      <div className="frm dom-reg" id="dom-reg">
-        <div className="frm-head">
-          <div>
-            <h3>{t('Registo do domínio')}</h3>
-            <p>{t('Renovação, transferência e contactos no registador')}</p>
-          </div>
-        </div>
-        <div className="dom-ns-corpo">
-          <p className="dom-ns-aviso">
-            {t(reg.erro)} {t('A renovação, a trava de registo e o código EPP tratam-se no registador onde está.')}
-          </p>
-          <div>
-            <button className="btn g" onClick={() => vh.nav('/' + vh.s.level + '/dominios/transferir')}>
-              <i className="fa-solid fa-share" />
-              {t('Transferir para a Visual Design')}
-            </button>
-          </div>
-        </div>
-      </div>
-    );
+  // domínio registado fora da Visual Design: a mesma página, com "—" e os controlos desativados (nunca valores
+  // inventados — pedido do Silva, 13/10/2026)
+  const fora = !!reg.erro;
   const i = reg.info;
   const c = i?.contactPreview;
-  const sk = <span className="dom-a-ler">…</span>;
+  const sk = <span className="dom-a-ler">{fora ? '—' : '…'}</span>;
   return (
-    <div className="frm dom-reg" id="dom-reg">
+    <div className={'frm dom-reg' + (fora ? ' dom-reg-fora' : '')} id="dom-reg">
       <div className="frm-head">
         <div>
           <h3>{t('Registo do domínio')}</h3>
           <p>{t('Renovação, transferência e contactos no registador')}</p>
         </div>
       </div>
+      {fora && (
+        <p className="dom-fora">
+          <i className="fa-solid fa-circle-info" /> {t(reg.erro)} {t('A renovação, a trava de registo e o código EPP tratam-se no registador onde está.')}{' '}
+          <a onClick={() => vh.nav('/' + vh.s.level + '/dominios/transferir')}>{t('Transferir para a Visual Design')}</a>
+        </p>
+      )}
       <div className="dom-info-grelha">
         <div className="dom-info-l">
           <span>{t('Registado em')}</span>
@@ -549,6 +532,11 @@ function RegistoDominio({ d, reg }: { d: string; reg: Registador }) {
                 />
                 <small>{t(i.autoRenew ? 'Ligada' : 'Desligada')}</small>
               </>
+            ) : fora ? (
+              <>
+                <Switch checked={false} label={t('Renovação automática')} onChange={() => {}} />
+                <small>—</small>
+              </>
             ) : (
               sk
             )}
@@ -569,6 +557,11 @@ function RegistoDominio({ d, reg }: { d: string; reg: Registador }) {
                 />
                 <small>{t(i.isLocked ? 'Bloqueado — desligue para transferir' : 'Desbloqueado para transferir')}</small>
               </>
+            ) : fora ? (
+              <>
+                <Switch checked={false} label={t('Trava de registo')} onChange={() => {}} />
+                <small>—</small>
+              </>
             ) : (
               sk
             )}
@@ -588,7 +581,7 @@ function RegistoDominio({ d, reg }: { d: string; reg: Registador }) {
             ) : (
               <button
                 className="btn g sm"
-                disabled={!i || aPedir === 'epp'}
+                disabled={!i || fora || aPedir === 'epp'}
                 onClick={async () => {
                   const j = await pedir('epp', { action: 'auth-code' });
                   if (j?.authCode) setEpp(String(j.authCode));
@@ -612,6 +605,14 @@ function RegistoDominio({ d, reg }: { d: string; reg: Registador }) {
                 <span>{c ? [c.name, c.email].filter(Boolean).join(' · ') : '—'}</span>
                 <button className="btn g sm" disabled={aPedir === 'contactos'} onClick={() => pedir('contactos', { action: 'set-contacts' })}>
                   <i className={aPedir === 'contactos' ? 'fa-solid fa-spinner fa-spin' : 'fa-solid fa-address-card'} />
+                  {t('Atualizar com os dados da conta')}
+                </button>
+              </>
+            ) : fora ? (
+              <>
+                <span>—</span>
+                <button className="btn g sm" disabled>
+                  <i className="fa-solid fa-address-card" />
                   {t('Atualizar com os dados da conta')}
                 </button>
               </>
@@ -715,11 +716,11 @@ function VerDominio({ d }: { d: string }) {
         {(
           [
             ['dom-info', 'fa-circle-info', 'Visão geral', true],
-            ['dom-renovacao', 'fa-rotate', 'Renovação automática', !reg.erro],
-            ['dom-ns', 'fa-server', 'Servidores de nome', !x.soEmail],
-            ['dom-trava', 'fa-lock', 'Trava de registo', !reg.erro],
-            ['dom-contactos', 'fa-address-card', 'Informações de contacto', !reg.erro],
-            ['dom-epp', 'fa-key', 'Obter código EPP', !reg.erro],
+            ['dom-renovacao', 'fa-rotate', 'Renovação automática', true],
+            ['dom-ns', 'fa-server', 'Servidores de nome', true],
+            ['dom-trava', 'fa-lock', 'Trava de registo', true],
+            ['dom-contactos', 'fa-address-card', 'Informações de contacto', true],
+            ['dom-epp', 'fa-key', 'Obter código EPP', true],
           ] as [string, string, string, boolean][]
         )
           .filter(([, , , v]) => v && !x.soEmail)
@@ -730,11 +731,16 @@ function VerDominio({ d }: { d: string }) {
             </button>
           ))}
         <h4>{t('Ações')}</h4>
-        {reg.renovacao && (
+        {reg.renovacao ? (
           <a className="dom-op" href={'/renovacao/iniciar/domain/' + reg.renovacao}>
             <i className="fa-solid fa-rotate-right" />
             {t('Renovar domínio')}
           </a>
+        ) : (
+          <button className="dom-op" disabled title={t('Renova-se no registador onde o domínio está')}>
+            <i className="fa-solid fa-rotate-right" />
+            {t('Renovar domínio')}
+          </button>
         )}
         <button className="dom-op" onClick={() => nav('/' + vh.s.level + '/dominios/registar')}>
           <i className="fa-solid fa-globe" />

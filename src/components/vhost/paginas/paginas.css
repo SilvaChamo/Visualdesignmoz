@@ -1175,3 +1175,9 @@
 .vh .a-carregar{display:grid;place-items:center;min-height:260px;color:var(--red)}
 .vh .a-carregar.baixo{min-height:90px}
 .vh .dom-a-ler{color:var(--muted)}
+.vh .dom-fora{margin:0;padding:10px 18px 0;color:var(--muted);font-size:12.5px;line-height:1.5}
+.vh .dom-ns-corpo>.dom-fora{padding:0}
+.vh .dom-fora a{color:var(--red);cursor:pointer;font-weight:600}
+.vh .dom-opcoes .dom-op:disabled{opacity:.45;cursor:default;background:none;color:var(--ink)}
+.vh .dom-opcoes .dom-op:disabled i{color:var(--muted)}
+.vh .dom-ns-op:has(input:disabled){cursor:default}
