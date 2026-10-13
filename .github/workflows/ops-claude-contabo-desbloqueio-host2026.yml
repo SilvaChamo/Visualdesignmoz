@@ -8,7 +8,7 @@ name: "Ops - Contabo: desbloqueia os IPs de Moçambique desta noite + host. vai 
 #     ("nem no hestia, nem no painel, nem local, nem online"). Desbloqueia SÓ esses IPs, e só se o registo
 #     (RDAP/whois) disser que são de Moçambique; mostra antes qual serviço causou o bloqueio (para não voltar).
 #  2) Depois de a versão nova (PR #47) estar no ar, o host. (443/80 e porta 2026, incluindo /evo/) passa a
-#     redireccionar directamente para https://visualdesignmoz.com/host:2026/ (um só salto, em vez de dois).
+#     redireccionar directamente para https://visualdesignmoz.com/host:2026 (um só salto, em vez de dois).
 #     Cópia de segurança antes; se o nginx -t falhar, repõe como estava.
 # Não imprime segredos. Corre só quando este ficheiro muda no ramo claude/kind-einstein-r6lyf6.
 # ============================================================================
@@ -66,7 +66,8 @@ jobs:
             echo "===== 2. esperar pela versão nova (PR #47) ====="
             NOVA=0
             for i in $(seq 1 60); do
-              R=$(curl -s -o /dev/null -w "%{redirect_url}" --max-time 15 https://visualdesignmoz.com/vhost/2026/)
+              # sem a barra final: com ela, o Next responde primeiro só a tirar a barra (antes do proxy)
+              R=$(curl -s -o /dev/null -w "%{redirect_url}" --max-time 15 https://visualdesignmoz.com/vhost/2026)
               case "$R" in *"/host:2026"*) NOVA=1; break;; esac
               sleep 20
             done
@@ -83,7 +84,8 @@ jobs:
             BK=/root/visualhost-backup-$(date +%Y%m%d%H%M%S)
             mkdir -p "$BK" && cp -a "$P2026" "$DIR/nginx.ssl.conf_vhost2026" "$DIR/nginx.conf_vhost2026" "$BK"/ 2>/dev/null
             echo "  cópia de segurança em $BK"
-            sed -i 's#https://visualdesignmoz.com/vhost/2026/#https://visualdesignmoz.com/host:2026/#g' "$P2026" "$DIR/nginx.ssl.conf_vhost2026" "$DIR/nginx.conf_vhost2026"
+            # sem a barra final (o Next tiraria a barra com mais um salto)
+            sed -i 's#https://visualdesignmoz.com/vhost/2026/#https://visualdesignmoz.com/host:2026#g' "$P2026" "$DIR/nginx.ssl.conf_vhost2026" "$DIR/nginx.conf_vhost2026"
             grep -h "return\|error_page" "$P2026" "$DIR/nginx.ssl.conf_vhost2026" | sed 's/^ */  /'
             if nginx -t >/dev/null 2>&1; then
               systemctl reload nginx && echo "  nginx recarregado"
@@ -99,6 +101,6 @@ jobs:
             echo
             echo "===== 4. verificação ====="
             sleep 2
-            for u in https://host.visualdesignmoz.com:2026/evo/ https://host.visualdesignmoz.com:2026/ https://host.visualdesignmoz.com/ https://visualdesignmoz.com/host:2026/ https://visualdesignmoz.com/vhost/2026/ https://visualdesignmoz.com/login https://visualdesignmoz.com/; do
+            for u in https://host.visualdesignmoz.com:2026/evo/ https://host.visualdesignmoz.com:2026/ https://host.visualdesignmoz.com/ https://visualdesignmoz.com/host:2026 https://visualdesignmoz.com/host:2026/ https://visualdesignmoz.com/vhost/2026 https://visualdesignmoz.com/login https://visualdesignmoz.com/; do
               echo -n "  $u -> "; curl -s -o /tmp/r.html -w "%{http_code} %{redirect_url}" --max-time 20 "$u"; echo " | $(grep -o '<title>[^<]*' /tmp/r.html | head -1)"; rm -f /tmp/r.html
             done
