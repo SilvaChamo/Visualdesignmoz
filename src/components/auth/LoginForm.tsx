@@ -16,7 +16,6 @@ import {
   authCardClass,
   authErrorBoxClass,
   authLinkClass,
-  authMutedTextClass,
   authPrimaryBtnClass,
 } from '@/components/auth/auth-styles'
 
@@ -114,8 +113,9 @@ function LoginFormInner() {
         <img src="/assets/logotipoII.png" alt="VisualDesign" className="hidden h-[96px] w-auto object-contain dark:block" />
       </a>
 
-      <h1 className="text-[28px] font-semibold leading-tight tracking-tight text-zinc-900 dark:text-zinc-50">{t('login.title')}</h1>
-      <p className="mt-2 text-[15px] text-zinc-500 dark:text-zinc-400">{t('login.subtitle')}</p>
+      {/* no telemóvel e no tablet tudo ao centro (pedido do Silva, 13/10/2026) */}
+      <h1 className="text-center text-[28px] font-semibold leading-tight tracking-tight text-zinc-900 dark:text-zinc-50 lg:text-left">{t('login.title')}</h1>
+      <p className="mt-2 text-center text-[15px] text-zinc-500 dark:text-zinc-400 lg:text-left">{t('login.subtitle')}</p>
 
       {error && <div className={`mt-6 ${authErrorBoxClass}`}>{error}</div>}
 
@@ -180,16 +180,21 @@ function LoginFormInner() {
               )}
             </button>
           </CampoFlutuante>
-          <div className="mt-2 text-right">
-            <a href="/auth/forgot-password" className={`text-xs ${authLinkClass}`}>
-              {t('login.forgot')}
-            </a>
-          </div>
         </div>
 
         <button type="submit" disabled={loading} className={`h-11 w-full ${authPrimaryBtnClass} text-[15px] font-semibold`}>
           {loading ? t('login.signingIn') : t('login.signIn')}
         </button>
+
+        {/* por baixo do Entrar: recuperar a palavra-passe à esquerda, registar à direita */}
+        <div className="-mt-1 flex items-center justify-between gap-4 text-sm">
+          <a href="/auth/forgot-password" className={authLinkClass}>
+            {t('login.forgot')}
+          </a>
+          <a href="/auth/register" className={authLinkClass}>
+            {t('login.register')}
+          </a>
+        </div>
 
         <div className="flex items-center gap-3 text-xs uppercase tracking-wide text-zinc-400">
           <span className="h-px flex-1 bg-zinc-200 dark:bg-[#393e4d]" />
@@ -213,12 +218,6 @@ function LoginFormInner() {
         </button>
       </form>
 
-      <p className={`mt-8 text-center ${authMutedTextClass}`}>
-        {t('login.noAccount')}{' '}
-        <a href="/auth/register" className={authLinkClass}>
-          {t('login.register')}
-        </a>
-      </p>
     </LoginDividido>
   )
 }

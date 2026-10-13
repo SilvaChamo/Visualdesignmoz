@@ -60,7 +60,7 @@ export function LoginDividido({ children }: { children: React.ReactNode }) {
 
       <section className="relative flex min-h-screen flex-col">
         <BotoesCanto />
-        <div className="flex flex-1 items-center justify-center px-6 pb-10 pt-20">
+        <div className="flex flex-1 items-center justify-center px-6 pb-10 pt-8 lg:pt-20">
           <div className="w-full max-w-[400px]">{children}</div>
         </div>
         <footer className="pb-6 text-center text-xs text-zinc-400 dark:text-zinc-500">
@@ -80,7 +80,8 @@ export function LoginDividido({ children }: { children: React.ReactNode }) {
   )
 }
 
-/** Canto de cima à direita: modo claro · automático · escuro e a língua, com as medidas da entrada do painel */
+/** Canto de cima à direita: modo claro · automático · escuro e a língua, com as medidas da entrada do painel. No
+ *  telemóvel e no tablet (sem a imagem) ficam ao centro, num cabeçalho com uma linha por baixo (pedido do Silva) */
 function BotoesCanto() {
   const { theme, setTheme } = useTheme()
   const { lang, toggleLang } = useI18n()
@@ -130,7 +131,7 @@ function BotoesCanto() {
     ['dark', Moon, lang === 'en' ? 'Dark' : 'Escuro'],
   ]
   return (
-    <div className="absolute right-4 top-[10px] z-20 flex items-center gap-4 sm:gap-[34px]">
+    <div className="relative z-20 flex items-center justify-center gap-6 border-b border-zinc-200 px-4 py-3 dark:border-[#393e4d] sm:gap-[34px] lg:absolute lg:right-4 lg:top-[10px] lg:justify-end lg:border-0 lg:p-0">
       <div className="relative flex items-center gap-[14px]" role="radiogroup" aria-label={lang === 'en' ? 'Theme' : 'Tema'}>
         <span aria-hidden className="absolute left-[18px] right-[18px] top-1/2 h-px bg-zinc-900/20 dark:bg-white/25" />
         {modos.map(([m, Icone, nome]) => (
@@ -164,7 +165,7 @@ function BotoesCanto() {
           {lang === 'en' ? 'English' : 'Português'}
         </button>
         {linguas && (
-          <div className="absolute right-[-16px] top-[calc(100%+12px)] z-30 w-[180px] overflow-hidden rounded-l-[10px] border border-r-0 border-red-600 bg-white shadow-[0_14px_34px_rgba(0,0,0,0.22)] dark:bg-[#272a34]">
+          <div className="absolute right-0 top-[calc(100%+12px)] z-30 w-[180px] overflow-hidden rounded-[10px] border border-red-600 lg:right-[-16px] lg:rounded-r-none lg:border-r-0 bg-white shadow-[0_14px_34px_rgba(0,0,0,0.22)] dark:bg-[#272a34]">
             {(
               [
                 ['pt', 'Português'],

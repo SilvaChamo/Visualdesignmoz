@@ -14,3 +14,12 @@ export function versaoBuild(): string {
   }
   return versao;
 }
+
+/** Quando foi feita a versão que está a ser servida (hora do BUILD_ID), ou null em desenvolvimento */
+export function quandoBuild(): Date | null {
+  try {
+    return fs.statSync(path.join(process.cwd(), '.next', 'BUILD_ID')).mtime;
+  } catch {
+    return null;
+  }
+}
