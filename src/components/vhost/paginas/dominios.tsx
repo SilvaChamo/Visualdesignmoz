@@ -518,47 +518,67 @@ function VerDominio({ d }: { d: string }) {
   };
 
   const ir = (p: string) => nav('/utilizador/' + p);
-  const atalhos: [string, string, string, string][] = [
-    ['subdominios', 'fa-sitemap', 'Subdomínios', a.domains.filter((y) => ehSub(y.name, d)).length + ''],
-    ['apontadores', 'fa-arrow-right-arrow-left', 'Apontadores', (x.aliases || []).length + ''],
-    ['ssl', 'fa-lock', 'SSL/TLS', x.ssl === 'ok' ? t('Seguro') : t('Sem SSL')],
-    ['ftp', 'fa-folder-open', 'FTP', (x.ftp || []).length + ''],
-    ['dns', 'fa-network-wired', 'DNS', det ? (det.dns.fonte === 'cloudflare' ? 'Cloudflare' : det.dns.fonte === 'hestia' ? t('servidor') : '—') : '…'],
-    ['redirecionamentos', 'fa-diamond-turn-right', 'Redirecionamentos', det?.redirecionamento ? '1' : '0'],
-    ['php', 'fa-brands fa-php', 'Definições PHP', x.php],
-    ['hotlink', 'fa-link-slash', 'Proteção hotlink', ''],
+  const nSubs = a.domains.filter((y) => ehSub(y.name, d)).length;
+  const info: [string, ReactNode, string?][] = [
+    [
+      'Estado',
+      <>
+        <span className={'tag ' + (x.status === 'ok' ? 'ok' : 'off')}>{x.status === 'ok' ? t('Ativo') : t('Suspenso')}</span>
+        {x.soEmail && <span className="tag off">{t('Só e-mail')}</span>}
+        {x.wp && <span className="tag ok">WordPress</span>}
+      </>,
+    ],
+    ['Espaço em disco', x.disk],
+    ...(x.soEmail
+      ? []
+      : ([
+          ['Tráfego', x.bw || '—'],
+          [
+            'Certificado SSL',
+            det?.certificado ? (
+              <>
+                {det.certificado.emissor || t('Certificado')} · {t('válido até')} {det.certificado.ate}
+              </>
+            ) : det ? (
+              <span className="tag w">{t('Sem certificado')}</span>
+            ) : (
+              <span className="sk" style={{ width: 120 }} />
+            ),
+            'ssl',
+          ],
+          ['Versão PHP', 'PHP ' + x.php, 'php'],
+          ['DNS', det ? (det.dns.fonte === 'cloudflare' ? 'Cloudflare' : det.dns.fonte === 'hestia' ? t('Neste servidor') : t('Fora da Visual Design')) : <span className="sk" style={{ width: 90 }} />, 'dns'],
+          ['Subdomínios', String(nSubs), 'subdominios'],
+          ['Apontadores', String((x.aliases || []).length), 'apontadores'],
+          ['Contas FTP', String((x.ftp || []).length), 'ftp'],
+          ['Redirecionamento', det ? (det.redirecionamento ? det.redirecionamento.url : t('Nenhum')) : <span className="sk" style={{ width: 90 }} />, 'redirecionamentos'],
+          ['Proteção hotlink', t('Configurar'), 'hotlink'],
+          ['Pasta do site', <code key="p">{x.docroot}</code>],
+        ] as [string, ReactNode, string?][])),
   ];
   return (
     <>
       <div className="dom-gestao">
       <div className="dom-principal">
-      <div className="dom-topo">
-      <Frm title="Resumo">
-        <Row label="Estado">
-          <span className={'tag ' + (x.status === 'ok' ? 'ok' : 'off')}>{x.status === 'ok' ? t('Ativo') : t('Suspenso')}</span>
-          {x.soEmail && <span className="tag off">{t('Só e-mail')}</span>}
-          {x.wp && <span className="tag ok">WordPress</span>}
-        </Row>
-        <Row label="Espaço em disco">{x.disk}</Row>
-        {!x.soEmail && <Row label="Tráfego">{x.bw || '—'}</Row>}
-        {!x.soEmail && <Row label="Pasta do site">{<code>{x.docroot}</code>}</Row>}
-        {!x.soEmail && <Row label="Versão PHP">{x.php}</Row>}
-        {!x.soEmail && (
-          <Row label="Certificado SSL">
-            {det?.certificado ? (
-              <span>
-                {det.certificado.emissor || t('Certificado')} · {t('válido até')} {det.certificado.ate}
-              </span>
-            ) : det ? (
-              <span className="tag w">{t('Sem certificado')}</span>
-            ) : (
-              <span style={{ color: 'var(--muted)' }}>…</span>
-            )}
-          </Row>
-        )}
-      </Frm>
-      {!x.soEmail && <Nameservers d={d} publicos={det?.ns} />}
+      {/* um só cartão com as informações do domínio, em duas colunas (pedido do Silva, 13/10/2026: o que estava nos
+          cartões do fundo da página entra aqui; cada linha com página própria abre-a) */}
+      <div className="frm dom-info">
+        <div className="frm-head">
+          <div>
+            <h3>{t('Informações do domínio')}</h3>
+          </div>
+        </div>
+        <div className="dom-info-grelha">
+          {info.map(([rot, valor, p]) => (
+            <div key={rot} className={'dom-info-l' + (p ? ' lk' : '')} onClick={p ? () => ir(p) : undefined}>
+              <span>{t(rot)}</span>
+              <div>{valor}</div>
+              {p && <i className="fa-solid fa-chevron-right" />}
+            </div>
+          ))}
+        </div>
       </div>
+      {!x.soEmail && <Nameservers d={d} publicos={det?.ns} />}
 
       {!x.soEmail && (
         <Frm
@@ -649,21 +669,6 @@ function VerDominio({ d }: { d: string }) {
       )}
 
       {erro && <Carregar erro={erro} ler={ler} />}
-      {!x.soEmail && (
-        <div className="tema-cats">
-          {atalhos.map(([p, fa, titulo, sub]) => (
-            <div key={p} className="card tool" onClick={() => ir(p)}>
-              <div className="ic c6" style={{ width: 30, height: 30, fontSize: 20 }}>
-                <i className={fa.startsWith('fa-brands') ? fa : 'fa-solid ' + fa} />
-              </div>
-              <div>
-                <b>{t(titulo)}</b>
-                <span>{sub}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
       </div>
       {/* opções do domínio numa barra lateral à direita (pedido do Silva, 13/10/2026), em vez da fila de botões */}
       <aside className="dom-opcoes">
@@ -1078,6 +1083,14 @@ function Dns() {
       {dns.fonte === 'nenhuma' ? (
         <div className="note">{t('O DNS deste domínio não está neste servidor nem na Cloudflare da VisualDesign: os registos mudam-se onde o domínio foi registado.')}</div>
       ) : (
+        <>
+        {/* modelo global (regra do Silva, 13/10/2026): os filtros por tipo são os separadores — a faixa cinzenta que abre
+            o cartão principal — e o "Ações" fica à direita dessa faixa */}
+        <Tabs<string>
+          tabs={['', 'A', 'CNAME', 'MX', 'TXT', 'SRV', 'NS'].map((f) => [f || 'todos', f || 'Todos'] as [string, string])}
+          on={filtro || 'todos'}
+          onChange={(k) => setFiltro(k === 'todos' ? '' : k)}
+        />
         <DataTable
           id="dns"
           rows={rows}
@@ -1085,21 +1098,8 @@ function Dns() {
           rowClass={(r) => (r.id === editId ? 'dns-row-editando' : '')}
           search={(r) => r.nome + ' ' + r.valor}
           onRecarregar={ler}
-          cabecalho={
-            <div className="dns-filtros">
-              {['', 'A', 'CNAME', 'MX', 'TXT', 'SRV', 'NS'].map((f) => (
-                <button key={f} className={'btn sm ' + (filtro === f ? 'filtro-on' : 'g')} onClick={() => setFiltro(f)}>
-                  {f || t('Todos')}
-                </button>
-              ))}
-            </div>
-          }
-          fimBarra={
-            <button className="btn r sm dns-novo" onClick={() => openM(<DnsForm d={x.name} fonte={dns.fonte} onFeito={ler} />)}>
-              <i className="fa-solid fa-plus" />
-              {t('Adicionar registo')}
-            </button>
-          }
+          umaLinha
+          barraFora
           empty="Nenhum registo encontrado para este filtro"
           cols={[
             {
@@ -1251,13 +1251,30 @@ function Dns() {
               </span>
             );
           }}
-          bulk={[{ t: 'Remover', fa: 'fa-trash', run: (k) => remover(k, 'Vai remover ' + k.length + ' registo(s) de ' + x.name + '.') }]}
+          bulk={[
+            { t: 'Remover', fa: 'fa-trash', run: (k) => remover(k, 'Vai remover ' + k.length + ' registo(s) de ' + x.name + '.') },
+          ]}
         />
+        </>
       )}
     </>
   );
 }
-export const dnsPagina: ScreenFn = () => ({ title: 'DNS', body: <Dns /> });
+/** "+ Adicionar registo" na barra de cima (regra do Silva: o "+ Adicionar…" principal vai para a barra de cima quando
+ *  está livre); usa a mesma leitura do DNS que a página (memória comum), e a tabela atualiza-se sozinha */
+function NovoRegistoDns() {
+  const vh = useVH();
+  const x = dominioAtual(vh, false);
+  const { det, ler } = useDetalhe(x?.name || '', 'dns');
+  if (!x || !det || det.dns.fonte === 'nenhuma') return null;
+  return (
+    <button className="btn r" onClick={() => vh.openM(<DnsForm d={x.name} fonte={det.dns.fonte} onFeito={ler} />)}>
+      <i className="fa-solid fa-plus" />
+      {vh.t('Adicionar registo')}
+    </button>
+  );
+}
+export const dnsPagina: ScreenFn = () => ({ title: 'DNS', actions: <NovoRegistoDns />, body: <Dns /> });
 
 // ---------- SSL/TLS ----------
 function CertificadoModal({ d, onFeito }: { d: string; onFeito: () => void }) {

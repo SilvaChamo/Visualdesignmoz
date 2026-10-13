@@ -39,6 +39,11 @@ para o outro) fica na memória `project_dual-folder-git-topology`.
 
 - **Nunca pesquisa à esquerda por cima do cartão principal** (regra do Silva, 13/10/2026: "não coloque mais"). A
   "Busca" da barra de cima já procura na página aberta. Sem exceções (a Força bruta também segue o modelo).
+- **MODELO GLOBAL DO PAINEL — vale para TODAS as páginas, não só para a que se está a mexer** (o Silva já teve de o
+  repetir várias vezes). Antes de entregar qualquer página, confirmar estes pontos um a um.
+- **Toda a página com tabela de caixas de seleção abre o cartão principal com a faixa cinzenta de separadores.** Se a
+  página não tem separadores mas tem filtros (ex.: DNS — Todos, A, CNAME, MX…), **os filtros são os separadores** e
+  vão para essa faixa (`Tabs`). Nunca filtros soltos numa linha de botões por cima da tabela.
 - **Faixa dos separadores (cabeçalho do cartão principal) = só o botão "Ações", à direita**, sempre visível nas
   tabelas da página. **Nenhum botão por cima do cartão nem na faixa:** todas as ações da página vão para **dentro do
   menu "Ações"** (regra do Silva, 13/10/2026), por exemplo "Adicionar subdomínio", "Marcar todas como lidas" ou
