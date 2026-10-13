@@ -1154,7 +1154,7 @@
 .vh .dom-ns-aviso{color:var(--muted);font-size:13px;margin:0}
 .vh .dom-ns-atuais{display:flex;flex-direction:column;gap:6px;font-size:13px}
 .vh .dom-ns-atuais span{font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase}
-@media(max-width:1000px){.vh .dom-gestao{grid-template-columns:minmax(0,1fr)}.vh .dom-opcoes{position:static;order:-1}}
+@media(max-width:1000px){.vh .dom-gestao{grid-template-columns:minmax(0,1fr)}.vh .dom-opcoes{position:static}}
 
 /* cartão "Informações do domínio": um só cartão, linhas em duas colunas; as linhas com página própria abrem-na */
 .vh .dom-info-grelha{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:28px;padding:4px 18px 8px}
@@ -1167,3 +1167,9 @@
 @media(max-width:900px){.vh .dom-info-grelha{grid-template-columns:minmax(0,1fr)}}
 .vh .dom-info-larga{grid-column:1 / -1}
 .vh .dom-info-l small{color:var(--muted);font-size:12px}
+.vh .dom-info-l .btn{white-space:normal;height:auto;min-height:30px;text-align:left}
+/* telemóvel: o nome de cada informação por cima do valor */
+@media(max-width:600px){
+ .vh .dom-info-l{grid-template-columns:minmax(0,1fr) 14px;row-gap:4px}
+ .vh .dom-info-l>span{grid-column:1 / -1;font-size:12px}
+}
