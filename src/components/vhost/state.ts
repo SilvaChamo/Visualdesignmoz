@@ -7,7 +7,9 @@ import { dbInicial, featsEfetivas, pacoteCompleto, type Db } from './paginas/dad
 import type { Pessoa, Servidor, ZonaDns } from './servidor';
 import type { CustomComponents } from './theme';
 
-export const BASE = '/vhost';
+// Endereço único do painel (pedido do Silva, 13/10/2026): o painel vive todo em /vhost/2026/…; o /vhost antigo e o
+// host.visualdesignmoz.com redireccionam para aqui (src/proxy.ts e nginx).
+export const BASE = '/vhost/2026';
 /** Símbolo da VisualDesign (o mesmo ficheiro que VisualHost/assets/vd-simbolo.png) */
 export const LOGO = '/icons/icon-96x96.png';
 

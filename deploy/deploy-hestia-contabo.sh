@@ -57,7 +57,7 @@ for key in "${env_keys[@]}"; do
 done
 
 env_args+=(
-  "NEXT_PUBLIC_SITE_URL=https://teste.visualdesignmoz.com"
+  "NEXT_PUBLIC_SITE_URL=https://visualdesignmoz.com"
   "NEXT_PUBLIC_SERVER_IP=169.58.148.144"
   "DEFAULT_HOSTING_PROVIDER=hestia"
   "NEXT_PUBLIC_DEFAULT_HOSTING_PROVIDER=hestia"
