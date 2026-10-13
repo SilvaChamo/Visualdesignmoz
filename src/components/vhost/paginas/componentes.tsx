@@ -214,6 +214,7 @@ export function DataTable<T>({
   acoesDiretas = false,
   comSelecao = false,
   onSelChange,
+  umaLinha = false,
 }: {
   id: string;
   rows: T[];
@@ -249,6 +250,9 @@ export function DataTable<T>({
   acoesDiretas?: boolean;
   /** ativa a coluna de checkboxes de seleção nas linhas e cabeçalho */
   comSelecao?: boolean;
+  /** "Ações", os botões da barra2 e a pesquisa (30% da largura) numa linha só — regra do Silva (13/10/2026): nunca
+   *  duas linhas de botões. Só para barra2 com botões; uma barra2 com um bloco de título/números fica por cima. */
+  umaLinha?: boolean;
   /** notifica chaves das linhas selecionadas */
   onSelChange?: (keys: string[]) => void;
 }) {
@@ -414,8 +418,29 @@ export function DataTable<T>({
     </div>
   );
 
+  const recarregar = !semRecarregar && (
+    <button className="btn g sm iconbtn" title={t('Atualizar')} onClick={() => (onRecarregar ? onRecarregar() : toast('Tabela atualizada'))}>
+      <i className="fa-solid fa-rotate" />
+    </button>
+  );
+
   return (
     <>
+      {umaLinha ? (
+        // tudo numa linha: à esquerda Ações e os botões da página, à direita a pesquisa (30%), colunas e páginas
+        <div className={'dt-bar dt-uma-linha' + (cabecalho ? ' com-cab' : '')}>
+          {cabecalho}
+          {inicioBarra2}
+          {menuAcoes(true)}
+          {barra2}
+          <span className="sp" />
+          {pesquisa}
+          {colunas}
+          {recarregar}
+          {paginas > 1 && paginador}
+          {fimBarra}
+        </div>
+      ) : (
       <div className={'dt-bar' + (cabecalho ? ' com-cab' : '') + (acoesFixas ? ' dt-fixas' : '')}>
         {acoesFixas && colunas}
         {acoesFixas && !barra2 && menuAcoes(true)}
@@ -424,15 +449,12 @@ export function DataTable<T>({
         {!acoesFixas && !barra2 && menuAcoes(false)}
         {pesquisa}
         {!acoesFixas && colunas}
-        {!semRecarregar && (
-          <button className="btn g sm iconbtn" title={t('Atualizar')} onClick={() => (onRecarregar ? onRecarregar() : toast('Tabela atualizada'))}>
-            <i className="fa-solid fa-rotate" />
-          </button>
-        )}
+        {recarregar}
         {!paginasNaBarra2 && paginas > 1 && paginador}
         {fimBarra}
       </div>
-      {barra2 && (
+      )}
+      {barra2 && !umaLinha && (
         <div className="dt-bar dt-barra2">
           {inicioBarra2}
           {menuAcoes(true)}

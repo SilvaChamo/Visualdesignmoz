@@ -18,6 +18,14 @@ depois de confirmadas aqui, através do fluxo normal de PR
 Detalhe completo desta topologia (portas, branches, como trazer alterações de um lado
 para o outro) fica na memória `project_dual-folder-git-topology`.
 
+# Regras de layout do Silva (valem para todas as páginas, sempre)
+
+- **Nunca duas linhas de botões.** Se uma página precisa de botões, ficam todos na mesma linha. A pesquisa também
+  fica nessa linha, nunca numa linha à parte por cima ou por baixo dos botões. Nas tabelas do painel VisualHost
+  (`DataTable` em `src/components/vhost/paginas/componentes.tsx`) usa-se `umaLinha`: "Ações" e os botões da página à
+  esquerda, a pesquisa à direita.
+- **A pesquisa ocupa 30% da largura da secção** (com um mínimo de 200px; no telemóvel ocupa a largura toda).
+
 # Verificação visual de alterações de UI
 
 Antes de reportar qualquer alteração visual (CSS/layout/alinhamentos) como concluída,
