@@ -9,6 +9,7 @@ import { contas, modelos, mover, novaConta, senhas } from './paginas/contas';
 import { pacotes } from './paginas/pacotes';
 import { estatisticasPagina, ficheirosPagina, infoSistemaPagina, logsPagina, perlPagina, recursosPagina, terminalPagina } from './paginas/sistema';
 import { backupsPagina, chavesPagina, clamavPagina, cronPagina, gitPagina, handlersPagina, modsecPagina, protegidasPagina, sshPagina, wordpressPagina } from './paginas/avancado';
+import { forcaBrutaPagina } from './paginas/forca-bruta';
 import { catchAllPagina, emailPagina, feriasPagina, listasPagina, mailmarketingPagina, migracaoPagina, mxPagina, rastreioPagina, reencaminhamentosPagina, respostasPagina, spamPagina, webmailPagina } from './paginas/email';
 import { apontadores, bdPagina, dnsPagina, dominios, ftpPagina, hotlink, phpPagina, phpmyadminPagina, redirecionamentos, sslPagina, subdominios } from './paginas/dominios';
 import { ThemeCustomizerView, temaBase } from './paginas/tema';
@@ -681,6 +682,7 @@ export const SCREENS: Record<string, ScreenFn> = {
   'admin/mover': mover,
   'admin/modelos-mensagem': modelos,
   'admin/senhas': senhas,
+  'admin/forca-bruta': forcaBrutaPagina,
   'admin/revendedores': contas('revenda'),
   'admin/pacotes-revenda': pacotes('revenda'),
   'admin/administradores': contas('admin'),

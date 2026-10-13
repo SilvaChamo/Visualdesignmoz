@@ -7,7 +7,7 @@
 import { promises as fs } from 'fs';
 import net from 'net';
 import path from 'path';
-import { hestiaCallJson } from '@/lib/hestia-client';
+import { hestiaCall } from '@/lib/hestia-client';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
 
 type Bloqueio = { ip: string; cadeia: string; quando: string };
@@ -34,12 +34,15 @@ const LISTA_MZ = '/etc/fail2ban/ip-mocambique.txt';
 
 const chave = (b: Bloqueio) => `${b.ip}|${b.cadeia}|${b.quando}`;
 
+/** v-list-firewall-ban plain: uma linha por bloqueio — "IP  CADEIA  HH:MM:SS  AAAA-MM-DD" (formato visto no servidor) */
 async function lerBloqueios(): Promise<Bloqueio[] | null> {
-  const r = await hestiaCallJson<Record<string, { IP?: string; CHAIN?: string; TIME?: string; DATE?: string }>>('v-list-firewall-ban');
+  const r = await hestiaCall('v-list-firewall-ban', ['plain']);
   if (!r.ok) return null;
-  return Object.entries(r.data || {})
-    .map(([k, v]) => ({ ip: String(v?.IP || k), cadeia: String(v?.CHAIN || '').toUpperCase(), quando: `${v?.DATE || ''} ${v?.TIME || ''}`.trim() }))
-    .filter((b) => net.isIP(b.ip));
+  return r.output
+    .split('\n')
+    .map((l) => l.trim().split(/\s+/))
+    .filter((c) => c.length >= 4 && net.isIP(c[0]))
+    .map(([ip, cadeia, hora, data]) => ({ ip, cadeia: cadeia.toUpperCase(), quando: `${data} ${hora}` }));
 }
 
 async function redesMocambique(): Promise<net.BlockList | null> {

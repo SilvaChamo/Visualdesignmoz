@@ -653,6 +653,12 @@
 .vh tr.msg-por-ler.msg-tipo-warning:not(.sel) td{background:rgba(217,119,6,.12)}
 .vh tr.msg-por-ler.msg-tipo-error:not(.sel) td{background:rgba(220,38,38,.11)}
 .vh tr.msg-por-ler.msg-tipo-info:not(.sel) td{background:rgba(37,99,235,.08)}
+/* Força bruta (modelo do Brute Force Monitor do DirectAdmin) */
+.vh .fb-ip{display:inline-flex;align-items:center;gap:8px}
+.vh .fb-ip code{font-size:13px}
+.vh .fb-ip .tag{font-size:11px;padding:2px 7px}
+.vh .fb-manual{color:var(--muted)}
+.vh .fb-nota{color:var(--muted);font-size:12.5px;margin-top:10px}
 /* popup com a mensagem completa */
 .vh .modal:has(.msg-ver){max-width:640px}
 .vh .msg-ver-topo{display:flex;gap:12px;align-items:flex-start;padding-bottom:12px;margin-bottom:14px;border-bottom:1px solid var(--line)}
