@@ -27,7 +27,8 @@ para o outro) fica na memória `project_dual-folder-git-topology`.
 3. **Só se publica quando o Silva disser "publica"/"publique"** — é a chave para lançar as correcções. Publicar =
    PR do ramo de trabalho para `fix/contabo-websites-audit` + merge (o deploy no Contabo corre sozinho).
 4. Alterações ao servidor também são descritas primeiro e só avançam com o "avança"/"publica" dele.
-5. Depois de cada publicação, mandar-lhe os comandos para actualizar o projecto local.
+5. **Sempre que o Silva disser "publica"/"publique"**, depois de publicar, mandar-lhe o commit publicado (o hash do
+   merge em `fix/contabo-websites-audit`) e os comandos para actualizar o projecto local (pedido dele, 13/10/2026).
 
 # Regras de layout do Silva (valem para todas as páginas, sempre)
 
@@ -45,6 +46,8 @@ para o outro) fica na memória `project_dual-folder-git-topology`.
   `BarraPagina` por cima do cartão).
 - **Screenshots enviados ao Silva vão numerados** ("Ecrã 1", "Ecrã 2", …, também no nome do ficheiro) para ele
   poder dizer qual quer mudar.
+- **Mostrar sempre também a vista de telemóvel** (largura 390px) de cada página/alteração, além da do computador
+  (pedido do Silva, 13/10/2026).
 
 # Verificação visual de alterações de UI
 

@@ -54,6 +54,12 @@ export const VHContext = createContext<VH | null>(null);
  *  botões de ações (à direita) ficam aqui, fora da faixa dos separadores que abre o cartão. Ver DataTable `barraFora`. */
 export const BarraPagina = createContext<HTMLElement | null>(null);
 
+/** Um resultado da lupa da barra de cima (pesquisa na página aberta) */
+export type ItemPesquisa = { k: string; txt: string; sub?: string; fa?: string; c?: string; ir: () => void };
+/** Lupa da barra de cima (pedido do Silva, 13/10/2026): procura na página aberta — cada tabela (DataTable) regista aqui
+ *  as suas linhas; devolve a função que tira o registo. */
+export const PesquisaPagina = createContext<{ registar: (id: string, fonte: () => ItemPesquisa[]) => () => void } | null>(null);
+
 export function useVH(): VH {
   const vh = useContext(VHContext);
   if (!vh) throw new Error('useVH fora do VisualHostApp');
