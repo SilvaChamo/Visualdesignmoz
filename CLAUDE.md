@@ -69,6 +69,15 @@ para o outro) fica na memória `project_dual-folder-git-topology`.
   painel antes de sair do ecrã de login (`preCarregarDadosVhost` em `src/lib/vhost-cache.ts`) e o painel abre logo,
   sem o ecrã branco com o círculo. Entrada pelo **login do próprio painel**: fica como está. Não mexer no
   carregamento sem o Silva pedir.
+- **"Ações" só onde há caixas de seleção** (Silva, 13/10/2026: as ações aplicam-se ao que se escolhe). Com
+  separadores, fica à direita da faixa deles; sem separadores, na linha dos títulos das colunas, à direita
+  (automático no `DataTable`). Sem caixas de seleção não há "Ações": só o "+ Novo…" na barra de cima.
+- **A faixa de separadores só aparece com vários separadores** — nunca um separador sozinho com o título da página.
+- **Responsividade: os 5 pontos de quebra do painel** (os mesmos da maquete, `generated/maquete.css`): ecrã grande
+  (>1600), computador (1301–1600), portátil (1051–1300), tablet (769–1050) e telemóvel (≤768). Cada página fica
+  organizada da mesma forma nos 3 de computador (ex.: a coluna da direita das Contas de e-mail e da Dashboard fica à
+  direita, só mais estreita); no tablet e no telemóvel as colunas passam a uma. Nenhuma página pode passar da largura
+  do ecrã. Antes de entregar, screenshots nos 5 (1920, 1440, 1280, 1024, 390).
 - **Nunca duas linhas de botões.**
 - **Nunca cortar texto com "…"** (regra do Silva, 13/10/2026: "não pode fechar dados, reduzir sempre"): quando um
   texto não cabe (ex.: título e descrição da barra de cima no telemóvel), a letra diminui até caber; se nem assim
