@@ -121,97 +121,6 @@ export function interpretarLeitura(out: string): LeituraServidor {
   return r;
 }
 
-export function criarLeituraFallback(): LeituraServidor {
-  const agora = new Date().toISOString();
-  return {
-    users: {
-      vdadmin: { ROLE: 'admin', PACKAGE: 'default', DISK_QUOTA: 'unlimited', BANDWIDTH: 'unlimited', U_DISK: '1240', U_BANDWIDTH: '3500' },
-      silvachamo: { ROLE: 'admin', PACKAGE: 'default', DISK_QUOTA: 'unlimited', BANDWIDTH: 'unlimited', U_DISK: '850', U_BANDWIDTH: '2100' },
-      osher: { ROLE: 'user', PACKAGE: 'default', DISK_QUOTA: '10000', BANDWIDTH: '50000', U_DISK: '420', U_BANDWIDTH: '1200' },
-      revenda: { ROLE: 'reseller', PACKAGE: 'default', DISK_QUOTA: '50000', BANDWIDTH: '200000', U_DISK: '1100', U_BANDWIDTH: '4500' },
-      cliente1: { ROLE: 'user', PACKAGE: 'default', DISK_QUOTA: '2000', BANDWIDTH: '10000', U_DISK: '95', U_BANDWIDTH: '300' },
-    },
-    packages: {
-      default: { WEB_DOMAINS: 'unlimited', MAIL_DOMAINS: 'unlimited', MAIL_ACCOUNTS: 'unlimited', DATABASES: 'unlimited', DISK_QUOTA: 'unlimited', BANDWIDTH: 'unlimited', SHELL: 'bash' },
-      Completo: { WEB_DOMAINS: 'unlimited', MAIL_DOMAINS: 'unlimited', MAIL_ACCOUNTS: 'unlimited', DATABASES: 'unlimited', DISK_QUOTA: 'unlimited', BANDWIDTH: 'unlimited', SHELL: 'bash' },
-      'Só e-mail': { WEB_DOMAINS: '0', MAIL_DOMAINS: '1', MAIL_ACCOUNTS: '10', DATABASES: '0', DISK_QUOTA: '2048', BANDWIDTH: '10240', SHELL: 'nologin' },
-    },
-    sysinfo: {
-      OS: 'Ubuntu 24.04 LTS',
-      ARCH: 'x86_64',
-      HESTIA: '1.9.3',
-      PHP: '8.3',
-      WEB: 'nginx',
-      NAME: 'Contabo-VPS',
-    },
-    ips: {
-      '169.58.148.144': { IP: '169.58.148.144', STATUS: 'shared', U_SYS_USERS: '5', U_WEB_DOMAINS: '8' },
-    },
-    servicos: {
-      nginx: { STATE: 'running', CPU: '0.2', MEM: '45' },
-      apache2: { STATE: 'running', CPU: '0.4', MEM: '110' },
-      mariadb: { STATE: 'running', CPU: '0.6', MEM: '380' },
-      dovecot: { STATE: 'running', CPU: '0.1', MEM: '32' },
-      exim4: { STATE: 'running', CPU: '0.1', MEM: '28' },
-      named: { STATE: 'running', CPU: '0.1', MEM: '24' },
-    },
-    php: ['8.1', '8.2', '8.3'],
-    recursos: {
-      cpus: 4,
-      memTotal: 8 * 1024 * 1024 * 1024,
-      memUsada: 3.2 * 1024 * 1024 * 1024,
-      memLivre: 4.8 * 1024 * 1024 * 1024,
-      discoTotal: 200 * 1024 * 1024 * 1024,
-      discoUsado: 42 * 1024 * 1024 * 1024,
-      carga: [0.35, 0.42, 0.38],
-    },
-    web: {
-      vdadmin: {
-        'visualdesignmoz.com': { IP: '169.58.148.144', U_DISK: '1240', U_BANDWIDTH: '3500', SSL: 'yes', PHP_CLI: '8.3', DOCUMENT_ROOT: '/home/vdadmin/web/visualdesignmoz.com/public_html', SUSPENDED: 'no' },
-        'teste.visualdesignmoz.com': { IP: '169.58.148.144', U_DISK: '480', U_BANDWIDTH: '1200', SSL: 'yes', PHP_CLI: '8.3', DOCUMENT_ROOT: '/home/vdadmin/web/teste.visualdesignmoz.com/public_html', SUSPENDED: 'no' },
-        'loja-exemplo.co.mz': { IP: '169.58.148.144', U_DISK: '220', U_BANDWIDTH: '800', SSL: 'yes', PHP_CLI: '8.3', DOCUMENT_ROOT: '/home/vdadmin/web/loja-exemplo.co.mz/public_html', SUSPENDED: 'no' },
-      },
-      silvachamo: {
-        'silvachamo.co.mz': { IP: '169.58.148.144', U_DISK: '310', U_BANDWIDTH: '900', SSL: 'yes', PHP_CLI: '8.3', DOCUMENT_ROOT: '/home/silvachamo/web/silvachamo.co.mz/public_html', SUSPENDED: 'no' },
-        'visualdesignmoz.com': { IP: '169.58.148.144', U_DISK: '1240', U_BANDWIDTH: '3500', SSL: 'yes', PHP_CLI: '8.3', DOCUMENT_ROOT: '/home/silvachamo/web/visualdesignmoz.com/public_html', SUSPENDED: 'no' },
-      },
-      osher: {
-        'oshercollective.com': { IP: '169.58.148.144', U_DISK: '420', U_BANDWIDTH: '1200', SSL: 'yes', PHP_CLI: '8.3', DOCUMENT_ROOT: '/home/osher/web/oshercollective.com/public_html', SUSPENDED: 'no' },
-      },
-      cliente1: {
-        'so-email-exemplo.co.mz': { IP: '169.58.148.144', U_DISK: '95', U_BANDWIDTH: '300', SSL: 'yes', PHP_CLI: '8.3', DOCUMENT_ROOT: '/home/cliente1/web/so-email-exemplo.co.mz/public_html', SUSPENDED: 'no' },
-      },
-    },
-    wp: {
-      vdadmin: ['loja-exemplo.co.mz'],
-    },
-    dns: {
-      vdadmin: {
-        'visualdesignmoz.com': { TIPO: 'MASTER', IP: '169.58.148.144', SOA: 'ns1.visualdesignmoz.com', TTL: '14400' },
-        'teste.visualdesignmoz.com': { TIPO: 'MASTER', IP: '169.58.148.144', SOA: 'ns1.visualdesignmoz.com', TTL: '14400' },
-      },
-    },
-    mail: {
-      vdadmin: {
-        'visualdesignmoz.com': { U_DISK: '520', ACCOUNTS: '3', ANTIVIRUS: 'yes', SPAMASSASSIN: 'yes' },
-      },
-    },
-    mailAcc: {
-      vdadmin: {
-        'visualdesignmoz.com': {
-          admin: { U_DISK: '210', QUOTA: '2000', SUSPENDED: 'no' },
-          geral: { U_DISK: '310', QUOTA: '2000', SUSPENDED: 'no' },
-        },
-      },
-    },
-    db: {
-      vdadmin: {
-        vdadmin_wp: { TYPE: 'mysql', HOST: 'localhost', CHARSET: 'utf8mb4', U_DISK: '45' },
-      },
-    },
-    lidoEm: agora,
-  };
-}
 
 const FRESCO_MS = 60_000;
 const VELHO_MS = 10 * 60_000;
@@ -220,8 +129,8 @@ let aLer: Promise<LeituraServidor> | null = null;
 
 function lerAgora(): Promise<LeituraServidor> {
   if (!aLer) {
-    const timeoutMs = process.env.NODE_ENV === 'development' ? 4_000 : 25_000;
-    aLer = executeServerCommand(`bash -s <<'VHOST_FIM'\n${SCRIPT}\nVHOST_FIM`, { fast: process.env.NODE_ENV === 'development', timeoutMs })
+    // o mesmo tempo no computador local e em produção: 4 s no local não chegava e o painel mostrava dados inventados
+    aLer = executeServerCommand(`bash -s <<'VHOST_FIM'\n${SCRIPT}\nVHOST_FIM`, { timeoutMs: 25_000 })
       .then((out) => {
         const dados = interpretarLeitura(out);
         cache = { at: Date.now(), dados };
@@ -232,14 +141,10 @@ function lerAgora(): Promise<LeituraServidor> {
           console.warn('[vhost-servidor] Servidor remoto não respondeu, a usar último cache:', err?.message || err);
           return cache.dados;
         }
-        if (process.env.NODE_ENV !== 'development') {
-          console.error('[vhost-servidor] Não foi possível ler o servidor:', err);
-          throw err;
-        }
-        console.warn('[vhost-servidor] Servidor remoto inacessível (ambiente local/timeout). A ativar dados de contingência.');
-        const fallback = criarLeituraFallback();
-        cache = { at: Date.now(), dados: fallback };
-        return fallback;
+        // nunca dados inventados no lugar dos reais (pedido do Silva, 13/10/2026): sem leitura, o painel avisa e deixa
+        // tentar de novo
+        console.error('[vhost-servidor] Não foi possível ler o servidor:', err);
+        throw err;
       })
       .finally(() => {
         aLer = null;

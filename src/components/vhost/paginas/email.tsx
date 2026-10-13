@@ -11,7 +11,7 @@ import type { ScreenFn } from '../screens';
 import { DESC, MENU } from '../generated/data';
 import { pacoteDe } from '../state';
 import { Stat } from '../ui';
-import { Check, DataTable, Esqueleto, novaSenha, Senha, Switch, Tabs } from './componentes';
+import { Check, DataTable, novaSenha, Senha, Switch, Tabs } from './componentes';
 import { Confirmar } from './pacotes';
 import { AO_ABRIR, EsperaPagina, FUNDO, useGet } from '../carga';
 
@@ -150,9 +150,7 @@ function Carregando({ erro, ler }: { erro: string; ler: () => void }) {
         {t('Tentar de novo')}
       </button>
     </div>
-  ) : (
-    <Esqueleto /> // a carregar: a página em esqueleto, nunca vazia
-  );
+  ) : null; // a carregar: só a linha do topo
 }
 
 /** O domínio ainda não tem e-mail neste servidor: liga-se aqui (v-add-mail-domain) */
