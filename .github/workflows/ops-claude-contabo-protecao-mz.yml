@@ -1,0 +1,94 @@
+name: "Ops - Contabo: protecção equilibrada para Moçambique + nome da aplicação de e-mail nos registos"
+
+# ============================================================================
+# 13/10/2026 (escolha do Silva: "Equilibrado"):
+#  1) Moçambique deixa de estar como excepção em todos os bloqueios. Fica só onde fecharia o site/painel/login:
+#     o bloqueio total (recidive, todas as portas) e os que fecham as portas 80/443 (cadeia WEB do Hestia).
+#     Os bloqueios curtos por serviço (e-mail, SSH, Hestia, FTP, base de dados) voltam a travar tentativas falhadas
+#     também a partir de Moçambique. Cópia de segurança antes; se o fail2ban recusar, volta como estava.
+#  2) Dovecot passa a registar o nome da aplicação de e-mail (imap_id_log) — para descobrir o dispositivo que
+#     falha a palavra-passe em silva.chamo@, info@, suporte@, mailmarketing@ e geral@. Se o doveconf recusar,
+#     retira o ficheiro.
+#  3) Mostra quanto tempo dura cada bloqueio por serviço.
+# Não imprime segredos. Corre só quando este ficheiro muda no ramo claude/kind-einstein-r6lyf6.
+# ============================================================================
+
+on:
+  push:
+    branches: [claude/kind-einstein-r6lyf6]
+    paths: ['.github/workflows/ops-claude-contabo-protecao-mz.yml']
+
+jobs:
+  contabo:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Protecção equilibrada
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          username: root
+          password: ${{ secrets.CONTABO_ROOT_PASSWORD }}
+          command_timeout: 10m
+          script: |
+            set +e
+            LISTA=/etc/fail2ban/ip-mocambique.txt
+            CONF=/etc/fail2ban/jail.d/zz-mocambique.local
+            BK=/root/fail2ban-backup-$(date +%Y%m%d%H%M%S)
+            mkdir -p "$BK" && cp -a "$CONF" "$BK"/ 2>/dev/null
+            echo "cópia de segurança em $BK"
+            [ -s "$LISTA" ] || { echo "ERRO: falta $LISTA — não mexo em nada"; exit 1; }
+
+            echo "===== 1. Moçambique só fora do bloqueio total e do bloqueio do site ====="
+            JAILS=$(fail2ban-client status 2>/dev/null | sed -n 's/.*Jail list:[[:space:]]*//p' | tr ',' ' ')
+            python3 - "$LISTA" "$CONF" $JAILS <<'PY'
+            import configparser, re, socket, subprocess, sys
+            lista, conf, jails = sys.argv[1], sys.argv[2], sys.argv[3:]
+            mz = ' '.join(l.strip() for l in open(lista) if l.strip())
+            # configuração do Hestia sem o nosso ficheiro: o que cada bloqueio já ignorava e que cadeia usa
+            c = configparser.RawConfigParser(strict=False, interpolation=None)
+            c.read(['/etc/fail2ban/jail.conf', '/etc/fail2ban/jail.local'])
+            ips = subprocess.run(['hostname', '-I'], capture_output=True, text=True).stdout.split()
+            base_default = c.get('DEFAULT', 'ignoreip', fallback='127.0.0.1/8 ::1')
+            linhas = ['# Protecção equilibrada para Moçambique (escolha do Silva, 13/10/2026): lista em ' + lista,
+                      '# Moçambique nunca leva o bloqueio total nem o bloqueio do site (80/443); os outros bloqueios valem para todos.']
+            for j in jails:
+                accao = c.get(j, 'action', fallback='') if c.has_section(j) else ''
+                cadeia = (re.search(r'name=(\w+)', accao) or [None, ''])[1].upper()
+                fecha_site = j == 'recidive' or cadeia in ('RECIDIVE', 'WEB')
+                print(f'  {j:18} cadeia={cadeia or "?":9} ' + ('Moçambique NUNCA bloqueado (fecharia o site/login)' if fecha_site else 'bloqueio curto vale para todos'))
+                if fecha_site:
+                    base = c.get(j, 'ignoreip', fallback=base_default) if c.has_section(j) else base_default
+                    linhas += ['', f'[{j}]', f'ignoreip = {base} {" ".join(ips)} {mz}']
+            open(conf, 'w').write('\n'.join(linhas) + '\n')
+            PY
+            if fail2ban-client -t >/dev/null 2>&1 && fail2ban-client reload >/dev/null 2>&1; then
+              sleep 3; echo "  fail2ban recarregado: $(fail2ban-client status 2>/dev/null | sed -n 's/.*Number of jail:[[:space:]]*//p') bloqueios activos"
+            else
+              fail2ban-client -t 2>&1 | tail -5
+              echo "ERRO: configuração recusada — volto ao ficheiro anterior"
+              cp -a "$BK/$(basename "$CONF")" "$CONF"; fail2ban-client reload >/dev/null 2>&1
+              exit 1
+            fi
+            for j in $JAILS; do
+              echo -n "  $j: redes ignoradas = "; fail2ban-client get "$j" ignoreip 2>/dev/null | grep -c '/'
+            done
+
+            echo
+            echo "===== 2. nome da aplicação de e-mail nos registos (Dovecot) ====="
+            DC=/etc/dovecot/conf.d/99-visualdesign-imap-id.conf
+            if grep -qE '^\s*!include\s+conf\.d/\*\.conf' /etc/dovecot/dovecot.conf 2>/dev/null; then
+              printf 'protocol imap {\n  imap_id_log = *\n}\n' > "$DC"
+              if doveconf -n >/dev/null 2>&1; then
+                systemctl reload dovecot && echo "  ligado: as próximas tentativas mostram o nome da aplicação (ID sent: name=...)"
+              else
+                doveconf -n 2>&1 | tail -3; rm -f "$DC"; echo "  o Dovecot recusou — retirado, fica como estava"
+              fi
+            else
+              echo "  dovecot.conf não inclui conf.d/*.conf — não mexo (fica para ver à mão)"
+            fi
+
+            echo
+            echo "===== 3. duração de cada bloqueio ====="
+            for j in $JAILS; do
+              echo "  $j: $(fail2ban-client get "$j" bantime 2>/dev/null) s, $(fail2ban-client get "$j" maxretry 2>/dev/null) tentativas em $(fail2ban-client get "$j" findtime 2>/dev/null) s"
+            done
