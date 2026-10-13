@@ -106,11 +106,11 @@ function LoginFormInner() {
   return (
     <LoginDividido>
       {/* no telemóvel e no tablet a imagem (com o logótipo) não aparece: o logótipo fica por cima do formulário */}
-      <a href="/" className="mb-8 flex justify-center lg:hidden" title="VisualDesign">
+      <a href="/" className="mb-5 flex justify-center lg:hidden" title="VisualDesign">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/assets/logotype.png" alt="VisualDesign" className="h-[96px] w-auto object-contain dark:hidden" />
+        <img src="/assets/logotype.png" alt="VisualDesign" className="h-[80px] w-auto object-contain dark:hidden" />
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/assets/logotipoII.png" alt="VisualDesign" className="hidden h-[96px] w-auto object-contain dark:block" />
+        <img src="/assets/logotipoII.png" alt="VisualDesign" className="hidden h-[80px] w-auto object-contain dark:block" />
       </a>
 
       {/* no telemóvel e no tablet tudo ao centro (pedido do Silva, 13/10/2026) */}
@@ -135,7 +135,7 @@ function LoginFormInner() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="mt-8 space-y-5">
+      <form onSubmit={handleSubmit} className="mt-6 space-y-4 lg:mt-8 lg:space-y-5">
         <div className="absolute -z-10 opacity-0 pointer-events-none" aria-hidden="true">
           <input
             type="text"
@@ -186,15 +186,6 @@ function LoginFormInner() {
           {loading ? t('login.signingIn') : t('login.signIn')}
         </button>
 
-        {/* por baixo do Entrar: recuperar a palavra-passe à esquerda, registar à direita */}
-        <div className="-mt-1 flex items-center justify-between gap-4 text-sm">
-          <a href="/auth/forgot-password" className={authLinkClass}>
-            {t('login.forgot')}
-          </a>
-          <a href="/auth/register" className={authLinkClass}>
-            {t('login.register')}
-          </a>
-        </div>
 
         <div className="flex items-center gap-3 text-xs uppercase tracking-wide text-zinc-400">
           <span className="h-px flex-1 bg-zinc-200 dark:bg-[#393e4d]" />
@@ -216,6 +207,16 @@ function LoginFormInner() {
           </svg>
           {t('login.google')}
         </button>
+
+        {/* por baixo do Google: recuperar a senha à esquerda, registar à direita (pedido do Silva, 13/10/2026) */}
+        <div className="flex items-center justify-between gap-4 text-sm">
+          <a href="/auth/forgot-password" className={authLinkClass}>
+            {t('login.forgot')}
+          </a>
+          <a href="/auth/register" className={authLinkClass}>
+            {t('login.register')}
+          </a>
+        </div>
       </form>
 
     </LoginDividido>
@@ -223,7 +224,8 @@ function LoginFormInner() {
 }
 
 /** Campo com a etiqueta a meio; ao clicar (ou já preenchido) a etiqueta sobe para a linha de cima do campo
- *  (pedido do Silva, 13/10/2026). A dica (ex.: o formato do e-mail) só aparece com o campo escolhido. */
+ *  (pedido do Silva, 13/10/2026). A dica (ex.: o formato do e-mail) só aparece com o campo escolhido. No telemóvel e no
+ *  tablet a etiqueta e o texto ficam ao centro. */
 function CampoFlutuante({
   id,
   rotulo,
@@ -259,16 +261,16 @@ function CampoFlutuante({
         onChange={(e) => onChange(e.target.value)}
         placeholder={dica || ' '}
         className={
-          'peer h-12 w-full rounded-md border border-zinc-300 bg-transparent px-3.5 text-[15px] text-zinc-900 outline-none transition-colors ' +
+          'peer h-12 w-full rounded-md border border-zinc-300 bg-transparent px-3.5 text-center text-[15px] text-zinc-900 outline-none transition-colors lg:text-left ' +
           'placeholder:text-transparent focus:border-red-500 focus:ring-2 focus:ring-red-500/20 focus:placeholder:text-zinc-400 ' +
           'dark:border-[#393e4d] dark:text-zinc-100 dark:focus:border-red-500 dark:focus:placeholder:text-zinc-500 ' +
-          (children ? 'pr-10' : '')
+          (children ? 'px-10 lg:pl-3.5' : '')
         }
       />
       <label
         htmlFor={id}
         className={
-          'pointer-events-none absolute left-2.5 top-0 -translate-y-1/2 bg-white px-1 text-xs font-medium text-zinc-500 transition-all duration-150 ' +
+          'pointer-events-none absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap bg-white px-1 text-xs font-medium text-zinc-500 transition-all duration-150 lg:left-2.5 lg:translate-x-0 ' +
           'peer-placeholder-shown:top-1/2 peer-placeholder-shown:text-[15px] peer-placeholder-shown:font-normal ' +
           'peer-focus:top-0 peer-focus:text-xs peer-focus:font-medium peer-focus:text-red-600 ' +
           'dark:bg-[#15161e] dark:text-zinc-400 dark:peer-focus:text-red-400'
