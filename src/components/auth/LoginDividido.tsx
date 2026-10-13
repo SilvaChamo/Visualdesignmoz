@@ -77,7 +77,7 @@ export function LoginDividido({ children, modelo = 1 }: { children: React.ReactN
         <BotoesCanto />
         {/* o cartão fica ao centro do ecrã, à altura do meio da foto: o cabeçalho e o rodapé não ocupam espaço (estão
             por cima), só deixam folga em cima e em baixo */}
-        <div className="flex flex-1 items-center justify-center px-4 py-[76px] sm:px-6 lg:py-16">
+        <div className="flex flex-1 items-center justify-center px-4 py-[76px] sm:px-6 lg:py-10">
           {/* a largura acompanha o ecrã (Silva, 14/10/2026: mais pequeno, menos "agressivo"): o formulário tem 340 px a
               1440 e vai reduzindo aos poucos até 300 px a 1024; o espaço de dentro do cartão acompanha também */}
           <div className="w-full max-w-[380px] lg:max-w-[calc(clamp(300px,23.6vw,360px)+clamp(44px,3.9vw,60px)+2px)]">

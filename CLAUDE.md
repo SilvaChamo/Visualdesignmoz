@@ -25,7 +25,8 @@ A pasta de trabalho no Mac do Silva é `visualdesign-producao` (antes `visualdes
 4. Alterações ao servidor também são descritas primeiro e só avançam com o "avança"/"publica" dele.
 5. **Sempre que o Silva disser "publica"/"publique"**, depois de publicar, mandar-lhe o commit publicado (o hash do
    merge em `fix/contabo-websites-audit`) e os comandos para actualizar o projecto local (pedido dele, 13/10/2026).
-6. **Os comandos para o projecto local vão sempre num único comando** que fecha o servidor que estiver na porta 3003,
+6. **Os comandos para o projecto local vão sempre num único comando — e só um por mensagem** (Silva, 14/10/2026:
+   "tem que parar o servidor, publicar e arrancar com um comando, nas próximas vezes") — que fecha o servidor que estiver na porta 3003,
    guarda à parte alterações locais por gravar (stash, recuperáveis com `git stash pop`), põe a pasta exactamente no
    ramo do GitHub e volta a arrancar o servidor (pedido do Silva, 13/10/2026 — o `checkout`/`pull` simples falhava e o
    site local não actualizava). Modelo (trocar `RAMO`), corrido dentro da pasta `visualdesign-producao`:

@@ -310,9 +310,13 @@ function ListaContas({ kind }: { kind: Kind }) {
       rowKey={(r) => r[0]}
       search={([u, a]) => u + ' ' + a.name + ' ' + a.email + ' ' + a.domains.map((d) => d.name).join(' ')}
       bulk={bulk}
-      acoesFixas
-      semBusca={false}
+      // modelo do painel (Silva, 14/10/2026): sem barra por cima do cartão — o "Ações" aparece no lugar do título da
+      // 1.ª coluna ao assinalar uma caixa, a pesquisa é a "Busca" da barra de cima e o "Colunas" fica no cabeçalho,
+      // depois da coluna Estado
+      umaLinha
+      barraFora
       semCols={false}
+      colunasNoCabecalho
       empty="Ainda não há contas aqui"
       actions={([u, a]) =>
         u === me ? (

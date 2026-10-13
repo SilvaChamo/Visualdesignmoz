@@ -246,6 +246,7 @@ export function DataTable<T>({
   barraFora = false,
   empilhar = false,
   acoesNaColuna = false,
+  colunasNoCabecalho = false,
 }: {
   id: string;
   rows: T[];
@@ -292,6 +293,9 @@ export function DataTable<T>({
   empilhar?: boolean | 'botoes-em-baixo' | 'tablet';
   /** o "Ações" no lugar do título da 1.ª coluna mesmo com separadores (Força bruta — modelo do Silva, 13/10/2026) */
   acoesNaColuna?: boolean;
+  /** o botão "Colunas" no cabeçalho da tabela, depois da última coluna, em vez de numa barra por cima do cartão
+   *  (modelo do Silva, 14/10/2026 — listas de contas) */
+  colunasNoCabecalho?: boolean;
   /** notifica chaves das linhas selecionadas */
   onSelChange?: (keys: string[]) => void;
 }) {
@@ -373,7 +377,9 @@ export function DataTable<T>({
   const acoesNoCabecalho = umaLinha && barraFora && comAcoes && (acoesNaColuna || !faixaAbas?.el) && !cabecalho;
   const acoesNoTitulo = acoesNoCabecalho && (selKeys.length > 0 || bulk.some((b) => b.sempre));
   const colAcoes = !!actions;
-  const span = vcols.length + (temSelecao ? 1 : 0) + (colAcoes ? 1 : 0);
+  // coluna do fim: os botões de cada linha e, com colunasNoCabecalho, o "Colunas" no título dela
+  const colFim = colAcoes || (colunasNoCabecalho && !semCols);
+  const span = vcols.length + (temSelecao ? 1 : 0) + (colFim ? 1 : 0);
 
   const paginas = Math.max(1, Math.ceil(shown.length / porPagina));
   const atual = Math.min(pag, paginas);
@@ -521,10 +527,10 @@ export function DataTable<T>({
     </div>
   );
   const colunas = !semCols && (
-    <div className="dt-cols" ref={colsRef}>
-      <button className="btn g sm" onClick={() => setColsOpen(!colsOpen)}>
+    <div className={'dt-cols' + (colunasNoCabecalho ? ' dt-cols-cab' : '')} ref={colsRef}>
+      <button className={'btn g sm' + (colunasNoCabecalho ? ' iconbtn' : '')} title={t('Colunas')} aria-label={t('Colunas')} onClick={() => setColsOpen(!colsOpen)}>
         <i className="fa-solid fa-table-columns" />
-        {t('Colunas')}
+        {!colunasNoCabecalho && t('Colunas')}
       </button>
       {colsOpen && (
         <div className="menu">
@@ -554,7 +560,8 @@ export function DataTable<T>({
           // escolhidas usam `sempre`). Nunca pesquisa, paginação nem outros botões por cima do cartão: a paginação
           // fica no fundo do cartão.
           const naFaixa = comAcoes && barraFora && faixaAbas?.el && !cabecalho && !acoesNaColuna;
-          const outros = !!(inicioBarra2 || barra2 || colunas || recarregar || fimBarra);
+          const naBarra = colunasNoCabecalho ? null : colunas;
+          const outros = !!(inicioBarra2 || barra2 || naBarra || recarregar || fimBarra);
           const linha =
             outros || cabecalho || (!naFaixa && !acoesNoCabecalho && comAcoes) ? (
               <div className={'dt-bar dt-uma-linha' + (cabecalho ? ' com-cab' : '') + (barraFora ? ' dt-fora' : '')}>
@@ -562,7 +569,7 @@ export function DataTable<T>({
                 <span className="sp" />
                 {inicioBarra2}
                 {barra2}
-                {colunas}
+                {naBarra}
                 {recarregar}
                 {fimBarra}
                 {!naFaixa && !acoesNoCabecalho && comAcoes && menuAcoes(true)}
@@ -626,7 +633,7 @@ export function DataTable<T>({
                   </th>
                 ),
               )}
-              {colAcoes && <th />}
+              {colunasNoCabecalho && colunas ? <th className="dt-th-cols">{colunas}</th> : colFim && <th />}
             </tr>
           </thead>
           <tbody>
@@ -646,7 +653,7 @@ export function DataTable<T>({
                         {c.cell(r)}
                       </td>
                     ))}
-                    {colAcoes && <td className="dt-acoes-linha" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{actions ? actions(r) : null}</td>}
+                    {colFim && <td className="dt-acoes-linha" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{actions ? actions(r) : null}</td>}
                   </tr>
                 );
               })
