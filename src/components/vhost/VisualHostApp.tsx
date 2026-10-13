@@ -45,7 +45,13 @@ import {
 import { Avatar, ImpBanner, RouteFoot, SwitcherBar } from './ui';
 import type { Account, Level, MenuItem } from './types';
 
-const stripBase = (p: string) => (p.startsWith(BASE) ? p.slice(BASE.length) : p) || '/';
+// O mesmo ecrã com o endereço do browser (/host:2026/…) ou com o da rota no servidor (/host/…, por causa da
+// reescrita em src/proxy.ts): os dois dão o mesmo caminho interno, sem diferenças entre servidor e browser
+const PREFIXOS = [BASE, '/host%3A2026', '/host%3a2026', '/host/2026', '/host'];
+const stripBase = (p: string) => {
+  const pre = PREFIXOS.find((b) => p === b || p.startsWith(b + '/'));
+  return (pre ? p.slice(pre.length) : p).replace(/\/+$/, '') || '/';
+};
 
 const TABBAR: Record<Level, [string, string, string][]> = {
   admin: [

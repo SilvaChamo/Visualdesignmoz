@@ -1,5 +1,5 @@
 // Painel VisualHost. Ícones (Font Awesome) e estilos só carregam nesta parte do site.
-// O painel vive no layout para não perder o estado ao mudar de ecrã (/vhost/admin, /vhost/admin/dns, …).
+// O painel vive no layout para não perder o estado ao mudar de ecrã (/host:2026/admin, /host:2026/admin/dns, …).
 import { cookies } from 'next/headers';
 import '@fortawesome/fontawesome-free/css/all.min.css';
 import '@/components/vhost/generated/maquete.css';
