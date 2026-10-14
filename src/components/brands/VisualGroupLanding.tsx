@@ -147,7 +147,7 @@ export function VisualGroupBody({ onCtaClick }: { onCtaClick: () => void }) {
             </p>
           </div>
 
-          <div className="mt-8 sm:mt-10 mx-5">
+          <div className="mt-8 sm:mt-10 sm:mx-5">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {brands.map(({ Icon, name, desc, href }) => {
                 return (
@@ -195,7 +195,7 @@ export function VisualGroupBody({ onCtaClick }: { onCtaClick: () => void }) {
         <div className="static lg:sticky lg:top-[125px] z-10 w-full -mt-[16px]">
           <NotchSection shape="mid" bg="bg-zinc-200 dark:bg-[#212121]" first className="pt-12 pb-[30px] lg:pt-8 lg:pb-[30px] lg:min-h-[calc(75vh+45px)] flex items-center">
             <div className="container mx-auto max-w-7xl px-4 sm:px-6 relative z-10">
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center mx-5">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center sm:mx-5">
                 {/* Imagem esquerda */}
                 <div className="lg:col-span-6 rounded-xl overflow-hidden shadow-md h-96 lg:h-[540px]">
                   <img
@@ -253,7 +253,7 @@ export function VisualGroupBody({ onCtaClick }: { onCtaClick: () => void }) {
         <div className="static lg:sticky lg:top-[140px] lg:-mt-[30px] z-20 w-full lg:drop-shadow-[0_-8px_15px_rgba(0,0,0,0.08)] dark:lg:drop-shadow-[0_-8px_15px_rgba(0,0,0,0.4)]">
           <NotchSection shape="mid" bg="bg-zinc-200 dark:bg-[#212121]" first className="pt-12 pb-[30px] lg:pt-8 lg:pb-[30px] lg:min-h-[calc(75vh+30px)] flex items-center">
             <div className="container mx-auto max-w-7xl px-4 sm:px-6 relative z-10">
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center mx-5">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center sm:mx-5">
                 {/* Imagem esquerda */}
                 <div className="lg:col-span-6 rounded-xl overflow-hidden shadow-md h-96 lg:h-[540px]">
                   <img
@@ -311,7 +311,7 @@ export function VisualGroupBody({ onCtaClick }: { onCtaClick: () => void }) {
         <div className="static lg:sticky lg:top-[155px] lg:-mt-[30px] z-30 w-full lg:drop-shadow-[0_-8px_15px_rgba(0,0,0,0.08)] dark:lg:drop-shadow-[0_-8px_15px_rgba(0,0,0,0.4)]">
           <NotchSection shape="mid" bg="bg-zinc-200 dark:bg-[#212121]" first className="pt-12 pb-[30px] lg:pt-8 lg:pb-[30px] lg:min-h-[calc(75vh+15px)] flex items-center">
             <div className="container mx-auto max-w-7xl px-4 sm:px-6 relative z-10">
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center mx-5">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center sm:mx-5">
                 {/* Imagem esquerda */}
                 <div className="lg:col-span-6 rounded-xl overflow-hidden shadow-md h-96 lg:h-[540px]">
                   <img
@@ -369,7 +369,7 @@ export function VisualGroupBody({ onCtaClick }: { onCtaClick: () => void }) {
         <div className="static lg:sticky lg:top-[170px] lg:-mt-[30px] z-40 w-full lg:drop-shadow-[0_-8px_15px_rgba(0,0,0,0.08)] dark:lg:drop-shadow-[0_-8px_15px_rgba(0,0,0,0.4)]">
           <NotchSection shape="mid" bg="bg-zinc-200 dark:bg-[#212121]" first className="pt-12 pb-[30px] lg:pt-8 lg:pb-[30px] lg:min-h-[75vh] flex items-center">
             <div className="container mx-auto max-w-7xl px-4 sm:px-6 relative z-10">
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center mx-5">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center sm:mx-5">
                 {/* Imagem esquerda */}
                 <div className="lg:col-span-6 rounded-xl overflow-hidden shadow-md h-96 lg:h-[540px]">
                   <img
@@ -439,7 +439,7 @@ export function VisualGroupBody({ onCtaClick }: { onCtaClick: () => void }) {
             </h2>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left mx-5">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left sm:mx-5">
             {[
               {
                 step: '1',
@@ -477,7 +477,7 @@ export function VisualGroupBody({ onCtaClick }: { onCtaClick: () => void }) {
       {/* Why Choose Us Section - Matching cards layout from web, restored original 2-column layout */}
       <NotchSection shape="mid" bg="bg-zinc-200 dark:bg-[#212121]" className="pt-16 pb-16 sm:pt-24 sm:pb-24">
         <div className="container mx-auto max-w-7xl px-4 sm:px-6 relative z-10">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 mx-5">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 sm:mx-5">
             <div className="lg:col-span-5 text-left pt-2 space-y-6">
               <div className="text-xs font-extrabold uppercase tracking-widest text-red-500 flex items-center">
                 <span className="text-red-500 font-normal inline-block transform scale-x-[2.5] mr-3">—</span>
@@ -557,7 +557,7 @@ export function VisualGroupBody({ onCtaClick }: { onCtaClick: () => void }) {
       {/* Newsletter */}
       <NotchSection shape="mid" bg="bg-zinc-200 dark:bg-[#212121]" className="py-8 sm:py-10">
         <div className="container mx-auto max-w-7xl px-4 sm:px-6 relative z-10">
-          <div className="mx-5 flex flex-col md:flex-row items-center justify-between gap-6 py-2">
+          <div className="sm:mx-5 flex flex-col md:flex-row items-center justify-between gap-6 py-2">
             <div className="text-center md:text-left space-y-1.5">
               <h3 className="text-xl sm:text-2xl md:text-3xl font-extrabold text-black dark:text-white">
                 Subscreva a nossa newsletter
