@@ -76,12 +76,13 @@ export function LoginDividido({ children, modelo = 1 }: { children: React.ReactN
         {modelo === 1 && <AbaLogo />}
         <BotoesCanto />
         {/* o cartão fica ao centro do ecrã, à altura do meio da foto: o cabeçalho e o rodapé não ocupam espaço (estão
-            por cima), só deixam folga em cima e em baixo */}
+            por cima), só deixam folga em cima e em baixo. A sombra é igual à volta (sem cair para baixo), senão o cartão
+            parecia mais baixo do que está (Silva, 14/10/2026) */}
         <div className="flex flex-1 items-center justify-center px-4 py-[76px] sm:px-6 lg:py-10">
           {/* a largura acompanha o ecrã (Silva, 14/10/2026: mais pequeno, menos "agressivo"): o formulário tem 340 px a
               1440 e vai reduzindo aos poucos até 300 px a 1024; o espaço de dentro do cartão acompanha também */}
           <div className="w-full max-w-[380px] lg:max-w-[calc(clamp(300px,23.6vw,360px)+clamp(44px,3.9vw,60px)+2px)]">
-            <div className="rounded-[10px] bg-[#fff] px-5 pb-6 pt-5 shadow-[0_24px_60px_-24px_rgba(0,0,0,0.65)] dark:bg-[#15161e] lg:border lg:border-zinc-200 lg:px-[clamp(22px,1.95vw,30px)] lg:pb-[clamp(24px,2.2vw,32px)] lg:pt-[clamp(22px,1.95vw,28px)] lg:shadow-[0_12px_40px_-14px_rgba(24,24,27,0.22)] lg:dark:border-[#2a2d3a] lg:dark:shadow-[0_12px_40px_-14px_rgba(0,0,0,0.7)]">
+            <div className="rounded-[10px] bg-[#fff] px-5 pb-6 pt-5 shadow-[0_0_60px_-18px_rgba(0,0,0,0.6)] dark:bg-[#15161e] lg:border lg:border-zinc-200 lg:px-[clamp(22px,1.95vw,30px)] lg:pb-[clamp(24px,2.2vw,32px)] lg:pt-[clamp(22px,1.95vw,28px)] lg:shadow-[0_0_36px_-10px_rgba(24,24,27,0.18)] lg:dark:border-[#2a2d3a] lg:dark:shadow-[0_0_36px_-10px_rgba(0,0,0,0.7)]">
               {/* no telemóvel e no tablet o logótipo fica no cartão, por cima do título (a imagem tem ~13% de margem
                   vazia em cima e em baixo); no computador está na aba da foto */}
               <a href="/" className="-mt-2 mb-1 flex justify-center lg:hidden" title="VisualDesign">

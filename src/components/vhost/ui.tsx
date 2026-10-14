@@ -503,9 +503,9 @@ export function UsersTable({ rows, showCreator = true }: { rows: [string, Accoun
                         <button className="btn g sm" onClick={() => toggleState(u)} title={t(ok ? 'Suspender' : 'Reativar')}>
                           <i className={'fa-solid ' + (ok ? 'fa-pause' : 'fa-play')} />
                         </button>{' '}
-                        <button className="btn g sm" onClick={() => enterAs(u)}>
+                        <button className="btn g sm" title={t('Entrar no painel desta conta')} onClick={() => enterAs(u)}>
                           <i className="fa-solid fa-right-to-bracket" />
-                          {t('Entrar como')}
+                          {t('Entrar')}
                         </button>
                       </>
                     )}

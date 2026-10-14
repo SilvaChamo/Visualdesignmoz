@@ -92,6 +92,16 @@
 .vh .dt-cols .menu{position:absolute;right:0;top:calc(100% + 6px);z-index:30;min-width:220px;background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:0 12px 32px rgba(0,0,0,.15);padding:6px}
 .vh .dt-cols .menu label{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:var(--r);cursor:pointer;font-size:13.5px}
 .vh .dt-cols .menu label:hover{background:var(--soft)}
+/* listas de contas: logo acima de 1600 px (1601–1800) as colunas ficam já juntas como no computador, para a tabela
+   caber sem barra de deslocar */
+@media(min-width:1601px) and (max-width:1800px){
+ .vh .ct-lista .tbl :is(th,td){padding-left:6px;padding-right:6px}
+ .vh .ct-lista .tbl :is(th,td):first-child{padding-left:12px}
+ .vh .ct-lista .tbl :is(th,td):last-child{padding-right:12px}
+}
+/* listas de contas: no portátil (até 1300 px) o "Entrar" da linha fica só com o ícone; em blocos volta o texto */
+@media(min-width:769px) and (max-width:1300px){.vh .btn.ct-entrar{width:30px;padding:0;justify-content:center}.vh .btn.ct-entrar span{display:none}}
+@media(min-width:769px) and (max-width:1000px){.vh .dt-empilhar-tablet .btn.ct-entrar{width:auto;padding:0 10px}.vh .dt-empilhar-tablet .btn.ct-entrar span{display:inline}}
 /* "Colunas" no cabeçalho da tabela, depois da última coluna (DataTable colunasNoCabecalho — listas de contas) */
 .vh .tbl th.dt-th-cols{text-align:right;padding-top:0;padding-bottom:0;font-weight:400;text-transform:none;letter-spacing:0}
 .vh .tbl th.dt-th-cols .dt-cols{display:inline-block;vertical-align:middle}
@@ -1291,7 +1301,7 @@
  .vh .tbl.dt-empilhar-tablet tbody tr:not(:has(td.ck)) td:first-child{grid-column:1;grid-row:1}
  .vh .tbl.dt-empilhar-tablet tbody tr:has(td.ck)>td:is(.ck,.ck+td),.vh .tbl.dt-empilhar-tablet tbody tr:has(td.ck)>td.dt-acoes-linha,.vh .tbl.dt-empilhar-tablet tbody tr:not(:has(td.ck))>td:is(:first-child,.dt-acoes-linha){padding-bottom:10px;border-bottom:1px solid var(--line);margin-bottom:4px;align-self:stretch}
  /* em blocos cabe tudo: as colunas que saem no portátil voltam */
- .vh .tbl.dt-empilhar-tablet tbody td:is(.dt-ate-1300,.dt-ate-1600){display:flex}
+ .vh .tbl.dt-empilhar-tablet tbody td:is(.dt-ate-1050,.dt-ate-1300,.dt-ate-1600){display:flex}
 }
 /* Computador (1301–1600) e portátil (1051–1300) — pedido do Silva, 13/10/2026: Dashboard mais compacta (cartões mais
    baixos, letra menor, títulos sempre numa linha, menos espaço vertical) e tabelas com as colunas mais juntas (10 a
@@ -1319,6 +1329,7 @@
 /* colunas que saem nos ecrãs mais estreitos para a tabela caber (DataTable `ate`); no telemóvel voltam, em blocos */
 @media(min-width:769px) and (max-width:1600px){.vh .tbl .dt-ate-1600{display:none}}
 @media(min-width:769px) and (max-width:1300px){.vh .tbl .dt-ate-1300{display:none}}
+@media(min-width:769px) and (max-width:1050px){.vh .tbl .dt-ate-1050{display:none}}
 /* Contas de e-mail: barra de uso e "Enviados hoje" mais estreitos; a descrição da conta passa a duas linhas */
 .vh .em-uso{min-width:180px}
 .vh .em-env small{font-size:inherit;color:inherit;margin-left:4px}

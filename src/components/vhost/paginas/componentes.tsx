@@ -191,12 +191,14 @@ export interface Col<T> {
   cell: (row: T) => ReactNode;
   /** valor para ordenar ao clicar no título */
   sort?: (row: T) => string | number;
-  /** escondida por defeito (pode ser ligada em "Colunas") */
+  /** marcada como escondida, mas hoje não é aplicada (a coluna aparece); para começar escondida usa-se `oculta` */
   hidden?: boolean;
+  /** começa escondida (quem quiser liga-a no "Colunas"; a escolha fica guardada neste navegador) */
+  oculta?: boolean;
   right?: boolean;
   /** sai nos ecrãs de computador/portátil até esta largura, para a tabela caber sem barra de deslocar (pedido do Silva,
    *  13/10/2026: colunas apertadas a 1440 e 1280); no telemóvel, em blocos, volta a aparecer */
-  ate?: 1600 | 1300;
+  ate?: 1600 | 1300 | 1050;
 }
 export interface Bulk {
   t: string;
@@ -316,7 +318,7 @@ export function DataTable<T>({
   // deslizar, não o cortar quando tem poucas linhas — como o menu "⋯" das linhas
   const [acoesPos, setAcoesPos] = useState<{ top: number; left: number } | null>(null);
   const acoesRef = useRef<HTMLDivElement>(null);
-  const [vis, setVis] = useState<string[]>(() => cols.map((c) => c.k));
+  const [vis, setVis] = useState<string[]>(() => cols.filter((c) => !c.oculta).map((c) => c.k));
   const [colsOpen, setColsOpen] = useState(false);
   const [sel, setSel] = useState<string[]>([]);
   const [sort, setSort] = useState<{ k: string; dir: 1 | -1 } | null>(null);

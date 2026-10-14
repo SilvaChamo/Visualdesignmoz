@@ -55,9 +55,17 @@ function RegisterPageInner() {
   const [error, setError] = useState('')
   const [sucesso, setSucesso] = useState(false)
   const { lang } = useI18n()
-  // "não sou um robô" (Turnstile): o resultado só vale uma vez — depois de uma tentativa falhada a caixa volta a pedir
+  // "não sou um robô" (Turnstile) no 1.º passo, à vista ao abrir a página (Silva, 14/10/2026). O resultado só vale uma
+  // vez e ~5 minutos: se já tiver passado o prazo ao registar, ou depois de uma tentativa falhada, a caixa volta a
+  // aparecer no 3.º passo para confirmar de novo
   const [robo, setRobo] = useState('')
+  const [roboEm, setRoboEm] = useState(0)
   const [roboVez, setRoboVez] = useState(0)
+  const aoRobo = (token: string) => {
+    setRobo(token)
+    setRoboEm(token ? Date.now() : 0)
+  }
+  const roboValido = () => !!robo && Date.now() - roboEm < 280_000
 
   // 1.º passo: o e-mail já tem conta? (pedido do Silva, 13/10/2026 — por causa das contas repetidas, verifica-se logo
   // aqui e só depois se passa ao 2.º passo; o registo final volta a verificar)
@@ -65,6 +73,10 @@ function RegisterPageInner() {
   const goToStep2 = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+    if (!robo) {
+      setError('Confirme que não é um robô (a caixa de verificação por cima do botão).')
+      return
+    }
     if (password !== confirmar) {
       setError('As palavras-passe não coincidem.')
       return
@@ -106,8 +118,9 @@ function RegisterPageInner() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
-    if (!robo) {
-      setError('Confirme que não é um robô (a caixa de verificação por cima do botão).')
+    if (!roboValido()) {
+      aoRobo('')
+      setError('A verificação de segurança expirou: confirme de novo que não é um robô.')
       return
     }
     setLoading(true)
@@ -136,7 +149,7 @@ function RegisterPageInner() {
       setSucesso(true)
     } catch (err: unknown) {
       setError((err as Error).message || 'Erro ao criar conta.')
-      setRobo('')
+      aoRobo('')
       setRoboVez((n) => n + 1)
     } finally {
       setLoading(false)
@@ -222,6 +235,7 @@ function RegisterPageInner() {
                 </CampoFlutuante>
               </div>
               <ForcaSenha senha={password} />
+              <Turnstile key={'p1-' + roboVez} onToken={aoRobo} lang={lang} />
               <button type="submit" disabled={verificando} className={botaoCls}>
                 {verificando ? 'A verificar o e-mail…' : 'Continuar →'}
               </button>
@@ -255,7 +269,7 @@ function RegisterPageInner() {
               </div>
               <CampoFlutuante id="reg-email-empresa" rotulo="E-mail da empresa" dica="geral@empresa.com" type="email" value={emailEmpresa} onChange={setEmailEmpresa} />
               <CampoTelefone id="reg-contactos" rotulo="Contactos" dica="21 000 000" value={contacto} onChange={setContacto} />
-              <Turnstile key={roboVez} onToken={setRobo} lang={lang} />
+              {!robo && <Turnstile key={'p3-' + roboVez} onToken={aoRobo} lang={lang} />}
               <div className="flex gap-3">
                 <button type="button" onClick={() => setStep(2)} className={botaoClaroCls}>
                   ← Voltar
