@@ -32,23 +32,16 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  MODO: comparar
+  MODO: copiar
   # dominios onde o Hetzner tem a versao mais nova (decidido depois da comparacao)
   SOBRESCREVER: ""
-  IMPORTAR_BD: ""
+  IMPORTAR_BD: "mltmark.com"
   # conta Hetzner | dominio | conta Contabo
+  # 2.a corrida (14/10/2026): a comparacao mostrou que so o mltmark.com tem dados mais novos
+  # no Hetzner (19 formularios; o site ainda apontava para la). Nos outros o que "falta" e cache e
+  # versoes antigas de plugins - nao se copia. Comparacao completa: run 38555618942.
   PARES: |
-    admin|aamihe.com|aamihe
-    admin|concordia.co.mz|concordia
-    admin|entrecamposblog.com|vdadmin
     admin|mltmark.com|mltmark
-    admin|provisualcorporate.co.mz|provisualcorporate
-    oshercollective|elimservicos.com|oshercollective
-    oshercollective|lirandzojewelry.com|oshercollective
-    oshercollective|menocrazy.app|oshercollective
-    oshercollective|msdn-moz.org|oshercollective
-    oshercollective|oshercollective.com|oshercollective
-    oshercollective|shalomdeco.com|oshercollective
 
 jobs:
   copia:
