@@ -1451,14 +1451,13 @@
  .vh .top .topact :is(.btn,.iconbtn) i{font-size:14px}
 }
 
-/* Telemóvel = uma só coluna em tudo (Silva, 14/10/2026): os números da Dashboard um por linha e o Menu numa lista (o
-   ícone à esquerda e o nome ao lado, uma opção por linha) */
+/* Telemóvel = uma só coluna em tudo (Silva, 14/10/2026): os números da Dashboard um por linha. O Menu fica em duas
+   colunas (Silva, 14/10/2026: "coloque duas colunas no menu"), com o ícone em cima e o nome por baixo; um nome comprido
+   passa à linha de baixo em vez de levar "…" */
 @media(max-width:768px){
  .vh .stats{grid-template-columns:minmax(0,1fr)!important}
- .vh .da-grid{grid-template-columns:minmax(0,1fr)!important;gap:6px}
- .vh .da-card{flex-direction:row;justify-content:flex-start;align-items:center;gap:12px;min-height:46px;padding:8px 12px;text-align:left}
- .vh .da-card-ic{font-size:20px;width:26px;margin:0;flex:none}
- .vh .da-card-title{font-size:14px;text-align:left;white-space:normal}
+ .vh .da-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+ .vh .da-card-title{white-space:normal;text-overflow:clip;overflow:visible;line-height:1.2}
  /* as outras grelhas de 2 ou 3 colunas (datas, transferência, números e botões da coluna dos E-mails, opções, cron…) */
  .vh :is(.da-lin.n2,.da-lin.n3,.da-ops,.em-datas,.trf-grelha,.trf-campos,.em-lado-stats,.em-lado-botoes,.av-cron),.vh .da-privs .privs{grid-template-columns:minmax(0,1fr)!important}
 }
