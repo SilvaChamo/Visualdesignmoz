@@ -1811,6 +1811,9 @@ function Ssl({ tab, verCertDomain }: { tab: TabSsl; verCertDomain: string | null
   const setTab = (k: TabSsl) => vh.nav('/utilizador/ssl' + (k === 'gerir' ? '' : '/' + k));
   const setVerCertDomain = (d: string | null) => vh.nav('/utilizador/ssl' + (d ? '/certificado/' + encodeURIComponent(d) : ''));
   const [menuRow, setMenuRow] = useState<string | null>(null);
+  // o menu "⋯" fica por cima de tudo (position: fixed), para a tabela (overflow) não o cortar na última linha;
+  // abre para cima quando não há espaço por baixo
+  const [menuPos, setMenuPos] = useState<{ top?: number; bottom?: number; right: number }>({ right: 0 });
 
   useEffect(() => {
     if (!menuRow) return;
@@ -1818,8 +1821,15 @@ function Ssl({ tab, verCertDomain }: { tab: TabSsl; verCertDomain: string | null
       const el = e.target as Element | null;
       if (!el?.closest('.ssl-pop-menu') && !el?.closest('.iconbtn')) setMenuRow(null);
     };
+    const fechar = () => setMenuRow(null);
     document.addEventListener('mousedown', close);
-    return () => document.removeEventListener('mousedown', close);
+    window.addEventListener('scroll', fechar, true);
+    window.addEventListener('resize', fechar);
+    return () => {
+      document.removeEventListener('mousedown', close);
+      window.removeEventListener('scroll', fechar, true);
+      window.removeEventListener('resize', fechar);
+    };
   }, [menuRow]);
 
   // Definições ACME
@@ -2037,13 +2047,18 @@ function Ssl({ tab, verCertDomain }: { tab: TabSsl; verCertDomain: string | null
                   <div className="dt-mais" style={{ position: 'relative' }}>
                     <button
                       className="btn g sm iconbtn"
-                      onClick={() => setMenuRow(menuRow === r.name ? null : r.name)}
+                      onClick={(e) => {
+                        const b = e.currentTarget.getBoundingClientRect();
+                        const right = window.innerWidth - b.right;
+                        setMenuPos(window.innerHeight - b.bottom < 110 ? { bottom: window.innerHeight - b.top + 6, right } : { top: b.bottom + 6, right });
+                        setMenuRow(menuRow === r.name ? null : r.name);
+                      }}
                       title={t('Mais opções')}
                     >
                       <i className="fa-solid fa-ellipsis" />
                                           </button>
                     {menuRow === r.name && (
-                      <div className="ssl-pop-menu">
+                      <div className="ssl-pop-menu" style={{ position: 'fixed', ...menuPos }}>
                         <button
                           onClick={() => {
                             setMenuRow(null);
