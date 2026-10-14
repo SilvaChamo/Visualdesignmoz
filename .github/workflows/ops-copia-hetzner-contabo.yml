@@ -1,0 +1,258 @@
+name: "Ops - Comparar e copiar o que falta Hetzner -> Contabo"
+
+# ============================================================================
+# Pedido do Silva (14/10/2026): concluir a copia do que falta do Hetzner para o
+# Contabo, comparando os dois.
+#
+# MODO=comparar  -> SO LEITURA nos dois servidores: ficheiros (lista completa de
+#                   cada public_html), bases de dados (linhas por tabela e data
+#                   mais recente) e qual dos lados tem a versao mais nova.
+# MODO=copiar    -> copia do Hetzner para o Contabo:
+#   - ficheiros que FALTAM no Contabo (nunca substitui os que la existem);
+#   - em SOBRESCREVER: tambem os ficheiros diferentes que sao mais novos no
+#     Hetzner (a versao do Contabo fica guardada em /root/copia-hetzner-<data>/);
+#   - em IMPORTAR_BD: a base de dados do Hetzner por cima da do Contabo (a do
+#     Contabo fica guardada em /root/copia-hetzner-<data>/<bd>.sql); as
+#     credenciais do wp-config do Contabo nao mudam.
+# So sites de clientes: o site VisualDesign e o basededadosagro (apps do nosso
+# projecto, publicados pelo deploy) ficam de fora. O Hetzner nunca e alterado. O email tem o seu proprio copiador
+# (ops-email-sync.yml, so acrescenta).
+# Corre com um push para o ramo ops/copia-hetzner-contabo.
+# ============================================================================
+
+on:
+  push:
+    branches:
+      - ops/copia-hetzner-contabo
+    paths:
+      - .github/workflows/ops-copia-hetzner-contabo.yml
+
+concurrency:
+  group: copia-hetzner-contabo
+  cancel-in-progress: false
+
+env:
+  MODO: comparar
+  # dominios onde o Hetzner tem a versao mais nova (decidido depois da comparacao)
+  SOBRESCREVER: ""
+  IMPORTAR_BD: ""
+  # conta Hetzner | dominio | conta Contabo
+  PARES: |
+    admin|aamihe.com|aamihe
+    admin|concordia.co.mz|concordia
+    admin|entrecamposblog.com|vdadmin
+    admin|mltmark.com|mltmark
+    admin|provisualcorporate.co.mz|provisualcorporate
+    oshercollective|elimservicos.com|oshercollective
+    oshercollective|lirandzojewelry.com|oshercollective
+    oshercollective|menocrazy.app|oshercollective
+    oshercollective|msdn-moz.org|oshercollective
+    oshercollective|oshercollective.com|oshercollective
+    oshercollective|shalomdeco.com|oshercollective
+
+jobs:
+  copia:
+    name: comparar / copiar
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Ferramentas
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq rsync sshpass
+
+      - name: Acessos
+        env:
+          HETZNER_SSH_KEY: ${{ secrets.HETZNER_SSH_KEY }}
+          HETZNER_PORT: ${{ secrets.HETZNER_PORT }}
+          HETZNER_HOST: ${{ secrets.HETZNER_HOST }}
+          CONTABO_HOST: ${{ secrets.CONTABO_HOST }}
+          CONTABO_ROOT_PASSWORD: ${{ secrets.CONTABO_ROOT_PASSWORD }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$HETZNER_SSH_KEY" > ~/.ssh/hetzner
+          chmod 600 ~/.ssh/hetzner
+          printf '%s' "$CONTABO_ROOT_PASSWORD" > ~/.copw
+          chmod 600 ~/.copw
+          ssh-keyscan -p "$HETZNER_PORT" "$HETZNER_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          ssh-keyscan "$CONTABO_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          cat > ~/funcs.sh <<'EOF'
+          COMMON="-o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 -o ServerAliveInterval=15 -o ServerAliveCountMax=4"
+          CM="-o ControlMaster=auto -o ControlPath=$HOME/.ssh/cm-%C -o ControlPersist=600"
+          HE_E="ssh -i $HOME/.ssh/hetzner -p $HETZNER_PORT $COMMON $CM -o BatchMode=yes"
+          CO_E="ssh $COMMON $CM"
+          he() { $HE_E -n "$HETZNER_USER@$HETZNER_HOST" "$@" </dev/null; }
+          co() { sshpass -f ~/.copw ssh $COMMON $CM -n "root@$CONTABO_HOST" "$@" </dev/null; }
+          # corre um script local no servidor: heS script.sh args / coS script.sh args
+          heS() { local f=$1; shift; $HE_E "$HETZNER_USER@$HETZNER_HOST" bash -s -- "$@" < "$f"; }
+          coS() { local f=$1; shift; sshpass -f ~/.copw ssh $COMMON $CM "root@$CONTABO_HOST" bash -s -- "$@" < "$f"; }
+          EOF
+          # lista de ficheiros: caminho TAB tamanho TAB mtime
+          cat > ~/lista.sh <<'EOF'
+          cd "$1" 2>/dev/null || exit 0
+          find . -type f -printf '%P\t%s\t%T@\n' 2>/dev/null | sed -E 's/\.[0-9]+$//' | sort
+          EOF
+          # nome da BD e prefixo das tabelas no wp-config.php
+          cat > ~/wpdb.sh <<'EOF'
+          f="$1/wp-config.php"; [ -f "$f" ] || exit 0
+          grep -oP "DB_NAME['\"]\s*,\s*['\"]\K[^'\"]+" "$f" | head -1
+          grep -oP '^\s*\$table_prefix\s*=\s*[\x27"]\K[^\x27"]+' "$f" | head -1
+          EOF
+          # linhas por tabela + data do post mais recente
+          cat > ~/linhas.sh <<'EOF'
+          DB="$1"; PF="$2"
+          for t in $(mysql -N -e "SELECT table_name FROM information_schema.tables WHERE table_schema='$DB' ORDER BY 1" 2>/dev/null); do
+            echo "$t $(mysql -N -e "SELECT COUNT(*) FROM \`$DB\`.\`$t\`" 2>/dev/null)"
+          done
+          echo "#mais_recente $(mysql -N -e "SELECT MAX(post_modified) FROM \`$DB\`.\`${PF}posts\`" 2>/dev/null | tr ' ' T)"
+          EOF
+
+      - name: "1) Comparar (so leitura)"
+        shell: bash --noprofile --norc {0}
+        env:
+          HETZNER_PORT: ${{ secrets.HETZNER_PORT }}
+          HETZNER_HOST: ${{ secrets.HETZNER_HOST }}
+          HETZNER_USER: ${{ secrets.HETZNER_USER }}
+          CONTABO_HOST: ${{ secrets.CONTABO_HOST }}
+        run: |
+          set +e
+          . ~/funcs.sh
+          mkdir -p comp
+          echo "$PARES" | sed '/^\s*$/d; s/^\s*//' > pares.txt
+          while IFS='|' read -r HU D CU <&3; do
+            echo "################ $D  (Hetzner:$HU  Contabo:$CU) ################"
+            HR="/home/$HU/domains/$D/public_html"; CR="/home/$CU/web/$D/public_html"
+            heS ~/lista.sh "$HR" > "comp/$D.h.tsv"
+            coS ~/lista.sh "$CR" > "comp/$D.c.tsv"
+            heS ~/wpdb.sh "$HR" > "comp/$D.h.db"
+            coS ~/wpdb.sh "$CR" > "comp/$D.c.db"
+            DB=$(sed -n 1p "comp/$D.h.db"); PF=$(sed -n 2p "comp/$D.h.db")
+            [ -n "$DB" ] && heS ~/linhas.sh "$DB" "$PF" > "comp/$D.h.rows"
+            DB=$(sed -n 1p "comp/$D.c.db"); PF=$(sed -n 2p "comp/$D.c.db")
+            [ -n "$DB" ] && coS ~/linhas.sh "$DB" "$PF" > "comp/$D.c.rows"
+            echo "  ficheiros H=$(wc -l < comp/$D.h.tsv) C=$(wc -l < comp/$D.c.tsv)  BD H=$(head -1 comp/$D.h.db) C=$(head -1 comp/$D.c.db)"
+          done 3< pares.txt
+
+          python3 - <<'PY' | tee relatorio.txt
+          import os
+          pares=[l.strip().split('|') for l in open('pares.txt') if l.strip()]
+          def lst(p):
+              d={}
+              if os.path.exists(p):
+                  for l in open(p, errors='replace'):
+                      a=l.rstrip('\n').split('\t')
+                      if len(a)==3:
+                          try: d[a[0]]=(int(a[1]),int(a[2]))
+                          except: pass
+              return d
+          def mb(b): return f"{b/1048576:.1f} MB"
+          import datetime
+          def dt(t): return datetime.datetime.utcfromtimestamp(t).strftime('%Y-%m-%d %H:%M') if t else '-'
+          for hu,d,cu in pares:
+              H=lst(f'comp/{d}.h.tsv'); C=lst(f'comp/{d}.c.tsv')
+              falta=[k for k in H if k not in C]
+              dif=[k for k in H if k in C and H[k][0]!=C[k][0]]
+              hn=[k for k in dif if H[k][1]>C[k][1]]
+              print(f"\n=== {d} ===")
+              print(f"  ficheiros: Hetzner {len(H)} ({mb(sum(v[0] for v in H.values()))})  |  Contabo {len(C)} ({mb(sum(v[0] for v in C.values()))})")
+              print(f"  mais recente: Hetzner {dt(max((v[1] for v in H.values()), default=0))}  |  Contabo {dt(max((v[1] for v in C.values()), default=0))}")
+              print(f"  FALTAM no Contabo: {len(falta)} ficheiros ({mb(sum(H[k][0] for k in falta))})")
+              tops={}
+              for k in falta:
+                  top='/'.join(k.split('/')[:3]); tops[top]=tops.get(top,0)+H[k][0]
+              for t,s in sorted(tops.items(), key=lambda x:-x[1])[:12]: print(f"      {mb(s):>10}  {t}")
+              print(f"  diferentes: {len(dif)} (mais novos no Hetzner: {len(hn)}, mais novos no Contabo: {len(dif)-len(hn)})")
+              for k in sorted(hn, key=lambda k:-H[k][1])[:8]: print(f"      H+ {dt(H[k][1])}  {k}")
+              open(f'comp/{d}.falta.txt','w').write(''.join(k+'\n' for k in falta))
+              open(f'comp/{d}.hnovo.txt','w').write(''.join(k+'\n' for k in hn))
+              # bases de dados
+              def rows(p):
+                  r={}; rec='-'
+                  if os.path.exists(p):
+                      for l in open(p):
+                          a=l.split()
+                          if not a: continue
+                          if a[0]=='#mais_recente': rec=a[1] if len(a)>1 else '-'
+                          elif len(a)==2: r[a[0]]=a[1]
+                  return r,rec
+              hdb=open(f'comp/{d}.h.db').read().split() if os.path.exists(f'comp/{d}.h.db') else []
+              cdb=open(f'comp/{d}.c.db').read().split() if os.path.exists(f'comp/{d}.c.db') else []
+              if hdb or cdb:
+                  HR,hrec=rows(f'comp/{d}.h.rows'); CR,crec=rows(f'comp/{d}.c.rows')
+                  print(f"  BD: Hetzner {hdb[0] if hdb else '-'} ({len(HR)} tabelas, post mais recente {hrec})  |  Contabo {cdb[0] if cdb else '-'} ({len(CR)} tabelas, post mais recente {crec})")
+                  difs=[]
+                  for t in sorted(set(HR)|set(CR)):
+                      if HR.get(t)!=CR.get(t): difs.append(f"{t}: H={HR.get(t,'-')} C={CR.get(t,'-')}")
+                  print(f"     tabelas com linhas diferentes: {len(difs)}")
+                  for x in difs[:25]: print('       '+x)
+          PY
+          cp relatorio.txt "$GITHUB_STEP_SUMMARY" 2>/dev/null; sed -i '1i ```' "$GITHUB_STEP_SUMMARY"; echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: "2) Copiar o que falta (MODO=copiar)"
+        if: env.MODO == 'copiar'
+        shell: bash --noprofile --norc {0}
+        env:
+          HETZNER_PORT: ${{ secrets.HETZNER_PORT }}
+          HETZNER_HOST: ${{ secrets.HETZNER_HOST }}
+          HETZNER_USER: ${{ secrets.HETZNER_USER }}
+          CONTABO_HOST: ${{ secrets.CONTABO_HOST }}
+        run: |
+          set +e
+          . ~/funcs.sh
+          TS=$(date +%Y%m%d-%H%M%S); BK="/root/copia-hetzner-$TS"
+          co "mkdir -p $BK"
+          FAIL=0
+          while IFS='|' read -r HU D CU <&3; do
+            HR="/home/$HU/domains/$D/public_html"; CR="/home/$CU/web/$D/public_html"
+            : > "lista.$D"
+            cat "comp/$D.falta.txt" >> "lista.$D"
+            case " $SOBRESCREVER " in *" $D "*)
+              if [ -s "comp/$D.hnovo.txt" ]; then
+                echo "== $D: guardar no Contabo a versao actual dos ficheiros que vao ser substituidos"
+                sshpass -f ~/.copw rsync -a --files-from="comp/$D.hnovo.txt" -e "$CO_E" "root@$CONTABO_HOST:$CR/" "bk.$D/" 2>/dev/null
+                co "mkdir -p $BK/ficheiros/$D"
+                sshpass -f ~/.copw rsync -a -e "$CO_E" "bk.$D/" "root@$CONTABO_HOST:$BK/ficheiros/$D/"
+                cat "comp/$D.hnovo.txt" >> "lista.$D"
+              fi ;;
+            esac
+            N=$(grep -c . "lista.$D")
+            if [ "$N" -gt 0 ]; then
+              echo "== $D: copiar $N ficheiros"
+              mkdir -p "w.$D"
+              rsync -a --timeout=300 --files-from="lista.$D" -e "$HE_E" "$HETZNER_USER@$HETZNER_HOST:$HR/" "w.$D/" || { echo "  FALHOU Hetzner -> runner"; FAIL=$((FAIL+1)); }
+              sshpass -f ~/.copw rsync -a --timeout=300 -e "$CO_E" "w.$D/" "root@$CONTABO_HOST:$CR/" || { echo "  FALHOU runner -> Contabo"; FAIL=$((FAIL+1)); }
+              co "chown -R $CU:$CU '$CR'"
+              echo "  feito: $(du -sh "w.$D" | cut -f1)"
+              rm -rf "w.$D" "bk.$D"
+            else
+              echo "== $D: nada a copiar"
+            fi
+            case " $IMPORTAR_BD " in *" $D "*)
+              HDB=$(sed -n 1p "comp/$D.h.db"); CDB=$(sed -n 1p "comp/$D.c.db")
+              if [ -z "$HDB" ] || [ -z "$CDB" ]; then echo "  BD: falta o nome de um dos lados (H=$HDB C=$CDB)"; FAIL=$((FAIL+1))
+              else
+                echo "== $D: BD $HDB (Hetzner) -> $CDB (Contabo); copia de seguranca em $BK/$CDB.sql"
+                co "mysqldump --single-transaction --default-character-set=utf8mb4 '$CDB' > $BK/$CDB.sql && ls -la $BK/$CDB.sql" || { echo "  FALHOU backup - nao importo"; FAIL=$((FAIL+1)); continue; }
+                he "mysqldump --single-transaction --no-tablespaces --default-character-set=utf8mb4 '$HDB'" > "$D.sql"
+                if [ -s "$D.sql" ] && tail -1 "$D.sql" | grep -q "Dump completed"; then
+                  sed -i 's/utf8mb4_0900_ai_ci/utf8mb4_unicode_ci/g' "$D.sql"
+                  sshpass -f ~/.copw scp $COMMON "$D.sql" "root@$CONTABO_HOST:$BK/$D.hetzner.sql"
+                  co "mysql '$CDB' < $BK/$D.hetzner.sql && echo '  importada'" || { echo "  FALHOU import"; FAIL=$((FAIL+1)); }
+                else echo "  FALHOU dump do Hetzner"; FAIL=$((FAIL+1)); fi
+                rm -f "$D.sql"
+              fi ;;
+            esac
+          done 3< pares.txt
+          echo "copias de seguranca no Contabo: $BK"
+          [ "$FAIL" -eq 0 ]
+
+      - name: Guardar listas
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: comparacao
+          path: |
+            relatorio.txt
+            comp/*.falta.txt
+            comp/*.hnovo.txt
+          retention-days: 14
