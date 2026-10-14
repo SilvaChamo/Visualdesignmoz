@@ -239,7 +239,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ erro: 'O subdomínio foi criado, mas ficou com pasta própria: o servidor não aceitou usar ' + d + '/' + sub + ' (' + (y.error || 'erro') + ').' }, { status: 502 });
       }
     }
-    if (x.ok && c.ssl) hestiaCall('v-add-letsencrypt-domain', [conta, novo]).catch(() => null);
+    if (x.ok && c.ssl) hestia.issueLetsEncrypt(conta, novo).catch(() => null); // com o reload do nginx (o certificado vale logo)
     // webmail em https://<domínio>/webmail (antes ficava por pôr à mão em cada domínio novo)
     if (x.ok && !(await instalarWebmail(conta, novo))) {
       esquecerLeitura();

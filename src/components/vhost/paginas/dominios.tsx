@@ -234,7 +234,7 @@ function NovoDominio() {
     if (await noServidor(vh, { acao: 'dominio-criar', dominio: n, ssl }, 'Domínio ' + n + ' criado')) {
       vh.setDominio(n);
       nav('/' + vh.s.level + '/dominios/' + encodeURIComponent(n));
-    }
+    } else await vh.recarregar(true); // um erro a meio pode ter deixado o domínio criado: a lista volta a ler o servidor
   };
   return (
     <Frm
@@ -861,8 +861,11 @@ function NovoSubdominio({ d }: { d: string }) {
     if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(n)) return vh.toast('Subdomínio: letras, números e hífen');
     if (!frente && !atras) return vh.toast('Escolha pelo menos um dos endereços');
     closeM();
-    if (frente) await noServidor(vh, { acao: 'subdominio-criar', dominio: dom, sub: n, ssl: true, pasta: atras }, 'Subdomínio ' + n + '.' + dom + ' criado');
-    else await noServidor(vh, { acao: 'subpasta-criar', dominio: dom, sub: n }, 'Endereço ' + dom + '/' + n + ' criado');
+    // um erro a meio (ex.: o nginx recusou a regra do webmail) deixa o subdomínio criado: a lista volta a ler o servidor,
+    // senão ele não aparecia e cada nova tentativa só dizia "já existe" (community.oshercollective.com, 14/10/2026)
+    if (frente) {
+      if (!(await noServidor(vh, { acao: 'subdominio-criar', dominio: dom, sub: n, ssl: true, pasta: atras }, 'Subdomínio ' + n + '.' + dom + ' criado'))) await vh.recarregar(true);
+    } else await noServidor(vh, { acao: 'subpasta-criar', dominio: dom, sub: n }, 'Endereço ' + dom + '/' + n + ' criado');
   };
   return (
     <>
