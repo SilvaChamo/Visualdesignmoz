@@ -34,7 +34,23 @@ jobs:
             $S ls $WP/wp-content/plugins 2>/dev/null | grep -iE "buddy|bbpress|communit|peepso|youzify|forum|member|ultimate|circle|discord"
             DB=$(grep -oP "DB_NAME',\s*'\K[^']+" $WP/wp-config.php 2>/dev/null); PFX=$(grep -oP "table_prefix\s*=\s*'\K[^']+" $WP/wp-config.php 2>/dev/null)
             echo "bd: $DB prefixo: $PFX"
-            [ -n "$DB" ] && $S mysql -N -e "SELECT ID,post_status,post_name,post_title FROM \`$DB\`.${PFX}posts WHERE post_type='page' AND (post_name LIKE '%communit%' OR post_name LIKE '%comunidad%' OR post_title LIKE '%ommunit%' OR post_title LIKE '%omunidad%');" 2>&1 | head
+
+            Q() { $S mysql -N -e "$1" 2>&1 | grep -v Deprecated | head -${2:-15}; }
+            echo "--- qualquer tipo de conteúdo com community/comunidade no nome ou título (tipo, estado, slug, título) ---"
+            Q "SELECT post_type,post_status,post_name,LEFT(post_title,60) FROM \`$DB\`.${PFX}posts WHERE post_type NOT IN ('revision','attachment') AND (post_name REGEXP 'communit|comunidad' OR post_title REGEXP 'ommunit|omunidad');"
+            echo "--- itens de menu / conteúdos que ligam para community.oshercollective.com ou /community ---"
+            Q "SELECT p.post_type,p.post_status,p.post_name,LEFT(p.post_title,50) FROM \`$DB\`.${PFX}posts p WHERE p.post_type NOT IN ('revision') AND p.post_content REGEXP 'community\\\\.oshercollective|oshercollective\\\\.com/communit';"
+            Q "SELECT m.post_id,m.meta_key,LEFT(m.meta_value,120) FROM \`$DB\`.${PFX}postmeta m WHERE m.meta_value REGEXP 'community\\\\.oshercollective|/communit|/comunidad';"
+            echo "--- nº de conteúdos que mencionam community/comunidade no texto, por tipo ---"
+            Q "SELECT post_type,post_status,COUNT(*) FROM \`$DB\`.${PFX}posts WHERE post_type NOT IN ('revision') AND post_content REGEXP 'ommunity|omunidade' GROUP BY 1,2;"
+            echo "--- títulos desses conteúdos ---"
+            Q "SELECT post_type,post_status,post_name,LEFT(post_title,60) FROM \`$DB\`.${PFX}posts WHERE post_type IN ('page','post','elementor_library','wp_template','wp_block','wp_navigation') AND post_content REGEXP 'ommunity|omunidade';" 25
+            echo "--- opções (wp_options) ---"
+            Q "SELECT option_name,LEFT(option_value,100) FROM \`$DB\`.${PFX}options WHERE option_name REGEXP 'communit|comunidad|buddy|bbp|peepso' OR option_value REGEXP 'community\\\\.oshercollective';"
+            echo "--- tipos de conteúdo existentes ---"
+            Q "SELECT post_type,COUNT(*) FROM \`$DB\`.${PFX}posts GROUP BY 1 ORDER BY 2 DESC;" 30
+            echo "--- plugins activos ---"
+            Q "SELECT option_value FROM \`$DB\`.${PFX}options WHERE option_name='active_plugins';" 3
   contabo:
     runs-on: ubuntu-latest
     steps:
@@ -54,6 +70,22 @@ jobs:
             ls $WP/wp-content/plugins 2>/dev/null | grep -iE "buddy|bbpress|communit|peepso|youzify|forum|member|ultimate|circle|discord"
             DB=$(grep -oP "DB_NAME',\s*'\K[^']+" $WP/wp-config.php 2>/dev/null); PFX=$(grep -oP "table_prefix\s*=\s*'\K[^']+" $WP/wp-config.php 2>/dev/null)
             echo "bd: $DB prefixo: $PFX"
-            [ -n "$DB" ] && mysql -N -e "SELECT ID,post_status,post_name,post_title FROM \`$DB\`.${PFX}posts WHERE post_type='page' AND (post_name LIKE '%communit%' OR post_name LIKE '%comunidad%' OR post_title LIKE '%ommunit%' OR post_title LIKE '%omunidad%');" 2>&1 | head
+            S=""
+            Q() { $S mysql -N -e "$1" 2>&1 | grep -v Deprecated | head -${2:-15}; }
+            echo "--- qualquer tipo de conteúdo com community/comunidade no nome ou título (tipo, estado, slug, título) ---"
+            Q "SELECT post_type,post_status,post_name,LEFT(post_title,60) FROM \`$DB\`.${PFX}posts WHERE post_type NOT IN ('revision','attachment') AND (post_name REGEXP 'communit|comunidad' OR post_title REGEXP 'ommunit|omunidad');"
+            echo "--- itens de menu / conteúdos que ligam para community.oshercollective.com ou /community ---"
+            Q "SELECT p.post_type,p.post_status,p.post_name,LEFT(p.post_title,50) FROM \`$DB\`.${PFX}posts p WHERE p.post_type NOT IN ('revision') AND p.post_content REGEXP 'community\\\\.oshercollective|oshercollective\\\\.com/communit';"
+            Q "SELECT m.post_id,m.meta_key,LEFT(m.meta_value,120) FROM \`$DB\`.${PFX}postmeta m WHERE m.meta_value REGEXP 'community\\\\.oshercollective|/communit|/comunidad';"
+            echo "--- nº de conteúdos que mencionam community/comunidade no texto, por tipo ---"
+            Q "SELECT post_type,post_status,COUNT(*) FROM \`$DB\`.${PFX}posts WHERE post_type NOT IN ('revision') AND post_content REGEXP 'ommunity|omunidade' GROUP BY 1,2;"
+            echo "--- títulos desses conteúdos ---"
+            Q "SELECT post_type,post_status,post_name,LEFT(post_title,60) FROM \`$DB\`.${PFX}posts WHERE post_type IN ('page','post','elementor_library','wp_template','wp_block','wp_navigation') AND post_content REGEXP 'ommunity|omunidade';" 25
+            echo "--- opções (wp_options) ---"
+            Q "SELECT option_name,LEFT(option_value,100) FROM \`$DB\`.${PFX}options WHERE option_name REGEXP 'communit|comunidad|buddy|bbp|peepso' OR option_value REGEXP 'community\\\\.oshercollective';"
+            echo "--- tipos de conteúdo existentes ---"
+            Q "SELECT post_type,COUNT(*) FROM \`$DB\`.${PFX}posts GROUP BY 1 ORDER BY 2 DESC;" 30
+            echo "--- plugins activos ---"
+            Q "SELECT option_value FROM \`$DB\`.${PFX}options WHERE option_name='active_plugins';" 3
             echo "=== https://oshercollective.com/community (de dentro) ==="
             curl -skI --max-time 10 https://oshercollective.com/community/ 2>&1 | head -3
