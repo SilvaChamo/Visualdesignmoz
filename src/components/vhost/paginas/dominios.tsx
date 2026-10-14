@@ -4,7 +4,7 @@
 // redirecionamentos, proteção hotlink e definições PHP. Campos copiados do DirectAdmin (ver
 // VisualHost/05-da-gestao-de-dominios.md); dados e alterações reais no servidor (Hestia + Cloudflare) por
 // /api/vhost/dominio. As páginas de um só domínio usam o domínio escolhido no seletor da faixa de navegação.
-import { Fragment, useCallback, useEffect, useState, type ReactNode } from 'react';
+import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type TextareaHTMLAttributes } from 'react';
 import { useVH, type VH } from '../context';
 import type { ScreenFn } from '../screens';
 import type { BaseDados, Domain } from '../types';
@@ -1033,7 +1033,7 @@ function DnsForm({ d, fonte, r, onFeito }: { d: string; fonte: Detalhe['dns']['f
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {txtLinhas.map((linha, idx) => (
               <div key={idx} style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
-                <textarea
+                <TextoAuto
                   className="inp dns-txt-area"
                   value={linha}
                   onChange={(e) => {
@@ -1043,8 +1043,8 @@ function DnsForm({ d, fonte, r, onFeito }: { d: string; fonte: Detalhe['dns']['f
                     if (idx === 0) setF({ ...f, valor: e.target.value });
                   }}
                   placeholder="ex.: v=spf1 include:spf.brevo.com ip4:169.58.148.144 ~all"
-                  rows={3}
-                  style={{ width: '100%', minHeight: 68, resize: 'vertical', fontFamily: 'monospace', fontSize: 13 }}
+                  rows={2}
+                  style={{ width: '100%', minHeight: 68, fontFamily: 'monospace', fontSize: 13, wordBreak: 'break-all' }}
                   autoFocus={idx === 0}
                 />
                 {!r && txtLinhas.length > 1 && (
@@ -1260,7 +1260,7 @@ function Dns() {
                         />
                       )}
                       {r.tipo === 'TXT' ? (
-                        <textarea
+                        <TextoAuto
                           className="inp sm dns-inline-inp dns-txt-area"
                           value={fEdit.valor}
                           onChange={(e) => setFEdit({ ...fEdit, valor: e.target.value })}
@@ -1270,7 +1270,7 @@ function Dns() {
                           }}
                           placeholder="v=spf1 ... ou texto"
                           rows={2}
-                          style={{ width: '100%', minWidth: 200, minHeight: 52, resize: 'vertical', fontFamily: 'monospace', fontSize: 12.5 }}
+                          style={{ width: '100%', minWidth: 200, minHeight: 52, fontFamily: 'monospace', fontSize: 12.5, wordBreak: 'break-all' }}
                         />
                       ) : (
                         <input
@@ -1288,7 +1288,8 @@ function Dns() {
                     </div>
                   );
                 }
-                return <span style={{ wordBreak: 'break-all' }}>{valorDns(r)}</span>;
+                // as células da tabela são nowrap (maquete.css) — o registo parte linhas para mostrar o TXT/DKIM inteiro
+                return <span style={{ whiteSpace: 'normal', overflowWrap: 'anywhere' }}>{valorDns(r)}</span>;
               },
             },
           ]}
@@ -1364,6 +1365,34 @@ function Dns() {
     </>
   );
 }
+/** Caixa de texto que cresce com o conteúdo (registos TXT/DKIM longos): mostra sempre o texto todo, sem cortes nem
+ * barra de deslocar dentro da caixa. */
+function TextoAuto(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  const ajustar = () => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = el.scrollHeight + 2 + 'px';
+  };
+  useLayoutEffect(ajustar, [props.value]);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    // a largura muda com a janela/coluna — o número de linhas também
+    let w = el.clientWidth;
+    const ro = new ResizeObserver(() => {
+      if (el.clientWidth !== w) {
+        w = el.clientWidth;
+        ajustar();
+      }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  return <textarea {...props} ref={ref} style={{ ...props.style, overflow: 'hidden', resize: 'none' }} />;
+}
+
 /** "+ Adicionar registo" na barra de cima (regra do Silva: o "+ Adicionar…" principal vai para a barra de cima quando
  *  está livre); usa a mesma leitura do DNS que a página (memória comum), e a tabela atualiza-se sozinha */
 function NovoRegistoDns() {
