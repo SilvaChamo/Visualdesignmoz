@@ -10,6 +10,7 @@ name: "Ops - Registos DNS de oshercollective.com na Cloudflare (Contabo)"
 # Todos "DNS only" (sem proxy), como estava antes - o email tem de ser assim e o
 # site fica com o certificado do Hestia.
 # Corre com um push para o ramo ops/dns-oshercollective-cloudflare.
+# 2.a corrida: a chave DKIM do Hestia vem entre aspas simples - tiram-se.
 # ============================================================================
 
 on:
@@ -37,7 +38,7 @@ jobs:
           d = json.load(open('dkim.json'))
           rec = next(iter(d.values()))
           nome = next(iter(d.keys()))
-          valor = rec.get('TXT', '').strip().strip('"')
+          valor = rec.get('TXT', '').replace('"', '').replace("'", '').strip()
           print('DKIM:', nome, valor[:60] + '…')
           open('dkim.txt', 'w').write(nome + '\n' + valor + '\n')
           PY
@@ -94,7 +95,7 @@ jobs:
               if tipo in ('MX', 'TXT'): corpo.pop('proxied')
               if prio is not None: corpo['priority'] = prio
               # registo igual ja existe?
-              iguais = [r for r in existentes if r['type'] == tipo and r['name'] == nome and r['content'].strip('"') == conteudo]
+              iguais = [r for r in existentes if r['type'] == tipo and r['name'] == nome and r['content'].strip('"\' ') == conteudo]
               if iguais and (tipo in ('MX', 'TXT') or not iguais[0].get('proxied')):
                   print(f'= {tipo} {nome} ja estava certo'); continue
               # registo do mesmo tipo/nome a corrigir (A/CNAME do mesmo nome; TXT com a mesma marca; MX do dominio)
@@ -102,7 +103,7 @@ jobs:
               for r in existentes:
                   if r['name'] != nome: continue
                   if tipo in ('A', 'CNAME') and r['type'] in ('A', 'AAAA', 'CNAME'): alvo = r; break
-                  if tipo == 'TXT' and r['type'] == 'TXT' and marca and r['content'].strip('"').startswith(marca): alvo = r; break
+                  if tipo == 'TXT' and r['type'] == 'TXT' and marca and r['content'].strip('"\' ').startswith(marca): alvo = r; break
                   if tipo == 'MX' and r['type'] == 'MX': alvo = r; break
               if alvo and alvo['type'] != tipo:
                   cf('DELETE', f"/zones/{ZID}/dns_records/{alvo['id']}"); alvo = None
