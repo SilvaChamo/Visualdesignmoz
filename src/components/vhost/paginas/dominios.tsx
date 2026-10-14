@@ -1449,6 +1449,61 @@ function CertificadoModal({ d, onFeito }: { d: string; onFeito: () => void }) {
   );
 }
 
+/** Emitir / renovar o certificado grátis de um domínio, à maneira do DirectAdmin: escolhem-se os nomes que entram
+ *  no certificado (o domínio vai sempre; www.… e os outros apontadores marcam-se ou não). */
+function EmitirSslModal({ dom, onFeito }: { dom: Domain; onFeito: () => void }) {
+  const vh = useVH();
+  const { t, closeM } = vh;
+  const aliases = dom.aliases || [];
+  const [marcados, setMarcados] = useState<string[]>(aliases);
+  const renovar = dom.ssl === 'ok' && dom.le;
+  return (
+    <>
+      <h3>{t(renovar ? 'Renovar certificado grátis' : 'Pedir certificado grátis')}</h3>
+      <p style={{ color: 'var(--muted)', fontSize: 12.5, marginBottom: 12, lineHeight: 1.5 }}>
+        {t("Certificado Let's Encrypt, renovado sozinho antes de expirar. Só funciona com o DNS de cada nome a apontar para este servidor — desmarque os que ainda não apontam.")}
+      </p>
+      <div style={{ marginBottom: 6 }}>
+        <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>{t('Nomes incluídos no certificado')}</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <Check checked onChange={() => {}} label={dom.name} muted />
+          {aliases.map((n) => (
+            <Check key={n} checked={marcados.includes(n)} onChange={(v) => setMarcados(v ? [...marcados, n] : marcados.filter((y) => y !== n))} label={n} />
+          ))}
+          {!aliases.length && <small style={{ color: 'var(--muted)' }}>{t('Este domínio não tem apontadores (ex.: www). O certificado fica só com o domínio.')}</small>}
+        </div>
+      </div>
+      <div className="mfoot">
+        <button className="btn g" onClick={closeM}>
+          {t('Cancelar')}
+        </button>
+        <button
+          className="btn r"
+          onClick={async () => {
+            closeM();
+            if (await noServidor(vh, { acao: 'ssl-le', dominio: dom.name, nomes: marcados }, "Certificado emitido para " + dom.name)) onFeito();
+          }}
+        >
+          <i className="fa-solid fa-lock" />
+          {t(renovar ? 'Renovar' : 'Emitir')}
+        </button>
+      </div>
+    </>
+  );
+}
+
+/** Cancelar (retirar) o certificado de um domínio — o site volta a abrir só em http:// */
+function cancelarSsl(vh: VH, d: string, onFeito: () => void) {
+  vh.openM(
+    <Confirmar
+      titulo="Cancelar certificado SSL?"
+      texto={`O certificado de ${d} é retirado do servidor (e deixa de ser renovado). O site passa a abrir só em http:// até emitir outro.`}
+      ok="Cancelar certificado"
+      onOk={async () => (await noServidor(vh, { acao: 'ssl-apagar', dominio: d }, 'Certificado de ' + d + ' cancelado')) && onFeito()}
+    />
+  );
+}
+
 type TabSsl = 'gerir' | 'acme' | 'historico';
 
 function CsrModal({ d }: { d: string }) {
@@ -1853,14 +1908,17 @@ function Ssl({ tab, verCertDomain }: { tab: TabSsl; verCertDomain: string | null
               right={x.ssl === 'ok' ? <span className="tag ok">{t('Seguro')}</span> : <span className="tag w">{t('Sem SSL')}</span>}
               foot={
                 <>
+                  {x.ssl === 'ok' && (
+                    <button className="btn g" onClick={() => cancelarSsl(vh, x.name, ler)}>
+                      <i className="fa-solid fa-ban" />
+                      {t('Cancelar certificado')}
+                    </button>
+                  )}
                   <button className="btn g" onClick={() => openM(<CertificadoModal d={x.name} onFeito={ler} />)}>
                     <i className="fa-solid fa-file-shield" />
                     {t('Instalar certificado próprio')}
                   </button>
-                  <button
-                    className="btn r"
-                    onClick={async () => (await noServidor(vh, { acao: 'ssl-le', dominio: x.name }, 'Certificado pedido ao Let\'s Encrypt')) && ler()}
-                  >
+                  <button className="btn r" onClick={() => openM(<EmitirSslModal dom={x} onFeito={ler} />)}>
                     <i className="fa-solid fa-lock" />
                     {t(det?.certificado ? 'Renovar certificado grátis' : 'Pedir certificado grátis')}
                   </button>
@@ -1956,8 +2014,19 @@ function Ssl({ tab, verCertDomain }: { tab: TabSsl; verCertDomain: string | null
               ]}
               actions={(r) => (
                 <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', alignItems: 'center', position: 'relative' }}>
+                  <button className={'btn sm ' + (r.ssl === 'ok' ? 'g' : 'r')} onClick={() => openM(<EmitirSslModal dom={r} onFeito={ler} />)}>
+                    <i className={'fa-solid ' + (r.ssl === 'ok' ? 'fa-arrows-rotate' : 'fa-lock')} />
+                    {t(r.ssl === 'ok' ? 'Renovar' : 'Emitir')}
+                  </button>
+                  {r.ssl === 'ok' && (
+                    <button className="btn g sm" onClick={() => cancelarSsl(vh, r.name, ler)} title={t('Cancelar certificado')}>
+                      <i className="fa-solid fa-ban" />
+                      {t('Cancelar')}
+                    </button>
+                  )}
                   <button
                     className="btn g sm"
+                    disabled={r.ssl !== 'ok'}
                     onClick={() => {
                       if (r.name !== x.name) setDominio(r.name);
                       setVerCertDomain(r.name);
@@ -1993,23 +2062,7 @@ function Ssl({ tab, verCertDomain }: { tab: TabSsl; verCertDomain: string | null
                           <i className="fa-solid fa-arrows-rotate" />
                           {t('Replace')}
                         </button>
-                        <button
-                          className="danger"
-                          onClick={() => {
-                            setMenuRow(null);
-                            openM(
-                              <Confirmar
-                                titulo="Apagar certificado SSL?"
-                                texto={`Tem a certeza que deseja apagar o certificado SSL do domínio ${r.name}?`}
-                                ok="Apagar"
-                                onOk={() => noServidor(vh, { acao: 'ssl-apagar', dominio: r.name }, 'Certificado SSL removido')}
-                              />
-                            );
-                          }}
-                        >
-                          <i className="fa-solid fa-trash" />
-                          {t('Delete')}
-                        </button>
+
                       </div>
                     )}
                   </div>

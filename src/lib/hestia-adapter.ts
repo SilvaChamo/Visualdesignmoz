@@ -22,8 +22,10 @@ function isAlreadyExistsError(error?: string): boolean {
 export async function issueLetsEncrypt(
   username: string,
   domain: string,
+  /** apontadores a incluir no certificado; omitido = o que o Hestia fizer por defeito */
+  aliases?: string[],
 ): Promise<{ ok: boolean; error?: string; output?: string }> {
-  const result = await hestiaCall('v-add-letsencrypt-domain', [username, domain]);
+  const result = await hestiaCall('v-add-letsencrypt-domain', [username, domain, ...(aliases?.length ? [aliases.join(',')] : [])]);
   if (!result.ok && !isAlreadyExistsError(result.error)) {
     return { ok: false, error: result.error };
   }
