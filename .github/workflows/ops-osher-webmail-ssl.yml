@@ -1,0 +1,47 @@
+name: "Ops - Osher: SSL de mail/webmail.oshercollective.com (autorizado pelo Silva, 14/10/2026)"
+
+# mail.oshercollective.com e webmail.oshercollective.com respondiam com o certificado de
+# teste.visualdesignmoz.com. No Hestia resolve-se com o Let's Encrypt do domínio de
+# e-mail (v-add-letsencrypt-domain <conta> <dominio> '' yes), que cobre mail.<d> e
+# webmail.<d> e liga o SSL do e-mail. Só mexe em oshercollective.com.
+on:
+  push:
+    branches: [ops/osher-webmail-ssl]
+
+jobs:
+  contabo:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Estado, emissão e confirmação
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          username: root
+          password: ${{ secrets.CONTABO_ROOT_PASSWORD }}
+          command_timeout: 5m
+          script: |
+            set +e
+            B=/usr/local/hestia/bin; U=oshercollective; D=oshercollective.com
+            echo "=== antes: domínio de e-mail ==="
+            $B/v-list-mail-domain $U $D json | grep -E '"(WEBMAIL|SSL|LETSENCRYPT|SUSPENDED)"'
+            echo "=== Let's Encrypt para mail.$D e webmail.$D ==="
+            $B/v-add-letsencrypt-domain $U $D '' yes; echo "código: $?"
+            echo "=== depois ==="
+            $B/v-list-mail-domain $U $D json | grep -E '"(WEBMAIL|SSL|LETSENCRYPT)"'
+            nginx -t 2>&1 | tail -1 && systemctl reload nginx && echo "nginx recarregado"
+            sleep 3
+            IP=$(hostname -I | awk '{print $1}')
+            for n in mail.$D webmail.$D community.$D $D; do
+              echo -n "$n -> "; echo | openssl s_client -connect $IP:443 -servername $n 2>/dev/null | openssl x509 -noout -subject -enddate | tr '\n' ' '; echo
+            done
+  fora:
+    needs: contabo
+    runs-on: ubuntu-latest
+    steps:
+      - name: Teste de fora
+        run: |
+          for n in mail.oshercollective.com webmail.oshercollective.com community.oshercollective.com oshercollective.com; do
+            echo "---- $n"
+            echo | openssl s_client -connect $n:443 -servername $n 2>/dev/null | openssl x509 -noout -subject -enddate
+            curl -sSI --max-time 10 https://$n/ 2>&1 | head -1
+          done
