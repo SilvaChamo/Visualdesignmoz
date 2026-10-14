@@ -1,12 +1,12 @@
 'use client'
 // Nova palavra-passe (página aberta pelo link do e-mail de recuperação) no mesmo modelo do login (pedido do Silva,
 // 14/10/2026): imagem | formulário num cartão, olho nos campos e a barra de força da senha como no registo.
+import Link from 'next/link'
 import React, { useState, useEffect } from 'react'
 import { CircleCheck } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase-client'
 import { useI18n } from '@/lib/i18n'
-import { LoginDividido } from '@/components/auth/LoginDividido'
 import { CampoFlutuante, ForcaSenha, OlhoSenha, botaoCls, ligacaoCls, subtituloCls, tituloCls, formularioCls } from '@/components/auth/campos'
 import { authErrorBoxClass } from '@/components/auth/auth-styles'
 
@@ -60,7 +60,7 @@ export default function ResetPasswordPage() {
 
       setSucesso(true)
       await supabase.auth.signOut()
-      setTimeout(() => router.push('/auth/login?reset=success'), 3000)
+      setTimeout(() => router.push('/login?reset=success'), 3000)
     } catch (err: unknown) {
       setError((err as Error).message || t('nova.error'))
     } finally {
@@ -69,7 +69,7 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <LoginDividido>
+    <>
       {sucesso ? (
         <div className="text-center">
           <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600 ring-1 ring-emerald-500/25 dark:text-emerald-400">
@@ -86,9 +86,9 @@ export default function ResetPasswordPage() {
           {semSessao && (
             <div className={`mt-6 ${authErrorBoxClass}`}>
               {t('nova.noSession')}{' '}
-              <a href="/auth/forgot-password" className="font-semibold underline">
+              <Link href="/auth/forgot-password" className="font-semibold underline">
                 {t('nova.newLink')}
-              </a>
+              </Link>
             </div>
           )}
           {error && <div className={`mt-6 ${authErrorBoxClass}`}>{error}</div>}
@@ -125,13 +125,13 @@ export default function ResetPasswordPage() {
               {loading ? t('nova.saving') : t('nova.save')}
             </button>
             <div className="text-center">
-              <a href="/login" className={ligacaoCls}>
+              <Link href="/login" className={ligacaoCls}>
                 {t('rec.back')}
-              </a>
+              </Link>
             </div>
           </form>
         </>
       )}
-    </LoginDividido>
+    </>
   )
 }

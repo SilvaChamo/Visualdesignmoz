@@ -565,19 +565,21 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToHis
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-5">
         <div className="lg:col-span-3 space-y-5">
           <div className="bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm overflow-hidden flex flex-col min-h-[600px]">
-            <div className="bg-slate-200 dark:bg-zinc-800 px-5 py-3 border-b border-slate-300 dark:border-zinc-700 flex items-center justify-between">
+            {/* no telemóvel: o título em cima e, por baixo, o remetente e os botões numa só coluna, a toda a largura
+                (Silva, 14/10/2026: nada pode passar da largura do ecrã) */}
+            <div className="bg-slate-200 dark:bg-zinc-800 px-5 py-3 border-b border-slate-300 dark:border-zinc-700 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-3">
                 <Newspaper className="w-5 h-5 text-slate-600 dark:text-zinc-400" />
                 <h2 className="font-black text-slate-800 dark:text-zinc-200 uppercase tracking-widest text-xs">Editor de Mensagem</h2>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:gap-3">
                 <div className="flex items-center gap-2 bg-white dark:bg-zinc-900 rounded-sm border border-slate-300 dark:border-zinc-700 px-2 h-8">
                   <Mail className="w-4 h-4 text-slate-500 dark:text-zinc-400 shrink-0" />
                   <select
                     value={senderEmail}
                     onChange={(e) => setSenderEmail(e.target.value)}
                     disabled={loadingDomainEmails || domainEmails.length === 0}
-                    className="h-full px-1 text-xs font-bold text-slate-700 dark:text-zinc-300 bg-transparent border-none focus:outline-none focus:ring-0 min-w-[200px] max-w-[300px] truncate"
+                    className="h-full min-w-0 flex-1 px-1 text-xs font-bold text-slate-700 dark:text-zinc-300 bg-transparent border-none focus:outline-none focus:ring-0 sm:min-w-[200px] sm:max-w-[300px]"
                   >
                     {loadingDomainEmails ? (
                       <option value="">A carregar...</option>
@@ -590,10 +592,10 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToHis
                     )}
                   </select>
                 </div>
-                <Button onClick={() => setShowTemplates(true)} className="!bg-slate-800 hover:!bg-red-600 text-white gap-2 font-black uppercase text-[10px] tracking-widest h-8 px-4 rounded-sm transition-all border-none">
+                <Button onClick={() => setShowTemplates(true)} className="w-full sm:w-auto !bg-slate-800 hover:!bg-red-600 text-white gap-2 font-black uppercase text-[10px] tracking-widest h-8 px-4 rounded-sm transition-all border-none">
                   <LayoutTemplate className="w-3 h-3" /> Templates
                 </Button>
-                <Button onClick={onGoToHistory} className="!bg-slate-800 hover:!bg-red-600 text-white gap-2 font-black uppercase text-[10px] tracking-widest h-8 px-4 rounded-sm transition-all border-none">
+                <Button onClick={onGoToHistory} className="w-full sm:w-auto !bg-slate-800 hover:!bg-red-600 text-white gap-2 font-black uppercase text-[10px] tracking-widest h-8 px-4 rounded-sm transition-all border-none">
                   <HistoryIcon className="w-3 h-3" /> Histórico
                 </Button>
               </div>
@@ -607,7 +609,8 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToHis
                 </div>
               </RichTextEditor>
             </div>
-            <div className="px-5 py-4 bg-slate-50 dark:bg-zinc-800/60 border-t border-slate-200 dark:border-zinc-800 flex items-center justify-end gap-3">
+            {/* no telemóvel os dois botões uns por baixo dos outros, a toda a largura (Silva, 14/10/2026) */}
+            <div className="px-5 py-4 bg-slate-50 dark:bg-zinc-800/60 border-t border-slate-200 dark:border-zinc-800 flex flex-col-reverse items-stretch gap-3 sm:flex-row sm:items-center sm:justify-end [&>button]:w-full sm:[&>button]:w-auto">
               <Button type="button" onClick={handleClearForm} disabled={isSending} className="!bg-slate-100 hover:!bg-red-600 hover:!text-white text-slate-700 dark:!bg-zinc-800 dark:text-zinc-300 gap-2 font-black uppercase text-[10px] tracking-widest h-8 px-4 rounded-sm transition-all border border-slate-200 dark:border-zinc-700">
                 Limpar
               </Button>

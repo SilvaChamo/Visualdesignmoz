@@ -414,7 +414,7 @@ function Api() {
         </div>
       </Sec>
       <Sec titulo="Comandos mais usados" desc="Cada chave só pode usar os comandos que lhe deu ao criá-la.">
-        <div className="tbl">
+        <div className="tbl dt-empilhar">
           <table>
             <thead>
               <tr>
@@ -428,7 +428,7 @@ function Api() {
                   <td>
                     <code>{c}</code>
                   </td>
-                  <td>{t(d)}</td>
+                  <td data-t={t('O que faz')}>{t(d)}</td>
                 </tr>
               ))}
             </tbody>
@@ -998,7 +998,8 @@ export const ticketsPagina: ScreenFn = (vh) => {
   if (a && a !== 'novo') return { title: 'Pedido de suporte', crumbs: [base, { t: 'Pedido' }], body: <VerPedido key={a} id={a} /> };
   return { title: 'Suporte', actions: alheia ? undefined : novo, body: <Pedidos /> };
 };
-export const apiPagina: ScreenFn = () => ({ title: 'Documentação da API', body: <Api /> });
+// só "Documentação" na barra de cima e na faixa (Silva, 14/10/2026: "Documentação da API" passava a duas linhas)
+export const apiPagina: ScreenFn = () => ({ title: 'Documentação', body: <Api /> });
 export const perfilGeral: ScreenFn = () => ({ title: 'Dados pessoais', body: <PerfilGeral /> });
 export const perfilSenha: ScreenFn = () => ({ title: 'Palavra-passe', body: <PerfilSenha /> });
 export const perfilSessoes: ScreenFn = () => ({ title: 'Sessões', body: <PerfilSessoes /> });

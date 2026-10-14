@@ -30,7 +30,6 @@ import {
   allowedOf,
   isLevel,
   nivelInicial,
-  NIVEL_LS,
   descFor,
   findItem,
   fromPath,
@@ -218,7 +217,7 @@ function comDados(cur: St, d: DadosServidor, caminhoDesejado: string): St {
   // Se o caminho inicial pedido (ex: /admin vindo de outra sessão) não for permitido para esta conta,
   // abre diretamente o nível inicial da conta em vez de mostrar "Sem acesso" logo ao entrar
   const lvDesejado = caminhoDesejado.replace(/^\/+/, '').split('/')[0];
-  const caminhoValido = isLevel(lvDesejado) && !allowedOf(n0).includes(lvDesejado) ? '/' + nivelInicial(n0, true) : caminhoDesejado;
+  const caminhoValido = isLevel(lvDesejado) && !allowedOf(n0).includes(lvDesejado) ? '/' + nivelInicial(n0) : caminhoDesejado;
   return fromPath(n0, caminhoValido);
 }
 
@@ -616,13 +615,6 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
   const t = (text: string) => translate(st.lang, text);
   const go = (id: string) => nav(route(level, id));
   const setLevel = (l: Level) => nav('/' + l);
-  // o separador em que se trabalha fica lembrado para a próxima entrada (só no painel próprio, não no de outra conta)
-  useEffect(() => {
-    if (st.carga !== 'ok' || st.stack.length) return;
-    try {
-      localStorage.setItem(NIVEL_LS, level);
-    } catch {}
-  }, [st.carga, st.stack.length, level]);
 
   const recusarLocal = () => {
     recusadoEm.current = 0;

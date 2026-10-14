@@ -118,6 +118,22 @@ export function HxCard({ hx }: { hx: MenuItem['hx'] }) {
 
 /** Faixa por baixo da barra de cima: Widgets/Menu no painel inicial, caminho nas outras páginas, e o domínio. */
 /** Seletor de domínio (lado direito da faixa de navegação): botão com o domínio e lista com filtro, como no DA */
+/** Nome de domínio com sítios para passar à linha de baixo só depois dos pontos dos subdomínios: o domínio principal
+ *  fica sempre inteiro (visualdesignmoz.com, entrecamposblog.co.mz — com .co.mz, .org.mz… são três partes) */
+export function dominioComQuebras(nome: string) {
+  const partes = nome.split('.');
+  const n = partes.length;
+  const sld = n >= 3 && partes[n - 1].length === 2 && /^(co|com|org|net|gov|edu|ac|nom|adv)$/.test(partes[n - 2]);
+  const principal = sld ? 3 : 2;
+  return partes.map((p, i) => (
+    <Fragment key={i}>
+      {i > 0 && '.'}
+      {i > 0 && n - i >= principal && <wbr />}
+      {p}
+    </Fragment>
+  ));
+}
+
 function DomSelector({ soSites, url }: { soSites?: boolean; url?: Screen['dominioUrl'] }) {
   const { s, a, t, setDominio, nav } = useVH();
   // só os domínios com que a página trabalha: o seletor mostra sempre o mesmo domínio que a página
@@ -170,6 +186,8 @@ function DomSelector({ soSites, url }: { soSites?: boolean; url?: Screen['domini
         title={t('Escolher domínio')}
       >
         <i className="fa-solid fa-globe" />
+        {/* um domínio comprido: a letra diminui até caber numa linha (titulo-ajustado.ts); só no limite passa à linha de
+            baixo, encostado à direita e partido em qualquer letra (Silva, 14/10/2026) — nunca "…" */}
         <span>{atual}</span>
         <span className="chevs" aria-hidden>
           <i className="fa-solid fa-chevron-up" />
@@ -219,15 +237,20 @@ export function SwitcherBar({ title, crumbs, dominios, dominioUrl }: { title: st
     <div className="da-switcher-bar">
       {isHome ? (
         <div className="da-switcher-tabs">
-          <button className={'da-sw-tab' + (s.dashTab === 'widgets' ? ' on' : '')} onClick={() => setDashTab('widgets')}>
+          <button className={'da-sw-tab' + (s.dashTab === 'widgets' ? ' on' : '')} onClick={() => setDashTab('widgets')} title="Widgets">
             <i className="fa-solid fa-bars-staggered" /> Widgets
           </button>
-          <button className={'da-sw-tab' + (s.dashTab === 'menu' ? ' on' : '')} onClick={() => setDashTab('menu')}>
+          <button className={'da-sw-tab' + (s.dashTab === 'menu' ? ' on' : '')} onClick={() => setDashTab('menu')} title={t('Menu')}>
             <i className="fa-solid fa-border-all" /> {t('Menu')}
           </button>
         </div>
       ) : (
         <div className="da-breadcrumb" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 700, color: 'var(--muted)' }}>
+          {/* no telemóvel só a casa (volta ao Início): o nome da página já está na barra de cima e o domínio fica com o
+              resto da faixa (Silva, 14/10/2026) */}
+          <a className="da-bc-casa" onClick={() => go('inicio')} title={t('Início')} aria-label={t('Início')}>
+            <i className="fa-solid fa-house" />
+          </a>
           <i className="fa-solid fa-folder-tree" style={{ color: 'var(--red)', fontSize: 13, marginRight: 2 }} />
           <a onClick={() => go('inicio')} style={{ cursor: 'pointer', color: 'var(--muted)', textDecoration: 'none' }}>
             {t(LEVELS[s.level] || 'Início')}
@@ -449,7 +472,7 @@ export function UsersTable({ rows, showCreator = true }: { rows: [string, Accoun
     noServidor(vh, { acao: suspender ? 'suspender' : 'reativar', contas: [u] }, () => u + ': ' + (suspender ? 'suspenso' : 'reativado'));
   };
   return (
-    <div className="tbl">
+    <div className="tbl dt-empilhar">
       <table>
         <thead>
           <tr>
@@ -480,15 +503,15 @@ export function UsersTable({ rows, showCreator = true }: { rows: [string, Accoun
                       </div>
                     </div>
                   </td>
-                  <td>
+                  <td data-t={t('Tipo')}>
                     <span className="tag off">{t(ROLES[a.role])}</span>
                   </td>
-                  {showCreator && <td>{a.creator}</td>}
-                  <td>{a.pkg}</td>
-                  <td>{a.domains.length}</td>
-                  <td>{a.disk}</td>
-                  <td>{ok ? <span className="tag ok">{t('Ativo')}</span> : <span className="tag off">{t('Suspenso')}</span>}</td>
-                  <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                  {showCreator && <td data-t={t('Criado por')}>{a.creator}</td>}
+                  <td data-t={t('Pacote')}>{a.pkg}</td>
+                  <td data-t={t('Domínios')}>{a.domains.length}</td>
+                  <td data-t={t('Disco')}>{a.disk}</td>
+                  <td data-t={t('Estado')}>{ok ? <span className="tag ok">{t('Ativo')}</span> : <span className="tag off">{t('Suspenso')}</span>}</td>
+                  <td className="dt-acoes-linha" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                     {u === me ? (
                       <span className="tag off">{t('A sua conta')}</span>
                     ) : (
@@ -497,11 +520,13 @@ export function UsersTable({ rows, showCreator = true }: { rows: [string, Accoun
                           <>
                             <button className="btn g sm" onClick={() => openM(<ChangeRoleModal u={u} />)} title={t('Mudar tipo de conta')}>
                               <i className="fa-solid fa-user-tag" />
+                              <span className="btn-txt-tel">{t('Mudar tipo de conta')}</span>
                             </button>{' '}
                           </>
                         )}
                         <button className="btn g sm" onClick={() => toggleState(u)} title={t(ok ? 'Suspender' : 'Reativar')}>
                           <i className={'fa-solid ' + (ok ? 'fa-pause' : 'fa-play')} />
+                          <span className="btn-txt-tel">{t(ok ? 'Suspender' : 'Reativar')}</span>
                         </button>{' '}
                         <button className="btn g sm" title={t('Entrar no painel desta conta')} onClick={() => enterAs(u)}>
                           <i className="fa-solid fa-right-to-bracket" />
@@ -530,7 +555,7 @@ export function DomTable({ filter = '' }: { filter?: string }) {
   const { a, s, t, nav, setDominio } = useVH();
   const rows = a.domains.filter((d) => d.name.includes(filter));
   return (
-    <div className="tbl">
+    <div className="tbl dt-empilhar">
       <table>
         <thead>
           <tr>
@@ -561,26 +586,19 @@ export function DomTable({ filter = '' }: { filter?: string }) {
                           nav('/' + (s.level || 'utilizador') + '/dominios/' + encodeURIComponent(d.name));
                         }}
                       >
-                        {/* um nome comprido passa à linha de baixo em vez de ser cortado: quebra só depois dos pontos dos
-                            subdomínios, o domínio principal (ex.: visualdesignmoz.com) fica inteiro */}
-                        {d.name.split('.').map((p, i, partes) => (
-                          <Fragment key={i}>
-                            {i > 0 && '.'}
-                            {i > 0 && partes.length - i >= 2 && <wbr />}
-                            {p}
-                          </Fragment>
-                        ))}
+                        {/* um nome comprido passa à linha de baixo em vez de ser cortado */}
+                        {dominioComQuebras(d.name)}
                       </b>
                       <span>{d.wp ? 'WordPress' : 'Site'}</span>
                     </div>
                   </div>
                 </td>
-                <td>{d.ssl === 'ok' ? <span className="tag ok">{t('Válido')}</span> : <span className="tag w">{t('Sem SSL')}</span>}</td>
-                <td>{a.mails.filter((m) => m.dom === d.name).length}</td>
-                <td>{d.php}</td>
-                <td>{d.disk}</td>
-                <td>{d.status === 'ok' ? <span className="tag ok">{t('Ativo')}</span> : <span className="tag w">{t('Atenção')}</span>}</td>
-                <td style={{ textAlign: 'right' }}>
+                <td data-t="SSL">{d.ssl === 'ok' ? <span className="tag ok">{t('Válido')}</span> : <span className="tag w">{t('Sem SSL')}</span>}</td>
+                <td data-t={t('E-mails')}>{a.mails.filter((m) => m.dom === d.name).length}</td>
+                <td data-t="PHP">{d.php}</td>
+                <td data-t={t('Disco')}>{d.disk}</td>
+                <td data-t={t('Estado')}>{d.status === 'ok' ? <span className="tag ok">{t('Ativo')}</span> : <span className="tag w">{t('Atenção')}</span>}</td>
+                <td className="dt-acoes-linha" style={{ textAlign: 'right' }}>
                   <button
                     className="btn g sm"
                     onClick={() => {

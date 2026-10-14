@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import React, { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/components/auth/AuthProvider'
@@ -9,14 +10,8 @@ import { googleOAuthUserMessage } from '@/lib/auth-messages'
 import { PUBLIC_PANEL_ENTRY } from '@/lib/panel-origin'
 import { marcarEntrada, preCarregarDadosVhost } from '@/lib/vhost-cache'
 import type { UserRole } from '@/lib/user-roles'
-import { AuthLoadingShell } from '@/components/auth/AuthPageShell'
-import { LoginDividido } from '@/components/auth/LoginDividido'
 import { CampoFlutuante, OlhoSenha, botaoCls, botaoClaroCls, ligacaoCls, subtituloCls, tituloCls, formularioCls } from '@/components/auth/campos'
-import {
-  authCardClass,
-  authErrorBoxClass,
-  authPrimaryBtnClass,
-} from '@/components/auth/auth-styles'
+import { authErrorBoxClass } from '@/components/auth/auth-styles'
 
 function LoginFormInner() {
   const [email, setEmail] = useState('')
@@ -105,7 +100,7 @@ function LoginFormInner() {
   }
 
   return (
-    <LoginDividido modelo={searchParams.get('modelo') === '2' ? 2 : 1}>
+    <>
       {/* no telemóvel e no tablet a imagem (com o logótipo) não aparece: o logótipo fica por cima do formulário */}
       {/* no telemóvel e no tablet tudo ao centro (pedido do Silva, 13/10/2026) */}
       <h1 className={tituloCls}>{t('login.title')}</h1>
@@ -115,13 +110,14 @@ function LoginFormInner() {
 
       {oauthError && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
-          <div className={`w-full max-w-sm ${authCardClass}`}>
+          {/* mesmo cartão do formulário de entrada */}
+          <div className="w-full max-w-sm rounded-[10px] border border-zinc-200 bg-[#fff] p-6 shadow-[0_0_36px_-10px_rgba(24,24,27,0.18)] dark:border-[#2a2d3a] dark:bg-[#15161e]">
             <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">{oauthError.title}</h3>
             <p className="mt-2 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">{oauthError.desc}</p>
             <button
               type="button"
               onClick={() => setOauthError(null)}
-              className={`mt-5 w-full ${authPrimaryBtnClass}`}
+              className={`mt-5 ${botaoCls}`}
             >
               {t('login.close')}
             </button>
@@ -195,25 +191,25 @@ function LoginFormInner() {
 
         {/* por baixo do Google: recuperar a senha à esquerda, registar à direita (pedido do Silva, 13/10/2026) */}
         <div className="flex items-center justify-between gap-4">
-          <a href="/auth/forgot-password" className={ligacaoCls}>
+          <Link href="/auth/forgot-password" className={ligacaoCls}>
             {t('login.forgot')}
-          </a>
+          </Link>
           <span className="text-[clamp(12.5px,0.92vw,13.5px)] text-zinc-700 dark:text-zinc-300">
             {t('login.noAccount')}{' '}
-            <a href="/auth/register" className={ligacaoCls}>
+            <Link href="/auth/register" className={ligacaoCls}>
               {t('login.register')}
-            </a>
+            </Link>
           </span>
         </div>
       </form>
 
-    </LoginDividido>
+    </>
   )
 }
 
 export function LoginForm() {
   return (
-    <Suspense fallback={<AuthLoadingShell />}>
+    <Suspense fallback={null}>
       <LoginFormInner />
     </Suspense>
   )

@@ -776,10 +776,11 @@ function ContasLado() {
 
 export const emailPagina: ScreenFn = (vh) => {
   const [a] = vh.s.sub;
-  const base = { t: 'Contas de e-mail', path: '/utilizador/email' };
+  const base = { t: 'E-mails', path: '/utilizador/email' };
   if (a === 'nova') return { title: 'Criar conta de e-mail', crumbs: [base, { t: 'Criar conta' }], body: <ContaNova /> };
   if (a === 'uso') return { title: 'Uso de e-mail', crumbs: [base, { t: 'Uso de e-mail' }], body: <UsoEmail /> };
-  return { title: 'Contas de e-mail', body: <ContasLista />, lado: <ContasLado /> };
+  // só "E-mails" e sem descrição (Silva, 14/10/2026: com a descrição a barra de cima passava da largura)
+  return { title: 'E-mails', desc: '', body: <ContasLista />, lado: <ContasLado /> };
 };
 
 // ---------- Reencaminhamentos ----------
@@ -1953,7 +1954,7 @@ export const rastreioPagina: ScreenFn = (vh) => {
   const [dir, end] = vh.s.sub;
   return {
     title: 'Rastreio de e-mail',
-    crumbs: dir && end ? [{ t: 'Contas de e-mail', path: '/utilizador/email' }, { t: 'Rastreio de e-mail', path: '/utilizador/rastreio' }, { t: (dir === 'saida' ? 'Saída' : 'Entrada') + ' · ' + end }] : undefined,
+    crumbs: dir && end ? [{ t: 'E-mails', path: '/utilizador/email' }, { t: 'Rastreio de e-mail', path: '/utilizador/rastreio' }, { t: (dir === 'saida' ? 'Saída' : 'Entrada') + ' · ' + end }] : undefined,
     body: <Rastreio key={dir + '|' + end} />,
   };
 };

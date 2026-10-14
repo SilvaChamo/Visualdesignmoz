@@ -1,8 +1,7 @@
 'use client';
 
 /**
- * Fundo de triângulos grandes, como o da entrada do DirectAdmin: usado na página de entrada do painel (entrada.tsx) e
- * na página de registo do site quando se chega lá a partir do painel (AuthPageShell, fundoPainel).
+ * Fundo de triângulos grandes, como o da entrada do DirectAdmin: usado na página de entrada do painel (entrada.tsx).
  */
 import { useMemo, useState } from 'react';
 

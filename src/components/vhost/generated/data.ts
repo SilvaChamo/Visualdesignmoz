@@ -154,7 +154,9 @@ export const MENU: Record<Level, MenuGroup[]> = {
    {"id":"apontadores","fa":"fa-arrow-right-arrow-left","t":"Apontadores","c":"c4","da":"/domain-pointers","f":["Outro domínio a mostrar o mesmo site (alias)"],"hx":{"s":"sim","cmd":"v-add-web-domain-alias, v-delete-web-domain-alias","n":""}},
    {"id":"redirecionamentos","fa":"fa-diamond-turn-right","t":"Redirecionamentos","c":"c7","da":"/redirects","f":["Redirecionar o domínio ou páginas (301/302)"],"hx":{"s":"parcial","cmd":"v-add-web-domain-redirect, v-delete-web-domain-redirect","n":"O Hestia redireciona o domínio inteiro; páginas soltas são feitas pelo VisualDA"},"feat":"web"},
    {"id":"hotlink","fa":"fa-link-slash","t":"Proteção hotlink","c":"c4","da":"/hotlinks","f":["Impedir que outros sites usem as suas imagens"],"hx":{"s":"app","cmd":"","n":"Regras escritas pelo VisualDA na configuração do site"},"feat":"web"},
-   {"id":"php","fa":"fa-brands fa-php","t":"Definições PHP","c":"c5","da":"/php-settings","f":["Versão PHP por domínio","Ajustes (memory_limit, upload…)"],"hx":{"s":"parcial","cmd":"v-change-web-domain-backend-tpl, v-list-sys-php","n":"Versão pelo Hestia; ajustes pelo VisualDA"},"feat":"php"}
+   {"id":"php","fa":"fa-brands fa-php","t":"Definições PHP","c":"c5","da":"/php-settings","f":["Versão PHP por domínio","Ajustes (memory_limit, upload…)"],"hx":{"s":"parcial","cmd":"v-change-web-domain-backend-tpl, v-list-sys-php","n":"Versão pelo Hestia; ajustes pelo VisualDA"},"feat":"php"},
+   // "WordPress" passou de "Avançado" para "Gestão de domínios" (pedido do Silva, 14/10/2026) — editado à mão
+   {"id":"wordpress","fa":"fa-brands fa-wordpress","t":"WordPress","c":"c2","da":"/wordpress","f":["Instalar WordPress em 1 minuto","Utilizadores e atualizações"],"hx":{"s":"parcial","cmd":"v-quick-install-app","n":"Instalação pelo Hestia; utilizadores e atualizações pelo WP-CLI (o site já tem isto)"},"feat":"wordpress"},
   ]],
   ["E-mail", [
    {"id":"email","fa":"fa-envelope","t":"Contas de e-mail","c":"c2","da":"/email/accounts","f":["Criar contas com quota e limite de envio","Mudar senha","DKIM"],"hx":{"s":"sim","cmd":"v-list-mail-accounts, v-add-mail-account, v-change-mail-account-quota, v-change-mail-account-password, v-change-mail-account-rate-limit, v-add-mail-domain-dkim","n":""}},
@@ -177,7 +179,6 @@ export const MENU: Record<Level, MenuGroup[]> = {
    {"id":"ssh","fa":"fa-key","t":"Chaves SSH","c":"c8","da":"/ssh-keys","f":["Adicionar e apagar chaves SSH","Ligar/desligar acesso SSH"],"hx":{"s":"sim","cmd":"v-add-user-ssh-key, v-list-user-ssh-key, v-delete-user-ssh-key, v-change-user-shell","n":""},"feat":"ssh"},
    {"id":"modsecurity","fa":"fa-shield-halved","t":"Firewall de aplicação","c":"c3","da":"/modsecurity","f":["Pedidos bloqueados no seu site"],"hx":{"s":"extra","cmd":"","n":"Usa o ModSecurity instalado pelo administrador"},"opt":true},
    {"id":"git","fa":"fa-code-branch","t":"Git","c":"c4","da":"/git-version","f":["Repositórios ligados a um domínio"],"hx":{"s":"extra","cmd":"","n":"Instalar o Git no servidor; o VisualDA liga o repositório ao domínio pelo agente"},"feat":"git"},
-   {"id":"wordpress","fa":"fa-brands fa-wordpress","t":"WordPress","c":"c2","da":"/wordpress","f":["Instalar WordPress em 1 minuto","Utilizadores e atualizações"],"hx":{"s":"parcial","cmd":"v-quick-install-app","n":"Instalação pelo Hestia; utilizadores e atualizações pelo WP-CLI (o site já tem isto)"},"feat":"wordpress"},
    {"id":"clamav","fa":"fa-virus-slash","t":"Antivírus","c":"c3","da":"/clamav","f":["Analisar ficheiros e e-mail"],"hx":{"s":"parcial","cmd":"v-add-mail-domain-antivirus","n":"O Hestia só analisa o e-mail; analisar ficheiros fica com o agente"},"feat":"clamav"}
   ]],
   ["Sistema e ficheiros", [

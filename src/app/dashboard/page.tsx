@@ -1917,7 +1917,7 @@ function AdminPageContent() {
                   await createClientInstance.auth.signOut()
                   const { clearAllPanelClientCaches } = await import('@/lib/panel-session-cache-clear')
                   clearAllPanelClientCaches()
-                  window.location.href = '/auth/login'
+                  window.location.href = '/login'
                 }}
                 disabled={isSigningOut}
                 className={`${panelBtnSecondary} disabled:opacity-60 disabled:cursor-wait active:scale-[0.97] transition-transform`}

@@ -1,6 +1,6 @@
 'use client'
 
-import { usePathname, useSearchParams } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { CompactFooter } from './CompactFooter'
 
 /**
@@ -10,13 +10,11 @@ import { CompactFooter } from './CompactFooter'
  */
 export function ConditionalFooter() {
   const pathname = usePathname()
-  const searchParams = useSearchParams()
 
   const excludedRoutes = ['/dashboard', '/cliente', '/auth', '/login', '/revendedor', '/guest', '/encomendas', '/contabilidade', '/vhost', '/host/', '/host:']
   const isExcluded = excludedRoutes.some((route) => pathname.startsWith(route))
-  const isEmbedded = searchParams?.get('embed') === '1'
-
-  if (isExcluded || isEmbedded) return null
+  // com ?embed=1 fica escondido por EmbedEstilo.tsx (data-site-chrome)
+  if (isExcluded) return null
 
   // Sobreposição -mt confirmada no histórico do git como o padrão original
   // (sempre presente antes de qualquer alteração desta sessão) — o rodapé
@@ -24,7 +22,7 @@ export function ConditionalFooter() {
   // última secção (Newsletter, forma 'mid'), criando o efeito pretendido:
   // preto a aparecer nas pontas, cor da secção a aparecer no meio.
   return (
-    <div className="relative -mt-[16px] z-10">
+    <div data-site-chrome className="relative -mt-[16px] z-10">
       <CompactFooter />
     </div>
   )

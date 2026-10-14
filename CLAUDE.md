@@ -31,11 +31,15 @@ A pasta de trabalho no Mac do Silva é `visualdesign-producao` (antes `visualdes
    ramo do GitHub e volta a arrancar o servidor (pedido do Silva, 13/10/2026 — o `checkout`/`pull` simples falhava e o
    site local não actualizava). Modelo (trocar `RAMO`), corrido dentro da pasta `visualdesign-producao`:
    ```
-   (lsof -ti tcp:3003 -sTCP:LISTEN | xargs kill -9 2>/dev/null; sleep 1; true); git stash -u -m "antes de RAMO" ; git fetch origin RAMO && git checkout -B RAMO origin/RAMO && npm install && rm -rf .next && npm run dev
+   pkill -9 -f "next dev --port [3]003"; lsof -ti tcp:3003 -sTCP:LISTEN | xargs kill -9 2>/dev/null; sleep 1; git stash -u -m "antes de RAMO"; git fetch origin RAMO && git checkout -B RAMO origin/RAMO && npm install && rm -rf .next && (nohup npm run dev > /tmp/visualdesign-dev.log 2>&1 &) && for i in $(seq 60); do lsof -ti tcp:3003 -sTCP:LISTEN >/dev/null && break; sleep 1; done; echo "Servidor ligado: http://localhost:3003 (mensagens do servidor em /tmp/visualdesign-dev.log)"; open http://localhost:3003
    ```
-   O fecho é só do servidor que escuta na 3003 (`-sTCP:LISTEN`, para não apanhar as ligações do navegador), à força
-   (`kill -9`) e com 1 s de espera antes de arrancar — com o `kill` simples a porta continuava ocupada e o arranque
-   falhava com `EADDRINUSE` (Silva, 14/10/2026).
+   O fecho começa pelo `next dev` (o processo pai, `pkill -f`; o `[3]` impede o comando de se apanhar a si próprio) e
+   só depois o servidor que escuta na 3003 (`-sTCP:LISTEN`, para não apanhar as ligações do navegador), à força
+   (`kill -9`) e com 1 s de espera. Fechar só a porta não chegava: o `next dev` voltava a arrancar o servidor e a porta
+   continuava ocupada (`EADDRINUSE`), e o Silva tinha de o desligar à mão (Silva, 14/10/2026). O servidor arranca em
+   segundo plano (`nohup`, mensagens em `/tmp/visualdesign-dev.log`, ver com `tail -f /tmp/visualdesign-dev.log`), por
+   isso a janela do Terminal fica livre para o comando seguinte; o comando espera que a porta 3003 abra e abre o site
+   no navegador.
    O `rm -rf .next` apaga a cache do servidor local antes de arrancar (uma cache velha depois de mudar de ramo fazia o
    site local piscar e não abrir — Silva, 14/10/2026); a primeira página demora um pouco mais a compilar.
 
@@ -62,10 +66,21 @@ A pasta de trabalho no Mac do Silva é `visualdesign-producao` (antes `visualdes
   (`sempre: true` nas que não precisam de linhas escolhidas, `inativo` para as desligar); a paginação sai no fundo.
 - **No telemóvel os separadores passam a uma caixa de escolha** (selector), à esquerda da faixa, com o "Ações" à
   direita — assim vêem-se todos, mesmo quando são muitos (pedido do Silva, 13/10/2026). Automático nos `Tabs`.
-- **Listas no telemóvel numa só coluna** (pedido do Silva, 13/10/2026): cada linha passa a um bloco — a caixa de seleção
-  e o dado principal (ex.: o IP) em cima, com o botão da linha (ex.: Desbloquear) à direita dele; as outras
-  informações por baixo, cada uma com o nome da coluna. No
-  VisualHost: `DataTable` com `empilhar` (já ligado nas tabelas da Força bruta).
+- **Listas no telemóvel numa só coluna** (pedido do Silva, 13/10/2026; revisto a 14/10/2026): cada linha passa a um
+  bloco — a caixa de seleção e o dado principal (ex.: o IP) em cima; as outras informações por baixo, cada uma com o
+  nome da coluna; **os botões da linha no fundo do bloco, uns por baixo dos outros, a toda a largura**. No
+  VisualHost: `DataTable` empilha por defeito (`empilhar` ligado em todas as tabelas).
+- **Telemóvel = uma só coluna em tudo** (Silva, 14/10/2026): itens uns por baixo dos outros. **Botões na vertical, a
+  toda a largura, todos na mesma coluna** (rodapés de formulários e janelas, barras de botões, botões das linhas).
+  Ficam de fora só as barras de ferramentas (editor, gestor de ficheiros), separadores, interruptores (ex.: Visual |
+  HTML) e botões colados a um campo.
+- **Telemóvel: o cartão principal vai de ponta a ponta** (Silva, 14/10/2026: "não se pode ver os limites do card
+  principal"): sem margem, bordas dos lados, cantos nem sombra; o limite do conteúdo é o do ecrã (12 px de folga).
+- **Telemóvel: nada passa da largura, a partir de 320 px** (Silva, 14/10/2026): tudo cabe a 320 px e estica até ao
+  tamanho do ecrã. Antes de entregar, varrer as páginas a 320 px (nada fora, nada cortado, nenhum "…").
+- **Faixa por baixo da barra de cima, no telemóvel** (Silva, 14/10/2026): à esquerda só a casa (volta ao Início; o nome
+  da página já está na barra de cima), à direita o domínio, encostado à direita e numa só linha — se não couber, a
+  letra diminui e o globo sai sozinho (`titulo-ajustado.ts`); só no limite passa a duas linhas, encostado à direita.
 - **Dentro do painel: nunca roda (spinner) nem esqueleto (skeleton)** (Silva, 13/10/2026). Ao mudar de página, a
   página anterior fica à vista até a seguinte estar pronta. Entrada pelo **login do site**: o login lê os dados do
   painel antes de sair do ecrã de login (`preCarregarDadosVhost` em `src/lib/vhost-cache.ts`) e o painel abre logo,

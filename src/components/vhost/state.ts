@@ -120,17 +120,10 @@ export const acctOf = (s: St) => s.acc[meOf(s)] || VAZIA;
 // Com os dados lidos e sem conta no servidor (ex.: cliente só com domínio ou e-mail), só a Gestão — a conta vazia
 // abaixo (VAZIA) tem o papel de administrador e não pode decidir os separadores.
 export const allowedOf = (s: St) => (s.carga === 'ok' && !s.acc[meOf(s)] ? (['utilizador'] as Level[]) : ROLE_LEVELS[acctOf(s).role]);
-/** Separador aberto ao entrar numa conta: "Gestão" (os dados da própria conta) em todos os painéis que o têm.
- *  `lembrar` (ao abrir o painel): quem tem mais de um separador volta ao último em que trabalhou (pedido do Silva, 10/10). */
-export const NIVEL_LS = 'visualhost_nivel';
-export const nivelInicial = (s: St, lembrar = false): Level => {
+/** Separador aberto ao entrar no painel ou numa conta: sempre "Gestão" (os dados da própria conta), para todos os que o
+ *  têm (pedido do Silva, 14/10/2026 — antes voltava ao último separador em que se tinha trabalhado). */
+export const nivelInicial = (s: St): Level => {
   const permitidos = allowedOf(s);
-  if (lembrar && !s.stack.length) {
-    try {
-      const ultimo = localStorage.getItem(NIVEL_LS) as Level | null;
-      if (ultimo && permitidos.includes(ultimo)) return ultimo;
-    } catch {}
-  }
   return permitidos.includes('utilizador') ? 'utilizador' : permitidos[0];
 };
 /** Pacote efetivo da conta: os limites próprios (se tiver) ou os do pacote */
@@ -175,7 +168,7 @@ export function fromPath(s: St, path: string): St {
     }
   };
   const p = path.replace(/^\/+/, '').split('/').filter(Boolean).map(dec);
-  if (!p.length) return fromPath(s, '/' + nivelInicial(s, true));
+  if (!p.length) return fromPath(s, '/' + nivelInicial(s));
   if (isLevel(p[0]) && p[1] && MUDOU[p[1]] && !findItem(p[0], p[1])) return fromPath(s, MUDOU[p[1]]);
   const n: St = { ...s, path: '/' + p.map(encodeURIComponent).join('/'), deny: null, sub: p.slice(2) };
   const g = GLOBAL[p[0]];
@@ -190,7 +183,7 @@ export function fromPath(s: St, path: string): St {
       // Se for apenas o início do nível (ex: /admin ao entrar) e o utilizador não tem esse nível,
       // encaminha suavemente para o nível inicial permitido da conta em vez de bloquear com erro
       if (id === 'inicio') {
-        const lvValido = nivelInicial(s, true);
+        const lvValido = nivelInicial(s);
         return fromPath(s, '/' + lvValido);
       }
       n.deny = { type: 'nivel', lv };
