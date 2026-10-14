@@ -87,5 +87,9 @@ jobs:
             Q "SELECT post_type,COUNT(*) FROM \`$DB\`.${PFX}posts GROUP BY 1 ORDER BY 2 DESC;" 30
             echo "--- plugins activos ---"
             Q "SELECT option_value FROM \`$DB\`.${PFX}options WHERE option_name='active_plugins';" 3
+            echo "--- endereços exatos dos links para a comunidade (página: link) ---"
+            Q "SELECT post_name, REGEXP_SUBSTR(post_content,'https?://[^\"'' <>]*communit[^\"'' <>]*') FROM \`$DB\`.${PFX}posts WHERE post_type IN ('page','wpcode') AND post_status='publish' AND post_content REGEXP 'community\\\\.oshercollective|oshercollective\\\\.com/communit';" 20
+            echo "--- texto à volta do link (página: …texto…) ---"
+            Q "SELECT post_name, REPLACE(REPLACE(SUBSTRING(post_content, GREATEST(LOCATE('communit',post_content)-160,1), 260),'\n',' '),'\r',' ') FROM \`$DB\`.${PFX}posts WHERE post_type IN ('page') AND post_status='publish' AND post_content REGEXP 'community\\\\.oshercollective' LIMIT 3;" 6
             echo "=== https://oshercollective.com/community (de dentro) ==="
             curl -skI --max-time 10 https://oshercollective.com/community/ 2>&1 | head -3
