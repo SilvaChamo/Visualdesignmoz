@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { siteFont } from "@/lib/site-font";
 import { I18nProvider } from "@/lib/i18n";
+import { TraducaoAutomatica } from "@/components/layout/TraducaoAutomatica";
 import { AuthProvider } from "@/components/auth/AuthProvider";
 import { OAuthCodeRedirect } from "@/components/auth/OAuthCodeRedirect";
 import { ConditionalNavbar } from "@/components/layout/ConditionalNavbar";
@@ -126,6 +127,7 @@ export default function RootLayout({
             <CartProvider>
               <CurrencyProvider>
                 <I18nProvider>
+                  <TraducaoAutomatica />
                   {/* ?embed=1: lido numa fronteira própria, para o resto da página vir desenhado do servidor */}
                   <Suspense fallback={null}>
                     <EmbedEstilo />
