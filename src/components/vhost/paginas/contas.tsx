@@ -239,25 +239,29 @@ function ListaContas({ kind }: { kind: Kind }) {
 
   const cols: Col<R>[] = [{ k: 'user', t: kind === 'revenda' ? 'Nome' : 'Utilizador', sort: (r) => r[0], cell: ([u, a]) => <CellConta u={u} a={a} /> }];
   if (kind === 'todos') {
-    cols.push({ k: 'tipo', t: 'Tipo', sort: (r) => ROLES[r[1].role], cell: ([, a]) => <span className="tag off">{t(ROLES[a.role])}</span> });
-    cols.push({ k: 'criador', t: 'Criado por', sort: (r) => r[1].creator, cell: ([, a]) => a.creator });
+    // até 1600 px sai: o ícone do utilizador já mostra o tipo (administrador, revendedor, cliente)
+    cols.push({ k: 'tipo', t: 'Tipo', ate: 1600, sort: (r) => ROLES[r[1].role], cell: ([, a]) => <span className="tag off">{t(ROLES[a.role])}</span> });
+    cols.push({ k: 'criador', t: 'Criado por', ate: 1600, oculta: true, sort: (r) => r[1].creator, cell: ([, a]) => a.creator });
   }
-  cols.push({ k: 'bw', t: 'Tráfego', cell: ([u]) => comLimite(info(s, u).bw, L(u)?.bw) });
+  cols.push({ k: 'bw', t: 'Tráfego', ate: 1600, cell: ([u]) => comLimite(info(s, u).bw, L(u)?.bw) });
   cols.push({ k: 'disk', t: 'Espaço usado', cell: ([u, a]) => comLimite(a.disk, L(u)?.disk) });
-  if (kind === 'revenda' || kind === 'admin') cols.push({ k: 'nusers', t: 'Nº de utilizadores', sort: (r) => nUtil(s, r[0]), cell: ([u]) => comLimite(nUtil(s, u), L(u)?.users) });
-  cols.push({ k: 'ndom', t: 'Nº de domínios', sort: (r) => r[1].domains.length, cell: ([u, a]) => comLimite(a.domains.length, L(u)?.domains) });
+  if (kind === 'revenda' || kind === 'admin') cols.push({ k: 'nusers', t: 'Nº de utilizadores', ate: kind === 'revenda' ? 1600 : 1300, sort: (r) => nUtil(s, r[0]), cell: ([u]) => comLimite(nUtil(s, u), L(u)?.users) });
+  cols.push({ k: 'ndom', t: 'Nº de domínios', ate: 1050, sort: (r) => r[1].domains.length, cell: ([u, a]) => comLimite(a.domains.length, L(u)?.domains) });
   if (kind === 'todos' || kind === 'meus') {
-    cols.push({ k: 'doms', t: 'Domínios', cell: ([, a]) => <Doms a={a} /> });
-    cols.push({ k: 'ip', t: 'IPs', cell: ([u]) => info(s, u).ip.split(' - ')[0] });
+    cols.push({ k: 'doms', t: 'Domínios', ate: 1600, oculta: kind === 'todos', cell: ([, a]) => <Doms a={a} /> });
+    // o IP é quase sempre o do servidor: sai quando a tabela não cabe (Silva, 14/10/2026 — sem barra de deslocar);
+    // as colunas que saem voltam no telemóvel, em blocos, e escolhem-se no "Colunas"
+    cols.push({ k: 'ip', t: 'IPs', ate: 1600, oculta: kind === 'todos', cell: ([u]) => info(s, u).ip.split(' - ')[0] });
   }
   if (kind === 'todos') {
-    cols.push({ k: 'sent', t: 'E-mails enviados', sort: (r) => enviados(r[1]), cell: ([, a]) => enviados(a) });
-    cols.push({ k: 'dbs', t: 'Bases de dados', cell: ([u]) => comLimite(info(s, u).dbs, L(u)?.mysql) });
-    cols.push({ k: 'criada', t: 'Criada em', cell: ([u]) => info(s, u).criada });
+    cols.push({ k: 'sent', t: 'E-mails enviados', ate: 1600, oculta: kind === 'todos', sort: (r) => enviados(r[1]), cell: ([, a]) => enviados(a) });
+    cols.push({ k: 'dbs', t: 'Bases de dados', ate: 1600, oculta: kind === 'todos', cell: ([u]) => comLimite(info(s, u).dbs, L(u)?.mysql) });
+    cols.push({ k: 'criada', t: 'Criada em', ate: 1600, cell: ([u]) => info(s, u).criada });
   }
   cols.push({
     k: 'pkg',
     t: 'Pacote',
+    ate: 1300,
     hidden: !(kind === 'meus' || kind === 'revenda'),
     sort: (r) => r[1].pkg,
     cell: ([u, a]) => (
@@ -291,7 +295,26 @@ function ListaContas({ kind }: { kind: Kind }) {
       />,
     );
   };
+  // só o "+" principal fica na barra de cima; os outros botões da página vão para dentro do "Ações", sempre ativos e
+  // primeiro no menu (modelo do Silva, 13/10/2026)
+  const ir = (path: string) => () => vh.nav(path);
+  const b = base(s);
+  const daPagina: Bulk[] =
+    kind === 'meus'
+      ? [{ t: 'Modificar os meus dados', fa: 'fa-user-pen', sempre: true, run: ir(b + '/' + enc(me) + '/modificar') }]
+      : kind === 'revenda'
+        ? [
+            { t: 'Adicionar cliente', fa: 'fa-user-plus', sempre: true, run: ir('/' + s.level + '/novo-cliente') },
+            { t: 'Novo administrador', fa: 'fa-user-gear', sempre: true, run: ir('/admin/administradores/novo') },
+          ]
+        : kind === 'admin'
+          ? [
+              { t: 'Adicionar cliente', fa: 'fa-user-plus', sempre: true, run: ir('/' + s.level + '/novo-cliente') },
+              { t: 'Novo revendedor', fa: 'fa-user-tie', sempre: true, run: ir('/admin/revendedores/novo') },
+            ]
+          : [];
   const bulk: Bulk[] = [
+    ...daPagina,
     { t: 'Enviar mensagem', fa: 'fa-paper-plane', run: (k) => openM(<MensagemModal users={k} />) },
     { t: 'Suspender', fa: 'fa-pause', run: (k) => estado(k, 'off') },
     { t: 'Reativar', fa: 'fa-play', run: (k) => estado(k, 'ok') },
@@ -303,40 +326,48 @@ function ListaContas({ kind }: { kind: Kind }) {
   bulk.push({ t: 'Apagar', fa: 'fa-trash', run: apagar });
 
   return (
-    <DataTable
-      id={'contas-' + kind}
-      rows={rows}
-      cols={cols}
-      rowKey={(r) => r[0]}
-      search={([u, a]) => u + ' ' + a.name + ' ' + a.email + ' ' + a.domains.map((d) => d.name).join(' ')}
-      bulk={bulk}
-      acoesFixas
-      semBusca={false}
-      semCols={false}
-      empty="Ainda não há contas aqui"
-      actions={([u, a]) =>
-        u === me ? (
-          <span className="tag off">{t('A sua conta')}</span>
-        ) : (
-          <>
-            {s.level === 'admin' && (
-              <>
-                <button className="btn g sm" title={t('Mudar tipo de conta')} onClick={() => openM(<ChangeRoleModal u={u} />)}>
-                  <i className="fa-solid fa-user-tag" />
-                </button>{' '}
-              </>
-            )}
-            <button className="btn g sm" title={t(a.state === 'ok' ? 'Suspender' : 'Reativar')} onClick={() => estado([u], a.state === 'ok' ? 'off' : 'ok')}>
-              <i className={'fa-solid ' + (a.state === 'ok' ? 'fa-pause' : 'fa-play')} />
-            </button>{' '}
-            <button className="btn g sm" onClick={() => enterAs(u)}>
-              <i className="fa-solid fa-right-to-bracket" />
-              {t('Entrar como')}
-            </button>
-          </>
-        )
-      }
-    />
+    <div className="ct-lista">
+      <DataTable
+        id={'contas-' + kind}
+        rows={rows}
+        cols={cols}
+        rowKey={(r) => r[0]}
+        search={([u, a]) => u + ' ' + a.name + ' ' + a.email + ' ' + a.domains.map((d) => d.name).join(' ')}
+        bulk={bulk}
+        // modelo do painel (Silva, 14/10/2026): sem barra por cima do cartão — o "Ações" aparece no lugar do título da
+        // 1.ª coluna ao assinalar uma caixa, a pesquisa é a "Busca" da barra de cima e o "Colunas" fica no cabeçalho,
+        // depois da coluna Estado
+        umaLinha
+        barraFora
+        semCols={false}
+        colunasNoCabecalho
+        empilhar="tablet"
+        empty="Ainda não há contas aqui"
+        actions={([u, a]) =>
+          u === me ? (
+            <span className="tag off">{t('A sua conta')}</span>
+          ) : (
+            <>
+              {s.level === 'admin' && (
+                <>
+                  <button className="btn g sm" title={t('Mudar tipo de conta')} onClick={() => openM(<ChangeRoleModal u={u} />)}>
+                    <i className="fa-solid fa-user-tag" />
+                  </button>{' '}
+                </>
+              )}
+              <button className="btn g sm" title={t(a.state === 'ok' ? 'Suspender' : 'Reativar')} onClick={() => estado([u], a.state === 'ok' ? 'off' : 'ok')}>
+                <i className={'fa-solid ' + (a.state === 'ok' ? 'fa-pause' : 'fa-play')} />
+              </button>{' '}
+              {/* "Entrar", não "Entrar como" (Silva, 14/10/2026) */}
+              <button className="btn g sm ct-entrar" title={t('Entrar no painel desta conta')} onClick={() => enterAs(u)}>
+                <i className="fa-solid fa-right-to-bracket" />
+                <span>{t('Entrar')}</span>
+              </button>
+            </>
+          )
+        }
+      />
+    </div>
   );
 }
 
@@ -606,9 +637,9 @@ function ContaAcoes({ u }: { u: string }) {
         {t('Mudar palavra-passe')}
       </button>
       {u !== me && (
-        <button className="btn r" onClick={() => enterAs(u)}>
+        <button className="btn r" title={t('Entrar no painel desta conta')} onClick={() => enterAs(u)}>
           <i className="fa-solid fa-right-to-bracket" />
-          {t('Entrar como')}
+          {t('Entrar')}
         </button>
       )}
     </>
@@ -956,22 +987,11 @@ export function contas(kind: Kind): ScreenFn {
       kind === 'todos' ? (
         novoCliente('r')
       ) : kind === 'meus' ? (
-        <>
-          {botao('g sec-m', b + '/' + enc(me) + '/modificar', 'Modificar os meus dados', 'fa-user-pen')}
-          {novoCliente('r')}
-        </>
+        novoCliente('r')
       ) : kind === 'revenda' ? (
-        <>
-          {novoCliente('g sec-m')}
-          {botao('g sec-m', '/admin/administradores/novo', 'Novo administrador', 'fa-user-gear')}
-          {botao('r', b + '/novo', 'Novo revendedor', 'fa-user-tie')}
-        </>
+        botao('r', b + '/novo', 'Novo revendedor', 'fa-user-tie')
       ) : (
-        <>
-          {novoCliente('g sec-m')}
-          {botao('g sec-m', '/admin/revendedores/novo', 'Novo revendedor', 'fa-user-tie')}
-          {botao('r', b + '/novo', 'Novo administrador', 'fa-user-gear')}
-        </>
+        botao('r', b + '/novo', 'Novo administrador', 'fa-user-gear')
       );
     const v = kind === 'meus' ? vagas(s, me) : null;
     const desc = v && v.limite !== null ? t('Contas de cliente') + ': ' + v.usadas + ' ' + t('de') + ' ' + v.limite + ' · ' + t('pacote') + ' ' + v.plano : undefined;

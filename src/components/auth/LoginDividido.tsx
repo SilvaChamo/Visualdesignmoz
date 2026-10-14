@@ -4,7 +4,8 @@
  * Página de login do site dividida ao meio (pedido do Silva, 13/10/2026): à esquerda uma imagem com a mensagem da
  * VisualDesign, à direita o formulário; no canto de cima à direita os mesmos botões da entrada do painel, no mesmo sítio
  * (modo claro · automático · escuro e a língua — src/components/vhost/entrada.tsx, TopoEntrada). No telemóvel e no
- * tablet a imagem sai e fica só o formulário. No escuro, as cores do tema escuro do painel (o fundo é a parte mais escura
+ * tablet a foto fica por trás, a ocupar o ecrã, com o formulário ao centro por cima dela (Silva, 14/10/2026: o
+ * formulário sempre ao centro e com a imagem, em todos os aparelhos). No escuro, as cores do tema escuro do painel (o fundo é a parte mais escura
  * dele, --bg #15161e; linhas #393e4d; caixas #272a34).
  */
 import { useEffect, useRef, useState } from 'react'
@@ -29,7 +30,7 @@ export function LoginDividido({ children, modelo = 1 }: { children: React.ReactN
   ]
   return (
     <div className="login-dividido font-panel relative grid min-h-screen bg-[#fff] text-zinc-900 transition-colors duration-300 dark:bg-[#15161e] dark:text-zinc-100 lg:grid-cols-2">
-      <aside className="relative hidden bg-zinc-950 lg:sticky lg:top-0 lg:block lg:h-screen">
+      <aside className="fixed inset-0 bg-zinc-950 lg:sticky lg:inset-auto lg:top-0 lg:h-screen">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/assets/design_grafico_branding.jpg" alt="" aria-hidden className="absolute inset-0 h-full w-full object-cover" />
         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/45 to-black/25" />
@@ -39,15 +40,15 @@ export function LoginDividido({ children, modelo = 1 }: { children: React.ReactN
         {modelo === 2 && (
           <>
             {/* a linha fica à altura do desenho do logótipo (a imagem tem ~6 px vazios em cima e em baixo) */}
-            <span aria-hidden className="absolute left-0 top-[42px] h-[46px] w-[12px] bg-[#fff]" />
-            <a href="/" className="absolute left-10 top-9 transition-opacity hover:opacity-85" title="VisualDesign">
+            <span aria-hidden className="absolute left-0 top-[42px] hidden h-[46px] w-[12px] bg-[#fff] lg:block" />
+            <a href="/" className="absolute left-10 top-9 hidden transition-opacity hover:opacity-85 lg:block" title="VisualDesign">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src="/assets/Logo_horizontal_branco.png" alt="VisualDesign" className="h-[58px] w-auto" />
             </a>
           </>
         )}
 
-        <div className="absolute inset-x-[clamp(24px,2.8vw,40px)] bottom-[clamp(24px,2.8vw,40px)] max-w-[540px] text-white">
+        <div className="absolute inset-x-[clamp(24px,2.8vw,40px)] bottom-[clamp(24px,2.8vw,40px)] hidden max-w-[540px] text-white lg:block">
           <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-medium ring-1 ring-white/20 backdrop-blur">
             {/* o ponto pisca devagar, como "no ar" (pedido do Silva, 13/10/2026) */}
             <span className="relative flex h-1.5 w-1.5">
@@ -71,33 +72,36 @@ export function LoginDividido({ children, modelo = 1 }: { children: React.ReactN
         </div>
       </aside>
 
-      <section className="relative flex min-h-screen flex-col">
+      <section className="relative z-10 flex min-h-screen flex-col">
         {modelo === 1 && <AbaLogo />}
         <BotoesCanto />
-        <div className="flex flex-1 items-center justify-center px-6 pb-10 pt-8 lg:pt-20">
-          {/* a largura acompanha o ecrã: o formulário tem 400 px a 1440 e vai reduzindo aos poucos até 340 px a 1024; no
-              computador fica num cartão (modelo do Silva, 13/10/2026), com o espaço de dentro a acompanhar também */}
-          <div className="w-full max-w-[400px] lg:max-w-[calc(clamp(340px,27.8vw,420px)+clamp(48px,4.4vw,68px)+2px)]">
-            {/* no telemóvel e no tablet não há foto: o logótipo fica por cima do formulário, grande e junto ao título
-                (a imagem tem ~13% de margem vazia em cima e em baixo) */}
-            <a href="/" className="-mb-1 -mt-3 flex justify-center lg:hidden" title="VisualDesign">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/assets/logotype.png" alt="VisualDesign" className="h-[124px] w-auto object-contain dark:hidden" />
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/assets/logotipoII.png" alt="VisualDesign" className="hidden h-[124px] w-auto object-contain dark:block" />
-            </a>
-            <div className="lg:rounded-[10px] lg:border lg:border-zinc-200 lg:bg-[#fff] lg:px-[clamp(24px,2.2vw,34px)] lg:pb-[clamp(28px,2.6vw,40px)] lg:pt-[clamp(24px,2.2vw,32px)] lg:shadow-[0_12px_40px_-14px_rgba(24,24,27,0.22)] lg:dark:border-[#2a2d3a] lg:dark:bg-[#15161e] lg:dark:shadow-[0_12px_40px_-14px_rgba(0,0,0,0.7)]">
+        {/* o cartão fica ao centro do ecrã, à altura do meio da foto: o cabeçalho e o rodapé não ocupam espaço (estão
+            por cima), só deixam folga em cima e em baixo. A sombra é igual à volta (sem cair para baixo), senão o cartão
+            parecia mais baixo do que está (Silva, 14/10/2026) */}
+        <div className="flex flex-1 items-center justify-center px-4 py-[76px] sm:px-6 lg:py-10">
+          {/* a largura acompanha o ecrã (Silva, 14/10/2026: mais pequeno, menos "agressivo"): o formulário tem 340 px a
+              1440 e vai reduzindo aos poucos até 300 px a 1024; o espaço de dentro do cartão acompanha também */}
+          <div className="w-full max-w-[380px] lg:max-w-[calc(clamp(300px,23.6vw,360px)+clamp(44px,3.9vw,60px)+2px)]">
+            <div className="rounded-[10px] bg-[#fff] px-5 pb-6 pt-5 shadow-[0_0_60px_-18px_rgba(0,0,0,0.6)] dark:bg-[#15161e] lg:border lg:border-zinc-200 lg:px-[clamp(22px,1.95vw,30px)] lg:pb-[clamp(24px,2.2vw,32px)] lg:pt-[clamp(22px,1.95vw,28px)] lg:shadow-[0_0_36px_-10px_rgba(24,24,27,0.18)] lg:dark:border-[#2a2d3a] lg:dark:shadow-[0_0_36px_-10px_rgba(0,0,0,0.7)]">
+              {/* no telemóvel e no tablet o logótipo fica no cartão, por cima do título (a imagem tem ~13% de margem
+                  vazia em cima e em baixo); no computador está na aba da foto */}
+              <a href="/" className="-mt-2 mb-1 flex justify-center lg:hidden" title="VisualDesign">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/assets/logotype.png" alt="VisualDesign" className="h-[84px] w-auto object-contain dark:hidden" />
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/assets/logotipoII.png" alt="VisualDesign" className="hidden h-[84px] w-auto object-contain dark:block" />
+              </a>
               {children}
             </div>
           </div>
         </div>
-        <footer className="pb-6 text-center text-xs text-zinc-400 dark:text-zinc-500">
+        <footer className="absolute inset-x-0 bottom-0 pb-5 text-center text-xs text-white/70 lg:text-zinc-400 lg:dark:text-zinc-500">
           © {new Date().getFullYear()} VisualDesign ·{' '}
-          <a href="/termos" className="hover:text-zinc-600 dark:hover:text-zinc-300">
+          <a href="/termos" className="hover:text-white lg:hover:text-zinc-600 lg:dark:hover:text-zinc-300">
             {t('login.terms')}
           </a>{' '}
           ·{' '}
-          <a href="/privacidade" className="hover:text-zinc-600 dark:hover:text-zinc-300">
+          <a href="/privacidade" className="hover:text-white lg:hover:text-zinc-600 lg:dark:hover:text-zinc-300">
             {t('login.privacy')}
           </a>
         </footer>
@@ -134,7 +138,7 @@ function FaixaBranca() {
   return (
     <span
       aria-hidden
-      className="absolute -right-px bottom-[15vh] top-[calc(clamp(56px,5vw,72px)+90px)] w-[17px] bg-[#fff] dark:bg-[#15161e]"
+      className="absolute -right-px bottom-[15vh] top-[calc(clamp(56px,5vw,72px)+90px)] hidden w-[17px] bg-[#fff] dark:bg-[#15161e] lg:block"
       style={{ clipPath: 'polygon(100% 0, 100% 100%, 0 calc(100% - 16px), 0 16px)' }}
     />
   )
@@ -191,7 +195,7 @@ function BotoesCanto() {
     ['dark', Moon, lang === 'en' ? 'Dark' : 'Escuro'],
   ]
   return (
-    <div className="relative z-20 flex items-center justify-center gap-6 border-b border-zinc-200 px-4 py-3 dark:border-[#393e4d] sm:gap-[34px] lg:absolute lg:right-4 lg:top-[10px] lg:justify-end lg:border-0 lg:p-0">
+    <div className="absolute inset-x-0 top-0 z-20 flex items-center justify-center gap-6 border-b border-zinc-200 bg-[#fff] px-4 py-3 dark:border-[#393e4d] dark:bg-[#15161e] sm:gap-[34px] lg:inset-x-auto lg:right-4 lg:top-[10px] lg:justify-end lg:border-0 lg:bg-transparent lg:p-0 lg:dark:bg-transparent">
       <div className="relative flex items-center gap-[14px]" role="radiogroup" aria-label={lang === 'en' ? 'Theme' : 'Tema'}>
         <span aria-hidden className="absolute left-[18px] right-[18px] top-1/2 h-px bg-zinc-900/20 dark:bg-white/25" />
         {modos.map(([m, Icone, nome]) => (

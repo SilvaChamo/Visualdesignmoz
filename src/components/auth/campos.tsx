@@ -10,17 +10,20 @@ import { useEffect, useRef, useState } from 'react'
 import { ChevronDown, Eye, EyeOff } from 'lucide-react'
 import { PAISES, separarTelefone, urlBandeira } from '@/components/auth/paises'
 
-// título e descrição dos formulários sempre ao centro (pedido do Silva, 13/10/2026)
-export const tituloCls = 'text-center text-[clamp(22px,1.95vw,28px)] font-semibold leading-tight tracking-tight text-zinc-900 dark:text-zinc-50'
-export const subtituloCls = 'mt-2 text-center text-[clamp(13px,1.05vw,15px)] text-zinc-500 dark:text-zinc-400'
+// título e descrição dos formulários sempre ao centro (pedido do Silva, 13/10/2026); medidas mais pequenas, menos
+// "agressivas" (Silva, 14/10/2026)
+export const tituloCls = 'text-center text-[clamp(20px,1.65vw,24px)] font-semibold leading-tight tracking-tight text-zinc-900 dark:text-zinc-50'
+export const subtituloCls = 'mt-1.5 text-center text-[clamp(12.5px,0.95vw,14px)] text-zinc-500 dark:text-zinc-400'
 export const botaoCls =
-  'inline-flex h-[clamp(40px,3.05vw,44px)] w-full items-center justify-center gap-2 rounded-md bg-red-600 text-[clamp(14px,1.05vw,15px)] font-semibold text-white transition-colors hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-60'
+  'inline-flex h-[clamp(38px,2.8vw,40px)] w-full items-center justify-center gap-2 rounded-md bg-red-600 text-[clamp(13.5px,0.98vw,14.5px)] font-semibold text-white transition-colors hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-60'
 export const botaoClaroCls =
-  'inline-flex h-[clamp(40px,3.05vw,44px)] w-full items-center justify-center gap-2.5 rounded-md border border-zinc-300 bg-[#fff] text-[clamp(13px,1vw,14px)] font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-60 dark:border-[#393e4d] dark:bg-[#272a34] dark:text-zinc-200 dark:hover:bg-[#303440]'
-export const ligacaoCls = 'text-[clamp(13px,1vw,14px)] font-medium text-red-600 hover:text-red-500 dark:text-red-400'
+  'inline-flex h-[clamp(38px,2.8vw,40px)] w-full items-center justify-center gap-2.5 rounded-md border border-zinc-300 bg-[#fff] text-[clamp(12.5px,0.95vw,13.5px)] font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-60 dark:border-[#393e4d] dark:bg-[#272a34] dark:text-zinc-200 dark:hover:bg-[#303440]'
+/** espaço do formulário por baixo do título e entre os campos (login, registo, recuperar e nova palavra-passe) */
+export const formularioCls = 'mt-[clamp(16px,1.6vw,24px)] space-y-[clamp(11px,1vw,14px)]'
+export const ligacaoCls = 'text-[clamp(12.5px,0.92vw,13.5px)] font-medium text-red-600 hover:text-red-500 dark:text-red-400'
 
 const caixaCls =
-  'peer h-[clamp(42px,3.35vw,48px)] w-full rounded-md border border-zinc-300 bg-transparent px-3.5 text-center text-[clamp(14px,1.05vw,15px)] text-zinc-900 outline-none transition-colors lg:text-left ' +
+  'peer h-[clamp(38px,2.9vw,42px)] w-full rounded-md border border-zinc-300 bg-transparent px-3.5 text-center text-[clamp(13.5px,0.98vw,14.5px)] text-zinc-900 outline-none transition-colors lg:text-left ' +
   'focus:border-red-500 focus:ring-2 focus:ring-red-500/20 dark:border-[#393e4d] dark:text-zinc-100 dark:focus:border-red-500 '
 const etiquetaCls =
   'pointer-events-none absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap bg-[#fff] px-1 text-xs font-medium text-zinc-500 transition-all duration-150 lg:left-2.5 lg:translate-x-0 dark:bg-[#15161e] dark:text-zinc-400 '
@@ -75,7 +78,7 @@ export function CampoFlutuante({
         htmlFor={id}
         className={
           etiquetaCls +
-          'peer-placeholder-shown:top-1/2 peer-placeholder-shown:text-[clamp(14px,1.05vw,15px)] peer-placeholder-shown:font-normal ' +
+          'peer-placeholder-shown:top-1/2 peer-placeholder-shown:text-[clamp(13.5px,0.98vw,14.5px)] peer-placeholder-shown:font-normal ' +
           'peer-autofill:top-0 peer-autofill:text-xs peer-autofill:font-medium ' +
           'peer-focus:top-0 peer-focus:text-xs peer-focus:font-medium peer-focus:text-red-600 dark:peer-focus:text-red-400'
         }
@@ -172,14 +175,14 @@ export function CampoTelefone({
   const juntar = (indicativo: string, n: string) => onChange(n.trim() ? indicativo + ' ' + n.trimStart() : '')
   return (
     <div className="relative" ref={caixa}>
-      <div className="flex h-[clamp(42px,3.35vw,48px)] w-full items-stretch rounded-md border border-zinc-300 transition-colors focus-within:border-red-500 focus-within:ring-2 focus-within:ring-red-500/20 dark:border-[#393e4d]">
+      <div className="flex h-[clamp(38px,2.9vw,42px)] w-full items-stretch rounded-md border border-zinc-300 transition-colors focus-within:border-red-500 focus-within:ring-2 focus-within:ring-red-500/20 dark:border-[#393e4d]">
         <button
           type="button"
           onClick={() => setAberto(!aberto)}
           aria-haspopup="listbox"
           aria-expanded={aberto}
           aria-label={'País: ' + pais.nome + ' (' + pais.indicativo + ')'}
-          className="flex shrink-0 items-center gap-1.5 border-r border-zinc-300 pl-3 pr-2 text-[clamp(13px,1vw,14px)] text-zinc-700 dark:border-[#393e4d] dark:text-zinc-200"
+          className="flex shrink-0 items-center gap-1.5 border-r border-zinc-300 pl-3 pr-2 text-[clamp(12.5px,0.95vw,13.5px)] text-zinc-700 dark:border-[#393e4d] dark:text-zinc-200"
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={urlBandeira(pais)} alt="" className="h-[14px] w-[21px] rounded-[2px] object-cover ring-1 ring-black/10" />
@@ -195,7 +198,7 @@ export function CampoTelefone({
           value={numero}
           onChange={(e) => juntar(pais.indicativo, e.target.value)}
           placeholder={dica}
-          className="min-w-0 flex-1 bg-transparent px-3 text-center text-[clamp(14px,1.05vw,15px)] text-zinc-900 outline-none placeholder:text-zinc-400 dark:text-zinc-100 dark:placeholder:text-zinc-500 lg:text-left"
+          className="min-w-0 flex-1 bg-transparent px-3 text-center text-[clamp(13.5px,0.98vw,14.5px)] text-zinc-900 outline-none placeholder:text-zinc-400 dark:text-zinc-100 dark:placeholder:text-zinc-500 lg:text-left"
         />
       </div>
       <label htmlFor={id} className={etiquetaCls}>
