@@ -78,5 +78,16 @@ jobs:
             tail -25 /var/log/hestia/LE-oshercollective-$C.log 2>/dev/null || ls -t /var/log/hestia/ | head
             echo "=== erros nginx deste site ==="
             tail -5 /var/log/nginx/domains/$C.error.log 2>/dev/null
+            echo "=== nginx: ligações em conf.d/domains, se a config carregada tem community, hora do arranque do nginx ==="
+            ls -la /etc/nginx/conf.d/domains/ 2>/dev/null | grep -i -E "communit|oshercollective.com"
+            nginx -T 2>/dev/null | grep -n "server_name.*community" | head
+            nginx -T 2>/dev/null | grep -B2 -A3 "server_name community" | grep -E "listen|server_name" | head
+            nginx -T 2>/dev/null | grep -B2 -A3 "server_name oshercollective.com" | grep -E "listen|server_name" | head
+            ps -o pid,lstart,cmd -C nginx | head -3
+            echo "=== IP do domínio community vs oshercollective.com no web.conf ==="
+            grep -E "DOMAIN='(community\.)?oshercollective.com'" /usr/local/hestia/data/users/oshercollective/web.conf | grep -oE "(DOMAIN|IP)='[^']*'"
+            echo "=== teste local ao IP público ==="
+            IP=$(hostname -I | awk '{print $1}'); echo "ip: $IP"
+            echo | openssl s_client -connect $IP:443 -servername community.oshercollective.com 2>/dev/null | openssl x509 -noout -subject
             echo "=== nginx a falar de community ==="
             grep -rl "community.oshercollective" /etc/nginx /home/*/conf 2>/dev/null | head
