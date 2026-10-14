@@ -330,7 +330,11 @@ export function ServerInfoCard() {
   const metric = { display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, color: 'var(--muted)', fontSize: 10.5 } as const;
   const parados = v.servicos.filter((x) => !x.ativo);
   const bd = v.servicos.find((x) => /mariadb|mysql/i.test(x.nome));
-  const cpu = Math.min(100, Math.round((v.carga[0] / Math.max(1, v.cpus)) * 1000) / 10);
+  const cpu = v.cpuPct != null && v.cpuPct >= 0 ? v.cpuPct : Math.min(100, Math.round((v.carga[0] / Math.max(1, v.cpus)) * 1000) / 10);
+  const gbT = (n: number) => String(n).replace('.', ',') + ' GB';
+  const discoPct = v.discoTotalGb ? Math.min(100, Math.round((v.discoUsadoGb / v.discoTotalGb) * 1000) / 10) : 0;
+  // o disco foi aumentado mas a partição do sistema ainda não foi alargada (o espaço novo ainda não se pode usar)
+  const porAlargar = !!v.discoFisicoGb && v.discoFisicoGb > v.discoTotalGb * 1.05;
   const cor = (p: number) => (p >= 85 ? 'var(--red)' : p >= 65 ? '#f59e0b' : '#10b981');
   const maior = Object.entries(s.acc).sort((x, y) => (y[1].discoMb || 0) - (x[1].discoMb || 0))[0];
   const pct = (n: number) => String(n).replace('.', ',') + '%';
@@ -395,7 +399,9 @@ export function ServerInfoCard() {
             <span style={metric} title={'Carga ' + v.carga.join(' / ') + ' em ' + v.cpus + ' processadores'}>
               <i className="fa-solid fa-gear" style={{ color: 'var(--red)' }} /> CONSUMO CPU
             </span>
-            <b style={{ color: 'var(--ink)' }}>{pct(cpu)}</b>
+            <b style={{ color: 'var(--ink)' }}>
+              {pct(cpu)} <span style={{ color: 'var(--muted)', fontWeight: 600 }}>de {v.cpus} núcleos</span>
+            </b>
           </div>
           <div className="bar" style={{ height: 6 }}>
             <span style={{ width: cpu + '%', background: cor(cpu) }} />
@@ -407,11 +413,33 @@ export function ServerInfoCard() {
             <span style={metric} title={'de ' + String(v.memTotalGb).replace('.', ',') + ' GB'}>
               <i className="fa-solid fa-memory" style={{ color: '#0284c7' }} /> USO DE RAM
             </span>
-            <b style={{ color: 'var(--ink)' }}>{pct(v.memPct)}</b>
+            <b style={{ color: 'var(--ink)' }}>
+              {pct(v.memPct)} <span style={{ color: 'var(--muted)', fontWeight: 600 }}>de {gbT(v.memTotalGb)}</span>
+            </b>
           </div>
           <div className="bar" style={{ height: 6 }}>
             <span style={{ width: v.memPct + '%', background: v.memPct >= 85 ? 'var(--red)' : '#0284c7' }} />
           </div>
+        </div>
+
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 4 }}>
+            <span style={metric}>
+              <i className="fa-solid fa-hard-drive" style={{ color: '#7c3aed' }} /> DISCO USADO
+            </span>
+            <b style={{ color: 'var(--ink)' }}>
+              {gbT(v.discoUsadoGb)} <span style={{ color: 'var(--muted)', fontWeight: 600 }}>de {gbT(v.discoTotalGb)} · {pct(discoPct)}</span>
+            </b>
+          </div>
+          <div className="bar" style={{ height: 6 }}>
+            <span style={{ width: discoPct + '%', background: cor(discoPct) }} />
+          </div>
+          {porAlargar && (
+            <div style={{ marginTop: 6, fontSize: 11, lineHeight: 1.4, color: '#b45309' }}>
+              O disco tem {gbT(v.discoFisicoGb!)}, mas a partição do sistema só usa {gbT(v.discoTotalGb)}: falta alargá-la para o espaço novo
+              ficar disponível.
+            </div>
+          )}
         </div>
       </div>
 

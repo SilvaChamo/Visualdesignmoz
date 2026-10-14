@@ -68,6 +68,9 @@ const limMb = (l?: Lim): number | null => (!l || l.unl ? null : (Number(l.v) || 
 const limN = (l?: Lim): number | null => (!l || l.unl ? null : Number(l.v) || 0);
 const pctDe = (v: number, max: number | null | undefined) => (max ? Math.min(100, Math.round((v / max) * 100)) : 0);
 const gbTxt = (n: number) => String(n).replace('.', ',') + ' GB';
+/** consumo real do CPU (medido no servidor); sem essa medida, a carga do último minuto a dividir pelos núcleos */
+export const cpuServidor = (v: { cpuPct?: number; carga: [number, number, number]; cpus: number }) =>
+  v.cpuPct != null && v.cpuPct >= 0 ? v.cpuPct : Math.min(100, Math.round((v.carga[0] / Math.max(1, v.cpus)) * 1000) / 10);
 
 function AdminWidgets() {
   const { s, go } = useVH();
@@ -79,8 +82,9 @@ function AdminWidgets() {
         <div className="stats">
           <Stat title="Contas" v={all.length} m="/ ∞" p={Math.min(100, all.length * 5)} />
           <Stat title="Revendedores" v={all.filter(([, a]) => a.role === 'revenda').length} m="/ ∞" p={Math.min(100, all.filter(([, a]) => a.role === 'revenda').length * 10)} />
-          <Stat title="Disco usado" v={v ? gbTxt(v.discoUsadoGb) : '—'} m={v ? '/ ' + gbTxt(v.discoTotalGb) : ''} p={v ? pctDe(v.discoUsadoGb, v.discoTotalGb) : 0} />
-          <Stat title="Carga do servidor" v={v ? String(v.carga[1]).replace('.', ',') : '—'} m="média 5 min" p={v ? pctDe(v.carga[1], v.cpus) : 0} />
+          {/* números reais do servidor, explícitos (Silva, 14/10/2026): "41,8 GB de 300 GB · 14%", "13% de 6 núcleos" */}
+          <Stat title="Disco usado" v={v ? gbTxt(v.discoUsadoGb) : '—'} m={v ? 'de ' + gbTxt(v.discoTotalGb) + ' · ' + pctDe(v.discoUsadoGb, v.discoTotalGb) + '%' : ''} p={v ? pctDe(v.discoUsadoGb, v.discoTotalGb) : 0} />
+          <Stat title="Consumo CPU" v={v ? String(cpuServidor(v)).replace('.', ',') + '%' : '—'} m={v ? 'de ' + v.cpus + ' núcleos' : ''} p={v ? cpuServidor(v) : 0} />
         </div>
         <div className="stats-line" />
         <UsersTable rows={all} showCreator={false} />

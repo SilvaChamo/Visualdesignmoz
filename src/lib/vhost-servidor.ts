@@ -22,7 +22,10 @@ export type LeituraServidor = {
   php: string[];
   /** bases de dados por conta */
   db: Record<string, Tabela>;
-  recursos: { cpus: number; memTotal: number; memUsada: number; memLivre: number; discoTotal: number; discoUsado: number; carga: [number, number, number] };
+  /** discoTotal/discoUsado: a partição do sistema (df /); discoFisico: o tamanho de todos os discos (lsblk) — se for
+   *  maior do que a partição, o disco foi aumentado mas a partição ainda não foi alargada. cpuPct: consumo real do CPU
+   *  medido durante 1 s (/proc/stat), em % de todos os núcleos */
+  recursos: { cpus: number; memTotal: number; memUsada: number; memLivre: number; discoTotal: number; discoUsado: number; discoFisico: number; cpuPct: number; carga: [number, number, number] };
   web: Record<string, Tabela>;
   wp: Record<string, string[]>;
   dns: Record<string, Tabela>;
@@ -42,7 +45,9 @@ T=$(mktemp -d)
 ( echo "@@IPS"; $H/v-list-sys-ips json ) > $T/0d &
 ( echo "@@SERV"; $H/v-list-sys-services json ) > $T/0e &
 ( echo "@@PHP"; $H/v-list-sys-php json ) > $T/0g &
-( echo "@@RES"; nproc; free -b | awk '/^Mem:/{print $2, $3, $7}'; df -B1 --output=size,used / | tail -1; cat /proc/loadavg ) > $T/0f &
+( echo "@@RES"; nproc; free -b | awk '/^Mem:/{print $2, $3, $7}'; df -B1 --output=size,used / | tail -1; cat /proc/loadavg
+  lsblk -bdno SIZE,TYPE 2>/dev/null | awk '$2=="disk"{s+=$1} END{print s+0}'
+  head -1 /proc/stat | cut -d' ' -f2-; sleep 1; head -1 /proc/stat | cut -d' ' -f2- ) > $T/0f &
 for u in $(ls /usr/local/hestia/data/users/); do
   ( echo "@@WEB $u"; $H/v-list-web-domains "$u" json
     for d in $($H/v-list-web-domains "$u" plain | cut -f1); do [ -f "/home/$u/web/$d/public_html/wp-config.php" ] && echo "@@WP $u $d"; done ) > "$T/1-$u-web" &
@@ -100,6 +105,16 @@ export function interpretarLeitura(out: string): LeituraServidor {
       discoTotal: res[2]?.[0] || 0,
       discoUsado: res[2]?.[1] || 0,
       carga: [res[3]?.[0] || 0, res[3]?.[1] || 0, res[3]?.[2] || 0],
+      discoFisico: res[4]?.[0] || 0,
+      cpuPct: (() => {
+        // /proc/stat: user nice system idle iowait irq softirq steal … — duas leituras com 1 s de intervalo
+        const a = (res[5] || []).filter((n) => !Number.isNaN(n)), b = (res[6] || []).filter((n) => !Number.isNaN(n));
+        if (a.length < 4 || b.length < 4) return -1;
+        const tot = (v: number[]) => v.slice(0, 8).reduce((x, y) => x + y, 0);
+        const livre = (v: number[]) => (v[3] || 0) + (v[4] || 0);
+        const dt = tot(b) - tot(a);
+        return dt > 0 ? Math.max(0, Math.min(100, Math.round(((dt - (livre(b) - livre(a))) / dt) * 1000) / 10)) : -1;
+      })(),
     },
     web: {},
     wp: {},
