@@ -1466,7 +1466,11 @@
 /* Janela "Mais" do telemóvel (barra de baixo): Admin | Gestão e a língua numa só linha; as opções em duas colunas, com
    o ícone em cima e o nome inteiro por baixo, como no Menu da Dashboard (letra mais pequena e, se for preciso, duas
    linhas — nunca cortado) (Silva, 14/10/2026) */
-.vh .mais-topo{display:flex;align-items:center;gap:6px;margin-bottom:8px}
+/* a linha de cima com as mesmas duas colunas das opções: Admin | Gestão dividem a 1.ª coluna, a língua fica na 2.ª,
+   à direita (Silva, 14/10/2026) */
+.vh .mais-topo{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:center;gap:6px;margin-bottom:8px}
+.vh .mais-niveis{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:6px;min-width:0}
+.vh .mais-niveis .btn{justify-content:center;padding:0 4px;min-width:0;font-size:clamp(11.5px,3.6vw,13px)}
 .vh .lingua-sel{position:relative;margin-left:auto}
 .vh .lingua-btn{gap:7px;padding:0 10px}
 .vh .lingua-btn .fa-chevron-down{font-size:10px;color:var(--muted);transition:transform .2s ease}

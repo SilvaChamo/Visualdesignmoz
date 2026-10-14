@@ -152,8 +152,9 @@ export function MoreMenuModal() {
       <h3>{t('Menu')}</h3>
       {/* uma só linha: Admin | Gestão à esquerda e a língua à direita (Silva, 14/10/2026) */}
       <div className="mais-topo">
-        {allowed.length > 1 &&
-          allowed.map((k) => (
+        <div className="mais-niveis">
+          {allowed.length > 1 &&
+            allowed.map((k) => (
             <button
               key={k}
               className={'btn ' + (s.level === k ? 'r' : 'g') + ' sm'}
@@ -164,7 +165,8 @@ export function MoreMenuModal() {
             >
               {t(LEVELS[k])}
             </button>
-          ))}
+            ))}
+        </div>
         <SeletorLingua />
       </div>
       {MENU[s.level]
