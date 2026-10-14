@@ -213,7 +213,7 @@ export function Header({ isScrolled = false }: { isScrolled?: boolean }) {
   }
 
   const mobileBarBtn =
-    'h-8 w-9 sm:w-10 rounded-lg border border-gray-600 dark:border-zinc-700 flex items-center justify-center transition-colors'
+    'h-8 w-9 sm:w-10 rounded lg:rounded-lg border border-gray-600 dark:border-zinc-700 flex items-center justify-center transition-colors'
 
   return (
     <header className={`fixed left-0 right-0 z-50 transition-all duration-300 bg-white shadow-sm dark:bg-white/10 dark:backdrop-blur-md dark:shadow-none dark:border-b dark:border-white/15 ${scrolled ? 'shadow-md dark:shadow-none' : ''} ${showTopBar ? 'top-[40px]' : 'top-0'}`}>
@@ -389,7 +389,7 @@ export function Header({ isScrolled = false }: { isScrolled?: boolean }) {
                     await signOut()
                     window.location.href = '/login'
                   }}
-                  className="px-2.5 py-1.5 sm:px-4 sm:py-2 bg-red-600 text-white text-[10px] lg:text-xs font-black uppercase tracking-tighter rounded-md hover:bg-black dark:hover:bg-white dark:hover:text-black transition-all shadow-lg shadow-red-900/20 dark:shadow-none flex items-center gap-1.5 sm:gap-2 group whitespace-nowrap"
+                  className="px-2.5 py-1.5 sm:px-4 sm:py-2 bg-red-600 text-white text-[10px] lg:text-xs font-black uppercase tracking-tighter rounded lg:rounded-md hover:bg-black dark:hover:bg-white dark:hover:text-black transition-all shadow-lg shadow-red-900/20 dark:shadow-none flex items-center gap-1.5 sm:gap-2 group whitespace-nowrap"
                 >
                   <LogOut className="w-4 h-4 shrink-0 group-hover:scale-110 transition-transform" />
                   <span>Sair</span>
@@ -397,7 +397,7 @@ export function Header({ isScrolled = false }: { isScrolled?: boolean }) {
               ) : (
                 <Link
                   href={PANEL_LOGIN_HREF}
-                  className="px-2.5 py-1.5 sm:px-4 sm:py-2 bg-red-600 text-white text-[10px] lg:text-xs font-black uppercase tracking-tighter rounded-md hover:bg-black dark:hover:bg-white dark:hover:text-black transition-all shadow-lg shadow-red-900/20 dark:shadow-none flex items-center gap-1.5 sm:gap-2 group whitespace-nowrap"
+                  className="px-2.5 py-1.5 sm:px-4 sm:py-2 bg-red-600 text-white text-[10px] lg:text-xs font-black uppercase tracking-tighter rounded lg:rounded-md hover:bg-black dark:hover:bg-white dark:hover:text-black transition-all shadow-lg shadow-red-900/20 dark:shadow-none flex items-center gap-1.5 sm:gap-2 group whitespace-nowrap"
                 >
                   <User className="w-4 h-4 shrink-0 group-hover:scale-110 transition-transform" />
                   <span>Login</span>

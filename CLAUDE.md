@@ -43,6 +43,22 @@ A pasta de trabalho no Mac do Silva é `visualdesign-producao` (antes `visualdes
    O `rm -rf .next` apaga a cache do servidor local antes de arrancar (uma cache velha depois de mudar de ramo fazia o
    site local piscar e não abrir — Silva, 14/10/2026); a primeira página demora um pouco mais a compilar.
 
+# Site em duas línguas — todo o conteúdo novo entra já traduzido (Silva, 14/10/2026)
+
+O site público (tudo fora do painel `/host`) muda entre português e inglês no botão EN/PT. Escreve-se sempre em
+português; a versão inglesa vem do dicionário `src/lib/i18n-textos.ts` (frase em português → frase em inglês), que a
+tradução automática (`src/components/layout/TraducaoAutomatica.tsx`) aplica a toda a página — também ao que aparece
+depois (menus, listas vindas do servidor). **Regra:** sempre que se acrescenta ou muda texto visível no site (páginas,
+botões, placeholders, mensagens de erro, listas de dados como `src/lib/brand-landing-content.ts`), acrescenta-se na
+mesma alteração a linha inglesa no dicionário — sem esperar que o Silva peça.
+
+- Partes que mudam (número, preço, nome) escrevem-se `{0}`, `{1}`…: `"A partir de {0}": "From {0}"`.
+- Nomes próprios, siglas e textos iguais nas duas línguas vão para a lista `IGUAIS` do mesmo ficheiro.
+- Antes de dar uma alteração por concluída: `npm run i18n` tem de dar **0 textos sem inglês** (lista o que falta, com
+  ficheiro e linha). Zonas que não se traduzem: `data-sem-traducao` no elemento. O painel (`.vh`) tem a sua própria
+  tradução (`t()` em `src/components/vhost/i18n.ts`) e fica de fora.
+- Textos que já usam `t('chave')` de `src/lib/i18n.tsx` continuam a funcionar; não é preciso convertê-los.
+
 # Regras de layout do Silva (valem para todas as páginas, sempre)
 
 - **Nunca pesquisa à esquerda por cima do cartão principal** (regra do Silva, 13/10/2026: "não coloque mais"). A
