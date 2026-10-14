@@ -1,0 +1,39 @@
+name: "Ops - Osher: diagnóstico DNS + SSL dos subdomínios (SÓ LEITURA)"
+
+# Só leitura: lista os registos da zona oshercollective.com na Cloudflare (GET) e,
+# para cada nome, mostra para onde resolve, o certificado que apresenta e a
+# primeira linha da resposta HTTPS. Não altera nada em lado nenhum.
+on:
+  push:
+    branches: [ops/osher-diagnostico-ssl]
+
+jobs:
+  diagnostico:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Zona na Cloudflare + certificado de cada nome
+        env:
+          CF_EMAIL: ${{ secrets.CLOUDFLARE_EMAIL }}
+          CF_KEY: ${{ secrets.CLOUDFLARE_GLOBAL_API_KEY }}
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN_ACCOUNT }}
+        run: |
+          set +e
+          D=oshercollective.com
+          if [ -n "$CF_TOKEN" ]; then AUTH=(-H "Authorization: Bearer $CF_TOKEN"); else AUTH=(-H "X-Auth-Email: $CF_EMAIL" -H "X-Auth-Key: $CF_KEY"); fi
+          ZID=$(curl -s "${AUTH[@]}" "https://api.cloudflare.com/client/v4/zones?name=$D" | jq -r '.result[0].id')
+          if [ -z "$ZID" ] || [ "$ZID" = null ]; then AUTH=(-H "X-Auth-Email: $CF_EMAIL" -H "X-Auth-Key: $CF_KEY"); ZID=$(curl -s "${AUTH[@]}" "https://api.cloudflare.com/client/v4/zones?name=$D" | jq -r '.result[0].id'); fi
+          echo "zona: $ZID"
+          echo "===== nameservers públicos ====="; dig +short NS $D
+          echo "===== registos da zona na Cloudflare (tipo nome valor proxied) ====="
+          curl -s "${AUTH[@]}" "https://api.cloudflare.com/client/v4/zones/$ZID/dns_records?per_page=500" \
+            | jq -r '.result[] | [.type, .name, (.content|tostring|.[0:90]), (if .proxied then "laranja" else "cinzenta" end)] | @tsv' | sort | tee recs.tsv
+          echo "===== SSL da zona (modo) ====="
+          curl -s "${AUTH[@]}" "https://api.cloudflare.com/client/v4/zones/$ZID/settings/ssl" | jq -r '.result.value'
+          echo
+          echo "===== cada nome A/AAAA/CNAME: resolve para, certificado, HTTPS ====="
+          for n in $(awk -F'\t' '$1=="A"||$1=="AAAA"||$1=="CNAME"{print $2}' recs.tsv | sort -u); do
+            echo "---------- $n ----------"
+            echo -n "  resolve: "; dig +short $n | tr '\n' ' '; echo
+            echo | timeout 10 openssl s_client -connect $n:443 -servername $n 2>/dev/null | openssl x509 -noout -subject -issuer -enddate -ext subjectAltName 2>/dev/null | sed 's/^/  /' | tr '\n' ' '; echo
+            echo -n "  https: "; curl -sSI --max-time 10 https://$n/ 2>&1 | head -1
+          done
