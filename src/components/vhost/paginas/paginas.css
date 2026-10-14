@@ -1431,6 +1431,10 @@
  .vh .tbl.dt-empilhar tbody :is(tr>td.dt-acoes-linha,td.dt-acoes-linha>:is(span,div):not(.menu):not(.wp-menu):not(.ssl-pop-menu))>*{flex:1 1 100%;min-width:0}
  .vh .tbl.dt-empilhar tbody td.dt-acoes-linha :is(.wp-pontos,.dt-mais){flex:0 0 auto!important;width:auto!important}
  .vh .tbl.dt-empilhar tbody td.dt-acoes-linha :has(+ :is(.wp-pontos,.dt-mais)){flex:1 1 0!important}
+ /* DNS e listas do E-mail (empilhar='botoes-em-baixo'): Editar | Remover lado a lado, divididos por igual (Silva,
+    14/10/2026: "os botões eliminar editar coloque lado a lado no mobile") */
+ .vh .tbl.dt-empilhar-baixo tbody td.dt-acoes-linha>:is(span,div):not(.menu):not(.wp-menu):not(.ssl-pop-menu){flex-wrap:nowrap!important}
+ .vh .tbl.dt-empilhar-baixo tbody td.dt-acoes-linha>:is(span,div):not(.menu):not(.wp-menu):not(.ssl-pop-menu)>*{flex:1 1 0!important}
  .vh .tbl.dt-empilhar tbody td.dt-acoes-linha .btn:not(.iconbtn){width:100%!important;justify-content:center;height:36px;margin:0;padding:0 12px}
  .vh .tbl.dt-empilhar tbody td.dt-acoes-linha :is(.iconbtn,.wp-pontos-btn){width:36px!important;height:36px!important;padding:0!important;margin:0;justify-content:center;border:1px solid var(--line);border-radius:var(--r);background:var(--card)}
  /* botões só com o ícone no computador mostram o nome no telemóvel (a toda a largura um ícone sozinho não se percebe) */
