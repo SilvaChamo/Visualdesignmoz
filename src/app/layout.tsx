@@ -78,6 +78,8 @@ export const viewport: Viewport = {
 };
 
 import { MaintenanceBanner } from "@/components/layout/MaintenanceBanner";
+import { EmbedEstilo } from "@/components/layout/EmbedEstilo";
+import { Suspense } from "react";
 
 export default function RootLayout({
   children,
@@ -124,6 +126,10 @@ export default function RootLayout({
             <CartProvider>
               <CurrencyProvider>
                 <I18nProvider>
+                  {/* ?embed=1: lido numa fronteira própria, para o resto da página vir desenhado do servidor */}
+                  <Suspense fallback={null}>
+                    <EmbedEstilo />
+                  </Suspense>
                   <MaintenanceBanner />
                   <ConditionalNavbar />
                   <ConditionalMain>{children}</ConditionalMain>

@@ -1,10 +1,10 @@
 'use client'
 // Recuperar senha no mesmo modelo do login (pedido do Silva, 14/10/2026): imagem | formulário num cartão, com os
 // botões do tema e da língua no canto.
+import Link from 'next/link'
 import React, { useState } from 'react'
 import { MailCheck } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
-import { LoginDividido } from '@/components/auth/LoginDividido'
 import { CampoFlutuante, botaoCls, ligacaoCls, subtituloCls, tituloCls, formularioCls } from '@/components/auth/campos'
 import { authErrorBoxClass, authHintBoxClass } from '@/components/auth/auth-styles'
 
@@ -38,7 +38,7 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <LoginDividido>
+    <>
       {enviado ? (
         <div className="text-center">
           <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600 ring-1 ring-emerald-500/25 dark:text-emerald-400">
@@ -53,9 +53,9 @@ export default function ForgotPasswordPage() {
             <button type="button" onClick={() => setEnviado(false)} className={ligacaoCls}>
               {t('rec.resend')}
             </button>
-            <a href="/login" className={ligacaoCls}>
+            <Link href="/login" className={ligacaoCls}>
               {t('rec.back')}
-            </a>
+            </Link>
           </div>
         </div>
       ) : (
@@ -81,13 +81,13 @@ export default function ForgotPasswordPage() {
             </button>
             <p className="text-center text-[clamp(12px,0.95vw,13px)] text-zinc-500 dark:text-zinc-400">{t('rec.hint')}</p>
             <div className="text-center">
-              <a href="/login" className={ligacaoCls}>
+              <Link href="/login" className={ligacaoCls}>
                 {t('rec.back')}
-              </a>
+              </Link>
             </div>
           </form>
         </>
       )}
-    </LoginDividido>
+    </>
   )
 }

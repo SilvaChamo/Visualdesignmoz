@@ -162,7 +162,8 @@ function EscreverMensagem() {
           {/* Destinatário */}
           <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
             <label className="block text-sm font-medium text-gray-700 mb-3">Destinatário</label>
-            <div className="flex gap-4">
+            {/* no telemóvel as duas opções uma por baixo da outra (Silva, 14/10/2026: uma só coluna) */}
+            <div className="flex flex-col gap-3 sm:flex-row sm:gap-4">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input type="radio" checked={sendToAll} onChange={() => setSendToAll(true)} className="w-4 h-4 text-blue-600" />
                 <span className="text-sm text-gray-700">Todos os clientes</span>

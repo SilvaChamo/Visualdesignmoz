@@ -606,7 +606,7 @@ function CheckoutContent() {
   // abaixo, que servem só para compras novas.
   if (renewalId) {
     if (isAuthenticated === false) {
-      router.push(`/auth/login?redirect=${encodeURIComponent(`/checkout?renewalId=${renewalId}`)}`);
+      router.push(`/login?redirect=${encodeURIComponent(`/checkout?renewalId=${renewalId}`)}`);
       return (
         <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-zinc-950">
           <Spinner className="w-10 h-10" />
@@ -879,7 +879,7 @@ function CheckoutContent() {
                     <h4 className="font-bold text-red-800 dark:text-red-300 text-sm font-panel">Falha na Transação</h4>
                     <p className="text-xs text-red-700 dark:text-red-400 mt-1 leading-normal">{errorMessage}</p>
                     {(errorMessage.toLowerCase().includes('login') || errorMessage.toLowerCase().includes('já existe')) && (
-                      <Link href={`/auth/login?redirect=${encodeURIComponent(checkoutReturnPath)}`} className="mt-4 bg-red-600 text-white font-bold text-xs px-4 py-2 rounded-lg hover:bg-red-700 transition-colors inline-block">
+                      <Link href={`/login?redirect=${encodeURIComponent(checkoutReturnPath)}`} className="mt-4 bg-red-600 text-white font-bold text-xs px-4 py-2 rounded-lg hover:bg-red-700 transition-colors inline-block">
                         Fazer Login
                       </Link>
                     )}
@@ -919,14 +919,14 @@ function CheckoutContent() {
                   )}
 
                   {isAuthenticated === false && isEncomenda && (
-                    <EncomendaLoginNecessario loginHref={`/auth/login?redirect=${encodeURIComponent(checkoutReturnPath)}`} />
+                    <EncomendaLoginNecessario loginHref={`/login?redirect=${encodeURIComponent(checkoutReturnPath)}`} />
                   )}
 
                   {isAuthenticated === false && !isEncomenda && (
                     <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg p-6 shadow-sm">
                       <div className="mb-6 pb-4 border-b border-slate-100 dark:border-zinc-800 flex justify-between items-center">
                         <p className="text-sm text-slate-600 dark:text-zinc-400">
-                          Já tem uma conta? <Link href={`/auth/login?redirect=${encodeURIComponent(checkoutReturnPath)}`} className="text-blue-600 font-bold hover:underline">Inicie sessão</Link> para concluir o processo de pagamento.
+                          Já tem uma conta? <Link href={`/login?redirect=${encodeURIComponent(checkoutReturnPath)}`} className="text-blue-600 font-bold hover:underline">Inicie sessão</Link> para concluir o processo de pagamento.
                         </p>
                       </div>
 

@@ -1739,8 +1739,9 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     return { lang, t, toggleLang }
   }, [lang])
 
-  if (!isLoaded) return null
-
+  // a página aparece logo (já vem desenhada do servidor, em português) e só depois troca para a língua guardada no
+  // navegador; antes nada aparecia até o JavaScript carregar — a tela branca ao abrir ou trocar de página (Silva,
+  // 14/10/2026)
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>
 }
 

@@ -8,6 +8,7 @@
  * formulário sempre ao centro e com a imagem, em todos os aparelhos). No escuro, as cores do tema escuro do painel (o fundo é a parte mais escura
  * dele, --bg #15161e; linhas #393e4d; caixas #272a34).
  */
+import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
 import { Contrast, Globe, Mail, Moon, Server, Sun, type LucideIcon } from 'lucide-react'
 import { useTheme } from '@/contexts/ThemeContext'
@@ -19,9 +20,9 @@ const LINGUA_LS = 'visualhost_lang'
 
 type Modo = 'light' | 'auto' | 'dark'
 
-/** Duas versões do logótipo no computador, para o Silva escolher (13/10/2026): 1 = aba branca a entrar pela foto
- *  (/login); 2 = logótipo branco no canto da foto com uma linha branca de 12 px encostada à esquerda (/login?modelo=2) */
-export function LoginDividido({ children, modelo = 1 }: { children: React.ReactNode; modelo?: 1 | 2 }) {
+/** O modelo aprovado (Silva, 13/10/2026): no computador, a aba branca com o logótipo a entrar pela foto. Montado uma
+ *  só vez pelo layout de src/app/(entrada) — as quatro páginas de entrada trocam só o conteúdo do cartão */
+export function LoginDividido({ children }: { children: React.ReactNode }) {
   const { t } = useI18n()
   const itens: [LucideIcon, string][] = [
     [Server, t('login.heroFeat1')],
@@ -35,26 +36,13 @@ export function LoginDividido({ children, modelo = 1 }: { children: React.ReactN
         <img src="/assets/design_grafico_branding.jpg" alt="" aria-hidden className="absolute inset-0 h-full w-full object-cover" />
         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/45 to-black/25" />
         <div className="absolute inset-0 bg-gradient-to-br from-red-800/35 via-transparent to-transparent" />
-        {modelo === 1 && <FaixaBranca />}
-
-        {modelo === 2 && (
-          <>
-            {/* a linha fica à altura do desenho do logótipo (a imagem tem ~6 px vazios em cima e em baixo) */}
-            <span aria-hidden className="absolute left-0 top-[42px] hidden h-[46px] w-[12px] bg-[#fff] lg:block" />
-            <a href="/" className="absolute left-10 top-9 hidden transition-opacity hover:opacity-85 lg:block" title="VisualDesign">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/assets/Logo_horizontal_branco.png" alt="VisualDesign" className="h-[58px] w-auto" />
-            </a>
-          </>
-        )}
+        <FaixaBranca />
 
         <div className="absolute inset-x-[clamp(24px,2.8vw,40px)] bottom-[clamp(24px,2.8vw,40px)] hidden max-w-[540px] text-white lg:block">
           <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-medium ring-1 ring-white/20 backdrop-blur">
-            {/* o ponto pisca devagar, como "no ar" (pedido do Silva, 13/10/2026) */}
-            <span className="relative flex h-1.5 w-1.5">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-75 motion-reduce:animate-none" />
-              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-red-500" />
-            </span>
+            {/* o ponto "no ar" (pedido do Silva, 13/10/2026): um halo vermelho que cresce e se apaga, bem visível sobre a
+                foto (14/10/2026: o ping de 6 px quase não se via e desligava-se com "Reduzir movimento") */}
+            <span aria-hidden className="vd-ponto-vivo inline-flex h-2 w-2 rounded-full bg-red-500" />
             {t('login.heroTag')}
           </span>
           <h2 className="mt-4 text-[clamp(24px,2.36vw,34px)] font-semibold leading-[1.15] tracking-tight">{t('login.heroTitle')}</h2>
@@ -73,7 +61,7 @@ export function LoginDividido({ children, modelo = 1 }: { children: React.ReactN
       </aside>
 
       <section className="relative z-10 flex min-h-screen flex-col">
-        {modelo === 1 && <AbaLogo />}
+        <AbaLogo />
         <BotoesCanto />
         {/* o cartão fica ao centro do ecrã, à altura do meio da foto: o cabeçalho e o rodapé não ocupam espaço (estão
             por cima), só deixam folga em cima e em baixo. A sombra é igual à volta (sem cair para baixo), senão o cartão
@@ -85,25 +73,25 @@ export function LoginDividido({ children, modelo = 1 }: { children: React.ReactN
             <div className="rounded-[10px] bg-[#fff] px-5 pb-6 pt-5 shadow-[0_0_60px_-18px_rgba(0,0,0,0.6)] dark:bg-[#15161e] lg:border lg:border-zinc-200 lg:px-[clamp(22px,1.95vw,30px)] lg:pb-[clamp(24px,2.2vw,32px)] lg:pt-[clamp(22px,1.95vw,28px)] lg:shadow-[0_0_36px_-10px_rgba(24,24,27,0.18)] lg:dark:border-[#2a2d3a] lg:dark:shadow-[0_0_36px_-10px_rgba(0,0,0,0.7)]">
               {/* no telemóvel e no tablet o logótipo fica no cartão, por cima do título (a imagem tem ~13% de margem
                   vazia em cima e em baixo); no computador está na aba da foto */}
-              <a href="/" className="-mt-2 mb-1 flex justify-center lg:hidden" title="VisualDesign">
+              <Link href="/" className="-mt-2 mb-1 flex justify-center lg:hidden" title="VisualDesign">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src="/assets/logotype.png" alt="VisualDesign" className="h-[84px] w-auto object-contain dark:hidden" />
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src="/assets/logotipoII.png" alt="VisualDesign" className="hidden h-[84px] w-auto object-contain dark:block" />
-              </a>
+              </Link>
               {children}
             </div>
           </div>
         </div>
         <footer className="absolute inset-x-0 bottom-0 pb-5 text-center text-xs text-white/70 lg:text-zinc-400 lg:dark:text-zinc-500">
           © {new Date().getFullYear()} VisualDesign ·{' '}
-          <a href="/termos" className="hover:text-white lg:hover:text-zinc-600 lg:dark:hover:text-zinc-300">
+          <Link href="/termos" className="hover:text-white lg:hover:text-zinc-600 lg:dark:hover:text-zinc-300">
             {t('login.terms')}
-          </a>{' '}
+          </Link>{' '}
           ·{' '}
-          <a href="/privacidade" className="hover:text-white lg:hover:text-zinc-600 lg:dark:hover:text-zinc-300">
+          <Link href="/privacidade" className="hover:text-white lg:hover:text-zinc-600 lg:dark:hover:text-zinc-300">
             {t('login.privacy')}
-          </a>
+          </Link>
         </footer>
       </section>
 
@@ -118,7 +106,7 @@ export function LoginDividido({ children, modelo = 1 }: { children: React.ReactN
  *  aparecer uma linha na junção (nem no claro nem no escuro). A 50 px do início da página; o tamanho acompanha o ecrã. */
 function AbaLogo() {
   return (
-    <a
+    <Link
       href="/"
       title="VisualDesign"
       className="absolute right-[calc(100%-16px)] top-[50px] z-10 hidden h-[clamp(56px,5vw,72px)] w-[calc(clamp(184px,16.7vw,240px)+48px)] items-center rounded-l-[10px] bg-[#fff] pl-4 pr-8 dark:bg-[#15161e] lg:flex"
@@ -127,7 +115,7 @@ function AbaLogo() {
       <img src="/assets/logo-entrada.jpg" alt="VisualDesign" className="h-auto w-[clamp(184px,16.7vw,240px)] dark:hidden" />
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src="/assets/logo-entrada-escuro.png" alt="VisualDesign" className="hidden h-auto w-[clamp(184px,16.7vw,240px)] dark:block" />
-    </a>
+    </Link>
   )
 }
 

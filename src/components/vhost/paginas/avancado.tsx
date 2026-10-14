@@ -3,7 +3,7 @@
 // Menu Avançado do painel Utilizador (páginas copiadas do DirectAdmin, ligadas ao Hestia por /api/vhost/avancado):
 // Handlers e MIME, Cópias de segurança, Tarefas cron, Chaves de login, Pastas protegidas, Chaves SSH,
 // Firewall de aplicação (ModSecurity), Git, WordPress e Antivírus. O Catch-all está em paginas/email.tsx.
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useVH, type VH } from '../context';
 import type { ScreenFn } from '../screens';
 import { Check, DataTable, Senha, Switch, Tabs } from './componentes';
@@ -1197,7 +1197,7 @@ function MenuPontos({ itens }: { itens: { fa: string; t: string; sub?: string; p
     <span className="wp-pontos" ref={caixa}>
       <button className={'wp-pontos-btn' + (aberto ? ' on' : '')} onClick={() => setAberto(!aberto)} title={t('Mais opções')} aria-label={t('Mais opções')} aria-expanded={aberto}>
         <i className="fa-solid fa-ellipsis" />
-      </button>
+              </button>
       {pos && (
         <div className="wp-menu" role="menu" style={{ top: pos.top, right: pos.right }}>
           {itens.map((x) => (
@@ -1300,6 +1300,17 @@ function WpApagarModal({ d, depois }: { d: string; depois: () => void }) {
   );
 }
 
+/** Pasta com quebras possíveis só depois de cada "/" (no telemóvel passa à linha de baixo inteira, sem partir a meio
+ *  de uma palavra como "public_htm|l") */
+const comBarras = (p: string) =>
+  p.split('/').map((x, i) => (
+    <Fragment key={i}>
+      {i > 0 && '/'}
+      {i > 0 && <wbr />}
+      {x}
+    </Fragment>
+  ));
+
 /** Gestor de WordPress — igual ao "WordPress Manager" do DirectAdmin (instalações com o menu ⋯ e locais sem
  *  WordPress); o botão "Gerir" (plugins, atualizações, utilizadores) é um acrescento do painel */
 function WordPressLista() {
@@ -1321,7 +1332,7 @@ function WordPressLista() {
           empty="Não há WordPress instalados"
           cols={[
             { k: 'd', t: 'Domínio', cell: (r) => <a className="lk lk-dom" href={r.url || 'https://' + r.d} target="_blank" rel="noreferrer">{r.d}</a> },
-            { k: 'pasta', t: 'Pasta', cell: (r) => <a className="lk wp-pasta" onClick={() => nav('/utilizador/ficheiros/' + r.pasta.split('/').map(enc).join('/'))}>{r.pasta}</a> },
+            { k: 'pasta', t: 'Pasta', cell: (r) => <a className="lk wp-pasta" onClick={() => nav('/utilizador/ficheiros/' + r.pasta.split('/').map(enc).join('/'))}>{comBarras(r.pasta)}</a> },
             { k: 'v', t: 'Versão', cell: (r) => (r.versao ? <span className="wp-versao">{r.versao}</span> : '—') },
             { k: 'titulo', t: 'Título', cell: (r) => r.titulo || '—' },
             { k: 'auto', t: 'Atualização automática', cell: (r) => <span className={'tag ' + (r.auto === 'false' ? 'off' : 'ok')}>{t(AUTO[r.auto] || 'Só de segurança')}</span> },
@@ -1352,7 +1363,7 @@ function WordPressLista() {
             rowKey={(r) => r.d}
             cols={[
               { k: 'd', t: 'Domínio', cell: (r) => <b>{r.d}</b> },
-              { k: 'pasta', t: 'Pasta', cell: (r) => <code>{r.pasta}</code> },
+              { k: 'pasta', t: 'Pasta', cell: (r) => <code className="wp-pasta">{comBarras(r.pasta)}</code> },
             ]}
             actions={(r) => (
               <button className="btn sm btn-ed" onClick={() => nav('/utilizador/wordpress/instalar/' + enc(r.d))}>
@@ -1817,7 +1828,7 @@ function WpEditarPagina({ d, id }: { d: string; id: number }) {
 
 export const wordpressPagina: ScreenFn = (vh) => {
   const [a, b] = vh.s.sub;
-  const base = { t: 'Gestor de WordPress', path: '/utilizador/wordpress' };
+  const base = { t: 'WordPress', path: '/utilizador/wordpress' };
   // o seletor de domínio abre a mesma página no domínio escolhido (sem WordPress nele: a lista)
   const noDominio = (resto: string) => ({
     dominios: 'sites' as const,
@@ -1874,7 +1885,8 @@ export const wordpressPagina: ScreenFn = (vh) => {
         </>
       ),
     };
-  return { title: 'Gestor de WordPress', body: <WordPressLista /> };
+  // só "WordPress" (Silva, 14/10/2026: "Gestor de WordPress" ocupava a faixa e chocava com um domínio comprido)
+  return { title: 'WordPress', body: <WordPressLista /> };
 };
 
 // ---------- Antivírus (ClamAV) ----------

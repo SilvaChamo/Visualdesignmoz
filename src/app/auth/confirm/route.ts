@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
         console.error('Auth Confirm (token_hash) Error:', error)
     }
 
-    const loginUrl = new URL('/auth/login', siteOrigin)
+    const loginUrl = new URL('/login', siteOrigin)
     loginUrl.searchParams.set('error', 'token_invalid')
     loginUrl.searchParams.set('error_description', 'Token de confirmação inválido ou expirado.')
     return NextResponse.redirect(loginUrl)

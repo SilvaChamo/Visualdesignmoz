@@ -1936,14 +1936,14 @@ function Ssl({ tab, verCertDomain }: { tab: TabSsl; verCertDomain: string | null
                   >
                     {t('View')}
                   </button>
-                  <div style={{ position: 'relative' }}>
+                  <div className="dt-mais" style={{ position: 'relative' }}>
                     <button
                       className="btn g sm iconbtn"
                       onClick={() => setMenuRow(menuRow === r.name ? null : r.name)}
                       title={t('Mais opções')}
                     >
                       <i className="fa-solid fa-ellipsis" />
-                    </button>
+                                          </button>
                     {menuRow === r.name && (
                       <div className="ssl-pop-menu">
                         <button

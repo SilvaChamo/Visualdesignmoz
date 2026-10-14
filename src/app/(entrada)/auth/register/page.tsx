@@ -1,7 +1,7 @@
 'use client'
+import Link from 'next/link'
 import React, { useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { LoginDividido } from '@/components/auth/LoginDividido'
 import { CampoFlutuante, CampoTelefone, EscolhaFlutuante, ForcaSenha, OlhoSenha, botaoCls, botaoClaroCls, ligacaoCls, subtituloCls, tituloCls, formularioCls } from '@/components/auth/campos'
 import { authErrorBoxClass } from '@/components/auth/auth-styles'
 import { Turnstile } from '@/components/auth/Turnstile'
@@ -27,8 +27,8 @@ function RegisterPageInner() {
   const searchParams = useSearchParams()
   const redirectParam = searchParams.get('redirect') || searchParams.get('next')
   const loginLink = redirectParam
-    ? `/auth/login?redirect=${encodeURIComponent(redirectParam)}`
-    : '/auth/login'
+    ? `/login?redirect=${encodeURIComponent(redirectParam)}`
+    : '/login'
 
   const [step, setStep] = useState<1 | 2 | 3>(1)
 
@@ -182,7 +182,7 @@ function RegisterPageInner() {
   // Registo no mesmo modelo do login (pedido do Silva, 13/10/2026): foto à esquerda, formulário à direita, os mesmos
   // campos com a etiqueta que sobe ao clicar e os mesmos botões
   return (
-    <LoginDividido>
+    <>
       {sucesso ? (
         <div className="py-6 text-center">
           <p className="mb-4 text-4xl">📧</p>
@@ -190,9 +190,9 @@ function RegisterPageInner() {
           <p className={`${subtituloCls}`}>Pode entrar agora com:</p>
           <p className="mt-2 break-all font-semibold text-red-600 dark:text-red-400">{email}</p>
           <p className="mt-4 text-xs text-zinc-500 dark:text-zinc-400">A conta começa como visitante — após a primeira compra passa a cliente.</p>
-          <a href={loginLink} className={`mt-6 ${botaoCls}`}>
+          <Link href={loginLink} className={`mt-6 ${botaoCls}`}>
             Ir para entrar →
-          </a>
+          </Link>
         </div>
       ) : (
         <>
@@ -283,19 +283,19 @@ function RegisterPageInner() {
 
           <p className="mt-6 text-center text-[clamp(12.5px,0.92vw,13.5px)] text-zinc-600 dark:text-zinc-400">
             Já tem conta?{' '}
-            <a href={loginLink} className={ligacaoCls}>
+            <Link href={loginLink} className={ligacaoCls}>
               Entrar
-            </a>
+            </Link>
           </p>
         </>
       )}
-    </LoginDividido>
+    </>
   )
 }
 
 export default function RegisterPage() {
   return (
-    <Suspense fallback={<LoginDividido>{null}</LoginDividido>}>
+    <Suspense fallback={null}>
       <RegisterPageInner />
     </Suspense>
   )

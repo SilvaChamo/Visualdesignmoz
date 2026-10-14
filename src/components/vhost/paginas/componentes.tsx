@@ -246,7 +246,7 @@ export function DataTable<T>({
   onSelChange,
   umaLinha = false,
   barraFora = false,
-  empilhar = false,
+  empilhar = true,
   acoesNaColuna = false,
   colunasNoCabecalho = false,
 }: {
@@ -291,7 +291,8 @@ export function DataTable<T>({
   /** no telemóvel cada linha passa a um bloco numa só coluna: a caixa e a primeira coluna em cima, o resto por baixo
    *  com o nome de cada coluna (pedido do Silva, 13/10/2026 — lista de IPs da Força bruta). Com 'botoes-em-baixo', os
    *  botões da linha vão para o fundo do bloco, a toda a largura, divididos por igual (DNS). Com 'tablet', também no
-   *  tablet ao alto (769–1000), onde a tabela não cabe ao lado do menu (Força bruta) */
+   *  tablet ao alto (769–1000), onde a tabela não cabe ao lado do menu (Força bruta). Ligado por defeito em todas as
+   *  tabelas (Silva, 14/10/2026: nada pode passar dos limites no telemóvel, a partir de 320 px) */
   empilhar?: boolean | 'botoes-em-baixo' | 'tablet';
   /** o "Ações" no lugar do título da 1.ª coluna mesmo com separadores (Força bruta — modelo do Silva, 13/10/2026) */
   acoesNaColuna?: boolean;
