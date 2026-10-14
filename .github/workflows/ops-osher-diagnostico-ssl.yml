@@ -41,3 +41,26 @@ jobs:
             echo | timeout 10 openssl s_client -connect $n:443 -servername $n 2>/dev/null | openssl x509 -noout -subject -issuer -enddate -ext subjectAltName 2>/dev/null | sed 's/^/  /' | tr '\n' ' '; echo
             echo -n "  https: "; curl -sSI --max-time 10 https://$n/ 2>&1 | head -1
           done
+
+  contabo:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Contabo - onde está community.oshercollective.com (só leitura)
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          username: root
+          password: ${{ secrets.CONTABO_ROOT_PASSWORD }}
+          command_timeout: 3m
+          script: |
+            set +e
+            H=/usr/local/hestia/data/users
+            echo "=== 'communit' nos ficheiros de configuração do Hestia (web/dns/mail, todas as contas) ==="
+            grep -il "communit" $H/*/web.conf $H/*/dns.conf $H/*/mail.conf 2>/dev/null
+            grep -ih "communit" $H/*/web.conf $H/*/dns.conf $H/*/mail.conf 2>/dev/null | grep -oE "(DOMAIN|ALIAS)='[^']*'" | head
+            echo "=== domínios web da conta oshercollective (nome, aliases, ssl) ==="
+            /usr/local/hestia/bin/v-list-web-domains oshercollective json | grep -E '^\s*"[a-z0-9.-]+": \{|"ALIAS"|"SSL"|"DOCUMENT_ROOT"'
+            echo "=== pastas com 'communit' em /home (até 6 níveis) ==="
+            find /home -maxdepth 6 -type d -iname '*communit*' 2>/dev/null | head -20
+            echo "=== nginx a falar de community ==="
+            grep -rl "community.oshercollective" /etc/nginx /home/*/conf 2>/dev/null | head
