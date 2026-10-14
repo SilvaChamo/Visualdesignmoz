@@ -95,7 +95,7 @@ jobs:
               if tipo in ('MX', 'TXT'): corpo.pop('proxied')
               if prio is not None: corpo['priority'] = prio
               # registo igual ja existe?
-              iguais = [r for r in existentes if r['type'] == tipo and r['name'] == nome and r['content'].strip('"\' ') == conteudo]
+              iguais = [r for r in existentes if r['type'] == tipo and r['name'] == nome and r['content'].strip('"') == conteudo]
               if iguais and (tipo in ('MX', 'TXT') or not iguais[0].get('proxied')):
                   print(f'= {tipo} {nome} ja estava certo'); continue
               # registo do mesmo tipo/nome a corrigir (A/CNAME do mesmo nome; TXT com a mesma marca; MX do dominio)
