@@ -25,13 +25,17 @@ jobs:
           echo "zona: $ZID"
           echo "===== nameservers públicos ====="; dig +short NS $D
           echo "===== registos da zona na Cloudflare (tipo nome valor proxied) ====="
-          curl -s "${AUTH[@]}" "https://api.cloudflare.com/client/v4/zones/$ZID/dns_records?per_page=500" \
-            | jq -r '.result[] | [.type, .name, (.content|tostring|.[0:90]), (if .proxied then "laranja" else "cinzenta" end)] | @tsv' | sort | tee recs.tsv
+          G=(-H "X-Auth-Email: $CF_EMAIL" -H "X-Auth-Key: $CF_KEY")
+          curl -s "${AUTH[@]}" "https://api.cloudflare.com/client/v4/zones/$ZID/dns_records?per_page=500" > r.json
+          jq -e '.result' r.json >/dev/null || { jq -c '.errors' r.json; curl -s "${G[@]}" "https://api.cloudflare.com/client/v4/zones/$ZID/dns_records?per_page=500" > r.json; }
+          jq -e '.result' r.json >/dev/null || jq -c '.errors' r.json
+          cat r.json | jq -r '.result[] | [.type, .name, (.content|tostring|.[0:90]), (if .proxied then "laranja" else "cinzenta" end)] | @tsv' | sort | tee recs.tsv
           echo "===== SSL da zona (modo) ====="
           curl -s "${AUTH[@]}" "https://api.cloudflare.com/client/v4/zones/$ZID/settings/ssl" | jq -r '.result.value'
           echo
           echo "===== cada nome A/AAAA/CNAME: resolve para, certificado, HTTPS ====="
-          for n in $(awk -F'\t' '$1=="A"||$1=="AAAA"||$1=="CNAME"{print $2}' recs.tsv | sort -u); do
+          EXTRA="community.$D comunidade.$D members.$D app.$D portal.$D forum.$D club.$D"
+          for n in $( (awk -F'\t' '$1=="A"||$1=="AAAA"||$1=="CNAME"{print $2}' recs.tsv; echo $EXTRA | tr ' ' '\n') | sort -u); do
             echo "---------- $n ----------"
             echo -n "  resolve: "; dig +short $n | tr '\n' ' '; echo
             echo | timeout 10 openssl s_client -connect $n:443 -servername $n 2>/dev/null | openssl x509 -noout -subject -issuer -enddate -ext subjectAltName 2>/dev/null | sed 's/^/  /' | tr '\n' ' '; echo
