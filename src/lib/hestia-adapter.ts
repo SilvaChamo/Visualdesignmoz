@@ -30,9 +30,16 @@ export async function issueLetsEncrypt(
     return { ok: false, error: result.error };
   }
 
-  const reload = await executeServerCommand(
-    'systemctl reload nginx 2>&1 || sudo systemctl reload nginx 2>&1 || true',
-  ).catch((e) => (e instanceof Error ? e.message : 'reload nginx falhou'));
+  // Pela API do Hestia (corre como root): no Contabo o site não é root, o `systemctl reload` falhava em silêncio e o
+  // nginx só apanhava o certificado novo minutos depois (community.oshercollective.com, 14/10/2026).
+  const proxy = await hestiaCall('v-restart-proxy', []).catch(() => ({ ok: false, error: 'sem resposta' }));
+  const web = await hestiaCall('v-restart-web', []).catch(() => ({ ok: false, error: 'sem resposta' }));
+  let reload = proxy.ok && web.ok ? 'ok' : '';
+  if (!reload) {
+    reload = await executeServerCommand(
+      'systemctl reload nginx 2>&1 || sudo systemctl reload nginx 2>&1 || true',
+    ).catch((e) => (e instanceof Error ? e.message : 'reload nginx falhou'));
+  }
 
   return { ok: true, output: `Certificado SSL tratado. Reload nginx: ${reload || 'ok'}` };
 }
