@@ -189,8 +189,9 @@ function LoginFormInner() {
           {t('login.google')}
         </button>
 
-        {/* por baixo do Google: recuperar a senha à esquerda, registar à direita (pedido do Silva, 13/10/2026) */}
-        <div className="flex items-center justify-between gap-4">
+        {/* por baixo do Google: recuperar a senha à esquerda, registar à direita (pedido do Silva, 13/10/2026); no
+            telemóvel um por linha, ao centro e sem partir (Silva, 14/10/2026: "Recuperar / senha", "Registe- / se") */}
+        <div className="flex flex-col items-center gap-2 whitespace-nowrap sm:flex-row sm:justify-between sm:gap-4">
           <Link href="/auth/forgot-password" className={ligacaoCls}>
             {t('login.forgot')}
           </Link>

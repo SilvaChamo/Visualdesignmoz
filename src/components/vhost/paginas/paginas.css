@@ -1461,3 +1461,28 @@
  /* as outras grelhas de 2 ou 3 colunas (datas, transferência, números e botões da coluna dos E-mails, opções, cron…) */
  .vh :is(.da-lin.n2,.da-lin.n3,.da-ops,.em-datas,.trf-grelha,.trf-campos,.em-lado-stats,.em-lado-botoes,.av-cron),.vh .da-privs .privs{grid-template-columns:minmax(0,1fr)!important}
 }
+
+
+/* Janela "Mais" do telemóvel (barra de baixo): Admin | Gestão e a língua numa só linha; as opções em duas colunas, com
+   o ícone em cima e o nome inteiro por baixo, como no Menu da Dashboard (letra mais pequena e, se for preciso, duas
+   linhas — nunca cortado) (Silva, 14/10/2026) */
+/* a linha de cima com as mesmas duas colunas das opções: Admin | Gestão dividem a 1.ª coluna, a língua fica na 2.ª,
+   à direita (Silva, 14/10/2026) */
+.vh .mais-topo{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:center;gap:6px;margin-bottom:8px}
+.vh .mais-niveis{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:6px;min-width:0}
+.vh .mais-niveis .btn{justify-content:center;padding:0 4px;min-width:0;font-size:clamp(11.5px,3.6vw,13px)}
+.vh .lingua-sel{position:relative;margin-left:auto}
+.vh .lingua-btn{gap:7px;padding:0 10px}
+.vh .lingua-btn .fa-chevron-down{font-size:10px;color:var(--muted);transition:transform .2s ease}
+.vh .lingua-btn.on .fa-chevron-down{transform:rotate(180deg)}
+.vh .lingua-bandeira{width:20px;height:14px;border-radius:2px;flex:none;box-shadow:0 0 0 1px rgba(0,0,0,.12)}
+.vh .lingua-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:5;min-width:170px;background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:0 10px 26px rgba(0,0,0,.16);padding:4px}
+.vh .lingua-menu button{display:flex;align-items:center;gap:10px;width:100%;padding:9px 10px;border:0;border-radius:var(--r);background:none;color:var(--ink);font:inherit;font-size:13.5px;cursor:pointer;text-align:left}
+.vh .lingua-menu button:hover{background:var(--soft)}
+.vh .lingua-menu button.on{background:color-mix(in srgb,var(--red) 10%,transparent);color:var(--red)}
+.vh .lingua-menu button span{color:var(--muted)}
+.vh .lingua-menu button.on span{color:inherit}
+.vh .mais-grelha{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.vh .btn.mais-item{flex-direction:column;justify-content:center;align-items:center;height:auto;min-height:60px;padding:8px 3px;gap:5px;white-space:normal;text-align:center;line-height:1.2;font-size:clamp(10.5px,3.3vw,12.5px);overflow-wrap:anywhere}
+.vh .btn.mais-item i{flex:none;font-size:16px}
+
