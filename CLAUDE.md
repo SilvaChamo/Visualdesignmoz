@@ -86,8 +86,8 @@ mesma alteração a linha inglesa no dicionário — sem esperar que o Silva pe�
   bloco — a caixa de seleção e o dado principal (ex.: o IP) em cima; as outras informações por baixo, cada uma com o
   nome da coluna; **os botões da linha no fundo do bloco, uns por baixo dos outros, a toda a largura**. No
   VisualHost: `DataTable` empilha por defeito (`empilhar` ligado em todas as tabelas).
-- **Telemóvel = uma só coluna em tudo** (Silva, 14/10/2026): itens uns por baixo dos outros. **Exceção: o Menu (grelha
-  de ícones) fica em duas colunas**, ícone em cima e nome por baixo (Silva, 14/10/2026: "coloque duas colunas no menu"). **Botões na vertical, a
+- **Telemóvel = uma só coluna em tudo** (Silva, 14/10/2026): itens uns por baixo dos outros. **Exceções: o Menu (grelha
+  de ícones) e os cartões (ex.: números da Dashboard) ficam em duas colunas**, ícone em cima e nome por baixo (Silva, 14/10/2026: "coloque duas colunas no menu"). **Botões na vertical, a
   toda a largura, todos na mesma coluna** (rodapés de formulários e janelas, barras de botões, botões das linhas).
   Ficam de fora só as barras de ferramentas (editor, gestor de ficheiros), separadores, interruptores (ex.: Visual |
   HTML) e botões colados a um campo.

@@ -30,6 +30,10 @@ export interface Servidor {
   memTotalGb: number;
   discoUsadoGb: number;
   discoTotalGb: number;
+  /** tamanho de todos os discos (pode ser maior do que a partição, se esta ainda não foi alargada); 0 = desconhecido */
+  discoFisicoGb?: number;
+  /** consumo real do CPU (% de todos os núcleos, medido durante 1 s); -1 = desconhecido */
+  cpuPct?: number;
   servicos: ServicoEstado[];
   nSites: number;
   nContas: number;

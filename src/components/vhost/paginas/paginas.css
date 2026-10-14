@@ -1458,11 +1458,12 @@
    colunas (Silva, 14/10/2026: "coloque duas colunas no menu"), com o ícone em cima e o nome por baixo; um nome comprido
    passa à linha de baixo em vez de levar "…" */
 @media(max-width:768px){
- .vh .stats{grid-template-columns:minmax(0,1fr)!important}
+ /* cartões em duas colunas no telemóvel (Silva, 14/10/2026: "todas as páginas que têm cards, em duas colunas") */
+ .vh .stats{grid-template-columns:repeat(2,minmax(0,1fr))!important}
  .vh .da-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
  .vh .da-card-title{white-space:normal;text-overflow:clip;overflow:visible;line-height:1.2}
  /* as outras grelhas de 2 ou 3 colunas (datas, transferência, números e botões da coluna dos E-mails, opções, cron…) */
- .vh :is(.da-lin.n2,.da-lin.n3,.da-ops,.em-datas,.trf-grelha,.trf-campos,.em-lado-stats,.em-lado-botoes,.av-cron),.vh .da-privs .privs{grid-template-columns:minmax(0,1fr)!important}
+ .vh :is(.da-lin.n2,.da-lin.n3,.da-ops,.em-datas,.trf-grelha,.trf-campos,.em-lado-botoes,.av-cron),.vh .da-privs .privs{grid-template-columns:minmax(0,1fr)!important}
 }
 
 
@@ -1488,4 +1489,4 @@
 .vh .mais-grelha{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
 .vh .btn.mais-item{flex-direction:column;justify-content:center;align-items:center;height:auto;min-height:60px;padding:8px 3px;gap:5px;white-space:normal;text-align:center;line-height:1.2;font-size:clamp(10.5px,3.3vw,12.5px);overflow-wrap:anywhere}
 .vh .btn.mais-item i{flex:none;font-size:16px}
-
+@media(max-width:768px){.vh .em-lado-stats{grid-template-columns:repeat(2,minmax(0,1fr))!important}}

@@ -242,6 +242,8 @@ export function montarDados(srv: LeituraServidor, reg: RegistoSite, sessao: Sess
       memTotalGb: gb(rc.memTotal),
       discoUsadoGb: gb(rc.discoUsado),
       discoTotalGb: gb(rc.discoTotal),
+      discoFisicoGb: gb(rc.discoFisico || 0),
+      cpuPct: rc.cpuPct ?? -1,
       servicos: Object.entries(srv.servicos).map(([nome, s]) => ({ nome, ativo: (s.STATE || '').toLowerCase() === 'running' })),
       nSites: Object.values(srv.web).reduce((n, w) => n + Object.keys(w).length, 0),
       nContas: nomes.length,
