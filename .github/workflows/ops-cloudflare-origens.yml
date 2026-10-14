@@ -1,0 +1,42 @@
+name: "Ops - Para onde aponta cada site na Cloudflare (so leitura)"
+
+# So leitura: lista os registos A/AAAA/CNAME/MX de cada zona dos sites de
+# clientes na Cloudflare, para saber se algum ainda aponta para o Hetzner
+# (37.27.17.25) em vez do Contabo (169.58.148.144). Nada e alterado.
+
+on:
+  push:
+    branches:
+      - ops/copia-hetzner-contabo
+    paths:
+      - .github/workflows/ops-cloudflare-origens.yml
+
+jobs:
+  origens:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Registos de cada zona
+        env:
+          CF_EMAIL: ${{ secrets.CLOUDFLARE_EMAIL }}
+          CF_KEY: ${{ secrets.CLOUDFLARE_GLOBAL_API_KEY }}
+        run: |
+          python3 - <<'PY'
+          import json, os, urllib.request
+          H = {'X-Auth-Email': os.environ['CF_EMAIL'], 'X-Auth-Key': os.environ['CF_KEY']}
+          def get(p):
+              return json.load(urllib.request.urlopen(urllib.request.Request('https://api.cloudflare.com/client/v4' + p, headers=H)))
+          IPS = {'37.27.17.25': 'HETZNER', '169.58.148.144': 'contabo'}
+          for d in ['aamihe.com', 'mltmark.com', 'entrecamposblog.com', 'lirandzojewelry.com', 'msdn-moz.org',
+                    'elimservicos.com', 'shalomdeco.com', 'menocrazy.app', 'oshercollective.com',
+                    'provisualcorporate.co.mz', 'concordia.co.mz', 'basededadosagro.com', 'visualdesignmoz.com']:
+              z = get('/zones?name=' + d)['result']
+              if not z:
+                  print(f'\n### {d}: sem zona na Cloudflare'); continue
+              z = z[0]
+              print(f"\n### {d}  (zona {z['status']})")
+              for r in get(f"/zones/{z['id']}/dns_records?per_page=500")['result']:
+                  if r['type'] in ('A', 'AAAA', 'CNAME', 'MX'):
+                      c = r['content']; marca = IPS.get(c, '')
+                      # o IP e mostrado por extenso so como etiqueta (os IPs dos servidores estao nos segredos)
+                      print(f"  {r['type']:5} {r['name']:38} {marca or c:40} {'proxy' if r.get('proxied') else ''}")
+          PY
