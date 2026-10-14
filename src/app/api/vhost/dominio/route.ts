@@ -299,8 +299,24 @@ export async function POST(req: NextRequest) {
     }
     case 'alias-apagar':
       return resposta(call('v-delete-web-domain-alias', [conta, d, linhaLimpa(c.alias).toLowerCase()]));
-    case 'ssl-le':
-      return resposta(hestia.issueLetsEncrypt(conta, d));
+    case 'ssl-le': {
+      // Como no DirectAdmin: o domínio vai sempre; dos apontadores (www.…, etc.) só os que vierem marcados.
+      // Sem `nomes` (pedido antigo) o Hestia decide como antes.
+      if (!w) return NextResponse.json({ erro: 'Este domínio não tem site.' }, { status: 400 });
+      if (!Array.isArray(c.nomes)) return resposta(hestia.issueLetsEncrypt(conta, d));
+      const existentes = String(w.ALIAS || '').split(',').map((x) => x.trim().toLowerCase()).filter(Boolean);
+      const nomes = [...new Set((c.nomes as unknown[]).map((x) => linhaLimpa(x).toLowerCase()))].filter((x) => x && x !== d);
+      const fora = nomes.find((x) => !existentes.includes(x));
+      if (fora) return NextResponse.json({ erro: fora + ' não é apontador deste domínio.' }, { status: 400 });
+      return resposta(hestia.issueLetsEncrypt(conta, d, nomes));
+    }
+    case 'ssl-apagar': {
+      // Cancelar o certificado: o Let's Encrypt sai com a renovação automática; um certificado próprio sai só ele
+      if (!w) return NextResponse.json({ erro: 'Este domínio não tem site.' }, { status: 400 });
+      if ((w.SSL || 'no').toLowerCase() !== 'yes') return NextResponse.json({ erro: 'Este domínio não tem certificado.' }, { status: 400 });
+      const le = (w.LETSENCRYPT || 'no').toLowerCase() === 'yes';
+      return resposta(call(le ? 'v-delete-letsencrypt-domain' : 'v-delete-web-domain-ssl', [conta, d, 'yes']));
+    }
     case 'ssl-forcar':
       return resposta(call(c.ligar ? 'v-add-web-domain-ssl-force' : 'v-delete-web-domain-ssl-force', [conta, d]));
     case 'ftp-criar': {
