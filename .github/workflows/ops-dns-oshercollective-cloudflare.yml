@@ -1,0 +1,122 @@
+name: "Ops - Registos DNS de oshercollective.com na Cloudflare (Contabo)"
+
+# ============================================================================
+# Pedido urgente do Silva (14/10/2026): a zona oshercollective.com foi criada na
+# Cloudflare (o DNS antigo, ns2.visualdesignmoz.com, estava no Hetzner, agora
+# desligado). Este workflow escreve na zona os registos do site e do email, que
+# estao no Contabo (169.58.148.144):
+#   A @ / mail / webmail, CNAME www, MX, SPF, DKIM (lido do Hestia) e DMARC.
+# Cria o que falta e corrige o que aponta para outro sitio; NAO apaga registos.
+# Todos "DNS only" (sem proxy), como estava antes - o email tem de ser assim e o
+# site fica com o certificado do Hestia.
+# Corre com um push para o ramo ops/dns-oshercollective-cloudflare.
+# ============================================================================
+
+on:
+  push:
+    branches:
+      - ops/dns-oshercollective-cloudflare
+    paths:
+      - .github/workflows/ops-dns-oshercollective-cloudflare.yml
+
+jobs:
+  dns:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ler a chave DKIM no Contabo
+        env:
+          CONTABO_HOST: ${{ secrets.CONTABO_HOST }}
+          CONTABO_ROOT_PASSWORD: ${{ secrets.CONTABO_ROOT_PASSWORD }}
+        run: |
+          sudo apt-get install -y -qq sshpass >/dev/null
+          printf '%s' "$CONTABO_ROOT_PASSWORD" > ~/.copw; chmod 600 ~/.copw
+          sshpass -f ~/.copw ssh -o StrictHostKeyChecking=accept-new "root@$CONTABO_HOST" \
+            "/usr/local/hestia/bin/v-list-mail-domain-dkim-dns oshercollective oshercollective.com json" > dkim.json
+          python3 - <<'PY'
+          import json
+          d = json.load(open('dkim.json'))
+          rec = next(iter(d.values()))
+          nome = next(iter(d.keys()))
+          valor = rec.get('TXT', '').strip().strip('"')
+          print('DKIM:', nome, valor[:60] + '…')
+          open('dkim.txt', 'w').write(nome + '\n' + valor + '\n')
+          PY
+
+      - name: Escrever os registos na Cloudflare
+        env:
+          CF_EMAIL: ${{ secrets.CLOUDFLARE_EMAIL }}
+          CF_KEY: ${{ secrets.CLOUDFLARE_GLOBAL_API_KEY }}
+        run: |
+          python3 - <<'PY'
+          import json, os, urllib.request, urllib.parse
+          API = 'https://api.cloudflare.com/client/v4'
+          H = {'X-Auth-Email': os.environ['CF_EMAIL'], 'X-Auth-Key': os.environ['CF_KEY'], 'Content-Type': 'application/json'}
+          def cf(metodo, caminho, corpo=None):
+              req = urllib.request.Request(API + caminho, method=metodo, headers=H,
+                                           data=json.dumps(corpo).encode() if corpo is not None else None)
+              try:
+                  return json.load(urllib.request.urlopen(req))
+              except urllib.error.HTTPError as e:
+                  return json.load(e)
+
+          D = 'oshercollective.com'
+          IP = '169.58.148.144'
+          z = cf('GET', '/zones?name=' + D)['result']
+          if not z:
+              raise SystemExit('A zona ' + D + ' nao existe na Cloudflare')
+          z = z[0]; ZID = z['id']
+          print('zona:', D, 'estado:', z['status'], 'nameservers:', ', '.join(z.get('name_servers', [])))
+
+          dk_nome, dk_valor = open('dkim.txt').read().split('\n')[:2]
+          dk_nome = dk_nome.rstrip('.')
+          if not dk_nome.endswith(D): dk_nome = dk_nome + '.' + D
+
+          QUER = [
+              # (tipo, nome, conteudo, prioridade, como reconhecer um registo antigo do mesmo tipo/nome)
+              ('A', D, IP, None, None),
+              ('CNAME', 'www.' + D, D, None, None),
+              ('A', 'mail.' + D, IP, None, None),
+              ('A', 'webmail.' + D, IP, None, None),
+              ('MX', D, 'mail.' + D, 10, None),
+              ('TXT', D, 'v=spf1 a mx ip4:' + IP + ' include:spf.brevo.com ~all', None, 'v=spf1'),
+              ('TXT', dk_nome, dk_valor, None, 'v=DKIM1'),
+              ('TXT', '_dmarc.' + D, 'v=DMARC1; p=none; rua=mailto:rua@dmarc.brevo.com', None, 'v=DMARC1'),
+          ]
+
+          existentes = cf('GET', f'/zones/{ZID}/dns_records?per_page=500')['result']
+          print(f'\nregistos que ja existiam: {len(existentes)}')
+          for r in existentes:
+              print(f"  {r['type']:6} {r['name']:40} {str(r.get('content'))[:70]}")
+
+          erros = 0
+          for tipo, nome, conteudo, prio, marca in QUER:
+              corpo = {'type': tipo, 'name': nome, 'content': conteudo, 'ttl': 1, 'proxied': False}
+              if tipo in ('MX', 'TXT'): corpo.pop('proxied')
+              if prio is not None: corpo['priority'] = prio
+              # registo igual ja existe?
+              iguais = [r for r in existentes if r['type'] == tipo and r['name'] == nome and r['content'].strip('"') == conteudo]
+              if iguais and (tipo in ('MX', 'TXT') or not iguais[0].get('proxied')):
+                  print(f'= {tipo} {nome} ja estava certo'); continue
+              # registo do mesmo tipo/nome a corrigir (A/CNAME do mesmo nome; TXT com a mesma marca; MX do dominio)
+              alvo = None
+              for r in existentes:
+                  if r['name'] != nome: continue
+                  if tipo in ('A', 'CNAME') and r['type'] in ('A', 'AAAA', 'CNAME'): alvo = r; break
+                  if tipo == 'TXT' and r['type'] == 'TXT' and marca and r['content'].strip('"').startswith(marca): alvo = r; break
+                  if tipo == 'MX' and r['type'] == 'MX': alvo = r; break
+              if alvo and alvo['type'] != tipo:
+                  cf('DELETE', f"/zones/{ZID}/dns_records/{alvo['id']}"); alvo = None
+              res = cf('PUT', f"/zones/{ZID}/dns_records/{alvo['id']}", corpo) if alvo else cf('POST', f'/zones/{ZID}/dns_records', corpo)
+              if res.get('success'):
+                  print(f"{'~' if alvo else '+'} {tipo} {nome} -> {conteudo[:60]}")
+              else:
+                  erros += 1; print(f'! {tipo} {nome}: {res.get("errors")}')
+
+          print('\n==== zona final ====')
+          for r in cf('GET', f'/zones/{ZID}/dns_records?per_page=500')['result']:
+              print(f"  {r['type']:6} {r['name']:40} {str(r.get('content'))[:80]}  {'(proxy)' if r.get('proxied') else ''}")
+          z = cf('GET', f'/zones/{ZID}')['result']
+          print('\nestado da zona:', z['status'])
+          print('nameservers a pôr no registador:', ', '.join(z.get('name_servers', [])))
+          if erros: raise SystemExit(f'{erros} registos falharam')
+          PY
