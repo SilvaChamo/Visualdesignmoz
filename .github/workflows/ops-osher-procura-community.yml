@@ -1,0 +1,59 @@
+name: "Ops - Osher: procurar a comunidade no Hetzner e no Contabo (SÓ LEITURA)"
+
+# Só leitura: procura pastas, configurações e páginas WordPress com "community"/"comunidade"
+# da conta oshercollective nos dois servidores. Não altera nada.
+on:
+  push:
+    branches: [ops/osher-procura-community]
+
+jobs:
+  hetzner:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Hetzner (DirectAdmin)
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.HETZNER_HOST }}
+          port: ${{ secrets.HETZNER_PORT }}
+          username: ${{ secrets.HETZNER_USER }}
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          command_timeout: 5m
+          script: |
+            set +e
+            S=$( [ "$(id -u)" = 0 ] && echo "" || echo "sudo" )
+            echo "=== subdomínios DirectAdmin da osher ==="
+            $S cat /usr/local/directadmin/data/users/oshercollective/domains/*.subdomains 2>/dev/null
+            echo "=== pastas communit*/comunidad* em /home/oshercollective (até 7 níveis) ==="
+            $S find /home/oshercollective -maxdepth 7 -type d \( -iname '*communit*' -o -iname '*comunidad*' \) 2>/dev/null | grep -v '/imap/' | head -30
+            echo "=== configs do servidor web a falar de community ==="
+            $S grep -rl -i "community.oshercollective" /etc/httpd /etc/nginx /usr/local/directadmin/data/users/oshercollective 2>/dev/null | head
+            echo "=== pastas de topo de oshercollective.com/public_html ==="
+            $S ls -la /home/oshercollective/domains/oshercollective.com/public_html/ 2>/dev/null | head -50
+            echo "=== WordPress da osher: páginas e plugins de comunidade ==="
+            WP=/home/oshercollective/domains/oshercollective.com/public_html
+            $S ls $WP/wp-content/plugins 2>/dev/null | grep -iE "buddy|bbpress|communit|peepso|youzify|forum|member|ultimate|circle|discord"
+            DB=$(grep -oP "DB_NAME',\s*'\K[^']+" $WP/wp-config.php 2>/dev/null); PFX=$(grep -oP "table_prefix\s*=\s*'\K[^']+" $WP/wp-config.php 2>/dev/null)
+            echo "bd: $DB prefixo: $PFX"
+            [ -n "$DB" ] && $S mysql -N -e "SELECT ID,post_status,post_name,post_title FROM \`$DB\`.${PFX}posts WHERE post_type='page' AND (post_name LIKE '%communit%' OR post_name LIKE '%comunidad%' OR post_title LIKE '%ommunit%' OR post_title LIKE '%omunidad%');" 2>&1 | head
+  contabo:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Contabo (Hestia)
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          username: root
+          password: ${{ secrets.CONTABO_ROOT_PASSWORD }}
+          command_timeout: 5m
+          script: |
+            set +e
+            echo "=== pastas communit*/comunidad* em /home/oshercollective (até 7 níveis) ==="
+            find /home/oshercollective -maxdepth 7 -type d \( -iname '*communit*' -o -iname '*comunidad*' \) 2>/dev/null | grep -v '/mail/' | head -30
+            WP=/home/oshercollective/web/oshercollective.com/public_html
+            echo "=== plugins de comunidade no WordPress da osher ==="
+            ls $WP/wp-content/plugins 2>/dev/null | grep -iE "buddy|bbpress|communit|peepso|youzify|forum|member|ultimate|circle|discord"
+            DB=$(grep -oP "DB_NAME',\s*'\K[^']+" $WP/wp-config.php 2>/dev/null); PFX=$(grep -oP "table_prefix\s*=\s*'\K[^']+" $WP/wp-config.php 2>/dev/null)
+            echo "bd: $DB prefixo: $PFX"
+            [ -n "$DB" ] && mysql -N -e "SELECT ID,post_status,post_name,post_title FROM \`$DB\`.${PFX}posts WHERE post_type='page' AND (post_name LIKE '%communit%' OR post_name LIKE '%comunidad%' OR post_title LIKE '%ommunit%' OR post_title LIKE '%omunidad%');" 2>&1 | head
+            echo "=== https://oshercollective.com/community (de dentro) ==="
+            curl -skI --max-time 10 https://oshercollective.com/community/ 2>&1 | head -3
