@@ -2192,7 +2192,7 @@ function Ssl({ tab, verCertDomain }: { tab: TabSsl; verCertDomain: string | null
 
           <Frm
             title="Certificados do domínio seleccionado"
-            desc="Nomes do site e dos serviços de e-mail deste domínio que ainda não têm SSL"
+            desc="Nomes do site e dos serviços de e-mail deste domínio, com o estado do certificado"
             foot={
               <>
                 {!xNaVercel && det?.sslAtivo && (
@@ -2233,7 +2233,7 @@ function Ssl({ tab, verCertDomain }: { tab: TabSsl; verCertDomain: string | null
             }
           >
             <div style={{ display: 'grid', gap: 8, padding: '12px 18px' }}>
-              {alvos.filter((alvo) => alvo.estado === 'em-falta').map((alvo) => {
+              {alvos.map((alvo) => {
                 const tipo = alvo.tipo === 'email'
                   ? t('E-mail e webmail')
                   : alvo.nomes[0] === alvo.dominio
@@ -2265,11 +2265,8 @@ function Ssl({ tab, verCertDomain }: { tab: TabSsl; verCertDomain: string | null
               })}
               {alvos.every((alvo) => alvo.estado !== 'em-falta') && det && (
                 <div className="note">
-                  {t(alvos.some((alvo) => alvo.estado === 'desconhecido') ? 'O alojamento de alguns nomes não pôde ser confirmado; ficaram sem selecção.' : 'Todos os nomes deste domínio já têm SSL.')}
+                  {t(alvos.some((alvo) => alvo.estado === 'desconhecido') ? 'O alojamento de alguns nomes não pôde ser confirmado; ficaram sem selecção.' : 'Não há nomes sem SSL disponíveis para emissão neste domínio.')}
                 </div>
-              )}
-              {alvos.some((alvo) => alvo.estado === 'externo') && (
-                <small style={{ color: 'var(--muted)', lineHeight: 1.45 }}>{t('Os nomes alojados fora deste servidor (ex.: Vercel) têm o SSL tratado lá e não aparecem aqui.')}</small>
               )}
               {alvos.some((alvo) => alvo.tipo === 'email') && <small style={{ color: 'var(--muted)', lineHeight: 1.45 }}>{t('Mail e webmail utilizam o mesmo certificado SSL.')}</small>}
             </div>
