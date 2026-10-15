@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { X509Certificate } from 'node:crypto';
 import { Resolver } from 'node:dns/promises';
 import { requirePanelBootstrapAccess } from '@/lib/panel-api-auth';
 import { executeServerCommand } from '@/lib/server-ssh-exec';
@@ -118,6 +119,8 @@ export async function GET(req: NextRequest) {
   const d = (req.nextUrl.searchParams.get('d') || '').toLowerCase();
   // ?so=dns: a página de DNS só precisa dos registos e dos nameservers
   const soDns = req.nextUrl.searchParams.get('so') === 'dns';
+  const verCertificado = req.nextUrl.searchParams.get('certificado') === '1';
+  const verHistoricoSsl = req.nextUrl.searchParams.get('historicoSsl') === '1';
   const srv = await lerServidor();
   const e = await verificar(r.s, conta, d, srv);
   if (e) return NextResponse.json({ erro: e }, { status: 403 });
@@ -151,10 +154,78 @@ export async function GET(req: NextRequest) {
 
   const web = (Object.values(json<Record<string, Record<string, string>>>(sec.get('WEB'), {}))[0] || {}) as Record<string, string>;
   const ssl = (Object.values(json<Record<string, Record<string, string>>>(sec.get('SSL'), {}))[0] || {}) as Record<string, string>;
+  if (verCertificado) {
+    if (!w || (web.SSL || 'no').toLowerCase() !== 'yes') {
+      return NextResponse.json({ erro: 'Este domínio não tem certificado SSL instalado.' }, { status: 404 });
+    }
+    const crtPath = `/home/${conta}/conf/web/${d}/ssl/${d}.crt`;
+    const caPath = `/home/${conta}/conf/web/${d}/ssl/${d}.ca`;
+    const ficheiros = secoes(
+      await executeServerCommand(
+        `[ -s ${q(crtPath)} ] || { echo @@ERRO; exit 0; }; openssl x509 -in ${q(crtPath)} -noout >/dev/null 2>&1 || { echo @@ERRO; exit 0; }; ` +
+          `echo @@CERT; cat ${q(crtPath)}; echo; echo @@CADEIA; [ ! -s ${q(caPath)} ] || cat ${q(caPath)}`,
+        { timeoutMs: 20_000 },
+      ),
+    );
+    const pem = ficheiros.get('CERT')?.trim() || '';
+    if (!pem) return NextResponse.json({ erro: 'O certificado instalado não pôde ser lido.' }, { status: 404 });
+    try {
+      const certificado = new X509Certificate(pem);
+      const nomes = (certificado.subjectAltName || '')
+        .split(/,\s*/)
+        .map((nome) => nome.replace(/^DNS:/, '').trim())
+        .filter((nome) => nome && !nome.includes(':'));
+      return NextResponse.json(
+        {
+          certificado: pem,
+          cadeia: ficheiros.get('CADEIA')?.trim() || '',
+          emissor: certificado.issuer,
+          sujeito: certificado.subject,
+          nomes,
+          desde: certificado.validFrom,
+          ate: certificado.validTo,
+          impressaoDigital: certificado.fingerprint256,
+          tipoChave: certificado.publicKey.asymmetricKeyType || '',
+        },
+        { headers: { 'Cache-Control': 'no-store' } },
+      );
+    } catch {
+      return NextResponse.json({ erro: 'O certificado instalado não é válido.' }, { status: 500 });
+    }
+  }
+  if (verHistoricoSsl) {
+    if (!w) return NextResponse.json({ erro: 'Este domínio não tem site.' }, { status: 404 });
+    const out = await executeServerCommand(
+      `grep -F -- ${q(d)} /var/log/hestia/system.log 2>/dev/null | ` +
+        `grep -E 'v-(add|delete|change)-(letsencrypt-domain|web-domain-ssl(cert)?)([[:space:]]|$)' | tail -n 50 || true`,
+      { timeoutMs: 20_000 },
+    );
+    const historico = out
+      .split('\n')
+      .map((linha) => {
+        const m = linha.match(/^(\S+\s+\S+)\s+(v-[a-z0-9-]+)\s+(.*)$/);
+        if (!m) return null;
+        const [, data, comando] = m;
+        const acoes: Record<string, string> = {
+          'v-add-letsencrypt-domain': "Pedido Let's Encrypt",
+          'v-delete-letsencrypt-domain': "Remoção Let's Encrypt",
+          'v-add-web-domain-ssl': 'Instalação de certificado',
+          'v-change-web-domain-sslcert': 'Substituição de certificado',
+          'v-delete-web-domain-ssl': 'Remoção de certificado',
+        };
+        const acao = acoes[comando];
+        return acao ? { data, comando, acao } : null;
+      })
+      .filter((item): item is { data: string; comando: string; acao: string } => item !== null)
+      .reverse();
+    return NextResponse.json({ historico }, { headers: { 'Cache-Control': 'no-store' } });
+  }
   return NextResponse.json(
     {
       redirecionamento: web.REDIRECT ? { url: web.REDIRECT, codigo: web.REDIRECT_CODE || '301' } : null,
       sslForcado: (web.SSL_FORCE || 'no') === 'yes',
+      sslAtivo: (web.SSL || 'no').toLowerCase() === 'yes',
+      renovacaoAutomatica: (web.LETSENCRYPT || 'no').toLowerCase() === 'yes',
       hsts: (web.SSL_HSTS || 'no') === 'yes',
       modelo: web.TPL || '',
       backend: web.BACKEND || '',
@@ -309,6 +380,11 @@ export async function POST(req: NextRequest) {
       const fora = nomes.find((x) => !existentes.includes(x));
       if (fora) return NextResponse.json({ erro: fora + ' não é apontador deste domínio.' }, { status: 400 });
       return resposta(hestia.issueLetsEncrypt(conta, d, nomes));
+    }
+    case 'ssl-mail-le': {
+      if (!w) return NextResponse.json({ erro: 'Este domínio não tem site.' }, { status: 400 });
+      if (!srv.mail[conta]?.[d]) return NextResponse.json({ erro: 'O e-mail deste domínio não está alojado neste servidor.' }, { status: 400 });
+      return resposta(hestia.issueMailLetsEncrypt(conta, d));
     }
     case 'ssl-apagar': {
       // Cancelar o certificado: o Let's Encrypt sai com a renovação automática; um certificado próprio sai só ele
