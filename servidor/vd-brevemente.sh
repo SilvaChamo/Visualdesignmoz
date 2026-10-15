@@ -23,15 +23,17 @@ for u in $($H/v-list-users plain | cut -f1); do
     P=/home/$u/web/$d/public_html
     [ -f "$P/index.html" ] || continue
     excluido "$u" "$d" && continue
-    px=$($H/v-list-web-domain "$u" "$d" shell 2>/dev/null | awk '$1=="PROXY:"{print $2}')
+    info=$($H/v-list-web-domain "$u" "$d" shell 2>/dev/null)
+    px=$(echo "$info" | awk '$1=="PROXY:"{print $2}')
+    ip=$(echo "$info" | awk '$1=="IP:"{print $2}')   # o nginx só escuta no IP do servidor, não em 127.0.0.1
     [ "$px" = "default" ] || continue
     origem=
     sed "s/$d/%domain%/g" "$P/index.html" | cmp -s - "$ORIG" && origem=Hestia
     [ -z "$origem" ] && grep -qi 'directadmin' "$P/index.html" && grep -qi "<title>$d" "$P/index.html" && origem=DirectAdmin
     [ -n "$origem" ] || continue
     [ "$(find "$P" -mindepth 1 -maxdepth 1 ! -name index.html ! -name robots.txt ! -name favicon.ico ! \( -name cgi-bin -type d -empty \) | wc -l)" = 0 ] || continue
-    servido=$(curl -sk --max-time 10 --resolve "$d:443:127.0.0.1" "https://$d/")
-    [ -n "$servido" ] || servido=$(curl -s --max-time 10 --resolve "$d:80:127.0.0.1" "http://$d/")
+    servido=$(curl -sk --max-time 10 --resolve "$d:443:$ip" "https://$d/")
+    [ -n "$servido" ] || servido=$(curl -s --max-time 10 --resolve "$d:80:$ip" "http://$d/")
     printf '%s\n' "$servido" | diff -qwB - "$P/index.html" >/dev/null || continue
     if [ $VER = 1 ]; then echo "receberia a Brevemente: $u $d (página de origem: $origem)"; continue; fi
     mkdir -p /root/brevemente-copias && cp -a "$P/index.html" "/root/brevemente-copias/$d-index.html"
