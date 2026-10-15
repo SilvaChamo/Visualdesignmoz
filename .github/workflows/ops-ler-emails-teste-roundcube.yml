@@ -1,0 +1,37 @@
+name: "Ops - Contabo: listar e-mails de teste e ver o 403 do Roundcube (só leitura)"
+on:
+  push:
+    branches: [claude/kind-einstein-r6lyf6]
+    paths: ['.github/workflows/ops-ler-emails-teste-roundcube.yml']
+jobs:
+  contabo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          username: root
+          key: ${{ secrets.CONTABO_SSH_KEY }}
+          command_timeout: 5m
+          script: |
+            set +e
+            H=/usr/local/hestia/bin
+            echo "===== domínios de e-mail da conta vdadmin ====="
+            $H/v-list-mail-domains vdadmin plain | cut -f1
+            echo "===== caixas de correio (e tamanho) ====="
+            for d in $($H/v-list-mail-domains vdadmin plain | cut -f1); do
+              for a in $($H/v-list-mail-accounts vdadmin $d plain | cut -f1); do
+                echo "$a@$d  $(du -sh /home/vdadmin/mail/$d/$a 2>/dev/null | cut -f1)"
+              done
+            done
+            echo "===== 403 do webmail (Apache/nginx) ====="
+            grep -h "webmail" /var/log/apache2/domains/concordia.co.mz.error.log 2>/dev/null | tail -8
+            grep -h "403" /var/log/apache2/domains/concordia.co.mz.log 2>/dev/null | grep -i webmail | tail -8
+            grep -h "webmail" /var/log/nginx/domains/concordia.co.mz.error.log 2>/dev/null | tail -5
+            grep -h " 403 " /var/log/nginx/domains/concordia.co.mz.log 2>/dev/null | grep -i webmail | tail -5
+            grep -rh "ModSecurity\|AH01630\|AH01797\|client denied" /var/log/apache2/error.log 2>/dev/null | tail -8
+            echo "===== regra do webmail no domínio ====="
+            ls /home/concordia/conf/web/concordia.co.mz/ 2>/dev/null
+            cat /home/concordia/conf/web/concordia.co.mz/*webmail* 2>/dev/null | head -40
+            ls /etc/apache2/conf.d/ 2>/dev/null; grep -rn "roundcube" /etc/apache2/conf.d/ 2>/dev/null | head -10
+            cat /etc/apache2/conf.d/roundcube.conf 2>/dev/null | head -40
