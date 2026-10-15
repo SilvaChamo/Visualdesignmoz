@@ -112,6 +112,20 @@ export function initialState(path: string): St {
   );
 }
 
+/** Domínio escolhido no seletor, por conta: fica até se escolher outro, mesmo depois de fechar o painel (como no DA) */
+const chaveDominio = (conta: string) => 'vh-dominio:' + conta;
+export function dominioGuardado(conta: string): string {
+  try {
+    return (conta && localStorage.getItem(chaveDominio(conta))) || '';
+  } catch {
+    return '';
+  }
+}
+export function guardarDominio(conta: string, d: string) {
+  try {
+    if (conta) localStorage.setItem(chaveDominio(conta), d);
+  } catch {}
+}
 export const meOf = (s: St) => (s.stack.length ? s.stack[s.stack.length - 1].u : s.login);
 /** Conta vazia enquanto os dados do servidor não chegam (o painel mostra "a carregar") */
 const VAZIA: Account = { name: '', email: '', role: 'admin', creator: '', pkg: '', state: 'ok', disk: '0 MB', domains: [], mails: [] };

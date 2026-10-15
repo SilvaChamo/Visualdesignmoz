@@ -179,9 +179,20 @@ export function montarDados(srv: LeituraServidor, reg: RegistoSite, sessao: Sess
       const w = web[d] || srv.mail[u]?.[d];
       return w?.DATE ? w.DATE + ' ' + (w.TIME || '') : '~';
     };
-    const principal = domains.some((x) => x.name === registado)
+    // Sem registo: o domínio do próprio site (na conta da VisualDesign), senão o mais antigo que não seja subdomínio de
+    // outro da conta (teste.visualdesignmoz.com nunca é o principal) — Silva, 15/10/2026: "sempre o site principal da conta".
+    const nomes = domains.map((x) => x.name);
+    let doSite = '';
+    try {
+      doSite = new URL(process.env.NEXT_PUBLIC_SITE_URL || '').hostname.replace(/^www\./, '');
+    } catch {}
+    const principal = nomes.includes(registado)
       ? registado
-      : domains.map((x) => x.name).sort((d1, d2) => criado(d1).localeCompare(criado(d2)) || Number(!d1.includes(u)) - Number(!d2.includes(u)))[0];
+      : nomes.includes(doSite)
+        ? doSite
+        : nomes
+            .filter((n) => !nomes.some((o) => o !== n && n.endsWith('.' + o)))
+            .sort((d1, d2) => criado(d1).localeCompare(criado(d2)) || Number(!d1.includes(u)) - Number(!d2.includes(u)))[0];
     if (principal) domains.sort((d1, d2) => Number(d2.name === principal) - Number(d1.name === principal));
     const dbs: BaseDados[] = Object.entries(srv.db[u] || {}).map(([nome, b]) => ({ nome, user: b.DBUSER || '', tipo: b.TYPE || 'mysql', charset: b.CHARSET || '', disco: mbTexto(num(b.U_DISK)), suspensa: (b.SUSPENDED || 'no').toLowerCase() === 'yes', criada: dataPt(b.DATE) }));
 
