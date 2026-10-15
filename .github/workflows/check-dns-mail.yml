@@ -1,4 +1,4 @@
-name: "Ver DNS e SSL de mail.entrecamposblog.com (só leitura)"
+name: "Ver DNS e SSL de mail.entrecamposblog.com e mail.visualdesignmoz.com (só leitura)"
 
 # Só lê de fora (DNS, CAA, desafio HTTP e certificado); não entra no servidor nem usa segredos.
 on:
@@ -23,5 +23,9 @@ jobs:
           echo "--- desafio HTTP (deve chegar ao Contabo; 404 é normal sem ficheiro) ---"
           curl -sS -o /dev/null -w "http://mail.../.well-known/acme-challenge/teste -> %{http_code} (%{remote_ip}) %{redirect_url}\n" --max-time 20 http://mail.entrecamposblog.com/.well-known/acme-challenge/teste
           curl -sSI --max-time 20 http://mail.entrecamposblog.com/ | head -5
-          echo "--- certificado actual ---"
-          echo | timeout 20 openssl s_client -connect mail.entrecamposblog.com:443 -servername mail.entrecamposblog.com 2>/dev/null | openssl x509 -noout -subject -issuer -dates -ext subjectAltName
+          for m in mail.entrecamposblog.com mail.visualdesignmoz.com webmail.visualdesignmoz.com; do
+            echo "--- $m: A $(dig +short $m A | tr '\n' ' ') CNAME $(dig +short $m CNAME) ---"
+            curl -sS -o /dev/null -w "desafio -> %{http_code} (%{remote_ip}) %{redirect_url}\n" --max-time 20 http://$m/.well-known/acme-challenge/teste
+            echo | timeout 20 openssl s_client -connect $m:443 -servername $m 2>/dev/null | openssl x509 -noout -subject -issuer -dates -ext subjectAltName
+          done
+          echo "CAA visualdesignmoz.com: $(dig +short CAA visualdesignmoz.com | tr '\n' ' ')  NS: $(dig +short NS visualdesignmoz.com | tr '\n' ' ')"
