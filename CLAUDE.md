@@ -86,7 +86,8 @@ mesma alteração a linha inglesa no dicionário — sem esperar que o Silva pe�
   direita — assim vêem-se todos, mesmo quando são muitos (pedido do Silva, 13/10/2026). Automático nos `Tabs`.
 - **Listas no telemóvel numa só coluna** (pedido do Silva, 13/10/2026; revisto a 14/10/2026): cada linha passa a um
   bloco — a caixa de seleção e o dado principal (ex.: o IP) em cima; as outras informações por baixo, cada uma com o
-  nome da coluna; **os botões da linha no fundo do bloco, uns por baixo dos outros, a toda a largura**. No
+  nome da coluna; **os botões da linha no fundo do bloco, lado a lado** (Silva, 15/10/2026); se o texto de algum não
+  cabe, ficam numa coluna a toda a largura. No
   VisualHost: `DataTable` empilha por defeito (`empilhar` ligado em todas as tabelas).
 - **Telemóvel = uma só coluna em tudo** (Silva, 14/10/2026): itens uns por baixo dos outros. **Exceções: o Menu (grelha
   de ícones) e os cartões (ex.: números da Dashboard) ficam em duas colunas**, ícone em cima e nome por baixo (Silva, 14/10/2026: "coloque duas colunas no menu"). **Botões dos rodapés de
@@ -94,7 +95,7 @@ mesma alteração a linha inglesa no dicionário — sem esperar que o Silva pe�
   sozinho → metade do ecrã, à esquerda, quando o texto está alinhado à esquerda, ou ao centro e a toda a largura quando
   o conteúdo está centrado (classe `.centro`); se o texto de algum botão não cabe em meia largura (iria para duas ou
   três linhas), os botões dessa barra ficam todos numa coluna, a toda a largura** (Silva, 15/10/2026; automático em
-  `src/components/vhost/botoes-telemovel.ts`). Botões das linhas das listas: no fundo do bloco.
+  `src/components/vhost/botoes-telemovel.ts`). Botões das linhas das listas: no fundo do bloco, com a mesma regra.
   Ficam de fora só as barras de ferramentas (editor, gestor de ficheiros), separadores, interruptores (ex.: Visual |
   HTML) e botões colados a um campo.
 - **Telemóvel: o cartão principal vai de ponta a ponta** (Silva, 14/10/2026: "não se pode ver os limites do card
@@ -140,6 +141,10 @@ mesma alteração a linha inglesa no dicionário — sem esperar que o Silva pe�
   só publicar quando ele disser "publica" (ver "Como se trabalha com o Silva").
 
 # Verificação visual de alterações de UI
+
+**Não enviar imagens ao Silva** (Silva, 15/10/2026: "não me mostre imagens… eu vou apenas te mandar screenshots"):
+ele vê no projecto local e manda prints; na resposta diz-se só onde se mexeu. As imagens continuam a servir para
+confirmar o resultado do nosso lado (só a parte alterada, para gastar menos).
 
 Antes de reportar qualquer alteração visual (CSS/layout/alinhamentos) como concluída,
 confirma-a com um screenshot real — "compila sem erros" só garante que o TypeScript

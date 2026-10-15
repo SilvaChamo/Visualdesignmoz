@@ -1,11 +1,12 @@
 'use client';
 
-// Botões das barras no telemóvel (Silva, 15/10/2026): lado a lado, dois por linha, quando o texto cabe em meia largura;
+// Botões das barras e das linhas das listas no telemóvel (Silva, 15/10/2026): lado a lado quando o texto cabe;
 // se algum botão da barra não cabe (o texto ia para duas ou três linhas), todos os botões dessa barra passam a uma só
 // coluna, a toda a largura. O CSS sozinho não sabe se um texto cabe: mede-se aqui e marca-se a barra com .uma-coluna.
 import { useEffect } from 'react';
 
-const BARRAS = '.frm-foot, .mfoot, .acoes-topo';
+const BARRAS =
+  '.frm-foot, .mfoot, .acoes-topo, .tbl.dt-empilhar td.dt-acoes-linha, .tbl.dt-empilhar td.dt-acoes-linha > span:not(.menu), .tbl.dt-empilhar td.dt-acoes-linha > div:not(.menu):not(.wp-menu):not(.ssl-pop-menu)';
 const TELEMOVEL = '(max-width: 768px)';
 
 function acertar() {

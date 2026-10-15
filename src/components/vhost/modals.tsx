@@ -145,8 +145,10 @@ function SeletorLingua() {
   );
 }
 
-export function MoreMenuModal() {
+/** Menu completo do telemóvel: abre na janela do "Mais" (barra de baixo) e no menu deslizante do ☰ (barra de cima) */
+export function MoreMenuModal({ fechar }: { fechar?: () => void } = {}) {
   const { s, t, allowed, hasFeat, closeM, setLevel, go, logout } = useVH();
+  const fecha = fechar || closeM;
   return (
     <>
       <h3>{t('Menu')}</h3>
@@ -159,7 +161,7 @@ export function MoreMenuModal() {
               key={k}
               className={'btn ' + (s.level === k ? 'r' : 'g') + ' sm'}
               onClick={() => {
-                closeM();
+                fecha();
                 setLevel(k);
               }}
             >
@@ -183,7 +185,7 @@ export function MoreMenuModal() {
                     key={it.id}
                     className="btn g sm mais-item"
                     onClick={() => {
-                      closeM();
+                      fecha();
                       go(it.id);
                     }}
                   >
@@ -200,14 +202,14 @@ export function MoreMenuModal() {
         <button
           className="btn g"
           onClick={() => {
-            closeM();
+            fecha();
             logout();
           }}
         >
           <i className="fa-solid fa-right-from-bracket" />
           {t('Sair')}
         </button>
-        <button className="btn g" onClick={closeM}>
+        <button className="btn g" onClick={fecha}>
           {t('Fechar')}
         </button>
       </Foot>

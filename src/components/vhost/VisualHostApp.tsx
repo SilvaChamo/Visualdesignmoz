@@ -339,6 +339,7 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
   ref.current = st;
 
   const [modal, setModal] = useState<ReactNode>(null);
+  const [gaveta, setGaveta] = useState(false);
   const [toastMsg, setToastMsg] = useState({ text: '', on: false });
   const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [pop, setPop] = useState<Pop>(null);
@@ -1192,6 +1193,10 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
                   <button className="btn g iconbtn" onClick={vh.toggleTheme} title={t('Tema claro/escuro')}>
                     <i className={'fa-solid ' + (st.theme === 'dark' ? 'fa-sun' : 'fa-moon')} />
                   </button>
+                  {/* telemóvel: o menu deslizante (do lado direito), do tamanho dos outros botões (Silva, 15/10/2026) */}
+                  <button className="btn g iconbtn only-m" onClick={() => setGaveta(true)} title={t('Menu')} aria-label={t('Menu')}>
+                    <i className="fa-solid fa-bars" />
+                  </button>
                 </span>
               </div>
             </header>
@@ -1230,6 +1235,13 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
             </a>
           ))}
         </nav>
+
+        {/* menu deslizante do ☰ (telemóvel): o mesmo conteúdo do "Mais" */}
+        <div className={'gaveta-bg' + (gaveta ? ' on' : '')} onClick={(e) => e.target === e.currentTarget && setGaveta(false)}>
+          <aside className="gaveta" role="dialog" aria-label={t('Menu')}>
+            {gaveta && <MoreMenuModal fechar={() => setGaveta(false)} />}
+          </aside>
+        </div>
 
         <div className={'modal-bg' + (modal ? ' on' : '')} id="mbg" onClick={(e) => e.target === e.currentTarget && closeM()}>
           <div className="modal" id="modal" ref={modalRef}>
