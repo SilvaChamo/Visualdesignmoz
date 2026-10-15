@@ -1,5 +1,6 @@
 name: "Ops - Contabo: Brevemente automática nos sites sem conteúdo"
 # Autorizado pelo Silva a 15/10/2026 ("Avança"; "devia acontecer automaticamente"; excluir a Osher).
+# (2.ª corrida: comparação da página servida corrigida.)
 # Instala /usr/local/bin/vd-brevemente.sh e corre-o de 30 em 30 minutos. Primeiro mostra o que faria.
 on:
   push:

@@ -27,7 +27,7 @@ for u in $($H/v-list-users plain | cut -f1); do
     sed "s/$d/%domain%/g" "$P/index.html" | cmp -s - "$ORIG" || continue
     [ "$(find "$P" -mindepth 1 -maxdepth 1 ! -name index.html ! -name robots.txt ! -name favicon.ico | wc -l)" = 0 ] || continue
     servido=$(curl -sk --max-time 10 --resolve "$d:443:127.0.0.1" "https://$d/" || curl -s --max-time 10 --resolve "$d:80:127.0.0.1" "http://$d/")
-    [ "$(printf '%s' "$servido" | sed "s/$d/%domain%/g" | md5sum)" = "$(md5sum < "$ORIG")" ] || continue
+    printf '%s\n' "$servido" | sed "s/$d/%domain%/g" | diff -qwB - "$ORIG" >/dev/null || continue
     if [ $VER = 1 ]; then echo "receberia a Brevemente: $u $d"; continue; fi
     mkdir -p /root/brevemente-copias && cp -a "$P/index.html" "/root/brevemente-copias/$d-index.html"
     install -m 644 -o "$u" -g "$u" "$PAGINA" "$P/index.html"
