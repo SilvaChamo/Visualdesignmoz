@@ -637,6 +637,8 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
   const s: St = { ...st, level, deny: st.deny || (missing ? { type: '404' } : null) };
   const t = (text: string) => translate(st.lang, text);
   const go = (id: string) => nav(route(level, id));
+  /** planos de cliente do servidor (submenus de Admin › Configurações de acesso) */
+  const planosAcesso = Object.keys(st.db.pkgs).filter((p) => p !== 'system');
   const setLevel = (l: Level) => nav('/' + l);
 
   const recusarLocal = () => {
@@ -1153,7 +1155,23 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
                           </button>
                           <div className="items">
                             <div className="in">
-                              {vis.map((it) => (
+                              {/* Configurações de acesso: um submenu por plano, como os outros menus (Silva, 15/10/2026) */}
+                              {level === 'admin' && g === 'Configurações de acesso' &&
+                                planosAcesso.map((p, i) => (
+                                  <a
+                                    key={'plano:' + p}
+                                    className={s.page === 'acessos' && (s.sub[0] ? s.sub[0] === p : i === 0) ? 'on' : ''}
+                                    onClick={() => nav('/admin/acessos/' + encodeURIComponent(p))}
+                                  >
+                                    <span className="ic c1">
+                                      <i className="fa-solid fa-box" />
+                                    </span>
+                                    <span className="lb" title={p}>
+                                      {p}
+                                    </span>
+                                  </a>
+                                ))}
+                              {vis.filter((it) => !(level === 'admin' && it.id === 'acessos' && planosAcesso.length)).map((it) => (
                                 <a key={it.id} className={!GLOBAL[s.page] && s.page === it.id ? 'on' : ''} onClick={() => go(it.id)}>
                                   <span className={'ic ' + it.c}>
                                     <i className={ico(it.fa)} />

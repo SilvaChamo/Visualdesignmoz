@@ -3,21 +3,26 @@
 // Admin › Acessos por plano (pedido do Silva, 15/10/2026): para cada plano, o que os clientes vêem na barra lateral da
 // Gestão. Um cliente com um plano de profissional deixava de ver, por ex., a edição de domínios só desligando aqui.
 // Guardado no servidor (/api/vhost/acessos); administradores e revendedores vêem sempre tudo.
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useVH, type VH } from '../context';
 import { MENU } from '../generated/data';
 import type { ScreenFn } from '../screens';
-import { Check, Frm, Tabs } from './componentes';
+import { Check, Frm } from './componentes';
 
-function AcessosPlanos() {
+function AcessosPlanos({ plano }: { plano: string }) {
   const { s, t, toast, setAcessos } = useVH();
-  const planos = Object.keys(s.db.pkgs).filter((p) => p !== 'system');
-  const [plano, setPlano] = useState(planos[0] || '');
   const [rascunho, setRascunho] = useState<Record<string, string[]>>(() => structuredClone(s.acessos || {}));
   const [aGravar, setAGravar] = useState(false);
+  const [mexido, setMexido] = useState(false);
+  // os acessos guardados chegam do servidor depois de a página abrir: mostra-os enquanto nada foi mexido aqui
+  useEffect(() => {
+    if (!mexido) setRascunho(structuredClone(s.acessos || {}));
+  }, [s.acessos, mexido]);
   const escondidos = rascunho[plano] || [];
-  const mudar = (id: string, ver: boolean) =>
+  const mudar = (id: string, ver: boolean) => {
+    setMexido(true);
     setRascunho((r) => ({ ...r, [plano]: ver ? (r[plano] || []).filter((x) => x !== id) : [...new Set([...(r[plano] || []), id])] }));
+  };
   const grupos = MENU.utilizador.filter(([g]) => g !== 'Início');
   const gravar = async () => {
     setAGravar(true);
@@ -26,6 +31,7 @@ function AcessosPlanos() {
       const j = (await r.json().catch(() => ({}))) as { erro?: string; acessos?: Record<string, string[]> };
       if (!r.ok) return toast(j.erro || 'Não foi possível gravar');
       setAcessos(j.acessos || rascunho);
+      setMexido(false);
       toast(t('Acessos gravados'));
     } catch {
       toast('Sem ligação ao site. Nada foi gravado.');
@@ -33,12 +39,11 @@ function AcessosPlanos() {
       setAGravar(false);
     }
   };
-  if (!planos.length) return <div className="empty card">{t('Ainda não há planos no servidor')}</div>;
+  if (!plano) return <div className="empty card">{t('Ainda não há planos no servidor')}</div>;
   return (
     <>
-      <div className="tabcard">
-        {planos.length > 1 && <Tabs<string> tabs={planos.map((p) => [p, p, 'fa-box'] as [string, string, string])} on={plano} onChange={setPlano} />}
-        <div className="tc">
+      <div>
+        <div>
           {grupos.map(([g, itens]) => (
             <Frm key={g} title={g} desc={t('Assinale o que os clientes deste plano vêem')}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '10px 18px', padding: '14px 18px' }}>
@@ -60,8 +65,14 @@ function AcessosPlanos() {
   );
 }
 
-export const acessosPlanos: ScreenFn = (vh: VH) => ({
-  title: 'Acessos por plano',
-  desc: vh.t('O que os clientes de cada plano vêem na barra lateral'),
-  body: <AcessosPlanos />,
-});
+// Cada plano é um submenu de Admin › Configurações de acesso (/admin/acessos/<plano>); sem plano no endereço, o primeiro
+export const acessosPlanos: ScreenFn = (vh: VH) => {
+  const planos = Object.keys(vh.s.db.pkgs).filter((p) => p !== 'system');
+  const plano = vh.s.sub[0] && planos.includes(vh.s.sub[0]) ? vh.s.sub[0] : planos[0] || '';
+  return {
+    title: plano ? vh.t('Acessos do plano {0}').replace('{0}', plano) : 'Acessos por plano',
+    desc: vh.t('O que os clientes deste plano vêem na barra lateral'),
+    crumbs: plano ? [{ t: 'Acessos por plano', path: '/admin/acessos' }, { t: plano }] : undefined,
+    body: <AcessosPlanos key={plano} plano={plano} />,
+  };
+};
