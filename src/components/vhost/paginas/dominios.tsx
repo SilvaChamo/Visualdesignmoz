@@ -556,7 +556,7 @@ function Nameservers({ d, reg, publicos }: { d: string; reg: Registador; publico
             )}
             <div>
               <button className="btn r" disabled={fora || !mudou || aGuardar} onClick={guardar}>
-                <i className={aGuardar ? 'fa-solid fa-spinner fa-spin' : 'fa-solid fa-check'} />
+                <i className="fa-solid fa-check" />
                 {t(aGuardar ? 'A guardar…' : 'Guardar alterações')}
               </button>
             </div>
@@ -679,7 +679,7 @@ function RegistoDominio({ d, reg }: { d: string; reg: Registador }) {
                   if (j?.authCode) setEpp(String(j.authCode));
                 }}
               >
-                <i className={aPedir === 'epp' ? 'fa-solid fa-spinner fa-spin' : 'fa-solid fa-key'} />
+                <i className="fa-solid fa-key" />
                 {t('Obter código')}
               </button>
             )}
@@ -696,7 +696,7 @@ function RegistoDominio({ d, reg }: { d: string; reg: Registador }) {
               <>
                 <span>{c ? [c.name, c.email].filter(Boolean).join(' · ') : '—'}</span>
                 <button className="btn g sm" disabled={aPedir === 'contactos'} onClick={() => pedir('contactos', { action: 'set-contacts' })}>
-                  <i className={aPedir === 'contactos' ? 'fa-solid fa-spinner fa-spin' : 'fa-solid fa-address-card'} />
+                  <i className="fa-solid fa-address-card" />
                   {t('Atualizar com os dados da conta')}
                 </button>
               </>
@@ -2121,9 +2121,10 @@ function Ssl({ tab, verCertDomain }: { tab: TabSsl; verCertDomain: string | null
             </div>
           </div>}
 
-          {/* SECÇÃO 2: Card de Detalhes do Certificado do Domínio Selecionado */}
-          <div style={{ marginBottom: 24 }}>
+          {/* SECÇÃO 2: Card de Detalhes do Certificado do Domínio Selecionado (o cartão já traz a margem de baixo) */}
+          <div>
             <Frm
+              className="ssl-cert-domain-card"
               title={'Certificado do domínio: ' + x.name}
               right={
                 !det ? undefined : xNaVercel ? (

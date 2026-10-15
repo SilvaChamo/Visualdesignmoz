@@ -39,6 +39,9 @@ export type LeituraServidor = {
 const SCRIPT = String.raw`
 H=/usr/local/hestia/bin
 T=$(mktemp -d)
+# CPU medido ANTES de lançar as leituras em paralelo: medido durante elas dava sempre 100% (era a própria leitura do
+# painel a ocupar os núcleos naquele segundo — Silva, 15/10/2026: "o CPU está sempre a 100%")
+C1=$(head -1 /proc/stat | cut -d' ' -f2-); sleep 1; C2=$(head -1 /proc/stat | cut -d' ' -f2-)
 ( echo "@@USERS"; $H/v-list-users json ) > $T/0a &
 ( echo "@@PACKAGES"; $H/v-list-user-packages json ) > $T/0b &
 ( echo "@@SYSINFO"; $H/v-list-sys-info json ) > $T/0c &
@@ -47,7 +50,7 @@ T=$(mktemp -d)
 ( echo "@@PHP"; $H/v-list-sys-php json ) > $T/0g &
 ( echo "@@RES"; nproc; free -b | awk '/^Mem:/{print $2, $3, $7}'; df -B1 --output=size,used / | tail -1; cat /proc/loadavg
   lsblk -bdno SIZE,TYPE 2>/dev/null | awk '$2=="disk"{s+=$1} END{print s+0}'
-  head -1 /proc/stat | cut -d' ' -f2-; sleep 1; head -1 /proc/stat | cut -d' ' -f2- ) > $T/0f &
+  echo "$C1"; echo "$C2" ) > $T/0f &
 for u in $(ls /usr/local/hestia/data/users/); do
   ( echo "@@WEB $u"; $H/v-list-web-domains "$u" json
     for d in $($H/v-list-web-domains "$u" plain | cut -f1); do [ -f "/home/$u/web/$d/public_html/wp-config.php" ] && echo "@@WP $u $d"; done ) > "$T/1-$u-web" &

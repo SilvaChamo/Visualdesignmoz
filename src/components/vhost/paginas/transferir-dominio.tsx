@@ -323,7 +323,7 @@ export function TransferirDominio() {
                   </button>
                 ) : (
                   <button type="submit" className="btn trf-btn-p" disabled={aValidar || !dominio.trim() || !epp.trim()}>
-                    <i className={'fa-solid ' + (aValidar ? 'fa-spinner fa-spin' : 'fa-right-left')} />
+                    <i className="fa-solid fa-right-left" />
                     {t('Validar domínio')}
                   </button>
                 )}
