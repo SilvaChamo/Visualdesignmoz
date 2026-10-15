@@ -1,0 +1,18 @@
+name: "Ops - Contabo: ler opções do v-change-user-package (só leitura)"
+on:
+  push:
+    branches: [claude/kind-einstein-r6lyf6]
+    paths: ['.github/workflows/ops-ler-change-package.yml']
+jobs:
+  contabo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          username: root
+          key: ${{ secrets.CONTABO_SSH_KEY }}
+          script: |
+            head -30 /usr/local/hestia/bin/v-change-user-package
+            grep -n "force\|FORCE\|E_LIMIT\|check_result" /usr/local/hestia/bin/v-change-user-package | head -20
+            ls /usr/local/hestia/data/packages/
