@@ -96,7 +96,7 @@ function searchResults(s: St, q: string): Hit[] {
   for (const lv of [s.level, ...allowed.filter((x) => x !== s.level)])
     for (const [g, items] of MENU[lv])
       for (const it of items)
-        if (hasFeatOf(s, it.feat)) all.push({ lv, g, it, path: route(lv, it.id), k: (it.t + ' ' + T(it.t) + ' ' + g + ' ' + T(g) + ' ' + it.f.join(' ')).toLowerCase() });
+        if (hasFeatOf(s, it.feat, it.id, lv)) all.push({ lv, g, it, path: route(lv, it.id), k: (it.t + ' ' + T(it.t) + ' ' + g + ' ' + T(g) + ' ' + it.f.join(' ')).toLowerCase() });
   for (const [id, g] of Object.entries(GLOBAL))
     if (g.sub) for (const x of g.sub) all.push({ lv: null, g: g.t, it: x, path: '/' + id + '/' + x.id, k: (x.t + ' ' + T(x.t) + ' ' + g.t + ' ' + x.f.join(' ')).toLowerCase() });
   const qq = q.trim().toLowerCase();
@@ -605,6 +605,16 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
 
   // ---------- Estado visto pelos ecrãs ----------
   const me = meOf(st);
+  // Acessos por plano (Admin › Acessos por plano): o que cada plano esconde na barra lateral dos clientes
+  useEffect(() => {
+    if (!me) return;
+    fetch('/api/vhost/acessos', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j: { acessos?: Record<string, string[]> } | null) => {
+        if (j?.acessos) commit({ ...ref.current, acessos: j.acessos });
+      })
+      .catch(() => {});
+  }, [me, commit]);
   // ao abrir o painel (ou quando a conta fica conhecida): o domínio escolhido da última vez nesta conta
   useEffect(() => {
     if (!me || ref.current.dominio) return;
@@ -627,6 +637,8 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
   const s: St = { ...st, level, deny: st.deny || (missing ? { type: '404' } : null) };
   const t = (text: string) => translate(st.lang, text);
   const go = (id: string) => nav(route(level, id));
+  /** planos de cliente do servidor (submenus de Admin › Configurações de acesso) */
+  const planosAcesso = Object.keys(st.db.pkgs).filter((p) => p !== 'system');
   const setLevel = (l: Level) => nav('/' + l);
 
   const recusarLocal = () => {
@@ -662,7 +674,7 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
     me,
     a,
     allowed,
-    hasFeat: (f) => hasFeatOf(st, f),
+    hasFeat: (f, id) => hasFeatOf(st, f, id),
     nav,
     go,
     setLevel,
@@ -763,6 +775,7 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
       publicarTema();
       toast('Cantos atualizados');
     },
+    setAcessos: (acessos) => commit({ ...ref.current, acessos }),
     setDominio: (d, aviso = true) => {
       guardarDominio(meOf(ref.current), d);
       commit({ ...ref.current, dominio: d });
@@ -1131,7 +1144,7 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
                   MENU[level]
                     .filter(([g]) => g !== 'Início')
                     .map(([g, items]) => {
-                      const vis = items.filter((it) => vh.hasFeat(it.feat));
+                      const vis = items.filter((it) => vh.hasFeat(it.feat, it.id));
                       if (!vis.length) return null;
                       const k = level + '/' + g;
                       return (
@@ -1142,7 +1155,23 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
                           </button>
                           <div className="items">
                             <div className="in">
-                              {vis.map((it) => (
+                              {/* Configurações de acesso: um submenu por plano, como os outros menus (Silva, 15/10/2026) */}
+                              {level === 'admin' && g === 'Configurações de acesso' &&
+                                planosAcesso.map((p, i) => (
+                                  <a
+                                    key={'plano:' + p}
+                                    className={s.page === 'acessos' && (s.sub[0] ? s.sub[0] === p : i === 0) ? 'on' : ''}
+                                    onClick={() => nav('/admin/acessos/' + encodeURIComponent(p))}
+                                  >
+                                    <span className="ic c1">
+                                      <i className="fa-solid fa-box" />
+                                    </span>
+                                    <span className="lb" title={p}>
+                                      {p}
+                                    </span>
+                                  </a>
+                                ))}
+                              {vis.filter((it) => !(level === 'admin' && it.id === 'acessos' && planosAcesso.length)).map((it) => (
                                 <a key={it.id} className={!GLOBAL[s.page] && s.page === it.id ? 'on' : ''} onClick={() => go(it.id)}>
                                   <span className={'ic ' + it.c}>
                                     <i className={ico(it.fa)} />

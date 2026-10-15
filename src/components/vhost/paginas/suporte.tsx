@@ -127,7 +127,7 @@ function Ajuda() {
   const qq = q.trim().toLowerCase();
   const grupos = MENU.utilizador
     .filter(([g]) => g !== 'Início')
-    .map(([g, itens]) => [g, itens.filter((it) => vh.hasFeat(it.feat)).filter((it) => !qq || (t(it.t) + ' ' + (DESC['utilizador/' + it.id]?.[0] || '')).toLowerCase().includes(qq))] as const)
+    .map(([g, itens]) => [g, itens.filter((it) => vh.hasFeat(it.feat, it.id)).filter((it) => !qq || (t(it.t) + ' ' + (DESC['utilizador/' + it.id]?.[0] || '')).toLowerCase().includes(qq))] as const)
     .filter(([, itens]) => itens.length);
   const perguntas = PERGUNTAS.filter(([p, r]) => !qq || (p + ' ' + r).toLowerCase().includes(qq));
   return (

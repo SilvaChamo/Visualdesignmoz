@@ -174,7 +174,7 @@ export function MoreMenuModal({ fechar }: { fechar?: () => void } = {}) {
       {MENU[s.level]
         .filter(([g]) => g !== 'Início')
         .map(([g, items]) => {
-          const vis = items.filter((it) => hasFeat(it.feat));
+          const vis = items.filter((it) => hasFeat(it.feat, it.id));
           if (!vis.length) return null;
           return (
             <div key={g}>

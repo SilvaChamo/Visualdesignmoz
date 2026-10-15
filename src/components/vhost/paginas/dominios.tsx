@@ -2045,15 +2045,17 @@ function Ssl({ tab, verCertDomain }: { tab: TabSsl; verCertDomain: string | null
               ? 'ok' as const
               : 'em-falta' as const,
       })),
+      // mail. e webmail. em linhas separadas (Silva, 15/10/2026). No servidor partilham um certificado: escolher
+      // qualquer uma das duas emite esse certificado uma só vez (emitirSslAlvos junta-as por domínio).
       ...(site.temEmail
-        ? [{
-            id: `email:${site.nome}`,
+        ? (['mail', 'webmail'] as const).map((pre) => ({
+            id: `email:${site.nome}:${pre}`,
             dominio: site.nome,
             tipo: 'email' as const,
-            nomes: [`mail.${site.nome}`, `webmail.${site.nome}`],
-            // o certificado do e-mail é à parte do do site (mail. e webmail.): conta o que o servidor diz
-            estado: site.emailSsl || [`mail.${site.nome}`, `webmail.${site.nome}`].every((nome) => certificadoValidoPara(site, nome)) ? 'ok' as const : 'em-falta' as const,
-          }]
+            nomes: [`${pre}.${site.nome}`],
+            // o certificado do e-mail é à parte do do site: conta o que o servidor diz
+            estado: site.emailSsl || certificadoValidoPara(site, `${pre}.${site.nome}`) ? 'ok' as const : 'em-falta' as const,
+          }))
         : []),
     ];
   });
@@ -2222,7 +2224,7 @@ function Ssl({ tab, verCertDomain }: { tab: TabSsl; verCertDomain: string | null
             <div style={{ display: 'grid', gap: 8, padding: '12px 18px' }}>
               {alvos.map((alvo) => {
                 const tipo = alvo.tipo === 'email'
-                  ? t('E-mail e webmail')
+                  ? alvo.nomes[0].startsWith('webmail.') ? t('Webmail') : t('E-mail')
                   : alvo.nomes[0] === alvo.dominio
                     ? alvo.dominio === x.name ? t('Domínio principal') : t('Subdomínio')
                     : t('Subdomínio/apontador');

@@ -221,8 +221,22 @@ export async function deleteAccount(username: string): Promise<{ ok: boolean; er
  * CLI directo no Hestia — exige gerar um ficheiro de definição do pacote
  * (`v-add-user-package TMPFILE PACKAGE`) ou editar `$HESTIA/data/packages/*.pkg`
  * directamente por SSH; não implementado aqui de propósito (ver nota no plano). */
-export async function changeUserPackage(username: string, packageName: string): Promise<{ ok: boolean; error?: string }> {
-  const result = await hestiaCall('v-change-user-package', [username, packageName]);
+export async function changeUserPackage(
+  username: string,
+  packageName: string,
+  /** descer de plano: aceita o pacote mesmo que a conta já use mais do que ele deixa (FORCE do Hestia). A conta fica
+   *  com tudo o que já tem; só não pode criar mais até ficar dentro dos limites. */
+  forcar = false,
+): Promise<{ ok: boolean; error?: string; limite?: boolean }> {
+  const result = await hestiaCall('v-change-user-package', [username, packageName, ...(forcar ? ['yes'] : [])]);
+  // Código 8 do Hestia (limite): a conta já usa mais do que o pacote novo deixa (domínios, e-mails, bases de dados…).
+  // Foi o que aconteceu ao passar contas com site para o VD-Email-Basico (registo do servidor, 12 e 14/10/2026).
+  if (!result.ok && (result.exitCode === 8 || /limit|doesn't cover/i.test(result.error || '')))
+    return {
+      ok: false,
+      limite: true,
+      error: `o pacote ${packageName} é mais pequeno do que o que a conta ${username} já usa (domínios, e-mails ou bases de dados)`,
+    };
   return { ok: result.ok, error: result.error };
 }
 

@@ -4,7 +4,7 @@ import type { VH } from '../context';
 
 export type AcaoServidor =
   | { acao: 'suspender' | 'reativar' | 'apagar'; contas: string[] }
-  | { acao: 'pacote'; contas: string[]; pacote: string }
+  | { acao: 'pacote'; contas: string[]; pacote: string; forcar?: boolean }
   | { acao: 'senha'; contas: string[]; senha: string }
   | { acao: 'mover'; contas: string[]; para: string }
   | { acao: 'tipo'; contas: string[]; tipo: string }
@@ -12,6 +12,15 @@ export type AcaoServidor =
 
 /** Faz a alteração no servidor; devolve as contas alteradas (vazio se nada mudou) */
 export async function noServidor(vh: VH, corpo: AcaoServidor, msgOk: (n: number) => string): Promise<string[]> {
+  return (await noServidorDetalhe(vh, corpo, msgOk)).feitas;
+}
+
+/** Como noServidor, mas devolve também as contas que o servidor recusou e porquê */
+export async function noServidorDetalhe(
+  vh: VH,
+  corpo: AcaoServidor,
+  msgOk: (n: number) => string,
+): Promise<{ feitas: string[]; falhas: { conta: string; erro: string }[] }> {
   vh.toast('A alterar no servidor…');
   try {
     const r = await fetch('/api/vhost/acoes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corpo) });
@@ -23,9 +32,9 @@ export async function noServidor(vh: VH, corpo: AcaoServidor, msgOk: (n: number)
       const det = falhas.map((f) => f.conta + ': ' + f.erro).join(' · ');
       vh.toast((feitas.length ? msgOk(feitas.length) + '. ' : '') + (j.erro || det || 'A alteração falhou'));
     } else vh.toast(msgOk(feitas.length));
-    return feitas;
+    return { feitas, falhas };
   } catch {
     vh.toast('Sem ligação ao site. Nada foi alterado.');
-    return [];
+    return { feitas: [], falhas: [] };
   }
 }

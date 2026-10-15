@@ -466,7 +466,7 @@ export function DaHomeCards() {
     <div className="da-home-wrapper">
       <div className="da-home-grid">
         {categories.map(([g, items]) => {
-          const vis = items.filter((it) => hasFeat(it.feat));
+          const vis = items.filter((it) => hasFeat(it.feat, it.id));
           if (!vis.length) return null;
           return (
             <div className="da-cat-section" style={{ marginBottom: 24 }} key={g}>
