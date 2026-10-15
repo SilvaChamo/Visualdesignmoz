@@ -32,6 +32,8 @@ const nextConfig: NextConfig = {
       { source: '/client/:path*', destination: '/cliente/:path*', permanent: true },
       { source: '/roundcube', destination: '/webmail', permanent: false },
       { source: '/roundcube/:path*', destination: '/webmail/:path*', permanent: false },
+      // página "Brevemente" dos sites sem conteúdo: ficheiro à parte, sem menu nem cabeçalho do site
+      { source: '/pagina-em-construcao', destination: '/pagina-em-construcao/index.html', permanent: false },
     ]
   },
   async headers() {

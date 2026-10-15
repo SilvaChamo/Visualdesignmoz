@@ -52,6 +52,8 @@ export interface Domain {
   le?: boolean;
   /** domínio de e-mail existente na mesma conta Hestia */
   temEmail?: boolean;
+  /** o e-mail/webmail (mail.<domínio>) já tem certificado no servidor */
+  emailSsl?: boolean;
   /** só e-mail (sem site) */
   soEmail?: boolean;
 }

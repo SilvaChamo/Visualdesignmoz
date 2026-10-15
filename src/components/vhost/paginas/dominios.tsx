@@ -36,6 +36,7 @@ type Detalhe = {
     sslAtivo: boolean;
     renovacaoAutomatica: boolean;
     temEmail: boolean;
+    emailSsl?: boolean;
     siteVercel: boolean | null;
     certificado: { para: string; nomes: string[]; desde: string; ate: string; emissor: string } | null;
   }[];
@@ -66,13 +67,13 @@ async function noServidor(vh: VH, corpo: Record<string, unknown>, ok: string, re
   vh.toast('A alterar no servidor…');
   try {
     const r = await fetch('/api/vhost/dominio', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ conta: vh.me, ...corpo }) });
-    const j = (await r.json().catch(() => ({}))) as { erro?: string };
+    const j = (await r.json().catch(() => ({}))) as { erro?: string; aviso?: string };
     if (!r.ok) {
       vh.toast(j.erro || 'A alteração falhou');
       return false;
     }
     if (recarregar) await vh.recarregar(true);
-    vh.toast(ok);
+    vh.toast(j.aviso || ok);
     return true;
   } catch {
     vh.toast('Sem ligação ao site. Nada foi alterado.');
@@ -1543,20 +1544,15 @@ function CertificadoModal({ d, onFeito }: { d: string; onFeito: () => void }) {
   );
 }
 
-async function emitirSslDominio(vh: VH, dom: Domain, nomes: string[], incluirEmail: boolean, onFeito: () => void) {
+// Só o site: o SSL do e-mail/webmail emite-se à parte, na sua própria linha da lista de certificados (Silva,
+// 15/10/2026: vinha marcado por defeito e pedia outro certificado de e-mail por cima do válido).
+async function emitirSslDominio(vh: VH, dom: Domain, nomes: string[], onFeito: () => void) {
   const siteOk = await noServidor(
     vh,
     { acao: 'ssl-le', dominio: dom.name, nomes },
     'Certificado SSL do site emitido/substituído para ' + dom.name,
   );
-  const emailOk = incluirEmail && dom.temEmail
-    ? await noServidor(vh, { acao: 'ssl-mail-le', dominio: dom.name }, 'Certificado SSL de e-mail/webmail emitido/substituído para ' + dom.name)
-    : false;
-
-  if (siteOk || emailOk) onFeito();
-  if (incluirEmail && dom.temEmail && !siteOk && emailOk) {
-    vh.toast('O SSL do site falhou, mas o SSL do e-mail/webmail foi emitido.');
-  }
+  if (siteOk) onFeito();
 }
 
 async function emitirSslAlvos(vh: VH, alvos: AlvoSsl[], selecionados: string[], onFeito: () => void) {
@@ -1611,7 +1607,6 @@ function EmitirSslModal({ dom, onFeito, certificadoValido, cobertos = [] }: { do
   // o sistema vê quais já têm SSL: esses não aparecem (vão sozinhos no certificado novo); os outros vêm marcados
   const aliases = (dom.aliases || []).filter((n) => !cobertos.includes(n));
   const [marcados, setMarcados] = useState<string[]>(aliases);
-  const [incluirEmail, setIncluirEmail] = useState(Boolean(dom.temEmail));
   const renovar = certificadoValido ?? dom.ssl === 'ok';
   return (
     <>
@@ -1633,18 +1628,6 @@ function EmitirSslModal({ dom, onFeito, certificadoValido, cobertos = [] }: { do
           )}
         </div>
       </div>
-      {dom.temEmail && (
-        <div style={{ borderTop: '1px solid var(--line)', marginTop: 14, paddingTop: 12 }}>
-          <Check
-            checked={incluirEmail}
-            onChange={setIncluirEmail}
-            label="Também emitir/substituir SSL do e-mail e webmail configurado no servidor"
-          />
-          <small style={{ display: 'block', color: 'var(--muted)', margin: '6px 0 0 26px', lineHeight: 1.45 }}>
-            {t('O certificado actual de e-mail/webmail é substituído ao emitir o novo. Os endereços mail e webmail têm de apontar para este servidor.')}
-          </small>
-        </div>
-      )}
       <div className="mfoot">
         <button className="btn g" onClick={closeM}>
           {t('Cancelar')}
@@ -1653,7 +1636,7 @@ function EmitirSslModal({ dom, onFeito, certificadoValido, cobertos = [] }: { do
           className="btn r"
           onClick={async () => {
             closeM();
-            await emitirSslDominio(vh, dom, [...new Set([...cobertos.filter((n) => n !== dom.name), ...marcados])], incluirEmail, onFeito);
+            await emitirSslDominio(vh, dom, [...new Set([...cobertos.filter((n) => n !== dom.name), ...marcados])], onFeito);
           }}
         >
           <i className="fa-solid fa-lock" />
@@ -2027,6 +2010,7 @@ function Ssl({ tab, verCertDomain }: { tab: TabSsl; verCertDomain: string | null
       siteVercel: det?.siteVercel,
       certificado: det?.certificado || null,
       temEmail: x.temEmail || false,
+      emailSsl: x.emailSsl || false,
     },
     ...(det?.subdominios || []),
   ];
@@ -2045,7 +2029,8 @@ function Ssl({ tab, verCertDomain }: { tab: TabSsl; verCertDomain: string | null
   const alvos: AlvoSsl[] = sitesCertificados.flatMap((site) => {
     const siteExterno = site.siteVercel === true;
     const dnsSemConfirmacao = site.siteVercel == null && det?.dns.fonte === 'hestia';
-    const hosts = [site.nome, ...site.aliases];
+    // nomes sem ponto (ex.: um apontador "no" posto por engano no servidor) não são endereços: ficam de fora
+    const hosts = [site.nome, ...site.aliases.filter((nome) => nome.includes('.'))];
     return [
       ...hosts.map((nome) => ({
         id: `site:${site.nome}:${nome}`,
@@ -2066,7 +2051,8 @@ function Ssl({ tab, verCertDomain }: { tab: TabSsl; verCertDomain: string | null
             dominio: site.nome,
             tipo: 'email' as const,
             nomes: [`mail.${site.nome}`, `webmail.${site.nome}`],
-            estado: [`mail.${site.nome}`, `webmail.${site.nome}`].every((nome) => certificadoValidoPara(site, nome)) ? 'ok' as const : 'em-falta' as const,
+            // o certificado do e-mail é à parte do do site (mail. e webmail.): conta o que o servidor diz
+            estado: site.emailSsl || [`mail.${site.nome}`, `webmail.${site.nome}`].every((nome) => certificadoValidoPara(site, nome)) ? 'ok' as const : 'em-falta' as const,
           }]
         : []),
     ];
