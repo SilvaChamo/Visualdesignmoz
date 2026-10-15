@@ -1411,14 +1411,21 @@
  .vh .da-sec>.tbl.dt:last-child{margin-bottom:0}
 }
 
-/* Botões no telemóvel (Silva, 14/10/2026: "os botões na vertical devem preencher a largura total, e todos na mesma
-   coluna"): uns por baixo dos outros, a toda a largura — nos rodapés dos formulários e das janelas, nas barras de botões
-   das páginas e em cada linha das listas (no fundo do bloco, por baixo dos dados). Barras de ferramentas (editor,
+/* Botões no telemóvel (Silva, 14/10/2026, acrescento a 15/10/2026): nos rodapés dos formulários e das janelas e nas
+   barras de botões das páginas, quando há mais de um ficam lado a lado (dois por linha, divididos por igual); um botão
+   sozinho fica com metade do ecrã, à esquerda — ou ao centro e a toda a largura quando o conteúdo está centrado
+   (.centro). Se o texto de algum botão não cabe em meia largura, os botões dessa barra ficam todos numa coluna, a toda
+   a largura (.uma-coluna, posta por botoes-telemovel.ts). Nas linhas das listas ficam no fundo do bloco, por baixo dos dados. Barras de ferramentas (editor,
    gestor de ficheiros), separadores, interruptores (Visual | HTML) e botões colados a um campo ficam como estão. */
 .vh .btn-txt-tel{display:none}
 @media(max-width:768px){
- .vh :is(.frm-foot,.mfoot,.acoes-topo){flex-direction:column;align-items:stretch;flex-wrap:nowrap}
- .vh :is(.frm-foot,.mfoot,.acoes-topo)>:is(.btn,button,a){width:100%;justify-content:center;margin:0}
+ .vh :is(.frm-foot,.mfoot,.acoes-topo){flex-direction:row!important;flex-wrap:wrap!important;align-items:stretch!important;justify-content:flex-start!important}
+ .vh :is(.frm-foot,.mfoot,.acoes-topo)>:is(.btn,button,a){flex:1 1 calc(50% - 4px);min-width:0;width:auto;justify-content:center;margin:0}
+ .vh :is(.frm-foot,.mfoot,.acoes-topo)>:is(.btn,button,a):only-child{flex:0 0 calc(50% - 4px)}
+ /* algum botão não cabe em meia largura (marca posta por botoes-telemovel.ts): todos numa coluna, a toda a largura */
+ .vh :is(.frm-foot,.mfoot,.acoes-topo).uma-coluna>:is(.btn,button,a){flex:1 1 100%!important}
+ .vh :is(.frm-foot,.mfoot,.acoes-topo).centro{justify-content:center!important}
+ .vh :is(.frm-foot,.mfoot,.acoes-topo).centro>:is(.btn,button,a):only-child{flex:1 1 100%}
  /* listas: o dado principal fica com a linha de cima toda; os botões vão para o fundo do bloco */
  .vh .tbl.dt-empilhar tbody tr>td.ck+td:not(.dt-acoes-linha){grid-column:2 / -1}
  .vh .tbl.dt-empilhar tbody tr:not(:has(td.ck))>td:first-child:not(.dt-acoes-linha){grid-column:1 / -1}
@@ -1427,7 +1434,10 @@
  /* cada botão com texto numa linha, a toda a largura; o "⋯" (mais opções) fica pequeno, na mesma linha do botão de
     cima, que fica com o resto da largura (Silva, 14/10/2026: [View ……][⋯]) */
  .vh .tbl.dt-empilhar tbody :is(tr>td.dt-acoes-linha,td.dt-acoes-linha>:is(span,div):not(.menu):not(.wp-menu):not(.ssl-pop-menu)){display:flex!important;flex-direction:row!important;flex-wrap:wrap!important;align-items:stretch!important;justify-content:flex-start!important;gap:8px!important;width:100%}
- .vh .tbl.dt-empilhar tbody :is(tr>td.dt-acoes-linha,td.dt-acoes-linha>:is(span,div):not(.menu):not(.wp-menu):not(.ssl-pop-menu))>*{flex:1 1 100%;min-width:0}
+ /* lado a lado (Silva, 15/10/2026: "estes botões devem estar lado a lado"); se o texto de algum não cabe, a linha passa
+    a uma coluna a toda a largura (.uma-coluna, posta por botoes-telemovel.ts) */
+ .vh .tbl.dt-empilhar tbody :is(tr>td.dt-acoes-linha,td.dt-acoes-linha>:is(span,div):not(.menu):not(.wp-menu):not(.ssl-pop-menu))>*{flex:1 1 0;min-width:0}
+ .vh .tbl.dt-empilhar tbody :is(td.dt-acoes-linha,td.dt-acoes-linha>:is(span,div)).uma-coluna>*{flex:1 1 100%!important}
  .vh .tbl.dt-empilhar tbody td.dt-acoes-linha :is(.wp-pontos,.dt-mais){flex:0 0 auto!important;width:auto!important}
  .vh .tbl.dt-empilhar tbody td.dt-acoes-linha :has(+ :is(.wp-pontos,.dt-mais)){flex:1 1 0!important}
  /* DNS e listas do E-mail (empilhar='botoes-em-baixo'): Editar | Remover lado a lado, divididos por igual (Silva,
@@ -1490,3 +1500,17 @@
 .vh .btn.mais-item{flex-direction:column;justify-content:center;align-items:center;height:auto;min-height:60px;padding:8px 3px;gap:5px;white-space:normal;text-align:center;line-height:1.2;font-size:clamp(10.5px,3.3vw,12.5px);overflow-wrap:anywhere}
 .vh .btn.mais-item i{flex:none;font-size:16px}
 @media(max-width:768px){.vh .em-lado-stats{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+
+/* Personalizar painel › Cores: sub-separadores próprios (.lvl). No telemóvel passam a caixa de escolha, como os outros */
+@media(max-width:768px){
+ .vh .lvl.lvl-pc{display:none}
+ .vh .ptabs-sel.lvl-sel{display:flex;margin:0 0 20px}
+}
+
+/* Telemóvel: menu deslizante do ☰ na barra de cima (Silva, 15/10/2026), do lado direito, com o mesmo conteúdo do "Mais" */
+.vh .gaveta-bg{position:fixed;inset:0;z-index:55;background:rgba(20,20,22,.45);opacity:0;pointer-events:none;transition:opacity .2s}
+.vh .gaveta-bg.on{opacity:1;pointer-events:auto}
+.vh .gaveta{position:absolute;top:0;right:0;bottom:0;width:min(88vw,380px);background:var(--card);color:var(--ink);padding:18px 16px calc(18px + env(safe-area-inset-bottom));overflow-y:auto;box-shadow:-12px 0 30px rgba(0,0,0,.18);transform:translateX(100%);transition:transform .22s ease}
+.vh .gaveta-bg.on .gaveta{transform:none}
+.vh .gaveta h3{margin:0 0 12px}
+@media(min-width:769px){.vh .gaveta-bg{display:none}}

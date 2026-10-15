@@ -31,7 +31,7 @@ A pasta de trabalho no Mac do Silva é `visualdesign-producao` (antes `visualdes
    ramo do GitHub e volta a arrancar o servidor (pedido do Silva, 13/10/2026 — o `checkout`/`pull` simples falhava e o
    site local não actualizava). Modelo (trocar `RAMO`), corrido dentro da pasta `visualdesign-producao`:
    ```
-   pkill -9 -f "next dev --port [3]003"; lsof -ti tcp:3003 -sTCP:LISTEN | xargs kill -9 2>/dev/null; sleep 1; git stash -u -m "antes de RAMO"; git fetch origin RAMO && git checkout -B RAMO origin/RAMO && npm install && rm -rf .next && (nohup npm run dev > /tmp/visualdesign-dev.log 2>&1 &) && for i in $(seq 60); do lsof -ti tcp:3003 -sTCP:LISTEN >/dev/null && break; sleep 1; done; echo "Servidor ligado: http://localhost:3003 (mensagens do servidor em /tmp/visualdesign-dev.log)"; open http://localhost:3003
+   pkill -9 -f "next dev --port [3]003"; lsof -ti tcp:3003 -sTCP:LISTEN | xargs kill -9 2>/dev/null; sleep 1; git stash -u -m "antes de RAMO"; git fetch origin RAMO && git checkout -B RAMO origin/RAMO && npm install && rm -rf .next && (nohup npm run dev > /tmp/visualdesign-dev.log 2>&1 &) && for i in $(seq 60); do lsof -ti tcp:3003 -sTCP:LISTEN >/dev/null && break; sleep 1; done; echo "Servidor ligado: http://localhost:3003 (mensagens do servidor em /tmp/visualdesign-dev.log)"; [ "$(osascript -e 'set achou to false' -e 'if application "Google Chrome" is running then' -e 'tell application "Google Chrome"' -e 'repeat with w in windows' -e 'repeat with t in tabs of w' -e 'if URL of t contains "localhost:3003" then' -e 'reload t' -e 'set achou to true' -e 'end if' -e 'end repeat' -e 'end repeat' -e 'end tell' -e 'end if' -e 'return achou' 2>/dev/null)" = "true" ] || open http://localhost:3003
    ```
    O fecho começa pelo `next dev` (o processo pai, `pkill -f`; o `[3]` impede o comando de se apanhar a si próprio) e
    só depois o servidor que escuta na 3003 (`-sTCP:LISTEN`, para não apanhar as ligações do navegador), à força
@@ -39,7 +39,9 @@ A pasta de trabalho no Mac do Silva é `visualdesign-producao` (antes `visualdes
    continuava ocupada (`EADDRINUSE`), e o Silva tinha de o desligar à mão (Silva, 14/10/2026). O servidor arranca em
    segundo plano (`nohup`, mensagens em `/tmp/visualdesign-dev.log`, ver com `tail -f /tmp/visualdesign-dev.log`), por
    isso a janela do Terminal fica livre para o comando seguinte; o comando espera que a porta 3003 abra e abre o site
-   no navegador.
+   no navegador — **na aba que já estiver aberta** (recarrega as abas do Chrome com `localhost:3003`; só abre uma
+   nova quando não há nenhuma — Silva, 15/10/2026: "não crie outra aba, actualiza o aberto"). Da primeira vez o macOS
+   pergunta se o Terminal pode controlar o Chrome: responder "OK".
    O `rm -rf .next` apaga a cache do servidor local antes de arrancar (uma cache velha depois de mudar de ramo fazia o
    site local piscar e não abrir — Silva, 14/10/2026); a primeira página demora um pouco mais a compilar.
 
@@ -84,11 +86,16 @@ mesma alteração a linha inglesa no dicionário — sem esperar que o Silva pe�
   direita — assim vêem-se todos, mesmo quando são muitos (pedido do Silva, 13/10/2026). Automático nos `Tabs`.
 - **Listas no telemóvel numa só coluna** (pedido do Silva, 13/10/2026; revisto a 14/10/2026): cada linha passa a um
   bloco — a caixa de seleção e o dado principal (ex.: o IP) em cima; as outras informações por baixo, cada uma com o
-  nome da coluna; **os botões da linha no fundo do bloco, uns por baixo dos outros, a toda a largura**. No
+  nome da coluna; **os botões da linha no fundo do bloco, lado a lado** (Silva, 15/10/2026); se o texto de algum não
+  cabe, ficam numa coluna a toda a largura. No
   VisualHost: `DataTable` empilha por defeito (`empilhar` ligado em todas as tabelas).
 - **Telemóvel = uma só coluna em tudo** (Silva, 14/10/2026): itens uns por baixo dos outros. **Exceções: o Menu (grelha
-  de ícones) e os cartões (ex.: números da Dashboard) ficam em duas colunas**, ícone em cima e nome por baixo (Silva, 14/10/2026: "coloque duas colunas no menu"). **Botões na vertical, a
-  toda a largura, todos na mesma coluna** (rodapés de formulários e janelas, barras de botões, botões das linhas).
+  de ícones) e os cartões (ex.: números da Dashboard) ficam em duas colunas**, ícone em cima e nome por baixo (Silva, 14/10/2026: "coloque duas colunas no menu"). **Botões dos rodapés de
+  formulários e janelas e das barras de botões: mais de um → lado a lado (dois por linha, divididos por igual); um
+  sozinho → metade do ecrã, à esquerda, quando o texto está alinhado à esquerda, ou ao centro e a toda a largura quando
+  o conteúdo está centrado (classe `.centro`); se o texto de algum botão não cabe em meia largura (iria para duas ou
+  três linhas), os botões dessa barra ficam todos numa coluna, a toda a largura** (Silva, 15/10/2026; automático em
+  `src/components/vhost/botoes-telemovel.ts`). Botões das linhas das listas: no fundo do bloco, com a mesma regra.
   Ficam de fora só as barras de ferramentas (editor, gestor de ficheiros), separadores, interruptores (ex.: Visual |
   HTML) e botões colados a um campo.
 - **Telemóvel: o cartão principal vai de ponta a ponta** (Silva, 14/10/2026: "não se pode ver os limites do card
@@ -134,6 +141,10 @@ mesma alteração a linha inglesa no dicionário — sem esperar que o Silva pe�
   só publicar quando ele disser "publica" (ver "Como se trabalha com o Silva").
 
 # Verificação visual de alterações de UI
+
+**Não enviar imagens ao Silva** (Silva, 15/10/2026: "não me mostre imagens… eu vou apenas te mandar screenshots"):
+ele vê no projecto local e manda prints; na resposta diz-se só onde se mexeu. As imagens continuam a servir para
+confirmar o resultado do nosso lado (só a parte alterada, para gastar menos).
 
 Antes de reportar qualquer alteração visual (CSS/layout/alinhamentos) como concluída,
 confirma-a com um screenshot real — "compila sem erros" só garante que o TypeScript
