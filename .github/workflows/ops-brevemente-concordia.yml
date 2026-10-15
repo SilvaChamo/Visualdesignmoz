@@ -1,0 +1,36 @@
+name: "Ops - Contabo: Brevemente — reconhecer a página do DirectAdmin, Osher incluída, teste na concordia"
+# Autorizado pelo Silva a 15/10/2026 ("Concordia vamos testar por ela… repor o ficheiro html que havia renomeado").
+on:
+  push:
+    branches: [claude/kind-einstein-r6lyf6]
+    paths: ['.github/workflows/ops-brevemente-concordia.yml']
+jobs:
+  contabo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Enviar o script
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.CONTABO_SSH_KEY }}" > ~/.ssh/deploy_key && chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan "${{ secrets.CONTABO_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+          scp -i ~/.ssh/deploy_key servidor/vd-brevemente.sh "root@${{ secrets.CONTABO_HOST }}:/root/vd-brevemente.sh"
+      - uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          username: root
+          key: ${{ secrets.CONTABO_SSH_KEY }}
+          command_timeout: 10m
+          script: |
+            set +e
+            install -m 755 /root/vd-brevemente.sh /usr/local/bin/vd-brevemente.sh
+            : > /etc/vd-brevemente-excluir
+            P=/home/concordia/web/concordia.co.mz/public_html
+            if [ -f $P/index.html.com ] && [ ! -f $P/index.html ]; then
+              mkdir -p /root/brevemente-copias && cp -a $P/index.html.com /root/brevemente-copias/concordia.co.mz-index.html.com
+              mv $P/index.html.com $P/index.html && echo "concordia: ficheiro reposto como index.html"
+            fi
+            echo "== o que faria:"; /usr/local/bin/vd-brevemente.sh --ver; echo "(fim)"
+            /usr/local/bin/vd-brevemente.sh
+            echo "== registo:"; tail -20 /var/log/vd-brevemente.log 2>/dev/null
+            echo "== concordia agora:"; ls -la $P; curl -s --max-time 10 --resolve concordia.co.mz:80:127.0.0.1 http://concordia.co.mz/ | grep -o '<h1>[^<]*</h1>'
