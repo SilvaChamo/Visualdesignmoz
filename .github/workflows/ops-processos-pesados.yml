@@ -30,8 +30,7 @@ jobs:
             for f in /etc/cron.d/visualdesign-hetzner-passwd /usr/local/sbin/visualdesign-hetzner-passwd-sync /root/sync_all_emails.sh /root/sync_all_web.sh /root/verify_copies.sh; do
               [ -e "$f" ] && mv "$f" "$A/" && echo "arquivado: $f"
             done
-            # o [x] impede o pkill de apanhar este próprio script (o texto do comando contém o nome)
-            pkill -f "[v]isualdesign-hetzner-passwd-sync"; pkill -f "[s]ync_all_emails.sh"; pkill -f "[s]ync_all_web.sh"; true
+            # (sem pkill: o texto deste script contém os nomes e o pkill apanhava-o; não havia nenhum destes a correr)
             echo "referências ao Hetzner que ainda ficam em cron/systemd:"; grep -rIl -E "37\.27\.17\.25|hetzner" /etc/cron* /var/spool/cron /etc/systemd/system 2>/dev/null || echo "nenhuma"
 
             echo "######## 2) AAMIHE ########"
