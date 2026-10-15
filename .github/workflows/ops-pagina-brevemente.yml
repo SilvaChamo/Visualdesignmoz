@@ -1,0 +1,60 @@
+name: "Ops - Contabo: página Brevemente nos sites novos + lista dos sites vazios"
+
+# Autorizado pelo Silva a 15/10/2026 ("Avança"):
+#  1) guarda a página de origem do Hestia e põe a página "Brevemente" no modelo dos sites novos
+#     (/usr/local/hestia/data/templates/web/skel/public_html/index.html);
+#  2) SÓ LÊ: lista os sites que ainda têm a página de origem do servidor (sem nada do cliente).
+#     Não mexe em nenhum site existente, base de dados ou e-mail; não imprime segredos.
+on:
+  push:
+    branches: [claude/kind-einstein-r6lyf6]
+    paths: ['.github/workflows/ops-pagina-brevemente.yml']
+
+jobs:
+  contabo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Enviar a página
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.CONTABO_SSH_KEY }}" > ~/.ssh/deploy_key && chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan "${{ secrets.CONTABO_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+          scp -i ~/.ssh/deploy_key servidor/pagina-em-construcao.html "root@${{ secrets.CONTABO_HOST }}:/root/pagina-brevemente.html"
+      - name: Instalar no modelo e listar sites vazios
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          username: root
+          key: ${{ secrets.CONTABO_SSH_KEY }}
+          command_timeout: 10m
+          script: |
+            set +e
+            H=/usr/local/hestia/bin
+            SKEL=/usr/local/hestia/data/templates/web/skel/public_html
+            ORIG=/root/hestia-skel-index-original.html
+            echo "===== 1. modelo dos sites novos ====="
+            ls -la $SKEL
+            [ -f $ORIG ] || cp -a $SKEL/index.html $ORIG
+            echo "cópia da página de origem: $ORIG ($(wc -c < $ORIG) bytes)"
+            install -m 644 /root/pagina-brevemente.html $SKEL/index.html
+            grep -q "<h1>Brevemente</h1>" $SKEL/index.html && echo "OK: página Brevemente no modelo ($(wc -c < $SKEL/index.html) bytes)"
+            echo
+            echo "===== 2. sites existentes (só leitura) ====="
+            printf "%-14s %-45s %-9s %s\n" CONTA DOMINIO ESTADO FICHEIROS
+            for u in $($H/v-list-users plain | cut -f1); do
+              for d in $($H/v-list-web-domains "$u" plain | cut -f1); do
+                P=/home/$u/web/$d/public_html
+                [ -d "$P" ] || continue
+                n=$(find "$P" -mindepth 1 -maxdepth 1 | wc -l)
+                estado=conteudo
+                if [ -f "$P/index.html" ] && sed "s/$d/%domain%/g" "$P/index.html" | cmp -s - "$ORIG"; then
+                  outros=$(find "$P" -mindepth 1 -maxdepth 1 ! -name index.html ! -name robots.txt ! -name favicon.ico | wc -l)
+                  [ "$outros" = 0 ] && estado=VAZIO || estado=origem+
+                fi
+                printf "%-14s %-45s %-9s %s\n" "$u" "$d" "$estado" "$n"
+              done
+            done
+            echo
+            echo "VAZIO = só a página de origem do servidor (candidatos a receber a Brevemente)"
+            echo "origem+ = página de origem mas com outros ficheiros (não se mexe)"
