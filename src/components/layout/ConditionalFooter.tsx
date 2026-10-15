@@ -11,7 +11,7 @@ import { CompactFooter } from './CompactFooter'
 export function ConditionalFooter() {
   const pathname = usePathname()
 
-  const excludedRoutes = ['/dashboard', '/cliente', '/auth', '/login', '/revendedor', '/guest', '/encomendas', '/contabilidade', '/vhost', '/host/', '/host:']
+  const excludedRoutes = ['/dashboard', '/cliente', '/auth', '/login', '/revendedor', '/guest', '/encomendas', '/contabilidade', '/vhost', '/host/', '/host:', '/dev-preview']
   const isExcluded = excludedRoutes.some((route) => pathname.startsWith(route))
   // com ?embed=1 fica escondido por EmbedEstilo.tsx (data-site-chrome)
   if (isExcluded) return null
