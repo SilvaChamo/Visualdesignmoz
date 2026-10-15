@@ -1514,3 +1514,12 @@
 .vh .gaveta-bg.on .gaveta{transform:none}
 .vh .gaveta h3{margin:0 0 12px}
 @media(min-width:769px){.vh .gaveta-bg{display:none}}
+
+/* Telemóvel, cartões do E-mail (Silva, 15/10/2026): todos iguais, cada informação na sua linha — título, valor,
+   descrição — e menos espaço entre eles */
+@media(max-width:768px){
+ .vh .em-lado-stats{gap:0 14px!important}
+ .vh .em-lado-stats .stat{padding:8px 2px 10px}
+ .vh .em-lado-stats .stat strong{white-space:normal;margin:2px 0 6px}
+ .vh .em-lado-stats .stat strong span{display:block;margin-top:2px;line-height:1.3}
+}

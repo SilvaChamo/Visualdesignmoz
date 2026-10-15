@@ -10,7 +10,6 @@ import { createPortal } from 'react-dom';
 import { AdminSectionChromeProvider, useAdminSectionChrome } from '@/components/admin/AdminSectionChrome';
 import { TemplatesSection } from '@/app/dashboard/TemplatesSection';
 import { Send, Users, AlertTriangle, CheckCircle, Info, X, Mail, Eye } from 'lucide-react';
-import { Spinner } from '@/components/ui/spinner';
 import { buildSimpleNotificationEmailHtml } from '@/lib/renewal-templates';
 import { NotificationRichEditor } from '@/app/dashboard/NotificationRichEditor';
 import type { ScreenFn } from '../screens';
@@ -262,7 +261,7 @@ function EscreverMensagem() {
           >
             {sending ? (
               <>
-                <Spinner className="w-5 h-5" />
+                <Send className="w-5 h-5" />
                 Enviando...
               </>
             ) : (

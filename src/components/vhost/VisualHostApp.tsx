@@ -943,7 +943,9 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
   const logo = st.brand.logo || LOGO;
   const marca = st.brand.name.trim() || 'VisualHost';
 
-  // Enquanto os dados do servidor não chegam: a página branca com a roda (como no DA), sem esqueleto — o painel aparece
+  // Enquanto os dados do servidor não chegam: a página branca, sem esqueleto — o painel aparece. A roda (como no DA) só
+  // para quem acabou de entrar pelo login do próprio painel; pelo site, ao recarregar ou ao abrir o endereço, nunca
+  // (Silva, 15/10/2026: "não quero spinner dentro do painel, somente na entrada para o painel via directo")
   // já com o menu. Sem sessão: a página de entrada. Sem acesso / servidor indisponível: aviso com o que fazer a seguir.
   if (st.carga !== 'ok') {
     const er = st.erro;
@@ -951,7 +953,7 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
     const entrada = er?.codigo === 401 || (!er && !aEntrar && semSessao);
     if (!er && !entrada) return (
       <div className="vh" data-theme={st.theme} style={themeStyles as React.CSSProperties} lang="pt-PT" suppressHydrationWarning>
-        <EsperaEntrada />
+        <EsperaEntrada roda={aEntrar} />
       </div>
     );
     if (entrada)
