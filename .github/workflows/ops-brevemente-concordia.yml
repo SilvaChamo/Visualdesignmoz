@@ -1,4 +1,5 @@
 name: "Ops - Contabo: Brevemente — reconhecer a página do DirectAdmin, Osher incluída, teste na concordia"
+# 2.ª corrida: diagnóstico.
 # Autorizado pelo Silva a 15/10/2026 ("Concordia vamos testar por ela… repor o ficheiro html que havia renomeado").
 on:
   push:
@@ -30,7 +31,12 @@ jobs:
               mkdir -p /root/brevemente-copias && cp -a $P/index.html.com /root/brevemente-copias/concordia.co.mz-index.html.com
               mv $P/index.html.com $P/index.html && echo "concordia: ficheiro reposto como index.html"
             fi
+            echo "== diagnóstico concordia:"
+            grep -oi 'directadmin' $P/index.html | head -2; grep -oi '<title>[^<]*' $P/index.html | head -1
+            /usr/local/hestia/bin/v-list-web-domain concordia concordia.co.mz shell | grep -E 'PROXY:|SSL:|TEMPLATE:'
+            curl -s -o /dev/null -w 'http %{http_code} %{redirect_url}\n' --max-time 10 --resolve concordia.co.mz:80:127.0.0.1 http://concordia.co.mz/
+            curl -sk -o /dev/null -w 'https %{http_code}\n' --max-time 10 --resolve concordia.co.mz:443:127.0.0.1 https://concordia.co.mz/
             echo "== o que faria:"; /usr/local/bin/vd-brevemente.sh --ver; echo "(fim)"
             /usr/local/bin/vd-brevemente.sh
             echo "== registo:"; tail -20 /var/log/vd-brevemente.log 2>/dev/null
-            echo "== concordia agora:"; ls -la $P; curl -s --max-time 10 --resolve concordia.co.mz:80:127.0.0.1 http://concordia.co.mz/ | grep -o '<h1>[^<]*</h1>'
+            echo "== concordia agora:"; ls -la $P; curl -s --max-time 10 --resolve concordia.co.mz:80:127.0.0.1 http://concordia.co.mz/ | grep -o '<h1>[^<]*</h1>'; true
