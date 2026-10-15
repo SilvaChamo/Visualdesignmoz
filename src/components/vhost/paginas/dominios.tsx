@@ -25,6 +25,8 @@ type Detalhe = {
   hsts: boolean;
   modelo: string;
   backend: string;
+  sslAtivo: boolean;
+  renovacaoAutomatica: boolean;
   certificado: { para: string; nomes: string[]; desde: string; ate: string; emissor: string } | null;
   dns: { fonte: 'hestia' | 'cloudflare' | 'nenhuma'; zona: string; registos: { id: string; nome: string; tipo: string; valor: string; ttl: number; prio?: string }[] };
   php: { k: string; v: string }[];
@@ -32,6 +34,19 @@ type Detalhe = {
   /** nameservers reais do domínio (DNS público) */
   ns?: string[];
 };
+type CertificadoServidor = {
+  certificado: string;
+  cadeia: string;
+  emissor: string;
+  sujeito: string;
+  nomes: string[];
+  desde: string;
+  ate: string;
+  impressaoDigital: string;
+  tipoChave: string;
+};
+type EventoSsl = { data: string; comando: string; acao: string };
+type HistoricoSsl = { historico: EventoSsl[] };
 
 /** Faz uma alteração ao domínio no servidor; depois volta a ler os dados (`recarregar`: a conta toda; os registos
  *  de DNS não a mudam). Devolve true se correu bem. */
@@ -68,6 +83,16 @@ function dominioAtual(vh: VH, soSite = true): Domain | undefined {
   return lista.find((x) => x.name === vh.s.dominio) || lista[0];
 }
 const ehSub = (nome: string, de: string) => nome.endsWith('.' + de);
+function certificadoCobreNome(nomes: string[], dominio: string): boolean {
+  const alvo = dominio.toLowerCase();
+  return nomes.some((nome) => {
+    const n = nome.toLowerCase();
+    if (n === alvo) return true;
+    if (!n.startsWith('*.')) return false;
+    const sufixo = n.slice(1);
+    return alvo.endsWith(sufixo) && alvo.slice(0, -sufixo.length).length > 0 && !alvo.slice(0, -sufixo.length).includes('.');
+  });
+}
 /** Como `dominioAtual`, mas com um subdomínio escolhido dá o domínio de que ele faz parte */
 function principalAtual(vh: VH): Domain | undefined {
   const x = dominioAtual(vh);
@@ -1452,19 +1477,19 @@ function CertificadoModal({ d, onFeito }: { d: string; onFeito: () => void }) {
   );
 }
 
-/** Emitir / renovar o certificado grátis de um domínio, à maneira do DirectAdmin: escolhem-se os nomes que entram
- *  no certificado (o domínio vai sempre; www.… e os outros apontadores marcam-se ou não). */
+/** Emitir / substituir o certificado grátis de um domínio: os nomes seleccionados ficam num único certificado. */
 function EmitirSslModal({ dom, onFeito }: { dom: Domain; onFeito: () => void }) {
   const vh = useVH();
   const { t, closeM } = vh;
   const aliases = dom.aliases || [];
-  const [marcados, setMarcados] = useState<string[]>(aliases);
+  const [marcados, setMarcados] = useState<string[]>([]);
+  const [incluirEmail, setIncluirEmail] = useState(true);
   const renovar = dom.ssl === 'ok' && dom.le;
   return (
     <>
-      <h3>{t(renovar ? 'Renovar certificado grátis' : 'Pedir certificado grátis')}</h3>
+      <h3>{t(renovar ? 'Renovar/substituir certificado grátis' : 'Emitir/substituir certificado grátis')}</h3>
       <p style={{ color: 'var(--muted)', fontSize: 12.5, marginBottom: 12, lineHeight: 1.5 }}>
-        {t("Certificado Let's Encrypt, renovado sozinho antes de expirar. Só funciona com o DNS de cada nome a apontar para este servidor — desmarque os que ainda não apontam.")}
+        {t("O Hestia substitui o certificado actual do site ao emitir o novo; não precisa de o apagar. Só funciona com o DNS de cada nome seleccionado a apontar para este servidor — desmarque os que ainda não apontam.")}
       </p>
       <div style={{ marginBottom: 6 }}>
         <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>{t('Nomes incluídos no certificado')}</div>
@@ -1476,6 +1501,16 @@ function EmitirSslModal({ dom, onFeito }: { dom: Domain; onFeito: () => void }) 
           {!aliases.length && <small style={{ color: 'var(--muted)' }}>{t('Este domínio não tem apontadores (ex.: www). O certificado fica só com o domínio.')}</small>}
         </div>
       </div>
+      <div style={{ borderTop: '1px solid var(--line)', marginTop: 14, paddingTop: 12 }}>
+        <Check
+          checked={incluirEmail}
+          onChange={setIncluirEmail}
+          label="Também emitir/substituir SSL do e-mail e webmail configurado no servidor"
+        />
+        <small style={{ display: 'block', color: 'var(--muted)', margin: '6px 0 0 26px', lineHeight: 1.45 }}>
+          {t('O Hestia substitui o certificado actual do serviço de e-mail/webmail. O DNS do mail e do endereço webmail configurado tem de apontar para este servidor.')}
+        </small>
+      </div>
       <div className="mfoot">
         <button className="btn g" onClick={closeM}>
           {t('Cancelar')}
@@ -1484,11 +1519,16 @@ function EmitirSslModal({ dom, onFeito }: { dom: Domain; onFeito: () => void }) 
           className="btn r"
           onClick={async () => {
             closeM();
-            if (await noServidor(vh, { acao: 'ssl-le', dominio: dom.name, nomes: marcados }, "Certificado emitido para " + dom.name)) onFeito();
+            if (!(await noServidor(vh, { acao: 'ssl-le', dominio: dom.name, nomes: marcados }, "Certificado SSL do site emitido/substituído para " + dom.name))) return;
+            if (incluirEmail && !(await noServidor(vh, { acao: 'ssl-mail-le', dominio: dom.name }, "Certificado SSL de e-mail/webmail emitido/substituído para " + dom.name))) {
+              onFeito();
+              return;
+            }
+            onFeito();
           }}
         >
           <i className="fa-solid fa-lock" />
-          {t(renovar ? 'Renovar' : 'Emitir')}
+          {t(renovar ? 'Renovar/substituir' : 'Emitir/substituir')}
         </button>
       </div>
     </>
@@ -1593,19 +1633,42 @@ function CsrModal({ d }: { d: string }) {
 
 function ViewCertificateView({ d, onVoltar }: { d: string; onVoltar: () => void }) {
   const vh = useVH();
-  const { t, toast } = vh;
+  const { me, t, toast } = vh;
+  const { dados, erro, ler } = useGet<CertificadoServidor>(
+    `/api/vhost/dominio?conta=${encodeURIComponent(me)}&d=${encodeURIComponent(d)}&certificado=1`,
+  );
 
-  const keyText = `-----BEGIN PRIVATE KEY-----\nMIGhAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQg7bJumaA6Htw3t9jlW\nkgEXH1GcNmhnXFwx6xAiM0h8tL+hRANCAATgjK8qZFmVM0r0GozVjc2qMIzLAB\ngoNHNcan2aPY/6IxUAE8x2rHbE9ar/fnEE0/Itk7r/0RET5gLU+Navvl\n-----END PRIVATE KEY-----`;
+  if (!dados) {
+    return (
+      <div>
+        {erro ? <Carregar erro={erro} ler={ler} /> : <p>{t('A carregar certificado do servidor…')}</p>}
+        <button className="btn g sm" onClick={onVoltar}>{t('Voltar')}</button>
+      </div>
+    );
+  }
 
-  const certText = `-----BEGIN CERTIFICATE-----\nMIIDoTCCAyegAwIBAgISBR1YXSoJuE4bUyJKGxd3Sp0iMAoGCCqGSM49BAMDMx\nCZAJBgNVBAYTAkVTMRYwFAYDVQQKEw1ZXzBmMQnwXBM0MQswCQYDVQQDEwNZ\nRTIwHhcNMyAxMDA4MTAxNTMyWhcNMjcwMTA2MTUzMlowHjECMAoGA1UEAxMD\nWZ9UzSvQajNWnZCJyMsAGCg0c1xqfZo9j/ojFQB7xfasCF71qv9+cR478iTuv\n85ERPmCVT41q++WjggIwMIICDAOBgNVHQ8BAf8EBAMCB4AwEwYDVR0lBAwwCwY\nKWYBBQUHAwEwDAYDVR0TAQH/BAIwADAdBgNVHQ4EFgQUX8Tb115a9A3SJkCa69Em\nnpKG7Q4wHVYDVR0jBBgwFoAUuVnyjs8iIbTn0j/dhQYuoLVYVYcwMwYIKwYBBQUH\nAQEEJzAJMBUGCCSGAQUFBzABhhdodHRwOi8veWVuLmkubkubVBMvM16MBMGA1Ud\nIAQMMAowCAYGZ4EMAQIBMC4GA1UdHwQnMCUwIaAfoB2GHwh0dHA6Ly95ZW4ua\nZW5Jci5vcjcvYXkXYKk4WKXK4xV7yt7hoB4AAAhGzhykQAABAMASDBGAiEAs0vR\nZW5jI5VcmcMzUuY3JsMIIBDAYKKwYBBAHWeQIBEQSB/wSB/AD4AHcApbdGht\nk3W2SFV4+C9xoa5u7yt7hoB4AAAAGhGzhykQAABAMASDBGAiEAtn/FnrRvESIEg/\nYvBDk2HMVSfUnEQ9LGpsQB9ABqnVUN15HRzqVJ7bYDVdYGtk+tMNtx/niPD8Fi\n+8SXAAABoRs4dLwACAAABARjEAIbEAiBZ9QXqXzMjPrBNILD8qJxeay7D\nCiYKOziZj0EAWMDAAwZAwQzIDPzysup0fChL5Lg9a8nDd76fbLE9X2aewr\nzXjF618XyBwWVgLj6ozBUPZAJEAnsTv9fQI80+hDCEGJnFlVtenWCyHdHdX9M\nqB6Qi4BETWgIchyvBkS/xNF034Q6\n-----END CERTIFICATE-----`;
+  return <CertificateActualView d={d} dados={dados} onVoltar={onVoltar} t={t} toast={toast} />;
+}
 
-  const chainText = `-----BEGIN CERTIFICATE-----\nMIICjDCCAhGgAwIBAgIQTF0xxDbAeEQfNN7W0bXFTA...\n-----END CERTIFICATE-----`;
-
+function CertificateActualView({
+  d,
+  dados,
+  onVoltar,
+  t,
+  toast,
+}: {
+  d: string;
+  dados: CertificadoServidor;
+  onVoltar: () => void;
+  t: (text: string) => string;
+  toast: (message: string) => void;
+}) {
+  const certText = dados.certificado;
+  const chainText = dados.cadeia;
   const copiarText = (txt: string, label: string) => {
     navigator.clipboard?.writeText(txt);
     toast(`${label} copiada para a área de transferência`);
   };
-
   const baixarText = (txt: string, filename: string) => {
     const blob = new Blob([txt], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
@@ -1622,7 +1685,7 @@ function ViewCertificateView({ d, onVoltar }: { d: string; onVoltar: () => void 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <div>
           <div style={{ fontSize: 13, color: 'var(--muted)', fontWeight: 600, marginBottom: 4 }}>
-            Dashboard &gt; SSL/TLS Certificates &gt; View Certificate
+            {t('SSL/TLS')} &gt; {t('View Certificate')} &gt; {d}
           </div>
           <h2 style={{ fontSize: 22, fontWeight: 800, color: 'var(--ink)' }}>{t('View Certificate')}</h2>
         </div>
@@ -1631,61 +1694,17 @@ function ViewCertificateView({ d, onVoltar }: { d: string; onVoltar: () => void 
             <i className="fa-solid fa-arrow-left" />
             {t('Voltar')}
           </button>
-          <button className="btn g" onClick={() => copiarText(`${keyText}\n\n${certText}\n\n${chainText}`, 'Todos os certificados')}>
+          <button className="btn g" onClick={() => copiarText([certText, chainText].filter(Boolean).join('\n\n'), 'Todos os certificados')}>
             <i className="fa-solid fa-copy" />
             {t('Copy all certificates')}
           </button>
-          <button className="btn r" onClick={() => baixarText(`${keyText}\n\n${certText}\n\n${chainText}`, `${d}-full-ssl.pem`)}>
+          <button className="btn r" onClick={() => baixarText([certText, chainText].filter(Boolean).join('\n\n'), `${d}-full-ssl.pem`)}>
             <i className="fa-solid fa-download" />
             {t('DOWNLOAD ALL CERTIFICATES')}
           </button>
         </div>
       </div>
 
-      {/* Card 1: Private Key */}
-      <div className="card" style={{ marginBottom: 20, padding: 20, borderRadius: 'var(--r)' }}>
-        <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}>{t('Private key')}</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 320px', gap: 20 }}>
-          <pre
-            style={{
-              background: 'var(--soft)',
-              padding: 16,
-              borderRadius: 'var(--r)',
-              fontFamily: 'monospace',
-              fontSize: 12,
-              lineHeight: 1.5,
-              overflowX: 'auto',
-              border: '1px solid var(--line)',
-              maxHeight: 220,
-              color: 'var(--ink)',
-            }}
-          >
-            {keyText}
-          </pre>
-          <div style={{ fontSize: 13, display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <div>
-              <small style={{ color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', fontSize: 11 }}>Key type</small>
-              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>ECDSA P-256</div>
-            </div>
-            <div>
-              <small style={{ color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', fontSize: 11 }}>Key fingerprint</small>
-              <div style={{ fontSize: 12.5, fontWeight: 600, fontFamily: 'monospace', color: 'var(--ink)', wordBreak: 'break-all' }}>
-                O6DQ3HYYOT3XXTONSLZ5AHK5PA
-              </div>
-            </div>
-          </div>
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
-          <button className="btn g sm" onClick={() => copiarText(keyText, 'Chave privada')}>
-            <i className="fa-solid fa-copy" /> {t('Copy')}
-          </button>
-          <button className="btn g sm" onClick={() => baixarText(keyText, `${d}.key`)}>
-            <i className="fa-solid fa-download" /> {t('Download')}
-          </button>
-        </div>
-      </div>
-
-      {/* Card 2: Certificate */}
       <div className="card" style={{ marginBottom: 20, padding: 20, borderRadius: 'var(--r)' }}>
         <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}>{t('Certificate')}</h3>
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 320px', gap: 20 }}>
@@ -1707,40 +1726,32 @@ function ViewCertificateView({ d, onVoltar }: { d: string; onVoltar: () => void 
           </pre>
           <div style={{ fontSize: 13, display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div>
-              <small style={{ color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', fontSize: 11 }}>Name</small>
-              <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ink)' }}>*.{d}</div>
+              <small style={{ color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', fontSize: 11 }}>{t('Nomes DNS')}</small>
+              <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ink)' }}>{dados.nomes.join(', ') || dados.sujeito}</div>
             </div>
             <div>
-              <small style={{ color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', fontSize: 11 }}>Organization</small>
-              <div style={{ fontSize: 13, color: 'var(--muted)' }}>-</div>
+              <small style={{ color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', fontSize: 11 }}>{t('Sujeito do certificado')}</small>
+              <div style={{ fontSize: 13, color: 'var(--muted)' }}>{dados.sujeito || '—'}</div>
             </div>
             <div>
-              <small style={{ color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', fontSize: 11 }}>Issuer name</small>
-              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>YE2</div>
+              <small style={{ color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', fontSize: 11 }}>{t('Emissor')}</small>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{dados.emissor}</div>
             </div>
             <div>
-              <small style={{ color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', fontSize: 11 }}>Issuer organization</small>
-              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>Let's Encrypt</div>
+              <small style={{ color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', fontSize: 11 }}>{t('Válido desde')}</small>
+              <div style={{ fontSize: 13, color: 'var(--ink)' }}>{new Date(dados.desde).toLocaleString('pt-MZ')}</div>
             </div>
             <div>
-              <small style={{ color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', fontSize: 11 }}>Issued on</small>
-              <div style={{ fontSize: 13, color: 'var(--ink)' }}>08/10/2026, 12:15</div>
+              <small style={{ color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', fontSize: 11 }}>{t('Expira')}</small>
+              <div style={{ fontSize: 13, color: 'var(--ink)', fontWeight: 600 }}>{new Date(dados.ate).toLocaleString('pt-MZ')}</div>
             </div>
             <div>
-              <small style={{ color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', fontSize: 11 }}>Expires in</small>
-              <div style={{ fontSize: 13, color: '#10b981', fontWeight: 600 }}>in 3 months (06/01/2027, 12:15)</div>
+              <small style={{ color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', fontSize: 11 }}>{t('Tipo de chave')}</small>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{dados.tipoChave}</div>
             </div>
             <div>
-              <small style={{ color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', fontSize: 11 }}>DNS names</small>
-              <div style={{ fontSize: 12.5, fontFamily: 'monospace', color: 'var(--ink)' }}>*.{d}, {d}</div>
-            </div>
-            <div>
-              <small style={{ color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', fontSize: 11 }}>Key type</small>
-              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>ECDSA P-256</div>
-            </div>
-            <div>
-              <small style={{ color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', fontSize: 11 }}>Key fingerprint</small>
-              <div style={{ fontSize: 12, fontFamily: 'monospace', color: 'var(--ink)', wordBreak: 'break-all' }}>O6DQ3HYYOT3XXTONSLZ5AHK5PA</div>
+              <small style={{ color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', fontSize: 11 }}>{t('Impressão digital SHA-256')}</small>
+              <div style={{ fontSize: 12, fontFamily: 'monospace', color: 'var(--ink)', wordBreak: 'break-all' }}>{dados.impressaoDigital}</div>
             </div>
           </div>
         </div>
@@ -1754,8 +1765,7 @@ function ViewCertificateView({ d, onVoltar }: { d: string; onVoltar: () => void 
         </div>
       </div>
 
-      {/* Card 3: Certificate chain */}
-      <div className="card" style={{ marginBottom: 20, padding: 20, borderRadius: 'var(--r)' }}>
+      {chainText && <div className="card" style={{ marginBottom: 20, padding: 20, borderRadius: 'var(--r)' }}>
         <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>{t('Certificate chain')}</h3>
         <p style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 16 }}>
           {t('Intermediate certificates, ordered from the one that signed the certificate up to (but not including) the root.')}
@@ -1779,16 +1789,8 @@ function ViewCertificateView({ d, onVoltar }: { d: string; onVoltar: () => void 
           </pre>
           <div style={{ fontSize: 13, display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div>
-              <small style={{ color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', fontSize: 11 }}>Name</small>
-              <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ink)' }}>YE2</div>
-            </div>
-            <div>
-              <small style={{ color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', fontSize: 11 }}>Organization</small>
-              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>Let's Encrypt</div>
-            </div>
-            <div>
-              <small style={{ color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', fontSize: 11 }}>Issuer name</small>
-              <div style={{ fontSize: 13, color: 'var(--ink)' }}>Root YE</div>
+              <small style={{ color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', fontSize: 11 }}>{t('Emissor')}</small>
+              <div style={{ fontSize: 13, color: 'var(--ink)' }}>{dados.emissor}</div>
             </div>
           </div>
         </div>
@@ -1800,7 +1802,7 @@ function ViewCertificateView({ d, onVoltar }: { d: string; onVoltar: () => void 
             <i className="fa-solid fa-download" /> {t('Download')}
           </button>
         </div>
-      </div>
+      </div>}
     </div>
   );
 }
@@ -1810,6 +1812,11 @@ function Ssl({ tab, verCertDomain }: { tab: TabSsl; verCertDomain: string | null
   const { a, t, setDominio, openM } = vh;
   const x = dominioAtual(vh);
   const { det, erro, ler } = useDetalhe(x?.name || '');
+  const { dados: sslHistory, erro: sslHistoryError, ler: lerSslHistory } = useGet<HistoricoSsl>(
+    x && tab === 'historico'
+      ? `/api/vhost/dominio?conta=${encodeURIComponent(vh.me)}&d=${encodeURIComponent(x.name)}&historicoSsl=1`
+      : null,
+  );
   // separadores e "Ver certificado" ↔ endereço (/ssl/acme, /ssl/historico, /ssl/certificado/<domínio>), para o caminho no topo seguir o clique
   const setTab = (k: TabSsl) => vh.nav('/utilizador/ssl' + (k === 'gerir' ? '' : '/' + k));
   const setVerCertDomain = (d: string | null) => vh.nav('/utilizador/ssl' + (d ? '/certificado/' + encodeURIComponent(d) : ''));
@@ -1835,41 +1842,19 @@ function Ssl({ tab, verCertDomain }: { tab: TabSsl; verCertDomain: string | null
     };
   }, [menuRow]);
 
-  // Definições ACME
-  const [acme, setAcme] = useState({
-    provider: 'letsencrypt',
-    email: x ? 'admin@' + x.name : '',
-    renewDays: '30',
-    keyType: 'rsa2048',
-    challenge: 'http01',
-  });
-
   if (!x) return <SemDominio />;
   if (verCertDomain) return <ViewCertificateView d={verCertDomain} onVoltar={() => setVerCertDomain(null)} />;
 
   const sites = a.domains.filter((y) => !y.soEmail);
-
-  // Histórico de aprovisionamento
-  const historicoLogs = [
-    {
-      id: '1',
-      data: 'Hoje, 10:15',
-      dom: x.name,
-      acao: x.ssl === 'ok' ? 'Renovação automática' : 'Tentativa de aprovisionamento',
-      provedor: "Let's Encrypt (ACME v2)",
-      estado: x.ssl === 'ok' ? 'ok' : 'alerta',
-      detalhe: x.ssl === 'ok' ? 'Certificado renovado e instalado com sucesso' : 'Aguardando propagação DNS para validação HTTP-01',
-    },
-    {
-      id: '2',
-      data: '15/09/2026',
-      dom: x.name,
-      acao: 'Emissão inicial TLS',
-      provedor: "Let's Encrypt",
-      estado: 'ok',
-      detalhe: 'SAN: *.' + x.name + ', ' + x.name,
-    },
-  ];
+  const nomesCertificado = det?.certificado ? [det.certificado.para, ...det.certificado.nomes] : [];
+  const certificadoCobreDominio = Boolean(det?.sslAtivo && certificadoCobreNome(nomesCertificado, x.name));
+  const certificadoValido = Boolean(
+    certificadoCobreDominio &&
+      det?.certificado?.desde &&
+      det.certificado.ate &&
+      Date.parse(det.certificado.desde) <= Date.now() &&
+      Date.parse(det.certificado.ate) > Date.now(),
+  );
 
   return (
     <>
@@ -1895,21 +1880,27 @@ function Ssl({ tab, verCertDomain }: { tab: TabSsl; verCertDomain: string | null
                 gap: 12,
                 padding: '14px 18px',
                 borderRadius: 'var(--r)',
-                background: x.ssl === 'ok' ? 'color-mix(in srgb, #10b981 10%, transparent)' : 'color-mix(in srgb, #f59e0b 10%, transparent)',
-                border: `1px solid ${x.ssl === 'ok' ? 'color-mix(in srgb, #10b981 30%, transparent)' : 'color-mix(in srgb, #f59e0b 30%, transparent)'}`,
+                background: certificadoValido ? 'color-mix(in srgb, #10b981 10%, transparent)' : 'color-mix(in srgb, #f59e0b 10%, transparent)',
+                border: `1px solid ${certificadoValido ? 'color-mix(in srgb, #10b981 30%, transparent)' : 'color-mix(in srgb, #f59e0b 30%, transparent)'}`,
                 color: 'var(--ink)',
                 fontSize: 13.5,
                 fontWeight: 500,
               }}
             >
               <i
-                className={'fa-solid ' + (x.ssl === 'ok' ? 'fa-circle-check' : 'fa-circle-exclamation')}
-                style={{ color: x.ssl === 'ok' ? '#10b981' : '#f59e0b', fontSize: 18, flexShrink: 0 }}
+                className={'fa-solid ' + (certificadoValido ? 'fa-circle-check' : 'fa-circle-exclamation')}
+                style={{ color: certificadoValido ? '#10b981' : '#f59e0b', fontSize: 18, flexShrink: 0 }}
               />
               <div>
-                {x.ssl === 'ok'
-                  ? t('All DNS names have valid TLS certificates. Certificates will be automatically renewed.')
-                  : t('Ainda não existe certificado TLS ativo para este domínio. O pedido ao Let\'s Encrypt exige que o DNS esteja a apontar para este servidor.')}
+                {!det
+                  ? t('A ler o certificado activo no servidor…')
+                  : certificadoValido
+                    ? det.renovacaoAutomatica
+                      ? t('O certificado cobre este domínio e a renovação automática do Hestia está activa.')
+                      : t('O certificado cobre este domínio, mas a renovação automática do Hestia está desligada.')
+                    : det.sslAtivo
+                      ? t('Há um certificado instalado, mas não cobre este domínio ou já expirou.')
+                      : t('Ainda não há certificado SSL instalado neste domínio.')}
               </div>
             </div>
           </div>
@@ -1918,10 +1909,10 @@ function Ssl({ tab, verCertDomain }: { tab: TabSsl; verCertDomain: string | null
           <div style={{ marginBottom: 24 }}>
             <Frm
               title={'Certificado do domínio: ' + x.name}
-              right={x.ssl === 'ok' ? <span className="tag ok">{t('Seguro')}</span> : <span className="tag w">{t('Sem SSL')}</span>}
+              right={certificadoValido ? <span className="tag ok">{t('Seguro')}</span> : <span className="tag w">{t('Certificado inválido')}</span>}
               foot={
                 <>
-                  {x.ssl === 'ok' && (
+                  {det?.sslAtivo && (
                     <button className="btn g" onClick={() => cancelarSsl(vh, x.name, ler)}>
                       <i className="fa-solid fa-ban" />
                       {t('Cancelar certificado')}
@@ -1933,7 +1924,7 @@ function Ssl({ tab, verCertDomain }: { tab: TabSsl; verCertDomain: string | null
                   </button>
                   <button className="btn r" onClick={() => openM(<EmitirSslModal dom={x} onFeito={ler} />)}>
                     <i className="fa-solid fa-lock" />
-                    {t(det?.certificado ? 'Renovar certificado grátis' : 'Pedir certificado grátis')}
+                    {t(det?.renovacaoAutomatica ? 'Renovar/substituir SSL' : 'Emitir/substituir SSL')}
                   </button>
                 </>
               }
@@ -1950,7 +1941,10 @@ function Ssl({ tab, verCertDomain }: { tab: TabSsl; verCertDomain: string | null
                     {det.certificado.desde} → {det.certificado.ate}
                   </Row>
                   <Row label="Emissor">{det.certificado.emissor || '—'}</Row>
-                  <Row label="Renovação">{x.le ? t("Automática (Let's Encrypt)") : t('Manual')}</Row>
+                  <Row label="Renovação">{det.renovacaoAutomatica ? t("Automática (Let's Encrypt)") : t('Manual')}</Row>
+                  <Row label="Cobertura do domínio">
+                    {certificadoCobreDominio ? t('O certificado inclui este domínio.') : t('O certificado não inclui este domínio.')}
+                  </Row>
                 </>
               ) : (
                 <Row label="Certificado">
@@ -1993,43 +1987,38 @@ function Ssl({ tab, verCertDomain }: { tab: TabSsl; verCertDomain: string | null
                 },
                 {
                   k: 'dns',
-                  t: 'DNS Names',
+                  t: 'Apontadores do domínio',
                   cell: (r) => (
                     <span style={{ fontSize: 13, color: 'var(--muted)', fontFamily: 'monospace' }}>
-                      *.{r.name}, {r.name}
+                      {[r.name, ...(r.aliases || [])].join(', ')}
                     </span>
                   ),
                 },
                 {
                   k: 'validade',
-                  t: 'Validity',
+                  t: 'TLS no Hestia',
                   cell: (r) => (
                     <span className={'tag ' + (r.ssl === 'ok' ? 'ok' : 'w')} style={{ gap: 4 }}>
                       <i className={'fa-solid ' + (r.ssl === 'ok' ? 'fa-check' : 'fa-triangle-exclamation')} />
-                      {r.ssl === 'ok' ? t('Valid') : t('Sem SSL')}
+                      {r.ssl === 'ok' ? t('Instalado no Hestia') : t('Não instalado')}
                     </span>
                   ),
                 },
                 {
-                  k: 'expira',
-                  t: 'Expires',
-                  cell: (r) => <span>{r.ssl === 'ok' ? t('in 3 months') : '—'}</span>,
-                },
-                {
                   k: 'modo',
-                  t: 'Renewal mode',
+                  t: 'Renovação automática',
                   cell: (r) => (
                     <span style={{ color: r.ssl !== 'ok' ? 'var(--muted)' : r.le ? '#10b981' : 'var(--ink)', fontWeight: 600 }}>
-                      {r.ssl !== 'ok' ? '—' : r.le ? t('Automatic') : t('Manual')}
+                      {r.ssl !== 'ok' ? '—' : r.le ? t('Activa') : t('Desligada')}
                     </span>
                   ),
                 },
               ]}
               actions={(r) => (
                 <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', alignItems: 'center', position: 'relative' }}>
-                  <button className={'btn sm ' + (r.ssl === 'ok' ? 'g' : 'r')} onClick={() => openM(<EmitirSslModal dom={r} onFeito={ler} />)}>
-                    <i className={'fa-solid ' + (r.ssl === 'ok' ? 'fa-arrows-rotate' : 'fa-lock')} />
-                    {t(r.ssl === 'ok' ? 'Renovar' : 'Emitir')}
+                  <button className="btn r sm" onClick={() => openM(<EmitirSslModal dom={r} onFeito={ler} />)}>
+                    <i className="fa-solid fa-lock" />
+                    {t('Emitir/substituir SSL')}
                   </button>
                   {r.ssl === 'ok' && (
                     <button className="btn g sm" onClick={() => cancelarSsl(vh, r.name, ler)} title={t('Cancelar certificado')}>
@@ -2093,73 +2082,46 @@ function Ssl({ tab, verCertDomain }: { tab: TabSsl; verCertDomain: string | null
 
       {tab === 'acme' && (
         <Frm
-          title="Configurações do cliente ACME"
+          title="ACME gerido pelo Hestia"
           foot={
-            <button className="btn r" onClick={() => vh.toast('Configurações ACME guardadas com sucesso')}>
-              <i className="fa-solid fa-floppy-disk" />
-              {t('Guardar configurações')}
+            <button className="btn r" onClick={() => openM(<EmitirSslModal dom={x} onFeito={ler} />)}>
+              <i className="fa-solid fa-lock" />
+              {t('Emitir/substituir SSL')}
             </button>
           }
         >
-          <Row label="Provedor ACME" hint="Autoridade certificadora para emissão automática">
-            <select value={acme.provider} onChange={(e) => setAcme({ ...acme, provider: e.target.value })}>
-              <option value="letsencrypt">Let's Encrypt (Recomendado)</option>
-              <option value="zerossl">ZeroSSL</option>
-            </select>
-          </Row>
-          <Row label="E-mail de contacto ACME" hint="Recebe notificações sobre o estado do certificado">
-            <input value={acme.email} onChange={(e) => setAcme({ ...acme, email: e.target.value })} placeholder={`admin@${x.name}`} />
-          </Row>
-          <Row label="Renovação antecipada" hint="Dias antes da expiração para iniciar a renovação automática">
-            <select value={acme.renewDays} onChange={(e) => setAcme({ ...acme, renewDays: e.target.value })}>
-              <option value="30">30 dias antes de expirar</option>
-              <option value="15">15 dias antes de expirar</option>
-              <option value="7">7 dias antes de expirar</option>
-            </select>
-          </Row>
-          <Row label="Algoritmo e tamanho da chave" hint="Chave privada gerada para o certificado TLS">
-            <select value={acme.keyType} onChange={(e) => setAcme({ ...acme, keyType: e.target.value })}>
-              <option value="rsa2048">RSA 2048-bit (Padrão)</option>
-              <option value="rsa4096">RSA 4096-bit (Alta segurança)</option>
-              <option value="ecdsa256">ECDSA P-256 (Mais rápido)</option>
-            </select>
-          </Row>
-          <Row label="Método de validação (Desafio)" hint="Verificação de propriedade do domínio">
-            <select value={acme.challenge} onChange={(e) => setAcme({ ...acme, challenge: e.target.value })}>
-              <option value="http01">HTTP-01 (Ficheiro no servidor webroot)</option>
-              <option value="dns01">DNS-01 (Registo TXT no DNS)</option>
-            </select>
-          </Row>
+          <p style={{ padding: '14px 18px', color: 'var(--muted)' }}>
+            {t('O provedor ACME, o método de validação e a renovação são geridos pelo Hestia. O botão emite ou substitui o certificado deste domínio; não precisa de apagar o certificado actual.')}
+          </p>
+          <Row label="Estado no Hestia">{det?.renovacaoAutomatica ? t('Renovação automática activa') : t('Renovação automática não activa')}</Row>
         </Frm>
       )}
 
       {tab === 'historico' && (
         <div>
           <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12 }}>{t('Histórico de aprovisionamento SSL')}</h3>
-          <DataTable
-            id="ssl-historico"
-            rows={historicoLogs}
-            rowKey={(r) => r.id}
-            semCols={true}
-            semRecarregar={true}
-            cols={[
-              { k: 'data', t: 'Data / Hora', cell: (r) => <span style={{ fontSize: 13, color: 'var(--muted)' }}>{r.data}</span> },
-              { k: 'dom', t: 'Domínio', cell: (r) => <b>{r.dom}</b> },
-              { k: 'acao', t: 'Ação', cell: (r) => <span>{r.acao}</span> },
-              { k: 'provedor', t: 'Provedor', cell: (r) => <span style={{ fontSize: 13, color: 'var(--muted)' }}>{r.provedor}</span> },
-              {
-                k: 'estado',
-                t: 'Estado',
-                cell: (r) => (
-                  <span className={'tag ' + (r.estado === 'ok' ? 'ok' : 'w')}>
-                    <i className={'fa-solid ' + (r.estado === 'ok' ? 'fa-check' : 'fa-triangle-exclamation')} />
-                    {r.estado === 'ok' ? t('Sucesso') : t('Alerta')}
-                  </span>
-                ),
-              },
-              { k: 'detalhe', t: 'Detalhes', cell: (r) => <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>{r.detalhe}</span> },
-            ]}
-          />
+          <p style={{ color: 'var(--muted)', marginBottom: 12 }}>
+            {t('O registo do Hestia mostra os comandos pedidos; não confirma se a emissão do certificado foi concluída.')}
+          </p>
+          {sslHistoryError ? (
+            <Carregar erro={sslHistoryError} ler={lerSslHistory} />
+          ) : sslHistory && sslHistory.historico.length ? (
+            <DataTable
+              id="ssl-historico"
+              rows={sslHistory.historico}
+              rowKey={(r) => r.data + r.comando}
+              semCols={true}
+              semRecarregar={true}
+              cols={[
+                { k: 'data', t: 'Data / Hora', cell: (r) => <span style={{ fontSize: 13, color: 'var(--muted)' }}>{r.data}</span> },
+                { k: 'acao', t: 'Ação', cell: (r) => <span>{t(r.acao)}</span> },
+                { k: 'comando', t: 'Comando Hestia', cell: (r) => <code>{r.comando}</code> },
+                { k: 'estado', t: 'Registo', cell: () => <span>{t('Comando registado')}</span> },
+              ]}
+            />
+          ) : sslHistory ? (
+            <div className="note">{t('O Hestia não tem comandos SSL registados para este domínio.')}</div>
+          ) : null}
         </div>
       )}
     </>

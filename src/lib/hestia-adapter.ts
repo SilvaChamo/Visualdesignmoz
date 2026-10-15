@@ -26,6 +26,21 @@ export async function issueLetsEncrypt(
   aliases?: string[],
 ): Promise<{ ok: boolean; error?: string; output?: string }> {
   const result = await hestiaCall('v-add-letsencrypt-domain', [username, domain, ...(aliases?.length ? [aliases.join(',')] : [])]);
+  return finishLetsEncrypt(result);
+}
+
+/** Emite o certificado de e-mail do Hestia (mail.<domínio> e o alias global de webmail). */
+export async function issueMailLetsEncrypt(
+  username: string,
+  domain: string,
+): Promise<{ ok: boolean; error?: string; output?: string }> {
+  const result = await hestiaCall('v-add-letsencrypt-domain', [username, domain, '', 'yes']);
+  return finishLetsEncrypt(result);
+}
+
+async function finishLetsEncrypt(
+  result: Awaited<ReturnType<typeof hestiaCall>>,
+): Promise<{ ok: boolean; error?: string; output?: string }> {
   if (!result.ok && !isAlreadyExistsError(result.error)) {
     return { ok: false, error: result.error };
   }
