@@ -1453,6 +1453,9 @@
  .vh .frm-head>:first-child{min-width:0;flex:1 1 auto}
  .vh .frm-head h3{overflow-wrap:anywhere}
  .vh .frm-head>.tag{flex:none}
+ .vh .ssl-cert-domain-card .frm-head{flex-direction:column;align-items:flex-start}
+ .vh .ssl-cert-domain-card .frm-head>:first-child{width:100%;flex:none}
+ .vh .ssl-cert-domain-card .frm-head>.tag{align-self:flex-start}
 }
 
 /* Barra de cima no telemóvel (Silva, 14/10/2026: "reduzir os botões"): botões de 32 px, mais juntos, para o título ter

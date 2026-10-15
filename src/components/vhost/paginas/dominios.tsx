@@ -2124,6 +2124,7 @@ function Ssl({ tab, verCertDomain }: { tab: TabSsl; verCertDomain: string | null
           {/* SECÇÃO 2: Card de Detalhes do Certificado do Domínio Selecionado (o cartão já traz a margem de baixo) */}
           <div>
             <Frm
+              className="ssl-cert-domain-card"
               title={'Certificado do domínio: ' + x.name}
               right={
                 !det ? undefined : xNaVercel ? (
