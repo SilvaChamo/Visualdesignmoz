@@ -90,7 +90,9 @@ mesma alteração a linha inglesa no dicionário — sem esperar que o Silva pe�
   de ícones) e os cartões (ex.: números da Dashboard) ficam em duas colunas**, ícone em cima e nome por baixo (Silva, 14/10/2026: "coloque duas colunas no menu"). **Botões dos rodapés de
   formulários e janelas e das barras de botões: mais de um → lado a lado (dois por linha, divididos por igual); um
   sozinho → metade do ecrã, à esquerda, quando o texto está alinhado à esquerda, ou ao centro e a toda a largura quando
-  o conteúdo está centrado (classe `.centro`)** (Silva, 15/10/2026). Botões das linhas das listas: no fundo do bloco.
+  o conteúdo está centrado (classe `.centro`); se o texto de algum botão não cabe em meia largura (iria para duas ou
+  três linhas), os botões dessa barra ficam todos numa coluna, a toda a largura** (Silva, 15/10/2026; automático em
+  `src/components/vhost/botoes-telemovel.ts`). Botões das linhas das listas: no fundo do bloco.
   Ficam de fora só as barras de ferramentas (editor, gestor de ficheiros), separadores, interruptores (ex.: Visual |
   HTML) e botões colados a um campo.
 - **Telemóvel: o cartão principal vai de ponta a ponta** (Silva, 14/10/2026: "não se pode ver os limites do card

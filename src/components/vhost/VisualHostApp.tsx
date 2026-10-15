@@ -45,6 +45,7 @@ import {
   type St,
 } from './state';
 import { Avatar, ImpBanner, RouteFoot, SwitcherBar } from './ui';
+import { useBotoesTelemovel } from './botoes-telemovel';
 import type { Account, Level, MenuItem } from './types';
 
 const useIsomorphicLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
@@ -325,6 +326,7 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
   const [aEntrar, setAEntrar] = useState(false);
   const [semSessao, setSemSessao] = useState(!temSessao);
   const [modoTema, setModoTema] = useState<ModoTema>('light');
+  useBotoesTelemovel();
   useIsomorphicLayoutEffect(() => {
     try {
       const tm = localStorage.getItem('visualhost_theme');

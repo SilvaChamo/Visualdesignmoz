@@ -127,7 +127,19 @@ const bloco = (txt: string, marca: string[]) => {
   return i >= 0 && j > i ? txt.slice(i + marca[0].length, j).split('\n').map((x) => x.trim()).filter(Boolean) : [];
 };
 
+// Qualquer falha inesperada volta com o motivo (antes o Next devolvia uma página de erro e o painel só mostrava
+// "Erro a ler o servidor", sem se saber porquê — Silva, 15/10/2026)
 export async function GET(req: NextRequest) {
+  try {
+    return await lerDominio(req);
+  } catch (e) {
+    console.error('[vhost/dominio GET]', e);
+    const msg = e instanceof Error ? e.message : String(e);
+    return NextResponse.json({ erro: 'Não foi possível ler o domínio no servidor: ' + msg.slice(0, 200) }, { status: 500 });
+  }
+}
+
+async function lerDominio(req: NextRequest) {
   const r = await sessao();
   if ('erro' in r) return r.erro;
   const conta = req.nextUrl.searchParams.get('conta') || '';

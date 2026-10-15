@@ -2252,14 +2252,17 @@ function Ssl({ tab, verCertDomain }: { tab: TabSsl; verCertDomain: string | null
                       <div style={{ color: 'var(--muted)', fontSize: 12, fontWeight: 600, marginBottom: 4 }}>{tipo}</div>
                       <div style={{ fontFamily: 'monospace', fontSize: 13, overflowWrap: 'anywhere' }}>{alvo.nomes.join(' · ')}</div>
                     </div>
-                    <span className={'tag ' + (alvo.estado === 'ok' || alvo.estado === 'externo' ? 'ok' : 'w')}>{estado}</span>
-                    {alvo.estado === 'em-falta' && (
-                      <Check
-                        checked={alvosSelecionados.includes(alvo.id)}
-                        onChange={(marcado) => setAlvosSelecionados((atuais) => marcado ? [...atuais, alvo.id] : atuais.filter((id) => id !== alvo.id))}
-                        label="Seleccionar"
-                      />
-                    )}
+                    {/* etiqueta e caixa juntas (no telemóvel a caixa ficava solta do outro lado) */}
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                      <span className={'tag ' + (alvo.estado === 'ok' || alvo.estado === 'externo' ? 'ok' : 'w')}>{estado}</span>
+                      {alvo.estado === 'em-falta' && (
+                        <Check
+                          checked={alvosSelecionados.includes(alvo.id)}
+                          onChange={(marcado) => setAlvosSelecionados((atuais) => marcado ? [...atuais, alvo.id] : atuais.filter((id) => id !== alvo.id))}
+                          label="Seleccionar"
+                        />
+                      )}
+                    </span>
                   </div>
                 );
               })}

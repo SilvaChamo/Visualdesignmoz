@@ -1414,13 +1414,16 @@
 /* Botões no telemóvel (Silva, 14/10/2026, acrescento a 15/10/2026): nos rodapés dos formulários e das janelas e nas
    barras de botões das páginas, quando há mais de um ficam lado a lado (dois por linha, divididos por igual); um botão
    sozinho fica com metade do ecrã, à esquerda — ou ao centro e a toda a largura quando o conteúdo está centrado
-   (.centro). Nas linhas das listas ficam no fundo do bloco, por baixo dos dados. Barras de ferramentas (editor,
+   (.centro). Se o texto de algum botão não cabe em meia largura, os botões dessa barra ficam todos numa coluna, a toda
+   a largura (.uma-coluna, posta por botoes-telemovel.ts). Nas linhas das listas ficam no fundo do bloco, por baixo dos dados. Barras de ferramentas (editor,
    gestor de ficheiros), separadores, interruptores (Visual | HTML) e botões colados a um campo ficam como estão. */
 .vh .btn-txt-tel{display:none}
 @media(max-width:768px){
  .vh :is(.frm-foot,.mfoot,.acoes-topo){flex-direction:row!important;flex-wrap:wrap!important;align-items:stretch!important;justify-content:flex-start!important}
- .vh :is(.frm-foot,.mfoot,.acoes-topo)>:is(.btn,button,a){flex:1 1 calc(50% - 4px);min-width:0;width:auto;justify-content:center;margin:0;white-space:normal;text-align:center;line-height:1.2;height:auto;min-height:38px;padding-top:6px;padding-bottom:6px}
+ .vh :is(.frm-foot,.mfoot,.acoes-topo)>:is(.btn,button,a){flex:1 1 calc(50% - 4px);min-width:0;width:auto;justify-content:center;margin:0}
  .vh :is(.frm-foot,.mfoot,.acoes-topo)>:is(.btn,button,a):only-child{flex:0 0 calc(50% - 4px)}
+ /* algum botão não cabe em meia largura (marca posta por botoes-telemovel.ts): todos numa coluna, a toda a largura */
+ .vh :is(.frm-foot,.mfoot,.acoes-topo).uma-coluna>:is(.btn,button,a){flex:1 1 100%!important}
  .vh :is(.frm-foot,.mfoot,.acoes-topo).centro{justify-content:center!important}
  .vh :is(.frm-foot,.mfoot,.acoes-topo).centro>:is(.btn,button,a):only-child{flex:1 1 100%}
  /* listas: o dado principal fica com a linha de cima toda; os botões vão para o fundo do bloco */
