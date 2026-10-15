@@ -1,0 +1,69 @@
+name: "Ops - Processos pesados e sincronizações com o Hetzner (SÓ LEITURA)"
+
+# Só leitura, nos dois servidores: o que gasta CPU (aamihe/php-fpm, clamav…) e todas as tarefas agendadas ou
+# processos que copiam e-mails/conteúdo entre o Hetzner (37.27.17.25) e o Contabo (169.58.148.144).
+on:
+  push:
+    branches: [ops/processos-pesados]
+
+jobs:
+  contabo:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Contabo
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          username: root
+          password: ${{ secrets.CONTABO_ROOT_PASSWORD }}
+          command_timeout: 4m
+          script: |
+            set +e
+            echo "######## AAMIHE ########"
+            echo "--- php-fpm do aamihe agora (pid, cpu, tempo, comando) ---"; ps -u aamihe -o pid,%cpu,etime,time,args --sort=-%cpu | head -8
+            echo "--- pool php-fpm do aamihe ---"; grep -lr "aamihe" /etc/php/*/fpm/pool.d/ 2>/dev/null; grep -hE "^(pm|pm\.max_children|pm\.max_requests|request_terminate_timeout)" $(grep -lr "aamihe" /etc/php/*/fpm/pool.d/ 2>/dev/null) 2>/dev/null
+            for L in /var/log/nginx/domains/aamihe.com.log /var/log/apache2/domains/aamihe.com.log; do
+              [ -f $L ] || continue
+              echo "--- $L: pedidos nas últimas linhas (5000) por IP ---"; tail -5000 $L | awk '{print $1}' | sort | uniq -c | sort -rn | head -8
+              echo "--- por endereço ---"; tail -5000 $L | awk '{print $7}' | cut -d'?' -f1 | sort | uniq -c | sort -rn | head -12
+              echo "--- por agente (robots) ---"; tail -5000 $L | awk -F'"' '{print $6}' | sort | uniq -c | sort -rn | head -6
+              echo "--- pedidos por minuto (últimos 10) ---"; tail -5000 $L | awk '{print substr($4,2,17)}' | uniq -c | tail -10
+            done
+            WP=/home/aamihe/web/aamihe.com/public_html
+            echo "--- DISABLE_WP_CRON? ---"; grep -n "DISABLE_WP_CRON" $WP/wp-config.php
+            echo "--- plugins activos ---"; DB=$(grep -oP "DB_NAME',\s*'\K[^']+" $WP/wp-config.php); PFX=$(grep -oP "table_prefix\s*=\s*'\K[^']+" $WP/wp-config.php); mysql -N -e "SELECT option_value FROM \`$DB\`.${PFX}options WHERE option_name='active_plugins'" 2>/dev/null | tr ';' '\n' | grep -o '"[^"]*\.php"' | head -40
+            echo "--- tamanho de cron na BD (wp-cron) ---"; mysql -N -e "SELECT LENGTH(option_value) FROM \`$DB\`.${PFX}options WHERE option_name='cron'" 2>/dev/null
+            echo "--- erros PHP recentes ---"; tail -15 /home/aamihe/web/aamihe.com/logs/*error* 2>/dev/null | tail -15; tail -15 /var/log/apache2/domains/aamihe.com.error.log 2>/dev/null
+            echo "######## SINCRONIZAÇÕES / TAREFAS ########"
+            echo "--- crontab root ---"; crontab -l 2>/dev/null
+            echo "--- /etc/cron.d ---"; for f in /etc/cron.d/*; do echo "## $f"; grep -v '^\s*#' $f | grep -v '^\s*$'; done
+            echo "--- cron de cada utilizador ---"; for f in /var/spool/cron/crontabs/*; do echo "## $f"; grep -v '^\s*#' $f | grep -v '^\s*$'; done
+            echo "--- temporizadores systemd ---"; systemctl list-timers --all --no-pager | head -40
+            echo "--- serviços a correr (não do sistema) ---"; systemctl list-units --type=service --state=running --no-pager | grep -vE "systemd|dbus|ssh|cron|rsyslog|getty|polkit|udisks|networkd|resolved|timesyncd|journal|logind|user@|unattended|multipath|snapd|irqbalance|ModemManager|packagekit" | head -40
+            echo "--- qualquer referência ao Hetzner (37.27.17.25 / hetzner) em cron, systemd, scripts e pm2 ---"
+            grep -rIl -E "37\.27\.17\.25|hetzner|HETZNER" /etc/cron* /var/spool/cron /etc/systemd/system /root/*.sh /opt /usr/local/bin /home/*/.pm2/dump.pm2 /root/.pm2/dump.pm2 2>/dev/null | head -30
+            echo "--- processos com rsync/imapsync/sync/lftp/rclone ---"; ps -eo pid,etime,%cpu,args | grep -iE "rsync|imapsync|doveadm sync|lftp|rclone|sync" | grep -v grep | head -20
+            echo "--- pm2 (root) com o comando de cada um ---"; pm2 jlist 2>/dev/null | python3 -c "import sys,json;[print(p['name'],'|',p['pm2_env']['status'],'|',p['pm2_env'].get('pm_exec_path'),'|',' '.join(p['pm2_env'].get('args') or []),'| cwd',p['pm2_env'].get('pm_cwd')) for p in json.load(sys.stdin)]"
+            echo "######## CLAMAV ########"; systemctl is-active clamav-daemon clamav-freshclam 2>&1; grep -E "^(MaxThreads|ScanOnAccess|OnAccess)" /etc/clamav/clamd.conf 2>/dev/null; ps -o pid,%cpu,%mem,etime,args -C clamd
+  hetzner:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Hetzner
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.HETZNER_HOST }}
+          port: ${{ secrets.HETZNER_PORT }}
+          username: ${{ secrets.HETZNER_USER }}
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          command_timeout: 4m
+          script: |
+            set +e
+            S=$( [ "$(id -u)" = 0 ] && echo "" || echo "sudo" )
+            echo "--- crontab root ---"; $S crontab -l 2>/dev/null
+            echo "--- /etc/cron.d ---"; for f in /etc/cron.d/*; do echo "## $f"; $S grep -v '^\s*#' $f | grep -v '^\s*$'; done
+            echo "--- cron de cada utilizador ---"; for f in $($S ls /var/spool/cron/ /var/spool/cron/crontabs/ 2>/dev/null); do :; done; $S sh -c 'for f in /var/spool/cron/* /var/spool/cron/crontabs/*; do [ -f "$f" ] && echo "## $f" && grep -v "^\s*#" "$f" | grep -v "^\s*$"; done' 2>/dev/null
+            echo "--- temporizadores systemd ---"; systemctl list-timers --all --no-pager | head -30
+            echo "--- referências ao Contabo (169.58.148.144 / contabo) ---"
+            $S grep -rIl -E "169\.58\.148\.144|contabo|CONTABO" /etc/cron* /var/spool/cron /etc/systemd/system /root /opt /usr/local/bin 2>/dev/null | head -30
+            echo "--- processos com rsync/imapsync/sync ---"; ps -eo pid,etime,%cpu,args | grep -iE "rsync|imapsync|doveadm sync|lftp|rclone" | grep -v grep | head
+            echo "--- pm2 ---"; $S pm2 jlist 2>/dev/null | python3 -c "import sys,json;[print(p['name'],'|',p['pm2_env']['status'],'|',p['pm2_env'].get('pm_exec_path')) for p in json.load(sys.stdin)]"
