@@ -50,6 +50,8 @@ export interface Domain {
   ftp?: { user: string; path: string }[];
   /** certificado Let's Encrypt automático */
   le?: boolean;
+  /** domínio de e-mail existente na mesma conta Hestia */
+  temEmail?: boolean;
   /** só e-mail (sem site) */
   soEmail?: boolean;
 }

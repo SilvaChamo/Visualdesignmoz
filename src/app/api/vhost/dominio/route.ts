@@ -76,6 +76,21 @@ async function nameservers(zona: string): Promise<string[]> {
   }
 }
 
+async function alojamentoVercelPublico(dominio: string): Promise<boolean | null> {
+  const resolver = new Resolver({ timeout: 2500, tries: 1 });
+  resolver.setServers(['1.1.1.1', '8.8.8.8']);
+  const nomes = [dominio, `www.${dominio}`];
+  const respostas = await Promise.all(
+    nomes.map((nome) => Promise.allSettled([resolver.resolveCname(nome), resolver.resolve4(nome)])),
+  );
+  const valores = respostas.flatMap((resposta) => resposta.flatMap((resultado) => resultado.status === 'fulfilled' ? resultado.value : []));
+  if (valores.some((valor) => typeof valor === 'string' && valor.toLowerCase().includes('vercel'))) return true;
+  if (
+    valores.some((valor) => typeof valor === 'string' && /^(76\.76\.21\.|66\.33\.60\.)/.test(valor))
+  ) return true;
+  return respostas.some((resposta) => resposta.some((resultado) => resultado.status === 'fulfilled')) ? false : null;
+}
+
 type DnsDominio = { fonte: 'hestia' | 'cloudflare' | 'nenhuma'; zona: string; registos: { id: string; nome: string; tipo: string; valor: string; ttl: number; prio?: string }[] };
 
 /** Registos da zona na Cloudflare (quando a zona não está no Hestia) */
@@ -130,18 +145,22 @@ export async function GET(req: NextRequest) {
   const temZona = !!srv.dns[conta]?.[d];
   const H = '/usr/local/hestia/bin';
   const site = w && !soDns;
+  const subdominios = w && !soDns ? Object.keys(srv.web[conta] || {}).filter((nome) => DOM.test(nome) && nome.endsWith('.' + d)) : [];
   const linhas = [
     site ? `echo @@WEB; ${H}/v-list-web-domain ${conta} ${d} json` : '',
     site ? `echo @@SSL; ${H}/v-list-web-domain-ssl ${conta} ${d} json 2>/dev/null` : '',
     site ? `echo @@INI; cat ${q(raiz + '/.user.ini')} 2>/dev/null` : '',
     site ? `echo @@HT; cat ${q(raiz + '/.htaccess')} 2>/dev/null` : '',
     temZona ? `echo @@DNS; ${H}/v-list-dns-records ${conta} ${d} json` : '',
+    ...(site ? subdominios.map((nome, i) => `echo @@SUBSSL${i}; ${H}/v-list-web-domain-ssl ${conta} ${nome} json 2>/dev/null`) : []),
   ].filter(Boolean);
   // ao mesmo tempo: o servidor (só se houver algo a ler lá), a Cloudflare e os nameservers públicos
-  const [out, dnsCf, ns] = await Promise.all([
+  const [out, dnsCf, ns, siteVercel, subdominiosVercel] = await Promise.all([
     linhas.length ? executeServerCommand([...linhas, 'echo @@FIM'].join('; '), { timeoutMs: 30_000 }) : Promise.resolve(''),
     temZona ? Promise.resolve(null) : dnsCloudflare(d),
     nameservers(zonaDe(d)),
+    alojamentoVercelPublico(d),
+    Promise.all(subdominios.map((nome) => alojamentoVercelPublico(nome))),
   ]);
   const sec = secoes(out);
 
@@ -150,10 +169,31 @@ export async function GET(req: NextRequest) {
     const regs = json<Record<string, Record<string, string>>>(sec.get('DNS'), {});
     dns = { fonte: 'hestia', zona: d, registos: Object.entries(regs).map(([id, x]) => ({ id, nome: x.RECORD || '@', tipo: (x.TYPE || '').toUpperCase(), valor: x.VALUE || '', ttl: Number(x.TTL) || 14400, prio: x.PRIORITY || undefined })) };
   }
-  if (soDns) return NextResponse.json({ dns, ns }, { headers: { 'Cache-Control': 'no-store' } });
+  if (soDns) return NextResponse.json({ dns, ns, siteVercel }, { headers: { 'Cache-Control': 'no-store' } });
 
   const web = (Object.values(json<Record<string, Record<string, string>>>(sec.get('WEB'), {}))[0] || {}) as Record<string, string>;
   const ssl = (Object.values(json<Record<string, Record<string, string>>>(sec.get('SSL'), {}))[0] || {}) as Record<string, string>;
+  const dadosSubdominios = subdominios.map((nome, i) => {
+    const certificado = (Object.values(json<Record<string, Record<string, string>>>(sec.get(`SUBSSL${i}`), {}))[0] || {}) as Record<string, string>;
+    const dominioWeb = srv.web[conta]?.[nome] || {};
+    return {
+      nome,
+      aliases: String(dominioWeb.ALIAS || '').split(',').map((alias) => alias.trim().toLowerCase()).filter(Boolean),
+      sslAtivo: (certificado.SSL || dominioWeb.SSL || 'no').toLowerCase() === 'yes',
+      renovacaoAutomatica: (certificado.LETSENCRYPT || dominioWeb.LETSENCRYPT || 'no').toLowerCase() === 'yes',
+      temEmail: !!srv.mail[conta]?.[nome],
+      siteVercel: subdominiosVercel[i],
+      certificado: certificado.SUBJECT || certificado.NOT_AFTER
+        ? {
+            para: certificado.SUBJECT || '',
+            nomes: String(certificado.ALIASES || '').split(/[ ,]+/).filter(Boolean),
+            desde: certificado.NOT_BEFORE || '',
+            ate: certificado.NOT_AFTER || '',
+            emissor: certificado.ISSUER || '',
+          }
+        : null,
+    };
+  });
   if (verCertificado) {
     if (!w || (web.SSL || 'no').toLowerCase() !== 'yes') {
       return NextResponse.json({ erro: 'Este domínio não tem certificado SSL instalado.' }, { status: 404 });
@@ -207,8 +247,8 @@ export async function GET(req: NextRequest) {
         if (!m) return null;
         const [, data, comando] = m;
         const acoes: Record<string, string> = {
-          'v-add-letsencrypt-domain': "Pedido Let's Encrypt",
-          'v-delete-letsencrypt-domain': "Remoção Let's Encrypt",
+          'v-add-letsencrypt-domain': 'Pedido de emissão SSL',
+          'v-delete-letsencrypt-domain': 'Remoção de certificado SSL',
           'v-add-web-domain-ssl': 'Instalação de certificado',
           'v-change-web-domain-sslcert': 'Substituição de certificado',
           'v-delete-web-domain-ssl': 'Remoção de certificado',
@@ -232,6 +272,8 @@ export async function GET(req: NextRequest) {
       certificado: ssl.SUBJECT || ssl.NOT_AFTER ? { para: ssl.SUBJECT || '', nomes: (ssl.ALIASES || '').split(/[ ,]+/).filter(Boolean), desde: ssl.NOT_BEFORE || '', ate: ssl.NOT_AFTER || '', emissor: ssl.ISSUER || '' } : null,
       dns,
       ns,
+      siteVercel,
+      subdominios: dadosSubdominios,
       php: bloco(sec.get('INI') || '', MARCA_INI).map((l) => {
         const [k, ...v] = l.split('=');
         return { k: k.trim(), v: v.join('=').trim() };
