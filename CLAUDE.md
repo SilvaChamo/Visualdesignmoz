@@ -32,7 +32,7 @@ A pasta de trabalho no Mac do Silva é `visualdesign-producao` (antes `visualdes
    ramo do GitHub e volta a arrancar o servidor (pedido do Silva, 13/10/2026 — o `checkout`/`pull` simples falhava e o
    site local não actualizava). Modelo (trocar `RAMO`), corrido dentro da pasta `visualdesign-producao`:
    ```
-   pkill -9 -f "next dev --port [3]003"; lsof -ti tcp:3003 -sTCP:LISTEN | xargs kill -9 2>/dev/null; sleep 1; git stash -u -m "antes de RAMO"; git fetch origin RAMO && git checkout -B RAMO origin/RAMO && npm install && rm -rf .next && (nohup npm run dev > /tmp/visualdesign-dev.log 2>&1 &) && for i in $(seq 60); do lsof -ti tcp:3003 -sTCP:LISTEN >/dev/null && break; sleep 1; done; echo "Servidor ligado: http://localhost:3003 (mensagens do servidor em /tmp/visualdesign-dev.log)"; osascript -e 'on run argv' -e 'set u to item 1 of argv' -e 'tell application "Finder" to set ecra to bounds of window of desktop' -e 'set L to item 3 of ecra' -e 'set A to item 4 of ecra' -e 'tell application "Google Chrome"' -e 'set achou to false' -e 'repeat with w in windows' -e 'repeat with t in tabs of w' -e 'if URL of t contains "localhost:3003" then' -e 'reload t' -e 'set achou to true' -e 'end if' -e 'end repeat' -e 'end repeat' -e 'if not achou then' -e 'activate' -e 'set pc to make new window' -e 'set URL of active tab of pc to u' -e 'set bounds of pc to {0, 25, L - 430, A}' -e 'set tel to make new window' -e 'set URL of active tab of tel to u' -e 'set bounds of tel to {L - 420, 25, L, A}' -e 'end if' -e 'end tell' -e 'end run' http://localhost:3003
+   pkill -9 -f "next dev --port [3]003"; lsof -ti tcp:3003 -sTCP:LISTEN | xargs kill -9 2>/dev/null; sleep 1; git stash -u -m "antes de RAMO"; git fetch origin RAMO && git checkout -B RAMO origin/RAMO && npm install && rm -rf .next && (nohup npm run dev > /tmp/visualdesign-dev.log 2>&1 &) && for i in $(seq 60); do lsof -ti tcp:3003 -sTCP:LISTEN >/dev/null && break; sleep 1; done; echo "Servidor ligado: http://localhost:3003 (mensagens do servidor em /tmp/visualdesign-dev.log)"; [ "$(osascript -e 'set achou to false' -e 'if application "Google Chrome" is running then' -e 'tell application "Google Chrome"' -e 'repeat with w in windows' -e 'repeat with t in tabs of w' -e 'if URL of t contains "localhost:3003" then' -e 'reload t' -e 'set achou to true' -e 'end if' -e 'end repeat' -e 'end repeat' -e 'end tell' -e 'end if' -e 'return achou' 2>/dev/null)" = "true" ] || open http://localhost:3003/dev-preview-telemovel
    ```
    O fecho começa pelo `next dev` (o processo pai, `pkill -f`; o `[3]` impede o comando de se apanhar a si próprio) e
    só depois o servidor que escuta na 3003 (`-sTCP:LISTEN`, para não apanhar as ligações do navegador), à força
@@ -41,13 +41,14 @@ A pasta de trabalho no Mac do Silva é `visualdesign-producao` (antes `visualdes
    segundo plano (`nohup`, mensagens em `/tmp/visualdesign-dev.log`, ver com `tail -f /tmp/visualdesign-dev.log`), por
    isso a janela do Terminal fica livre para o comando seguinte; o comando espera que a porta 3003 abra e abre o site
    no navegador — **na aba que já estiver aberta** (recarrega as abas do Chrome com `localhost:3003`; nunca abre aba
-   nova quando já há uma — Silva, 15/10/2026: "não crie outra aba, actualiza o aberto"). **Quando não há nenhuma, abre
-   sempre as duas pré-visualizações lado a lado: uma janela de computador (o ecrã todo menos a faixa da direita) e uma
-   janela de telemóvel (420 px, à direita)** — regra estrita do Silva (15/10/2026: "a previsualização de computador e
-   mobile no navegador deve ser estritamente e rigorosamente cumprido nos comandos"); nenhum agente a pode tirar do
-   modelo nem dos comandos que manda. Para abrir logo uma página (ex.: `/pagina-em-construcao/index.html`), troca-se
-   só o endereço no fim do comando. Da primeira vez o macOS pergunta se o Terminal pode controlar o Chrome e o
-   Finder: responder "OK".
+   nova quando já há uma — Silva, 15/10/2026: "não crie outra aba, actualiza o aberto"). **Quando não há nenhuma, abre sempre a pré-visualização de computador e telemóvel
+   lado a lado numa só aba: `http://localhost:3003/dev-preview-telemovel`** (computador à esquerda, moldura de
+   telemóvel à direita, a mesma página nas duas, larguras 320/390/430 e "Seguir a navegação"; só existe com
+   `npm run dev`) — regra estrita do Silva (15/10/2026: "a previsualização de computador e mobile no navegador deve ser
+   estritamente e rigorosamente cumprido nos comandos"; "eu quero esta visualização"). Nenhum agente a pode tirar do
+   modelo, dos comandos que manda nem do projecto (`src/app/dev-preview-telemovel/`). Para abrir logo uma página
+   nas duas molduras, junta-se `?p=/caminho` ao endereço (ex.: `?p=/pagina-em-construcao/index.html`). Da primeira vez o macOS pergunta se o Terminal pode controlar o Chrome:
+   responder "OK".
    O `rm -rf .next` apaga a cache do servidor local antes de arrancar (uma cache velha depois de mudar de ramo fazia o
    site local piscar e não abrir — Silva, 14/10/2026); a primeira página demora um pouco mais a compilar.
 
