@@ -29,6 +29,8 @@ type Corpo = {
   senha?: string;
   /** mover: revendedor (ou administrador) que fica com os clientes */
   para?: string;
+  /** pacote: descer de plano mesmo que a conta já use mais do que o pacote novo deixa */
+  forcar?: boolean;
   /** tipo: admin | revenda | profissional | cliente */
   tipo?: string;
   criar?: { user: string; nome?: string; email: string; senha: string; dominio?: string; pacote: string };
@@ -109,7 +111,8 @@ export async function POST(req: NextRequest) {
     case 'pacote': {
       const p = String(corpo.pacote || '');
       if (!pacotePermitido(p)) return NextResponse.json({ erro: 'Esse pacote não existe ou não pode ser atribuído por esta conta.' }, { status: 403 });
-      for (const u of contas) await correr(u, () => hestia.changeUserPackage(u, p));
+      // forcar: descer de plano mesmo que a conta use mais do que o pacote novo deixa (o painel pergunta antes)
+      for (const u of contas) await correr(u, () => hestia.changeUserPackage(u, p, corpo.forcar === true));
       break;
     }
     case 'senha': {

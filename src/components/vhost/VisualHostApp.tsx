@@ -96,7 +96,7 @@ function searchResults(s: St, q: string): Hit[] {
   for (const lv of [s.level, ...allowed.filter((x) => x !== s.level)])
     for (const [g, items] of MENU[lv])
       for (const it of items)
-        if (hasFeatOf(s, it.feat)) all.push({ lv, g, it, path: route(lv, it.id), k: (it.t + ' ' + T(it.t) + ' ' + g + ' ' + T(g) + ' ' + it.f.join(' ')).toLowerCase() });
+        if (hasFeatOf(s, it.feat, it.id, lv)) all.push({ lv, g, it, path: route(lv, it.id), k: (it.t + ' ' + T(it.t) + ' ' + g + ' ' + T(g) + ' ' + it.f.join(' ')).toLowerCase() });
   for (const [id, g] of Object.entries(GLOBAL))
     if (g.sub) for (const x of g.sub) all.push({ lv: null, g: g.t, it: x, path: '/' + id + '/' + x.id, k: (x.t + ' ' + T(x.t) + ' ' + g.t + ' ' + x.f.join(' ')).toLowerCase() });
   const qq = q.trim().toLowerCase();
@@ -605,6 +605,16 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
 
   // ---------- Estado visto pelos ecrãs ----------
   const me = meOf(st);
+  // Acessos por plano (Admin › Acessos por plano): o que cada plano esconde na barra lateral dos clientes
+  useEffect(() => {
+    if (!me) return;
+    fetch('/api/vhost/acessos', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j: { acessos?: Record<string, string[]> } | null) => {
+        if (j?.acessos) commit({ ...ref.current, acessos: j.acessos });
+      })
+      .catch(() => {});
+  }, [me, commit]);
   // ao abrir o painel (ou quando a conta fica conhecida): o domínio escolhido da última vez nesta conta
   useEffect(() => {
     if (!me || ref.current.dominio) return;
@@ -662,7 +672,7 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
     me,
     a,
     allowed,
-    hasFeat: (f) => hasFeatOf(st, f),
+    hasFeat: (f, id) => hasFeatOf(st, f, id),
     nav,
     go,
     setLevel,
@@ -763,6 +773,7 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
       publicarTema();
       toast('Cantos atualizados');
     },
+    setAcessos: (acessos) => commit({ ...ref.current, acessos }),
     setDominio: (d, aviso = true) => {
       guardarDominio(meOf(ref.current), d);
       commit({ ...ref.current, dominio: d });
@@ -1131,7 +1142,7 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
                   MENU[level]
                     .filter(([g]) => g !== 'Início')
                     .map(([g, items]) => {
-                      const vis = items.filter((it) => vh.hasFeat(it.feat));
+                      const vis = items.filter((it) => vh.hasFeat(it.feat, it.id));
                       if (!vis.length) return null;
                       const k = level + '/' + g;
                       return (

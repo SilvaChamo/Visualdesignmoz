@@ -7,7 +7,7 @@ import { useVH, type VH } from '../context';
 import type { ScreenFn } from '../screens';
 import { ChangeRoleModal } from '../modals';
 import { ROLES } from '../generated/data';
-import { noServidor } from './acoes';
+import { noServidor, noServidorDetalhe } from './acoes';
 import { isUser, pacoteDe, type St } from '../state';
 import { RC, RI } from '../ui';
 import { correrPassagem, lerPrevisao, type PrevisaoPassagem } from './passar';
@@ -161,6 +161,44 @@ function MensagemModal({ users }: { users: string[] }) {
   );
 }
 
+/** Muda o pacote no servidor. Se o pacote novo for mais pequeno do que o que a conta já usa, pergunta se é para descer
+ *  de plano mesmo assim (um cliente pode pedir downgrade — Silva, 15/10/2026). */
+async function mudarPacote(vh: ReturnType<typeof useVH>, contas: string[], pacote: string, forcar = false): Promise<string[]> {
+  const { feitas, falhas } = await noServidorDetalhe(vh, { acao: 'pacote', contas, pacote, forcar }, (n) => n + ' conta(s) passaram ao pacote ' + pacote);
+  const maiores = falhas.filter((f) => f.erro.includes('mais pequeno')).map((f) => f.conta);
+  if (maiores.length && !forcar) vh.openM(<DescerPlanoModal contas={maiores} pacote={pacote} />);
+  return feitas;
+}
+
+function DescerPlanoModal({ contas, pacote }: { contas: string[]; pacote: string }) {
+  const vh = useVH();
+  const { t, closeM } = vh;
+  return (
+    <>
+      <h3>{t('Descer de plano?')}</h3>
+      <p style={{ color: 'var(--muted)', marginBottom: 12, lineHeight: 1.5 }}>
+        {t('O pacote {0} é mais pequeno do que o que estas contas já usam:').replace('{0}', pacote)} <b>{contas.join(', ')}</b>.{' '}
+        {t('Ao descer, mantêm tudo o que já têm (sites, e-mails, bases de dados), mas não podem criar mais até ficarem dentro dos limites do pacote.')}
+      </p>
+      <div className="mfoot">
+        <button className="btn g" onClick={closeM}>
+          {t('Cancelar')}
+        </button>
+        <button
+          className="btn r"
+          onClick={() => {
+            closeM();
+            void mudarPacote(vh, contas, pacote, true);
+          }}
+        >
+          <i className="fa-solid fa-arrow-down" />
+          {t('Descer mesmo assim')}
+        </button>
+      </div>
+    </>
+  );
+}
+
 function MudarPacoteModal({ users }: { users: string[] }) {
   const vh = useVH();
   const { s, t, closeM } = vh;
@@ -186,7 +224,7 @@ function MudarPacoteModal({ users }: { users: string[] }) {
           className="btn r"
           onClick={() => {
             closeM();
-            noServidor(vh, { acao: 'pacote', contas: users, pacote: p }, (n) => n + ' conta(s) passaram ao pacote ' + p);
+            void mudarPacote(vh, users, p);
           }}
         >
           {t('Guardar')}
@@ -319,8 +357,9 @@ function ListaContas({ kind }: { kind: Kind }) {
     { t: 'Suspender', fa: 'fa-pause', run: (k) => estado(k, 'off') },
     { t: 'Reativar', fa: 'fa-play', run: (k) => estado(k, 'ok') },
   ];
+  // Mudar pacote também na lista de todas as contas (antes só em "Os meus clientes")
+  if (kind === 'meus' || kind === 'todos') bulk.push({ t: 'Mudar pacote', fa: 'fa-box', run: (k) => openM(<MudarPacoteModal users={k} />) });
   if (kind === 'meus') {
-    bulk.push({ t: 'Mudar pacote', fa: 'fa-box', run: (k) => openM(<MudarPacoteModal users={k} />) });
     bulk.push({ t: 'Mudar IP', fa: 'fa-ethernet', run: (k) => openM(<MudarIpModal users={k} />) });
   }
   bulk.push({ t: 'Apagar', fa: 'fa-trash', run: apagar });
@@ -657,7 +696,7 @@ function ContaModificar({ u }: { u: string }) {
   const ver = base(s) + '/' + enc(u);
   // O pacote muda no servidor (antes só se mudava no painel, que recusava a alteração: "não aceita" — Silva, 15/10/2026)
   const aplicar = async () => {
-    const feitas = await noServidor(vh, { acao: 'pacote', contas: [u], pacote: pk }, () => 'Pacote ' + pk + ' aplicado a ' + u);
+    const feitas = await mudarPacote(vh, [u], pk);
     if (feitas.includes(u)) setP(structuredClone(revenda ? s.db.rpkgs[pk] : s.db.pkgs[pk]));
   };
   const gravar = () => {

@@ -29,6 +29,8 @@ export interface St {
   lidoEm: string;
   /** domínio escolhido no seletor da faixa de navegação ('' = o primeiro da conta) */
   dominio: string;
+  /** Acessos por plano (Admin › Acessos por plano): por pacote, as páginas da Gestão escondidas aos clientes */
+  acessos: Record<string, string[]>;
   /** versões PHP instaladas no servidor */
   php: string[];
   /** quem fez login */
@@ -85,6 +87,7 @@ export function initialState(path: string): St {
       dns: [],
       lidoEm: '',
       dominio: '',
+      acessos: {},
       php: [],
       login: '',
       pessoa: null,
@@ -148,7 +151,15 @@ export const pacoteDe = (s: St, u: string) => {
   // sem pacote conhecido ficam com tudo
   return s.db.custom[u] || s.db.pkgs[a.hpkg || a.pkg] || (a.role === 'admin' || a.role === 'revenda' ? pacoteCompleto() : undefined);
 };
-export const hasFeatOf = (s: St, f?: string) => {
+/** A página `id` da Gestão está escondida pelo plano da conta que se vê (Admin › Acessos por plano)? Só vale para
+ *  contas de clientes (cliente/profissional): administradores e revendedores vêem sempre tudo. */
+export const ocultoNoPlano = (s: St, id: string, lv: Level = s.level) => {
+  if (lv !== 'utilizador') return false;
+  const a = acctOf(s);
+  return isUser(a.role) && !!s.acessos?.[a.pkg]?.includes(id);
+};
+export const hasFeatOf = (s: St, f?: string, id?: string, lv: Level = s.level) => {
+  if (id && ocultoNoPlano(s, id, lv)) return false;
   if (!f) return true;
   const p = pacoteDe(s, meOf(s));
   return p ? !!featsEfetivas(p)[f] : true;
@@ -209,7 +220,7 @@ export function fromPath(s: St, path: string): St {
       else {
         // abre-se só a categoria da página onde se está; no painel inicial fica tudo fechado (abre-se ao carregar)
         n.open = it.group !== 'Início' ? { [lv + '/' + it.group]: true } : {};
-        if (!hasFeatOf(s, it.feat)) n.deny = { type: 'pacote', it };
+        if (!hasFeatOf(s, it.feat, it.id, lv)) n.deny = { type: 'pacote', it };
       }
     }
   } else {

@@ -107,6 +107,9 @@ export const MENU: Record<Level, MenuGroup[]> = {
    {"id":"redis","fa":"fa-layer-group","t":"Redis","c":"c7","da":"/redis","f":["Ativar Redis por conta"],"hx":{"s":"extra","cmd":"","n":"Instalar o Redis no servidor"},"opt":true},
    {"id":"nginx-unit","fa":"fa-cube","t":"Nginx Unit","c":"c4","da":"/unit","f":["Aplicações Node/Python/Go"],"hx":{"s":"extra","cmd":"","n":"Instalar o Nginx Unit no servidor"},"opt":true},
    {"id":"netdata","fa":"fa-chart-area","t":"Métricas Netdata","c":"c6","da":"/netdata","f":["Métricas do servidor em tempo real"],"hx":{"s":"extra","cmd":"","n":"Instalar o Netdata no servidor"},"opt":true}
+  ]],
+  ["Configurações de acesso", [
+   {"id":"acessos","fa":"fa-user-shield","t":"Acessos por plano","c":"c1","da":"","f":["O que cada plano vê na barra lateral","Esconder páginas aos clientes de um plano"],"hx":{"s":"app","cmd":"","n":"Guardado pelo VisualHost no servidor"}}
   ]]
  ],
  revenda: [
@@ -257,6 +260,7 @@ export const DESC: Record<string, [string, string]> = {
  "admin/software": ["Instalar e escolher as versões de PHP disponíveis","Install and choose the available PHP versions"],
  "admin/pacotes-sistema": ["Atualizar o software do sistema","Update the system software"],
  "admin/backups": ["Agendar e restaurar cópias de segurança das contas","Schedule and restore account backups"],
+ "admin/acessos": ["O que os clientes de cada plano vêem na barra lateral","What each plan's customers see in the sidebar"],
  "admin/forca-bruta": ["Ver tentativas de acesso falhadas e bloquear IPs","See failed login attempts and block IPs"],
  "admin/firewall": ["Gerir as regras de entrada e de saída","Manage inbound and outbound rules"],
  "admin/processos": ["Ver os processos que mais consomem CPU e memória","See the processes using the most CPU and memory"],

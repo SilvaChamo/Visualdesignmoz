@@ -15,7 +15,8 @@ export interface VH {
   me: string;
   a: Account;
   allowed: Level[];
-  hasFeat: (f?: string) => boolean;
+  /** com `id` (página do menu) também conta o que o plano esconde (Admin › Acessos por plano) */
+  hasFeat: (f?: string, id?: string) => boolean;
   nav: (path: string) => void;
   go: (id: string) => void;
   setLevel: (l: Level) => void;
@@ -43,6 +44,8 @@ export interface VH {
   setRadius: (r: string) => void;
   /** escolhe o domínio no seletor da faixa de navegação */
   setDominio: (d: string, aviso?: boolean) => void;
+  /** Admin › Acessos por plano: depois de gravar no servidor, o painel passa logo a usar os novos */
+  setAcessos: (a: Record<string, string[]>) => void;
   setBrand: (b: { name: string; logo: string }) => void;
   openSearch: () => void;
   logout: () => void;
