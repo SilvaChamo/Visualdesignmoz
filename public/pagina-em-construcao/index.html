@@ -6,80 +6,52 @@
 <meta name="robots" content="noindex">
 <title>Brevemente</title>
 <style>
+/* O mesmo desenho da página 404 do site, no tema claro (grelha, brilho vermelho, cartão, botões, logótipo por baixo) */
 @font-face{font-family:'Exo 2';src:url(assets/exo2-variable.woff2) format('woff2');font-weight:100 900;font-style:normal;font-display:swap}
 *{box-sizing:border-box;margin:0;padding:0}
-body{min-height:100vh;font-family:'Exo 2',sans-serif;color:#18181b;background:#fff;-webkit-font-smoothing:antialiased;
-  display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
-/* foto: metade do ecrã, como no login (a mesma medida, os mesmos recortes) */
-.foto{position:sticky;top:0;height:100vh;overflow:hidden;background:#09090b}
-.foto img.fundo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-.foto::before{content:"";position:absolute;inset:0;z-index:1;background:linear-gradient(to top,rgba(0,0,0,.45),rgba(0,0,0,.05) 60%)}
-.aba{position:absolute;right:0;top:50px;z-index:3;display:flex;align-items:center;height:clamp(56px,5vw,72px);padding:0 32px 0 16px;border-radius:10px 0 0 10px;background:#fff}
-.aba img{width:clamp(184px,16.7vw,240px);height:auto;display:block}
-.faixa{position:absolute;right:-1px;top:calc(clamp(56px,5vw,72px) + 90px);bottom:15vh;width:17px;z-index:3;background:#fff;clip-path:polygon(100% 0,100% 100%,0 calc(100% - 16px),0 16px)}
-.lado{position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;padding:48px clamp(24px,4vw,64px)}
-/* cartão só um pouco maior do que o do formulário de login (+80 px) */
-.card{position:relative;z-index:1;width:100%;max-width:calc(clamp(300px,23.6vw,360px) + clamp(44px,3.9vw,60px) + 2px + 80px);padding:clamp(26px,2.3vw,34px) clamp(24px,2.2vw,32px) clamp(22px,2vw,28px);
-  text-align:center;background:#fff;border:1px solid #e4e4e7;border-radius:10px;box-shadow:0 0 36px -10px rgba(24,24,27,.18)}
-.tag{display:inline-flex;align-items:center;gap:8px;padding:5px 12px;border-radius:999px;background:rgba(227,6,19,.07);box-shadow:inset 0 0 0 1px rgba(227,6,19,.18);font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:#c1121f}
-.ponto{width:6px;height:6px;border-radius:50%;background:#e30613;animation:pulsa 1.8s ease-out infinite}
-@keyframes pulsa{0%{box-shadow:0 0 0 0 rgba(227,6,19,.55)}80%,100%{box-shadow:0 0 0 8px rgba(227,6,19,0)}}
+body{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;position:relative;overflow-x:hidden;
+  font-family:'Exo 2',sans-serif;color:#18181b;background:#fff;-webkit-font-smoothing:antialiased;text-align:center}
+.brilho{position:fixed;pointer-events:none;opacity:.4}
+.brilho.um{top:-20%;left:-20%;width:80%;height:80%;background:radial-gradient(ellipse at top left,rgba(180,0,0,.3) 0%,rgba(120,0,0,.15) 50%,transparent 80%);filter:blur(100px)}
+.brilho.dois{bottom:-10%;right:-10%;width:60%;height:60%;background:radial-gradient(ellipse at bottom right,rgba(80,0,0,.2) 0%,transparent 70%);filter:blur(80px)}
+.grelha{position:fixed;inset:0;pointer-events:none;opacity:.06;background-image:linear-gradient(#18181b 1px,transparent 1px),linear-gradient(90deg,#18181b 1px,transparent 1px);background-size:40px 40px}
+.linha-fundo{position:fixed;left:0;right:0;bottom:0;height:2px;opacity:.5;background:linear-gradient(90deg,transparent,#cc0000,transparent)}
+main{position:relative;z-index:1;width:100%;max-width:576px;display:flex;flex-direction:column;align-items:center}
+.card{width:100%;padding:40px;border-radius:10px;border:1px solid #e4e4e7;background:rgba(255,255,255,.8);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
+  box-shadow:0 24px 60px -28px rgba(24,24,27,.3);margin-bottom:40px}
+.dominio{display:inline-flex;align-items:center;gap:8px;margin-bottom:14px;font-size:13px;font-weight:600;letter-spacing:.04em;color:#b91c1c;overflow-wrap:anywhere}
+.ponto{width:7px;height:7px;flex:none;border-radius:50%;background:#dc2626;animation:pulsa 1.8s ease-out infinite}
+@keyframes pulsa{0%{box-shadow:0 0 0 0 rgba(220,38,38,.55)}80%,100%{box-shadow:0 0 0 8px rgba(220,38,38,0)}}
+h1{font-size:24px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;margin-bottom:12px}
+p{font-size:16px;line-height:1.625;color:#71717a;margin-bottom:28px}
+.botoes{display:flex;gap:12px;justify-content:center}
+.botoes a{display:inline-flex;align-items:center;justify-content:center;height:40px;padding:0 24px;border-radius:8px;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;text-decoration:none;transition:background-color .2s}
+.principal{background:#b91c1c;color:#fff}.principal:hover{background:#dc2626}
+.secundario{background:#fff;color:#27272a;border:1px solid #d4d4d8}.secundario:hover{background:#fafafa}
+.logo{opacity:.7;transition:opacity .5s}.logo:hover{opacity:1}
+.logo img{height:48px;width:auto;mix-blend-mode:multiply;display:block}
+@media (max-width:640px){.card{padding:32px 20px}h1{font-size:20px}p{font-size:14px}.botoes{flex-direction:column}}
 @media (prefers-reduced-motion:reduce){.ponto{animation:none}}
-h1{margin-top:16px;font-size:clamp(32px,3vw,40px);font-weight:700;letter-spacing:.08em;text-transform:uppercase;line-height:1}
-.linha{width:40px;height:2px;margin:16px auto 0;background:linear-gradient(90deg,transparent,#e30613,transparent)}
-.chega{margin-top:16px;font-size:15px;color:#3f3f46;line-height:1.45}
-.chega b{font-weight:600;color:#e30613}
-.doce{margin-top:8px;font-size:13.5px;line-height:1.65;color:#71717a;text-wrap:pretty}
-footer{margin-top:24px;padding-top:16px;border-top:1px solid #f0f0f2;display:flex;flex-wrap:wrap;justify-content:center;gap:4px 16px;font-size:12px;color:#71717a}
-footer a{color:#3f3f46;text-decoration:none;border-bottom:1px solid #d4d4d8}
-footer a:hover{color:#e30613;border-color:#e30613}
-.logo-m{display:none}
-/* partículas no fundo branco, por baixo do cartão: pontos pequenos a subir devagar, quase transparentes */
-#particulas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;
-  -webkit-mask-image:linear-gradient(to top,#000 0%,#000 30%,transparent 72%);mask-image:linear-gradient(to top,#000 0%,#000 30%,transparent 72%)}
-@media (max-width:1023px){body{grid-template-columns:1fr}.foto{position:relative;height:240px}.aba,.faixa{display:none}
-  .lado{padding:0 16px 32px;margin-top:-48px;position:relative;z-index:2}.card{box-shadow:0 0 60px -18px rgba(0,0,0,.6)}
-  .logo-m{display:block;margin-bottom:18px}.logo-m img{height:40px;width:auto}}
 </style>
 </head>
 <body>
-  <aside class="foto">
-    <img class="fundo" src="assets/under-construction.webp" alt="">
-    <a class="aba" href="https://visualdesignmoz.com"><img src="assets/logo-entrada.jpg" alt="VisualDesign"></a>
-    <span class="faixa" aria-hidden="true"></span>
-  </aside>
-  <section class="lado">
-    <canvas id="particulas" aria-hidden="true"></canvas>
-    <main class="card">
-      <a class="logo-m" href="https://visualdesignmoz.com"><img src="assets/logo-entrada.jpg" alt="VisualDesign"></a>
-      <span class="tag"><span class="ponto"></span>Em construção</span>
+  <div class="brilho um"></div><div class="brilho dois"></div><div class="grelha"></div>
+  <main>
+    <div class="card">
+      <div class="dominio"><span class="ponto"></span><span id="dominio">Em construção</span></div>
       <h1>Brevemente</h1>
-      <div class="linha"></div>
-      <p class="chega">Um novo site está a chegar a <b id="dominio">este endereço</b></p>
-      <p class="doce">Estamos a dar os últimos retoques para lhe mostrar algo à altura. Fica a promessa: vai valer a pena.</p>
-      <footer>
-        <span>Alojado por <a href="https://visualdesignmoz.com">VisualDesign</a></span>
-        <span>É o responsável por este site? <a href="https://visualdesignmoz.com/login">Entrar no painel</a></span>
-      </footer>
-    </main>
-  </section>
+      <p>Estamos a dar os últimos retoques para lhe mostrar algo à altura. Fica a promessa: vai valer a pena.</p>
+      <div class="botoes">
+        <a class="principal" href="https://visualdesignmoz.com">Conhecer a VisualDesign</a>
+        <a class="secundario" href="https://visualdesignmoz.com/login">Entrar no painel</a>
+      </div>
+    </div>
+    <a class="logo" href="https://visualdesignmoz.com" title="VisualDesign"><img src="assets/logo-entrada.jpg" alt="VisualDesign"></a>
+  </main>
+  <div class="linha-fundo"></div>
 <script>
 // o domínio vem do endereço aberto (sem o "www.")
 (function(){var h=location.hostname.replace(/^www\./,'');if(h)document.getElementById('dominio').textContent=h})();
-// partículas: vermelhas e cinzentas, pequenas, a subir devagar; paradas se o visitante pediu menos movimento
-(function(){
-  var c=document.getElementById('particulas'),x=c.getContext('2d'),P=[],W,H,R=window.devicePixelRatio||1;
-  var quieto=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
-  function medir(){W=c.clientWidth;H=c.clientHeight;c.width=W*R;c.height=H*R;x.setTransform(R,0,0,R,0,0)}
-  function nova(y){return{x:Math.random()*W,y:y==null?Math.random()*H:y,r:1+Math.random()*2.6,v:.12+Math.random()*.35,d:(Math.random()-.5)*.25,
-    a:.2+Math.random()*.4,cor:Math.random()<.45?'227,6,19':'113,113,122'}}
-  function desenhar(){x.clearRect(0,0,W,H);for(var i=0;i<P.length;i++){var p=P[i];
-    if(!quieto){p.y-=p.v;p.x+=p.d;if(p.y<-6){P[i]=nova(H+6);continue}}
-    x.beginPath();x.arc(p.x,p.y,p.r,0,6.283);x.fillStyle='rgba('+p.cor+','+p.a+')';x.fill()}
-    if(!quieto)requestAnimationFrame(desenhar)}
-  medir();for(var i=0;i<Math.round(W*H/6000);i++)P.push(nova());
-  addEventListener('resize',medir);desenhar();
-})();
 </script>
 </body>
 </html>
