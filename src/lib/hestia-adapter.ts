@@ -22,15 +22,39 @@ function isAlreadyExistsError(error?: string): boolean {
 export async function issueLetsEncrypt(
   username: string,
   domain: string,
+  /** apontadores a incluir no certificado; omitido = o que o Hestia fizer por defeito */
+  aliases?: string[],
 ): Promise<{ ok: boolean; error?: string; output?: string }> {
-  const result = await hestiaCall('v-add-letsencrypt-domain', [username, domain]);
+  const result = await hestiaCall('v-add-letsencrypt-domain', [username, domain, ...(aliases?.length ? [aliases.join(',')] : [])]);
+  return finishLetsEncrypt(result);
+}
+
+/** Emite o certificado de e-mail do Hestia (mail.<domínio> e o alias global de webmail). */
+export async function issueMailLetsEncrypt(
+  username: string,
+  domain: string,
+): Promise<{ ok: boolean; error?: string; output?: string }> {
+  const result = await hestiaCall('v-add-letsencrypt-domain', [username, domain, '', 'yes']);
+  return finishLetsEncrypt(result);
+}
+
+async function finishLetsEncrypt(
+  result: Awaited<ReturnType<typeof hestiaCall>>,
+): Promise<{ ok: boolean; error?: string; output?: string }> {
   if (!result.ok && !isAlreadyExistsError(result.error)) {
     return { ok: false, error: result.error };
   }
 
-  const reload = await executeServerCommand(
-    'systemctl reload nginx 2>&1 || sudo systemctl reload nginx 2>&1 || true',
-  ).catch((e) => (e instanceof Error ? e.message : 'reload nginx falhou'));
+  // Pela API do Hestia (corre como root): no Contabo o site não é root, o `systemctl reload` falhava em silêncio e o
+  // nginx só apanhava o certificado novo minutos depois (community.oshercollective.com, 14/10/2026).
+  const proxy = await hestiaCall('v-restart-proxy', []).catch(() => ({ ok: false, error: 'sem resposta' }));
+  const web = await hestiaCall('v-restart-web', []).catch(() => ({ ok: false, error: 'sem resposta' }));
+  let reload = proxy.ok && web.ok ? 'ok' : '';
+  if (!reload) {
+    reload = await executeServerCommand(
+      'systemctl reload nginx 2>&1 || sudo systemctl reload nginx 2>&1 || true',
+    ).catch((e) => (e instanceof Error ? e.message : 'reload nginx falhou'));
+  }
 
   return { ok: true, output: `Certificado SSL tratado. Reload nginx: ${reload || 'ok'}` };
 }

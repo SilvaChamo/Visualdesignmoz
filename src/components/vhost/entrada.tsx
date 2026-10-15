@@ -199,10 +199,10 @@ function Roda({ tamanho, traco, grande }: { tamanho: number; traco: number; gran
 }
 
 /** Depois de entrar, enquanto o painel lê os dados: página lisa com a roda a girar (como no DA), na cor do tema */
-export function EsperaEntrada() {
+export function EsperaEntrada({ roda = true }: { roda?: boolean }) {
   return (
     <div className="ent-espera" role="status" aria-label="A abrir o painel">
-      <Roda tamanho={97} traco={10} grande />
+      {roda && <Roda tamanho={97} traco={10} grande />}
     </div>
   );
 }

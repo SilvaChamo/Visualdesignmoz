@@ -304,7 +304,21 @@ export function ThemeCustomizerView() {
       {sub0 === 'cores' && (
         <div>
           {/* Sub-separadores de Cores */}
-          <div className="lvl" style={{ marginBottom: 24, background: 'var(--card)', borderRadius: 'var(--r)', border: '1px solid var(--line)' }}>
+          {/* no telemóvel os separadores passam a uma caixa de escolha (regra do painel); no computador ficam os botões */}
+          <label className="ptabs-sel lvl-sel">
+            <select
+              value={sub1}
+              onChange={(e) => nav(basePath + '/cores' + (e.target.value === 'all' ? '' : '/' + e.target.value))}
+              aria-label={t('Separador')}
+            >
+              <option value="all">{t('Tudo')}</option>
+              <option value="presets">{t('Temas das Marcas')}</option>
+              <option value="editor">{t('Editor V-Host Colors')}</option>
+              <option value="custom_hex">{t('Hex Personalizado')}</option>
+            </select>
+            <i className="fa-solid fa-chevron-down" />
+          </label>
+          <div className="lvl lvl-pc" style={{ marginBottom: 24, background: 'var(--card)', borderRadius: 'var(--r)', border: '1px solid var(--line)' }}>
             <button className={sub1 === 'all' ? 'on' : ''} onClick={() => nav(basePath + '/cores')}>
               Tudo
             </button>
@@ -956,6 +970,7 @@ export function ThemeCustomizerView() {
                   placeholder="#E5202E"
                   style={{
                     flex: 1,
+                    minWidth: 0, // encolhe no telemóvel (antes empurrava o "Aplicar" para fora do ecrã)
                     height: 38,
                     border: '1px solid var(--line)',
                     borderRadius: 'var(--r)',

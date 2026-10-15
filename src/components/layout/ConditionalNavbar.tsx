@@ -11,8 +11,9 @@ import { Header } from './Header'
 export function ConditionalNavbar() {
   const pathname = usePathname()
 
-  // Routes that should NOT show the Header
-  const excludedRoutes = ['/dashboard', '/cliente', '/auth', '/login', '/revendedor', '/guest', '/encomendas', '/contabilidade', '/vhost', '/host/', '/host:']
+  // Routes that should NOT show the Header. /dev-preview…: páginas locais de pré-visualização do painel — com o
+  // cabeçalho do site por cima, a barra do painel no telemóvel ficava tapada (sem o símbolo e o título; 15/10/2026)
+  const excludedRoutes = ['/dashboard', '/cliente', '/auth', '/login', '/revendedor', '/guest', '/encomendas', '/contabilidade', '/vhost', '/host/', '/host:', '/dev-preview']
 
   const isExcluded = excludedRoutes.some(route => pathname.startsWith(route))
   if (isExcluded) return null

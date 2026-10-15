@@ -2,7 +2,7 @@
 
 // Painel VisualHost — versão React da maquete aprovada (VisualHost/maquete-visualhost.html).
 // Mesma estrutura de HTML e mesmas classes, para o CSS da maquete (generated/maquete.css) se aplicar tal e qual.
-import { Component, Fragment, useCallback, useEffect, useMemo, useReducer, useRef, useState, useSyncExternalStore, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
+import { Component, Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState, useSyncExternalStore, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import { BarraPagina, FaixaAbas, PesquisaPagina, VHContext, type ItemPesquisa, type VH } from './context';
 import { GLOBAL, LEVELS, MENU, ROLES } from './generated/data';
@@ -45,7 +45,10 @@ import {
   type St,
 } from './state';
 import { Avatar, ImpBanner, RouteFoot, SwitcherBar } from './ui';
+import { useBotoesTelemovel } from './botoes-telemovel';
 import type { Account, Level, MenuItem } from './types';
+
+const useIsomorphicLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
 // O mesmo ecrã com o endereço do browser (/host:2026/…) ou com o da rota no servidor (/host/…, por causa da
 // reescrita em src/proxy.ts): os dois dão o mesmo caminho interno, sem diferenças entre servidor e browser
@@ -323,7 +326,8 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
   const [aEntrar, setAEntrar] = useState(false);
   const [semSessao, setSemSessao] = useState(!temSessao);
   const [modoTema, setModoTema] = useState<ModoTema>('light');
-  useEffect(() => {
+  useBotoesTelemovel();
+  useIsomorphicLayoutEffect(() => {
     try {
       const tm = localStorage.getItem('visualhost_theme');
       setModoTema(tm === 'dark' ? 'dark' : tm === 'auto' ? 'auto' : 'light');
@@ -335,6 +339,7 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
   ref.current = st;
 
   const [modal, setModal] = useState<ReactNode>(null);
+  const [gaveta, setGaveta] = useState(false);
   const [toastMsg, setToastMsg] = useState({ text: '', on: false });
   const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [pop, setPop] = useState<Pop>(null);
@@ -455,7 +460,7 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
 
   // Aparência guardada no navegador (tema claro/escuro, separador do painel inicial, cores, cantos e marca);
   // endereço sem ecrã → primeiro painel da conta
-  useEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     commit(comPreferencias(ref.current));
     pushUrl(ref.current.path, true);
     // cores do site escolhidas pelo administrador: valem aqui também, salvo se esta pessoa escolheu outras no painel
@@ -938,7 +943,9 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
   const logo = st.brand.logo || LOGO;
   const marca = st.brand.name.trim() || 'VisualHost';
 
-  // Enquanto os dados do servidor não chegam: a página branca com a roda (como no DA), sem esqueleto — o painel aparece
+  // Enquanto os dados do servidor não chegam: a página branca, sem esqueleto — o painel aparece. A roda (como no DA) só
+  // para quem acabou de entrar pelo login do próprio painel; pelo site, ao recarregar ou ao abrir o endereço, nunca
+  // (Silva, 15/10/2026: "não quero spinner dentro do painel, somente na entrada para o painel via directo")
   // já com o menu. Sem sessão: a página de entrada. Sem acesso / servidor indisponível: aviso com o que fazer a seguir.
   if (st.carga !== 'ok') {
     const er = st.erro;
@@ -946,7 +953,7 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
     const entrada = er?.codigo === 401 || (!er && !aEntrar && semSessao);
     if (!er && !entrada) return (
       <div className="vh" data-theme={st.theme} style={themeStyles as React.CSSProperties} lang="pt-PT" suppressHydrationWarning>
-        <EsperaEntrada />
+        <EsperaEntrada roda={aEntrar} />
       </div>
     );
     if (entrada)
@@ -1184,12 +1191,13 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
                     <i className="fa-solid fa-magnifying-glass" />
                     {t('Busca')}
                   </button>
-                  {/* Sair fica na barra compacta, ao lado do avatar; no telemóvel (sem barra compacta) fica só o ícone aqui */}
-                  <button className="btn g iconbtn only-m" onClick={vh.logout} title={t('Sair')} aria-label={t('Sair')}>
-                    <i className="fa-solid fa-right-from-bracket fa-flip-horizontal" />
-                  </button>
+                  {/* Sair fica na barra compacta, ao lado do avatar; no telemóvel está no menu "Mais" (Silva, 15/10/2026) */}
                   <button className="btn g iconbtn" onClick={vh.toggleTheme} title={t('Tema claro/escuro')}>
                     <i className={'fa-solid ' + (st.theme === 'dark' ? 'fa-sun' : 'fa-moon')} />
+                  </button>
+                  {/* telemóvel: o menu deslizante (do lado direito), do tamanho dos outros botões (Silva, 15/10/2026) */}
+                  <button className="btn g iconbtn only-m" onClick={() => setGaveta(true)} title={t('Menu')} aria-label={t('Menu')}>
+                    <i className="fa-solid fa-bars" />
                   </button>
                 </span>
               </div>
@@ -1229,6 +1237,13 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
             </a>
           ))}
         </nav>
+
+        {/* menu deslizante do ☰ (telemóvel): o mesmo conteúdo do "Mais" */}
+        <div className={'gaveta-bg' + (gaveta ? ' on' : '')} onClick={(e) => e.target === e.currentTarget && setGaveta(false)}>
+          <aside className="gaveta" role="dialog" aria-label={t('Menu')}>
+            {gaveta && <MoreMenuModal fechar={() => setGaveta(false)} />}
+          </aside>
+        </div>
 
         <div className={'modal-bg' + (modal ? ' on' : '')} id="mbg" onClick={(e) => e.target === e.currentTarget && closeM()}>
           <div className="modal" id="modal" ref={modalRef}>

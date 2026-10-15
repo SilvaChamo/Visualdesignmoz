@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { X509Certificate } from 'node:crypto';
 import { Resolver } from 'node:dns/promises';
 import { requirePanelBootstrapAccess } from '@/lib/panel-api-auth';
 import { executeServerCommand } from '@/lib/server-ssh-exec';
@@ -75,6 +76,21 @@ async function nameservers(zona: string): Promise<string[]> {
   }
 }
 
+async function alojamentoVercelPublico(dominio: string): Promise<boolean | null> {
+  const resolver = new Resolver({ timeout: 2500, tries: 1 });
+  resolver.setServers(['1.1.1.1', '8.8.8.8']);
+  const nomes = [dominio, `www.${dominio}`];
+  const respostas = await Promise.all(
+    nomes.map((nome) => Promise.allSettled([resolver.resolveCname(nome), resolver.resolve4(nome)])),
+  );
+  const valores = respostas.flatMap((resposta) => resposta.flatMap((resultado) => resultado.status === 'fulfilled' ? resultado.value : []));
+  if (valores.some((valor) => typeof valor === 'string' && valor.toLowerCase().includes('vercel'))) return true;
+  if (
+    valores.some((valor) => typeof valor === 'string' && /^(76\.76\.21\.|66\.33\.60\.)/.test(valor))
+  ) return true;
+  return respostas.some((resposta) => resposta.some((resultado) => resultado.status === 'fulfilled')) ? false : null;
+}
+
 type DnsDominio = { fonte: 'hestia' | 'cloudflare' | 'nenhuma'; zona: string; registos: { id: string; nome: string; tipo: string; valor: string; ttl: number; prio?: string }[] };
 
 /** Registos da zona na Cloudflare (quando a zona não está no Hestia) */
@@ -111,13 +127,27 @@ const bloco = (txt: string, marca: string[]) => {
   return i >= 0 && j > i ? txt.slice(i + marca[0].length, j).split('\n').map((x) => x.trim()).filter(Boolean) : [];
 };
 
+// Qualquer falha inesperada volta com o motivo (antes o Next devolvia uma página de erro e o painel só mostrava
+// "Erro a ler o servidor", sem se saber porquê — Silva, 15/10/2026)
 export async function GET(req: NextRequest) {
+  try {
+    return await lerDominio(req);
+  } catch (e) {
+    console.error('[vhost/dominio GET]', e);
+    const msg = e instanceof Error ? e.message : String(e);
+    return NextResponse.json({ erro: 'Não foi possível ler o domínio no servidor: ' + msg.slice(0, 200) }, { status: 500 });
+  }
+}
+
+async function lerDominio(req: NextRequest) {
   const r = await sessao();
   if ('erro' in r) return r.erro;
   const conta = req.nextUrl.searchParams.get('conta') || '';
   const d = (req.nextUrl.searchParams.get('d') || '').toLowerCase();
   // ?so=dns: a página de DNS só precisa dos registos e dos nameservers
   const soDns = req.nextUrl.searchParams.get('so') === 'dns';
+  const verCertificado = req.nextUrl.searchParams.get('certificado') === '1';
+  const verHistoricoSsl = req.nextUrl.searchParams.get('historicoSsl') === '1';
   const srv = await lerServidor();
   const e = await verificar(r.s, conta, d, srv);
   if (e) return NextResponse.json({ erro: e }, { status: 403 });
@@ -127,18 +157,22 @@ export async function GET(req: NextRequest) {
   const temZona = !!srv.dns[conta]?.[d];
   const H = '/usr/local/hestia/bin';
   const site = w && !soDns;
+  const subdominios = w && !soDns ? Object.keys(srv.web[conta] || {}).filter((nome) => DOM.test(nome) && nome.endsWith('.' + d)) : [];
   const linhas = [
     site ? `echo @@WEB; ${H}/v-list-web-domain ${conta} ${d} json` : '',
     site ? `echo @@SSL; ${H}/v-list-web-domain-ssl ${conta} ${d} json 2>/dev/null` : '',
     site ? `echo @@INI; cat ${q(raiz + '/.user.ini')} 2>/dev/null` : '',
     site ? `echo @@HT; cat ${q(raiz + '/.htaccess')} 2>/dev/null` : '',
     temZona ? `echo @@DNS; ${H}/v-list-dns-records ${conta} ${d} json` : '',
+    ...(site ? subdominios.map((nome, i) => `echo @@SUBSSL${i}; ${H}/v-list-web-domain-ssl ${conta} ${nome} json 2>/dev/null`) : []),
   ].filter(Boolean);
   // ao mesmo tempo: o servidor (só se houver algo a ler lá), a Cloudflare e os nameservers públicos
-  const [out, dnsCf, ns] = await Promise.all([
+  const [out, dnsCf, ns, siteVercel, subdominiosVercel] = await Promise.all([
     linhas.length ? executeServerCommand([...linhas, 'echo @@FIM'].join('; '), { timeoutMs: 30_000 }) : Promise.resolve(''),
     temZona ? Promise.resolve(null) : dnsCloudflare(d),
     nameservers(zonaDe(d)),
+    alojamentoVercelPublico(d),
+    Promise.all(subdominios.map((nome) => alojamentoVercelPublico(nome))),
   ]);
   const sec = secoes(out);
 
@@ -147,20 +181,111 @@ export async function GET(req: NextRequest) {
     const regs = json<Record<string, Record<string, string>>>(sec.get('DNS'), {});
     dns = { fonte: 'hestia', zona: d, registos: Object.entries(regs).map(([id, x]) => ({ id, nome: x.RECORD || '@', tipo: (x.TYPE || '').toUpperCase(), valor: x.VALUE || '', ttl: Number(x.TTL) || 14400, prio: x.PRIORITY || undefined })) };
   }
-  if (soDns) return NextResponse.json({ dns, ns }, { headers: { 'Cache-Control': 'no-store' } });
+  if (soDns) return NextResponse.json({ dns, ns, siteVercel }, { headers: { 'Cache-Control': 'no-store' } });
 
   const web = (Object.values(json<Record<string, Record<string, string>>>(sec.get('WEB'), {}))[0] || {}) as Record<string, string>;
   const ssl = (Object.values(json<Record<string, Record<string, string>>>(sec.get('SSL'), {}))[0] || {}) as Record<string, string>;
+  const dadosSubdominios = subdominios.map((nome, i) => {
+    const certificado = (Object.values(json<Record<string, Record<string, string>>>(sec.get(`SUBSSL${i}`), {}))[0] || {}) as Record<string, string>;
+    const dominioWeb = srv.web[conta]?.[nome] || {};
+    return {
+      nome,
+      aliases: String(dominioWeb.ALIAS || '').split(',').map((alias) => alias.trim().toLowerCase()).filter(Boolean),
+      sslAtivo: (certificado.SSL || dominioWeb.SSL || 'no').toLowerCase() === 'yes',
+      renovacaoAutomatica: (certificado.LETSENCRYPT || dominioWeb.LETSENCRYPT || 'no').toLowerCase() === 'yes',
+      temEmail: !!srv.mail[conta]?.[nome],
+      siteVercel: subdominiosVercel[i],
+      certificado: certificado.SUBJECT || certificado.NOT_AFTER
+        ? {
+            para: certificado.SUBJECT || '',
+            nomes: String(certificado.ALIASES || '').split(/[ ,]+/).filter(Boolean),
+            desde: certificado.NOT_BEFORE || '',
+            ate: certificado.NOT_AFTER || '',
+            emissor: certificado.ISSUER || '',
+          }
+        : null,
+    };
+  });
+  if (verCertificado) {
+    if (!w || (web.SSL || 'no').toLowerCase() !== 'yes') {
+      return NextResponse.json({ erro: 'Este domínio não tem certificado SSL instalado.' }, { status: 404 });
+    }
+    const crtPath = `/home/${conta}/conf/web/${d}/ssl/${d}.crt`;
+    const caPath = `/home/${conta}/conf/web/${d}/ssl/${d}.ca`;
+    const ficheiros = secoes(
+      await executeServerCommand(
+        `[ -s ${q(crtPath)} ] || { echo @@ERRO; exit 0; }; openssl x509 -in ${q(crtPath)} -noout >/dev/null 2>&1 || { echo @@ERRO; exit 0; }; ` +
+          `echo @@CERT; cat ${q(crtPath)}; echo; echo @@CADEIA; [ ! -s ${q(caPath)} ] || cat ${q(caPath)}`,
+        { timeoutMs: 20_000 },
+      ),
+    );
+    const pem = ficheiros.get('CERT')?.trim() || '';
+    if (!pem) return NextResponse.json({ erro: 'O certificado instalado não pôde ser lido.' }, { status: 404 });
+    try {
+      const certificado = new X509Certificate(pem);
+      const nomes = (certificado.subjectAltName || '')
+        .split(/,\s*/)
+        .map((nome) => nome.replace(/^DNS:/, '').trim())
+        .filter((nome) => nome && !nome.includes(':'));
+      return NextResponse.json(
+        {
+          certificado: pem,
+          cadeia: ficheiros.get('CADEIA')?.trim() || '',
+          emissor: certificado.issuer,
+          sujeito: certificado.subject,
+          nomes,
+          desde: certificado.validFrom,
+          ate: certificado.validTo,
+          impressaoDigital: certificado.fingerprint256,
+          tipoChave: certificado.publicKey.asymmetricKeyType || '',
+        },
+        { headers: { 'Cache-Control': 'no-store' } },
+      );
+    } catch {
+      return NextResponse.json({ erro: 'O certificado instalado não é válido.' }, { status: 500 });
+    }
+  }
+  if (verHistoricoSsl) {
+    if (!w) return NextResponse.json({ erro: 'Este domínio não tem site.' }, { status: 404 });
+    const out = await executeServerCommand(
+      `grep -F -- ${q(d)} /var/log/hestia/system.log 2>/dev/null | ` +
+        `grep -E 'v-(add|delete|change)-(letsencrypt-domain|web-domain-ssl(cert)?)([[:space:]]|$)' | tail -n 50 || true`,
+      { timeoutMs: 20_000 },
+    );
+    const historico = out
+      .split('\n')
+      .map((linha) => {
+        const m = linha.match(/^(\S+\s+\S+)\s+(v-[a-z0-9-]+)\s+(.*)$/);
+        if (!m) return null;
+        const [, data, comando] = m;
+        const acoes: Record<string, string> = {
+          'v-add-letsencrypt-domain': 'Pedido de emissão SSL',
+          'v-delete-letsencrypt-domain': 'Remoção de certificado SSL',
+          'v-add-web-domain-ssl': 'Instalação de certificado',
+          'v-change-web-domain-sslcert': 'Substituição de certificado',
+          'v-delete-web-domain-ssl': 'Remoção de certificado',
+        };
+        const acao = acoes[comando];
+        return acao ? { data, comando, acao } : null;
+      })
+      .filter((item): item is { data: string; comando: string; acao: string } => item !== null)
+      .reverse();
+    return NextResponse.json({ historico }, { headers: { 'Cache-Control': 'no-store' } });
+  }
   return NextResponse.json(
     {
       redirecionamento: web.REDIRECT ? { url: web.REDIRECT, codigo: web.REDIRECT_CODE || '301' } : null,
       sslForcado: (web.SSL_FORCE || 'no') === 'yes',
+      sslAtivo: (web.SSL || 'no').toLowerCase() === 'yes',
+      renovacaoAutomatica: (web.LETSENCRYPT || 'no').toLowerCase() === 'yes',
       hsts: (web.SSL_HSTS || 'no') === 'yes',
       modelo: web.TPL || '',
       backend: web.BACKEND || '',
       certificado: ssl.SUBJECT || ssl.NOT_AFTER ? { para: ssl.SUBJECT || '', nomes: (ssl.ALIASES || '').split(/[ ,]+/).filter(Boolean), desde: ssl.NOT_BEFORE || '', ate: ssl.NOT_AFTER || '', emissor: ssl.ISSUER || '' } : null,
       dns,
       ns,
+      siteVercel,
+      subdominios: dadosSubdominios,
       php: bloco(sec.get('INI') || '', MARCA_INI).map((l) => {
         const [k, ...v] = l.split('=');
         return { k: k.trim(), v: v.join('=').trim() };
@@ -239,7 +364,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ erro: 'O subdomínio foi criado, mas ficou com pasta própria: o servidor não aceitou usar ' + d + '/' + sub + ' (' + (y.error || 'erro') + ').' }, { status: 502 });
       }
     }
-    if (x.ok && c.ssl) hestiaCall('v-add-letsencrypt-domain', [conta, novo]).catch(() => null);
+    if (x.ok && c.ssl) hestia.issueLetsEncrypt(conta, novo).catch(() => null); // com o reload do nginx (o certificado vale logo)
     // webmail em https://<domínio>/webmail (antes ficava por pôr à mão em cada domínio novo)
     if (x.ok && !(await instalarWebmail(conta, novo))) {
       esquecerLeitura();
@@ -299,8 +424,29 @@ export async function POST(req: NextRequest) {
     }
     case 'alias-apagar':
       return resposta(call('v-delete-web-domain-alias', [conta, d, linhaLimpa(c.alias).toLowerCase()]));
-    case 'ssl-le':
-      return resposta(hestia.issueLetsEncrypt(conta, d));
+    case 'ssl-le': {
+      // Como no DirectAdmin: o domínio vai sempre; dos apontadores (www.…, etc.) só os que vierem marcados.
+      // Sem `nomes` (pedido antigo) o Hestia decide como antes.
+      if (!w) return NextResponse.json({ erro: 'Este domínio não tem site.' }, { status: 400 });
+      if (!Array.isArray(c.nomes)) return resposta(hestia.issueLetsEncrypt(conta, d));
+      const existentes = String(w.ALIAS || '').split(',').map((x) => x.trim().toLowerCase()).filter(Boolean);
+      const nomes = [...new Set((c.nomes as unknown[]).map((x) => linhaLimpa(x).toLowerCase()))].filter((x) => x && x !== d);
+      const fora = nomes.find((x) => !existentes.includes(x));
+      if (fora) return NextResponse.json({ erro: fora + ' não é apontador deste domínio.' }, { status: 400 });
+      return resposta(hestia.issueLetsEncrypt(conta, d, nomes));
+    }
+    case 'ssl-mail-le': {
+      if (!w) return NextResponse.json({ erro: 'Este domínio não tem site.' }, { status: 400 });
+      if (!srv.mail[conta]?.[d]) return NextResponse.json({ erro: 'O e-mail deste domínio não está alojado neste servidor.' }, { status: 400 });
+      return resposta(hestia.issueMailLetsEncrypt(conta, d));
+    }
+    case 'ssl-apagar': {
+      // Cancelar o certificado: o Let's Encrypt sai com a renovação automática; um certificado próprio sai só ele
+      if (!w) return NextResponse.json({ erro: 'Este domínio não tem site.' }, { status: 400 });
+      if ((w.SSL || 'no').toLowerCase() !== 'yes') return NextResponse.json({ erro: 'Este domínio não tem certificado.' }, { status: 400 });
+      const le = (w.LETSENCRYPT || 'no').toLowerCase() === 'yes';
+      return resposta(call(le ? 'v-delete-letsencrypt-domain' : 'v-delete-web-domain-ssl', [conta, d, 'yes']));
+    }
     case 'ssl-forcar':
       return resposta(call(c.ligar ? 'v-add-web-domain-ssl-force' : 'v-delete-web-domain-ssl-force', [conta, d]));
     case 'ftp-criar': {

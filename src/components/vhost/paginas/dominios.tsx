@@ -4,7 +4,7 @@
 // redirecionamentos, proteção hotlink e definições PHP. Campos copiados do DirectAdmin (ver
 // VisualHost/05-da-gestao-de-dominios.md); dados e alterações reais no servidor (Hestia + Cloudflare) por
 // /api/vhost/dominio. As páginas de um só domínio usam o domínio escolhido no seletor da faixa de navegação.
-import { Fragment, useCallback, useEffect, useState, type ReactNode } from 'react';
+import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type TextareaHTMLAttributes } from 'react';
 import { useVH, type VH } from '../context';
 import type { ScreenFn } from '../screens';
 import type { BaseDados, Domain } from '../types';
@@ -25,13 +25,40 @@ type Detalhe = {
   hsts: boolean;
   modelo: string;
   backend: string;
+  sslAtivo: boolean;
+  renovacaoAutomatica: boolean;
   certificado: { para: string; nomes: string[]; desde: string; ate: string; emissor: string } | null;
   dns: { fonte: 'hestia' | 'cloudflare' | 'nenhuma'; zona: string; registos: { id: string; nome: string; tipo: string; valor: string; ttl: number; prio?: string }[] };
+  siteVercel?: boolean | null;
+  subdominios?: {
+    nome: string;
+    aliases: string[];
+    sslAtivo: boolean;
+    renovacaoAutomatica: boolean;
+    temEmail: boolean;
+    siteVercel: boolean | null;
+    certificado: { para: string; nomes: string[]; desde: string; ate: string; emissor: string } | null;
+  }[];
   php: { k: string; v: string }[];
   htaccess: string[];
   /** nameservers reais do domínio (DNS público) */
   ns?: string[];
 };
+type DnsContexto = { dns: { fonte: 'hestia' | 'cloudflare' | 'nenhuma'; zona: string; registos: RegistoDns[] }; siteVercel?: boolean | null };
+type CertificadoServidor = {
+  certificado: string;
+  cadeia: string;
+  emissor: string;
+  sujeito: string;
+  nomes: string[];
+  desde: string;
+  ate: string;
+  impressaoDigital: string;
+  tipoChave: string;
+};
+type EventoSsl = { data: string; comando: string; acao: string };
+type HistoricoSsl = { historico: EventoSsl[] };
+type AlvoSsl = { id: string; dominio: string; tipo: 'site' | 'email'; nomes: string[]; estado: 'ok' | 'externo' | 'desconhecido' | 'em-falta' };
 
 /** Faz uma alteração ao domínio no servidor; depois volta a ler os dados (`recarregar`: a conta toda; os registos
  *  de DNS não a mudam). Devolve true se correu bem. */
@@ -53,6 +80,60 @@ async function noServidor(vh: VH, corpo: Record<string, unknown>, ok: string, re
   }
 }
 
+function nomeDnsPertence(nome: string, dominio: string, host: string): boolean {
+  const n = nome.toLowerCase().replace(/\.$/, '');
+  return n === host || n === `${host}.${dominio}` || (host === dominio && n === '@');
+}
+
+function siteNaVercel(registos: RegistoDns[], dominio: string): boolean {
+  return registos.some((registo) => {
+    if (!['A', 'AAAA', 'CNAME'].includes(registo.tipo.toUpperCase())) return false;
+    if (!nomeDnsPertence(registo.nome, dominio, dominio) && !nomeDnsPertence(registo.nome, dominio, 'www')) return false;
+    const valor = registo.valor.toLowerCase().replace(/\.$/, '');
+    if (valor.includes('vercel')) return true;
+    const ip = valor.split('.').map(Number);
+    // Captures Vercel's IPv4 edge ranges, including the addresses seen in its ACME validation response.
+    return ip.length === 4 && ((ip[0] === 76 && ip[1] === 76 && ip[2] === 21) || (ip[0] === 66 && ip[1] === 33 && ip[2] === 60));
+  });
+}
+
+function vercelConfirmada(fonte: 'hestia' | 'cloudflare' | 'nenhuma', siteVercel: boolean | null | undefined, registos: RegistoDns[], dominio: string): boolean {
+  if (siteVercel != null) return siteVercel;
+  return fonte !== 'hestia' && siteNaVercel(registos, dominio);
+}
+
+function registosDnsEmail(registos: RegistoDns[], dominio: string): RegistoDns[] {
+  return registos.filter((registo) => {
+    const nome = registo.nome.toLowerCase().replace(/\.$/, '');
+    const valor = registo.valor.toLowerCase();
+    const rotulo = nome === '@' || nome === dominio ? '' : nome.endsWith(`.${dominio}`) ? nome.slice(0, -(dominio.length + 1)) : nome;
+    if (['MX', 'SRV'].includes(registo.tipo.toUpperCase())) return true;
+    if (['A', 'AAAA', 'CNAME'].includes(registo.tipo.toUpperCase())) {
+      return /(^|\.)(mail|webmail|smtp|imap|pop|pop3|autoconfig|autodiscover)$/.test(rotulo);
+    }
+    if (registo.tipo.toUpperCase() === 'TXT') {
+      return valor.includes('v=spf1') || rotulo === '_dmarc' || rotulo.endsWith('._domainkey');
+    }
+    return false;
+  });
+}
+
+async function lerDnsDominio(vh: VH, dominio: string): Promise<DnsContexto | null> {
+  try {
+    const url = `/api/vhost/dominio?conta=${encodeURIComponent(vh.me)}&d=${encodeURIComponent(dominio)}&so=dns`;
+    const resposta = await fetch(url, { cache: 'no-store' });
+    const dados = (await resposta.json().catch(() => ({}))) as Partial<DnsContexto> & { erro?: string };
+    if (!resposta.ok || !dados.dns || !Array.isArray(dados.dns.registos)) {
+      vh.toast(dados.erro || 'Não foi possível ler os registos DNS do domínio.');
+      return null;
+    }
+    return dados as DnsContexto;
+  } catch {
+    vh.toast('Sem ligação ao site. Não foi possível verificar o alojamento e nada foi alterado.');
+    return null;
+  }
+}
+
 /** Detalhe de um domínio (certificado, DNS, redirecionamento, regras PHP e .htaccess), lido quando a página abre
  *  (memória comum do painel: ao voltar aparece logo e atualiza-se por trás).
  *  `so: 'dns'` lê só os registos e os nameservers (a página de DNS não precisa do resto). */
@@ -68,6 +149,16 @@ function dominioAtual(vh: VH, soSite = true): Domain | undefined {
   return lista.find((x) => x.name === vh.s.dominio) || lista[0];
 }
 const ehSub = (nome: string, de: string) => nome.endsWith('.' + de);
+function certificadoCobreNome(nomes: string[], dominio: string): boolean {
+  const alvo = dominio.toLowerCase();
+  return nomes.some((nome) => {
+    const n = nome.toLowerCase();
+    if (n === alvo) return true;
+    if (!n.startsWith('*.')) return false;
+    const sufixo = n.slice(1);
+    return alvo.endsWith(sufixo) && alvo.slice(0, -sufixo.length).length > 0 && !alvo.slice(0, -sufixo.length).includes('.');
+  });
+}
 /** Como `dominioAtual`, mas com um subdomínio escolhido dá o domínio de que ele faz parte */
 function principalAtual(vh: VH): Domain | undefined {
   const x = dominioAtual(vh);
@@ -234,7 +325,7 @@ function NovoDominio() {
     if (await noServidor(vh, { acao: 'dominio-criar', dominio: n, ssl }, 'Domínio ' + n + ' criado')) {
       vh.setDominio(n);
       nav('/' + vh.s.level + '/dominios/' + encodeURIComponent(n));
-    }
+    } else await vh.recarregar(true); // um erro a meio pode ter deixado o domínio criado: a lista volta a ler o servidor
   };
   return (
     <Frm
@@ -465,7 +556,7 @@ function Nameservers({ d, reg, publicos }: { d: string; reg: Registador; publico
             )}
             <div>
               <button className="btn r" disabled={fora || !mudou || aGuardar} onClick={guardar}>
-                <i className={aGuardar ? 'fa-solid fa-spinner fa-spin' : 'fa-solid fa-check'} />
+                <i className="fa-solid fa-check" />
                 {t(aGuardar ? 'A guardar…' : 'Guardar alterações')}
               </button>
             </div>
@@ -588,7 +679,7 @@ function RegistoDominio({ d, reg }: { d: string; reg: Registador }) {
                   if (j?.authCode) setEpp(String(j.authCode));
                 }}
               >
-                <i className={aPedir === 'epp' ? 'fa-solid fa-spinner fa-spin' : 'fa-solid fa-key'} />
+                <i className="fa-solid fa-key" />
                 {t('Obter código')}
               </button>
             )}
@@ -605,7 +696,7 @@ function RegistoDominio({ d, reg }: { d: string; reg: Registador }) {
               <>
                 <span>{c ? [c.name, c.email].filter(Boolean).join(' · ') : '—'}</span>
                 <button className="btn g sm" disabled={aPedir === 'contactos'} onClick={() => pedir('contactos', { action: 'set-contacts' })}>
-                  <i className={aPedir === 'contactos' ? 'fa-solid fa-spinner fa-spin' : 'fa-solid fa-address-card'} />
+                  <i className="fa-solid fa-address-card" />
                   {t('Atualizar com os dados da conta')}
                 </button>
               </>
@@ -861,8 +952,11 @@ function NovoSubdominio({ d }: { d: string }) {
     if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(n)) return vh.toast('Subdomínio: letras, números e hífen');
     if (!frente && !atras) return vh.toast('Escolha pelo menos um dos endereços');
     closeM();
-    if (frente) await noServidor(vh, { acao: 'subdominio-criar', dominio: dom, sub: n, ssl: true, pasta: atras }, 'Subdomínio ' + n + '.' + dom + ' criado');
-    else await noServidor(vh, { acao: 'subpasta-criar', dominio: dom, sub: n }, 'Endereço ' + dom + '/' + n + ' criado');
+    // um erro a meio (ex.: o nginx recusou a regra do webmail) deixa o subdomínio criado: a lista volta a ler o servidor,
+    // senão ele não aparecia e cada nova tentativa só dizia "já existe" (community.oshercollective.com, 14/10/2026)
+    if (frente) {
+      if (!(await noServidor(vh, { acao: 'subdominio-criar', dominio: dom, sub: n, ssl: true, pasta: atras }, 'Subdomínio ' + n + '.' + dom + ' criado'))) await vh.recarregar(true);
+    } else await noServidor(vh, { acao: 'subpasta-criar', dominio: dom, sub: n }, 'Endereço ' + dom + '/' + n + ' criado');
   };
   return (
     <>
@@ -1033,7 +1127,7 @@ function DnsForm({ d, fonte, r, onFeito }: { d: string; fonte: Detalhe['dns']['f
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {txtLinhas.map((linha, idx) => (
               <div key={idx} style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
-                <textarea
+                <TextoAuto
                   className="inp dns-txt-area"
                   value={linha}
                   onChange={(e) => {
@@ -1043,8 +1137,8 @@ function DnsForm({ d, fonte, r, onFeito }: { d: string; fonte: Detalhe['dns']['f
                     if (idx === 0) setF({ ...f, valor: e.target.value });
                   }}
                   placeholder="ex.: v=spf1 include:spf.brevo.com ip4:169.58.148.144 ~all"
-                  rows={3}
-                  style={{ width: '100%', minHeight: 68, resize: 'vertical', fontFamily: 'monospace', fontSize: 13 }}
+                  rows={2}
+                  style={{ width: '100%', minHeight: 68, fontFamily: 'monospace', fontSize: 13, wordBreak: 'break-all' }}
                   autoFocus={idx === 0}
                 />
                 {!r && txtLinhas.length > 1 && (
@@ -1260,7 +1354,7 @@ function Dns() {
                         />
                       )}
                       {r.tipo === 'TXT' ? (
-                        <textarea
+                        <TextoAuto
                           className="inp sm dns-inline-inp dns-txt-area"
                           value={fEdit.valor}
                           onChange={(e) => setFEdit({ ...fEdit, valor: e.target.value })}
@@ -1270,7 +1364,7 @@ function Dns() {
                           }}
                           placeholder="v=spf1 ... ou texto"
                           rows={2}
-                          style={{ width: '100%', minWidth: 200, minHeight: 52, resize: 'vertical', fontFamily: 'monospace', fontSize: 12.5 }}
+                          style={{ width: '100%', minWidth: 200, minHeight: 52, fontFamily: 'monospace', fontSize: 12.5, wordBreak: 'break-all' }}
                         />
                       ) : (
                         <input
@@ -1288,7 +1382,8 @@ function Dns() {
                     </div>
                   );
                 }
-                return <span style={{ wordBreak: 'break-all' }}>{valorDns(r)}</span>;
+                // as células da tabela são nowrap (maquete.css) — o registo parte linhas para mostrar o TXT/DKIM inteiro
+                return <span style={{ whiteSpace: 'normal', overflowWrap: 'anywhere' }}>{valorDns(r)}</span>;
               },
             },
           ]}
@@ -1364,6 +1459,34 @@ function Dns() {
     </>
   );
 }
+/** Caixa de texto que cresce com o conteúdo (registos TXT/DKIM longos): mostra sempre o texto todo, sem cortes nem
+ * barra de deslocar dentro da caixa. */
+function TextoAuto(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  const ajustar = () => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = el.scrollHeight + 2 + 'px';
+  };
+  useLayoutEffect(ajustar, [props.value]);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    // a largura muda com a janela/coluna — o número de linhas também
+    let w = el.clientWidth;
+    const ro = new ResizeObserver(() => {
+      if (el.clientWidth !== w) {
+        w = el.clientWidth;
+        ajustar();
+      }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  return <textarea {...props} ref={ref} style={{ ...props.style, overflow: 'hidden', resize: 'none' }} />;
+}
+
 /** "+ Adicionar registo" na barra de cima (regra do Silva: o "+ Adicionar…" principal vai para a barra de cima quando
  *  está livre); usa a mesma leitura do DNS que a página (memória comum), e a tabela atualiza-se sozinha */
 function NovoRegistoDns() {
@@ -1420,7 +1543,212 @@ function CertificadoModal({ d, onFeito }: { d: string; onFeito: () => void }) {
   );
 }
 
+async function emitirSslDominio(vh: VH, dom: Domain, nomes: string[], incluirEmail: boolean, onFeito: () => void) {
+  const siteOk = await noServidor(
+    vh,
+    { acao: 'ssl-le', dominio: dom.name, nomes },
+    'Certificado SSL do site emitido/substituído para ' + dom.name,
+  );
+  const emailOk = incluirEmail && dom.temEmail
+    ? await noServidor(vh, { acao: 'ssl-mail-le', dominio: dom.name }, 'Certificado SSL de e-mail/webmail emitido/substituído para ' + dom.name)
+    : false;
+
+  if (siteOk || emailOk) onFeito();
+  if (incluirEmail && dom.temEmail && !siteOk && emailOk) {
+    vh.toast('O SSL do site falhou, mas o SSL do e-mail/webmail foi emitido.');
+  }
+}
+
+async function emitirSslAlvos(vh: VH, alvos: AlvoSsl[], selecionados: string[], onFeito: () => void) {
+    const escolhidos = alvos.filter((alvo) => selecionados.includes(alvo.id) && alvo.estado === 'em-falta');
+    if (!escolhidos.length) {
+      vh.toast(vh.t('Seleccione pelo menos um nome sem SSL para emitir.'));
+      return;
+    }
+
+    let emitido = false;
+    const dominiosSite = [...new Set(escolhidos.filter((alvo) => alvo.tipo === 'site').map((alvo) => alvo.dominio))];
+    for (const dominio of dominiosSite) {
+      // o certificado novo substitui o actual: leva os nomes escolhidos e também os que já tinham SSL (senão perdiam-no)
+      const aliases = [
+        ...new Set(
+          alvos
+            .filter((alvo) => alvo.tipo === 'site' && alvo.dominio === dominio && (alvo.estado === 'ok' || escolhidos.includes(alvo)))
+            .flatMap((alvo) => alvo.nomes)
+            .filter((nome) => nome !== dominio),
+        ),
+      ];
+      const siteEmitido = await noServidor(
+        vh,
+        { acao: 'ssl-le', dominio, nomes: aliases },
+        vh.t('Pedido de SSL do site enviado para {0}').replace('{0}', dominio),
+        false,
+      );
+      emitido = siteEmitido || emitido;
+    }
+
+    const dominiosEmail = [...new Set(escolhidos.filter((alvo) => alvo.tipo === 'email').map((alvo) => alvo.dominio))];
+    for (const dominio of dominiosEmail) {
+      const emailEmitido = await noServidor(
+        vh,
+        { acao: 'ssl-mail-le', dominio },
+        vh.t('Pedido de SSL de e-mail/webmail enviado para {0}').replace('{0}', dominio),
+        false,
+      );
+      emitido = emailEmitido || emitido;
+    }
+
+    if (emitido) {
+      await vh.recarregar(true);
+      onFeito();
+  }
+}
+
+/** Emitir / substituir o certificado grátis de um domínio: os nomes seleccionados ficam num único certificado. */
+function EmitirSslModal({ dom, onFeito, certificadoValido, cobertos = [] }: { dom: Domain; onFeito: () => void; certificadoValido?: boolean; cobertos?: string[] }) {
+  const vh = useVH();
+  const { t, closeM } = vh;
+  // o sistema vê quais já têm SSL: esses não aparecem (vão sozinhos no certificado novo); os outros vêm marcados
+  const aliases = (dom.aliases || []).filter((n) => !cobertos.includes(n));
+  const [marcados, setMarcados] = useState<string[]>(aliases);
+  const [incluirEmail, setIncluirEmail] = useState(Boolean(dom.temEmail));
+  const renovar = certificadoValido ?? dom.ssl === 'ok';
+  return (
+    <>
+      <h3>{t(renovar ? 'Renovar/substituir certificado grátis' : 'Emitir/substituir certificado grátis')}</h3>
+      <p style={{ color: 'var(--muted)', fontSize: 12.5, marginBottom: 12, lineHeight: 1.5 }}>
+        {t("O certificado actual do site é substituído ao emitir o novo; só funciona com o DNS de cada nome seleccionado a apontar para este servidor.")}
+      </p>
+      <div style={{ marginBottom: 6 }}>
+        <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>{t('Nomes incluídos no certificado')}</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <Check checked onChange={() => {}} label={dom.name} muted />
+          {aliases.map((n) => (
+            <Check key={n} checked={marcados.includes(n)} onChange={(v) => setMarcados(v ? [...marcados, n] : marcados.filter((y) => y !== n))} label={n} />
+          ))}
+          {!aliases.length && (
+            <small style={{ color: 'var(--muted)' }}>
+              {t(dom.aliases?.length ? 'Os apontadores deste domínio (ex.: www) já têm SSL e continuam no certificado novo.' : 'Este domínio não tem apontadores (ex.: www). O certificado fica só com o domínio.')}
+            </small>
+          )}
+        </div>
+      </div>
+      {dom.temEmail && (
+        <div style={{ borderTop: '1px solid var(--line)', marginTop: 14, paddingTop: 12 }}>
+          <Check
+            checked={incluirEmail}
+            onChange={setIncluirEmail}
+            label="Também emitir/substituir SSL do e-mail e webmail configurado no servidor"
+          />
+          <small style={{ display: 'block', color: 'var(--muted)', margin: '6px 0 0 26px', lineHeight: 1.45 }}>
+            {t('O certificado actual de e-mail/webmail é substituído ao emitir o novo. Os endereços mail e webmail têm de apontar para este servidor.')}
+          </small>
+        </div>
+      )}
+      <div className="mfoot">
+        <button className="btn g" onClick={closeM}>
+          {t('Cancelar')}
+        </button>
+        <button
+          className="btn r"
+          onClick={async () => {
+            closeM();
+            await emitirSslDominio(vh, dom, [...new Set([...cobertos.filter((n) => n !== dom.name), ...marcados])], incluirEmail, onFeito);
+          }}
+        >
+          <i className="fa-solid fa-lock" />
+          {t(renovar ? 'Renovar/substituir' : 'Emitir/substituir')}
+        </button>
+      </div>
+    </>
+  );
+}
+
+function acionarSsl(vh: VH, dom: Domain, onFeito: () => void, certificadoValido = dom.ssl === 'ok', cobertos: string[] = []) {
+  vh.openM(<EmitirSslModal dom={dom} onFeito={onFeito} certificadoValido={certificadoValido} cobertos={cobertos} />);
+}
+
+export function BotaoSsl({
+  dominio,
+  onFeito,
+  pequeno = false,
+  certificadoValido,
+  siteVercel,
+  cobertos = [],
+}: {
+  dominio: Domain;
+  onFeito: () => void;
+  pequeno?: boolean;
+  certificadoValido?: boolean;
+  siteVercel?: boolean;
+  /** nomes que o certificado actual já cobre (não se pergunta por eles e mantêm-se no novo) */
+  cobertos?: string[];
+}) {
+  const vh = useVH();
+  const temCertificadoValido = certificadoValido ?? dominio.ssl === 'ok';
+  const [aEmitir, setAEmitir] = useState(false);
+  const emitir = async () => {
+    if (aEmitir) return;
+    setAEmitir(true);
+    try {
+      const contexto = await lerDnsDominio(vh, dominio.name);
+      if (!contexto) return;
+      const externo = vercelConfirmada(contexto.dns.fonte, contexto.siteVercel, contexto.dns.registos, dominio.name) || siteVercel === true;
+      if (contexto.siteVercel == null && contexto.dns.fonte === 'hestia') {
+        vh.toast(vh.t('Não foi possível confirmar o alojamento do site pela DNS pública.'));
+        return;
+      }
+      if (contexto.dns.fonte === 'nenhuma' && !externo) {
+        vh.toast(vh.t('Não foi possível confirmar os registos DNS para identificar o alojamento.'));
+        return;
+      }
+      if (externo) {
+        if (!dominio.temEmail) {
+          vh.toast(vh.t('Este domínio não tem e-mail alojado neste servidor.'));
+          return;
+        }
+        if (await noServidor(vh, { acao: 'ssl-mail-le', dominio: dominio.name }, 'Certificado SSL de e-mail/webmail emitido/substituído para ' + dominio.name)) {
+          onFeito();
+        }
+        return;
+      }
+      acionarSsl(vh, dominio, onFeito, temCertificadoValido, cobertos);
+    } finally {
+      setAEmitir(false);
+    }
+  };
+  return (
+    <button className={'btn r' + (pequeno ? ' sm' : '')} disabled={aEmitir} onClick={() => void emitir()}>
+      <i className="fa-solid fa-lock" />
+      {vh.t(siteVercel ? 'SSL e-mail/webmail' : temCertificadoValido ? 'Renovar SSL' : 'Emitir SSL')}
+    </button>
+  );
+}
+
+/** Cancelar (retirar) o certificado de um domínio — o site volta a abrir só em http:// */
+function cancelarSsl(vh: VH, d: string, onFeito: () => void) {
+  vh.openM(
+    <Confirmar
+      titulo="Cancelar certificado SSL?"
+      texto={`O certificado de ${d} é retirado do servidor (e deixa de ser renovado). O site passa a abrir só em http:// até emitir outro.`}
+      ok="Cancelar certificado"
+      onOk={async () => (await noServidor(vh, { acao: 'ssl-apagar', dominio: d }, 'Certificado de ' + d + ' cancelado')) && onFeito()}
+    />
+  );
+}
+
 type TabSsl = 'gerir' | 'acme' | 'historico';
+
+/** Data do certificado em dia, mês por extenso e ano ("18 de novembro de 2026"). O OpenSSL/Hestia dá
+ *  "Nov 18 11:21:17 2026 GMT", que o Safari não lê com Date.parse — por isso lê-se aqui pelo formato. */
+const MESES_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+function dataLonga(v: string | undefined, lang: string): string {
+  if (!v) return '—';
+  const m = v.match(/^([A-Z][a-z]{2})\s+(\d{1,2})\s+[\d:]+\s+(\d{4})/);
+  const d = m && MESES_EN.includes(m[1]) ? new Date(Date.UTC(Number(m[3]), MESES_EN.indexOf(m[1]), Number(m[2]))) : new Date(v);
+  if (Number.isNaN(d.getTime())) return v;
+  return d.toLocaleDateString(lang === 'en' ? 'en-GB' : 'pt-PT', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
+}
 
 function CsrModal({ d }: { d: string }) {
   const vh = useVH();
@@ -1506,19 +1834,38 @@ function CsrModal({ d }: { d: string }) {
 
 function ViewCertificateView({ d, onVoltar }: { d: string; onVoltar: () => void }) {
   const vh = useVH();
-  const { t, toast } = vh;
+  const { me, t, toast } = vh;
+  const { dados, erro, ler } = useGet<CertificadoServidor>(
+    `/api/vhost/dominio?conta=${encodeURIComponent(me)}&d=${encodeURIComponent(d)}&certificado=1`,
+  );
 
-  const keyText = `-----BEGIN PRIVATE KEY-----\nMIGhAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQg7bJumaA6Htw3t9jlW\nkgEXH1GcNmhnXFwx6xAiM0h8tL+hRANCAATgjK8qZFmVM0r0GozVjc2qMIzLAB\ngoNHNcan2aPY/6IxUAE8x2rHbE9ar/fnEE0/Itk7r/0RET5gLU+Navvl\n-----END PRIVATE KEY-----`;
+  // sem texto nem roda de espera dentro do painel: até o certificado chegar não aparece nada (só o erro, se houver)
+  if (!dados) return erro ? <Carregar erro={erro} ler={ler} /> : null;
 
-  const certText = `-----BEGIN CERTIFICATE-----\nMIIDoTCCAyegAwIBAgISBR1YXSoJuE4bUyJKGxd3Sp0iMAoGCCqGSM49BAMDMx\nCZAJBgNVBAYTAkVTMRYwFAYDVQQKEw1ZXzBmMQnwXBM0MQswCQYDVQQDEwNZ\nRTIwHhcNMyAxMDA4MTAxNTMyWhcNMjcwMTA2MTUzMlowHjECMAoGA1UEAxMD\nWZ9UzSvQajNWnZCJyMsAGCg0c1xqfZo9j/ojFQB7xfasCF71qv9+cR478iTuv\n85ERPmCVT41q++WjggIwMIICDAOBgNVHQ8BAf8EBAMCB4AwEwYDVR0lBAwwCwY\nKWYBBQUHAwEwDAYDVR0TAQH/BAIwADAdBgNVHQ4EFgQUX8Tb115a9A3SJkCa69Em\nnpKG7Q4wHVYDVR0jBBgwFoAUuVnyjs8iIbTn0j/dhQYuoLVYVYcwMwYIKwYBBQUH\nAQEEJzAJMBUGCCSGAQUFBzABhhdodHRwOi8veWVuLmkubkubVBMvM16MBMGA1Ud\nIAQMMAowCAYGZ4EMAQIBMC4GA1UdHwQnMCUwIaAfoB2GHwh0dHA6Ly95ZW4ua\nZW5Jci5vcjcvYXkXYKk4WKXK4xV7yt7hoB4AAAhGzhykQAABAMASDBGAiEAs0vR\nZW5jI5VcmcMzUuY3JsMIIBDAYKKwYBBAHWeQIBEQSB/wSB/AD4AHcApbdGht\nk3W2SFV4+C9xoa5u7yt7hoB4AAAAGhGzhykQAABAMASDBGAiEAtn/FnrRvESIEg/\nYvBDk2HMVSfUnEQ9LGpsQB9ABqnVUN15HRzqVJ7bYDVdYGtk+tMNtx/niPD8Fi\n+8SXAAABoRs4dLwACAAABARjEAIbEAiBZ9QXqXzMjPrBNILD8qJxeay7D\nCiYKOziZj0EAWMDAAwZAwQzIDPzysup0fChL5Lg9a8nDd76fbLE9X2aewr\nzXjF618XyBwWVgLj6ozBUPZAJEAnsTv9fQI80+hDCEGJnFlVtenWCyHdHdX9M\nqB6Qi4BETWgIchyvBkS/xNF034Q6\n-----END CERTIFICATE-----`;
+  return <CertificateActualView d={d} dados={dados} onVoltar={onVoltar} t={t} toast={toast} lang={vh.s.lang} />;
+}
 
-  const chainText = `-----BEGIN CERTIFICATE-----\nMIICjDCCAhGgAwIBAgIQTF0xxDbAeEQfNN7W0bXFTA...\n-----END CERTIFICATE-----`;
-
+function CertificateActualView({
+  d,
+  dados,
+  onVoltar,
+  t,
+  toast,
+  lang,
+}: {
+  d: string;
+  dados: CertificadoServidor;
+  onVoltar: () => void;
+  t: (text: string) => string;
+  toast: (message: string) => void;
+  lang: string;
+}) {
+  const certText = dados.certificado;
+  const chainText = dados.cadeia;
   const copiarText = (txt: string, label: string) => {
     navigator.clipboard?.writeText(txt);
     toast(`${label} copiada para a área de transferência`);
   };
-
   const baixarText = (txt: string, filename: string) => {
     const blob = new Blob([txt], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
@@ -1532,76 +1879,25 @@ function ViewCertificateView({ d, onVoltar }: { d: string; onVoltar: () => void 
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+      {/* o título e o caminho já estão na barra de cima e na faixa (nunca dois títulos); aqui só a barra de botões */}
+      <div className="acoes-topo" style={{ marginBottom: 20 }}>
+        <button className="btn g" onClick={onVoltar}>
+          <i className="fa-solid fa-arrow-left" />
+          {t('Voltar')}
+        </button>
+        <button className="btn g" onClick={() => copiarText([certText, chainText].filter(Boolean).join('\n\n'), 'Todos os certificados')}>
+          <i className="fa-solid fa-copy" />
+          {t('Copiar todos')}
+        </button>
+        <button className="btn r" onClick={() => baixarText([certText, chainText].filter(Boolean).join('\n\n'), `${d}-full-ssl.pem`)}>
+          <i className="fa-solid fa-download" />
+          {t('Descarregar todos')}
+        </button>
+      </div>
+
+      <div className="card" style={{ marginBottom: 20, padding: 20, borderRadius: 'var(--r)' }}>
+        <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}>{t('Certificado')}</h3>
         <div>
-          <div style={{ fontSize: 13, color: 'var(--muted)', fontWeight: 600, marginBottom: 4 }}>
-            Dashboard &gt; SSL/TLS Certificates &gt; View Certificate
-          </div>
-          <h2 style={{ fontSize: 22, fontWeight: 800, color: 'var(--ink)' }}>{t('View Certificate')}</h2>
-        </div>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <button className="btn g" onClick={onVoltar}>
-            <i className="fa-solid fa-arrow-left" />
-            {t('Voltar')}
-          </button>
-          <button className="btn g" onClick={() => copiarText(`${keyText}\n\n${certText}\n\n${chainText}`, 'Todos os certificados')}>
-            <i className="fa-solid fa-copy" />
-            {t('Copy all certificates')}
-          </button>
-          <button className="btn r" onClick={() => baixarText(`${keyText}\n\n${certText}\n\n${chainText}`, `${d}-full-ssl.pem`)}>
-            <i className="fa-solid fa-download" />
-            {t('DOWNLOAD ALL CERTIFICATES')}
-          </button>
-        </div>
-      </div>
-
-      {/* Card 1: Private Key */}
-      <div className="card" style={{ marginBottom: 20, padding: 20, borderRadius: 'var(--r)' }}>
-        <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}>{t('Private key')}</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 320px', gap: 20 }}>
-          <pre
-            style={{
-              background: 'var(--soft)',
-              padding: 16,
-              borderRadius: 'var(--r)',
-              fontFamily: 'monospace',
-              fontSize: 12,
-              lineHeight: 1.5,
-              overflowX: 'auto',
-              border: '1px solid var(--line)',
-              maxHeight: 220,
-              color: 'var(--ink)',
-            }}
-          >
-            {keyText}
-          </pre>
-          <div style={{ fontSize: 13, display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <div>
-              <small style={{ color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', fontSize: 11 }}>Key type</small>
-              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>ECDSA P-256</div>
-            </div>
-            <div>
-              <small style={{ color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', fontSize: 11 }}>Key fingerprint</small>
-              <div style={{ fontSize: 12.5, fontWeight: 600, fontFamily: 'monospace', color: 'var(--ink)', wordBreak: 'break-all' }}>
-                O6DQ3HYYOT3XXTONSLZ5AHK5PA
-              </div>
-            </div>
-          </div>
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
-          <button className="btn g sm" onClick={() => copiarText(keyText, 'Chave privada')}>
-            <i className="fa-solid fa-copy" /> {t('Copy')}
-          </button>
-          <button className="btn g sm" onClick={() => baixarText(keyText, `${d}.key`)}>
-            <i className="fa-solid fa-download" /> {t('Download')}
-          </button>
-        </div>
-      </div>
-
-      {/* Card 2: Certificate */}
-      <div className="card" style={{ marginBottom: 20, padding: 20, borderRadius: 'var(--r)' }}>
-        <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}>{t('Certificate')}</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 320px', gap: 20 }}>
           <pre
             style={{
               background: 'var(--soft)',
@@ -1620,60 +1916,47 @@ function ViewCertificateView({ d, onVoltar }: { d: string; onVoltar: () => void 
           </pre>
           <div style={{ fontSize: 13, display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div>
-              <small style={{ color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', fontSize: 11 }}>Name</small>
-              <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ink)' }}>*.{d}</div>
+              <small style={{ color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', fontSize: 11 }}>{t('Nomes DNS')}</small>
+              <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ink)' }}>{dados.nomes.join(', ') || dados.sujeito}</div>
             </div>
             <div>
-              <small style={{ color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', fontSize: 11 }}>Organization</small>
-              <div style={{ fontSize: 13, color: 'var(--muted)' }}>-</div>
+              <small style={{ color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', fontSize: 11 }}>{t('Sujeito do certificado')}</small>
+              <div style={{ fontSize: 13, color: 'var(--muted)' }}>{dados.sujeito || '—'}</div>
             </div>
             <div>
-              <small style={{ color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', fontSize: 11 }}>Issuer name</small>
-              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>YE2</div>
+              <small style={{ color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', fontSize: 11 }}>{t('Válido desde')}</small>
+              <div style={{ fontSize: 13, color: 'var(--ink)' }}>{dataLonga(dados.desde, lang)}</div>
             </div>
             <div>
-              <small style={{ color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', fontSize: 11 }}>Issuer organization</small>
-              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>Let's Encrypt</div>
+              <small style={{ color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', fontSize: 11 }}>{t('Expira')}</small>
+              <div style={{ fontSize: 13, color: 'var(--ink)', fontWeight: 600 }}>{dataLonga(dados.ate, lang)}</div>
             </div>
             <div>
-              <small style={{ color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', fontSize: 11 }}>Issued on</small>
-              <div style={{ fontSize: 13, color: 'var(--ink)' }}>08/10/2026, 12:15</div>
+              <small style={{ color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', fontSize: 11 }}>{t('Tipo de chave')}</small>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{dados.tipoChave}</div>
             </div>
             <div>
-              <small style={{ color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', fontSize: 11 }}>Expires in</small>
-              <div style={{ fontSize: 13, color: '#10b981', fontWeight: 600 }}>in 3 months (06/01/2027, 12:15)</div>
-            </div>
-            <div>
-              <small style={{ color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', fontSize: 11 }}>DNS names</small>
-              <div style={{ fontSize: 12.5, fontFamily: 'monospace', color: 'var(--ink)' }}>*.{d}, {d}</div>
-            </div>
-            <div>
-              <small style={{ color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', fontSize: 11 }}>Key type</small>
-              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>ECDSA P-256</div>
-            </div>
-            <div>
-              <small style={{ color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', fontSize: 11 }}>Key fingerprint</small>
-              <div style={{ fontSize: 12, fontFamily: 'monospace', color: 'var(--ink)', wordBreak: 'break-all' }}>O6DQ3HYYOT3XXTONSLZ5AHK5PA</div>
+              <small style={{ color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', fontSize: 11 }}>{t('Impressão digital SHA-256')}</small>
+              <div style={{ fontSize: 12, fontFamily: 'monospace', color: 'var(--ink)', wordBreak: 'break-all' }}>{dados.impressaoDigital}</div>
             </div>
           </div>
         </div>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
+        <div className="acoes-topo" style={{ justifyContent: 'flex-end', marginTop: 16, marginBottom: 0 }}>
           <button className="btn g sm" onClick={() => copiarText(certText, 'Certificado')}>
-            <i className="fa-solid fa-copy" /> {t('Copy')}
+            <i className="fa-solid fa-copy" /> {t('Copiar')}
           </button>
           <button className="btn g sm" onClick={() => baixarText(certText, `${d}.crt`)}>
-            <i className="fa-solid fa-download" /> {t('Download')}
+            <i className="fa-solid fa-download" /> {t('Descarregar')}
           </button>
         </div>
       </div>
 
-      {/* Card 3: Certificate chain */}
-      <div className="card" style={{ marginBottom: 20, padding: 20, borderRadius: 'var(--r)' }}>
-        <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>{t('Certificate chain')}</h3>
+      {chainText && <div className="card" style={{ marginBottom: 20, padding: 20, borderRadius: 'var(--r)' }}>
+        <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>{t('Cadeia de certificados')}</h3>
         <p style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 16 }}>
-          {t('Intermediate certificates, ordered from the one that signed the certificate up to (but not including) the root.')}
+          {t('Certificados intermédios, do que assinou o certificado até à raiz (sem a incluir).')}
         </p>
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 320px', gap: 20 }}>
+        <div>
           <pre
             style={{
               background: 'var(--soft)',
@@ -1690,89 +1973,104 @@ function ViewCertificateView({ d, onVoltar }: { d: string; onVoltar: () => void 
           >
             {chainText}
           </pre>
-          <div style={{ fontSize: 13, display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div>
-              <small style={{ color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', fontSize: 11 }}>Name</small>
-              <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ink)' }}>YE2</div>
-            </div>
-            <div>
-              <small style={{ color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', fontSize: 11 }}>Organization</small>
-              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>Let's Encrypt</div>
-            </div>
-            <div>
-              <small style={{ color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', fontSize: 11 }}>Issuer name</small>
-              <div style={{ fontSize: 13, color: 'var(--ink)' }}>Root YE</div>
-            </div>
-          </div>
         </div>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
+        <div className="acoes-topo" style={{ justifyContent: 'flex-end', marginTop: 16, marginBottom: 0 }}>
           <button className="btn g sm" onClick={() => copiarText(chainText, 'Cadeia de certificados')}>
-            <i className="fa-solid fa-copy" /> {t('Copy')}
+            <i className="fa-solid fa-copy" /> {t('Copiar')}
           </button>
           <button className="btn g sm" onClick={() => baixarText(chainText, `${d}-ca.crt`)}>
-            <i className="fa-solid fa-download" /> {t('Download')}
+            <i className="fa-solid fa-download" /> {t('Descarregar')}
           </button>
         </div>
-      </div>
+      </div>}
     </div>
   );
 }
 
 function Ssl({ tab, verCertDomain }: { tab: TabSsl; verCertDomain: string | null }) {
   const vh = useVH();
-  const { a, t, setDominio, openM } = vh;
+  const { t, openM } = vh;
   const x = dominioAtual(vh);
+  const [alvosSelecionados, setAlvosSelecionados] = useState<string[]>([]);
+  const [aEmitirSelecionados, setAEmitirSelecionados] = useState(false);
+  useEffect(() => setAlvosSelecionados([]), [x?.name]);
   const { det, erro, ler } = useDetalhe(x?.name || '');
+  const { dados: sslHistory, erro: sslHistoryError, ler: lerSslHistory } = useGet<HistoricoSsl>(
+    x && tab === 'historico'
+      ? `/api/vhost/dominio?conta=${encodeURIComponent(vh.me)}&d=${encodeURIComponent(x.name)}&historicoSsl=1`
+      : null,
+  );
   // separadores e "Ver certificado" ↔ endereço (/ssl/acme, /ssl/historico, /ssl/certificado/<domínio>), para o caminho no topo seguir o clique
   const setTab = (k: TabSsl) => vh.nav('/utilizador/ssl' + (k === 'gerir' ? '' : '/' + k));
   const setVerCertDomain = (d: string | null) => vh.nav('/utilizador/ssl' + (d ? '/certificado/' + encodeURIComponent(d) : ''));
-  const [menuRow, setMenuRow] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!menuRow) return;
-    const close = (e: MouseEvent) => {
-      const el = e.target as Element | null;
-      if (!el?.closest('.ssl-pop-menu') && !el?.closest('.iconbtn')) setMenuRow(null);
-    };
-    document.addEventListener('mousedown', close);
-    return () => document.removeEventListener('mousedown', close);
-  }, [menuRow]);
-
-  // Definições ACME
-  const [acme, setAcme] = useState({
-    provider: 'letsencrypt',
-    email: x ? 'admin@' + x.name : '',
-    renewDays: '30',
-    keyType: 'rsa2048',
-    challenge: 'http01',
-  });
 
   if (!x) return <SemDominio />;
   if (verCertDomain) return <ViewCertificateView d={verCertDomain} onVoltar={() => setVerCertDomain(null)} />;
 
-  const sites = a.domains.filter((y) => !y.soEmail);
-
-  // Histórico de aprovisionamento
-  const historicoLogs = [
+  const nomesCertificado = det?.certificado ? [det.certificado.para, ...det.certificado.nomes] : [];
+  const certificadoDentroValidade = Boolean(
+    det?.certificado?.desde &&
+      det.certificado.ate &&
+      Date.parse(det.certificado.desde) <= Date.now() &&
+      Date.parse(det.certificado.ate) > Date.now(),
+  );
+  const certificadoCobreDominio = Boolean(det?.sslAtivo && certificadoCobreNome(nomesCertificado, x.name));
+  const certificadoValido = certificadoCobreDominio && certificadoDentroValidade;
+  const xNaVercel = Boolean(det && vercelConfirmada(det.dns.fonte, det.siteVercel, det.dns.registos, x.name));
+  const dnsEmail = det ? registosDnsEmail(det.dns.registos, x.name) : [];
+  const sslDoSiteOk = certificadoValido || xNaVercel;
+  const sitesCertificados = [
     {
-      id: '1',
-      data: 'Hoje, 10:15',
-      dom: x.name,
-      acao: x.ssl === 'ok' ? 'Renovação automática' : 'Tentativa de aprovisionamento',
-      provedor: "Let's Encrypt (ACME v2)",
-      estado: x.ssl === 'ok' ? 'ok' : 'alerta',
-      detalhe: x.ssl === 'ok' ? 'Certificado renovado e instalado com sucesso' : 'Aguardando propagação DNS para validação HTTP-01',
+      nome: x.name,
+      aliases: x.aliases || [],
+      sslAtivo: det?.sslAtivo || false,
+      siteVercel: det?.siteVercel,
+      certificado: det?.certificado || null,
+      temEmail: x.temEmail || false,
     },
-    {
-      id: '2',
-      data: '15/09/2026',
-      dom: x.name,
-      acao: 'Emissão inicial TLS',
-      provedor: "Let's Encrypt",
-      estado: 'ok',
-      detalhe: 'SAN: *.' + x.name + ', ' + x.name,
-    },
+    ...(det?.subdominios || []),
   ];
+  const certificadoValidoPara = (site: (typeof sitesCertificados)[number], nome: string) => {
+    const nomes = site.certificado ? [site.certificado.para, ...site.certificado.nomes] : [];
+    return Boolean(
+      site.sslAtivo &&
+        site.certificado?.desde &&
+        site.certificado.ate &&
+        Date.parse(site.certificado.desde) <= Date.now() &&
+        Date.parse(site.certificado.ate) > Date.now() &&
+        certificadoCobreNome(nomes, nome),
+    );
+  };
+  const cobertosX = (x.aliases || []).filter((nome) => certificadoValidoPara(sitesCertificados[0], nome));
+  const alvos: AlvoSsl[] = sitesCertificados.flatMap((site) => {
+    const siteExterno = site.siteVercel === true;
+    const dnsSemConfirmacao = site.siteVercel == null && det?.dns.fonte === 'hestia';
+    const hosts = [site.nome, ...site.aliases];
+    return [
+      ...hosts.map((nome) => ({
+        id: `site:${site.nome}:${nome}`,
+        dominio: site.nome,
+        tipo: 'site' as const,
+        nomes: [nome],
+        estado: siteExterno
+          ? 'externo' as const
+          : dnsSemConfirmacao && !certificadoValidoPara(site, nome)
+            ? 'desconhecido' as const
+            : certificadoValidoPara(site, nome)
+              ? 'ok' as const
+              : 'em-falta' as const,
+      })),
+      ...(site.temEmail
+        ? [{
+            id: `email:${site.nome}`,
+            dominio: site.nome,
+            tipo: 'email' as const,
+            nomes: [`mail.${site.nome}`, `webmail.${site.nome}`],
+            estado: [`mail.${site.nome}`, `webmail.${site.nome}`].every((nome) => certificadoValidoPara(site, nome)) ? 'ok' as const : 'em-falta' as const,
+          }]
+        : []),
+    ];
+  });
 
   return (
     <>
@@ -1789,8 +2087,8 @@ function Ssl({ tab, verCertDomain }: { tab: TabSsl; verCertDomain: string | null
       {tab === 'gerir' && (
         <>
           {/* SECÇÃO 1: Aprovisionamento Automático no Topo */}
-          <div style={{ marginBottom: 24 }}>
-            <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12 }}>{t('Automatic certificate provisioning')}</h3>
+          {det && <div style={{ marginBottom: 24 }}>
+            <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12 }}>{t('Emissão automática de certificados')}</h3>
             <div
               style={{
                 display: 'flex',
@@ -1798,66 +2096,88 @@ function Ssl({ tab, verCertDomain }: { tab: TabSsl; verCertDomain: string | null
                 gap: 12,
                 padding: '14px 18px',
                 borderRadius: 'var(--r)',
-                background: x.ssl === 'ok' ? 'color-mix(in srgb, #10b981 10%, transparent)' : 'color-mix(in srgb, #f59e0b 10%, transparent)',
-                border: `1px solid ${x.ssl === 'ok' ? 'color-mix(in srgb, #10b981 30%, transparent)' : 'color-mix(in srgb, #f59e0b 30%, transparent)'}`,
+                background: sslDoSiteOk ? 'color-mix(in srgb, #10b981 10%, transparent)' : 'color-mix(in srgb, #f59e0b 10%, transparent)',
+                border: `1px solid ${sslDoSiteOk ? 'color-mix(in srgb, #10b981 30%, transparent)' : 'color-mix(in srgb, #f59e0b 30%, transparent)'}`,
                 color: 'var(--ink)',
                 fontSize: 13.5,
                 fontWeight: 500,
               }}
             >
               <i
-                className={'fa-solid ' + (x.ssl === 'ok' ? 'fa-circle-check' : 'fa-circle-exclamation')}
-                style={{ color: x.ssl === 'ok' ? '#10b981' : '#f59e0b', fontSize: 18, flexShrink: 0 }}
+                className={'fa-solid ' + (sslDoSiteOk ? 'fa-circle-check' : 'fa-circle-exclamation')}
+                style={{ color: sslDoSiteOk ? '#10b981' : '#f59e0b', fontSize: 18, flexShrink: 0 }}
               />
               <div>
-                {x.ssl === 'ok'
-                  ? t('All DNS names have valid TLS certificates. Certificates will be automatically renewed.')
-                  : t('Ainda não existe certificado TLS ativo para este domínio. O pedido ao Let\'s Encrypt exige que o DNS esteja a apontar para este servidor.')}
+                {xNaVercel
+                    ? t('O certificado HTTPS do site é gerido externamente; o e-mail/webmail pode ser tratado em separado.')
+                    : certificadoValido
+                    ? det.renovacaoAutomatica
+                      ? t('O certificado cobre este domínio e a renovação automática está activa.')
+                      : t('O certificado cobre este domínio, mas a renovação automática está desligada.')
+                    : det.sslAtivo
+                      ? t('Há um certificado instalado, mas não cobre este domínio ou já expirou.')
+                      : t('Ainda não há certificado SSL instalado neste domínio.')}
               </div>
             </div>
-          </div>
+          </div>}
 
-          {/* SECÇÃO 2: Card de Detalhes do Certificado do Domínio Selecionado */}
-          <div style={{ marginBottom: 24 }}>
+          {/* SECÇÃO 2: Card de Detalhes do Certificado do Domínio Selecionado (o cartão já traz a margem de baixo) */}
+          <div>
             <Frm
+              className="ssl-cert-domain-card"
               title={'Certificado do domínio: ' + x.name}
-              right={x.ssl === 'ok' ? <span className="tag ok">{t('Seguro')}</span> : <span className="tag w">{t('Sem SSL')}</span>}
-              foot={
-                <>
-                  <button className="btn g" onClick={() => openM(<CertificadoModal d={x.name} onFeito={ler} />)}>
-                    <i className="fa-solid fa-file-shield" />
-                    {t('Instalar certificado próprio')}
-                  </button>
-                  <button
-                    className="btn r"
-                    onClick={async () => (await noServidor(vh, { acao: 'ssl-le', dominio: x.name }, 'Certificado pedido ao Let\'s Encrypt')) && ler()}
-                  >
-                    <i className="fa-solid fa-lock" />
-                    {t(det?.certificado ? 'Renovar certificado grátis' : 'Pedir certificado grátis')}
-                  </button>
-                </>
+              right={
+                !det ? undefined : xNaVercel ? (
+                  <span className="tag ok">{t('Alojamento externo')}</span>
+                ) : certificadoValido ? (
+                  <span className="tag ok">{t('Seguro')}</span>
+                ) : det.sslAtivo && det.certificado ? (
+                  <span className="tag w">{t('Certificado inválido')}</span>
+                ) : (
+                  <span className="tag w">{t('Sem SSL')}</span>
+                )
               }
             >
               {!det ? (
                 <div style={{ padding: '10px 18px' }}>
                   <Carregar erro={erro} ler={ler} />
                 </div>
-              ) : det.certificado ? (
+              ) : xNaVercel ? null : det.certificado ? (
                 <>
                   <Row label="Emitido para">{det.certificado.para}</Row>
                   <Row label="Nomes">{det.certificado.nomes.join(', ') || '—'}</Row>
                   <Row label="Válido">
-                    {det.certificado.desde} → {det.certificado.ate}
+                    {dataLonga(det.certificado.desde, vh.s.lang)} → {dataLonga(det.certificado.ate, vh.s.lang)}
                   </Row>
-                  <Row label="Emissor">{det.certificado.emissor || '—'}</Row>
-                  <Row label="Renovação">{x.le ? t("Automática (Let's Encrypt)") : t('Manual')}</Row>
+                  <Row label="Renovação">{det.renovacaoAutomatica ? t('Automática') : t('Manual')}</Row>
+                  <Row label="Cobertura do domínio">
+                    {certificadoCobreDominio ? t('O certificado inclui este domínio.') : t('O certificado não inclui este domínio.')}
+                  </Row>
                 </>
               ) : (
                 <Row label="Certificado">
                   <span style={{ color: 'var(--muted)' }}>{t('Ainda não tem. O pedido só funciona com o DNS do domínio a apontar para este servidor.')}</span>
                 </Row>
               )}
-              {det && (
+              {det && xNaVercel && (
+                <Row label="DNS de e-mail/webmail">
+                  {dnsEmail.length ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minWidth: 0 }}>
+                      {dnsEmail.map((registo) => (
+                        <div key={registo.id} style={{ minWidth: 0 }}>
+                          <strong style={{ fontFamily: 'monospace', fontSize: 12 }}>{registo.tipo} {registo.nome}</strong>
+                          <div style={{ color: 'var(--muted)', fontFamily: 'monospace', fontSize: 12, overflowWrap: 'anywhere' }}>
+                            {registo.prio ? `${registo.prio} ` : ''}{registo.valor}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <span style={{ color: 'var(--muted)' }}>{t('Não foram encontrados registos DNS de e-mail para este domínio.')}</span>
+                  )}
+                </Row>
+              )}
+              {det && !xNaVercel && (
                 <Row label="Forçar HTTPS" hint="Quem abrir http:// vai sempre para https://">
                   <Switch
                     checked={det.sslForcado}
@@ -1871,195 +2191,134 @@ function Ssl({ tab, verCertDomain }: { tab: TabSsl; verCertDomain: string | null
             </Frm>
           </div>
 
-          {/* SECÇÃO 3: Lista de Certificados no Fundo */}
-          <div style={{ marginBottom: 24 }}>
-            <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12 }}>{t('Certificate list')}</h3>
-            <DataTable
-              id="ssl"
-              rows={sites}
-              rowKey={(r) => r.name}
-              semCols={true}
-              semRecarregar={true}
-              cols={[
-                {
-                  k: 'nome',
-                  t: 'Certificate',
-                  sort: (r) => r.name,
-                  cell: (r) => (
-                    <div>
-                      <b style={{ color: 'var(--ink)' }}>{r.name}</b>
-                    </div>
-                  ),
-                },
-                {
-                  k: 'dns',
-                  t: 'DNS Names',
-                  cell: (r) => (
-                    <span style={{ fontSize: 13, color: 'var(--muted)', fontFamily: 'monospace' }}>
-                      *.{r.name}, {r.name}
-                    </span>
-                  ),
-                },
-                {
-                  k: 'validade',
-                  t: 'Validity',
-                  cell: (r) => (
-                    <span className={'tag ' + (r.ssl === 'ok' ? 'ok' : 'w')} style={{ gap: 4 }}>
-                      <i className={'fa-solid ' + (r.ssl === 'ok' ? 'fa-check' : 'fa-triangle-exclamation')} />
-                      {r.ssl === 'ok' ? t('Valid') : t('Sem SSL')}
-                    </span>
-                  ),
-                },
-                {
-                  k: 'expira',
-                  t: 'Expires',
-                  cell: (r) => <span>{r.ssl === 'ok' ? t('in 3 months') : '—'}</span>,
-                },
-                {
-                  k: 'modo',
-                  t: 'Renewal mode',
-                  cell: (r) => (
-                    <span style={{ color: r.ssl !== 'ok' ? 'var(--muted)' : r.le ? '#10b981' : 'var(--ink)', fontWeight: 600 }}>
-                      {r.ssl !== 'ok' ? '—' : r.le ? t('Automatic') : t('Manual')}
-                    </span>
-                  ),
-                },
-              ]}
-              actions={(r) => (
-                <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', alignItems: 'center', position: 'relative' }}>
-                  <button
-                    className="btn g sm"
-                    onClick={() => {
-                      if (r.name !== x.name) setDominio(r.name);
-                      setVerCertDomain(r.name);
-                    }}
-                  >
-                    {t('View')}
+          <Frm
+            title="Certificados do domínio seleccionado"
+            desc="Nomes do site e dos serviços de e-mail deste domínio, com o estado do certificado"
+            foot={
+              <>
+                {!xNaVercel && det?.sslAtivo && (
+                  <button className="btn g" onClick={() => cancelarSsl(vh, x.name, ler)}>
+                    <i className="fa-solid fa-ban" />
+                    {t('Cancelar certificado')}
                   </button>
-                  <div className="dt-mais" style={{ position: 'relative' }}>
-                    <button
-                      className="btn g sm iconbtn"
-                      onClick={() => setMenuRow(menuRow === r.name ? null : r.name)}
-                      title={t('Mais opções')}
-                    >
-                      <i className="fa-solid fa-ellipsis" />
-                                          </button>
-                    {menuRow === r.name && (
-                      <div className="ssl-pop-menu">
-                        <button
-                          onClick={() => {
-                            setMenuRow(null);
-                            openM(<CsrModal d={r.name} />);
-                          }}
-                        >
-                          <i className="fa-solid fa-file-pen" />
-                          {t('Create signing request')}
-                        </button>
-                        <button
-                          onClick={() => {
-                            setMenuRow(null);
-                            openM(<CertificadoModal d={r.name} onFeito={ler} />);
-                          }}
-                        >
-                          <i className="fa-solid fa-arrows-rotate" />
-                          {t('Replace')}
-                        </button>
-                        <button
-                          className="danger"
-                          onClick={() => {
-                            setMenuRow(null);
-                            openM(
-                              <Confirmar
-                                titulo="Apagar certificado SSL?"
-                                texto={`Tem a certeza que deseja apagar o certificado SSL do domínio ${r.name}?`}
-                                ok="Apagar"
-                                onOk={() => noServidor(vh, { acao: 'ssl-apagar', dominio: r.name }, 'Certificado SSL removido')}
-                              />
-                            );
-                          }}
-                        >
-                          <i className="fa-solid fa-trash" />
-                          {t('Delete')}
-                        </button>
-                      </div>
-                    )}
+                )}
+                {!xNaVercel && (
+                  <button className="btn g" onClick={() => openM(<CertificadoModal d={x.name} onFeito={ler} />)}>
+                    <i className="fa-solid fa-file-shield" />
+                    {t('Instalar certificado próprio')}
+                  </button>
+                )}
+                {det?.sslAtivo && (
+                  <button className="btn g" onClick={() => setVerCertDomain(x.name)}>
+                    <i className="fa-solid fa-eye" />
+                    {t('Ver certificado')}
+                  </button>
+                )}
+                <button
+                  className="btn r"
+                  disabled={aEmitirSelecionados || !alvosSelecionados.some((id) => alvos.some((alvo) => alvo.id === id && alvo.estado === 'em-falta'))}
+                  onClick={async () => {
+                    setAEmitirSelecionados(true);
+                    try {
+                      await emitirSslAlvos(vh, alvos, alvosSelecionados, ler);
+                      setAlvosSelecionados([]);
+                    } finally {
+                      setAEmitirSelecionados(false);
+                    }
+                  }}
+                >
+                  <i className="fa-solid fa-lock" />
+                  {t('Emitir SSL para seleccionados')}
+                </button>
+              </>
+            }
+          >
+            <div style={{ display: 'grid', gap: 8, padding: '12px 18px' }}>
+              {alvos.map((alvo) => {
+                const tipo = alvo.tipo === 'email'
+                  ? t('E-mail e webmail')
+                  : alvo.nomes[0] === alvo.dominio
+                    ? alvo.dominio === x.name ? t('Domínio principal') : t('Subdomínio')
+                    : t('Subdomínio/apontador');
+                const estado = alvo.estado === 'externo'
+                  ? t('Gerido externamente')
+                  : alvo.estado === 'desconhecido'
+                    ? t('Alojamento não confirmado')
+                  : alvo.estado === 'ok'
+                    ? t('SSL válido')
+                    : t('Sem SSL');
+                return (
+                  <div key={alvo.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', border: '1px solid var(--line-soft)', borderRadius: 'var(--r)', padding: '12px' }}>
+                    <div style={{ minWidth: 0, flex: '1 1 180px' }}>
+                      <div style={{ color: 'var(--muted)', fontSize: 12, fontWeight: 600, marginBottom: 4 }}>{tipo}</div>
+                      <div style={{ fontFamily: 'monospace', fontSize: 13, overflowWrap: 'anywhere' }}>{alvo.nomes.join(' · ')}</div>
+                    </div>
+                    {/* etiqueta e caixa juntas (no telemóvel a caixa ficava solta do outro lado) */}
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                      <span className={'tag ' + (alvo.estado === 'ok' || alvo.estado === 'externo' ? 'ok' : 'w')}>{estado}</span>
+                      {alvo.estado === 'em-falta' && (
+                        <Check
+                          checked={alvosSelecionados.includes(alvo.id)}
+                          onChange={(marcado) => setAlvosSelecionados((atuais) => marcado ? [...atuais, alvo.id] : atuais.filter((id) => id !== alvo.id))}
+                          label="Seleccionar"
+                        />
+                      )}
+                    </span>
                   </div>
+                );
+              })}
+              {alvos.every((alvo) => alvo.estado !== 'em-falta') && det && (
+                <div className="note">
+                  {t(alvos.some((alvo) => alvo.estado === 'desconhecido') ? 'O alojamento de alguns nomes não pôde ser confirmado; ficaram sem selecção.' : 'Não há nomes sem SSL disponíveis para emissão neste domínio.')}
                 </div>
               )}
-            />
-          </div>
+              {alvos.some((alvo) => alvo.tipo === 'email') && <small style={{ color: 'var(--muted)', lineHeight: 1.45 }}>{t('Mail e webmail utilizam o mesmo certificado SSL.')}</small>}
+            </div>
+          </Frm>
         </>
       )}
 
       {tab === 'acme' && (
         <Frm
-          title="Configurações do cliente ACME"
+          title="Configurações ACME"
+          desc="Como o servidor pede e renova os certificados grátis deste domínio"
           foot={
-            <button className="btn r" onClick={() => vh.toast('Configurações ACME guardadas com sucesso')}>
-              <i className="fa-solid fa-floppy-disk" />
-              {t('Guardar configurações')}
-            </button>
+            <BotaoSsl dominio={x} onFeito={ler} certificadoValido={certificadoValido} siteVercel={det ? xNaVercel : undefined} cobertos={cobertosX} />
           }
         >
-          <Row label="Provedor ACME" hint="Autoridade certificadora para emissão automática">
-            <select value={acme.provider} onChange={(e) => setAcme({ ...acme, provider: e.target.value })}>
-              <option value="letsencrypt">Let's Encrypt (Recomendado)</option>
-              <option value="zerossl">ZeroSSL</option>
-            </select>
+          <Row label="Autoridade certificadora">Let&apos;s Encrypt</Row>
+          <Row label="Validação" hint="Como o Let's Encrypt confirma que o domínio é seu">{t('HTTP-01 (ficheiro no servidor)')}</Row>
+          <Row label="Renovação automática" hint="O servidor renova sozinho antes de o certificado expirar">
+            {det ? (det.renovacaoAutomatica ? t('Activa') : t('Desligada')) : '—'}
           </Row>
-          <Row label="E-mail de contacto ACME" hint="Recebe notificações sobre o estado do certificado">
-            <input value={acme.email} onChange={(e) => setAcme({ ...acme, email: e.target.value })} placeholder={`admin@${x.name}`} />
-          </Row>
-          <Row label="Renovação antecipada" hint="Dias antes da expiração para iniciar a renovação automática">
-            <select value={acme.renewDays} onChange={(e) => setAcme({ ...acme, renewDays: e.target.value })}>
-              <option value="30">30 dias antes de expirar</option>
-              <option value="15">15 dias antes de expirar</option>
-              <option value="7">7 dias antes de expirar</option>
-            </select>
-          </Row>
-          <Row label="Algoritmo e tamanho da chave" hint="Chave privada gerada para o certificado TLS">
-            <select value={acme.keyType} onChange={(e) => setAcme({ ...acme, keyType: e.target.value })}>
-              <option value="rsa2048">RSA 2048-bit (Padrão)</option>
-              <option value="rsa4096">RSA 4096-bit (Alta segurança)</option>
-              <option value="ecdsa256">ECDSA P-256 (Mais rápido)</option>
-            </select>
-          </Row>
-          <Row label="Método de validação (Desafio)" hint="Verificação de propriedade do domínio">
-            <select value={acme.challenge} onChange={(e) => setAcme({ ...acme, challenge: e.target.value })}>
-              <option value="http01">HTTP-01 (Ficheiro no servidor webroot)</option>
-              <option value="dns01">DNS-01 (Registo TXT no DNS)</option>
-            </select>
-          </Row>
+          {det?.certificado && <Row label="Expira">{dataLonga(det.certificado.ate, vh.s.lang)}</Row>}
         </Frm>
       )}
 
       {tab === 'historico' && (
         <div>
           <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12 }}>{t('Histórico de aprovisionamento SSL')}</h3>
-          <DataTable
-            id="ssl-historico"
-            rows={historicoLogs}
-            rowKey={(r) => r.id}
-            semCols={true}
-            semRecarregar={true}
-            cols={[
-              { k: 'data', t: 'Data / Hora', cell: (r) => <span style={{ fontSize: 13, color: 'var(--muted)' }}>{r.data}</span> },
-              { k: 'dom', t: 'Domínio', cell: (r) => <b>{r.dom}</b> },
-              { k: 'acao', t: 'Ação', cell: (r) => <span>{r.acao}</span> },
-              { k: 'provedor', t: 'Provedor', cell: (r) => <span style={{ fontSize: 13, color: 'var(--muted)' }}>{r.provedor}</span> },
-              {
-                k: 'estado',
-                t: 'Estado',
-                cell: (r) => (
-                  <span className={'tag ' + (r.estado === 'ok' ? 'ok' : 'w')}>
-                    <i className={'fa-solid ' + (r.estado === 'ok' ? 'fa-check' : 'fa-triangle-exclamation')} />
-                    {r.estado === 'ok' ? t('Sucesso') : t('Alerta')}
-                  </span>
-                ),
-              },
-              { k: 'detalhe', t: 'Detalhes', cell: (r) => <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>{r.detalhe}</span> },
-            ]}
-          />
+          <p style={{ color: 'var(--muted)', marginBottom: 12 }}>
+            {t('O histórico mostra os pedidos registados; não confirma se a emissão do certificado foi concluída.')}
+          </p>
+          {sslHistoryError ? (
+            <Carregar erro={sslHistoryError} ler={lerSslHistory} />
+          ) : sslHistory && sslHistory.historico.length ? (
+            <DataTable
+              id="ssl-historico"
+              rows={sslHistory.historico}
+              rowKey={(r) => r.data + r.comando}
+              semCols={true}
+              semRecarregar={true}
+              cols={[
+                { k: 'data', t: 'Data / Hora', cell: (r) => <span style={{ fontSize: 13, color: 'var(--muted)' }}>{r.data}</span> },
+                { k: 'acao', t: 'Ação', cell: (r) => <span>{t(r.acao)}</span> },
+                { k: 'estado', t: 'Registo', cell: () => <span>{t('Comando registado')}</span> },
+              ]}
+            />
+          ) : sslHistory ? (
+            <div className="note">{t('Não há pedidos SSL registados para este domínio.')}</div>
+          ) : null}
         </div>
       )}
     </>

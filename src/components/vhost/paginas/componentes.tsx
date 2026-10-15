@@ -8,10 +8,10 @@ import { BarraPagina, FaixaAbas, PesquisaPagina, useVH } from '../context';
 import type { Campo, Lim, Unit } from './dados';
 
 // ---------- Formulário ----------
-export function Frm({ title, desc, right, children, foot }: { title?: string; desc?: string; right?: ReactNode; children: ReactNode; foot?: ReactNode }) {
+export function Frm({ title, desc, right, children, foot, className }: { title?: string; desc?: string; right?: ReactNode; children: ReactNode; foot?: ReactNode; className?: string }) {
   const { t } = useVH();
   return (
-    <div className="frm">
+    <div className={className ? `frm ${className}` : 'frm'}>
       {title && (
         <div className="frm-head">
           <div>
