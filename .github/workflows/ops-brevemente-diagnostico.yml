@@ -1,0 +1,35 @@
+name: "Ops - Contabo: diagnóstico dos sites sem conteúdo (só leitura)"
+# Só lê: modelo do site, proxy, aplicações por trás (nginx próprio) e ficheiros de cada site. Não muda nada.
+on:
+  push:
+    branches: [claude/kind-einstein-r6lyf6]
+    paths: ['.github/workflows/ops-brevemente-diagnostico.yml']
+jobs:
+  contabo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          username: root
+          key: ${{ secrets.CONTABO_SSH_KEY }}
+          command_timeout: 10m
+          script: |
+            set +e
+            H=/usr/local/hestia/bin
+            ORIG=/root/hestia-skel-index-original.html
+            for u in $($H/v-list-users plain | cut -f1); do
+              for d in $($H/v-list-web-domains "$u" plain | cut -f1); do
+                P=/home/$u/web/$d/public_html
+                info=$($H/v-list-web-domain "$u" "$d" shell 2>/dev/null)
+                tpl=$(echo "$info" | awk '$1=="TEMPLATE:"{print $2}')
+                bk=$(echo "$info" | awk '$1=="BACKEND:"{print $2}')
+                px=$(echo "$info" | awk '$1=="PROXY:"{print $2}')
+                inc=$(ls /home/$u/conf/web/$d/ 2>/dev/null | grep -E '^(nginx|apache2)\.(ssl\.)?conf_' | tr '\n' ' ')
+                pp=$(grep -hoE 'proxy_pass[^;]+' /home/$u/conf/web/$d/nginx*.conf* /etc/nginx/conf.d/domains/$d*.conf 2>/dev/null | sort -u | head -2 | tr '\n' ' ')
+                fic=$(ls -A "$P" 2>/dev/null | head -6 | tr '\n' ' ')
+                orig=nao; [ -f "$P/index.html" ] && sed "s/$d/%domain%/g" "$P/index.html" | cmp -s - "$ORIG" && orig=SIM
+                tit=$(grep -o -i '<title>[^<]*' "$P/index.html" 2>/dev/null | head -1 | cut -c8-60)
+                echo "$u | $d | tpl=$tpl px=$px bk=$bk | origem=$orig | inc=[$inc] | proxy_pass=[$pp] | fich=[$fic] | titulo=[$tit]"
+              done
+            done
