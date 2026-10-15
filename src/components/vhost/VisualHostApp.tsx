@@ -40,6 +40,8 @@ import {
   isUser,
   LS,
   meOf,
+  dominioGuardado,
+  guardarDominio,
   route,
   type DashTab,
   type St,
@@ -603,6 +605,12 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
 
   // ---------- Estado visto pelos ecrãs ----------
   const me = meOf(st);
+  // ao abrir o painel (ou quando a conta fica conhecida): o domínio escolhido da última vez nesta conta
+  useEffect(() => {
+    if (!me || ref.current.dominio) return;
+    const d = dominioGuardado(me);
+    if (d) commit({ ...ref.current, dominio: d });
+  }, [me, commit]);
   const a: Account = acctOf(st);
   // Quem aparece no cabeçalho e no rodapé, sempre automático: na própria conta, a pessoa que entrou (perfil do site: nome,
   // e-mail, empresa); ao "entrar como" outra conta, os dados dessa conta. Nos painéis dos clientes, a empresa no lugar de
@@ -680,8 +688,8 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
     recarregar: (fresco = true) => carregar(fresco),
     enterAs: (u) => {
       const cur = ref.current;
-      // domínio vazio → a página abre no domínio principal da conta que se está a ver
-      const n0: St = { ...cur, dominio: '', stack: [...cur.stack, { u, lv: level, pg: cur.page }] };
+      // o domínio escolhido da última vez nessa conta; sem escolha → o domínio principal da conta que se está a ver
+      const n0: St = { ...cur, dominio: dominioGuardado(u), stack: [...cur.stack, { u, lv: level, pg: cur.page }] };
       const lv = nivelInicial(n0);
       const n = fromPath({ ...n0, level: lv }, '/' + lv);
       commit(n);
@@ -756,6 +764,7 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
       toast('Cantos atualizados');
     },
     setDominio: (d, aviso = true) => {
+      guardarDominio(meOf(ref.current), d);
       commit({ ...ref.current, dominio: d });
       if (aviso) toast('Domínio: ' + d);
     },
