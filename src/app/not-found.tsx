@@ -53,7 +53,7 @@ export default function NotFound() {
             {/* Main Content */}
             <div className="relative z-10 flex flex-col items-center text-center max-w-xl">
                 {/* Animated 404 Text */}
-                <div className="relative -mb-16 md:-mb-20">
+                <div className="relative -mb-12 md:-mb-16">
                     <h1 className="text-[12rem] md:text-[16rem] font-black leading-none tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-zinc-400 to-white dark:from-white dark:to-gray-800 opacity-30 dark:opacity-20 select-none">
                         404
                     </h1>
