@@ -1186,10 +1186,7 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
                     <i className="fa-solid fa-magnifying-glass" />
                     {t('Busca')}
                   </button>
-                  {/* Sair fica na barra compacta, ao lado do avatar; no telemóvel (sem barra compacta) fica só o ícone aqui */}
-                  <button className="btn g iconbtn only-m" onClick={vh.logout} title={t('Sair')} aria-label={t('Sair')}>
-                    <i className="fa-solid fa-right-from-bracket fa-flip-horizontal" />
-                  </button>
+                  {/* Sair fica na barra compacta, ao lado do avatar; no telemóvel está no menu "Mais" (Silva, 15/10/2026) */}
                   <button className="btn g iconbtn" onClick={vh.toggleTheme} title={t('Tema claro/escuro')}>
                     <i className={'fa-solid ' + (st.theme === 'dark' ? 'fa-sun' : 'fa-moon')} />
                   </button>

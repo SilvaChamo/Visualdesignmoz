@@ -146,7 +146,7 @@ function SeletorLingua() {
 }
 
 export function MoreMenuModal() {
-  const { s, t, allowed, hasFeat, closeM, setLevel, go } = useVH();
+  const { s, t, allowed, hasFeat, closeM, setLevel, go, logout } = useVH();
   return (
     <>
       <h3>{t('Menu')}</h3>
@@ -196,6 +196,17 @@ export function MoreMenuModal() {
           );
         })}
       <Foot>
+        {/* Sair no telemóvel fica aqui: a barra de cima tem só o símbolo, o título e os botões da página (Silva, 15/10/2026) */}
+        <button
+          className="btn g"
+          onClick={() => {
+            closeM();
+            logout();
+          }}
+        >
+          <i className="fa-solid fa-right-from-bracket" />
+          {t('Sair')}
+        </button>
         <button className="btn g" onClick={closeM}>
           {t('Fechar')}
         </button>
