@@ -223,6 +223,13 @@ export async function deleteAccount(username: string): Promise<{ ok: boolean; er
  * directamente por SSH; não implementado aqui de propósito (ver nota no plano). */
 export async function changeUserPackage(username: string, packageName: string): Promise<{ ok: boolean; error?: string }> {
   const result = await hestiaCall('v-change-user-package', [username, packageName]);
+  // Código 8 do Hestia (limite): a conta já usa mais do que o pacote novo deixa (domínios, e-mails, bases de dados…).
+  // Foi o que aconteceu ao passar contas com site para o VD-Email-Basico (registo do servidor, 12 e 14/10/2026).
+  if (!result.ok && (result.exitCode === 8 || /limit/i.test(result.error || '')))
+    return {
+      ok: false,
+      error: `o pacote ${packageName} é mais pequeno do que o que a conta ${username} já usa (domínios, e-mails ou bases de dados). Escolha um pacote maior ou retire primeiro o que excede.`,
+    };
   return { ok: result.ok, error: result.error };
 }
 

@@ -647,21 +647,18 @@ function ContaAcoes({ u }: { u: string }) {
 }
 
 function ContaModificar({ u }: { u: string }) {
-  const { s, t, nav, toast, updateDb } = useVH();
+  const vh = useVH();
+  const { s, t, nav, toast, updateDb } = vh;
   const a = s.acc[u];
   const revenda = a.role === 'revenda';
   const nomes = Object.keys(revenda ? s.db.rpkgs : s.db.pkgs);
   const [pk, setPk] = useState(nomes.includes(a.pkg) ? a.pkg : nomes[0]);
   const [p, setP] = useState<PacoteUtilizador | PacoteRevenda>(() => structuredClone(revenda ? pacoteRevendaDe(s, u) : pacoteDe(s, u) || pacoteVazio()));
   const ver = base(s) + '/' + enc(u);
-  const aplicar = () => {
-    updateDb((db, acc) => {
-      acc[u].pkg = pk;
-      delete db.custom[u];
-      delete db.rcustom[u];
-    });
-    setP(structuredClone(revenda ? s.db.rpkgs[pk] : s.db.pkgs[pk]));
-    toast('Pacote ' + pk + ' aplicado a ' + u);
+  // O pacote muda no servidor (antes só se mudava no painel, que recusava a alteração: "não aceita" — Silva, 15/10/2026)
+  const aplicar = async () => {
+    const feitas = await noServidor(vh, { acao: 'pacote', contas: [u], pacote: pk }, () => 'Pacote ' + pk + ' aplicado a ' + u);
+    if (feitas.includes(u)) setP(structuredClone(revenda ? s.db.rpkgs[pk] : s.db.pkgs[pk]));
   };
   const gravar = () => {
     updateDb((db) => {
