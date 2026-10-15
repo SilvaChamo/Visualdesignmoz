@@ -36,6 +36,7 @@ type Detalhe = {
     sslAtivo: boolean;
     renovacaoAutomatica: boolean;
     temEmail: boolean;
+    emailSsl?: boolean;
     siteVercel: boolean | null;
     certificado: { para: string; nomes: string[]; desde: string; ate: string; emissor: string } | null;
   }[];
@@ -66,13 +67,13 @@ async function noServidor(vh: VH, corpo: Record<string, unknown>, ok: string, re
   vh.toast('A alterar no servidor…');
   try {
     const r = await fetch('/api/vhost/dominio', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ conta: vh.me, ...corpo }) });
-    const j = (await r.json().catch(() => ({}))) as { erro?: string };
+    const j = (await r.json().catch(() => ({}))) as { erro?: string; aviso?: string };
     if (!r.ok) {
       vh.toast(j.erro || 'A alteração falhou');
       return false;
     }
     if (recarregar) await vh.recarregar(true);
-    vh.toast(ok);
+    vh.toast(j.aviso || ok);
     return true;
   } catch {
     vh.toast('Sem ligação ao site. Nada foi alterado.');
@@ -1611,7 +1612,8 @@ function EmitirSslModal({ dom, onFeito, certificadoValido, cobertos = [] }: { do
   // o sistema vê quais já têm SSL: esses não aparecem (vão sozinhos no certificado novo); os outros vêm marcados
   const aliases = (dom.aliases || []).filter((n) => !cobertos.includes(n));
   const [marcados, setMarcados] = useState<string[]>(aliases);
-  const [incluirEmail, setIncluirEmail] = useState(Boolean(dom.temEmail));
+  // só vem marcado quando o e-mail ainda não tem SSL (pedir outro por cima do válido falhava no Let's Encrypt)
+  const [incluirEmail, setIncluirEmail] = useState(Boolean(dom.temEmail && !dom.emailSsl));
   const renovar = certificadoValido ?? dom.ssl === 'ok';
   return (
     <>
@@ -2027,6 +2029,7 @@ function Ssl({ tab, verCertDomain }: { tab: TabSsl; verCertDomain: string | null
       siteVercel: det?.siteVercel,
       certificado: det?.certificado || null,
       temEmail: x.temEmail || false,
+      emailSsl: x.emailSsl || false,
     },
     ...(det?.subdominios || []),
   ];
@@ -2066,7 +2069,8 @@ function Ssl({ tab, verCertDomain }: { tab: TabSsl; verCertDomain: string | null
             dominio: site.nome,
             tipo: 'email' as const,
             nomes: [`mail.${site.nome}`, `webmail.${site.nome}`],
-            estado: [`mail.${site.nome}`, `webmail.${site.nome}`].every((nome) => certificadoValidoPara(site, nome)) ? 'ok' as const : 'em-falta' as const,
+            // o certificado do e-mail é à parte do do site (mail. e webmail.): conta o que o servidor diz
+            estado: site.emailSsl || [`mail.${site.nome}`, `webmail.${site.nome}`].every((nome) => certificadoValidoPara(site, nome)) ? 'ok' as const : 'em-falta' as const,
           }]
         : []),
     ];

@@ -166,6 +166,7 @@ export function montarDados(srv: LeituraServidor, reg: RegistoSite, sessao: Sess
       ftp: lista(w.FTP_USER).map((f, i) => ({ user: f, path: lista(w.FTP_PATH)[i] || '' })),
       le: (w.LETSENCRYPT || 'no').toLowerCase() === 'yes',
       temEmail: Boolean(srv.mail[u]?.[d]),
+      emailSsl: (srv.mail[u]?.[d]?.SSL || 'no').toLowerCase() === 'yes',
     }));
     // domínios só de e-mail (sem site)
     for (const [d, m] of Object.entries(srv.mail[u] || {}))

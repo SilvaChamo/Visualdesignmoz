@@ -194,6 +194,7 @@ async function lerDominio(req: NextRequest) {
       sslAtivo: (certificado.SSL || dominioWeb.SSL || 'no').toLowerCase() === 'yes',
       renovacaoAutomatica: (certificado.LETSENCRYPT || dominioWeb.LETSENCRYPT || 'no').toLowerCase() === 'yes',
       temEmail: !!srv.mail[conta]?.[nome],
+      emailSsl: (srv.mail[conta]?.[nome]?.SSL || 'no').toLowerCase() === 'yes',
       siteVercel: subdominiosVercel[i],
       certificado: certificado.SUBJECT || certificado.NOT_AFTER
         ? {
@@ -437,7 +438,12 @@ export async function POST(req: NextRequest) {
     }
     case 'ssl-mail-le': {
       if (!w) return NextResponse.json({ erro: 'Este domínio não tem site.' }, { status: 400 });
-      if (!srv.mail[conta]?.[d]) return NextResponse.json({ erro: 'O e-mail deste domínio não está alojado neste servidor.' }, { status: 400 });
+      const m = srv.mail[conta]?.[d];
+      if (!m) return NextResponse.json({ erro: 'O e-mail deste domínio não está alojado neste servidor.' }, { status: 400 });
+      // Já tem o certificado grátis (renova-se sozinho): pedir outro falhava no Let's Encrypt ("finalize bad status
+      // 403") e o painel mostrava erro com o SSL do e-mail a funcionar (Silva, 15/10/2026). Só se pede outro com `forcar`.
+      if ((m.SSL || 'no').toLowerCase() === 'yes' && (m.LETSENCRYPT || 'no').toLowerCase() === 'yes' && !c.forcar)
+        return NextResponse.json({ ok: true, aviso: 'O e-mail e o webmail de ' + d + ' já têm SSL válido (renova-se sozinho).' });
       return resposta(hestia.issueMailLetsEncrypt(conta, d));
     }
     case 'ssl-apagar': {
