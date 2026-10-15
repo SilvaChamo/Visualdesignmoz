@@ -2,7 +2,7 @@
 
 // Painel VisualHost — versão React da maquete aprovada (VisualHost/maquete-visualhost.html).
 // Mesma estrutura de HTML e mesmas classes, para o CSS da maquete (generated/maquete.css) se aplicar tal e qual.
-import { Component, Fragment, useCallback, useEffect, useMemo, useReducer, useRef, useState, useSyncExternalStore, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
+import { Component, Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState, useSyncExternalStore, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import { BarraPagina, FaixaAbas, PesquisaPagina, VHContext, type ItemPesquisa, type VH } from './context';
 import { GLOBAL, LEVELS, MENU, ROLES } from './generated/data';
@@ -46,6 +46,8 @@ import {
 } from './state';
 import { Avatar, ImpBanner, RouteFoot, SwitcherBar } from './ui';
 import type { Account, Level, MenuItem } from './types';
+
+const useIsomorphicLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
 // O mesmo ecrã com o endereço do browser (/host:2026/…) ou com o da rota no servidor (/host/…, por causa da
 // reescrita em src/proxy.ts): os dois dão o mesmo caminho interno, sem diferenças entre servidor e browser
@@ -323,7 +325,7 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
   const [aEntrar, setAEntrar] = useState(false);
   const [semSessao, setSemSessao] = useState(!temSessao);
   const [modoTema, setModoTema] = useState<ModoTema>('light');
-  useEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     try {
       const tm = localStorage.getItem('visualhost_theme');
       setModoTema(tm === 'dark' ? 'dark' : tm === 'auto' ? 'auto' : 'light');
@@ -455,7 +457,7 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
 
   // Aparência guardada no navegador (tema claro/escuro, separador do painel inicial, cores, cantos e marca);
   // endereço sem ecrã → primeiro painel da conta
-  useEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     commit(comPreferencias(ref.current));
     pushUrl(ref.current.path, true);
     // cores do site escolhidas pelo administrador: valem aqui também, salvo se esta pessoa escolheu outras no painel
