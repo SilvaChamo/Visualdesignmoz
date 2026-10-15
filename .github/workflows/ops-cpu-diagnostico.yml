@@ -1,0 +1,27 @@
+name: "Ops - Contabo: CPU real e processos que mais gastam (SÓ LEITURA)"
+
+# Só leitura: carga, uso do CPU em 10 s (fora da leitura do painel) e os processos que mais gastam.
+on:
+  push:
+    branches: [ops/cpu-diagnostico]
+
+jobs:
+  contabo:
+    runs-on: ubuntu-latest
+    steps:
+      - name: CPU no Contabo
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          username: root
+          password: ${{ secrets.CONTABO_ROOT_PASSWORD }}
+          command_timeout: 3m
+          script: |
+            set +e
+            echo "=== núcleos e carga ==="; nproc; cat /proc/loadavg; uptime
+            echo "=== uso do CPU, 5 amostras de 2 s (vmstat: us sy id wa st) ==="; vmstat 2 6 | tail -6
+            echo "=== processos que mais gastam CPU agora ==="; top -bn2 -d2 -o %CPU | awk '/^top -/{n++} n==2' | sed -n 7,25p
+            echo "=== processos com mais tempo de CPU acumulado ==="; ps -eo pid,user,etime,time,%cpu,%mem,comm --sort=-time | head -15
+            echo "=== pm2 ==="; pm2 jlist 2>/dev/null | python3 -c "import sys,json;[print(p['name'],p['pm2_env']['status'],'cpu',p['monit']['cpu'],'mem',round(p['monit']['memory']/1048576),'MB','restarts',p['pm2_env']['restart_time']) for p in json.load(sys.stdin)]" 2>/dev/null
+            for u in $(ls /home); do [ -d /home/$u/.pm2 ] && echo "--- pm2 de $u" && su - $u -c "pm2 jlist" 2>/dev/null | python3 -c "import sys,json;[print(p['name'],p['pm2_env']['status'],'cpu',p['monit']['cpu'],'restarts',p['pm2_env']['restart_time']) for p in json.load(sys.stdin)]" 2>/dev/null; done
+            echo "=== docker ==="; docker stats --no-stream --format '{{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}' 2>/dev/null | sort -t$'\t' -k2 -rn | head -12
