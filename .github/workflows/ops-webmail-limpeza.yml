@@ -1,0 +1,63 @@
+name: "Ops - Contabo: webmail pelo domínio principal, Roundcube sem ModSecurity, apagar e-mail teste."
+# Autorizado pelo Silva a 16/10/2026 ("resolva isso" — assinatura do Roundcube; "remover os emails teste da VisualDesign").
+# 1) confirma que webmail.visualdesignmoz.com responde com o Roundcube; 2) os /webmail de todos os sites passam a usá-lo
+#    (cópia das regras antes; volta atrás se o nginx recusar); 3) o ModSecurity deixa de bloquear o Roundcube (só se
+#    entra com senha; bloqueava guardar a assinatura com imagem: 403); 4) só com tudo a funcionar, apaga o domínio de
+#    e-mail teste.visualdesignmoz.com (sem caixas de correio).
+on:
+  push:
+    branches: [claude/kind-einstein-r6lyf6]
+    paths: ['.github/workflows/ops-webmail-limpeza.yml']
+jobs:
+  contabo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          username: root
+          key: ${{ secrets.CONTABO_SSH_KEY }}
+          command_timeout: 10m
+          script: |
+            set +e
+            H=/usr/local/hestia/bin
+            IP=$(grep -ho 'proxy_pass http://[0-9.]*:8080' /home/concordia/conf/web/concordia.co.mz/nginx.conf_webmail | head -1 | sed 's|proxy_pass http://||;s|:8080||')
+            echo "IP: (lido da regra)"
+            roda() { curl -s --max-time 15 -H "Host: $1" "http://$IP:8080/" | grep -ci 'roundcube'; }
+            echo "== 1. webmail.visualdesignmoz.com no Apache: $(roda webmail.visualdesignmoz.com) (precisa > 0)"
+            [ "$(roda webmail.visualdesignmoz.com)" -gt 0 ] || { echo "PARADO: webmail.visualdesignmoz.com não responde com o Roundcube"; exit 1; }
+
+            echo "== 2. regras /webmail dos sites"
+            COPIA=/root/webmail-regras-copia-$(date +%Y%m%d%H%M)
+            mkdir -p $COPIA
+            for f in /home/*/conf/web/*/nginx*.conf_webmail; do
+              grep -q 'Host webmail.teste.visualdesignmoz.com' "$f" || continue
+              mkdir -p "$COPIA$(dirname $f)" && cp -a "$f" "$COPIA$f"
+              sed -i 's|Host webmail.teste.visualdesignmoz.com;|Host webmail.visualdesignmoz.com;|' "$f" && echo "  mudado: $f"
+            done
+            if nginx -t 2>&1 | tail -2; then systemctl reload nginx && echo "  nginx recarregado"
+            else echo "  nginx recusou: repor"; cp -a $COPIA/home/. /home/; nginx -t && systemctl reload nginx; exit 1; fi
+            sleep 2
+            OK=$(curl -sk --max-time 15 --resolve concordia.co.mz:443:$IP https://concordia.co.mz/webmail/ | grep -ci roundcube)
+            echo "  concordia.co.mz/webmail -> roundcube: $OK"
+            [ "$OK" -gt 0 ] || { echo "PARADO: webmail não abre pela regra nova — repor"; cp -a $COPIA/home/. /home/; systemctl reload nginx; exit 1; }
+
+            echo "== 3. ModSecurity fora do Roundcube"
+            RAIZ=$(grep -rh 'DocumentRoot' /etc/apache2/conf.d/domains/webmail.visualdesignmoz.com.conf 2>/dev/null | awk '{print $2}' | head -1)
+            [ -n "$RAIZ" ] || RAIZ=/var/lib/roundcube
+            echo "  pasta do Roundcube: $RAIZ"
+            printf '%s\n' "# VisualDesign (Silva, 16/10/2026): o Roundcube só se usa com senha; o ModSecurity bloqueava guardar" \
+              "# assinaturas com imagem (403 em Settings > Identities)." \
+              "<Directory $RAIZ>" "  <IfModule security2_module>" "    SecRuleEngine Off" "  </IfModule>" "</Directory>" > /etc/apache2/conf.d/vd-roundcube-sem-modsecurity.conf
+            if apache2ctl configtest 2>&1 | tail -1 | grep -q 'Syntax OK'; then systemctl reload apache2 && echo "  apache recarregado"
+            else echo "  apache recusou: retirar"; rm -f /etc/apache2/conf.d/vd-roundcube-sem-modsecurity.conf; fi
+
+            echo "== 4. domínio de e-mail teste.visualdesignmoz.com"
+            CX=$($H/v-list-mail-accounts vdadmin teste.visualdesignmoz.com plain 2>/dev/null | wc -l)
+            echo "  caixas de correio: $CX"
+            if [ "$CX" = 0 ]; then $H/v-delete-mail-domain vdadmin teste.visualdesignmoz.com && echo "  APAGADO"; else echo "  tem caixas: não se apaga"; fi
+            sleep 2
+            echo "== 5. confirmação final"
+            echo "  concordia.co.mz/webmail -> roundcube: $(curl -sk --max-time 15 --resolve concordia.co.mz:443:$IP https://concordia.co.mz/webmail/ | grep -ci roundcube)"
+            echo "  visualdesignmoz.com/webmail -> roundcube: $(curl -sk --max-time 15 --resolve visualdesignmoz.com:443:$IP https://visualdesignmoz.com/webmail/ -L | grep -ci roundcube)"
+            $H/v-list-mail-domains vdadmin plain | cut -f1

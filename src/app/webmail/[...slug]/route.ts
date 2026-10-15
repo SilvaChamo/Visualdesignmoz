@@ -13,7 +13,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ slug
 
   let targetHost = `webmail.${cleanHost}`;
   if (cleanHost === 'teste.visualdesignmoz.com') {
-    targetHost = 'webmail.teste.visualdesignmoz.com';
+    targetHost = 'webmail.visualdesignmoz.com'; // o domínio de e-mail teste. foi apagado (Silva, 16/10/2026)
   } else if (cleanHost.endsWith('visualdesignmoz.com')) {
     targetHost = 'webmail.visualdesignmoz.com';
   }

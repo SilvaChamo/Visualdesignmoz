@@ -25,7 +25,7 @@ location = /roundcube { return 301 /webmail/$is_args$args; }
 location /roundcube/ { return 301 /webmail/$is_args$args; }
 location /webmail/ {
 	add_header X-VH-Webmail 1 always;
-	proxy_set_header Host webmail.teste.visualdesignmoz.com;
+	proxy_set_header Host webmail.visualdesignmoz.com;
 	proxy_set_header X-Real-IP $remote_addr;
 	proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
 	proxy_set_header X-Forwarded-Proto https;
