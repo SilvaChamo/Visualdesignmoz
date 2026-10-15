@@ -15,6 +15,10 @@ jobs:
       - name: DNS, certificado e respostas
         run: |
           set +e
+          echo "===== registo e servidores de nomes ====="
+          dig +short NS msdn-moz.com; dig +short SOA msdn-moz.com
+          dig NS msdn-moz.com @a.gtld-servers.net +norec | grep -E "status|IN\s+NS" | head -5
+          sudo apt-get -qq install -y whois >/dev/null 2>&1; whois msdn-moz.com | grep -iE "Domain Name|Registrar:|Name Server|Status|Expir|No match" | head -15
           for d in msdn-moz.com www.msdn-moz.com; do
             echo "===== $d ====="
             echo "A: $(dig +short $d A | tr '\n' ' ')  AAAA: $(dig +short $d AAAA | tr '\n' ' ')"
