@@ -1,9 +1,9 @@
-name: "Ops - Estado de host:2026 e community (só leitura)"
+name: "Ops - Estado de ns1..ns4 na zona visualdesignmoz.com (só leitura)"
 
-# Silva, 16/10/2026: confirmar o que já está a funcionar — para onde apontam
-# host.visualdesignmoz.com e community.oshercollective.com e o que respondem; o que
-# o Contabo responde em host.visualdesignmoz.com (portas 443 e 2026); e o valor
-# anterior do registo host (registo de alterações da Cloudflare). Só leitura.
+# Silva, 16/10/2026: "os ns1 a 4 sumiram na Cloudflare da VisualDesign, porquê?"
+# Mostra os registos ns1..ns4 que existem agora na zona visualdesignmoz.com, quem
+# os criou/alterou/apagou nos últimos dias (registo de alterações da Cloudflare) e
+# que domínios ainda usam ns1..ns4 como servidores de nomes. Só leitura.
 
 on:
   workflow_dispatch:
@@ -23,24 +23,23 @@ jobs:
           CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           set +e
-          H=host.visualdesignmoz.com
-          CT=169.58.148.144
-          for n in $H community.oshercollective.com visualdesignmoz.com; do
-            echo "$n -> $(dig +short A $n @1.1.1.1 | tr '\n' ' ')"
-          done
+          cf() { curl -s -H "X-Auth-Email: $CF_EMAIL" -H "X-Auth-Key: $CF_KEY" "$@"; }
+          ZID=$(cf "https://api.cloudflare.com/client/v4/zones?name=visualdesignmoz.com" | jq -r '.result[0].id')
+          echo "===== registos ns1..ns4 na zona visualdesignmoz.com, agora ====="
+          cf "https://api.cloudflare.com/client/v4/zones/$ZID/dns_records?per_page=500" \
+            | jq -r '.result[] | select(.name | test("^ns[1-4]\\.")) | "\(.type)\t\(.name)\t\(.content)\tcriado=\(.created_on[0:16])"'
+          echo "(nada acima = não existem)"
           echo
-          echo "===== o Contabo ($CT) a responder como $H ====="
-          for u in "https://$H:2026/evo/" "https://$H/evo/" "https://$H/"; do
-            p=$(echo "$u" | grep -o ':2026' || echo ':443'); p=${p#:}
-            echo "--- $u ---"
-            curl -sS -o /dev/null -D - --max-time 15 --resolve "$H:$p:$CT" "$u" 2>&1 | grep -i -E '^HTTP|^location|^server|curl'
-          done
-          echo "--- certificado em $CT:2026 ---"
-          echo | timeout 10 openssl s_client -connect $CT:2026 -servername $H 2>/dev/null | openssl x509 -noout -subject -enddate
+          echo "===== alterações aos registos ns1..ns4 (desde 13/10) ====="
+          for page in 1 2 3; do
+            cf "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT/audit_logs?since=2026-10-13T00:00:00Z&per_page=100&page=$page"
+          done | jq -r '.result[]? | select(((.newValue // "") + (.oldValue // "") + ((.metadata // {}) | tostring) + ((.newValueJson // {}) | tostring) + ((.oldValueJson // {}) | tostring)) | test("ns[1-4]\\.visualdesignmoz"))
+                   | "\(.when[0:19])  \(.action.type)  \(.metadata.dns_name // .newValueJson.name // .oldValueJson.name // "?")  \(.oldValueJson.content // "-") -> \(.newValueJson.content // "-")  por=\(.actor.email // .actor.type) ip=\(.actor.ip // "-")"' | sort -u
           echo
-          echo "===== alterações de hoje ao registo $H (Cloudflare) ====="
-          curl -s -H "X-Auth-Email: $CF_EMAIL" -H "X-Auth-Key: $CF_KEY" \
-            "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT/audit_logs?since=2026-10-13T00:00:00Z&per_page=100" \
-            | jq -r '.result[]? | select((.metadata.dns_name // .resource.id // "" | tostring | test("host\\.visualdesignmoz"))
-                       or ((.oldValueJson // {} | tostring) | test("host\\.visualdesignmoz")) or ((.newValueJson // {} | tostring) | test("host\\.visualdesignmoz")))
-                     | "\(.when)  \(.action.type)  antes=\(.oldValueJson.content // "-")  depois=\(.newValueJson.content // "-")"' 2>&1 | head -10
+          echo "===== domínios cujo registador ainda aponta para ns1..ns4.visualdesignmoz.com ====="
+          for d in visualdesignmoz.com aamihe.com mltmark.com basededadosagro.com provisualcorporate.co.mz oshercollective.com \
+                   elimservicos.com lirandzojewelry.com msdn-moz.org msdnmoz.org shalomdeco.com entrecamposblog.com concordia.co.mz menocrazy.app; do
+            ns=$(dig +short NS $d @1.1.1.1 | tr '\n' ' ')
+            echo "$ns" | grep -q 'ns[1-4].visualdesignmoz' && echo "  $d -> $ns"
+          done
+          echo "(nada acima = nenhum destes domínios depende de ns1..ns4)"
