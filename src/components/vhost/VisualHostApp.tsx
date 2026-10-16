@@ -664,6 +664,28 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
       })
       .catch(() => {});
   }, [me, commit]);
+  // Contas ligadas (Admin › Gestão de contas): o painel aberto avisa o servidor a cada minuto, só com o separador visível
+  const conectado = st.carga === 'ok' && !!st.login;
+  useEffect(() => {
+    if (!conectado) return;
+    const avisar = () => {
+      if (document.visibilityState !== 'visible') return;
+      const cur = ref.current;
+      fetch('/api/vhost/presenca', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ aVer: cur.stack.length ? meOf(cur) : '', pagina: cur.path }),
+        keepalive: true,
+      }).catch(() => {});
+    };
+    avisar();
+    const id = setInterval(avisar, 60_000);
+    document.addEventListener('visibilitychange', avisar);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', avisar);
+    };
+  }, [conectado, me]);
   // ao abrir o painel (ou quando a conta fica conhecida): o domínio escolhido da última vez nesta conta
   useEffect(() => {
     if (!me || ref.current.dominio) return;

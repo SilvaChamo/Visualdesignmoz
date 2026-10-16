@@ -11,6 +11,7 @@ import { estatisticasPagina, ficheirosPagina, infoSistemaPagina, logsPagina, per
 import { backupsPagina, chavesPagina, clamavPagina, cronPagina, gitPagina, handlersPagina, modsecPagina, protegidasPagina, sshPagina, wordpressPagina } from './paginas/avancado';
 import { mensagemTodos } from './paginas/mensagem-todos';
 import { forcaBrutaPagina } from './paginas/forca-bruta';
+import { ligadosPagina } from './paginas/ligados';
 import { acessosPlanos } from './paginas/acessos';
 import { catchAllPagina, emailPagina, feriasPagina, listasPagina, mailmarketingPagina, migracaoPagina, mxPagina, rastreioPagina, reencaminhamentosPagina, respostasPagina, spamPagina, webmailPagina } from './paginas/email';
 import { apontadores, bdPagina, dnsPagina, dominios, ftpPagina, hotlink, phpPagina, phpmyadminPagina, redirecionamentos, sslPagina } from './paginas/dominios';
@@ -689,6 +690,7 @@ export const SCREENS: Record<string, ScreenFn> = {
   'admin/modelos-mensagem': modelos,
   'admin/senhas': senhas,
   'admin/forca-bruta': forcaBrutaPagina,
+  'admin/ligados': ligadosPagina,
   'admin/acessos': acessosPlanos,
   'admin/mensagem-todos': mensagemTodos,
   'admin/revendedores': contas('revenda'),
