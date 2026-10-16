@@ -533,7 +533,11 @@ function PerfilGeral() {
 function PerfilSenha() {
   const vh = useVH();
   const { t } = vh;
-  const [f, setF] = useState({ atual: '', nova: '', repetir: '' });
+  // Sem a palavra-passe antiga (Silva, 16/10/2026): o cliente pode tê-la esquecido e ficava sem conseguir trocar. A
+  // sessão aberta já o identifica; a nova grava-se no servidor (/api/vhost/perfil, acao 'senha').
+  const [f, setF] = useState({ nova: '', repetir: '' });
+  const [ver, setVer] = useState(false);
+  const [aGravar, setAGravar] = useState(false);
   if (vista(vh).alheia)
     return (
       <Sec titulo="Mudar a palavra-passe">
@@ -547,19 +551,20 @@ function PerfilSenha() {
     ['As duas novas são iguais', !!f.nova && f.nova === f.repetir],
   ];
   return (
-    <Sec titulo="Mudar a palavra-passe" desc="A palavra-passe com que entra no painel. As caixas de e-mail têm cada uma a sua (E-mail → Contas de e-mail).">
+    <Sec titulo="Mudar a palavra-passe" desc="A palavra-passe com que entra no painel. Não é preciso a antiga. As caixas de e-mail têm cada uma a sua (E-mail → Contas de e-mail).">
       <div className="frm" style={{ maxWidth: 520 }}>
-        <div className="field">
-          <label>{t('Palavra-passe atual')}</label>
-          <input className="inp" type="password" autoComplete="current-password" value={f.atual} onChange={(e) => setF({ ...f, atual: e.target.value })} />
-        </div>
         <div className="field">
           <label>{t('Nova palavra-passe')}</label>
           <Senha value={f.nova} onChange={(nova) => setF({ ...f, nova })} />
         </div>
         <div className="field">
           <label>{t('Repetir a nova')}</label>
-          <input className="inp" type="password" autoComplete="new-password" value={f.repetir} onChange={(e) => setF({ ...f, repetir: e.target.value })} />
+          <div className="igrp">
+            <input type={ver ? 'text' : 'password'} autoComplete="new-password" value={f.repetir} onChange={(e) => setF({ ...f, repetir: e.target.value })} />
+            <button type="button" className="ib" title={t(ver ? 'Esconder' : 'Mostrar')} onClick={() => setVer(!ver)}>
+              <i className={'fa-solid ' + (ver ? 'fa-eye-slash' : 'fa-eye')} />
+            </button>
+          </div>
         </div>
         <ul className="pf-regras">
           {regras.map(([l, ok]) => (
@@ -571,15 +576,24 @@ function PerfilSenha() {
         <div className="mfoot" style={{ justifyContent: 'flex-start' }}>
           <button
             className="btn r"
-            disabled={!f.atual || regras.some(([, ok]) => !ok)}
+            disabled={aGravar || regras.some(([, ok]) => !ok)}
             onClick={async () => {
-              const { data } = await supabase.auth.getUser();
-              const email = data.user?.email || '';
-              const prova = await supabase.auth.signInWithPassword({ email, password: f.atual });
-              if (prova.error) return vh.toast('A palavra-passe atual não está certa.');
-              const { error } = await supabase.auth.updateUser({ password: f.nova });
-              vh.toast(error ? error.message : 'Palavra-passe mudada');
-              if (!error) setF({ atual: '', nova: '', repetir: '' });
+              setAGravar(true);
+              try {
+                const r = await fetch('/api/vhost/perfil', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ acao: 'senha', nova: f.nova }),
+                });
+                const j = (await r.json().catch(() => ({}))) as { erro?: string };
+                if (!r.ok) return vh.toast(j.erro || 'Não foi possível mudar a palavra-passe.');
+                vh.toast('Palavra-passe mudada');
+                setF({ nova: '', repetir: '' });
+              } catch {
+                vh.toast('Sem ligação ao site. Nada foi mudado.');
+              } finally {
+                setAGravar(false);
+              }
             }}
           >
             {t('Mudar palavra-passe')}
