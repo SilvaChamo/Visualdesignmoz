@@ -149,7 +149,10 @@ export const pacoteDe = (s: St, u: string) => {
 export const ocultoNoPlano = (s: St, id: string, lv: Level = s.level) => {
   if (lv !== 'utilizador') return false;
   const a = acctOf(s);
-  return isUser(a.role) && !!s.acessos?.[a.pkg]?.includes(id);
+  if (!isUser(a.role)) return false;
+  const esc = s.acessos || {};
+  // nos clientes "pkg" e "hpkg" são o mesmo pacote do servidor; vê os dois para não depender disso
+  return !!(esc[a.pkg]?.includes(id) || (a.hpkg && esc[a.hpkg]?.includes(id)));
 };
 export const hasFeatOf = (s: St, f?: string, id?: string, lv: Level = s.level) => {
   if (id && ocultoNoPlano(s, id, lv)) return false;
@@ -157,6 +160,15 @@ export const hasFeatOf = (s: St, f?: string, id?: string, lv: Level = s.level) =
   const p = pacoteDe(s, meOf(s));
   return p ? !!featsEfetivas(p)[f] : true;
 };
+/** Põe no estado os acessos por plano lidos do servidor. Chegam depois de a página abrir: se a página aberta passou a
+ *  estar escondida no plano da conta, mostra logo "sem acesso" em vez de a deixar aberta até à próxima navegação. */
+export function comAcessos(s: St, acessos: Record<string, string[]>): St {
+  const n: St = { ...s, acessos };
+  if (n.deny || GLOBAL[n.page]) return n;
+  const it = findItem(n.level, n.page);
+  if (it && !hasFeatOf(n, it.feat, it.id)) n.deny = { type: 'pacote', it };
+  return n;
+}
 export const isUser = (r: string) => r === 'profissional' || r === 'cliente';
 export const ico = (fa: string) => (fa.startsWith('fa-brands') ? fa : 'fa-solid ' + fa);
 export const initials = (n: string) => {

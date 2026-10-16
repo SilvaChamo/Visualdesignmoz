@@ -155,11 +155,12 @@ function UserWidgets() {
         <DomTable />
       </div>
       <div className="cols-side">
-        <Tool fa="fa-envelope" c="c2" title="Criar conta de e-mail" sub="Novo endereço no seu domínio" onClick={() => vh.nav('/utilizador/email/nova')} />
-        <Tool fa="fa-box-archive" c="c8" title="Cópias de segurança" sub="Ver e criar cópias da conta" onClick={() => go('backups')} />
+        {/* atalhos só para as páginas que o plano da conta deixa ver (Admin › Acessos por plano) */}
+        {hasFeat(undefined, 'email') && <Tool fa="fa-envelope" c="c2" title="Criar conta de e-mail" sub="Novo endereço no seu domínio" onClick={() => vh.nav('/utilizador/email/nova')} />}
+        {hasFeat(undefined, 'backups') && <Tool fa="fa-box-archive" c="c8" title="Cópias de segurança" sub="Ver e criar cópias da conta" onClick={() => go('backups')} />}
         <Tool fa="fa-key" c="c4" title="Mudar palavra-passe" sub="A de entrada no painel" onClick={() => vh.nav('/perfil/senha')} />
-        {hasFeat('wordpress') && <Tool fa="fa-brands fa-wordpress" c="c2" title="Instalar WordPress" sub="Pronto em 1 minuto" onClick={() => go('wordpress')} />}
-        <Tool fa="fa-life-ring" c="c1" title="Abrir pedido de suporte" sub="Resposta em até 2h" onClick={() => go('tickets')} />
+        {hasFeat('wordpress', 'wordpress') && <Tool fa="fa-brands fa-wordpress" c="c2" title="Instalar WordPress" sub="Pronto em 1 minuto" onClick={() => go('wordpress')} />}
+        {hasFeat(undefined, 'tickets') && <Tool fa="fa-life-ring" c="c1" title="Abrir pedido de suporte" sub="Resposta em até 2h" onClick={() => go('tickets')} />}
       </div>
     </div>
   );

@@ -34,6 +34,7 @@ import {
   fromPath,
   gItem,
   hasFeatOf,
+  comAcessos,
   ico,
   initialState,
   isUser,
@@ -659,7 +660,7 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
         const temasPlano = j.temas || {};
         // sem tema próprio guardado, a conta fica com o tema do seu plano (Admin › Pacotes › Tema)
         const doPlano = temaProprio.current === false ? temasPlano[acctOf(cur).pkg] : '';
-        commit({ ...cur, acessos: j.acessos || {}, temasPlano, ...(doPlano ? { colorPreset: doPlano } : {}) });
+        commit({ ...comAcessos(cur, j.acessos || {}), temasPlano, ...(doPlano ? { colorPreset: doPlano } : {}) });
       })
       .catch(() => {});
   }, [me, commit]);
@@ -722,7 +723,7 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
     me,
     a,
     allowed,
-    hasFeat: (f, id) => hasFeatOf(st, f, id),
+    hasFeat: (f, id) => hasFeatOf(s, f, id),
     nav,
     go,
     setLevel,
@@ -813,7 +814,7 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
       guardarTema(next);
       toast('Cantos atualizados');
     },
-    setAcessos: (acessos) => commit({ ...ref.current, acessos }),
+    setAcessos: (acessos) => commit(comAcessos(ref.current, acessos)),
     setDominio: (d, aviso = true) => {
       guardarDominio(meOf(ref.current), d);
       commit({ ...ref.current, dominio: d });
