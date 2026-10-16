@@ -6,6 +6,7 @@
 import { useEffect, useState } from "react";
 import { useVH, type VH } from "../context";
 import { MENU } from "../generated/data";
+import { isUser } from "../state";
 import type { ScreenFn } from "../screens";
 import { Check, Frm } from "./componentes";
 
@@ -67,8 +68,19 @@ function AcessosPlanos({ plano }: { plano: string }) {
     return (
       <div className="empty card">{t("Ainda não há planos no servidor")}</div>
     );
+  // quem está neste plano: os dois "Básico" (VD-Host-Basico e VD-Email-Basico) confundiam-se e os acessos ficavam
+  // gravados no plano errado (Silva, 16/10/2026)
+  const contasDoPlano = Object.entries(s.acc)
+    .filter(([, a]) => isUser(a.role) && (a.pkg === plano || a.hpkg === plano))
+    .map(([u, a]) => (a.name && a.name !== u ? `${a.name} (${u})` : u));
   return (
     <>
+      <div className="note" style={{ marginBottom: 14 }}>
+        <i className="fa-solid fa-circle-info" style={{ color: "var(--red)" }} />{" "}
+        {contasDoPlano.length
+          ? t("Clientes neste plano ({0}): ").replace("{0}", plano) + contasDoPlano.join(", ")
+          : t("Nenhum cliente usa o plano {0}: estas escolhas ainda não escondem nada a ninguém.").replace("{0}", plano)}
+      </div>
       <div>
         <div>
           {grupos.map(([g, itens]) => (
