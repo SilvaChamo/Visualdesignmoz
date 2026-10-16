@@ -29,6 +29,7 @@ jobs:
     steps:
       - name: Portas que respondem no IP novo
         run: |
+          set +e
           for p in 22 2234 80 443 2026 2222 25; do
             timeout 6 bash -c "echo > /dev/tcp/$NEW_IP/$p" 2>/dev/null; rc=$?
             case $rc in 0) r=ABERTA;; 124) r="sem resposta";; *) r=RECUSADA;; esac
