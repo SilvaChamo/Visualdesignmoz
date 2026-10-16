@@ -186,6 +186,28 @@ function noNivelPermitido(next: St): St {
   return next;
 }
 
+/** "Entrar como" (contas que se estão a ver) guardado no separador do navegador: uma recarga da página (F5, versão nova,
+ *  ou no computador local o código a compilar) já não devolve à conta de administrador a meio do trabalho (Silva,
+ *  16/10/2026: "às vezes quando entro na conta do cliente o painel devolve-me atrás na conta admin"). Só vale para o
+ *  mesmo login e para contas que esse login ainda vê; as rotas do servidor continuam a verificar cada pedido. */
+const CHAVE_ENTRAR = 'vh-entrar-como';
+function lerEntrarComo(login: string, contas: Record<string, unknown>): St['stack'] {
+  try {
+    const g = JSON.parse(sessionStorage.getItem(CHAVE_ENTRAR) || 'null') as { login?: string; stack?: St['stack'] } | null;
+    if (!g || g.login !== login || !Array.isArray(g.stack)) return [];
+    const stack = g.stack.filter((x) => x && typeof x.u === 'string' && contas[x.u] && isLevel(x.lv) && typeof x.pg === 'string');
+    return stack.length === g.stack.length ? stack : [];
+  } catch {
+    return [];
+  }
+}
+function guardarEntrarComo(login: string, stack: St['stack']) {
+  try {
+    if (login && stack.length) sessionStorage.setItem(CHAVE_ENTRAR, JSON.stringify({ login, stack }));
+    else sessionStorage.removeItem(CHAVE_ENTRAR);
+  } catch {}
+}
+
 /** Estado com uma leitura do servidor, a abrir `caminhoDesejado` (o endereço com que o painel abriu, na primeira) */
 function comDados(cur: St, d: DadosServidor, caminhoDesejado: string): St {
   // domínios internos do sistema (files., supabase-…) fora de todas as listas do painel
@@ -199,7 +221,7 @@ function comDados(cur: St, d: DadosServidor, caminhoDesejado: string): St {
     acc: d.contas,
     login: d.me,
     pessoa: d.pessoa || null,
-    stack: primeira ? [] : cur.stack.filter((x) => d.contas[x.u]),
+    stack: primeira ? lerEntrarComo(d.me, d.contas) : cur.stack.filter((x) => d.contas[x.u]),
     srv: d.servidor,
     dns: d.dns,
     php: d.php || [],
@@ -664,6 +686,10 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
       })
       .catch(() => {});
   }, [me, commit]);
+  // "Entrar como": guarda no separador a conta que se está a ver, para uma recarga não voltar à conta de administrador
+  useEffect(() => {
+    if (st.carga === 'ok' && st.login) guardarEntrarComo(st.login, st.stack);
+  }, [st.carga, st.login, st.stack]);
   // Contas ligadas (Admin › Gestão de contas): o painel aberto avisa o servidor a cada minuto, só com o separador visível
   const conectado = st.carga === 'ok' && !!st.login;
   useEffect(() => {
@@ -723,6 +749,7 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
   // Silva, 13/10/2026); quem entrou pelo login do painel fica na entrada do painel.
   const sair = async () => {
     apagarCache();
+    guardarEntrarComo('', []);
     const entrada = tirarEntrada();
     try {
       await auth.signOut();
