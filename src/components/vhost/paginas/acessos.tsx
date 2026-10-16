@@ -12,17 +12,15 @@ import { Check, Frm } from "./componentes";
 
 function AcessosPlanos({ plano }: { plano: string }) {
   const { s, t, toast, setAcessos } = useVH();
-  // Cada caixa grava logo no servidor (Silva, 16/10/2026): com o "Guardar" no fundo da página, mudar de plano ou de
-  // página sem gravar perdia as escolhas sem aviso — os acessos do VD-Host-Basico nunca chegaram ao servidor.
-  const [rascunho, setRascunho] = useState<Record<string, string[]>>(() =>
-    structuredClone(s.acessos || {}),
-  );
+  // Sem botão Guardar (Silva, 16/10/2026): cada caixa grava logo no servidor. Com o botão no fundo da página, mudar de
+  // plano sem gravar perdia as escolhas sem aviso (os acessos do VD-Host-Basico nunca chegaram ao servidor).
+  const [rascunho, setRascunho] = useState<Record<string, string[]>>(() => structuredClone(s.acessos || {}));
   const ultimo = useRef(rascunho);
   const pedido = useRef(0);
   const [estado, setEstado] = useState<"" | "a-gravar" | "gravado" | "erro">("");
-  // os acessos guardados chegam do servidor depois de a página abrir: mostra-os enquanto nada está a gravar
+  // os acessos guardados chegam do servidor depois de a página abrir: mostram-se enquanto nada está a gravar
   useEffect(() => {
-    if (estado === "a-gravar") return;
+    if (pedido.current && estado === "a-gravar") return;
     const n = structuredClone(s.acessos || {});
     ultimo.current = n;
     setRascunho(n);
@@ -84,14 +82,14 @@ function AcessosPlanos({ plano }: { plano: string }) {
           ? t("Clientes neste plano ({0}): ").replace("{0}", plano) + contasDoPlano.join(", ")
           : t("Nenhum cliente usa o plano {0}: estas escolhas ainda não escondem nada a ninguém.").replace("{0}", plano)}
         <br />
-        <small style={{ color: "var(--muted)" }}>
+        <small style={{ color: estado === "erro" ? "var(--red)" : "var(--muted)" }}>
           {estado === "a-gravar"
             ? t("A gravar…")
             : estado === "gravado"
               ? t("Gravado. Os clientes deste plano vêem a mudança ao abrir ou recarregar o painel.")
               : estado === "erro"
                 ? t("A última mudança não foi gravada. Tente de novo.")
-                : t("Cada caixa grava logo, sem botão Guardar.")}
+                : t("Cada caixa grava logo ao clicar.")}
         </small>
       </div>
       <div>
@@ -99,6 +97,7 @@ function AcessosPlanos({ plano }: { plano: string }) {
           {grupos.map(([g, itens]) => (
             <Frm
               key={g}
+              className="acessos-grupo"
               title={g}
               desc={t("Assinale o que os clientes deste plano vêem")}
               right={
@@ -116,14 +115,7 @@ function AcessosPlanos({ plano }: { plano: string }) {
                 </span>
               }
             >
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
-                  gap: "10px 18px",
-                  padding: "14px 18px",
-                }}
-              >
+              <div className="acessos-itens">
                 {itens.map((it) => (
                   <Check
                     key={it.id}
