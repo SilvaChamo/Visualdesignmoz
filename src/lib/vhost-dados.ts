@@ -280,20 +280,39 @@ export function montarDados(srv: LeituraServidor, reg: RegistoSite, sessao: Sess
 // Memória curta do registo: cada página do painel pedia-o de novo ao Supabase (meio segundo a um segundo).
 const REGISTO_MS = 15_000;
 let registo: { at: number; reg: Promise<RegistoSite> } | null = null;
+/** O último registo lido, para a página do painel não esperar pelo Supabase (lê o seguinte por trás). Diz quem vê que
+ *  contas, por isso esquece-se em cada alteração (esquecerRegisto) e não serve depois de meia hora. */
+let registoLido: { at: number; reg: RegistoSite } | null = null;
+const REGISTO_PAGINA_MS = 30 * 60_000;
 
 /** Esquece o registo guardado (depois de criar ou apagar contas). */
 export function esquecerRegisto(): void {
   registo = null;
+  registoLido = null;
 }
 
 export function lerRegisto(): Promise<RegistoSite> {
   if (registo && Date.now() - registo.at < REGISTO_MS) return registo.reg;
   const reg = lerRegistoAgora();
-  registo = { at: Date.now(), reg };
-  reg.catch(() => {
-    if (registo?.reg === reg) registo = null;
-  });
+  const lido = { at: Date.now(), reg };
+  registo = lido;
+  reg.then(
+    (r) => {
+      if (registo === lido) registoLido = { at: lido.at, reg: r };
+    },
+    () => {
+      if (registo === lido) registo = null;
+    },
+  );
   return reg;
+}
+
+/** Para a página do painel: o último registo lido (e o seguinte a ler por trás), ou espera pela leitura se não houver */
+export function lerRegistoParaPagina(): Promise<RegistoSite> {
+  if (!registoLido || Date.now() - registoLido.at > REGISTO_PAGINA_MS) return lerRegisto();
+  const ultimo = registoLido.reg;
+  lerRegisto().catch(() => {});
+  return Promise.resolve(ultimo);
 }
 
 async function lerRegistoAgora(): Promise<RegistoSite> {

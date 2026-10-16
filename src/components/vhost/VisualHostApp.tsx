@@ -8,6 +8,7 @@ import { BarraPagina, FaixaAbas, PesquisaPagina, VHContext, type ItemPesquisa, t
 import { GLOBAL, LEVELS, MENU, ROLES } from './generated/data';
 import { dominioVisivel, type DadosServidor } from './servidor';
 import { CACHE_DADOS_VHOST, apagarDadosVhost, guardarDadosVhost, tirarEntrada } from '@/lib/vhost-cache';
+import { COOKIE_TEMA, lerTema, valorCookieTema, type TemaConta } from '@/lib/vhost-tema-conta';
 import { translate, type Lang } from './i18n';
 import { EntradaPainel, EsperaEntrada, LINGUA_LS, type ModoTema } from './entrada';
 import { auth, supabase } from '@/lib/supabase-client';
@@ -50,7 +51,6 @@ import { useBotoesTelemovel } from './botoes-telemovel';
 import type { Account, Level, MenuItem } from './types';
 
 const useIsomorphicLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
-type TemaConta = Pick<St, 'theme' | 'colorPreset' | 'customPrimary' | 'themeOver' | 'radius' | 'brand'>;
 
 // O mesmo ecrã com o endereço do browser (/host:2026/…) ou com o da rota no servidor (/host/…, por causa da
 // reescrita em src/proxy.ts): os dois dão o mesmo caminho interno, sem diferenças entre servidor e browser
@@ -208,6 +208,55 @@ function guardarEntrarComo(login: string, stack: St['stack']) {
   } catch {}
 }
 
+/** Tema de cada conta como ficou da última vez neste navegador (e o da própria conta também num cookie, que a página do
+ *  servidor lê): ao recarregar ou ao entrar noutra conta, o painel fica logo com as cores dela. Antes voltava ao tema de
+ *  origem (claro) até o servidor responder — a "tela branca" de quem usa o tema escuro (Silva, 16/10/2026). Não tem
+ *  nada de privado; apaga-se ao sair. */
+const TEMAS_LS = 'vh-temas';
+/** chave do tema de quem se está a ver: a própria pessoa, ou a conta em "Entrar como" */
+const chaveTema = (s: St) => (s.stack.length ? 'conta:' + meOf(s) : 'pessoa:' + s.login);
+const temaDe = (s: St): TemaConta => ({ theme: s.theme, colorPreset: s.colorPreset, customPrimary: s.customPrimary, themeOver: s.themeOver, radius: s.radius, brand: s.brand });
+function lerTemasLocais(): Record<string, unknown> {
+  try {
+    const m = JSON.parse(localStorage.getItem(TEMAS_LS) || '{}');
+    return m && typeof m === 'object' && !Array.isArray(m) ? m : {};
+  } catch {
+    return {};
+  }
+}
+function lerTemaLocal(chave: string): TemaConta | null {
+  return lerTema(lerTemasLocais()[chave]);
+}
+/** Guarda o tema da conta que se está a ver em `s` */
+function lembrarTema(s: St) {
+  if (!s.login) return;
+  const chave = chaveTema(s);
+  const tema = temaDe(s);
+  try {
+    const m = lerTemasLocais();
+    delete m[chave];
+    m[chave] = tema;
+    // só as últimas contas vistas
+    for (const k of Object.keys(m).slice(0, -20)) delete m[k];
+    localStorage.setItem(TEMAS_LS, JSON.stringify(m));
+  } catch {}
+  if (!s.stack.length) {
+    const seguro = location.protocol === 'https:' ? '; Secure' : '';
+    document.cookie = `${COOKIE_TEMA}=${valorCookieTema(s.login, tema)}; path=/; max-age=31536000; SameSite=Lax${seguro}`;
+  }
+}
+function esquecerTemas() {
+  try {
+    localStorage.removeItem(TEMAS_LS);
+  } catch {}
+  document.cookie = `${COOKIE_TEMA}=; path=/; max-age=0; SameSite=Lax`;
+}
+/** `s` com o tema guardado neste navegador para a conta que se vê (se houver) */
+function comTemaLocal(s: St): St {
+  const t = s.login ? lerTemaLocal(chaveTema(s)) : null;
+  return t ? { ...s, ...t, themePreview: null } : s;
+}
+
 /** Estado com uma leitura do servidor, a abrir `caminhoDesejado` (o endereço com que o painel abriu, na primeira).
  *  `doNavegador` = false no desenho do servidor: sem o "Entrar como" guardado neste separador (o servidor não o vê) */
 function comDados(cur: St, d: DadosServidor, caminhoDesejado: string, doNavegador = true): St {
@@ -321,7 +370,7 @@ function PaginaSlot({ p, oculta, onPronta, registar }: { p: Pagina; oculta: bool
 }
 
 /** dados: a leitura que o servidor já fez ao desenhar a página (null se demorou ou falhou: o painel lê-a aqui) */
-export function VisualHostApp({ versao = 'dev', dados = null }: { versao?: string; dados?: DadosServidor | null }) {
+export function VisualHostApp({ versao = 'dev', dados = null, tema = null }: { versao?: string; dados?: DadosServidor | null; tema?: TemaConta | null }) {
   // conta os pedidos ao site para a linha de carregamento do topo (antes de o painel pedir os dados)
   useState(() => instalarContador());
   const pathname = usePathname() || BASE;
@@ -333,10 +382,14 @@ export function VisualHostApp({ versao = 'dev', dados = null }: { versao?: strin
   const semServidor = useSyncExternalStore(nadaMuda, () => true, () => false);
   const [st, setSt] = useState<St>(() => {
     const s0 = initialState(stripBase(pathname));
-    if (!semServidor) return dados ? comDados(s0, dados, stripBase(pathname), false) : s0;
+    if (!semServidor) {
+      // o tema da conta que o servidor recebeu no cookie (igual no servidor e no navegador: a página já vem com ele)
+      const s1 = tema ? { ...s0, ...tema } : s0;
+      return dados ? comDados(s1, dados, stripBase(pathname), false) : s1;
+    }
     const n = comPreferencias(s0);
     const d = lerCache();
-    return d ? noNivelPermitido(comDados(n, d, stripBase(pathname))) : n;
+    return d ? comTemaLocal(noNivelPermitido(comDados(n, d, stripBase(pathname)))) : n;
   });
   const dadosDoServidor = useRef(semServidor ? null : dados);
   // entrada do próprio painel (só quando o servidor recusa a sessão): modo do tema escolhido lá e "a entrar" (roda)
@@ -446,6 +499,7 @@ export function VisualHostApp({ versao = 'dev', dados = null }: { versao?: strin
     (next: St) => {
       if (next.carga !== 'ok') return;
       temaEdicoes.current++;
+      lembrarTema(next);
       const preferencias: TemaConta = {
         theme: next.theme,
         colorPreset: next.colorPreset,
@@ -528,7 +582,10 @@ export function VisualHostApp({ versao = 'dev', dados = null }: { versao?: strin
       radius: '4px',
       brand: { name: '', logo: '' },
     };
-    commit({ ...ref.current, ...padrao, themePreview: null });
+    // enquanto o servidor responde: o tema desta conta guardado neste navegador, ou fica o que está (nunca o de origem,
+    // que no tema escuro era um clarão branco a cada recarga e ao entrar noutra conta)
+    const local = lerTemaLocal(chave);
+    if (local) commit({ ...ref.current, ...local, themePreview: null });
     const query = contaTemaImpersonada ? '?conta=' + encodeURIComponent(contaTema) : '';
     fetch('/api/vhost/tema-conta' + query, { cache: 'no-store', headers: FUNDO })
       .then(async (resposta) => {
@@ -544,7 +601,9 @@ export function VisualHostApp({ versao = 'dev', dados = null }: { versao?: strin
         temaProprio.current = !!dados.preferencias;
         // sem tema próprio, o tema do plano da conta (Admin › Pacotes › Tema); senão o de origem
         const doPlano = atual.temasPlano?.[acctOf(atual).pkg];
-        commit({ ...atual, ...(dados.preferencias || (doPlano ? { ...padrao, colorPreset: doPlano } : padrao)), themePreview: null });
+        const n = { ...atual, ...(dados.preferencias || (doPlano ? { ...padrao, colorPreset: doPlano } : padrao)), themePreview: null };
+        commit(n);
+        lembrarTema(n);
       })
       .catch((erro: unknown) => {
         if (!ativo) return;
@@ -576,7 +635,9 @@ export function VisualHostApp({ versao = 'dev', dados = null }: { versao?: strin
     if (!d) return;
     dadosDoServidor.current = null;
     guardarCache(d);
-    const n = comDados(comPreferencias({ ...ref.current, carga: 'a-carregar' }), d, inicial.current);
+    const n0 = comDados(comPreferencias({ ...ref.current, carga: 'a-carregar' }), d, inicial.current);
+    // em "Entrar como" (guardado neste separador), já com o tema da conta que se está a ver
+    const n = n0.stack.length ? comTemaLocal(n0) : n0;
     commit(n);
     if (n.path !== inicial.current) pushUrl(n.path, true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -587,6 +648,7 @@ export function VisualHostApp({ versao = 'dev', dados = null }: { versao?: strin
   const irParaLogin = useCallback(async (caminho = '') => {
     apagarCache();
     guardarEntrarComo('', []);
+    esquecerTemas();
     tirarEntrada();
     try {
       await auth.signOut();
@@ -733,7 +795,9 @@ export function VisualHostApp({ versao = 'dev', dados = null }: { versao?: strin
         const temasPlano = j.temas || {};
         // sem tema próprio guardado, a conta fica com o tema do seu plano (Admin › Pacotes › Tema)
         const doPlano = temaProprio.current === false ? temasPlano[acctOf(cur).pkg] : '';
-        commit({ ...comAcessos(cur, j.acessos || {}), temasPlano, ...(doPlano ? { colorPreset: doPlano } : {}) });
+        const n = { ...comAcessos(cur, j.acessos || {}), temasPlano, ...(doPlano ? { colorPreset: doPlano } : {}) };
+        commit(n);
+        if (doPlano) lembrarTema(n);
       })
       .catch(() => {});
   }, [me, commit]);
