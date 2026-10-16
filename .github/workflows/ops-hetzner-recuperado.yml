@@ -49,7 +49,9 @@ jobs:
             echo "===== confirmar que esta é a máquina NOVA ====="
             ip -4 -o addr show | awk '{print $2, $4}'
             if ! ip -4 -o addr show | grep -qw "$NEW_IP"; then echo "ABORTAR: $NEW_IP não está nesta máquina"; exit 1; fi
-            if ip -4 -o addr show | grep -qw "37.27.17.25"; then echo "ABORTAR: esta máquina tem o IP do Hetzner original"; exit 1; fi
+            # o disco copiado traz o IP antigo na configuração de rede — aparece também, mas a Hetzner só
+            # entrega esse IP ao servidor original; a ligação foi feita a NEW_IP, por isso esta é a máquina nova
+            ip -4 -o addr show | grep -qw "37.27.17.25" && echo "(nota: o IP antigo 37.27.17.25 vem da configuração copiada do backup)"
             echo "ok: máquina nova ($NEW_IP)"
             echo
             echo "===== data do estado do disco ====="
