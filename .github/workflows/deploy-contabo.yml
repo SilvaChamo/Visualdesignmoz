@@ -234,14 +234,18 @@ jobs:
             # as variáveis (.env.local, escrito acima na pasta do site) entram no build (NEXT_PUBLIC_*)
             for f in "$LIVE"/.env*; do if [ -f "$f" ]; then cp -a "$f" "$STAGE"/; fi; done
             cd "$STAGE"
-            npm ci
+            # Prioridade mínima de CPU e de disco para a instalação e o build: o site em funcionamento (e o resto do
+            # servidor) passa sempre à frente. Antes o build levava os 6 núcleos e o site ficava parado/bloqueado
+            # durante cada publicação, e o watchdog (curl de 20 s) chegava a reiniciá-lo a meio (Silva, 15/10/2026).
+            BAIXA="nice -n 19 ionice -c3"
+            $BAIXA npm ci
             # Build sempre limpo — publicações seguidas em cima da mesma pasta
             # .next (nunca apagada pelo rsync, ver --exclude acima) já causaram
             # "Invariant: client reference manifest ... does not exist" (bug
             # conhecido do Next.js com builds incrementais sobre estado antigo).
             # Apagar antes de reconstruir elimina essa classe de corrupção.
             rm -rf .next
-            npm run build
+            $BAIXA npm run build
             # Um processo antigo (visualdesign-panel em /opt/visualdesign-panel)
             # ficava a escutar a 3002. O restart desta app falhava com
             # EADDRINUSE, o GitHub Actions marcava sucesso, e o site público

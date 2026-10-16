@@ -7,16 +7,10 @@ export const dynamic = 'force-dynamic';
  */
 export async function GET(req: NextRequest, { params }: { params: Promise<{ slug: string[] }> }) {
   const url = new URL(req.url);
-  const host = (req.headers.get('host') || url.hostname || 'visualdesignmoz.com').toLowerCase();
-  const cleanHost = host.replace(/^www\./i, '').replace(/:\d+$/, '');
   const { slug } = await params;
 
-  let targetHost = `webmail.${cleanHost}`;
-  if (cleanHost === 'teste.visualdesignmoz.com') {
-    targetHost = 'webmail.teste.visualdesignmoz.com';
-  } else if (cleanHost.endsWith('visualdesignmoz.com')) {
-    targetHost = 'webmail.visualdesignmoz.com';
-  }
+  // Um só webmail, o da VisualDesign (Silva, 16/10/2026): serve todas as caixas de correio do servidor
+  const targetHost = 'webmail.visualdesignmoz.com';
 
   const subPath = slug && slug.length ? slug.join('/') : '';
   const targetUrl = `https://${targetHost}/${subPath}${url.search}`;

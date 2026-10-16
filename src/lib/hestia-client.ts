@@ -111,6 +111,9 @@ export async function hestiaCall(cmd: string, args: string[] = [], options: Hest
     });
   } catch (e) {
     const nomeErro = e instanceof Error ? e.name : '';
+    // Leituras (v-list-*) não mudam nada: repetir por SSH é seguro e evita o painel sem dados quando a API tarda.
+    // Só as operações que alteram o servidor deixam de se repetir (para não duplicar apagar/emitir SSL).
+    if (cmd.startsWith('v-list-')) return hestiaCallViaSsh(cmd, args, options.sshTimeoutMs ?? HESTIA_SSH_FALLBACK_MS);
     if (nomeErro === 'TimeoutError' || nomeErro === 'AbortError') {
       return {
         ok: false,

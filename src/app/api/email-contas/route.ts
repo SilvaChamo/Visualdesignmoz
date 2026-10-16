@@ -465,7 +465,8 @@ export async function PUT(req: NextRequest) {
       smtp: `mail.${domain}`,
       ports: { imap: 993, smtp: 587 },
       ssl: true,
-      webmail: `https://webmail.${domain}`
+      // um só webmail, o da VisualDesign (serve todas as caixas de correio do servidor)
+      webmail: 'https://webmail.visualdesignmoz.com'
     }
 
     // 🚀 CRIAR USUÁRIO NO SUPABASE AUTH (para poder fazer login no sistema)
