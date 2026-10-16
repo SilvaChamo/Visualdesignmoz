@@ -1543,3 +1543,8 @@
  .vh .em-lado-stats .stat strong{white-space:normal;margin:2px 0 6px}
  .vh .em-lado-stats .stat strong span{display:block;margin-top:2px;line-height:1.3}
 }
+/* Painel (widget dos domínios), telemóvel: só 25 px entre o nome do campo e o valor, e o nome em negrito (Silva, 16/10/2026) */
+@media(max-width:768px){
+ .vh .tbl.dt-empilhar.dominios-widget-list tbody td[data-t]{gap:25px}
+ .vh .tbl.dt-empilhar.dominios-widget-list tbody td[data-t]::before{min-width:0;font-weight:700;color:var(--ink)}
+}
