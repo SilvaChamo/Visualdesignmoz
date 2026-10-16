@@ -1,5 +1,6 @@
 name: ops-check-visualdesign-ns
 
+# (re-verificado 16/10 depois de ns1/ns2 -> Hetzner, ns3/ns4 -> Contabo)
 # Verifica se os nameservers ns1..ns4.visualdesignmoz.com respondem e servem as
 # zonas. Só faz consultas DNS (dig) a partir do runner — não toca em nenhum servidor.
 on:
@@ -22,7 +23,7 @@ jobs:
           set +e
           ZONE=visualdesignmoz.com
           NSS="ns1.$ZONE ns2.$ZONE ns3.$ZONE ns4.$ZONE"
-          SERVERS="169.58.148.144"   # Contabo (o Hetzner não responde a DNS)
+          SERVERS="169.58.148.144 37.27.17.25"   # Contabo, Hetzner
           DOMS="visualdesignmoz.com aamihe.com mltmark.com basededadosagro.com provisualcorporate.co.mz \
                 oshercollective.com elimservicos.com lirandzojewelry.com msdn-moz.org msdnmoz.org \
                 shalomdeco.com entrecamposblog.com concordia.co.mz menocrazy.app community.oshercollective.com"
