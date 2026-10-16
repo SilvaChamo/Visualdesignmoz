@@ -1597,3 +1597,12 @@
  .vh .da-janela-cab{padding-left:16px}
  .vh .da-janela .frm-foot{padding:12px 16px}
 }
+
+/* Instalar o WordPress (modelo do "Criar instalação WordPress" do DA): a pasta do site fixa à esquerda do campo e o
+   "Modo avançado" como ligação com a seta, à esquerda do Criar */
+.vh .da-campo .igrp input,.vh .da-campo .igrp .ib{height:40px}
+.vh .da-campo .wp-pasta input{height:auto;min-height:40px;min-width:90px}
+.vh .wp-pasta .da-sufixo{min-height:40px;color:var(--muted)}
+.vh .wp-avancado{display:inline-flex;align-items:center;gap:8px;background:none;border:0;padding:6px 0;color:var(--ink);font-size:13.5px;cursor:pointer}
+.vh .wp-avancado i{font-size:12px;color:var(--muted)}
+.vh .wp-avancado:hover,.vh .wp-avancado:hover i{color:var(--red)}
