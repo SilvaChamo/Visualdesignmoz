@@ -60,8 +60,10 @@ jobs:
             echo
             echo "===== o que arrancou sozinho (efeitos externos) ====="
             echo "--- pm2 ---"; pm2 jlist 2>/dev/null | python3 -c "import json,sys;[print(p['name'],p['pm2_env']['status']) for p in json.load(sys.stdin)]" 2>&1
-            echo "--- crontab root (linhas activas) ---"; crontab -l 2>/dev/null | grep -v '^#' | grep -v '^$'
-            echo "--- log das tarefas visualdesign (últimas linhas) ---"; tail -5 /var/log/visualdesign-cron.log 2>/dev/null
+            # o repositório é público: nunca mostrar segredos do crontab/logs (secret=..., Bearer ...)
+            esconder() { sed -E 's/(secret=|Authorization: (Bearer )?|Bearer )[^"&[:space:]]+/\1[escondido]/g'; }
+            echo "--- crontab root (linhas activas) ---"; crontab -l 2>/dev/null | grep -v '^#' | grep -v '^$' | esconder
+            echo "--- log das tarefas visualdesign (últimas linhas) ---"; tail -3 /var/log/visualdesign-cron.log 2>/dev/null | esconder
             echo "--- exim ---"; echo "estado: $(systemctl is-active exim 2>&1); mensagens na fila: $(exim -bpc 2>/dev/null)"
             echo
             echo "===== serviços ====="
