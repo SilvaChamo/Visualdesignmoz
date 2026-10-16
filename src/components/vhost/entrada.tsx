@@ -10,6 +10,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { auth, LoginNetworkError, LoginRateLimitError, MSG_LIGACAO } from '@/lib/supabase-client';
 import type { Lang } from './i18n';
+import { BarrasDa } from './carregador-da';
 import { FundoPainel } from './triangulos';
 import { marcarEntrada } from '@/lib/vhost-cache';
 
@@ -198,11 +199,17 @@ function Roda({ tamanho, traco, grande }: { tamanho: number; traco: number; gran
   );
 }
 
-/** Depois de entrar, enquanto o painel lê os dados: página lisa com a roda a girar (como no DA), na cor do tema */
+/** Depois de entrar pela entrada do painel: página branca com a roda a girar (como no DA). Sem a roda (ao recarregar,
+ *  enquanto o painel ainda não tem os dados): as três barras do DA no fundo do tema — nunca a tela branca (Silva,
+ *  16/10/2026) */
 export function EsperaEntrada({ roda = true }: { roda?: boolean }) {
-  return (
-    <div className={'ent-espera' + (roda ? '' : ' sem-roda')} role="status" aria-label="A abrir o painel">
-      {roda && <Roda tamanho={97} traco={10} grande />}
+  return roda ? (
+    <div className="ent-espera" role="status" aria-label="A abrir o painel">
+      <Roda tamanho={97} traco={10} grande />
+    </div>
+  ) : (
+    <div className="ent-espera sem-roda">
+      <BarrasDa />
     </div>
   );
 }

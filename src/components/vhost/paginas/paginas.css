@@ -1650,3 +1650,17 @@
 }
 /* dentro do painel nunca esqueletos (regra do Silva, 13/10/2026): os blocos a pulsar do Mailmarketing não se mostram */
 .vh .vh-mailmarketing .animate-pulse{animation:none!important;opacity:0!important}
+
+/* Carregador do DirectAdmin (as três barras do "WordPress Manager" do DA), no lugar da tela branca enquanto o painel ainda
+   não tem conteúdo (Silva, 16/10/2026): três barras na cor principal do tema, em três tons, a subir e a descer uma a
+   seguir à outra. São blocos sem texto: se o painel chegar depressa, o navegador continua a mostrar a página anterior. */
+.vh .da-barras{display:inline-flex;align-items:center;gap:4px;height:34px}
+.vh .da-barras>span{display:block;width:9px;height:26px;border-radius:1px;background:var(--red);transform-origin:center;animation:da-barra 1s ease-in-out infinite}
+.vh .da-barras>span:nth-child(1){background:color-mix(in srgb,var(--red) 100%,#000 25%)}
+.vh .da-barras>span:nth-child(2){background:var(--red);animation-delay:.16s}
+.vh .da-barras>span:nth-child(3){background:color-mix(in srgb,var(--red) 55%,#fff);animation-delay:.32s}
+@keyframes da-barra{0%,100%{transform:scaleY(.62)}40%{transform:scaleY(1.12)}}
+@media(prefers-reduced-motion:reduce){.vh .da-barras>span{animation-duration:2.4s}}
+/* página inteira à espera (servidor ou navegador): o fundo do tema, as barras ao centro */
+.vh.vh-carga,.vh .ent-espera.sem-roda{position:fixed;inset:0;z-index:5;display:grid;place-items:center;background:var(--bg)}
+.vh.vh-carga{min-height:100vh}

@@ -121,7 +121,12 @@ mesma alteração a linha inglesa no dicionário — sem esperar que o Silva pe�
   da página já está na barra de cima), à direita o domínio, encostado à direita e numa só linha — se não couber, a
   letra diminui e o globo sai sozinho (`titulo-ajustado.ts`); só no limite passa a duas linhas, encostado à direita.
 - **Dentro do painel: nunca roda (spinner) nem esqueleto (skeleton)** (Silva, 13/10/2026). Ao mudar de página, a
-  página anterior fica à vista até a seguinte estar pronta.
+  página anterior fica à vista até a seguinte estar pronta. **Única exceção — no lugar da tela branca:** enquanto a página
+  inteira ainda não tem conteúdo (ao recarregar, ou à espera dos dados), aparece o carregador do DA — as três barras do
+  "WordPress Manager" do DirectAdmin, na cor do tema, no fundo do tema (Silva, 16/10/2026: "quando tenta surgir a tela
+  branca coloque o spinner do DA … com o mesmo efeito"). Está em `src/components/vhost/carregador-da.tsx`: a página do
+  servidor (`src/app/host/layout.tsx`) sai logo com ele (Suspense) e o painel entra no lugar dele. A roda depois de
+  entrar pela entrada do próprio painel fica numa página branca (pedido dele).
 - **NUNCA TELA BRANCA, em nenhuma circunstância e em todas as páginas** (regra rigorosa do Silva, 16/10/2026 — vale para
   todas as páginas que se criarem): ao abrir uma página, a anterior fica à vista até a nova ter o conteúdo; ao recarregar,
   o conteúdo continua visível e só "pisca" quando chega o novo. Como cumprir no VisualHost:
