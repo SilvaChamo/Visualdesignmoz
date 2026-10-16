@@ -63,6 +63,45 @@ jobs:
           echo "===== directamente no IP 37.27.17.25:2026 ====="
           curl -skS -o /dev/null -w "HTTP %{http_code}\n" --max-time 15 --resolve "$H:2026:37.27.17.25" "https://$H:2026/evo/" 2>&1
 
+  portas:
+    name: portas abertas no IP do registo e no Hetzner
+    runs-on: ubuntu-latest
+    steps:
+      - name: Que portas respondem (nada é alterado)
+        env:
+          HETZNER_HOST: ${{ secrets.HETZNER_HOST }}
+          HETZNER_PORT: ${{ secrets.HETZNER_PORT }}
+          CONTABO_HOST: ${{ secrets.CONTABO_HOST }}
+        run: |
+          set +e
+          H=host.visualdesignmoz.com
+          A=$(dig +short A $H @1.1.1.1 | tail -1)
+          HZ=$(getent hosts "$HETZNER_HOST" | awk '{print $1}'); HZ=${HZ:-$HETZNER_HOST}
+          CT=$(getent hosts "$CONTABO_HOST" | awk '{print $1}'); CT=${CT:-$CONTABO_HOST}
+          # os IPs são secrets (aparecem como ***): mostra-se só a comparação e o IP com espaços
+          echo "registo A de $H = $(echo "$A" | sed 's/\./ . /g')"
+          [ "$A" = "$HZ" ] && echo "-> aponta para o HETZNER" || echo "-> NÃO aponta para o Hetzner"
+          [ "$A" = "$CT" ] && echo "-> aponta para o CONTABO" || echo "-> NÃO aponta para o Contabo"
+          echo "visualdesignmoz.com A = $(dig +short A visualdesignmoz.com @1.1.1.1 | tr '\n' ' ' | sed 's/\./ . /g')"
+          echo
+          scan() {
+            local ip="$1" nome="$2"
+            echo "===== $nome ====="
+            for p in 22 "$HETZNER_PORT" 80 443 2026 2027 2222 25 587 993 3002 3003 8083; do
+              timeout 6 bash -c "echo > /dev/tcp/$ip/$p" 2>/dev/null; rc=$?
+              case $rc in 0) r=ABERTA;; 124) r="sem resposta (firewall a descartar)";; *) r="RECUSADA (nada a escutar)";; esac
+              echo "porta $( [ "$p" = "$HETZNER_PORT" ] && echo "SSH-secret" || echo $p ): $r"
+            done
+            echo "--- banner SSH na porta 22 e na porta do secret ---"
+            for p in 22 "$HETZNER_PORT"; do timeout 6 bash -c "exec 3<>/dev/tcp/$ip/$p; head -c 80 <&3" 2>&1 | tr -d '\r' | head -1; done
+            echo "--- HTTPS do site principal neste IP ---"
+            curl -skS -o /dev/null -w "visualdesignmoz.com via este IP: HTTP %{http_code}\n" --max-time 10 --resolve "visualdesignmoz.com:443:$ip" https://visualdesignmoz.com/ 2>&1
+            echo
+          }
+          scan "$HZ" "Hetzner (secret HETZNER_HOST)"
+          [ "$A" != "$HZ" ] && scan "$A" "IP do registo $H"
+          curl -sS -o /dev/null -w "https://visualdesignmoz.com (DNS real): HTTP %{http_code}\n" --max-time 10 https://visualdesignmoz.com/
+
   hetzner:
     name: dentro do Hetzner (proxy 2026 + DirectAdmin)
     runs-on: ubuntu-latest
