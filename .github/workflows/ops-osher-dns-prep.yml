@@ -1,0 +1,94 @@
+name: "Ops - Preparar oshercollective.com para ns1..ns4 (SO LEITURA)"
+
+# ============================================================================
+# SO LEITURA. Copia (so lista) os registos DNS actuais do oshercollective.com
+# na Cloudflare, quem e o registador, se ns1..ns4.visualdesignmoz.com existem
+# como nameservers no registo .com, e o estado do Contabo (mail, resolv.conf).
+# Serve para criar depois no Contabo uma zona igual a da Cloudflare, para o
+# registador aceitar a mudanca para ns1..ns4 sem o site/e-mail falharem.
+# Nao imprime chaves nem passwords.
+# ============================================================================
+
+on:
+  push:
+    branches: [claude/jolly-cori-xcyriq]
+    paths: ['.github/workflows/ops-osher-dns-prep.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cloudflare:
+    name: registos na cloudflare + registador (so leitura)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CF_EMAIL: ${{ secrets.CLOUDFLARE_EMAIL }}
+      CF_KEY: ${{ secrets.CLOUDFLARE_GLOBAL_API_KEY }}
+      CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN_ACCOUNT }}
+    steps:
+      - name: "Registos DNS do oshercollective.com na Cloudflare"
+        run: |
+          set +e
+          D=oshercollective.com
+          if [ -n "$CF_EMAIL" ] && [ -n "$CF_KEY" ]; then
+            AUTH=(-H "X-Auth-Email: $CF_EMAIL" -H "X-Auth-Key: $CF_KEY")
+          else
+            AUTH=(-H "Authorization: Bearer $CF_TOKEN")
+          fi
+          Z=$(curl -sS "${AUTH[@]}" "https://api.cloudflare.com/client/v4/zones?name=$D")
+          echo "$Z" | jq -r '.success, (.errors|tostring), (.result[]? | "zona: \(.name) id=\(.id) estado=\(.status) ns=\(.name_servers|join(","))")'
+          ZID=$(echo "$Z" | jq -r '.result[0].id // empty')
+          [ -z "$ZID" ] && { echo "zona nao encontrada"; exit 0; }
+          echo
+          echo "===== registos (tipo | nome | prioridade | ttl | proxied | conteudo) ====="
+          curl -sS "${AUTH[@]}" "https://api.cloudflare.com/client/v4/zones/$ZID/dns_records?per_page=500" \
+            | jq -r '.result | sort_by(.type, .name)[] | "\(.type) | \(.name) | \(.priority // "-") | \(.ttl) | \(.proxied) | \(.content)"'
+
+      - name: "Registador e nameservers ns1..ns4 no registo .com"
+        run: |
+          set +e
+          sudo apt-get install -y -qq whois >/dev/null 2>&1
+          echo "===== oshercollective.com (registador) ====="
+          whois -h whois.verisign-grs.com oshercollective.com | grep -i -E 'Registrar:|Registrar URL|Name Server|Status' | head -15
+          echo
+          echo "===== ns1..ns4.visualdesignmoz.com existem como nameserver (host) no .com? ====="
+          for n in 1 2 3 4; do
+            echo "-- ns$n.visualdesignmoz.com"
+            whois -h whois.verisign-grs.com "nameserver ns$n.visualdesignmoz.com" | grep -i -E 'Server Name|IP Address|Registrar:|No match' | head -5
+          done
+
+  contabo:
+    name: contabo (so leitura)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: "Conta oshercollective no Hestia + resolv.conf"
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          username: root
+          password: ${{ secrets.CONTABO_ROOT_PASSWORD }}
+          command_timeout: 5m
+          script: |
+            set +e
+            HB=/usr/local/hestia/bin
+            echo "===== resolv.conf (o servidor usa o proprio bind para resolver nomes?) ====="
+            grep -v '^#' /etc/resolv.conf
+            readlink -f /etc/resolv.conf
+            echo
+            echo "===== IPs do sistema ====="
+            $HB/v-list-sys-ips plain 2>&1 | cut -f1-3
+            echo
+            echo "===== oshercollective: dominios web (dominio, ip) ====="
+            $HB/v-list-web-domains oshercollective plain 2>&1 | cut -f1,2
+            echo
+            echo "===== oshercollective: dominios de e-mail ====="
+            $HB/v-list-mail-domains oshercollective plain 2>&1 | cut -f1-4
+            echo
+            echo "===== modelo DNS 'default' do Hestia ====="
+            cat /usr/local/hestia/data/templates/dns/default.tpl 2>&1
+            echo
+            echo "===== zona do concordia (exemplo de zona que funciona) ====="
+            $HB/v-list-dns-records concordia concordia.co.mz plain 2>&1 | cut -f1-6
