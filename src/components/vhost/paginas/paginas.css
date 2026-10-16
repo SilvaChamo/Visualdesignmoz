@@ -1606,3 +1606,47 @@
 .vh .wp-avancado{display:inline-flex;align-items:center;gap:8px;background:none;border:0;padding:6px 0;color:var(--ink);font-size:13.5px;cursor:pointer}
 .vh .wp-avancado i{font-size:12px;color:var(--muted)}
 .vh .wp-avancado:hover,.vh .wp-avancado:hover i{color:var(--red)}
+
+/* Mailmarketing (componente do site, em Tailwind) dentro do painel, no modelo do painel nos dois temas (Silva,
+   16/10/2026: "fundos e arredondamentos estranhos, inclusive no tema escuro"): cartões com o fundo e a borda do painel,
+   faixas e rodapés como os do painel, cantos de 4 px, sem sombras, botões como os do painel */
+.vh .vh-mailmarketing [class*="rounded"]:not([class*="rounded-full"]){border-radius:var(--r)!important}
+.vh .vh-mailmarketing [class*="shadow"]{box-shadow:none!important}
+.vh .vh-mailmarketing :is([class*="bg-white"],[class*="bg-zinc-900"],[class*="bg-zinc-950"]):not(button){background-color:var(--card)!important}
+.vh .vh-mailmarketing :is([class*="bg-slate-50"],[class*="bg-slate-100"],[class*="bg-slate-200"],[class*="bg-gray-50"],[class*="bg-gray-100"],[class*="bg-zinc-800"]):not(button){background-color:var(--soft)!important}
+.vh .vh-mailmarketing :is([class*="bg-orange-50"],[class*="bg-red-50"]):not(button){background-color:var(--tint)!important}
+.vh .vh-mailmarketing :is([class*="border-slate"],[class*="border-gray"],[class*="border-zinc"],[class~="border"],[class~="border-b"],[class~="border-t"],[class~="border-r"]){border-color:var(--line)!important}
+.vh .vh-mailmarketing .w-px{background-color:var(--line)!important}
+.vh .vh-mailmarketing :is(select,input:not([type=checkbox]):not([type=radio]),textarea):not([class*="bg-transparent"]){background-color:var(--card)!important;border-color:var(--line)!important;color:var(--ink)!important;border-radius:var(--r)!important}
+.vh .vh-mailmarketing [class*="bg-transparent"]{background-color:transparent!important;color:var(--ink)!important}
+/* (os campos sem caixa própria ficam transparentes; ganha à regra do site para os campos no escuro, .dark .site-content) */
+.vh .vh-mailmarketing :is(input,select,textarea)[class*="bg-transparent"]:not([type=checkbox]):not([type=radio]){background-color:transparent!important}
+.vh .vh-mailmarketing :is([class*="text-slate-900"],[class*="text-slate-800"],[class*="text-slate-700"],[class*="text-gray-900"],[class*="text-gray-700"],[class*="text-zinc-200"],[class*="text-zinc-300"]):not(button){color:var(--ink)!important}
+.vh .vh-mailmarketing :is([class*="text-slate-400"],[class*="text-slate-500"],[class*="text-slate-600"],[class*="text-gray-500"],[class*="text-gray-600"],[class*="text-zinc-400"],[class*="text-zinc-500"]):not(button){color:var(--muted)!important}
+.vh .vh-mailmarketing :is([class*="text-orange-600"],[class*="text-orange-500"]){color:var(--red)!important}
+.vh .vh-mailmarketing ::placeholder{color:var(--muted)!important}
+/* botões: o principal na cor dos botões do painel; os secundários como o "g" do painel; letra normal (sem maiúsculas).
+   Na camada "base": o Tailwind marca estes fundos como importantes (!bg-…) na camada "utilities", e um !important fora de
+   camada não lhes ganha (nos importantes ganha a camada declarada primeiro) */
+@layer base{
+.vh .vh-mailmarketing button:is([class*="uppercase"],[class*="h-8"],[class*="h-9"]){text-transform:none!important;letter-spacing:normal!important;font-size:13px!important;font-weight:600!important;min-height:34px}
+.vh .vh-mailmarketing button:is([class*="bg-slate-800"],[class*="bg-black"]){background-color:var(--btn,var(--red))!important;color:var(--btn-ink,#fff)!important;border:1px solid var(--btn,var(--red))!important}
+.vh .vh-mailmarketing button:is([class*="bg-slate-800"],[class*="bg-black"]):hover:not(:disabled){background-color:var(--btn-d,var(--red-d))!important;border-color:var(--btn-d,var(--red-d))!important}
+.vh .vh-mailmarketing button:is([class*="bg-slate-100"],[class*="bg-gray-100"],[class*="bg-background"],[class*="border-gray-200"]){background-color:var(--soft)!important;color:var(--ink)!important;border:1px solid var(--line)!important}
+.vh .vh-mailmarketing button:is([class*="bg-slate-100"],[class*="bg-gray-100"],[class*="bg-background"],[class*="border-gray-200"]):hover:not(:disabled){color:var(--red)!important;background-color:var(--soft)!important}
+.vh .vh-mailmarketing button[class*="bg-emerald-600"]{background-color:var(--ok)!important;border:1px solid var(--ok)!important}
+.vh .vh-mailmarketing button[class*="bg-emerald-600"]:hover:not(:disabled){filter:brightness(.92)}
+}
+/* no telemóvel, a lista de contactos em blocos (regra do painel): a caixa e o e-mail em cima, o resto por baixo com o nome
+   da coluna e os botões no fundo do bloco, lado a lado */
+@media(max-width:768px){
+ .vh .vh-mailmarketing table,.vh .vh-mailmarketing tbody{display:block;width:100%}
+ .vh .vh-mailmarketing thead{display:none}
+ .vh .vh-mailmarketing tbody>tr{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:10px;row-gap:6px;padding:12px;border-bottom:1px solid var(--line)}
+ .vh .vh-mailmarketing tbody>tr>td{display:block;padding:0!important;text-align:left!important;min-width:0;overflow-wrap:anywhere}
+ .vh .vh-mailmarketing tbody>tr>td:nth-child(n+3){grid-column:1/-1}
+ .vh .vh-mailmarketing tbody>tr>td[data-label]::before{content:attr(data-label);display:block;font-size:11.5px;color:var(--muted);margin-bottom:3px}
+ .vh .vh-mailmarketing tbody>tr>td:last-child{display:flex;justify-content:flex-start;gap:8px}
+}
+/* dentro do painel nunca esqueletos (regra do Silva, 13/10/2026): os blocos a pulsar do Mailmarketing não se mostram */
+.vh .vh-mailmarketing .animate-pulse{animation:none!important;opacity:0!important}
