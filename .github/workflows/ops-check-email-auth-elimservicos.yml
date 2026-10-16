@@ -1,0 +1,108 @@
+name: 'ops: diagnosticar SPF/DKIM/DMARC de elimservicos.com (so-leitura, so DNS publico)'
+
+# Cliente ELIM (16/10/2026, logo após mudar Hetzner -> Contabo): emails
+# enviados pelo Gmail voltam de destinatários Outlook/Microsoft 365 com
+#   450 4.7.26 Service does not accept messages sent over IPv6 [2a00:1450:...]
+#   unless they pass either SPF or DKIM validation (bad or invalid public-key record)
+# Só consultas DNS públicas (dig + pyspf) — não toca em nenhum servidor nem
+# usa nenhum segredo.
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches:
+      - claude/amazing-goldberg-1d2ol1
+    paths:
+      - '.github/workflows/ops-check-email-auth-elimservicos.yml'
+
+jobs:
+  dns:
+    runs-on: ubuntu-latest
+    env:
+      DOMAIN: elimservicos.com
+      # IPs Google exactos dos dois bounces (Gmail -> Outlook)
+      GOOGLE_IPS: '2a00:1450:4864:20::32a 2a00:1450:4864:20::531'
+    steps:
+      - name: Instalar ferramentas
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq dnsutils >/dev/null
+          pip install -q pyspf dnspython cryptography
+
+      - name: NS / SOA / MX / A
+        run: |
+          set +e
+          echo "== NS";  dig +short NS "$DOMAIN"
+          echo "== SOA"; dig +short SOA "$DOMAIN"
+          echo "== MX";  dig +short MX "$DOMAIN"
+          echo "== A";   dig +short A "$DOMAIN"; dig +short A "mail.$DOMAIN"
+          echo
+          echo "== MX visto por cada nameserver autoritativo (deteta zonas diferentes entre NS)"
+          for ns in $(dig +short NS "$DOMAIN"); do
+            echo "-- @$ns"; dig +short MX "$DOMAIN" @"$ns"; dig +short TXT "$DOMAIN" @"$ns" | grep -i spf
+          done
+
+      - name: TXT / SPF / DMARC (resolvers publicos + autoritativos)
+        run: |
+          set +e
+          for r in 8.8.8.8 1.1.1.1; do
+            echo "== TXT @$r"; dig +short TXT "$DOMAIN" @"$r"
+          done
+          echo
+          echo "== numero de registos v=spf1 (tem de ser exactamente 1)"
+          dig +short TXT "$DOMAIN" @8.8.8.8 | grep -ci 'v=spf1'
+          echo
+          echo "== _dmarc"; dig +short TXT "_dmarc.$DOMAIN" @8.8.8.8
+
+      - name: DKIM - selectores comuns (Google, Hestia, DirectAdmin, Brevo, M365)
+        run: |
+          set +e
+          for s in google default mail x dkim brevo1 brevo2 selector1 selector2 k1 s1 s2; do
+            out=$(dig +short TXT "$s._domainkey.$DOMAIN" @8.8.8.8)
+            cname=$(dig +short CNAME "$s._domainkey.$DOMAIN" @8.8.8.8)
+            if [ -n "$out$cname" ]; then
+              echo "== $s._domainkey ${cname:+(CNAME -> $cname)}"
+              echo "$out"
+            else
+              echo "-- $s._domainkey: (nada)"
+            fi
+          done
+
+      - name: Validar chave publica DKIM de cada selector encontrado
+        run: |
+          python3 - <<'PY'
+          import base64, os, dns.resolver
+          from cryptography.hazmat.primitives.serialization import load_der_public_key
+          d = os.environ["DOMAIN"]
+          r = dns.resolver.Resolver(); r.nameservers = ["8.8.8.8"]
+          for s in ["google","default","mail","x","dkim","brevo1","brevo2","selector1","selector2","k1","s1","s2"]:
+              name = f"{s}._domainkey.{d}"
+              try:
+                  ans = r.resolve(name, "TXT")
+              except Exception:
+                  continue
+              for rr in ans:
+                  chunks = [c.decode() for c in rr.strings]
+                  txt = "".join(chunks)
+                  tags = dict(p.strip().split("=",1) for p in txt.split(";") if "=" in p)
+                  p = tags.get("p","").replace(" ","")
+                  print(f"{name}: {len(chunks)} fragmento(s), tamanhos {[len(c) for c in chunks]}, v={tags.get('v')}, k={tags.get('k','rsa')}")
+                  if not p:
+                      print("   -> INVALIDO: p= vazio (chave revogada) ou em falta"); continue
+                  try:
+                      key = load_der_public_key(base64.b64decode(p))
+                      print(f"   -> OK: chave RSA de {key.key_size} bits carrega bem")
+                  except Exception as e:
+                      print(f"   -> INVALIDO: a chave nao descodifica ({e.__class__.__name__}: {e})")
+          PY
+
+      - name: Avaliar SPF para os IPs exactos do Google dos bounces
+        run: |
+          python3 - <<'PY'
+          import os, spf
+          d = os.environ["DOMAIN"]
+          for ip in os.environ["GOOGLE_IPS"].split():
+              res = spf.check2(i=ip, s=f"teste@{d}", h="mail-google.com")
+              print(f"SPF {d} para {ip}: {res}")
+          # Também IPv4 Google típico, para comparação
+          print(f"SPF {d} para 209.85.220.41 (Google IPv4):", spf.check2(i="209.85.220.41", s=f"teste@{d}", h="mail-google.com"))
+          PY
