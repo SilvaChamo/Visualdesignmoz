@@ -156,22 +156,31 @@ export const EsperaPagina = createContext<Espera | null>(null);
 /** Leitura de uma página: mostra logo o que está em memória e atualiza por trás. `null` = não ler. */
 export function useGet<T>(url: string | null, opcoes: { fundo?: boolean } = {}) {
   const espera = useContext(EsperaPagina);
-  const [dados, setDados] = useState<T | null>(() => (url ? ((memoria.get(url) as T) ?? null) : null));
-  const [erro, setErro] = useState('');
+  const urlAtual = useRef(url);
+  urlAtual.current = url;
+  const [resultado, setResultado] = useState<{ url: string | null; dados: T | null; erro: string }>(() => ({
+    url,
+    dados: url ? ((memoria.get(url) as T) ?? null) : null,
+    erro: '',
+  }));
   const fundo = !!opcoes.fundo;
+  const dados = resultado.url === url ? resultado.dados : null;
+  const erro = resultado.url === url ? resultado.erro : '';
   // `ler()` normal; `ler(true)` em segundo plano (sem a linha do topo). Como botão, recebe o clique: conta como normal.
   // A leitura automática ao abrir (`ler(AO_ABRIR)`) com a página já em memória (abriu logo) atualiza por trás sem a
   // linha do topo: a linha só aparece quando há mesmo de esperar (pedido do Silva, 12/10).
   const ler = useCallback(
     async (emFundo?: unknown) => {
       if (!url) return;
-      setErro('');
+      const pedido = url;
+      setResultado((atual) => (urlAtual.current === pedido && atual.url === pedido ? { ...atual, erro: '' } : atual));
       const emMemoria = memoria.has(url);
       const fim = !emMemoria && espera ? espera.comecar() : null;
       try {
-        setDados(await lerUrl<T>(url, { fundo: emFundo === true || fundo || (emFundo === AO_ABRIR && emMemoria) }));
+        const novo = await lerUrl<T>(url, { fundo: emFundo === true || fundo || (emFundo === AO_ABRIR && emMemoria) });
+        if (urlAtual.current === pedido) setResultado({ url: pedido, dados: novo, erro: '' });
       } catch (e) {
-        setErro(e instanceof Error ? e.message : 'Erro a ler o servidor');
+        if (urlAtual.current === pedido) setResultado({ url: pedido, dados: memoria.get(pedido) as T | null ?? null, erro: e instanceof Error ? e.message : 'Erro a ler o servidor' });
       } finally {
         fim?.();
       }
@@ -179,10 +188,16 @@ export function useGet<T>(url: string | null, opcoes: { fundo?: boolean } = {}) 
     [url, espera, fundo],
   );
   useEffect(() => {
-    if (!url) return;
-    setDados((memoria.get(url) as T) ?? null);
+    if (!url) {
+      setResultado({ url: null, dados: null, erro: '' });
+      return;
+    }
+    const pedido = url;
+    setResultado({ url: pedido, dados: (memoria.get(pedido) as T) ?? null, erro: '' });
     const s = ouvintes.get(url) || new Set();
-    const f = (v: unknown) => setDados(v as T);
+    const f = (v: unknown) => {
+      if (urlAtual.current === pedido) setResultado({ url: pedido, dados: v as T, erro: '' });
+    };
     s.add(f);
     ouvintes.set(url, s);
     ler(AO_ABRIR);

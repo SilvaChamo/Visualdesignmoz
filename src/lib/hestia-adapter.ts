@@ -25,7 +25,11 @@ export async function issueLetsEncrypt(
   /** apontadores a incluir no certificado; omitido = o que o Hestia fizer por defeito */
   aliases?: string[],
 ): Promise<{ ok: boolean; error?: string; output?: string }> {
-  const result = await hestiaCall('v-add-letsencrypt-domain', [username, domain, ...(aliases?.length ? [aliases.join(',')] : [])]);
+  const result = await hestiaCall(
+    'v-add-letsencrypt-domain',
+    [username, domain, ...(aliases?.length ? [aliases.join(',')] : [])],
+    { timeoutMs: 120_000, sshTimeoutMs: 120_000, sshFallbackOnTransportError: false },
+  );
   return finishLetsEncrypt(result);
 }
 
@@ -34,7 +38,11 @@ export async function issueMailLetsEncrypt(
   username: string,
   domain: string,
 ): Promise<{ ok: boolean; error?: string; output?: string }> {
-  const result = await hestiaCall('v-add-letsencrypt-domain', [username, domain, '', 'yes']);
+  const result = await hestiaCall('v-add-letsencrypt-domain', [username, domain, '', 'yes'], {
+    timeoutMs: 120_000,
+    sshTimeoutMs: 120_000,
+    sshFallbackOnTransportError: false,
+  });
   return finishLetsEncrypt(result);
 }
 
