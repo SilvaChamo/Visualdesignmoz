@@ -70,6 +70,7 @@ async function noServidor(vh: VH, corpo: Record<string, unknown>, ok: string, re
     const j = (await r.json().catch(() => ({}))) as { erro?: string; aviso?: string };
     if (!r.ok) {
       vh.toast(j.erro || 'A alteração falhou');
+      if (corpo.acao === 'dominio-apagar') await vh.recarregar(true);
       return false;
     }
     if (recarregar) await vh.recarregar(true);
@@ -931,7 +932,7 @@ export const dominios: ScreenFn = (vh) => {
   if (sub === 'subdominios') return { title: 'Domínios', actions: novoSub, dominios: 'sites', crumbs: [base, { t: 'Subdomínios' }], body: <ListaDominios abaDom="subdominios" /> };
   if (sub === 'transferir') return { title: 'Domínios', actions: novoBtn, crumbs: [base, { t: 'Transferir domínio' }], body: <ListaDominios abaDom="transferir" /> };
   if (sub === 'novo') return { title: 'Adicionar domínio', crumbs: [{ t: 'Domínios', path: '/' + vh.s.level + '/dominios' }, { t: 'Adicionar domínio' }], body: <NovoDominio /> };
-  if (sub) return { title: sub, desc: 'Resumo e atalhos do domínio', crumbs: [{ t: 'Domínios', path: '/' + vh.s.level + '/dominios' }, { t: sub }], dominioUrl: { d: sub, ir: (n) => '/' + vh.s.level + '/dominios/' + n }, body: <VerDominio d={sub} /> };
+  if (sub) return { title: sub, desc: 'Resumo e atalhos do domínio', crumbs: [{ t: 'Domínios', path: '/' + vh.s.level + '/dominios' }, { t: sub }], dominioUrl: { d: sub, ir: (n) => '/' + vh.s.level + '/dominios/' + encodeURIComponent(n) }, body: <VerDominio d={sub} /> };
   return { title: 'Domínios', actions: novoBtn, body: <ListaDominios /> };
 };
 

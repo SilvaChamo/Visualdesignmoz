@@ -583,7 +583,7 @@ export function DomTable({ filter = '' }: { filter?: string }) {
   const { a, s, t, nav, setDominio } = useVH();
   const rows = a.domains.filter((d) => d.name.includes(filter));
   return (
-    <div className="tbl dt-empilhar">
+    <div className="tbl dt-empilhar dominios-widget-list">
       <table>
         <thead>
           <tr>
@@ -628,7 +628,7 @@ export function DomTable({ filter = '' }: { filter?: string }) {
                 <td data-t={t('Estado')}>{d.status === 'ok' ? <span className="tag ok">{t('Ativo')}</span> : <span className="tag w">{t('Atenção')}</span>}</td>
                 <td className="dt-acoes-linha" style={{ textAlign: 'right' }}>
                   <button
-                    className="btn g sm"
+                    className="btn g sm btn-gerir-widget"
                     onClick={() => {
                       setDominio(d.name);
                       nav('/' + (s.level || 'utilizador') + '/dominios/' + encodeURIComponent(d.name));

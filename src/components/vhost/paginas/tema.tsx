@@ -5,7 +5,7 @@ import { useVH } from '../context';
 import { THEME_PRESETS, getThemeColors, isHex, type CustomComponents } from '../theme';
 import { LOGO, route, type St } from '../state';
 
-/** Onde a página está aberta: em Preferências → Aparência (todas as contas) ou no menu do painel (Admin/Revenda) */
+/** Onde a página está aberta: em Preferências → Aparência ou no menu do painel (Admin/Revenda) */
 export const temaBase = (s: St) => (s.page === 'preferencias' ? '/preferencias/aparencia' : route(s.level, 'tema'));
 
 type Cores = { primary: string; safe: string; danger: string; warning: string; railBg: string; railInk: string; botoes: string };
@@ -38,6 +38,12 @@ export function ThemeCustomizerView() {
   // Estado local para o Editor de Componentes (Estilo V-Host Colors)
   const [compColors, setCompColors] = useState<Cores>(() => coresDe(currentColors));
   const [editingPresetId, setEditingPresetId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setCustomHex(s.customPrimary || '#E5202E');
+    setBrandName(s.brand.name || 'VisualHost');
+    setLogoUrl(s.brand.logo);
+  }, [s.customPrimary, s.brand.name, s.brand.logo]);
 
   // mudou de tema ou guardou → o editor mostra as cores guardadas desse tema
   useEffect(() => {

@@ -329,11 +329,12 @@ export async function POST(req: NextRequest) {
   }
   const conta = String(c.conta || '');
   const d = String(c.dominio || '').toLowerCase();
-  const srv = await lerServidor();
+  let srv = await lerServidor();
+  if (c.acao === 'dominio-apagar') srv = await lerServidor(true);
   // `esquecer`: a alteração muda a lista de contas/domínios (os registos de DNS não mudam)
   const resposta = async (p: Promise<{ ok: boolean; error?: string }> | { ok: boolean; error?: string }, esquecer = true) => {
     const x = await p;
-    if (x.ok && esquecer) esquecerLeitura();
+    if ((x.ok || c.acao === 'dominio-apagar') && esquecer) esquecerLeitura();
     return NextResponse.json(x.ok ? { ok: true } : { erro: x.error || 'O servidor recusou.' }, { status: x.ok ? 200 : 400 });
   };
   const call = async (cmd: string, args: string[]) => {
@@ -372,6 +373,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ erro: 'O domínio foi criado, mas a regra do webmail não foi posta (o nginx recusou).' }, { status: 502 });
     }
     return resposta(x);
+  }
+
+  if (c.acao === 'dominio-apagar') {
+    if (!CONTA.test(conta) || !DOM.test(d)) return NextResponse.json({ erro: 'Conta ou domínio inválido.' }, { status: 400 });
+    const dados = montarDados(srv, await lerRegisto(), r.s);
+    if (!dados.contas[conta]) return NextResponse.json({ erro: 'Conta fora do seu painel.' }, { status: 403 });
+    if (!srv.web[conta]?.[d] && !srv.mail[conta]?.[d]) {
+      esquecerLeitura();
+      return NextResponse.json({ erro: 'Este domínio já não existe no servidor. A lista foi actualizada.' }, { status: 409 });
+    }
   }
 
   const e = await verificar(r.s, conta, d, srv);
