@@ -8,16 +8,9 @@ export const dynamic = 'force-dynamic';
  */
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);
-  const host = (req.headers.get('host') || url.hostname || 'visualdesignmoz.com').toLowerCase();
-  const cleanHost = host.replace(/^www\./i, '').replace(/:\d+$/, '');
 
-  // Determinar o subdomínio correto do Webmail
-  let targetHost = `webmail.${cleanHost}`;
-  if (cleanHost === 'teste.visualdesignmoz.com') {
-    targetHost = 'webmail.visualdesignmoz.com'; // o domínio de e-mail teste. foi apagado (Silva, 16/10/2026)
-  } else if (cleanHost.endsWith('visualdesignmoz.com')) {
-    targetHost = 'webmail.visualdesignmoz.com';
-  }
+  // Um só webmail, o da VisualDesign (Silva, 16/10/2026): serve todas as caixas de correio do servidor
+  const targetHost = 'webmail.visualdesignmoz.com';
 
   // Preservar query parameters (?_user=..., ?_vhsso=..., ?_sso=..., etc.)
   const targetUrl = `https://${targetHost}/${url.search}`;
