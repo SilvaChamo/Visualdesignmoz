@@ -1,0 +1,38 @@
+name: "Ops - ns1..ns4 no registo .com (SO LEITURA, sem tocar em servidores)"
+
+# ============================================================================
+# SO LEITURA. 1) Confirma no registo .com (Verisign) os IPs de ns1..ns4
+# depois da alteracao na Porkbun (ns1/ns2 -> Hetzner, ns3/ns4 -> Contabo).
+# 2) Ve porque o Hetzner (37.27.17.25) nao responde na porta 53: servico
+# named do DirectAdmin, porta, firewall, zonas. Nao altera nada, nao
+# imprime chaves.
+# ============================================================================
+
+on:
+  push:
+    branches: [claude/jolly-cori-xcyriq]
+    paths: ['.github/workflows/ops-ns-registry-check.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  registo:
+    name: ns1..ns4 no registo .com
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - run: |
+          set +e
+          sudo apt-get install -y -qq whois >/dev/null 2>&1
+          for n in 1 2 3 4; do
+            echo "-- ns$n.visualdesignmoz.com"
+            whois -h whois.verisign-grs.com "nameserver ns$n.visualdesignmoz.com" | grep -i -E 'Server Name|IP Address|No match' | head -4
+            echo "   A na Cloudflare: $(dig +short A ns$n.visualdesignmoz.com @lauryn.ns.cloudflare.com | tr '\n' ' ')"
+          done
+          echo
+          echo "-- porta 53 do Hetzner a partir de fora"
+          dig +norec +time=3 +tries=1 SOA visualdesignmoz.com @37.27.17.25 2>&1 | grep -E 'status:|timed out|refused|no servers' | head -2
+          nc -zv -w 4 37.27.17.25 53 2>&1 | tail -1
+
