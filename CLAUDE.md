@@ -138,7 +138,7 @@ mesma alteração a linha inglesa no dicionário — sem esperar que o Silva pe�
   (>1600), computador (1301–1600), portátil (1051–1300), tablet (769–1050) e telemóvel (≤768). Cada página fica
   organizada da mesma forma nos 3 de computador (ex.: a coluna da direita das Contas de e-mail e da Dashboard fica à
   direita, só mais estreita); no tablet e no telemóvel as colunas passam a uma. Nenhuma página pode passar da largura
-  do ecrã. Antes de entregar, screenshots nos 5 (1920, 1440, 1280, 1024, 390).
+  do ecrã. Antes de entregar, o Silva confere nos 5 (1920, 1440, 1280, 1024, 390) — sem screenshots nossos.
 - **Nunca duas linhas de botões.**
 - **Nunca cortar texto com "…"** (regra do Silva, 13/10/2026: "não pode fechar dados, reduzir sempre"): quando um
   texto não cabe (ex.: título e descrição da barra de cima no telemóvel), a letra diminui até caber; se nem assim
@@ -148,22 +148,23 @@ mesma alteração a linha inglesa no dicionário — sem esperar que o Silva pe�
   descrição pequena por baixo (nunca dois títulos grandes juntos — números e resumos vão na descrição, ex.:
   "Todas as mensagens | 3 por ler"); o conteúdo dentro do cartão principal; os separadores abrem o cartão (faixa
   cinzenta em cima) e a tabela fica por baixo.
-- **Screenshots enviados ao Silva vão numerados** ("Ecrã 1", "Ecrã 2", …, também no nome do ficheiro) para ele
-  poder dizer qual quer mudar.
+- **Não se fazem screenshots** (Silva, 16/10/2026) — ver "Verificação visual de alterações de UI".
 - **Primeiro só a vista de computador.** A vista de telemóvel (largura 390px) só se mostra depois de todas as
   alterações estarem feitas e aprovadas pelo Silva (revisto a 13/10/2026).
-- **Antes de publicar:** fazer todas as rectificações, mostrar as imagens, esperar que o Silva diga que está bom, e
+- **Antes de publicar:** fazer todas as rectificações, mandar o comando do ponto 6 (dois ecrãs), esperar que o Silva diga que está bom, e
   só publicar quando ele disser "publica" (ver "Como se trabalha com o Silva").
 
 # Verificação visual de alterações de UI
 
-**Não enviar imagens ao Silva** (Silva, 15/10/2026: "não me mostre imagens… eu vou apenas te mandar screenshots"):
-ele vê no projecto local e manda prints; na resposta diz-se só onde se mexeu. As imagens continuam a servir para
-confirmar o resultado do nosso lado (só a parte alterada, para gastar menos).
+**Não criar nem enviar screenshots** (Silva, 15/10/2026: "não me mostre imagens… eu vou apenas te mandar
+screenshots"; reforçado a 16/10/2026: "não crie screenshots, eu te vou mandar depois de certificar no projecto que está
+em ordem ou falta algo"). Nenhum agente tira screenshots — nem para confirmar do nosso lado. Quem confirma é o Silva,
+no projecto local, e é ele que manda os prints. Na resposta diz-se só onde se mexeu e manda-se **o comando único do
+ponto 6**, que abre a pré-visualização com **os dois ecrãs** (computador e telemóvel lado a lado,
+`/dev-preview-telemovel`) — essa janela de dois ecrãs mantém-se sempre que se dá o código para ver alterações.
 
-Antes de reportar qualquer alteração visual (CSS/layout/alinhamentos) como concluída,
-confirma-a com um screenshot real — "compila sem erros" só garante que o TypeScript
-aceita o código, não que o resultado visual está correcto.
+O que segue abaixo ("Como tirar o screenshot neste Mac") fica só como referência histórica: **não se usa** enquanto o
+Silva não disser o contrário.
 
 ## Como tirar o screenshot neste Mac
 
