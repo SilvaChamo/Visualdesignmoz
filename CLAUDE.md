@@ -51,6 +51,11 @@ A pasta de trabalho no Mac do Silva é `visualdesign-producao` (antes `visualdes
    responder "OK".
    O `rm -rf .next` apaga a cache do servidor local antes de arrancar (uma cache velha depois de mudar de ramo fazia o
    site local piscar e não abrir — Silva, 14/10/2026); a primeira página demora um pouco mais a compilar.
+7. **As publicações não levam o nome da inteligência artificial** (Silva, 16/10/2026). O título do merge em
+   `fix/contabo-websites-audit` fica só `Merge pull request #N from SilvaChamo-<fim do ramo>` — de preferência o mais
+   curto, ex.: `Merge pull request #86 from SilvaChamo-51l13p`; no máximo `Merge pull request #86 from
+   SilvaChamo/sharp-hypatia-51l13p`. Nunca `claude/` nem outro nome de IA no título (o GitHub põe por defeito
+   `from SilvaChamo/claude/…`: ao juntar, escrever o título à mão, ou pela API no `commit_title`).
 
 # Site em duas línguas — todo o conteúdo novo entra já traduzido (Silva, 14/10/2026)
 
