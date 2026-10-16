@@ -21,6 +21,25 @@ env:
   NEW_IP: "77.42.120.104"
 
 jobs:
+  vercel:
+    name: a Vercel (76.76.21.21) ainda serve a comunidade?
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pedidos a community.oshercollective.com directamente na Vercel
+        run: |
+          set +e
+          C=community.oshercollective.com
+          for p in / /join /blog /e/china-mission-2027-info-session; do
+            curl -sS -o page.html -w "$p -> HTTP %{http_code}  certificado_ok=%{ssl_verify_result} (0 = válido)\n" --max-time 20 \
+              --resolve $C:443:76.76.21.21 "https://$C$p" 2>&1
+            [ "$p" = / ] && cp page.html home.html
+          done
+          echo "--- título da página inicial ---"; grep -o -i '<title>[^<]*' home.html | head -1
+          echo "--- cabeçalhos ---"
+          curl -sSI --max-time 20 --resolve $C:443:76.76.21.21 https://$C/ 2>&1 | grep -i -E '^HTTP|^server|^x-vercel|^x-matched-path|^x-powered'
+          echo "--- certificado apresentado pela Vercel ---"
+          echo | openssl s_client -connect 76.76.21.21:443 -servername $C 2>/dev/null | openssl x509 -noout -subject -issuer -enddate
+
   zona:
     name: zona antiga + circle.so no site
     runs-on: ubuntu-latest
