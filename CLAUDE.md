@@ -138,7 +138,7 @@ mesma alteração a linha inglesa no dicionário — sem esperar que o Silva pe�
   (>1600), computador (1301–1600), portátil (1051–1300), tablet (769–1050) e telemóvel (≤768). Cada página fica
   organizada da mesma forma nos 3 de computador (ex.: a coluna da direita das Contas de e-mail e da Dashboard fica à
   direita, só mais estreita); no tablet e no telemóvel as colunas passam a uma. Nenhuma página pode passar da largura
-  do ecrã. Antes de entregar, o Silva confere nos 5 (1920, 1440, 1280, 1024, 390) — sem screenshots nossos.
+  do ecrã. Antes de entregar, confirma-se do nosso lado nos 5 (1920, 1440, 1280, 1024, 390), sem mostrar imagens ao Silva.
 - **Nunca duas linhas de botões.**
 - **Nunca cortar texto com "…"** (regra do Silva, 13/10/2026: "não pode fechar dados, reduzir sempre"): quando um
   texto não cabe (ex.: título e descrição da barra de cima no telemóvel), a letra diminui até caber; se nem assim
@@ -148,7 +148,7 @@ mesma alteração a linha inglesa no dicionário — sem esperar que o Silva pe�
   descrição pequena por baixo (nunca dois títulos grandes juntos — números e resumos vão na descrição, ex.:
   "Todas as mensagens | 3 por ler"); o conteúdo dentro do cartão principal; os separadores abrem o cartão (faixa
   cinzenta em cima) e a tabela fica por baixo.
-- **Não se fazem screenshots** (Silva, 16/10/2026) — ver "Verificação visual de alterações de UI".
+- **Imagens nunca vão para o Silva** (confirma-se do nosso lado com medições) — ver "Verificação visual de alterações de UI".
 - **Primeiro só a vista de computador.** A vista de telemóvel (largura 390px) só se mostra depois de todas as
   alterações estarem feitas e aprovadas pelo Silva (revisto a 13/10/2026).
 - **Antes de publicar:** fazer todas as rectificações, mandar o comando do ponto 6 (dois ecrãs), esperar que o Silva diga que está bom, e
@@ -156,15 +156,16 @@ mesma alteração a linha inglesa no dicionário — sem esperar que o Silva pe�
 
 # Verificação visual de alterações de UI
 
-**Não criar nem enviar screenshots** (Silva, 15/10/2026: "não me mostre imagens… eu vou apenas te mandar
-screenshots"; reforçado a 16/10/2026: "não crie screenshots, eu te vou mandar depois de certificar no projecto que está
-em ordem ou falta algo"). Nenhum agente tira screenshots — nem para confirmar do nosso lado. Quem confirma é o Silva,
-no projecto local, e é ele que manda os prints. Na resposta diz-se só onde se mexeu e manda-se **o comando único do
-ponto 6**, que abre a pré-visualização com **os dois ecrãs** (computador e telemóvel lado a lado,
-`/dev-preview-telemovel`) — essa janela de dois ecrãs mantém-se sempre que se dá o código para ver alterações.
-
-O que segue abaixo ("Como tirar o screenshot neste Mac") fica só como referência histórica: **não se usa** enquanto o
-Silva não disser o contrário.
+**Confirmar sempre, mas nunca mostrar imagens ao Silva** (Silva, 15/10/2026: "não me mostre imagens… eu vou apenas
+te mandar screenshots"; esclarecido a 16/10/2026: "confirmar deve confirmar… mas não me dar screenshot"). Cada
+alteração visual é confirmada do nosso lado antes de se dizer que está feita — "compila sem erros" não chega. Mas as
+imagens **nunca chegam ao Silva**: não se enviam, não se anexam e não se abrem na conversa (abrir uma imagem com a
+ferramenta de leitura mostra-a ao Silva na app). A confirmação faz-se com o Playwright a **medir** a página (posições
+`getBoundingClientRect()`, estilos calculados `getComputedStyle()`, larguras, sobreposições) e a escrever os números
+no terminal; se for preciso gravar uma imagem para comparar, fica só na pasta temporária e apaga-se no fim. Na
+resposta ao Silva diz-se só onde se mexeu e manda-se **o comando único do ponto 6**, que abre a pré-visualização com
+**os dois ecrãs** (computador e telemóvel lado a lado, `/dev-preview-telemovel`) — essa janela de dois ecrãs
+mantém-se sempre que se dá o código para ver alterações. O Silva vê no projecto local e manda os prints dele.
 
 ## Como tirar o screenshot neste Mac
 
