@@ -1,0 +1,28 @@
+name: "Ops - Confirmar a publicação de 16/10 (login do painel, host:2026) — só leitura"
+
+# Só leitura: segue os endereços do painel em produção (Contabo) e mostra cada salto, sem sessão.
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - claude/loving-cerf-gaw6vw
+    paths:
+      - '.github/workflows/ops-verificar-publicacao.yml'
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          set +e
+          saltos() {
+            echo "--- $1 ---"
+            curl -sS -o /dev/null -L --max-redirs 6 --max-time 30 -w '%{url_effective} -> HTTP %{http_code} (%{num_redirects} saltos)\n' "$1"
+            curl -sS -o /dev/null -D - --max-time 20 "$1" | grep -i -E '^HTTP|^location'
+          }
+          saltos "https://host.visualdesignmoz.com:2026/evo/"
+          saltos "https://visualdesignmoz.com/host:2026/admin"
+          saltos "https://visualdesignmoz.com/login?redirect=%2Fhost%3A2026%2Fadmin"
+          echo "--- versão publicada ---"
+          curl -sS --max-time 20 https://visualdesignmoz.com/api/versao; echo
