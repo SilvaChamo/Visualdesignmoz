@@ -113,7 +113,8 @@ export default function DomainSearchPainel({
     if (onResultsAction) onResultsAction([])
 
     try {
-      const POPULAR_TLDS = ['.com', '.net', '.org', '.online', '.tech', '.co', '.site']
+      // Pelo menos 15 extensões em cada busca (Silva, 16/10/2026); verificadas em grupos de 5 (limite de pedidos do registador)
+      const POPULAR_TLDS = ['.com', '.net', '.org', '.co', '.io', '.online', '.tech', '.site', '.store', '.app', '.info', '.biz', '.xyz', '.me', '.pro']
       const tldsToSearch = Array.from(new Set([selectedTLD, ...POPULAR_TLDS]))
       
       const checkTld = async (tld: string): Promise<SearchResult> => {
@@ -153,7 +154,8 @@ export default function DomainSearchPainel({
         }
       }
 
-      let allResults = await Promise.all(tldsToSearch.map(checkTld))
+      let allResults: Awaited<ReturnType<typeof checkTld>>[] = []
+      for (let i = 0; i < tldsToSearch.length; i += 5) allResults.push(...(await Promise.all(tldsToSearch.slice(i, i + 5).map(checkTld))))
       allResults.forEach((r, i) => (r.chosen = tldsToSearch[i] === selectedTLD))
 
       // No painel: o que falhou (o registador às vezes não responde) volta a ser perguntado, um de cada vez;

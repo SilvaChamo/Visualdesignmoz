@@ -1500,6 +1500,9 @@
 /* a linha de cima com as mesmas duas colunas das opções: Admin | Gestão dividem a 1.ª coluna, a língua fica na 2.ª,
    à direita (Silva, 14/10/2026) */
 .vh .mais-topo{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:center;gap:6px;margin-bottom:8px}
+.vh .mais-titulo{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
+.vh .mais-titulo h3{margin:0}
+.vh .mais-titulo-acoes{display:flex;gap:6px;flex-shrink:0}
 .vh .mais-niveis{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:6px;min-width:0}
 .vh .mais-niveis .btn{justify-content:center;padding:0 4px;min-width:0;font-size:clamp(11.5px,3.6vw,13px)}
 .vh .lingua-sel{position:relative;margin-left:auto}
@@ -1539,4 +1542,11 @@
  .vh .em-lado-stats .stat{padding:8px 2px 10px}
  .vh .em-lado-stats .stat strong{white-space:normal;margin:2px 0 6px}
  .vh .em-lado-stats .stat strong span{display:block;margin-top:2px;line-height:1.3}
+}
+/* Painel (widget dos domínios), telemóvel: o nome do campo em negrito, com a mesma fonte e o mesmo tamanho do valor, e
+   os valores (Válido, 0, 8.3, 48 MB, Ativo) todos encostados à esquerda numa mesma linha vertical invisível, 25 px
+   depois do nome mais comprido (Silva, 16/10/2026) */
+@media(max-width:768px){
+ .vh .tbl.dt-empilhar.dominios-widget-list tbody td[data-t]{gap:25px;font-family:inherit;font-size:14px}
+ .vh .tbl.dt-empilhar.dominios-widget-list tbody td[data-t]::before{flex:0 0 4.4em;width:4.4em;min-width:0;white-space:nowrap;font-family:inherit;font-size:inherit;font-weight:700;color:var(--ink)}
 }

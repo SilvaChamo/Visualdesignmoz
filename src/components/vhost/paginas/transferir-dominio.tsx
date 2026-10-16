@@ -12,7 +12,7 @@ import { useCart } from '@/contexts/CartContext';
 import { useCurrency } from '@/contexts/CurrencyContext';
 import { MZN_TO_USD_RATE } from '@/lib/currency';
 import { PesquisaPagina, useVH } from '../context';
-import { esquecerMemoria, useGet } from '../carga';
+import { EsperaPagina, esquecerMemoria, useGet } from '../carga';
 
 type Encomenda = { orderId: string; costMt: number; paidMt: number; metodoPagamento: string; status: 'pending' | 'paid' | 'failed' };
 type Pedido = {
@@ -64,12 +64,15 @@ function useContagem(fimMs: number) {
 function DnsAtual({ dominio }: { dominio: string }) {
   const { t } = useVH();
   const [dns, setDns] = useState<{ nameservers: string[]; mailExchangers: string[] } | null | 'erro'>(null);
+  const espera = useContext(EsperaPagina);
   useEffect(() => {
     let vivo = true;
+    const acabou = espera?.comecar(); // a página espera pelo DNS antes de aparecer
     fetch('/api/domain-transfer/dns-snapshot?domain=' + encodeURIComponent(dominio), { credentials: 'include' })
       .then((r) => r.json())
       .then((j) => vivo && setDns(j?.success ? j : 'erro'))
-      .catch(() => vivo && setDns('erro'));
+      .catch(() => vivo && setDns('erro'))
+      .finally(() => acabou?.());
     return () => {
       vivo = false;
     };

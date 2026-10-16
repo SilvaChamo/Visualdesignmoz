@@ -8,6 +8,8 @@ export type AcaoServidor =
   | { acao: 'senha'; contas: string[]; senha: string }
   | { acao: 'mover'; contas: string[]; para: string }
   | { acao: 'tipo'; contas: string[]; tipo: string }
+  | { acao: 'pacote-gravar'; gravar: { nome: string; editar?: boolean; lim: Record<string, { v: string; unl: boolean; unit?: string }>; feats: Record<string, boolean> } }
+  | { acao: 'pacote-apagar'; pacotes: string[] }
   | { acao: 'criar'; criar: { user: string; nome?: string; email: string; senha: string; dominio?: string; pacote: string } };
 
 /** Faz a alteração no servidor; devolve as contas alteradas (vazio se nada mudou) */

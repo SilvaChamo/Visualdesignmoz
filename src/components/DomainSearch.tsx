@@ -117,10 +117,12 @@ export default function DomainSearch({
 
     try {
       // Otimização: Pesquisa apenas o TLD seleccionado e os TLDs mais populares para reduzir latência e evitar 429
-      const POPULAR_TLDS = ['.com', '.net', '.org', '.online', '.tech', '.co', '.site']
+      // Pelo menos 15 extensões em cada busca (Silva, 16/10/2026); verificadas em grupos de 5 para não esbarrar no
+      // limite de pedidos do registador (429)
+      const POPULAR_TLDS = ['.com', '.net', '.org', '.co', '.io', '.online', '.tech', '.site', '.store', '.app', '.info', '.biz', '.xyz', '.me', '.pro']
       const tldsToSearch = Array.from(new Set([selectedTLD, ...POPULAR_TLDS]))
       
-      const fetchPromises = tldsToSearch.map(async (tld) => {
+      const verificar = async (tld: string) => {
         try {
           const controller = new AbortController()
           const timeoutId = setTimeout(() => controller.abort(), 15000)
@@ -155,9 +157,12 @@ export default function DomainSearch({
             error: 'Erro de verificação',
           } as SearchResult
         }
-      })
+      }
 
-      const allResults = await Promise.all(fetchPromises)
+      const allResults: SearchResult[] = []
+      for (let i = 0; i < tldsToSearch.length; i += 5) {
+        allResults.push(...(await Promise.all(tldsToSearch.slice(i, i + 5).map(verificar))))
+      }
 
       allResults.sort((a, b) => {
         if (a.domain.endsWith(selectedTLD)) return -1

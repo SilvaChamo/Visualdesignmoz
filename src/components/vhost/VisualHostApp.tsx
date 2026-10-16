@@ -34,6 +34,7 @@ import {
   fromPath,
   gItem,
   hasFeatOf,
+  comAcessos,
   ico,
   initialState,
   isUser,
@@ -120,6 +121,16 @@ class FalhaPagina extends Component<{ children: ReactNode; t: (s: string) => str
   }
   componentDidCatch(e: unknown) {
     console.error('[VisualHost] erro na página', e);
+    // depois de uma publicação, uma parte do código antigo pode já não existir no servidor: recarrega uma vez
+    if (e instanceof Error && /ChunkLoadError|Loading chunk|Failed to fetch dynamically imported module/i.test(e.name + ' ' + e.message)) {
+      try {
+        if (sessionStorage.getItem('vh-chunk-recarga') !== location.pathname) {
+          sessionStorage.setItem('vh-chunk-recarga', location.pathname);
+          location.reload();
+          return;
+        }
+      } catch {}
+    }
     this.props.onFalha(); // se estava à espera para aparecer, aparece já com o aviso
   }
   render() {
@@ -358,11 +369,20 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
             sessionStorage.setItem('vh-versao-pedida', j.versao);
           } catch {}
           versaoNova.current = true;
-          if (recarregar && !modalAberto.current) window.location.reload();
+          // nunca à frente de quem usa (a recarga inteira era a tela branca e o "salto" para o início — Silva,
+          // 16/10/2026): só com o separador escondido; à vista, o painel continua com a versão que tem
+          if (recarregar && document.hidden && !modalAberto.current) window.location.reload();
         })
         .catch(() => {});
     };
-    const aoVoltar = () => !document.hidden && verificar(true);
+    // versão nova já conhecida: recarrega quando o separador fica escondido (ao voltar, já está na versão nova)
+    const aoEsconder = () => {
+      if (document.hidden && versaoNova.current && !modalAberto.current) window.location.reload();
+    };
+    const aoVoltar = () => {
+      aoEsconder();
+      if (!document.hidden) verificar(false);
+    };
     const t = setInterval(() => verificar(false), 120_000);
     document.addEventListener('visibilitychange', aoVoltar);
     window.addEventListener('focus', aoVoltar);
@@ -377,10 +397,7 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
   const nav = useCallback(
     (path: string) => {
       const n = fromPath(ref.current, path);
-      if (versaoNova.current) {
-        window.location.assign(BASE + n.path);
-        return;
-      }
+      // (antes, com uma versão nova publicada, o clique abria a página inteira de novo: tela branca e "salto")
       commit(n);
       pushUrl(n.path);
       window.scrollTo(0, 0);
@@ -468,6 +485,8 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
   }, [commit]);
 
   const contaTema = st.stack.length ? meOf(st) : st.login;
+  /** a conta tem tema próprio guardado? (null = ainda não se sabe) */
+  const temaProprio = useRef<boolean | null>(null);
   const contaTemaImpersonada = st.stack.length > 0;
   useEffect(() => {
     if (st.carga !== 'ok' || !contaTema) return;
@@ -495,7 +514,10 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
         const atual = ref.current;
         const chaveAtual = (atual.stack.length ? 'conta:' : 'pessoa:') + (atual.stack.length ? meOf(atual) : atual.login);
         if (chaveAtual !== chave) return;
-        commit({ ...atual, ...(dados.preferencias || padrao), themePreview: null });
+        temaProprio.current = !!dados.preferencias;
+        // sem tema próprio, o tema do plano da conta (Admin › Pacotes › Tema); senão o de origem
+        const doPlano = atual.temasPlano?.[acctOf(atual).pkg];
+        commit({ ...atual, ...(dados.preferencias || (doPlano ? { ...padrao, colorPreset: doPlano } : padrao)), themePreview: null });
       })
       .catch((erro: unknown) => {
         if (!ativo) return;
@@ -632,8 +654,13 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
     if (!me) return;
     fetch('/api/vhost/acessos', { cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : null))
-      .then((j: { acessos?: Record<string, string[]> } | null) => {
-        if (j?.acessos) commit({ ...ref.current, acessos: j.acessos });
+      .then((j: { acessos?: Record<string, string[]>; temas?: Record<string, string> } | null) => {
+        if (!j) return;
+        const cur = ref.current;
+        const temasPlano = j.temas || {};
+        // sem tema próprio guardado, a conta fica com o tema do seu plano (Admin › Pacotes › Tema)
+        const doPlano = temaProprio.current === false ? temasPlano[acctOf(cur).pkg] : '';
+        commit({ ...comAcessos(cur, j.acessos || {}), temasPlano, ...(doPlano ? { colorPreset: doPlano } : {}) });
       })
       .catch(() => {});
   }, [me, commit]);
@@ -696,7 +723,7 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
     me,
     a,
     allowed,
-    hasFeat: (f, id) => hasFeatOf(st, f, id),
+    hasFeat: (f, id) => hasFeatOf(s, f, id),
     nav,
     go,
     setLevel,
@@ -787,7 +814,7 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
       guardarTema(next);
       toast('Cantos atualizados');
     },
-    setAcessos: (acessos) => commit({ ...ref.current, acessos }),
+    setAcessos: (acessos) => commit(comAcessos(ref.current, acessos)),
     setDominio: (d, aviso = true) => {
       guardarDominio(meOf(ref.current), d);
       commit({ ...ref.current, dominio: d });
@@ -1278,7 +1305,8 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
 
         {/* Barra de baixo (só no telemóvel) */}
         <nav className="tabbar" id="tabbar">
-          {[...TABBAR[level], ['mais', 'fa-bars', 'Mais'] as [string, string, string]].map(([id, fa, label]) => (
+          {/* sem o Início: a casa já está na faixa por baixo da barra de cima (Silva, 16/10/2026) */}
+          {[...TABBAR[level].filter(([id]) => id !== 'inicio'), ['mais', 'fa-bars', 'Mais'] as [string, string, string]].map(([id, fa, label]) => (
             <a key={id} className={s.page === id ? 'on' : ''} onClick={() => (id === 'mais' ? setModal(<MoreMenuModal />) : go(id))}>
               <i className={'fa-solid ' + fa} />
               {t(label)}

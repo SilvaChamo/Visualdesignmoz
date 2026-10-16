@@ -151,7 +151,27 @@ export function MoreMenuModal({ fechar }: { fechar?: () => void } = {}) {
   const fecha = fechar || closeM;
   return (
     <>
-      <h3>{t('Menu')}</h3>
+      {/* título com Sair e Fechar em ícones, encostados à direita, na mesma linha (Silva, 16/10/2026) */}
+      <div className="mais-titulo">
+        <h3>{t('Menu')}</h3>
+        <span className="mais-titulo-acoes">
+          <button
+            type="button"
+            className="btn g iconbtn"
+            title={t('Sair da conta')}
+            aria-label={t('Sair da conta')}
+            onClick={() => {
+              fecha();
+              logout();
+            }}
+          >
+            <i className="fa-solid fa-right-from-bracket" />
+          </button>
+          <button type="button" className="btn g iconbtn" title={t('Fechar o menu')} aria-label={t('Fechar o menu')} onClick={fecha}>
+            <i className="fa-solid fa-xmark" />
+          </button>
+        </span>
+      </div>
       {/* uma só linha: Admin | Gestão à esquerda e a língua à direita (Silva, 14/10/2026) */}
       <div className="mais-topo">
         <div className="mais-niveis">
@@ -197,22 +217,6 @@ export function MoreMenuModal({ fechar }: { fechar?: () => void } = {}) {
             </div>
           );
         })}
-      <Foot>
-        {/* Sair no telemóvel fica aqui: a barra de cima tem só o símbolo, o título e os botões da página (Silva, 15/10/2026) */}
-        <button
-          className="btn g"
-          onClick={() => {
-            fecha();
-            logout();
-          }}
-        >
-          <i className="fa-solid fa-right-from-bracket" />
-          {t('Sair')}
-        </button>
-        <button className="btn g" onClick={fecha}>
-          {t('Fechar')}
-        </button>
-      </Foot>
     </>
   );
 }

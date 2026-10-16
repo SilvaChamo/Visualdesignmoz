@@ -113,7 +113,15 @@ mesma alteração a linha inglesa no dicionário — sem esperar que o Silva pe�
   da página já está na barra de cima), à direita o domínio, encostado à direita e numa só linha — se não couber, a
   letra diminui e o globo sai sozinho (`titulo-ajustado.ts`); só no limite passa a duas linhas, encostado à direita.
 - **Dentro do painel: nunca roda (spinner) nem esqueleto (skeleton)** (Silva, 13/10/2026). Ao mudar de página, a
-  página anterior fica à vista até a seguinte estar pronta. Entrada pelo **login do site**: o login lê os dados do
+  página anterior fica à vista até a seguinte estar pronta.
+- **NUNCA TELA BRANCA, em nenhuma circunstância e em todas as páginas** (regra rigorosa do Silva, 16/10/2026 — vale para
+  todas as páginas que se criarem): ao abrir uma página, a anterior fica à vista até a nova ter o conteúdo; ao recarregar,
+  o conteúdo continua visível e só "pisca" quando chega o novo. Como cumprir no VisualHost:
+  - toda a leitura que uma página faz ao abrir usa `useGet` (`src/components/vhost/carga.tsx`) ou, se for um `fetch`
+    próprio, chama `useContext(EsperaPagina)?.comecar()` e o "acabou" no fim — senão a página aparece vazia e enche depois;
+  - **nunca recarregar a página inteira à frente de quem está a usar** (`location.reload`/`location.assign` num clique):
+    era a tela branca com o "salto" para o início depois de cada publicação. Com versão nova, recarrega-se só com o
+    separador escondido (`VisualHostApp.tsx`, `aoEsconder`). Entrada pelo **login do site**: o login lê os dados do
   painel antes de sair do ecrã de login (`preCarregarDadosVhost` em `src/lib/vhost-cache.ts`) e o painel abre logo,
   sem o ecrã branco com o círculo. Entrada pelo **login do próprio painel**: fica como está. Não mexer no
   carregamento sem o Silva pedir.
@@ -130,7 +138,7 @@ mesma alteração a linha inglesa no dicionário — sem esperar que o Silva pe�
   (>1600), computador (1301–1600), portátil (1051–1300), tablet (769–1050) e telemóvel (≤768). Cada página fica
   organizada da mesma forma nos 3 de computador (ex.: a coluna da direita das Contas de e-mail e da Dashboard fica à
   direita, só mais estreita); no tablet e no telemóvel as colunas passam a uma. Nenhuma página pode passar da largura
-  do ecrã. Antes de entregar, screenshots nos 5 (1920, 1440, 1280, 1024, 390).
+  do ecrã. Antes de entregar, confirma-se do nosso lado nos 5 (1920, 1440, 1280, 1024, 390), sem mostrar imagens ao Silva.
 - **Nunca duas linhas de botões.**
 - **Nunca cortar texto com "…"** (regra do Silva, 13/10/2026: "não pode fechar dados, reduzir sempre"): quando um
   texto não cabe (ex.: título e descrição da barra de cima no telemóvel), a letra diminui até caber; se nem assim
@@ -140,22 +148,24 @@ mesma alteração a linha inglesa no dicionário — sem esperar que o Silva pe�
   descrição pequena por baixo (nunca dois títulos grandes juntos — números e resumos vão na descrição, ex.:
   "Todas as mensagens | 3 por ler"); o conteúdo dentro do cartão principal; os separadores abrem o cartão (faixa
   cinzenta em cima) e a tabela fica por baixo.
-- **Screenshots enviados ao Silva vão numerados** ("Ecrã 1", "Ecrã 2", …, também no nome do ficheiro) para ele
-  poder dizer qual quer mudar.
+- **Imagens nunca vão para o Silva** (confirma-se do nosso lado com medições) — ver "Verificação visual de alterações de UI".
 - **Primeiro só a vista de computador.** A vista de telemóvel (largura 390px) só se mostra depois de todas as
   alterações estarem feitas e aprovadas pelo Silva (revisto a 13/10/2026).
-- **Antes de publicar:** fazer todas as rectificações, mostrar as imagens, esperar que o Silva diga que está bom, e
+- **Antes de publicar:** fazer todas as rectificações, mandar o comando do ponto 6 (dois ecrãs), esperar que o Silva diga que está bom, e
   só publicar quando ele disser "publica" (ver "Como se trabalha com o Silva").
 
 # Verificação visual de alterações de UI
 
-**Não enviar imagens ao Silva** (Silva, 15/10/2026: "não me mostre imagens… eu vou apenas te mandar screenshots"):
-ele vê no projecto local e manda prints; na resposta diz-se só onde se mexeu. As imagens continuam a servir para
-confirmar o resultado do nosso lado (só a parte alterada, para gastar menos).
-
-Antes de reportar qualquer alteração visual (CSS/layout/alinhamentos) como concluída,
-confirma-a com um screenshot real — "compila sem erros" só garante que o TypeScript
-aceita o código, não que o resultado visual está correcto.
+**Confirmar sempre, mas nunca mostrar imagens ao Silva** (Silva, 15/10/2026: "não me mostre imagens… eu vou apenas
+te mandar screenshots"; esclarecido a 16/10/2026: "confirmar deve confirmar… mas não me dar screenshot"). Cada
+alteração visual é confirmada do nosso lado antes de se dizer que está feita — "compila sem erros" não chega. Mas as
+imagens **nunca chegam ao Silva**: não se enviam, não se anexam e não se abrem na conversa (abrir uma imagem com a
+ferramenta de leitura mostra-a ao Silva na app). A confirmação faz-se com o Playwright a **medir** a página (posições
+`getBoundingClientRect()`, estilos calculados `getComputedStyle()`, larguras, sobreposições) e a escrever os números
+no terminal; se for preciso gravar uma imagem para comparar, fica só na pasta temporária e apaga-se no fim. Na
+resposta ao Silva diz-se só onde se mexeu e manda-se **o comando único do ponto 6**, que abre a pré-visualização com
+**os dois ecrãs** (computador e telemóvel lado a lado, `/dev-preview-telemovel`) — essa janela de dois ecrãs
+mantém-se sempre que se dá o código para ver alterações. O Silva vê no projecto local e manda os prints dele.
 
 ## Como tirar o screenshot neste Mac
 
