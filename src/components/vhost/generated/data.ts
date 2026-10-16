@@ -740,4 +740,7 @@ export const EN: Record<string, string> = {
  "A reprocessar o DNS…": "Reprocessing DNS…",
  "Repõe na Cloudflare os registos do site e do e-mail deste domínio que estiverem em falta ou errados. O que já está certo fica como está.": "Restores in Cloudflare the site and e-mail records of this domain that are missing or wrong. What is already right stays as it is.",
  "DNS reprocessado": "DNS reprocessed",
+ "Ligar ou desligar o proxy da Cloudflare": "Turn the Cloudflare proxy on or off",
+ "Proxy ligado": "Proxy on",
+ "Proxy desligado": "Proxy off",
 };
