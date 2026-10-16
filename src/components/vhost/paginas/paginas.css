@@ -239,6 +239,22 @@
 .vh .dns-tipo.t-SRV{background:#fce7f3;color:#9d174d}
 .vh .dns-tipo.t-NS,.vh .dns-tipo.t-CAA{background:#f3f4f6;color:#1f2937}
 .vh[data-theme=dark] .dns-tipo{background:#374151;color:#e5e7eb}
+/* Página DNS (Silva, 16/10/2026): nos ecrãs de computador os dados ficam encostados à esquerda e os botões à direita —
+   o espaço que sobra fica antes dos botões; o conteúdo comprido (TXT/DKIM) parte linhas até uma largura máxima que
+   acompanha o ecrã (a tabela cabe sempre no cartão), nunca cortado. No tablet e no telemóvel, como as outras tabelas. */
+.vh .dns-linha .dns-conteudo{white-space:normal;overflow-wrap:anywhere}
+@media (min-width:1051px){
+  .vh .dns-linha>td.dt-acoes-linha{width:100%}
+  .vh .dns-linha .dns-conteudo{display:inline-block;width:max-content;max-width:240px}
+}
+@media (min-width:1301px){.vh .dns-linha .dns-conteudo{max-width:340px}}
+@media (min-width:1601px){.vh .dns-linha .dns-conteudo{max-width:520px}}
+/* proxy: caixa na cor da nuvem da Cloudflare ("Com proxy" / "Só DNS") */
+.vh .dns-proxy{display:inline-flex;align-items:center;gap:7px;white-space:nowrap;color:var(--muted);cursor:pointer}
+.vh .dns-proxy input{accent-color:#f38020;width:15px;height:15px;margin:0;cursor:pointer}
+.vh .dns-proxy input:disabled{cursor:default}
+.vh .dns-proxy.on{color:#c2410c;font-weight:600}
+.vh[data-theme=dark] .dns-proxy.on{color:#fb923c}
 .vh[data-theme=dark] .dns-tipo.t-A,.vh[data-theme=dark] .dns-tipo.t-AAAA{background:rgba(59,130,246,.18);color:#93c5fd}
 .vh[data-theme=dark] .dns-tipo.t-CNAME{background:rgba(34,197,94,.16);color:#86efac}
 .vh[data-theme=dark] .dns-tipo.t-MX{background:rgba(249,115,22,.16);color:#fdba74}

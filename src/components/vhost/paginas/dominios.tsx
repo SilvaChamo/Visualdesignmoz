@@ -1222,6 +1222,8 @@ function Dns() {
   const [editId, setEditId] = useState<string | null>(null);
   const [fEdit, setFEdit] = useState<{ nome: string; ttl: string; valor: string; prio: string }>({ nome: '', ttl: '3600', valor: '', prio: '10' });
   const [aGuardar, setAGuardar] = useState(false);
+  /** registo cujo proxy está a mudar (um de cada vez) */
+  const [aMudarProxy, setAMudarProxy] = useState<string | null>(null);
 
   useEffect(() => {
     setEditId(null);
@@ -1256,6 +1258,19 @@ function Dns() {
   const cancelarEdicao = () => {
     setEditId(null);
     setAGuardar(false);
+  };
+
+  const mudarProxy = async (r: RegistoDns, ligar: boolean) => {
+    if (aMudarProxy) return;
+    setAMudarProxy(r.id);
+    const ok = await noServidor(
+      vh,
+      { acao: 'dns-proxy', dominio: x.name, id: r.id, tipo: r.tipo, nome: r.nome, valor: r.valor, ttl: r.ttl, proxied: ligar },
+      t(ligar ? 'Proxy ligado' : 'Proxy desligado'),
+      false,
+    );
+    setAMudarProxy(null);
+    if (ok) ler();
   };
 
   const guardarInline = async (r: RegistoDns) => {
@@ -1315,7 +1330,7 @@ function Dns() {
           id="dns"
           rows={rows}
           rowKey={(r) => r.id}
-          rowClass={(r) => (r.id === editId ? 'dns-row-editando' : '')}
+          rowClass={(r) => 'dns-linha' + (r.id === editId ? ' dns-row-editando' : '')}
           search={(r) => r.nome + ' ' + r.valor}
           onRecarregar={ler}
           umaLinha
@@ -1412,7 +1427,7 @@ function Dns() {
                 }
                 // as células da tabela são nowrap (maquete.css) — o registo parte linhas para mostrar o TXT/DKIM inteiro
                 return (
-                  <span style={{ whiteSpace: 'normal', overflowWrap: 'anywhere' }}>
+                  <span className="dns-conteudo">
                     {valorDns(r)}
                     {(r.tipo === 'MX' || r.tipo === 'SRV') && r.prio && <span style={{ color: 'var(--muted)' }}> · {t('prioridade')} {r.prio}</span>}
                   </span>
@@ -1427,18 +1442,17 @@ function Dns() {
                     // no tablet sai, para a tabela caber no cartão (no telemóvel, em blocos, volta)
                     ate: 1050,
                     sort: (r: RegistoDns) => (r.proxied ? 1 : 0),
-                    cell: (r: RegistoDns) =>
-                      r.proxied ? (
-                        <span>
-                          <i className="fa-solid fa-cloud" style={{ color: '#f38020', marginRight: 6 }} />
-                          {t('Com proxy')}
-                        </span>
-                      ) : (
-                        <span style={{ color: 'var(--muted)' }}>
-                          <i className="fa-solid fa-cloud" style={{ marginRight: 6 }} />
-                          {t('Só DNS')}
-                        </span>
-                      ),
+                    // caixa na cor da nuvem da Cloudflare, com as mesmas descrições (Silva, 16/10/2026); só A, AAAA e
+                    // CNAME podem ter proxy — nos outros fica desligada
+                    cell: (r: RegistoDns) => {
+                      const pode = ['A', 'AAAA', 'CNAME'].includes(r.tipo) && !soLeitura(r);
+                      return (
+                        <label className={'dns-proxy' + (r.proxied ? ' on' : '')} title={pode ? t('Ligar ou desligar o proxy da Cloudflare') : undefined}>
+                          <input type="checkbox" checked={!!r.proxied} disabled={!pode || aMudarProxy === r.id} onChange={(e) => mudarProxy(r, e.target.checked)} />
+                          {t(r.proxied ? 'Com proxy' : 'Só DNS')}
+                        </label>
+                      );
+                    },
                   } as Col<RegistoDns>,
                 ]
               : []),
