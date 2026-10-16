@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 import { createClient } from '@/utils/supabase/server';
 import { resolveRoleForAuthUser } from '@/lib/server-auth-role';
 
@@ -129,6 +130,10 @@ export async function requirePanelBootstrapAccess(): Promise<
   } = await supabase.auth.getUser();
 
   if (error || !user) {
+    // o motivo fica no registo do servidor (só nomes de cookies, nunca valores): o painel recusava a sessão logo a
+    // seguir ao login do site, sem se saber porquê (Silva, 16/10/2026)
+    const nomes = (await cookies()).getAll().map((c) => c.name).filter((n) => n.startsWith('sb-'));
+    console.warn('[panel-auth] sessão recusada:', error?.name || 'sem utilizador', error?.message || '', '| cookies:', nomes.join(',') || 'nenhum');
     return {
       error: NextResponse.json({ error: 'Não autorizado' }, { status: 401 }),
     };

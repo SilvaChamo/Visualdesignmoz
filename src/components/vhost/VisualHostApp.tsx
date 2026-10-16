@@ -9,8 +9,8 @@ import { GLOBAL, LEVELS, MENU, ROLES } from './generated/data';
 import { dominioVisivel, type DadosServidor } from './servidor';
 import { CACHE_DADOS_VHOST, apagarDadosVhost, guardarDadosVhost, tirarEntrada } from '@/lib/vhost-cache';
 import { translate, type Lang } from './i18n';
-import { EsperaEntrada, LINGUA_LS } from './entrada';
-import { auth } from '@/lib/supabase-client';
+import { EntradaPainel, EsperaEntrada, LINGUA_LS, type ModoTema } from './entrada';
+import { auth, supabase } from '@/lib/supabase-client';
 import { MoreMenuModal } from './modals';
 import { SCREENS, denyScreen, placeholder, type Screen } from './screens';
 import { PesquisaNaPagina } from './pesquisa-pagina';
@@ -339,6 +339,11 @@ export function VisualHostApp({ versao = 'dev', dados = null }: { versao?: strin
     return d ? noNivelPermitido(comDados(n, d, stripBase(pathname))) : n;
   });
   const dadosDoServidor = useRef(semServidor ? null : dados);
+  // entrada do próprio painel (só quando o servidor recusa a sessão): modo do tema escolhido lá e "a entrar" (roda)
+  const [aEntrar, setAEntrar] = useState(false);
+  const [modoTema, setModoTema] = useState<ModoTema>('light');
+  /** já se renovou a sessão depois de uma recusa (só uma vez, até a leitura seguinte correr bem) */
+  const renovouSessao = useRef(false);
   useBotoesTelemovel();
   /** endereço com que o painel abriu (para o reabrir depois de chegarem os dados do servidor) */
   const inicial = useRef(stripBase(pathname));
@@ -577,9 +582,8 @@ export function VisualHostApp({ versao = 'dev', dados = null }: { versao?: strin
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Sem sessão (ou sessão recusada): o painel não tem entrada própria — vai para o login do site, que volta a este ecrã
-  // depois de entrar (Silva, 16/10/2026: "diretamente no login do site para se entrar no painel"). A sessão recusada
-  // termina primeiro, para o login não a dar como aberta.
+  // Sair (e inatividade): termina a sessão e vai para o login do site, que volta a este ecrã depois de entrar (Silva,
+  // 16/10/2026: "diretamente no login do site para se entrar no painel"). Sem cookie de sessão, o proxy já manda para lá.
   const irParaLogin = useCallback(async (caminho = '') => {
     apagarCache();
     guardarEntrarComo('', []);
@@ -641,7 +645,25 @@ export function VisualHostApp({ versao = 'dev', dados = null }: { versao?: strin
         }
         if (!r.ok) {
           if (r.status === 401) {
-            irParaLogin(ref.current.carga === 'ok' ? ref.current.path : inicial.current);
+            // O servidor recusou a sessão que o navegador tem (acontecia logo a seguir ao login do site: era o aviso
+            // "Inicie sessão no site"). Renova-a aqui e lê outra vez, uma vez. Se continuar recusada: a entrada do
+            // próprio painel — nunca o login do site, que vê a sessão aberta e devolve ao painel (andava às voltas,
+            // Silva 16/10/2026).
+            apagarCache();
+            if (!renovouSessao.current) {
+              renovouSessao.current = true;
+              const renovada = await supabase.auth.refreshSession().then((x: { error: unknown }) => !x.error, () => false);
+              const r2 = renovada ? await fetch('/api/vhost/dados' + (fresco ? '?fresco=1' : ''), { cache: 'no-store' }).catch(() => null) : null;
+              if (r2?.ok) {
+                const d2 = (await r2.json()) as DadosServidor;
+                renovouSessao.current = false;
+                guardarCache(d2);
+                aplicar(d2);
+                return;
+              }
+            }
+            setAEntrar(false);
+            commit({ ...ref.current, carga: 'erro', erro: { msg: j.erro || 'Inicie sessão para ver o painel.', codigo: 401 } });
             return;
           }
           if (r.status === 403) apagarCache();
@@ -651,6 +673,7 @@ export function VisualHostApp({ versao = 'dev', dados = null }: { versao?: strin
           return;
         }
         const d = j as DadosServidor;
+        renovouSessao.current = false;
         guardarCache(d);
         aplicar(d);
       } catch {
@@ -658,7 +681,7 @@ export function VisualHostApp({ versao = 'dev', dados = null }: { versao?: strin
         commit({ ...ref.current, carga: 'erro', erro: { msg: 'O servidor demorou a responder. Verifique a ligação e tente de novo.', codigo: 0 } });
       }
     },
-    [commit, aplicar, irParaLogin],
+    [commit, aplicar],
   );
   useIsomorphicLayoutEffect(() => {
     carregar();
@@ -1057,16 +1080,46 @@ export function VisualHostApp({ versao = 'dev', dados = null }: { versao?: strin
 
   // Ao recarregar ou abrir o endereço, a página já vem do servidor com os dados (src/app/host/layout.tsx). Só se o
   // servidor demorou e não há leitura guardada neste navegador: a página branca, sem esqueleto nem roda (Silva,
-  // 15/10/2026: "não quero spinner dentro do painel"), até o painel aparecer já com o menu. Sem sessão: o login do
-  // site. Sem acesso / servidor indisponível: aviso com o que fazer a seguir.
+  // 15/10/2026: "não quero spinner dentro do painel"), até o painel aparecer já com o menu. Sem cookie de sessão: o
+  // login do site (proxy). Sessão recusada: a entrada do painel. Sem acesso / servidor indisponível: aviso com o que
+  // fazer a seguir.
   if (st.carga !== 'ok') {
     const er = st.erro;
-    // a ler (sem leitura no servidor nem neste navegador) ou a caminho do login do site
+    // a ler (sem leitura no servidor nem neste navegador); a roda só depois de entrar pela entrada do painel
     if (!er) return (
       <div className="vh" data-theme={st.theme} style={themeStyles as React.CSSProperties} lang="pt-PT" suppressHydrationWarning>
-        <EsperaEntrada roda={false} />
+        <EsperaEntrada roda={aEntrar} />
       </div>
     );
+    // sessão recusada pelo servidor mesmo depois de renovada: a entrada do painel, no modelo do DA (sempre funcionou)
+    if (er.codigo === 401)
+      return (
+        <div className="vh" data-theme={st.theme} style={themeStyles as React.CSSProperties} lang={st.lang === 'en' ? 'en' : 'pt-PT'} suppressHydrationWarning>
+          <EntradaPainel
+            escuro={isDark}
+            modo={modoTema}
+            lang={st.lang}
+            voltarA={inicial.current && inicial.current !== '/' ? BASE + inicial.current : undefined}
+            onModo={(m) => {
+              setModoTema(m);
+              const dark = m === 'dark' || (m === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+              commit({ ...ref.current, theme: dark ? 'dark' : 'light' });
+            }}
+            onLang={(l) => {
+              commit({ ...ref.current, lang: l });
+              try {
+                localStorage.setItem(LINGUA_LS, l);
+              } catch {}
+            }}
+            onEntrou={() => {
+              setAEntrar(true);
+              renovouSessao.current = false;
+              commit({ ...ref.current, carga: 'a-carregar', erro: null });
+              carregar();
+            }}
+          />
+        </div>
+      );
     const aviso =
       er?.codigo === 403
           ? { fa: 'fa-user-lock', titulo: er.msg, texto: 'Se acha que é um engano, fale connosco: ligamos a sua conta ao servidor.', botao: <a className="btn g" href="/"><i className="fa-solid fa-arrow-left" />{t('Voltar ao site')}</a> }
