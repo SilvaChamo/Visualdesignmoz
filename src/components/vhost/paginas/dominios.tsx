@@ -4,7 +4,7 @@
 // redirecionamentos, proteção hotlink e definições PHP. Campos copiados do DirectAdmin (ver
 // VisualHost/05-da-gestao-de-dominios.md); dados e alterações reais no servidor (Hestia + Cloudflare) por
 // /api/vhost/dominio. As páginas de um só domínio usam o domínio escolhido no seletor da faixa de navegação.
-import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type TextareaHTMLAttributes } from 'react';
+import { Fragment, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type TextareaHTMLAttributes } from 'react';
 import { useVH, type VH } from '../context';
 import type { ScreenFn } from '../screens';
 import type { BaseDados, Domain } from '../types';
@@ -14,7 +14,7 @@ import { VISUALDESIGN_DEFAULT_NS } from '@/lib/visualdesign-dns';
 import { Check, DataTable, Frm, novaSenha, Row, Senha, Switch, Tabs, type Col } from './componentes';
 import { Confirmar } from './pacotes';
 import DomainSearch from '@/components/DomainSearchPainel';
-import { useGet } from '../carga';
+import { EsperaPagina, useGet } from '../carga';
 import { BotaoPassar } from './passar';
 import { TransferirDominio } from './transferir-dominio';
 
@@ -411,6 +411,8 @@ type InfoRegisto = {
 /** Dados do domínio no registador (/api/registrar/domain/manage): lidos uma vez e partilhados pelos cartões da página.
  *  `erro` quando o domínio não foi registado na Visual Design. */
 function useRegistador(d: string) {
+  // a página nova espera por esta leitura antes de aparecer (a anterior fica à vista — Silva, 16/10/2026)
+  const espera = useContext(EsperaPagina);
   const [info, setInfo] = useState<InfoRegisto | null>(null);
   const [erro, setErro] = useState('');
   const [renovacao, setRenovacao] = useState<string | null>(null);
@@ -420,6 +422,7 @@ function useRegistador(d: string) {
     setErro('');
     setRenovacao(null);
     if (!d) return;
+    const acabou = espera?.comecar();
     fetch('/api/registrar/domain/manage?domain=' + encodeURIComponent(d), { credentials: 'include' })
       .then(async (r) => {
         const j = (await r.json().catch(() => ({}))) as Partial<InfoRegisto> & { success?: boolean; error?: string };
@@ -437,7 +440,8 @@ function useRegistador(d: string) {
         // a mensagem do registador vem em inglês ("Could not find this domain"): o painel diz o que isso quer dizer
         else setErro('Este domínio não está registado na Visual Design.');
       })
-      .catch(() => !fim && setErro('Sem ligação ao site. Tente de novo.'));
+      .catch(() => !fim && setErro('Sem ligação ao site. Tente de novo.'))
+      .finally(() => acabou?.());
     // registo de renovação do domínio (para "Renovar domínio")
     fetch('/api/renewals?type=domain', { credentials: 'include' })
       .then((r) => r.json())

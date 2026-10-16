@@ -113,7 +113,15 @@ mesma alteração a linha inglesa no dicionário — sem esperar que o Silva pe�
   da página já está na barra de cima), à direita o domínio, encostado à direita e numa só linha — se não couber, a
   letra diminui e o globo sai sozinho (`titulo-ajustado.ts`); só no limite passa a duas linhas, encostado à direita.
 - **Dentro do painel: nunca roda (spinner) nem esqueleto (skeleton)** (Silva, 13/10/2026). Ao mudar de página, a
-  página anterior fica à vista até a seguinte estar pronta. Entrada pelo **login do site**: o login lê os dados do
+  página anterior fica à vista até a seguinte estar pronta.
+- **NUNCA TELA BRANCA, em nenhuma circunstância e em todas as páginas** (regra rigorosa do Silva, 16/10/2026 — vale para
+  todas as páginas que se criarem): ao abrir uma página, a anterior fica à vista até a nova ter o conteúdo; ao recarregar,
+  o conteúdo continua visível e só "pisca" quando chega o novo. Como cumprir no VisualHost:
+  - toda a leitura que uma página faz ao abrir usa `useGet` (`src/components/vhost/carga.tsx`) ou, se for um `fetch`
+    próprio, chama `useContext(EsperaPagina)?.comecar()` e o "acabou" no fim — senão a página aparece vazia e enche depois;
+  - **nunca recarregar a página inteira à frente de quem está a usar** (`location.reload`/`location.assign` num clique):
+    era a tela branca com o "salto" para o início depois de cada publicação. Com versão nova, recarrega-se só com o
+    separador escondido (`VisualHostApp.tsx`, `aoEsconder`). Entrada pelo **login do site**: o login lê os dados do
   painel antes de sair do ecrã de login (`preCarregarDadosVhost` em `src/lib/vhost-cache.ts`) e o painel abre logo,
   sem o ecrã branco com o círculo. Entrada pelo **login do próprio painel**: fica como está. Não mexer no
   carregamento sem o Silva pedir.

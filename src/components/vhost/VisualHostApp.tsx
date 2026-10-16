@@ -120,6 +120,16 @@ class FalhaPagina extends Component<{ children: ReactNode; t: (s: string) => str
   }
   componentDidCatch(e: unknown) {
     console.error('[VisualHost] erro na página', e);
+    // depois de uma publicação, uma parte do código antigo pode já não existir no servidor: recarrega uma vez
+    if (e instanceof Error && /ChunkLoadError|Loading chunk|Failed to fetch dynamically imported module/i.test(e.name + ' ' + e.message)) {
+      try {
+        if (sessionStorage.getItem('vh-chunk-recarga') !== location.pathname) {
+          sessionStorage.setItem('vh-chunk-recarga', location.pathname);
+          location.reload();
+          return;
+        }
+      } catch {}
+    }
     this.props.onFalha(); // se estava à espera para aparecer, aparece já com o aviso
   }
   render() {
@@ -358,11 +368,20 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
             sessionStorage.setItem('vh-versao-pedida', j.versao);
           } catch {}
           versaoNova.current = true;
-          if (recarregar && !modalAberto.current) window.location.reload();
+          // nunca à frente de quem usa (a recarga inteira era a tela branca e o "salto" para o início — Silva,
+          // 16/10/2026): só com o separador escondido; à vista, o painel continua com a versão que tem
+          if (recarregar && document.hidden && !modalAberto.current) window.location.reload();
         })
         .catch(() => {});
     };
-    const aoVoltar = () => !document.hidden && verificar(true);
+    // versão nova já conhecida: recarrega quando o separador fica escondido (ao voltar, já está na versão nova)
+    const aoEsconder = () => {
+      if (document.hidden && versaoNova.current && !modalAberto.current) window.location.reload();
+    };
+    const aoVoltar = () => {
+      aoEsconder();
+      if (!document.hidden) verificar(false);
+    };
     const t = setInterval(() => verificar(false), 120_000);
     document.addEventListener('visibilitychange', aoVoltar);
     window.addEventListener('focus', aoVoltar);
@@ -377,10 +396,7 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
   const nav = useCallback(
     (path: string) => {
       const n = fromPath(ref.current, path);
-      if (versaoNova.current) {
-        window.location.assign(BASE + n.path);
-        return;
-      }
+      // (antes, com uma versão nova publicada, o clique abria a página inteira de novo: tela branca e "salto")
       commit(n);
       pushUrl(n.path);
       window.scrollTo(0, 0);
