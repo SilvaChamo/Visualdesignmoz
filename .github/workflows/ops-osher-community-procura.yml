@@ -1,0 +1,110 @@
+name: "Ops - Osher: onde estava community.oshercollective.com (servidor recuperado, só leitura)"
+
+# ============================================================================
+# Silva, 16/10/2026: objectivo é recuperar a comunidade da Osher
+# (community.oshercollective.com — links /join, /blog, /e/<evento> no site).
+# Não estava dentro da conta DirectAdmin (pesquisa de 14/10). Procura-se no
+# servidor recuperado do backup Hetzner de 13/10 (77.42.120.104): zona DNS
+# antiga, configs do servidor web, apps fora do DirectAdmin (/opt, docker, pm2),
+# bases de dados (MySQL e Postgres/Supabase). E vê-se o que o Contabo serve
+# hoje nesse nome. SÓ LEITURA — e só nomes de ficheiros/tabelas, nunca
+# conteúdo de .env (o repositório é público).
+# ============================================================================
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - claude/loving-cerf-gaw6vw
+    paths:
+      - '.github/workflows/ops-osher-community-procura.yml'
+
+env:
+  NEW_IP: "77.42.120.104"
+
+jobs:
+  hetzner-recuperado:
+    name: servidor recuperado (13/10)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ env.NEW_IP }}
+          port: ${{ secrets.HETZNER_PORT }}
+          username: ${{ secrets.HETZNER_USER }}
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          envs: NEW_IP
+          command_timeout: 10m
+          script: |
+            set +e
+            ip -4 -o addr show | grep -qw "$NEW_IP" || { echo "ABORTAR: não é a máquina nova"; exit 1; }
+            echo "===== 1. zona DNS antiga de oshercollective.com (DirectAdmin) ====="
+            grep -i -E "community|^@|^oshercollective\.com\.|\sA\s|CNAME" /var/named/oshercollective.com.db 2>/dev/null | head -30
+            echo
+            echo "===== 2. configs do servidor web que falam de community ====="
+            grep -rIl -i "community.oshercollective" /etc/httpd /etc/nginx /usr/local/directadmin/data/users /etc/apache2 2>/dev/null | head -20
+            for f in $(grep -rIl -i "community.oshercollective" /etc/httpd /etc/nginx /usr/local/directadmin/data/users 2>/dev/null | head -5); do
+              echo "--- $f ---"; grep -i -E "ServerName|ServerAlias|DocumentRoot|ProxyPass|proxy_pass|root |server_name|listen" "$f" | head -15
+            done
+            echo
+            echo "===== 3. ficheiros que mencionam community.oshercollective (fora de imap/node_modules; só nomes) ====="
+            grep -rIl -i "community.oshercollective" /opt /srv /var/www /root /home /etc 2>/dev/null \
+              --exclude-dir=imap --exclude-dir=node_modules --exclude-dir=.next --exclude-dir=.git --exclude-dir=Maildir \
+              --exclude-dir=proc --exclude-dir=wp-content | head -40
+            echo
+            echo "===== 4. pastas com community/comunidade no nome ====="
+            find / -xdev -maxdepth 6 -type d \( -iname '*communit*' -o -iname '*comunidad*' \) 2>/dev/null \
+              | grep -v -E '/imap/|node_modules|/proc/|/usr/share|/usr/lib|/usr/local/lib|site-packages|/\.cache/' | head -30
+            echo
+            echo "===== 5. apps fora do DirectAdmin ====="
+            ls -la /opt /srv /var/www 2>/dev/null
+            echo "--- pm2 ---"; pm2 jlist 2>/dev/null | python3 -c "import json,sys;[print(p['name'],p['pm2_env']['status'],p['pm2_env'].get('pm_cwd')) for p in json.load(sys.stdin)]" 2>&1
+            echo "--- docker: contentores (todos) ---"; docker ps -a --format '{{.Names}}\t{{.Image}}\t{{.Status}}' 2>&1
+            echo "--- docker: volumes ---"; docker volume ls --format '{{.Name}}' 2>&1 | head -40
+            echo "--- docker compose com community ---"
+            find / -xdev -maxdepth 5 \( -name 'docker-compose*.yml' -o -name 'compose*.yml' \) 2>/dev/null | grep -v node_modules | while read f; do echo "$f: $(grep -c -i communit "$f") menções"; done
+            echo
+            echo "===== 6. bases de dados ====="
+            . /usr/local/directadmin/conf/mysql.conf 2>/dev/null
+            echo "--- MySQL: tabelas com community/member/event no nome ---"
+            mysql -u"$user" -p"$passwd" -N -e "SELECT table_schema, table_name, table_rows FROM information_schema.tables WHERE table_name REGEXP 'communit|member|event|forum|circle|space' AND table_schema NOT IN ('mysql','sys','performance_schema','information_schema');" 2>&1 | head -40
+            for c in $(docker ps --format '{{.Names}}' 2>/dev/null | grep -i -E 'db|postgres'); do
+              echo "--- Postgres em $c: bases de dados ---"
+              docker exec "$c" psql -U postgres -At -c "SELECT datname FROM pg_database WHERE NOT datistemplate;" 2>&1 | head -20
+              echo "--- Postgres em $c: tabelas com community/member/event/post (schema.tabela ~linhas) ---"
+              for d in $(docker exec "$c" psql -U postgres -At -c "SELECT datname FROM pg_database WHERE NOT datistemplate AND datname NOT IN ('_supabase');" 2>/dev/null); do
+                docker exec "$c" psql -U postgres -d "$d" -At -c "SELECT '$d', schemaname||'.'||relname, n_live_tup FROM pg_stat_user_tables WHERE relname ~* 'communit|member|event|post|space|join|blog|application|cohort|mission' ORDER BY n_live_tup DESC LIMIT 40;" 2>&1
+                docker exec "$c" psql -U postgres -d "$d" -At -c "SELECT '$d', 'schema: '||nspname FROM pg_namespace WHERE nspname ~* 'communit|osher';" 2>&1
+              done
+            done
+
+  contabo-hoje:
+    name: o que o Contabo serve hoje em community (só leitura)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Página pública
+        run: |
+          set +e
+          curl -sS --max-time 15 https://community.oshercollective.com/ -o /tmp/p.html -D - | head -12
+          echo "--- título e primeiras linhas visíveis ---"
+          grep -o -i '<title>[^<]*' /tmp/p.html | head -2
+          sed -e 's/<[^>]*>/ /g' /tmp/p.html | tr -s ' \n' | head -c 600; echo
+          for p in /join /blog /e/china-mission-2027-info-session; do
+            echo "$p: $(curl -s -o /dev/null -w '%{http_code}' --max-time 10 https://community.oshercollective.com$p)"
+          done
+      - uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          username: root
+          key: ${{ secrets.CONTABO_SSH_KEY }}
+          command_timeout: 5m
+          script: |
+            set +e
+            echo "--- configs nginx/apache com community ---"
+            for f in $(grep -rIl -i "community.oshercollective" /etc/nginx /etc/apache2 /home/*/conf 2>/dev/null | head -5); do
+              echo "--- $f ---"; grep -i -E "server_name|root |proxy_pass|DocumentRoot|ProxyPass|listen" "$f" | head -10
+            done
+            echo "--- pm2 ---"; pm2 jlist 2>/dev/null | python3 -c "import json,sys;[print(p['name'],p['pm2_env']['status'],p['pm2_env'].get('pm_cwd')) for p in json.load(sys.stdin)]" 2>&1
+            echo "--- docker ---"; docker ps --format '{{.Names}}\t{{.Image}}\t{{.Status}}' 2>&1 | head -30
+            echo "--- pastas com community no nome ---"
+            find / -xdev -maxdepth 6 -type d -iname '*communit*' 2>/dev/null | grep -v -E 'node_modules|/usr/|/mail/|site-packages' | head -20
