@@ -1306,7 +1306,8 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
         {/* Barra de baixo (só no telemóvel) */}
         <nav className="tabbar" id="tabbar">
           {/* sem o Início: a casa já está na faixa por baixo da barra de cima (Silva, 16/10/2026) */}
-          {[...TABBAR[level].filter(([id]) => id !== 'inicio'), ['mais', 'fa-bars', 'Mais'] as [string, string, string]].map(([id, fa, label]) => (
+          {/* só as páginas que o plano da conta deixa ver (Admin › Acessos por plano) */}
+          {[...TABBAR[level].filter(([id]) => id !== 'inicio' && vh.hasFeat(findItem(level, id)?.feat, id)), ['mais', 'fa-bars', 'Mais'] as [string, string, string]].map(([id, fa, label]) => (
             <a key={id} className={s.page === id ? 'on' : ''} onClick={() => (id === 'mais' ? setModal(<MoreMenuModal />) : go(id))}>
               <i className={'fa-solid ' + fa} />
               {t(label)}
