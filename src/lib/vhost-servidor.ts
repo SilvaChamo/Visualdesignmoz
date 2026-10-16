@@ -143,15 +143,20 @@ export function interpretarLeitura(out: string): LeituraServidor {
 const FRESCO_MS = 60_000;
 const VELHO_MS = 10 * 60_000;
 let cache: { at: number; dados: LeituraServidor } | null = null;
-let aLer: Promise<LeituraServidor> | null = null;
+let aLer: { geracao: number; p: Promise<LeituraServidor> } | null = null;
+// Cada alteração (esquecerLeitura) abre uma geração nova: uma leitura que começou antes da alteração já não pode voltar
+// a pôr os dados velhos na memória. Antes, mudar o pacote de uma conta a meio de uma leitura deixava o painel a mostrar
+// o pacote antigo até 10 min — "o servidor diz que mudou mas não muda" (Silva, 16/10/2026).
+let geracao = 0;
 
 function lerAgora(): Promise<LeituraServidor> {
-  if (!aLer) {
+  if (!aLer || aLer.geracao !== geracao) {
+    const minha = geracao;
     // o mesmo tempo no computador local e em produção: 4 s no local não chegava e o painel mostrava dados inventados
-    aLer = executeServerCommand(`bash -s <<'VHOST_FIM'\n${SCRIPT}\nVHOST_FIM`, { timeoutMs: 25_000 })
+    const p: Promise<LeituraServidor> = executeServerCommand(`bash -s <<'VHOST_FIM'\n${SCRIPT}\nVHOST_FIM`, { timeoutMs: 25_000 })
       .then((out) => {
         const dados = interpretarLeitura(out);
-        cache = { at: Date.now(), dados };
+        if (minha === geracao) cache = { at: Date.now(), dados };
         return dados;
       })
       .catch((err) => {
@@ -165,10 +170,11 @@ function lerAgora(): Promise<LeituraServidor> {
         throw err;
       })
       .finally(() => {
-        aLer = null;
+        if (aLer?.p === p) aLer = null;
       });
+    aLer = { geracao: minha, p };
   }
-  return aLer;
+  return aLer.p;
 }
 
 /** Leitura do servidor (com memória de 60 s). `forcar` lê já, por exemplo depois de uma alteração. */
@@ -185,4 +191,5 @@ export async function lerServidor(forcar = false): Promise<LeituraServidor> {
 /** Esquece a leitura guardada (a próxima vai ao servidor). */
 export function esquecerLeitura(): void {
   cache = null;
+  geracao++;
 }

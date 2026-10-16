@@ -245,7 +245,24 @@ export async function changeUserPackage(
       limite: true,
       error: `o pacote ${packageName} é mais pequeno do que o que a conta ${username} já usa (domínios, e-mails ou bases de dados)`,
     };
-  return { ok: result.ok, error: result.error };
+  if (!result.ok) return { ok: result.ok, error: result.error };
+  // Confirma no servidor que o pacote mudou mesmo: sem o cabeçalho com o código de saída, a API do Hestia pode
+  // responder "200" a um pedido recusado, e o painel dizia "alterado" sem nada mudar (Silva, 16/10/2026).
+  const lido = await hestiaCall('v-list-user', [username, 'json']);
+  if (lido.ok) {
+    try {
+      const j = JSON.parse(lido.output) as Record<string, { PACKAGE?: string }>;
+      const atual = j[username]?.PACKAGE;
+      if (atual && atual !== packageName)
+        return {
+          ok: false,
+          error: `o servidor não mudou o pacote da conta ${username} (continua ${atual})${result.output ? ': ' + result.output : ''}`,
+        };
+    } catch {
+      /* sem leitura em JSON: fica a resposta do comando */
+    }
+  }
+  return { ok: true };
 }
 
 export async function changePassword(
