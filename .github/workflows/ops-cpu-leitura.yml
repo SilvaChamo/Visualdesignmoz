@@ -1,0 +1,46 @@
+name: "Ops - O que gasta CPU no Contabo (SÓ LEITURA, 16/10/2026)"
+# Diagnóstico pedido pelo Silva ("ver e eliminar o que está a gastar CPU"): só lê, não muda nada no servidor.
+# Corre uma vez neste ramo de trabalho e sai a seguir. O repositório é público: tokens e palavras-passe tapados.
+on:
+  push:
+    branches: [claude/sharp-hypatia-51l13p]
+    paths: [.github/workflows/ops-cpu-leitura.yml]
+jobs:
+  ler:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Contabo (só leitura)
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          username: root
+          key: ${{ secrets.CONTABO_SSH_KEY }}
+          command_timeout: 6m
+          script: |
+            set +e
+            tapa() { sed -E 's/(Bearer )[^" ]+/\1***/g; s/((-|_)?pass(word)?[0-9]*[ =:])[^ ]+/\1***/Ig; s/(key=|token=|secret=)[^ &"]+/\1***/Ig'; }
+            echo "=== servidor ==="; uptime; nproc; free -m | head -2
+            echo "=== CPU agora (vmstat 3 s x5) ==="; vmstat 3 6 | tail -6
+            echo "=== processos que mais gastam AGORA (top, 2.ª medição de 3 s) ==="
+            top -bn2 -d3 -o %CPU -w 200 | awk '/^top -/{n++} n==2' | sed -n 7,30p | tapa | cut -c1-170
+            echo "=== processos com mais tempo de CPU acumulado ==="
+            ps -eo pid,user,pcpu,pmem,etime,time,args --sort=-time | head -25 | tapa | cut -c1-170
+            echo "=== CPU por utilizador (soma de %CPU agora) ==="
+            ps -eo user,pcpu --no-headers | awk '{s[$1]+=$2} END {for (u in s) if (s[u]>0.5) printf "%-18s %6.1f\n", u, s[u]}' | sort -k2 -nr | head -15
+            echo "=== apps do pm2 ==="
+            pm2 jlist 2>/dev/null | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{try{for(const p of JSON.parse(d))console.log(p.name.padEnd(28),"cpu",String(p.monit?.cpu).padStart(4)+"%","mem",Math.round((p.monit?.memory||0)/1048576)+"MB","reinícios",p.pm2_env?.restart_time,"estado",p.pm2_env?.status)}catch(e){console.log("pm2 sem saída")}})' 2>/dev/null || /opt/node-v24.18.0/bin/node -v
+            echo "=== cópias / sincronizações a correr (imapsync, rsync, doveadm, sync) ==="
+            ps -eo pid,etime,pcpu,args | grep -E "imapsync|rsync|doveadm|sync_all|hetzner|offlineimap" | grep -v grep | tapa | cut -c1-170 || echo nenhuma
+            echo "=== referências ao Hetzner em cron/systemd/scripts ==="
+            grep -rIl -E "37\.27\.17\.25|hetzner|HETZNER" /etc/cron* /var/spool/cron /etc/systemd/system /usr/local/sbin /root/*.sh 2>/dev/null || echo nenhuma
+            echo "=== cron do sistema (/etc/cron.d) ==="
+            for f in /etc/cron.d/*; do echo "--- $f"; grep -v '^#' "$f" | grep -v '^\s*$' | tapa | cut -c1-200; done
+            echo "=== crontab do root ==="; crontab -l 2>/dev/null | grep -v '^#' | tapa | cut -c1-200
+            echo "=== cron das contas do Hestia ==="
+            for u in $(/usr/local/hestia/bin/v-list-users plain | cut -f1); do /usr/local/hestia/bin/v-list-cron-jobs "$u" plain 2>/dev/null | awk -v u="$u" -F'\t' '{print u": "$2" "$3" "$4" "$5" "$6"  "$7}' | tapa | cut -c1-200; done
+            echo "=== serviços ligados que costumam pesar ==="
+            for s in clamav-daemon clamav-freshclam maldet-monitor spamassassin spamd fail2ban netdata redis-server php8.3-fpm php8.2-fpm mariadb postgresql docker; do printf "%-18s %s %s\n" "$s" "$(systemctl is-active $s 2>/dev/null)" "$(systemctl is-enabled $s 2>/dev/null)"; done
+            echo "=== temporizadores do systemd ==="; systemctl list-timers --no-pager 2>/dev/null | head -25
+            echo "=== pedidos web da última hora por domínio (nginx) ==="
+            for f in /var/log/nginx/domains/*.log; do n=$(awk -v d="$(date -d '-1 hour' '+%d/%b/%Y:%H')" 'index($0,d)' "$f" 2>/dev/null | wc -l); [ "$n" -gt 200 ] && echo "$n $(basename $f)"; done | sort -nr | head -12
+            echo "=== fim ==="
