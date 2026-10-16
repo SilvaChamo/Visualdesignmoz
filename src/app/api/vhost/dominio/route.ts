@@ -5,7 +5,9 @@ import { requirePanelBootstrapAccess } from '@/lib/panel-api-auth';
 import { executeServerCommand } from '@/lib/server-ssh-exec';
 import { hestiaCall } from '@/lib/hestia-client';
 import * as hestia from '@/lib/hestia-adapter';
-import { deleteCloudflareDnsRecord, findCloudflareZoneId, listCloudflareDnsRecords, updateCloudflareDnsRecord, upsertCloudflareRecord, type CloudflareRecordInput } from '@/lib/cloudflare-dns';
+import { createCloudflareZone, deleteCloudflareDnsRecord, findCloudflareZoneId, listCloudflareDnsRecords, updateCloudflareDnsRecord, upsertCloudflareRecord, type CloudflareRecordInput } from '@/lib/cloudflare-dns';
+import { provisionEmailAuthForDomain } from '@/lib/domain-email-auth';
+import { getServerHost } from '@/lib/server-config';
 import { esquecerLeitura, lerServidor, type LeituraServidor } from '@/lib/vhost-servidor';
 import { lerRegisto, montarDados } from '@/lib/vhost-dados';
 import { instalarWebmail } from '@/lib/vhost-passar';
@@ -91,15 +93,74 @@ async function alojamentoVercelPublico(dominio: string): Promise<boolean | null>
   return respostas.some((resposta) => resposta.some((resultado) => resultado.status === 'fulfilled')) ? false : null;
 }
 
-type DnsDominio = { fonte: 'hestia' | 'cloudflare' | 'nenhuma'; zona: string; registos: { id: string; nome: string; tipo: string; valor: string; ttl: number; prio?: string }[] };
+type DnsDominio = { fonte: 'hestia' | 'cloudflare' | 'nenhuma'; zona: string; registos: { id: string; nome: string; tipo: string; valor: string; ttl: number; prio?: string; proxied?: boolean }[] };
 
-/** Registos da zona na Cloudflare (quando a zona não está no Hestia) */
+/** Registos da zona na Cloudflare. Com zona na Cloudflare é ela que manda (o DNS público dos sites está lá): o painel lê
+ *  e muda lá, mesmo que o servidor também tenha a zona — essa é só a cópia que ns1..ns4 servem (Silva, 16/10/2026: "o
+ *  Contabo serve para trocar DNS e refletir-se na Cloudflare") */
 async function dnsCloudflare(d: string): Promise<DnsDominio> {
   const zona = zonaDe(d);
   const zid = await zonaCf(zona);
   if (!zid) return { fonte: 'nenhuma', zona: '', registos: [] };
   const regs = await listCloudflareDnsRecords(zid, zona);
-  return { fonte: 'cloudflare', zona, registos: regs.map((x) => ({ id: x.id, nome: x.name, tipo: x.type, valor: x.content, ttl: x.ttl, prio: x.priority != null ? String(x.priority) : undefined })) };
+  return {
+    fonte: 'cloudflare',
+    zona,
+    registos: regs.map((x) => ({ id: x.id, nome: x.name, tipo: x.type, valor: x.content, ttl: x.ttl, prio: x.priority != null ? String(x.priority) : undefined, proxied: x.proxied })),
+  };
+}
+
+/** Tipos de registo que o painel muda na Cloudflare (os outros veem-se, mas mudam-se lá) */
+const NA_CLOUDFLARE = ['A', 'AAAA', 'CNAME', 'TXT', 'MX'];
+
+/** "Reprocessar DNS" (Gerir domínio, Silva 16/10/2026): repõe na Cloudflare os registos-base de um domínio alojado aqui,
+ *  para os domínios com registos em falta ficarem ligados como os outros. Cria a zona se faltar; o site (@ e www, ou o
+ *  subdomínio) aponta para este servidor, a não ser que esteja noutro sítio (ex.: Vercel); o e-mail (MX, SPF, DKIM,
+ *  DMARC, mail/webmail) se estiver aqui. O que já está certo fica como está, com o proxy que tinha. */
+async function reprocessarDns(conta: string, d: string, srv: LeituraServidor) {
+  const zona = zonaDe(d);
+  const feito: string[] = [];
+  const falhou: string[] = [];
+  let zid = await zonaCf(zona);
+  if (!zid) {
+    const z = await createCloudflareZone(zona);
+    if (!z.ok) return NextResponse.json({ erro: 'Não foi possível criar a zona na Cloudflare: ' + z.error }, { status: 502 });
+    zonasCf.delete(zona);
+    zid = z.zoneId;
+    feito.push('zona criada na Cloudflare' + (z.nameServers.length ? ' (nameservers a pôr no registador: ' + z.nameServers.join(', ') + ')' : ''));
+  }
+  const w = srv.web[conta]?.[d];
+  if (w && (await alojamentoVercelPublico(d)) !== true) {
+    const ip = (w.IP || getServerHost()).trim();
+    const atuais = await listCloudflareDnsRecords(zid, zona);
+    for (const nome of d === zona ? ['@', 'www'] : [d.slice(0, -(zona.length + 1))]) {
+      const doNome = atuais.filter((x) => x.name === nome && ['A', 'AAAA', 'CNAME'].includes(x.type));
+      // já aponta para aqui, ou é um CNAME (ex.: www → o domínio): fica como está
+      if (doNome.some((x) => (x.type === 'A' && x.content === ip) || x.type === 'CNAME')) continue;
+      const a = doNome.find((x) => x.type === 'A');
+      const x = a
+        ? await updateCloudflareDnsRecord(zid, a.id, zona, { type: 'A', name: nome, content: ip })
+        : await upsertCloudflareRecord(zid, zona, { type: 'A', name: nome, content: ip, proxied: false });
+      (x.ok ? feito : falhou).push(`A ${nome === '@' ? zona : nome}` + (x.ok ? ' → ' + ip : ': ' + (x.error || 'erro')));
+    }
+  }
+  if (srv.mail[conta]?.[d]) {
+    const e = await provisionEmailAuthForDomain(d);
+    const certos = e.records.filter((x) => x.ok).length;
+    if (certos) feito.push(`e-mail: ${certos} registo(s) confirmados`);
+    for (const x of e.records.filter((y) => !y.ok)) falhou.push(`${x.type} ${x.name}: ${x.error || 'erro'}`);
+    if (!e.brevoOk && e.brevoError) falhou.push('DKIM (Brevo): ' + e.brevoError);
+  }
+  espelharNoServidor(zona);
+  const resumo = feito.length ? 'DNS reprocessado: ' + feito.join('; ') + '.' : 'DNS reprocessado: os registos já estavam certos.';
+  return NextResponse.json({ ok: true, aviso: resumo + (falhou.length ? ' Falhou: ' + falhou.join('; ') + '.' : '') });
+}
+
+/** Depois de uma alteração na Cloudflare, a zona do servidor (ns1..ns4) acompanha logo — o cron faz o mesmo de 10 em 10
+ *  minutos (deploy/vd-dns-sync.py). Não se espera por isto: se o script ainda não estiver instalado, não faz nada. */
+function espelharNoServidor(zona: string) {
+  if (!DOM.test(zona)) return;
+  void executeServerCommand(`[ -x /usr/local/bin/vd-dns-sync ] && (/usr/local/bin/vd-dns-sync --dominio ${q(zona)} >/dev/null 2>&1 &) ; true`, { timeoutMs: 15_000 }).catch(() => null);
 }
 
 function secoes(out: string): Map<string, string> {
@@ -169,15 +230,16 @@ async function lerDominio(req: NextRequest) {
   // ao mesmo tempo: o servidor (só se houver algo a ler lá), a Cloudflare e os nameservers públicos
   const [out, dnsCf, ns, siteVercel, subdominiosVercel] = await Promise.all([
     linhas.length ? executeServerCommand([...linhas, 'echo @@FIM'].join('; '), { timeoutMs: 30_000 }) : Promise.resolve(''),
-    temZona ? Promise.resolve(null) : dnsCloudflare(d),
+    dnsCloudflare(d),
     nameservers(zonaDe(d)),
     alojamentoVercelPublico(d),
     Promise.all(subdominios.map((nome) => alojamentoVercelPublico(nome))),
   ]);
   const sec = secoes(out);
 
-  let dns: DnsDominio = dnsCf || { fonte: 'nenhuma', zona: '', registos: [] };
-  if (temZona) {
+  // a Cloudflare primeiro (é o DNS público); a zona do servidor só quando o domínio não está na Cloudflare
+  let dns: DnsDominio = dnsCf;
+  if (dns.fonte !== 'cloudflare' && temZona) {
     const regs = json<Record<string, Record<string, string>>>(sec.get('DNS'), {});
     dns = { fonte: 'hestia', zona: d, registos: Object.entries(regs).map(([id, x]) => ({ id, nome: x.RECORD || '@', tipo: (x.TYPE || '').toUpperCase(), valor: x.VALUE || '', ttl: Number(x.TTL) || 14400, prio: x.PRIORITY || undefined })) };
   }
@@ -489,17 +551,22 @@ export async function POST(req: NextRequest) {
     case 'bd-senha':
       if (String(c.senha || '').length < 8) return NextResponse.json({ erro: 'A palavra-passe precisa de pelo menos 8 caracteres.' }, { status: 400 });
       return resposta(hestia.changeDatabasePassword(conta, linhaLimpa(c.nome), String(c.senha)));
+    // DNS: com zona na Cloudflare, muda-se lá (é o DNS público) e a zona do servidor acompanha; sem ela, no servidor
     case 'dns-criar': {
       const tipo = linhaLimpa(c.tipo).toUpperCase();
       const nome = linhaLimpa(c.nome) || '@';
       const valor = linhaLimpa(c.valor);
       const ttl = Number(c.ttl) || 3600;
       if (!['A', 'AAAA', 'CNAME', 'MX', 'TXT', 'NS', 'SRV', 'CAA'].includes(tipo) || !valor) return NextResponse.json({ erro: 'Tipo ou valor do registo inválido.' }, { status: 400 });
-      if (srv.dns[conta]?.[d]) return resposta(hestia.addDnsRecord(conta, d, nome, tipo, valor, ttl, linhaLimpa(c.prio) || undefined), false);
-      const zid = await zonaCf(zonaDe(d));
-      if (!zid) return NextResponse.json({ erro: 'O DNS deste domínio não está nem no servidor nem na Cloudflare.' }, { status: 400 });
-      if (!['A', 'AAAA', 'CNAME', 'TXT', 'MX'].includes(tipo)) return NextResponse.json({ erro: 'Na Cloudflare, por agora só A, AAAA, CNAME, TXT e MX.' }, { status: 400 });
-      const x = await upsertCloudflareRecord(zid, zonaDe(d), { type: tipo as CloudflareRecordInput['type'], name: nome, content: valor, ttl, priority: Number(c.prio) || undefined });
+      const zona = zonaDe(d);
+      const zid = await zonaCf(zona);
+      if (!zid) {
+        if (srv.dns[conta]?.[d]) return resposta(hestia.addDnsRecord(conta, d, nome, tipo, valor, ttl, linhaLimpa(c.prio) || undefined), false);
+        return NextResponse.json({ erro: 'O DNS deste domínio não está nem no servidor nem na Cloudflare.' }, { status: 400 });
+      }
+      if (!NA_CLOUDFLARE.includes(tipo)) return NextResponse.json({ erro: 'Na Cloudflare, por agora só A, AAAA, CNAME, TXT e MX.' }, { status: 400 });
+      const x = await upsertCloudflareRecord(zid, zona, { type: tipo as CloudflareRecordInput['type'], name: nome, content: valor, ttl, priority: Number(c.prio) || undefined, proxied: c.proxied === true });
+      if (x.ok) espelharNoServidor(zona);
       return resposta({ ok: x.ok, error: x.error }, false);
     }
     case 'dns-editar': {
@@ -509,18 +576,29 @@ export async function POST(req: NextRequest) {
       const valor = linhaLimpa(c.valor);
       const ttl = Number(c.ttl) || 3600;
       if (!id || !valor) return NextResponse.json({ erro: 'Registo inválido.' }, { status: 400 });
-      if (srv.dns[conta]?.[d]) return resposta(call('v-change-dns-record', [conta, d, id, nome, tipo, valor, linhaLimpa(c.prio), 'yes', String(ttl)]), false);
-      const zid = await zonaCf(zonaDe(d));
-      if (!zid) return NextResponse.json({ erro: 'Zona não encontrada.' }, { status: 400 });
-      if (!['A', 'AAAA', 'CNAME', 'TXT', 'MX'].includes(tipo)) return NextResponse.json({ erro: 'Este tipo de registo muda-se na Cloudflare.' }, { status: 400 });
-      return resposta(updateCloudflareDnsRecord(zid, id, zonaDe(d), { type: tipo as CloudflareRecordInput['type'], name: nome, content: valor, ttl, priority: Number(c.prio) || undefined }), false);
+      const zona = zonaDe(d);
+      const zid = await zonaCf(zona);
+      if (!zid) {
+        if (srv.dns[conta]?.[d]) return resposta(call('v-change-dns-record', [conta, d, id, nome, tipo, valor, linhaLimpa(c.prio), 'yes', String(ttl)]), false);
+        return NextResponse.json({ erro: 'Zona não encontrada.' }, { status: 400 });
+      }
+      if (!NA_CLOUDFLARE.includes(tipo)) return NextResponse.json({ erro: 'Este tipo de registo muda-se na Cloudflare.' }, { status: 400 });
+      // o proxy (nuvem laranja) fica como estava, a não ser que o pedido o mude
+      const x = await updateCloudflareDnsRecord(zid, id, zona, { type: tipo as CloudflareRecordInput['type'], name: nome, content: valor, ttl, priority: Number(c.prio) || undefined, proxied: typeof c.proxied === 'boolean' ? c.proxied : undefined });
+      if (x.ok) espelharNoServidor(zona);
+      return resposta(x, false);
     }
     case 'dns-apagar': {
       const id = linhaLimpa(c.id);
-      if (srv.dns[conta]?.[d]) return resposta(hestia.deleteDnsRecord(conta, d, id), false);
-      const zid = await zonaCf(zonaDe(d));
-      return zid ? resposta(deleteCloudflareDnsRecord(zid, id), false) : NextResponse.json({ erro: 'Zona não encontrada.' }, { status: 400 });
+      const zona = zonaDe(d);
+      const zid = await zonaCf(zona);
+      if (!zid) return srv.dns[conta]?.[d] ? resposta(hestia.deleteDnsRecord(conta, d, id), false) : NextResponse.json({ erro: 'Zona não encontrada.' }, { status: 400 });
+      const x = await deleteCloudflareDnsRecord(zid, id);
+      if (x.ok) espelharNoServidor(zona);
+      return resposta(x, false);
     }
+    case 'dns-reprocessar':
+      return reprocessarDns(conta, d, srv);
     case 'redir-dominio': {
       const url = linhaLimpa(c.url);
       if (!/^https?:\/\/\S+$/.test(url)) return NextResponse.json({ erro: 'Destino inválido (https://…).' }, { status: 400 });

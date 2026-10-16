@@ -310,6 +310,8 @@ export type CloudflareListedRecord = {
   content: string;
   ttl: number;
   priority?: number;
+  /** nuvem laranja (proxy da Cloudflare) */
+  proxied?: boolean;
 };
 
 export async function listCloudflareDnsRecords(
@@ -324,7 +326,7 @@ export async function listCloudflareDnsRecords(
     if (!res.ok) return [];
     const data = (await res.json()) as {
       success: boolean;
-      result?: Array<{ id: string; name: string; type: string; content: string; ttl?: number; priority?: number }>;
+      result?: Array<{ id: string; name: string; type: string; content: string; ttl?: number; priority?: number; proxied?: boolean }>;
     };
     if (!data.success) return [];
     return (data.result || []).map((r) => ({
@@ -334,6 +336,7 @@ export async function listCloudflareDnsRecords(
       content: r.content,
       ttl: r.ttl || 3600,
       priority: r.priority,
+      proxied: r.proxied,
     }));
   } catch {
     return [];

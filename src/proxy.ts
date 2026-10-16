@@ -58,6 +58,11 @@ function caminhoPainelAntigo(pathname: string): string | null {
   return antigo ? PAINEL_BASE + pathname.slice(antigo.length) : null
 }
 
+/** Há cookie de sessão do site (Supabase)? Só a presença — a validade confirma-a o servidor de autenticação */
+function temCookieSessao(request: NextRequest): boolean {
+  return request.cookies.getAll().some((c) => /^sb-.+-auth-token(\.\d+)?$/.test(c.name))
+}
+
 function isPublicMarketingPath(pathname: string): boolean {
   if (pathname === '/') return true
   return PUBLIC_MARKETING_PREFIXES.some(
@@ -87,12 +92,22 @@ export async function proxy(request: NextRequest) {
   }
   // O painel vive todo em /host:2026/… (endereço único, pedido do Silva a 13/10/2026): abre aqui directamente — a rota
   // do Next é src/app/host, por isso reescreve-se (o endereço no browser não muda), com ou sem a barra final.
-  // Não passa pela verificação de sessão do site: o painel trata da sua.
   const resto = restoPainel(pathname)
   if (resto !== null) {
+    const ecra = resto.replace(/\/+$/, '')
+    // Sem sessão: o painel não tem entrada própria — vai para o login do site, que volta a este ecrã depois de entrar
+    // (Silva, 16/10/2026: "diretamente no login do site para se entrar no painel")
+    if (!temCookieSessao(request)) {
+      const login = buildPanelLoginUrl(request.url)
+      login.searchParams.set('redirect', PAINEL_BASE + ecra)
+      return NextResponse.redirect(login)
+    }
     const rota = request.nextUrl.clone()
-    rota.pathname = `/host${resto.replace(/\/+$/, '')}`
-    return NextResponse.rewrite(rota)
+    rota.pathname = `/host${ecra}`
+    // A página do painel lê os dados já no servidor (sem página branca ao recarregar), onde não pode gravar cookies: a
+    // sessão renova-se aqui, antes, como nos pedidos /api/vhost
+    const { updateSession } = await import('@/utils/supabase/middleware')
+    return updateSession(request, (headers) => NextResponse.rewrite(rota, { request: { headers } }))
   }
   // sem rota no Next (o painel está em src/app/host): mostra a página "não encontrada"
   if (PAINEL_INEXISTENTES.some((p) => comPrefixo(pathname, p))) {
@@ -138,14 +153,28 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // Login antigo a caminho do painel → entrada do painel no modelo do DA (que já trata da sessão)
-  if ((pathname === PUBLIC_LOGIN_ENTRY || pathname === '/auth/login') && request.method === 'GET') {
-    const destino = request.nextUrl.searchParams.get('redirect') || ''
-    if (/^\/v?host(:2026)?(\/[\w\-\/]*)?$/.test(destino)) {
-      const painel = request.nextUrl.clone()
-      painel.pathname = destino
-      painel.search = ''
-      return NextResponse.redirect(painel)
+  // Quem já tem sessão e abre o login (vindo do painel ou do site) segue logo para onde ia: nunca tem de sair para voltar
+  // a entrar (Silva, 16/10/2026)
+  if (
+    (pathname === PUBLIC_LOGIN_ENTRY || pathname === '/auth/login') &&
+    request.method === 'GET' &&
+    !request.nextUrl.searchParams.has('error') &&
+    temCookieSessao(request)
+  ) {
+    const comSessao = NextResponse.next()
+    let user: Awaited<ReturnType<ReturnType<typeof createAppServerClient>['auth']['getUser']>>['data']['user'] = null
+    try {
+      user = (await createAppServerClient(request, comSessao).auth.getUser()).data.user
+    } catch (error) {
+      console.error('[proxy] login: auth.getUser falhou (sessão inválida):', error)
+    }
+    if (user) {
+      const pedido = request.nextUrl.searchParams.get('redirect') || request.nextUrl.searchParams.get('next') || ''
+      // só caminhos deste site ("/…", nunca "//outro-site")
+      const destino = /^\/(?![\/\\])/.test(pedido) ? pedido : PUBLIC_PANEL_ENTRY
+      const seguir = NextResponse.redirect(new URL(destino, request.url))
+      comSessao.cookies.getAll().forEach((cookie) => seguir.cookies.set(cookie))
+      return seguir
     }
   }
 

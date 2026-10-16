@@ -9,7 +9,7 @@ import { GLOBAL, LEVELS, MENU, ROLES } from './generated/data';
 import { dominioVisivel, type DadosServidor } from './servidor';
 import { CACHE_DADOS_VHOST, apagarDadosVhost, guardarDadosVhost, tirarEntrada } from '@/lib/vhost-cache';
 import { translate, type Lang } from './i18n';
-import { EntradaPainel, EsperaEntrada, LINGUA_LS, type ModoTema } from './entrada';
+import { EsperaEntrada, LINGUA_LS } from './entrada';
 import { auth } from '@/lib/supabase-client';
 import { MoreMenuModal } from './modals';
 import { SCREENS, denyScreen, placeholder, type Screen } from './screens';
@@ -208,8 +208,9 @@ function guardarEntrarComo(login: string, stack: St['stack']) {
   } catch {}
 }
 
-/** Estado com uma leitura do servidor, a abrir `caminhoDesejado` (o endereço com que o painel abriu, na primeira) */
-function comDados(cur: St, d: DadosServidor, caminhoDesejado: string): St {
+/** Estado com uma leitura do servidor, a abrir `caminhoDesejado` (o endereço com que o painel abriu, na primeira).
+ *  `doNavegador` = false no desenho do servidor: sem o "Entrar como" guardado neste separador (o servidor não o vê) */
+function comDados(cur: St, d: DadosServidor, caminhoDesejado: string, doNavegador = true): St {
   // domínios internos do sistema (files., supabase-…) fora de todas as listas do painel
   for (const c of Object.values(d.contas)) {
     c.domains = c.domains.filter((x) => dominioVisivel(x.name));
@@ -221,7 +222,7 @@ function comDados(cur: St, d: DadosServidor, caminhoDesejado: string): St {
     acc: d.contas,
     login: d.me,
     pessoa: d.pessoa || null,
-    stack: primeira ? lerEntrarComo(d.me, d.contas) : cur.stack.filter((x) => d.contas[x.u]),
+    stack: !primeira ? cur.stack.filter((x) => d.contas[x.u]) : doNavegador ? lerEntrarComo(d.me, d.contas) : [],
     srv: d.servidor,
     dns: d.dns,
     php: d.php || [],
@@ -319,26 +320,25 @@ function PaginaSlot({ p, oculta, onPronta, registar }: { p: Pagina; oculta: bool
   );
 }
 
-/** temSessao: o servidor já viu se há cookie de sessão — sem sessão, a página de entrada aparece logo (sem piscar) */
-export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?: boolean; versao?: string }) {
+/** dados: a leitura que o servidor já fez ao desenhar a página (null se demorou ou falhou: o painel lê-a aqui) */
+export function VisualHostApp({ versao = 'dev', dados = null }: { versao?: string; dados?: DadosServidor | null }) {
   // conta os pedidos ao site para a linha de carregamento do topo (antes de o painel pedir os dados)
   useState(() => instalarContador());
   const pathname = usePathname() || BASE;
   // Entrada pelo login do site: o painel abre sem recarregar a página (src/components/auth/LoginForm.tsx), por isso não
   // há página do servidor a acertar — abre logo com a aparência guardada e a leitura que o login acabou de fazer, sem a
-  // página branca com a roda (pedido do Silva, 13/10/2026). Aberto pelo endereço, começa como a página do servidor.
+  // página branca com a roda (pedido do Silva, 13/10/2026). Aberto pelo endereço (ou ao recarregar), começa como a
+  // página do servidor, que já vem com os dados (sem preferências nem "Entrar como" deste navegador, que o servidor não
+  // conhece: entram logo a seguir, antes de o navegador mostrar a página já ligada).
   const semServidor = useSyncExternalStore(nadaMuda, () => true, () => false);
   const [st, setSt] = useState<St>(() => {
     const s0 = initialState(stripBase(pathname));
-    if (!semServidor) return s0;
+    if (!semServidor) return dados ? comDados(s0, dados, stripBase(pathname), false) : s0;
     const n = comPreferencias(s0);
-    const d = temSessao ? lerCache() : null;
+    const d = lerCache();
     return d ? noNivelPermitido(comDados(n, d, stripBase(pathname))) : n;
   });
-  // página de entrada (sem sessão): modo do tema escolhido lá (claro · automático · escuro) e "a entrar" (roda a girar)
-  const [aEntrar, setAEntrar] = useState(false);
-  const [semSessao, setSemSessao] = useState(!temSessao);
-  const [modoTema, setModoTema] = useState<ModoTema>('light');
+  const dadosDoServidor = useRef(semServidor ? null : dados);
   useBotoesTelemovel();
   /** endereço com que o painel abriu (para o reabrir depois de chegarem os dados do servidor) */
   const inicial = useRef(stripBase(pathname));
@@ -564,13 +564,39 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
     [commit],
   );
 
+  // A leitura que o servidor já fez ao desenhar a página: entram já as preferências e o "Entrar como" deste navegador
+  // (antes de o navegador mostrar a página ligada) e fica guardada para as próximas aberturas
+  useIsomorphicLayoutEffect(() => {
+    const d = dadosDoServidor.current;
+    if (!d) return;
+    dadosDoServidor.current = null;
+    guardarCache(d);
+    const n = comDados(comPreferencias({ ...ref.current, carga: 'a-carregar' }), d, inicial.current);
+    commit(n);
+    if (n.path !== inicial.current) pushUrl(n.path, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Sem sessão (ou sessão recusada): o painel não tem entrada própria — vai para o login do site, que volta a este ecrã
+  // depois de entrar (Silva, 16/10/2026: "diretamente no login do site para se entrar no painel"). A sessão recusada
+  // termina primeiro, para o login não a dar como aberta.
+  const irParaLogin = useCallback(async (caminho = '') => {
+    apagarCache();
+    guardarEntrarComo('', []);
+    tirarEntrada();
+    try {
+      await auth.signOut();
+    } catch {}
+    window.location.assign('/login' + (caminho ? '?redirect=' + encodeURIComponent(BASE + caminho) : ''));
+  }, []);
+
   // Dados reais do servidor (Hestia + registo do site): contas, pacotes, informação, zonas DNS e estado do servidor.
-  // Sem sessão no site → pede para iniciar sessão. Depois de uma alteração, volta a ler (fresco).
+  // Sem sessão no site → login do site. Depois de uma alteração, volta a ler (fresco).
   const carregar = useCallback(
     async (fresco = false) => {
       // Nunca uma página em branco enquanto se lê o servidor (pedido do Silva): ao abrir, mostra logo a última leitura
       // guardada neste navegador e atualiza por trás quando a resposta chegar
-      const daCache = !fresco && ref.current.carga !== 'ok' && temSessao ? lerCache() : null;
+      const daCache = !fresco && ref.current.carga !== 'ok' ? lerCache() : null;
       if (daCache) aplicar(daCache);
       try {
         // primeira leitura: a resposta que a página já pediu ao chegar (layout); depois, pedidos normais
@@ -614,10 +640,13 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
           }
         }
         if (!r.ok) {
-          if (r.status === 401 || r.status === 403) apagarCache();
+          if (r.status === 401) {
+            irParaLogin(ref.current.carga === 'ok' ? ref.current.path : inicial.current);
+            return;
+          }
+          if (r.status === 403) apagarCache();
           // servidor lento ou em baixo com o painel já à vista (da última leitura): fica como está
           else if (ref.current.carga === 'ok') return;
-          setAEntrar(false);
           commit({ ...ref.current, carga: 'erro', erro: { msg: j.erro || 'Não foi possível ler o servidor.', codigo: r.status } });
           return;
         }
@@ -626,11 +655,10 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
         aplicar(d);
       } catch {
         if (ref.current.carga === 'ok') return; // o painel já está à vista (última leitura): fica como está
-        setAEntrar(false);
         commit({ ...ref.current, carga: 'erro', erro: { msg: 'O servidor demorou a responder. Verifique a ligação e tente de novo.', codigo: 0 } });
       }
     },
-    [commit, aplicar, temSessao],
+    [commit, aplicar, irParaLogin],
   );
   useIsomorphicLayoutEffect(() => {
     carregar();
@@ -744,27 +772,8 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
     recusadoEm.current = Date.now();
   };
 
-  // Sair: termina a sessão e mostra logo a página de entrada, sem perguntar nem recarregar (pedido do Silva: a página
-  // piscava entre dois ecrãs antes do formulário). Quem entrou pelo login do site volta ao login do site (pedido do
-  // Silva, 13/10/2026); quem entrou pelo login do painel fica na entrada do painel.
-  const sair = async () => {
-    apagarCache();
-    guardarEntrarComo('', []);
-    const entrada = tirarEntrada();
-    try {
-      await auth.signOut();
-    } catch {}
-    if (entrada === 'site') {
-      window.location.assign('/login');
-      return;
-    }
-    setAEntrar(false);
-    setSemSessao(true);
-    setModal(null);
-    inicial.current = '/';
-    commit({ ...ref.current, carga: 'erro', erro: { msg: 'Inicie sessão no site.', codigo: 401 } });
-    window.history.replaceState(null, '', BASE);
-  };
+  // Sair: termina a sessão e vai para o login do site, sem perguntar (a única entrada do painel, Silva, 16/10/2026)
+  const sair = () => irParaLogin();
 
   const vh: VH = {
     s,
@@ -967,7 +976,7 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
   // Cores do tema escolhido, com as cores mudadas à mão nesse tema (ou as que estão a ser editadas), e cantos
   const over = st.themePreview || st.themeOver[st.colorPreset];
   // Sessão: nunca pede para entrar enquanto se mexe no painel (os pedidos /api/vhost renovam-na — src/proxy.ts); ao fim
-  // de 20 minutos sem tocar em nada (em nenhum separador), termina a sessão e mostra a página de entrada
+  // de 20 minutos sem tocar em nada (em nenhum separador), termina a sessão e vai para o login do site
   useEffect(() => {
     if (st.carga !== 'ok') return;
     if (!SAIR_POR_INATIVIDADE_ATIVO) return; // desligado por agora (ver session-inactivity.ts)
@@ -993,19 +1002,14 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
       } catch {}
       if (Date.now() - Math.max(ultimo, outro) < LIMITE) return;
       clearInterval(iv);
-      try {
-        await auth.signOut();
-      } catch {}
-      setAEntrar(false);
-      // como no DA: a entrada mostra o caminho da página onde estava e volta para lá depois de entrar
-      inicial.current = ref.current.path || '/';
-      commit({ ...ref.current, carga: 'erro', erro: { msg: 'Sessão terminada por inatividade.', codigo: 401 } });
+      // como no DA: depois de entrar, volta à página onde estava
+      irParaLogin(ref.current.path || '/');
     }, 30_000);
     return () => {
       evs.forEach((e) => window.removeEventListener(e, toque, { capture: true }));
       clearInterval(iv);
     };
-  }, [st.carga, commit]);
+  }, [st.carga, irParaLogin]);
 
   const colors = getThemeColors(st.colorPreset, st.customPrimary, over);
   const isDark = st.theme === 'dark';
@@ -1051,58 +1055,25 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
   const logo = st.brand.logo || LOGO;
   const marca = st.brand.name.trim() || 'VisualHost';
 
-  // Enquanto os dados do servidor não chegam: a página branca, sem esqueleto — o painel aparece. A roda (como no DA) só
-  // para quem acabou de entrar pelo login do próprio painel; pelo site, ao recarregar ou ao abrir o endereço, nunca
-  // (Silva, 15/10/2026: "não quero spinner dentro do painel, somente na entrada para o painel via directo")
-  // já com o menu. Sem sessão: a página de entrada. Sem acesso / servidor indisponível: aviso com o que fazer a seguir.
+  // Ao recarregar ou abrir o endereço, a página já vem do servidor com os dados (src/app/host/layout.tsx). Só se o
+  // servidor demorou e não há leitura guardada neste navegador: a página branca, sem esqueleto nem roda (Silva,
+  // 15/10/2026: "não quero spinner dentro do painel"), até o painel aparecer já com o menu. Sem sessão: o login do
+  // site. Sem acesso / servidor indisponível: aviso com o que fazer a seguir.
   if (st.carga !== 'ok') {
     const er = st.erro;
-    // sem sessão (cookie visto já no servidor) ou sessão recusada: a página de entrada no modelo do DA, sem piscar
-    const entrada = er?.codigo === 401 || (!er && !aEntrar && semSessao);
-    if (!er && !entrada) return (
+    // a ler (sem leitura no servidor nem neste navegador) ou a caminho do login do site
+    if (!er) return (
       <div className="vh" data-theme={st.theme} style={themeStyles as React.CSSProperties} lang="pt-PT" suppressHydrationWarning>
-        <EsperaEntrada roda={aEntrar} />
+        <EsperaEntrada roda={false} />
       </div>
     );
-    if (entrada)
-      return (
-        <div className="vh" data-theme={st.theme} style={themeStyles as React.CSSProperties} lang={st.lang === 'en' ? 'en' : 'pt-PT'} suppressHydrationWarning>
-          <EntradaPainel
-            escuro={isDark}
-            modo={modoTema}
-            lang={st.lang}
-            voltarA={inicial.current && inicial.current !== '/' ? BASE + inicial.current : undefined}
-            onModo={(m) => {
-              setModoTema(m);
-              const dark = m === 'dark' || (m === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-              commit({ ...ref.current, theme: dark ? 'dark' : 'light' });
-            }}
-            onLang={(l) => {
-              commit({ ...ref.current, lang: l });
-              try {
-                localStorage.setItem(LINGUA_LS, l);
-              } catch {}
-            }}
-            onEntrou={() => {
-              setAEntrar(true);
-              setSemSessao(false);
-              commit({ ...ref.current, carga: 'a-carregar', erro: null });
-              // usa a leitura guardada no servidor (abre logo); se tiver mais de 1 min, atualiza por trás, sem roda
-              carregar().then(() => {
-                const lido = ref.current.carga === 'ok' && ref.current.lidoEm ? Date.parse(ref.current.lidoEm) : 0;
-                if (lido && Date.now() - lido > 60_000) carregar(true);
-              });
-            }}
-          />
-        </div>
-      );
     const aviso =
       er?.codigo === 403
           ? { fa: 'fa-user-lock', titulo: er.msg, texto: 'Se acha que é um engano, fale connosco: ligamos a sua conta ao servidor.', botao: <a className="btn g" href="/"><i className="fa-solid fa-arrow-left" />{t('Voltar ao site')}</a> }
           : { fa: 'fa-plug-circle-xmark', titulo: er?.msg || '', texto: 'O servidor não respondeu a tempo. Os seus dados estão seguros.', botao: (
               <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
                 <button className="btn r" onClick={() => { commit({ ...ref.current, carga: 'a-carregar', erro: null }); carregar(); }}><i className="fa-solid fa-rotate" />{t('Tentar de novo')}</button>
-                <button className="btn g" onClick={() => { setAEntrar(false); setSemSessao(true); commit({ ...ref.current, carga: 'a-carregar', erro: null }); }}><i className="fa-solid fa-arrow-left" />{t('Voltar à entrada')}</button>
+                <button className="btn g" onClick={sair}><i className="fa-solid fa-arrow-left" />{t('Sair')}</button>
               </div>
             ) };
     return (

@@ -28,7 +28,7 @@ type Detalhe = {
   sslAtivo: boolean;
   renovacaoAutomatica: boolean;
   certificado: { para: string; nomes: string[]; desde: string; ate: string; emissor: string } | null;
-  dns: { fonte: 'hestia' | 'cloudflare' | 'nenhuma'; zona: string; registos: { id: string; nome: string; tipo: string; valor: string; ttl: number; prio?: string }[] };
+  dns: { fonte: 'hestia' | 'cloudflare' | 'nenhuma'; zona: string; registos: { id: string; nome: string; tipo: string; valor: string; ttl: number; prio?: string; proxied?: boolean }[] };
   siteVercel?: boolean | null;
   subdominios?: {
     nome: string;
@@ -848,6 +848,26 @@ function VerDominio({ d }: { d: string }) {
           <i className="fa-solid fa-share" />
           {t('Transferir um domínio')}
         </button>
+        {/* domínios com registos em falta ficam ligados como os outros: repõe na Cloudflare o que falta (Silva, 16/10/2026) */}
+        <button
+          className="dom-op"
+          onClick={() =>
+            openM(
+              <Confirmar
+                titulo="Reprocessar o DNS?"
+                texto={t('Repõe na Cloudflare os registos do site e do e-mail deste domínio que estiverem em falta ou errados. O que já está certo fica como está.')}
+                ok="Reprocessar"
+                onOk={async () => {
+                  vh.toast(t('A reprocessar o DNS…'));
+                  if (await noServidor(vh, { acao: 'dns-reprocessar', dominio: d }, t('DNS reprocessado'), false)) ler();
+                }}
+              />,
+            )
+          }
+        >
+          <i className="fa-solid fa-arrows-rotate" />
+          {t('Reprocessar DNS')}
+        </button>
         <h4>{t('Alojamento')}</h4>
         {!x.soEmail && (
           <a className="dom-op" href={'https://' + d} target="_blank" rel="noreferrer">
@@ -1180,7 +1200,18 @@ function DnsForm({ d, fonte, r, onFeito }: { d: string; fonte: Detalhe['dns']['f
   );
 }
 
-const valorDns = (r: RegistoDns) => (r.tipo === 'MX' ? `Prioridade: ${r.prio || '-'} / Destino: ${r.valor || '-'}` : r.valor);
+// Leitura e colunas como na Cloudflare, onde os registos estão (Silva, 16/10/2026: "a mesma forma de ler e apresentar
+// os registos"): nome completo com a zona a cinzento, o conteúdo tal como lá, o proxy e o TTL "Auto", "5 min", "1 h"
+const valorDns = (r: RegistoDns) => r.valor;
+/** www → www.exemplo.co.mz; @ → exemplo.co.mz */
+const nomeCompleto = (r: RegistoDns, zona: string) => (r.nome === '@' || r.nome === zona ? zona : r.nome.endsWith('.' + zona) ? r.nome : r.nome + '.' + zona);
+function ttlTexto(ttl: number): string {
+  if (ttl === 1) return 'Auto';
+  if (ttl % 86400 === 0) return ttl / 86400 + (ttl === 86400 ? ' dia' : ' dias');
+  if (ttl % 3600 === 0) return ttl / 3600 + ' h';
+  if (ttl % 60 === 0) return ttl / 60 + ' min';
+  return ttl + ' s';
+}
 
 function Dns() {
   const vh = useVH();
@@ -1205,7 +1236,10 @@ function Dns() {
   const nsPublicos: RegistoDns[] = dns.registos.some((r) => r.tipo === 'NS')
     ? []
     : (det.ns || []).map((n, i) => ({ id: NS_PUBLICO + i, nome: '@', tipo: 'NS', valor: n, ttl: 1 }));
-  const rows = [...dns.registos, ...nsPublicos].filter((r) => !filtro || r.tipo === filtro);
+  // por tipo e depois por nome, como a lista da Cloudflare
+  const rows = [...dns.registos, ...nsPublicos]
+    .filter((r) => !filtro || r.tipo === filtro)
+    .sort((a, b) => a.tipo.localeCompare(b.tipo) || nomeCompleto(a, dns.zona).localeCompare(nomeCompleto(b, dns.zona)));
   const soLeitura = (r: RegistoDns) => r.id.startsWith(NS_PUBLICO);
   const editavel = (r: RegistoDns) => !soLeitura(r) && (dns.fonte === 'hestia' || NA_CLOUDFLARE.includes(r.tipo));
 
@@ -1310,35 +1344,23 @@ function Dns() {
                     />
                   );
                 }
-                return <b>{r.nome === '@' ? dns.zona : r.nome}</b>;
-              },
-            },
-            {
-              k: 'ttl',
-              t: 'TTL',
-              cell: (r) => {
-                if (editId === r.id) {
-                  return (
-                    <input
-                      className="inp sm dns-inline-inp"
-                      value={fEdit.ttl}
-                      onChange={(e) => setFEdit({ ...fEdit, ttl: e.target.value })}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') guardarInline(r);
-                        if (e.key === 'Escape') cancelarEdicao();
-                      }}
-                      inputMode="numeric"
-                      style={{ width: 75 }}
-                    />
-                  );
-                }
-                return r.ttl === 1 ? 'auto' : r.ttl;
+                const n = nomeCompleto(r, dns.zona);
+                const rotulo = n === dns.zona ? '' : n.slice(0, -(dns.zona.length + 1));
+                // nomes compridos partem linha em vez de alargar a tabela (como na Cloudflare, nunca cortados)
+                return rotulo ? (
+                  <b style={{ whiteSpace: 'normal', overflowWrap: 'anywhere' }}>
+                    {rotulo}
+                    <span style={{ color: 'var(--muted)', fontWeight: 400 }}>.{dns.zona}</span>
+                  </b>
+                ) : (
+                  <b>{dns.zona}</b>
+                );
               },
             },
             { k: 'tipo', t: 'Tipo', sort: (r) => r.tipo, cell: (r) => <span className={'dns-tipo t-' + r.tipo}>{r.tipo}</span> },
             {
               k: 'valor',
-              t: 'Registo',
+              t: 'Conteúdo',
               cell: (r) => {
                 if (editId === r.id) {
                   const isMx = r.tipo === 'MX' || r.tipo === 'SRV';
@@ -1389,7 +1411,57 @@ function Dns() {
                   );
                 }
                 // as células da tabela são nowrap (maquete.css) — o registo parte linhas para mostrar o TXT/DKIM inteiro
-                return <span style={{ whiteSpace: 'normal', overflowWrap: 'anywhere' }}>{valorDns(r)}</span>;
+                return (
+                  <span style={{ whiteSpace: 'normal', overflowWrap: 'anywhere' }}>
+                    {valorDns(r)}
+                    {(r.tipo === 'MX' || r.tipo === 'SRV') && r.prio && <span style={{ color: 'var(--muted)' }}> · {t('prioridade')} {r.prio}</span>}
+                  </span>
+                );
+              },
+            },
+            ...(dns.fonte === 'cloudflare'
+              ? [
+                  {
+                    k: 'proxy',
+                    t: 'Proxy',
+                    // no tablet sai, para a tabela caber no cartão (no telemóvel, em blocos, volta)
+                    ate: 1050,
+                    sort: (r: RegistoDns) => (r.proxied ? 1 : 0),
+                    cell: (r: RegistoDns) =>
+                      r.proxied ? (
+                        <span>
+                          <i className="fa-solid fa-cloud" style={{ color: '#f38020', marginRight: 6 }} />
+                          {t('Com proxy')}
+                        </span>
+                      ) : (
+                        <span style={{ color: 'var(--muted)' }}>
+                          <i className="fa-solid fa-cloud" style={{ marginRight: 6 }} />
+                          {t('Só DNS')}
+                        </span>
+                      ),
+                  } as Col<RegistoDns>,
+                ]
+              : []),
+            {
+              k: 'ttl',
+              t: 'TTL',
+              cell: (r) => {
+                if (editId === r.id) {
+                  return (
+                    <input
+                      className="inp sm dns-inline-inp"
+                      value={fEdit.ttl}
+                      onChange={(e) => setFEdit({ ...fEdit, ttl: e.target.value })}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') guardarInline(r);
+                        if (e.key === 'Escape') cancelarEdicao();
+                      }}
+                      inputMode="numeric"
+                      style={{ width: 75 }}
+                    />
+                  );
+                }
+                return ttlTexto(r.ttl);
               },
             },
           ]}
