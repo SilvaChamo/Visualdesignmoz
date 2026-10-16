@@ -5,6 +5,7 @@
  */
 
 import { hestiaCall, hestiaCallJson } from '@/lib/hestia-client';
+import { CONTABO_NS } from '@/lib/visualdesign-dns';
 
 function isAlreadyExistsError(error?: string): boolean {
   return (error || '').toLowerCase().includes('exists');
@@ -42,12 +43,27 @@ export async function createAccount(input: {
     return { ok: false, error: domainResult.error };
   }
 
+  // Zona DNS best-effort — `v-add-web-domain` só cria o site; sem zona, o
+  // ns3/ns4 (Contabo) respondem REFUSED e o registador recusa apontar o
+  // domínio para eles. Usa o IP com que o Hestia criou o site.
+  await addDnsZone(input.username, input.domain).catch(() => {});
+
   // SSL best-effort — a conta e o domínio já ficam criados mesmo que o
   // Let's Encrypt falhe (ex.: DNS ainda não propagado); não bloqueia o
   // resultado da criação da conta em si.
   await hestiaCall('v-add-letsencrypt-domain', [input.username, input.domain]).catch(() => {});
 
   return { ok: true };
+}
+
+async function addDnsZone(username: string, domain: string): Promise<void> {
+  const web = await hestiaCallJson<Record<string, { IP?: string }>>('v-list-web-domain', [username, domain]);
+  const ip = web.ok ? web.data[domain]?.IP : undefined;
+  if (!ip) return;
+  const result = await hestiaCall('v-add-dns-domain', [username, domain, ip, CONTABO_NS.ns1, CONTABO_NS.ns2]);
+  if (!result.ok && !isAlreadyExistsError(result.error)) {
+    console.error(`[hestia-adapter] zona DNS de ${domain} não criada:`, result.error);
+  }
 }
 
 /** Remove só este site da conta (`v-delete-web-domain`) — nunca a conta em

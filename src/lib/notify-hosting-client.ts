@@ -1,6 +1,6 @@
 import { sendEmail } from '@/lib/email-service';
 import { emailHeader, emailGreeting, emailFooter, wrapContentInFrame } from '@/lib/renewal-templates';
-import { VISUALDESIGN_DEFAULT_NS } from '@/lib/visualdesign-dns';
+import { nameserversForProvider } from '@/lib/visualdesign-dns';
 import { DEFAULT_SERVER_IP } from '@/lib/server-config';
 
 const SUPPORT_EMAIL = 'suporte@visualdesignmoz.com';
@@ -22,8 +22,11 @@ export async function notifyHostingAccountProvisioned(params: {
   domain: string;
   daUsername: string;
   password: string;
+  /** 'hestia' (Contabo → ns3/ns4) ou 'directadmin' (Hetzner → ns1/ns2). */
+  provider?: string;
 }) {
-  const { to, clientName, domain, daUsername, password } = params;
+  const { to, clientName, domain, daUsername, password, provider } = params;
+  const ns = nameserversForProvider(provider);
   const title = 'A sua hospedagem foi activada';
 
   const message =
@@ -34,7 +37,7 @@ export async function notifyHostingAccountProvisioned(params: {
     `Password: ${password} (a mesma que usa para entrar no seu painel VisualDesign)\n` +
     `IP do servidor: ${DEFAULT_SERVER_IP}\n\n` +
     `Para o seu domínio apontar para esta hospedagem, configure os nameservers no registo do domínio:\n` +
-    `${VISUALDESIGN_DEFAULT_NS.ns1}\n${VISUALDESIGN_DEFAULT_NS.ns2}\n\n` +
+    `${ns.ns1}\n${ns.ns2}\n\n` +
     `A propagação pode demorar algumas horas. Qualquer dúvida, contacte-nos.`;
 
   const body = `

@@ -206,6 +206,7 @@ export async function provisionPanelAccountToServer(userName: string): Promise<{
       domain,
       daUsername: username,
       password,
+      provider,
     }).catch(() => {});
   }
 
