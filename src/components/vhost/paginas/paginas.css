@@ -1664,3 +1664,18 @@
 /* página inteira à espera (servidor ou navegador): o fundo do tema, as barras ao centro */
 .vh.vh-carga,.vh .ent-espera.sem-roda{position:fixed;inset:0;z-index:5;display:grid;place-items:center;background:var(--bg)}
 .vh.vh-carga{min-height:100vh}
+
+/* Monitor de processos e Serviços (Ferramentas de admin) */
+.vh .pm-proc{display:flex;flex-wrap:wrap;align-items:center;gap:2px 8px;min-width:0}
+.vh .pm-proc>small{flex:1 1 100%;color:var(--muted);font-size:11.5px;font-family:ui-monospace,Menlo,monospace;overflow-wrap:anywhere;line-height:1.35}
+.vh .pm-cpu{display:inline-flex;align-items:center;gap:8px;min-width:120px}
+.vh .pm-cpu>b{min-width:46px;text-align:right;font-variant-numeric:tabular-nums}
+.vh .pm-cpu>.bar{flex:1;height:6px;min-width:50px}
+.vh tr.pm-pesado>td{background:color-mix(in srgb,var(--red) 6%,transparent)}
+.vh .pm-desc{color:var(--muted);font-size:12.5px}
+/* a chave do cartão do servidor (painel inicial) abre o Monitor de processos */
+.vh .srv-chave{background:none;border:0;padding:4px;margin:-4px;color:var(--muted);font-size:13px;cursor:pointer;border-radius:var(--r)}
+.vh .srv-chave:hover{color:var(--red);background:var(--hover)}
+/* a linha de comando parte onde for preciso: a tabela cabe sempre no cartão (nunca barra de deslocar) */
+.vh td:has(>.pm-proc){white-space:normal;min-width:220px;width:46%}
+.vh .pm-proc>small{white-space:normal;word-break:break-all}
