@@ -1550,3 +1550,12 @@
  .vh .tbl.dt-empilhar.dominios-widget-list tbody td[data-t]{gap:25px;font-family:inherit;font-size:14px}
  .vh .tbl.dt-empilhar.dominios-widget-list tbody td[data-t]::before{flex:0 0 7em;width:7em;min-width:0;white-space:nowrap;font-family:inherit;font-size:inherit;font-weight:700;color:var(--ink)}
 }
+
+/* Admin › Acessos por plano: as páginas de cada menu em grelha; no telemóvel tudo numa só coluna, na vertical — o
+   "Mostrar o menu" passa para baixo do título e da descrição (Silva, 16/10/2026) */
+.vh .acessos-itens{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px 18px;padding:14px 18px}
+@media(max-width:768px){
+ .vh .acessos-grupo .frm-head{flex-direction:column;align-items:flex-start;gap:8px}
+ .vh .acessos-grupo .frm-head>:first-child{width:100%;flex:none}
+ .vh .acessos-itens{grid-template-columns:minmax(0,1fr);padding:12px 14px}
+}
