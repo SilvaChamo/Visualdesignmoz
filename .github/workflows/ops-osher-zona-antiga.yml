@@ -1,0 +1,50 @@
+name: "Ops - Osher: zona DNS antiga de oshercollective.com (servidor recuperado, só leitura)"
+
+# ============================================================================
+# Silva, 16/10/2026: recuperar community.oshercollective.com. Até 14/10 o DNS da
+# Osher era servido pelo BIND do DirectAdmin no Hetzner (ns2.visualdesignmoz.com).
+# A 14/10 a zona foi recriada na Cloudflare só com site/email (Contabo) e o
+# registo da comunidade perdeu o destino original. Lê-se aqui a zona antiga no
+# servidor recuperado do backup de 13/10 (Ubuntu: /etc/bind) e o contexto da
+# menção a circle.so no site. SÓ LEITURA.
+# ============================================================================
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - claude/loving-cerf-gaw6vw
+    paths:
+      - '.github/workflows/ops-osher-zona-antiga.yml'
+
+env:
+  NEW_IP: "77.42.120.104"
+
+jobs:
+  zona:
+    name: zona antiga + circle.so no site
+    runs-on: ubuntu-latest
+    steps:
+      - uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ env.NEW_IP }}
+          port: ${{ secrets.HETZNER_PORT }}
+          username: ${{ secrets.HETZNER_USER }}
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          envs: NEW_IP
+          command_timeout: 5m
+          script: |
+            set +e
+            ip -4 -o addr show | grep -qw "$NEW_IP" || { echo "ABORTAR: não é a máquina nova"; exit 1; }
+            echo "===== ficheiros de zona da Osher ====="
+            ls -la /etc/bind/*osher* /var/named/*osher* 2>/dev/null
+            Z=$(ls /etc/bind/oshercollective.com.db /var/named/oshercollective.com.db 2>/dev/null | head -1)
+            echo "===== $Z (sem a chave DKIM longa) ====="
+            sed -E 's/(p=[A-Za-z0-9+\/]{20})[A-Za-z0-9+\/"[:space:]]*/\1…/' "$Z"
+            echo
+            echo "===== o BIND local responde por community? ====="
+            dig +short community.oshercollective.com @127.0.0.1 2>&1
+            dig +short CNAME community.oshercollective.com @127.0.0.1 2>&1
+            echo
+            echo "===== circle.so no site da Osher (contexto) ====="
+            grep -o -i -E '.{0,120}circle\.so.{0,120}' /home/oshercollective/domains/oshercollective.com/public_html/studio.html 2>/dev/null | head -4
