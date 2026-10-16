@@ -1189,3 +1189,41 @@ export async function changeWebDomainPhp(
   const result = await hestiaCall('v-change-web-domain-backend', [username, domain, version, 'yes']);
   return { ok: result.ok, error: result.error };
 }
+
+/**
+ * Cria ou regrava um pacote de cliente no Hestia (Admin › Pacotes › Novo/Editar — Silva, 16/10/2026: "criar pacotes diz
+ * que ainda não está ligado ao servidor"). Parte do ficheiro do próprio pacote (ao editar) ou do `default.pkg` (ao
+ * criar) e muda só os campos dados; o Hestia lê o ficheiro com `v-add-user-package PASTA NOME yes`.
+ */
+export async function gravarPacote(nome: string, campos: Record<string, string>, editar: boolean): Promise<{ ok: boolean; error?: string }> {
+  if (!/^[A-Za-z0-9_-]{1,40}$/.test(nome) || nome === 'system') return { ok: false, error: 'Nome de pacote inválido (letras, números, - e _).' };
+  const pastaPacotes = '/usr/local/hestia/data/packages';
+  const base = editar ? nome : 'default';
+  const atual = await executeServerCommand(`cat ${pastaPacotes}/${base}.pkg 2>/dev/null`).catch(() => '');
+  if (editar && !atual.trim()) return { ok: false, error: 'Esse pacote não existe no servidor.' };
+  const linhas = new Map<string, string>();
+  for (const l of atual.split('\n')) {
+    const m = l.match(/^([A-Z_]+)='(.*)'$/);
+    if (m) linhas.set(m[1], m[2]);
+  }
+  for (const [k, v] of Object.entries(campos)) if (/^[A-Z_]+$/.test(k) && /^[A-Za-z0-9_.,:-]*$/.test(v)) linhas.set(k, v);
+  const texto = [...linhas].map(([k, v]) => `${k}='${v}'`).join('\n') + '\n';
+  const pasta = `/tmp/vh-pacote-${Date.now()}`;
+  const b64 = Buffer.from(texto, 'utf8').toString('base64');
+  try {
+    // o Hestia escreve os erros na saída normal e o fim nem sempre vem com código ≠ 0: só "VH_OK" confirma
+    const saida = await executeServerCommand(
+      `mkdir -p ${pasta} && echo ${b64} | base64 -d > ${pasta}/${nome}.pkg && /usr/local/hestia/bin/v-add-user-package ${pasta} ${nome} yes 2>&1; r=$?; rm -rf ${pasta}; [ $r = 0 ] && echo VH_OK`,
+    );
+    if (saida.includes('VH_OK')) return { ok: true };
+    return { ok: false, error: saida.replace('VH_OK', '').trim() || 'O servidor recusou o pacote.' };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'O servidor recusou o pacote.' };
+  }
+}
+
+export async function apagarPacote(nome: string): Promise<{ ok: boolean; error?: string }> {
+  if (!/^[A-Za-z0-9_-]{1,40}$/.test(nome) || nome === 'system' || nome === 'default') return { ok: false, error: 'Este pacote não pode ser apagado.' };
+  const result = await hestiaCall('v-delete-user-package', [nome]);
+  return { ok: result.ok, error: result.error };
+}

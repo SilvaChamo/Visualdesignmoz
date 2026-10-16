@@ -31,6 +31,8 @@ export interface St {
   dominio: string;
   /** Acessos por plano (Admin › Acessos por plano): por pacote, as páginas da Gestão escondidas aos clientes */
   acessos: Record<string, string[]>;
+  /** Tema do painel de cada plano (Admin › Pacotes › Tema), para as contas que ainda não escolheram outro */
+  temasPlano: Record<string, string>;
   /** versões PHP instaladas no servidor */
   php: string[];
   /** quem fez login */
@@ -78,6 +80,7 @@ export function initialState(path: string): St {
       lidoEm: '',
       dominio: '',
       acessos: {},
+      temasPlano: {},
       php: [],
       login: '',
       pessoa: null,

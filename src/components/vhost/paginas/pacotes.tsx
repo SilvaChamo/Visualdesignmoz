@@ -3,6 +3,8 @@
 // Pacotes de cliente e de revenda: listas, criar e editar (campos do DirectAdmin — ver 04-da-gestao-de-contas.md).
 import { useRef, useState } from 'react';
 import { useVH, type VH } from '../context';
+import { THEME_PRESETS } from '../theme';
+import { noServidorDetalhe } from './acoes';
 import type { ScreenFn } from '../screens';
 import { Check, DataTable, Frm, Funcionalidades, Limites, Row, type Col } from './componentes';
 import {
@@ -13,7 +15,6 @@ import {
   LIMITES_REVENDA,
   LIMITES_UTILIZADOR,
   RECURSOS,
-  TEMAS,
   limTxt,
   pacoteRevendaVazio,
   pacoteVazio,
@@ -36,10 +37,13 @@ export function FormPacoteUtilizador({ value, onChange, conta }: { value: Pacote
         <Funcionalidades campos={FUNC_UTILIZADOR} feats={value.feats} set={(k, v) => onChange(set(value, 'feats', { ...value.feats, [k]: v }))} />
       </Frm>
       <Frm title="Definições adicionais">
+        {/* os temas do painel (Personalizar): ao escolher, as contas deste plano abrem com ele (Silva, 16/10/2026) */}
         <Row label="Tema">
-          <select value={value.tema} onChange={(e) => onChange(set(value, 'tema', e.target.value))}>
-            {TEMAS.map((x) => (
-              <option key={x}>{x}</option>
+          <select value={THEME_PRESETS.some((x) => x.id === value.tema) ? value.tema : 'visualdesign'} onChange={(e) => onChange(set(value, 'tema', e.target.value))}>
+            {THEME_PRESETS.map((x) => (
+              <option key={x.id} value={x.id}>
+                {x.name}
+              </option>
             ))}
           </select>
         </Row>
@@ -112,7 +116,8 @@ export function FormPacoteRevenda({ value, onChange, conta }: { value: PacoteRev
 type Linha = { nome: string; bw: string; disk: string; dom: string; mails: string; ips: string; usado: number };
 
 function ListaPacotes({ tipo }: { tipo: Tipo }) {
-  const { s, nav, toast, openM, updateDb } = useVH();
+  const vh = useVH();
+  const { s, nav, toast, openM, updateDb } = vh;
   const base = '/' + s.level + '/' + s.page;
   const fonte = tipo === 'cliente' ? s.db.pkgs : s.db.rpkgs;
   const usadoPor = (nome: string) => Object.values(s.acc).filter((a) => a.pkg === nome && (tipo === 'revenda' ? a.role === 'revenda' : a.role !== 'revenda' && a.role !== 'admin')).length;
@@ -153,8 +158,12 @@ function ListaPacotes({ tipo }: { tipo: Tipo }) {
         texto={'Vai apagar: ' + keys.join(', ') + '.'}
         ok="Apagar"
         onOk={() => {
-          updateDb((db) => keys.forEach((k) => (tipo === 'cliente' ? delete db.pkgs[k] : delete db.rpkgs[k])));
-          toast(keys.length + ' pacote(s) apagado(s)');
+          // pacotes de cliente: apagam-se no servidor (Hestia)
+          if (tipo === 'cliente') void noServidorDetalhe(vh, { acao: 'pacote-apagar', pacotes: keys }, (n) => n + ' pacote(s) apagado(s)');
+          else {
+            updateDb((db) => keys.forEach((k) => delete db.rpkgs[k]));
+            toast(keys.length + ' pacote(s) apagado(s)');
+          }
         }}
       />,
     );
@@ -167,6 +176,10 @@ function ListaPacotes({ tipo }: { tipo: Tipo }) {
       rowKey={(r) => r.nome}
       search={(r) => r.nome}
       bulk={[
+        // o administrador edita qualquer pacote (Silva, 16/10/2026); com um só assinalado
+        ...(s.level === 'admin'
+          ? [{ t: 'Editar pacote', fa: 'fa-pen', run: (k: string[]) => (k.length === 1 ? nav(base + '/' + encodeURIComponent(k[0])) : toast('Assinale só um pacote para editar')) }]
+          : []),
         { t: 'Apagar', fa: 'fa-trash', run: apagar },
         { t: 'Exportar', fa: 'fa-file-export', run: exportar },
       ]}
@@ -238,20 +251,40 @@ function ImportarPacotes({ tipo }: { tipo: Tipo }) {
 
 // ---------- Criar / editar ----------
 function EditarPacote({ tipo, nome }: { tipo: Tipo; nome: string | null }) {
-  const { s, t, nav, toast, updateDb } = useVH();
+  const vh = useVH();
+  const { s, t, nav, toast, updateDb } = vh;
   const base = '/' + s.level + '/' + s.page;
   const fonte = tipo === 'cliente' ? s.db.pkgs : s.db.rpkgs;
   const [p, setP] = useState<PacoteUtilizador | PacoteRevenda>(() =>
-    structuredClone(nome ? fonte[nome] : tipo === 'cliente' ? pacoteVazio() : pacoteRevendaVazio()),
+    (() => {
+      const p = structuredClone(nome ? fonte[nome] : tipo === 'cliente' ? pacoteVazio() : pacoteRevendaVazio());
+      // o tema do plano vem do servidor (Admin › Pacotes › Tema), não do ficheiro do Hestia
+      if (tipo === 'cliente') (p as PacoteUtilizador).tema = (nome && s.temasPlano?.[nome]) || 'visualdesign';
+      return p;
+    })(),
   );
   const [novoNome, setNovoNome] = useState(nome || '');
   const [renomear, setRenomear] = useState(false);
+  // Pacotes de cliente: criam-se e gravam-se no servidor (antes: "Ainda não ligado ao servidor")
+  const gravarNoServidor = async (n: string) => {
+    if (nome && n !== nome) return toast(t('Mudar o nome de um pacote que já existe ainda não é possível: crie um novo com o nome que quer.'));
+    const pu = p as PacoteUtilizador;
+    const { feitas } = await noServidorDetalhe(
+      vh,
+      { acao: 'pacote-gravar', gravar: { nome: n, editar: !!nome, lim: pu.lim, feats: pu.feats } },
+      () => (nome ? 'Pacote ' + n + ' gravado' : 'Pacote ' + n + ' criado'),
+    );
+    if (!feitas.length) return;
+    await fetch('/api/vhost/acessos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ temas: { [n]: pu.tema } }) }).catch(() => {});
+    nav(base);
+  };
   const gravar = () => {
     const n = novoNome.trim();
     if (!n) return toast('Escreva o nome do pacote');
     if (n !== nome && fonte[n]) return toast('Já existe um pacote com esse nome');
+    if (tipo === 'cliente') return void gravarNoServidor(n);
     updateDb((db, acc) => {
-      const dst = (tipo === 'cliente' ? db.pkgs : db.rpkgs) as Record<string, PacoteUtilizador | PacoteRevenda>;
+      const dst = db.rpkgs as Record<string, PacoteUtilizador | PacoteRevenda>;
       if (nome && n !== nome) {
         delete dst[nome];
         for (const a of Object.values(acc)) if (a.pkg === nome) a.pkg = n;

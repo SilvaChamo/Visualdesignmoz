@@ -23,7 +23,11 @@ const todasLiberadas = () => process.env.VHOST_ACOES_TODAS === '1';
 const conta_ok = (u: string) => /^[a-z][a-z0-9_-]{2,30}$/.test(u);
 
 type Corpo = {
-  acao: 'suspender' | 'reativar' | 'apagar' | 'pacote' | 'senha' | 'criar' | 'mover' | 'tipo';
+  acao: 'suspender' | 'reativar' | 'apagar' | 'pacote' | 'senha' | 'criar' | 'mover' | 'tipo' | 'pacote-gravar' | 'pacote-apagar';
+  /** pacote-gravar: limites e funcionalidades do formulário (como em paginas/pacotes.tsx); editar = o pacote já existe */
+  gravar?: { nome: string; editar?: boolean; lim: Record<string, { v: string; unl: boolean; unit?: string }>; feats: Record<string, boolean> };
+  /** pacote-apagar */
+  pacotes?: string[];
   contas?: string[];
   pacote?: string;
   senha?: string;
@@ -90,6 +94,32 @@ export async function POST(req: NextRequest) {
     if (r.ok) feitas.push(u);
     else falhas.push({ conta: u, erro: r.error || 'o servidor recusou' });
   };
+
+  // Pacotes de cliente no servidor (Admin › Pacotes): criar, editar e apagar — só o administrador
+  if (corpo.acao === 'pacote-gravar' || corpo.acao === 'pacote-apagar') {
+    if (!admin) return NextResponse.json({ erro: 'Só o administrador cria, edita ou apaga pacotes.' }, { status: 403 });
+    if (corpo.acao === 'pacote-apagar') {
+      for (const n of corpo.pacotes || []) {
+        const nome = String(n);
+        const usam = Object.entries(srv.users).filter(([, x]) => x.PACKAGE === nome).map(([u]) => u);
+        if (usam.length) {
+          falhas.push({ conta: nome, erro: 'em uso por ' + usam.join(', ') });
+          continue;
+        }
+        const r = await hestia.apagarPacote(nome);
+        if (r.ok) feitas.push(nome);
+        else falhas.push({ conta: nome, erro: r.error || 'o servidor recusou' });
+      }
+    } else {
+      const g = corpo.gravar;
+      if (!g?.nome) return NextResponse.json({ erro: 'Escreva o nome do pacote.' }, { status: 400 });
+      const r = await hestia.gravarPacote(String(g.nome), camposHestia(g.lim || {}, g.feats || {}), g.editar === true);
+      if (r.ok) feitas.push(String(g.nome));
+      else falhas.push({ conta: String(g.nome), erro: r.error || 'o servidor recusou' });
+    }
+    if (feitas.length) esquecerLeitura();
+    return NextResponse.json({ feitas, falhas }, { status: falhas.length && !feitas.length ? 400 : 200 });
+  }
 
   const contas = (corpo.contas || []).map((u) => String(u).trim().toLowerCase()).filter(Boolean);
   switch (corpo.acao) {
@@ -248,4 +278,30 @@ export async function POST(req: NextRequest) {
 
   if (feitas.length) esquecerLeitura();
   return NextResponse.json({ feitas, falhas }, { status: feitas.length || !falhas.length ? 200 : 400 });
+}
+
+/** Limites e funcionalidades do formulário de pacotes → campos do ficheiro do pacote no Hestia */
+function camposHestia(lim: Record<string, { v: string; unl: boolean; unit?: string }>, feats: Record<string, boolean>): Record<string, string> {
+  const val = (k: string, mb = false): string | undefined => {
+    const l = lim[k];
+    if (!l) return undefined;
+    if (l.unl) return 'unlimited';
+    const n = Math.max(0, Math.floor(Number(l.v) || 0));
+    if (!mb) return String(n);
+    return String(l.unit === 'TB' ? n * 1024 * 1024 : l.unit === 'GB' ? n * 1024 : n);
+  };
+  const c: Record<string, string | undefined> = {
+    DISK_QUOTA: val('disk', true),
+    BANDWIDTH: val('bw', true),
+    WEB_DOMAINS: val('domains'),
+    WEB_ALIASES: val('pointers'),
+    MAIL_ACCOUNTS: val('emails'),
+    DATABASES: val('mysql'),
+    CRON_JOBS: feats.cron === false ? '0' : 'unlimited',
+    DNS_DOMAINS: feats.dns === false ? '0' : 'unlimited',
+    SHELL: feats.ssh ? 'bash' : 'nologin',
+  };
+  if (c.MAIL_ACCOUNTS === '0') c.MAIL_DOMAINS = '0';
+  else if (c.MAIL_ACCOUNTS) c.MAIL_DOMAINS = 'unlimited';
+  return Object.fromEntries(Object.entries(c).filter(([, v]) => v !== undefined)) as Record<string, string>;
 }

@@ -468,6 +468,8 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
   }, [commit]);
 
   const contaTema = st.stack.length ? meOf(st) : st.login;
+  /** a conta tem tema próprio guardado? (null = ainda não se sabe) */
+  const temaProprio = useRef<boolean | null>(null);
   const contaTemaImpersonada = st.stack.length > 0;
   useEffect(() => {
     if (st.carga !== 'ok' || !contaTema) return;
@@ -495,7 +497,10 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
         const atual = ref.current;
         const chaveAtual = (atual.stack.length ? 'conta:' : 'pessoa:') + (atual.stack.length ? meOf(atual) : atual.login);
         if (chaveAtual !== chave) return;
-        commit({ ...atual, ...(dados.preferencias || padrao), themePreview: null });
+        temaProprio.current = !!dados.preferencias;
+        // sem tema próprio, o tema do plano da conta (Admin › Pacotes › Tema); senão o de origem
+        const doPlano = atual.temasPlano?.[acctOf(atual).pkg];
+        commit({ ...atual, ...(dados.preferencias || (doPlano ? { ...padrao, colorPreset: doPlano } : padrao)), themePreview: null });
       })
       .catch((erro: unknown) => {
         if (!ativo) return;
@@ -632,8 +637,13 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
     if (!me) return;
     fetch('/api/vhost/acessos', { cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : null))
-      .then((j: { acessos?: Record<string, string[]> } | null) => {
-        if (j?.acessos) commit({ ...ref.current, acessos: j.acessos });
+      .then((j: { acessos?: Record<string, string[]>; temas?: Record<string, string> } | null) => {
+        if (!j) return;
+        const cur = ref.current;
+        const temasPlano = j.temas || {};
+        // sem tema próprio guardado, a conta fica com o tema do seu plano (Admin › Pacotes › Tema)
+        const doPlano = temaProprio.current === false ? temasPlano[acctOf(cur).pkg] : '';
+        commit({ ...cur, acessos: j.acessos || {}, temasPlano, ...(doPlano ? { colorPreset: doPlano } : {}) });
       })
       .catch(() => {});
   }, [me, commit]);
@@ -1278,7 +1288,8 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
 
         {/* Barra de baixo (só no telemóvel) */}
         <nav className="tabbar" id="tabbar">
-          {[...TABBAR[level], ['mais', 'fa-bars', 'Mais'] as [string, string, string]].map(([id, fa, label]) => (
+          {/* sem o Início: a casa já está na faixa por baixo da barra de cima (Silva, 16/10/2026) */}
+          {[...TABBAR[level].filter(([id]) => id !== 'inicio'), ['mais', 'fa-bars', 'Mais'] as [string, string, string]].map(([id, fa, label]) => (
             <a key={id} className={s.page === id ? 'on' : ''} onClick={() => (id === 'mais' ? setModal(<MoreMenuModal />) : go(id))}>
               <i className={'fa-solid ' + fa} />
               {t(label)}
