@@ -1,8 +1,9 @@
 name: "Ops - Estado de host:2026 e community (só leitura)"
 
 # Silva, 16/10/2026: confirmar o que já está a funcionar — para onde apontam
-# host.visualdesignmoz.com e community.oshercollective.com e o que respondem.
-# Só leitura (DNS público + pedidos HTTPS).
+# host.visualdesignmoz.com e community.oshercollective.com e o que respondem; o que
+# o Contabo responde em host.visualdesignmoz.com (portas 443 e 2026); e o valor
+# anterior do registo host (registo de alterações da Cloudflare). Só leitura.
 
 on:
   workflow_dispatch:
@@ -16,13 +17,30 @@ jobs:
   estado:
     runs-on: ubuntu-latest
     steps:
-      - run: |
+      - env:
+          CF_EMAIL: ${{ secrets.CLOUDFLARE_EMAIL }}
+          CF_KEY: ${{ secrets.CLOUDFLARE_GLOBAL_API_KEY }}
+          CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
           set +e
-          for n in host.visualdesignmoz.com community.oshercollective.com visualdesignmoz.com; do
+          H=host.visualdesignmoz.com
+          CT=169.58.148.144
+          for n in $H community.oshercollective.com visualdesignmoz.com; do
             echo "$n -> $(dig +short A $n @1.1.1.1 | tr '\n' ' ')"
           done
           echo
-          echo "--- https://host.visualdesignmoz.com:2026/evo/ ---"
-          curl -sS -o /dev/null -D - --max-time 15 https://host.visualdesignmoz.com:2026/evo/ 2>&1 | grep -i -E '^HTTP|^location|^server'
-          echo "--- https://community.oshercollective.com/join ---"
-          curl -sS -o /dev/null -D - --max-time 15 https://community.oshercollective.com/join 2>&1 | grep -i -E '^HTTP|^server|^x-vercel-id'
+          echo "===== o Contabo ($CT) a responder como $H ====="
+          for u in "https://$H:2026/evo/" "https://$H/evo/" "https://$H/"; do
+            p=$(echo "$u" | grep -o ':2026' || echo ':443'); p=${p#:}
+            echo "--- $u ---"
+            curl -sS -o /dev/null -D - --max-time 15 --resolve "$H:$p:$CT" "$u" 2>&1 | grep -i -E '^HTTP|^location|^server|curl'
+          done
+          echo "--- certificado em $CT:2026 ---"
+          echo | timeout 10 openssl s_client -connect $CT:2026 -servername $H 2>/dev/null | openssl x509 -noout -subject -enddate
+          echo
+          echo "===== alterações de hoje ao registo $H (Cloudflare) ====="
+          curl -s -H "X-Auth-Email: $CF_EMAIL" -H "X-Auth-Key: $CF_KEY" \
+            "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT/audit_logs?since=2026-10-13T00:00:00Z&per_page=100" \
+            | jq -r '.result[]? | select((.metadata.dns_name // .resource.id // "" | tostring | test("host\\.visualdesignmoz"))
+                       or ((.oldValueJson // {} | tostring) | test("host\\.visualdesignmoz")) or ((.newValueJson // {} | tostring) | test("host\\.visualdesignmoz")))
+                     | "\(.when)  \(.action.type)  antes=\(.oldValueJson.content // "-")  depois=\(.newValueJson.content // "-")"' 2>&1 | head -10
