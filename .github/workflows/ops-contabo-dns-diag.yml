@@ -1,0 +1,89 @@
+name: "Ops - Diagnostico DNS do Contabo (ns1..ns4) (SO LEITURA)"
+
+# ============================================================================
+# SO LEITURA. Nenhum comando altera nada. Objectivo: perceber porque os
+# ns1..ns4.visualdesignmoz.com (todos em 169.58.148.144) respondem REFUSED a
+# todas as zonas (ver ops-check-visualdesign-ns.yml, 2026-10-16).
+# Nao imprime chaves (rndc.key, TSIG) nem passwords.
+# ============================================================================
+
+on:
+  push:
+    branches: [claude/jolly-cori-xcyriq]
+    paths: ['.github/workflows/ops-contabo-dns-diag.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contabo:
+    name: contabo dns (so leitura)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: "Servico DNS, zonas carregadas, Hestia e firewall"
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          username: root
+          password: ${{ secrets.CONTABO_ROOT_PASSWORD }}
+          command_timeout: 10m
+          script: |
+            set +e
+            HB=/usr/local/hestia/bin
+            echo "===== quem escuta na porta 53 ====="
+            ss -lunpt 2>/dev/null | grep -E ':53\b'
+            echo
+            echo "===== estado do bind9/named ====="
+            for s in bind9 named; do systemctl is-active $s 2>&1 | sed "s/^/$s: /"; systemctl is-enabled $s 2>&1 | sed "s/^/$s enabled: /"; done
+            systemctl status bind9 named --no-pager 2>&1 | head -25
+            echo
+            echo "===== named.conf.options (sem chaves) ====="
+            grep -v -i -E 'secret|key ' /etc/bind/named.conf.options 2>&1
+            echo
+            echo "===== zonas declaradas no named.conf ====="
+            grep -c '^zone' /etc/bind/named.conf 2>&1 | sed 's/^/total de zonas: /'
+            grep -n '^zone\|^include' /etc/bind/named.conf 2>&1 | head -60
+            echo
+            echo "===== named-checkconf ====="
+            named-checkconf 2>&1 | tail -20; echo "exit=$?"
+            echo
+            echo "===== Hestia: configuracao DNS ====="
+            grep -E '^(DNS_SYSTEM|DNS_CLUSTER|DNS_CLUSTER_SYSTEM|WEB_SYSTEM|MAIL_SYSTEM|FIREWALL_SYSTEM)=' /usr/local/hestia/conf/hestia.conf 2>&1
+            echo
+            echo "===== Hestia: utilizadores, dominios web e dominios DNS ====="
+            for u in $($HB/v-list-users plain 2>/dev/null | cut -f1); do
+              web=$($HB/v-list-web-domains "$u" plain 2>/dev/null | cut -f1 | tr '\n' ' ')
+              dns=$($HB/v-list-dns-domains "$u" plain 2>/dev/null | cut -f1 | tr '\n' ' ')
+              pkg=$($HB/v-list-user "$u" plain 2>/dev/null | cut -f4)
+              echo "$u (pacote: $pkg)"
+              echo "   web: ${web:-nenhum}"
+              echo "   dns: ${dns:-nenhum}"
+            done
+            echo
+            echo "===== Hestia: pacotes (limite DNS_DOMAINS / DNS_TEMPLATE) ====="
+            for p in $($HB/v-list-user-packages plain 2>/dev/null | cut -f1); do
+              echo "$p: $(grep -E '^(DNS_DOMAINS|DNS_RECORDS|DNS_TEMPLATE)=' /usr/local/hestia/data/packages/$p.pkg 2>/dev/null | tr '\n' ' ')"
+            done
+            echo
+            echo "===== ficheiros de zona existentes ====="
+            ls -la /home/*/conf/dns/ 2>&1 | head -40
+            echo
+            echo "===== firewall (regras DNS) ====="
+            $HB/v-list-firewall plain 2>/dev/null | grep -i -E 'dns|53'
+            iptables -S 2>/dev/null | grep -E 'dport 53|domain' | head -10
+            echo
+            echo "===== consultas locais ao proprio servidor ====="
+            IP=$(hostname -I | awk '{print $1}')
+            echo "IP local: $IP"
+            for d in visualdesignmoz.com oshercollective.com provisualcorporate.co.mz; do
+              echo -n "$d @127.0.0.1: "; dig +norec +time=2 +tries=1 SOA $d @127.0.0.1 2>&1 | grep -E 'status:|flags:' | tr '\n' ' '; echo
+              echo -n "$d @$IP: "; dig +norec +time=2 +tries=1 SOA $d @$IP 2>&1 | grep -E 'status:|flags:' | tr '\n' ' '; echo
+            done
+            echo
+            echo "===== log do bind (ultimas 2 semanas, 40 linhas) ====="
+            journalctl -u bind9 -u named --since "-14 days" --no-pager 2>&1 | grep -v -i 'query' | tail -40
+            echo
+            echo "===== log do Hestia sobre DNS (ultimas 30) ====="
+            grep -i -E 'dns' /usr/local/hestia/log/system.log 2>/dev/null | tail -30
