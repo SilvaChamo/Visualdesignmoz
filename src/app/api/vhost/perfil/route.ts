@@ -12,7 +12,9 @@ export const dynamic = 'force-dynamic';
  *                           revendedor dela), só para ler — os dados mudam-se em "Editar dados" (/api/vhost/cliente)
  * POST { acao: 'dados', … } nome, telefone, empresa, morada, cidade, site, NUIT
  * POST { acao: 'avisos', limite, seguranca }
- * A palavra-passe, as sessões e o e-mail de entrada mudam-se no navegador (Supabase Auth, com a sessão da pessoa).
+ * POST { acao: 'senha', nova } nova palavra-passe de entrada da pessoa com sessão, sem pedir a antiga (Silva, 16/10/2026:
+ *                           o cliente pode esquecer a antiga e não conseguir trocar; a sessão aberta já o identifica)
+ * As sessões e o e-mail de entrada mudam-se no navegador (Supabase Auth, com a sessão da pessoa).
  */
 const CAMPOS = ['name', 'telefone', 'empresa', 'morada', 'cidade', 'site', 'nuit'] as const;
 
@@ -63,6 +65,14 @@ export async function POST(req: NextRequest) {
     const meta = { ...(u?.user?.user_metadata || {}), vh_avisos: { limite: !!c.limite, seguranca: !!c.seguranca } };
     const { error } = await q.sb.auth.admin.updateUserById(q.uid, { user_metadata: meta });
     return error ? NextResponse.json({ erro: 'Não foi possível guardar.' }, { status: 500 }) : NextResponse.json({ ok: true });
+  }
+  if (c.acao === 'senha') {
+    const nova = typeof c.nova === 'string' ? c.nova : '';
+    // as mesmas regras que o formulário mostra
+    if (nova.length < 8 || nova.length > 72 || !/[a-z]/.test(nova) || !/[A-Z]/.test(nova) || !/\d/.test(nova))
+      return NextResponse.json({ erro: 'A nova palavra-passe não cumpre as regras.' }, { status: 400 });
+    const { error } = await q.sb.auth.admin.updateUserById(q.uid, { password: nova });
+    return error ? NextResponse.json({ erro: 'Não foi possível mudar a palavra-passe.' }, { status: 500 }) : NextResponse.json({ ok: true });
   }
   return NextResponse.json({ erro: 'Ação desconhecida.' }, { status: 400 });
 }

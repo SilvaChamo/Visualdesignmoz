@@ -664,6 +664,28 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
       })
       .catch(() => {});
   }, [me, commit]);
+  // Contas ligadas (Admin › Gestão de contas): o painel aberto avisa o servidor a cada minuto, só com o separador visível
+  const conectado = st.carga === 'ok' && !!st.login;
+  useEffect(() => {
+    if (!conectado) return;
+    const avisar = () => {
+      if (document.visibilityState !== 'visible') return;
+      const cur = ref.current;
+      fetch('/api/vhost/presenca', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ aVer: cur.stack.length ? meOf(cur) : '', pagina: cur.path }),
+        keepalive: true,
+      }).catch(() => {});
+    };
+    avisar();
+    const id = setInterval(avisar, 60_000);
+    document.addEventListener('visibilitychange', avisar);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', avisar);
+    };
+  }, [conectado, me]);
   // ao abrir o painel (ou quando a conta fica conhecida): o domínio escolhido da última vez nesta conta
   useEffect(() => {
     if (!me || ref.current.dominio) return;
@@ -1306,7 +1328,8 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
         {/* Barra de baixo (só no telemóvel) */}
         <nav className="tabbar" id="tabbar">
           {/* sem o Início: a casa já está na faixa por baixo da barra de cima (Silva, 16/10/2026) */}
-          {[...TABBAR[level].filter(([id]) => id !== 'inicio'), ['mais', 'fa-bars', 'Mais'] as [string, string, string]].map(([id, fa, label]) => (
+          {/* só as páginas que o plano da conta deixa ver (Admin › Acessos por plano) */}
+          {[...TABBAR[level].filter(([id]) => id !== 'inicio' && vh.hasFeat(findItem(level, id)?.feat, id)), ['mais', 'fa-bars', 'Mais'] as [string, string, string]].map(([id, fa, label]) => (
             <a key={id} className={s.page === id ? 'on' : ''} onClick={() => (id === 'mais' ? setModal(<MoreMenuModal />) : go(id))}>
               <i className={'fa-solid ' + fa} />
               {t(label)}

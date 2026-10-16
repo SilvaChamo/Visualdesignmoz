@@ -3,72 +3,97 @@
 // Admin › Acessos por plano (pedido do Silva, 15/10/2026): para cada plano, o que os clientes vêem na barra lateral da
 // Gestão. Um cliente com um plano de profissional deixava de ver, por ex., a edição de domínios só desligando aqui.
 // Guardado no servidor (/api/vhost/acessos); administradores e revendedores vêem sempre tudo.
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useVH, type VH } from "../context";
 import { MENU } from "../generated/data";
+import { isUser } from "../state";
 import type { ScreenFn } from "../screens";
 import { Check, Frm } from "./componentes";
 
 function AcessosPlanos({ plano }: { plano: string }) {
   const { s, t, toast, setAcessos } = useVH();
+  // Cada caixa grava logo no servidor (Silva, 16/10/2026): com o "Guardar" no fundo da página, mudar de plano ou de
+  // página sem gravar perdia as escolhas sem aviso — os acessos do VD-Host-Basico nunca chegaram ao servidor.
   const [rascunho, setRascunho] = useState<Record<string, string[]>>(() =>
     structuredClone(s.acessos || {}),
   );
-  const [aGravar, setAGravar] = useState(false);
-  const [mexido, setMexido] = useState(false);
-  // os acessos guardados chegam do servidor depois de a página abrir: mostra-os enquanto nada foi mexido aqui
+  const ultimo = useRef(rascunho);
+  const pedido = useRef(0);
+  const [estado, setEstado] = useState<"" | "a-gravar" | "gravado" | "erro">("");
+  // os acessos guardados chegam do servidor depois de a página abrir: mostra-os enquanto nada está a gravar
   useEffect(() => {
-    if (!mexido) setRascunho(structuredClone(s.acessos || {}));
-  }, [s.acessos, mexido]);
+    if (estado === "a-gravar") return;
+    const n = structuredClone(s.acessos || {});
+    ultimo.current = n;
+    setRascunho(n);
+  }, [s.acessos]); // eslint-disable-line react-hooks/exhaustive-deps
   const escondidos = rascunho[plano] || [];
-  const mudar = (id: string, ver: boolean) => {
-    setMexido(true);
-    setRascunho((r) => ({
-      ...r,
-      [plano]: ver
-        ? (r[plano] || []).filter((x) => x !== id)
-        : [...new Set([...(r[plano] || []), id])],
-    }));
-  };
-  // o menu pai inteiro: desligar esconde todas as páginas dele (sem nenhuma, a barra lateral nem mostra o menu)
-  const mudarGrupo = (ids: string[], ver: boolean) => {
-    setMexido(true);
-    setRascunho((r) => ({
-      ...r,
-      [plano]: ver
-        ? (r[plano] || []).filter((x) => !ids.includes(x))
-        : [...new Set([...(r[plano] || []), ...ids])],
-    }));
-  };
-  const grupos = MENU.utilizador.filter(([g]) => g !== "Início");
-  const gravar = async () => {
-    setAGravar(true);
+  const gravar = async (novo: Record<string, string[]>) => {
+    const n = ++pedido.current;
+    setEstado("a-gravar");
     try {
       const r = await fetch("/api/vhost/acessos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ acessos: rascunho }),
+        body: JSON.stringify({ acessos: novo }),
       });
       const j = (await r.json().catch(() => ({}))) as {
         erro?: string;
         acessos?: Record<string, string[]>;
       };
-      if (!r.ok) return toast(j.erro || "Não foi possível gravar");
-      setAcessos(j.acessos || rascunho);
-      setMexido(false);
-      toast(t("Acessos gravados"));
+      // só a resposta do último clique conta (cliques seguidos: as respostas podem chegar fora de ordem)
+      if (n !== pedido.current) return;
+      if (!r.ok) {
+        setEstado("erro");
+        return toast(j.erro || "Não foi possível gravar");
+      }
+      setEstado("gravado");
+      setAcessos(j.acessos || novo);
     } catch {
+      if (n !== pedido.current) return;
+      setEstado("erro");
       toast("Sem ligação ao site. Nada foi gravado.");
-    } finally {
-      setAGravar(false);
     }
   };
+  const aplicar = (fn: (lista: string[]) => string[]) => {
+    const novo = { ...ultimo.current, [plano]: fn(ultimo.current[plano] || []) };
+    ultimo.current = novo;
+    setRascunho(novo);
+    void gravar(novo);
+  };
+  const mudar = (id: string, ver: boolean) =>
+    aplicar((l) => (ver ? l.filter((x) => x !== id) : [...new Set([...l, id])]));
+  // o menu pai inteiro: desligar esconde todas as páginas dele (sem nenhuma, a barra lateral nem mostra o menu)
+  const mudarGrupo = (ids: string[], ver: boolean) =>
+    aplicar((l) => (ver ? l.filter((x) => !ids.includes(x)) : [...new Set([...l, ...ids])]));
+  const grupos = MENU.utilizador.filter(([g]) => g !== "Início");
   if (!plano)
     return (
       <div className="empty card">{t("Ainda não há planos no servidor")}</div>
     );
+  // quem está neste plano: os dois "Básico" (VD-Host-Basico e VD-Email-Basico) confundiam-se e os acessos ficavam
+  // gravados no plano errado (Silva, 16/10/2026)
+  const contasDoPlano = Object.entries(s.acc)
+    .filter(([, a]) => isUser(a.role) && (a.pkg === plano || a.hpkg === plano))
+    .map(([u, a]) => (a.name && a.name !== u ? `${a.name} (${u})` : u));
   return (
     <>
+      <div className="note" style={{ marginBottom: 14 }}>
+        <i className="fa-solid fa-circle-info" style={{ color: "var(--red)" }} />{" "}
+        {contasDoPlano.length
+          ? t("Clientes neste plano ({0}): ").replace("{0}", plano) + contasDoPlano.join(", ")
+          : t("Nenhum cliente usa o plano {0}: estas escolhas ainda não escondem nada a ninguém.").replace("{0}", plano)}
+        <br />
+        <small style={{ color: "var(--muted)" }}>
+          {estado === "a-gravar"
+            ? t("A gravar…")
+            : estado === "gravado"
+              ? t("Gravado. Os clientes deste plano vêem a mudança ao abrir ou recarregar o painel.")
+              : estado === "erro"
+                ? t("A última mudança não foi gravada. Tente de novo.")
+                : t("Cada caixa grava logo, sem botão Guardar.")}
+        </small>
+      </div>
       <div>
         <div>
           {grupos.map(([g, itens]) => (
@@ -111,12 +136,6 @@ function AcessosPlanos({ plano }: { plano: string }) {
             </Frm>
           ))}
         </div>
-      </div>
-      <div className="acoes-topo">
-        <button className="btn r" disabled={aGravar} onClick={gravar}>
-          <i className="fa-solid fa-floppy-disk" />
-          {t("Guardar")}
-        </button>
       </div>
     </>
   );
