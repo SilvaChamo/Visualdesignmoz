@@ -33,6 +33,12 @@ export async function preCarregarDadosVhost(limiteMs = 30_000): Promise<boolean>
   }
 }
 
+/** Começa a leitura do servidor (sem esperar nem receber dados) — o login chama isto ao abrir, para a leitura que
+ *  preCarregarDadosVhost espera já estar feita, ou a meio, quando se carrega em "Entrar" */
+export function aquecerDadosVhost() {
+  fetch('/api/vhost/aquecer', { method: 'POST', cache: 'no-store' }).catch(() => {});
+}
+
 /** Por onde se entrou no painel (pedido do Silva, 13/10/2026): ao sair, quem entrou pelo login do site volta ao login do
  *  site; quem entrou pelo login do próprio painel volta ao login do painel */
 const ENTRADA_LS = 'vh-entrada';

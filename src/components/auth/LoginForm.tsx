@@ -8,7 +8,7 @@ import { auth } from '@/lib/supabase-client'
 import { useI18n } from '@/lib/i18n'
 import { googleOAuthUserMessage } from '@/lib/auth-messages'
 import { PUBLIC_PANEL_ENTRY } from '@/lib/panel-origin'
-import { marcarEntrada, preCarregarDadosVhost } from '@/lib/vhost-cache'
+import { aquecerDadosVhost, marcarEntrada, preCarregarDadosVhost } from '@/lib/vhost-cache'
 import type { UserRole } from '@/lib/user-roles'
 import { CampoFlutuante, OlhoSenha, botaoCls, botaoClaroCls, ligacaoCls, subtituloCls, tituloCls, formularioCls } from '@/components/auth/campos'
 import { authErrorBoxClass } from '@/components/auth/auth-styles'
@@ -35,6 +35,12 @@ function LoginFormInner() {
       setOauthError({ title, desc })
     }
   }, [searchParams])
+
+  // A leitura do servidor que o "A entrar…" espera (prefetchPanelData, abaixo) começa já, enquanto se escrevem as
+  // credenciais — antes só começava depois de a sessão abrir e, com a memória do servidor fria, demorava uma eternidade
+  useEffect(() => {
+    aquecerDadosVhost()
+  }, [])
 
   /** Lê os dados do painel ainda no ecrã de login (o botão fica em "A entrar…") e guarda-os no navegador: o painel
    * abre logo com o conteúdo, sem o ecrã branco com o círculo depois das credenciais (pedido do Silva, 13/10/2026 —

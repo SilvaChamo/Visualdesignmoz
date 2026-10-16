@@ -529,10 +529,22 @@ export function roleToPrefetchScope(role: UserRole): PanelBootstrapScope | null 
   return null;
 }
 
+/** Ecrãs do painel antigo — os únicos que usam o que esta fila guarda no navegador */
+const ECRAS_PAINEL_ANTIGO = ['/dashboard', '/cliente', '/revendedor'];
+
+function noPainelAntigo(): boolean {
+  const p = window.location.pathname;
+  return ECRAS_PAINEL_ANTIGO.some((e) => p === e || p.startsWith(`${e}/`));
+}
+
 /** No login: bootstrap + fila de prefetch por ordem do menu. */
 export async function prefetchPanelContentOnLogin(role: UserRole): Promise<void> {
   const scope = roleToPrefetchScope(role);
   if (!scope || typeof window === 'undefined') return;
+  // Só no painel antigo. Todos os papéis entram agora no VisualHost (/host:2026), que não usa nada disto: no ecrã de
+  // login esta fila (dois /api/panel/bootstrap e dezenas de leituras ao servidor) corria ao mesmo tempo que a leitura
+  // que o login espera (/api/vhost/dados) e atrasava a entrada; depois continuava a correr dentro do VisualHost
+  if (!noPainelAntigo()) return;
   try {
     const boot = await fetchPanelBootstrap({ fresh: false, scope });
     prefetchPanelContentFromBootstrap(boot, scope);
