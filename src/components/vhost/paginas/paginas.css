@@ -1570,3 +1570,30 @@
  .vh .acessos-grupo .frm-head>:first-child{width:100%;flex:none}
  .vh .acessos-itens{grid-template-columns:minmax(0,1fr);padding:12px 14px}
 }
+
+/* Janela no modelo do DirectAdmin (Silva, 16/10/2026 — "Edit Record" do DA): título com o X e a linha da cor do tema por
+   baixo, linhas com o nome à esquerda e o campo à direita, separadas por traços, e o rodapé em faixa com o botão à direita */
+.vh .modal:has(.da-janela){padding:0;max-width:560px;overflow:hidden auto}
+.vh .da-janela-cab{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 12px 14px 20px;border-bottom:2px solid var(--red)}
+.vh .da-janela-cab h3{font-size:16px;font-weight:700;margin:0}
+.vh .da-janela-x{background:none;border:0;color:var(--muted);font-size:18px;cursor:pointer;width:34px;height:34px;display:grid;place-items:center;border-radius:var(--r);flex:none}
+.vh .da-janela-x:hover{color:var(--ink);background:var(--hover)}
+.vh .da-janela .frm{border:0;border-radius:0;margin:0;background:transparent}
+.vh .da-janela .frm-row{grid-template-columns:150px minmax(0,1fr);padding:12px 20px}
+.vh .da-janela .frm-row:first-child{border-top:0}
+.vh .da-janela .frm-foot{padding:14px 20px;border-radius:0}
+.vh .da-janela .frm-row.da-sem-nome{border-top:0;padding-top:2px}
+/* nome do registo com a zona à direita (nunca cortada: se não couber, passa à linha de baixo dentro da caixa) */
+.vh .da-nome input{height:auto;min-height:36px;min-width:90px}
+.vh .da-sufixo{display:flex;align-items:center;min-height:36px;padding:4px 12px;border:1px solid var(--line);background:var(--soft);color:var(--ink);font-size:13.5px;min-width:0;flex:0 1 auto;overflow-wrap:anywhere}
+.vh .da-conta{color:var(--muted);margin-left:2px}
+.vh .da-txt{display:flex;flex-direction:column;gap:8px;width:100%;min-width:0}
+.vh .da-txt-linha{display:flex;gap:6px;align-items:flex-start}
+.vh .da-txt .dns-txt-area{flex:1;width:100%;min-height:68px;font-family:ui-monospace,Menlo,monospace;font-size:13px;word-break:break-all}
+.vh .da-txt>.btn{align-self:flex-start}
+@media(max-width:768px){
+ .vh .da-janela .frm-row{grid-template-columns:1fr;gap:6px;padding:10px 16px}
+ .vh .da-janela .frm-row.da-sem-nome>.frm-lb{display:none}
+ .vh .da-janela-cab{padding-left:16px}
+ .vh .da-janela .frm-foot{padding:12px 16px}
+}
