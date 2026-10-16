@@ -1076,6 +1076,8 @@
 @keyframes ent-arco{0%{stroke-dasharray:25 75;stroke-dashoffset:0}50%{stroke-dasharray:75 25;stroke-dashoffset:0}100%{stroke-dasharray:25 75;stroke-dashoffset:-100}}
 /* depois de entrar: página da roda sempre com o fundo branco, seja qual for o tema (pedido do Silva) */
 .vh .ent-espera{position:fixed;inset:0;display:grid;place-items:center;background:#fff}
+/* ao recarregar, se a página vier sem dados (sem roda): o fundo do tema da conta — nunca um clarão branco no escuro */
+.vh .ent-espera.sem-roda{background:var(--bg)}
 @media(max-width:560px){.vh .ent-cartao{padding:30px 22px 24px;border-radius:20px}.vh .ent-cima{gap:16px}}
 .vh .ent-voltar{display:inline-flex;align-items:center;flex-wrap:wrap;justify-content:center;gap:4px 6px;font-size:12.5px;color:color-mix(in srgb,var(--ink) 75%,transparent)}
 .vh[data-theme=dark] .ent-voltar{color:#d1d5db}

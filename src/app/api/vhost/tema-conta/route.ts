@@ -4,58 +4,12 @@ import { donoDaConta } from '@/lib/vhost-conta-cliente';
 import { requirePanelBootstrapAccess } from '@/lib/panel-api-auth';
 import { executeServerCommand } from '@/lib/server-ssh-exec';
 import { VHOST_DIR } from '@/lib/vhost-email-scripts';
+import { lerTema } from '@/lib/vhost-tema-conta';
 
 export const dynamic = 'force-dynamic';
 
-type TemaConta = {
-  theme: 'light' | 'dark';
-  colorPreset: string;
-  customPrimary: string;
-  themeOver: Record<string, Record<string, string>>;
-  radius: string;
-  brand: { name: string; logo: string };
-};
-
-const HEX = /^#[0-9a-f]{6}$/i;
-const PRESET = /^[a-z0-9_-]{1,40}$/i;
-const CORES = ['primary', 'safe', 'danger', 'warning', 'railBg', 'railInk', 'botoes'];
 const b64 = (value: string) => Buffer.from(value, 'utf8').toString('base64');
 const quote = (value: string) => `'${value.replace(/'/g, "'\\''")}'`;
-
-function lerTema(valor: unknown): TemaConta | null {
-  if (!valor || typeof valor !== 'object' || Array.isArray(valor)) return null;
-  const v = valor as Record<string, unknown>;
-  if (v.theme !== 'light' && v.theme !== 'dark') return null;
-  if (typeof v.colorPreset !== 'string' || !PRESET.test(v.colorPreset)) return null;
-  if (typeof v.customPrimary !== 'string' || (v.customPrimary && !HEX.test(v.customPrimary))) return null;
-  if (typeof v.radius !== 'string' || !/^\d{1,2}px$/.test(v.radius)) return null;
-  if (!v.brand || typeof v.brand !== 'object' || Array.isArray(v.brand)) return null;
-  const brand = v.brand as Record<string, unknown>;
-  if (typeof brand.name !== 'string' || brand.name.length > 120) return null;
-  if (typeof brand.logo !== 'string' || brand.logo.length > 300_000) return null;
-
-  const themeOver: TemaConta['themeOver'] = {};
-  if (v.themeOver && typeof v.themeOver === 'object' && !Array.isArray(v.themeOver)) {
-    for (const [preset, values] of Object.entries(v.themeOver as Record<string, unknown>)) {
-      if (!PRESET.test(preset) || !values || typeof values !== 'object' || Array.isArray(values)) continue;
-      const cores = Object.fromEntries(
-        Object.entries(values as Record<string, unknown>).filter(
-          ([key, color]) => CORES.includes(key) && typeof color === 'string' && HEX.test(color),
-        ),
-      ) as Record<string, string>;
-      if (Object.keys(cores).length) themeOver[preset] = cores;
-    }
-  }
-
-  return {
-    theme: v.theme,
-    colorPreset: v.colorPreset,
-    customPrimary: v.customPrimary.toUpperCase(),
-    themeOver,
-    radius: v.radius,
-    brand: { name: brand.name, logo: brand.logo },
-  };
-}
 
 async function contaAlvo(conta: string | null) {
   const auth = await requirePanelBootstrapAccess();
