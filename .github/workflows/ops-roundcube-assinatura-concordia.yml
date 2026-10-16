@@ -1,0 +1,124 @@
+name: "Ops - Contabo: assinatura do Roundcube não aparece ao escrever (concordia.co.mz)"
+# Autorizado pelo Silva a 16/10/2026 ("a assinatura colocada no roundcube não é anexada na mensagem. corrija isso";
+# sintoma: "não aparece ao escrever"; "Sim, diagnosticar e corrigir").
+# Causa provável: o Roundcube escreve por defeito em texto simples (htmleditor=0) e, nesse modo, uma assinatura
+# HTML só com imagem fica vazia. 1) diagnóstico; 2) config: htmleditor=1 e show_sig=1 (cópia antes; repõe se o
+# webmail deixar de abrir); 3) só nas caixas @concordia.co.mz: preferências guardadas que contrariem isso passam a
+# 1 (cópia das preferências antes); 4) diagnóstico de novo. Endereços saem mascarados; assinaturas não são impressas.
+on:
+  push:
+    branches: [claude/blissful-keller-3p5eyp]
+    paths: ['.github/workflows/ops-roundcube-assinatura-concordia.yml']
+jobs:
+  contabo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          username: root
+          key: ${{ secrets.CONTABO_SSH_KEY }}
+          command_timeout: 10m
+          script: |
+            set +e
+            # o ficheiro que o Roundcube lê de facto (INSTALL_PATH/config costuma ser ligação para /etc/roundcube)
+            ls -la /var/lib/roundcube/config 2>&1 | head -3
+            C=$(readlink -f /var/lib/roundcube/config/config.inc.php 2>/dev/null); [ -f "$C" ] || C=/etc/roundcube/config.inc.php
+            echo "config em uso: $C"
+            B=/root/roundcube-copias; mkdir -p $B
+            T=$(date +%Y%m%d%H%M%S)
+            touch /tmp/vd-rc-inicio.$T
+            # corre como o utilizador do webmail (não root), para não deixar logs do Roundcube com dono root
+            RC() { runuser -u hestiamail -- php /tmp/vd-rc-assinatura.php "$@" || { echo "(runuser falhou — a correr como root)"; php /tmp/vd-rc-assinatura.php "$@"; }; }
+            cat > /tmp/vd-rc-assinatura.php <<'PHP'
+            <?php
+            // Diagnóstico (e, com --aplicar, correcção) das preferências/assinaturas das caixas @concordia.co.mz.
+            define('INSTALL_PATH', '/var/lib/roundcube/');
+            require_once INSTALL_PATH . 'program/include/clisetup.php';
+            $aplicar = in_array('--aplicar', $argv);
+            $backup = $argv[2] ?? '';
+            $rc = rcube::get_instance();
+            $cfg = $rc->config;
+            echo "Roundcube " . (defined('RCMAIL_VERSION') ? RCMAIL_VERSION : '?') . "\n";
+            foreach (['htmleditor', 'show_sig', 'sig_below', 'sig_separator', 'dont_override'] as $k) {
+                echo "  config $k = " . json_encode($cfg->get($k)) . "\n";
+            }
+            $db = $rc->get_dbh();
+            $db->db_connect('w');
+            if (!$db->is_connected()) { echo "!! sem ligação à base de dados do Roundcube\n"; exit(1); }
+            $m = function ($e) { [$l, $d] = array_pad(explode('@', (string) $e, 2), 2, ''); return substr($l, 0, 3) . '***@' . $d; };
+            $users = [];
+            $res = $db->query('SELECT user_id, username, last_login, preferences FROM ' . $db->table_name('users', true) . ' WHERE username LIKE ? ORDER BY user_id', '%@concordia.co.mz');
+            while ($res && ($u = $db->fetch_assoc($res))) $users[] = $u;
+            echo "caixas @concordia.co.mz com conta no Roundcube: " . count($users) . "\n";
+            $copia = [];
+            foreach ($users as $u) {
+                $prefs = @unserialize((string) $u['preferences']);
+                $ok = is_array($prefs);
+                $p = $ok ? $prefs : [];
+                $v = function ($k) use ($p) { return array_key_exists($k, $p) ? json_encode($p[$k]) : '(defeito)'; };
+                echo "- #{$u['user_id']} " . $m($u['username']) . " último login {$u['last_login']} | htmleditor=" . $v('htmleditor') . " show_sig=" . $v('show_sig') . " sig_below=" . $v('sig_below') . ($ok ? '' : ' !! preferências ilegíveis') . "\n";
+                $ids = $db->query('SELECT identity_id, email, standard, del, html_signature, signature FROM ' . $db->table_name('identities', true) . ' WHERE user_id = ? ORDER BY identity_id', $u['user_id']);
+                while ($ids && ($i = $db->fetch_assoc($ids))) {
+                    $sig = (string) $i['signature'];
+                    preg_match_all('/<img\b[^>]*\bsrc\s*=\s*["\']?\s*([a-z]+:)?/i', $sig, $mm);
+                    $tipos = implode(',', array_map(function ($s) { return $s ?: 'relativo'; }, $mm[1]));
+                    $txt = trim(preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($sig))));
+                    echo "    identidade #{$i['identity_id']} " . $m($i['email']) . " principal={$i['standard']} apagada={$i['del']} html={$i['html_signature']} tamanho=" . strlen($sig) . " imagens=" . count($mm[0]) . ($tipos ? " ($tipos)" : '') . " texto=" . mb_strlen($txt) . " car.\n";
+                }
+                if ($aplicar && $ok) {
+                    $mud = [];
+                    if (array_key_exists('htmleditor', $prefs) && (int) $prefs['htmleditor'] !== 1) { $prefs['htmleditor'] = 1; $mud[] = 'htmleditor->1'; }
+                    if (array_key_exists('show_sig', $prefs) && (int) $prefs['show_sig'] !== 1) { $prefs['show_sig'] = 1; $mud[] = 'show_sig->1'; }
+                    if ($mud) {
+                        $copia[$u['user_id']] = $u['preferences'];
+                        file_put_contents($backup, json_encode($copia, JSON_PRETTY_PRINT));
+                        $db->query('UPDATE ' . $db->table_name('users', true) . ' SET preferences = ? WHERE user_id = ?', serialize($prefs), $u['user_id']);
+                        echo "    APLICADO: " . implode(', ', $mud) . ($db->is_error() ? ' !! erro: ' . $db->is_error() : '') . "\n";
+                    }
+                }
+            }
+            PHP
+
+            chmod 644 /tmp/vd-rc-assinatura.php
+            echo "===== 1. DIAGNÓSTICO ====="
+            RC
+
+            echo "===== 2. CONFIG: escrever sempre em HTML e pôr sempre a assinatura ====="
+            IP=$(grep -ho 'proxy_pass http://[0-9.]*:8080' /home/concordia/conf/web/concordia.co.mz/nginx.conf_webmail | head -1 | sed 's|proxy_pass http://||;s|:8080||')
+            abre() { curl -sk --max-time 15 --resolve concordia.co.mz:443:$IP https://concordia.co.mz/webmail/ | grep -ci roundcube; }
+            BASE=$(abre); echo "concordia.co.mz/webmail antes: $BASE"
+            [ "$BASE" -gt 0 ] 2>/dev/null || { echo "PARADO: não consigo confirmar que o webmail abre antes de mudar"; exit 1; }
+            cp -a $C $B/config.inc.php.$T && echo "cópia: $B/config.inc.php.$T"
+            cat > /root/vd-rc-config.php <<'PHP'
+            <?php
+            $f = $argv[1];
+            $s = file_get_contents($f);
+            if (strpos($s, 'VD-assinatura') !== false) { echo "já estava\n"; exit(0); }
+            $s = rtrim($s);
+            if (substr($s, -2) === '?>') $s = rtrim(substr($s, 0, -2));
+            $s .= "\n\n// VD-assinatura (Silva, 16/10/2026): escrever sempre em HTML e pôr sempre a assinatura ao escrever —\n"
+                . "// em texto simples (o defeito) as assinaturas com imagem ficavam vazias.\n"
+                . "\$config['htmleditor'] = 1;\n\$config['show_sig'] = 1;\n";
+            file_put_contents($f, $s);
+            echo "acrescentado\n";
+            PHP
+            php /root/vd-rc-config.php "$C"
+            tail -5 $C
+            if php -l $C >/dev/null 2>&1 && [ "$(abre)" -gt 0 ]; then
+              echo "config válida; concordia.co.mz/webmail abre: $(abre)"
+            else
+              echo "!! config recusada ou webmail não abre — repor cópia"; cp -a $B/config.inc.php.$T $C
+              echo "webmail depois de repor: $(abre)"; exit 1
+            fi
+
+            echo "===== 3. PREFERÊNCIAS GUARDADAS DAS CAIXAS @concordia.co.mz ====="
+            RC --aplicar /tmp/vd-rc-prefs.$T.json
+            if [ -f /tmp/vd-rc-prefs.$T.json ]; then mv /tmp/vd-rc-prefs.$T.json $B/preferencias-concordia.$T.json && echo "cópia das preferências: $B/preferencias-concordia.$T.json"; else echo "nenhuma preferência guardada precisava de mudar"; fi
+
+            echo "===== 4. CONFIRMAÇÃO ====="
+            RC
+            echo "webmail concordia.co.mz: $(abre) | visualdesignmoz.com: $(curl -sk --max-time 15 --resolve visualdesignmoz.com:443:$IP https://visualdesignmoz.com/webmail/ -L | grep -ci roundcube)"
+            find /var/log/roundcube /var/lib/roundcube/logs /var/lib/roundcube/temp -user root -newer /tmp/vd-rc-inicio.$T -exec chown hestiamail:www-data {} + 2>/dev/null
+            rm -f /tmp/vd-rc-assinatura.php /root/vd-rc-config.php /tmp/vd-rc-inicio.$T
+            echo "(fim)"
