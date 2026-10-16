@@ -22,10 +22,10 @@ jobs:
           set +e
           ZONE=visualdesignmoz.com
           NSS="ns1.$ZONE ns2.$ZONE ns3.$ZONE ns4.$ZONE"
-          SERVERS="37.27.17.25 169.58.148.144"   # Hetzner | Contabo conhecidos
+          SERVERS="169.58.148.144"   # Contabo (o Hetzner não responde a DNS)
           DOMS="visualdesignmoz.com aamihe.com mltmark.com basededadosagro.com provisualcorporate.co.mz \
                 oshercollective.com elimservicos.com lirandzojewelry.com msdn-moz.org msdnmoz.org \
-                shalomdeco.com entrecamposblog.com"
+                shalomdeco.com entrecamposblog.com concordia.co.mz menocrazy.app community.oshercollective.com"
           Q="+norec +time=3 +tries=1"
 
           # status + flags do cabeçalho do dig ("SEM-RESPOSTA" se deu timeout/recusou ligação)
@@ -80,6 +80,7 @@ jobs:
           for d in $DOMS; do
             tld=${d#*.}
             tldns=$(dig +short NS $tld @1.1.1.1 | head -1)
+            [ -z "$tldns" ] && tldns=$(dig +short NS ${tld#*.} @1.1.1.1 | head -1)
             parent=$(dig +norec NS $d @"$tldns" 2>&1 | awk '/AUTHORITY SECTION/{a=1;next} /^$/{a=0} a && $4=="NS"{print $5}' | tr '\n' ' ')
             echo "== $d"
             echo "   NS no registo ($tld): ${parent:-nada}"
@@ -96,3 +97,16 @@ jobs:
           for ns in $(dig +short NS $ZONE @1.1.1.1); do
             echo "@$ns (NS real da zona): $(dig $Q SOA $ZONE @$ns 2>&1 | serial)"
           done
+
+          echo
+          echo "################ 6. community.oshercollective.com (subdomínio da Osher) ################"
+          for cf in lauryn.ns.cloudflare.com donovan.ns.cloudflare.com; do
+            echo "-- @$cf (zona oshercollective.com na Cloudflare)"
+            dig +norec NS community.oshercollective.com @$cf | sed -n '/ANSWER SECTION/,/^$/p;/AUTHORITY SECTION/,/^$/p'
+            dig +norec A community.oshercollective.com @$cf | sed -n '/ANSWER SECTION/,/^$/p;/AUTHORITY SECTION/,/^$/p'
+            dig +norec CNAME community.oshercollective.com @$cf | sed -n '/ANSWER SECTION/,/^$/p'
+          done
+          echo "-- resolução pública (1.1.1.1 / 8.8.8.8)"
+          for r in 1.1.1.1 8.8.8.8; do echo "@$r: $(dig A community.oshercollective.com @$r 2>&1 | grep -E 'status:' | sed 's/.*status: //;s/,.*//') $(dig +short A community.oshercollective.com @$r | tr '\n' ' ')"; done
+          echo "-- HTTP"
+          curl -sSI --max-time 10 https://community.oshercollective.com/ 2>&1 | head -5
