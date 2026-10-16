@@ -1222,6 +1222,7 @@ function Dns() {
   const [editId, setEditId] = useState<string | null>(null);
   const [fEdit, setFEdit] = useState<{ nome: string; ttl: string; valor: string; prio: string }>({ nome: '', ttl: '3600', valor: '', prio: '10' });
   const [aGuardar, setAGuardar] = useState(false);
+  const [aMudarProxy, setAMudarProxy] = useState<string | null>(null);
 
   useEffect(() => {
     setEditId(null);
@@ -1256,6 +1257,19 @@ function Dns() {
   const cancelarEdicao = () => {
     setEditId(null);
     setAGuardar(false);
+  };
+
+  const mudarProxy = async (r: RegistoDns, ligar: boolean) => {
+    if (aMudarProxy) return;
+    setAMudarProxy(r.id);
+    const ok = await noServidor(
+      vh,
+      { acao: 'dns-proxy', dominio: x.name, id: r.id, tipo: r.tipo, nome: r.nome, valor: r.valor, ttl: r.ttl, proxied: ligar },
+      t(ligar ? 'Proxy ligado' : 'Proxy desligado'),
+      false,
+    );
+    setAMudarProxy(null);
+    if (ok) ler();
   };
 
   const guardarInline = async (r: RegistoDns) => {
@@ -1427,18 +1441,18 @@ function Dns() {
                     // no tablet sai, para a tabela caber no cartão (no telemóvel, em blocos, volta)
                     ate: 1050,
                     sort: (r: RegistoDns) => (r.proxied ? 1 : 0),
-                    cell: (r: RegistoDns) =>
-                      r.proxied ? (
-                        <span>
-                          <i className="fa-solid fa-cloud" style={{ color: '#f38020', marginRight: 6 }} />
-                          {t('Com proxy')}
-                        </span>
-                      ) : (
-                        <span style={{ color: 'var(--muted)' }}>
-                          <i className="fa-solid fa-cloud" style={{ marginRight: 6 }} />
-                          {t('Só DNS')}
-                        </span>
-                      ),
+                    cell: (r: RegistoDns) => {
+                      const pode = ['A', 'AAAA', 'CNAME'].includes(r.tipo) && !soLeitura(r);
+                      return (
+                        <label className={'dns-proxy' + (r.proxied ? ' on' : '') + (!pode ? ' disabled' : '')} title={pode ? t('Ligar ou desligar o proxy da Cloudflare') : undefined}>
+                          <span className="sw">
+                            <input type="checkbox" role="switch" checked={!!r.proxied} disabled={!pode || aMudarProxy !== null} onChange={(e) => mudarProxy(r, e.target.checked)} />
+                            <span aria-hidden="true" />
+                          </span>
+                          {t(r.proxied ? 'Com proxy' : 'Só DNS')}
+                        </label>
+                      );
+                    },
                   } as Col<RegistoDns>,
                 ]
               : []),

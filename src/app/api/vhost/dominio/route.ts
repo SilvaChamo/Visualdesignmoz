@@ -597,6 +597,18 @@ export async function POST(req: NextRequest) {
       if (x.ok) espelharNoServidor(zona);
       return resposta(x, false);
     }
+    case 'dns-proxy': {
+      const id = linhaLimpa(c.id);
+      const tipo = linhaLimpa(c.tipo).toUpperCase();
+      const nome = linhaLimpa(c.nome) || '@';
+      const valor = linhaLimpa(c.valor);
+      if (!id || !valor || typeof c.proxied !== 'boolean') return NextResponse.json({ erro: 'Registo inválido.' }, { status: 400 });
+      if (!['A', 'AAAA', 'CNAME'].includes(tipo)) return NextResponse.json({ erro: 'Só os registos A, AAAA e CNAME podem ter proxy.' }, { status: 400 });
+      const zona = zonaDe(d);
+      const zid = await zonaCf(zona);
+      if (!zid) return NextResponse.json({ erro: 'O DNS deste domínio não está na Cloudflare.' }, { status: 400 });
+      return resposta(updateCloudflareDnsRecord(zid, id, zona, { type: tipo as CloudflareRecordInput['type'], name: nome, content: valor, ttl: c.proxied ? 1 : Number(c.ttl) || 1, proxied: c.proxied }), false);
+    }
     case 'dns-reprocessar':
       return reprocessarDns(conta, d, srv);
     case 'redir-dominio': {
