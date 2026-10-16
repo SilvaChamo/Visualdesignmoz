@@ -1,0 +1,95 @@
+name: "Ops - Osher: que plataforma era community.oshercollective.com (só leitura)"
+
+# ============================================================================
+# Silva, 16/10/2026: recuperar a comunidade da Osher. A comunidade nunca esteve
+# alojada no Hetzner (servidor recuperado de 13/10 não tem app/pasta/BD dela).
+# A 14/10 a zona oshercollective.com passou para a Cloudflare e "community"
+# passou a apontar para um domínio vazio no Contabo — o destino original
+# perdeu-se. Aqui descobre-se para onde apontava: histórico público de
+# certificados (crt.sh), cópias arquivadas (web.archive.org), registo actual na
+# Cloudflare, pistas no site/BD da Osher e remetentes (só domínio + contagem) de
+# emails que mencionam a comunidade. SÓ LEITURA.
+# ============================================================================
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - claude/loving-cerf-gaw6vw
+    paths:
+      - '.github/workflows/ops-osher-community-origem.yml'
+
+env:
+  NEW_IP: "77.42.120.104"
+  C: community.oshercollective.com
+
+jobs:
+  publico:
+    name: histórico público + Cloudflare
+    runs-on: ubuntu-latest
+    steps:
+      - name: Certificados, arquivo web e registo actual
+        env:
+          CF_EMAIL: ${{ secrets.CLOUDFLARE_EMAIL }}
+          CF_KEY: ${{ secrets.CLOUDFLARE_GLOBAL_API_KEY }}
+        run: |
+          set +e
+          echo "===== crt.sh: certificados emitidos para $C (emissor, desde, nomes) ====="
+          curl -s --max-time 60 "https://crt.sh/?q=$C&output=json" \
+            | jq -r 'sort_by(.not_before) | .[] | "\(.not_before[0:10])  \(.issuer_name | capture("O=(?<o>[^,]+)").o // .issuer_name)  \(.name_value | gsub("\n";" "))"' 2>/dev/null | uniq | tail -25
+          echo
+          echo "===== web.archive.org: cópias de $C (data, estado, tipo) ====="
+          curl -s --max-time 60 "https://web.archive.org/cdx/search/cdx?url=$C*&output=json&fl=timestamp,original,statuscode,mimetype&collapse=urlkey&limit=40" \
+            | jq -r '.[1:][] | @tsv' 2>/dev/null | head -40
+          FIRST=$(curl -s --max-time 60 "https://web.archive.org/cdx/search/cdx?url=$C/&output=json&fl=timestamp&filter=statuscode:200&limit=-1" | jq -r '.[1][0] // empty')
+          if [ -n "$FIRST" ]; then
+            echo "--- cópia mais recente com 200 ($FIRST): título, plataforma, scripts ---"
+            curl -sL --max-time 60 "https://web.archive.org/web/${FIRST}id_/https://$C/" -o page.html
+            grep -o -i '<title>[^<]*' page.html | head -2
+            grep -o -i -E '<meta[^>]+(generator|application-name|og:site_name)[^>]*>' page.html | head -5
+            grep -o -i -E '(src|href)="https?://[^/"]+' page.html | sed -E 's/.*:\/\///' | sort | uniq -c | sort -rn | head -15
+          fi
+          echo
+          echo "===== registo actual na Cloudflare ====="
+          ZID=$(curl -s -H "X-Auth-Email: $CF_EMAIL" -H "X-Auth-Key: $CF_KEY" "https://api.cloudflare.com/client/v4/zones?name=oshercollective.com" | jq -r '.result[0].id')
+          curl -s -H "X-Auth-Email: $CF_EMAIL" -H "X-Auth-Key: $CF_KEY" "https://api.cloudflare.com/client/v4/zones/$ZID/dns_records?name=$C" \
+            | jq -r '.result[] | "\(.type)\t\(.content)\tproxied=\(.proxied)\tcriado=\(.created_on)\tmodificado=\(.modified_on)"'
+          echo "--- outros registos da zona que não são do Contabo (CNAME/TXT de verificação de plataformas) ---"
+          curl -s -H "X-Auth-Email: $CF_EMAIL" -H "X-Auth-Key: $CF_KEY" "https://api.cloudflare.com/client/v4/zones/$ZID/dns_records?per_page=200" \
+            | jq -r '.result[] | select(.type=="CNAME" or .type=="TXT") | "\(.type)\t\(.name)\t\(.content[0:80])"' | grep -v -i -E 'dkim|_domainkey|dmarc|spf1' | head -20
+          echo
+          echo "===== nameservers e servidores de DNS antigos registados para oshercollective.com ====="
+          whois oshercollective.com 2>/dev/null | grep -i -E 'name server|updated|registrar:' | head -8
+
+  servidor-recuperado:
+    name: pistas no servidor recuperado (13/10)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ env.NEW_IP }}
+          port: ${{ secrets.HETZNER_PORT }}
+          username: ${{ secrets.HETZNER_USER }}
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          envs: NEW_IP,C
+          command_timeout: 10m
+          script: |
+            set +e
+            ip -4 -o addr show | grep -qw "$NEW_IP" || { echo "ABORTAR: não é a máquina nova"; exit 1; }
+            P=/home/oshercollective/domains/oshercollective.com/public_html
+            echo "===== plataformas de comunidade conhecidas citadas no site/BD da Osher ====="
+            PLAT='circle\.so|mn\.co|mightynetworks|skool\.com|kajabi|heartbeat\.chat|discourse|bettermode|tribe\.so|disco\.co|hivebrite|geneva|podia|thinkific|teachable|memberful|memberstack|outseta|ghost\.io|substack|softr|glideapp|bubbleapps|webflow|framer|wix|squarespace|vercel|netlify|lovable|base44|zapier|luma|lu\.ma|eventbrite|whop\.com|patreon|discord|slack'
+            for f in $P/studio.html $P/legacy/index.html; do
+              echo "--- $f ---"; grep -o -i -E "$PLAT" "$f" 2>/dev/null | sort | uniq -c | sort -rn | head -10
+            done
+            for f in /root/osher_backup_20260801/db_full.sql; do
+              echo "--- $f ---"; grep -o -i -E "https?://[a-z0-9.-]*($PLAT)[^\"' <>]{0,40}" "$f" 2>/dev/null | sort | uniq -c | sort -rn | head -15
+            done
+            echo
+            echo "===== emails da Osher que mencionam $C: domínio do remetente (só contagem) ====="
+            grep -rl -i "$C" /home/oshercollective/imap 2>/dev/null | head -400 > /tmp/m.txt
+            echo "mensagens: $(wc -l < /tmp/m.txt)"
+            while read f; do grep -m1 -i '^From:' "$f" | grep -o -E '@[A-Za-z0-9.-]+' | tr 'A-Z' 'a-z'; done < /tmp/m.txt | sort | uniq -c | sort -rn | head -15
+            echo "--- data da mais antiga e da mais recente ---"
+            ls -t $(cat /tmp/m.txt) 2>/dev/null | sed -n '1p;$p' | xargs -r stat -c '%y' | cut -c1-10
+            rm -f /tmp/m.txt
