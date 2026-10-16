@@ -1,0 +1,28 @@
+name: "Ops - Estado de host:2026 e community (só leitura)"
+
+# Silva, 16/10/2026: confirmar o que já está a funcionar — para onde apontam
+# host.visualdesignmoz.com e community.oshercollective.com e o que respondem.
+# Só leitura (DNS público + pedidos HTTPS).
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - claude/loving-cerf-gaw6vw
+    paths:
+      - '.github/workflows/ops-estado-links.yml'
+
+jobs:
+  estado:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          set +e
+          for n in host.visualdesignmoz.com community.oshercollective.com visualdesignmoz.com; do
+            echo "$n -> $(dig +short A $n @1.1.1.1 | tr '\n' ' ')"
+          done
+          echo
+          echo "--- https://host.visualdesignmoz.com:2026/evo/ ---"
+          curl -sS -o /dev/null -D - --max-time 15 https://host.visualdesignmoz.com:2026/evo/ 2>&1 | grep -i -E '^HTTP|^location|^server'
+          echo "--- https://community.oshercollective.com/join ---"
+          curl -sS -o /dev/null -D - --max-time 15 https://community.oshercollective.com/join 2>&1 | grep -i -E '^HTTP|^server|^x-vercel-id'
