@@ -1,0 +1,98 @@
+name: ops-check-visualdesign-ns
+
+# Verifica se os nameservers ns1..ns4.visualdesignmoz.com respondem e servem as
+# zonas. Só faz consultas DNS (dig) a partir do runner — não toca em nenhum servidor.
+on:
+  push:
+    branches: [claude/jolly-cori-xcyriq]
+    paths: ['.github/workflows/ops-check-visualdesign-ns.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ns:
+    name: nameservers ns1-ns4 (dig - nao toca em nenhum servidor)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: "Delegação, endereços, UDP/TCP, autoridade por domínio"
+        run: |
+          set +e
+          ZONE=visualdesignmoz.com
+          NSS="ns1.$ZONE ns2.$ZONE ns3.$ZONE ns4.$ZONE"
+          SERVERS="37.27.17.25 169.58.148.144"   # Hetzner | Contabo conhecidos
+          DOMS="visualdesignmoz.com aamihe.com mltmark.com basededadosagro.com provisualcorporate.co.mz \
+                oshercollective.com elimservicos.com lirandzojewelry.com msdn-moz.org msdnmoz.org \
+                shalomdeco.com entrecamposblog.com"
+          Q="+norec +time=3 +tries=1"
+
+          # status + flags do cabeçalho do dig ("SEM-RESPOSTA" se deu timeout/recusou ligação)
+          hdr() {
+            awk '/->>HEADER<<-/{for(i=1;i<=NF;i++) if($i=="status:") s=$(i+1)}
+                 /^;; flags:/{sub(/.*flags: /,""); sub(/;.*/,""); f=$0}
+                 END{gsub(",","",s); print (s?s:"SEM-RESPOSTA") " [" f "]"}'
+          }
+          serial() { awk '/ANSWER SECTION/{a=1;next} /^$/{a=0} a && $4=="SOA"{print $7; exit}'; }
+          probe() { # probe IP DOMINIO [opções dig]
+            local ip=$1 d=$2; shift 2
+            local out; out=$(dig $Q "$@" SOA "$d" @"$ip" 2>&1)
+            local s; s=$(echo "$out" | serial)
+            echo "$(echo "$out" | hdr) serial=${s:--}"
+          }
+
+          echo "################ 1. Delegação de $ZONE no registo .com ################"
+          dig +norec NS $ZONE @a.gtld-servers.net | sed -n '/AUTHORITY SECTION/,/^$/p;/ADDITIONAL SECTION/,/^$/p'
+          ZONE_NS=$(dig +short NS $ZONE @1.1.1.1 | head -1)
+          echo "NS públicos de $ZONE: $(dig +short NS $ZONE @1.1.1.1 | tr '\n' ' ')"
+          echo
+
+          echo "################ 2. Endereço de cada nameserver ################"
+          ALLIPS=""
+          for ns in $NSS; do
+            a1=$(dig +short A $ns @1.1.1.1 | grep -E '^[0-9.]+$' | tr '\n' ' ')
+            a8=$(dig +short A $ns @8.8.8.8 | grep -E '^[0-9.]+$' | tr '\n' ' ')
+            aa=$( [ -n "$ZONE_NS" ] && dig +norec +short A $ns @"$ZONE_NS" | grep -E '^[0-9.]+$' | tr '\n' ' ')
+            v6=$(dig +short AAAA $ns @1.1.1.1 | tr '\n' ' ')
+            echo "$ns -> 1.1.1.1: [${a1:-nada}] | 8.8.8.8: [${a8:-nada}] | autoritativo ($ZONE_NS): [${aa:-nada}] | AAAA: [${v6:-nada}]"
+            ALLIPS="$ALLIPS $a1"
+          done
+          echo
+
+          echo "################ 3. Cada nameserver responde? (UDP + TCP, zona $ZONE) ################"
+          for ns in $NSS; do
+            ips=$(dig +short A $ns @1.1.1.1 | grep -E '^[0-9.]+$')
+            if [ -z "$ips" ]; then echo "$ns: SEM ENDEREÇO (não resolve)"; continue; fi
+            for ip in $ips; do
+              echo "$ns ($ip)"
+              echo "   UDP SOA $ZONE : $(probe $ip $ZONE)"
+              echo "   TCP SOA $ZONE : $(probe $ip $ZONE +tcp)"
+              echo "   version.bind  : $(dig +short +time=3 +tries=1 CH TXT version.bind @$ip 2>&1 | head -1)"
+              rec=$(dig +time=3 +tries=1 A example.com @$ip 2>&1)
+              echo "   resolvedor aberto (A example.com com recursão): $(echo "$rec" | hdr) resposta=$(echo "$rec" | awk '/ANSWER SECTION/{a=1;next} /^$/{a=0} a{print $5}' | head -1)"
+            done
+          done
+          echo
+
+          echo "################ 4. Quem delega para ns1..ns4 e quem responde com autoridade ################"
+          UNIQ=$(echo $ALLIPS $SERVERS | tr ' ' '\n' | grep -E '^[0-9.]+$' | sort -u)
+          for d in $DOMS; do
+            tld=${d#*.}
+            tldns=$(dig +short NS $tld @1.1.1.1 | head -1)
+            parent=$(dig +norec NS $d @"$tldns" 2>&1 | awk '/AUTHORITY SECTION/{a=1;next} /^$/{a=0} a && $4=="NS"{print $5}' | tr '\n' ' ')
+            echo "== $d"
+            echo "   NS no registo ($tld): ${parent:-nada}"
+            echo "   NS públicos (1.1.1.1): $(dig +short NS $d @1.1.1.1 | tr '\n' ' ')"
+            echo "   A público: $(dig +short A $d @1.1.1.1 | tr '\n' ' ')"
+            for ip in $UNIQ; do
+              echo "   @$ip: $(probe $ip $d)"
+            done
+          done
+          echo
+
+          echo "################ 5. Coerência do serial de $ZONE entre servidores ################"
+          for ip in $UNIQ; do echo "@$ip: $(probe $ip $ZONE)"; done
+          for ns in $(dig +short NS $ZONE @1.1.1.1); do
+            echo "@$ns (NS real da zona): $(dig $Q SOA $ZONE @$ns 2>&1 | serial)"
+          done
