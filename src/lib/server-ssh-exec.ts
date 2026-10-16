@@ -32,7 +32,72 @@ async function hasSshpass(): Promise<boolean> {
 // intermitente/consistente quando corre dentro do processo do `next dev`
 // (funciona isoladamente via tsx/node simples) — usar o `ssh` nativo com
 // sshpass para password evita depender da negociação criptográfica do ssh2.
-async function executeViaNativeSsh(command: string, fast = false): Promise<string> {
+function hestiaRunsLocally(): boolean {
+  try {
+    return fs.existsSync('/usr/local/hestia/bin/v-list-users');
+  } catch {
+    return false;
+  }
+}
+
+function useLocalServerExec(): boolean {
+  if (process.env.SERVER_USE_LOCAL_EXEC === 'true') return true;
+  if (process.env.SERVER_USE_LOCAL_EXEC === 'false') return false;
+  return hestiaRunsLocally();
+}
+
+function sanitizeServerOutput(raw: string): string {
+  return raw
+    .split(/\r?\n/)
+    .filter((line) => {
+      const t = line.trim();
+      if (!t) return false;
+      if (/permanently added/i.test(t)) return false;
+      if (/known hosts/i.test(t)) return false;
+      if (/^warning:/i.test(t) && /ssh|host/i.test(t)) return false;
+      return true;
+    })
+    .join('\n')
+    .trim();
+}
+
+// Fora do servidor (ex.: `next dev` no Mac) cada comando abria uma ligação SSH nova — 2,5–3,3 s só a ligar,
+// e muitas seguidas chegaram a fazer o servidor bloquear a porta 22 ao Mac. A primeira ligação fica aberta
+// 10 min (ControlMaster) e as seguintes reaproveitam-na. No servidor não entra: lá o exec é local.
+// Desligar com SSH_MULTIPLEX=false.
+function sshMultiplexArgs(): string[] {
+  if (process.env.SSH_MULTIPLEX === 'false') return [];
+  const dir = path.join(os.tmpdir(), 'vd-ssh-mux');
+  try {
+    fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+  } catch {
+    return [];
+  }
+  return [
+    '-o', 'ControlMaster=auto',
+    '-o', `ControlPath=${path.join(dir, '%r@%h:%p')}`,
+    '-o', 'ControlPersist=600',
+    '-o', 'ServerAliveInterval=15',
+    '-o', 'ServerAliveCountMax=3',
+  ];
+}
+
+function localServerExec(command: string, timeoutMs: number): Promise<string> {
+  return new Promise((resolve) => {
+    const { exec } = require('child_process') as typeof import('child_process');
+    exec(command, { timeout: timeoutMs, maxBuffer: 50 * 1024 * 1024 }, (error, stdout, stderr) => {
+      const out = sanitizeServerOutput((stdout || '').toString());
+      if (error) {
+        const errText = sanitizeServerOutput((stderr || error.message || '').toString());
+        resolve(out || errText);
+        return;
+      }
+      resolve(out);
+    });
+  });
+}
+
+async function executeViaNativeSsh(command: string, fast = false, timeoutMs?: number): Promise<string> {
   const opts = getSshConnectOptions();
   const keyPath = resolveSshKeyPath();
 
@@ -55,6 +120,7 @@ async function executeViaNativeSsh(command: string, fast = false): Promise<strin
     }
   }
 
+  const connectTimeoutSec = timeoutMs ? Math.max(2, Math.min(Math.floor(timeoutMs / 1000), 15)) : (fast ? 6 : 15);
   const sshOpts = [
     ...identityArg,
     '-p',
@@ -66,27 +132,42 @@ async function executeViaNativeSsh(command: string, fast = false): Promise<strin
     '-o',
     useSshpass ? 'BatchMode=no' : 'BatchMode=yes',
     '-o',
-    `ConnectTimeout=${fast ? 6 : 15}`,
+    `ConnectTimeout=${connectTimeoutSec}`,
     '-o',
     'ConnectionAttempts=1',
   ];
   if (fast) {
     sshOpts.push('-o', 'Compression=no');
   }
+  if (!useSshpass) {
+    sshOpts.push(...sshMultiplexArgs());
+  }
 
   const sshArgs = [...sshOpts, `${opts.username}@${opts.host}`, command];
 
   try {
-    const { stdout, stderr } = await execFileAsync(
-      useSshpass ? 'sshpass' : 'ssh',
-      useSshpass ? ['-e', 'ssh', ...sshArgs] : sshArgs,
-      {
-        maxBuffer: 10 * 1024 * 1024,
-        timeout: fast ? 20000 : 120000,
-        env: useSshpass ? { ...process.env, SSHPASS: opts.password } : process.env,
-      },
-    );
-    return (stdout || stderr || '').trim();
+    try {
+      const { stdout, stderr } = await execFileAsync(
+        useSshpass ? 'sshpass' : 'ssh',
+        useSshpass ? ['-e', 'ssh', ...sshArgs] : sshArgs,
+        {
+          maxBuffer: 10 * 1024 * 1024,
+          timeout: timeoutMs ?? (fast ? 20000 : 120000),
+          env: useSshpass ? { ...process.env, SSHPASS: opts.password } : process.env,
+        },
+      );
+      return sanitizeServerOutput(`${stdout || ''}\n${stderr || ''}`.trim());
+    } catch (e: unknown) {
+      const err = e as NodeJS.ErrnoException & { stdout?: string; stderr?: string };
+      const out = sanitizeServerOutput(`${err.stdout || ''}\n${err.stderr || ''}`.trim());
+      const sshBroke =
+        !out ||
+        /Connection refused|Permission denied \(publickey|Could not resolve|No route to host|Connection timed out|ECONNREFUSED|ETIMEDOUT|Host key verification/i.test(
+          err.message || '',
+        );
+      if (!sshBroke) return out;
+      throw err;
+    }
   } finally {
     if (tempKeyPath) {
       try {
@@ -98,35 +179,38 @@ async function executeViaNativeSsh(command: string, fast = false): Promise<strin
   }
 }
 
-export function executeServerCommand(command: string, options?: { fast?: boolean }): Promise<string> {
+export function executeServerCommand(
+  command: string,
+  options?: { fast?: boolean; timeoutMs?: number },
+): Promise<string> {
   const fast = options?.fast === true;
-  if (process.env.SERVER_USE_LOCAL_EXEC === 'true') {
-    return new Promise((resolve) => {
-      const { exec } = require('child_process') as typeof import('child_process');
-      exec(command, { timeout: 120000 }, (error, stdout, stderr) => {
-        if (error) resolve(stderr || error.message);
-        else resolve(stdout);
-      });
-    });
+  const timeoutMs = options?.timeoutMs ?? (fast ? 20_000 : 120_000);
+  if (useLocalServerExec()) {
+    return localServerExec(command, timeoutMs);
   }
 
   // Preferir ssh nativo — mais fiável com chaves OpenSSH multilinha
   return withSshSlot(() =>
-    executeViaNativeSsh(command, fast).catch((nativeErr: Error) => {
-    return new Promise((resolve, reject) => {
-      let connectOptions: ReturnType<typeof getSshConnectOptions>;
-      try {
-        connectOptions = getSshConnectOptions();
-      } catch (e: unknown) {
-        reject(nativeErr);
-        return;
+    executeViaNativeSsh(command, fast, timeoutMs).catch((nativeErr: Error) => {
+      const isTimeoutOrNetwork = /timed out|ETIMEDOUT|No route to host|Connection refused|ECONNREFUSED/i.test(nativeErr.message || '');
+      if (isTimeoutOrNetwork) {
+        throw nativeErr;
       }
+      return new Promise((resolve, reject) => {
+        let connectOptions: ReturnType<typeof getSshConnectOptions>;
+        try {
+          connectOptions = getSshConnectOptions();
+          connectOptions.readyTimeout = timeoutMs ? Math.min(timeoutMs, 10_000) : (fast ? 8_000 : 20_000);
+        } catch (e: unknown) {
+          reject(nativeErr);
+          return;
+        }
 
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { Client } = require('ssh2');
-      const conn = new Client();
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { Client } = require('ssh2');
+        const conn = new Client();
 
-      conn.on('ready', () => {
+        conn.on('ready', () => {
         conn.exec(
           command,
           (
@@ -150,7 +234,7 @@ export function executeServerCommand(command: string, options?: { fast?: boolean
               if (code !== 0 && errOutput && !output) {
                 reject(new Error(`SSH falhou (${code}): ${errOutput}`));
               } else {
-                resolve(output || errOutput);
+                resolve(sanitizeServerOutput(output));
               }
             });
             stream.on('data', (data: Buffer) => {
@@ -176,7 +260,7 @@ export function executeServerCommand(command: string, options?: { fast?: boolean
 }
 
 export function uploadFileViaSsh(remotePath: string, fileData: Buffer | import('stream/web').ReadableStream): Promise<void> {
-  if (process.env.SERVER_USE_LOCAL_EXEC === 'true') {
+  if (useLocalServerExec()) {
     return new Promise(async (resolve, reject) => {
       try {
         if (Buffer.isBuffer(fileData)) {
@@ -221,6 +305,7 @@ export function uploadFileViaSsh(remotePath: string, fileData: Buffer | import('
       '-o', 'BatchMode=yes',
       '-o', 'ConnectTimeout=15',
       '-o', 'ConnectionAttempts=1',
+      ...sshMultiplexArgs(),
       `${opts.username}@${opts.host}`,
       `cat > "${remotePath}"`
     ];
@@ -256,4 +341,47 @@ export function uploadFileViaSsh(remotePath: string, fileData: Buffer | import('
       }
     });
   });
+}
+
+/** Lê um ficheiro do servidor aos poucos (ex.: descarregar uma cópia de segurança grande sem a guardar em memória).
+ *  No servidor lê direto do disco; fora dele, por `ssh … cat`. Com `comoUtilizador`, a leitura é feita por esse
+ *  utilizador (`sudo -u … cat`), para nunca ler o que ele próprio não pode ler (ex.: um atalho trocado à pressa). */
+export function streamServerFile(remotePath: string, comoUtilizador?: string): import('stream').Readable {
+  const { spawn } = require('child_process') as typeof import('child_process');
+  const { PassThrough } = require('stream') as typeof import('stream');
+  if (comoUtilizador && !/^[a-z0-9][a-z0-9_.-]{0,31}$/.test(comoUtilizador)) throw new Error('Utilizador inválido');
+  if (useLocalServerExec()) {
+    if (!comoUtilizador) return fs.createReadStream(remotePath);
+    const local = new PassThrough();
+    const p = spawn('sudo', ['-u', comoUtilizador, 'cat', '--', remotePath]);
+    p.stdout.pipe(local);
+    p.on('close', (code) => code && local.destroy(new Error('Leitura do ficheiro falhou')));
+    local.on('close', () => p.kill());
+    return local;
+  }
+  const out = new PassThrough();
+  const opts = getSshConnectOptions();
+  const keyPath = resolveSshKeyPath();
+  let tempKeyPath: string | undefined;
+  let identityArg: string[];
+  if (keyPath) identityArg = ['-i', keyPath];
+  else {
+    const key = resolveSshPrivateKey();
+    if (!key) {
+      out.destroy(new Error('Chave SSH indisponível'));
+      return out;
+    }
+    tempKeyPath = path.join(os.tmpdir(), `vd-ssh-${process.pid}-${Date.now()}.key`);
+    fs.writeFileSync(tempKeyPath, key, { mode: 0o600 });
+    identityArg = ['-i', tempKeyPath];
+  }
+  const quoted = `'${remotePath.replace(/'/g, `'\\''`)}'`;
+  const p = spawn('ssh', [...identityArg, '-p', String(opts.port), '-o', 'StrictHostKeyChecking=no', '-o', 'UserKnownHostsFile=/dev/null', '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=15', `${opts.username}@${opts.host}`, `${comoUtilizador ? `sudo -u ${comoUtilizador} ` : ''}cat -- ${quoted}`]);
+  p.stdout.pipe(out);
+  p.on('close', (code) => {
+    if (tempKeyPath) fs.rm(tempKeyPath, () => undefined);
+    if (code) out.destroy(new Error('Leitura do ficheiro falhou'));
+  });
+  out.on('close', () => p.kill());
+  return out;
 }

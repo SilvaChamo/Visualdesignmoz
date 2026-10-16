@@ -1,7 +1,7 @@
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { getProfileForAuthUser } from '@/lib/profile-db';
-import { listMirrorUsers, listMirrorWebsites } from '@/lib/panel-mirror-read';
-import { buildResellerOwnerTree, isAdminPanelSite } from '@/lib/panel-scope-filter';
+import { isCompanyHostingOwner } from '@/lib/panel-contas-enrich';
+import { filterSitesForAdminPanel } from '@/lib/panel-scope-filter';
 import type { WpInstallInfo } from '@/lib/wp-cli-server';
 
 export type PanelWpScope = {
@@ -16,7 +16,7 @@ const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
 export async function resolvePanelWpScope(
   userId: string,
-  role: 'admin' | 'reseller' | 'manager',
+  role: 'admin' | 'reseller' | 'manager' | 'profissional',
   impersonatingDaUsername?: string | null,
 ): Promise<PanelWpScope> {
   // Admin a impersonar um revendedor: a sessão real continua 'admin', mas o
@@ -30,8 +30,9 @@ export async function resolvePanelWpScope(
     return { role: 'admin', userId, daUsername: 'admin' };
   }
 
-  // "manager" (conta profissional) usa o mesmo mecanismo escopado que um revendedor —
-  // fica sempre limitado ao seu próprio da_username, nunca a admin real.
+  // "manager" (conta colaborador) e "profissional" (comprador self-service)
+  // usam o mesmo mecanismo escopado que um revendedor — ficam sempre
+  // limitados ao seu próprio da_username, nunca a admin real.
   const admin = createServiceClient(supabaseUrl, supabaseKey);
   const profile = await getProfileForAuthUser(admin, userId);
   const daUsername = String(profile?.da_username || '').trim().toLowerCase();
@@ -41,25 +42,33 @@ export async function resolvePanelWpScope(
   return { role: 'reseller', userId, daUsername };
 }
 
-/** Domínios permitidos no espelho — admin exclui sites de revendedores. */
+/** Domínios permitidos — conta principal só vê sites da Visual Design; Osher só os dela. */
 export async function getAllowedPanelWpDomains(scope: PanelWpScope): Promise<Set<string>> {
-  const mirrorScope =
+  const { listHostingDomains } = await import('@/lib/hosting-resolver');
+  const sites = await listHostingDomains(
     scope.role === 'admin'
-      ? ({ role: 'admin' as const })
-      : ({ role: 'reseller' as const, userId: scope.userId, daUsername: scope.daUsername });
-
-  const sites = await listMirrorWebsites(mirrorScope);
+      ? { role: 'admin' }
+      : { role: 'reseller', userId: scope.userId, daUsername: scope.daUsername },
+  );
 
   if (scope.role === 'reseller') {
-    return new Set(sites.map((s) => (s.domain || '').toLowerCase()).filter(Boolean));
+    const owner = scope.daUsername.toLowerCase();
+    return new Set(
+      sites
+        .filter((s) => (s.owner || '').trim().toLowerCase() === owner)
+        .map((s) => (s.domain || '').toLowerCase())
+        .filter(Boolean),
+    );
   }
 
-  const users = await listMirrorUsers({ role: 'admin' });
-  const resellerTree = buildResellerOwnerTree(users);
-
+  // Admin: os mesmos sites da lista "Sites" do painel — empresa e clientes directos
+  // (ex.: aamihe.com). Antes eram só os da empresa, e os WordPress de clientes directos
+  // nunca apareciam nem abriam. Contas de revenda e as suas sub-contas ficam de fora
+  // (aparecem no painel do revendedor), tal como na lista.
+  const { listHostingUsers } = await import('@/lib/hosting-resolver');
+  const users = await listHostingUsers();
   return new Set(
-    sites
-      .filter((s) => isAdminPanelSite(s, resellerTree))
+    filterSitesForAdminPanel(sites, users)
       .map((s) => (s.domain || '').toLowerCase())
       .filter(Boolean),
   );
@@ -70,10 +79,13 @@ export function filterWpInstallsForPanel(
   scope: PanelWpScope,
   allowedDomains: Set<string>,
 ): WpInstallInfo[] {
+  if (scope.role === 'admin') {
+    return installs.filter((install) => allowedDomains.has(install.domain.toLowerCase()));
+  }
   const daUser = scope.daUsername.toLowerCase();
   return installs.filter((install) => {
     if (install.user.toLowerCase() !== daUser) return false;
-    if (scope.role === 'reseller' && allowedDomains.size > 0) {
+    if (allowedDomains.size > 0) {
       return allowedDomains.has(install.domain.toLowerCase());
     }
     return true;
@@ -95,7 +107,7 @@ export async function assertPanelOwnsWpDomain(
   if (scope.role === 'admin') {
     const { resolveWpInstall } = await import('@/lib/wp-cli-server');
     const install = await resolveWpInstall(normalized);
-    if (install?.user.toLowerCase() === scope.daUsername.toLowerCase()) return;
+    if (install && isCompanyHostingOwner(install.user)) return;
   }
 
   throw new Error('Sem permissão para este domínio.');

@@ -4,17 +4,6 @@ on:
   push:
     branches:
       - main
-    # só documentação ou tarefas de manutenção (ops-*, migrate-*): não reconstrói o site (Silva, 14/10/2026 — cada
-    # publicação era um corte no site)
-    paths-ignore:
-      - '**/*.md'
-      - '.github/workflows/ops-*.yml'
-      - '.github/workflows/migrate-*.yml'
-
-# uma publicação de cada vez: um push novo espera que a anterior acabe (duas sobrepostas já estragaram node_modules)
-concurrency:
-  group: deploy-hetzner
-  cancel-in-progress: false
 
 jobs:
   deploy:
@@ -48,14 +37,12 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -p "${{ secrets.HETZNER_PORT }}" "${{ secrets.HETZNER_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
 
-      # O código novo vai para uma pasta à parte (…-build), não para a do site em funcionamento: o site continua a
-      # servir a versão anterior enquanto a nova é instalada e construída (ver "Publicar sem cortes" mais abaixo).
       - name: Sync files to Hetzner
         run: |
           rsync -avz --delete \
             -e "ssh -i ~/.ssh/deploy_key -p ${{ secrets.HETZNER_PORT }}" \
             --exclude 'node_modules' --exclude '.next' --exclude '.git' --exclude '*.env*' --exclude '.DS_Store' \
-            ./ "${{ secrets.HETZNER_USER }}@${{ secrets.HETZNER_HOST }}:/opt/visualdesign-site-build/"
+            ./ "${{ secrets.HETZNER_USER }}@${{ secrets.HETZNER_HOST }}:/opt/visualdesign-site/"
 
       - name: Build and restart on Hetzner
         uses: appleboy/ssh-action@v1.2.5
@@ -74,14 +61,12 @@ jobs:
             cd /opt/visualdesign-site
             touch .env.local
             set_env_var() {
-              # grep -v + reescrever em vez de "sed -i s|...|...|" — um valor
-              # secreto com caracteres especiais (ex.: aconteceu com
-              # BREVO_API_KEY) quebrava o delimitador do sed e fazia o
-              # deploy inteiro falhar.
               local key="$1" value="$2"
-              grep -v "^${key}=" .env.local > .env.local.tmp || true
-              mv .env.local.tmp .env.local
-              echo "${key}=${value}" >> .env.local
+              if grep -q "^${key}=" .env.local; then
+                sed -i "s|^${key}=.*|${key}=${value}|" .env.local
+              else
+                echo "${key}=${value}" >> .env.local
+              fi
             }
             set_env_var DYNADOT_ENV "production"
             set_env_var DYNADOT_API_KEY "${{ secrets.DYNADOT_API_KEY }}"
@@ -89,70 +74,51 @@ jobs:
             set_env_var CRON_SECRET "${{ secrets.CRON_SECRET }}"
             set_env_var CLOUDFLARE_API_TOKEN_ACCOUNT "${{ secrets.CLOUDFLARE_API_TOKEN_ACCOUNT }}"
             set_env_var CLOUDFLARE_ACCOUNT_ID "${{ secrets.CLOUDFLARE_ACCOUNT_ID }}"
-            # Global API Key (14 ago 2026, ver deploy-contabo.yml) — o token
-            # acima não consegue criar zonas novas na Cloudflare nem escrever
-            # registos DNS (permissão em falta). Nunca tinha sido ligada aqui,
-            # por isso toda a escrita de DNS em produção falhava sempre com
-            # "Authentication error" — descoberto 24 ago via elimservicos.com.
-            set_env_var CLOUDFLARE_EMAIL "${{ secrets.CLOUDFLARE_EMAIL }}"
-            set_env_var CLOUDFLARE_GLOBAL_API_KEY "${{ secrets.CLOUDFLARE_GLOBAL_API_KEY }}"
-            # Sem isto, o passo de DNS de e-mail e o remetente Brevo de
-            # autoProvisionPurchasedDomain falham sempre em silêncio depois de
-            # uma compra/transferência de domínio (nunca tinha sido ligado ao
-            # deploy, só existia no .env.local local) — descoberto 19 ago via
-            # o caso real do aamihe.com.
-            set_env_var BREVO_API_KEY "${{ secrets.BREVO_API_KEY }}"
             # HESTIA_* só para o código compilar/carregar sem erro — DEFAULT_HOSTING_PROVIDER
             # fica de propósito por definir aqui, para as contas novas continuarem a ir
             # para o DirectAdmin como sempre (só o Contabo liga o Hestia).
             set_env_var HESTIA_HOST "${{ secrets.HESTIA_HOST }}"
             set_env_var HESTIA_USER "${{ secrets.HESTIA_USER }}"
             set_env_var HESTIA_PASSWORD "${{ secrets.HESTIA_PASSWORD }}"
-            # Publicar sem cortes (Silva, 14/10/2026 — o site mostrava "502 Bad Gateway" a cada publicação): antes, o
-            # "rm -rf node_modules", o "npm ci" e o build corriam na pasta do site em funcionamento e, durante os ~3 min,
-            # o site não respondia. Agora instala-se e constrói-se na pasta à parte (STAGE, onde o rsync acima pôs o
-            # código novo) com o site a servir a versão anterior; no fim troca-se em segundos (como no Contabo,
-            # deploy-contabo.yml). Se a instalação ou o build falharem (set -e), o site fica como estava.
-            LIVE=/opt/visualdesign-site
-            STAGE=/opt/visualdesign-site-build
-            # a pasta à parte precisa de ~2 GB (node_modules + .next) além da versão em funcionamento: sem espaço, pára
-            # já, antes de mexer em nada (o servidor tem também as bases de dados e o e-mail)
-            LIVRE_KB=$(df -Pk /opt | awk 'NR==2 {print $4}')
-            if [ "${LIVRE_KB:-0}" -lt 4000000 ]; then echo "ERRO: só $((LIVRE_KB / 1024)) MB livres em /opt; são precisos 4 GB para construir à parte. O site fica como está."; exit 1; fi
-            # as variáveis (.env.local, escrito acima na pasta do site) entram no build (NEXT_PUBLIC_*)
-            for f in "$LIVE"/.env*; do if [ -f "$f" ]; then cp -a "$f" "$STAGE"/; fi; done
-            cd "$STAGE"
-            # sempre do zero na pasta à parte: um node_modules ou um .next de uma publicação cortada a meio nunca
-            # chegam ao site (ENOTEMPTY, "client reference manifest ... does not exist")
-            rm -rf node_modules .next
+            # getServerHost() lê NEXT_PUBLIC_SERVER_IP; nunca foi definido aqui
+            # — funcionava por coincidência, porque o valor por omissão no
+            # código (DEFAULT_SERVER_IP) já era este IP do Hetzner. Definido
+            # explicitamente para não depender dessa coincidência (achado
+            # ao corrigir o mesmo problema, real, no Contabo — 1 set).
+            set_env_var NEXT_PUBLIC_SERVER_IP "${{ secrets.HETZNER_HOST }}"
+            # node_modules já ficou corrompido antes por um deploy anterior ter sido
+            # cortado a meio (timeout) — 'npm ci' sozinho não repara isso (ENOTEMPTY
+            # ao tentar apagar uma pasta parcialmente removida). Começar sempre do
+            # zero evita essa classe de falha, ao custo de um install mais lento.
+            rm -rf node_modules
             npm ci
             npm run build
-            # Troca (o site só pára estes segundos): o código por rsync, com as mesmas exclusões de sempre (os .env*,
-            # .git e .DS_Store da pasta do site ficam intactos); node_modules e .next por mv (instantâneo, mesmo disco).
-            pm2 stop visualdesign-site || true
-            rsync -a --delete --exclude 'node_modules' --exclude '.next' --exclude '.git' --exclude '*.env*' --exclude '.DS_Store' "$STAGE"/ "$LIVE"/
-            rm -rf "$LIVE/node_modules.old" "$LIVE/.next.old"
-            if [ -d "$LIVE/node_modules" ]; then mv "$LIVE/node_modules" "$LIVE/node_modules.old"; fi
-            if [ -d "$LIVE/.next" ]; then mv "$LIVE/.next" "$LIVE/.next.old"; fi
-            mv "$STAGE/node_modules" "$LIVE/node_modules"
-            mv "$STAGE/.next" "$LIVE/.next"
-            cd "$LIVE"
-            pm2 start visualdesign-site || pm2 start npm --name "visualdesign-site" -- start -- -p 3003
+            pm2 restart visualdesign-site || pm2 start npm --name "visualdesign-site" -- start -- -p 3003
             pm2 save
-            # a versão anterior só se apaga depois de a nova estar a correr
-            rm -rf "$LIVE/node_modules.old" "$LIVE/.next.old"
 
             # Cron real dos avisos de renovação e do sync DirectAdmin<->Supabase —
             # sem isto nenhum dos dois corre sozinho (ficavam dependentes de um
             # admin clicar manualmente no painel). Idempotente: substitui só as
             # linhas marcadas com a própria tag, nunca mexe no resto do crontab.
+            #
+            # NOTA (confirmado ao vivo 1 set): 'src/proxy.ts' redirecciona (308)
+            # qualquer pedido feito a 127.0.0.1 para 'localhost' — sem o cabeçalho
+            # Host correcto abaixo, estes curls nunca executam a lógica, só levam
+            # o redirect e ficam silenciosamente sem fazer nada (era o caso de
+            # dns-retry e da-sync antes desta correcção).
             CRON_SECRET_VALUE=$(grep '^CRON_SECRET=' .env.local | cut -d= -f2-)
             (crontab -l 2>/dev/null | grep -v '# visualdesign-renewal-check'; \
-              echo "7,37 * * * * curl -fsS \"http://127.0.0.1:3003/api/cron/renewal-check?secret=${CRON_SECRET_VALUE}\" >> /var/log/visualdesign-cron.log 2>&1 # visualdesign-renewal-check") | crontab -
+              echo "*/30 * * * * curl -fsS -H \"Host: visualdesignmoz.com\" \"http://127.0.0.1:3003/api/cron/renewal-check?secret=${CRON_SECRET_VALUE}\" >> /var/log/visualdesign-cron.log 2>&1 # visualdesign-renewal-check") | crontab -
             (crontab -l 2>/dev/null | grep -v '# visualdesign-da-sync'; \
-              echo "13,33,53 * * * * curl -fsS -H \"Authorization: Bearer ${CRON_SECRET_VALUE}\" http://127.0.0.1:3003/api/cron/da-sync >> /var/log/visualdesign-cron.log 2>&1 # visualdesign-da-sync") | crontab -
+              echo "*/20 * * * * curl -fsS -H \"Host: visualdesignmoz.com\" -H \"Authorization: Bearer ${CRON_SECRET_VALUE}\" http://127.0.0.1:3003/api/cron/da-sync >> /var/log/visualdesign-cron.log 2>&1 # visualdesign-da-sync") | crontab -
             # Reprocessa domínios comprados cujo DNS (zona Cloudflare + nameservers)
             # ficou por concluir (dns_status='pending') — antes só recuperava com um
             # admin a carregar manualmente em "Reprocessar Configuração DNS".
             (crontab -l 2>/dev/null | grep -v '# visualdesign-dns-retry'; \
-              echo "19,49 * * * * curl -fsS -H \"Authorization: Bearer ${CRON_SECRET_VALUE}\" http://127.0.0.1:3003/api/cron/dns-retry >> /var/log/visualdesign-cron.log 2>&1 # visualdesign-dns-retry") | crontab -
+              echo "*/30 * * * * curl -fsS -H \"Host: visualdesignmoz.com\" -H \"Authorization: Bearer ${CRON_SECRET_VALUE}\" http://127.0.0.1:3003/api/cron/dns-retry >> /var/log/visualdesign-cron.log 2>&1 # visualdesign-dns-retry") | crontab -
+            # Reprocessa domínios cujo DNS já está confirmado mas cuja autenticação
+            # na Brevo ainda não foi confirmada (a Brevo pode demorar até 48h a
+            # confirmar propagação) — antes disto só ficava resolvido se alguém
+            # fosse ao site da Brevo carregar manualmente em "Autenticar".
+            (crontab -l 2>/dev/null | grep -v '# visualdesign-brevo-retry'; \
+              echo "*/30 * * * * curl -fsS -H \"Host: visualdesignmoz.com\" -H \"Authorization: Bearer ${CRON_SECRET_VALUE}\" http://127.0.0.1:3003/api/cron/brevo-retry >> /var/log/visualdesign-cron.log 2>&1 # visualdesign-brevo-retry") | crontab -

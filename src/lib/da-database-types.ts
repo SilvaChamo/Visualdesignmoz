@@ -1,5 +1,6 @@
 export type DbListEntry = {
   database: string;
+  dbuser?: string;
   sizeBytes: number;
   userCount: number;
   tableCount: number;
@@ -83,4 +84,32 @@ export function hasFullAccess(privileges: DbPrivs | undefined): boolean {
   if (!privileges) return false;
   const full = fullDbPrivileges();
   return Object.keys(full).every((k) => privileges[k] === true);
+}
+
+export const DB_PRIVILEGE_LABELS: { key: string; label: string }[] = [
+  { key: 'select', label: 'SELECT' },
+  { key: 'insert', label: 'INSERT' },
+  { key: 'update', label: 'UPDATE' },
+  { key: 'delete', label: 'DELETE' },
+  { key: 'create', label: 'CREATE' },
+  { key: 'drop', label: 'DROP' },
+  { key: 'index', label: 'INDEX' },
+  { key: 'alter', label: 'ALTER' },
+  { key: 'references', label: 'REFERENCES' },
+  { key: 'createTmpTable', label: 'CREATE TEMPORARY TABLES' },
+  { key: 'lockTables', label: 'LOCK TABLES' },
+  { key: 'createView', label: 'CREATE VIEW' },
+  { key: 'showView', label: 'SHOW VIEW' },
+  { key: 'createRoutine', label: 'CREATE ROUTINE' },
+  { key: 'alterRoutine', label: 'ALTER ROUTINE' },
+  { key: 'execute', label: 'EXECUTE' },
+  { key: 'event', label: 'EVENT' },
+  { key: 'trigger', label: 'TRIGGER' },
+];
+
+export function readOnlyDbPrivileges(): DbPrivs {
+  const privs = emptyDbPrivileges();
+  privs.select = true;
+  privs.showView = true;
+  return privs;
 }

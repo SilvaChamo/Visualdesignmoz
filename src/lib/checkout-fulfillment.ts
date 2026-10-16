@@ -14,6 +14,8 @@ import { autoProvisionPurchasedDomain } from '@/lib/domain-purchase-provision';
 import { requiresManualRegistration } from '@/lib/domain-registration-support';
 import { after } from 'next/server';
 import { getProfileForAuthUser, saveProfileForAuthUser } from '@/lib/profile-db';
+import { buyerRoleForPackage, isProfissionalHostingPlan } from '@/lib/user-roles';
+import { emailPlanProductName, getEmailPlan } from '@/lib/email-plans';
 
 // Pacote dedicado por plano — tem de corresponder aos `defaultPackageName` de
 // HOSTING_PLAN_PRESETS em reseller-package-form.ts, que é o que a secção
@@ -126,6 +128,9 @@ export async function provisionHostingAccountOnPanel(params: {
   packageName: string;
   renewalId: string | null;
   sharedPassword?: string | null;
+  /** Plano comprado (`hosting-basico`, `hosting-pro`, …) — decide o painel Cliente/Profissional. Sem ele, decide o
+   * pacote (packageName). */
+  planId?: string;
   /** Servidor de hospedagem que vai tratar esta conta. Omitir mantém o
    * comportamento actual (DirectAdmin). */
   provider?: 'directadmin' | 'hestia';
@@ -140,15 +145,16 @@ export async function provisionHostingAccountOnPanel(params: {
       email,
       da_password_encrypted: encryptDaSecret(password),
     });
-    // #10 (2026-09-13, backport de visualdesign-teste): ficava sempre
-    // hardcoded 'client', sobrepondo-se a um papel já elevado (staff) que a
-    // conta pudesse ter — preserva admin/manager/reseller em vez de os
-    // rebaixar; só um guest normal é que fica 'client' ao comprar.
+    // Painel pelo plano (ver promoteBuyerAfterPurchase): Pro/Business/Enterprise
+    // → 'profissional'; Básico → 'client'. Contas da equipa
+    // (admin/manager/reseller) ficam como estão.
     const existingProfile = await getProfileForAuthUser(admin, userId, email);
-    const ELEVATED_ROLES = ['admin', 'manager', 'reseller'];
-    const resolvedRole = ELEVATED_ROLES.includes(existingProfile?.role || '')
+    const STAFF_ROLES = ['admin', 'manager', 'reseller'];
+    const resolvedRole = STAFF_ROLES.includes(existingProfile?.role || '')
       ? (existingProfile!.role as 'admin' | 'manager' | 'reseller')
-      : 'client';
+      : ((await promoteBuyerAfterPurchase(admin, userId, [
+          { type: 'hosting', id: params.planId, packageName },
+        ])) ?? 'client');
     await upsertPanelAuthAccount(admin, {
       userId,
       email,
@@ -259,7 +265,11 @@ export async function alertAdminOfTrackingFailure(context: string, message: stri
     }
     const { error: insertError } = await admin.from('notifications').insert({
       user_id: adminUserId,
-      title: 'Falha ao registar renovação',
+      // Título tem de reflectir o que falhou de facto — este alerta é
+      // reutilizado tanto para falhas em renovações como em compras novas
+      // (e noutros contextos), e "Falha ao registar renovação" era enganoso
+      // sempre que `context` não era mesmo uma renovação.
+      title: `Falha: ${context}`,
       message: `[checkout-fulfillment] ${context}: ${message}`,
       type: 'error',
       category: 'system',
@@ -303,41 +313,55 @@ async function notifyClientOfDomainProvisionResult(
 }
 
 /**
- * Promove guest -> client (metadata do Auth + profiles.role), sem tocar nos
- * produtos em si. Extraído do fim de `fulfillCheckout` para poder correr logo
- * na SUBMISSÃO da encomenda (antes de qualquer confirmação de pagamento) —
- * é o que deixa o cliente entrar já no painel real (`/cliente`) com a secção
- * do produto comprado visível mas desactivada, em vez de ser mandado para o
- * `/guest` genérico até um humano (M-Pesa/transferência) ou o webhook
- * (Stripe/saldo) confirmar. Nunca despromove uma conta já elevada
- * (admin/manager/reseller) — mesma regra de sempre.
+ * Painel de quem compra a si próprio, decidido pelo plano (pedido do Silva,
+ * 12/10/2026 — substitui a regra de 8 out "com site = Profissional", que punha
+ * todo o plano Básico no painel Profissional):
+ * - alojamento Pro, Business ou Enterprise → 'profissional';
+ * - alojamento Básico, planos de email e domínios → 'client'.
+ * Um 'client' que compre um plano Pro+ passa a 'profissional'. Nunca mexe em
+ * admin/manager/reseller, nem desce um 'profissional' a 'client' (quem já tem
+ * um plano Pro e compra um email continua Profissional). Corre já na
+ * submissão do pedido (para entrar logo no painel certo enquanto aguarda a
+ * confirmação do pagamento) e outra vez no fulfillment. Devolve o papel
+ * gravado (null para contas da equipa).
  */
-export async function promoteGuestToClient(admin: SupabaseClient, userId: string): Promise<void> {
+export async function promoteBuyerAfterPurchase(
+  admin: SupabaseClient,
+  userId: string,
+  items: { type: string; id?: string; packageName?: string }[],
+): Promise<'profissional' | 'client' | null> {
   const { data: authUser } = await admin.auth.admin.getUserById(userId);
-  if (!authUser?.user) return;
+  if (!authUser?.user) return null;
   const currentMetadata = authUser.user.user_metadata || {};
   const email = authUser.user.email;
   const displayName = currentMetadata.nome || currentMetadata.full_name || email?.split('@')[0];
 
   const existingProfile = await getProfileForAuthUser(admin, userId, email);
+  const roles = [existingProfile?.role, currentMetadata.role].map((r) => String(r || ''));
 
-  // Só promove guest -> client. Nunca despromove uma conta já elevada (admin/manager/reseller)
-  // que, por exemplo, esteja apenas a testar uma compra.
-  const ELEVATED_ROLES = ['admin', 'manager', 'reseller'];
-  const isElevated =
-    ELEVATED_ROLES.includes(existingProfile?.role || '') || ELEVATED_ROLES.includes(currentMetadata.role);
+  const STAFF_ROLES = ['admin', 'manager', 'reseller'];
+  let nextRole: 'profissional' | 'client' | null = null;
+  if (!roles.some((r) => STAFF_ROLES.includes(r))) {
+    const planoPro = items.some(
+      (i) =>
+        i.type === 'hosting' &&
+        (isProfissionalHostingPlan(i.id) || (!i.id && buyerRoleForPackage(i.packageName) === 'profissional')),
+    );
+    nextRole = planoPro || existingProfile?.role === 'profissional' ? 'profissional' : 'client';
+  }
 
-  if (!isElevated) {
+  if (nextRole) {
     await admin.auth.admin.updateUserById(userId, {
-      user_metadata: { ...currentMetadata, role: 'client', nome: displayName },
+      user_metadata: { ...currentMetadata, role: nextRole, nome: displayName },
     });
   }
 
   await saveProfileForAuthUser(admin, userId, {
     email,
-    role: isElevated ? undefined : 'client',
+    role: nextRole ?? undefined,
     name: displayName,
   });
+  return nextRole;
 }
 
 /**
@@ -567,9 +591,14 @@ export async function fulfillCheckout(
               await notifyClientOfDomainProvisionResult(admin, userId, domainName, false, failed);
             }
           } else {
+            // A Brevo pode demorar até 48h a confirmar a propagação do DNS
+            // (ver triggerBrevoDomainVerification) — as poucas tentativas
+            // rápidas feitas aqui quase nunca chegam a tempo. `brevo_verified`
+            // fica `false` nesse caso (o normal, não um erro) e o cron
+            // brevo-retry vai voltar a tentar sozinho até confirmar.
             await supabase
               .from('domain_renewals')
-              .update({ dns_status: 'ok' })
+              .update({ dns_status: 'ok', brevo_verified: Boolean(result.emailDns?.verified) })
               .eq('user_id', userId)
               .eq('domain_name', domainName);
             await notifyClientOfDomainProvisionResult(admin, userId, domainName, true, '');
@@ -657,19 +686,21 @@ export async function fulfillCheckout(
           renewalId,
           sharedPassword: sharedHostingPassword,
           provider: hostingProvider,
+          planId: item.id,
         });
       }
     }
 
     if (item.type === 'email') {
       // O plano de email não vem com domínio — o cliente escolhe (ou compra
-      // um connosco) depois, já no painel dele (ver EMAIL_PLAN_PACKAGE_NAME
-      // em user-products.ts e /api/client/attach-email-domain). domain_name
-      // fica vazio até isso acontecer.
+      // um connosco) depois, já no painel dele (/api/client/attach-email-domain,
+      // que cria então a conta no servidor com o pacote do plano — ver
+      // email-plans.ts). domain_name fica vazio até isso acontecer.
+      const emailPlan = getEmailPlan(item.id);
       const { error: insErr } = await supabase.from('hosting_renewals').insert({
         user_id: userId,
         domain_name: '',
-        package_name: 'Email Básico',
+        package_name: emailPlan ? emailPlanProductName(emailPlan) : item.name,
         start_date: today,
         expiration_date: hostingExpires,
         renewal_price: item.price,
@@ -682,7 +713,7 @@ export async function fulfillCheckout(
         console.warn('[checkout-fulfillment] email plano:', insErr.message);
         await alertAdminOfTrackingFailure('hosting_renewals (email)', insErr.message);
       }
-      created.push('email:plano-basico');
+      created.push(`email:${item.id}`);
     }
   }
 
@@ -697,17 +728,17 @@ export async function fulfillCheckout(
   });
 
   // #5: a password de login (Supabase Auth) do cliente nunca é tocada por
-  // promoteGuestToClient — era sobrescrita pela password gerada para a conta
-  // de hospedagem, o que trancava o cliente fora da própria conta depois de
-  // comprar. O botão "Direct Admin" não depende delas serem iguais: usa um
-  // one-time login-url por username (ver /api/client-directadmin-access), e
-  // a criação real da conta no servidor lê a password de
-  // profiles.da_password_encrypted (gravada acima, sharedHostingPassword),
-  // não a de login. Normalmente já é chamada de novo aqui (idempotente — ver
-  // §submissão da encomenda), mas mantém-se também aqui para o caso de
-  // `fulfillCheckout` ser invocada por um caminho que nunca passou por lá
-  // (ex.: script de correcção manual/admin).
-  if (admin) await promoteGuestToClient(admin, userId);
+  // promoteBuyerAfterPurchase — era sobrescrita pela password gerada para a
+  // conta de hospedagem, o que trancava o cliente fora da própria conta
+  // depois de comprar. O botão "Direct Admin" não depende delas serem
+  // iguais: usa um one-time login-url por username (ver
+  // /api/client-directadmin-access), e a criação real da conta no servidor
+  // lê a password de profiles.da_password_encrypted (gravada acima,
+  // sharedHostingPassword), não a de login. Normalmente já é chamada de novo
+  // aqui (idempotente — ver §submissão da encomenda), mas mantém-se também
+  // aqui para o caso de `fulfillCheckout` ser invocada por um caminho que
+  // nunca passou por lá (ex.: script de correcção manual/admin).
+  if (admin) await promoteBuyerAfterPurchase(admin, userId, items);
 
   return { created, total };
 }

@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAdminResellerOrManager } from '@/lib/panel-api-auth';
-import { listMirrorWebsites } from '@/lib/panel-mirror-read';
-import { resolvePanelDaContext } from '@/lib/panel-api-context';
+import { requireAdminResellerOrManager, type PanelStaffAuthSuccess } from '@/lib/panel-api-auth';
+import {
+  domainAccessDeniedResponse,
+  resolveCallerDomainAccess,
+  resolveCallerManagedOwners,
+} from '@/lib/domain-access';
 import { mirrorAfterDaMutation } from '@/lib/panel-mirror-write';
-import { getProviderByUsername } from '@/lib/hosting-provider';
+import { getProviderByUsername, isHestiaOnlyDeploy } from '@/lib/hosting-provider';
 import * as hestiaAdapter from '@/lib/hestia-adapter';
+import * as hestiaMysql from '@/lib/hestia-mysql-acl';
+import { createPhpMyAdminSsoUrl } from '@/lib/hestia-pma-sso';
 import {
   daDbChangeHosts,
   daDbChangePassword,
@@ -33,15 +38,38 @@ import {
 } from '@/lib/da-database-api';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 300;
 
-async function resolveOwner(domain: string): Promise<string | null> {
-  if (!domain) return null;
-  const auth = await requireAdminResellerOrManager();
-  if ('error' in auth) return null;
-  const { mirrorScope } = await resolvePanelDaContext(auth);
-  const sites = await listMirrorWebsites(mirrorScope);
-  const site = sites.find((s) => s.domain === domain);
-  return site?.owner?.toLowerCase() || null;
+type OwnerResolution = {
+  owner: string | null;
+  /** false = admin sem impersonação (sem restrições de conta). */
+  scoped: boolean;
+  denied?: NextResponse;
+};
+
+/** Conta cujo MySQL o pedido vai usar. Um login que não é admin só chega a
+ * domínios das contas que gere (ver domain-access.ts) e, sem domínio, fica na
+ * sua própria conta activa — antes caía na conta principal do servidor
+ * (vdadmin) e qualquer revendedor abria o phpMyAdmin dela. */
+async function resolveOwner(auth: PanelStaffAuthSuccess, domain: string): Promise<OwnerResolution> {
+  const managed = await resolveCallerManagedOwners(auth);
+  const scoped = managed.owners !== null;
+  if (!domain) return { owner: scoped ? managed.activeAccount : null, scoped };
+  const access = await resolveCallerDomainAccess(auth, domain, managed);
+  if (!access.allowed) return { owner: null, scoped, denied: domainAccessDeniedResponse(access.reason) };
+  return { owner: access.owner, scoped };
+}
+
+/** No Hestia (e no DirectAdmin) as bases e utilizadores MySQL de uma conta
+ * começam sempre por "<conta>_". Sem isto bastava indicar o próprio domínio
+ * com o nome da base de outra conta para a exportar/importar/apagar. */
+function foreignDatabaseName(owner: string, names: string[]): string | null {
+  const prefix = `${owner.toLowerCase()}_`;
+  return names.find((name) => name && !name.toLowerCase().startsWith(prefix)) || null;
+}
+
+function foreignDatabaseResponse(): NextResponse {
+  return NextResponse.json({ success: false, error: 'Base de dados fora da sua conta.' }, { status: 403 });
 }
 
 export async function GET(req: NextRequest) {
@@ -52,7 +80,30 @@ export async function GET(req: NextRequest) {
   const action = sp.get('action');
   const domain = sp.get('domain') || '';
   const database = sp.get('database') || '';
-  const owner = await resolveOwner(domain);
+  const resolved = await resolveOwner(auth, domain);
+  if (resolved.denied) return resolved.denied;
+  const owner = resolved.owner;
+  if (resolved.scoped && owner && foreignDatabaseName(owner, [database])) return foreignDatabaseResponse();
+  if (action === 'phpmyadminSso') {
+    // Só o admin cai na conta principal do servidor quando não há domínio.
+    const hestiaOwner =
+      owner ||
+      (!resolved.scoped && isHestiaOnlyDeploy() ? (process.env.HESTIA_USER || 'vdadmin').trim().toLowerCase() : '');
+    if (hestiaOwner && (isHestiaOnlyDeploy() || (await getProviderByUsername(hestiaOwner)) === 'hestia')) {
+      try {
+        const url = await createPhpMyAdminSsoUrl(hestiaOwner, database || undefined);
+        const dest = new URL(url, req.nextUrl.origin);
+        const res = NextResponse.redirect(dest, 302);
+        res.headers.set('Cache-Control', 'no-store');
+        return res;
+      } catch (e: unknown) {
+        return NextResponse.json(
+          { success: false, error: e instanceof Error ? e.message : 'Não foi possível abrir o MySQL.' },
+          { status: 502 },
+        );
+      }
+    }
+  }
   if (!owner) {
     return NextResponse.json({ success: false, error: 'Conta de hospedagem não encontrada.' }, { status: 400 });
   }
@@ -62,13 +113,28 @@ export async function GET(req: NextRequest) {
     if (!database) {
       return NextResponse.json({ success: false, error: 'Base de dados em falta.' }, { status: 400 });
     }
+    const provider = await getProviderByUsername(owner);
+    if (provider === 'hestia') {
+      const dumped = await hestiaAdapter.exportDatabaseBytes(database, gzip);
+      if (!dumped.ok || !dumped.bytes) {
+        return NextResponse.json({ success: false, error: dumped.error || 'Exportação falhou.' }, { status: 502 });
+      }
+      const filename = `${database}${gzip ? '.sql.gz' : '.sql'}`;
+      return new NextResponse(new Uint8Array(dumped.bytes), {
+        headers: {
+          'Content-Type': gzip ? 'application/gzip' : 'application/sql',
+          'Content-Disposition': `attachment; filename="${filename}"`,
+          'Cache-Control': 'no-store',
+        },
+      });
+    }
     const result = await daDbExport(owner, database, gzip);
     if (!result.ok || !result.base64) {
       return NextResponse.json({ success: false, error: result.error || 'Exportação falhou.' }, { status: 502 });
     }
     const bytes = Buffer.from(result.base64, 'base64');
     const filename = `${database}${gzip ? '.sql.gz' : '.sql'}`;
-    return new NextResponse(bytes, {
+    return new NextResponse(new Uint8Array(bytes), {
       headers: {
         'Content-Type': gzip ? 'application/gzip' : 'application/sql',
         'Content-Disposition': `attachment; filename="${filename}"`,
@@ -87,16 +153,47 @@ export async function POST(req: NextRequest) {
   const contentType = req.headers.get('content-type') || '';
 
   if (contentType.includes('multipart/form-data')) {
-    const form = await req.formData();
+    let form: FormData;
+    try {
+      form = await req.formData();
+    } catch {
+      return NextResponse.json(
+        { success: false, error: 'Ficheiro demasiado grande ou inválido. Tente um .sql.gz (máx. 512 MB).' },
+        { status: 413 },
+      );
+    }
     const domain = String(form.get('domain') || '');
     const database = String(form.get('database') || '');
-    const owner = await resolveOwner(domain);
+    const resolved = await resolveOwner(auth, domain);
+    if (resolved.denied) return resolved.denied;
+    const owner = resolved.owner;
+    if (resolved.scoped && owner && foreignDatabaseName(owner, [database])) return foreignDatabaseResponse();
     const file = form.get('sqlfile');
     const clean = form.get('clean') === 'yes' || form.get('clean') === 'true';
     if (!owner || !database || !(file instanceof Blob)) {
       return NextResponse.json({ success: false, error: 'Dados de importação inválidos.' }, { status: 400 });
     }
     const buf = Buffer.from(await file.arrayBuffer());
+    const fileName = file instanceof File ? file.name : String(form.get('filename') || '');
+    const provider = await getProviderByUsername(owner);
+    if (provider === 'hestia') {
+      const result = await hestiaAdapter.importDatabaseFile(database, buf, clean, fileName);
+      if (!result.ok) {
+        return NextResponse.json({ success: false, error: result.error || 'Importação falhou.' }, { status: 502 });
+      }
+      await hestiaAdapter.refreshDatabaseDisk(owner, database).catch(() => undefined);
+      const stats = await hestiaMysql.listMysqlSchemaStats([database]).catch(
+        () => new Map<string, { sizeBytes: number; tableCount: number }>(),
+      );
+      const live = stats.get(database);
+      return NextResponse.json({
+        success: true,
+        data: {
+          sizeBytes: live?.sizeBytes ?? 0,
+          tableCount: live?.tableCount ?? 0,
+        },
+      });
+    }
     const result = await daDbImport(owner, database, buf.toString('base64'), clean);
     if (!result.ok) {
       return NextResponse.json({ success: false, error: result.error || 'Importação falhou.' }, { status: 502 });
@@ -113,17 +210,39 @@ export async function POST(req: NextRequest) {
 
   const action = String(body.action || '');
   const domain = String(body.domain || '');
-  const owner = await resolveOwner(domain);
+  const resolved = await resolveOwner(auth, domain);
+  if (resolved.denied) return resolved.denied;
+  const owner = resolved.owner;
   if (!owner) {
+    if (action === 'phpmyadminSso' && isHestiaOnlyDeploy() && !resolved.scoped) {
+      try {
+        const url = await createPhpMyAdminSsoUrl(
+          (process.env.HESTIA_USER || 'vdadmin').trim().toLowerCase(),
+          String(body.database || '') || undefined,
+        );
+        return NextResponse.json({ success: true, data: { url } });
+      } catch (e: unknown) {
+        return NextResponse.json(
+          { success: false, error: e instanceof Error ? e.message : 'Não foi possível abrir o MySQL.' },
+          { status: 502 },
+        );
+      }
+    }
     return NextResponse.json({ success: false, error: 'Conta de hospedagem não encontrada.' }, { status: 400 });
   }
 
   const database = String(body.database || '');
   const dbuser = String(body.dbuser || body.dbUser || '');
+  if (resolved.scoped) {
+    // createDatabase/createUser recebem só o sufixo — o prefixo da conta é
+    // acrescentado pelo próprio código; nas restantes o nome vem completo.
+    const isCreate = action === 'createDatabase' || action === 'createUser';
+    if (foreignDatabaseName(owner, [database, isCreate ? '' : dbuser])) return foreignDatabaseResponse();
+  }
 
   const provider = await getProviderByUsername(owner);
   if (provider === 'hestia') {
-    return handleHestiaDatabaseAction(action, owner, database, body);
+    return handleHestiaDatabaseAction(action, owner, database, body, domain);
   }
 
   try {
@@ -301,68 +420,335 @@ export async function POST(req: NextRequest) {
  * da DirectAdmin (1 base de dados = sempre 1 utilizador dedicado, sem
  * privilégios/hosts geríveis à parte), por isso só cobre o CRUD essencial
  * (listar/criar/apagar/mudar password). Acções avançadas específicas da DA
- * (utilizadores separados, privilégios, check/repair/optimize, phpMyAdmin SSO,
- * import/export) devolvem um erro claro em vez de falharem silenciosamente
- * contra um servidor DA que esta conta nem usa.
+ * (utilizadores separados, privilégios, hosts). phpMyAdmin abre no hostname
+ * do painel Hestia (`/phpmyadmin/`), não na porta 2222 do DirectAdmin.
  */
 async function handleHestiaDatabaseAction(
   action: string,
   owner: string,
   database: string,
   body: Record<string, unknown>,
+  domain: string,
 ): Promise<NextResponse> {
+  const hestiaUnsupported =
+    'Esta operação não está disponível no Hestia.';
+
   try {
     switch (action) {
+      case 'getInfo': {
+        return NextResponse.json({
+          success: true,
+          data: { dbLimit: null, userLimit: null, mysql: true },
+        });
+      }
       case 'listDatabases': {
-        const rows = await hestiaAdapter.listDatabases(owner);
-        const data = rows.map((r) => ({
-          database: r.database,
-          dbuser: r.dbUser,
-          type: r.type,
-          charset: r.charset,
-          sizeBytes: r.diskUsedMb * 1024 * 1024,
-          suspended: r.suspended,
-        }));
+        const noSize = body.noSize === true;
+        const hestiaRows = await hestiaAdapter.listDatabases(owner);
+        const mysqlSchemas = await hestiaMysql.listMysqlSchemas(owner).catch(() => [] as string[]);
+        const byName = new Map(hestiaRows.map((r) => [r.database, r]));
+        for (const schema of mysqlSchemas) {
+          if (!byName.has(schema)) {
+            byName.set(schema, {
+              database: schema,
+              dbUser: '',
+              host: 'localhost',
+              type: 'mysql',
+              charset: 'utf8mb4',
+              diskUsedMb: 0,
+              suspended: false,
+            });
+          }
+        }
+        const rows = [...byName.values()];
+        const userCounts = await hestiaMysql.countUsersPerDatabase(
+          owner,
+          rows.map((r) => r.database),
+        );
+        const mysqlStats = noSize
+          ? new Map<string, { sizeBytes: number; tableCount: number }>()
+          : await hestiaMysql.listMysqlSchemaStats(rows.map((r) => r.database)).catch(
+              () => new Map<string, { sizeBytes: number; tableCount: number }>(),
+            );
+        const data = rows.map((r) => {
+          const live = mysqlStats.get(r.database);
+          return {
+            database: r.database,
+            dbuser: r.dbUser,
+            type: r.type,
+            charset: r.charset,
+            sizeBytes: live?.sizeBytes ?? r.diskUsedMb * 1024 * 1024,
+            userCount: userCounts.get(r.database) ?? (r.dbUser ? 1 : 0),
+            tableCount: live?.tableCount ?? 0,
+            suspended: r.suspended,
+          };
+        });
         const totalBytes = data.reduce((sum, r) => sum + r.sizeBytes, 0);
         return NextResponse.json({ success: true, data: { rows: data, totalBytes } });
+      }
+      case 'getDatabase': {
+        if (!database) return NextResponse.json({ success: false, error: 'Base de dados em falta.' }, { status: 400 });
+        const details = await hestiaAdapter.getDatabaseDetails(owner, database);
+        if (!details) return NextResponse.json({ success: false, error: 'Base de dados não encontrada.' }, { status: 404 });
+        const dbUsers = await hestiaMysql.listDatabaseUsersFromMysql(owner, database).catch(() => []);
+        return NextResponse.json({
+          success: true,
+          data: {
+            database: details.database,
+            defaultCharset: details.defaultCharset,
+            defaultCollation: details.defaultCollation,
+            sizeBytes: details.sizeBytes,
+            userCount: dbUsers.length || details.userCount,
+            tableCount: details.tableCount,
+            viewCount: details.viewCount,
+            eventCount: details.eventCount,
+            triggerCount: details.triggerCount,
+            routineCount: details.routineCount,
+          },
+        });
+      }
+      case 'listDatabaseUsers': {
+        if (!database) return NextResponse.json({ success: false, error: 'Base de dados em falta.' }, { status: 400 });
+        const data = await hestiaMysql.listDatabaseUsersFromMysql(owner, database);
+        return NextResponse.json({ success: true, data });
+      }
+      case 'listUsers': {
+        const users = await hestiaMysql.listMysqlUsers(owner);
+        return NextResponse.json({ success: true, data: users });
+      }
+      case 'getUser': {
+        const dbuser = String(body.dbuser || body.dbUser || '');
+        if (!dbuser) return NextResponse.json({ success: false, error: 'Utilizador em falta.' }, { status: 400 });
+        const row = await hestiaMysql.getMysqlUser(owner, dbuser);
+        if (!row) return NextResponse.json({ success: false, error: 'Utilizador não encontrado.' }, { status: 404 });
+        return NextResponse.json({ success: true, data: row });
+      }
+      case 'listUserDatabases': {
+        const dbuser = String(body.dbuser || body.dbUser || '');
+        if (!dbuser) return NextResponse.json({ success: false, error: 'Utilizador em falta.' }, { status: 400 });
+        const data = await hestiaMysql.listUserDatabasesFromMysql(owner, dbuser);
+        return NextResponse.json({ success: true, data });
       }
       case 'createDatabase': {
         const rawSuffix = String(body.name || body.dbName || '').trim();
         if (!rawSuffix) return NextResponse.json({ success: false, error: 'Nome da base de dados em falta.' }, { status: 400 });
         const dbNameSuffix = rawSuffix.startsWith(`${owner}_`) ? rawSuffix.slice(owner.length + 1) : rawSuffix;
-        const rawUserSuffix = String(body.dbuser || body.dbUser || rawSuffix).trim();
+        const rawUserSuffix = String(body.dbuser || body.dbUser || '').trim();
+        const charset = String(body.charset || '').trim() || undefined;
+        if (!rawUserSuffix) {
+          try {
+            const created = await hestiaMysql.createMysqlDatabase(owner, dbNameSuffix, charset);
+            return NextResponse.json({ success: true, data: { database: created.database, dbuser: '' } });
+          } catch (e: unknown) {
+            return NextResponse.json(
+              { success: false, error: e instanceof Error ? e.message : 'Não foi possível criar a base de dados.' },
+              { status: 502 },
+            );
+          }
+        }
         const dbUserSuffix = rawUserSuffix.startsWith(`${owner}_`) ? rawUserSuffix.slice(owner.length + 1) : rawUserSuffix;
         const password = String(body.password || body.dbPassword || '');
-        if (!password) return NextResponse.json({ success: false, error: 'Senha em falta.' }, { status: 400 });
-        const result = await hestiaAdapter.createDatabase({ username: owner, dbNameSuffix, dbUserSuffix, password });
+        if (!password) return NextResponse.json({ success: false, error: 'Senha em falta para criar o utilizador.' }, { status: 400 });
+        const result = await hestiaAdapter.createDatabase({
+          username: owner,
+          dbNameSuffix,
+          dbUserSuffix,
+          password,
+          charset,
+        });
         if (!result.ok) return NextResponse.json({ success: false, error: result.error }, { status: 502 });
-        return NextResponse.json({ success: true, data: { database: result.database, dbuser: result.dbUser } });
+        await hestiaMysql.rememberDatabaseSecret(owner, password, {
+          database: result.database,
+          dbuser: result.dbUser,
+        });
+        return NextResponse.json({ success: true, data: { database: result.database, dbuser: result.dbUser, password } });
+      }
+      case 'createUser': {
+        const rawSuffix = String(body.dbuser || body.dbUser || '').trim();
+        const password = String(body.password || '');
+        if (!rawSuffix) return NextResponse.json({ success: false, error: 'Nome do utilizador em falta.' }, { status: 400 });
+        if (!password) return NextResponse.json({ success: false, error: 'Senha em falta.' }, { status: 400 });
+        try {
+          const created = await hestiaMysql.createMysqlUser(owner, rawSuffix, password);
+          await hestiaMysql.rememberDatabaseSecret(owner, password, { dbuser: created.dbuser });
+          return NextResponse.json({ success: true, data: { dbuser: created.dbuser, password } });
+        } catch (e: unknown) {
+          return NextResponse.json(
+            { success: false, error: e instanceof Error ? e.message : 'Não foi possível criar o utilizador.' },
+            { status: 502 },
+          );
+        }
       }
       case 'deleteDatabase': {
         if (!database) return NextResponse.json({ success: false, error: 'Base de dados em falta.' }, { status: 400 });
-        const result = await hestiaAdapter.deleteDatabase(owner, database);
-        if (!result.ok) return NextResponse.json({ success: false, error: result.error }, { status: 502 });
-        return NextResponse.json({ success: true });
+        const hestiaRows = await hestiaAdapter.listDatabases(owner);
+        if (hestiaRows.some((r) => r.database === database)) {
+          const result = await hestiaAdapter.deleteDatabase(owner, database);
+          if (!result.ok) return NextResponse.json({ success: false, error: result.error }, { status: 502 });
+          return NextResponse.json({ success: true });
+        }
+        try {
+          await hestiaMysql.dropMysqlDatabase(owner, database);
+          return NextResponse.json({ success: true });
+        } catch (e: unknown) {
+          return NextResponse.json(
+            { success: false, error: e instanceof Error ? e.message : 'Não foi possível eliminar a base de dados.' },
+            { status: 502 },
+          );
+        }
+      }
+      case 'deleteUser': {
+        const dbuser = String(body.dbuser || body.dbUser || '');
+        if (!dbuser) return NextResponse.json({ success: false, error: 'Utilizador em falta.' }, { status: 400 });
+        try {
+          await hestiaMysql.dropMysqlUser(owner, dbuser);
+          return NextResponse.json({ success: true });
+        } catch (e: unknown) {
+          return NextResponse.json(
+            { success: false, error: e instanceof Error ? e.message : 'Não foi possível eliminar o utilizador.' },
+            { status: 502 },
+          );
+        }
       }
       case 'changePassword': {
         const newPassword = String(body.newPassword || body.password || '');
         const dbuser = String(body.dbuser || body.dbUser || '');
         if ((!database && !dbuser) || !newPassword) {
-          return NextResponse.json({ success: false, error: 'Base de dados e senha são obrigatórios.' }, { status: 400 });
+          return NextResponse.json({ success: false, error: 'Utilizador e senha são obrigatórios.' }, { status: 400 });
         }
-        // No Hestia a password está ligada à base de dados, não a um utilizador
-        // separado (ao contrário da DA) — se só veio o `dbuser` (é o que a UI
-        // envia), encontra a base de dados correspondente primeiro.
-        let targetDatabase = database;
-        if (!targetDatabase) {
-          const rows = await hestiaAdapter.listDatabases(owner);
-          targetDatabase = rows.find((r) => r.dbUser === dbuser)?.database || '';
+        try {
+          let targetUser = dbuser;
+          if (!targetUser && database) {
+            const rows = await hestiaAdapter.listDatabases(owner);
+            targetUser = rows.find((r) => r.database === database)?.dbUser || '';
+          }
+          if (!targetUser) {
+            return NextResponse.json({ success: false, error: 'Utilizador não encontrado.' }, { status: 404 });
+          }
+          const changed = await hestiaMysql.changeMysqlUserPassword(owner, targetUser, newPassword);
+          if (changed.hestiaDatabase) {
+            await hestiaAdapter.changeDatabasePassword(owner, changed.hestiaDatabase, newPassword);
+          }
+          await hestiaMysql.rememberDatabaseSecret(owner, newPassword, {
+            dbuser: targetUser,
+            database: changed.hestiaDatabase,
+          });
+          return NextResponse.json({ success: true, data: { password: newPassword } });
+        } catch (e: unknown) {
+          return NextResponse.json(
+            { success: false, error: e instanceof Error ? e.message : 'Não foi possível alterar a senha.' },
+            { status: 502 },
+          );
         }
-        if (!targetDatabase) return NextResponse.json({ success: false, error: 'Base de dados não encontrada.' }, { status: 404 });
-        const result = await hestiaAdapter.changeDatabasePassword(owner, targetDatabase, newPassword);
-        if (!result.ok) return NextResponse.json({ success: false, error: result.error }, { status: 502 });
-        return NextResponse.json({ success: true });
       }
+      case 'revealPassword': {
+        const dbuser = String(body.dbuser || body.dbUser || '');
+        if (!dbuser && !database) {
+          return NextResponse.json({ success: false, error: 'Utilizador em falta.' }, { status: 400 });
+        }
+        try {
+          let targetUser = dbuser;
+          if (!targetUser && database) {
+            const rows = await hestiaAdapter.listDatabases(owner);
+            targetUser = rows.find((r) => r.database === database)?.dbUser || '';
+          }
+          if (!targetUser) {
+            return NextResponse.json({ success: true, data: { password: null } });
+          }
+          const password = await hestiaMysql.revealPasswordFromWpConfig(
+            owner,
+            targetUser,
+            database || undefined,
+            domain || undefined,
+          );
+          return NextResponse.json({ success: true, data: { password } });
+        } catch (e: unknown) {
+          return NextResponse.json(
+            { success: false, error: e instanceof Error ? e.message : 'Não foi possível ler a senha.' },
+            { status: 502 },
+          );
+        }
+      }
+      case 'phpmyadminSso': {
+        try {
+          const url = await createPhpMyAdminSsoUrl(owner, database || undefined);
+          return NextResponse.json({ success: true, data: { url } });
+        } catch (e: unknown) {
+          return NextResponse.json(
+            { success: false, error: e instanceof Error ? e.message : 'Não foi possível abrir o MySQL.' },
+            { status: 502 },
+          );
+        }
+      }
+      case 'check':
+      case 'repair':
+      case 'optimize': {
+        if (!database) return NextResponse.json({ success: false, error: 'Base de dados em falta.' }, { status: 400 });
+        const result = await hestiaAdapter.maintainDatabase(database, action);
+        if (!result.ok) return NextResponse.json({ success: false, error: result.error }, { status: 502 });
+        return NextResponse.json({ success: true, data: result.data });
+      }
+      case 'grantAccess': {
+        const dbuser = String(body.dbuser || body.dbUser || '');
+        if (!database || !dbuser) {
+          return NextResponse.json({ success: false, error: 'Base de dados e utilizador são obrigatórios.' }, { status: 400 });
+        }
+        try {
+          await hestiaMysql.grantDatabaseAccess(owner, dbuser, database);
+          return NextResponse.json({ success: true });
+        } catch (e: unknown) {
+          return NextResponse.json(
+            { success: false, error: e instanceof Error ? e.message : 'Não foi possível conceder acesso.' },
+            { status: 502 },
+          );
+        }
+      }
+      case 'revokeAccess': {
+        const dbuser = String(body.dbuser || body.dbUser || '');
+        if (!database || !dbuser) {
+          return NextResponse.json({ success: false, error: 'Base de dados e utilizador são obrigatórios.' }, { status: 400 });
+        }
+        try {
+          await hestiaMysql.revokeDatabaseAccess(owner, dbuser, database);
+          return NextResponse.json({ success: true });
+        } catch (e: unknown) {
+          return NextResponse.json(
+            { success: false, error: e instanceof Error ? e.message : 'Não foi possível revogar o acesso.' },
+            { status: 502 },
+          );
+        }
+      }
+      case 'changePrivs': {
+        const dbuser = String(body.dbuser || body.dbUser || '');
+        const privileges = (body.privileges || {}) as Record<string, boolean>;
+        if (!database || !dbuser) {
+          return NextResponse.json({ success: false, error: 'Base de dados e utilizador são obrigatórios.' }, { status: 400 });
+        }
+        try {
+          await hestiaMysql.changeDatabasePrivileges(owner, dbuser, database, privileges);
+          return NextResponse.json({ success: true });
+        } catch (e: unknown) {
+          return NextResponse.json(
+            { success: false, error: e instanceof Error ? e.message : 'Não foi possível actualizar os privilégios.' },
+            { status: 502 },
+          );
+        }
+      }
+      case 'changeHosts': {
+        const dbuser = String(body.dbuser || body.dbUser || '');
+        const hostPatterns = Array.isArray(body.hostPatterns) ? body.hostPatterns.map(String) : [];
+        if (!dbuser) return NextResponse.json({ success: false, error: 'Utilizador em falta.' }, { status: 400 });
+        try {
+          await hestiaMysql.changeMysqlUserHosts(owner, dbuser, hostPatterns);
+          return NextResponse.json({ success: true });
+        } catch (e: unknown) {
+          return NextResponse.json(
+            { success: false, error: e instanceof Error ? e.message : 'Não foi possível actualizar os hosts.' },
+            { status: 502 },
+          );
+        }
+      }
+      case 'fixDefiners':
+        return NextResponse.json({ success: false, error: hestiaUnsupported }, { status: 400 });
       default:
         return NextResponse.json(
           { success: false, error: `Acção "${action}" ainda não está disponível para contas Hestia.` },

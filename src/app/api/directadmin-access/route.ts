@@ -7,6 +7,7 @@ import { daOneTimeLoginUrl } from '@/lib/da-api-ssh';
 import type { DirectAdminAccessTarget } from '@/lib/server-config';
 import { buildPanelLoginUrl, getPublicSiteOrigin } from '@/lib/panel-origin';
 import { requireAdminResellerOrManager } from '@/lib/panel-api-auth';
+import { isHestiaOnlyDeploy } from '@/lib/hosting-provider';
 
 function readEnv(...keys: string[]): string {
   for (const key of keys) {
@@ -30,10 +31,10 @@ function directAdminLoginPageUrl(): string {
 /**
  * O parâmetro `?as=` vem do cliente e NUNCA deve, por si só, conseguir dar acesso admin —
  * só um chamador cuja própria role já seja 'admin' pode obter target==='admin'. Caso
- * contrário (revendedor/manager) fica sempre forçado a 'reseller', mesmo que peçam
- * `?as=admin` ou omitam o parâmetro (o valor por omissão nunca pode ser 'admin').
+ * contrário (revendedor/manager/profissional) fica sempre forçado a 'reseller', mesmo que
+ * peçam `?as=admin` ou omitam o parâmetro (o valor por omissão nunca pode ser 'admin').
  */
-function parseAccessTarget(request: NextRequest, callerRole: 'admin' | 'reseller' | 'manager'): DirectAdminAccessTarget {
+function parseAccessTarget(request: NextRequest, callerRole: 'admin' | 'reseller' | 'manager' | 'profissional'): DirectAdminAccessTarget {
   if (callerRole !== 'admin') return 'reseller';
   return request.nextUrl.searchParams.get('as') === 'reseller' ? 'reseller' : 'admin';
 }
@@ -57,6 +58,19 @@ function loginRedirect(_request: NextRequest): NextResponse {
 export async function GET(request: NextRequest) {
   const loginUrl = directAdminLoginPageUrl();
   const browserNav = isBrowserNavigation(request);
+
+  if (isHestiaOnlyDeploy()) {
+    if (browserNav) {
+      return NextResponse.redirect(new URL('/dashboard', getPublicSiteOrigin()), {
+        status: 307,
+        headers: { 'Cache-Control': 'no-store' },
+      });
+    }
+    return NextResponse.json(
+      { error: 'Neste servidor a hospedagem é Hestia — o DirectAdmin não é usado.' },
+      { status: 409 },
+    );
+  }
 
   const auth = await requireAdminResellerOrManager();
   if ('error' in auth) {

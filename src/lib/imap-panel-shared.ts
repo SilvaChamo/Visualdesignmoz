@@ -152,14 +152,12 @@ export async function resolveMailboxPassword(
 
   // Dono do alojamento do domínio (cliente com conta própria ou revendedor que o aloja):
   // gere todas as caixas desse domínio — só se o domínio pertencer de facto à sua conta.
+  // Mesma regra do resto do painel (domain-access.ts): conta activa +
+  // contas ligadas geridas directamente (Enterprise); Premium trancado.
   if (!canAccess && accountDomain) {
-    const { loadResellerCredentialsByUserId } = await import('@/lib/da-credential-store')
-    const { getMirrorSiteOwner } = await import('@/lib/panel-mirror-read')
-    const creds = await loadResellerCredentialsByUserId(session.user.id)
-    if (creds?.user) {
-      const owner = await getMirrorSiteOwner(accountDomain)
-      canAccess = owner === creds.user
-    }
+    const { resolveOwnAccountDomainAccess } = await import('@/lib/domain-access')
+    const access = await resolveOwnAccountDomainAccess(session.user.id, accountDomain)
+    canAccess = access.allowed
   }
 
   if (!canAccess) return null

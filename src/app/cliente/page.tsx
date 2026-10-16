@@ -16,7 +16,9 @@ import {
   Send, Megaphone, Newspaper, File as FileIcon, Loader2, LayoutTemplate, Sparkles, X as XLucide, History as HistoryIcon, Calendar, Eye, Pencil, BarChart3, TrendingUp, ArrowUpRight, Check, AlertTriangle, X, Bell, Plug
 } from 'lucide-react'
 import { ClientProductsHub } from '@/components/client/ClientProductsHub'
-import { ClientSidebar } from '@/components/client/ClientSidebar'
+import { ClientAddDomainModal } from '@/components/client/ClientAddDomainModal'
+import { ResellerSidebar } from '@/components/revendedor/ResellerSidebar'
+import { clientPanelMenuDefs } from '@/lib/panel-client-menu'
 import { MinhasComprasSection } from '@/components/client/MinhasComprasSection'
 import { EncomendasListSection } from '@/components/encomendas/EncomendasListSection'
 import { EncomendasMensagensSection } from '@/components/encomendas/EncomendasMensagensSection'
@@ -76,7 +78,6 @@ import {
   adminCriarLista as criarLista,
   adminRemoverLista as removerLista,
   adminListarCampanhas as listarCampanhas,
-  adminSalvarCampanha as salvarCampanha,
   adminRemoverCampanha as removerCampanha,
   adminLimparDadosCampanhas as limparDadosCampanhas
 } from '@/app/actions/mailmarketing'
@@ -236,7 +237,6 @@ function SuporteSection({ cliente, sites, onComposeEmail }: { cliente: any, site
               </div>
               <div>
                 <p className="text-xs font-bold text-gray-500 uppercase">Email</p>
-                <p className="text-sm font-bold text-gray-900">geral@visualdesignmoz.com</p>
                 <p className="text-sm font-bold text-gray-900">suporte@visualdesignmoz.com</p>
               </div>
             </div>
@@ -577,17 +577,27 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
 
       setLoadingDomainEmails(true);
       try {
-        // 🆕 BUSCAR DE DUAS FONTES: Supabase + DirectAdmin
-        const [supabaseRes, directadminRes] = await Promise.allSettled([
+        // 🆕 BUSCAR DE DUAS FONTES: Supabase + caixas reais no servidor
+        // (/api/da listEmails — Hestia no Contabo, DirectAdmin no Hetzner).
+        const [supabaseRes, serverRes] = await Promise.allSettled([
           fetch('/api/email-contas'),
-          fetch(`/api/directadmin-list-emails?domain=${encodeURIComponent(selectedSite)}`)
+          fetch('/api/da', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'listEmails', params: { domain: selectedSite } }),
+          })
         ]);
+
+        // Uma rota em falta/erro do servidor devolve a página HTML do Next —
+        // .json() directo rebentava o carregamento inteiro do selector.
+        const readJson = async (res: Response) =>
+          res.headers.get('content-type')?.includes('application/json') ? res.json() : null;
 
         let allEmailsList: string[] = [];
 
         // Processar resultado do Supabase
         if (supabaseRes.status === 'fulfilled') {
-          const result = await supabaseRes.value.json();
+          const result = (await readJson(supabaseRes.value)) || {};
           const data = result.contas || result;
           if (Array.isArray(data)) {
             const supabaseEmails = data
@@ -601,13 +611,15 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
           }
         }
 
-        // Processar resultado do DirectAdmin
-        if (directadminRes.status === 'fulfilled') {
-          const result = await directadminRes.value.json();
-          if (result.success && Array.isArray(result.emails)) {
-            allEmailsList = [...allEmailsList, ...result.emails];
-            console.log("📧 Emails do DirectAdmin:", result.emails);
-            console.log("📧 Fonte:", result.source);
+        // Processar caixas do servidor de alojamento
+        if (serverRes.status === 'fulfilled') {
+          const result = await readJson(serverRes.value);
+          if (result?.success && Array.isArray(result.data)) {
+            const serverEmails = result.data
+              .map((row: any) => row?.email)
+              .filter((email: unknown): email is string => typeof email === 'string');
+            allEmailsList = [...allEmailsList, ...serverEmails];
+            console.log("📧 Emails do servidor:", serverEmails);
           }
         }
 
@@ -920,25 +932,20 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToCon
         throw new Error(result.error || result.message || "Erro ao enviar mensagem");
       }
 
-      // 🐛 CORRECÇÃO: Verificar se realmente enviou algo
-      const sentCount = result?.details?.success ?? 0;
-      const failedCount = result?.details?.failed ?? emailList.length;
-
-      if (sentCount === 0) {
-        throw new Error(result?.details?.errors?.[0] || "Nenhum email foi entregue. Verifique a configuração SMTP.");
-      } else if (failedCount > 0) {
-        toast.warning(`Envio parcial: ${sentCount} entregue(s), ${failedCount} falha(s).`);
+      if (result.queued) {
+        toast.success(result.message || `Campanha enfileirada para ${emailList.length} contactos.`);
       } else {
-        toast.success(`Campanha enviada com sucesso para ${sentCount} contactos!`);
-      }
+        const sentCount = result?.details?.success ?? 0;
+        const failedCount = result?.details?.failed ?? emailList.length;
 
-      await salvarCampanha({
-        subject,
-        content_html: finalHtml,
-        total_recipients: emailList.length,
-        domain: selectedSite,
-        owner_email: user?.email || currentUserEmail || ''
-      });
+        if (sentCount === 0) {
+          throw new Error(result?.details?.errors?.[0] || "Nenhum email foi entregue. Verifique a configuração SMTP.");
+        } else if (failedCount > 0) {
+          toast.warning(`Envio parcial: ${sentCount} entregue(s), ${failedCount} falha(s).`);
+        } else {
+          toast.success(`Campanha enviada com sucesso para ${sentCount} contactos!`);
+        }
+      }
 
       setAttachments([]);
 
@@ -2399,120 +2406,90 @@ function FaturasSkeleton() {
   )
 }
 
-// Componente FacturacaoSection
+type CheckoutCompra = {
+  id: string
+  items: Array<{ name?: string; price?: number }>
+  total_mt: number
+  metodo_pagamento: string
+  status: string
+  created_at: string
+}
+
+function compraDescricao(compra: CheckoutCompra) {
+  const names = (compra.items || []).map((i) => i.name).filter(Boolean)
+  return names.length ? names.join(', ') : 'Compra no carrinho'
+}
+
 function FacturacaoSection() {
-  const [expanded, setExpanded] = useState<string | null>(null)
-  const [faturasPendentes, setFaturasPendentes] = useState<any[]>([])
-  const [faturasHistorico, setFaturasHistorico] = useState<any[]>([])
+  const [compras, setCompras] = useState<CheckoutCompra[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetchFaturas()
+    fetch('/api/client/minhas-compras')
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.success) setCompras(data.compras || [])
+      })
+      .finally(() => setLoading(false))
   }, [])
-
-  const fetchFaturas = async () => {
-    setLoading(true)
-    try {
-      // Delay para evitar conflito com outras chamadas
-      await new Promise(resolve => setTimeout(resolve, 200))
-      const { data: { user } } = await createClientInstance.auth.getUser()
-      if (!user) return
-
-      await new Promise(resolve => setTimeout(resolve, 100))
-      const { data: pendentes } = await createClientInstance
-        .from('pagamentos')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('status', 'pending')
-
-      await new Promise(resolve => setTimeout(resolve, 100))
-      const { data: historico } = await createClientInstance
-        .from('pagamentos')
-        .select('*')
-        .eq('user_id', user.id)
-        .neq('status', 'pending')
-
-      if (pendentes) setFaturasPendentes(pendentes)
-      if (historico) setFaturasHistorico(historico)
-    } finally {
-      setLoading(false)
-    }
-  }
 
   if (loading) return <FaturasSkeleton />
 
+  const pendentes = compras.filter((c) => c.status === 'pending')
+  const historico = compras.filter((c) => c.status !== 'pending')
+  const pagos = historico.filter((c) => c.status === 'paid')
+  const year = new Date().getFullYear()
+  const totalAno = pagos
+    .filter((c) => new Date(c.created_at).getFullYear() === year)
+    .reduce((acc, c) => acc + (c.total_mt || 0), 0)
+  const formatMt = (n: number) => new Intl.NumberFormat('pt-MZ').format(n)
+
   return (
     <div className="space-y-5">
-      <div><h1 className="text-2xl font-bold text-gray-900">Facturação</h1><p className="text-gray-500 mt-1">Facturas, pagamentos e histórico financeiro.</p></div>
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">Facturação</h1>
+        <p className="text-gray-500 mt-1">Facturas, pagamentos e histórico financeiro.</p>
+      </div>
 
-      {/* Resumo */}
       <div className="grid grid-cols-3 gap-4">
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-5">
           <p className="text-xs font-bold text-gray-400 uppercase mb-1">Total Pago Este Ano</p>
-          <p className="text-2xl font-bold text-green-600">
-            {new Intl.NumberFormat('pt-MZ').format(faturasHistorico.reduce((acc, f) => acc + (f.valor || 0), 0))} MZN
-          </p>
+          <p className="text-2xl font-bold text-green-600">{formatMt(totalAno)} MZN</p>
         </div>
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-5">
           <p className="text-xs font-bold text-gray-400 uppercase mb-1">Facturas Pendentes</p>
-          <p className="text-2xl font-bold text-red-600">{faturasPendentes.length}</p>
-          <p className="text-xs text-gray-500 mt-1">Valor: {new Intl.NumberFormat('pt-MZ').format(faturasPendentes.reduce((acc, f) => acc + (f.valor || 0), 0))} MZN</p>
+          <p className="text-2xl font-bold text-red-600">{pendentes.length}</p>
+          <p className="text-xs text-gray-500 mt-1">
+            Valor: {formatMt(pendentes.reduce((acc, c) => acc + (c.total_mt || 0), 0))} MZN
+          </p>
         </div>
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-5">
           <p className="text-xs font-bold text-gray-400 uppercase mb-1">Estado da Conta</p>
-          <p className={`text-2xl font-bold ${faturasPendentes.length > 0 ? 'text-red-600' : 'text-green-600'}`}>
-            {faturasPendentes.length > 0 ? 'Pagamento Pendente' : 'Em dia ✓'}
+          <p className={`text-2xl font-bold ${pendentes.length > 0 ? 'text-red-600' : 'text-green-600'}`}>
+            {pendentes.length > 0 ? 'Pagamento Pendente' : 'Em dia ✓'}
           </p>
         </div>
       </div>
 
-      {/* Facturas Pendentes */}
-      {faturasPendentes.length > 0 && (
+      {pendentes.length > 0 && (
         <div className="bg-yellow-50 rounded-lg border border-yellow-200 overflow-hidden">
           <div className="px-5 py-3 border-b border-yellow-200">
-            <h2 className="text-sm font-bold text-yellow-800">⚠️ Facturas Pendentes</h2>
+            <h2 className="text-sm font-bold text-yellow-800">Facturas Pendentes</h2>
           </div>
-          {faturasPendentes.map(f => (
-            <div key={f.id} className="p-5">
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <p className="font-bold text-gray-900">{f.descricao}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">Vencimento: {f.vencimento} • {f.id}</p>
-                </div>
-                <p className="text-2xl font-bold text-gray-900">{new Intl.NumberFormat('pt-MZ').format(f.valor)} MZN</p>
+          {pendentes.map((c) => (
+            <div key={c.id} className="flex items-center justify-between p-5">
+              <div>
+                <p className="font-bold text-gray-900">{compraDescricao(c)}</p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {new Date(c.created_at).toLocaleDateString('pt-PT')}
+                </p>
               </div>
-              <button onClick={() => setExpanded(expanded === f.id ? null : f.id)}
-                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-xs font-bold transition-colors">
-                Como Pagar
-              </button>
-              {expanded === f.id && (
-                <div className="mt-4 grid grid-cols-3 gap-3">
-                  <div className="bg-white rounded-lg border border-yellow-200 p-4">
-                    <p className="text-xs font-bold text-gray-700 mb-2">📱 M-Pesa</p>
-                    <p className="text-xs text-gray-600">Envie <strong>{f.valor} MZN</strong> para:</p>
-                    <p className="text-sm font-bold text-gray-900 mt-1">848 066 605</p>
-                    <p className="text-xs text-gray-500 mt-1">Referência: {f.descricao || 'Serviço Digital'}</p>
-                  </div>
-                  <div className="bg-white rounded-lg border border-yellow-200 p-4">
-                    <p className="text-xs font-bold text-gray-700 mb-2">📱 E-Mola</p>
-                    <p className="text-xs text-gray-600">Envie <strong>{f.valor} MZN</strong> para:</p>
-                    <p className="text-sm font-bold text-gray-900 mt-1">848 066 605</p>
-                    <p className="text-xs text-gray-500 mt-1">Referência: {f.descricao || 'Serviço Digital'}</p>
-                  </div>
-                  <div className="bg-white rounded-lg border border-yellow-200 p-4">
-                    <p className="text-xs font-bold text-gray-700 mb-2">🏦 Transferência</p>
-                    <p className="text-xs text-gray-600">Banco: <strong>BCI</strong></p>
-                    <p className="text-xs text-gray-600">NIB: <strong>a preencher</strong></p>
-                    <p className="text-xs text-gray-500 mt-1">Referência: {f.descricao || 'Serviço Digital'}</p>
-                  </div>
-                </div>
-              )}
+              <p className="text-xl font-bold text-gray-900">{formatMt(c.total_mt)} MZN</p>
             </div>
           ))}
         </div>
       )}
 
-      {/* Histórico */}
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
         <div className="px-5 py-3 border-b border-gray-100 bg-gray-50">
           <h2 className="text-sm font-bold text-gray-700">Histórico de Pagamentos</h2>
@@ -2529,19 +2506,31 @@ function FacturacaoSection() {
             </tr>
           </thead>
           <tbody>
-            {faturasHistorico.map(f => (
-              <tr key={f.id} className="border-b border-gray-50 hover:bg-gray-50">
+            {historico.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="px-5 py-8 text-center text-gray-400">Ainda não há pagamentos confirmados.</td>
+              </tr>
+            ) : historico.map((c) => (
+              <tr key={c.id} className="border-b border-gray-50 hover:bg-gray-50">
                 <td className="px-5 py-3">
-                  <p className="font-medium text-gray-800">{f.descricao}</p>
-                  <p className="text-xs text-gray-400">{f.id}</p>
+                  <p className="font-medium text-gray-800">{compraDescricao(c)}</p>
                 </td>
-                <td className="px-5 py-3 font-bold text-gray-900">{new Intl.NumberFormat('pt-MZ').format(f.valor)} MZN</td>
-                <td className="px-5 py-3 text-gray-600">{f.dataPagamento}</td>
-                <td className="px-5 py-3 text-gray-600">{f.metodo}</td>
-                <td className="px-5 py-3"><span className="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-bold">Pago</span></td>
+                <td className="px-5 py-3 font-bold text-gray-900">{formatMt(c.total_mt)} MZN</td>
+                <td className="px-5 py-3 text-gray-600">{new Date(c.created_at).toLocaleDateString('pt-PT')}</td>
+                <td className="px-5 py-3 text-gray-600">{c.metodo_pagamento}</td>
                 <td className="px-5 py-3">
-                  <button onClick={() => alert('Recibo disponível em breve!')}
-                    className="text-xs text-blue-600 hover:underline font-medium">↓ Recibo</button>
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                    c.status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
+                  }`}>
+                    {c.status === 'paid' ? 'Pago' : c.status}
+                  </span>
+                </td>
+                <td className="px-5 py-3">
+                  {c.status === 'paid' ? (
+                    <a href={`/recibo/${c.id}`} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline font-medium">
+                      ↓ Recibo
+                    </a>
+                  ) : '—'}
                 </td>
               </tr>
             ))}
@@ -2607,7 +2596,8 @@ function ContaSkeleton() {
 }
 
 // Componente ContaSection
-function ContaSection() {
+/** `impersonated`: admin dentro da conta do cliente — lê/grava o perfil do cliente pelo servidor (/api/client/conta). */
+function ContaSection({ impersonated = false }: { impersonated?: boolean }) {
   const [dados, setDados] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [pass, setPass] = useState({ actual: '', nova: '', confirmar: '' })
@@ -2621,6 +2611,16 @@ function ContaSection() {
 
   const fetchProfile = async () => {
     setLoading(true)
+    if (impersonated) {
+      try {
+        const res = await fetch('/api/client/conta')
+        const data = await res.json()
+        if (data.success) setDados(data.dados)
+      } finally {
+        setLoading(false)
+      }
+      return
+    }
     try {
       // Delay para evitar conflito com outras chamadas
       await new Promise(resolve => setTimeout(resolve, 250))
@@ -2671,6 +2671,17 @@ function ContaSection() {
   }
 
   const guardar = async () => {
+    if (impersonated) {
+      const res = await fetch('/api/client/conta', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(dados),
+      })
+      const data = await res.json().catch(() => ({}))
+      setSavedMsg(data.success ? 'Dados guardados com sucesso!' : `Erro: ${data.error || 'Falha ao guardar dados.'}`)
+      setTimeout(() => setSavedMsg(''), 4000)
+      return
+    }
     try {
       // Delay para evitar conflito com outras chamadas
       await new Promise(resolve => setTimeout(resolve, 100))
@@ -2755,7 +2766,15 @@ function ContaSection() {
         </div>
 
         <div className="space-y-5">
-          {/* Alterar Password */}
+          {/* Alterar Password — nunca na impersonação: auth.updateUser mudaria a password do ADMIN. */}
+          {impersonated ? (
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-5">
+              <h2 className="text-sm font-bold text-gray-700 mb-2">Alterar Password</h2>
+              <p className="text-sm text-gray-500">
+                Para mudar a password deste cliente, use no painel admin: <strong>Utilizadores → ⋮ → Alterar senha</strong>.
+              </p>
+            </div>
+          ) : (
           <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-5">
             <h2 className="text-sm font-bold text-gray-700 mb-4">Alterar Password</h2>
             <div className="space-y-3">
@@ -2799,6 +2818,7 @@ function ContaSection() {
               </p>
             )}
           </div>
+          )}
 
           {/* Notificações */}
           <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-5">
@@ -3056,7 +3076,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
                 </span>
                 {/* Badge por tipo de site */}
                 {s.siteType === 'wordpress' && <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-bold">WordPress</span>}
-                {s.siteType === 'nextjs' && <span className="px-2 py-0.5 bg-black text-white rounded-full text-xs font-bold">Next.js</span>}
+                {s.siteType === 'nextjs' && <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-bold">Next.js</span>}
                 {s.siteType === 'html' && <span className="px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full text-xs font-bold">HTML/PHP</span>}
                 {s.ssl ? (
                   <span className="flex items-center gap-1 text-green-600 text-xs font-bold">
@@ -3091,7 +3111,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
                   <EditableField domain={s.domain} field="state" value={parseState(s.state) || 'Active'} label="State" />
                   <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
                     <p className="text-xs font-bold text-gray-400 uppercase mb-1">Disk Usage</p>
-                    <p className="text-sm font-bold text-gray-900">{(s as any).diskUsed ? `${(s as any).diskUsed}MB` : '0MB'}</p>
+                    <p className="text-sm font-bold text-gray-900">{(s as any).diskUsage ? `${(s as any).diskUsage}MB` : '0MB'}</p>
                   </div>
                 </div>
 
@@ -3256,7 +3276,7 @@ function ClientPageContent() {
   const router = useRouter()
   const { chrome } = useAdminSectionChrome()
   const searchParams = useSearchParams()
-  const [activeSection, setActiveSection] = useState('meus-produtos')
+  const [activeSection, setActiveSection] = useState('dashboard')
 
   useEffect(() => {
     const section = searchParams?.get('section')
@@ -3283,6 +3303,14 @@ function ClientPageContent() {
   // já ter hospedagem, mas também ter encomendas por acompanhar; o item só
   // aparece no menu quando existir pelo menos uma.
   const [hasEncomendas, setHasEncomendas] = useState(false)
+  // Cliente antigo que já tem site (hospedagem web): mantém o menu Websites.
+  const [hasWebsites, setHasWebsites] = useState(false)
+  // Plano de email comprado sem domínio — o "Adicionar domínio" liga-o a ele.
+  const [emailPlanWaitingDomain, setEmailPlanWaitingDomain] = useState(false)
+  const [showAddDomain, setShowAddDomain] = useState(false)
+  // Admin dentro da conta deste cliente (ver /api/admin/impersonate-client):
+  // o painel mostra o nome/email do cliente e os cartões ganham "Eliminar".
+  const [impersonatedClient, setImpersonatedClient] = useState<{ email: string | null; nome: string | null } | null>(null)
   useEffect(() => {
     fetch('/api/cotacoes')
       .then((r) => r.json())
@@ -3336,6 +3364,9 @@ function ClientPageContent() {
     setDirectAdminUsers(boot.users)
     setDirectAdminPackages(boot.packages)
     setClientReadOnly(boot.session?.readOnly !== false)
+    setHasWebsites(boot.products?.tier === 'hosting' || boot.products?.tier === 'both')
+    setEmailPlanWaitingDomain(Boolean(boot.products?.emailPlans?.some((p) => !p.domain)))
+    setImpersonatedClient(boot.session?.impersonatedClient ?? null)
     prefetchPanelContentFromBootstrap(boot, 'client')
   }
 
@@ -3420,6 +3451,21 @@ function ClientPageContent() {
     />
   );
 
+  // Mesmo dashboard do painel Profissional (cards + lista de serviços); o
+  // "Gerenciar" de um domínio abre-o já seleccionado no detalhe/DNS.
+  const renderDashboard = () => (
+    <ClientProductsHub
+      onNavigate={(section, opts) => {
+        if (opts?.domain) setSelectedDNSDomain(opts.domain)
+        setActiveSection(section)
+      }}
+      displayName={impersonatedClient ? impersonatedClient.nome : cliente?.nome}
+      sessionUser={impersonatedClient ? impersonatedClient.email : cliente?.email ?? sessionUser}
+      onProductsChanged={() => void loadDirectAdminData(true)}
+      impersonating={Boolean(impersonatedClient)}
+    />
+  )
+
   const renderSection = () => {
     const readOnlyBlocked =
       clientReadOnly &&
@@ -3428,15 +3474,15 @@ function ClientPageContent() {
       // webmail/file-manager/etc.), por isso não deve cair neste bloqueio;
       // sem isto, exactamente quem só comprou domínio (sem hospedagem) —
       // logo sem conta DA, logo sempre "read-only" — nunca via as compras.
-      !['dashboard', 'meus-produtos', 'domains', 'domains-list', 'minhas-compras'].includes(activeSection);
+      !['dashboard', 'meus-produtos', 'domains', 'domains-list', 'minhas-compras', 'facturas', 'webmail'].includes(activeSection);
     if (readOnlyBlocked) {
-      return <ClientProductsHub onNavigate={setActiveSection} />;
+      return renderDashboard();
     }
 
     switch (activeSection) {
       case 'dashboard':
       case 'meus-produtos':
-        return <ClientProductsHub onNavigate={setActiveSection} />
+        return renderDashboard()
       case 'encomendas':
         return <EncomendasListSection />
       case 'encomendas-mensagens':
@@ -3500,13 +3546,35 @@ function ClientPageContent() {
       case 'facturas':
         return <FacturacaoSection />
       case 'conta':
-        return <ContaSection />
+        return <ContaSection key={impersonatedClient ? 'imp' : 'own'} impersonated={Boolean(impersonatedClient)} />
+      case 'emails-new':
+      case 'cp-email-mgmt':
+        // O mesmo ecrã do revendedor; /api/da só deixa mexer nas caixas dos
+        // domínios da conta de alojamento deste login. Sem nenhum domínio com
+        // email activo, esse ecrã só mostrava um "example.com" fictício.
+        if (directAdminSites.length === 0 && !isFetchingDirectAdmin) {
+          return (
+            <div className="max-w-2xl rounded border border-amber-200 bg-amber-50 p-5 dark:border-amber-900/50 dark:bg-amber-950/30">
+              <h2 className="font-bold text-amber-900 dark:text-amber-200">Ainda não tem nenhum domínio com e-mail activo</h2>
+              <p className="mt-1 text-sm text-amber-800 dark:text-amber-300">
+                {emailPlanWaitingDomain
+                  ? 'Associe primeiro um domínio ao seu plano de e-mail — depois cria aqui as caixas de correio.'
+                  : 'Para criar caixas de correio precisa de um plano de e-mail com um domínio associado.'}
+              </p>
+              <button type="button" onClick={() => setShowAddDomain(true)} className={`${panelBtnPrimary} mt-4`}>
+                <Plus size={14} /> Adicionar domínio
+              </button>
+            </div>
+          )
+        }
+        return <EmailManagementSection sites={directAdminSites} isActive ownerScopeToSites />
       case 'webmail':
         return (
           <WebmailSection
             sites={directAdminSites}
-            userEmail={sessionUser}
-            onBack={() => setActiveSection('meus-produtos')}
+            userEmail={impersonatedClient ? impersonatedClient.email : sessionUser}
+            accountsScope="client"
+            onBack={() => setActiveSection('dashboard')}
             mostrarAdicionarConta={mostrarAdicionarConta}
             setMostrarAdicionarConta={setMostrarAdicionarConta}
             modalAdicionarPasso={modalAdicionarPasso}
@@ -3545,11 +3613,9 @@ function ClientPageContent() {
         // return <EmailLimitsSection sites={directAdminSites} /> // Removido - não usado no painel do cliente
         return <div className="p-5"><h1 className="text-2xl font-bold">Limites de Email</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       case 'cp-email-forwarding':
-        // return <EmailForwardingSection sites={directAdminSites} /> // Removido - não usado no painel do cliente
-        return <div className="p-5"><h1 className="text-2xl font-bold">Encaminhamento de Email</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
+        return <EmailForwardingSection sites={directAdminSites} />
       case 'cp-email-catchall':
-        // return <CatchAllEmailSection sites={directAdminSites} /> // Removido - não usado no painel do cliente
-        return <div className="p-5"><h1 className="text-2xl font-bold">Catch All Email</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
+        return <CatchAllEmailSection sites={directAdminSites} />
       case 'cp-email-pattern-fwd':
         // return <PatternForwardingSection sites={directAdminSites} /> // Removido - não usado no painel do cliente
         return <div className="p-5"><h1 className="text-2xl font-bold">Pattern Forwarding</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
@@ -3657,6 +3723,8 @@ function ClientPageContent() {
               if (opts?.domain) setSelectedDNSDomain(opts.domain)
               setActiveSection(section)
             }}
+            onRefresh={() => loadDirectAdminData(true)}
+            onAddDomain={() => setShowAddDomain(true)}
           />
         )
       case 'cp-wp-restore-backup':
@@ -3700,22 +3768,25 @@ function ClientPageContent() {
         // return <PackagesSection packages={directAdminPackages} onRefresh={loadDirectAdminData} /> // Removido - não usado no painel do cliente
         return <div className="p-5"><h1 className="text-2xl font-bold">Pacotes</h1><p className="text-gray-500 mt-1">Secção não disponível no painel do cliente</p></div>
       default:
-        return <ClientProductsHub onNavigate={setActiveSection} />
+        return renderDashboard()
     }
   }
 
   return (
     <div className="panel-shell font-panel flex h-screen overflow-hidden bg-gray-50 dark:bg-zinc-950">
-      <ClientSidebar
+      {/* Mesmo menu lateral do painel Profissional, com o menu do cliente
+          (só domínios/DNS e emails — ver clientPanelMenuDefs). */}
+      <ResellerSidebar
         activeSection={activeSection}
         onNavigate={setActiveSection}
         isCollapsed={isCollapsed}
         setIsCollapsed={setIsCollapsed}
-        cliente={cliente}
+        sessionUser={impersonatedClient ? impersonatedClient.email : cliente?.email ?? null}
+        displayName={(impersonatedClient ? impersonatedClient.nome : cliente?.nome) || 'Cliente'}
         isMobile={isMobile}
-        readOnly={clientReadOnly}
-        hasEncomendas={hasEncomendas}
-        hasDomains={directAdminSites.length > 0}
+        menuDefs={clientPanelMenuDefs({ readOnly: clientReadOnly, hasEncomendas, hasWebsites })}
+        basePath="/cliente"
+        applyMenuPrivileges={false}
       />
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-white dark:bg-zinc-950">
@@ -3791,24 +3862,32 @@ function ClientPageContent() {
                   await createClientInstance.auth.signOut()
                   const { clearAllPanelClientCaches } = await import('@/lib/panel-session-cache-clear')
                   clearAllPanelClientCaches()
-                  window.location.href = '/auth/login'
+                  window.location.href = '/login'
                 }}
                 className={panelBtnSecondary}
                 title="Sair"
               >
-                <LogOut size={13} />
-                Sair
+                <LogOut size={14} />
+                <span>Sair da Conta</span>
               </button>
             </>
           }
         />
 
         {/* Content Area */}
-        <main className={`flex-1 ${isComposeActive && activeSection === 'webmail' ? 'overflow-hidden p-0' : 'overflow-y-auto'} ${['dashboard', 'webmail', 'email-new'].includes(activeSection) ? 'p-0' : 'p-5'} bg-slate-50/50 dark:bg-zinc-950`}>
+        <main className={`flex-1 min-h-0 ${isComposeActive && activeSection === 'webmail' ? 'overflow-hidden p-0' : 'overflow-y-auto'} ${['webmail', 'email-new'].includes(activeSection) ? 'p-0' : 'p-4 lg:p-5'}`}>
           <div className={`${isComposeActive && activeSection === 'webmail' ? 'h-full min-h-0' : 'min-h-full'}`}>
             {renderSection()}
           </div>
         </main>
+        {showAddDomain && (
+          <ClientAddDomainModal
+            onClose={() => setShowAddDomain(false)}
+            emailPlanWaitingDomain={emailPlanWaitingDomain}
+            onAttached={() => void loadDirectAdminData(true)}
+            onNavigate={setActiveSection}
+          />
+        )}
       </div>
     </div>
   )

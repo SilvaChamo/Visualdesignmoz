@@ -5,7 +5,7 @@
 
 import { createDirectAdminAPI, fetchDaUserUsageStats, getAdminDirectAdminAPI } from '@/lib/directadmin-adapter';
 import type { DirectAdminServerAPI } from '@/lib/directadmin-adapter';
-import { loadResellerCredentialsByDaUsername } from '@/lib/da-credential-store';
+import { isHestiaAccount, loadResellerCredentialsByDaUsername } from '@/lib/da-credential-store';
 import { ensureDaLoginKeyForUsername } from '@/lib/da-login-key-ssh';
 import type { DirectAdminCredentials } from '@/lib/directadmin-credentials';
 import { resolveDirectAdminCredentials } from '@/lib/directadmin-credentials';
@@ -249,7 +249,12 @@ export async function runDaFullSync(): Promise<DaSyncResult> {
     if (!site.domain) continue;
     liveDomains.add(site.domain);
     const owner = site.owner || 'admin';
-    const disk_usage = await resolveSiteDiskUsageMb(owner, site.domain);
+    // Este motor de sync só conhece o caminho de pastas do DirectAdmin
+    // (.../domains/<dominio>) — para uma conta já migrada para Hestia
+    // (site ainda visível aqui por herança da conta antiga no DirectAdmin),
+    // esse caminho está sempre errado; não vale tentar (só produziria "0"
+    // de qualquer forma, mas via um comando remoto desnecessário).
+    const disk_usage = (await isHestiaAccount(owner)) ? '0' : await resolveSiteDiskUsageMb(owner, site.domain);
     const site_type = wpDomains.has(site.domain)
       ? 'wordpress'
       : site.siteType || existingSiteTypeByDomain.get(site.domain) || 'empty';
@@ -283,9 +288,30 @@ export async function runDaFullSync(): Promise<DaSyncResult> {
   const panelOnlyOwners = new Set(
     (panelLinkedUsers || []).map((r) => String(r.username || '')).filter(Boolean),
   );
+  // Sites cujo dono é uma conta Hestia nunca aparecem na lista ao vivo do
+  // DirectAdmin — sem este filtro, este sync (que só conhece o DirectAdmin)
+  // apagava-os por os achar "obsoletos" (mesma regra de isolamento por
+  // hosting_provider já aplicada do lado Hestia em hestia-sync-engine.ts).
+  const { data: hestiaUsers } = await admin
+    .from('panel_users')
+    .select('username')
+    .eq('hosting_provider', 'hestia');
+  const hestiaOwners = new Set(
+    (hestiaUsers || []).map((r) => String(r.username || '')).filter(Boolean),
+  );
+  // A conta API do Hestia (vdadmin) não tem linha em panel_users — sem isto
+  // o sync DA trata os sites dela como obsoletos e apaga-os do espelho.
+  hestiaOwners.add((process.env.HESTIA_USER || 'vdadmin').trim());
+  hestiaOwners.add('vdadmin');
   const staleDomains = (existingSites || [])
     .map((r) => ({ domain: r.domain as string, owner: String(r.owner || '') }))
-    .filter((r) => r.domain && !liveDomains.has(r.domain) && !panelOnlyOwners.has(r.owner))
+    .filter(
+      (r) =>
+        r.domain &&
+        !liveDomains.has(r.domain) &&
+        !panelOnlyOwners.has(r.owner) &&
+        !hestiaOwners.has(r.owner),
+    )
     .map((r) => r.domain);
   if (staleDomains.length) {
     await admin.from('panel_sites').delete().in('domain', staleDomains);
@@ -438,6 +464,12 @@ export async function runDaFullSync(): Promise<DaSyncResult> {
   const siteOwners = new Map(sites.map((s) => [s.domain, s.owner || 'admin']));
   const uniqueOwners = [...new Set(siteOwners.values())].filter((o) => o && o !== 'admin');
   for (const owner of uniqueOwners) {
+    // Uma conta já no Hestia nunca tem (nem precisa de) chave de login DA —
+    // tentar gerar uma aqui era trabalho perdido, e por vezes ruído/efeitos
+    // no servidor DA antigo para uma conta que já não é suposto gerir-se por
+    // lá. `apiForOwner` abaixo já falha por conta (dentro de um try/catch por
+    // domínio), por isso isto é só para não gastar chamadas à toa.
+    if (await isHestiaAccount(owner)) continue;
     const creds = await loadResellerCredentialsByDaUsername(owner);
     if (!creds) {
       const sb = getDaSyncAdmin();
@@ -668,6 +700,16 @@ const SCHEDULE_THROTTLE_MS = 60 * 60 * 1000; // 60 minutos (era 5)
 
 /** Sync rápido após mutação no painel (não bloqueia UI). */
 export function scheduleDaSync(delayMs = 2000) {
+  // Na Contabo o DirectAdmin não é fonte de verdade. Disparar o sync DA
+  // aqui apagava os sites da conta principal do Hestia (vdadmin) do espelho
+  // e as duas abas de domínios ficavam vazias.
+  if ((process.env.DEFAULT_HOSTING_PROVIDER || '').trim().toLowerCase() === 'hestia') {
+    void import('@/lib/hestia-sync-engine').then(({ scheduleHestiaSync }) => {
+      scheduleHestiaSync(delayMs);
+    });
+    return;
+  }
+
   const now = Date.now();
   if (now - _lastScheduledAt < SCHEDULE_THROTTLE_MS) {
     console.info('[da-sync] scheduleDaSync: throttled (último sync há menos de 5 min).');

@@ -23,10 +23,31 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Sem conteúdo' }, { status: 400 });
     }
 
-    // Upload natively via SSH stdin stream (bypassing ARG_MAX limit)
+    // Buffer the full ReadableStream before upload — avoids race conditions
+    // where the SSH stdin closes before all chunks arrive.
+    const chunks: Uint8Array[] = [];
+    const reader = (req.body as ReadableStream).getReader();
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value) chunks.push(value);
+    }
+    const fileBuffer = Buffer.concat(chunks.map((c) => Buffer.from(c)));
+
+    // Ensure the destination directory exists before writing
+    const destDir = path.substring(0, path.lastIndexOf('/'));
+    if (destDir) {
+      try {
+        await executeServerCommand(`mkdir -p "${destDir}"`);
+      } catch {
+        // best-effort; if it fails the upload will surface the real error
+      }
+    }
+
+    // Upload via SSH stdin (cat >)
     const { uploadFileViaSsh } = await import('@/lib/server-ssh-exec');
-    await uploadFileViaSsh(path, req.body as any);
-    
+    await uploadFileViaSsh(path, fileBuffer);
+
     // Set correct permissions after upload
     try {
       await executeServerCommand(`chmod 644 "${path}"`);

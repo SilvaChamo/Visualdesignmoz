@@ -42,12 +42,11 @@ export type DomainTldPrice = {
  * até se confirmar o custo real.
  */
 export const DOMAIN_TLD_PRICES: DomainTldPrice[] = [
-  // #10 (2026-09-13, backport de visualdesign-teste): deixou de ter
-  // fixedPurchasePriceMt (985 MT fixo) — o Silva pediu que o preço acompanhe
-  // automaticamente a Dynadot quando ela mudar (ver aviso da
-  // Verisign/Dynadot de 2026-11-01: $10.88 → $11.65). Passa a usar a mesma
-  // fórmula custo×margem que todas as outras extensões, agora que o sync
-  // (domain-price-sync.ts) foi corrigido e realmente funciona.
+  // #10 (2026-09-12): deixou de ter fixedPurchasePriceMt (985 MT fixo) — o
+  // Silva pediu que o preço acompanhe automaticamente a Dynadot quando ela
+  // mudar (ver aviso da Verisign/Dynadot de 2026-11-01: $10.88 → $11.65).
+  // Passa a usar a mesma fórmula custo×margem que todas as outras extensões,
+  // agora que o sync (domain-price-sync.ts) foi corrigido e realmente funciona.
   { value: '.com', label: '.com', price: 10.88, renewPrice: 10.88, icann: 0.2, transfer: 10.88 },
   { value: '.net', label: '.net', price: 12.52, renewPrice: 12.52, icann: 0.2, transfer: 12.52 },
   { value: '.org', label: '.org', price: 7.99, renewPrice: 11.64, icann: 0.2, transfer: 11.64 },

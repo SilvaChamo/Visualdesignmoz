@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 180;
 import { getServerHost } from '@/lib/server-config';
 import type { DirectAdminServerAPI } from '@/lib/directadmin-adapter';
 import { requireAdminOrReseller, type PanelAuthSuccess } from '@/lib/panel-api-auth';
@@ -27,6 +28,18 @@ import {
 import { mergePackageListByName, resolveMirrorOrLive } from '@/lib/panel-list-resolve';
 import type { PanelPackage } from '@/lib/directadmin-hosting-api';
 import { isValidHomePath, assertPathsOwnedByCaller } from '@/lib/panel-fs-ownership';
+import type { AccountScope } from '@/lib/linked-accounts';
+import {
+  canUseLocalFmFs,
+  localCopyOrMove,
+  localCreateFolder,
+  localDelete,
+  localDuplicate,
+  localListDirectory,
+  localReadFile,
+  localRename,
+  localWriteFile,
+} from '@/lib/panel-fm-fs';
 
 function normalizeHomePaths(raw: unknown): string[] {
   if (!Array.isArray(raw)) return [];
@@ -47,7 +60,18 @@ async function runPythonOnServer(script: string): Promise<string> {
 }
 
 function parsePythonJsonOutput(output: string): unknown {
-  return JSON.parse(output.trim());
+  const trimmed = output.trim();
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    const obj = trimmed.lastIndexOf('{');
+    const arr = trimmed.lastIndexOf('[');
+    const start = Math.max(obj, arr);
+    if (start >= 0) {
+      return JSON.parse(trimmed.slice(start));
+    }
+    throw new Error('Resposta inválida ao executar operação de ficheiros');
+  }
 }
 
 const LIVE_LIST_FALLBACK: Record<
@@ -150,6 +174,130 @@ async function pushPackageToDa(
   }
 }
 
+/** Cria um domínio adicional numa conta Hestia — equivalente ao CMD_API_DOMAIN
+ * do DirectAdmin usado por DA_MUTATION_PROXY.createWebsite (o único caminho
+ * antes disto, mesmo para contas Hestia — confirmado ao vivo 1 set: dava
+ * sempre erro do DirectAdmin real ao tentar criar um domínio numa conta que
+ * só existe no Hestia). O DomainCreateModal nunca envia 'owner', por isso a
+ * conta alvo tem de ser inferida: revendedor/impersonação usa a conta real
+ * dele (só avança se essa conta for mesmo Hestia); admin puro (sem conta
+ * escolhida) segue a mesma regra já usada para decidir o provider de contas
+ * NOVAS (ver resolveNewAccountProvider em checkout-fulfillment.ts) — Contabo
+ * (DEFAULT_HOSTING_PROVIDER=hestia) usa a conta principal do Hestia
+ * (HESTIA_USER, normalmente 'vdadmin'); Hetzner continua no DirectAdmin como
+ * sempre. Devolve null quando a conta é DirectAdmin — segue o caminho antigo. */
+async function tryHestiaCreateWebsite(
+  mirrorScope: { role: 'admin' | 'reseller'; daUsername?: string },
+  params: Record<string, unknown>,
+  accountScope: AccountScope | null = null,
+): Promise<NextResponse | null> {
+  const domain = String(params.domain || params.domainName || '').trim().toLowerCase();
+  if (!domain) return null;
+
+  const { getProviderByUsername } = await import('@/lib/hosting-provider');
+
+  let owner: string;
+  if (mirrorScope.role === 'reseller' && mirrorScope.daUsername) {
+    owner = mirrorScope.daUsername;
+    const provider = await getProviderByUsername(owner);
+    if (provider !== 'hestia') return null;
+    // Regras do plano (account-domain-limits.ts): Básico = um domínio,
+    // Premium = cada domínio novo na sua própria conta, limite do plano.
+    if (accountScope) {
+      const { checkNewDomainInActiveAccount } = await import('@/lib/account-domain-limits');
+      const allowed = await checkNewDomainInActiveAccount(accountScope, domain);
+      if (!allowed.ok) {
+        return NextResponse.json({ success: false, error: allowed.error }, { status: 403 });
+      }
+    }
+  } else {
+    const defaultProvider = (process.env.DEFAULT_HOSTING_PROVIDER || '').trim().toLowerCase();
+    if (defaultProvider !== 'hestia') return null;
+    owner = (process.env.HESTIA_USER || 'vdadmin').trim();
+  }
+
+  const { addWebDomain } = await import('@/lib/hestia-adapter');
+  const result = await addWebDomain(owner, domain);
+  if (!result.ok) {
+    return NextResponse.json(
+      { success: false, error: result.error || 'Falha ao criar domínio no Hestia' },
+      { status: 500 },
+    );
+  }
+
+  // Aponta o hostname para o servidor. Subdomínios (app.mltmark.com) usam a
+  // zona Cloudflare do domínio pai — confirmado 12 set: findCloudflareZoneId
+  // exacto deixava o A por criar e o site abria como 404 em mltmark.com/app.
+  const { pointHostingHostToServer, scheduleHostingSslRetry } = await import('@/lib/hosting-site-dns');
+  const { invalidateHestiaDomainCache } = await import('@/lib/hosting-resolver');
+  invalidateHestiaDomainCache();
+  await pointHostingHostToServer(domain).catch(() => undefined);
+  scheduleHostingSslRetry(owner, domain);
+
+  await mirrorAfterDaMutation('createWebsite', { ...params, owner }).catch(() => undefined);
+  scheduleDaSync(400);
+  return NextResponse.json({ success: true, data: { output: 'website has been created' } });
+}
+
+async function tryHestiaSubdomain(
+  mirrorScope: { role: 'admin' | 'reseller'; daUsername?: string; linkedOwners?: string[] },
+  action: 'createSubdomain' | 'deleteSubdomain',
+  params: Record<string, unknown>,
+  accountScope: AccountScope | null = null,
+): Promise<NextResponse | null> {
+  const parent = String(params.domain || '').trim().toLowerCase();
+  const sub = String(params.subdomain || '').trim().toLowerCase();
+  if (!parent || !sub) return null;
+
+  const { getProviderByUsername } = await import('@/lib/hosting-provider');
+  let owner: string;
+  if (mirrorScope.role === 'reseller' && mirrorScope.daUsername) {
+    const provider = await getProviderByUsername(mirrorScope.daUsername);
+    if (provider !== 'hestia') return null;
+    // O subdomínio vive na conta do domínio pai — que tem de ser uma conta
+    // que este login gere directamente (a activa ou, no Enterprise, uma ligada).
+    const { resolveHostingOwner } = await import('@/lib/hosting-resolver');
+    const {
+      domainAccessDeniedResponse,
+      domainAccessForManaged,
+      managedOwnersFromContext,
+    } = await import('@/lib/domain-access');
+    const managed = managedOwnersFromContext({ effectiveRole: 'reseller', mirrorScope, accountScope });
+    const access = await domainAccessForManaged(managed, parent);
+    if (!access.allowed) return domainAccessDeniedResponse(access.reason);
+    owner = (await resolveHostingOwner(parent)).toLowerCase();
+  } else {
+    const defaultProvider = (process.env.DEFAULT_HOSTING_PROVIDER || '').trim().toLowerCase();
+    if (defaultProvider !== 'hestia') return null;
+    const { resolveHostingOwner } = await import('@/lib/hosting-resolver');
+    owner = await resolveHostingOwner(parent);
+  }
+
+  const { subdomainFqdn, pointHostingHostToServer, removeHostingHostDns, scheduleHostingSslRetry } = await import('@/lib/hosting-site-dns');
+  const { invalidateHestiaDomainCache } = await import('@/lib/hosting-resolver');
+  const { addWebDomain, deleteWebDomain } = await import('@/lib/hestia-adapter');
+  const fullSub = subdomainFqdn(parent, sub);
+  const result = action === 'createSubdomain'
+    ? await addWebDomain(owner, fullSub)
+    : await deleteWebDomain(owner, fullSub);
+  if (!result.ok) {
+    return NextResponse.json(
+      { success: false, error: result.error || 'Falha ao gerir subdomínio no Hestia' },
+      { status: 500 },
+    );
+  }
+  invalidateHestiaDomainCache();
+  if (action === 'createSubdomain') {
+    await pointHostingHostToServer(fullSub).catch(() => undefined);
+    scheduleHostingSslRetry(owner, fullSub);
+  } else {
+    await removeHostingHostDns(fullSub).catch(() => undefined);
+  }
+  await mirrorAfterDaMutation(action, { ...params, domain: parent, subdomain: fullSub, owner }).catch(() => undefined);
+  scheduleDaSync(400);
+  return NextResponse.json({ success: true, data: { output: action === 'createSubdomain' ? 'subdomain created' : 'subdomain deleted' } });
+}
+
 const DA_READ_PROXY: Record<
   string,
   (api: DirectAdminServerAPI, params: Record<string, unknown>) => Promise<unknown>
@@ -163,9 +311,10 @@ async function readFromMirror(
   mirrorScope: Parameters<typeof listMirrorWebsites>[0],
   params: Record<string, unknown>,
 ) {
+  const { listHostingDomains } = await import('@/lib/hosting-resolver');
   switch (action) {
     case 'listWebsites':
-      return listMirrorWebsites(mirrorScope);
+      return listHostingDomains(mirrorScope);
     case 'listUsers':
       return listMirrorUsers(mirrorScope);
     case 'listPackages':
@@ -345,7 +494,25 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      const { daApi: api } = await resolvePanelDaContext(auth);
+      const panelCtx = await resolvePanelDaContext(auth);
+      const { daApi: api, mirrorScope } = panelCtx;
+      const accountScope = panelCtx.accountScope ?? null;
+
+      if (action === 'createWebsite') {
+        const hestiaResponse = await tryHestiaCreateWebsite(mirrorScope, params as Record<string, unknown>, accountScope);
+        if (hestiaResponse) return hestiaResponse;
+      }
+
+      if (action === 'createSubdomain' || action === 'deleteSubdomain') {
+        const hestiaResponse = await tryHestiaSubdomain(
+          mirrorScope,
+          action,
+          params as Record<string, unknown>,
+          accountScope,
+        );
+        if (hestiaResponse) return hestiaResponse;
+      }
+
       let data = await DA_MUTATION_PROXY[action](api, params as Record<string, unknown>);
       const ok = mutationSucceeded(data);
       const errMsg =
@@ -354,7 +521,17 @@ export async function POST(req: NextRequest) {
           : String((data as { error?: string; output?: string }).error || (data as { output?: string }).output || '');
 
       if (ok) {
-        await mirrorAfterDaMutation(action, params as Record<string, unknown>);
+        // DomainCreateModal (e outros formulários antigos deste route) nunca
+        // enviam 'owner'/'userName' — sem isto, o espelho gravava sempre
+        // owner:'admin' (fallback literal em mirrorAfterDaMutation), mesmo
+        // quando o pedido real ao DirectAdmin já corria correctamente na
+        // conta certa (via mirrorScope, resolvido no servidor). O domínio
+        // ficava então invisível na lista do revendedor/cliente dono real.
+        const contextOwner = mirrorScope.role === 'reseller' ? mirrorScope.daUsername : undefined;
+        const paramsWithOwner = contextOwner
+          ? { ...(params as Record<string, unknown>), owner: (params as Record<string, unknown>).owner || contextOwner }
+          : (params as Record<string, unknown>);
+        await mirrorAfterDaMutation(action, paramsWithOwner);
       }
       scheduleDaSync(400);
 
@@ -414,7 +591,12 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ success: false, error: 'Domínio fora do seu painel.' }, { status: 403 });
           }
           const { executeServerCommand } = await import('@/lib/server-ssh-exec');
-          const sitePath = `/home/${owner}/domains/${domain}`;
+          // O Hestia guarda os sites em .../web/<dominio>, nao .../domains/<dominio>
+          // (so o DirectAdmin usa esse padrao) — sem isto, o espaco em disco de
+          // uma conta Hestia aparecia sempre como "—" (pasta errada, vazia).
+          const { getProviderByUsername } = await import('@/lib/hosting-provider');
+          const siteProvider = await getProviderByUsername(owner);
+          const sitePath = `/home/${owner}/${siteProvider === 'hestia' ? 'web' : 'domains'}/${domain}`;
           const output = await executeServerCommand(
             `du -sh ${sitePath} 2>/dev/null | awk '{print $1}'`,
           );
@@ -498,6 +680,34 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, data: { ssl } });
     }
 
+    // ── Hestia direct: lista de domínios web sem mirror ──────────────────────
+    if (action === 'listHestiaWebDomains') {
+      const auth = await requireAdminOrReseller();
+      if ('error' in auth) return auth.error;
+      const ctx = await resolvePanelDaContext(auth);
+      const sessionOwner = (
+        ctx.impersonating ||
+        ctx.mirrorScope.daUsername ||
+        (auth.user.role === 'admin' ? (process.env.HESTIA_USER || 'vdadmin') : '')
+      ).trim().toLowerCase();
+      const { listHostingDomains } = await import('@/lib/hosting-resolver');
+      const scope =
+        sessionOwner && (ctx.impersonating || ctx.mirrorScope.role === 'reseller')
+          ? { role: 'reseller' as const, daUsername: sessionOwner }
+          : undefined;
+      let domains = await listHostingDomains(scope);
+      if (sessionOwner) {
+        domains = domains.filter((d) => (d.owner || '').trim().toLowerCase() === sessionOwner);
+      }
+      const result = domains.map((d) => ({
+        domain: d.domain,
+        owner: d.owner,
+        path: `/home/${d.owner}/web/${d.domain}/public_html`,
+        suspended: d.state === 'suspended',
+      }));
+      return NextResponse.json({ success: true, data: result });
+    }
+
     if (action === 'resolveSitePath') {
       const auth = await requireAdminOrReseller();
       if ('error' in auth) return auth.error;
@@ -507,18 +717,18 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: false, error: 'domain é obrigatório' }, { status: 400 });
       }
 
-      const { getMirrorSiteOwner } = await import('@/lib/panel-mirror-read');
-      const mirrorOwner = await getMirrorSiteOwner(targetDomain);
-      if (mirrorOwner) {
-        if (auth.user.role !== 'admin' && !(await assertPathsOwnedByCaller([`/home/${mirrorOwner}/`], auth.user.id))) {
+      // Usa hosting-resolver: no Contabo vai directo ao Hestia, no Hetzner usa mirror
+      const { resolveHostingOwner, resolveHostingPath } = await import('@/lib/hosting-resolver');
+      const owner = await resolveHostingOwner(targetDomain);
+      const resolvedPath = await resolveHostingPath(targetDomain);
+
+      if (owner) {
+        if (auth.user.role !== 'admin' && !(await assertPathsOwnedByCaller([`/home/${owner}/`], auth.user.id))) {
           return NextResponse.json({ success: false, error: 'Domínio fora do seu painel.' }, { status: 403 });
         }
         return NextResponse.json({
           success: true,
-          data: {
-            path: `/home/${mirrorOwner}/domains/${targetDomain}/public_html`,
-            owner: mirrorOwner,
-          },
+          data: { path: resolvedPath, owner },
         });
       }
 
@@ -547,6 +757,17 @@ export async function POST(req: NextRequest) {
       }
       if (auth.user.role !== 'admin' && !(await assertPathsOwnedByCaller([targetPath], auth.user.id))) {
         return NextResponse.json({ success: false, error: 'Caminho fora do seu painel.' }, { status: 403 });
+      }
+
+      if (canUseLocalFmFs()) {
+        try {
+          const files = await localListDirectory(targetPath);
+          return NextResponse.json({ success: true, data: { files } });
+        } catch (e: unknown) {
+          const msg = e instanceof Error ? e.message : 'Não foi possível listar a pasta';
+          const notFound = /não encontrada/i.test(msg);
+          return NextResponse.json({ success: false, error: msg }, { status: notFound ? 404 : 500 });
+        }
       }
 
       const { executeServerCommand } = await import('@/lib/server-ssh-exec');
@@ -581,8 +802,8 @@ export async function POST(req: NextRequest) {
         `python3 -c "import base64; exec(base64.b64decode('${b64}').decode())"`,
       );
       try {
-        const parsed = JSON.parse(output.trim());
-        if (parsed && typeof parsed === 'object' && 'error' in parsed) {
+        const parsed = parsePythonJsonOutput(output);
+        if (parsed && typeof parsed === 'object' && 'error' in (parsed as object)) {
           return NextResponse.json({ success: false, error: 'Pasta não encontrada' }, { status: 404 });
         }
         return NextResponse.json({ success: true, data: { files: Array.isArray(parsed) ? parsed : [] } });
@@ -628,6 +849,21 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ success: false, error: 'Caminho inválido' }, { status: 400 });
         }
         const maxBytes = Math.min(Number(p.maxBytes) || 2 * 1024 * 1024, 4 * 1024 * 1024);
+        if (canUseLocalFmFs()) {
+          try {
+            const parsed = await localReadFile(filePath, maxBytes);
+            return NextResponse.json({ success: true, data: parsed });
+          } catch (e: unknown) {
+            const code = e instanceof Error ? e.message : '';
+            if (code === 'not_file') {
+              return NextResponse.json({ success: false, error: 'Ficheiro não encontrado' }, { status: 404 });
+            }
+            if (code === 'too_large') {
+              return NextResponse.json({ success: false, error: 'Ficheiro demasiado grande para editar' }, { status: 413 });
+            }
+            return NextResponse.json({ success: false, error: code || 'Não foi possível ler o ficheiro' }, { status: 500 });
+          }
+        }
         const script = [
           'import os, json, base64',
           `p = ${JSON.stringify(filePath)}`,
@@ -662,6 +898,17 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ success: false, error: 'Dados inválidos' }, { status: 400 });
         }
         const contentB64 = String(p.contentBase64);
+        if (canUseLocalFmFs()) {
+          try {
+            await localWriteFile(filePath, contentB64);
+            return NextResponse.json({ success: true });
+          } catch (e: unknown) {
+            return NextResponse.json(
+              { success: false, error: e instanceof Error ? e.message : 'Não foi possível guardar' },
+              { status: 400 },
+            );
+          }
+        }
         const script = [
           'import os, json, base64',
           `p = ${JSON.stringify(filePath)}`,
@@ -692,6 +939,15 @@ export async function POST(req: NextRequest) {
         const paths = normalizeHomePaths(p.paths);
         if (!paths.length) {
           return NextResponse.json({ success: false, error: 'Nenhum caminho válido' }, { status: 400 });
+        }
+        if (canUseLocalFmFs()) {
+          const parsed = await localDelete(paths);
+          const ok = parsed.done.length > 0;
+          return NextResponse.json({
+            success: ok,
+            data: parsed,
+            error: ok ? undefined : parsed.errors[0]?.error || 'Não foi possível eliminar',
+          });
         }
         const script = [
           'import os, shutil, json',
@@ -732,19 +988,63 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ success: false, error: 'Origem ou destino inválido' }, { status: 400 });
         }
         const op = action === 'movePaths' ? 'move' : 'copy';
+        if (canUseLocalFmFs()) {
+          try {
+            const parsed = await localCopyOrMove(sources, destDir, op);
+            const ok = parsed.done.length > 0;
+            const firstErr = parsed.errors[0]?.error;
+            return NextResponse.json({
+              success: ok,
+              data: parsed,
+              error: ok ? undefined : firstErr || (op === 'move' ? 'Não foi possível mover' : 'Não foi possível copiar'),
+            });
+          } catch (e: unknown) {
+            const msg = e instanceof Error ? e.message : 'Operação falhou';
+            const notFound = /não encontrada/i.test(msg);
+            return NextResponse.json({ success: false, error: msg }, { status: notFound ? 404 : 400 });
+          }
+        }
         const script = [
           'import os, shutil, json',
           `sources = ${JSON.stringify(sources)}`,
           `dest_dir = ${JSON.stringify(destDir)}`,
           `op = ${JSON.stringify(op)}`,
-          'if not os.path.isdir(dest_dir):',
-          '    print(json.dumps({"error": "dest_missing"}))',
-          'else:',
+          'def unique(dest_dir, base):',
+          '    name, ext = os.path.splitext(base)',
+          '    candidate = base',
+          '    i = 0',
+          '    while os.path.exists(os.path.join(dest_dir, candidate)):',
+          '        i += 1',
+          '        suffix = "_copia" if op == "copy" else "_movido"',
+          '        candidate = f"{name}{suffix}{ext}" if i == 1 else f"{name}{suffix}{i}{ext}"',
+          '    return candidate',
+          'parent = os.path.dirname(dest_dir)',
+          'base = os.path.basename(dest_dir)',
+          'if not os.path.isdir(dest_dir) and os.path.isdir(parent):',
+          '    for name in os.listdir(parent):',
+          '        cand = os.path.join(parent, name)',
+          '        if name.lower() == base.lower() and os.path.isdir(cand):',
+          '            dest_dir = cand',
+          '            break',
+          'if os.path.isfile(dest_dir):',
+          '    print(json.dumps({"error": "dest_is_file"}))',
+          'elif not os.path.isdir(dest_dir):',
+          '    try:',
+          '        os.makedirs(dest_dir, exist_ok=True)',
+          '    except OSError:',
+          '        print(json.dumps({"error": "dest_missing"}))',
+          '        dest_dir = ""',
+          'if dest_dir and os.path.isdir(dest_dir):',
           '    done = []',
           '    errors = []',
           '    for src in sources:',
           '        try:',
           '            target = os.path.join(dest_dir, os.path.basename(src))',
+          '            if os.path.realpath(src) == os.path.realpath(target):',
+          '                errors.append({"path": src, "error": "já está nesta pasta — escolha outro destino"})',
+          '                continue',
+          '            if os.path.exists(target):',
+          '                target = os.path.join(dest_dir, unique(dest_dir, os.path.basename(src)))',
           '            if op == "move":',
           '                shutil.move(src, target)',
           '            elif os.path.isdir(src):',
@@ -758,12 +1058,23 @@ export async function POST(req: NextRequest) {
         ].join('\n');
         const output = await runPythonOnServer(script);
         try {
-          const parsed = parsePythonJsonOutput(output) as { error?: string; done?: string[] };
+          const parsed = parsePythonJsonOutput(output) as {
+            error?: string;
+            done?: string[];
+            errors?: Array<{ path: string; error: string }>;
+          };
           if (parsed.error === 'dest_missing') {
             return NextResponse.json({ success: false, error: 'Pasta de destino não encontrada' }, { status: 404 });
           }
+          if (parsed.error === 'dest_is_file') {
+            return NextResponse.json({ success: false, error: 'O destino é um ficheiro, não uma pasta.' }, { status: 400 });
+          }
           const ok = (parsed.done?.length || 0) > 0;
-          return NextResponse.json({ success: ok, data: parsed });
+          return NextResponse.json({
+            success: ok,
+            data: parsed,
+            error: ok ? undefined : parsed.errors?.[0]?.error || (op === 'move' ? 'Não foi possível mover' : 'Não foi possível copiar'),
+          });
         } catch {
           return NextResponse.json({ success: false, error: output.slice(0, 300) }, { status: 500 });
         }
@@ -773,6 +1084,18 @@ export async function POST(req: NextRequest) {
         const source = String(p.path || '').trim();
         if (!isValidHomePath(source)) {
           return NextResponse.json({ success: false, error: 'Caminho inválido' }, { status: 400 });
+        }
+        if (canUseLocalFmFs()) {
+          try {
+            const dest = await localDuplicate(source);
+            return NextResponse.json({ success: true, data: { path: dest } });
+          } catch (e: unknown) {
+            const msg = e instanceof Error ? e.message : '';
+            return NextResponse.json(
+              { success: false, error: msg === 'missing' ? 'Origem não encontrada' : msg || 'Não foi possível duplicar' },
+              { status: msg === 'missing' ? 404 : 400 },
+            );
+          }
         }
         const script = [
           'import os, shutil, json',
@@ -850,15 +1173,29 @@ export async function POST(req: NextRequest) {
           'import os, zipfile, tarfile, json',
           `archive = ${JSON.stringify(archivePath)}`,
           `dest = ${JSON.stringify(destDir)}`,
+          'def safe_extract_zip(zf, dest):',
+          '    dest_real = os.path.realpath(dest)',
+          '    for info in zf.infolist():',
+          '        target = os.path.realpath(os.path.join(dest, info.filename))',
+          '        if target != dest_real and not target.startswith(dest_real + os.sep):',
+          '            raise ValueError("arquivo com caminho inseguro")',
+          '        zf.extract(info, dest)',
+          'def safe_extract_tar(tf, dest):',
+          '    dest_real = os.path.realpath(dest)',
+          '    for member in tf.getmembers():',
+          '        target = os.path.realpath(os.path.join(dest, member.name))',
+          '        if target != dest_real and not target.startswith(dest_real + os.sep):',
+          '            raise ValueError("arquivo com caminho inseguro")',
+          '        tf.extract(member, dest)',
           'if not os.path.isfile(archive):',
           '    print(json.dumps({"error": "missing"}))',
           'elif archive.endswith(".zip"):',
           '    with zipfile.ZipFile(archive, "r") as zf:',
-          '        zf.extractall(dest)',
+          '        safe_extract_zip(zf, dest)',
           '    print(json.dumps({"ok": True}))',
           'elif archive.endswith((".tar.gz", ".tgz", ".tar")):',
           '    with tarfile.open(archive, "r:*") as tf:',
-          '        tf.extractall(dest)',
+          '        safe_extract_tar(tf, dest)',
           '    print(json.dumps({"ok": True}))',
           'else:',
           '    print(json.dumps({"error": "format"}))',
@@ -883,6 +1220,16 @@ export async function POST(req: NextRequest) {
         const newName = String(p.newName || '').trim();
         if (!isValidHomePath(source) || !newName || newName.includes('/') || newName.includes('..')) {
           return NextResponse.json({ success: false, error: 'Nome inválido' }, { status: 400 });
+        }
+        if (canUseLocalFmFs()) {
+          try {
+            const dest = await localRename(source, newName);
+            return NextResponse.json({ success: true, data: { path: dest } });
+          } catch (e: unknown) {
+            const msg = e instanceof Error ? e.message : 'Não foi possível renomear';
+            const status = /não encontrada/i.test(msg) ? 404 : /já existe/i.test(msg) ? 409 : 400;
+            return NextResponse.json({ success: false, error: msg }, { status });
+          }
         }
         const script = [
           'import os, json',
@@ -959,6 +1306,17 @@ export async function POST(req: NextRequest) {
         if (!isValidHomePath(folderPath)) {
           return NextResponse.json({ success: false, error: 'Caminho inválido' }, { status: 400 });
         }
+        if (canUseLocalFmFs()) {
+          try {
+            await localCreateFolder(folderPath);
+            return NextResponse.json({ success: true });
+          } catch (e: unknown) {
+            return NextResponse.json(
+              { success: false, error: e instanceof Error ? e.message : 'Não foi possível criar a pasta' },
+              { status: 400 },
+            );
+          }
+        }
         const script = [
           'import os, json',
           `p = ${JSON.stringify(folderPath)}`,
@@ -975,6 +1333,29 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ success: false, error: 'Caminho inválido' }, { status: 400 });
         }
         const maxBytes = Math.min(Number(p.maxBytes) || 50 * 1024 * 1024, 50 * 1024 * 1024);
+        if (canUseLocalFmFs()) {
+          try {
+            const parsed = await localReadFile(filePath, maxBytes);
+            return NextResponse.json({
+              success: true,
+              data: {
+                content: parsed.content,
+                filename: filePath.split('/').pop() || 'ficheiro',
+                mime: 'application/octet-stream',
+                size: parsed.size,
+              },
+            });
+          } catch (e: unknown) {
+            const code = e instanceof Error ? e.message : '';
+            if (code === 'not_file') {
+              return NextResponse.json({ success: false, error: 'Ficheiro não encontrado' }, { status: 404 });
+            }
+            if (code === 'too_large') {
+              return NextResponse.json({ success: false, error: 'Ficheiro demasiado grande' }, { status: 413 });
+            }
+            return NextResponse.json({ success: false, error: code || 'Download falhou' }, { status: 500 });
+          }
+        }
         const script = [
           'import os, json, base64, mimetypes',
           `p = ${JSON.stringify(filePath)}`,

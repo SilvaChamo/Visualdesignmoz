@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { siteFont } from "@/lib/site-font";
 import { I18nProvider } from "@/lib/i18n";
+import { TraducaoAutomatica } from "@/components/layout/TraducaoAutomatica";
 import { AuthProvider } from "@/components/auth/AuthProvider";
 import { OAuthCodeRedirect } from "@/components/auth/OAuthCodeRedirect";
 import { ConditionalNavbar } from "@/components/layout/ConditionalNavbar";
@@ -77,6 +78,10 @@ export const viewport: Viewport = {
   userScalable: false,
 };
 
+import { MaintenanceBanner } from "@/components/layout/MaintenanceBanner";
+import { EmbedEstilo } from "@/components/layout/EmbedEstilo";
+import { Suspense } from "react";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -86,9 +91,32 @@ export default function RootLayout({
     <html lang="pt-MZ" suppressHydrationWarning className={siteFont.variable}>
       <head>
         <OrganizationJsonLd />
+        {/* Só no projecto local (npm run dev): um service worker que tenha ficado de um build antigo neste endereço
+            servia ficheiros velhos e fazia a página piscar (Silva, 14/10/2026). Tira-o e limpa as caches dele. */}
+        {process.env.NODE_ENV === 'development' && (
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `try{if('serviceWorker' in navigator){navigator.serviceWorker.getRegistrations().then(function(r){r.forEach(function(x){x.unregister()})})}if(window.caches){caches.keys().then(function(k){k.forEach(function(n){caches.delete(n)})})}}catch(e){}`,
+            }}
+          />
+        )}
+        {/* Painel VisualHost: pede os dados do servidor logo que a página chega, em paralelo com o JavaScript
+            (o painel usa esta resposta na primeira leitura — ver VisualHostApp, "carregar") */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{if(location.pathname.indexOf('/vhost')===0){var ac=typeof AbortController!=='undefined'?new AbortController():null;if(ac){setTimeout(function(){try{ac.abort()}catch(e){}},10000)};window.__vhDados=fetch('/api/vhost/dados',{cache:'no-store',credentials:'same-origin',signal:ac?ac.signal:undefined}).then(function(r){return r.json().catch(function(){return {}}).then(function(j){return {ok:r.ok,status:r.status,j:j}})}).catch(function(){return {ok:false,status:0,j:{erro:'Tempo limite excedido'}}})}}catch(e){}`,
+          }}
+        />
         <script
           dangerouslySetInnerHTML={{
             __html: `(function(){try{var m=document.cookie.match(/(?:^|; )vd-theme=(light|dark)(?:;|$)/);var t=m?m[1]:localStorage.getItem('vd-theme');var d=t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.classList.toggle('dark',d);document.documentElement.style.colorScheme=d?'dark':'light';}catch(e){}})();`,
+          }}
+        />
+        {/* Cores do site escolhidas pelo administrador no painel (VisualHost → Personalizar): aplicadas já com o cookie
+            vd-cores e confirmadas no servidor de 10 em 10 minutos (/api/vhost/tema) */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var K=/^--(color-red-(50|[1-9]00|950)|panel-accent)$/,H=/^#[0-9a-f]{6}$/i,s=document.documentElement.style;function a(v){for(var k in v){if(K.test(k)&&H.test(v[k]))s.setProperty(k,v[k])}}var m=document.cookie.match(/(?:^|; )vd-cores=([^;]+)/);if(m){a(JSON.parse(decodeURIComponent(m[1])))}var t=+localStorage.getItem('vd-cores-t')||0;if(Date.now()-t>600000){window.addEventListener('load',function(){fetch('/api/vhost/tema').then(function(r){return r.json()}).then(function(j){localStorage.setItem('vd-cores-t',String(Date.now()));var v=j&&j.tema&&j.tema.vars,sec=location.protocol==='https:'?'; Secure':'';if(v&&Object.keys(v).length){a(v);document.cookie='vd-cores='+encodeURIComponent(JSON.stringify(v))+'; path=/; max-age=31536000; SameSite=Lax'+sec}else if(m){var o=JSON.parse(decodeURIComponent(m[1]));for(var k in o)s.removeProperty(k);document.cookie='vd-cores=; path=/; max-age=0; SameSite=Lax'}}).catch(function(){})})}}catch(e){}})();`,
           }}
         />
       </head>
@@ -99,6 +127,12 @@ export default function RootLayout({
             <CartProvider>
               <CurrencyProvider>
                 <I18nProvider>
+                  <TraducaoAutomatica />
+                  {/* ?embed=1: lido numa fronteira própria, para o resto da página vir desenhado do servidor */}
+                  <Suspense fallback={null}>
+                    <EmbedEstilo />
+                  </Suspense>
+                  <MaintenanceBanner />
                   <ConditionalNavbar />
                   <ConditionalMain>{children}</ConditionalMain>
                   <ConditionalFooter />

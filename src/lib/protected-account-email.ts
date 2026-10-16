@@ -43,21 +43,58 @@ export async function findProtectedEmailClaim(rawEmail: string): Promise<Protect
   const sb = getDaSyncAdmin();
   if (!sb) throw new Error('Não foi possível validar o email agora. Tente novamente.');
 
-  const [byDomain, byAdminEmail, mailbox] = await Promise.all([
-    sb.from('panel_sites').select('owner').ilike('domain', escapeLike(domain)),
-    sb.from('panel_sites').select('owner').ilike('admin_email', escapeLike(email)),
+  // panel_users.email: getResellerDaUsername ainda encontra a conta de
+  // alojamento de um login profissional/revendedor por este email.
+  // Sites: Contabo lê directo do Hestia (sem espelho); Hetzner usa panel_sites.
+  const { isHestiaOnlyDeploy } = await import('@/lib/hosting-provider');
+  const siteOwners = async (field: 'domain' | 'admin_email', value: string) => {
+    if (isHestiaOnlyDeploy()) {
+      const { listMirrorWebsites } = await import('@/lib/panel-mirror-read');
+      const needle = value.toLowerCase();
+      const rows = (await listMirrorWebsites({ role: 'admin' }))
+        .filter((s) => (field === 'domain' ? s.domain : s.adminEmail || '').toLowerCase() === needle)
+        .map((s) => ({ owner: s.owner }));
+      return { data: rows, error: null };
+    }
+    return sb.from('panel_sites').select('owner').ilike(field, escapeLike(value));
+  };
+  const [byDomain, byAdminEmail, mailbox, byAccountEmail] = await Promise.all([
+    siteOwners('domain', domain),
+    siteOwners('admin_email', email),
     sb.from('email_contas').select('email').ilike('email', `%@${escapeLike(domain)}`).limit(1),
+    sb.from('panel_users').select('username').ilike('email', escapeLike(email)),
   ]);
-  if (byDomain.error || byAdminEmail.error || mailbox.error) {
+  if (byDomain.error || byAdminEmail.error || mailbox.error || byAccountEmail.error) {
     throw new Error('Não foi possível validar o email agora. Tente novamente.');
   }
 
   const owners = new Set(
-    [...(byDomain.data || []), ...(byAdminEmail.data || [])]
-      .map((r) => String(r.owner || '').trim().toLowerCase())
+    [
+      ...(byDomain.data || []).map((r) => r.owner),
+      ...(byAdminEmail.data || []).map((r) => r.owner),
+      ...(byAccountEmail.data || []).map((r) => r.username),
+    ]
+      .map((owner) => String(owner || '').trim().toLowerCase())
       .filter(Boolean),
   );
-  const hosted = Boolean(byDomain.data?.length || byAdminEmail.data?.length || mailbox.data?.length);
+  let hosted = Boolean(
+    byDomain.data?.length || byAdminEmail.data?.length || mailbox.data?.length || byAccountEmail.data?.length,
+  );
+
+  // Hestia: um domínio acabado de criar no servidor pode ainda não estar no espelho.
+  if (!byDomain.data?.length) {
+    try {
+      const { listHostingDomains } = await import('@/lib/hosting-resolver');
+      const live = (await listHostingDomains()).find((s) => s.domain.toLowerCase() === domain);
+      if (live) {
+        hosted = true;
+        if (live.owner) owners.add(live.owner.toLowerCase());
+      }
+    } catch {
+      /* o espelho acima continua a valer */
+    }
+  }
+
   return hosted ? { kind: 'hosted', owners: [...owners] } : null;
 }
 

@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
 /**
@@ -18,5 +19,25 @@ export function Spinner({ className }: { className?: string }) {
       role="status"
       aria-label="A processar"
     />
+  );
+}
+
+export function LoadingHint({
+  children,
+  className,
+}: {
+  children?: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        'flex items-center justify-center gap-2 py-8 text-sm text-gray-400 dark:text-zinc-500',
+        className,
+      )}
+    >
+      <Spinner />
+      {children ? <span>{children}</span> : null}
+    </div>
   );
 }

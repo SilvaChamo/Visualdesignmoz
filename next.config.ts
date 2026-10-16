@@ -12,6 +12,12 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ['ssh2'],
   allowedDevOrigins: ['127.0.0.1', 'localhost'],
   outputFileTracingRoot: path.join(__dirname),
+  experimental: {
+    proxyClientMaxBodySize: '512mb',
+    serverActions: {
+      bodySizeLimit: '512mb',
+    },
+  },
   async redirects() {
     return [
       { source: '/visualweb', destination: '/web', permanent: true },
@@ -24,6 +30,10 @@ const nextConfig: NextConfig = {
       { source: '/visualtransporte', destination: '/transporte', permanent: true },
       { source: '/client', destination: '/cliente', permanent: true },
       { source: '/client/:path*', destination: '/cliente/:path*', permanent: true },
+      { source: '/roundcube', destination: '/webmail', permanent: false },
+      { source: '/roundcube/:path*', destination: '/webmail/:path*', permanent: false },
+      // página "Brevemente" dos sites sem conteúdo: ficheiro à parte, sem menu nem cabeçalho do site
+      { source: '/pagina-em-construcao', destination: '/pagina-em-construcao/index.html', permanent: false },
     ]
   },
   async headers() {
@@ -61,7 +71,7 @@ const nextConfig: NextConfig = {
           },
           {
             key: 'Content-Security-Policy',
-            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' *.supabase.co *.google.com accounts.google.com; style-src 'self' 'unsafe-inline' fonts.googleapis.com; img-src 'self' blob: data: *.supabase.co supabase.visualdesignmoz.com visualdesignmoz.com *.visualdesignmoz.com res.cloudinary.com provisualcorporate.co.mz *.provisualcorporate.co.mz *.vercel.app; font-src 'self' fonts.gstatic.com; connect-src 'self' *.supabase.co supabase.visualdesignmoz.com *.google.com accounts.google.com *.visualdesignmoz.com vps.visualdesignmoz.com provisualcorporate.co.mz *.provisualcorporate.co.mz *.vercel.app; frame-src 'self' *.visualdesignmoz.com *.google.com accounts.google.com https://37.27.17.25:8090; object-src 'none';"
+            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' *.supabase.co *.google.com accounts.google.com https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' fonts.googleapis.com; img-src 'self' blob: data: *.gravatar.com *.supabase.co supabase.visualdesignmoz.com visualdesignmoz.com *.visualdesignmoz.com res.cloudinary.com provisualcorporate.co.mz *.provisualcorporate.co.mz *.vercel.app; font-src 'self' fonts.gstatic.com; connect-src 'self' *.supabase.co supabase.visualdesignmoz.com *.google.com accounts.google.com *.visualdesignmoz.com vps.visualdesignmoz.com provisualcorporate.co.mz *.provisualcorporate.co.mz *.vercel.app https://challenges.cloudflare.com; frame-src 'self' *.visualdesignmoz.com *.google.com accounts.google.com https://challenges.cloudflare.com https://37.27.17.25:8090; object-src 'none';"
           }
         ]
       }
@@ -81,19 +91,8 @@ const pwaConfig = {
   },
   runtimeCaching: [
     {
-      urlPattern: /^https?.*$/,
-      handler: 'NetworkFirst',
-      options: {
-        cacheName: 'pages',
-        expiration: {
-          maxEntries: 50,
-          maxAgeSeconds: 24 * 60 * 60
-        },
-        networkTimeoutSeconds: 10,
-        cacheableResponse: {
-          statuses: [0, 200]
-        }
-      }
+      urlPattern: /\/api\/.*/i,
+      handler: 'NetworkOnly',
     },
     {
       urlPattern: /\/_next\/static\/.*/i,

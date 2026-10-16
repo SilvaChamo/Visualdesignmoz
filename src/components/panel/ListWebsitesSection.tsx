@@ -16,11 +16,14 @@ import { getServerHost } from '@/lib/server-config';
 import { loadScreenshot, prefetchScreenshot, getCachedScreenshot } from '@/lib/site-screenshot-cache';
 import { readSiteSslCache, writeSiteSslCache } from '@/lib/site-ssl-cache';
 import { readWpInstallsCache, writeWpInstallsCache } from '@/lib/panel-wp-cache';
+import { WordPressPanelBadge } from '@/components/panel/WordPressPanelBadge';
+import { isCompanyHostingOwner } from '@/lib/panel-contas-enrich';
 import type { PanelBootstrapScope } from '@/lib/panel-data-from-server';
 import { directAdminAPI } from '@/lib/directadmin-api';
 import type { DirectAdminWebsite, DirectAdminPackage } from '@/lib/directadmin-api';
 import { removeWebsiteFromSupabase, syncWebsiteToSupabase } from '@/lib/supabase-sync';
 import { panelInnerDetailCard, panelMobileCardGrid } from '@/lib/panel-ui';
+import { readListCache, writeListCache } from '@/lib/panel-list-cache';
 
 const parseState = (state: any): string => {
   // Em DirectAdmin: 0 = Active, 1 = Suspended
@@ -94,14 +97,34 @@ export function SiteThumbnail({
   )
 }
 function sortSitesPrimaryFirst(list: DirectAdminWebsite[], primaryDomain?: string | null) {
-  if (!primaryDomain) return list
-  const primary = primaryDomain.toLowerCase()
+  const primary = resolveListPrimaryDomain(list, primaryDomain)
+  if (!primary) return list
   return [...list].sort((a, b) => {
     const aPri = a.domain.toLowerCase() === primary ? 0 : 1
     const bPri = b.domain.toLowerCase() === primary ? 0 : 1
     if (aPri !== bPri) return aPri - bPri
     return a.domain.localeCompare(b.domain)
   })
+}
+
+function resolveListPrimaryDomain(
+  sites: DirectAdminWebsite[],
+  preferred?: string | null,
+): string | null {
+  if (!sites.length) return null
+  const domains = new Set(sites.map((s) => s.domain.toLowerCase()).filter(Boolean))
+  const candidates: string[] = []
+  if (preferred?.trim()) candidates.push(preferred.trim().toLowerCase())
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname.replace(/^www\./i, '').toLowerCase()
+    if (host && !host.startsWith('localhost') && host !== '127.0.0.1') candidates.push(host)
+  }
+  candidates.push('visualdesignmoz.com', 'teste.visualdesignmoz.com')
+  for (const candidate of candidates) {
+    if (domains.has(candidate)) return candidate
+  }
+  const visual = sites.find((s) => /visualdesign/i.test(s.domain))
+  return visual?.domain.toLowerCase() ?? sites[0]?.domain.toLowerCase() ?? null
 }
 
 function isAdminOwnedSite(site: DirectAdminWebsite, resellerOwners: Set<string>): boolean {
@@ -112,6 +135,42 @@ function isAdminOwnedSite(site: DirectAdminWebsite, resellerOwners: Set<string>)
 
 function isWordPressSite(site: DirectAdminWebsite): boolean {
   return site.siteType === 'wordpress' || site.hasWordPress === true
+}
+
+function isNextJsSite(site: DirectAdminWebsite): boolean {
+  return site.siteType === 'nextjs' || site.hasNextJs === true
+}
+
+function hasInstalledSite(site: DirectAdminWebsite): boolean {
+  return (
+    isWordPressSite(site) ||
+    isNextJsSite(site) ||
+    site.siteType === 'html' ||
+    site.hasBasicSite === true
+  )
+}
+
+const NEXTJS_SITES_CACHE_KEY = 'vd_nextjs_sites_v1'
+
+function readCachedNextJsDomains(): string[] {
+  const cached = readListCache<Array<{ domain?: string }>>(NEXTJS_SITES_CACHE_KEY)
+  if (!Array.isArray(cached)) return []
+  return cached.map((row) => String(row.domain || '').toLowerCase()).filter(Boolean)
+}
+
+const SITE_KIND_BADGE = 'px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-bold'
+
+function SiteKindBadge({ site }: { site: DirectAdminWebsite }) {
+  if (isWordPressSite(site)) {
+    return <WordPressPanelBadge domain={site.domain} />
+  }
+  if (isNextJsSite(site)) {
+    return <span className={SITE_KIND_BADGE}>Next.js</span>
+  }
+  if (site.siteType === 'html') {
+    return <span className="px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full text-xs font-bold">HTML/PHP</span>
+  }
+  return null
 }
 
 function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, setFileManagerDomain, setSelectedDNSDomain, setSelectedSslDomain, primaryDomain, loadDirectAdminData, syncing, handleSync, daLoadError, wordpressOnly = false,
@@ -150,9 +209,12 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
   const [siteDiskInfo, setSiteDiskInfo] = useState<Record<string, string>>({})
   const [liveSsl, setLiveSsl] = useState<Record<string, boolean>>(() => readSiteSslCache())
   const [wpDomainSet, setWpDomainSet] = useState<Set<string>>(() =>
-    wordpressOnly ? new Set(readWpInstallsCache(panelScope).map((d) => d.toLowerCase())) : new Set(),
+    new Set(readWpInstallsCache(panelScope).map((d) => d.toLowerCase())),
   )
+  const [nextJsDomainSet, setNextJsDomainSet] = useState<Set<string>>(() => new Set(readCachedNextJsDomains()))
+  const [wpOwnerByDomain, setWpOwnerByDomain] = useState<Map<string, string>>(() => new Map())
   const [wpListLoading, setWpListLoading] = useState(false)
+  const [nextJsListLoading, setNextJsListLoading] = useState(() => readCachedNextJsDomains().length === 0)
   const [wpListError, setWpListError] = useState('')
   const [ownerSyncTimedOut, setOwnerSyncTimedOut] = useState(false)
 
@@ -167,51 +229,77 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
 
   const sitesArray = Array.isArray(sites) ? sites : []
 
-  /** WordPress: espelho + detecção no servidor (só domínios da conta — API filtrada). */
+  /** WordPress e Next.js no mesmo cartão; Next.js do registo entra mesmo sem vhost no Hestia. */
   const mergedSitesArray = useMemo(() => {
-    if (!wordpressOnly) return sitesArray
     const map = new Map<string, DirectAdminWebsite>()
     for (const s of sitesArray) {
       if (!s.domain) continue
       map.set(s.domain.toLowerCase(), s)
     }
+    // A lista de instalações WordPress responde em segundos e já vem filtrada pelo âmbito
+    // de quem está no painel: os sites WordPress entram mesmo que a lista de domínios do
+    // servidor ainda não tenha chegado (no Mac, via SSH, pode passar dos 30 s).
     for (const domain of wpDomainSet) {
       const existing = map.get(domain)
+      map.set(domain, existing
+        ? { ...existing, siteType: 'wordpress', hasWordPress: true }
+        : {
+            id: domain,
+            domain,
+            owner: wpOwnerByDomain.get(domain) || undefined,
+            siteType: 'wordpress',
+            hasWordPress: true,
+            state: 'Active',
+            status: 'Active',
+            isActive: true,
+          })
+    }
+    for (const domain of nextJsDomainSet) {
+      const existing = map.get(domain)
       if (existing) {
-        map.set(domain, {
-          ...existing,
-          siteType: 'wordpress',
-          hasWordPress: true,
-        })
-      } else {
-        map.set(domain, {
-          id: domain,
-          domain,
-          owner: wordpressOwner || '',
-          state: 'Active',
-          siteType: 'wordpress',
-          hasWordPress: true,
-        })
+        if (!isWordPressSite(existing)) {
+          map.set(domain, {
+            ...existing,
+            siteType: 'nextjs',
+            hasNextJs: true,
+          })
+        }
+        continue
       }
+      map.set(domain, {
+        id: domain,
+        domain,
+        siteType: 'nextjs',
+        hasNextJs: true,
+        state: 'Active',
+        status: 'Active',
+        isActive: true,
+      })
     }
     return Array.from(map.values())
-  }, [sitesArray, wpDomainSet, wordpressOnly, wordpressOwner])
+  }, [sitesArray, wpDomainSet, wpOwnerByDomain, nextJsDomainSet])
 
   const filtered = sortSitesPrimaryFirst(
     mergedSitesArray.filter(s => {
       if (!s.domain.toLowerCase().includes(search.toLowerCase())) return false
       if (s.domain.includes('contaboserver')) return false
       if (s.domain.toLowerCase().startsWith('mail')) return false
+      if (!hasInstalledSite(s)) return false
       if (wordpressOnly) {
         const owner = (s.owner || '').trim().toLowerCase()
         const expected = (wordpressOwner || '').trim().toLowerCase()
-        if (!expected || owner !== expected) return false
+        const principalAccount = !expected || expected === 'admin' || isCompanyHostingOwner(expected)
+        if (principalAccount) {
+          if (!isCompanyHostingOwner(owner, expected || 'admin')) return false
+        } else if (owner !== expected) {
+          return false
+        }
       }
-      if (wordpressOnly && !isWordPressSite(s) && !wpDomainSet.has(s.domain.toLowerCase())) return false
       return true
     }),
     primaryDomain,
   )
+  const listPrimaryDomain = resolveListPrimaryDomain(filtered, primaryDomain)
 
   const totalPages = Math.ceil(filtered.length / itemsPerPage)
   const startIndex = (currentPage - 1) * itemsPerPage
@@ -231,10 +319,8 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
   ])
 
   useEffect(() => {
-    if (!wordpressOnly) return
     let cancelled = false
     const cached = readWpInstallsCache(panelScope)
-    setWpListError('')
     if (cached.length > 0) {
       setWpDomainSet(new Set(cached.map((d) => d.toLowerCase())))
     } else {
@@ -248,7 +334,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
         const data = await res.json().catch(() => ({}))
         if (cancelled) return
         if (!data.success || !Array.isArray(data.installs)) {
-          if (!cached.length) {
+          if (wordpressOnly && !cached.length) {
             setWpListError(data.error || 'Não foi possível carregar os sites WordPress.')
           }
           return
@@ -256,8 +342,11 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
         const domains = data.installs.map((i: { domain: string }) => i.domain.toLowerCase())
         writeWpInstallsCache(domains, panelScope)
         setWpDomainSet(new Set(domains))
+        setWpOwnerByDomain(new Map(
+          data.installs.map((i: { domain: string; user?: string }) => [i.domain.toLowerCase(), String(i.user || '')]),
+        ))
       } catch (e: unknown) {
-        if (!cancelled && !cached.length) {
+        if (!cancelled && wordpressOnly && !cached.length) {
           setWpListError(e instanceof Error ? e.message : 'Erro de ligação ao carregar sites WordPress.')
         }
       } finally {
@@ -266,6 +355,36 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
     })()
     return () => { cancelled = true }
   }, [wordpressOnly, panelScope])
+
+  useEffect(() => {
+    let cancelled = false
+    const cachedDomains = readCachedNextJsDomains()
+    if (cachedDomains.length > 0) {
+      setNextJsDomainSet(new Set(cachedDomains))
+      setNextJsListLoading(false)
+    } else {
+      setNextJsListLoading(true)
+    }
+    void (async () => {
+      try {
+        const res = await fetch('/api/nextjs-sites', { cache: 'no-store', credentials: 'include' })
+        const data = await res.json().catch(() => ({}))
+        if (cancelled) return
+        if (!data.success || !Array.isArray(data.sites)) return
+        writeListCache(NEXTJS_SITES_CACHE_KEY, data.sites)
+        setNextJsDomainSet(new Set(
+          data.sites
+            .map((row: { domain?: string }) => String(row.domain || '').toLowerCase())
+            .filter(Boolean),
+        ))
+      } catch {
+        /* Badge/lista Next.js é best-effort — a lista de WordPress continua. */
+      } finally {
+        if (!cancelled) setNextJsListLoading(false)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [])
 
   useEffect(() => {
     const domains = filtered.map((s) => s.domain).filter(Boolean)
@@ -595,21 +714,28 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
       )}
 
       {filtered.length === 0 && !daLoadError && (
-        <p className="text-center text-gray-500 py-8">
-          {wordpressOnly && wpListLoading
-            ? 'A detectar sites WordPress…'
-            : wordpressOnly && wpListError
-              ? ''
-              : wordpressOnly
-                ? 'Nenhum site WordPress nesta conta.'
-                : 'Nenhum website encontrado no DirectAdmin.'}
-        </p>
+        wpListLoading || nextJsListLoading ? (
+          <div className="flex items-center justify-center gap-2 py-8 text-sm text-gray-500">
+            <Spinner />
+            A detectar sites instalados…
+          </div>
+        ) : (
+          <p className="text-center text-gray-500 py-8">
+            Nenhum site instalado. Domínios sem WordPress, Next.js ou HTML não aparecem aqui.
+          </p>
+        )
       )}
 
       {/* Lista de sites como cards expansíveis */}
       <div className="space-y-2">
-        {paginatedSites.map((s, i) => (
-          <div key={i} className={`bg-white rounded border ${expandedSite === s.domain ? 'border-blue-200 shadow-md' : 'border-gray-200 shadow-sm'} transition-all`}>
+        {paginatedSites.map((s, i) => {
+          const isPrimary = Boolean(listPrimaryDomain && s.domain.toLowerCase() === listPrimaryDomain)
+          return (
+          <div key={s.domain || i} className={`bg-white rounded border transition-all ${
+            isPrimary
+              ? 'border-red-300 ring-1 ring-red-200 shadow-md'
+              : expandedSite === s.domain ? 'border-blue-200 shadow-md' : 'border-gray-200 shadow-sm'
+          }`}>
 
             {/* Linha do site com botões explícitos */}
             <div className="flex flex-col gap-3 px-4 py-4 md:flex-row md:items-center md:justify-between">
@@ -627,17 +753,18 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
                   href={`https://${s.domain}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="font-bold text-sm text-gray-900 dark:text-zinc-100 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                  className={`${isPrimary ? 'text-base' : 'text-sm'} font-bold text-gray-900 dark:text-zinc-100 hover:text-red-600 dark:hover:text-red-400 transition-colors`}
                 >
                   {s.domain}
                 </a>
+                {isPrimary && (
+                  <span className="px-2 py-0.5 bg-red-50 text-red-700 rounded-full text-xs font-bold">Principal</span>
+                )}
                 <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${parseState(s.state) === 'Active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                   {parseState(s.state) || 'Active'}
                 </span>
                 {/* Badge por tipo de site */}
-                {s.siteType === 'wordpress' && <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-bold">WordPress</span>}
-                {s.siteType === 'nextjs' && <span className="px-2 py-0.5 bg-black  rounded-full text-xs font-bold">Next.js</span>}
-                {s.siteType === 'html' && <span className="px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full text-xs font-bold">HTML/PHP</span>}
+                <SiteKindBadge site={s} />
                 {isSslActive(s) ? (
                   <span className="flex items-center gap-1 text-xs font-bold text-emerald-600 dark:text-emerald-400">
                     <Lock className="w-3.5 h-3.5" /> SSL Activo
@@ -838,7 +965,8 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
               </div>
             )}
           </div>
-        ))}
+          )
+        })}
       </div>
 
       {/* Paginação */}

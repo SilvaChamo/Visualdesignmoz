@@ -1,31 +1,41 @@
-name: ops - inspect DA suspend page config (read-only)
+name: "Ops - Fase 117. Remove so a entrada elimservicos do panel_users (sem tocar no site)"
 
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
 
 jobs:
-  inspect:
+  contabo:
+    name: contabo
     runs-on: ubuntu-latest
     steps:
-      - name: SSH inspect
-        uses: appleboy/ssh-action@v1.0.3
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.CONTABO_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan "${{ secrets.CONTABO_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+      - name: Verifica login associado e remove
+        uses: appleboy/ssh-action@v1.2.5
         with:
-          host: ${{ secrets.HETZNER_HOST }}
-          port: ${{ secrets.HETZNER_PORT }}
-          username: ${{ secrets.HETZNER_USER }}
-          key: ${{ secrets.HETZNER_SSH_KEY }}
+          host: ${{ secrets.CONTABO_HOST }}
+          username: root
+          key: ${{ secrets.CONTABO_SSH_KEY }}
+          command_timeout: 2m
           script: |
-            echo "=== search for suspended-related templates/skins ==="
-            find /usr/local/directadmin -iname "*suspend*" 2>/dev/null
+            set +e
+            echo "===== tem login real associado (auth_user_id)? confirma provider guardado ====="
+            docker exec supabase-db psql -U postgres -d postgres -c "SELECT username, auth_user_id, hosting_provider, acl FROM panel_users WHERE username='elimservicos';" 2>&1
+            docker exec supabase-db psql -U postgres -d postgres -c "SELECT da_username, provider FROM panel_auth_accounts WHERE da_username='elimservicos';" 2>&1
+
             echo ""
-            echo "=== domain conf example (admin's visualdesignmoz.com) ==="
-            cat /usr/local/directadmin/data/users/admin/domains/visualdesignmoz.com.conf 2>&1 | head -30
+            echo "===== remove SO a entrada de conta (panel_users) - nao mexe em panel_sites nem no servidor ====="
+            docker exec supabase-db psql -U postgres -d postgres -c "DELETE FROM panel_users WHERE username='elimservicos';" 2>&1
+            docker exec supabase-db psql -U postgres -d postgres -c "DELETE FROM panel_auth_accounts WHERE da_username='elimservicos';" 2>&1
+
             echo ""
-            echo "=== any currently suspended domains ==="
-            grep -rl "suspended=yes" /usr/local/directadmin/data/users/*/domains/*.conf 2>/dev/null
+            echo "===== confirma: elimservicos.com continua no panel_sites, dono oshercollective ====="
+            docker exec supabase-db psql -U postgres -d postgres -c "SELECT domain, owner FROM panel_sites WHERE domain ILIKE '%elimservicos%';" 2>&1
+
             echo ""
-            echo "=== directadmin.conf suspend-related keys ==="
-            grep -i "suspend" /usr/local/directadmin/conf/directadmin.conf 2>&1
-            echo ""
-            echo "=== DA version ==="
-            cat /usr/local/directadmin/conf/directadmin.conf 2>/dev/null | grep -i "^version" || /usr/local/directadmin/directadmin v 2>&1
+            echo "===== confirma: o site continua a responder normalmente ====="
+            curl -sSI --max-time 10 https://elimservicos.com/ 2>&1 | head -3

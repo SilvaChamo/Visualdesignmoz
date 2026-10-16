@@ -18,7 +18,7 @@
  * fora do Hestia (Brevo/Cloudflare), não dentro dele.
  */
 
-import { listUsers, listWebDomains } from '@/lib/hestia-adapter';
+import { listMailDomains, listUsers, listWebDomains } from '@/lib/hestia-adapter';
 import { getDaSyncAdmin } from '@/lib/da-sync-schema';
 
 export type HestiaSyncResult = {
@@ -72,6 +72,19 @@ export async function runHestiaFullSync(): Promise<HestiaSyncResult> {
 
   const syncedAt = nowIso();
   const liveUsernames = new Set<string>();
+  // Contas com login real no painel (auth_user_id) — ver domínios de email abaixo.
+  const panelManagedUsernames = new Set<string>();
+
+  // A própria conta principal (HESTIA_USER, normalmente 'vdadmin') fica de
+  // propósito fora de listUsers() — não é uma conta de cliente, não faz
+  // sentido ter uma linha em panel_users para ela. MAS pode ter sites reais
+  // próprios (ex.: um domínio criado directamente nela pelo admin, como
+  // aconteceu com entrecamposblog.com) — sem isto no conjunto abaixo, esses
+  // sites nunca entravam no espelho panel_sites (o loop de sites só percorre
+  // liveUsernames), ficando invisíveis em TODAS as listas do painel mesmo
+  // existindo de facto no Hestia. Confirmado ao vivo 1 set: hestia-sync
+  // corria com sucesso (users:0, sites:0, sem erros) e nunca via este site.
+  liveUsernames.add((process.env.HESTIA_USER || 'vdadmin').trim());
 
   // ── Contas ──
   for (const user of users) {
@@ -83,6 +96,7 @@ export async function runHestiaFullSync(): Promise<HestiaSyncResult> {
         .eq('username', user.username)
         .maybeSingle();
       const panelManaged = Boolean(existing?.auth_user_id);
+      if (panelManaged) panelManagedUsernames.add(user.username);
 
       const { error } = await admin.from('panel_users').upsert(
         {
@@ -132,6 +146,17 @@ export async function runHestiaFullSync(): Promise<HestiaSyncResult> {
     await admin.from('panel_users').delete().in('username', staleUsers);
   }
 
+  // Contabo: não há espelho de sites. O painel lê os domínios, caixas, DNS,
+  // etc. directamente do Hestia (hosting-resolver / panel-mirror-read), por
+  // isso este sync só mantém o registo de contas (panel_users) e nunca
+  // escreve nem apaga panel_sites/panel_emails/panel_dns/... — foi essa
+  // limpeza que tirou concordia.co.mz do painel do cliente (8 out).
+  const { isHestiaOnlyDeploy } = await import('@/lib/hosting-provider');
+  if (isHestiaOnlyDeploy()) {
+    const ok = errors.length === 0;
+    return { ok, startedAt, finishedAt: nowIso(), durationMs: Date.now() - t0, counts, errors };
+  }
+
   // ── Sites (por conta) ──
   // Detecta WordPress a sério (procura wp-config.php no servidor) em vez de
   // confiar só na instalação feita pelo próprio painel — mesmo raciocínio
@@ -167,6 +192,35 @@ export async function runHestiaFullSync(): Promise<HestiaSyncResult> {
         );
         if (error) errors.push(`site ${d.domain}: ${error.message}`);
         else counts.sites++;
+      }
+
+      // Planos de email (email-plan-provision.ts) criam contas sem sites — o
+      // domínio só existe como domínio de EMAIL. Sem isto a limpeza abaixo
+      // via-o como "já não existe" e, passado o período de graça, apagava-o
+      // do espelho: o painel Cliente ficava sem domínio e sem poder criar
+      // caixas. Se a listagem falhar, atira — esta conta fica fora da limpeza.
+      const mailDomains = await listMailDomains(username);
+      for (const mailDomain of mailDomains) {
+        if (liveDomains.has(mailDomain)) continue;
+        liveDomains.add(mailDomain);
+        // Só repõe a linha (sem mexer nas existentes) nas contas de clientes
+        // do painel — os domínios de email de outras contas nunca entraram no
+        // espelho como sites e assim continuam.
+        if (!panelManagedUsernames.has(username)) continue;
+        const owner = users.find((u) => u.username === username);
+        const { error } = await admin.from('panel_sites').upsert(
+          {
+            domain: mailDomain,
+            owner: username,
+            admin_email: owner?.email || '',
+            package: owner?.packageName || 'Default',
+            status: owner?.suspended ? 'Suspended' : 'Active',
+            synced_at: syncedAt,
+            updated_at: syncedAt,
+          },
+          { onConflict: 'domain', ignoreDuplicates: true },
+        );
+        if (error) errors.push(`site ${mailDomain}: ${error.message}`);
       }
       liveDomainsByOwner.set(username, liveDomains);
     } catch (e: unknown) {
@@ -221,4 +275,17 @@ export function runHestiaFullSyncDeduped(): Promise<HestiaSyncResult> {
     syncInFlight = null;
   });
   return syncInFlight;
+}
+
+let _lastHestiaScheduledAt = 0;
+const HESTIA_SCHEDULE_THROTTLE_MS = 2 * 60 * 1000;
+
+/** Sync Hestia → espelho, em segundo plano. Na Contabo substitui o DA. */
+export function scheduleHestiaSync(delayMs = 2000) {
+  const now = Date.now();
+  if (now - _lastHestiaScheduledAt < HESTIA_SCHEDULE_THROTTLE_MS) return;
+  _lastHestiaScheduledAt = now;
+  setTimeout(() => {
+    runHestiaFullSyncDeduped().catch((e) => console.error('[hestia-sync] background:', e));
+  }, delayMs);
 }

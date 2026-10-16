@@ -36,6 +36,14 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
   }
 
+  if ((process.env.DEFAULT_HOSTING_PROVIDER || '').trim().toLowerCase() === 'hestia') {
+    return NextResponse.json({
+      success: true,
+      skipped: true,
+      reason: 'Este servidor usa Hestia — o sync DirectAdmin está desligado.',
+    });
+  }
+
   try {
     const admin = getDaSyncAdmin();
     if (admin) {

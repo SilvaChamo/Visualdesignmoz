@@ -38,8 +38,61 @@ export type HestiaCallResult = {
  * arg2, ...) — a mesma ordem da própria CLI (`v-add-user USER PASSWORD
  * EMAIL...` → args: [USER, PASSWORD, EMAIL, ...]).
  */
-export async function hestiaCall(cmd: string, args: string[] = []): Promise<HestiaCallResult> {
+const SSH_EXIT_MARK = '__VD_HESTIA_EXIT__=';
+
+async function hestiaCallViaSsh(cmd: string, args: string[], timeoutMs = 20_000): Promise<HestiaCallResult> {
+  const { executeServerCommand } = await import('@/lib/server-ssh-exec');
+  const quoted = args.map((a) => `'${a.replace(/'/g, `'\\''`)}'`).join(' ');
+  try {
+    const raw = (
+      await executeServerCommand(`/usr/local/hestia/bin/${cmd} ${quoted} 2>&1; echo "${SSH_EXIT_MARK}$?"`, {
+        fast: timeoutMs <= 12_000,
+        timeoutMs,
+      })
+    ).trim();
+    // Os v-add-*/v-change-* não escrevem nada quando correm bem — "sem output"
+    // não pode ser falha (era assim que um v-add-user bem-sucedido aparecia
+    // como "falhou via SSH" e o resto do provisionamento ficava por fazer).
+    // O código de saída real é o mesmo contrato do cabeçalho Hestia-Exit-Code.
+    const marked = raw.match(new RegExp(`${SSH_EXIT_MARK}(\\d+)\\s*$`));
+    if (marked) {
+      const exitCode = Number(marked[1]);
+      const output = raw.slice(0, marked.index).trim();
+      if (exitCode !== 0) {
+        return { ok: false, exitCode, output, error: output || `Comando ${cmd} falhou (código ${exitCode})` };
+      }
+      return { ok: true, exitCode, output };
+    }
+    const output = raw;
+    const denied = /ip is not allowed|access denied|error/i.test(output) && !output.trim().startsWith('{') && !output.trim().startsWith('[');
+    if (!output || denied) {
+      return { ok: false, exitCode: 1, output, error: output || `Comando ${cmd} falhou via SSH` };
+    }
+    return { ok: true, exitCode: 0, output };
+  } catch (e: unknown) {
+    return {
+      ok: false,
+      exitCode: -1,
+      output: '',
+      error: e instanceof Error ? e.message : 'Ligação SSH ao Hestia falhou',
+    };
+  }
+}
+
+/** Timeout curto no HTTP: sem isto o login fica preso em SYN_SENT quando o
+ * Hestia não está alcançável a partir da rede actual (ex.: Mac fora da VPN). */
+const HESTIA_HTTP_TIMEOUT_MS = 5_000;
+const HESTIA_SSH_FALLBACK_MS = 12_000;
+
+type HestiaCallOptions = {
+  timeoutMs?: number;
+  sshTimeoutMs?: number;
+  sshFallbackOnTransportError?: boolean;
+};
+
+export async function hestiaCall(cmd: string, args: string[] = [], options: HestiaCallOptions = {}): Promise<HestiaCallResult> {
   const { host, port, user, password } = resolveHestiaConfig();
+  const timeoutMs = options.timeoutMs ?? HESTIA_HTTP_TIMEOUT_MS;
 
   const body = new URLSearchParams();
   body.set('user', user);
@@ -54,14 +107,30 @@ export async function hestiaCall(cmd: string, args: string[] = []): Promise<Hest
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: body.toString(),
       cache: 'no-store',
+      signal: AbortSignal.timeout(timeoutMs),
     });
-  } catch (e: unknown) {
-    return {
-      ok: false,
-      exitCode: -1,
-      output: '',
-      error: e instanceof Error ? e.message : 'Ligação ao Hestia falhou',
-    };
+  } catch (e) {
+    const nomeErro = e instanceof Error ? e.name : '';
+    // Leituras (v-list-*) não mudam nada: repetir por SSH é seguro e evita o painel sem dados quando a API tarda.
+    // Só as operações que alteram o servidor deixam de se repetir (para não duplicar apagar/emitir SSL).
+    if (cmd.startsWith('v-list-')) return hestiaCallViaSsh(cmd, args, options.sshTimeoutMs ?? HESTIA_SSH_FALLBACK_MS);
+    if (nomeErro === 'TimeoutError' || nomeErro === 'AbortError') {
+      return {
+        ok: false,
+        exitCode: -1,
+        output: '',
+        error: 'O Hestia demorou a responder. O pedido pode ainda estar em curso; não foi repetido automaticamente.',
+      };
+    }
+    if (options.sshFallbackOnTransportError === false) {
+      return {
+        ok: false,
+        exitCode: -1,
+        output: '',
+        error: 'Não foi possível confirmar se o Hestia recebeu o pedido; não foi repetido para evitar duplicar a operação.',
+      };
+    }
+    return hestiaCallViaSsh(cmd, args, options.sshTimeoutMs ?? HESTIA_SSH_FALLBACK_MS);
   }
 
   const output = (await response.text()).trim();
@@ -69,6 +138,9 @@ export async function hestiaCall(cmd: string, args: string[] = []): Promise<Hest
   const exitCode = exitCodeHeader !== null ? Number(exitCodeHeader) : response.ok ? 0 : 1;
 
   if (exitCode !== 0) {
+    if (/ip is not allowed/i.test(output)) {
+      return hestiaCallViaSsh(cmd, args, options.sshTimeoutMs ?? HESTIA_SSH_FALLBACK_MS);
+    }
     return { ok: false, exitCode, output, error: output || `Comando ${cmd} falhou (código ${exitCode})` };
   }
   return { ok: true, exitCode, output };

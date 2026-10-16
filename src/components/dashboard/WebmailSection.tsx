@@ -60,6 +60,8 @@ interface WebmailSectionProps {
   onComposeStateChange?: (isActive: boolean) => void
   isAdmin?: boolean
   onNavigate?: (section: string) => void
+  /** Painel /cliente: pede a lista de caixas no âmbito do cliente (inclui o admin dentro da conta dele). */
+  accountsScope?: 'client'
 }
 
 export function WebmailSection({ 
@@ -74,7 +76,8 @@ export function WebmailSection({
   emailOrigem,
   onComposeStateChange,
   isAdmin = false,
-  onNavigate
+  onNavigate,
+  accountsScope,
 }: WebmailSectionProps) {
   // Estados principais
   const initialAccountsCache =
@@ -316,7 +319,7 @@ export function WebmailSection({
     const loadKey = `${sitesKey}|${userEmail || ''}|${isAdmin ? '1' : '0'}`
     if (loadKey === sitesLoadedKeyRef.current && accountsRef.current.length > 0) return
     sitesLoadedKeyRef.current = loadKey
-    void loadEmailAccounts({ fallbackServerMailboxes: isAdmin && useDirectAdminAPI })
+    void loadEmailAccounts({ fallbackServerMailboxes: useDirectAdminAPI })
   }, [sites, userEmail, isAdmin, useDirectAdminAPI])
 
   // Notificar parent quando estado do compose muda (para admin)
@@ -600,7 +603,7 @@ export function WebmailSection({
       const consolidated: EmailAccount[] = []
 
       try {
-        const res = await fetch('/api/email-contas', { credentials: 'include' })
+        const res = await fetch(accountsScope ? `/api/email-contas?scope=${accountsScope}` : '/api/email-contas', { credentials: 'include' })
         const data = await res.json()
         if (data.success && Array.isArray(data.contas)) {
           for (const acc of mapEmailContasToWebmailAccounts(data.contas)) {
@@ -611,7 +614,17 @@ export function WebmailSection({
         console.error('Erro ao buscar contas:', e)
       }
 
-      if (userEmail && !consolidated.find((a) => a.email === userEmail)) {
+      // O login só é uma caixa de correio quando o domínio dele está neste
+      // painel. Um login Gmail/Hotmail entrava sempre na lista, sem password
+      // no servidor, era escolhido por defeito (pickDefaultWebmailAccount) e
+      // o cliente via "Credenciais não disponíveis" em vez das suas caixas.
+      const userDomain = userEmail?.split('@')[1]?.toLowerCase()
+      const userDomainHosted = Boolean(
+        userDomain &&
+          ((sites || []).some((s) => s?.domain?.toLowerCase() === userDomain) ||
+            consolidated.some((a) => a.domain?.toLowerCase() === userDomain)),
+      )
+      if (userEmail && userDomainHosted && !consolidated.find((a) => a.email === userEmail)) {
         const domain = userEmail.split('@')[1]
         consolidated.push({
           email: userEmail,
@@ -907,33 +920,17 @@ export function WebmailSection({
     setCreateEmailSuccess('')
 
     try {
-      const res = await fetch('/api/da-emails', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'create',
-          domain: createEmailForm.domain,
-          username: createEmailForm.user,
-          password: createEmailForm.password,
-          quota: createEmailForm.quota || 500
-        })
-      })
-
-      const data = await res.json()
-      if (data.success) {
+      // /api/da (não /api/da-emails, que só fala com o DirectAdmin e falhava
+      // sempre no Hestia) — e já guarda a senha para o webmail quando a caixa
+      // é criada de facto (commit 7dfb1e6e).
+      const data = await directAdminAPI.createEmail({
+        domain: createEmailForm.domain,
+        userName: createEmailForm.user,
+        password: createEmailForm.password,
+        quota: createEmailForm.quota || 500,
+      }) as { success?: boolean; error?: string } | undefined
+      if (data?.success !== false) {
         setCreateEmailSuccess('Conta de e-mail criada com sucesso!')
-        
-        // Sincronizar com o banco de dados via API
-        await fetch('/api/email-contas', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            email: `${createEmailForm.user}@${createEmailForm.domain}`,
-            password: createEmailForm.password,
-            nome: createEmailForm.user,
-            tipo: 'webmail'
-          })
-        })
 
         setTimeout(() => {
           setShowCreateEmailModal(false)
@@ -942,7 +939,7 @@ export function WebmailSection({
           window.location.reload()
         }, 1500)
       } else {
-        setCreateEmailError(data.error || 'Erro ao criar conta de e-mail.')
+        setCreateEmailError(data?.error || 'Erro ao criar conta de e-mail.')
       }
     } catch (error: any) {
       setCreateEmailError('Erro técnico: ' + error.message)
@@ -1044,19 +1041,17 @@ export function WebmailSection({
 
     try {
       const password = await getPasswordForAccount(account)
+      const email = account.email
+      const domain = email.includes('@') ? email.split('@')[1] : ''
+
       if (!password) {
-        newWindow.document.body.innerHTML = `
-          <div style="text-align:center; padding: 2rem; font-family: sans-serif; background: #0f172a; color: #ef4444; height: 100vh; display: flex; align-items: center; justify-content: center;">
-            <div style="border: 1px solid rgba(239, 68, 68, 0.2); padding: 2rem; border-radius: 16px; background: rgba(239, 68, 68, 0.05);">
-              <p style="font-weight: bold; margin-bottom: 0.5rem;">Erro de Autenticação</p>
-              <p style="font-size: 0.9rem; color: rgba(255,255,255,0.7);">Não foi possível obter as credenciais para a conta ${account.email}.</p>
-            </div>
-          </div>
-        `
+        const fallbackUrl = domain
+          ? `https://${domain}/webmail/?_user=${encodeURIComponent(email)}`
+          : `/api/roundcube-sso?email=${encodeURIComponent(email)}`
+        newWindow.location.href = fallbackUrl
         return
       }
 
-      const email = account.email
       const url = `/api/roundcube-sso?email=${encodeURIComponent(email)}&pass=${encodeURIComponent(password)}`
       newWindow.location.href = url
     } catch (e) {

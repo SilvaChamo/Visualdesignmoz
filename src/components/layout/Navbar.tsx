@@ -7,6 +7,7 @@ import { useI18n } from '@/lib/i18n'
 import { Globe, User, ShoppingCart, HelpCircle, Rocket, Server, CreditCard, Shield, Grid, Layers, Package, BookOpen, Lock, Camera, Palette, Monitor, Mail, FileText, Megaphone, PenTool, Film, Search as SearchIcon } from 'lucide-react'
 import Link from 'next/link'
 import { useCart } from '@/contexts/CartContext'
+import { useEncomendaDraft } from '@/lib/use-encomenda-draft'
 import { useCurrency } from '@/contexts/CurrencyContext'
 import { cn } from '@/lib/utils'
 import { PANEL_LOGIN_HREF, PUBLIC_PANEL_ENTRY } from '@/lib/panel-origin'
@@ -16,9 +17,34 @@ import { useAuth } from '@/components/auth/AuthProvider'
 export function Navbar() {
   const { t } = useI18n()
   const { items, setIsCartOpen } = useCart()
+  // Encomenda VisualDesign a meio do pagamento — conta no balão do carrinho
+  // até ser paga ou cancelada (ver CartDrawer).
+  const encomendaPendente = useEncomendaDraft()
+  const cartCount = items.length + (encomendaPendente ? 1 : 0)
   const { currency, setCurrency } = useCurrency()
   const { user, userRole } = useAuth()
-  const showEncomendasLink = userRole !== 'admin' && userRole !== 'manager'
+  // Só mostra o link a quem tem mesmo encomendas de design gráfico — um
+  // cliente que só comprou hospedagem/domínio nunca tem linhas em
+  // quotation_requests, e não faz sentido levá-lo para um painel vazio que
+  // não tem nada a ver com o que ele comprou.
+  const [hasEncomendas, setHasEncomendas] = useState(false)
+  useEffect(() => {
+    if (!user || userRole === 'admin' || userRole === 'manager') {
+      setHasEncomendas(false)
+      return
+    }
+    let cancelled = false
+    fetch('/api/cotacoes', { credentials: 'include' })
+      .then((res) => res.json())
+      .then((data) => {
+        if (!cancelled) setHasEncomendas(Boolean(data?.success && data.quotations?.length > 0))
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [user, userRole])
+  const showEncomendasLink = hasEncomendas
   const router = useRouter()
   const [showLaunchpad, setShowLaunchpad] = useState(false)
   const [showTopBar, setShowTopBar] = useState(true)
@@ -71,7 +97,7 @@ export function Navbar() {
     // Área do Cliente (requer login)
     { href: '/cliente', icon: Lock, title: 'Painel do Cliente', desc: 'Gerir a sua conta e serviços', bg: 'bg-slate-100', text: 'text-slate-700', tags: 'painel dashboard conta cliente', requiresLogin: true },
     { href: '/cliente/domains', icon: Lock, title: 'Meus Domínios', desc: 'Gerir os seus domínios registados', bg: 'bg-teal-50', text: 'text-teal-700', tags: 'domínios meus gerir dns', requiresLogin: true },
-    { href: '/dashboard', icon: Lock, title: 'Administração', desc: 'Painel de administração', bg: 'bg-red-50', text: 'text-red-700', tags: 'admin painel gestão administração', requiresLogin: true },
+    { href: '/host:2026/admin', icon: Lock, title: 'Administração', desc: 'Painel de administração', bg: 'bg-red-50', text: 'text-red-700', tags: 'admin painel gestão administração', requiresLogin: true },
   ]
 
   const isSearching = searchQuery.trim().length > 0
@@ -312,9 +338,9 @@ export function Navbar() {
               className="text-slate-300 hover:text-red-500 transition-colors relative group"
             >
               <ShoppingCart className="w-4 h-4" />
-              {items.length > 0 && (
+              {cartCount > 0 && (
                 <span className="absolute -top-2 -right-2 inline-flex items-center justify-center w-4 h-4 text-[9px] font-bold text-white bg-red-600 border border-black rounded-full">
-                  {items.length}
+                  {cartCount}
                 </span>
               )}
               <span className="absolute top-full mt-2 right-0 md:left-1/2 md:-translate-x-1/2 whitespace-nowrap w-max bg-slate-800 text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg">Carrinho de Compras</span>

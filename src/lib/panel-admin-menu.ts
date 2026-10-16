@@ -1,4 +1,4 @@
-export type DomainHubTab = 'meus' | 'adicionar' | 'registados' | 'registar';
+export type DomainHubTab = 'meus' | 'clientes' | 'adicionar' | 'registados' | 'registar';
 
 export interface PanelMenuSubItem {
   id: string;
@@ -44,6 +44,8 @@ export const NEW_MENU_ITEM_DEFS: PanelMenuItemDef[] = [
     subItems: [
       { id: 'webmail', label: 'Webmail' },
       { id: 'emails-new', label: 'Contas de e-mail' },
+      { id: 'cp-email-forwarding', label: 'Encaminhamento' },
+      { id: 'cp-email-catchall', label: 'Catch-all' },
       { id: 'setup-smtp', label: 'Configurar SMTP' },
     ],
   },
@@ -63,11 +65,20 @@ export const NEW_MENU_ITEM_DEFS: PanelMenuItemDef[] = [
     isNewMenu: true,
     subItems: [
       { id: 'domain-manager', label: 'Domínios' },
-      { id: 'dns-central', label: 'DNS Central' },
       { id: 'cp-ssl', label: 'SSL / TLS' },
       { id: 'cp-php', label: 'Configurar PHP' },
-      { id: 'cp-dns-nameserver', label: 'Nameservers' },
       { id: 'transferir-dominio', label: 'Transferir' },
+    ],
+  },
+  {
+    id: 'nov-wordpress',
+    label: 'Websites',
+    isNewMenu: true,
+    subItems: [
+      { id: 'wp-sites', label: 'Sites' },
+      { id: 'wordpress-install', label: 'Criar Website' },
+      { id: 'wp-plugins', label: 'Plugins' },
+      { id: 'cp-databases', label: 'Bases de Dados' },
     ],
   },
   {
@@ -96,23 +107,14 @@ export const NEW_MENU_ITEM_DEFS: PanelMenuItemDef[] = [
     isNewMenu: true,
   },
   {
-    id: 'nov-wordpress',
-    label: 'Websites',
+    id: 'file-manager',
+    label: 'Gestão de Ficheiros',
     isNewMenu: true,
-    subItems: [
-      { id: 'nextjs-sites', label: 'Next.js' },
-      {
-        id: 'wordpress-group',
-        label: 'WordPress',
-        subItems: [
-          { id: 'wp-sites', label: 'Sites' },
-          { id: 'wordpress-install', label: 'Criar Website' },
-          { id: 'wp-plugins', label: 'Plugins' },
-          { id: 'wp-backup', label: 'Backups' },
-          { id: 'cp-databases', label: 'Bases de Dados' },
-        ],
-      },
-    ],
+  },
+  {
+    id: 'backup-manager',
+    label: 'Backup',
+    isNewMenu: true,
   },
   {
     id: 'nov-sistema',
@@ -143,6 +145,8 @@ export const RESELLER_MAIN_MENU_DEFS: PanelMenuItemDef[] = [
     subItems: [
       { id: 'emails-new', label: 'Contas de e-mail' },
       { id: 'webmail', label: 'Webmail' },
+      { id: 'cp-email-forwarding', label: 'Encaminhamento' },
+      { id: 'cp-email-catchall', label: 'Catch-all' },
       { id: 'setup-smtp', label: 'Envio e Recepção' },
     ],
   },
@@ -161,28 +165,29 @@ export const RESELLER_MAIN_MENU_DEFS: PanelMenuItemDef[] = [
     subItems: [
       { id: 'domain-manager', label: 'Domínios' },
       { id: 'registrar-domains', label: 'Registar domínio' },
-      { id: 'dns-central', label: 'DNS Central' },
       { id: 'cp-ssl', label: 'SSL / TLS' },
       { id: 'cp-php', label: 'Configurar PHP' },
-      { id: 'cp-dns-nameserver', label: 'Nameservers' },
       { id: 'transferir-dominio', label: 'Transferir' },
       { id: 'cp-ftp', label: 'Contas FTP' },
     ],
   },
   {
     id: 'nov-wordpress',
-    label: 'WordPress',
+    label: 'Websites',
     subItems: [
       { id: 'wp-sites', label: 'Sites' },
       { id: 'wordpress-install', label: 'Criar Website' },
       { id: 'wp-plugins', label: 'Plugins' },
-      { id: 'wp-backup', label: 'Backup' },
       { id: 'cp-databases', label: 'Bases de Dados' },
     ],
   },
   {
     id: 'file-manager',
     label: 'Gestão de Ficheiros',
+  },
+  {
+    id: 'backup-manager',
+    label: 'Backup',
   },
   {
     id: 'nov-notificacoes',
@@ -206,6 +211,17 @@ export const RESELLER_MAIN_MENU_DEFS: PanelMenuItemDef[] = [
 ];
 
 export const RESELLER_MENU_DEFS: PanelMenuItemDef[] = [...RESELLER_MAIN_MENU_DEFS];
+
+/**
+ * Painel Profissional (quem compra hospedagem para um site): o menu do
+ * revendedor sem o grupo "Hospedagem" (contas de outros clientes e pacotes,
+ * coisa só de revendedor). A pausa de 14 ago (só "Domínios") foi levantada a
+ * 8 out 2026 a pedido do utilizador: "manter tudo funcional". Quem não tem
+ * site usa o painel Cliente (clientPanelMenuDefs).
+ */
+export const PROFISSIONAL_MENU_DEFS: PanelMenuItemDef[] = RESELLER_MAIN_MENU_DEFS.filter(
+  (item) => item.id !== 'nov-hospedagem',
+);
 
 /** IDs que abrem o hub de domínios (com tab específica) */
 export const DOMAIN_HUB_ROUTE_IDS = new Set([
@@ -255,6 +271,7 @@ export const LEGACY_ALIAS: Record<string, string> = {
   'git-deploy-legacy': 'git-deploy',
   'wp-update': 'wp-plugins',
   'cp-wp-list': 'wp-sites',
+  'nextjs-sites': 'wp-sites',
   'cp-wp-plugins': 'wp-plugins',
   'cp-wp-backup': 'backup-manager',
   'cp-wp-restore-backup': 'backup-manager',
@@ -371,13 +388,16 @@ export const NEW_SECTION_TO_PARENT: Record<string, string> = {
   'wp-sites': 'nov-wordpress',
   'wp-plugins': 'nov-wordpress',
   'wordpress-install': 'nov-wordpress',
-  'wp-backup': 'nov-wordpress',
-  'wp-backup-auto': 'nov-wordpress',
-  'wp-backup-report': 'nov-wordpress',
+  'wp-backup': 'backup-manager',
+  'wp-backup-auto': 'backup-manager',
+  'wp-backup-report': 'backup-manager',
   'cp-databases': 'nov-wordpress',
   'nextjs-sites': 'nov-wordpress',
   'domain-detail': 'nov-dominios',
-  'backup-manager': 'nov-wordpress',
+  'backup-manager': 'backup-manager',
+  'file-manager': 'file-manager',
+  'cp-file-manager': 'file-manager',
+  'cp-backup': 'backup-manager',
   infrastructure: 'nov-sistema',
   'git-deploy': 'nov-sistema',
   'cp-security': 'nov-sistema',
@@ -391,6 +411,8 @@ export const RESELLER_SECTION_TO_PARENT: Record<string, string> = {
   'emails-new': 'nov-email',
   webmail: 'nov-email',
   'setup-smtp': 'nov-email',
+  'cp-email-forwarding': 'nov-email',
+  'cp-email-catchall': 'nov-email',
   newsletter: 'newsletter',
   'newsletter-subs': 'newsletter',
   'newsletter-comp': 'newsletter',
@@ -411,9 +433,9 @@ export const RESELLER_SECTION_TO_PARENT: Record<string, string> = {
   'wp-sites': 'nov-wordpress',
   'wp-plugins': 'nov-wordpress',
   'wordpress-install': 'nov-wordpress',
-  'wp-backup': 'nov-wordpress',
-  'wp-backup-auto': 'nov-wordpress',
-  'wp-backup-report': 'nov-wordpress',
+  'wp-backup': 'backup-manager',
+  'wp-backup-auto': 'backup-manager',
+  'wp-backup-report': 'backup-manager',
   'cp-databases': 'nov-wordpress',
   'domain-detail': 'nov-dominios',
   'cp-ftp': 'nov-dominios',
@@ -422,6 +444,8 @@ export const RESELLER_SECTION_TO_PARENT: Record<string, string> = {
   'settings-profile': 'nov-definicoes',
   'file-manager': 'file-manager',
   'cp-file-manager': 'file-manager',
+  'backup-manager': 'backup-manager',
+  'cp-backup': 'backup-manager',
 };
 
 export function resellerMenuParentForSection(sectionId: string): string | null {

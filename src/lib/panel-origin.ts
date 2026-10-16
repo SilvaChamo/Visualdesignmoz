@@ -1,7 +1,7 @@
 import type { CookieOptions } from '@supabase/ssr'
 import { getRedirectPathForRole, type UserRole } from '@/lib/user-roles'
 
-const PANEL_PATHS = ['/dashboard', '/cliente', '/revendedor', '/guest'] as const
+const PANEL_PATHS = ['/dashboard', '/cliente', '/revendedor', '/profissional', '/guest'] as const
 
 const DEFAULT_PUBLIC_SITE_ORIGIN = 'https://visualdesignmoz.com'
 
@@ -80,6 +80,18 @@ function isPanelPathAllowedForRole(pathname: string, role: UserRole): boolean {
   return normalizedPath === roleBase || normalizedPath.startsWith(`${roleBase}/`)
 }
 
+/** Marca gravada no user_metadata das contas criadas no percurso das
+ * encomendas (/cotacao → "Criar Conta", ou pelo admin na lista de contas das
+ * encomendas) — ver /api/auth/register. */
+export const ENCOMENDAS_ACCOUNT_ORIGIN = 'encomendas'
+
+/** Conta nascida nas encomendas — conta como "tem encomendas" para o destino
+ * pós-login mesmo antes de submeter a primeira (ex.: criou a conta e ainda
+ * não pagou), para nunca cair no painel guest genérico. */
+export function isEncomendasAccount(userMetadata: Record<string, unknown> | null | undefined): boolean {
+  return userMetadata?.origem === ENCOMENDAS_ACCOUNT_ORIGIN
+}
+
 /** Destino por defeito: guest com encomendas já submetidas vai directo ao
  * painel de encomendas, em vez do painel guest genérico. */
 export function defaultLandingPath(role: UserRole, hasEncomendas: boolean): string {
@@ -149,6 +161,8 @@ export function getSharedAuthCookieDomain(_hostname?: string): string | undefine
   return undefined
 }
 
+const SESSAO_CURTA_ATIVA = false
+
 export function applySharedAuthCookieOptions(
   options: CookieOptions = {},
   hostname?: string,
@@ -156,10 +170,14 @@ export function applySharedAuthCookieOptions(
 ): CookieOptions {
   const domain = getSharedAuthCookieDomain(hostname)
 
-  const maxAge =
-    role === 'admin'
+  // Prazo curto do cookie (6 h admin, 1 h resto) DESLIGADO temporariamente a pedido do Silva (13/10/2026): fica o
+  // prazo que o Supabase pede (e o maxAge: 0 de quem apaga o cookie, que antes era trocado por 1 h). Voltar a pôr
+  // SESSAO_CURTA_ATIVA = true no fim.
+  const maxAge = SESSAO_CURTA_ATIVA
+    ? role === 'admin'
       ? 60 * 60 * 6 // 6 hours for admin
       : 60 * 60 * 1 // 1 hour for others
+    : (options.maxAge ?? 400 * 24 * 60 * 60) // o mesmo prazo por omissão do @supabase/ssr
 
   const combinedOptions: CookieOptions = {
     ...options,

@@ -17,7 +17,7 @@ const MUTATION_ACTIONS = new Set([
   'createDatabase', 'deleteDatabase',
   'createFTPAccount', 'deleteFTPAccount',
   'changeEmailPassword', 'setEmailLimits',
-  'addEmailForwarding', 'setCatchAllEmail', 'addPatternForwarding', 'togglePlusAddressing',
+  'addEmailForwarding', 'deleteEmailForwarding', 'setCatchAllEmail', 'addPatternForwarding', 'togglePlusAddressing',
   'addDomainPointer', 'deleteDomainPointer',
   'enableDKIM', 'issueSSL', 'replaceSSL', 'deleteSSL', 'cancelSslRenewal', 'setForceSsl',
   'createDNSZone', 'deleteDNSZone', 'resetDNSConfigurations',
@@ -46,6 +46,8 @@ export interface PanelWebsite {
   hasNextJs?: boolean;
   hasBasicSite?: boolean;
   siteType?: 'wordpress' | 'nextjs' | 'html' | 'empty';
+  /** Domínio só de email (plano de email) — existe no servidor sem site. */
+  mailOnly?: boolean;
 }
 
 export interface PanelPackage {
@@ -222,6 +224,7 @@ export const panelHostingAPI = {
   setEmailLimits: (params: unknown) => run('setEmailLimits', params as Record<string, unknown>),
   getEmailForwarding: (params: unknown) => run<string[]>('getEmailForwarding', params as Record<string, unknown>),
   addEmailForwarding: (params: unknown) => run('addEmailForwarding', params as Record<string, unknown>),
+  deleteEmailForwarding: (params: unknown) => run('deleteEmailForwarding', params as Record<string, unknown>),
   listDomainPointers: (domain: string) => run<string[]>('listDomainPointers', { domain }),
   addDomainPointer: (params: unknown) => run('addDomainPointer', params as Record<string, unknown>),
   deleteDomainPointer: (params: unknown) => run('deleteDomainPointer', params as Record<string, unknown>),

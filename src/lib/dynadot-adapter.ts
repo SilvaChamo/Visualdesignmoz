@@ -83,6 +83,12 @@ function getKeys() {
   return { apiKey, secretKey };
 }
 
+function api3Url(): string {
+  return DYNADOT_ENV === 'production'
+    ? 'https://api.dynadot.com/api3.json'
+    : 'https://api-sandbox.dynadot.com/api3.json';
+}
+
 function signRequest(apiKey: string, secretKey: string, path: string, requestId: string, body: string) {
   const stringToSign = `${apiKey}\n${path}\n${requestId}\n${body}`;
   return crypto.createHmac('sha256', secretKey).update(stringToSign).digest('hex');
@@ -133,13 +139,6 @@ async function dynadotFetch<T = unknown>(
   }
 }
 
-/**
- * A "API3" da Dynadot (legado, key+command por query string, sem assinatura
- * HMAC) — a RESTful v1 usada no resto deste ficheiro não tem endpoint de
- * preços; `tld_price` só existe na API3. Nunca usada para mutações, só
- * consulta de preço, por isso o formato mais simples/antigo aqui não é
- * problema de segurança.
- */
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -160,8 +159,11 @@ async function dynadotApi3Command(
   const keys = getKeys();
   if (!keys) return { ok: false, error: 'Chaves de API do registador não configuradas' };
   const qs = new URLSearchParams({ key: keys.apiKey, command, ...params });
+  const api3Url = DYNADOT_ENV === 'production'
+    ? 'https://api.dynadot.com/api3.json'
+    : 'https://api-sandbox.dynadot.com/api3.json';
   try {
-    const res = await fetch(`https://api.dynadot.com/api3.json?${qs.toString()}`);
+    const res = await fetch(`${api3Url}?${qs.toString()}`);
     const json = (await res.json().catch(() => ({}))) as Record<string, { ResponseCode?: number | string; Status?: string; Error?: string; [k: string]: unknown }>;
     const key = Object.keys(json).find((k) => /Response$/.test(k));
     const resp = key ? json[key] : undefined;
@@ -173,11 +175,6 @@ async function dynadotApi3Command(
   } catch (e: unknown) {
     return { ok: false, error: e instanceof Error ? e.message : 'Erro ao contactar a API3 da Dynadot' };
   }
-}
-
-/** A RESTful v1 devolve isto para `.app`/`.dev` em qualquer operação de domínio único. */
-function isUnsupportedDomainType(error: string): boolean {
-  return /unsupported domain type/i.test(error);
 }
 
 /**
@@ -205,6 +202,11 @@ function findFirstErrorMessage(node: unknown, depth = 0): string | undefined {
     if (found) return found;
   }
   return undefined;
+}
+
+/** A RESTful v1 devolve isto para `.app`/`.dev` em qualquer operação de domínio único. */
+function isUnsupportedDomainType(error: string): boolean {
+  return /unsupported domain type/i.test(error);
 }
 
 /**
@@ -271,6 +273,35 @@ export const dynadotAPI = {
     const result = await dynadotFetch<{ domainInfo: DynadotDomainInfo[] }>('GET', '/restful/v1/domains');
     if (!result.ok) return { success: false, error: result.error };
     return { success: true, domains: (result.data.domainInfo || []).map(mapDynadotDomain) };
+  },
+
+  async setPrivacy(
+    domain: string,
+    enabled: boolean,
+  ): Promise<{ success: true } | { success: false; error: string }> {
+    const clean = domain.toLowerCase().trim();
+    const result = await dynadotApi3Command('set_privacy', {
+      domain: clean,
+      whois_privacy_option: enabled ? 'yes' : 'no',
+      option: enabled ? 'on' : 'off',
+    });
+    if (!result.ok) return { success: false, error: result.error };
+    return { success: true };
+  },
+
+  /** Apaga o domínio no período de carência (crédito na conta). */
+  async graceDeleteDomain(
+    domain: string,
+  ): Promise<{ success: true } | { success: false; error: string }> {
+    const clean = domain.toLowerCase().trim();
+    const unlocked = await dynadotAPI.setTransferLock(clean, false);
+    if (!unlocked.success && !/already|not locked/i.test(unlocked.error || '')) {
+      /* continua — alguns TLDs não têm lock */
+    }
+    await dynadotAPI.setPrivacy(clean, false);
+    const result = await dynadotApi3Command('delete', { domain: clean });
+    if (!result.ok) return { success: false, error: result.error };
+    return { success: true };
   },
 
   async getDomainDetails(domain: string): Promise<
@@ -442,6 +473,22 @@ export const dynadotAPI = {
     return { success: true, contactId: String(result.data.contact_id) };
   },
 
+  async setDomainContacts(
+    domain: string,
+    contactId: string,
+  ): Promise<{ success: true } | { success: false; error: string }> {
+    const clean = domain.toLowerCase().trim();
+    const id = Number(contactId);
+    const result = await dynadotFetch('PUT', `/restful/v1/domains/${encodeURIComponent(clean)}/contacts`, {
+      registrant_contactId: id,
+      admin_contactId: id,
+      tech_contactId: id,
+      billing_contactId: id,
+    });
+    if (!result.ok) return { success: false, error: result.error };
+    return { success: true };
+  },
+
   async registerDomain(
     domain: string,
     contactId: string,
@@ -538,13 +585,12 @@ export const dynadotAPI = {
    * tabela de preços (domain-tld-prices.ts) sincronizada em vez de fixa no
    * código.
    *
-   * #10 (2026-09-13, backport de visualdesign-teste): substituiu um
-   * `getTldPrice(tld)` que pedia um preço de cada vez com `tld=<extensão>`
-   * — esse parâmetro NÃO existe no comando `tld_price` da API3 (confirmado
-   * na documentação pública da Dynadot: só aceita
-   * `currency`/`count_per_page`/`page_index`/`sort`, devolve sempre uma
-   * LISTA paginada de todas as extensões). Por não existir esse filtro, a
-   * chamada antiga falhava sempre, nas 44 extensões, todas as semanas,
+   * #10 (2026-09-12): substituiu um `getTldPrice(tld)` que pedia um preço de
+   * cada vez com `tld=<extensão>` — esse parâmetro NÃO existe no comando
+   * `tld_price` da API3 (confirmado na documentação pública da Dynadot: só
+   * aceita `currency`/`count_per_page`/`page_index`/`sort`, devolve sempre
+   * uma LISTA paginada de todas as extensões). Por não existir esse filtro,
+   * a chamada antiga falhava sempre, nas 44 extensões, todas as semanas,
    * desde que este sync foi criado — nunca escreveu um preço sequer (ver
    * `domain_tld_price_overrides`, sempre vazia). Isto pede a lista completa
    * (paginada) de uma vez, em vez de 44 pedidos individuais.
@@ -618,7 +664,7 @@ export const dynadotAPI = {
       });
       let json: unknown;
       try {
-        const res = await fetch(`https://api.dynadot.com/api3.json?${qs.toString()}`);
+        const res = await fetch(`${api3Url()}?${qs.toString()}`);
         json = await res.json().catch(() => undefined);
       } catch (e: unknown) {
         if (page === 0) {

@@ -48,3 +48,10 @@ Visual author/
 
 # scratch node_modules
 scratch/node_modules/
+
+# Cópia do worker do PDF.js gerada antes do dev/build (scripts/copy-pdf-worker.mjs)
+/public/pdfjs/
+
+# PWA service worker
+/public/sw.js*
+/public/workbox-*.js*

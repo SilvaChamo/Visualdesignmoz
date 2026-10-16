@@ -78,24 +78,26 @@ export default function DomainSearch({
 
   const renderPricingCards = () => <DomainPricingCarousel items={TLDS} />
 
+  // Tabela de preços (pedido do Silva, 13/10/2026): linhas mais baixas, alternadas branco / fundo suave, e a extensão
+  // ligeiramente maior
   const renderPricingTable = () => (
     <div className="w-full overflow-hidden rounded border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">
       <table className="w-full text-left text-sm">
         <thead className="border-b border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800/80">
           <tr>
-            <th className="p-3 font-bold text-zinc-700 dark:text-zinc-300">Extensão</th>
-            <th className="p-3 font-bold text-zinc-700 dark:text-zinc-300">Registo</th>
-            <th className="p-3 font-bold text-zinc-700 dark:text-zinc-300">Renovação</th>
-            <th className="p-3 font-bold text-zinc-700 dark:text-zinc-300">Transferência</th>
+            <th className="px-3 py-2 font-bold text-zinc-700 dark:text-zinc-300">Extensão</th>
+            <th className="px-3 py-2 font-bold text-zinc-700 dark:text-zinc-300">Registo</th>
+            <th className="px-3 py-2 font-bold text-zinc-700 dark:text-zinc-300">Renovação</th>
+            <th className="px-3 py-2 font-bold text-zinc-700 dark:text-zinc-300">Transferência</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
           {TLDS.map((domain) => (
-            <tr key={domain.value} className="hover:bg-zinc-50/80 dark:hover:bg-zinc-800/40">
-              <td className="p-3 font-semibold text-zinc-900 dark:text-zinc-100">{domain.label}</td>
-              <td className="p-3 text-zinc-600 dark:text-zinc-400">{formatPrice(domainRegistrationPriceMt(domain, 1))}</td>
-              <td className="p-3 text-zinc-600 dark:text-zinc-400">{formatDomainPrice(domain.renewPrice)}</td>
-              <td className="p-3 text-zinc-600 dark:text-zinc-400">{formatDomainPrice(domain.transfer)}</td>
+            <tr key={domain.value} className="odd:bg-white even:bg-zinc-100/80 dark:odd:bg-zinc-900 dark:even:bg-zinc-800/50 hover:bg-zinc-200/70 dark:hover:bg-zinc-800">
+              <td className="px-3 py-1.5 text-[15px] font-semibold text-zinc-900 dark:text-zinc-100">{domain.label}</td>
+              <td className="px-3 py-1.5 text-zinc-600 dark:text-zinc-400">{formatPrice(domainRegistrationPriceMt(domain, 1))}</td>
+              <td className="px-3 py-1.5 text-zinc-600 dark:text-zinc-400">{formatDomainPrice(domain.renewPrice)}</td>
+              <td className="px-3 py-1.5 text-zinc-600 dark:text-zinc-400">{formatDomainPrice(domain.transfer)}</td>
             </tr>
           ))}
         </tbody>
@@ -115,10 +117,12 @@ export default function DomainSearch({
 
     try {
       // Otimização: Pesquisa apenas o TLD seleccionado e os TLDs mais populares para reduzir latência e evitar 429
-      const POPULAR_TLDS = ['.com', '.net', '.org', '.online', '.tech', '.co', '.site']
+      // Pelo menos 15 extensões em cada busca (Silva, 16/10/2026); verificadas em grupos de 5 para não esbarrar no
+      // limite de pedidos do registador (429)
+      const POPULAR_TLDS = ['.com', '.net', '.org', '.co', '.io', '.online', '.tech', '.site', '.store', '.app', '.info', '.biz', '.xyz', '.me', '.pro']
       const tldsToSearch = Array.from(new Set([selectedTLD, ...POPULAR_TLDS]))
       
-      const fetchPromises = tldsToSearch.map(async (tld) => {
+      const verificar = async (tld: string) => {
         try {
           const controller = new AbortController()
           const timeoutId = setTimeout(() => controller.abort(), 15000)
@@ -153,9 +157,12 @@ export default function DomainSearch({
             error: 'Erro de verificação',
           } as SearchResult
         }
-      })
+      }
 
-      const allResults = await Promise.all(fetchPromises)
+      const allResults: SearchResult[] = []
+      for (let i = 0; i < tldsToSearch.length; i += 5) {
+        allResults.push(...(await Promise.all(tldsToSearch.slice(i, i + 5).map(verificar))))
+      }
 
       allResults.sort((a, b) => {
         if (a.domain.endsWith(selectedTLD)) return -1

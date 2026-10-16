@@ -174,6 +174,48 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const syncNow = searchParams.get('sync') === '1';
 
+    const hestiaOnly = (process.env.DEFAULT_HOSTING_PROVIDER || '').trim().toLowerCase() === 'hestia';
+    if (hestiaOnly) {
+      const { listHostingDomains, listHostingUsers, listHostingPackages } = await import('@/lib/hosting-resolver');
+      const [sites, users, packages] = await Promise.all([
+        listHostingDomains(),
+        listHostingUsers(),
+        listHostingPackages(),
+      ]);
+      const packageMap = new Map(packages.map((p) => [p.packageName, p]));
+      const allPackages = Array.from(packageMap.values()).sort((a, b) =>
+        a.packageName.localeCompare(b.packageName),
+      );
+      const enriched = enrichPanelAccounts(users, sites, packageMap).map((row) => ({
+        ...row,
+        packageName: row.packageName || '—',
+        quotaLabel:
+          row.quotaLabel ||
+          (row.packageName && row.packageName !== '—'
+            ? formatPackageSize(resolvePackageMeta(packageMap, row.packageName)?.diskSpace)
+            : '—'),
+      }));
+      // Nível de cada conta principal (Básico/Premium/Enterprise) e, nas
+      // contas de domínio ligadas, a conta principal a que pertencem.
+      const { resolveAccountScope } = await import('@/lib/linked-accounts');
+      const withLevels = await Promise.all(
+        enriched.map(async (row) => {
+          if (row.parentUsername) return { ...row, accountLevel: null, linkedTo: row.parentUsername };
+          const scope = await resolveAccountScope(row.userName, null);
+          return { ...row, accountLevel: scope.level, linkedCount: scope.linked.length };
+        }),
+      );
+      return NextResponse.json({
+        success: true,
+        users: withLevels,
+        packages: allPackages,
+        resellerPackages: allPackages.map((p) => p.packageName).filter(Boolean),
+        osherReseller: OSHER_RESELLER,
+        osherCredsOk: false,
+        meta: { source: 'hestia-direct', lastSyncedAt: new Date().toISOString(), stale: false },
+      });
+    }
+
     const mirrorScope = { role: 'admin' as const, userId: auth.user.id };
     let [users, sites, packages] = await Promise.all([
       listMirrorUsers(mirrorScope),
@@ -217,7 +259,16 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    const osherCreds = await loadResellerCredentialsByDaUsername(OSHER_RESELLER);
+    // A senha DA guardada só serve para chamadas ao vivo ao DirectAdmin — uma
+    // conta já migrada para o Hestia não tem essa senha actualizada (foi
+    // encriptada com a chave antiga do Hetzner) nem precisa dela. Confirmar
+    // o fornecedor real primeiro evita tentar desencriptar algo que já não é
+    // suposto usar-se, e que faz esta página inteira falhar com "Unsupported
+    // state or unable to authenticate data" (erro de decifragem do Node) —
+    // aconteceu na oshercollective a seguir a passar para Hestia (30 ago).
+    const osherProvider = await getProviderByUsername(OSHER_RESELLER);
+    const osherCreds =
+      osherProvider === 'directadmin' ? await loadResellerCredentialsByDaUsername(OSHER_RESELLER) : null;
 
     // Pacotes admin — leitura live síncrona só quando o espelho está mesmo vazio.
     // Antes também disparava quando "stale" (>120min), o que travava toda a
@@ -889,6 +940,36 @@ export async function PATCH(req: NextRequest) {
             const provider = await getProviderByUsername(userName);
             const r = await changeHostingAccountPassword(provider, userName, String(password));
             data = { success: r.ok, error: r.error };
+            if (r.ok && SUPABASE_URL && SUPABASE_SERVICE_KEY) {
+              try {
+                const authAdmin = createAdminClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+                const { data: prof } = await authAdmin
+                  .from('profiles')
+                  .select('id, user_id, email')
+                  .or(`da_username.eq.${userName},name.eq.${userName}`)
+                  .maybeSingle();
+                let authUserId = prof?.user_id || prof?.id || pwdRow?.auth_user_id;
+                if (!authUserId) {
+                  const { data: puRow } = await authAdmin
+                    .from('panel_users')
+                    .select('auth_user_id, email')
+                    .eq('username', userName)
+                    .maybeSingle();
+                  if (puRow?.auth_user_id) authUserId = puRow.auth_user_id;
+                }
+                if (authUserId) {
+                  await authAdmin.auth.admin.updateUserById(String(authUserId), {
+                    password: String(password),
+                  });
+                }
+                const { encryptDaSecret } = await import('@/lib/da-credential-store');
+                const enc = encryptDaSecret(String(password));
+                await authAdmin.from('profiles').update({ da_password_encrypted: enc }).or(`da_username.eq.${userName},name.eq.${userName}`);
+                await authAdmin.from('panel_users').update({ da_password_encrypted: enc }).eq('username', userName);
+              } catch (syncErr) {
+                console.error('[admin/clientes/changePassword] Erro ao sincronizar com Supabase:', syncErr);
+              }
+            }
           }
         }
         break;

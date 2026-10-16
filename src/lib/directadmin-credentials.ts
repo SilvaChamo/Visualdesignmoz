@@ -91,6 +91,9 @@ export async function resolveDirectAdminCredentials(
   role: DirectAdminRole = 'admin',
   context?: DirectAdminAuthContext,
 ): Promise<DirectAdminCredentials> {
+  if ((process.env.DEFAULT_HOSTING_PROVIDER || '').trim().toLowerCase() === 'hestia') {
+    throw new Error('DirectAdmin não está disponível neste servidor (Hestia).');
+  }
   if (role === 'admin') {
     return resolveAdminCredentials();
   }
@@ -154,5 +157,36 @@ export async function getResellerDaUsername(context?: DirectAdminAuthContext): P
     const stored = await loadResellerCredentialsByEmail(context.email);
     if (stored?.user) return stored.user;
   }
+
+  // Uma conta já no Hestia nunca devolve credenciais acima (de propósito —
+  // ver da-credential-store.ts), mas o username continua a existir no
+  // espelho. Sem este fallback, todo o resto do painel (getResellerDaUsername
+  // é a base de resolvePanelDaContext/resolveResellerPanelContext) tratava
+  // o revendedor como se não tivesse conta nenhuma — dashboard vazio.
+  const { getDaSyncAdmin } = await import('@/lib/da-sync-schema');
+  const sb = getDaSyncAdmin();
+  if (sb) {
+    if (context?.id) {
+      const { getProfileForAuthUser } = await import('@/lib/profile-db');
+      const profile = await getProfileForAuthUser(sb, context.id);
+      if (profile?.da_username) return profile.da_username;
+
+      const { data: panelUser } = await sb
+        .from('panel_users')
+        .select('username')
+        .eq('auth_user_id', context.id)
+        .maybeSingle();
+      if (panelUser?.username) return panelUser.username;
+    }
+    if (context?.email) {
+      const { data: panelUser } = await sb
+        .from('panel_users')
+        .select('username')
+        .eq('email', context.email.toLowerCase())
+        .maybeSingle();
+      if (panelUser?.username) return panelUser.username;
+    }
+  }
+
   return readEnv('DIRECTADMIN_RESELLER_USER') || readEnv('NEXT_PUBLIC_DIRECTADMIN_RESELLER_USER') || '';
 }

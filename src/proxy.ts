@@ -4,6 +4,7 @@ import { resolveUserRole, getRedirectPathForRole } from '@/lib/user-roles'
 import {
   buildPanelLoginUrl,
   getPublicSiteOrigin,
+  isEncomendasAccount,
   isPanelRoute,
   panelRouteFromPublicEntry,
   PUBLIC_LOGIN_ENTRY,
@@ -29,6 +30,34 @@ const PUBLIC_MARKETING_PREFIXES = [
   '/faq',
 ] as const
 
+/** Endereços antigos do painel: tudo o que lá chega vai para PAINEL_ENTRADA */
+const PANEL_HOSTS = new Set(['host.visualdesignmoz.com'])
+/** Endereço único do painel que se dá aos clientes (pedido do Silva, 13/10/2026): https://visualdesignmoz.com/host:2026/
+ *  Servido pela rota src/app/host (reescrita aqui, sem redireccionar). */
+const PAINEL_BASE = '/host:2026'
+// sem a barra final: o Next tira-a com mais um salto
+const PAINEL_ENTRADA = `https://visualdesignmoz.com${PAINEL_BASE}`
+/** O endereço único como pode chegar (o ":" às vezes vem codificado) */
+const PAINEL_FORMAS = [PAINEL_BASE, '/host%3A2026', '/host%3a2026']
+/** Endereços antigos do painel neste site (por esta ordem: o mais comprido primeiro) */
+const PAINEL_ANTIGOS = ['/vhost', '/host/2026', '/host']
+/** Deixam de existir — "página não encontrada" (pedido do Silva, 13/10/2026: /vhost/2026 só serviu uma noite) */
+const PAINEL_INEXISTENTES = ['/vhost/2026']
+
+const comPrefixo = (pathname: string, prefixo: string) => pathname === prefixo || pathname.startsWith(`${prefixo}/`)
+
+/** O resto do caminho depois do endereço único (/host:2026/admin → /admin), ou null se não for o endereço único */
+function restoPainel(pathname: string): string | null {
+  const forma = PAINEL_FORMAS.find((f) => comPrefixo(pathname, f))
+  return forma ? pathname.slice(forma.length) : null
+}
+
+/** O mesmo ecrã do painel no endereço único, para um endereço antigo (/vhost/admin → /host:2026/admin) */
+function caminhoPainelAntigo(pathname: string): string | null {
+  const antigo = PAINEL_ANTIGOS.find((a) => comPrefixo(pathname, a))
+  return antigo ? PAINEL_BASE + pathname.slice(antigo.length) : null
+}
+
 function isPublicMarketingPath(pathname: string): boolean {
   if (pathname === '/') return true
   return PUBLIC_MARKETING_PREFIXES.some(
@@ -49,6 +78,40 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(canonical, 308)
   }
 
+  // host.visualdesignmoz.com (também na porta 2026, a do DirectAdmin no Hetzner, e o /evo/ que os clientes têm
+  // guardado) deixou de ser endereço do painel (pedido do Silva, 13/10/2026): vai tudo para o endereço único do
+  // painel, https://visualdesignmoz.com/host:2026/. O nginx desse nome já redirecciona; isto cobre o resto.
+  // (menos /api/: um webhook ou integração apontado a este nome não pode ser redireccionado)
+  if (PANEL_HOSTS.has(hostOnly) && !pathname.startsWith('/api/')) {
+    return NextResponse.redirect(PAINEL_ENTRADA, 307)
+  }
+  // O painel vive todo em /host:2026/… (endereço único, pedido do Silva a 13/10/2026): abre aqui directamente — a rota
+  // do Next é src/app/host, por isso reescreve-se (o endereço no browser não muda), com ou sem a barra final.
+  // Não passa pela verificação de sessão do site: o painel trata da sua.
+  const resto = restoPainel(pathname)
+  if (resto !== null) {
+    const rota = request.nextUrl.clone()
+    rota.pathname = `/host${resto.replace(/\/+$/, '')}`
+    return NextResponse.rewrite(rota)
+  }
+  // sem rota no Next (o painel está em src/app/host): mostra a página "não encontrada"
+  if (PAINEL_INEXISTENTES.some((p) => comPrefixo(pathname, p))) {
+    return NextResponse.next()
+  }
+  // Os endereços antigos (/vhost/…, /host/2026/…, links de e-mails e favoritos) vão, num só salto,
+  // para o mesmo ecrã no endereço único
+  const antigo = caminhoPainelAntigo(pathname)
+  if (antigo) {
+    const publico = (request.headers.get('x-forwarded-host') || request.headers.get('host') || hostOnly)
+      .split(',')[0]
+      .trim()
+      .toLowerCase()
+    return NextResponse.redirect(new URL(`${antigo.replace(/\/+$/, '')}${request.nextUrl.search}`, `https://${publico}`), 308)
+  }
+  // o /evo e outros /host… (que não são do painel) seguem como antes
+  if (pathname === '/evo' || pathname.startsWith('/evo/') || pathname.startsWith('/host')) {
+    return NextResponse.next()
+  }
   // www → apex em login/OAuth (PKCE exige o mesmo host no início e no callback)
   if (
     hostOnly === 'www.visualdesignmoz.com' &&
@@ -73,6 +136,17 @@ export async function proxy(request: NextRequest) {
   // let auth callback pass immediately
   if (pathname === OAUTH_CALLBACK_PATH || pathname === '/auth/confirm') {
     return NextResponse.next()
+  }
+
+  // Login antigo a caminho do painel → entrada do painel no modelo do DA (que já trata da sessão)
+  if ((pathname === PUBLIC_LOGIN_ENTRY || pathname === '/auth/login') && request.method === 'GET') {
+    const destino = request.nextUrl.searchParams.get('redirect') || ''
+    if (/^\/v?host(:2026)?(\/[\w\-\/]*)?$/.test(destino)) {
+      const painel = request.nextUrl.clone()
+      painel.pathname = destino
+      painel.search = ''
+      return NextResponse.redirect(painel)
+    }
   }
 
   // Login — página estática; limpar ?from= legado (evita loops)
@@ -105,11 +179,33 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // Rotas de API: cada uma já se autentica sozinha (assinatura de webhook,
-  // CRON_SECRET, ou o seu próprio cliente Supabase). O resultado de
-  // supabase.auth.getUser() nunca é usado para /api/* — só gastava uma
-  // chamada de rede à Supabase em CADA pedido de API (checkout, webhooks,
-  // cron, painel admin), sem nenhum benefício.
+  // Rotas de API do painel (/api/da, /api/server-exec, /api/admin/*):
+  // refrescar a sessão Supabase para que tokens expirados sejam renovados
+  // *antes* de o Route Handler os validar. Sem isto, o JWT expira após ~1h
+  // e chamadas mutativas (createEmail, createUser, etc.) devolvem 401 "Não
+  // autorizado" mesmo que o utilizador ainda veja dados em cache. A função
+  // updateSession actualiza os cookies no request (para o Route Handler
+  // receber tokens frescos) e na response (para o browser actualizar o
+  // cookie). Rotas de webhook/cron com CRON_SECRET ou assinatura própria
+  // não passam por aqui (a lista é explícita) — evita latência extra em
+  // chamadas que não usam sessão Supabase.
+  if (
+    pathname === '/api/da' ||
+    pathname.startsWith('/api/da/') ||
+    pathname === '/api/server-exec' ||
+    pathname.startsWith('/api/server-exec/') ||
+    pathname.startsWith('/api/admin/') ||
+    pathname === '/api/panel/bootstrap' ||
+    pathname.startsWith('/api/panel/') ||
+    // painel VisualHost (/vhost): sem isto a sessão expirava ao fim de ~1h e o painel pedia para entrar a meio do trabalho
+    pathname.startsWith('/api/vhost/')
+  ) {
+    const { updateSession } = await import('@/utils/supabase/middleware')
+    return updateSession(request)
+  }
+
+  // Restantes rotas de API: cada uma já se autentica sozinha (webhook,
+  // CRON_SECRET, etc.) — não precisam do refresh de sessão.
   if (pathname.startsWith('/api/')) {
     return NextResponse.next()
   }
@@ -164,7 +260,11 @@ export async function proxy(request: NextRequest) {
       userMetadata: user.user_metadata,
       appMetadata: user.app_metadata,
     })
-    const inner = panelRouteFromPublicEntry(pathname) ?? resolveInnerPanelPath(null, role)
+    // Sem consulta à base de dados aqui (proxy corre em todos os pedidos) — só
+    // a marca de conta das encomendas no próprio user_metadata.
+    const inner =
+      panelRouteFromPublicEntry(pathname) ??
+      resolveInnerPanelPath(null, role, role === 'guest' && isEncomendasAccount(user.user_metadata))
     const target = resolvePanelInnerRedirect(request.url, inner, request.nextUrl.search)
     return redirectWithSession(target)
   }
@@ -221,8 +321,16 @@ export async function proxy(request: NextRequest) {
     return redirectWithSession(new URL(getRedirectPathForRole(role), request.url))
   }
 
+  if (pathname.startsWith('/profissional') && role !== 'profissional' && role !== 'admin') {
+    return redirectWithSession(new URL(getRedirectPathForRole(role), request.url))
+  }
+
   if (pathname.startsWith('/dashboard') && role === 'client') {
     return redirectWithSession(new URL('/cliente', request.url))
+  }
+
+  if (pathname.startsWith('/dashboard') && role === 'profissional') {
+    return redirectWithSession(new URL('/profissional', request.url))
   }
 
   return response
@@ -253,8 +361,15 @@ export const config = {
     '/cliente/:path*',
     '/guest/:path*',
     '/revendedor/:path*',
+    '/profissional/:path*',
     '/login',
     '/auth/:path*',
     '/autenticacao',
+    // endereço antigo do DirectAdmin, o painel (/host/2026/…) e os seus endereços antigos (/vhost/…, /host:2026/…)
+    '/evo',
+    '/evo/:path*',
+    '/vhost',
+    '/vhost/:path*',
+    '/host(.*)',
   ],
 }

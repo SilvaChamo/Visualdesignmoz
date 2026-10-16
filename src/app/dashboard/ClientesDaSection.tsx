@@ -8,11 +8,20 @@ import { useAdminSectionChrome } from '@/components/admin/AdminSectionChrome';
 import { ProvisionClienteSection } from '@/app/dashboard/ProvisionClienteSection';
 import { consumeHostingAccountEdit } from '@/lib/panel-hosting-edit-nav';
 import type { DirectAdminPackage } from '@/lib/directadmin-api';
-import { panelBtnPrimary, panelBtnSecondary, panelField, panelTabList, panelTabBtn } from '@/lib/panel-ui';
+import { panelBtnPrimary, panelBtnSecondary, panelField } from '@/lib/panel-ui';
 import { PRIMARY_RESELLER_DA_USER, isPanelAdminAccount } from '@/lib/panel-contas-enrich';
 import { clearAllPanelClientCaches } from '@/lib/panel-session-cache-clear';
 import { Spinner } from '@/components/ui/spinner';
 import { parseJsonResponse } from '@/lib/safe-fetch-json';
+import { ACCOUNT_LEVEL_LABELS, type AccountLevel } from '@/lib/account-levels';
+
+/** "Premium", "Enterprise · 3 contas", "Conta de domínio de X" — ou null. */
+function accountLevelLabel(row: { accountLevel?: AccountLevel | null; linkedTo?: string; linkedCount?: number }): string | null {
+  if (row.linkedTo) return `Conta de domínio de ${row.linkedTo}`;
+  if (!row.accountLevel) return null;
+  const label = ACCOUNT_LEVEL_LABELS[row.accountLevel];
+  return row.linkedCount ? `${label} · ${row.linkedCount} conta${row.linkedCount === 1 ? '' : 's'} de domínio` : label;
+}
 
 const ADMIN_CLIENTES_CACHE_KEY = 'vd-admin-clientes-v4';
 const RESELLER_CLIENTES_CACHE_KEY = 'vd-reseller-contas-v1';
@@ -33,6 +42,11 @@ interface DaUserRow {
   quotaLabel?: string;
   diskUsedLabel?: string;
   resellerOwner?: string;
+  /** Hestia: nível da conta principal (account-levels.ts). */
+  accountLevel?: AccountLevel | null;
+  /** Conta de domínio ligada: conta principal a que pertence. */
+  linkedTo?: string;
+  linkedCount?: number;
   ownedDomains?: Array<{
     domain: string;
     package: string;
@@ -202,7 +216,6 @@ export function ClientesDaSection({
   const [search, setSearch] = useState('');
   const [view, setView] = useState<AccountsView>(initialView === 'create' ? 'create' : 'list');
   const [selectedUser, setSelectedUser] = useState<DaUserRow | null>(null);
-  const [activeTypeTab, setActiveTypeTab] = useState<'client' | 'professional' | 'reseller'>('client');
   const [editUser, setEditUser] = useState<DaUserRow | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
@@ -299,6 +312,14 @@ export function ClientesDaSection({
 
   useEffect(() => { load(); }, [load]);
 
+  // Popup flutuante (mesmo padrão do Webmail) em vez do aviso fixo no fluxo
+  // da página — desaparece sozinho ao fim de 4s, sem precisar de container.
+  useEffect(() => {
+    if (!msg) return;
+    const timer = window.setTimeout(() => setMsg(''), 4000);
+    return () => window.clearTimeout(timer);
+  }, [msg]);
+
   useEffect(() => {
     if (!isActive || view !== 'list' || users.length === 0) return;
     const pending = consumeHostingAccountEdit();
@@ -330,7 +351,6 @@ export function ClientesDaSection({
       if (initialView !== 'create') {
         setSelectedUser(null);
         setEditUser(null);
-        setActiveTypeTab('client');
       }
     }
   }, [isActive, initialView, listResetToken]);
@@ -353,18 +373,10 @@ export function ClientesDaSection({
     if (listFilter === 'client' && isDaReseller(u)) return false;
     if (listFilter === 'reseller' && !isDaReseller(u)) return false;
 
-    // Filtrar por Tab de Tipo de Conta
-    const acl = String(u.type || '').toLowerCase();
-    if (activeTypeTab === 'client') {
-      if (acl === 'reseller' || acl === 'manager') return false;
-      // A conta root/admin (ex.: "visualdesign") não é cliente de ninguém —
-      // sem isto, aparecia no separador Clientes por não bater com reseller/manager.
-      if (isPanelAdminAccount(u)) return false;
-    } else if (activeTypeTab === 'professional') {
-      if (acl !== 'manager') return false;
-    } else if (activeTypeTab === 'reseller') {
-      if (acl !== 'reseller') return false;
-    }
+    // Sem separadores: todas as contas de hospedagem numa só lista (como o
+    // Hestia mostra). Só a conta root/admin do próprio painel fica de fora —
+    // não é cliente de ninguém.
+    if (isPanelAdminAccount(u)) return false;
 
     const q = search.toLowerCase();
     return (
@@ -492,11 +504,7 @@ export function ClientesDaSection({
         <ProvisionClienteSection
           packages={packages}
           initialAccountType={
-            view === 'create'
-              ? activeTypeTab
-              : initialAccountType === 'admin'
-                ? 'professional'
-                : initialAccountType
+            initialAccountType === 'admin' ? 'professional' : initialAccountType
           }
           mode={view === 'edit' ? 'edit' : 'create'}
           editUser={view === 'edit' ? editUser ?? undefined : undefined}
@@ -564,6 +572,7 @@ export function ClientesDaSection({
             { label: 'Quota', value: selectedUser.quotaLabel || '—' },
             { label: 'Disco usado', value: selectedUser.diskUsedLabel || '0 MB' },
             { label: 'Pacote', value: selectedUser.packageName || '—' },
+            { label: 'Nível', value: accountLevelLabel(selectedUser) || '—' },
             { label: 'Domínios', value: String(selectedUser.domainCount ?? domains.length) },
             { label: 'E-mail', value: selectedUser.email || '—' },
             { label: 'Revendedor', value: selectedUser.resellerOwner || '—' },
@@ -635,34 +644,22 @@ export function ClientesDaSection({
         </div>
       </div>
 
-      {/* Tabs de Tipos de Contas */}
-      <div className="w-full border-b border-gray-200 dark:border-zinc-800">
-        <nav className={panelTabList} aria-label="Tipos de conta">
-          {[
-            { id: 'client' as const, label: 'Clientes' },
-            { id: 'professional' as const, label: 'Profissional' },
-            { id: 'reseller' as const, label: 'Revendedores' },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setActiveTypeTab(tab.id)}
-              className={`${panelTabBtn} relative font-bold ${
-                activeTypeTab === tab.id
-                  ? 'z-10 border-b-red-600 text-red-600 dark:border-b-red-500 dark:text-red-400'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-zinc-400 dark:hover:text-zinc-200'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </nav>
-      </div>
-
       {msg ? (
-        <p className={`text-sm p-2 rounded ${msg.includes('✅') || msg.includes('criada') ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-700'}`}>
-          {msg}
-        </p>
+        <div
+          className={`fixed top-4 right-4 z-50 flex items-center gap-3 rounded-lg border-l-4 px-4 py-3 text-sm font-medium shadow-lg transition-all ${
+            msg.includes('❌') ? 'border-red-500 bg-red-50 text-red-700' : 'border-green-500 bg-green-50 text-green-700'
+          }`}
+        >
+          <span>{msg.replace(/^[✅❌]\s*/, '')}</span>
+          <button
+            type="button"
+            onClick={() => setMsg('')}
+            aria-label="Fechar"
+            className="text-current opacity-60 transition-opacity hover:opacity-100"
+          >
+            <X size={16} />
+          </button>
+        </div>
       ) : null}
 
       <div className="overflow-x-auto rounded border border-gray-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
@@ -758,6 +755,11 @@ export function ClientesDaSection({
                   </td>
                   <td className={`${accountsCellBorder} text-blue-700 dark:text-blue-400`}>
                     {isSimpleAccount ? <span className="text-xs text-gray-500 font-medium">Conta Simples</span> : (u.packageName || '—')}
+                    {!isSimpleAccount && accountLevelLabel(u) ? (
+                      <span className="ml-2 rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-[11px] font-medium text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
+                        {accountLevelLabel(u)}
+                      </span>
+                    ) : null}
                   </td>
                   <td className={`${accountsCellBorder} text-gray-600 dark:text-zinc-400`}>{u.resellerOwner || '—'}</td>
                   <td className={`${accountsCellBorder} text-gray-600 dark:text-zinc-400`}>

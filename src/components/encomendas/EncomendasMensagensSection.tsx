@@ -7,6 +7,7 @@ import { statusMeta } from '@/lib/quotation-status-labels';
 import { groupIntoBatches, type BatchItem } from '@/lib/quotation-batch';
 import { useBatchNumeros, displayNumero } from '@/lib/use-batch-numeros';
 import { QuotationMessagesThread } from '@/components/quotations/QuotationMessagesThread';
+import { Spinner } from '@/components/ui/spinner';
 
 type Quotation = BatchItem & {
   categoria_label: string;
@@ -44,8 +45,8 @@ export function EncomendasMensagensSection({
     <div className="grid grid-cols-1 lg:grid-cols-[400px_1fr] gap-4 lg:gap-6 items-start">
       <div className="space-y-3">
         {loading && (
-          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-5 text-sm text-gray-500 dark:text-zinc-400">
-            A carregar...
+          <div className="flex items-center gap-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-5 text-sm text-gray-500 dark:text-zinc-400">
+            <Spinner /> A carregar...
           </div>
         )}
         {!loading && quotations.length === 0 && (

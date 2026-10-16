@@ -7,6 +7,7 @@ import { readPackagesCache, writePackagesCache } from '@/lib/panel-packages-cach
 import { splitCompositePackageName } from '@/lib/reseller-package-form';
 import { panelBtnPrimary, panelBtnSecondary } from '@/lib/panel-ui';
 import { Spinner } from '@/components/ui/spinner';
+import { ACCOUNT_LEVEL_LABELS, ACCOUNT_LEVEL_SUMMARIES, accountLevelForPackage } from '@/lib/account-levels';
 import { parseJsonResponse } from '@/lib/safe-fetch-json';
 
 type AccountType = 'client' | 'reseller' | 'professional';
@@ -527,14 +528,45 @@ export function ProvisionClienteSection({
             onChange={(e) => setDomain(e.target.value)}
             className={inputCls}
           />
-          {isEdit && hasHostingPackage && selectedPackage ? (
-            <p className="text-xs text-gray-500">
-              Pacote <strong>{selectedPackageName}</strong> · Disco {formatPackageLimit(selectedPackage.diskSpace, 'MB')} · BW{' '}
-              {formatPackageLimit(selectedPackage.bandwidth, 'MB')} · Emails {formatPackageLimit(selectedPackage.emailAccounts)} ·
-              Domínios {formatPackageLimit(selectedPackage.allowedDomains)}
-            </p>
-          ) : null}
         </div>
+        {isEdit ? (
+          <div className="space-y-1 sm:col-span-2">
+            <label className="text-xs font-medium text-zinc-500">Pacote de hospedagem</label>
+            <select
+              value={selectedPackageName}
+              onChange={(e) => setPackageName(e.target.value)}
+              className={inputCls}
+            >
+              <option value="">Conta simples (sem hospedagem)</option>
+              {packageOptions.map((p) => (
+                <option key={p.packageName} value={p.packageName}>
+                  {p.packageName}
+                </option>
+              ))}
+            </select>
+            {hasHostingPackage && selectedPackage ? (
+              <p className="text-xs text-gray-500">
+                Disco {formatPackageLimit(selectedPackage.diskSpace, 'MB')} · BW{' '}
+                {formatPackageLimit(selectedPackage.bandwidth, 'MB')} · Emails {formatPackageLimit(selectedPackage.emailAccounts)} ·
+                Domínios {formatPackageLimit(selectedPackage.allowedDomains)}
+              </p>
+            ) : hasHostingPackage ? (
+              <p className="text-xs text-amber-700">
+                Pacote actual «{selectedPackageName}» não está na lista de pacotes disponíveis — ao gravar, é aplicado à mesma.
+              </p>
+            ) : null}
+            {accountLevelForPackage(selectedPackageName) ? (
+              <p className="text-xs text-zinc-600 dark:text-zinc-400">
+                Nível{' '}
+                <strong className="text-zinc-800 dark:text-zinc-200">
+                  {ACCOUNT_LEVEL_LABELS[accountLevelForPackage(selectedPackageName)!]}
+                </strong>
+                {' — '}
+                {ACCOUNT_LEVEL_SUMMARIES[accountLevelForPackage(selectedPackageName)!]}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
         {!isEdit && panelScope === 'admin' && accountType !== 'client' ? (
           <div className="space-y-1 sm:col-span-2">
             <label className="text-xs font-medium text-zinc-500">Hospedagem</label>
@@ -542,7 +574,7 @@ export function ProvisionClienteSection({
               Ligar a uma conta de hospedagem que já existe no servidor (contas novas nascem sempre na compra pública, não aqui).
             </p>
             {loadingUnlinkedHosting ? (
-              <p className="text-sm text-gray-500">A carregar contas disponíveis…</p>
+              <p className="flex items-center gap-2 text-sm text-gray-500"><Spinner /> A carregar contas disponíveis…</p>
             ) : unlinkedHostingAccounts.length === 0 ? (
               <p className="text-sm text-amber-700 bg-amber-50 p-3 rounded-lg">
                 Nenhuma conta de hospedagem por associar — fica conta simples.

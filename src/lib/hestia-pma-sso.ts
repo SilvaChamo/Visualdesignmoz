@@ -1,0 +1,113 @@
+/**
+ * SSO phpMyAdmin para o painel Hestia/Contabo: o utilizador já autenticado
+ * no painel entra no MySQL sem segundo login.
+ */
+
+import crypto from 'crypto';
+import { executeServerCommand } from '@/lib/server-ssh-exec';
+import { getPhpMyAdminUrl } from '@/lib/server-config';
+import { listMysqlSchemas, listSiteMysqlSchemas } from '@/lib/hestia-mysql-acl';
+
+const TICKET_DIR = '/var/lib/phpmyadmin/sso';
+const KEY_FILE = '/etc/phpmyadmin/vd-panel-sso.key';
+
+function mysqlQuote(value: string): string {
+  return `'${value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
+}
+
+async function mysqlRoot(sql: string): Promise<string> {
+  const b64 = Buffer.from(sql, 'utf8').toString('base64');
+  const marker = '__MYSQL_OK__';
+  const out = await executeServerCommand(
+    `echo '${b64}' | base64 -d | mysql --batch --raw --skip-column-names --default-character-set=utf8mb4 && echo ${marker}`,
+  );
+  if (!out.includes(marker) || /ERROR\s+\d+/i.test(out)) {
+    throw new Error(out.replace(marker, '').trim() || 'MySQL falhou a criar o acesso temporário.');
+  }
+  return out.replace(marker, '').trim();
+}
+
+/** Bases a que o ticket SSO deve dar acesso: nunca `*.*` para uma conta que
+ * não seja o próprio admin do Hestia — evita que um reseller/manager sem
+ * `database` válido (ou com um valor inválido) receba acesso a bases de
+ * outras contas. */
+async function resolveSsoSchemas(owner: string, database?: string): Promise<string[]> {
+  const db = database && /^[A-Za-z0-9_]+$/.test(database) ? database : '';
+  if (db) return [db];
+  const adminUser = (process.env.HESTIA_USER || 'vdadmin').trim().toLowerCase();
+  if (owner.trim().toLowerCase() === adminUser) {
+    return listSiteMysqlSchemas();
+  }
+  return listMysqlSchemas(owner);
+}
+
+async function createTempMysqlLogin(
+  owner: string,
+  database?: string,
+): Promise<{ user: string; password: string; host: string }> {
+  const schemas = await resolveSsoSchemas(owner, database);
+  if (schemas.length === 0) {
+    throw new Error('Sem bases de dados disponíveis para abrir no phpMyAdmin.');
+  }
+  // nome com a hora de criação (base 36) para os acessos antigos poderem ser apagados — ver limparLoginsAntigos
+  const user = `pma_vd_${Math.floor(Date.now() / 1000).toString(36)}_${crypto.randomBytes(4).toString('hex')}`;
+  await limparLoginsAntigos().catch(() => null);
+  const password = crypto.randomBytes(18).toString('base64url');
+  const grants = schemas.map(
+    (name) => `GRANT ALL PRIVILEGES ON \`${name}\`.* TO \`${user}\`@\`localhost\``,
+  );
+  await mysqlRoot(
+    [
+      `CREATE USER \`${user}\`@\`localhost\` IDENTIFIED BY ${mysqlQuote(password)}`,
+      ...grants,
+      'FLUSH PRIVILEGES',
+    ].join('; '),
+  );
+  return { user, password, host: 'localhost' };
+}
+
+/** Apaga os acessos MySQL temporários do phpMyAdmin com mais de 12 h (os de nome antigo, sem hora, também) */
+async function limparLoginsAntigos(): Promise<void> {
+  const lista = await mysqlRoot("SELECT User FROM mysql.user WHERE User LIKE 'pma\\_vd\\_%'");
+  const limite = Math.floor(Date.now() / 1000) - 12 * 3600;
+  const velhos = lista
+    .split('\n')
+    .map((l) => l.trim())
+    .filter((u) => /^pma_vd_[a-z0-9_]+$/.test(u))
+    .filter((u) => {
+      const m = u.match(/^pma_vd_([a-z0-9]{5,7})_[0-9a-f]{8}$/);
+      return !m || parseInt(m[1], 36) < limite;
+    });
+  if (!velhos.length) return;
+  await mysqlRoot(velhos.map((u) => `DROP USER IF EXISTS \`${u}\`@\`localhost\``).join('; ') + '; FLUSH PRIVILEGES');
+}
+
+async function readSsoSecret(): Promise<string> {
+  const raw = (await executeServerCommand(`test -s ${KEY_FILE} && cat ${KEY_FILE}`)).trim();
+  if (!raw) throw new Error('Chave SSO do phpMyAdmin em falta no servidor.');
+  return raw;
+}
+
+export async function createPhpMyAdminSsoUrl(
+  owner: string,
+  database?: string,
+): Promise<string> {
+  const secret = await readSsoSecret();
+  const login = await createTempMysqlLogin(owner, database);
+  const nonce = crypto.randomBytes(16).toString('hex');
+  const exp = Math.floor(Date.now() / 1000) + 600;
+  const mac = crypto.createHmac('sha256', secret).update(`${nonce}|${exp}`).digest('hex');
+  const ticket = JSON.stringify({
+    user: login.user,
+    password: login.password,
+    host: login.host,
+    db: database && /^[A-Za-z0-9_]+$/.test(database) ? database : '',
+  });
+  const b64 = Buffer.from(ticket, 'utf8').toString('base64');
+  const ticketPath = `${TICKET_DIR}/${nonce}.json`;
+  await executeServerCommand(
+    `mkdir -p ${TICKET_DIR} && echo '${b64}' | base64 -d > ${ticketPath} && chmod 664 ${ticketPath} && (chown root:www-data ${ticketPath} || chown root:hestiamail ${ticketPath} || true) && find ${TICKET_DIR} -type f -mmin +20 -delete 2>/dev/null || true`,
+  );
+  const qs = new URLSearchParams({ n: nonce, exp: String(exp), mac });
+  return `${getPhpMyAdminUrl().replace(/\/?$/, '/')}vd-panel-sso.php?${qs.toString()}`;
+}

@@ -24,11 +24,11 @@ export async function GET() {
   }
 
   const [{ data: credito }, { data: pedidos, error: pedidosError }] = await Promise.all([
-    supabase.from('reseller_credits').select('saldo_mt').eq('da_username', ctx.daUsername).maybeSingle(),
+    supabase.from('reseller_credits').select('saldo_mt').eq('da_username', ctx.mainAccount).maybeSingle(),
     supabase
       .from('reseller_credit_requests')
       .select('*')
-      .eq('da_username', ctx.daUsername)
+      .eq('da_username', ctx.mainAccount)
       .order('created_at', { ascending: false }),
   ]);
   if (pedidosError) {
@@ -78,7 +78,7 @@ export async function POST(request: Request) {
     const { data, error } = await supabase
       .from('reseller_credit_requests')
       .insert({
-        da_username: ctx.daUsername,
+        da_username: ctx.mainAccount,
         email: ctx.email,
         valor_mt: valorMt,
         metodo_pagamento: metodoPagamento,
@@ -94,7 +94,7 @@ export async function POST(request: Request) {
       // Stripe confirmar — antes disso ainda pode nem ter sido pago.
       notifyQuoteTeam({
         title: 'Novo pedido de carregamento de saldo',
-        message: `${ctx.displayName} (${ctx.daUsername}) pediu um carregamento de ${valorMt} MT via ${metodoLabel}. Fica a aguardar comprovativo e confirmação da equipa.`,
+        message: `${ctx.displayName} (${ctx.mainAccount}) pediu um carregamento de ${valorMt} MT via ${metodoLabel}. Fica a aguardar comprovativo e confirmação da equipa.`,
         link: `${process.env.NEXT_PUBLIC_SITE_URL || ''}/credito/${data.id}`,
       }).catch((err) => console.error('[reseller/credito] falha ao notificar equipa:', err));
     }

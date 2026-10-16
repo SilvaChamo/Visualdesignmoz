@@ -41,10 +41,13 @@ export async function upsertMirrorUser(row: {
     status: row.status ?? 'Active',
     websites_limit: row.websites_limit ?? 0,
     emails_limit: row.emails_limit ?? 0,
-    parent_username: row.parent_username ?? null,
     synced_at: ts,
     updated_at: ts,
   };
+  // Só grava a conta principal quando é pedida (incluindo null explícito) —
+  // omitir já não desliga uma conta de domínio da sua conta principal
+  // (panel_users.parent_username, ver linked-accounts.ts).
+  if (row.parent_username !== undefined) payload.parent_username = row.parent_username;
   if (row.auth_user_id) payload.auth_user_id = row.auth_user_id;
   if (row.package_name) payload.package_name = row.package_name;
   if (row.hosting_provider) payload.hosting_provider = row.hosting_provider;
@@ -375,22 +378,39 @@ export async function resyncMirrorDnsForDomain(domain: string): Promise<void> {
     .maybeSingle();
   const owner = String(site?.owner || 'admin');
 
-  const { loadResellerCredentialsByDaUsername } = await import('@/lib/da-credential-store');
-  const { resolveDirectAdminCredentials } = await import('@/lib/directadmin-credentials');
-  const { createDirectAdminAPI } = await import('@/lib/directadmin-adapter');
+  const { getProviderByUsername } = await import('@/lib/hosting-provider');
+  const provider = await getProviderByUsername(owner);
 
-  let creds: import('@/lib/directadmin-credentials').DirectAdminCredentials;
-  if (!owner || owner === 'admin') {
-    creds = await resolveDirectAdminCredentials('admin');
+  let records: Array<{ name?: string; type?: string; content?: string; value?: string; ttl?: number | string }>;
+
+  if (provider === 'hestia') {
+    const hestiaAdapter = await import('@/lib/hestia-adapter');
+    const live = await hestiaAdapter.listDnsRecords(owner, domain);
+    records = live.map((r) => ({
+      name: r.record === '@' ? domain : r.record,
+      type: r.type,
+      value: r.value,
+      ttl: r.ttl,
+    }));
   } else {
-    const stored = await loadResellerCredentialsByDaUsername(owner);
-    creds = stored
-      ? { role: 'reseller', user: stored.user, password: stored.password }
-      : await resolveDirectAdminCredentials('admin');
+    const { loadResellerCredentialsByDaUsername } = await import('@/lib/da-credential-store');
+    const { resolveDirectAdminCredentials } = await import('@/lib/directadmin-credentials');
+    const { createDirectAdminAPI } = await import('@/lib/directadmin-adapter');
+
+    let creds: import('@/lib/directadmin-credentials').DirectAdminCredentials;
+    if (!owner || owner === 'admin') {
+      creds = await resolveDirectAdminCredentials('admin');
+    } else {
+      const stored = await loadResellerCredentialsByDaUsername(owner);
+      creds = stored
+        ? { role: 'reseller', user: stored.user, password: stored.password }
+        : await resolveDirectAdminCredentials('admin');
+    }
+
+    const da = createDirectAdminAPI(creds);
+    records = await da.listDNS(domain);
   }
 
-  const da = createDirectAdminAPI(creds);
-  const records = await da.listDNS(domain);
   const syncedAt = now();
   await sb.from('panel_dns').delete().eq('domain', domain);
 

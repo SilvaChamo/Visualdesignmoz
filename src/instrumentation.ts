@@ -6,19 +6,10 @@
 // para exemplos já corrigidos) — é só a última linha de defesa contra o mesmo
 // tipo de bug em código que ainda não tenhamos apanhado.
 export async function register() {
-  if (process.env.NEXT_RUNTIME !== 'nodejs') return
-
-  const { logServerError } = await import('@/lib/error-log')
-
-  process.on('uncaughtException', (err) => {
-    console.error('[instrumentation] uncaughtException — processo mantido vivo:', err)
-    logServerError('uncaughtException', err).catch(() => {})
-  })
-
-  process.on('unhandledRejection', (reason) => {
-    console.error('[instrumentation] unhandledRejection — processo mantido vivo:', reason)
-    logServerError('unhandledRejection', reason).catch(() => {})
-  })
+  // os handlers ficam em instrumentation-node.ts: assim o Next.js não os mete no código do Edge Runtime
+  if (process.env.NEXT_RUNTIME === 'nodejs') {
+    await import('./instrumentation-node')
+  }
 }
 
 /**

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { requireAdminOrReseller } from '@/lib/panel-api-auth';
 import { saveProfileForAuthUser } from '@/lib/profile-db';
+import { ENCOMENDAS_ACCOUNT_ORIGIN, isEncomendasAccount } from '@/lib/panel-origin';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -22,10 +23,12 @@ async function requireAdmin() {
   return auth;
 }
 
-// Lista as contas de clientes que já submeteram pelo menos uma encomenda
-// (quotation_requests), agrupadas por user_id — para a secção "Encomendas"
-// dentro de Utilizadores, onde o admin pode seleccionar contas e enviar
-// mailmarketing/promoções só a elas.
+// Lista as contas de clientes das encomendas, agrupadas por user_id — para a
+// secção "Encomendas" dentro de Utilizadores, onde o admin pode seleccionar
+// contas e enviar mailmarketing/promoções só a elas. Entram as que já
+// submeteram pelo menos uma encomenda (quotation_requests) e também as
+// criadas no percurso das encomendas que ainda não submeteram nenhuma
+// (marca `origem` no user_metadata — ver isEncomendasAccount).
 export async function GET() {
   const auth = await requireAdminOrReseller();
   if ('error' in auth) return auth.error;
@@ -75,6 +78,25 @@ export async function GET() {
       }
     }
 
+    for (let page = 1; page <= 20; page++) {
+      const { data: usersPage, error: usersError } = await supabase.auth.admin.listUsers({ page, perPage: 1000 });
+      if (usersError) throw usersError;
+      for (const user of usersPage.users) {
+        if (byUser.has(user.id) || !isEncomendasAccount(user.user_metadata)) continue;
+        const meta = user.user_metadata || {};
+        byUser.set(user.id, {
+          userId: user.id,
+          email: user.email || '',
+          responsavel: String(meta.nome || meta.name || user.email?.split('@')[0] || ''),
+          empresa: String(meta.empresa || ''),
+          encomendas: 0,
+          firstCreatedAt: user.created_at,
+          lastCreatedAt: user.created_at,
+        });
+      }
+      if (usersPage.users.length < 1000) break;
+    }
+
     const clientes = [...byUser.values()].sort((a, b) => (a.lastCreatedAt < b.lastCreatedAt ? 1 : -1));
 
     return NextResponse.json({ success: true, clientes });
@@ -86,14 +108,16 @@ export async function GET() {
 
 // Papel fixo — estas contas são especificamente de "Encomendas" (clientes
 // que pedem cotações), sem relação com contas de hospedagem/revenda, por
-// isso não há selector de papel no formulário.
-const ENCOMENDAS_ROLE = 'client';
+// isso não há selector de papel no formulário. 'guest' como as contas
+// criadas pelo próprio cliente em /cotacao: só passa a 'client'/'profissional'
+// quando comprar domínio/hospedagem/email (promoteBuyerAfterPurchase) — até
+// lá entra no painel /encomendas.
+const ENCOMENDAS_ROLE = 'guest';
 
 // Cria uma nova conta de cliente (Auth + profiles) directamente a partir da
-// secção "Encomendas" — não fica associada a nenhuma quotation_requests
-// (ainda não fez nenhum pedido), por isso não vai reaparecer num GET
-// seguinte enquanto não submeter uma encomenda; o ecrã mostra-a de imediato
-// a partir da resposta desta chamada.
+// secção "Encomendas" — ainda sem nenhuma quotation_requests, mas com a marca
+// `origem` (ENCOMENDAS_ACCOUNT_ORIGIN), por isso continua na lista nos GET
+// seguintes mesmo antes do primeiro pedido.
 export async function POST(request: NextRequest) {
   const auth = await requireAdmin();
   if ('error' in auth) return auth.error;
@@ -133,7 +157,14 @@ export async function POST(request: NextRequest) {
       email,
       password,
       email_confirm: true,
-      user_metadata: { role: ENCOMENDAS_ROLE, name: displayName, nome: displayName, first_name: nome, last_name: apelido },
+      user_metadata: {
+        role: ENCOMENDAS_ROLE,
+        name: displayName,
+        nome: displayName,
+        first_name: nome,
+        last_name: apelido,
+        origem: ENCOMENDAS_ACCOUNT_ORIGIN,
+      },
     });
     if (createError) throw createError;
 

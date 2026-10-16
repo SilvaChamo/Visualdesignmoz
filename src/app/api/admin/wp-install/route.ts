@@ -1,25 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/admin-api-auth';
-import { createDirectAdminAPI, getAdminDirectAdminAPI } from '@/lib/directadmin-adapter';
-import { loadResellerCredentialsByDaUsername } from '@/lib/da-credential-store';
-import { getDaSyncAdmin } from '@/lib/da-sync-schema';
 import { mirrorAfterDaMutation } from '@/lib/panel-mirror-write';
-import { scheduleDaSync } from '@/lib/da-sync-engine';
 import { installWordPressSite } from '@/lib/wp-cli-server';
+import { getProviderByUsername } from '@/lib/hosting-provider';
+import * as hestiaAdapter from '@/lib/hestia-adapter';
 
-async function daApiForDomain(domain: string) {
-  const admin = getDaSyncAdmin();
-  let owner = 'admin';
-  if (admin) {
-    const { data } = await admin.from('panel_sites').select('owner').eq('domain', domain).maybeSingle();
-    if (data?.owner) owner = String(data.owner);
-  }
-
-  if (!owner || owner === 'admin') return getAdminDirectAdminAPI();
-
-  const stored = await loadResellerCredentialsByDaUsername(String(owner));
-  if (!stored) return getAdminDirectAdminAPI();
-  return createDirectAdminAPI({ role: 'reseller', user: stored.user, password: stored.password });
+/** Dono real do domínio (username no servidor, DA ou Hestia) — 'admin' por
+ * omissão quando não há registo próprio no mirror. */
+async function resolveDomainOwner(domain: string): Promise<string> {
+  const { resolveHostingOwner } = await import('@/lib/hosting-resolver');
+  return resolveHostingOwner(domain);
 }
 
 export async function POST(req: NextRequest) {
@@ -44,20 +34,35 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const da = await daApiForDomain(domain);
-    const dbResult = await da.createDatabase({
-      domain,
-      dbName,
-      dbUser,
-      dbPassword,
-    });
-    if (dbResult.success === false) {
+    const owner = await resolveDomainOwner(domain);
+    const provider = await getProviderByUsername(owner);
+
+    if (provider !== 'hestia') {
       return NextResponse.json(
-        { success: false, error: dbResult.error || dbResult.output || 'Falha ao criar base de dados' },
+        { success: false, error: 'Este painel está configurado para hospedagem Hestia; o domínio não está associado a uma conta Hestia.' },
+        { status: 409 },
+      );
+    }
+
+    const dbResult = await hestiaAdapter.createDatabase({
+      username: owner,
+      dbNameSuffix: dbName,
+      dbUserSuffix: dbUser,
+      password: dbPassword,
+    });
+    if (!dbResult.ok) {
+      return NextResponse.json(
+        { success: false, error: dbResult.error || 'Falha ao criar base de dados no Hestia' },
         { status: 502 },
       );
     }
-    await mirrorAfterDaMutation('createDatabase', { domain, dbName, dbUser, dbPassword });
+
+    // O Hestia prefixa sempre com "username_". O wp-config.php precisa dos
+    // nomes completos devolvidos pela criação, não dos sufixos do formulário.
+    const dbNameFinal = dbResult.database || `${owner}_${dbName}`;
+    const dbUserFinal = dbResult.dbUser || `${owner}_${dbUser}`;
+
+    await mirrorAfterDaMutation('createDatabase', { domain, dbName: dbNameFinal, dbUser: dbUserFinal, dbPassword });
 
     const result = await installWordPressSite({
       domain,
@@ -66,8 +71,8 @@ export async function POST(req: NextRequest) {
       adminUser,
       adminPassword,
       adminEmail,
-      dbName,
-      dbUser,
+      dbName: dbNameFinal,
+      dbUser: dbUserFinal,
       dbPassword,
       protocol: body.protocol === 'http' ? 'http' : 'https',
     });
@@ -77,7 +82,10 @@ export async function POST(req: NextRequest) {
     }
 
     await mirrorAfterDaMutation('installWordPress', { domain });
-    scheduleDaSync(400);
+    const { runHestiaFullSyncDeduped } = await import('@/lib/hestia-sync-engine');
+    void runHestiaFullSyncDeduped().catch((error) => {
+      console.error('[wp-install] sincronização Hestia falhou após instalação:', error);
+    });
 
     return NextResponse.json({ success: true, message: 'WordPress instalado com sucesso.', output: result.output });
   } catch (e: unknown) {

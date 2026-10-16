@@ -55,9 +55,10 @@ export async function GET(req: NextRequest) {
 
     if (!domain && 'installs' in result && Array.isArray(result.installs)) {
       const allowed = await getAllowedPanelWpDomains(scope);
+      const filtered = filterWpInstallsForPanel(result.installs, scope, allowed);
       return NextResponse.json({
         ...result,
-        installs: filterWpInstallsForPanel(result.installs, scope, allowed),
+        installs: filtered,
       });
     }
 

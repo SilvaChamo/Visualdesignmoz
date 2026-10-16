@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
       message: 'Pagamento registado. A sua conta foi activada como cliente.',
       created,
       tier: products.tier,
-      redirectPath: getRedirectPathForRole('client'),
+      redirectPath: getRedirectPathForRole('profissional'),
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Erro interno';

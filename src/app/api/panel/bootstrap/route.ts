@@ -4,6 +4,7 @@ import { resolvePanelDaContext } from '@/lib/panel-api-context';
 import { resolveResellerPanelContext } from '@/lib/panel-reseller-context';
 import { scheduleDaSync } from '@/lib/da-sync-engine';
 import { resolveClientPanelContext } from '@/lib/panel-client-context';
+import { resolveEffectiveClientUser } from '@/lib/client-impersonation';
 import { getProfileForAuthUser } from '@/lib/profile-db';
 import { getDaSyncAdmin } from '@/lib/da-sync-schema';
 import {
@@ -21,6 +22,32 @@ import {
 } from '@/lib/panel-mirror-read';
 import { applyAdminPanelScope } from '@/lib/panel-scope-filter';
 import { createClient } from '@supabase/supabase-js';
+import type { PanelWebsite } from '@/lib/directadmin-hosting-api';
+
+// ── Hestia directo — sem mirror ─────────────────────────────────────────────
+// Quando o servidor usa Hestia (Contabo), lemos os sites directamente da API
+// Hestia em vez do espelho panel_sites (que foi sincronizado de um servidor
+// DirectAdmin diferente e tem owners/caminhos errados para Hestia).
+const IS_HESTIA = (process.env.DEFAULT_HOSTING_PROVIDER || '').trim().toLowerCase() === 'hestia';
+const HESTIA_USER = (process.env.HESTIA_USER || 'vdadmin').trim();
+
+async function loadHestiaWebsites(): Promise<PanelWebsite[]> {
+  const { listWebDomains } = await import('@/lib/hestia-adapter');
+  const domains = await listWebDomains(HESTIA_USER);
+  return domains.map((d) => ({
+    id: d.domain,
+    domain: d.domain,
+    owner: HESTIA_USER,
+    state: d.suspended ? 'suspended' : 'active',
+    status: d.suspended ? 'suspended' : 'active',
+    ssl: d.sslEnabled,
+    sslStatus: d.sslEnabled ? 'Secure' : 'No SSL',
+    ip: d.ip,
+    diskUsage: d.diskUsedMb,
+    bandwidth: d.bandwidthUsedMb,
+    isActive: !d.suspended,
+  } satisfies PanelWebsite));
+}
 
 async function loadResellerTier(userId: string): Promise<ResellerTier | null> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -48,8 +75,26 @@ export async function GET(req: NextRequest) {
 
     const lastSyncedAt = await getMirrorLastSyncAt();
 
-    if (auth.user.role === 'client') {
-      const ctx = await resolveClientPanelContext(auth.user.id, auth.user.email);
+    // Admin dentro do painel /cliente de um cliente (ver
+    // /api/admin/impersonate-client) — só para o scope do painel cliente; o
+    // /dashboard do admin (scope=admin) nunca é afectado por esta cookie.
+    let clientUser: { id: string; email?: string | null } | null =
+      auth.user.role === 'client' ? auth.user : null;
+    let impersonatedClient: { email: string | null; nome: string | null } | null = null;
+    if (auth.user.role === 'admin' && req.nextUrl.searchParams.get('scope') === 'client') {
+      const effective = await resolveEffectiveClientUser();
+      if (effective?.impersonating) {
+        clientUser = { id: effective.user.id, email: effective.user.email };
+        const meta = effective.user.user_metadata || {};
+        impersonatedClient = {
+          email: effective.user.email ?? null,
+          nome: (meta.name as string) || (meta.nome as string) || (meta.full_name as string) || null,
+        };
+      }
+    }
+
+    if (clientUser) {
+      const ctx = await resolveClientPanelContext(clientUser.id, clientUser.email);
       const capabilities = resolvePanelCapabilities({ role: 'client' });
       // 'client' cai sempre no ramo readOnly de resolvePanelCapabilities (não
       // há ramo próprio para este role) — isso bloqueava Webmail/Mailmarketing
@@ -73,6 +118,7 @@ export async function GET(req: NextRequest) {
           role: 'client',
           readOnly,
           capabilities: { ...capabilities, readOnly },
+          impersonatedClient,
         },
         meta: { source: 'mirror', lastSyncedAt },
       });
@@ -99,7 +145,7 @@ export async function GET(req: NextRequest) {
     }
 
     const staffAuth = {
-      user: auth.user as { id: string; email?: string; role: 'admin' | 'reseller' },
+      user: auth.user as { id: string; email?: string; role: 'admin' | 'reseller' | 'profissional' },
     };
 
     // O painel /dashboard pede sempre scope=admin — se um admin estiver a impersonar
@@ -115,9 +161,14 @@ export async function GET(req: NextRequest) {
     const requestedScope = req.nextUrl.searchParams.get('scope');
     const bypassImpersonation = requestedScope === 'admin' && staffAuth.user.role === 'admin';
 
+    // 'profissional' (comprador self-service em /profissional) usa exactamente
+    // o mesmo contexto/scope de dados que um revendedor — só o menu/UI muda,
+    // nunca o que a API devolve (ver resolvePanelDaContext, que já trata
+    // 'reseller'/'manager'/'profissional' da mesma forma).
+    const isResellerShaped = staffAuth.user.role === 'reseller' || staffAuth.user.role === 'profissional';
     const { mirrorScope, effectiveRole } = await resolvePanelDaContext(
       {
-        user: staffAuth.user.role === 'reseller'
+        user: isResellerShaped
           ? staffAuth.user
           : { ...staffAuth.user, role: 'admin' },
       },
@@ -126,43 +177,97 @@ export async function GET(req: NextRequest) {
     const isReseller = effectiveRole === 'reseller';
     const resellerTier = isReseller ? await loadResellerTier(auth.user.id) : null;
 
-    const [sites, users, accountsResult, resellerContext] = await Promise.all([
-      listMirrorWebsites(mirrorScope),
-      listMirrorUsers(mirrorScope),
-      isReseller
-        ? Promise.resolve({ accounts: [], counts: {} as Record<string, number> })
-        : listBootstrapPanelAccounts(staffAuth.user.role === 'admin' ? 'admin' : 'reseller'),
-      isReseller ? resolveResellerPanelContext({ user: staffAuth.user }) : Promise.resolve(null),
-    ]);
+    // ── Hestia directo ─────────────────────────────────────────────────────
+    // No deploy Contabo (IS_HESTIA=true) lemos directamente da API Hestia.
+    // Os utilizadores e pacotes não existem no Hestia com o mesmo conceito
+    // do DA, por isso devolvemos listas vazias para esses — o painel já trata
+    // graciosamente ausência de utilizadores/pacotes.
+    let sitesOut: PanelWebsite[];
+    let usersOut: Awaited<ReturnType<typeof listMirrorUsers>>;
+    let packagesOut: Awaited<ReturnType<typeof listMirrorPackages>>;
+    let accountsResult: { accounts: Awaited<ReturnType<typeof listBootstrapPanelAccounts>>['accounts']; counts: Record<string, number> };
+    let resellerContext: Awaited<ReturnType<typeof resolveResellerPanelContext>> | null;
 
-    let sitesOut = sites;
-    let usersOut = users;
-    let packagesOut = await listMirrorPackages(mirrorScope, sitesOut);
-
-    if (resellerContext?.daUsername) {
-      const owner = resellerContext.daUsername;
-      sitesOut = sitesOut.filter((s) => !s.owner || s.owner === owner);
-      usersOut = usersOut.filter(
-        (u) => u.userName === owner || u.parentUsername === owner,
-      );
+    if (IS_HESTIA) {
+      const { listHostingDomains, listHostingUsers, listHostingPackages } = await import('@/lib/hosting-resolver');
+      resellerContext = isReseller
+        ? await resolveResellerPanelContext({ user: staffAuth.user })
+        : null;
+      const [sites, users, packages] = await Promise.all([
+        listHostingDomains(
+          resellerContext?.daUsername
+            ? {
+                role: 'reseller',
+                daUsername: resellerContext.daUsername,
+                linkedOwners: resellerContext.linkedOwners,
+              }
+            : undefined,
+        ),
+        listHostingUsers(),
+        listHostingPackages(),
+      ]);
+      sitesOut = sites;
+      usersOut = users;
+      packagesOut = packages;
+      accountsResult = { accounts: [], counts: {} };
+      if (resellerContext?.daUsername) {
+        // Contas geridas pertencem sempre à conta principal do login, mesmo
+        // quando está dentro de uma conta de domínio ligada (Premium).
+        const owner = resellerContext.mainAccount || resellerContext.daUsername;
+        usersOut = usersOut.filter(
+          (u) => u.userName === owner || u.parentUsername === owner,
+        );
+      }
+    } else {
+      const [sites, users, acctRes, resCon] = await Promise.all([
+        listMirrorWebsites(mirrorScope),
+        listMirrorUsers(mirrorScope),
+        isReseller
+          ? Promise.resolve({ accounts: [], counts: {} as Record<string, number> })
+          : listBootstrapPanelAccounts(staffAuth.user.role === 'admin' ? 'admin' : 'reseller'),
+        isReseller ? resolveResellerPanelContext({ user: staffAuth.user }) : Promise.resolve(null),
+      ]);
+      sitesOut = sites;
+      usersOut = users;
+      accountsResult = acctRes;
+      resellerContext = resCon;
       packagesOut = await listMirrorPackages(mirrorScope, sitesOut);
-    } else if (!isReseller) {
-      const scoped = applyAdminPanelScope({
-        sites: sitesOut,
-        users: usersOut,
-        packages: packagesOut,
-      });
-      sitesOut = scoped.sites;
+
+      if (resellerContext?.daUsername) {
+        const owner = resellerContext.daUsername;
+        sitesOut = sitesOut.filter((s) => !s.owner || s.owner === owner);
+        usersOut = usersOut.filter(
+          (u) => u.userName === owner || u.parentUsername === owner,
+        );
+        packagesOut = await listMirrorPackages(mirrorScope, sitesOut);
+      } else if (!isReseller) {
+        const scoped = applyAdminPanelScope({
+          sites: sitesOut,
+          users: usersOut,
+          packages: packagesOut,
+        });
+        sitesOut = scoped.sites;
+      }
+
+      if (!sitesOut.length && !usersOut.length) {
+        scheduleDaSync(0);
+      } else {
+        void import('@/lib/panel-mirror-read').then(({ isMirrorStale }) =>
+          isMirrorStale(120).then((stale) => {
+            if (stale) scheduleDaSync(0);
+          }),
+        );
+      }
     }
 
-    if (!sitesOut.length && !usersOut.length) {
-      scheduleDaSync(0);
-    } else {
-      void import('@/lib/panel-mirror-read').then(({ isMirrorStale }) =>
-        isMirrorStale(120).then((stale) => {
-          if (stale) scheduleDaSync(0);
-        }),
-      );
+    // Cartões que o admin escondeu do painel desta conta ("Eliminar" na
+    // impersonação — supabase-panel-hidden-domains.sql). Nada saiu do servidor.
+    if (resellerContext?.daUsername) {
+      const { listHiddenDomains } = await import('@/lib/panel-hidden-domains');
+      const owners = [...new Set([resellerContext.mainAccount, resellerContext.daUsername].filter(Boolean) as string[])];
+      const hidden = new Set<string>();
+      for (const owner of owners) for (const d of await listHiddenDomains(owner)) hidden.add(d);
+      if (hidden.size) sitesOut = sitesOut.filter((s) => !hidden.has(s.domain.toLowerCase()));
     }
 
     const capabilities = resolvePanelCapabilities({
@@ -173,6 +278,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       success: true,
       sites: sitesOut,
+      allSites: sitesOut,   // No Hestia não há distinção admin/reseller; no DA era isReseller ? sitesOut : sites
+      hostingOwner: IS_HESTIA ? (resellerContext?.daUsername || HESTIA_USER) : null,
+      hestiaOnly: IS_HESTIA,
       users: usersOut,
       packages: packagesOut,
       accounts: accountsResult.accounts,
@@ -186,7 +294,7 @@ export async function GET(req: NextRequest) {
         capabilities,
         resellerTier,
       },
-      meta: { source: 'mirror', lastSyncedAt },
+      meta: { source: IS_HESTIA ? 'hestia-direct' : 'mirror', lastSyncedAt },
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Erro interno';

@@ -12,12 +12,13 @@ export type PanelAuthSuccess = {
   };
 };
 
-/** "manager" (conta profissional) tem scope próprio — nunca acesso admin. */
+/** "manager" (conta colaborador) e "profissional" (comprador self-service)
+ * têm scope próprio — nunca acesso admin. */
 export type PanelStaffAuthSuccess = {
   user: {
     id: string;
     email?: string;
-    role: 'admin' | 'reseller' | 'manager';
+    role: 'admin' | 'reseller' | 'manager' | 'profissional';
   };
 };
 
@@ -55,7 +56,13 @@ async function resolvePanelStaffAuth(): Promise<PanelStaffAuthSuccess | PanelAut
   // Atalho só pelo app_metadata (escrito pelo servidor) — o user_metadata é editável
   // pelo próprio utilizador e não pode decidir papéis de staff.
   let effectiveRole = user.app_metadata?.role;
-  if (!effectiveRole || (effectiveRole !== 'admin' && effectiveRole !== 'manager' && effectiveRole !== 'reseller')) {
+  if (
+    !effectiveRole ||
+    (effectiveRole !== 'admin' &&
+      effectiveRole !== 'manager' &&
+      effectiveRole !== 'reseller' &&
+      effectiveRole !== 'profissional')
+  ) {
     try {
       effectiveRole = await resolveRoleForAuthUser(supabase, user);
     } catch {
@@ -75,24 +82,29 @@ async function resolvePanelStaffAuth(): Promise<PanelStaffAuthSuccess | PanelAut
     return { user: { id: user.id, email, role: 'manager' } };
   }
 
+  if (effectiveRole === 'profissional') {
+    return { user: { id: user.id, email, role: 'profissional' } };
+  }
+
   return STAFF_ACCESS_DENIED();
 }
 
 /**
- * Admin ou revendedor apenas — "manager" é explicitamente rejeitado (403). Rotas que fazem
- * sentido para uma conta "manager" com scope próprio devem usar
- * requireAdminResellerOrManager() em vez desta, caso a caso (ver AUDITORIA_PAINEL_PLANO_CORRECAO.md).
+ * Admin ou revendedor apenas — "manager"/"profissional" são explicitamente
+ * rejeitados (403). Rotas que fazem sentido para uma conta "manager" ou
+ * "profissional" com scope próprio devem usar requireAdminResellerOrManager()
+ * em vez desta, caso a caso (ver AUDITORIA_PAINEL_PLANO_CORRECAO.md).
  */
 export async function requireAdminOrReseller(): Promise<PanelAuthSuccess | PanelAuthFailure> {
   const result = await resolvePanelStaffAuth();
   if ('error' in result) return result;
-  if (result.user.role === 'manager') {
+  if (result.user.role === 'manager' || result.user.role === 'profissional') {
     return STAFF_ACCESS_DENIED();
   }
   return { user: result.user as { id: string; email?: string; role: 'admin' | 'reseller' } };
 }
 
-/** Como requireAdminOrReseller(), mas também aceita "manager" — só para rotas já escopadas ao seu próprio site. */
+/** Como requireAdminOrReseller(), mas também aceita "manager"/"profissional" — só para rotas já escopadas ao seu próprio site. */
 export async function requireAdminResellerOrManager(): Promise<PanelStaffAuthSuccess | PanelAuthFailure> {
   return resolvePanelStaffAuth();
 }
@@ -101,7 +113,7 @@ export type PanelBootstrapAuthSuccess = {
   user: {
     id: string;
     email?: string;
-    role: 'admin' | 'manager' | 'reseller' | 'client';
+    role: 'admin' | 'manager' | 'reseller' | 'profissional' | 'client';
   };
 };
 
@@ -137,6 +149,7 @@ export async function requirePanelBootstrapAccess(): Promise<
     (effectiveRole !== 'admin' &&
       effectiveRole !== 'manager' &&
       effectiveRole !== 'reseller' &&
+      effectiveRole !== 'profissional' &&
       effectiveRole !== 'client')
   ) {
     try {
@@ -160,6 +173,10 @@ export async function requirePanelBootstrapAccess(): Promise<
 
   if (effectiveRole === 'reseller') {
     return { user: { id: user.id, email, role: 'reseller' } };
+  }
+
+  if (effectiveRole === 'profissional') {
+    return { user: { id: user.id, email, role: 'profissional' } };
   }
 
   return {

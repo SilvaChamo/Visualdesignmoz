@@ -1,6 +1,6 @@
 'use client'
 
-import { usePathname, useSearchParams } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { Navbar } from './Navbar'
 import { Header } from './Header'
 
@@ -10,23 +10,20 @@ import { Header } from './Header'
  */
 export function ConditionalNavbar() {
   const pathname = usePathname()
-  const searchParams = useSearchParams()
 
-  // Routes that should NOT show the Header
-  const excludedRoutes = ['/dashboard', '/cliente', '/auth', '/login', '/revendedor', '/guest', '/encomendas', '/contabilidade']
+  // Routes that should NOT show the Header. /dev-preview…: páginas locais de pré-visualização do painel — com o
+  // cabeçalho do site por cima, a barra do painel no telemóvel ficava tapada (sem o símbolo e o título; 15/10/2026)
+  const excludedRoutes = ['/dashboard', '/cliente', '/auth', '/login', '/revendedor', '/guest', '/encomendas', '/contabilidade', '/vhost', '/host/', '/host:', '/dev-preview']
 
   const isExcluded = excludedRoutes.some(route => pathname.startsWith(route))
-  // ?embed=1 é usado para abrir /cotacao/[id] "limpo" (sem chrome de marketing),
-  // ex. a partir do painel de encomendas — independente da rota estar ou não
-  // na lista acima.
-  const isEmbedded = searchParams?.get('embed') === '1'
+  if (isExcluded) return null
 
-  if (isExcluded || isEmbedded) return null
-
+  // ?embed=1 abre /cotacao/[id] "limpo" (sem chrome de marketing), ex. a partir do painel de encomendas — escondido por
+  // EmbedEstilo.tsx através de data-site-chrome (display: contents: o invólucro não muda o sticky do cabeçalho)
   return (
-    <>
+    <div data-site-chrome style={{ display: 'contents' }}>
       <Navbar />
       <Header />
-    </>
+    </div>
   )
 }

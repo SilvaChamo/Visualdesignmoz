@@ -107,10 +107,9 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'autologin') {
-      const { username } = body;
-      if (!username) {
-        return NextResponse.json({ success: false, error: 'Nome de utilizador é obrigatório' }, { status: 400 });
-      }
+      // username opcional: sem ele, entra como o primeiro administrador do site
+      // (é o que o botão "Painel do WordPress" usa).
+      const username = body.username ? String(body.username) : undefined;
       const result = await generateWpAutoLoginToken(domain, username);
       if (!result.success) {
         return NextResponse.json({ success: false, error: result.error }, { status: 500 });

@@ -21,6 +21,7 @@ import { SenderEmailSelector } from "@/components/admin/SenderEmailSelector";
 import { EmailTemplates } from "@/components/admin/EmailTemplates";
 import { fetchCompanyLogoUrl } from "@/components/admin/CompanyLogoUpload";
 import { toast } from "sonner";
+import directAdminAPI from '@/lib/directadmin-hosting-api';
 import {
   adminListarSubscritores as listarSubscritores,
   adminAdicionarSubscritor as adicionarSubscritor,
@@ -30,7 +31,6 @@ import {
   adminCriarLista as criarLista,
   adminRemoverLista as removerLista,
   adminListarCampanhas as listarCampanhas,
-  adminSalvarCampanha as salvarCampanha,
   adminRemoverCampanha as removerCampanha,
   adminLimparDadosCampanhas as limparDadosCampanhas
 } from '@/app/actions/mailmarketing';
@@ -343,11 +343,7 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToHis
       try {
         const [supabaseRes, panelRes] = await Promise.allSettled([
           fetch('/api/email-contas'),
-          fetch('/api/panel-bridge', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'listEmails', params: { domain: selectedSite } })
-          })
+          directAdminAPI.listEmails(selectedSite),
         ]);
         
         let allEmailsList: string[] = [];
@@ -366,11 +362,11 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToHis
           }
         }
         
-        if (panelRes.status === 'fulfilled') {
-          const result = await panelRes.value.json();
-          if (result.success && Array.isArray(result.emails)) {
-            allEmailsList = [...allEmailsList, ...result.emails];
-          }
+        if (panelRes.status === 'fulfilled' && Array.isArray(panelRes.value)) {
+          const panelEmails = panelRes.value
+            .map((account: { email?: string }) => account.email)
+            .filter((email): email is string => Boolean(email));
+          allEmailsList = [...allEmailsList, ...panelEmails];
         }
         
         const domainEmailsList = [...new Set(allEmailsList.filter((e: string) => e && e.includes('@')))];
@@ -539,24 +535,20 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToHis
         throw new Error(result.error || result.message || "Erro ao enviar mensagem");
       }
       
-      const sentCount = result?.details?.success ?? 0;
-      const failedCount = result?.details?.failed ?? emailList.length;
-      
-      if (sentCount === 0) {
-        throw new Error(result?.details?.errors?.[0] || "Nenhum email foi entregue. Verifique a configuração SMTP.");
-      } else if (failedCount > 0) {
-        toast.warning(`Envio parcial: ${sentCount} entregue(s), ${failedCount} falha(s).`);
+      if (result.queued) {
+        toast.success(result.message || `Campanha enfileirada para ${emailList.length} contactos.`);
       } else {
-        toast.success(`Campanha enviada com sucesso para ${sentCount} contactos!`);
-      }
+        const sentCount = result?.details?.success ?? 0;
+        const failedCount = result?.details?.failed ?? emailList.length;
 
-      await salvarCampanha({
-        subject,
-        content_html: finalHtml,
-        total_recipients: emailList.length,
-        domain: selectedSite,
-        owner_email: user?.email || currentUserEmail || ''
-      });
+        if (sentCount === 0) {
+          throw new Error(result?.details?.errors?.[0] || "Nenhum email foi entregue. Verifique a configuração SMTP.");
+        } else if (failedCount > 0) {
+          toast.warning(`Envio parcial: ${sentCount} entregue(s), ${failedCount} falha(s).`);
+        } else {
+          toast.success(`Campanha enviada com sucesso para ${sentCount} contactos!`);
+        }
+      }
 
       setAttachments([]);
       setShowSuccessDialog(true);
@@ -573,19 +565,21 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToHis
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-5">
         <div className="lg:col-span-3 space-y-5">
           <div className="bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm overflow-hidden flex flex-col min-h-[600px]">
-            <div className="bg-slate-200 dark:bg-zinc-800 px-5 py-3 border-b border-slate-300 dark:border-zinc-700 flex items-center justify-between">
+            {/* no telemóvel: o título em cima e, por baixo, o remetente e os botões numa só coluna, a toda a largura
+                (Silva, 14/10/2026: nada pode passar da largura do ecrã) */}
+            <div className="bg-slate-200 dark:bg-zinc-800 px-5 py-3 border-b border-slate-300 dark:border-zinc-700 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-3">
                 <Newspaper className="w-5 h-5 text-slate-600 dark:text-zinc-400" />
                 <h2 className="font-black text-slate-800 dark:text-zinc-200 uppercase tracking-widest text-xs">Editor de Mensagem</h2>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:gap-3">
                 <div className="flex items-center gap-2 bg-white dark:bg-zinc-900 rounded-sm border border-slate-300 dark:border-zinc-700 px-2 h-8">
                   <Mail className="w-4 h-4 text-slate-500 dark:text-zinc-400 shrink-0" />
                   <select
                     value={senderEmail}
                     onChange={(e) => setSenderEmail(e.target.value)}
                     disabled={loadingDomainEmails || domainEmails.length === 0}
-                    className="h-full px-1 text-xs font-bold text-slate-700 dark:text-zinc-300 bg-transparent border-none focus:outline-none focus:ring-0 min-w-[200px] max-w-[300px] truncate"
+                    className="h-full min-w-0 flex-1 px-1 text-xs font-bold text-slate-700 dark:text-zinc-300 bg-transparent border-none focus:outline-none focus:ring-0 sm:min-w-[200px] sm:max-w-[300px]"
                   >
                     {loadingDomainEmails ? (
                       <option value="">A carregar...</option>
@@ -598,10 +592,10 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToHis
                     )}
                   </select>
                 </div>
-                <Button onClick={() => setShowTemplates(true)} className="!bg-slate-800 hover:!bg-red-600 text-white gap-2 font-black uppercase text-[10px] tracking-widest h-8 px-4 rounded-sm transition-all border-none">
+                <Button onClick={() => setShowTemplates(true)} className="w-full sm:w-auto !bg-slate-800 hover:!bg-red-600 text-white gap-2 font-black uppercase text-[10px] tracking-widest h-8 px-4 rounded-sm transition-all border-none">
                   <LayoutTemplate className="w-3 h-3" /> Templates
                 </Button>
-                <Button onClick={onGoToHistory} className="!bg-slate-800 hover:!bg-red-600 text-white gap-2 font-black uppercase text-[10px] tracking-widest h-8 px-4 rounded-sm transition-all border-none">
+                <Button onClick={onGoToHistory} className="w-full sm:w-auto !bg-slate-800 hover:!bg-red-600 text-white gap-2 font-black uppercase text-[10px] tracking-widest h-8 px-4 rounded-sm transition-all border-none">
                   <HistoryIcon className="w-3 h-3" /> Histórico
                 </Button>
               </div>
@@ -615,7 +609,8 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToHis
                 </div>
               </RichTextEditor>
             </div>
-            <div className="px-5 py-4 bg-slate-50 dark:bg-zinc-800/60 border-t border-slate-200 dark:border-zinc-800 flex items-center justify-end gap-3">
+            {/* no telemóvel os dois botões uns por baixo dos outros, a toda a largura (Silva, 14/10/2026) */}
+            <div className="px-5 py-4 bg-slate-50 dark:bg-zinc-800/60 border-t border-slate-200 dark:border-zinc-800 flex flex-col-reverse items-stretch gap-3 sm:flex-row sm:items-center sm:justify-end [&>button]:w-full sm:[&>button]:w-auto">
               <Button type="button" onClick={handleClearForm} disabled={isSending} className="!bg-slate-100 hover:!bg-red-600 hover:!text-white text-slate-700 dark:!bg-zinc-800 dark:text-zinc-300 gap-2 font-black uppercase text-[10px] tracking-widest h-8 px-4 rounded-sm transition-all border border-slate-200 dark:border-zinc-700">
                 Limpar
               </Button>
@@ -1083,7 +1078,8 @@ function MailMarketingCampaigns({ selectedSite, currentUserEmail, onResend, isAc
                 <div><h4 className="font-bold dark:text-white">{camp.subject}</h4><p className="text-[10px] text-slate-400 dark:text-zinc-500 uppercase font-black">{new Date(camp.created_at).toLocaleString()}</p></div>
               </div>
               <div className="flex items-center gap-4">
-                <div className="text-right"><p className="text-sm font-black dark:text-white">{camp.recipient_count || 0}</p></div>
+                <span className="text-[10px] font-black uppercase tracking-wide text-slate-500">{camp.status === 'sent' ? 'Enviada' : camp.status === 'queued' ? 'Na fila' : camp.status === 'processing' ? 'A enviar' : camp.status === 'partial_failed' ? 'Parcial' : camp.status === 'failed' ? 'Falhou' : camp.status || '—'}</span>
+                <div className="text-right"><p className="text-sm font-black dark:text-white">{camp.total_recipients || camp.recipient_count || 0}</p></div>
                 <button onClick={() => onResend && onResend(camp)} className="p-2 hover:bg-orange-50 dark:hover:bg-orange-950/30 text-slate-400 hover:text-orange-600 rounded-lg"><RefreshCw size={14} /></button>
                 <button onClick={async () => { if (confirm("Remover campanha?")) { await removerCampanha(camp.id, currentUserEmail || ''); fetchCampaigns(); } }} className="p-2 hover:bg-red-50 dark:hover:bg-red-950/30 text-slate-400 hover:text-red-600 rounded-lg"><Trash2 size={14} /></button>
               </div>

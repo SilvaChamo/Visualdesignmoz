@@ -210,6 +210,7 @@ async function prefetchRegistrarDomainsAsync(): Promise<void> {
       status: d.status,
       expireDate: d.expireDate,
     })),
+    'mine',
   );
 }
 

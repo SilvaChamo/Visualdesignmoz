@@ -82,7 +82,7 @@ export default function MensagensLayout({
 
               {/* Botão Sair */}
               <button
-                onClick={async () => { await createClientInstance.auth.signOut(); const { clearAllPanelClientCaches } = await import('@/lib/panel-session-cache-clear'); clearAllPanelClientCaches(); window.location.href = '/auth/login'; }}
+                onClick={async () => { await createClientInstance.auth.signOut(); const { clearAllPanelClientCaches } = await import('@/lib/panel-session-cache-clear'); clearAllPanelClientCaches(); window.location.href = '/login'; }}
                 className="bg-gray-700 hover:bg-red-600 text-white text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 transition-colors"
                 title="Sair da Conta"
               >

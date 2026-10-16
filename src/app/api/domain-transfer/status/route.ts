@@ -57,12 +57,18 @@ export async function GET(request: NextRequest) {
     });
   }
 
+  // Prefere a data que a própria Dynadot regista para o pedido de
+  // transferência (order_created_date) — é essa data, não a da nossa
+  // tabela, que a Dynadot usa para calcular quando o prazo termina do lado
+  // dela, e é o que aparece no painel deles. Usar a nossa criava uma
+  // contagem decrescente diferente da que o cliente vê directamente na
+  // Dynadot para o mesmo domínio.
   return NextResponse.json({
     success: true,
     status: result.status,
     rawStatus: result.rawStatus,
     orderId: result.orderId,
-    createdAt: request_.created_at,
+    createdAt: result.createdAt || request_.created_at,
     completedAt: result.completedAt,
   });
 }

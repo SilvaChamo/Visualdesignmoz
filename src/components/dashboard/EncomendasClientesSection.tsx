@@ -45,7 +45,7 @@ export function EncomendasClientesSection({ isActive }: { isActive: boolean }) {
   const { setChrome } = useAdminSectionChrome();
   useEffect(() => {
     if (!isActive) return;
-    setChrome({ description: 'Contas de clientes que já submeteram encomendas — seleccione para enviar mailmarketing.' });
+    setChrome({ description: 'Contas de clientes das encomendas (com ou sem encomendas submetidas) — seleccione para enviar mailmarketing.' });
     return () => setChrome(null);
   }, [isActive, setChrome]);
 
@@ -220,7 +220,9 @@ export function EncomendasClientesSection({ isActive }: { isActive: boolean }) {
           <tbody className="divide-y divide-gray-100 dark:divide-zinc-800">
             {loading && (
               <tr>
-                <td colSpan={6} className="px-5 py-6 text-center text-sm text-gray-400 dark:text-zinc-500">A carregar...</td>
+                <td colSpan={6} className="px-5 py-6 text-center text-sm text-gray-400 dark:text-zinc-500">
+                  <span className="inline-flex items-center justify-center gap-2"><Spinner /> A carregar...</span>
+                </td>
               </tr>
             )}
             {!loading && filtered.length === 0 && (

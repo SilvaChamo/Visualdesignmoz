@@ -45,10 +45,10 @@ export function PdfThumbnail(props: Props) {
     (async () => {
       try {
         const pdfjsLib = await import('pdfjs-dist');
-        pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-          'pdfjs-dist/build/pdf.worker.min.mjs',
-          import.meta.url,
-        ).toString();
+        // Servido de /public (copiado por scripts/copy-pdf-worker.mjs antes do
+        // dev/build): importá-lo via import.meta.url fazia o webpack falhar o
+        // build no servidor com a versão actual do pdfjs-dist.
+        pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdfjs/pdf.worker.min.mjs';
 
         const pdf = await pdfjsLib.getDocument({ url }).promise;
         if (cancelled) return;

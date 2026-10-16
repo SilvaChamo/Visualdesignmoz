@@ -6,6 +6,7 @@
 import { executeServerCommand } from '@/lib/server-ssh-exec';
 import {
   encryptDaSecret,
+  isHestiaAccount,
   loadResellerCredentialsByDaUsername,
 } from '@/lib/da-credential-store';
 import { getDaSyncAdmin } from '@/lib/da-sync-schema';
@@ -17,6 +18,9 @@ export async function ensureDaLoginKeyForUsername(
   panelEmail?: string,
 ): Promise<boolean> {
   if (!daUsername || daUsername === 'admin') return true;
+  // Uma conta já no Hestia nunca tem (nem precisa de) login key DA — "sem
+  // credenciais" é o estado definitivo dela, não uma lacuna a preencher.
+  if (await isHestiaAccount(daUsername)) return true;
 
   const existing = await loadResellerCredentialsByDaUsername(daUsername);
   if (existing?.password) return true;

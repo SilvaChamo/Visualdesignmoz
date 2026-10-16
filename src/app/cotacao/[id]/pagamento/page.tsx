@@ -10,8 +10,8 @@ import { formatMt } from '@/lib/pricing-catalog';
 import { Spinner } from '@/components/ui/spinner';
 import { groupIntoBatches, type BatchItem, type QuotationBatch } from '@/lib/quotation-batch';
 import { useBatchNumeros, displayNumero } from '@/lib/use-batch-numeros';
-
-const IVA_RATE = 0.16;
+import { isComprovativoRejeitado, type ComprovativoFase } from '@/lib/quotation-comprovativo';
+import { encomendaPaymentSplit } from '@/lib/encomenda-checkout';
 
 type Quotation = BatchItem & {
   categoria_label: string;
@@ -62,10 +62,13 @@ function CotacaoPagamentoContent() {
     const entries: PendingEntry[] = [];
     for (const batch of batches) {
       if (batch.sobConsulta) continue; // sem valor fixo — nada para pagar ainda
+      // Com IVA acrescido — os mesmos valores do documento da cotação/factura
+      // e do checkout (antes eram 70%/30% do total sem IVA).
+      const split = encomendaPaymentSplit(batch.totalMt);
       if (batch.status === 'pending' || batch.status === 'payment_selected') {
-        entries.push({ batch, mode: 'advance', valor: Math.round(batch.totalMt * 0.7 * 100) / 100 });
+        entries.push({ batch, mode: 'advance', valor: split.adiantamentoMt });
       } else if (batch.status === 'delivered') {
-        entries.push({ batch, mode: 'remainder', valor: Math.round(batch.totalMt * 0.3 * 100) / 100 });
+        entries.push({ batch, mode: 'remainder', valor: split.remanescenteMt });
       }
     }
     return entries;
@@ -175,7 +178,10 @@ function CotacaoPagamentoContent() {
             ) : (
               <FaturaResumo selected={selected}>
                 {awaitingProof ? (
-                  <ComprovativoInline quotationId={selected.batch.primaryItem.id} />
+                  <ComprovativoInline
+                    quotationId={selected.batch.primaryItem.id}
+                    fase={selected.mode === 'remainder' ? 'remanescente' : 'adiantamento'}
+                  />
                 ) : (
                   <div className="space-y-4">
                     <div className="flex flex-wrap items-center gap-2 justify-end">
@@ -281,8 +287,7 @@ function CotacaoPagamentoContent() {
 /** Itens da encomenda (formato de factura) + resumo com IVA, seguido da acção de pagamento passada como children. */
 function FaturaResumo({ selected, children }: { selected: PendingEntry; children: React.ReactNode }) {
   const { batch, valor, mode } = selected;
-  const base = Math.round((valor / (1 + IVA_RATE)) * 100) / 100;
-  const iva = Math.round((valor - base) * 100) / 100;
+  const split = encomendaPaymentSplit(batch.totalMt);
 
   return (
     <div className="space-y-5">
@@ -317,19 +322,19 @@ function FaturaResumo({ selected, children }: { selected: PendingEntry; children
 
       <div className="flex flex-col items-end gap-1 text-sm border-t border-zinc-200 dark:border-zinc-800 pt-4">
         <div className="flex justify-between w-full max-w-xs text-zinc-500 dark:text-zinc-400">
+          <span>Subtotal</span>
+          <span>{formatMt(split.subtotalMt)} MT</span>
+        </div>
+        <div className="flex justify-between w-full max-w-xs text-zinc-500 dark:text-zinc-400">
+          <span>IVA (16%, acrescido)</span>
+          <span>{formatMt(split.ivaMt)} MT</span>
+        </div>
+        <div className="flex justify-between w-full max-w-xs text-zinc-500 dark:text-zinc-400">
           <span>Valor total da factura</span>
-          <span>{formatMt(batch.totalMt)} MT</span>
-        </div>
-        <div className="flex justify-between w-full max-w-xs text-zinc-500 dark:text-zinc-400">
-          <span>{mode === 'remainder' ? 'Remanescente 30% (sem IVA)' : 'Adiantamento 70% (sem IVA)'}</span>
-          <span>{formatMt(base)} MT</span>
-        </div>
-        <div className="flex justify-between w-full max-w-xs text-zinc-500 dark:text-zinc-400">
-          <span>IVA (16%)</span>
-          <span>{formatMt(iva)} MT</span>
+          <span>{formatMt(split.totalComIvaMt)} MT</span>
         </div>
         <div className="flex justify-between w-full max-w-xs font-bold text-zinc-900 dark:text-white text-base pt-1 border-t border-zinc-200 dark:border-zinc-800">
-          <span>{mode === 'remainder' ? 'Valor total do remanescente' : 'Valor total do adiantamento'}</span>
+          <span>{mode === 'remainder' ? 'Remanescente (30%)' : 'Adiantamento (70%)'}</span>
           <span>{formatMt(valor)} MT</span>
         </div>
       </div>
@@ -339,8 +344,12 @@ function FaturaResumo({ selected, children }: { selected: PendingEntry; children
   );
 }
 
-/** Anexar comprovativo — embutido na página (sem popup), para não se perder ao sair/voltar. */
-function ComprovativoInline({ quotationId }: { quotationId: string }) {
+/**
+ * Anexar comprovativo — embutido na página (sem popup), para não se perder ao
+ * sair/voltar. A `fase` marca o anexo para a Contabilidade › Encomendas saber
+ * se é o comprovativo do adiantamento ou do remanescente.
+ */
+function ComprovativoInline({ quotationId, fase }: { quotationId: string; fase: ComprovativoFase }) {
   const [checking, setChecking] = useState(true);
   const [alreadySent, setAlreadySent] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
@@ -354,7 +363,20 @@ function ComprovativoInline({ quotationId }: { quotationId: string }) {
     setChecking(true);
     fetch(`/api/cotacoes/${quotationId}/anexos`)
       .then((r) => r.json())
-      .then((data) => setAlreadySent(data.success && Array.isArray(data.anexos) && data.anexos.length > 0))
+      .then((data) => {
+        // Só conta um comprovativo do cliente para ESTA fase e ainda não
+        // rejeitado pela equipa — antes qualquer anexo bastava, o que
+        // bloqueava o remanescente (o anexo do adiantamento já lá estava) e
+        // um reenvio depois de uma rejeição. Anexos sem marca (encomendas
+        // antigas) contam como o do adiantamento.
+        const anexos: { uploaded_by_role: string; file_name: string; comprovativo_fase: ComprovativoFase | null }[] =
+          data.success && Array.isArray(data.anexos) ? data.anexos : [];
+        const validos = anexos.filter((a) => a.uploaded_by_role === 'client' && !isComprovativoRejeitado(a.file_name));
+        setAlreadySent(
+          validos.some((a) => a.comprovativo_fase === fase) ||
+            (fase === 'adiantamento' && validos.some((a) => !a.comprovativo_fase)),
+        );
+      })
       .catch(() => {})
       .finally(() => setChecking(false));
   }, [quotationId]);
@@ -366,6 +388,7 @@ function ComprovativoInline({ quotationId }: { quotationId: string }) {
     try {
       const formData = new FormData();
       formData.append('file', file);
+      formData.append('fase', fase);
       const res = await fetch(`/api/cotacoes/${quotationId}/anexos`, { method: 'POST', body: formData });
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error || 'Não foi possível enviar o comprovativo.');
