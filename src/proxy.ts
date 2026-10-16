@@ -46,6 +46,13 @@ const PAINEL_INEXISTENTES = ['/vhost/2026']
 
 const comPrefixo = (pathname: string, prefixo: string) => pathname === prefixo || pathname.startsWith(`${prefixo}/`)
 
+/** Há cookie de sessão do site (o mesmo teste do layout do painel, src/app/host/layout.tsx) — sem pedido à Supabase */
+const temCookieSessao = (request: NextRequest) =>
+  request.cookies.getAll().some((c) => /^sb-.+-auth-token(\.\d+)?$/.test(c.name))
+
+/** Um ecrã do painel (endereço único ou antigo) como destino do ?redirect= do login */
+const DESTINO_PAINEL = /^\/v?host(:2026)?(\/[\w\-\/]*)?$/
+
 /** O resto do caminho depois do endereço único (/host:2026/admin → /admin), ou null se não for o endereço único */
 function restoPainel(pathname: string): string | null {
   const forma = PAINEL_FORMAS.find((f) => comPrefixo(pathname, f))
@@ -87,9 +94,17 @@ export async function proxy(request: NextRequest) {
   }
   // O painel vive todo em /host:2026/… (endereço único, pedido do Silva a 13/10/2026): abre aqui directamente — a rota
   // do Next é src/app/host, por isso reescreve-se (o endereço no browser não muda), com ou sem a barra final.
-  // Não passa pela verificação de sessão do site: o painel trata da sua.
+  // Só se entra pelo login do site (pedido do Silva, 16/10/2026: pela entrada do próprio painel a sessão caía): sem
+  // cookie de sessão vai para lá, e o login volta a este mesmo ecrã. Com a sessão do site, abre logo (o painel valida-a).
   const resto = restoPainel(pathname)
   if (resto !== null) {
+    if (!temCookieSessao(request)) {
+      const login = request.nextUrl.clone()
+      login.pathname = PUBLIC_LOGIN_ENTRY
+      login.search = ''
+      login.searchParams.set('redirect', `${PAINEL_BASE}${resto.replace(/\/+$/, '')}`)
+      return NextResponse.redirect(login, 307)
+    }
     const rota = request.nextUrl.clone()
     rota.pathname = `/host${resto.replace(/\/+$/, '')}`
     return NextResponse.rewrite(rota)
@@ -138,14 +153,24 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // Login antigo a caminho do painel → entrada do painel no modelo do DA (que já trata da sessão)
+  // Login a caminho do painel com a sessão do site já aberta: é reconhecida e entra logo no painel, sem pedir as
+  // credenciais outra vez (pedido do Silva, 16/10/2026). Sem sessão válida, mostra o login do site, que volta ao
+  // painel depois de entrar.
   if ((pathname === PUBLIC_LOGIN_ENTRY || pathname === '/auth/login') && request.method === 'GET') {
     const destino = request.nextUrl.searchParams.get('redirect') || ''
-    if (/^\/v?host(:2026)?(\/[\w\-\/]*)?$/.test(destino)) {
+    if (DESTINO_PAINEL.test(destino) && temCookieSessao(request)) {
       const painel = request.nextUrl.clone()
       painel.pathname = destino
       painel.search = ''
-      return NextResponse.redirect(painel)
+      const entrar = NextResponse.redirect(painel)
+      // um token renovado aqui segue no redireccionamento
+      const supabase = createAppServerClient(request, entrar)
+      try {
+        const { data } = await supabase.auth.getUser()
+        if (data.user) return entrar
+      } catch {
+        /* sessão inválida: mostra o login */
+      }
     }
   }
 

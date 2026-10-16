@@ -33,6 +33,32 @@ export async function preCarregarDadosVhost(limiteMs = 30_000): Promise<boolean>
   }
 }
 
+/** O painel só se abre pelo login do site (pedido do Silva, 16/10/2026: pela entrada do próprio painel a sessão caía e
+ *  as páginas diziam "Inicie sessão no site" logo depois de entrar; pelo login do site não). Endereço do login do site
+ *  que, depois de entrar, volta a `caminho`. */
+export function loginDoSite(caminho: string): string {
+  return '/login?redirect=' + encodeURIComponent(caminho);
+}
+
+const LOGIN_SITE_SS = 'vh-login-site';
+/** já a caminho do login do site (vários pedidos recusados ao mesmo tempo só mudam de página uma vez) */
+let aCaminhoDoLogin = false;
+
+/** Sem sessão, ou sessão recusada pelo servidor: vai para o login do site, que volta a esta página do painel. Nunca em
+ *  ciclo: se já se foi lá há instantes e o painel voltou a recusar a sessão, fica onde está e devolve false. */
+export function irParaLoginDoSite(): boolean {
+  if (aCaminhoDoLogin) return true;
+  if (!/^\/host(:|%3a)2026(\/|$)/i.test(window.location.pathname)) return false; // só a partir do painel
+  try {
+    if (Date.now() - (Number(sessionStorage.getItem(LOGIN_SITE_SS)) || 0) < 20_000) return false;
+    sessionStorage.setItem(LOGIN_SITE_SS, String(Date.now()));
+  } catch {}
+  aCaminhoDoLogin = true;
+  apagarDadosVhost();
+  window.location.replace(loginDoSite(window.location.pathname));
+  return true;
+}
+
 /** Por onde se entrou no painel (pedido do Silva, 13/10/2026): ao sair, quem entrou pelo login do site volta ao login do
  *  site; quem entrou pelo login do próprio painel volta ao login do painel */
 const ENTRADA_LS = 'vh-entrada';

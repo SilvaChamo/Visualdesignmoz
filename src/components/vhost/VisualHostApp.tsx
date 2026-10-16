@@ -7,9 +7,9 @@ import { usePathname } from 'next/navigation';
 import { BarraPagina, FaixaAbas, PesquisaPagina, VHContext, type ItemPesquisa, type VH } from './context';
 import { GLOBAL, LEVELS, MENU, ROLES } from './generated/data';
 import { dominioVisivel, type DadosServidor } from './servidor';
-import { CACHE_DADOS_VHOST, apagarDadosVhost, guardarDadosVhost, tirarEntrada } from '@/lib/vhost-cache';
+import { CACHE_DADOS_VHOST, apagarDadosVhost, guardarDadosVhost, irParaLoginDoSite, loginDoSite } from '@/lib/vhost-cache';
 import { translate, type Lang } from './i18n';
-import { EntradaPainel, EsperaEntrada, LINGUA_LS, type ModoTema } from './entrada';
+import { EsperaEntrada, LINGUA_LS } from './entrada';
 import { auth } from '@/lib/supabase-client';
 import { MoreMenuModal } from './modals';
 import { SCREENS, denyScreen, placeholder, type Screen } from './screens';
@@ -335,10 +335,10 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
     const d = temSessao ? lerCache() : null;
     return d ? noNivelPermitido(comDados(n, d, stripBase(pathname))) : n;
   });
-  // página de entrada (sem sessão): modo do tema escolhido lá (claro · automático · escuro) e "a entrar" (roda a girar)
-  const [aEntrar, setAEntrar] = useState(false);
-  const [semSessao, setSemSessao] = useState(!temSessao);
-  const [modoTema, setModoTema] = useState<ModoTema>('light');
+  // sem sessão: o painel só se abre pelo login do site (ver irParaLoginDoSite); "bloqueado" se o login do site acabou de
+  // devolver para aqui e a sessão voltou a ser recusada (nunca em ciclo)
+  const semSessao = !temSessao;
+  const [loginBloqueado, setLoginBloqueado] = useState(false);
   useBotoesTelemovel();
   /** endereço com que o painel abriu (para o reabrir depois de chegarem os dados do servidor) */
   const inicial = useRef(stripBase(pathname));
@@ -617,7 +617,6 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
           if (r.status === 401 || r.status === 403) apagarCache();
           // servidor lento ou em baixo com o painel já à vista (da última leitura): fica como está
           else if (ref.current.carga === 'ok') return;
-          setAEntrar(false);
           commit({ ...ref.current, carga: 'erro', erro: { msg: j.erro || 'Não foi possível ler o servidor.', codigo: r.status } });
           return;
         }
@@ -626,7 +625,6 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
         aplicar(d);
       } catch {
         if (ref.current.carga === 'ok') return; // o painel já está à vista (última leitura): fica como está
-        setAEntrar(false);
         commit({ ...ref.current, carga: 'erro', erro: { msg: 'O servidor demorou a responder. Verifique a ligação e tente de novo.', codigo: 0 } });
       }
     },
@@ -744,26 +742,15 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
     recusadoEm.current = Date.now();
   };
 
-  // Sair: termina a sessão e mostra logo a página de entrada, sem perguntar nem recarregar (pedido do Silva: a página
-  // piscava entre dois ecrãs antes do formulário). Quem entrou pelo login do site volta ao login do site (pedido do
-  // Silva, 13/10/2026); quem entrou pelo login do painel fica na entrada do painel.
+  // Sair: termina a sessão e volta ao login do site, sem perguntar (o painel só se abre por lá — pedido do Silva,
+  // 16/10/2026)
   const sair = async () => {
     apagarCache();
     guardarEntrarComo('', []);
-    const entrada = tirarEntrada();
     try {
       await auth.signOut();
     } catch {}
-    if (entrada === 'site') {
-      window.location.assign('/login');
-      return;
-    }
-    setAEntrar(false);
-    setSemSessao(true);
-    setModal(null);
-    inicial.current = '/';
-    commit({ ...ref.current, carga: 'erro', erro: { msg: 'Inicie sessão no site.', codigo: 401 } });
-    window.history.replaceState(null, '', BASE);
+    window.location.assign('/login');
   };
 
   const vh: VH = {
@@ -996,16 +983,20 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
       try {
         await auth.signOut();
       } catch {}
-      setAEntrar(false);
-      // como no DA: a entrada mostra o caminho da página onde estava e volta para lá depois de entrar
-      inicial.current = ref.current.path || '/';
-      commit({ ...ref.current, carga: 'erro', erro: { msg: 'Sessão terminada por inatividade.', codigo: 401 } });
+      // como no DA: depois de entrar (no login do site), volta à página onde estava
+      if (!irParaLoginDoSite()) commit({ ...ref.current, carga: 'erro', erro: { msg: 'Sessão terminada por inatividade.', codigo: 401 } });
     }, 30_000);
     return () => {
       evs.forEach((e) => window.removeEventListener(e, toque, { capture: true }));
       clearInterval(iv);
     };
   }, [st.carga, commit]);
+
+  // Sem sessão (o servidor não viu cookie) ou sessão recusada (401): vai para o login do site, que volta a esta página
+  const semEntrada = st.carga !== 'ok' && (st.erro?.codigo === 401 || (!st.erro && semSessao));
+  useEffect(() => {
+    if (semEntrada && !irParaLoginDoSite()) setLoginBloqueado(true);
+  }, [semEntrada]);
 
   const colors = getThemeColors(st.colorPreset, st.customPrimary, over);
   const isDark = st.theme === 'dark';
@@ -1051,58 +1042,26 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
   const logo = st.brand.logo || LOGO;
   const marca = st.brand.name.trim() || 'VisualHost';
 
-  // Enquanto os dados do servidor não chegam: a página branca, sem esqueleto — o painel aparece. A roda (como no DA) só
-  // para quem acabou de entrar pelo login do próprio painel; pelo site, ao recarregar ou ao abrir o endereço, nunca
-  // (Silva, 15/10/2026: "não quero spinner dentro do painel, somente na entrada para o painel via directo")
-  // já com o menu. Sem sessão: a página de entrada. Sem acesso / servidor indisponível: aviso com o que fazer a seguir.
+  // Enquanto os dados do servidor não chegam: a página branca, sem esqueleto nem roda (Silva, 15/10/2026: "não quero
+  // spinner dentro do painel") — o painel aparece já com o menu. Sem sessão: a caminho do login do site (o painel só
+  // se abre por lá). Sem acesso / servidor indisponível: aviso com o que fazer a seguir.
   if (st.carga !== 'ok') {
     const er = st.erro;
-    // sem sessão (cookie visto já no servidor) ou sessão recusada: a página de entrada no modelo do DA, sem piscar
-    const entrada = er?.codigo === 401 || (!er && !aEntrar && semSessao);
-    if (!er && !entrada) return (
+    const entrada = er?.codigo === 401 || (!er && semSessao);
+    const loginSite = loginDoSite(BASE + (st.path || ''));
+    if ((!er && !entrada) || (entrada && !loginBloqueado)) return (
       <div className="vh" data-theme={st.theme} style={themeStyles as React.CSSProperties} lang="pt-PT" suppressHydrationWarning>
-        <EsperaEntrada roda={aEntrar} />
+        <EsperaEntrada roda={false} />
       </div>
     );
-    if (entrada)
-      return (
-        <div className="vh" data-theme={st.theme} style={themeStyles as React.CSSProperties} lang={st.lang === 'en' ? 'en' : 'pt-PT'} suppressHydrationWarning>
-          <EntradaPainel
-            escuro={isDark}
-            modo={modoTema}
-            lang={st.lang}
-            voltarA={inicial.current && inicial.current !== '/' ? BASE + inicial.current : undefined}
-            onModo={(m) => {
-              setModoTema(m);
-              const dark = m === 'dark' || (m === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-              commit({ ...ref.current, theme: dark ? 'dark' : 'light' });
-            }}
-            onLang={(l) => {
-              commit({ ...ref.current, lang: l });
-              try {
-                localStorage.setItem(LINGUA_LS, l);
-              } catch {}
-            }}
-            onEntrou={() => {
-              setAEntrar(true);
-              setSemSessao(false);
-              commit({ ...ref.current, carga: 'a-carregar', erro: null });
-              // usa a leitura guardada no servidor (abre logo); se tiver mais de 1 min, atualiza por trás, sem roda
-              carregar().then(() => {
-                const lido = ref.current.carga === 'ok' && ref.current.lidoEm ? Date.parse(ref.current.lidoEm) : 0;
-                if (lido && Date.now() - lido > 60_000) carregar(true);
-              });
-            }}
-          />
-        </div>
-      );
-    const aviso =
-      er?.codigo === 403
+    const aviso = entrada
+      ? { fa: 'fa-right-to-bracket', titulo: er?.msg || 'Inicie sessão no site.', texto: 'A sessão do site não foi reconhecida. Entre de novo no site para abrir o painel.', botao: <a className="btn r" href={loginSite}><i className="fa-solid fa-right-to-bracket" />{t('Iniciar sessão no site')}</a> }
+      : er?.codigo === 403
           ? { fa: 'fa-user-lock', titulo: er.msg, texto: 'Se acha que é um engano, fale connosco: ligamos a sua conta ao servidor.', botao: <a className="btn g" href="/"><i className="fa-solid fa-arrow-left" />{t('Voltar ao site')}</a> }
           : { fa: 'fa-plug-circle-xmark', titulo: er?.msg || '', texto: 'O servidor não respondeu a tempo. Os seus dados estão seguros.', botao: (
               <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
                 <button className="btn r" onClick={() => { commit({ ...ref.current, carga: 'a-carregar', erro: null }); carregar(); }}><i className="fa-solid fa-rotate" />{t('Tentar de novo')}</button>
-                <button className="btn g" onClick={() => { setAEntrar(false); setSemSessao(true); commit({ ...ref.current, carga: 'a-carregar', erro: null }); }}><i className="fa-solid fa-arrow-left" />{t('Voltar à entrada')}</button>
+                <a className="btn g" href={loginSite}><i className="fa-solid fa-arrow-left" />{t('Voltar ao login do site')}</a>
               </div>
             ) };
     return (

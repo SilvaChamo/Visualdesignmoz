@@ -7,6 +7,7 @@
  *  - memória do que cada página já leu: ao voltar, aparece logo e atualiza-se por trás.
  */
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { irParaLoginDoSite } from '@/lib/vhost-cache';
 
 // ---------- Linha do topo: conta os pedidos ao site em curso ----------
 let emCurso = 0;
@@ -27,6 +28,13 @@ export const atividadeComeca = () => {
 /** Pedidos em segundo plano (atualizações automáticas) não mexem na linha do topo */
 export const FUNDO = { 'x-vh-fundo': '1' };
 
+/** Sessão recusada num pedido do painel (401): vai para o login do site, que volta à mesma página — em vez de cada
+ *  página mostrar "Inicie sessão no site" (o painel só se abre pelo login do site) */
+const sessaoRecusada = (r: Response) => {
+  if (r.status === 401) irParaLoginDoSite();
+  return r;
+};
+
 /** Conta todos os pedidos do painel a `/api/…` (também os das páginas do site embutidas). Instala-se uma vez. */
 export function instalarContador() {
   if (typeof window === 'undefined') return;
@@ -38,16 +46,22 @@ export function instalarContador() {
     const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
     const pathname = url.replace(location.origin, '');
     const cab = new Headers(init?.headers || (typeof input === 'object' && input && 'headers' in input ? (input as Request).headers : undefined));
+    let pedido: Promise<Response>;
     if (
       !/^(\/|https?:\/\/[^/]*\/)api\//.test(pathname) ||
       cab.has('x-vh-fundo') ||
       pathname.includes('system-status') ||
       pathname.includes('/api/vhost/tema')
     ) {
-      return original(input, init);
+      pedido = original(input, init);
+    } else {
+      const fim = atividadeComeca();
+      pedido = original(input, init).finally(fim);
     }
-    const fim = atividadeComeca();
-    return original(input, init).finally(fim);
+    // (o /api/vhost/entrar responde 401 a uma palavra-passe errada — não é sessão recusada)
+    return /^(\/|https?:\/\/[^/]*\/)api\/vhost\//.test(pathname) && !pathname.includes('/api/vhost/entrar')
+      ? pedido.then(sessaoRecusada)
+      : pedido;
   };
 }
 
