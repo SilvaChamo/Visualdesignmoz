@@ -1,4 +1,5 @@
 name: "Ops - ns1..ns4 no registo .com (SO LEITURA, sem tocar em servidores)"
+# Re-verificado depois da alteracao na Cloudflare (ns1/ns2 Hetzner, ns3/ns4 Contabo).
 
 # ============================================================================
 # SO LEITURA. 1) Confirma no registo .com (Verisign) os IPs de ns1..ns4
