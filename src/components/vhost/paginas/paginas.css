@@ -268,6 +268,7 @@
 .vh .btn.btn-ed:hover{background:color-mix(in srgb,var(--btn,var(--red)) 8%,transparent)}
 .vh .btn.btn-rm{background:transparent;border:1px solid #ef4444;color:#dc2626}
 .vh .btn.btn-rm:hover{background:rgba(239,68,68,.08)}
+.vh .btn.btn-gerir-widget,.vh .btn.btn-gerir-widget:hover{background:transparent!important;border:1px solid var(--red)!important;color:var(--red)!important}
 .vh[data-theme=dark] .btn.btn-ed{color:color-mix(in srgb,var(--btn,var(--red)) 70%,#fff)}
 .vh[data-theme=dark] .btn.btn-rm{color:#fca5a5}
 .vh .modal textarea{width:100%;border:1px solid var(--line);border-radius:var(--r);padding:8px 10px;background:var(--card);color:var(--ink);font-family:ui-monospace,Menlo,monospace;font-size:12px;resize:vertical}
@@ -1456,6 +1457,19 @@
  .vh .ssl-cert-domain-card .frm-head{flex-direction:column;align-items:flex-start}
  .vh .ssl-cert-domain-card .frm-head>:first-child{width:100%;flex:none}
  .vh .ssl-cert-domain-card .frm-head>.tag{align-self:flex-start}
+}
+
+.vh .ptitle .mobile-title{display:none}
+@media(max-width:768px){
+ .vh .top:is(.painel-inicio,.painel-entrada) .ptitle .desktop-title{display:none}
+ .vh .top:is(.painel-inicio,.painel-entrada) .ptitle .mobile-title{display:inline}
+ .vh .top.painel-inicio .ptitle small{display:none}
+ .vh .cols-main>.tbl.dt-empilhar.dominios-widget-list tbody td.dt-acoes-linha .btn.btn-gerir-widget:not(.iconbtn){
+  flex:0 0 calc(50% - 4px)!important;
+  width:calc(50% - 4px)!important;
+  justify-content:center;
+  margin-left:0;
+ }
 }
 
 /* Barra de cima no telemóvel (Silva, 14/10/2026: "reduzir os botões"): botões de 32 px, mais juntos, para o título ter

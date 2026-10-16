@@ -17,8 +17,7 @@ import { PesquisaNaPagina } from './pesquisa-pagina';
 import { useTituloAjustado } from './titulo-ajustado';
 import { SAIR_POR_INATIVIDADE_ATIVO } from '@/lib/session-inactivity';
 import { BarraTopo, EsperaPagina, atividadeComeca, instalarContador, type Espera } from './carga';
-import { aplicarCoresNoSite, badgeColors, getThemeColors, hexToRgb, luminancia, paletaDoSite, type CustomComponents } from './theme';
-import { useTheme } from '@/contexts/ThemeContext';
+import { badgeColors, getThemeColors, hexToRgb, luminancia, type CustomComponents } from './theme';
 import { FUNDO } from './carga';
 
 /** nomes antigos dos temas → nome atual (as cores gravadas ficam sempre no mesmo nome) */
@@ -38,7 +37,6 @@ import {
   ico,
   initialState,
   isUser,
-  LS,
   meOf,
   dominioGuardado,
   guardarDominio,
@@ -51,6 +49,7 @@ import { useBotoesTelemovel } from './botoes-telemovel';
 import type { Account, Level, MenuItem } from './types';
 
 const useIsomorphicLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
+type TemaConta = Pick<St, 'theme' | 'colorPreset' | 'customPrimary' | 'themeOver' | 'radius' | 'brand'>;
 
 // O mesmo ecrã com o endereço do browser (/host:2026/…) ou com o da rota no servidor (/host/…, por causa da
 // reescrita em src/proxy.ts): os dois dão o mesmo caminho interno, sem diferenças entre servidor e browser
@@ -153,34 +152,13 @@ function lerCache(): DadosServidor | null {
 const guardarCache = (d: DadosServidor) => guardarDadosVhost(d);
 const apagarCache = apagarDadosVhost;
 
-/** Aparência guardada no navegador (tema claro/escuro, separador do painel inicial, língua, cores, cantos e marca) */
+/** Preferências locais sem tema de conta (separador do painel inicial e língua). */
 function comPreferencias(s: St): St {
   const n = { ...s };
   try {
-    // claro/escuro: o mesmo do site todo (cookie vd-theme); "automático" (escolhido na página de entrada) segue o sistema
-    const tm = localStorage.getItem('visualhost_theme');
-    const doSite = (document.cookie.match(/(?:^|; )vd-theme=(light|dark)/) || [])[1] || localStorage.getItem('vd-theme');
-    if (tm === 'auto') n.theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-    else if (doSite === 'dark' || doSite === 'light') n.theme = doSite;
-    else if (tm === 'dark') n.theme = 'dark';
     if (localStorage.getItem('visualhost_dashtab') === 'menu') n.dashTab = 'menu';
     const lg = localStorage.getItem(LINGUA_LS);
     if (lg === 'pt' || lg === 'en') n.lang = lg;
-    n.colorPreset = presetId(localStorage.getItem(LS.preset) || n.colorPreset);
-    n.customPrimary = localStorage.getItem(LS.customPrimary) || '';
-    n.radius = localStorage.getItem(LS.radius) || n.radius;
-    const over = localStorage.getItem(LS.over);
-    if (over) n.themeOver = Object.fromEntries(Object.entries(JSON.parse(over) as Record<string, CustomComponents>).map(([k, v]) => [presetId(k), v]));
-    // formato antigo (antes de 10/10): umas só cores para todos os temas → ficam no tema escolhido
-    const antigo = localStorage.getItem(LS.overAntigo);
-    if (antigo) {
-      const c = JSON.parse(antigo) as CustomComponents | null;
-      if (c && !n.themeOver[n.colorPreset]) n.themeOver = { ...n.themeOver, [n.colorPreset]: c };
-      localStorage.setItem(LS.over, JSON.stringify(n.themeOver));
-      localStorage.removeItem(LS.overAntigo);
-    }
-    const brand = localStorage.getItem(LS.brand);
-    if (brand) n.brand = { name: '', logo: '', ...JSON.parse(brand) };
   } catch {}
   return n;
 }
@@ -329,12 +307,6 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
   const [semSessao, setSemSessao] = useState(!temSessao);
   const [modoTema, setModoTema] = useState<ModoTema>('light');
   useBotoesTelemovel();
-  useIsomorphicLayoutEffect(() => {
-    try {
-      const tm = localStorage.getItem('visualhost_theme');
-      setModoTema(tm === 'dark' ? 'dark' : tm === 'auto' ? 'auto' : 'light');
-    } catch {}
-  }, []);
   /** endereço com que o painel abriu (para o reabrir depois de chegarem os dados do servidor) */
   const inicial = useRef(stripBase(pathname));
   const ref = useRef(st);
@@ -351,24 +323,14 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
   const modalAberto = useRef(false);
   modalAberto.current = !!modal;
   const searchRef = useRef<HTMLInputElement>(null);
+  const temaSaveQueue = useRef<Promise<void>>(Promise.resolve());
+  const temaEdicoes = useRef(0);
 
   // Grava o estado novo (o painel de uma conta que deixou de ter acesso volta ao primeiro painel permitido)
   const commit = useCallback((next: St) => {
     next = noNivelPermitido(next);
     ref.current = next;
     setSt(next);
-  }, []);
-
-  // Claro/escuro do site todo (o painel e o site usam a mesma escolha)
-  const siteTema = useTheme();
-  /** Cores escolhidas no painel → site inteiro (pedido do Silva a 11/10): aplicadas já neste navegador e gravadas no
-   *  servidor para todos os visitantes (o servidor só aceita do administrador) */
-  const publicarTema = useCallback(() => {
-    const n = ref.current;
-    const over = n.themeOver[n.colorPreset];
-    const vars = paletaDoSite(getThemeColors(n.colorPreset, n.customPrimary, over).primary);
-    aplicarCoresNoSite(vars);
-    fetch('/api/vhost/tema', { method: 'POST', headers: { 'Content-Type': 'application/json', ...FUNDO }, body: JSON.stringify({ preset: n.colorPreset, customPrimary: n.customPrimary || undefined, over: over || {}, radius: n.radius, vars }) }).catch(() => {});
   }, []);
 
   const pushUrl = (path: string, replace = false) => {
@@ -436,6 +398,41 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
     toastTimer.current = setTimeout(() => setToastMsg((m) => ({ ...m, on: false })), 5500);
   }, []);
 
+  const guardarTema = useCallback(
+    (next: St) => {
+      if (next.carga !== 'ok') return;
+      temaEdicoes.current++;
+      const preferencias: TemaConta = {
+        theme: next.theme,
+        colorPreset: next.colorPreset,
+        customPrimary: next.customPrimary,
+        themeOver: next.themeOver,
+        radius: next.radius,
+        brand: next.brand,
+      };
+      const corpo = {
+        ...(next.stack.length ? { conta: meOf(next) } : {}),
+        preferencias,
+      };
+      const salvar = async () => {
+        const resposta = await fetch('/api/vhost/tema-conta', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...FUNDO },
+          body: JSON.stringify(corpo),
+        });
+        const resultado = (await resposta.json().catch(() => ({}))) as { erro?: string };
+        if (!resposta.ok) throw new Error(resultado.erro || `HTTP ${resposta.status}`);
+      };
+      temaSaveQueue.current = temaSaveQueue.current
+        .then(salvar, salvar)
+        .catch((erro: unknown) => {
+          console.error('[VisualHost] não foi possível guardar o tema da conta', erro);
+          toast('Não foi possível guardar as preferências do painel.');
+        });
+    },
+    [toast],
+  );
+
   const pausarToast = useCallback(() => {
     if (toastTimer.current) {
       clearTimeout(toastTimer.current);
@@ -460,30 +457,55 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
   const openSearch = useCallback(() => setSearch({ open: true, q: '', si: 0 }), []);
   const closePop = () => setPop(null);
 
-  // Aparência guardada no navegador (tema claro/escuro, separador do painel inicial, cores, cantos e marca);
+  // Preferências locais sem tema de conta (separador do painel inicial e língua);
   // endereço sem ecrã → primeiro painel da conta
   useIsomorphicLayoutEffect(() => {
     commit(comPreferencias(ref.current));
     pushUrl(ref.current.path, true);
-    // cores do site escolhidas pelo administrador: valem aqui também, salvo se esta pessoa escolheu outras no painel
-    fetch('/api/vhost/tema', { headers: FUNDO })
-      .then((r) => r.json())
-      .then((j: { tema?: { preset: string; customPrimary?: string; over?: CustomComponents; radius?: string; vars?: Record<string, string> } | null }) => {
-        const g = j.tema;
-        if (!g) return;
-        let local = false;
-        try {
-          local = !!localStorage.getItem(LS.preset);
-        } catch {}
-        if (local) return;
-        const preset = presetId(g.preset);
-        commit({ ...ref.current, colorPreset: preset, customPrimary: g.customPrimary || ref.current.customPrimary, radius: g.radius || ref.current.radius, themeOver: g.over && Object.keys(g.over).length ? { ...ref.current.themeOver, [preset]: g.over } : ref.current.themeOver });
-      })
-      .catch(() => {});
     const onPop = () => commit(fromPath(ref.current, stripBase(window.location.pathname)));
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
   }, [commit]);
+
+  const contaTema = st.stack.length ? meOf(st) : st.login;
+  const contaTemaImpersonada = st.stack.length > 0;
+  useEffect(() => {
+    if (st.carga !== 'ok' || !contaTema) return;
+    const chave = (contaTemaImpersonada ? 'conta:' : 'pessoa:') + contaTema;
+    const edicoesNoInicio = temaEdicoes.current;
+    let ativo = true;
+    const padrao: TemaConta = {
+      theme: 'light',
+      colorPreset: 'visualdesign',
+      customPrimary: '',
+      themeOver: {},
+      radius: '4px',
+      brand: { name: '', logo: '' },
+    };
+    commit({ ...ref.current, ...padrao, themePreview: null });
+    const query = contaTemaImpersonada ? '?conta=' + encodeURIComponent(contaTema) : '';
+    fetch('/api/vhost/tema-conta' + query, { cache: 'no-store', headers: FUNDO })
+      .then(async (resposta) => {
+        const dados = (await resposta.json().catch(() => ({}))) as { preferencias?: TemaConta | null; erro?: string };
+        if (!resposta.ok) throw new Error(dados.erro || `HTTP ${resposta.status}`);
+        return dados;
+      })
+      .then((dados) => {
+        if (!ativo || edicoesNoInicio !== temaEdicoes.current) return;
+        const atual = ref.current;
+        const chaveAtual = (atual.stack.length ? 'conta:' : 'pessoa:') + (atual.stack.length ? meOf(atual) : atual.login);
+        if (chaveAtual !== chave) return;
+        commit({ ...atual, ...(dados.preferencias || padrao), themePreview: null });
+      })
+      .catch((erro: unknown) => {
+        if (!ativo) return;
+        console.error('[VisualHost] não foi possível carregar o tema da conta', erro);
+        toast('Não foi possível carregar as preferências do painel.');
+      });
+    return () => {
+      ativo = false;
+    };
+  }, [st.carga, contaTema, contaTemaImpersonada, commit, toast]);
 
   // Põe no painel os dados de uma leitura (do servidor, ou a última guardada neste navegador ao abrir)
   const aplicar = useCallback(
@@ -566,7 +588,7 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
     },
     [commit, aplicar, temSessao],
   );
-  useEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     carregar();
   }, [carregar]);
 
@@ -734,24 +756,18 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
     },
     toggleTheme: () => {
       const dark = ref.current.theme !== 'dark';
-      const theme = dark ? 'dark' : 'light';
-      commit({ ...ref.current, theme });
-      try {
-        localStorage.setItem('visualhost_theme', theme);
-      } catch {}
-      siteTema.setTheme(theme); // o site todo fica no mesmo modo
+      const theme: St['theme'] = dark ? 'dark' : 'light';
+      const next = { ...ref.current, theme };
+      commit(next);
+      guardarTema(next);
       toast(dark ? 'Tema escuro' : 'Tema claro');
     },
-    // Cores: o tema escolhido e as cores mudadas à mão em cada tema ficam guardados no navegador
     setColorPreset: (id, customPrimary) => {
       const cp = customPrimary ?? ref.current.customPrimary;
       const colorPreset = presetId(id);
-      commit({ ...ref.current, colorPreset, customPrimary: cp, themePreview: null });
-      try {
-        localStorage.setItem(LS.preset, colorPreset);
-        if (cp) localStorage.setItem(LS.customPrimary, cp);
-      } catch {}
-      publicarTema();
+      const next = { ...ref.current, colorPreset, customPrimary: cp, themePreview: null };
+      commit(next);
+      guardarTema(next);
       toast('Tema de cores aplicado');
     },
     saveThemeColors: (c) => {
@@ -759,20 +775,16 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
       const themeOver = { ...ref.current.themeOver };
       if (c && Object.keys(c).length) themeOver[k] = c;
       else delete themeOver[k];
-      commit({ ...ref.current, themeOver, themePreview: null });
-      try {
-        localStorage.setItem(LS.over, JSON.stringify(themeOver));
-      } catch {}
-      publicarTema();
+      const next = { ...ref.current, themeOver, themePreview: null };
+      commit(next);
+      guardarTema(next);
       toast(c ? 'Cores guardadas neste tema' : 'Cores do tema repostas');
     },
     previewThemeColors: (c) => commit({ ...ref.current, themePreview: c }),
     setRadius: (r) => {
-      commit({ ...ref.current, radius: r });
-      try {
-        localStorage.setItem(LS.radius, r);
-      } catch {}
-      publicarTema();
+      const next = { ...ref.current, radius: r };
+      commit(next);
+      guardarTema(next);
       toast('Cantos atualizados');
     },
     setAcessos: (acessos) => commit({ ...ref.current, acessos }),
@@ -782,10 +794,9 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
       if (aviso) toast('Domínio: ' + d);
     },
     setBrand: (b) => {
-      commit({ ...ref.current, brand: b });
-      try {
-        localStorage.setItem(LS.brand, JSON.stringify(b));
-      } catch {}
+      const next = { ...ref.current, brand: b };
+      commit(next);
+      guardarTema(next);
       toast('Marca guardada');
     },
     openSearch,
@@ -801,8 +812,7 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
   const home = s.page === 'inicio' && !s.deny;
   const sec = GLOBAL[s.page]?.sub ? GLOBAL[s.page] : null;
 
-  // Troca de página como no DirectAdmin: a página nova prepara-se escondida e só substitui a anterior (título,
-  // botões, caminho e conteúdo) quando as suas leituras acabam; com tudo em memória troca logo. Nunca espera > 10 s.
+  // A página anterior só sai quando a nova terminou as leituras; não se revela uma página vazia por timeout.
   // O domínio escolhido no seletor conta como página nova (pedido do Silva, 12/10): sem isto, mudar de domínio na
   // mesma página apagava o conteúdo e deixava-a vazia até chegarem os dados do domínio novo.
   const semCartao = (s.page === 'inicio' || !s.page) && s.dashTab !== 'menu' && !s.deny;
@@ -848,12 +858,6 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
     liberada.current = k;
     refazer();
   }, []);
-  useEffect(() => {
-    if (!aEspera) return;
-    const tm = setTimeout(() => libertar(chavePag), 10_000);
-    return () => clearTimeout(tm);
-  }, [aEspera, chavePag, libertar]);
-
   const toggleGrp = (k: string) => {
     const willOpen = !st.open[k];
     commit({ ...ref.current, open: willOpen ? { [k]: true } : { ...ref.current.open, [k]: false } });
@@ -932,8 +936,14 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
   // O modo claro/escuro é o do site todo (classe "dark" no <html>): o painel aplica-o e não o desfaz ao sair
   useEffect(() => {
     const h = document.documentElement;
+    const darkAnterior = h.classList.contains('dark');
+    const esquemaAnterior = h.style.colorScheme;
     h.classList.toggle('dark', isDark);
     h.style.colorScheme = isDark ? 'dark' : 'light';
+    return () => {
+      h.classList.toggle('dark', darkAnterior);
+      h.style.colorScheme = esquemaAnterior;
+    };
   }, [isDark]);
   const rgbPrim = hexToRgb(colors.primary);
   const darkGlassRail = rgbPrim && st.colorPreset !== 'black' && st.colorPreset !== 'puro_black'
@@ -990,10 +1000,6 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
               setModoTema(m);
               const dark = m === 'dark' || (m === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
               commit({ ...ref.current, theme: dark ? 'dark' : 'light' });
-              siteTema.setTheme(dark ? 'dark' : 'light');
-              try {
-                localStorage.setItem('visualhost_theme', m);
-              } catch {}
             }}
             onLang={(l) => {
               commit({ ...ref.current, lang: l });
@@ -1042,12 +1048,15 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
             </div>
           </aside>
           <div className="right">
-            <header className="top">
+            <header className="top painel-entrada">
               <div className="ptitle">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img className="only-m" src={logo} alt="" />
                 <div className="bt">
-                  <h1>{t('Painel VisualHost')}</h1>
+                  <h1>
+                    <span className="desktop-title">{t('Painel VisualHost')}</span>
+                    <span className="mobile-title">{t('Painel')}</span>
+                  </h1>
                 </div>
               </div>
               <div className="sp" />
@@ -1203,13 +1212,14 @@ export function VisualHostApp({ temSessao = true, versao = 'dev' }: { temSessao?
           </aside>
 
           <div className="right">
-            <header className="top">
+            <header className={'top' + (mostra.home ? ' painel-inicio' : '')}>
               <div className="ptitle">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img className="only-m" src={logo} alt="" style={st.brand.logo ? { objectFit: 'contain' } : undefined} />
                 <div className="bt">
                   <h1 id="ptitle" title={mostra.title}>
-                    {mostra.title}
+                    <span className="desktop-title">{mostra.title}</span>
+                    <span className="mobile-title">{t('Painel')}</span>
                   </h1>
                   <small id="pdesc" title={mostra.desc}>
                     {mostra.scr.descEl ?? mostra.desc}

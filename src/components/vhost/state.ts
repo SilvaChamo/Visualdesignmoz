@@ -65,18 +65,8 @@ export interface St {
   brand: { name: string; logo: string };
 }
 
-/** Chaves no navegador (tudo o que é aparência fica no navegador de quem usa) */
-export const LS = {
-  preset: 'visualhost_color_preset',
-  customPrimary: 'visualhost_custom_primary',
-  over: 'visualhost_theme_over',
-  overAntigo: 'visualhost_custom_components',
-  radius: 'visualhost_radius',
-  brand: 'visualhost_brand',
-};
-
-// O estado inicial é sempre o mesmo no servidor e no navegador; o que está guardado no navegador
-// (tema claro/escuro, cores, cantos, marca) entra logo a seguir, em VisualHostApp.
+// O estado inicial é sempre o mesmo no servidor e no navegador; as preferências privadas da conta
+// (tema, cores, cantos e marca) são lidas do servidor depois de a sessão do painel estar pronta.
 export function initialState(path: string): St {
   return fromPath(
     {

@@ -601,7 +601,7 @@ function temaScreen(vh: VH): Screen {
   return {
     title: 'Personalizar painel',
     crumbs,
-    body: <ThemeCustomizerView />,
+    body: <ThemeCustomizerView key={vh.me} />,
   };
 }
 

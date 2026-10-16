@@ -84,8 +84,15 @@ async function hestiaCallViaSsh(cmd: string, args: string[], timeoutMs = 20_000)
 const HESTIA_HTTP_TIMEOUT_MS = 5_000;
 const HESTIA_SSH_FALLBACK_MS = 12_000;
 
-export async function hestiaCall(cmd: string, args: string[] = []): Promise<HestiaCallResult> {
+type HestiaCallOptions = {
+  timeoutMs?: number;
+  sshTimeoutMs?: number;
+  sshFallbackOnTransportError?: boolean;
+};
+
+export async function hestiaCall(cmd: string, args: string[] = [], options: HestiaCallOptions = {}): Promise<HestiaCallResult> {
   const { host, port, user, password } = resolveHestiaConfig();
+  const timeoutMs = options.timeoutMs ?? HESTIA_HTTP_TIMEOUT_MS;
 
   const body = new URLSearchParams();
   body.set('user', user);
@@ -100,10 +107,27 @@ export async function hestiaCall(cmd: string, args: string[] = []): Promise<Hest
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: body.toString(),
       cache: 'no-store',
-      signal: AbortSignal.timeout(HESTIA_HTTP_TIMEOUT_MS),
+      signal: AbortSignal.timeout(timeoutMs),
     });
-  } catch {
-    return hestiaCallViaSsh(cmd, args, HESTIA_SSH_FALLBACK_MS);
+  } catch (e) {
+    const nomeErro = e instanceof Error ? e.name : '';
+    if (nomeErro === 'TimeoutError' || nomeErro === 'AbortError') {
+      return {
+        ok: false,
+        exitCode: -1,
+        output: '',
+        error: 'O Hestia demorou a responder. O pedido pode ainda estar em curso; não foi repetido automaticamente.',
+      };
+    }
+    if (options.sshFallbackOnTransportError === false) {
+      return {
+        ok: false,
+        exitCode: -1,
+        output: '',
+        error: 'Não foi possível confirmar se o Hestia recebeu o pedido; não foi repetido para evitar duplicar a operação.',
+      };
+    }
+    return hestiaCallViaSsh(cmd, args, options.sshTimeoutMs ?? HESTIA_SSH_FALLBACK_MS);
   }
 
   const output = (await response.text()).trim();
@@ -112,7 +136,7 @@ export async function hestiaCall(cmd: string, args: string[] = []): Promise<Hest
 
   if (exitCode !== 0) {
     if (/ip is not allowed/i.test(output)) {
-      return hestiaCallViaSsh(cmd, args, HESTIA_SSH_FALLBACK_MS);
+      return hestiaCallViaSsh(cmd, args, options.sshTimeoutMs ?? HESTIA_SSH_FALLBACK_MS);
     }
     return { ok: false, exitCode, output, error: output || `Comando ${cmd} falhou (código ${exitCode})` };
   }
