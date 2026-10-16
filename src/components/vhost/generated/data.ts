@@ -666,6 +666,8 @@ export const EN: Record<string, string> = {
  "Criado por": "Creator",
  "Pacote": "Package",
  "Disco": "Disk",
+ "Disco do site": "Site disk",
+ "Espaço usado pelos ficheiros deste site. O total da conta (com e-mails e bases de dados) está em Espaço em disco, por cima.": "Space used by this website’s files. The account total (with e-mails and databases) is in Disk space, above.",
  "Estado": "Status",
  "Domínio": "Domain",
  "E-mails": "E-mails",

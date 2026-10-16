@@ -1544,9 +1544,9 @@
  .vh .em-lado-stats .stat strong span{display:block;margin-top:2px;line-height:1.3}
 }
 /* Painel (widget dos domínios), telemóvel: o nome do campo em negrito, com a mesma fonte e o mesmo tamanho do valor, e
-   os valores (Válido, 0, 8.3, 48 MB, Ativo) todos encostados à esquerda numa mesma linha vertical invisível, 25 px
-   depois do nome mais comprido (Silva, 16/10/2026) */
+   os valores (Válido, 0, 8.3, 48 MB, Ativo) todos encostados à esquerda numa mesma linha vertical invisível; a coluna
+   dos nomes (7em) cabe o mais comprido, "Disco do site" (Silva, 16/10/2026) */
 @media(max-width:768px){
  .vh .tbl.dt-empilhar.dominios-widget-list tbody td[data-t]{gap:25px;font-family:inherit;font-size:14px}
- .vh .tbl.dt-empilhar.dominios-widget-list tbody td[data-t]::before{flex:0 0 4.4em;width:4.4em;min-width:0;white-space:nowrap;font-family:inherit;font-size:inherit;font-weight:700;color:var(--ink)}
+ .vh .tbl.dt-empilhar.dominios-widget-list tbody td[data-t]::before{flex:0 0 7em;width:7em;min-width:0;white-space:nowrap;font-family:inherit;font-size:inherit;font-weight:700;color:var(--ink)}
 }

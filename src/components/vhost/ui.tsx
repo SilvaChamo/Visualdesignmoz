@@ -582,6 +582,9 @@ export function UsersTable({ rows, showCreator = true }: { rows: [string, Accoun
 export function DomTable({ filter = '' }: { filter?: string }) {
   const { a, s, t, nav, setDominio } = useVH();
   const rows = a.domains.filter((d) => d.name.includes(filter));
+  // o disco de cada linha é só o do site (ficheiros); o total da conta está no cartão "Espaço em disco" — dito às claras
+  // para o cliente não comparar os dois (Silva, 16/10/2026: "não é explícito, ele pode reclamar")
+  const ajudaDisco = t('Espaço usado pelos ficheiros deste site. O total da conta (com e-mails e bases de dados) está em Espaço em disco, por cima.');
   return (
     <div className="tbl dt-empilhar dominios-widget-list">
       <table>
@@ -591,7 +594,7 @@ export function DomTable({ filter = '' }: { filter?: string }) {
             <th>SSL</th>
             <th>{t('E-mails')}</th>
             <th>PHP</th>
-            <th>{t('Disco')}</th>
+            <th title={ajudaDisco}>{t('Disco do site')}</th>
             <th>{t('Estado')}</th>
             <th></th>
           </tr>
@@ -624,7 +627,7 @@ export function DomTable({ filter = '' }: { filter?: string }) {
                 <td data-t="SSL">{d.ssl === 'ok' ? <span className="tag ok">{t('Válido')}</span> : <span className="tag w">{t('Sem SSL')}</span>}</td>
                 <td data-t={t('E-mails')}>{a.mails.filter((m) => m.dom === d.name).length}</td>
                 <td data-t="PHP">{d.php}</td>
-                <td data-t={t('Disco')}>{d.disk}</td>
+                <td data-t={t('Disco do site')} title={ajudaDisco}>{d.disk}</td>
                 <td data-t={t('Estado')}>{d.status === 'ok' ? <span className="tag ok">{t('Ativo')}</span> : <span className="tag w">{t('Atenção')}</span>}</td>
                 <td className="dt-acoes-linha" style={{ textAlign: 'right' }}>
                   <button
