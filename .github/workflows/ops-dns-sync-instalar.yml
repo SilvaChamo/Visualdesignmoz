@@ -24,7 +24,7 @@ on:
       - '.github/workflows/ops-dns-sync-instalar.yml'
 
 env:
-  MODO: seco
+  MODO: aplicar
 
 jobs:
   mltmark:
