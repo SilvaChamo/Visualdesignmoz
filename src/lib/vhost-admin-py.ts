@@ -556,6 +556,7 @@ if ver == 'editor':
     sai({'ficheiros': [ed_info(k) for k in ED]})
 if ver == 'editor-ler':
     k = arg.get('ficheiro', '')
+    if k == 'auto': k = next((x for x in ED if os.path.exists(ED[x][0])), '')
     if k not in ED: sai({'erro': 'Ficheiro desconhecido.'})
     i = ed_info(k)
     if not i['existe']: sai({**i, 'texto': '', 'copias': []})

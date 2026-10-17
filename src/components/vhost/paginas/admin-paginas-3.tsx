@@ -357,8 +357,13 @@ function EditorSistema() {
   const lista = useGet<{ ficheiros: Ficheiro[] }>(ED_URL);
   const existentes = lista.dados?.ficheiros.filter((f) => f.existe) || [];
   const [id, setId] = useState('');
-  const atual = id && existentes.some((f) => f.id === id) ? id : existentes[0]?.id || '';
-  const { dados, erro, ler } = useGet<Aberto>(atual ? edLer(atual) : null);
+  // ao abrir, a lista e o primeiro ficheiro leem-se ao mesmo tempo ("auto" = o primeiro que existe no servidor)
+  const { dados, erro, ler } = useGet<Aberto>(edLer(id || 'auto'));
+  // ao mudar de ficheiro, o anterior fica à vista (mais claro e só de leitura) até chegar o novo
+  const ultimo = useRef<Aberto | null>(null);
+  if (dados) ultimo.current = dados;
+  const d = dados || ultimo.current;
+  const atual = id || dados?.id || '';
   const [txt, setTxt] = useState<string | null>(null);
   const [falha, setFalha] = useState('');
   const [aGravar, setAGravar] = useState(false);
@@ -370,11 +375,16 @@ function EditorSistema() {
   }, [versao]);
   if (!lista.dados) return <Carregando erro={lista.erro} ler={lista.ler} />;
   if (!existentes.length) return <div className="card empty">{t('Nenhum dos ficheiros de configuração conhecidos existe neste servidor.')}</div>;
-  const texto = txt ?? dados?.texto ?? '';
+  const texto = txt ?? d?.texto ?? '';
   const mudou = !!dados && txt !== null && txt !== dados.texto;
+  const abrir = (novo: string) => {
+    setTxt(null);
+    setFalha('');
+    setId(novo);
+  };
   const escolher = (novo: string) => {
-    if (!mudou) return setId(novo);
-    vh.openM(<Confirmar titulo="Sair sem gravar?" texto={t('As alterações a') + ' ' + dados?.caminho + ' ' + t('perdem-se.')} ok="Sair sem gravar" onOk={() => setId(novo)} />);
+    if (!mudou) return abrir(novo);
+    vh.openM(<Confirmar titulo="Sair sem gravar?" texto={t('As alterações a') + ' ' + dados?.caminho + ' ' + t('perdem-se.')} ok="Sair sem gravar" onOk={() => abrir(novo)} />);
   };
   const guardar = async () => {
     if (!dados) return;
@@ -422,20 +432,20 @@ function EditorSistema() {
             </option>
           ))}
         </select>
-        {dados && (
+        {d && (
           <span className="pm-desc">
-            <code>{dados.caminho}</code> · {tam(dados.tamanho)}
+            <code>{d.caminho}</code> · {tam(d.tamanho)}
           </span>
         )}
       </div>
-      {!dados ? (
+      {!d ? (
         <Carregando erro={erro} ler={ler} />
       ) : aba === 'copias' ? (
         <DataTable
           id="ad-ed-copias"
           umaLinha
           barraFora
-          rows={dados.copias}
+          rows={d.copias}
           rowKey={(r) => r.nome}
           empty="Ainda não há cópias deste ficheiro"
           cols={[
@@ -445,11 +455,11 @@ function EditorSistema() {
           acoesNaColuna
           bulk={[{ t: 'Restaurar', fa: 'fa-clock-rotate-left', run: restaurar }]}
         />
-      ) : dados.grande ? (
+      ) : d.grande ? (
         <div className="card empty">{t('Este ficheiro tem mais de 1 MB; edite-o pelo terminal.')}</div>
       ) : (
         <>
-          <textarea className="ad-editor" value={texto} onChange={(e) => setTxt(e.target.value)} spellCheck={false} wrap="off" aria-label={dados.caminho} />
+          <textarea className={'ad-editor' + (dados ? '' : ' ad-a-ler')} readOnly={!dados} value={texto} onChange={(e) => setTxt(e.target.value)} spellCheck={false} wrap="off" aria-label={d.caminho} />
           {falha && (
             <div className="imp ad-falha">
               <i className="fa-solid fa-triangle-exclamation" />
@@ -458,21 +468,21 @@ function EditorSistema() {
           )}
           <p className="pm-desc ad-ed-nota">
             {t('Antes de gravar fica uma cópia (as 10 últimas).')}{' '}
-            {dados.teste && (
+            {d.teste && (
               <>
-                {t('Verifica-se com')} <code>{dados.teste}</code>
-                {dados.recarga ? (
+                {t('Verifica-se com')} <code>{d.teste}</code>
+                {d.recarga ? (
                   <>
                     {' '}
-                    {t('e aplica-se com')} <code>{dados.recarga}</code>
+                    {t('e aplica-se com')} <code>{d.recarga}</code>
                   </>
                 ) : null}
                 .{' '}
               </>
             )}
-            {!dados.teste && dados.recarga && (
+            {!d.teste && d.recarga && (
               <>
-                {t('Aplica-se com')} <code>{dados.recarga}</code>.{' '}
+                {t('Aplica-se com')} <code>{d.recarga}</code>.{' '}
               </>
             )}
             {t('Se a verificação falhar, o ficheiro volta ao que estava.')}
