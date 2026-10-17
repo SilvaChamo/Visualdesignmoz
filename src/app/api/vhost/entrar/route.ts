@@ -25,15 +25,31 @@ function comTempo<T>(p: Promise<T>, ms: number): Promise<T | null> {
  */
 export async function POST(req: NextRequest) {
   const b = (await req.json().catch(() => ({}))) as Record<string, unknown>;
-  const nome = String(b.utilizador || '').trim().toLowerCase();
+  const pedido = String(b.utilizador || '').trim().toLowerCase();
+  let nome = pedido;
   const senha = String(b.senha || '');
   const falha = () => NextResponse.json({ erro: 'Utilizador ou palavra-passe errados.' }, { status: 401 });
-  if (!senha || !/^[a-z0-9._-]{1,64}$/.test(nome)) return falha();
+  // admin@<domínio da conta>: a conta também entra pelo endereço admin do seu domínio, com a mesma palavra-passe (Silva,
+  // 17/10/2026: "a conta admin, o nome da conta e o e-mail usado para registar a conta podem entrar")
+  const adminDoDominio = pedido.match(/^admin@((?:[a-z0-9-]+\.)+[a-z]{2,})$/);
+  if (!senha || (!adminDoDominio && !/^[a-z0-9._-]{1,64}$/.test(nome))) return falha();
 
-  const chave = loginRateLimitKey(req, 'utilizador:' + nome);
+  const chave = loginRateLimitKey(req, 'utilizador:' + pedido);
   const limite = await checkAndRegisterLoginAttempt(chave);
   if (!limite.allowed) {
     return NextResponse.json({ erro: 'Demasiadas tentativas. Tente novamente daqui a alguns minutos.' }, { status: 429, headers: { 'Retry-After': String(limite.retryAfterSeconds) } });
+  }
+
+  if (adminDoDominio) {
+    const dono = await comTempo(
+      (async () => {
+        const { findHestiaDomainOwner } = await import('@/lib/hosting-resolver');
+        return findHestiaDomainOwner(adminDoDominio[1]);
+      })(),
+      10_000,
+    );
+    if (!dono || !/^[a-z0-9._-]{1,64}$/.test(dono.toLowerCase())) return falha();
+    nome = dono.toLowerCase();
   }
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
