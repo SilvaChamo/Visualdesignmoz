@@ -3,7 +3,7 @@ name: "Ops - Contas e planos no Contabo (SÓ LEITURA, 17/10/2026)"
 # Antes de mudar alguma coisa, ver como estão: contas do Hestia, pacote, sites, domínios e contas de e-mail, e os pacotes
 # que existem. Só lê, não muda nada. Corre uma vez neste ramo de trabalho e sai a seguir. O repositório é público:
 # palavras-passe e chaves nunca aparecem (os comandos v-list-* não as mostram).
-# 2.ª leitura: DNS e resposta pública dos quatro sites, pastas dos sites, bases de dados do mltmark.
+# 3.ª leitura: se os sites de concordia e provisualcorporate são servidos daqui. 2.ª leitura: DNS e resposta pública dos quatro sites, pastas dos sites, bases de dados do mltmark.
 on:
   push:
     branches: [claude/tender-johnson-wzert9]
@@ -22,22 +22,16 @@ jobs:
           script: |
             set +e
             H=/usr/local/hestia/bin
-            echo "=== 2.ª leitura: onde está cada site e se o pacote pode mudar ==="
-            head -20 $H/v-change-user-package | grep -iE "options|force|usage|info"
-            grep -n "FORCE\|force" $H/v-change-user-package | head
-            cat /usr/local/hestia/conf/hestia.conf 2>/dev/null | grep -E "^VERSION" 
-            for d in aamihe.com mltmark.com concordia.co.mz provisualcorporate.co.mz; do
+            echo "=== 3.ª leitura: os sites de concordia e provisualcorporate são servidos daqui? ==="
+            for x in concordia:concordia.co.mz provisualcorporate:provisualcorporate.co.mz; do
+              u=${x%%:*}; d=${x#*:}
               echo "--- $d"
-              echo "  NS: $(dig +short NS $d @1.1.1.1 | tr '\n' ' ')"
-              echo "  A:  $(dig +short A $d @1.1.1.1 | tr '\n' ' ')  www: $(dig +short A www.$d @1.1.1.1 | tr '\n' ' ')"
-              echo "  MX: $(dig +short MX $d @1.1.1.1 | tr '\n' ' ')"
-              echo "  resposta pública: $(curl -sI -m 10 https://$d | grep -iE '^(HTTP|server|x-vercel-id|x-powered-by)' | tr -d '\r' | tr '\n' ' ')"
+              echo "  ficheiro no servidor: $(md5sum /home/$u/web/$d/public_html/index.html | cut -c1-12)"
+              echo "  página pública:       $(curl -s -m 15 https://$d/ | md5sum | cut -c1-12) (tamanho $(curl -s -m 15 https://$d/ | wc -c))"
+              echo "  www pública:          $(curl -s -m 15 -L https://www.$d/ | md5sum | cut -c1-12) (tamanho $(curl -s -m 15 -L https://www.$d/ | wc -c))"
+              echo "  título público: $(curl -s -m 15 -L https://$d/ | grep -o '<title>[^<]*' | head -1)"
+              echo "  título local:   $(grep -o '<title>[^<]*' /home/$u/web/$d/public_html/index.html | head -1)"
+              echo "  pedidos de fora nos últimos registos do nginx: $(tail -n 2000 /var/log/nginx/domains/$d.log 2>/dev/null | grep -vc '127.0.0.1')"
+              tail -n 3 /var/log/nginx/domains/$d.log 2>/dev/null | cut -c1-160
             done
-            echo "--- conteúdo das pastas dos sites de concordia e provisualcorporate (só nomes)"
-            ls -la /home/concordia/web/concordia.co.mz/public_html 2>/dev/null
-            ls -la /home/provisualcorporate/web/provisualcorporate.co.mz/public_html 2>/dev/null
-            echo "--- bases de dados do mltmark"
-            $H/v-list-databases mltmark plain 2>/dev/null | cut -f1,2,3
-            echo "--- registo do Hestia: mudanças de pacote destas contas"
-            grep -h "change-user-package" /usr/local/hestia/log/system.log /usr/local/hestia/log/auth.log 2>/dev/null | grep -E "mltmark|concordia|provisual|aamihe" | tail -15
             echo "=== fim ==="
