@@ -24,7 +24,7 @@ export type LeituraServidor = {
   db: Record<string, Tabela>;
   /** discoTotal/discoUsado: a partição do sistema (df /); discoFisico: o tamanho de todos os discos (lsblk) — se for
    *  maior do que a partição, o disco foi aumentado mas a partição ainda não foi alargada. cpuPct: consumo real do CPU
-   *  medido durante 1 s (/proc/stat), em % de todos os núcleos */
+   *  (/proc/stat) entre a leitura anterior e esta, em % de todos os núcleos; -1 quando não há medida (ver cpuEntreLeituras) */
   recursos: { cpus: number; memTotal: number; memUsada: number; memLivre: number; discoTotal: number; discoUsado: number; discoFisico: number; cpuPct: number; carga: [number, number, number] };
   web: Record<string, Tabela>;
   wp: Record<string, string[]>;
@@ -39,9 +39,8 @@ export type LeituraServidor = {
 const SCRIPT = String.raw`
 H=/usr/local/hestia/bin
 T=$(mktemp -d)
-# CPU medido ANTES de lançar as leituras em paralelo: medido durante elas dava sempre 100% (era a própria leitura do
-# painel a ocupar os núcleos naquele segundo — Silva, 15/10/2026: "o CPU está sempre a 100%")
-C1=$(head -1 /proc/stat | cut -d' ' -f2-); sleep 1; C2=$(head -1 /proc/stat | cut -d' ' -f2-)
+# CPU: /proc/stat no início e no fim da leitura (o consumo calcula-se entre leituras, ver cpuEntreLeituras)
+C1=$(head -1 /proc/stat | cut -d' ' -f2-)
 ( echo "@@USERS"; $H/v-list-users json ) > $T/0a &
 ( echo "@@PACKAGES"; $H/v-list-user-packages json ) > $T/0b &
 ( echo "@@SYSINFO"; $H/v-list-sys-info json ) > $T/0c &
@@ -49,8 +48,7 @@ C1=$(head -1 /proc/stat | cut -d' ' -f2-); sleep 1; C2=$(head -1 /proc/stat | cu
 ( echo "@@SERV"; $H/v-list-sys-services json ) > $T/0e &
 ( echo "@@PHP"; $H/v-list-sys-php json ) > $T/0g &
 ( echo "@@RES"; nproc; free -b | awk '/^Mem:/{print $2, $3, $7}'; df -B1 --output=size,used / | tail -1; cat /proc/loadavg
-  lsblk -bdno SIZE,TYPE 2>/dev/null | awk '$2=="disk"{s+=$1} END{print s+0}'
-  echo "$C1"; echo "$C2" ) > $T/0f &
+  lsblk -bdno SIZE,TYPE 2>/dev/null | awk '$2=="disk"{s+=$1} END{print s+0}' ) > $T/0f &
 for u in $(ls /usr/local/hestia/data/users/); do
   ( echo "@@WEB $u"; $H/v-list-web-domains "$u" json
     for d in $($H/v-list-web-domains "$u" plain | cut -f1); do [ -f "/home/$u/web/$d/public_html/wp-config.php" ] && echo "@@WP $u $d"; done ) > "$T/1-$u-web" &
@@ -62,9 +60,39 @@ for u in $(ls /usr/local/hestia/data/users/); do
   done
 done
 wait
+echo "@@CPU"; echo "$C1"; head -1 /proc/stat | cut -d' ' -f2-
 cat $T/*; rm -rf "$T"
 echo "@@FIM"
 `;
+
+/** Mais do que isto desde a leitura anterior, a média já não diz como está o CPU agora: o painel usa a carga média */
+const CPU_INTERVALO_MAX_MS = 10 * 60_000;
+
+/**
+ * Consumo do CPU (% de todos os núcleos) entre o fim da leitura anterior e o início desta — o tempo em que a leitura do
+ * painel não está a correr. Medido durante a leitura dava sempre 100% (é ela que ocupa os núcleos — Silva, 15/10/2026)
+ * e descontar o que ela gasta também não serve (rouba CPU aos outros processos e o valor saía mais baixo do que o
+ * real); antes parava-se 1 s antes de cada leitura para medir, e cada leitura (a do login também) demorava +1 s.
+ * Com o painel aberto há uma leitura a cada 1–2 min, por isso é a média desse tempo. -1 (o painel usa então a carga
+ * média) na primeira leitura depois de arrancar e com mais de 10 min desde a anterior.
+ * /proc/stat: user nice system idle iowait irq softirq steal … (em centésimos de segundo, por núcleo)
+ */
+export function cpuEntreLeituras(linhas: string[] | undefined, cpus: number): number {
+  const nums = (l: string | undefined) => (l || '').trim().split(/\s+/).map(Number).filter((n) => !Number.isNaN(n));
+  const inicio = nums(linhas?.[0]), fim = nums(linhas?.[1]);
+  const ant = m.cpuAnterior;
+  let pct = -1;
+  if (ant && inicio.length >= 4 && Date.now() - ant.at <= CPU_INTERVALO_MAX_MS) {
+    const tot = (v: number[]) => v.slice(0, 8).reduce((x, y) => x + y, 0);
+    const livre = (v: number[]) => (v[3] || 0) + (v[4] || 0);
+    const dt = tot(inicio) - tot(ant.fim);
+    // menos de 1 s entre as duas (ex.: uma leitura logo a seguir a outra, depois de uma alteração): fica o valor anterior
+    if (dt > 0 && dt < 100 * Math.max(1, cpus)) pct = ant.pct;
+    else if (dt > 0) pct = Math.max(0, Math.min(100, Math.round(((dt - (livre(inicio) - livre(ant.fim))) / dt) * 1000) / 10));
+  }
+  if (fim.length >= 4) m.cpuAnterior = { fim, at: Date.now(), pct };
+  return pct;
+}
 
 function json<T>(linhas: string[] | undefined, vazio: T): T {
   const txt = (linhas || []).join('\n').trim();
@@ -109,15 +137,7 @@ export function interpretarLeitura(out: string): LeituraServidor {
       discoUsado: res[2]?.[1] || 0,
       carga: [res[3]?.[0] || 0, res[3]?.[1] || 0, res[3]?.[2] || 0],
       discoFisico: res[4]?.[0] || 0,
-      cpuPct: (() => {
-        // /proc/stat: user nice system idle iowait irq softirq steal … — duas leituras com 1 s de intervalo
-        const a = (res[5] || []).filter((n) => !Number.isNaN(n)), b = (res[6] || []).filter((n) => !Number.isNaN(n));
-        if (a.length < 4 || b.length < 4) return -1;
-        const tot = (v: number[]) => v.slice(0, 8).reduce((x, y) => x + y, 0);
-        const livre = (v: number[]) => (v[3] || 0) + (v[4] || 0);
-        const dt = tot(b) - tot(a);
-        return dt > 0 ? Math.max(0, Math.min(100, Math.round(((dt - (livre(b) - livre(a))) / dt) * 1000) / 10)) : -1;
-      })(),
+      cpuPct: cpuEntreLeituras(secs.get('CPU'), res[0]?.[0] || 1),
     },
     web: {},
     wp: {},
@@ -153,6 +173,8 @@ type Memoria = {
    *  painel vir já desenhada ao recarregar, nunca em branco à espera do servidor (Silva, 16/10/2026); o painel lê a
    *  versão nova logo a seguir (/api/vhost/dados) */
   ultima: { at: number; dados: LeituraServidor } | null;
+  /** /proc/stat no fim da leitura anterior, quando foi e o consumo calculado nessa altura (ver cpuEntreLeituras) */
+  cpuAnterior?: { fim: number[]; at: number; pct: number } | null;
 };
 // Uma só memória por processo: a leitura feita ao arrancar o site (src/instrumentation-node.ts) carrega este ficheiro
 // numa cópia à parte da das páginas e rotas — sem isto, não servia ao primeiro pedido do painel
