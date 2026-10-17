@@ -1,7 +1,8 @@
-name: "Ops - Contabo: disco de 200 GB com partição de 95,8 GB (SÓ LEITURA)"
+name: "Ops - Contabo: alargar a partição do sistema para os 200 GB do disco"
 
-# Só leitura: como estão os discos e partições, para saber se a partição do sistema pode ser alargada
-# para o espaço novo do disco.
+# O disco (sda) passou a ter 200 GB, mas a partição do sistema (sda1, ext4, última do disco) ficou com 99 GB.
+# Alarga sda1 até ao fim do disco e o sistema de ficheiros com ela — com o servidor ligado, sem reiniciar.
+# Só avança se o disco estiver exactamente como no diagnóstico (17/10/2026); senão pára sem mexer em nada.
 on:
   push:
     branches: [claude/laughing-cray-kr2z4n]
@@ -10,22 +11,23 @@ jobs:
   contabo:
     runs-on: ubuntu-latest
     steps:
-      - name: Discos no Contabo
+      - name: Alargar sda1 no Contabo
         uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.CONTABO_HOST }}
           username: root
           password: ${{ secrets.CONTABO_ROOT_PASSWORD }}
-          command_timeout: 3m
+          command_timeout: 5m
           script: |
-            set +e
-            echo "=== sistema ==="; head -3 /etc/os-release; uname -r; uptime
-            echo "=== df ==="; df -hT -x tmpfs -x devtmpfs -x overlay
-            echo "=== lsblk ==="; lsblk -o NAME,SIZE,TYPE,FSTYPE,MOUNTPOINT,PKNAME
-            echo "=== lsblk (bytes, só discos) ==="; lsblk -bdno NAME,SIZE,TYPE
-            echo "=== partição de / ==="; findmnt -no SOURCE,FSTYPE,OPTIONS /
-            echo "=== tabela de partições ==="; for d in $(lsblk -dno NAME,TYPE | awk '$2=="disk"{print $1}'); do echo "--- /dev/$d"; sfdisk -l /dev/$d 2>&1; parted -s /dev/$d unit GB print free 2>&1; done
-            echo "=== LVM ==="; pvs 2>&1; vgs 2>&1; lvs 2>&1
-            echo "=== ferramentas ==="; which growpart resize2fs xfs_growfs 2>&1; dpkg -l cloud-guest-utils 2>/dev/null | tail -1
-            echo "=== kernel vê o tamanho novo? ==="; dmesg 2>/dev/null | grep -iE "capacity change|detected capacity|sda:|vda:" | tail -10
-            echo "=== fstab ==="; cat /etc/fstab
+            set -e
+            echo "=== antes ==="; df -hT /; lsblk -o NAME,SIZE,TYPE,FSTYPE,MOUNTPOINT /dev/sda
+            [ "$(findmnt -no SOURCE /)" = "/dev/sda1" ] || { echo "PÁRA: / não está em /dev/sda1"; exit 1; }
+            [ "$(findmnt -no FSTYPE /)" = "ext4" ] || { echo "PÁRA: / não é ext4"; exit 1; }
+            [ "$(lsblk -dno TYPE /dev/sda)" = "disk" ] || { echo "PÁRA: /dev/sda não é um disco"; exit 1; }
+            echo "=== cópia da tabela de partições ==="
+            B=/root/sda-particoes-antes-de-alargar-$(date +%Y%m%d-%H%M%S).txt
+            sfdisk -d /dev/sda > "$B"; echo "guardada em $B"; cat "$B"
+            echo "=== ensaio (não muda nada) ==="; growpart --dry-run /dev/sda 1
+            echo "=== alargar a partição ==="; growpart /dev/sda 1
+            echo "=== alargar o sistema de ficheiros ==="; resize2fs /dev/sda1
+            echo "=== depois ==="; df -hT /; lsblk -o NAME,SIZE,TYPE,FSTYPE,MOUNTPOINT /dev/sda; sfdisk -l /dev/sda 2>&1 | tail -8
