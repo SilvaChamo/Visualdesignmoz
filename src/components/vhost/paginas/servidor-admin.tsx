@@ -129,7 +129,7 @@ function MonitorProcessos() {
             t: 'Processo',
             sort: (r) => r.nome,
             cell: (r) => (
-              <span className="pm-proc">
+              <span className="pm-proc pm-largo">
                 <b>{r.nome}</b>
                 {r.protegido && <span className="tag off">{t('Protegido')}</span>}
                 <small title={r.cmd}>{r.cmd}</small>

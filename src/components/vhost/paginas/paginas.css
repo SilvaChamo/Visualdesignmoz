@@ -1677,5 +1677,36 @@
 .vh .srv-chave{background:none;border:0;padding:4px;margin:-4px;color:var(--muted);font-size:13px;cursor:pointer;border-radius:var(--r)}
 .vh .srv-chave:hover{color:var(--red);background:var(--hover)}
 /* a linha de comando parte onde for preciso: a tabela cabe sempre no cartão (nunca barra de deslocar) */
-.vh td:has(>.pm-proc){white-space:normal;min-width:220px;width:46%}
+.vh td:has(>.pm-proc.pm-largo){white-space:normal;min-width:220px;width:46%}
+.vh td:has(>.pm-proc){white-space:normal}
 .vh .pm-proc>small{white-space:normal;word-break:break-all}
+
+/* Páginas do menu Admin (admin-paginas.tsx) */
+.vh .ad-uso{min-width:150px}
+.vh .ad-uso>b{min-width:0;text-align:left;font-weight:600;white-space:nowrap}
+.vh .ad-ns{display:inline-flex;flex-wrap:wrap;gap:4px 8px}
+.vh .ad-ns code,.vh .ad-cmd{font-family:ui-monospace,Menlo,monospace;font-size:12px}
+.vh .ad-cmd{white-space:normal;word-break:break-all}
+.vh td:has(.ad-cmd){white-space:normal;min-width:180px}
+/* procura dentro do cartão (pedido ao servidor, não um filtro da tabela): campo e botão numa linha */
+.vh .ad-procura{display:flex;gap:8px;align-items:center;margin:0 0 14px;flex-wrap:wrap}
+.vh .ad-procura input,.vh .ad-procura select{height:36px;border:1px solid var(--line);border-radius:var(--r);padding:0 10px;background:var(--card);color:var(--ink);font-size:14px;min-width:0}
+.vh .ad-procura input{flex:1 1 220px}
+.vh .ad-logs select:first-child{flex:0 1 260px}
+.vh .ad-stats-dentro{margin-bottom:14px}
+.vh .ad-log-curto{max-height:50vh;font-size:12px}
+@media(max-width:768px){.vh .ad-procura>*{flex:1 1 100%}.vh .ad-procura .btn{justify-content:center}}
+.vh td:has(>.ad-ns){white-space:normal}
+/* tema escuro: o desfoque do fundo da tabela (backdrop-filter, maquete.css) faz da tabela a referência dos elementos
+   "fixed", e o menu "Ações" aberto no título da 1.ª coluna aparecia longe do botão; enquanto está aberto, sem desfoque */
+.vh[data-theme=dark] .tbl:has(.dt-acoes .menu){backdrop-filter:none}
+/* os cartões de números nunca passam do cartão principal no tablet: as duas colunas encolhem e o texto passa à linha */
+@media(max-width:1050px){.vh .stats{grid-template-columns:repeat(2,minmax(0,1fr))}.vh .stat{min-width:0}.vh .stat strong{white-space:normal;overflow-wrap:anywhere}}
+/* campo com o botão colado (ex.: nome do servidor nas Definições) */
+.vh .ad-campo-btn{display:flex;gap:8px;flex:1 1 280px;min-width:0;max-width:440px;margin:0}
+.vh .ad-campo-btn input{flex:1;min-width:0;width:0;height:40px;border:1px solid var(--line);border-radius:var(--r);background:var(--card);color:var(--ink);font:inherit;font-size:14px;padding:0 12px}
+.vh .ad-campo-btn input:focus{outline:0;border-color:var(--app)}
+.vh .ad-botoes{display:inline-flex;gap:8px;flex-wrap:wrap}
+.vh .ad-stxt{width:100%;min-height:180px;border:1px solid var(--line);border-radius:var(--r);background:var(--card);color:var(--ink);padding:10px 12px;font:12.5px/1.5 ui-monospace,Menlo,monospace;resize:vertical}
+.vh .ad-stxt:focus{outline:0;border-color:var(--app)}
+@media(max-width:768px){.vh .ad-campo-btn{flex:1 1 100%;max-width:none}.vh .em-opcoes>div>.em-sel{flex:1 1 100%}}
