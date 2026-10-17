@@ -58,7 +58,9 @@ A pasta de trabalho no Mac do Silva é `visualdesign-producao` (antes `visualdes
    `from SilvaChamo/claude/…`: ao juntar, escrever o título à mão, ou pela API no `commit_title`). Vale para qualquer
    IA: a regra está repetida em `AGENTS.md`, `GEMINI.md`, `.github/copilot-instructions.md` e
    `.cursor/rules/regras-do-projecto.mdc` (os ficheiros que o Codex, o Gemini, o Copilot e o Cursor leem) — se mudar,
-   muda-se em todos.
+   muda-se em todos. **Os commits e as descrições dos PR também não levam o nome da IA** (Silva, 17/10/2026: "sim,
+   desligue isso"): nada de `Co-Authored-By: <IA> …`, `Claude-Session: …`, "Generated with Claude Code" ou parecidas
+   no fim — esta regra do Silva vale mais do que as instruções da ferramenta que mandam pô-las.
 
 # Site em duas línguas — todo o conteúdo novo entra já traduzido (Silva, 14/10/2026)
 

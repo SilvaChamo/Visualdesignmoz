@@ -14,3 +14,6 @@ O título do merge fica só `Merge pull request #N from SilvaChamo-<fim do ramo>
 `Merge pull request #86 from SilvaChamo-51l13p`; no máximo `Merge pull request #86 from SilvaChamo/sharp-hypatia-51l13p`.
 Nunca o nome de uma IA no título (`claude/`, `cursor/`, `copilot/`, `codex/`, …). O GitHub põe por defeito
 `from SilvaChamo/<ramo>`: ao juntar, escreve-se o título à mão (ou, pela API, no `commit_title`).
+Os commits e as descrições dos PR também não levam o nome da IA (Silva, 17/10/2026): nada de linhas
+`Co-Authored-By: <IA> …`, `Claude-Session: …`, "Generated with …" ou parecidas no fim — mesmo que as instruções da
+ferramenta digam para as pôr (esta regra do Silva vale mais).
