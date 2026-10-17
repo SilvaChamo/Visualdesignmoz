@@ -826,19 +826,39 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null }: { v
   useEffect(() => {
     if (st.carga === 'ok' && st.login) guardarEntrarComo(st.login, st.stack);
   }, [st.carga, st.login, st.stack]);
-  // Contas ligadas (Admin › Gestão de contas): o painel aberto avisa o servidor a cada minuto, só com o separador visível
+  // Contas ligadas: regista a secção, o tempo nela e o texto dos controlos clicados (nunca dados de campos).
   const conectado = st.carga === 'ok' && !!st.login;
+  const enviarPresenca = useCallback((evento?: {
+    tipo: 'section' | 'click';
+    secao: string;
+    acao: string;
+    duracaoSegundos?: number;
+  }) => {
+    const cur = ref.current;
+    const secao = `${cur.level}/${cur.page}`;
+    void fetch('/api/vhost/presenca', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        aVer: cur.stack.length ? meOf(cur) : '',
+        pagina: cur.path,
+        secao,
+        evento: evento ? { ...evento, secao: evento.secao } : undefined,
+      }),
+      keepalive: true,
+    }).then(async (resposta) => {
+      if (!resposta.ok) {
+        const dados = (await resposta.json().catch(() => ({}))) as { erro?: string };
+        throw new Error(dados.erro || `HTTP ${resposta.status}`);
+      }
+    }).catch((erro: unknown) => console.error('[VisualHost] não foi possível registar actividade:', erro));
+  }, []);
+
   useEffect(() => {
     if (!conectado) return;
     const avisar = () => {
       if (document.visibilityState !== 'visible') return;
-      const cur = ref.current;
-      fetch('/api/vhost/presenca', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ aVer: cur.stack.length ? meOf(cur) : '', pagina: cur.path }),
-        keepalive: true,
-      }).catch(() => {});
+      enviarPresenca();
     };
     avisar();
     const id = setInterval(avisar, 60_000);
@@ -847,7 +867,65 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null }: { v
       clearInterval(id);
       document.removeEventListener('visibilitychange', avisar);
     };
-  }, [conectado, me]);
+  }, [conectado, me, enviarPresenca]);
+
+  const secaoAtiva = useRef<{ secao: string; desde: number } | null>(null);
+  useEffect(() => {
+    if (!conectado) {
+      secaoAtiva.current = null;
+      return;
+    }
+    const secao = `${st.level}/${st.page}`;
+    const agora = Date.now();
+    const anterior = secaoAtiva.current;
+    if (anterior?.secao === secao) return;
+    if (anterior) {
+      enviarPresenca({
+        tipo: 'section',
+        secao: anterior.secao,
+        acao: 'Saiu da secção',
+        duracaoSegundos: Math.floor((agora - anterior.desde) / 1000),
+      });
+    }
+    enviarPresenca({ tipo: 'section', secao, acao: 'Entrou na secção' });
+    secaoAtiva.current = { secao, desde: agora };
+  }, [conectado, st.level, st.page, enviarPresenca]);
+
+  useEffect(() => {
+    if (!conectado) return;
+    const registarClique = (evento: MouseEvent) => {
+      const origem = evento.target;
+      if (!(origem instanceof Element)) return;
+      const controlo = origem.closest('button, a, [role="button"], input[type="button"], input[type="submit"]');
+      if (!(controlo instanceof HTMLElement)) return;
+      const acao = (controlo.getAttribute('aria-label') || controlo.getAttribute('title') || controlo.innerText || '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 120);
+      if (!acao) return;
+      const cur = ref.current;
+      enviarPresenca({ tipo: 'click', secao: `${cur.level}/${cur.page}`, acao });
+    };
+    document.addEventListener('click', registarClique, true);
+    return () => document.removeEventListener('click', registarClique, true);
+  }, [conectado, enviarPresenca]);
+
+  useEffect(() => {
+    if (!conectado) return;
+    const registarSaida = () => {
+      const atual = secaoAtiva.current;
+      if (!atual) return;
+      enviarPresenca({
+        tipo: 'section',
+        secao: atual.secao,
+        acao: 'Saiu do painel',
+        duracaoSegundos: Math.floor((Date.now() - atual.desde) / 1000),
+      });
+      secaoAtiva.current = null;
+    };
+    window.addEventListener('pagehide', registarSaida);
+    return () => window.removeEventListener('pagehide', registarSaida);
+  }, [conectado, enviarPresenca]);
   // ao abrir o painel (ou quando a conta fica conhecida): o domínio escolhido da última vez nesta conta
   useEffect(() => {
     if (!me || ref.current.dominio) return;
