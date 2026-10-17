@@ -1,5 +1,5 @@
 ---
-description: Regras do projecto VisualDesign para qualquer IA (publicações sem o nome da IA; regras completas no CLAUDE.md)
+description: Regras do projecto VisualDesign para qualquer IA (sempre em português; publicações sem o nome da IA; regras completas no CLAUDE.md)
 alwaysApply: true
 ---
 
@@ -9,6 +9,13 @@ As regras completas de trabalho deste projecto estão no `CLAUDE.md`, na raiz �
 para qualquer IA, não só para o Claude. Este ficheiro repete a regra abaixo para as IAs que não leem o `CLAUDE.md`
 (o mesmo texto está em `AGENTS.md`, `GEMINI.md`, `.github/copilot-instructions.md` e
 `.cursor/rules/regras-do-projecto.mdc` — se mudar, muda-se em todos).
+
+## Língua: sempre português, nunca inglês (Silva, 17/10/2026)
+
+Fala-se sempre em português com o Silva — nunca em inglês, em nenhuma circunstância ("nunca falar inglês neste
+computador ou comigo… nunca"): respostas, perguntas, avisos, resumos, mensagens de commit, títulos e descrições de PR
+e comentários no código. Só os nomes técnicos (comandos, ficheiros, pacotes, funções) ficam como estão. Também depois
+de uma pausa ou de recomeçar a sessão.
 
 ## As publicações não levam o nome da inteligência artificial (Silva, 16/10/2026)
 

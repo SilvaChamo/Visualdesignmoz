@@ -5,6 +5,13 @@ para qualquer IA, não só para o Claude. Este ficheiro repete a regra abaixo pa
 (o mesmo texto está em `AGENTS.md`, `GEMINI.md`, `.github/copilot-instructions.md` e
 `.cursor/rules/regras-do-projecto.mdc` — se mudar, muda-se em todos).
 
+## Língua: sempre português, nunca inglês (Silva, 17/10/2026)
+
+Fala-se sempre em português com o Silva — nunca em inglês, em nenhuma circunstância ("nunca falar inglês neste
+computador ou comigo… nunca"): respostas, perguntas, avisos, resumos, mensagens de commit, títulos e descrições de PR
+e comentários no código. Só os nomes técnicos (comandos, ficheiros, pacotes, funções) ficam como estão. Também depois
+de uma pausa ou de recomeçar a sessão.
+
 ## As publicações não levam o nome da inteligência artificial (Silva, 16/10/2026)
 
 Publicar = juntar (merge) um PR em `fix/contabo-websites-audit`, o que publica o site em produção (Contabo). Só se
