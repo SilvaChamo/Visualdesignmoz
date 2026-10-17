@@ -92,7 +92,7 @@ function Campo({ label, hint, children, id }: { label: string; hint?: string; ch
 
 /** Domínio do seletor, só entre os sites da conta */
 function siteAtual(vh: VH): string {
-  const sites = vh.a.domains.filter((x) => !x.soEmail).map((x) => x.name); // o primeiro é o principal da conta
+  const sites = vh.a.domains.filter((x) => !x.soEmail && !x.soDominio).map((x) => x.name); // o primeiro é o principal da conta
   return vh.s.dominio && sites.includes(vh.s.dominio) ? vh.s.dominio : sites[0] || '';
 }
 
@@ -1086,7 +1086,7 @@ function GitNovo() {
   const vh = useVH();
   const { t, nav } = vh;
   const [f, setF] = useState({ d: siteAtual(vh), nome: '', remoto: '', ramo: 'main', chave: '', publicar: false, destino: '' });
-  const sites = vh.a.domains.filter((x) => !x.soEmail).map((x) => x.name);
+  const sites = vh.a.domains.filter((x) => !x.soEmail && !x.soDominio).map((x) => x.name);
   return (
     <Sec titulo="Criar repositório" desc="Um repositório Git no servidor. Se só o for usar aqui, basta o nome; o remoto serve para sincronizar com outro repositório (ex.: GitHub).">
       <Campo label="Domínio" id="git-d">

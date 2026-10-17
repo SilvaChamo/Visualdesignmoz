@@ -730,6 +730,20 @@ export async function fulfillCheckout(
     }
   }
 
+  // Só domínio(s) na compra, sem alojamento nem e-mail: o cliente entra no painel com um painel só do domínio (pacote
+  // VD-Dominio — ver domain-only-provision.ts). Com alojamento ou e-mail na mesma compra, a conta é a desse plano.
+  const soDominios = items
+    .filter((i) => i.type === 'domain')
+    .map((i) => i.name.toLowerCase().trim())
+    .filter((d) => HOSTING_DOMAIN_REGEX.test(d));
+  if (admin && email && soDominios.length && !items.some((i) => i.type === 'hosting' || i.type === 'email')) {
+    const { provisionDomainOnlyAccount } = await import('@/lib/domain-only-provision');
+    const conta = await provisionDomainOnlyAccount(admin, userId, soDominios, email, displayName).catch(
+      (e: unknown) => ({ ok: false as const, error: e instanceof Error ? e.message : String(e) }),
+    );
+    if (!conta.ok) await alertAdminOfTrackingFailure('conta só de domínio', `${soDominios.join(', ')}: ${conta.error}`);
+  }
+
   await supabase.from('pagamentos').insert({
     user_id: userId,
     domain: items.map((i) => i.name).join(', '),

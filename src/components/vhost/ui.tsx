@@ -137,7 +137,7 @@ export function dominioComQuebras(nome: string) {
 function DomSelector({ soSites, url }: { soSites?: boolean; url?: Screen['dominioUrl'] }) {
   const { s, a, t, setDominio, nav } = useVH();
   // só os domínios com que a página trabalha: o seletor mostra sempre o mesmo domínio que a página
-  const daPagina = a.domains.filter((d) => !soSites || !d.soEmail).map((d) => d.name); // o principal vem à cabeça (vhost-dados.ts)
+  const daPagina = a.domains.filter((d) => !soSites || (!d.soEmail && !d.soDominio)).map((d) => d.name); // o principal vem à cabeça (vhost-dados.ts)
   const doms = [...daPagina].sort((x, y) => x.localeCompare(y));
   // domínio do endereço; senão o escolhido; sem escolha (ou fora desta página): o principal da conta
   const atual = url?.d || (s.dominio && daPagina.includes(s.dominio) ? s.dominio : daPagina[0] || '');

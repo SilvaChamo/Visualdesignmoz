@@ -378,6 +378,11 @@ export const LIM: Record<string, { disk: string; dom: string }> = {
 };
 export const DEMO_LOGINS: string[] = ["visualdesign","revendamz","empresaa","clienteb"];
 export const EN: Record<string, string> = {
+ // plano só de domínio e planos de e-mail (17/10/2026 — editado à mão)
+ "Só domínio": "Domain only",
+ "Só e-mail": "E-mail only",
+ "Contratar alojamento ou e-mail": "Get hosting or e-mail",
+ "Este plano não inclui esta página": "This plan does not include this page",
  "Admin": "Admin",
  "Revenda": "Reseller",
  "Utilizador": "User",
