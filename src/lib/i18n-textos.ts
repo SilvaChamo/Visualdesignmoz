@@ -8,6 +8,10 @@
 // ter a sua linha aqui. `node scripts/i18n-verificar.mjs` lista os textos das páginas públicas que ainda não têm.
 
 export const EN: Record<string, string> = {
+  // checkout › domínio do plano de e-mail (17/10/2026)
+  'O plano de e-mail precisa de um domínio: registe um novo, transfira ou use o seu. Os endereços ficam @ esse domínio.':
+    'The e-mail plan needs a domain: register a new one, transfer one or use your own. The addresses will be @ that domain.',
+  'Vamos usar {0} para este plano de e-mail.': 'We will use {0} for this e-mail plan.',
   "Cidade de Maputo": "Maputo City",
   "Maputo Província": "Maputo Province",
   "Zambézia": "Zambezia",
