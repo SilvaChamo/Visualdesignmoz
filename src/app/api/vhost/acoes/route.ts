@@ -173,6 +173,13 @@ export async function POST(req: NextRequest) {
 
               if (authUserId) {
                 await sb.auth.admin.updateUserById(authUserId, { password: s });
+              } else {
+                // a conta ainda não tem login do site (ex.: mltmark, vinda do servidor sem compra no site): cria-o já
+                // com esta palavra-passe, para a conta poder entrar (Silva, 17/10/2026)
+                const { criarLoginDaConta } = await import('@/lib/vhost-login-da-conta');
+                const criado = await criarLoginDaConta(sb, u, s);
+                if (!criado.ok) return { ok: false, error: 'A palavra-passe mudou no servidor, mas a conta não tem login do site: ' + criado.erro };
+                return r;
               }
 
               // Atualiza credenciais guardadas no perfil e no registo do painel

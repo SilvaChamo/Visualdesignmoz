@@ -25,15 +25,31 @@ function comTempo<T>(p: Promise<T>, ms: number): Promise<T | null> {
  */
 export async function POST(req: NextRequest) {
   const b = (await req.json().catch(() => ({}))) as Record<string, unknown>;
-  const nome = String(b.utilizador || '').trim().toLowerCase();
+  const pedido = String(b.utilizador || '').trim().toLowerCase();
+  let nome = pedido;
   const senha = String(b.senha || '');
   const falha = () => NextResponse.json({ erro: 'Utilizador ou palavra-passe errados.' }, { status: 401 });
-  if (!senha || !/^[a-z0-9._-]{1,64}$/.test(nome)) return falha();
+  // admin@<domínio da conta>: a conta também entra pelo endereço admin do seu domínio, com a mesma palavra-passe (Silva,
+  // 17/10/2026: "a conta admin, o nome da conta e o e-mail usado para registar a conta podem entrar")
+  const adminDoDominio = pedido.match(/^admin@((?:[a-z0-9-]+\.)+[a-z]{2,})$/);
+  if (!senha || (!adminDoDominio && !/^[a-z0-9._-]{1,64}$/.test(nome))) return falha();
 
-  const chave = loginRateLimitKey(req, 'utilizador:' + nome);
+  const chave = loginRateLimitKey(req, 'utilizador:' + pedido);
   const limite = await checkAndRegisterLoginAttempt(chave);
   if (!limite.allowed) {
     return NextResponse.json({ erro: 'Demasiadas tentativas. Tente novamente daqui a alguns minutos.' }, { status: 429, headers: { 'Retry-After': String(limite.retryAfterSeconds) } });
+  }
+
+  if (adminDoDominio) {
+    const dono = await comTempo(
+      (async () => {
+        const { findHestiaDomainOwner } = await import('@/lib/hosting-resolver');
+        return findHestiaDomainOwner(adminDoDominio[1]);
+      })(),
+      10_000,
+    );
+    if (!dono || !/^[a-z0-9._-]{1,64}$/.test(dono.toLowerCase())) return falha();
+    nome = dono.toLowerCase();
   }
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -84,8 +100,24 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  if (!perfis || perfis.length !== 1 || !perfis[0]?.email) return falha();
-  const email = String(perfis[0].email).trim().toLowerCase();
+  // Conta do servidor sem login do site (ex.: mltmark): se a palavra-passe bate certo no servidor, cria-se o login
+  // do site agora e entra-se com ele (Silva, 17/10/2026: "não consigo entrar na conta dele")
+  if (!perfis || perfis.length !== 1 || !perfis[0]?.email) {
+    const certa = await comTempo(
+      (async () => {
+        const { checkUserPassword } = await import('@/lib/hestia-adapter');
+        return checkUserPassword(nome, senha);
+      })(),
+      10_000,
+    );
+    if (!certa?.ok) return falha();
+    const { criarLoginDaConta } = await import('@/lib/vhost-login-da-conta');
+    const criado = await criarLoginDaConta(adminClient, nome, senha).catch(() => null);
+    if (!criado?.ok) return falha();
+    perfis = [{ email: criado.email } as any];
+    authUserId = criado.uid;
+  }
+  const email = String(perfis![0].email).trim().toLowerCase();
 
   // 1. Tenta autenticar diretamente no Supabase — com o cliente dos cookies: se entrar, a sessão fica gravada na resposta
   const cliente = await clienteComCookies();
@@ -159,6 +191,15 @@ export async function POST(req: NextRequest) {
         }
         if (authUserId) {
           await adminClient.auth.admin.updateUserById(authUserId, { password: senha });
+        } else if (serverUsername) {
+          // a conta tem e-mail no registo do painel, mas nenhum login do site com ele (conta importada do servidor):
+          // cria-o agora com a palavra-passe já confirmada no servidor
+          const { criarLoginDaConta } = await import('@/lib/vhost-login-da-conta');
+          const criado = await criarLoginDaConta(adminClient, serverUsername, senha).catch(() => null);
+          if (criado?.ok) {
+            authUserId = criado.uid;
+            perfis = [{ email: criado.email } as any];
+          }
         }
         const { encryptDaSecret } = await import('@/lib/da-credential-store');
         const encNova = encryptDaSecret(senha);
@@ -169,7 +210,7 @@ export async function POST(req: NextRequest) {
       }
 
       // Tenta novamente após sincronizar — só libera se a sessão Supabase existir de facto
-      const retry = await cliente.auth.signInWithPassword({ email, password: senha });
+      const retry = await cliente.auth.signInWithPassword({ email: String(perfis![0].email).trim().toLowerCase(), password: senha });
       if (retry.data?.session) {
         data = retry.data;
         error = null;
@@ -180,5 +221,5 @@ export async function POST(req: NextRequest) {
   if (error || !data?.session) return falha();
   // limpeza do contador de tentativas: não atrasa a entrada
   void clearLoginAttempts(chave);
-  return NextResponse.json({ email, sessao: true });
+  return NextResponse.json({ email: data.session.user.email || email, sessao: true });
 }

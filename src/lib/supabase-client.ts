@@ -303,6 +303,29 @@ export const auth = {
         });
         if (!retry.error) return retry.data;
       }
+      // admin@<domínio da conta>: entra na conta de alojamento dona do domínio, com a palavra-passe dela (Silva,
+      // 17/10/2026). Só quando este endereço não é ele próprio um login do site (tentado acima).
+      if (/^admin@/.test(normalizedEmail)) {
+        try {
+          const r = await fetch('/api/vhost/entrar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ utilizador: normalizedEmail, senha: password }),
+          });
+          if (r.status === 429) {
+            const j = (await r.json().catch(() => ({}))) as { erro?: string };
+            throw new LoginRateLimitError(j.erro || 'Acesso temporariamente bloqueado por excesso de tentativas.');
+          }
+          const j = (await r.json().catch(() => ({}))) as { email?: string; sessao?: boolean };
+          if (j.email && j.sessao) {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.user?.email?.toLowerCase() === j.email.toLowerCase()) return { user: session.user, session };
+          }
+        } catch (e) {
+          if (e instanceof LoginRateLimitError) throw e;
+          /* fica o erro original */
+        }
+      }
     }
 
     throw error;
