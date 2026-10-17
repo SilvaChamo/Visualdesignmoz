@@ -144,12 +144,27 @@ export const pacoteDe = (s: St, u: string) => {
   // sem pacote conhecido ficam com tudo
   return s.db.custom[u] || s.db.pkgs[a.hpkg || a.pkg] || (a.role === 'admin' || a.role === 'revenda' ? pacoteCompleto() : undefined);
 };
+/** Páginas que um plano nunca tem, seja qual for o Admin › Acessos por plano (Silva, 17/10/2026):
+ *  - planos de e-mail (VD-Email-*): sem "Gestão de domínios" — não têm site ("o plano email sem site não deve ter
+ *    gestão de domínios"); o "Brevemente" que alguns tenham é só uma página de cortesia;
+ *  - só domínio (VD-Dominio): só o domínio — Domínios e DNS, mais Início, compras e suporte. */
+const GRUPOS_SEMPRE = ['Início', 'Compras e encomendas', 'Suporte e ajuda'];
+export function fixoNoPlano(pkg: string | undefined, id: string): boolean {
+  const p = (pkg || '').toLowerCase();
+  if (p.startsWith('vd-email-')) return !!MENU.utilizador.find(([g]) => g === 'Gestão de domínios')?.[1].some((it) => it.id === id);
+  if (p === 'vd-dominio') {
+    if (id === 'dominios' || id === 'dns') return false;
+    return !MENU.utilizador.some(([g, itens]) => GRUPOS_SEMPRE.includes(g) && itens.some((it) => it.id === id));
+  }
+  return false;
+}
 /** A página `id` da Gestão está escondida pelo plano da conta que se vê (Admin › Acessos por plano)? Só vale para
  *  contas de clientes (cliente/profissional): administradores e revendedores vêem sempre tudo. */
 export const ocultoNoPlano = (s: St, id: string, lv: Level = s.level) => {
   if (lv !== 'utilizador') return false;
   const a = acctOf(s);
   if (!isUser(a.role)) return false;
+  if (fixoNoPlano(a.hpkg || a.pkg, id) || (a.hpkg && fixoNoPlano(a.pkg, id))) return true;
   const esc = s.acessos || {};
   // nos clientes "pkg" e "hpkg" são o mesmo pacote do servidor; vê os dois para não depender disso
   return !!(esc[a.pkg]?.includes(id) || (a.hpkg && esc[a.hpkg]?.includes(id)));

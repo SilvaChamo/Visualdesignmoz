@@ -50,6 +50,9 @@ export default function EscolherDominioPage() {
 
   const pending = hostingItemsNeedingDomain(items);
   const target = pending[0];
+  // o plano de e-mail também passa por aqui: o domínio é o dos endereços de e-mail
+  const ehEmail = target?.type === 'email';
+  const planos = ehEmail ? '/precos/email' : '/precos/hospedagem';
 
   useEffect(() => {
     if (items.length === 0) {
@@ -205,14 +208,18 @@ export default function EscolherDominioPage() {
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 pt-32 pb-24 transition-colors duration-200">
       <div className="max-w-3xl mx-auto px-5 sm:px-[40px] mt-4">
-        <Link href="/precos/hospedagem" className="inline-flex items-center gap-1.5 text-sm text-slate-500 dark:text-zinc-400 hover:text-red-600 dark:hover:text-red-400 mb-6">
+        <Link href={planos} className="inline-flex items-center gap-1.5 text-sm text-slate-500 dark:text-zinc-400 hover:text-red-600 dark:hover:text-red-400 mb-6">
           <ArrowLeft className="w-4 h-4" /> Voltar aos planos
         </Link>
 
         <div className="mb-6">
           <p className="text-[11px] font-bold uppercase tracking-wide text-red-600 dark:text-red-400 mb-1">Passo 1 de 2 — Domínio</p>
           <h1 className="text-2xl font-bold text-slate-800 dark:text-zinc-100">Escolha um domínio para "{target.name}"</h1>
-          <p className="text-sm text-slate-500 dark:text-zinc-400 mt-1">Escolha uma das opções abaixo para continuar para o checkout.</p>
+          <p className="text-sm text-slate-500 dark:text-zinc-400 mt-1">
+            {ehEmail
+              ? 'O plano de e-mail precisa de um domínio: registe um novo, transfira ou use o seu. Os endereços ficam @ esse domínio.'
+              : 'Escolha uma das opções abaixo para continuar para o checkout.'}
+          </p>
         </div>
 
         <div className="space-y-3">
@@ -363,7 +370,7 @@ export default function EscolherDominioPage() {
                 {exError && <p className="text-xs font-medium text-red-600 dark:text-red-400">{exError}</p>}
                 {staged?.mode === 'existing' && (
                   <div className="flex items-center gap-2 rounded border border-green-200 bg-green-50 text-green-700 dark:border-green-900/50 dark:bg-green-950/20 dark:text-green-400 px-4 py-3 text-sm font-bold">
-                    <Check className="w-4 h-4 shrink-0" /> Vamos usar {staged.domain} para esta hospedagem.
+                    <Check className="w-4 h-4 shrink-0" /> {ehEmail ? `Vamos usar ${staged.domain} para este plano de e-mail.` : `Vamos usar ${staged.domain} para esta hospedagem.`}
                   </div>
                 )}
               </div>

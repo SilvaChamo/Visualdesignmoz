@@ -1047,7 +1047,7 @@ function CheckoutContent() {
                                 {typeLabel[item.type] || item.type}
                               </span>
                               <h4 className="font-bold text-slate-800 dark:text-zinc-100 text-sm break-all leading-tight">{item.name}</h4>
-                              {item.type === 'hosting' && item.hostingDomain && (
+                              {(item.type === 'hosting' || item.type === 'email') && item.hostingDomain && (
                                 <p className="text-[11px] text-slate-400 dark:text-zinc-500 mt-0.5 break-all">{item.hostingDomain}</p>
                               )}
                             </div>
