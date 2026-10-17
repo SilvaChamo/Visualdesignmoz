@@ -55,9 +55,9 @@ export function Navbar() {
 
   // Itens de Acesso Rápido (sempre visíveis quando não há busca)
   const quickAccessItems = [
-    { href: '/cliente/domains', icon: Globe, title: 'Gestor de Domínios', desc: 'Gerir os seus domínios', bg: 'bg-teal-50', text: 'text-teal-600', tags: 'domínios gerir', requiresLogin: false },
-    { href: '/cliente', icon: Server, title: 'Gestor de Alojamento', desc: 'Hospedagem CPanel', bg: 'bg-blue-50', text: 'text-blue-600', tags: 'hosting alojamento', requiresLogin: false },
-    { href: '/cliente/domains', icon: Shield, title: 'DNS Avançado', desc: 'Registos e Zonas', bg: 'bg-purple-50', text: 'text-purple-600', tags: 'dns registos zonas', requiresLogin: false },
+    { href: PUBLIC_PANEL_ENTRY, icon: Globe, title: 'Gestor de Domínios', desc: 'Gerir os seus domínios', bg: 'bg-teal-50', text: 'text-teal-600', tags: 'domínios gerir', requiresLogin: false },
+    { href: PUBLIC_PANEL_ENTRY, icon: Server, title: 'Gestor de Alojamento', desc: 'Hospedagem CPanel', bg: 'bg-blue-50', text: 'text-blue-600', tags: 'hosting alojamento', requiresLogin: false },
+    { href: PUBLIC_PANEL_ENTRY, icon: Shield, title: 'DNS Avançado', desc: 'Registos e Zonas', bg: 'bg-purple-50', text: 'text-purple-600', tags: 'dns registos zonas', requiresLogin: false },
     { href: '/notificacoes', icon: CreditCard, title: 'Facturas e Pagamentos', desc: 'Histórico e Pendentes', bg: 'bg-orange-50', text: 'text-orange-600', tags: 'facturas pagamentos', requiresLogin: false },
   ]
 
@@ -95,8 +95,8 @@ export function Navbar() {
     { href: PANEL_LOGIN_HREF, icon: User, title: 'Login', desc: 'Aceder à sua conta', bg: 'bg-slate-50', text: 'text-slate-600', tags: 'entrar aceder conta', requiresLogin: false },
 
     // Área do Cliente (requer login)
-    { href: '/cliente', icon: Lock, title: 'Painel do Cliente', desc: 'Gerir a sua conta e serviços', bg: 'bg-slate-100', text: 'text-slate-700', tags: 'painel dashboard conta cliente', requiresLogin: true },
-    { href: '/cliente/domains', icon: Lock, title: 'Meus Domínios', desc: 'Gerir os seus domínios registados', bg: 'bg-teal-50', text: 'text-teal-700', tags: 'domínios meus gerir dns', requiresLogin: true },
+    { href: PUBLIC_PANEL_ENTRY, icon: Lock, title: 'Painel do Cliente', desc: 'Gerir a sua conta e serviços', bg: 'bg-slate-100', text: 'text-slate-700', tags: 'painel dashboard conta cliente', requiresLogin: true },
+    { href: PUBLIC_PANEL_ENTRY, icon: Lock, title: 'Meus Domínios', desc: 'Gerir os seus domínios registados', bg: 'bg-teal-50', text: 'text-teal-700', tags: 'domínios meus gerir dns', requiresLogin: true },
     { href: '/host:2026/admin', icon: Lock, title: 'Administração', desc: 'Painel de administração', bg: 'bg-red-50', text: 'text-red-700', tags: 'admin painel gestão administração', requiresLogin: true },
   ]
 

@@ -656,6 +656,20 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null }: { v
     window.location.assign('/login' + (caminho ? '?redirect=' + encodeURIComponent(BASE + caminho) : ''));
   }, []);
 
+  // Leitura antiga (o servidor guarda-a até 60 min e lê a nova por trás — Silva, 17/10/2026): volta a pedir aos 3, 6, 10,
+  // 20 e 30 s até chegar uma desta hora. O conteúdo fica à vista e só muda quando chega o novo (nunca tela branca).
+  const releitura = useRef<{ n: number; timer?: ReturnType<typeof setTimeout> }>({ n: 0 });
+  const carregarRef = useRef<() => void>(() => {});
+  const relerSeVelha = useCallback((d: DadosServidor) => {
+    clearTimeout(releitura.current.timer);
+    if ((d.idadeMs ?? 0) <= 60_000) {
+      releitura.current.n = 0;
+      return;
+    }
+    const espera = [3000, 6000, 10000, 20000, 30000][releitura.current.n++];
+    if (espera) releitura.current.timer = setTimeout(() => carregarRef.current(), espera);
+  }, []);
+
   // Dados reais do servidor (Hestia + registo do site): contas, pacotes, informação, zonas DNS e estado do servidor.
   // Sem sessão no site → login do site. Depois de uma alteração, volta a ler (fresco).
   const carregar = useCallback(
@@ -721,6 +735,7 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null }: { v
                 renovouSessao.current = false;
                 guardarCache(d2);
                 aplicar(d2);
+                relerSeVelha(d2);
                 return;
               }
             }
@@ -738,15 +753,21 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null }: { v
         renovouSessao.current = false;
         guardarCache(d);
         aplicar(d);
+        relerSeVelha(d);
       } catch {
         if (ref.current.carga === 'ok') return; // o painel já está à vista (última leitura): fica como está
         commit({ ...ref.current, carga: 'erro', erro: { msg: 'O servidor demorou a responder. Verifique a ligação e tente de novo.', codigo: 0 } });
       }
     },
-    [commit, aplicar],
+    [commit, aplicar, relerSeVelha],
   );
   useIsomorphicLayoutEffect(() => {
     carregar();
+  }, [carregar]);
+  useEffect(() => {
+    carregarRef.current = () => void carregar();
+    const r = releitura.current;
+    return () => clearTimeout(r.timer);
   }, [carregar]);
 
   useEffect(() => {

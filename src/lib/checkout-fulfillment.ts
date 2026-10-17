@@ -714,7 +714,34 @@ export async function fulfillCheckout(
         await alertAdminOfTrackingFailure('hosting_renewals (email)', insErr.message);
       }
       created.push(`email:${item.id}`);
+      // O plano de e-mail compra-se já com o domínio (Silva, 17/10/2026: "ou compra ou traz um"), escolhido no passo
+      // /checkout/dominio: a conta no servidor é criada logo com ele. Se o domínio vem na mesma compra e o item dele
+      // já passou, o plano já ficou ligado (ver acima) e isto não faz nada; se vem depois, liga-se aqui primeiro.
+      const emailDomain = (item.hostingDomain || '').toLowerCase().trim();
+      if (!insErr && admin && email && HOSTING_DOMAIN_REGEX.test(emailDomain)) {
+        const { attachDomainToEmailPlan } = await import('@/lib/email-plan-provision');
+        const ligado = await attachDomainToEmailPlan(admin, userId, emailDomain, email, displayName).catch(
+          (e: unknown) => ({ ok: false as const, error: e instanceof Error ? e.message : String(e) }),
+        );
+        // as falhas no servidor já avisam a equipa lá dentro ("A nossa equipa foi avisada"); as outras avisam aqui
+        if (!ligado.ok && !/nenhum plano de email à espera|equipa foi avisada/i.test(ligado.error))
+          await alertAdminOfTrackingFailure('plano de email', `${emailDomain} (${item.name}): ${ligado.error}`);
+      }
     }
+  }
+
+  // Só domínio(s) na compra, sem alojamento nem e-mail: o cliente entra no painel com um painel só do domínio (pacote
+  // VD-Dominio — ver domain-only-provision.ts). Com alojamento ou e-mail na mesma compra, a conta é a desse plano.
+  const soDominios = items
+    .filter((i) => i.type === 'domain')
+    .map((i) => i.name.toLowerCase().trim())
+    .filter((d) => HOSTING_DOMAIN_REGEX.test(d));
+  if (admin && email && soDominios.length && !items.some((i) => i.type === 'hosting' || i.type === 'email')) {
+    const { provisionDomainOnlyAccount } = await import('@/lib/domain-only-provision');
+    const conta = await provisionDomainOnlyAccount(admin, userId, soDominios, email, displayName).catch(
+      (e: unknown) => ({ ok: false as const, error: e instanceof Error ? e.message : String(e) }),
+    );
+    if (!conta.ok) await alertAdminOfTrackingFailure('conta só de domínio', `${soDominios.join(', ')}: ${conta.error}`);
   }
 
   await supabase.from('pagamentos').insert({

@@ -303,14 +303,14 @@ export function CartDrawer() {
                           </select>
                         </div>
                       )}
-                      {item.type === 'hosting' && !item.hostingDomain && (
+                      {(item.type === 'hosting' || item.type === 'email') && !item.hostingDomain && (
                         <a href={DOMAIN_STEP_PATH} onClick={() => setIsCartOpen(false)} className="text-[10px] font-bold text-amber-600 hover:underline">
                           Falta escolher domínio →
                         </a>
                       )}
-                      {(item.type === 'hosting' && item.hostingDomain) || item.type === 'email' ? (
+                      {(item.type === 'hosting' || item.type === 'email') && item.hostingDomain ? (
                         <span className="text-[10px] text-slate-400">
-                          {item.type === 'hosting' ? `${item.hostingDomain} · ` : ''}
+                          {`${item.hostingDomain} · `}
                           Período: {item.period} {item.period === 1 ? 'mês' : 'meses'}
                         </span>
                       ) : null}

@@ -56,6 +56,8 @@ export interface Domain {
   emailSsl?: boolean;
   /** só e-mail (sem site) */
   soEmail?: boolean;
+  /** só o domínio (zona DNS, sem site nem e-mail): contas do plano VD-Dominio */
+  soDominio?: boolean;
 }
 
 export interface BaseDados {

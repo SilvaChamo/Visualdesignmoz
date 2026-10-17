@@ -2,7 +2,7 @@
 // do painel, que a desenha já no servidor: ao recarregar, o painel aparece logo, sem a página branca à espera do
 // JavaScript (Silva, 16/10/2026).
 import { requirePanelBootstrapAccess } from '@/lib/panel-api-auth';
-import { lerServidor, lerServidorParaPagina } from '@/lib/vhost-servidor';
+import { LEITURA_FRESCA_MS, idadeLeitura, lerServidor, lerServidorParaPagina } from '@/lib/vhost-servidor';
 import { lerRegisto, lerRegistoParaPagina, montarDados } from '@/lib/vhost-dados';
 import type { DadosServidor } from '@/components/vhost/servidor';
 
@@ -22,7 +22,13 @@ export async function lerDadosPainel(fresco = false, paraPagina = false): Promis
     const [srv, reg] = await Promise.all(
       paraPagina ? [lerServidorParaPagina(), lerRegistoParaPagina()] : [lerServidor(fresco && auth.user.role === 'admin'), lerRegisto()],
     );
-    const dados = montarDados(srv, reg, { userId: auth.user.id, email: auth.user.email || '', role: auth.user.role });
+    const sessao = { userId: auth.user.id, email: auth.user.email || '', role: auth.user.role };
+    let dados = montarDados(srv, reg, sessao);
+    // A conta não está numa leitura que já não é desta hora (a memória guarda até 60 min): pode ter sido criada há pouco
+    // (ex.: por uma compra). Lê o servidor agora antes de dizer que não está ligada — no máximo uma leitura por minuto,
+    // porque a seguinte já é fresca.
+    if ((!dados.me || !dados.contas[dados.me]) && idadeLeitura(srv) > LEITURA_FRESCA_MS)
+      dados = montarDados(await lerServidor(true), paraPagina ? await lerRegisto() : reg, sessao);
     if (!dados.me || !dados.contas[dados.me])
       return { ok: false, codigo: 403, erro: 'A sua conta do site ainda não está ligada a uma conta do servidor.' };
     return { ok: true, dados };

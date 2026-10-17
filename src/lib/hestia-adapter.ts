@@ -240,14 +240,20 @@ export async function changeUserPackage(
   // Código 8 do Hestia (limite): a conta já usa mais do que o pacote novo deixa (domínios, e-mails, bases de dados…).
   // Foi o que aconteceu ao passar contas com site para o VD-Email-Basico (registo do servidor, 12 e 14/10/2026).
   const respostaPacote = `${result.error || ''}\n${result.output || ''}`;
-  if (result.exitCode === 8 || /limit|doesn't cover/i.test(respostaPacote))
+  if (result.exitCode === 8 || /limit|doesn't cover/i.test(respostaPacote)) {
+    // O que não cabe, dito pelo Hestia ("Package doesn't cover DATABASE usage"). Não é "descer de plano": passar do
+    // e-mail para o VD-Host-Basico é subir, mas o mltmark tem 2 bases de dados e o pacote deixa 1 (Silva, 17/10/2026).
+    const NOMES: Record<string, string> = { DATABASE: 'bases de dados', WEB_DOMAINS: 'sites', WEB: 'sites', DNS_DOMAINS: 'domínios DNS', DNS: 'domínios DNS', MAIL_DOMAINS: 'domínios de e-mail', MAIL_ACCOUNTS: 'contas de e-mail', MAIL: 'contas de e-mail', CRON_JOBS: 'tarefas cron', DISK: 'espaço em disco', BANDWIDTH: 'tráfego' };
+    const recurso = respostaPacote.match(/doesn't cover (\w+) usage/i)?.[1]?.toUpperCase() || '';
+    const oQue = NOMES[recurso] || 'domínios, e-mails ou bases de dados';
     return {
       ok: false,
       limite: true,
       error: forcar
         ? `o servidor continua a recusar o pacote ${packageName} para a conta ${username}: ${respostaPacote.trim() || 'limite de recursos excedido'}`
-        : `o pacote ${packageName} é mais pequeno do que o que a conta ${username} já usa (domínios, e-mails ou bases de dados)`,
+        : `o pacote ${packageName} não chega para o que a conta ${username} já tem (${oQue})`,
     };
+  }
   if (!result.ok) return { ok: result.ok, error: result.error };
   // Confirma no servidor que o pacote mudou mesmo: sem o cabeçalho com o código de saída, a API do Hestia pode
   // responder "200" a um pedido recusado, e o painel dizia "alterado" sem nada mudar (Silva, 16/10/2026).

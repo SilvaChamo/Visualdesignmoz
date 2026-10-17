@@ -13,6 +13,16 @@ publica quando o Silva disser 'publica'" é ainda mais importante.
 
 A pasta de trabalho no Mac do Silva é `visualdesign-producao` (antes `visualdesign-teste`, que deixa de se usar).
 
+# Língua: sempre português, nunca inglês (Silva, 17/10/2026 — regra rigorosa)
+
+**Fala-se sempre em português com o Silva — nunca em inglês**, em nenhuma circunstância (Silva, 17/10/2026: "nunca
+falar inglês neste computador ou comigo… nunca"). Vale para tudo o que ele lê: respostas na conversa, perguntas,
+avisos de progresso ("estou a…"), resumos, tabelas, mensagens de commit, títulos e descrições de PR, comentários no
+código e nomes de passos das tarefas do servidor. Só ficam como estão os nomes técnicos que não se traduzem (comandos,
+nomes de ficheiros, de pacotes e de funções). Também depois de uma pausa, de um resumo da conversa ou de recomeçar a
+sessão: retomar sempre em português. Vale para qualquer IA (está repetido em `AGENTS.md`, `GEMINI.md`,
+`.github/copilot-instructions.md` e `.cursor/rules/regras-do-projecto.mdc`).
+
 # Como se trabalha com o Silva (combinado a 13/10/2026)
 
 1. O trabalho novo faz-se num ramo de trabalho (o do agente; nunca directamente em `fix/contabo-websites-audit` nem

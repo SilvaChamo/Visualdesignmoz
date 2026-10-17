@@ -42,7 +42,8 @@ async function verificar(s: Sessao, conta: string, d: string, srv: LeituraServid
   if (!CONTA.test(conta) || !DOM.test(d)) return 'Conta ou domínio inválido.';
   const dados = montarDados(srv, await lerRegisto(), s);
   if (!dados.contas[conta]) return 'Conta fora do seu painel.';
-  if (!srv.web[conta]?.[d] && !srv.mail[conta]?.[d]) return 'Esse domínio não é desta conta.';
+  // também os domínios só com a zona DNS (contas do plano VD-Dominio: quem comprou só o domínio)
+  if (!srv.web[conta]?.[d] && !srv.mail[conta]?.[d] && !srv.dns[conta]?.[d]) return 'Esse domínio não é desta conta.';
   return null;
 }
 

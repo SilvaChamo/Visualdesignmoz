@@ -147,7 +147,7 @@ function useDetalhe(d: string, so?: 'dns') {
 
 /** Domínio em que se trabalha: o escolhido no seletor (só com site, se a página o pedir) */
 function dominioAtual(vh: VH, soSite = true): Domain | undefined {
-  const lista = vh.a.domains.filter((x) => !soSite || !x.soEmail); // o primeiro é o principal da conta
+  const lista = vh.a.domains.filter((x) => !soSite || (!x.soEmail && !x.soDominio)); // o primeiro é o principal da conta
   return lista.find((x) => x.name === vh.s.dominio) || lista[0];
 }
 const ehSub = (nome: string, de: string) => nome.endsWith('.' + de);
@@ -224,14 +224,14 @@ function ListaDominios({ abaDom = 'meus' }: { abaDom?: AbaDom }) {
       sort: (r) => r.name,
       cell: (r) => (
         <div className="cell">
-          <div className={'ic ' + (r.soEmail ? 'c2' : r.wp ? 'c6' : 'c3')}>
-            <i className={r.soEmail ? 'fa-solid fa-envelope' : r.wp ? 'fa-brands fa-wordpress' : 'fa-solid fa-globe'} />
+          <div className={'ic ' + (r.soEmail ? 'c2' : r.soDominio ? 'c1' : r.wp ? 'c6' : 'c3')}>
+            <i className={r.soEmail ? 'fa-solid fa-envelope' : r.soDominio ? 'fa-solid fa-globe' : r.wp ? 'fa-brands fa-wordpress' : 'fa-solid fa-globe'} />
           </div>
           <div>
             <a className="lk lk-dom" style={{ display: 'block' }} onClick={() => nav('/' + vh.s.level + '/dominios/' + encodeURIComponent(r.name))}>
               {r.name}
             </a>
-            <span>{r.soEmail ? t('Só e-mail') : r.wp ? 'WordPress' : t('Site')}</span>
+            <span>{r.soEmail ? t('Só e-mail') : r.soDominio ? t('Só domínio') : r.wp ? 'WordPress' : t('Site')}</span>
           </div>
         </div>
       ),
@@ -239,8 +239,8 @@ function ListaDominios({ abaDom = 'meus' }: { abaDom?: AbaDom }) {
     { k: 'bw', t: 'Tráfego', cell: (r) => r.bw || '—' },
     { k: 'disco', t: 'Espaço em disco', cell: (r) => r.disk },
     { k: 'subs', t: 'Subdomínios', sort: (r) => r.subs, cell: (r) => r.subs },
-    { k: 'ssl', t: 'SSL', cell: (r) => (r.soEmail ? '—' : <span className={'tag ' + (r.ssl === 'ok' ? 'ok' : 'w')}>{r.ssl === 'ok' ? t('Seguro') : t('Sem SSL')}</span>) },
-    { k: 'php', t: 'PHP', cell: (r) => (r.soEmail ? '—' : r.php), hidden: true },
+    { k: 'ssl', t: 'SSL', cell: (r) => (r.soEmail || r.soDominio ? '—' : <span className={'tag ' + (r.ssl === 'ok' ? 'ok' : 'w')}>{r.ssl === 'ok' ? t('Seguro') : t('Sem SSL')}</span>) },
+    { k: 'php', t: 'PHP', cell: (r) => (r.soEmail || r.soDominio ? '—' : r.php), hidden: true },
     { k: 'estado', t: 'Estado', cell: (r) => <span className={'tag ' + (r.status === 'ok' ? 'ok' : 'off')}>{r.status === 'ok' ? t('Ativo') : t('Suspenso')}</span> },
   ];
   const varios = (keys: string[], acao: string, msg: string) =>
@@ -307,7 +307,7 @@ function ListaDominios({ abaDom = 'meus' }: { abaDom?: AbaDom }) {
                 <i className="fa-solid fa-gear" />
                 {t('Gerir')}
               </button>{' '}
-              {!r.soEmail && <BotaoPassar dominio={r.name} />}
+              {!r.soEmail && !r.soDominio && <BotaoPassar dominio={r.name} />}
             </>
           )}
         />
@@ -739,6 +739,8 @@ function VerDominio({ d }: { d: string }) {
   }, [d]);
 
   if (!x) return <div className="card empty">{t('Este domínio não existe nesta conta')}</div>;
+  // só o domínio (plano VD-Dominio): registo, servidores de nome e DNS; nada do site
+  const site = !x.soEmail && !x.soDominio;
 
   const ir = (p: string) => nav('/utilizador/' + p);
   const nSubs = a.domains.filter((y) => ehSub(y.name, d)).length;
@@ -748,11 +750,16 @@ function VerDominio({ d }: { d: string }) {
       <>
         <span className={'tag ' + (x.status === 'ok' ? 'ok' : 'off')}>{x.status === 'ok' ? t('Ativo') : t('Suspenso')}</span>
         {x.soEmail && <span className="tag off">{t('Só e-mail')}</span>}
+        {x.soDominio && <span className="tag off">{t('Só domínio')}</span>}
         {x.wp && <span className="tag ok">WordPress</span>}
       </>,
     ],
-    ['Espaço em disco', x.disk],
-    ...(x.soEmail
+    ...(x.soDominio
+      ? ([
+          ['DNS', det ? (det.dns.fonte === 'cloudflare' ? 'Cloudflare' : det.dns.fonte === 'hestia' ? t('Neste servidor') : t('Fora da Visual Design')) : <span className="dom-a-ler">…</span>, 'dns'],
+        ] as [string, ReactNode, string?][])
+      : [['Espaço em disco', x.disk] as [string, ReactNode]]),
+    ...(!site
       ? []
       : ([
           ['Tráfego', x.bw || '—'],
@@ -869,13 +876,13 @@ function VerDominio({ d }: { d: string }) {
           {t('Reprocessar DNS')}
         </button>
         <h4>{t('Alojamento')}</h4>
-        {!x.soEmail && (
+        {site && (
           <a className="dom-op" href={'https://' + d} target="_blank" rel="noreferrer">
             <i className="fa-solid fa-arrow-up-right-from-square" />
             {t('Abrir o site')}
           </a>
         )}
-        {!x.soEmail && (
+        {site && (
           <button
             className="dom-op"
             onClick={() =>
@@ -899,13 +906,20 @@ function VerDominio({ d }: { d: string }) {
             {t('IPs atribuídos')}
           </button>
         )}
-        {!x.soEmail && (
+        {site && (
           <button className="dom-op" onClick={() => openM(<MudarNomeModal d={d} />)}>
             <i className="fa-solid fa-i-cursor" />
             {t('Mudar nome')}
           </button>
         )}
-        {!x.soEmail && <BotaoPassar dominio={d} etiqueta />}
+        {site && <BotaoPassar dominio={d} etiqueta />}
+        {x.soDominio && (
+          <a className="dom-op" href="/precos">
+            <i className="fa-solid fa-cart-shopping" />
+            {t('Contratar alojamento ou e-mail')}
+          </a>
+        )}
+        {!x.soDominio && (
         <button
           className="dom-op"
           onClick={() => noServidor(vh, { acao: x.status === 'ok' ? 'dominio-suspender' : 'dominio-reativar', dominio: d }, x.status === 'ok' ? 'Domínio suspenso' : 'Domínio reativado')}
@@ -913,6 +927,7 @@ function VerDominio({ d }: { d: string }) {
           <i className={'fa-solid ' + (x.status === 'ok' ? 'fa-pause' : 'fa-play')} />
           {t(x.status === 'ok' ? 'Suspender' : 'Reativar')}
         </button>
+        )}
         <button
           className="dom-op"
           onClick={() =>
@@ -967,7 +982,7 @@ export const dominios: ScreenFn = (vh) => {
 function NovoSubdominio({ d }: { d: string }) {
   const vh = useVH();
   const { a, t, closeM } = vh;
-  const principais = a.domains.filter((x) => !x.soEmail && !a.domains.some((y) => y !== x && ehSub(x.name, y.name)));
+  const principais = a.domains.filter((x) => !x.soEmail && !x.soDominio && !a.domains.some((y) => y !== x && ehSub(x.name, y.name)));
   const [sub, setSub] = useState('');
   const [dom, setDom] = useState(() => (principais.some((p) => p.name === d) ? d : principais[0]?.name || ''));
   const [frente, setFrente] = useState(true);
@@ -2601,7 +2616,7 @@ async function noMysql(vh: VH, corpo: Record<string, unknown>, ok: string, recar
 /** phpMyAdmin já com sessão (acesso temporário só às bases da conta, ou só à base indicada) — rota do painel */
 const pmaUrl = (vh: VH, bd?: string) => '/api/vhost/bd?conta=' + encodeURIComponent(vh.me) + '&pma=1' + (bd ? '&bd=' + encodeURIComponent(bd) : '');
 const tamanho = (b?: number) => (b == null ? '—' : b >= 1048576 ? (b / 1048576).toFixed(2).replace('.', ',') + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB');
-const dominioBd = (vh: VH) => vh.a.domains.find((x) => !x.soEmail)?.name || vh.a.domains[0]?.name || '';
+const dominioBd = (vh: VH) => vh.a.domains.find((x) => !x.soEmail && !x.soDominio)?.name || vh.a.domains[0]?.name || '';
 const limiteBd = (vh: VH) => {
   const l = pacoteDe(vh.s, vh.me)?.lim.mysql;
   return !l || l.unl ? 'ilimitado' : l.v;

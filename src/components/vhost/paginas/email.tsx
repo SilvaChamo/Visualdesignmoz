@@ -2245,7 +2245,7 @@ const ABAS_MM: [string, string, string, string][] = [
 ];
 function Mailmarketing({ aba }: { aba: string }) {
   const vh = useVH();
-  const sites = vh.a.domains.filter((x) => !x.soEmail).map((x) => ({ domain: x.name }));
+  const sites = vh.a.domains.filter((x) => !x.soEmail && !x.soDominio).map((x) => ({ domain: x.name }));
   const ir = (k: string) => vh.nav('/utilizador/mailmarketing' + ((ABAS_MM.find((x) => x[0] === k) || ABAS_MM[0])[1] ? '/' + (ABAS_MM.find((x) => x[0] === k) || ABAS_MM[0])[1] : ''));
   return (
     <>

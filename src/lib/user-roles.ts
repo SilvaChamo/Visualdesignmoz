@@ -50,7 +50,8 @@ function readRole(value: unknown): UserRole | null {
  */
 const PROFISSIONAL_HOSTING_PLANS = new Set(['hosting-pro', 'hosting-business', 'hosting-enterprise']);
 const PROFISSIONAL_PACKAGES = new Set(['vd-host-pro', 'vd-host-business', 'vd-host-enterprise']);
-const CLIENT_PACKAGES = new Set(['vd-host-basico', 'vd-email-basico', 'vd-email-premium', 'vd-email-enterprise']);
+// vd-dominio: quem compra só um domínio (painel só com o domínio, Silva 17/10/2026)
+const CLIENT_PACKAGES = new Set(['vd-host-basico', 'vd-email-basico', 'vd-email-premium', 'vd-email-enterprise', 'vd-dominio']);
 
 /** Plano do carrinho (`hosting-pro`, …) que dá o painel Profissional. */
 export function isProfissionalHostingPlan(planId: string | null | undefined): boolean {

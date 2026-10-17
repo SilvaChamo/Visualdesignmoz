@@ -6,7 +6,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useVH, type VH } from "../context";
 import { MENU } from "../generated/data";
-import { isUser } from "../state";
+import { fixoNoPlano, isUser } from "../state";
 import type { ScreenFn } from "../screens";
 import { Check, Frm } from "./componentes";
 
@@ -103,10 +103,11 @@ function AcessosPlanos({ plano }: { plano: string }) {
               right={
                 <span style={{ whiteSpace: "nowrap", flexShrink: 0 }}>
                   <Check
-                    checked={itens.some((it) => !escondidos.includes(it.id))}
+                    checked={itens.some((it) => !fixoNoPlano(plano, it.id) && !escondidos.includes(it.id))}
+                    disabled={itens.every((it) => fixoNoPlano(plano, it.id))}
                     onChange={(v) =>
                       mudarGrupo(
-                        itens.map((it) => it.id),
+                        itens.filter((it) => !fixoNoPlano(plano, it.id)).map((it) => it.id),
                         v,
                       )
                     }
@@ -116,14 +117,19 @@ function AcessosPlanos({ plano }: { plano: string }) {
               }
             >
               <div className="acessos-itens">
-                {itens.map((it) => (
-                  <Check
-                    key={it.id}
-                    checked={!escondidos.includes(it.id)}
-                    onChange={(v) => mudar(it.id, v)}
-                    label={it.t}
-                  />
-                ))}
+                {itens.map((it) =>
+                  // páginas que o plano nunca tem (ex.: Gestão de domínios nos planos de e-mail): ficam desligadas
+                  fixoNoPlano(plano, it.id) ? (
+                    <Check key={it.id} checked={false} disabled onChange={() => {}} label={it.t} title={t("Este plano não inclui esta página")} />
+                  ) : (
+                    <Check
+                      key={it.id}
+                      checked={!escondidos.includes(it.id)}
+                      onChange={(v) => mudar(it.id, v)}
+                      label={it.t}
+                    />
+                  ),
+                )}
               </div>
             </Frm>
           ))}

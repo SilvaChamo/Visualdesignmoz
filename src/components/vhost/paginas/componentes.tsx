@@ -41,11 +41,11 @@ export function Row({ label, hint, children, tag }: { label: string; hint?: stri
   );
 }
 
-export function Check({ checked, onChange, label, muted }: { checked: boolean; onChange: (v: boolean) => void; label: string; muted?: boolean }) {
+export function Check({ checked, onChange, label, muted, disabled, title }: { checked: boolean; onChange: (v: boolean) => void; label: string; muted?: boolean; disabled?: boolean; title?: string }) {
   const { t } = useVH();
   return (
-    <label className={'chk' + (muted ? ' mut' : '')}>
-      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+    <label className={'chk' + (muted || disabled ? ' mut' : '')} title={title}>
+      <input type="checkbox" checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
       {t(label)}
     </label>
   );

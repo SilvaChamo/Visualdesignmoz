@@ -171,6 +171,9 @@ export function montarDados(srv: LeituraServidor, reg: RegistoSite, sessao: Sess
     // domínios só de e-mail (sem site)
     for (const [d, m] of Object.entries(srv.mail[u] || {}))
       if (!web[d]) domains.push({ name: d, ssl: (m.SSL || 'no').toLowerCase() === 'yes' ? 'ok' : 'w', php: '—', disk: mbTexto(num(m.U_DISK)), status: (m.SUSPENDED || 'no').toLowerCase() === 'yes' ? 'w' : 'ok', soEmail: true });
+    // domínios só com a zona DNS (sem site nem e-mail): quem comprou só o domínio (plano VD-Dominio, Silva 17/10/2026)
+    for (const [d, z] of Object.entries(srv.dns[u] || {}))
+      if (!web[d] && !srv.mail[u]?.[d]) domains.push({ name: d, ssl: 'w', php: '—', disk: '—', status: (z.SUSPENDED || 'no').toLowerCase() === 'yes' ? 'w' : 'ok', soDominio: true });
     // Domínio principal (o usado para criar a conta) à cabeça — é o que o painel escolhe à partida em todas as páginas.
     // Vem do registo do site (da_domain, gravado quando a conta foi criada); sem ele, o mais antigo no Hestia (data e
     // hora de criação) e, em empate, o que tem o nome da conta.

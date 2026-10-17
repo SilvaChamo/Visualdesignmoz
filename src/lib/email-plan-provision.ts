@@ -21,7 +21,7 @@ import { emailPlanByProductName, emailPlanProductName, getEmailPlan } from '@/li
 
 
 /** `taken`: nomes que já existem no servidor (não só no espelho). */
-async function pickAvailableMirrorUsername(base: string, taken: Set<string> = new Set()): Promise<string> {
+export async function pickAvailableMirrorUsername(base: string, taken: Set<string> = new Set()): Promise<string> {
   const sb = getDaSyncAdmin();
   const sanitized = sanitizeDaUsername(base);
   for (const candidate of [sanitized, `${sanitized}1`, `${sanitized}2`, `${sanitized}${Date.now().toString().slice(-4)}`]) {

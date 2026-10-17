@@ -378,6 +378,11 @@ export const LIM: Record<string, { disk: string; dom: string }> = {
 };
 export const DEMO_LOGINS: string[] = ["visualdesign","revendamz","empresaa","clienteb"];
 export const EN: Record<string, string> = {
+ // plano só de domínio e planos de e-mail (17/10/2026 — editado à mão)
+ "Só domínio": "Domain only",
+ "Só e-mail": "E-mail only",
+ "Contratar alojamento ou e-mail": "Get hosting or e-mail",
+ "Este plano não inclui esta página": "This plan does not include this page",
  "Contas ligadas": "Connected Accounts",
  "Agora": "Now",
  "Actividade": "Activity",
@@ -631,6 +636,14 @@ export const EN: Record<string, string> = {
  "Cancelar": "Cancel",
  "O domínio não está a usar nameservers da Cloudflare.": "The domain is not using Cloudflare nameservers.",
  "Descer mesmo assim": "Downgrade anyway",
+ "Mudar de pacote mesmo assim?": "Change package anyway?",
+ "Mudar mesmo assim": "Change anyway",
+ "O pacote {0} não chega para o que estas contas já têm:": "Package {0} does not cover what these accounts already have:",
+ "Ao mudar, mantêm tudo o que já têm (sites, e-mails, bases de dados), mas não podem criar mais até ficarem dentro dos limites do pacote.": "When changing, they keep everything they already have (sites, e-mails, databases), but cannot create more until they are within the package limits.",
+ "bases de dados": "databases",
+ "contas de e-mail": "e-mail accounts",
+ "domínios de e-mail": "e-mail domains",
+ "domínios DNS": "DNS domains",
  "Manter pacote actual": "Keep current package",
  "O pacote de destino tem limites inferiores aos recursos actuais. Se continuar, a conta mantém os recursos existentes, mas não pode criar mais até ficar dentro dos limites.": "The target package has lower limits than current usage. If you continue, the account keeps its existing resources but cannot create more until it is within the limits.",
  "O pacote ficou como estava; os outros dados enviados foram guardados.": "The package was left unchanged; the other submitted details were saved.",

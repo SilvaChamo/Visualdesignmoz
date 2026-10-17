@@ -8,21 +8,42 @@
 #   4. a conta e o domínio não estão na lista de exclusão (/etc/vd-brevemente-excluir: contas ou domínios, um por
 #      linha; vazia por defeito — a regra vale para todos, Osher incluída: Silva, 15/10/2026).
 # A página antiga fica guardada em /root/brevemente-copias/. Registo em /var/log/vd-brevemente.log.
+# Com a página vai também o favicon da VisualDesign (favicon.ico do modelo), em vez do que lá estava (ex.: o do
+# DirectAdmin). Os sites que já têm a nossa Brevemente numa versão antiga recebem a versão actual do modelo
+# (Silva, 17/10/2026: "a nossa deve ser por defeito… com favicon da VisualDesign").
 # Uso: vd-brevemente.sh            -> aplica
 #      vd-brevemente.sh --ver      -> só mostra o que faria
 H=/usr/local/hestia/bin
 ORIG=/root/hestia-skel-index-original.html
 PAGINA=/usr/local/hestia/data/templates/web/skel/public_html/index.html
+FAV=/usr/local/hestia/data/templates/web/skel/public_html/favicon.ico
+MARCA='Página por defeito dos sites sem conteúdo (VisualDesign)'
 EXCLUIR=/etc/vd-brevemente-excluir
 LOG=/var/log/vd-brevemente.log
 VER=0; [ "$1" = "--ver" ] && VER=1
 [ -f "$ORIG" ] && grep -q "<h1>Brevemente</h1>" "$PAGINA" || { echo "falta a página de origem ou a Brevemente"; exit 1; }
 excluido() { [ -f "$EXCLUIR" ] && grep -qxF -e "$1" -e "$2" "$EXCLUIR"; }
+# põe o favicon da VisualDesign (guarda o que lá estava)
+favicon() {
+  [ -f "$FAV" ] || return 0
+  [ -f "$2/favicon.ico" ] && cmp -s "$FAV" "$2/favicon.ico" && return 0
+  [ -f "$2/favicon.ico" ] && mkdir -p /root/brevemente-copias && cp -a "$2/favicon.ico" "/root/brevemente-copias/$1-favicon.ico"
+  install -m 644 -o "$3" -g "$3" "$FAV" "$2/favicon.ico"
+}
 for u in $($H/v-list-users plain | cut -f1); do
   for d in $($H/v-list-web-domains "$u" plain | cut -f1); do
     P=/home/$u/web/$d/public_html
     [ -f "$P/index.html" ] || continue
     excluido "$u" "$d" && continue
+    # já tem a nossa Brevemente (numa versão antiga ou sem o favicon): passa à versão actual do modelo
+    if grep -qF "$MARCA" "$P/index.html"; then
+      if cmp -s "$PAGINA" "$P/index.html" && { [ ! -f "$FAV" ] || cmp -s "$FAV" "$P/favicon.ico"; }; then continue; fi
+      if [ $VER = 1 ]; then echo "Brevemente actualizada: $u $d"; continue; fi
+      install -m 644 -o "$u" -g "$u" "$PAGINA" "$P/index.html"
+      favicon "$d" "$P" "$u"
+      echo "$(date '+%F %T') Brevemente actualizada em $d ($u): versão do modelo e favicon da VisualDesign" >> "$LOG"
+      continue
+    fi
     info=$($H/v-list-web-domain "$u" "$d" shell 2>/dev/null)
     px=$(echo "$info" | awk '$1=="PROXY:"{print $2}')
     ip=$(echo "$info" | awk '$1=="IP:"{print $2}')   # o nginx só escuta no IP do servidor, não em 127.0.0.1
@@ -38,6 +59,7 @@ for u in $($H/v-list-users plain | cut -f1); do
     if [ $VER = 1 ]; then echo "receberia a Brevemente: $u $d (página de origem: $origem)"; continue; fi
     mkdir -p /root/brevemente-copias && cp -a "$P/index.html" "/root/brevemente-copias/$d-index.html"
     install -m 644 -o "$u" -g "$u" "$PAGINA" "$P/index.html"
+    favicon "$d" "$P" "$u"
     echo "$(date '+%F %T') Brevemente posta em $d ($u, substitui a página de origem do $origem)" >> "$LOG"
   done
 done

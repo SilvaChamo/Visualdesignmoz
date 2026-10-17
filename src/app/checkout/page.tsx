@@ -6,6 +6,8 @@ import { useCurrency } from '@/contexts/CurrencyContext';
 import { supabase } from '@/lib/supabase-client';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { PUBLIC_PANEL_ENTRY } from '@/lib/panel-origin';
+import { destinoDepoisDoPagamento } from '@/lib/voltar-ao-painel';
 import Link from 'next/link';
 import { RenewalCheckout } from './RenewalCheckout';
 import {
@@ -1045,7 +1047,7 @@ function CheckoutContent() {
                                 {typeLabel[item.type] || item.type}
                               </span>
                               <h4 className="font-bold text-slate-800 dark:text-zinc-100 text-sm break-all leading-tight">{item.name}</h4>
-                              {item.type === 'hosting' && item.hostingDomain && (
+                              {(item.type === 'hosting' || item.type === 'email') && item.hostingDomain && (
                                 <p className="text-[11px] text-slate-400 dark:text-zinc-500 mt-0.5 break-all">{item.hostingDomain}</p>
                               )}
                             </div>
@@ -1381,7 +1383,7 @@ function CheckoutContent() {
                 <button type="button" onClick={() => window.print()} className="w-full flex items-center gap-2.5 px-5 py-3 text-sm text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 hover:text-red-600 dark:hover:text-red-400 cursor-pointer border-t border-slate-100 dark:border-zinc-800">
                   <FileDown className="w-4 h-4 text-slate-400" /> Download PDF
                 </button>
-                <button type="button" onClick={() => router.push(isEncomenda ? '/encomendas' : '/cliente')} className="w-full flex items-center gap-2.5 px-5 py-3 text-sm text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 hover:text-red-600 dark:hover:text-red-400 cursor-pointer border-t border-slate-100 dark:border-zinc-800">
+                <button type="button" onClick={() => router.push(isEncomenda ? destinoDepoisDoPagamento('/encomendas') : PUBLIC_PANEL_ENTRY)} className="w-full flex items-center gap-2.5 px-5 py-3 text-sm text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 hover:text-red-600 dark:hover:text-red-400 cursor-pointer border-t border-slate-100 dark:border-zinc-800">
                   <ArrowLeft className="w-4 h-4 text-slate-400" /> Retornar ao Painel
                 </button>
               </div>

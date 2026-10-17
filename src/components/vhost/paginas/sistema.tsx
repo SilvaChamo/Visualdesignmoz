@@ -87,7 +87,7 @@ const mb = (n: number) => (n >= 1024 ? (n / 1024).toFixed(2).replace('.', ',') +
 const pct = (v: number, max: number) => (max > 0 ? Math.min(100, Math.round((v / max) * 100)) : 0);
 
 function siteAtual(vh: VH): string {
-  const sites = vh.a.domains.filter((x) => !x.soEmail).map((x) => x.name); // o primeiro é o principal da conta
+  const sites = vh.a.domains.filter((x) => !x.soEmail && !x.soDominio).map((x) => x.name); // o primeiro é o principal da conta
   return vh.s.dominio && sites.includes(vh.s.dominio) ? vh.s.dominio : sites[0] || '';
 }
 

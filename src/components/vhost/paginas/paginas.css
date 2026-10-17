@@ -1762,3 +1762,55 @@
 .vh .ad-ed-nota code{font-size:12px}
 .vh .ad-ed-foot{justify-content:flex-start;padding:12px 0 0;border:0}
 @media(max-width:768px){.vh .ad-editor{height:60vh;min-height:280px}}
+
+/* Componentes do site dentro do painel (.vh-site: a conversa, o histórico e o formulário de edição das Encomendas):
+   as mesmas regras do Mailmarketing (cores, cantos, campos e botões do painel nos dois temas), mais as regras do painel
+   — nunca roda (o ícone a girar não aparece) nem texto cortado com "…" — e as margens do Tailwind que o painel anula
+   (.vh *{margin:0} ganha às classes do Tailwind, que estão numa camada) */
+.vh .vh-site [class*="rounded"]:not([class*="rounded-full"]){border-radius:var(--r)!important}
+.vh .vh-site [class*="shadow"]{box-shadow:none!important}
+.vh .vh-site :is([class*="bg-white"],[class*="bg-zinc-900"],[class*="bg-zinc-950"]):not(button){background-color:var(--card)!important}
+.vh .vh-site :is([class*="bg-slate-50"],[class*="bg-slate-100"],[class*="bg-slate-200"],[class*="bg-gray-50"],[class*="bg-gray-100"],[class*="bg-zinc-800"]):not(button){background-color:var(--soft)!important}
+.vh .vh-site :is([class*="bg-orange-50"],[class*="bg-red-50"]):not(button){background-color:var(--tint)!important}
+.vh .vh-site :is([class*="border-slate"],[class*="border-gray"],[class*="border-zinc"],[class~="border"],[class~="border-b"],[class~="border-t"],[class~="border-r"]){border-color:var(--line)!important}
+.vh .vh-site .w-px{background-color:var(--line)!important}
+.vh .vh-site :is(select,input:not([type=checkbox]):not([type=radio]),textarea):not([class*="bg-transparent"]){background-color:var(--card)!important;border-color:var(--line)!important;color:var(--ink)!important;border-radius:var(--r)!important}
+.vh .vh-site [class*="bg-transparent"]{background-color:transparent!important;color:var(--ink)!important}
+.vh .vh-site :is(input,select,textarea)[class*="bg-transparent"]:not([type=checkbox]):not([type=radio]){background-color:transparent!important}
+.vh .vh-site :is([class*="text-slate-900"],[class*="text-slate-800"],[class*="text-slate-700"],[class*="text-gray-900"],[class*="text-gray-700"],[class*="text-zinc-200"],[class*="text-zinc-300"]):not(button){color:var(--ink)!important}
+.vh .vh-site :is([class*="text-slate-400"],[class*="text-slate-500"],[class*="text-slate-600"],[class*="text-gray-500"],[class*="text-gray-600"],[class*="text-zinc-400"],[class*="text-zinc-500"]):not(button){color:var(--muted)!important}
+.vh .vh-site :is([class*="text-orange-600"],[class*="text-orange-500"]){color:var(--red)!important}
+.vh .vh-site ::placeholder{color:var(--muted)!important}
+.vh .vh-site button:is([class*="uppercase"],[class*="h-8"],[class*="h-9"]){text-transform:none!important;letter-spacing:normal!important;font-size:13px!important;font-weight:600!important;min-height:34px}
+.vh .vh-site button:is([class*="bg-slate-800"],[class*="bg-black"]){background-color:var(--btn,var(--red))!important;color:var(--btn-ink,#fff)!important;border:1px solid var(--btn,var(--red))!important}
+.vh .vh-site button:is([class*="bg-slate-800"],[class*="bg-black"]):hover:not(:disabled){background-color:var(--btn-d,var(--red-d))!important;border-color:var(--btn-d,var(--red-d))!important}
+.vh .vh-site button:is([class*="bg-slate-100"],[class*="bg-gray-100"],[class*="bg-background"],[class*="border-gray-200"]){background-color:var(--soft)!important;color:var(--ink)!important;border:1px solid var(--line)!important}
+.vh .vh-site button:is([class*="bg-slate-100"],[class*="bg-gray-100"],[class*="bg-background"],[class*="border-gray-200"]):hover:not(:disabled){color:var(--red)!important;background-color:var(--soft)!important}
+.vh .vh-site button[class*="bg-emerald-600"]{background-color:var(--ok)!important;border:1px solid var(--ok)!important}
+.vh .vh-site button[class*="bg-emerald-600"]:hover:not(:disabled){filter:brightness(.92)}
+.vh .vh-site .animate-spin{display:none!important}
+.vh .vh-site .truncate{overflow:visible!important;text-overflow:clip!important;white-space:normal!important}
+.vh .vh-site .mt-0\.5{margin-top:2px}.vh .vh-site .mt-1{margin-top:4px}.vh .vh-site .mt-2{margin-top:8px}.vh .vh-site .mt-3{margin-top:12px}.vh .vh-site .mx-auto{margin-left:auto;margin-right:auto}
+.vh .vh-site .mb-1\.5{margin-bottom:6px}.vh .vh-site .mb-2{margin-bottom:8px}.vh .vh-site .ml-auto{margin-left:auto}
+.vh .vh-site .space-y-1>*+*{margin-top:4px}.vh .vh-site .space-y-2>*+*{margin-top:8px}.vh .vh-site .space-y-3>*+*{margin-top:12px}.vh .vh-site .space-y-4>*+*{margin-top:16px}
+
+/* Gestão › Encomendas e Facturação (paginas/encomendas.tsx, facturacao.tsx): os componentes do painel das encomendas e
+   das "Minhas compras", tal como estão, dentro do cartão principal. A lista e o detalhe lado a lado precisam de largura:
+   com o menu do painel ao lado, ficam um por baixo do outro até 1300 px (as larguras do Tailwind contam o ecrã todo) */
+@media(max-width:1300px){.vh .vh-encomendas .grid{grid-template-columns:minmax(0,1fr)}}
+.vh .vh-encomendas iframe{background:#fff}
+/* no telemóvel e no tablet (até 1050 px), a tabela das compras em blocos (regra do painel: nunca barra de deslocar) */
+@media(max-width:1050px){
+ .vh .vh-facturacao table,.vh .vh-facturacao tbody{display:block;width:100%}
+ .vh .vh-facturacao thead{display:none}
+ .vh .vh-facturacao tbody>tr{display:flex;flex-wrap:wrap;gap:6px 14px;padding:12px;border-bottom:1px solid var(--line)}
+ .vh .vh-facturacao tbody>tr>td{display:block;padding:0!important;text-align:left!important;white-space:normal!important}
+ .vh .vh-facturacao tbody>tr>td:first-child{flex:1 1 100%}
+ .vh .vh-facturacao tbody>tr>td[aria-hidden]{display:none}
+}
+/* portátil (1051–1300 px): como nas outras tabelas do painel, saem as colunas menos importantes (Método e Data) e a
+   descrição parte linha, para a tabela caber sem barra de deslocar */
+@media(min-width:1051px) and (max-width:1300px){
+ .vh .vh-facturacao :is(th,td):is(:nth-child(3),:nth-child(5)){display:none}
+ .vh .vh-facturacao td:first-child,.vh .vh-facturacao td:first-child>div{white-space:normal;max-width:none}
+}
