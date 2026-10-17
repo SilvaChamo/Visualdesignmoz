@@ -203,7 +203,9 @@ export async function POST(req: NextRequest) {
       const u = String(c.user || '').trim().toLowerCase();
       const b = bloqueio(u, true);
       if (b) return NextResponse.json({ erro: 'Não foi criada: ' + b + '.', falhas: [{ conta: u, erro: b }] }, { status: 400 });
-      if (!/^\S+@\S+\.\S+$/.test(c.email || '')) return NextResponse.json({ erro: 'E-mail inválido.' }, { status: 400 });
+      // nenhuma conta sem e-mail (Silva, 17/10/2026): é ele o login do site e do painel
+      const { emailDeContaValido, SEM_EMAIL } = await import('@/lib/hestia-adapter');
+      if (!emailDeContaValido(c.email)) return NextResponse.json({ erro: c.email ? 'E-mail inválido.' : SEM_EMAIL }, { status: 400 });
       if ((c.senha || '').length < 8) return NextResponse.json({ erro: 'A palavra-passe precisa de pelo menos 8 caracteres.' }, { status: 400 });
       if (!pacotePermitido(String(c.pacote || ''))) return NextResponse.json({ erro: 'Esse pacote não existe ou não pode ser atribuído por esta conta.' }, { status: 403 });
       // Domínio escrito: tem de ser válido e ainda não existir no servidor. Um domínio que já está na conta do
@@ -235,6 +237,12 @@ export async function POST(req: NextRequest) {
         else if (!(await instalarWebmail(u, d))) falhas.push({ conta: u, erro: 'conta e domínio criados, mas a regra do webmail não foi posta' });
       }
       if (sb) await sb.from('panel_users').upsert({ username: u, parent_username: admin ? null : eu || null, email: c.email, package_name: c.pacote, created_at: new Date().toISOString() }, { onConflict: 'username' });
+      // a conta nasce já com login do site (o e-mail escrito e esta palavra-passe): sem ele não entrava no painel
+      if (sb) {
+        const { criarLoginDaConta } = await import('@/lib/vhost-login-da-conta');
+        const login = await criarLoginDaConta(sb, u, c.senha, c.email).catch((e: unknown) => ({ ok: false as const, erro: e instanceof Error ? e.message : String(e) }));
+        if (!login.ok) falhas.push({ conta: u, erro: 'conta criada, mas sem login do site: ' + login.erro });
+      }
       esquecerRegisto();
       feitas.push(u);
       break;
