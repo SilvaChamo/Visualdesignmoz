@@ -1,4 +1,5 @@
 import { CUSTOM_CATEGORIA_ID, findCategory, findItem } from '@/lib/pricing-catalog';
+import { destinoDepoisDoPagamento } from '@/lib/voltar-ao-painel';
 
 /**
  * Encomenda VisualDesign a caminho do checkout único.
@@ -238,7 +239,7 @@ export function encomendaLandingPath(_role?: string | null, _products?: Products
   return '/encomendas';
 }
 
-/** Versão do browser (já não precisa de ler o papel nem os produtos da conta). */
+/** Versão do browser: o painel (Gestão › Encomendas) quando se veio de lá, senão /encomendas. */
 export async function resolveEncomendaLandingPath(): Promise<string> {
-  return encomendaLandingPath();
+  return destinoDepoisDoPagamento(encomendaLandingPath());
 }

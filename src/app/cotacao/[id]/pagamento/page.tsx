@@ -10,6 +10,7 @@ import { formatMt } from '@/lib/pricing-catalog';
 import { Spinner } from '@/components/ui/spinner';
 import { groupIntoBatches, type BatchItem, type QuotationBatch } from '@/lib/quotation-batch';
 import { useBatchNumeros, displayNumero } from '@/lib/use-batch-numeros';
+import { destinoDepoisDoPagamento } from '@/lib/voltar-ao-painel';
 import { isComprovativoRejeitado, type ComprovativoFase } from '@/lib/quotation-comprovativo';
 import { encomendaPaymentSplit } from '@/lib/encomenda-checkout';
 
@@ -129,6 +130,13 @@ function CotacaoPagamentoContent() {
           <Link
             href="/encomendas"
             target={embed ? '_top' : undefined}
+            onClick={(e) => {
+              // quem veio do painel volta ao painel (Gestão › Encomendas)
+              const destino = destinoDepoisDoPagamento('/encomendas');
+              if (destino === '/encomendas') return;
+              e.preventDefault();
+              (embed ? window.top! : window).location.href = destino;
+            }}
             className="inline-block mt-2 bg-red-600 hover:bg-red-700 text-white font-bold px-6 py-2.5 rounded-md text-sm transition-colors"
           >
             Ir para as Minhas Encomendas
