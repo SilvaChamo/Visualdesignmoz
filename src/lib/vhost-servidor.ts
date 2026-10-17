@@ -67,8 +67,6 @@ echo "@@FIM"
 
 /** Mais do que isto desde a leitura anterior, a média já não diz como está o CPU agora: o painel usa a carga média */
 const CPU_INTERVALO_MAX_MS = 10 * 60_000;
-/** /proc/stat no fim da leitura anterior, quando foi e o consumo calculado nessa altura */
-let cpuAnterior: { fim: number[]; at: number; pct: number } | null = null;
 
 /**
  * Consumo do CPU (% de todos os núcleos) entre o fim da leitura anterior e o início desta — o tempo em que a leitura do
@@ -82,7 +80,7 @@ let cpuAnterior: { fim: number[]; at: number; pct: number } | null = null;
 export function cpuEntreLeituras(linhas: string[] | undefined, cpus: number): number {
   const nums = (l: string | undefined) => (l || '').trim().split(/\s+/).map(Number).filter((n) => !Number.isNaN(n));
   const inicio = nums(linhas?.[0]), fim = nums(linhas?.[1]);
-  const ant = cpuAnterior;
+  const ant = m.cpuAnterior;
   let pct = -1;
   if (ant && inicio.length >= 4 && Date.now() - ant.at <= CPU_INTERVALO_MAX_MS) {
     const tot = (v: number[]) => v.slice(0, 8).reduce((x, y) => x + y, 0);
@@ -92,7 +90,7 @@ export function cpuEntreLeituras(linhas: string[] | undefined, cpus: number): nu
     if (dt > 0 && dt < 100 * Math.max(1, cpus)) pct = ant.pct;
     else if (dt > 0) pct = Math.max(0, Math.min(100, Math.round(((dt - (livre(inicio) - livre(ant.fim))) / dt) * 1000) / 10));
   }
-  if (fim.length >= 4) cpuAnterior = { fim, at: Date.now(), pct };
+  if (fim.length >= 4) m.cpuAnterior = { fim, at: Date.now(), pct };
   return pct;
 }
 
@@ -175,6 +173,8 @@ type Memoria = {
    *  painel vir já desenhada ao recarregar, nunca em branco à espera do servidor (Silva, 16/10/2026); o painel lê a
    *  versão nova logo a seguir (/api/vhost/dados) */
   ultima: { at: number; dados: LeituraServidor } | null;
+  /** /proc/stat no fim da leitura anterior, quando foi e o consumo calculado nessa altura (ver cpuEntreLeituras) */
+  cpuAnterior?: { fim: number[]; at: number; pct: number } | null;
 };
 // Uma só memória por processo: a leitura feita ao arrancar o site (src/instrumentation-node.ts) carrega este ficheiro
 // numa cópia à parte da das páginas e rotas — sem isto, não servia ao primeiro pedido do painel
