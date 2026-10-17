@@ -239,28 +239,46 @@ export async function changeUserPackage(
   const result = await hestiaCall('v-change-user-package', [username, packageName, ...(forcar ? ['yes'] : [])]);
   // Código 8 do Hestia (limite): a conta já usa mais do que o pacote novo deixa (domínios, e-mails, bases de dados…).
   // Foi o que aconteceu ao passar contas com site para o VD-Email-Basico (registo do servidor, 12 e 14/10/2026).
-  if (!result.ok && (result.exitCode === 8 || /limit|doesn't cover/i.test(result.error || '')))
+  const respostaPacote = `${result.error || ''}\n${result.output || ''}`;
+  if (result.exitCode === 8 || /limit|doesn't cover/i.test(respostaPacote))
     return {
       ok: false,
       limite: true,
-      error: `o pacote ${packageName} é mais pequeno do que o que a conta ${username} já usa (domínios, e-mails ou bases de dados)`,
+      error: forcar
+        ? `o servidor continua a recusar o pacote ${packageName} para a conta ${username}: ${respostaPacote.trim() || 'limite de recursos excedido'}`
+        : `o pacote ${packageName} é mais pequeno do que o que a conta ${username} já usa (domínios, e-mails ou bases de dados)`,
     };
   if (!result.ok) return { ok: result.ok, error: result.error };
   // Confirma no servidor que o pacote mudou mesmo: sem o cabeçalho com o código de saída, a API do Hestia pode
   // responder "200" a um pedido recusado, e o painel dizia "alterado" sem nada mudar (Silva, 16/10/2026).
   const lido = await hestiaCall('v-list-user', [username, 'json']);
-  if (lido.ok) {
-    try {
-      const j = JSON.parse(lido.output) as Record<string, { PACKAGE?: string }>;
-      const atual = j[username]?.PACKAGE;
-      if (atual && atual !== packageName)
-        return {
-          ok: false,
-          error: `o servidor não mudou o pacote da conta ${username} (continua ${atual})${result.output ? ': ' + result.output : ''}`,
-        };
-    } catch {
-      /* sem leitura em JSON: fica a resposta do comando */
-    }
+  if (!lido.ok) {
+    return {
+      ok: false,
+      error: `o pacote foi enviado ao servidor, mas não foi possível confirmar se a conta ${username} passou para ${packageName}: ${lido.error || 'falha ao consultar a conta'}. Actualize a lista antes de repetir.`,
+    };
+  }
+  let atual: string | undefined;
+  try {
+    const j = JSON.parse(lido.output) as Record<string, { PACKAGE?: string }>;
+    atual = j[username]?.PACKAGE;
+  } catch {
+    return {
+      ok: false,
+      error: `o pacote foi enviado ao servidor, mas a resposta de confirmação da conta ${username} não é válida. Actualize a lista antes de repetir.`,
+    };
+  }
+  if (!atual) {
+    return {
+      ok: false,
+      error: `o pacote foi enviado ao servidor, mas não foi possível ler o pacote actual da conta ${username}. Actualize a lista antes de repetir.`,
+    };
+  }
+  if (atual !== packageName) {
+    return {
+      ok: false,
+      error: `o servidor não mudou o pacote da conta ${username} (continua ${atual})${result.output ? ': ' + result.output : ''}`,
+    };
   }
   return { ok: true };
 }
