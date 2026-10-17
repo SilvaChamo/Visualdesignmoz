@@ -5,7 +5,9 @@
  * secções: contas, pacotes, informação do sistema, IPs, recursos (CPU, memória, disco, carga) e, por conta,
  * domínios web (com WordPress), zonas DNS, domínios de e-mail e contas de e-mail. Nada é alterado.
  *
- * Fica em memória 60 s; depois disso devolve a última leitura e lê de novo em segundo plano (até 10 min).
+ * Fica em memória 60 s; depois disso devolve a última leitura e lê de novo em segundo plano (até 60 min — Silva,
+ * 17/10/2026: o login e o painel abrem logo depois de uma ausência; o painel volta a pedir quando a leitura nova chega).
+ * Qualquer alteração feita pelo site no Hestia (hestiaCall) ou pelo painel esquece a leitura (esquecerLeitura).
  */
 import { executeServerCommand } from '@/lib/server-ssh-exec';
 
@@ -161,7 +163,7 @@ export function interpretarLeitura(out: string): LeituraServidor {
 
 
 const FRESCO_MS = 60_000;
-const VELHO_MS = 10 * 60_000;
+const VELHO_MS = 60 * 60_000;
 type Memoria = {
   cache: { at: number; dados: LeituraServidor } | null;
   aLer: { geracao: number; p: Promise<LeituraServidor> } | null;
@@ -212,7 +214,8 @@ function lerAgora(): Promise<LeituraServidor> {
   return m.aLer.p;
 }
 
-/** Leitura do servidor (com memória de 60 s). `forcar` lê já, por exemplo depois de uma alteração. */
+/** Leitura do servidor (com memória de 60 s; até 60 min devolve a última e lê a nova por trás). `forcar` lê já, por
+ *  exemplo depois de uma alteração. */
 export async function lerServidor(forcar = false): Promise<LeituraServidor> {
   const { cache } = m;
   const idade = cache ? Date.now() - cache.at : Infinity;
@@ -232,6 +235,11 @@ export async function lerServidorParaPagina(): Promise<LeituraServidor> {
   if (!cache || Date.now() - cache.at >= FRESCO_MS) lerAgora().catch(() => {});
   return ultima.dados;
 }
+
+/** Idade (ms) de uma leitura, contada no servidor (o relógio do navegador pode estar adiantado ou atrasado) */
+export const idadeLeitura = (l: { lidoEm: string }) => Math.max(0, Date.now() - (Date.parse(l.lidoEm) || 0));
+/** Uma leitura com mais do que isto já não é "desta hora" */
+export const LEITURA_FRESCA_MS = FRESCO_MS;
 
 /** Esquece a leitura guardada (a próxima vai ao servidor). */
 export function esquecerLeitura(): void {

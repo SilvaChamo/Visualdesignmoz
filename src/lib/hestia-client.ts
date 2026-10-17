@@ -91,6 +91,17 @@ type HestiaCallOptions = {
 };
 
 export async function hestiaCall(cmd: string, args: string[] = [], options: HestiaCallOptions = {}): Promise<HestiaCallResult> {
+  try {
+    return await hestiaCallDireto(cmd, args, options);
+  } finally {
+    // Uma alteração feita pelo site fora do painel (ex.: a conta criada por uma compra): a leitura do servidor que o
+    // painel guarda em memória (até 60 min) deixa de valer — senão o cliente novo via "conta não ligada" até ela expirar.
+    // Também quando falha: não se sabe se o servidor chegou a mudar.
+    if (!cmd.startsWith('v-list-')) void import('@/lib/vhost-servidor').then((m) => m.esquecerLeitura()).catch(() => {});
+  }
+}
+
+async function hestiaCallDireto(cmd: string, args: string[], options: HestiaCallOptions): Promise<HestiaCallResult> {
   const { host, port, user, password } = resolveHestiaConfig();
   const timeoutMs = options.timeoutMs ?? HESTIA_HTTP_TIMEOUT_MS;
 

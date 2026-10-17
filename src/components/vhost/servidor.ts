@@ -52,6 +52,8 @@ export interface DadosServidor {
   /** versões PHP instaladas no servidor */
   php: string[];
   lidoEm: string;
+  /** há quanto tempo o servidor foi lido, contado no servidor quando a resposta saiu (só em /api/vhost/dados) */
+  idadeMs?: number;
 }
 
 /** Quem tem a sessão iniciada, como está no perfil do site */
