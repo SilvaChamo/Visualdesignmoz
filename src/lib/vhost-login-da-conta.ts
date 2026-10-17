@@ -18,6 +18,8 @@ export async function criarLoginDaConta(
   sb: SupabaseClient,
   conta: string,
   senha: string,
+  /** só este e-mail (ex.: o escrito ao criar a conta em Adicionar cliente) — sem tentar outros */
+  soEste?: string,
 ): Promise<{ ok: true; uid: string; email: string } | { ok: false; erro: string }> {
   const hestia = await import('@/lib/hestia-adapter');
   const { hestiaCallJson } = await import('@/lib/hestia-client');
@@ -30,7 +32,7 @@ export async function criarLoginDaConta(
   const mails = await hestia.listMailDomains(conta).catch(() => [] as string[]);
   const dominio = (sites[0]?.domain || mails[0] || '').toLowerCase();
   // primeiro admin@<domínio> (Silva, 17/10/2026: "cria com email admin"); o de contacto só se esse já for de outra pessoa
-  const candidatos = [dominio ? `admin@${dominio}` : '', String(info.CONTACT || '').trim().toLowerCase()]
+  const candidatos = (soEste ? [soEste.trim().toLowerCase()] : [dominio ? `admin@${dominio}` : '', String(info.CONTACT || '').trim().toLowerCase()])
     .filter((e, i, l) => e && EMAIL_OK.test(e) && l.indexOf(e) === i);
   if (!candidatos.length) return { ok: false, erro: 'A conta não tem e-mail de contacto nem domínio para criar o login.' };
 
@@ -54,5 +56,10 @@ export async function criarLoginDaConta(
     await sb.from('panel_users').update({ auth_user_id: uid, email, da_password_encrypted: enc }).eq('username', conta);
     return { ok: true, uid, email };
   }
-  return { ok: false, erro: 'Os e-mails possíveis para esta conta já são de outras pessoas do site. Mude o e-mail de contacto da conta e tente outra vez.' };
+  return {
+    ok: false,
+    erro: soEste
+      ? `o e-mail ${soEste} já tem login no site: ligue-o à conta em Editar dados`
+      : 'Os e-mails possíveis para esta conta já são de outras pessoas do site. Mude o e-mail de contacto da conta e tente outra vez.',
+  };
 }

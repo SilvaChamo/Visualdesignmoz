@@ -84,7 +84,12 @@ export async function POST(req: NextRequest) {
     const nomeCompleto = u?.NAME || c.conta;
     const [pNome, ...rNome] = nomeCompleto.split(/\s+/);
 
-    const rAdd = await hestiaCall('v-add-user', [novoNome, 'Tmp#' + Math.random().toString(36).slice(2, 10), email || 'admin@' + novoNome + '.com', pkg, pNome || novoNome, rNome.join(' ') || pNome || novoNome]);
+    // a conta nova nunca fica sem e-mail (Silva, 17/10/2026): o de contacto ou admin@<domínio da conta>; nada de
+    // endereços inventados (antes: admin@<nome>.com, que não existe)
+    const dominio1 = Object.keys(c.srv.web[c.conta] || {})[0] || Object.keys(c.srv.mail[c.conta] || {})[0] || '';
+    const emailConta = email || (dominio1 ? 'admin@' + dominio1 : '');
+    if (!emailConta) return NextResponse.json({ erro: 'A conta não tem e-mail de contacto: ponha-o em Editar dados antes de renomear.' }, { status: 400 });
+    const rAdd = await hestiaCall('v-add-user', [novoNome, 'Tmp#' + Math.random().toString(36).slice(2, 10), emailConta, pkg, pNome || novoNome, rNome.join(' ') || pNome || novoNome]);
     if (!rAdd.ok) return NextResponse.json({ erro: 'Não foi possível criar a conta ' + novoNome + ' no servidor: ' + (rAdd.error || 'erro') }, { status: 502 });
 
     const dominiosWeb = Object.keys(c.srv.web[c.conta] || {});
