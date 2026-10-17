@@ -77,6 +77,8 @@ async function nameservers(zona: string): Promise<string[]> {
     return m?.ns || [];
   }
 }
+const usaNameserversCloudflare = (ns: string[]) =>
+  ns.length > 0 && ns.every((name) => /^[a-z0-9-]+\.ns\.cloudflare\.com$/.test(name));
 
 async function alojamentoVercelPublico(dominio: string): Promise<boolean | null> {
   const resolver = new Resolver({ timeout: 2500, tries: 1 });
@@ -93,7 +95,7 @@ async function alojamentoVercelPublico(dominio: string): Promise<boolean | null>
   return respostas.some((resposta) => resposta.some((resultado) => resultado.status === 'fulfilled')) ? false : null;
 }
 
-type DnsDominio = { fonte: 'hestia' | 'cloudflare' | 'nenhuma'; zona: string; registos: { id: string; nome: string; tipo: string; valor: string; ttl: number; prio?: string; proxied?: boolean }[] };
+type DnsDominio = { fonte: 'hestia' | 'cloudflare' | 'nenhuma'; zona: string; cloudflareAutoritativa?: boolean; registos: { id: string; nome: string; tipo: string; valor: string; ttl: number; prio?: string; proxied?: boolean }[] };
 
 /** Registos da zona na Cloudflare. Com zona na Cloudflare é ela que manda (o DNS público dos sites está lá): o painel lê
  *  e muda lá, mesmo que o servidor também tenha a zona — essa é só a cópia que ns1..ns4 servem (Silva, 16/10/2026: "o
@@ -239,6 +241,7 @@ async function lerDominio(req: NextRequest) {
 
   // a Cloudflare primeiro (é o DNS público); a zona do servidor só quando o domínio não está na Cloudflare
   let dns: DnsDominio = dnsCf;
+  if (dns.fonte === 'cloudflare') dns = { ...dns, cloudflareAutoritativa: usaNameserversCloudflare(ns) };
   if (dns.fonte !== 'cloudflare' && temZona) {
     const regs = json<Record<string, Record<string, string>>>(sec.get('DNS'), {});
     dns = { fonte: 'hestia', zona: d, registos: Object.entries(regs).map(([id, x]) => ({ id, nome: x.RECORD || '@', tipo: (x.TYPE || '').toUpperCase(), valor: x.VALUE || '', ttl: Number(x.TTL) || 14400, prio: x.PRIORITY || undefined })) };
@@ -607,6 +610,9 @@ export async function POST(req: NextRequest) {
       const zona = zonaDe(d);
       const zid = await zonaCf(zona);
       if (!zid) return NextResponse.json({ erro: 'O DNS deste domínio não está na Cloudflare.' }, { status: 400 });
+      if (!usaNameserversCloudflare(await nameservers(zona))) {
+        return NextResponse.json({ erro: 'O domínio não está a usar nameservers da Cloudflare.' }, { status: 409 });
+      }
       return resposta(updateCloudflareDnsRecord(zid, id, zona, { type: tipo as CloudflareRecordInput['type'], name: nome, content: valor, ttl: c.proxied ? 1 : Number(c.ttl) || 1, proxied: c.proxied }), false);
     }
     case 'dns-reprocessar':

@@ -239,8 +239,11 @@
 .vh .dns-tipo.t-SRV{background:#fce7f3;color:#9d174d}
 .vh .dns-tipo.t-NS,.vh .dns-tipo.t-CAA{background:#f3f4f6;color:#1f2937}
 .vh[data-theme=dark] .dns-tipo{background:#374151;color:#e5e7eb}
-.vh .dns-proxy{display:inline-flex;align-items:center;gap:7px;white-space:nowrap;color:var(--muted);cursor:pointer}
+.vh .dns-proxy{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;color:var(--muted);cursor:pointer;font-size:12px}
 .vh .dns-proxy.disabled{cursor:default}
+.vh .dns-proxy .sw{width:32px;height:18px}
+.vh .dns-proxy .sw span::after{width:12px;height:12px}
+.vh .dns-proxy .sw input:checked+span::after{transform:translateX(14px)}
 .vh .dns-proxy .sw span{background:var(--line)}
 .vh .dns-proxy.on .sw input:checked+span{background:#f38020}
 .vh .dns-proxy .sw input:focus-visible+span{outline:2px solid rgba(243,128,32,.35);outline-offset:2px}

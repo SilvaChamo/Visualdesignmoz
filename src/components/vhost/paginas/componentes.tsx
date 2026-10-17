@@ -225,6 +225,7 @@ export function DataTable<T>({
   rows,
   cols,
   rowKey,
+  rowSort,
   search,
   bulk = [],
   actions,
@@ -254,6 +255,7 @@ export function DataTable<T>({
   rows: T[];
   cols: Col<T>[];
   rowKey: (r: T) => string;
+  rowSort?: (a: T, b: T) => number;
   search?: (r: T) => string;
   bulk?: Bulk[];
   actions?: (r: T) => ReactNode;
@@ -364,9 +366,12 @@ export function DataTable<T>({
     const qq = q.trim().toLowerCase();
     let r = qq && search ? rows.filter((x) => search(x).toLowerCase().includes(qq)) : rows;
     const sc = sort && cols.find((c) => c.k === sort.k);
-    if (sort && sc?.sort) r = [...r].sort((a, b) => (sc.sort!(a) > sc.sort!(b) ? 1 : sc.sort!(a) < sc.sort!(b) ? -1 : 0) * sort.dir);
+    if (sort && sc?.sort) r = [...r].sort((a, b) => {
+      const rowOrder = rowSort?.(a, b) || 0;
+      return rowOrder || (sc.sort!(a) > sc.sort!(b) ? 1 : sc.sort!(a) < sc.sort!(b) ? -1 : 0) * sort.dir;
+    });
     return r;
-  }, [rows, q, search, sort, cols]);
+  }, [rows, q, search, sort, cols, rowSort]);
   const keys = shown.map(rowKey);
   const selKeys = sel.filter((k) => keys.includes(k));
   const all = keys.length > 0 && selKeys.length === keys.length;

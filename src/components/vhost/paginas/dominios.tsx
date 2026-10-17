@@ -28,7 +28,7 @@ type Detalhe = {
   sslAtivo: boolean;
   renovacaoAutomatica: boolean;
   certificado: { para: string; nomes: string[]; desde: string; ate: string; emissor: string } | null;
-  dns: { fonte: 'hestia' | 'cloudflare' | 'nenhuma'; zona: string; registos: { id: string; nome: string; tipo: string; valor: string; ttl: number; prio?: string; proxied?: boolean }[] };
+  dns: { fonte: 'hestia' | 'cloudflare' | 'nenhuma'; zona: string; cloudflareAutoritativa?: boolean; registos: { id: string; nome: string; tipo: string; valor: string; ttl: number; prio?: string; proxied?: boolean }[] };
   siteVercel?: boolean | null;
   subdominios?: {
     nome: string;
@@ -45,7 +45,7 @@ type Detalhe = {
   /** nameservers reais do domínio (DNS público) */
   ns?: string[];
 };
-type DnsContexto = { dns: { fonte: 'hestia' | 'cloudflare' | 'nenhuma'; zona: string; registos: RegistoDns[] }; siteVercel?: boolean | null };
+type DnsContexto = { dns: { fonte: 'hestia' | 'cloudflare' | 'nenhuma'; zona: string; cloudflareAutoritativa?: boolean; registos: RegistoDns[] }; siteVercel?: boolean | null };
 type CertificadoServidor = {
   certificado: string;
   cadeia: string;
@@ -1267,10 +1267,10 @@ function Dns() {
   const nsPublicos: RegistoDns[] = dns.registos.some((r) => r.tipo === 'NS')
     ? []
     : (det.ns || []).map((n, i) => ({ id: NS_PUBLICO + i, nome: '@', tipo: 'NS', valor: n, ttl: 1 }));
-  // por tipo e depois por nome, como a lista da Cloudflare
+  // por tipo e depois por nome, com os registos de nameserver sempre no fim
   const rows = [...dns.registos, ...nsPublicos]
     .filter((r) => !filtro || r.tipo === filtro)
-    .sort((a, b) => a.tipo.localeCompare(b.tipo) || nomeCompleto(a, dns.zona).localeCompare(nomeCompleto(b, dns.zona)));
+    .sort((a, b) => Number(a.tipo === 'NS') - Number(b.tipo === 'NS') || a.tipo.localeCompare(b.tipo) || nomeCompleto(a, dns.zona).localeCompare(nomeCompleto(b, dns.zona)));
   const soLeitura = (r: RegistoDns) => r.id.startsWith(NS_PUBLICO);
   const editavel = (r: RegistoDns) => !soLeitura(r) && (dns.fonte === 'hestia' || NA_CLOUDFLARE.includes(r.tipo));
 
@@ -1359,6 +1359,7 @@ function Dns() {
           id="dns"
           rows={rows}
           rowKey={(r) => r.id}
+          rowSort={(a, b) => Number(a.tipo === 'NS') - Number(b.tipo === 'NS')}
           rowClass={(r) => (r.id === editId ? 'dns-row-editando' : '')}
           search={(r) => r.nome + ' ' + r.valor}
           onRecarregar={ler}
@@ -1463,7 +1464,7 @@ function Dns() {
                 );
               },
             },
-            ...(dns.fonte === 'cloudflare'
+            ...(dns.fonte === 'cloudflare' && dns.cloudflareAutoritativa
               ? [
                   {
                     k: 'proxy',
@@ -1472,6 +1473,7 @@ function Dns() {
                     ate: 1050,
                     sort: (r: RegistoDns) => (r.proxied ? 1 : 0),
                     cell: (r: RegistoDns) => {
+                      if (r.tipo === 'NS') return null;
                       const pode = ['A', 'AAAA', 'CNAME'].includes(r.tipo) && !soLeitura(r);
                       return (
                         <label className={'dns-proxy' + (r.proxied ? ' on' : '') + (!pode ? ' disabled' : '')} title={pode ? t('Ligar ou desligar o proxy da Cloudflare') : undefined}>
