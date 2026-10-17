@@ -40,9 +40,7 @@ export function LoginDividido({ children }: { children: React.ReactNode }) {
 
         <div className="absolute inset-x-[clamp(24px,2.8vw,40px)] bottom-[clamp(24px,2.8vw,40px)] hidden max-w-[540px] text-white lg:block">
           <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-medium ring-1 ring-white/20 backdrop-blur">
-            {/* o ponto "no ar" (pedido do Silva, 13/10/2026): um halo vermelho que cresce e se apaga, bem visível sobre a
-                foto (14/10/2026: o ping de 6 px quase não se via e desligava-se com "Reduzir movimento") */}
-            <span aria-hidden className="vd-ponto-vivo inline-flex h-2 w-2 rounded-full bg-red-500" />
+            <span aria-hidden className="inline-flex h-2 w-2 rounded-full bg-red-500" />
             {t('login.heroTag')}
           </span>
           <h2 className="mt-4 text-[clamp(24px,2.36vw,34px)] font-semibold leading-[1.15] tracking-tight">{t('login.heroTitle')}</h2>
