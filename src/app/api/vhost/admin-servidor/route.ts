@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requirePanelBootstrapAccess } from '@/lib/panel-api-auth';
 import net from 'net';
-import { executeServerCommand } from '@/lib/server-ssh-exec';
+import { randomBytes } from 'crypto';
+import { executeServerCommand, uploadFileViaSsh } from '@/lib/server-ssh-exec';
 import { ADMIN_PY } from '@/lib/vhost-admin-py';
 
 export const dynamic = 'force-dynamic';
@@ -12,7 +13,8 @@ export const dynamic = 'force-dynamic';
  * GET  ?ver=processos  → { processos (CPU medido agora, durante 1 s), cpu, nucleos, memoria, carga }
  * GET  ?ver=servicos   → { servicos } (os do Hestia: estado, CPU, memória, há quanto tempo)
  * GET  ?ver=ips | cron | bd | fila | mail-resumo (&horas=) | mail-rastreio (&q=&horas=) | logs (&ficheiro=&linhas=&q=) |
- *      firewall  → as outras páginas de administração (script em src/lib/vhost-admin-py.ts)
+ *      firewall | … | estatisticas (&dia=) | editor | editor-ler (&ficheiro=) → as outras páginas de administração
+ *      (script em src/lib/vhost-admin-py.ts)
  * POST { acao: 'processo-parar', pids: number[], forcar?: boolean }   (SIGTERM; forcar = SIGKILL)
  * POST { acao: 'servico', nome, op: 'reiniciar' | 'parar' | 'iniciar' }
  * Os processos do próprio site, do SSH, do Hestia e do sistema não se param daqui (os serviços reiniciam-se nos Serviços).
@@ -132,10 +134,11 @@ async function noServidorAdmin(arg: Record<string, unknown>, timeoutMs = 120_000
     return null;
   }
 }
-const VER_ADMIN = new Set(['ips', 'cron', 'bd', 'fila', 'mail-resumo', 'mail-rastreio', 'logs', 'firewall', 'php', 'atualizacoes', 'pacotes', 'tls', 'definicoes', 'multi', 'backups', 'backup-sistema', 'httpd', 'basedir', 'security-txt', 'modsec', 'extras', 'importar', 'manutencao', 'estatisticas']);
+const VER_ADMIN = new Set(['ips', 'cron', 'bd', 'fila', 'mail-resumo', 'mail-rastreio', 'logs', 'firewall', 'php', 'atualizacoes', 'pacotes', 'tls', 'definicoes', 'multi', 'backups', 'backup-sistema', 'httpd', 'basedir', 'security-txt', 'modsec', 'extras', 'importar', 'manutencao', 'estatisticas', 'editor', 'editor-ler']);
 const DOM = /^(?=.{3,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/;
 const CONTA = /^[a-z0-9][a-z0-9_.-]{0,31}$/;
 const HOST = /^(?=.{3,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/i;
+const ED_ID = /^[a-z0-9][a-z0-9.-]{1,30}$/;
 const EXIM_ID = /^[0-9A-Za-z-]{16,23}$/;
 const lista = (v: unknown) => (Array.isArray(v) ? v : []);
 
@@ -290,6 +293,13 @@ function pedidoAdmin(c: Record<string, unknown>): Record<string, unknown> | stri
       return String(c.nome) === 'redis' ? { acao, nome: 'redis' } : 'Só o Redis se instala daqui.';
     case 'importar':
       return ['cpanel', 'directadmin'].includes(String(c.tipo)) && /^[A-Za-z0-9._-]{1,160}$/.test(String(c.ficheiro)) ? { acao, tipo: String(c.tipo), ficheiro: String(c.ficheiro) } : 'Ficheiro inválido.';
+    case 'sysstat-ligar':
+      return { acao };
+    case 'editor-restaurar': {
+      const ficheiro = String(c.ficheiro || '');
+      const copia = String(c.copia || '');
+      return ED_ID.test(ficheiro) && copia.startsWith(ficheiro + '.') && /\.\d{8}-\d{6}$/.test(copia) ? { acao, ficheiro, copia } : 'Cópia inválida.';
+    }
   }
   return 'Ação desconhecida.';
 }
@@ -343,6 +353,18 @@ export async function POST(req: NextRequest) {
       const r = await noServidor({ acao: 'servico', nome, op }, 150_000);
       if (!r) return NextResponse.json({ erro: 'O servidor não respondeu.' }, { status: 502 });
       return r.ok ? NextResponse.json(r) : NextResponse.json({ erro: String(r.erro || 'Não foi possível.') }, { status: 400 });
+    }
+    // Editor de ficheiros do sistema: o texto pode ser grande para a linha de comandos — vai primeiro para um ficheiro
+    // temporário no servidor e o script lê-o de lá (e apaga-o)
+    if (c.acao === 'editor-gravar') {
+      const ficheiro = String(c.ficheiro || '');
+      const texto = typeof c.texto === 'string' ? c.texto : null;
+      if (!ED_ID.test(ficheiro) || texto === null || Buffer.byteLength(texto) > 1_048_576) return NextResponse.json({ erro: 'Pedido inválido (até 1 MB).' }, { status: 400 });
+      const tmp = '/var/tmp/vhost-editor-' + randomBytes(8).toString('hex') + '.txt';
+      await uploadFileViaSsh(tmp, Buffer.from(texto, 'utf8'));
+      const r = await noServidorAdmin({ acao: 'editor-gravar', ficheiro, tmp, mtime: /^\d{1,12}$/.test(String(c.mtime)) ? String(c.mtime) : '' }, 180_000);
+      if (!r) return NextResponse.json({ erro: 'O servidor não respondeu.' }, { status: 502 });
+      return r.ok === false ? NextResponse.json({ erro: String(r.erro || 'Não foi possível.') }, { status: 400 }) : NextResponse.json(r);
     }
     const p = pedidoAdmin(c as Record<string, unknown>);
     if (typeof p === 'string') return NextResponse.json({ erro: p }, { status: 400 });

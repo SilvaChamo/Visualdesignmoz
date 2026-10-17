@@ -493,8 +493,83 @@ if ver == 'estatisticas':
     cpu = [{'t': r[0][:5], 'user': float(r[2]), 'sistema': float(r[4]), 'espera': float(r[5])} for r in sar('-u') if r[1] == 'all' and len(r) >= 8]
     carga = [{'t': r[0][:5], 'l1': float(r[3]), 'l5': float(r[4]), 'l15': float(r[5])} for r in sar('-q') if len(r) >= 6 and re.match(r'^[\d.]+$', r[3])]
     mem = [{'t': r[0][:5], 'pct': float(r[4])} for r in sar('-r') if len(r) >= 5 and re.match(r'^[\d.]+$', r[4])]
-    rede = [{'t': r[0][:5], 'rx': float(r[4]), 'tx': float(r[5])} for r in sar('-n', 'DEV') if len(r) >= 6 and r[1] in ('eth0', 'ens3', 'ens18', 'enp0s3')]
-    sai({'dia': str(dia), 'nucleos': os.cpu_count() or 1, 'cpu': cpu, 'carga': carga, 'memoria': mem, 'rede': rede, 'existe': os.path.exists(f)})
+    dev = [r for r in sar('-n', 'DEV') if len(r) >= 6 and re.match(r'^[\d.]+$', r[4]) and not re.match(r'^(lo|veth|docker|br-|virbr|tun|tap)', r[1])]
+    soma = {}
+    for r in dev: soma[r[1]] = soma.get(r[1], 0) + float(r[4]) + float(r[5])
+    iface = max(soma, key=soma.get) if soma else ''
+    rede = [{'t': r[0][:5], 'rx': float(r[4]), 'tx': float(r[5])} for r in dev if r[1] == iface]
+    sai({'dia': str(dia), 'nucleos': os.cpu_count() or 1, 'cpu': cpu, 'carga': carga, 'memoria': mem, 'rede': rede, 'interface': iface, 'existe': os.path.exists(f), 'sysstat': bool(run(['sh', '-c', 'command -v sar']).strip()), 'trabalho': estado_trabalho('sysstat')})
+if acao == 'sysstat-ligar':
+    lanca('sysstat', "apt-get install -y sysstat && sed -i 's/^ENABLED=.*/ENABLED=\"true\"/' /etc/default/sysstat; systemctl enable --now sysstat sysstat-collect.timer 2>/dev/null; systemctl restart sysstat; echo 'Os gráficos começam a encher nos próximos 10 minutos.'")
+
+# ---------- Editor de ficheiros do sistema ----------
+# Só estes ficheiros; antes de gravar fica uma cópia, a configuração é verificada e, se a verificação falhar, volta a cópia.
+ED = {
+    'nginx': ('/etc/nginx/nginx.conf', 'Nginx', 'nginx -t', 'systemctl reload nginx'),
+    'apache': ('/etc/apache2/apache2.conf', 'Apache', 'apache2ctl configtest', 'systemctl reload apache2'),
+    'exim': ('/etc/exim4/exim4.conf.template', 'Exim (e-mail)', 'exim4 -C /etc/exim4/exim4.conf.template -bV', 'systemctl restart exim4'),
+    'dovecot': ('/etc/dovecot/dovecot.conf', 'Dovecot (IMAP/POP3)', 'doveconf -n', 'systemctl reload dovecot'),
+    'mariadb': ('/etc/mysql/mariadb.conf.d/50-server.cnf', 'MariaDB', 'my_print_defaults mysqld', ''),
+    'bind': ('/etc/bind/named.conf.options', 'DNS (Bind)', 'named-checkconf', 'systemctl reload named 2>/dev/null || systemctl reload bind9'),
+    'fail2ban': ('/etc/fail2ban/jail.local', 'Força bruta (fail2ban)', 'fail2ban-client -t', 'systemctl reload fail2ban'),
+    'vsftpd': ('/etc/vsftpd.conf', 'FTP (vsftpd)', '', 'systemctl restart vsftpd'),
+    'proftpd': ('/etc/proftpd/proftpd.conf', 'FTP (ProFTPD)', 'proftpd -t', 'systemctl reload proftpd'),
+    'spamassassin': ('/etc/spamassassin/local.cf', 'SpamAssassin', 'spamassassin --lint', ''),
+    'clamav': ('/etc/clamav/clamd.conf', 'ClamAV', '', ''),
+    'redis': ('/etc/redis/redis.conf', 'Redis', '', ''),
+    'crontab': ('/etc/crontab', 'Tarefas do sistema (crontab)', '', ''),
+    'hosts': ('/etc/hosts', 'Nomes locais (hosts)', '', ''),
+}
+for d in sorted(glob.glob('/etc/php/*/fpm/php.ini')):
+    v = d.split('/')[3]
+    ED['php-' + v] = (d, 'PHP ' + v + ' (php.ini)', f'php-fpm{v} -t', f'systemctl reload php{v}-fpm')
+EDB = '/var/backups/vhost-editor'
+def ed_info(k):
+    c, nome, teste, recarga = ED[k]
+    st = os.stat(c) if os.path.exists(c) else None
+    return {'id': k, 'nome': nome, 'caminho': c, 'existe': bool(st), 'tamanho': st.st_size if st else 0, 'mtime': str(int(st.st_mtime)) if st else '', 'teste': teste.split(' 2>')[0], 'recarga': recarga.split(' 2>')[0]}
+def ed_copias(k):
+    fs = sorted(glob.glob(f'{EDB}/{k}.*'), reverse=True)
+    return [{'nome': os.path.basename(f), 'tamanho': os.path.getsize(f), 'data': datetime.datetime.fromtimestamp(os.path.getmtime(f)).strftime('%Y-%m-%d %H:%M:%S')} for f in fs]
+def ed_gravar(k, novo, mtime):
+    c, nome, teste, recarga = ED[k]
+    if not os.path.exists(c): sai({'ok': False, 'erro': 'O ficheiro não existe neste servidor.'})
+    if mtime and str(int(os.path.getmtime(c))) != mtime: sai({'ok': False, 'erro': 'O ficheiro mudou no servidor desde que o abriu. Abra-o de novo antes de gravar.'})
+    antes = open(c, errors='surrogateescape').read()
+    os.makedirs(EDB, mode=0o700, exist_ok=True)
+    copia = f'{EDB}/{k}.{datetime.datetime.now():%Y%m%d-%H%M%S}'
+    open(copia, 'w', errors='surrogateescape').write(antes)
+    for velha in sorted(glob.glob(f'{EDB}/{k}.*'), reverse=True)[10:]: os.remove(velha)
+    open(c, 'w', errors='surrogateescape').write(novo)
+    if teste:
+        r = subprocess.run(['bash', '-c', teste], capture_output=True, text=True, timeout=60)
+        if r.returncode != 0:
+            open(c, 'w', errors='surrogateescape').write(antes)
+            sai({'ok': False, 'erro': 'A verificação falhou e o ficheiro voltou ao que estava: ' + tapa((r.stderr or r.stdout).strip())[-500:]})
+    aviso = ''
+    if recarga:
+        r = subprocess.run(['bash', '-c', recarga], capture_output=True, text=True, timeout=120)
+        if r.returncode != 0: aviso = 'Gravado, mas o serviço não recarregou: ' + tapa((r.stderr or r.stdout).strip())[-300:]
+    else: aviso = 'Gravado. Reinicie o serviço nos Serviços para aplicar.' if k in ('mariadb', 'clamav', 'redis', 'spamassassin') else ''
+    sai({'ok': True, 'aviso': aviso, 'copia': os.path.basename(copia), 'mtime': str(int(os.path.getmtime(c)))})
+if ver == 'editor':
+    sai({'ficheiros': [ed_info(k) for k in ED]})
+if ver == 'editor-ler':
+    k = arg.get('ficheiro', '')
+    if k not in ED: sai({'erro': 'Ficheiro desconhecido.'})
+    i = ed_info(k)
+    if not i['existe']: sai({**i, 'texto': '', 'copias': []})
+    if i['tamanho'] > 1048576: sai({**i, 'texto': '', 'grande': True, 'copias': ed_copias(k)})
+    sai({**i, 'texto': open(i['caminho'], errors='surrogateescape').read().encode('utf-8', 'replace').decode(), 'copias': ed_copias(k)})
+if acao == 'editor-gravar':
+    k, tmp = arg['ficheiro'], arg['tmp']
+    if k not in ED or not re.match(r'^/var/tmp/vhost-editor-[a-f0-9]{16}\.txt$', tmp) or not os.path.exists(tmp): sai({'ok': False, 'erro': 'Pedido inválido.'})
+    novo = open(tmp, errors='surrogateescape').read(); os.remove(tmp)
+    ed_gravar(k, novo, arg.get('mtime', ''))
+if acao == 'editor-restaurar':
+    k, n = arg['ficheiro'], arg['copia']
+    if k not in ED or not re.match(r'^' + re.escape(k) + r'\.\d{8}-\d{6}$', n) or not os.path.exists(f'{EDB}/{n}'): sai({'ok': False, 'erro': 'Cópia inválida.'})
+    ed_gravar(k, open(f'{EDB}/{n}', errors='surrogateescape').read(), '')
 
 sai({'erro': 'Pedido desconhecido.'})
 `;
