@@ -1,0 +1,55 @@
+name: "Ops - Contas e planos no Contabo (SÓ LEITURA, 17/10/2026)"
+# Pedido do Silva (17/10/2026): aamihe e mltmark no plano VD-Básico, Concordia e provisualcorporate no plano de e-mail.
+# Antes de mudar alguma coisa, ver como estão: contas do Hestia, pacote, sites, domínios e contas de e-mail, e os pacotes
+# que existem. Só lê, não muda nada. Corre uma vez neste ramo de trabalho e sai a seguir. O repositório é público:
+# palavras-passe e chaves nunca aparecem (os comandos v-list-* não as mostram).
+on:
+  push:
+    branches: [claude/tender-johnson-wzert9]
+    paths: [.github/workflows/ops-contas-planos-leitura.yml]
+jobs:
+  ler:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Contabo (só leitura)
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          username: root
+          key: ${{ secrets.CONTABO_SSH_KEY }}
+          command_timeout: 6m
+          script: |
+            set +e
+            H=/usr/local/hestia/bin
+            echo "=== pacotes do Hestia (limites principais) ==="
+            $H/v-list-user-packages json | python3 -c 'import json,sys
+            d=json.load(sys.stdin)
+            for n,p in d.items(): print("%-24s web=%s dns=%s mail_dom=%s mail_acc=%s bd=%s disco=%s shell=%s" % (n, p.get("WEB_DOMAINS"), p.get("DNS_DOMAINS"), p.get("MAIL_DOMAINS"), p.get("MAIL_ACCOUNTS"), p.get("DATABASES"), p.get("DISK_QUOTA"), p.get("SHELL")))'
+            echo "=== contas do Hestia ==="
+            $H/v-list-users json | python3 -c 'import json,sys
+            d=json.load(sys.stdin)
+            for u,x in d.items(): print("%-22s pacote=%-18s papel=%s suspensa=%s sites=%s dns=%s mail_dom=%s mail_acc=%s bd=%s disco=%sMB" % (u, x.get("PACKAGE"), x.get("ROLE"), x.get("SUSPENDED"), x.get("U_WEB_DOMAINS"), x.get("U_DNS_DOMAINS"), x.get("U_MAIL_DOMAINS"), x.get("U_MAIL_ACCOUNTS"), x.get("U_DATABASES"), x.get("U_DISK")))'
+            echo "=== domínios por conta (sites | e-mail | DNS) ==="
+            for u in $($H/v-list-users plain | cut -f1); do
+              w=$($H/v-list-web-domains "$u" plain 2>/dev/null | cut -f1 | tr '\n' ' ')
+              m=$($H/v-list-mail-domains "$u" plain 2>/dev/null | cut -f1 | tr '\n' ' ')
+              n=$($H/v-list-dns-domains "$u" plain 2>/dev/null | cut -f1 | tr '\n' ' ')
+              echo "$u | sites: ${w:-—} | e-mail: ${m:-—} | dns: ${n:-—}"
+            done
+            echo "=== as quatro contas do pedido (procura por nome de conta e de domínio) ==="
+            for k in aamihe mltmark concordia provisual; do
+              echo "--- $k"
+              for u in $($H/v-list-users plain | cut -f1); do
+                if echo "$u $($H/v-list-web-domains "$u" plain 2>/dev/null | cut -f1) $($H/v-list-mail-domains "$u" plain 2>/dev/null | cut -f1)" | grep -qi "$k"; then
+                  echo "conta $u"
+                  for d in $($H/v-list-web-domains "$u" plain 2>/dev/null | cut -f1); do
+                    echo "  site $d -> pasta tem $(ls /home/$u/web/$d/public_html 2>/dev/null | wc -l) ficheiro(s); wp-config: $([ -f /home/$u/web/$d/public_html/wp-config.php ] && echo sim || echo não); proxy/IP: $($H/v-list-web-domain "$u" "$d" json 2>/dev/null | python3 -c 'import json,sys; x=list(json.load(sys.stdin).values())[0]; print(x.get("PROXY_SYSTEM") or "-", x.get("IP"))' 2>/dev/null)"
+                  done
+                  for d in $($H/v-list-mail-domains "$u" plain 2>/dev/null | cut -f1); do
+                    echo "  e-mail $d -> $($H/v-list-mail-accounts "$u" "$d" plain 2>/dev/null | wc -l) conta(s)"
+                  done
+                fi
+              done
+              echo "  DNS público (A/MX): $(dig +short A $k.com 2>/dev/null | head -2 | tr '\n' ' ') $(dig +short A $k.co.mz 2>/dev/null | head -2 | tr '\n' ' ')"
+            done
+            echo "=== fim ==="
