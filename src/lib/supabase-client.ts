@@ -235,9 +235,15 @@ export const auth = {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ utilizador: normalizedEmail, senha: password }),
         });
-        const j = (await r.json().catch(() => ({}))) as { email?: string };
+        const j = (await r.json().catch(() => ({}))) as { email?: string; sessao?: boolean };
         if (j.email) {
           normalizedEmail = j.email.toLowerCase();
+          // O servidor já entrou com esta palavra-passe e deixou a sessão nos cookies da resposta: usa-se essa, sem
+          // voltar a entrar aqui (era a segunda espera pelo Supabase no login). Se não estiver lá, entra-se como antes.
+          if (j.sessao) {
+            const { data: { session } } = await supabase.auth.getSession()
+            if (session?.user?.email?.toLowerCase() === normalizedEmail) return { user: session.user, session }
+          }
         } else if (normalizedEmail === 'osher' || normalizedEmail === 'oshercollective') {
           normalizedEmail = 'osher@oshercollective.com';
         } else if (normalizedEmail === 'admin' || normalizedEmail === 'silvachamo') {

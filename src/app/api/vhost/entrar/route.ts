@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { checkAndRegisterLoginAttempt, clearLoginAttempts, loginRateLimitKey } from '@/lib/login-rate-limit';
 import { isHestiaOnlyDeploy } from '@/lib/hosting-provider';
+import { createClient as clienteComCookies } from '@/utils/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,8 +17,11 @@ function comTempo<T>(p: Promise<T>, ms: number): Promise<T | null> {
 /**
  * POST /api/vhost/entrar  { utilizador, senha } — entrada no painel com o nome de utilizador (o mesmo do DA/Hestia,
  * guardado em profiles.da_username; pedido do Silva a 11/10: "entrar com o nome de utilizador ou e-mail").
- * Procura o e-mail desse perfil e confirma a palavra-passe; só então devolve o e-mail, para a página de entrada
- * entrar com ele (auth.signIn). Sem a palavra-passe certa responde sempre o mesmo: não dá para descobrir e-mails.
+ * Procura o e-mail desse perfil e confirma a palavra-passe; só então devolve o e-mail. Sem a palavra-passe certa
+ * responde sempre o mesmo: não dá para descobrir e-mails.
+ * A confirmação é a própria entrada no Supabase, e a sessão fica já aberta nos cookies desta resposta ({ sessao: true }):
+ * o navegador usa-a sem voltar a entrar (antes entrava aqui, saía, e o navegador entrava outra vez — o login esperava
+ * duas vezes pelo Supabase; Silva, 16/10/2026: "leva um século para autorizar entrada").
  */
 export async function POST(req: NextRequest) {
   const b = (await req.json().catch(() => ({}))) as Record<string, unknown>;
@@ -83,8 +87,8 @@ export async function POST(req: NextRequest) {
   if (!perfis || perfis.length !== 1 || !perfis[0]?.email) return falha();
   const email = String(perfis[0].email).trim().toLowerCase();
 
-  // 1. Tenta autenticar diretamente no Supabase
-  const cliente = createClient(url, anon, sem);
+  // 1. Tenta autenticar diretamente no Supabase — com o cliente dos cookies: se entrar, a sessão fica gravada na resposta
+  const cliente = await clienteComCookies();
   let { data, error } = await cliente.auth.signInWithPassword({ email, password: senha });
 
   // 2. Se a password falhou no Supabase, confirma se bate certo com o servidor / credenciais existentes
@@ -174,7 +178,7 @@ export async function POST(req: NextRequest) {
   }
 
   if (error || !data?.session) return falha();
-  await cliente.auth.signOut({ scope: 'local' }).catch(() => {});
-  await clearLoginAttempts(chave);
-  return NextResponse.json({ email });
+  // limpeza do contador de tentativas: não atrasa a entrada
+  void clearLoginAttempts(chave);
+  return NextResponse.json({ email, sessao: true });
 }
