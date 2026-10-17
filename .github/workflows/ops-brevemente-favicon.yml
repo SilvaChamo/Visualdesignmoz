@@ -1,0 +1,86 @@
+name: "Ops - Página Brevemente da VisualDesign por defeito, com o nosso favicon (17/10/2026)"
+# Pedido do Silva (17/10/2026), com "Avança": "Volte a colocar a nossa página Brevemente com favicon da VisualDesign substituindo a
+# página do DA. A nossa deve ser por defeito, parece que o sistema transportou o DA para cá."
+#  1. lê como está: o modelo dos sites novos, as páginas por defeito do servidor e os sites com página/ícone do DA;
+#  2. põe no modelo dos sites novos a Brevemente com o favicon da VisualDesign (index.html + favicon.ico);
+#  3. instala o vd-brevemente.sh novo (também actualiza as Brevemente antigas e troca o favicon) e corre-o: as páginas
+#     de origem do DA/Hestia passam à nossa; o que lá estava fica em /root/brevemente-copias/;
+#  4. lê de novo e mostra o que o público vê.
+# Sites com conteúdo do cliente não se tocam (o vd-brevemente.sh só troca páginas de origem intactas).
+on:
+  push:
+    branches: [claude/tender-johnson-wzert9]
+    paths: [.github/workflows/ops-brevemente-favicon.yml]
+jobs:
+  contabo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Preparar o favicon e enviar os ficheiros
+        run: |
+          (command -v convert >/dev/null && convert public/favicon.png -define icon:auto-resize=48,32,16 /tmp/favicon.ico) || cp public/favicon-32.png /tmp/favicon.ico
+          file /tmp/favicon.ico
+          mkdir -p ~/.ssh
+          echo "${{ secrets.CONTABO_SSH_KEY }}" > ~/.ssh/deploy_key && chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan "${{ secrets.CONTABO_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+          scp -i ~/.ssh/deploy_key servidor/pagina-em-construcao.html servidor/vd-brevemente.sh /tmp/favicon.ico "root@${{ secrets.CONTABO_HOST }}:/root/"
+      - name: Contabo (Brevemente e favicon)
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          username: root
+          key: ${{ secrets.CONTABO_SSH_KEY }}
+          command_timeout: 10m
+          script: |
+            set +e
+            H=/usr/local/hestia/bin
+            T=/usr/local/hestia/data/templates/web
+            SKEL=$T/skel/public_html
+            titulo() { grep -o '<title>[^<]*' "$1" 2>/dev/null | head -1 | sed 's/<title>//'; }
+            da() { grep -qi directadmin "$1" 2>/dev/null && echo " [DirectAdmin]"; }
+            echo "=== 1. Como está ==="
+            echo "modelo dos sites novos: $(titulo $SKEL/index.html)$(da $SKEL/index.html) | favicon: $([ -f $SKEL/favicon.ico ] && md5sum < $SKEL/favicon.ico | cut -c1-8 || echo nenhum)"
+            for f in $(ls $T/unassigned/index.html $T/suspend/index.html $T/skel/document_errors/*.html /var/www/html/index*.html 2>/dev/null); do echo "página do servidor $f: $(titulo $f)$(da $f)"; done
+            echo "--- sites"
+            for u in $($H/v-list-users plain | cut -f1); do
+              for d in $($H/v-list-web-domains "$u" plain | cut -f1); do
+                P=/home/$u/web/$d/public_html; I=$P/index.html
+                [ -f $I ] || continue
+                if grep -qF 'Página por defeito dos sites sem conteúdo (VisualDesign)' $I; then e="Brevemente da VisualDesign"
+                elif grep -qi directadmin $I; then e="página do DirectAdmin"
+                else continue; fi
+                echo "$u | $d | $e | favicon: $([ -f $P/favicon.ico ] && md5sum < $P/favicon.ico | cut -c1-8 || echo nenhum) | outros ficheiros: $(find $P -mindepth 1 -maxdepth 1 ! -name index.html ! -name robots.txt ! -name favicon.ico | wc -l)"
+              done
+            done
+
+            echo "=== 2. Modelo dos sites novos: a nossa Brevemente com o favicon da VisualDesign ==="
+            mkdir -p /root/brevemente-copias && cp -a $SKEL/index.html /root/brevemente-copias/modelo-index-$(date +%F-%H%M).html
+            install -m 644 /root/pagina-em-construcao.html $SKEL/index.html
+            install -m 644 /root/favicon.ico $SKEL/favicon.ico
+            echo "modelo: $(titulo $SKEL/index.html) | favicon embutido na página: $(grep -c 'rel="icon"' $SKEL/index.html) | favicon.ico: $(md5sum < $SKEL/favicon.ico | cut -c1-8)"
+
+            echo "=== 3. vd-brevemente.sh novo: o que vai fazer, e fazer ==="
+            install -m 755 /root/vd-brevemente.sh /usr/local/bin/vd-brevemente.sh
+            echo "exclusões: $(cat /etc/vd-brevemente-excluir 2>/dev/null | tr '\n' ' ')"
+            /usr/local/bin/vd-brevemente.sh --ver; echo "(fim da lista)"
+            /usr/local/bin/vd-brevemente.sh
+            tail -n 15 /var/log/vd-brevemente.log
+
+            echo "=== 4. Depois ==="
+            for u in $($H/v-list-users plain | cut -f1); do
+              for d in $($H/v-list-web-domains "$u" plain | cut -f1); do
+                P=/home/$u/web/$d/public_html; I=$P/index.html
+                [ -f $I ] || continue
+                if grep -qF 'Página por defeito dos sites sem conteúdo (VisualDesign)' $I; then e="Brevemente da VisualDesign (favicon na página: $(grep -c 'rel="icon"' $I))"
+                elif grep -qi directadmin $I; then e="AINDA página do DirectAdmin (tem outros ficheiros ou uma aplicação: não se mexe sem ver)"
+                else continue; fi
+                echo "$u | $d | $e | favicon.ico: $([ -f $P/favicon.ico ] && md5sum < $P/favicon.ico | cut -c1-8 || echo nenhum)"
+              done
+            done
+            rm -f /root/pagina-em-construcao.html /root/vd-brevemente.sh /root/favicon.ico
+            echo "=== fim ==="
+      - name: O que o público vê
+        run: |
+          for d in concordia.co.mz; do
+            echo "--- $d: título $(curl -s -m 20 https://$d/ | grep -o '<title>[^<]*' | head -1) | favicon na página: $(curl -s -m 20 https://$d/ | grep -c 'rel=\"icon\"') | /favicon.ico: $(curl -s -o /dev/null -w '%{http_code} %{content_type}' -m 20 https://$d/favicon.ico)"
+          done
