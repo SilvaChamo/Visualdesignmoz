@@ -1,0 +1,31 @@
+name: "Ops - Contabo: disco de 200 GB com partição de 95,8 GB (SÓ LEITURA)"
+
+# Só leitura: como estão os discos e partições, para saber se a partição do sistema pode ser alargada
+# para o espaço novo do disco.
+on:
+  push:
+    branches: [claude/laughing-cray-kr2z4n]
+
+jobs:
+  contabo:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Discos no Contabo
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          username: root
+          password: ${{ secrets.CONTABO_ROOT_PASSWORD }}
+          command_timeout: 3m
+          script: |
+            set +e
+            echo "=== sistema ==="; head -3 /etc/os-release; uname -r; uptime
+            echo "=== df ==="; df -hT -x tmpfs -x devtmpfs -x overlay
+            echo "=== lsblk ==="; lsblk -o NAME,SIZE,TYPE,FSTYPE,MOUNTPOINT,PKNAME
+            echo "=== lsblk (bytes, só discos) ==="; lsblk -bdno NAME,SIZE,TYPE
+            echo "=== partição de / ==="; findmnt -no SOURCE,FSTYPE,OPTIONS /
+            echo "=== tabela de partições ==="; for d in $(lsblk -dno NAME,TYPE | awk '$2=="disk"{print $1}'); do echo "--- /dev/$d"; sfdisk -l /dev/$d 2>&1; parted -s /dev/$d unit GB print free 2>&1; done
+            echo "=== LVM ==="; pvs 2>&1; vgs 2>&1; lvs 2>&1
+            echo "=== ferramentas ==="; which growpart resize2fs xfs_growfs 2>&1; dpkg -l cloud-guest-utils 2>/dev/null | tail -1
+            echo "=== kernel vê o tamanho novo? ==="; dmesg 2>/dev/null | grep -iE "capacity change|detected capacity|sda:|vda:" | tail -10
+            echo "=== fstab ==="; cat /etc/fstab
