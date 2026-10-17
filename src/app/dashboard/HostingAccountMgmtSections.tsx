@@ -128,6 +128,7 @@ export function MoveUsersBetweenResellersSection({ isActive = true }: { isActive
   const [pkgTarget, setPkgTarget] = useState('');
   const [pkgBusy, setPkgBusy] = useState(false);
   const [pkgMsg, setPkgMsg] = useState('');
+  const [pkgForcePending, setPkgForcePending] = useState(false);
   const defaultsSetRef = useRef(false);
   const pkgDefaultSetRef = useRef(false);
 
@@ -253,7 +254,7 @@ export function MoveUsersBetweenResellersSection({ isActive = true }: { isActive
     setBusy(false);
   };
 
-  const submitPackageMove = async () => {
+  const submitPackageMove = async (forcePackageChange = false) => {
     if (!pkgUser || !pkgTarget) {
       setPkgMsg('Seleccione utilizador e pacote de destino.');
       return;
@@ -268,17 +269,25 @@ export function MoveUsersBetweenResellersSection({ isActive = true }: { isActive
           action: 'editAccount',
           userName: pkgUser,
           packageName: pkgTarget,
+          forcePackageChange,
         }),
       });
       const data = await res.json();
+      if (data.requiresPackageForce && !forcePackageChange) {
+        setPkgForcePending(true);
+        setPkgMsg(data.error || 'O pacote de destino tem limites inferiores aos recursos actuais. Se continuar, a conta mantém os recursos existentes, mas não pode criar mais até ficar dentro dos limites.');
+        return;
+      }
       if (!res.ok || !data.success) throw new Error(data.error || 'Falha ao mover conta');
       setPkgMsg(`Conta ${pkgUser} movida para o pacote ${pkgTarget}.`);
+      setPkgForcePending(false);
       setPkgUser('');
       await refresh({ sync: true });
     } catch (e: unknown) {
       setPkgMsg(e instanceof Error ? e.message : 'Erro ao mover conta');
+    } finally {
+      setPkgBusy(false);
     }
-    setPkgBusy(false);
   };
 
   const showInitialLoader = loading && users.length === 0;
@@ -415,7 +424,10 @@ export function MoveUsersBetweenResellersSection({ isActive = true }: { isActive
                   </span>
                   <select
                     value={pkgUser}
-                    onChange={(e) => setPkgUser(e.target.value)}
+                    onChange={(e) => {
+                      setPkgUser(e.target.value);
+                      setPkgForcePending(false);
+                    }}
                     className={`${panelField} w-full`}
                     disabled={pkgBusy || syncing}
                   >
@@ -441,7 +453,10 @@ export function MoveUsersBetweenResellersSection({ isActive = true }: { isActive
                   </span>
                   <select
                     value={pkgTarget}
-                    onChange={(e) => setPkgTarget(e.target.value)}
+                    onChange={(e) => {
+                      setPkgTarget(e.target.value);
+                      setPkgForcePending(false);
+                    }}
                     className={`${panelField} w-full`}
                     disabled={pkgBusy || syncing}
                   >
@@ -458,7 +473,7 @@ export function MoveUsersBetweenResellersSection({ isActive = true }: { isActive
                 <button
                   type="button"
                   onClick={() => void submitPackageMove()}
-                  disabled={pkgBusy || syncing || showInitialLoader}
+                  disabled={pkgBusy || syncing || showInitialLoader || pkgForcePending}
                   className={panelBtnPrimary}
                 >
                   {pkgBusy ? <Spinner className="h-4 w-4" /> : null}
@@ -485,6 +500,22 @@ export function MoveUsersBetweenResellersSection({ isActive = true }: { isActive
             >
               {pkgMsg}
             </p>
+          ) : null}
+          {pkgForcePending ? (
+            <div className="mt-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
+              <p>
+                O pacote de destino tem limites inferiores aos recursos actuais. Se continuar, a conta mantém os recursos
+                existentes, mas não pode criar mais até ficar dentro dos limites.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button type="button" className={panelBtnPrimary} disabled={pkgBusy} onClick={() => void submitPackageMove(true)}>
+                  Descer mesmo assim
+                </button>
+                <button type="button" className={panelBtnSecondary} disabled={pkgBusy} onClick={() => setPkgForcePending(false)}>
+                  Manter pacote actual
+                </button>
+              </div>
+            </div>
           ) : null}
         </div>
       </div>

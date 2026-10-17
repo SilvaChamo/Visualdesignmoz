@@ -138,6 +138,7 @@ export function ProvisionClienteSection({
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
   const [done, setDone] = useState(false);
+  const [packageForcePending, setPackageForcePending] = useState(false);
   const [userMode, setUserMode] = useState<'new' | 'existing'>('new');
   const [existingUserId, setExistingUserId] = useState('');
   const [resellerTier, setResellerTier] = useState<'essencial' | 'expandido'>('essencial');
@@ -257,7 +258,7 @@ export function ProvisionClienteSection({
     resolvedUsername.length >= 5 &&
     (!hasHostingPackage || accountType !== 'client' || domain.includes('.'));
 
-  const handleProvision = async () => {
+  const handleProvision = async (forcePackageChange = false) => {
     if (isEdit && editUser && username.trim() !== editUser.userName) {
       setMsg('Erro: A alteração do nome de utilizador não é suportada.');
       return;
@@ -283,12 +284,20 @@ export function ProvisionClienteSection({
             lastName: identity.lastName,
             email: identity.email,
             packageName: hasHostingPackage ? selectedPackageName : '',
+            forcePackageChange,
             primaryDomain: normalizedDomain || undefined,
             adminEmail,
           }),
         });
         const json = await parseJsonResponse<any>(res);
+        if (json.requiresPackageForce && !forcePackageChange) {
+          setPackageForcePending(true);
+          setMsg(`Erro: ${normalizeErrorMessage(String(json.error || 'O pacote escolhido tem limites inferiores ao uso actual da conta.'))}`);
+          setBusy(false);
+          return;
+        }
         if (!res.ok || !json.success) throw new Error(String(json.error || 'Falha ao actualizar conta'));
+        setPackageForcePending(false);
 
         const serverNote =
           json.serverSynced === false && json.warning
@@ -362,6 +371,7 @@ export function ProvisionClienteSection({
     } catch (e: unknown) {
       const raw = e instanceof Error ? e.message : 'Erro ao provisionar';
       setMsg(`Erro: ${normalizeErrorMessage(raw)}`);
+      setPackageForcePending(false);
     }
     setBusy(false);
   };
@@ -534,7 +544,10 @@ export function ProvisionClienteSection({
             <label className="text-xs font-medium text-zinc-500">Pacote de hospedagem</label>
             <select
               value={selectedPackageName}
-              onChange={(e) => setPackageName(e.target.value)}
+              onChange={(e) => {
+                setPackageName(e.target.value);
+                setPackageForcePending(false);
+              }}
               className={inputCls}
             >
               <option value="">Conta simples (sem hospedagem)</option>
@@ -719,6 +732,30 @@ export function ProvisionClienteSection({
           {msg && !done && (
             <p className={`text-sm p-3 rounded-lg ${msg.startsWith('Erro') ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>{msg}</p>
           )}
+          {packageForcePending && !done && (
+            <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
+              <p>
+                O pacote de destino tem limites inferiores aos recursos actuais. Se continuar, a conta mantém os recursos
+                existentes, mas não pode criar mais até ficar dentro dos limites.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button type="button" onClick={() => void handleProvision(true)} disabled={busy} className={panelBtnPrimary}>
+                  Descer mesmo assim
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPackageForcePending(false);
+                    setMsg('O pacote ficou como estava; os outros dados enviados foram guardados.');
+                  }}
+                  disabled={busy}
+                  className={panelBtnSecondary}
+                >
+                  Manter pacote actual
+                </button>
+              </div>
+            </div>
+          )}
 
           <div className="flex justify-end gap-2 pt-2">
             {onCancel && (
@@ -728,8 +765,8 @@ export function ProvisionClienteSection({
             )}
             <button
               type="button"
-              onClick={handleProvision}
-              disabled={busy || !canSubmit}
+              onClick={() => void handleProvision()}
+              disabled={busy || !canSubmit || packageForcePending}
               className={panelBtnPrimary}
             >
               {busy ? <Spinner className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />}

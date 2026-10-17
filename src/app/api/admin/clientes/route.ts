@@ -739,6 +739,7 @@ export async function PATCH(req: NextRequest) {
       const accountType = body.accountType as 'client' | 'reseller' | 'professional' | undefined;
       const packageName =
         body.packageName !== undefined ? String(body.packageName || '').trim() : undefined;
+      const forcePackageChange = body.forcePackageChange === true;
       const primaryDomain =
         body.primaryDomain !== undefined ? String(body.primaryDomain || '').trim().toLowerCase() : undefined;
       const adminEmail =
@@ -861,7 +862,7 @@ export async function PATCH(req: NextRequest) {
       const pushed =
         editProvider === 'hestia'
           ? packageName
-            ? await hestiaAdapter.changeUserPackage(userName, packageName)
+            ? await hestiaAdapter.changeUserPackage(userName, packageName, forcePackageChange)
             : { ok: true }
           : await pushUserEditToServer({
               userName,
@@ -878,6 +879,21 @@ export async function PATCH(req: NextRequest) {
       // mostrar o pacote/email novo mesmo quando o servidor real ainda tinha o
       // antigo, por até 60 min (janela do próximo scheduleDaSync).
       if (!pushed.ok) {
+        if (packageName !== undefined) {
+          const requiresPackageForce = 'limite' in pushed && pushed.limite === true && !forcePackageChange;
+          scheduleDaSync(1500);
+          return NextResponse.json(
+            {
+              success: false,
+              ...(requiresPackageForce ? { requiresPackageForce: true } : {}),
+              data,
+              serverSynced: false,
+              warning: 'Os outros dados da conta foram actualizados; o pacote não foi alterado.',
+              error: pushed.error || 'O servidor não confirmou a alteração do pacote.',
+            },
+            { status: requiresPackageForce ? 409 : 502 },
+          );
+        }
         schedulePanelServerProvision(userName, 1500);
         scheduleDaSync(1500);
         return NextResponse.json({
