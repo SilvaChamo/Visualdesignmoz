@@ -38,6 +38,15 @@ export default function LadoALado() {
   const pc = useRef<HTMLIFrameElement>(null);
   const tm = useRef<HTMLIFrameElement>(null);
   const ultimo = useRef<[string | null, string | null]>([null, null]);
+  // molduras a carregar um endereço que lhes mandámos (ver "Seguir"): o documento de antes, o prazo e quando carregou
+  const emEspera = useRef<({ doc: Document | null; ate: number; carregou?: number } | null)[]>([null, null]);
+  const esperar = (k: 0 | 1, f: HTMLIFrameElement | null) => {
+    let doc: Document | null = null;
+    try {
+      doc = f?.contentDocument ?? null;
+    } catch {}
+    emEspera.current[k] = { doc, ate: Date.now() + 10000 };
+  };
 
   // endereço inicial: ?p=/caminho, senão o último usado, senão a página SSL do painel
   useEffect(() => {
@@ -60,36 +69,75 @@ export default function LadoALado() {
     }
   }, [pronto, caminho, largura, seguir]);
 
+  // a barra de endereço acompanha a página aberta nas molduras (?p=…): o comando do projecto local recarrega esta aba, e
+  // um ?p= antigo voltava sempre à mesma página (Silva, 17/10/2026: abria sempre nos Acessos do plano)
+  useEffect(() => {
+    if (!pronto) return;
+    if (new URLSearchParams(window.location.search).get('p') === caminho) return;
+    const p = encodeURIComponent(caminho).replace(/%2F/g, '/').replace(/%3A/g, ':');
+    window.history.replaceState(null, '', window.location.pathname + '?p=' + p);
+  }, [pronto, caminho]);
+
   const abrir = useCallback((p: string) => {
     const destino = p.trim() || INICIO;
     const c = destino.startsWith('/') ? destino : '/' + destino;
     ultimo.current = [c, c];
     setCaminho(c);
     setEscrito(c);
-    for (const f of [pc.current, tm.current]) if (f?.contentWindow) f.contentWindow.location.replace(c);
+    ([pc.current, tm.current] as const).forEach((f, k) => {
+      if (!f?.contentWindow) return;
+      esperar(k as 0 | 1, f);
+      f.contentWindow.location.replace(c);
+    });
   }, []);
 
   const recarregar = () => {
     for (const f of [pc.current, tm.current]) f?.contentWindow?.location.reload();
   };
 
-  // "Seguir": quando uma moldura muda de endereço, a outra vai para o mesmo
+  // "Seguir": quando uma moldura muda de endereço, a outra vai para o mesmo.
+  // - Dentro do painel (/host…) a outra muda de página sem recarregar: o painel lê o endereço no "popstate", como no
+  //   botão Voltar. Antes recarregava a moldura inteira a cada clique (piscava e o CPU subia).
+  // - Fora do painel recarrega-se; enquanto essa moldura não assenta no endereço novo (durante o carregamento ainda
+  //   mostra o antigo, e ao abrir o painel pode acertar o endereço), o que ela mostra não manda a outra de volta.
+  //   Era o ciclo do Silva (17/10/2026): "quando clico noutro menu volta a mesma página… pisca… o CPU está alto".
   useEffect(() => {
     if (!pronto) return;
     const id = window.setInterval(() => {
-      const a = caminhoDe(pc.current);
-      const b = caminhoDe(tm.current);
-      const [ua, ub] = ultimo.current;
-      const mudou = a && a !== ua ? a : b && b !== ub ? b : null;
-      ultimo.current = [a ?? ua, b ?? ub];
-      if (!mudou) return;
+      const molduras = [pc.current, tm.current];
+      const atual = molduras.map(caminhoDe);
+      for (const k of [0, 1] as const) {
+        const esp = emEspera.current[k];
+        if (!esp) continue;
+        let doc: Document | null = null;
+        try {
+          doc = molduras[k]?.contentDocument ?? null;
+        } catch {}
+        // assentou: o documento novo acabou de carregar há 1,5 s (ou passou o prazo)
+        if (!esp.carregou && doc && doc !== esp.doc && doc.readyState === 'complete' && atual[k]) esp.carregou = Date.now();
+        if (Date.now() > esp.ate || (esp.carregou && Date.now() - esp.carregou > 1500)) emEspera.current[k] = null;
+        if (atual[k]) ultimo.current[k] = atual[k];
+      }
+      const presa = (k: 0 | 1) => !!emEspera.current[k];
+      const i = ([0, 1] as const).find((k) => !presa(k) && atual[k] && atual[k] !== ultimo.current[k]);
+      for (const k of [0, 1] as const) if (!presa(k) && atual[k]) ultimo.current[k] = atual[k];
+      if (i === undefined) return;
+      const mudou = atual[i] as string;
       setEscrito(mudou);
       setCaminho(mudou);
       if (!seguir) return;
-      const outra = mudou === a ? tm.current : pc.current;
-      if (caminhoDe(outra) !== mudou && outra?.contentWindow) {
-        outra.contentWindow.location.replace(mudou);
-        ultimo.current = [mudou, mudou];
+      const o = i === 0 ? 1 : 0;
+      const w = molduras[o]?.contentWindow;
+      if (!w || atual[o] === mudou) return;
+      ultimo.current[o] = mudou;
+      if (atual[o]?.startsWith('/host') && mudou.startsWith('/host') && !mudou.includes('?') && !mudou.includes('#')) {
+        w.history.pushState(null, '', mudou);
+        w.dispatchEvent(new PopStateEvent('popstate'));
+        // se o painel acertar o endereço ao mudar de página, isso não volta para a outra moldura
+        emEspera.current[o] = { doc: null, ate: Date.now() + 1500, carregou: Date.now() };
+      } else {
+        esperar(o, molduras[o]);
+        w.location.replace(mudou);
       }
     }, 600);
     return () => window.clearInterval(id);

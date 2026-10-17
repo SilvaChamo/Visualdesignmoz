@@ -11,6 +11,10 @@ import { estatisticasPagina, ficheirosPagina, infoSistemaPagina, logsPagina, per
 import { backupsPagina, chavesPagina, clamavPagina, cronPagina, gitPagina, handlersPagina, modsecPagina, protegidasPagina, sshPagina, wordpressPagina } from './paginas/avancado';
 import { mensagemTodos } from './paginas/mensagem-todos';
 import { forcaBrutaPagina } from './paginas/forca-bruta';
+import { processosPagina, servicosPagina } from './paginas/servidor-admin';
+import { cronAdminPagina, filaEmailPagina, firewallPagina, ipsPagina, logsAdminPagina, monitorBdPagina, nameserversPagina, rastreioEmailPagina, resumoEmailPagina, usoContasPagina } from './paginas/admin-paginas';
+import { atualizacoesPagina, backupSistemaPagina, backupsAdminPagina, basedirPagina, definicoesPagina, httpdPagina, importarContasPagina, manutencaoPagina, modsecAdminPagina, multiServidorPagina, netdataPagina, pacotesSistemaPagina, redisPagina, securityTxtPagina, softwarePagina, tlsServidorPagina, unitPagina } from './paginas/admin-paginas-2';
+import { editorSistemaPagina, estatisticasAdminPagina, ticketsAdminPagina } from './paginas/admin-paginas-3';
 import { ligadosPagina } from './paginas/ligados';
 import { acessosPlanos } from './paginas/acessos';
 import { catchAllPagina, emailPagina, feriasPagina, listasPagina, mailmarketingPagina, migracaoPagina, mxPagina, rastreioPagina, reencaminhamentosPagina, respostasPagina, spamPagina, webmailPagina } from './paginas/email';
@@ -690,6 +694,38 @@ export const SCREENS: Record<string, ScreenFn> = {
   'admin/modelos-mensagem': modelos,
   'admin/senhas': senhas,
   'admin/forca-bruta': forcaBrutaPagina,
+  'admin/processos': processosPagina,
+  'admin/servicos': servicosPagina,
+  'admin/recursos': usoContasPagina,
+  'admin/nameservers': nameserversPagina,
+  'admin/ips': ipsPagina,
+  'admin/cron': cronAdminPagina,
+  'admin/monitor-bd': monitorBdPagina,
+  'admin/fila-email': filaEmailPagina,
+  'admin/resumo-email': resumoEmailPagina,
+  'admin/rastreio-email': rastreioEmailPagina,
+  'admin/logs': logsAdminPagina,
+  'admin/firewall': firewallPagina,
+  'admin/software': softwarePagina,
+  'admin/atualizacoes': atualizacoesPagina,
+  'admin/pacotes-sistema': pacotesSistemaPagina,
+  'admin/tls-servidor': tlsServidorPagina,
+  'admin/definicoes': definicoesPagina,
+  'admin/multi-servidor': multiServidorPagina,
+  'admin/backups': backupsAdminPagina,
+  'admin/backup-sistema': backupSistemaPagina,
+  'admin/httpd': httpdPagina,
+  'admin/php-basedir': basedirPagina,
+  'admin/security-txt': securityTxtPagina,
+  'admin/modsecurity': modsecAdminPagina,
+  'admin/importar-contas': importarContasPagina,
+  'admin/manutencao': manutencaoPagina,
+  'admin/redis': redisPagina,
+  'admin/nginx-unit': unitPagina,
+  'admin/netdata': netdataPagina,
+  'admin/estatisticas': estatisticasAdminPagina,
+  'admin/editor-sistema': editorSistemaPagina,
+  'admin/tickets': ticketsAdminPagina,
   'admin/ligados': ligadosPagina,
   'admin/acessos': acessosPlanos,
   'admin/mensagem-todos': mensagemTodos,

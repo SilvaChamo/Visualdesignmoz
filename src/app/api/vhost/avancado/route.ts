@@ -584,12 +584,31 @@ export async function POST(req: NextRequest) {
       if (!/^[A-Za-z0-9._@-]{3,60}$/.test(user)) return recusa('Utilizador inválido.');
       if (!/^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(email)) return recusa('E-mail inválido.');
       if (senha.length < 8 || /[\r\n]/.test(senha)) return recusa('A palavra-passe precisa de pelo menos 8 caracteres.');
-      const sufixo = 'wp' + Math.random().toString(36).slice(2, 7);
-      const dbSenha = Array.from(crypto.getRandomValues(new Uint32Array(20)), (x) => 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'[x % 55]).join('');
-      const bd = await hestia.createDatabase({ username: conta, dbNameSuffix: sufixo, dbUserSuffix: sufixo, password: dbSenha });
-      if (!bd.ok) return recusa('Não foi possível criar a base de dados: ' + (bd.error || ''));
-      const x = await installWordPressSite({ domain: d, siteTitle: titulo, adminUser: user, adminPassword: senha, adminEmail: email, dbName: `${conta}_${sufixo}`, dbUser: `${conta}_${sufixo}`, dbPassword: dbSenha });
-      if (!x.ok) await hestia.deleteDatabase(conta, `${conta}_${sufixo}`).catch(() => null);
+      // Modo avançado (como no DA): pasta dentro do site, prefixo das tabelas e uma base de dados da conta já existente
+      const pasta = linha(c.pasta).replace(/^\/+|\/+$/g, '');
+      const prefixo = linha(c.prefixo) || 'wp_';
+      if (!/^[A-Za-z0-9_]{1,20}$/.test(prefixo)) return recusa('Prefixo das tabelas: letras, números e _ (até 20).');
+      const existente = linha(c.bd);
+      let dbName: string, dbUser: string, dbSenha: string;
+      let criada = false;
+      if (existente) {
+        const b = srv.db[conta]?.[existente];
+        if (!b) return recusa('Essa base de dados não é desta conta.');
+        dbName = existente;
+        dbUser = b.DBUSER || '';
+        if (!dbUser || (linha(c.bdUser) && linha(c.bdUser) !== dbUser)) return recusa('Esse utilizador não é o da base de dados.');
+        dbSenha = String(c.bdSenha || '');
+        if (!dbSenha || /[\r\n]/.test(dbSenha)) return recusa('Escreva a palavra-passe da base de dados.');
+      } else {
+        const sufixo = 'wp' + Math.random().toString(36).slice(2, 7);
+        dbSenha = Array.from(crypto.getRandomValues(new Uint32Array(20)), (x) => 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'[x % 55]).join('');
+        const bd = await hestia.createDatabase({ username: conta, dbNameSuffix: sufixo, dbUserSuffix: sufixo, password: dbSenha });
+        if (!bd.ok) return recusa('Não foi possível criar a base de dados: ' + (bd.error || ''));
+        dbName = dbUser = `${conta}_${sufixo}`;
+        criada = true;
+      }
+      const x = await installWordPressSite({ domain: d, directory: pasta || undefined, siteTitle: titulo, adminUser: user, adminPassword: senha, adminEmail: email, dbName, dbUser, dbPassword: dbSenha, dbPrefix: prefixo });
+      if (!x.ok && criada) await hestia.deleteDatabase(conta, dbName).catch(() => null);
       return resposta({ ok: x.ok, error: x.output }, true);
     }
     case 'wp-entrar': {

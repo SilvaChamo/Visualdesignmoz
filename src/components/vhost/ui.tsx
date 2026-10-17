@@ -351,7 +351,10 @@ export function ServerInfoCard() {
             {parados.length ? parados.length + (parados.length === 1 ? ' serviço parado' : ' serviços parados') : 'activo'}
           </span>
         </div>
-        <i className="fa-solid fa-wrench" style={{ color: 'var(--muted)', fontSize: 13, cursor: 'pointer' }} onClick={() => go('servicos')} title="Gerir servidor" />
+        {/* a chave abre o Monitor de processos: ver e parar o que mais gasta CPU (Silva, 16/10/2026) */}
+        <button type="button" className="srv-chave" onClick={() => go('processos')} title="Monitor de processos — parar o que mais gasta CPU" aria-label="Monitor de processos">
+          <i className="fa-solid fa-wrench" />
+        </button>
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 10 }}>
