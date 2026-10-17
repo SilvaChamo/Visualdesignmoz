@@ -154,7 +154,12 @@ export const ocultoNoPlano = (s: St, id: string, lv: Level = s.level) => {
   // nos clientes "pkg" e "hpkg" são o mesmo pacote do servidor; vê os dois para não depender disso
   return !!(esc[a.pkg]?.includes(id) || (a.hpkg && esc[a.hpkg]?.includes(id)));
 };
+/** Páginas trazidas do painel antigo que, por agora, só a sessão de administrador vê ("nível/página", ex.:
+ *  "utilizador/encomendas"): o Silva experimenta-as com dados reais antes de abrirem aos clientes (17/10/2026). Para
+ *  abrir uma página a todos, tira-se daqui (no ficheiro da página). */
+export const soAdminPorAgora = new Set<string>();
 export const hasFeatOf = (s: St, f?: string, id?: string, lv: Level = s.level) => {
+  if (id && soAdminPorAgora.has(lv + '/' + id) && s.acc[s.login]?.role !== 'admin') return false;
   if (id && ocultoNoPlano(s, id, lv)) return false;
   if (!f) return true;
   const p = pacoteDe(s, meOf(s));

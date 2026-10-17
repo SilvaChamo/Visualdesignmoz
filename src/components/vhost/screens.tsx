@@ -16,6 +16,7 @@ import { cronAdminPagina, filaEmailPagina, firewallPagina, ipsPagina, logsAdminP
 import { atualizacoesPagina, backupSistemaPagina, backupsAdminPagina, basedirPagina, definicoesPagina, httpdPagina, importarContasPagina, manutencaoPagina, modsecAdminPagina, multiServidorPagina, netdataPagina, pacotesSistemaPagina, redisPagina, securityTxtPagina, softwarePagina, tlsServidorPagina, unitPagina } from './paginas/admin-paginas-2';
 import { editorSistemaPagina, estatisticasAdminPagina, ticketsAdminPagina } from './paginas/admin-paginas-3';
 import { ligadosPagina } from './paginas/ligados';
+import { encomendasPagina } from './paginas/encomendas';
 import { acessosPlanos } from './paginas/acessos';
 import { catchAllPagina, emailPagina, feriasPagina, listasPagina, mailmarketingPagina, migracaoPagina, mxPagina, rastreioPagina, reencaminhamentosPagina, respostasPagina, spamPagina, webmailPagina } from './paginas/email';
 import { apontadores, bdPagina, dnsPagina, dominios, ftpPagina, hotlink, phpPagina, phpmyadminPagina, redirecionamentos, sslPagina } from './paginas/dominios';
@@ -754,6 +755,7 @@ export const SCREENS: Record<string, ScreenFn> = {
   'utilizador/ajuda': ajudaPagina,
   'utilizador/tickets': ticketsPagina,
   'utilizador/api': apiPagina,
+  'utilizador/encomendas': encomendasPagina,
   niveis: () => ({ title: 'Níveis e acessos', body: <NiveisBody /> }),
   mapa: () => ({ title: 'Mapa de rotas', body: <MapaBody /> }),
 };
