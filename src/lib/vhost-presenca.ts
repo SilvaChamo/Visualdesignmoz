@@ -20,6 +20,8 @@ export type Presenca = {
   local: string;
   aparelho: string;
   pagina: string;
+  secao: string;
+  acao: string;
   desde: number;
   ultimo: number;
 };
@@ -27,11 +29,17 @@ export type Presenca = {
 const GUARDA_MS = 30 * 60_000;
 const presencas = new Map<string, Presenca>();
 
-export function registarPresenca(p: Omit<Presenca, 'desde' | 'local'> & { local?: string }): Presenca {
+export function registarPresenca(p: Omit<Presenca, 'desde' | 'local' | 'secao' | 'acao'> & { local?: string; secao?: string; acao?: string }): Presenca {
   const antes = presencas.get(p.uid);
   // nova entrada (ou outra máquina): conta outra vez desde agora
   const desde = antes && antes.ip === p.ip && Date.now() - antes.ultimo < GUARDA_MS ? antes.desde : Date.now();
-  const nova: Presenca = { ...p, local: p.local || antes?.local || '', desde };
+  const nova: Presenca = {
+    ...p,
+    local: p.local || antes?.local || '',
+    secao: p.secao || antes?.secao || '',
+    acao: p.acao || antes?.acao || '',
+    desde,
+  };
   presencas.set(p.uid, nova);
   return nova;
 }

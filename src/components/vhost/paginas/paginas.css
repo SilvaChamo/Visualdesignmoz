@@ -71,6 +71,14 @@
 .vh .dt-bar .dt-pesq{width:220px;flex:0 1 220px;position:relative}
 .vh .dt-bar .dt-pesq input{padding-right:26px}
 .vh .dt-bar .dt-pesq .limpar{position:absolute;right:10px;left:auto;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--muted)}
+.vh .vh-historico-conta{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:0 0 12px;padding:14px}
+.vh .vh-historico-tabela{padding:14px}
+.vh .vh-historico-acoes{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px;padding-right:3px;box-sizing:border-box}
+.vh .vh-historico-selector{width:33%;max-width:100%;flex:0 1 33%;margin-right:12px;padding-right:28px}
+.vh .vh-historico-acoes>.btn{margin:3px 0}
+.vh .vh-historico-tabela .tbl{margin-bottom:0}
+.vh .vh-historico-erro{margin-top:12px}
+@media(max-width:768px){.vh .vh-historico-selector{width:100%;flex:1 1 100%;margin-right:0}.vh .vh-historico-acoes>.btn{margin-left:auto}}
 .vh .dt-acoes .btn .n{background:var(--red);color:#fff;border-radius:9px;font-size:11px;font-weight:700;padding:0 6px;line-height:16px}
 .vh .dt-acoes .menu{left:0;right:auto;min-width:200px}
 .vh .dt-acoes .menu button{display:flex;align-items:center;gap:8px;width:100%;border:0;background:none;color:var(--ink);font:inherit;font-size:13.5px;padding:7px 8px;border-radius:var(--r);cursor:pointer;text-align:left}
@@ -487,6 +495,7 @@
  .vh .frm-head,.vh .frm-foot,.vh .feats>label{padding-left:14px;padding-right:14px}
  .vh .dt-bar .search{max-width:none;flex:1 1 100%}
  .vh .dt-bar .dt-pesq{flex:1 1 160px;width:auto}
+ .vh .vh-historico-tabela .dt-bar .dt-pesq{flex:1 1 100%;width:auto}
  .vh .dt-bar.com-cab>.ptabs{flex:1 1 100%}
  .vh .tabcard>.tc{padding:12px}
  /* na barra de cima do telemóvel só fica o botão principal da página */
