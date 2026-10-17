@@ -26,3 +26,8 @@ O título do merge fica só `Merge pull request #N from SilvaChamo-<fim do ramo>
 `Merge pull request #86 from SilvaChamo-51l13p`; no máximo `Merge pull request #86 from SilvaChamo/sharp-hypatia-51l13p`.
 Nunca o nome de uma IA no título (`claude/`, `cursor/`, `copilot/`, `codex/`, …). O GitHub põe por defeito
 `from SilvaChamo/<ramo>`: ao juntar, escreve-se o título à mão (ou, pela API, no `commit_title`).
+
+**O ramo publicado tem o nome da acção principal da publicação** (Silva, 17/10/2026): o PR sai de um ramo com nome
+curto, em português, sem acentos e com hífens, que diz o que a publicação faz (ex.: `email-de-entrada-mltmark`), e o
+título do merge leva esse nome: `Merge pull request #N from SilvaChamo-<acção>`. Nunca `claude/`, `copilot/` nem outro
+nome de IA no ramo publicado.
