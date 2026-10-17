@@ -714,6 +714,19 @@ export async function fulfillCheckout(
         await alertAdminOfTrackingFailure('hosting_renewals (email)', insErr.message);
       }
       created.push(`email:${item.id}`);
+      // O plano de e-mail compra-se já com o domínio (Silva, 17/10/2026: "ou compra ou traz um"), escolhido no passo
+      // /checkout/dominio: a conta no servidor é criada logo com ele. Se o domínio vem na mesma compra e o item dele
+      // já passou, o plano já ficou ligado (ver acima) e isto não faz nada; se vem depois, liga-se aqui primeiro.
+      const emailDomain = (item.hostingDomain || '').toLowerCase().trim();
+      if (!insErr && admin && email && HOSTING_DOMAIN_REGEX.test(emailDomain)) {
+        const { attachDomainToEmailPlan } = await import('@/lib/email-plan-provision');
+        const ligado = await attachDomainToEmailPlan(admin, userId, emailDomain, email, displayName).catch(
+          (e: unknown) => ({ ok: false as const, error: e instanceof Error ? e.message : String(e) }),
+        );
+        // as falhas no servidor já avisam a equipa lá dentro ("A nossa equipa foi avisada"); as outras avisam aqui
+        if (!ligado.ok && !/nenhum plano de email à espera|equipa foi avisada/i.test(ligado.error))
+          await alertAdminOfTrackingFailure('plano de email', `${emailDomain} (${item.name}): ${ligado.error}`);
+      }
     }
   }
 
