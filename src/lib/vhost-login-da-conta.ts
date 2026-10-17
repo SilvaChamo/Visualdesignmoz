@@ -5,8 +5,8 @@
  * nome da conta falhava sempre.
  *
  * Cria o utilizador do site com a palavra-passe dada e liga-o à conta (perfil com da_username e registo do painel).
- * O e-mail de entrada é `admin@<domínio principal da conta>` (Silva: "cria com email admin") ou, se esse já for de
- * outra pessoa do site, o de contacto da conta no servidor. Nunca liga a conta a um utilizador do site
+ * O e-mail de entrada é o da própria pessoa, de qualquer domínio: o que está na conta (Editar dados: registo do painel
+ * ou contacto no servidor). Se nenhum estiver livre, `admin@<domínio principal da conta>`. Nunca liga a conta a um utilizador do site
  * que já exista: isso daria a conta a outra pessoa.
  * Só se chama quando a palavra-passe já foi confirmada no servidor (entrada) ou mudada pelo administrador.
  */
@@ -31,8 +31,13 @@ export async function criarLoginDaConta(
   const sites = await hestia.listWebDomains(conta).catch(() => []);
   const mails = await hestia.listMailDomains(conta).catch(() => [] as string[]);
   const dominio = (sites[0]?.domain || mails[0] || '').toLowerCase();
-  // primeiro admin@<domínio> (Silva, 17/10/2026: "cria com email admin"); o de contacto só se esse já for de outra pessoa
-  const candidatos = (soEste ? [soEste.trim().toLowerCase()] : [dominio ? `admin@${dominio}` : '', String(info.CONTACT || '').trim().toLowerCase()])
+  // primeiro o e-mail da própria pessoa, de qualquer domínio (Silva, 17/10/2026: "deve permitir criar conta com email
+  // da pessoa sem ser obrigatório que seja do domínio") — o do registo do painel e o de contacto no servidor, que se
+  // mudam em Editar dados; só sem nenhum livre, admin@<domínio da conta>
+  const { data: pu } = await sb.from('panel_users').select('email').eq('username', conta).maybeSingle();
+  const candidatos = (soEste
+    ? [soEste.trim().toLowerCase()]
+    : [String(pu?.email || '').trim().toLowerCase(), String(info.CONTACT || '').trim().toLowerCase(), dominio ? `admin@${dominio}` : ''])
     .filter((e, i, l) => e && EMAIL_OK.test(e) && l.indexOf(e) === i);
   if (!candidatos.length) return { ok: false, erro: 'A conta não tem e-mail de contacto nem domínio para criar o login.' };
 

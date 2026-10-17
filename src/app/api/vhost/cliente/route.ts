@@ -145,7 +145,12 @@ export async function POST(req: NextRequest) {
       const { error } = await c.sb.from('profiles').update({ ...novo, updated_at: new Date().toISOString() }).eq('user_id', uid);
       if (error) avisos.push('Não foi possível gravar o perfil do site.');
       else feito.push('perfil do site');
-    } else if (!uid) avisos.push('Esta conta não tem perfil do site ligado: só se mudou o servidor. Ligue o perfil para os dados ficarem iguais.');
+    } else if (!uid)
+      avisos.push(
+        email
+          ? 'Esta conta ainda não tem login do site: ponha-lhe a palavra-passe em Mudar senhas e o login fica criado com ' + email + '.'
+          : 'Esta conta não tem perfil do site ligado: só se mudou o servidor. Ligue o perfil para os dados ficarem iguais.',
+      );
     const pup: Record<string, string> = {};
     if (novo.name) {
       const [primeiro, ...resto] = novo.name.split(/\s+/);
