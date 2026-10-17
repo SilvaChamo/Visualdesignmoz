@@ -26,7 +26,7 @@ async function pedir(corpo: Record<string, unknown>) {
   return { ok: !!r?.ok, ...j };
 }
 
-export function EditarDadosModal({ conta }: { conta: string }) {
+export function EditarDadosModal({ conta, onLigado }: { conta: string; onLigado?: () => void }) {
   const vh = useVH();
   const { t, closeM, toast } = vh;
   const [d, setD] = useState<Dados | null>(null);
@@ -75,6 +75,7 @@ export function EditarDadosModal({ conta }: { conta: string }) {
     if (!vivo.current) return;
     if (!x.ok) return toast(x.erro || 'Não foi possível ligar.');
     toast('Perfil ligado à conta ' + conta);
+    onLigado?.();
     await ler();
   };
 
