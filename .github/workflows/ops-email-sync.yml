@@ -10,7 +10,8 @@ name: "Ops - Copiador de email Hetzner -> Contabo (append-only)"
 #   os dominios/contas que faltarem antes de sincronizar.
 # - Loop le a lista pelo FD 3 e todo o ssh/rsync leva </dev/null, senao o ssh
 #   consome a lista e o loop para na 1a linha (bug da 1a versao).
-# Parar a sincronizacao continua: desactivar este workflow no separador Actions.
+# DESLIGADO (Silva, 17/10/2026: "o Hetzner ja nao esta em uso em nenhum lugar"): ja nao corre de 20 em 20
+# minutos; so corre se alguem o lancar a mao no separador Actions.
 # ============================================================================
 
 on:
@@ -20,8 +21,6 @@ on:
         description: "Criar dominios/contas em falta no Contabo antes de sincronizar"
         type: boolean
         default: false
-  schedule:
-    - cron: "*/20 * * * *"
 
 concurrency:
   group: email-sync
