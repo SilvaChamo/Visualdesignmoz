@@ -1,134 +1,71 @@
-name: "Ops - Planos de e-mail, mltmark, Concordia e provisualcorporate (AVANÇA do Silva, 17/10/2026)"
-# Pedido do Silva (17/10/2026), com "AVANÇA":
-#  1. planos de e-mail: Básico 10 contas, Premium 50, Enterprise ilimitadas (VD-Email-*);
-#  2. mltmark: "elimina a outra" base de dados (a que o site não usa) e passa ao VD-Host-Basico;
-#  3. Concordia: plano de e-mail; a página "Brevemente" fica como página de cortesia (não conta como site);
-#  4. provisualcorporate: plano de e-mail; "Apaga" o site antigo. O endereço sem www aponta para este servidor e o www
-#     para a Vercel: os ficheiros antigos saem (com cópia) e o endereço sem www passa a redireccionar para o www (Vercel),
-#     para não deixar de abrir;
-#  5. pacote VD-Dominio (só domínios: sem sites, sem e-mail, sem bases de dados) para quem compra só um domínio;
-#  6. verificação de cada site do servidor (no ar daqui? linguagem? página de espera? e o plano da conta).
-# Cópias antes de apagar: /root/backups/ops-2026-10-17/. A base de dados do mltmark só é apagada se não for a do
-# wp-config.php e nenhum ficheiro do site a nomear. O repositório é público: palavras-passe e chaves nunca aparecem.
+name: "Ops - Leitura: mltmark (qual WordPress está no ar) e verificação dos sites (17/10/2026)"
+# 2.ª corrida (SÓ LEITURA). A 1.ª aplicou os planos de e-mail (10/50/ilimitadas), Concordia e provisualcorporate no
+# VD-Email-Basico (provisualcorporate sem www → www na Vercel), o pacote VD-Dominio, e parou no mltmark: há dois
+# WordPress (public_html e public_html/app), cada um com a sua base de dados. Aqui só se lê:
+#  - qual dos dois WordPress do mltmark é o que o público vê (endereços gravados em cada base e o pedido que chega);
+#  - a verificação dos sites, mais certa: um pedido com uma marca única feito de fora e procurado no registo do nginx
+#    deste servidor (vale para qualquer linguagem e também atrás da Cloudflare); a página de espera vê-se no que o site
+#    serve de facto, com o plano da conta ao lado.
 on:
   push:
     branches: [claude/tender-johnson-wzert9]
     paths: [.github/workflows/ops-planos-contas.yml]
 jobs:
-  aplicar:
+  ler:
     runs-on: ubuntu-latest
     steps:
-      - name: Contabo (planos e contas)
+      - name: Contabo (só leitura)
         uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.CONTABO_HOST }}
           username: root
           key: ${{ secrets.CONTABO_SSH_KEY }}
-          command_timeout: 12m
+          command_timeout: 10m
           script: |
             set +e
             H=/usr/local/hestia/bin
-            P=/usr/local/hestia/data/packages
-            B=/root/backups/ops-2026-10-17
-            mkdir -p $B && chmod 700 $B
             pacote() { $H/v-list-user "$1" json | python3 -c 'import json,sys; print(list(json.load(sys.stdin).values())[0].get("PACKAGE"))'; }
 
-            echo "=== 1. Planos de e-mail: Básico 10, Premium 50, Enterprise ilimitadas ==="
-            cp -a $P/VD-Email-*.pkg $B/ && echo "  cópia dos pacotes em $B"
-            for x in VD-Email-Basico:10 VD-Email-Premium:50 VD-Email-Enterprise:unlimited; do
-              pk=${x%%:*}; n=${x#*:}
-              sed -i "s/^MAIL_ACCOUNTS=.*/MAIL_ACCOUNTS='$n'/" $P/$pk.pkg
-              [ -x $H/v-update-user-package ] && { $H/v-update-user-package "$pk"; echo "  $pk -> $n (código $?)"; }
+            echo "=== mltmark: os dois WordPress ==="
+            R=/home/mltmark/web/mltmark.com/public_html
+            echo "--- .htaccess da raiz (regras de reescrita)"; grep -iE "rewrite|app/" $R/.htaccess 2>/dev/null | head -15
+            echo "--- index.php da raiz"; head -20 $R/index.php 2>/dev/null | grep -v "^\s*\*\|^\s*/\*\|^\s*$"
+            for c in $R/wp-config.php $R/app/wp-config.php; do
+              DB=$(grep -E "define\(\s*['\"]DB_NAME" $c | sed -E "s/.*DB_NAME['\"]\s*,\s*['\"]([^'\"]+).*/\1/")
+              PF=$(grep -E "^\s*\\\$table_prefix" $c | sed -E "s/.*=\s*['\"]([^'\"]+).*/\1/")
+              echo "--- $c -> base $DB, prefixo $PF"
+              echo "  endereços gravados: $(mysql -N -e "select option_name, option_value from ${DB}.${PF}options where option_name in ('siteurl','home')" 2>/dev/null | tr '\t\n' '= ')"
+              echo "  último artigo/página: $(mysql -N -e "select max(post_modified) from ${DB}.${PF}posts where post_status='publish'" 2>/dev/null)"
+              echo "  tamanho da base: $(mysql -N -e "select round(sum(data_length+index_length)/1024/1024,1) from information_schema.tables where table_schema='$DB'" 2>/dev/null) MB"
             done
-            $H/v-list-user-packages json | python3 -c 'import json,sys
-            d=json.load(sys.stdin)
-            for n in ("VD-Email-Basico","VD-Email-Premium","VD-Email-Enterprise"): print("  agora: %-22s contas de e-mail=%s" % (n, d[n].get("MAIL_ACCOUNTS")))'
+            echo "--- pastas de wp-content: raiz $(du -sh $R/wp-content 2>/dev/null | cut -f1) | app $(du -sh $R/app/wp-content 2>/dev/null | cut -f1)"
 
-            echo "=== 2. mltmark: apagar a base de dados que o site não usa e passar ao VD-Host-Basico ==="
-            WP=/home/mltmark/web/mltmark.com/public_html/wp-config.php
-            USADA=$(grep -E "define\(\s*['\"]DB_NAME" $WP | sed -E "s/.*DB_NAME['\"]\s*,\s*['\"]([^'\"]+).*/\1/")
-            TODAS=$($H/v-list-databases mltmark plain | cut -f1)
-            echo "  o site usa: ${USADA:-não encontrada} | bases da conta: $(echo $TODAS)"
-            OUTRA=""
-            if [ -n "$USADA" ] && echo "$TODAS" | grep -qx "$USADA"; then OUTRA=$(echo "$TODAS" | grep -vx "$USADA"); fi
-            if [ -z "$OUTRA" ] || [ "$(echo "$OUTRA" | wc -l)" != "1" ]; then
-              echo "  PARADO: não ficou claro qual é a outra base — nada apagado"
-            else
-              echo "  a outra: $OUTRA ($(mysql -N -e "select count(*) from information_schema.tables where table_schema='$OUTRA'") tabelas)"
-              REFS=$(grep -rlIw --include='*.php' --include='.env' --include='*.ini' --include='*.json' --include='*.yml' -e "$OUTRA" /home/mltmark/web 2>/dev/null | head -5)
-              if [ -n "$REFS" ]; then
-                echo "  PARADO: há ficheiros do site que nomeiam $OUTRA — nada apagado:"; echo "$REFS"
-              else
-                mysqldump --single-transaction --routines --triggers "$OUTRA" 2>/dev/null | gzip > $B/$OUTRA.sql.gz
-                TAM=$(stat -c %s $B/$OUTRA.sql.gz)
-                if [ "$TAM" -gt 100 ]; then
-                  echo "  cópia: $B/$OUTRA.sql.gz ($TAM bytes)"
-                  $H/v-delete-database mltmark "$OUTRA"; echo "  apagada $OUTRA (código $?)"
-                else
-                  echo "  PARADO: a cópia de $OUTRA saiu vazia — nada apagado"
-                fi
-              fi
-            fi
-            echo "  bases que ficam: $($H/v-list-databases mltmark plain | cut -f1 | tr '\n' ' ')"
-            $H/v-change-user-package mltmark VD-Host-Basico; echo "  mudança de pacote: código $? | pacote agora: $(pacote mltmark)"
-            echo "  o site continua a responder: $(curl -s -o /dev/null -w '%{http_code}' -m 20 https://mltmark.com/)"
-
-            echo "=== 3. Concordia: plano de e-mail, a página Brevemente fica ==="
-            $H/v-change-user-package concordia VD-Email-Basico yes; echo "  código $? | pacote agora: $(pacote concordia)"
-            echo "  Brevemente continua a responder: $(curl -s -o /dev/null -w '%{http_code}' -m 20 https://concordia.co.mz/)"
-
-            echo "=== 4. provisualcorporate: apagar o site antigo (com cópia), sem www redirecciona para o www (Vercel) ==="
-            D=/home/provisualcorporate/web/provisualcorporate.co.mz/public_html
-            tar -czf $B/provisualcorporate-public_html.tar.gz -C $D . && echo "  cópia: $B/provisualcorporate-public_html.tar.gz ($(stat -c %s $B/provisualcorporate-public_html.tar.gz) bytes)"
-            if [ -s $B/provisualcorporate-public_html.tar.gz ]; then
-              find $D -mindepth 1 -delete; echo "  ficheiros antigos apagados (ficaram: $(ls -A $D | wc -l))"
-              $H/v-add-web-domain-redirect provisualcorporate provisualcorporate.co.mz https://www.provisualcorporate.co.mz 301 yes; echo "  redireccionamento para o www: código $?"
-            else
-              echo "  PARADO: a cópia saiu vazia — nada apagado"
-            fi
-            $H/v-change-user-package provisualcorporate VD-Email-Basico yes; echo "  código $? | pacote agora: $(pacote provisualcorporate)"
-            echo "  contas de e-mail: $($H/v-list-mail-accounts provisualcorporate provisualcorporate.co.mz plain | wc -l)"
-
-            echo "=== 5. Pacote VD-Dominio (só domínios) ==="
-            if [ -f $P/VD-Dominio.pkg ]; then echo "  já existe"; else
-              cp $P/VD-Email-Basico.pkg $P/VD-Dominio.pkg
-              sed -i -e "s/^WEB_DOMAINS=.*/WEB_DOMAINS='0'/" -e "s/^WEB_ALIASES=.*/WEB_ALIASES='0'/" -e "s/^DNS_DOMAINS=.*/DNS_DOMAINS='unlimited'/" \
-                -e "s/^DNS_RECORDS=.*/DNS_RECORDS='unlimited'/" -e "s/^MAIL_DOMAINS=.*/MAIL_DOMAINS='0'/" -e "s/^MAIL_ACCOUNTS=.*/MAIL_ACCOUNTS='0'/" \
-                -e "s/^DATABASES=.*/DATABASES='0'/" -e "s/^CRON_JOBS=.*/CRON_JOBS='0'/" -e "s/^DISK_QUOTA=.*/DISK_QUOTA='100'/" $P/VD-Dominio.pkg
-              echo "  criado"
-            fi
-            $H/v-list-user-packages json | python3 -c 'import json,sys
-            p=json.load(sys.stdin).get("VD-Dominio",{})
-            print("  VD-Dominio: sites=%s dns=%s mail_dom=%s mail_acc=%s bd=%s disco=%s" % (p.get("WEB_DOMAINS"),p.get("DNS_DOMAINS"),p.get("MAIL_DOMAINS"),p.get("MAIL_ACCOUNTS"),p.get("DATABASES"),p.get("DISK_QUOTA")))'
-
-            echo "=== 6. Os sites do servidor: no ar daqui? linguagem? página de espera? (só leitura) ==="
-            IPS=" $(hostname -I) "
+            echo "=== verificação dos sites (marca única pedida de fora e procurada no registo deste servidor) ==="
             for u in $($H/v-list-users plain | cut -f1); do
               PK=$(pacote $u)
               for d in $($H/v-list-web-domains "$u" plain 2>/dev/null | cut -f1); do
-                R=/home/$u/web/$d/public_html
-                if [ -f $R/wp-config.php ]; then L=WordPress
+                R=/home/$u/web/$d/public_html; CONF=/home/$u/conf/web/$d
+                RED=$($H/v-list-web-domain $u $d json | python3 -c 'import json,sys; print(list(json.load(sys.stdin).values())[0].get("REDIRECT",""))' 2>/dev/null)
+                if [ -n "$RED" ]; then L="redireccionamento para $RED"
+                elif grep -qE "proxy_pass\s+https?://(127\.0\.0\.1|localhost):(3[0-9]{3}|4[0-9]{3}|5[0-9]{3})" $CONF/*nginx*.conf 2>/dev/null; then L=Node.js
+                elif [ -f $R/wp-config.php ]; then L=WordPress
                 elif [ -f $R/artisan ] || [ -f $R/../artisan ]; then L=Laravel
                 elif [ -f $R/index.php ]; then L=PHP
-                elif [ -f $R/package.json ] || grep -q "proxy_pass" /home/$u/conf/web/$d/nginx.conf 2>/dev/null; then L=Node.js
                 elif ls $R/*.py >/dev/null 2>&1; then L=Python
                 elif [ -f $R/index.html ]; then L="HTML estático"
-                elif [ -n "$($H/v-list-web-domain $u $d json | grep -o '"REDIRECT": "[^"]*"' | grep -v '""')" ]; then L="redireccionamento"
                 else L="sem página"; fi
-                T=$(grep -ohi '<title>[^<]*' $R/index.html $R/index.php 2>/dev/null | head -1 | sed 's/<title>//I')
+                M="vdverificar$(date +%s%N | tail -c 9)"
+                CORPO=$(curl -s -m 20 "https://$d/?$M=1")
+                sleep 1
+                if grep -qs "$M" /var/log/nginx/domains/$d.log /var/log/nginx/domains/$d.ssl.log /var/log/apache2/domains/$d.log /var/log/apache2/domains/$d.ssl.log 2>/dev/null; then ONDE="no ar a partir daqui"
+                elif [ -z "$(dig +short A $d @1.1.1.1)" ]; then ONDE="sem DNS"
+                else ONDE="o público vê outro servidor"; fi
+                T=$(echo "$CORPO" | grep -o '<title>[^<]*' | head -1 | sed 's/<title>//')
                 ESPERA=""
                 if echo "$T" | grep -qiE "brevemente|em constru|coming soon|under construction"; then
-                  case "$PK" in VD-Email-*|VD-Dominio) ESPERA=" | página de espera: SEM SITE (plano $PK)";; *) ESPERA=" | página de espera: site em preparação (plano $PK)";; esac
+                  case "$PK" in VD-Email-*|VD-Dominio) ESPERA=" | página de espera: SEM SITE (plano de e-mail ou só domínio)";; *) ESPERA=" | página de espera: site em preparação";; esac
                 fi
-                A=$(dig +short A $d @1.1.1.1 | tail -1); W=$(dig +short A www.$d @1.1.1.1 | tail -1)
-                LOCAL=$(curl -sk -m 15 --resolve $d:443:127.0.0.1 https://$d/ | md5sum | cut -c1-12)
-                PUB=$(curl -s -m 15 https://$d/ | md5sum | cut -c1-12)
-                if [ -n "$A" ] && echo "$IPS" | grep -q " $A "; then ONDE="no ar a partir daqui"
-                elif [ "$PUB" = "$LOCAL" ] && [ "$PUB" != "d41d8cd98f00" ]; then ONDE="no ar a partir daqui (pela Cloudflare)"
-                elif [ -z "$A" ]; then ONDE="sem DNS"
-                else ONDE="o público vê outro servidor"; fi
-                WWW=""; [ -n "$W" ] && ! echo "$IPS" | grep -q " $W " && [ "$PUB" != "$LOCAL" ] && [ -n "$(dig +short CNAME www.$d @1.1.1.1)" ] && WWW=" | www: $(dig +short CNAME www.$d @1.1.1.1 | head -1)"
-                echo "$u ($PK) | $d | $L$ESPERA | $ONDE$WWW"
+                echo "$u ($PK) | $d | $L | $ONDE | título: ${T:-—}$ESPERA"
               done
             done
             echo "=== fim ==="
@@ -136,8 +73,9 @@ jobs:
         run: |
           for d in provisualcorporate.co.mz www.provisualcorporate.co.mz concordia.co.mz mltmark.com aamihe.com; do
             echo "--- $d"
-            curl -s -m 20 -L -D /tmp/h -o /tmp/b "https://$d/"
+            curl -s -m 20 -L -D /tmp/h -o /tmp/b "https://$d/" || echo "  erro do curl: $? ($(curl -sS -m 20 -o /dev/null https://$d/ 2>&1 | head -1))"
             echo "  respostas: $(grep -E '^HTTP' /tmp/h | tr -d '\r' | tr '\n' ' ')"
-            echo "  servidor: $(grep -iE '^(server|x-vercel-id):' /tmp/h | tr -d '\r' | tr '\n' ' ')"
+            echo "  servidor: $(grep -iE '^(server|x-vercel-id|location):' /tmp/h | tr -d '\r' | tr '\n' ' ')"
             echo "  título: $(grep -o '<title>[^<]*' /tmp/b | head -1)"
+            rm -f /tmp/h /tmp/b
           done
