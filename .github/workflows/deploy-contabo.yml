@@ -245,7 +245,9 @@ jobs:
             # conhecido do Next.js com builds incrementais sobre estado antigo).
             # Apagar antes de reconstruir elimina essa classe de corrupção.
             rm -rf .next
-            $BAIXA npm run build
+            # 4 GB para o build: com o limite por defeito do Node (~2 GB) o build esgotou a memória a 16/10/2026 ("JavaScript
+            # heap out of memory", publicação do #87) e o site ficou na versão anterior; o servidor tem 12 GB
+            NODE_OPTIONS="--max-old-space-size=4096" $BAIXA npm run build
             # Um processo antigo (visualdesign-panel em /opt/visualdesign-panel)
             # ficava a escutar a 3002. O restart desta app falhava com
             # EADDRINUSE, o GitHub Actions marcava sucesso, e o site público

@@ -72,6 +72,8 @@ export async function installWordPressSite(input: {
   dbName: string;
   dbUser: string;
   dbPassword: string;
+  /** prefixo das tabelas (por defeito wp_) */
+  dbPrefix?: string;
   protocol?: 'http' | 'https';
 }): Promise<{ ok: boolean; output: string }> {
   const site = await resolveDomainSitePath(input.domain);
@@ -102,7 +104,7 @@ export async function installWordPressSite(input: {
 
   const steps = [
     'core download',
-    `config create --dbname=${shellQuote(input.dbName)} --dbuser=${shellQuote(input.dbUser)} --dbpass=${shellQuote(input.dbPassword)} --dbhost=localhost --skip-check`,
+    `config create --dbname=${shellQuote(input.dbName)} --dbuser=${shellQuote(input.dbUser)} --dbpass=${shellQuote(input.dbPassword)} --dbhost=localhost${input.dbPrefix ? ` --dbprefix=${shellQuote(input.dbPrefix)}` : ''} --skip-check`,
     `core install --url=${shellQuote(url)} --title=${shellQuote(input.siteTitle || input.domain)} --admin_user=${shellQuote(input.adminUser)} --admin_password=${shellQuote(input.adminPassword)} --admin_email=${shellQuote(input.adminEmail)} --skip-email`,
   ];
 

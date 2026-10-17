@@ -489,7 +489,16 @@ export function DataTable<T>({
           {t('Ações')} <i className="fa-solid fa-caret-down" />
         </button>
         {acoesOpen && (
-          <div className="menu" style={acoesPos ? { position: 'fixed', top: acoesPos.top, left: acoesPos.left, right: 'auto' } : undefined}>
+          <div
+            className="menu"
+            style={acoesPos ? { position: 'fixed', top: acoesPos.top, left: acoesPos.left, right: 'auto' } : undefined}
+            // no telemóvel o menu, aberto a partir do botão, passava da borda direita do ecrã: encosta-se a ela
+            ref={(m) => {
+              if (!m || !acoesPos) return;
+              const r = m.getBoundingClientRect();
+              if (r.right > window.innerWidth - 8) m.style.left = Math.max(8, window.innerWidth - 8 - r.width) + 'px';
+            }}
+          >
             {livres.map(opcao)}
             {livres.length > 0 && comSel.length > 0 && <div className="menu-sep" />}
             {comSel.map(opcao)}

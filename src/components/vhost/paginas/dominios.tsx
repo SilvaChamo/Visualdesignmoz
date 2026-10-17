@@ -1074,13 +1074,39 @@ const NA_CLOUDFLARE = ['A', 'AAAA', 'CNAME', 'MX', 'TXT'];
 const NS_PUBLICO = 'ns-publico-';
 type RegistoDns = Detalhe['dns']['registos'][number];
 
-/** Janela de adicionar / editar um registo (os mesmos campos do DirectAdmin) */
-function DnsForm({ d, fonte, r, onFeito }: { d: string; fonte: Detalhe['dns']['fonte']; r?: RegistoDns; onFeito: () => void }) {
+/** Apontadores do domínio (outros domínios que abrem o mesmo site), como os "pointers" do DirectAdmin */
+function apontadoresDe(vh: VH, d: string): string[] {
+  const dom = vh.a.domains.find((x) => x.name === d);
+  const nomes = (dom?.aliases || []).map((a) => a.toLowerCase().replace(/^www\./, '')).filter((a) => a !== d && !ehSub(a, d));
+  return [...new Set(nomes)];
+}
+/** Nome do registo sem a zona (www.exemplo.co.mz → www; @ ou a própria zona → vazio), para o campo com a zona à direita */
+function nomeRelativo(nome: string, zona: string): string {
+  const n = nome.replace(/\.$/, '');
+  if (n === '@' || n === zona) return '';
+  return n.endsWith('.' + zona) ? n.slice(0, -zona.length - 1) : n;
+}
+
+/** Janela de adicionar / editar um registo, no modelo da do DirectAdmin (Silva, 16/10/2026): título com o X, linhas
+ *  com o nome à esquerda e o campo à direita, o nome com a zona à direita, "Duplicar para os apontadores" e Guardar */
+function DnsForm({ d, zona = d, fonte, r, onFeito }: { d: string; zona?: string; fonte: Detalhe['dns']['fonte']; r?: RegistoDns; onFeito: () => void }) {
   const vh = useVH();
   const { t, closeM } = vh;
-  const [f, setF] = useState({ tipo: r?.tipo || 'A', nome: r?.nome || '', ttl: String(r ? (r.ttl === 1 ? 3600 : r.ttl) : 3600), valor: r?.valor || '', prio: r?.prio || '10' });
+  const [f, setF] = useState({ tipo: r?.tipo || 'A', nome: r ? nomeRelativo(r.nome, zona) : '', ttl: String(r ? (r.ttl === 1 ? 3600 : r.ttl) : 3600), valor: r?.valor || '', prio: r?.prio || '10' });
   const [txtLinhas, setTxtLinhas] = useState<string[]>(r?.tipo === 'TXT' ? [r.valor] : ['']);
   const tipos = TIPOS_DNS.filter((tp) => fonte === 'hestia' || NA_CLOUDFLARE.includes(tp));
+  const apontadores = r ? [] : apontadoresDe(vh, d);
+  const [duplicar, setDuplicar] = useState(apontadores.length > 0);
+
+  // o mesmo registo nos apontadores (só ao adicionar): conta os que ficaram e avisa no fim
+  const nosApontadores = async (valores: string[]) => {
+    if (!duplicar || !apontadores.length) return;
+    let feitos = 0;
+    for (const ap of apontadores)
+      for (const valor of valores)
+        if (await noServidor(vh, { acao: 'dns-criar', dominio: ap, tipo: f.tipo, nome: f.nome, ttl: f.ttl, prio: f.prio, valor }, t('Registo copiado para ') + ap, false)) feitos++;
+    vh.toast(t('Registo copiado para {0} de {1} apontadores').replace('{0}', String(Math.min(feitos, apontadores.length))).replace('{1}', String(apontadores.length)));
+  };
 
   const guardar = async () => {
     if (f.tipo === 'TXT' && !r) {
@@ -1092,111 +1118,115 @@ function DnsForm({ d, fonte, r, onFeito }: { d: string; fonte: Detalhe['dns']['f
         const ok = await noServidor(vh, { acao: 'dns-criar', dominio: d, tipo: 'TXT', nome: f.nome, ttl: f.ttl, valor: val }, t('Registo TXT adicionado'), false);
         if (ok) okCount++;
       }
-      if (okCount > 0) onFeito();
+      if (okCount > 0) {
+        await nosApontadores(valoresValidos);
+        onFeito();
+      }
       return;
     }
 
     const valorFinal = f.tipo === 'TXT' ? (txtLinhas[0] || f.valor) : f.valor;
     if (!valorFinal.trim()) return vh.toast(t('Escreva o valor do registo'));
     closeM();
-    if (await noServidor(vh, { acao: r ? 'dns-editar' : 'dns-criar', dominio: d, ...(r ? { id: r.id } : {}), ...f, valor: valorFinal }, r ? t('Registo alterado') : t('Registo ') + f.tipo + t(' adicionado'), false)) onFeito();
+    if (await noServidor(vh, { acao: r ? 'dns-editar' : 'dns-criar', dominio: d, ...(r ? { id: r.id } : {}), ...f, valor: valorFinal }, r ? t('Registo alterado') : t('Registo ') + f.tipo + t(' adicionado'), false)) {
+      if (!r) await nosApontadores([valorFinal]);
+      onFeito();
+    }
   };
   return (
-    <>
-      <h3>{t(r ? 'Editar registo' : 'Adicionar registo')}</h3>
-      <div className="f">
-        <label>{t('Tipo')}</label>
-        <select
-          value={f.tipo}
-          disabled={!!r}
-          onChange={(e) => {
-            const novoTipo = e.target.value;
-            setF({ ...f, tipo: novoTipo });
-            if (novoTipo === 'TXT' && txtLinhas.length === 0) setTxtLinhas(['']);
-          }}
-        >
-          {tipos.map((tp) => (
-            <option key={tp}>{tp}</option>
-          ))}
-        </select>
+    <div className="da-janela">
+      <div className="da-janela-cab">
+        <h3>{t(r ? 'Editar registo' : 'Adicionar registo')}</h3>
+        <button type="button" className="da-janela-x" onClick={closeM} title={t('Fechar')} aria-label={t('Fechar')}>
+          <i className="fa-solid fa-xmark" />
+        </button>
       </div>
-      <div className="f">
-        <label>{t('Nome')}</label>
-        <input value={f.nome} onChange={(e) => setF({ ...f, nome: e.target.value })} placeholder={'@ = ' + d} />
-      </div>
-      <div className="f">
-        <label>TTL ({t('segundos')})</label>
-        <input value={f.ttl} onChange={(e) => setF({ ...f, ttl: e.target.value })} inputMode="numeric" />
-      </div>
-      {(f.tipo === 'MX' || f.tipo === 'SRV') && (
-        <div className="f">
-          <label>{t('Prioridade')}</label>
-          <input value={f.prio} onChange={(e) => setF({ ...f, prio: e.target.value })} inputMode="numeric" />
-        </div>
-      )}
-      {f.tipo === 'TXT' ? (
-        <div className="f">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-            <label style={{ margin: 0 }}>{t('Valor TXT')}</label>
-            {!r && (
-              <button
-                type="button"
-                className="btn g sm"
-                style={{ fontSize: 12, padding: '2px 8px', height: 'auto' }}
-                onClick={() => setTxtLinhas([...txtLinhas, ''])}
-              >
-                <i className="fa-solid fa-plus" style={{ marginRight: 4 }} />
-                {t('Adicionar outro campo TXT')}
-              </button>
-            )}
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {txtLinhas.map((linha, idx) => (
-              <div key={idx} style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
-                <TextoAuto
-                  className="inp dns-txt-area"
-                  value={linha}
-                  onChange={(e) => {
-                    const copia = [...txtLinhas];
-                    copia[idx] = e.target.value;
-                    setTxtLinhas(copia);
-                    if (idx === 0) setF({ ...f, valor: e.target.value });
-                  }}
-                  placeholder="ex.: v=spf1 include:spf.brevo.com ip4:169.58.148.144 ~all"
-                  rows={2}
-                  style={{ width: '100%', minHeight: 68, fontFamily: 'monospace', fontSize: 13, wordBreak: 'break-all' }}
-                  autoFocus={idx === 0}
-                />
-                {!r && txtLinhas.length > 1 && (
-                  <button
-                    type="button"
-                    className="btn g sm"
-                    style={{ padding: '6px 8px', color: 'var(--red)', marginTop: 2 }}
-                    title={t('Remover este campo')}
-                    onClick={() => setTxtLinhas(txtLinhas.filter((_, i) => i !== idx))}
-                  >
-                    <i className="fa-solid fa-trash-can" />
-                  </button>
-                )}
-              </div>
+      <div className="frm">
+        <Row label="Tipo de registo">
+          <select
+            value={f.tipo}
+            disabled={!!r}
+            onChange={(e) => {
+              const novoTipo = e.target.value;
+              setF({ ...f, tipo: novoTipo });
+              if (novoTipo === 'TXT' && txtLinhas.length === 0) setTxtLinhas(['']);
+            }}
+          >
+            {tipos.map((tp) => (
+              <option key={tp}>{tp}</option>
             ))}
+          </select>
+        </Row>
+        <Row label="Nome">
+          <div className="igrp da-nome">
+            <input value={f.nome} onChange={(e) => setF({ ...f, nome: e.target.value.replace(/\.+$/, '') })} placeholder={t('vazio = o próprio domínio')} autoFocus />
+            <span className="da-sufixo">.{zona}</span>
           </div>
+        </Row>
+        <Row label="TTL">
+          <input value={f.ttl} onChange={(e) => setF({ ...f, ttl: e.target.value.replace(/\D/g, '') })} inputMode="numeric" />
+        </Row>
+        {(f.tipo === 'MX' || f.tipo === 'SRV') && (
+          <Row label="Prioridade">
+            <input value={f.prio} onChange={(e) => setF({ ...f, prio: e.target.value.replace(/\D/g, '') })} inputMode="numeric" />
+          </Row>
+        )}
+        {f.tipo === 'TXT' ? (
+          <Row label="Valor">
+            <div className="da-txt">
+              {txtLinhas.map((linha, idx) => (
+                <div key={idx} className="da-txt-linha">
+                  <TextoAuto
+                    className="inp dns-txt-area"
+                    value={linha}
+                    onChange={(e) => {
+                      const copia = [...txtLinhas];
+                      copia[idx] = e.target.value;
+                      setTxtLinhas(copia);
+                      if (idx === 0) setF({ ...f, valor: e.target.value });
+                    }}
+                    placeholder="ex.: v=spf1 include:spf.brevo.com ip4:169.58.148.144 ~all"
+                    rows={2}
+                  />
+                  {!r && txtLinhas.length > 1 && (
+                    <button type="button" className="btn g sm" title={t('Remover este campo')} onClick={() => setTxtLinhas(txtLinhas.filter((_, i) => i !== idx))}>
+                      <i className="fa-solid fa-trash-can" />
+                    </button>
+                  )}
+                </div>
+              ))}
+              {!r && (
+                <button type="button" className="btn g sm" onClick={() => setTxtLinhas([...txtLinhas, ''])}>
+                  <i className="fa-solid fa-plus" />
+                  {t('Adicionar outro campo TXT')}
+                </button>
+              )}
+            </div>
+          </Row>
+        ) : (
+          <Row label={f.tipo === 'MX' ? 'Destino' : 'Valor'}>
+            <input value={f.valor} onChange={(e) => setF({ ...f, valor: e.target.value })} placeholder={f.tipo === 'A' ? 'ex.: 169.58.148.144' : f.tipo === 'MX' ? 'ex.: mail.' + d : ''} />
+          </Row>
+        )}
+        {!r && (
+          <div className="frm-row da-sem-nome">
+            <div className="frm-lb" />
+            <div className="frm-ctl">
+              <label className={'chk' + (apontadores.length ? '' : ' mut')} title={apontadores.length ? apontadores.join(', ') : t('Este domínio não tem apontadores')}>
+                <input type="checkbox" checked={duplicar} disabled={!apontadores.length} onChange={(e) => setDuplicar(e.target.checked)} />
+                {t('Duplicar para os apontadores')}
+                {apontadores.length > 0 && <span className="da-conta">({apontadores.length})</span>}
+              </label>
+            </div>
+          </div>
+        )}
+        <div className="frm-foot">
+          <button className="btn r" onClick={guardar}>
+            {t('Guardar')}
+          </button>
         </div>
-      ) : (
-        <div className="f">
-          <label>{t(f.tipo === 'MX' ? 'Destino' : 'Valor')}</label>
-          <input value={f.valor} onChange={(e) => setF({ ...f, valor: e.target.value })} placeholder={f.tipo === 'A' ? 'ex.: 169.58.148.144' : f.tipo === 'MX' ? 'ex.: mail.' + d : ''} autoFocus />
-        </div>
-      )}
-      <div className="mfoot">
-        <button className="btn g" onClick={closeM}>
-          {t('Cancelar')}
-        </button>
-        <button className="btn r" onClick={guardar}>
-          {t(r ? 'Guardar' : 'Adicionar')}
-        </button>
       </div>
-    </>
+    </div>
   );
 }
 
@@ -1587,7 +1617,7 @@ function NovoRegistoDns() {
   const { det, ler } = useDetalhe(x?.name || '', 'dns');
   if (!x || !det || det.dns.fonte === 'nenhuma') return null;
   return (
-    <button className="btn r" onClick={() => vh.openM(<DnsForm d={x.name} fonte={det.dns.fonte} onFeito={ler} />)}>
+    <button className="btn r" onClick={() => vh.openM(<DnsForm d={x.name} zona={det.dns.zona || x.name} fonte={det.dns.fonte} onFeito={ler} />)}>
       <i className="fa-solid fa-plus" />
       {vh.t('Adicionar registo')}
     </button>

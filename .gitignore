@@ -21,7 +21,9 @@
 /build
 
 # misc
-.cursor/
+# .cursor: só as regras do projecto para o Cursor vão para o Git (o resto é local)
+.cursor/*
+!.cursor/rules/
 .DS_Store
 *.pem
 

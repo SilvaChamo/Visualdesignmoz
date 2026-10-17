@@ -6,7 +6,7 @@
 import { Fragment, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useVH, type VH } from '../context';
 import type { ScreenFn } from '../screens';
-import { Check, DataTable, Senha, Switch, Tabs } from './componentes';
+import { Check, DataTable, novaSenha, Senha, Switch, Tabs } from './componentes';
 import { Confirmar } from './pacotes';
 import { useGet } from '../carga';
 import dynamic from 'next/dynamic';
@@ -1545,42 +1545,125 @@ function WpBdSenhaModal({ user, senha }: { user: string; senha: string }) {
   );
 }
 
+/** Instalar o WordPress — os campos do "Criar instalação WordPress" do DA (Silva, 16/10/2026): à vista só a pasta e o
+ *  título; o "Modo avançado" abre o administrador, a base de dados (nova ou uma da conta) e o prefixo das tabelas. Sem o
+ *  modo avançado, o administrador é a conta, com o e-mail dela e uma palavra-passe gerada (mostrada no fim). */
 function WpInstalar({ d }: { d: string }) {
   const vh = useVH();
-  const { t, nav } = vh;
-  const [f, setF] = useState({ titulo: '', user: 'admin', senha: '', email: vh.a.email || '' });
+  const { t, nav, openM } = vh;
+  const dom = vh.a.domains.find((x) => x.name === d);
+  const raiz = (dom?.docroot || `/home/${vh.me}/web/${d}/public_html`).replace(`/home/${vh.me}/`, '').replace(/\/+$/, '') + '/';
+  const [f, setF] = useState(() => ({ pasta: '', titulo: '', email: vh.a.email || '', user: vh.me, senha: novaSenha(), bd: '', bdSenha: '', prefixo: 'wp_' }));
+  const [avancado, setAvancado] = useState(false);
+  const [verBd, setVerBd] = useState(false);
   const [a, setA] = useState(false);
+  const bds = vh.a.dbs || [];
+  const bd = bds.find((x) => x.nome === f.bd);
+  const emailOk = /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(f.email);
+  const pronto = !a && /^[A-Za-z0-9._@-]{3,60}$/.test(f.user) && f.senha.length >= 8 && emailOk && /^[A-Za-z0-9_]{1,20}$/.test(f.prefixo) && (!bd || !!f.bdSenha);
+  const instalar = async () => {
+    setA(true);
+    const pasta = f.pasta.trim().replace(/^\/+|\/+$/g, '');
+    const ok = await noServidor(vh, { acao: 'wp-instalar', dominio: d, titulo: f.titulo, user: f.user, senha: f.senha, email: f.email, pasta, prefixo: f.prefixo, ...(bd ? { bd: bd.nome, bdUser: bd.user, bdSenha: f.bdSenha } : {}) }, 'WordPress instalado em ' + d + (pasta ? '/' + pasta : ''), true);
+    setA(false);
+    if (!ok) return;
+    // a palavra-passe gerada só se vê aqui (sem o modo avançado, quem instala não a escreveu)
+    openM(<WpCredenciais url={'https://' + d + (pasta ? '/' + pasta : '') + '/wp-admin'} user={f.user} senha={f.senha} />);
+    nav(pasta ? '/utilizador/wordpress' : '/utilizador/wordpress/' + encodeURIComponent(d));
+  };
   return (
     <Sec titulo={'Instalar o WordPress em ' + d} desc="É criada uma base de dados nova e o WordPress fica pronto a usar (com ligações permanentes bonitas). Se a pasta já tiver ficheiros, ficam lá.">
-      <Campo label="Título do site" id="wp-titulo">
+      <Campo label="Diretório" hint="Local onde o WordPress será instalado (vazio = a raiz do site)" id="wp-pasta">
+        <div className="igrp wp-pasta">
+          <span className="da-sufixo">{raiz}</span>
+          <input id="wp-pasta" value={f.pasta} onChange={(e) => setF({ ...f, pasta: e.target.value.replace(/[^A-Za-z0-9._/-]/g, '') })} placeholder={t('ex.: blog')} />
+        </div>
+      </Campo>
+      <Campo label="Título" hint="Nome da instalação do WordPress" id="wp-titulo">
         <input id="wp-titulo" value={f.titulo} onChange={(e) => setF({ ...f, titulo: e.target.value })} placeholder={d} />
       </Campo>
-      <Campo label="Utilizador administrador" id="wp-user">
-        <input id="wp-user" value={f.user} onChange={(e) => setF({ ...f, user: e.target.value.trim() })} />
-      </Campo>
-      <Campo label="Palavra-passe">
-        <Senha value={f.senha} onChange={(v) => setF({ ...f, senha: v })} />
-      </Campo>
-      <Campo label="E-mail do administrador" id="wp-email">
-        <input id="wp-email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value.trim() })} />
-      </Campo>
+      {avancado && (
+        <>
+          <Campo label="E-mail do administrador" hint="Endereço de e-mail usado para entrar no painel do WordPress e receber as notificações" id="wp-email">
+            <input id="wp-email" type="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value.trim() })} />
+          </Campo>
+          <Campo label="Nome da conta administrativa" hint="Nome de utilizador usado para entrar no painel do WordPress" id="wp-user">
+            <input id="wp-user" value={f.user} onChange={(e) => setF({ ...f, user: e.target.value.trim() })} autoComplete="off" />
+          </Campo>
+          <Campo label="Palavra-passe do administrador" hint="Palavra-passe usada para entrar no painel do WordPress (pelo menos 8 caracteres)">
+            <Senha value={f.senha} onChange={(v) => setF({ ...f, senha: v })} />
+          </Campo>
+          <Campo label="Nome da base de dados" hint="Uma base de dados nova, criada para este WordPress, ou uma da conta" id="wp-bd">
+            <select id="wp-bd" value={f.bd} onChange={(e) => setF({ ...f, bd: e.target.value, bdSenha: '' })}>
+              <option value="">{t('Criar uma nova (automático)')}</option>
+              {bds.map((b) => (
+                <option key={b.nome} value={b.nome}>
+                  {b.nome}
+                </option>
+              ))}
+            </select>
+          </Campo>
+          <Campo label="Utilizador da base de dados" id="wp-bd-user">
+            <select id="wp-bd-user" value={bd?.user || ''} disabled={!bd} onChange={() => {}}>
+              {bd ? <option value={bd.user}>{bd.user}</option> : <option value="">{t('Criado com a base de dados nova')}</option>}
+            </select>
+          </Campo>
+          <Campo label="Palavra-passe da base de dados" hint={bd ? 'A palavra-passe do utilizador da base de dados escolhida' : 'Gerada automaticamente com a base de dados nova'}>
+            <div className="igrp">
+              <input type={verBd ? 'text' : 'password'} value={f.bdSenha} disabled={!bd} onChange={(e) => setF({ ...f, bdSenha: e.target.value })} autoComplete="new-password" placeholder={bd ? '' : t('Gerada automaticamente')} />
+              <button type="button" className="ib" disabled={!bd} title={t(verBd ? 'Esconder' : 'Mostrar')} onClick={() => setVerBd(!verBd)}>
+                <i className={'fa-solid ' + (verBd ? 'fa-eye-slash' : 'fa-eye')} />
+              </button>
+            </div>
+          </Campo>
+          <Campo label="Prefixo das tabelas" hint="Letras, números e _ — outro prefixo deixa ter mais de um WordPress na mesma base de dados" id="wp-prefixo">
+            <input id="wp-prefixo" value={f.prefixo} onChange={(e) => setF({ ...f, prefixo: e.target.value.replace(/[^A-Za-z0-9_]/g, '') })} />
+          </Campo>
+        </>
+      )}
       <div className="da-fim">
-        <span />
-        <button
-          className="btn r"
-          disabled={a || !f.user || f.senha.length < 8 || !f.email}
-          onClick={async () => {
-            setA(true);
-            const j = await noServidor(vh, { acao: 'wp-instalar', dominio: d, ...f }, 'WordPress instalado em ' + d, true);
-            setA(false);
-            if (j) nav('/utilizador/wordpress/' + encodeURIComponent(d));
-          }}
-        >
-          <i className="fa-solid fa-download" />
-          {t(a ? 'A instalar… (pode levar um minuto)' : 'Instalar')}
+        <button type="button" className="wp-avancado" onClick={() => setAvancado(!avancado)} aria-expanded={avancado}>
+          <i className={'fa-solid ' + (avancado ? 'fa-chevron-up' : 'fa-chevron-down')} />
+          {t('Modo avançado')}
+        </button>
+        <button className="btn r" disabled={!pronto} onClick={instalar}>
+          <i className="fa-solid fa-circle-plus" />
+          {t(a ? 'A instalar… (pode levar um minuto)' : 'Criar')}
         </button>
       </div>
     </Sec>
+  );
+}
+
+/** Depois de instalar: o endereço do painel do WordPress, o utilizador e a palavra-passe (com copiar) */
+function WpCredenciais({ url, user, senha }: { url: string; user: string; senha: string }) {
+  const { t, closeM, toast } = useVH();
+  return (
+    <>
+      <h3>{t('WordPress instalado')}</h3>
+      <p style={{ lineHeight: 1.5 }}>{t('Guarde estes dados para entrar no painel do WordPress. A palavra-passe não volta a ser mostrada (pode sempre entrar pelo botão "Painel do WordPress").')}</p>
+      <div className="f">
+        <label>{t('Endereço')}</label>
+        <input readOnly value={url} onFocus={(e) => e.target.select()} />
+      </div>
+      <div className="f">
+        <label>{t('Utilizador')}</label>
+        <input readOnly value={user} onFocus={(e) => e.target.select()} />
+      </div>
+      <div className="f">
+        <label>{t('Palavra-passe')}</label>
+        <input readOnly value={senha} onFocus={(e) => e.target.select()} />
+      </div>
+      <div className="mfoot">
+        <button className="btn g" onClick={() => navigator.clipboard?.writeText(senha).then(() => toast('Copiada'))}>
+          <i className="fa-solid fa-copy" />
+          {t('Copiar a palavra-passe')}
+        </button>
+        <button className="btn r" onClick={closeM}>
+          {t('Fechar')}
+        </button>
+      </div>
+    </>
   );
 }
 

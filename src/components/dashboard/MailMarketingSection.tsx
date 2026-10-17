@@ -987,8 +987,8 @@ function MailMarketingContacts({ selectedSite, setSelectedSite, sites, listas, s
                   <Checkbox checked={selectedSubscriberIds.includes(sub.id)} onCheckedChange={() => toggleSelectOne(sub.id)} aria-label={`Seleccionar ${sub.email}`} />
                 </td>
                 <td className="px-5 py-2.5 font-medium text-gray-900 dark:text-white">{sub.email}</td>
-                <td className="px-5 py-2.5"><span className="px-2.5 py-1 bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-zinc-300 rounded-full text-xs font-medium">{sub.metadata?.domain || '-'}</span></td>
-                <td className="px-5 py-2.5">
+                <td className="px-5 py-2.5" data-label="Domínio"><span className="px-2.5 py-1 bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-zinc-300 rounded-full text-xs font-medium">{sub.metadata?.domain || '-'}</span></td>
+                <td className="px-5 py-2.5" data-label="Lista">
                   <div className="flex flex-wrap gap-1">
                     {getContactLists(sub).map(l => (
                       <span key={l} className="px-2.5 py-1 bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-zinc-300 rounded-full text-xs font-medium">{l}</span>
