@@ -150,6 +150,17 @@ export async function POST(req: NextRequest) {
     if (email) pup.email = email;
     if (pu && Object.keys(pup).length) await c.sb.from('panel_users').update(pup).eq('username', c.conta);
 
+    // 3. o e-mail de entrada no site e no painel passa a ser o novo (Silva, 17/10/2026: "a conta mltmark deve entrar
+    //    com estas credenciais"). Antes só mudava o contacto, e o cliente continuava a entrar com o e-mail antigo.
+    if (email && uid) {
+      const { error } = await c.sb.auth.admin.updateUserById(uid, { email, email_confirm: true });
+      if (error) avisos.push('O e-mail de entrada no site não mudou: ' + (/already|registered|exists/i.test(error.message) ? 'já há outra conta do site com esse e-mail.' : error.message));
+      else {
+        await c.sb.from('profiles').update({ email, updated_at: new Date().toISOString() }).eq('user_id', uid);
+        feito.push('e-mail de entrada no site');
+      }
+    }
+
     esquecerLeitura();
     esquecerRegisto();
     return NextResponse.json({ ok: !!feito.length, feito, avisos }, { status: feito.length ? 200 : 400 });

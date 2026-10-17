@@ -803,7 +803,8 @@ function NovaConta({ tipo }: { tipo: TipoNova }) {
   const personalizar = () => setCustom(structuredClone(tipo === 'revenda' ? s.db.rpkgs[pk] : s.db.pkgs[pk]) || (tipo === 'revenda' ? pacoteRevendaVazio() : pacoteVazio()));
   const criar = () => {
     const u = user.trim().toLowerCase();
-    if (!/^[a-z][a-z0-9]{2,15}$/.test(u)) return toast('Utilizador: 3 a 16 letras ou números, a começar por letra');
+    // até 18 caracteres (Silva, 17/10/2026); o servidor (Hestia) aceita até 30
+    if (!/^[a-z][a-z0-9]{2,17}$/.test(u)) return toast('Utilizador: 3 a 18 letras ou números, a começar por letra');
     if (s.acc[u]) return toast('Esse utilizador já existe');
     if (cheio) return toast('Chegou ao limite de contas de cliente do seu pacote de revenda');
     if (!/^\S+@\S+\.\S+$/.test(email.trim())) return toast('Escreva um e-mail válido');
@@ -863,7 +864,7 @@ function NovaConta({ tipo }: { tipo: TipoNova }) {
             </select>
           </Row>
         )}
-        <Row label="Utilizador" hint="3 a 16 letras ou números">
+        <Row label="Utilizador" hint="3 a 18 letras ou números">
           <input value={user} onChange={(e) => setUser(e.target.value)} autoComplete="off" />
         </Row>
         <Row label="Nome" hint="Pessoa ou empresa (aparece no painel)" tag="VisualHost">
