@@ -1497,11 +1497,13 @@
 
 /* Barra de cima no telemóvel (Silva, 14/10/2026: "reduzir os botões"): botões de 32 px, mais juntos, para o título ter
    mais espaço */
+.vh .top .topact button.only-m{display:none}
 @media(max-width:768px){
  .vh .top{gap:8px;padding:0 12px}
  .vh .top .topact{gap:6px}
  .vh .top .topact :is(.btn,.iconbtn){width:32px!important;height:32px!important;padding:0!important}
  .vh .top .topact :is(.btn,.iconbtn) i{font-size:14px}
+ .vh .top .topact button.only-m{display:inline-flex}
 }
 
 /* Telemóvel = uma só coluna em tudo (Silva, 14/10/2026): os números da Dashboard um por linha. O Menu fica em duas
