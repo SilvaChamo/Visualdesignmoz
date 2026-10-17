@@ -6,6 +6,7 @@ import { useCurrency } from '@/contexts/CurrencyContext';
 import { supabase } from '@/lib/supabase-client';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { PUBLIC_PANEL_ENTRY } from '@/lib/panel-origin';
 import Link from 'next/link';
 import { RenewalCheckout } from './RenewalCheckout';
 import {
@@ -1381,7 +1382,7 @@ function CheckoutContent() {
                 <button type="button" onClick={() => window.print()} className="w-full flex items-center gap-2.5 px-5 py-3 text-sm text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 hover:text-red-600 dark:hover:text-red-400 cursor-pointer border-t border-slate-100 dark:border-zinc-800">
                   <FileDown className="w-4 h-4 text-slate-400" /> Download PDF
                 </button>
-                <button type="button" onClick={() => router.push(isEncomenda ? '/encomendas' : '/cliente')} className="w-full flex items-center gap-2.5 px-5 py-3 text-sm text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 hover:text-red-600 dark:hover:text-red-400 cursor-pointer border-t border-slate-100 dark:border-zinc-800">
+                <button type="button" onClick={() => router.push(isEncomenda ? '/encomendas' : PUBLIC_PANEL_ENTRY)} className="w-full flex items-center gap-2.5 px-5 py-3 text-sm text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 hover:text-red-600 dark:hover:text-red-400 cursor-pointer border-t border-slate-100 dark:border-zinc-800">
                   <ArrowLeft className="w-4 h-4 text-slate-400" /> Retornar ao Painel
                 </button>
               </div>

@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { PUBLIC_PANEL_ENTRY } from '@/lib/panel-origin'
 import { useEffect, useState } from 'react'
 import { useAuth } from '@/components/auth/AuthProvider'
 import Image from 'next/image'
@@ -74,7 +75,7 @@ export default function Dominios() {
               <span>
                 A comprar com a sua conta: <strong>{user.email}</strong>. No fim da compra volta ao seu painel.
               </span>
-              <Link href="/cliente" className="font-bold text-white underline-offset-2 hover:underline whitespace-nowrap">
+              <Link href={PUBLIC_PANEL_ENTRY} className="font-bold text-white underline-offset-2 hover:underline whitespace-nowrap">
                 ← Voltar à minha conta
               </Link>
             </div>

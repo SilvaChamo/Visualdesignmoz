@@ -229,34 +229,16 @@ type ProductsSummaryLike = {
 } | null | undefined;
 
 /**
- * Painel de destino depois de uma encomenda VisualDesign. Quem não tem
- * domínio, hospedagem nem outro produto VisualWeb (email, pedidos de
- * carrinho por confirmar) é cliente só das encomendas — vai para o painel
- * próprio, /encomendas. Um cliente que já tem produtos fica no painel dele,
- * aberto na secção das encomendas; os restantes painéis (profissional,
- * revendedor, admin) não têm essa secção, por isso também vão para
- * /encomendas, que aceita qualquer conta autenticada.
+ * Painel de destino depois de uma encomenda VisualDesign: /encomendas, que aceita qualquer conta autenticada.
+ * Um cliente com produtos VisualWeb ia para a secção das encomendas do painel antigo (/cliente?section=encomendas);
+ * o painel antigo ficou isolado — nada no site leva lá (Silva, 17/10/2026) — e o painel actual (VisualHost) não tem
+ * essa secção, por isso vão todos para /encomendas.
  */
-export function encomendaLandingPath(role: string | null | undefined, products: ProductsSummaryLike): string {
-  const temProdutosVisualWeb = Boolean(
-    products &&
-      (products.hasPaidProducts ||
-        (products.tier && products.tier !== 'none') ||
-        (products.emailPlans?.length ?? 0) > 0 ||
-        (products.pendingSessions?.length ?? 0) > 0),
-  );
-  if (temProdutosVisualWeb && role === 'client') return '/cliente?section=encomendas';
+export function encomendaLandingPath(_role?: string | null, _products?: ProductsSummaryLike): string {
   return '/encomendas';
 }
 
-/** Versão do browser: lê o papel e os produtos da conta autenticada (/api/my-products). */
+/** Versão do browser (já não precisa de ler o papel nem os produtos da conta). */
 export async function resolveEncomendaLandingPath(): Promise<string> {
-  try {
-    const res = await fetch('/api/my-products', { cache: 'no-store' });
-    if (!res.ok) return '/encomendas';
-    const data = await res.json();
-    return encomendaLandingPath(data?.role, data?.products);
-  } catch {
-    return '/encomendas';
-  }
+  return encomendaLandingPath();
 }

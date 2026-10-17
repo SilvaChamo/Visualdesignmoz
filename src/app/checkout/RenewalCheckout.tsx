@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { PUBLIC_PANEL_ENTRY } from '@/lib/panel-origin';
 import {
   CheckCircle2,
   XCircle,
@@ -363,7 +364,7 @@ export function RenewalCheckout({ renewalId }: { renewalId: string }) {
             <button type="button" onClick={() => window.print()} className="w-full flex items-center gap-2.5 px-6 py-3 text-sm text-slate-700 hover:bg-slate-50 border-t border-slate-100">
               <FileDown className="w-4 h-4 text-slate-400" /> Download PDF
             </button>
-            <button type="button" onClick={() => router.push('/cliente')} className="w-full flex items-center gap-2.5 px-6 py-3 text-sm text-slate-700 hover:bg-slate-50 border-t border-slate-100">
+            <button type="button" onClick={() => router.push(PUBLIC_PANEL_ENTRY)} className="w-full flex items-center gap-2.5 px-6 py-3 text-sm text-slate-700 hover:bg-slate-50 border-t border-slate-100">
               <ArrowLeft className="w-4 h-4 text-slate-400" /> Retornar ao Painel
             </button>
           </div>
