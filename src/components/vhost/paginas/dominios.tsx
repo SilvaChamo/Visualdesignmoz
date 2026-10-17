@@ -208,9 +208,9 @@ function Contexto({ d, extra }: { d: string; extra?: string }) {
 type LinhaDom = Domain & { subs: number };
 
 // Tudo o que é sobre domínios fica num só menu, "Domínios", com separadores (pedido do Silva, 13/10/2026):
-// Domínios | Subdomínios | Registar domínio | Transferir domínio (a transferência vem do painel antigo da VisualDesign)
-type AbaDom = 'meus' | 'subdominios' | 'registar' | 'transferir';
-const ROTA_ABA: Record<AbaDom, string> = { meus: '', subdominios: '/subdominios', registar: '/registar', transferir: '/transferir' };
+// Domínios | Adicionar domínio | Subdomínios | Registar domínio | Transferir domínio
+type AbaDom = 'meus' | 'novo' | 'subdominios' | 'registar' | 'transferir';
+const ROTA_ABA: Record<AbaDom, string> = { meus: '', novo: '/novo', subdominios: '/subdominios', registar: '/registar', transferir: '/transferir' };
 
 function ListaDominios({ abaDom = 'meus' }: { abaDom?: AbaDom }) {
   const vh = useVH();
@@ -251,6 +251,7 @@ function ListaDominios({ abaDom = 'meus' }: { abaDom?: AbaDom }) {
       <Tabs<AbaDom>
         tabs={[
           ['meus', 'Domínios', 'fa-globe'],
+          ['novo', 'Adicionar domínio', 'fa-plus'],
           ['subdominios', 'Subdomínios', 'fa-sitemap'],
           ['registar', 'Registar domínio', 'fa-cart-shopping'],
           ['transferir', 'Transferir domínio', 'fa-right-left'],
@@ -259,7 +260,9 @@ function ListaDominios({ abaDom = 'meus' }: { abaDom?: AbaDom }) {
         onChange={(k) => nav('/' + vh.s.level + '/dominios' + ROTA_ABA[k])}
       />
 
-      {abaDom === 'registar' ? (
+      {abaDom === 'novo' ? (
+        <NovoDominio />
+      ) : abaDom === 'registar' ? (
         <div className="dom-registar">
           <DomainSearch isAdmin />
         </div>
@@ -970,7 +973,7 @@ export const dominios: ScreenFn = (vh) => {
   if (sub === 'registar') return { title: 'Domínios', actions: novoBtn, crumbs: [base, { t: 'Registar domínio' }], body: <ListaDominios abaDom="registar" /> };
   if (sub === 'subdominios') return { title: 'Domínios', actions: novoSub, dominios: 'sites', crumbs: [base, { t: 'Subdomínios' }], body: <ListaDominios abaDom="subdominios" /> };
   if (sub === 'transferir') return { title: 'Domínios', actions: novoBtn, crumbs: [base, { t: 'Transferir domínio' }], body: <ListaDominios abaDom="transferir" /> };
-  if (sub === 'novo') return { title: 'Adicionar domínio', crumbs: [{ t: 'Domínios', path: '/' + vh.s.level + '/dominios' }, { t: 'Adicionar domínio' }], body: <NovoDominio /> };
+  if (sub === 'novo') return { title: 'Domínios', body: <ListaDominios abaDom="novo" /> };
   if (sub) return { title: sub, desc: 'Resumo e atalhos do domínio', crumbs: [{ t: 'Domínios', path: '/' + vh.s.level + '/dominios' }, { t: sub }], dominioUrl: { d: sub, ir: (n) => '/' + vh.s.level + '/dominios/' + encodeURIComponent(n) }, body: <VerDominio d={sub} /> };
   return { title: 'Domínios', actions: novoBtn, body: <ListaDominios /> };
 };
