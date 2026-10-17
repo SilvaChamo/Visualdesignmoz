@@ -521,128 +521,170 @@ function PurgarModal({ d, users }: { d: string; users: string[] }) {
 function ContasLista() {
   const vh = useVH();
   const { t, openM, nav } = vh;
+  const { d, info } = useEmail();
+  const [q, setQ] = useState('');
+  if (!info) return null;
+  const todasRows = caixasNormais(info);
+  const rows = q.trim() ? todasRows.filter((r) => r.nome.toLowerCase().includes(q.trim().toLowerCase())) : todasRows;
+  const usado = todasRows.reduce((n, c) => n + c.usadoMb, 0);
+  const enviados = todasRows.reduce((n, c) => n + c.enviadosHoje, 0);
+  const cheias = todasRows.filter((c) => c.quotaMb > 0 && c.usadoMb / c.quotaMb > 0.8).length;
+  const lim = pacoteDe(vh.s, vh.me)?.lim.emails;
+  const max = !lim || lim.unl ? null : Number(lim.v) || null;
+  const dkim = !!info.dominio?.dkim;
+  const apagar = (us: string[]) =>
+    openM(<Confirmar titulo="Apagar contas de e-mail?" texto={'Vai apagar ' + us.join(', ') + ' e todas as mensagens. Não se pode desfazer.'} ok="Apagar" onOk={() => noEmail(vh, d, { acao: 'contas-apagar', users: us }, 'Conta(s) apagada(s)', true)} />);
   return (
-    <ComEmail>
-      {({ d, info, ler }) => {
-        const rows = caixasNormais(info);
-        const apagar = (us: string[]) =>
-          openM(<Confirmar titulo="Apagar contas de e-mail?" texto={'Vai apagar ' + us.join(', ') + ' e todas as mensagens. Não se pode desfazer.'} ok="Apagar" onOk={() => noEmail(vh, d, { acao: 'contas-apagar', users: us }, 'Conta(s) apagada(s)', true)} />);
-        return (
-          <>
-            <DataTable
-              id="email-contas"
-              umaLinha
-              barraFora
-              empilhar
-              rows={rows}
-              rowKey={(r) => r.nome}
-              search={(r) => r.nome}
-              onRecarregar={ler}
-              empty="Este domínio ainda não tem contas de e-mail"
-              rowClass={(r) => (r.suspensa ? 'off' : '')}
-              cols={[
-                {
-                  k: 'conta',
-                  t: 'Conta',
-                  sort: (r) => r.nome,
-                  cell: (r) => (
-                    <div className="cell">
-                      <div className="ic c2">
-                        <i className="fa-solid fa-envelope" />
-                      </div>
-                      <div>
-                        <b>
-                          {r.nome}@<wbr />
-                          {d}
-                        </b>
-                        <span className="em-conta-sub">
-                          {r.suspensa ? t('Suspensa') + ' · ' : ''}
-                          {r.quotaMb > 0 ? t('Quota') + ' ' + mb(r.quotaMb) : t('Sem limite de espaço')}
-                          {r.fwd.length ? ' · ' + t('reencaminha') : ''}
-                          {r.resposta ? ' · ' + t('resposta automática') : ''}
-                        </span>
-                      </div>
-                    </div>
-                  ),
-                },
-                {
-                  k: 'uso',
-                  t: 'Uso da caixa',
-                  sort: (r) => r.usadoMb,
-                  cell: (r) => {
-                    const p = pct(r.usadoMb, r.quotaMb);
-                    return (
-                      <div className="em-uso">
-                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 12.5, color: 'var(--muted)', marginBottom: 5 }}>
-                          <span>{r.quotaMb > 0 ? mb(r.usadoMb) + ' / ' + mb(r.quotaMb) : mb(r.usadoMb) + ' · ' + t('sem limite')}</span>
-                          {r.quotaMb > 0 && <b style={{ color: p > 80 ? 'var(--red)' : 'var(--ink)' }}>{p}%</b>}
-                        </div>
-                        <div className="bar">
-                          <span style={{ width: p + '%' }} />
-                        </div>
-                      </div>
-                    );
-                  },
-                },
-                {
-                  k: 'env',
-                  t: 'Enviados hoje',
-                  ate: 1300,
-                  sort: (r) => r.enviadosHoje,
-                  cell: (r) => (
-                    <span className="em-env">
-                      {r.enviadosHoje + (r.limiteHora ? ' / ' + r.limiteHora : ' /')}
-                      <small>{r.limiteHora ? t('por hora') : t('sem limite próprio')}</small>
-                    </span>
-                  ),
-                },
-                {
-                  k: 'log',
-                  t: 'Registo SMTP',
-                  ate: 1600,
-                  cell: (r) => (
-                    <span className="em-log">
-                      <a className="lk" onClick={() => nav('/utilizador/rastreio/entrada/' + encodeURIComponent(r.nome + '@' + d))}>
-                        {t('Entrada')}
-                      </a>{' '}
-                      ⇄{' '}
-                      <a className="lk" onClick={() => nav('/utilizador/rastreio/saida/' + encodeURIComponent(r.nome + '@' + d))}>
-                        {t('Saída')}
-                      </a>
-                    </span>
-                  ),
-                },
-                { k: 'criada', t: 'Criada', ate: 1600, cell: (r) => r.criada || '—' },
-              ]}
-              actions={(r) => (
-                <span className="dns-acoes">
-                  <a className="btn g sm iconbtn" href={webmailUrl(vh.me, d, r.nome)} target="_blank" rel="noreferrer" title={t('Abrir webmail')} aria-label={t('Abrir webmail')}>
-                    <i className="fa-solid fa-inbox" />
-                  </a>
-                  <MaisOpcoes
-                    itens={[
-                      ['fa-key', 'Mudar palavra-passe', () => openM(<SenhaModal d={d} acc={r.nome} />)],
-                      ['fa-sliders', 'Mudar limites', () => openM(<LimitesModal d={d} c={r} />)],
-                      ['fa-gear', 'Configurar o e-mail', () => openM(<DadosConta acc={r.nome} d={d} />)],
-                      ['fa-download', 'Descarregar configuração Apple (iPhone, iPad, Mac)', () => configApple(r.nome, d)],
-                      ['fa-right-to-bracket', 'Registo SMTP de entrada', () => nav('/utilizador/rastreio/entrada/' + encodeURIComponent(r.nome + '@' + d))],
-                      ['fa-right-from-bracket', 'Registo SMTP de saída', () => nav('/utilizador/rastreio/saida/' + encodeURIComponent(r.nome + '@' + d))],
-                      ['fa-trash', 'Apagar', () => apagar([r.nome]), true],
-                    ]}
-                  />
-                </span>
-              )}
-              bulk={[
-                { t: 'Suspender', fa: 'fa-pause', run: (k) => noEmail(vh, d, { acao: 'contas-suspender', users: k }, 'Conta(s) suspensa(s)', true) },
-                { t: 'Reativar', fa: 'fa-play', run: (k) => noEmail(vh, d, { acao: 'contas-reativar', users: k }, 'Conta(s) reativada(s)', true) },
-                { t: 'Apagar', fa: 'fa-trash', run: (k) => apagar(k) },
-                { t: 'Purgar', fa: 'fa-broom', run: (k) => openM(<PurgarModal d={d} users={k} />) },
+    <>
+      {/* Estatísticas em cima, como nas outras páginas com tabela */}
+      <div className="stats">
+        <Stat title="Contas" v={rows.length} m={'/ ' + (max ?? '∞')} p={max ? pct(rows.length, max) : 0} />
+        <Stat title="Espaço usado" v={mb(usado)} m="em todas as caixas" p={pct(usado, rows.reduce((n, c) => n + c.quotaMb, 0))} />
+        <Stat title="Envios hoje" v={enviados} m="mensagens enviadas" p={0} />
+        <Stat title="Caixas quase cheias" v={cheias} m="acima de 80%" p={cheias * 20} />
+      </div>
+      {/* Card secundário: pesquisa + botões + lista de e-mails */}
+      <div className="card em-lista-card">
+        {/* Barra: pesquisa à esquerda, botões à direita */}
+        <div className="em-acoes-topo">
+          <div className="search dt-pesq em-pesq">
+            <i className="fa-solid fa-magnifying-glass" />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('Pesquisar')} aria-label={t('Pesquisar')} />
+            {q && <i className="fa-solid fa-xmark limpar" onClick={() => setQ('')} />}
+          </div>
+          <span className="sp" />
+          <div className="em-acoes-botoes">
+            <button className="btn g" onClick={() => nav('/utilizador/email/uso')}>
+              <i className="fa-solid fa-chart-pie" />
+              {t('Uso de e-mail')}
+            </button>
+            {info.temMail && (
+              <button className="btn g" onClick={() => noEmail(vh, d, { acao: 'dkim', ligar: !dkim }, dkim ? 'DKIM desligado' : 'DKIM ligado')}>
+                <i className="fa-solid fa-signature" />
+                {t(dkim ? 'Desligar DKIM' : 'Ligar DKIM')}
+              </button>
+            )}
+            <button className="btn r" onClick={() => nav('/utilizador/email/nova')}>
+              <i className="fa-solid fa-plus" />
+              {t('Criar conta')}
+            </button>
+          </div>
+        </div>
+        <DataTable
+        id="email-contas"
+        umaLinha
+        barraFora
+        empilhar
+        rows={rows}
+        rowKey={(r) => r.nome}
+        onRecarregar={() => void lerEmail(vh.me, d)}
+        empty="Este domínio ainda não tem contas de e-mail"
+        rowClass={(r) => (r.suspensa ? 'off' : '')}
+        cols={[
+          {
+            k: 'conta',
+            t: 'Conta',
+            sort: (r) => r.nome,
+            cell: (r) => (
+              <div className="cell">
+                <div className="ic c2">
+                  <i className="fa-solid fa-envelope" />
+                </div>
+                <div>
+                  <b>
+                    {r.nome}@<wbr />
+                    {d}
+                  </b>
+                  <span className="em-conta-sub">
+                    {r.suspensa ? t('Suspensa') + ' · ' : ''}
+                    {r.quotaMb > 0 ? t('Quota') + ' ' + mb(r.quotaMb) : t('Sem limite de espaço')}
+                    {r.fwd.length ? ' · ' + t('reencaminha') : ''}
+                    {r.resposta ? ' · ' + t('resposta automática') : ''}
+                  </span>
+                </div>
+              </div>
+            ),
+          },
+          {
+            k: 'uso',
+            t: 'Uso da caixa',
+            sort: (r) => r.usadoMb,
+            cell: (r) => {
+              const p = pct(r.usadoMb, r.quotaMb);
+              return (
+                <div className="em-uso">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 12.5, color: 'var(--muted)', marginBottom: 5 }}>
+                    <span>{r.quotaMb > 0 ? mb(r.usadoMb) + ' / ' + mb(r.quotaMb) : mb(r.usadoMb) + ' · ' + t('sem limite')}</span>
+                    {r.quotaMb > 0 && <b style={{ color: p > 80 ? 'var(--red)' : 'var(--ink)' }}>{p}%</b>}
+                  </div>
+                  <div className="bar">
+                    <span style={{ width: p + '%' }} />
+                  </div>
+                </div>
+              );
+            },
+          },
+          {
+            k: 'env',
+            t: 'Enviados hoje',
+            right: true,
+            sort: (r) => r.enviadosHoje,
+            cell: (r) => (
+              <span className="em-env">
+                {r.enviadosHoje}
+                {r.limiteHora ? (
+                  <>
+                    {' / ' + r.limiteHora}
+                    <small>{t('por hora')}</small>
+                  </>
+                ) : null}
+              </span>
+            ),
+          },
+          {
+            k: 'log',
+            t: 'Registo SMTP',
+            right: true,
+            cell: (r) => (
+              <span className="em-log">
+                <a className="lk" onClick={() => nav('/utilizador/rastreio/entrada/' + encodeURIComponent(r.nome + '@' + d))}>
+                  {t('Entrada')}
+                </a>{' '}
+                ⇄{' '}
+                <a className="lk" onClick={() => nav('/utilizador/rastreio/saida/' + encodeURIComponent(r.nome + '@' + d))}>
+                  {t('Saída')}
+                </a>
+              </span>
+            ),
+          },
+        ]}
+        actions={(r) => (
+          <span className="dns-acoes">
+            <a className="btn g sm iconbtn" href={webmailUrl(vh.me, d, r.nome)} target="_blank" rel="noreferrer" title={t('Abrir webmail')} aria-label={t('Abrir webmail')}>
+              <i className="fa-solid fa-inbox" />
+            </a>
+            <MaisOpcoes
+              itens={[
+                ['fa-key', 'Mudar palavra-passe', () => openM(<SenhaModal d={d} acc={r.nome} />)],
+                ['fa-sliders', 'Mudar limites', () => openM(<LimitesModal d={d} c={r} />)],
+                ['fa-gear', 'Configurar o e-mail', () => openM(<DadosConta acc={r.nome} d={d} />)],
+                ['fa-download', 'Descarregar configuração Apple (iPhone, iPad, Mac)', () => configApple(r.nome, d)],
+                ['fa-right-to-bracket', 'Registo SMTP de entrada', () => nav('/utilizador/rastreio/entrada/' + encodeURIComponent(r.nome + '@' + d))],
+                ['fa-right-from-bracket', 'Registo SMTP de saída', () => nav('/utilizador/rastreio/saida/' + encodeURIComponent(r.nome + '@' + d))],
+                ['fa-trash', 'Apagar', () => apagar([r.nome]), true],
               ]}
             />
-          </>
-        );
-      }}
-    </ComEmail>
+          </span>
+        )}
+        bulk={[
+          { t: 'Suspender', fa: 'fa-pause', run: (k) => noEmail(vh, d, { acao: 'contas-suspender', users: k }, 'Conta(s) suspensa(s)', true) },
+          { t: 'Reativar', fa: 'fa-play', run: (k) => noEmail(vh, d, { acao: 'contas-reativar', users: k }, 'Conta(s) reativada(s)', true) },
+          { t: 'Apagar', fa: 'fa-trash', run: (k) => apagar(k) },
+          { t: 'Purgar', fa: 'fa-broom', run: (k) => openM(<PurgarModal d={d} users={k} />) },
+        ]}
+      />
+      </div>
+    </>
   );
 }
 
@@ -728,59 +770,13 @@ function UsoEmail() {
   );
 }
 
-/** Coluna da direita de Contas de e-mail (formato escolhido pelo Silva, 11/10): números uns por baixo dos outros e,
- *  por baixo, Uso de e-mail · DKIM · Abrir webmail · Criar conta (as ações do DA: E-mail Usage, DISABLE DKIM, CREATE ACCOUNT) */
-function ContasLado() {
-  const vh = useVH();
-  const { t, nav } = vh;
-  const { d, info } = useEmail();
-  if (!info) return null;
-  const rows = caixasNormais(info);
-  const usado = rows.reduce((n, c) => n + c.usadoMb, 0);
-  const enviados = rows.reduce((n, c) => n + c.enviadosHoje, 0);
-  const cheias = rows.filter((c) => c.quotaMb > 0 && c.usadoMb / c.quotaMb > 0.8).length;
-  const lim = pacoteDe(vh.s, vh.me)?.lim.emails;
-  const max = !lim || lim.unl ? null : Number(lim.v) || null;
-  const dkim = !!info.dominio?.dkim;
-  return (
-    <>
-      <div className="stats em-lado-stats">
-        <Stat title="Contas" v={rows.length} m={'/ ' + (max ?? '∞')} p={max ? pct(rows.length, max) : 0} />
-        <Stat title="Espaço usado" v={mb(usado)} m="em todas as caixas" p={pct(usado, rows.reduce((n, c) => n + c.quotaMb, 0))} />
-        <Stat title="Envios hoje" v={enviados} m="mensagens enviadas" p={0} />
-        <Stat title="Caixas quase cheias" v={cheias} m="acima de 80%" p={cheias * 20} />
-      </div>
-      <div className="em-lado-botoes">
-        <button className="btn g" onClick={() => nav('/utilizador/email/uso')}>
-          <i className="fa-solid fa-chart-pie" />
-          {t('Uso de e-mail')}
-        </button>
-        {info.temMail && (
-          <button className="btn g" onClick={() => noEmail(vh, d, { acao: 'dkim', ligar: !dkim }, dkim ? 'DKIM desligado' : 'DKIM ligado')}>
-            <i className="fa-solid fa-signature" />
-            {t(dkim ? 'Desligar DKIM' : 'Ligar DKIM')}
-          </button>
-        )}
-        <a className="btn g" href={webmailUrl(vh.me, d)} target="_blank" rel="noreferrer">
-          <i className="fa-solid fa-inbox" />
-          {t('Abrir webmail')}
-        </a>
-        <button className="btn r" onClick={() => nav('/utilizador/email/nova')}>
-          <i className="fa-solid fa-plus" />
-          {t('Criar conta')}
-        </button>
-      </div>
-    </>
-  );
-}
-
 export const emailPagina: ScreenFn = (vh) => {
   const [a] = vh.s.sub;
   const base = { t: 'E-mails', path: '/utilizador/email' };
   if (a === 'nova') return { title: 'Criar conta de e-mail', crumbs: [base, { t: 'Criar conta' }], body: <ContaNova /> };
   if (a === 'uso') return { title: 'Uso de e-mail', crumbs: [base, { t: 'Uso de e-mail' }], body: <UsoEmail /> };
-  // só "E-mails" e sem descrição (Silva, 14/10/2026: com a descrição a barra de cima passava da largura)
-  return { title: 'E-mails', desc: '', body: <ContasLista />, lado: <ContasLado /> };
+  // estatísticas e botões integrados no cartão principal; a lista estica para toda a largura
+  return { title: 'E-mails', body: <ContasLista /> };
 };
 
 // ---------- Reencaminhamentos ----------
