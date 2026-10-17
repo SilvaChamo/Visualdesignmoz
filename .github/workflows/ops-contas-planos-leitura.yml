@@ -3,6 +3,7 @@ name: "Ops - Contas e planos no Contabo (SÓ LEITURA, 17/10/2026)"
 # Antes de mudar alguma coisa, ver como estão: contas do Hestia, pacote, sites, domínios e contas de e-mail, e os pacotes
 # que existem. Só lê, não muda nada. Corre uma vez neste ramo de trabalho e sai a seguir. O repositório é público:
 # palavras-passe e chaves nunca aparecem (os comandos v-list-* não as mostram).
+# 2.ª leitura: DNS e resposta pública dos quatro sites, pastas dos sites, bases de dados do mltmark.
 on:
   push:
     branches: [claude/tender-johnson-wzert9]
@@ -21,35 +22,22 @@ jobs:
           script: |
             set +e
             H=/usr/local/hestia/bin
-            echo "=== pacotes do Hestia (limites principais) ==="
-            $H/v-list-user-packages json | python3 -c 'import json,sys
-            d=json.load(sys.stdin)
-            for n,p in d.items(): print("%-24s web=%s dns=%s mail_dom=%s mail_acc=%s bd=%s disco=%s shell=%s" % (n, p.get("WEB_DOMAINS"), p.get("DNS_DOMAINS"), p.get("MAIL_DOMAINS"), p.get("MAIL_ACCOUNTS"), p.get("DATABASES"), p.get("DISK_QUOTA"), p.get("SHELL")))'
-            echo "=== contas do Hestia ==="
-            $H/v-list-users json | python3 -c 'import json,sys
-            d=json.load(sys.stdin)
-            for u,x in d.items(): print("%-22s pacote=%-18s papel=%s suspensa=%s sites=%s dns=%s mail_dom=%s mail_acc=%s bd=%s disco=%sMB" % (u, x.get("PACKAGE"), x.get("ROLE"), x.get("SUSPENDED"), x.get("U_WEB_DOMAINS"), x.get("U_DNS_DOMAINS"), x.get("U_MAIL_DOMAINS"), x.get("U_MAIL_ACCOUNTS"), x.get("U_DATABASES"), x.get("U_DISK")))'
-            echo "=== domínios por conta (sites | e-mail | DNS) ==="
-            for u in $($H/v-list-users plain | cut -f1); do
-              w=$($H/v-list-web-domains "$u" plain 2>/dev/null | cut -f1 | tr '\n' ' ')
-              m=$($H/v-list-mail-domains "$u" plain 2>/dev/null | cut -f1 | tr '\n' ' ')
-              n=$($H/v-list-dns-domains "$u" plain 2>/dev/null | cut -f1 | tr '\n' ' ')
-              echo "$u | sites: ${w:-—} | e-mail: ${m:-—} | dns: ${n:-—}"
+            echo "=== 2.ª leitura: onde está cada site e se o pacote pode mudar ==="
+            head -20 $H/v-change-user-package | grep -iE "options|force|usage|info"
+            grep -n "FORCE\|force" $H/v-change-user-package | head
+            cat /usr/local/hestia/conf/hestia.conf 2>/dev/null | grep -E "^VERSION" 
+            for d in aamihe.com mltmark.com concordia.co.mz provisualcorporate.co.mz; do
+              echo "--- $d"
+              echo "  NS: $(dig +short NS $d @1.1.1.1 | tr '\n' ' ')"
+              echo "  A:  $(dig +short A $d @1.1.1.1 | tr '\n' ' ')  www: $(dig +short A www.$d @1.1.1.1 | tr '\n' ' ')"
+              echo "  MX: $(dig +short MX $d @1.1.1.1 | tr '\n' ' ')"
+              echo "  resposta pública: $(curl -sI -m 10 https://$d | grep -iE '^(HTTP|server|x-vercel-id|x-powered-by)' | tr -d '\r' | tr '\n' ' ')"
             done
-            echo "=== as quatro contas do pedido (procura por nome de conta e de domínio) ==="
-            for k in aamihe mltmark concordia provisual; do
-              echo "--- $k"
-              for u in $($H/v-list-users plain | cut -f1); do
-                if echo "$u $($H/v-list-web-domains "$u" plain 2>/dev/null | cut -f1) $($H/v-list-mail-domains "$u" plain 2>/dev/null | cut -f1)" | grep -qi "$k"; then
-                  echo "conta $u"
-                  for d in $($H/v-list-web-domains "$u" plain 2>/dev/null | cut -f1); do
-                    echo "  site $d -> pasta tem $(ls /home/$u/web/$d/public_html 2>/dev/null | wc -l) ficheiro(s); wp-config: $([ -f /home/$u/web/$d/public_html/wp-config.php ] && echo sim || echo não); proxy/IP: $($H/v-list-web-domain "$u" "$d" json 2>/dev/null | python3 -c 'import json,sys; x=list(json.load(sys.stdin).values())[0]; print(x.get("PROXY_SYSTEM") or "-", x.get("IP"))' 2>/dev/null)"
-                  done
-                  for d in $($H/v-list-mail-domains "$u" plain 2>/dev/null | cut -f1); do
-                    echo "  e-mail $d -> $($H/v-list-mail-accounts "$u" "$d" plain 2>/dev/null | wc -l) conta(s)"
-                  done
-                fi
-              done
-              echo "  DNS público (A/MX): $(dig +short A $k.com 2>/dev/null | head -2 | tr '\n' ' ') $(dig +short A $k.co.mz 2>/dev/null | head -2 | tr '\n' ' ')"
-            done
+            echo "--- conteúdo das pastas dos sites de concordia e provisualcorporate (só nomes)"
+            ls -la /home/concordia/web/concordia.co.mz/public_html 2>/dev/null
+            ls -la /home/provisualcorporate/web/provisualcorporate.co.mz/public_html 2>/dev/null
+            echo "--- bases de dados do mltmark"
+            $H/v-list-databases mltmark plain 2>/dev/null | cut -f1,2,3
+            echo "--- registo do Hestia: mudanças de pacote destas contas"
+            grep -h "change-user-package" /usr/local/hestia/log/system.log /usr/local/hestia/log/auth.log 2>/dev/null | grep -E "mltmark|concordia|provisual|aamihe" | tail -15
             echo "=== fim ==="
