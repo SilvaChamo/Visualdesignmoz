@@ -1355,6 +1355,7 @@ export const IGUAIS: string[] = [
   "Subtotal",
   "NUIT:",
   "Email:",
+  "IP:",
   "Website:",
   "Email",
   "Nuit:",
