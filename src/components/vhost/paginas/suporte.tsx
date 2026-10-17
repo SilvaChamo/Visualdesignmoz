@@ -21,7 +21,8 @@ import { EditarDadosModal } from './cliente-dados';
  *  cliente pode fazer (palavra-passe, sessões, marcar ou apagar mensagens, responder a pedidos) fica de fora. */
 function vista(vh: VH) {
   const alheia = vh.s.stack.length > 0;
-  return { alheia, rota: (r: string) => (alheia ? r + (r.includes('?') ? '&' : '?') + 'conta=' + encodeURIComponent(vh.me) : r) };
+  const adminImpersonando = alheia && vh.s.acc[vh.s.login]?.role === 'admin';
+  return { alheia, adminImpersonando, rota: (r: string) => (alheia ? r + (r.includes('?') ? '&' : '?') + 'conta=' + encodeURIComponent(vh.me) : r) };
 }
 
 /** Aviso nas páginas que são só da própria pessoa, ao ver o painel de outra conta */
@@ -35,6 +36,21 @@ function SoDoCliente({ texto }: { texto: string }) {
       </b>
       . {t(texto)}
     </div>
+  );
+}
+
+function PerfilNaoLigado({ vh, onLigado }: { vh: VH; onLigado: () => void }) {
+  const { t } = vh;
+  return (
+    <>
+      <SoDoCliente texto="Esta conta ainda não tem um perfil do site ligado: não há dados pessoais para mostrar." />
+      <div className="mfoot" style={{ justifyContent: 'flex-start', marginTop: 12 }}>
+        <button className="btn r" onClick={() => vh.openM(<EditarDadosModal conta={vh.me} onLigado={onLigado} />)}>
+          <i className="fa-solid fa-link" />
+          {t('Ligar perfil ou editar dados')}
+        </button>
+      </div>
+    </>
   );
 }
 
@@ -445,17 +461,25 @@ type DadosPerfil = { perfil: Record<string, string | null>; email: string; criad
 function PerfilGeral() {
   const vh = useVH();
   const { t } = vh;
-  const { alheia, rota } = vista(vh);
+  const { alheia, adminImpersonando, rota } = vista(vh);
   const { dados, erro, ler } = useGet<DadosPerfil & { semPerfil?: boolean }>(rota('/api/vhost/perfil'));
   const [f, setF] = useState<Record<string, string> | null>(null);
   const [novoEmail, setNovoEmail] = useState('');
   if (!dados) return <Carregando erro={erro} ler={ler} />;
-  if (alheia && dados.semPerfil) return <SoDoCliente texto="Esta conta ainda não tem um perfil do site ligado: não há dados pessoais para mostrar." />;
+  if (alheia && dados.semPerfil) return adminImpersonando ? (
+    <PerfilNaoLigado
+      vh={vh}
+      onLigado={() => {
+        esquecerMemoria('/api/vhost/perfil?conta=' + encodeURIComponent(vh.me));
+        void ler();
+      }}
+    />
+  ) : <SoDoCliente texto="Esta conta ainda não tem um perfil do site ligado: não há dados pessoais para mostrar." />;
   const v = f || Object.fromEntries(['name', 'telefone', 'empresa', 'morada', 'cidade', 'site', 'nuit'].map((k) => [k, String(dados.perfil[k] || '')]));
   const campo = (k: string, l: string, ph = '') => (
     <div className="field">
       <label>{t(l)}</label>
-      <input className="inp" value={v[k]} placeholder={ph} readOnly={alheia} onChange={(e) => setF({ ...v, [k]: e.target.value })} />
+      <input className="inp" value={v[k]} placeholder={ph} readOnly={alheia && !adminImpersonando} onChange={(e) => setF({ ...v, [k]: e.target.value })} />
     </div>
   );
   return (
@@ -476,22 +500,22 @@ function PerfilGeral() {
           </div>
           {campo('site', 'Site', 'https://…')}
           <div className="mfoot" style={{ justifyContent: 'flex-start' }}>
-            {alheia ? (
+            {alheia && !adminImpersonando ? (
               // os dados do cliente mudam-se como em Contas → Editar dados (perfil do site e servidor ao mesmo tempo)
               <button className="btn r" onClick={() => vh.openM(<EditarDadosModal conta={vh.me} />)}>
                 <i className="fa-solid fa-pen" />
                 {t('Editar dados')}
               </button>
             ) : (
-              <button className="btn r" disabled={!f} onClick={async () => (await enviar(vh, '/api/vhost/perfil', { acao: 'dados', ...v }, 'Dados guardados')) && (setF(null), ler())}>
+              <button className="btn r" disabled={!f} onClick={async () => (await enviar(vh, '/api/vhost/perfil', { acao: 'dados', ...(adminImpersonando ? { conta: vh.me } : {}), ...v }, 'Dados guardados')) && (setF(null), ler())}>
                 {t('Guardar')}
               </button>
             )}
           </div>
         </div>
       </Sec>
-      <Sec titulo="E-mail de entrada" desc={alheia ? 'O endereço com que o cliente entra no painel. Só o cliente o muda.' : 'O endereço com que entra no painel. Ao mudar, chega uma mensagem ao endereço novo para confirmar.'}>
-        {alheia ? (
+      <Sec titulo="E-mail de entrada" desc={adminImpersonando ? 'O endereço de entrada da conta que está a ser administrada.' : alheia ? 'O endereço com que o cliente entra no painel. Só o cliente o muda.' : 'O endereço com que entra no painel. Ao mudar, chega uma mensagem ao endereço novo para confirmar.'}>
+        {alheia && !adminImpersonando ? (
           <div className="frm" style={{ maxWidth: 520 }}>
             <div className="field">
               <label>{t('Atual')}</label>
@@ -515,6 +539,14 @@ function PerfilGeral() {
               className="btn g"
               disabled={!/^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(novoEmail)}
               onClick={async () => {
+                if (adminImpersonando) {
+                  const resultado = await enviar(vh, '/api/vhost/perfil', { acao: 'email', conta: vh.me, novo: novoEmail.trim() }, 'E-mail de entrada alterado');
+                  if (resultado) {
+                    setNovoEmail('');
+                    ler();
+                  }
+                  return;
+                }
                 const { error } = await supabase.auth.updateUser({ email: novoEmail.trim() });
                 vh.toast(error ? error.message : 'Enviámos a confirmação para ' + novoEmail.trim());
                 if (!error) setNovoEmail('');
@@ -533,12 +565,26 @@ function PerfilGeral() {
 function PerfilSenha() {
   const vh = useVH();
   const { t } = vh;
+  const { alheia, adminImpersonando, rota } = vista(vh);
+  const { dados, erro, ler } = useGet<DadosPerfil & { semPerfil?: boolean }>(rota('/api/vhost/perfil'));
   // Sem a palavra-passe antiga (Silva, 16/10/2026): o cliente pode tê-la esquecido e ficava sem conseguir trocar. A
   // sessão aberta já o identifica; a nova grava-se no servidor (/api/vhost/perfil, acao 'senha').
   const [f, setF] = useState({ nova: '', repetir: '' });
   const [ver, setVer] = useState(false);
   const [aGravar, setAGravar] = useState(false);
-  if (vista(vh).alheia)
+  if (!dados) return <Carregando erro={erro} ler={ler} />;
+  if (alheia && dados.semPerfil) return adminImpersonando ? (
+    <Sec titulo="Mudar a palavra-passe">
+      <PerfilNaoLigado
+        vh={vh}
+        onLigado={() => {
+          esquecerMemoria('/api/vhost/perfil?conta=' + encodeURIComponent(vh.me));
+          void ler();
+        }}
+      />
+    </Sec>
+  ) : <SoDoCliente texto="Esta conta ainda não tem um perfil do site ligado: não há dados pessoais para mostrar." />;
+  if (alheia && !adminImpersonando)
     return (
       <Sec titulo="Mudar a palavra-passe">
         <SoDoCliente texto="A palavra-passe de entrada é de cada pessoa: só o cliente a muda, no painel dele." />
@@ -583,7 +629,7 @@ function PerfilSenha() {
                 const r = await fetch('/api/vhost/perfil', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ acao: 'senha', nova: f.nova }),
+                  body: JSON.stringify({ acao: 'senha', nova: f.nova, ...(adminImpersonando ? { conta: vh.me } : {}) }),
                 });
                 const j = (await r.json().catch(() => ({}))) as { erro?: string };
                 if (!r.ok) return vh.toast(j.erro || 'Não foi possível mudar a palavra-passe.');
