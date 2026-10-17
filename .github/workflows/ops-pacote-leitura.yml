@@ -1,0 +1,35 @@
+name: "Ops - Porque é que a mudança de pacote pelo painel não acontece (SÓ LEITURA, 17/10/2026)"
+# O Silva tentou passar uma conta do plano de e-mail para o VD-Host-Basico no painel: o painel diz que o pacote é
+# "mais pequeno" e, mesmo forçando, a mudança nunca acontece. Aqui só se lê o registo do Hestia (os comandos que o
+# painel pediu, com os argumentos, e o resultado) e a configuração da API. Nada muda; não mostra palavras-passe.
+on:
+  push:
+    branches: [claude/tender-johnson-wzert9]
+    paths: [.github/workflows/ops-pacote-leitura.yml]
+jobs:
+  ler:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Contabo (só leitura)
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          username: root
+          key: ${{ secrets.CONTABO_SSH_KEY }}
+          command_timeout: 5m
+          script: |
+            set +e
+            H=/usr/local/hestia
+            echo "=== pacotes das contas agora ==="
+            $H/bin/v-list-users plain | awk -F'\t' '{print $1}' | while read u; do echo "$u: $($H/bin/v-list-user $u json | python3 -c 'import json,sys; x=list(json.load(sys.stdin).values())[0]; print(x.get("PACKAGE"), "| bd:", x.get("U_DATABASES"), "| sites:", x.get("U_WEB_DOMAINS"), "| e-mails:", x.get("U_MAIL_ACCOUNTS"))')"; done
+            echo "=== mudanças de pacote pedidas hoje (registo do Hestia) ==="
+            grep -h "change-user-package" $H/log/system.log $H/log/auth.log $H/log/api.log 2>/dev/null | grep "$(date +%F)" | tail -30
+            echo "=== erros de hoje ligados a pacotes ==="
+            grep -h "$(date +%F)" $H/log/error.log 2>/dev/null | grep -iE "package|pacote|cover" | tail -20
+            echo "=== o que a API do Hestia aceita (sem segredos) ==="
+            grep -E "^(API|API_SYSTEM|API_ALLOWED_IP|VERSION)=" $H/conf/hestia.conf | sed -E "s/(API_ALLOWED_IP=).*/\1(definido)/"
+            echo "--- argumentos que a API passa ao comando (quantos e como)"
+            grep -nE "arg[0-9]|escapeshellarg|hst_args" $H/web/api/index.php 2>/dev/null | head -20
+            echo "--- o v-change-user-package: verificação que o FORCE salta"
+            sed -n '150,185p' $H/bin/v-change-user-package
+            echo "=== fim ==="
