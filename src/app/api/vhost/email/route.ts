@@ -287,6 +287,10 @@ export async function POST(req: NextRequest) {
     return resposta(await call('v-add-mail-domain', [conta, d]));
   }
   if (!temMail) return recusa('Este domínio ainda não tem e-mail neste servidor.');
+  // Só o e-mail sai deste servidor (o site fica). Para quando o e-mail do domínio está noutro sítio (Google…): enquanto
+  // está ligado aqui, o exim recusa com "smtp auth required" o que esse domínio envia aos sites daqui e guarda cá o que
+  // os sites daqui lhe enviam (aconteceu com elimservicos.com, 17/10/2026)
+  if (c.acao === 'dominio-desligar') return resposta(await call('v-delete-mail-domain', [conta, d]));
 
   switch (c.acao) {
     // ---------- Contas ----------

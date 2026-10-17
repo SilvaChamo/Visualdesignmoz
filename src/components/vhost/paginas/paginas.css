@@ -382,6 +382,7 @@
 .vh .em-aviso{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px}
 .vh .em-opcoes>div{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 0;border-bottom:1px solid var(--line-soft,var(--line));font-size:14px;flex-wrap:wrap}
 .vh .em-opcoes>div>span:first-child{color:var(--ink)}
+.vh .em-opcoes .tag{white-space:normal}
 .vh .em-radio{display:flex;gap:18px;flex-wrap:wrap;color:var(--ink)}
 .vh .em-radio label{display:inline-flex;align-items:center;gap:6px;cursor:pointer}
 .vh .em-filtros{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:16px}
