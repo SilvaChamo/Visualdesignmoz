@@ -161,24 +161,27 @@ function MensagemModal({ users }: { users: string[] }) {
   );
 }
 
-/** Muda o pacote no servidor. Se o pacote novo for mais pequeno do que o que a conta já usa, pergunta se é para descer
- *  de plano mesmo assim (um cliente pode pedir downgrade — Silva, 15/10/2026). */
+/** Muda o pacote no servidor. Se o pacote novo não chega para o que a conta já tem (ex.: 2 bases de dados num pacote
+ *  que deixa 1), pergunta se é para mudar mesmo assim — vale para descer e para subir de plano: do e-mail para o
+ *  VD-Host-Basico é subir, mas o limite de bases de dados é outro (Silva, 15 e 17/10/2026). */
 async function mudarPacote(vh: ReturnType<typeof useVH>, contas: string[], pacote: string, forcar = false): Promise<string[]> {
   const { feitas, falhas } = await noServidorDetalhe(vh, { acao: 'pacote', contas, pacote, forcar }, (n) => n + ' conta(s) passaram ao pacote ' + pacote);
-  const maiores = falhas.filter((f) => f.erro.includes('mais pequeno')).map((f) => f.conta);
-  if (maiores.length && !forcar) vh.openM(<DescerPlanoModal contas={maiores} pacote={pacote} />);
+  const limite = falhas.filter((f) => f.erro.includes('não chega para') || f.erro.includes('mais pequeno'));
+  if (limite.length && !forcar)
+    vh.openM(<DescerPlanoModal contas={limite.map((f) => f.conta)} pacote={pacote} oQue={[...new Set(limite.map((f) => f.erro.match(/\(([^)]+)\)$/)?.[1] || ''))].filter(Boolean).join(', ')} />);
   return feitas;
 }
 
-function DescerPlanoModal({ contas, pacote }: { contas: string[]; pacote: string }) {
+function DescerPlanoModal({ contas, pacote, oQue }: { contas: string[]; pacote: string; oQue?: string }) {
   const vh = useVH();
   const { t, closeM } = vh;
   return (
     <>
-      <h3>{t('Descer de plano?')}</h3>
+      <h3>{t('Mudar de pacote mesmo assim?')}</h3>
       <p style={{ color: 'var(--muted)', marginBottom: 12, lineHeight: 1.5 }}>
-        {t('O pacote {0} é mais pequeno do que o que estas contas já usam:').replace('{0}', pacote)} <b>{contas.join(', ')}</b>.{' '}
-        {t('Ao descer, mantêm tudo o que já têm (sites, e-mails, bases de dados), mas não podem criar mais até ficarem dentro dos limites do pacote.')}
+        {t('O pacote {0} não chega para o que estas contas já têm:').replace('{0}', pacote)} <b>{contas.join(', ')}</b>
+        {oQue ? <> ({t(oQue)})</> : null}.{' '}
+        {t('Ao mudar, mantêm tudo o que já têm (sites, e-mails, bases de dados), mas não podem criar mais até ficarem dentro dos limites do pacote.')}
       </p>
       <div className="mfoot">
         <button className="btn g" onClick={closeM}>
@@ -191,8 +194,8 @@ function DescerPlanoModal({ contas, pacote }: { contas: string[]; pacote: string
             void mudarPacote(vh, contas, pacote, true);
           }}
         >
-          <i className="fa-solid fa-arrow-down" />
-          {t('Descer mesmo assim')}
+          <i className="fa-solid fa-check" />
+          {t('Mudar mesmo assim')}
         </button>
       </div>
     </>
