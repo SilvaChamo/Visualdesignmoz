@@ -973,7 +973,7 @@ export const dominios: ScreenFn = (vh) => {
   if (sub === 'registar') return { title: 'Domínios', actions: novoBtn, crumbs: [base, { t: 'Registar domínio' }], body: <ListaDominios abaDom="registar" /> };
   if (sub === 'subdominios') return { title: 'Domínios', actions: novoSub, dominios: 'sites', crumbs: [base, { t: 'Subdomínios' }], body: <ListaDominios abaDom="subdominios" /> };
   if (sub === 'transferir') return { title: 'Domínios', actions: novoBtn, crumbs: [base, { t: 'Transferir domínio' }], body: <ListaDominios abaDom="transferir" /> };
-  if (sub === 'novo') return { title: 'Domínios', body: <ListaDominios abaDom="novo" /> };
+  if (sub === 'novo') return { title: 'Domínios', actions: novoSub, dominios: 'sites', body: <ListaDominios abaDom="novo" /> };
   if (sub) return { title: sub, desc: 'Resumo e atalhos do domínio', crumbs: [{ t: 'Domínios', path: '/' + vh.s.level + '/dominios' }, { t: sub }], dominioUrl: { d: sub, ir: (n) => '/' + vh.s.level + '/dominios/' + encodeURIComponent(n) }, body: <VerDominio d={sub} /> };
   return { title: 'Domínios', actions: novoBtn, body: <ListaDominios /> };
 };
