@@ -8271,7 +8271,7 @@
 .vh .em-env small {
    font-size: inherit;
    color: inherit;
-   margin-left: 4px
+   margin-left: 0
 }
 
 @media(min-width:769px) and (max-width:1600px) {
