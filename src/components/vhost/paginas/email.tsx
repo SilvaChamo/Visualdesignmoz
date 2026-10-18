@@ -626,7 +626,7 @@ function ContasLista() {
           },
           {
             k: 'env',
-            t: 'Enviados hoje',
+            t: 'Enviados',
             right: true,
             sort: (r) => r.enviadosHoje,
             cell: (r) => (
@@ -637,7 +637,9 @@ function ContasLista() {
                     {' / ' + r.limiteHora}
                     <small>{t('por hora')}</small>
                   </>
-                ) : null}
+                ) : (
+                  <small> / {t('Sem limite')}</small>
+                )}
               </span>
             ),
           },
