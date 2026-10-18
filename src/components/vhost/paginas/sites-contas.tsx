@@ -86,52 +86,54 @@ function Sites() {
         on={aba}
         onChange={setAba}
       />
-      <DataTable
-        id="sites-contas"
-        umaLinha
-        barraFora
-        rows={dados.sites.filter(filtro[aba])}
-        rowKey={(r) => r.conta + '/' + r.dominio}
-        search={(r) => [r.dominio, r.conta, r.plano, r.linguagem, r.titulo].join(' ')}
-        empty="Nenhum site neste separador"
-        cols={[
-          {
-            k: 'd',
-            t: 'Domínio',
-            sort: (r) => r.dominio,
-            cell: (r) => (
-              <div className="cell">
-                <div>
-                  <a className="site-contas-link" href={'https://' + r.dominio} target="_blank" rel="noreferrer">
-                    {r.dominio}
-                  </a>
+      <div className="sites-contas-lista">
+        <DataTable
+          id="sites-contas"
+          umaLinha
+          barraFora
+          rows={dados.sites.filter(filtro[aba])}
+          rowKey={(r) => r.conta + '/' + r.dominio}
+          search={(r) => [r.dominio, r.conta, r.plano, r.linguagem, r.titulo].join(' ')}
+          empty="Nenhum site neste separador"
+          cols={[
+            {
+              k: 'd',
+              t: 'Domínio',
+              sort: (r) => r.dominio,
+              cell: (r) => (
+                <div className="cell">
+                  <div>
+                    <a className="site-contas-link" href={'https://' + r.dominio} target="_blank" rel="noreferrer">
+                      {r.dominio}
+                    </a>
+                  </div>
                 </div>
-              </div>
-            ),
-          },
-          { k: 'p', t: 'Plano', sort: (r) => r.plano, cell: (r) => r.plano || '—' },
-          { k: 'l', t: 'Linguagem', sort: (r) => r.linguagem, cell: (r) => t(r.linguagem) },
-          {
-            k: 'e',
-            t: 'Estado',
-            sort: (r) => estado(r)[0],
-            cell: (r) => {
-              const [rot, cor] = estado(r);
-              return (
-                <div>
-                  <span className={'tag ' + cor}>{t(rot)}</span>
-                  {r.espera && semSite(r) && (
-                    <div style={{ fontSize: 12, color: 'var(--muted)' }}>
-                      {t(/dominio/i.test(r.plano) ? 'só domínio: a página de espera não é um site' : 'plano de e-mail: a página de espera não é um site')}
-                    </div>
-                  )}
-                </div>
-              );
+              ),
             },
-          },
-          { k: 't', t: 'Título da página', ate: 1300, sort: (r) => r.titulo, cell: (r) => r.titulo || '—' },
-        ]}
-      />
+            { k: 'p', t: 'Plano', sort: (r) => r.plano, cell: (r) => r.plano || '—' },
+            { k: 'l', t: 'Linguagem', sort: (r) => r.linguagem, cell: (r) => t(r.linguagem) },
+            {
+              k: 'e',
+              t: 'Estado',
+              sort: (r) => estado(r)[0],
+              cell: (r) => {
+                const [rot, cor] = estado(r);
+                return (
+                  <div>
+                    <span className={'tag ' + cor}>{t(rot)}</span>
+                    {r.espera && semSite(r) && (
+                      <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+                        {t(/dominio/i.test(r.plano) ? 'só domínio: a página de espera não é um site' : 'plano de e-mail: a página de espera não é um site')}
+                      </div>
+                    )}
+                  </div>
+                );
+              },
+            },
+            { k: 't', t: 'Título da página', ate: 1300, sort: (r) => r.titulo, cell: (r) => r.titulo || '—' },
+          ]}
+        />
+      </div>
     </>
   );
 }

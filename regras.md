@@ -27,16 +27,21 @@ sessão: retomar sempre em português. Vale para qualquer IA (está repetido em 
 
 1. O trabalho novo faz-se num ramo de trabalho (o do agente; nunca directamente em `fix/contabo-websites-audit` nem
    em `main`).
-2. Antes de publicar, manda-se ao Silva o comando para ele ver o ramo no projecto local (com as duas
-   pré-visualizações, computador e telemóvel — ver ponto 6) e diz-se onde se mexeu. **Sem screenshots** (Silva,
-   15/10/2026: "a partir de já não me dê mais screenshots, eu vou mandar para você") e **nunca ficheiros HTML de
-   pré-visualização** (Silva, 13/10/2026: "só me confunde").
+2. Antes de publicar, se o agente tem acesso directo à pasta `visualdesign-producao`, ele próprio põe o projecto no
+   ramo de trabalho, abre/actualiza a pré-visualização com computador e telemóvel e diz ao Silva onde se mexeu — nunca
+   lhe manda comandos para actualizar a pasta local (Silva, 18/10/2026). **Sem screenshots** (Silva, 15/10/2026:
+   "a partir de já não me dê mais screenshots, eu vou mandar para você") e **nunca ficheiros HTML de pré-visualização**
+   (Silva, 13/10/2026: "só me confunde"). Se o agente não tem acesso local, pode indicar o comando conforme o ponto 6.
 3. **Só se publica quando o Silva disser "publica"/"publique"** — é a chave para lançar as correcções. Publicar =
    PR do ramo de trabalho para `fix/contabo-websites-audit` + merge (o deploy no Contabo corre sozinho).
 4. Alterações ao servidor também são descritas primeiro e só avançam com o "avança"/"publica" dele.
 5. **Sempre que o Silva disser "publica"/"publique"**, depois de publicar, mandar-lhe o commit publicado (o hash do
-   merge em `fix/contabo-websites-audit`) e os comandos para actualizar o projecto local (pedido dele, 13/10/2026).
-6. **Os comandos para o projecto local vão sempre num único comando — e só um por mensagem** (Silva, 14/10/2026:
+   merge em `fix/contabo-websites-audit`) e confirmar o resultado do deploy. **Nunca lhe mandar comandos para actualizar
+   o projecto local quando o agente tem acesso directo à pasta `visualdesign-producao`: o próprio agente faz e verifica
+   a actualização local.** Só o agente que trabalha online sem acesso ao projecto local pode mandar esses comandos
+   (Silva, 18/10/2026).
+6. **Quando o agente trabalha online sem acesso ao projecto local e precisa de indicar uma actualização, o comando vai
+   sempre num único comando — e só um por mensagem** (Silva, 14/10/2026:
    "tem que parar o servidor, publicar e arrancar com um comando, nas próximas vezes") — que fecha o servidor que estiver na porta 3003,
    guarda à parte alterações locais por gravar (stash, recuperáveis com `git stash pop`), põe a pasta exactamente no
    ramo do GitHub e volta a arrancar o servidor (pedido do Silva, 13/10/2026 — o `checkout`/`pull` simples falhava e o

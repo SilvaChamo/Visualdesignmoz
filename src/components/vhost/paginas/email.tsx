@@ -10,6 +10,7 @@ import { useVH, type VH } from '../context';
 import type { ScreenFn } from '../screens';
 import { DESC, MENU } from '../generated/data';
 import { pacoteDe } from '../state';
+import { EMAIL_PLANS, emailPlanByProductName } from '@/lib/email-plans';
 import { Stat } from '../ui';
 import { Check, DataTable, novaSenha, Senha, Switch, Tabs } from './componentes';
 import { Confirmar } from './pacotes';
@@ -118,7 +119,7 @@ async function noEmail(vh: VH, d: string, corpo: Record<string, unknown>, ok: st
     const r = await fetch('/api/vhost/email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ conta: vh.me, dominio: d, ...corpo }) });
     const j = (await r.json().catch(() => ({}))) as Record<string, unknown>;
     if (!r.ok) {
-      vh.toast(String(j.erro || 'A alteração falhou'));
+      vh.toast(vh.t(String(j.erro || 'A alteração falhou')));
       return null;
     }
     lerEmail(vh.me, d).catch(() => null);
@@ -133,6 +134,15 @@ async function noEmail(vh: VH, d: string, corpo: Record<string, unknown>, ok: st
 
 const mb = (n: number) => (n >= 1024 ? (n / 1024).toFixed(2).replace('.', ',') + ' GB' : n.toLocaleString('pt-PT') + ' MB');
 const pct = (v: number, max: number) => (max > 0 ? Math.min(100, Math.round((v / max) * 100)) : 0);
+function quotaMbInserida(valor: string): number | null | undefined {
+  const s = valor.trim().toLowerCase().replace(',', '.');
+  if (!s) return null;
+  const m = s.match(/^(\d+(?:\.\d+)?|\.\d+)\s*(mb|gb)?$/);
+  if (!m) return undefined;
+  const n = Number(m[1]) * (m[2] === 'gb' ? 1024 : 1);
+  return Number.isSafeInteger(Math.round(n)) && n > 0 && n <= 9_999_999 ? Math.round(n) : undefined;
+}
+const quotaEditavel = (n: number) => (n >= 1024 && n % 1024 === 0 ? n / 1024 + ' GB' : n + ' MB');
 /** Webmail: com uma caixa, o painel entra já nela sem palavra-passe (bilhete de uso único, rota /api/vhost/email);
  *  sem caixa, o ecrã de entrada do Roundcube */
 const webmailUrl = (conta: string, d: string, acc?: string) => '/api/vhost/email?conta=' + encodeURIComponent(conta) + '&d=' + encodeURIComponent(d) + '&webmail=' + encodeURIComponent(acc || '_');
@@ -356,9 +366,62 @@ function configApple(acc: string, d: string) {
   setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 }
 
+async function baixarCredenciaisOutlook(vh: VH, acc: string, d: string, palavraPasse?: string) {
+  const email = acc + '@' + d;
+  try {
+    let senha = palavraPasse;
+    if (!senha) {
+      const resposta = await fetch('/api/email-senha', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const dados = (await resposta.json()) as { senha?: unknown; error?: string };
+      if (!resposta.ok || typeof dados.senha !== 'string' || !dados.senha) {
+        throw new Error(dados.error || 'Não foi possível obter a palavra-passe desta caixa.');
+      }
+      senha = dados.senha;
+    }
+
+    const conteudo = [
+      'CREDENCIAIS PARA CONFIGURAR O OUTLOOK',
+      '',
+      `Endereço de e-mail: ${email}`,
+      `Nome de utilizador: ${email}`,
+      `Palavra-passe: ${senha}`,
+      '',
+      'CORREIO DE ENTRADA (IMAP)',
+      `Servidor: mail.${d}`,
+      'Porta: 993',
+      'Segurança: SSL/TLS',
+      'Autenticação: palavra-passe',
+      '',
+      'CORREIO DE SAÍDA (SMTP)',
+      `Servidor: mail.${d}`,
+      'Porta: 465',
+      'Segurança: SSL/TLS',
+      'Alternativa: porta 587 com STARTTLS',
+      'Autenticação: palavra-passe; usar o mesmo nome de utilizador e palavra-passe do IMAP',
+      '',
+      `Webmail: ${webmailEndereco(d)}`,
+      '',
+      'Este ficheiro contém uma palavra-passe. Guarde-o em local seguro e apague-o quando terminar a configuração.',
+      '',
+    ].join('\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([conteudo], { type: 'text/plain;charset=utf-8' }));
+    a.download = 'credenciais-outlook-' + email + '.txt';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  } catch (erro) {
+    vh.toast(erro instanceof Error ? erro.message : 'Não foi possível descarregar as credenciais.');
+  }
+}
+
 /** Dados para configurar o programa de e-mail (mostrados depois de criar a conta; a senha não volta a aparecer) */
 function DadosConta({ acc, d, senha }: { acc: string; d: string; senha?: string }) {
-  const { t, closeM } = useVH();
+  const vh = useVH();
+  const { t, closeM } = vh;
   const l: [string, string][] = [
     ['Endereço', acc + '@' + d],
     ...(senha ? ([['Palavra-passe', senha]] as [string, string][]) : []),
@@ -378,6 +441,10 @@ function DadosConta({ acc, d, senha }: { acc: string; d: string; senha?: string 
         </div>
       ))}
       <div className="mfoot">
+        <button className="btn g" onClick={() => void baixarCredenciaisOutlook(vh, acc, d, senha)}>
+          <i className="fa-brands fa-windows" />
+          {t('Credenciais Outlook')}
+        </button>
         <button className="btn g" onClick={() => configApple(acc, d)}>
           <i className="fa-brands fa-apple" />
           {t('Configuração Apple')}
@@ -429,10 +496,10 @@ function Limites({ quota, setQuota, limite, setLimite }: { quota: string; setQuo
   const { t } = useVH();
   return (
     <>
-      <Campo label="Quota da caixa (MB)" hint={quota === '' ? 'Sem limite de espaço' : undefined}>
+      <Campo label="Quota da caixa (MB ou GB)" hint={quota === '' ? 'Sem limite de espaço' : undefined}>
         <span className="da-max">
-          <input inputMode="numeric" value={quota} placeholder={t('sem limite')} onChange={(e) => setQuota(e.target.value.replace(/\D/g, ''))} />
-          <Check checked={quota === ''} onChange={(v) => setQuota(v ? '' : '1024')} label="Sem limite" />
+          <input inputMode="text" value={quota} placeholder={t('sem limite')} onChange={(e) => setQuota(e.target.value)} />
+          <Check checked={quota === ''} onChange={(v) => setQuota(v ? '' : '1 GB')} label="Sem limite" />
         </span>
       </Campo>
       <Campo label="Limite de envios por hora" hint="O servidor conta os envios por hora (o DirectAdmin contava por dia)">
@@ -448,7 +515,7 @@ function Limites({ quota, setQuota, limite, setLimite }: { quota: string; setQuo
 function LimitesModal({ d, c }: { d: string; c: Caixa }) {
   const vh = useVH();
   const { t, closeM } = vh;
-  const [quota, setQuota] = useState(c.quotaMb ? String(c.quotaMb) : '');
+  const [quota, setQuota] = useState(c.quotaMb ? quotaEditavel(c.quotaMb) : '');
   const [limite, setLimite] = useState(c.limiteHora ? String(c.limiteHora) : '');
   return (
     <>
@@ -464,8 +531,10 @@ function LimitesModal({ d, c }: { d: string; c: Caixa }) {
         <button
           className="btn r"
           onClick={async () => {
+            const quotaMb = quotaMbInserida(quota);
+            if (quotaMb === undefined) return vh.toast(vh.t('Indique a quota em MB ou GB, por exemplo 500 MB ou 2 GB.'));
             closeM();
-            await noEmail(vh, d, { acao: 'conta-limites', user: c.nome, quota: quota || 'unlimited', limite }, 'Limites de ' + c.nome + ' guardados', true);
+            await noEmail(vh, d, { acao: 'conta-limites', user: c.nome, quota: quotaMb === null ? 'unlimited' : String(quotaMb), limite }, 'Limites de ' + c.nome + ' guardados', true);
           }}
         >
           {t('Guardar')}
@@ -523,6 +592,8 @@ function ContasLista() {
   const { t, openM, nav } = vh;
   const { d, info } = useEmail();
   const [q, setQ] = useState('');
+  const [quotaEdit, setQuotaEdit] = useState<{ user: string; value: string } | null>(null);
+  const [aGuardarQuota, setAGuardarQuota] = useState(false);
   if (!info) return null;
   const todasRows = caixasNormais(info);
   const rows = q.trim() ? todasRows.filter((r) => r.nome.toLowerCase().includes(q.trim().toLowerCase())) : todasRows;
@@ -530,15 +601,54 @@ function ContasLista() {
   const enviados = todasRows.reduce((n, c) => n + c.enviadosHoje, 0);
   const cheias = todasRows.filter((c) => c.quotaMb > 0 && c.usadoMb / c.quotaMb > 0.8).length;
   const lim = pacoteDe(vh.s, vh.me)?.lim.emails;
-  const max = !lim || lim.unl ? null : Number(lim.v) || null;
   const dkim = !!info.dominio?.dkim;
+  const planoEmail = [vh.a.hpkg, vh.a.pkg]
+    .map((nome) => EMAIL_PLANS.find((p) => p.hestiaPackage.toLowerCase() === String(nome || '').toLowerCase()) || emailPlanByProductName(nome))
+    .find((p) => p !== undefined);
+  const max = planoEmail ? planoEmail.accounts : !lim || lim.unl ? null : Number(lim.v) || null;
+  const totalContas = vh.a.mails.length;
+  const diferencaContas = max === null ? null : max - totalContas;
+  const detalheContas = max === null
+    ? 'Sem limite de contas no plano'
+    : diferencaContas !== null && diferencaContas < 0
+      ? `${max} contas no plano · limite ultrapassado por ${Math.abs(diferencaContas)}`
+      : `${max} contas no plano · ${diferencaContas ?? 0} restantes`;
+  const limitePlanoMb = planoEmail ? planoEmail.storageGb * 1024 : null;
+  const quotaMaximaMb = limitePlanoMb === null ? null : Math.max(0, limitePlanoMb - vh.a.mails
+    .filter((mail) => !quotaEdit || mail.user !== quotaEdit.user || mail.dom !== d)
+    .reduce((soma, mail) => soma + Math.max(1, Math.ceil(mail.used / 0.8)), 0));
+  const guardarQuota = async () => {
+    if (!quotaEdit || aGuardarQuota) return;
+    const quotaMb = quotaMbInserida(quotaEdit.value);
+    if (quotaMb === undefined) {
+      vh.toast(vh.t('Indique a quota em MB ou GB, por exemplo 500 MB ou 2 GB.'));
+      return;
+    }
+    setAGuardarQuota(true);
+    try {
+      const resultado = await noEmail(
+        vh,
+        d,
+        { acao: 'conta-quota', user: quotaEdit.user, quota: quotaMb === null ? 'unlimited' : String(quotaMb) },
+        'Quota de ' + quotaEdit.user + ' guardada',
+      );
+      if (resultado) setQuotaEdit(null);
+    } finally {
+      setAGuardarQuota(false);
+    }
+  };
   const apagar = (us: string[]) =>
     openM(<Confirmar titulo="Apagar contas de e-mail?" texto={'Vai apagar ' + us.join(', ') + ' e todas as mensagens. Não se pode desfazer.'} ok="Apagar" onOk={() => noEmail(vh, d, { acao: 'contas-apagar', users: us }, 'Conta(s) apagada(s)', true)} />);
   return (
     <>
       {/* Estatísticas em cima, como nas outras páginas com tabela */}
       <div className="stats">
-        <Stat title="Contas" v={rows.length} m={'/ ' + (max ?? '∞')} p={max ? pct(rows.length, max) : 0} />
+        <Stat
+          title="Contas"
+          v={totalContas}
+          m={detalheContas}
+          p={max === null ? 0 : pct(totalContas, max)}
+        />
         <Stat title="Espaço usado" v={mb(usado)} m="em todas as caixas" p={pct(usado, rows.reduce((n, c) => n + c.quotaMb, 0))} />
         <Stat title="Envios hoje" v={enviados} m="mensagens enviadas" p={0} />
         <Stat title="Caixas quase cheias" v={cheias} m="acima de 80%" p={cheias * 20} />
@@ -597,13 +707,50 @@ function ContasLista() {
                   </b>
                   <span className="em-conta-sub">
                     {r.suspensa ? t('Suspensa') + ' · ' : ''}
-                    {r.quotaMb > 0 ? t('Quota') + ' ' + mb(r.quotaMb) : t('Sem limite de espaço')}
                     {r.fwd.length ? ' · ' + t('reencaminha') : ''}
                     {r.resposta ? ' · ' + t('resposta automática') : ''}
                   </span>
                 </div>
               </div>
             ),
+          },
+          {
+            k: 'quota',
+            t: 'Quota',
+            center: true,
+            sort: (r) => r.quotaMb,
+            cell: (r) =>
+              quotaEdit?.user === r.nome ? (
+                <input
+                  autoFocus
+                  aria-label={t('Quota')}
+                  className="em-quota-input"
+                  disabled={aGuardarQuota}
+                  inputMode="text"
+                  maxLength={20}
+                  value={quotaEdit.value}
+                  placeholder={t('ex.: 2 GB ou 500 MB')}
+                  title={quotaMaximaMb === null ? undefined : `${t('Máximo possível para esta caixa')}: ${quotaMaximaMb} MB / ${planoEmail?.storageGb ?? ''} GB`}
+                  onChange={(e) => setQuotaEdit({ ...quotaEdit, value: e.target.value })}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      void guardarQuota();
+                    } else if (e.key === 'Escape') {
+                      setQuotaEdit(null);
+                    }
+                  }}
+                />
+              ) : (
+                <button
+                  type="button"
+                  className="em-quota-editar"
+                  aria-label={t('Quota') + ': ' + (r.quotaMb ? mb(r.quotaMb) : t('sem limite'))}
+                  onClick={() => setQuotaEdit({ user: r.nome, value: r.quotaMb ? quotaEditavel(r.quotaMb) : '' })}
+                >
+                  {r.quotaMb ? mb(r.quotaMb) : t('sem limite')}
+                </button>
+              ),
           },
           {
             k: 'uso',
@@ -670,6 +817,7 @@ function ContasLista() {
                 ['fa-key', 'Mudar palavra-passe', () => openM(<SenhaModal d={d} acc={r.nome} />)],
                 ['fa-sliders', 'Mudar limites', () => openM(<LimitesModal d={d} c={r} />)],
                 ['fa-gear', 'Configurar o e-mail', () => openM(<DadosConta acc={r.nome} d={d} />)],
+                ['fa-file-lines', 'Descarregar credenciais para Outlook', () => void baixarCredenciaisOutlook(vh, r.nome, d)],
                 ['fa-download', 'Descarregar configuração Apple (iPhone, iPad, Mac)', () => configApple(r.nome, d)],
                 ['fa-right-to-bracket', 'Registo SMTP de entrada', () => nav('/utilizador/rastreio/entrada/' + encodeURIComponent(r.nome + '@' + d))],
                 ['fa-right-from-bracket', 'Registo SMTP de saída', () => nav('/utilizador/rastreio/saida/' + encodeURIComponent(r.nome + '@' + d))],
@@ -693,7 +841,7 @@ function ContasLista() {
 function ContaNova() {
   const vh = useVH();
   const { t, nav, openM } = vh;
-  const [f, setF] = useState({ user: '', senha: '', quota: '1024', limite: '' });
+  const [f, setF] = useState({ user: '', senha: '', quota: '1 GB', limite: '' });
   return (
     <ComEmail>
       {({ d }) => (
@@ -713,7 +861,9 @@ function ContaNova() {
                 if (!/^[a-z0-9]([a-z0-9._-]{0,62}[a-z0-9])?$/.test(f.user)) return vh.toast('Nome: letras minúsculas, números, ponto, hífen ou _');
                 const senha = f.senha || novaSenha();
                 if (senha.length < 8) return vh.toast('A palavra-passe precisa de pelo menos 8 caracteres');
-                if (await noEmail(vh, d, { acao: 'conta-criar', user: f.user, senha, quota: f.quota || 'unlimited', limite: f.limite }, 'Conta ' + f.user + '@' + d + ' criada', true)) {
+                const quotaMb = quotaMbInserida(f.quota);
+                if (quotaMb === undefined) return vh.toast(vh.t('Indique a quota em MB ou GB, por exemplo 500 MB ou 2 GB.'));
+                if (await noEmail(vh, d, { acao: 'conta-criar', user: f.user, senha, quota: quotaMb === null ? 'unlimited' : String(quotaMb), limite: f.limite }, 'Conta ' + f.user + '@' + d + ' criada', true)) {
                   nav('/utilizador/email');
                   openM(<DadosConta acc={f.user} d={d} senha={senha} />);
                 }

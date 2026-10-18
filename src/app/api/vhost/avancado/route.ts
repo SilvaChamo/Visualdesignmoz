@@ -625,7 +625,16 @@ export async function POST(req: NextRequest) {
       // "Entrar" de um utilizador da lista (como "Sign In" no DA); sem utilizador: o primeiro administrador
       const wpUser = linha(c.user);
       if (wpUser && !/^[A-Za-z0-9._@ -]{1,60}$/.test(wpUser)) return recusa('Utilizador inválido.');
-      const x = await generateWpAutoLoginToken(d, wpUser || undefined);
+      const postId = c.postId === undefined || c.postId === null || c.postId === '' ? undefined : Number(c.postId);
+      if (postId !== undefined && (!Number.isSafeInteger(postId) || postId <= 0)) return recusa('Página inválida.');
+      if (postId !== undefined) {
+        const tipo = await executeServerCommand(
+          `sudo -u ${conta} /usr/local/bin/wp --path=${q(raiz)} --skip-plugins --skip-themes post get ${postId} --field=post_type 2>/dev/null`,
+          { timeoutMs: 40_000 },
+        );
+        if (tipo.trim() !== 'page') return recusa('Página não encontrada.');
+      }
+      const x = await generateWpAutoLoginToken(d, wpUser || undefined, postId);
       return resposta({ ok: x.success, error: x.error }, false, { url: x.url });
     }
     case 'wp-senha': {

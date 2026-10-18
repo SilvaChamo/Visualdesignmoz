@@ -18,6 +18,12 @@ const EN_RX: [RegExp, Rep][] = [
   [/^o pacote foi enviado ao servidor, mas não foi possível confirmar se a conta (.+) passou para (.+): (.+)\. Actualize a lista antes de repetir\.$/, 'the package was sent to the server, but it could not be confirmed whether account $1 switched to $2: $3. Refresh the list before trying again.'],
   [/^o pacote foi enviado ao servidor, mas a resposta de confirmação da conta (.+) não é válida\. Actualize a lista antes de repetir\.$/, 'the package was sent to the server, but the confirmation response for account $1 is invalid. Refresh the list before trying again.'],
   [/^o pacote foi enviado ao servidor, mas não foi possível ler o pacote actual da conta (.+)\. Actualize a lista antes de repetir\.$/, 'the package was sent to the server, but the current package for account $1 could not be read. Refresh the list before trying again.'],
+  [/^(\d+) contas no plano · (\d+) restantes$/, '$1 accounts in plan · $2 remaining'],
+  [/^(\d+) contas no plano · limite ultrapassado por (\d+)$/, '$1 accounts in plan · over limit by $2'],
+  [/^Este plano permite no máximo (\d+) contas de e-mail e já tem (\d+)\.$/, 'This plan allows at most $1 email accounts and already has $2.'],
+  [/^A quota pedida não é compatível com o espaço usado e o limite de (\d+) GB do plano\.$/, 'The requested quota is not compatible with the current usage and the plan limit of $1 GB.'],
+  [/^Não há espaço suficiente para aumentar esta caixa e manter as outras abaixo de 80% de utilização no plano de (\d+) GB\.$/, 'There is not enough space to increase this mailbox and keep the others below 80% usage within the plan limit of $1 GB.'],
+  [/^A soma das quotas não pode exceder (\d+) GB neste plano\. Disponível para esta caixa: (\d+) MB\.$/, 'The total mailbox quotas cannot exceed $1 GB on this plan. Available for this mailbox: $2 MB.'],
 ];
 
 export function translate(lang: Lang, v: string): string {
