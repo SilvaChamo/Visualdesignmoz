@@ -10034,3 +10034,22 @@
       max-width: none
    }
 }
+
+/* Listas do painel: alterna o fundo das linhas sem cobrir selecção, realce ou passagem do rato. */
+.vh .tbl tbody tr[data-k]:nth-child(even):not(.sel):not(.dt-realce):not(:hover) > td {
+   background: color-mix(in srgb, var(--card) 65%, var(--soft))
+}
+
+.vh .tbl tbody tr[data-k]:not(:last-child) > td {
+   border-bottom-color: color-mix(in srgb, var(--line-soft) 65%, var(--card))
+}
+
+.vh .site-contas-link {
+   color: var(--ink);
+   font-weight: 400;
+   text-decoration: none
+}
+
+.vh .site-contas-link:hover {
+   color: var(--red)
+}

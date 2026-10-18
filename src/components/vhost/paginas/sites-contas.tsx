@@ -102,8 +102,9 @@ function Sites() {
             cell: (r) => (
               <div className="cell">
                 <div>
-                  <b>{r.dominio}</b>
-                  <span>{r.conta}</span>
+                  <a className="site-contas-link" href={'https://' + r.dominio} target="_blank" rel="noreferrer">
+                    {r.dominio}
+                  </a>
                 </div>
               </div>
             ),
