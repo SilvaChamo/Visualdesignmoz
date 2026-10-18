@@ -1475,46 +1475,48 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null }: { v
           </aside>
 
           <div className="right">
-            <header className={'top' + (mostra.home ? ' painel-inicio' : '')}>
-              <div className="ptitle">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img className="only-m" src={logo} alt="" style={st.brand.logo ? { objectFit: 'contain' } : undefined} />
-                <div className="bt">
-                  <h1 id="ptitle" title={mostra.title}>
-                    <span className="desktop-title">{mostra.title}</span>
-                    <span className="mobile-title">{t('Painel')}</span>
-                  </h1>
-                  <small id="pdesc" title={mostra.desc}>
-                    {mostra.scr.descEl ?? mostra.desc}
-                  </small>
+            <div className="top-impersonacao" style={{ position: 'sticky', top: 0, zIndex: 21, background: 'var(--card)' }}>
+              <header className={'top' + (mostra.home ? ' painel-inicio' : '')}>
+                <div className="ptitle">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img className="only-m" src={logo} alt="" style={st.brand.logo ? { objectFit: 'contain' } : undefined} />
+                  <div className="bt">
+                    <h1 id="ptitle" title={mostra.title}>
+                      <span className="desktop-title">{mostra.title}</span>
+                      <span className="mobile-title">{t('Painel')}</span>
+                    </h1>
+                    <small id="pdesc" title={mostra.desc}>
+                      {mostra.scr.descEl ?? mostra.desc}
+                    </small>
+                  </div>
                 </div>
-              </div>
-              {/* na maquete esta faixa existe (vazia) no painel inicial e ocupa um espaço de 16px na barra */}
-              {mostra.home && <div className="dash-tabs-bar" id="dashtabs" style={{ display: 'flex' }} />}
-              <div className="sp" />
-              <div className="topact">
-                <span id="pageact" className="topact">
-                  {mostra.scr.actions}
-                </span>
-                <span id="topfix" className="topact">
-                  {/* Busca: procura na página aberta (o cartão desliza por baixo da faixa do seletor) */}
-                  <button className={'btn g lupa-topo' + (pesqPag.aberta ? ' on' : '')} onClick={() => setPesqPag((x) => ({ aberta: !x.aberta, q: '', i: 0 }))} title={t(mostra.home ? 'Pesquisar no painel' : 'Pesquisar nesta página')}>
-                    <i className="fa-solid fa-magnifying-glass" />
-                    {t('Busca')}
-                  </button>
-                  {/* Sair fica na barra compacta, ao lado do avatar; no telemóvel está no menu "Mais" (Silva, 15/10/2026) */}
-                  <button className="btn g iconbtn" onClick={vh.toggleTheme} title={t('Tema claro/escuro')}>
-                    <i className={'fa-solid ' + (st.theme === 'dark' ? 'fa-sun' : 'fa-moon')} />
-                  </button>
-                  {/* telemóvel: o menu deslizante (do lado direito), do tamanho dos outros botões (Silva, 15/10/2026) */}
-                  <button className="btn g iconbtn only-m" onClick={() => setGaveta(true)} title={t('Menu')} aria-label={t('Menu')}>
-                    <i className="fa-solid fa-bars" />
-                  </button>
-                </span>
-              </div>
-            </header>
-            <main id="main">
+                {/* na maquete esta faixa existe (vazia) no painel inicial e ocupa um espaço de 16px na barra */}
+                {mostra.home && <div className="dash-tabs-bar" id="dashtabs" style={{ display: 'flex' }} />}
+                <div className="sp" />
+                <div className="topact">
+                  <span id="pageact" className="topact">
+                    {mostra.scr.actions}
+                  </span>
+                  <span id="topfix" className="topact">
+                    {/* Busca: procura na página aberta (o cartão desliza por baixo da faixa do seletor) */}
+                    <button className={'btn g lupa-topo' + (pesqPag.aberta ? ' on' : '')} onClick={() => setPesqPag((x) => ({ aberta: !x.aberta, q: '', i: 0 }))} title={t(mostra.home ? 'Pesquisar no painel' : 'Pesquisar nesta página')}>
+                      <i className="fa-solid fa-magnifying-glass" />
+                      {t('Busca')}
+                    </button>
+                    {/* Sair fica na barra compacta, ao lado do avatar; no telemóvel está no menu "Mais" (Silva, 15/10/2026) */}
+                    <button className="btn g iconbtn" onClick={vh.toggleTheme} title={t('Tema claro/escuro')}>
+                      <i className={'fa-solid ' + (st.theme === 'dark' ? 'fa-sun' : 'fa-moon')} />
+                    </button>
+                    {/* telemóvel: o menu deslizante (do lado direito), do tamanho dos outros botões (Silva, 15/10/2026) */}
+                    <button className="btn g iconbtn only-m" onClick={() => setGaveta(true)} title={t('Menu')} aria-label={t('Menu')}>
+                      <i className="fa-solid fa-bars" />
+                    </button>
+                  </span>
+                </div>
+              </header>
               <ImpBanner />
+            </div>
+            <main id="main">
               {!mostra.deny && <SwitcherBar title={mostra.scr.title} crumbs={mostra.scr.crumbs} dominios={mostra.scr.dominios} dominioUrl={mostra.scr.dominioUrl} />}
               {pesqPag.aberta && !mostra.deny && (
                 <PesquisaNaPagina
