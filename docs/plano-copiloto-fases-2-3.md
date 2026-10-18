@@ -1,7 +1,7 @@
 # Plano para o Copilot — trazer para o painel actual o que falta do painel antigo (Fases 2 e 3)
 
 Pedido do Silva (17/10/2026): estas duas fases passam ao Copilot. Este documento tem tudo o que é preciso para as
-implementar e publicar. Ler antes o `CLAUDE.md` (regras do Silva, todas valem) e o `AGENTS.md`.
+implementar e publicar. Ler antes `regras.md` (regras do Silva, todas valem) e o `AGENTS.md`.
 
 ## O que já está feito (Fase 1) e serve de modelo
 
@@ -69,7 +69,7 @@ No painel antigo são os casos `'templates-renovacao'`, `'cadastrar-renovacao'` 
 e `'hospedagem-pendentes'`. Em vez de três páginas, as Renovações podem ser **uma página com separadores**:
 Renovações | Registar | Modelos. É o melhor, segue o modelo das Encomendas.
 
-## Regras do Silva a confirmar em cada página (do `CLAUDE.md`)
+## Regras do Silva a confirmar em cada página (de `regras.md`)
 
 - **Separadores:** a faixa cinzenta de separadores só aparece com vários separadores. Não ter separadores soltos nem
   filtros numa linha de botões por cima da tabela.
@@ -91,12 +91,12 @@ Renovações | Registar | Modelos. É o melhor, segue o modelo das Encomendas.
 ## Como publicar (sem tocar no trabalho de outro agente)
 
 1. Ramo próprio a partir de `fix/contabo-websites-audit` actualizado, por exemplo `work/admin-fases-2-3`.
-2. Antes de pedir para publicar, mandar ao Silva o comando único do ponto 6 do `CLAUDE.md` para ver o ramo.
+2. Antes de pedir para publicar, mandar ao Silva o comando único do ponto 6 de `regras.md` para ver o ramo.
    **Atenção:** esse comando muda o ramo da pasta `visualdesign-producao`. Se outro agente estiver a trabalhar nessa
    pasta, avisar antes; as alterações dele ficam no stash.
 3. Só com o "publica" do Silva:
    - PR para `fix/contabo-websites-audit` e merge;
-   - título do merge **sem nome de IA** (ponto 7 do `CLAUDE.md`);
+   - título do merge **sem nome de IA** (ponto 7 de `regras.md`);
    - o deploy no Contabo corre sozinho.
 4. Depois de publicar: mandar ao Silva o hash do merge e o comando para actualizar o projecto local.
 

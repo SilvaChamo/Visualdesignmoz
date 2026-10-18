@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requirePanelBootstrapAccess } from '@/lib/panel-api-auth';
 import { executeServerCommand } from '@/lib/server-ssh-exec';
 import { hestiaCall } from '@/lib/hestia-client';
+import { EMAIL_PLANS } from '@/lib/email-plans';
+import { allocateEmailQuotas, type EmailQuotaChange } from '@/lib/email-quota-allocation';
 import { esquecerLeitura, lerServidor, type LeituraServidor } from '@/lib/vhost-servidor';
 import { lerRegisto, montarDados } from '@/lib/vhost-dados';
 import { COPIAR_PY, FERIAS_PY, RASTREIO_PY, VHOST_DIR } from '@/lib/vhost-email-scripts';
@@ -259,9 +261,9 @@ export async function POST(req: NextRequest) {
     return { ok: x.ok, error: x.error };
   };
   // `esquecer`: a alteração muda o que a leitura geral do servidor mostra (caixas, uso, domínios)
-  const resposta = (x: { ok: boolean; error?: string }, esquecer = true, mais: Record<string, unknown> = {}) => {
+  const resposta = (x: { ok: boolean; error?: string; status?: number }, esquecer = true, mais: Record<string, unknown> = {}) => {
     if (x.ok && esquecer) esquecerLeitura();
-    return NextResponse.json(x.ok ? { ok: true, ...mais } : { erro: x.error || 'O servidor recusou.' }, { status: x.ok ? 200 : 400 });
+    return NextResponse.json(x.ok ? { ok: true, ...mais } : { erro: x.error || 'O servidor recusou.' }, { status: x.ok ? 200 : x.status || 400 });
   };
   /** Corre vários comandos do Hestia por ordem; pára no primeiro que falhe */
   const seguidos = async (cmds: [string, string[]][]) => {
@@ -281,6 +283,93 @@ export async function POST(req: NextRequest) {
   const senhaOk = (v: unknown) => String(v ?? '').length >= 8 && !/[\r\n]/.test(String(v));
   const quota = (v: unknown) => (v === 'unlimited' || v === 0 || v === '0' || v === '' || v == null ? 'unlimited' : /^\d{1,7}$/.test(String(v)) ? String(v) : null);
   const limite = (v: unknown) => (v === '' || v == null || v === 0 || v === '0' ? null : /^\d{1,6}$/.test(String(v)) ? String(v) : 'x');
+  const pacoteEmail = EMAIL_PLANS.find((p) => p.hestiaPackage.toLowerCase() === String(srv.users[conta]?.PACKAGE || '').toLowerCase());
+  type MudancaQuota = EmailQuotaChange;
+  const calcularRedistribuicaoQuota = (
+    user: string,
+    novaQuotaPedida: string,
+    criar = false,
+  ): { ok: true; quotaAlvo: string; mudancas: MudancaQuota[] } | { ok: false; erro: string } | null => {
+    if (!pacoteEmail) return null;
+    const caixasConta = Object.entries(srv.mailAcc[conta] || {}).flatMap(([dominio, contasDominio]) =>
+      Object.entries(contasDominio).map(([nome, dados]) => {
+        const usadoBruto = String(dados.U_DISK ?? '').trim();
+        return {
+          domain: dominio,
+          user: nome,
+          usedMb: /^\d+(?:\.\d+)?$/.test(usadoBruto) ? Math.ceil(Number(usadoBruto)) : NaN,
+          quota: quota(dados.QUOTA) || 'unlimited',
+        };
+      }),
+    );
+    const distribuicao = allocateEmailQuotas({
+      mailboxes: caixasConta,
+      targetDomain: d,
+      targetUser: user,
+      requestedQuota: novaQuotaPedida,
+      storageGb: pacoteEmail.storageGb,
+      creating: criar,
+    });
+    if (!distribuicao.ok) return { ok: false, erro: distribuicao.error };
+    return {
+      ok: true,
+      quotaAlvo: distribuicao.targetQuota,
+      mudancas: distribuicao.changes.sort((a, b) => {
+        const reduzQuota = (mudanca: MudancaQuota) =>
+          (mudanca.previousQuota === 'unlimited' ? Infinity : Number(mudanca.previousQuota)) > Number(mudanca.newQuota);
+        return Number(reduzQuota(b)) - Number(reduzQuota(a));
+      }),
+    };
+  };
+  const limiteContasPlano = () => {
+    if (pacoteEmail) return pacoteEmail.accounts;
+    const valor = String(srv.packages[srv.users[conta]?.PACKAGE || '']?.MAIL_ACCOUNTS || '').trim();
+    const limitePacote = Number(valor);
+    return !valor || /^(unlimited|-1)$/i.test(valor) || !Number.isFinite(limitePacote) || limitePacote <= 0 ? null : Math.floor(limitePacote);
+  };
+  const totalCaixasConta = Object.values(srv.mailAcc[conta] || {}).reduce((total, contasDominio) => total + Object.keys(contasDominio).length, 0);
+  const aplicarQuotasRedistribuidas = async (
+    mudancas: MudancaQuota[],
+    aplicarAlvo: () => Promise<{ ok: boolean; error?: string }>,
+  ): Promise<{ ok: boolean; error?: string; status?: number }> => {
+    const aplicadas: MudancaQuota[] = [];
+    const repor = async () => {
+      const falhas: string[] = [];
+      for (const mudanca of aplicadas.reverse()) {
+        try {
+          const resultado = await call('v-change-mail-account-quota', [conta, mudanca.domain, mudanca.user, mudanca.previousQuota]);
+          if (!resultado.ok) falhas.push(mudanca.domain + '/' + mudanca.user);
+        } catch {
+          falhas.push(mudanca.domain + '/' + mudanca.user);
+        }
+      }
+      return falhas;
+    };
+    try {
+      for (const mudanca of mudancas) {
+        const resultado = await call('v-change-mail-account-quota', [conta, mudanca.domain, mudanca.user, mudanca.newQuota]);
+        if (!resultado.ok) {
+          const falhas = await repor();
+          return falhas.length
+            ? { ok: false, status: 500, error: `Falhou a redistribuição de quotas. Não foi possível repor automaticamente ${falhas.length} quota(s); verifique as caixas afectadas.` }
+            : { ok: false, error: resultado.error || 'O servidor recusou a redistribuição das quotas.' };
+        }
+        aplicadas.push(mudanca);
+      }
+      const alvo = await aplicarAlvo();
+      if (alvo.ok) return alvo;
+      const falhas = await repor();
+      return falhas.length
+        ? { ok: false, status: 500, error: `A alteração da caixa falhou e não foi possível repor automaticamente ${falhas.length} quota(s); verifique as caixas afectadas.` }
+        : alvo;
+    } catch (erro) {
+      const falhas = await repor();
+      const mensagem = erro instanceof Error ? erro.message : 'Erro inesperado ao redistribuir quotas.';
+      return falhas.length
+        ? { ok: false, status: 500, error: `${mensagem} Não foi possível repor automaticamente ${falhas.length} quota(s); verifique as caixas afectadas.` }
+        : { ok: false, error: mensagem };
+    }
+  };
 
   if (c.acao === 'dominio-ligar') {
     if (temMail) return recusa('Este domínio já tem e-mail neste servidor.');
@@ -298,7 +387,16 @@ export async function POST(req: NextRequest) {
       const qt = quota(c.quota);
       const lim = limite(c.limite);
       if (!qt || lim === 'x') return recusa('Quota ou limite inválido.');
-      const x = await call('v-add-mail-account', [conta, d, u, String(c.senha), qt]);
+      const maximoContas = limiteContasPlano();
+      if (maximoContas !== null && totalCaixasConta >= maximoContas) {
+        return recusa(`Este plano permite no máximo ${maximoContas} contas de e-mail e já tem ${totalCaixasConta}.`);
+      }
+      const distribuicao = calcularRedistribuicaoQuota(u, qt, true);
+      if (distribuicao && !distribuicao.ok) return recusa(distribuicao.erro);
+      const quotaNova = distribuicao?.ok ? distribuicao.quotaAlvo : qt;
+      const x = await aplicarQuotasRedistribuidas(distribuicao?.ok ? distribuicao.mudancas : [], () =>
+        call('v-add-mail-account', [conta, d, u, String(c.senha), quotaNova]),
+      );
       if (x.ok && lim) await call('v-change-mail-account-rate-limit', [conta, d, u, lim]);
       return resposta(x);
     }
@@ -308,13 +406,32 @@ export async function POST(req: NextRequest) {
       if (!senhaOk(c.senha)) return recusa('A palavra-passe precisa de pelo menos 8 caracteres.');
       return resposta(await call('v-change-mail-account-password', [conta, d, u, String(c.senha)]), false);
     }
+    case 'conta-quota': {
+      const u = caixa(c.user);
+      if (!caixas[u]) return recusa('Conta inexistente.');
+      const qt = quota(c.quota);
+      if (!qt) return recusa('Quota inválida.');
+      const distribuicao = calcularRedistribuicaoQuota(u, qt);
+      if (distribuicao && !distribuicao.ok) return recusa(distribuicao.erro);
+      const quotaNova = distribuicao?.ok ? distribuicao.quotaAlvo : qt;
+      return resposta(await aplicarQuotasRedistribuidas(distribuicao?.ok ? distribuicao.mudancas : [], () =>
+        call('v-change-mail-account-quota', [conta, d, u, quotaNova]),
+      ));
+    }
     case 'conta-limites': {
       const u = caixa(c.user);
       if (!caixas[u]) return recusa('Conta inexistente.');
       const qt = quota(c.quota);
       const lim = limite(c.limite);
       if (!qt || lim === 'x') return recusa('Quota ou limite inválido.');
-      return resposta(await seguidos([['v-change-mail-account-quota', [conta, d, u, qt]], ['v-change-mail-account-rate-limit', [conta, d, u, lim || 'unlimited']]]));
+      const distribuicao = calcularRedistribuicaoQuota(u, qt);
+      if (distribuicao && !distribuicao.ok) return recusa(distribuicao.erro);
+      const quotaNova = distribuicao?.ok ? distribuicao.quotaAlvo : qt;
+      const resultadoQuota = await aplicarQuotasRedistribuidas(distribuicao?.ok ? distribuicao.mudancas : [], () =>
+        call('v-change-mail-account-quota', [conta, d, u, quotaNova]),
+      );
+      if (!resultadoQuota.ok) return resposta(resultadoQuota);
+      return resposta(await call('v-change-mail-account-rate-limit', [conta, d, u, lim || 'unlimited']));
     }
     case 'contas-suspender':
     case 'contas-reativar':

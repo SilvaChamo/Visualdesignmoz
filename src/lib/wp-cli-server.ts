@@ -481,9 +481,13 @@ export async function deleteWpUser(
 export async function generateWpAutoLoginToken(
   domain: string,
   username?: string,
+  postId?: number,
 ): Promise<{ success: boolean; url?: string; error?: string }> {
   const install = await resolveWpInstall(domain);
   if (!install) return { success: false, error: 'WordPress não encontrado neste domínio' };
+  if (postId !== undefined && (!Number.isSafeInteger(postId) || postId <= 0)) {
+    return { success: false, error: 'Página inválida.' };
+  }
 
   // Sem utilizador indicado (botão "Painel do WordPress"): entra como o
   // primeiro administrador do site.
@@ -506,6 +510,7 @@ export async function generateWpAutoLoginToken(
   const token = crypto.randomUUID();
   const filename = `wp-login-${token}.php`;
   const filePath = `${install.path}/${filename}`;
+  const destino = postId === undefined ? 'admin_url()' : `admin_url('post.php?post=${postId}&action=edit')`;
 
   const phpContent = `<?php
 // Autologin gerado pelo painel
@@ -516,7 +521,7 @@ if ($user) {
     wp_clear_auth_cookie();
     wp_set_current_user($user->ID);
     wp_set_auth_cookie($user->ID, true);
-    wp_safe_redirect(admin_url());
+    wp_safe_redirect(${destino});
     exit;
 } else {
     echo "Erro: Utilizador não encontrado.";
@@ -639,4 +644,3 @@ export async function getWpUser(domain: string, username: string): Promise<WpUse
     return null;
   }
 }
-

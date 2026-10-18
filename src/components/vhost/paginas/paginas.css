@@ -5844,7 +5844,33 @@
 
 .vh .em-lista-card>.tbl {
    flex: 1;
-   min-height: 0
+   min-height: 0;
+   margin-bottom: 0
+}
+
+.vh .em-quota-editar {
+   padding: 4px 0;
+   border: 0;
+   background: none;
+   color: var(--ink);
+   font: inherit;
+   text-align: left;
+   cursor: pointer
+}
+
+.vh .em-quota-editar:hover {
+   text-decoration: underline
+}
+
+.vh .em-quota-input {
+   width: 84px;
+   min-width: 0;
+   padding: 4px 6px;
+   border: 1px solid var(--line);
+   border-radius: 3px;
+   background: var(--card);
+   color: var(--ink);
+   font: inherit
 }
 
 .vh .em-lista-card .tbl th:not(.ck),
@@ -5853,14 +5879,14 @@
 }
 
 @media(min-width:769px) {
-   .vh .em-lista-card .tbl th:nth-child(3),
+   .vh .em-lista-card .tbl th:nth-child(4),
    .vh .em-lista-card .tbl td:has(.em-uso) {
       padding-left: 24px
    }
 }
 
 @media(min-width:1601px) {
-   .vh .em-lista-card .tbl th:nth-child(3),
+   .vh .em-lista-card .tbl th:nth-child(4),
    .vh .em-lista-card .tbl td:has(.em-uso) {
       padding-left: 12px
    }
@@ -6080,7 +6106,8 @@
    .vh main {
       padding-top: 20px;
       padding-left: 20px;
-      padding-right: 20px
+      padding-right: 20px;
+      padding-bottom: 20px
    }
 
    .vh .da-switcher-bar,
@@ -8244,21 +8271,10 @@
    }
 }
 
-/* colunas que saem nos ecrãs mais estreitos para a tabela caber (DataTable `ate`); no telemóvel voltam, em blocos */
-@media(min-width:769px) and (max-width:1600px) {
-   .vh .tbl .dt-ate-1600 {
-      display: none
-   }
-}
-
-@media(min-width:769px) and (max-width:1300px) {
-   .vh .tbl .dt-ate-1300 {
-      display: none
-   }
-}
-
+/* As colunas DataTable `ate` mantêm-se acessíveis por deslocamento horizontal no computador;
+   no telemóvel, as tabelas passam a blocos e mostram todas as colunas. */
 @media(min-width:769px) and (max-width:1050px) {
-   .vh .tbl .dt-ate-1050 {
+   .vh .tbl :is(.dt-ate-1050, .dt-ate-1300, .dt-ate-1600) {
       display: none
    }
 }
@@ -10021,20 +10037,6 @@
    }
 }
 
-/* portátil (1051–1300 px): como nas outras tabelas do painel, saem as colunas menos importantes (Método e Data) e a
-   descrição parte linha, para a tabela caber sem barra de deslocar */
-@media(min-width:1051px) and (max-width:1300px) {
-   .vh .vh-facturacao :is(th, td):is(:nth-child(3), :nth-child(5)) {
-      display: none
-   }
-
-   .vh .vh-facturacao td:first-child,
-   .vh .vh-facturacao td:first-child>div {
-      white-space: normal;
-      max-width: none
-   }
-}
-
 /* Listas do painel: alterna o fundo das linhas sem cobrir selecção, realce ou passagem do rato. */
 .vh .tbl tbody tr[data-k]:nth-child(even):not(.sel):not(.dt-realce):not(:hover) > td {
    background: color-mix(in srgb, var(--card) 65%, var(--soft))
@@ -10052,4 +10054,45 @@
 
 .vh .site-contas-link:hover {
    color: var(--red)
+}
+
+@media(min-width:1051px) {
+   .vh .tbl th,
+   .vh .tbl td,
+   .vh .tbl th *,
+   .vh .tbl td *,
+   .vh .vh-facturacao th,
+   .vh .vh-facturacao td,
+   .vh .vh-facturacao th *,
+   .vh .vh-facturacao td * {
+      white-space: nowrap !important
+   }
+
+}
+
+@media(min-width:1051px) and (max-width:1600px) {
+   .vh .tbl .cell .em-conta-sub {
+      max-width: none
+   }
+
+   .vh .em-lista-card .tbl td .cell > div > b {
+      display: inline
+   }
+
+   .vh .em-lista-card .tbl td .cell > div > b wbr {
+      display: none
+   }
+
+   .vh .em-lista-card .tbl td .em-conta-sub,
+   .vh .em-lista-card .tbl td .em-env small {
+      display: inline;
+      margin-left: 4px
+   }
+}
+
+@media(min-width:1920px) {
+   .vh .sites-contas-lista .tbl tbody td {
+      padding-top: 10px;
+      padding-bottom: 10px
+   }
 }

@@ -1156,9 +1156,9 @@ const AUTO: Record<string, string> = { true: 'Todas', minor: 'Só de segurança'
 
 /** Abre o painel do WordPress já com sessão. A janela abre-se logo no clique (depois de esperar pelo servidor o
  *  navegador bloqueava-a) e recebe o endereço quando ele chega; se falhar, fecha-se e aparece o motivo. */
-async function entrarWp(vh: VH, d: string, user?: string) {
+async function entrarWp(vh: VH, d: string, user?: string, postId?: number) {
   const w = window.open('about:blank', '_blank');
-  const j = await noServidor(vh, { acao: 'wp-entrar', dominio: d, ...(user ? { user } : {}) }, 'A abrir o painel do WordPress…');
+  const j = await noServidor(vh, { acao: 'wp-entrar', dominio: d, ...(user ? { user } : {}), ...(postId ? { postId } : {}) }, 'A abrir o painel do WordPress…');
   if (j?.url && w) {
     w.opener = null;
     w.location.href = String(j.url);
@@ -1825,17 +1825,10 @@ function WpPaginas({ d }: { d: string }) {
                 {t('Ver')}
               </a>
             )}
-            {r.elementor ? (
-              // feita com o Elementor: o editor de blocos estragava-a; edita-se no WordPress
-              <button className="btn sm g" onClick={() => entrarWp(vh, d)} title={t('Feita com o Elementor: edita-se no WordPress')}>
-                {t('Editar no WordPress')}
-              </button>
-            ) : (
-              <button className="btn sm btn-ed" onClick={() => nav('/utilizador/wordpress/' + enc(d) + '/paginas/' + r.ID)}>
-                <i className="fa-solid fa-pen" />
-                {t('Editar')}
-              </button>
-            )}
+            <button className="btn sm g" onClick={() => entrarWp(vh, d, undefined, r.ID)} title={t('Editar no WordPress')}>
+              <i className="fa-solid fa-pen" />
+              {t('Editar no WordPress')}
+            </button>
           </span>
         )}
       />

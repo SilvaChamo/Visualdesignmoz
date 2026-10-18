@@ -196,6 +196,7 @@ export interface Col<T> {
   /** começa escondida (quem quiser liga-a no "Colunas"; a escolha fica guardada neste navegador) */
   oculta?: boolean;
   right?: boolean;
+  center?: boolean;
   /** sai nos ecrãs de computador/portátil até esta largura, para a tabela caber sem barra de deslocar (pedido do Silva,
    *  13/10/2026: colunas apertadas a 1440 e 1280); no telemóvel, em blocos, volta a aparecer */
   ate?: 1600 | 1300 | 1050;
@@ -642,7 +643,7 @@ export function DataTable<T>({
                   <th
                     key={c.k}
                     className={[c.sort ? 'srt' : '', c.ate ? 'dt-ate-' + c.ate : ''].filter(Boolean).join(' ') || undefined}
-                    style={c.right ? { textAlign: 'right' } : undefined}
+                    style={c.center ? { textAlign: 'center' } : c.right ? { textAlign: 'right' } : undefined}
                     onClick={c.sort ? () => setSort(sort?.k === c.k ? { k: c.k, dir: sort.dir === 1 ? -1 : 1 } : { k: c.k, dir: 1 }) : undefined}
                   >
                     {t(c.t)}
@@ -666,7 +667,7 @@ export function DataTable<T>({
                       </td>
                     )}
                     {vcols.map((c) => (
-                      <td key={c.k} data-t={t(c.t)} className={c.ate ? 'dt-ate-' + c.ate : undefined} style={c.right ? { textAlign: 'right' } : undefined}>
+                      <td key={c.k} data-t={t(c.t)} className={c.ate ? 'dt-ate-' + c.ate : undefined} style={c.center ? { textAlign: 'center' } : c.right ? { textAlign: 'right' } : undefined}>
                         {c.cell(r)}
                       </td>
                     ))}

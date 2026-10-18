@@ -1,12 +1,12 @@
 ---
-description: Regras do projecto VisualDesign para qualquer IA (sempre em português; publicações sem o nome da IA; regras completas no CLAUDE.md)
+description: Regras do projecto VisualDesign para qualquer IA (sempre em português; publicações sem o nome da IA; regras completas em regras.md)
 alwaysApply: true
 ---
 
-# Regras do projecto para qualquer IA (Claude, Cursor, Copilot, Codex, Gemini…)
+# Regras do projecto para qualquer IA (Cursor, Copilot, Codex, Gemini…)
 
-As regras completas de trabalho deste projecto estão no `CLAUDE.md`, na raiz — lê-o inteiro antes de começar: valem
-para qualquer IA, não só para o Claude. Este ficheiro repete a regra abaixo para as IAs que não leem o `CLAUDE.md`
+As regras completas de trabalho deste projecto estão em `regras.md`, na raiz — lê-o inteiro antes de começar: valem
+para qualquer IA. Este ficheiro repete a regra abaixo para as IAs que não leem `regras.md`
 (o mesmo texto está em `AGENTS.md`, `GEMINI.md`, `.github/copilot-instructions.md` e
 `.cursor/rules/regras-do-projecto.mdc` — se mudar, muda-se em todos).
 
