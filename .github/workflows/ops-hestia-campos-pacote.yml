@@ -1,0 +1,45 @@
+name: Ops - Campos de pacote do Hestia (só leitura)
+
+# Mostra o que o Hestia deste servidor aceita num pacote: versão, os pacotes existentes, como o Hestia valida cada
+# campo e que comandos de pacote existem. NÃO altera nada.
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: ops-hestia-campos-pacote
+  cancel-in-progress: false
+
+jobs:
+  ler:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ler campos de pacote (só leitura)
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          username: root
+          password: ${{ secrets.CONTABO_ROOT_PASSWORD }}
+          command_timeout: 5m
+          script: |
+            H=/usr/local/hestia
+            echo "=== versão do Hestia ==="
+            dpkg -s hestia 2>/dev/null | grep -i '^Version'
+            echo "=== comandos de pacote ==="
+            ls $H/bin | grep -i package
+            echo "=== default.pkg ==="
+            cat $H/data/packages/default.pkg
+            echo "=== chaves usadas em todos os pacotes (sem TIME/DATE) ==="
+            cat $H/data/packages/*.pkg | grep -v "^TIME=\|^DATE=" | sed "s/=.*//" | sort | uniq -c | sort -rn
+            echo "=== pacotes existentes ==="
+            for f in $H/data/packages/*.pkg; do echo "--- $(basename $f .pkg)"; grep -v "^TIME=\|^DATE=\|_TEMPLATE=\|^NS=\|^SHELL=" "$f" | tr '\n' ' '; echo; done
+            echo "=== v-add-user-package (o que valida) ==="
+            grep -n "is_format_valid\|is_package\|check_result\|cp \|source\|\. " $H/bin/v-add-user-package | head -40
+            echo "=== formatos aceites (func/main.sh) ==="
+            grep -n -i "cpu_quota\|memory_limit\|swap_limit\|rate_limit\|backups_incremental\|dns_records\|mail_domains\|disk_quota\|bandwidth\|shell" $H/func/main.sh | head -70
+            echo "=== o que v-change-user-package copia do pacote ==="
+            grep -n -i "cpu_quota\|memory_limit\|swap_limit\|rate_limit\|backups\|DISK_QUOTA" $H/bin/v-change-user-package | head -30
+            echo "=== v-update-user-package ==="
+            [ -f $H/bin/v-update-user-package ] && sed -n 1,40p $H/bin/v-update-user-package || echo "(não existe)"
+            echo "=== modelos disponíveis ==="
+            ls $H/data/templates/web 2>/dev/null | head -20; ls $H/data/templates/web/nginx 2>/dev/null | head -20
