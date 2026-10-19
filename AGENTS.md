@@ -14,7 +14,7 @@ de uma pausa ou de recomeçar a sessão.
 
 ## As publicações não levam o nome da inteligência artificial (Silva, 16/10/2026)
 
-Publicar = juntar (merge) um PR em `fix/contabo-websites-audit`, o que publica o site em produção (Contabo). Só se
+Publicar = juntar (merge) um PR em `main`, o que publica o site em produção (Contabo). Só se
 publica quando o Silva disser "publica"/"publique".
 
 O título do merge fica só `Merge pull request #N from SilvaChamo-<fim do ramo>` — de preferência o mais curto, ex.:
