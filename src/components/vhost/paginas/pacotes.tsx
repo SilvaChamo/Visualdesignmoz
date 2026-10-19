@@ -12,15 +12,35 @@ import {
   FUNC_REVENDA,
   FUNC_UTILIZADOR,
   IDIOMAS,
+  LIMITES_HESTIA,
   LIMITES_REVENDA,
   LIMITES_UTILIZADOR,
+  MODELOS_BACKEND,
+  MODELOS_DNS,
+  MODELOS_PROXY,
+  MODELOS_WEB,
   RECURSOS,
+  comExtras,
+  extrasDoPacote,
   limTxt,
   pacoteRevendaVazio,
   pacoteVazio,
+  type Lim,
   type PacoteRevenda,
   type PacoteUtilizador,
 } from './dados';
+import { SHELLS_HESTIA } from '@/lib/pacote-hestia';
+
+const SHELL_ROTULOS: Record<string, string> = {
+  nologin: 'Sem acesso (nologin)',
+  bash: 'SSH normal (bash)',
+  rbash: 'SSH restrito (rbash)',
+  jailbash: 'SSH isolado (jailbash)',
+  sh: 'sh',
+  dash: 'dash',
+  screen: 'screen',
+  tmux: 'tmux',
+};
 
 type Tipo = 'cliente' | 'revenda';
 const set = <T extends object>(o: T, k: keyof T, v: unknown): T => ({ ...o, [k]: v });
@@ -33,9 +53,90 @@ export function FormPacoteUtilizador({ value, onChange, conta }: { value: Pacote
       <Frm title="Limites" desc={conta ? 'Mudar os limites desta conta' : 'O que cada conta com este pacote pode usar'}>
         <Limites campos={LIMITES_UTILIZADOR} lim={value.lim} set={(k, l) => onChange(set(value, 'lim', { ...value.lim, [k]: l }))} />
       </Frm>
+      {!conta && (
+        <Frm title="Limites do servidor" desc="Domínios de e-mail e DNS, tarefas agendadas, cópias de segurança e envio de e-mail (gravam-se no pacote do servidor)">
+          <Limites
+            campos={LIMITES_HESTIA}
+            lim={value.lim}
+            set={(k, l) => {
+              // o limite de tarefas e de DNS e o "ligado/desligado" da funcionalidade são a mesma coisa
+              const liga = (x: Lim) => x.unl || Number(x.v) > 0;
+              const feats = k === 'cronjobs' ? { ...value.feats, cron: liga(l) } : k === 'dnsdomains' ? { ...value.feats, dns: liga(l) } : value.feats;
+              onChange({ ...value, lim: { ...value.lim, [k]: l }, feats });
+            }}
+          />
+        </Frm>
+      )}
       <Frm title="Funcionalidades" desc={conta ? 'Ligar ou desligar funcionalidades desta conta' : 'O que a conta vê no menu'}>
-        <Funcionalidades campos={FUNC_UTILIZADOR} feats={value.feats} set={(k, v) => onChange(set(value, 'feats', { ...value.feats, [k]: v }))} />
+        <Funcionalidades
+          campos={FUNC_UTILIZADOR}
+          feats={value.feats}
+          set={(k, v) => {
+            const feats = { ...value.feats, [k]: v };
+            if (conta) return onChange(set(value, 'feats', feats));
+            // no pacote do servidor, o SSH, o cron e o DNS são o shell e os limites: mudam juntos
+            const lim = { ...value.lim };
+            const hestia = { ...(value.hestia || {}) };
+            if (k === 'ssh' || k === 'jail') {
+              if (k === 'jail' && v) feats.ssh = true;
+              hestia.SHELL = feats.ssh ? (feats.jail ? 'jailbash' : 'bash') : 'nologin';
+              if (!feats.ssh) feats.jail = false;
+            }
+            if (k === 'cron') lim.cronjobs = v ? (lim.cronjobs?.unl || Number(lim.cronjobs?.v) > 0 ? lim.cronjobs : { v: '', unl: true }) : { v: '0', unl: false };
+            if (k === 'dns') lim.dnsdomains = v ? (lim.dnsdomains?.unl || Number(lim.dnsdomains?.v) > 0 ? lim.dnsdomains : { v: '', unl: true }) : { v: '0', unl: false };
+            onChange({ ...value, feats, lim, hestia });
+          }}
+        />
       </Frm>
+      {!conta && (
+        <Frm title="Definições do servidor" desc="Acesso por linha de comandos, servidores de nomes, cópias incrementais e modelos (gravam-se no pacote do servidor)">
+          <Row label="Acesso por linha de comandos (shell)" hint="Sem acesso, SSH normal, restrito ou isolado.">
+            <select
+              value={value.hestia?.SHELL || 'nologin'}
+              onChange={(e) => {
+                const shell = e.target.value;
+                onChange({
+                  ...value,
+                  hestia: { ...(value.hestia || {}), SHELL: shell },
+                  feats: { ...value.feats, ssh: shell !== 'nologin', jail: shell === 'jailbash' },
+                });
+              }}
+            >
+              {SHELLS_HESTIA.map((x) => (
+                <option key={x} value={x}>
+                  {SHELL_ROTULOS[x] || x}
+                </option>
+              ))}
+            </select>
+          </Row>
+          <Row label="Servidores de nomes (NS)" hint="Separados por vírgulas, por ordem. Ex.: ns3.visualdesignmoz.com,ns4.visualdesignmoz.com">
+            <input value={value.hestia?.NS || ''} onChange={(e) => onChange({ ...value, hestia: { ...(value.hestia || {}), NS: e.target.value } })} />
+          </Row>
+          <Row label="Cópias de segurança incrementais" hint="Sim: guarda só o que mudou desde a última cópia.">
+            <select value={value.hestia?.BACKUPS_INCREMENTAL || 'no'} onChange={(e) => onChange({ ...value, hestia: { ...(value.hestia || {}), BACKUPS_INCREMENTAL: e.target.value } })}>
+              <option value="no">Não</option>
+              <option value="yes">Sim</option>
+            </select>
+          </Row>
+          {(
+            [
+              ['WEB_TEMPLATE', 'Modelo do site', MODELOS_WEB],
+              ['PROXY_TEMPLATE', 'Modelo do proxy', MODELOS_PROXY],
+              ['BACKEND_TEMPLATE', 'Modelo do PHP', MODELOS_BACKEND],
+              ['DNS_TEMPLATE', 'Modelo do DNS', MODELOS_DNS],
+            ] as const
+          ).map(([k, rotulo, opcoes]) => (
+            <Row key={k} label={rotulo} hint="Os sites novos desta conta nascem com este modelo.">
+              <input list={'vh-' + k} value={value.hestia?.[k] || ''} placeholder="default" onChange={(e) => onChange({ ...value, hestia: { ...(value.hestia || {}), [k]: e.target.value } })} />
+              <datalist id={'vh-' + k}>
+                {opcoes.map((x) => (
+                  <option key={x} value={x} />
+                ))}
+              </datalist>
+            </Row>
+          ))}
+        </Frm>
+      )}
       <Frm title="Definições adicionais">
         {/* os temas do painel (Personalizar): ao escolher, as contas deste plano abrem com ele (Silva, 16/10/2026) */}
         <Row label="Tema">
@@ -257,7 +358,9 @@ function EditarPacote({ tipo, nome }: { tipo: Tipo; nome: string | null }) {
   const fonte = tipo === 'cliente' ? s.db.pkgs : s.db.rpkgs;
   const [p, setP] = useState<PacoteUtilizador | PacoteRevenda>(() =>
     (() => {
-      const p = structuredClone(nome ? fonte[nome] : tipo === 'cliente' ? pacoteVazio() : pacoteRevendaVazio());
+      const base = structuredClone(nome ? fonte[nome] : tipo === 'cliente' ? pacoteVazio() : pacoteRevendaVazio());
+      // o que o Hestia não guarda (inodes, funcionalidades do painel, IO…) vem do que ficou guardado neste painel
+      const p = tipo === 'cliente' && nome ? comExtras(base as PacoteUtilizador, s.extrasPlano?.[nome]) : base;
       // o tema do plano vem do servidor (Admin › Pacotes › Tema), não do ficheiro do Hestia
       if (tipo === 'cliente') (p as PacoteUtilizador).tema = (nome && s.temasPlano?.[nome]) || 'visualdesign';
       return p;
@@ -267,15 +370,14 @@ function EditarPacote({ tipo, nome }: { tipo: Tipo; nome: string | null }) {
   const [renomear, setRenomear] = useState(false);
   // Pacotes de cliente: criam-se e gravam-se no servidor (antes: "Ainda não ligado ao servidor")
   const gravarNoServidor = async (n: string) => {
-    if (nome && n !== nome) return toast(t('Mudar o nome de um pacote que já existe ainda não é possível: crie um novo com o nome que quer.'));
     const pu = p as PacoteUtilizador;
     const { feitas } = await noServidorDetalhe(
       vh,
-      { acao: 'pacote-gravar', gravar: { nome: n, editar: !!nome, lim: pu.lim, feats: pu.feats } },
+      { acao: 'pacote-gravar', gravar: { nome: n, ...(nome && n !== nome ? { de: nome } : {}), editar: !!nome, lim: pu.lim, feats: pu.feats, rec: pu.rec, hestia: pu.hestia } },
       () => (nome ? 'Pacote ' + n + ' gravado' : 'Pacote ' + n + ' criado'),
     );
     if (!feitas.length) return;
-    await fetch('/api/vhost/acessos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ temas: { [n]: pu.tema } }) }).catch(() => {});
+    await fetch('/api/vhost/acessos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ temas: { [n]: pu.tema }, extras: { [n]: extrasDoPacote(pu) } }) }).catch(() => {});
     nav(base);
   };
   const gravar = () => {

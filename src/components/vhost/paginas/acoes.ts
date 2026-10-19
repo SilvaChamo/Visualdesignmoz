@@ -8,7 +8,19 @@ export type AcaoServidor =
   | { acao: 'senha'; contas: string[]; senha: string }
   | { acao: 'mover'; contas: string[]; para: string }
   | { acao: 'tipo'; contas: string[]; tipo: string }
-  | { acao: 'pacote-gravar'; gravar: { nome: string; editar?: boolean; lim: Record<string, { v: string; unl: boolean; unit?: string }>; feats: Record<string, boolean> } }
+  | {
+      acao: 'pacote-gravar';
+      gravar: {
+        nome: string;
+        /** nome antigo, ao mudar o nome de um pacote que já existe */
+        de?: string;
+        editar?: boolean;
+        lim: Record<string, { v: string; unl: boolean; unit?: string }>;
+        feats: Record<string, boolean>;
+        rec?: Record<string, { v: string; unl: boolean; unit?: string }>;
+        hestia?: Record<string, string>;
+      };
+    }
   | { acao: 'pacote-apagar'; pacotes: string[] }
   | { acao: 'criar'; criar: { user: string; nome?: string; email: string; senha: string; dominio?: string; pacote: string } };
 

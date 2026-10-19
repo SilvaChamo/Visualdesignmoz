@@ -90,7 +90,9 @@ export function Senha({ value, onChange }: { value: string; onChange: (v: string
 }
 
 /** Um limite: valor (+ unidade) e "Ilimitado" */
-export function LimInput({ c, value, onChange }: { c: Campo; value: Lim; onChange: (l: Lim) => void }) {
+export function LimInput({ c, value: valor, onChange }: { c: Campo; value: Lim; onChange: (l: Lim) => void }) {
+  // campo "fixo": o Hestia só aceita um número (sem "Ilimitado")
+  const value = c.fixo ? { ...valor, unl: false } : valor;
   return (
     <>
       <div className="igrp">
@@ -103,7 +105,7 @@ export function LimInput({ c, value, onChange }: { c: Campo; value: Lim; onChang
           </select>
         )}
       </div>
-      <Check checked={value.unl} onChange={(unl) => onChange({ ...value, unl })} label="Ilimitado" muted />
+      {!c.fixo && <Check checked={value.unl} onChange={(unl) => onChange({ ...value, unl })} label="Ilimitado" muted />}
     </>
   );
 }

@@ -7,6 +7,7 @@
 import { hestiaCall, hestiaCallJson } from '@/lib/hestia-client';
 import { executeServerCommand } from '@/lib/server-ssh-exec';
 import { getPhpMyAdminUrl } from '@/lib/server-config';
+import { juntarCamposPacote } from '@/lib/pacote-hestia';
 
 function isAlreadyExistsError(error?: string): boolean {
   return (error || '').toLowerCase().includes('exists');
@@ -1234,27 +1235,39 @@ export async function changeWebDomainPhp(
 /**
  * Cria ou regrava um pacote de cliente no Hestia (Admin › Pacotes › Novo/Editar — Silva, 16/10/2026: "criar pacotes diz
  * que ainda não está ligado ao servidor"). Parte do ficheiro do próprio pacote (ao editar) ou do `default.pkg` (ao
- * criar) e muda só os campos dados; o Hestia lê o ficheiro com `v-add-user-package PASTA NOME yes`.
+ * criar) e muda só os campos dados; o Hestia lê o ficheiro com `v-add-user-package FICHEIRO NOME yes` (é um FICHEIRO,
+ * não uma pasta — com uma pasta dava "… does not exist"). Mudar o nome usa `v-rename-user-package` (do próprio Hestia).
+ * `exatos`: campos que o formulário mandou com o valor exato (os outros, só sim/não, não mudam um valor que já cumpre).
  */
-export async function gravarPacote(nome: string, campos: Record<string, string>, editar: boolean): Promise<{ ok: boolean; error?: string }> {
-  if (!/^[A-Za-z0-9_-]{1,40}$/.test(nome) || nome === 'system') return { ok: false, error: 'Nome de pacote inválido (letras, números, - e _).' };
+export async function gravarPacote(
+  nome: string,
+  campos: Record<string, string>,
+  editar: boolean,
+  de?: string,
+  exatos: string[] = [],
+): Promise<{ ok: boolean; error?: string }> {
+  const valido = (n: string) => /^[A-Za-z0-9_-]{1,40}$/.test(n) && n !== 'system';
+  if (!valido(nome)) return { ok: false, error: 'Nome de pacote inválido (letras, números, - e _).' };
+  const renomear = de !== undefined && de !== nome;
+  if (renomear && (!editar || !valido(de as string) || de === 'default')) return { ok: false, error: 'Não é possível mudar o nome deste pacote.' };
   const pastaPacotes = '/usr/local/hestia/data/packages';
-  const base = editar ? nome : 'default';
-  const atual = await executeServerCommand(`cat ${pastaPacotes}/${base}.pkg 2>/dev/null`).catch(() => '');
-  if (editar && !atual.trim()) return { ok: false, error: 'Esse pacote não existe no servidor.' };
-  const linhas = new Map<string, string>();
-  for (const l of atual.split('\n')) {
-    const m = l.match(/^([A-Z_]+)='(.*)'$/);
-    if (m) linhas.set(m[1], m[2]);
+  const existe = async (n: string) => (await executeServerCommand(`[ -f ${pastaPacotes}/${n}.pkg ] && echo SIM`).catch(() => '')).includes('SIM');
+  // criar ou mudar o nome: o nome novo não pode já existir (o Hestia regravava por cima do pacote que lá estava)
+  if ((!editar || renomear) && (await existe(nome))) return { ok: false, error: 'Já existe um pacote com esse nome no servidor.' };
+  if (renomear) {
+    if (!(await existe(de as string))) return { ok: false, error: 'Esse pacote não existe no servidor.' };
+    const rn = await hestiaCall('v-rename-user-package', [de as string, nome, 'yes']);
+    if (!rn.ok) return { ok: false, error: rn.error || 'O servidor recusou mudar o nome do pacote.' };
   }
-  for (const [k, v] of Object.entries(campos)) if (/^[A-Z_]+$/.test(k) && /^[A-Za-z0-9_.,:-]*$/.test(v)) linhas.set(k, v);
-  const texto = [...linhas].map(([k, v]) => `${k}='${v}'`).join('\n') + '\n';
-  const pasta = `/tmp/vh-pacote-${Date.now()}`;
+  const atual = await executeServerCommand(`cat ${pastaPacotes}/${editar ? nome : 'default'}.pkg 2>/dev/null`).catch(() => '');
+  if (editar && !atual.trim()) return { ok: false, error: 'Esse pacote não existe no servidor.' };
+  const texto = juntarCamposPacote(atual, campos, editar, exatos);
+  const ficheiro = `/tmp/vh-pacote-${Date.now()}-${nome}.pkg`;
   const b64 = Buffer.from(texto, 'utf8').toString('base64');
   try {
     // o Hestia escreve os erros na saída normal e o fim nem sempre vem com código ≠ 0: só "VH_OK" confirma
     const saida = await executeServerCommand(
-      `mkdir -p ${pasta} && echo ${b64} | base64 -d > ${pasta}/${nome}.pkg && /usr/local/hestia/bin/v-add-user-package ${pasta} ${nome} yes 2>&1; r=$?; rm -rf ${pasta}; [ $r = 0 ] && echo VH_OK`,
+      `echo ${b64} | base64 -d > ${ficheiro} && /usr/local/hestia/bin/v-add-user-package ${ficheiro} ${nome} yes 2>&1; r=$?; rm -f ${ficheiro}; [ $r = 0 ] && echo VH_OK`,
     );
     if (saida.includes('VH_OK')) return { ok: true };
     return { ok: false, error: saida.replace('VH_OK', '').trim() || 'O servidor recusou o pacote.' };
