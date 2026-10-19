@@ -659,7 +659,13 @@ export async function exportDatabaseFile(
   const dump = `mysqldump --single-transaction --quick --hex-blob --routines --triggers --default-character-set=utf8mb4 ${id}`;
   const cmd = gzip ? `${dump} | gzip -c > ${tmp}` : `${dump} > ${tmp}`;
   try {
-    await executeServerCommand(`${cmd} && test -s ${tmp} && echo OK`);
+    // o resultado vai numa marca com o código (EXPRES:0 = ficheiro criado e não vazio): num servidor que corre os
+    // comandos localmente, um comando que falha devolve o texto do próprio comando e antes isto dava sempre sucesso
+    const saida = await executeServerCommand(`${cmd} && test -s ${tmp}; echo "EXPRES:$?"`);
+    if (!/^EXPRES:0\s*$/m.test(saida)) {
+      await executeServerCommand(`rm -f ${tmp}`).catch(() => '');
+      return { ok: false, error: saida.replace(/^EXPRES:\d+\s*$/m, '').trim() || 'Exportação falhou' };
+    }
     return { ok: true, filePath: tmp };
   } catch (e: unknown) {
     await executeServerCommand(`rm -f ${tmp}`).catch(() => '');
