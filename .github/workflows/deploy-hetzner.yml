@@ -1,15 +1,12 @@
 name: Deploy to Hetzner
 
 on:
-  push:
-    branches:
-      - main
-    # só documentação ou tarefas de manutenção (ops-*, migrate-*): não reconstrói o site (Silva, 14/10/2026 — cada
-    # publicação era um corte no site)
-    paths-ignore:
-      - '**/*.md'
-      - '.github/workflows/ops-*.yml'
-      - '.github/workflows/migrate-*.yml'
+  # Hetzner desligado em 2026-10-19 — o site a sério passou a ser servido pela
+  # Contabo (ver deploy-contabo.yml, agora também a disparar a cada push a
+  # main). Deixou de disparar sozinho para não falhar em cada push; fica só
+  # manual, para o caso de o Hetzner voltar a ligar-se. O paths-ignore que
+  # existia aqui só fazia sentido com o gatilho push; sem ele, não é preciso.
+  workflow_dispatch:
 
 # uma publicação de cada vez: um push novo espera que a anterior acabe (duas sobrepostas já estragaram node_modules)
 concurrency:

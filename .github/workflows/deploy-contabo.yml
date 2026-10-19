@@ -15,7 +15,17 @@ name: Deploy to Contabo (teste)
 # ============================================================================
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
+
+# uma publicação de cada vez: um push novo espera que a anterior acabe (mesma
+# protecção que o deploy-hetzner.yml já tinha, por causa de duas publicações
+# sobrepostas terem estragado o node_modules)
+concurrency:
+  group: deploy-contabo
+  cancel-in-progress: false
 
 jobs:
   deploy:
