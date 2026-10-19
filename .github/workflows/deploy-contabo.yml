@@ -15,9 +15,6 @@ name: Deploy to Contabo (teste)
 # ============================================================================
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
 
 # uma publicação de cada vez: um push novo espera que a anterior acabe (mesma
