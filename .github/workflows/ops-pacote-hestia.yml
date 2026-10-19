@@ -103,7 +103,7 @@ jobs:
                             soma += qn
                         print('   %s@%s | usado %s MB | quota %s%s' % (a, dom, x.get('U_DISK'), q, ' | só reencaminha' if x.get('FWD_ONLY') == 'yes' else ''))
                 print('   soma das quotas com número: %.0f MB | caixas sem limite: %d' % (soma, ilimitadas))
-            open('/tmp/pacote-alvo.txt', 'w').write('\n'.join(alvo))
+            open('/tmp/pacote-alvo.txt', 'w').write(''.join(u + '\n' for u in alvo))
             open('/tmp/pacote-acima.txt', 'w').write('\n'.join('%s (%.0f MB)' % x for x in acima))
             print()
             print('Contas que já usam mais do que %d MB: %s' % (novo, ', '.join('%s (%.0f MB)' % x for x in acima) or 'nenhuma'))
@@ -133,13 +133,13 @@ jobs:
             grep "^DISK_QUOTA" "$F"
             FORCE=""
             [ "$FORCAR" = "true" ] && FORCE="yes"
-            while read -r u; do
+            while read -r u || [ -n "$u" ]; do
               [ -n "$u" ] || continue
               echo "=== v-change-user-package $u $PACOTE yes ==="
               $H/v-change-user-package "$u" "$PACOTE" yes && echo "ok: $u" || echo "FALHOU: $u"
             done < /tmp/pacote-alvo.txt
             echo "=== limite de cada conta depois ==="
-            while read -r u; do
+            while read -r u || [ -n "$u" ]; do
               [ -n "$u" ] || continue
               printf '%s -> ' "$u"; $H/v-list-user "$u" json | python3 -c "import json,sys; d=json.load(sys.stdin); x=list(d.values())[0]; print('DISK_QUOTA', x.get('DISK_QUOTA'), '| PACKAGE', x.get('PACKAGE'))"
             done < /tmp/pacote-alvo.txt
