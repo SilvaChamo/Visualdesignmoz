@@ -95,13 +95,8 @@ export async function proxy(request: NextRequest) {
   const resto = restoPainel(pathname)
   if (resto !== null) {
     const ecra = resto.replace(/\/+$/, '')
-    // Sem sessão: o painel não tem entrada própria — vai para o login do site, que volta a este ecrã depois de entrar
-    // (Silva, 16/10/2026: "diretamente no login do site para se entrar no painel")
-    if (!temCookieSessao(request)) {
-      const login = buildPanelLoginUrl(request.url)
-      login.searchParams.set('redirect', PAINEL_BASE + ecra)
-      return NextResponse.redirect(login)
-    }
+    // Sem sessão: o painel mostra a sua própria entrada (nada de redirecionar para o login do site — Silva, 19/10/2026:
+    // quem usa o endereço do painel entra pela entrada do painel; só ao sair é que vai para o login do site).
     const rota = request.nextUrl.clone()
     rota.pathname = `/host${ecra}`
     // A página do painel lê os dados já no servidor (sem página branca ao recarregar), onde não pode gravar cookies: a

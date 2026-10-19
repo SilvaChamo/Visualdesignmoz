@@ -20,6 +20,8 @@ export function FundoPainel({ escuro, cor = 'var(--red)' }: { escuro: boolean; c
         src="/assets/fundo-login.jpg"
         alt=""
         aria-hidden
+        fetchPriority="high"
+        decoding="sync"
         style={{ ...cheio, objectFit: 'cover', filter: escuro ? undefined : 'invert(1) grayscale(1) brightness(1.06) contrast(.85)' }}
       />
       {!escuro && <span aria-hidden style={{ ...cheio, background: cor, opacity: 0.16, mixBlendMode: 'multiply' }} />}
