@@ -370,7 +370,7 @@ function PaginaSlot({ p, oculta, onPronta, registar }: { p: Pagina; oculta: bool
 }
 
 /** dados: a leitura que o servidor já fez ao desenhar a página (null se demorou ou falhou: o painel lê-a aqui) */
-export function VisualHostApp({ versao = 'dev', dados = null, tema = null }: { versao?: string; dados?: DadosServidor | null; tema?: TemaConta | null }) {
+export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSessao = false }: { versao?: string; dados?: DadosServidor | null; tema?: TemaConta | null; semSessao?: boolean }) {
   // conta os pedidos ao site para a linha de carregamento do topo (antes de o painel pedir os dados)
   useState(() => instalarContador());
   const pathname = usePathname() || BASE;
@@ -382,6 +382,8 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null }: { v
   const semServidor = useSyncExternalStore(nadaMuda, () => true, () => false);
   const [st, setSt] = useState<St>(() => {
     const s0 = initialState(stripBase(pathname));
+    // sem sessão (o servidor já viu que não há cookie): começa logo na entrada do painel, igual no servidor e no navegador
+    if (semSessao) return { ...s0, carga: 'erro', erro: { msg: 'Inicie sessão para ver o painel.', codigo: 401 } };
     if (!semServidor) {
       // o tema da conta que o servidor recebeu no cookie (igual no servidor e no navegador: a página já vem com ele)
       const s1 = tema ? { ...s0, ...tema } : s0;
@@ -762,8 +764,8 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null }: { v
     [commit, aplicar, relerSeVelha],
   );
   useIsomorphicLayoutEffect(() => {
-    carregar();
-  }, [carregar]);
+    if (!semSessao) carregar();
+  }, [carregar, semSessao]);
   useEffect(() => {
     carregarRef.current = () => void carregar();
     const r = releitura.current;
@@ -1248,41 +1250,47 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null }: { v
   // fazer a seguir.
   if (st.carga !== 'ok') {
     const er = st.erro;
-    // a ler (sem leitura no servidor nem neste navegador); a roda só depois de entrar pela entrada do painel
-    if (!er) return (
-      <div className="vh" data-theme={st.theme} style={themeStyles as React.CSSProperties} lang="pt-PT" suppressHydrationWarning>
-        <EsperaEntrada roda={aEntrar} />
+    // A entrada do próprio painel, no modelo do DA. `ocupado`: depois de entrar, fica à vista com o botão a girar até o
+    // painel abrir (nenhuma página branca no meio — Silva, 19/10/2026).
+    const entradaPainel = (ocupado: boolean) => (
+      <div className="vh" data-theme={st.theme} style={themeStyles as React.CSSProperties} lang={st.lang === 'en' ? 'en' : 'pt-PT'} suppressHydrationWarning>
+        <EntradaPainel
+          ocupado={ocupado}
+          escuro={isDark}
+          modo={modoTema}
+          lang={st.lang}
+          voltarA={inicial.current && inicial.current !== '/' ? BASE + inicial.current : undefined}
+          onModo={(m) => {
+            setModoTema(m);
+            const dark = m === 'dark' || (m === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+            commit({ ...ref.current, theme: dark ? 'dark' : 'light' });
+          }}
+          onLang={(l) => {
+            commit({ ...ref.current, lang: l });
+            try {
+              localStorage.setItem(LINGUA_LS, l);
+            } catch {}
+          }}
+          onEntrou={() => {
+            setAEntrar(true);
+            renovouSessao.current = false;
+            commit({ ...ref.current, carga: 'a-carregar', erro: null });
+            carregar();
+          }}
+        />
       </div>
     );
-    // sessão recusada pelo servidor mesmo depois de renovada: a entrada do painel, no modelo do DA (sempre funcionou)
-    if (er.codigo === 401)
-      return (
-        <div className="vh" data-theme={st.theme} style={themeStyles as React.CSSProperties} lang={st.lang === 'en' ? 'en' : 'pt-PT'} suppressHydrationWarning>
-          <EntradaPainel
-            escuro={isDark}
-            modo={modoTema}
-            lang={st.lang}
-            voltarA={inicial.current && inicial.current !== '/' ? BASE + inicial.current : undefined}
-            onModo={(m) => {
-              setModoTema(m);
-              const dark = m === 'dark' || (m === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-              commit({ ...ref.current, theme: dark ? 'dark' : 'light' });
-            }}
-            onLang={(l) => {
-              commit({ ...ref.current, lang: l });
-              try {
-                localStorage.setItem(LINGUA_LS, l);
-              } catch {}
-            }}
-            onEntrou={() => {
-              setAEntrar(true);
-              renovouSessao.current = false;
-              commit({ ...ref.current, carga: 'a-carregar', erro: null });
-              carregar();
-            }}
-          />
+    // a ler (sem leitura no servidor nem neste navegador): depois de entrar pela entrada do painel, ela continua à vista
+    if (!er)
+      return aEntrar ? (
+        entradaPainel(true)
+      ) : (
+        <div className="vh" data-theme={st.theme} style={themeStyles as React.CSSProperties} lang="pt-PT" suppressHydrationWarning>
+          <EsperaEntrada roda={false} />
         </div>
       );
+    // sem sessão, ou sessão recusada pelo servidor mesmo depois de renovada: a entrada do painel
+    if (er.codigo === 401) return entradaPainel(false);
     const aviso =
       er?.codigo === 403
           ? { fa: 'fa-user-lock', titulo: er.msg, texto: 'Se acha que é um engano, fale connosco: ligamos a sua conta ao servidor.', botao: <a className="btn g" href="/"><i className="fa-solid fa-arrow-left" />{t('Voltar ao site')}</a> }

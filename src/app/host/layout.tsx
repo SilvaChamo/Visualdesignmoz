@@ -2,7 +2,7 @@
 // O painel vive no layout para não perder o estado ao mudar de ecrã (/host:2026/admin, /host:2026/admin/dns, …).
 import { Suspense } from 'react';
 import { cookies } from 'next/headers';
-import { redirect } from 'next/navigation';
+import { preload } from 'react-dom';
 import '@fortawesome/fontawesome-free/css/all.min.css';
 import '@/components/vhost/generated/maquete.css';
 import '@/components/vhost/paginas/paginas.css';
@@ -28,14 +28,21 @@ const temaScript = (doLogin: boolean) =>
  *  anterior ou o carregador do DA; se demorar mais, o painel abre com a última leitura guardada no navegador. */
 const ESPERA_DADOS_MS = 3000;
 
-/** Entrada do painel: só pelo login do site (Silva, 16/10/2026), que volta aqui depois de entrar */
-const LOGIN_DO_SITE = '/login?redirect=' + encodeURIComponent('/host:2026');
-
 export default async function VisualHostLayout({ children }: { children: React.ReactNode }) {
-  // o proxy já manda para o login quem chega sem cookie de sessão; isto cobre o resto
   const jar = await cookies();
   const temSessao = jar.getAll().some((c) => /^sb-.+-auth-token(\.\d+)?$/.test(c.name));
-  if (!temSessao) redirect(LOGIN_DO_SITE);
+  // Sem sessão: a entrada do próprio painel vem logo desenhada pelo servidor (Silva, 19/10/2026), sem passar pelo login
+  // do site, sem ler dados e sem nenhum ecrã antes. A foto de fundo é pedida já no cabeçalho da página.
+  if (!temSessao) {
+    preload('/assets/fundo-login.jpg', { as: 'image', fetchPriority: 'high' });
+    return (
+      <>
+        <VisualHostApp semSessao />
+        <script dangerouslySetInnerHTML={{ __html: temaScript(true) }} />
+        {children}
+      </>
+    );
+  }
   // tema da própria conta guardado pelo painel neste navegador (cookie)
   const doCookie = temaDoCookie(jar.get(COOKIE_TEMA)?.value);
   // A página sai logo com o carregador do DA (as três barras, no fundo e na cor do tema da conta) e o painel entra no

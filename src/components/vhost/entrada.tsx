@@ -24,7 +24,7 @@ const TXT = {
   en: { user: 'Username', userPh: 'Please enter username or email', senha: 'Password', senhaPh: 'Please enter your password', entrar: 'Sign in', falta: 'Please enter your username and password.', errado: 'Wrong username or password.', bloqueado: (min: number) => `Sign-in temporarily blocked after too many failed attempts. Wait ${min} minute${min === 1 ? '' : 's'} before trying again.`, ligacao: { ip: 'No connection to the sign-in server: the server blocked access from your IP after too many failed attempts on this network (for example, an email app with an old password). Ask support to unblock the IP.', internet: 'No internet connection. Check your network and try again.', servidor: 'The sign-in server is not responding. Try again in a minute.' }, mostrar: 'Show password', esconder: 'Hide password', claro: 'Light', auto: 'Auto', escuro: 'Dark', voltar: 'After signing in, you return to' },
 };
 
-export function EntradaPainel({ escuro, modo, lang, voltarA, onModo, onLang, onEntrou }: { escuro: boolean; modo: ModoTema; lang: Lang; voltarA?: string; onModo: (m: ModoTema) => void; onLang: (l: Lang) => void; onEntrou: () => void }) {
+export function EntradaPainel({ ocupado = false, escuro, modo, lang, voltarA, onModo, onLang, onEntrou }: { ocupado?: boolean; escuro: boolean; modo: ModoTema; lang: Lang; voltarA?: string; onModo: (m: ModoTema) => void; onLang: (l: Lang) => void; onEntrou: () => void }) {
   const tx = TXT[lang === 'en' ? 'en' : 'pt'];
   const [user, setUser] = useState('');
   const [senha, setSenha] = useState('');
@@ -104,8 +104,8 @@ export function EntradaPainel({ escuro, modo, lang, voltarA, onModo, onLang, onE
             </p>
           )}
           {/* como no DA: a processar, o botão fica mais baixo (64 → 51 px, a largura não muda) com um arco pequeno a girar */}
-          <button className={'ent-botao' + (aEntrar ? ' a-entrar' : '')} type="submit" disabled={aEntrar} aria-busy={aEntrar}>
-            {aEntrar ? <Roda tamanho={16} traco={2} /> : tx.entrar}
+          <button className={'ent-botao' + (aEntrar || ocupado ? ' a-entrar' : '')} type="submit" disabled={aEntrar || ocupado} aria-busy={aEntrar || ocupado}>
+            {aEntrar || ocupado ? <Roda tamanho={16} traco={2} /> : tx.entrar}
           </button>
         </form>
         {/* como no DA: o caminho da página onde estava (sessão terminada, ou endereço aberto sem sessão), discreto no lugar
