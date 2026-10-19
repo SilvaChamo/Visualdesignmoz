@@ -14,19 +14,26 @@ import { PANEL_SLUG } from '@/lib/panel-tenant';
 
 export type HostingProvider = 'directadmin' | 'hestia';
 
-/** Servidor onde a conta com este username vive de facto. 'directadmin' por
- * omissão — mesmo default da coluna, e comportamento seguro se a conta não
- * for encontrada (nunca aponta silenciosamente para o servidor errado). */
+/** Servidor onde a conta com este username vive de facto.
+ *
+ * Hetzner desligado em 2026-10-19: já não há um servidor 'directadmin' real
+ * para onde mandar um comando por engano. Antes, quando a linha não tinha
+ * 'provider' definido (muitas chamadas que criam/actualizam essa linha nunca
+ * o passam), a omissão caía em 'directadmin' — comportamento pensado para
+ * nunca apontar silenciosamente para o servidor errado, mas que hoje faz o
+ * oposto: manda o comando para um servidor que já não existe. Um falso
+ * positivo para 'hestia' é inofensivo (o Hestia diz "utilizador não existe"
+ * e pára), por isso a omissão passa a ser 'hestia'. */
 export async function getProviderByUsername(username: string): Promise<HostingProvider> {
   const sb = getDaSyncAdmin();
-  if (!sb || !username) return 'directadmin';
+  if (!sb || !username) return 'hestia';
   const { data } = await sb
     .from('panel_auth_accounts')
     .select('provider')
     .eq('da_username', username)
     .eq('panel_slug', PANEL_SLUG.toLowerCase())
     .maybeSingle();
-  return data?.provider === 'hestia' ? 'hestia' : 'directadmin';
+  return data?.provider === 'directadmin' ? 'directadmin' : 'hestia';
 }
 
 export async function suspendHostingAccount(
