@@ -19,6 +19,8 @@ export interface Campo {
   help?: string;
   /** só existe no VisualHost (não vem do DirectAdmin) */
   vh?: boolean;
+  /** o Hestia só aceita um número (sem "Ilimitado") */
+  fixo?: boolean;
 }
 
 // ---------- Limites ----------
@@ -37,6 +39,20 @@ export const LIMITES_UTILIZADOR: Campo[] = [
   { k: 'ftp', t: 'Contas FTP', en: 'FTP Accounts' },
   { k: 'daily', t: 'Limite diário de envio de e-mail', en: 'E-mail Daily Limit' },
 ];
+/** Limites que o próprio Hestia tem num pacote e que o formulário antigo (do DirectAdmin) não mostrava */
+export const LIMITES_HESTIA: Campo[] = [
+  { k: 'maildomains', t: 'Domínios de e-mail', en: 'Mail Domains', help: 'Quantos domínios podem ter caixas de correio.' },
+  { k: 'dnsdomains', t: 'Domínios DNS', en: 'DNS Domains', help: 'Quantas zonas DNS a conta pode ter.' },
+  { k: 'dnsrecords', t: 'Registos DNS por domínio', en: 'DNS Records', help: 'Máximo de registos em cada zona DNS.' },
+  { k: 'cronjobs', t: 'Tarefas agendadas (cron)', en: 'Cron Jobs' },
+  { k: 'backups', t: 'Cópias de segurança guardadas', en: 'Backups', fixo: true, help: 'Quantas cópias de segurança se guardam (0 desliga).' },
+  { k: 'ratelimit', t: 'Envio de e-mail por hora (por caixa)', en: 'Mail Rate Limit', fixo: true, help: 'Máximo de mensagens que cada caixa envia por hora.' },
+];
+/** Campos de texto do pacote no Hestia (shell, servidores de nomes, cópias incrementais e modelos) */
+export const MODELOS_WEB = ['default', 'nodejs'];
+export const MODELOS_PROXY = ['default', 'caching', 'hosting', 'nodejs', 'nodejs-3010', 'supabase', 'visualdesign'];
+export const MODELOS_BACKEND = ['default', 'PHP-8_3', 'no-php', 'socket'];
+export const MODELOS_DNS = ['default', 'default-nomail', 'gmail', 'office365', 'zoho', 'child-ns'];
 export const LIMITES_REVENDA: Campo[] = [
   ...LIMITES_UTILIZADOR.filter((c) => c.k !== 'daily'),
   { k: 'users', t: 'Contas de cliente', en: 'User Accounts', help: 'Cada cliente tem a sua própria conta no servidor, com o seu domínio' },
@@ -74,13 +90,15 @@ export const FUNC_REVENDA: Campo[] = [
 
 // ---------- Limites de recursos ----------
 export const RECURSOS: Campo[] = [
-  { k: 'cpu', t: 'Quota de CPU', en: 'CPU Quota', ph: '400%', help: 'Percentagem de um núcleo do processador. Mais de 100% para vários núcleos.' },
+  { k: 'cpu', t: 'Quota de CPU', en: 'CPU Quota', ph: '400%', help: 'Percentagem de um núcleo do processador. Mais de 100% para vários núcleos. Só tem efeito com os limites de recursos ligados no servidor.' },
   { k: 'ioread', t: 'Leitura máxima do disco', en: 'IO Read Bandwidth Max', ph: '5M', help: 'Velocidade máxima de leitura do disco.' },
   { k: 'iopsread', t: 'Leituras por segundo', en: 'IOPS Read Max', ph: '1K', help: 'Máximo de operações de leitura do disco por segundo.' },
   { k: 'iowrite', t: 'Escrita máxima no disco', en: 'IO Write Bandwidth Max', ph: '5M', help: 'Velocidade máxima de escrita no disco.' },
   { k: 'iopswrite', t: 'Escritas por segundo', en: 'IOPS Write Max', ph: '1K', help: 'Máximo de operações de escrita no disco por segundo.' },
   { k: 'memhigh', t: 'Memória (abrandar acima de)', en: 'Memory High', ph: '1G', help: 'Acima deste valor, a conta fica mais lenta.' },
   { k: 'memmax', t: 'Memória máxima', en: 'Memory Max', ph: '2G', help: 'Limite absoluto: acima dele, os processos são terminados.' },
+  { k: 'swap', t: 'Swap máximo', en: 'Swap Max', ph: '1G', help: 'Memória de troca (disco) que a conta pode usar.' },
+  { k: 'cpuperiod', t: 'Período da quota de CPU', en: 'CPU Quota Period', ph: '100ms', help: 'Janela de tempo em que a quota de CPU se aplica (ex.: 100ms).' },
   { k: 'tasks', t: 'Máximo de tarefas', en: 'Tasks Max', ph: '512', help: 'Máximo de processos que a conta pode ter ao mesmo tempo.' },
 ];
 
@@ -98,6 +116,8 @@ export interface PacoteUtilizador {
   idioma: string;
   acme: string;
   rec: Record<string, Lim>;
+  /** campos de texto do pacote no Hestia (SHELL, NS, BACKUPS_INCREMENTAL e modelos) */
+  hestia?: Record<string, string>;
 }
 export interface PacoteRevenda {
   lim: Record<string, Lim>;
@@ -116,7 +136,10 @@ const recursosLivres = (): Record<string, Lim> => Object.fromEntries(RECURSOS.ma
 /** Tudo ligado e sem limites (administradores e revendedores na sua própria conta, quando o pacote não é conhecido) */
 export function pacoteCompleto(): PacoteUtilizador {
   return {
-    lim: Object.fromEntries(LIMITES_UTILIZADOR.map((c) => [c.k, U(c.unit ? 'GB' : undefined)])),
+    lim: {
+      ...Object.fromEntries(LIMITES_UTILIZADOR.map((c) => [c.k, U(c.unit ? 'GB' : undefined)])),
+      ...Object.fromEntries(LIMITES_HESTIA.map((c) => [c.k, c.fixo ? L(c.k === 'ratelimit' ? 200 : 1) : U()])),
+    },
     feats: Object.fromEntries(FUNC_UTILIZADOR.map((c) => [c.k, !['aftp', 'cgi', 'redis'].includes(c.k)])),
     tema: TEMAS[0],
     idioma: IDIOMAS[0],
@@ -127,7 +150,15 @@ export function pacoteCompleto(): PacoteUtilizador {
 
 export function pacoteVazio(): PacoteUtilizador {
   return {
-    lim: Object.fromEntries(LIMITES_UTILIZADOR.map((c) => [c.k, c.unit ? L(c.k === 'bw' ? 10 : 5, 'GB') : L(0)])),
+    lim: {
+      ...Object.fromEntries(LIMITES_UTILIZADOR.map((c) => [c.k, c.unit ? L(c.k === 'bw' ? 10 : 5, 'GB') : L(0)])),
+      maildomains: L(1),
+      dnsdomains: L(1),
+      dnsrecords: U(),
+      cronjobs: L(0),
+      backups: L(1),
+      ratelimit: L(200),
+    },
     feats: Object.fromEntries(FUNC_UTILIZADOR.map((c) => [c.k, false])),
     tema: TEMAS[0],
     idioma: IDIOMAS[0],
@@ -285,4 +316,46 @@ export const limTxt = (l?: Lim) => (!l ? '—' : l.unl ? '∞' : l.v + (l.unit ?
 export function featsEfetivas(p: PacoteUtilizador): Record<string, boolean> {
   const has = (l?: Lim) => !!l && (l.unl || Number(l.v) > 0);
   return { ...p.feats, ftp: has(p.lim.ftp), bd: has(p.lim.mysql) };
+}
+
+// ---------- O que o Hestia não guarda (fica no servidor do painel, por pacote) ----------
+/** Campos do formulário de pacotes que o Hestia não tem (inodes, listas de correio, funcionalidades do painel, IO…):
+ *  guardam-se à parte por pacote (Admin › Pacotes), para não se perderem ao gravar. */
+export interface ExtrasPlano {
+  lim?: Record<string, Lim>;
+  feats?: Record<string, boolean>;
+  rec?: Record<string, Lim>;
+  idioma?: string;
+  acme?: string;
+}
+const LIM_HESTIA = new Set(['bw', 'disk', 'domains', 'pointers', 'emails', 'mysql', ...LIMITES_HESTIA.map((c) => c.k)]);
+const REC_HESTIA = new Set(['cpu', 'cpuperiod', 'memmax', 'swap']);
+/** Funcionalidades que vêm do próprio pacote do Hestia (limite de cron e de DNS, shell) */
+export const FEATS_HESTIA = new Set(['cron', 'dns', 'ssh', 'jail']);
+
+const so = <T,>(o: Record<string, T> | undefined, fora: (k: string) => boolean) =>
+  Object.fromEntries(Object.entries(o || {}).filter(([k]) => !fora(k))) as Record<string, T>;
+
+/** O que se guarda à parte: tudo o que o formulário tem e não é um campo do pacote do Hestia */
+export function extrasDoPacote(p: PacoteUtilizador): ExtrasPlano {
+  return {
+    lim: so(p.lim, (k) => LIM_HESTIA.has(k)),
+    feats: so(p.feats, (k) => FEATS_HESTIA.has(k)),
+    rec: so(p.rec, (k) => REC_HESTIA.has(k)),
+    idioma: p.idioma,
+    acme: p.acme,
+  };
+}
+
+/** Pacote lido do Hestia + o que estava guardado à parte */
+export function comExtras(p: PacoteUtilizador, e?: ExtrasPlano): PacoteUtilizador {
+  if (!e) return p;
+  return {
+    ...p,
+    lim: { ...p.lim, ...so(e.lim, (k) => LIM_HESTIA.has(k)) },
+    feats: { ...p.feats, ...so(e.feats, (k) => FEATS_HESTIA.has(k)) },
+    rec: { ...p.rec, ...so(e.rec, (k) => REC_HESTIA.has(k)) },
+    idioma: e.idioma || p.idioma,
+    acme: e.acme || p.acme,
+  };
 }

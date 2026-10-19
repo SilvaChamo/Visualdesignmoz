@@ -3,6 +3,7 @@ import { requireAdminOrReseller } from '@/lib/panel-api-auth';
 import { getDaSyncAdmin } from '@/lib/da-sync-schema';
 import { hestiaCall } from '@/lib/hestia-client';
 import * as hestia from '@/lib/hestia-adapter';
+import { camposHestia as camposDoFormulario } from '@/lib/pacote-hestia';
 import { esquecerLeitura, lerServidor } from '@/lib/vhost-servidor';
 import { esquecerRegisto } from '@/lib/vhost-dados';
 import { excludeResellerSelfPackages } from '@/lib/panel-contas-enrich';
@@ -25,7 +26,17 @@ const conta_ok = (u: string) => /^[a-z][a-z0-9_-]{2,30}$/.test(u);
 type Corpo = {
   acao: 'suspender' | 'reativar' | 'apagar' | 'pacote' | 'senha' | 'criar' | 'mover' | 'tipo' | 'pacote-gravar' | 'pacote-apagar';
   /** pacote-gravar: limites e funcionalidades do formulário (como em paginas/pacotes.tsx); editar = o pacote já existe */
-  gravar?: { nome: string; /** nome antigo, ao mudar o nome de um pacote que já existe */ de?: string; editar?: boolean; lim: Record<string, { v: string; unl: boolean; unit?: string }>; feats: Record<string, boolean> };
+  gravar?: {
+    nome: string;
+    /** nome antigo, ao mudar o nome de um pacote que já existe */
+    de?: string;
+    editar?: boolean;
+    lim: Record<string, { v: string; unl: boolean; unit?: string }>;
+    feats: Record<string, boolean>;
+    /** recursos (CPU, memória, swap…) e campos de texto do pacote (shell, NS, modelos…) */
+    rec?: Record<string, { v: string; unl: boolean; unit?: string }>;
+    hestia?: Record<string, string>;
+  };
   /** pacote-apagar */
   pacotes?: string[];
   contas?: string[];
@@ -115,27 +126,25 @@ export async function POST(req: NextRequest) {
       if (!g?.nome) return NextResponse.json({ erro: 'Escreva o nome do pacote.' }, { status: 400 });
       const nome = String(g.nome);
       const de = g.de && String(g.de) !== nome ? String(g.de) : undefined;
-      const r = await hestia.gravarPacote(nome, camposHestia(g.lim || {}, g.feats || {}), g.editar === true, de);
-      if (!r.ok) falhas.push({ conta: nome, erro: r.error || 'o servidor recusou' });
-      else {
-        feitas.push(nome);
-        if (g.editar === true) {
-          // como no Hestia: o que se muda no pacote passa já para as contas que o têm (com FORCE: a conta que já usa mais
-          // do que o limite novo fica com o que tem, só não pode criar mais até ficar dentro dele)
-          const origem = de || nome;
-          const contasDoPacote = Object.entries(srv.users).filter(([, x]) => x.PACKAGE === origem).map(([u]) => u);
-          let todasOk = true;
-          for (const u of contasDoPacote) {
-            const x = await hestia.changeUserPackage(u, nome, true);
-            if (!x.ok) {
-              todasOk = false;
-              falhas.push({ conta: u, erro: x.error || 'não foi possível aplicar o pacote a esta conta' });
+      const { campos, erros, exatos } = camposDoFormulario(g.lim || {}, g.feats || {}, g.rec || {}, g.hestia || {});
+      if (erros.length) {
+        // o que o Hestia recusaria, dito antes de lhe enviar nada
+        falhas.push({ conta: nome, erro: erros.join(' ') });
+      } else {
+        const r = await hestia.gravarPacote(nome, campos, g.editar === true, de, exatos);
+        if (!r.ok) falhas.push({ conta: nome, erro: r.error || 'o servidor recusou' });
+        else {
+          feitas.push(nome);
+          if (g.editar === true) {
+            // como no Hestia: o que se muda no pacote passa já para as contas que o têm (com FORCE: a conta que já usa mais
+            // do que o limite novo fica com o que tem, só não pode criar mais até ficar dentro dele). Ao mudar o nome, o
+            // Hestia já passou as contas para o nome novo; isto garante as que ficaram para trás.
+            const origem = de || nome;
+            const contasDoPacote = Object.entries(srv.users).filter(([, x]) => x.PACKAGE === origem).map(([u]) => u);
+            for (const u of contasDoPacote) {
+              const x = await hestia.changeUserPackage(u, nome, true);
+              if (!x.ok) falhas.push({ conta: u, erro: x.error || 'não foi possível aplicar o pacote a esta conta' });
             }
-          }
-          // ao mudar o nome, o pacote antigo só se apaga depois de todas as contas estarem no novo
-          if (de && todasOk) {
-            const ap = await hestia.apagarPacote(de);
-            if (!ap.ok) falhas.push({ conta: de, erro: ap.error || 'o pacote antigo não foi apagado' });
           }
         }
       }
@@ -308,30 +317,4 @@ export async function POST(req: NextRequest) {
 
   if (feitas.length) esquecerLeitura();
   return NextResponse.json({ feitas, falhas }, { status: feitas.length || !falhas.length ? 200 : 400 });
-}
-
-/** Limites e funcionalidades do formulário de pacotes → campos do ficheiro do pacote no Hestia */
-function camposHestia(lim: Record<string, { v: string; unl: boolean; unit?: string }>, feats: Record<string, boolean>): Record<string, string> {
-  const val = (k: string, mb = false): string | undefined => {
-    const l = lim[k];
-    if (!l) return undefined;
-    if (l.unl) return 'unlimited';
-    const n = Math.max(0, Math.floor(Number(l.v) || 0));
-    if (!mb) return String(n);
-    return String(l.unit === 'TB' ? n * 1024 * 1024 : l.unit === 'GB' ? n * 1024 : n);
-  };
-  const c: Record<string, string | undefined> = {
-    DISK_QUOTA: val('disk', true),
-    BANDWIDTH: val('bw', true),
-    WEB_DOMAINS: val('domains'),
-    WEB_ALIASES: val('pointers'),
-    MAIL_ACCOUNTS: val('emails'),
-    DATABASES: val('mysql'),
-    CRON_JOBS: feats.cron === false ? '0' : 'unlimited',
-    DNS_DOMAINS: feats.dns === false ? '0' : 'unlimited',
-    SHELL: feats.ssh ? 'bash' : 'nologin',
-  };
-  if (c.MAIL_ACCOUNTS === '0') c.MAIL_DOMAINS = '0';
-  else if (c.MAIL_ACCOUNTS) c.MAIL_DOMAINS = 'unlimited';
-  return Object.fromEntries(Object.entries(c).filter(([, v]) => v !== undefined)) as Record<string, string>;
 }

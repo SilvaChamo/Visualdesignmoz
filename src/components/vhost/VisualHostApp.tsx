@@ -812,13 +812,13 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
     if (!me) return;
     fetch('/api/vhost/acessos', { cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : null))
-      .then((j: { acessos?: Record<string, string[]>; temas?: Record<string, string> } | null) => {
+      .then((j: { acessos?: Record<string, string[]>; temas?: Record<string, string>; extras?: St['extrasPlano'] } | null) => {
         if (!j) return;
         const cur = ref.current;
         const temasPlano = j.temas || {};
         // sem tema próprio guardado, a conta fica com o tema do seu plano (Admin › Pacotes › Tema)
         const doPlano = temaProprio.current === false ? temasPlano[acctOf(cur).pkg] : '';
-        const n = { ...comAcessos(cur, j.acessos || {}), temasPlano, ...(doPlano ? { colorPreset: doPlano } : {}) };
+        const n = { ...comAcessos(cur, j.acessos || {}), temasPlano, extrasPlano: j.extras || {}, ...(doPlano ? { colorPreset: doPlano } : {}) };
         commit(n);
         if (doPlano) lembrarTema(n);
       })

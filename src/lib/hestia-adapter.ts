@@ -1234,25 +1234,34 @@ export async function changeWebDomainPhp(
 
 /**
  * Cria ou regrava um pacote de cliente no Hestia (Admin › Pacotes › Novo/Editar — Silva, 16/10/2026: "criar pacotes diz
- * que ainda não está ligado ao servidor"). Parte do ficheiro do próprio pacote (ao editar), do pacote antigo (ao mudar
- * o nome: `de`) ou do `default.pkg` (ao criar) e muda só os campos dados; o Hestia lê o ficheiro com
- * `v-add-user-package FICHEIRO NOME yes` (é um FICHEIRO, não uma pasta — com uma pasta dava "… does not exist").
- *
- * Os campos que o formulário só mostra como sim/não (domínios de e-mail, DNS, tarefas agendadas, shell) não mudam um
- * valor que já cumpre o pedido: um pacote com 1 domínio de e-mail continua com 1 em vez de passar a ilimitado.
+ * que ainda não está ligado ao servidor"). Parte do ficheiro do próprio pacote (ao editar) ou do `default.pkg` (ao
+ * criar) e muda só os campos dados; o Hestia lê o ficheiro com `v-add-user-package FICHEIRO NOME yes` (é um FICHEIRO,
+ * não uma pasta — com uma pasta dava "… does not exist"). Mudar o nome usa `v-rename-user-package` (do próprio Hestia).
+ * `exatos`: campos que o formulário mandou com o valor exato (os outros, só sim/não, não mudam um valor que já cumpre).
  */
-export async function gravarPacote(nome: string, campos: Record<string, string>, editar: boolean, de?: string): Promise<{ ok: boolean; error?: string }> {
+export async function gravarPacote(
+  nome: string,
+  campos: Record<string, string>,
+  editar: boolean,
+  de?: string,
+  exatos: string[] = [],
+): Promise<{ ok: boolean; error?: string }> {
   const valido = (n: string) => /^[A-Za-z0-9_-]{1,40}$/.test(n) && n !== 'system';
   if (!valido(nome)) return { ok: false, error: 'Nome de pacote inválido (letras, números, - e _).' };
-  if (de !== undefined && (!editar || !valido(de) || de === 'default')) return { ok: false, error: 'Não é possível mudar o nome deste pacote.' };
+  const renomear = de !== undefined && de !== nome;
+  if (renomear && (!editar || !valido(de as string) || de === 'default')) return { ok: false, error: 'Não é possível mudar o nome deste pacote.' };
   const pastaPacotes = '/usr/local/hestia/data/packages';
   const existe = async (n: string) => (await executeServerCommand(`[ -f ${pastaPacotes}/${n}.pkg ] && echo SIM`).catch(() => '')).includes('SIM');
   // criar ou mudar o nome: o nome novo não pode já existir (o Hestia regravava por cima do pacote que lá estava)
-  if ((!editar || (de !== undefined && de !== nome)) && (await existe(nome))) return { ok: false, error: 'Já existe um pacote com esse nome no servidor.' };
-  const base = de ?? (editar ? nome : 'default');
-  const atual = await executeServerCommand(`cat ${pastaPacotes}/${base}.pkg 2>/dev/null`).catch(() => '');
+  if ((!editar || renomear) && (await existe(nome))) return { ok: false, error: 'Já existe um pacote com esse nome no servidor.' };
+  if (renomear) {
+    if (!(await existe(de as string))) return { ok: false, error: 'Esse pacote não existe no servidor.' };
+    const rn = await hestiaCall('v-rename-user-package', [de as string, nome, 'yes']);
+    if (!rn.ok) return { ok: false, error: rn.error || 'O servidor recusou mudar o nome do pacote.' };
+  }
+  const atual = await executeServerCommand(`cat ${pastaPacotes}/${editar ? nome : 'default'}.pkg 2>/dev/null`).catch(() => '');
   if (editar && !atual.trim()) return { ok: false, error: 'Esse pacote não existe no servidor.' };
-  const texto = juntarCamposPacote(atual, campos, editar);
+  const texto = juntarCamposPacote(atual, campos, editar, exatos);
   const ficheiro = `/tmp/vh-pacote-${Date.now()}-${nome}.pkg`;
   const b64 = Buffer.from(texto, 'utf8').toString('base64');
   try {

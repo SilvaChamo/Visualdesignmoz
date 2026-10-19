@@ -68,6 +68,13 @@ export function pacoteDoHestia(p: Linha, nome = ''): PacoteUtilizador {
       pointers: lim(p.WEB_ALIASES),
       ftp: web ? livre() : { v: '0', unl: false },
       daily: livre(),
+      // os limites que o Hestia tem e o formulário do DirectAdmin não mostrava
+      maildomains: lim(p.MAIL_DOMAINS),
+      dnsdomains: lim(p.DNS_DOMAINS),
+      dnsrecords: lim(p.DNS_RECORDS),
+      cronjobs: lim(p.CRON_JOBS),
+      backups: { v: String(num(p.BACKUPS)), unl: false },
+      ratelimit: { v: String(num(p.RATE_LIMIT) || 200), unl: false },
     },
     feats: {
       aftp: false,
@@ -98,7 +105,12 @@ export function pacoteDoHestia(p: Linha, nome = ''): PacoteUtilizador {
       ...Object.fromEntries(RECURSOS.map((c) => [c.k, livre()])),
       cpu: ilimitado(p.CPU_QUOTA) ? livre() : { v: p.CPU_QUOTA, unl: false },
       memmax: ilimitado(p.MEMORY_LIMIT) ? livre() : { v: p.MEMORY_LIMIT, unl: false },
+      swap: ilimitado(p.SWAP_LIMIT) ? livre() : { v: p.SWAP_LIMIT, unl: false },
+      cpuperiod: ilimitado(p.CPU_QUOTA_PERIOD) ? livre() : { v: p.CPU_QUOTA_PERIOD, unl: false },
     },
+    hestia: Object.fromEntries(
+      ['SHELL', 'NS', 'BACKUPS_INCREMENTAL', 'WEB_TEMPLATE', 'PROXY_TEMPLATE', 'BACKEND_TEMPLATE', 'DNS_TEMPLATE'].map((k) => [k, p[k] || '']),
+    ),
   };
 }
 

@@ -33,6 +33,8 @@ export interface St {
   acessos: Record<string, string[]>;
   /** Tema do painel de cada plano (Admin › Pacotes › Tema), para as contas que ainda não escolheram outro */
   temasPlano: Record<string, string>;
+  /** O que o Hestia não guarda de cada pacote (Admin › Pacotes): inodes, funcionalidades do painel, IO… */
+  extrasPlano: Record<string, import('./paginas/dados').ExtrasPlano>;
   /** versões PHP instaladas no servidor */
   php: string[];
   /** quem fez login */
@@ -81,6 +83,7 @@ export function initialState(path: string): St {
       dominio: '',
       acessos: {},
       temasPlano: {},
+      extrasPlano: {},
       php: [],
       login: '',
       pessoa: null,

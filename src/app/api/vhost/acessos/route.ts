@@ -16,7 +16,46 @@ export const dynamic = 'force-dynamic';
 type Acessos = Record<string, string[]>;
 const FICHEIRO = `${VHOST_DIR}/acessos-planos.json`;
 const FICHEIRO_TEMAS = `${VHOST_DIR}/temas-planos.json`;
+const FICHEIRO_EXTRAS = `${VHOST_DIR}/extras-planos.json`;
 const TEMA = /^[a-z0-9_-]{1,40}$/i;
+const CHAVE = /^[a-z0-9_]{1,30}$/;
+type LimExtra = { v: string; unl: boolean; unit?: 'MB' | 'GB' | 'TB' };
+type Extras = Record<string, { lim: Record<string, LimExtra>; feats: Record<string, boolean>; rec: Record<string, LimExtra>; idioma?: string; acme?: string }>;
+let extrasGuardados: { extras: Extras; ate: number } | null = null;
+function limparLims(v: unknown): Record<string, LimExtra> {
+  const r: Record<string, LimExtra> = {};
+  if (!v || typeof v !== 'object') return r;
+  for (const [k, l] of Object.entries(v as Record<string, unknown>)) {
+    const x = l as { v?: unknown; unl?: unknown; unit?: unknown };
+    if (!CHAVE.test(k) || !x || typeof x.v !== 'string' || x.v.length > 20 || typeof x.unl !== 'boolean') continue;
+    r[k] = { v: x.v, unl: x.unl, ...(x.unit === 'MB' || x.unit === 'GB' || x.unit === 'TB' ? { unit: x.unit } : {}) };
+  }
+  return r;
+}
+function limparExtras(v: unknown): Extras {
+  const r: Extras = {};
+  if (!v || typeof v !== 'object') return r;
+  for (const [p, e] of Object.entries(v as Record<string, unknown>)) {
+    const x = e as { lim?: unknown; feats?: unknown; rec?: unknown; idioma?: unknown; acme?: unknown };
+    if (!NOME.test(p) || !x || typeof x !== 'object') continue;
+    const feats: Record<string, boolean> = {};
+    if (x.feats && typeof x.feats === 'object')
+      for (const [k, b] of Object.entries(x.feats as Record<string, unknown>)) if (CHAVE.test(k) && typeof b === 'boolean') feats[k] = b;
+    const texto = (t: unknown) => (typeof t === 'string' && /^[\p{L}0-9 '.()-]{1,40}$/u.test(t) ? t : undefined);
+    r[p] = { lim: limparLims(x.lim), feats, rec: limparLims(x.rec), ...(texto(x.idioma) ? { idioma: texto(x.idioma) } : {}), ...(texto(x.acme) ? { acme: texto(x.acme) } : {}) };
+  }
+  return r;
+}
+async function lerExtras(): Promise<Extras> {
+  if (extrasGuardados && extrasGuardados.ate > Date.now()) return extrasGuardados.extras;
+  const out = await executeServerCommand(`cat ${FICHEIRO_EXTRAS} 2>/dev/null`, { timeoutMs: 20_000 }).catch(() => '');
+  let extras: Extras = {};
+  try {
+    extras = out.trim() ? limparExtras(JSON.parse(out)) : {};
+  } catch {}
+  extrasGuardados = { extras, ate: Date.now() + 60_000 };
+  return extras;
+}
 let temasGuardados: { temas: Record<string, string>; ate: number } | null = null;
 async function lerTemas(): Promise<Record<string, string>> {
   if (temasGuardados && temasGuardados.ate > Date.now()) return temasGuardados.temas;
@@ -63,15 +102,24 @@ function limpar(v: unknown): Acessos {
 export async function GET() {
   const auth = await requirePanelBootstrapAccess();
   if ('error' in auth) return NextResponse.json({ erro: 'Inicie sessão.' }, { status: 401 });
-  const [acessos, temas] = await Promise.all([ler(), lerTemas()]);
-  return NextResponse.json({ acessos, temas });
+  const [acessos, temas, extras] = await Promise.all([ler(), lerTemas(), lerExtras()]);
+  return NextResponse.json({ acessos, temas, extras });
 }
 
 export async function POST(req: NextRequest) {
   const auth = await requirePanelBootstrapAccess();
   if ('error' in auth) return NextResponse.json({ erro: 'Inicie sessão.' }, { status: 401 });
   if (auth.user.role !== 'admin') return NextResponse.json({ erro: 'Só o administrador muda os acessos dos planos.' }, { status: 403 });
-  const c = (await req.json().catch(() => ({}))) as { acessos?: unknown; temas?: unknown };
+  const c = (await req.json().catch(() => ({}))) as { acessos?: unknown; temas?: unknown; extras?: unknown };
+  if (c.extras !== undefined) {
+    const extras = { ...(await lerExtras()), ...limparExtras(c.extras) };
+    await executeServerCommand(
+      `mkdir -p ${VHOST_DIR} && chmod 700 ${VHOST_DIR} && echo ${b64(JSON.stringify(extras))} | base64 -d > ${FICHEIRO_EXTRAS}.tmp && chmod 600 ${FICHEIRO_EXTRAS}.tmp && mv ${FICHEIRO_EXTRAS}.tmp ${FICHEIRO_EXTRAS}`,
+      { timeoutMs: 20_000 },
+    );
+    extrasGuardados = { extras, ate: Date.now() + 60_000 };
+    if (c.temas === undefined && c.acessos === undefined) return NextResponse.json({ ok: true, extras });
+  }
   if (c.temas !== undefined) {
     const temas = { ...(await lerTemas()), ...limparTemas(c.temas) };
     await executeServerCommand(
