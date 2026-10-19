@@ -267,11 +267,10 @@ function EditarPacote({ tipo, nome }: { tipo: Tipo; nome: string | null }) {
   const [renomear, setRenomear] = useState(false);
   // Pacotes de cliente: criam-se e gravam-se no servidor (antes: "Ainda não ligado ao servidor")
   const gravarNoServidor = async (n: string) => {
-    if (nome && n !== nome) return toast(t('Mudar o nome de um pacote que já existe ainda não é possível: crie um novo com o nome que quer.'));
     const pu = p as PacoteUtilizador;
     const { feitas } = await noServidorDetalhe(
       vh,
-      { acao: 'pacote-gravar', gravar: { nome: n, editar: !!nome, lim: pu.lim, feats: pu.feats } },
+      { acao: 'pacote-gravar', gravar: { nome: n, ...(nome && n !== nome ? { de: nome } : {}), editar: !!nome, lim: pu.lim, feats: pu.feats } },
       () => (nome ? 'Pacote ' + n + ' gravado' : 'Pacote ' + n + ' criado'),
     );
     if (!feitas.length) return;

@@ -7,6 +7,7 @@
 import { hestiaCall, hestiaCallJson } from '@/lib/hestia-client';
 import { executeServerCommand } from '@/lib/server-ssh-exec';
 import { getPhpMyAdminUrl } from '@/lib/server-config';
+import { juntarCamposPacote } from '@/lib/pacote-hestia';
 
 function isAlreadyExistsError(error?: string): boolean {
   return (error || '').toLowerCase().includes('exists');
@@ -1233,28 +1234,31 @@ export async function changeWebDomainPhp(
 
 /**
  * Cria ou regrava um pacote de cliente no Hestia (Admin › Pacotes › Novo/Editar — Silva, 16/10/2026: "criar pacotes diz
- * que ainda não está ligado ao servidor"). Parte do ficheiro do próprio pacote (ao editar) ou do `default.pkg` (ao
- * criar) e muda só os campos dados; o Hestia lê o ficheiro com `v-add-user-package PASTA NOME yes`.
+ * que ainda não está ligado ao servidor"). Parte do ficheiro do próprio pacote (ao editar), do pacote antigo (ao mudar
+ * o nome: `de`) ou do `default.pkg` (ao criar) e muda só os campos dados; o Hestia lê o ficheiro com
+ * `v-add-user-package FICHEIRO NOME yes` (é um FICHEIRO, não uma pasta — com uma pasta dava "… does not exist").
+ *
+ * Os campos que o formulário só mostra como sim/não (domínios de e-mail, DNS, tarefas agendadas, shell) não mudam um
+ * valor que já cumpre o pedido: um pacote com 1 domínio de e-mail continua com 1 em vez de passar a ilimitado.
  */
-export async function gravarPacote(nome: string, campos: Record<string, string>, editar: boolean): Promise<{ ok: boolean; error?: string }> {
-  if (!/^[A-Za-z0-9_-]{1,40}$/.test(nome) || nome === 'system') return { ok: false, error: 'Nome de pacote inválido (letras, números, - e _).' };
+export async function gravarPacote(nome: string, campos: Record<string, string>, editar: boolean, de?: string): Promise<{ ok: boolean; error?: string }> {
+  const valido = (n: string) => /^[A-Za-z0-9_-]{1,40}$/.test(n) && n !== 'system';
+  if (!valido(nome)) return { ok: false, error: 'Nome de pacote inválido (letras, números, - e _).' };
+  if (de !== undefined && (!editar || !valido(de) || de === 'default')) return { ok: false, error: 'Não é possível mudar o nome deste pacote.' };
   const pastaPacotes = '/usr/local/hestia/data/packages';
-  const base = editar ? nome : 'default';
+  const existe = async (n: string) => (await executeServerCommand(`[ -f ${pastaPacotes}/${n}.pkg ] && echo SIM`).catch(() => '')).includes('SIM');
+  // criar ou mudar o nome: o nome novo não pode já existir (o Hestia regravava por cima do pacote que lá estava)
+  if ((!editar || (de !== undefined && de !== nome)) && (await existe(nome))) return { ok: false, error: 'Já existe um pacote com esse nome no servidor.' };
+  const base = de ?? (editar ? nome : 'default');
   const atual = await executeServerCommand(`cat ${pastaPacotes}/${base}.pkg 2>/dev/null`).catch(() => '');
   if (editar && !atual.trim()) return { ok: false, error: 'Esse pacote não existe no servidor.' };
-  const linhas = new Map<string, string>();
-  for (const l of atual.split('\n')) {
-    const m = l.match(/^([A-Z_]+)='(.*)'$/);
-    if (m) linhas.set(m[1], m[2]);
-  }
-  for (const [k, v] of Object.entries(campos)) if (/^[A-Z_]+$/.test(k) && /^[A-Za-z0-9_.,:-]*$/.test(v)) linhas.set(k, v);
-  const texto = [...linhas].map(([k, v]) => `${k}='${v}'`).join('\n') + '\n';
-  const pasta = `/tmp/vh-pacote-${Date.now()}`;
+  const texto = juntarCamposPacote(atual, campos, editar);
+  const ficheiro = `/tmp/vh-pacote-${Date.now()}-${nome}.pkg`;
   const b64 = Buffer.from(texto, 'utf8').toString('base64');
   try {
     // o Hestia escreve os erros na saída normal e o fim nem sempre vem com código ≠ 0: só "VH_OK" confirma
     const saida = await executeServerCommand(
-      `mkdir -p ${pasta} && echo ${b64} | base64 -d > ${pasta}/${nome}.pkg && /usr/local/hestia/bin/v-add-user-package ${pasta} ${nome} yes 2>&1; r=$?; rm -rf ${pasta}; [ $r = 0 ] && echo VH_OK`,
+      `echo ${b64} | base64 -d > ${ficheiro} && /usr/local/hestia/bin/v-add-user-package ${ficheiro} ${nome} yes 2>&1; r=$?; rm -f ${ficheiro}; [ $r = 0 ] && echo VH_OK`,
     );
     if (saida.includes('VH_OK')) return { ok: true };
     return { ok: false, error: saida.replace('VH_OK', '').trim() || 'O servidor recusou o pacote.' };

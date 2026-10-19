@@ -25,7 +25,7 @@ const conta_ok = (u: string) => /^[a-z][a-z0-9_-]{2,30}$/.test(u);
 type Corpo = {
   acao: 'suspender' | 'reativar' | 'apagar' | 'pacote' | 'senha' | 'criar' | 'mover' | 'tipo' | 'pacote-gravar' | 'pacote-apagar';
   /** pacote-gravar: limites e funcionalidades do formulário (como em paginas/pacotes.tsx); editar = o pacote já existe */
-  gravar?: { nome: string; editar?: boolean; lim: Record<string, { v: string; unl: boolean; unit?: string }>; feats: Record<string, boolean> };
+  gravar?: { nome: string; /** nome antigo, ao mudar o nome de um pacote que já existe */ de?: string; editar?: boolean; lim: Record<string, { v: string; unl: boolean; unit?: string }>; feats: Record<string, boolean> };
   /** pacote-apagar */
   pacotes?: string[];
   contas?: string[];
@@ -113,9 +113,32 @@ export async function POST(req: NextRequest) {
     } else {
       const g = corpo.gravar;
       if (!g?.nome) return NextResponse.json({ erro: 'Escreva o nome do pacote.' }, { status: 400 });
-      const r = await hestia.gravarPacote(String(g.nome), camposHestia(g.lim || {}, g.feats || {}), g.editar === true);
-      if (r.ok) feitas.push(String(g.nome));
-      else falhas.push({ conta: String(g.nome), erro: r.error || 'o servidor recusou' });
+      const nome = String(g.nome);
+      const de = g.de && String(g.de) !== nome ? String(g.de) : undefined;
+      const r = await hestia.gravarPacote(nome, camposHestia(g.lim || {}, g.feats || {}), g.editar === true, de);
+      if (!r.ok) falhas.push({ conta: nome, erro: r.error || 'o servidor recusou' });
+      else {
+        feitas.push(nome);
+        if (g.editar === true) {
+          // como no Hestia: o que se muda no pacote passa já para as contas que o têm (com FORCE: a conta que já usa mais
+          // do que o limite novo fica com o que tem, só não pode criar mais até ficar dentro dele)
+          const origem = de || nome;
+          const contasDoPacote = Object.entries(srv.users).filter(([, x]) => x.PACKAGE === origem).map(([u]) => u);
+          let todasOk = true;
+          for (const u of contasDoPacote) {
+            const x = await hestia.changeUserPackage(u, nome, true);
+            if (!x.ok) {
+              todasOk = false;
+              falhas.push({ conta: u, erro: x.error || 'não foi possível aplicar o pacote a esta conta' });
+            }
+          }
+          // ao mudar o nome, o pacote antigo só se apaga depois de todas as contas estarem no novo
+          if (de && todasOk) {
+            const ap = await hestia.apagarPacote(de);
+            if (!ap.ok) falhas.push({ conta: de, erro: ap.error || 'o pacote antigo não foi apagado' });
+          }
+        }
+      }
     }
     if (feitas.length) esquecerLeitura();
     return NextResponse.json({ feitas, falhas }, { status: falhas.length && !feitas.length ? 400 : 200 });
