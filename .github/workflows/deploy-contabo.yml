@@ -1,34 +1,32 @@
-name: Deploy to Contabo (teste)
+name: Deploy to Contabo
 
 # ============================================================================
-# AVISO PARA QUALQUER AGENTE/PESSOA A MEXER AQUI (2026-08-10):
-# Apesar do nome "teste", o utilizador já confirmou que este site é o
-# candidato a tornar-se o site PRINCIPAL assim que a configuração terminar
-# (ver plano de corte em project_hestia-migration-longterm-plan na memória) —
-# não é uma instância descartável. Não trates comportamento estranho aqui
-# como "é só sandbox, ignora": os dois sítios abaixo marcados "sandbox"
-# (DYNADOT_ENV, MPESA_ENV) são a ÚNICA razão de partes do site não
-# funcionarem como no mundo real (ex: verificação de domínios não reconhece
-# domínios reais como registados). Antes de mudar isso para produção a
-# sério, confirma sempre com o utilizador — envolve dinheiro real
-# (registos de domínio reais, cobranças M-Pesa reais a clientes).
+# Este é o ÚNICO deploy do projecto: o site em produção é o do Contabo e é
+# publicado a cada push em `main` (o Hetzner foi desligado a 19/10/2026 e os
+# seus workflows apagados; o `main` antigo, do Hetzner, está guardado em
+# `arquivo/main-hetzner` — não usar).
+#
+# AVISO PARA QUALQUER AGENTE/PESSOA A MEXER AQUI: partes do site ainda estão em
+# modo "sandbox" (MPESA_ENV abaixo) e por isso não funcionam como no mundo real.
+# Antes de mudar isso para produção a sério, confirma sempre com o utilizador —
+# envolve dinheiro real (cobranças M-Pesa reais a clientes).
 # ============================================================================
 
 on:
   workflow_dispatch:
-  # cada push no ramo de trabalho publica sozinho no teste (pedido do Silva, 11/10/2026)
   push:
     branches:
-      - fix/contabo-websites-audit
+      - main
 
-# uma publicação de cada vez: um push novo espera que a anterior acabe
+# uma publicação de cada vez: um push novo espera que a anterior acabe (duas
+# publicações sobrepostas já estragaram o node_modules)
 concurrency:
-  group: deploy-contabo-teste
+  group: deploy-contabo
   cancel-in-progress: false
 
 jobs:
   deploy:
-    name: Deploy to Contabo test instance
+    name: Deploy to Contabo
     runs-on: ubuntu-latest
 
     steps:
@@ -46,10 +44,8 @@ jobs:
 
       - name: Build project
         env:
-          # Base de dados PRÓPRIA do Contabo (27-30 ago) — já não é a mesma do
-          # Hetzner. Nomes de secrets diferentes de propósito (CONTABO_* /
-          # SUPABASE_CONTABO_*) para nunca colidir com os que o
-          # deploy-hetzner.yml usa — mudar um dos dois nunca afecta o outro.
+          # Base de dados PRÓPRIA do Contabo (27-30 ago). Secrets CONTABO_* /
+          # SUPABASE_CONTABO_*.
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.CONTABO_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_CONTABO_ANON_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_CONTABO_SERVICE_ROLE_KEY }}

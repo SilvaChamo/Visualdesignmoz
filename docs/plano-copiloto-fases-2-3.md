@@ -90,12 +90,12 @@ Renovações | Registar | Modelos. É o melhor, segue o modelo das Encomendas.
 
 ## Como publicar (sem tocar no trabalho de outro agente)
 
-1. Ramo próprio a partir de `fix/contabo-websites-audit` actualizado, por exemplo `work/admin-fases-2-3`.
+1. Ramo próprio a partir de `main` actualizado, por exemplo `work/admin-fases-2-3`.
 2. Antes de pedir para publicar, mandar ao Silva o comando único do ponto 6 de `regras.md` para ver o ramo.
    **Atenção:** esse comando muda o ramo da pasta `visualdesign-producao`. Se outro agente estiver a trabalhar nessa
    pasta, avisar antes; as alterações dele ficam no stash.
 3. Só com o "publica" do Silva:
-   - PR para `fix/contabo-websites-audit` e merge;
+   - PR para `main` e merge;
    - título do merge **sem nome de IA** (ponto 7 de `regras.md`);
    - o deploy no Contabo corre sozinho.
 4. Depois de publicar: mandar ao Silva o hash do merge e o comando para actualizar o projecto local.

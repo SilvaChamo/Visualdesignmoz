@@ -1,15 +1,20 @@
 # Esta é a pasta de trabalho — e o site em produção
 
-Este projecto (pasta local `visualdesign-producao`, branch `fix/contabo-websites-audit`, dev server na porta 3003) é
-onde todo o trabalho acontece. **O site em produção é o do Contabo** (Silva, 14/10/2026: "esqueça Hetzner… agora o site
-em produção é da Contabo"; o servidor foi reforçado para 200 GB de disco, 12 GB de RAM e 6 núcleos): cada merge em
-`fix/contabo-websites-audit` publica no Contabo (`.github/workflows/deploy-contabo.yml`, que já publica com
-`NEXT_PUBLIC_SITE_URL=https://visualdesignmoz.com`). Como cada publicação vai directa à produção, a regra "só se
-publica quando o Silva disser 'publica'" é ainda mais importante.
+**NOTA PARA QUALQUER AGENTE (19/10/2026) — LER ANTES DE COMEÇAR.** Só existe um ramo que publica: **`main`**, e é o do
+**Contabo**. O Hetzner foi desligado e já não faz parte do projecto: os seus workflows, scripts e documentos foram
+apagados e o antigo `main` (o do Hetzner) ficou guardado em `arquivo/main-hetzner` — **não usar, não trazer nada de lá
+e não propor nem fazer alterações para o Hetzner** (Silva, 19/10/2026: "tudo o que é sobre Hetzner está fechado").
+O ramo que se chamava `fix/contabo-websites-audit` passou a chamar-se `main`: se alguma nota, comando ou memória antiga
+falar dele, da pasta `../visualdesign`, da pasta `visualdesign-teste` ou do `deploy-hetzner.yml`, está desactualizada.
+Se um agente se enganou e trabalhou no sítio errado, não se repete: **trabalha-se sempre num ramo de trabalho e
+publica-se por PR para `main`**.
 
-**O Hetzner já não faz parte do projecto.** Ignorar o ramo `main`, a pasta irmã `../visualdesign`, o
-`deploy-hetzner.yml` e tudo o que fale de produção no Hetzner — incluindo a memória
-`project_dual-folder-git-topology`, que descreve a topologia antiga. Não propor nem fazer alterações para lá.
+Este projecto (pasta local `visualdesign-producao`, dev server na porta 3003) é onde todo o trabalho acontece.
+**O site em produção é o do Contabo** (Silva, 14/10/2026: "esqueça Hetzner… agora o site em produção é da Contabo"; o
+servidor foi reforçado para 200 GB de disco, 12 GB de RAM e 6 núcleos): cada push em `main` (ou seja, cada merge de PR)
+publica no Contabo (`.github/workflows/deploy-contabo.yml`, que publica com `NEXT_PUBLIC_SITE_URL=https://visualdesignmoz.com`).
+Como cada publicação vai directa à produção, a regra "só se publica quando o Silva disser 'publica'" é ainda mais
+importante.
 
 A pasta de trabalho no Mac do Silva é `visualdesign-producao` (antes `visualdesign-teste`, que deixa de se usar).
 
@@ -25,18 +30,17 @@ sessão: retomar sempre em português. Vale para qualquer IA (está repetido em 
 
 # Como se trabalha com o Silva (combinado a 13/10/2026)
 
-1. O trabalho novo faz-se num ramo de trabalho (o do agente; nunca directamente em `fix/contabo-websites-audit` nem
-   em `main`).
+1. O trabalho novo faz-se num ramo de trabalho (o do agente; nunca directamente em `main`).
 2. Antes de publicar, se o agente tem acesso directo à pasta `visualdesign-producao`, ele próprio põe o projecto no
    ramo de trabalho, abre/actualiza a pré-visualização com computador e telemóvel e diz ao Silva onde se mexeu — nunca
    lhe manda comandos para actualizar a pasta local (Silva, 18/10/2026). **Sem screenshots** (Silva, 15/10/2026:
    "a partir de já não me dê mais screenshots, eu vou mandar para você") e **nunca ficheiros HTML de pré-visualização**
    (Silva, 13/10/2026: "só me confunde"). Se o agente não tem acesso local, pode indicar o comando conforme o ponto 6.
 3. **Só se publica quando o Silva disser "publica"/"publique"** — é a chave para lançar as correcções. Publicar =
-   PR do ramo de trabalho para `fix/contabo-websites-audit` + merge (o deploy no Contabo corre sozinho).
+   PR do ramo de trabalho para `main` + merge (o deploy no Contabo corre sozinho).
 4. Alterações ao servidor também são descritas primeiro e só avançam com o "avança"/"publica" dele.
 5. **Sempre que o Silva disser "publica"/"publique"**, depois de publicar, mandar-lhe o commit publicado (o hash do
-   merge em `fix/contabo-websites-audit`) e confirmar o resultado do deploy. **Nunca lhe mandar comandos para actualizar
+   merge em `main`) e confirmar o resultado do deploy. **Nunca lhe mandar comandos para actualizar
    o projecto local quando o agente tem acesso directo à pasta `visualdesign-producao`: o próprio agente faz e verifica
    a actualização local.** Só o agente que trabalha online sem acesso ao projecto local pode mandar esses comandos
    (Silva, 18/10/2026).
@@ -67,7 +71,7 @@ sessão: retomar sempre em português. Vale para qualquer IA (está repetido em 
    O `rm -rf .next` apaga a cache do servidor local antes de arrancar (uma cache velha depois de mudar de ramo fazia o
    site local piscar e não abrir — Silva, 14/10/2026); a primeira página demora um pouco mais a compilar.
 7. **As publicações não levam o nome da inteligência artificial** (Silva, 16/10/2026). O título do merge em
-   `fix/contabo-websites-audit` fica só `Merge pull request #N from SilvaChamo-<fim do ramo>` — de preferência o mais
+   `main` fica só `Merge pull request #N from SilvaChamo-<fim do ramo>` — de preferência o mais
    curto, ex.: `Merge pull request #86 from SilvaChamo-51l13p`; no máximo `Merge pull request #86 from
    SilvaChamo/sharp-hypatia-51l13p`. Nunca `claude/` nem outro nome de IA no título (o GitHub põe por defeito
    `from SilvaChamo/claude/…`: ao juntar, escrever o título à mão, ou pela API no `commit_title`). Vale para qualquer
