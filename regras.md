@@ -4,8 +4,8 @@
 **Contabo**. O Hetzner foi desligado e já não faz parte do projecto: os seus workflows, scripts e documentos foram
 apagados e o antigo `main` (o do Hetzner) ficou guardado em `arquivo/main-hetzner` — **não usar, não trazer nada de lá
 e não propor nem fazer alterações para o Hetzner** (Silva, 19/10/2026: "tudo o que é sobre Hetzner está fechado").
-O ramo que se chamava `fix/contabo-websites-audit` passou a chamar-se `main`: se alguma nota, comando ou memória antiga
-falar dele, da pasta `../visualdesign`, da pasta `visualdesign-teste` ou do `deploy-hetzner.yml`, está desactualizada.
+Tudo o que estava no ramo `fix/contabo-websites-audit` está agora em `main` (esse ramo deixa de se usar): se alguma nota,
+comando ou memória antiga falar dele, da pasta `../visualdesign`, da pasta `visualdesign-teste` ou do `deploy-hetzner.yml`, está desactualizada.
 Se um agente se enganou e trabalhou no sítio errado, não se repete: **trabalha-se sempre num ramo de trabalho e
 publica-se por PR para `main`**.
 
