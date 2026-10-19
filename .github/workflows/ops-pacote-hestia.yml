@@ -1,0 +1,145 @@
+name: Ops - Limite de disco de um pacote do Hestia
+
+# Muda o DISK_QUOTA de um pacote do Hestia (ex.: VD-Email-Basico) pelo comando validado do próprio Hestia
+# (v-add-user-package com rewrite, nunca escrevendo no ficheiro à mão) e volta a atribuir o pacote às contas que o têm,
+# para o limite novo entrar em vigor.
+#
+# Sem "aplicar" só LÊ: mostra o pacote, as contas que o usam e o espaço e as quotas das caixas de cada uma.
+# Com "aplicar" recusa-se a alterar se alguma conta já usa mais do que o limite novo (a não ser com "forcar").
+# Antes de alterar guarda uma cópia do pacote em /root/pacotes-hestia-antes/.
+
+on:
+  workflow_dispatch:
+    inputs:
+      pacote:
+        description: 'Nome do pacote'
+        required: true
+        default: 'VD-Email-Basico'
+      disco_mb:
+        description: 'Novo DISK_QUOTA em MB (ex.: 5000)'
+        required: true
+        default: '5000'
+      aplicar:
+        description: 'Aplicar a alteração (desligado = só ler)'
+        type: boolean
+        default: false
+      forcar:
+        description: 'Aplicar mesmo que alguma conta já use mais do que o limite novo'
+        type: boolean
+        default: false
+
+concurrency:
+  group: ops-pacote-hestia
+  cancel-in-progress: false
+
+jobs:
+  pacote:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pacote do Hestia (ler e, se pedido, alterar)
+        uses: appleboy/ssh-action@v1.2.5
+        env:
+          PACOTE: ${{ inputs.pacote }}
+          DISCO_MB: ${{ inputs.disco_mb }}
+          APLICAR: ${{ inputs.aplicar }}
+          FORCAR: ${{ inputs.forcar }}
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          username: root
+          password: ${{ secrets.CONTABO_ROOT_PASSWORD }}
+          command_timeout: 10m
+          envs: PACOTE,DISCO_MB,APLICAR,FORCAR
+          script: |
+            set -u
+            export HESTIA=/usr/local/hestia
+            H=$HESTIA/bin
+            case "$PACOTE" in (*[!A-Za-z0-9_-]*|'') echo "Nome de pacote inválido"; exit 1;; esac
+            case "$DISCO_MB" in (*[!0-9]*|'') echo "DISK_QUOTA inválido"; exit 1;; esac
+            F=$HESTIA/data/packages/$PACOTE.pkg
+            [ -f "$F" ] || { echo "O pacote $PACOTE não existe"; exit 1; }
+            echo "=== pacote $PACOTE (agora) ==="
+            cat "$F"
+            echo
+            python3 - <<'PY'
+            import json, os, subprocess, sys
+            H = '/usr/local/hestia/bin/'
+            P = os.environ['PACOTE']
+            novo = int(os.environ['DISCO_MB'])
+            def j(*a):
+                return json.loads(subprocess.check_output([H + a[0], *a[1:], 'json'], text=True))
+            def num(v):
+                try:
+                    return float(v)
+                except Exception:
+                    return None
+            users = j('v-list-users')
+            alvo = sorted(u for u, d in users.items() if d.get('PACKAGE') == P)
+            print('=== contas com o pacote %s: %d ===' % (P, len(alvo)))
+            acima = []
+            for u in alvo:
+                d = users[u]
+                uso = num(d.get('U_DISK'))
+                print('%s | uso total %s MB | limite actual %s MB | caixas %s | domínios de e-mail %s' % (u, d.get('U_DISK'), d.get('DISK_QUOTA'), d.get('U_MAIL_ACCOUNTS'), d.get('U_MAIL_DOMAINS')))
+                if uso is not None and uso > novo:
+                    acima.append((u, uso))
+                try:
+                    doms = j('v-list-mail-domains', u)
+                except Exception as e:
+                    print('   (não consegui ler os domínios de e-mail: %s)' % e)
+                    continue
+                soma = 0.0
+                ilimitadas = 0
+                for dom in sorted(doms):
+                    try:
+                        accs = j('v-list-mail-accounts', u, dom)
+                    except Exception:
+                        continue
+                    for a, x in sorted(accs.items()):
+                        q = x.get('QUOTA')
+                        qn = num(q)
+                        if qn is None:
+                            ilimitadas += 1
+                        else:
+                            soma += qn
+                        print('   %s@%s | usado %s MB | quota %s%s' % (a, dom, x.get('U_DISK'), q, ' | só reencaminha' if x.get('FWD_ONLY') == 'yes' else ''))
+                print('   soma das quotas com número: %.0f MB | caixas sem limite: %d' % (soma, ilimitadas))
+            open('/tmp/pacote-alvo.txt', 'w').write('\n'.join(alvo))
+            open('/tmp/pacote-acima.txt', 'w').write('\n'.join('%s (%.0f MB)' % x for x in acima))
+            print()
+            print('Contas que já usam mais do que %d MB: %s' % (novo, ', '.join('%s (%.0f MB)' % x for x in acima) or 'nenhuma'))
+            PY
+            if [ "$APLICAR" != "true" ]; then
+              echo
+              echo "Só leitura: nada foi alterado."
+              exit 0
+            fi
+            if [ -s /tmp/pacote-acima.txt ] && [ "$FORCAR" != "true" ]; then
+              echo
+              echo "RECUSADO: há contas que já usam mais do que ${DISCO_MB} MB (lista acima). Nada foi alterado."
+              exit 1
+            fi
+            mkdir -p /root/pacotes-hestia-antes
+            cp -p "$F" "/root/pacotes-hestia-antes/$PACOTE.$(date +%Y%m%d-%H%M%S).pkg"
+            NOVO=/tmp/$PACOTE.novo.pkg
+            cp "$F" "$NOVO"
+            if grep -q "^DISK_QUOTA=" "$NOVO"; then
+              sed -i "s/^DISK_QUOTA=.*/DISK_QUOTA='${DISCO_MB}'/" "$NOVO"
+            else
+              echo "DISK_QUOTA='${DISCO_MB}'" >> "$NOVO"
+            fi
+            echo "=== a escrever o pacote com v-add-user-package (rewrite) ==="
+            $H/v-add-user-package "$NOVO" "$PACOTE" yes
+            echo "=== pacote depois ==="
+            grep "^DISK_QUOTA" "$F"
+            FORCE=""
+            [ "$FORCAR" = "true" ] && FORCE="yes"
+            while read -r u; do
+              [ -n "$u" ] || continue
+              echo "=== v-change-user-package $u $PACOTE yes ==="
+              $H/v-change-user-package "$u" "$PACOTE" yes && echo "ok: $u" || echo "FALHOU: $u"
+            done < /tmp/pacote-alvo.txt
+            echo "=== limite de cada conta depois ==="
+            while read -r u; do
+              [ -n "$u" ] || continue
+              printf '%s -> ' "$u"; $H/v-list-user "$u" json | python3 -c "import json,sys; d=json.load(sys.stdin); x=list(d.values())[0]; print('DISK_QUOTA', x.get('DISK_QUOTA'), '| PACKAGE', x.get('PACKAGE'))"
+            done < /tmp/pacote-alvo.txt
