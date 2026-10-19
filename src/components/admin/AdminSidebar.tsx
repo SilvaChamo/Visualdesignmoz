@@ -2,7 +2,7 @@
 
 import React from 'react';
 import {
-  Home, LogOut, ChevronRight, Archive, Users, Server, Mail, Globe, Bell, Layout, Settings, FileText, Code2, AppWindow, Calculator,
+  Home, LogOut, ChevronRight, Archive, Users, Server, Mail, Globe, Bell, Layout, Settings, FileText, AppWindow, Calculator, FolderOpen, HardDrive,
 } from 'lucide-react';
 import { SidebarAccount } from '@/components/panel/SidebarAccount';
 import { SidebarMenuFlyout } from '@/components/panel/SidebarMenuFlyout';
@@ -63,6 +63,8 @@ const MENU_ICONS: Record<string, React.ElementType> = {
   contabilidade: Calculator,
   newsletter: Layout,
   'nov-wordpress': AppWindow,
+  'file-manager': FolderOpen,
+  'backup-manager': HardDrive,
   'nov-sistema': Settings,
 };
 
@@ -288,6 +290,10 @@ export function AdminSidebar({
     }
     if (item.id === 'nov-hospedagem') {
       onNavigate('hospedagem-contas');
+      return;
+    }
+    if (item.id === 'nov-wordpress') {
+      onNavigate('wp-sites');
       return;
     }
     const firstNavigable = findFirstNavigableSubItem(item.subItems);
@@ -532,7 +538,6 @@ export function AdminSidebar({
                                   : 'text-gray-600 hover:bg-gray-100 hover:text-red-600 dark:text-zinc-500 dark:hover:bg-zinc-800 dark:hover:text-red-400'
                               }`}
                             >
-                              {sub.id === 'nextjs-sites' && <Code2 size={15} className="mr-2 shrink-0" />}
                               {sub.label}
                             </button>
                           </div>

@@ -6,7 +6,7 @@ import {
   resolveUserRole,
   type UserRole,
 } from '@/lib/user-roles'
-import { defaultLandingPath } from '@/lib/panel-origin'
+import { defaultLandingPath, isEncomendasAccount } from '@/lib/panel-origin'
 import { getOAuthCallbackUrl } from '@/lib/oauth-callback'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co'
@@ -184,49 +184,147 @@ export interface TicketSuporte {
 }
 
 // Funções de autenticação
+export class LoginRateLimitError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'LoginRateLimitError'
+  }
+}
+
+/** O navegador não chegou ao servidor de login: o site abriu (passa pela Cloudflare), mas o login liga directo ao
+ *  servidor — quase sempre é o IP bloqueado pela protecção do servidor (fail2ban), não a palavra-passe. */
+export type FalhaLigacao = 'ip' | 'internet' | 'servidor'
+export const MSG_LIGACAO: Record<FalhaLigacao, string> = {
+  ip: 'Sem ligação ao servidor de login: o servidor bloqueou o acesso a partir do seu IP por demasiadas tentativas falhadas nesta rede (por exemplo, uma aplicação de e-mail com uma palavra-passe antiga). Peça ao suporte para desbloquear o IP.',
+  internet: 'Sem ligação à internet. Verifique a rede e tente outra vez.',
+  servidor: 'O servidor de login não está a responder. Tente outra vez daqui a um minuto.',
+}
+
+export class LoginNetworkError extends Error {
+  readonly tipo: FalhaLigacao
+  constructor(tipo: FalhaLigacao) {
+    super(MSG_LIGACAO[tipo])
+    this.name = 'LoginNetworkError'
+    this.tipo = tipo
+  }
+}
+
+/** Sem resposta do servidor de login (rede, IP bloqueado) ou servidor em baixo — nunca é "palavra-passe errada" */
+function erroDeLigacao(e: unknown): LoginNetworkError | null {
+  const err = e as { name?: string; status?: number; message?: string } | null
+  const msg = String(err?.message || '')
+  const semResposta = err?.status === 0 || err instanceof TypeError || /failed to fetch|load failed|networkerror|fetch failed/i.test(msg)
+  if (semResposta) {
+    const offline = typeof navigator !== 'undefined' && navigator.onLine === false
+    return new LoginNetworkError(offline ? 'internet' : 'ip')
+  }
+  if (err?.name === 'AuthRetryableFetchError') return new LoginNetworkError('servidor')
+  return null
+}
+
 export const auth = {
   // Login — Auth primeiro; fallback com password guardada (ProvisualCorporate)
   async signIn(loginId: string, password: string) {
     let normalizedEmail = loginId.trim().toLowerCase();
 
-    // Tradução de Nome de Utilizador para Email
+    // Tradução de Nome de Utilizador para Email e sincronização de credenciais
     if (!normalizedEmail.includes('@')) {
-      if (normalizedEmail === 'osher' || normalizedEmail === 'oshercollective') {
-        normalizedEmail = 'osher@oshercollective.com';
-      } else if (normalizedEmail === 'admin' || normalizedEmail === 'silvachamo') {
-        normalizedEmail = 'silva.chamo@gmail.com';
-      } else {
-        normalizedEmail = `${normalizedEmail}@visualdesignmoz.com`;
+      try {
+        const r = await fetch('/api/vhost/entrar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ utilizador: normalizedEmail, senha: password }),
+        });
+        const j = (await r.json().catch(() => ({}))) as { email?: string; sessao?: boolean };
+        if (j.email) {
+          normalizedEmail = j.email.toLowerCase();
+          // O servidor já entrou com esta palavra-passe e deixou a sessão nos cookies da resposta: usa-se essa, sem
+          // voltar a entrar aqui (era a segunda espera pelo Supabase no login). Se não estiver lá, entra-se como antes.
+          if (j.sessao) {
+            const { data: { session } } = await supabase.auth.getSession()
+            if (session?.user?.email?.toLowerCase() === normalizedEmail) return { user: session.user, session }
+          }
+        } else if (normalizedEmail === 'osher' || normalizedEmail === 'oshercollective') {
+          normalizedEmail = 'osher@oshercollective.com';
+        } else if (normalizedEmail === 'admin' || normalizedEmail === 'silvachamo') {
+          normalizedEmail = 'silva.chamo@gmail.com';
+        } else {
+          normalizedEmail = `${normalizedEmail}@visualdesignmoz.com`;
+        }
+      } catch {
+        if (normalizedEmail === 'osher' || normalizedEmail === 'oshercollective') {
+          normalizedEmail = 'osher@oshercollective.com';
+        } else if (normalizedEmail === 'admin' || normalizedEmail === 'silvachamo') {
+          normalizedEmail = 'silva.chamo@gmail.com';
+        } else {
+          normalizedEmail = `${normalizedEmail}@visualdesignmoz.com`;
+        }
       }
     }
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: normalizedEmail,
-      password,
-    });
+    let primeira: Awaited<ReturnType<typeof supabase.auth.signInWithPassword>>
+    try {
+      primeira = await supabase.auth.signInWithPassword({
+        email: normalizedEmail,
+        password,
+      });
+    } catch (e) {
+      throw erroDeLigacao(e) ?? e;
+    }
+    const { data, error } = primeira;
 
     if (!error) return data;
+    const ligacao = erroDeLigacao(error);
+    if (ligacao) throw ligacao;
 
     const invalid =
       error.message?.toLowerCase().includes('invalid login credentials') ||
       error.message?.toLowerCase().includes('invalid credentials');
 
     if (invalid) {
+      let syncRes: Response | null = null
       try {
-        const syncRes = await fetch('/api/auth/panel-login', {
+        syncRes = await fetch('/api/auth/panel-login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email: normalizedEmail, password }),
         });
-        if (syncRes.ok) {
-          const retry = await supabase.auth.signInWithPassword({
-            email: normalizedEmail,
-            password,
-          });
-          if (!retry.error) return retry.data;
-        }
       } catch {
         /* manter erro original */
+      }
+      if (syncRes?.status === 429) {
+        const result = (await syncRes.json().catch(() => ({}))) as { error?: string }
+        throw new LoginRateLimitError(result.error || 'Acesso temporariamente bloqueado por excesso de tentativas.')
+      }
+      if (syncRes?.ok) {
+        const retry = await supabase.auth.signInWithPassword({
+          email: normalizedEmail,
+          password,
+        });
+        if (!retry.error) return retry.data;
+      }
+      // admin@<domínio da conta>: entra na conta de alojamento dona do domínio, com a palavra-passe dela (Silva,
+      // 17/10/2026). Só quando este endereço não é ele próprio um login do site (tentado acima).
+      if (/^admin@/.test(normalizedEmail)) {
+        try {
+          const r = await fetch('/api/vhost/entrar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ utilizador: normalizedEmail, senha: password }),
+          });
+          if (r.status === 429) {
+            const j = (await r.json().catch(() => ({}))) as { erro?: string };
+            throw new LoginRateLimitError(j.erro || 'Acesso temporariamente bloqueado por excesso de tentativas.');
+          }
+          const j = (await r.json().catch(() => ({}))) as { email?: string; sessao?: boolean };
+          if (j.email && j.sessao) {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.user?.email?.toLowerCase() === j.email.toLowerCase()) return { user: session.user, session };
+          }
+        } catch (e) {
+          if (e instanceof LoginRateLimitError) throw e;
+          /* fica o erro original */
+        }
       }
     }
 
@@ -318,8 +416,18 @@ export const auth = {
   async getRedirectPath(userHint?: User | null, cachedRole?: UserRole | null): Promise<string> {
     const role = cachedRole ?? (await this.getUserRole(userHint))
 
+    // Conta criada no percurso das encomendas — vai para /encomendas mesmo
+    // antes de ter a primeira encomenda gravada.
     let hasEncomendas = false
     if (role === 'guest') {
+      let user = userHint ?? null
+      if (!user) {
+        const { data: { session } } = await supabase.auth.getSession()
+        user = session?.user ?? null
+      }
+      hasEncomendas = isEncomendasAccount(user?.user_metadata)
+    }
+    if (role === 'guest' && !hasEncomendas) {
       try {
         const res = await fetch('/api/cotacoes', { credentials: 'include' })
         if (res.ok) {

@@ -1,26 +1,17 @@
 'use client'
 
+import Link from 'next/link'
 import React, { useState, useEffect, Suspense } from 'react'
-import { useSearchParams } from 'next/navigation'
-import { Eye, EyeOff } from 'lucide-react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { auth } from '@/lib/supabase-client'
 import { useI18n } from '@/lib/i18n'
 import { googleOAuthUserMessage } from '@/lib/auth-messages'
 import { PUBLIC_PANEL_ENTRY } from '@/lib/panel-origin'
-import { fetchPanelBootstrap, type PanelBootstrapScope } from '@/lib/panel-data-from-server'
+import { aquecerDadosVhost, marcarEntrada, preCarregarDadosVhost } from '@/lib/vhost-cache'
 import type { UserRole } from '@/lib/user-roles'
-import { AuthPageShell, AuthLoadingShell } from '@/components/auth/AuthPageShell'
-import {
-  authCardClass,
-  authErrorBoxClass,
-  authGoogleBtnClass,
-  authInputClass,
-  authLabelClass,
-  authLinkClass,
-  authMutedTextClass,
-  authPrimaryBtnClass,
-} from '@/components/auth/auth-styles'
+import { CampoFlutuante, OlhoSenha, botaoCls, botaoClaroCls, ligacaoCls, subtituloCls, tituloCls, formularioCls } from '@/components/auth/campos'
+import { authErrorBoxClass } from '@/components/auth/auth-styles'
 
 function LoginFormInner() {
   const [email, setEmail] = useState('')
@@ -33,6 +24,7 @@ function LoginFormInner() {
   const [oauthError, setOauthError] = useState<{ title: string; desc: string } | null>(null)
   const { signIn, signInWithGoogle } = useAuth()
   const searchParams = useSearchParams()
+  const router = useRouter()
   const { t } = useI18n()
 
   useEffect(() => {
@@ -44,39 +36,31 @@ function LoginFormInner() {
     }
   }, [searchParams])
 
-  const bootstrapScopeForRole = (role: UserRole): PanelBootstrapScope | null => {
-    if (role === 'admin' || role === 'manager') return 'admin'
-    if (role === 'reseller') return 'reseller'
-    if (role === 'client') return 'client'
-    return null
-  }
+  // A leitura do servidor que o "A entrar…" espera (prefetchPanelData, abaixo) começa já, enquanto se escrevem as
+  // credenciais — antes só começava depois de a sessão abrir e, com a memória do servidor fria, demorava uma eternidade
+  useEffect(() => {
+    aquecerDadosVhost()
+  }, [])
 
-  /** Começa a carregar os dados do painel ainda no ecrã de login (assim que a
-   * password é confirmada), para a página abrir já pronta em vez de mostrar
-   * o círculo de carregamento outra vez depois do redireccionamento. Tempo
-   * limitado a 4s — se demorar mais, avança na mesma e o painel carrega
-   * normalmente ao abrir. */
+  /** Lê os dados do painel ainda no ecrã de login (o botão fica em "A entrar…") e guarda-os no navegador: o painel
+   * abre logo com o conteúdo, sem o ecrã branco com o círculo depois das credenciais (pedido do Silva, 13/10/2026 —
+   * só na entrada pelo site; a entrada pelo próprio painel fica como está). Se falhar, o painel lê ao abrir. */
   const prefetchPanelData = async (role: UserRole) => {
-    const scope = bootstrapScopeForRole(role)
-    if (!scope) return
-    try {
-      await Promise.race([
-        fetchPanelBootstrap({ fresh: true, scope }),
-        new Promise((resolve) => setTimeout(resolve, 4000)),
-      ])
-    } catch {
-      /* falha ao pré-carregar — painel carrega normalmente ao abrir */
-    }
+    if (role === 'guest') return
+    await preCarregarDadosVhost()
   }
 
   const goToPanel = async (role: Awaited<ReturnType<typeof auth.getUserRole>>) => {
     const redirectTo = searchParams.get('redirect') || searchParams.get('next')
-    if (redirectTo && typeof redirectTo === 'string' && redirectTo.startsWith('/')) {
-      window.location.assign(redirectTo)
+    const pedido = redirectTo && typeof redirectTo === 'string' && redirectTo.startsWith('/') ? redirectTo : null
+    const target = pedido || (await auth.getRedirectPath(undefined, role))
+    // O painel abre sem recarregar a página (pedido do Silva, 13/10/2026): este ecrã fica à vista, com "A entrar…",
+    // até o painel aparecer já com os dados lidos acima — sem a página branca com a roda pelo meio
+    if (/^\/host(:|%3a)2026(\/|$)/i.test(target)) {
+      router.push(target)
       return
     }
-    const target = await auth.getRedirectPath(undefined, role)
-    window.location.assign(new URL(target, window.location.origin).toString())
+    window.location.assign(pedido || new URL(target, window.location.origin).toString())
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -88,9 +72,12 @@ function LoginFormInner() {
     setError('')
     try {
       const role = await signIn(email, password)
+      marcarEntrada('site') // ao sair do painel, volta a este login
       await prefetchPanelData(role)
+      // o botão fica em "A entrar…" até a página seguinte aparecer
       await goToPanel(role)
     } catch (err: unknown) {
+      setLoading(false)
       const msg = String((err as Error)?.message || '')
       if (msg.toLowerCase().includes('invalid login credentials')) {
         setError(
@@ -100,8 +87,6 @@ function LoginFormInner() {
       } else {
         setError((err as Error).message || t('login.errorGeneric'))
       }
-    } finally {
-      setLoading(false)
     }
   }
 
@@ -109,6 +94,7 @@ function LoginFormInner() {
     setLoadingGoogle(true)
     setError('')
     try {
+      marcarEntrada('site')
       await signInWithGoogle(PUBLIC_PANEL_ENTRY)
     } catch (err: unknown) {
       setLoadingGoogle(false)
@@ -120,118 +106,117 @@ function LoginFormInner() {
   }
 
   return (
-    <AuthPageShell>
-      <div className={authCardClass}>
-        <div>
-        </div>
+    <>
+      {/* no telemóvel e no tablet a imagem (com o logótipo) não aparece: o logótipo fica por cima do formulário */}
+      {/* no telemóvel e no tablet tudo ao centro (pedido do Silva, 13/10/2026) */}
+      <h1 className={tituloCls}>{t('login.title')}</h1>
+      <p className={subtituloCls}>{t('login.subtitle')}</p>
 
-        {error && <div className={authErrorBoxClass}>{error}</div>}
+      {error && <div className={`mt-6 ${authErrorBoxClass}`}>{error}</div>}
 
-        {oauthError && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
-            <div className={`w-full max-w-sm ${authCardClass}`}>
-              <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">{oauthError.title}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">{oauthError.desc}</p>
-              <button
-                type="button"
-                onClick={() => setOauthError(null)}
-                className={`mt-5 w-full ${authPrimaryBtnClass}`}
-              >
-                {t('login.close')}
-              </button>
-            </div>
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="absolute -z-10 opacity-0 pointer-events-none" aria-hidden="true">
-            <input
-              type="text"
-              name="_internal_hp_field"
-              value={internalField}
-              onChange={(e) => setInternalField(e.target.value)}
-              tabIndex={-1}
-              autoComplete="off"
-            />
-          </div>
-
-          <div>
-            <label className={authLabelClass}>{t('login.email')} ou Nome de Utilizador</label>
-            <input
-              type="text"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className={authInputClass}
-              placeholder="email@dominio.com ou nomedeutilizador"
-              required
-            />
-          </div>
-
-          <div>
-            <label className={authLabelClass}>{t('login.password')}</label>
-            <div className="relative">
-              <input
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className={`${authInputClass} pr-10`}
-                placeholder="••••••••"
-                required
-                minLength={6}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 transition-colors hover:text-zinc-600 dark:hover:text-zinc-300"
-                aria-label={showPassword ? 'Ocultar palavra-passe' : 'Mostrar palavra-passe'}
-              >
-                {showPassword ? (
-                  <EyeOff className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden />
-                ) : (
-                  <Eye className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden />
-                )}
-              </button>
-            </div>
-            <a href="/auth/forgot-password" className={`mt-2 inline-block text-xs ${authLinkClass}`}>
-              {t('login.forgotPassword')}
-            </a>
-          </div>
-
-          <div className="flex gap-2 pt-1">
-            <button type="submit" disabled={loading} className={`flex-1 ${authPrimaryBtnClass}`}>
-              {loading ? t('login.submitting') : t('login.submit')}
-            </button>
+      {oauthError && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
+          {/* mesmo cartão do formulário de entrada */}
+          <div className="w-full max-w-sm rounded-[10px] border border-zinc-200 bg-[#fff] p-6 shadow-[0_0_36px_-10px_rgba(24,24,27,0.18)] dark:border-[#2a2d3a] dark:bg-[#15161e]">
+            <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">{oauthError.title}</h3>
+            <p className="mt-2 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">{oauthError.desc}</p>
             <button
               type="button"
-              onClick={handleGoogleLogin}
-              disabled={loadingGoogle}
-              title="Entrar com Google"
-              className={authGoogleBtnClass}
+              onClick={() => setOauthError(null)}
+              className={`mt-5 ${botaoCls}`}
             >
-              <svg className="h-5 w-5" viewBox="0 0 24 24">
-                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-              </svg>
+              {t('login.close')}
             </button>
           </div>
-        </form>
+        </div>
+      )}
 
-        <p className={`mt-4 text-center ${authMutedTextClass}`}>
-          {t('login.noAccount')}{' '}
-          <a href="/auth/register" className={authLinkClass}>
-            {t('login.register')}
-          </a>
-        </p>
-      </div>
-    </AuthPageShell>
+      <form onSubmit={handleSubmit} className={formularioCls}>
+        <div className="absolute -z-10 opacity-0 pointer-events-none" aria-hidden="true">
+          <input
+            type="text"
+            name="_internal_hp_field"
+            value={internalField}
+            onChange={(e) => setInternalField(e.target.value)}
+            tabIndex={-1}
+            autoComplete="off"
+          />
+        </div>
+
+        <CampoFlutuante
+          id="login-user"
+          rotulo={t('login.user')}
+          dica={t('login.userPlaceholder')}
+          autoComplete="username"
+          obrigatorio
+          value={email}
+          onChange={setEmail}
+        />
+
+        <div>
+          <CampoFlutuante
+            id="login-senha"
+            rotulo={t('login.password')}
+            dica="••••••••"
+            type={showPassword ? 'text' : 'password'}
+            autoComplete="current-password"
+            minLength={6}
+            obrigatorio
+            value={password}
+            onChange={setPassword}
+          >
+            <OlhoSenha ver={showPassword} onClick={() => setShowPassword(!showPassword)} />
+          </CampoFlutuante>
+        </div>
+
+        <button type="submit" disabled={loading} className={botaoCls}>
+          {loading ? t('login.signingIn') : t('login.signIn')}
+        </button>
+
+
+        <div className="flex items-center gap-3 text-xs uppercase tracking-wide text-zinc-400">
+          <span className="h-px flex-1 bg-zinc-200 dark:bg-[#393e4d]" />
+          {t('login.or')}
+          <span className="h-px flex-1 bg-zinc-200 dark:bg-[#393e4d]" />
+        </div>
+
+        <button
+          type="button"
+          onClick={handleGoogleLogin}
+          disabled={loadingGoogle}
+          className={botaoClaroCls}
+        >
+          <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden>
+            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+          </svg>
+          {t('login.google')}
+        </button>
+
+        {/* por baixo do Google: recuperar a senha à esquerda, registar à direita (pedido do Silva, 13/10/2026); no
+            telemóvel um por linha, ao centro e sem partir (Silva, 14/10/2026: "Recuperar / senha", "Registe- / se") */}
+        <div className="flex flex-col items-center gap-2 whitespace-nowrap sm:flex-row sm:justify-between sm:gap-4">
+          <Link href="/auth/forgot-password" className={ligacaoCls}>
+            {t('login.forgot')}
+          </Link>
+          <span className="text-[clamp(12.5px,0.92vw,13.5px)] text-zinc-700 dark:text-zinc-300">
+            {t('login.noAccount')}{' '}
+            <Link href="/auth/register" className={ligacaoCls}>
+              {t('login.register')}
+            </Link>
+          </span>
+        </div>
+      </form>
+
+    </>
   )
 }
 
 export function LoginForm() {
   return (
-    <Suspense fallback={<AuthLoadingShell />}>
+    <Suspense fallback={null}>
       <LoginFormInner />
     </Suspense>
   )

@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
 import { requireAdminOrReseller } from '@/lib/panel-api-auth';
-import { runDaFullSyncDeduped } from '@/lib/da-sync-engine';
+import { runHestiaFullSyncDeduped } from '@/lib/hestia-sync-engine';
 
 /**
- * Sincronização manual DirectAdmin → espelho Supabase.
+ * Sincronização manual Hestia → espelho Supabase.
  * Admin: sync completo. Revendedor: sync completo (espelho global; UI filtra por owner).
  */
 export async function POST() {
@@ -11,11 +11,11 @@ export async function POST() {
   if ('error' in auth) return auth.error;
 
   try {
-    const result = await runDaFullSyncDeduped();
+    const result = await runHestiaFullSyncDeduped();
     return NextResponse.json({
       success: result.ok,
       message: result.ok
-        ? 'Sincronização DirectAdmin concluída.'
+        ? 'Sincronização Hestia concluída.'
         : 'Sincronização concluída com avisos.',
       ...result,
     });

@@ -3,6 +3,8 @@ import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { resolveQuotationAccess } from '@/lib/quotation-access';
 import { ensureQuotationAttachmentsBucket, QUOTATION_ATTACHMENTS_BUCKET, getAttachmentSignedUrl, getAttachmentSignedUrls } from '@/lib/quotation-attachments-bucket';
 import { compressImageToMaxSize } from '@/lib/image-compress';
+import { notifyQuoteTeam } from '@/lib/notify-quote-team';
+import { comprovativoFaseFromPath, comprovativoStoragePath, isComprovativoFase } from '@/lib/quotation-comprovativo';
 
 const MAX_SIZE_BYTES = 10 * 1024 * 1024; // 10MB, mesmo limite por omissão de MultiFileUpload
 
@@ -27,9 +29,15 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: 'Não foi possível carregar os anexos.' }, { status: 500 });
   }
 
-  // #11: bucket privado — file_url guardado é só o caminho.
+  // #11: bucket privado — file_url guardado é só o caminho. A fase do
+  // comprovativo sai desse caminho (ver quotation-comprovativo.ts) antes de
+  // ser trocado pelo URL assinado.
   const signedUrls = await getAttachmentSignedUrls((data || []).map((a) => a.file_url));
-  const anexos = (data || []).map((a, idx) => ({ ...a, file_url: signedUrls[idx] }));
+  const anexos = (data || []).map((a, idx) => ({
+    ...a,
+    file_url: signedUrls[idx],
+    comprovativo_fase: comprovativoFaseFromPath(a.file_url),
+  }));
 
   return NextResponse.json({ success: true, anexos });
 }
@@ -48,6 +56,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const form = await request.formData();
   const file = form.get('file') as File | null;
+  // Comprovativo de pagamento (adiantamento/remanescente) — marcado no
+  // caminho do ficheiro para a Contabilidade › Encomendas o encontrar.
+  const faseRaw = form.get('fase');
+  const fase = isComprovativoFase(faseRaw) ? faseRaw : null;
 
   if (!file) {
     return NextResponse.json({ error: 'Ficheiro em falta.' }, { status: 400 });
@@ -61,7 +73,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const ext = file.name.split('.').pop() || 'bin';
   const baseName = file.name.replace(/\.[^/.]+$/, '');
   const safeName = baseName.replace(/[^a-z0-9]/gi, '-').toLowerCase();
-  const path = `${id}/${Date.now()}-${safeName}.${ext}`;
+  const path = fase ? comprovativoStoragePath(id, fase, safeName, ext) : `${id}/${Date.now()}-${safeName}.${ext}`;
 
   const bytes = await file.arrayBuffer();
   const { buffer, contentType } = await compressImageToMaxSize(
@@ -96,6 +108,16 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (insertError) {
     console.error('[cotacoes/[id]/anexos] insert error:', insertError);
     return NextResponse.json({ error: 'Não foi possível registar o anexo.' }, { status: 500 });
+  }
+
+  if (fase && access.role === 'client') {
+    // Mesmo aviso que um comprovativo do checkout de domínio/hospedagem — a
+    // equipa confirma na Contabilidade, não precisa de ir procurar o anexo.
+    notifyQuoteTeam({
+      title: 'Comprovativo de encomenda recebido',
+      message: `${access.quotation.empresa} enviou o comprovativo do ${fase === 'remanescente' ? 'remanescente (30%)' : 'adiantamento (70%)'} da encomenda (${access.quotation.produto}). Confirme em Contabilidade › Encomendas.`,
+      link: `${process.env.NEXT_PUBLIC_SITE_URL || ''}/dashboard?section=contabilidade`,
+    }).catch((err) => console.error('[cotacoes/[id]/anexos] falha ao notificar equipa:', err));
   }
 
   const signedUrl = await getAttachmentSignedUrl(inserted.file_url);

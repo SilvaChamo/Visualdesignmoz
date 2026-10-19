@@ -40,6 +40,7 @@ export function WordPressUsersSection({ sites, isActive, setActiveSection }: Wor
   const [loadingDomains, setLoadingDomains] = useState(false);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [actionBusy, setActionBusy] = useState<string>(''); // 'delete-[username]', 'login-[username]'
+  const [openingPanel, setOpeningPanel] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   // Form states
@@ -169,6 +170,37 @@ export function WordPressUsersSection({ sites, isActive, setActiveSection }: Wor
     }
   };
 
+  // Abrir o painel do WordPress já com sessão iniciada (sem pedir password).
+  // Não recebe utilizador: o servidor entra como o primeiro administrador do
+  // site. É o mesmo mecanismo do botão "Entrar" de cada utilizador.
+  const handleOpenWpPanel = async () => {
+    if (!selectedDomain || openingPanel) return;
+    setOpeningPanel(true);
+    setMsg(null);
+    try {
+      const res = await fetch('/api/admin/wp-users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ domain: selectedDomain, action: 'autologin' }),
+      });
+      const data = await res.json();
+      if (data.success && data.url) {
+        window.open(data.url, '_blank');
+      } else {
+        setMsg({
+          ok: false,
+          text:
+            (data.error || 'Não foi possível abrir o painel automaticamente.') +
+            ' — pode entrar manualmente em ' + `https://${selectedDomain}/wp-admin`,
+        });
+      }
+    } catch (e: unknown) {
+      setMsg({ ok: false, text: e instanceof Error ? e.message : 'Erro ao ligar ao servidor.' });
+    } finally {
+      setOpeningPanel(false);
+    }
+  };
+
   // Login automático (Entrar)
   const handleAutoLogin = async (username: string) => {
     if (!selectedDomain) return;
@@ -263,11 +295,12 @@ export function WordPressUsersSection({ sites, isActive, setActiveSection }: Wor
           {selectedDomain && (
             <button
               type="button"
-              onClick={() => window.open(`https://${selectedDomain}/wp-admin`, '_blank')}
-              className="inline-flex items-center justify-center gap-1.5 rounded border border-zinc-300 dark:border-zinc-700 bg-transparent px-3 text-xs font-bold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-all cursor-pointer uppercase tracking-wider h-8"
+              onClick={handleOpenWpPanel}
+              disabled={openingPanel}
+              className="inline-flex items-center justify-center gap-1.5 rounded border border-zinc-300 dark:border-zinc-700 bg-transparent px-3 text-xs font-bold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-all cursor-pointer uppercase tracking-wider h-8 disabled:opacity-50"
             >
-              <Gauge size={13} />
-              Painel do WordPress
+              {openingPanel ? <Spinner className="h-3.5 w-3.5" /> : <Gauge size={13} />}
+              {openingPanel ? 'A abrir…' : 'Painel do WordPress'}
             </button>
           )}
 

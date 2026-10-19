@@ -2,7 +2,8 @@
 
 import React from 'react';
 import {
-  Home, LogOut, ChevronRight, Server, Mail, Globe, Bell, Settings, Target, FolderOpen
+  Home, LogOut, ChevronRight, Server, Mail, Globe, Bell, Settings, Target, FolderOpen, HardDrive,
+  ShoppingBag, FileText, ClipboardList, Users,
 } from 'lucide-react';
 
 import { useResellerMenuPrivileges } from '@/hooks/useResellerMenuPrivileges';
@@ -49,6 +50,16 @@ interface ResellerSidebarProps {
   displayName?: string | null;
   customLogo?: string;
   isMobile?: boolean;
+  /** Itens do menu principal — por omissão o menu completo do revendedor.
+   * O painel Profissional passa PROFISSIONAL_MENU_DEFS (o mesmo menu sem o
+   * grupo "Hospedagem"), reaproveitando este mesmo componente. */
+  menuDefs?: PanelMenuItemDef[];
+  /** Caminho-base das rotas do painel (logo, link do dashboard) — '/revendedor'
+   * por omissão; o painel Profissional passa '/profissional'. */
+  basePath?: string;
+  /** Privilégios de menu configurados pelo admin para revendedores — o painel
+   * Cliente usa este mesmo menu mas não está sujeito a eles. */
+  applyMenuPrivileges?: boolean;
 }
 
 interface MenuItem extends PanelMenuItemDef {
@@ -64,7 +75,16 @@ const MAIN_MENU_ICONS: Record<string, React.ElementType> = {
   'nov-notificacoes': Bell,
   'nov-wordpress': WordPressMenuIcon,
   'file-manager': FolderOpen,
+  'backup-manager': HardDrive,
   'nov-definicoes': Settings,
+  // Painel Cliente (mesmo componente, menu próprio)
+  'nov-encomendas': ClipboardList,
+  mailmarketing: Target,
+  'minhas-compras': ShoppingBag,
+  facturas: FileText,
+  tickets: Users,
+  conta: Settings,
+  webmail: Mail,
 };
 
 const DASHBOARD_ITEM: MenuItem = {
@@ -91,13 +111,18 @@ export function ResellerSidebar({
   displayName,
   customLogo,
   isMobile = false,
+  menuDefs = RESELLER_MAIN_MENU_DEFS,
+  basePath = '/revendedor',
+  applyMenuPrivileges = true,
 }: ResellerSidebarProps) {
   const { privileges } = useResellerMenuPrivileges();
   const { unreadCount, refreshUnread } = useResellerNotificationBadge();
   const currentSidebarWidth = isCollapsed ? 64 : 242;
   const logoUrl = customLogo || '/assets/simbolo.png';
+  // Junto ao logótipo: só o primeiro nome ("Olá, Lecio"), sem apelido.
+  const firstName = displayName?.trim().split(/\s+/)[0] || '';
 
-  const mainMenuItems: MenuItem[] = filterMenuByPrivileges(RESELLER_MAIN_MENU_DEFS, privileges).map(
+  const mainMenuItems: MenuItem[] = (applyMenuPrivileges ? filterMenuByPrivileges(menuDefs, privileges) : menuDefs).map(
     (item) => ({
       ...item,
       icon: MAIN_MENU_ICONS[item.id] || Server,
@@ -292,7 +317,7 @@ export function ResellerSidebar({
 
   return (
     <div
-      className="font-panel relative z-50 flex h-screen shrink-0 flex-col overflow-visible border-r border-zinc-200 bg-white transition-all duration-300 dark:border-zinc-800 dark:bg-zinc-950"
+      className="font-panel relative z-50 flex h-full shrink-0 flex-col overflow-visible border-r border-zinc-200 bg-white transition-all duration-300 dark:border-zinc-800 dark:bg-zinc-950"
       style={{ width: `${currentSidebarWidth}px` }}
     >
       <div
@@ -307,7 +332,7 @@ export function ResellerSidebar({
               src={logoUrl}
               alt="Logo"
               className="h-11 w-11 cursor-pointer object-contain"
-              onClick={() => { window.location.href = '/revendedor'; }}
+              onClick={() => { window.location.href = basePath; }}
             />
             <button
               type="button"
@@ -324,11 +349,11 @@ export function ResellerSidebar({
               src={logoUrl}
               alt="Logo"
               className="h-11 max-w-[140px] w-auto cursor-pointer object-contain"
-              onClick={() => { window.location.href = '/revendedor'; }}
+              onClick={() => { window.location.href = basePath; }}
             />
             <div className="min-w-0 flex-1">
               <h1 className="truncate text-lg font-bold text-gray-900 dark:text-zinc-100">
-                {displayName || 'Revendedor'}
+                {firstName ? `Olá, ${firstName}` : 'Revendedor'}
               </h1>
               <p className="text-xs text-gray-500 dark:text-zinc-400">Portal Digital</p>
             </div>

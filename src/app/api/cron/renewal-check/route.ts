@@ -7,7 +7,8 @@ import {
   getServerRenewalTemplates
 } from '@/lib/renewal-templates'
 import { sendEmail } from '@/lib/email-service'
-import { EMAIL_PLAN_PACKAGE_NAME } from '@/lib/email-plan-provision'
+import { isEmailPlanPackage } from '@/lib/email-plans'
+import { notifyExpiredCleanupDue, suspendOverdueHostingAccounts } from '@/lib/overdue-hosting-suspend'
 
 // Cron secret para segurança
 const CRON_SECRET = process.env.CRON_SECRET || 'default-secret-change-in-production'
@@ -116,8 +117,8 @@ export async function GET(request: NextRequest) {
                 .select('server, package_name')
                 .eq('id', renewal.service_id)
                 .maybeSingle()
-              if (hostingRow?.server === 'Mail' || hostingRow?.package_name === EMAIL_PLAN_PACKAGE_NAME) {
-                serviceLabel = `${EMAIL_PLAN_PACKAGE_NAME} - ${renewal.service_name}`
+              if (hostingRow?.server === 'Mail' || isEmailPlanPackage(hostingRow?.package_name)) {
+                serviceLabel = `${hostingRow?.package_name || 'Plano de email'} - ${renewal.service_name}`
               }
             }
 
@@ -283,10 +284,17 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    const overdue = await suspendOverdueHostingAccounts(supabaseAdmin)
+    if (overdue.errors.length) results.errors.push(...overdue.errors)
+    const cleanup = await notifyExpiredCleanupDue(supabaseAdmin)
+    if (cleanup.errors.length) results.errors.push(...cleanup.errors)
+
     return NextResponse.json({
       success: true,
       timestamp: new Date().toISOString(),
-      ...results
+      ...results,
+      overdueSuspend: overdue,
+      expiredCleanup: cleanup,
     })
 
   } catch (error: any) {

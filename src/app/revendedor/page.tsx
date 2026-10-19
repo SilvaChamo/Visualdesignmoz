@@ -10,6 +10,7 @@ import {
 import { getDirectAdminAccessUrl, getSnappyMailUrl, getServerHost, getCPUrl } from '@/lib/server-config';
 import { ResellerSidebar } from '@/components/revendedor/ResellerSidebar'
 import { ImpersonationBanner } from '@/components/encomendas/ImpersonationBanner'
+import { LinkedAccountBanner } from '@/components/panel/LinkedAccountsPanel'
 import { Spinner } from '@/components/ui/spinner'
 import { panelDashboardGrid, panelDashboardToolCard, panelDashboardToolLabel, panelSectionPadding, panelBtnSecondary } from '@/lib/panel-ui'
 import { usePanelSidebarCollapsed } from '@/hooks/usePanelSidebarCollapsed'
@@ -69,7 +70,7 @@ import { OSHER_DOMAIN } from '@/lib/email-domains'
 import { excludeResellerSelfPackages } from '@/lib/panel-contas-enrich'
 import { WordPressHubSection } from '../dashboard/WordPressHubSection'
 import { getPanelSectionMeta } from '@/lib/panel-section-meta'
-import { resolvePanelNavigation, resolveSectionId } from '@/lib/panel-admin-menu'
+import { resolvePanelNavigation, resolveSectionId, type PanelMenuItemDef } from '@/lib/panel-admin-menu'
 import { PanelSectionKeepAlive } from '@/components/panel/PanelSectionKeepAlive'
 import { PanelHeader } from '@/components/panel/PanelHeader'
 import { AdminSectionChromeProvider, useAdminSectionChrome } from '@/components/admin/AdminSectionChrome'
@@ -788,7 +789,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
                 </span>
                 {/* Badge por tipo de site */}
                 {s.siteType === 'wordpress' && <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-bold">WordPress</span>}
-                {s.siteType === 'nextjs' && <span className="px-2 py-0.5 bg-black  rounded-full text-xs font-bold">Next.js</span>}
+                {s.siteType === 'nextjs' && <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-bold">Next.js</span>}
                 {s.siteType === 'html' && <span className="px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full text-xs font-bold">HTML/PHP</span>}
                 {s.ssl ? (
                   <span className="flex items-center gap-1 text-green-600 text-xs font-bold">
@@ -1269,15 +1270,29 @@ function ClientesSection() {
   )
 }
 
-export default function ResellerPage() {
+/** Reaproveitado tal e qual por /profissional (ver src/app/profissional/page.tsx)
+ * — mesmo painel, só com menuDefs e basePath diferentes. */
+export default function ResellerPage({
+  menuDefs,
+  basePath = '/revendedor',
+}: {
+  menuDefs?: PanelMenuItemDef[]
+  basePath?: string
+} = {}) {
   return (
     <AdminSectionChromeProvider>
-      <ResellerPageContent />
+      <ResellerPageContent menuDefs={menuDefs} basePath={basePath} />
     </AdminSectionChromeProvider>
   )
 }
 
-function ResellerPageContent() {
+function ResellerPageContent({
+  menuDefs,
+  basePath,
+}: {
+  menuDefs?: PanelMenuItemDef[]
+  basePath: string
+}) {
   const router = useRouter()
   const { chrome } = useAdminSectionChrome()
   const { t } = useI18n()
@@ -1287,6 +1302,7 @@ function ResellerPageContent() {
   const [directAdminSites, setDirectAdminSites] = useState<DirectAdminWebsite[]>([])
   const [directAdminUsers, setDirectAdminUsers] = useState<DirectAdminUser[]>([])
   const [directAdminPackages, setDirectAdminPackages] = useState<DirectAdminPackage[]>([])
+  const [hestiaOnly, setHestiaOnly] = useState(false)
   const [isFetchingDirectAdmin, setIsFetchingDirectAdmin] = useState(false)
   const [selectedDatabaseDomain, setSelectedDatabaseDomain] = useState('')
   const [selectedManageDomain, setSelectedManageDomain] = useState<string>(() => {
@@ -1308,6 +1324,10 @@ function ResellerPageContent() {
   const [resellerPrimaryDomain, setResellerPrimaryDomain] = useState<string | null>(null)
   const [isResellerSession, setIsResellerSession] = useState(false)
   const [isAdminImpersonating, setIsAdminImpersonating] = useState(false)
+  // Contas de domínio ligadas (account-levels.ts): Enterprise gere-as daqui,
+  // Premium só depois de entrar numa delas com as credenciais.
+  const [linkedOwners, setLinkedOwners] = useState<string[]>([])
+  const [enteredLinkedAccount, setEnteredLinkedAccount] = useState<string | null>(null)
   const [isComposeActive, setIsComposeActive] = useState(false)
   const [mailMarketingTab, setMailMarketingTab] = useState<'comp' | 'subs' | 'camp'>('comp')
   const [domainHubTab, setDomainHubTab] = useState<DomainHubTab>('meus')
@@ -1334,7 +1354,7 @@ function ResellerPageContent() {
       if (searchParams.get('impersonate') === '1') {
         clearPanelBootstrapCache('reseller');
         justImpersonatedRef.current = true;
-        window.history.replaceState({}, '', '/revendedor');
+        window.history.replaceState({}, '', basePath);
       }
       setActiveSection('dashboard');
       return;
@@ -1394,6 +1414,7 @@ function ResellerPageContent() {
     setDirectAdminSites(boot.sites)
     setDirectAdminUsers(boot.users)
     setDirectAdminPackages(boot.packages)
+    setHestiaOnly(Boolean(boot.hestiaOnly || boot.hostingOwner))
 
     if (boot.resellerContext) {
       setResellerDaUsername(boot.resellerContext.daUsername)
@@ -1401,6 +1422,8 @@ function ResellerPageContent() {
       setResellerDisplayName(boot.resellerContext.displayName || null)
       setIsResellerSession(!boot.resellerContext.impersonating)
       setIsAdminImpersonating(Boolean(boot.resellerContext.impersonating))
+      setLinkedOwners(boot.resellerContext.linkedOwners ?? [])
+      setEnteredLinkedAccount(boot.resellerContext.enteredAccount ?? null)
       if (boot.resellerContext.primaryDomain) {
         setResellerPrimaryDomain(boot.resellerContext.primaryDomain)
       } else if (boot.resellerContext.daUsername) {
@@ -1508,7 +1531,7 @@ function ResellerPageContent() {
     if (s.domain.toLowerCase().startsWith('mail.')) return false
     const scopeUser = resellerDaUsername
     if (scopeUser) {
-      if (s.owner && s.owner !== scopeUser) return false
+      if (s.owner && s.owner !== scopeUser && !linkedOwners.includes(s.owner)) return false
     } else if (isResellerSession) {
       return false
     }
@@ -1550,6 +1573,7 @@ function ResellerPageContent() {
           <ResellerDashboard
             sites={filteredSites}
             isFetching={isFetchingDirectAdmin}
+            impersonating={isAdminImpersonating}
             onNavigate={handleNavigate}
             onRefresh={() => void loadDirectAdminData(true)}
             onSetFileManagerDomain={setFileManagerDomain}
@@ -1564,6 +1588,7 @@ function ResellerPageContent() {
           <ResellerDirectAccessSection
             sessionEmail={sessionUser}
             onOpenWebmailInPanel={() => handleNavigate('webmail')}
+            hideDirectAdmin={hestiaOnly}
           />
         )
       case 'domains':
@@ -1586,7 +1611,7 @@ function ResellerPageContent() {
         />
       case 'file-manager':
       case 'cp-file-manager':
-        return <FileManagerSection domain={fileManagerDomain || primaryDomain} sites={sortedSites} isActive={isActive} />
+        return <FileManagerSection domain={fileManagerDomain || primaryDomain} sites={sortedSites} isActive={isActive} loggedInOwner={resellerDaUsername || undefined} />
       case 'cp-client-permissions':
         return <PanelPermissionsConfig role="client" />
       case 'cp-reseller-permissions':
@@ -1619,7 +1644,7 @@ function ResellerPageContent() {
         return <DeleteWebsiteSection sites={filteredSites} onRefresh={() => void loadDirectAdminData(true)} />
       case 'databases':
       case 'cp-databases':
-        return <DatabasesSection sites={filteredSites} initialDomain={selectedDatabaseDomain || selectedDNSDomain || primaryDomain} />
+        return <DatabasesSection sites={filteredSites} initialDomain={selectedDatabaseDomain || selectedDNSDomain || primaryDomain} loggedInOwner={resellerDaUsername || undefined} />
       case 'cp-ftp':
         return <FTPSection sites={filteredSites} />
       case 'webmail':
@@ -1779,8 +1804,11 @@ function ResellerPageContent() {
           <div className="p-6 bg-white border border-gray-200 rounded-lg">
             <h2 className="text-lg font-bold text-gray-900 mb-2">Métricas e relatórios</h2>
             <p className="text-sm text-gray-500">
-              Consulte estatísticas detalhadas no DirectAdmin nativo ou use o Centro DirectAdmin.
+              {hestiaOnly
+                ? 'As métricas de sites e contas estão nas secções do próprio painel.'
+                : 'Consulte estatísticas detalhadas no DirectAdmin nativo ou use o Centro DirectAdmin.'}
             </p>
+            {!hestiaOnly ? (
             <a
               href={getDirectAdminAccessUrl('reseller')}
               target="_blank"
@@ -1789,6 +1817,7 @@ function ResellerPageContent() {
             >
               Abrir DirectAdmin →
             </a>
+            ) : null}
           </div>
         )
 
@@ -1797,7 +1826,6 @@ function ResellerPageContent() {
         return (
           <PanelListWebsitesSection
             sites={sortedSites}
-            wordpressOnly
             panelScope="reseller"
             wordpressOwner={resellerDaUsername ?? undefined}
             onRefresh={() => void loadDirectAdminData(true)}
@@ -1907,6 +1935,7 @@ function ResellerPageContent() {
           <ResellerDashboard
             sites={filteredSites}
             isFetching={isFetchingDirectAdmin}
+            impersonating={isAdminImpersonating}
             onNavigate={handleNavigate}
             onRefresh={() => void loadDirectAdminData(true)}
             onSetFileManagerDomain={setFileManagerDomain}
@@ -2067,11 +2096,12 @@ function ResellerPageContent() {
     <div className="panel-shell font-panel flex h-screen flex-col overflow-hidden bg-gray-50 dark:bg-zinc-950">
       {isAdminImpersonating && (
         <ImpersonationBanner
-          label={resellerDisplayName || 'revendedor'}
-          subject="revendedor"
+          label={resellerDisplayName || (basePath === '/profissional' ? 'profissional' : 'revendedor')}
+          subject={basePath === '/profissional' ? 'profissional' : 'revendedor'}
           exitEndpoint="/api/admin/impersonate?exit=1"
         />
       )}
+      {enteredLinkedAccount && <LinkedAccountBanner account={enteredLinkedAccount} />}
       <div className="flex flex-1 min-h-0">
       <ResellerSidebar
         activeSection={activeSection}
@@ -2082,6 +2112,8 @@ function ResellerPageContent() {
         displayName={resellerDisplayName}
         customLogo={logoUrl}
         isMobile={isMobile}
+        menuDefs={menuDefs}
+        basePath={basePath}
       />
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-white dark:bg-zinc-950">
         <PanelHeader
@@ -2100,7 +2132,7 @@ function ResellerPageContent() {
           hidden={isComposeActive && activeSection === 'webmail'}
           actions={
             <>
-              {['hospedagem-contas', 'packages-list'].includes(activeSection) ? (
+              {!hestiaOnly && ['hospedagem-contas', 'packages-list'].includes(activeSection) ? (
                 <a
                   href={getDirectAdminAccessUrl('reseller')}
                   target="_blank"
@@ -2117,7 +2149,7 @@ function ResellerPageContent() {
                   await createClientInstance.auth.signOut()
                   const { clearAllPanelClientCaches } = await import('@/lib/panel-session-cache-clear')
                   clearAllPanelClientCaches()
-                  window.location.href = '/auth/login'
+                  window.location.href = '/login'
                 }}
                 className={panelBtnSecondary}
                 title={t('sidebar.logout')}

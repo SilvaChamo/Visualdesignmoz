@@ -10,6 +10,7 @@ import { Spinner } from '@/components/ui/spinner'
 import { readWpInstallsCache, writeWpInstallsCache } from '@/lib/panel-wp-cache'
 import { ResellerAddCreditModal } from '@/components/revendedor/ResellerAddCreditModal'
 import { ResellerPayRenewalModal } from '@/components/revendedor/ResellerPayRenewalModal'
+import { MoveToAccountModal } from '@/components/panel/MoveToAccountModal'
 
 interface Props {
   sites: DirectAdminWebsite[]
@@ -21,6 +22,8 @@ interface Props {
   sessionUser?: string | null
   displayName?: string | null
   activeDaUsername?: string | null
+  /** Admin dentro desta conta — mostra Mover/Eliminar nos cartões (limpeza do painel, nada muda no servidor). */
+  impersonating?: boolean
 }
 
 type RenewalRow = {
@@ -85,7 +88,26 @@ export function ResellerDashboard({
   sessionUser,
   displayName,
   activeDaUsername,
+  impersonating = false,
 }: Props) {
+  const [movingDomain, setMovingDomain] = useState<string | null>(null)
+  const [hidingDomain, setHidingDomain] = useState<string | null>(null)
+
+  const hideSiteCard = async (domain: string) => {
+    if (!window.confirm(`Eliminar o cartão "${domain}" do painel desta conta? Só deixa de aparecer aqui — o site, o email e o DNS continuam no servidor.`)) return
+    setHidingDomain(domain)
+    try {
+      const res = await fetch(`/api/admin/impersonate-reseller/sites?domain=${encodeURIComponent(domain)}`, { method: 'DELETE' })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || !data.success) throw new Error(data.error || 'Não foi possível eliminar o cartão.')
+      onRefresh()
+    } catch (err: unknown) {
+      window.alert(err instanceof Error ? err.message : 'Não foi possível eliminar o cartão.')
+    } finally {
+      setHidingDomain(null)
+    }
+  }
+
   const [loading, setLoading] = useState(true)
   const [renewalsLoading, setRenewalsLoading] = useState(true)
   const [domainRenewals, setDomainRenewals] = useState<RenewalRow[]>([])
@@ -382,6 +404,26 @@ export function ResellerDashboard({
                         GERENCIAR
                       </button>
 
+                      {impersonating && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => setMovingDomain(site.domain)}
+                            className="px-5 py-2 bg-white border border-gray-800 hover:bg-gray-800 hover:text-white text-gray-800 text-xs font-bold uppercase tracking-wider rounded transition-colors dark:bg-transparent dark:border-zinc-500 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                          >
+                            MOVER
+                          </button>
+                          <button
+                            type="button"
+                            disabled={hidingDomain === site.domain}
+                            onClick={() => void hideSiteCard(site.domain)}
+                            className="px-5 py-2 bg-white border border-red-600 hover:bg-red-600 hover:text-white text-red-600 text-xs font-bold uppercase tracking-wider rounded transition-colors disabled:opacity-50 dark:bg-transparent dark:border-red-500 dark:text-red-400 dark:hover:bg-red-600 dark:hover:text-white"
+                          >
+                            {hidingDomain === site.domain ? 'A ELIMINAR…' : 'ELIMINAR'}
+                          </button>
+                        </>
+                      )}
+
                       <span
                         className={`px-3 py-1 rounded text-xs font-bold ${
                           isActive
@@ -498,6 +540,27 @@ export function ResellerDashboard({
 
       {showAddCreditModal && (
         <ResellerAddCreditModal onClose={() => setShowAddCreditModal(false)} />
+      )}
+
+      {movingDomain && (
+        <MoveToAccountModal
+          title="Mover produto para outra conta"
+          subject={movingDomain}
+          note="Os registos de domínio e hospedagem deste site passam para a área de cliente da conta de destino. Nada muda no servidor — para mudar o site de conta no servidor use Domínios → ⋮ → Associar."
+          excludeEmail={sessionUser}
+          onClose={() => setMovingDomain(null)}
+          onMove={async (targetEmail) => {
+            const res = await fetch('/api/admin/impersonate-reseller/sites', {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ domain: movingDomain, targetEmail }),
+            })
+            const data = await res.json().catch(() => ({}))
+            if (!res.ok || !data.success) throw new Error(data.error || 'Não foi possível mover o produto.')
+            setMovingDomain(null)
+            void loadRenewals()
+          }}
+        />
       )}
 
       {payRenewal && (

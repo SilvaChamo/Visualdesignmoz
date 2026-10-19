@@ -9,6 +9,10 @@ import {
   normalizeDirectAdminHost,
   normalizeDirectAdminPort,
 } from '@/lib/directadmin-url';
+
+function isHestiaOnlyDeploy(): boolean {
+  return (process.env.DEFAULT_HOSTING_PROVIDER || '').trim().toLowerCase() === 'hestia';
+}
 import {
   resolveDirectAdminCredentials,
   type DirectAdminAuthContext,
@@ -83,6 +87,9 @@ async function requestDirectAdminHttp(
   params: Record<string, string>,
   credentials: DirectAdminCredentials,
 ): Promise<string> {
+  if (isHestiaOnlyDeploy()) {
+    throw new Error('DirectAdmin não está disponível neste servidor (Hestia).');
+  }
   const base = buildDaBase();
   const url = new URL(`${base}/${endpoint}`);
   const body = new URLSearchParams();

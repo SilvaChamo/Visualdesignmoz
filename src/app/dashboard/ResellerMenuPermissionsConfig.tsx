@@ -17,6 +17,7 @@ import {
   panelTabBtnInactive,
   panelTabList,
 } from '@/lib/panel-ui';
+import { Spinner } from '@/components/ui/spinner';
 import { dispatchPanelMenuPrivilegesUpdated } from '@/hooks/usePanelMenuPrivileges';
 import {
   MANAGER_PRIVILEGE_MENU_DEFS,
@@ -53,9 +54,9 @@ const PANEL_TABS: { id: PanelTab; label: string; description: string }[] = [
   },
   {
     id: 'manager',
-    label: 'Profissional',
+    label: 'Colaborador',
     description:
-      'Active ou desactive itens do menu lateral do painel profissional. O Dashboard de cada painel fica sempre disponível por defeito.',
+      'Active ou desactive itens do menu lateral do painel do colaborador. O Dashboard de cada painel fica sempre disponível por defeito.',
   },
 ];
 
@@ -275,8 +276,8 @@ export function ResellerMenuPermissionsConfig() {
 
   if (loading.reseller && loading.manager) {
     return (
-      <div className="font-panel flex justify-center p-10 text-sm text-gray-500 dark:text-zinc-400">
-        A carregar configurações…
+      <div className="font-panel flex items-center justify-center gap-2 p-10 text-sm text-gray-500 dark:text-zinc-400">
+        <Spinner /> A carregar configurações…
       </div>
     );
   }
@@ -293,7 +294,7 @@ export function ResellerMenuPermissionsConfig() {
                 <Shield className="h-5 w-5" />
               </div>
               <h2 className="text-lg font-bold text-gray-900 dark:text-zinc-100">
-                Painéis Revendedor e Profissional
+                Painéis Revendedor e Colaborador
               </h2>
             </div>
             <p className="max-w-2xl text-sm text-gray-600 dark:text-zinc-400">
@@ -339,8 +340,8 @@ export function ResellerMenuPermissionsConfig() {
 
         <div className={panelSectionPadding}>
           {loading[activeTab] ? (
-            <div className="flex justify-center py-10 text-sm text-gray-500 dark:text-zinc-400">
-              A carregar…
+            <div className="flex items-center justify-center gap-2 py-10 text-sm text-gray-500 dark:text-zinc-400">
+              <Spinner /> A carregar…
             </div>
           ) : (
             <>

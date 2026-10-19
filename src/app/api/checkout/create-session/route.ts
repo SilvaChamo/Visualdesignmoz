@@ -4,7 +4,8 @@ import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { getStripe, isStripeConfigured, mznToUsdCents } from '@/lib/stripe';
 import { resolveCartItems, toValidatedCartItems, type CatalogCartItem } from '@/lib/package-catalog';
 import { isProfileWhoisComplete } from '@/lib/profile-db';
-import { promoteGuestToClient } from '@/lib/checkout-fulfillment';
+import { promoteBuyerAfterPurchase } from '@/lib/checkout-fulfillment';
+import { resolveCheckoutActor } from '@/lib/checkout-actor';
 
 export async function POST(request: NextRequest) {
   try {
@@ -63,12 +64,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Pagamento por cartão ainda não está configurado. Tente novamente mais tarde.' }, { status: 503 });
     }
 
+    // Se um admin estiver a "entrar como" um revendedor/cliente, a compra
+    // corre como a conta impersonada (dono do domínio, WHOIS, faturação).
+    const actor = await resolveCheckoutActor(admin, user);
+
     const hasDomain = resolved.some((r) => r.item.type === 'domain');
-    if (hasDomain && !(await isProfileWhoisComplete(admin, user.id))) {
+    if (hasDomain && !(await isProfileWhoisComplete(admin, actor.buyerUserId))) {
       return NextResponse.json(
         {
-          error:
-            'Antes de comprar um domínio precisa de completar o telefone, morada e cidade em "A Minha Conta" — são os dados usados no registo oficial do domínio.',
+          error: actor.impersonating
+            ? `A conta ${actor.impersonatedLabel} ainda não tem telefone, morada e cidade preenchidos — são os dados usados no registo oficial do domínio. Complete o perfil dessa conta antes de comprar.`
+            : 'Antes de comprar um domínio precisa de completar o telefone, morada e cidade em "A Minha Conta" — são os dados usados no registo oficial do domínio.',
         },
         { status: 400 },
       );
@@ -77,7 +83,7 @@ export async function POST(request: NextRequest) {
     const { data: session, error: insertError } = await admin
       .from('checkout_sessions')
       .insert({
-        user_id: user.id,
+        user_id: actor.buyerUserId,
         items: toValidatedCartItems(resolved),
         total_mt: totalMt,
         currency: 'usd',
@@ -91,13 +97,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Não foi possível iniciar o pagamento.' }, { status: 500 });
     }
 
-    // Promove já para 'client' — quando o Stripe devolver o cliente, ele
-    // entra logo em /cliente com a secção pendente visível, sem esperar
-    // pelo webhook para conseguir sequer ver o painel.
+    // Promove já para o painel certo ('profissional' com plano Pro/Business/
+    // Enterprise, 'client' com Básico, email ou domínio — ver promoteBuyerAfterPurchase) — quando o Stripe devolver o
+    // cliente, ele entra logo no painel com a secção pendente visível, sem
+    // esperar pelo webhook para conseguir sequer ver o painel.
     try {
-      await promoteGuestToClient(admin, user.id);
+      await promoteBuyerAfterPurchase(admin, actor.buyerUserId, resolved.map((r) => r.item));
     } catch (err) {
-      console.error('[checkout/create-session] promoteGuestToClient falhou:', err);
+      console.error('[checkout/create-session] promoteBuyerAfterPurchase falhou:', err);
     }
 
     const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || '';
@@ -114,7 +121,7 @@ export async function POST(request: NextRequest) {
         },
         quantity: 1,
       })),
-      metadata: { checkout_session_id: session.id, user_id: user.id },
+      metadata: { checkout_session_id: session.id, user_id: actor.buyerUserId },
       success_url: `${origin}/cliente?checkout_session_id=${session.id}`,
       cancel_url: `${origin}/checkout`,
     });

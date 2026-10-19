@@ -4,8 +4,9 @@ import { listMirrorUsers } from '@/lib/panel-mirror-read';
 import { upsertMirrorSite } from '@/lib/panel-mirror-write';
 import { getDaSyncAdmin } from '@/lib/da-sync-schema';
 import { getAdminDirectAdminAPI } from '@/lib/directadmin-adapter';
-import { findCloudflareZoneId, upsertCloudflareRecord } from '@/lib/cloudflare-dns';
-import { getServerHost } from '@/lib/server-config';
+import { getProviderByUsername } from '@/lib/hosting-provider';
+import * as hestiaAdapter from '@/lib/hestia-adapter';
+import { pointHostingHostToServer, scheduleHostingSslRetry } from '@/lib/hosting-site-dns';
 import { HOSTING_DOMAIN_REGEX } from '@/lib/checkout-fulfillment';
 import { after } from 'next/server';
 
@@ -63,34 +64,38 @@ export async function POST(req: NextRequest) {
     }
     steps.push({ step: 'Associação gravada no painel', ok: true });
 
-    // 2) DNS — melhor esforço, só se o domínio já tiver zona na Cloudflare.
-    const serverIp = getServerHost();
-    const zoneId = await findCloudflareZoneId(domainName);
-    if (zoneId) {
-      const results = await Promise.all([
-        upsertCloudflareRecord(zoneId, domainName, { type: 'A', name: '@', content: serverIp, proxied: false }),
-        upsertCloudflareRecord(zoneId, domainName, { type: 'A', name: 'www', content: serverIp, proxied: false }),
-      ]);
-      const allOk = results.every((r) => r.ok);
-      steps.push({
-        step: 'DNS apontado para o servidor (Cloudflare)',
-        ok: allOk,
-        detail: allOk ? undefined : results.filter((r) => !r.ok).map((r) => r.error).join('; '),
-      });
-    } else {
-      steps.push({ step: 'DNS', ok: false, detail: 'Domínio sem zona na Cloudflare — aponta o DNS manualmente.' });
-    }
+    // 2) DNS — melhor esforço. Subdomínios usam a zona do domínio pai.
+    const dns = await pointHostingHostToServer(domainName);
+    steps.push({
+      step: 'DNS apontado para o servidor (Cloudflare)',
+      ok: dns.ok,
+      detail: dns.ok ? undefined : dns.error || 'Domínio sem zona na Cloudflare — aponta o DNS manualmente.',
+    });
 
-    // 3) DirectAdmin — em segundo plano, nunca bloqueia nem desfaz os passos acima.
+    // 3) Painel de hospedagem (DirectAdmin ou Hestia, consoante a conta) — em
+    //    segundo plano, nunca bloqueia nem desfaz os passos acima.
+    //    #achado 15 ago: antes disto chamava sempre o DirectAdmin, mesmo para
+    //    contas Hestia (Contabo/teste) — o domínio ficava associado no nosso
+    //    painel mas nunca era criado a sério no Hestia.
+    const provider = await getProviderByUsername(username);
     const daTask = async () => {
       try {
+        if (provider === 'hestia') {
+          const result = await hestiaAdapter.addWebDomain(username, domainName);
+          if (!result.ok) {
+            console.error('[attach-hosting] propagação Hestia falhou:', domainName, username, result.error);
+          } else {
+            scheduleHostingSslRetry(username, domainName);
+          }
+          return;
+        }
         const api = await getAdminDirectAdminAPI();
         const result = await api.createWebsite({ domainName, owner: username, createUserAccount: false });
         if (!result.success) {
           console.error('[attach-hosting] propagação DirectAdmin falhou:', domainName, username, result.error);
         }
       } catch (err) {
-        console.error('[attach-hosting] propagação DirectAdmin:', err);
+        console.error('[attach-hosting] propagação para o painel de hospedagem:', err);
       }
     };
     try {
@@ -98,7 +103,11 @@ export async function POST(req: NextRequest) {
     } catch {
       void daTask();
     }
-    steps.push({ step: 'Propagação para o DirectAdmin', ok: true, detail: 'em curso em segundo plano' });
+    steps.push({
+      step: `Propagação para o ${provider === 'hestia' ? 'Hestia' : 'DirectAdmin'}`,
+      ok: true,
+      detail: 'em curso em segundo plano',
+    });
 
     return NextResponse.json({ success: true, steps, message: `${domainName} associado a ${username}.` });
   } catch (error: unknown) {

@@ -2,13 +2,12 @@
 // Dynadot. Chamado pela rota de cron /api/cron/sync-domain-prices — nunca
 // corre no browser.
 //
-// #10 (2026-09-13, backport de visualdesign-teste): antes pedia um preço de
-// cada vez (`getTldPrice(tld)`), que falhava sempre nas 44 extensões porque
-// esse comando da API3 não aceita filtrar por `tld` — nunca escreveu uma
-// linha sequer desde que foi criado (confirmado: `domain_tld_price_overrides`
-// estava vazia apesar do robô "ter sucesso" todas as semanas). Agora pede a
-// lista completa de uma vez (`getAllTldPrices`) e cruza com as extensões que
-// vendemos.
+// #10 (2026-09-12): antes pedia um preço de cada vez (`getTldPrice(tld)`),
+// que falhava sempre nas 44 extensões porque esse comando da API3 não aceita
+// filtrar por `tld` — nunca escreveu uma linha sequer desde que foi criado
+// (confirmado: `domain_tld_price_overrides` estava vazia apesar do robô
+// "ter sucesso" todas as semanas). Agora pede a lista completa de uma vez
+// (`getAllTldPrices`) e cruza com as extensões que vendemos.
 import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { dynadotAPI } from '@/lib/dynadot-adapter';
 import { DOMAIN_TLD_PRICES } from '@/lib/domain-tld-prices';

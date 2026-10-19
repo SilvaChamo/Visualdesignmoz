@@ -139,6 +139,27 @@ export async function ensureResellerProvisioned(
     };
   }
 
+  // Sem credenciais DA guardadas por termos migrado esta conta para o Hestia
+  // não é "por provisionar" — é o estado definitivo dela. Sem esta
+  // verificação, este auto-provisionamento tentava criar-lhe uma conta
+  // DirectAdmin nova/duplicada. Ver [[project_da-to-hestia-migration]].
+  const { getProfileForAuthUser } = await import('@/lib/profile-db');
+  const profile = await getProfileForAuthUser(adminClient(), input.userId);
+  if (profile?.da_username) {
+    const { isHestiaAccount } = await import('@/lib/da-credential-store');
+    if (await isHestiaAccount(profile.da_username)) {
+      return {
+        authUserId: input.userId,
+        daUsername: profile.da_username,
+        daDomain: profile.da_domain || deriveResellerDomain(email, profile.da_username),
+        createdAuth: false,
+        createdDirectAdmin: false,
+        linkedExisting: true,
+        alreadyProvisioned: true,
+      };
+    }
+  }
+
   await setResellerRole(input.userId, email, input.nome);
 
   let password = input.password;
@@ -207,12 +228,12 @@ export async function provisionAllPendingResellers(): Promise<{
     }
   }
 
-  // Auth users com metadata reseller mas sem profile DA
+  // Auth users com papel reseller mas sem profile DA. Só o app_metadata (escrito pelo
+  // servidor) conta: o user_metadata é editável pelo próprio utilizador e bastava pôr lá
+  // role "reseller" para este ciclo criar uma conta de revendedor real a essa pessoa.
   const { data: authList } = await admin.auth.admin.listUsers({ perPage: 1000 });
   for (const u of authList.users || []) {
     if (!u.email) continue;
-    // Só o app_metadata (escrito pelo servidor): o user_metadata é editável pelo próprio
-    // utilizador e bastava pôr lá role "reseller" para receber uma conta de revendedor real.
     const role = u.app_metadata?.role;
     if (role !== 'reseller') continue;
     const creds = await loadResellerCredentialsByUserId(u.id);

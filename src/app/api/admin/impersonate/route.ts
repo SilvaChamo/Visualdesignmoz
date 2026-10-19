@@ -3,7 +3,6 @@ import { cookies } from 'next/headers';
 import { createClient } from '@supabase/supabase-js';
 import { requireAdmin } from '@/lib/admin-api-auth';
 import { IMPERSONATE_COOKIE } from '@/lib/panel-api-context';
-import { loadResellerCredentialsByDaUsername } from '@/lib/da-credential-store';
 import { getProfileForAuthUser } from '@/lib/profile-db';
 import { resolveRegistryDaUsername } from '@/lib/panel-user-registry';
 import { getDaSyncAdmin } from '@/lib/da-sync-schema';
@@ -102,14 +101,12 @@ async function startImpersonate(
     };
   }
 
-  const creds = await loadResellerCredentialsByDaUsername(normalized);
-  if (!creds) {
-    return {
-      ok: false,
-      status: 503,
-      error: `Sem credenciais para "${normalized}". Sincronize ou ligue a conta no servidor primeiro.`,
-    };
-  }
+  // A password DA guardada era só uma pré-condição defensiva de quando toda
+  // a gente estava no DirectAdmin — nunca chegou a ser usada aqui (impersonar
+  // só grava o username numa cookie). Uma conta já migrada para o Hestia não
+  // tem essa password (nem precisa dela) e `isKnownResellerDaUsername` acima
+  // já confirma que a conta existe e é impersonável — por isso não bloquear
+  // aqui. Ver [[project_da-to-hestia-migration]].
 
   const store = await cookies();
   store.set(IMPERSONATE_COOKIE, normalized, COOKIE_OPTS);

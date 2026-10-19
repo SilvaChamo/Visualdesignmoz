@@ -1,29 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient as createAdminClient, type SupabaseClient } from '@supabase/supabase-js';
+import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { createClient as createServerClient } from '@/utils/supabase/server';
 import { PANEL_SLUG } from '@/lib/panel-tenant';
 import { findProtectedEmailClaim, PROTECTED_EMAIL_MESSAGE } from '@/lib/protected-account-email';
+import { ENCOMENDAS_ACCOUNT_ORIGIN } from '@/lib/panel-origin';
+import { EXISTING_ACCOUNT_MESSAGE, authUserExists } from '@/lib/conta-existe';
+import { turnstileValido } from '@/lib/turnstile';
 
-const EXISTING_ACCOUNT_MESSAGE = 'Já existe uma conta com este email. Use «Entrar» em vez de «Criar conta».';
-
-async function authUserExists(admin: SupabaseClient, email: string): Promise<boolean> {
-  for (let page = 1; page <= 20; page++) {
-    const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 1000 });
-    if (error) throw error;
-    if (data.users.some((u) => u.email?.toLowerCase() === email)) return true;
-    if (data.users.length < 1000) return false;
-  }
-  return false;
-}
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, password, nome, telefone, empresa, endereco, cidade, provincia, pais, emailEmpresa, contacto, honeypot } = await request.json();
+    const corpo = await request.json();
+    const { email, password, nome, telefone, empresa, endereco, cidade, provincia, pais, emailEmpresa, contacto, honeypot, origem } = corpo;
 
     // Campo-armadilha: só bots que preenchem todos os campos do formulário
     // (incluindo os escondidos) chegam a mandar isto preenchido.
     if (honeypot) {
       return NextResponse.json({ error: 'Não foi possível concluir o registo.' }, { status: 400 });
+    }
+
+    // "Não sou um robô" (Turnstile da Cloudflare) do formulário de registo (Silva, 14/10/2026). Só esse formulário o
+    // manda: o checkout e a cotação, que também criam contas por aqui, continuam sem ele.
+    if ('turnstile' in corpo) {
+      const ip = request.headers.get('cf-connecting-ip') || request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || null;
+      if (!(await turnstileValido(corpo.turnstile, ip))) {
+        return NextResponse.json({ error: 'A verificação de segurança falhou ou expirou. Confirme de novo que não é um robô.' }, { status: 400 });
+      }
     }
 
     if (!email || !password || !nome || !telefone) {
@@ -73,6 +75,9 @@ export async function POST(request: NextRequest) {
         email_empresa: emailEmpresa ? String(emailEmpresa).trim() : '',
         contacto: contacto ? String(contacto).trim() : '',
         site: PANEL_SLUG,
+        // Conta criada no formulário das encomendas (/cotacao) — entra sempre
+        // na lista de contas das encomendas e no painel /encomendas.
+        ...(origem === ENCOMENDAS_ACCOUNT_ORIGIN ? { origem: ENCOMENDAS_ACCOUNT_ORIGIN } : {}),
       },
     });
 

@@ -2,8 +2,14 @@ import { createClient } from '@supabase/supabase-js'
 import {
   daBackupListFiles, daBackupReadFile, daBackupViewItems,
 } from '@/lib/da-backup-api'
+import { readBackupFile as hestiaReadBackupFile } from '@/lib/hestia-adapter'
 import type { BackupFileRow, BackupItemId, BackupTab } from '@/lib/da-backup-types'
 import { inferBackupScope } from '@/lib/da-backup-types'
+
+/** Domínio sintético usado no caminho do bucket para o backup Hestia — a
+ * conta inteira, não um domínio específico (v-backup-user não separa por
+ * site), mas reaproveita o mesmo layout owner/scope/domain/ficheiro. */
+const HESTIA_ACCOUNT_MARKER = '_conta'
 
 const BUCKET = 'panel-backups'
 
@@ -38,6 +44,27 @@ export async function uploadBackupFileToBucket(
   await ensureBucket(bucket)
   const bytes = Buffer.from(read.base64, 'base64')
   const path = bucketPath(owner, scope, domain, filename)
+  const { error } = await admin().storage.from(bucket).upload(path, bytes, {
+    contentType: 'application/gzip',
+    upsert: true,
+  })
+  if (error) return { ok: false, error: error.message }
+  return { ok: true, path }
+}
+
+/** Equivalente Hestia — a conta inteira, não um domínio, por isso usa o
+ * marcador `_conta` no lugar do domínio no caminho do bucket. */
+export async function uploadHestiaBackupToBucket(
+  owner: string,
+  filename: string,
+  bucket = BUCKET,
+): Promise<{ ok: boolean; path?: string; error?: string }> {
+  const read = await hestiaReadBackupFile(filename)
+  if (!read.ok || !read.base64) return { ok: false, error: read.error || 'Leitura do backup falhou.' }
+
+  await ensureBucket(bucket)
+  const bytes = Buffer.from(read.base64, 'base64')
+  const path = bucketPath(owner, 'full', HESTIA_ACCOUNT_MARKER, filename)
   const { error } = await admin().storage.from(bucket).upload(path, bytes, {
     contentType: 'application/gzip',
     upsert: true,

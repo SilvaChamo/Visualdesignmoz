@@ -386,6 +386,57 @@ samp {
   color: #d4d4d8 !important;
 }
 
+/* Login e registo do site (LoginDividido.tsx): campos com a etiqueta que sobe para a linha de cima — no escuro, as cores do tema
+   escuro do painel em vez das regras gerais acima (o fundo do campo é o da página, a dica só aparece com o campo
+   escolhido e a linha e a etiqueta ficam vermelhas ao clicar) */
+.dark .site-content .login-dividido :is(input, select):not([type="checkbox"]):not([type="radio"]) {
+  background-color: transparent !important;
+  color-scheme: dark;
+  border-color: #393e4d !important;
+  color: #f4f4f5 !important;
+}
+.dark .site-content .login-dividido :is(input, select):not([type="checkbox"]):not([type="radio"]):focus {
+  border-color: #ef4444 !important;
+}
+.dark .site-content .login-dividido input::placeholder {
+  color: transparent !important;
+}
+.dark .site-content .login-dividido input:focus::placeholder {
+  color: #71717a !important;
+}
+.dark .site-content .login-dividido label {
+  color: #a1a1aa !important;
+}
+.dark .site-content .login-dividido :is(input, select):focus + label {
+  color: #f87171 !important;
+}
+/* Campos que o navegador preenche sozinho (e-mail e palavra-passe guardados): sem o fundo azul dele (pedido do Silva,
+   13/10/2026) — o fundo fica o da página, no claro e no escuro */
+.login-dividido input:-webkit-autofill,
+.login-dividido input:-webkit-autofill:hover,
+.login-dividido input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px #fff inset !important;
+  box-shadow: 0 0 0 1000px #fff inset !important;
+  -webkit-text-fill-color: #18181b !important;
+  caret-color: #18181b;
+  transition: background-color 99999s ease-in-out 0s;
+}
+.dark .login-dividido input:-webkit-autofill,
+.dark .login-dividido input:-webkit-autofill:hover,
+.dark .login-dividido input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px #15161e inset !important;
+  box-shadow: 0 0 0 1000px #15161e inset !important;
+  -webkit-text-fill-color: #f4f4f5 !important;
+  caret-color: #f4f4f5;
+}
+
+@keyframes vd-pulsar {
+  0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.85); }
+  70% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+.vd-ponto-vivo { animation: vd-pulsar 1.6s ease-out infinite; }
+
 .dark .site-content :is(
   .bg-red-50, .bg-green-50, .bg-blue-50, .bg-amber-50, .bg-orange-50,
   .bg-purple-50, .bg-teal-50, .bg-cyan-50, .bg-emerald-50
@@ -476,4 +527,3 @@ samp {
     margin: 12mm;
   }
 }
-

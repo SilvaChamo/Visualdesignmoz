@@ -441,7 +441,7 @@ export function CotacoesSection() {
           )}
           {navMode === 'historico' ? (
             loading ? (
-              <div className="text-center py-12 text-sm text-gray-400 dark:text-zinc-500">A carregar encomendas...</div>
+              <div className="flex items-center justify-center gap-2 py-12 text-sm text-gray-400 dark:text-zinc-500"><Spinner /> A carregar encomendas...</div>
             ) : deliveredByCompany.length === 0 ? (
               <div className={`${panelSectionCard} p-8 text-center text-sm text-gray-500 dark:text-zinc-400`}>
                 Ainda não há encomendas entregues.
@@ -495,7 +495,7 @@ export function CotacoesSection() {
               </div>
             )
           ) : loading ? (
-            <div className="text-center py-12 text-sm text-gray-400 dark:text-zinc-500">A carregar encomendas...</div>
+            <div className="flex items-center justify-center gap-2 py-12 text-sm text-gray-400 dark:text-zinc-500"><Spinner /> A carregar encomendas...</div>
           ) : visibleGroups.every((g) => g.batches.length === 0) ? (
             <div className={`${panelSectionCard} p-8 text-center text-sm text-gray-500 dark:text-zinc-400`}>
               Nenhuma encomenda encontrada aqui.

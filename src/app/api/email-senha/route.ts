@@ -45,22 +45,24 @@ export async function POST(req: NextRequest) {
     const sessionEmail = (session.user.email || '').toLowerCase();
     const accountEmail = (conta.email || '').toLowerCase();
     const accountDomain = accountEmail.split('@')[1] || '';
-    // Ter um email no mesmo domínio já não chega: qualquer funcionário via a password das
-    // caixas dos colegas (e do director). Fica o admin, a própria caixa e o dono do alojamento.
+
+    // Ter um login no mesmo domínio já não chega (qualquer pessoa podia
+    // registar "x@dominio" e ler as passwords de todas as caixas dele) — mesma
+    // regra de /api/email-contas (userCanAccessMailboxPassword).
     let canAccess =
       isAdmin ||
       conta.cliente_id === session.user.id ||
       accountEmail === sessionEmail;
 
-    // Dono do alojamento do domínio (mesma regra do imap-panel-shared): só se o domínio
-    // pertencer de facto à conta de alojamento de quem pede.
+    // Dono do alojamento do domínio — cliente, profissional ou revendedor.
+    // Antes só o revendedor passava aqui: o cliente dono do domínio (ex.: um
+    // plano de email) levava 403 e o webmail dizia "Senha não encontrada".
+    // Mesma regra do resto do painel (domain-access.ts): conta activa +
+    // contas ligadas geridas directamente (Enterprise); Premium trancado.
     if (!canAccess && accountDomain) {
-      const { loadResellerCredentialsByUserId } = await import('@/lib/da-credential-store');
-      const { getMirrorSiteOwner } = await import('@/lib/panel-mirror-read');
-      const creds = await loadResellerCredentialsByUserId(session.user.id);
-      if (creds?.user) {
-        canAccess = (await getMirrorSiteOwner(accountDomain)) === creds.user;
-      }
+      const { resolveOwnAccountDomainAccess } = await import('@/lib/domain-access');
+      const access = await resolveOwnAccountDomainAccess(session.user.id, accountDomain);
+      canAccess = access.allowed;
     }
 
     if (!canAccess) {

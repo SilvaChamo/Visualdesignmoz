@@ -58,6 +58,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, [items]);
 
   const addItem = (item: CartItem) => {
+    // CORRIGIDO (14 ago 2026) — chegou a bloquear-se aqui por engano. Esta
+    // pasta é o Contabo/Hestia, que NÃO tem o limite de contas do
+    // DirectAdmin (Hetzner) — é exactamente por isso que a compra de
+    // hospedagem deve continuar activa aqui. Se algum dia se quiser
+    // pausar a venda de hospedagem, é no site em produção (Hetzner,
+    // pasta ../visualdesign) que isso faz sentido, nunca aqui.
     setItems((prev) => {
       // Prevent duplicates based on name/type
       if (prev.find(i => i.name === item.name && i.type === item.type)) {

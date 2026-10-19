@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react'
 import { Shield, Save, CheckSquare, Square, CheckCircle2, ExternalLink, Plus, X } from 'lucide-react'
 import { ResellerMenuPermissionsConfig } from './ResellerMenuPermissionsConfig'
 import { readListCache, writeListCache } from '@/lib/panel-list-cache'
+import { Spinner } from '@/components/ui/spinner'
 
 const PERMS_CACHE_KEY = 'vd_client_permissions_v1'
 
@@ -178,7 +179,7 @@ function ClientPanelPermissionsConfig() {
     }
   }
 
-  if (loading) return <div className="p-10 flex justify-center text-gray-500">A carregar configurações...</div>
+  if (loading) return <div className="p-10 flex items-center justify-center gap-2 text-gray-500"><Spinner /> A carregar configurações...</div>
 
   return (
     <div className="space-y-6">

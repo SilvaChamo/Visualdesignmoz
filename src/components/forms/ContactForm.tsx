@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { contactService, ContactForm } from '@/lib/services/contact'
 import { useI18n } from '@/lib/i18n'
 import { SERVICE_BRANDS } from '@/lib/services-catalog'
+import { Spinner } from '@/components/ui/spinner'
 
 interface ContactFormProps {
   hideServiceSelect?: boolean
@@ -166,7 +167,7 @@ function ContactFormInner({ hideServiceSelect = false }: ContactFormProps) {
 
 export function ContactFormComponent({ hideServiceSelect = false }: ContactFormProps) {
   return (
-    <Suspense fallback={<div className="text-zinc-500 text-sm">A carregar formulário...</div>}>
+    <Suspense fallback={<div className="flex items-center gap-2 text-zinc-500 text-sm"><Spinner /> A carregar formulário...</div>}>
       <ContactFormInner hideServiceSelect={hideServiceSelect} />
     </Suspense>
   )

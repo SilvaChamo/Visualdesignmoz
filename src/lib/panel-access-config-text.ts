@@ -20,7 +20,7 @@ Nome: ${params.name || params.email.split('@')[0]}
 Email: ${params.email}
 Palavra-passe: ${params.password}
 Destino: ${panelPath}
-URL de entrada: ${origin}/auth/login
+URL de entrada: ${origin}/login
 
 Guarde estas credenciais em local seguro.
 `.trim();

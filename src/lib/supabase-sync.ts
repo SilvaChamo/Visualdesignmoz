@@ -18,23 +18,40 @@ export async function syncWebsiteToSupabase(website: {
   siteType?: string
 }) {
   try {
-    const payload = {
-      domain: website.domain,
-      admin_email: website.adminEmail || '',
-      package: website.package || 'Default',
-      owner: website.owner || 'admin',
-      status: website.status || website.state || 'Active',
-      disk_usage: String(website.diskUsage ?? '0'),
-      bandwidth_usage: String(website.bandwidthUsage ?? website.bandwidth ?? '0'),
-      wp_installed: website.wpInstalled ?? false,
-      site_type: website.siteType || 'empty',
-      synced_at: new Date().toISOString(),
-    }
     const { data: existing } = await supabase.from('panel_sites').select('id').eq('domain', website.domain).single()
     if (existing) {
-      await supabase.from('panel_sites').update(payload).eq('id', existing.id)
+      // Update parcial — só escreve os campos que o chamador passou de facto.
+      // Chamadas como a de suspender/activar só sabem {domain, status}; usar
+      // defaults para os campos não passados (ex: owner:'admin') apagava o
+      // dono real do site a cada clique.
+      const patch: Record<string, unknown> = { synced_at: new Date().toISOString() }
+      if (website.adminEmail !== undefined) patch.admin_email = website.adminEmail
+      if (website.package !== undefined) patch.package = website.package
+      if (website.owner !== undefined) patch.owner = website.owner
+      if (website.status !== undefined || website.state !== undefined) patch.status = website.status || website.state
+      if (website.diskUsage !== undefined) patch.disk_usage = String(website.diskUsage)
+      if (website.bandwidthUsage !== undefined || website.bandwidth !== undefined) {
+        patch.bandwidth_usage = String(website.bandwidthUsage ?? website.bandwidth)
+      }
+      if (website.wpInstalled !== undefined) patch.wp_installed = website.wpInstalled
+      if (website.siteType !== undefined) patch.site_type = website.siteType
+      await supabase.from('panel_sites').update(patch).eq('id', existing.id)
     } else {
-      await supabase.from('panel_sites').insert([payload])
+      // Insert precisa de valores completos (colunas obrigatórias).
+      await supabase.from('panel_sites').insert([
+        {
+          domain: website.domain,
+          admin_email: website.adminEmail || '',
+          package: website.package || 'Default',
+          owner: website.owner || 'admin',
+          status: website.status || website.state || 'Active',
+          disk_usage: String(website.diskUsage ?? '0'),
+          bandwidth_usage: String(website.bandwidthUsage ?? website.bandwidth ?? '0'),
+          wp_installed: website.wpInstalled ?? false,
+          site_type: website.siteType || 'empty',
+          synced_at: new Date().toISOString(),
+        },
+      ])
     }
   } catch (e) {
     console.warn('[supabase-sync] syncWebsiteToSupabase error:', e)

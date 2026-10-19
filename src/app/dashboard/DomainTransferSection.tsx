@@ -37,6 +37,16 @@ const ORDER_STATUS_META: Record<TransferOrder['status'], { label: string; classN
   failed:  { label: 'Pagamento rejeitado',   className: 'bg-red-100   text-red-700   dark:bg-red-900/40   dark:text-red-300',   dotColor: 'bg-red-500'   },
 };
 
+/** "Processando" (order.status) só descreve o pagamento — quando a
+ * transferência em si já foi confirmada concluída pela Dynadot
+ * (r.status === 'completed'), este badge sobrepõe-se para não ficar preso em
+ * "Processando" para sempre depois de já estar mesmo terminado. */
+const CONCLUDED_ORDER_META = {
+  label: 'Concluído',
+  className: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
+  dotColor: 'bg-green-500',
+};
+
 /**
  * A ICANN dá ao registador anterior até 5-7 dias para responder a um pedido
  * de transferência (ver TRANSFER_STEPS abaixo) — se não fizer nada, conta
@@ -198,7 +208,7 @@ function TransferCountdownCard({ request }: { request: { domain_name: string; cr
           {request.domain_name}
         </span>
         <span className="shrink-0 rounded border border-teal-400 px-2 py-0.5 font-mono text-xs font-bold text-teal-600 dark:border-teal-600 dark:text-teal-400">
-          &lt;ok&gt;
+          Em curso
         </span>
       </div>
 
@@ -209,12 +219,18 @@ function TransferCountdownCard({ request }: { request: { domain_name: string; cr
         </span>
       </p>
 
-      {/* Contador de Tempo Restante */}
+      {/* Contador de Tempo Restante — este cartão só aparece para pedidos
+          ainda não confirmados como concluídos (ver filtro pendingRequests
+          mais abaixo); a contagem é só uma ESTIMATIVA nossa (7 dias), não o
+          estado real da Dynadot — por isso, mesmo que a estimativa chegue a
+          zero, não podemos afirmar "concluída" sem confirmação real: quem
+          confirma isso é a verificação automática à Dynadot (a cada ~30 min),
+          que só então tira este pedido desta lista. */}
       <div className="my-1 py-2.5 px-3 bg-white dark:bg-zinc-900 rounded border border-gray-200/80 dark:border-zinc-700/80 shadow-xs">
         <div className="text-[10px] uppercase font-bold text-gray-400 mb-1.5 tracking-wider text-center">Tempo Restante de Transferência</div>
         {done ? (
-          <div className="flex items-center justify-center gap-1.5 text-xs font-bold text-green-600">
-            <CheckCircle2 className="h-4 w-4" /> Transferência concluída
+          <div className="flex items-center justify-center gap-1.5 text-xs font-bold text-amber-600 dark:text-amber-400">
+            <Clock className="h-4 w-4" /> A demorar mais do que o previsto — ainda em curso
           </div>
         ) : (
           <div className="flex items-center justify-center gap-2">
@@ -258,6 +274,11 @@ export function DomainTransferSection() {
 
   const [requests, setRequests] = useState<TransferRequest[]>(() => readListCache<TransferRequest[]>(TRANSFER_CACHE_KEY) ?? []);
   const [loadingRequests, setLoadingRequests] = useState(() => readListCache<TransferRequest[]>(TRANSFER_CACHE_KEY) === null);
+  // Data de início real do pedido, tal como a Dynadot a regista
+  // (order_created_date) — por domínio, porque é isso que a Dynadot usa para
+  // calcular o prazo dela, e não a data em que a nossa própria tabela criou
+  // a linha do pedido.
+  const [liveCreatedAt, setLiveCreatedAt] = useState<Record<string, string>>({});
 
   const loadRequests = async () => {
     try {
@@ -281,13 +302,31 @@ export function DomainTransferSection() {
   useEffect(() => {
     const pending = requests.filter((r) => r.status === 'submitted' || r.status === 'waiting' || r.status === 'locked');
     if (pending.length === 0) return;
-    const interval = setInterval(() => {
+
+    const refreshLive = () => {
       Promise.all(
         pending.map((r) =>
-          fetch(`/api/domain-transfer/status?domain=${encodeURIComponent(r.domain_name)}`, { credentials: 'include' }).catch(() => null),
+          fetch(`/api/domain-transfer/status?domain=${encodeURIComponent(r.domain_name)}`, { credentials: 'include' })
+            .then((res) => res.json())
+            .then((data) => ({ domain: r.domain_name, data }))
+            .catch(() => null),
         ),
-      ).then(() => void loadRequests());
-    }, 30_000);
+      ).then((results) => {
+        setLiveCreatedAt((prev) => {
+          const next = { ...prev };
+          for (const entry of results) {
+            if (entry?.data?.success && entry.data.createdAt) next[entry.domain] = entry.data.createdAt;
+          }
+          return next;
+        });
+        void loadRequests();
+      });
+    };
+
+    // Corre logo ao detectar pedidos pendentes — não espera 30s para mostrar
+    // a data certa — e depois repete periodicamente.
+    refreshLive();
+    const interval = setInterval(refreshLive, 30_000);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [requests.map((r) => r.status).join(',')]);
@@ -315,6 +354,11 @@ export function DomainTransferSection() {
       if (data.available) {
         setMsgOk(false);
         setMsg('Este domínio está livre — ninguém o possui, por isso não há nada para transferir. Registe-o directamente em vez de transferir.');
+        return;
+      }
+      if (data.alreadyOurs) {
+        setMsgOk(false);
+        setMsg('Este domínio já está registado connosco — não é preciso transferir.');
         return;
       }
 
@@ -469,7 +513,13 @@ export function DomainTransferSection() {
               {pendingRequests.length > 0 ? (
                 <div className="space-y-3">
                   {pendingRequests.map((req) => (
-                    <TransferCountdownCard key={req.id} request={req} />
+                    <TransferCountdownCard
+                      key={req.id}
+                      request={{
+                        ...req,
+                        created_at: liveCreatedAt[req.domain_name] || req.created_at,
+                      }}
+                    />
                   ))}
                 </div>
               ) : (
@@ -553,7 +603,7 @@ export function DomainTransferSection() {
                 <tbody className="divide-y divide-gray-100 dark:divide-zinc-800">
                   {orderedRequests.map((r) => {
                     const order = r.order as TransferOrder;
-                    const meta = ORDER_STATUS_META[order.status];
+                    const meta = r.status === 'completed' ? CONCLUDED_ORDER_META : ORDER_STATUS_META[order.status];
                     return (
                       <tr
                         key={r.id}
@@ -603,11 +653,11 @@ export function DomainTransferSection() {
             <div className="lg:col-span-5 space-y-4">
               {/* Ilustração das esferas sobrepostas */}
               <div className="flex items-center gap-3">
-                <div className="h-14 w-14 rounded-full bg-gradient-to-tr from-teal-600 via-indigo-500 to-sky-400 shadow-md shadow-teal-500/20" />
+                <div className="h-14 w-14 rounded-full bg-gradient-to-tr from-black via-red-700 to-red-500 shadow-md shadow-red-500/20" />
                 <div className="flex h-6 w-6 items-center justify-center">
                   <ArrowRight className="h-4 w-4 text-gray-400 dark:text-zinc-400" />
                 </div>
-                <div className="h-14 w-14 rounded-full border-2 border-amber-500 bg-transparent" />
+                <div className="h-14 w-14 rounded-full border-2 border-red-600 bg-transparent" />
               </div>
 
               <h3 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-zinc-100 tracking-tight leading-snug">

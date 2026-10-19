@@ -1,6 +1,6 @@
 import type { ReactNode, CSSProperties } from 'react';
 
-export type NotchShape = 'start' | 'start-alt' | 'end' | 'mid' | 'mid-alt';
+export type NotchShape = 'start' | 'start-alt' | 'end' | 'mid' | 'mid-alt' | 'down';
 
 /**
  * Recorte em "V" usado entre secções da home para dar o efeito de fita contínua.
@@ -18,6 +18,9 @@ export type NotchShape = 'start' | 'start-alt' | 'end' | 'mid' | 'mid-alt';
  *   fundo (encostado no meio). Duas secções 'mid' seguidas deixam um vazio nas pontas —
  *   por isso, entre duas secções 'mid'/'mid' consecutivas, a do meio tem de ser 'mid-alt'
  *   para o encaixe ficar sem buracos (ver Why-Us → Preços → Newsletter na home).
+ * - 'down':      tudo "virado para baixo" — topo com o corte de 'end' (o meio recuado,
+ *   onde desce a secção de cima) e fundo como 'start-alt' (o meio sai para baixo e
+ *   encaixa no topo 'end' do rodapé). Ver /precos/email.
  */
 export const CLIP_PATHS: Record<NotchShape, string> = {
   start:
@@ -30,6 +33,8 @@ export const CLIP_PATHS: Record<NotchShape, string> = {
     'polygon(0% 16px, var(--cl) 16px, calc(var(--cl) + 15px) 0%, calc(100% - var(--cl) - 15px) 0%, calc(100% - var(--cl)) 16px, 100% 16px, 100% calc(100% - 16px), calc(100% - var(--cl)) calc(100% - 16px), calc(100% - var(--cl) - 15px) 100%, calc(var(--cl) + 15px) 100%, var(--cl) calc(100% - 16px), 0% calc(100% - 16px))',
   'mid-alt':
     'polygon(0% 0%, var(--cl) 0%, calc(var(--cl) + 15px) 16px, calc(100% - var(--cl) - 15px) 16px, calc(100% - var(--cl)) 0%, 100% 0%, 100% 100%, calc(100% - var(--cl)) 100%, calc(100% - var(--cl) - 15px) calc(100% - 16px), calc(var(--cl) + 15px) calc(100% - 16px), var(--cl) 100%, 0% 100%)',
+  down:
+    'polygon(0% 0%, var(--cl) 0%, calc(var(--cl) + 15px) 16px, calc(100% - var(--cl) - 15px) 16px, calc(100% - var(--cl)) 0%, 100% 0%, 100% calc(100% - 16px), calc(100% - var(--cl)) calc(100% - 16px), calc(100% - var(--cl) - 15px) 100%, calc(var(--cl) + 15px) 100%, var(--cl) calc(100% - 16px), 0% calc(100% - 16px))',
 };
 
 export function NotchSection({

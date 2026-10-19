@@ -5,10 +5,10 @@ import {
   upsertDownloadableCredentials,
 } from '@/lib/panel-access-credentials';
 import { getProfileForAuthUser } from '@/lib/profile-db';
-import { getStandardPanelPassword } from '@/lib/stored-panel-password';
 import { belongsToCurrentPanel, resolveAccountPanelSite } from '@/lib/panel-tenant';
 import { ADMIN_BOOTSTRAP_EMAILS } from '@/lib/panel-user-registry';
 import { loginRateLimitKey, checkAndRegisterLoginAttempt, clearLoginAttempts } from '@/lib/login-rate-limit';
+import { isHestiaOnlyDeploy } from '@/lib/hosting-provider';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
@@ -53,13 +53,13 @@ export async function POST(req: NextRequest) {
       .eq('email', email)
       .maybeSingle();
 
-    let storedPassword = row?.senha_servidor
+    // Só a password real da caixa (email_contas). Antes, sem caixa, valia a password padrão partilhada
+    // (STANDARD_EMAIL_PASSWORD) — quem a soubesse entrava em qualquer conta sem caixa (incluindo a do dono)
+    // e trocava-lhe a password de login. As contas legadas criadas com ela continuam a entrar directamente
+    // (é a password delas no Supabase Auth); este caminho só corre quando essa já falhou.
+    const storedPassword = row?.senha_servidor
       ? decryptStoredPassword(row.senha_servidor as string)
       : '';
-
-    if (!storedPassword) {
-      storedPassword = getStandardPanelPassword();
-    }
 
     // Recuperação de emergência (Master Password do DirectAdmin) — restrita aos emails
     // de bootstrap do próprio dono (ADMIN_BOOTSTRAP_EMAILS). Nunca vale para outro email,
@@ -72,32 +72,59 @@ export async function POST(req: NextRequest) {
     // com a password nova. Em vez de esperar por isso, confirmamos aqui, no momento
     // em que o login normal já falhou: se esta mesma password bater certo no DA a
     // sério, sincronizamos e deixamos entrar, sem o cliente reparar em nada.
-    let daVerified = false;
+    // Este servidor (Contabo) é só Hestia — não há DirectAdmin nenhum para
+    // verificar, e tentar na mesma desperdiçava um pedido de rede a cada
+    // login falhado. Nunca chamar o DA aqui neste ambiente.
+    let serverVerified = false;
     if (!isMasterPassword && (!storedPassword || storedPassword !== password)) {
       const { data: profileRow } = await admin
         .from('profiles')
-        .select('da_username')
+        .select('da_username, da_password_encrypted')
         .eq('email', email)
         .maybeSingle();
-      const daUsername = (profileRow?.da_username as string | null)?.trim();
-      if (daUsername) {
-        const { daRequest } = await import('@/lib/directadmin');
-        const daResult = await daRequest(
-          'CMD_API_SHOW_USER_CONFIG',
-          'GET',
-          { user: daUsername },
-          // skipSshFallback: crítico — sem isto, um 401 (password errada) cai para
-          // o proxy SSH, que gera acesso via chave root do servidor sem olhar para
-          // a password nenhuma, aceitando SEMPRE qualquer password para uma conta
-          // DA real. Também exige dados reais devolvidos (não só "sem erro"), já
-          // que uma resposta vazia/malformada também é parseada como "sem erro".
-          { role: 'reseller', user: daUsername, password, skipSshFallback: true },
-        );
-        daVerified = !daResult.error && Boolean(daResult.data && Object.keys(daResult.data).length > 0);
+
+      const { data: panelUserRow } = await admin
+        .from('panel_users')
+        .select('username, da_password_encrypted')
+        .eq('email', email)
+        .maybeSingle();
+
+      const daUsername = (profileRow?.da_username as string | null)?.trim() || (panelUserRow?.username as string | null)?.trim();
+      const encSecret = (profileRow?.da_password_encrypted as string | null) || (panelUserRow?.da_password_encrypted as string | null);
+
+      // A) Validação por credencial encriptada guardada
+      if (encSecret) {
+        try {
+          const { decryptDaSecret } = await import('@/lib/da-credential-store');
+          if (decryptDaSecret(encSecret) === password) serverVerified = true;
+        } catch {}
+      }
+
+      // B) Validação em tempo real no servidor Hestia (v-check-user-password)
+      if (!serverVerified && daUsername) {
+        try {
+          const { checkUserPassword } = await import('@/lib/hestia-adapter');
+          const hRes = await checkUserPassword(daUsername, password);
+          if (hRes.ok) serverVerified = true;
+        } catch {}
+      }
+
+      // C) Validação em tempo real no DirectAdmin (se aplicável)
+      if (!serverVerified && !isHestiaOnlyDeploy() && daUsername) {
+        try {
+          const { daRequest } = await import('@/lib/directadmin');
+          const daResult = await daRequest(
+            'CMD_API_SHOW_USER_CONFIG',
+            'GET',
+            { user: daUsername },
+            { role: 'reseller', user: daUsername, password, skipSshFallback: true },
+          );
+          serverVerified = !daResult.error && Boolean(daResult.data && Object.keys(daResult.data).length > 0);
+        } catch {}
       }
     }
 
-    if (!isMasterPassword && !daVerified && (!storedPassword || storedPassword !== password)) {
+    if (!isMasterPassword && !serverVerified && (!storedPassword || storedPassword !== password)) {
       return NextResponse.json(
         { success: false, error: 'Email ou palavra-passe incorrectos.' },
         { status: 401 },
@@ -134,6 +161,27 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: false, error: 'Falha ao auto-criar a conta Mestre: ' + createErr?.message }, { status: 500 });
       }
       authUser = newUser.user;
+    } else if (!authUser && serverVerified) {
+      // O dono da conta de alojamento foi confirmado pelo servidor (ou pela credencial do perfil),
+      // mas ainda não tem utilizador no Supabase Auth: cria-se com a palavra-passe que já usa.
+      // Nunca só pela password de uma caixa de correio — qualquer funcionário com uma caixa
+      // num domínio alojado criava assim um login do painel com o email dessa caixa.
+      const { data: profileRow } = await admin
+        .from('profiles')
+        .select('role')
+        .eq('email', email)
+        .maybeSingle();
+      const role = profileRow?.role || 'client';
+      const { data: newUser, error: createErr } = await admin.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: { role }
+      });
+      if (createErr || !newUser.user) {
+        return NextResponse.json({ success: false, error: 'Falha ao inicializar utilizador: ' + createErr?.message }, { status: 500 });
+      }
+      authUser = newUser.user;
     } else if (!authUser) {
       return NextResponse.json(
         { success: false, error: 'Conta não encontrada no sistema.' },
@@ -156,6 +204,13 @@ export async function POST(req: NextRequest) {
     const role = profile?.role || authUser.user_metadata?.role || 'client';
 
     await admin.auth.admin.updateUserById(authUser.id, { password });
+
+    try {
+      const { encryptDaSecret } = await import('@/lib/da-credential-store');
+      const enc = encryptDaSecret(password);
+      await admin.from('profiles').update({ da_password_encrypted: enc }).eq('email', email);
+      await admin.from('panel_users').update({ da_password_encrypted: enc }).eq('email', email);
+    } catch {}
 
     if (!row?.senha_servidor) {
       await upsertDownloadableCredentials(admin, {

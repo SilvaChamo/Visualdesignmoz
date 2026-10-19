@@ -5,6 +5,10 @@
 import { executeServerCommand } from '@/lib/server-ssh-exec';
 import type { DirectAdminCredentials } from '@/lib/directadmin-credentials';
 
+function isHestiaOnlyDeploy(): boolean {
+  return (process.env.DEFAULT_HOSTING_PROVIDER || '').trim().toLowerCase() === 'hestia';
+}
+
 const DA_BIN = '/usr/local/directadmin/directadmin';
 
 function shellQuote(value: string): string {
@@ -23,6 +27,9 @@ export async function requestDirectAdminViaSsh(
   params: Record<string, string>,
   credentials: DirectAdminCredentials,
 ): Promise<string> {
+  if (isHestiaOnlyDeploy()) {
+    throw new Error('DirectAdmin não está disponível neste servidor (Hestia).');
+  }
   const user = shellQuote(credentials.user);
   const apiSetup = `API=$(${DA_BIN} api-url --user=${user} 2>/dev/null | tail -1)`;
   const qs = buildQuery(params);

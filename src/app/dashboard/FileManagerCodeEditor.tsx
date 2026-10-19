@@ -15,7 +15,7 @@ import { yaml } from '@codemirror/lang-yaml';
 import { nginx } from '@codemirror/legacy-modes/mode/nginx';
 import { shell } from '@codemirror/legacy-modes/mode/shell';
 import { properties } from '@codemirror/legacy-modes/mode/properties';
-import { githubLight } from '@uiw/codemirror-theme-github';
+import { githubDark, githubLight } from '@uiw/codemirror-theme-github';
 import { cn } from '@/lib/utils';
 
 function languageExtension(fileName: string) {
@@ -72,11 +72,14 @@ export function FileManagerCodeEditor({
   value,
   onChange,
   fillHeight = false,
+  dark = false,
 }: {
   fileName: string;
   value: string;
   onChange: (value: string) => void;
   fillHeight?: boolean;
+  /** tema escuro (painel VisualHost no modo escuro) */
+  dark?: boolean;
 }) {
   const extensions = useMemo(() => languageExtension(fileName), [fileName]);
 
@@ -84,7 +87,7 @@ export function FileManagerCodeEditor({
     <CodeMirror
       value={value}
       height={fillHeight ? '100%' : '65vh'}
-      theme={githubLight}
+      theme={dark ? githubDark : githubLight}
       extensions={extensions}
       onChange={onChange}
       basicSetup={{

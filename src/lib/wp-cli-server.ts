@@ -72,12 +72,18 @@ export async function installWordPressSite(input: {
   dbName: string;
   dbUser: string;
   dbPassword: string;
+  /** prefixo das tabelas (por defeito wp_) */
+  dbPrefix?: string;
   protocol?: 'http' | 'https';
 }): Promise<{ ok: boolean; output: string }> {
   const site = await resolveDomainSitePath(input.domain);
   if (!site) return { ok: false, output: 'Domínio não encontrado no servidor.' };
 
   const subdir = (input.directory || '').replace(/^\/+|\/+$/g, '');
+  // só uma subpasta do site (letras, números, ponto, hífen e _; sem "..")
+  if (subdir && (!/^[A-Za-z0-9._/-]{1,120}$/.test(subdir) || subdir.split('/').some((x) => !x || x === '.' || x === '..'))) {
+    return { ok: false, output: 'Pasta inválida.' };
+  }
   const wpPath = subdir ? `${site.path}/${subdir}` : site.path;
   const configPath = `${wpPath}/wp-config.php`;
 
@@ -88,7 +94,8 @@ export async function installWordPressSite(input: {
     return { ok: false, output: 'WordPress já está instalado neste caminho.' };
   }
 
-  await executeServerCommand(`mkdir -p ${shellQuote(wpPath)} && chown ${shellQuote(site.user)}:${shellQuote(site.user)} ${shellQuote(wpPath)}`);
+  // criada como o dono do site (nunca root + chown dentro da pasta do cliente)
+  await executeServerCommand(`sudo -u ${shellQuote(site.user)} mkdir -p ${shellQuote(wpPath)}`);
 
   const proto = input.protocol === 'http' ? 'http' : 'https';
   const url = subdir
@@ -97,7 +104,7 @@ export async function installWordPressSite(input: {
 
   const steps = [
     'core download',
-    `config create --dbname=${shellQuote(input.dbName)} --dbuser=${shellQuote(input.dbUser)} --dbpass=${shellQuote(input.dbPassword)} --dbhost=localhost --skip-check`,
+    `config create --dbname=${shellQuote(input.dbName)} --dbuser=${shellQuote(input.dbUser)} --dbpass=${shellQuote(input.dbPassword)} --dbhost=localhost${input.dbPrefix ? ` --dbprefix=${shellQuote(input.dbPrefix)}` : ''} --skip-check`,
     `core install --url=${shellQuote(url)} --title=${shellQuote(input.siteTitle || input.domain)} --admin_user=${shellQuote(input.adminUser)} --admin_password=${shellQuote(input.adminPassword)} --admin_email=${shellQuote(input.adminEmail)} --skip-email`,
   ];
 
@@ -110,7 +117,38 @@ export async function installWordPressSite(input: {
     }
   }
 
+  // Passos pós-instalação que o painel deixa prontos para o cliente, para não
+  // ser preciso mexer no wp-cli à mão depois:
+  //  - ligações permanentes "bonitas" (/nome-do-artigo/). Usa-se
+  //    `option update permalink_structure` + `rewrite flush` de propósito:
+  //    `wp rewrite structure` rebenta com erro de subprocesso nalgumas versões.
+  // Best-effort: se algum falhar, a instalação continua válida na mesma.
+  for (const extra of [
+    `option update permalink_structure '/%postname%/'`,
+    'rewrite flush --hard',
+  ]) {
+    outputs.push(await runAsWpUser(site.user, wpPath, extra).catch(() => ''));
+  }
+
   return { ok: true, output: outputs.join('\n') || 'WordPress instalado com sucesso.' };
+}
+
+/**
+ * Depois de emitir SSL num domínio com WordPress: passa os endereços do site
+ * (home/siteurl) para https e regenera as regras de reescrita. Best-effort —
+ * nunca lança, para não fazer falhar a emissão de SSL em si.
+ */
+export async function switchWpToHttps(domain: string): Promise<void> {
+  const install = await resolveWpInstall(domain);
+  if (!install) return;
+  const base = `https://${domain.replace(/[^a-zA-Z0-9.-]/g, '')}`;
+  for (const args of [
+    `option update home ${shellQuote(base)}`,
+    `option update siteurl ${shellQuote(base)}`,
+    'rewrite flush --hard',
+  ]) {
+    await runAsWpUser(install.user, install.path, args).catch(() => undefined);
+  }
 }
 
 export async function resolveWpInstall(domain: string): Promise<WpInstallInfo | null> {
@@ -442,25 +480,48 @@ export async function deleteWpUser(
 
 export async function generateWpAutoLoginToken(
   domain: string,
-  username: string,
+  username?: string,
+  postId?: number,
 ): Promise<{ success: boolean; url?: string; error?: string }> {
   const install = await resolveWpInstall(domain);
   if (!install) return { success: false, error: 'WordPress não encontrado neste domínio' };
+  if (postId !== undefined && (!Number.isSafeInteger(postId) || postId <= 0)) {
+    return { success: false, error: 'Página inválida.' };
+  }
+
+  // Sem utilizador indicado (botão "Painel do WordPress"): entra como o
+  // primeiro administrador do site.
+  let login = (username || '').trim();
+  if (!login) {
+    const raw = await runAsWpUser(
+      install.user,
+      install.path,
+      'user list --role=administrator --field=user_login --format=csv',
+    ).catch(() => '');
+    login = raw
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((l) => l && !/^user_login$/i.test(l))[0] || '';
+    if (!login) {
+      return { success: false, error: 'Nenhum administrador encontrado neste WordPress.' };
+    }
+  }
 
   const token = crypto.randomUUID();
   const filename = `wp-login-${token}.php`;
   const filePath = `${install.path}/${filename}`;
+  const destino = postId === undefined ? 'admin_url()' : `admin_url('post.php?post=${postId}&action=edit')`;
 
   const phpContent = `<?php
 // Autologin gerado pelo painel
 @unlink(__FILE__);
 require_once __DIR__ . '/wp-load.php';
-$user = get_user_by('login', '${username.replace(/'/g, "\\'")}');
+$user = get_user_by('login', '${login.replace(/'/g, "\\'")}');
 if ($user) {
     wp_clear_auth_cookie();
     wp_set_current_user($user->ID);
     wp_set_auth_cookie($user->ID, true);
-    wp_safe_redirect(admin_url());
+    wp_safe_redirect(${destino});
     exit;
 } else {
     echo "Erro: Utilizador não encontrado.";
@@ -468,7 +529,9 @@ if ($user) {
 `;
 
   const base64Content = Buffer.from(phpContent).toString('base64');
-  const writeCmd = `echo '${base64Content}' | base64 -d > ${shellQuote(filePath)} && chown ${shellQuote(install.user)}:${shellQuote(install.user)} ${shellQuote(filePath)}`;
+  // escrito como o dono do site (nunca root + chown: a pasta é do cliente e uma ligação simbólica posta lá
+  // faria o root mudar o dono de um ficheiro do sistema)
+  const writeCmd = `echo '${base64Content}' | base64 -d | sudo -u ${shellQuote(install.user)} sh -c 'cat > "$1"' _ ${shellQuote(filePath)}`;
 
   try {
     await executeServerCommand(writeCmd);
@@ -581,4 +644,3 @@ export async function getWpUser(domain: string, username: string): Promise<WpUse
     return null;
   }
 }
-

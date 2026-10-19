@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useLayoutEffect, useState } from 'react';
 
 export type ThemeMode = 'light' | 'dark';
 
@@ -11,6 +11,7 @@ type ThemeContextValue = {
 };
 
 const STORAGE_KEY = 'vd-theme';
+const useIsomorphicLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
@@ -69,7 +70,7 @@ function persistTheme(theme: ThemeMode) {
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<ThemeMode>('light');
 
-  useEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     const initial = resolveTheme();
     setThemeState(initial);
     applyTheme(initial);

@@ -13,7 +13,7 @@ import {
   ChevronRight, Globe2, Plug, Search, Layers, X
 } from 'lucide-react'
 import Link from 'next/link'
-import { getServerHost, getHestiaUrl } from '@/lib/server-config'
+import { getHestiaUrl, getServerHost } from '@/lib/server-config'
 
 // ============================================================
 // TYPES & INTERFACES
@@ -369,7 +369,7 @@ export default function ManageWebsitePage() {
       borderColor: 'border-amber-200',
       items: [
         { id: 'create-db', label: 'Databases', icon: 'databases', onClick: () => router.push('/dashboard?page=cp-databases') },
-        { id: 'phpmyadmin', label: 'phpMyAdmin', icon: 'phpmyadmin', external: true, href: `https://${domain}:2222/phpMyAdmin/` },
+        { id: 'phpmyadmin', label: 'MySQL', icon: 'phpmyadmin', onClick: () => window.open(`/api/db-manager?action=phpmyadminSso&domain=${encodeURIComponent(domain)}`, '_blank', 'noopener,noreferrer') },
       ]
     },
     {
@@ -484,13 +484,13 @@ export default function ManageWebsitePage() {
                 Visitar Site
               </a>
               <a
-                href={`https://${getServerHost()}:2222`}
+                href={getHestiaUrl()}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
               >
                 <Server className="w-4 h-4" />
-                DirectAdmin
+                Hestia
               </a>
             </div>
           </div>

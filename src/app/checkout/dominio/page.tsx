@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, ArrowRight, Check, Globe, ArrowRightLeft, ServerCog, Loader2 } from 'lucide-react';
+import { ArrowLeft, Check, Globe, ArrowRightLeft, ServerCog } from 'lucide-react';
 import { useCart } from '@/contexts/CartContext';
 import { useCurrency } from '@/contexts/CurrencyContext';
 import { Spinner } from '@/components/ui/spinner';
@@ -36,7 +36,7 @@ export default function EscolherDominioPage() {
   const [regName, setRegName] = useState('');
   const [regTld, setRegTld] = useState(DOMAIN_TLD_PRICES[0].value);
   const [regChecking, setRegChecking] = useState(false);
-  const [regResult, setRegResult] = useState<{ available: boolean; domain: string; error?: string } | null>(null);
+  const [regResult, setRegResult] = useState<{ available: boolean; domain: string; error?: string; alreadyOurs?: boolean } | null>(null);
 
   // Transferir
   const [trDomain, setTrDomain] = useState('');
@@ -50,6 +50,9 @@ export default function EscolherDominioPage() {
 
   const pending = hostingItemsNeedingDomain(items);
   const target = pending[0];
+  // o plano de e-mail também passa por aqui: o domínio é o dos endereços de e-mail
+  const ehEmail = target?.type === 'email';
+  const planos = ehEmail ? '/precos/email' : '/precos/hospedagem';
 
   useEffect(() => {
     if (items.length === 0) {
@@ -92,11 +95,11 @@ export default function EscolherDominioPage() {
         return;
       }
       const domain = data.domain as string;
-      setRegResult({ available: data.available, domain });
+      setRegResult({ available: data.available, domain, alreadyOurs: Boolean(data.alreadyOurs) });
       if (data.available) {
         const tld = DOMAIN_TLD_PRICES.find((t) => domain.endsWith(t.value));
         if (tld) {
-          setStaged({
+          proceedWith({
             mode: 'register',
             domain,
             price: domainRegistrationPriceMt(tld, 1),
@@ -133,6 +136,10 @@ export default function EscolherDominioPage() {
         setTrMsg({ ok: false, text: 'Este domínio está livre — não há nada para transferir. Escolha "Registar um novo domínio" em vez disso.' });
         return;
       }
+      if (data.alreadyOurs) {
+        setTrMsg({ ok: false, text: 'Este domínio já está registado connosco — não é preciso transferir.' });
+        return;
+      }
 
       const tld = DOMAIN_TLD_PRICES.find((t) => clean.endsWith(t.value));
       if (!tld) {
@@ -141,8 +148,8 @@ export default function EscolherDominioPage() {
       }
 
       const price = domainTransferPriceMt(tld, 1);
-      setStaged({ mode: 'transfer', domain: clean, price, authCode: trAuthCode.trim() });
       setTrMsg({ ok: true, text: `Domínio ${clean} confirmado — pronto para pedir a transferência (${formatPrice(price)}).` });
+      proceedWith({ mode: 'transfer', domain: clean, price, authCode: trAuthCode.trim() });
     } catch (e: unknown) {
       setTrMsg({ ok: false, text: e instanceof Error ? e.message : 'Erro ao validar domínio.' });
     } finally {
@@ -158,19 +165,23 @@ export default function EscolherDominioPage() {
       return;
     }
     setExError('');
-    setStaged({ mode: 'existing', domain: clean });
+    proceedWith({ mode: 'existing', domain: clean });
   };
 
-  const handleContinue = () => {
-    if (!staged || !target) return;
+  // O botão de cada opção (Verifica / Transferir / Usar) já confirma a escolha
+  // e passa ao passo seguinte — antes era preciso ainda carregar em
+  // "Continuar", um clique a mais para a mesma decisão.
+  const proceedWith = (next: Staged) => {
+    if (!target) return;
+    setStaged(next);
     setConfirming(true);
 
-    if (staged.mode === 'register') {
-      addItem({ id: staged.domain, type: 'domain', name: staged.domain, price: staged.price, period: 1, renewPrice: staged.renewPrice });
-    } else if (staged.mode === 'transfer') {
-      addItem({ id: staged.domain, type: 'domain', name: staged.domain, price: staged.price, period: 1, authCode: staged.authCode });
+    if (next.mode === 'register') {
+      addItem({ id: next.domain, type: 'domain', name: next.domain, price: next.price, period: 1, renewPrice: next.renewPrice });
+    } else if (next.mode === 'transfer') {
+      addItem({ id: next.domain, type: 'domain', name: next.domain, price: next.price, period: 1, authCode: next.authCode });
     }
-    updateItemHostingDomain(target.id, staged.domain);
+    updateItemHostingDomain(target.id, next.domain);
 
     const stillPending = pending.filter((i) => i.id !== target.id);
     if (stillPending.length > 0) {
@@ -197,14 +208,18 @@ export default function EscolherDominioPage() {
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 pt-32 pb-24 transition-colors duration-200">
       <div className="max-w-3xl mx-auto px-5 sm:px-[40px] mt-4">
-        <Link href="/precos/hospedagem" className="inline-flex items-center gap-1.5 text-sm text-slate-500 dark:text-zinc-400 hover:text-red-600 dark:hover:text-red-400 mb-6">
+        <Link href={planos} className="inline-flex items-center gap-1.5 text-sm text-slate-500 dark:text-zinc-400 hover:text-red-600 dark:hover:text-red-400 mb-6">
           <ArrowLeft className="w-4 h-4" /> Voltar aos planos
         </Link>
 
         <div className="mb-6">
           <p className="text-[11px] font-bold uppercase tracking-wide text-red-600 dark:text-red-400 mb-1">Passo 1 de 2 — Domínio</p>
           <h1 className="text-2xl font-bold text-slate-800 dark:text-zinc-100">Escolha um domínio para "{target.name}"</h1>
-          <p className="text-sm text-slate-500 dark:text-zinc-400 mt-1">Escolha uma das opções abaixo para continuar para o checkout.</p>
+          <p className="text-sm text-slate-500 dark:text-zinc-400 mt-1">
+            {ehEmail
+              ? 'O plano de e-mail precisa de um domínio: registe um novo, transfira ou use o seu. Os endereços ficam @ esse domínio.'
+              : 'Escolha uma das opções abaixo para continuar para o checkout.'}
+          </p>
         </div>
 
         <div className="space-y-3">
@@ -240,7 +255,7 @@ export default function EscolherDominioPage() {
                   <button
                     type="button"
                     onClick={() => void handleCheckRegister()}
-                    disabled={regChecking || !regName.trim()}
+                    disabled={regChecking || confirming || !regName.trim()}
                     className="shrink-0 inline-flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-sm font-bold px-6 py-2.5 rounded transition-colors"
                   >
                     {regChecking ? <Spinner className="w-4 h-4" /> : 'Verifica'}
@@ -262,6 +277,8 @@ export default function EscolherDominioPage() {
                           <span className="font-bold whitespace-nowrap">{formatPrice(staged.price)}/1º ano</span>
                         )}
                       </>
+                    ) : regResult.alreadyOurs ? (
+                      <span>{regResult.domain} já está registado connosco.</span>
                     ) : (
                       <span>{regResult.domain} já está registado — tente outro nome ou use "Transferir domínio".</span>
                     )}
@@ -302,7 +319,7 @@ export default function EscolherDominioPage() {
                 <button
                   type="button"
                   onClick={() => void handleValidateTransfer()}
-                  disabled={trChecking || !trDomain.trim() || !trAuthCode.trim()}
+                  disabled={trChecking || confirming || !trDomain.trim() || !trAuthCode.trim()}
                   className="inline-flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-sm font-bold px-6 py-2.5 rounded transition-colors"
                 >
                   {trChecking ? <Spinner className="w-4 h-4" /> : 'Transferir'}
@@ -344,7 +361,7 @@ export default function EscolherDominioPage() {
                   <button
                     type="button"
                     onClick={handleUseExisting}
-                    disabled={!exDomain.trim()}
+                    disabled={confirming || !exDomain.trim()}
                     className="shrink-0 inline-flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-sm font-bold px-6 py-2.5 rounded transition-colors"
                   >
                     Usar
@@ -353,24 +370,12 @@ export default function EscolherDominioPage() {
                 {exError && <p className="text-xs font-medium text-red-600 dark:text-red-400">{exError}</p>}
                 {staged?.mode === 'existing' && (
                   <div className="flex items-center gap-2 rounded border border-green-200 bg-green-50 text-green-700 dark:border-green-900/50 dark:bg-green-950/20 dark:text-green-400 px-4 py-3 text-sm font-bold">
-                    <Check className="w-4 h-4 shrink-0" /> Vamos usar {staged.domain} para esta hospedagem.
+                    <Check className="w-4 h-4 shrink-0" /> {ehEmail ? `Vamos usar ${staged.domain} para este plano de e-mail.` : `Vamos usar ${staged.domain} para esta hospedagem.`}
                   </div>
                 )}
               </div>
             )}
           </div>
-        </div>
-
-        <div className="mt-8 flex justify-center">
-          <button
-            type="button"
-            onClick={handleContinue}
-            disabled={!staged || confirming}
-            className="inline-flex items-center gap-2 bg-green-500 hover:bg-green-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold px-8 py-3 rounded-lg shadow-sm transition-colors"
-          >
-            {confirming ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-            Continuar <ArrowRight className="w-4 h-4" />
-          </button>
         </div>
       </div>
     </div>

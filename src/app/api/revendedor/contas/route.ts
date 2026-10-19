@@ -4,11 +4,6 @@ import { daPostViaSshAsDaUser } from '@/lib/da-api-ssh';
 import * as hestiaAdapter from '@/lib/hestia-adapter';
 import { requireAdminOrReseller } from '@/lib/panel-api-auth';
 import { resolvePanelDaContext } from '@/lib/panel-api-context';
-import {
-  findProtectedEmailClaim,
-  resellerMayUseEmail,
-  RESELLER_PROTECTED_EMAIL_MESSAGE,
-} from '@/lib/protected-account-email';
 import { resolveResellerPanelContext } from '@/lib/panel-reseller-context';
 import { assertResellerHostingQuota } from '@/lib/panel-reseller-tier';
 import { scheduleDaSync } from '@/lib/da-sync-engine';
@@ -38,8 +33,14 @@ import {
   isMirrorStale,
   listMirrorPackages,
   listMirrorUsers,
-  listMirrorWebsites,
 } from '@/lib/panel-mirror-read';
+import { listHostingDomains, listHostingUsers, listHostingPackages } from '@/lib/hosting-resolver';
+import { isOwnerManaged, resolveCallerManagedOwners } from '@/lib/domain-access';
+import {
+  findProtectedEmailClaim,
+  resellerMayUseEmail,
+  RESELLER_PROTECTED_EMAIL_MESSAGE,
+} from '@/lib/protected-account-email';
 import type { PanelUser } from '@/lib/directadmin-hosting-api';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -133,21 +134,34 @@ export async function GET(req: NextRequest) {
     const { ctx, mirrorScope } = resolved as Exclude<typeof resolved, { error: NextResponse }>;
 
     const { searchParams } = new URL(req.url);
-    if (searchParams.get('sync') === '1') {
-      scheduleDaSync(0);
-    } else {
-      const stale = await isMirrorStale(120);
-      if (stale) scheduleDaSync(0);
+    const hestiaOnly = resolveNewAccountProvider() === 'hestia';
+    if (!hestiaOnly) {
+      if (searchParams.get('sync') === '1') {
+        scheduleDaSync(0);
+      } else {
+        const stale = await isMirrorStale(120);
+        if (stale) scheduleDaSync(0);
+      }
     }
 
-    const daUsername = ctx.daUsername;
-    const [rawUsers, sites] = await Promise.all([
-      listMirrorUsers(mirrorScope),
-      listMirrorWebsites(mirrorScope),
+    const daUsername = ctx.mainAccount;
+    const [rawUsers, scopedSites] = await Promise.all([
+      hestiaOnly ? listHostingUsers() : listMirrorUsers(mirrorScope),
+      // Hestia: todos os domínios, filtrados logo abaixo às contas deste
+      // revendedor — a lista escopada só trazia os da conta principal, e as
+      // contas criadas por ele apareciam sempre sem domínio nenhum.
+      hestiaOnly ? listHostingDomains() : listHostingDomains(mirrorScope),
     ]);
-    const packages = await listMirrorPackages(mirrorScope, sites);
 
     const users = filterResellerUsers(rawUsers, daUsername);
+    const ownAccounts = new Set([daUsername, ...users.map((u) => u.userName)].map((u) => u.toLowerCase()));
+    const sites = hestiaOnly
+      ? scopedSites.filter((s) => ownAccounts.has(String(s.owner || '').toLowerCase()))
+      : scopedSites;
+    const packages = hestiaOnly
+      ? await listHostingPackages()
+      : await listMirrorPackages(mirrorScope, sites);
+
     const visiblePackages = excludeResellerSelfPackages(packages, sites, daUsername);
     const packageMap = new Map(visiblePackages.map((p) => [p.packageName, p]));
     const enriched = enrichPanelAccounts(users, sites, packageMap, {
@@ -179,7 +193,7 @@ export async function POST(req: NextRequest) {
   try {
     const resolved = await resolveResellerContext();
     if ('error' in resolved && resolved.error) return resolved.error;
-    const { ctx, mirrorScope } = resolved as Exclude<typeof resolved, { error: NextResponse }>;
+    const { ctx, auth } = resolved as Exclude<typeof resolved, { error: NextResponse }>;
 
     const body = await req.json();
     const accountType = String(body.accountType || 'client');
@@ -213,9 +227,9 @@ export async function POST(req: NextRequest) {
     // não pode ser da equipa nem de um domínio alojado noutra conta
     // (ver protected-account-email.ts).
     if (!isExistingUser) {
-      const resellerOwner = String(mirrorScope.daUsername || '').trim().toLowerCase();
+      const managed = await resolveCallerManagedOwners(auth);
       const claim = await findProtectedEmailClaim(email);
-      if (!resellerMayUseEmail(claim, (owner) => Boolean(resellerOwner) && owner === resellerOwner)) {
+      if (!resellerMayUseEmail(claim, (owner) => isOwnerManaged(managed, owner))) {
         return NextResponse.json(
           { success: false, error: RESELLER_PROTECTED_EMAIL_MESSAGE },
           { status: 403 },
@@ -337,7 +351,7 @@ export async function POST(req: NextRequest) {
         first_name: body.firstName || '',
         last_name: body.lastName || '',
         acl: 'user',
-        parent_username: ctx.daUsername,
+        parent_username: ctx.mainAccount,
         auth_user_id: authUserId,
         status: 'Active',
       });
@@ -356,7 +370,7 @@ export async function POST(req: NextRequest) {
           packageName: '—',
           quotaLabel: '—',
           diskUsedLabel: '—',
-          resellerOwner: ctx.daUsername,
+          resellerOwner: ctx.mainAccount,
           domainCount: 0,
           registeredAt: new Date().toISOString(),
           suspended: false,
@@ -372,7 +386,7 @@ export async function POST(req: NextRequest) {
     const resolvedAuth = resolved as Exclude<typeof resolved, { error: NextResponse }>;
     const quota = await assertResellerHostingQuota({
       userId: resolvedAuth.auth.user.id,
-      daUsername: ctx.daUsername,
+      daUsername: ctx.mainAccount,
     });
     if (!quota.ok) {
       return NextResponse.json({ success: false, error: quota.error }, { status: 403 });
@@ -418,7 +432,7 @@ export async function POST(req: NextRequest) {
         acl: 'user',
         domain,
         packageName,
-        parent_username: ctx.daUsername,
+        parent_username: ctx.mainAccount,
       });
 
       const sbHestia = getDaSyncAdmin();
@@ -427,7 +441,7 @@ export async function POST(req: NextRequest) {
       }
     } else {
       const result = await daPostViaSshAsDaUser(
-        ctx.daUsername,
+        ctx.mainAccount,
         'CMD_API_ACCOUNT_USER',
         accountUserCreateFields({
           userName,
@@ -459,7 +473,7 @@ export async function POST(req: NextRequest) {
         acl: 'user',
         domain,
         packageName,
-        parent_username: ctx.daUsername,
+        parent_username: ctx.mainAccount,
       });
 
       // Update mirror auth link
@@ -486,7 +500,7 @@ export async function POST(req: NextRequest) {
         packageName,
         quotaLabel: 'Calculando...',
         diskUsedLabel: '0 MB',
-        resellerOwner: ctx.daUsername,
+        resellerOwner: ctx.mainAccount,
         domainCount: 1,
         registeredAt: new Date().toISOString(),
         suspended: false,
@@ -515,13 +529,13 @@ export async function PATCH(req: NextRequest) {
 
     const rawUsers = await listMirrorUsers(mirrorScope);
     const target = rawUsers.find((u) => u.userName === userName);
-    const guard = assertManagedUser(target, ctx.daUsername);
+    const guard = assertManagedUser(target, ctx.mainAccount);
     if (guard) {
       return NextResponse.json({ success: false, error: guard }, { status: 403 });
     }
 
     if (action === 'delete' || action === 'suspend') {
-      if (String(userName).toLowerCase() === ctx.daUsername.toLowerCase()) {
+      if (String(userName).toLowerCase() === ctx.mainAccount.toLowerCase()) {
         return NextResponse.json(
           { success: false, error: 'Não pode alterar a conta principal do painel.' },
           { status: 403 },
@@ -604,7 +618,7 @@ export async function PATCH(req: NextRequest) {
     }
 
     let data: unknown;
-    const daUser = ctx.daUsername;
+    const daUser = ctx.mainAccount;
 
     switch (action) {
       case 'suspend': {

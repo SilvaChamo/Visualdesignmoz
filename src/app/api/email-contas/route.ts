@@ -32,16 +32,6 @@ const supabaseAdmin = createAdminClient(supabaseUrl, supabaseKey)
 const encrypt = encryptStoredPassword
 const decrypt = decryptStoredPassword
 
-// Dono do alojamento do domínio (cliente com conta própria ou revendedor que o
-// aloja) — mesma regra do webmail (imap-panel-shared.ts).
-async function userOwnsHostingDomain(userId: string, domain: string): Promise<boolean> {
-  const { loadResellerCredentialsByUserId } = await import('@/lib/da-credential-store')
-  const { getMirrorSiteOwner } = await import('@/lib/panel-mirror-read')
-  const creds = await loadResellerCredentialsByUserId(userId)
-  if (!creds?.user) return false
-  return (await getMirrorSiteOwner(domain)) === creds.user
-}
-
 async function userCanAccessMailboxPassword(
   sessionUser: { id: string; email?: string | null },
   account: { email?: string | null; cliente_id?: string | null },
@@ -52,10 +42,19 @@ async function userCanAccessMailboxPassword(
   const sessionEmail = (sessionUser.email || '').toLowerCase()
   const accountEmail = (account.email || '').toLowerCase()
   if (sessionEmail && accountEmail === sessionEmail) return true
-  // Ter um email no mesmo domínio já não chega: qualquer pessoa podia registar
-  // "qualquer@dominio" e mudar a password das caixas desse domínio.
   const accountDomain = accountEmail.split('@')[1]
-  return Boolean(accountDomain) && userOwnsHostingDomain(sessionUser.id, accountDomain)
+  // Ter um email no mesmo domínio já não chega: qualquer pessoa podia registar
+  // "qualquer@dominio" e mudar a password das caixas desse domínio. Só o dono do
+  // alojamento do domínio (cliente com conta própria ou revendedor que o aloja) —
+  // mesma regra do webmail (imap-panel-shared.ts) e do resto do painel
+  // (domain-access.ts): conta activa + contas ligadas geridas directamente
+  // (Enterprise); Premium trancado.
+  if (accountDomain) {
+    const { resolveOwnAccountDomainAccess } = await import('@/lib/domain-access')
+    const access = await resolveOwnAccountDomainAccess(sessionUser.id, accountDomain)
+    if (access.allowed) return true
+  }
+  return false
 }
 
 export async function GET(req: NextRequest) {
@@ -134,7 +133,21 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ success: true, email: configEmail, password, ...bundle });
   }
 
-  const clienteId = searchParams.get('cliente_id') || session.user.id
+  // Painel /cliente aberto por um admin dentro da conta de um cliente (ver
+  // /api/admin/impersonate-client): a lista é a do cliente, nunca as caixas
+  // todas da empresa. Só com scope=client — o webmail do próprio /dashboard
+  // do admin (noutro separador) não pode ser afectado por esta cookie.
+  let actingAsClient = false
+  if (searchParams.get('scope') === 'client') {
+    const { resolveEffectiveClientUser } = await import('@/lib/client-impersonation')
+    const effective = await resolveEffectiveClientUser()
+    if (effective?.impersonating) {
+      session.user = effective.user
+      actingAsClient = true
+    }
+  }
+
+  const clienteId = actingAsClient ? session.user.id : searchParams.get('cliente_id') || session.user.id
 
   // Protecção: utilizador só vê o seu próprio ID, a menos que seja admin
   const isBootstrap = isBootstrapAdmin(session.user?.email);
@@ -148,7 +161,7 @@ export async function GET(req: NextRequest) {
     const effectiveRole = session.user
       ? await resolveRoleForAuthUser(roleDb, session.user)
       : 'guest';
-    const isAdmin = isBootstrap || effectiveRole === 'admin';
+    const isAdmin = !actingAsClient && (isBootstrap || effectiveRole === 'admin');
     // Admin a impersonar um revendedor deve ver só as contas do revendedor impersonado,
     // nunca as de toda a empresa (mesma lógica de /api/panel/bootstrap).
     const impersonating = isAdmin ? await readImpersonateDaUsername() : null;
@@ -169,8 +182,8 @@ export async function GET(req: NextRequest) {
         console.error('📧 [API] Erro ao buscar todas as contas:', error);
       } else if (allContas && allContas.length > 0) {
         if (impersonating) {
-          const { listMirrorWebsites } = await import('@/lib/panel-mirror-read');
-          const sites = await listMirrorWebsites({ role: 'reseller', daUsername: impersonating });
+          const { listHostingDomains } = await import('@/lib/hosting-resolver');
+          const sites = await listHostingDomains({ role: 'reseller', daUsername: impersonating });
           const ownedDomains = new Set(sites.map((s) => s.domain.toLowerCase()));
           allEmails = allContas.filter((c: any) => {
             const domain = String(c.email || '').split('@')[1]?.toLowerCase();
@@ -188,8 +201,16 @@ export async function GET(req: NextRequest) {
     // de string do domínio do próprio email de login (isso deixava a conta de
     // um tenant aparecer no selector de outro só por partilharem sufixo de domínio).
     else {
-      const { listMirrorWebsitesForClientUser } = await import('@/lib/panel-mirror-read');
-      const ownedSites = await listMirrorWebsitesForClientUser(session.user.id, session.user?.email || undefined);
+      // No Contabo (Hestia), listHostingDomains devolve domínios Hestia directos;
+      // no Hetzner, usa mirror. Para clientes, o filtro por userId é feito depois.
+      const { getProfileForAuthUser } = await import('@/lib/profile-db');
+      const profile = await getProfileForAuthUser(supabaseAdmin, session.user.id, session.user.email);
+      const daUsername = profile?.da_username ? String(profile.da_username).trim().toLowerCase() : undefined;
+
+      const { listHostingDomains } = await import('@/lib/hosting-resolver');
+      const ownedSites = daUsername
+        ? await listHostingDomains({ role: effectiveRole, daUsername, userId: session.user.id })
+        : [];
       const ownedDomains = new Set(ownedSites.map((s) => s.domain.toLowerCase()));
 
       const { data: activeContas, error } = await supabaseAdmin
@@ -201,8 +222,27 @@ export async function GET(req: NextRequest) {
       if (error) {
         console.error('📧 [API] Erro ao buscar contas para filtrar por cliente/domínio:', error);
       } else if (activeContas) {
+        // listHostingDomains só conhece domínios com SITE. Um plano só de email
+        // (domínio de email sem site, ex.: concordia.co.mz da conta concordia9933)
+        // nunca entrava em ownedDomains, e o cliente via o webmail/mailmarketing
+        // sem nenhuma caixa. Para os restantes domínios aplica-se a mesma regra
+        // de posse da password (userCanAccessMailboxPassword) e do webmail.
+        const pendingDomains = new Set<string>();
+        for (const c of activeContas) {
+          const domain = String(c.email || '').split('@')[1]?.toLowerCase();
+          if (domain && !ownedDomains.has(domain)) pendingDomains.add(domain);
+        }
+        const { resolveOwnerDaUsername } = await import('@/lib/da-credential-store');
+        if (pendingDomains.size > 0 && (daUsername || (await resolveOwnerDaUsername(session.user.id)))) {
+          const { resolveOwnAccountDomainAccess } = await import('@/lib/domain-access');
+          await Promise.all([...pendingDomains].map(async (domain) => {
+            const access = await resolveOwnAccountDomainAccess(session.user.id, domain).catch(() => null);
+            if (access?.allowed) ownedDomains.add(domain);
+          }));
+        }
+
         allEmails = activeContas.filter((c: any) => {
-          if (c.cliente_id === clienteId) return true;
+          if (c.cliente_id === clienteId || c.cliente_id === session.user.id) return true;
           const domain = String(c.email || '').split('@')[1]?.toLowerCase();
           return domain ? ownedDomains.has(domain) : false;
         });
@@ -253,7 +293,11 @@ export async function POST(req: NextRequest) {
     // reescrever a password guardada de caixas que não eram suas.
     if (!isAdmin) {
       const targetDomain = String(email).split('@')[1]?.toLowerCase() || '';
-      if (!targetDomain || !(await userOwnsHostingDomain(session.user.id, targetDomain))) {
+      const { resolveOwnAccountDomainAccess } = await import('@/lib/domain-access');
+      const access = targetDomain
+        ? await resolveOwnAccountDomainAccess(session.user.id, targetDomain)
+        : null;
+      if (!access?.allowed) {
         return NextResponse.json({
           error: 'Não é possível criar contas de email',
           details: 'Só pode adicionar contas de email de domínios alojados na sua própria conta.'
@@ -421,7 +465,8 @@ export async function PUT(req: NextRequest) {
       smtp: `mail.${domain}`,
       ports: { imap: 993, smtp: 587 },
       ssl: true,
-      webmail: `https://webmail.${domain}`
+      // um só webmail, o da VisualDesign (serve todas as caixas de correio do servidor)
+      webmail: 'https://webmail.visualdesignmoz.com'
     }
 
     // 🚀 CRIAR USUÁRIO NO SUPABASE AUTH (para poder fazer login no sistema)
@@ -544,19 +589,38 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: 'Não tens permissão para alterar a password desta conta.' }, { status: 403 });
     }
 
-    const { daRequest } = await import('@/lib/directadmin')
-    const { resolveDirectAdminCredentialsForDomainOwner } = await import('@/lib/directadmin-credentials')
-    const creds = await resolveDirectAdminCredentialsForDomainOwner(domain)
+    // Despacha para Hestia ou DirectAdmin consoante o dono real do domínio —
+    // sem isto, um email já no Hestia (ex.: oshercollective) tentava sempre
+    // mudar a password via credenciais DA, que já não existem para essa
+    // conta (ver [[project_da-to-hestia-migration]]).
+    const { resolveHostingOwner, hostingProvider } = await import('@/lib/hosting-resolver')
+    const mailOwner = await resolveHostingOwner(domain)
+    const mailProvider = hostingProvider === 'hestia' ? 'hestia' : 'directadmin'
 
-    const res = await daRequest(
-      'CMD_API_POP',
-      'POST',
-      { action: 'modify', domain, user: username, passwd: newPassword, passwd2: newPassword },
-      creds,
-    )
+    if (mailProvider === 'hestia') {
+      if (!mailOwner) {
+        return NextResponse.json({ error: 'Dono do domínio não identificado no Hestia.' }, { status: 404 });
+      }
+      const hestiaAdapter = await import('@/lib/hestia-adapter')
+      const result = await hestiaAdapter.changeMailAccountPassword(mailOwner, domain, username, newPassword)
+      if (!result.ok) {
+        return NextResponse.json({ error: result.error || 'Erro ao alterar a password no servidor de correio.' }, { status: 500 });
+      }
+    } else {
+      const { daRequest } = await import('@/lib/directadmin')
+      const { resolveDirectAdminCredentialsForDomainOwner } = await import('@/lib/directadmin-credentials')
+      const creds = await resolveDirectAdminCredentialsForDomainOwner(domain)
 
-    if (res.error) {
-      return NextResponse.json({ error: res.details || res.text || 'Erro ao alterar a password no servidor de correio.' }, { status: 500 });
+      const res = await daRequest(
+        'CMD_API_POP',
+        'POST',
+        { action: 'modify', domain, user: username, passwd: newPassword, passwd2: newPassword },
+        creds,
+      )
+
+      if (res.error) {
+        return NextResponse.json({ error: res.details || res.text || 'Erro ao alterar a password no servidor de correio.' }, { status: 500 });
+      }
     }
 
     // Mantém a cópia usada pelo webmail (IMAP) em sincronia com a password real

@@ -86,7 +86,6 @@ const HostingPendingSection = dynamic(() => import('./HostingPendingSection').th
 const NotificationsSection = dynamic(() => import('./NotificationsSection').then(m => m.NotificationsSection), { ssr: false, loading: () => sectionLoadingFallback })
 const CotacoesSection = dynamic(() => import('./CotacoesSection').then(m => m.CotacoesSection), { ssr: false, loading: () => sectionLoadingFallback })
 const ContabilidadeTable = dynamic(() => import('@/components/quotations/ContabilidadeTable').then(m => m.ContabilidadeTable), { ssr: false, loading: () => sectionLoadingFallback })
-const NextJsSitesSection = dynamic(() => import('./NextJsSitesSection').then(m => m.NextJsSitesSection), { ssr: false, loading: () => sectionLoadingFallback })
 const TemplatesSection = dynamic(() => import('./TemplatesSection').then(m => m.TemplatesSection), { ssr: false })
 const DNSCentralSection = dynamic(() => import('./DNSCentralSection').then(m => m.DNSCentralSection), { ssr: false, loading: () => sectionLoadingFallback })
 const DomainTransferSection = dynamic(() => import('./DomainTransferSection').then(m => m.DomainTransferSection), { ssr: false, loading: () => sectionLoadingFallback })
@@ -123,6 +122,7 @@ import {
 } from '@/lib/panel-data-from-server'
 import { prefetchPanelContentFromBootstrap } from '@/lib/panel-prefetch'
 import { applyAdminPanelScope, buildResellerOwnerTree, isAdminPanelSite } from '@/lib/panel-scope-filter'
+import { PRIMARY_RESELLER_DA_USER, isCompanyHostingOwner } from '@/lib/panel-contas-enrich'
 import { auth as panelAuth } from '@/lib/supabase-client'
 
 const MailMarketingSection = dynamic(() => import('@/components/dashboard/MailMarketingSection').then(m => m.MailMarketingSection), { ssr: false, loading: () => sectionLoadingFallback })
@@ -1024,10 +1024,23 @@ function AdminPageContent() {
       setSelectedManageDomain(window.__selectedManageDomain);
       // @ts-ignore
       window.__selectedManageDomain = null;
-    } else if (activeSection !== 'domain-detail') {
+    } else if (activeSection === 'domain-detail') {
+      // Refresh directo (sem passar pelo clique que define window.__selectedManageDomain,
+      // que se perde sempre num reload a sério) — sem isto caía sempre no fallback
+      // 'primaryDomain' de page.tsx, mostrando SILENCIOSAMENTE outro domínio
+      // qualquer em vez do que estava mesmo a ser visto (confirmado ao vivo 1 set:
+      // "Gerir domínio" do entrecamposblog.com virava visualdesignmoz.com só com F5).
+      const stored = typeof window !== 'undefined' ? window.sessionStorage.getItem('vd-dashboard-manage-domain') : null
+      if (stored) setSelectedManageDomain(stored)
+    } else {
       setSelectedManageDomain('');
     }
   }, [activeSection]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (selectedManageDomain) window.sessionStorage.setItem('vd-dashboard-manage-domain', selectedManageDomain)
+  }, [selectedManageDomain]);
 
   // Efeito para limpar preSelectedEmailDomain quando sair da seção de email
   useEffect(() => {
@@ -1068,6 +1081,9 @@ function AdminPageContent() {
   const [selectedSslViewHostname, setSelectedSslViewHostname] = useState<string>('')
   const [accountDaUsername, setAccountDaUsername] = useState<string>('visualdesign')
   const [accountPrimaryDomain, setAccountPrimaryDomain] = useState<string | null>(null)
+  const [bootHostingOwner, setBootHostingOwner] = useState<string | null>(null)
+  const [bootHestiaOnly, setBootHestiaOnly] = useState(false)
+  const [allHostingSites, setAllHostingSites] = useState<DirectAdminWebsite[]>([])
   const [dashboardSearch, setDashboardSearch] = useState('')
 
   // Modal de criação de email (movido para nível do AdminPage)
@@ -1098,6 +1114,8 @@ function AdminPageContent() {
   }
 
   const applyBootstrap = (boot: PanelBootstrapData) => {
+    setBootHostingOwner(boot.hostingOwner || null)
+    setBootHestiaOnly(Boolean(boot.hestiaOnly))
     if (boot.session?.capabilities) {
       setPanelCapabilities(boot.session.capabilities);
     }
@@ -1105,6 +1123,9 @@ function AdminPageContent() {
       ? { sites: boot.sites, users: boot.users, packages: boot.packages }
       : applyAdminPanelScope(boot)
     setDirectAdminSites(scoped.sites)
+    setAllHostingSites(
+      Array.isArray(boot.allSites) && boot.allSites.length > 0 ? boot.allSites : scoped.sites,
+    )
     setDirectAdminUsers(scoped.users)
     setDirectAdminPackages(scoped.packages)
     if (boot.resellerContext?.daUsername) {
@@ -1215,9 +1236,28 @@ function AdminPageContent() {
     [filteredSitesBase, accountPrimaryDomain],
   )
   const domainHubSites = useMemo(
-    () => filteredSitesBase,
-    [filteredSitesBase],
+    () =>
+      (allHostingSites.length > 0 ? allHostingSites : filteredSitesBase).filter((s) => {
+        if (s.domain.includes('contaboserver')) return false
+        if (s.domain.toLowerCase().startsWith('mail.')) return false
+        return true
+      }),
+    [allHostingSites, filteredSitesBase],
   )
+  const clientOwnership = useMemo(() => {
+    const clientAccounts = directAdminUsers.filter((user) => {
+      const accountType = String(user.acl || user.type || '').trim().toLowerCase()
+      if (accountType !== 'user' && accountType !== 'client' && accountType !== 'guest') return false
+      const name = String(user.userName || '').trim().toLowerCase()
+      if (!name || name === PRIMARY_RESELLER_DA_USER.toLowerCase()) return false
+      if (isCompanyHostingOwner(name, bootHostingOwner)) return false
+      return true
+    })
+    return {
+      owners: clientAccounts.map((user) => user.userName).filter(Boolean),
+      emails: clientAccounts.map((user) => user.email).filter(Boolean) as string[],
+    }
+  }, [directAdminUsers, bootHostingOwner])
   const primaryDomain = accountPrimaryDomain
     || (filteredSites.length > 0 ? filteredSites[0].domain : 'your-domain.com')
 
@@ -1324,6 +1364,10 @@ function AdminPageContent() {
             initialTab="meus"
             sites={domainHubSites}
             packages={directAdminPackages}
+            adminEmail={sessionUser}
+            hostingOwner={bootHostingOwner}
+            clientOwners={clientOwnership.owners}
+            clientEmails={clientOwnership.emails}
             onRefresh={() => void loadDirectAdminData(true)}
             onCreateEmail={(domain) => {
               setPreSelectedEmailDomain(domain)
@@ -1331,14 +1375,14 @@ function AdminPageContent() {
             }}
             onNavigate={(section, opts) => {
               if (opts?.domain) setSelectedDNSDomain(opts.domain)
-              handleNavigate(section)
+              handleNavigate(section, opts)
             }}
             onHubPanelClose={() => setDomainHubTab('meus')}
           />
         )
       case 'file-manager':
       case 'cp-file-manager':
-        return <FileManagerSection domain={fileManagerDomain || primaryDomain} sites={filteredSites} isActive={isActive} />
+        return <FileManagerSection domain={fileManagerDomain || primaryDomain} sites={filteredSites} isActive={isActive} loggedInOwner={bootHostingOwner || undefined} />
       case 'news-manager':
         return <NewsManagerSection />
       case 'utilizadores-revendedores':
@@ -1385,6 +1429,10 @@ function AdminPageContent() {
             initialTab={domainHubTab}
             sites={domainHubSites}
             packages={directAdminPackages}
+            adminEmail={sessionUser}
+            hostingOwner={bootHostingOwner}
+            clientOwners={clientOwnership.owners}
+            clientEmails={clientOwnership.emails}
             onRefresh={() => void loadDirectAdminData(true)}
             onCreateEmail={(domain) => {
               setPreSelectedEmailDomain(domain)
@@ -1392,7 +1440,7 @@ function AdminPageContent() {
             }}
             onNavigate={(section, opts) => {
               if (opts?.domain) setSelectedDNSDomain(opts.domain)
-              handleNavigate(section)
+              handleNavigate(section, opts)
             }}
             onHubPanelClose={() => setDomainHubTab('meus')}
           />
@@ -1411,7 +1459,7 @@ function AdminPageContent() {
         return <DeleteWebsiteSection sites={filteredSites} onRefresh={() => void loadDirectAdminData(true)} />
       case 'databases':
       case 'cp-databases':
-        return <DatabasesSection sites={filteredSites} initialDomain={selectedDatabaseDomain || selectedDNSDomain || primaryDomain} />
+        return <DatabasesSection sites={domainHubSites} initialDomain={selectedDatabaseDomain || selectedDNSDomain || primaryDomain} loggedInOwner={bootHostingOwner || undefined} />
       case 'cp-ftp':
         return <FTPSection sites={filteredSites} />
       case 'webmail':
@@ -1460,16 +1508,6 @@ function AdminPageContent() {
         return <EncomendasClientesSection isActive={isActive} />
       case 'contabilidade':
         return <ContabilidadeTable />
-      case 'nextjs-sites':
-        return (
-          <NextJsSitesSection
-            sites={directAdminSites}
-            onNavigate={(section, opts) => {
-              if (opts?.domain) setSelectedDNSDomain(opts.domain)
-              handleNavigate(section)
-            }}
-          />
-        )
       case 'cp-users':
         return <CPUsersSection variant="panels" panelScope="users" isActive={isActive} onBootstrapRefresh={() => void loadDirectAdminData(true)} onNavigate={handleNavigate} />
       case 'wp-users':
@@ -1523,12 +1561,13 @@ function AdminPageContent() {
             setActiveSection={setActiveSection}
           />
         )
+      case 'nextjs-sites':
       case 'wp-sites':
       case 'cp-wp-list':
         return (
           <ListWebsitesSection
             sites={filteredSites}
-            wordpressOnly
+            wordpressOwner={bootHostingOwner || 'admin'}
             panelScope="admin"
             onRefresh={() => void loadDirectAdminData(true)}
             packages={directAdminPackages}
@@ -1773,7 +1812,7 @@ function AdminPageContent() {
   }
 
   // Função para navegar com domínio padrão para emails
-  const handleNavigate = (section: string, opts?: { accountType?: 'client' | 'reseller' | 'admin' }) => {
+  const handleNavigate = (section: string, opts?: { accountType?: 'client' | 'reseller' | 'admin'; domain?: string }) => {
     const externalPath = PANEL_EXTERNAL_PATHS[section]
     if (externalPath) {
       router.push(externalPath)
@@ -1820,6 +1859,12 @@ function AdminPageContent() {
     if (nav.domainHubTab) setDomainHubTab(nav.domainHubTab)
     if (nav.openPackagesCreate) setPackagesOpenCreate(true)
     else if (nav.section !== 'packages-list') setPackagesOpenCreate(false)
+    // Definir o domínio na mesma passagem que activeSection — se ficasse só
+    // para o efeito que lê window.__selectedManageDomain, a primeira
+    // renderização de "domain-detail" usava primaryDomain (errado) durante
+    // um ciclo, antes do efeito corrigir; os cartões de pacote/conta ficavam
+    // a faltar ou trocados até algo forçar outra renderização.
+    if (nav.section === 'domain-detail' && opts?.domain) setSelectedManageDomain(opts.domain)
     setActiveSection(nav.section)
   }
 
@@ -1854,7 +1899,7 @@ function AdminPageContent() {
           hidden={isComposeActive && activeSection === 'webmail'}
           actions={
             <>
-              {activeSection === 'dashboard' && panelCapabilities?.role !== 'manager' ? (
+              {activeSection === 'dashboard' && panelCapabilities?.role !== 'manager' && !bootHestiaOnly && !bootHostingOwner ? (
                 <a
                   href={getDirectAdminAccessUrl('admin')}
                   target="_blank"
@@ -1872,7 +1917,7 @@ function AdminPageContent() {
                   await createClientInstance.auth.signOut()
                   const { clearAllPanelClientCaches } = await import('@/lib/panel-session-cache-clear')
                   clearAllPanelClientCaches()
-                  window.location.href = '/auth/login'
+                  window.location.href = '/login'
                 }}
                 disabled={isSigningOut}
                 className={`${panelBtnSecondary} disabled:opacity-60 disabled:cursor-wait active:scale-[0.97] transition-transform`}

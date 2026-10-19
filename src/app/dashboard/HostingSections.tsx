@@ -1,11 +1,12 @@
 'use client'
 
-import React, { useState, useEffect, useRef, useMemo } from 'react'
+import React, { useState, useEffect, useRef, useMemo, useId } from 'react'
 import dynamic from 'next/dynamic'
 import { createPortal } from 'react-dom'
 import { cn } from '@/lib/utils'
 import { panelBtnPrimary, panelBtnSecondary, panelCard, panelField, panelInnerDetailCard, panelMobileActions, panelMobileCardGrid, panelMobileStack, panelMobileStackCard, panelTabList, panelTabBtn } from '@/lib/panel-ui'
 import { PanelIconTip } from '@/components/panel/PanelIconTip'
+import { WordPressPanelBadge, useWordPressDomains } from '@/components/panel/WordPressPanelBadge'
 import { Spinner } from '@/components/ui/spinner'
 import { clearAllPanelClientCaches } from '@/lib/panel-session-cache-clear'
 import { directAdminAPI } from '@/lib/directadmin-api'
@@ -31,6 +32,7 @@ import {
 } from '@/lib/panel-file-manager-cache'
 import { readBootstrapCache, clearPanelBootstrapCache } from '@/lib/panel-data-from-server'
 import { queueHostingAccountEdit } from '@/lib/panel-hosting-edit-nav'
+import { subdomainFqdn } from '@/lib/subdomain-fqdn'
 import { loadScreenshot as fetchSiteScreenshot } from '@/lib/site-screenshot-cache'
 import {
   readDomainListCache,
@@ -68,7 +70,7 @@ import {
   RefreshCw, Globe, Globe2, PlusCircle, Plus, Package, Trash2, Database, Users, Mail, Lock, LockOpen, Shield, ShieldCheck,
   Server, HardDrive, Key, Settings, Code, AlertCircle, AlertTriangle, CheckCircle, Eye, EyeOff, Zap,
   ExternalLink, Copy, FolderOpen, Layers, Play, Pause, Edit, Edit2, Cloud, RotateCcw, MoreVertical,
-  Upload, UploadCloud, Download, Power, Plug, FileText, ArrowRight, ArrowRightLeft, Rocket, Archive, Check, X, Clock, Loader2, Calendar, Search,
+  Upload, UploadCloud, Download, Power, Plug, FileText, ArrowRight, ArrowRightLeft, Rocket, Archive, Check, X, Clock, Loader2, Calendar, Search, ChevronDown,
   Image as ImageIcon, FileCode, FileArchive, Terminal, FileJson, PlaySquare, FolderPlus, FilePlus
 } from 'lucide-react'
 
@@ -212,6 +214,13 @@ const ConfirmModal = ({
 // SUBDOMAINS SECTION
 // ============================================================
 export function SubdomainsSection({ sites }: { sites: DirectAdminWebsite[] }) {
+  const parentDomains = useMemo(
+    () =>
+      [...new Set(sites.map((s) => s.domain).filter((d) => d && d.includes('.')))].sort((a, b) =>
+        a.localeCompare(b),
+      ),
+    [sites],
+  )
   const [selectedDomain, setSelectedDomain] = useState('')
   const [subdomains, setSubdomains] = useState<DirectAdminSubdomain[]>([])
   const [loading, setLoading] = useState(false)
@@ -228,26 +237,30 @@ export function SubdomainsSection({ sites }: { sites: DirectAdminWebsite[] }) {
 
     try {
       const data = await directAdminAPI.listSubdomains(domain) as DirectAdminSubdomain[]
-      if (data.length > 0) {
-        setSubdomains(data)
-        data.forEach((s: any) => cpSaveSubdomain(s.domain, s.subdomain?.replace(`.${s.domain}`, '') || s.subdomain, s.path || ''))
-      }
+      const rows = Array.isArray(data) ? data : []
+      setSubdomains(rows)
+      rows.forEach((s: any) => cpSaveSubdomain(s.domain, s.subdomain?.replace(`.${s.domain}`, '') || s.subdomain, s.path || ''))
     } catch (e) { console.error(e) }
     setLoading(false)
   }
 
+  useEffect(() => {
+    if (!selectedDomain && parentDomains.length === 1) {
+      setSelectedDomain(parentDomains[0])
+      void loadSubs(parentDomains[0])
+    }
+  }, [parentDomains, selectedDomain])
+
+  const previewHost = selectedDomain ? subdomainFqdn(selectedDomain, newSub) : ''
+
   const handleCreate = async () => {
     if (!selectedDomain || !newSub.trim()) return
+    const host = subdomainFqdn(selectedDomain, newSub)
     setCreating(true); setMsg('')
     try {
-      const res = await directAdminAPI.createSubdomain(selectedDomain, newSub.trim()) as { success?: boolean; error?: string }
-      const ok = res?.success === true
-      if (ok) {
-        cpSaveSubdomain(selectedDomain, newSub.trim())
-        setMsg('Subdomínio criado com sucesso!')
-      } else {
-        setMsg('Erro: ' + (res?.error || 'Não foi criado no DirectAdmin'))
-      }
+      await directAdminAPI.createSubdomain(selectedDomain, newSub.trim())
+      cpSaveSubdomain(selectedDomain, newSub.trim())
+      setMsg(`Subdomínio criado: https://${host}`)
       setNewSub('')
       loadSubs(selectedDomain)
     } catch (e: unknown) {
@@ -257,7 +270,8 @@ export function SubdomainsSection({ sites }: { sites: DirectAdminWebsite[] }) {
   }
 
   const handleDelete = async (sub: string) => {
-    if (!confirm(`Eliminar subdomínio ${sub}?`)) return
+    const host = subdomainFqdn(selectedDomain, sub)
+    if (!confirm(`Eliminar subdomínio ${host}?`)) return
     await directAdminAPI.deleteSubdomain(selectedDomain, sub)
     cpRemoveSubdomain(sub)
     loadSubs(selectedDomain)
@@ -265,51 +279,64 @@ export function SubdomainsSection({ sites }: { sites: DirectAdminWebsite[] }) {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center mb-4">
-
-      </div>
-
       <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
+        {parentDomains.length === 0 ? (
+          <p className="text-sm text-gray-500">Crie primeiro o domínio principal. Depois pode adicionar subdomínios (ex.: app.exemplo.com).</p>
+        ) : (
         <div className="flex flex-wrap gap-4 items-end mb-6">
           <div className="flex-1 min-w-[200px]">
-            <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Website</label>
+            <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Domínio principal</label>
             <select value={selectedDomain} onChange={(e) => { setSelectedDomain(e.target.value); loadSubs(e.target.value) }}
               className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500">
               <option value="">Seleccione um domínio...</option>
-              {sites.map(s => <option key={s.domain} value={s.domain}>{s.domain}</option>)}
+              {parentDomains.map(d => <option key={d} value={d}>{d}</option>)}
             </select>
           </div>
-          <div className="flex-1 min-w-[200px]">
-            <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Novo Subdomínio</label>
+          <div className="flex-[1.4] min-w-[240px]">
+            <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Novo subdomínio</label>
             <div className="flex gap-2">
-              <input value={newSub} onChange={(e) => setNewSub(e.target.value)} placeholder="blog"
-                className="flex-1 px-3 py-2.5 border border-gray-300 rounded-[10px] text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500" />
+              <div className="flex flex-1 min-w-0 overflow-hidden rounded-[10px] border border-gray-300">
+                <input value={newSub} onChange={(e) => setNewSub(e.target.value.replace(/^https?:\/\//, '').split('/')[0])} placeholder="app"
+                  className="flex-1 min-w-0 px-3 py-2.5 text-sm focus:outline-none" />
+                {selectedDomain ? (
+                  <span className="hidden sm:flex items-center bg-gray-50 px-3 text-sm text-gray-500 whitespace-nowrap border-l border-gray-200">
+                    .{selectedDomain}
+                  </span>
+                ) : null}
+              </div>
               <button onClick={handleCreate} disabled={creating || !selectedDomain || !newSub.trim()}
                 className="bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 hover:text-green-700 px-4 py-2.5 rounded-[10px] text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
                 {creating ? <Spinner className="w-4 h-4" /> : <PlusCircle className="w-4 h-4" />}
                 Criar
               </button>
             </div>
+            {previewHost ? (
+              <p className="mt-1.5 text-xs text-gray-500">Abre em <span className="font-mono text-gray-700">https://{previewHost}</span> — não em {selectedDomain}/{newSub.trim() || 'app'}</p>
+            ) : null}
           </div>
         </div>
+        )}
 
-        {msg && <div className={`mb-4 px-4 py-2.5 rounded-[10px] text-sm font-medium ${msg.includes('sucesso') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
+        {msg && <div className={`mb-4 px-4 py-2.5 rounded-[10px] text-sm font-medium ${msg.includes('criado') || msg.includes('sucesso') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
 
-        {loading && <TableSkeleton columns={4} rows={5} />}
+        {loading && <TableSkeleton columns={3} rows={5} />}
         {!loading && selectedDomain && subdomains.length === 0 ? (
           <div className="py-12 text-center text-gray-400"><Layers className="w-10 h-10 mx-auto mb-2 opacity-50" /><p className="text-sm">Nenhum subdomínio encontrado.</p></div>
         ) : !loading && subdomains.length > 0 ? (
           <table className="w-full text-sm">
-            <thead><tr className="text-left text-xs font-bold text-gray-500 uppercase border-b"><th className="px-4 py-3">Subdomínio</th><th className="px-4 py-3">Domínio</th><th className="px-4 py-3">Caminho</th><th className="px-4 py-3 w-20">Acções</th></tr></thead>
+            <thead><tr className="text-left text-xs font-bold text-gray-500 uppercase border-b"><th className="px-4 py-3">Endereço</th><th className="px-4 py-3">Domínio pai</th><th className="px-4 py-3 w-20">Acções</th></tr></thead>
             <tbody>
-              {subdomains.map((s, i) => (
+              {subdomains.map((s, i) => {
+                const host = subdomainFqdn(s.domain || selectedDomain, s.subdomain)
+                return (
                 <tr key={i} className="border-b border-gray-50 hover:bg-gray-50">
-                  <td className="px-4 py-3 font-medium">{s.subdomain}</td>
-                  <td className="px-4 py-3 text-gray-600">{s.domain}</td>
-                  <td className="px-4 py-3 text-gray-500 font-mono text-xs">{s.path}</td>
+                  <td className="px-4 py-3 font-medium">
+                    <a href={`https://${host}`} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">{host}</a>
+                  </td>
+                  <td className="px-4 py-3 text-gray-600">{s.domain || selectedDomain}</td>
                   <td className="px-4 py-3"><button onClick={() => handleDelete(s.subdomain)} className="text-red-500 hover:text-red-700"><Trash2 className="w-4 h-4" /></button></td>
                 </tr>
-              ))}
+              )})}
             </tbody>
           </table>
         ) : null}
@@ -1533,6 +1560,12 @@ export function EmailManagementSection({
 }) {
   const [selectedDomain, setSelectedDomain] = useState(preSelectedDomain || '__ALL__')
   const [emails, setEmails] = useState<DirectAdminEmail[]>([])
+  // Guarda qual foi o último pedido disparado — se o utilizador trocar de
+  // domínio antes de um pedido anterior (mais lento) responder, essa
+  // resposta chega depois mas já não corresponde ao domínio seleccionado.
+  // Sem esta verificação, a resposta tardia sobrescrevia a lista certa com
+  // a de outro domínio (viam-se emails misturados ou trocados no ecrã).
+  const latestEmailRequestRef = useRef<string>('')
   const [loading, setLoading] = useState(false)
   const [msg, setMsg] = useState('')
   const [msgType, setMsgType] = useState<'success' | 'error'>('success')
@@ -1631,21 +1664,31 @@ export function EmailManagementSection({
 
   const loadEmails = async (domain: string) => {
     if (!domain) return
+    latestEmailRequestRef.current = domain
     const ls = cpGetEmails(domain)
     if (ls.length > 0) {
       const cachedRows = ls
         .map((e: any) => ({ email: e.email || `${e.user}@${domain}`, user: e.user, domain, quota_mb: e.quota_mb || 500, usage: e.usage || '0', status: 'active' as const }))
         .sort((a, b) => a.email.localeCompare(b.email))
       setEmails(cachedRows)
-    } else setLoading(true)
+    } else {
+      // Sem cache para este domínio — mostrar vazio em vez de deixar a
+      // lista do domínio anterior visível até o pedido real responder
+      // (era isto que dava a impressão de "email da conta errada").
+      setEmails([])
+      setLoading(true)
+    }
 
     try {
       // 1. Carregar do DirectAdmin
       const daEmails = await directAdminAPI.listEmails(domain).catch(() => [])
+      // Resposta tardia de um domínio já trocado — ignorar.
+      if (latestEmailRequestRef.current !== domain) return
       const cpEmails = daEmails.length > 0 ? daEmails : cpGetEmails(domain)
 
       // 2. Carregar metadados do Supabase
       const { data: sbData } = await supabase.from('email_contas').select('*').eq('domain', domain)
+      if (latestEmailRequestRef.current !== domain) return
 
       // 3. Cruzar dados
       const merged: DirectAdminEmail[] = cpEmails.map((cpE: any) => {
@@ -1668,6 +1711,7 @@ export function EmailManagementSection({
       // sensação de contas a "disputar o lugar" na tabela.
       merged.sort((a, b) => a.email.localeCompare(b.email))
 
+      if (latestEmailRequestRef.current !== domain) return
       setEmails(merged)
       merged.forEach((e: any) => cpSaveEmail(domain, e.user, { quota_mb: e.quota_mb }))
 
@@ -1686,12 +1730,13 @@ export function EmailManagementSection({
     } catch (err) {
       console.error('Erro na sincronização:', err)
     }
-    setLoading(false)
+    if (latestEmailRequestRef.current === domain) setLoading(false)
   }
 
   // Carregar todos os emails de todos os sites
   const loadAllEmails = async () => {
     if (sites.length === 0) return
+    latestEmailRequestRef.current = '__ALL__'
     setLoading(true)
     setEmails([])
 
@@ -1699,6 +1744,11 @@ export function EmailManagementSection({
       let allEmails: any[] = []
 
       for (const site of sites) {
+        // O utilizador trocou para um domínio específico a meio deste
+        // ciclo (que percorre todos os sites um a um, pode demorar) —
+        // parar aqui evita continuar a acumular emails de outros sites
+        // só para depois serem descartados de qualquer forma.
+        if (latestEmailRequestRef.current !== '__ALL__') return
         try {
           const daEmails = await directAdminAPI.listEmails(site.domain).catch(() => [])
           if (daEmails.length > 0) {
@@ -1717,12 +1767,13 @@ export function EmailManagementSection({
         }
       }
 
+      if (latestEmailRequestRef.current !== '__ALL__') return
       setEmails(allEmails)
       prefetchEmailConfigs(allEmails.map((e) => e.email).filter(Boolean))
     } catch (err) {
       console.error('Erro ao carregar todos os emails:', err)
     }
-    setLoading(false)
+    if (latestEmailRequestRef.current === '__ALL__') setLoading(false)
   }
 
   useEffect(() => {
@@ -1882,6 +1933,20 @@ export function EmailManagementSection({
             await directAdminAPI.suspendEmail(originalEmail);
           } else {
             await directAdminAPI.unsuspendEmail(originalEmail);
+          }
+        }
+
+        // Idem para a quota — o campo existia no state do modal mas nunca
+        // era enviado ao servidor ao gravar (só na criação). Setar sempre
+        // que houver um valor válido evita chamadas vazias na maioria das
+        // edições onde a quota não foi tocada, mas também não é caro
+        // repetir se coincidir com a actual.
+        const currentQuota = emails.find((e) => e.email === originalEmail)?.quota_mb
+        const newQuota = data.quota_mb === '' || data.quota_mb == null ? undefined : Number(data.quota_mb)
+        if (newQuota && newQuota !== currentQuota) {
+          const limitRes = await directAdminAPI.setEmailLimits({ domain: originalDomain, email: originalEmail, limit: newQuota });
+          if (limitRes?.success === false) {
+            throw new Error(limitRes.error || 'Falha ao actualizar a quota no servidor.');
           }
         }
       }
@@ -2122,13 +2187,15 @@ export function EmailManagementSection({
       <div className="mb-4 flex flex-col gap-3 sm:flex-row">
         <select
           value={selectedDomain}
+          disabled={creating || loading}
+          title={(creating || loading) ? 'Aguarde a operação em curso terminar antes de trocar de domínio' : undefined}
           onChange={e => {
             const domain = e.target.value
             setSelectedDomain(domain)
             if (domain === '__ALL__') loadAllEmails()
             else loadEmails(domain)
           }}
-          className="min-w-[18rem] shrink-0 rounded border border-gray-300 bg-white px-4 py-2 text-sm text-gray-900 focus:border-red-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 sm:min-w-[22rem]"
+          className="min-w-[18rem] shrink-0 rounded border border-gray-300 bg-white px-4 py-2 text-sm text-gray-900 focus:border-red-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 sm:min-w-[22rem] disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <option value="__ALL__">Todos os domínios</option>
           {sites.length > 0
@@ -2146,12 +2213,14 @@ export function EmailManagementSection({
         </div>
         <div className="flex gap-2">
           <button
+            disabled={creating || loading}
+            title={(creating || loading) ? 'Aguarde a operação em curso terminar' : undefined}
             onClick={() => setEmailModal({
               show: true,
               mode: 'create',
               data: { user: '', password: '', quota_mb: 500, status: 'active', cliente_id: '' }
             })}
-            className="flex items-center gap-2 px-4 py-2 bg-red-50 border border-red-300 text-red-600  rounded text-sm font-bold hover:bg-red-100 hover:text-red-700 transition-all "
+            className="flex items-center gap-2 px-4 py-2 bg-red-50 border border-red-300 text-red-600  rounded text-sm font-bold hover:bg-red-100 hover:text-red-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Plus className="w-4 h-4" /> Criar E-mail
           </button>
@@ -2307,14 +2376,26 @@ export function EmailManagementSection({
       {/* Modal de E-mail (Unified) */}
       {emailModal.show && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60" onClick={() => setEmailModal({ ...emailModal, show: false })} />
+          {/* Fechar a meio de uma criação/edição em curso deixava o pedido a
+              acabar sozinho em segundo plano — o utilizador via o modal
+              desaparecer, mudava de domínio ou tentava de novo, e quando o
+              pedido antigo finalmente respondia, a conta aparecia no
+              domínio errado (o que estava seleccionado quando o pedido
+              arrancou, já não o actual). Bloquear o fecho enquanto
+              creating/loading resolve isto na origem. */}
+          <div className="absolute inset-0 bg-black/60" onClick={() => { if (!creating && !loading) setEmailModal({ ...emailModal, show: false }) }} />
           <div className="relative bg-white dark:bg-zinc-950 border border-gray-200 dark:border-zinc-800 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
             <div className="flex items-center justify-between px-8 py-6 border-b border-gray-100 dark:border-zinc-800 bg-gray-50/50 dark:bg-zinc-900/50">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-red-50 border border-red-300 text-red-600 rounded flex items-center justify-center "><Mail className="w-5 h-5 " /></div>
                 <div><h2 className="text-sm font-bold text-gray-900 dark:text-white block">{emailModal.mode === 'create' ? 'Novo E-mail' : 'Editar E-mail'}</h2><span className="text-[11px] text-gray-500 dark:text-zinc-400 font-mono">{emailModal.mode === 'create' ? `No domínio: ${selectedDomain}` : `Gerir: ${emailModal.data.email}`}</span></div>
               </div>
-              <button onClick={() => setEmailModal({ ...emailModal, show: false })} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200 transition-colors text-gray-400"><X className="w-4 h-4" /></button>
+              <button
+                disabled={creating || loading}
+                title={(creating || loading) ? 'Aguarde a operação terminar' : undefined}
+                onClick={() => setEmailModal({ ...emailModal, show: false })}
+                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200 transition-colors text-gray-400 disabled:opacity-30 disabled:cursor-not-allowed"
+              ><X className="w-4 h-4" /></button>
             </div>
             {loadingClientes ? (
               <EmailFormSkeleton />
@@ -2326,8 +2407,9 @@ export function EmailManagementSection({
                       <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Website / Domínio</label>
                       <select
                         value={selectedDomain}
+                        disabled={creating || loading}
                         onChange={e => setSelectedDomain(e.target.value)}
-                        className="w-full bg-gray-50 dark:bg-zinc-900 dark:text-zinc-100 border border-gray-200 dark:border-zinc-800 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all"
+                        className="w-full bg-gray-50 dark:bg-zinc-900 dark:text-zinc-100 border border-gray-200 dark:border-zinc-800 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <option value="">Selecione um website</option>
                         {sites.map(site => (
@@ -2353,6 +2435,17 @@ export function EmailManagementSection({
                   <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Palavra-passe</label><div className="relative"><input type={showEmailPass ? 'text' : 'password'} value={emailModal.data.password} onChange={e => setEmailModal({ ...emailModal, data: { ...emailModal.data, password: e.target.value } })} placeholder={emailModal.mode === 'edit' ? 'Manter actual' : '••••••••'} className="w-full bg-gray-50 dark:bg-zinc-900 dark:text-zinc-100 border border-gray-200 dark:border-zinc-800 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all pr-12" /><button type="button" onClick={() => setShowEmailPass(!showEmailPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">{showEmailPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button></div><button type="button" onClick={() => { const p = generatePassword(); setEmailModal({ ...emailModal, data: { ...emailModal.data, password: p, confirmPassword: p } }) }} className="text-xs font-semibold text-red-600 hover:text-red-700 mt-1 self-start">Gerar palavra-passe</button></div>
                   <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Confirmar palavra-passe</label><div className="relative"><input type={showEmailPass ? 'text' : 'password'} value={emailModal.data.confirmPassword || ''} onChange={e => setEmailModal({ ...emailModal, data: { ...emailModal.data, confirmPassword: e.target.value } })} placeholder="Confirmar palavra-passe" className="w-full bg-gray-50 dark:bg-zinc-900 dark:text-zinc-100 border border-gray-200 dark:border-zinc-800 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all pr-12" /><button type="button" onClick={() => setShowEmailPass(!showEmailPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">{showEmailPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button></div></div>
                 </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Quota de E-mail (MB)</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={emailModal.data.quota_mb ?? 500}
+                    onChange={e => setEmailModal({ ...emailModal, data: { ...emailModal.data, quota_mb: e.target.value === '' ? '' : Number(e.target.value) } })}
+                    placeholder="500"
+                    className="w-full bg-gray-50 dark:bg-zinc-900 dark:text-zinc-100 border border-gray-200 dark:border-zinc-800 rounded px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all"
+                  />
+                </div>
                 {emailModal.mode === 'edit' && (
                   <div className="mt-4 flex items-center justify-between p-4 bg-gray-50 dark:bg-zinc-900 rounded border border-gray-100 dark:border-zinc-800">
                     <div className="flex items-center gap-3"><div className={`w-10 h-10 rounded flex items-center justify-center ${emailModal.data.status === 'active' ? 'bg-green-100 dark:bg-green-950/30 text-green-600' : 'bg-red-100 dark:bg-red-950/30 text-red-600'}`}><Power className="w-5 h-5" /></div><div><p className="text-xs font-bold text-gray-900 dark:text-white">Estado da Conta</p><p className="text-[10px] text-gray-500 dark:text-zinc-400">{emailModal.data.status === 'active' ? 'Activa' : 'Suspensa'}</p></div></div>
@@ -2362,7 +2455,7 @@ export function EmailManagementSection({
               </div>
             )}
             <div className="px-6 py-4 bg-gray-50 dark:bg-zinc-900/50 border-t border-gray-100 dark:border-zinc-800 flex items-center justify-end gap-3">
-              <button onClick={() => setEmailModal({ ...emailModal, show: false })} className="px-4 py-2 bg-transparent border border-gray-300 dark:border-zinc-750 hover:bg-gray-150 dark:hover:bg-zinc-800 text-gray-500 dark:text-zinc-400 rounded text-xs font-bold transition-all">Cancelar</button>
+              <button disabled={creating || loading} onClick={() => setEmailModal({ ...emailModal, show: false })} className="px-4 py-2 bg-transparent border border-gray-300 dark:border-zinc-750 hover:bg-gray-150 dark:hover:bg-zinc-800 text-gray-500 dark:text-zinc-400 rounded text-xs font-bold transition-all disabled:opacity-30 disabled:cursor-not-allowed">Cancelar</button>
               <button onClick={() => { if (emailModal.mode === 'create') handleCreateEmail(emailModal.data); else handleUpdateEmail(emailModal.data) }} disabled={loading || creating} className="px-6 py-2 bg-transparent border border-red-500 hover:bg-red-500/10 text-red-500 rounded text-xs font-bold transition-all flex items-center gap-2">{(loading || creating) ? <Spinner className="w-3.5 h-3.5" /> : <Check className="w-3.5 h-3.5" />} {emailModal.mode === 'create' ? 'Criar E-mail' : 'Guardar Alterações'}</button>
             </div>
           </div>
@@ -2710,6 +2803,15 @@ export function CPUsersSection({
   const [msg, setMsg] = useState('')
   const [selected, setSelected] = useState<string[]>([])
   const [selectedPanelIds, setSelectedPanelIds] = useState<string[]>([])
+
+  // "Entrar" num cliente/profissional que falhou (ver /api/admin/impersonate-client).
+  useEffect(() => {
+    const err = new URLSearchParams(window.location.search).get('impersonate_error')
+    if (err) {
+      setMsg(`❌ ${err}`)
+      window.history.replaceState({}, '', '/dashboard')
+    }
+  }, [])
   const [bulkPanelRole, setBulkPanelRole] = useState<string>('manager')
   const [userModal, setUserModal] = useState<{ show: boolean, mode: 'create' | 'edit', data: any }>({
     show: false,
@@ -3714,6 +3816,16 @@ export function CPUsersSection({
                           </button>
                         )
                       )}
+                      {(account.panelRole === 'client' || account.panelRole === 'profissional') && !account.orphaned && (
+                        <a
+                          href={`/api/admin/impersonate-client?userId=${encodeURIComponent(account.id)}`}
+                          onClick={() => clearAllPanelClientCaches()}
+                          title="Entrar na conta deste cliente para ver e gerir os dados dele"
+                          className="hidden sm:inline-flex h-8 items-center rounded border border-gray-300 dark:border-zinc-700 bg-transparent px-2.5 text-xs font-semibold text-gray-700 dark:text-zinc-300 hover:bg-gray-50 dark:hover:bg-zinc-800 hover:text-black dark:hover:text-white"
+                        >
+                          Entrar
+                        </a>
+                      )}
                       <button
                         type="button"
                         onClick={(e) => {
@@ -4179,11 +4291,8 @@ export function PHPConfigSection({ sites }: { sites: DirectAdminWebsite[] }) {
         {msg && <div className={`mb-4 px-4 py-2.5 rounded text-sm font-medium ${msg.includes('!') && !msg.includes('Erro') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
 
         <div className="rounded border border-gray-200 bg-gray-50 px-4 py-3 text-xs text-gray-500">
-          Limites finos (memory_limit, upload_max_filesize, max_execution_time, etc.) não têm uma opção editável por aqui —
-          são geridos directamente no DirectAdmin, em "Select PHP Version" do domínio.
-          <a href={getDirectAdminAccessUrl()} target="_blank" rel="noopener noreferrer" className="ml-1 font-bold text-red-600 hover:underline">
-            Abrir no DirectAdmin →
-          </a>
+          A versão PHP é aplicada no Hestia deste servidor. Extensões e limites finos (memory_limit, upload_max_filesize)
+          gerem-se no template PHP-FPM do Hestia, não no DirectAdmin.
         </div>
       </div>
 
@@ -4194,10 +4303,6 @@ export function PHPConfigSection({ sites }: { sites: DirectAdminWebsite[] }) {
             <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wider">Extensões PHP</h3>
             <p className="text-xs text-gray-500 mt-0.5">Extensões recomendadas para WordPress e aplicações web</p>
           </div>
-          <a href={getDirectAdminAccessUrl()} target="_blank" rel="noopener noreferrer"
-            className="w-full sm:w-auto bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 text-xs font-bold px-4 py-2 rounded transition-all flex items-center justify-start gap-2 sm:justify-center">
-            <ExternalLink className="w-3.5 h-3.5" /> Gerir no DirectAdmin
-          </a>
         </div>
         <div className={`${panelMobileCardGrid} md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4`}>
           {[
@@ -4228,7 +4333,7 @@ export function PHPConfigSection({ sites }: { sites: DirectAdminWebsite[] }) {
         </div>
         <p className="text-xs text-gray-400 mt-4">
           As extensões marcadas <span className="font-bold text-indigo-600">WP</span> são necessárias para WordPress.
-          Para instalar, clica em "Gerir no DirectAdmin" → selecciona a versão PHP → activa a extensão.
+          As extensões marcadas WP são necessárias para WordPress. Activa-as no template PHP-FPM do Hestia deste servidor.
         </p>
       </div>
     </div>
@@ -4394,6 +4499,13 @@ export function SecuritySection({ sites }: { sites: DirectAdminWebsite[] }) {
   const [bfHistory, setBfHistory] = useState<Array<{ ip: string; count: string; service: string; time: string }>>([])
   const [bfLoading, setBfLoading] = useState(false)
   const [bfSaving, setBfSaving] = useState(false)
+  // ModSecurity e "Força Bruta" (config/histórico) são funcionalidades
+  // próprias do DirectAdmin, sem equivalente no Hestia — nesse servidor as
+  // chamadas voltam sempre com "ainda não está disponível no Hestia."; em
+  // vez de mostrar essas abas vazias/parecendo desligadas (quando na
+  // verdade a protecção real é o CSF/fail2ban, já coberto na Visão Geral),
+  // ficam escondidas assim que se confirma que não estão disponíveis.
+  const [hestiaLimited, setHestiaLimited] = useState(false)
 
   const showMsg = (text: string, type: 'ok' | 'err' = 'ok') => {
     setMsg(text); setMsgType(type)
@@ -4412,9 +4524,16 @@ export function SecuritySection({ sites }: { sites: DirectAdminWebsite[] }) {
 
       // Carregar dados de Força Bruta
       setBfLoading(true)
+      const NOT_ON_HESTIA = /ainda não está disponível no Hestia/i
       const [conf, hist] = await Promise.all([
-        directAdminAPI.getBruteForceConfig().catch(() => ({})),
-        directAdminAPI.getBruteForceHistory().catch(() => []),
+        directAdminAPI.getBruteForceConfig().catch((e) => {
+          if (e instanceof Error && NOT_ON_HESTIA.test(e.message)) setHestiaLimited(true)
+          return {}
+        }),
+        directAdminAPI.getBruteForceHistory().catch((e) => {
+          if (e instanceof Error && NOT_ON_HESTIA.test(e.message)) setHestiaLimited(true)
+          return []
+        }),
       ])
       setBfConfig(conf)
       setBfHistory(hist)
@@ -4522,27 +4641,37 @@ export function SecuritySection({ sites }: { sites: DirectAdminWebsite[] }) {
   const loadModSec = async (domain: string) => {
     if (!domain) return
     setModsecLoading(true)
-    const status = await directAdminAPI.getModSecurityStatus()
-    setModsecOn(status)
+    try {
+      const status = await directAdminAPI.getModSecurityStatus()
+      setModsecOn(status)
+    } catch (e) {
+      if (e instanceof Error && /ainda não está disponível no Hestia/i.test(e.message)) setHestiaLimited(true)
+    }
     setModsecLoading(false)
   }
 
   const handleToggleModSec = async () => {
     if (!selectedDomain) return
     setModsecLoading(true)
-    const ok = await directAdminAPI.toggleModSecurity({ enable: !modsecOn })
-    if (ok) { setModsecOn(!modsecOn); showMsg(`ModSecurity ${!modsecOn ? 'activado' : 'desactivado'}.`, 'ok') }
-    else showMsg('Erro ao alterar ModSecurity.', 'err')
+    try {
+      const ok = await directAdminAPI.toggleModSecurity({ enable: !modsecOn })
+      if (ok) { setModsecOn(!modsecOn); showMsg(`ModSecurity ${!modsecOn ? 'activado' : 'desactivado'}.`, 'ok') }
+      else showMsg('Erro ao alterar ModSecurity.', 'err')
+    } catch {
+      showMsg('Erro ao alterar ModSecurity.', 'err')
+    }
     setModsecLoading(false)
   }
 
-  const TABS = [
-    { id: 'overview', label: 'Visão Geral' },
-    { id: 'blocked', label: `IPs Bloqueados (${blockedIPs.length})` },
-    { id: 'attempts', label: `Tentativas (${loginAttempts.length})` },
-    { id: 'modsec', label: 'ModSecurity' },
-    { id: 'bruteforce', label: 'Força Bruta' },
-  ] as const
+  const TABS = (
+    [
+      { id: 'overview', label: 'Visão Geral' },
+      { id: 'blocked', label: `IPs Bloqueados (${blockedIPs.length})` },
+      { id: 'attempts', label: `Tentativas (${loginAttempts.length})` },
+      { id: 'modsec', label: 'ModSecurity' },
+      { id: 'bruteforce', label: 'Força Bruta' },
+    ] as const
+  ).filter((t) => !hestiaLimited || (t.id !== 'modsec' && t.id !== 'bruteforce'))
 
   return (
     <div className="space-y-4">
@@ -5407,17 +5536,6 @@ export function SSLSection({
             >
               Ver certificado
             </button>
-            {filterDomain && !isHostSecure(filterDomain) ? (
-              <button
-                type="button"
-                onClick={() => void handleIssueSSL(filterDomain)}
-                disabled={issuing === `issueSSL-${filterDomain}`}
-                className="bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 px-4 py-2 rounded text-sm font-bold disabled:opacity-50 inline-flex items-center gap-2"
-              >
-                {issuing === `issueSSL-${filterDomain}` ? <Spinner className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
-                Emitir SSL
-              </button>
-            ) : null}
           </div>
         </div>
 
@@ -5875,44 +5993,7 @@ export function APIConfigSection() {
 // LIST SUBDOMAINS SECTION
 // ============================================================
 export function ListSubdomainsSection({ sites }: { sites: DirectAdminWebsite[] }) {
-  const [selectedDomain, setSelectedDomain] = useState('')
-  const [subdomains, setSubdomains] = useState<DirectAdminSubdomain[]>([])
-  const [loading, setLoading] = useState(false)
-
-  const loadSubs = async (domain: string) => {
-    if (!domain) return
-    setLoading(true)
-    const data = await directAdminAPI.listSubdomains(domain)
-    setSubdomains(data)
-    setLoading(false)
-  }
-
-  return (
-    <div className="space-y-6">
-      <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
-        <div className="mb-6">
-          <label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Website</label>
-          <select value={selectedDomain} onChange={(e) => { setSelectedDomain(e.target.value); loadSubs(e.target.value) }}
-            className="w-full max-w-sm px-3 py-2.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500">
-            <option value="">Select a domain...</option>
-            {sites.map(s => <option key={s.domain} value={s.domain}>{s.domain}</option>)}
-          </select>
-        </div>
-        {loading ? <div className="py-12 text-center"><Spinner className="w-8 h-8 mx-auto" /></div> : subdomains.length > 0 ? (
-          <table className="w-full text-sm">
-            <thead><tr className="text-left text-xs font-bold text-gray-500 uppercase border-b"><th className="px-4 py-3">Subdomain</th><th className="px-4 py-3">Domain</th><th className="px-4 py-3">Path</th></tr></thead>
-            <tbody>{subdomains.map((s, i) => (
-              <tr key={i} className="border-b border-gray-50 hover:bg-gray-50">
-                <td className="px-4 py-3 font-medium">{s.subdomain}</td>
-                <td className="px-4 py-3 text-gray-600">{s.domain}</td>
-                <td className="px-4 py-3 text-gray-500 font-mono text-xs">{s.path}</td>
-              </tr>
-            ))}</tbody>
-          </table>
-        ) : selectedDomain ? <p className="text-sm text-gray-400 text-center py-8">No subdomains found.</p> : null}
-      </div>
-    </div>
-  )
+  return <SubdomainsSection sites={sites} />
 }
 
 // ============================================================
@@ -6299,21 +6380,75 @@ export function DNSNameserverSection({ sites }: { sites: DirectAdminWebsite[] })
   )
 }
 
+function normalizeNameserverHost(value: string): string {
+  return value.trim().toLowerCase().replace(/\.$/, '')
+}
+
+function isVisualDesignNameservers(nameservers: string[]): boolean {
+  const set = new Set(nameservers.map(normalizeNameserverHost).filter(Boolean))
+  return (
+    set.has(normalizeNameserverHost(VISUALDESIGN_DEFAULT_NS.ns1)) &&
+    set.has(normalizeNameserverHost(VISUALDESIGN_DEFAULT_NS.ns2))
+  )
+}
+
+function sameNameserverList(a: string[], b: string[]): boolean {
+  const left = a.map(normalizeNameserverHost).filter(Boolean).sort()
+  const right = b.map(normalizeNameserverHost).filter(Boolean).sort()
+  return left.length === right.length && left.every((value, i) => value === right[i])
+}
+
 export function NameserverManagementSection({
   sites,
   initialDomain,
+  lockDomain,
+  currentNameservers,
+  onChanged,
 }: {
   sites: DirectAdminWebsite[]
   initialDomain?: string
+  /** Embutido na página de um domínio específico — esconde o selector de
+   * domínio (não faz sentido escolher outro ali) e fixa sempre initialDomain. */
+  lockDomain?: boolean
+  /** Nameservers reais e actuais do domínio (vindos do registador). Em
+   * lockDomain vêm do detalhe; na página global, se não forem passados,
+   * carregam-se via GET /api/registrar/domain/manage. */
+  currentNameservers?: string[]
+  onChanged?: () => void
 }) {
   const [mode, setMode] = useState<'default' | 'custom'>('default')
   const [selectedDomain, setSelectedDomain] = useState(initialDomain || '')
-  const [ns1, setNs1] = useState<string>(VISUALDESIGN_DEFAULT_NS.ns1)
-  const [ns2, setNs2] = useState<string>(VISUALDESIGN_DEFAULT_NS.ns2)
-  const [ns1IP, setNs1IP] = useState('')
-  const [ns2IP, setNs2IP] = useState('')
+  const [ns1, setNs1] = useState('')
+  const [ns2, setNs2] = useState('')
+  const [savedNs, setSavedNs] = useState<string[]>([])
+  const [loadingNs, setLoadingNs] = useState(false)
+  const [loadError, setLoadError] = useState('')
   const [saving, setSaving] = useState(false)
+  const [creatingGlue, setCreatingGlue] = useState(false)
   const [msg, setMsg] = useState('')
+  const [glueOpen, setGlueOpen] = useState(false)
+  const [glueNs1, setGlueNs1] = useState('')
+  const [glueNs2, setGlueNs2] = useState('')
+  const [glueNs1IP, setGlueNs1IP] = useState('')
+  const [glueNs2IP, setGlueNs2IP] = useState('')
+  const nsModeName = useId()
+
+  const domain = (lockDomain ? initialDomain || selectedDomain : selectedDomain).trim().toLowerCase()
+  const seededNs = (currentNameservers || []).map((n) => n.trim()).filter(Boolean)
+
+  const applyLoadedNs = (nameservers: string[]) => {
+    const cleaned = nameservers.map((n) => n.trim()).filter(Boolean)
+    setSavedNs(cleaned)
+    if (isVisualDesignNameservers(cleaned)) {
+      setMode('default')
+      setNs1(VISUALDESIGN_DEFAULT_NS.ns1)
+      setNs2(VISUALDESIGN_DEFAULT_NS.ns2)
+    } else {
+      setMode('custom')
+      setNs1(cleaned[0] || '')
+      setNs2(cleaned[1] || '')
+    }
+  }
 
   useEffect(() => {
     if (initialDomain) {
@@ -6322,33 +6457,119 @@ export function NameserverManagementSection({
   }, [initialDomain])
 
   useEffect(() => {
-    if (mode === 'default') {
-      setNs1(VISUALDESIGN_DEFAULT_NS.ns1)
-      setNs2(VISUALDESIGN_DEFAULT_NS.ns2)
-    } else if (selectedDomain) {
-      setNs1(`ns1.${selectedDomain}`)
-      setNs2(`ns2.${selectedDomain}`)
-    }
-  }, [mode, selectedDomain])
+    if (seededNs.length === 0) return
+    applyLoadedNs(seededNs)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lockDomain, seededNs.join('|')])
 
-  const handleSaveDefault = async () => {
+  useEffect(() => {
+    if (lockDomain) return
+    if (seededNs.length > 0) return
+    if (!domain) {
+      setSavedNs([])
+      setLoadError('')
+      setNs1('')
+      setNs2('')
+      return
+    }
+    let cancelled = false
+    setLoadingNs(true)
+    setLoadError('')
+    setMsg('')
+    void fetch(`/api/registrar/domain/manage?domain=${encodeURIComponent(domain)}`, { credentials: 'include' })
+      .then(async (res) => {
+        const data = await res.json().catch(() => ({}))
+        if (cancelled) return
+        const nameservers = Array.isArray(data.nameservers) ? data.nameservers.map((n: unknown) => String(n)) : []
+        if (res.ok && data.success && nameservers.length > 0) {
+          applyLoadedNs(nameservers)
+        } else {
+          setSavedNs([])
+          setMode('custom')
+          setNs1('')
+          setNs2('')
+          setLoadError(
+            data.error ||
+              'Não foi possível carregar os nameservers deste domínio — pode estar registado noutro sítio.',
+          )
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setSavedNs([])
+          setLoadError('Erro de ligação ao carregar nameservers.')
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingNs(false)
+      })
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [domain, lockDomain, seededNs.join('|')])
+
+  useEffect(() => {
+    if (!domain) {
+      setGlueNs1('')
+      setGlueNs2('')
+      setGlueNs1IP('')
+      setGlueNs2IP('')
+      return
+    }
+    setGlueNs1(`ns1.${domain}`)
+    setGlueNs2(`ns2.${domain}`)
+    setGlueNs1IP('')
+    setGlueNs2IP('')
+  }, [domain])
+
+  const pendingNs =
+    mode === 'default'
+      ? [VISUALDESIGN_DEFAULT_NS.ns1, VISUALDESIGN_DEFAULT_NS.ns2]
+      : [ns1.trim(), ns2.trim()].filter(Boolean)
+  const dirty = pendingNs.length >= 2 && !sameNameserverList(pendingNs, savedNs)
+  const activatingVd = isVisualDesignNameservers(pendingNs) && !isVisualDesignNameservers(savedNs)
+
+  const handleApplyDomainNameservers = async () => {
+    if (!domain || !dirty) return
     setSaving(true)
     setMsg('')
-    const ok = await directAdminAPI.configDefaultNameservers({
-      ns1: VISUALDESIGN_DEFAULT_NS.ns1,
-      ns2: VISUALDESIGN_DEFAULT_NS.ns2,
-    })
-    setMsg(ok ? 'Nameservers predefinidos Visual Design activados.' : 'Erro ao configurar nameservers.')
-    setSaving(false)
+    try {
+      const res = await fetch('/api/registrar/domain/manage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ domain, action: 'set-nameservers', nameservers: pendingNs }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (res.ok && data.success) {
+        const applied = Array.isArray(data.nameservers) && data.nameservers.length > 0 ? data.nameservers : pendingNs
+        applyLoadedNs(applied)
+        setMsg(data.message || 'Nameservers actualizados.')
+        onChanged?.()
+      } else {
+        setMsg(data.error || 'Erro ao actualizar nameservers.')
+      }
+    } catch (e: unknown) {
+      setMsg(e instanceof Error ? e.message : 'Erro de ligação')
+    } finally {
+      setSaving(false)
+    }
   }
 
-  const handleCreateCustom = async () => {
-    if (!selectedDomain || !ns1 || !ns1IP || !ns2 || !ns2IP) return
-    setSaving(true)
+  const handleCreateGlue = async () => {
+    if (!domain || !glueNs1 || !glueNs1IP || !glueNs2 || !glueNs2IP) return
+    setCreatingGlue(true)
     setMsg('')
-    const ok = await directAdminAPI.createNameserver({ domain: selectedDomain, ns1, ns1IP, ns2, ns2IP })
-    setMsg(ok ? 'Nameservers personalizados criados.' : 'Erro ao criar nameservers.')
-    setSaving(false)
+    const ok = await directAdminAPI.createNameserver({
+      domain,
+      ns1: glueNs1,
+      ns1IP: glueNs1IP,
+      ns2: glueNs2,
+      ns2IP: glueNs2IP,
+    })
+    setMsg(ok ? 'Nameservers (glue) criados.' : 'Erro ao criar nameservers.')
+    setCreatingGlue(false)
   }
 
   return (
@@ -6357,6 +6578,24 @@ export function NameserverManagementSection({
         <p className="mb-4 text-sm text-gray-600 dark:text-zinc-400">
           Escolha os nameservers predefinidos ou configure nameservers personalizados por domínio.
         </p>
+
+        {!lockDomain && (
+          <div className="mb-6">
+            <label className="mb-1.5 block text-xs font-bold uppercase text-gray-500 dark:text-zinc-500">Domínio</label>
+            <select
+              value={selectedDomain}
+              onChange={(e) => setSelectedDomain(e.target.value)}
+              className={`${panelField} w-full max-w-md`}
+            >
+              <option value="">Seleccione...</option>
+              {sites.map((s) => (
+                <option key={s.domain} value={s.domain}>
+                  {s.domain}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2">
           <label
@@ -6367,7 +6606,7 @@ export function NameserverManagementSection({
           >
             <input
               type="radio"
-              name="ns-mode"
+              name={nsModeName}
               checked={mode === 'default'}
               onChange={() => setMode('default')}
               className="mt-1"
@@ -6390,15 +6629,21 @@ export function NameserverManagementSection({
           >
             <input
               type="radio"
-              name="ns-mode"
+              name={nsModeName}
               checked={mode === 'custom'}
-              onChange={() => setMode('custom')}
+              onChange={() => {
+                setMode('custom')
+                if (!ns1.trim() && !ns2.trim() && savedNs.length >= 2) {
+                  setNs1(savedNs[0] || '')
+                  setNs2(savedNs[1] || '')
+                }
+              }}
               className="mt-1"
             />
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold text-gray-900 dark:text-zinc-100">Nameservers personalizados</p>
               <p className="mt-1 text-xs text-gray-600 dark:text-zinc-400">
-                Criar child nameservers (glue records) para um domínio específico.
+                Aponta este domínio para os nameservers indicados (ex.: Cloudflare, outro fornecedor).
               </p>
             </div>
           </label>
@@ -6406,49 +6651,37 @@ export function NameserverManagementSection({
 
         {mode === 'custom' && (
           <div className="mb-6 space-y-4 border-t border-gray-100 pt-4 dark:border-zinc-800">
-            <div>
-              <label className="mb-1.5 block text-xs font-bold uppercase text-gray-500 dark:text-zinc-500">Domínio</label>
-              <select
-                value={selectedDomain}
-                onChange={(e) => setSelectedDomain(e.target.value)}
-                className={`${panelField} w-full max-w-md`}
-              >
-                <option value="">Seleccione...</option>
-                {sites.map((s) => (
-                  <option key={s.domain} value={s.domain}>
-                    {s.domain}
-                  </option>
-                ))}
-              </select>
-            </div>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div>
                 <label className="mb-1.5 block text-xs font-bold uppercase text-gray-500 dark:text-zinc-500">NS1</label>
-                <input value={ns1} onChange={(e) => setNs1(e.target.value)} className={`${panelField} w-full font-mono`} />
-              </div>
-              <div>
-                <label className="mb-1.5 block text-xs font-bold uppercase text-gray-500 dark:text-zinc-500">NS1 IP</label>
                 <input
-                  value={ns1IP}
-                  onChange={(e) => setNs1IP(e.target.value)}
-                  placeholder={getServerHost()}
+                  value={ns1}
+                  onChange={(e) => setNs1(e.target.value)}
+                  placeholder="ns1.exemplo.com"
                   className={`${panelField} w-full font-mono`}
                 />
               </div>
               <div>
                 <label className="mb-1.5 block text-xs font-bold uppercase text-gray-500 dark:text-zinc-500">NS2</label>
-                <input value={ns2} onChange={(e) => setNs2(e.target.value)} className={`${panelField} w-full font-mono`} />
-              </div>
-              <div>
-                <label className="mb-1.5 block text-xs font-bold uppercase text-gray-500 dark:text-zinc-500">NS2 IP</label>
                 <input
-                  value={ns2IP}
-                  onChange={(e) => setNs2IP(e.target.value)}
-                  placeholder={getServerHost()}
+                  value={ns2}
+                  onChange={(e) => setNs2(e.target.value)}
+                  placeholder="ns2.exemplo.com"
                   className={`${panelField} w-full font-mono`}
                 />
               </div>
             </div>
+          </div>
+        )}
+
+        {loadingNs && (
+          <p className="mb-4 flex items-center gap-2 text-sm text-gray-400 dark:text-zinc-500">
+            <Spinner /> A carregar nameservers actuais…
+          </p>
+        )}
+        {loadError && !loadingNs && (
+          <div className="mb-4 rounded border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-400">
+            {loadError}
           </div>
         )}
 
@@ -6465,13 +6698,72 @@ export function NameserverManagementSection({
 
         <button
           type="button"
-          onClick={() => (mode === 'default' ? void handleSaveDefault() : void handleCreateCustom())}
-          disabled={saving || (mode === 'custom' && (!selectedDomain || !ns1IP || !ns2IP))}
+          onClick={() => void handleApplyDomainNameservers()}
+          disabled={saving || loadingNs || !domain || !dirty || pendingNs.length < 2}
           className={panelBtnPrimary}
         >
           {saving ? <Spinner className="h-4 w-4" /> : <Settings className="h-4 w-4" />}
-          {mode === 'default' ? 'Activar DNS Visual Design' : 'Criar nameservers'}
+          {activatingVd ? 'Activar DNS Visual Design' : 'Guardar alterações'}
         </button>
+
+        {domain && (
+          <div className="mt-6 border-t border-gray-100 pt-4 dark:border-zinc-800">
+            <button
+              type="button"
+              onClick={() => setGlueOpen((open) => !open)}
+              className="flex items-center gap-1.5 text-sm font-medium text-gray-600 hover:text-gray-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+            >
+              <ChevronDown className={`h-4 w-4 transition-transform ${glueOpen ? 'rotate-180' : ''}`} />
+              Criar nameservers (glue)
+            </button>
+            {glueOpen && (
+              <div className="mt-3 space-y-4">
+                <p className="text-xs text-gray-500 dark:text-zinc-500">
+                  O apontamento automático é o caso habitual — basta guardar os nameservers acima. Crie nameservers
+                  apenas se precisar de glue records (child nameservers do próprio domínio, por exemplo ns1.oseudominio.com
+                  com o IP do servidor).
+                </p>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div>
+                    <label className="mb-1.5 block text-xs font-bold uppercase text-gray-500 dark:text-zinc-500">NS1</label>
+                    <input value={glueNs1} onChange={(e) => setGlueNs1(e.target.value)} className={`${panelField} w-full font-mono`} />
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-xs font-bold uppercase text-gray-500 dark:text-zinc-500">NS1 IP</label>
+                    <input
+                      value={glueNs1IP}
+                      onChange={(e) => setGlueNs1IP(e.target.value)}
+                      placeholder={getServerHost()}
+                      className={`${panelField} w-full font-mono`}
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-xs font-bold uppercase text-gray-500 dark:text-zinc-500">NS2</label>
+                    <input value={glueNs2} onChange={(e) => setGlueNs2(e.target.value)} className={`${panelField} w-full font-mono`} />
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-xs font-bold uppercase text-gray-500 dark:text-zinc-500">NS2 IP</label>
+                    <input
+                      value={glueNs2IP}
+                      onChange={(e) => setGlueNs2IP(e.target.value)}
+                      placeholder={getServerHost()}
+                      className={`${panelField} w-full font-mono`}
+                    />
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void handleCreateGlue()}
+                  disabled={creatingGlue || !glueNs1 || !glueNs1IP || !glueNs2 || !glueNs2IP}
+                  className={panelBtnSecondary}
+                >
+                  {creatingGlue ? <Spinner className="h-4 w-4" /> : <Server className="h-4 w-4" />}
+                  Criar nameservers
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )
@@ -6764,31 +7056,82 @@ export function EmailForwardingSection({ sites }: { sites: DirectAdminWebsite[] 
   const [forwards, setForwards] = useState<string[]>([])
   const [forwardTo, setForwardTo] = useState('')
   const [msg, setMsg] = useState('')
+  const [msgOk, setMsgOk] = useState(false)
+  const [saving, setSaving] = useState(false)
 
-  const loadEmails = async (domain: string) => { if (!domain) return; setLoading(true); const data = await directAdminAPI.listEmails(domain); setEmails(data); setLoading(false) }
+  const loadEmails = async (domain: string) => {
+    if (!domain) return
+    setLoading(true)
+    setMsg('')
+    try {
+      const data = await directAdminAPI.listEmails(domain)
+      setEmails(data)
+    } catch (error) {
+      setEmails([])
+      setMsg(error instanceof Error ? error.message : 'Erro ao listar contas.')
+      setMsgOk(false)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const loadForwards = async (email: string) => {
     setSelectedEmail(email)
-    const fwds = await directAdminAPI.getEmailForwarding({ email })
-    setForwards(fwds)
+    setMsg('')
+    try {
+      const fwds = await directAdminAPI.getEmailForwarding({ email, domain: selectedDomain })
+      setForwards(Array.isArray(fwds) ? fwds : [])
+    } catch (error) {
+      setForwards([])
+      setMsg(error instanceof Error ? error.message : 'Erro ao listar encaminhamentos.')
+      setMsgOk(false)
+    }
   }
 
   const handleAdd = async () => {
     if (!selectedEmail || !forwardTo) return
-    const ok = await directAdminAPI.addEmailForwarding({ email: selectedEmail, forward: forwardTo })
-    if (ok) { setForwardTo(''); loadForwards(selectedEmail) }
-    else setMsg('Error adding forwarding.')
+    setSaving(true)
+    setMsg('')
+    try {
+      await directAdminAPI.addEmailForwarding({ email: selectedEmail, forward: forwardTo.trim() })
+      setForwardTo('')
+      setMsg('Encaminhamento adicionado.')
+      setMsgOk(true)
+      await loadForwards(selectedEmail)
+    } catch (error) {
+      setMsg(error instanceof Error ? error.message : 'Erro ao adicionar encaminhamento.')
+      setMsgOk(false)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDelete = async (destination: string) => {
+    if (!selectedEmail) return
+    setSaving(true)
+    setMsg('')
+    try {
+      await directAdminAPI.deleteEmailForwarding({ email: selectedEmail, forward: destination })
+      setMsg('Encaminhamento removido.')
+      setMsgOk(true)
+      await loadForwards(selectedEmail)
+    } catch (error) {
+      setMsg(error instanceof Error ? error.message : 'Erro ao remover encaminhamento.')
+      setMsgOk(false)
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
     <div className="space-y-6">
       <div className="bg-white rounded shadow-sm border border-gray-200 p-6">
-        <div className="mb-6"><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Domain</label>
-          <select value={selectedDomain} onChange={(e) => { setSelectedDomain(e.target.value); loadEmails(e.target.value); setSelectedEmail('') }} className="w-full max-w-sm px-3 py-2.5 border border-gray-300 rounded text-sm">
-            <option value="">Select...</option>{sites.map(s => <option key={s.domain} value={s.domain}>{s.domain}</option>)}
+        <div className="mb-6"><label className="text-xs font-bold text-gray-600 uppercase block mb-1.5">Domínio</label>
+          <select value={selectedDomain} onChange={(e) => { setSelectedDomain(e.target.value); loadEmails(e.target.value); setSelectedEmail(''); setForwards([]) }} className="w-full max-w-sm px-3 py-2.5 border border-gray-300 rounded text-sm">
+            <option value="">Seleccionar...</option>{sites.map(s => <option key={s.domain} value={s.domain}>{s.domain}</option>)}
           </select>
         </div>
-        {msg && <div className="mb-4 px-4 py-2.5 rounded text-sm font-medium bg-red-50 text-red-700 border border-red-200">{msg}</div>}
+        {msg && <div className={`mb-4 px-4 py-2.5 rounded text-sm font-medium ${msgOk ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
         {loading ? <div className="py-8 text-center"><Spinner className="w-6 h-6 mx-auto" /></div> : emails.length > 0 ? (
           <div className="space-y-2">{emails.map((em, i) => (
             <div key={i} className="border border-gray-200 rounded p-3 hover:bg-gray-50">
@@ -6799,15 +7142,24 @@ export function EmailForwardingSection({ sites }: { sites: DirectAdminWebsite[] 
               {selectedEmail === em.email && (
                 <div className="mt-3 pt-3 border-t">
                   <div className="flex gap-2 mb-2">
-                    <input value={forwardTo} onChange={(e) => setForwardTo(e.target.value)} placeholder="forward@email.com" className="flex-1 px-3 py-2 border border-gray-300 rounded text-sm" />
-                    <button onClick={handleAdd} className="bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 px-4 py-2 rounded text-sm font-bold">Add</button>
+                    <input value={forwardTo} onChange={(e) => setForwardTo(e.target.value)} placeholder="destino@email.com" className="flex-1 px-3 py-2 border border-gray-300 rounded text-sm" />
+                    <button onClick={handleAdd} disabled={saving} className="bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 px-4 py-2 rounded text-sm font-bold disabled:opacity-50">Adicionar</button>
                   </div>
-                  {forwards.length > 0 && <div className="flex flex-wrap gap-1">{forwards.map((f, fi) => <span key={fi} className="bg-gray-100 px-2 py-1 rounded text-xs">{f}</span>)}</div>}
+                  {forwards.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {forwards.map((f, fi) => (
+                        <span key={fi} className="bg-gray-100 px-2 py-1 rounded text-xs inline-flex items-center gap-1">
+                          {f}
+                          <button type="button" onClick={() => handleDelete(f)} disabled={saving} className="text-red-500 hover:text-red-700" aria-label={`Remover ${f}`}>×</button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
           ))}</div>
-        ) : selectedDomain ? <p className="text-sm text-gray-400 text-center py-8">No emails found.</p> : null}
+        ) : selectedDomain ? <p className="text-sm text-gray-400 text-center py-8">Nenhuma conta de e-mail neste domínio.</p> : null}
       </div>
     </div>
   )
@@ -6823,14 +7175,33 @@ export function CatchAllEmailSection({ sites }: { sites: DirectAdminWebsite[] })
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState('')
 
-  const loadCatchAll = async (domain: string) => { if (!domain) return; setLoading(true); const ca = await directAdminAPI.getCatchAllEmail(domain); setCatchAll(ca || ''); setLoading(false) }
+  const loadCatchAll = async (domain: string) => {
+    if (!domain) return
+    setLoading(true)
+    setMsg('')
+    try {
+      const ca = await directAdminAPI.getCatchAllEmail(domain)
+      setCatchAll(typeof ca === 'string' ? ca : '')
+    } catch (error) {
+      setCatchAll('')
+      setMsg(error instanceof Error ? error.message : 'Erro ao ler o catch-all.')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleSave = async () => {
     if (!selectedDomain) return
-    setSaving(true); setMsg('')
-    const ok = await directAdminAPI.setCatchAllEmail({ domain: selectedDomain, email: catchAll })
-    setMsg(ok ? 'Catch-all configured!' : 'Error configuring catch-all.')
-    setSaving(false)
+    setSaving(true)
+    setMsg('')
+    try {
+      await directAdminAPI.setCatchAllEmail({ domain: selectedDomain, email: catchAll })
+      setMsg(catchAll.trim() ? 'Catch-all configurado.' : 'Catch-all removido.')
+    } catch (error) {
+      setMsg(error instanceof Error ? error.message : 'Erro ao configurar o catch-all.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -6847,9 +7218,9 @@ export function CatchAllEmailSection({ sites }: { sites: DirectAdminWebsite[] })
               <input value={catchAll} onChange={(e) => setCatchAll(e.target.value)} placeholder="admin@domain.com" className="w-full px-3 py-2.5 border border-gray-300 rounded text-sm" />}
           </div>
         </div>
-        {msg && <div className={`mb-4 px-4 py-2.5 rounded text-sm font-medium ${msg.includes('configured') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
+        {msg && <div className={`mb-4 px-4 py-2.5 rounded text-sm font-medium ${msg.includes('configurado') || msg.includes('removido') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{msg}</div>}
         <button onClick={handleSave} disabled={saving || !selectedDomain} className="bg-green-50 border border-green-300 text-green-600 hover:bg-green-100 px-5 py-2.5 rounded text-sm font-bold transition-all disabled:opacity-50">
-          {saving ? 'Saving...' : 'Save Catch-All'}
+          {saving ? 'A guardar...' : 'Guardar catch-all'}
         </button>
       </div>
     </div>
@@ -8077,17 +8448,28 @@ const FileManagerCodeEditor = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className={`${panelField} flex min-h-[65vh] items-center justify-center text-sm text-gray-400`}>
-        A carregar editor…
+      <div className={`${panelField} flex min-h-[65vh] items-center justify-center gap-2 text-sm text-gray-400`}>
+        <Spinner /> A carregar editor…
       </div>
     ),
   },
 )
 
-export function FileManagerSection({ domain, sites, isActive = false }: {
+function fmNetworkError(e: unknown): string {
+  if (e instanceof DOMException && e.name === 'AbortError') return ''
+  const msg = e instanceof Error ? e.message : ''
+  if (!msg || msg === 'Failed to fetch' || msg === 'Load failed' || /NetworkError/i.test(msg)) {
+    return 'Não foi possível contactar o servidor. Tente outra vez.'
+  }
+  if (e instanceof SyntaxError) return 'Resposta inválida ao listar ficheiros.'
+  return msg
+}
+
+export function FileManagerSection({ domain, sites, isActive = false, loggedInOwner }: {
   domain: string,
   sites: DirectAdminWebsite[]
   isActive?: boolean
+  loggedInOwner?: string
 }) {
   const [path, setPath] = useState('')
   const [showTrashView, setShowTrashView] = useState(false)
@@ -8112,21 +8494,67 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
   const [fmDialogBusy, setFmDialogBusy] = useState(false)
   const [moreMenuAnchor, setMoreMenuAnchor] = useState<DOMRect | null>(null)
   const [actionBusy, setActionBusy] = useState(false)
+  const [actionBusyLabel, setActionBusyLabel] = useState('')
   const [toolbarStuck, setToolbarStuck] = useState(false)
   const toolbarSentinelRef = useRef<HTMLDivElement>(null)
+  const listAbortRef = useRef<AbortController | null>(null)
+  const listGenRef = useRef(0)
+  const uploadXhrRef = useRef<XMLHttpRequest | null>(null)
+  const uploadCancelRef = useRef(false)
   const { setChrome } = useAdminSectionChrome()
 
-  const getOwner = (targetDomain: string) =>
-    sites.find(s => s.domain === targetDomain)?.owner || 'admin'
+  // Domínios Hestia da conta autenticada (vdadmin, aamihe, …), não de todos os clientes.
+  const [hestiaDomains, setHestiaDomains] = useState<{ domain: string; owner: string; path: string }[]>([])
+  const [hestiaLoaded, setHestiaLoaded] = useState(false)
+  const sessionOwner = (loggedInOwner || '').trim().toLowerCase()
+
+  useEffect(() => {
+    if (!isActive) return
+    fetch('/api/server-exec', {
+      method: 'POST', credentials: 'include', cache: 'no-store',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'listHestiaWebDomains', params: {} }),
+    })
+      .then(r => r.json())
+      .then(d => {
+        if (d.success && Array.isArray(d.data) && d.data.length > 0) {
+          setHestiaDomains(d.data)
+        }
+      })
+      .catch(() => { /* fallback para mirror */ })
+      .finally(() => setHestiaLoaded(true))
+  }, [isActive])
+
+  const scopedHestia = useMemo(() => {
+    if (!sessionOwner) return hestiaDomains
+    return hestiaDomains.filter((d) => (d.owner || '').trim().toLowerCase() === sessionOwner)
+  }, [hestiaDomains, sessionOwner])
+  const scopedSites = useMemo(() => {
+    if (!sessionOwner) return sites
+    return sites.filter((s) => (s.owner || '').trim().toLowerCase() === sessionOwner)
+  }, [sites, sessionOwner])
+
+  const allDomains: { domain: string }[] = scopedHestia.length > 0
+    ? scopedHestia
+    : scopedSites
 
   const resolveRoot = (targetDomain: string) => {
     if (!targetDomain) return ''
-    const owner = getOwner(targetDomain)
+    // Hestia directo — caminho exacto sem mirror
+    const hd = scopedHestia.find(d => d.domain === targetDomain) || hestiaDomains.find(d => d.domain === targetDomain)
+    if (hd) return hd.path
+    // Fallback DA/mirror
+    const owner = sites.find(s => s.domain === targetDomain)?.owner || 'admin'
     return `/home/${owner}/domains/${targetDomain}/public_html`
   }
 
   useEffect(() => {
-    const d = domain || (sites.find(s => !s.domain.includes('contaboserver'))?.domain) || ''
+    // Aguarda o carregamento da lista Hestia antes de navegar
+    if (!hestiaLoaded) return
+    const allowed = allDomains.map((s) => s.domain)
+    const d = (domain && allowed.includes(domain))
+      ? domain
+      : allDomains.find(s => !s.domain.includes('contaboserver'))?.domain || allowed[0] || ''
     if (!d) return
 
     let cancelled = false
@@ -8138,7 +8566,7 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
     }
 
     return () => { cancelled = true }
-  }, [domain, sites])
+  }, [domain, hestiaLoaded])
 
   useEffect(() => {
     if (!path) return
@@ -8155,6 +8583,10 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
 
   const loadFiles = async (currentPath: string, options?: { hadCache?: boolean }) => {
     const hadCache = options?.hadCache === true
+    listAbortRef.current?.abort()
+    const ac = new AbortController()
+    listAbortRef.current = ac
+    const gen = ++listGenRef.current
     if (!hadCache) {
       setLoading(true)
     } else {
@@ -8165,6 +8597,8 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
       const res = await fetch('/api/server-exec', {
         method: 'POST',
         credentials: 'include',
+        cache: 'no-store',
+        signal: ac.signal,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'listDirectory',
@@ -8172,7 +8606,34 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
         }),
       })
       const data = await res.json()
+      if (gen !== listGenRef.current) return
       if (!res.ok || !data.success) {
+        // A pasta "adivinhada" (padrão DirectAdmin, .../domains/<domínio>) pode
+        // estar errada para uma conta Hestia (guarda os sites noutro sítio,
+        // .../web/<domínio>) — se falhar logo na pasta inicial do site,
+        // confirma o caminho real no servidor antes de desistir, em vez de
+        // mostrar sempre "pasta não encontrada" para essas contas.
+        if (res.status === 404 && currentPath === siteRoot && selectedDomain) {
+          try {
+            const resolveRes = await fetch('/api/server-exec', {
+              method: 'POST',
+              credentials: 'include',
+              cache: 'no-store',
+              signal: ac.signal,
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ action: 'resolveSitePath', params: { domain: selectedDomain } }),
+            })
+            const resolveData = await resolveRes.json()
+            const realPath = resolveData?.data?.path as string | undefined
+            if (resolveRes.ok && resolveData.success && realPath && realPath !== currentPath) {
+              setSiteRoot(realPath)
+              setPath(realPath)
+              return
+            }
+          } catch {
+            /* segue para o erro normal abaixo */
+          }
+        }
         if (!hadCache) {
           setError(data.error || 'Não foi possível listar ficheiros.')
           setFiles([])
@@ -8183,18 +8644,21 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
       setFiles(rows)
       writeFmDirCache(currentPath, rows)
     } catch (e: unknown) {
+      if (ac.signal.aborted || gen !== listGenRef.current) return
       if (!hadCache) {
-        setError(e instanceof Error ? e.message : 'Erro ao carregar ficheiros.')
+        setError(fmNetworkError(e) || 'Erro ao carregar ficheiros.')
         setFiles([])
       }
     } finally {
-      setLoading(false)
-      setDirSyncing(false)
+      if (gen === listGenRef.current) {
+        setLoading(false)
+        setDirSyncing(false)
+      }
     }
   }
 
   const navigateTo = (folder: string) => {
-    const root = siteRoot || `/home/${getOwner(selectedDomain)}/domains/${selectedDomain}/public_html`
+    const root = siteRoot || resolveRoot(selectedDomain)
     if (folder === '..') {
       if (path === root) return
       const parts = path.split('/').filter(Boolean)
@@ -8211,7 +8675,11 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
 
   const joinPath = (name: string) => `${path.replace(/\/$/, '')}/${name}`
 
-  const resolveTrashPath = () => `/home/${getOwner(selectedDomain)}/.trash`
+  const resolveTrashPath = () => {
+    const hd = hestiaDomains.find(d => d.domain === selectedDomain)
+    const owner = hd ? hd.owner : (sites.find(s => s.domain === selectedDomain)?.owner || 'admin')
+    return `/home/${owner}/.trash`
+  }
 
   const sortedFiles = useMemo(() => sortFmDirectoryEntries(files as FmDirEntry[]), [files])
 
@@ -8248,12 +8716,14 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
     const res = await fetch('/api/server-exec', {
       method: 'POST',
       credentials: 'include',
+      cache: 'no-store',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action, params }),
     })
     const data = await res.json()
     if (!res.ok || !data.success) {
-      throw new Error(data.error || 'Operação falhou')
+      const nested = Array.isArray(data.data?.errors) ? data.data.errors[0]?.error : ''
+      throw new Error(data.error || nested || 'Operação falhou')
     }
     return data
   }
@@ -8261,6 +8731,17 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
   const flashAction = (text: string) => {
     setActionMsg(text)
     setTimeout(() => setActionMsg(''), 3500)
+  }
+
+  const startFmAction = (label: string) => {
+    setMoreMenuAnchor(null)
+    setActionBusy(true)
+    setActionBusyLabel(label)
+  }
+
+  const stopFmAction = () => {
+    setActionBusy(false)
+    setActionBusyLabel('')
   }
 
   const refreshList = (extraPaths?: string[]) => {
@@ -8285,7 +8766,7 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
       return
     }
     const filePath = joinPath(target)
-    setActionBusy(true)
+    startFmAction('A abrir ficheiro…')
     try {
       const data = await execFileAction('readFileContent', { path: filePath })
       const b64 = data.data?.content as string
@@ -8295,7 +8776,7 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
     } catch (e: unknown) {
       alert(e instanceof Error ? e.message : 'Não foi possível abrir o ficheiro')
     } finally {
-      setActionBusy(false)
+      stopFmAction()
     }
   }
 
@@ -8317,17 +8798,56 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
     }
   }
 
+  const folderByName = (name: string) =>
+    files.find((f: { name: string; isDir?: boolean }) => f.isDir && f.name.toLowerCase() === name.toLowerCase())
+
+  const backupFolderName = () =>
+    files.find((f: { name: string; isDir?: boolean }) => f.isDir && /^backup$/i.test(f.name))?.name
+
+  const suggestedDestDir = (mode: 'copy' | 'move') => {
+    const backup = backupFolderName()
+    if (mode === 'move' && backup && selectedFiles.some((n) => n !== backup)) {
+      return joinPath(backup)
+    }
+    const match = files.find((f: { name: string; isDir?: boolean }) =>
+      f.isDir && selectedFiles.some((n) => n !== f.name && n.toLowerCase() === f.name.toLowerCase()),
+    )
+    return match ? joinPath(match.name) : path
+  }
+
+  const resolveListedDestDir = (raw: string) => {
+    const destDir = raw.replace(/\/+$/, '')
+    const destBase = destDir.split('/').filter(Boolean).pop() || ''
+    const listed = folderByName(destBase)
+    if (!listed) return destDir
+    const listedPath = joinPath(listed.name)
+    if (destDir === listedPath || destDir.toLowerCase() === listedPath.toLowerCase()) {
+      return listedPath
+    }
+    return destDir
+  }
+
   const handleCopy = () => {
     if (!selectedFiles.length) return
     setFmDialog({ type: 'transfer', mode: 'copy', sources: selectedFullPaths() })
-    setFmDialogInput(path)
+    setFmDialogInput(suggestedDestDir('copy'))
     setMoreMenuAnchor(null)
   }
 
   const handleMove = () => {
     if (!selectedFiles.length) return
-    setFmDialog({ type: 'transfer', mode: 'move', sources: selectedFullPaths() })
-    setFmDialogInput(path)
+    const dest = suggestedDestDir('move')
+    const destName = dest.split('/').filter(Boolean).pop() || ''
+    const sources = selectedFullPaths().filter((src) => {
+      const base = src.split('/').filter(Boolean).pop() || ''
+      return base.toLowerCase() !== destName.toLowerCase()
+    })
+    if (!sources.length) {
+      alert('Seleccione os ficheiros a mover para a pasta Backup — a pasta de destino não se move a si própria.')
+      return
+    }
+    setFmDialog({ type: 'transfer', mode: 'move', sources })
+    setFmDialogInput(dest)
     setMoreMenuAnchor(null)
   }
 
@@ -8339,11 +8859,31 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
     setFmDialogBusy(true)
     try {
       if (fmDialog.type === 'transfer') {
+        let destDir = resolveListedDestDir(input)
+        const backup = backupFolderName()
+        const sourceParents = new Set(fmDialog.sources.map((src) => src.replace(/\/[^/]+$/, '')))
+        if (fmDialog.mode === 'move' && sourceParents.has(destDir) && backup) {
+          destDir = joinPath(backup)
+        }
+        if (fmDialog.mode === 'move' && sourceParents.has(destDir)) {
+          alert('Escolha uma pasta diferente da pasta actual — por exemplo Backup.')
+          return
+        }
+        const destNorm = destDir.replace(/\/+$/, '')
+        const sources = fmDialog.sources.filter((src) => {
+          const n = src.replace(/\/+$/, '')
+          return n !== destNorm && !n.startsWith(`${destNorm}/`)
+        })
+        if (!sources.length) {
+          alert('Nada para mover: a pasta de destino estava incluída na selecção.')
+          return
+        }
         const action = fmDialog.mode === 'copy' ? 'copyPaths' : 'movePaths'
-        await execFileAction(action, { sources: fmDialog.sources, destDir: input })
+        startFmAction(fmDialog.mode === 'copy' ? 'A copiar…' : 'A mover…')
+        await execFileAction(action, { sources, destDir })
         flashAction(fmDialog.mode === 'copy' ? 'Cópia concluída.' : 'Movimento concluído.')
         setFmDialog(null)
-        refreshList()
+        refreshList([destDir])
         return
       }
 
@@ -8376,6 +8916,7 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
           : 'Operação falhou'
       alert(e instanceof Error ? e.message : fallback)
     } finally {
+      stopFmAction()
       setFmDialogBusy(false)
       setMoreMenuAnchor(null)
     }
@@ -8391,12 +8932,91 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
     setFmDialogInput('')
   }
 
+  const cancelUpload = () => {
+    uploadCancelRef.current = true
+    uploadXhrRef.current?.abort()
+    uploadXhrRef.current = null
+  }
+
+  const handleUploadChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const picked = Array.from(e.target.files || [])
+    e.target.value = ''
+    if (!picked.length || uploadProgress) return
+    uploadCancelRef.current = false
+    const originalError = error
+    try {
+      let successCount = 0
+      let failCount = 0
+      let cancelled = false
+      for (let i = 0; i < picked.length; i++) {
+        if (uploadCancelRef.current) {
+          cancelled = true
+          break
+        }
+        const file = picked[i]
+        if (files.some((f: { name: string }) => f.name === file.name)) {
+          alert(`O ficheiro "${file.name}" já existe. Elimine-o ou mude o nome antes de fazer upload.`)
+          continue
+        }
+        const destPath = `${path.endsWith('/') ? path : `${path}/`}${file.name}`
+        setUploadProgress({ name: file.name, current: i + 1, total: picked.length, progress: 0, processing: false })
+        await new Promise<void>((resolve) => {
+          const xhr = new XMLHttpRequest()
+          uploadXhrRef.current = xhr
+          xhr.upload.addEventListener('progress', (ev) => {
+            if (ev.lengthComputable) {
+              const pct = Math.round((ev.loaded / ev.total) * 100)
+              setUploadProgress((prev) => (prev ? { ...prev, progress: pct, processing: pct === 100 } : null))
+            }
+          })
+          xhr.onload = () => {
+            if (xhr.status === 200) {
+              try {
+                const d = JSON.parse(xhr.responseText)
+                if (d.success) successCount += 1
+                else failCount += 1
+              } catch {
+                failCount += 1
+              }
+            } else {
+              failCount += 1
+            }
+            resolve()
+          }
+          xhr.onerror = () => {
+            failCount += 1
+            resolve()
+          }
+          xhr.onabort = () => {
+            cancelled = true
+            resolve()
+          }
+          xhr.open('POST', '/api/upload-native')
+          xhr.setRequestHeader('x-file-path', encodeURIComponent(destPath))
+          xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream')
+          xhr.send(file)
+        })
+        uploadXhrRef.current = null
+      }
+      setUploadProgress(null)
+      refreshList()
+      if (cancelled || uploadCancelRef.current) {
+        flashAction(successCount > 0 ? `Upload cancelado. ${successCount} ficheiro(s) já enviado(s).` : 'Upload cancelado.')
+      } else if (failCount > 0) {
+        alert(`Upload: ${successCount} sucesso(s), ${failCount} falha(s).`)
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Erro no upload')
+      setTimeout(() => setError(originalError), 5000)
+    }
+  }
+
   const handleDuplicate = async () => {
     if (selectedFiles.length !== 1) {
       alert('Seleccione apenas um item para duplicar.')
       return
     }
-    setActionBusy(true)
+    startFmAction('A duplicar…')
     try {
       await execFileAction('duplicatePath', { path: joinPath(selectedFiles[0]) })
       flashAction('Duplicado com sucesso.')
@@ -8404,7 +9024,7 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
     } catch (e: unknown) {
       alert(e instanceof Error ? e.message : 'Não foi possível duplicar')
     } finally {
-      setActionBusy(false)
+      stopFmAction()
     }
   }
 
@@ -8414,7 +9034,7 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
       alert('Seleccione ficheiros para transferir.')
       return
     }
-    setActionBusy(true)
+    startFmAction('A transferir…')
     try {
       for (const f of targets) {
         const data = await execFileAction('downloadFile', { path: joinPath(f.name) })
@@ -8434,14 +9054,14 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
     } catch (e: unknown) {
       alert(e instanceof Error ? e.message : 'Download falhou')
     } finally {
-      setActionBusy(false)
+      stopFmAction()
     }
   }
 
   const handleCompress = async () => {
     if (!selectedFiles.length) return
     const archivePath = `${path.replace(/\/$/, '')}/arquivo-${Date.now()}.zip`
-    setActionBusy(true)
+    startFmAction('A compactar…')
     try {
       await execFileAction('compressPaths', { sources: selectedFullPaths(), archivePath })
       flashAction('Arquivo criado na pasta actual.')
@@ -8449,7 +9069,7 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
     } catch (e: unknown) {
       alert(e instanceof Error ? e.message : 'Não foi possível compactar')
     } finally {
-      setActionBusy(false)
+      stopFmAction()
     }
   }
 
@@ -8464,7 +9084,7 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
     if (!fmDialog || fmDialog.type !== 'confirm-delete' || !selectedFiles.length) return
     const inTrash = fmDialog.inTrash
     setFmDialogBusy(true)
-    setActionBusy(true)
+    startFmAction(inTrash ? 'A eliminar…' : 'A mover para a lixeira…')
     try {
       if (inTrash) {
         await execFileAction('deletePaths', { paths: selectedFullPaths() })
@@ -8479,7 +9099,7 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
     } catch (e: unknown) {
       alert(e instanceof Error ? e.message : 'Não foi possível eliminar')
     } finally {
-      setActionBusy(false)
+      stopFmAction()
       setFmDialogBusy(false)
       setFmDialog(null)
       setMoreMenuAnchor(null)
@@ -8494,7 +9114,7 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
     const current = selectedFiles[0]
     const newName = prompt('Novo nome:', current)
     if (!newName || newName === current) return
-    setActionBusy(true)
+    startFmAction('A renomear…')
     try {
       await execFileAction('renamePath', { path: joinPath(current), newName })
       flashAction('Renomeado.')
@@ -8502,8 +9122,7 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
     } catch (e: unknown) {
       alert(e instanceof Error ? e.message : 'Não foi possível renomear')
     } finally {
-      setActionBusy(false)
-      setMoreMenuAnchor(null)
+      stopFmAction()
     }
   }
 
@@ -8517,7 +9136,7 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
       alert('Formato não suportado para descompactar.')
       return
     }
-    setActionBusy(true)
+    startFmAction('A descompactar…')
     try {
       await execFileAction('extractArchive', { path: joinPath(selectedFiles[0]), destDir: path })
       flashAction('Arquivo descompactado.')
@@ -8525,8 +9144,7 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
     } catch (e: unknown) {
       alert(e instanceof Error ? e.message : 'Descompactação falhou')
     } finally {
-      setActionBusy(false)
-      setMoreMenuAnchor(null)
+      stopFmAction()
     }
   }
 
@@ -8543,7 +9161,7 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
       alert('Formato inválido. Use 3 ou 4 dígitos octais (ex.: 644).')
       return
     }
-    setActionBusy(true)
+    startFmAction('A alterar permissões…')
     try {
       await execFileAction('setPathPermissions', { paths: selectedFullPaths(), mode: mode.trim() })
       flashAction('Permissões actualizadas.')
@@ -8551,8 +9169,7 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
     } catch (e: unknown) {
       alert(e instanceof Error ? e.message : 'Não foi possível alterar permissões')
     } finally {
-      setActionBusy(false)
-      setMoreMenuAnchor(null)
+      stopFmAction()
     }
   }
 
@@ -8567,26 +9184,13 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
     setMoreMenuAnchor(null)
   }
 
-  const siteDomainKey = useMemo(() => sites.map((s) => s.domain).join(','), [sites])
+  const siteDomainKey = useMemo(() => allDomains.map((s) => s.domain).join(','), [allDomains])
 
   useEffect(() => {
     if (!isActive) return
-    setChrome({
-      toolbar: (
-        <select
-          value={selectedDomain}
-          onChange={(e) => handleDomainChange(e.target.value)}
-          className={`${panelField} w-44 min-w-[10rem] max-w-xs`}
-        >
-          <option value="" disabled>Seleccione o domínio…</option>
-          {sites.map((s) => (
-            <option key={s.domain} value={s.domain}>{s.domain}</option>
-          ))}
-        </select>
-      ),
-    })
+    setChrome({})
     return () => setChrome(null)
-  }, [isActive, selectedDomain, siteDomainKey, setChrome])
+  }, [isActive, setChrome])
 
   useEffect(() => {
     const sentinel = toolbarSentinelRef.current
@@ -8644,7 +9248,12 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
 
   return (
     <div className="w-full space-y-3 -mt-4 lg:-mt-5">
-      {actionMsg ? (
+      {actionBusy && actionBusyLabel ? (
+        <div className="flex items-center gap-2 rounded-lg border border-amber-300/60 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-800 dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-200">
+          <Spinner className="h-4 w-4" />
+          {actionBusyLabel}
+        </div>
+      ) : actionMsg ? (
         <div className="rounded-lg border border-green-300/50 bg-transparent px-4 py-2 text-sm text-green-600 dark:border-green-800/50 dark:text-green-500">
           {actionMsg}
         </div>
@@ -8660,130 +9269,61 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
             : 'bg-transparent border-b border-transparent',
         )}
       >
-        <div className="flex w-full items-center justify-between gap-3">
-          <div className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto">
-            <button type="button" disabled={!canEditSelection || actionBusy} onClick={() => void handleEdit()} className={fmToolBtnClass(canEditSelection, actionBusy)}><Edit className="w-4 h-4" /> Editar</button>
+        {/* Linha única: [selector + criar] à esquerda | [acções ficheiros] à direita */}
+        <div className="flex w-full items-center justify-between gap-3 flex-wrap">
+
+          {/* ESQUERDA: seletor de domínio + Nova pasta + Novo ficheiro + Upload */}
+          <div className="flex items-center gap-2 flex-wrap shrink-0">
+            <select
+              value={selectedDomain}
+              onChange={(e) => handleDomainChange(e.target.value)}
+              className={`${panelField} shrink-0 min-w-[10rem] max-w-[14rem]`}
+            >
+              <option value="" disabled>Seleccione o domínio…</option>
+              {allDomains.map((s) => (
+                <option key={s.domain} value={s.domain}>{s.domain}</option>
+              ))}
+            </select>
+            {selectedDomain ? (
+              <>
+                <div className="h-5 w-px bg-gray-200 dark:bg-zinc-700 shrink-0" />
+                <button type="button" disabled={actionBusy} onClick={() => openCreateFolderDialog()} className={cn(fmToolbarBtnPlain, fmToolbarBtnActive)}>
+                  <FolderPlus className="w-4 h-4" /> Nova pasta
+                </button>
+                <button type="button" disabled={actionBusy} onClick={() => openCreateFileDialog()} className={cn(fmToolbarBtnPlain, fmToolbarBtnActive)}>
+                  <FilePlus className="w-4 h-4" /> Novo ficheiro
+                </button>
+                <label
+                  className={`flex items-center gap-2 px-2 text-sm font-semibold transition-colors ${loading || uploadProgress ? 'cursor-not-allowed text-gray-400' : 'cursor-pointer text-green-600 hover:text-green-700 dark:text-green-500 dark:hover:text-green-400'}`}
+                  title="Upload"
+                >
+                  <input type="file" multiple className="hidden" disabled={loading || Boolean(uploadProgress)}
+                    onChange={(e) => void handleUploadChange(e)}
+                  />
+                  <UploadCloud className="w-4 h-4" /> Upload
+                </label>
+              </>
+            ) : null}
+          </div>
+
+          {/* DIREITA: botões de acção sobre ficheiros seleccionados */}
+          <div className="flex items-center gap-2 overflow-x-auto shrink-0">
+            <button type="button" disabled={!canEditSelection || actionBusy} onClick={() => void handleEdit()} className={fmToolBtnClass(canEditSelection, actionBusy)}>{actionBusyLabel.startsWith('A abrir') ? <Spinner className="w-4 h-4" /> : <Edit className="w-4 h-4" />} Editar</button>
             <button type="button" disabled={!hasFileSelection || actionBusy} onClick={handleCopy} className={fmToolBtnClass(hasFileSelection, actionBusy)}><Copy className="w-4 h-4" /> Copiar</button>
-            <button type="button" disabled={!hasSingleSelection || actionBusy} onClick={() => void handleDuplicate()} className={fmToolBtnClass(hasSingleSelection, actionBusy)}><Layers className="w-4 h-4" /> Duplicar</button>
+            <button type="button" disabled={!hasSingleSelection || actionBusy} onClick={() => void handleDuplicate()} className={fmToolBtnClass(hasSingleSelection, actionBusy)}>{actionBusyLabel.startsWith('A duplicar') ? <Spinner className="w-4 h-4" /> : <Layers className="w-4 h-4" />} Duplicar</button>
             <button type="button" disabled={!hasFileSelection || actionBusy} onClick={handleMove} className={fmToolBtnClass(hasFileSelection, actionBusy)}><ArrowRightLeft className="w-4 h-4" /> Mover</button>
-            <button type="button" disabled={!hasFileSelection || actionBusy} onClick={() => void handleDownload()} className={fmToolBtnClass(hasFileSelection, actionBusy)}><Download className="w-4 h-4" /> Transferir</button>
-            <button type="button" disabled={!hasFileSelection || actionBusy} onClick={() => void handleCompress()} className={fmToolBtnClass(hasFileSelection, actionBusy)}><Archive className="w-4 h-4" /> Compactar</button>
+            <button type="button" disabled={!hasFileSelection || actionBusy} onClick={() => void handleDownload()} className={fmToolBtnClass(hasFileSelection, actionBusy)}>{actionBusyLabel.startsWith('A transferir') ? <Spinner className="w-4 h-4" /> : <Download className="w-4 h-4" />} Transferir</button>
+            <button type="button" disabled={!hasFileSelection || actionBusy} onClick={() => void handleCompress()} className={fmToolBtnClass(hasFileSelection, actionBusy)}>{actionBusyLabel.startsWith('A compactar') ? <Spinner className="w-4 h-4" /> : <Archive className="w-4 h-4" />} Compactar</button>
             <div className="relative shrink-0">
-              <button
-                type="button"
-                disabled={!hasFileSelection || actionBusy}
-                onClick={(e) => {
-                  const rect = e.currentTarget.getBoundingClientRect()
-                  if (moreMenuAnchor) setMoreMenuAnchor(null)
-                  else setMoreMenuAnchor(rect)
-                }}
-                className={fmToolBtnClass(hasFileSelection, actionBusy)}
-              >
-                <MoreVertical className="w-4 h-4" /> Mais
+              <button type="button" disabled={!hasFileSelection || actionBusy}
+                onClick={(e) => { const rect = e.currentTarget.getBoundingClientRect(); if (moreMenuAnchor) setMoreMenuAnchor(null); else setMoreMenuAnchor(rect); }}
+                className={fmToolBtnClass(hasFileSelection, actionBusy)}>
+                {actionBusy ? <Spinner className="w-4 h-4" /> : <MoreVertical className="w-4 h-4" />}
+                {actionBusy && actionBusyLabel ? actionBusyLabel.replace(/…$/, '') : 'Mais'}
               </button>
             </div>
           </div>
 
-          {selectedDomain ? (
-            <div className="flex shrink-0 items-center gap-2">
-              <button
-                type="button"
-                disabled={actionBusy}
-                onClick={() => openCreateFolderDialog()}
-                className={cn(fmToolbarBtnPlain, fmToolbarBtnActive)}
-              >
-                <FolderPlus className="w-4 h-4" /> Nova pasta
-              </button>
-              <button
-                type="button"
-                disabled={actionBusy}
-                onClick={() => openCreateFileDialog()}
-                className={cn(fmToolbarBtnPlain, fmToolbarBtnActive)}
-              >
-                <FilePlus className="w-4 h-4" /> Novo ficheiro
-              </button>
-              <label
-                className={`flex items-center gap-2 px-2 text-sm font-semibold transition-colors ${loading ? 'cursor-not-allowed text-gray-400' : 'cursor-pointer text-green-600 hover:text-green-700 dark:text-green-500 dark:hover:text-green-400'}`}
-                title="Upload"
-              >
-                <input
-                  type="file"
-                  multiple
-                  className="hidden"
-                  disabled={loading}
-                  onChange={async (e) => {
-                    const selectedFiles = Array.from(e.target.files || []);
-                    if (!selectedFiles.length) return;
-
-                    e.target.value = '';
-                    const originalError = error;
-
-                    try {
-                      let successCount = 0;
-                      let failCount = 0;
-
-                      for (let i = 0; i < selectedFiles.length; i++) {
-                        const file = selectedFiles[i];
-
-                        if (files.some(f => f.name === file.name)) {
-                          alert(`O ficheiro "${file.name}" já existe na pasta actual. Elimine-o ou mude-lhe o nome antes de fazer upload.`);
-                          continue;
-                        }
-
-                        const destPath = `${path.endsWith('/') ? path : path + '/'}${file.name}`;
-
-                        setUploadProgress({ name: file.name, current: i + 1, total: selectedFiles.length, progress: 0, processing: false });
-
-                        await new Promise<void>((resolve) => {
-                          const xhr = new XMLHttpRequest();
-                          xhr.upload.addEventListener('progress', (ev) => {
-                            if (ev.lengthComputable) {
-                              const pct = Math.round((ev.loaded / ev.total) * 100);
-                              setUploadProgress(prev => prev ? { ...prev, progress: pct, processing: pct === 100 } : null);
-                            }
-                          });
-
-                          xhr.onload = () => {
-                            if (xhr.status === 200) {
-                              try {
-                                const data = JSON.parse(xhr.responseText);
-                                if (data.success) successCount++;
-                                else { console.error(data.error); failCount++; }
-                              } catch {
-                                failCount++;
-                              }
-                            } else {
-                              failCount++;
-                            }
-                            resolve();
-                          };
-
-                          xhr.onerror = () => { failCount++; resolve(); };
-                          xhr.open('POST', '/api/upload-native');
-                          xhr.setRequestHeader('x-file-path', encodeURIComponent(destPath));
-                          xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
-                          xhr.send(file);
-                        });
-                      }
-
-                      setUploadProgress(null);
-                      refreshList();
-
-                      if (failCount > 0) {
-                        alert(`Upload concluído: ${successCount} sucesso(s), ${failCount} falha(s).`);
-                      }
-                    } catch (err: any) {
-                      setError(err.message || 'Erro ao processar uploads');
-                      setTimeout(() => setError(originalError), 5000);
-                    }
-                    e.target.value = '';
-                  }}
-                />
-                <UploadCloud className="w-4 h-4" />
-                Upload
-              </label>
-            </div>
-          ) : null}
         </div>
       </div>
 
@@ -8828,7 +9368,15 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
       </div>
 
       {/* Tabela de ficheiros */}
-      <div className={panelCard}>
+      <div className={`${panelCard} relative`}>
+        {actionBusy && actionBusyLabel ? (
+          <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/75 dark:bg-zinc-950/75">
+            <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-zinc-800 shadow-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100">
+              <Spinner className="h-4 w-4" />
+              {actionBusyLabel}
+            </div>
+          </div>
+        ) : null}
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
             <thead className="border-b border-gray-200 bg-gray-50/50 dark:border-zinc-800 dark:bg-zinc-900/50">
@@ -8885,17 +9433,34 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
                     <div className="w-full bg-gray-200 dark:bg-zinc-800 rounded-full h-2.5 overflow-hidden">
                       <div className="bg-green-500 h-2.5 rounded-full transition-all duration-300" style={{ width: `${uploadProgress.progress}%` }}></div>
                     </div>
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        onClick={cancelUpload}
+                        className={`${panelBtnSecondary} text-red-600 dark:text-red-400`}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                        Cancelar upload
+                      </button>
+                    </div>
                   </div>
                 </td></tr>
               ) : error ? (
                 <tr><td colSpan={5} className="px-6 py-12 text-center text-red-500 font-medium">
                   <AlertTriangle className="w-8 h-8 mx-auto mb-3 opacity-50" />
                   {error}
+                  <div className="mt-4">
+                    <button type="button" className={panelBtnSecondary} onClick={() => void loadFiles(path)}>
+                      Tentar de novo
+                    </button>
+                  </div>
                 </td></tr>
               ) : loading ? (
-                <tr><td colSpan={5} className="px-6 py-12 text-center text-gray-400">
-                  <Spinner className="w-8 h-8 mx-auto mb-3" />
-                  <span className="font-medium text-sm text-gray-500 dark:text-zinc-400">A carregar directório...</span>
+                <tr><td colSpan={5} className="py-16">
+                  <div className="flex flex-col items-center justify-center gap-3 text-gray-400">
+                    <Spinner className="w-8 h-8" />
+                    <span className="font-medium text-sm text-gray-500 dark:text-zinc-400">A carregar directório…</span>
+                  </div>
                 </td></tr>
               ) : sortedFiles.length === 0 ? (
                 <tr><td colSpan={5} className="px-6 py-12 text-center text-gray-400">
@@ -9061,6 +9626,45 @@ export function FileManagerSection({ domain, sites, isActive = false }: {
                       if (e.key === 'Enter' && !fmDialogBusy) void confirmFmDialog()
                     }}
                   />
+                  {fmDialog.type === 'transfer' && /^backup$/i.test(fmDialogInput.split('/').filter(Boolean).pop() || '') ? (
+                    <p className="mt-1.5 text-xs text-green-700 dark:text-green-400">
+                      Destino: pasta Backup (não um ficheiro). Os itens seleccionados serão {fmDialog.mode === 'copy' ? 'copiados' : 'movidos'} para lá.
+                    </p>
+                  ) : null}
+                  {fmDialog.type === 'transfer' ? (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {path !== siteRoot ? (
+                        <button
+                          type="button"
+                          className={panelBtnSecondary}
+                          onClick={() => {
+                            const parent = `/${path.split('/').filter(Boolean).slice(0, -1).join('/')}`
+                            setFmDialogInput(parent.startsWith(siteRoot) ? parent : siteRoot)
+                          }}
+                        >
+                          Pasta acima
+                        </button>
+                      ) : null}
+                      {sortedFiles
+                        .filter((f) => f.isDir)
+                        .slice()
+                        .sort((a, b) => Number(/^backup$/i.test(b.name)) - Number(/^backup$/i.test(a.name)))
+                        .slice(0, 12)
+                        .map((f) => (
+                        <button
+                          key={f.name}
+                          type="button"
+                          className={cn(
+                            panelBtnSecondary,
+                            /^backup$/i.test(f.name) && 'border-green-400 font-semibold text-green-700 dark:border-green-700 dark:text-green-400',
+                          )}
+                          onClick={() => setFmDialogInput(joinPath(f.name))}
+                        >
+                          {f.name}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
                 <div className="flex justify-end gap-2">
                   <button type="button" disabled={fmDialogBusy} onClick={() => setFmDialog(null)} className={panelBtnSecondary}>Cancelar</button>
@@ -9264,7 +9868,17 @@ export function WordPressInstallSection({ sites, onRefresh }: { sites: DirectAdm
                 Ver Site
               </a>
               <button
-                onClick={() => window.location.href = '/revendedor?section=cp-wp-list'}
+                onClick={() => {
+                  // Este formulário é partilhado por 3 painéis diferentes
+                  // (dashboard admin, revendedor, cliente) — antes ia sempre
+                  // para /revendedor com valor fixo, mesmo a partir do painel
+                  // admin, levando o utilizador para o sítio errado. Mantém-se
+                  // no mesmo painel onde o WordPress foi criado.
+                  const knownPanels = ['dashboard', 'revendedor', 'cliente', 'profissional']
+                  const currentPanel = window.location.pathname.split('/')[1]
+                  const panelBase = knownPanels.includes(currentPanel) ? currentPanel : 'dashboard'
+                  window.location.href = `/${panelBase}?section=cp-wp-list`
+                }}
                 className="inline-flex items-center gap-1.5 bg-green-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-green-700 transition-colors shadow-sm"
               >
                 <Check className="w-4 h-4" />
@@ -9967,20 +10581,25 @@ export function DomainManagerSection({
   hubMode = false,
   hubPanel = 'list',
   domainListMode = 'hosting',
+  registrarScope = 'mine',
   isActive = true,
   onHubAddClose,
   listSearch: listSearchProp,
   onListSearchChange,
   onFilteredCountChange,
+  onAddDomain,
 }: {
   sites: DirectAdminWebsite[]
   packages?: DirectAdminPackage[]
   onCreateEmail?: (domain: string) => void
   onNavigate?: (section: string, opts?: { domain?: string }) => void
   onRefresh?: () => void | Promise<void>
+  /** Painel Cliente: "Adicionar domínio" não cria um site no servidor (só staff) — abre o fluxo do cliente. */
+  onAddDomain?: () => void
   hubMode?: boolean
   hubPanel?: 'list' | 'add'
   domainListMode?: 'hosting' | 'registrar' | 'all'
+  registrarScope?: 'mine' | 'clients'
   isActive?: boolean
   onHubAddClose?: () => void
   listSearch?: string
@@ -9993,6 +10612,7 @@ export function DomainManagerSection({
   const listSearch = hubMode && listSearchProp !== undefined ? listSearchProp : listSearchInternal
   const setListSearch = hubMode && onListSearchChange ? onListSearchChange : setListSearchInternal
   const [openMenuDomain, setOpenMenuDomain] = useState<string | null>(null)
+  const [menuAnchorRect, setMenuAnchorRect] = useState<{ top: number; left: number; right: number; bottom: number } | null>(null)
   const domainMenuRef = useRef<HTMLDivElement>(null)
   const [msg, setMsg] = useState('')
   const [msgType, setMsgType] = useState<'success' | 'error'>('success')
@@ -10009,6 +10629,7 @@ export function DomainManagerSection({
     [sites],
   )
 
+  const wordPressDomains = useWordPressDomains()
   const siteByDomain = useMemo(() => {
     const map = new Map<string, DirectAdminWebsite>()
     for (const s of sites) map.set(s.domain.toLowerCase(), s)
@@ -10018,20 +10639,20 @@ export function DomainManagerSection({
   const rowsFromSites = useMemo(() => sitesToDomainRows(sites), [sitesSignature, sites])
 
   const [registrarListRows, setRegistrarListRows] = useState<CachedDomainRow[]>(() =>
-    domainListMode === 'registrar' ? readRegistrarDomainListCache() : [],
+    domainListMode === 'registrar' ? readRegistrarDomainListCache(true, registrarScope) : [],
   )
   const [registrarListLoading, setRegistrarListLoading] = useState(false)
 
   useEffect(() => {
     if ((domainListMode !== 'registrar' && domainListMode !== 'all') || !isActive || hubPanel !== 'list') return
     let cancelled = false
-    const cached = readRegistrarDomainListCache(true)
+    const cached = readRegistrarDomainListCache(true, registrarScope)
     if (cached.length > 0) {
       setRegistrarListRows(cached)
     } else {
       setRegistrarListLoading(true)
     }
-    void fetch('/api/registrar/account/domains', { credentials: 'include' })
+    void fetch(`/api/registrar/account/domains?scope=${registrarScope}`, { credentials: 'include' })
       .then((res) => res.json())
       .then((data: { success?: boolean; domains?: { domain: string; status?: string; expireDate?: string }[] }) => {
         if (cancelled) return
@@ -10043,7 +10664,7 @@ export function DomainManagerSection({
             expireDate: d.expireDate,
           }))
           setRegistrarListRows(rows)
-          writeRegistrarDomainListCache(rows)
+          writeRegistrarDomainListCache(rows, registrarScope)
         } else if (cached.length === 0) {
           setRegistrarListRows([])
         }
@@ -10057,7 +10678,7 @@ export function DomainManagerSection({
     return () => {
       cancelled = true
     }
-  }, [domainListMode, isActive, hubPanel])
+  }, [domainListMode, registrarScope, isActive, hubPanel])
 
   // Data de expiração vinda de domain_renewals (mesma fonte usada no aviso
   // de período de redenção do admin) — só os domínios do próprio utilizador,
@@ -10226,27 +10847,6 @@ export function DomainManagerSection({
     }
   }
 
-  const handleToggleAutoRenew = async (domain: string) => {
-    setOpenMenuDomain(null)
-    if (!confirm(`Desactivar a renovação automática de "${domain}"? O domínio deixa de renovar sozinho quando expirar.`)) return
-    try {
-      const res = await fetch('/api/admin/domains/auto-renew', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ domain, autoRenew: false }),
-      })
-      const data = await res.json().catch(() => ({}))
-      if (res.ok && data.success) {
-        showMsg(data.message || 'Renovação automática desactivada.')
-      } else {
-        showMsg(data.error || 'Erro ao desactivar renovação automática', 'error')
-      }
-    } catch (e: unknown) {
-      showMsg(e instanceof Error ? e.message : 'Erro de ligação', 'error')
-    }
-  }
-
   const panelBtnRow = domainCardBtn
 
   useEffect(() => {
@@ -10264,30 +10864,17 @@ export function DomainManagerSection({
       if (target.closest('[data-domain-menu-trigger]')) return
       setOpenMenuDomain(null)
     }
+    // O popup é `fixed` (ancorado às coordenadas do botão no momento do clique) —
+    // não acompanha o scroll da lista, por isso fecha-se em vez de ficar "solto"
+    // no ecrã longe do botão que o abriu.
+    const handleScroll = () => setOpenMenuDomain(null)
     document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [openMenuDomain])
-
-  const handleRenewDomain = async (domain: string) => {
-    setOpenMenuDomain(null)
-    try {
-      const res = await fetch('/api/renewals?type=domain', { credentials: 'include' })
-      const data = await res.json()
-      if (res.ok && data.success) {
-        const renewal = (data.domains || []).find(
-          (r: { domain_name?: string }) => r.domain_name?.toLowerCase() === domain.toLowerCase(),
-        )
-        if (renewal?.id) {
-          window.location.href = `/renovacao/iniciar/domain/${renewal.id}`
-          return
-        }
-      }
-    } catch {
-      /* fallback abaixo */
+    window.addEventListener('scroll', handleScroll, true)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      window.removeEventListener('scroll', handleScroll, true)
     }
-    onNavigate?.('facturas')
-    showMsg('Renovação não encontrada para este domínio. Verifique em Facturas.', 'error')
-  }
+  }, [openMenuDomain])
 
   useEffect(() => {
     if (newDomain) setDocRoot(newDomain)
@@ -10303,18 +10890,29 @@ export function DomainManagerSection({
     setOpenMenuDomain(null)
     const isActive = domainHostingStateLabel(d) === 'Activo'
     const verb = isActive ? 'suspender' : 'activar'
+    if (!d.owner) {
+      showMsg('Não foi possível identificar a conta de hospedagem deste domínio.', 'error')
+      return
+    }
     if (!confirm(`Deseja ${verb} o domínio "${d.domain}"?`)) return
     setLoading(true)
     try {
-      const ok = isActive
-        ? await directAdminAPI.suspendWebsite(d.domain)
-        : await directAdminAPI.unsuspendWebsite(d.domain)
-      if (ok) {
-        await syncWebsiteToSupabase({ domain: d.domain, status: isActive ? 'Suspended' : 'Active' })
+      // PATCH /api/admin/clientes resolve o servidor certo (DirectAdmin ou
+      // Hestia) por conta antes de agir — chamar directAdminAPI directamente
+      // aqui falhava sempre para contas Hestia (ex.: elimservicos, aamihe),
+      // que vivem noutro servidor.
+      const res = await fetch('/api/admin/clientes', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ action: isActive ? 'suspend' : 'unsuspend', userName: d.owner }),
+      })
+      const resJson = await res.json().catch(() => ({}))
+      if (res.ok && resJson.success) {
         showMsg(`Domínio ${isActive ? 'suspenso' : 'activado'} com sucesso.`)
         await onRefresh?.()
       } else {
-        showMsg(`Erro ao ${verb} o domínio.`, 'error')
+        showMsg(resJson.data?.error || resJson.error || `Erro ao ${verb} o domínio.`, 'error')
       }
     } catch (e: unknown) {
       showMsg(e instanceof Error ? e.message : `Erro ao ${verb} o domínio.`, 'error')
@@ -10423,7 +11021,15 @@ export function DomainManagerSection({
         type="button"
         data-domain-menu-trigger
         className={domainCardBtn}
-        onClick={() => setOpenMenuDomain((prev) => (prev === d.domain ? null : d.domain))}
+        onClick={(e) => {
+          if (openMenuDomain === d.domain) {
+            setOpenMenuDomain(null)
+            return
+          }
+          const rect = e.currentTarget.getBoundingClientRect()
+          setMenuAnchorRect({ top: rect.top, left: rect.left, right: rect.right, bottom: rect.bottom })
+          setOpenMenuDomain(d.domain)
+        }}
         aria-expanded={openMenuDomain === d.domain}
         aria-haspopup="menu"
         aria-label="Mais opções"
@@ -10437,87 +11043,49 @@ export function DomainManagerSection({
     ? filteredDomains.find((row) => row.domain === openMenuDomain) || null
     : null
 
-  // Barra lateral de acções rápidas por domínio — substitui o antigo dropdown
-  // posicionado por linha (`absolute ... top-1/2`), que ficava cortado atrás do
-  // cabeçalho fixo quando aberto numa linha perto do topo da lista. Largura igual
-  // à barra lateral esquerda do painel (242px), consistente com o painel "Gerenciar"
-  // da página de detalhe do domínio.
-  const domainQuickActionsPanel = menuDomainRow && (
-    <>
-      <div
-        className="fixed inset-0 z-40 bg-black/20"
-        onClick={() => setOpenMenuDomain(null)}
-        aria-hidden="true"
-      />
+  // Popup flutuante ancorado ao botão "..." que o abriu (coordenadas capturadas
+  // no clique) — usa position:fixed em vez de absolute dentro da linha, para não
+  // voltar ao bug antigo de ficar cortado atrás do cabeçalho fixo quando a linha
+  // está perto do topo da lista.
+  const domainQuickActionsPanel = menuDomainRow && menuAnchorRect && (
       <div
         ref={domainMenuRef}
         role="menu"
-        className="fixed inset-y-0 right-0 z-50 w-[242px] overflow-y-auto border-l border-gray-200 bg-white shadow-xl dark:border-zinc-700 dark:bg-zinc-900"
+        style={{
+          position: 'fixed',
+          top: Math.min(menuAnchorRect.bottom + 4, window.innerHeight - 220),
+          right: Math.max(window.innerWidth - menuAnchorRect.right, 8),
+        }}
+        className="z-50 min-w-[11rem] overflow-hidden rounded border border-gray-200 bg-white py-1 shadow-lg dark:border-zinc-700 dark:bg-zinc-900"
       >
-        <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3 dark:border-zinc-800">
-          <p className="truncate text-xs font-bold uppercase text-gray-500 dark:text-zinc-500">{menuDomainRow.domain}</p>
-          <button
-            type="button"
-            onClick={() => setOpenMenuDomain(null)}
-            className="shrink-0 text-gray-400 hover:text-red-600 dark:text-zinc-500 dark:hover:text-red-400"
-            aria-label="Fechar"
-          >
-            ✕
-          </button>
-        </div>
-        <div className="divide-y divide-gray-100 dark:divide-zinc-800">
-          <button type="button" className={domainCardMenuItem} onClick={() => { setOpenMenuDomain(null); setEmailModal({ show: true, domain: menuDomainRow.domain }) }}>
-            Criar e-mail
-          </button>
-          <button type="button" className={domainCardMenuItem} onClick={() => { setOpenMenuDomain(null); onNavigate?.('dns-central', { domain: menuDomainRow.domain }) }}>
-            Editar Zona de DNS
-          </button>
-          <button type="button" className={domainCardMenuItem} onClick={() => void handleRenewDomain(menuDomainRow.domain)}>
-            Renovar domínio
-          </button>
-          <button type="button" className={domainCardMenuItem} onClick={() => openManage(menuDomainRow)}>
-            Redireccionamento
-          </button>
-          <button type="button" className={domainCardMenuItem} onClick={() => void handleSuspendDomain(menuDomainRow)}>
-            {domainHostingStateLabel(menuDomainRow) === 'Activo' ? 'Suspender domínio' : 'Activar domínio'}
-          </button>
-          <button
-            type="button"
-            className={domainCardMenuItem}
-            onClick={() => {
-              setOpenMenuDomain(null)
-              setTransferOwnerModal({ show: true, domain: menuDomainRow.domain, targetEmail: '', saving: false })
-            }}
-          >
-            Mover para outra conta
-          </button>
-          <button
-            type="button"
-            className={domainCardMenuItem}
-            onClick={() => {
-              setOpenMenuDomain(null)
-              setAttachHostingSteps([])
-              setAttachHostingModal({ show: true, domain: menuDomainRow.domain, daUsername: '', saving: false })
-            }}
-          >
-            Associar a hospedagem existente
-          </button>
-          <button type="button" className={domainCardMenuItem} onClick={() => void handleToggleAutoRenew(menuDomainRow.domain)}>
-            Desactivar renovação automática
-          </button>
-          <button
-            type="button"
-            className={domainCardMenuItem}
-            onClick={() => {
-              setOpenMenuDomain(null)
-              window.open(`https://${menuDomainRow.domain}`, '_blank', 'noopener,noreferrer')
-            }}
-          >
-            Visitar site
-          </button>
-        </div>
+        <button
+          type="button"
+          className={domainCardMenuItem}
+          onClick={() => {
+            setOpenMenuDomain(null)
+            setAttachHostingSteps([])
+            setAttachHostingModal({ show: true, domain: menuDomainRow.domain, daUsername: '', saving: false })
+          }}
+        >
+          Associar
+        </button>
+        <button
+          type="button"
+          className={domainCardMenuItem}
+          onClick={() => {
+            setOpenMenuDomain(null)
+            setTransferOwnerModal({ show: true, domain: menuDomainRow.domain, targetEmail: '', saving: false })
+          }}
+        >
+          Mover
+        </button>
+        <button type="button" className={domainCardMenuItem} onClick={() => { setOpenMenuDomain(null); onNavigate?.('dns-central', { domain: menuDomainRow.domain }) }}>
+          Editar DNS
+        </button>
+        <button type="button" className={domainCardMenuItem} onClick={() => void handleSuspendDomain(menuDomainRow)}>
+          {domainHostingStateLabel(menuDomainRow) === 'Activo' ? 'Suspender' : 'Activar'}
+        </button>
       </div>
-    </>
   )
 
   if (hubMode && hubPanel === 'add') {
@@ -10541,8 +11109,8 @@ export function DomainManagerSection({
     <div className="w-full space-y-5">
       {!hubMode ? (
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex min-w-[140px] flex-wrap items-center gap-3">
-            <div className="relative w-full max-w-[14rem]">
+          <div className="flex min-w-0 flex-1 items-center gap-3">
+            <div className="relative w-full max-w-xl">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-zinc-500" />
               <input
                 value={listSearch}
@@ -10551,10 +11119,10 @@ export function DomainManagerSection({
                 className="w-full rounded border border-gray-300 bg-white py-2.5 pl-9 pr-3 text-sm text-gray-900 dark:border-zinc-700 dark:bg-white dark:text-zinc-900"
               />
             </div>
-            <span className="text-sm text-gray-500 dark:text-zinc-400">{filteredDomains.length} domínio(s)</span>
+            <span className="shrink-0 whitespace-nowrap text-sm text-gray-500 dark:text-zinc-400">{filteredDomains.length} domínio(s)</span>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <button type="button" onClick={() => setDomainModal(true)} className={panelBtnSecondary}>
+            <button type="button" onClick={() => (onAddDomain ? onAddDomain() : setDomainModal(true))} className={panelBtnSecondary}>
               <Plus className="h-4 w-4" /> Adicionar domínio
             </button>
             <button type="button" onClick={() => void onRefresh?.()} disabled={loading} className={panelBtnSecondary}>
@@ -10604,8 +11172,15 @@ export function DomainManagerSection({
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center justify-start gap-2">
-                      <span className="text-base font-bold text-gray-900 dark:text-zinc-100">{baseName}</span>
-                      {tld && <span className="text-sm font-medium text-gray-400 dark:text-zinc-500">{tld}</span>}
+                      <a
+                        href={`https://${d.domain}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-base font-bold text-gray-900 hover:text-red-600 hover:underline dark:text-zinc-100 dark:hover:text-red-400"
+                      >
+                        {baseName}
+                        {tld}
+                      </a>
                       {hasSsl ? (
                         <span className="flex items-center gap-1 rounded border border-green-200 bg-green-50 px-1.5 py-0.5 text-[10px] font-bold text-green-700 dark:border-green-900/40 dark:bg-green-950/30 dark:text-green-400">
                           <Lock className="h-3 w-3" /> SSL
@@ -10615,6 +11190,7 @@ export function DomainManagerSection({
                           Sem SSL
                         </span>
                       )}
+                      {wordPressDomains.has(d.domain.toLowerCase()) && <WordPressPanelBadge domain={d.domain} />}
                     </div>
                     <div className="mt-2 flex flex-wrap items-center justify-start gap-2 text-xs">
                       <span className={`font-medium ${isActive ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}>
@@ -11086,19 +11662,56 @@ function DomainCreateModal({
 }) {
   const [domainType, setDomainType] = useState<'addon' | 'subdomain' | 'parked'>('addon')
   const [newDomain, setNewDomain] = useState('')
+  const [parentDomain, setParentDomain] = useState('')
   const [adminEmail, setAdminEmail] = useState('')
   const [docRoot, setDocRoot] = useState('')
   const [selectedPHP, setSelectedPHP] = useState('PHP 8.2')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
+  const parentDomains = useMemo(
+    () =>
+      [...new Set((sites || []).map((s) => s.domain).filter((d) => d && d.includes('.')))].sort((a, b) =>
+        a.localeCompare(b),
+      ),
+    [sites],
+  )
+
   useEffect(() => {
-    if (newDomain && !docRoot) {
+    if (newDomain && !docRoot && domainType !== 'subdomain') {
       setDocRoot(`public_html/${newDomain}`)
     }
-  }, [newDomain, docRoot])
+  }, [newDomain, docRoot, domainType])
+
+  useEffect(() => {
+    if (domainType === 'subdomain' && !parentDomain && parentDomains.length === 1) {
+      setParentDomain(parentDomains[0])
+    }
+  }, [domainType, parentDomain, parentDomains])
+
+  const subdomainHost = domainType === 'subdomain' && parentDomain
+    ? subdomainFqdn(parentDomain, newDomain)
+    : ''
 
   const handleSubmit = async () => {
+    if (domainType === 'subdomain') {
+      if (!parentDomain || !newDomain.trim()) {
+        setError('Escolha o domínio principal e o nome do subdomínio.')
+        return
+      }
+      setLoading(true)
+      setError('')
+      try {
+        await directAdminAPI.createSubdomain(parentDomain, newDomain.trim())
+        onSuccess()
+      } catch (e: unknown) {
+        const host = subdomainFqdn(parentDomain, newDomain)
+        setError(e instanceof Error ? e.message : `Falha ao criar ${host}`)
+      }
+      setLoading(false)
+      return
+    }
+
     if (!newDomain || !adminEmail) {
       setError('Preencha todos os campos obrigatórios')
       return
@@ -11202,6 +11815,7 @@ function DomainCreateModal({
   const resetForm = () => {
     setDomainType('addon')
     setNewDomain('')
+    setParentDomain('')
     setAdminEmail('')
     setDocRoot('')
     setSelectedPHP('PHP 8.2')
@@ -11226,10 +11840,12 @@ function DomainCreateModal({
             </div>
             <div>
               <h2 className="text-lg font-bold text-zinc-900 block dark:text-zinc-100">
-                Detalhes do domínio
+                {domainType === 'subdomain' ? 'Novo subdomínio' : 'Detalhes do domínio'}
               </h2>
               <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                Criar novo domínio no servidor
+                {domainType === 'subdomain'
+                  ? 'Depois do domínio principal, como no cPanel e no DirectAdmin'
+                  : 'Criar novo domínio no servidor'}
               </span>
             </div>
           </div>
@@ -11245,7 +11861,7 @@ function DomainCreateModal({
               <div className="flex flex-col items-center gap-3">
                 <Spinner className="w-8 h-8" />
                 <span className="text-sm text-zinc-600 font-medium dark:text-zinc-300">
-                  A criar domínio…
+                  {domainType === 'subdomain' ? 'A criar subdomínio…' : 'A criar domínio…'}
                 </span>
                 <span className="text-xs text-zinc-400">Isso pode levar alguns segundos</span>
               </div>
@@ -11271,7 +11887,11 @@ function DomainCreateModal({
             </label>
             <select
               value={domainType}
-              onChange={e => setDomainType(e.target.value as 'addon' | 'subdomain' | 'parked')}
+              onChange={e => {
+                setDomainType(e.target.value as 'addon' | 'subdomain' | 'parked')
+                setNewDomain('')
+                setError('')
+              }}
               className={cn(panelField, 'w-full dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100')}
             >
               <option value="addon">Domínio adicional</option>
@@ -11280,6 +11900,54 @@ function DomainCreateModal({
             </select>
           </div>
 
+          {domainType === 'subdomain' ? (
+            <>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 dark:text-zinc-400">
+                  Domínio principal
+                </label>
+                {parentDomains.length === 0 ? (
+                  <p className="text-sm text-zinc-500">Crie primeiro o domínio principal nesta conta. Depois o subdomínio fica disponível aqui, como no cPanel.</p>
+                ) : (
+                  <select
+                    value={parentDomain}
+                    onChange={e => setParentDomain(e.target.value)}
+                    className={cn(panelField, 'w-full dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100')}
+                  >
+                    <option value="">Seleccione o domínio já criado…</option>
+                    {parentDomains.map((d) => (
+                      <option key={d} value={d}>{d}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 dark:text-zinc-400">
+                  Nome do subdomínio
+                </label>
+                <div className="flex overflow-hidden rounded border border-zinc-300 bg-white dark:border-zinc-700 dark:bg-zinc-900">
+                  <input
+                    value={newDomain}
+                    onChange={e => setNewDomain(e.target.value.replace(/^https?:\/\//, '').split('/')[0])}
+                    placeholder="app"
+                    className="flex-1 bg-transparent px-4 py-3 text-sm focus:outline-none dark:text-zinc-100"
+                  />
+                  {parentDomain ? (
+                    <span className="flex items-center whitespace-nowrap border-l border-zinc-300 bg-zinc-100 px-4 text-sm text-zinc-600 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400">
+                      .{parentDomain}
+                    </span>
+                  ) : null}
+                </div>
+                {subdomainHost ? (
+                  <p className="mt-2 text-xs text-zinc-500">
+                    O site abre em <span className="font-mono text-zinc-800 dark:text-zinc-200">https://{subdomainHost}</span>
+                    {' '}— não em {parentDomain}/{newDomain.trim() || 'app'}
+                  </p>
+                ) : null}
+              </div>
+            </>
+          ) : (
+            <>
           {/* Domain Name */}
           <div>
             <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 dark:text-zinc-400">
@@ -11288,7 +11956,7 @@ function DomainCreateModal({
             <input
               value={newDomain}
               onChange={e => setNewDomain(e.target.value)}
-              placeholder="subdominio.exemplo.com ou novodominio.com"
+              placeholder="novodominio.com"
               className={cn(panelField, 'w-full dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100')}
             />
           </div>
@@ -11318,7 +11986,7 @@ function DomainCreateModal({
               <input
                 value={docRoot}
                 onChange={e => setDocRoot(e.target.value)}
-                placeholder="public_html/subdominio"
+                placeholder="public_html"
                 className="flex-1 bg-transparent px-4 py-3 text-sm focus:outline-none dark:text-zinc-100"
               />
             </div>
@@ -11341,6 +12009,8 @@ function DomainCreateModal({
               <option>PHP 8.3</option>
             </select>
           </div>
+            </>
+          )}
         </div>
 
         <div className="flex items-center justify-end gap-2 border-t border-zinc-200 bg-white/80 px-8 py-6 dark:border-zinc-800 dark:bg-zinc-900/80">
@@ -11350,11 +12020,15 @@ function DomainCreateModal({
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={loading || !newDomain || !adminEmail}
+            disabled={
+              loading
+              || !newDomain
+              || (domainType === 'subdomain' ? !parentDomain : !adminEmail)
+            }
             className={panelBtnPrimary}
           >
             {loading ? <Spinner className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-            Adicionar domínio
+            {domainType === 'subdomain' ? 'Criar subdomínio' : 'Adicionar domínio'}
           </button>
         </div>
       </div>
@@ -11805,8 +12479,8 @@ export function SMTPConfigSection() {
       </div>
 
       {statusLoading && !status ? (
-        <div className="rounded-xl border border-gray-200 bg-white p-6 text-sm text-gray-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
-          A carregar estado...
+        <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white p-6 text-sm text-gray-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
+          <Spinner /> A carregar estado...
         </div>
       ) : (
         <>

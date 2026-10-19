@@ -131,6 +131,24 @@ export function resolvePanelCapabilities(input: {
     };
   }
 
+  // 'profissional' (comprador self-service, painel /profissional) — mesmo
+  // scope que 'manager': só o site próprio, nunca contas de hospedagem de
+  // outros clientes (essa peça nem existe no menu deste painel).
+  if (role === 'profissional') {
+    return {
+      role,
+      readOnly: false,
+      canCreateUsers: false,
+      canManageHostingAccounts: false,
+      canManagePackages: false,
+      canProvisionHosting: false,
+      canCreateWordPress: true,
+      canConfigureSites: true,
+      canManageResellerChildren: false,
+      resellerTier: null,
+    };
+  }
+
   return {
     role,
     readOnly: true,

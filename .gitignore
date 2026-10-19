@@ -21,7 +21,9 @@
 /build
 
 # misc
-.cursor/
+# .cursor: só as regras do projecto para o Cursor vão para o Git (o resto é local)
+.cursor/*
+!.cursor/rules/
 .DS_Store
 *.pem
 
@@ -48,3 +50,10 @@ Visual author/
 
 # scratch node_modules
 scratch/node_modules/
+
+# Cópia do worker do PDF.js gerada antes do dev/build (scripts/copy-pdf-worker.mjs)
+/public/pdfjs/
+
+# PWA service worker
+/public/sw.js*
+/public/workbox-*.js*

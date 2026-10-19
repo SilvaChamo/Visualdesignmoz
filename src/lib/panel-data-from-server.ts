@@ -9,7 +9,7 @@ import type { UserProductsSummary } from '@/lib/user-products';
 import type { PanelCapabilities, ResellerTier } from '@/lib/panel-role-capabilities';
 import { parseJsonResponse } from '@/lib/safe-fetch-json';
 
-const BOOTSTRAP_CACHE_KEY = 'vd_panel_bootstrap_v2';
+const BOOTSTRAP_CACHE_KEY = 'vd_panel_bootstrap_v3';
 // 8h — dentro de um dia de trabalho normal, o dashboard mostra sempre a
 // última versão guardada na hora (instantâneo) e só actualiza em segundo
 // plano (fetchPanelBootstrapStaleWhileRevalidate), em vez de voltar a
@@ -30,6 +30,12 @@ export type PanelBootstrapResellerContext = {
   primaryDomain: string | null;
   impersonating: boolean;
   resellerTier?: ResellerTier | null;
+  /** Conta principal do login (≠ daUsername dentro de uma conta de domínio ligada). */
+  mainAccount?: string;
+  /** Conta de domínio ligada em que o login entrou com credenciais (Premium). */
+  enteredAccount?: string | null;
+  /** Contas ligadas geridas directamente (Enterprise). */
+  linkedOwners?: string[];
 };
 
 export type PanelBootstrapSession = {
@@ -37,10 +43,18 @@ export type PanelBootstrapSession = {
   readOnly: boolean;
   capabilities?: PanelCapabilities;
   resellerTier?: ResellerTier | null;
+  /** Painel /cliente aberto por um admin dentro da conta deste cliente. */
+  impersonatedClient?: { email: string | null; nome: string | null } | null;
 };
 
 export type PanelBootstrapData = {
   sites: DirectAdminWebsite[];
+  /** Conta principal do provedor Hestia, dona dos sites da VisualDesign. */
+  hostingOwner?: string | null;
+  /** Este deploy só fala com Hestia (Contabo) — sem botões/rotas DirectAdmin. */
+  hestiaOnly?: boolean;
+  /** Todos os sites do espelho, incluindo contas de clientes/Osher — para o hub de domínios. */
+  allSites?: DirectAdminWebsite[];
   users: DirectAdminUser[];
   packages: DirectAdminPackage[];
   accounts: PanelBootstrapAccount[];
@@ -118,6 +132,9 @@ export async function fetchPanelBootstrap(options?: {
     success?: boolean;
     error?: string;
     sites?: DirectAdminWebsite[];
+    allSites?: DirectAdminWebsite[];
+    hostingOwner?: string | null;
+    hestiaOnly?: boolean;
     users?: DirectAdminUser[];
     packages?: DirectAdminPackage[];
     accounts?: PanelBootstrapAccount[];
@@ -133,6 +150,9 @@ export async function fetchPanelBootstrap(options?: {
 
   const data: PanelBootstrapData = {
     sites: Array.isArray(json.sites) ? json.sites : [],
+    allSites: Array.isArray(json.allSites) ? json.allSites : undefined,
+    hostingOwner: json.hostingOwner ?? null,
+    hestiaOnly: Boolean(json.hestiaOnly),
     users: Array.isArray(json.users) ? json.users : [],
     packages: Array.isArray(json.packages) ? json.packages : [],
     accounts: Array.isArray(json.accounts) ? json.accounts : [],

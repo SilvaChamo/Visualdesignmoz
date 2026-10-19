@@ -14,6 +14,10 @@ import { PANEL_SLUG } from '@/lib/panel-tenant';
 import type { UserRole } from '@/lib/user-roles';
 import { patchMirrorUser } from '@/lib/panel-mirror-write';
 import { runHestiaFullSyncDeduped } from '@/lib/hestia-sync-engine';
+import { getProviderByUsername, isHestiaOnlyDeploy } from '@/lib/hosting-provider';
+import { getServerHost } from '@/lib/server-config';
+import { contaAdmin } from '@/lib/vhost-passar';
+import { pointDomainToServerIp } from '@/lib/cloudflare-dns';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
@@ -86,6 +90,7 @@ async function markAccountServerLinked(params: {
     name: params.name,
     serverLinked: true,
     daUsername: params.userName,
+    provider: isHestiaOnlyDeploy() ? 'hestia' : undefined,
   });
   await patchMirrorUser(params.userName, { updated_at: new Date().toISOString() });
 }
@@ -124,17 +129,13 @@ export async function provisionPanelAccountToServer(userName: string): Promise<{
     return { ok: true, linked: true };
   }
 
-  const { data: site } = await sb
-    .from('panel_sites')
-    .select('domain, admin_email, package')
-    .eq('owner', username)
-    .order('updated_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const { listMirrorWebsites } = await import('@/lib/panel-mirror-read');
+  const site = (await listMirrorWebsites({ role: 'reseller', daUsername: username }))
+    .find((s) => (s.owner || '').toLowerCase() === username.toLowerCase());
 
   const domain = String(site?.domain || `${username}.com`).trim().toLowerCase();
   const packageName = String(panelUser.package_name || site?.package || 'Default').trim() || 'Default';
-  const email = String(site?.admin_email || panelUser.email || authRow?.email || '').trim();
+  const email = String(site?.adminEmail || panelUser.email || authRow?.email || '').trim();
 
   if (!email.includes('@')) {
     return { ok: false, linked: false, error: 'Email da conta em falta' };
@@ -160,11 +161,13 @@ export async function provisionPanelAccountToServer(userName: string): Promise<{
   }
 
   const acl = String(panelUser.acl || 'user').toLowerCase();
-  const provider = authRow?.provider === 'hestia' ? 'hestia' : 'directadmin';
+  const provider = isHestiaOnlyDeploy()
+    ? 'hestia'
+    : await getProviderByUsername(username);
 
   const result =
     provider === 'hestia'
-      ? await hestiaAdapter.createAccount({ username, password, email, domain, packageName })
+      ? await hestiaAdapter.createAccount({ username, password, email, domain, packageName, passarDeContas: [contaAdmin()], quem: 'compra:' + username })
       : await daPostViaSsh(
           acl === 'reseller' ? 'CMD_API_ACCOUNT_RESELLER' : 'CMD_API_ACCOUNT_USER',
           accountCreateFields({ userName: username, email, password, domain, packageName }),
@@ -179,6 +182,11 @@ export async function provisionPanelAccountToServer(userName: string): Promise<{
         : result.error || 'Falha ao criar conta no servidor',
     };
   }
+
+  // Domínio noutra conta de cliente: a conta ficou criada sem ele; fica o aviso para o administrador decidir
+  // (plano 07, ponto 3: nunca passa sozinho de uma conta de cliente).
+  const aviso = (result as { aviso?: string }).aviso;
+  if (aviso) console.error('[panel-server-provision] ATENÇÃO administrador:', aviso);
 
   const displayName =
     `${String(panelUser.first_name || '')} ${String(panelUser.last_name || '')}`.trim() ||
@@ -218,6 +226,17 @@ export async function provisionPanelAccountToServer(userName: string): Promise<{
     runHestiaFullSyncDeduped().catch((err) =>
       console.error('[panel-server-provision] sync Hestia pós-criação falhou:', err),
     );
+    const serverIp = getServerHost();
+    void pointDomainToServerIp(domain, serverIp).catch((err) =>
+      console.error('[panel-server-provision] A/www Cloudflare:', err),
+    );
+    void (async () => {
+      for (const waitMs of [20_000, 60_000, 180_000]) {
+        await new Promise((resolve) => setTimeout(resolve, waitMs));
+        const ssl = await hestiaAdapter.issueLetsEncrypt(username, domain);
+        if (ssl.ok) return;
+      }
+    })().catch((err) => console.error('[panel-server-provision] retry SSL:', err));
   }
 
   return { ok: true, linked: true };

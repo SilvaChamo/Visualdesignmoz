@@ -1,4 +1,4 @@
-export const DEFAULT_SERVER_IP = '37.27.17.25';
+export const DEFAULT_SERVER_IP = '169.58.148.144';
 
 function webmailBase(): string {
   const env =
@@ -55,7 +55,14 @@ export function getDirectAdminWordPressUrl(): string {
 }
 
 export function getServerHost(): string {
-  return process.env.NEXT_PUBLIC_SERVER_IP || DEFAULT_SERVER_IP;
+  const fromEnv = (process.env.NEXT_PUBLIC_SERVER_IP || '').trim();
+  if (fromEnv) return fromEnv;
+  // Sem IP no env, o default antigo era o Hetzner. Neste deploy Hestia/Contabo
+  // isso apontava A/www para o servidor errado.
+  if ((process.env.DEFAULT_HOSTING_PROVIDER || '').trim().toLowerCase() === 'hestia') {
+    return '169.58.148.144';
+  }
+  return DEFAULT_SERVER_IP;
 }
 
 export function getCPHost(): string {
@@ -66,13 +73,64 @@ export function getCPUrl(): string {
   return getWebmailUrl();
 }
 
-/** ⚠️ PLACEHOLDER: a HestiaCP ainda não está instalada em nenhum servidor.
- *  Isto devolve o URL do Webmail só para nunca rebentar nada que ainda
- *  chame esta função — mas não aponta para uma HestiaCP real. Os menus que
- *  usavam isto foram escondidos (ver HostingSections.tsx / dashboard/page.tsx)
- *  até a HestiaCP ser instalada a sério num servidor próprio. */
+function envLooksLikeHestia(): boolean {
+  const explicit = (
+    process.env.NEXT_PUBLIC_DEFAULT_HOSTING_PROVIDER ||
+    process.env.DEFAULT_HOSTING_PROVIDER ||
+    ''
+  )
+    .trim()
+    .toLowerCase();
+  if (explicit === 'hestia') return true;
+  if (explicit === 'directadmin') return false;
+  const site = (process.env.NEXT_PUBLIC_SITE_URL || '').toLowerCase();
+  return site.includes('teste.visualdesignmoz.com');
+}
+
+function publicHostname(raw: string): string {
+  return raw.replace(/^https?:\/\//, '').replace(/:\d+$/, '').replace(/\/$/, '').split('/')[0];
+}
+
+function isLoopbackHost(host: string): boolean {
+  const h = host.toLowerCase();
+  return !h || h === 'localhost' || h === '127.0.0.1' || h === '::1';
+}
+
+/** Login do painel Hestia (Contabo). Sem host configurado, não inventa um URL. */
 export function getHestiaUrl(): string {
-  return getWebmailUrl();
+  const host = (process.env.HESTIA_HOST || process.env.NEXT_PUBLIC_HESTIA_HOST || '').trim();
+  if (!host) return getWebmailUrl();
+  const clean = host.replace(/^https?:\/\//, '').replace(/\/$/, '');
+  const port = (process.env.HESTIA_PORT || process.env.NEXT_PUBLIC_HESTIA_PORT || '8083').trim();
+  return `https://${clean}:${port}`;
+}
+
+/**
+ * Gestor MySQL (phpMyAdmin). No Contabo o hostname do painel faz proxy de
+ * "/" para o Next.js — o PMA vive em https://{host}/phpmyadmin/, não na
+ * porta 2222 do DirectAdmin nem no domínio do cliente.
+ */
+export function getPhpMyAdminUrl(domain?: string): string {
+  const fromEnv = (process.env.NEXT_PUBLIC_PHPMYADMIN_URL || '').trim();
+  if (fromEnv) return fromEnv.replace(/\/?$/, '/');
+
+  const browserHost = typeof window !== 'undefined' ? window.location.hostname : '';
+  const onHestiaPanel = envLooksLikeHestia() || browserHost === 'teste.visualdesignmoz.com';
+
+  if (onHestiaPanel) {
+    if (typeof window !== 'undefined' && window.location.origin) {
+      return `${window.location.origin}/phpmyadmin/`;
+    }
+    const siteHost = publicHostname(process.env.NEXT_PUBLIC_SITE_URL || 'teste.visualdesignmoz.com');
+    if (siteHost && !isLoopbackHost(siteHost)) {
+      return `https://${siteHost}/phpmyadmin/`;
+    }
+    return 'https://teste.visualdesignmoz.com/phpmyadmin/';
+  }
+
+  const host = publicHostname(domain || '');
+  if (host) return `https://${host}:2222/phpMyAdmin/`;
+  return `https://${getServerHost()}:2222/phpMyAdmin/`;
 }
 
 /** URL público do Roundcube: https://{domínio}/webmail — o subdomínio

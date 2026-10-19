@@ -4,6 +4,7 @@ import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { formatMt } from '@/lib/pricing-catalog';
 import { notifyQuoteTeam } from '@/lib/notify-quote-team';
 import { resolveRoleForAuthUser } from '@/lib/server-auth-role';
+import { encomendaPaymentSplit } from '@/lib/encomenda-checkout';
 
 const VALID_METHODS = ['mpesa', 'transferencia'];
 
@@ -80,7 +81,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     const metodoLabel = metodoPagamento === 'mpesa' ? 'M-Pesa' : 'Transferência Bancária';
     const totalBatch = siblings.reduce((sum, i) => sum + (i.sob_consulta ? 0 : i.total_mt), 0);
-    const remanescente = Math.round(totalBatch * 0.3 * 100) / 100;
+    const remanescente = encomendaPaymentSplit(totalBatch).remanescenteMt;
     notifyQuoteTeam({
       title: 'Cliente escolheu método para o remanescente',
       message: `${quotation.empresa} escolheu ${metodoLabel} para pagar o remanescente da encomenda (${siblings.map((i) => i.produto).join(', ')}). Valor: ${formatMt(remanescente)} MT.`,

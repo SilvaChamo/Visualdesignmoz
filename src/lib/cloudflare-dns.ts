@@ -67,6 +67,25 @@ export async function findCloudflareZoneId(domain: string): Promise<string | nul
 }
 
 /**
+ * Percorre o hostname até encontrar a zona Cloudflare que o cobre.
+ * `app.mltmark.com` não tem zona própria — a zona é `mltmark.com`.
+ * Sem isto, criar um subdomínio depois do domínio principal nunca apontava DNS.
+ */
+export async function findCloudflareZoneForHost(
+  host: string,
+): Promise<{ zoneId: string; zoneName: string } | null> {
+  const clean = host.trim().toLowerCase().replace(/\.$/, '');
+  if (!clean.includes('.')) return null;
+  const labels = clean.split('.').filter(Boolean);
+  for (let i = 0; i <= labels.length - 2; i++) {
+    const zoneName = labels.slice(i).join('.');
+    const zoneId = await findCloudflareZoneId(zoneName);
+    if (zoneId) return { zoneId, zoneName };
+  }
+  return null;
+}
+
+/**
  * Cria uma zona nova na Cloudflare para um domínio recém-registado (ex: logo
  * a seguir a uma compra através do painel). Devolve os nameservers que a
  * Cloudflare atribuiu — têm de ser postos no registador (ver
@@ -93,11 +112,13 @@ export async function createCloudflareZone(
       const res = await fetch(`${CF_API_BASE}/zones/${existingId}`, { headers });
       const data = (await res.json()) as { success: boolean; result?: { name_servers?: string[] } };
       if (data.success && data.result?.name_servers?.length) {
+        void applyCloudflareSafeCacheDefaults(existingId, clean);
         return { ok: true, zoneId: existingId, nameServers: data.result.name_servers, alreadyExisted: true };
       }
     } catch {
       /* segue para tentar criar - o findCloudflareZoneId já confirmou que existe */
     }
+    void applyCloudflareSafeCacheDefaults(existingId, clean);
     return { ok: true, zoneId: existingId, nameServers: [], alreadyExisted: true };
   }
 
@@ -115,14 +136,32 @@ export async function createCloudflareZone(
     if (!data.success || !data.result) {
       return { ok: false, error: data.errors?.map((e) => e.message).join('; ') || `HTTP ${res.status}` };
     }
-    return {
-      ok: true,
+    const created = {
+      ok: true as const,
       zoneId: data.result.id,
       nameServers: data.result.name_servers || [],
       alreadyExisted: false,
     };
+    void applyCloudflareSafeCacheDefaults(created.zoneId, clean);
+    return created;
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : 'Erro desconhecido' };
+  }
+}
+
+export async function deleteCloudflareZone(
+  domain: string,
+): Promise<{ ok: boolean; error?: string; alreadyGone?: boolean }> {
+  const zoneId = await findCloudflareZoneId(domain);
+  if (!zoneId) return { ok: true, alreadyGone: true };
+  const headers = getCloudflareAuthHeaders();
+  if (!headers) return { ok: false, error: 'Cloudflare não configurada' };
+  try {
+    const res = await fetch(`${CF_API_BASE}/zones/${zoneId}`, { method: 'DELETE', headers });
+    if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : 'Erro ao apagar zona' };
   }
 }
 
@@ -189,15 +228,13 @@ export async function upsertCloudflareRecord(
     const existing = await findExistingRecords(headers, zoneId, record.type, name);
 
     // SPF só pode ter um por domínio (2 registos "v=spf1" causam permerror e
-    // podem reprovar TODO o email do domínio). #11 (2026-09-14, backport de
-    // visualdesign-teste): mudar o IP do servidor criava um SPF novo em vez
-    // de substituir o antigo — apanhado ao testar o email do
-    // entrecamposblog.com no Contabo. Limpa qualquer SPF "órfão" (diferente
-    // do que se está agora a aplicar) ANTES de decidir se há algo a fazer —
-    // senão, voltar a aplicar o mesmo valor correcto uma segunda vez nunca
-    // chegava a limpar o antigo (a verificação de "já está igual" abaixo
-    // saía mais cedo). #11b: os registos apagados deixam de ser candidatos a
-    // "substituir" — um PUT sobre um id já apagado falharia (404).
+    // podem reprovar TODO o email do domínio). #11 (2026-09-14): mudar o IP
+    // do servidor criava um SPF novo em vez de substituir o antigo —
+    // apanhado ao testar o email do entrecamposblog.com no Contabo. Limpa
+    // qualquer SPF "órfão" (diferente do que se está agora a aplicar) ANTES
+    // de decidir se há algo a fazer — senão, voltar a aplicar o mesmo valor
+    // correcto uma segunda vez nunca chegava a limpar o antigo (a verificação
+    // de "já está igual" abaixo saía mais cedo).
     const isSpf = record.type === 'TXT' && /^v=spf1\b/i.test(content);
     let candidates = existing;
     if (isSpf) {
@@ -205,6 +242,8 @@ export async function upsertCloudflareRecord(
       for (const s of stale) {
         await fetch(`${CF_API_BASE}/zones/${zoneId}/dns_records/${s.id}`, { method: 'DELETE', headers }).catch(() => {});
       }
+      // Os apagados acima deixam de ser candidatos válidos a "substituir" —
+      // tentar um PUT sobre um id já apagado falharia (404).
       const staleIds = new Set(stale.map((s) => s.id));
       candidates = existing.filter((r) => !staleIds.has(r.id));
     }
@@ -264,6 +303,232 @@ export async function upsertCloudflareRecord(
   }
 }
 
+export type CloudflareListedRecord = {
+  id: string;
+  name: string;
+  type: string;
+  content: string;
+  ttl: number;
+  priority?: number;
+  /** nuvem laranja (proxy da Cloudflare) */
+  proxied?: boolean;
+};
+
+export async function listCloudflareDnsRecords(
+  zoneId: string,
+  domain: string,
+): Promise<CloudflareListedRecord[]> {
+  const headers = getCloudflareAuthHeaders();
+  if (!headers) return [];
+  const clean = domain.trim().toLowerCase().replace(/\.$/, '');
+  try {
+    const res = await fetch(`${CF_API_BASE}/zones/${zoneId}/dns_records?per_page=200`, { headers });
+    if (!res.ok) return [];
+    const data = (await res.json()) as {
+      success: boolean;
+      result?: Array<{ id: string; name: string; type: string; content: string; ttl?: number; priority?: number; proxied?: boolean }>;
+    };
+    if (!data.success) return [];
+    return (data.result || []).map((r) => ({
+      id: r.id,
+      name: r.name === clean ? '@' : r.name.replace(new RegExp(`\\.${clean}$`), ''),
+      type: r.type,
+      content: r.content,
+      ttl: r.ttl || 3600,
+      priority: r.priority,
+      proxied: r.proxied,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+const CLOUDFLARE_ID_RE = /^[a-f0-9]{32}$/i;
+
+export async function deleteCloudflareDnsRecord(
+  zoneId: string,
+  recordId: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const headers = getCloudflareAuthHeaders();
+  if (!headers) return { ok: false, error: 'Cloudflare não configurada' };
+  // zoneId/recordId acabam interpolados directamente no URL da API — o
+  // segundo vem do id que o cliente manda no pedido DELETE do painel, por
+  // isso valida-se a forma (id real da Cloudflare é sempre hex de 32) antes
+  // de deixar seguir, em vez de confiar no formato.
+  if (!CLOUDFLARE_ID_RE.test(zoneId) || !CLOUDFLARE_ID_RE.test(recordId)) {
+    return { ok: false, error: 'Id de zona/registo inválido' };
+  }
+  try {
+    const res = await fetch(`${CF_API_BASE}/zones/${zoneId}/dns_records/${recordId}`, {
+      method: 'DELETE',
+      headers,
+    });
+    if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : 'Erro ao apagar registo' };
+  }
+}
+
+/** Altera um registo existente pelo id (PUT), mantendo o "proxied" (nuvem laranja) que já tinha.
+ *  Usado pelo painel VisualHost (Gestão de domínios → DNS → Editar). */
+export async function updateCloudflareDnsRecord(
+  zoneId: string,
+  recordId: string,
+  domain: string,
+  record: CloudflareRecordInput,
+): Promise<{ ok: boolean; error?: string }> {
+  const headers = getCloudflareAuthHeaders();
+  if (!headers) return { ok: false, error: 'Cloudflare não configurada' };
+  if (!CLOUDFLARE_ID_RE.test(zoneId) || !CLOUDFLARE_ID_RE.test(recordId)) return { ok: false, error: 'Id de zona/registo inválido' };
+  try {
+    const atual = await fetch(`${CF_API_BASE}/zones/${zoneId}/dns_records/${recordId}`, { headers });
+    const antes = atual.ok ? ((await atual.json()) as { result?: { proxied?: boolean } }).result : undefined;
+    const content = record.type === 'MX' || record.type === 'CNAME' ? stripTrailingDot(record.content) : record.content;
+    const body: Record<string, unknown> = { type: record.type, name: normalizeRecordName(record.name, domain), content, ttl: record.ttl || 1 };
+    if (record.type === 'MX') body.priority = record.priority ?? 10;
+    if (['A', 'AAAA', 'CNAME'].includes(record.type)) body.proxied = record.proxied ?? antes?.proxied ?? false;
+    const res = await fetch(`${CF_API_BASE}/zones/${zoneId}/dns_records/${recordId}`, { method: 'PUT', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const data = (await res.json().catch(() => ({}))) as { success?: boolean; errors?: { message?: string }[] };
+    return data.success ? { ok: true } : { ok: false, error: data.errors?.[0]?.message || `HTTP ${res.status}` };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : 'Erro ao alterar registo' };
+  }
+}
+
+/** Aponta o domínio (e www, se for o apex da zona) para o IP deste servidor.
+ *  Subdomínios (`app.mltmark.com`) gravam o A na zona do domínio pai. */
+export async function pointDomainToServerIp(
+  domain: string,
+  ip: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const clean = domain.trim().toLowerCase().replace(/\.$/, '');
+  const found = await findCloudflareZoneForHost(clean);
+  if (!found) return { ok: false, error: 'Sem zona Cloudflare para este domínio' };
+  const { zoneId, zoneName } = found;
+
+  if (clean === zoneName) {
+    const root = await upsertCloudflareRecord(zoneId, zoneName, {
+      type: 'A',
+      name: '@',
+      content: ip,
+      proxied: false,
+    });
+    const www = await upsertCloudflareRecord(zoneId, zoneName, {
+      type: 'A',
+      name: 'www',
+      content: ip,
+      proxied: false,
+    });
+    const error = [root.error, www.error].filter(Boolean).join('; ');
+    void applyCloudflareSafeCacheDefaults(zoneId, zoneName);
+    return { ok: root.ok && www.ok, error: error || undefined };
+  }
+
+  const relative = clean.endsWith(`.${zoneName}`) ? clean.slice(0, -(zoneName.length + 1)) : clean;
+  const rec = await upsertCloudflareRecord(zoneId, zoneName, {
+    type: 'A',
+    name: relative,
+    content: ip,
+    proxied: false,
+  });
+  return { ok: rec.ok, error: rec.error };
+}
+
+/** Remove o A do hostname na zona Cloudflare do domínio pai (subdomínio) ou o A da raiz. */
+export async function deleteHostARecord(host: string): Promise<{ ok: boolean; error?: string }> {
+  const clean = host.trim().toLowerCase().replace(/\.$/, '');
+  const found = await findCloudflareZoneForHost(clean);
+  if (!found) return { ok: true };
+  const { zoneId, zoneName } = found;
+  const fqdn = clean === zoneName ? zoneName : clean;
+  const headers = getCloudflareAuthHeaders();
+  if (!headers) return { ok: false, error: 'Cloudflare não configurada' };
+  try {
+    const existing = await findExistingRecords(headers, zoneId, 'A', fqdn);
+    if (!existing.length) return { ok: true };
+    const results = await Promise.all(existing.map((r) => deleteCloudflareDnsRecord(zoneId, r.id)));
+    const failed = results.find((r) => !r.ok);
+    return failed ? { ok: false, error: failed.error } : { ok: true };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : 'Erro ao apagar DNS' };
+  }
+}
+
+/**
+ * Defaults de cache para sites de hospedagem. O cliente carrega um ficheiro
+ * e espera vê-lo já — cache agressivo da Cloudflare (HTML com TTL de horas)
+ * foi o que fez o menocrazy.app servir uma cópia antiga a todos os visitantes
+ * (10 set 2026). Cada zona Free tem 3 Page Rules; gastamos uma em Bypass
+ * para o caso de alguém ligar o proxy (nuvem laranja) mais tarde.
+ *
+ * Idempotente. Falhas aqui nunca devem impedir criar a zona / apontar o DNS.
+ */
+export async function applyCloudflareSafeCacheDefaults(
+  zoneId: string,
+  domain: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const headers = getCloudflareAuthHeaders();
+  if (!headers) return { ok: false, error: 'Cloudflare não configurada' };
+  const clean = domain.trim().toLowerCase().replace(/\.$/, '');
+  const errors: string[] = [];
+
+  const patchSetting = async (setting: string, value: string | number) => {
+    try {
+      const res = await fetch(`${CF_API_BASE}/zones/${zoneId}/settings/${setting}`, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify({ value }),
+      });
+      const data = (await res.json()) as { success: boolean; errors?: Array<{ message: string }> };
+      if (!data.success) {
+        errors.push(`${setting}: ${data.errors?.map((e) => e.message).join('; ') || `HTTP ${res.status}`}`);
+      }
+    } catch (error) {
+      errors.push(`${setting}: ${error instanceof Error ? error.message : 'erro'}`);
+    }
+  };
+
+  await patchSetting('cache_level', 'simplified');
+  await patchSetting('browser_cache_ttl', 0);
+
+  const pattern = `*${clean}/*`;
+  try {
+    const listRes = await fetch(`${CF_API_BASE}/zones/${zoneId}/pagerules`, { headers });
+    const listData = (await listRes.json()) as {
+      success: boolean;
+      result?: Array<{
+        targets?: Array<{ constraint?: { value?: string } }>;
+        actions?: Array<{ id?: string; value?: string }>;
+      }>;
+    };
+    const already = (listData.result || []).some((rule) => {
+      const url = rule.targets?.[0]?.constraint?.value;
+      const bypass = (rule.actions || []).some((a) => a.id === 'cache_level' && a.value === 'bypass');
+      return url === pattern && bypass;
+    });
+    if (!already) {
+      const createRes = await fetch(`${CF_API_BASE}/zones/${zoneId}/pagerules`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          targets: [{ target: 'url', constraint: { operator: 'matches', value: pattern } }],
+          actions: [{ id: 'cache_level', value: 'bypass' }],
+          status: 'active',
+        }),
+      });
+      const created = (await createRes.json()) as { success: boolean; errors?: Array<{ message: string }> };
+      if (!created.success) {
+        errors.push(`pagerule: ${created.errors?.map((e) => e.message).join('; ') || `HTTP ${createRes.status}`}`);
+      }
+    }
+  } catch (error) {
+    errors.push(`pagerule: ${error instanceof Error ? error.message : 'erro'}`);
+  }
+
+  return { ok: errors.length === 0, error: errors.join('; ') || undefined };
+}
+
 /** Aplica uma lista de registos de uma vez, devolvendo o relatório de cada um. */
 export async function applyCloudflareRecords(
   domain: string,
@@ -321,73 +586,5 @@ export async function deleteCloudflareEmailRecords(
     return { ok: true, deleted };
   } catch (error) {
     return { ok: false, deleted: 0, error: error instanceof Error ? error.message : 'Erro desconhecido' };
-  }
-}
-
-export type CloudflareListedRecord = {
-  id: string;
-  name: string;
-  type: string;
-  content: string;
-  ttl: number;
-  priority?: number;
-};
-
-/** Lista todos os registos da zona — usado pelo painel (Gerenciar DNS) para
- * domínios com zona própria na Cloudflare, em vez do espelho do DirectAdmin. */
-export async function listCloudflareDnsRecords(
-  zoneId: string,
-  domain: string,
-): Promise<CloudflareListedRecord[]> {
-  const headers = getCloudflareAuthHeaders();
-  if (!headers) return [];
-  const clean = domain.trim().toLowerCase().replace(/\.$/, '');
-  try {
-    const res = await fetch(`${CF_API_BASE}/zones/${zoneId}/dns_records?per_page=200`, { headers });
-    if (!res.ok) return [];
-    const data = (await res.json()) as {
-      success: boolean;
-      result?: Array<{ id: string; name: string; type: string; content: string; ttl?: number; priority?: number }>;
-    };
-    if (!data.success) return [];
-    return (data.result || []).map((r) => ({
-      id: r.id,
-      name: r.name === clean ? '@' : r.name.replace(new RegExp(`\\.${clean}$`), ''),
-      type: r.type,
-      content: r.content,
-      ttl: r.ttl || 3600,
-      priority: r.priority,
-    }));
-  } catch {
-    return [];
-  }
-}
-
-/** Apaga um registo específico pelo id da Cloudflare — usado pelo painel
- * (Gerenciar DNS) para domínios com zona própria na Cloudflare. */
-const CLOUDFLARE_ID_RE = /^[a-f0-9]{32}$/i;
-
-export async function deleteCloudflareDnsRecord(
-  zoneId: string,
-  recordId: string,
-): Promise<{ ok: boolean; error?: string }> {
-  const headers = getCloudflareAuthHeaders();
-  if (!headers) return { ok: false, error: 'Cloudflare não configurada' };
-  // zoneId/recordId acabam interpolados directamente no URL da API — o
-  // segundo vem do id que o cliente manda no pedido DELETE do painel, por
-  // isso valida-se a forma (id real da Cloudflare é sempre hex de 32) antes
-  // de deixar seguir, em vez de confiar no formato.
-  if (!CLOUDFLARE_ID_RE.test(zoneId) || !CLOUDFLARE_ID_RE.test(recordId)) {
-    return { ok: false, error: 'Id de zona/registo inválido' };
-  }
-  try {
-    const res = await fetch(`${CF_API_BASE}/zones/${zoneId}/dns_records/${recordId}`, {
-      method: 'DELETE',
-      headers,
-    });
-    if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };
-    return { ok: true };
-  } catch (error) {
-    return { ok: false, error: error instanceof Error ? error.message : 'Erro ao apagar registo' };
   }
 }

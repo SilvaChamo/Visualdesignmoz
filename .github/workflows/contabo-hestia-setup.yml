@@ -11,8 +11,138 @@ on:
           - diagnostics
           - install
           - bootstrap-key
+          - test-hestia-api
+          - inspect-api-ip-restriction
+          - test-hestia-api-from-server
+          - backup-diagnostics
 
 jobs:
+  backup-diagnostics:
+    if: ${{ inputs.stage == 'backup-diagnostics' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Measure sizes of everything a manual full backup would need (read-only)
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          username: root
+          password: ${{ secrets.CONTABO_ROOT_PASSWORD }}
+          command_timeout: 10m
+          script: |
+            echo "=== espaço livre no disco (total) ==="
+            df -h /
+            echo ""
+            echo "=== site de teste (código, sem node_modules/.next) ==="
+            du -sh --exclude=node_modules --exclude=.next /opt/visualdesign-site-teste 2>/dev/null
+            echo ""
+            echo "=== stack Supabase própria (Docker: base de dados + storage) ==="
+            du -sh /opt/supabase-contabo 2>/dev/null
+            du -sh /opt/supabase-contabo/docker/volumes/db/data 2>/dev/null
+            du -sh /opt/supabase-contabo/docker/volumes/storage 2>/dev/null
+            echo ""
+            echo "=== contas Hestia (sites, emails, bases de dados dos clientes) ==="
+            du -sh /home/*/web 2>/dev/null
+            du -sh /home/*/mail 2>/dev/null
+            du -sh /var/lib/mysql 2>/dev/null
+            echo ""
+            echo "=== backups Hestia já existentes, se houver ==="
+            ls -lh /home/*/backup 2>/dev/null || echo "(nenhum encontrado)"
+            echo ""
+            echo "=== total geral (tudo o que interessaria copiar) ==="
+            du -sh /opt/visualdesign-site-teste /opt/supabase-contabo /home/*/web /home/*/mail 2>/dev/null | tail -1
+            du -csh /opt/visualdesign-site-teste --exclude=node_modules --exclude=.next /opt/supabase-contabo/docker/volumes 2>/dev/null
+
+  test-hestia-api-from-server:
+    if: ${{ inputs.stage == 'test-hestia-api-from-server' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call the Hestia API from inside the Contabo box itself (read-only)
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          username: root
+          password: ${{ secrets.CONTABO_ROOT_PASSWORD }}
+          script: |
+            cd /opt/visualdesign-site-teste
+            HOST=$(grep '^HESTIA_HOST=' .env.local | cut -d= -f2-)
+            PORT=$(grep '^HESTIA_PORT=' .env.local | cut -d= -f2-)
+            PORT="${PORT:-8083}"
+            USER=$(grep '^HESTIA_USER=' .env.local | cut -d= -f2-)
+            PASS=$(grep '^HESTIA_PASSWORD=' .env.local | cut -d= -f2-)
+            echo "HOST=${HOST} PORT=${PORT} USER=${USER}"
+            echo "=== IP público que este servidor usa para se ver a si próprio ==="
+            curl -s https://api.ipify.org
+            echo ""
+            echo ""
+            echo "=== chamada v-list-user-packages, a partir do próprio servidor ==="
+            curl -sk -D /tmp/hh.txt "https://${HOST}:${PORT}/api/" \
+              --data-urlencode "user=${USER}" \
+              --data-urlencode "password=${PASS}" \
+              --data-urlencode "cmd=v-list-user-packages" \
+              --data-urlencode "arg1=json" -o /tmp/hh-out.txt
+            echo "--- Hestia-Exit-Code ---"
+            grep -i "hestia-exit-code" /tmp/hh.txt || echo "(cabeçalho não encontrado)"
+            echo "--- resposta crua ---"
+            cat /tmp/hh-out.txt
+
+  inspect-api-ip-restriction:
+    if: ${{ inputs.stage == 'inspect-api-ip-restriction' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Find what blocks "IP is not allowed to connect with API" (read-only)
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          username: root
+          password: ${{ secrets.CONTABO_ROOT_PASSWORD }}
+          script: |
+            echo "=== onde a mensagem de erro está definida ==="
+            grep -rn "not allowed to connect with API" /usr/local/hestia/ 2>/dev/null
+            echo ""
+            echo "=== index.php da API — lógica de verificação de IP ==="
+            grep -n -B5 -A15 "not allowed to connect" /usr/local/hestia/web/api/index.php 2>/dev/null
+            echo ""
+            echo "=== ficheiro de acesso à API do utilizador vdadmin ==="
+            cat /usr/local/hestia/data/users/vdadmin/user.conf 2>/dev/null | grep -i "api\|ip"
+            ls -la /usr/local/hestia/data/users/vdadmin/ 2>/dev/null | grep -i api
+            cat /usr/local/hestia/data/users/vdadmin/api-allowed-ip 2>/dev/null
+            echo ""
+            echo "=== config geral do Hestia relacionada com API ==="
+            grep -i "api" /usr/local/hestia/conf/hestia.conf 2>/dev/null
+
+  test-hestia-api:
+    if: ${{ inputs.stage == 'test-hestia-api' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Test HESTIA_USER/HESTIA_PASSWORD against the real API (read-only)
+        env:
+          HESTIA_HOST: ${{ secrets.HESTIA_HOST }}
+          HESTIA_PORT: ${{ secrets.HESTIA_PORT }}
+          HESTIA_USER: ${{ secrets.HESTIA_USER }}
+          HESTIA_PASSWORD: ${{ secrets.HESTIA_PASSWORD }}
+          HESTIA_ADMIN_USERNAME: ${{ secrets.HESTIA_ADMIN_USERNAME }}
+        run: |
+          PORT="${HESTIA_PORT:-8083}"
+          echo "=== Secret HESTIA_USER (nome usado pela app) vs HESTIA_ADMIN_USERNAME (nome usado na instalação) ==="
+          if [ "${HESTIA_USER}" = "${HESTIA_ADMIN_USERNAME}" ]; then
+            echo "IGUAIS — não é um problema de nome de utilizador."
+          else
+            echo "DIFERENTES — a app está configurada para logar como '${HESTIA_USER}', mas a conta foi criada como '${HESTIA_ADMIN_USERNAME}'. Provável causa."
+          fi
+          echo ""
+          echo "=== Chamada real v-list-user-packages com HESTIA_USER/HESTIA_PASSWORD (o que a app usa) ==="
+          OUT=$(curl -sk -D /tmp/hh.txt "https://${HESTIA_HOST}:${PORT}/api/" \
+            --data-urlencode "user=${HESTIA_USER}" \
+            --data-urlencode "password=${HESTIA_PASSWORD}" \
+            --data-urlencode "cmd=v-list-user-packages" \
+            --data-urlencode "arg1=json")
+          echo "--- Hestia-Exit-Code ---"
+          grep -i "hestia-exit-code" /tmp/hh.txt || echo "(cabeçalho não encontrado — ligação/DNS pode ter falhado)"
+          echo "--- pacotes devolvidos (se autenticação OK) ---"
+          echo "$OUT" | python3 -c "import json,sys; d=json.load(sys.stdin); print('\n'.join(k for k in d.keys() if k!='system'))" 2>&1 || echo "(resposta não é JSON válido — ver abaixo)"
+          echo "--- resposta crua (primeiros 500 caracteres, para diagnóstico) ---"
+          echo "$OUT" | head -c 500
+
   bootstrap-key:
     if: ${{ inputs.stage == 'bootstrap-key' }}
     runs-on: ubuntu-latest

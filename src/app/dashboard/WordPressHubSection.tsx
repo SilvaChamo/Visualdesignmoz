@@ -29,11 +29,19 @@ const SELECTED_DOMAIN_KEY = 'vd_wp_selected_domain';
 
 const WordPressInstallSection = dynamic(
   () => import('./HostingSections').then((m) => ({ default: m.WordPressInstallSection })),
-  { loading: () => <div className="py-8 text-center text-sm text-gray-400">A carregar…</div> },
+  { loading: () => (
+    <div className="flex items-center justify-center gap-2 py-8 text-sm text-gray-400">
+      <Spinner /> A carregar…
+    </div>
+  ) },
 );
 const BackupManagerSection = dynamic(
   () => import('./BackupManagerSection').then((m) => ({ default: m.BackupManagerSection })),
-  { loading: () => <div className="py-8 text-center text-sm text-gray-400">A carregar…</div> },
+  { loading: () => (
+    <div className="flex items-center justify-center gap-2 py-8 text-sm text-gray-400">
+      <Spinner /> A carregar…
+    </div>
+  ) },
 );
 
 interface WpPlugin {
@@ -150,7 +158,7 @@ export function WordPressHubSection({
   );
 
   const scopedWpDomains = useMemo(() => {
-    if (accountDomainSet.size === 0) return wpDomains;
+    if (accountDomainSet.size === 0) return [];
     return wpDomains.filter((d) => accountDomainSet.has(d.domain.toLowerCase()));
   }, [wpDomains, accountDomainSet]);
 

@@ -3,7 +3,7 @@ import { createClient } from '@/utils/supabase/server';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { getPublicSiteOrigin } from '@/lib/panel-origin';
 
-const VALID_TYPES = ['domain', 'hosting'];
+const VALID_TYPES = ['domain', 'hosting', 'email'];
 
 // Ponte mínima entre o link de notificação/email e a página de pagamento
 // já existente (/renovacao/[id]): cria o pedido (com o método habitual do
@@ -34,6 +34,7 @@ export async function GET(
   }
 
   const table = type === 'domain' ? 'domain_renewals' : 'hosting_renewals';
+  const renewalType = type === 'email' ? 'hosting' : type;
   const { data: renewal, error: renewalError } = await admin
     .from(table)
     .select('id, user_id, domain_name, renewal_price')
@@ -46,7 +47,7 @@ export async function GET(
   const { data: existing } = await admin
     .from('renewal_payment_requests')
     .select('id')
-    .eq('renewal_type', type)
+    .eq('renewal_type', renewalType)
     .eq('renewal_id', id)
     .eq('status', 'pending')
     .order('created_at', { ascending: false })
@@ -77,7 +78,7 @@ export async function GET(
     .from('renewal_payment_requests')
     .insert({
       user_id: user.id,
-      renewal_type: type,
+      renewal_type: renewalType,
       renewal_id: id,
       service_name: renewal.domain_name,
       valor_mt: valorMt,

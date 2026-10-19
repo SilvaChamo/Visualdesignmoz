@@ -1,32 +1,32 @@
-name: Deploy to Contabo (teste)
+name: Deploy to Contabo
 
 # ============================================================================
-# AVISO PARA QUALQUER AGENTE/PESSOA A MEXER AQUI (2026-08-10):
-# Apesar do nome "teste", o utilizador já confirmou que este site é o
-# candidato a tornar-se o site PRINCIPAL assim que a configuração terminar
-# (ver plano de corte em project_hestia-migration-longterm-plan na memória) —
-# não é uma instância descartável. Não trates comportamento estranho aqui
-# como "é só sandbox, ignora": os dois sítios abaixo marcados "sandbox"
-# (DYNADOT_ENV, MPESA_ENV) são a ÚNICA razão de partes do site não
-# funcionarem como no mundo real (ex: verificação de domínios não reconhece
-# domínios reais como registados). Antes de mudar isso para produção a
-# sério, confirma sempre com o utilizador — envolve dinheiro real
-# (registos de domínio reais, cobranças M-Pesa reais a clientes).
+# Este é o ÚNICO deploy do projecto: o site em produção é o do Contabo e é
+# publicado a cada push em `main` (o Hetzner foi desligado a 19/10/2026 e os
+# seus workflows apagados; o `main` antigo, do Hetzner, está guardado em
+# `arquivo/main-hetzner` — não usar).
+#
+# AVISO PARA QUALQUER AGENTE/PESSOA A MEXER AQUI: partes do site ainda estão em
+# modo "sandbox" (MPESA_ENV abaixo) e por isso não funcionam como no mundo real.
+# Antes de mudar isso para produção a sério, confirma sempre com o utilizador —
+# envolve dinheiro real (cobranças M-Pesa reais a clientes).
 # ============================================================================
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
 
-# uma publicação de cada vez: um push novo espera que a anterior acabe (mesma
-# protecção que o deploy-hetzner.yml já tinha, por causa de duas publicações
-# sobrepostas terem estragado o node_modules)
+# uma publicação de cada vez: um push novo espera que a anterior acabe (duas
+# publicações sobrepostas já estragaram o node_modules)
 concurrency:
   group: deploy-contabo
   cancel-in-progress: false
 
 jobs:
   deploy:
-    name: Deploy to Contabo test instance
+    name: Deploy to Contabo
     runs-on: ubuntu-latest
 
     steps:
@@ -36,7 +36,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v5
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'npm'
 
       - name: Install dependencies
@@ -44,9 +44,11 @@ jobs:
 
       - name: Build project
         env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          # Base de dados PRÓPRIA do Contabo (27-30 ago). Secrets CONTABO_* /
+          # SUPABASE_CONTABO_*.
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.CONTABO_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_CONTABO_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_CONTABO_SERVICE_ROLE_KEY }}
         run: npm run build
 
       - name: Setup SSH key
@@ -56,12 +58,14 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan "${{ secrets.CONTABO_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
 
+      # O código novo vai para uma pasta à parte (…-build), não para a do site em funcionamento: o site continua a
+      # servir a versão anterior enquanto a nova é instalada e construída (ver "Publicar sem ecrã branco" mais abaixo).
       - name: Sync files to Contabo
         run: |
           rsync -avz --delete \
             -e "ssh -i ~/.ssh/deploy_key" \
             --exclude 'node_modules' --exclude '.next' --exclude '.git' --exclude '*.env*' --exclude '.DS_Store' \
-            ./ "root@${{ secrets.CONTABO_HOST }}:/opt/visualdesign-site-teste/"
+            ./ "root@${{ secrets.CONTABO_HOST }}:/opt/visualdesign-site-teste-build/"
 
       - name: Build and (re)start on Contabo
         uses: appleboy/ssh-action@v1.2.5
@@ -69,23 +73,25 @@ jobs:
           host: ${{ secrets.CONTABO_HOST }}
           username: root
           key: ${{ secrets.CONTABO_SSH_KEY }}
-          # Instância de TESTE: liga-se à MESMA base de dados de produção
-          # (para os testes serem reais) mas de propósito SEM os cron jobs
-          # (renewal-check / da-sync / mailmarketing queue) que o Hetzner tem
-          # — correr os dois em simultâneo duplicaria efeitos reais (emails,
-          # cobranças). Esta instância é só para teste manual no browser.
+          # Desde 30 ago este site tem base de dados própria (Supabase no
+          # Contabo, separada do Hetzner) — deixou de fazer sentido a regra
+          # antiga de "zero crons para não duplicar efeitos reais na BD
+          # partilhada". Tem os seus próprios crons de domínio (dns-retry,
+          # brevo-retry, mais abaixo), o sync do Hestia e a fila de
+          # mailmarketing. renewal-check/da-sync continuam só no Hetzner.
           command_timeout: 30m
           script: |
             set -e
             cd /opt/visualdesign-site-teste
             touch .env.local
             set_env_var() {
+              # grep -v + reescrever em vez de "sed -i s|...|...|" — um valor
+              # secreto que contenha "|" (ex.: aconteceu com BREVO_API_KEY)
+              # quebrava o delimitador do sed e fazia o deploy inteiro falhar.
               local key="$1" value="$2"
-              if grep -q "^${key}=" .env.local; then
-                sed -i "s|^${key}=.*|${key}=${value}|" .env.local
-              else
-                echo "${key}=${value}" >> .env.local
-              fi
+              grep -v "^${key}=" .env.local > .env.local.tmp || true
+              mv .env.local.tmp .env.local
+              echo "${key}=${value}" >> .env.local
             }
             # Activado a pedido do utilizador (2026-08-11) para ele próprio testar
             # uma compra/transferência de domínio a sério a partir deste site de
@@ -106,13 +112,33 @@ jobs:
             set_env_var CRON_SECRET "${{ secrets.CRON_SECRET }}"
             set_env_var CLOUDFLARE_API_TOKEN_ACCOUNT "${{ secrets.CLOUDFLARE_API_TOKEN_ACCOUNT }}"
             set_env_var CLOUDFLARE_ACCOUNT_ID "${{ secrets.CLOUDFLARE_ACCOUNT_ID }}"
-            set_env_var NEXT_PUBLIC_SUPABASE_URL "${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}"
-            set_env_var NEXT_PUBLIC_SUPABASE_ANON_KEY "${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}"
-            set_env_var SUPABASE_SERVICE_ROLE_KEY "${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}"
-            # Domínio próprio desta instância — sem isto, vários links (reset de
-            # password, "aceder ao painel" em emails, origem do OAuth) caem no
-            # domínio de produção mesmo a partir daqui.
-            set_env_var NEXT_PUBLIC_SITE_URL "https://teste.visualdesignmoz.com"
+            # Global API Key (14 ago 2026) — o token acima não conseguia criar
+            # zonas novas na Cloudflare (permissão não encontrada na interface).
+            # Usada em alternativa, confirmada ao vivo a funcionar; ver
+            # src/lib/cloudflare-dns.ts.
+            set_env_var CLOUDFLARE_EMAIL "${{ secrets.CLOUDFLARE_EMAIL }}"
+            set_env_var CLOUDFLARE_GLOBAL_API_KEY "${{ secrets.CLOUDFLARE_GLOBAL_API_KEY }}"
+            # Sem isto, o passo de DNS de e-mail e o remetente Brevo de
+            # autoProvisionPurchasedDomain falham sempre em silêncio depois de
+            # uma compra/transferência de domínio (nunca tinha sido ligado ao
+            # deploy, só existia no .env.local local) — descoberto 19 ago via
+            # o caso real do aamihe.com.
+            set_env_var BREVO_API_KEY "${{ secrets.BREVO_API_KEY }}"
+            # "Não sou um robô" do registo (Turnstile da Cloudflare, 14/10/2026): a chave secreta vem do segredo do GitHub
+            # TURNSTILE_SECRET_KEY; vazia, o registo funciona sem verificar (src/lib/turnstile.ts)
+            set_env_var TURNSTILE_SECRET_KEY "${{ secrets.TURNSTILE_SECRET_KEY }}"
+            # Idem ao passo de build acima: secrets próprios do Contabo, nunca
+            # os partilhados com o Hetzner.
+            set_env_var NEXT_PUBLIC_SUPABASE_URL "${{ secrets.CONTABO_SUPABASE_URL }}"
+            set_env_var NEXT_PUBLIC_SUPABASE_ANON_KEY "${{ secrets.SUPABASE_CONTABO_ANON_KEY }}"
+            set_env_var SUPABASE_SERVICE_ROLE_KEY "${{ secrets.SUPABASE_CONTABO_SERVICE_ROLE_KEY }}"
+            # Segredos antigos com que ainda há passwords cifradas (LEGACY_ENCRYPTION_SECRETS em da-credential-store.ts e
+            # panel-access-credentials.ts), separados por vírgulas. Sem o secret fica vazio: essas passwords guardadas
+            # deixam de se decifrar, mas o login continua a confirmar a password no próprio Hestia.
+            set_env_var LEGACY_ENCRYPTION_SECRETS "${{ secrets.CONTABO_LEGACY_ENCRYPTION_SECRETS }}"
+            # Endereço público do site: desde 13/10/2026 o Contabo é o site principal (pedido do Silva — o teste.
+            # deixou de ser mostrado; os links de e-mails, recuperação de password e "aceder ao painel" usam este).
+            set_env_var NEXT_PUBLIC_SITE_URL "https://visualdesignmoz.com"
             # Só para LEITURA (listar contas antigas do DirectAdmin no painel
             # admin) — sem isto a página "Contas" falhava sempre a mostrar as
             # contas antigas e ficava lenta/com erro. Suspender/apagar/mudar
@@ -135,6 +161,10 @@ jobs:
             # Hestia a partir daqui. O Hetzner (produção) nunca recebe esta
             # variável, por isso continua 100% DirectAdmin sem qualquer mudança.
             set_env_var DEFAULT_HOSTING_PROVIDER "hestia"
+            # Cópia NEXT_PUBLIC_ da variável acima — o valor server-only não
+            # chega a componentes 'use client' (ex.: esconder botões que só
+            # fazem sentido com DirectAdmin, como "Abrir no DirectAdmin").
+            set_env_var NEXT_PUBLIC_DEFAULT_HOSTING_PROVIDER "hestia"
             # M-Pesa Sandbox — idem, só activo aqui. Em produção o método
             # "M-Pesa" continua manual (comprovativo + confirmação humana),
             # exactamente como está hoje.
@@ -157,10 +187,119 @@ jobs:
             set_env_var SERVER_IP "${{ secrets.CONTABO_HOST }}"
             set_env_var SERVER_SSH_USER "root"
             set_env_var SERVER_SSH_PORT "22"
-            npm ci
-            npm run build
-            pm2 restart visualdesign-site-teste || pm2 start npm --name "visualdesign-site-teste" -- start -- -p 3002
+            # SERVER_IP (acima) é só para SSH interno (imap-host.ts,
+            # ssh-connect-options.ts). getServerHost() (usado para apontar DNS
+            # de sites novos e URLs de webmail) lê NEXT_PUBLIC_SERVER_IP, que
+            # nunca tinha sido definido aqui — caía sempre no valor por
+            # omissão (IP antigo do Hetzner). Confirmado ao vivo 1 set: o
+            # site novo entrecamposblog.com ficou sem DNS por causa disto.
+            set_env_var NEXT_PUBLIC_SERVER_IP "${{ secrets.CONTABO_HOST }}"
+            # Nameservers deste servidor (Hestia do Contabo). O Hetzner usa ns1/ns2;
+            # um domínio nunca deve misturar os dois pares (ver visualdesign-dns.ts).
+            set_env_var NEXT_PUBLIC_VD_NAMESERVERS "ns3.visualdesignmoz.com,ns4.visualdesignmoz.com"
+            # Painel VisualHost (/vhost): alterações às contas do servidor ligadas para todas as contas (aprovado pelo Silva, 10/10/2026)
+            set_env_var VHOST_ACOES_TODAS "1"
+            # O projecto pede Node 24 (package.json "engines"); com o Node do
+            # sistema o build falhava. Instala o Node oficial (com verificação
+            # do checksum) só se ainda não existir. Vem do commit 8dc91244.
+            NODE_VERSION="24.18.0"
+            NODE_ROOT="/opt/node-v${NODE_VERSION}"
+            NODE_ARCHIVE="node-v${NODE_VERSION}-linux-x64.tar.xz"
+            if [ ! -x "${NODE_ROOT}/bin/node" ]; then
+              NODE_CHECKSUM="$(curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/SHASUMS256.txt" | awk -v file="${NODE_ARCHIVE}" '$2 == file { print $1 }')"
+              if [ -z "$NODE_CHECKSUM" ]; then
+                echo "Could not find the official Node.js checksum for ${NODE_ARCHIVE}"
+                exit 1
+              fi
+              curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/${NODE_ARCHIVE}" -o "/tmp/${NODE_ARCHIVE}"
+              echo "${NODE_CHECKSUM}  /tmp/${NODE_ARCHIVE}" | sha256sum -c -
+              mkdir -p "${NODE_ROOT}"
+              tar -xJf "/tmp/${NODE_ARCHIVE}" --strip-components=1 -C "${NODE_ROOT}"
+              rm "/tmp/${NODE_ARCHIVE}"
+            fi
+            export PATH="${NODE_ROOT}/bin:$PATH"
+            node --version
+            npm --version
+            # Publicar sem ecrã branco (pedido do Silva, 13/10/2026): antes, o "npm ci" e o "rm -rf .next" + build corriam
+            # na pasta do site em funcionamento, e durante os ~10 min do build o site ficava sem ficheiros (ecrã
+            # branco). Agora instala-se e constrói-se na pasta à parte (STAGE, onde o rsync acima pôs o código novo)
+            # com o site a servir a versão anterior; no fim troca-se em segundos. Se o build falhar (set -e), o site
+            # fica como estava.
+            LIVE=/opt/visualdesign-site-teste
+            STAGE=/opt/visualdesign-site-teste-build
+            # as variáveis (.env.local, escrito acima na pasta do site) entram no build (NEXT_PUBLIC_*)
+            for f in "$LIVE"/.env*; do if [ -f "$f" ]; then cp -a "$f" "$STAGE"/; fi; done
+            cd "$STAGE"
+            # Prioridade mínima de CPU e de disco para a instalação e o build: o site em funcionamento (e o resto do
+            # servidor) passa sempre à frente. Antes o build levava os 6 núcleos e o site ficava parado/bloqueado
+            # durante cada publicação, e o watchdog (curl de 20 s) chegava a reiniciá-lo a meio (Silva, 15/10/2026).
+            BAIXA="nice -n 19 ionice -c3"
+            $BAIXA npm ci
+            # Build sempre limpo — publicações seguidas em cima da mesma pasta
+            # .next (nunca apagada pelo rsync, ver --exclude acima) já causaram
+            # "Invariant: client reference manifest ... does not exist" (bug
+            # conhecido do Next.js com builds incrementais sobre estado antigo).
+            # Apagar antes de reconstruir elimina essa classe de corrupção.
+            rm -rf .next
+            # 4 GB para o build: com o limite por defeito do Node (~2 GB) o build esgotou a memória a 16/10/2026 ("JavaScript
+            # heap out of memory", publicação do #87) e o site ficou na versão anterior; o servidor tem 12 GB
+            NODE_OPTIONS="--max-old-space-size=4096" $BAIXA npm run build
+            # Garante que o histórico de actividade existe antes de activar o código que o grava.
+            DB_CONTAINER=$(docker ps --format '{{.Names}}' | grep -iE 'supabase.*db|supabase-db|postgres' | head -n1)
+            if [ -z "$DB_CONTAINER" ]; then
+              echo "Não encontrei nenhum container de Postgres/Supabase a correr:" >&2
+              docker ps --format '{{.Names}}'
+              exit 1
+            fi
+            DB_USER=$(docker exec "$DB_CONTAINER" printenv POSTGRES_USER 2>/dev/null || echo postgres)
+            DB_NAME=$(docker exec "$DB_CONTAINER" printenv POSTGRES_DB 2>/dev/null || echo postgres)
+            docker exec -i "$DB_CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 < "$STAGE/supabase-vhost-activity-history.sql"
+            docker exec "$DB_CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 -c "NOTIFY pgrst, 'reload schema';"
+            HISTORY_TABLE=$(docker exec "$DB_CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 -t -c "SELECT to_regclass('public.vhost_activity_history');" | tr -d '[:space:]')
+            if [ "$HISTORY_TABLE" != "vhost_activity_history" ]; then
+              echo "A tabela public.vhost_activity_history não ficou disponível após a migração." >&2
+              exit 1
+            fi
+            # Um processo antigo (visualdesign-panel em /opt/visualdesign-panel)
+            # ficava a escutar a 3002. O restart desta app falhava com
+            # EADDRINUSE, o GitHub Actions marcava sucesso, e o site público
+            # continuava a servir o código velho — abas de domínios vazias.
+            pm2 delete visualdesign-panel || true
+            # Troca (o site só pára estes segundos): o código por rsync, com as mesmas exclusões de sempre (os .env*,
+            # .git e .DS_Store da pasta do site ficam intactos); node_modules e .next por mv (instantâneo, mesmo disco).
+            pm2 stop visualdesign-site-teste || true
+            sleep 1
+            fuser -k 3002/tcp || true
+            rsync -a --delete --exclude 'node_modules' --exclude '.next' --exclude '.git' --exclude '*.env*' --exclude '.DS_Store' "$STAGE"/ "$LIVE"/
+            rm -rf "$LIVE/node_modules.old" "$LIVE/.next.old"
+            if [ -d "$LIVE/node_modules" ]; then mv "$LIVE/node_modules" "$LIVE/node_modules.old"; fi
+            if [ -d "$LIVE/.next" ]; then mv "$LIVE/.next" "$LIVE/.next.old"; fi
+            mv "$STAGE/node_modules" "$LIVE/node_modules"
+            mv "$STAGE/.next" "$LIVE/.next"
+            cd "$LIVE"
+            pm2 start visualdesign-site-teste || pm2 start npm --name "visualdesign-site-teste" --cwd /opt/visualdesign-site-teste -- start -- -p 3002
             pm2 save
+            # a versão anterior só se apaga depois de a nova estar a correr
+            rm -rf "$LIVE/node_modules.old" "$LIVE/.next.old"
+            # Reinicia o site sozinho se deixar de responder (commit 373a3863).
+            bash scripts/install-site-watchdog.sh
+
+            # Desde que este site passou a ter base de dados própria (separada do
+            # Hetzner, 30 ago), as compras de domínio feitas aqui deixaram de ser
+            # reprocessadas por engano nenhuma — o cron do Hetzner só vê a base de
+            # dados dele. Sem estes dois, um domínio comprado aqui cujo DNS/Cloudflare
+            # tenha falhado a meio, ou cuja autenticação na Brevo ainda não tenha sido
+            # confirmada, ficava para sempre à espera de alguém reparar manualmente.
+            # NOTA: 'src/proxy.ts' redirecciona (308) qualquer pedido feito a
+            # 127.0.0.1 para 'localhost' (para cookies/PKCE ficarem consistentes
+            # no browser) — sem o cabeçalho Host correcto abaixo, estes curls
+            # nunca chegam a executar a lógica, só recebem o redirect e o cron
+            # parece "correr" mas não faz nada. Confirmado ao vivo em 1 set.
+            CRON_SECRET_VALUE=$(grep '^CRON_SECRET=' .env.local | cut -d= -f2-)
+            (crontab -l 2>/dev/null | grep -v '# visualdesign-dns-retry'; \
+              echo "*/30 * * * * curl -fsS -H \"Host: teste.visualdesignmoz.com\" -H \"Authorization: Bearer ${CRON_SECRET_VALUE}\" http://127.0.0.1:3002/api/cron/dns-retry >> /var/log/visualdesign-cron.log 2>&1 # visualdesign-dns-retry") | crontab -
+            (crontab -l 2>/dev/null | grep -v '# visualdesign-brevo-retry'; \
+              echo "*/30 * * * * curl -fsS -H \"Host: teste.visualdesignmoz.com\" -H \"Authorization: Bearer ${CRON_SECRET_VALUE}\" http://127.0.0.1:3002/api/cron/brevo-retry >> /var/log/visualdesign-cron.log 2>&1 # visualdesign-brevo-retry") | crontab -
 
             # Reflecte o estado real do Hestia (contas/domínios/suspensões) de volta
             # para o espelho Supabase — sem isto, mudanças feitas directamente no
@@ -170,3 +309,7 @@ jobs:
             # não reproduzível por SSH directo (ver histórico do ficheiro) — mesmo
             # depois de reescrita, voltou a falhar aqui dentro sem falhar à mão.
             bash scripts/install-hestia-cron.sh
+            bash scripts/install-mailmarketing-cron.sh
+            bash scripts/install-backup-schedule-cron.sh
+            # avisos de força bruta nas Mensagens dos administradores (como o DirectAdmin fazia no Hetzner)
+            bash scripts/install-forca-bruta-cron.sh

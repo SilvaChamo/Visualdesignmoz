@@ -8,7 +8,7 @@ import { User } from '@supabase/supabase-js'
 import { getRedirectPathForRole, type UserRole } from '@/lib/user-roles'
 import { PUBLIC_PANEL_ENTRY } from '@/lib/panel-origin'
 import { setPanelFromCookie } from '@/lib/panel-oauth-from'
-import { getInactivityConfig, touchPanelActivity, isIdleBeyond, clearPanelActivity } from '@/lib/session-inactivity'
+import { getInactivityConfig, getIdleMs, touchPanelActivity, isIdleBeyond, clearPanelActivity } from '@/lib/session-inactivity'
 import { prefetchPanelContentOnLogin } from '@/lib/panel-prefetch'
 
 interface AuthContextType {
@@ -43,7 +43,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(currentUser)
 
         if (currentUser) {
-          touchPanelActivity()
           try {
             const role = await auth.getUserRole(currentUser)
             setUserRole(role)
@@ -97,6 +96,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const { limitMs, minutes, reason } = getInactivityConfig(pathname)
     let signingOut = false
+    let inactivityTimer: number | undefined
 
     const handleAutomaticSignOut = async () => {
       if (signingOut || !isIdleBeyond(limitMs)) return
@@ -115,8 +115,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
+    const scheduleInactivityCheck = () => {
+      if (inactivityTimer !== undefined) window.clearTimeout(inactivityTimer)
+      const remainingMs = Math.max(limitMs - getIdleMs(), 0)
+      inactivityTimer = window.setTimeout(() => {
+        void handleAutomaticSignOut()
+      }, remainingMs)
+    }
+
     const onActivity = () => {
       touchPanelActivity()
+      scheduleInactivityCheck()
+    }
+
+    // mousemove dispara dezenas de vezes por segundo — sem limitar, cada
+    // movimento escrevia no sessionStorage; um intervalo mínimo entre
+    // escritas mantém a detecção sem sobrecarregar.
+    let lastMouseTouch = 0
+    const onMouseMove = () => {
+      const now = Date.now()
+      if (now - lastMouseTouch < 5_000) return
+      lastMouseTouch = now
+      onActivity()
     }
 
     const activityEvents = ['mousedown', 'keydown', 'scroll', 'touchstart', 'click'] as const
@@ -124,12 +144,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     activityEvents.forEach((event) => {
       window.addEventListener(event, onActivity, { passive: true })
     })
+    window.addEventListener('mousemove', onMouseMove, { passive: true })
 
-    const checkInterval = window.setInterval(() => {
-      if (isIdleBeyond(limitMs)) {
+    const onReturnToPage = () => {
+      if (document.visibilityState === 'visible' && document.hasFocus()) {
         void handleAutomaticSignOut()
+        scheduleInactivityCheck()
       }
-    }, 30_000)
+    }
+    document.addEventListener('visibilitychange', onReturnToPage)
+    window.addEventListener('focus', onReturnToPage)
+
+    scheduleInactivityCheck()
 
     const refreshInterval = window.setInterval(() => {
       if (!isIdleBeyond(limitMs)) {
@@ -138,11 +164,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, 10 * 60 * 1000)
 
     return () => {
-      window.clearInterval(checkInterval)
+      if (inactivityTimer !== undefined) window.clearTimeout(inactivityTimer)
       window.clearInterval(refreshInterval)
       activityEvents.forEach((event) => {
         window.removeEventListener(event, onActivity)
       })
+      window.removeEventListener('mousemove', onMouseMove)
+      document.removeEventListener('visibilitychange', onReturnToPage)
+      window.removeEventListener('focus', onReturnToPage)
     }
   }, [user, pathname])
 
