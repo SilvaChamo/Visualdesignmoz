@@ -12,9 +12,12 @@ import {
   Trash2,
   RefreshCw,
   Mail,
-  Eye
+  Eye,
+  Search,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react'
-import { panelTabList, panelTabBtn } from '@/lib/panel-ui'
+import { panelTabList, panelTabBtn, panelCard, panelBtnPrimary, panelBtnSecondary, panelField } from '@/lib/panel-ui'
 import { Spinner } from '@/components/ui/spinner'
 import { buildSimpleNotificationEmailHtml } from '@/lib/renewal-templates'
 import { NotificationRichEditor } from './NotificationRichEditor'
@@ -66,7 +69,11 @@ export function NotificationsSection({
   const [loading, setLoading] = useState(false)
   const [sending, setSending] = useState(false)
   const [activeTab, setActiveTab] = useState<NotificationsTab>(defaultTab)
-  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [search, setSearch] = useState('')
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [modalNotification, setModalNotification] = useState<Notification | null>(null)
+  const [page, setPage] = useState(1)
+  const PAGE_SIZE = 20
 
   const fetchNotifications = async () => {
     setLoading(true)
@@ -208,6 +215,68 @@ export function NotificationsSection({
     }
   }
 
+  const filteredNotifications = notifications.filter((n) => {
+    const q = search.trim().toLowerCase()
+    if (!q) return true
+    return n.title.toLowerCase().includes(q) || n.message.toLowerCase().includes(q)
+  })
+  const totalPages = Math.max(1, Math.ceil(filteredNotifications.length / PAGE_SIZE))
+  const currentPage = Math.min(page, totalPages)
+  const pageStart = (currentPage - 1) * PAGE_SIZE
+  const pageNotifications = filteredNotifications.slice(pageStart, pageStart + PAGE_SIZE)
+  const allOnPageSelected = pageNotifications.length > 0 && pageNotifications.every((n) => selectedIds.has(n.id))
+
+  const toggleSelectAllOnPage = () => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (allOnPageSelected) pageNotifications.forEach((n) => next.delete(n.id))
+      else pageNotifications.forEach((n) => next.add(n.id))
+      return next
+    })
+  }
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const bulkMarkAsRead = async () => {
+    const ids = Array.from(selectedIds)
+    if (ids.length === 0) return
+    await Promise.all(ids.map((id) => markAsRead(id)))
+    setSelectedIds(new Set())
+  }
+
+  const bulkDelete = async () => {
+    const ids = Array.from(selectedIds)
+    if (ids.length === 0) return
+    if (!confirm(`Tem a certeza que quer eliminar ${ids.length} notificaç${ids.length > 1 ? 'ões' : 'ão'}?`)) return
+    try {
+      await Promise.all(
+        ids.map((id) =>
+          fetch('/api/notifications/admin', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id }),
+          }),
+        ),
+      )
+      setNotifications((prev) => prev.filter((n) => !selectedIds.has(n.id)))
+      setSelectedIds(new Set())
+    } catch (error) {
+      console.error('Erro ao eliminar em massa:', error)
+    }
+  }
+
+  const openNotification = (notification: Notification) => {
+    setModalNotification(notification)
+    markAsRead(notification.id)
+  }
+
   const getTypeIcon = (type: string) => {
     switch (type) {
       case 'success': return <CheckCircle className="w-4 h-4 text-green-500" />
@@ -223,6 +292,19 @@ export function NotificationsSection({
       case 'warning': return 'bg-yellow-100 text-yellow-800 border-yellow-200'
       case 'error': return 'bg-red-100 text-red-800 border-red-200'
       default: return 'bg-blue-100 text-blue-800 border-blue-200'
+    }
+  }
+
+  /** Cor de fundo por tipo nas linhas da tabela (mesma paleta de getTypeColor,
+   * só que mais suave — a versão cheia era pensada para um cartão isolado,
+   * não para uma linha ao lado de outras). Lidas ficam esbatidas. */
+  const getRowTint = (type: string, read: boolean) => {
+    const opacity = read ? '/40' : ''
+    switch (type) {
+      case 'success': return `bg-green-50${opacity} dark:bg-green-900/10`
+      case 'warning': return `bg-yellow-50${opacity} dark:bg-yellow-900/10`
+      case 'error': return `bg-red-50${opacity} dark:bg-red-900/10`
+      default: return `bg-blue-50${opacity} dark:bg-blue-900/10`
     }
   }
 
@@ -459,90 +541,182 @@ export function NotificationsSection({
         </div>
       )}
 
-      {/* Tab: Listar */}
+      {/* Tab: Listar — mesma disposição da página "Messages" do servidor
+          (DirectAdmin): tabela simples com caixas de selecção, Assunto e
+          Data, pesquisa e acções em massa no topo, popup ao clicar. */}
       {activeTab === 'list' && (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <div className="p-3 bg-purple-100 rounded-lg">
-                <Bell className="w-6 h-6 text-purple-600" />
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">Histórico de Notificações</h3>
-                <p className="text-sm text-gray-500">Total: {stats.total} | Não lidas: {stats.unread} | Emails: {stats.emailSent}</p>
-              </div>
-            </div>
+        <div className={`${panelCard} p-4 sm:p-6`}>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-zinc-100">Notificações</h3>
             <button
               onClick={fetchNotifications}
               disabled={loading}
-              className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:text-zinc-400 dark:hover:bg-zinc-800 rounded-lg transition-colors"
+              title="Actualizar"
             >
               {loading ? <Spinner className="w-5 h-5" /> : <RefreshCw className="w-5 h-5" />}
             </button>
           </div>
 
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
+            <div className="relative flex-1 max-w-xs">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => { setSearch(e.target.value); setPage(1) }}
+                placeholder="Pesquisar notificações..."
+                className={`${panelField} w-full pl-9`}
+              />
+            </div>
+            <div className="flex items-center gap-2 sm:ml-auto">
+              <button
+                onClick={bulkMarkAsRead}
+                disabled={selectedIds.size === 0}
+                className={panelBtnSecondary}
+              >
+                Marcar como lida
+              </button>
+              <button
+                onClick={bulkDelete}
+                disabled={selectedIds.size === 0}
+                className={panelBtnPrimary}
+              >
+                Eliminar
+              </button>
+            </div>
+          </div>
+
           {notifications.length === 0 ? (
             <div className="text-center py-12">
-              <Bell className="w-16 h-16 text-gray-200 mx-auto mb-4" />
-              <p className="text-gray-500">Nenhuma notificação enviada ainda</p>
+              <Bell className="w-16 h-16 text-gray-200 dark:text-zinc-700 mx-auto mb-4" />
+              <p className="text-gray-500 dark:text-zinc-400">Nenhuma notificação enviada ainda</p>
             </div>
           ) : (
-            <div className="space-y-3">
-              {notifications.map((notification) => {
-                const expanded = expandedId === notification.id
-                return (
-                <div
-                  key={notification.id}
-                  onClick={() => {
-                    // Se o clique terminou uma selecção de texto (utilizador a
-                    // tentar copiar a mensagem), não fechar/abrir o cartão —
-                    // isso apagava a selecção antes de dar para copiar.
-                    const selection = window.getSelection()
-                    if (selection && selection.toString().length > 0) return
-                    setExpandedId(expanded ? null : notification.id)
-                    markAsRead(notification.id)
-                  }}
-                  className={`p-4 rounded-lg border cursor-pointer ${getTypeColor(notification.type)} ${
-                    notification.read ? 'opacity-75' : ''
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-start gap-3 flex-1">
-                      {getTypeIcon(notification.type)}
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <p className={notification.read ? 'font-medium' : 'font-bold'}>{notification.title}</p>
-                          <span className="px-2 py-0.5 bg-white/50 text-xs rounded">
-                            {notification.category}
+            <>
+              <div className="overflow-x-auto border border-gray-200 dark:border-zinc-700 rounded-lg">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-800/60 text-left text-gray-500 dark:text-zinc-400">
+                      <th className="w-10 px-4 py-2.5">
+                        <input
+                          type="checkbox"
+                          checked={allOnPageSelected}
+                          onChange={toggleSelectAllOnPage}
+                          className="w-4 h-4 rounded border-gray-300 dark:border-zinc-600"
+                        />
+                      </th>
+                      <th className="px-2 py-2.5 font-medium">Assunto</th>
+                      <th className="w-44 px-4 py-2.5 font-medium text-right">Data</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pageNotifications.map((notification) => (
+                      <tr
+                        key={notification.id}
+                        onClick={() => openNotification(notification)}
+                        className={`border-b last:border-b-0 border-gray-100 dark:border-zinc-800 cursor-pointer hover:brightness-95 dark:hover:brightness-125 ${getRowTint(notification.type, notification.read)}`}
+                      >
+                        <td className="px-4 py-2.5" onClick={(e) => e.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.has(notification.id)}
+                            onChange={() => toggleSelect(notification.id)}
+                            className="w-4 h-4 rounded border-gray-300 dark:border-zinc-600"
+                          />
+                        </td>
+                        <td className="px-2 py-2.5">
+                          <span className="inline-flex items-center gap-2">
+                            {getTypeIcon(notification.type)}
+                            {!notification.read && <span className="w-1.5 h-1.5 rounded-full bg-red-600 shrink-0" title="Não lida" />}
+                            <span className={`text-gray-800 dark:text-zinc-200 ${notification.read ? '' : 'font-semibold'}`}>
+                              {notification.title}
+                            </span>
+                            {notification.email_sent && <Mail className="w-3.5 h-3.5 text-gray-400 shrink-0" />}
                           </span>
-                          {notification.email_sent && (
-                            <Mail className="w-3 h-3 text-gray-400" />
-                          )}
-                          {!notification.read && (
-                            <span className="w-2 h-2 rounded-full bg-red-600" title="Não lida" />
-                          )}
-                        </div>
-                        {expanded && (
-                          <p className={`text-sm mt-1 select-text ${notification.read ? '' : 'font-semibold'}`}>{notification.message}</p>
-                        )}
-                        <p className="text-xs mt-2 opacity-70">
+                        </td>
+                        <td className="px-4 py-2.5 text-right text-gray-500 dark:text-zinc-400 whitespace-nowrap">
                           {new Date(notification.created_at).toLocaleString('pt-PT')}
-                        </p>
-                      </div>
-                    </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="flex items-center justify-between mt-3 text-sm text-gray-500 dark:text-zinc-400">
+                <span>
+                  {filteredNotifications.length === 0
+                    ? '0 notificações'
+                    : `${pageStart + 1}-${Math.min(pageStart + PAGE_SIZE, filteredNotifications.length)} de ${filteredNotifications.length} notificações`}
+                </span>
+                {totalPages > 1 && (
+                  <div className="flex items-center gap-1">
                     <button
-                      onClick={(e) => { e.stopPropagation(); deleteNotification(notification.id) }}
-                      className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                      title="Deletar"
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      disabled={currentPage <= 1}
+                      className="p-1.5 rounded border border-gray-200 dark:border-zinc-700 disabled:opacity-40 hover:bg-gray-100 dark:hover:bg-zinc-800"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    <span className="px-2">{currentPage} / {totalPages}</span>
+                    <button
+                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                      disabled={currentPage >= totalPages}
+                      className="p-1.5 rounded border border-gray-200 dark:border-zinc-700 disabled:opacity-40 hover:bg-gray-100 dark:hover:bg-zinc-800"
+                    >
+                      <ChevronRight className="w-4 h-4" />
                     </button>
                   </div>
-                </div>
-                )
-              })}
-            </div>
+                )}
+              </div>
+            </>
           )}
+        </div>
+      )}
+
+      {/* Popup com a mensagem completa — mesmo fundo (bg-black/50, sem
+          desfocagem) usado nos outros popups do painel. Cresce com o
+          conteúdo em vez de forçar barra de deslize interna. */}
+      {modalNotification && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setModalNotification(null)} />
+          <div className={`${panelCard} relative w-full max-w-2xl max-h-[85vh] overflow-y-auto`}>
+            <div className="flex items-start justify-between gap-4 p-5 border-b border-gray-200 dark:border-zinc-700">
+              <div className="flex items-start gap-3">
+                {getTypeIcon(modalNotification.type)}
+                <div>
+                  <h4 className="font-semibold text-gray-900 dark:text-zinc-100">{modalNotification.title}</h4>
+                  <p className="text-xs text-gray-500 dark:text-zinc-400 mt-1">
+                    {new Date(modalNotification.created_at).toLocaleString('pt-PT')}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setModalNotification(null)}
+                className="p-1.5 text-gray-400 hover:text-gray-700 dark:hover:text-zinc-200 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded transition-colors shrink-0"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-5">
+              <p className="text-sm text-gray-800 dark:text-zinc-200 whitespace-pre-wrap break-words select-text">
+                {modalNotification.message}
+              </p>
+            </div>
+            <div className="flex items-center justify-end gap-2 p-4 border-t border-gray-200 dark:border-zinc-700">
+              <button
+                onClick={() => { deleteNotification(modalNotification.id); setModalNotification(null) }}
+                className={panelBtnPrimary}
+              >
+                <Trash2 className="w-4 h-4" />
+                Eliminar
+              </button>
+              <button onClick={() => setModalNotification(null)} className={panelBtnSecondary}>
+                Fechar
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
