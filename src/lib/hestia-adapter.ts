@@ -1251,7 +1251,9 @@ export async function gravarPacote(
   const renomear = de !== undefined && de !== nome;
   if (renomear && (!editar || !valido(de as string) || de === 'default')) return { ok: false, error: 'Não é possível mudar o nome deste pacote.' };
   const pastaPacotes = '/usr/local/hestia/data/packages';
-  const existe = async (n: string) => (await executeServerCommand(`[ -f ${pastaPacotes}/${n}.pkg ] && echo SIM`).catch(() => '')).includes('SIM');
+  // No servidor os comandos correm localmente e, quando um termina com erro, a resposta traz o texto do próprio comando:
+  // por isso a pergunta acaba sempre com `echo` (código 0) e a resposta é só SIM ou NAO.
+  const existe = async (n: string) => (await executeServerCommand(`[ -f ${pastaPacotes}/${n}.pkg ] && echo SIM || echo NAO`).catch(() => '')).match(/^SIM\s*$/m) !== null;
   // criar ou mudar o nome: o nome novo não pode já existir (o Hestia regravava por cima do pacote que lá estava)
   if ((!editar || renomear) && (await existe(nome))) return { ok: false, error: 'Já existe um pacote com esse nome no servidor.' };
   if (renomear) {
@@ -1259,18 +1261,20 @@ export async function gravarPacote(
     const rn = await hestiaCall('v-rename-user-package', [de as string, nome, 'yes']);
     if (!rn.ok) return { ok: false, error: rn.error || 'O servidor recusou mudar o nome do pacote.' };
   }
-  const atual = await executeServerCommand(`cat ${pastaPacotes}/${editar ? nome : 'default'}.pkg 2>/dev/null`).catch(() => '');
+  const atual = await executeServerCommand(`cat ${pastaPacotes}/${editar ? nome : 'default'}.pkg 2>/dev/null || true`).catch(() => '');
   if (editar && !atual.trim()) return { ok: false, error: 'Esse pacote não existe no servidor.' };
   const texto = juntarCamposPacote(atual, campos, editar, exatos);
   const ficheiro = `/tmp/vh-pacote-${Date.now()}-${nome}.pkg`;
   const b64 = Buffer.from(texto, 'utf8').toString('base64');
   try {
-    // o Hestia escreve os erros na saída normal e o fim nem sempre vem com código ≠ 0: só "VH_OK" confirma
+    // o Hestia escreve os erros na saída normal e o fim nem sempre vem com código ≠ 0: só "VHRES:0" confirma. O comando
+    // acaba sempre com `echo` (código 0) e a marca leva o código do Hestia: com um comando que falha, a resposta do
+    // servidor traz o texto do próprio comando e uma marca escrita nele passava por sucesso.
     const saida = await executeServerCommand(
-      `echo ${b64} | base64 -d > ${ficheiro} && /usr/local/hestia/bin/v-add-user-package ${ficheiro} ${nome} yes 2>&1; r=$?; rm -f ${ficheiro}; [ $r = 0 ] && echo VH_OK`,
+      `echo ${b64} | base64 -d > ${ficheiro} && /usr/local/hestia/bin/v-add-user-package ${ficheiro} ${nome} yes 2>&1; r=$?; rm -f ${ficheiro}; echo "VHRES:$r"`,
     );
-    if (saida.includes('VH_OK')) return { ok: true };
-    return { ok: false, error: saida.replace('VH_OK', '').trim() || 'O servidor recusou o pacote.' };
+    if (/^VHRES:0\s*$/m.test(saida)) return { ok: true };
+    return { ok: false, error: saida.replace(/^VHRES:\d+\s*$/m, '').trim() || 'O servidor recusou o pacote.' };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'O servidor recusou o pacote.' };
   }
