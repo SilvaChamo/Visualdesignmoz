@@ -29,7 +29,7 @@ const etiquetaCls =
   'pointer-events-none absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap bg-[#fff] px-1 text-xs font-medium text-zinc-500 transition-all duration-150 lg:left-2.5 lg:translate-x-0 dark:bg-[#15161e] dark:text-zinc-400 '
 
 /** Campo com a etiqueta a meio; ao clicar (ou já preenchido) a etiqueta sobe para a linha de cima do campo
- *  (pedido do Silva, 13/10/2026). A dica (ex.: o formato do e-mail) só aparece com o campo escolhido. No telemóvel e no
+ *  (pedido do Silva, 13/10/2026). Ao clicar o campo fica vazio, à espera de dados (sem dica dentro). No telemóvel e no
  *  tablet a etiqueta e o texto ficam ao centro. */
 export function CampoFlutuante({
   id,
@@ -67,10 +67,10 @@ export function CampoFlutuante({
         required={obrigatorio}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder={dica || ' '}
+        placeholder=" "
         className={
           caixaCls +
-          'placeholder:text-transparent focus:placeholder:text-zinc-400 dark:focus:placeholder:text-zinc-500 ' +
+          'placeholder:text-transparent ' +
           (children ? 'px-10 lg:pl-3.5' : '')
         }
       />
