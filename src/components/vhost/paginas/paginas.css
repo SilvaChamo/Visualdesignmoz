@@ -9454,6 +9454,29 @@
    min-height: 100vh
 }
 
+/* Nunca um cartão vazio (Silva, 20/10/2026): enquanto a página ainda não tem conteúdo, o cartão mostra as barras do DA
+   no topo, ao centro, e o que está por desenhar fica escondido (continua montado, a ler os dados — só sem altura nem aspeto) */
+.vh .pg-slot.a-carregar>:not(.pg-barra):not(.pg-carga) {
+   flex: none !important;
+   height: 0 !important;
+   min-height: 0 !important;
+   margin: 0 !important;
+   padding: 0 !important;
+   border: 0 !important;
+   overflow: hidden !important;
+   visibility: hidden !important
+}
+
+/* as barras ficam centradas na horizontal e no canto superior do cartão (Silva, 20/10/2026), numa altura moderada que não mexe no resto da página */
+.vh .da-main-card.pg-carga {
+   display: flex;
+   flex-direction: column;
+   align-items: center;
+   justify-content: flex-start;
+   min-height: 240px;
+   padding: 24px 20px
+}
+
 /* Monitor de processos e Serviços (Ferramentas de admin) */
 .vh .pm-proc {
    display: flex;

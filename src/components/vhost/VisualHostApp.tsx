@@ -18,6 +18,7 @@ import { PesquisaNaPagina } from './pesquisa-pagina';
 import { useTituloAjustado } from './titulo-ajustado';
 import { SAIR_POR_INATIVIDADE_ATIVO } from '@/lib/session-inactivity';
 import { BarraTopo, EsperaPagina, atividadeComeca, instalarContador, type Espera } from './carga';
+import { BarrasDa } from './carregador-da';
 import { badgeColors, getThemeColors, hexToRgb, luminancia, type CustomComponents } from './theme';
 import { FUNDO } from './carga';
 
@@ -292,6 +293,9 @@ const nadaMuda = () => () => {};
 /** Lugar de uma página: escondido enquanto as leituras sem nada em memória não acabam; depois avisa (uma vez) */
 type RegistarFonte = (chave: string, id: string, fonte: () => ItemPesquisa[]) => () => void;
 
+/** O que conta como "tem conteúdo": texto, ou um destes elementos (ícones sozinhos não chegam) */
+const ELEMENTOS_COM_CONTEUDO = 'img,svg,input,select,textarea,iframe,canvas,table,video';
+
 function PaginaSlot({ p, oculta, onPronta, registar }: { p: Pagina; oculta: boolean; onPronta: (chave: string) => void; registar: RegistarFonte }) {
   const [barra, setBarra] = useState<HTMLDivElement | null>(null);
   const [abasEl, setAbasEl] = useState<HTMLElement | null>(null);
@@ -302,20 +306,59 @@ function PaginaSlot({ p, oculta, onPronta, registar }: { p: Pagina; oculta: bool
   const avisada = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const chave = p.chave;
+  // Nunca um cartão vazio (Silva, 20/10/2026): enquanto a página ainda não tem conteúdo — leituras por acabar, ou nada
+  // desenhado — o cartão mostra o carregador do DA no meio. Só até haver conteúdo pela primeira vez: depois, ao
+  // atualizar, o conteúdo continua à vista.
+  const slotRef = useRef<HTMLDivElement>(null);
+  const [carrega, setCarrega] = useState(false);
+  const teveConteudo = useRef(false);
+  const temConteudo = useCallback(() => {
+    const el = slotRef.current;
+    if (!el) return true;
+    return [...el.children].some((c) => {
+      if (c.classList.contains('pg-barra') || c.classList.contains('pg-carga')) return false;
+      return (c.textContent || '').trim() !== '' || !!c.querySelector(ELEMENTOS_COM_CONTEUDO);
+    });
+  }, []);
+  const avaliar = useCallback(() => {
+    if (teveConteudo.current) return;
+    const vazia = falta.current > 0 || !temConteudo();
+    if (!vazia) teveConteudo.current = true;
+    setCarrega(vazia);
+  }, [temConteudo]);
   const verificar = useCallback(() => {
     clearTimeout(timer.current);
     // pequena folga: uma leitura que acaba e outra que começa logo a seguir não abrem a página a meio
     timer.current = setTimeout(() => {
-      if (montada.current && falta.current === 0 && !avisada.current) {
-        avisada.current = true;
-        onPronta(chave);
+      if (montada.current && falta.current === 0) {
+        avaliar();
+        if (!avisada.current) {
+          avisada.current = true;
+          onPronta(chave);
+        }
       }
     }, 40);
-  }, [onPronta, chave]);
+  }, [onPronta, chave, avaliar]);
+  // antes de pintar: se a página abre vazia, o cartão já nasce com o carregador (sem um instante de cartão em branco)
+  useLayoutEffect(() => {
+    avaliar();
+  }, [avaliar]);
+  // páginas que desenham o conteúdo sem passar pelas leituras acima: quando o conteúdo aparece, o carregador sai
+  useEffect(() => {
+    const el = slotRef.current;
+    if (!el || teveConteudo.current) return;
+    const obs = new MutationObserver(() => {
+      if (teveConteudo.current) return obs.disconnect();
+      verificar();
+    });
+    obs.observe(el, { childList: true, subtree: true, characterData: true });
+    return () => obs.disconnect();
+  }, [verificar]);
   const espera = useMemo<Espera>(
     () => ({
       comecar: () => {
         falta.current++;
+        if (!teveConteudo.current) setCarrega(true);
         let feito = false;
         return () => {
           if (feito) return;
@@ -338,7 +381,7 @@ function PaginaSlot({ p, oculta, onPronta, registar }: { p: Pagina; oculta: bool
     </FalhaPagina>
   );
   return (
-    <div className="pg-slot" style={{ display: oculta ? 'none' : 'contents' }} aria-hidden={oculta || undefined}>
+    <div ref={slotRef} className={'pg-slot' + (carrega && !oculta ? ' a-carregar' : '')} style={{ display: oculta ? 'none' : 'contents' }} aria-hidden={oculta || undefined}>
       <VHContext.Provider value={p.vh}>
         <EsperaPagina.Provider value={espera}>
           <PesquisaPagina.Provider value={pesquisa}>
@@ -359,6 +402,11 @@ function PaginaSlot({ p, oculta, onPronta, registar }: { p: Pagina; oculta: bool
             </div>
           ) : (
             <div className="da-main-card">{corpo}</div>
+          )}
+          {carrega && !oculta && (
+            <div className="da-main-card pg-carga">
+              <BarrasDa />
+            </div>
           )}
           </FaixaAbas.Provider>
           </BarraPagina.Provider>
