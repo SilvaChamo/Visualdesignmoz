@@ -9171,25 +9171,6 @@
    align-self: flex-start
 }
 
-/* "Valor TXT": título com o botão "Adicionar outro campo TXT" na mesma linha e as caixas por baixo, à largura toda
-   (como no commit f19ff24f); o valor longo parte linhas dentro da caixa, nunca alarga a janela */
-.vh .da-janela .frm-row.da-txt-bloco {
-   display: block;
-   min-width: 0
-}
-
-.vh .da-txt-cab {
-   display: flex;
-   justify-content: space-between;
-   align-items: center;
-   gap: 8px;
-   margin-bottom: 6px
-}
-
-.vh .da-txt-cab label {
-   margin: 0;
-   font-weight: 600
-}
 
 @media(max-width:768px) {
    .vh .da-janela .frm-row {

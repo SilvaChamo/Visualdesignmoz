@@ -1294,16 +1294,7 @@ function DnsForm({ d, zona = d, fonte, r, onFeito }: { d: string; zona?: string;
           </Row>
         )}
         {f.tipo === 'TXT' ? (
-          <div className="frm-row da-txt-bloco">
-            <div className="da-txt-cab">
-              <label>{t('Valor TXT')}</label>
-              {!r && (
-                <button type="button" className="btn g sm" onClick={() => setTxtLinhas([...txtLinhas, ''])}>
-                  <i className="fa-solid fa-plus" />
-                  {t('Adicionar outro campo TXT')}
-                </button>
-              )}
-            </div>
+          <Row label="Valor">
             <div className="da-txt">
               {txtLinhas.map((linha, idx) => (
                 <div key={idx} className="da-txt-linha">
@@ -1326,8 +1317,14 @@ function DnsForm({ d, zona = d, fonte, r, onFeito }: { d: string; zona?: string;
                   )}
                 </div>
               ))}
+              {!r && (
+                <button type="button" className="btn g sm" onClick={() => setTxtLinhas([...txtLinhas, ''])}>
+                  <i className="fa-solid fa-plus" />
+                  {t('Adicionar outro campo TXT')}
+                </button>
+              )}
             </div>
-          </div>
+          </Row>
         ) : (
           <Row label={f.tipo === 'MX' ? 'Destino' : 'Valor'}>
             <input value={f.valor} onChange={(e) => setF({ ...f, valor: e.target.value })} placeholder={f.tipo === 'A' ? 'ex.: 169.58.148.144' : f.tipo === 'MX' ? 'ex.: mail.' + d : ''} />
