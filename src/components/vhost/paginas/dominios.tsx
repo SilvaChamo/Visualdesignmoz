@@ -4,7 +4,7 @@
 // redirecionamentos, proteção hotlink e definições PHP. Campos copiados do DirectAdmin (ver
 // VisualHost/05-da-gestao-de-dominios.md); dados e alterações reais no servidor (Hestia + Cloudflare) por
 // /api/vhost/dominio. As páginas de um só domínio usam o domínio escolhido no seletor da faixa de navegação.
-import { Fragment, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type TextareaHTMLAttributes } from 'react';
+import { Fragment, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import { useVH, type VH } from '../context';
 import type { ScreenFn } from '../screens';
 import type { BaseDados, Domain } from '../types';
@@ -1145,9 +1145,12 @@ function DnsForm({ d, zona = d, fonte, r, onFeito }: { d: string; zona?: string;
 
     const valorFinal = f.tipo === 'TXT' ? (txtLinhas[0] || f.valor) : f.valor;
     if (!valorFinal.trim()) return vh.toast(t('Escreva o valor do registo'));
+    // ao editar um TXT, os campos a mais viram registos TXT novos com o mesmo nome
+    const extras = f.tipo === 'TXT' && r ? txtLinhas.slice(1).map((x) => x.trim()).filter(Boolean) : [];
     closeM();
     if (await noServidor(vh, { acao: r ? 'dns-editar' : 'dns-criar', dominio: d, ...(r ? { id: r.id } : {}), ...f, valor: valorFinal }, r ? t('Registo alterado') : t('Registo ') + f.tipo + t(' adicionado'), false)) {
       if (!r) await nosApontadores([valorFinal]);
+      for (const val of extras) await noServidor(vh, { acao: 'dns-criar', dominio: d, tipo: 'TXT', nome: f.nome, ttl: f.ttl, valor: val }, t('Registo TXT adicionado'), false);
       onFeito();
     }
   };
@@ -1194,7 +1197,7 @@ function DnsForm({ d, zona = d, fonte, r, onFeito }: { d: string; zona?: string;
             <div className="da-txt">
               {txtLinhas.map((linha, idx) => (
                 <div key={idx} className="da-txt-linha">
-                  <TextoAuto
+                  <textarea
                     className="inp dns-txt-area"
                     value={linha}
                     onChange={(e) => {
@@ -1204,21 +1207,20 @@ function DnsForm({ d, zona = d, fonte, r, onFeito }: { d: string; zona?: string;
                       if (idx === 0) setF({ ...f, valor: e.target.value });
                     }}
                     placeholder="ex.: v=spf1 include:spf.brevo.com ip4:169.58.148.144 ~all"
-                    rows={2}
+                    rows={3}
+                    style={CAIXA_TXT}
                   />
-                  {!r && txtLinhas.length > 1 && (
+                  {(!r ? txtLinhas.length > 1 : idx > 0) && (
                     <button type="button" className="btn g sm" title={t('Remover este campo')} onClick={() => setTxtLinhas(txtLinhas.filter((_, i) => i !== idx))}>
                       <i className="fa-solid fa-trash-can" />
                     </button>
                   )}
                 </div>
               ))}
-              {!r && (
-                <button type="button" className="btn g sm" onClick={() => setTxtLinhas([...txtLinhas, ''])}>
-                  <i className="fa-solid fa-plus" />
-                  {t('Adicionar outro campo TXT')}
-                </button>
-              )}
+              <button type="button" className="btn g sm" onClick={() => setTxtLinhas([...txtLinhas, ''])}>
+                <i className="fa-solid fa-plus" />
+                {t('Adicionar outro campo TXT')}
+              </button>
             </div>
           </Row>
         ) : (
@@ -1270,11 +1272,14 @@ function Dns() {
   const [editId, setEditId] = useState<string | null>(null);
   const [fEdit, setFEdit] = useState<{ nome: string; ttl: string; valor: string; prio: string }>({ nome: '', ttl: '3600', valor: '', prio: '10' });
   const [aGuardar, setAGuardar] = useState(false);
+  /** Campos TXT a mais na edição: ao guardar, viram registos novos com o mesmo nome */
+  const [extrasTxt, setExtrasTxt] = useState<string[]>([]);
   const [aMudarProxy, setAMudarProxy] = useState<string | null>(null);
 
   useEffect(() => {
     setEditId(null);
     setAGuardar(false);
+    setExtrasTxt([]);
   }, [x?.name, filtro]);
 
   if (!x) return <SemDominio soSite={false} />;
@@ -1294,6 +1299,7 @@ function Dns() {
 
   const iniciarEdicao = (r: RegistoDns) => {
     setEditId(r.id);
+    setExtrasTxt([]);
     setFEdit({
       nome: r.nome,
       ttl: String(r.ttl === 1 ? 3600 : r.ttl),
@@ -1305,6 +1311,7 @@ function Dns() {
   const cancelarEdicao = () => {
     setEditId(null);
     setAGuardar(false);
+    setExtrasTxt([]);
   };
 
   const mudarProxy = async (r: RegistoDns, ligar: boolean) => {
@@ -1341,9 +1348,13 @@ function Dns() {
       t('Registo alterado'),
       false,
     );
+    if (ok && r.tipo === 'TXT')
+      for (const val of extrasTxt.map((v) => v.trim()).filter(Boolean))
+        await noServidor(vh, { acao: 'dns-criar', dominio: x.name, tipo: 'TXT', nome: fEdit.nome, ttl: fEdit.ttl, valor: val }, t('Registo TXT adicionado'), false);
     setAGuardar(false);
     if (ok) {
       setEditId(null);
+      setExtrasTxt([]);
       ler();
     }
   };
@@ -1445,18 +1456,33 @@ function Dns() {
                         />
                       )}
                       {r.tipo === 'TXT' ? (
-                        <TextoAuto
-                          className="inp sm dns-inline-inp dns-txt-area"
-                          value={fEdit.valor}
-                          onChange={(e) => setFEdit({ ...fEdit, valor: e.target.value })}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) guardarInline(r);
-                            if (e.key === 'Escape') cancelarEdicao();
-                          }}
-                          placeholder="v=spf1 ... ou texto"
-                          rows={2}
-                          style={{ width: '100%', minWidth: 200, minHeight: 52, fontFamily: 'monospace', fontSize: 12.5, wordBreak: 'break-all' }}
-                        />
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%', minWidth: 0 }}>
+                          {[fEdit.valor, ...extrasTxt].map((linha, idx) => (
+                            <div key={idx} style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
+                              <textarea
+                                className="inp sm dns-inline-inp dns-txt-area"
+                                value={linha}
+                                onChange={(e) => (idx === 0 ? setFEdit({ ...fEdit, valor: e.target.value }) : setExtrasTxt(extrasTxt.map((v, i) => (i === idx - 1 ? e.target.value : v))))}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) guardarInline(r);
+                                  if (e.key === 'Escape') cancelarEdicao();
+                                }}
+                                placeholder="v=spf1 ... ou texto"
+                                rows={3}
+                                style={{ ...CAIXA_TXT, flex: 1, width: '100%', minWidth: 200, fontFamily: 'monospace', fontSize: 12.5 }}
+                              />
+                              {idx > 0 && (
+                                <button type="button" className="btn g sm" title={t('Remover este campo')} onClick={() => setExtrasTxt(extrasTxt.filter((_, i) => i !== idx - 1))}>
+                                  <i className="fa-solid fa-trash-can" />
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                          <button type="button" className="btn g sm" style={{ alignSelf: 'flex-start' }} onClick={() => setExtrasTxt([...extrasTxt, ''])}>
+                            <i className="fa-solid fa-plus" />
+                            {t('Adicionar outro campo TXT')}
+                          </button>
+                        </div>
                       ) : (
                         <input
                           className="inp sm dns-inline-inp"
@@ -1601,34 +1627,8 @@ function Dns() {
     </>
   );
 }
-/** Caixa de texto que cresce com o conteúdo (registos TXT/DKIM longos): mostra sempre o texto todo, sem cortes nem
- * barra de deslocar dentro da caixa. */
-function TextoAuto(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  const ref = useRef<HTMLTextAreaElement>(null);
-  const ajustar = () => {
-    const el = ref.current;
-    if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = el.scrollHeight + 2 + 'px';
-  };
-  useLayoutEffect(ajustar, [props.value]);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el || typeof ResizeObserver === 'undefined') return;
-    // a largura muda com a janela/coluna — o número de linhas também
-    let w = el.clientWidth;
-    const ro = new ResizeObserver(() => {
-      if (el.clientWidth !== w) {
-        w = el.clientWidth;
-        ajustar();
-      }
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-  return <textarea {...props} ref={ref} style={{ ...props.style, overflow: 'hidden', resize: 'none' }} />;
-}
-
+/** Caixa do valor TXT na edição: altura fixa com barra de deslocar dentro dela (o texto comprido não estica a página) */
+const CAIXA_TXT = { height: 76, minHeight: 52, maxHeight: 180, overflowY: 'auto', resize: 'vertical', wordBreak: 'break-all' } as const;
 /** "+ Adicionar registo" na barra de cima (regra do Silva: o "+ Adicionar…" principal vai para a barra de cima quando
  *  está livre); usa a mesma leitura do DNS que a página (memória comum), e a tabela atualiza-se sozinha */
 function NovoRegistoDns() {
