@@ -162,11 +162,10 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
 - **Tabelas compactas nos ecrãs de computador** (13/10/2026, 769–1600 px): 12 px entre colunas, linhas baixas, números
   dos cartões pequenos. Se mesmo assim não couber, as colunas menos importantes saem até essa largura (`ate: 1600 |
   1300` na coluna do `DataTable`; no telemóvel, em blocos, voltam) e o que davam fica acessível noutro sítio (ex.: menu
-  "⋯" da linha). **Nunca barra de deslocar na tabela.**
-- **Nenhuma tabela desliza na horizontal, em nenhum tamanho de ecrã** (Silva, 20/10/2026). Medir antes de entregar, a
-  1920, 1440, 1280 e 1024 px: `scrollWidth - clientWidth` do `.tbl` tem de dar 0. Se não der, as colunas menos importantes
-  saem (`ate`) e o que davam fica noutro sítio. Por corrigir (medido a 20/10/2026): "Todos os utilizadores" a 1280 px
-  (≈ 200 px de excesso) e "Sites das contas" a 1280 px (≈ 230 px) e 1440 px (≈ 130 px).
+  "⋯" da linha). **Cada linha da tabela fica numa só linha** — o texto não parte em duas (nomes, pastas, caminhos). Se a
+  tabela não cabe, **o conteúdo desliza na horizontal** (deslizar para a esquerda para ver o que está escondido à direita);
+  não se parte texto em duas linhas para caber (Silva, 20/10/2026: "não há necessidade de termos duas linhas se podes
+  deslizar o layout à esquerda"). Isto substitui a regra antiga "nunca barra de deslocar".
 - **Botões de cada linha** (ex.: "Gerir" e o das setas): lado a lado, à direita, na coluna "Acção".
 
 ## Campos
@@ -175,6 +174,9 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
   `src/components/vhost/paginas/componentes.tsx`: `.igrp` com o ícone `.ib` colado ao campo — o dado à esquerda, o olho
   à direita). Vale para campos de texto, palavra-passe, escolha (selector), número e e-mail, em formulários e janelas.
   O ícone diz o que o campo é (utilizador, e-mail, cadeado, globo, pasta…) — nunca um campo "nu".
+- **Todo o campo onde se escreve um domínio leva o ícone de domínio (o globo) à esquerda** (Silva, 20/10/2026), em formulários,
+  janelas e listas — `.igrp` com `<span className="ib"><i className="fa-solid fa-globe"/></span>` antes do campo. Não vale para o
+  motor de busca de domínios, que tem o seu próprio desenho.
 - Formulários sem contornos laterais; títulos e campos alinhados à esquerda pelo `--recuo`.
 - Janelas (popups): **25 px de espaço nos 4 cantos**; largura dinâmica só quando o domínio é comprido; no computador o
   menu de opções de uma linha abre para a esquerda.

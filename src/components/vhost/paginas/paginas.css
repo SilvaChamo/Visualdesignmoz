@@ -3874,7 +3874,7 @@
 }
 
 .vh .fmda-tab tbody tr:nth-child(odd) {
-   background: var(--soft)
+   background: transparent
 }
 
 .vh .fmda-tab tbody tr.on {
@@ -10494,11 +10494,6 @@
    border-top: 0;
 }
 
-/* Barra das colunas da tabela DNS sem fundo */
-.vh .tbl[data-dt="dns"] thead th {
-   background: transparent;
-}
-
 
 /* Barra dos separadores da página DNS mais baixa */
 .vh .da-main-card:has(.tbl[data-dt="dns"]) .ptabs-faixa > .ptabs {
@@ -11335,4 +11330,181 @@
    border-left: 0;
    border-right: 0;
    border-radius: 0
+}
+
+/* Páginas com tabela: sem a linha por baixo da linha de cima do cartão; a linha de início é a de cima da barra das colunas, que leva
+   o fundo suave (Silva, 20/10/2026, a partir do DNS: "esta é a regra") */
+.vh .da-main-card:has(.tbl) .card-topo {
+   border-bottom: 0
+}
+
+/* Formulário e tabela no mesmo cartão: a linha de baixo do formulário já é a linha de início da tabela, sem uma segunda por cima
+   dos títulos das colunas (Silva, 20/10/2026) */
+.vh .da-main-card:has(> .frm) .tbl thead th {
+   border-top: 0
+}
+
+/* Margem de cima e de baixo do botão da linha de cima do cartão iguais: 20 px de cada lado (Silva, 20/10/2026). Nas páginas com tabela
+   não há linha por baixo da linha de cima: os 20 px de baixo vão até à linha por cima dos títulos das colunas. */
+@media (min-width: 769px) {
+   .vh .da-main-card .card-topo {
+      padding-bottom: 20px
+   }
+
+   .vh .da-main-card:has(.tbl) .card-topo-slot:has(.card-topo) {
+      margin-bottom: 0
+   }
+
+   /* sem faixa de separadores por cima: os 20 px de cima contam desde o topo do cartão */
+   .vh .da-main-card > .card-topo-slot:first-child > .card-topo {
+      margin-top: -7px
+   }
+}
+/* "Certificados do domínio seleccionado" (SSL/TLS): este cartão leva os contornos laterais, ao contrário dos outros formulários do
+   cartão principal, que não os têm (Silva, 20/10/2026) */
+.vh .da-main-card > .frm.frm-lados {
+   border-left: 1px solid var(--line);
+   border-right: 1px solid var(--line)
+}
+
+/* "Certificados do domínio seleccionado": as 4 linhas (a de cima também) e os cantos de 5 px (Silva, 20/10/2026) */
+.vh .da-main-card > .frm.frm-lados {
+   border-top: 1px solid var(--line);
+   border-radius: 5px;
+   overflow: hidden
+}
+
+/* Contas de e-mail: a lista sem linhas laterais, só as horizontais, de lado a lado (Silva, 20/10/2026) */
+.vh .card.em-lista-card {
+   border-left: 0;
+   border-right: 0;
+   border-radius: 0
+}
+
+/* Gestor de WordPress: a pasta de cada linha numa só linha, sem partir (Silva, 20/10/2026) */
+.vh .tbl .wp-pasta {
+   white-space: nowrap !important;
+   overflow-wrap: normal
+}
+
+/* Definições PHP: a descrição por baixo do valor (Silva, 20/10/2026) */
+.vh .php-dica {
+   display: block;
+   margin-top: 6px;
+   color: var(--muted);
+   font-size: calc(12px * var(--fs, 1));
+   line-height: 1.45
+}
+
+/* Definições PHP: o cartão das definições encosta à linha de baixo do campo da versão (sem a margem de cima do título) e o campo
+   da versão ganha mais margem vertical, em cima e em baixo (Silva, 20/10/2026) */
+.vh .frm.php-versao {
+   margin-bottom: 0
+}
+
+.vh .frm.php-versao .frm-row {
+   padding-top: 22px;
+   padding-bottom: 22px
+}
+
+/* Definições PHP: margem em cima do título "Versão PHP" (Silva, 20/10/2026) */
+.vh .frm.php-versao {
+   margin-top: 22px
+}
+
+/* Definições PHP: linha em cima do título "Versão PHP" (Silva, 20/10/2026) */
+.vh .da-main-card > .frm.php-versao {
+   border-top: 1px solid var(--line)
+}
+
+/* Definições PHP: todos os campos com a mesma largura (a dos mais largos), também o seletor da versão; os valores encostados à
+   esquerda e sempre com folga à direita para a seta do seletor não encostar ao canto (Silva, 20/10/2026) */
+.vh .igrp.php-campo {
+   width: 100%;
+   max-width: 520px
+}
+
+.vh .igrp.php-campo :is(input, select) {
+   flex: 1 1 0;
+   min-width: 0;
+   text-align: left
+}
+
+.vh .igrp.php-campo select {
+   padding: 0 44px 0 10px
+}
+
+/* Tema escuro: as linhas alternadas mais escuras que o cartão (22% de preto) — visíveis mas suaves, nada de preto nem de cinzento brilhante (Silva, 20/10/2026) */
+.vh[data-theme=dark] table tbody tr:nth-child(even):not(.grp):not(.sel):not(.dt-realce):not(:hover) > td {
+   background: color-mix(in srgb, var(--card) 78%, #000)
+}
+
+/* Definições PHP: com a linha de cima do cartão (indicação do domínio e "Gravar"), o cartão da versão não leva a sua linha nem margem
+   de cima — a linha de cima do cartão já é a de início (Silva, 20/10/2026) */
+.vh .da-main-card:has(.card-topo) > .frm.php-versao {
+   margin-top: 0;
+   border-top: 0
+}
+
+/* Definições PHP: o botão "Gravar alterações" também em baixo do formulário, no canto esquerdo (Silva, 20/10/2026) */
+.vh .frm.php-defs .frm-foot {
+   justify-content: flex-start;
+   padding-left: var(--recuo, 12px)
+}
+
+/* Definições PHP: sem margem entre a linha de cima do cartão e o título "Versão PHP" (Silva, 21/10/2026) */
+.vh .da-main-card:has(> .frm.php-versao) > .card-topo-slot:has(.card-topo) {
+   margin-bottom: 0
+}
+
+/* Todos os campos de escolha (select) com a seta afastada do canto: seta própria a 14 px da borda e folga à direita para o texto não a tocar
+   (Silva, 21/10/2026). O `:not(#x)` sobe a especificidade para vencer as regras de cada página. */
+.vh select:not(#x):not([multiple]):not([size]):not(.da-domain-selector select):not(.ptabs-sel select) {
+   -webkit-appearance: none;
+   appearance: none;
+   padding-right: 40px;
+   text-overflow: ellipsis;
+   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%236E6E73' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 6l5 5 5-5'/%3E%3C/svg%3E");
+   background-repeat: no-repeat;
+   background-position: right 14px center;
+   background-size: 12px
+}
+
+.vh[data-theme=dark] select:not(#x):not([multiple]):not([size]):not(.da-domain-selector select):not(.ptabs-sel select) {
+   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%2394A3B8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 6l5 5 5-5'/%3E%3C/svg%3E")
+}
+
+/* Definições PHP: as linhas da lista de campos alternam de cor como as das tabelas (a primeira como o cartão, a segunda mais suave; no
+   tema escuro a alternada fica um pouco mais escura que o cartão, como nas tabelas) e os campos deixam de ser pretos no tema escuro:
+   ficam brancos no claro e no cinzento suave no escuro (Silva, 21/10/2026). O `:not(#x)` vence a regra do site `.dark .site-content input … !important`. */
+.vh .frm.php-defs .frm-row:nth-child(odd) {
+   background: var(--soft)
+}
+
+.vh[data-theme=dark] .frm.php-defs .frm-row:nth-child(odd) {
+   background: color-mix(in srgb, var(--card) 78%, #000)
+}
+
+.vh .igrp.php-campo :is(input, select):not(#x) {
+   background-color: var(--card) !important;
+   border-color: var(--line) !important;
+   color: var(--ink)
+}
+
+/* Tema escuro: os campos das Definições PHP e do motor de busca de Registar domínio em tons suaves, como as outras secções — fundo no
+   cinzento suave do painel (nem preto nem branco), texto na cor normal e placeholder mais apagado mas legível (Silva, 21/10/2026) */
+.vh[data-theme=dark] :is(.igrp.php-campo, .dom-busca-cartao) :is(input, select):not(#x) {
+   background-color: var(--soft) !important;
+   border-color: var(--line) !important;
+   color: var(--ink) !important
+}
+
+.vh[data-theme=dark] :is(.igrp.php-campo, .dom-busca-cartao) input:not(#x)::placeholder {
+   color: color-mix(in srgb, var(--ink) 50%, transparent) !important;
+   opacity: 1
+}
+
+/* Definições PHP: a última linha, a do botão "Gravar alterações", não leva fundo — a linha de cima já leva (Silva, 21/10/2026) */
+.vh .frm.php-defs .frm-foot {
+   background: transparent
 }

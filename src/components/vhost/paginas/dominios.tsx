@@ -42,6 +42,8 @@ type Detalhe = {
     certificado: { para: string; nomes: string[]; desde: string; ate: string; emissor: string } | null;
   }[];
   php: { k: string; v: string }[];
+  /** versão do PHP do servidor para os sites no modelo "padrão" */
+  phpPadrao?: string;
   htaccess: string[];
   /** nameservers reais do domínio (DNS público) */
   ns?: string[];
@@ -505,7 +507,12 @@ function MudarNomeModal({ d }: { d: string }) {
       </div>
       <div className="f">
         <label>{t('Nome novo')}</label>
-        <input value={novo} onChange={(e) => setNovo(e.target.value)} placeholder="ex.: novodominio.co.mz" autoFocus />
+        <span className="igrp">
+          <span className="ib" style={{ cursor: 'default' }}>
+            <i className="fa-solid fa-globe" />
+          </span>
+          <input value={novo} onChange={(e) => setNovo(e.target.value)} placeholder="ex.: novodominio.co.mz" autoFocus />
+        </span>
       </div>
       <p style={{ color: 'var(--muted)', fontSize: 12.5 }}>{t('Os ficheiros do site passam para o nome novo. O DNS do nome novo tem de apontar para este servidor.')}</p>
       <div className="mfoot">
@@ -2602,6 +2609,7 @@ function Ssl({ tab, verCertDomain }: { tab: TabSsl; verCertDomain: string | null
           </div>
 
           <Frm
+            className="frm-lados"
             title="Certificados do domínio seleccionado"
             desc="Nomes do site e dos serviços de e-mail deste domínio, com o estado do certificado"
             foot={
@@ -3762,7 +3770,12 @@ function Apontadores() {
       </NoTopoCartao>
       <Frm title="Criar apontador" desc="Outro domínio que abre o mesmo site (o DNS dele tem de apontar para este servidor)">
         <Row label="Domínio de origem" hint="ex.: outrodominio.com">
-          <input value={al} onChange={(e) => setAl(e.target.value)} placeholder="outrodominio.com" />
+          <span className="igrp">
+            <span className="ib" style={{ cursor: 'default' }}>
+              <i className="fa-solid fa-globe" />
+            </span>
+            <input value={al} onChange={(e) => setAl(e.target.value)} placeholder="outrodominio.com" />
+          </span>
         </Row>
         <Row label="Destino">
           <b>{x.name}</b>
@@ -3954,6 +3967,9 @@ function Hotlink() {
         </Row>
         <Row label="Sites que podem mostrar" hint="O próprio domínio já está incluído">
           <span className="igrp">
+            <span className="ib" style={{ cursor: 'default' }}>
+              <i className="fa-solid fa-globe" />
+            </span>
             <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="ex.: parceiro.com" />
             <button
               className="ib"
@@ -3997,72 +4013,152 @@ function Hotlink() {
 export const hotlink: ScreenFn = () => ({ title: 'Proteção hotlink', dominios: 'sites', body: <Hotlink /> });
 
 // ---------- Definições PHP ----------
-const DIRETIVAS = ['memory_limit', 'upload_max_filesize', 'post_max_size', 'max_execution_time', 'max_input_time', 'max_input_vars', 'display_errors', 'error_reporting', 'date.timezone', 'allow_url_fopen', 'short_open_tag', 'session.gc_maxlifetime'];
+// Todas as definições à vista (Silva, 20/10/2026): o nome à esquerda; à direita o campo do valor e, por baixo, uma breve descrição
+// (com os limites: um valor não pode passar o outro); no fim, "Gravar". Campo vazio = o site usa o valor do servidor.
+type DefPhp = { k: string; nome: string; ic: string; dica: string; ph?: string; opcoes?: string[] };
+const DEFS_PHP: DefPhp[] = [
+  { k: 'memory_limit', nome: 'Memória máxima', ic: 'fa-memory', ph: '256M', dica: 'Igual ou maior que (post_max_size). Ex.: 256M' },
+  { k: 'upload_max_filesize', nome: 'Tamanho máximo de ficheiro enviado', ic: 'fa-file-arrow-up', ph: '64M', dica: 'Não pode ser maior que (post_max_size). Ex.: 64M' },
+  { k: 'post_max_size', nome: 'Tamanho máximo de um envio', ic: 'fa-cloud-arrow-up', ph: '64M', dica: 'Não pode passar a memória (upload_max_filesize). Ex.: 64M' },
+  { k: 'max_execution_time', nome: 'Tempo máximo de execução', ic: 'fa-stopwatch', ph: '300', dica: 'Segundos que um script pode correr (0 = sem limite. Ex.: 300)' },
+  { k: 'max_input_time', nome: 'Tempo máximo para receber dados', ic: 'fa-hourglass-half', ph: '300', dica: 'Segundos para receber -1 = usa o tempo máximo de execução. Ex.: 300' },
+  { k: 'max_input_vars', nome: 'Máximo de campos por envio', ic: 'fa-list-ol', ph: '3000', dica: 'Número máximo de campos num formulário. Ex.: 3000' },
+  { k: 'display_errors', nome: 'Mostrar erros na página', ic: 'fa-triangle-exclamation', opcoes: ['On', 'Off'], dica: 'Num site público deixe Off: os erros ficam só no registo do servidor.' },
+  { k: 'error_reporting', nome: 'Erros a registar', ic: 'fa-bug', ph: 'E_ALL & ~E_NOTICE', dica: 'Que tipos de erro o PHP regista. Ex.: E_ALL & ~E_NOTICE' },
+  { k: 'date.timezone', nome: 'Fuso horário', ic: 'fa-clock', ph: 'Africa/Maputo', dica: 'Fuso horário usado pelas datas do site. Ex.: Africa/Maputo' },
+  { k: 'allow_url_fopen', nome: 'Abrir endereços como ficheiros', ic: 'fa-link', opcoes: ['On', 'Off'], dica: 'Normalmente On.' },
+  { k: 'short_open_tag', nome: 'Etiqueta curta <?', ic: 'fa-code', opcoes: ['On', 'Off'], dica: 'Normalmente Off.' },
+  { k: 'session.gc_maxlifetime', nome: 'Duração da sessão', ic: 'fa-user-clock', ph: '1440', dica: 'Segundos até uma sessão parada ser apagada. Ex.: 1440' },
+];
+const NUMERICAS_PHP = ['max_execution_time', 'max_input_time', 'max_input_vars', 'session.gc_maxlifetime'];
+/** "256M" → bytes; "-1" (sem limite) → Infinity; texto que não é um tamanho → null */
+const bytesPhp = (v: string): number | null => {
+  const m = /^\s*(-?\d+)\s*([KMG])?B?\s*$/i.exec(v);
+  if (!m) return null;
+  if (Number(m[1]) < 0) return Infinity;
+  return Number(m[1]) * ({ K: 1024, M: 1048576, G: 1073741824 } as Record<string, number>)[(m[2] || '').toUpperCase()] || Number(m[1]);
+};
 function Php() {
   const vh = useVH();
   const { s, t } = vh;
   const x = dominioAtual(vh);
   const { det, erro, ler } = useDetalhe(x?.name || '');
-  const [k, setK] = useState(DIRETIVAS[0]);
-  const [v, setV] = useState('');
+  const [vals, setVals] = useState<Record<string, string>>({});
+  // a lista de versões volta a ler-se do servidor ao abrir a página e quando se abre o campo (para aparecerem as que forem
+  // instaladas depois); a versão activa do site não muda com isto (Silva, 20/10/2026)
+  const ultimaLista = useRef(Date.now());
+  useEffect(() => {
+    void vh.recarregar(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  // os campos seguem o que está gravado no site (e voltam a ler-se depois de gravar)
+  const gravado = JSON.stringify(det?.php || []);
+  useEffect(() => {
+    const o: Record<string, string> = {};
+    for (const r of (JSON.parse(gravado) as { k: string; v: string }[]) || []) o[r.k] = r.v;
+    setVals(o);
+  }, [gravado]);
   if (!x) return <SemDominio />;
   if (!det) return <Carregar erro={erro} ler={ler} />;
-  const regras = det.php;
-  const gravar = async (rs: { k: string; v: string }[], msg: string) => (await noServidor(vh, { acao: 'php-ini', dominio: x.name, regras: rs }, msg)) && ler();
+  // a versão em uso: a do site, ou — nos sites no modelo "padrão" — a que o servidor usa por defeito
+  const noPadrao = x.php === 'padrão';
+  const ativa = noPadrao ? det.phpPadrao || x.php : x.php;
+  // só a versão padrão do servidor e as mais recentes (as anteriores já não recebem correcções de segurança); a versão em uso do site
+  // aparece sempre, mesmo que seja antiga (Silva, 21/10/2026)
+  const numVer = (v: string) => v.split('.').reduce((n, x) => n * 100 + Number(x), 0);
+  const base = numVer(det.phpPadrao || (/^\d+\.\d+$/.test(ativa) ? ativa : '0.0'));
+  const versoes = [...new Set([...s.php.filter((v) => numVer(v) >= base), ...(/^\d+\.\d+$/.test(ativa) ? [ativa] : [])])].sort((a, b) => numVer(a) - numVer(b));
+  const conhecidas = DEFS_PHP.map((d) => d.k);
+  const outras = det.php.filter((r) => !conhecidas.includes(r.k));
+  const gravar = async () => {
+    const v = (k: string) => (vals[k] || '').trim();
+    for (const d of DEFS_PHP) {
+      if (!v(d.k)) continue;
+      if (/[;\n]/.test(v(d.k))) return vh.toast(t(d.nome) + ': não use ";" nem várias linhas');
+      if (NUMERICAS_PHP.includes(d.k) && !/^-?\d+$/.test(v(d.k))) return vh.toast(t(d.nome) + ': escreva um número (ex.: ' + d.ph + ')');
+      if (['memory_limit', 'upload_max_filesize', 'post_max_size'].includes(d.k) && bytesPhp(v(d.k)) === null) return vh.toast(t(d.nome) + ': escreva um tamanho (ex.: ' + d.ph + ')');
+      if (d.k === 'date.timezone' && !/^[A-Za-z_]+(\/[A-Za-z_+-]+)*$/.test(v(d.k))) return vh.toast(t(d.nome) + ': escreva um fuso (ex.: Africa/Maputo)');
+    }
+    // um valor não pode passar o outro: ficheiro enviado ≤ envio ≤ memória
+    const [up, post, mem] = ['upload_max_filesize', 'post_max_size', 'memory_limit'].map((k) => (v(k) ? bytesPhp(v(k)) : null));
+    if (up !== null && post !== null && up > post) return vh.toast('upload_max_filesize não pode ser maior que post_max_size');
+    if (post !== null && mem !== null && post > mem) return vh.toast('post_max_size não pode ser maior que memory_limit');
+    if (up !== null && mem !== null && up > mem) return vh.toast('upload_max_filesize não pode ser maior que memory_limit');
+    const regras = [...outras, ...DEFS_PHP.filter((d) => v(d.k)).map((d) => ({ k: d.k, v: v(d.k) }))];
+    (await noServidor(vh, { acao: 'php-ini', dominio: x.name, regras }, 'Definições PHP gravadas')) && ler();
+  };
   return (
     <>
+      {/* a indicação do domínio à esquerda e o "Gravar" à direita, na linha de cima do cartão (Silva, 20/10/2026) */}
       <NoTopoCartao daPagina>
-        <button
-          className="btn r"
-          onClick={() => {
-            if (!v.trim()) return vh.toast('Escreva o valor');
-            gravar([...regras.filter((r) => r.k !== k), { k, v: v.trim() }], k + ' = ' + v.trim());
-            setV('');
-          }}
-        >
-          <i className="fa-solid fa-plus" />
-          {t('Adicionar')}
+        <button className="btn r" onClick={gravar}>
+          <i className="fa-solid fa-floppy-disk" />
+          {t('Gravar alterações')}
         </button>
       </NoTopoCartao>
-      <Frm title="Versão PHP" desc="A versão usada por este site">
+      <Frm className="php-versao" title="Versão PHP" desc="A versão usada por este site">
         <Row label="Versão">
-          <select
-            value={x.php}
-            onChange={async (e) => noServidor(vh, { acao: 'php-versao', dominio: x.name, versao: e.target.value }, 'PHP ' + e.target.value + ' em ' + x.name)}
-            style={{ maxWidth: 220 }}
-          >
-            {!s.php.includes(x.php) && <option value={x.php}>{x.php}</option>}
-            {s.php.map((p) => (
-              <option key={p} value={p}>
-                PHP {p}
-              </option>
-            ))}
-          </select>
+          <div className="igrp php-campo">
+            <span className="ib" style={{ cursor: 'default' }}>
+              <i className="fa-brands fa-php" />
+            </span>
+            <select
+              value={ativa}
+              onFocus={() => {
+                if (Date.now() - ultimaLista.current > 20_000) {
+                  ultimaLista.current = Date.now();
+                  void vh.recarregar(true);
+                }
+              }}
+              onChange={async (e) => noServidor(vh, { acao: 'php-versao', dominio: x.name, versao: e.target.value }, 'PHP ' + e.target.value + ' em ' + x.name)}
+            >
+              {!/^\d+\.\d+$/.test(ativa) && <option value={ativa}>{t('Padrão do servidor')}</option>}
+              {versoes.map((p) => (
+                <option key={p} value={p}>
+                  PHP {p}
+                  {noPadrao && p === ativa ? ' (' + t('padrão do servidor') + ')' : ''}
+                </option>
+              ))}
+            </select>
+          </div>
         </Row>
       </Frm>
-      <Frm title="Alterar uma definição" desc="Fica só neste site (ficheiro .user.ini)">
-        <Row label="Definição">
-          <select value={k} onChange={(e) => setK(e.target.value)} style={{ maxWidth: 320 }}>
-            {DIRETIVAS.map((d) => (
-              <option key={d}>{d}</option>
-            ))}
-          </select>
-        </Row>
-        <Row label="Valor" hint="ex.: 256M, 300, On, Africa/Maputo">
-          <input value={v} onChange={(e) => setV(e.target.value)} />
-        </Row>
+      <Frm
+        className="php-defs"
+        title="Definições do PHP"
+        desc="Só neste site (ficheiro .user.ini). Campo vazio: o site usa o valor do servidor."
+        foot={
+          <button className="btn r" onClick={gravar}>
+            <i className="fa-solid fa-floppy-disk" />
+            {t('Gravar alterações')}
+          </button>
+        }
+      >
+        {DEFS_PHP.map((d) => (
+          <Row key={d.k} label={d.nome} hint={d.k}>
+            <div className="igrp php-campo">
+              <span className="ib" style={{ cursor: 'default' }}>
+                <i className={'fa-solid ' + d.ic} />
+              </span>
+              {d.opcoes ? (
+                <select value={vals[d.k] || ''} onChange={(e) => setVals({ ...vals, [d.k]: e.target.value })}>
+                  <option value="">{t('Valor do servidor')}</option>
+                  {d.opcoes.map((o) => (
+                    <option key={o}>{o}</option>
+                  ))}
+                </select>
+              ) : (
+                <input value={vals[d.k] || ''} placeholder={d.ph} onChange={(e) => setVals({ ...vals, [d.k]: e.target.value })} />
+              )}
+            </div>
+          </Row>
+        ))}
       </Frm>
-      <DataTable
-        id="php"
-        rows={regras}
-        rowKey={(r) => r.k}
-        empty="Sem alterações: o site usa os valores do servidor"
-        cols={[
-          { k: 'k', t: 'Definição', cell: (r) => <code>{r.k}</code> },
-          { k: 'v', t: 'Valor', cell: (r) => <b>{r.v}</b> },
-        ]}
-        bulk={[{ t: 'Apagar', fa: 'fa-trash', run: (ks) => gravar(regras.filter((r) => !ks.includes(r.k)), 'Definição apagada') }]}
-      />
+      {outras.length > 0 && (
+        <div className="note">
+          {t('Outras definições deste site, que ficam como estão')}: {outras.map((r) => r.k + ' = ' + r.v).join(' · ')}
+        </div>
+      )}
     </>
   );
 }

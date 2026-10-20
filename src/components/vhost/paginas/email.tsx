@@ -1434,7 +1434,12 @@ function BloquearModal({ d }: { d: string }) {
       </div>
       <div className="f">
         <label>{t(tipo === 'email' ? 'Endereço' : 'Domínio')}</label>
-        <input autoFocus value={valor} onChange={(e) => setValor(e.target.value)} placeholder={tipo === 'email' ? 'nome@exemplo.com' : 'exemplo.com'} />
+        <span className="igrp">
+          <span className="ib" style={{ cursor: 'default' }}>
+            <i className={'fa-solid ' + (tipo === 'email' ? 'fa-envelope' : 'fa-globe')} />
+          </span>
+          <input autoFocus value={valor} onChange={(e) => setValor(e.target.value)} placeholder={tipo === 'email' ? 'nome@exemplo.com' : 'exemplo.com'} />
+        </span>
       </div>
       <div className="mfoot">
         <button className="btn g" onClick={closeM}>
