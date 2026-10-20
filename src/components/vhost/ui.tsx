@@ -531,7 +531,6 @@ export function UsersTable({ rows, showCreator = true }: { rows: [string, Accoun
                       </div>
                       <div>
                         <b>{u}</b>
-                        <span>{a.name}</span>
                       </div>
                     </div>
                   </td>
@@ -621,10 +620,9 @@ export function DomTable({ filter = '' }: { filter?: string }) {
                           nav('/' + (s.level || 'utilizador') + '/dominios/' + encodeURIComponent(d.name));
                         }}
                       >
-                        {/* um nome comprido passa à linha de baixo em vez de ser cortado */}
-                        {dominioComQuebras(d.name)}
+                        {/* o nome fica sempre numa só linha: a coluna alarga conforme o nome mais comprido (Silva, 20/10/2026) */}
+                        {d.name}
                       </b>
-                      <span>{d.wp ? 'WordPress' : 'Site'}</span>
                     </div>
                   </div>
                 </td>

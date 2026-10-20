@@ -103,99 +103,149 @@ mesma alteração a linha inglesa no dicionário — sem esperar que o Silva pe�
 
 # Regras de layout do Silva (valem para todas as páginas, sempre)
 
-- **Nunca pesquisa à esquerda por cima do cartão principal** (regra do Silva, 13/10/2026: "não coloque mais"). A
-  "Busca" da barra de cima já procura na página aberta. Sem exceções (a Força bruta também segue o modelo).
-- **MODELO GLOBAL DO PAINEL — vale para TODAS as páginas, não só para a que se está a mexer** (o Silva já teve de o
-  repetir várias vezes). Antes de entregar qualquer página, confirmar estes pontos um a um.
-- **Toda a página com tabela de caixas de seleção abre o cartão principal com a faixa cinzenta de separadores.** Se a
-  página não tem separadores mas tem filtros (ex.: DNS — Todos, A, CNAME, MX…), **os filtros são os separadores** e
-  vão para essa faixa (`Tabs`). Nunca filtros soltos numa linha de botões por cima da tabela.
-- **Faixa dos separadores (cabeçalho do cartão principal) = só o botão "Ações", à direita**, sempre visível nas
-  tabelas da página. **Nenhum botão por cima do cartão nem na faixa:** todas as ações da página vão para **dentro do
-  menu "Ações"** (regra do Silva, 13/10/2026), por exemplo "Adicionar subdomínio", "Marcar todas como lidas" ou
-  "Apagar". As opções que precisam de caixas assinaladas ficam **inativas** no menu enquanto nenhuma linha estiver
-  escolhida; as que não precisam (adicionar, marcar todas…) estão sempre ativas e vêm primeiro no menu.
-- **O "+ Adicionar…" principal da página fica na barra de cima** (a do título, `actions` do ecrã), quando esse espaço
-  está livre (ex.: "Adicionar domínio"). Um segundo "+ Adicionar…" vai para dentro do "Ações".
-- **Paginação só no fundo do cartão principal**, quando é precisa (mais de uma página): setas e "Página x de y", sem o
-  texto "1–20 de 67". Nunca em cima, nunca na faixa dos separadores.
-- No VisualHost tudo isto é automático no `DataTable` com `umaLinha` + `barraFora`: o "Ações" vai para o lugar que os
-  `Tabs` guardam à direita (`FaixaAbas` em `src/components/vhost/context.tsx`); as ações da página passam-se em `bulk`
-  (`sempre: true` nas que não precisam de linhas escolhidas, `inativo` para as desligar); a paginação sai no fundo.
-- **No telemóvel os separadores passam a uma caixa de escolha** (selector), à esquerda da faixa, com o "Ações" à
-  direita — assim vêem-se todos, mesmo quando são muitos (pedido do Silva, 13/10/2026). Automático nos `Tabs`.
-- **Listas no telemóvel numa só coluna** (pedido do Silva, 13/10/2026; revisto a 14/10/2026): cada linha passa a um
-  bloco — a caixa de seleção e o dado principal (ex.: o IP) em cima; as outras informações por baixo, cada uma com o
-  nome da coluna; **os botões da linha no fundo do bloco, lado a lado** (Silva, 15/10/2026); se o texto de algum não
-  cabe, ficam numa coluna a toda a largura. No
-  VisualHost: `DataTable` empilha por defeito (`empilhar` ligado em todas as tabelas).
-- **Telemóvel = uma só coluna em tudo** (Silva, 14/10/2026): itens uns por baixo dos outros. **Exceções: o Menu (grelha
-  de ícones) e os cartões (ex.: números da Dashboard) ficam em duas colunas**, ícone em cima e nome por baixo (Silva, 14/10/2026: "coloque duas colunas no menu"). **Botões dos rodapés de
-  formulários e janelas e das barras de botões: mais de um → lado a lado (dois por linha, divididos por igual); um
-  sozinho → metade do ecrã, à esquerda, quando o texto está alinhado à esquerda, ou ao centro e a toda a largura quando
-  o conteúdo está centrado (classe `.centro`); se o texto de algum botão não cabe em meia largura (iria para duas ou
-  três linhas), os botões dessa barra ficam todos numa coluna, a toda a largura** (Silva, 15/10/2026; automático em
-  `src/components/vhost/botoes-telemovel.ts`). Botões das linhas das listas: no fundo do bloco, com a mesma regra.
-  Ficam de fora só as barras de ferramentas (editor, gestor de ficheiros), separadores, interruptores (ex.: Visual |
-  HTML) e botões colados a um campo.
-- **Telemóvel: o cartão principal vai de ponta a ponta** (Silva, 14/10/2026: "não se pode ver os limites do card
-  principal"): sem margem, bordas dos lados, cantos nem sombra; o limite do conteúdo é o do ecrã (12 px de folga).
-- **Telemóvel: nada passa da largura, a partir de 320 px** (Silva, 14/10/2026): tudo cabe a 320 px e estica até ao
-  tamanho do ecrã. Antes de entregar, varrer as páginas a 320 px (nada fora, nada cortado, nenhum "…").
-- **Faixa por baixo da barra de cima, no telemóvel** (Silva, 14/10/2026): à esquerda só a casa (volta ao Início; o nome
-  da página já está na barra de cima), à direita o domínio, encostado à direita e numa só linha — se não couber, a
-  letra diminui e o globo sai sozinho (`titulo-ajustado.ts`); só no limite passa a duas linhas, encostado à direita.
-- **Dentro do painel: nunca roda (spinner) nem esqueleto (skeleton)** (Silva, 13/10/2026). Ao mudar de página, a
-  página anterior fica à vista até a seguinte estar pronta. **Única exceção — no lugar da tela branca:** enquanto a página
-  inteira ainda não tem conteúdo (ao recarregar, ou à espera dos dados), aparece o carregador do DA — as três barras do
-  "WordPress Manager" do DirectAdmin, na cor do tema, no fundo do tema (Silva, 16/10/2026: "quando tenta surgir a tela
-  branca coloque o spinner do DA … com o mesmo efeito"). Está em `src/components/vhost/carregador-da.tsx`: a página do
-  servidor (`src/app/host/layout.tsx`) sai logo com ele (Suspense) e o painel entra no lugar dele. A roda depois de
-  entrar pela entrada do próprio painel fica numa página branca (pedido dele).
-- **NUNCA TELA BRANCA, em nenhuma circunstância e em todas as páginas** (regra rigorosa do Silva, 16/10/2026 — vale para
-  todas as páginas que se criarem): ao abrir uma página, a anterior fica à vista até a nova ter o conteúdo; ao recarregar,
-  o conteúdo continua visível e só "pisca" quando chega o novo. Como cumprir no VisualHost:
+Reescritas a 20/10/2026 a partir do layout aprovado pelo Silva nesse dia (domínios, subdomínios, linha de cima do cartão,
+tabelas). Onde isto contradiz o que estava escrito antes, **vale isto**. Antes de entregar qualquer página, confirmar os
+pontos um a um — o Silva já teve de os repetir várias vezes.
+
+## Cartão principal e linha de cima
+
+- **Nunca pesquisa à esquerda por cima do cartão principal** (13/10/2026). A "Busca" da barra de cima já procura na
+  página aberta. Sem exceções.
+- **Modelo de página = a página Domínios do painel.** Barra de cima com o título e uma descrição pequena por baixo
+  (nunca dois títulos grandes juntos; números e resumos vão na descrição, ex.: "Todas as mensagens | 3 por ler"); o
+  conteúdo todo dentro do cartão principal; **a descrição não se repete por baixo do título dentro do cartão**.
+- **Todo o cartão principal abre com a linha de cima** (`card-topo-slot`, no VisualHost `TopoCartao` +
+  `NoTopoCartao` em `src/components/vhost/context.tsx`), por dentro do cartão, **com uma linha por baixo a toda a
+  largura**:
+  - **à esquerda, a indicação do domínio** nas páginas que dependem de um domínio: globo vermelho + nome do domínio a
+    negrito + "· muda-se no seletor em cima, à direita" em letra pequena e cinzenta (`IndicacaoDominio`). Só o nome do
+    domínio, nada mais; **no telemóvel não aparece** (o domínio já está na faixa de cima);
+  - **à direita, o botão da página** (ex.: "+ Adicionar domínio", vermelho) **ou "Opções"** quando a página tem
+    caixas de seleção. Nunca os dois, nunca mais do que um.
+- **Nunca inventar botões nem indicações.** Cada página analisa-se pelo seu conteúdo: só leva botão na linha de cima se
+  tiver uma ação própria (adicionar, criar…). **Páginas de Início, Gestão e Admin não levam a indicação do domínio nem
+  o botão de adicionar domínio** (o Silva: "eu disse para não inventar"). Registar e Transferir não levam botão.
+- **O seletor de domínio nunca muda sozinho** e guarda-se: depois de recarregar, reiniciar ou voltar a entrar, continua
+  o mesmo domínio. Só o utilizador o muda.
+- **Opções, não "Ações"** (menu e botão). Na coluna da tabela que tem os botões de cada linha o título é **"Acção"**
+  (como o Silva escreve). As opções que precisam de linhas escolhidas ficam **inativas** no menu enquanto nenhuma estiver
+  assinalada; as que não precisam estão sempre ativas e vêm primeiro.
+- **Faixa de separadores** só aparece com vários separadores — nunca um sozinho com o título da página. Se a página não
+  tem separadores mas tem filtros (DNS: Todos, A, CNAME, MX…), os filtros são os separadores (`Tabs`). Nunca filtros
+  soltos numa linha de botões por cima da tabela.
+- **Paginação só no fundo do cartão principal**, quando há mais de uma página: setas e "Página x de y", sem "1–20 de
+  67". Nunca em cima, nunca na faixa dos separadores, nunca no cabeçalho da tabela. **A numeração das páginas vem
+  sempre à direita, no fim da tabela, no canto inferior direito** (Silva, 20/10/2026), em todas as tabelas.
+- **Alinhamento à esquerda** (`--recuo`, 12 px): texto, títulos, botões e campos alinham todos com a indicação do domínio
+  e o ícone do primeiro separador; **as linhas vão a toda a largura do cartão**. Espaço **antes e depois de cada
+  linha**, igual em todo o lado (nada colado a uma linha).
+- **Menu da barra lateral esquerda**: categorias 15 px, páginas 13 px.
+- **O cartão principal chega ao fundo da janela** em computador e tablet: sem margem por baixo, sem a linha de baixo e
+  sem cantos de baixo arredondados. No telemóvel vai de ponta a ponta (ver abaixo).
+
+## Tabelas
+
+- **Sem linhas nas laterais**: só linhas horizontais, a toda a largura do cartão. Sem caixa à volta da tabela.
+- **Todas as tabelas com lista, sem linhas laterais** (esquerda e direita) — também as que vivem num cartão próprio (ex.:
+  "Pedidos abertos" em Transferir domínio) e as das páginas de administração. Antes de entregar, confirmar com o
+  Playwright que nenhum elemento entre a tabela e o cartão principal tem borda à esquerda ou à direita (Silva, 20/10/2026).
+- **Linha no início** (por cima dos títulos das colunas) **e no fim** (por baixo da última linha) — em computador e
+  tablet; no telemóvel as linhas são blocos e ficam como estavam.
+- **Linhas alternadas**: branca e cinzento suave (`--soft`), em **todas** as tabelas. Nunca cobre as linhas de grupo, a
+  selecção, o realce nem a passagem do rato. No tema escuro a tabela fica sem fundo próprio (igual ao do cartão).
+- **Barra dos títulos das colunas** com o fundo suave (`--soft`); os títulos em **texto normal, nunca em
+  maiúsculas**, 14 px, numa cor mais escura do que o cinzento corrente.
+- **A primeira coluna nunca parte o nome em duas linhas** (a coluna alarga conforme o nome mais comprido). Só em
+  computador e tablet; no telemóvel não conta. O nome de uma linha tem a cor normal do texto e fica vermelho só ao
+  passar o rato. Nada de subtítulos por baixo do nome (tipo de site, nome completo) nas listas de domínios e de
+  utilizadores.
+- **Tabelas compactas nos ecrãs de computador** (13/10/2026, 769–1600 px): 12 px entre colunas, linhas baixas, números
+  dos cartões pequenos. Se mesmo assim não couber, as colunas menos importantes saem até essa largura (`ate: 1600 |
+  1300` na coluna do `DataTable`; no telemóvel, em blocos, voltam) e o que davam fica acessível noutro sítio (ex.: menu
+  "⋯" da linha). **Nunca barra de deslocar na tabela.**
+- **Nenhuma tabela desliza na horizontal, em nenhum tamanho de ecrã** (Silva, 20/10/2026). Medir antes de entregar, a
+  1920, 1440, 1280 e 1024 px: `scrollWidth - clientWidth` do `.tbl` tem de dar 0. Se não der, as colunas menos importantes
+  saem (`ate`) e o que davam fica noutro sítio. Por corrigir (medido a 20/10/2026): "Todos os utilizadores" a 1280 px
+  (≈ 200 px de excesso) e "Sites das contas" a 1280 px (≈ 230 px) e 1440 px (≈ 130 px).
+- **Botões de cada linha** (ex.: "Gerir" e o das setas): lado a lado, à direita, na coluna "Acção".
+
+## Campos
+
+- **Todo o campo leva sempre um ícone ao lado**, como o campo de adicionar/trocar palavra-passe (`Senha` em
+  `src/components/vhost/paginas/componentes.tsx`: `.igrp` com o ícone `.ib` colado ao campo — o dado à esquerda, o olho
+  à direita). Vale para campos de texto, palavra-passe, escolha (selector), número e e-mail, em formulários e janelas.
+  O ícone diz o que o campo é (utilizador, e-mail, cadeado, globo, pasta…) — nunca um campo "nu".
+- Formulários sem contornos laterais; títulos e campos alinhados à esquerda pelo `--recuo`.
+- Janelas (popups): **25 px de espaço nos 4 cantos**; largura dinâmica só quando o domínio é comprido; no computador o
+  menu de opções de uma linha abre para a esquerda.
+
+## Telemóvel (≤ 768 px)
+
+- **Uma só coluna em tudo.** Exceções: o Menu (grelha de ícones) e os cartões (ex.: números da Dashboard) em duas
+  colunas, ícone em cima e nome por baixo.
+- **Botões** (rodapés de formulários e janelas, barras de botões, botões das linhas das listas; automático em
+  `src/components/vhost/botoes-telemovel.ts`):
+  - **dois ou mais, cujo texto cabe em meia largura → lado a lado**, dois por linha, divididos por igual;
+  - **um só, cujo texto cabe → metade do ecrã**, à esquerda (ao centro e a toda a largura se o conteúdo está centrado,
+    classe `.centro`);
+  - **o texto de algum não cabe em meia largura** (iria para duas ou três linhas) **→ todos os botões dessa barra
+    numa coluna, a toda a largura**.
+  - Ficam de fora só as barras de ferramentas (editor, gestor de ficheiros), separadores, interruptores (Visual | HTML)
+    e botões colados a um campo.
+- **Listas numa só coluna**: cada linha é um bloco — caixa de seleção e dado principal em cima; as outras informações
+  por baixo, cada uma com o nome da coluna; os botões da linha no fundo do bloco, com a regra dos botões acima. No
+  VisualHost o `DataTable` empilha por defeito (`empilhar`, classe `dt-empilhar`).
+- **O "⋯" da linha é vertical e sem contorno**; o menu abre para dentro do ecrã (nunca cortado) e os ícones das opções
+  vão coloridos, à direita.
+- **Separadores numa caixa de escolha** (selector) à esquerda da faixa, com o botão da página/"Opções" à direita.
+  As barras de separadores são mais altas para o dedo.
+- **O cartão principal vai de ponta a ponta** (14/10/2026): sem margem, bordas dos lados, cantos nem sombra; o limite do
+  conteúdo é o do ecrã (12 px de folga), alinhado pelo mesmo `--recuo`.
+- **Nada passa da largura, a partir de 320 px**: tudo cabe a 320 px e estica até ao tamanho do ecrã. Antes de entregar,
+  varrer as páginas a 320 px (nada fora, nada cortado, nenhum "…").
+- **Faixa por baixo da barra de cima** (14/10/2026): à esquerda só a casa (volta ao Início); à direita o domínio,
+  encostado à direita e numa só linha — se não couber, a letra diminui e o globo sai sozinho (`titulo-ajustado.ts`);
+  só no limite passa a duas linhas, encostado à direita.
+
+## Carregamento, texto e entrega
+
+- **Dentro do painel: nunca roda (spinner) nem esqueleto (skeleton)** (13/10/2026). Ao mudar de página, a página anterior
+  fica à vista até a seguinte estar pronta. **Única exceção — no lugar da tela branca:** enquanto a página inteira ainda
+  não tem conteúdo (ao recarregar, ou à espera dos dados), aparece o carregador do DA — as três barras do "WordPress
+  Manager" do DirectAdmin, na cor do tema, no fundo do tema (16/10/2026). Está em
+  `src/components/vhost/carregador-da.tsx`: a página do servidor (`src/app/host/layout.tsx`) sai logo com ele (Suspense)
+  e o painel entra no lugar dele. A roda depois de entrar pela entrada do próprio painel fica numa página branca
+  (pedido dele).
+- **NUNCA TELA BRANCA, em nenhuma circunstância e em todas as páginas** (regra rigorosa, 16/10/2026 — vale para todas as
+  páginas que se criarem): ao abrir uma página, a anterior fica à vista até a nova ter o conteúdo; ao recarregar, o
+  conteúdo continua visível e só "pisca" quando chega o novo. Como cumprir no VisualHost:
   - toda a leitura que uma página faz ao abrir usa `useGet` (`src/components/vhost/carga.tsx`) ou, se for um `fetch`
-    próprio, chama `useContext(EsperaPagina)?.comecar()` e o "acabou" no fim — senão a página aparece vazia e enche depois;
-  - **nunca recarregar a página inteira à frente de quem está a usar** (`location.reload`/`location.assign` num clique):
-    era a tela branca com o "salto" para o início depois de cada publicação. Com versão nova, recarrega-se só com o
-    separador escondido (`VisualHostApp.tsx`, `aoEsconder`). Entrada pelo **login do site**: o login lê os dados do
-  painel antes de sair do ecrã de login (`preCarregarDadosVhost` em `src/lib/vhost-cache.ts`) e o painel abre logo,
-  sem o ecrã branco com o círculo. Entrada pelo **login do próprio painel**: fica como está. Não mexer no
-  carregamento sem o Silva pedir.
-  - **Nunca um cartão vazio** (Silva, 20/10/2026 — "pedi mil e uma vezes"): enquanto uma página ainda não tem conteúdo
-    (leituras por acabar, ou nada desenhado), o cartão mostra as barras do DA centradas na horizontal e no topo do cartão, por dentro, e o resto fica escondido (sem mexer no layout). Está
-    no `PaginaSlot` (`VisualHostApp.tsx`: classe `a-carregar` + cartão `pg-carga`), por isso vale para **todas** as
-    páginas, sem cada uma ter de o fazer. Só até haver conteúdo pela primeira vez; depois, ao atualizar, o conteúdo
-    continua à vista. Uma página nova não devolve `null` à espera dos dados sem passar por `useGet`/`comecar()`.
-- **"Ações" só onde há caixas de seleção** (Silva, 13/10/2026: as ações aplicam-se ao que se escolhe). Com
-  separadores, fica à direita da faixa deles; sem separadores, **aparece no lugar do título da 1.ª coluna quando se
-  assinala uma caixa** (ex.: "Conta" nas Contas de e-mail) e o título volta quando nada está escolhido (automático no
-  `DataTable` com `umaLinha` + `barraFora`). Sem caixas de seleção não há "Ações": só o "+ Novo…" na barra de cima.
-- **Tabelas compactas nos ecrãs de computador** (Silva, 13/10/2026, 769–1600 px): 12 px entre colunas, linhas baixas,
-  números dos cartões pequenos. Se uma tabela mesmo assim não couber, as colunas menos importantes saem até essa
-  largura (`ate: 1600 | 1300` na coluna do `DataTable`; no telemóvel, em blocos, voltam) e o que elas davam fica
-  acessível noutro sítio (ex.: menu "⋯" da linha). Nunca barra de deslocar na tabela.
-- **A faixa de separadores só aparece com vários separadores** — nunca um separador sozinho com o título da página.
+    próprio, chama `useContext(EsperaPagina)?.comecar()` e o "acabou" no fim — senão a página aparece vazia e enche
+    depois;
+  - **nunca recarregar a página inteira à frente de quem está a usar** (`location.reload`/`location.assign` num clique).
+    Com versão nova, recarrega-se só com o separador escondido (`VisualHostApp.tsx`, `aoEsconder`). Entrada pelo
+    **login do site**: o login lê os dados do painel antes de sair do ecrã de login (`preCarregarDadosVhost` em
+    `src/lib/vhost-cache.ts`) e o painel abre logo, sem o ecrã branco com o círculo. Entrada pelo **login do próprio
+    painel**: fica como está. Não mexer no carregamento sem o Silva pedir.
+  - **Nunca um cartão vazio** (20/10/2026): enquanto uma página ainda não tem conteúdo, o cartão mostra as barras do DA
+    centradas na horizontal e no topo do cartão, por dentro, e o resto fica escondido. Está no `PaginaSlot`
+    (`VisualHostApp.tsx`: classe `a-carregar` + cartão `pg-carga`), por isso vale para **todas** as páginas. Só até haver
+    conteúdo pela primeira vez; depois, ao atualizar, o conteúdo continua à vista. Uma página nova não devolve `null` à
+    espera dos dados sem passar por `useGet`/`comecar()`.
+- **Nunca cortar texto com "…"** (13/10/2026): quando um texto não cabe, a letra diminui até caber; se nem assim couber,
+  passa à linha de baixo. No VisualHost o título/descrição da barra de cima já fazem isto (`useTituloAjustado`).
+- **Nunca duas linhas de botões.**
 - **Responsividade: os 5 pontos de quebra do painel** (os mesmos da maquete, `generated/maquete.css`): ecrã grande
   (>1600), computador (1301–1600), portátil (1051–1300), tablet (769–1050) e telemóvel (≤768). Cada página fica
-  organizada da mesma forma nos 3 de computador (ex.: a coluna da direita das Contas de e-mail e da Dashboard fica à
-  direita, só mais estreita); no tablet e no telemóvel as colunas passam a uma. Nenhuma página pode passar da largura
-  do ecrã. Antes de entregar, confirma-se do nosso lado nos 5 (1920, 1440, 1280, 1024, 390), sem mostrar imagens ao Silva.
-- **Nunca duas linhas de botões.**
-- **Nunca cortar texto com "…"** (regra do Silva, 13/10/2026: "não pode fechar dados, reduzir sempre"): quando um
-  texto não cabe (ex.: título e descrição da barra de cima no telemóvel), a letra diminui até caber; se nem assim
-  couber, passa à linha de baixo. No VisualHost o título/descrição da barra de cima já fazem isto sozinhos
-  (`useTituloAjustado` em `src/components/vhost/titulo-ajustado.ts`).
-- **Modelo de página = a página Domínios do painel.** Toda a página nova segue-o: um título na barra de cima com uma
-  descrição pequena por baixo (nunca dois títulos grandes juntos — números e resumos vão na descrição, ex.:
-  "Todas as mensagens | 3 por ler"); o conteúdo dentro do cartão principal; os separadores abrem o cartão (faixa
-  cinzenta em cima) e a tabela fica por baixo.
-- **Imagens nunca vão para o Silva** (confirma-se do nosso lado com medições) — ver "Verificação visual de alterações de UI".
-- **Primeiro só a vista de computador.** A vista de telemóvel (largura 390px) só se mostra depois de todas as
-  alterações estarem feitas e aprovadas pelo Silva (revisto a 13/10/2026).
-- **Antes de publicar:** fazer todas as rectificações, mandar o comando do ponto 6 (dois ecrãs), esperar que o Silva diga que está bom, e
-  só publicar quando ele disser "publica" (ver "Como se trabalha com o Silva").
+  organizada da mesma forma nos 3 de computador (a coluna da direita fica à direita, só mais estreita); no tablet e no
+  telemóvel as colunas passam a uma. Antes de entregar, confirma-se do nosso lado nos 5 (1920, 1440, 1280, 1024, 390),
+  sem mostrar imagens ao Silva.
+- **Imagens nunca vão para o Silva** (confirma-se do nosso lado com medições) — ver "Verificação visual de alterações
+  de UI".
+- **Primeiro só a vista de computador.** A vista de telemóvel (390 px) só se mostra depois de todas as alterações
+  estarem feitas e aprovadas pelo Silva (13/10/2026).
+- **Antes de publicar:** fazer todas as rectificações, mandar o comando do ponto 6 (dois ecrãs), esperar que o Silva diga
+  que está bom, e só publicar quando ele disser "publica" (ver "Como se trabalha com o Silva").
 
 # Verificação visual de alterações de UI
 
