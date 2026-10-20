@@ -10702,5 +10702,5 @@
 
 /* lista de pacotes: linha também no fim da tabela */
 .vh .tbl[data-dt^="pacotes-"] tbody tr:last-child td {
-   border-bottom: 1px solid var(--line);
+   border-bottom: 1px solid color-mix(in srgb, var(--line-soft) 65%, var(--card));
 }

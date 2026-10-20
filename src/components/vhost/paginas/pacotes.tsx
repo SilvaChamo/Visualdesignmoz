@@ -233,12 +233,12 @@ function ListaPacotes({ tipo }: { tipo: Tipo }) {
   }));
   const cols: Col<Linha>[] = [
     { k: 'nome', t: 'Pacote', sort: (r) => r.nome, cell: (r) => <a className="lk" style={{ color: 'inherit' }} onClick={() => nav(base + '/' + encodeURIComponent(r.nome))}>{r.nome}</a> },
-    { k: 'bw', t: 'Tráfego', cell: (r) => r.bw },
-    { k: 'disk', t: 'Espaço em disco', cell: (r) => r.disk },
-    ...(tipo === 'revenda' ? [{ k: 'ips', t: 'IPs', cell: (r: Linha) => r.ips }] : []),
-    { k: 'dom', t: 'Domínios', cell: (r) => r.dom, hidden: true },
-    { k: 'mails', t: 'Contas de e-mail', cell: (r) => r.mails, hidden: true },
-    { k: 'usado', t: tipo === 'revenda' ? 'Revendedores' : 'Contas', sort: (r) => r.usado, cell: (r) => r.usado },
+    { k: 'bw', t: 'Tráfego', center: true, cell: (r) => r.bw },
+    { k: 'disk', t: 'Espaço em disco', center: true, cell: (r) => r.disk },
+    ...(tipo === 'revenda' ? [{ k: 'ips', t: 'IPs', center: true, cell: (r: Linha) => r.ips }] : []),
+    { k: 'dom', t: 'Domínios', center: true, cell: (r) => r.dom, hidden: true },
+    { k: 'mails', t: 'Contas de e-mail', center: true, cell: (r) => r.mails, hidden: true },
+    { k: 'usado', t: tipo === 'revenda' ? 'Revendedores' : 'Contas', sort: (r) => r.usado, center: true, cell: (r) => r.usado },
   ];
   const exportar = (keys: string[]) => {
     const data = Object.fromEntries(keys.map((k) => [k, fonte[k]]));
