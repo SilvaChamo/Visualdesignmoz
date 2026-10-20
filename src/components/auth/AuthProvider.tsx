@@ -38,7 +38,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const timeout = setTimeout(() => setLoading(false), 800)
 
       try {
-        const session = await auth.getSession()
+        let session = await auth.getSession()
+        // Com cookie de sessão mas sem sessão lida (aba nova ou duplicada: o token pode estar a ser renovado noutro
+        // pedido ao mesmo tempo), tenta de novo antes de mostrar o visitante como sem conta
+        if (!session?.user && /(?:^|;\s*)sb-[^=]+-auth-token/.test(document.cookie)) {
+          for (const espera of [400, 1200]) {
+            await new Promise((resolve) => setTimeout(resolve, espera))
+            session = await auth.getSession()
+            if (session?.user) break
+          }
+        }
         const currentUser = session?.user || null
         setUser(currentUser)
 
