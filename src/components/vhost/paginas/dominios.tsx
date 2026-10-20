@@ -1294,7 +1294,16 @@ function DnsForm({ d, zona = d, fonte, r, onFeito }: { d: string; zona?: string;
           </Row>
         )}
         {f.tipo === 'TXT' ? (
-          <Row label="Valor">
+          <div className="frm-row da-txt-bloco">
+            <div className="da-txt-cab">
+              <label>{t('Valor TXT')}</label>
+              {!r && (
+                <button type="button" className="btn g sm" onClick={() => setTxtLinhas([...txtLinhas, ''])}>
+                  <i className="fa-solid fa-plus" />
+                  {t('Adicionar outro campo TXT')}
+                </button>
+              )}
+            </div>
             <div className="da-txt">
               {txtLinhas.map((linha, idx) => (
                 <div key={idx} className="da-txt-linha">
@@ -1317,14 +1326,8 @@ function DnsForm({ d, zona = d, fonte, r, onFeito }: { d: string; zona?: string;
                   )}
                 </div>
               ))}
-              {!r && (
-                <button type="button" className="btn g sm" onClick={() => setTxtLinhas([...txtLinhas, ''])}>
-                  <i className="fa-solid fa-plus" />
-                  {t('Adicionar outro campo TXT')}
-                </button>
-              )}
             </div>
-          </Row>
+          </div>
         ) : (
           <Row label={f.tipo === 'MX' ? 'Destino' : 'Valor'}>
             <input value={f.valor} onChange={(e) => setF({ ...f, valor: e.target.value })} placeholder={f.tipo === 'A' ? 'ex.: 169.58.148.144' : f.tipo === 'MX' ? 'ex.: mail.' + d : ''} />
@@ -1577,21 +1580,7 @@ function Dns() {
                     </div>
                   );
                 }
-                // TXT (SPF, DKIM, DMARC…): caixa de texto só de leitura com o valor todo à vista, a partir linhas dentro da
-                // caixa — nunca alarga a página (Silva, 20/10/2026). Ao clicar seleciona tudo, para copiar.
-                if (r.tipo === 'TXT')
-                  return (
-                    <TextoAuto
-                      className="inp sm dns-txt-area dns-txt-leitura"
-                      value={valorDns(r)}
-                      readOnly
-                      rows={1}
-                      spellCheck={false}
-                      aria-label={t('Conteúdo')}
-                      onFocus={(e) => e.currentTarget.select()}
-                    />
-                  );
-                // as células da tabela são nowrap (maquete.css) — o registo parte linhas para mostrar o valor inteiro
+                // as células da tabela são nowrap (maquete.css) — o registo parte linhas para mostrar o TXT/DKIM inteiro
                 return (
                   <span style={{ whiteSpace: 'normal', overflowWrap: 'anywhere' }}>
                     {valorDns(r)}

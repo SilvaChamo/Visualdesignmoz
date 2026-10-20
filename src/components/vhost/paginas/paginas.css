@@ -1632,20 +1632,6 @@
    color: #f3f4f6
 }
 
-/* TXT na tabela: caixa só de leitura, o valor inteiro à vista (parte linhas dentro da caixa, nunca alarga a página) */
-.vh .dns-txt-leitura {
-   display: block;
-   box-sizing: border-box;
-   width: 100%;
-   min-width: min(100%, 240px);
-   max-width: 100%;
-   min-height: 32px;
-   word-break: break-all;
-   white-space: pre-wrap;
-   cursor: text;
-   background: var(--soft)
-}
-
 .vh .dns-inline-inp:focus,
 .vh .dns-txt-area:focus {
    border-color: #16a34a;
@@ -9183,6 +9169,26 @@
 
 .vh .da-txt>.btn {
    align-self: flex-start
+}
+
+/* "Valor TXT": título com o botão "Adicionar outro campo TXT" na mesma linha e as caixas por baixo, à largura toda
+   (como no commit f19ff24f); o valor longo parte linhas dentro da caixa, nunca alarga a janela */
+.vh .da-janela .frm-row.da-txt-bloco {
+   display: block;
+   min-width: 0
+}
+
+.vh .da-txt-cab {
+   display: flex;
+   justify-content: space-between;
+   align-items: center;
+   gap: 8px;
+   margin-bottom: 6px
+}
+
+.vh .da-txt-cab label {
+   margin: 0;
+   font-weight: 600
 }
 
 @media(max-width:768px) {
