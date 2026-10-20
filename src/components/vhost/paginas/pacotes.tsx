@@ -231,14 +231,24 @@ function ListaPacotes({ tipo }: { tipo: Tipo }) {
     ips: tipo === 'revenda' ? (p as PacoteRevenda).ips : '',
     usado: usadoPor(nome),
   }));
+  // ordem fixa dos pacotes de cliente (Silva, 20/10/2026): primeiro os de e-mail (do Starter ao maior), o Default no meio e
+  // depois os VHost (do Básico ao Business); os que não estão na lista ficam no fim, pela ordem em que existem
+  if (tipo === 'cliente') {
+    const ORDEM = ['starter', 'email-basico', 'email-premium', 'email-business', 'default', 'vhost-basico', 'vhost-pro', 'vhost-premium', 'vhost-business'];
+    const pos = (n: string) => {
+      const i = ORDEM.indexOf(n.toLowerCase());
+      return i < 0 ? ORDEM.length : i;
+    };
+    rows.sort((x, y) => pos(x.nome) - pos(y.nome));
+  }
   const cols: Col<Linha>[] = [
-    { k: 'nome', t: 'Pacote', sort: (r) => r.nome, cell: (r) => <a className="lk" style={{ color: 'inherit' }} onClick={() => nav(base + '/' + encodeURIComponent(r.nome))}>{r.nome}</a> },
+    { k: 'nome', t: 'Pacote', cell: (r) => <a className="lk" style={{ color: 'inherit' }} onClick={() => nav(base + '/' + encodeURIComponent(r.nome))}>{r.nome === 'default' ? 'Default' : r.nome}</a> },
     { k: 'bw', t: 'Tráfego', center: true, cell: (r) => r.bw },
     { k: 'disk', t: 'Espaço em disco', center: true, cell: (r) => r.disk },
     ...(tipo === 'revenda' ? [{ k: 'ips', t: 'IPs', center: true, cell: (r: Linha) => r.ips }] : []),
     { k: 'dom', t: 'Domínios', center: true, cell: (r) => r.dom, hidden: true },
     { k: 'mails', t: 'Contas de e-mail', center: true, cell: (r) => r.mails, hidden: true },
-    { k: 'usado', t: tipo === 'revenda' ? 'Revendedores' : 'Contas', sort: (r) => r.usado, center: true, cell: (r) => r.usado },
+    { k: 'usado', t: tipo === 'revenda' ? 'Revendedores' : 'Contas', center: true, cell: (r) => r.usado },
   ];
   const exportar = (keys: string[]) => {
     const data = Object.fromEntries(keys.map((k) => [k, fonte[k]]));
