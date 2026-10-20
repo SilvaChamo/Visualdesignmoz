@@ -1,4 +1,4 @@
-name: Deploy to Contabo
+name: Deploy Visualdesign
 
 # ============================================================================
 # Este é o ÚNICO deploy do projecto: o site em produção é o do Contabo e é
@@ -26,7 +26,7 @@ concurrency:
 
 jobs:
   deploy:
-    name: Deploy to Contabo
+    name: Deploy Visualdesign
     runs-on: ubuntu-latest
 
     steps:
