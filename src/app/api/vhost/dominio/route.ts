@@ -7,6 +7,7 @@ import { hestiaCall } from '@/lib/hestia-client';
 import * as hestia from '@/lib/hestia-adapter';
 import { createCloudflareZone, deleteCloudflareDnsRecord, findCloudflareZoneId, listCloudflareDnsRecords, updateCloudflareDnsRecord, upsertCloudflareRecord, type CloudflareRecordInput } from '@/lib/cloudflare-dns';
 import { provisionEmailAuthForDomain } from '@/lib/domain-email-auth';
+import { dynadotAPI } from '@/lib/dynadot-adapter';
 import { getServerHost } from '@/lib/server-config';
 import { esquecerLeitura, lerServidor, type LeituraServidor } from '@/lib/vhost-servidor';
 import { lerRegisto, montarDados } from '@/lib/vhost-dados';
@@ -116,47 +117,140 @@ async function dnsCloudflare(d: string): Promise<DnsDominio> {
 /** Tipos de registo que o painel muda na Cloudflare (os outros veem-se, mas mudam-se lá) */
 const NA_CLOUDFLARE = ['A', 'AAAA', 'CNAME', 'TXT', 'MX'];
 
-/** "Reprocessar DNS" (Gerir domínio, Silva 16/10/2026): repõe na Cloudflare os registos-base de um domínio alojado aqui,
- *  para os domínios com registos em falta ficarem ligados como os outros. Cria a zona se faltar; o site (@ e www, ou o
- *  subdomínio) aponta para este servidor, a não ser que esteja noutro sítio (ex.: Vercel); o e-mail (MX, SPF, DKIM,
- *  DMARC, mail/webmail) se estiver aqui. O que já está certo fica como está, com o proxy que tinha. */
+type ItemRelatorio = { nome: string; estado: 'novo' | 'certo' | 'falhou' | 'pendente'; detalhe?: string };
+
+/** Confere no DNS público se o e-mail do domínio está autenticado (o que o Gmail exige: SPF ou DKIM). Devolve os
+ *  problemas que ainda se vêem — o DNS novo pode demorar uns minutos a chegar a todos os resolvedores. */
+async function conferirEmailDns(d: string, ip: string): Promise<string[]> {
+  const r = new Resolver({ timeout: 3000, tries: 1 });
+  r.setServers(['1.1.1.1', '8.8.8.8']);
+  const txt = async (nome: string) => (await r.resolveTxt(nome).catch(() => [] as string[][])).map((x) => x.join(''));
+  const [raiz, dmarc, dkim, mx] = await Promise.all([txt(d), txt('_dmarc.' + d), txt('mail._domainkey.' + d), r.resolveMx(d).catch(() => [])]);
+  const problemas: string[] = [];
+  const spf = raiz.filter((x) => /^v=spf1\b/i.test(x));
+  if (!spf.length) problemas.push('SPF em falta');
+  else if (spf.length > 1) problemas.push('há mais de um SPF');
+  else if (!spf[0].includes('ip4:' + ip)) problemas.push('o SPF não inclui o IP do servidor (' + ip + ')');
+  if (!dkim.some((x) => /^v=DKIM1/i.test(x))) problemas.push('DKIM do servidor (mail._domainkey) em falta');
+  if (!dmarc.some((x) => /^v=DMARC1/i.test(x))) problemas.push('DMARC em falta');
+  if (!mx.length) problemas.push('MX em falta');
+  return problemas;
+}
+
+/** DKIM do servidor de e-mail (Exim): é com esta chave (selector "mail") que o servidor assina o que envia. Cria a chave
+ *  se ainda não existir e devolve o valor TXT para publicar. Sem isto o Gmail recusa ("DKIM = did not pass"). */
+async function dkimDoServidor(conta: string, d: string): Promise<string | null> {
+  const ficheiro = `/usr/local/hestia/data/users/${conta}/mail/${d}.pub`;
+  const ler = async () => {
+    const out = await executeServerCommand(`cat ${q(ficheiro)} 2>/dev/null`, { timeoutMs: 15_000 }).catch(() => '');
+    const chave = out.split('\n').filter((l) => l && !l.startsWith('-----')).join('').replace(/\s+/g, '');
+    return /^[A-Za-z0-9+/=]{100,}$/.test(chave) ? chave : null;
+  };
+  let chave = await ler();
+  if (!chave) {
+    await hestiaCall('v-add-mail-domain-dkim', [conta, d]).catch(() => null);
+    chave = await ler();
+  }
+  return chave ? `v=DKIM1; k=rsa; p=${chave}` : null;
+}
+
+/** "Reprocessar DNS" (Gerir domínio, Silva 16/10/2026; na lista de Domínios, 20/10/2026): repõe na Cloudflare os
+ *  registos-base de um domínio alojado aqui, para os domínios com registos em falta ficarem ligados como os outros.
+ *  Cria a zona se faltar; o site (@ e www, ou o subdomínio) aponta para este servidor, a não ser que esteja noutro
+ *  sítio (ex.: Vercel); o e-mail (MX, SPF, DKIM da Brevo e do servidor, DMARC, mail/webmail) se estiver aqui. Serve
+ *  também os domínios registados fora da Dynadot: a zona e os registos fazem-se na Cloudflare e, se os nameservers
+ *  públicos não forem os dela, muda-os na Dynadot (quando o domínio está lá) ou diz quais pôr no registador. No fim
+ *  confere o DNS público. O que já está certo fica como está, com o proxy que tinha. */
 async function reprocessarDns(conta: string, d: string, srv: LeituraServidor) {
   const zona = zonaDe(d);
-  const feito: string[] = [];
-  const falhou: string[] = [];
-  let zid = await zonaCf(zona);
-  if (!zid) {
-    const z = await createCloudflareZone(zona);
-    if (!z.ok) return NextResponse.json({ erro: 'Não foi possível criar a zona na Cloudflare: ' + z.error }, { status: 502 });
+  // O que o painel mostra no cartão do relatório: verde = posto agora ("novo") ou já estava certo ("certo");
+  // vermelho = falhou; laranja = ainda não se vê no DNS público ("pendente")
+  const itens: ItemRelatorio[] = [];
+  const z = await createCloudflareZone(zona);
+  if (!z.ok) return NextResponse.json({ erro: 'Não foi possível criar a zona na Cloudflare: ' + z.error }, { status: 502 });
+  const zid = z.zoneId;
+  if (!z.alreadyExisted) {
     zonasCf.delete(zona);
-    zid = z.zoneId;
-    feito.push('zona criada na Cloudflare' + (z.nameServers.length ? ' (nameservers a pôr no registador: ' + z.nameServers.join(', ') + ')' : ''));
+    itens.push({ nome: 'Zona na Cloudflare', estado: 'novo', detalhe: 'criada' });
   }
   const w = srv.web[conta]?.[d];
   if (w && (await alojamentoVercelPublico(d)) !== true) {
     const ip = (w.IP || getServerHost()).trim();
     const atuais = await listCloudflareDnsRecords(zid, zona);
     for (const nome of d === zona ? ['@', 'www'] : [d.slice(0, -(zona.length + 1))]) {
+      const rotulo = 'A ' + (nome === '@' ? zona : nome);
       const doNome = atuais.filter((x) => x.name === nome && ['A', 'AAAA', 'CNAME'].includes(x.type));
       // já aponta para aqui, ou é um CNAME (ex.: www → o domínio): fica como está
-      if (doNome.some((x) => (x.type === 'A' && x.content === ip) || x.type === 'CNAME')) continue;
+      if (doNome.some((x) => (x.type === 'A' && x.content === ip) || x.type === 'CNAME')) {
+        itens.push({ nome: rotulo, estado: 'certo' });
+        continue;
+      }
       const a = doNome.find((x) => x.type === 'A');
       const x = a
         ? await updateCloudflareDnsRecord(zid, a.id, zona, { type: 'A', name: nome, content: ip })
         : await upsertCloudflareRecord(zid, zona, { type: 'A', name: nome, content: ip, proxied: false });
-      (x.ok ? feito : falhou).push(`A ${nome === '@' ? zona : nome}` + (x.ok ? ' → ' + ip : ': ' + (x.error || 'erro')));
+      itens.push({ nome: rotulo, estado: x.ok ? 'novo' : 'falhou', detalhe: x.ok ? '→ ' + ip : x.error || 'erro' });
     }
   }
-  if (srv.mail[conta]?.[d]) {
-    const e = await provisionEmailAuthForDomain(d);
-    const certos = e.records.filter((x) => x.ok).length;
-    if (certos) feito.push(`e-mail: ${certos} registo(s) confirmados`);
-    for (const x of e.records.filter((y) => !y.ok)) falhou.push(`${x.type} ${x.name}: ${x.error || 'erro'}`);
-    if (!e.brevoOk && e.brevoError) falhou.push('DKIM (Brevo): ' + e.brevoError);
+  const temEmail = !!srv.mail[conta]?.[d];
+  if (temEmail) {
+    const e = await provisionEmailAuthForDomain(d, { rapido: true });
+    for (const x of e.records) itens.push({ nome: `${x.type} ${x.name}`, estado: !x.ok ? 'falhou' : x.action === 'skipped' ? 'certo' : 'novo', detalhe: x.error });
+    if (!e.brevoOk && e.brevoError) itens.push({ nome: 'DKIM (Brevo)', estado: 'falhou', detalhe: e.brevoError });
+    const dkim = await dkimDoServidor(conta, d);
+    if (!dkim) itens.push({ nome: 'DKIM do servidor', estado: 'falhou', detalhe: 'não foi possível criar a chave' });
+    else {
+      // uma só chave por nome: se já havia outra (chave antiga), troca-se em vez de ficar com duas
+      const nome = 'mail._domainkey' + (d === zona ? '' : '.' + d.slice(0, -(zona.length + 1)));
+      const antiga = (await listCloudflareDnsRecords(zid, zona)).find((x) => x.type === 'TXT' && x.name === nome);
+      const x =
+        antiga && antiga.content === dkim
+          ? { ok: true, action: 'skipped' as string | undefined, error: undefined as string | undefined }
+          : antiga
+            ? { ...(await updateCloudflareDnsRecord(zid, antiga.id, zona, { type: 'TXT', name: nome, content: dkim })), action: 'updated' as string | undefined }
+            : await upsertCloudflareRecord(zid, zona, { type: 'TXT', name: nome, content: dkim, ttl: 3600 });
+      itens.push({ nome: 'DKIM do servidor', estado: !x.ok ? 'falhou' : x.action === 'skipped' ? 'certo' : 'novo', detalhe: x.error });
+    }
+  }
+  // O DNS só vale se o registador apontar para quem o serve: Cloudflare, ou os ns do próprio servidor (que copiam a
+  // Cloudflare). Só se mudam sozinhos os nameservers de um domínio na Dynadot que ainda está nos nameservers de
+  // estacionamento dela (não tem DNS de ninguém para estragar); com DNS noutro sítio (Google, Vercel, outro registador…)
+  // o painel não toca — diz o que fazer.
+  const ns = await nameservers(zona);
+  const nossos = ns.length > 0 && ns.every((x) => /^ns[1-9]\./.test(x));
+  if (d === zona) {
+    if (usaNameserversCloudflare(ns) || nossos) itens.push({ nome: 'Nameservers', estado: 'certo', detalhe: ns.join(', ') });
+    else {
+      const parqueados = ns.length === 0 || ns.every((x) => /dynadot|dyna-ns/.test(x));
+      if (parqueados && z.nameServers.length >= 2 && (await dynadotAPI.getDomainDetails(zona)).success) {
+        const x = await dynadotAPI.setNameservers(zona, z.nameServers);
+        if (x.success) {
+          nsGuardados.delete(zona);
+          itens.push({ nome: 'Nameservers', estado: 'novo', detalhe: 'mudados na Dynadot para ' + x.hosts.join(', ') });
+        } else itens.push({ nome: 'Nameservers', estado: 'falhou', detalhe: 'Dynadot: ' + x.error });
+      } else {
+        itens.push({
+          nome: 'Nameservers',
+          estado: 'falhou',
+          detalhe:
+            'O DNS está em ' + (ns.join(', ') || 'nameservers desconhecidos') + ', não na Cloudflare — mude os nameservers no registador' +
+            (z.nameServers.length ? ' para ' + z.nameServers.join(', ') : '') +
+            ' (ou ponha lá o SPF: v=spf1 include:spf.brevo.com ip4:' + getServerHost() + ' ~all)',
+        });
+      }
+    }
   }
   espelharNoServidor(zona);
-  const resumo = feito.length ? 'DNS reprocessado: ' + feito.join('; ') + '.' : 'DNS reprocessado: os registos já estavam certos.';
-  return NextResponse.json({ ok: true, aviso: resumo + (falhou.length ? ' Falhou: ' + falhou.join('; ') + '.' : '') });
+  // conferência no DNS público: o que ainda não chegou aparece a laranja (costuma propagar em minutos)
+  if (temEmail) {
+    for (const p of await conferirEmailDns(d, getServerHost())) itens.push({ nome: p, estado: 'pendente', detalhe: 'ainda não se vê no DNS público — pode demorar uns minutos a propagar' });
+  }
+  const novos = itens.filter((i) => i.estado === 'novo').length;
+  const falhas = itens.filter((i) => i.estado === 'falhou').length;
+  const pendentes = itens.filter((i) => i.estado === 'pendente').length;
+  const aviso =
+    'DNS reprocessado: ' + (novos ? novos + ' registo(s) posto(s) agora' : 'os registos já estavam certos') + (falhas ? '; ' + falhas + ' falharam' : '') + (pendentes ? '; ' + pendentes + ' a propagar' : '') + '.';
+  return NextResponse.json({ ok: true, aviso, relatorio: itens });
 }
 
 /** Depois de uma alteração na Cloudflare, a zona do servidor (ns1..ns4) acompanha logo — o cron faz o mesmo de 10 em 10

@@ -73,7 +73,7 @@ async function applyRecordAnyProvider(
         ttl: record.ttl,
       });
     }
-    return { name: r.name, type: r.type, ok: r.ok, error: r.error };
+    return { name: r.name, type: r.type, ok: r.ok, error: r.error, action: r.action };
   }
 
   if (fallback?.provider === 'hestia') {
@@ -113,6 +113,8 @@ export type DnsAutomationRecordResult = {
   type: string;
   ok: boolean;
   error?: string;
+  /** só na Cloudflare: 'skipped' = já estava certo; 'created'/'updated' = foi posto agora */
+  action?: string;
 };
 
 export type DnsAutomationResult = {
@@ -162,7 +164,10 @@ async function applyRecord(
  * que passou/falhou para o painel poder mostrar um aviso se algo não ficou
  * 100%.
  */
-export async function provisionEmailAuthForDomain(domain: string): Promise<DnsAutomationResult> {
+export async function provisionEmailAuthForDomain(
+  domain: string,
+  opcoes: { rapido?: boolean } = {},
+): Promise<DnsAutomationResult> {
   const cleanDomain = domain.trim().toLowerCase();
   const serverIp = getServerHost();
   const results: DnsAutomationRecordResult[] = [];
@@ -222,7 +227,7 @@ export async function provisionEmailAuthForDomain(domain: string): Promise<DnsAu
     //    tentamos algumas vezes com pequenas pausas antes de desistir.
     let verified = false;
     if (brevoOk) {
-      const delaysMs = [3000, 6000, 12000];
+      const delaysMs = opcoes.rapido ? [0] : [3000, 6000, 12000];
       for (const delay of delaysMs) {
         await sleep(delay);
         const attempt = await triggerBrevoDomainVerification(cleanDomain);

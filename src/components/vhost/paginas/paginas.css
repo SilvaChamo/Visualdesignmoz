@@ -7547,11 +7547,128 @@
    color: var(--red)
 }
 
-.vh .dom-opcoes>:last-child {
+.vh .dom-opcoes .perigo,
+.vh .dom-opcoes .perigo i {
    color: var(--red)
 }
 
-.vh .dom-opcoes>:last-child i {
+/* Relatório do "Reprocessar DNS": cartão no fim da barra lateral (e dentro da janela, para vários domínios) */
+.vh .dom-rel {
+   margin-top: 12px;
+   padding: 12px;
+   border: 1px solid var(--line);
+   border-left: 3px solid var(--warn);
+   border-radius: var(--r);
+   background: var(--soft);
+   font-size: 12.5px
+}
+
+.vh .dom-rel.ok {
+   border-left-color: var(--ok)
+}
+
+.vh .dom-rel-cab {
+   display: flex;
+   align-items: center;
+   justify-content: space-between;
+   gap: 8px
+}
+
+.vh .dom-rel-cab b {
+   font-size: 13px
+}
+
+.vh .dom-rel-cab i {
+   color: var(--warn)
+}
+
+.vh .dom-rel.ok .dom-rel-cab i {
+   color: var(--ok)
+}
+
+.vh .dom-rel-x {
+   border: 0;
+   background: none;
+   color: var(--muted);
+   cursor: pointer;
+   padding: 2px 4px
+}
+
+.vh .dom-rel-dom {
+   color: var(--muted);
+   margin: 2px 0 8px;
+   word-break: break-all
+}
+
+.vh .dom-rel-res {
+   display: flex;
+   flex-wrap: wrap;
+   gap: 6px;
+   margin-bottom: 8px
+}
+
+.vh .dom-rel-res span {
+   padding: 2px 8px;
+   border-radius: 10px;
+   font-weight: 600;
+   font-size: 11.5px
+}
+
+.vh .dom-rel-res .ok {
+   background: var(--okbg);
+   color: var(--ok)
+}
+
+.vh .dom-rel-res .w {
+   background: var(--warnbg);
+   color: var(--warn)
+}
+
+.vh .dom-rel-res .er {
+   background: var(--tint);
+   color: var(--red)
+}
+
+.vh .dom-rel-l {
+   display: grid;
+   grid-template-columns: 16px 1fr auto;
+   gap: 8px;
+   align-items: start;
+   padding: 6px 0;
+   border-top: 1px solid var(--line-soft)
+}
+
+.vh .dom-rel-l>div {
+   min-width: 0;
+   overflow-wrap: anywhere
+}
+
+.vh .dom-rel-l small {
+   display: block;
+   color: var(--muted);
+   margin-top: 1px
+}
+
+.vh .dom-rel-l em {
+   font-style: normal;
+   font-size: 11.5px;
+   font-weight: 600
+}
+
+.vh .dom-rel-l.novo i,
+.vh .dom-rel-l.certo i,
+.vh .dom-rel-l.novo em,
+.vh .dom-rel-l.certo em {
+   color: var(--ok)
+}
+
+.vh .dom-rel-l.pendente i,
+.vh .dom-rel-l.pendente em {
+   color: var(--warn)
+}
+
+.vh .dom-rel-l.falhou i,
+.vh .dom-rel-l.falhou em {
    color: var(--red)
 }
 
@@ -9021,6 +9138,7 @@
    overflow-wrap: anywhere
 }
 
+   min-width: 0;
 .vh .da-conta {
    color: var(--muted);
    margin-left: 2px
@@ -9052,6 +9170,7 @@
 .vh .da-txt>.btn {
    align-self: flex-start
 }
+
 
 @media(max-width:768px) {
    .vh .da-janela .frm-row {
