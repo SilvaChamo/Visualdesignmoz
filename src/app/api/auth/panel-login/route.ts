@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
       .trim();
     const password = String(body.password || '');
 
-    if (!email || !password) {
+    if (!email || !password.trim()) {
       return NextResponse.json(
         { success: false, error: 'Email e palavra-passe são obrigatórios.' },
         { status: 400 },
