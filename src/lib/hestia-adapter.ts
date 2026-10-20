@@ -307,8 +307,9 @@ export async function checkUserPassword(
   username: string,
   password: string,
 ): Promise<{ ok: boolean; error?: string }> {
-  if (!username || !password) return { ok: false, error: 'Credenciais em falta.' };
-  const result = await hestiaCall('v-check-user-password', [username, password]);
+  if (!username || !password.trim()) return { ok: false, error: 'Credenciais em falta.' };
+  // codigoDeSaida: sem isto a API responde 200 mesmo com a palavra-passe errada (ver hestia-client)
+  const result = await hestiaCall('v-check-user-password', [username, password], { codigoDeSaida: true });
   return result.ok ? { ok: true } : { ok: false, error: result.error };
 }
 

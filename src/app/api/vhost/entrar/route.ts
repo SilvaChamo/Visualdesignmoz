@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
   // admin@<domínio da conta>: a conta também entra pelo endereço admin do seu domínio, com a mesma palavra-passe (Silva,
   // 17/10/2026: "a conta admin, o nome da conta e o e-mail usado para registar a conta podem entrar")
   const adminDoDominio = pedido.match(/^admin@((?:[a-z0-9-]+\.)+[a-z]{2,})$/);
-  if (!senha || (!adminDoDominio && !/^[a-z0-9._-]{1,64}$/.test(nome))) return falha();
+  if (!senha.trim() || (!adminDoDominio && !/^[a-z0-9._-]{1,64}$/.test(nome))) return falha();
 
   const chave = loginRateLimitKey(req, 'utilizador:' + pedido);
   const limite = await checkAndRegisterLoginAttempt(chave);

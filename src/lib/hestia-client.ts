@@ -88,6 +88,8 @@ type HestiaCallOptions = {
   timeoutMs?: number;
   sshTimeoutMs?: number;
   sshFallbackOnTransportError?: boolean;
+  /** Pede à API o código de saída real no corpo (`returncode=yes`). Obrigatório quando o resultado decide uma entrada. */
+  codigoDeSaida?: boolean;
 };
 
 export async function hestiaCall(cmd: string, args: string[] = [], options: HestiaCallOptions = {}): Promise<HestiaCallResult> {
@@ -109,6 +111,7 @@ async function hestiaCallDireto(cmd: string, args: string[], options: HestiaCall
   body.set('user', user);
   body.set('password', password);
   body.set('cmd', cmd);
+  if (options.codigoDeSaida) body.set('returncode', 'yes');
   args.forEach((value, i) => body.set(`arg${i + 1}`, value));
 
   let response: Response;
@@ -146,10 +149,19 @@ async function hestiaCallDireto(cmd: string, args: string[], options: HestiaCall
 
   const output = (await response.text()).trim();
   const exitCodeHeader = response.headers.get('hestia-exit-code');
-  const exitCode = exitCodeHeader !== null ? Number(exitCodeHeader) : response.ok ? 0 : 1;
+  // Com utilizador+password (caminho "legacy" do index.php do Hestia) a API responde SEMPRE 200 e sem o cabeçalho
+  // Hestia-Exit-Code, mesmo quando o comando falha (o corpo é só o texto, ex.: "Error: password missmatch"). Daí
+  // o 200 valer como sucesso e o v-check-user-password "confirmar" qualquer palavra-passe, até um espaço
+  // (Silva, 20/10/2026). Com `returncode=yes` o corpo é o código de saída real; sem isso, um corpo "Error: …" é falha.
+  let exitCode: number;
+  if (exitCodeHeader !== null) exitCode = Number(exitCodeHeader);
+  else if (options.codigoDeSaida) exitCode = /^\d+$/.test(output) ? Number(output) : 1;
+  else if (/^error:/i.test(output)) exitCode = 1;
+  else exitCode = response.ok ? 0 : 1;
 
   if (exitCode !== 0) {
-    if (/ip is not allowed/i.test(output)) {
+    // (com returncode=yes o corpo é só o código; 10 = E_FORBIDDEN, o mesmo "IP is not allowed")
+    if (/ip is not allowed/i.test(output) || (options.codigoDeSaida && exitCode === 10)) {
       return hestiaCallViaSsh(cmd, args, options.sshTimeoutMs ?? HESTIA_SSH_FALLBACK_MS);
     }
     return { ok: false, exitCode, output, error: output || `Comando ${cmd} falhou (código ${exitCode})` };
