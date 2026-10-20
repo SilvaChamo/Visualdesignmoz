@@ -12,6 +12,7 @@ import { CACHE_DADOS_VHOST, apagarDadosVhost, guardarDadosVhost, tirarEntrada } 
 import { COOKIE_TEMA, lerTema, valorCookieTema, type TemaConta } from '@/lib/vhost-tema-conta';
 import { translate, type Lang } from './i18n';
 import { EntradaPainel, EsperaEntrada, LINGUA_LS, type ModoTema } from './entrada';
+import { CodigoDoisPassos } from './dois-passos';
 import { auth, supabase } from '@/lib/supabase-client';
 import { MoreMenuModal } from './modals';
 import { SCREENS, denyScreen, placeholder, type Screen } from './screens';
@@ -829,7 +830,7 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
             commit({ ...ref.current, carga: 'erro', erro: { msg: j.erro || 'Inicie sessão para ver o painel.', codigo: 401 } });
             return;
           }
-          if (r.status === 403) apagarCache();
+          if (r.status === 403 || r.status === 428) apagarCache();
           // servidor lento ou em baixo com o painel já à vista (da última leitura): fica como está
           else if (ref.current.carga === 'ok') return;
           commit({ ...ref.current, carga: 'erro', erro: { msg: j.erro || 'Não foi possível ler o servidor.', codigo: r.status } });
@@ -1373,6 +1374,22 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
       ) : (
         <div className="vh" data-theme={st.theme} style={themeStyles as React.CSSProperties} lang="pt-PT" suppressHydrationWarning>
           <EsperaEntrada roda={false} />
+        </div>
+      );
+    // a conta tem os 2 passos ligados e a sessão ainda só tem a palavra-passe: o código da aplicação (o servidor responde 428)
+    if (er.codigo === 428)
+      return (
+        <div className="vh" data-theme={st.theme} style={themeStyles as React.CSSProperties} lang={st.lang === 'en' ? 'en' : 'pt-PT'} suppressHydrationWarning>
+          <CodigoDoisPassos
+            escuro={isDark}
+            lang={st.lang}
+            onSair={sair}
+            onOk={() => {
+              setAEntrar(true);
+              commit({ ...ref.current, carga: 'a-carregar', erro: null });
+              carregar();
+            }}
+          />
         </div>
       );
     // sem sessão, ou sessão recusada pelo servidor mesmo depois de renovada: a entrada do painel

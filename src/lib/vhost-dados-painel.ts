@@ -6,7 +6,7 @@ import { LEITURA_FRESCA_MS, idadeLeitura, lerServidor, lerServidorParaPagina } f
 import { lerRegisto, lerRegistoParaPagina, montarDados } from '@/lib/vhost-dados';
 import type { DadosServidor } from '@/components/vhost/servidor';
 
-export type LeituraPainel = { ok: true; dados: DadosServidor } | { ok: false; erro: string; codigo: 401 | 403 | 500 };
+export type LeituraPainel = { ok: true; dados: DadosServidor } | { ok: false; erro: string; codigo: 401 | 403 | 428 | 500 };
 
 /** `fresco` lê já o servidor (só para administradores); sem ele, usa a leitura em memória (até 60 s).
  *  `paraPagina` (a página do painel desenhada no servidor): a última leitura que houver, mesmo mais antiga, sem esperar
@@ -15,6 +15,8 @@ export type LeituraPainel = { ok: true; dados: DadosServidor } | { ok: false; er
 export async function lerDadosPainel(fresco = false, paraPagina = false): Promise<LeituraPainel> {
   const auth = await requirePanelBootstrapAccess();
   if ('error' in auth) {
+    // 428: a conta tem os 2 passos ligados e a sessão ainda não escreveu o código
+    if (auth.error.status === 428) return { ok: false, codigo: 428, erro: 'Escreva o código da aplicação de autenticação para continuar.' };
     const codigo = auth.error.status === 401 ? 401 : 403;
     return { ok: false, codigo, erro: codigo === 401 ? 'Inicie sessão no site para ver o painel.' : 'Esta conta não tem acesso ao painel.' };
   }

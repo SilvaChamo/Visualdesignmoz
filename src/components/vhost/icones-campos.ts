@@ -11,8 +11,8 @@ const CAMPOS = 'input, select, textarea';
 const SEM_ICONE_TIPOS = new Set(['checkbox', 'radio', 'hidden', 'file', 'range', 'color', 'submit', 'button', 'reset', 'image']);
 /** abaixo desta largura (px) o campo fica sem ícone */
 const LARGURA_MINIMA = 110;
-/** zonas com desenho próprio (seletor de domínio, separadores em caixa de escolha, terminal) */
-const ZONAS_PROPRIAS = '[data-ic-sem], .da-domain-selector, .ptabs-sel, .term-cmd';
+/** zonas com desenho próprio (entrada e código de 2 passos do painel, seletor de domínio, separadores em caixa de escolha, terminal) */
+const ZONAS_PROPRIAS = '[data-ic-sem], .ent, .da-domain-selector, .ptabs-sel, .term-cmd';
 
 /** O texto da etiqueta do campo (sem o que está dentro de select/textarea, para não entrarem as opções) */
 function etiqueta(el: HTMLElement): string {

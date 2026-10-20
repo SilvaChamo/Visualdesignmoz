@@ -267,7 +267,8 @@ export function DataTable<T>({
   barraFora = false,
   empilhar = true,
   acoesNaColuna = false,
-  colunasNoCabecalho = false,
+  // em todas as listas o "Colunas" é só o ícone, à direita, dentro da barra das colunas (Silva, 21/10/2026)
+  colunasNoCabecalho = true,
   paginacaoNoCabecalho = false,
   tituloAcoes,
 }: {

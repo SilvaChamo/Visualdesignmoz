@@ -190,7 +190,7 @@ function TopoEntrada({ modo, lang, onModo, onLang }: { modo: ModoTema; lang: Lan
 }
 
 /** Roda como a do DA (medida no vídeo do Silva): um arco que cresce e encolhe enquanto gira */
-function Roda({ tamanho, traco, grande }: { tamanho: number; traco: number; grande?: boolean }) {
+export function Roda({ tamanho, traco, grande }: { tamanho: number; traco: number; grande?: boolean }) {
   const meio = tamanho / 2;
   return (
     <svg className={'ent-roda' + (grande ? ' grande' : '')} width={tamanho} height={tamanho} viewBox={`0 0 ${tamanho} ${tamanho}`} aria-hidden>
