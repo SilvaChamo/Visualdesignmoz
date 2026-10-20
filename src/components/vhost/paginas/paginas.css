@@ -39,13 +39,13 @@
 }
 
 .vh .frm-head h3 {
-   font-size: 15px;
+   font-size: calc(15px * var(--fs, 1));
    font-weight: 800
 }
 
 .vh .frm-head p {
    color: var(--muted);
-   font-size: 12.5px;
+   font-size: calc(12.5px * var(--fs, 1));
    margin-top: 2px
 }
 
@@ -65,7 +65,7 @@
 
 .vh .frm-row>.frm-lb {
    font-weight: 600;
-   font-size: 13.5px;
+   font-size: calc(13.5px * var(--fs, 1));
    line-height: 1.3
 }
 
@@ -81,7 +81,7 @@
    display: block;
    color: var(--muted);
    font-weight: 500;
-   font-size: 12px;
+   font-size: calc(12px * var(--fs, 1));
    margin-top: 3px;
    line-height: 1.4
 }
@@ -106,7 +106,7 @@
    color: var(--ink);
    flex: 1;
    min-width: 0;
-   font-size: 14px
+   font-size: calc(14px * var(--fs, 1))
 }
 
 .vh .frm-ctl>textarea,
@@ -145,7 +145,7 @@
 }
 
 .vh .frm-tag {
-   font-size: 10.5px;
+   font-size: calc(10.5px * var(--fs, 1));
    font-weight: 700;
    color: var(--muted);
    border: 1px solid var(--line);
@@ -187,7 +187,7 @@
    color: var(--ink);
    flex: 1;
    min-width: 0;
-   font-size: 14px
+   font-size: calc(14px * var(--fs, 1))
 }
 
 .vh .igrp>*+* {
@@ -204,7 +204,7 @@
    display: grid;
    place-items: center;
    padding: 0 10px;
-   font-size: 13.5px
+   font-size: calc(13.5px * var(--fs, 1))
 }
 
 .vh .igrp .ib:hover {
@@ -217,7 +217,7 @@
    background: var(--soft);
    color: var(--ink);
    padding: 0 8px;
-   font-size: 13.5px
+   font-size: calc(13.5px * var(--fs, 1))
 }
 
 .vh .chk {
@@ -225,7 +225,7 @@
    align-items: flex-start;
    gap: 7px;
    color: var(--ink);
-   font-size: 13.5px;
+   font-size: calc(13.5px * var(--fs, 1));
    line-height: 1.35;
    cursor: pointer;
    user-select: none;
@@ -304,14 +304,14 @@
    padding: 10px 18px;
    border-top: 1px solid var(--line-soft);
    cursor: pointer;
-   font-size: 13.5px;
+   font-size: calc(13.5px * var(--fs, 1));
    font-weight: 500
 }
 
 .vh .feats>label small {
    display: block;
    color: var(--muted);
-   font-size: 12px;
+   font-size: calc(12px * var(--fs, 1));
    font-weight: 500;
    margin-top: 2px
 }
@@ -486,7 +486,7 @@
    background: var(--red);
    color: #fff;
    border-radius: 9px;
-   font-size: 11px;
+   font-size: calc(11px * var(--fs, 1));
    font-weight: 700;
    padding: 0 6px;
    line-height: 16px
@@ -507,7 +507,7 @@
    background: none;
    color: var(--ink);
    font: inherit;
-   font-size: 13.5px;
+   font-size: calc(13.5px * var(--fs, 1));
    padding: 7px 8px;
    border-radius: var(--r);
    cursor: pointer;
@@ -542,7 +542,7 @@
    display: flex;
    align-items: center;
    gap: 4px;
-   font-size: 13px;
+   font-size: calc(13px * var(--fs, 1));
    color: var(--ink)
 }
 
@@ -597,7 +597,7 @@
 
 .vh .dt-bulk .n {
    color: var(--muted);
-   font-size: 12.5px;
+   font-size: calc(12.5px * var(--fs, 1));
    margin-right: 6px
 }
 
@@ -625,7 +625,7 @@
    padding: 6px 8px;
    border-radius: var(--r);
    cursor: pointer;
-   font-size: 13.5px
+   font-size: calc(13.5px * var(--fs, 1))
 }
 
 .vh .dt-cols .menu label:hover {
@@ -649,28 +649,15 @@
    }
 }
 
-/* listas de contas: no portátil (até 1300 px) o "Entrar" da linha fica só com o ícone; em blocos volta o texto */
-@media(min-width:769px) and (max-width:1300px) {
-   .vh .btn.ct-entrar {
-      width: 30px;
-      padding: 0;
-      justify-content: center
-   }
-
-   .vh .btn.ct-entrar span {
-      display: none
-   }
+/* listas de contas: o "Entrar" da linha fica só com o ícone em todos os tamanhos (o nome aparece ao passar o rato) */
+.vh .btn.ct-entrar {
+   width: 30px;
+   padding: 0;
+   justify-content: center
 }
 
-@media(min-width:769px) and (max-width:1000px) {
-   .vh .dt-empilhar-tablet .btn.ct-entrar {
-      width: auto;
-      padding: 0 10px
-   }
-
-   .vh .dt-empilhar-tablet .btn.ct-entrar span {
-      display: inline
-   }
+.vh .btn.ct-entrar span {
+   display: none
 }
 
 /* "Colunas" no cabeçalho da tabela, depois da última coluna (DataTable colunasNoCabecalho — listas de contas) */
@@ -725,7 +712,7 @@
    background: none;
    color: var(--ink);
    font: inherit;
-   font-size: 13px;
+   font-size: calc(13px * var(--fs, 1));
    font-weight: 500;
    border-radius: calc(var(--r) - 2px);
    cursor: pointer;
@@ -763,7 +750,7 @@
 
 .vh .tbl th .si {
    margin-left: 6px;
-   font-size: 10px;
+   font-size: calc(10px * var(--fs, 1));
    opacity: .6
 }
 
@@ -791,7 +778,7 @@
 .vh .doms a {
    color: var(--ink);
    text-decoration: none;
-   font-size: 13px
+   font-size: calc(13px * var(--fs, 1))
 }
 
 .vh .doms a:hover {
@@ -837,7 +824,7 @@
 }
 
 .vh .passo h3 {
-   font-size: 16px;
+   font-size: calc(16px * var(--fs, 1));
    font-weight: 800;
    margin-bottom: 4px
 }
@@ -861,7 +848,7 @@
 }
 
 .vh .passo-head h3 {
-   font-size: 16px;
+   font-size: calc(16px * var(--fs, 1));
    font-weight: 800;
    margin-bottom: 4px
 }
@@ -875,13 +862,13 @@
    display: inline-flex;
    align-items: center;
    gap: 8px;
-   font-size: 12.5px;
+   font-size: calc(12.5px * var(--fs, 1));
    color: var(--muted);
    margin-top: 8px
 }
 
 .vh .passo-vagas .tag {
-   font-size: 11.5px;
+   font-size: calc(11.5px * var(--fs, 1));
    padding: 2px 8px
 }
 
@@ -905,7 +892,7 @@
    background: rgba(255, 255, 255, 0.28);
    color: #fff;
    border-radius: 9px;
-   font-size: 11px;
+   font-size: calc(11px * var(--fs, 1));
    font-weight: 700;
    padding: 0 6px;
    line-height: 16px;
@@ -934,13 +921,13 @@
 }
 
 .vh .bloco-h h3 {
-   font-size: 16px;
+   font-size: calc(16px * var(--fs, 1));
    font-weight: 800
 }
 
 .vh .bloco-h p {
    color: var(--muted);
-   font-size: 12.5px
+   font-size: calc(12.5px * var(--fs, 1))
 }
 
 .vh .acoes-topo {
@@ -958,7 +945,7 @@
    padding: 10px 18px;
    border-top: 1px solid var(--line-soft);
    color: var(--muted);
-   font-size: 12.5px;
+   font-size: calc(12.5px * var(--fs, 1));
    align-items: center
 }
 
@@ -1027,7 +1014,7 @@
       height: 32px;
       padding: 0 6px 0 0;
       color: var(--red);
-      font-size: 16px;
+      font-size: calc(16px * var(--fs, 1));
       cursor: pointer;
       text-decoration: none
    }
@@ -1115,7 +1102,7 @@
    align-items: center;
    gap: 8px;
    color: var(--muted);
-   font-size: 13px;
+   font-size: calc(13px * var(--fs, 1));
    margin: 4px 0 18px
 }
 
@@ -1167,13 +1154,13 @@
 }
 
 .vh .espera-msg .big {
-   font-size: 36px;
+   font-size: calc(36px * var(--fs, 1));
    color: var(--red);
    margin-bottom: 4px
 }
 
 .vh .espera-msg b {
-   font-size: 17px;
+   font-size: calc(17px * var(--fs, 1));
    font-weight: 800;
    color: var(--ink)
 }
@@ -1205,7 +1192,7 @@
    background: none;
    color: var(--ink);
    font: inherit;
-   font-size: 13.5px;
+   font-size: calc(13.5px * var(--fs, 1));
    font-weight: 500;
    cursor: pointer;
    padding: 4px 2px;
@@ -1239,7 +1226,7 @@
    flex-direction: column;
    line-height: 0;
    gap: 1px;
-   font-size: 7px;
+   font-size: calc(7px * var(--fs, 1));
    margin-left: 2px
 }
 
@@ -1269,7 +1256,7 @@
 }
 
 .vh .dom-filtro i.fa-filter {
-   font-size: 12px
+   font-size: calc(12px * var(--fs, 1))
 }
 
 .vh .dom-filtro input {
@@ -1282,7 +1269,7 @@
    background: none;
    color: var(--ink);
    font: inherit;
-   font-size: 14px
+   font-size: calc(14px * var(--fs, 1))
 }
 
 .vh .dom-filtro input::placeholder {
@@ -1294,7 +1281,7 @@
    background: none;
    color: var(--muted);
    cursor: pointer;
-   font-size: 14px;
+   font-size: calc(14px * var(--fs, 1));
    padding: 4px
 }
 
@@ -1317,7 +1304,7 @@
    background: none;
    color: var(--ink);
    font: inherit;
-   font-size: 14px;
+   font-size: calc(14px * var(--fs, 1));
    text-align: left;
    padding: 8px 26px;
    cursor: pointer;
@@ -1341,7 +1328,7 @@
 .vh .dom-lista button.on i {
    position: absolute;
    left: 8px;
-   font-size: 11px
+   font-size: calc(11px * var(--fs, 1))
 }
 
 .vh .dom-lista button span {
@@ -1353,7 +1340,7 @@
 .vh .dom-vazio {
    padding: 12px 14px;
    color: var(--muted);
-   font-size: 13px
+   font-size: calc(13px * var(--fs, 1))
 }
 
 .vh .dom-ctx {
@@ -1362,7 +1349,7 @@
    gap: 6px;
    flex-wrap: wrap;
    color: var(--muted);
-   font-size: 13px;
+   font-size: calc(13px * var(--fs, 1));
    margin: 0 0 16px
 }
 
@@ -1375,7 +1362,7 @@
 }
 
 .vh .dom-ctx span {
-   font-size: 12px
+   font-size: calc(12px * var(--fs, 1))
 }
 
 /* DNS: tipos com cores e botões Editar / Remover (organização do modelo DNS central do painel da VisualDesign) */
@@ -1387,7 +1374,7 @@
    display: inline-block;
    min-width: 44px;
    text-align: center;
-   font-size: 12px;
+   font-size: calc(12px * var(--fs, 1));
    font-weight: 700;
    padding: 3px 9px;
    border-radius: var(--r);
@@ -1439,7 +1426,7 @@
    white-space: nowrap;
    color: var(--muted);
    cursor: pointer;
-   font-size: 12px
+   font-size: calc(12px * var(--fs, 1))
 }
 
 .vh .dns-proxy.disabled {
@@ -1603,7 +1590,7 @@
 
 .vh .dns-inline-inp {
    height: 28px;
-   font-size: 12.5px;
+   font-size: calc(12.5px * var(--fs, 1));
    padding: 2px 8px;
    border: 1px solid var(--line);
    border-radius: var(--r);
@@ -1620,7 +1607,7 @@
 
 .vh .dns-txt-area {
    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-   font-size: 12.5px;
+   font-size: calc(12.5px * var(--fs, 1));
    line-height: 1.45;
    padding: 6px 10px;
    resize: vertical;
@@ -1694,7 +1681,7 @@
    background: var(--card);
    color: var(--ink);
    font-family: ui-monospace, Menlo, monospace;
-   font-size: 12px;
+   font-size: calc(12px * var(--fs, 1));
    resize: vertical
 }
 
@@ -1705,7 +1692,7 @@
    border: 1px solid var(--line);
    border-radius: var(--r);
    padding: 10px;
-   font-size: 12px;
+   font-size: calc(12px * var(--fs, 1));
    white-space: pre-wrap
 }
 
@@ -1720,14 +1707,14 @@
 }
 
 .vh .seccao-h h3 {
-   font-size: 16px;
+   font-size: calc(16px * var(--fs, 1));
    font-weight: 800;
    margin-bottom: 3px
 }
 
 .vh .seccao-h p {
    color: var(--muted);
-   font-size: 12.5px;
+   font-size: calc(12.5px * var(--fs, 1));
    line-height: 1.45;
    max-width: 760px
 }
@@ -1736,7 +1723,7 @@
    display: flex;
    gap: 18px;
    flex-wrap: wrap;
-   font-size: 12.5px;
+   font-size: calc(12.5px * var(--fs, 1));
    color: var(--muted);
    white-space: nowrap
 }
@@ -1754,7 +1741,7 @@
 
 .vh .cel-ic>i {
    color: var(--muted);
-   font-size: 15px;
+   font-size: calc(15px * var(--fs, 1));
    width: 18px;
    text-align: center
 }
@@ -1805,7 +1792,7 @@
 }
 
 .vh .dns-ns {
-   font-size: 12.5px;
+   font-size: calc(12.5px * var(--fs, 1));
    color: var(--ink)
 }
 
@@ -1867,7 +1854,7 @@
 }
 
 .vh .da-cel>i {
-   font-size: 18px;
+   font-size: calc(18px * var(--fs, 1));
    color: var(--muted);
    width: 22px;
    text-align: center;
@@ -1876,14 +1863,14 @@
 
 .vh .da-cel small {
    display: block;
-   font-size: 12px;
+   font-size: calc(12px * var(--fs, 1));
    color: var(--muted);
    margin-bottom: 2px
 }
 
 .vh .da-cel span {
    display: block;
-   font-size: 14px;
+   font-size: calc(14px * var(--fs, 1));
    color: var(--ink);
    overflow-wrap: anywhere
 }
@@ -1894,7 +1881,7 @@
 }
 
 .vh .da-tbl th {
-   font-size: 12.5px;
+   font-size: calc(12.5px * var(--fs, 1));
    font-weight: 700;
    color: var(--ink);
    text-align: left;
@@ -1908,7 +1895,7 @@
 .vh .da-tbl td {
    padding: 8px 12px;
    border-bottom: 1px solid var(--line);
-   font-size: 14px;
+   font-size: calc(14px * var(--fs, 1));
    vertical-align: middle;
    color: var(--ink)
 }
@@ -1917,7 +1904,7 @@
    width: 46px;
    text-align: center;
    color: var(--muted);
-   font-size: 17px;
+   font-size: calc(17px * var(--fs, 1));
    padding-right: 0
 }
 
@@ -1955,7 +1942,7 @@
    border-radius: 3px;
    background: color-mix(in srgb, var(--app) 22%, transparent);
    color: var(--ink);
-   font-size: 13.5px;
+   font-size: calc(13.5px * var(--fs, 1));
    cursor: default
 }
 
@@ -1977,7 +1964,7 @@
 .vh .da-dar>label,
 .vh .da-campo>label {
    display: block;
-   font-size: 15px;
+   font-size: calc(15px * var(--fs, 1));
    color: var(--ink);
    margin-bottom: 7px
 }
@@ -1991,7 +1978,7 @@
    background: var(--card);
    color: var(--ink);
    font: inherit;
-   font-size: 14px;
+   font-size: calc(14px * var(--fs, 1));
    padding: 0 12px
 }
 
@@ -2012,7 +1999,7 @@
 
 .vh .da-pe small,
 .vh .da-campo small {
-   font-size: 12px;
+   font-size: calc(12px * var(--fs, 1));
    color: var(--muted)
 }
 
@@ -2067,7 +2054,7 @@
    background: none;
    color: var(--ink);
    font: inherit;
-   font-size: 13px;
+   font-size: calc(13px * var(--fs, 1));
    cursor: pointer;
    display: inline-flex;
    align-items: center;
@@ -2085,7 +2072,7 @@
    gap: 12px;
    padding: 15px 0;
    border-bottom: 1px solid var(--line-soft, var(--line));
-   font-size: 14px;
+   font-size: calc(14px * var(--fs, 1));
    align-items: center
 }
 
@@ -2102,7 +2089,7 @@
 }
 
 .vh .da-lista code {
-   font-size: 12px;
+   font-size: calc(12px * var(--fs, 1));
    background: var(--soft);
    border: 1px solid var(--line);
    border-radius: 3px;
@@ -2126,7 +2113,7 @@
    background: var(--card);
    color: var(--ink);
    font: inherit;
-   font-size: 14px;
+   font-size: calc(14px * var(--fs, 1));
    padding: 0 12px
 }
 
@@ -2184,14 +2171,14 @@
 }
 
 .vh .em-sub {
-   font-size: 14px;
+   font-size: calc(14px * var(--fs, 1));
    font-weight: 800;
    margin: 18px 0 2px
 }
 
 .vh .em-nota {
    color: var(--muted);
-   font-size: 12.5px;
+   font-size: calc(12.5px * var(--fs, 1));
    line-height: 1.5;
    margin: 8px 0 14px
 }
@@ -2205,13 +2192,13 @@
    border-radius: 3px;
    padding: 2px 8px;
    margin: 2px 6px 2px 0;
-   font-size: 13px
+   font-size: calc(13px * var(--fs, 1))
 }
 
 .vh .em-chip i {
    cursor: pointer;
    color: var(--muted);
-   font-size: 11px
+   font-size: calc(11px * var(--fs, 1))
 }
 
 .vh .em-chip i:hover {
@@ -2260,7 +2247,7 @@
    gap: 16px;
    padding: 14px 0;
    border-bottom: 1px solid var(--line-soft, var(--line));
-   font-size: 14px;
+   font-size: calc(14px * var(--fs, 1));
    flex-wrap: wrap
 }
 
@@ -2294,7 +2281,7 @@
    display: flex;
    flex-direction: column;
    gap: 5px;
-   font-size: 12.5px;
+   font-size: calc(12.5px * var(--fs, 1));
    color: var(--muted);
    font-weight: 600
 }
@@ -2366,7 +2353,7 @@
 
 .vh .em-catch small {
    color: var(--muted);
-   font-size: 12.5px;
+   font-size: calc(12.5px * var(--fs, 1));
    line-height: 1.45
 }
 
@@ -2391,7 +2378,7 @@
 }
 
 .vh .av-excl h4 {
-   font-size: 13px;
+   font-size: calc(13px * var(--fs, 1));
    font-weight: 800;
    margin-bottom: 6px
 }
@@ -2412,7 +2399,7 @@
 
 .vh .av-parte small {
    color: var(--muted);
-   font-size: 12px;
+   font-size: calc(12px * var(--fs, 1));
    text-align: right;
    overflow: hidden;
    text-overflow: ellipsis;
@@ -2424,7 +2411,7 @@
    display: inline-flex;
    align-items: center;
    gap: 8px;
-   font-size: 13px;
+   font-size: calc(13px * var(--fs, 1));
    color: var(--ink);
    cursor: pointer
 }
@@ -2441,7 +2428,7 @@
    white-space: nowrap;
    vertical-align: middle;
    font-family: ui-monospace, Menlo, monospace;
-   font-size: 12.5px;
+   font-size: calc(12.5px * var(--fs, 1));
    cursor: default
 }
 
@@ -2458,7 +2445,7 @@
 .vh .av-explica {
    margin: 0 0 14px;
    color: var(--muted);
-   font-size: 13px
+   font-size: calc(13px * var(--fs, 1))
 }
 
 .vh .av-explica b {
@@ -2472,7 +2459,7 @@
 .vh .av-ajuda ul {
    margin: 6px 0 0 18px;
    line-height: 1.7;
-   font-size: 12.5px
+   font-size: calc(12.5px * var(--fs, 1))
 }
 
 .vh .av-dom {
@@ -2495,7 +2482,7 @@
 }
 
 .vh .av-dom-h b {
-   font-size: 14px
+   font-size: calc(14px * var(--fs, 1))
 }
 
 .vh .av-dom-h b i {
@@ -2530,13 +2517,13 @@
 }
 
 .vh .av-alvo>i {
-   font-size: 20px;
+   font-size: calc(20px * var(--fs, 1));
    color: var(--app)
 }
 
 .vh .av-alvo small {
    color: var(--muted);
-   font-size: 12px
+   font-size: calc(12px * var(--fs, 1))
 }
 
 .vh .av-alvo.outro {
@@ -2730,7 +2717,7 @@
    align-items: center;
    gap: 6px;
    flex-wrap: wrap;
-   font-size: 13.5px;
+   font-size: calc(13.5px * var(--fs, 1));
    font-weight: 600;
    min-width: 0
 }
@@ -2745,7 +2732,7 @@
 }
 
 .vh .fm-caminho i.fa-chevron-right {
-   font-size: 9px;
+   font-size: calc(9px * var(--fs, 1));
    color: var(--muted);
    margin-right: 6px
 }
@@ -2790,7 +2777,7 @@
    background: none;
    text-transform: none;
    letter-spacing: 0;
-   font-size: 13px
+   font-size: calc(13px * var(--fs, 1))
 }
 
 .vh .fm-perm td:first-child {
@@ -2799,7 +2786,7 @@
 }
 
 .vh .fm-ficheiro {
-   font-size: 12.5px;
+   font-size: calc(12.5px * var(--fs, 1));
    word-break: break-all
 }
 
@@ -2811,7 +2798,7 @@
    background: var(--card);
    color: var(--ink);
    font-family: ui-monospace, Menlo, Consolas, monospace;
-   font-size: 13px;
+   font-size: calc(13px * var(--fs, 1));
    line-height: 1.55;
    padding: 12px 14px;
    resize: vertical;
@@ -2833,7 +2820,7 @@
    max-height: calc(100vh - 260px);
    overflow: auto;
    font-family: ui-monospace, Menlo, Consolas, monospace;
-   font-size: 13px;
+   font-size: calc(13px * var(--fs, 1));
    line-height: 1.5;
    cursor: text
 }
@@ -2900,7 +2887,7 @@
 }
 
 .vh .st-graf small {
-   font-size: 11px;
+   font-size: calc(11px * var(--fs, 1));
    color: var(--muted);
    white-space: nowrap
 }
@@ -2912,7 +2899,7 @@
    padding: 12px;
    max-height: calc(100vh - 330px);
    overflow: auto;
-   font-size: 12px;
+   font-size: calc(12px * var(--fs, 1));
    line-height: 1.5;
    white-space: pre-wrap;
    word-break: break-all
@@ -3048,7 +3035,7 @@
    padding: 0 16px;
    margin: 0;
    gap: 6px;
-   font-size: 13px;
+   font-size: calc(13px * var(--fs, 1));
    font-weight: 500;
    color: var(--muted);
    background: none;
@@ -3197,7 +3184,7 @@
       background: var(--card);
       color: var(--red);
       font: inherit;
-      font-size: 14px;
+      font-size: calc(14px * var(--fs, 1));
       font-weight: 700;
       text-overflow: ellipsis
    }
@@ -3205,7 +3192,7 @@
    .vh .ptabs-sel i {
       position: absolute;
       right: 11px;
-      font-size: 11px;
+      font-size: calc(11px * var(--fs, 1));
       color: var(--muted);
       pointer-events: none
    }
@@ -3357,7 +3344,7 @@
    width: 18px;
    margin-top: 2px;
    color: var(--blue, #2563eb);
-   font-size: 15px;
+   font-size: calc(15px * var(--fs, 1));
    text-align: center
 }
 
@@ -3369,12 +3356,12 @@
 
 .vh .wp-menu button b {
    font-weight: 700;
-   font-size: 13px
+   font-size: calc(13px * var(--fs, 1))
 }
 
 .vh .wp-menu button small {
    color: var(--muted);
-   font-size: 12.5px;
+   font-size: calc(12.5px * var(--fs, 1));
    font-weight: 400
 }
 
@@ -3389,7 +3376,7 @@
    border-radius: 3px;
    color: var(--blue, #2563eb);
    background: color-mix(in srgb, var(--blue, #2563eb) 10%, transparent);
-   font-size: 12px;
+   font-size: calc(12px * var(--fs, 1));
    font-weight: 600
 }
 
@@ -3402,13 +3389,13 @@
    text-align: center;
    padding: 22px 12px;
    color: var(--ink);
-   font-size: 14px
+   font-size: calc(14px * var(--fs, 1))
 }
 
 .vh .wp-vazio td>i {
    color: var(--muted);
    margin-right: 8px;
-   font-size: 16px
+   font-size: calc(16px * var(--fs, 1))
 }
 
 .vh .wp-recarregar {
@@ -3417,7 +3404,7 @@
    color: var(--blue, #2563eb);
    cursor: pointer;
    margin-left: 10px;
-   font-size: 15px
+   font-size: calc(15px * var(--fs, 1))
 }
 
 .vh .wp-opcoes {
@@ -3461,7 +3448,7 @@
    flex-direction: column;
    background: var(--card);
    color: var(--ink);
-   font-size: 14px
+   font-size: calc(14px * var(--fs, 1))
 }
 
 .vh .modal-bg {
@@ -3505,7 +3492,7 @@
    cursor: pointer;
    padding: 2px 6px;
    margin: -2px -6px -2px 4px;
-   font-size: 16px;
+   font-size: calc(16px * var(--fs, 1));
    line-height: 1;
    border-radius: var(--r);
    display: inline-flex;
@@ -3559,14 +3546,14 @@
 }
 
 .vh .fmda-logo b {
-   font-size: 21px;
+   font-size: calc(21px * var(--fs, 1));
    font-weight: 700;
    color: var(--rail-ink, #fff);
    letter-spacing: .2px
 }
 
 .vh .fmda-logo small {
-   font-size: 11px;
+   font-size: calc(11px * var(--fs, 1));
    letter-spacing: 2.4px;
    color: var(--rail-ink, #fff);
    opacity: .85
@@ -3593,13 +3580,13 @@
    border: 0;
    background: none;
    color: var(--rail-ink, #fff);
-   font-size: 14.5px;
+   font-size: calc(14.5px * var(--fs, 1));
    cursor: pointer;
    white-space: nowrap
 }
 
 .vh .fmda-tb i {
-   font-size: 19px
+   font-size: calc(19px * var(--fs, 1))
 }
 
 .vh .fmda-tb:hover:not(:disabled) {
@@ -3648,7 +3635,7 @@
    background: color-mix(in srgb, var(--red) 72%, #fff);
    color: #fff;
    font-weight: 500;
-   font-size: 15px;
+   font-size: calc(15px * var(--fs, 1));
    cursor: pointer
 }
 
@@ -3673,7 +3660,7 @@
    height: 32px;
    border-radius: 4px;
    cursor: pointer;
-   font-size: 15px;
+   font-size: calc(15px * var(--fs, 1));
    white-space: nowrap
 }
 
@@ -3687,7 +3674,7 @@
 
 .vh .fmda-no>i.fa-folder {
    color: #2f87c8;
-   font-size: 17px
+   font-size: calc(17px * var(--fs, 1))
 }
 
 .vh .fmda-seta {
@@ -3697,14 +3684,14 @@
    background: none;
    color: var(--muted);
    cursor: pointer;
-   font-size: 11px;
+   font-size: calc(11px * var(--fs, 1));
    padding: 0
 }
 
 .vh .fmda-lig {
    margin-left: 6px;
    color: var(--muted);
-   font-size: 11px
+   font-size: calc(11px * var(--fs, 1))
 }
 
 .vh .fmda-main {
@@ -3724,7 +3711,7 @@
    min-height: 36px;
    padding: 4px 12px 0;
    color: var(--muted);
-   font-size: 14px
+   font-size: calc(14px * var(--fs, 1))
 }
 
 .vh .fmda-caminho a {
@@ -3743,7 +3730,7 @@
 }
 
 .vh .fmda-caminho .fa-chevron-right {
-   font-size: 10px;
+   font-size: calc(10px * var(--fs, 1));
    color: var(--muted)
 }
 
@@ -3762,7 +3749,7 @@
 }
 
 .vh .fmda-cont {
-   font-size: 13px;
+   font-size: calc(13px * var(--fs, 1));
    margin-right: 10px;
    min-width: 112px
 }
@@ -3777,14 +3764,14 @@
    border-radius: 4px;
    background: none;
    color: var(--ink);
-   font-size: 15px;
+   font-size: calc(15px * var(--fs, 1));
    cursor: pointer;
    white-space: nowrap
 }
 
 .vh .fmda-ac i {
    color: var(--muted);
-   font-size: 14px
+   font-size: calc(14px * var(--fs, 1))
 }
 
 .vh .fmda-ac:hover:not(:disabled) {
@@ -3829,7 +3816,7 @@
    border: 0;
    background: none;
    color: var(--ink);
-   font-size: 14.5px;
+   font-size: calc(14.5px * var(--fs, 1));
    cursor: pointer;
    text-align: left
 }
@@ -3837,7 +3824,7 @@
 .vh .fmda-menu button i {
    width: 16px;
    color: var(--muted);
-   font-size: 13px
+   font-size: calc(13px * var(--fs, 1))
 }
 
 .vh .fmda-menu button:hover:not(:disabled) {
@@ -3868,7 +3855,7 @@
    padding: 0 12px;
    text-align: left;
    font-weight: 500;
-   font-size: 14.5px;
+   font-size: calc(14.5px * var(--fs, 1));
    color: var(--ink);
    border-bottom: 1px solid var(--line);
    white-space: nowrap;
@@ -3880,7 +3867,7 @@
 .vh .fmda-tab td {
    height: 40px;
    padding: 0 12px;
-   font-size: 14.5px;
+   font-size: calc(14.5px * var(--fs, 1));
    white-space: nowrap
 }
 
@@ -3920,7 +3907,7 @@
 
 .vh .fmda-ic-pasta {
    color: #5eb3ef;
-   font-size: 22px
+   font-size: calc(22px * var(--fs, 1))
 }
 
 .vh .fmda-ic {
@@ -3932,7 +3919,7 @@
 }
 
 .vh .fmda-ic i {
-   font-size: 21px
+   font-size: calc(21px * var(--fs, 1))
 }
 
 .vh .fmda-ic b {
@@ -3942,7 +3929,7 @@
    transform: translateX(-50%);
    padding: 0 2px;
    border-radius: 2px;
-   font-size: 6.5px;
+   font-size: calc(6.5px * var(--fs, 1));
    line-height: 9px;
    font-weight: 800;
    color: #fff;
@@ -4024,7 +4011,7 @@
    border: 0;
    background: none;
    color: var(--ink);
-   font-size: 15px;
+   font-size: calc(15px * var(--fs, 1));
    outline: none
 }
 
@@ -4045,7 +4032,7 @@
    border-radius: 3px;
    background: var(--card);
    color: var(--red);
-   font-size: 13px;
+   font-size: calc(13px * var(--fs, 1));
    cursor: pointer
 }
 
@@ -4122,7 +4109,7 @@
 
 .vh .fmda-nota {
    margin-top: 6px;
-   font-size: 12px;
+   font-size: calc(12px * var(--fs, 1));
    color: var(--muted)
 }
 
@@ -4154,7 +4141,7 @@
    .vh .fmda-tab th,
    .vh .fmda-tab td {
       padding: 0 6px;
-      font-size: 13.5px
+      font-size: calc(13.5px * var(--fs, 1))
    }
 
    .vh .fmda-tab td.fmda-nome {
@@ -4181,7 +4168,7 @@
    }
 
    .vh .fmda-ac i {
-      font-size: 15px
+      font-size: calc(15px * var(--fs, 1))
    }
 }
 
@@ -4203,7 +4190,7 @@
    border: 0;
    background: none;
    color: var(--ink);
-   font-size: 15px;
+   font-size: calc(15px * var(--fs, 1));
    outline: none
 }
 
@@ -4262,7 +4249,7 @@
 
 .vh .aj-item small {
    color: var(--muted);
-   font-size: 12.5px;
+   font-size: calc(12.5px * var(--fs, 1));
    line-height: 1.4
 }
 
@@ -4292,7 +4279,7 @@
 }
 
 .vh .tk-cab {
-   font-size: 12.5px;
+   font-size: calc(12.5px * var(--fs, 1));
    color: var(--muted);
    margin-bottom: 6px
 }
@@ -4351,7 +4338,7 @@
    display: grid;
    gap: 5px;
    color: var(--muted);
-   font-size: 13px
+   font-size: calc(13px * var(--fs, 1))
 }
 
 .vh .pf-regras li.ok {
@@ -4359,13 +4346,13 @@
 }
 
 .vh .pf-regras i {
-   font-size: 11px
+   font-size: calc(11px * var(--fs, 1))
 }
 
 .vh .em-opcoes>div>span small {
    display: block;
    color: var(--muted);
-   font-size: 12.5px;
+   font-size: calc(12.5px * var(--fs, 1));
    font-weight: 400;
    margin-top: 2px
 }
@@ -4380,7 +4367,7 @@
 
 .vh .msg-cel>i {
    margin-top: 3px;
-   font-size: 16px;
+   font-size: calc(16px * var(--fs, 1));
    color: var(--muted)
 }
 
@@ -4421,7 +4408,7 @@
 
 .vh .msg-cel small {
    color: var(--muted);
-   font-size: 12px
+   font-size: calc(12px * var(--fs, 1))
 }
 
 /* Mensagens como no DirectAdmin: uma linha por mensagem (clicar abre o popup) e cor suave pelo tipo */
@@ -4442,7 +4429,7 @@
 }
 
 .vh .msg-linha>i {
-   font-size: 15px;
+   font-size: calc(15px * var(--fs, 1));
    color: var(--muted);
    flex: none
 }
@@ -4481,7 +4468,7 @@
 
 .vh .msg-linha small {
    color: var(--muted);
-   font-size: 12px;
+   font-size: calc(12px * var(--fs, 1));
    white-space: nowrap;
    flex: none
 }
@@ -4545,13 +4532,13 @@
 }
 
 .vh .fb-ip code {
-   font-size: 13px;
+   font-size: calc(13px * var(--fs, 1));
    white-space: nowrap
 }
 
 @media(max-width:1600px) {
    .vh .fb-ip code {
-      font-size: 12px
+      font-size: calc(12px * var(--fs, 1))
    }
 }
 
@@ -4598,7 +4585,7 @@
 }
 
 .vh .fb-ip .tag {
-   font-size: 11px;
+   font-size: calc(11px * var(--fs, 1));
    padding: 2px 7px
 }
 
@@ -4608,7 +4595,7 @@
 
 .vh .fb-nota {
    color: var(--muted);
-   font-size: 12.5px;
+   font-size: calc(12.5px * var(--fs, 1));
    margin-top: 10px
 }
 
@@ -4679,17 +4666,17 @@
    border: 1px solid var(--line-soft);
    border-radius: var(--r);
    color: var(--muted);
-   font-size: 16px
+   font-size: calc(16px * var(--fs, 1))
 }
 
 .vh .trf-cab b {
-   font-size: 14px;
+   font-size: calc(14px * var(--fs, 1));
    font-weight: 600;
    color: var(--ink)
 }
 
 .vh .trf-cab p {
-   font-size: 12px;
+   font-size: calc(12px * var(--fs, 1));
    color: var(--muted);
    line-height: 1.5;
    margin-top: 3px
@@ -4715,7 +4702,7 @@
 }
 
 .vh .trf-campos label>span {
-   font-size: 12px;
+   font-size: calc(12px * var(--fs, 1));
    font-weight: 700;
    text-transform: uppercase;
    color: var(--muted)
@@ -4729,7 +4716,7 @@
    padding: 0 12px;
    background: var(--card);
    color: var(--ink);
-   font-size: 14px
+   font-size: calc(14px * var(--fs, 1))
 }
 
 .vh .trf-campos input:focus {
@@ -4741,7 +4728,7 @@
    border: 1px solid var(--line-soft);
    border-radius: var(--r);
    padding: 10px 14px;
-   font-size: 13.5px;
+   font-size: calc(13.5px * var(--fs, 1));
    line-height: 1.5;
    background: var(--soft);
    color: var(--ink)
@@ -4790,7 +4777,7 @@
    display: flex;
    align-items: center;
    gap: 7px;
-   font-size: 12px;
+   font-size: calc(12px * var(--fs, 1));
    font-weight: 700;
    text-transform: uppercase;
    letter-spacing: .06em;
@@ -4800,7 +4787,7 @@
 
 .vh .trf-dir h4 i {
    color: var(--trf-teal);
-   font-size: 13px
+   font-size: calc(13px * var(--fs, 1))
 }
 
 .vh .trf-vazio {
@@ -4816,19 +4803,19 @@
 }
 
 .vh .trf-vazio>i {
-   font-size: 28px;
+   font-size: calc(28px * var(--fs, 1));
    color: var(--line);
    margin-bottom: 6px
 }
 
 .vh .trf-vazio p {
-   font-size: 12px;
+   font-size: calc(12px * var(--fs, 1));
    font-weight: 500;
    color: var(--ink)
 }
 
 .vh .trf-vazio small {
-   font-size: 11px;
+   font-size: calc(11px * var(--fs, 1));
    color: var(--muted)
 }
 
@@ -4857,7 +4844,7 @@
 
 .vh .trf-curso-topo b {
    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-   font-size: 13.5px;
+   font-size: calc(13.5px * var(--fs, 1));
    color: var(--trf-teal);
    overflow: hidden;
    text-overflow: ellipsis;
@@ -4870,7 +4857,7 @@
    color: var(--trf-teal);
    border-radius: var(--r);
    padding: 1px 8px;
-   font-size: 12px;
+   font-size: calc(12px * var(--fs, 1));
    font-weight: 700;
    font-family: ui-monospace, SFMono-Regular, Menlo, monospace
 }
@@ -4881,7 +4868,7 @@
 }
 
 .vh .trf-curso-txt {
-   font-size: 12px;
+   font-size: calc(12px * var(--fs, 1));
    color: var(--muted)
 }
 
@@ -4890,7 +4877,7 @@
 }
 
 .vh .trf-curso-aviso {
-   font-size: 12px;
+   font-size: calc(12px * var(--fs, 1));
    line-height: 1.5;
    color: #c2410c;
    background: color-mix(in srgb, #ea580c 9%, transparent);
@@ -4908,7 +4895,7 @@
 
 .vh .trf-relogio>small {
    display: block;
-   font-size: 10px;
+   font-size: calc(10px * var(--fs, 1));
    font-weight: 700;
    text-transform: uppercase;
    letter-spacing: .08em;
@@ -4943,7 +4930,7 @@
 }
 
 .vh .trf-unid b {
-   font-size: 24px;
+   font-size: calc(24px * var(--fs, 1));
    font-weight: 900;
    line-height: 1;
    font-variant-numeric: tabular-nums;
@@ -4951,7 +4938,7 @@
 }
 
 .vh .trf-unid small {
-   font-size: 10px;
+   font-size: calc(10px * var(--fs, 1));
    font-weight: 700;
    text-transform: uppercase;
    letter-spacing: .1em;
@@ -4964,7 +4951,7 @@
    justify-content: center;
    align-items: center;
    gap: 6px;
-   font-size: 12px;
+   font-size: calc(12px * var(--fs, 1));
    font-weight: 700;
    color: var(--warn)
 }
@@ -4988,7 +4975,7 @@
    display: flex;
    flex-direction: column;
    gap: 2px;
-   font-size: 11.5px;
+   font-size: calc(11.5px * var(--fs, 1));
    color: var(--muted);
    word-break: break-word
 }
@@ -4996,7 +4983,7 @@
 .vh .trf-dns b {
    font-weight: 700;
    text-transform: uppercase;
-   font-size: 10.5px;
+   font-size: calc(10.5px * var(--fs, 1));
    margin-right: 4px
 }
 
@@ -5009,7 +4996,7 @@
    padding: 13px 16px;
    background: var(--soft);
    border-top: 1px solid var(--line-soft);
-   font-size: 12px;
+   font-size: calc(12px * var(--fs, 1));
    color: var(--ink)
 }
 
@@ -5045,7 +5032,7 @@
    border-radius: 2px;
    background: var(--trf-teal);
    color: #fff;
-   font-size: 9px;
+   font-size: calc(9px * var(--fs, 1));
    font-weight: 900
 }
 
@@ -5059,7 +5046,7 @@
 }
 
 .vh .trf-pedidos h3 {
-   font-size: 14px;
+   font-size: calc(14px * var(--fs, 1));
    font-weight: 700;
    color: var(--ink);
    padding: 14px 20px;
@@ -5117,7 +5104,7 @@
    height: 14px;
    border: 1px solid var(--line);
    border-radius: 50%;
-   font-size: 9px;
+   font-size: calc(9px * var(--fs, 1));
    cursor: help;
    vertical-align: middle;
    text-transform: none;
@@ -5130,7 +5117,7 @@
    gap: 6px;
    border-radius: 999px;
    padding: 3px 10px;
-   font-size: 12px;
+   font-size: calc(12px * var(--fs, 1));
    font-weight: 700
 }
 
@@ -5178,7 +5165,7 @@
 }
 
 .vh .trf-antes-esq h3 {
-   font-size: 24px;
+   font-size: calc(24px * var(--fs, 1));
    font-weight: 700;
    letter-spacing: -.01em;
    line-height: 1.3;
@@ -5186,7 +5173,7 @@
 }
 
 .vh .trf-antes-esq p {
-   font-size: 14px;
+   font-size: calc(14px * var(--fs, 1));
    line-height: 1.6;
    color: var(--muted)
 }
@@ -5218,19 +5205,19 @@
 
 .vh .trf-dica>i {
    color: var(--trf-teal);
-   font-size: 18px;
+   font-size: calc(18px * var(--fs, 1));
    margin-top: 2px
 }
 
 .vh .trf-dica h4 {
-   font-size: 16px;
+   font-size: calc(16px * var(--fs, 1));
    font-weight: 600;
    color: var(--ink);
    margin-bottom: 4px
 }
 
 .vh .trf-dica p {
-   font-size: 14px;
+   font-size: calc(14px * var(--fs, 1));
    line-height: 1.6;
    color: var(--muted)
 }
@@ -5251,7 +5238,7 @@
 }
 
 .vh .trf-ilustra figcaption {
-   font-size: 11px;
+   font-size: calc(11px * var(--fs, 1));
    font-weight: 600;
    color: var(--muted);
    white-space: nowrap
@@ -5264,7 +5251,7 @@
    border-radius: 50%;
    display: grid;
    place-items: center;
-   font-size: 22px
+   font-size: calc(22px * var(--fs, 1))
 }
 
 .vh .trf-bola.de {
@@ -5290,7 +5277,7 @@
    place-items: center;
    background: var(--trf-teal);
    color: #fff;
-   font-size: 10px;
+   font-size: calc(10px * var(--fs, 1));
    box-shadow: 0 0 0 3px var(--card)
 }
 
@@ -5307,7 +5294,7 @@
    right: -7px;
    top: 50%;
    transform: translateY(-50%);
-   font-size: 12px;
+   font-size: calc(12px * var(--fs, 1));
    color: var(--muted)
 }
 
@@ -5377,7 +5364,7 @@
    }
 
    .vh .trf-antes-esq h3 {
-      font-size: 20px
+      font-size: calc(20px * var(--fs, 1))
    }
 
    .vh .trf-antes {
@@ -5411,7 +5398,7 @@
 
 .vh .sub-enderecos-t {
    font-weight: 600;
-   font-size: 13px;
+   font-size: calc(13px * var(--fs, 1));
    color: var(--ink)
 }
 
@@ -5432,7 +5419,7 @@
 }
 
 .vh .sub-end code {
-   font-size: 13px;
+   font-size: calc(13px * var(--fs, 1));
    background: none;
    border: 0;
    padding: 0
@@ -5441,11 +5428,11 @@
 .vh .sub-end small {
    grid-column: 2;
    color: var(--muted);
-   font-size: 12px
+   font-size: calc(12px * var(--fs, 1))
 }
 
 .vh .sub-nota {
-   font-size: 12.5px;
+   font-size: calc(12.5px * var(--fs, 1));
    color: var(--muted);
    margin: 0
 }
@@ -5555,7 +5542,7 @@
    border: 0;
    outline: 0;
    background: none;
-   font-size: 15px;
+   font-size: calc(15px * var(--fs, 1));
    color: var(--ink)
 }
 
@@ -5585,7 +5572,7 @@
    display: grid;
    place-items: center;
    flex: none;
-   font-size: 13px
+   font-size: calc(13px * var(--fs, 1))
 }
 
 .vh .pesq-pag-it>div {
@@ -5602,14 +5589,14 @@
 }
 
 .vh .pesq-pag-it span:not(.ic) {
-   font-size: 12px;
+   font-size: calc(12px * var(--fs, 1));
    color: var(--muted)
 }
 
 .vh .pesq-pag-vazio {
    padding: 12px 10px;
    color: var(--muted);
-   font-size: 13.5px
+   font-size: calc(13.5px * var(--fs, 1))
 }
 
 .vh .pesq-pag-pe {
@@ -5620,7 +5607,7 @@
    flex-wrap: wrap;
    border-top: 1px solid var(--line);
    padding: 9px 0 10px;
-   font-size: 12px;
+   font-size: calc(12px * var(--fs, 1));
    color: var(--muted)
 }
 
@@ -5637,7 +5624,7 @@
 }
 
 .vh .pesq-pag-pe kbd {
-   font-size: 11px;
+   font-size: calc(11px * var(--fs, 1));
    border: 1px solid var(--line);
    border-radius: 4px;
    padding: 0 5px;
@@ -5699,7 +5686,7 @@
 }
 
 .vh .msg-ver-topo>i {
-   font-size: 20px;
+   font-size: calc(20px * var(--fs, 1));
    margin-top: 3px;
    color: var(--muted);
    flex: none
@@ -5711,7 +5698,7 @@
 
 .vh .msg-ver-topo small {
    color: var(--muted);
-   font-size: 12.5px
+   font-size: calc(12.5px * var(--fs, 1))
 }
 
 .vh .msg-ver-texto {
@@ -5730,7 +5717,7 @@
 }
 
 .vh .wp-senha h3 {
-   font-size: 19px;
+   font-size: calc(19px * var(--fs, 1));
    font-weight: 700;
    color: var(--ink);
    margin-bottom: 10px
@@ -5738,12 +5725,12 @@
 
 .vh .wp-senha p {
    color: var(--muted);
-   font-size: 14px;
+   font-size: calc(14px * var(--fs, 1));
    margin-bottom: 14px
 }
 
 .vh .wp-senha label {
-   font-size: 15px;
+   font-size: calc(15px * var(--fs, 1));
    color: var(--ink);
    margin: 4px 0 6px
 }
@@ -6007,7 +5994,7 @@
    }
 
    .vh .em-acoes-topo .em-pesq input {
-      font-size: 12px
+      font-size: calc(12px * var(--fs, 1))
    }
 
    .vh .em-acoes-botoes {
@@ -6023,7 +6010,7 @@
       padding: 0 8px;
       justify-content: center;
       gap: 5px;
-      font-size: 12px
+      font-size: calc(12px * var(--fs, 1))
    }
 }
 
@@ -6179,7 +6166,7 @@
 .vh .fmda-up-para {
    color: var(--muted);
    margin: -6px 0 12px;
-   font-size: 13.5px
+   font-size: calc(13.5px * var(--fs, 1))
 }
 
 .vh .fmda-up-para b {
@@ -6204,13 +6191,13 @@
 }
 
 .vh .fmda-up-zona i {
-   font-size: 34px;
+   font-size: calc(34px * var(--fs, 1));
    color: var(--red)
 }
 
 .vh .fmda-up-zona b {
    color: var(--ink);
-   font-size: 15px
+   font-size: calc(15px * var(--fs, 1))
 }
 
 .vh .fmda-up-zona u {
@@ -6230,7 +6217,7 @@
    align-items: center;
    gap: 8px;
    margin: 12px 0 4px;
-   font-size: 13.5px;
+   font-size: calc(13.5px * var(--fs, 1));
    cursor: pointer
 }
 
@@ -6268,7 +6255,7 @@
    display: flex;
    justify-content: space-between;
    gap: 10px;
-   font-size: 13.5px
+   font-size: calc(13.5px * var(--fs, 1))
 }
 
 .vh .fmda-up-linha b {
@@ -6284,7 +6271,7 @@
 }
 
 .vh .fmda-up-info small {
-   font-size: 12px;
+   font-size: calc(12px * var(--fs, 1));
    color: var(--muted)
 }
 
@@ -6315,7 +6302,7 @@
 .vh .fmda-up-ok {
    flex: none;
    color: var(--ok);
-   font-size: 18px
+   font-size: calc(18px * var(--fs, 1))
 }
 
 .vh .fmda-up .mfoot {
@@ -6325,7 +6312,7 @@
 .vh .fmda-up-resumo {
    margin-right: auto;
    color: var(--muted);
-   font-size: 13px
+   font-size: calc(13px * var(--fs, 1))
 }
 
 /* Gerir WordPress: botão à direita dos números da secção */
@@ -6365,7 +6352,7 @@
    border-bottom: 1px solid var(--line);
    background: none;
    color: var(--ink);
-   font-size: 28px;
+   font-size: calc(28px * var(--fs, 1));
    font-weight: 700;
    padding: 8px 2px 10px;
    outline: 0
@@ -6398,7 +6385,7 @@
    color: #1e1e1e;
    padding: 28px 40px 120px;
    overflow: auto;
-   font-size: 16px;
+   font-size: calc(16px * var(--fs, 1));
    line-height: 1.7
 }
 
@@ -6556,7 +6543,7 @@
 
 .vh .fmda-up-campo b {
    position: relative;
-   font-size: 15px;
+   font-size: calc(15px * var(--fs, 1));
    font-weight: 700;
    color: var(--ink);
    font-variant-numeric: tabular-nums
@@ -6564,7 +6551,7 @@
 
 .vh .fmda-up-campo.est-erro b {
    color: var(--red);
-   font-size: 13px;
+   font-size: calc(13px * var(--fs, 1));
    font-weight: 600;
    padding: 0 10px;
    text-align: center
@@ -6641,7 +6628,7 @@
    border: 0;
    background: color-mix(in srgb, #fff 55%, transparent);
    color: var(--ink);
-   font-size: 15px;
+   font-size: calc(15px * var(--fs, 1));
    cursor: pointer;
    display: grid;
    place-items: center
@@ -6671,7 +6658,7 @@
    background: none;
    color: var(--ink);
    font: inherit;
-   font-size: 15px;
+   font-size: calc(15px * var(--fs, 1));
    cursor: pointer
 }
 
@@ -6680,7 +6667,7 @@
 }
 
 .vh .ent-lingua>button i {
-   font-size: 18px
+   font-size: calc(18px * var(--fs, 1))
 }
 
 /* menu da língua como no DA: encostado à direita do ecrã, borda e línguas na cor do tema — mas mais estreito */
@@ -6711,7 +6698,7 @@
    background: none;
    color: var(--red);
    font: inherit;
-   font-size: 14.5px;
+   font-size: calc(14.5px * var(--fs, 1));
    padding: 11px 16px;
    cursor: pointer
 }
@@ -6769,7 +6756,7 @@
 }
 
 .vh .ent-cartao label {
-   font-size: 17.5px;
+   font-size: calc(17.5px * var(--fs, 1));
    line-height: 1.25;
    color: #2b2d33;
    margin: 0 0 11px
@@ -6786,7 +6773,7 @@
    border-radius: 8px;
    padding: 0 16px;
    font: inherit;
-   font-size: 16px;
+   font-size: calc(16px * var(--fs, 1));
    color: #2b2d33;
    background: #fff;
    outline: 0
@@ -6835,7 +6822,7 @@
    background: none;
    color: #2b2d33;
    cursor: pointer;
-   font-size: 15px
+   font-size: calc(15px * var(--fs, 1))
 }
 
 .vh[data-theme=dark] .ent-senha button {
@@ -6844,7 +6831,7 @@
 
 .vh .ent-erro {
    color: var(--red);
-   font-size: 14px;
+   font-size: calc(14px * var(--fs, 1));
    margin: -8px 0 14px
 }
 
@@ -6855,7 +6842,7 @@
    background: var(--btn, var(--red));
    color: var(--btn-ink, #fff);
    font: inherit;
-   font-size: 18px;
+   font-size: calc(18px * var(--fs, 1));
    font-weight: 500;
    cursor: pointer;
    display: grid;
@@ -6876,7 +6863,7 @@
 }
 
 .vh .ent-hora {
-   font-size: 11px;
+   font-size: calc(11px * var(--fs, 1));
    color: color-mix(in srgb, var(--ink) 75%, transparent)
 }
 
@@ -6959,7 +6946,7 @@
    flex-wrap: wrap;
    justify-content: center;
    gap: 4px 6px;
-   font-size: 12.5px;
+   font-size: calc(12.5px * var(--fs, 1));
    color: color-mix(in srgb, var(--ink) 75%, transparent)
 }
 
@@ -7007,7 +6994,7 @@
 
 .vh .rail .rb {
    height: 52px;
-   font-size: 19px
+   font-size: calc(19px * var(--fs, 1))
 }
 
 .vh .rail .rb.lang {
@@ -7015,7 +7002,7 @@
 }
 
 .vh .rail .rb.lang b {
-   font-size: 11px
+   font-size: calc(11px * var(--fs, 1))
 }
 
 .vh .rail .rb small {
@@ -7088,7 +7075,7 @@
    background: none;
    padding: 0;
    font: inherit;
-   font-size: 12px;
+   font-size: calc(12px * var(--fs, 1));
    color: var(--muted);
    cursor: pointer;
    text-align: left
@@ -7103,7 +7090,7 @@
 .vh .topact .btn.sm {
    height: 34px;
    padding: 0 12px;
-   font-size: 13.5px
+   font-size: calc(13.5px * var(--fs, 1))
 }
 
 /* Separadores Widgets | Menu: uma linha vertical entre os dois */
@@ -7138,7 +7125,7 @@
    .vh .da-sw-tab {
       padding: 0 9px;
       gap: 5px;
-      font-size: 12.5px
+      font-size: calc(12.5px * var(--fs, 1))
    }
 
    /* o título encostado à esquerda e o domínio à direita, com 8 px entre os dois e cada um numa só linha (Silva,
@@ -7174,7 +7161,7 @@
    }
 
    .vh .da-switcher-bar.faixa-so-icone .da-sw-tab i {
-      font-size: 15px
+      font-size: calc(15px * var(--fs, 1))
    }
 
    .vh .da-switcher-bar.faixa-sem-globo .dom-btn>.fa-globe {
@@ -7223,7 +7210,7 @@
 
 .vh .frm .field>label {
    font-weight: 600;
-   font-size: 13.5px;
+   font-size: calc(13.5px * var(--fs, 1));
    line-height: 1.3;
    margin: 0
 }
@@ -7273,7 +7260,7 @@
    display: flex;
    align-items: flex-start;
    gap: 8px;
-   font-size: 13.5px;
+   font-size: calc(13.5px * var(--fs, 1));
    line-height: 1.4;
    color: var(--ink)
 }
@@ -7281,7 +7268,7 @@
 .vh .passar-lista li i {
    margin-top: 3px;
    color: var(--ok, #1f9d55);
-   font-size: 12px
+   font-size: calc(12px * var(--fs, 1))
 }
 
 .vh .passar-lista li.aviso i {
@@ -7290,7 +7277,7 @@
 
 .vh .passar-nota {
    margin: 12px 0;
-   font-size: 12.5px;
+   font-size: calc(12.5px * var(--fs, 1));
    line-height: 1.45;
    color: var(--muted)
 }
@@ -7299,7 +7286,7 @@
    margin: 0 0 10px;
    padding: 9px 12px;
    border-radius: 8px;
-   font-size: 13px;
+   font-size: calc(13px * var(--fs, 1));
    line-height: 1.4;
    color: var(--red);
    background: color-mix(in srgb, var(--red) 10%, transparent)
@@ -7310,7 +7297,7 @@
    align-items: center;
    gap: 10px;
    margin: 12px 0;
-   font-size: 13px;
+   font-size: calc(13px * var(--fs, 1));
    color: var(--muted)
 }
 
@@ -7331,7 +7318,7 @@
    margin: 6px 0 0;
    padding: 10px 12px;
    border-radius: 8px;
-   font-size: 13px;
+   font-size: calc(13px * var(--fs, 1));
    line-height: 1.45;
    background: var(--soft);
    border: 1px solid var(--line)
@@ -7437,7 +7424,7 @@
    .vh .tbl.dt-empilhar tbody td[data-t]::before {
       content: attr(data-t);
       min-width: 110px;
-      font-size: 12px;
+      font-size: calc(12px * var(--fs, 1));
       color: var(--muted)
    }
 
@@ -7501,7 +7488,7 @@
 }
 
 .vh .dom-opcoes h4 {
-   font-size: 12px;
+   font-size: calc(12px * var(--fs, 1));
    text-transform: uppercase;
    letter-spacing: .5px;
    color: var(--muted);
@@ -7528,7 +7515,7 @@
    background: none;
    color: var(--ink);
    font: inherit;
-   font-size: 13.5px;
+   font-size: calc(13.5px * var(--fs, 1));
    font-weight: 500;
    text-align: left;
    cursor: pointer;
@@ -7564,7 +7551,7 @@
    border-left: 3px solid var(--warn);
    border-radius: var(--r);
    background: var(--soft);
-   font-size: 12.5px
+   font-size: calc(12.5px * var(--fs, 1))
 }
 
 .vh .dom-rel.ok {
@@ -7579,7 +7566,7 @@
 }
 
 .vh .dom-rel-cab b {
-   font-size: 13px
+   font-size: calc(13px * var(--fs, 1))
 }
 
 .vh .dom-rel-cab i {
@@ -7615,7 +7602,7 @@
    padding: 2px 8px;
    border-radius: 10px;
    font-weight: 600;
-   font-size: 11.5px
+   font-size: calc(11.5px * var(--fs, 1))
 }
 
 .vh .dom-rel-res .ok {
@@ -7655,7 +7642,7 @@
 
 .vh .dom-rel-l em {
    font-style: normal;
-   font-size: 11.5px;
+   font-size: calc(11.5px * var(--fs, 1));
    font-weight: 600
 }
 
@@ -7711,13 +7698,13 @@
 
 .vh .dom-ns-op b {
    display: block;
-   font-size: 13.5px
+   font-size: calc(13.5px * var(--fs, 1))
 }
 
 .vh .dom-ns-op small {
    display: block;
    color: var(--muted);
-   font-size: 12px;
+   font-size: calc(12px * var(--fs, 1));
    margin-top: 2px;
    line-height: 1.4
 }
@@ -7738,7 +7725,7 @@
 
 .vh .dom-ns-campos label span {
    display: block;
-   font-size: 11.5px;
+   font-size: calc(11.5px * var(--fs, 1));
    font-weight: 700;
    color: var(--muted);
    text-transform: uppercase;
@@ -7751,7 +7738,7 @@
 
 .vh .dom-ns-aviso {
    color: var(--muted);
-   font-size: 13px;
+   font-size: calc(13px * var(--fs, 1));
    margin: 0
 }
 
@@ -7759,11 +7746,11 @@
    display: flex;
    flex-direction: column;
    gap: 6px;
-   font-size: 13px
+   font-size: calc(13px * var(--fs, 1))
 }
 
 .vh .dom-ns-atuais span {
-   font-size: 11.5px;
+   font-size: calc(11.5px * var(--fs, 1));
    font-weight: 700;
    color: var(--muted);
    text-transform: uppercase
@@ -7813,12 +7800,12 @@
 
 .vh .dom-info-l>span {
    font-weight: 600;
-   font-size: 13.5px;
+   font-size: calc(13.5px * var(--fs, 1));
    color: var(--muted)
 }
 
 .vh .dom-info-l>div {
-   font-size: 13.5px;
+   font-size: calc(13.5px * var(--fs, 1));
    min-width: 0;
    overflow-wrap: anywhere;
    display: flex;
@@ -7828,7 +7815,7 @@
 }
 
 .vh .dom-info-l>i {
-   font-size: 11px;
+   font-size: calc(11px * var(--fs, 1));
    color: var(--muted)
 }
 
@@ -7854,7 +7841,7 @@
 
 .vh .dom-info-l small {
    color: var(--muted);
-   font-size: 12px
+   font-size: calc(12px * var(--fs, 1))
 }
 
 .vh .dom-info-l .btn {
@@ -7873,7 +7860,7 @@
 
    .vh .dom-info-l>span {
       grid-column: 1 / -1;
-      font-size: 12px
+      font-size: calc(12px * var(--fs, 1))
    }
 }
 
@@ -7925,7 +7912,7 @@
    margin: 0;
    padding: 10px 18px 0;
    color: var(--muted);
-   font-size: 12.5px;
+   font-size: calc(12.5px * var(--fs, 1));
    line-height: 1.5
 }
 
@@ -7956,7 +7943,7 @@
 
 /* Páginas copiadas tal como estavam do dashboard antigo (Tailwind), ex.: Mensagem a todos → Escrever mensagem e
    Templates. O painel anula margens, letra dos botões/campos e o estilo das tabelas com regras fora das camadas
-   (.vh *{margin:0}, .vh button{font-size:14px}, .vh th/td…), que ganham sempre ao Tailwind (que está em camadas).
+   (.vh *{margin:0}, .vh button{font-size:calc(14px * var(--fs, 1))}, .vh th/td…), que ganham sempre ao Tailwind (que está em camadas).
    Aqui dentro essas regras voltam atrás (revert-layer) e o Tailwind manda, como no dashboard antigo. */
 .vh .tw-livre * {
    margin: revert-layer
@@ -8061,7 +8048,7 @@
       height: auto;
       min-height: 38px;
       padding: 6px 7px;
-      font-size: 11.5px;
+      font-size: calc(11.5px * var(--fs, 1));
       line-height: 1.2;
       text-align: center;
       justify-content: center;
@@ -8127,7 +8114,7 @@
    height: 28px;
    text-transform: none;
    letter-spacing: 0;
-   font-size: 13px
+   font-size: calc(13px * var(--fs, 1))
 }
 
 .vh th.dt-th-acoes .dt-acoes .menu {
@@ -8254,7 +8241,7 @@
    .vh .tbl.dt-empilhar-tablet tbody td[data-t]::before {
       content: attr(data-t);
       min-width: 110px;
-      font-size: 12px;
+      font-size: calc(12px * var(--fs, 1));
       color: var(--muted)
    }
 
@@ -8321,19 +8308,19 @@
    }
 
    .vh .stat small {
-      font-size: 11.5px;
+      font-size: calc(11.5px * var(--fs, 1));
       white-space: nowrap
    }
 
    .vh .stat strong {
-      font-size: 17px;
+      font-size: calc(17px * var(--fs, 1));
       line-height: 1.2;
       margin: 3px 0 7px;
       white-space: nowrap
    }
 
    .vh .stat strong span {
-      font-size: 11.5px
+      font-size: calc(11.5px * var(--fs, 1))
    }
 
    .vh .cols>.cols-side {
@@ -8347,13 +8334,13 @@
    }
 
    .vh .tool b {
-      font-size: 13px;
+      font-size: calc(13px * var(--fs, 1));
       white-space: nowrap;
       line-height: 1.3
    }
 
    .vh .tool span {
-      font-size: 11.5px;
+      font-size: calc(11.5px * var(--fs, 1));
       line-height: 1.35
    }
 
@@ -8380,7 +8367,7 @@
    .vh .tbl th {
       padding-top: 7px;
       padding-bottom: 7px;
-      font-size: 11.5px
+      font-size: calc(11.5px * var(--fs, 1))
    }
 
    .vh .tbl .cell b {
@@ -8419,7 +8406,7 @@
    .vh .em-env small {
       display: block;
       margin: 2px 0 0;
-      font-size: 11.5px;
+      font-size: calc(11.5px * var(--fs, 1));
       color: var(--muted)
    }
 
@@ -8450,22 +8437,22 @@
    }
 
    .vh .cols .tbl .cell b {
-      font-size: 13px;
+      font-size: calc(13px * var(--fs, 1));
       white-space: normal
    }
 }
 
 @media(min-width:769px) and (max-width:1300px) {
    .vh .stat strong {
-      font-size: 16px
+      font-size: calc(16px * var(--fs, 1))
    }
 
    .vh .tool b {
-      font-size: 12.5px
+      font-size: calc(12.5px * var(--fs, 1))
    }
 
    .vh .tool span {
-      font-size: 11px
+      font-size: calc(11px * var(--fs, 1))
    }
 }
 
@@ -8474,7 +8461,7 @@
 .vh .top.acoes-menores .topact .btn:not(.iconbtn) {
    height: 30px;
    padding: 0 9px;
-   font-size: 12.5px;
+   font-size: calc(12.5px * var(--fs, 1));
    gap: 6px
 }
 
@@ -8488,7 +8475,7 @@
 }
 
 .vh .top.acoes-so-icone .topact .btn:not(.iconbtn) i {
-   font-size: 14px
+   font-size: calc(14px * var(--fs, 1))
 }
 
 /* Telemóvel (Silva, 14/10/2026: "nos dispositivos pequenos não se pode ver os limites do card principal"): o cartão
@@ -8731,7 +8718,7 @@
    }
 
    .vh .top .topact :is(.btn, .iconbtn) i {
-      font-size: 14px
+      font-size: calc(14px * var(--fs, 1))
    }
 
    .vh .top .topact button.only-m {
@@ -8825,7 +8812,7 @@
 }
 
 .vh .lingua-btn .fa-chevron-down {
-   font-size: 10px;
+   font-size: calc(10px * var(--fs, 1));
    color: var(--muted);
    transition: transform .2s ease
 }
@@ -8866,7 +8853,7 @@
    background: none;
    color: var(--ink);
    font: inherit;
-   font-size: 13.5px;
+   font-size: calc(13.5px * var(--fs, 1));
    cursor: pointer;
    text-align: left
 }
@@ -8911,7 +8898,7 @@
 
 .vh .btn.mais-item i {
    flex: none;
-   font-size: 16px
+   font-size: calc(16px * var(--fs, 1))
 }
 
 @media(max-width:768px) {
@@ -9011,7 +8998,7 @@
    .vh .tbl.dt-empilhar.dominios-widget-list tbody td[data-t] {
       gap: 25px;
       font-family: inherit;
-      font-size: 14px
+      font-size: calc(14px * var(--fs, 1))
    }
 
    .vh .tbl.dt-empilhar.dominios-widget-list tbody td[data-t]::before {
@@ -9071,7 +9058,7 @@
 }
 
 .vh .da-janela-cab h3 {
-   font-size: 16px;
+   font-size: calc(16px * var(--fs, 1));
    font-weight: 700;
    margin: 0
 }
@@ -9080,7 +9067,7 @@
    background: none;
    border: 0;
    color: var(--muted);
-   font-size: 18px;
+   font-size: calc(18px * var(--fs, 1));
    cursor: pointer;
    width: 34px;
    height: 34px;
@@ -9136,7 +9123,7 @@
    border: 1px solid var(--line);
    background: var(--soft);
    color: var(--ink);
-   font-size: 13.5px;
+   font-size: calc(13.5px * var(--fs, 1));
    min-width: 0;
    flex: 0 1 auto;
    overflow-wrap: anywhere
@@ -9167,7 +9154,7 @@
    width: 100%;
    min-height: 68px;
    font-family: ui-monospace, Menlo, monospace;
-   font-size: 13px;
+   font-size: calc(13px * var(--fs, 1));
    word-break: break-all
 }
 
@@ -9222,12 +9209,12 @@
    border: 0;
    padding: 6px 0;
    color: var(--ink);
-   font-size: 13.5px;
+   font-size: calc(13.5px * var(--fs, 1));
    cursor: pointer
 }
 
 .vh .wp-avancado i {
-   font-size: 12px;
+   font-size: calc(12px * var(--fs, 1));
    color: var(--muted)
 }
 
@@ -9307,7 +9294,7 @@
    .vh .vh-mailmarketing button:is([class*="uppercase"], [class*="h-8"], [class*="h-9"]) {
       text-transform: none !important;
       letter-spacing: normal !important;
-      font-size: 13px !important;
+      font-size: calc(13px * var(--fs, 1)) !important;
       font-weight: 600 !important;
       min-height: 34px
    }
@@ -9382,7 +9369,7 @@
    .vh .vh-mailmarketing tbody>tr>td[data-label]::before {
       content: attr(data-label);
       display: block;
-      font-size: 11.5px;
+      font-size: calc(11.5px * var(--fs, 1));
       color: var(--muted);
       margin-bottom: 3px
    }
@@ -9479,7 +9466,7 @@
 .vh .pm-proc>small {
    flex: 1 1 100%;
    color: var(--muted);
-   font-size: 11.5px;
+   font-size: calc(11.5px * var(--fs, 1));
    font-family: ui-monospace, Menlo, monospace;
    overflow-wrap: anywhere;
    line-height: 1.35
@@ -9510,7 +9497,7 @@
 
 .vh .pm-desc {
    color: var(--muted);
-   font-size: 12.5px
+   font-size: calc(12.5px * var(--fs, 1))
 }
 
 /* a chave do cartão do servidor (painel inicial) abre o Monitor de processos */
@@ -9520,7 +9507,7 @@
    padding: 4px;
    margin: -4px;
    color: var(--muted);
-   font-size: 13px;
+   font-size: calc(13px * var(--fs, 1));
    cursor: pointer;
    border-radius: var(--r)
 }
@@ -9567,7 +9554,7 @@
 .vh .ad-ns code,
 .vh .ad-cmd {
    font-family: ui-monospace, Menlo, monospace;
-   font-size: 12px
+   font-size: calc(12px * var(--fs, 1))
 }
 
 .vh .ad-cmd {
@@ -9597,7 +9584,7 @@
    padding: 0 10px;
    background: var(--card);
    color: var(--ink);
-   font-size: 14px;
+   font-size: calc(14px * var(--fs, 1));
    min-width: 0
 }
 
@@ -9615,7 +9602,7 @@
 
 .vh .ad-log-curto {
    max-height: 50vh;
-   font-size: 12px
+   font-size: calc(12px * var(--fs, 1))
 }
 
 @media(max-width:768px) {
@@ -9674,7 +9661,7 @@
    background: var(--card);
    color: var(--ink);
    font: inherit;
-   font-size: 14px;
+   font-size: calc(14px * var(--fs, 1));
    padding: 0 12px
 }
 
@@ -9762,7 +9749,7 @@
 
 .vh .ad-graf-cab h4 {
    margin: 0;
-   font-size: 13.5px;
+   font-size: calc(13.5px * var(--fs, 1));
    font-weight: 600;
    color: var(--ink)
 }
@@ -9771,7 +9758,7 @@
    display: inline-flex;
    flex-wrap: wrap;
    gap: 4px 12px;
-   font-size: 12px;
+   font-size: calc(12px * var(--fs, 1));
    color: var(--muted)
 }
 
@@ -9820,7 +9807,7 @@
 
 .vh .ad-eixo {
    fill: var(--muted);
-   font-size: 11px;
+   font-size: calc(11px * var(--fs, 1));
    font-variant-numeric: tabular-nums
 }
 
@@ -9858,13 +9845,13 @@
    border: 1px solid var(--line);
    border-radius: var(--r);
    box-shadow: 0 8px 24px rgba(0, 0, 0, .14);
-   font-size: 12px;
+   font-size: calc(12px * var(--fs, 1));
    color: var(--muted);
    white-space: nowrap
 }
 
 .vh .ad-dica>small {
-   font-size: 11.5px
+   font-size: calc(11.5px * var(--fs, 1))
 }
 
 .vh .ad-dica>span {
@@ -9884,7 +9871,7 @@
    display: grid;
    place-items: center;
    color: var(--muted);
-   font-size: 13px
+   font-size: calc(13px * var(--fs, 1))
 }
 
 .vh .ad-a-ler {
@@ -9923,7 +9910,7 @@
    white-space: pre-wrap;
    word-break: break-word;
    font-family: ui-monospace, Menlo, monospace;
-   font-size: 12px
+   font-size: calc(12px * var(--fs, 1))
 }
 
 .vh .ad-ed-nota {
@@ -9932,7 +9919,7 @@
 }
 
 .vh .ad-ed-nota code {
-   font-size: 12px
+   font-size: calc(12px * var(--fs, 1))
 }
 
 .vh .ad-ed-foot {
@@ -10015,7 +10002,7 @@
 .vh .vh-site button:is([class*="uppercase"], [class*="h-8"], [class*="h-9"]) {
    text-transform: none !important;
    letter-spacing: normal !important;
-   font-size: 13px !important;
+   font-size: calc(13px * var(--fs, 1)) !important;
    font-weight: 600 !important;
    min-height: 34px
 }
@@ -10235,7 +10222,7 @@
    background: #fff;
    color: #1f2937;
    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-   font-size: 12.5px;
+   font-size: calc(12.5px * var(--fs, 1));
    line-height: 1.45;
    white-space: pre-wrap !important;
    overflow-wrap: anywhere !important;
@@ -10270,7 +10257,7 @@
    max-width: clamp(300px, 33cqw, 720px)
 }
 
-/* Tabela de registos DNS: colunas dinâmicas (largura do conteúdo) separadas por 25px, conteúdo à esquerda e botões à
+/* Tabela de registos DNS: colunas dinâmicas (largura do conteúdo) separadas por 20px, conteúdo à esquerda e botões à
    direita. As colunas de dados encolhem ao conteúdo (width:1%) e a coluna das ações absorve o espaço que sobra. */
 @media (min-width: 769px) {
    .vh .tbl[data-dt="dns"] table {
@@ -10281,7 +10268,7 @@
    .vh .tbl[data-dt="dns"] td {
       width: 1%;
       padding-left: 0;
-      padding-right: 25px;
+      padding-right: 20px;
       text-align: left;
    }
 
@@ -10431,7 +10418,7 @@
    }
 
    .vh .tbl[data-dt="dns"] .btn.dns-ed-nome i {
-      font-size: 14px;
+      font-size: calc(14px * var(--fs, 1));
    }
 
    /* caixa, nome e lápis na mesma linha: o nome encolhe (com reticências, se preciso) e nunca parte linha */
@@ -10442,7 +10429,7 @@
    .vh .tbl[data-dt="dns"] tbody tr td.ck + td > b {
       flex: 0 1 auto;
       min-width: 0;
-      font-size: 13.5px;
+      font-size: calc(13.5px * var(--fs, 1));
       white-space: nowrap !important;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -10459,4 +10446,261 @@
    .vh .tbl[data-dt="dns"] td.dt-acoes-linha:has(.dns-acoes > .btn-dns-edit:only-child) {
       display: none;
    }
+}
+
+/* Cartão da tabela DNS sem contorno nem cantos arredondados: só fica a linha por baixo da barra das colunas (e as que
+   separam as linhas); sem linhas à esquerda, à direita nem no fim */
+.vh .tbl[data-dt="dns"] {
+   border: 0;
+   border-radius: 0;
+   backdrop-filter: none;
+}
+
+.vh .tbl[data-dt="dns"] thead th,
+.vh .tbl[data-dt="dns"] thead th:first-child,
+.vh .tbl[data-dt="dns"] thead th:last-child {
+   border-radius: 0;
+}
+
+.vh .tbl[data-dt="dns"] tbody tr:last-child td {
+   border-bottom: 0;
+}
+
+.vh .tbl[data-dt="dns"] .dt-fundo {
+   border-top: 0;
+}
+
+
+/* Barra das colunas da tabela DNS sem fundo */
+.vh .tbl[data-dt="dns"] thead th {
+   background: transparent;
+}
+
+/* Barra dos separadores da página DNS mais baixa */
+.vh .da-main-card:has(.tbl[data-dt="dns"]) .ptabs-faixa > .ptabs {
+   height: 34px;
+}
+
+.vh .da-main-card:has(.tbl[data-dt="dns"]) .ptabs button {
+   height: 26px;
+   padding: 0 14px;
+}
+
+.vh .da-main-card:has(.tbl[data-dt="dns"]) .ptabs-dir .btn {
+   height: 26px;
+   min-height: 26px;
+   padding-top: 0;
+   padding-bottom: 0;
+}
+
+/* Mesmo desenho em todas as páginas (pedido do Silva, 20/10/2026): o cartão principal mantém o contorno nos quatro
+   lados, com cantos de 5px; as tabelas sem contorno nem arredondamentos; barra das colunas sem fundo; faixa dos separadores mais baixa; botão
+   "Ações" sem fundo nem contorno */
+.vh .da-main-card {
+   border-radius: 5px;
+}
+
+.vh .da-main-card>.ptabs:first-child,
+.vh .da-main-card>.ptabs-faixa:first-child {
+   border-radius: 5px 5px 0 0;
+}
+
+.vh .tbl {
+   border: 0;
+   border-radius: 0;
+   backdrop-filter: none;
+}
+
+.vh .tbl thead th {
+   background: transparent;
+   border-radius: 0;
+}
+
+.vh .tbl tbody tr:last-child td {
+   border-bottom: 0;
+}
+
+.vh .tbl .dt-fundo {
+   border-top: 0;
+}
+
+.vh .ptabs,
+.vh .ptabs-faixa>.ptabs {
+   height: 34px;
+}
+
+.vh .ptabs button {
+   height: 26px;
+   padding: 0 14px;
+}
+
+.vh .dt-acoes>.btn,
+.vh .ptabs-dir .btn {
+   height: 26px;
+   min-height: 26px;
+   padding-top: 0;
+   padding-bottom: 0;
+   background: transparent !important;
+   border: 0 !important;
+   box-shadow: none !important;
+}
+
+.vh .dt-acoes>.btn:hover,
+.vh .ptabs-dir .btn:hover {
+   color: var(--red);
+}
+
+/* o cartão principal serve de referência de largura para as regras que dependem dele */
+.vh .da-main-card {
+   container-type: inline-size;
+   container-name: dacard;
+}
+
+/* separação entre colunas de 20px em todas as tabelas (10px de cada lado), com o primeiro e o último a manterem a margem
+   do cartão */
+@media (min-width: 769px) {
+   .vh .tbl th:not(.ck),
+   .vh .tbl td:not(.ck) {
+      padding-left: 10px;
+      padding-right: 10px;
+   }
+
+   .vh .tbl th:not(.ck):first-child,
+   .vh .tbl td:not(.ck):first-child,
+   .vh .tbl th.ck + th,
+   .vh .tbl td.ck + td {
+      padding-left: 14px;
+   }
+
+   .vh .tbl th:not(.ck):last-child,
+   .vh .tbl td:not(.ck):last-child {
+      padding-right: 14px;
+   }
+
+   /* colunas apertadas: cada uma com a largura do seu conteúdo; a última (botões) fica com o espaço que sobra */
+   .vh .tbl:not([data-dt="dns"]) th:not(:last-child),
+   .vh .tbl:not([data-dt="dns"]) td:not(:last-child) {
+      width: 1%;
+   }
+}
+
+/* menu "Colunas" aberto: a tabela ganha altura para o menu não ficar cortado */
+.vh .tbl:has(.dt-cols .menu) {
+   min-height: 470px;
+}
+
+/* números e textos das células das tabelas (tráfego, espaço, datas...) mais pequenos, e a encolherem com o cartão */
+@media (min-width: 769px) {
+   .vh .tbl td {
+      font-size: calc(13px * var(--fs, 1));
+   }
+
+}
+
+/* caixas de seleção das tabelas mais pequenas, a encolherem com o cartão */
+.vh .tbl th.ck input[type=checkbox],
+.vh .tbl td.ck input[type=checkbox] {
+   width: 13px;
+   height: 13px;
+}
+
+@container dacard (max-width: 800px) {
+   .vh .tbl th.ck input[type=checkbox],
+   .vh .tbl td.ck input[type=checkbox] {
+      width: 12px;
+      height: 12px;
+   }
+}
+
+/* linhas das tabelas mais baixas: menos espaço por cima e por baixo e botões da linha mais pequenos */
+@media (min-width: 769px) {
+   .vh .tbl td {
+      padding-top: calc(7px * var(--fs, 1) * var(--fs, 1));
+      padding-bottom: calc(7px * var(--fs, 1) * var(--fs, 1));
+   }
+
+   .vh .tbl th {
+      padding-top: calc(8px * var(--fs, 1) * var(--fs, 1));
+      padding-bottom: calc(8px * var(--fs, 1) * var(--fs, 1));
+   }
+
+   .vh .tbl td .btn.sm {
+      height: calc(26px * var(--fs, 1));
+      min-height: calc(26px * var(--fs, 1));
+   }
+
+   .vh .btn.ct-entrar {
+      width: 26px;
+   }
+}
+
+/* telemóvel: o "Ações" (no lugar do título da 1.ª coluna) fica ao lado de "Selecionar tudo" quando há linhas escolhidas */
+@media (max-width: 768px) {
+   .vh .tbl.dt-empilhar thead th.dt-th-acoes {
+      display: flex;
+      align-items: center;
+      margin-left: auto;
+      width: auto;
+      border: 0;
+      padding: 6px 14px;
+   }
+}
+
+/* Tamanho do texto proporcional ao tamanho do ecrã (pedido do Silva, 20/10/2026): 21", 19", 17", 15" e 14" não têm o
+   mesmo tamanho. Todos os tamanhos de letra do painel são calc(Npx * var(--fs)); o telemóvel (até 768px) fica como está. */
+.vh {
+   --fs: 1;
+}
+
+@media (min-width: 769px) {
+   .vh {
+      --fs: .86;
+   }
+}
+
+@media (min-width: 1100px) {
+   .vh {
+      --fs: .9;
+   }
+}
+
+@media (min-width: 1280px) {
+   .vh {
+      --fs: .94;
+   }
+}
+
+@media (min-width: 1440px) {
+   .vh {
+      --fs: 1;
+   }
+}
+
+@media (min-width: 1600px) {
+   .vh {
+      --fs: 1.04;
+   }
+}
+
+@media (min-width: 1800px) {
+   .vh {
+      --fs: 1.1;
+   }
+}
+
+@media (min-width: 2000px) {
+   .vh {
+      --fs: 1.15;
+   }
+}
+
+@media (min-width: 2400px) {
+   .vh {
+      --fs: 1.2;
+   }
+}
+
+/* lista de pacotes: linha também no fim da tabela */
+.vh .tbl[data-dt^="pacotes-"] tbody tr:last-child td {
+   border-bottom: 1px solid color-mix(in srgb, var(--line-soft) 65%, var(--card));
 }

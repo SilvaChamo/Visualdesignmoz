@@ -232,13 +232,13 @@ function ListaPacotes({ tipo }: { tipo: Tipo }) {
     usado: usadoPor(nome),
   }));
   const cols: Col<Linha>[] = [
-    { k: 'nome', t: 'Pacote', sort: (r) => r.nome, cell: (r) => <a className="lk" onClick={() => nav(base + '/' + encodeURIComponent(r.nome))}>{r.nome}</a> },
-    { k: 'bw', t: 'Tráfego', cell: (r) => r.bw },
-    { k: 'disk', t: 'Espaço em disco', cell: (r) => r.disk },
-    ...(tipo === 'revenda' ? [{ k: 'ips', t: 'IPs', cell: (r: Linha) => r.ips }] : []),
-    { k: 'dom', t: 'Domínios', cell: (r) => r.dom, hidden: true },
-    { k: 'mails', t: 'Contas de e-mail', cell: (r) => r.mails, hidden: true },
-    { k: 'usado', t: tipo === 'revenda' ? 'Revendedores' : 'Contas', sort: (r) => r.usado, cell: (r) => r.usado },
+    { k: 'nome', t: 'Pacote', sort: (r) => r.nome, cell: (r) => <a className="lk" style={{ color: 'inherit' }} onClick={() => nav(base + '/' + encodeURIComponent(r.nome))}>{r.nome}</a> },
+    { k: 'bw', t: 'Tráfego', center: true, cell: (r) => r.bw },
+    { k: 'disk', t: 'Espaço em disco', center: true, cell: (r) => r.disk },
+    ...(tipo === 'revenda' ? [{ k: 'ips', t: 'IPs', center: true, cell: (r: Linha) => r.ips }] : []),
+    { k: 'dom', t: 'Domínios', center: true, cell: (r) => r.dom, hidden: true },
+    { k: 'mails', t: 'Contas de e-mail', center: true, cell: (r) => r.mails, hidden: true },
+    { k: 'usado', t: tipo === 'revenda' ? 'Revendedores' : 'Contas', sort: (r) => r.usado, center: true, cell: (r) => r.usado },
   ];
   const exportar = (keys: string[]) => {
     const data = Object.fromEntries(keys.map((k) => [k, fonte[k]]));
@@ -276,6 +276,18 @@ function ListaPacotes({ tipo }: { tipo: Tipo }) {
       cols={cols}
       rowKey={(r) => r.nome}
       search={(r) => r.nome}
+      actions={
+        s.level === 'admin'
+          ? (r) => (
+              <span className="dns-acoes">
+                <button className="btn sm btn-ed btn-dns-edit" onClick={() => nav(base + '/' + encodeURIComponent(r.nome))}>
+                  <i className="fa-solid fa-pen-to-square" />
+                  {vh.t('Editar')}
+                </button>
+              </span>
+            )
+          : undefined
+      }
       bulk={[
         // o administrador edita qualquer pacote (Silva, 16/10/2026); com um só assinalado
         ...(s.level === 'admin'

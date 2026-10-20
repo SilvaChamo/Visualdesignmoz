@@ -388,7 +388,8 @@ export function DataTable<T>({
   // separadores fica à direita da faixa deles; sem separadores aparece no lugar do título da 1.ª coluna quando se
   // assinala uma caixa (ex.: "Conta" nas contas de e-mail) e o título volta quando já nada está escolhido.
   const comAcoes = temSelecao && bulk.length > 0;
-  const acoesNoCabecalho = umaLinha && barraFora && comAcoes && (acoesNaColuna || !faixaAbas?.el) && !cabecalho;
+  // o "Ações" nunca fica solto: só aparece, no lugar do título da 1.ª coluna, quando há linhas escolhidas (ou opções que valem sempre)
+  const acoesNoCabecalho = comAcoes && !cabecalho && !acoesFixas;
   const acoesNoTitulo = acoesNoCabecalho && (selKeys.length > 0 || bulk.some((b) => b.sempre));
   const colAcoes = !!actions;
   // coluna do fim: os botões de cada linha e, com colunasNoCabecalho, o "Colunas" no título dela
@@ -586,7 +587,7 @@ export function DataTable<T>({
           // sempre à vista e à direita, com tudo o que se faz na página lá dentro (`bulk`; as opções sem linhas
           // escolhidas usam `sempre`). Nunca pesquisa, paginação nem outros botões por cima do cartão: a paginação
           // fica no fundo do cartão.
-          const naFaixa = comAcoes && barraFora && faixaAbas?.el && !cabecalho && !acoesNaColuna;
+          const naFaixa = comAcoes && barraFora && faixaAbas?.el && !cabecalho && !acoesNaColuna && !acoesNoCabecalho;
           const naBarra = colunasNoCabecalho ? null : colunas;
           const outros = !!(inicioBarra2 || barra2 || naBarra || recarregar || fimBarra);
           const linha =
@@ -624,13 +625,13 @@ export function DataTable<T>({
         {recarregar}
         {fimBarra}
         {/* "Ações" sempre à vista e sempre o último à direita (regra do Silva, 13/10/2026) */}
-        {!acoesFixas && !barra2 && comAcoes && menuAcoes(true)}
+        {!acoesFixas && !barra2 && comAcoes && !acoesNoCabecalho && menuAcoes(true)}
       </div>
       )}
       {barra2 && !umaLinha && (
         <div className="dt-bar dt-barra2">
           {inicioBarra2}
-          {menuAcoes(true)}
+          {!acoesNoCabecalho && menuAcoes(true)}
           {barra2}
         </div>
       )}

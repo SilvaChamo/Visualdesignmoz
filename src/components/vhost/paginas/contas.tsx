@@ -81,7 +81,6 @@ function CellConta({ u, a }: { u: string; a: Account }) {
         <a className="lk" style={{ display: 'block' }} onClick={() => nav(verPath(s, u))}>
           {u}
         </a>
-        <span>{a.name}</span>
       </div>
     </div>
   );
@@ -287,9 +286,9 @@ function ListaContas({ kind }: { kind: Kind }) {
   cols.push({ k: 'bw', t: 'Tráfego', ate: 1600, cell: ([u]) => comLimite(info(s, u).bw, L(u)?.bw) });
   cols.push({ k: 'disk', t: 'Espaço usado', cell: ([u, a]) => comLimite(a.disk, L(u)?.disk) });
   if (kind === 'revenda' || kind === 'admin') cols.push({ k: 'nusers', t: 'Nº de utilizadores', ate: kind === 'revenda' ? 1600 : 1300, sort: (r) => nUtil(s, r[0]), cell: ([u]) => comLimite(nUtil(s, u), L(u)?.users) });
-  cols.push({ k: 'ndom', t: 'Nº de domínios', ate: 1050, sort: (r) => r[1].domains.length, cell: ([u, a]) => comLimite(a.domains.length, L(u)?.domains) });
+  cols.push({ k: 'ndom', t: 'Domínios', ate: 1050, sort: (r) => r[1].domains.length, cell: ([u, a]) => comLimite(a.domains.length, L(u)?.domains) });
   if (kind === 'todos' || kind === 'meus') {
-    cols.push({ k: 'doms', t: 'Domínios', ate: 1600, oculta: kind === 'todos', cell: ([, a]) => <Doms a={a} /> });
+    cols.push({ k: 'doms', t: 'Lista de domínios', ate: 1600, oculta: kind === 'todos', cell: ([, a]) => <Doms a={a} /> });
     // o IP é quase sempre o do servidor: sai quando a tabela não cabe (Silva, 14/10/2026 — sem barra de deslocar);
     // as colunas que saem voltam no telemóvel, em blocos, e escolhem-se no "Colunas"
     cols.push({ k: 'ip', t: 'IPs', ate: 1600, oculta: kind === 'todos', cell: ([u]) => info(s, u).ip.split(' - ')[0] });
@@ -297,7 +296,7 @@ function ListaContas({ kind }: { kind: Kind }) {
   if (kind === 'todos') {
     cols.push({ k: 'sent', t: 'E-mails enviados', ate: 1600, oculta: kind === 'todos', sort: (r) => enviados(r[1]), cell: ([, a]) => enviados(a) });
     cols.push({ k: 'dbs', t: 'Bases de dados', ate: 1600, oculta: kind === 'todos', cell: ([u]) => comLimite(info(s, u).dbs, L(u)?.mysql) });
-    cols.push({ k: 'criada', t: 'Criada em', ate: 1600, cell: ([u]) => info(s, u).criada });
+    cols.push({ k: 'criada', t: 'Criada em', ate: 1600, cell: ([u]) => info(s, u).criada.split(',')[0] });
   }
   cols.push({
     k: 'pkg',
@@ -401,7 +400,7 @@ function ListaContas({ kind }: { kind: Kind }) {
                 <i className={'fa-solid ' + (a.state === 'ok' ? 'fa-pause' : 'fa-play')} />
               </button>{' '}
               {/* "Entrar", não "Entrar como" (Silva, 14/10/2026) */}
-              <button className="btn g sm ct-entrar" title={t('Entrar no painel desta conta')} onClick={() => enterAs(u)}>
+              <button className="btn g sm ct-entrar" title={t('Entrar no painel desta conta')} aria-label={t('Entrar no painel desta conta')} onClick={() => enterAs(u)}>
                 <i className="fa-solid fa-right-to-bracket" />
                 <span>{t('Entrar')}</span>
               </button>
@@ -430,7 +429,7 @@ function TabUtilizadores({ u }: { u: string }) {
         { k: 'user', t: 'Utilizador', sort: (r) => r[0], cell: ([x, a]) => <CellConta u={x} a={a} /> },
         { k: 'bw', t: 'Tráfego', cell: ([x]) => comLimite(info(s, x).bw, L(x)?.bw) },
         { k: 'disk', t: 'Espaço usado', cell: ([x, a]) => comLimite(a.disk, L(x)?.disk) },
-        { k: 'ndom', t: 'Nº de domínios', cell: ([x, a]) => comLimite(a.domains.length, L(x)?.domains) },
+        { k: 'ndom', t: 'Domínios', cell: ([x, a]) => comLimite(a.domains.length, L(x)?.domains) },
       ]}
       empty="Esta conta ainda não tem clientes"
     />
