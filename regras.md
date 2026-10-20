@@ -163,6 +163,11 @@ mesma alteração a linha inglesa no dicionário — sem esperar que o Silva pe�
   painel antes de sair do ecrã de login (`preCarregarDadosVhost` em `src/lib/vhost-cache.ts`) e o painel abre logo,
   sem o ecrã branco com o círculo. Entrada pelo **login do próprio painel**: fica como está. Não mexer no
   carregamento sem o Silva pedir.
+  - **Nunca um cartão vazio** (Silva, 20/10/2026 — "pedi mil e uma vezes"): enquanto uma página ainda não tem conteúdo
+    (leituras por acabar, ou nada desenhado), o cartão mostra as barras do DA centradas na horizontal e no topo do cartão, por dentro, e o resto fica escondido (sem mexer no layout). Está
+    no `PaginaSlot` (`VisualHostApp.tsx`: classe `a-carregar` + cartão `pg-carga`), por isso vale para **todas** as
+    páginas, sem cada uma ter de o fazer. Só até haver conteúdo pela primeira vez; depois, ao atualizar, o conteúdo
+    continua à vista. Uma página nova não devolve `null` à espera dos dados sem passar por `useGet`/`comecar()`.
 - **"Ações" só onde há caixas de seleção** (Silva, 13/10/2026: as ações aplicam-se ao que se escolhe). Com
   separadores, fica à direita da faixa deles; sem separadores, **aparece no lugar do título da 1.ª coluna quando se
   assinala uma caixa** (ex.: "Conta" nas Contas de e-mail) e o título volta quando nada está escolhido (automático no
