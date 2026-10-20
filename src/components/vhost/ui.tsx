@@ -2,8 +2,9 @@
 
 // Peças repetidas dos ecrãs. Geram o mesmo HTML (e as mesmas classes) que a maquete,
 // para que o CSS de generated/maquete.css se aplique tal e qual.
-import { Fragment, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
-import { useVH } from './context';
+import { Fragment, useContext, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
+import { TopoCartao, useVH } from './context';
 import { ChangeRoleModal } from './modals';
 import { noServidor } from './paginas/acoes';
 import { HX, LEVELS, MENU, ROLES } from './generated/data';
@@ -655,5 +656,65 @@ export function DomTable({ filter = '' }: { filter?: string }) {
         </tbody>
       </table>
     </div>
+  );
+}
+
+/** "Domínio: x · muda-se no seletor em cima, à direita": o mesmo domínio que o seletor mostra nesta página */
+export function IndicacaoDominio({ dominios, dominioUrl }: { dominios?: Screen['dominios']; dominioUrl?: Screen['dominioUrl'] }) {
+  const { s, a, t } = useVH();
+  const soSites = dominios === 'sites';
+  const daPagina = a.domains.filter((d) => !soSites || (!d.soEmail && !d.soDominio)).map((d) => d.name);
+  if (!daPagina.length) return <span className="dom-ctx" />;
+  const atual = dominioUrl?.d || (s.dominio && daPagina.includes(s.dominio) ? s.dominio : daPagina[0] || '');
+  return (
+    <p className="dom-ctx">
+      <i className="fa-solid fa-globe" /> <b>{atual}</b> <span>· {t('muda-se no seletor em cima, à direita')}</span>
+    </p>
+  );
+}
+
+/** Põe `children` (o botão da página, ou o "Ações") na linha de cima do cartão principal, com a indicação do domínio à
+ *  esquerda. Sem lugar no cartão (páginas sem cartão), não desenha nada. */
+export function NoTopoCartao({ children, daPagina = false }: { children: ReactNode; daPagina?: boolean }) {
+  const topo = useContext(TopoCartao);
+  const setOcupado = topo?.setOcupado;
+  // um botão posto pela própria página (corpo): as tabelas já não levam o "Ações" para esta linha
+  useEffect(() => {
+    if (!daPagina || !setOcupado) return;
+    setOcupado(true);
+    return () => setOcupado(false);
+  }, [daPagina, setOcupado]);
+  const botoes = useRef<HTMLDivElement>(null);
+  const temLugar = !!topo?.el;
+  // telemóvel: cada botão ocupa metade da largura, mas um texto que não cabe nessa metade fica na largura toda (Silva,
+  // 20/10/2026: "não forçar metade")
+  useLayoutEffect(() => {
+    const el = botoes.current;
+    if (!el) return;
+    const medir = () => {
+      for (const b of Array.from(el.children) as HTMLElement[]) {
+        delete b.dataset.larga;
+        // largura do que está dentro do botão (ícone + texto) mais o espaço dos lados; se não cabe na metade, largura toda
+        const r = document.createRange();
+        r.selectNodeContents(b);
+        const cs = getComputedStyle(b);
+        const precisa = r.getBoundingClientRect().width + (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
+        if (precisa > b.clientWidth - 1 || b.scrollWidth > b.clientWidth + 1) b.dataset.larga = '1';
+      }
+    };
+    medir();
+    const obs = new ResizeObserver(medir);
+    obs.observe(el);
+    return () => obs.disconnect();
+  });
+  if (!topo?.el || !temLugar) return null;
+  return createPortal(
+    <div className="card-topo">
+      <IndicacaoDominio dominios={topo.dominios} dominioUrl={topo.dominioUrl} />
+      <div className="card-topo-btns" ref={botoes}>
+        {children}
+      </div>
+    </div>,
+    topo.el,
   );
 }

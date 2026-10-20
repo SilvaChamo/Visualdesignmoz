@@ -4,8 +4,9 @@
 // separadores e tabela com pesquisa/colunas/seleção/ações em massa (como nas listas do DirectAdmin).
 import { useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { BarraPagina, FaixaAbas, PesquisaPagina, useVH } from '../context';
+import { BarraPagina, FaixaAbas, PesquisaPagina, TopoCartao, useVH } from '../context';
 import type { Campo, Lim, Unit } from './dados';
+import { NoTopoCartao } from '../ui';
 
 // ---------- Formulário ----------
 export function Frm({ title, desc, right, children, foot, className }: { title?: string; desc?: string; right?: ReactNode; children: ReactNode; foot?: ReactNode; className?: string }) {
@@ -148,6 +149,7 @@ export function Funcionalidades({ campos, feats, set }: { campos: Campo[]; feats
 export function Tabs<K extends string>({ tabs, on, onChange, sub }: { tabs: [K, string, string?][]; on: K; onChange: (k: K) => void; sub?: boolean }) {
   const { t } = useVH();
   const faixa = useContext(FaixaAbas);
+  const topo = useContext(TopoCartao);
   const abas = (
     <div className={'ptabs' + (sub ? ' sub' : '')} role="tablist">
       {tabs.map(([k, label, fa]) => (
@@ -162,20 +164,24 @@ export function Tabs<K extends string>({ tabs, on, onChange, sub }: { tabs: [K, 
   // a faixa dos separadores guarda à direita o lugar do botão "Ações" — ver FaixaAbas. No telemóvel os separadores
   // passam a uma caixa de escolha (pedido do Silva, 13/10/2026: com muitos separadores não se viam os outros)
   return (
-    <div className="ptabs-faixa">
-      {abas}
-      <label className="ptabs-sel">
-        <select value={on} onChange={(e) => onChange(e.target.value as K)} aria-label={t('Separador')}>
-          {tabs.map(([k, label]) => (
-            <option key={k} value={k}>
-              {t(label)}
-            </option>
-          ))}
-        </select>
-        <i className="fa-solid fa-chevron-down" />
-      </label>
-      <div className="ptabs-dir" ref={faixa.set} />
-    </div>
+    <>
+      <div className="ptabs-faixa">
+        {abas}
+        <label className="ptabs-sel">
+          <select value={on} onChange={(e) => onChange(e.target.value as K)} aria-label={t('Separador')}>
+            {tabs.map(([k, label]) => (
+              <option key={k} value={k}>
+                {t(label)}
+              </option>
+            ))}
+          </select>
+          <i className="fa-solid fa-chevron-down" />
+        </label>
+        <div className="ptabs-dir" ref={faixa.set} />
+      </div>
+      {/* a linha de cima do cartão (indicação do domínio + botão) fica logo por baixo da faixa dos separadores */}
+      {topo && <div className="card-topo-slot" ref={topo.setTabs} />}
+    </>
   );
 }
 
@@ -254,6 +260,7 @@ export function DataTable<T>({
   acoesNaColuna = false,
   colunasNoCabecalho = false,
   paginacaoNoCabecalho = false,
+  tituloAcoes,
 }: {
   id: string;
   rows: T[];
@@ -307,6 +314,8 @@ export function DataTable<T>({
   colunasNoCabecalho?: boolean;
   /** a paginação também na última célula do cabeçalho da tabela (barra dos títulos das colunas), além do fundo do cartão */
   paginacaoNoCabecalho?: boolean;
+  /** título da coluna do fim (a das ações da linha), por cima do que lá está (ex.: o menu "⋯") */
+  tituloAcoes?: string;
   /** notifica chaves das linhas selecionadas */
   onSelChange?: (keys: string[]) => void;
 }) {
@@ -388,8 +397,12 @@ export function DataTable<T>({
   // separadores fica à direita da faixa deles; sem separadores aparece no lugar do título da 1.ª coluna quando se
   // assinala uma caixa (ex.: "Conta" nas contas de e-mail) e o título volta quando já nada está escolhido.
   const comAcoes = temSelecao && bulk.length > 0;
+  // Páginas sem botão mas com caixas de seleção: o "Ações" vai para a linha de cima do cartão, no lugar do botão
+  // "Adicionar", alinhado com a indicação do domínio (Silva, 20/10/2026)
+  const topoCartao = useContext(TopoCartao);
+  const acoesNoTopo = !!(umaLinha && comAcoes && !cabecalho && topoCartao?.el && !topoCartao.temBotao);
   // o "Ações" nunca fica solto: só aparece, no lugar do título da 1.ª coluna, quando há linhas escolhidas (ou opções que valem sempre)
-  const acoesNoCabecalho = comAcoes && !cabecalho && !acoesFixas;
+  const acoesNoCabecalho = comAcoes && !cabecalho && !acoesFixas && !acoesNoTopo;
   const acoesNoTitulo = acoesNoCabecalho && (selKeys.length > 0 || bulk.some((b) => b.sempre));
   const colAcoes = !!actions;
   // coluna do fim: os botões de cada linha e, com colunasNoCabecalho, o "Colunas" no título dela
@@ -498,7 +511,8 @@ export function DataTable<T>({
           }}
         >
           {selKeys.length > 0 && <span className="n">{selKeys.length}</span>}
-          {t('Ações')} <i className="fa-solid fa-caret-down" />
+          {/* na linha de cima do cartão chama-se "Opções": o título "Ações" já está na barra das colunas */}
+          {t(acoesNoTopo ? 'Opções' : 'Ações')} <i className="fa-solid fa-caret-down" />
         </button>
         {acoesOpen && (
           <div
@@ -587,11 +601,11 @@ export function DataTable<T>({
           // sempre à vista e à direita, com tudo o que se faz na página lá dentro (`bulk`; as opções sem linhas
           // escolhidas usam `sempre`). Nunca pesquisa, paginação nem outros botões por cima do cartão: a paginação
           // fica no fundo do cartão.
-          const naFaixa = comAcoes && barraFora && faixaAbas?.el && !cabecalho && !acoesNaColuna && !acoesNoCabecalho;
+          const naFaixa = comAcoes && barraFora && faixaAbas?.el && !cabecalho && !acoesNaColuna && !acoesNoCabecalho && !acoesNoTopo;
           const naBarra = colunasNoCabecalho ? null : colunas;
           const outros = !!(inicioBarra2 || barra2 || naBarra || recarregar || fimBarra);
           const linha =
-            outros || cabecalho || (!naFaixa && !acoesNoCabecalho && comAcoes) ? (
+            outros || cabecalho || (!naFaixa && !acoesNoCabecalho && !acoesNoTopo && comAcoes) ? (
               <div className={'dt-bar dt-uma-linha' + (cabecalho ? ' com-cab' : '') + (barraFora ? ' dt-fora' : '')}>
                 {cabecalho}
                 <span className="sp" />
@@ -600,11 +614,12 @@ export function DataTable<T>({
                 {naBarra}
                 {recarregar}
                 {fimBarra}
-                {!naFaixa && !acoesNoCabecalho && comAcoes && menuAcoes(true)}
+                {!naFaixa && !acoesNoCabecalho && !acoesNoTopo && comAcoes && menuAcoes(true)}
               </div>
             ) : null;
           return (
             <>
+              {acoesNoTopo && <NoTopoCartao>{menuAcoes(true)}</NoTopoCartao>}
               {linha && (barraFora && faixaFora ? createPortal(linha, faixaFora) : linha)}
               {naFaixa &&
                 createPortal(
@@ -661,7 +676,7 @@ export function DataTable<T>({
                   </th>
                 ),
               )}
-              {colunasNoCabecalho && colunas ? <th className="dt-th-cols">{colunas}</th> : paginacaoNoCabecalho && paginas > 1 ? <th className="dt-th-pag">{paginador}</th> : colFim && <th />}
+              {colunasNoCabecalho && colunas ? <th className="dt-th-cols">{colunas}</th> : paginacaoNoCabecalho && paginas > 1 ? <th className="dt-th-pag">{paginador}</th> : colFim && <th style={tituloAcoes ? { textAlign: 'right' } : undefined}>{tituloAcoes ? t(tituloAcoes) : null}</th>}
             </tr>
           </thead>
           <tbody>
@@ -707,5 +722,60 @@ export function DataTable<T>({
         )}
       </div>
     </>
+  );
+}
+
+/** Menu "…" de uma linha (o mesmo aspeto do menu da página SSL) */
+export function MaisOpcoes({ itens, aoLado = false }: { itens: [string, string, () => void, boolean?][]; aoLado?: boolean }) {
+  const { t } = useVH();
+  // posição fixa (calculada do botão): a tabela, que pode deslizar, não corta o menu; sem espaço por baixo, abre para cima
+  const [pos, setPos] = useState<{ top?: number; bottom?: number; right: number } | null>(null);
+  // aoLado: o menu abre à esquerda do botão (à altura dele), não por baixo
+  const posLado = (r: DOMRect, altura: number) => ({ right: window.innerWidth - r.left + 6, ...(window.innerHeight - r.top < altura + 12 ? { bottom: Math.max(8, window.innerHeight - r.bottom) } : { top: r.top }) });
+  const ref = useRef<HTMLDivElement>(null);
+  const alternar = () => {
+    const r = ref.current?.getBoundingClientRect();
+    if (pos || !r) return setPos(null);
+    const altura = itens.length * 36 + 16;
+    const right = Math.max(8, window.innerWidth - r.right);
+    if (aoLado) return setPos(posLado(r, altura));
+    setPos(window.innerHeight - r.bottom < altura + 12 && r.top > altura + 12 ? { bottom: window.innerHeight - r.top + 6, right } : { top: r.bottom + 6, right });
+  };
+  useEffect(() => {
+    if (!pos) return;
+    const fechar = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && setPos(null);
+    const sair = () => setPos(null);
+    document.addEventListener('mousedown', fechar);
+    window.addEventListener('scroll', sair, true);
+    window.addEventListener('resize', sair);
+    return () => {
+      document.removeEventListener('mousedown', fechar);
+      window.removeEventListener('scroll', sair, true);
+      window.removeEventListener('resize', sair);
+    };
+  }, [pos]);
+  return (
+    <div ref={ref} style={{ position: 'relative', display: 'inline-block' }}>
+      <button className={'btn g sm iconbtn' + (pos ? ' on' : '')} title={t('Mais opções')} aria-label={t('Mais opções')} aria-expanded={!!pos} onClick={alternar}>
+        <i className="fa-solid fa-ellipsis" />
+      </button>
+      {pos && (
+        <div className="ssl-pop-menu" style={{ position: 'fixed', top: pos.top, bottom: pos.bottom, right: pos.right, zIndex: 520 }}>
+          {itens.map(([fa, txt, f, perigo]) => (
+            <button
+              key={txt}
+              className={perigo ? 'danger' : undefined}
+              onClick={() => {
+                setPos(null);
+                f();
+              }}
+            >
+              <i className={'fa-solid ' + fa} />
+              {t(txt)}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }

@@ -12,7 +12,7 @@ import { DESC, MENU } from '../generated/data';
 import { pacoteDe } from '../state';
 import { EMAIL_PLANS, emailPlanByProductName } from '@/lib/email-plans';
 import { Stat } from '../ui';
-import { Check, DataTable, novaSenha, Senha, Switch, Tabs } from './componentes';
+import { Check, DataTable, MaisOpcoes, novaSenha, Senha, Switch, Tabs } from './componentes';
 import { Confirmar } from './pacotes';
 import { AO_ABRIR, EsperaPagina, FUNDO, useGet, useNaMemoria } from '../carga';
 
@@ -268,58 +268,6 @@ function Endereco({ id, value, onChange, d, placeholder }: { id?: string; value:
         @{d}
       </span>
     </span>
-  );
-}
-
-/** Menu "…" de uma linha (o mesmo aspeto do menu da página SSL) */
-function MaisOpcoes({ itens }: { itens: [string, string, () => void, boolean?][] }) {
-  const { t } = useVH();
-  // posição fixa (calculada do botão): a tabela, que pode deslizar, não corta o menu; sem espaço por baixo, abre para cima
-  const [pos, setPos] = useState<{ top?: number; bottom?: number; right: number } | null>(null);
-  const ref = useRef<HTMLDivElement>(null);
-  const alternar = () => {
-    const r = ref.current?.getBoundingClientRect();
-    if (pos || !r) return setPos(null);
-    const altura = itens.length * 36 + 16;
-    const right = Math.max(8, window.innerWidth - r.right);
-    setPos(window.innerHeight - r.bottom < altura + 12 && r.top > altura + 12 ? { bottom: window.innerHeight - r.top + 6, right } : { top: r.bottom + 6, right });
-  };
-  useEffect(() => {
-    if (!pos) return;
-    const fechar = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && setPos(null);
-    const sair = () => setPos(null);
-    document.addEventListener('mousedown', fechar);
-    window.addEventListener('scroll', sair, true);
-    window.addEventListener('resize', sair);
-    return () => {
-      document.removeEventListener('mousedown', fechar);
-      window.removeEventListener('scroll', sair, true);
-      window.removeEventListener('resize', sair);
-    };
-  }, [pos]);
-  return (
-    <div ref={ref} style={{ position: 'relative', display: 'inline-block' }}>
-      <button className={'btn g sm iconbtn' + (pos ? ' on' : '')} title={t('Mais opções')} aria-label={t('Mais opções')} aria-expanded={!!pos} onClick={alternar}>
-        <i className="fa-solid fa-ellipsis" />
-      </button>
-      {pos && (
-        <div className="ssl-pop-menu" style={{ position: 'fixed', top: pos.top, bottom: pos.bottom, right: pos.right, zIndex: 520 }}>
-          {itens.map(([fa, txt, f, perigo]) => (
-            <button
-              key={txt}
-              className={perigo ? 'danger' : undefined}
-              onClick={() => {
-                setPos(null);
-                f();
-              }}
-            >
-              <i className={'fa-solid ' + fa} />
-              {t(txt)}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
   );
 }
 

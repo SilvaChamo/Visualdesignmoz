@@ -4,7 +4,7 @@
 // Mesma estrutura de HTML e mesmas classes, para o CSS da maquete (generated/maquete.css) se aplicar tal e qual.
 import { Component, Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState, useSyncExternalStore, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
-import { BarraPagina, FaixaAbas, PesquisaPagina, VHContext, type ItemPesquisa, type VH } from './context';
+import { BarraPagina, FaixaAbas, PesquisaPagina, TopoCartao, VHContext, type ItemPesquisa, type VH } from './context';
 import { GLOBAL, LEVELS, MENU, ROLES } from './generated/data';
 import { SEM_MENU } from './menu-contas';
 import { dominioVisivel, type DadosServidor } from './servidor';
@@ -48,7 +48,7 @@ import {
   type DashTab,
   type St,
 } from './state';
-import { Avatar, ImpBanner, RouteFoot, SwitcherBar } from './ui';
+import { Avatar, ImpBanner, NoTopoCartao, RouteFoot, SwitcherBar } from './ui';
 import { useBotoesTelemovel } from './botoes-telemovel';
 import type { Account, Level, MenuItem } from './types';
 
@@ -301,6 +301,16 @@ function PaginaSlot({ p, oculta, onPronta, registar }: { p: Pagina; oculta: bool
   const [barra, setBarra] = useState<HTMLDivElement | null>(null);
   const [abasEl, setAbasEl] = useState<HTMLElement | null>(null);
   const faixaAbas = useMemo(() => ({ el: abasEl, set: setAbasEl }), [abasEl]);
+  // linha de cima do cartão (indicação do domínio + botão da página ou "Ações"): o lugar é o do cartão, ou o que os
+  // separadores dão logo por baixo da faixa deles
+  const [topoCartao, setTopoCartao] = useState<HTMLElement | null>(null);
+  const [topoTabs, setTopoTabs] = useState<HTMLElement | null>(null);
+  // a página (dentro do corpo) pôs ela própria o seu botão na linha de cima (ex.: FTP › Criar): o "Ações" das tabelas fica onde estava
+  const [ocupado, setOcupado] = useState(false);
+  const topo = useMemo(
+    () => ({ el: p.semCartao || p.home ? null : topoTabs || topoCartao, setTabs: setTopoTabs, temBotao: !p.semCartao && !p.home && (!!p.scr.actions || ocupado), setOcupado, dominios: p.scr.dominios, dominioUrl: p.scr.dominioUrl }),
+    [p.semCartao, p.home, p.scr.actions, p.scr.dominios, p.scr.dominioUrl, topoTabs, topoCartao, ocupado],
+  );
   const pesquisa = useMemo(() => ({ registar: (id: string, fonte: () => ItemPesquisa[]) => registar(p.chave, id, fonte) }), [registar, p.chave]);
   const falta = useRef(0);
   const montada = useRef(false);
@@ -318,7 +328,10 @@ function PaginaSlot({ p, oculta, onPronta, registar }: { p: Pagina; oculta: bool
     if (!el) return true;
     return [...el.children].some((c) => {
       if (c.classList.contains('pg-barra') || c.classList.contains('pg-carga')) return false;
-      return (c.textContent || '').trim() !== '' || !!c.querySelector(ELEMENTOS_COM_CONTEUDO);
+      // a linha de cima do cartão (indicação do domínio, botão) não conta como conteúdo da página
+      const copia = c.cloneNode(true) as Element;
+      copia.querySelectorAll('.card-topo-slot').forEach((x) => x.remove());
+      return (copia.textContent || '').trim() !== '' || !!copia.querySelector(ELEMENTOS_COM_CONTEUDO);
     });
   }, []);
   const avaliar = useCallback(() => {
@@ -388,13 +401,17 @@ function PaginaSlot({ p, oculta, onPronta, registar }: { p: Pagina; oculta: bool
           <PesquisaPagina.Provider value={pesquisa}>
           <BarraPagina.Provider value={barra}>
           <FaixaAbas.Provider value={faixaAbas}>
+          <TopoCartao.Provider value={topo}>
           {/* pesquisa e botões da página, por cima do cartão (fica escondida enquanto vazia) */}
           <div className="pg-barra" ref={setBarra} />
           {p.semCartao ? (
             corpo
           ) : p.scr.lado ? (
             <div className="da-com-lado">
-              <div className="da-main-card">{corpo}</div>
+              <div className="da-main-card">
+                {!topoTabs && <div className="card-topo-slot" ref={setTopoCartao} />}
+                {corpo}
+              </div>
               <aside className="da-lado">
                 <FalhaPagina t={p.vh.t} onFalha={() => onPronta(chave)}>
                   {p.scr.lado}
@@ -402,13 +419,19 @@ function PaginaSlot({ p, oculta, onPronta, registar }: { p: Pagina; oculta: bool
               </aside>
             </div>
           ) : (
-            <div className="da-main-card">{corpo}</div>
+            <div className="da-main-card">
+              {!topoTabs && <div className="card-topo-slot" ref={setTopoCartao} />}
+              {corpo}
+            </div>
           )}
+          {/* o botão da página, que estava na barra de cima, passa para a linha de cima do cartão */}
+          {!p.semCartao && !p.home && p.scr.actions && <NoTopoCartao>{p.scr.actions}</NoTopoCartao>}
           {carrega && !oculta && (
             <div className="da-main-card pg-carga">
               <BarrasDa />
             </div>
           )}
+          </TopoCartao.Provider>
           </FaixaAbas.Provider>
           </BarraPagina.Provider>
           </PesquisaPagina.Provider>
@@ -987,7 +1010,9 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
     return () => window.removeEventListener('pagehide', registarSaida);
   }, [conectado, enviarPresenca]);
   // ao abrir o painel (ou quando a conta fica conhecida): o domínio escolhido da última vez nesta conta
-  useEffect(() => {
+  // (antes de desenhar — useLayoutEffect —: o seletor nunca mostra um instante o domínio principal e depois salta para o
+  // escolhido, nem ao recarregar, nem ao voltar a entrar; Silva, 20/10/2026)
+  useIsomorphicLayoutEffect(() => {
     if (!me || ref.current.dominio) return;
     const d = dominioGuardado(me);
     if (d) commit({ ...ref.current, dominio: d });
@@ -1561,7 +1586,7 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
                 <div className="sp" />
                 <div className="topact">
                   <span id="pageact" className="topact">
-                    {mostra.scr.actions}
+                    {mostra.home ? null : mostra.semCartao || mostra.deny ? mostra.scr.actions : null}
                   </span>
                   <span id="topfix" className="topact">
                     {/* Busca: procura na página aberta (o cartão desliza por baixo da faixa do seletor) */}

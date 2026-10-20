@@ -691,7 +691,9 @@
    right: 0;
    top: calc(100% + 6px);
    z-index: 90;
-   min-width: 220px;
+   /* a largura do que lá está, sem mínimo (Silva, 20/10/2026: "o popup de acções não deve estar largo de qualquer maneira") */
+   min-width: 0;
+   width: max-content;
    background: var(--card);
    border: 1px solid var(--line);
    border-radius: var(--r);
@@ -10744,4 +10746,432 @@
 .vh .da-main-card > .frm .frm-head {
    padding-left: 0;
    padding-right: 0;
+}
+
+
+/* Domínios: botão "Adicionar domínio" dentro do cartão principal, no canto de cima à direita, com uma linha por baixo que
+   acaba onde acaba a tabela, com as margens laterais do cartão (Silva, 20/10/2026) */
+.vh .da-main-card .card-topo {
+   display: flex;
+   justify-content: flex-end;
+   margin: -12px 0 0;
+   padding: 0 0 14px;
+   border-bottom: 1px solid var(--line);
+}
+
+.vh .da-main-card .card-topo .btn {
+   height: 32px;
+   min-height: 32px;
+   padding: 0 14px;
+   font-size: 12.5px;
+}
+
+/* cartão com separadores e formulário (ex.: Domínios › Adicionar domínio): a faixa dos separadores tem margem negativa
+   em cima para encostar ao topo do cartão, por isso o cartão precisa do seu espaço de cima — sem ele a faixa subia por
+   cima do cartão e ficava sem margem com a barra do menu (Silva, 20/10/2026) */
+.vh .da-main-card:has(> .frm):has(> .ptabs-faixa:first-child) {
+   padding-top: 24px;
+}
+
+/* Adicionar subdomínio: ícone, nome, "." e domínio da mesma altura e colados, sem folgas nas juntas (Silva, 20/10/2026) */
+.vh .sub-dom input,
+.vh .sub-dom .ib,
+.vh .sub-dom select {
+   height: 38px;
+   box-sizing: border-box;
+}
+
+.vh .sub-dom .ib {
+   min-width: 38px;
+   padding: 0 12px;
+}
+
+.vh .sub-dom select {
+   border-left: 1px solid var(--line);
+   margin-left: -1px;
+}
+
+/* Adicionar subdomínio: o campo do nome é o maior; o seletor do domínio tem 20px nas laterais e não há "." entre eles
+   (Silva, 20/10/2026) */
+.vh .sub-dom input {
+   flex: 1 1 0;
+   min-width: 0;
+   border-radius: 0;
+}
+
+.vh .sub-dom select {
+   flex: 0 0 40%;
+   max-width: 40%;
+   padding: 0 20px;
+}
+
+.vh .sub-dom .ib {
+   border-radius: var(--r) 0 0 var(--r);
+}
+
+.vh .sub-dom select {
+   flex: 0 0 48%;
+   max-width: 48%;
+}
+
+/* o nome do domínio aparece sempre inteiro: o seletor tem a largura do domínio mais comprido da lista */
+.vh .sub-dom select {
+   flex: 0 0 auto;
+   width: auto;
+   max-width: none;
+}
+
+/* menos espaço à direita do seletor (depois da seta); à esquerda ficam os 20px */
+.vh .sub-dom select {
+   padding: 0 4px 0 20px;
+}
+
+/* Adicionar subdomínio: a janela tem os 480px de sempre e só alarga, à medida do domínio, quando ele não cabe; o seletor tem a largura do domínio
+   mais comprido (com os 20px da esquerda) e o campo do nome fica com o resto, nunca menos de 120px */
+.vh .modal:has(.sub-dom) {
+   width: max-content;
+   min-width: min(480px, 100%);
+   max-width: min(92vw, 760px);
+}
+
+.vh .sub-dom input {
+   min-width: 120px;
+}
+
+/* Janelas: 25px de margem interior nos quatro lados, em todas (Silva, 20/10/2026) */
+.vh .modal {
+   padding: 25px;
+}
+
+/* Barra dos separadores um pouco mais alta, em todas as páginas (Silva, 20/10/2026): de 34px para 40px */
+@media (min-width: 769px) {
+   .vh .ptabs,
+   .vh .ptabs-faixa>.ptabs,
+   .vh .da-main-card:has(.tbl[data-dt="dns"]) .ptabs-faixa > .ptabs {
+      height: 40px;
+   }
+
+   .vh .ptabs button,
+   .vh .da-main-card:has(.tbl[data-dt="dns"]) .ptabs button {
+      height: 32px;
+   }
+
+   .vh .dt-acoes>.btn,
+   .vh .ptabs-dir .btn,
+   .vh .da-main-card:has(.tbl[data-dt="dns"]) .ptabs-dir .btn {
+      height: 30px;
+      min-height: 30px;
+   }
+}
+
+/* Subdomínios no telemóvel: o "⋯" na mesma linha do nome, à direita, sem contorno e na vertical; o menu abre ao lado dele,
+   como nos ecrãs maiores (Silva, 20/10/2026) */
+@media (max-width: 768px) {
+   .vh .tbl[data-dt="subdominios"].dt-empilhar tbody tr:has(td.ck)>td.ck+td:not(.dt-acoes-linha) {
+      grid-column: 2 !important;
+   }
+
+   .vh .tbl[data-dt="subdominios"].dt-empilhar tbody tr>td.dt-acoes-linha {
+      grid-column: -2 !important;
+      grid-row: 1 !important;
+      width: auto !important;
+      justify-content: flex-end !important;
+      align-self: stretch;
+      padding: 0 0 10px !important;
+      margin: 0 0 4px !important;
+      border-bottom: 1px solid var(--line) !important;
+   }
+
+   .vh .tbl[data-dt="subdominios"].dt-empilhar tbody td.dt-acoes-linha :is(.iconbtn, .btn) {
+      width: 30px !important;
+      height: 30px !important;
+      border: 0 !important;
+      background: transparent !important;
+      box-shadow: none !important;
+   }
+
+   .vh .tbl[data-dt="subdominios"].dt-empilhar tbody td.dt-acoes-linha .iconbtn i {
+      transform: rotate(90deg);
+   }
+}
+
+/* Barra do botão dentro do cartão: a instrução do domínio à esquerda (Subdomínios) e o botão sempre à direita */
+.vh .da-main-card .card-topo {
+   align-items: center;
+   gap: 12px;
+}
+
+.vh .da-main-card .card-topo-btns {
+   margin-left: auto;
+   flex: none;
+   display: flex;
+   align-items: center;
+   justify-content: flex-end;
+   flex-wrap: wrap;
+   gap: 8px;
+}
+
+/* sem linha de cima (nenhum botão, nenhum "Ações"): o lugar não ocupa nada */
+.vh .card-topo-slot:empty {
+   display: none;
+}
+
+/* logo por baixo da faixa dos separadores: um pouco menos de espaço (a faixa já traz o seu) */
+.vh .ptabs-faixa + .card-topo-slot .card-topo {
+   margin-top: -6px;
+}
+
+.vh .da-main-card .card-topo-slot > .card-topo {
+   margin-top: 0;
+}
+
+.vh .da-main-card .ptabs-faixa + .card-topo-slot > .card-topo {
+   margin-top: -6px;
+}
+
+.vh .da-main-card .card-topo .dom-ctx {
+   margin: 0;
+   flex: 1 1 0;
+   min-width: 0;
+   font-size: calc(12.5px * var(--fs, 1));
+}
+
+/* Listas empilhadas no telemóvel (Silva, 20/10/2026), em todas: as margens esquerda e direita são as mesmas em tudo — o
+   que está por baixo do título começa onde começa a caixa de seleção (não onde começa o texto do título); as linhas
+   horizontais, as de dentro e a que separa os blocos, começam e acabam no mesmo sítio; entre colunas menos espaço, para o
+   nome do domínio ficar numa só linha */
+@media (max-width: 768px) {
+   .vh .tbl.dt-empilhar tbody tr:has(td.ck) {
+      grid-template-columns: 24px minmax(0, 1fr) auto;
+   }
+
+   .vh .tbl.dt-empilhar tbody tr:has(td.ck)>td:not(.ck):nth-child(n+3):not(.dt-acoes-linha):not(.empty) {
+      grid-column: 1 / -1 !important;
+   }
+
+   /* a linha entre blocos passa a ser desenhada com a mesma margem das de dentro (26→364 e não de ponta a ponta) */
+   .vh .tbl.dt-empilhar tbody tr {
+      border-bottom: 0 !important;
+      padding-left: 14px;
+      padding-right: 14px;
+      background-image: linear-gradient(var(--line), var(--line));
+      background-repeat: no-repeat;
+      background-size: calc(100% - 28px) 1px;
+      background-position: 14px 100%;
+   }
+
+   .vh .tbl.dt-empilhar tbody tr:last-child {
+      background-image: none;
+   }
+
+   /* nome do domínio numa só linha */
+   .vh .tbl[data-dt="subdominios"].dt-empilhar tbody td.ck+td,
+   .vh .tbl[data-dt="dominios"].dt-empilhar tbody td.ck+td {
+      white-space: nowrap;
+      font-size: clamp(11.5px, 3.6vw, 14px);
+   }
+}
+
+/* Mais espaço por cima e por baixo do botão e da indicação do domínio (Silva, 20/10/2026) */
+.vh .da-main-card .card-topo {
+   margin: -6px 0 0;
+   padding: 0 0 18px;
+}
+
+/* ecrãs estreitos: o botão encolhe um pouco e a indicação do domínio tem a letra menor, para o nome do domínio (que não
+   se parte) nunca ficar por baixo do botão */
+@media (max-width: 420px) {
+   .vh .da-main-card .card-topo {
+      gap: 10px;
+   }
+
+   .vh .da-main-card .card-topo .btn {
+      padding: 0 10px;
+      font-size: 12px;
+   }
+
+   .vh .da-main-card .card-topo .dom-ctx {
+      font-size: 11.5px;
+      gap: 4px;
+   }
+
+   .vh .da-main-card .card-topo .dom-ctx span {
+      font-size: 11px;
+   }
+}
+
+/* a indicação do domínio começa onde começa a caixa de seleção e o ícone do primeiro separador (Silva, 20/10/2026) */
+.vh .da-main-card .card-topo .dom-ctx {
+   padding-left: 12px;
+}
+
+@media (max-width: 768px) {
+   .vh .da-main-card .card-topo .dom-ctx {
+      padding-left: 14px;
+   }
+}
+
+/* páginas com a indicação do domínio escrita dentro do cartão, antes de um formulário (FTP, Apontadores, …): o cartão não
+   tem espaço em cima nesses casos, a indicação ficava colada ao contorno */
+.vh .da-main-card:has(> .frm)>.dom-ctx:first-child {
+   margin-top: 14px;
+   padding-left: 12px;
+}
+
+/* o menu do "Ações" na linha de cima do cartão abre alinhado à direita (não sai do cartão) */
+.vh .card-topo .dt-acoes {
+   position: relative;
+}
+
+.vh .card-topo .dt-acoes .menu {
+   left: auto;
+   right: 0;
+}
+
+/* ecrãs estreitos com mais de um botão: a indicação do domínio fica numa linha só dela, por cima dos botões */
+@media (max-width: 520px) {
+   .vh .da-main-card .card-topo:has(.card-topo-btns>:nth-child(2)) {
+      flex-wrap: wrap;
+      row-gap: 10px;
+   }
+
+   .vh .da-main-card .card-topo:has(.card-topo-btns>:nth-child(2)) .dom-ctx {
+      flex: 1 1 100%;
+   }
+
+   .vh .da-main-card .card-topo:has(.card-topo-btns>:nth-child(2)) .card-topo-btns {
+      margin-left: 0;
+      width: 100%;
+      justify-content: flex-start;
+   }
+}
+
+/* páginas com formulário no cartão (FTP, Apontadores, Redirecionamentos, Proteção hotlink, Definições PHP): a linha de cima
+   tem o seu espaço e o formulário começa por baixo dela, com as mesmas margens do resto (Silva, 20/10/2026) */
+.vh .da-main-card:has(> .frm):has(> .card-topo-slot > .card-topo) {
+   padding-top: 24px;
+}
+
+/* telemóvel: o seletor de domínio está à vista, por isso a indicação não aparece; os botões esticam e ocupam a largura toda */
+@media (max-width: 768px) {
+   .vh .da-main-card .card-topo .dom-ctx {
+      display: none;
+   }
+
+   .vh .da-main-card .card-topo-btns {
+      margin-left: 0;
+      width: 100%;
+      flex-wrap: nowrap;
+   }
+
+   .vh .da-main-card .card-topo-btns>* {
+      flex: 1 1 0;
+      min-width: 0;
+      justify-content: center;
+   }
+
+   .vh .da-main-card .card-topo-btns>.dt-acoes {
+      display: flex;
+   }
+
+   .vh .da-main-card .card-topo-btns>.dt-acoes>.btn {
+      width: 100%;
+      justify-content: center;
+   }
+}
+
+/* telemóvel (Silva, 20/10/2026): cada botão ocupa metade da largura — um só fica à esquerda, a meio; dois dividem a linha ao
+   meio e ocupam-na toda */
+@media (max-width: 768px) {
+   .vh .da-main-card .card-topo-btns {
+      flex-wrap: wrap;
+      justify-content: flex-start;
+      gap: 8px;
+   }
+
+   .vh .da-main-card .card-topo-btns>* {
+      flex: 0 0 calc(50% - 4px);
+      max-width: calc(50% - 4px);
+      min-width: 0;
+   }
+}
+
+@media (max-width: 768px) {
+   .vh .da-main-card .card-topo-btns>[data-larga] {
+      flex: 0 0 100%;
+      max-width: 100%;
+   }
+}
+
+/* Margem à esquerda (Silva, 20/10/2026): títulos, descrições e textos por cima das tabelas começam onde começa o texto das
+   tabelas — o mesmo sítio do ícone da indicação do domínio e do ícone do primeiro separador. O que vai de lado a lado
+   (as linhas) fica como estava. */
+/* o recuo é nos textos de dentro e não no bloco: as linhas dos blocos continuam de ponta a ponta do conteúdo, sem passar
+   as margens do cartão */
+
+/* Todo o conteúdo alinhado à esquerda pelo mesmo recuo (Silva, 20/10/2026): ícone da indicação do domínio, ícone do primeiro
+   separador, títulos, descrições, campos, botões e o texto das tabelas começam no mesmo sítio. Só nos ecrãs largos — no
+   telemóvel é uma coluna. O recuo está no que está dentro dos blocos e não nos blocos: as linhas e as barras de fundo
+   continuam de ponta a ponta do conteúdo, sem passar as margens do cartão. */
+@media (min-width: 769px) {
+   .vh .da-main-card {
+      --recuo: 12px;
+   }
+
+   .vh .da-main-card .card-topo .dom-ctx,
+   .vh .da-main-card:has(> .frm)>.dom-ctx:first-child {
+      padding-left: var(--recuo);
+   }
+
+   .vh .da-main-card .seccao-h > *,
+   .vh .da-main-card .sob-tabela > *,
+   .vh .da-main-card .da-campo,
+   .vh .da-main-card .da-fim {
+      padding-left: var(--recuo);
+      padding-right: var(--recuo);
+   }
+
+   .vh .da-main-card .da-lista>div>span:first-child {
+      padding-left: var(--recuo);
+   }
+
+   .vh .da-main-card .da-lista>div>span:last-child {
+      padding-right: var(--recuo);
+   }
+
+   /* formulários: o texto e os campos recuam, a barra do título, as linhas e o rodapé ficam de ponta a ponta */
+   .vh .da-main-card > .frm .frm-head,
+   .vh .da-main-card > .frm .frm-row,
+   .vh .da-main-card > .frm .frm-foot {
+      padding-left: var(--recuo);
+      padding-right: var(--recuo);
+   }
+
+   /* tabelas: o texto da primeira coluna */
+   .vh .tbl th:not(.ck):first-child,
+   .vh .tbl td:not(.ck):first-child,
+   .vh .tbl th.ck + th,
+   .vh .tbl td.ck + td {
+      padding-left: var(--recuo, 12px);
+   }
+
+   /* os botões da linha de cima acabam no mesmo recuo, do lado direito */
+   .vh .da-main-card .card-topo-btns {
+      padding-right: var(--recuo);
+   }
+
+   /* primeiro separador: o ícone no mesmo recuo */
+   .vh .da-main-card .ptabs-faixa>.ptabs button:first-child {
+      padding-left: 11px;
+   }
+}
+
+/* espaço vertical por baixo da linha da linha de cima do cartão (Silva, 20/10/2026): o título, a tabela ou o formulário que
+   vêm a seguir deixam de ficar colados à linha */
+.vh .da-main-card .card-topo-slot:has(.card-topo) {
+   margin-bottom: 22px;
+}
+
+.vh .da-main-card .card-topo {
+   padding-top: 2px;
 }

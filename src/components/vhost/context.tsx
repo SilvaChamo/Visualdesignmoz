@@ -62,6 +62,21 @@ export const BarraPagina = createContext<HTMLElement | null>(null);
  *  separadores (`Tabs`) dão o lugar; as tabelas (`DataTable` com `barraFora`) põem lá os botões. */
 export const FaixaAbas = createContext<{ el: HTMLElement | null; set: (el: HTMLElement | null) => void } | null>(null);
 
+/** Linha de cima do cartão principal (Silva, 20/10/2026): a indicação do domínio ("Domínio: x · muda-se no seletor…") à
+ *  esquerda e, à direita, o botão da página (o que estava na barra de cima) ou, nas páginas sem botão mas com caixas de
+ *  seleção, o "Ações". Páginas sem nenhum dos dois não têm esta linha. O cartão dá o lugar (`el`); `temBotao` diz se a
+ *  página já traz o seu botão; `dominios`/`dominioUrl` são os do seletor, para a indicação mostrar o mesmo domínio. */
+export const TopoCartao = createContext<{
+  el: HTMLElement | null;
+  /** os separadores (`Tabs`) põem o lugar logo por baixo da faixa deles */
+  setTabs: (el: HTMLElement | null) => void;
+  temBotao: boolean;
+  /** a página põe ela própria o seu botão na linha (corpo da página): as tabelas deixam o "Ações" onde estava */
+  setOcupado: (v: boolean) => void;
+  dominios?: 'sites';
+  dominioUrl?: { d: string; ir: (novo: string) => string };
+} | null>(null);
+
 /** Um resultado da lupa da barra de cima (pesquisa na página aberta) */
 export type ItemPesquisa = { k: string; txt: string; sub?: string; fa?: string; c?: string; ir: () => void };
 /** Lupa da barra de cima (pedido do Silva, 13/10/2026): procura na página aberta — cada tabela (DataTable) regista aqui

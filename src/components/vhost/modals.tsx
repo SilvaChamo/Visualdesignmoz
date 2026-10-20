@@ -209,7 +209,8 @@ export function MoreMenuModal({ fechar }: { fechar?: () => void } = {}) {
                       go(it.id);
                     }}
                   >
-                    <i className={ico(it.fa)} />
+                    {/* o ícone com a cor do item, como na barra lateral (Silva, 20/10/2026) */}
+                    <i className={ico(it.fa) + (it.c ? ' ' + it.c : '')} style={it.c ? { color: 'var(--c)' } : undefined} />
                     {t(it.t)}
                   </button>
                 ))}

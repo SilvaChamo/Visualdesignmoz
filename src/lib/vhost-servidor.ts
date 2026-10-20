@@ -30,6 +30,8 @@ export type LeituraServidor = {
   recursos: { cpus: number; memTotal: number; memUsada: number; memLivre: number; discoTotal: number; discoUsado: number; discoFisico: number; cpuPct: number; carga: [number, number, number] };
   web: Record<string, Tabela>;
   wp: Record<string, string[]>;
+  /** pastas criadas pelo painel como endereço "atrás" do domínio (dominio.com/loja): { conta: [{ domínio, nome }] } */
+  subpastas: Record<string, { d: string; nome: string }[]>;
   dns: Record<string, Tabela>;
   mail: Record<string, Tabela>;
   /** contas de e-mail: { conta: { domínio: { utilizador: campos } } } */
@@ -53,7 +55,10 @@ C1=$(head -1 /proc/stat | cut -d' ' -f2-)
   lsblk -bdno SIZE,TYPE 2>/dev/null | awk '$2=="disk"{s+=$1} END{print s+0}' ) > $T/0f &
 for u in $(ls /usr/local/hestia/data/users/); do
   ( echo "@@WEB $u"; $H/v-list-web-domains "$u" json
-    for d in $($H/v-list-web-domains "$u" plain | cut -f1); do [ -f "/home/$u/web/$d/public_html/wp-config.php" ] && echo "@@WP $u $d"; done ) > "$T/1-$u-web" &
+    for d in $($H/v-list-web-domains "$u" plain | cut -f1); do
+      [ -f "/home/$u/web/$d/public_html/wp-config.php" ] && echo "@@WP $u $d"
+      for f in /home/$u/web/$d/public_html/*/.vhost-subpasta; do [ -f "$f" ] && echo "@@SUBPASTA $u $d $(basename "$(dirname "$f")")"; done
+    done ) > "$T/1-$u-web" &
   ( echo "@@DNS $u"; $H/v-list-dns-domains "$u" json ) > "$T/1-$u-dns" &
   ( echo "@@MAIL $u"; $H/v-list-mail-domains "$u" json ) > "$T/1-$u-mail" &
   ( echo "@@DB $u"; $H/v-list-databases "$u" json ) > "$T/1-$u-db" &
@@ -143,19 +148,21 @@ export function interpretarLeitura(out: string): LeituraServidor {
     },
     web: {},
     wp: {},
+    subpastas: {},
     dns: {},
     mail: {},
     mailAcc: {},
     lidoEm: new Date().toISOString(),
   };
   for (const [k, v] of secs) {
-    const [tipo, u, d] = k.split(' ');
+    const [tipo, u, d, nome] = k.split(' ');
     if (!u) continue;
     if (tipo === 'WEB') r.web[u] = json<Tabela>(v, {});
     else if (tipo === 'DNS') r.dns[u] = json<Tabela>(v, {});
     else if (tipo === 'MAIL') r.mail[u] = json<Tabela>(v, {});
     else if (tipo === 'DB') r.db[u] = json<Tabela>(v, {});
     else if (tipo === 'WP' && d) (r.wp[u] ||= []).push(d);
+    else if (tipo === 'SUBPASTA' && d && nome) (r.subpastas[u] ||= []).push({ d, nome });
     else if (tipo === 'MAILACC' && d) (r.mailAcc[u] ||= {})[d] = json<Tabela>(v, {});
   }
   return r;

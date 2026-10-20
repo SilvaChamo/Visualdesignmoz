@@ -11,7 +11,8 @@ import type { BaseDados, Domain } from '../types';
 import { pacoteDe } from '../state';
 import { getPhpMyAdminUrl } from '@/lib/server-config';
 import { VISUALDESIGN_DEFAULT_NS } from '@/lib/visualdesign-dns';
-import { Check, DataTable, Frm, novaSenha, Row, Senha, Switch, Tabs, type Col } from './componentes';
+import { Check, DataTable, Frm, MaisOpcoes, novaSenha, Row, Senha, Switch, Tabs, type Col } from './componentes';
+import { NoTopoCartao } from '../ui';
 import { Confirmar } from './pacotes';
 import DomainSearch from '@/components/DomainSearchPainel';
 import { EsperaPagina, useGet } from '../carga';
@@ -289,17 +290,32 @@ function Contexto({ d, extra }: { d: string; extra?: string }) {
   );
 }
 
+/** Tráfego como número: usado/total do pacote (ex.: 125/1000, em MB); sem limite no pacote fica 125/∞ */
+function trafego(usado?: number, total?: number | null): string {
+  if (usado === undefined) return '—';
+  return Math.round(usado) + '/' + (total == null ? '∞' : Math.round(total));
+}
+
 // ---------- Domínios ----------
 type LinhaDom = Domain & { subs: number };
 
 // Tudo o que é sobre domínios fica num só menu, "Domínios", com separadores (pedido do Silva, 13/10/2026):
-// Domínios | Adicionar domínio | Subdomínios | Registar domínio | Transferir domínio
-type AbaDom = 'meus' | 'novo' | 'subdominios' | 'registar' | 'transferir';
-const ROTA_ABA: Record<AbaDom, string> = { meus: '', novo: '/novo', subdominios: '/subdominios', registar: '/registar', transferir: '/transferir' };
+// Domínios | Subdomínios | Registar domínio | Transferir domínio (adicionar domínio é a janela do botão, Silva 20/10/2026)
+type AbaDom = 'meus' | 'subdominios' | 'registar' | 'transferir';
+const ROTA_ABA: Record<AbaDom, string> = { meus: '', subdominios: '/subdominios', registar: '/registar', transferir: '/transferir' };
 
-function ListaDominios({ abaDom = 'meus' }: { abaDom?: AbaDom }) {
+function ListaDominios({ abaDom = 'meus', abrirNovo = false }: { abaDom?: AbaDom; abrirNovo?: boolean }) {
   const vh = useVH();
   const { a, t, nav, openM, setDominio } = vh;
+  // o endereço antigo /dominios/novo (ligações e favoritos) abre a janela de adicionar domínio sobre a lista
+  const abriu = useRef(false);
+  useEffect(() => {
+    if (!abrirNovo || abriu.current) return;
+    abriu.current = true;
+    nav('/' + vh.s.level + '/dominios');
+    openM(<NovoDominio />);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [abrirNovo]);
   const sites = a.domains;
   const rows: LinhaDom[] = sites.filter((x) => !sites.some((y) => y !== x && ehSub(x.name, y.name))).map((x) => ({ ...x, subs: sites.filter((y) => ehSub(y.name, x.name)).length }));
   const cols: Col<LinhaDom>[] = [
@@ -316,15 +332,27 @@ function ListaDominios({ abaDom = 'meus' }: { abaDom?: AbaDom }) {
             <a className="lk lk-dom" style={{ display: 'block' }} onClick={() => nav('/' + vh.s.level + '/dominios/' + encodeURIComponent(r.name))}>
               {r.name}
             </a>
-            <span>{r.soEmail ? t('Só e-mail') : r.soDominio ? t('Só domínio') : r.wp ? 'WordPress' : t('Site')}</span>
           </div>
         </div>
       ),
     },
-    { k: 'bw', t: 'Tráfego', cell: (r) => r.bw || '—' },
+    { k: 'bw', t: 'Tráfego', cell: (r) => trafego(r.bwMb, a.bwLimMb) },
     { k: 'disco', t: 'Espaço em disco', cell: (r) => r.disk },
     { k: 'subs', t: 'Subdomínios', sort: (r) => r.subs, cell: (r) => r.subs },
-    { k: 'ssl', t: 'SSL', cell: (r) => (r.soEmail || r.soDominio ? '—' : <span className={'tag ' + (r.ssl === 'ok' ? 'ok' : 'w')}>{r.ssl === 'ok' ? t('Seguro') : t('Sem SSL')}</span>) },
+    {
+      k: 'ssl',
+      t: 'SSL',
+      cell: (r) =>
+        r.soEmail || r.soDominio ? (
+          '—'
+        ) : r.ssl !== 'ok' && r.sslPendente ? (
+          <span className="tag w">
+            <i className="fa-solid fa-spinner fa-spin" /> {t('A processar SSL…')}
+          </span>
+        ) : (
+          <span className={'tag ' + (r.ssl === 'ok' ? 'ok' : 'w')}>{r.ssl === 'ok' ? t('Seguro') : t('Sem SSL')}</span>
+        ),
+    },
     { k: 'php', t: 'PHP', cell: (r) => (r.soEmail || r.soDominio ? '—' : r.php), hidden: true },
     { k: 'estado', t: 'Estado', cell: (r) => <span className={'tag ' + (r.status === 'ok' ? 'ok' : 'off')}>{r.status === 'ok' ? t('Ativo') : t('Suspenso')}</span> },
   ];
@@ -336,7 +364,6 @@ function ListaDominios({ abaDom = 'meus' }: { abaDom?: AbaDom }) {
       <Tabs<AbaDom>
         tabs={[
           ['meus', 'Domínios', 'fa-globe'],
-          ['novo', 'Adicionar domínio', 'fa-plus'],
           ['subdominios', 'Subdomínios', 'fa-sitemap'],
           ['registar', 'Registar domínio', 'fa-cart-shopping'],
           ['transferir', 'Transferir domínio', 'fa-right-left'],
@@ -345,9 +372,7 @@ function ListaDominios({ abaDom = 'meus' }: { abaDom?: AbaDom }) {
         onChange={(k) => nav('/' + vh.s.level + '/dominios' + ROTA_ABA[k])}
       />
 
-      {abaDom === 'novo' ? (
-        <NovoDominio />
-      ) : abaDom === 'registar' ? (
+      {abaDom === 'registar' ? (
         <div className="dom-registar">
           <DomainSearch isAdmin />
         </div>
@@ -417,42 +442,51 @@ function ListaDominios({ abaDom = 'meus' }: { abaDom?: AbaDom }) {
   );
 }
 
+/** Janela "Adicionar domínio" (igual à de Adicionar subdomínio) — no lugar do separador que havia (Silva, 20/10/2026) */
 function NovoDominio() {
   const vh = useVH();
-  const { t, nav } = vh;
+  const { t, nav, closeM } = vh;
   const [d, setD] = useState('');
   const [ssl, setSsl] = useState(true);
   const criar = async () => {
     const n = d.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*$/, '');
     if (!/^([a-z0-9-]+\.)+[a-z]{2,}$/.test(n)) return vh.toast('Escreva um domínio válido (ex.: empresa.co.mz)');
+    closeM();
     if (await noServidor(vh, { acao: 'dominio-criar', dominio: n, ssl }, 'Domínio ' + n + ' criado')) {
       vh.setDominio(n);
       nav('/' + vh.s.level + '/dominios/' + encodeURIComponent(n));
     } else await vh.recarregar(true); // um erro a meio pode ter deixado o domínio criado: a lista volta a ler o servidor
   };
   return (
-    <Frm
-      title="Criar domínio"
-      desc="O site fica no servidor; o DNS do domínio tem de apontar para cá para o site abrir"
-      foot={
-        <>
-          <button className="btn g" onClick={() => nav('/' + vh.s.level + '/dominios')}>
-            {t('Cancelar')}
-          </button>
-          <button className="btn r" onClick={criar}>
-            <i className="fa-solid fa-plus" />
-            {t('Criar')}
-          </button>
-        </>
-      }
-    >
-      <Row label="Domínio" hint="Sem maiúsculas, www ou http://">
-        <input value={d} onChange={(e) => setD(e.target.value)} placeholder="ex.: empresa.co.mz" autoFocus />
-      </Row>
-      <Row label="SSL seguro" hint="Certificado grátis Let's Encrypt, pedido logo a seguir">
-        <Check checked={ssl} onChange={setSsl} label="Pedir certificado SSL automático" />
-      </Row>
-    </Frm>
+    <>
+      <h3>{t('Adicionar domínio')}</h3>
+      <div className="f">
+        <label>{t('Domínio')}</label>
+        <span className="igrp">
+          <span className="ib" style={{ cursor: 'default' }}>
+            <i className="fa-solid fa-globe" />
+          </span>
+          <input value={d} onChange={(e) => setD(e.target.value)} placeholder="ex.: empresa.co.mz" autoFocus onKeyDown={(e) => e.key === 'Enter' && criar()} />
+        </span>
+        <small style={{ color: 'var(--muted)' }}>{t('Sem maiúsculas, www ou http://')}</small>
+      </div>
+      <div className="sub-enderecos">
+        <label className={'sub-end' + (ssl ? ' on' : '')}>
+          <input type="checkbox" checked={ssl} onChange={(e) => setSsl(e.target.checked)} />
+          <span>{t('Pedir certificado SSL automático')}</span>
+          <small>{t("Certificado grátis Let's Encrypt, pedido logo a seguir")}</small>
+        </label>
+      </div>
+      <div className="mfoot">
+        <button className="btn g" onClick={closeM}>
+          {t('Cancelar')}
+        </button>
+        <button className="btn r" onClick={criar}>
+          <i className="fa-solid fa-plus" />
+          {t('Adicionar domínio')}
+        </button>
+      </div>
+    </>
   );
 }
 
@@ -1059,14 +1093,14 @@ function VerDominio({ d }: { d: string }) {
 
 export const dominios: ScreenFn = (vh) => {
   const [sub] = vh.s.sub;
-  const novoBtn = (
-    <button className="btn r" onClick={() => vh.nav('/' + vh.s.level + '/dominios/novo')}>
+  // O botão "Adicionar …" é o da página (o shell põe-no na linha de cima do cartão, com a indicação do domínio) e a página
+  // não leva descrição por baixo do título (Silva, 20/10/2026). Registar e Transferir domínio não têm botão.
+  const novoDom = (
+    <button className="btn r" onClick={() => vh.openM(<NovoDominio />)}>
       <i className="fa-solid fa-plus" />
       {vh.t('Adicionar domínio')}
     </button>
   );
-  // no separador Subdomínios o botão da barra de cima é o do subdomínio (o Silva clicava no "Adicionar domínio", o único
-  // à vista, e a página saltava para Adicionar domínio)
   const novoSub = (
     <button className="btn r" onClick={() => vh.openM(<NovoSubdominio d={principalAtual(vh)?.name || ''} />)}>
       <i className="fa-solid fa-plus" />
@@ -1074,12 +1108,12 @@ export const dominios: ScreenFn = (vh) => {
     </button>
   );
   const base = { t: 'Domínios', path: '/' + vh.s.level + '/dominios' };
-  if (sub === 'registar') return { title: 'Domínios', actions: novoBtn, crumbs: [base, { t: 'Registar domínio' }], body: <ListaDominios abaDom="registar" /> };
-  if (sub === 'subdominios') return { title: 'Domínios', actions: novoSub, dominios: 'sites', crumbs: [base, { t: 'Subdomínios' }], body: <ListaDominios abaDom="subdominios" /> };
-  if (sub === 'transferir') return { title: 'Domínios', actions: novoBtn, crumbs: [base, { t: 'Transferir domínio' }], body: <ListaDominios abaDom="transferir" /> };
-  if (sub === 'novo') return { title: 'Domínios', actions: novoSub, dominios: 'sites', body: <ListaDominios abaDom="novo" /> };
+  if (sub === 'registar') return { title: 'Domínios', crumbs: [base, { t: 'Registar domínio' }], body: <ListaDominios abaDom="registar" /> };
+  if (sub === 'subdominios') return { title: 'Domínios', desc: '', actions: novoSub, dominios: 'sites', crumbs: [base, { t: 'Subdomínios' }], body: <ListaDominios abaDom="subdominios" /> };
+  if (sub === 'transferir') return { title: 'Domínios', crumbs: [base, { t: 'Transferir domínio' }], body: <ListaDominios abaDom="transferir" /> };
+  if (sub === 'novo') return { title: 'Domínios', desc: '', actions: novoDom, body: <ListaDominios abrirNovo /> };
   if (sub) return { title: sub, desc: 'Resumo e atalhos do domínio', crumbs: [{ t: 'Domínios', path: '/' + vh.s.level + '/dominios' }, { t: sub }], dominioUrl: { d: sub, ir: (n) => '/' + vh.s.level + '/dominios/' + encodeURIComponent(n) }, body: <VerDominio d={sub} /> };
-  return { title: 'Domínios', actions: novoBtn, body: <ListaDominios /> };
+  return { title: 'Domínios', desc: '', actions: novoDom, body: <ListaDominios /> };
 };
 
 // ---------- Subdomínios (separador dos Domínios) ----------
@@ -1103,7 +1137,12 @@ function NovoSubdominio({ d }: { d: string }) {
     // um erro a meio (ex.: o nginx recusou a regra do webmail) deixa o subdomínio criado: a lista volta a ler o servidor,
     // senão ele não aparecia e cada nova tentativa só dizia "já existe" (community.oshercollective.com, 14/10/2026)
     if (frente) {
-      if (!(await noServidor(vh, { acao: 'subdominio-criar', dominio: dom, sub: n, ssl: true, pasta: atras }, 'Subdomínio ' + n + '.' + dom + ' criado'))) await vh.recarregar(true);
+      // o seletor nunca muda sozinho: o subdomínio vê-se na lista do domínio escolhido nele. Enquanto o servidor cria, a
+      // lista volta a ler de 3 em 3 s para o novo aparecer logo, com "A processar SSL…"
+      const iv = setInterval(() => void vh.recarregar(true), 3000);
+      const feito = await noServidor(vh, { acao: 'subdominio-criar', dominio: dom, sub: n, ssl: true, pasta: atras }, 'Subdomínio ' + n + '.' + dom + ' criado').finally(() => clearInterval(iv));
+      if (!feito) await vh.recarregar(true);
+      else if (dom !== d) vh.toast(n + '.' + dom + ' criado. Para o ver na lista, escolha ' + dom + ' no seletor de cima.');
     } else await noServidor(vh, { acao: 'subpasta-criar', dominio: dom, sub: n }, 'Endereço ' + dom + '/' + n + ' criado');
   };
   return (
@@ -1112,10 +1151,10 @@ function NovoSubdominio({ d }: { d: string }) {
       <div className="f">
         <label>{t('Subdomínio')}</label>
         <span className="igrp sub-dom">
-          <input value={sub} onChange={(e) => setSub(e.target.value)} placeholder="ex.: loja" autoFocus onKeyDown={(e) => e.key === 'Enter' && criar()} />
           <span className="ib" style={{ cursor: 'default' }}>
-            .
+            <i className="fa-solid fa-globe" />
           </span>
+          <input value={sub} onChange={(e) => setSub(e.target.value)} placeholder="ex.: loja" autoFocus onKeyDown={(e) => e.key === 'Enter' && criar()} />
           <select value={dom} onChange={(e) => setDom(e.target.value)} aria-label={t('Domínio')}>
             {principais.map((x) => (
               <option key={x.name}>{x.name}</option>
@@ -1150,27 +1189,108 @@ function NovoSubdominio({ d }: { d: string }) {
   );
 }
 
+/** Linha da lista de Subdomínios: um subdomínio (loja.dominio.com) ou uma pasta criada como endereço "atrás" (dominio.com/loja) */
+type LinhaSub = { id: string; nome: string; pasta?: { d: string; sub: string }; dom?: Domain };
+
 function Subdominios() {
   const vh = useVH();
-  const { a, t, openM } = vh;
+  const { a, t, openM, nav, setDominio } = vh;
   const x = principalAtual(vh);
+  // enquanto o servidor pede algum certificado, a lista volta a ler de poucos em poucos segundos: o "A processar SSL…"
+  // passa a "Seguro" sozinho
+  const aProcessar = a.domains.some((y) => y.sslPendente);
+  useEffect(() => {
+    if (!aProcessar) return;
+    const iv = setInterval(() => void vh.recarregar(true), 8000);
+    return () => clearInterval(iv);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aProcessar]);
   if (!x) return <SemDominio />;
-  const rows = a.domains.filter((y) => ehSub(y.name, x.name));
+  const rows: LinhaSub[] = [
+    ...a.domains.filter((y) => ehSub(y.name, x.name)).map((y) => ({ id: y.name, nome: y.name, dom: y })),
+    ...(a.subpastas || []).filter((p) => p.d === x.name).map((p) => ({ id: p.d + '/' + p.nome, nome: p.d + '/' + p.nome, pasta: { d: p.d, sub: p.nome } })),
+  ];
+  const apagarPasta = (r: LinhaSub) =>
+    openM(
+      <Confirmar
+        titulo="Apagar a pasta?"
+        texto={'Vai apagar a pasta ' + r.nome + ' e os ficheiros que tem dentro.'}
+        ok="Apagar"
+        onOk={() => noServidor(vh, { acao: 'subpasta-apagar', dominio: r.pasta!.d, sub: r.pasta!.sub }, 'Pasta apagada: ' + r.nome)}
+      />,
+    );
+  const apagarSub = (r: LinhaSub) =>
+    openM(
+      <Confirmar
+        titulo="Apagar o subdomínio?"
+        texto={'Vai apagar ' + r.nome + ' e os ficheiros dele.'}
+        ok="Apagar"
+        onOk={() => noServidor(vh, { acao: 'dominio-apagar', dominio: r.nome }, 'Apagado: ' + r.nome)}
+      />,
+    );
   return (
     <DataTable
       id="subdominios"
+      tituloAcoes="Acção"
       umaLinha
       barraFora
       rows={rows}
-      rowKey={(r) => r.name}
-      search={(r) => r.name}
+      rowKey={(r) => r.id}
+      search={(r) => r.nome}
       empty={t('Este domínio ainda não tem subdomínios') + ' (' + x.name + ')'}
       cols={[
-        { k: 'nome', t: 'Subdomínio', sort: (r) => r.name, cell: (r) => <b>{r.name}</b> },
-        { k: 'bw', t: 'Tráfego', cell: (r) => r.bw || '—' },
-        { k: 'raiz', t: 'Pasta', cell: (r) => <code>{r.docroot}</code> },
-        { k: 'ssl', t: 'SSL', cell: (r) => <span className={'tag ' + (r.ssl === 'ok' ? 'ok' : 'w')}>{r.ssl === 'ok' ? t('Seguro') : t('Sem SSL')}</span> },
+        {
+          k: 'nome',
+          t: 'Subdomínio',
+          sort: (r) => r.nome,
+          cell: (r) => (
+            <div>
+              <a className="lk lk-dom" style={{ display: 'block' }} href={'https://' + r.nome} target="_blank" rel="noreferrer" title={t('Abrir o endereço')}>
+                <b>{r.nome}</b>
+              </a>
+              {r.pasta && <span>{t('Pasta no site principal')}</span>}
+            </div>
+          ),
+        },
+        { k: 'bw', t: 'Tráfego', cell: (r) => (r.dom ? trafego(r.dom.bwMb, a.bwLimMb) : '—') },
+        {
+          k: 'ssl',
+          t: 'SSL',
+          // a pasta abre com o certificado do domínio a que pertence
+          cell: (r) => {
+            const ok = (r.dom ? r.dom.ssl : x.ssl) === 'ok';
+            if (!ok && r.dom?.sslPendente)
+              return (
+                <span className="tag w">
+                  <i className="fa-solid fa-spinner fa-spin" /> {t('A processar SSL…')}
+                </span>
+              );
+            return <span className={'tag ' + (ok ? 'ok' : 'w')}>{ok ? t('Seguro') : t('Sem SSL')}</span>;
+          },
+        },
       ]}
+      // a coluna do fim, para gerir: o menu "⋯" de cada linha (Silva, 20/10/2026)
+      actions={(r) => {
+        // o caminho no gestor de ficheiros começa em "web" (a pasta dos domínios da conta)
+        const pastaFm = r.dom ? (r.dom.docroot || '').replace(/^\/home\/[^/]+\//, '').replace(/\/+$/, '') : 'web/' + r.pasta!.d + '/public_html/' + r.pasta!.sub;
+        const explorar: [string, string, () => void] = ['fa-folder-open', 'Explorar ficheiros', () => nav('/' + vh.s.level + '/ficheiros/' + pastaFm.split('/').filter(Boolean).map(encodeURIComponent).join('/'))];
+        return r.dom ? (
+          <MaisOpcoes
+            aoLado
+            itens={[
+              ['fa-gear', 'Gerir', () => {
+                setDominio(r.nome);
+                nav('/' + vh.s.level + '/dominios/' + encodeURIComponent(r.nome));
+              }],
+              explorar,
+              ...(r.dom.ssl !== 'ok' ? [['fa-lock', 'Emitir SSL', () => void noServidor(vh, { acao: 'ssl-le', dominio: r.nome }, 'Certificado emitido: ' + r.nome)] as [string, string, () => void]] : []),
+              ['fa-trash', 'Apagar', () => apagarSub(r), true],
+            ]}
+          />
+        ) : (
+          <MaisOpcoes aoLado itens={[explorar, ['fa-trash', 'Apagar', () => apagarPasta(r), true]]} />
+        );
+      }}
       bulk={[
         {
           t: 'Apagar',
@@ -1181,7 +1301,16 @@ function Subdominios() {
                 titulo="Apagar subdomínios?"
                 texto={'Vai apagar ' + k.join(', ') + ' e os ficheiros de cada um.'}
                 ok="Apagar"
-                onOk={() => k.reduce<Promise<unknown>>((p, n) => p.then(() => noServidor(vh, { acao: 'dominio-apagar', dominio: n }, 'Apagado: ' + n)), Promise.resolve())}
+                onOk={() =>
+                  k.reduce<Promise<unknown>>((p, n) => {
+                    const r = rows.find((l) => l.id === n);
+                    return p.then(() =>
+                      r?.pasta
+                        ? noServidor(vh, { acao: 'subpasta-apagar', dominio: r.pasta.d, sub: r.pasta.sub }, 'Pasta apagada: ' + n)
+                        : noServidor(vh, { acao: 'dominio-apagar', dominio: n }, 'Apagado: ' + n),
+                    );
+                  }, Promise.resolve())
+                }
               />,
             ),
         },
@@ -2657,16 +2786,14 @@ function Ftp() {
   };
   return (
     <>
-      <Contexto d={x.name} />
-      <Frm
-        title="Criar conta FTP"
-        foot={
-          <button className="btn r" onClick={criar}>
-            <i className="fa-solid fa-plus" />
-            {t('Criar')}
-          </button>
-        }
-      >
+      {/* o botão Criar fica na linha de cima do cartão, ao lado da indicação do domínio (Silva, 20/10/2026) */}
+      <NoTopoCartao daPagina>
+        <button className="btn r" onClick={criar}>
+          <i className="fa-solid fa-plus" />
+          {t('Criar')}
+        </button>
+      </NoTopoCartao>
+      <Frm title="Criar conta FTP">
         <Row label="Utilizador" hint="O servidor junta o nome da conta à frente">
           <span className="igrp">
             <span className="ib" style={{ cursor: 'default' }}>
@@ -3626,17 +3753,13 @@ function Apontadores() {
   };
   return (
     <>
-      <Contexto d={x.name} />
-      <Frm
-        title="Criar apontador"
-        desc="Outro domínio que abre o mesmo site (o DNS dele tem de apontar para este servidor)"
-        foot={
-          <button className="btn r" onClick={criar}>
-            <i className="fa-solid fa-plus" />
-            {t('Criar')}
-          </button>
-        }
-      >
+      <NoTopoCartao daPagina>
+        <button className="btn r" onClick={criar}>
+          <i className="fa-solid fa-plus" />
+          {t('Criar')}
+        </button>
+      </NoTopoCartao>
+      <Frm title="Criar apontador" desc="Outro domínio que abre o mesmo site (o DNS dele tem de apontar para este servidor)">
         <Row label="Domínio de origem" hint="ex.: outrodominio.com">
           <input value={al} onChange={(e) => setAl(e.target.value)} placeholder="outrodominio.com" />
         </Row>
@@ -3718,29 +3841,26 @@ function Redirecionamentos() {
   const gravar = async (rs: Regra[], msg: string) => (await noServidor(vh, { acao: 'htaccess', dominio: x.name, linhas: linhasHt(rs, hot, x.name) }, msg)) && ler();
   return (
     <>
-      <Contexto d={x.name} />
+      <NoTopoCartao daPagina>
+        {det.redirecionamento && (
+          <button className="btn g" onClick={async () => (await noServidor(vh, { acao: 'redir-dominio-tirar', dominio: x.name }, 'Redirecionamento tirado')) && ler()}>
+            {t('Tirar')}
+          </button>
+        )}
+        <button
+          className="btn r"
+          onClick={async () => {
+            if (!/^https?:\/\/\S+$/.test(dom.url)) return vh.toast('Escreva o destino completo (https://…)');
+            if (await noServidor(vh, { acao: 'redir-dominio', dominio: x.name, url: dom.url, codigo: dom.codigo }, x.name + ' passa a ir para ' + dom.url)) ler();
+          }}
+        >
+          {t('Guardar')}
+        </button>
+      </NoTopoCartao>
       <Frm
         title="Redirecionar o domínio inteiro"
         desc="Tudo o que abrir este domínio vai para outro endereço"
         right={det.redirecionamento ? <span className="tag w">{t('Ativo')}</span> : undefined}
-        foot={
-          <>
-            {det.redirecionamento && (
-              <button className="btn g" onClick={async () => (await noServidor(vh, { acao: 'redir-dominio-tirar', dominio: x.name }, 'Redirecionamento tirado')) && ler()}>
-                {t('Tirar')}
-              </button>
-            )}
-            <button
-              className="btn r"
-              onClick={async () => {
-                if (!/^https?:\/\/\S+$/.test(dom.url)) return vh.toast('Escreva o destino completo (https://…)');
-                if (await noServidor(vh, { acao: 'redir-dominio', dominio: x.name, url: dom.url, codigo: dom.codigo }, x.name + ' passa a ir para ' + dom.url)) ler();
-              }}
-            >
-              {t('Guardar')}
-            </button>
-          </>
-        }
       >
         {det.redirecionamento && (
           <Row label="Agora">
@@ -3818,16 +3938,15 @@ function Hotlink() {
   const guardar = async (novo: Hot, msg: string) => (await noServidor(vh, { acao: 'htaccess', dominio: x.name, linhas: linhasHt(lerRegras(det.htaccess), novo, x.name) }, msg)) && ler();
   return (
     <>
-      <Contexto d={x.name} />
+      <NoTopoCartao daPagina>
+        <button className="btn r" onClick={() => guardar({ ...h, ativo: true }, 'Proteção hotlink guardada')}>
+          {t('Guardar')}
+        </button>
+      </NoTopoCartao>
       <Frm
         title="Proteção hotlink"
         desc="Impede outros sites de mostrar as suas imagens e vídeos (gastando o seu tráfego)"
         right={<Switch checked={h.ativo} onChange={(v) => guardar({ ...h, ativo: v }, v ? 'Proteção hotlink ligada' : 'Proteção hotlink desligada')} label="Proteção hotlink" />}
-        foot={
-          <button className="btn r" onClick={() => guardar({ ...h, ativo: true }, 'Proteção hotlink guardada')}>
-            {t('Guardar')}
-          </button>
-        }
       >
         <Row label="Tipos de ficheiro protegidos" hint="Separados por vírgulas">
           <input value={h.tipos} onChange={(e) => setH({ ...h, tipos: e.target.value })} />
@@ -3891,7 +4010,19 @@ function Php() {
   const gravar = async (rs: { k: string; v: string }[], msg: string) => (await noServidor(vh, { acao: 'php-ini', dominio: x.name, regras: rs }, msg)) && ler();
   return (
     <>
-      <Contexto d={x.name} />
+      <NoTopoCartao daPagina>
+        <button
+          className="btn r"
+          onClick={() => {
+            if (!v.trim()) return vh.toast('Escreva o valor');
+            gravar([...regras.filter((r) => r.k !== k), { k, v: v.trim() }], k + ' = ' + v.trim());
+            setV('');
+          }}
+        >
+          <i className="fa-solid fa-plus" />
+          {t('Adicionar')}
+        </button>
+      </NoTopoCartao>
       <Frm title="Versão PHP" desc="A versão usada por este site">
         <Row label="Versão">
           <select
@@ -3908,23 +4039,7 @@ function Php() {
           </select>
         </Row>
       </Frm>
-      <Frm
-        title="Alterar uma definição"
-        desc="Fica só neste site (ficheiro .user.ini)"
-        foot={
-          <button
-            className="btn r"
-            onClick={() => {
-              if (!v.trim()) return vh.toast('Escreva o valor');
-              gravar([...regras.filter((r) => r.k !== k), { k, v: v.trim() }], k + ' = ' + v.trim());
-              setV('');
-            }}
-          >
-            <i className="fa-solid fa-plus" />
-            {t('Adicionar')}
-          </button>
-        }
-      >
+      <Frm title="Alterar uma definição" desc="Fica só neste site (ficheiro .user.ini)">
         <Row label="Definição">
           <select value={k} onChange={(e) => setK(e.target.value)} style={{ maxWidth: 320 }}>
             {DIRETIVAS.map((d) => (

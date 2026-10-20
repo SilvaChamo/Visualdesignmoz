@@ -12,8 +12,11 @@ import { getServerHost } from '@/lib/server-config';
 import { esquecerLeitura, lerServidor, type LeituraServidor } from '@/lib/vhost-servidor';
 import { lerRegisto, montarDados } from '@/lib/vhost-dados';
 import { instalarWebmail } from '@/lib/vhost-passar';
+import { limparSslPendente, marcarSslPendente } from '@/lib/vhost-ssl-pendente';
 
 export const dynamic = 'force-dynamic';
+// o pedido do SSL ao ssl-le espera pelo DNS e pelo Let's Encrypt
+export const maxDuration = 120;
 
 /**
  * /api/vhost/dominio — Gestão de domínios do painel VisualHost (Hestia + Cloudflare).
@@ -45,6 +48,41 @@ async function verificar(s: Sessao, conta: string, d: string, srv: LeituraServid
   if (!dados.contas[conta]) return 'Conta fora do seu painel.';
   // também os domínios só com a zona DNS (contas do plano VD-Dominio: quem comprou só o domínio)
   if (!srv.web[conta]?.[d] && !srv.mail[conta]?.[d] && !srv.dns[conta]?.[d]) return 'Esse domínio não é desta conta.';
+  return null;
+}
+
+/** Pede o certificado por trás, sem fazer esperar quem criou o subdomínio: o painel mostra-o logo na lista com "A processar
+ *  SSL…" (sslPendente) e tenta aos `pausa` ms, 20 s, 1 min e 3 min (o DNS novo pode demorar a chegar ao Let's Encrypt). */
+function emitirSslPorTras(conta: string, dominio: string, pausa: number): void {
+  marcarSslPendente(dominio, conta);
+  void (async () => {
+    try {
+      for (const espera of [pausa, 20_000, 60_000, 180_000]) {
+        await new Promise((r) => setTimeout(r, espera));
+        const r = await hestia.issueLetsEncrypt(conta, dominio).catch(() => ({ ok: false }));
+        esquecerLeitura();
+        if (r.ok) return;
+      }
+    } finally {
+      limparSslPendente(dominio);
+      esquecerLeitura();
+    }
+  })();
+}
+
+/** O subdomínio só abre (e o Let's Encrypt só passa) se tiver registo no DNS. Sem ele, cria o A na Cloudflare e espera
+ *  uns segundos pela resposta pública. Devolve o erro, ou null se já existia ou foi criado. Domínios (não subdomínios)
+ *  ficam como estão: o DNS deles é do registador. */
+async function garantirDnsSubdominio(d: string, pausaMs = 6000): Promise<string | null> {
+  if (zonaDe(d) === d) return null;
+  const resolver = new Resolver();
+  resolver.setServers(['1.1.1.1', '8.8.8.8']);
+  const existe = await resolver.resolve4(d).then((r) => r.length > 0, () => false);
+  if (existe) return null;
+  const { pointHostingHostToServer } = await import('@/lib/hosting-site-dns');
+  const dns = await pointHostingHostToServer(d).catch((e: unknown) => ({ ok: false, error: e instanceof Error ? e.message : 'erro' }));
+  if (!dns.ok) return dns.error || 'erro';
+  await new Promise((r) => setTimeout(r, pausaMs));
   return null;
 }
 
@@ -512,7 +550,10 @@ export async function POST(req: NextRequest) {
     if (c.acao === 'subdominio-criar' && !srv.web[conta]?.[d]) return NextResponse.json({ erro: 'O domínio principal não é desta conta.' }, { status: 403 });
     for (const [u, w] of Object.entries(srv.web)) if (w[novo]) return NextResponse.json({ erro: 'Esse domínio já existe no servidor' + (u === conta ? ' nesta conta.' : '.') }, { status: 400 });
     // só o site no Hestia (sem mexer no DNS da Cloudflare); certificado se pedido
+    // o subdomínio já aparece na lista (A processar SSL…) enquanto o servidor o cria
+    if (c.acao === 'subdominio-criar' && c.ssl) marcarSslPendente(novo, conta);
     const x = await call('v-add-web-domain', [conta, novo]);
+    if (!x.ok && c.acao === 'subdominio-criar') limparSslPendente(novo);
     // Endereço "atrás" também marcado (pedido do Silva, 13/10/2026): o subdomínio "loja" passa a usar a pasta
     // public_html/loja do domínio principal, por isso abre em loja.dominio.com e em dominio.com/loja. Só "à frente":
     // fica com pasta própria, em separado (o normal do Hestia).
@@ -526,11 +567,28 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ erro: 'O subdomínio foi criado, mas ficou com pasta própria: o servidor não aceitou usar ' + d + '/' + sub + ' (' + (y.error || 'erro') + ').' }, { status: 502 });
       }
     }
-    if (x.ok && c.ssl) hestia.issueLetsEncrypt(conta, novo).catch(() => null); // com o reload do nginx (o certificado vale logo)
+    // Subdomínio: o A na zona do domínio pai (sem ele o endereço não abre e o Let's Encrypt falha — "DNS record … doesn't
+    // exist") e o certificado por trás: o pedido responde já e a lista mostra o subdomínio com "A processar SSL…" (Silva,
+    // 20/10/2026).
+    let aviso = '';
+    if (x.ok && c.acao === 'subdominio-criar') {
+      const falhaDns = await garantirDnsSubdominio(novo, 0);
+      if (falhaDns) aviso = 'Subdomínio ' + novo + ' criado, mas o endereço ainda não abre: o DNS não foi criado (' + falhaDns + '). Crie o registo A em DNS.';
+      else if (c.ssl) {
+        aviso = 'Subdomínio ' + novo + ' criado. A processar o certificado SSL…';
+        emitirSslPorTras(conta, novo, 6000);
+      }
+    } else if (x.ok && c.ssl) {
+      hestia.issueLetsEncrypt(conta, novo).catch(() => null); // com o reload do nginx (o certificado vale logo)
+    }
     // webmail em https://<domínio>/webmail (antes ficava por pôr à mão em cada domínio novo)
     if (x.ok && !(await instalarWebmail(conta, novo))) {
       esquecerLeitura();
       return NextResponse.json({ erro: 'O domínio foi criado, mas a regra do webmail não foi posta (o nginx recusou).' }, { status: 502 });
+    }
+    if (x.ok && aviso) {
+      esquecerLeitura();
+      return NextResponse.json({ ok: true, aviso });
     }
     return resposta(x);
   }
@@ -548,12 +606,33 @@ export async function POST(req: NextRequest) {
   const e = await verificar(r.s, conta, d, srv);
   if (e) return NextResponse.json({ erro: e }, { status: 403 });
 
-  // Só o endereço "atrás" (dominio.com/loja): uma pasta no site principal, sem subdomínio (pedido do Silva, 13/10/2026)
-  if (c.acao === 'subpasta-criar') {
+  // Só o endereço "atrás" (dominio.com/loja): uma pasta no site principal, sem subdomínio (pedido do Silva, 13/10/2026).
+  // A pasta leva um ficheiro escondido (.vhost-subpasta) que a marca como criada pelo painel: é por ele que a lista de
+  // Subdomínios a mostra com o endereço, e só essas se apagam daqui (Silva, 20/10/2026).
+  if (c.acao === 'subpasta-criar' || c.acao === 'subpasta-apagar') {
     const sub = linhaLimpa(c.sub).toLowerCase();
     if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(sub)) return NextResponse.json({ erro: 'Nome inválido: letras, números e hífen.' }, { status: 400 });
     if (!srv.web[conta]?.[d]) return NextResponse.json({ erro: 'Este domínio não tem site.' }, { status: 400 });
-    return resposta(call('v-add-fs-directory', [conta, `/home/${conta}/web/${d}/public_html/${sub}`]), false);
+    const pasta = `/home/${conta}/web/${d}/public_html/${sub}`;
+    const marca = pasta + '/.vhost-subpasta';
+    if (c.acao === 'subpasta-criar') {
+      if (['wp-admin', 'wp-content', 'wp-includes', 'cgi-bin'].includes(sub)) return NextResponse.json({ erro: 'Esse nome é de uma pasta do site.' }, { status: 400 });
+      // uma pasta vazia que já existe (criada pelo painel antes de haver marca) adopta-se: só leva a marca
+      const existe = await executeServerCommand(
+        `if [ ! -e ${q(pasta)} ]; then echo NAO; elif [ -d ${q(pasta)} ] && [ -z "$(ls -A ${q(pasta)})" ]; then echo VAZIA; else echo SIM; fi`,
+        { timeoutMs: 20_000 },
+      ).catch(() => 'ERRO');
+      if (/SIM/.test(existe)) return NextResponse.json({ erro: 'Já existe uma pasta ' + sub + ' neste site, com ficheiros dentro.' }, { status: 400 });
+      if (!/NAO|VAZIA/.test(existe)) return NextResponse.json({ erro: 'Não foi possível confirmar o servidor. Nada foi criado.' }, { status: 502 });
+      if (/NAO/.test(existe)) {
+        const x = await call('v-add-fs-directory', [conta, pasta]);
+        if (!x.ok) return resposta(x);
+      }
+      return resposta(call('v-add-fs-file', [conta, marca]));
+    }
+    const marcada = await executeServerCommand(`[ -f ${q(marca)} ] && echo SIM || echo NAO`, { timeoutMs: 20_000 }).catch(() => 'ERRO');
+    if (!/SIM/.test(marcada)) return NextResponse.json({ erro: 'Esta pasta não foi criada pelo painel: não se apaga daqui.' }, { status: 403 });
+    return resposta(call('v-delete-fs-directory', [conta, pasta]));
   }
   const w = srv.web[conta]?.[d];
   const raiz = (w?.DOCUMENT_ROOT || `/home/${conta}/web/${d}/public_html/`).replace(/\/+$/, '');
@@ -600,7 +679,17 @@ export async function POST(req: NextRequest) {
       // Como no DirectAdmin: o domínio vai sempre; dos apontadores (www.…, etc.) só os que vierem marcados.
       // Sem `nomes` (pedido antigo) o Hestia decide como antes.
       if (!w) return NextResponse.json({ erro: 'Este domínio não tem site.' }, { status: 400 });
-      if (!Array.isArray(c.nomes)) return resposta(hestia.issueLetsEncrypt(conta, d));
+      // subdomínio sem registo no DNS (criado antes de o painel o pôr): cria-o primeiro, senão o Let's Encrypt recusa
+      const falhaDns = await garantirDnsSubdominio(d);
+      if (falhaDns) return NextResponse.json({ erro: 'O subdomínio não tem DNS e o painel não o conseguiu criar (' + falhaDns + '). Crie o registo A em DNS.' }, { status: 400 });
+      if (!Array.isArray(c.nomes)) {
+        marcarSslPendente(d, conta);
+        try {
+          return await resposta(hestia.issueLetsEncrypt(conta, d));
+        } finally {
+          limparSslPendente(d);
+        }
+      }
       const existentes = String(w.ALIAS || '').split(',').map((x) => x.trim().toLowerCase()).filter(Boolean);
       const nomes = [...new Set((c.nomes as unknown[]).map((x) => linhaLimpa(x).toLowerCase()))].filter((x) => x && x !== d);
       const fora = nomes.find((x) => !existentes.includes(x));

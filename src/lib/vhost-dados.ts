@@ -7,6 +7,7 @@
  * - O que cada um vê: administrador → tudo; revendedor → a sua conta e as dos seus clientes;
  *   restantes → só a sua conta.
  */
+import { pendentesDaConta, sslPendente } from '@/lib/vhost-ssl-pendente';
 import type { Account, BaseDados, Domain, Mailbox, Role } from '@/components/vhost/types';
 import { ACME, IDIOMAS, RECURSOS, TEMAS, type InfoConta, type Lim, type PacoteUtilizador } from '@/components/vhost/paginas/dados';
 import { mbTexto, type DadosServidor, type Servidor, type ZonaDns } from '@/components/vhost/servidor';
@@ -168,11 +169,13 @@ export function montarDados(srv: LeituraServidor, reg: RegistoSite, sessao: Sess
     const domains: Domain[] = Object.entries(web).map(([d, w]) => ({
       name: d,
       ssl: (w.SSL || 'no').toLowerCase() === 'yes' ? 'ok' : 'w',
+      ...((w.SSL || 'no').toLowerCase() !== 'yes' && sslPendente(d) ? { sslPendente: true } : {}),
       php: php(w.BACKEND),
       disk: mbTexto(num(w.U_DISK)),
       status: (w.SUSPENDED || 'no').toLowerCase() === 'yes' ? 'w' : 'ok',
       ...(wp.has(d) ? { wp: true } : {}),
       bw: mbTexto(num(w.U_BANDWIDTH)),
+      bwMb: num(w.U_BANDWIDTH),
       aliases: lista(w.ALIAS),
       docroot: w.DOCUMENT_ROOT || `/home/${u}/web/${d}/public_html/`,
       ftp: lista(w.FTP_USER).map((f, i) => ({ user: f, path: lista(w.FTP_PATH)[i] || '' })),
@@ -180,6 +183,9 @@ export function montarDados(srv: LeituraServidor, reg: RegistoSite, sessao: Sess
       temEmail: Boolean(srv.mail[u]?.[d]),
       emailSsl: (srv.mail[u]?.[d]?.SSL || 'no').toLowerCase() === 'yes',
     }));
+    // domínios que o painel está a criar agora (ainda não lidos do servidor): aparecem já, com "A processar SSL…"
+    for (const d of pendentesDaConta(u))
+      if (!web[d]) domains.push({ name: d, ssl: 'w', php: '—', disk: '0 MB', status: 'ok', bw: '0 MB', bwMb: 0, docroot: `/home/${u}/web/${d}/public_html/`, sslPendente: true });
     // domínios só de e-mail (sem site)
     for (const [d, m] of Object.entries(srv.mail[u] || {}))
       if (!web[d]) domains.push({ name: d, ssl: (m.SSL || 'no').toLowerCase() === 'yes' ? 'ok' : 'w', php: '—', disk: mbTexto(num(m.U_DISK)), status: (m.SUSPENDED || 'no').toLowerCase() === 'yes' ? 'w' : 'ok', soEmail: true });
@@ -225,6 +231,7 @@ export function montarDados(srv: LeituraServidor, reg: RegistoSite, sessao: Sess
       creator: r?.parent && srv.users[r.parent] ? r.parent : u === adminConta ? u : adminConta,
       pkg: revenda ? (revenda === 'expandido' ? 'Revenda Expandido' : 'Revenda Essencial') : x.PACKAGE || '',
       hpkg: x.PACKAGE || '',
+      ...(srv.subpastas?.[u]?.length ? { subpastas: srv.subpastas[u] } : {}),
       state: (x.SUSPENDED || 'no').toLowerCase() === 'yes' ? 'off' : 'ok',
       disk: mbTexto(num(x.U_DISK)),
       discoMb: num(x.U_DISK),
