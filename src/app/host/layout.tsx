@@ -6,6 +6,7 @@ import { preload } from 'react-dom';
 import '@fortawesome/fontawesome-free/css/all.min.css';
 import '@/components/vhost/generated/maquete.css';
 import '@/components/vhost/paginas/paginas.css';
+import '@/components/vhost/paginas/icones-campos.css';
 import { VisualHostApp } from '@/components/vhost/VisualHostApp';
 import { versaoBuild } from '@/lib/versao-build';
 import { lerDadosPainel, type LeituraPainel } from '@/lib/vhost-dados-painel';

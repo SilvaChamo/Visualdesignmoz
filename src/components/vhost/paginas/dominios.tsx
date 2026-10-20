@@ -4062,11 +4062,12 @@ function Php() {
   if (!det) return <Carregar erro={erro} ler={ler} />;
   // a versão em uso: a do site, ou — nos sites no modelo "padrão" — a que o servidor usa por defeito
   const noPadrao = x.php === 'padrão';
-  const ativa = noPadrao ? det.phpPadrao || x.php : x.php;
+  // sem a versão padrão lida do servidor, fica sempre a 8.3 (a que o servidor tem) — nunca "padrão" solto no campo (Silva, 21/10/2026)
+  const ativa = noPadrao ? det.phpPadrao || '8.3' : x.php;
   // só a versão padrão do servidor e as mais recentes (as anteriores já não recebem correcções de segurança); a versão em uso do site
   // aparece sempre, mesmo que seja antiga (Silva, 21/10/2026)
   const numVer = (v: string) => v.split('.').reduce((n, x) => n * 100 + Number(x), 0);
-  const base = numVer(det.phpPadrao || (/^\d+\.\d+$/.test(ativa) ? ativa : '0.0'));
+  const base = numVer(det.phpPadrao || '8.3');
   const versoes = [...new Set([...s.php.filter((v) => numVer(v) >= base), ...(/^\d+\.\d+$/.test(ativa) ? [ativa] : [])])].sort((a, b) => numVer(a) - numVer(b));
   const conhecidas = DEFS_PHP.map((d) => d.k);
   const outras = det.php.filter((r) => !conhecidas.includes(r.k));

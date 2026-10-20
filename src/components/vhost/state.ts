@@ -192,6 +192,9 @@ export function comAcessos(s: St, acessos: Record<string, string[]>): St {
   if (it && !hasFeatOf(n, it.feat, it.id)) n.deny = { type: 'pacote', it };
   return n;
 }
+/** Nome do nível nos separadores, no caminho e na pesquisa: o separador de quem revende também se chama "Admin"
+ *  (Silva, 21/10/2026: "em todos os painéis onde existe este separador deve ser Admin"). */
+export const nomeNivel = (k: Level) => (k === 'revenda' ? LEVELS.admin : LEVELS[k]);
 export const isUser = (r: string) => r === 'profissional' || r === 'cliente';
 export const ico = (fa: string) => (fa.startsWith('fa-brands') ? fa : 'fa-solid ' + fa);
 export const initials = (n: string) => {

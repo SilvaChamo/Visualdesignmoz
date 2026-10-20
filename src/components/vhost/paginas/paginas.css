@@ -6989,18 +6989,22 @@
    width: 70px
 }
 
+/* O símbolo ocupa 76 px (46 + 15 + 15), a altura da barra de cima: o primeiro ícone (mensagens) começa na linha de cima do separador
+   Admin (Silva, 21/10/2026) */
 .vh .rail .rlogo {
    width: 46px;
-   height: 46px
+   height: 46px;
+   margin: 15px 0
 }
 
+/* Mais espaço vertical entre os ícones da barra compacta: botões de 52 → 64 px e o do idioma de 56 → 68 px (Silva, 21/10/2026) */
 .vh .rail .rb {
-   height: 52px;
+   height: 64px;
    font-size: calc(19px * var(--fs, 1))
 }
 
 .vh .rail .rb.lang {
-   height: 56px
+   height: 68px
 }
 
 .vh .rail .rb.lang b {
@@ -11507,4 +11511,98 @@
 /* Definições PHP: a última linha, a do botão "Gravar alterações", não leva fundo — a linha de cima já leva (Silva, 21/10/2026) */
 .vh .frm.php-defs .frm-foot {
    background: transparent
+}
+
+/* Listas de contas (Todos os utilizadores, Os meus clientes): tráfego, espaço usado e data com os números um pouco mais pequenos
+   (Silva, 21/10/2026) */
+.vh .ct-lista .tbl td.num-peq {
+   font-size: calc(12px * var(--fs, 1))
+}
+
+/* Perfil › Palavra-passe: o cartão dos campos (como o "Mudar senhas" do Admin) sem as linhas laterais, esquerda e direita — só as de cima e
+   de baixo, a toda a largura; os campos alinham pelo --recuo (Silva, 21/10/2026) */
+.vh .frm.pf-senha {
+   border-left: 0;
+   border-right: 0;
+   border-radius: 0
+}
+
+.vh .frm.pf-senha>.frm-row {
+   padding-left: var(--recuo, 12px);
+   padding-right: var(--recuo, 12px)
+}
+
+.vh .frm.pf-senha .frm-foot {
+   padding-left: var(--recuo, 12px)
+}
+
+/* Ecrã do código de 2 passos (dois-passos.tsx), no cartão da entrada do painel (Silva, 21/10/2026) */
+.vh .ent-passo2-titulo {
+   font-size: calc(21px * var(--fs, 1));
+   font-weight: 800;
+   color: #2b2d33;
+   margin: 0 0 6px;
+   text-align: center
+}
+
+.vh .ent-passo2-texto {
+   color: #6b6f78;
+   font-size: calc(14.5px * var(--fs, 1));
+   margin: 0 0 20px;
+   text-align: center
+}
+
+.vh[data-theme=dark] .ent-passo2-titulo {
+   color: #e5e7eb
+}
+
+.vh[data-theme=dark] .ent-passo2-texto {
+   color: #9ca3af
+}
+
+/* Perfil › Autenticação em 2 passos: o código QR e a chave por escrito */
+.vh .pf-2p-qr {
+   display: flex;
+   align-items: center;
+   gap: 16px;
+   flex-wrap: wrap
+}
+
+.vh .pf-2p-qr img {
+   width: 168px;
+   height: 168px;
+   background: #fff;
+   padding: 8px;
+   border: 1px solid var(--line);
+   border-radius: var(--r)
+}
+
+.vh .pf-2p-qr small {
+   display: block;
+   color: var(--muted);
+   font-size: calc(12.5px * var(--fs, 1));
+   margin-bottom: 4px
+}
+
+.vh .pf-2p-qr code {
+   display: inline-block;
+   padding: 6px 10px;
+   background: var(--soft);
+   border: 1px solid var(--line);
+   border-radius: var(--r);
+   font: 13px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+   color: var(--ink);
+   word-break: break-all;
+   user-select: all
+}
+
+.vh .pf-2p-estado {
+   display: inline-flex;
+   align-items: center;
+   gap: 8px;
+   font-weight: 700
+}
+
+.vh .pf-2p-estado.on {
+   color: #16a34a
 }

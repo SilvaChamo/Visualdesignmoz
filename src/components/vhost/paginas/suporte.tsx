@@ -4,14 +4,14 @@
 // Mensagens. Pedidos de suporte e mensagens vêm das tabelas do site (tickets_suporte, ticket_respostas,
 // notifications) por /api/vhost/suporte e /api/vhost/mensagens; o perfil por /api/vhost/perfil e, para a
 // palavra-passe e as sessões, pelo Supabase Auth do navegador (com a sessão da própria pessoa).
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { supabase } from '@/lib/supabase-client';
 import { useVH, type VH } from '../context';
 import type { ScreenFn } from '../screens';
 import { DESC, MENU } from '../generated/data';
 import { ico } from '../state';
 import { esquecerMemoria, useGet, useNaMemoria } from '../carga';
-import { DataTable, Senha, Switch, Tabs } from './componentes';
+import { DataTable, Frm, Row, Senha, Switch, Tabs } from './componentes';
 import { Confirmar } from './pacotes';
 import { EditarDadosModal } from './cliente-dados';
 
@@ -569,8 +569,7 @@ function PerfilSenha() {
   const { dados, erro, ler } = useGet<DadosPerfil & { semPerfil?: boolean }>(rota('/api/vhost/perfil'));
   // Sem a palavra-passe antiga (Silva, 16/10/2026): o cliente pode tê-la esquecido e ficava sem conseguir trocar. A
   // sessão aberta já o identifica; a nova grava-se no servidor (/api/vhost/perfil, acao 'senha').
-  const [f, setF] = useState({ nova: '', repetir: '' });
-  const [ver, setVer] = useState(false);
+  const [f, setF] = useState({ antiga: '', nova: '', repetir: '' });
   const [aGravar, setAGravar] = useState(false);
   if (!dados) return <Carregando erro={erro} ler={ler} />;
   if (alheia && dados.semPerfil) return adminImpersonando ? (
@@ -597,29 +596,10 @@ function PerfilSenha() {
     ['As duas novas são iguais', !!f.nova && f.nova === f.repetir],
   ];
   return (
-    <Sec titulo="Mudar a palavra-passe" desc="A palavra-passe com que entra no painel. Não é preciso a antiga. As caixas de e-mail têm cada uma a sua (E-mail → Contas de e-mail).">
-      <div className="frm" style={{ maxWidth: 520 }}>
-        <div className="field">
-          <label>{t('Nova palavra-passe')}</label>
-          <Senha value={f.nova} onChange={(nova) => setF({ ...f, nova })} />
-        </div>
-        <div className="field">
-          <label>{t('Repetir a nova')}</label>
-          <div className="igrp">
-            <input type={ver ? 'text' : 'password'} autoComplete="new-password" value={f.repetir} onChange={(e) => setF({ ...f, repetir: e.target.value })} />
-            <button type="button" className="ib" title={t(ver ? 'Esconder' : 'Mostrar')} onClick={() => setVer(!ver)}>
-              <i className={'fa-solid ' + (ver ? 'fa-eye-slash' : 'fa-eye')} />
-            </button>
-          </div>
-        </div>
-        <ul className="pf-regras">
-          {regras.map(([l, ok]) => (
-            <li key={l} className={ok ? 'ok' : ''}>
-              <i className={'fa-solid ' + (ok ? 'fa-circle-check' : 'fa-circle')} /> {t(l)}
-            </li>
-          ))}
-        </ul>
-        <div className="mfoot" style={{ justifyContent: 'flex-start' }}>
+    <Sec titulo="Mudar a palavra-passe" desc="A palavra-passe com que entra no painel. A antiga é opcional. As caixas de e-mail têm cada uma a sua (E-mail → Contas de e-mail).">
+      <Frm
+        className="pf-senha"
+        foot={
           <button
             className="btn r"
             disabled={aGravar || regras.some(([, ok]) => !ok)}
@@ -629,12 +609,12 @@ function PerfilSenha() {
                 const r = await fetch('/api/vhost/perfil', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ acao: 'senha', nova: f.nova, ...(adminImpersonando ? { conta: vh.me } : {}) }),
+                  body: JSON.stringify({ acao: 'senha', nova: f.nova, ...(f.antiga && !adminImpersonando ? { antiga: f.antiga } : {}), ...(adminImpersonando ? { conta: vh.me } : {}) }),
                 });
                 const j = (await r.json().catch(() => ({}))) as { erro?: string };
                 if (!r.ok) return vh.toast(j.erro || 'Não foi possível mudar a palavra-passe.');
                 vh.toast('Palavra-passe mudada');
-                setF({ nova: '', repetir: '' });
+                setF({ antiga: '', nova: '', repetir: '' });
               } catch {
                 vh.toast('Sem ligação ao site. Nada foi mudado.');
               } finally {
@@ -644,8 +624,29 @@ function PerfilSenha() {
           >
             {t('Mudar palavra-passe')}
           </button>
-        </div>
-      </div>
+        }
+      >
+        {!adminImpersonando && (
+          <Row label="Palavra-passe anterior" hint="Opcional: se a souber, confirma-se antes de mudar.">
+            <Senha value={f.antiga} onChange={(antiga) => setF({ ...f, antiga })} semGerar />
+          </Row>
+        )}
+        <Row label="Nova palavra-passe">
+          <Senha value={f.nova} onChange={(nova) => setF({ ...f, nova })} />
+        </Row>
+        <Row label="Repetir a nova">
+          <Senha value={f.repetir} onChange={(repetir) => setF({ ...f, repetir })} semGerar />
+        </Row>
+        <Row label="Requisitos">
+          <ul className="pf-regras">
+            {regras.map(([l, ok]) => (
+              <li key={l} className={ok ? 'ok' : ''}>
+                <i className={'fa-solid ' + (ok ? 'fa-circle-check' : 'fa-circle')} /> {t(l)}
+              </li>
+            ))}
+          </ul>
+        </Row>
+      </Frm>
     </Sec>
   );
 }
@@ -731,14 +732,148 @@ function PerfilSessoes() {
   );
 }
 
+type FatorTotp = { id: string; criado: string };
+type Ligando = { id: string; qr: string; segredo: string };
+
+/** Autenticação em 2 passos, opcional (Silva, 21/10/2026): aplicação de autenticação (TOTP do Supabase). Liga-se com o
+ *  código QR e um primeiro código; depois, a entrada no painel pede o código (ver dois-passos.tsx e mfa-sessao.ts). */
 function PerfilDoisPassos() {
-  const { t } = useVH();
+  const vh = useVH();
+  const { t, openM } = vh;
+  const { alheia } = vista(vh);
+  const [fator, setFator] = useState<FatorTotp | null>(null);
+  const [lido, setLido] = useState(false);
+  const [ligando, setLigando] = useState<Ligando | null>(null);
+  const [codigo, setCodigo] = useState('');
+  const [ocupado, setOcupado] = useState(false);
+  const ler = async () => {
+    const { data } = await supabase.auth.mfa.listFactors();
+    const f = data?.totp?.[0];
+    setFator(f ? { id: f.id, criado: f.created_at } : null);
+    setLido(true);
+  };
+  useEffect(() => {
+    if (!alheia) void ler().catch(() => setLido(true));
+  }, [alheia]);
+  if (alheia)
+    return (
+      <Sec titulo="Autenticação em 2 passos">
+        <SoDoCliente texto="A autenticação em 2 passos é de cada pessoa: só o cliente a liga ou desliga, no painel dele." />
+      </Sec>
+    );
+  if (!lido) return null;
+
+  // limpa tentativas antigas por confirmar e pede um factor novo
+  const comecar = async () => {
+    setOcupado(true);
+    try {
+      const { data: lista } = await supabase.auth.mfa.listFactors();
+      for (const f of lista?.all || []) if (f.factor_type === 'totp' && f.status !== 'verified') await supabase.auth.mfa.unenroll({ factorId: f.id });
+      const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp', friendlyName: 'VisualHost ' + new Date().toLocaleDateString('pt-PT') });
+      if (error || !data) {
+        vh.toast(/disabled|not enabled/i.test(error?.message || '') ? 'A autenticação em 2 passos ainda não está activada no servidor de contas.' : 'Não foi possível começar. Tente de novo.');
+        return;
+      }
+      setCodigo('');
+      setLigando({ id: data.id, qr: data.totp.qr_code, segredo: data.totp.secret });
+    } finally {
+      setOcupado(false);
+    }
+  };
+  const cancelar = async () => {
+    if (ligando) await supabase.auth.mfa.unenroll({ factorId: ligando.id }).catch(() => null);
+    setLigando(null);
+    setCodigo('');
+  };
+  const confirmar = async () => {
+    if (!ligando) return;
+    setOcupado(true);
+    try {
+      const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId: ligando.id, code: codigo.replace(/\s/g, '') });
+      if (error) {
+        vh.toast('Código errado ou expirado. Veja o código mais recente na aplicação.');
+        return;
+      }
+      vh.toast('Autenticação em 2 passos ligada');
+      setLigando(null);
+      setCodigo('');
+      await ler();
+    } finally {
+      setOcupado(false);
+    }
+  };
+  const desligar = async () => {
+    if (!fator) return;
+    const { error } = await supabase.auth.mfa.unenroll({ factorId: fator.id });
+    if (error) return vh.toast('Não foi possível desligar. Saia e entre de novo com o código e tente outra vez.');
+    vh.toast('Autenticação em 2 passos desligada');
+    await ler();
+  };
+
   return (
-    <Sec titulo="Autenticação em 2 passos" desc="Um código do telemóvel, além da palavra-passe, para entrar no painel.">
-      <div className="note">
-        <i className="fa-solid fa-circle-info" style={{ color: 'var(--red)' }} />{' '}
-        {t('Ainda não está disponível. Vai funcionar com uma aplicação de autenticação (Google Authenticator, Microsoft Authenticator…) e códigos de recuperação; avisamos quando puder ligá-la.')}
-      </div>
+    <Sec titulo="Autenticação em 2 passos" desc="Opcional. Um código do telemóvel, além da palavra-passe, para entrar no painel. Funciona com o Google Authenticator, Microsoft Authenticator, Authy…">
+      {ligando ? (
+        <Frm
+          className="pf-senha"
+          foot={
+            <>
+              <button className="btn r" disabled={ocupado || !/^\d{6}$/.test(codigo.replace(/\s/g, ''))} onClick={confirmar}>
+                {t('Confirmar e ligar')}
+              </button>
+              <button className="btn g" disabled={ocupado} onClick={cancelar}>
+                {t('Cancelar')}
+              </button>
+            </>
+          }
+        >
+          <Row label="1. Leia o código QR" hint="Na aplicação: adicionar conta › ler código QR.">
+            <div className="pf-2p-qr">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={ligando.qr} alt={t('Código QR')} />
+              <div>
+                <small>{t('Não consegue ler? Escreva esta chave na aplicação:')}</small>
+                <code>{ligando.segredo}</code>
+              </div>
+            </div>
+          </Row>
+          <Row label="2. Código da aplicação" hint="Os 6 números que a aplicação mostra agora.">
+            <input inputMode="numeric" autoComplete="one-time-code" maxLength={7} placeholder="000000" value={codigo} onChange={(e) => setCodigo(e.target.value.replace(/[^\d\s]/g, ''))} />
+          </Row>
+        </Frm>
+      ) : (
+        <Frm
+          className="pf-senha"
+          foot={
+            fator ? (
+              <button
+                className="btn g"
+                onClick={() => openM(<Confirmar titulo="Desligar a autenticação em 2 passos?" texto="A conta volta a entrar só com a palavra-passe, menos protegida." ok="Desligar" onOk={desligar} />)}
+              >
+                {t('Desligar')}
+              </button>
+            ) : (
+              <button className="btn r" disabled={ocupado} onClick={comecar}>
+                {t('Ligar a autenticação em 2 passos')}
+              </button>
+            )
+          }
+        >
+          <Row label="Estado">
+            {fator ? (
+              <span className="pf-2p-estado on">
+                <i className="fa-solid fa-shield-halved" /> {t('Ligada')}
+                <small style={{ fontWeight: 400, color: 'var(--muted)' }}>
+                  {t('desde')} {new Date(fator.criado).toLocaleDateString('pt-PT')}
+                </small>
+              </span>
+            ) : (
+              <span className="pf-2p-estado">
+                <i className="fa-solid fa-shield" /> {t('Desligada')}
+              </span>
+            )}
+          </Row>
+        </Frm>
+      )}
     </Sec>
   );
 }

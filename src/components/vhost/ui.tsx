@@ -8,7 +8,7 @@ import { TopoCartao, useVH } from './context';
 import { ChangeRoleModal } from './modals';
 import { noServidor } from './paginas/acoes';
 import { HX, LEVELS, MENU, ROLES } from './generated/data';
-import { findItem, gItem, ico, initials, route } from './state';
+import { findItem, gItem, ico, initials, nomeNivel, route } from './state';
 import type { Account, HxState, MenuItem, Role } from './types';
 import type { Screen } from './screens';
 import { GLOBAL } from './generated/data';
@@ -254,7 +254,7 @@ export function SwitcherBar({ title, crumbs, dominios, dominioUrl }: { title: st
           </a>
           <i className="fa-solid fa-folder-tree" style={{ color: 'var(--red)', fontSize: 13, marginRight: 2 }} />
           <a onClick={() => go('inicio')} style={{ cursor: 'pointer', color: 'var(--muted)', textDecoration: 'none' }}>
-            {t(LEVELS[s.level] || 'Início')}
+            {t(s.level ? nomeNivel(s.level) : 'Início')}
           </a>
           {trail.map((c, i) => (
             <Fragment key={i}>

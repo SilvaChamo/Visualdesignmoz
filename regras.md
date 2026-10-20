@@ -140,6 +140,11 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
   e o ícone do primeiro separador; **as linhas vão a toda a largura do cartão**. Espaço **antes e depois de cada
   linha**, igual em todo o lado (nada colado a uma linha).
 - **Menu da barra lateral esquerda**: categorias 15 px, páginas 13 px.
+- **Barra compacta (ícones à esquerda)** (Silva, 21/10/2026): o símbolo ocupa 76 px (a altura da barra de cima), por isso o primeiro
+  ícone (Mensagens) começa na linha de cima do separador Admin; botões de 64 px (idioma 68 px) para dar espaço entre ícones; leva
+  também o ícone da gestão de ficheiros (só ícone, leva directo à página, só aparece a quem o plano deixa ver).
+- **O separador "Admin"** chama-se "Admin" em todos os painéis, também no do revendedor (`nomeNivel` em `state.ts` — tabs, caminho
+  e pesquisa; "Revenda" já não aparece como nome de separador).
 - **O cartão principal chega ao fundo da janela** em computador e tablet: sem margem por baixo, sem a linha de baixo e
   sem cantos de baixo arredondados. No telemóvel vai de ponta a ponta (ver abaixo).
 
@@ -175,8 +180,21 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
   à direita). Vale para campos de texto, palavra-passe, escolha (selector), número e e-mail, em formulários e janelas.
   O ícone diz o que o campo é (utilizador, e-mail, cadeado, globo, pasta…) — nunca um campo "nu".
 - **Todo o campo onde se escreve um domínio leva o ícone de domínio (o globo) à esquerda** (Silva, 20/10/2026), em formulários,
-  janelas e listas — `.igrp` com `<span className="ib"><i className="fa-solid fa-globe"/></span>` antes do campo. Não vale para o
-  motor de busca de domínios, que tem o seu próprio desenho.
+  janelas e listas — `.igrp` com `<span className="ib"><i className="fa-solid fa-globe"/></span>` antes do campo (ou, sem fazer nada, o
+  ícone automático da regra seguinte, que vale também para o motor de busca de domínios).
+- **Ícone do campo numa caixa cinzenta colada à esquerda — automático** (Silva, 21/10/2026: "em todo o sítio onde pôr ícone, assim
+  como está na imagem" — o desenho dos campos das Definições PHP: caixa `.ib` de 38 px com o ícone, colada ao campo). Todos os
+  `input`, `select` e `textarea` do painel recebem sozinhos esse ícone: o hook `useIconesCampos`
+  (`src/components/vhost/icones-campos.ts`, ligado no `VisualHostApp`) põe `data-ic="<ícone>"` no campo conforme o tipo, a
+  etiqueta e o texto de exemplo, e a caixa é desenhada pelo CSS `src/components/vhost/paginas/icones-campos.css` (gerado por
+  `node scripts/gerar-icones-campos.cjs`, dos SVG do Font Awesome — não editar à mão). Ícones: **nome → pessoa**, **domínio,
+  subdomínio e servidores de nomes → globo** (também o campo de busca de Registar domínio, `DomainSearchPainel`),
+  **palavra-passe → cadeado**, **NUIT → cartão**, **e-mail → vários** (envelope, arroba nos endereços `nome@…`, caixa de entrada,
+  avião de papel nos reencaminhamentos, carta aberta no assunto/mensagem), pasta, servidor, chave, lista, etc. Ficam de fora só
+  os que já têm a sua caixa (grupo `.igrp` com `span.ib` à frente — ex.: Definições PHP; o `Senha` leva à frente o **dado de gerar** no lugar do cadeado, depois
+  o campo e o olho; com `semGerar` (repetir, palavra-passe anterior) leva o cadeado), as pesquisas com a sua lupa, os campos com menos de 110 px de largura, o terminal e as caixas de
+  escolha dos separadores. Para forçar um ícone: `data-ic="globe"`; para dispensar: `data-ic-sem`. **Uma página nova não precisa de
+  fazer nada** — mas confirmar que o ícone certo saiu (se não, ajustar `escolher()` ou pôr `data-ic` no campo).
 - Formulários sem contornos laterais; títulos e campos alinhados à esquerda pelo `--recuo`.
 - Janelas (popups): **25 px de espaço nos 4 cantos**; largura dinâmica só quando o domínio é comprido; no computador o
   menu de opções de uma linha abre para a esquerda.

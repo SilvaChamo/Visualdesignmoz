@@ -4,6 +4,7 @@ import { createClient } from '@/utils/supabase/server';
 import { resolveRoleForAuthUser } from '@/lib/server-auth-role';
 
 import { ADMIN_EMAILS } from '@/lib/user-roles';
+import { faltaCodigoDoisPassos, respostaFaltaCodigo } from '@/lib/mfa-sessao';
 
 export type PanelAuthSuccess = {
   user: {
@@ -138,6 +139,9 @@ export async function requirePanelBootstrapAccess(): Promise<
       error: NextResponse.json({ error: 'Não autorizado' }, { status: 401 }),
     };
   }
+
+  // 2 passos ligados e a sessão ainda só com a palavra-passe: falta o código (428)
+  if (await faltaCodigoDoisPassos(supabase, user)) return { error: respostaFaltaCodigo() };
 
   const email = (user.email || '').toLowerCase();
 
