@@ -777,6 +777,10 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
             // próprio painel — nunca o login do site, que vê a sessão aberta e devolve ao painel (andava às voltas,
             // Silva 16/10/2026).
             apagarCache();
+            // Quem tinha sessão e ficou sem ela (a sessão acabou ou foi recusada): o login do site, não a entrada do
+            // painel (Silva, 20/10/2026: "quando o site desaloga o utilizador, leva-o à página de login do site").
+            // Vê-se antes de renovar: uma renovação falhada apaga a sessão local.
+            const tinhaSessao = await supabase.auth.getSession().then((x: { data: { session: unknown } }) => !!x.data.session, () => false);
             if (!renovouSessao.current) {
               renovouSessao.current = true;
               const renovada = await supabase.auth.refreshSession().then((x: { error: unknown }) => !x.error, () => false);
@@ -789,6 +793,11 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
                 relerSeVelha(d2);
                 return;
               }
+            }
+            // irParaLogin termina a sessão local antes de ir (sem isso o login do site via a sessão e devolvia ao painel)
+            if (tinhaSessao) {
+              void irParaLogin(ref.current.path || '/');
+              return;
             }
             setAEntrar(false);
             commit({ ...ref.current, carga: 'erro', erro: { msg: j.erro || 'Inicie sessão para ver o painel.', codigo: 401 } });
@@ -810,7 +819,7 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
         commit({ ...ref.current, carga: 'erro', erro: { msg: 'O servidor demorou a responder. Verifique a ligação e tente de novo.', codigo: 0 } });
       }
     },
-    [commit, aplicar, relerSeVelha],
+    [commit, aplicar, relerSeVelha, irParaLogin],
   );
   useIsomorphicLayoutEffect(() => {
     if (!semSessao) carregar();
