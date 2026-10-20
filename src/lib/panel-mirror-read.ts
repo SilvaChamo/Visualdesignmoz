@@ -636,6 +636,8 @@ export type PanelBootstrapAccount = {
   nome: string | null;
   /** #17: sem utilizador correspondente em auth.users — linha órfã, não editável/promovível. */
   orphaned?: boolean;
+  /** Conta suspensa (bloqueada no Auth): não consegue entrar no painel. */
+  suspended?: boolean;
 };
 
 export function buildPanelAccountCounts(users: PanelBootstrapAccount[]) {
@@ -751,14 +753,21 @@ export async function loadPaidUserIds(admin: SupabaseClient, userIds: string[]):
 }
 
 /** #15: papel gravado no Auth (user_metadata) por utilizador — para detectar quando diverge do perfil. */
-async function loadAuthMetaRoleById(admin: SupabaseClient): Promise<Map<string, Record<string, unknown>>> {
-  const map = new Map<string, Record<string, unknown>>();
+type AuthInfo = { meta: Record<string, unknown>; suspended: boolean; lastSignIn: string | null };
+
+async function loadAuthInfoById(admin: SupabaseClient): Promise<Map<string, AuthInfo>> {
+  const map = new Map<string, AuthInfo>();
   let page = 1;
   while (page <= 50) {
     const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 1000 });
     if (error || !data?.users?.length) break;
     for (const user of data.users) {
-      map.set(user.id, (user.user_metadata as Record<string, unknown>) || {});
+      const bannedUntil = user.banned_until ? Date.parse(user.banned_until) : NaN;
+      map.set(user.id, {
+        meta: (user.user_metadata as Record<string, unknown>) || {},
+        suspended: Number.isFinite(bannedUntil) && bannedUntil > Date.now(),
+        lastSignIn: user.last_sign_in_at ?? null,
+      });
     }
     if (data.users.length < 1000) break;
     page += 1;
@@ -791,10 +800,13 @@ export async function listAllBootstrapPanelAccounts(
   const userIds = profileRows
     .map((p) => String(p.user_id || p.id || '').trim())
     .filter(Boolean);
-  const [paidIds, authMetaById] = await Promise.all([
+  const [paidIds, authInfoById] = await Promise.all([
     loadPaidUserIds(admin, userIds),
-    loadAuthMetaRoleById(admin),
+    loadAuthInfoById(admin),
   ]);
+  const authMetaById = new Map(
+    [...authInfoById].map(([id, info]) => [id, info.meta] as [string, Record<string, unknown>]),
+  );
 
   const rows: PanelBootstrapAccount[] = [];
   const seen = new Set<string>();
@@ -836,6 +848,13 @@ export async function listAllBootstrapPanelAccounts(
     if (!seen.has(authRow.user_id)) {
       rows.push(mapAuthAccountToBootstrap(authRow, !authMetaById.has(authRow.user_id)));
     }
+  }
+
+  for (const row of rows) {
+    const info = authInfoById.get(row.id);
+    if (!info) continue;
+    row.suspended = info.suspended;
+    row.lastSignIn = row.lastSignIn ?? info.lastSignIn;
   }
 
   return rows.sort((a, b) => a.email.localeCompare(b.email));

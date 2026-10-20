@@ -71,8 +71,9 @@ import {
   Server, HardDrive, Key, Settings, Code, AlertCircle, AlertTriangle, CheckCircle, Eye, EyeOff, Zap,
   ExternalLink, Copy, FolderOpen, Layers, Play, Pause, Edit, Edit2, Cloud, RotateCcw, MoreVertical,
   Upload, UploadCloud, Download, Power, Plug, FileText, ArrowRight, ArrowRightLeft, Rocket, Archive, Check, X, Clock, Loader2, Calendar, Search, ChevronDown,
-  Image as ImageIcon, FileCode, FileArchive, Terminal, FileJson, PlaySquare, FolderPlus, FilePlus
+  Image as ImageIcon, FileCode, FileArchive, Terminal, FileJson, PlaySquare, FolderPlus, FilePlus, ArrowUpDown, ArrowUp, ArrowDown
 } from 'lucide-react'
+import { PanelUsersPager, PanelUserMessageModal, PanelUserPasswordModal } from '@/app/dashboard/PanelUsersExtras'
 
 function isDaCommandOk(result: unknown): boolean {
   if (result === true) return true
@@ -2501,7 +2502,12 @@ type PanelAccount = {
   nome?: string | null
   /** #17: linha órfã (sem utilizador correspondente em auth.users) — não editável/promovível. */
   orphaned?: boolean
+  /** Conta suspensa: não consegue entrar no painel. */
+  suspended?: boolean
 }
+
+type PanelSortKey = 'email' | 'nome' | 'panelRole' | 'estado' | 'lastSignIn'
+type PanelStatusFilter = 'all' | 'active' | 'suspended'
 
 const PANEL_ROLE_LABELS: Record<string, string> = {
   admin: 'Administrador',
@@ -2551,18 +2557,27 @@ function PanelAccountActionsMenu({
 }) {
   const ref = useRef<HTMLDivElement>(null)
 
+  const manageable = !account.orphaned
   const items = [
-    ...(panelResellerNeedsServer(account)
-      ? [{ id: 'provisionServer', label: 'Activar hospedagem' }]
+    ...(manageable ? [{ id: 'sendMessage', label: 'Enviar mensagem' }] : []),
+    ...(manageable && account.panelRole !== 'admin'
+      ? [{ id: account.suspended ? 'unsuspend' : 'suspend', label: account.suspended ? 'Reactivar' : 'Suspender' }]
       : []),
     ...(account.panelRole === 'reseller'
       ? [{ id: 'loginAs', label: 'Entrar como revendedor' }]
+      : []),
+    ...(manageable && (account.panelRole === 'client' || account.panelRole === 'profissional')
+      ? [{ id: 'loginAsClient', label: 'Entrar como' }]
+      : []),
+    ...(manageable ? [{ id: 'changePassword', label: 'Alterar senha' }] : []),
+    ...(panelResellerNeedsServer(account)
+      ? [{ id: 'provisionServer', label: 'Activar hospedagem' }]
       : []),
     ...(account.email.includes('@')
       ? [{ id: 'downloadEmailConfig', label: 'Baixar credenciais de acesso' }]
       : []),
     { id: 'edit', label: isHostingLinkedPanelAccount(account) ? 'Editar conta de hospedagem' : 'Editar conta' },
-    { id: 'delete', label: 'Eliminar', danger: true },
+    { id: 'delete', label: 'Remover', danger: true },
   ]
 
   const menuW = 200
@@ -2803,6 +2818,14 @@ export function CPUsersSection({
   const [msg, setMsg] = useState('')
   const [selected, setSelected] = useState<string[]>([])
   const [selectedPanelIds, setSelectedPanelIds] = useState<string[]>([])
+  const [panelStatusFilter, setPanelStatusFilter] = useState<PanelStatusFilter>('all')
+  const [panelSort, setPanelSort] = useState<{ key: PanelSortKey; dir: 'asc' | 'desc' } | null>(null)
+  const [panelPage, setPanelPage] = useState(1)
+  const [panelPageSize, setPanelPageSize] = useState(10)
+  const [messageTargets, setMessageTargets] = useState<PanelAccount[] | null>(null)
+  const [passwordTarget, setPasswordTarget] = useState<PanelAccount | null>(null)
+  const [panelModalBusy, setPanelModalBusy] = useState(false)
+  const [panelModalError, setPanelModalError] = useState('')
 
   // "Entrar" num cliente/profissional que falhou (ver /api/admin/impersonate-client).
   useEffect(() => {
@@ -2819,7 +2842,7 @@ export function CPUsersSection({
     data: { firstName: '', lastName: '', email: '', userName: '', password: '', confirmPassword: '', websitesLimit: 10, emailsLimit: 100, acl: 'user' }
   })
   const [showUserPass, setShowUserPass] = useState(false)
-  const [confirm, setConfirm] = useState<{ show: boolean, title: string, message: string, onConfirm: () => void, isDanger?: boolean }>({
+  const [confirm, setConfirm] = useState<{ show: boolean, title: string, message: string, onConfirm: () => void, isDanger?: boolean, confirmText?: string }>({
     show: false, title: '', message: '', onConfirm: () => { }
   })
 
@@ -2913,15 +2936,9 @@ export function CPUsersSection({
     if (!isActive || !isPanelsMode || !panelScope) {
       return
     }
-    setChrome({
-      search: {
-        value: searchQuery,
-        onChange: setSearchQuery,
-        placeholder: 'Pesquisar por email ou nome…',
-      },
-    })
+    setChrome(null)
     return () => setChrome(null)
-  }, [isActive, isPanelsMode, panelScope, searchQuery, setChrome])
+  }, [isActive, isPanelsMode, panelScope, setChrome])
 
   const activePanelFilter = fixedPanelFilter ?? panelFilter
   const usersScopeRoles: UsersScopeFilter[] = ['admin', 'manager', 'reseller', 'guest', 'client']
@@ -2937,18 +2954,63 @@ export function CPUsersSection({
     return acc
   }, { all: panelAccounts.length })
 
-  const filteredPanelAccounts = scopedPanelAccounts.filter((account) => {
-    const matchesRole = panelScope === 'users'
+  const roleScopedPanelAccounts = scopedPanelAccounts.filter((account) =>
+    panelScope === 'users'
       ? (usersScopeFilter === 'all' || account.panelRole === usersScopeFilter)
-      : (activePanelFilter === 'all' || account.panelRole === activePanelFilter)
+      : (activePanelFilter === 'all' || account.panelRole === activePanelFilter),
+  )
+  const panelStatusCounts = {
+    all: roleScopedPanelAccounts.length,
+    active: roleScopedPanelAccounts.filter((a) => !a.suspended).length,
+    suspended: roleScopedPanelAccounts.filter((a) => a.suspended).length,
+  }
+
+  const filteredPanelAccounts = roleScopedPanelAccounts.filter((account) => {
+    if (panelStatusFilter === 'active' && account.suspended) return false
+    if (panelStatusFilter === 'suspended' && !account.suspended) return false
     const q = searchQuery.trim().toLowerCase()
-    const matchesSearch =
+    return (
       !q ||
       account.email.toLowerCase().includes(q) ||
       account.userName.toLowerCase().includes(q) ||
       (account.nome || '').toLowerCase().includes(q)
-    return matchesRole && matchesSearch
+    )
   })
+
+  const sortedPanelAccounts = (() => {
+    if (!panelSort) return filteredPanelAccounts
+    const dir = panelSort.dir === 'asc' ? 1 : -1
+    const value = (a: PanelAccount): string => {
+      switch (panelSort.key) {
+        case 'nome': return (a.nome || a.userName || '').toLowerCase()
+        case 'panelRole': return PANEL_ROLE_LABELS[a.panelRole] || a.panelRole
+        case 'estado': return a.suspended ? 'Suspenso' : 'Activo'
+        case 'lastSignIn': return a.lastSignIn || ''
+        default: return a.email.toLowerCase()
+      }
+    }
+    return [...filteredPanelAccounts].sort((a, b) => value(a).localeCompare(value(b)) * dir)
+  })()
+
+  const panelTotalPages = Math.max(1, Math.ceil(sortedPanelAccounts.length / panelPageSize))
+  const panelCurrentPage = Math.min(panelPage, panelTotalPages)
+  const pagedPanelAccounts = sortedPanelAccounts.slice(
+    (panelCurrentPage - 1) * panelPageSize,
+    panelCurrentPage * panelPageSize,
+  )
+  const allPagedSelected =
+    pagedPanelAccounts.length > 0 && pagedPanelAccounts.every((a) => selectedPanelIds.includes(a.id))
+  const selectedPanelAccounts = selectedPanelIds
+    .map((id) => panelAccounts.find((a) => a.id === id))
+    .filter((a): a is PanelAccount => Boolean(a))
+
+  const togglePanelSort = (key: PanelSortKey) => {
+    setPanelSort((prev) => {
+      if (!prev || prev.key !== key) return { key, dir: 'asc' }
+      if (prev.dir === 'asc') return { key, dir: 'desc' }
+      return null
+    })
+  }
 
   const panelHeaderTitle = isPanelsMode
     ? (panelScope === 'users'
@@ -3047,6 +3109,25 @@ export function CPUsersSection({
       void handlePanelLoginAs(account)
       return
     }
+    if (action === 'loginAsClient') {
+      clearAllPanelClientCaches()
+      window.location.href = `/api/admin/impersonate-client?userId=${encodeURIComponent(account.id)}`
+      return
+    }
+    if (action === 'sendMessage') {
+      setPanelModalError('')
+      setMessageTargets([account])
+      return
+    }
+    if (action === 'changePassword') {
+      setPanelModalError('')
+      setPasswordTarget(account)
+      return
+    }
+    if (action === 'suspend' || action === 'unsuspend') {
+      runPanelSuspend([account], action === 'suspend')
+      return
+    }
     if (action === 'downloadEmailConfig') {
       void (async () => {
         try {
@@ -3070,6 +3151,110 @@ export function CPUsersSection({
     if (action === 'delete') {
       handlePanelDelete(account)
     }
+  }
+
+  const panelRowRequest = async (body: Record<string, unknown>) => {
+    await supabase.auth.getSession()
+    const res = await fetch('/api/admin/panel-users', {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    const payload = await res.json().catch(() => ({}))
+    if (!res.ok || payload.success === false) {
+      throw new Error(
+        String(payload.error || payload.message || 'Falha')
+          .replace(/<[^>]*>/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim(),
+      )
+    }
+    return payload
+  }
+
+  const reloadPanelAccountsFresh = async () => {
+    clearPanelUsersCache()
+    clearPanelBootstrapCache()
+    await loadPanelAccounts({ fresh: true })
+  }
+
+  const runPanelSuspend = (accounts: PanelAccount[], suspend: boolean) => {
+    if (!accounts.length) return
+    const run = async () => {
+      setCreating(true)
+      setMsg('')
+      try {
+        const payload = await panelRowRequest({
+          action: suspend ? 'suspend' : 'unsuspend',
+          userIds: accounts.map((a) => a.id),
+        })
+        const failed = payload.errors?.length ? ` ${payload.errors.length} falharam — ${payload.errors.join('; ')}` : ''
+        setMsg(`✅ ${payload.updated} conta(s) ${suspend ? 'suspensa(s)' : 'reactivada(s)'}.${failed}`)
+        setSelectedPanelIds([])
+        await reloadPanelAccountsFresh()
+      } catch (e: unknown) {
+        setMsg(`❌ ${e instanceof Error ? e.message : 'Erro'}`)
+      }
+      setCreating(false)
+      setConfirm((c) => ({ ...c, show: false }))
+    }
+    if (!suspend) {
+      void run()
+      return
+    }
+    setConfirm({
+      show: true,
+      title: accounts.length === 1 ? 'Suspender conta' : `Suspender ${accounts.length} contas`,
+      message:
+        accounts.length === 1
+          ? `Suspender ${accounts[0].email}? Deixa de poder entrar no painel até ser reactivada.`
+          : `Suspender as ${accounts.length} contas seleccionadas? Deixam de poder entrar no painel até serem reactivadas.`,
+      isDanger: true,
+      confirmText: 'Sim, suspender',
+      onConfirm: run,
+    })
+  }
+
+  const sendPanelMessage = async (subject: string, message: string) => {
+    if (!messageTargets) return
+    setPanelModalBusy(true)
+    setPanelModalError('')
+    try {
+      const payload = await panelRowRequest({
+        action: 'sendMessage',
+        userIds: messageTargets.map((a) => a.id),
+        subject,
+        message,
+      })
+      setMessageTargets(null)
+      const failed = payload.errors?.length ? ` ${payload.errors.length} falharam — ${payload.errors.join('; ')}` : ''
+      setMsg(`✅ Mensagem enviada a ${payload.updated} conta(s).${failed}`)
+    } catch (e: unknown) {
+      setPanelModalError(e instanceof Error ? e.message : 'Erro')
+    }
+    setPanelModalBusy(false)
+  }
+
+  const savePanelPassword = async (password: string) => {
+    if (!passwordTarget) return
+    setPanelModalBusy(true)
+    setPanelModalError('')
+    try {
+      await panelRowRequest({
+        userId: passwordTarget.id,
+        role: passwordTarget.panelRole,
+        email: passwordTarget.email,
+        nome: passwordTarget.nome || passwordTarget.userName,
+        password,
+        provisionDa: false,
+      })
+      setPasswordTarget(null)
+      setMsg(`✅ Senha de ${passwordTarget.email} actualizada.`)
+    } catch (e: unknown) {
+      setPanelModalError(e instanceof Error ? e.message : 'Erro')
+    }
+    setPanelModalBusy(false)
   }
 
   const handleProvisionServer = async (account: PanelAccount) => {
@@ -3603,6 +3788,27 @@ export function CPUsersSection({
 
   const displayCount = isPanelsMode ? filteredPanelAccounts.length : users.length
 
+  const renderPanelSortTh = (key: PanelSortKey, label: string) => {
+    const dir = panelSort?.key === key ? panelSort.dir : null
+    const Icon = dir === 'asc' ? ArrowUp : dir === 'desc' ? ArrowDown : ArrowUpDown
+    return (
+      <th
+        className="px-4 py-3"
+        aria-sort={dir === 'asc' ? 'ascending' : dir === 'desc' ? 'descending' : 'none'}
+      >
+        <button
+          type="button"
+          onClick={() => togglePanelSort(key)}
+          title={`Ordenar por ${label}`}
+          className="inline-flex items-center gap-1.5 font-bold uppercase hover:text-red-600 dark:hover:text-red-400"
+        >
+          {label}
+          <Icon className={`h-3.5 w-3.5 ${dir ? 'text-red-600' : 'text-gray-400'}`} />
+        </button>
+      </th>
+    )
+  }
+
   return (
     <div className="space-y-6">
       <div className={`flex flex-col gap-3 ${isPanelsMode ? 'sm:flex-row sm:items-center sm:justify-between' : 'lg:flex-row lg:items-end lg:justify-end'}`}>
@@ -3657,17 +3863,6 @@ export function CPUsersSection({
                       >
                         Aplicar
                       </button>
-                      <button
-                        type="button"
-                        onClick={applyBulkPanelDelete}
-                        disabled={creating}
-                        className="shrink-0 px-4 py-2 flex items-center justify-center gap-1.5 bg-transparent border border-red-300 dark:border-red-900/50 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 rounded text-sm font-bold transition-all disabled:opacity-50"
-                      >
-                        Eliminar
-                      </button>
-                      <span className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">
-                        {selectedPanelIds.length} seleccionada(s)
-                      </span>
                     </>
                   )}
                 </>
@@ -3707,6 +3902,98 @@ export function CPUsersSection({
         </div>
       </div>
 
+      {isPanelsMode && panelScope && (
+        <>
+          <fieldset className="min-w-0 rounded-xl border border-gray-200 px-4 pb-4 pt-1 dark:border-zinc-800">
+            <legend className="px-2 text-lg font-semibold text-gray-900 dark:text-zinc-100">Filtros</legend>
+            <div className="flex h-[42px] items-stretch overflow-hidden rounded border border-gray-300 bg-white focus-within:border-red-500 dark:border-zinc-700 dark:bg-transparent">
+              <span className="flex w-10 shrink-0 items-center justify-center border-r border-gray-200 text-gray-500 dark:border-zinc-700">
+                <Search className="h-4 w-4" />
+              </span>
+              <input
+                type="search"
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value)
+                  setPanelPage(1)
+                }}
+                placeholder="Filtrar por e-mail ou nome"
+                aria-label="Filtrar por e-mail ou nome"
+                className="min-w-0 flex-1 bg-transparent px-3 text-sm text-gray-900 outline-none placeholder:text-gray-400 dark:text-zinc-100"
+              />
+            </div>
+            <nav className={`${panelTabList} mt-2`} aria-label="Estado da conta">
+              {(
+                [
+                  { id: 'all' as const, label: `Todos (${panelStatusCounts.all})` },
+                  { id: 'active' as const, label: `Activos (${panelStatusCounts.active})` },
+                  { id: 'suspended' as const, label: `Suspensos (${panelStatusCounts.suspended})` },
+                ]
+              ).map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => {
+                    setPanelStatusFilter(tab.id)
+                    setPanelPage(1)
+                  }}
+                  className={`${panelTabBtn} relative font-bold whitespace-nowrap ${
+                    panelStatusFilter === tab.id
+                      ? 'z-10 border-b-red-600 text-red-600 dark:border-b-red-500 dark:text-red-400'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-zinc-400 dark:hover:text-zinc-200'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </nav>
+          </fieldset>
+
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {selectedPanelIds.length > 0 && (
+              <span className="mr-auto text-xs text-zinc-500 dark:text-zinc-400">
+                {selectedPanelIds.length} seleccionada(s)
+              </span>
+            )}
+            <button
+              type="button"
+              disabled={creating || selectedPanelAccounts.length === 0}
+              onClick={() => {
+                setPanelModalError('')
+                setMessageTargets(selectedPanelAccounts.filter((a) => !a.orphaned))
+              }}
+              className={panelBtnSecondary}
+            >
+              Enviar mensagem
+            </button>
+            <button
+              type="button"
+              disabled={creating || selectedPanelAccounts.length === 0}
+              onClick={() => runPanelSuspend(selectedPanelAccounts.filter((a) => !a.orphaned && a.panelRole !== 'admin'), true)}
+              className={panelBtnSecondary}
+            >
+              Suspender
+            </button>
+            <button
+              type="button"
+              disabled={creating || selectedPanelAccounts.length === 0}
+              onClick={() => runPanelSuspend(selectedPanelAccounts.filter((a) => !a.orphaned && a.panelRole !== 'admin'), false)}
+              className={panelBtnSecondary}
+            >
+              Reactivar
+            </button>
+            <button
+              type="button"
+              disabled={creating || selectedPanelAccounts.length === 0}
+              onClick={applyBulkPanelDelete}
+              className={`${panelBtnSecondary} !text-red-600 dark:!text-red-400`}
+            >
+              Remover
+            </button>
+          </div>
+        </>
+      )}
+
       {msg && (
         <div
           className={`rounded border px-4 py-2.5 text-sm font-medium transition-opacity duration-500 ${msg.includes('✅') || msg.includes('sucesso') || msg.includes('actualizada')
@@ -3726,23 +4013,39 @@ export function CPUsersSection({
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-xs font-bold text-gray-500 uppercase border-b border-gray-200 bg-gray-50 dark:border-zinc-800 dark:bg-zinc-900/50">
-                {panelScope === 'users' && <th className="w-10 px-4 py-3" aria-hidden="true" />}
-                <th className="px-4 py-3">Email</th>
-                <th className="px-4 py-3">Nome</th>
-                <th className="px-4 py-3">Papel</th>
-                <th className="px-4 py-3">Estado</th>
-                <th className="px-4 py-3">Último acesso</th>
+                {panelScope && (
+                  <th className="w-10 px-4 py-3">
+                    <input
+                      type="checkbox"
+                      checked={allPagedSelected}
+                      onChange={() =>
+                        setSelectedPanelIds((prev) =>
+                          allPagedSelected
+                            ? prev.filter((id) => !pagedPanelAccounts.some((a) => a.id === id))
+                            : [...new Set([...prev, ...pagedPanelAccounts.map((a) => a.id)])],
+                        )
+                      }
+                      className="h-4 w-4 cursor-pointer accent-red-600"
+                      aria-label="Seleccionar todas as contas desta página"
+                    />
+                  </th>
+                )}
+                {renderPanelSortTh('email', 'Email')}
+                {renderPanelSortTh('nome', 'Nome')}
+                {renderPanelSortTh('panelRole', 'Papel')}
+                {renderPanelSortTh('estado', 'Estado')}
+                {renderPanelSortTh('lastSignIn', 'Último acesso')}
                 <th className="px-4 py-3 text-right">Acções</th>
               </tr>
             </thead>
             <tbody>
-              {filteredPanelAccounts.map((account) => (
+              {pagedPanelAccounts.map((account) => (
                 <tr
                   key={account.id}
                   className={`border-b border-gray-200 transition-colors hover:bg-gray-50 dark:border-zinc-800 dark:hover:bg-transparent dark:hover:[&_td:not(:last-child)]:text-red-400 ${selectedPanelIds.includes(account.id) ? 'bg-red-50/40 dark:bg-red-950/10' : ''
-                    }`}
+                    } ${account.suspended ? 'text-gray-400 dark:text-zinc-500' : ''}`}
                 >
-                  {panelScope === 'users' && (
+                  {panelScope && (
                     <td className="px-4 py-1.5">
                       <input
                         type="checkbox"
@@ -3775,7 +4078,11 @@ export function CPUsersSection({
                     )}
                   </td>
                   <td className="px-4 py-1.5">
-                    {account.panelRole === 'reseller' ? (
+                    {account.suspended ? (
+                      <span className="px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-tight bg-red-100 text-red-700">
+                        Suspenso
+                      </span>
+                    ) : account.panelRole === 'reseller' ? (
                       <span
                         className={`px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-tight ${
                           account.serverLinked || account.daUsername
@@ -3785,8 +4092,12 @@ export function CPUsersSection({
                       >
                         {account.serverLinked || account.daUsername ? 'Activo' : 'Pendente'}
                       </span>
-                    ) : (
+                    ) : account.orphaned ? (
                       <span className="text-gray-400 text-xs">—</span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-tight bg-slate-100 text-slate-700">
+                        Activo
+                      </span>
                     )}
                   </td>
                   <td className="px-4 py-1.5 text-gray-500 text-xs dark:text-zinc-500">
@@ -3931,6 +4242,19 @@ export function CPUsersSection({
         )}
       </div>
 
+      {isPanelsMode && !loading && displayCount > 0 && (
+        <PanelUsersPager
+          total={sortedPanelAccounts.length}
+          page={panelCurrentPage}
+          pageSize={panelPageSize}
+          onPage={setPanelPage}
+          onPageSize={(size) => {
+            setPanelPageSize(size)
+            setPanelPage(1)
+          }}
+        />
+      )}
+
       {panelOpenMenu && (() => {
         const account = filteredPanelAccounts.find((a) => a.id === panelOpenMenu.accountId)
         if (!account) return null
@@ -3943,6 +4267,25 @@ export function CPUsersSection({
           />
         )
       })()}
+
+      {messageTargets && (
+        <PanelUserMessageModal
+          recipients={messageTargets.map((a) => a.email)}
+          busy={panelModalBusy}
+          error={panelModalError}
+          onSend={(subject, message) => void sendPanelMessage(subject, message)}
+          onClose={() => setMessageTargets(null)}
+        />
+      )}
+      {passwordTarget && (
+        <PanelUserPasswordModal
+          email={passwordTarget.email}
+          busy={panelModalBusy}
+          error={panelModalError}
+          onSave={(password) => void savePanelPassword(password)}
+          onClose={() => setPasswordTarget(null)}
+        />
+      )}
 
       <EmailConfigResultModal
         open={Boolean(panelEmailConfig)}
@@ -4137,6 +4480,7 @@ export function CPUsersSection({
         title={confirm.title}
         message={confirm.message}
         isDanger={confirm.isDanger}
+        confirmText={confirm.confirmText}
         onConfirm={confirm.onConfirm}
         onCancel={() => setConfirm({ ...confirm, show: false })}
       />
