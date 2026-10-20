@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createAdminClient, type SupabaseClient, type User } from '@supabase/supabase-js';
 import { withTimeout } from '@/lib/with-timeout';
+import { sendEmail } from '@/lib/email-service';
 import { requireAdmin } from '@/lib/admin-api-auth';
 import { requireAdminOrReseller } from '@/lib/panel-api-auth';
 import { isOwnerManaged, resolveCallerManagedOwners } from '@/lib/domain-access';
@@ -785,12 +786,94 @@ export async function PUT(req: NextRequest) {
 }
 
 /** Alterar papel — conta de painel; servidor opcional para revenda. */
+/** Suspender = bloquear a conta no Auth: deixa de poder entrar (e de renovar a sessão). */
+const SUSPEND_BAN_DURATION = '876000h';
+
+async function accountRoleOf(admin: SupabaseClient, user: User): Promise<UserRole | undefined> {
+  const profile = await getProfileForAuthUser(admin, user.id);
+  return (profile?.role as UserRole | undefined) || (user.user_metadata?.role as UserRole | undefined);
+}
+
+/** Acções sobre uma ou mais contas a partir da lista: suspender, reactivar e enviar mensagem. */
+async function handleRowActions(
+  admin: SupabaseClient,
+  callerId: string,
+  body: {
+    action: string;
+    userId?: string;
+    userIds?: string[];
+    subject?: string;
+    message?: string;
+  },
+) {
+  const ids = Array.from(
+    new Set((Array.isArray(body.userIds) ? body.userIds : body.userId ? [body.userId] : []).map(String)),
+  );
+  if (!ids.length) {
+    return NextResponse.json({ success: false, error: 'Seleccione pelo menos uma conta.' }, { status: 400 });
+  }
+
+  const subject = String(body.subject || '').trim();
+  const message = String(body.message || '').trim();
+  if (body.action === 'sendMessage' && (!subject || !message)) {
+    return NextResponse.json({ success: false, error: 'Assunto e mensagem são obrigatórios.' }, { status: 400 });
+  }
+
+  const errors: string[] = [];
+  let done = 0;
+  for (const id of ids) {
+    try {
+      const { user } = await assertAccountBelongsToPanel(admin, id);
+      if (body.action === 'sendMessage') {
+        if (!user.email) throw new Error('Conta sem e-mail.');
+        const escaped = message.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        await sendEmail({
+          to: user.email,
+          subject,
+          html: `<p>${escaped.replace(/\n/g, '<br>')}</p>`,
+          text: message,
+          category: 'transactional',
+        });
+      } else {
+        if (id === callerId) throw new Error('Não pode suspender a própria conta.');
+        if ((await accountRoleOf(admin, user)) === 'admin') {
+          throw new Error('Não é possível suspender uma conta de administrador.');
+        }
+        const { error } = await admin.auth.admin.updateUserById(id, {
+          ban_duration: body.action === 'suspend' ? SUSPEND_BAN_DURATION : 'none',
+        });
+        if (error) throw new Error(error.message);
+      }
+      done += 1;
+    } catch (err: unknown) {
+      errors.push(`${id}: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  clearPanelUsersServerCache();
+  if (done === 0) {
+    return NextResponse.json({ success: false, error: errors.join('; ') }, { status: 400 });
+  }
+  return NextResponse.json({ success: true, updated: done, errors: errors.length ? errors : undefined });
+}
+
 export async function PATCH(req: NextRequest) {
   const auth = await requireAdmin();
   if ('error' in auth) return auth.error;
 
   try {
     const body = await req.json();
+
+    if (body.action === 'suspend' || body.action === 'unsuspend' || body.action === 'sendMessage') {
+      if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+        return NextResponse.json(
+          { success: false, error: 'Supabase Service Role não configurado.' },
+          { status: 500 },
+        );
+      }
+      return handleRowActions(createAdminClient(SUPABASE_URL, SUPABASE_SERVICE_KEY), auth.user.id, body);
+    }
+
     const { userId, role, email, nome, password, provisionDa } = body as {
       userId?: string;
       role?: UserRole;
