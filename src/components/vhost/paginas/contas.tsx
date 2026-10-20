@@ -878,7 +878,12 @@ function NovaConta({ tipo }: { tipo: TipoNova }) {
         {tipo !== 'admin' && (
           <Row label="Domínio">
             <div style={{ width: '100%' }}>
-              <input value={dom} onChange={(e) => setDom(e.target.value)} placeholder="ex.: empresa.co.mz" disabled={aPassar !== null} />
+              <span className="igrp">
+                <span className="ib" style={{ cursor: 'default' }}>
+                  <i className="fa-solid fa-globe" />
+                </span>
+                <input value={dom} onChange={(e) => setDom(e.target.value)} placeholder="ex.: empresa.co.mz" disabled={aPassar !== null} />
+              </span>
               {onde?.passa && onde.prev && (
                 <div className="passar-aviso-dom">
                   <i className="fa-solid fa-right-left" />

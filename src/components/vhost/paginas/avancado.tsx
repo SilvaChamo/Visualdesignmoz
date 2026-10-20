@@ -1332,7 +1332,7 @@ function WordPressLista() {
           empty="Não há WordPress instalados"
           cols={[
             { k: 'd', t: 'Domínio', cell: (r) => <a className="lk lk-dom" href={r.url || 'https://' + r.d} target="_blank" rel="noreferrer">{r.d}</a> },
-            { k: 'pasta', t: 'Pasta', cell: (r) => <a className="lk wp-pasta" onClick={() => nav('/utilizador/ficheiros/' + r.pasta.split('/').map(enc).join('/'))}>{comBarras(r.pasta)}</a> },
+            { k: 'pasta', t: 'Pasta', cell: (r) => <a className="lk wp-pasta" onClick={() => nav('/utilizador/ficheiros/' + r.pasta.split('/').map(enc).join('/'))}>{r.pasta}</a> },
             { k: 'v', t: 'Versão', cell: (r) => (r.versao ? <span className="wp-versao">{r.versao}</span> : '—') },
             { k: 'titulo', t: 'Título', cell: (r) => r.titulo || '—' },
             { k: 'auto', t: 'Atualização automática', cell: (r) => <span className={'tag ' + (r.auto === 'false' ? 'off' : 'ok')}>{t(AUTO[r.auto] || 'Só de segurança')}</span> },
@@ -1363,7 +1363,7 @@ function WordPressLista() {
             rowKey={(r) => r.d}
             cols={[
               { k: 'd', t: 'Domínio', cell: (r) => <b>{r.d}</b> },
-              { k: 'pasta', t: 'Pasta', cell: (r) => <code className="wp-pasta">{comBarras(r.pasta)}</code> },
+              { k: 'pasta', t: 'Pasta', cell: (r) => <code className="wp-pasta">{r.pasta}</code> },
             ]}
             actions={(r) => (
               <button className="btn sm btn-ed" onClick={() => nav('/utilizador/wordpress/instalar/' + enc(r.d))}>

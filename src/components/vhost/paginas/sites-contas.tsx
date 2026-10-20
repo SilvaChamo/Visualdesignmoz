@@ -12,6 +12,7 @@ import { arrumarMenuContas } from '../menu-contas';
 import { useGet } from '../carga';
 import { DataTable, Tabs } from './componentes';
 import { Carregando } from './avancado';
+import { Confirmar } from './pacotes';
 
 // ---------- Menu: "Sites das contas" em Gestão de contas, a seguir a "Todos os utilizadores" ----------
 {
@@ -48,6 +49,8 @@ import { Carregando } from './avancado';
     Redireccionamento: 'Redirect',
     'plano de e-mail: a página de espera não é um site': 'e-mail plan: the holding page is not a site',
     'só domínio: a página de espera não é um site': 'domain only: the holding page is not a site',
+    Eliminar: 'Delete',
+    'Eliminar o site?': 'Delete the site?',
   };
   for (const [pt, en] of Object.entries(novas)) if (!(pt in EN)) EN[pt] = en;
 }
@@ -70,6 +73,21 @@ function Sites() {
   const { dados, erro, ler } = useGet<{ sites: Site[] }>('/api/vhost/sites');
   const [aba, setAba] = useState<Aba>('todos');
   if (!dados) return <Carregando erro={erro} ler={ler} />;
+  // Eliminar o site de vez, sem deixar nada (Silva, 20/10/2026): primeiro pergunta; depois o servidor tira o site e os
+  // ficheiros, o e-mail do domínio com as caixas e o DNS
+  const eliminar = async (r: Site) => {
+    vh.toast('A eliminar ' + r.dominio + '…');
+    try {
+      const x = await fetch('/api/vhost/dominio', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ acao: 'dominio-eliminar-tudo', conta: r.conta, dominio: r.dominio }) });
+      const j = (await x.json().catch(() => ({}))) as { erro?: string };
+      if (!x.ok) vh.toast(j.erro || 'Não foi possível eliminar.');
+      else vh.toast(r.dominio + ' eliminado');
+      await ler(true);
+      await vh.recarregar(true);
+    } catch {
+      vh.toast('Sem ligação ao site. Nada foi alterado.');
+    }
+  };
   const filtro: Record<Aba, (s: Site) => boolean> = {
     todos: () => true,
     aqui: (s) => s.onde === 'aqui' && !s.espera,
@@ -134,6 +152,26 @@ function Sites() {
             },
             { k: 't', t: 'Título da página', ate: 1300, sort: (r) => r.titulo, cell: (r) => r.titulo || '—' },
           ]}
+          actions={(r) => (
+            <button
+              className="btn sm btn-rm"
+              onClick={() =>
+                vh.openM(
+                  <Confirmar
+                    titulo="Eliminar o site?"
+                    texto={
+                      'Vai eliminar ' + r.dominio + ' (conta ' + r.conta + ') de vez: o site com os ficheiros e o certificado, o e-mail do domínio com todas as caixas e mensagens, e o DNS. Não se pode desfazer. As bases de dados da conta e o registo do domínio ficam.'
+                    }
+                    ok="Eliminar"
+                    onOk={() => eliminar(r)}
+                  />,
+                )
+              }
+            >
+              <i className="fa-solid fa-trash" />
+              <span>{t('Eliminar')}</span>
+            </button>
+          )}
         />
       </div>
     </>

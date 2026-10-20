@@ -285,15 +285,20 @@ export function TransferirDominio() {
               <div className="trf-campos">
                 <label>
                   <span>{t('Domínio')}</span>
-                  <input
-                    value={dominio}
-                    onChange={(e) => {
-                      setDominio(e.target.value);
-                      setPreco(null);
-                    }}
-                    placeholder="exemplo.com"
-                    required
-                  />
+                  <span className="igrp">
+                    <span className="ib" style={{ cursor: 'default' }}>
+                      <i className="fa-solid fa-globe" />
+                    </span>
+                    <input
+                      value={dominio}
+                      onChange={(e) => {
+                        setDominio(e.target.value);
+                        setPreco(null);
+                      }}
+                      placeholder="exemplo.com"
+                      required
+                    />
+                  </span>
                 </label>
                 <label>
                   <span>{t('Código EPP')}</span>

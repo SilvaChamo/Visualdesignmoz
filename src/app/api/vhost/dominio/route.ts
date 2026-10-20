@@ -5,7 +5,7 @@ import { requirePanelBootstrapAccess } from '@/lib/panel-api-auth';
 import { executeServerCommand } from '@/lib/server-ssh-exec';
 import { hestiaCall } from '@/lib/hestia-client';
 import * as hestia from '@/lib/hestia-adapter';
-import { createCloudflareZone, deleteCloudflareDnsRecord, findCloudflareZoneId, listCloudflareDnsRecords, updateCloudflareDnsRecord, upsertCloudflareRecord, type CloudflareRecordInput } from '@/lib/cloudflare-dns';
+import { createCloudflareZone, deleteCloudflareDnsRecord, deleteHostARecord, findCloudflareZoneId, listCloudflareDnsRecords, updateCloudflareDnsRecord, upsertCloudflareRecord, type CloudflareRecordInput } from '@/lib/cloudflare-dns';
 import { provisionEmailAuthForDomain } from '@/lib/domain-email-auth';
 import { dynadotAPI } from '@/lib/dynadot-adapter';
 import { getServerHost } from '@/lib/server-config';
@@ -359,6 +359,8 @@ async function lerDominio(req: NextRequest) {
     site ? `echo @@SSL; ${H}/v-list-web-domain-ssl ${conta} ${d} json 2>/dev/null` : '',
     site ? `echo @@INI; cat ${q(raiz + '/.user.ini')} 2>/dev/null` : '',
     site ? `echo @@HT; cat ${q(raiz + '/.htaccess')} 2>/dev/null` : '',
+    // a versão do PHP que o servidor usa quando o site está no modelo "padrão" (só leitura)
+    site ? `echo @@PHPVER; php -r 'echo PHP_MAJOR_VERSION . "." . PHP_MINOR_VERSION;' 2>/dev/null; echo` : '',
     temZona ? `echo @@DNS; ${H}/v-list-dns-records ${conta} ${d} json` : '',
     ...(site ? subdominios.map((nome, i) => `echo @@SUBSSL${i}; ${H}/v-list-web-domain-ssl ${conta} ${nome} json 2>/dev/null`) : []),
   ].filter(Boolean);
@@ -485,6 +487,7 @@ async function lerDominio(req: NextRequest) {
       ns,
       siteVercel,
       subdominios: dadosSubdominios,
+      phpPadrao: /^\d+\.\d+$/.test((sec.get('PHPVER') || '').trim()) ? (sec.get('PHPVER') || '').trim() : '',
       php: bloco(sec.get('INI') || '', MARCA_INI).map((l) => {
         const [k, ...v] = l.split('=');
         return { k: k.trim(), v: v.join('=').trim() };
@@ -601,6 +604,39 @@ export async function POST(req: NextRequest) {
       esquecerLeitura();
       return NextResponse.json({ erro: 'Este domínio já não existe no servidor. A lista foi actualizada.' }, { status: 409 });
     }
+  }
+
+  // Eliminar o site de uma conta de vez, sem deixar nada (Silva, 20/10/2026, "Sites das contas"): o site com os ficheiros, o
+  // certificado e as contas FTP, o domínio de e-mail com todas as caixas, a zona DNS do Hestia e o A do endereço (e do www)
+  // na Cloudflare. Só o administrador. Ficam de fora: as bases de dados da conta, a zona da Cloudflare de um domínio principal
+  // e o registo do domínio (esses não são do site).
+  if (c.acao === 'dominio-eliminar-tudo') {
+    if (r.s.role !== 'admin') return NextResponse.json({ erro: 'Só o administrador elimina sites de outras contas.' }, { status: 403 });
+    if (!CONTA.test(conta) || !DOM.test(d)) return NextResponse.json({ erro: 'Conta ou domínio inválido.' }, { status: 400 });
+    // o próprio painel e o site de produção nunca se eliminam daqui
+    const protegidos = new Set(['visualdesignmoz.com', 'www.visualdesignmoz.com', 'host.visualdesignmoz.com', String(getServerHost() || '').toLowerCase()]);
+    if (protegidos.has(d)) return NextResponse.json({ erro: d + ' é do próprio painel e do site da Visual Design: não se elimina daqui.' }, { status: 403 });
+    const temWeb = !!srv.web[conta]?.[d];
+    const temMail = !!srv.mail[conta]?.[d];
+    const temDns = !!srv.dns[conta]?.[d];
+    if (!temWeb && !temMail && !temDns) {
+      esquecerLeitura();
+      return NextResponse.json({ erro: 'Este site já não existe no servidor. A lista foi actualizada.' }, { status: 409 });
+    }
+    const feitos: string[] = [];
+    const falhas: string[] = [];
+    const passo = async (nome: string, p: Promise<{ ok: boolean; error?: string }>) => {
+      const x = await p.catch((err: unknown) => ({ ok: false, error: err instanceof Error ? err.message : 'erro' }));
+      (x.ok ? feitos : falhas).push(x.ok ? nome : nome + ' (' + (x.error || 'erro') + ')');
+    };
+    if (temWeb) await passo('site e ficheiros', call('v-delete-web-domain', [conta, d]));
+    if (temMail) await passo('e-mail e caixas', call('v-delete-mail-domain', [conta, d]));
+    if (temDns) await passo('zona DNS', call('v-delete-dns-domain', [conta, d]));
+    await passo('DNS da Cloudflare', deleteHostARecord(d));
+    await passo('DNS do www', deleteHostARecord('www.' + d));
+    esquecerLeitura();
+    if (falhas.length) return NextResponse.json({ erro: 'Não ficou tudo eliminado. Feito: ' + (feitos.join(', ') || 'nada') + '. Falhou: ' + falhas.join('; ') + '.' }, { status: 502 });
+    return NextResponse.json({ ok: true });
   }
 
   const e = await verificar(r.s, conta, d, srv);
