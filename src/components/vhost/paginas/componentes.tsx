@@ -253,6 +253,7 @@ export function DataTable<T>({
   empilhar = true,
   acoesNaColuna = false,
   colunasNoCabecalho = false,
+  paginacaoNoCabecalho = false,
 }: {
   id: string;
   rows: T[];
@@ -304,6 +305,8 @@ export function DataTable<T>({
   /** o botão "Colunas" no cabeçalho da tabela, depois da última coluna, em vez de numa barra por cima do cartão
    *  (modelo do Silva, 14/10/2026 — listas de contas) */
   colunasNoCabecalho?: boolean;
+  /** a paginação também na última célula do cabeçalho da tabela (barra dos títulos das colunas), além do fundo do cartão */
+  paginacaoNoCabecalho?: boolean;
   /** notifica chaves das linhas selecionadas */
   onSelChange?: (keys: string[]) => void;
 }) {
@@ -526,8 +529,12 @@ export function DataTable<T>({
       <button className="btn g sm" disabled={atual === 1} onClick={() => setPag(atual - 1)} aria-label={t('Página anterior')}>
         ‹
       </button>
-      <span>
-        {t('Página')} {atual} {t('de')} {paginas}
+      <span className="dt-pag-txt">
+        <span className="dt-pag-pal">{t('Página')} </span>
+        {atual}
+        <span className="dt-pag-pal"> {t('de')} </span>
+        <span className="dt-pag-bar">/</span>
+        {paginas}
       </span>
       <button className="btn g sm" disabled={atual === paginas} onClick={() => setPag(atual + 1)} aria-label={t('Página seguinte')}>
         ›
@@ -627,7 +634,7 @@ export function DataTable<T>({
           {barra2}
         </div>
       )}
-      <div className={'tbl dt' + (empilhar ? ' dt-empilhar' : '') + (empilhar === 'botoes-em-baixo' ? ' dt-empilhar-baixo' : '') + (empilhar === 'tablet' ? ' dt-empilhar-tablet' : '')} ref={tabelaRef}>
+      <div data-dt={id} className={'tbl dt' + (empilhar ? ' dt-empilhar' : '') + (empilhar === 'botoes-em-baixo' ? ' dt-empilhar-baixo' : '') + (empilhar === 'tablet' ? ' dt-empilhar-tablet' : '')} ref={tabelaRef}>
         <table>
           <thead>
             <tr>
@@ -653,7 +660,7 @@ export function DataTable<T>({
                   </th>
                 ),
               )}
-              {colunasNoCabecalho && colunas ? <th className="dt-th-cols">{colunas}</th> : colFim && <th />}
+              {colunasNoCabecalho && colunas ? <th className="dt-th-cols">{colunas}</th> : paginacaoNoCabecalho && paginas > 1 ? <th className="dt-th-pag">{paginador}</th> : colFim && <th />}
             </tr>
           </thead>
           <tbody>

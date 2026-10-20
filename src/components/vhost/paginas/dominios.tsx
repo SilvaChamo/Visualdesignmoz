@@ -1501,6 +1501,7 @@ function Dns() {
           umaLinha
           barraFora
           empilhar="botoes-em-baixo"
+          paginacaoNoCabecalho
           empty="Nenhum registo encontrado para este filtro"
           cols={[
             {
@@ -1527,13 +1528,29 @@ function Dns() {
                 const n = nomeCompleto(r, dns.zona);
                 const rotulo = n === dns.zona ? '' : n.slice(0, -(dns.zona.length + 1));
                 // nomes compridos partem linha em vez de alargar a tabela (como na Cloudflare, nunca cortados)
-                return rotulo ? (
+                const nome = rotulo ? (
                   <b style={{ whiteSpace: 'normal', overflowWrap: 'anywhere' }}>
                     {rotulo}
                     <span style={{ color: 'var(--muted)', fontWeight: 400 }}>.{dns.zona}</span>
                   </b>
                 ) : (
                   <b>{dns.zona}</b>
+                );
+                // no telemóvel o botão Editar vai logo a seguir ao nome (a coluna dos botões só aparece ao editar)
+                if (soLeitura(r)) return nome;
+                return (
+                  <>
+                    {nome}
+                    <button
+                      className="btn sm btn-ed btn-dns-edit dns-ed-nome"
+                      disabled={!editavel(r)}
+                      title={editavel(r) ? t('Editar') : t('Este tipo muda-se na Cloudflare')}
+                      aria-label={t('Editar')}
+                      onClick={() => iniciarEdicao(r)}
+                    >
+                      <i className="fa-solid fa-pen-to-square" />
+                    </button>
+                  </>
                 );
               },
             },
@@ -1587,7 +1604,7 @@ function Dns() {
                                 }}
                                 placeholder={t('Outro valor TXT (novo registo com o mesmo nome)')}
                                 rows={2}
-                                style={{ width: '100%', minWidth: 160, maxWidth: 208, minHeight: 52, fontFamily: 'monospace', fontSize: 12.5, wordBreak: 'break-all' }}
+                                style={{ width: '100%', minWidth: 160, maxWidth: 'clamp(300px, 33cqw, 720px)', minHeight: 52, fontFamily: 'monospace', fontSize: 12.5, wordBreak: 'break-all' }}
                               />
                               <button type="button" className="btn g sm" title={t('Remover este campo')} onClick={() => setExtrasEdit(extrasEdit.filter((_, j) => j !== i))}>
                                 <i className="fa-solid fa-trash-can" />
@@ -1681,7 +1698,7 @@ function Dns() {
                     title={t('Guardar alterações')}
                   >
                     <i className="fa-solid fa-check" />
-                    {t('Guardar')}
+                    <span className="dns-bt-txt">{t('Guardar')}</span>
                   </button>
                   <button
                     className="btn sm g"
@@ -1690,7 +1707,7 @@ function Dns() {
                     title={t('Cancelar')}
                   >
                     <i className="fa-solid fa-xmark" />
-                    {t('Cancelar')}
+                    <span className="dns-bt-txt">{t('Cancelar')}</span>
                   </button>
                 </span>
               );
@@ -1700,7 +1717,7 @@ function Dns() {
                 <span className="dns-acoes dns-so-leitura" title={t('Mudam-se na gestão do domínio, em "Servidores de nome"')}>
                   <button className="btn sm g" onClick={() => vh.nav('/' + vh.s.level + '/dominios/' + encodeURIComponent(x.name))}>
                     <i className="fa-solid fa-server" />
-                    {t('Servidores de nome')}
+                    <span className="dns-bt-txt">{t('Servidores de nome')}</span>
                   </button>
                 </span>
               );
@@ -1713,14 +1730,7 @@ function Dns() {
                   onClick={() => iniciarEdicao(r)}
                 >
                   <i className="fa-solid fa-pen-to-square" />
-                  {t('Editar')}
-                </button>
-                <button
-                  className="btn sm btn-rm"
-                  onClick={() => remover([r.id], 'Vai remover o registo ' + r.tipo + ' ' + (r.nome === '@' ? dns.zona : r.nome) + '.')}
-                >
-                  <i className="fa-solid fa-trash-can" />
-                  {t('Remover')}
+                  <span className="dns-bt-txt">{t('Editar')}</span>
                 </button>
               </span>
             );
