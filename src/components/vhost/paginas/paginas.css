@@ -10727,3 +10727,22 @@
 .vh .tbl[data-dt^="pacotes-"] tbody tr:last-child td {
    border-bottom: 1px solid color-mix(in srgb, var(--line-soft) 65%, var(--card));
 }
+
+/* formulários dentro do cartão principal (ex.: Adicionar cliente): o cartão mantém sempre a margem lateral; o formulário
+   perde os contornos laterais, a linha de cima (duplicava a do cartão), o espaço por cima e a margem lateral das linhas */
+.vh .da-main-card:has(> .frm) {
+   padding-top: 0;
+}
+
+.vh .da-main-card > .frm {
+   border-left: 0;
+   border-right: 0;
+   border-top: 0;
+   border-radius: 0;
+}
+
+.vh .da-main-card > .frm .frm-row,
+.vh .da-main-card > .frm .frm-head {
+   padding-left: 0;
+   padding-right: 0;
+}
