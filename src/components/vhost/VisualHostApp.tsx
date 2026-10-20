@@ -399,6 +399,10 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
   const [modoTema, setModoTema] = useState<ModoTema>('light');
   /** já se renovou a sessão depois de uma recusa (só uma vez, até a leitura seguinte correr bem) */
   const renovouSessao = useRef(false);
+  /** Está a sair (ou já saiu): não repetir a saída quando a sessão cai */
+  const saindo = useRef(false);
+  /** Entrou agora pela entrada do próprio painel: se o servidor a recusar, não vai ao login do site (andava às voltas) */
+  const entrouPeloPainel = useRef(false);
   useBotoesTelemovel();
   /** endereço com que o painel abriu (para o reabrir depois de chegarem os dados do servidor) */
   const inicial = useRef(stripBase(pathname));
@@ -652,8 +656,23 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
     guardarEntrarComo('', []);
     esquecerTemas();
     tirarEntrada();
+    // Sem esperar mais de 3 s pela rede, e sem deixar o cookie de sessão para trás: se ficasse, o proxy veria a sessão
+    // aberta em /login e devolvia ao painel (era o "Sair" que não saía)
+    saindo.current = true;
     try {
-      await auth.signOut();
+      await Promise.race([auth.signOut(), new Promise((r) => setTimeout(r, 3000))]);
+    } catch {}
+    try {
+      await supabase.auth.signOut({ scope: 'local' });
+    } catch {}
+    try {
+      document.cookie.split(';').forEach((c) => {
+        const nome = c.split('=')[0].trim();
+        if (/^sb-.+-auth-token(\.\d+)?(-code-verifier)?$/.test(nome)) document.cookie = nome + '=; Max-Age=0; path=/';
+      });
+      Object.keys(localStorage).forEach((k) => {
+        if (/^sb-.+-auth-token/.test(k)) localStorage.removeItem(k);
+      });
     } catch {}
     window.location.assign('/login' + (caminho ? '?redirect=' + encodeURIComponent(BASE + caminho) : ''));
   }, []);
@@ -742,6 +761,12 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
               }
             }
             setAEntrar(false);
+            // Tinha sessão e deixou de a ter (expirou ou foi terminada noutro lado): login do site (Silva, 20/10/2026).
+            // Quem acabou de entrar pela entrada do painel fica nela.
+            if (!semSessao && !entrouPeloPainel.current) {
+              void irParaLogin(ref.current.path || '/');
+              return;
+            }
             commit({ ...ref.current, carga: 'erro', erro: { msg: j.erro || 'Inicie sessão para ver o painel.', codigo: 401 } });
             return;
           }
@@ -761,7 +786,7 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
         commit({ ...ref.current, carga: 'erro', erro: { msg: 'O servidor demorou a responder. Verifique a ligação e tente de novo.', codigo: 0 } });
       }
     },
-    [commit, aplicar, relerSeVelha],
+    [commit, aplicar, relerSeVelha, irParaLogin, semSessao],
   );
   useIsomorphicLayoutEffect(() => {
     if (!semSessao) carregar();
@@ -1199,6 +1224,16 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
     };
   }, [st.carga, irParaLogin]);
 
+  // Sessão terminada sozinha (expirou, token renovado sem êxito, ou "Sair" noutra aba): vai para o login do site, como o
+  // botão Sair. Só com o painel à vista; a entrada do próprio painel não passa por aqui.
+  useEffect(() => {
+    if (st.carga !== 'ok') return;
+    const { data } = supabase.auth.onAuthStateChange((evento: string) => {
+      if (evento === 'SIGNED_OUT' && !saindo.current) void irParaLogin(ref.current.path || '/');
+    });
+    return () => data.subscription.unsubscribe();
+  }, [st.carga, irParaLogin]);
+
   const colors = getThemeColors(st.colorPreset, st.customPrimary, over);
   const isDark = st.theme === 'dark';
   // O modo claro/escuro é o do site todo (classe "dark" no <html>): o painel aplica-o e não o desfaz ao sair
@@ -1272,6 +1307,7 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
             } catch {}
           }}
           onEntrou={() => {
+            entrouPeloPainel.current = true;
             setAEntrar(true);
             renovouSessao.current = false;
             commit({ ...ref.current, carga: 'a-carregar', erro: null });
