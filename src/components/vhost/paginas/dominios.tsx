@@ -82,6 +82,91 @@ async function noServidor(vh: VH, corpo: Record<string, unknown>, ok: string, re
   }
 }
 
+/** Relatório do "Reprocessar DNS" (Silva, 20/10/2026): cada registo com o seu estado — verde: posto agora ou já certo;
+ *  vermelho: falhou (com o motivo); laranja: ainda não se vê no DNS público. O que falta vem primeiro. */
+type ItemRel = { nome: string; estado: 'novo' | 'certo' | 'falhou' | 'pendente'; detalhe?: string };
+const ORDEM_REL: Record<ItemRel['estado'], number> = { falhou: 0, pendente: 1, novo: 2, certo: 3 };
+const ICONE_REL: Record<ItemRel['estado'], string> = { novo: 'fa-circle-check', certo: 'fa-circle-check', falhou: 'fa-circle-xmark', pendente: 'fa-clock' };
+const TEXTO_REL: Record<ItemRel['estado'], string> = { novo: 'Adicionado', certo: 'Certo', falhou: 'Falhou', pendente: 'A propagar' };
+
+function RelatorioDns({ dominio, itens, onFechar }: { dominio: string; itens: ItemRel[]; onFechar?: () => void }) {
+  const { t } = useVH();
+  const ordenados = [...itens].sort((x, y) => ORDEM_REL[x.estado] - ORDEM_REL[y.estado]);
+  const n = (e: ItemRel['estado']) => itens.filter((i) => i.estado === e).length;
+  const tudoCerto = n('falhou') === 0 && n('pendente') === 0;
+  return (
+    <div className={'dom-rel' + (tudoCerto ? ' ok' : '')}>
+      <div className="dom-rel-cab">
+        <b>
+          <i className={'fa-solid ' + (tudoCerto ? 'fa-circle-check' : 'fa-triangle-exclamation')} /> {t('Relatório do DNS')}
+        </b>
+        {onFechar && (
+          <button className="dom-rel-x" onClick={onFechar} title={t('Fechar')}>
+            <i className="fa-solid fa-xmark" />
+          </button>
+        )}
+      </div>
+      <div className="dom-rel-dom">{dominio}</div>
+      <div className="dom-rel-res">
+        {n('novo') > 0 && <span className="ok">{n('novo')} {t('adicionados')}</span>}
+        {n('certo') > 0 && <span className="ok">{n('certo')} {t('certos')}</span>}
+        {n('pendente') > 0 && <span className="w">{n('pendente')} {t('a propagar')}</span>}
+        {n('falhou') > 0 && <span className="er">{n('falhou')} {t('falharam')}</span>}
+      </div>
+      {ordenados.map((i, k) => (
+        <div key={k} className={'dom-rel-l ' + i.estado}>
+          <i className={'fa-solid ' + ICONE_REL[i.estado]} />
+          <div>
+            <span>{i.nome}</span>
+            {i.detalhe && <small>{i.detalhe}</small>}
+          </div>
+          <em>{t(TEXTO_REL[i.estado])}</em>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+type ResultadoDns = { ok: boolean; aviso: string; itens: ItemRel[] };
+/** Pede ao servidor que reprocesse o DNS de um domínio e devolve o relatório */
+async function reprocessarUm(vh: VH, dominio: string): Promise<ResultadoDns> {
+  try {
+    const r = await fetch('/api/vhost/dominio', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ conta: vh.me, acao: 'dns-reprocessar', dominio }) });
+    const j = (await r.json().catch(() => ({}))) as { erro?: string; aviso?: string; relatorio?: ItemRel[] };
+    if (!r.ok) return { ok: false, aviso: j.erro || 'A alteração falhou', itens: [{ nome: 'DNS', estado: 'falhou', detalhe: j.erro || 'A alteração falhou' }] };
+    return { ok: true, aviso: j.aviso || 'DNS reprocessado', itens: j.relatorio || [] };
+  } catch {
+    return { ok: false, aviso: 'Sem ligação ao site', itens: [{ nome: 'DNS', estado: 'falhou', detalhe: 'Sem ligação ao site. Nada foi alterado.' }] };
+  }
+}
+
+/** Reprocessar o DNS de vários domínios, um a um, e mostrar numa janela o relatório de cada um: repõe o site e o
+ *  e-mail (SPF, DKIM, DMARC, MX), serve domínios registados em qualquer registador e confere no fim. */
+async function reprocessarVarios(vh: VH, nomes: string[]) {
+  const { t, openM, closeM } = vh;
+  const resultados: { d: string; r: ResultadoDns }[] = [];
+  for (const [i, dominio] of nomes.entries()) {
+    vh.toast(t('A reprocessar o DNS…') + ' ' + dominio + ' (' + (i + 1) + '/' + nomes.length + ')');
+    resultados.push({ d: dominio, r: await reprocessarUm(vh, dominio) });
+  }
+  vh.toast(t('DNS reprocessado'));
+  openM(
+    <>
+      <h3>{t('DNS reprocessado')}</h3>
+      <div style={{ display: 'grid', gap: 12, margin: '14px 0', maxHeight: '60vh', overflowY: 'auto' }}>
+        {resultados.map(({ d, r }) => (
+          <RelatorioDns key={d} dominio={d} itens={r.itens} />
+        ))}
+      </div>
+      <div className="mfoot">
+        <button className="btn r" onClick={closeM}>
+          {t('Fechar')}
+        </button>
+      </div>
+    </>,
+  );
+}
+
 function nomeDnsPertence(nome: string, dominio: string, host: string): boolean {
   const n = nome.toLowerCase().replace(/\.$/, '');
   return n === host || n === `${host}.${dominio}` || (host === dominio && n === '@');
@@ -283,6 +368,19 @@ function ListaDominios({ abaDom = 'meus' }: { abaDom?: AbaDom }) {
           bulk={[
             { t: 'Suspender', fa: 'fa-pause', run: (k) => varios(k, 'dominio-suspender', 'Suspenso') },
             { t: 'Reativar', fa: 'fa-play', run: (k) => varios(k, 'dominio-reativar', 'Reativado') },
+            {
+              t: 'Reprocessar DNS',
+              fa: 'fa-arrows-rotate',
+              run: (k) =>
+                openM(
+                  <Confirmar
+                    titulo="Reprocessar o DNS?"
+                    texto={t('Repõe os registos do site e do e-mail (SPF, DKIM, DMARC, MX) de {0} que estiverem em falta ou errados, em qualquer domínio — também os registados fora da Dynadot — e confere no fim. O que já está certo fica como está.').replace('{0}', k.join(', '))}
+                    ok="Reprocessar"
+                    onOk={() => reprocessarVarios(vh, k)}
+                  />,
+                ),
+            },
             {
               t: 'Apagar',
               fa: 'fa-trash',
@@ -734,6 +832,7 @@ function VerDominio({ d }: { d: string }) {
   const { det, erro, ler } = useDetalhe(x && !x.soEmail ? d : '');
 
   const reg = useRegistador(x && !x.soEmail ? d : '');
+  const [relatorio, setRelatorio] = useState<ItemRel[] | null>(null);
 
   useEffect(() => {
     if (s.dominio !== d) setDominio(d, false);
@@ -869,7 +968,11 @@ function VerDominio({ d }: { d: string }) {
                 ok="Reprocessar"
                 onOk={async () => {
                   vh.toast(t('A reprocessar o DNS…'));
-                  if (await noServidor(vh, { acao: 'dns-reprocessar', dominio: d }, t('DNS reprocessado'), false)) ler();
+                  setRelatorio(null);
+                  const r = await reprocessarUm(vh, d);
+                  vh.toast(r.aviso);
+                  setRelatorio(r.itens);
+                  if (r.ok) ler();
                 }}
               />,
             )
@@ -932,7 +1035,7 @@ function VerDominio({ d }: { d: string }) {
         </button>
         )}
         <button
-          className="dom-op"
+          className="dom-op perigo"
           onClick={() =>
             openM(
               <Confirmar
@@ -947,6 +1050,7 @@ function VerDominio({ d }: { d: string }) {
           <i className="fa-solid fa-trash" />
           {t('Apagar')}
         </button>
+        {relatorio && <RelatorioDns dominio={d} itens={relatorio} onFechar={() => setRelatorio(null)} />}
       </aside>
       </div>
     </>
@@ -1473,7 +1577,21 @@ function Dns() {
                     </div>
                   );
                 }
-                // as células da tabela são nowrap (maquete.css) — o registo parte linhas para mostrar o TXT/DKIM inteiro
+                // TXT (SPF, DKIM, DMARC…): caixa de texto só de leitura com o valor todo à vista, a partir linhas dentro da
+                // caixa — nunca alarga a página (Silva, 20/10/2026). Ao clicar seleciona tudo, para copiar.
+                if (r.tipo === 'TXT')
+                  return (
+                    <TextoAuto
+                      className="inp sm dns-txt-area dns-txt-leitura"
+                      value={valorDns(r)}
+                      readOnly
+                      rows={1}
+                      spellCheck={false}
+                      aria-label={t('Conteúdo')}
+                      onFocus={(e) => e.currentTarget.select()}
+                    />
+                  );
+                // as células da tabela são nowrap (maquete.css) — o registo parte linhas para mostrar o valor inteiro
                 return (
                   <span style={{ whiteSpace: 'normal', overflowWrap: 'anywhere' }}>
                     {valorDns(r)}
