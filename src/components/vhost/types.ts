@@ -44,10 +44,14 @@ export interface Domain {
   wp?: boolean;
   // Dados reais do servidor (Hestia)
   bw?: string;
+  /** tráfego usado, em MB (número, para mostrar usado/total) */
+  bwMb?: number;
   /** apontadores (aliases) do site */
   aliases?: string[];
   docroot?: string;
   ftp?: { user: string; path: string }[];
+  /** o painel está a pedir o certificado SSL deste domínio agora (aparece "A processar SSL…") */
+  sslPendente?: boolean;
   /** certificado Let's Encrypt automático */
   le?: boolean;
   /** domínio de e-mail existente na mesma conta Hestia */
@@ -103,4 +107,6 @@ export interface Account {
   bwLimMb?: number | null;
   ns?: string[];
   dbs?: BaseDados[];
+  /** pastas criadas como endereço "atrás" de um domínio (dominio.com/loja) */
+  subpastas?: { d: string; nome: string }[];
 }
