@@ -11606,3 +11606,12 @@
 .vh .pf-2p-estado.on {
    color: #16a34a
 }
+
+/* Barra das colunas: o ícone "Colunas" fica sempre à vista, encostado à direita da barra, mesmo quando a tabela desliza na horizontal
+   (Silva, 21/10/2026) */
+.vh .tbl thead th.dt-th-cols {
+   position: sticky;
+   right: 0;
+   z-index: 2;
+   background: var(--soft)
+}

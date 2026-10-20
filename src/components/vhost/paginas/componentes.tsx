@@ -641,12 +641,12 @@ export function DataTable<T>({
         })()
       ) : (
       <div className={'dt-bar' + (cabecalho ? ' com-cab' : '') + (acoesFixas ? ' dt-fixas' : '')}>
-        {acoesFixas && colunas}
+        {acoesFixas && !colunasNoCabecalho && colunas}
         {acoesFixas && !barra2 && menuAcoes(true)}
         {cabecalho}
         <span className="sp" />
         {pesquisa}
-        {!acoesFixas && colunas}
+        {!acoesFixas && !colunasNoCabecalho && colunas}
         {recarregar}
         {fimBarra}
         {/* "Ações" sempre à vista e sempre o último à direita (regra do Silva, 13/10/2026) */}
