@@ -10171,9 +10171,9 @@
    }
 }
 
-/* Listas do painel: alterna o fundo das linhas sem cobrir selecção, realce ou passagem do rato. */
-.vh .tbl tbody tr[data-k]:nth-child(even):not(.sel):not(.dt-realce):not(:hover) > td {
-   background: color-mix(in srgb, var(--card) 65%, var(--soft))
+/* Linhas de todas as tabelas com o fundo alternado: branca e cinzento suave (Silva, 20/10/2026). Não cobre selecção, realce nem passagem do rato. */
+.vh table tbody tr:nth-child(even):not(.grp):not(.sel):not(.dt-realce):not(:hover) > td {
+   background: var(--soft)
 }
 
 .vh .tbl tbody tr[data-k]:not(:last-child) > td {
@@ -10182,7 +10182,7 @@
 
 .vh .site-contas-link {
    color: var(--ink);
-   font-weight: 400;
+   font-weight: 600;
    text-decoration: none
 }
 
@@ -10494,11 +10494,11 @@
    border-top: 0;
 }
 
-
 /* Barra das colunas da tabela DNS sem fundo */
 .vh .tbl[data-dt="dns"] thead th {
    background: transparent;
 }
+
 
 /* Barra dos separadores da página DNS mais baixa */
 .vh .da-main-card:has(.tbl[data-dt="dns"]) .ptabs-faixa > .ptabs {
@@ -11174,4 +11174,165 @@
 
 .vh .da-main-card .card-topo {
    padding-top: 2px;
+}
+
+/* Menu da barra lateral esquerda mais pequeno (Silva, 20/10/2026): categorias 16 -> 15 px, páginas 14 -> 13 px. */
+.vh .side .grp {
+   font-size: calc(15px * var(--fs, 1))
+}
+
+.vh .side a {
+   font-size: calc(13px * var(--fs, 1))
+}
+
+/* Títulos das colunas em texto normal, sem maiúsculas (Silva, 20/10/2026). */
+.vh th,
+.vh .tbl th {
+   text-transform: none;
+   font-size: calc(14px * var(--fs, 1));
+   color: color-mix(in srgb, var(--muted) 55%, var(--ink))
+}
+
+/* A primeira coluna nunca parte o nome em duas linhas (Silva, 20/10/2026). No telemóvel as linhas são blocos e ficam como estavam. */
+@media (min-width: 769px) {
+   .vh .tbl td:not(.ck):first-child,
+   .vh .tbl td:not(.ck):first-child *:not(.dns-valor-caixa),
+   .vh .tbl td.ck + td,
+   .vh .tbl td.ck + td *:not(.dns-valor-caixa) {
+      white-space: nowrap !important
+   }
+}
+
+/* Linha no início e no fim da tabela (Silva, 20/10/2026). No telemóvel as linhas são blocos e ficam como estavam. */
+@media (min-width: 769px) {
+   .vh .tbl thead th {
+      border-top: 1px solid var(--line)
+   }
+
+   .vh .tbl tbody tr:last-child > td {
+      border-bottom: 1px solid var(--line)
+   }
+}
+
+/* Barra das colunas com o fundo suave (Silva, 20/10/2026) */
+.vh .tbl thead th {
+   background: var(--soft)
+}
+
+/* Tema escuro: as linhas sem fundo ficam mesmo sem fundo — a tabela deixa de ter um fundo mais claro que o do cartão (Silva, 20/10/2026) */
+.vh[data-theme=dark] .tbl,
+.vh[data-theme=dark] :is(.da-main-card, .cols-side) .tbl:not(.server-card-box) {
+   background: transparent;
+   backdrop-filter: none
+}
+
+/* Fim do cartão principal (Silva, 20/10/2026): sem margem por baixo no fim do scroll e sem a linha de baixo à vista — o cartão
+   chega ao fundo da janela. Só nos ecrãs de computador e tablet. */
+@media (min-width: 769px) {
+   .vh main {
+      padding-bottom: 0
+   }
+
+   .vh main .da-main-card {
+      border-bottom-width: 0;
+      border-bottom-left-radius: 0;
+      border-bottom-right-radius: 0
+   }
+}
+
+/* Nomes da primeira coluna das tabelas na cor normal do texto; vermelho só ao passar o rato, como nos domínios (Silva, 20/10/2026) */
+.vh .tbl td:not(.ck):first-child a.lk,
+.vh .tbl td.ck + td a.lk {
+   color: var(--ink)
+}
+
+.vh .tbl td:not(.ck):first-child a.lk:hover,
+.vh .tbl td.ck + td a.lk:hover {
+   color: var(--red)
+}
+
+/* Registar domínio: o motor de busca dentro de um cartão, sem título nem descrição (Silva, 20/10/2026) */
+.vh .dom-registar-corpo {
+   padding: 14px var(--recuo, 12px) 0
+}
+
+/* Tabela de preços (Registar domínio) ao modelo das outras tabelas: sem contorno nem linhas laterais, de lado a lado do cartão, só
+   as linhas entre as linhas (Silva, 20/10/2026) */
+.vh .dom-registar div:has(> table) {
+   border: 0;
+   border-radius: 0;
+   background: transparent;
+   margin-left: calc(-1 * var(--recuo, 12px));
+   margin-right: calc(-1 * var(--recuo, 12px));
+   width: auto
+}
+
+/* Tabela de preços no telemóvel: cabe a 320 px, sem cortar nada (colunas mais juntas) */
+@media (max-width: 768px) {
+   .vh .dom-registar table :is(th, td) {
+      padding-left: 6px;
+      padding-right: 6px;
+      font-size: calc(12.5px * var(--fs, 1))
+   }
+
+   .vh .dom-registar table :is(th, td):first-child {
+      padding-left: 12px
+   }
+
+   .vh .dom-registar table :is(th, td):last-child {
+      padding-right: 12px
+   }
+}
+
+/* Registar domínio: o motor de busca (campo e botão) num cartão só dele, com contorno, por cima da tabela de preços (Silva, 20/10/2026) */
+.vh .dom-busca-cartao {
+   background: var(--card);
+   border: 1px solid var(--line);
+   border-radius: var(--r);
+   padding: 32px
+}
+
+/* Dentro desse cartão os fundos seguem o tema do painel (nada de preto do Tailwind no escuro): campo e lista de extensões no cinzento
+   suave (mais claros que o cartão), linhas dos resultados no cinzento suave, linha de baixo do título dos resultados na cor das linhas (Silva, 20/10/2026) */
+/* (o site tem uma regra `.dark .site-content input { background: … !important }`; o `:not(#x)` sobe a especificidade para a vencer) */
+.vh .dom-busca-cartao :is(input, select):not(#x) {
+   background-color: var(--soft) !important;
+   border-color: var(--line) !important;
+   color: var(--ink)
+}
+
+.vh .dom-busca-cartao .dom-resultados > div:first-child {
+   border-color: var(--line)
+}
+
+.vh .dom-busca-cartao .dom-resultado {
+   background: var(--soft)
+}
+
+.vh .dom-busca-cartao .dom-resultado:not(.dom-resultado-escolha) {
+   border-color: var(--line)
+}
+
+/* Tabela de preços (Registar domínio) no tema escuro: as linhas ímpares ficam sem fundo (a cor do cartão) e as pares com o cinzento
+   suave — antes as ímpares vinham pretas do Tailwind (zinc-900), mais escuras que o cartão (Silva, 20/10/2026) */
+.vh .dom-registar table tbody tr:nth-child(odd):not(:hover) {
+   background: transparent
+}
+
+.vh .dom-registar table thead,
+.vh .dom-registar table thead th {
+   background: var(--soft)
+}
+
+/* Card do motor de busca sem margens laterais: vai de lado a lado do cartão (o padding de dentro fica) (Silva, 20/10/2026) */
+.vh .dom-registar-corpo .dom-busca-cartao {
+   margin-left: calc(-1 * var(--recuo, 12px));
+   margin-right: calc(-1 * var(--recuo, 12px))
+}
+
+/* Listas em cartão (ex.: Transferir domínio › Pedidos abertos) sem linhas laterais: só as horizontais, de lado a lado (Silva, 20/10/2026) */
+.vh .trf-cartao.trf-pedidos {
+   border-left: 0;
+   border-right: 0;
+   border-radius: 0
 }

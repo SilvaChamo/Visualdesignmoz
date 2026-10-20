@@ -373,9 +373,11 @@ function ListaDominios({ abaDom = 'meus', abrirNovo = false }: { abaDom?: AbaDom
       />
 
       {abaDom === 'registar' ? (
-        <div className="dom-registar">
-          <DomainSearch isAdmin />
-        </div>
+        <Frm className="dom-registar">
+          <div className="dom-registar-corpo">
+            <DomainSearch isAdmin />
+          </div>
+        </Frm>
       ) : abaDom === 'subdominios' ? (
         <Subdominios />
       ) : abaDom === 'transferir' ? (
@@ -1630,7 +1632,6 @@ function Dns() {
           umaLinha
           barraFora
           empilhar="botoes-em-baixo"
-          paginacaoNoCabecalho
           empty="Nenhum registo encontrado para este filtro"
           cols={[
             {

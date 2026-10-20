@@ -276,9 +276,9 @@ export default function DomainSearchPainel({
       {results.map((result) => (
         <div
           key={result.domain}
-          className={`flex w-full flex-col items-start gap-3 rounded border bg-white py-3 px-3 sm:grid sm:grid-cols-3 sm:items-center sm:px-4 dark:bg-zinc-900 dark:border-zinc-800 ${
+          className={`dom-resultado flex w-full flex-col items-start gap-3 rounded border bg-white py-3 px-3 sm:grid sm:grid-cols-3 sm:items-center sm:px-4 dark:bg-zinc-900 dark:border-zinc-800 ${
             result.chosen && result.available
-              ? 'border-red-200 ring-1 ring-red-50 dark:border-red-900/50 dark:ring-red-950/30'
+              ? 'dom-resultado-escolha border-red-200 ring-1 ring-red-50 dark:border-red-900/50 dark:ring-red-950/30'
               : 'border-zinc-200 dark:border-zinc-800'
           }`}
         >
@@ -607,9 +607,18 @@ export default function DomainSearchPainel({
 
   return (
     <div className="flex w-full flex-col items-stretch">
-      {renderSearchRow()}
-
-      {showAdminResults ? <div className="mt-5 w-full">{renderResultsPanel(true)}</div> : null}
+      {isAdmin ? (
+        // no painel o campo de busca e os resultados ficam no mesmo cartão (Silva, 20/10/2026)
+        <div className="dom-busca-cartao">
+          {renderSearchRow()}
+          {showAdminResults ? <div className="dom-resultados mt-5 w-full">{renderResultsPanel(true)}</div> : null}
+        </div>
+      ) : (
+        <>
+          {renderSearchRow()}
+          {showAdminResults ? <div className="mt-5 w-full">{renderResultsPanel(true)}</div> : null}
+        </>
+      )}
 
       {!isAdmin && !hideResultsInternal && hasSearched && results.length > 0 ? (
         <div className="mt-6 w-full transition-all duration-300">{renderResultsPanel(false)}</div>
