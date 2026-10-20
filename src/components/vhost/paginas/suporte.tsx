@@ -11,7 +11,7 @@ import type { ScreenFn } from '../screens';
 import { DESC, MENU } from '../generated/data';
 import { ico } from '../state';
 import { esquecerMemoria, useGet, useNaMemoria } from '../carga';
-import { DataTable, Senha, Switch, Tabs } from './componentes';
+import { DataTable, Frm, Row, Senha, Switch, Tabs } from './componentes';
 import { Confirmar } from './pacotes';
 import { EditarDadosModal } from './cliente-dados';
 
@@ -569,8 +569,7 @@ function PerfilSenha() {
   const { dados, erro, ler } = useGet<DadosPerfil & { semPerfil?: boolean }>(rota('/api/vhost/perfil'));
   // Sem a palavra-passe antiga (Silva, 16/10/2026): o cliente pode tê-la esquecido e ficava sem conseguir trocar. A
   // sessão aberta já o identifica; a nova grava-se no servidor (/api/vhost/perfil, acao 'senha').
-  const [f, setF] = useState({ nova: '', repetir: '' });
-  const [ver, setVer] = useState(false);
+  const [f, setF] = useState({ antiga: '', nova: '', repetir: '' });
   const [aGravar, setAGravar] = useState(false);
   if (!dados) return <Carregando erro={erro} ler={ler} />;
   if (alheia && dados.semPerfil) return adminImpersonando ? (
@@ -597,29 +596,10 @@ function PerfilSenha() {
     ['As duas novas são iguais', !!f.nova && f.nova === f.repetir],
   ];
   return (
-    <Sec titulo="Mudar a palavra-passe" desc="A palavra-passe com que entra no painel. Não é preciso a antiga. As caixas de e-mail têm cada uma a sua (E-mail → Contas de e-mail).">
-      <div className="frm" style={{ maxWidth: 520 }}>
-        <div className="field">
-          <label>{t('Nova palavra-passe')}</label>
-          <Senha value={f.nova} onChange={(nova) => setF({ ...f, nova })} />
-        </div>
-        <div className="field">
-          <label>{t('Repetir a nova')}</label>
-          <div className="igrp">
-            <input type={ver ? 'text' : 'password'} autoComplete="new-password" value={f.repetir} onChange={(e) => setF({ ...f, repetir: e.target.value })} />
-            <button type="button" className="ib" title={t(ver ? 'Esconder' : 'Mostrar')} onClick={() => setVer(!ver)}>
-              <i className={'fa-solid ' + (ver ? 'fa-eye-slash' : 'fa-eye')} />
-            </button>
-          </div>
-        </div>
-        <ul className="pf-regras">
-          {regras.map(([l, ok]) => (
-            <li key={l} className={ok ? 'ok' : ''}>
-              <i className={'fa-solid ' + (ok ? 'fa-circle-check' : 'fa-circle')} /> {t(l)}
-            </li>
-          ))}
-        </ul>
-        <div className="mfoot" style={{ justifyContent: 'flex-start' }}>
+    <Sec titulo="Mudar a palavra-passe" desc="A palavra-passe com que entra no painel. A antiga é opcional. As caixas de e-mail têm cada uma a sua (E-mail → Contas de e-mail).">
+      <Frm
+        className="pf-senha"
+        foot={
           <button
             className="btn r"
             disabled={aGravar || regras.some(([, ok]) => !ok)}
@@ -629,12 +609,12 @@ function PerfilSenha() {
                 const r = await fetch('/api/vhost/perfil', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ acao: 'senha', nova: f.nova, ...(adminImpersonando ? { conta: vh.me } : {}) }),
+                  body: JSON.stringify({ acao: 'senha', nova: f.nova, ...(f.antiga && !adminImpersonando ? { antiga: f.antiga } : {}), ...(adminImpersonando ? { conta: vh.me } : {}) }),
                 });
                 const j = (await r.json().catch(() => ({}))) as { erro?: string };
                 if (!r.ok) return vh.toast(j.erro || 'Não foi possível mudar a palavra-passe.');
                 vh.toast('Palavra-passe mudada');
-                setF({ nova: '', repetir: '' });
+                setF({ antiga: '', nova: '', repetir: '' });
               } catch {
                 vh.toast('Sem ligação ao site. Nada foi mudado.');
               } finally {
@@ -644,8 +624,29 @@ function PerfilSenha() {
           >
             {t('Mudar palavra-passe')}
           </button>
-        </div>
-      </div>
+        }
+      >
+        {!adminImpersonando && (
+          <Row label="Palavra-passe anterior" hint="Opcional: se a souber, confirma-se antes de mudar.">
+            <Senha value={f.antiga} onChange={(antiga) => setF({ ...f, antiga })} semGerar />
+          </Row>
+        )}
+        <Row label="Nova palavra-passe">
+          <Senha value={f.nova} onChange={(nova) => setF({ ...f, nova })} />
+        </Row>
+        <Row label="Repetir a nova">
+          <Senha value={f.repetir} onChange={(repetir) => setF({ ...f, repetir })} semGerar />
+        </Row>
+        <Row label="Requisitos">
+          <ul className="pf-regras">
+            {regras.map(([l, ok]) => (
+              <li key={l} className={ok ? 'ok' : ''}>
+                <i className={'fa-solid ' + (ok ? 'fa-circle-check' : 'fa-circle')} /> {t(l)}
+              </li>
+            ))}
+          </ul>
+        </Row>
+      </Frm>
     </Sec>
   );
 }

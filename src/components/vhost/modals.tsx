@@ -5,7 +5,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { useVH, type VH } from './context';
 import { noServidor } from './paginas/acoes';
 import { LEVELS, MENU, ROLE_LEVELS, ROLE_PKGS, ROLES } from './generated/data';
-import { ico } from './state';
+import { ico, nomeNivel } from './state';
 import type { Role } from './types';
 
 function Foot({ children }: { children: ReactNode }) {
@@ -185,7 +185,7 @@ export function MoreMenuModal({ fechar }: { fechar?: () => void } = {}) {
                 setLevel(k);
               }}
             >
-              {t(LEVELS[k])}
+              {t(nomeNivel(k))}
             </button>
             ))}
         </div>

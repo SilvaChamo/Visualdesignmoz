@@ -283,8 +283,8 @@ function ListaContas({ kind }: { kind: Kind }) {
     cols.push({ k: 'tipo', t: 'Tipo', ate: 1600, sort: (r) => ROLES[r[1].role], cell: ([, a]) => <span className="tag off">{t(ROLES[a.role])}</span> });
     cols.push({ k: 'criador', t: 'Criado por', ate: 1600, oculta: true, sort: (r) => r[1].creator, cell: ([, a]) => a.creator });
   }
-  cols.push({ k: 'bw', t: 'Tráfego', ate: 1600, cell: ([u]) => comLimite(info(s, u).bw, L(u)?.bw) });
-  cols.push({ k: 'disk', t: 'Espaço usado', cell: ([u, a]) => comLimite(a.disk, L(u)?.disk) });
+  cols.push({ k: 'bw', t: 'Tráfego', ate: 1600, cls: 'num-peq', cell: ([u]) => comLimite(info(s, u).bw, L(u)?.bw) });
+  cols.push({ k: 'disk', t: 'Espaço usado', cls: 'num-peq', cell: ([u, a]) => comLimite(a.disk, L(u)?.disk) });
   if (kind === 'revenda' || kind === 'admin') cols.push({ k: 'nusers', t: 'Nº de utilizadores', ate: kind === 'revenda' ? 1600 : 1300, sort: (r) => nUtil(s, r[0]), cell: ([u]) => comLimite(nUtil(s, u), L(u)?.users) });
   cols.push({ k: 'ndom', t: 'Domínios', ate: 1050, sort: (r) => r[1].domains.length, cell: ([u, a]) => comLimite(a.domains.length, L(u)?.domains) });
   if (kind === 'todos' || kind === 'meus') {
@@ -296,7 +296,7 @@ function ListaContas({ kind }: { kind: Kind }) {
   if (kind === 'todos') {
     cols.push({ k: 'sent', t: 'E-mails enviados', ate: 1600, oculta: kind === 'todos', sort: (r) => enviados(r[1]), cell: ([, a]) => enviados(a) });
     cols.push({ k: 'dbs', t: 'Bases de dados', ate: 1600, oculta: kind === 'todos', cell: ([u]) => comLimite(info(s, u).dbs, L(u)?.mysql) });
-    cols.push({ k: 'criada', t: 'Criada em', ate: 1600, cell: ([u]) => info(s, u).criada.split(',')[0] });
+    cols.push({ k: 'criada', t: 'Criada em', ate: 1600, cls: 'num-peq', cell: ([u]) => info(s, u).criada.split(',')[0] });
   }
   cols.push({
     k: 'pkg',

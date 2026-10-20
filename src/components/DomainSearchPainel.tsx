@@ -565,12 +565,14 @@ export default function DomainSearchPainel({
           onChange={(e) => setSearchQuery(e.target.value)}
           onKeyDown={handleKeyDown}
           className={`${fieldClass} pr-12 shadow-sm dark:shadow-none`}
+          // no painel o globo vai dentro do campo, à esquerda, como em todos os campos (icones-campos.ts)
+          data-ic={isAdmin ? 'globe' : undefined}
         />
         {loading ? (
           <div className="absolute right-4 top-1/2 -translate-y-1/2">
             <Spinner className="h-5 w-5" />
           </div>
-        ) : (
+        ) : isAdmin ? null : (
           <div className="absolute right-4 top-1/2 -translate-y-1/2">
             <Globe className="h-5 w-5 text-zinc-400" />
           </div>

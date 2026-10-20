@@ -73,16 +73,23 @@ export const novaSenha = () => {
   return r(6) + '!' + r(5) + '#' + r(3);
 };
 
-/** Palavra-passe: gerar · campo · mostrar (como no DirectAdmin) */
-export function Senha({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+/** Palavra-passe: [dado de gerar | cadeado] · campo · mostrar. Com gerar, o dado ocupa o lugar do cadeado (Silva, 21/10/2026: "o ícone de
+ *  gerar palavra-passe à esquerda, a substituir o cadeado"); com `semGerar` (confirmar, palavra-passe anterior) fica o cadeado. */
+export function Senha({ value, onChange, semGerar }: { value: string; onChange: (v: string) => void; semGerar?: boolean }) {
   const { t } = useVH();
   const [show, setShow] = useState(false);
   return (
     <div className="igrp">
-      <button type="button" className="ib" title={t('Gerar palavra-passe')} onClick={() => { onChange(novaSenha()); setShow(true); }}>
-        <i className="fa-solid fa-dice" />
-      </button>
-      <input type={show ? 'text' : 'password'} value={value} onChange={(e) => onChange(e.target.value)} autoComplete="new-password" />
+      {semGerar ? (
+        <span className="ib" style={{ cursor: 'default' }}>
+          <i className="fa-solid fa-lock" />
+        </span>
+      ) : (
+        <button type="button" className="ib" title={t('Gerar palavra-passe')} onClick={() => { onChange(novaSenha()); setShow(true); }}>
+          <i className="fa-solid fa-dice" />
+        </button>
+      )}
+      <input type={show ? 'text' : 'password'} value={value} onChange={(e) => onChange(e.target.value)} autoComplete="new-password" data-ic-sem />
       <button type="button" className="ib" title={t(show ? 'Esconder' : 'Mostrar')} onClick={() => setShow(!show)}>
         <i className={'fa-solid ' + (show ? 'fa-eye-slash' : 'fa-eye')} />
       </button>
@@ -208,6 +215,8 @@ export interface Col<T> {
   /** sai nos ecrãs de computador/portátil até esta largura, para a tabela caber sem barra de deslocar (pedido do Silva,
    *  13/10/2026: colunas apertadas a 1440 e 1280); no telemóvel, em blocos, volta a aparecer */
   ate?: 1600 | 1300 | 1050;
+  /** classe extra nas células da coluna (ex.: números mais pequenos) */
+  cls?: string;
 }
 export interface Bulk {
   t: string;
@@ -692,7 +701,7 @@ export function DataTable<T>({
                       </td>
                     )}
                     {vcols.map((c) => (
-                      <td key={c.k} data-t={t(c.t)} className={c.ate ? 'dt-ate-' + c.ate : undefined} style={c.center ? { textAlign: 'center' } : c.right ? { textAlign: 'right' } : undefined}>
+                      <td key={c.k} data-t={t(c.t)} className={[c.ate ? 'dt-ate-' + c.ate : '', c.cls || ''].filter(Boolean).join(' ') || undefined} style={c.center ? { textAlign: 'center' } : c.right ? { textAlign: 'right' } : undefined}>
                         {c.cell(r)}
                       </td>
                     ))}

@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
+import { checkAndRegisterLoginAttempt, loginRateLimitKey } from '@/lib/login-rate-limit';
 import { requirePanelBootstrapAccess } from '@/lib/panel-api-auth';
 import { getDaSyncAdmin } from '@/lib/da-sync-schema';
 import { acessoConta, donoDaConta, perfilDaConta } from '@/lib/vhost-conta-cliente';
@@ -11,8 +13,9 @@ export const dynamic = 'force-dynamic';
  * GET ?conta=               ao "entrar como" uma conta: dados do cliente dono dela (administrador ou revendedor)
  * POST { acao: 'dados', … } nome, telefone, empresa, morada, cidade, site, NUIT
  * POST { acao: 'avisos', limite, seguranca }
- * POST { acao: 'senha', nova } nova palavra-passe de entrada da pessoa com sessão, sem pedir a antiga (Silva, 16/10/2026:
- *                           o cliente pode esquecer a antiga e não conseguir trocar; a sessão aberta já o identifica)
+ * POST { acao: 'senha', nova, antiga? } nova palavra-passe de entrada da pessoa com sessão. A antiga é opcional (Silva, 16/10/2026:
+ *                           o cliente pode esquecer a antiga e não conseguir trocar; a sessão aberta já o identifica); se vier
+ *                           preenchida (campo "Palavra-passe anterior", 21/10/2026), confirma-se antes de mudar
  * POST com conta= só o administrador pode alterar dados pessoais, e-mail de entrada e palavra-passe da conta indicada.
  * As sessões mudam-se no navegador (Supabase Auth, com a sessão da pessoa).
  */
@@ -85,6 +88,18 @@ export async function POST(req: NextRequest) {
     // as mesmas regras que o formulário mostra
     if (nova.length < 8 || nova.length > 72 || !/[a-z]/.test(nova) || !/[A-Z]/.test(nova) || !/\d/.test(nova))
       return NextResponse.json({ erro: 'A nova palavra-passe não cumpre as regras.' }, { status: 400 });
+    // palavra-passe anterior preenchida (só na própria conta; o administrador a mudar a de outra conta não a conhece)
+    const antiga = typeof c.antiga === 'string' ? c.antiga : '';
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+    const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || '';
+    if (antiga && !conta && q.email && url && anon) {
+      const limite = await checkAndRegisterLoginAttempt(loginRateLimitKey(req, 'senha:' + q.uid));
+      if (!limite.allowed) {
+        return NextResponse.json({ erro: 'Demasiadas tentativas. Tente novamente daqui a alguns minutos.' }, { status: 429, headers: { 'Retry-After': String(limite.retryAfterSeconds) } });
+      }
+      const { error: errAntiga } = await createClient(url, anon, { auth: { persistSession: false, autoRefreshToken: false } }).auth.signInWithPassword({ email: q.email, password: antiga });
+      if (errAntiga) return NextResponse.json({ erro: 'A palavra-passe anterior não está certa.' }, { status: 400 });
+    }
     const { error } = await q.sb.auth.admin.updateUserById(q.uid, { password: nova });
     return error ? NextResponse.json({ erro: 'Não foi possível mudar a palavra-passe.' }, { status: 500 }) : NextResponse.json({ ok: true });
   }
