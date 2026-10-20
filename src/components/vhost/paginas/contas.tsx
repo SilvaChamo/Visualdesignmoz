@@ -32,7 +32,7 @@ import {
   type PacoteUtilizador,
 } from './dados';
 
-type Kind = 'todos' | 'meus' | 'revenda' | 'admin';
+type Kind = 'todos' | 'meus' | 'revenda' | 'profissional' | 'admin';
 type R = [string, Account];
 
 const base = (s: St) => '/' + s.level + '/' + s.page;
@@ -302,7 +302,7 @@ function ListaContas({ kind }: { kind: Kind }) {
     k: 'pkg',
     t: 'Pacote',
     ate: 1300,
-    hidden: !(kind === 'meus' || kind === 'revenda'),
+    hidden: !(kind === 'meus' || kind === 'revenda' || kind === 'profissional'),
     sort: (r) => r[1].pkg,
     cell: ([u, a]) => (
       <>
@@ -360,7 +360,7 @@ function ListaContas({ kind }: { kind: Kind }) {
     { t: 'Reativar', fa: 'fa-play', run: (k) => estado(k, 'ok') },
   ];
   // Mudar pacote também na lista de todas as contas (antes só em "Os meus clientes")
-  if (kind === 'meus' || kind === 'todos') bulk.push({ t: 'Mudar pacote', fa: 'fa-box', run: (k) => openM(<MudarPacoteModal users={k} />) });
+  if (kind === 'meus' || kind === 'todos' || kind === 'profissional') bulk.push({ t: 'Mudar pacote', fa: 'fa-box', run: (k) => openM(<MudarPacoteModal users={k} />) });
   if (kind === 'meus') {
     bulk.push({ t: 'Mudar IP', fa: 'fa-ethernet', run: (k) => openM(<MudarIpModal users={k} />) });
   }
@@ -979,7 +979,7 @@ export function contas(kind: Kind): ScreenFn {
   return (vh) => {
     const { s, me, t, nav } = vh;
     const b = base(s);
-    const listaT = { todos: 'Todos os utilizadores', meus: 'Os meus clientes', revenda: 'Revendedores', admin: 'Administradores' }[kind];
+    const listaT = { todos: 'Todos os utilizadores', meus: 'Os meus clientes', revenda: 'Revendedores', profissional: 'Profissionais', admin: 'Administradores' }[kind];
     const [sub, sub2] = s.sub;
     if (sub === 'novo' && (kind === 'revenda' || kind === 'admin'))
       return {
@@ -1023,7 +1023,7 @@ export function contas(kind: Kind): ScreenFn {
       </button>
     );
     const actions =
-      kind === 'todos' ? (
+      kind === 'todos' || kind === 'profissional' ? (
         novoCliente('r')
       ) : kind === 'meus' ? (
         novoCliente('r')

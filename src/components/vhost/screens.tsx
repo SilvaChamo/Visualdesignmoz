@@ -734,6 +734,7 @@ export const SCREENS: Record<string, ScreenFn> = {
   'admin/acessos': acessosPlanos,
   'admin/mensagem-todos': mensagemTodos,
   'admin/revendedores': contas('revenda'),
+  'admin/profissionais': contas('profissional'),
   'admin/pacotes-revenda': pacotes('revenda'),
   'admin/administradores': contas('admin'),
   'revenda/novo-cliente': novaConta,

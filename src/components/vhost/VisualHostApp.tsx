@@ -6,6 +6,7 @@ import { Component, Fragment, useCallback, useEffect, useLayoutEffect, useMemo, 
 import { usePathname } from 'next/navigation';
 import { BarraPagina, FaixaAbas, PesquisaPagina, VHContext, type ItemPesquisa, type VH } from './context';
 import { GLOBAL, LEVELS, MENU, ROLES } from './generated/data';
+import { SEM_MENU } from './menu-contas';
 import { dominioVisivel, type DadosServidor } from './servidor';
 import { CACHE_DADOS_VHOST, apagarDadosVhost, guardarDadosVhost, tirarEntrada } from '@/lib/vhost-cache';
 import { COOKIE_TEMA, lerTema, valorCookieTema, type TemaConta } from '@/lib/vhost-tema-conta';
@@ -1472,7 +1473,7 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
                   MENU[level]
                     .filter(([g]) => g !== 'Início')
                     .map(([g, items]) => {
-                      const vis = items.filter((it) => vh.hasFeat(it.feat, it.id));
+                      const vis = items.filter((it) => !SEM_MENU.has(it.id) && vh.hasFeat(it.feat, it.id));
                       if (!vis.length) return null;
                       const k = level + '/' + g;
                       return (

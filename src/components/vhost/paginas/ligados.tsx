@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useVH, type VH } from '../context';
 import type { ScreenFn } from '../screens';
 import { DESC, MENU } from '../generated/data';
+import { arrumarMenuContas } from '../menu-contas';
 import { useGet } from '../carga';
 import { DataTable, Tabs } from './componentes';
 import { Carregando } from './avancado';
@@ -25,6 +26,7 @@ import { Confirmar } from './pacotes';
       hx: { s: 'app', cmd: '', n: 'Avisos do próprio painel, guardados em memória no site' },
     });
   }
+  arrumarMenuContas();
   DESC['admin/ligados'] = ['Quem tem o painel aberto agora: conta, plano e localização', 'Who has the panel open now: account, plan and location'];
 }
 

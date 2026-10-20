@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { useVH, type VH } from '../context';
 import type { ScreenFn } from '../screens';
 import { DESC, EN, MENU } from '../generated/data';
+import { arrumarMenuContas } from '../menu-contas';
 import { useGet } from '../carga';
 import { DataTable, Tabs } from './componentes';
 import { Carregando } from './avancado';
@@ -27,6 +28,7 @@ import { Carregando } from './avancado';
       hx: { s: 'app', cmd: 'v-list-web-domains', n: 'Pedido com marca única procurado nos registos do servidor' },
     });
   }
+  arrumarMenuContas();
   DESC['admin/sites-contas'] = ['Se cada site está no ar a partir deste servidor, a linguagem e o plano da conta', 'Whether each site is live from this server, its language and the account plan'];
   const novas: Record<string, string> = {
     'Sites das contas': 'Account sites',
