@@ -285,11 +285,12 @@ export function montarDados(srv: LeituraServidor, reg: RegistoSite, sessao: Sess
     };
   }
 
-  // pacotes: administrador vê todos; os outros só os das contas que vêem
+  // pacotes: administrador vê todos; os outros só os das contas que vêem (o revendedor, mais os Pro-…)
   const usados = new Set(visiveis.map((u) => contas[u].hpkg));
   const pacotes = Object.fromEntries(
     Object.entries(srv.packages)
-      .filter(([n]) => n !== 'system' && (sessao.role === 'admin' || usados.has(n)))
+      // o revendedor recebe também os pacotes Pro-… (Pro-Basico, Pro-Premium, Pro-Business): são os que pode dar aos clientes
+      .filter(([n]) => n !== 'system' && (sessao.role === 'admin' || usados.has(n) || (sessao.role === 'reseller' && /^pro-/i.test(n))))
       .map(([n, p]) => [n, pacoteDoHestia(p, n)]),
   );
 

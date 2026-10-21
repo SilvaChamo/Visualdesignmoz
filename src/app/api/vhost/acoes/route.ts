@@ -79,10 +79,10 @@ export async function POST(req: NextRequest) {
 
   if (!admin && !eu) return NextResponse.json({ erro: 'A sua conta do site ainda não está ligada a uma conta do servidor.' }, { status: 403 });
 
-  /** Pacote que esta sessão pode atribuir: existe no servidor, não é "system" e, para revendedores, não é um
-   *  pacote de revenda (mesma regra do site: excludeResellerSelfPackages) */
+  /** Pacote que esta sessão pode atribuir: existe no servidor, não é "system" e, para revendedores, é um dos Pro-… (Pro-Basico,
+   *  Pro-Premium, Pro-Business — Silva, 22/10/2026) e não um pacote de revenda (mesma regra do site: excludeResellerSelfPackages) */
   const pacotePermitido = (p: string) =>
-    !!p && p !== 'system' && !!srv.packages[p] && (admin || excludeResellerSelfPackages([{ packageName: p }], [], eu).length === 1);
+    !!p && p !== 'system' && !!srv.packages[p] && (admin || (/^pro-/i.test(p) && excludeResellerSelfPackages([{ packageName: p }], [], eu).length === 1));
 
   /** Porque é que esta conta não pode ser alterada (ou null se pode) */
   const bloqueio = (u: string, nova = false): string | null => {

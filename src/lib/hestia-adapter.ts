@@ -1268,11 +1268,13 @@ export async function gravarPacote(
   const ficheiro = `/tmp/vh-pacote-${Date.now()}-${nome}.pkg`;
   const b64 = Buffer.from(texto, 'utf8').toString('base64');
   try {
+    // o `yes` final do Hestia é "regravar": exige que o pacote JÁ exista (senão "package X doesn't exist") — por isso só se manda ao
+    // editar; um pacote novo vai sem ele (era isto que impedia de criar pacotes novos no painel; Silva, 22/10/2026).
     // o Hestia escreve os erros na saída normal e o fim nem sempre vem com código ≠ 0: só "VHRES:0" confirma. O comando
     // acaba sempre com `echo` (código 0) e a marca leva o código do Hestia: com um comando que falha, a resposta do
     // servidor traz o texto do próprio comando e uma marca escrita nele passava por sucesso.
     const saida = await executeServerCommand(
-      `echo ${b64} | base64 -d > ${ficheiro} && /usr/local/hestia/bin/v-add-user-package ${ficheiro} ${nome} yes 2>&1; r=$?; rm -f ${ficheiro}; echo "VHRES:$r"`,
+      `echo ${b64} | base64 -d > ${ficheiro} && /usr/local/hestia/bin/v-add-user-package ${ficheiro} ${nome}${editar ? ' yes' : ''} 2>&1; r=$?; rm -f ${ficheiro}; echo "VHRES:$r"`,
     );
     if (/^VHRES:0\s*$/m.test(saida)) return { ok: true };
     return { ok: false, error: saida.replace(/^VHRES:\d+\s*$/m, '').trim() || 'O servidor recusou o pacote.' };
