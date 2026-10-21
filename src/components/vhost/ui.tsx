@@ -690,8 +690,8 @@ export function IndicacaoDominio({ dominios, dominioUrl }: { dominios?: Screen['
   const { s, a, t } = useVH();
   const soSites = dominios === 'sites';
   const daPagina = a.domains.filter((d) => !soSites || (!d.soEmail && !d.soDominio)).map((d) => d.name);
-  // as páginas do Admin e da revenda não dependem de um domínio: sem indicação (Silva, 20/10/2026), só o botão da página à direita
-  if (s.level !== 'utilizador' || !daPagina.length) return <span className="dom-ctx" />;
+  // o botão da página nunca fica sozinho (Silva, 21/10/2026): a indicação do domínio vai ao lado dele em todas as páginas, também nas do Admin
+  if (!daPagina.length) return <span className="dom-ctx" />;
   const atual = dominioUrl?.d || (s.dominio && daPagina.includes(s.dominio) ? s.dominio : daPagina[0] || '');
   return (
     <p className="dom-ctx">

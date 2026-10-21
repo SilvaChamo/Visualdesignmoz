@@ -6,7 +6,6 @@ import { useContext, useEffect, useMemo, useRef, useState, type ReactNode } from
 import { createPortal } from 'react-dom';
 import { BarraPagina, FaixaAbas, PesquisaPagina, TopoCartao, useVH } from '../context';
 import type { Campo, Lim, Unit } from './dados';
-import { NoTopoCartao } from '../ui';
 
 // ---------- Formulário ----------
 export function Frm({ title, desc, right, children, foot, className }: { title?: string; desc?: string; right?: ReactNode; children: ReactNode; foot?: ReactNode; className?: string }) {
@@ -407,12 +406,9 @@ export function DataTable<T>({
   // separadores fica à direita da faixa deles; sem separadores aparece no lugar do título da 1.ª coluna quando se
   // assinala uma caixa (ex.: "Conta" nas contas de e-mail) e o título volta quando já nada está escolhido.
   const comAcoes = temSelecao && bulk.length > 0;
-  // Páginas sem botão mas com caixas de seleção: o "Ações" vai para a linha de cima do cartão, no lugar do botão
-  // "Adicionar", alinhado com a indicação do domínio (Silva, 20/10/2026)
-  const topoCartao = useContext(TopoCartao);
-  const acoesNoTopo = !!(umaLinha && comAcoes && !cabecalho && topoCartao?.el && !topoCartao.temBotao);
-  // o "Ações" nunca fica solto: só aparece, no lugar do título da 1.ª coluna, quando há linhas escolhidas (ou opções que valem sempre)
-  const acoesNoCabecalho = comAcoes && !cabecalho && !acoesFixas && !acoesNoTopo;
+  // o "Ações" nunca fica solto, nem na linha de cima do cartão (Silva, 21/10/2026: o "Opções" solto no canto não é para estar
+  // lá): só aparece, no lugar do título da 1.ª coluna, quando há linhas escolhidas (ou opções que valem sempre)
+  const acoesNoCabecalho = comAcoes && !cabecalho && !acoesFixas;
   const acoesNoTitulo = acoesNoCabecalho && (selKeys.length > 0 || bulk.some((b) => b.sempre));
   const colAcoes = !!actions;
   // coluna do fim: os botões de cada linha e, com colunasNoCabecalho, o "Colunas" no título dela
@@ -521,8 +517,7 @@ export function DataTable<T>({
           }}
         >
           {selKeys.length > 0 && <span className="n">{selKeys.length}</span>}
-          {/* na linha de cima do cartão chama-se "Opções": o título "Ações" já está na barra das colunas */}
-          {t(acoesNoTopo ? 'Opções' : 'Ações')} <i className="fa-solid fa-caret-down" />
+          {t('Ações')} <i className="fa-solid fa-caret-down" />
         </button>
         {acoesOpen && (
           <div
@@ -611,11 +606,11 @@ export function DataTable<T>({
           // sempre à vista e à direita, com tudo o que se faz na página lá dentro (`bulk`; as opções sem linhas
           // escolhidas usam `sempre`). Nunca pesquisa, paginação nem outros botões por cima do cartão: a paginação
           // fica no fundo do cartão.
-          const naFaixa = comAcoes && barraFora && faixaAbas?.el && !cabecalho && !acoesNaColuna && !acoesNoCabecalho && !acoesNoTopo;
+          const naFaixa = comAcoes && barraFora && faixaAbas?.el && !cabecalho && !acoesNaColuna && !acoesNoCabecalho;
           const naBarra = colunasNoCabecalho ? null : colunas;
           const outros = !!(inicioBarra2 || barra2 || naBarra || recarregar || fimBarra);
           const linha =
-            outros || cabecalho || (!naFaixa && !acoesNoCabecalho && !acoesNoTopo && comAcoes) ? (
+            outros || cabecalho || (!naFaixa && !acoesNoCabecalho && comAcoes) ? (
               <div className={'dt-bar dt-uma-linha' + (cabecalho ? ' com-cab' : '') + (barraFora ? ' dt-fora' : '')}>
                 {cabecalho}
                 <span className="sp" />
@@ -624,12 +619,11 @@ export function DataTable<T>({
                 {naBarra}
                 {recarregar}
                 {fimBarra}
-                {!naFaixa && !acoesNoCabecalho && !acoesNoTopo && comAcoes && menuAcoes(true)}
+                {!naFaixa && !acoesNoCabecalho && comAcoes && menuAcoes(true)}
               </div>
             ) : null;
           return (
             <>
-              {acoesNoTopo && <NoTopoCartao>{menuAcoes(true)}</NoTopoCartao>}
               {linha && (barraFora && faixaFora ? createPortal(linha, faixaFora) : linha)}
               {naFaixa &&
                 createPortal(

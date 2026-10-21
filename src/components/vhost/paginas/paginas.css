@@ -11863,3 +11863,55 @@
 .vh .card-topo-slot:has(> .card-topo > .dom-ctx:empty + .card-topo-btns > .barra-antiga:empty:only-child) {
    display: none
 }
+
+/* Linha de cima do cartão e cartões com fundo (Silva, 21/10/2026; modelos "Certa", "linha" e "Sem linhas laterais") */
+
+/* A indicação do domínio e o botão da página levam sempre uma linha por baixo, a separá-los do conteúdo (até aqui as páginas com
+   uma tabela mais abaixo ficavam sem ela) */
+.vh .da-main-card .card-topo-slot .card-topo {
+   border-bottom: 1px solid var(--line)
+}
+
+/* Se logo a seguir vem um cartão com fundo (o cabeçalho cinzento do formulário) ou a tabela, a linha é a de cima deles e a daqui sai,
+   para não haver duas: o cartão começa logo a seguir ao espaço do botão */
+.vh .da-main-card .card-topo-slot:has(+ .frm, + .tbl, + .ct-lista > .tbl:first-child) .card-topo {
+   border-bottom: 0
+}
+
+.vh .da-main-card .card-topo-slot:has(+ .frm) {
+   margin-bottom: 0
+}
+
+/* Cartão com fundo (cabeçalho cinzento do formulário): linha em cima e em baixo. Sem nada por cima, a de cima é a do próprio cartão
+   principal */
+.vh .da-main-card > .frm > .frm-head {
+   border-top: 1px solid var(--line);
+   border-radius: 0
+}
+
+.vh .da-main-card > .frm:first-child > .frm-head,
+.vh .da-main-card > .card-topo-slot:empty + .frm > .frm-head {
+   border-top: 0
+}
+
+/* Tabela no mesmo cartão que um formulário: a barra das colunas também leva a linha de cima (o formulário acaba com um espaço antes
+   dela, por isso a linha dele já não é a de início da tabela) */
+@media (min-width: 769px) {
+   .vh .da-main-card:has(> .frm) .tbl thead th {
+      border-top: 1px solid var(--line)
+   }
+}
+
+/* Catch-all: a lista de opções sem linhas laterais, só as horizontais, de lado a lado */
+.vh .em-catch {
+   border-left: 0;
+   border-right: 0;
+   border-radius: 0
+}
+
+/* Com a linha por baixo do botão e da indicação, o título ou o texto que vêm a seguir não ficam colados a ela (Silva, 21/10/2026) */
+@media (min-width: 769px) {
+   .vh .da-main-card .card-topo-slot:has(.card-topo):not(:has(+ .tbl, + .frm, + .ct-lista > .tbl:first-child)) {
+      margin-bottom: 22px
+   }
+}
