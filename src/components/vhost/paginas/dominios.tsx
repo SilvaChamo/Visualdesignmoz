@@ -2832,13 +2832,13 @@ function Ftp() {
   return (
     <>
       {/* o botão Criar fica na linha de cima do cartão, ao lado da indicação do domínio (Silva, 20/10/2026) */}
-      <NoTopoCartao daPagina>
+      <NoTopoCartao daPagina modelo={{ titulo: t('Criar conta FTP') }}>
         <button className="btn r" onClick={criar}>
           <i className="fa-solid fa-plus" />
           {t('Criar')}
         </button>
       </NoTopoCartao>
-      <Frm title="Criar conta FTP">
+      <Frm title="Criar conta FTP" semCabecalho>
         <Row label="Utilizador" hint="O servidor junta o nome da conta à frente">
           <span className="igrp">
             <span className="ib" style={{ cursor: 'default' }}>
@@ -3798,13 +3798,13 @@ function Apontadores() {
   };
   return (
     <>
-      <NoTopoCartao daPagina>
+      <NoTopoCartao daPagina modelo={{ titulo: t('Criar apontador'), desc: t('Outro domínio que abre o mesmo site (o DNS dele tem de apontar para este servidor)') }}>
         <button className="btn r" onClick={criar}>
           <i className="fa-solid fa-plus" />
           {t('Criar')}
         </button>
       </NoTopoCartao>
-      <Frm title="Criar apontador" desc="Outro domínio que abre o mesmo site (o DNS dele tem de apontar para este servidor)">
+      <Frm title="Criar apontador" semCabecalho>
         <Row label="Domínio de origem" hint="ex.: outrodominio.com">
           <span className="igrp">
             <span className="ib" style={{ cursor: 'default' }}>

@@ -709,8 +709,23 @@ export function useVariosDominios(dominios?: Screen['dominios']): boolean {
 
 /** Põe `children` (o botão da página, ou o "Ações") na linha de cima do cartão principal, com a indicação do domínio à
  *  esquerda. Sem lugar no cartão (páginas sem cartão), não desenha nada. */
-export function NoTopoCartao({ children, daPagina = false, titulo, descTitulo }: { children: ReactNode; daPagina?: boolean; titulo?: string; descTitulo?: ReactNode }) {
+export function NoTopoCartao({
+  children,
+  daPagina = false,
+  titulo,
+  descTitulo,
+  modelo,
+}: {
+  children: ReactNode;
+  daPagina?: boolean;
+  titulo?: string;
+  descTitulo?: ReactNode;
+  /** o botão da página posto pelo shell, no modelo de Domínios (Silva, 21/10/2026): título em cima, linha, e por baixo a
+   *  indicação do domínio (ou a descrição da página) à esquerda e o botão à direita */
+  modelo?: { titulo: string; desc?: ReactNode };
+}) {
   const topo = useContext(TopoCartao);
+  const varios = useVariosDominios(topo?.dominios);
   const setOcupado = topo?.setOcupado;
   // um botão posto pela própria página (corpo): as tabelas já não levam o "Ações" para esta linha
   useEffect(() => {
@@ -742,6 +757,24 @@ export function NoTopoCartao({ children, daPagina = false, titulo, descTitulo }:
     return () => obs.disconnect();
   });
   if (!topo?.el || !temLugar) return null;
+  if (modelo) {
+    return createPortal(
+      <div className="card-topo card-topo-titulo card-topo-modelo">
+        <p className="dom-ctx dom-titulo">{modelo.titulo}</p>
+        <div className="card-topo-linha">
+          {varios || !modelo.desc ? (
+            <IndicacaoDominio dominios={topo.dominios} dominioUrl={topo.dominioUrl} />
+          ) : (
+            <p className="dom-ctx dom-desc">{modelo.desc}</p>
+          )}
+          <div className="card-topo-btns" ref={botoes}>
+            {children}
+          </div>
+        </div>
+      </div>,
+      topo.el,
+    );
+  }
   return createPortal(
     <div className={'card-topo' + (titulo ? ' card-topo-titulo' : '')}>
       {titulo ? (
