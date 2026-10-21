@@ -12573,16 +12573,29 @@
       grid-template-columns: 1fr
    }
 
+   /* a lista das cópias com as mesmas margens laterais dos cartões de cima: o conteúdo de cada cópia vai de um lado ao outro deles */
+   .vh .tbl[data-dt="backups-c"] tbody tr:not(#x) {
+      padding-left: 0;
+      padding-right: 0
+   }
+
+   .vh .tbl[data-dt="backups-c"] tbody td:not(#x) {
+      padding-left: 0;
+      padding-right: 0
+   }
+
    /* os botões de cada cópia, um por linha */
-   .vh .tbl[data-dt="backups-c"] .dns-acoes {
-      display: flex;
-      flex-direction: column;
+   .vh .tbl[data-dt="backups-c"] td.dt-acoes-linha .dns-acoes:not(#x) {
+      display: flex !important;
+      flex-direction: column !important;
       gap: 8px;
       width: 100%
    }
 
-   .vh .tbl[data-dt="backups-c"] .dns-acoes .btn {
+   .vh .tbl[data-dt="backups-c"] .dns-acoes .btn:not(#x) {
+      flex: none;
       width: 100%;
+      height: 36px;
       justify-content: center
    }
 
