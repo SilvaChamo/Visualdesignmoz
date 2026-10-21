@@ -11733,3 +11733,11 @@
 .vh-popup-manut .rounded-xl {
    border-radius: 4px
 }
+
+/* Gestor de ficheiros › Mais: linha entre a opção "Mostrar/Ocultar ficheiros do root" e as ações dos ficheiros escolhidos */
+.vh .fmda-menu-sep {
+   height: 1px;
+   margin: 4px 0;
+   border: 0;
+   background: var(--line)
+}
