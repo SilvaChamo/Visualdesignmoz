@@ -41,18 +41,25 @@ export async function pedir(vh: VH, corpo: Record<string, unknown>, ok: string):
 export function Resumo<T>({ url, base, partes }: { url: string; base: string; partes: (d: T) => (string | false | null | undefined)[] }) {
   const { t } = useVH();
   const d = useNaMemoria<T>(url);
+  // ao passar de uma página com descrição para outra, a mesma peça fica um instante com os dados da anterior: sem números nessa passagem,
+  // em vez de rebentar e deixar o painel em branco ("Cannot read properties of undefined" ao abrir Modelos do servidor web)
+  let extras: (string | false | null | undefined)[] = [];
+  if (d) {
+    try {
+      extras = partes(d);
+    } catch {
+      extras = [];
+    }
+  }
   return (
     <>
       {t(base)}
-      {d &&
-        partes(d)
-          .filter(Boolean)
-          .map((p, i) => (
-            <span key={i}>
-              <span className="pdesc-sep">|</span>
-              {p}
-            </span>
-          ))}
+      {extras.filter(Boolean).map((p, i) => (
+        <span key={i}>
+          <span className="pdesc-sep">|</span>
+          {p}
+        </span>
+      ))}
     </>
   );
 }

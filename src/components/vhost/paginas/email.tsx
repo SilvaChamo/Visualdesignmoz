@@ -6,7 +6,7 @@
 // Extras, Webmail (Roundcube) e Mailmarketing (a plataforma do site). Tudo usa o domínio escolhido no seletor.
 import { useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import dynamic from 'next/dynamic';
-import { useVH, type VH } from '../context';
+import { useVH, type VH, TopoCartao } from '../context';
 import type { ScreenFn } from '../screens';
 import { DESC, MENU } from '../generated/data';
 import { pacoteDe } from '../state';
@@ -539,6 +539,14 @@ function ContasLista() {
   const vh = useVH();
   const { t, openM, nav } = vh;
   const { d, info } = useEmail();
+  // esta lista não leva a linha de cima do cartão (indicação do domínio): com o lugar "ocupado", o "Opções" fica no título da 1.ª coluna
+  const topo = useContext(TopoCartao);
+  const marcarOcupado = topo?.setOcupado;
+  useEffect(() => {
+    if (!marcarOcupado) return;
+    marcarOcupado(true);
+    return () => marcarOcupado(false);
+  }, [marcarOcupado]);
   const [q, setQ] = useState('');
   const [quotaEdit, setQuotaEdit] = useState<{ user: string; value: string } | null>(null);
   const [aGuardarQuota, setAGuardarQuota] = useState(false);
@@ -649,10 +657,7 @@ function ContasLista() {
                   <i className="fa-solid fa-envelope" />
                 </div>
                 <div>
-                  <b>
-                    {r.nome}@<wbr />
-                    {d}
-                  </b>
+                  <b>{r.nome + '@' + d}</b>
                   <span className="em-conta-sub">
                     {r.suspensa ? t('Suspensa') + ' · ' : ''}
                     {r.fwd.length ? ' · ' + t('reencaminha') : ''}

@@ -626,6 +626,8 @@ export async function POST(req: NextRequest) {
       const wpUser = linha(c.user);
       if (wpUser && !/^[A-Za-z0-9._@ -]{1,60}$/.test(wpUser)) return recusa('Utilizador inválido.');
       const postId = c.postId === undefined || c.postId === null || c.postId === '' ? undefined : Number(c.postId);
+      const editor = c.editor === undefined ? 'wordpress' : c.editor;
+      if (editor !== 'wordpress' && editor !== 'elementor') return recusa('Editor inválido.');
       if (postId !== undefined && (!Number.isSafeInteger(postId) || postId <= 0)) return recusa('Página inválida.');
       if (postId !== undefined) {
         const tipo = await executeServerCommand(
@@ -633,8 +635,16 @@ export async function POST(req: NextRequest) {
           { timeoutMs: 40_000 },
         );
         if (tipo.trim() !== 'page') return recusa('Página não encontrada.');
+        if (editor === 'elementor') {
+          // só abre no Elementor uma página que foi mesmo feita com ele
+          const modo = await executeServerCommand(
+            `sudo -u ${conta} /usr/local/bin/wp --path=${q(raiz)} --skip-plugins --skip-themes post meta get ${postId} _elementor_edit_mode 2>/dev/null`,
+            { timeoutMs: 40_000 },
+          );
+          if (modo.trim() !== 'builder') return recusa('Esta página não está editada com Elementor.');
+        }
       }
-      const x = await generateWpAutoLoginToken(d, wpUser || undefined, postId);
+      const x = await generateWpAutoLoginToken(d, wpUser || undefined, postId, editor);
       return resposta({ ok: x.success, error: x.error }, false, { url: x.url });
     }
     case 'wp-senha': {
