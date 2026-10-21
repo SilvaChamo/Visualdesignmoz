@@ -24,6 +24,10 @@ const EN_RX: [RegExp, Rep][] = [
   [/^A quota pedida não é compatível com o espaço usado e o limite de (\d+) GB do plano\.$/, 'The requested quota is not compatible with the current usage and the plan limit of $1 GB.'],
   [/^Não há espaço suficiente para aumentar esta caixa e manter as outras abaixo de 80% de utilização no plano de (\d+) GB\.$/, 'There is not enough space to increase this mailbox and keep the others below 80% usage within the plan limit of $1 GB.'],
   [/^A soma das quotas não pode exceder (\d+) GB neste plano\. Disponível para esta caixa: (\d+) MB\.$/, 'The total mailbox quotas cannot exceed $1 GB on this plan. Available for this mailbox: $2 MB.'],
+  [/^Editar no WordPress$/, 'Edit in WordPress'],
+  [/^Editar com Elementor$/, 'Edit with Elementor'],
+  [/^Ver a página online$/, 'View page online'],
+  [/^A abrir o Elementor…$/, 'Opening Elementor…'],
 ];
 
 export function translate(lang: Lang, v: string): string {

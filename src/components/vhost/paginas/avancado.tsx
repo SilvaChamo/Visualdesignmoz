@@ -3,7 +3,7 @@
 // Menu Avançado do painel Utilizador (páginas copiadas do DirectAdmin, ligadas ao Hestia por /api/vhost/avancado):
 // Handlers e MIME, Cópias de segurança, Tarefas cron, Chaves de login, Pastas protegidas, Chaves SSH,
 // Firewall de aplicação (ModSecurity), Git, WordPress e Antivírus. O Catch-all está em paginas/email.tsx.
-import { Fragment, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { useVH, type VH } from '../context';
 import type { ScreenFn } from '../screens';
 import { Check, DataTable, novaSenha, Senha, Switch, Tabs } from './componentes';
@@ -1156,9 +1156,9 @@ const AUTO: Record<string, string> = { true: 'Todas', minor: 'Só de segurança'
 
 /** Abre o painel do WordPress já com sessão. A janela abre-se logo no clique (depois de esperar pelo servidor o
  *  navegador bloqueava-a) e recebe o endereço quando ele chega; se falhar, fecha-se e aparece o motivo. */
-async function entrarWp(vh: VH, d: string, user?: string, postId?: number) {
+async function entrarWp(vh: VH, d: string, user?: string, postId?: number, editor: 'wordpress' | 'elementor' = 'wordpress') {
   const w = window.open('about:blank', '_blank');
-  const j = await noServidor(vh, { acao: 'wp-entrar', dominio: d, ...(user ? { user } : {}), ...(postId ? { postId } : {}) }, 'A abrir o painel do WordPress…');
+  const j = await noServidor(vh, { acao: 'wp-entrar', dominio: d, ...(user ? { user } : {}), ...(postId ? { postId } : {}), editor }, editor === 'elementor' ? 'A abrir o Elementor…' : 'A abrir o painel do WordPress…');
   if (j?.url && w) {
     w.opener = null;
     w.location.href = String(j.url);
@@ -1166,17 +1166,82 @@ async function entrarWp(vh: VH, d: string, user?: string, postId?: number) {
   else w?.close();
 }
 
-/** Menu "⋯" de uma linha (como no DirectAdmin): opções com ícone, título e explicação; fecha ao clicar fora ou Esc */
-function MenuPontos({ itens }: { itens: { fa: string; t: string; sub?: string; perigo?: boolean; run: () => void }[] }) {
+/** Linha fina por baixo de um botão que pisca uma vez ao clicar e desaparece (resposta ao clique, sem roda): devolve se está a
+ *  piscar e o que se chama no clique. A linha desenha-se com `.pisca` em paginas.css. */
+function usePisca(): [boolean, () => void] {
+  const [pisca, setPisca] = useState(false);
+  const fim = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(fim.current), []);
+  const piscar = useCallback(() => {
+    window.clearTimeout(fim.current);
+    setPisca(true);
+    fim.current = window.setTimeout(() => setPisca(false), 700);
+  }, []);
+  return [pisca, piscar];
+}
+
+/** Botões da linha de cima do Gerir WordPress: "Abrir o site" e "Painel do WordPress" */
+function BotoesSiteWp({ d }: { d: string }) {
+  const vh = useVH();
+  const [piscaSite, piscarSite] = usePisca();
+  const [piscaPainel, piscarPainel] = usePisca();
+  return (
+    <>
+      <a className={'btn g sec-m' + (piscaSite ? ' pisca' : '')} href={'https://' + d} target="_blank" rel="noreferrer" onClick={piscarSite}>
+        <i className="fa-solid fa-arrow-up-right-from-square" />
+        {vh.t('Abrir o site')}
+      </a>
+      <button
+        className={'btn r' + (piscaPainel ? ' pisca' : '')}
+        onClick={() => {
+          piscarPainel();
+          entrarWp(vh, d);
+        }}
+      >
+        <i className="fa-brands fa-wordpress" />
+        {vh.t('Painel do WordPress')}
+      </button>
+    </>
+  );
+}
+
+/** Menu "⋯" de uma linha (como no DirectAdmin): opções só com ícone e título; fecha ao clicar fora ou Esc. No computador abre ao
+ *  lado do ícone (para a esquerda); só no telemóvel abre por baixo */
+function MenuPontos({ itens }: { itens: { fa: string; t: string; perigo?: boolean; run: () => void }[] }) {
   const { t } = useVH();
   // posição fixa (calculada do botão): a tabela, que pode deslizar, não corta o menu
-  const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
+  const [pos, setPos] = useState<{ top: number; right: number; aoLado: boolean; ic: { left: number; right: number; top: number; bottom: number } } | null>(null);
   const caixa = useRef<HTMLSpanElement>(null);
+  const menu = useRef<HTMLDivElement>(null);
+  const [pisca, piscar] = usePisca();
   const aberto = !!pos;
   const setAberto = (v: boolean) => {
     const r = caixa.current?.getBoundingClientRect();
-    setPos(v && r ? { top: r.bottom + 6, right: Math.max(8, window.innerWidth - r.right) } : null);
+    if (!v || !r) return setPos(null);
+    // computador e tablet (acima de 768 px): ao lado do ícone, à esquerda dele; telemóvel: por baixo, dentro do ecrã
+    const aoLado = window.innerWidth > 768;
+    const ic = { left: r.left, right: r.right, top: r.top, bottom: r.bottom };
+    setPos(aoLado ? { top: r.top, right: Math.max(8, window.innerWidth - r.left + 6), aoLado, ic } : { top: r.bottom + 6, right: Math.max(8, window.innerWidth - r.right), aoLado, ic });
   };
+  // o menu nunca sai do ecrã: ao lado do ícone fica centrado com ele na vertical (e sobe ou desce o que for preciso para caber); no
+  // telemóvel fica à direita do ícone, passa para a esquerda dele se sair do ecrã, e vai por cima se não cabe por baixo
+  useLayoutEffect(() => {
+    const el = menu.current;
+    if (!pos || !el) return;
+    const w = el.offsetWidth;
+    const h = el.offsetHeight;
+    let { top, right } = pos;
+    if (pos.aoLado) {
+      top = Math.min(Math.round((pos.ic.top + pos.ic.bottom) / 2 - h / 2), window.innerHeight - h - 8);
+    } else {
+      let left = pos.ic.right - w;
+      if (left < 8) left = Math.min(pos.ic.left, window.innerWidth - w - 8);
+      right = window.innerWidth - Math.max(8, left) - w;
+      if (pos.ic.bottom + 6 + h > window.innerHeight - 8 && pos.ic.top - 6 - h >= 8) top = pos.ic.top - 6 - h;
+    }
+    top = Math.max(8, top);
+    if (top !== pos.top || right !== pos.right) setPos({ ...pos, top, right });
+  }, [pos]);
   useEffect(() => {
     if (!aberto) return;
     const fora = (e: MouseEvent) => !caixa.current?.contains(e.target as Node) && setPos(null);
@@ -1195,11 +1260,20 @@ function MenuPontos({ itens }: { itens: { fa: string; t: string; sub?: string; p
   }, [aberto]);
   return (
     <span className="wp-pontos" ref={caixa}>
-      <button className={'wp-pontos-btn' + (aberto ? ' on' : '')} onClick={() => setAberto(!aberto)} title={t('Mais opções')} aria-label={t('Mais opções')} aria-expanded={aberto}>
+      <button
+        className={'wp-pontos-btn' + (aberto ? ' on' : '') + (pisca ? ' pisca' : '')}
+        onClick={() => {
+          piscar();
+          setAberto(!aberto);
+        }}
+        title={t('Mais opções')}
+        aria-label={t('Mais opções')}
+        aria-expanded={aberto}
+      >
         <i className="fa-solid fa-ellipsis" />
-              </button>
+      </button>
       {pos && (
-        <div className="wp-menu" role="menu" style={{ top: pos.top, right: pos.right }}>
+        <div className="wp-menu" role="menu" ref={menu} style={{ top: pos.top, right: pos.right }}>
           {itens.map((x) => (
             <button
               key={x.t}
@@ -1211,10 +1285,7 @@ function MenuPontos({ itens }: { itens: { fa: string; t: string; sub?: string; p
               }}
             >
               <i className={'fa-solid ' + x.fa} />
-              <span>
-                <b>{t(x.t)}</b>
-                {x.sub && <small>{t(x.sub)}</small>}
-              </span>
+              <b>{t(x.t)}</b>
             </button>
           ))}
         </div>
@@ -1345,8 +1416,8 @@ function WordPressLista() {
               <MenuPontos
                 itens={[
                   { fa: 'fa-window-maximize', t: 'Abrir o painel do WordPress', run: () => entrarWp(vh, r.d) },
-                  { fa: 'fa-users', t: 'Abrir a lista de utilizadores', sub: 'Ver os utilizadores do WordPress e mudar as palavras-passe', run: () => nav('/utilizador/wordpress/' + enc(r.d) + '/utilizadores') },
-                  { fa: 'fa-arrows-rotate', t: 'Gerir a atualização automática', sub: 'Escolher quando o WordPress se atualiza sozinho', run: () => openM(<WpAutoModal d={r.d} atual={r.auto} depois={ler} />) },
+                  { fa: 'fa-users', t: 'Abrir a lista de utilizadores', run: () => nav('/utilizador/wordpress/' + enc(r.d) + '/utilizadores') },
+                  { fa: 'fa-arrows-rotate', t: 'Gerir a atualização automática', run: () => openM(<WpAutoModal d={r.d} atual={r.auto} depois={ler} />) },
                   { fa: 'fa-database', t: 'Gerir a configuração da base de dados', run: () => nav('/utilizador/wordpress/' + enc(r.d) + '/base-de-dados') },
                   { fa: 'fa-trash-can', t: 'Apagar o WordPress', perigo: true, run: () => openM(<WpApagarModal d={r.d} depois={ler} />) },
                 ]}
@@ -1819,17 +1890,14 @@ function WpPaginas({ d }: { d: string }) {
           { k: 'm', t: 'Última alteração', sort: (r) => r.post_modified, cell: (r) => dataWp(r.post_modified) },
         ]}
         actions={(r) => (
-          <span className="dns-acoes">
-            {r.url && (
-              <a className="btn sm g" href={r.url} target="_blank" rel="noreferrer">
-                {t('Ver')}
-              </a>
-            )}
-            <button className="btn sm g" onClick={() => entrarWp(vh, d, undefined, r.ID)} title={t('Editar no WordPress')}>
-              <i className="fa-solid fa-pen" />
-              {t('Editar no WordPress')}
-            </button>
-          </span>
+          <MenuPontos
+            itens={[
+              { fa: 'fa-pen', t: 'Editar no WordPress', run: () => entrarWp(vh, d, undefined, r.ID) },
+              // só as páginas feitas com o Elementor têm esta opção (o editor de blocos estragava-as)
+              ...(r.elementor ? [{ fa: 'fa-pen-to-square', t: 'Editar com Elementor', run: () => entrarWp(vh, d, undefined, r.ID, 'elementor') }] : []),
+              { fa: 'fa-arrow-up-right-from-square', t: 'Ver a página online', run: () => r.url && window.open(r.url, '_blank', 'noopener,noreferrer') },
+            ]}
+          />
         )}
       />
     </Sec>
@@ -1911,18 +1979,7 @@ export const wordpressPagina: ScreenFn = (vh) => {
     dominioUrl: { d: a, ir: (n: string) => (vh.a.domains.find((x) => x.name === n)?.wp ? '/utilizador/wordpress/' + encodeURIComponent(n) + resto : '/utilizador/wordpress') },
   });
   if (a === 'instalar' && b) return { title: 'Instalar o WordPress', crumbs: [base, { t: 'Instalar' }], dominios: 'sites', dominioUrl: { d: b, ir: (n) => '/utilizador/wordpress/instalar/' + encodeURIComponent(n) }, body: <WpInstalar key={b} d={b} /> };
-  const sitePainel = (
-    <>
-      <a className="btn g sec-m" href={'https://' + a} target="_blank" rel="noreferrer">
-        <i className="fa-solid fa-arrow-up-right-from-square" />
-        {vh.t('Abrir o site')}
-      </a>
-      <button className="btn r" onClick={() => entrarWp(vh, a)}>
-        <i className="fa-brands fa-wordpress" />
-        {vh.t('Painel do WordPress')}
-      </button>
-    </>
-  );
+  const sitePainel = <BotoesSiteWp d={a} />;
   const naPagina = { t: a, path: '/utilizador/wordpress/' + encodeURIComponent(a) };
   if (a && b === 'paginas' && vh.s.sub[2])
     return {

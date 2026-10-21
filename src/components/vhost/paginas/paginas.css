@@ -3306,10 +3306,13 @@
    background: var(--line)
 }
 
+/* Popup "⋯" só com ícone e título (sem descrições), na largura do texto e com letra mais pequena do que a das tabelas (13 px): um popup nunca
+   tem texto maior que o da página (Silva, 21/10/2026) */
 .vh .wp-menu {
    position: fixed;
    z-index: 200;
-   min-width: 340px;
+   min-width: 0;
+   width: max-content;
    max-width: calc(100vw - 16px);
    background: var(--card);
    border: 1px solid var(--line);
@@ -3321,17 +3324,17 @@
 
 .vh .wp-menu button {
    display: flex;
-   align-items: flex-start;
-   gap: 14px;
+   align-items: center;
+   gap: 10px;
    width: 100%;
-   padding: 10px 16px;
+   padding: 8px 14px;
    border: 0;
    border-bottom: 1px solid var(--line-soft, var(--line));
    background: none;
    color: var(--ink);
    cursor: pointer;
    text-align: left;
-   white-space: normal
+   white-space: nowrap
 }
 
 .vh .wp-menu button:last-child {
@@ -3343,32 +3346,52 @@
 }
 
 .vh .wp-menu button i {
-   width: 18px;
-   margin-top: 2px;
+   width: 16px;
    color: var(--blue, #2563eb);
-   font-size: calc(15px * var(--fs, 1));
+   font-size: calc(12px * var(--fs, 1));
    text-align: center
 }
 
-.vh .wp-menu button span {
-   display: flex;
-   flex-direction: column;
-   gap: 2px
-}
-
 .vh .wp-menu button b {
-   font-weight: 700;
-   font-size: calc(13px * var(--fs, 1))
-}
-
-.vh .wp-menu button small {
-   color: var(--muted);
-   font-size: calc(12.5px * var(--fs, 1));
-   font-weight: 400
+   font-weight: 600;
+   font-size: calc(12px * var(--fs, 1))
 }
 
 .vh .wp-menu button.perigo i {
    color: var(--red)
+}
+
+/* Linha fina por baixo de um botão que pisca uma vez ao clicar e desaparece (resposta ao clique, sem roda nem esqueleto — Silva, 21/10/2026) */
+.vh .pisca {
+   position: relative
+}
+
+.vh .pisca::after {
+   content: "";
+   position: absolute;
+   left: 0;
+   right: 0;
+   bottom: -4px;
+   height: 2px;
+   border-radius: 1px;
+   background: var(--ink);
+   z-index: 20;
+   pointer-events: none;
+   animation: vh-pisca .7s ease-out both
+}
+
+@keyframes vh-pisca {
+   0% {
+      opacity: 0
+   }
+
+   20% {
+      opacity: 1
+   }
+
+   100% {
+      opacity: 0
+   }
 }
 
 .vh .wp-versao {
@@ -10228,6 +10251,26 @@
    }
 }
 
+/* Lista de contas de e-mail: a 1.ª coluna fica sempre numa só linha (o nome da conta, e o que o acompanha, ao lado) em computador e tablet
+   (Silva, 21/10/2026) */
+@media(min-width:769px) {
+   .vh .em-lista-card .tbl td .cell > div > b {
+      display: inline;
+      white-space: nowrap
+   }
+
+   .vh .em-lista-card .tbl td .cell > div > b wbr {
+      display: none
+   }
+
+   .vh .em-lista-card .tbl td .em-conta-sub {
+      display: inline;
+      white-space: nowrap;
+      max-width: none;
+      margin-left: 4px
+   }
+}
+
 @media(min-width:1920px) {
    .vh .sites-contas-lista .tbl tbody td {
       padding-top: 10px;
@@ -11379,10 +11422,34 @@
 }
 
 /* Contas de e-mail: a lista sem linhas laterais, só as horizontais, de lado a lado (Silva, 20/10/2026) */
-.vh .card.em-lista-card {
-   border-left: 0;
-   border-right: 0;
-   border-radius: 0
+.vh .card.em-lista-card:not(#x) {
+   /* a lista assenta diretamente no cartão principal, como as outras tabelas (Domínios): sem contorno, sem fundo e sem o enchimento do cartão
+      interno — a tabela vai até às margens normais do cartão, como os cartões de números; no escuro, o mesmo fundo do cartão principal
+      (Silva, 21/10/2026) */
+   border: 0;
+   border-radius: 0;
+   padding: 0;
+   background: transparent;
+   box-shadow: none
+}
+
+/* a barra da pesquisa e dos botões: na margem normal das laterais, a mesma dos cartões de números e das linhas da tabela (a pesquisa começa onde eles começam e os botões acabam onde eles acabam); o mesmo espaço por cima e por baixo dos botões (14 px) */
+.vh .card.em-lista-card .em-acoes-topo {
+   margin: 0;
+   padding: 14px 0
+}
+
+/* o espaço que se vê por cima dos botões conta desde os cartões de números: tinha lá mais 18 px (32 em cima, 14 em baixo). Agora é igual
+   por cima e por baixo e maior: 20 px de cada lado, como a linha de cima das outras páginas (Silva, 21/10/2026). Só em computador e
+   tablet — no telemóvel a barra fica como estava. */
+@media (min-width: 769px) {
+   .vh .stats:has(+ .em-lista-card) {
+      margin-bottom: 0
+   }
+
+   .vh .card.em-lista-card .em-acoes-topo {
+      padding: 20px 0
+   }
 }
 
 /* Gestor de WordPress: a pasta de cada linha numa só linha, sem partir (Silva, 20/10/2026) */
@@ -11710,4 +11777,44 @@
    gap: 8px;
    margin-top: 10px;
    padding-right: var(--recuo, 12px)
+}
+
+/* Cartão principal até ao fundo da janela, nem mais nem menos (Silva, 21/10/2026): o cartão tinha `min-height: calc(100vh - 120px)` mas
+   começa a 136 px do topo (barra de cima 76 + faixa do seletor 40 + 20 de espaço), por isso passava 16 px do fundo e a página deslizava
+   16 px sem haver nada para ver. Agora o cartão (e a coluna da direita) enchem o que sobra de `main`, seja qual for a altura da barra de
+   cima (também com a faixa de "entrar como"). Só em computador e tablet — no telemóvel o cartão vai de ponta a ponta como estava. */
+@media (min-width: 769px) {
+   .vh main .da-main-card,
+   .vh main .cols > .cols-side,
+   .vh main .da-lado {
+      min-height: 0
+   }
+
+   .vh main > .cols,
+   .vh main > .pg-slot > .cols {
+      flex: 1 1 auto
+   }
+
+   .vh .cols > .da-main-card {
+      align-self: stretch
+   }
+}
+
+/* Margem do lado direito igual à do esquerdo: o que está na última coluna (os botões de cada linha e o "Colunas" do cabeçalho) acaba
+   no mesmo recuo (--recuo, 12 px) do botão da linha de cima do cartão, que está por cima; antes ficava a 14 px, 2 px mais para dentro
+   (Silva, 21/10/2026) */
+@media (min-width: 769px) {
+   .vh .tbl th:not(.ck):last-child,
+   .vh .tbl td:not(.ck):last-child,
+   .vh .tbl[data-dt="dns"] th:last-child,
+   .vh .tbl[data-dt="dns"] td:last-child {
+      padding-right: var(--recuo, 12px)
+   }
+}
+
+/* Linha de cima do cartão sem nada dentro (nem indicação do domínio, nem botão — ex.: páginas do Admin que só têm tabelas ou separadores):
+   o lugar não ocupa nada, para o conteúdo começar logo com a margem normal do cartão */
+.vh .card-topo-slot:has(> .card-topo > .dom-ctx:empty + .card-topo-btns:empty),
+.vh .card-topo-slot:has(> .card-topo > .dom-ctx:empty + .card-topo-btns > .barra-antiga:empty:only-child) {
+   display: none
 }
