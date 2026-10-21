@@ -11596,13 +11596,118 @@
    user-select: all
 }
 
-.vh .pf-2p-estado {
-   display: inline-flex;
-   align-items: center;
-   gap: 8px;
-   font-weight: 700
+
+/* Barra das colunas: o ícone "Colunas" fica sempre à vista, encostado à direita da barra, mesmo quando a tabela desliza na horizontal
+   (Silva, 21/10/2026) */
+.vh .tbl thead th.dt-th-cols {
+   position: sticky;
+   right: 0;
+   z-index: 2;
+   background: var(--soft)
 }
 
-.vh .pf-2p-estado.on {
-   color: #16a34a
+/* Perfil › Autenticação em 2 passos, no formato do DirectAdmin: faixa com o ícone num bloco à esquerda (âmbar desligada, verde ligada), e os
+   códigos de recuperação numa caixa por baixo; só linhas de cima e de baixo, sem laterais (Silva, 21/10/2026) */
+.vh .pf-2p-faixa {
+   display: flex;
+   align-items: stretch;
+   background: var(--card);
+   border-top: 1px solid var(--line);
+   border-bottom: 1px solid var(--line);
+   margin-bottom: 16px
+}
+
+.vh .pf-2p-ic {
+   position: relative;
+   flex: none;
+   width: 70px;
+   display: grid;
+   place-items: center;
+   background: #B07F1B;
+   color: #fff;
+   font-size: calc(22px * var(--fs, 1))
+}
+
+.vh .pf-2p-ic::after {
+   content: "";
+   position: absolute;
+   right: -7px;
+   top: 50%;
+   margin-top: -7px;
+   border: 7px solid transparent;
+   border-left-color: #B07F1B;
+   border-right: 0
+}
+
+.vh .pf-2p-faixa.on .pf-2p-ic {
+   background: var(--ok)
+}
+
+.vh .pf-2p-faixa.on .pf-2p-ic::after {
+   border-left-color: var(--ok)
+}
+
+.vh .pf-2p-cx {
+   padding: 16px 20px 16px 26px
+}
+
+.vh .pf-2p-cx h4 {
+   font-size: calc(15px * var(--fs, 1));
+   font-weight: 800;
+   margin: 0 0 2px
+}
+
+.vh .pf-2p-cx p {
+   color: var(--muted);
+   font-size: calc(13.5px * var(--fs, 1));
+   margin: 0 0 12px
+}
+
+.vh .pf-2p-codigos {
+   display: grid;
+   place-items: center;
+   min-height: 110px;
+   padding: 16px var(--recuo, 12px);
+   background: var(--soft);
+   border-top: 1px solid var(--line);
+   border-bottom: 1px solid var(--line)
+}
+
+.vh .pf-2p-codigos.off {
+   opacity: .6
+}
+
+.vh .pf-2p-codigos ul {
+   list-style: none;
+   margin: 0;
+   padding: 0;
+   display: grid;
+   grid-template-columns: repeat(2, minmax(0, max-content));
+   gap: 6px 40px
+}
+
+.vh .pf-2p-codigos code,
+.vh .pf-2p-codigos .vazio {
+   font: 13.5px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+   color: var(--ink)
+}
+
+.vh .pf-2p-codigos .vazio {
+   margin: 0;
+   color: var(--muted)
+}
+
+.vh .pf-2p-codigos .aviso {
+   margin: 12px 0 0;
+   color: var(--warn);
+   font-size: calc(13px * var(--fs, 1));
+   text-align: center
+}
+
+.vh .pf-2p-codigos-acoes {
+   display: flex;
+   justify-content: flex-end;
+   gap: 8px;
+   margin-top: 10px;
+   padding-right: var(--recuo, 12px)
 }

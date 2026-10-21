@@ -267,6 +267,19 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
 - **Antes de publicar:** fazer todas as rectificações, mandar o comando do ponto 6 (dois ecrãs), esperar que o Silva diga
   que está bom, e só publicar quando ele disser "publica" (ver "Como se trabalha com o Silva").
 
+# Autenticação em 2 passos (opcional — Silva, 21/10/2026)
+
+- **Nunca obrigatória**: só afecta quem a liga em Perfil › Autenticação em 2 passos (aplicação de autenticação, TOTP do Supabase;
+  precisa de o MFA estar activo no projecto Supabase). Quem a ligou só abre o painel depois do código: as rotas do painel respondem
+  428 a sessões só com a palavra-passe (`src/lib/mfa-sessao.ts`, `requirePanelBootstrapAccess`, `updateSession`) e o painel mostra o
+  ecrã do código (`dois-passos.tsx`), seja qual for a porta de entrada. O nível da sessão lê-se do token só depois de o validar.
+- **Códigos de recuperação** (8, uso único, só os hashes em `app_metadata` — nunca em `user_metadata`, que a própria pessoa edita):
+  `src/lib/dois-passos-codigos.ts`, rotas `/api/vhost/doisp` e `/api/vhost/doisp/recuperar` (a única que aceita a sessão só com a
+  palavra-passe; 5 tentativas / 15 min). Usar um código desliga os 2 passos da conta. O administrador também desliga os 2 passos
+  de uma conta de cliente ("entrar como" → Perfil › Autenticação em 2 passos).
+- **Formato da página** (como o do DirectAdmin): faixa com o ícone num bloco à esquerda (âmbar desligada, verde ligada), título,
+  estado e botão; por baixo "Códigos de recuperação" numa caixa suave e o botão à direita. Só linhas de cima e de baixo.
+
 # Verificação visual de alterações de UI
 
 **Confirmar sempre, mas nunca mostrar imagens ao Silva** (Silva, 15/10/2026: "não me mostre imagens… eu vou apenas
