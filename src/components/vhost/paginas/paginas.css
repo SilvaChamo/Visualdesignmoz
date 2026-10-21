@@ -12647,3 +12647,163 @@
       display: none
    }
 }
+
+/* Botão base do painel (Silva, 21/10/2026): o "+ Adicionar registo" do DNS — 32 px de altura, letra 12,5 px, 14 px de cada lado.
+   Vale para todos os botões (formulários, janelas, cartões, páginas). Ficam de fora os pequenos das linhas das tabelas (.sm),
+   os de só um ícone e os da barra de cima. */
+.vh .btn:not(.sm):not(.iconbtn):not(.topact .btn):not(#x) {
+   height: 32px;
+   min-height: 32px;
+   padding: 0 14px;
+   font-size: calc(12.5px * var(--fs, 1));
+   line-height: 1
+}
+
+/* Modelo de Domínios em todas as páginas com um botão à direita (Silva, 21/10/2026): o título da página em cima, a linha, e por baixo
+   a indicação do domínio (ou a descrição da página) à esquerda e o botão à direita. Não se inventam botões: só as páginas que já o têm. */
+.vh .da-main-card .card-topo.card-topo-titulo.card-topo-modelo:not(#x) {
+   display: block;
+   margin-top: 0;
+   padding: 0;
+   border-bottom: 0
+}
+
+.vh .da-main-card .card-topo-modelo .dom-ctx.dom-titulo:not(#x) {
+   display: block;
+   margin: 0;
+   padding: 0 var(--recuo, 12px) 5px;
+   border-bottom: 1px solid var(--line)
+}
+
+.vh .da-main-card .card-topo-slot:has(.card-topo-modelo):not(#x) {
+   margin-bottom: 0
+}
+
+.vh .card-topo-modelo .card-topo-linha {
+   display: flex;
+   align-items: flex-start;
+   justify-content: space-between;
+   gap: 12px;
+   padding-top: 5px;
+   margin-bottom: 20px
+}
+
+.vh .card-topo-modelo .card-topo-linha > .dom-ctx {
+   margin: 0;
+   flex: 1 1 0;
+   min-width: 0;
+   line-height: 1.2
+}
+
+/* nada para pôr à direita (a página não tem botão visível): nem título nem linha */
+.vh .card-topo-slot:has(.card-topo-modelo .card-topo-btns:empty),
+.vh .card-topo-slot:has(.card-topo-modelo .card-topo-btns > .barra-antiga:empty:only-child) {
+   display: none
+}
+
+/* telemóvel (Silva, 21/10/2026): o botão fica do lado direito, no seu tamanho (não esticado a meia largura ou à toda) */
+@media (max-width: 768px) {
+   .vh .da-main-card .card-topo-btns:not(#x) {
+      width: 100%;
+      margin-left: 0;
+      justify-content: flex-end
+   }
+
+   .vh .da-main-card .card-topo-btns:not(#x) > *,
+   .vh .da-main-card .card-topo-btns:not(#x) > [data-larga] {
+      flex: none;
+      width: auto;
+      max-width: 100%
+   }
+
+   .vh .card-topo-modelo .card-topo-linha {
+      margin-bottom: 12px
+   }
+
+   .vh .card-topo-modelo .card-topo-linha > .dom-ctx {
+      display: none
+   }
+}
+
+/* Margens do cabeçalho do cartão (Silva, 21/10/2026): à direita, tudo acaba no mesmo sítio — o fim da linha: o botão da página
+   e o botão das linhas das tabelas. À esquerda: sem separadores, o título e a indicação começam no início da linha; com
+   separadores, alinham com o ícone do primeiro separador (e as linhas vão sempre de ponta a ponta). */
+@media (min-width: 769px) {
+   .vh .da-main-card .card-topo-modelo .dom-ctx:not(#x) {
+      padding-right: 0
+   }
+
+   .vh .da-main-card .card-topo-btns:not(#x) {
+      padding-right: 0
+   }
+
+   /* sem separadores: todo o conteúdo começa no início da linha (o recuo é o que alinha com o ícone do primeiro separador) */
+   .vh .da-main-card:not(:has(> .ptabs-faixa)):not(#x) {
+      --recuo: 0px
+   }
+
+   .vh .da-main-card:not(:has(> .ptabs-faixa)) .tbl th.ck:not(#x),
+   .vh .da-main-card:not(:has(> .ptabs-faixa)) .tbl td.ck:not(#x) {
+      padding-left: 0
+   }
+
+   /* o texto depois da caixa de seleção mantém o seu espaço */
+   .vh .da-main-card:not(:has(> .ptabs-faixa)) .tbl th.ck + th:not(#x),
+   .vh .da-main-card:not(:has(> .ptabs-faixa)) .tbl td.ck + td:not(#x) {
+      padding-left: 24px
+   }
+
+   .vh .da-main-card .tbl td.dt-acoes-linha:last-child:not(#x) {
+      padding-right: 0
+   }
+}
+
+/* Texto nunca a tocar na linha vertical (Silva, 21/10/2026): os cartões com contornos laterais (SSL) levam espaço dentro, dos dois lados */
+.vh .da-main-card > .frm.frm-lados .frm-head:not(#x),
+.vh .da-main-card > .frm.frm-lados .frm-row:not(#x),
+.vh .da-main-card > .frm.frm-lados .frm-foot:not(#x) {
+   padding-left: 14px;
+   padding-right: 14px
+}
+
+/* telemóvel (Silva, 21/10/2026): o título, as descrições, os rótulos e os campos começam 12 px dentro da linha — onde começa o texto
+   dos cartões das listas — e o botão acaba no fim da linha; a indicação do domínio não aparece (o seletor está à vista) */
+@media (max-width: 768px) {
+   .vh .da-main-card .card-topo-titulo .dom-ctx.dom-titulo:not(#x) {
+      display: block;
+      padding-left: 12px;
+      padding-right: 0
+   }
+
+   .vh .da-main-card .card-topo-titulo .dom-ctx.dom-titulo-bloco:not(#x) {
+      display: flex;
+      padding-left: 12px
+   }
+
+   .vh .da-main-card .card-topo.card-topo-titulo:not(#x) {
+      display: block
+   }
+
+   .vh .da-main-card .card-topo-titulo .card-topo-btns:empty:not(#x) {
+      display: none
+   }
+
+   .vh .seccao-h.dom-cab > .dom-ctx:not(#x) {
+      display: none
+   }
+
+   .vh .seccao-h.dom-cab:not(#x) {
+      justify-content: flex-end
+   }
+
+   .vh .bk-topo .bk-escolhas-t:not(#x) {
+      padding-left: 12px
+   }
+
+   .vh .da-main-card > .frm .frm-head:not(#x),
+   .vh .da-main-card > .frm .frm-row:not(#x),
+   .vh .da-main-card > .frm .frm-foot:not(#x) {
+      padding-left: 12px;
+      padding-right: 12px
+   }
+}

@@ -428,7 +428,7 @@ function PaginaSlot({ p, oculta, onPronta, registar }: { p: Pagina; oculta: bool
             </div>
           )}
           {/* o botão da página, que estava na barra de cima, passa para a linha de cima do cartão */}
-          {!p.semCartao && !p.home && p.scr.actions && <NoTopoCartao>{p.scr.actions}</NoTopoCartao>}
+          {!p.semCartao && !p.home && p.scr.actions && <NoTopoCartao modelo={{ titulo: p.title, desc: p.scr.descEl ?? p.desc }}>{p.scr.actions}</NoTopoCartao>}
           {carrega && !oculta && (
             <div className="da-main-card pg-carga">
               <BarrasDa />

@@ -8,11 +8,13 @@ import { BarraPagina, FaixaAbas, PesquisaPagina, TopoCartao, useVH } from '../co
 import type { Campo, Lim, Unit } from './dados';
 
 // ---------- Formulário ----------
-export function Frm({ title, desc, right, children, foot, className }: { title?: string; desc?: string; right?: ReactNode; children: ReactNode; foot?: ReactNode; className?: string }) {
+/** `semCabecalho`: o título (e a descrição) vão para cima da linha do cartão, no modelo de Domínios (NoTopoCartao `modelo`); o formulário
+ *  fica sem a barra cinzenta do título */
+export function Frm({ title, desc, right, children, foot, className, semCabecalho }: { title?: string; desc?: string; right?: ReactNode; children: ReactNode; foot?: ReactNode; className?: string; semCabecalho?: boolean }) {
   const { t } = useVH();
   return (
     <div className={className ? `frm ${className}` : 'frm'}>
-      {title && (
+      {title && !semCabecalho && (
         <div className="frm-head">
           <div>
             <h3>{t(title)}</h3>
