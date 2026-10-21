@@ -482,11 +482,15 @@ export async function generateWpAutoLoginToken(
   domain: string,
   username?: string,
   postId?: number,
+  editor: 'wordpress' | 'elementor' = 'wordpress',
 ): Promise<{ success: boolean; url?: string; error?: string }> {
   const install = await resolveWpInstall(domain);
   if (!install) return { success: false, error: 'WordPress não encontrado neste domínio' };
   if (postId !== undefined && (!Number.isSafeInteger(postId) || postId <= 0)) {
     return { success: false, error: 'Página inválida.' };
+  }
+  if (editor === 'elementor' && postId === undefined) {
+    return { success: false, error: 'Escolha uma página Elementor.' };
   }
 
   // Sem utilizador indicado (botão "Painel do WordPress"): entra como o
@@ -510,7 +514,9 @@ export async function generateWpAutoLoginToken(
   const token = crypto.randomUUID();
   const filename = `wp-login-${token}.php`;
   const filePath = `${install.path}/${filename}`;
-  const destino = postId === undefined ? 'admin_url()' : `admin_url('post.php?post=${postId}&action=edit')`;
+  // o Elementor abre pelo mesmo endereço do editor do WordPress, com action=elementor
+  const acao = editor === 'elementor' ? 'elementor' : 'edit';
+  const destino = postId === undefined ? 'admin_url()' : `admin_url('post.php?post=${postId}&action=${acao}')`;
 
   const phpContent = `<?php
 // Autologin gerado pelo painel
