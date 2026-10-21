@@ -43,7 +43,8 @@ export const updateSession = async (
         const { data: { user } } = await supabase.auth.getUser();
         // 2 passos ligados e a sessão ainda só com a palavra-passe: as rotas /api do painel respondem 428 (as páginas
         // abrem e o painel mostra o ecrã do código)
-        if (user && request.nextUrl.pathname.startsWith("/api/") && (await faltaCodigoDoisPassos(supabase, user))) {
+        // Excepção: o código de recuperação (/api/vhost/doisp/recuperar), que é como se entra sem a aplicação.
+        if (user && request.nextUrl.pathname.startsWith("/api/") && request.nextUrl.pathname !== "/api/vhost/doisp/recuperar" && (await faltaCodigoDoisPassos(supabase, user))) {
             const barrada = respostaFaltaCodigo();
             response.cookies.getAll().forEach((c) => barrada.cookies.set(c));
             return barrada;

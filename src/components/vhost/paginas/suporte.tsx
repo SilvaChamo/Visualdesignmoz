@@ -4,7 +4,7 @@
 // Mensagens. Pedidos de suporte e mensagens vêm das tabelas do site (tickets_suporte, ticket_respostas,
 // notifications) por /api/vhost/suporte e /api/vhost/mensagens; o perfil por /api/vhost/perfil e, para a
 // palavra-passe e as sessões, pelo Supabase Auth do navegador (com a sessão da própria pessoa).
-import { useEffect, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { supabase } from '@/lib/supabase-client';
 import { useVH, type VH } from '../context';
 import type { ScreenFn } from '../screens';
@@ -133,6 +133,8 @@ const PERGUNTAS: [string, string][] = [
   ['Como crio uma base de dados?', 'Gestão de domínios → Bases de dados → Criar base de dados. O nome e o utilizador começam sempre pelo nome da sua conta.'],
   ['Como faço uma cópia de segurança?', 'Avançado → Cópias de segurança → Fazer cópia agora. A cópia leva sites, e-mail, bases de dados e tarefas cron; pode descarregá-la ou restaurá-la depois.'],
   ['Esqueci-me da palavra-passe de uma caixa de e-mail.', 'E-mail → Contas de e-mail → escolha a conta → Mudar palavra-passe. A palavra-passe antiga deixa de funcionar logo.'],
+  ['O que é a autenticação em 2 passos e como a ligo?', 'É opcional: um código do telemóvel, além da palavra-passe, para entrar no painel. Perfil → Autenticação em 2 passos → Ligar. Leia o código QR com o Google Authenticator, Microsoft Authenticator ou Authy e escreva os 6 números que a aplicação mostra. Depois, ao entrar, o painel pede o código a seguir à palavra-passe. Ao ligar saem códigos de recuperação: guarde-os num sítio seguro.'],
+  ['Perdi o telemóvel com a autenticação em 2 passos. Como entro?', 'No ecrã do código escolha «Não tenho a aplicação — usar um código de recuperação» e escreva um dos códigos que guardou (cada um serve uma vez; a autenticação em 2 passos fica desligada e pode voltar a ligá-la no Perfil). Sem códigos, peça ao administrador para desligar os 2 passos da sua conta.'],
   ['Onde vejo quanto espaço estou a usar?', 'No Dashboard (separador Gestão) e em Sistema e ficheiros → Uso de recursos.'],
 ];
 
@@ -732,36 +734,30 @@ function PerfilSessoes() {
   );
 }
 
-type FatorTotp = { id: string; criado: string };
 type Ligando = { id: string; qr: string; segredo: string };
+type Estado2p = { ligado: boolean; desde: string | null; codigos: number };
 
-/** Autenticação em 2 passos, opcional (Silva, 21/10/2026): aplicação de autenticação (TOTP do Supabase). Liga-se com o
- *  código QR e um primeiro código; depois, a entrada no painel pede o código (ver dois-passos.tsx e mfa-sessao.ts). */
+/** Autenticação em 2 passos, opcional (Silva, 21/10/2026), no formato do DirectAdmin: faixa com o estado e, por baixo, os
+ *  códigos de recuperação. Aplicação de autenticação (TOTP do Supabase): liga-se com o código QR e um primeiro código; depois a
+ *  entrada no painel pede o código (dois-passos.tsx, mfa-sessao.ts). O administrador vê o estado de uma conta de cliente e
+ *  pode desligar-lhe os 2 passos (telemóvel perdido, sem códigos). */
 function PerfilDoisPassos() {
   const vh = useVH();
   const { t, openM } = vh;
-  const { alheia } = vista(vh);
-  const [fator, setFator] = useState<FatorTotp | null>(null);
-  const [lido, setLido] = useState(false);
+  const { alheia, adminImpersonando, rota } = vista(vh);
+  const { dados, erro, ler } = useGet<Estado2p>(rota('/api/vhost/doisp'));
   const [ligando, setLigando] = useState<Ligando | null>(null);
   const [codigo, setCodigo] = useState('');
   const [ocupado, setOcupado] = useState(false);
-  const ler = async () => {
-    const { data } = await supabase.auth.mfa.listFactors();
-    const f = data?.totp?.[0];
-    setFator(f ? { id: f.id, criado: f.created_at } : null);
-    setLido(true);
-  };
-  useEffect(() => {
-    if (!alheia) void ler().catch(() => setLido(true));
-  }, [alheia]);
-  if (alheia)
+  const [novos, setNovos] = useState<string[] | null>(null);
+  if (alheia && !adminImpersonando)
     return (
       <Sec titulo="Autenticação em 2 passos">
         <SoDoCliente texto="A autenticação em 2 passos é de cada pessoa: só o cliente a liga ou desliga, no painel dele." />
       </Sec>
     );
-  if (!lido) return null;
+  if (!dados) return <Carregando erro={erro} ler={ler} />;
+  const ligado = dados.ligado;
 
   // limpa tentativas antigas por confirmar e pede um factor novo
   const comecar = async () => {
@@ -797,84 +793,141 @@ function PerfilDoisPassos() {
       vh.toast('Autenticação em 2 passos ligada');
       setLigando(null);
       setCodigo('');
-      await ler();
+      // ao ligar, já saem os códigos de recuperação: é o momento de os guardar
+      const j = await enviar(vh, '/api/vhost/doisp', { acao: 'gerar' }, 'Códigos de recuperação criados');
+      if (j) setNovos(j.codigos as string[]);
+      ler(true);
     } finally {
       setOcupado(false);
     }
   };
   const desligar = async () => {
-    if (!fator) return;
-    const { error } = await supabase.auth.mfa.unenroll({ factorId: fator.id });
-    if (error) return vh.toast('Não foi possível desligar. Saia e entre de novo com o código e tente outra vez.');
-    vh.toast('Autenticação em 2 passos desligada');
-    await ler();
+    const { data: lista } = await supabase.auth.mfa.listFactors();
+    for (const f of lista?.totp || []) {
+      const { error } = await supabase.auth.mfa.unenroll({ factorId: f.id });
+      if (error) return vh.toast('Não foi possível desligar. Saia e entre de novo com o código e tente outra vez.');
+    }
+    await enviar(vh, '/api/vhost/doisp', { acao: 'limpar' }, 'Autenticação em 2 passos desligada');
+    setNovos(null);
+    ler(true);
+  };
+  const gerar = async () => {
+    const j = await enviar(vh, '/api/vhost/doisp', { acao: 'gerar' }, 'Códigos de recuperação criados');
+    if (j) setNovos(j.codigos as string[]);
+    ler(true);
+  };
+  const desligarConta = async () => {
+    if (await enviar(vh, '/api/vhost/doisp', { conta: vh.me, acao: 'desligar' }, 'Autenticação em 2 passos desligada nesta conta')) ler(true);
+  };
+  const copiar = async () => {
+    try {
+      await navigator.clipboard.writeText((novos || []).join('\n'));
+      vh.toast('Códigos copiados');
+    } catch {
+      vh.toast('Não foi possível copiar. Escreva-os à mão.');
+    }
   };
 
   return (
-    <Sec titulo="Autenticação em 2 passos" desc="Opcional. Um código do telemóvel, além da palavra-passe, para entrar no painel. Funciona com o Google Authenticator, Microsoft Authenticator, Authy…">
-      {ligando ? (
-        <Frm
-          className="pf-senha"
-          foot={
-            <>
-              <button className="btn r" disabled={ocupado || !/^\d{6}$/.test(codigo.replace(/\s/g, ''))} onClick={confirmar}>
-                {t('Confirmar e ligar')}
-              </button>
-              <button className="btn g" disabled={ocupado} onClick={cancelar}>
-                {t('Cancelar')}
-              </button>
-            </>
-          }
-        >
-          <Row label="1. Leia o código QR" hint="Na aplicação: adicionar conta › ler código QR.">
-            <div className="pf-2p-qr">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={ligando.qr} alt={t('Código QR')} />
-              <div>
-                <small>{t('Não consegue ler? Escreva esta chave na aplicação:')}</small>
-                <code>{ligando.segredo}</code>
-              </div>
-            </div>
-          </Row>
-          <Row label="2. Código da aplicação" hint="Os 6 números que a aplicação mostra agora.">
-            <input inputMode="numeric" autoComplete="one-time-code" maxLength={7} placeholder="000000" value={codigo} onChange={(e) => setCodigo(e.target.value.replace(/[^\d\s]/g, ''))} />
-          </Row>
-        </Frm>
-      ) : (
-        <Frm
-          className="pf-senha"
-          foot={
-            fator ? (
-              <button
-                className="btn g"
-                onClick={() => openM(<Confirmar titulo="Desligar a autenticação em 2 passos?" texto="A conta volta a entrar só com a palavra-passe, menos protegida." ok="Desligar" onOk={desligar} />)}
-              >
+    <>
+      <Sec titulo="Autenticação em 2 passos" desc="Opcional. Um código do telemóvel, além da palavra-passe, para entrar no painel. Funciona com o Google Authenticator, Microsoft Authenticator, Authy…">
+        <div className={'pf-2p-faixa' + (ligado ? ' on' : '')}>
+          <div className="pf-2p-ic">
+            <i className="fa-solid fa-shield-halved" />
+          </div>
+          <div className="pf-2p-cx">
+            <h4>{t('Autenticação em 2 passos')}</h4>
+            <p>
+              {alheia ? t('Esta conta') : t('A sua conta')} {ligado ? t('tem a autenticação em 2 passos ligada') + (dados.desde ? ' ' + t('desde') + ' ' + new Date(dados.desde).toLocaleDateString('pt-PT') : '') + '.' : t('tem a autenticação em 2 passos desligada.')}
+            </p>
+            {adminImpersonando ? (
+              ligado && (
+                <button
+                  className="btn r"
+                  onClick={() => openM(<Confirmar titulo="Desligar os 2 passos desta conta?" texto={'A conta ' + vh.me + ' volta a entrar só com a palavra-passe (use quando a pessoa perdeu o telemóvel e os códigos de recuperação).'} ok="Desligar" onOk={desligarConta} />)}
+                >
+                  {t('Desligar os 2 passos desta conta')}
+                </button>
+              )
+            ) : ligado ? (
+              <button className="btn g" onClick={() => openM(<Confirmar titulo="Desligar a autenticação em 2 passos?" texto="A conta volta a entrar só com a palavra-passe, menos protegida." ok="Desligar" onOk={desligar} />)}>
                 {t('Desligar')}
               </button>
             ) : (
-              <button className="btn r" disabled={ocupado} onClick={comecar}>
-                {t('Ligar a autenticação em 2 passos')}
-              </button>
-            )
-          }
-        >
-          <Row label="Estado">
-            {fator ? (
-              <span className="pf-2p-estado on">
-                <i className="fa-solid fa-shield-halved" /> {t('Ligada')}
-                <small style={{ fontWeight: 400, color: 'var(--muted)' }}>
-                  {t('desde')} {new Date(fator.criado).toLocaleDateString('pt-PT')}
-                </small>
-              </span>
-            ) : (
-              <span className="pf-2p-estado">
-                <i className="fa-solid fa-shield" /> {t('Desligada')}
-              </span>
+              !ligando && (
+                <button className="btn r" disabled={ocupado} onClick={comecar}>
+                  {t('Ligar')}
+                </button>
+              )
             )}
-          </Row>
-        </Frm>
+          </div>
+        </div>
+        {ligando && (
+          <Frm
+            className="pf-senha"
+            foot={
+              <>
+                <button className="btn r" disabled={ocupado || !/^\d{6}$/.test(codigo.replace(/\s/g, ''))} onClick={confirmar}>
+                  {t('Confirmar e ligar')}
+                </button>
+                <button className="btn g" disabled={ocupado} onClick={cancelar}>
+                  {t('Cancelar')}
+                </button>
+              </>
+            }
+          >
+            <Row label="1. Leia o código QR" hint="Na aplicação: adicionar conta › ler código QR.">
+              <div className="pf-2p-qr">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={ligando.qr} alt={t('Código QR')} />
+                <div>
+                  <small>{t('Não consegue ler? Escreva esta chave na aplicação:')}</small>
+                  <code>{ligando.segredo}</code>
+                </div>
+              </div>
+            </Row>
+            <Row label="2. Código da aplicação" hint="Os 6 números que a aplicação mostra agora.">
+              <input inputMode="numeric" autoComplete="one-time-code" maxLength={7} placeholder="000000" value={codigo} onChange={(e) => setCodigo(e.target.value.replace(/[^\d\s]/g, ''))} />
+            </Row>
+          </Frm>
+        )}
+      </Sec>
+      {!alheia && (
+        <Sec titulo="Códigos de recuperação" desc="Códigos de uso único para entrar quando não tem acesso à aplicação de autenticação (telemóvel perdido). Usar um deles desliga os 2 passos: volte a ligá-los depois.">
+          <div className={'pf-2p-codigos' + (ligado ? '' : ' off')}>
+            {novos?.length ? (
+              <>
+                <ul>
+                  {novos.map((c) => (
+                    <li key={c}>
+                      <code>{c}</code>
+                    </li>
+                  ))}
+                </ul>
+                <p className="aviso">
+                  <i className="fa-solid fa-triangle-exclamation" /> {t('Guarde-os já num sítio seguro: por segurança não voltam a aparecer.')}
+                </p>
+              </>
+            ) : (
+              <p className="vazio">
+                <i className="fa-solid fa-triangle-exclamation" />{' '}
+                {dados.codigos ? dados.codigos + ' ' + t(dados.codigos === 1 ? 'código por usar. Só se vêem quando são criados.' : 'códigos por usar. Só se vêem quando são criados.') : t('Sem códigos de recuperação…')}
+              </p>
+            )}
+          </div>
+          <div className="pf-2p-codigos-acoes">
+            {novos?.length ? (
+              <button className="btn g" onClick={copiar}>
+                <i className="fa-regular fa-copy" /> {t('Copiar')}
+              </button>
+            ) : null}
+            <button className="btn g" disabled={!ligado} onClick={gerar}>
+              <i className="fa-solid fa-plus" /> {t(dados.codigos || novos?.length ? 'Criar novos códigos' : 'Adicionar códigos')}
+            </button>
+          </div>
+        </Sec>
       )}
-    </Sec>
+    </>
   );
 }
 
