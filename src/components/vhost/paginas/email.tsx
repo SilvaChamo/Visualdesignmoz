@@ -1228,7 +1228,8 @@ function RespostaForm({ acc }: { acc?: string }) {
         const ferias = new Set(info.ferias.map((f) => f.acc));
         const livres = caixasNormais(info).filter((c) => (acc ? c.nome === acc : !c.resposta && !ferias.has(c.nome)));
         return (
-          <Sec titulo={acc ? 'Editar resposta automática' : 'Criar resposta automática'} desc={NOTA_RESPOSTA}>
+          <section className="da-sec">
+            <p className="da-nota">{t(NOTA_RESPOSTA)}</p>
             <Campo label="Conta que responde" id="resp-conta">
               <select id="resp-conta" className="em-sel" value={user} disabled={!!acc} onChange={(e) => setUser(e.target.value)}>
                 {!acc && <option value="">{t('Escolher conta…')}</option>}
@@ -1255,7 +1256,7 @@ function RespostaForm({ acc }: { acc?: string }) {
                 {t('Guardar')}
               </button>
             </div>
-          </Sec>
+          </section>
         );
       }}
     </ComEmail>
@@ -1350,7 +1351,8 @@ function FeriasForm({ acc }: { acc?: string }) {
         const ocupadas = new Set(info.ferias.map((x) => x.acc));
         const livres = caixasNormais(info).filter((c) => (acc ? c.nome === acc : !ocupadas.has(c.nome) && !c.resposta));
         return (
-          <Sec titulo={acc ? 'Editar mensagem de férias' : 'Criar mensagem de férias'} desc="Esta mensagem é enviada a quem escrever para a conta durante as datas escolhidas.">
+          <section className="da-sec">
+            <p className="da-nota">{t('Esta mensagem é enviada a quem escrever para a conta durante as datas escolhidas.')}</p>
             <Campo label="Conta" id="fer-conta" hint={acc ? undefined : 'Só aparecem as contas sem resposta automática'}>
               <select id="fer-conta" className="em-sel" value={v.user} disabled={!!acc} onChange={(e) => set({ user: e.target.value })}>
                 {!acc && <option value="">{t('Escolher conta…')}</option>}
@@ -1386,7 +1388,7 @@ function FeriasForm({ acc }: { acc?: string }) {
                 {t(acc ? 'Guardar' : 'Criar')}
               </button>
             </div>
-          </Sec>
+          </section>
         );
       }}
     </ComEmail>

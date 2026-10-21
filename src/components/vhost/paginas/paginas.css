@@ -11711,3 +11711,13 @@
    margin-top: 10px;
    padding-right: var(--recuo, 12px)
 }
+
+/* Nota por cima dos campos de um formulário (Respostas automáticas, Mensagens de férias): sem título repetido dentro do cartão; texto na
+   largura toda, sem partir numa coluna estreita (Silva, 21/10/2026) */
+.vh .da-nota {
+   margin: 0 0 14px;
+   max-width: none;
+   color: var(--muted);
+   font-size: calc(13.5px * var(--fs, 1));
+   line-height: 1.45
+}
