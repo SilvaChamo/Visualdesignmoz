@@ -11741,3 +11741,18 @@
    border: 0;
    background: var(--line)
 }
+
+/* Popups com o texto numa só linha (Quarentena, Silva 21/10/2026): a janela acompanha o texto e a letra diminui até caber (quarentena.tsx) */
+.vh .modal:has(.mq-uma-linha) {
+   width: max-content;
+   min-width: min(360px, 94vw);
+   max-width: 94vw
+}
+
+.vh .mq-uma-linha [data-uma-linha] {
+   white-space: nowrap
+}
+
+.vh .mq-uma-linha p {
+   margin: 0
+}
