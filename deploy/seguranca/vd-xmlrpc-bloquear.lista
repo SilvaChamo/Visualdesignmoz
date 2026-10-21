@@ -1,0 +1,8 @@
+# Domínios onde o xmlrpc.php é bloqueado por completo (um por linha). Só se aplica enquanto o site NÃO tiver o plugin Jetpack.
+# Osher (Silva, 21/10/2026): nenhum tem Jetpack; lirandzojewelry.com e msdn-moz.org eram atacados no xmlrpc.php (mais de metade dos pedidos).
+lirandzojewelry.com
+msdn-moz.org
+oshercollective.com
+elimservicos.com
+menocrazy.app
+shalomdeco.com
