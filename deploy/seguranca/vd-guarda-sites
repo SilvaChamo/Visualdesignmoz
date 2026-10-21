@@ -1,0 +1,105 @@
+#!/bin/bash
+# Guarda dos sites (Silva, 21/10/2026) — procura o que o ClamAV/Maldet não vê, por comportamento e estrutura, não por assinaturas:
+#   - pastas de nome repetido (css/css, button/button…) com cache.php/index.php: o programa malicioso que se copia sozinho;
+#   - nomes de portas dos fundos conhecidos (filefuns.php);
+#   - imagens, sons e fontes falsos com PHP dentro;
+#   - PHP ofuscado de alta confiança (cadeias goto + eval, md5(md5(md5(, eval($_POST…)).
+# O que é certo vai para quarentena (mover, nunca apagar, chmod 000, hash no registo); o que é duvidoso só avisa.
+# Modos:  rapido (de 5 em 5 min: só ficheiros mudados desde o ciclo anterior)  |  completo (de noite: todos)
+# (As palavras eval, base64_decode, etc. aparecem aqui só como texto a PROCURAR nos ficheiros dos sites; este script nunca executa nada deles.)
+# Teste:  VD_SIMULAR=1 não move nada, só diz o que faria; VD_RAIZES e VD_QUAR mudam a origem e o destino.
+export LC_ALL=C
+MODO="${1:-rapido}"
+EMAIL="silva.chamo@gmail.com"
+RAIZES="${VD_RAIZES:-/home/*/web/*/public_html}"
+QUAR="${VD_QUAR:-/root/quarentena-guarda}"
+EST="${VD_EST:-/var/lib/vd-guarda}"
+LOG="${VD_LOG:-/var/log/vd-guarda.log}"
+SIMULAR="${VD_SIMULAR:-0}"
+
+mkdir -p "$EST" "$QUAR" && chmod 700 "$QUAR"
+exec 9>"$EST/lock"
+flock -n 9 || exit 0
+
+STAMP="$EST/stamp"
+[ -f "$STAMP" ] || touch -d '10 minutes ago' "$STAMP"
+NOVO="$(mktemp)"; touch "$NOVO"            # o ciclo seguinte olha para o que mudar a partir de agora
+ACHADOS="$(mktemp)"; LISTA="$(mktemp)"
+trap 'rm -f "$NOVO" "$ACHADOS" "$LISTA"' EXIT
+HOJE="$(date +%F)"
+VISTOS="$EST/avisos-vistos"; touch "$VISTOS"
+NQ=0
+
+quar() { # ficheiro, motivo
+  local f="$1" m="$2" sha dest
+  sha="$(sha256sum -- "$f" 2>/dev/null | cut -c1-64)"
+  if [ "$SIMULAR" = 1 ]; then echo "QUARENTENARIA $f — $m"; return; fi
+  dest="$QUAR/$HOJE/${f#/home/}"
+  mkdir -p "$(dirname "$dest")" && mv -- "$f" "$dest" && chmod 000 "$dest" || return
+  echo "$(date '+%F %T') QUARENTENA $f ($m) sha256=$sha" >> "$LOG"
+  echo "QUARENTENA $f — $m" >> "$ACHADOS"; NQ=$((NQ+1))
+}
+aviso() { # ficheiro, motivo (uma só vez por conteúdo)
+  local f="$1" m="$2" sha
+  sha="$(sha256sum -- "$f" 2>/dev/null | cut -c1-64)"
+  grep -q "$sha" "$VISTOS" && return
+  if [ "$SIMULAR" = 1 ]; then echo "AVISO $f — $m"; return; fi
+  echo "$sha" >> "$VISTOS"
+  echo "$(date '+%F %T') AVISO $f ($m) sha256=$sha" >> "$LOG"
+  echo "AVISO (não movido) $f — $m" >> "$ACHADOS"
+}
+
+# 1) candidatos por estrutura (só nomes, sem abrir ficheiros) e 2) candidatos por conteúdo, procurados em lote (um grep por
+# tipo, nunca um por ficheiro: são dezenas de milhares). No modo rápido só entram os ficheiros mudados desde o último ciclo.
+NEWER=(); [ "$MODO" = rapido ] && NEWER=(-newer "$STAMP")
+EXT_MEDIA='.*\.\(png\|gif\|jpg\|jpeg\|ico\|webp\|bmp\|tif\|tiff\|m4a\|ogm\|ogg\|ttf\|otf\|eot\|woff\|woff2\|mp3\|mp4\|wav\|avi\|mov\|webm\|flac\|aac\)'
+{
+  find $RAIZES -type f "${NEWER[@]}" -name filefuns.php 2>/dev/null
+  find $RAIZES -type f "${NEWER[@]}" -regex '.*/\([^/]+\)/\1/\(cache\|index\)\.php' -size +30c 2>/dev/null
+  find $RAIZES -type f "${NEWER[@]}" -name .htaccess -print0 2>/dev/null | xargs -0 -r grep -laE 'index\.php\|cache\.php' 2>/dev/null
+  find $RAIZES -type f "${NEWER[@]}" -size -3072k \( -name '*.php' -o -name '*.phtml' -o -name '*.phar' \) ! -path '*/node_modules/*' -print0 2>/dev/null \
+    | xargs -0 -r grep -laE 'md5\(md5\(md5\(|goto [A-Za-z0-9_]{6,};|(eval|assert)[[:space:]]*\([[:space:]]*(\$_(GET|POST|REQUEST|COOKIE)|gzinflate|gzuncompress|base64_decode|str_rot13)' 2>/dev/null
+  find $RAIZES -type f "${NEWER[@]}" -size -3072k -iregex "$EXT_MEDIA" -print0 2>/dev/null \
+    | xargs -0 -r grep -laE '<\?php' 2>/dev/null
+} | sort -u > "$LISTA"
+
+while IFS= read -r f; do
+  [ -f "$f" ] || continue
+  case "$f" in
+    */.htaccess) quar "$f" ".htaccess do programa malicioso: nega PHP a todos menos a index.php|cache.php" ;;
+    *.php|*.phtml|*.phar)
+      b="$(basename "$f")"; d="$(basename "$(dirname "$f")")"; p="$(basename "$(dirname "$(dirname "$f")")")"
+      if [ "$b" = filefuns.php ]; then quar "$f" "nome de porta dos fundos conhecida"; continue; fi
+      if [ "$d" = "$p" ] && { [ "$b" = cache.php ] || [ "$b" = index.php ]; } && [ "$(wc -c < "$f")" -gt 30 ]; then
+        quar "$f" "$b numa pasta de nome repetido ($p/$d): padrão do programa que se copia sozinho"; continue
+      fi
+      # alta confiança
+      if grep -qaE 'md5\(md5\(md5\(' "$f"; then quar "$f" "cadeia md5(md5(md5( de verificação de palavra-passe"; continue; fi
+      if [ "$(grep -oaE 'goto [A-Za-z0-9_]{6,};' "$f" | wc -l)" -ge 3 ] && grep -qaE 'eval[[:space:]]*\(' "$f"; then quar "$f" "código ofuscado com cadeia de goto e eval"; continue; fi
+      if grep -qaE '(eval|assert)[[:space:]]*\([[:space:]]*\$_(GET|POST|REQUEST|COOKIE)' "$f"; then quar "$f" "executa o que recebe do visitante"; continue; fi
+      # eval(base64…) é suspeito em qualquer lado e certo onde não devia haver código (imagens, uploads, pastas de cópias)
+      if grep -qaE 'eval[[:space:]]*\([[:space:]]*(gzinflate|gzuncompress|base64_decode|str_rot13)[[:space:]]*\(' "$f"; then
+        case "$f" in */uploads/*|*/images/*|*/Backup/*) quar "$f" "eval de código codificado onde não devia haver PHP" ;; *) aviso "$f" "eval de código codificado" ;; esac
+      fi
+      ;;
+    *)
+      # imagem/som/fonte que é na verdade PHP: começa por <?php, ou tem a cadeia de goto com eval. Só ter "<?php" algures nos dados
+      # não chega (ficheiros originais do WordPress, como wpspin-1x.gif, têm essa sequência por coincidência).
+      if [ "$(head -c 5 "$f" 2>/dev/null)" = '<?php' ]; then quar "$f" "ficheiro de imagem/som/fonte/vídeo que começa por <?php"
+      elif [ "$(grep -oaE 'goto [A-Za-z0-9_]{6,};' "$f" | wc -l)" -ge 3 ] && grep -qaE 'eval[[:space:]]*\(' "$f"; then quar "$f" "ficheiro de imagem/som/fonte/vídeo com código ofuscado (goto e eval)"; fi
+      ;;
+  esac
+done < "$LISTA"
+
+[ "$SIMULAR" = 1 ] || { mv -f "$NOVO" "$STAMP"; NOVO=""; }
+if [ "$SIMULAR" != 1 ]; then
+  TOTAL="$(find "$QUAR" -type f 2>/dev/null | wc -l)"
+  printf '{"ciclo":"%s","modo":"%s","verificados":%s,"quarentena_neste_ciclo":%s,"quarentena_total":%s}\n' \
+    "$(date -Is)" "$MODO" "$(wc -l < "$LISTA")" "$NQ" "$TOTAL" > "$EST/estado.json"
+  if [ -s "$ACHADOS" ]; then
+    { echo "A guarda dos sites encontrou isto em $(hostname) ($MODO):"; echo; cat "$ACHADOS"; echo
+      echo "O que está marcado QUARENTENA foi movido (nunca apagado) para $QUAR/$HOJE/. Registo: $LOG"; } \
+      | mail -s "[vd-guarda] $(hostname) — $NQ ficheiro(s) em quarentena" "$EMAIL" 2>/dev/null || logger -t vd-guarda "ACHADOS: $(tr '\n' ' ' < "$ACHADOS")"
+  fi
+fi
+exit 0

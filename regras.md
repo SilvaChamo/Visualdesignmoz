@@ -278,6 +278,21 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
   Compras e encomendas; quem só tem encomendas fica no `/encomendas` do site, que tem a ligação "Domínios e hospedagem" (→ `/precos` →
   checkout) — ao pagar, a conta passa a cliente e o login leva ao painel. O checkout e o pagamento ficam como estão.
 
+# Segurança dos sites do servidor (Silva, 21/10/2026)
+
+- **Ficheiros em `deploy/seguranca/`**, instalados no Contabo: `vd-bloqueio.conf` + `vd-bloqueio.inc` + `vd-bloqueio-instalar` (nginx) e
+  `vd-guarda-sites`. O cron `/etc/cron.d/vd-guarda` corre a guarda de 5 em 5 minutos (só o que mudou), o instalador do bloqueio de 10 em 10 (aplica-o
+  também aos sites novos e desfaz tudo se o nginx ficar inválido) e um varrimento completo às 03:30.
+- **Bloqueio no nginx, antes do PHP**: endereços de spam `?ITMCODE=` / `?sale/search…` → 410; sondas de portas dos fundos (`filefuns.php`,
+  `/cache.php`, PHP em `images/`, `uploads/`…) → ligação fechada (444); `xmlrpc.php` e `wp-login.php` limitados por IP verdadeiro (30/min, folga de 20).
+  **Não se usa fail2ban sobre os registos do Apache**: o tráfego que passa pelo proxy aparece lá com o IP do próprio servidor (169.58.148.144) e
+  bloquearia o servidor a si mesmo.
+- **A guarda procura por comportamento, não por assinaturas** (o Maldet/ClamAV deram 0 detecções neste código): pastas de nome repetido com
+  `cache.php`/`index.php`, imagens/sons/fontes/vídeos que começam por `<?php`, `.htaccess` que só deixam correr `index.php|cache.php`, código ofuscado
+  (goto + eval, md5(md5(md5()). Move para `/root/quarentena-guarda/<data>/` (nunca apaga, `chmod 000`), regista os hashes em `/var/log/vd-guarda.log` e
+  avisa por e-mail. `VD_SIMULAR=1 /usr/local/sbin/vd-guarda-sites completo` mostra o que faria sem mover nada.
+- **Quarentena do mltmark (17/08 e 26/05, restaurado de cópia de segurança)**: `/root/quarentena-mltmark-2026-10-21/` e `/root/quarentena-guarda/`.
+
 # Autenticação em 2 passos (opcional — Silva, 21/10/2026)
 
 - **Nunca obrigatória**: só afecta quem a liga em Perfil › Autenticação em 2 passos (aplicação de autenticação, TOTP do Supabase;
