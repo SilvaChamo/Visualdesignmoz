@@ -151,7 +151,17 @@ function EmCurso({ p, inicio }: { p: Pedido; inicio: string }) {
   );
 }
 
+/** O formulário não depende da lista de pedidos: a página abre logo e os "Pedidos Abertos" entram quando chegam (a leitura demora
+ *  — vai à base de dados duas vezes — e a página inteira ficava à espera dela; Silva, 21/10/2026) */
 export function TransferirDominio() {
+  return (
+    <EsperaPagina.Provider value={null}>
+      <TransferirConteudo />
+    </EsperaPagina.Provider>
+  );
+}
+
+function TransferirConteudo() {
   const vh = useVH();
   const { t } = vh;
   const { addItem } = useCart();

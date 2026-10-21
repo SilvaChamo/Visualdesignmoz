@@ -4,7 +4,7 @@
 // separadores e tabela com pesquisa/colunas/seleção/ações em massa (como nas listas do DirectAdmin).
 import { Fragment, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { BarraPagina, FaixaAbas, PesquisaPagina, TopoCartao, useVH } from '../context';
+import { BarraPagina, ConsultaPagina, FaixaAbas, PesquisaPagina, TopoCartao, useVH } from '../context';
 import type { Campo, Lim, Unit } from './dados';
 
 // ---------- Formulário ----------
@@ -260,6 +260,8 @@ export function DataTable<T>({
   semCols: semColsPedido,
   semRecarregar = true,
   semBusca = true,
+  consulta,
+  pesqCabecalho = false,
   acoesFixas = false,
   acoesDiretas = false,
   comSelecao = false,
@@ -300,6 +302,10 @@ export function DataTable<T>({
   semCols?: boolean;
   semRecarregar?: boolean;
   semBusca?: boolean;
+  /** texto da pesquisa vindo de fora (uma caixa de pesquisa posta pela página, fora da tabela): filtra as linhas como a da tabela */
+  consulta?: string;
+  /** a caixa de pesquisa fica na linha por baixo do título do cartão, à esquerda (NoTopoCartao `modelo`), e filtra esta tabela */
+  pesqCabecalho?: boolean;
   /** à esquerda, "Colunas" e "Ações" sempre à vista (Ações inativo sem linhas escolhidas); a pesquisa com 1/4 da largura
    *  do cartão, à direita (pedido do Silva para as contas do Admin) */
   acoesFixas?: boolean;
@@ -340,7 +346,16 @@ export function DataTable<T>({
   const faixaFora = useContext(BarraPagina);
   const faixaAbas = useContext(FaixaAbas);
   const pesqPagina = useContext(PesquisaPagina);
-  const [q, setQ] = useState('');
+  const [qInterno, setQ] = useState('');
+  const cons = useContext(ConsultaPagina);
+  const ligada = pesqCabecalho && !!cons;
+  const ativarCons = cons?.ativar;
+  useEffect(() => {
+    if (!ligada || !ativarCons) return;
+    ativarCons(true);
+    return () => ativarCons(false);
+  }, [ligada, ativarCons]);
+  const q = consulta ?? (ligada ? cons!.q : qInterno);
   // linha escolhida na lupa da barra de cima: fica realçada uns segundos
   const [realce, setRealce] = useState<string | null>(null);
   const tabelaRef = useRef<HTMLDivElement>(null);

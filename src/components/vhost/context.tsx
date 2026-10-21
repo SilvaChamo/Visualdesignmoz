@@ -88,3 +88,7 @@ export function useVH(): VH {
   if (!vh) throw new Error('useVH fora do VisualHostApp');
   return vh;
 }
+
+/** Pesquisa posta pela tabela da página na linha por baixo do título do cartão, à esquerda (Silva, 22/10/2026: DNS, como Domínios).
+ *  A tabela (`DataTable pesqCabecalho`) liga-a e filtra pelo texto; a linha do cartão (NoTopoCartao `modelo`) desenha a caixa. */
+export const ConsultaPagina = createContext<{ q: string; setQ: (v: string) => void; ativo: boolean; ativar: (v: boolean) => void } | null>(null);

@@ -121,6 +121,13 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
 - **Páginas com um botão à direita usam o modelo de Domínios** (Silva, 21/10/2026): título da página em cima, linha, e por baixo
   a indicação do domínio (conta com vários domínios) ou a descrição da página à esquerda e o botão à direita. Faz-se no shell
   (`NoTopoCartao modelo`), por isso vale para toda a página que tem `actions`; não se inventam botões onde a página não tem.
+- **Título e descrição do cartão (modelo de Domínios)** (Silva, 22/10/2026): o título dentro do cartão nunca repete o da barra de cima —
+  escreve-se de outra forma (ficheiro `titulos-cartao.ts`). A descrição da página vai por baixo do título light, antes da linha, em letra
+  de 11,5 px quase preta, e **sai da barra de cima**, que fica só com o título; se a página tem uma instrução, é ela que vai por baixo do
+  título. Por baixo da linha ficam só a pesquisa (à esquerda, 440 px) e o botão (à direita). A indicação de trocar de domínio só existe na
+  página de Domínios.
+- **O CPU do servidor é um só** (Silva, 22/10/2026): tudo o que o mostra (janela de manutenção, cartão "Servidor" da barra lateral, cartão
+  "Consumo CPU" do painel inicial) usa `useSystemStatus`, uma leitura ao vivo partilhada. Nunca outra medida ao lado.
 - **Nunca pesquisa à esquerda por cima do cartão principal** (13/10/2026). A "Busca" da barra de cima já procura na
   página aberta. Sem exceções.
 - **Modelo de página = a página Domínios do painel.** Barra de cima com o título e uma descrição pequena por baixo

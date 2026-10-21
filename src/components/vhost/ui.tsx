@@ -5,11 +5,11 @@
 import { Fragment, useContext, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { ServerStatusModal, useSystemStatus } from '@/components/admin/ServerStatusWidget';
-import { TopoCartao, useVH } from './context';
+import { ConsultaPagina, TopoCartao, useVH } from './context';
 import { ChangeRoleModal } from './modals';
 import { noServidor } from './paginas/acoes';
 import { EN, HX, LEVELS, MENU, ROLES } from './generated/data';
-import { findItem, gItem, ico, initials, nomeNivel, route } from './state';
+import { descFor, findItem, gItem, ico, initials, nomeNivel, route } from './state';
 import type { Account, HxState, MenuItem, Role } from './types';
 import type { Screen } from './screens';
 import { GLOBAL } from './generated/data';
@@ -230,9 +230,42 @@ function DomSelector({ soSites, url }: { soSites?: boolean; url?: Screen['domini
   );
 }
 
+/** Os separadores da página aberta (o principal e, se houver, o de dentro dele) — lidos do que está à vista, para entrarem no caminho
+ *  (Silva, 21/10/2026: "cada tab seja adicionado no caminho"). Cada página escolhe o separador sozinha; assim o caminho acompanha-o
+ *  sem cada página ter de o dizer. */
+function useSeparadoresAbertos(): string[] {
+  const [abas, setAbas] = useState<string[]>([]);
+  useEffect(() => {
+    let pedido = 0;
+    const ler = () => {
+      pedido = 0;
+      const visiveis = Array.from(document.querySelectorAll<HTMLElement>('.vh .da-main-card .ptabs')).filter((el) => !el.closest('.pg-slot[aria-hidden="true"]'));
+      const principal = visiveis.find((el) => !el.classList.contains('sub'));
+      const interno = visiveis.find((el) => el.classList.contains('sub'));
+      const nome = (el?: HTMLElement) => el?.querySelector<HTMLElement>('button[aria-selected="true"]')?.textContent?.trim() || '';
+      const novo = [nome(principal), nome(interno)].filter(Boolean);
+      setAbas((atual) => (atual.length === novo.length && atual.every((x, i) => x === novo[i]) ? atual : novo));
+    };
+    const agendar = () => {
+      if (!pedido) pedido = requestAnimationFrame(ler);
+    };
+    agendar();
+    const obs = new MutationObserver(agendar);
+    obs.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['aria-selected', 'aria-hidden'] });
+    return () => {
+      obs.disconnect();
+      cancelAnimationFrame(pedido);
+    };
+  }, []);
+  return abas;
+}
+
 export function SwitcherBar({ title, crumbs, dominios, dominioUrl }: { title: string; crumbs?: { t: string; path?: string }[]; dominios?: Screen['dominios']; dominioUrl?: Screen['dominioUrl'] }) {
   const { s, a, t, go, nav, toast, setDashTab } = useVH();
-  const trail = crumbs && crumbs.length ? crumbs : [{ t: title || s.page }];
+  const base = crumbs && crumbs.length ? crumbs : [{ t: title || s.page }];
+  // cada separador aberto entra no caminho (a menos que já lá esteja, como o 1.º separador que tem o nome da página)
+  const trail: { t: string; path?: string }[] = [...base];
+  for (const aba of useSeparadoresAbertos()) if (!trail.some((c) => t(c.t) === aba)) trail.push({ t: aba });
   const doms = a && a.domains && a.domains.length ? a.domains : [{ name: '—' }];
   const isHome = s.page === 'inicio' || !s.page;
   return (
@@ -352,13 +385,15 @@ function PopupManutencao({ fechar }: { fechar: () => void }) {
 export function ServerInfoCard() {
   const { s, me } = useVH();
   const [popup, setPopup] = useState(false);
+  const { data: vivo } = useSystemStatus();
   const v = s.srv;
   if (!v) return null;
   const label = { fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.4px' } as const;
   const metric = { display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, color: 'var(--muted)', fontSize: 10.5 } as const;
   const parados = v.servicos.filter((x) => !x.ativo);
   const bd = v.servicos.find((x) => /mariadb|mysql/i.test(x.nome));
-  const cpu = v.cpuPct != null && v.cpuPct >= 0 ? v.cpuPct : Math.min(100, Math.round((v.carga[0] / Math.max(1, v.cpus)) * 1000) / 10);
+  // o mesmo CPU da janela de manutenção: a leitura ao vivo, partilhada; sem ela, a medida do painel (média entre leituras) ou a carga
+  const cpu = vivo?.cpu.usage ?? (v.cpuPct != null && v.cpuPct >= 0 ? v.cpuPct : Math.min(100, Math.round((v.carga[0] / Math.max(1, v.cpus)) * 1000) / 10));
   const gbT = (n: number) => String(n).replace('.', ',') + ' GB';
   const discoPct = v.discoTotalGb ? Math.min(100, Math.round((v.discoUsadoGb / v.discoTotalGb) * 1000) / 10) : 0;
   // o disco foi aumentado mas a partição do sistema ainda não foi alargada (o espaço novo ainda não se pode usar)
@@ -686,13 +721,20 @@ export function DomTable({ filter = '' }: { filter?: string }) {
 }
 
 /** "Domínio: x · muda-se no seletor em cima, à direita": o mesmo domínio que o seletor mostra nesta página */
-export function IndicacaoDominio({ dominios, dominioUrl }: { dominios?: Screen['dominios']; dominioUrl?: Screen['dominioUrl'] }) {
+export function IndicacaoDominio({ dominios, dominioUrl, emLinha = false }: { dominios?: Screen['dominios']; dominioUrl?: Screen['dominioUrl']; emLinha?: boolean }) {
   const { s, a, t } = useVH();
   const soSites = dominios === 'sites';
   const daPagina = a.domains.filter((d) => !soSites || (!d.soEmail && !d.soDominio)).map((d) => d.name);
   // o botão da página nunca fica sozinho (Silva, 21/10/2026): a indicação do domínio vai ao lado dele em todas as páginas, também nas do Admin
-  if (!daPagina.length) return <span className="dom-ctx" />;
+  if (!daPagina.length) return emLinha ? null : <span className="dom-ctx" />;
   const atual = dominioUrl?.d || (s.dominio && daPagina.includes(s.dominio) ? s.dominio : daPagina[0] || '');
+  // `emLinha`: escrita por baixo do título do cartão (Domínios), dentro do texto que lá está
+  if (emLinha)
+    return (
+      <span className="dom-ind">
+        <i className="fa-solid fa-globe" /> <b>{atual}</b> <span>· {t('muda-se no seletor em cima, à direita')}</span>
+      </span>
+    );
   return (
     <p className="dom-ctx">
       <i className="fa-solid fa-globe" /> <b>{atual}</b> <span>· {t('muda-se no seletor em cima, à direita')}</span>
@@ -721,11 +763,12 @@ export function NoTopoCartao({
   titulo?: string;
   descTitulo?: ReactNode;
   /** o botão da página posto pelo shell, no modelo de Domínios (Silva, 21/10/2026): título em cima, linha, e por baixo a
-   *  indicação do domínio (ou a descrição da página) à esquerda e o botão à direita */
-  modelo?: { titulo: string; desc?: ReactNode };
+   *  descrição (ou instrução) da página por baixo do título, e o botão à direita, por baixo da linha */
+  modelo?: { titulo: string; sub?: ReactNode };
 }) {
   const topo = useContext(TopoCartao);
-  const varios = useVariosDominios(topo?.dominios);
+  const cons = useContext(ConsultaPagina);
+  const { s, t } = useVH();
   const setOcupado = topo?.setOcupado;
   // um botão posto pela própria página (corpo): as tabelas já não levam o "Ações" para esta linha
   useEffect(() => {
@@ -758,14 +801,28 @@ export function NoTopoCartao({
   });
   if (!topo?.el || !temLugar) return null;
   if (modelo) {
+    // título light e, logo por baixo (antes da linha), a instrução da página ou, não havendo, a descrição da barra de cima — que
+    // por isso sai de lá; por baixo da linha fica só o botão (Silva, 21/10/2026)
+    const sub = modelo.sub ?? (descFor(s) || undefined);
     return createPortal(
       <div className="card-topo card-topo-titulo card-topo-modelo">
-        <p className="dom-ctx dom-titulo">{modelo.titulo}</p>
+        {sub ? (
+          <div className="dom-ctx dom-titulo-bloco">
+            <p className="dom-titulo">{modelo.titulo}</p>
+            <p className="dom-sub">{sub}</p>
+          </div>
+        ) : (
+          <p className="dom-ctx dom-titulo">{modelo.titulo}</p>
+        )}
         <div className="card-topo-linha">
-          {varios || !modelo.desc ? (
-            <IndicacaoDominio dominios={topo.dominios} dominioUrl={topo.dominioUrl} />
+          {cons?.ativo ? (
+            <div className="search dom-pesq">
+              <i className="fa-solid fa-magnifying-glass" />
+              <input value={cons.q} onChange={(e) => cons.setQ(e.target.value)} placeholder={t('Pesquisar')} aria-label={t('Pesquisar')} />
+              {cons.q && <i className="fa-solid fa-xmark limpar" onClick={() => cons.setQ('')} />}
+            </div>
           ) : (
-            <p className="dom-ctx dom-desc">{modelo.desc}</p>
+            <span className="dom-ctx" />
           )}
           <div className="card-topo-btns" ref={botoes}>
             {children}
@@ -781,7 +838,7 @@ export function NoTopoCartao({
         descTitulo ? (
           <div className="dom-ctx dom-titulo-bloco">
             <p className="dom-titulo">{titulo}</p>
-            <p className="dom-sub">{descTitulo}</p>
+            <div className="dom-sub">{descTitulo}</div>
           </div>
         ) : (
           <p className="dom-ctx dom-titulo">{titulo}</p>
