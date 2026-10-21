@@ -273,7 +273,7 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
   precisa de o MFA estar activo no projecto Supabase). Quem a ligou só abre o painel depois do código: as rotas do painel respondem
   428 a sessões só com a palavra-passe (`src/lib/mfa-sessao.ts`, `requirePanelBootstrapAccess`, `updateSession`) e o painel mostra o
   ecrã do código (`dois-passos.tsx`), seja qual for a porta de entrada. O nível da sessão lê-se do token só depois de o validar.
-- **Códigos de recuperação** (8, uso único, só os hashes em `app_metadata` — nunca em `user_metadata`, que a própria pessoa edita):
+- **Códigos de recuperação** (8 de 16 caracteres, uso único, só os hashes em `app_metadata` — nunca em `user_metadata`, que a própria pessoa edita; como o `app_metadata` vai no token da sessão e quem só tem a palavra-passe o lê, o hash é uma HMAC com segredo só do servidor — `VH_2P_SEGREDO` ou a chave de serviço do Supabase — marcada `v2:`, nunca um SHA simples):
   `src/lib/dois-passos-codigos.ts`, rotas `/api/vhost/doisp` e `/api/vhost/doisp/recuperar` (a única que aceita a sessão só com a
   palavra-passe; 5 tentativas / 15 min). Usar um código desliga os 2 passos da conta. O administrador também desliga os 2 passos
   de uma conta de cliente ("entrar como" → Perfil › Autenticação em 2 passos).
