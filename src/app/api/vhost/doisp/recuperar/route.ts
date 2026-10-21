@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { getDaSyncAdmin } from '@/lib/da-sync-schema';
-import { desligarDoisPassos, guardarHashes, hashCodigo, hashesDe, igual, tentativaPermitida } from '@/lib/dois-passos-codigos';
+import { desligarDoisPassos, guardarHashes, hashCodigo, hashesDe, igual, temSegredo, tentativaPermitida } from '@/lib/dois-passos-codigos';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,6 +20,7 @@ export async function POST(req: NextRequest) {
   if (error || !user) return NextResponse.json({ erro: 'Não autorizado' }, { status: 401 });
   const sb = getDaSyncAdmin();
   if (!sb) return NextResponse.json({ erro: 'Registo do site indisponível.' }, { status: 503 });
+  if (!temSegredo()) return NextResponse.json({ erro: 'Códigos de recuperação indisponíveis neste servidor.' }, { status: 503 });
   if (!tentativaPermitida(user.id)) return NextResponse.json({ erro: 'Demasiadas tentativas. Tente novamente daqui a 15 minutos.' }, { status: 429 });
   const c = (await req.json().catch(() => ({}))) as { codigo?: unknown };
   const codigo = typeof c.codigo === 'string' ? c.codigo : '';

@@ -1,6 +1,6 @@
 'use client';
 
-import { FileText, MessageSquare, Wallet, User, ChevronRight, LogOut } from 'lucide-react';
+import { FileText, MessageSquare, Wallet, User, ChevronRight, LogOut, Globe } from 'lucide-react';
 import { SidebarAccount } from '@/components/panel/SidebarAccount';
 import { panelShellHeaderHeight } from '@/lib/panel-ui';
 import { cn } from '@/lib/utils';
@@ -122,6 +122,21 @@ export function EncomendasSidebar({
               </button>
             );
           })}
+        </div>
+
+        {/* Quem só tem encomendas e quer domínio ou hospedagem compra no site: ao pagar, a conta passa a cliente e o
+            login leva ao painel de hospedagem (Silva, 21/10/2026) */}
+        <div className="mt-2 border-t border-zinc-200 pt-2 dark:border-zinc-800">
+          <a
+            href="/precos"
+            className={`group flex w-full items-center overflow-hidden box-border h-11 min-h-11 max-h-11 shrink-0 transition-all duration-200 ease-out hover:translate-x-1 ${
+              isCollapsed ? 'justify-center px-2' : 'px-2.5'
+            } rounded-lg text-gray-600 hover:bg-gray-100 hover:text-red-600 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-red-400`}
+            title={isCollapsed ? 'Domínios e hospedagem' : ''}
+          >
+            <Globe size={20} className="shrink-0 text-gray-500 group-hover:text-red-600" />
+            {!isCollapsed && <span className="ml-3 truncate text-base leading-none">Domínios e hospedagem</span>}
+          </a>
         </div>
       </nav>
 

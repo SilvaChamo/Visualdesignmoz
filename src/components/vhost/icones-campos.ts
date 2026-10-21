@@ -55,7 +55,7 @@ function escolher(el: HTMLElement): string {
   if (/base de dados|\bbd\b|\bsql\b|database/.test(txt)) return 'base';
   if (/utilizador|username|\blogin\b|\bconta\b|titular|cliente|propriet|\bnome\b|\bnomes\b|apelido|pessoa|contacto/.test(txt)) return 'user';
   if (/#[0-9a-f]{3,6}|\bcor\b|\bcores\b/.test(txt)) return 'cor';
-  if (/logo|imagem|\bfoto\b|ícone|icone/.test(txt)) return 'imagem';
+  if (/logotipo|logótipo|\bimagem\b|\bfoto\b|ícone|icone/.test(txt)) return 'imagem';
   if (/comando|terminal|\bshell\b|\bcron\b/.test(txt)) return 'terminal';
   if (/\bphp\b|\bscript\b|c[oó]digo-fonte|\bhtml\b|\bcss\b|handler/.test(txt)) return 'codigo';
   if (/empresa|organiza|negócio/.test(txt)) return 'empresa';

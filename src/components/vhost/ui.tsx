@@ -4,10 +4,11 @@
 // para que o CSS de generated/maquete.css se aplique tal e qual.
 import { Fragment, useContext, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
+import { ServerStatusModal, useSystemStatus } from '@/components/admin/ServerStatusWidget';
 import { TopoCartao, useVH } from './context';
 import { ChangeRoleModal } from './modals';
 import { noServidor } from './paginas/acoes';
-import { HX, LEVELS, MENU, ROLES } from './generated/data';
+import { EN, HX, LEVELS, MENU, ROLES } from './generated/data';
 import { findItem, gItem, ico, initials, nomeNivel, route } from './state';
 import type { Account, HxState, MenuItem, Role } from './types';
 import type { Screen } from './screens';
@@ -322,9 +323,35 @@ export function RouteFoot() {
   );
 }
 
+EN['Não foi possível abrir o painel de manutenção (sem permissão de administrador do site ou sem ligação).'] ??=
+  'Could not open the maintenance panel (no site administrator permission, or no connection).';
+
+/** Popup da chave: o mesmo "Painel de Manutenção do Servidor Multi-Site" da dashboard do site, o próprio componente (Silva,
+ *  21/10/2026: "copiar tal e qual 100%"). Fora do painel (portal no body), com o desenho original mas o fundo e os cantos dos popups do painel (paginas.css, .vh-popup-manut); lê e actua pela mesma
+ *  rota (/api/admin/system-status) e só começa a ler quando abre. */
+function PopupManutencao({ fechar }: { fechar: () => void }) {
+  const { toast, t } = useVH();
+  const { data, loading, fetchStatus } = useSystemStatus();
+  // a rota só responde a administradores do site: sem resposta, avisa em vez de ficar sem abrir
+  useEffect(() => {
+    if (!loading && !data) {
+      toast(t('Não foi possível abrir o painel de manutenção (sem permissão de administrador do site ou sem ligação).'));
+      fechar();
+    }
+  }, [loading, data, toast, t, fechar]);
+  if (!data || typeof document === 'undefined') return null;
+  return createPortal(
+    <div className="vh-popup-manut">
+      <ServerStatusModal isOpen onClose={fechar} data={data} onRefresh={fetchStatus} />
+    </div>,
+    document.body,
+  );
+}
+
 /** Estado do servidor (dados reais: Hestia + recursos do sistema), no painel inicial do administrador */
 export function ServerInfoCard() {
-  const { s, me, go } = useVH();
+  const { s, me } = useVH();
+  const [popup, setPopup] = useState(false);
   const v = s.srv;
   if (!v) return null;
   const label = { fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.4px' } as const;
@@ -352,10 +379,11 @@ export function ServerInfoCard() {
             {parados.length ? parados.length + (parados.length === 1 ? ' serviço parado' : ' serviços parados') : 'activo'}
           </span>
         </div>
-        {/* a chave abre o Monitor de processos: ver e parar o que mais gasta CPU (Silva, 16/10/2026) */}
-        <button type="button" className="srv-chave" onClick={() => go('processos')} title="Monitor de processos — parar o que mais gasta CPU" aria-label="Monitor de processos">
+        {/* a chave abre o popup do Painel de Manutenção do Servidor, o da dashboard do site (Silva, 21/10/2026) */}
+        <button type="button" className="srv-chave" onClick={() => setPopup(true)} title="Painel de manutenção do servidor" aria-label="Painel de manutenção do servidor">
           <i className="fa-solid fa-wrench" />
         </button>
+        {popup && <PopupManutencao fechar={() => setPopup(false)} />}
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 10 }}>
@@ -662,8 +690,8 @@ export function IndicacaoDominio({ dominios, dominioUrl }: { dominios?: Screen['
   const { s, a, t } = useVH();
   const soSites = dominios === 'sites';
   const daPagina = a.domains.filter((d) => !soSites || (!d.soEmail && !d.soDominio)).map((d) => d.name);
-  // as páginas do Admin e da revenda não dependem de um domínio: sem indicação (Silva, 20/10/2026), só o botão da página à direita
-  if (s.level !== 'utilizador' || !daPagina.length) return <span className="dom-ctx" />;
+  // o botão da página nunca fica sozinho (Silva, 21/10/2026): a indicação do domínio vai ao lado dele em todas as páginas, também nas do Admin
+  if (!daPagina.length) return <span className="dom-ctx" />;
   const atual = dominioUrl?.d || (s.dominio && daPagina.includes(s.dominio) ? s.dominio : daPagina[0] || '');
   return (
     <p className="dom-ctx">
@@ -672,9 +700,16 @@ export function IndicacaoDominio({ dominios, dominioUrl }: { dominios?: Screen['
   );
 }
 
+/** A conta tem mais de um domínio (dos que o seletor mostra nesta página): só então a indicação do domínio faz falta (Silva, 21/10/2026) */
+export function useVariosDominios(dominios?: Screen['dominios']): boolean {
+  const { a } = useVH();
+  const soSites = dominios === 'sites';
+  return a.domains.filter((d) => !soSites || (!d.soEmail && !d.soDominio)).length > 1;
+}
+
 /** Põe `children` (o botão da página, ou o "Ações") na linha de cima do cartão principal, com a indicação do domínio à
  *  esquerda. Sem lugar no cartão (páginas sem cartão), não desenha nada. */
-export function NoTopoCartao({ children, daPagina = false }: { children: ReactNode; daPagina?: boolean }) {
+export function NoTopoCartao({ children, daPagina = false, titulo, descTitulo }: { children: ReactNode; daPagina?: boolean; titulo?: string; descTitulo?: ReactNode }) {
   const topo = useContext(TopoCartao);
   const setOcupado = topo?.setOcupado;
   // um botão posto pela própria página (corpo): as tabelas já não levam o "Ações" para esta linha
@@ -708,8 +743,19 @@ export function NoTopoCartao({ children, daPagina = false }: { children: ReactNo
   });
   if (!topo?.el || !temLugar) return null;
   return createPortal(
-    <div className="card-topo">
-      <IndicacaoDominio dominios={topo.dominios} dominioUrl={topo.dominioUrl} />
+    <div className={'card-topo' + (titulo ? ' card-topo-titulo' : '')}>
+      {titulo ? (
+        descTitulo ? (
+          <div className="dom-ctx dom-titulo-bloco">
+            <p className="dom-titulo">{titulo}</p>
+            <p className="dom-sub">{descTitulo}</p>
+          </div>
+        ) : (
+          <p className="dom-ctx dom-titulo">{titulo}</p>
+        )
+      ) : (
+        <IndicacaoDominio dominios={topo.dominios} dominioUrl={topo.dominioUrl} />
+      )}
       <div className="card-topo-btns" ref={botoes}>
         {children}
       </div>

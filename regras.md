@@ -109,6 +109,12 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
 
 ## Cartão principal e linha de cima
 
+- **A descrição de um título vai sempre junta ao título** (Silva, 21/10/2026: "nunca mais faça isso"). Em qualquer título —
+  barra de cima, cabeçalho de um cartão, painel, janela — a descrição fica **encostada ao título, com no máximo 10 px de
+  margem entre os dois, nunca mais**. Nunca uma descrição "perdida" mais abaixo, separada do título por outro bloco ou por
+  um espaço grande. Se há botões na mesma linha, título e descrição ficam juntos, centrados na vertical com o botão, e a
+  descrição passa para uma segunda linha em vez de tocar no botão.
+- **Margem por cima e por baixo da linha do cartão: sempre 5 px, nunca mais** (Silva, 21/10/2026).
 - **Nunca pesquisa à esquerda por cima do cartão principal** (13/10/2026). A "Busca" da barra de cima já procura na
   página aberta. Sem exceções.
 - **Modelo de página = a página Domínios do painel.** Barra de cima com o título e uma descrição pequena por baixo
@@ -196,7 +202,7 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
   escolha dos separadores. Para forçar um ícone: `data-ic="globe"`; para dispensar: `data-ic-sem`. **Uma página nova não precisa de
   fazer nada** — mas confirmar que o ícone certo saiu (se não, ajustar `escolher()` ou pôr `data-ic` no campo).
 - Formulários sem contornos laterais; títulos e campos alinhados à esquerda pelo `--recuo`.
-- Janelas (popups): **25 px de espaço nos 4 cantos**; largura dinâmica só quando o domínio é comprido; no computador o
+- Janelas (popups): **o fundo é sempre transparente (escurece um pouco), sem desfoque** e os cantos dos cartões são os do painel (4 px, `--r`) — vale também para o popup do Painel de Manutenção do Servidor (a chave do cartão do servidor, `.vh-popup-manut`; Silva, 21/10/2026); **25 px de espaço nos 4 cantos**; largura dinâmica só quando o domínio é comprido; no computador o
   menu de opções de uma linha abre para a esquerda.
 
 ## Telemóvel (≤ 768 px)
@@ -267,13 +273,46 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
 - **Antes de publicar:** fazer todas as rectificações, mandar o comando do ponto 6 (dois ecrãs), esperar que o Silva diga
   que está bom, e só publicar quando ele disser "publica" (ver "Como se trabalha com o Silva").
 
+# Encomendas e contabilidade no painel (Silva, 21/10/2026)
+
+- **Copia-se, não se redesenha**: os componentes do site/dashboard antigo (`EncomendasListSection`, `CotacoesSection`, `EncomendasClientesSection`,
+  `ContabilidadeTable`…) entram no painel tal e qual, com as mesmas rotas; só muda o enquadramento (`.vh-site` / `.tw-livre`).
+- **A gestão, incluindo a contabilidade, é sempre no Admin** (`encomendas-admin.tsx`: Admin › Encomendas e contabilidade › Encomendas
+  (separadores Encomendas e Contas) e Contabilidade). **O menu Gestão é para o cliente**: Compras e encomendas › Encomendas e Facturação
+  (`encomendas.tsx`, `facturacao.tsx`) — abertas a todos os clientes e profissionais.
+- **O caminho que começa no site acaba no painel certo**: quem tem hospedagem ou domínio entra no painel (`/host:2026`) e vê as encomendas em
+  Compras e encomendas; quem só tem encomendas fica no `/encomendas` do site, que tem a ligação "Domínios e hospedagem" (→ `/precos` →
+  checkout) — ao pagar, a conta passa a cliente e o login leva ao painel. O checkout e o pagamento ficam como estão.
+
+# Segurança dos sites do servidor (Silva, 21/10/2026)
+
+- **Ficheiros em `deploy/seguranca/`**, instalados no Contabo: `vd-bloqueio.conf` + `vd-bloqueio.inc` + `vd-bloqueio-instalar` (nginx) e
+  `vd-guarda-sites`. O cron `/etc/cron.d/vd-guarda` corre a guarda de 5 em 5 minutos (só o que mudou), o instalador do bloqueio de 10 em 10 (aplica-o
+  também aos sites novos e desfaz tudo se o nginx ficar inválido) e um varrimento completo às 03:30.
+- **Bloqueio no nginx, antes do PHP**: endereços de spam `?ITMCODE=` / `?sale/search…` → 410; sondas de portas dos fundos (`filefuns.php`,
+  `/cache.php`, PHP em `images/`, `uploads/`…) → ligação fechada (444); `xmlrpc.php` e `wp-login.php` limitados por IP verdadeiro (30/min, folga de 20).
+  **Não se usa fail2ban sobre os registos do Apache**: o tráfego que passa pelo proxy aparece lá com o IP do próprio servidor (169.58.148.144) e
+  bloquearia o servidor a si mesmo.
+- **`xmlrpc.php` bloqueado por completo (444) nos domínios de `/etc/nginx/vd-xmlrpc-bloquear.lista`** (cópia em `deploy/seguranca/`), só enquanto o site
+  não tiver o plugin Jetpack (que o usa). Hoje: os 6 sites da Osher. Para juntar um site, acrescenta-se o domínio à lista (o instalador aplica em
+  10 minutos, ou corre-se `/usr/local/sbin/vd-bloqueio-instalar`).
+- **A guarda procura por comportamento, não por assinaturas** (o Maldet/ClamAV deram 0 detecções neste código): pastas de nome repetido com
+  `cache.php`/`index.php`, imagens/sons/fontes/vídeos que começam por `<?php`, `.htaccess` que só deixam correr `index.php|cache.php`, código ofuscado
+  (goto + eval, md5(md5(md5()). Move para `/root/quarentena-guarda/<data>/` (nunca apaga, `chmod 000`), regista os hashes em `/var/log/vd-guarda.log` e
+  avisa por e-mail. `VD_SIMULAR=1 /usr/local/sbin/vd-guarda-sites completo` mostra o que faria sem mover nada.
+- **Maldet 1 vez por dia** (04:30, `nice`/`ionice`; era 3 vezes por dia, 43 a 97 minutos cada, com 0 detecções): `/etc/cron.d/vd-antivirus` (cópia do
+  anterior em `/root/backups-removidos/`). A lista de zonas sensíveis (`vd-av-watchlist-scan`) continua 3 vezes por dia.
+- **Pasta `app/` do mltmark apagada (21/10/2026)**: era uma instalação antiga do WordPress, quase sem uso, com um `wp-config.php.bak-hetzner-creds`;
+  cópia comprimida só do root em `/root/backups-removidos/mltmark-app-2026-10-21.tar.gz`.
+- **Quarentena do mltmark (17/08 e 26/05, restaurado de cópia de segurança)**: `/root/quarentena-mltmark-2026-10-21/` e `/root/quarentena-guarda/`.
+
 # Autenticação em 2 passos (opcional — Silva, 21/10/2026)
 
 - **Nunca obrigatória**: só afecta quem a liga em Perfil › Autenticação em 2 passos (aplicação de autenticação, TOTP do Supabase;
   precisa de o MFA estar activo no projecto Supabase). Quem a ligou só abre o painel depois do código: as rotas do painel respondem
   428 a sessões só com a palavra-passe (`src/lib/mfa-sessao.ts`, `requirePanelBootstrapAccess`, `updateSession`) e o painel mostra o
   ecrã do código (`dois-passos.tsx`), seja qual for a porta de entrada. O nível da sessão lê-se do token só depois de o validar.
-- **Códigos de recuperação** (8, uso único, só os hashes em `app_metadata` — nunca em `user_metadata`, que a própria pessoa edita):
+- **Códigos de recuperação** (8 de 16 caracteres, uso único, só os hashes em `app_metadata` — nunca em `user_metadata`, que a própria pessoa edita; como o `app_metadata` vai no token da sessão e quem só tem a palavra-passe o lê, o hash é uma HMAC com segredo só do servidor — `VH_2P_SEGREDO` ou a chave de serviço do Supabase — marcada `v2:`, nunca um SHA simples):
   `src/lib/dois-passos-codigos.ts`, rotas `/api/vhost/doisp` e `/api/vhost/doisp/recuperar` (a única que aceita a sessão só com a
   palavra-passe; 5 tentativas / 15 min). Usar um código desliga os 2 passos da conta. O administrador também desliga os 2 passos
   de uma conta de cliente ("entrar como" → Perfil › Autenticação em 2 passos).

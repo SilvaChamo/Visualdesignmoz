@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requirePanelBootstrapAccess } from '@/lib/panel-api-auth';
 import { getDaSyncAdmin } from '@/lib/da-sync-schema';
 import { acessoConta, perfilDaConta } from '@/lib/vhost-conta-cliente';
-import { desligarDoisPassos, guardarHashes, hashCodigo, hashesDe, novosCodigos } from '@/lib/dois-passos-codigos';
+import { desligarDoisPassos, guardarHashes, hashCodigo, hashesDe, novosCodigos, temHashesAntigos, temSegredo } from '@/lib/dois-passos-codigos';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,6 +34,8 @@ async function quem(conta?: string) {
 async function estado(sb: NonNullable<ReturnType<typeof getDaSyncAdmin>>, uid: string) {
   const [{ data: f }, { data: u }] = await Promise.all([sb.auth.admin.mfa.listFactors({ userId: uid }), sb.auth.admin.getUserById(uid)]);
   const fator = (f?.factors || []).find((x) => x.factor_type === 'totp' && x.status === 'verified');
+  // códigos guardados pelo método antigo (hash simples, descobrível offline): apagam-se; a pessoa cria novos
+  if (temHashesAntigos(u?.user?.app_metadata)) await guardarHashes(sb, uid, hashesDe(u?.user?.app_metadata));
   return { ligado: !!fator, desde: fator?.created_at || null, codigos: hashesDe(u?.user?.app_metadata).length };
 }
 
@@ -57,6 +59,7 @@ export async function POST(req: NextRequest) {
   if (q.outra) return NextResponse.json({ erro: 'Acção não disponível para outra conta.' }, { status: 403 });
   if (c.acao === 'gerar') {
     if (!(await estado(q.sb, q.uid)).ligado) return NextResponse.json({ erro: 'Ligue primeiro a autenticação em 2 passos.' }, { status: 409 });
+    if (!temSegredo()) return NextResponse.json({ erro: 'Códigos de recuperação indisponíveis neste servidor.' }, { status: 503 });
     const codigos = novosCodigos();
     const { error } = await guardarHashes(q.sb, q.uid, codigos.map((x) => hashCodigo(q.uid, x)));
     return error ? NextResponse.json({ erro: 'Não foi possível guardar os códigos.' }, { status: 500 }) : NextResponse.json({ codigos });

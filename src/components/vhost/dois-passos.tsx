@@ -59,7 +59,7 @@ export function CodigoDoisPassos({ escuro, lang, onOk, onSair }: { escuro: boole
     if (aVerificar) return;
     setErro('');
     if (recuperar) {
-      if (codigo.replace(/[^a-zA-Z0-9]/g, '').length < 8) return;
+      if (codigo.replace(/[^a-zA-Z0-9]/g, '').length < 16) return;
       setAVerificar(true);
       try {
         const r = await fetch('/api/vhost/doisp/recuperar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ codigo }) });
@@ -133,8 +133,8 @@ export function CodigoDoisPassos({ escuro, lang, onOk, onSair }: { escuro: boole
             autoComplete="one-time-code"
             autoCapitalize="none"
             spellCheck={false}
-            maxLength={recuperar ? 16 : 7}
-            placeholder={recuperar ? 'xxxxx-xxxxx' : '000000'}
+            maxLength={recuperar ? 19 : 7}
+            placeholder={recuperar ? 'xxxx-xxxx-xxxx-xxxx' : '000000'}
             value={codigo}
             onChange={(e) => setCodigo(recuperar ? e.target.value.replace(/[^a-zA-Z0-9-]/g, '') : e.target.value.replace(/[^\d\s]/g, ''))}
             style={{ letterSpacing: recuperar ? '0.12em' : '0.35em', textAlign: 'center', fontSize: 20 }}

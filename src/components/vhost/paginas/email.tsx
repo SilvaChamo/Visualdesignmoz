@@ -557,7 +557,6 @@ function ContasLista() {
   const enviados = todasRows.reduce((n, c) => n + c.enviadosHoje, 0);
   const cheias = todasRows.filter((c) => c.quotaMb > 0 && c.usadoMb / c.quotaMb > 0.8).length;
   const lim = pacoteDe(vh.s, vh.me)?.lim.emails;
-  const dkim = !!info.dominio?.dkim;
   const planoEmail = [vh.a.hpkg, vh.a.pkg]
     .map((nome) => EMAIL_PLANS.find((p) => p.hestiaPackage.toLowerCase() === String(nome || '').toLowerCase()) || emailPlanByProductName(nome))
     .find((p) => p !== undefined);
@@ -624,12 +623,6 @@ function ContasLista() {
               <i className="fa-solid fa-chart-pie" />
               {t('Uso de e-mail')}
             </button>
-            {info.temMail && (
-              <button className="btn g" onClick={() => noEmail(vh, d, { acao: 'dkim', ligar: !dkim }, dkim ? 'DKIM desligado' : 'DKIM ligado')}>
-                <i className="fa-solid fa-signature" />
-                {t(dkim ? 'Desligar DKIM' : 'Ligar DKIM')}
-              </button>
-            )}
             <button className="btn r" onClick={() => nav('/utilizador/email/nova')}>
               <i className="fa-solid fa-plus" />
               {t('Criar conta')}
@@ -1233,7 +1226,8 @@ function RespostaForm({ acc }: { acc?: string }) {
         const ferias = new Set(info.ferias.map((f) => f.acc));
         const livres = caixasNormais(info).filter((c) => (acc ? c.nome === acc : !c.resposta && !ferias.has(c.nome)));
         return (
-          <Sec titulo={acc ? 'Editar resposta automática' : 'Criar resposta automática'} desc={NOTA_RESPOSTA}>
+          <section className="da-sec">
+            <p className="da-nota">{t(NOTA_RESPOSTA)}</p>
             <Campo label="Conta que responde" id="resp-conta">
               <select id="resp-conta" className="em-sel" value={user} disabled={!!acc} onChange={(e) => setUser(e.target.value)}>
                 {!acc && <option value="">{t('Escolher conta…')}</option>}
@@ -1260,7 +1254,7 @@ function RespostaForm({ acc }: { acc?: string }) {
                 {t('Guardar')}
               </button>
             </div>
-          </Sec>
+          </section>
         );
       }}
     </ComEmail>
@@ -1355,7 +1349,8 @@ function FeriasForm({ acc }: { acc?: string }) {
         const ocupadas = new Set(info.ferias.map((x) => x.acc));
         const livres = caixasNormais(info).filter((c) => (acc ? c.nome === acc : !ocupadas.has(c.nome) && !c.resposta));
         return (
-          <Sec titulo={acc ? 'Editar mensagem de férias' : 'Criar mensagem de férias'} desc="Esta mensagem é enviada a quem escrever para a conta durante as datas escolhidas.">
+          <section className="da-sec">
+            <p className="da-nota">{t('Esta mensagem é enviada a quem escrever para a conta durante as datas escolhidas.')}</p>
             <Campo label="Conta" id="fer-conta" hint={acc ? undefined : 'Só aparecem as contas sem resposta automática'}>
               <select id="fer-conta" className="em-sel" value={v.user} disabled={!!acc} onChange={(e) => set({ user: e.target.value })}>
                 {!acc && <option value="">{t('Escolher conta…')}</option>}
@@ -1391,7 +1386,7 @@ function FeriasForm({ acc }: { acc?: string }) {
                 {t(acc ? 'Guardar' : 'Criar')}
               </button>
             </div>
-          </Sec>
+          </section>
         );
       }}
     </ComEmail>

@@ -30,7 +30,7 @@ css += `.vh {
    background-repeat: no-repeat;
    background-position: 11px center, 0 0, 36px 0;
    background-size: 14px, 36px 100%, 1px 100%;
-   padding-left: 48px
+   padding-left: 48px !important
 }
 
 .vh textarea[data-ic]:not(#x) {

@@ -12,6 +12,7 @@ import { DataTable, Switch, Tabs } from './componentes';
 import { Confirmar } from './pacotes';
 import { FUNDO, lerUrl, naMemoria, useGet } from '../carga';
 import { LOGO } from '../state';
+import { EN } from '../generated/data';
 import { lerPref } from './suporte';
 
 /** Editor com cores no código (o mesmo do gestor de ficheiros do site: CodeMirror), carregado só quando se abre um ficheiro */
@@ -176,6 +177,17 @@ const encC = (c: string) => c.split('/').filter(Boolean).map(encodeURIComponent)
  *  pastas do sistema (mail, conf, tmp…) ficam fora da vista; o gestor abre no domínio do seletor (o principal) */
 const RAIZ_FM = 'web';
 const rotaFm = (c: string) => '/utilizador/ficheiros' + (c ? '/' + encC(c) : '');
+/** A raiz da própria conta (/home/<conta>: web, mail, conf, tmp…): o endereço vazio abre os domínios, por isso tem o seu */
+const ROTA_RAIZ_CONTA = '/utilizador/ficheiros/_raiz';
+const gravarPrefFm = (k: string, v: string) => {
+  try {
+    localStorage.setItem(k, v);
+  } catch {}
+};
+// Mais › Mostrar/Ocultar ficheiros do root (Silva, 21/10/2026): só o administrador vê a raiz da conta; os clientes ficam nos domínios
+EN['Mostrar ficheiros do root'] ??= 'Show root files';
+EN['Ocultar ficheiros do root'] ??= 'Hide root files';
+EN['Raiz da conta'] ??= 'Account root';
 const rotaEditar = (c: string) => '/utilizador/ficheiros/_editar/' + encC(c);
 /** drwxr-xr-x a partir do número (644) e do tipo */
 const permTexto = (x: Item) => {
@@ -613,7 +625,18 @@ function Ficheiros({ caminho, lixo = false }: { caminho: string; lixo?: boolean 
   // Preferências → Gestor de ficheiros: mostrar (ou não) os ficheiros que começam por ponto
   const meus = new Set(vh.a.domains.map((d) => d.name));
   const itens = (dados?.itens || []).filter((x) => (lerPref('vh-fm-ocultos', '1') === '1' || !x.nome.startsWith('.')) && (caminho !== RAIZ_FM || !meus.size || meus.has(x.nome)));
-  const ir = (c: string) => nav(rotaFm(c));
+  // Mais › Mostrar/Ocultar ficheiros do root: a raiz da conta (as pastas do sistema, fora dos domínios) só para o administrador
+  const podeRaiz = vh.a.role === 'admin';
+  const [raizVista, setRaizVista] = useState(() => lerPref('vh-fm-raiz', '0') === '1');
+  const raizAtiva = podeRaiz && raizVista;
+  const ir = (c: string) => nav(c === '' ? ROTA_RAIZ_CONTA : rotaFm(c));
+  const alternarRaiz = () => {
+    const v = !raizVista;
+    setRaizVista(v);
+    gravarPrefFm('vh-fm-raiz', v ? '1' : '0');
+    if (v) ir('');
+    else if (caminho !== RAIZ_FM && !caminho.startsWith(RAIZ_FM + '/')) ir(RAIZ_FM); // ao ocultar, sai das pastas do sistema
+  };
   const partes = caminho ? caminho.split('/') : [];
   const ini = partes[0] === RAIZ_FM ? 1 : 0; // o caminho mostrado começa nos domínios
   const fazer = async (corpo: Record<string, unknown>, msg: string) => {
@@ -736,6 +759,15 @@ function Ficheiros({ caminho, lixo = false }: { caminho: string; lixo?: boolean 
         <span>{t('Os meus domínios')}</span>
       </div>
       <Ramo c={RAIZ_FM} nivel={1} atual={lixo ? '\u0000' : caminho} ir={ir} />
+      {raizAtiva && (
+        <>
+          <div className={'fmda-raiz' + (!lixo && caminho === '' ? ' on' : '')} onClick={() => ir('')}>
+            <i className="fa-solid fa-server" />
+            <span>{t('Raiz da conta')}</span>
+          </div>
+          <Ramo c="" nivel={1} atual={lixo ? '\u0000' : caminho} ir={ir} />
+        </>
+      )}
       <div className={'fmda-raiz fmda-lixo' + (lixo ? ' on' : '')} onClick={() => nav('/utilizador/ficheiros/_lixo')}>
         <i className="fa-solid fa-trash-can" />
         <span>{t('Reciclagem')}</span>
@@ -853,7 +885,7 @@ function Ficheiros({ caminho, lixo = false }: { caminho: string; lixo?: boolean 
             <span className="fmda-mais">
               <button
                 className="fmda-ac"
-                disabled={!escolhidos.length}
+                disabled={!escolhidos.length && !podeRaiz}
                 onClick={(e) => {
                   e.stopPropagation();
                   setMaisAberto(!maisAberto);
@@ -864,6 +896,20 @@ function Ficheiros({ caminho, lixo = false }: { caminho: string; lixo?: boolean 
               </button>
               {maisAberto && (
                 <div className="fmda-menu fmda-menu-mais">
+                  {podeRaiz && (
+                    <>
+                      <button
+                        onClick={() => {
+                          setMaisAberto(false);
+                          alternarRaiz();
+                        }}
+                      >
+                        <i className={'fa-solid ' + (raizAtiva ? 'fa-eye-slash' : 'fa-eye')} />
+                        {t(raizAtiva ? 'Ocultar ficheiros do root' : 'Mostrar ficheiros do root')}
+                      </button>
+                      <hr className="fmda-menu-sep" />
+                    </>
+                  )}
                   {mais.map((a) => (
                     <button key={a.k} className={a.perigo ? 'perigo' : ''} disabled={!a.ativo} onClick={a.run}>
                       <i className={'fa-solid ' + a.fa} />
@@ -1065,6 +1111,7 @@ export const ficheirosPagina: ScreenFn = (vh) => {
     const c = sub.slice(1).join('/');
     return { title: 'Editar ficheiro', desc: c.split('/').pop(), crumbs: [base, { t: 'Editar' }], body: <Editor key={c} caminho={c} /> };
   }
+  if (sub[0] === '_raiz') return { title: 'Gestor de ficheiros', crumbs: [base, { t: 'Raiz da conta' }], body: <Ficheiros key="_raiz" caminho="" /> };
   if (sub[0] === '_lixo') return { title: 'Reciclagem', crumbs: [base, { t: 'Reciclagem' }], body: <Ficheiros key="_lixo" caminho="" lixo /> };
   // sem pasta no endereço: a pasta do domínio do seletor (ao entrar, o principal da conta)
   const d = siteAtual(vh);

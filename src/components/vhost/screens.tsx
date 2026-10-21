@@ -18,6 +18,8 @@ import { editorSistemaPagina, estatisticasAdminPagina, ticketsAdminPagina } from
 import { ligadosPagina } from './paginas/ligados';
 import { sitesContasPagina } from './paginas/sites-contas';
 import { encomendasPagina } from './paginas/encomendas';
+import { contabilidadePagina, gestaoEncomendasPagina } from './paginas/encomendas-admin';
+import { quarentenaPagina } from './paginas/quarentena';
 import { facturacaoPagina } from './paginas/facturacao';
 import { acessosPlanos } from './paginas/acessos';
 import { catchAllPagina, emailPagina, feriasPagina, listasPagina, mailmarketingPagina, migracaoPagina, mxPagina, rastreioPagina, reencaminhamentosPagina, respostasPagina, spamPagina, webmailPagina } from './paginas/email';
@@ -733,6 +735,9 @@ export const SCREENS: Record<string, ScreenFn> = {
   'admin/sites-contas': sitesContasPagina,
   'admin/acessos': acessosPlanos,
   'admin/mensagem-todos': mensagemTodos,
+  'admin/gestao-encomendas': gestaoEncomendasPagina,
+  'admin/contabilidade': contabilidadePagina,
+  'admin/quarentena': quarentenaPagina,
   'admin/revendedores': contas('revenda'),
   'admin/profissionais': contas('profissional'),
   'admin/pacotes-revenda': pacotes('revenda'),

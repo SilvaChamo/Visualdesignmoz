@@ -230,9 +230,55 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { action, active, message, pid } = body;
 
-    // No Mac (dev local) estas acções atingiriam o próprio computador (ex: fechar o Chrome)
+    // No Mac (dev local) as acções directas (process.kill, systemctl) atingiriam o próprio computador (ex: fechar o Chrome):
+    // "Terminar" e "Reiniciar MySQL" correm então no servidor por SSH, com as mesmas protecções; o reinício do servidor
+    // fica só para quando a app corre no próprio servidor.
     if (process.platform === 'darwin' && action !== 'toggle_maintenance') {
-      return NextResponse.json({ error: 'Acção desactivada no computador local — só funciona no servidor.' }, { status: 400 });
+      if (action === 'reboot_server') {
+        return NextResponse.json({ error: 'O reinício do servidor está desactivado no computador local — faça-o no painel publicado.' }, { status: 400 });
+      }
+      if (action === 'restart_mysql') {
+        try {
+          await executeServerCommand('systemctl restart mysql 2>/dev/null || systemctl restart mariadb 2>/dev/null', { timeoutMs: 60_000 });
+          return NextResponse.json({ success: true, message: 'Serviço da Base de Dados (MySQL) reiniciado no servidor.' });
+        } catch (err: any) {
+          return NextResponse.json({ error: `Erro ao reiniciar MySQL: ${err.message}` }, { status: 500 });
+        }
+      }
+      if (action === 'kill_process' && pid) {
+        const numericPid = parseInt(pid, 10);
+        if (isNaN(numericPid) || numericPid <= 10) {
+          return NextResponse.json({ error: 'PID inválido ou protegido do sistema.' }, { status: 400 });
+        }
+        // as mesmas verificações do ramo do servidor (mais abaixo), feitas lá: só utilizadores normais (uid >= 1000), nunca bases
+        // de dados, contentores nem o painel Hestia. O PID é um número já validado, por isso entra no comando sem risco.
+        const script = [
+          `P=${numericPid}`,
+          '[ -d /proc/$P ] || { echo GONE; exit 0; }',
+          `U=$(awk '/^Uid:/{print $2}' /proc/$P/status 2>/dev/null)`,
+          `C=$(tr '\\0' ' ' </proc/$P/cmdline 2>/dev/null)`,
+          'G=$(cat /proc/$P/cgroup 2>/dev/null)',
+          'case "$C" in *mysqld*|*mariadb*|*postgres*|*redis-server*) echo PROTECTED; exit 0;; esac',
+          'echo "$G" | grep -qE "docker|containerd|hestia\\.service" && { echo PROTECTED; exit 0; }',
+          '[ "${U:-0}" -ge 1000 ] 2>/dev/null || { echo PROTECTED; exit 0; }',
+          'kill -9 $P 2>/dev/null && echo OK || echo FAIL',
+        ].join('; ');
+        try {
+          const out = (await executeServerCommand(script, { fast: true })).trim().split('\n').pop() || '';
+          if (out === 'GONE') return NextResponse.json({ error: `O processo PID ${numericPid} já não existe.` }, { status: 404 });
+          if (out === 'PROTECTED') {
+            return NextResponse.json(
+              { error: 'Este processo pertence ao sistema ou à base de dados e não pode ser terminado a partir do painel.' },
+              { status: 403 },
+            );
+          }
+          if (out !== 'OK') return NextResponse.json({ error: `Não foi possível terminar o processo PID ${numericPid}.` }, { status: 500 });
+          return NextResponse.json({ success: true, message: `Processo PID ${numericPid} terminado no servidor.` });
+        } catch (err: any) {
+          return NextResponse.json({ error: `Erro ao terminar processo PID ${numericPid}: ${err.message}` }, { status: 500 });
+        }
+      }
+      return NextResponse.json({ error: 'Ação inválida' }, { status: 400 });
     }
 
     if (action === 'toggle_maintenance') {

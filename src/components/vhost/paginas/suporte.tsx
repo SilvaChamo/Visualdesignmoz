@@ -851,12 +851,12 @@ function PerfilDoisPassos() {
               )
             ) : ligado ? (
               <button className="btn g" onClick={() => openM(<Confirmar titulo="Desligar a autenticação em 2 passos?" texto="A conta volta a entrar só com a palavra-passe, menos protegida." ok="Desligar" onOk={desligar} />)}>
-                {t('Desligar')}
+                {t('Desligar autenticação em dois factores')}
               </button>
             ) : (
               !ligando && (
                 <button className="btn r" disabled={ocupado} onClick={comecar}>
-                  {t('Ligar')}
+                  {t('Ligar autenticação em dois factores')}
                 </button>
               )
             )}

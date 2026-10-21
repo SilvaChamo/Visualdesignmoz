@@ -9,6 +9,8 @@ import type { ScreenFn } from '../screens';
 import { Check, DataTable, novaSenha, Senha, Switch, Tabs } from './componentes';
 import { Confirmar } from './pacotes';
 import { useGet } from '../carga';
+import { EN } from '../generated/data';
+import { NoTopoCartao } from '../ui';
 import dynamic from 'next/dynamic';
 
 /** Editor de blocos do WordPress (Gutenberg), carregado só quando se abre uma página para editar */
@@ -292,64 +294,127 @@ export const handlersPagina: ScreenFn = (vh) => {
 
 // ---------- Cópias de segurança ----------
 type Copia = { f: string; tamanhoMb: number; data: string; web: string; dns: string; mail: string; db: string; cron: string; udir: string; duracao: number };
-type InfoBackups = { limite: number; naFila: boolean; exclusoes: Record<string, string>; copias: Copia[]; sites: string[]; emails: string[]; dns: string[]; bds: string[] };
+type Agenda = { id: number; freq: 'diaria' | 'semanal' | 'mensal'; hora: number; min: number; dia: number; pausada: boolean };
+type InfoBackups = { agendas: Agenda[]; limite: number; naFila: boolean; exclusoes: Record<string, string>; copias: Copia[]; sites: string[]; emails: string[]; dns: string[]; bds: string[] };
 const mbTxt = (n: number) => (n >= 1024 ? (n / 1024).toFixed(2).replace('.', ',') + ' GB' : n + ' MB');
 
+// Textos novos da página de Cópias de segurança, já em inglês
+{
+  const novas: Record<string, string> = {
+    'Guardar escolhas': 'Save choices',
+    'Escolhas guardadas': 'Choices saved',
+    'Sites': 'Sites',
+    'Outras pastas da conta': 'Other account folders',
+    'A cópia corre em segundo plano; pode fechar o painel.': 'The backup runs in the background; you can close the panel.',
+    'Ou deixe de fora só alguns itens (vale para as cópias seguintes, também as agendadas)': 'Or leave out only some items (applies to the next backups, scheduled ones too)',
+    'Vai junto com a parte E-mail': 'Included with the Email part',
+    'Cópias agendadas': 'Scheduled backups',
+    'As cópias que correm sozinhas, na hora escolhida': 'The backups that run by themselves, at the chosen time',
+    'O agendamento usa as escolhas da página "Criar cópia".': 'The schedule uses the choices on the "Create backup" page.',
+    'Modificar agendamento': 'Edit schedule',
+    'agendamentos': 'schedules',
+    'Restaurar': 'Restore',
+    'Ainda não há nenhuma cópia agendada.': 'There is no scheduled backup yet.',
+    'E-mail (com respostas automáticas e definições)': 'Email (with auto-responders and settings)',
+    'Em pausa': 'Paused',
+    'Em pausa: não corre': 'Paused: does not run',
+    'Próxima execução': 'Next run',
+    'Última cópia': 'Last backup',
+    'O que entra': 'What goes in',
+    'Executar agora': 'Run now',
+    'Modificar': 'Edit',
+    'Pôr em pausa': 'Pause',
+    'Reativar': 'Resume',
+    'Eliminar': 'Delete',
+    'Eliminar o agendamento?': 'Delete the schedule?',
+    'A cópia deixa de correr sozinha. As cópias já guardadas ficam.': 'The backup stops running by itself. The backups already saved stay.',
+    'Agendamento em pausa': 'Schedule paused',
+    'Agendamento reativado': 'Schedule resumed',
+    'Armazenamento de cópias do servidor': 'Server backup storage',
+    'Tudo (sites, e-mail com respostas automáticas e definições, bases de dados, zonas DNS, tarefas cron e outras pastas)': 'Everything (sites, email with auto-responders and settings, databases, DNS zones, cron jobs and other folders)',
+    'Definições de e-mail': 'Email settings',
+    'Respostas automáticas': 'Auto-responders',
+    'Restauro geral': 'Full restore',
+    'Restauro específico': 'Specific restore',
+    'Restaurar a cópia de': 'Restore the backup of',
+    'Vai repor TUDO o que está nesta cópia: sites, e-mail, bases de dados, DNS, tarefas cron e pastas. O que existe agora é substituído.': 'This will restore EVERYTHING in this backup: sites, email, databases, DNS, cron jobs and folders. What exists now is replaced.',
+    'Restaurar a cópia geral': 'Restore the full backup',
+    'Restaurar o que escolhi': 'Restore what I chose',
+    'Só volta o que marcar abaixo; tudo o resto fica como está. O que for restaurado substitui o que existe agora.': 'Only what you tick below comes back; everything else stays as it is. What is restored replaces what exists now.',
+    'Escolha se quer repor tudo o que está na cópia ou só uma parte.': 'Choose whether to restore everything in the backup or only a part.',
+    'Cópia geral': 'Full backup',
+    'Parcial / específico': 'Partial / specific',
+    'Repõe tudo o que está na cópia (sites, e-mail, bases de dados, DNS, cron e pastas). O que existe agora é substituído.': 'Restores everything in the backup (sites, email, databases, DNS, cron and folders). What exists now is replaced.',
+    'Escolhe só o que repor (por exemplo, um site ou uma base de dados). Tudo o resto fica como está.': 'Choose only what to restore (for example, one site or one database). Everything else stays as it is.',
+    'Restaurar a cópia geral?': 'Restore the full backup?',
+    'Repõe tudo o que está na cópia de {0}: sites, e-mail, bases de dados, DNS, tarefas cron e pastas. O que existe agora é substituído.': 'Restores everything in the backup of {0}: sites, email, databases, DNS, cron jobs and folders. What exists now is replaced.',
+    'Restaurar tudo': 'Restore everything',
+    'Agendar backup': 'Schedule backup',
+    'Agendar cópia de segurança': 'Schedule a backup',
+    'Agendar': 'Schedule',
+    'Agendada': 'Scheduled',
+    'Cópia agendada': 'Backup scheduled',
+    'Remover agendamento': 'Remove schedule',
+    'Agendamento removido': 'Schedule removed',
+    'A cópia corre sozinha na hora escolhida, com o que está marcado na página (o que entra e o que fica de fora).': 'The backup runs by itself at the chosen time, with what is ticked on the page (what goes in and what is left out).',
+    'Quando': 'When',
+    'Onde': 'Where',
+    'Dia da semana': 'Day of the week',
+    'Dia do mês': 'Day of the month',
+    'Hora': 'Time',
+    'Todos os dias': 'Every day',
+    'Todas as semanas': 'Every week',
+    'Todos os meses': 'Every month',
+    'Até ao dia 28, para valer em todos os meses.': 'Up to day 28, so it applies to every month.',
+    'No armazenamento de cópias do servidor (as mais antigas saem quando se passa o número que o pacote guarda).': 'In the server backup storage (the oldest ones go when the number the package keeps is exceeded).',
+    'Todos os dias às': 'Every day at',
+    'No dia': 'On day',
+    'de cada mês às': 'of each month at',
+    'às': 'at',
+  };
+  for (const [pt, en] of Object.entries(novas)) if (!(pt in EN)) EN[pt] = en;
+}
+
+const PARTES_COPIA: [string, string][] = [
+  ['WEB', 'Sites'],
+  ['DNS', 'Zonas DNS'],
+  ['MAIL', 'E-mail'],
+  ['DB', 'Bases de dados'],
+  ['CRON', 'Tarefas cron'],
+  ['USER', 'Outras pastas da conta'],
+];
+
+/** O que entra na cópia (Silva, 21/10/2026): a grelha com as partes da conta — marcada entra, desmarcada fica toda de fora. Guarda-se logo ao
+ *  marcar, como as exclusões do servidor ("*" = a parte toda); as exclusões por item que já existam no servidor mantêm-se. */
 function Exclusoes({ info, ler }: { info: InfoBackups; ler: () => void }) {
   const vh = useVH();
   const { t } = vh;
-  const inicial = () => Object.fromEntries(Object.entries(info.exclusoes).map(([k, v]) => [k, new Set(v.split(',').filter(Boolean))]));
-  const [x, setX] = useState<Record<string, Set<string>>>(inicial);
-  const grupos: [string, string, string[]][] = [
-    ['WEB', 'Sites (ficheiros)', info.sites],
-    ['MAIL', 'E-mail (mensagens)', info.emails],
-    ['DB', 'Bases de dados', info.bds],
-    ['DNS', 'Zonas DNS', info.dns],
-  ];
-  const marcar = (k: string, v: string, on: boolean) => {
-    const s = new Set(x[k] || []);
-    if (on) s.add(v);
-    else s.delete(v);
-    setX({ ...x, [k]: s });
+  const [x, setX] = useState<Record<string, Set<string>>>(() => Object.fromEntries(Object.entries(info.exclusoes).map(([k, v]) => [k, new Set(v.split(',').filter(Boolean))])));
+  const [aGuardar, setAGuardar] = useState(false);
+  const entra = (k: string) => !(x[k] || new Set()).has('*');
+  const mudar = async (k: string, on: boolean) => {
+    if (aGuardar) return;
+    const novo = { ...x, [k]: on ? new Set<string>() : new Set(['*']) };
+    setX(novo);
+    setAGuardar(true);
+    const exclusoes = Object.fromEntries(['WEB', 'DNS', 'MAIL', 'DB', 'CRON', 'USER'].map((c) => [c, [...(novo[c] || [])].join(',')]));
+    const ok = await noServidor(vh, { acao: 'backup-exclusoes', exclusoes }, 'Escolhas guardadas');
+    setAGuardar(false);
+    if (ok) ler();
+    else setX(x);
   };
   return (
-    <Sec titulo="O que fica de fora" desc="Marque o que não quer nas cópias desta conta (vale para as cópias seguintes, também as automáticas).">
-      <div className="av-excl">
-        {grupos.map(([k, titulo, itens]) =>
-          itens.length ? (
-            <div key={k}>
-              <h4>{t(titulo)}</h4>
-              {itens.map((v) => (
-                <Check key={v} checked={(x[k] || new Set()).has(v) || (x[k] || new Set()).has('*')} onChange={(on) => marcar(k, v, on)} label={v} />
-              ))}
-            </div>
-          ) : null,
-        )}
-        <div>
-          <h4>{t('Outros')}</h4>
-          <Check checked={(x.CRON || new Set()).has('*')} onChange={(on) => setX({ ...x, CRON: new Set(on ? ['*'] : []) })} label="Tarefas cron" />
-        </div>
-      </div>
-      <div className="da-fim">
-        <span />
-        <button
-          className="btn g"
-          onClick={async () => {
-            const exclusoes = Object.fromEntries(['WEB', 'DNS', 'MAIL', 'DB', 'CRON', 'USER'].map((k) => [k, [...(x[k] || [])].join(',')]));
-            if (await noServidor(vh, { acao: 'backup-exclusoes', exclusoes }, 'Exclusões guardadas')) ler();
-          }}
-        >
-          <i className="fa-solid fa-floppy-disk" />
-          {t('Guardar exclusões')}
-        </button>
-      </div>
-    </Sec>
+    <div className="bk-grelha">
+      {PARTES_COPIA.map(([k, l]) => (
+        <Check key={k} checked={entra(k)} onChange={(on) => void mudar(k, on)} label={l} />
+      ))}
+    </div>
   );
 }
 
-function RestaurarModal({ c, onFeito }: { c: Copia; onFeito: () => void }) {
+function RestaurarEscolhas({ c, onFeito }: { c: Copia; onFeito: () => void }) {
   const vh = useVH();
-  const { t, closeM } = vh;
+  const { t } = vh;
   const partes: [string, string, string][] = [
     ['web', 'Sites', c.web],
     ['dns', 'Zonas DNS', c.dns],
@@ -358,53 +423,364 @@ function RestaurarModal({ c, onFeito }: { c: Copia; onFeito: () => void }) {
     ['cron', 'Tarefas cron', c.cron],
     ['udir', 'Outras pastas da conta', c.udir],
   ];
-  const [sel, setSel] = useState<Record<string, boolean>>(() => Object.fromEntries(partes.map(([k, , v]) => [k, !!v])));
+  const lista = (v: string) => (v ? v.split(',').filter(Boolean) : []);
+  // sites, zonas DNS, domínios de e-mail e bases de dados escolhem-se um a um; as outras partes voltam inteiras. Tudo começa desmarcado: a
+  // pessoa marca à mão o que quer repor (Silva, 21/10/2026)
+  const porItem = new Set(['web', 'dns', 'mail', 'db']);
+  const [itens, setItens] = useState<Record<string, string[]>>({});
+  const [inteiras, setInteiras] = useState<Record<string, boolean>>({});
+  // cada parte começa fechada e abre-se ao marcar a sua caixa, com tudo o que tem marcado para se tirar o que não se quer (Silva, 21/10/2026)
+  const [abertas, setAbertas] = useState<Record<string, boolean>>({});
+  const escolhidos = (k: string, v: string) => (itens[k] || []).filter((x) => lista(v).includes(x));
+  const alternar = (k: string, x: string, on: boolean) => setItens({ ...itens, [k]: on ? [...(itens[k] || []), x] : (itens[k] || []).filter((y) => y !== x) });
+  // a caixa da parte: abre a parte com todos os itens marcados, ou fecha-a e limpa-os
+  const alternarParte = (k: string, v: string, on: boolean) => {
+    if (!porItem.has(k)) return setInteiras({ ...inteiras, [k]: on });
+    setAbertas({ ...abertas, [k]: on });
+    setItens({ ...itens, [k]: on ? lista(v) : [] });
+  };
+  const parteMarcada = (k: string, v: string) => (porItem.has(k) ? !!abertas[k] || (lista(v).length === 1 && escolhidos(k, v).length === 1) : !!inteiras[k]);
+  // o valor que o servidor recebe: "*" (tudo), a lista escolhida ou "no" (não restaurar)
+  const valorDe = (k: string, v: string) => {
+    if (!porItem.has(k)) return inteiras[k] && v ? '*' : 'no';
+    const esc = escolhidos(k, v);
+    return esc.length === 0 ? 'no' : esc.length === lista(v).length ? '*' : esc.join(',');
+  };
+  const algum = partes.some(([k, , v]) => valorDe(k, v) !== 'no');
   return (
     <>
-      <h3>{t('Restaurar cópia')}</h3>
-      <p style={{ color: 'var(--muted)', marginBottom: 10, lineHeight: 1.5 }}>
-        {c.data} · {mbTxt(c.tamanhoMb)}. {t('O que for escolhido volta a ficar como estava nesta cópia (o que existe agora é substituído).')}
-      </p>
       {partes.map(([k, l, v]) => (
-        <div key={k} className="av-parte">
-          <Check checked={!!sel[k]} onChange={(on) => setSel({ ...sel, [k]: on })} label={l} muted={!v} />
-          <small>{v ? v.split(',').slice(0, 6).join(', ') + (v.split(',').length > 6 ? '…' : '') : t('nada nesta cópia')}</small>
+        <div key={k} className="bk-rest-linha">
+          <Check checked={parteMarcada(k, v)} onChange={(on) => alternarParte(k, v, on)} label={l} muted={!v} disabled={!v} />
+          {porItem.has(k) && lista(v).length > 1 ? (
+            abertas[k] && (
+            <div className="av-parte-itens">
+              {lista(v).map((x) => (
+                <Check key={x} checked={(itens[k] || []).includes(x)} onChange={(on) => alternar(k, x, on)} label={x} />
+              ))}
+            </div>
+            )
+          ) : (
+            <small>{v ? lista(v).slice(0, 6).join(', ') + (lista(v).length > 6 ? '…' : '') : t('nada nesta cópia')}</small>
+          )}
         </div>
       ))}
-      <div className="mfoot">
-        <button className="btn g" onClick={closeM}>
-          {t('Cancelar')}
-        </button>
+      <div className="bk-rest-acoes">
         <button
           className="btn r"
-          disabled={!Object.values(sel).some(Boolean)}
+          disabled={!algum}
           onClick={async () => {
-            closeM();
             const corpo: Record<string, unknown> = { acao: 'backup-restaurar', f: c.f };
-            for (const [k] of partes) corpo[k] = sel[k] ? '*' : 'no';
+            for (const [k, , v] of partes) corpo[k] = valorDe(k, v);
             if (await noServidor(vh, corpo, 'Restauro marcado: começa dentro de momentos')) onFeito();
           }}
         >
           <i className="fa-solid fa-clock-rotate-left" />
-          {t('Restaurar')}
+          {t('Restaurar o que escolhi')}
         </button>
       </div>
     </>
   );
 }
 
-function Backups({ aba }: { aba: 'criar' | 'restaurar' }) {
+const DIAS_SEMANA = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
+const dois = (n: number) => String(n).padStart(2, '0');
+/** "Todos os dias às 03:00", "Às segundas-feiras às 03:00", "No dia 5 de cada mês às 03:00" */
+function textoAgenda(a: Agenda, t: (x: string) => string): string {
+  const h = dois(a.hora) + ':' + dois(a.min);
+  if (a.freq === 'semanal') return t('Todas as semanas') + ' (' + t(DIAS_SEMANA[a.dia] || '') + ') ' + t('às') + ' ' + h;
+  if (a.freq === 'mensal') return t('No dia') + ' ' + a.dia + ' ' + t('de cada mês às') + ' ' + h;
+  return t('Todos os dias às') + ' ' + h;
+}
+
+/** Próxima vez que a cópia agendada corre */
+function proximaExecucao(a: Agenda): Date {
+  const agora = new Date();
+  const d = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate(), a.hora, a.min, 0, 0);
+  if (a.freq === 'diaria') {
+    if (d <= agora) d.setDate(d.getDate() + 1);
+  } else if (a.freq === 'semanal') {
+    d.setDate(d.getDate() + ((a.dia - d.getDay() + 7) % 7));
+    if (d <= agora) d.setDate(d.getDate() + 7);
+  } else {
+    d.setDate(a.dia);
+    if (d <= agora) {
+      d.setMonth(d.getMonth() + 1);
+      d.setDate(a.dia);
+    }
+  }
+  return d;
+}
+const dataHora = (d: Date) => d.toLocaleDateString('pt-PT') + ' ' + dois(d.getHours()) + ':' + dois(d.getMinutes());
+
+/** O cartão da cópia agendada (como o do agendamento do DirectAdmin): quando, para quem, para onde e o que entra, com executar agora, modificar,
+ *  pausar e eliminar */
+function CartaoAgenda({ a, dados, ler }: { a: Agenda; dados: InfoBackups; ler: () => void }) {
   const vh = useVH();
   const { t, openM, me } = vh;
-  const setAba = (k: 'criar' | 'restaurar') => vh.nav('/utilizador/backups' + (k === 'restaurar' ? '/restaurar' : ''));
+  const entra = PARTES_COPIA.filter(([k]) => !(dados.exclusoes[k] || '').split(',').includes('*')).map(([k, l]) => (k === 'MAIL' ? t('E-mail (com respostas automáticas e definições)') : t(l)));
+  const ultima = dados.copias[0]?.data;
+  const gravar = (pausada: boolean) => noServidor(vh, { acao: 'backup-agendar', id: a.id, freq: a.freq, hora: a.hora, min: a.min, dia: a.dia, pausada }, pausada ? 'Agendamento em pausa' : 'Agendamento reativado');
+  return (
+    <div className={'bk-agenda' + (a.pausada ? ' pausada' : '')}>
+      <div className="bk-agenda-tit">
+        <i className="fa-regular fa-clock" />
+        <div>
+          <h3>{textoAgenda(a, t)}</h3>
+          <small>{t('O agendamento usa as escolhas da página "Criar cópia".')}</small>
+        </div>
+        {a.pausada && <span className="tag w">{t('Em pausa')}</span>}
+      </div>
+      <div className="bk-agenda-grelha">
+        <div className="bk-agenda-cruz">
+          <div>
+            <i className="fa-solid fa-user" />
+            <span>
+              <small>{t('Conta')}</small>
+              <b>{me}</b>
+            </span>
+          </div>
+          <div>
+            <i className="fa-regular fa-calendar" />
+            <span>
+              <small>{t('Próxima execução')}</small>
+              <b>{a.pausada ? t('Em pausa: não corre') : dataHora(proximaExecucao(a))}</b>
+            </span>
+          </div>
+          <div>
+            <i className="fa-solid fa-hard-drive" />
+            <span>
+              <small>{t('Destino')}</small>
+              <b>{t('Armazenamento de cópias do servidor')}</b>
+            </span>
+          </div>
+          <div>
+            <i className="fa-solid fa-clock-rotate-left" />
+            <span>
+              <small>{t('Última cópia')}</small>
+              <b>{ultima || '—'}</b>
+            </span>
+          </div>
+        </div>
+        <div className="bk-agenda-col bk-agenda-entra">
+          <div>
+            <i className="fa-solid fa-list-check" />
+            <span>
+              <small>{t('O que entra')}</small>
+              {entra.length ? (
+                <ul>
+                  {entra.map((x) => (
+                    <li key={x}>{x}</li>
+                  ))}
+                </ul>
+              ) : (
+                <b>—</b>
+              )}
+            </span>
+          </div>
+        </div>
+      </div>
+      <div className="bk-agenda-acoes">
+        <button className="btn g" disabled={dados.naFila} onClick={async () => (await noServidor(vh, { acao: 'backup-criar' }, 'Cópia marcada: começa dentro de momentos')) && ler()}>
+          <i className="fa-solid fa-rotate" />
+          {t('Executar agora')}
+        </button>
+        <button className="btn g" onClick={() => openM(<AgendarModal atual={a} onFeito={ler} />)}>
+          <i className="fa-solid fa-pen" />
+          {t('Modificar')}
+        </button>
+        <button className="btn g" onClick={async () => (await gravar(!a.pausada)) && ler()}>
+          <i className={'fa-solid ' + (a.pausada ? 'fa-play' : 'fa-pause')} />
+          {t(a.pausada ? 'Reativar' : 'Pôr em pausa')}
+        </button>
+        <span className="sp" />
+        <button
+          className="btn g bk-eliminar"
+          onClick={() => openM(<Confirmar titulo="Eliminar o agendamento?" texto="A cópia deixa de correr sozinha. As cópias já guardadas ficam." ok="Eliminar" onOk={async () => (await noServidor(vh, { acao: 'backup-agenda-apagar', id: a.id }, 'Agendamento removido')) && ler()} />)}
+        >
+          <i className="fa-solid fa-trash-can" />
+          {t('Eliminar')}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Cópia agendada (modelo do agendamento de cópias do DirectAdmin: Quando · Onde · O quê). Aqui o "Onde" é sempre o armazenamento de cópias do
+ *  servidor e o "O quê" são as escolhas da página (o que entra e o que fica de fora). */
+function AgendarModal({ atual, onFeito }: { atual: Agenda | null; onFeito: () => void }) {
+  const vh = useVH();
+  const { t, closeM } = vh;
+  const [freq, setFreq] = useState<Agenda['freq']>(atual?.freq || 'diaria');
+  const [hora, setHora] = useState(atual?.hora ?? 3);
+  const [min, setMin] = useState(atual?.min ?? 0);
+  const [dia, setDia] = useState(atual ? atual.dia : 0);
+  const mudarFreq = (f: Agenda['freq']) => {
+    setFreq(f);
+    setDia(f === 'mensal' ? 1 : 0);
+  };
+  return (
+    <>
+      <h3>{t(atual ? 'Modificar agendamento' : 'Agendar cópia de segurança')}</h3>
+      <p style={{ color: 'var(--muted)', marginBottom: 12, lineHeight: 1.5 }}>
+        {t('A cópia corre sozinha na hora escolhida, com o que está marcado na página (o que entra e o que fica de fora).')}
+      </p>
+      <Campo label="Quando">
+        <select className="sel" value={freq} onChange={(e) => mudarFreq(e.target.value as Agenda['freq'])}>
+          <option value="diaria">{t('Todos os dias')}</option>
+          <option value="semanal">{t('Todas as semanas')}</option>
+          <option value="mensal">{t('Todos os meses')}</option>
+        </select>
+      </Campo>
+      {freq === 'semanal' && (
+        <Campo label="Dia da semana">
+          <select className="sel" value={dia} onChange={(e) => setDia(Number(e.target.value))}>
+            {DIAS_SEMANA.map((d, i) => (
+              <option key={d} value={i}>
+                {t(d)}
+              </option>
+            ))}
+          </select>
+        </Campo>
+      )}
+      {freq === 'mensal' && (
+        <Campo label="Dia do mês" hint="Até ao dia 28, para valer em todos os meses.">
+          <select className="sel" value={dia} onChange={(e) => setDia(Number(e.target.value))}>
+            {Array.from({ length: 28 }, (_, i) => i + 1).map((d) => (
+              <option key={d} value={d}>
+                {d}
+              </option>
+            ))}
+          </select>
+        </Campo>
+      )}
+      <Campo label="Hora">
+        <select
+          className="sel"
+          value={hora * 60 + min}
+          onChange={(e) => {
+            const v = Number(e.target.value);
+            setHora(Math.floor(v / 60));
+            setMin(v % 60);
+          }}
+        >
+          {Array.from({ length: 96 }, (_, i) => i * 15).map((v) => (
+            <option key={v} value={v}>
+              {dois(Math.floor(v / 60)) + ':' + dois(v % 60)}
+            </option>
+          ))}
+        </select>
+      </Campo>
+      <Campo label="Onde">
+        <span>{t('No armazenamento de cópias do servidor (as mais antigas saem quando se passa o número que o pacote guarda).')}</span>
+      </Campo>
+      <div className="mfoot">
+        <button className="btn g" onClick={closeM}>
+          {t('Cancelar')}
+        </button>
+        <button
+          className="btn r"
+          onClick={async () => {
+            closeM();
+            if (await noServidor(vh, { acao: 'backup-agendar', id: atual?.id, freq, hora, min, dia, pausada: atual?.pausada === true }, 'Cópia agendada')) onFeito();
+          }}
+        >
+          <i className="fa-solid fa-calendar-check" />
+          {t('Agendar')}
+        </button>
+      </div>
+    </>
+  );
+}
+
+type ModoRestauro = 'escolher' | 'geral' | 'parcial';
+/** Painel que desliza para baixo, por baixo da cópia (Silva, 21/10/2026): primeiro as duas maneiras de restaurar, lado a lado — a cópia geral, que
+ *  repõe tudo, ou a parcial, em que se escolhe o que repor. A parcial mostra as escolhas no mesmo sítio; a geral, o botão de restaurar a cópia geral. */
+function PainelRestaurar({ c, modo, setModo, fechar, onFeito }: { c: Copia; modo: ModoRestauro; setModo: (m: ModoRestauro) => void; fechar: () => void; onFeito: () => void }) {
+  const vh = useVH();
+  const { t, openM } = vh;
+  const feito = () => {
+    fechar();
+    onFeito();
+  };
+  const tudo = async () => {
+    const corpo: Record<string, unknown> = { acao: 'backup-restaurar', f: c.f };
+    for (const [k, v] of [['web', c.web], ['dns', c.dns], ['mail', c.mail], ['db', c.db], ['cron', c.cron], ['udir', c.udir]]) corpo[k] = v ? '*' : 'no';
+    if (await noServidor(vh, corpo, 'Restauro marcado: começa dentro de momentos')) feito();
+  };
+  const descricao =
+    modo === 'geral'
+      ? t('Vai repor TUDO o que está nesta cópia: sites, e-mail, bases de dados, DNS, tarefas cron e pastas. O que existe agora é substituído.')
+      : modo === 'parcial'
+        ? t('Só volta o que marcar abaixo; tudo o resto fica como está. O que for restaurado substitui o que existe agora.')
+        : t('Escolha se quer repor tudo o que está na cópia ou só uma parte.');
+  return (
+    <div className="bk-rest-painel">
+      <div className="bk-rest-cab">
+        <div className="bk-rest-tit">
+          <b>
+            {t('Restaurar a cópia de')} {c.data} · {mbTxt(c.tamanhoMb)}
+          </b>
+          <small>{descricao}</small>
+        </div>
+        <div className="bk-rest-dir">
+          {modo === 'geral' && (
+            <button
+              className="btn r"
+              onClick={() => openM(<Confirmar titulo="Restaurar a cópia geral?" texto={'Tudo o que está na cópia de ' + c.data + ' volta e substitui o que existe agora.'} ok="Restaurar" onOk={tudo} />)}
+            >
+              <i className="fa-solid fa-clock-rotate-left" />
+              {t('Restaurar a cópia geral')}
+            </button>
+          )}
+          <button className="btn g sm iconbtn" title={t('Fechar')} aria-label={t('Fechar')} onClick={fechar}>
+            <i className="fa-solid fa-xmark" />
+          </button>
+        </div>
+      </div>
+      {modo === 'escolher' && (
+        <div className="bk-rest-corpo">
+          <div className="bk-rest-opcoes">
+            <button onClick={() => setModo('geral')}>
+              <i className="fa-solid fa-boxes-stacked" />
+              <span>
+                <b>{t('Restauro geral')}</b>
+                <small>{t('Repõe tudo o que está na cópia (sites, e-mail, bases de dados, DNS, cron e pastas). O que existe agora é substituído.')}</small>
+              </span>
+            </button>
+            <button onClick={() => setModo('parcial')}>
+              <i className="fa-solid fa-list-check" />
+              <span>
+                <b>{t('Restauro específico')}</b>
+                <small>{t('Escolhe só o que repor (por exemplo, um site ou uma base de dados). Tudo o resto fica como está.')}</small>
+              </span>
+            </button>
+          </div>
+        </div>
+      )}
+      {modo === 'parcial' && (
+        <div className="bk-rest-corpo sem-recuo">
+          <RestaurarEscolhas c={c} onFeito={feito} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Backups({ aba }: { aba: 'criar' | 'agendadas' }) {
+  const vh = useVH();
+  const { t, openM, me } = vh;
+  const setAba = (k: 'criar' | 'agendadas') => vh.nav('/utilizador/backups' + (k === 'agendadas' ? '/agendadas' : ''));
   const { dados, erro, ler } = useLer<InfoBackups>('backups');
+  const [aberta, setAberta] = useState<{ f: string; modo: ModoRestauro } | null>(null);
   if (!dados) return <Carregando erro={erro} ler={ler} />;
-  const tabela = (restaurar: boolean) => (
+  const tabela = () => (
     <DataTable
-      id={'backups-' + (restaurar ? 'r' : 'c')}
+      id="backups-c"
       rows={dados.copias}
       rowKey={(r) => r.f}
       onRecarregar={ler}
+      linhaExtra={(r) => (aberta?.f === r.f ? <PainelRestaurar c={r} modo={aberta.modo} setModo={(modo) => setAberta({ f: r.f, modo })} fechar={() => setAberta(null)} onFeito={ler} /> : null)}
       empty="Ainda não há cópias de segurança"
       cols={[
         { k: 'data', t: 'Data', sort: (r) => r.data, cell: (r) => <b>{r.data}</b> },
@@ -414,23 +790,19 @@ function Backups({ aba }: { aba: 'criar' | 'restaurar' }) {
       ]}
       actions={(r) => (
         <span className="dns-acoes">
-          {restaurar ? (
-            <button className="btn sm btn-ed" onClick={() => openM(<RestaurarModal c={r} onFeito={ler} />)}>
-              <i className="fa-solid fa-clock-rotate-left" />
-              {t('Restaurar')}
-            </button>
-          ) : (
-            <>
-              <a className="btn sm btn-ed" href={url(me, 'descarregar', { f: r.f })}>
-                <i className="fa-solid fa-download" />
-                {t('Descarregar')}
-              </a>
-              <button className="btn sm btn-rm" onClick={() => openM(<Confirmar titulo="Apagar cópia?" texto={'Vai apagar a cópia de ' + r.data + ' (' + mbTxt(r.tamanhoMb) + ').'} ok="Apagar" onOk={async () => (await noServidor(vh, { acao: 'backup-apagar', f: r.f }, 'Cópia apagada')) && ler()} />)}>
-                <i className="fa-solid fa-trash-can" />
-                {t('Apagar')}
-              </button>
-            </>
-          )}
+          <button className={'btn sm btn-ed' + (aberta?.f === r.f ? ' on' : '')} aria-expanded={aberta?.f === r.f} onClick={() => setAberta(aberta?.f === r.f ? null : { f: r.f, modo: 'escolher' })}>
+            <i className="fa-solid fa-clock-rotate-left" />
+            {t('Restaurar')}
+            <i className={'fa-solid ' + (aberta?.f === r.f ? 'fa-caret-up' : 'fa-caret-down')} style={{ marginLeft: 4 }} />
+          </button>
+          <a className="btn sm btn-ed" href={url(me, 'descarregar', { f: r.f })}>
+            <i className="fa-solid fa-download" />
+            {t('Descarregar')}
+          </a>
+          <button className="btn sm btn-rm" onClick={() => openM(<Confirmar titulo="Apagar cópia?" texto={'Vai apagar a cópia de ' + r.data + ' (' + mbTxt(r.tamanhoMb) + ').'} ok="Apagar" onOk={async () => (await noServidor(vh, { acao: 'backup-apagar', f: r.f }, 'Cópia apagada')) && ler()} />)}>
+            <i className="fa-solid fa-trash-can" />
+            {t('Apagar')}
+          </button>
         </span>
       )}
     />
@@ -439,44 +811,94 @@ function Backups({ aba }: { aba: 'criar' | 'restaurar' }) {
     <>
       <Tabs
         tabs={[
-          ['criar', 'Criar cópia', 'fa-box-archive'],
-          ['restaurar', 'Restaurar cópia', 'fa-clock-rotate-left'],
+          ['criar', 'Cópias de segurança', 'fa-box-archive'],
+          ['agendadas', 'Cópias agendadas', 'fa-calendar-days'],
         ]}
         on={aba}
         onChange={setAba}
       />
       {aba === 'criar' ? (
         <>
-          <Sec titulo="Cópia de segurança completa" desc="Sites, e-mail, bases de dados, zonas DNS, tarefas cron e as outras pastas da conta, num só ficheiro. As cópias mais antigas saem quando se passa o número que o pacote guarda." numeros={[['Cópias guardadas', dados.copias.length + ' / ' + (dados.limite || '—')]]}>
+          {/* Modelo novo (Silva, 21/10/2026): em cima da linha, o título em letra light e a descrição (a nota e as cópias guardadas); por baixo,
+              à esquerda, as escolhas do que entra na cópia e, à direita, os botões */}
+          <NoTopoCartao
+            daPagina
+            titulo={t('Cópia de segurança completa')}
+            descTitulo={
+              <>
+                {t('A cópia corre em segundo plano; pode fechar o painel.')}
+                {dados.agendas.length > 0 && (
+                  <>
+                    {' '}
+                    · {t('Agendada')}: {dados.agendas.length === 1 ? textoAgenda(dados.agendas[0], t) : dados.agendas.length + ' ' + t('agendamentos')}
+                  </>
+                )}
+              </>
+            }
+          >
+            {null}
+          </NoTopoCartao>
+          {/* o que está por baixo da linha alinha com o título e o ícone do separador (Silva, 21/10/2026) */}
+          <div className="bk-recuo">
             {dados.naFila && (
               <div className="note">
                 <i className="fa-solid fa-hourglass-half" /> {t('Há uma cópia ou um restauro na fila: o servidor trata dele dentro de momentos.')}
               </div>
             )}
-            <div className="da-fim" style={{ marginTop: 0, marginBottom: 14 }}>
-              <span className="em-nota" style={{ margin: 0 }}>
-                {t('A cópia corre em segundo plano; pode fechar o painel.')}
-              </span>
-              <button className="btn r" disabled={dados.naFila} onClick={async () => (await noServidor(vh, { acao: 'backup-criar' }, 'Cópia marcada: começa dentro de momentos')) && ler()}>
-                <i className="fa-solid fa-box-archive" />
-                {t('Fazer cópia agora')}
-              </button>
+            <div className="bk-corpo">
+              <div className="bk-topo">
+                <p className="bk-escolhas-t">
+                {t('Cópias guardadas')} <b>{dados.copias.length + ' / ' + (dados.limite || '—')}</b>
+              </p>
+                <div className="bk-btns">
+                  <button className="btn r" disabled={dados.naFila} onClick={async () => (await noServidor(vh, { acao: 'backup-criar' }, 'Cópia marcada: começa dentro de momentos')) && ler()}>
+                    <i className="fa-solid fa-box-archive" />
+                    {t('Fazer cópia agora')}
+                  </button>
+                  <button className="btn g" onClick={() => openM(<AgendarModal atual={null} onFeito={() => vh.nav('/utilizador/backups/agendadas')} />)}>
+                    <i className="fa-solid fa-calendar-days" />
+                    {t('Agendar backup')}
+                  </button>
+                </div>
+              </div>
+              <Exclusoes key={JSON.stringify(dados.exclusoes)} info={dados} ler={ler} />
             </div>
-            {tabela(false)}
-          </Sec>
-          <Exclusoes info={dados} ler={ler} />
+            {tabela()}
+          </div>
         </>
-      ) : (
-        <Sec titulo="Restaurar" desc="Escolha a cópia e, a seguir, o que quer repor.">
-          {tabela(true)}
-        </Sec>
-      )}
+      ) : aba === 'agendadas' ? (
+        <>
+          <NoTopoCartao daPagina titulo={t('Cópias agendadas')} descTitulo={t('As cópias que correm sozinhas, na hora escolhida')}>
+            {null}
+          </NoTopoCartao>
+          <div className="bk-recuo">
+            <div className="bk-topo">
+              <span />
+              <div className="bk-btns">
+                <button className="btn r" onClick={() => openM(<AgendarModal atual={null} onFeito={ler} />)}>
+                  <i className="fa-solid fa-calendar-plus" />
+                  {t('Agendar')}
+                </button>
+              </div>
+            </div>
+            {dados.agendas.length ? (
+              dados.agendas.map((a) => <CartaoAgenda key={a.id} a={a} dados={dados} ler={ler} />)
+            ) : (
+              <div className="card empty">
+                <p>{t('Ainda não há nenhuma cópia agendada.')}</p>
+              </div>
+            )}
+          </div>
+        </>
+      ) : null}
     </>
   );
 }
 export const backupsPagina: ScreenFn = (vh) => {
-  const r = vh.s.sub[0] === 'restaurar';
-  return { title: 'Cópias de segurança', crumbs: r ? [{ t: 'Cópias de segurança', path: '/utilizador/backups' }, { t: 'Restaurar cópia' }] : undefined, body: <Backups aba={r ? 'restaurar' : 'criar'} /> };
+  const sub = vh.s.sub[0];
+  // o restauro faz-se na lista do primeiro separador; o endereço antigo /restaurar abre-o
+  const aba = sub === 'agendadas' ? 'agendadas' : 'criar';
+  return { title: 'Cópias de segurança', crumbs: aba === 'agendadas' ? [{ t: 'Cópias de segurança', path: '/utilizador/backups' }, { t: 'Cópias agendadas' }] : undefined, body: <Backups aba={aba} /> };
 };
 
 // ---------- Tarefas cron ----------

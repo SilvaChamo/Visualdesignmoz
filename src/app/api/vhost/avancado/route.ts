@@ -26,6 +26,35 @@ const H = '/usr/local/hestia/bin';
 const b64 = (s: string) => Buffer.from(s, 'utf8').toString('base64');
 const q = (s: string) => `'${s.replace(/'/g, `'\\''`)}'`;
 const linha = (v: unknown) => String(v ?? '').replace(/[\r\n]/g, ' ').trim();
+/** Ficheiro do cron do sistema com a cópia agendada de uma conta (os nomes com "." não são lidos pelo cron) */
+const ficheiroAgenda = (conta: string) => `/etc/cron.d/vd-backup-${conta.replace(/\./g, '_')}`;
+type Agenda = { id: number; freq: 'diaria' | 'semanal' | 'mensal'; hora: number; min: number; dia: number; pausada: boolean };
+/** O que o ficheiro do agendamento diz, uma linha por cópia agendada (no máximo 8): diária, semanal (dia 0-6) ou mensal (dia 1-28), hora e minuto;
+ *  "pausada" quando a linha está comentada com #PAUSADA */
+function lerAgendas(txt: string): Agenda[] {
+  const out: Agenda[] = [];
+  for (const l of txt.split('\n').map((x) => x.trim())) {
+    const m = l.match(/^(#PAUSADA )?(\d{1,2}) (\d{1,2}) (\S+) \* (\S+) root /);
+    if (!m) continue;
+    const [, pausa, min, hora, dom, dow] = m;
+    const id = out.length;
+    const base = { id, hora: Number(hora), min: Number(min), pausada: !!pausa };
+    if (dom !== '*') out.push({ ...base, freq: 'mensal', dia: Number(dom) });
+    else if (dow !== '*') out.push({ ...base, freq: 'semanal', dia: Number(dow) });
+    else out.push({ ...base, freq: 'diaria', dia: 0 });
+  }
+  return out.slice(0, 8);
+}
+const linhaAgenda = (conta: string, a: Agenda) => `${a.pausada ? '#PAUSADA ' : ''}${a.min} ${a.hora} ${a.freq === 'mensal' ? a.dia : '*'} * ${a.freq === 'semanal' ? a.dia : '*'} root ${H}/v-schedule-user-backup ${conta} >/dev/null 2>&1`;
+/** Grava o ficheiro do cron com estas agendas (sem nenhuma, apaga o ficheiro) */
+async function escreverAgendas(conta: string, lista: Agenda[]): Promise<{ ok: boolean; error: string }> {
+  const f = ficheiroAgenda(conta);
+  const cmd = lista.length
+    ? `echo ${b64(`# VisualHost: cópias agendadas da conta ${conta} (feitas pelo painel; não editar à mão)\n` + lista.map((a) => linhaAgenda(conta, a)).join('\n') + '\n')} | base64 -d > ${q(f + '.tmp')} && chmod 644 ${q(f + '.tmp')} && mv ${q(f + '.tmp')} ${q(f)}; echo "@@$?"`
+    : `rm -f ${q(f)}; echo "@@$?"`;
+  const out = await executeServerCommand(cmd, { timeoutMs: 20_000 });
+  return { ok: /@@0\s*$/.test(out), error: out.replace(/@@\d+\s*$/, '').trim() };
+}
 const MARCA_TIPOS = ['# VisualHost tipos: inicio (não editar à mão)', '# VisualHost tipos: fim'];
 
 type Sessao = { userId: string; email: string; role: string };
@@ -125,7 +154,7 @@ export async function GET(req: NextRequest) {
       return ok({ relatorios: (user.CRON_REPORTS || '') === 'yes', email: user.CONTACT || '', tarefas: Object.entries(jobs).map(([id, j]) => ({ id, min: j.MIN, hora: j.HOUR, dia: j.DAY, mes: j.MONTH, semana: j.WDAY, cmd: j.CMD, suspensa: j.SUSPENDED === 'yes' })) });
     }
     case 'backups': {
-      const out = await executeServerCommand(`echo @@B; ${H}/v-list-user-backups ${conta} json; echo @@X; ${H}/v-list-user-backup-exclusions ${conta} json; echo @@Q; grep -c " ${conta} " /usr/local/hestia/data/queue/backup.pipe 2>/dev/null; grep -c "v-backup-user ${conta}\\b\\|v-restore-user ${conta}\\b" /usr/local/hestia/data/queue/*.pipe 2>/dev/null | awk -F: '{s+=$2} END{print s+0}'`, { timeoutMs: 30_000 });
+      const out = await executeServerCommand(`echo @@A; cat ${ficheiroAgenda(conta)} 2>/dev/null; echo @@B; ${H}/v-list-user-backups ${conta} json; echo @@X; ${H}/v-list-user-backup-exclusions ${conta} json; echo @@Q; grep -c " ${conta} " /usr/local/hestia/data/queue/backup.pipe 2>/dev/null; grep -c "v-backup-user ${conta}\\b\\|v-restore-user ${conta}\\b" /usr/local/hestia/data/queue/*.pipe 2>/dev/null | awk -F: '{s+=$2} END{print s+0}'`, { timeoutMs: 30_000 });
       const sec = new Map<string, string>();
       let cur = '';
       for (const l of out.split('\n')) if (l.startsWith('@@')) sec.set((cur = l.slice(2)), '');
@@ -134,6 +163,7 @@ export async function GET(req: NextRequest) {
       const x = json<Record<string, Record<string, string>>>(sec.get('X'), {});
       const excl = Object.fromEntries(['WEB', 'DNS', 'MAIL', 'DB', 'CRON', 'USER'].map((k) => [k, Object.keys(x[k] || {}).join(',')]));
       return ok({
+        agendas: lerAgendas(sec.get('A') || ''),
         limite: Number(srv.packages[user.PACKAGE || '']?.BACKUPS) || 0,
         naFila: Number((sec.get('Q') || '').trim().split('\n').pop()) > 0,
         exclusoes: excl,
@@ -367,6 +397,37 @@ export async function POST(req: NextRequest) {
     // ---------- Cópias de segurança ----------
     case 'backup-criar':
       return resposta(await call('v-schedule-user-backup', [conta]));
+    case 'backup-agendar': {
+      // Cópias agendadas da conta (Silva, 21/10/2026): um ficheiro em /etc/cron.d, com uma linha por agendamento e só números validados, que
+      // pede ao Hestia a cópia da conta. Com `id` troca esse agendamento; sem `id` junta mais um.
+      const freq = linha(c.freq);
+      const n = (v: unknown, min: number, max: number) => (/^\d{1,2}$/.test(linha(v)) && Number(linha(v)) >= min && Number(linha(v)) <= max ? Number(linha(v)) : null);
+      const hora = n(c.hora, 0, 23);
+      const min = n(c.min, 0, 59);
+      if (!['diaria', 'semanal', 'mensal'].includes(freq) || hora === null || min === null) return recusa('Horário da cópia inválido.');
+      const dia = freq === 'semanal' ? n(c.dia, 0, 6) : freq === 'mensal' ? n(c.dia, 1, 28) : 0;
+      if (dia === null) return recusa('Dia da cópia inválido.');
+      const f = ficheiroAgenda(conta);
+      const atuais = lerAgendas(await executeServerCommand(`cat ${q(f)} 2>/dev/null`, { timeoutMs: 20_000 }));
+      const nova = { id: -1, freq: freq as Agenda['freq'], hora, min, dia, pausada: c.pausada === true };
+      if (c.id !== undefined && c.id !== null && c.id !== '') {
+        const i = Number(c.id);
+        if (!Number.isInteger(i) || i < 0 || i >= atuais.length) return recusa('Agendamento inexistente.');
+        atuais[i] = nova;
+      } else {
+        if (atuais.length >= 8) return recusa('Há agendamentos a mais: elimine algum primeiro.');
+        atuais.push(nova);
+      }
+      return resposta(await escreverAgendas(conta, atuais));
+    }
+    case 'backup-agenda-apagar': {
+      const f = ficheiroAgenda(conta);
+      const atuais = lerAgendas(await executeServerCommand(`cat ${q(f)} 2>/dev/null`, { timeoutMs: 20_000 }));
+      const i = Number(c.id);
+      if (!Number.isInteger(i) || i < 0 || i >= atuais.length) return recusa('Agendamento inexistente.');
+      atuais.splice(i, 1);
+      return resposta(await escreverAgendas(conta, atuais));
+    }
     case 'backup-apagar': {
       const f = linha(c.f);
       if (!new RegExp(`^${conta.replace(/\./g, '\\.')}\\.[0-9_-]+\\.tar$`).test(f)) return recusa('Cópia inválida.');

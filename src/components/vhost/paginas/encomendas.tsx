@@ -5,7 +5,8 @@
 // componentes e as mesmas rotas, sem reescrever nada (Silva: "não rescrever de zero… apenas chamar para o painel
 // actual"). Só os separadores passam ao modelo do painel; as cores são as do painel (.vh-site). A página /encomendas do
 // site continua igual (os clientes só de encomendas ficam lá).
-// Por agora só a sessão de administrador vê esta página (soAdminPorAgora): o Silva experimenta antes de abrir aos clientes.
+// Aberta a todos os clientes e profissionais com conta no painel (Silva, 21/10/2026: "pode avançar"); quem só tem encomendas
+// continua no /encomendas do site, e passa para o painel quando comprar domínio ou hospedagem.
 import { useEffect } from 'react';
 import { EncomendasListSection } from '@/components/encomendas/EncomendasListSection';
 import { EncomendasMensagensSection } from '@/components/encomendas/EncomendasMensagensSection';
@@ -14,7 +15,6 @@ import { marcarVoltaAoPainel } from '@/lib/voltar-ao-painel';
 import { useVH, type VH } from '../context';
 import type { ScreenFn } from '../screens';
 import { DESC, EN, MENU } from '../generated/data';
-import { soAdminPorAgora } from '../state';
 import { useGet } from '../carga';
 import { Tabs } from './componentes';
 
@@ -39,7 +39,6 @@ import { Tabs } from './componentes';
     ]);
   }
   DESC['utilizador/encomendas'] = ['As suas encomendas à VisualDesign: estado, mensagens e pagamento', 'Your orders with VisualDesign: status, messages and payment'];
-  soAdminPorAgora.add('utilizador/encomendas');
   // inglês do painel: só as frases que ainda não estão no dicionário (não muda a tradução de outras páginas)
   const novas: Record<string, string> = {
     'Compras e encomendas': 'Purchases and orders',

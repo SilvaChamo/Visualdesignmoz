@@ -5,19 +5,31 @@
 // VisualHost/05-da-gestao-de-dominios.md); dados e alterações reais no servidor (Hestia + Cloudflare) por
 // /api/vhost/dominio. As páginas de um só domínio usam o domínio escolhido no seletor da faixa de navegação.
 import { Fragment, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type TextareaHTMLAttributes } from 'react';
-import { useVH, type VH } from '../context';
+import { TopoCartao, useVH, type VH } from '../context';
 import type { ScreenFn } from '../screens';
 import type { BaseDados, Domain } from '../types';
 import { pacoteDe } from '../state';
 import { getPhpMyAdminUrl } from '@/lib/server-config';
 import { VISUALDESIGN_DEFAULT_NS } from '@/lib/visualdesign-dns';
 import { Check, DataTable, Frm, MaisOpcoes, novaSenha, Row, Senha, Switch, Tabs, type Col } from './componentes';
-import { NoTopoCartao } from '../ui';
+import { IndicacaoDominio, NoTopoCartao, useVariosDominios } from '../ui';
 import { Confirmar } from './pacotes';
 import DomainSearch from '@/components/DomainSearchPainel';
 import { EsperaPagina, useGet } from '../carga';
+import { EN } from '../generated/data';
 import { BotaoPassar } from './passar';
 import { TransferirDominio } from './transferir-dominio';
+
+// Textos novos do cabeçalho de Domínios e Subdomínios, já em inglês (regra do Silva: conteúdo novo entra traduzido)
+{
+  const novas: Record<string, string> = {
+    'Gestão de domínios': 'Domain management',
+    'Gerir os domínios e os subdomínios desta conta': 'Manage the domains and subdomains of this account',
+    'Os sites e os domínios desta conta': 'The sites and domains of this account',
+    'Os subdomínios e as pastas deste domínio': 'The subdomains and folders of this domain',
+  };
+  for (const [pt, en] of Object.entries(novas)) if (!(pt in EN)) EN[pt] = en;
+}
 
 // ---------- Ligação ao servidor ----------
 type Detalhe = {
@@ -268,6 +280,26 @@ function SemDominio({ soSite = true }: { soSite?: boolean }) {
   );
 }
 
+/** Cabeçalho do cartão de Domínios e Subdomínios (experiência do Silva, 21/10/2026): em cima, o título da página em letra light com uma
+ *  linha por baixo; logo por baixo da linha, à esquerda, a indicação do domínio (só numa conta com vários domínios; com um só, a
+ *  descrição breve da página) e o botão da página à direita */
+function CabDominios({ desc, children }: { desc: string; children: ReactNode }) {
+  const { t } = useVH();
+  const topo = useContext(TopoCartao);
+  const varios = useVariosDominios(topo?.dominios);
+  return (
+    <>
+      <NoTopoCartao daPagina titulo={t('Gestão de domínios')}>
+        {null}
+      </NoTopoCartao>
+      <div className="seccao-h dom-cab">
+        {varios ? <IndicacaoDominio dominios={topo?.dominios} dominioUrl={topo?.dominioUrl} /> : <p className="dom-ctx dom-desc">{t(desc)}</p>}
+        {children}
+      </div>
+    </>
+  );
+}
+
 function Carregar({ erro, ler }: { erro: string; ler: () => void }) {
   const { t } = useVH();
   return erro ? (
@@ -385,6 +417,13 @@ function ListaDominios({ abaDom = 'meus', abrirNovo = false }: { abaDom?: AbaDom
       ) : abaDom === 'transferir' ? (
         <TransferirDominio />
       ) : (
+        <>
+          <CabDominios desc="Os sites e os domínios desta conta">
+            <button className="btn r" onClick={() => openM(<NovoDominio />)}>
+              <i className="fa-solid fa-plus" />
+              {t('Adicionar domínio')}
+            </button>
+          </CabDominios>
         <DataTable
           id="dominios"
           umaLinha
@@ -441,6 +480,7 @@ function ListaDominios({ abaDom = 'meus', abrirNovo = false }: { abaDom?: AbaDom
             </>
           )}
         />
+        </>
       )}
     </>
   );
@@ -1104,25 +1144,13 @@ export const dominios: ScreenFn = (vh) => {
   const [sub] = vh.s.sub;
   // O botão "Adicionar …" é o da página (o shell põe-no na linha de cima do cartão, com a indicação do domínio) e a página
   // não leva descrição por baixo do título (Silva, 20/10/2026). Registar e Transferir domínio não têm botão.
-  const novoDom = (
-    <button className="btn r" onClick={() => vh.openM(<NovoDominio />)}>
-      <i className="fa-solid fa-plus" />
-      {vh.t('Adicionar domínio')}
-    </button>
-  );
-  const novoSub = (
-    <button className="btn r" onClick={() => vh.openM(<NovoSubdominio d={principalAtual(vh)?.name || ''} />)}>
-      <i className="fa-solid fa-plus" />
-      {vh.t('Adicionar subdomínio')}
-    </button>
-  );
   const base = { t: 'Domínios', path: '/' + vh.s.level + '/dominios' };
   if (sub === 'registar') return { title: 'Domínios', crumbs: [base, { t: 'Registar domínio' }], body: <ListaDominios abaDom="registar" /> };
-  if (sub === 'subdominios') return { title: 'Domínios', desc: '', actions: novoSub, dominios: 'sites', crumbs: [base, { t: 'Subdomínios' }], body: <ListaDominios abaDom="subdominios" /> };
+  if (sub === 'subdominios') return { title: 'Domínios', desc: 'Gerir os domínios e os subdomínios desta conta', dominios: 'sites', crumbs: [base, { t: 'Subdomínios' }], body: <ListaDominios abaDom="subdominios" /> };
   if (sub === 'transferir') return { title: 'Domínios', crumbs: [base, { t: 'Transferir domínio' }], body: <ListaDominios abaDom="transferir" /> };
-  if (sub === 'novo') return { title: 'Domínios', desc: '', actions: novoDom, body: <ListaDominios abrirNovo /> };
+  if (sub === 'novo') return { title: 'Domínios', desc: 'Gerir os domínios e os subdomínios desta conta', body: <ListaDominios abrirNovo /> };
   if (sub) return { title: sub, desc: 'Resumo e atalhos do domínio', crumbs: [{ t: 'Domínios', path: '/' + vh.s.level + '/dominios' }, { t: sub }], dominioUrl: { d: sub, ir: (n) => '/' + vh.s.level + '/dominios/' + encodeURIComponent(n) }, body: <VerDominio d={sub} /> };
-  return { title: 'Domínios', desc: '', actions: novoDom, body: <ListaDominios /> };
+  return { title: 'Domínios', desc: 'Gerir os domínios e os subdomínios desta conta', body: <ListaDominios /> };
 };
 
 // ---------- Subdomínios (separador dos Domínios) ----------
@@ -1238,6 +1266,13 @@ function Subdominios() {
       />,
     );
   return (
+    <>
+    <CabDominios desc="Os subdomínios e as pastas deste domínio">
+      <button className="btn r" onClick={() => openM(<NovoSubdominio d={x.name} />)}>
+        <i className="fa-solid fa-plus" />
+        {t('Adicionar subdomínio')}
+      </button>
+    </CabDominios>
     <DataTable
       id="subdominios"
       tituloAcoes="Acção"
@@ -1325,6 +1360,7 @@ function Subdominios() {
         },
       ]}
     />
+    </>
   );
 }
 

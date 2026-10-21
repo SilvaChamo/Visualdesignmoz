@@ -1,0 +1,47 @@
+#!/bin/bash
+# Garante o bloqueio do nginx em todos os sites do Hestia, também nos novos, e recarrega o nginx só se algo mudou.
+#  1) vd-bloqueio.conf + vd-bloqueio.inc em TODOS os sites (endereços de spam, sondas, limite de ritmo no login);
+#  2) bloqueio TOTAL do xmlrpc.php (vd-xmlrpc.inc) só nos domínios de /etc/nginx/vd-xmlrpc-bloquear.lista (um por linha, # comenta)
+#     e só enquanto o site NÃO tiver o plugin Jetpack (que precisa do xmlrpc.php): se o Jetpack aparecer, o bloqueio sai sozinho.
+# Se a configuração ficar inválida, desfaz tudo e avisa (nunca deixa o nginx em baixo). Corre de 10 em 10 minutos (/etc/cron.d/vd-guarda).
+export LC_ALL=C
+INC=/etc/nginx/vd-bloqueio.inc
+XML=/etc/nginx/vd-xmlrpc.inc
+LISTA=/etc/nginx/vd-xmlrpc-bloquear.lista
+[ -f "$INC" ] && [ -f /etc/nginx/conf.d/vd-bloqueio.conf ] || exit 0
+MUDOU=0
+
+# o domínio está na lista (uma linha por domínio, # comenta)
+na_lista() { [ -f "$LISTA" ] && sed 's/#.*//; s/[[:space:]]//g' "$LISTA" | grep -qxF -- "$1"; }
+
+for d in /home/*/conf/web/*/; do
+  dominio="$(basename "$d")"
+  utilizador="$(echo "$d" | cut -d/ -f3)"
+  raiz="/home/$utilizador/web/$dominio/public_html"
+  for f in nginx.conf nginx.ssl.conf; do
+    [ -f "$d$f" ] || continue
+    grep -q "${f}_\*" "$d$f" || continue          # o vhost tem de aceitar ficheiros ${f}_*
+
+    alvo="${d}${f}_vd-bloqueio"
+    if ! cmp -s "$INC" "$alvo"; then cp "$INC" "$alvo" && MUDOU=1; fi
+
+    alvo_x="${d}${f}_vd-xmlrpc"
+    if [ -f "$XML" ] && na_lista "$dominio" && [ ! -d "$raiz/wp-content/plugins/jetpack" ]; then
+      if ! cmp -s "$XML" "$alvo_x"; then cp "$XML" "$alvo_x" && MUDOU=1; fi
+    elif [ -f "$alvo_x" ]; then
+      rm -f "$alvo_x" && MUDOU=1                  # saiu da lista, ou o site passou a usar o Jetpack
+    fi
+  done
+done
+
+if [ "$MUDOU" = 1 ]; then
+  if nginx -t >/dev/null 2>&1; then
+    systemctl reload nginx && logger -t vd-bloqueio "bloqueio aplicado e nginx recarregado"
+  else
+    rm -f /home/*/conf/web/*/nginx.conf_vd-bloqueio /home/*/conf/web/*/nginx.ssl.conf_vd-bloqueio \
+          /home/*/conf/web/*/nginx.conf_vd-xmlrpc /home/*/conf/web/*/nginx.ssl.conf_vd-xmlrpc
+    logger -t vd-bloqueio "nginx -t falhou: bloqueio desfeito"
+    echo "O bloqueio do nginx deixou a configuração inválida e foi desfeito em $(hostname)." | mail -s "[vd-bloqueio] $(hostname) — configuração desfeita" silva.chamo@gmail.com 2>/dev/null
+  fi
+fi
+exit 0
