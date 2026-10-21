@@ -294,6 +294,10 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
   `cache.php`/`index.php`, imagens/sons/fontes/vídeos que começam por `<?php`, `.htaccess` que só deixam correr `index.php|cache.php`, código ofuscado
   (goto + eval, md5(md5(md5()). Move para `/root/quarentena-guarda/<data>/` (nunca apaga, `chmod 000`), regista os hashes em `/var/log/vd-guarda.log` e
   avisa por e-mail. `VD_SIMULAR=1 /usr/local/sbin/vd-guarda-sites completo` mostra o que faria sem mover nada.
+- **Maldet 1 vez por dia** (04:30, `nice`/`ionice`; era 3 vezes por dia, 43 a 97 minutos cada, com 0 detecções): `/etc/cron.d/vd-antivirus` (cópia do
+  anterior em `/root/backups-removidos/`). A lista de zonas sensíveis (`vd-av-watchlist-scan`) continua 3 vezes por dia.
+- **Pasta `app/` do mltmark apagada (21/10/2026)**: era uma instalação antiga do WordPress, quase sem uso, com um `wp-config.php.bak-hetzner-creds`;
+  cópia comprimida só do root em `/root/backups-removidos/mltmark-app-2026-10-21.tar.gz`.
 - **Quarentena do mltmark (17/08 e 26/05, restaurado de cópia de segurança)**: `/root/quarentena-mltmark-2026-10-21/` e `/root/quarentena-guarda/`.
 
 # Autenticação em 2 passos (opcional — Silva, 21/10/2026)
