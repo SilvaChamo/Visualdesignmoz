@@ -139,6 +139,12 @@ export const nivelInicial = (s: St): Level => {
   const permitidos = allowedOf(s);
   return permitidos.includes('utilizador') ? 'utilizador' : permitidos[0];
 };
+/** Os pacotes que o revendedor pode ver e dar aos seus clientes: só os "Pro-…" (Pro-Basico, Pro-Premium, Pro-Business), não todos os
+ *  que o servidor tem (Silva, 22/10/2026). Ver também `pacotePermitido` em api/vhost/acoes. */
+export const ehPacotePro = (n: string) => /^pro-/i.test(n);
+/** Pacotes de cliente que esta sessão vê e atribui: o administrador todos; o revendedor só os Pro-… */
+export const pacotesDeCliente = (s: St): Db['pkgs'] =>
+  s.level === 'revenda' ? (Object.fromEntries(Object.entries(s.db.pkgs).filter(([n]) => ehPacotePro(n))) as Db['pkgs']) : s.db.pkgs;
 /** Pacote efetivo da conta: os limites próprios (se tiver) ou os do pacote */
 export const pacoteDe = (s: St, u: string) => {
   const a = s.acc[u];

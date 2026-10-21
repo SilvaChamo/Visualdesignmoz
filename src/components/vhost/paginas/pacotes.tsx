@@ -4,6 +4,7 @@
 import { useRef, useState } from 'react';
 import { useVH, type VH } from '../context';
 import { THEME_PRESETS } from '../theme';
+import { pacotesDeCliente } from '../state';
 import { noServidorDetalhe } from './acoes';
 import type { ScreenFn } from '../screens';
 import { Check, DataTable, Frm, Funcionalidades, Limites, Row, type Col } from './componentes';
@@ -220,7 +221,7 @@ function ListaPacotes({ tipo }: { tipo: Tipo }) {
   const vh = useVH();
   const { s, nav, toast, openM, updateDb } = vh;
   const base = '/' + s.level + '/' + s.page;
-  const fonte = tipo === 'cliente' ? s.db.pkgs : s.db.rpkgs;
+  const fonte = tipo === 'cliente' ? pacotesDeCliente(s) : s.db.rpkgs;
   const usadoPor = (nome: string) => Object.values(s.acc).filter((a) => a.pkg === nome && (tipo === 'revenda' ? a.role === 'revenda' : a.role !== 'revenda' && a.role !== 'admin')).length;
   const rows: Linha[] = Object.entries(fonte).map(([nome, p]) => ({
     nome,
@@ -232,9 +233,9 @@ function ListaPacotes({ tipo }: { tipo: Tipo }) {
     usado: usadoPor(nome),
   }));
   // ordem fixa dos pacotes de cliente (Silva, 20/10/2026): primeiro os de e-mail (do Starter ao maior), o Default no meio e
-  // depois os VHost (do Básico ao Business); os que não estão na lista ficam no fim, pela ordem em que existem
+  // depois os VHost (do Básico ao Business) e os Pro (os do revendedor); os que não estão na lista ficam no fim, pela ordem em que existem
   if (tipo === 'cliente') {
-    const ORDEM = ['starter', 'email-basico', 'email-premium', 'email-business', 'default', 'vhost-basico', 'vhost-pro', 'vhost-premium', 'vhost-business'];
+    const ORDEM = ['starter', 'email-basico', 'email-premium', 'email-business', 'default', 'vhost-basico', 'vhost-pro', 'vhost-premium', 'vhost-business', 'pro-basico', 'pro-premium', 'pro-business'];
     const pos = (n: string) => {
       const i = ORDEM.indexOf(n.toLowerCase());
       return i < 0 ? ORDEM.length : i;
@@ -377,7 +378,7 @@ function EditarPacote({ tipo, nome }: { tipo: Tipo; nome: string | null }) {
   const vh = useVH();
   const { s, t, nav, toast, updateDb } = vh;
   const base = '/' + s.level + '/' + s.page;
-  const fonte = tipo === 'cliente' ? s.db.pkgs : s.db.rpkgs;
+  const fonte = tipo === 'cliente' ? pacotesDeCliente(s) : s.db.rpkgs;
   const [p, setP] = useState<PacoteUtilizador | PacoteRevenda>(() =>
     (() => {
       const base = structuredClone(nome ? fonte[nome] : tipo === 'cliente' ? pacoteVazio() : pacoteRevendaVazio());
@@ -455,7 +456,7 @@ export function pacotes(tipo: Tipo): ScreenFn {
     const base = '/' + s.level + '/' + s.page;
     const listaT = tipo === 'cliente' ? 'Pacotes de cliente' : 'Pacotes de revenda';
     const sub = s.sub[0];
-    const fonte = tipo === 'cliente' ? s.db.pkgs : s.db.rpkgs;
+    const fonte = tipo === 'cliente' ? pacotesDeCliente(s) : s.db.rpkgs;
     if (sub === 'novo')
       return {
         title: tipo === 'cliente' ? 'Novo pacote de cliente' : 'Novo pacote de revenda',

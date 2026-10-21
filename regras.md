@@ -126,6 +126,9 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
   de 11,5 px quase preta, e **sai da barra de cima**, que fica só com o título; se a página tem uma instrução, é ela que vai por baixo do
   título. Por baixo da linha ficam só a pesquisa (à esquerda, 440 px) e o botão (à direita). A indicação de trocar de domínio só existe na
   página de Domínios.
+- **Pacotes do revendedor** (Silva, 22/10/2026): o revendedor só vê e só atribui os pacotes **Pro-…** (Pro-Basico, Pro-Premium, Pro-Business),
+  nunca todos os que o servidor tem — na interface (`pacotesDeCliente`), nos dados (`vhost-dados`) e na API (`pacotePermitido`). Criar um
+  pacote novo no Hestia é `v-add-user-package FICHEIRO NOME` **sem** o `yes` final: o `yes` é "regravar" e só serve para um pacote que já existe.
 - **O CPU do servidor é um só** (Silva, 22/10/2026): tudo o que o mostra (janela de manutenção, cartão "Servidor" da barra lateral, cartão
   "Consumo CPU" do painel inicial) usa `useSystemStatus`, uma leitura ao vivo partilhada. Nunca outra medida ao lado.
 - **Nunca pesquisa à esquerda por cima do cartão principal** (13/10/2026). A "Busca" da barra de cima já procura na

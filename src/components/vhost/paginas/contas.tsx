@@ -8,7 +8,7 @@ import type { ScreenFn } from '../screens';
 import { ChangeRoleModal } from '../modals';
 import { ROLES } from '../generated/data';
 import { noServidor, noServidorDetalhe } from './acoes';
-import { isUser, pacoteDe, type St } from '../state';
+import { isUser, pacoteDe, pacotesDeCliente, type St } from '../state';
 import { RC, RI } from '../ui';
 import { correrPassagem, lerPrevisao, type PrevisaoPassagem } from './passar';
 import { EditarDadosModal } from './cliente-dados';
@@ -204,7 +204,7 @@ function DescerPlanoModal({ contas, pacote, oQue }: { contas: string[]; pacote: 
 function MudarPacoteModal({ users }: { users: string[] }) {
   const vh = useVH();
   const { s, t, closeM } = vh;
-  const nomes = Object.keys(s.db.pkgs);
+  const nomes = Object.keys(pacotesDeCliente(s));
   const [p, setP] = useState(nomes[0]);
   return (
     <>
@@ -692,7 +692,7 @@ function ContaModificar({ u }: { u: string }) {
   const { s, t, nav, toast, updateDb } = vh;
   const a = s.acc[u];
   const revenda = a.role === 'revenda';
-  const nomes = Object.keys(revenda ? s.db.rpkgs : s.db.pkgs);
+  const nomes = Object.keys(revenda ? s.db.rpkgs : pacotesDeCliente(s));
   const [pk, setPk] = useState(nomes.includes(a.pkg) ? a.pkg : nomes[0]);
   const [p, setP] = useState<PacoteUtilizador | PacoteRevenda>(() => structuredClone(revenda ? pacoteRevendaDe(s, u) : pacoteDe(s, u) || pacoteVazio()));
   const ver = base(s) + '/' + enc(u);
@@ -749,7 +749,7 @@ function NovaConta({ tipo }: { tipo: TipoNova }) {
   const [email, setEmail] = useState('');
   const [pass, setPass] = useState('');
   const [dom, setDom] = useState('');
-  const nomes = Object.keys(tipo === 'revenda' ? s.db.rpkgs : s.db.pkgs);
+  const nomes = Object.keys(tipo === 'revenda' ? s.db.rpkgs : pacotesDeCliente(s));
   const sugerido = (r: Role) => nomes.find((n) => (r === 'cliente' ? /mail/i : /basic|basico|starter/i).test(n)) || nomes[0];
   const [pk, setPk] = useState(nomes.includes(sugerido(role)) ? sugerido(role) : nomes[0]);
   const [custom, setCustom] = useState<PacoteUtilizador | PacoteRevenda | null>(null);
