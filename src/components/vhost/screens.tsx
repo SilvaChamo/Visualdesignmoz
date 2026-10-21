@@ -2,6 +2,7 @@
 
 // Ecrãs do painel (na maquete: o objeto P). Cada ecrã dá o título e os botões da barra de cima,
 // e o conteúdo da página.
+import { useSystemStatus } from '@/components/admin/ServerStatusWidget';
 import { Fragment, useState, type ReactNode } from 'react';
 import { useVH, type VH } from './context';
 import { ajudaPagina, apiPagina, msgAvisos, msgNaoLidas, msgTodas, perfilAvisos, perfilDoisPassos, perfilGeral, perfilSenha, perfilSessoes, prefFicheiros, prefIdioma, prefTabelas, ticketsPagina } from './paginas/suporte';
@@ -46,6 +47,8 @@ export interface Screen {
   desc?: string;
   /** descrição com dados vivos, no lugar de desc (ex.: Mensagens — "Todas as mensagens | 3 por ler") */
   descEl?: ReactNode;
+  /** instrução da página, escrita por baixo do título dentro do cartão (antes da linha), junto ao botão da página */
+  subTitulo?: string;
   /** domínios do seletor nesta página: 'sites' = só os que têm site neste servidor (por defeito: todos) */
   dominios?: 'sites';
   /** página de um domínio que está no endereço: o seletor mostra esse domínio e, ao mudar, abre a mesma página do novo */
@@ -87,6 +90,9 @@ function AdminWidgets() {
   const { s, go } = useVH();
   const all = Object.entries(s.acc);
   const v = s.srv;
+  const { data: vivo } = useSystemStatus();
+  // o mesmo CPU do cartão do servidor e da janela de manutenção (leitura ao vivo partilhada)
+  const cpuAgora = vivo?.cpu.usage ?? (v ? cpuServidor(v) : 0);
   return (
     <div className="cols">
       <div className="da-main-card cols-main">
@@ -95,7 +101,7 @@ function AdminWidgets() {
           <Stat title="Revendedores" v={all.filter(([, a]) => a.role === 'revenda').length} m="/ ∞" p={Math.min(100, all.filter(([, a]) => a.role === 'revenda').length * 10)} />
           {/* números reais do servidor, explícitos (Silva, 14/10/2026): "41,8 GB de 300 GB · 14%", "13% de 6 núcleos" */}
           <Stat title="Disco usado" v={v ? gbTxt(v.discoUsadoGb) : '—'} m={v ? 'de ' + gbTxt(v.discoTotalGb) + ' · ' + pctDe(v.discoUsadoGb, v.discoTotalGb) + '%' : ''} p={v ? pctDe(v.discoUsadoGb, v.discoTotalGb) : 0} />
-          <Stat title="Consumo CPU" v={v ? String(cpuServidor(v)).replace('.', ',') + '%' : '—'} m={v ? 'de ' + v.cpus + ' núcleos' : ''} p={v ? cpuServidor(v) : 0} />
+          <Stat title="Consumo CPU" v={v ? String(cpuAgora).replace('.', ',') + '%' : '—'} m={v ? 'de ' + v.cpus + ' núcleos' : ''} p={v ? cpuAgora : 0} />
         </div>
         <div className="stats-line" />
         <UsersTable rows={all} showCreator={false} />

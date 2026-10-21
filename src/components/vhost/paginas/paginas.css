@@ -11969,15 +11969,15 @@
    color: var(--muted)
 }
 
-/* E-mail: uma linha horizontal por baixo dos cartões de números, com 20 px de cada lado (os 20 de baixo são os da barra da pesquisa)
-   (Silva, 21/10/2026) */
+/* E-mail: uma linha horizontal por baixo dos cartões de números. É a única página com a margem normal — 20 px por cima e por baixo
+   da linha — para afastar os cartões, a pesquisa e os botões; em todas as outras a margem da linha é de 5 px (Silva, 21/10/2026) */
 .vh .da-main-card .stats:has(+ .em-lista-card) {
-   padding-bottom: 5px;
+   padding-bottom: 20px;
    border-bottom: 1px solid var(--line)
 }
 
 .vh .da-main-card .stats:has(+ .em-lista-card) + .em-lista-card > .em-acoes-topo {
-   padding-top: 5px
+   padding-top: 20px
 }
 
 /* Descrição por baixo do título da página, na barra de cima: letra um pouco mais pequena, em todas as páginas (Silva, 21/10/2026) */
@@ -12725,36 +12725,31 @@
    }
 }
 
-/* Margens do cabeçalho do cartão (Silva, 21/10/2026): à direita, tudo acaba no mesmo sítio — o fim da linha: o botão da página
-   e o botão das linhas das tabelas. À esquerda: sem separadores, o título e a indicação começam no início da linha; com
-   separadores, alinham com o ícone do primeiro separador (e as linhas vão sempre de ponta a ponta). */
+/* Margens do cartão (Silva, 21/10/2026): sem separadores, o título e a indicação começam no início da linha; as tabelas, os botões
+   e as caixas de seleção levam sempre 12 px de margem dentro da linha, dos dois lados — nunca encostados à beira. */
 @media (min-width: 769px) {
    .vh .da-main-card .card-topo-modelo .dom-ctx:not(#x) {
       padding-right: 0
    }
 
-   .vh .da-main-card .card-topo-btns:not(#x) {
-      padding-right: 0
+   .vh .da-main-card .card-topo-btns:not(#x),
+   .vh .da-main-card .em-acoes-topo:not(#x) {
+      padding-right: 12px
    }
 
-   /* sem separadores: todo o conteúdo começa no início da linha (o recuo é o que alinha com o ícone do primeiro separador) */
+   /* sem separadores: o título e a indicação começam no início da linha (o recuo é o que alinha com o ícone do primeiro separador) */
    .vh .da-main-card:not(:has(> .ptabs-faixa)):not(#x) {
       --recuo: 0px
    }
 
-   .vh .da-main-card:not(:has(> .ptabs-faixa)) .tbl th.ck:not(#x),
-   .vh .da-main-card:not(:has(> .ptabs-faixa)) .tbl td.ck:not(#x) {
-      padding-left: 0
-   }
-
-   /* o texto depois da caixa de seleção mantém o seu espaço */
    .vh .da-main-card:not(:has(> .ptabs-faixa)) .tbl th.ck + th:not(#x),
    .vh .da-main-card:not(:has(> .ptabs-faixa)) .tbl td.ck + td:not(#x) {
-      padding-left: 24px
+      padding-left: 12px
    }
 
-   .vh .da-main-card .tbl td.dt-acoes-linha:last-child:not(#x) {
-      padding-right: 0
+   .vh .da-main-card:not(:has(> .ptabs-faixa)) .tbl th:last-child:not(#x),
+   .vh .da-main-card:not(:has(> .ptabs-faixa)) .tbl td:last-child:not(#x) {
+      padding-right: 12px
    }
 }
 
@@ -12805,5 +12800,157 @@
    .vh .da-main-card > .frm .frm-foot:not(#x) {
       padding-left: 12px;
       padding-right: 12px
+   }
+}
+
+/* Configurações ACME (SSL/TLS): uma linha suave por cima do título (Silva, 21/10/2026) */
+.vh .da-main-card > .frm.frm-acme > .frm-head:not(#x) {
+   border-top: 1px solid var(--line)
+}
+
+/* Título com a instrução da página por baixo, os dois em cima da linha (Silva, 21/10/2026): ex. Bases de dados, Apontadores */
+.vh .da-main-card .card-topo-modelo .dom-ctx.dom-titulo-bloco:not(#x) {
+   display: flex;
+   margin: 0;
+   padding: 0 0 5px var(--recuo, 12px);
+   border-bottom: 1px solid var(--line)
+}
+
+.vh .card-topo-modelo .dom-titulo-bloco .dom-titulo {
+   font-size: calc(22px * var(--fs, 1))
+}
+
+/* A descrição da página passa para dentro do cartão, por baixo do título (Silva, 21/10/2026): na barra de cima fica só o título */
+.vh .right:has(.pg-slot:not([aria-hidden="true"]) .card-topo-titulo:is(.card-topo-modelo, :has(.dom-titulo-bloco:not(:has(.dom-ind)))))
+   .ptitle small {
+   display: none
+}
+
+/* o botão de Domínios/Subdomínios acaba onde acabam os botões das linhas da tabela (12 px da beira), como nas outras páginas */
+@media (min-width: 769px) {
+   .vh .da-main-card .seccao-h.dom-cab:not(#x) {
+      padding-right: 12px
+   }
+}
+
+/* a descrição por baixo do título do cartão: letra de 11,5 px e a cor mais escura (mais perto da do texto), que no claro e no escuro
+   ganha contraste (Silva, 22/10/2026) */
+.vh .dom-titulo-bloco .dom-sub:not(#x) {
+   font-size: calc(11.5px * var(--fs, 1));
+   color: #15171b
+}
+
+.vh[data-theme="dark"] .dom-titulo-bloco .dom-sub:not(#x) {
+   color: var(--ink)
+}
+
+/* Rastreio de e-mail: uma linha por baixo do texto que explica os filtros, com 5 px por cima e por baixo (Silva, 22/10/2026) */
+.vh .em-nota.em-nota-linha:not(#x) {
+   padding-bottom: 5px;
+   margin-bottom: 5px;
+   border-bottom: 1px solid var(--line)
+}
+
+/* a barra cinzenta do título de um formulário (ex.: "Estado da proteção") e o texto das linhas por baixo dela levam a mesma margem dos
+   dois lados, mesmo nas páginas sem separadores, onde o recuo é 0: nada fica encostado à beira (Silva, 22/10/2026) */
+@media (min-width: 769px) {
+   .vh .da-main-card:not(:has(> .ptabs-faixa)) > .frm .frm-head:not(#x),
+   .vh .da-main-card:not(:has(> .ptabs-faixa)) > .frm .frm-row:not(#x),
+   .vh .da-main-card:not(:has(> .ptabs-faixa)) > .frm .frm-foot:not(#x) {
+      padding-left: 12px;
+      padding-right: 12px
+   }
+}
+
+/* a indicação do domínio por baixo do título do cartão (Domínios; Silva, 22/10/2026) */
+.vh .dom-sub .dom-ind {
+   display: inline-flex;
+   align-items: center;
+   gap: 6px
+}
+
+.vh .dom-sub .dom-ind i {
+   color: var(--red)
+}
+
+.vh .dom-sub .dom-ind span {
+   color: var(--muted)
+}
+
+/* Domínios: a caixa de pesquisa por baixo da linha, à esquerda, com a altura dos botões e uma largura moderada (Silva, 22/10/2026) */
+.vh .seccao-h.dom-cab .search.dom-pesq {
+   flex: 0 1 440px;
+   width: 440px;
+   height: 32px;
+   box-sizing: border-box;
+   padding: 0 10px;
+   gap: 8px;
+   font-size: calc(12.5px * var(--fs, 1))
+}
+
+@media (min-width: 769px) {
+   .vh .da-main-card .seccao-h.dom-cab .search.dom-pesq:not(#x) {
+      margin-left: 12px
+   }
+}
+
+@media (max-width: 768px) {
+   .vh .seccao-h.dom-cab .search.dom-pesq:not(#x) {
+      flex: 1 1 100%;
+      width: auto;
+      margin: 0 0 8px
+   }
+
+   .vh .seccao-h.dom-cab:has(.dom-pesq):not(#x) {
+      flex-wrap: wrap
+   }
+}
+
+/* a pesquisa e o botão da mesma altura e alinhados pelo meio */
+.vh .da-main-card .seccao-h.dom-cab:has(.dom-pesq):not(#x) {
+   align-items: center
+}
+
+/* E-mail: a barra de busca com a largura do primeiro cartão de números (um quarto da linha, descontados os 3 espaços de 12 px entre
+   cartões e os 12 px de margem do lado direito da barra) (Silva, 22/10/2026); no telemóvel ocupa a linha toda como antes */
+@media (min-width: 769px) {
+   .vh .card.em-lista-card .em-acoes-topo .em-pesq:not(#x) {
+      flex: 0 1 calc((100% - 24px) / 4);
+      width: calc((100% - 24px) / 4);
+      min-width: 0;
+      max-width: none
+   }
+}
+
+/* a pesquisa na linha do cartão das páginas com o modelo (DNS): igual à de Domínios, alinhada pelo meio com o botão */
+.vh .card-topo-linha .search.dom-pesq {
+   flex: 0 1 440px;
+   width: 440px;
+   height: 32px;
+   box-sizing: border-box;
+   padding: 0 10px;
+   gap: 8px;
+   font-size: calc(12.5px * var(--fs, 1))
+}
+
+.vh .card-topo-linha:has(.dom-pesq):not(#x) {
+   align-items: center
+}
+
+@media (min-width: 769px) {
+   .vh .da-main-card .card-topo-linha .search.dom-pesq:not(#x) {
+      margin-left: var(--recuo, 12px)
+   }
+}
+
+@media (max-width: 768px) {
+   .vh .card-topo-linha:has(.dom-pesq):not(#x) {
+      flex-wrap: wrap
+   }
+
+   .vh .card-topo-linha .search.dom-pesq:not(#x) {
+      flex: 1 1 100%;
+      width: auto;
+      margin: 0 0 8px
    }
 }

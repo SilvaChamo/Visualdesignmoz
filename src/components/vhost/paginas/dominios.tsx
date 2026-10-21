@@ -13,9 +13,10 @@ import { getPhpMyAdminUrl } from '@/lib/server-config';
 import { VISUALDESIGN_DEFAULT_NS } from '@/lib/visualdesign-dns';
 import { Check, DataTable, Frm, MaisOpcoes, novaSenha, Row, Senha, Switch, Tabs, type Col } from './componentes';
 import { IndicacaoDominio, NoTopoCartao, useVariosDominios } from '../ui';
+import { tituloDoCartao } from '../titulos-cartao';
 import { Confirmar } from './pacotes';
 import DomainSearch from '@/components/DomainSearchPainel';
-import { EsperaPagina, useGet } from '../carga';
+import { EsperaPagina, useGet, useNaMemoria } from '../carga';
 import { EN } from '../generated/data';
 import { BotaoPassar } from './passar';
 import { TransferirDominio } from './transferir-dominio';
@@ -24,6 +25,12 @@ import { TransferirDominio } from './transferir-dominio';
 {
   const novas: Record<string, string> = {
     'Gestão de domínios': 'Domain management',
+    'Subdomínios do site': 'Subdomains of the site',
+    'Use a versão mais recente do PHP para acelerar o seu site': 'Use the latest PHP version to speed up your site',
+    'Crie bases de dados do seu site, com o número de utilizadores que lhes acedem, o tamanho e o número de tabelas abaixo': "Create your site's databases, with the number of users that access them, the size and the number of tables below",
+    'Registos DNS deste domínio, guardados neste servidor': 'DNS records of this domain, stored on this server',
+    'O DNS deste domínio está fora da Visual Design': 'The DNS of this domain is outside Visual Design',
+    'Ligado à Cloudflare: o que alterar aqui muda logo nos registos DNS dos seus domínios': "Connected to Cloudflare: what you change here changes your domains' DNS records right away",
     'Gerir os domínios e os subdomínios desta conta': 'Manage the domains and subdomains of this account',
     'Os sites e os domínios desta conta': 'The sites and domains of this account',
     'Os subdomínios e as pastas deste domínio': 'The subdomains and folders of this domain',
@@ -283,17 +290,27 @@ function SemDominio({ soSite = true }: { soSite?: boolean }) {
 /** Cabeçalho do cartão de Domínios e Subdomínios (experiência do Silva, 21/10/2026): em cima, o título da página em letra light com uma
  *  linha por baixo; logo por baixo da linha, à esquerda, a indicação do domínio (só numa conta com vários domínios; com um só, a
  *  descrição breve da página) e o botão da página à direita */
-function CabDominios({ desc, children }: { desc: string; children: ReactNode }) {
+function CabDominios({ titulo = 'Gestão de domínios', pesquisa, children }: { titulo?: string; pesquisa?: { valor: string; mudar: (v: string) => void }; children: ReactNode }) {
   const { t } = useVH();
   const topo = useContext(TopoCartao);
   const varios = useVariosDominios(topo?.dominios);
   return (
     <>
-      <NoTopoCartao daPagina titulo={t('Gestão de domínios')}>
+      {/* a indicação de trocar de domínio (só em Domínios, e só com vários domínios) fica por baixo do título, antes da linha */}
+      <NoTopoCartao daPagina titulo={t(titulo)} descTitulo={varios ? <IndicacaoDominio emLinha dominios={topo?.dominios} dominioUrl={topo?.dominioUrl} /> : undefined}>
         {null}
       </NoTopoCartao>
+      {/* por baixo da linha: a pesquisa à esquerda (se a página a tiver) e o botão à direita */}
       <div className="seccao-h dom-cab">
-        {varios ? <IndicacaoDominio dominios={topo?.dominios} dominioUrl={topo?.dominioUrl} /> : <p className="dom-ctx dom-desc">{t(desc)}</p>}
+        {pesquisa ? (
+          <div className="search dom-pesq">
+            <i className="fa-solid fa-magnifying-glass" />
+            <input value={pesquisa.valor} onChange={(e) => pesquisa.mudar(e.target.value)} placeholder={t('Pesquisar')} aria-label={t('Pesquisar')} />
+            {pesquisa.valor && <i className="fa-solid fa-xmark limpar" onClick={() => pesquisa.mudar('')} />}
+          </div>
+        ) : (
+          <span className="dom-ctx" />
+        )}
         {children}
       </div>
     </>
@@ -341,6 +358,7 @@ const ROTA_ABA: Record<AbaDom, string> = { meus: '', subdominios: '/subdominios'
 function ListaDominios({ abaDom = 'meus', abrirNovo = false }: { abaDom?: AbaDom; abrirNovo?: boolean }) {
   const vh = useVH();
   const { a, t, nav, openM, setDominio } = vh;
+  const [busca, setBusca] = useState(''); // a caixa de pesquisa fica por baixo da linha do cartão, à esquerda
   // o endereço antigo /dominios/novo (ligações e favoritos) abre a janela de adicionar domínio sobre a lista
   const abriu = useRef(false);
   useEffect(() => {
@@ -418,7 +436,7 @@ function ListaDominios({ abaDom = 'meus', abrirNovo = false }: { abaDom?: AbaDom
         <TransferirDominio />
       ) : (
         <>
-          <CabDominios desc="Os sites e os domínios desta conta">
+          <CabDominios pesquisa={{ valor: busca, mudar: setBusca }}>
             <button className="btn r" onClick={() => openM(<NovoDominio />)}>
               <i className="fa-solid fa-plus" />
               {t('Adicionar domínio')}
@@ -428,6 +446,7 @@ function ListaDominios({ abaDom = 'meus', abrirNovo = false }: { abaDom?: AbaDom
           id="dominios"
           umaLinha
           barraFora
+          consulta={busca}
           rows={rows}
           cols={cols}
           rowKey={(r) => r.name}
@@ -1146,11 +1165,11 @@ export const dominios: ScreenFn = (vh) => {
   // não leva descrição por baixo do título (Silva, 20/10/2026). Registar e Transferir domínio não têm botão.
   const base = { t: 'Domínios', path: '/' + vh.s.level + '/dominios' };
   if (sub === 'registar') return { title: 'Domínios', crumbs: [base, { t: 'Registar domínio' }], body: <ListaDominios abaDom="registar" /> };
-  if (sub === 'subdominios') return { title: 'Domínios', desc: 'Gerir os domínios e os subdomínios desta conta', dominios: 'sites', crumbs: [base, { t: 'Subdomínios' }], body: <ListaDominios abaDom="subdominios" /> };
+  if (sub === 'subdominios') return { title: 'Domínios', desc: 'Os subdomínios e as pastas deste domínio', dominios: 'sites', crumbs: [base, { t: 'Subdomínios' }], body: <ListaDominios abaDom="subdominios" /> };
   if (sub === 'transferir') return { title: 'Domínios', crumbs: [base, { t: 'Transferir domínio' }], body: <ListaDominios abaDom="transferir" /> };
   if (sub === 'novo') return { title: 'Domínios', desc: 'Gerir os domínios e os subdomínios desta conta', body: <ListaDominios abrirNovo /> };
   if (sub) return { title: sub, desc: 'Resumo e atalhos do domínio', crumbs: [{ t: 'Domínios', path: '/' + vh.s.level + '/dominios' }, { t: sub }], dominioUrl: { d: sub, ir: (n) => '/' + vh.s.level + '/dominios/' + encodeURIComponent(n) }, body: <VerDominio d={sub} /> };
-  return { title: 'Domínios', desc: 'Gerir os domínios e os subdomínios desta conta', body: <ListaDominios /> };
+  return { title: 'Domínios', desc: 'Os sites e os domínios desta conta', body: <ListaDominios /> };
 };
 
 // ---------- Subdomínios (separador dos Domínios) ----------
@@ -1267,7 +1286,7 @@ function Subdominios() {
     );
   return (
     <>
-    <CabDominios desc="Os subdomínios e as pastas deste domínio">
+    <CabDominios titulo="Subdomínios do site">
       <button className="btn r" onClick={() => openM(<NovoSubdominio d={x.name} />)}>
         <i className="fa-solid fa-plus" />
         {t('Adicionar subdomínio')}
@@ -1666,6 +1685,7 @@ function Dns() {
         />
         <DataTable
           id="dns"
+          pesqCabecalho
           rows={rows}
           rowKey={(r) => r.id}
           rowSort={(a, b) => Number(a.tipo === 'NS') - Number(b.tipo === 'NS')}
@@ -1967,7 +1987,16 @@ function NovoRegistoDns() {
     </button>
   );
 }
-export const dnsPagina: ScreenFn = () => ({ title: 'DNS', actions: <NovoRegistoDns />, body: <Dns /> });
+/** Descrição da página DNS (Silva, 22/10/2026): deixa claro que os registos são os da Cloudflare, onde o painel está ligado; só um
+ *  domínio com o DNS neste servidor (ou fora) diz outra coisa */
+function DescDns() {
+  const vh = useVH();
+  const x = dominioAtual(vh, false);
+  const dados = useNaMemoria<{ dns: { fonte: string } }>(x ? '/api/vhost/dominio?conta=' + encodeURIComponent(vh.me) + '&d=' + encodeURIComponent(x.name) + '&so=dns' : '');
+  const f = dados?.dns.fonte;
+  return <>{vh.t(f === 'hestia' ? 'Registos DNS deste domínio, guardados neste servidor' : f === 'nenhuma' ? 'O DNS deste domínio está fora da Visual Design' : 'Ligado à Cloudflare: o que alterar aqui muda logo nos registos DNS dos seus domínios')}</>;
+}
+export const dnsPagina: ScreenFn = () => ({ title: 'DNS', descEl: <DescDns />, actions: <NovoRegistoDns />, body: <Dns /> });
 
 // ---------- SSL/TLS ----------
 function CertificadoModal({ d, onFeito }: { d: string; onFeito: () => void }) {
@@ -2734,6 +2763,7 @@ function Ssl({ tab, verCertDomain }: { tab: TabSsl; verCertDomain: string | null
 
       {tab === 'acme' && (
         <Frm
+          className="frm-acme"
           title="Configurações ACME"
           desc="Como o servidor pede e renova os certificados grátis deste domínio"
           foot={
@@ -2963,13 +2993,13 @@ function SeparadoresBd({ on }: { on: 'bases' | 'utilizadores' }) {
 }
 
 /** Título de secção com descrição e números à direita (como "Databases List · Database Count / Total Size" do DA) */
-function Seccao({ titulo, desc, numeros }: { titulo: string; desc: string; numeros?: [string, string][] }) {
+function Seccao({ titulo, desc, numeros }: { titulo: string; desc?: string; numeros?: [string, string][] }) {
   const { t } = useVH();
   return (
     <div className="seccao-h">
       <div>
         <h3>{t(titulo)}</h3>
-        <p>{t(desc)}</p>
+        {desc && <p>{t(desc)}</p>}
       </div>
       {numeros && (
         <div className="numeros">
@@ -3061,7 +3091,6 @@ function BasesDados() {
         barra2={
           <Seccao
             titulo="Lista de bases de dados"
-            desc="Todas as bases de dados da conta, com o número de utilizadores que lhes acedem, o tamanho e o número de tabelas. Uma base nova cria-se no formulário por baixo da lista."
             numeros={[
               ['Bases de dados', rows.length + ' / ' + t(limiteBd(vh))],
               ['Tamanho total', total == null ? '—' : tamanho(total)],
@@ -3542,7 +3571,6 @@ function UtilizadoresBd() {
         barra2={
           <Seccao
             titulo="Contas de utilizador"
-            desc="Todos os utilizadores das bases de dados. A coluna Hosts mostra os endereços IP ou padrões que podem ligar-se; % aceita ligações de qualquer endereço. Um utilizador novo cria-se no formulário por baixo da lista."
             numeros={[['Utilizadores', lista.length + ' / ' + t('ilimitado')]]}
           />
         }
@@ -3747,12 +3775,6 @@ function PhpMyAdmin() {
   return (
     <>
       <div className="note">{t('O phpMyAdmin abre noutra janela, já com sessão iniciada, só com as bases de dados desta conta. O acesso dura 10 minutos.')}</div>
-      <div className="acoes-topo" style={{ justifyContent: 'flex-start' }}>
-        <a className="btn r" href={pmaUrl(vh)} target="_blank" rel="noreferrer">
-          <i className="fa-solid fa-database" />
-          {t('Abrir phpMyAdmin')}
-        </a>
-      </div>
       <DataTable
         id="pma"
         rows={a.dbs || []}
@@ -3772,15 +3794,25 @@ function PhpMyAdmin() {
     </>
   );
 }
-export const phpmyadminPagina: ScreenFn = () => ({ title: 'phpMyAdmin', body: <PhpMyAdmin /> });
+/** o botão fica sempre à direita, na linha de baixo do título (modelo de Domínios; Silva, 21/10/2026) */
+function AbrirPhpMyAdmin() {
+  const vh = useVH();
+  return (
+    <a className="btn r" href={pmaUrl(vh)} target="_blank" rel="noreferrer">
+      <i className="fa-solid fa-database" />
+      {vh.t('Abrir phpMyAdmin')}
+    </a>
+  );
+}
+export const phpmyadminPagina: ScreenFn = () => ({ title: 'phpMyAdmin', actions: <AbrirPhpMyAdmin />, body: <PhpMyAdmin /> });
 
 export const bdPagina: ScreenFn = (vh) => {
   const [a, b] = vh.s.sub;
   const base = { t: 'Bases de dados', path: '/utilizador/bd' };
   if (a === 'utilizadores' && b) return { title: 'Gerir utilizador', crumbs: [base, { t: 'Utilizadores', path: '/utilizador/bd/utilizadores' }, { t: 'Gerir utilizador' }], actions: botoesBd(vh, 'utilizador'), body: <VerUtilizadorBd key={b} dbuser={b} /> };
-  if (a === 'utilizadores') return { title: 'Utilizadores', crumbs: [base, { t: 'Utilizadores' }], actions: botoesBd(vh, 'utilizadores'), body: <UtilizadoresBd /> };
+  if (a === 'utilizadores') return { title: 'Utilizadores', crumbs: [base, { t: 'Utilizadores' }], actions: botoesBd(vh, 'utilizadores'), subTitulo: 'Todos os utilizadores das bases de dados. A coluna Hosts mostra os endereços IP ou padrões que podem ligar-se; % aceita ligações de qualquer endereço. Um utilizador novo cria-se no formulário por baixo da lista.', body: <UtilizadoresBd /> };
   if (a) return { title: 'Gerir base de dados', crumbs: [base, { t: 'Gerir base de dados' }], actions: botoesBd(vh, 'base', a), body: <VerBd key={a} nome={a} /> };
-  return { title: 'Bases de dados', actions: botoesBd(vh, 'bases'), body: <BasesDados /> };
+  return { title: 'Bases de dados', actions: botoesBd(vh, 'bases'), subTitulo: 'Crie bases de dados do seu site, com o número de utilizadores que lhes acedem, o tamanho e o número de tabelas abaixo', body: <BasesDados /> };
 };
 
 // ---------- Apontadores ----------
@@ -3798,7 +3830,7 @@ function Apontadores() {
   };
   return (
     <>
-      <NoTopoCartao daPagina modelo={{ titulo: t('Criar apontador'), desc: t('Outro domínio que abre o mesmo site (o DNS dele tem de apontar para este servidor)') }}>
+      <NoTopoCartao daPagina modelo={{ titulo: t('Criar apontador'), sub: t('Outro domínio que abre o mesmo site (o DNS dele tem de apontar para este servidor)') }}>
         <button className="btn r" onClick={criar}>
           <i className="fa-solid fa-plus" />
           {t('Criar')}
@@ -3891,7 +3923,7 @@ function Redirecionamentos() {
   const gravar = async (rs: Regra[], msg: string) => (await noServidor(vh, { acao: 'htaccess', dominio: x.name, linhas: linhasHt(rs, hot, x.name) }, msg)) && ler();
   return (
     <>
-      <NoTopoCartao daPagina>
+      <NoTopoCartao daPagina modelo={{ titulo: t(tituloDoCartao('Redirecionamentos')) }}>
         {det.redirecionamento && (
           <button className="btn g" onClick={async () => (await noServidor(vh, { acao: 'redir-dominio-tirar', dominio: x.name }, 'Redirecionamento tirado')) && ler()}>
             {t('Tirar')}
@@ -3988,13 +4020,13 @@ function Hotlink() {
   const guardar = async (novo: Hot, msg: string) => (await noServidor(vh, { acao: 'htaccess', dominio: x.name, linhas: linhasHt(lerRegras(det.htaccess), novo, x.name) }, msg)) && ler();
   return (
     <>
-      <NoTopoCartao daPagina>
+      <NoTopoCartao daPagina modelo={{ titulo: t(tituloDoCartao('Proteção hotlink')), sub: '' }}>
         <button className="btn r" onClick={() => guardar({ ...h, ativo: true }, 'Proteção hotlink guardada')}>
           {t('Guardar')}
         </button>
       </NoTopoCartao>
       <Frm
-        title="Proteção hotlink"
+        title="Estado da proteção"
         desc="Impede outros sites de mostrar as suas imagens e vídeos (gastando o seu tráfego)"
         right={<Switch checked={h.ativo} onChange={(v) => guardar({ ...h, ativo: v }, v ? 'Proteção hotlink ligada' : 'Proteção hotlink desligada')} label="Proteção hotlink" />}
       >
@@ -4127,7 +4159,7 @@ function Php() {
   return (
     <>
       {/* a indicação do domínio à esquerda e o "Gravar" à direita, na linha de cima do cartão (Silva, 20/10/2026) */}
-      <NoTopoCartao daPagina>
+      <NoTopoCartao daPagina modelo={{ titulo: t(tituloDoCartao('Definições PHP')), sub: t('Use a versão mais recente do PHP para acelerar o seu site') }}>
         <button className="btn r" onClick={gravar}>
           <i className="fa-solid fa-floppy-disk" />
           {t('Gravar alterações')}

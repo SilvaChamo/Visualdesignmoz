@@ -15,11 +15,19 @@ export async function GET() {
   }
 
   let query = supabase.from('domain_transfer_requests').select('*').order('created_at', { ascending: false });
+  // as sessões do carrinho leem-se ao mesmo tempo que os pedidos (antes esperavam por eles: duas idas seguidas à base de dados);
+  // o administrador filtra-as por dono depois de chegarem
+  let sessoesQuery = supabase
+    .from('checkout_sessions')
+    .select('id, user_id, items, metodo_pagamento, created_at')
+    .order('created_at', { ascending: false })
+    .limit(1000);
   if (auth.user.role !== 'admin') {
     query = query.eq('user_id', auth.user.id);
+    sessoesQuery = sessoesQuery.eq('user_id', auth.user.id);
   }
 
-  const { data, error } = await query;
+  const [{ data, error }, { data: sessions }] = await Promise.all([query, sessoesQuery]);
   if (error) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
@@ -29,15 +37,11 @@ export async function GET() {
   // estado da transferência em si. Junta pelo mesmo dono + domínio, item
   // 'domain' com authCode (é isso que distingue uma transferência de um
   // registo novo no carrinho).
-  const userIds = Array.from(new Set((data || []).map((r) => r.user_id)));
+  const userIds = new Set((data || []).map((r) => r.user_id));
   const ordersByKey = new Map<string, { orderId: string; costMt: number; paidMt: number; metodoPagamento: string; status: string }>();
-  if (userIds.length > 0) {
-    const { data: sessions } = await supabase
-      .from('checkout_sessions')
-      .select('id, user_id, items, metodo_pagamento, created_at')
-      .in('user_id', userIds)
-      .order('created_at', { ascending: false });
+  if (userIds.size > 0) {
     for (const session of sessions || []) {
+      if (!userIds.has(session.user_id)) continue;
       const items = (session.items as CheckoutItem[]) || [];
       items.forEach((item, itemIndex) => {
         if (item.type !== 'domain' || !item.authCode) return;

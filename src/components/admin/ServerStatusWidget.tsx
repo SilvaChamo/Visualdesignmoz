@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useSyncExternalStore } from 'react';
 import {
   Cpu,
   HardDrive,
@@ -386,38 +386,53 @@ export function ServerStatusModal({
   );
 }
 
-// Leitura periódica partilhada pelos dois componentes abaixo. Nunca acumula pedidos:
-// se o anterior ainda não terminou (por SSH a partir do Mac pode demorar mais do que
-// o intervalo), essa volta é saltada em vez de lançar outro pedido em paralelo.
-export function useSystemStatus() {
-  const [data, setData] = useState<SystemStatusData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const inFlight = useRef(0);
+// Leitura periódica ÚNICA e partilhada por tudo o que mostra o estado do servidor (o widget do topo, a janela de manutenção, o cartão
+// "Servidor" da barra lateral e os números do painel inicial): um só pedido de cada vez e uma só leitura para todos, por isso o mesmo CPU
+// aparece igual em todo o lado (antes cada um lia por si, em momentos diferentes, e o cartão da barra lateral usava outra medida —
+// a média entre leituras — e mostrava 52% quando a janela mostrava 9%; Silva, 22/10/2026). Nunca acumula pedidos: se o anterior ainda
+// não terminou (por SSH a partir do Mac pode demorar mais do que o intervalo), essa volta é saltada.
+let estadoPartilhado: SystemStatusData | null = null;
+let estadoCarregado = false;
+let estadoEmVoo = false;
+let estadoRelogio: ReturnType<typeof setInterval> | null = null;
+const estadoOuvintes = new Set<() => void>();
+const avisarEstado = () => estadoOuvintes.forEach((f) => f());
 
-  const fetchStatus = useCallback(async () => {
-    inFlight.current += 1;
-    try {
-      const res = await fetch('/api/admin/system-status', { cache: 'no-store', headers: { 'x-vh-fundo': '1' } });
-      if (!res.ok) throw new Error('Falha ao carregar métricas');
-      const json = await res.json();
-      setData(json);
-    } catch {
-      /* ignorar erro */
-    } finally {
-      inFlight.current -= 1;
-      setLoading(false);
+async function lerEstado() {
+  if (estadoEmVoo) return;
+  estadoEmVoo = true;
+  try {
+    const res = await fetch('/api/admin/system-status', { cache: 'no-store', headers: { 'x-vh-fundo': '1' } });
+    if (!res.ok) throw new Error('Falha ao carregar métricas');
+    estadoPartilhado = await res.json();
+  } catch {
+    /* ignorar erro */
+  } finally {
+    estadoEmVoo = false;
+    estadoCarregado = true;
+    avisarEstado();
+  }
+}
+
+function subscreverEstado(f: () => void) {
+  estadoOuvintes.add(f);
+  if (estadoOuvintes.size === 1) {
+    void lerEstado();
+    estadoRelogio = setInterval(() => void lerEstado(), 8000);
+  }
+  return () => {
+    estadoOuvintes.delete(f);
+    if (estadoOuvintes.size === 0 && estadoRelogio) {
+      clearInterval(estadoRelogio);
+      estadoRelogio = null;
     }
-  }, []);
+  };
+}
 
-  useEffect(() => {
-    const tick = () => {
-      if (inFlight.current === 0) fetchStatus();
-    };
-    tick();
-    const interval = setInterval(tick, 8000);
-    return () => clearInterval(interval);
-  }, [fetchStatus]);
-
+export function useSystemStatus() {
+  const data = useSyncExternalStore(subscreverEstado, () => estadoPartilhado, () => null);
+  const loading = useSyncExternalStore(subscreverEstado, () => !estadoCarregado, () => true);
+  const fetchStatus = useCallback(() => lerEstado(), []);
   return { data, loading, fetchStatus };
 }
 

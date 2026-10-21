@@ -4,7 +4,7 @@
 // Mesma estrutura de HTML e mesmas classes, para o CSS da maquete (generated/maquete.css) se aplicar tal e qual.
 import { Component, Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState, useSyncExternalStore, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
-import { BarraPagina, FaixaAbas, PesquisaPagina, TopoCartao, VHContext, type ItemPesquisa, type VH } from './context';
+import { BarraPagina, ConsultaPagina, FaixaAbas, PesquisaPagina, TopoCartao, VHContext, type ItemPesquisa, type VH } from './context';
 import { GLOBAL, LEVELS, MENU, ROLES } from './generated/data';
 import { SEM_MENU } from './menu-contas';
 import { dominioVisivel, type DadosServidor } from './servidor';
@@ -51,6 +51,7 @@ import {
   type St,
 } from './state';
 import { Avatar, ImpBanner, NoTopoCartao, RouteFoot, SwitcherBar } from './ui';
+import { tituloDoCartao } from './titulos-cartao';
 import { useBotoesTelemovel } from './botoes-telemovel';
 import { useIconesCampos } from './icones-campos';
 import type { Account, Level, MenuItem } from './types';
@@ -315,6 +316,10 @@ function PaginaSlot({ p, oculta, onPronta, registar }: { p: Pagina; oculta: bool
     [p.semCartao, p.home, p.scr.actions, p.scr.dominios, p.scr.dominioUrl, topoTabs, topoCartao, ocupado],
   );
   const pesquisa = useMemo(() => ({ registar: (id: string, fonte: () => ItemPesquisa[]) => registar(p.chave, id, fonte) }), [registar, p.chave]);
+  // pesquisa da tabela posta na linha por baixo do título do cartão (DNS): o texto e se a tabela a pediu
+  const [consultaQ, setConsultaQ] = useState('');
+  const [consultaAtiva, setConsultaAtiva] = useState(false);
+  const consulta = useMemo(() => ({ q: consultaQ, setQ: setConsultaQ, ativo: consultaAtiva, ativar: setConsultaAtiva }), [consultaQ, consultaAtiva]);
   const falta = useRef(0);
   const montada = useRef(false);
   const avisada = useRef(false);
@@ -404,6 +409,7 @@ function PaginaSlot({ p, oculta, onPronta, registar }: { p: Pagina; oculta: bool
           <PesquisaPagina.Provider value={pesquisa}>
           <BarraPagina.Provider value={barra}>
           <FaixaAbas.Provider value={faixaAbas}>
+          <ConsultaPagina.Provider value={consulta}>
           <TopoCartao.Provider value={topo}>
           {/* pesquisa e botões da página, por cima do cartão (fica escondida enquanto vazia) */}
           <div className="pg-barra" ref={setBarra} />
@@ -428,13 +434,14 @@ function PaginaSlot({ p, oculta, onPronta, registar }: { p: Pagina; oculta: bool
             </div>
           )}
           {/* o botão da página, que estava na barra de cima, passa para a linha de cima do cartão */}
-          {!p.semCartao && !p.home && p.scr.actions && <NoTopoCartao modelo={{ titulo: p.title, desc: p.scr.descEl ?? p.desc }}>{p.scr.actions}</NoTopoCartao>}
+          {!p.semCartao && !p.home && p.scr.actions && <NoTopoCartao modelo={{ titulo: p.vh.t(tituloDoCartao(p.scr.title)), sub: p.scr.subTitulo ? p.vh.t(p.scr.subTitulo) : p.scr.descEl ?? (p.desc || undefined) }}>{p.scr.actions}</NoTopoCartao>}
           {carrega && !oculta && (
             <div className="da-main-card pg-carga">
               <BarrasDa />
             </div>
           )}
           </TopoCartao.Provider>
+          </ConsultaPagina.Provider>
           </FaixaAbas.Provider>
           </BarraPagina.Provider>
           </PesquisaPagina.Provider>
