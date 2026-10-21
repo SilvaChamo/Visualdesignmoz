@@ -109,6 +109,12 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
 
 ## Cartão principal e linha de cima
 
+- **A descrição de um título vai sempre junta ao título** (Silva, 21/10/2026: "nunca mais faça isso"). Em qualquer título —
+  barra de cima, cabeçalho de um cartão, painel, janela — a descrição fica **encostada ao título, com no máximo 10 px de
+  margem entre os dois, nunca mais**. Nunca uma descrição "perdida" mais abaixo, separada do título por outro bloco ou por
+  um espaço grande. Se há botões na mesma linha, título e descrição ficam juntos, centrados na vertical com o botão, e a
+  descrição passa para uma segunda linha em vez de tocar no botão.
+- **Margem por cima e por baixo da linha do cartão: sempre 5 px, nunca mais** (Silva, 21/10/2026).
 - **Nunca pesquisa à esquerda por cima do cartão principal** (13/10/2026). A "Busca" da barra de cima já procura na
   página aberta. Sem exceções.
 - **Modelo de página = a página Domínios do painel.** Barra de cima com o título e uma descrição pequena por baixo

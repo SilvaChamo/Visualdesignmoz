@@ -709,7 +709,7 @@ export function useVariosDominios(dominios?: Screen['dominios']): boolean {
 
 /** Põe `children` (o botão da página, ou o "Ações") na linha de cima do cartão principal, com a indicação do domínio à
  *  esquerda. Sem lugar no cartão (páginas sem cartão), não desenha nada. */
-export function NoTopoCartao({ children, daPagina = false, titulo }: { children: ReactNode; daPagina?: boolean; titulo?: string }) {
+export function NoTopoCartao({ children, daPagina = false, titulo, descTitulo }: { children: ReactNode; daPagina?: boolean; titulo?: string; descTitulo?: ReactNode }) {
   const topo = useContext(TopoCartao);
   const setOcupado = topo?.setOcupado;
   // um botão posto pela própria página (corpo): as tabelas já não levam o "Ações" para esta linha
@@ -744,7 +744,18 @@ export function NoTopoCartao({ children, daPagina = false, titulo }: { children:
   if (!topo?.el || !temLugar) return null;
   return createPortal(
     <div className={'card-topo' + (titulo ? ' card-topo-titulo' : '')}>
-      {titulo ? <p className="dom-ctx dom-titulo">{titulo}</p> : <IndicacaoDominio dominios={topo.dominios} dominioUrl={topo.dominioUrl} />}
+      {titulo ? (
+        descTitulo ? (
+          <div className="dom-ctx dom-titulo-bloco">
+            <p className="dom-titulo">{titulo}</p>
+            <p className="dom-sub">{descTitulo}</p>
+          </div>
+        ) : (
+          <p className="dom-ctx dom-titulo">{titulo}</p>
+        )
+      ) : (
+        <IndicacaoDominio dominios={topo.dominios} dominioUrl={topo.dominioUrl} />
+      )}
       <div className="card-topo-btns" ref={botoes}>
         {children}
       </div>

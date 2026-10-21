@@ -2,7 +2,7 @@
 
 // Peças das páginas de gestão: formulário em linhas, limites com "Ilimitado", palavra-passe,
 // separadores e tabela com pesquisa/colunas/seleção/ações em massa (como nas listas do DirectAdmin).
-import { useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { BarraPagina, FaixaAbas, PesquisaPagina, TopoCartao, useVH } from '../context';
 import type { Campo, Lim, Unit } from './dados';
@@ -266,6 +266,7 @@ export function DataTable<T>({
   barraFora = false,
   empilhar = true,
   acoesNaColuna = false,
+  linhaExtra,
   // em todas as listas o "Colunas" é só o ícone, à direita, dentro da barra das colunas (Silva, 21/10/2026)
   colunasNoCabecalho = true,
   paginacaoNoCabecalho = false,
@@ -318,6 +319,8 @@ export function DataTable<T>({
   empilhar?: boolean | 'botoes-em-baixo' | 'tablet';
   /** o "Ações" no lugar do título da 1.ª coluna mesmo com separadores (Força bruta — modelo do Silva, 13/10/2026) */
   acoesNaColuna?: boolean;
+  /** painel que desliza por baixo de uma linha (ex.: as opções de restaurar uma cópia); sem nada, não há linha extra */
+  linhaExtra?: (r: T) => ReactNode;
   /** o botão "Colunas" no cabeçalho da tabela, depois da última coluna, em vez de numa barra por cima do cartão
    *  (modelo do Silva, 14/10/2026 — listas de contas) */
   colunasNoCabecalho?: boolean;
@@ -688,8 +691,10 @@ export function DataTable<T>({
               pagina.map((r) => {
                 const k = rowKey(r);
                 const on = selKeys.includes(k);
+                const extra = linhaExtra ? linhaExtra(r) : null;
                 return (
-                  <tr key={k} data-k={k} className={(on ? 'sel ' : '') + (realce === k ? 'dt-realce ' : '') + (rowClass ? rowClass(r) : '')}>
+                  <Fragment key={k}>
+                  <tr data-k={k} className={(on ? 'sel ' : '') + (realce === k ? 'dt-realce ' : '') + (rowClass ? rowClass(r) : '')}>
                     {temSelecao && (
                       <td className="ck">
                         <input type="checkbox" aria-label={t('Selecionar')} checked={on} onChange={() => setSel(on ? sel.filter((x) => x !== k) : [...sel, k])} />
@@ -702,6 +707,12 @@ export function DataTable<T>({
                     ))}
                     {colFim && <td className="dt-acoes-linha" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{actions ? actions(r) : null}</td>}
                   </tr>
+                  {extra && (
+                    <tr className="dt-extra">
+                      <td colSpan={span}>{extra}</td>
+                    </tr>
+                  )}
+                  </Fragment>
                 );
               })
             ) : (

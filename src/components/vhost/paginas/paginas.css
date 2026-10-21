@@ -11017,7 +11017,7 @@
 /* Mais espaço por cima e por baixo do botão e da indicação do domínio (Silva, 20/10/2026) */
 .vh .da-main-card .card-topo {
    margin: -6px 0 0;
-   padding: 0 0 18px;
+   padding: 0 0 5px;
 }
 
 /* ecrãs estreitos: o botão encolhe um pouco e a indicação do domínio tem a letra menor, para o nome do domínio (que não
@@ -11211,7 +11211,7 @@
 /* espaço vertical por baixo da linha da linha de cima do cartão (Silva, 20/10/2026): o título, a tabela ou o formulário que
    vêm a seguir deixam de ficar colados à linha */
 .vh .da-main-card .card-topo-slot:has(.card-topo) {
-   margin-bottom: 22px;
+   margin-bottom: 5px;
 }
 
 .vh .da-main-card .card-topo {
@@ -11395,7 +11395,7 @@
    não há linha por baixo da linha de cima: os 20 px de baixo vão até à linha por cima dos títulos das colunas. */
 @media (min-width: 769px) {
    .vh .da-main-card .card-topo {
-      padding-bottom: 20px
+      padding-bottom: 5px
    }
 
    .vh .da-main-card:has(.tbl) .card-topo-slot:has(.card-topo) {
@@ -11912,7 +11912,7 @@
 /* Com a linha por baixo do botão e da indicação, o título ou o texto que vêm a seguir não ficam colados a ela (Silva, 21/10/2026) */
 @media (min-width: 769px) {
    .vh .da-main-card .card-topo-slot:has(.card-topo):not(:has(+ .tbl, + .frm, + .ct-lista > .tbl:first-child)):not(:has(.card-topo-titulo)) {
-      margin-bottom: 22px
+      margin-bottom: 5px
    }
 }
 
@@ -11972,13 +11972,665 @@
 /* E-mail: uma linha horizontal por baixo dos cartões de números, com 20 px de cada lado (os 20 de baixo são os da barra da pesquisa)
    (Silva, 21/10/2026) */
 .vh .da-main-card .stats:has(+ .em-lista-card) {
-   padding-bottom: 20px;
+   padding-bottom: 5px;
    border-bottom: 1px solid var(--line)
+}
+
+.vh .da-main-card .stats:has(+ .em-lista-card) + .em-lista-card > .em-acoes-topo {
+   padding-top: 5px
 }
 
 /* Descrição por baixo do título da página, na barra de cima: letra um pouco mais pequena, em todas as páginas (Silva, 21/10/2026) */
 @media (min-width: 769px) {
    .vh .ptitle small {
       font-size: calc(12px * var(--fs, 1))
+   }
+}
+
+/* Título com descrição por baixo, os dois em cima da linha (Cópias de segurança; Silva, 21/10/2026) */
+.vh .dom-titulo-bloco {
+   display: flex;
+   flex-direction: column;
+   align-items: flex-start;
+   text-align: left;
+   gap: 2px
+}
+
+.vh .dom-titulo-bloco .dom-titulo {
+   margin: 0;
+   font-size: calc(22px * var(--fs, 1));
+   font-weight: 300;
+   line-height: 1.1
+}
+
+.vh .dom-titulo-bloco .dom-sub {
+   margin: 0;
+   font-size: calc(13px * var(--fs, 1));
+   color: var(--muted);
+   line-height: 1.35
+}
+
+/* Escolhas do que entra na cópia: caixas em grelha, como no modelo do Silva */
+.vh .bk-escolhas {
+   margin-bottom: 24px
+}
+
+.vh .bk-escolhas-t {
+   margin: 0 0 10px;
+   font-size: calc(13px * var(--fs, 1));
+   color: var(--muted)
+}
+
+.vh .bk-grelha {
+   display: grid;
+   grid-template-columns: repeat(4, minmax(0, 1fr));
+   gap: 8px
+}
+
+.vh .bk-grelha .chk {
+   padding: 8px 12px;
+   border: 1px solid var(--line);
+   border-radius: 5px;
+   background: var(--card)
+}
+
+@media (max-width: 900px) {
+   .vh .bk-grelha {
+      grid-template-columns: repeat(2, minmax(0, 1fr))
+   }
+}
+
+/* Cópias de segurança: o texto à esquerda e os botões à direita, por baixo da linha; as escolhas em grelha por baixo deles, com margem entre
+   os botões e a grelha e, a seguir à grelha, até à tabela (Silva, 21/10/2026) */
+.vh .bk-corpo {
+   margin-bottom: 32px
+}
+
+.vh .bk-recuo {
+   padding-left: 12px
+}
+
+.vh .bk-topo {
+   display: flex;
+   align-items: flex-start;
+   justify-content: space-between;
+   gap: 16px;
+   margin-bottom: 40px
+}
+
+.vh .bk-topo .bk-escolhas-t {
+   margin: 0;
+   line-height: 1.2
+}
+
+.vh .bk-btns {
+   display: flex;
+   flex: none;
+   gap: 8px
+}
+
+.vh .bk-corpo .bk-grelha {
+   grid-template-columns: repeat(3, minmax(0, 1fr))
+}
+
+@media (max-width: 900px) {
+   .vh .bk-topo {
+      flex-direction: column;
+      align-items: stretch
+   }
+
+   .vh .bk-btns .btn {
+      flex: 1
+   }
+
+   .vh .bk-corpo .bk-grelha {
+      grid-template-columns: repeat(2, minmax(0, 1fr))
+   }
+}
+
+/* Regra do Silva (21/10/2026): a margem por cima e por baixo da linha do cartão é sempre de 5 px, nunca mais (títulos, indicação do domínio,
+   botões, cartões de números do e-mail). */
+
+/* Cópias agendadas: o cartão do agendamento, como o do DirectAdmin (Silva, 21/10/2026) */
+.vh .bk-agenda {
+   border: 1px solid var(--line);
+   border-radius: 5px;
+   background: var(--card);
+   padding: 14px 24px 0;
+   overflow: hidden
+}
+
+.vh .bk-agenda.pausada {
+   opacity: .85
+}
+
+.vh .bk-agenda-tit {
+   display: flex;
+   align-items: flex-start;
+   gap: 12px;
+   margin-bottom: 10px;
+   padding-bottom: 10px;
+   border-bottom: 1px solid var(--line)
+}
+
+.vh .bk-agenda-tit small {
+   display: block;
+   margin-top: 1px;
+   color: var(--muted);
+   font-size: calc(12.5px * var(--fs, 1))
+}
+
+.vh .bk-agenda-tit .tag {
+   margin-top: 1px
+}
+
+.vh .bk-agenda-tit i {
+   line-height: 22px;
+   font-size: calc(22px * var(--fs, 1));
+   color: var(--muted)
+}
+
+.vh .bk-agenda-tit h3 {
+   margin: 0;
+   line-height: 22px;
+   font-size: calc(17px * var(--fs, 1));
+   font-weight: 700
+}
+
+.vh .bk-agenda-grelha {
+   display: grid;
+   grid-template-columns: minmax(0, 2fr) minmax(0, 1.2fr);
+   align-items: center;
+   gap: 10px 0;
+   margin-bottom: 14px
+}
+
+/* as colunas ficam centradas na vertical umas com as outras; a linha que separa a 1.ª informação da 2.ª é de cada coluna, não de uma ponta à outra */
+.vh .bk-agenda-col {
+   display: flex;
+   flex-direction: column;
+   min-width: 0
+}
+
+/* as quatro informações em duas colunas, sem linhas entre elas (Silva, 21/10/2026: tirar a cruz) */
+.vh .bk-agenda-cruz {
+   display: grid;
+   grid-template-columns: repeat(2, minmax(0, 1fr))
+}
+
+.vh .bk-agenda-cruz > div {
+   padding: 10px 20px
+}
+
+.vh .bk-agenda-cruz > div:nth-child(odd) {
+   padding-left: 0
+}
+
+.vh .bk-agenda-entra {
+   padding-left: 24px
+}
+
+.vh .bk-agenda-entra ul {
+   margin: 0;
+   padding: 0;
+   list-style: none;
+   font-size: calc(14px * var(--fs, 1));
+   font-weight: 600;
+   display: grid;
+   gap: 3px
+}
+
+.vh .bk-agenda-col > div,
+.vh .bk-agenda-cruz > div {
+   display: flex;
+   align-items: flex-start;
+   gap: 12px
+}
+
+.vh .bk-agenda-col > div > i,
+.vh .bk-agenda-cruz > div > i {
+   flex: none;
+   width: 18px;
+   margin-top: 1px;
+   text-align: center;
+   color: var(--muted);
+   font-size: calc(15px * var(--fs, 1))
+}
+
+.vh .bk-agenda-grelha small {
+   display: block;
+   color: var(--muted);
+   font-size: calc(12.5px * var(--fs, 1));
+   margin-bottom: 2px
+}
+
+.vh .bk-agenda-grelha b {
+   font-weight: 600;
+   font-size: calc(14px * var(--fs, 1))
+}
+
+
+
+.vh .bk-agenda-acoes {
+   display: flex;
+   flex-wrap: wrap;
+   align-items: center;
+   gap: 8px;
+   margin: 0 -24px;
+   padding: 10px 24px;
+   background: var(--soft);
+   border-top: 1px solid var(--line-soft)
+}
+
+.vh .bk-agenda-acoes .sp {
+   flex: 1
+}
+
+.vh .bk-agenda-acoes .bk-eliminar {
+   color: var(--red);
+   border-color: color-mix(in srgb, var(--red) 40%, var(--line))
+}
+
+@media (max-width: 900px) {
+   .vh .bk-agenda-grelha {
+      grid-template-columns: 1fr
+   }
+
+}
+
+.vh .bk-agenda + .bk-agenda {
+   margin-top: 16px
+}
+
+/* Restaurar cópia: os sites, domínios de e-mail e bases de dados da cópia, um a um, por baixo da parte (Silva, 21/10/2026) */
+.vh .av-parte:has(.av-parte-itens) {
+   flex-wrap: wrap;
+   justify-content: flex-start
+}
+
+.vh .av-parte-itens {
+   flex: 0 0 100%;
+   display: grid;
+   grid-template-columns: repeat(2, minmax(0, 1fr));
+   gap: 2px 16px;
+   margin: 2px 0 4px 26px;
+   width: calc(100% - 26px)
+}
+
+.vh .av-parte-itens .chk {
+   min-width: 0
+}
+
+/* a janela de restaurar fica mais larga, para os nomes dos sites caberem inteiros */
+.vh .modal:has(.av-parte-itens) {
+   width: min(660px, 94vw);
+   max-width: 94vw
+}
+
+/* Restaurar: menu que desliza para baixo com a cópia geral e a parcial (Silva, 21/10/2026) */
+.vh .bk-restaurar-pop {
+   width: 340px;
+   overflow: hidden;
+   border: 1px solid var(--line);
+   border-radius: 6px;
+   background: var(--card);
+   box-shadow: 0 8px 24px rgba(0, 0, 0, .14);
+   animation: bk-desliza .18s ease-out
+}
+
+.vh .bk-restaurar-pop button {
+   white-space: normal;
+   display: flex;
+   align-items: flex-start;
+   gap: 12px;
+   width: 100%;
+   padding: 12px 14px;
+   border: 0;
+   background: none;
+   text-align: left;
+   cursor: pointer;
+   color: inherit
+}
+
+.vh .bk-restaurar-pop button + button {
+   border-top: 1px solid var(--line-soft)
+}
+
+.vh .bk-restaurar-pop button:hover {
+   background: var(--soft)
+}
+
+.vh .bk-restaurar-pop button > i {
+   flex: none;
+   width: 18px;
+   margin-top: 2px;
+   text-align: center;
+   color: var(--muted)
+}
+
+.vh .bk-restaurar-pop b {
+   display: block;
+   font-size: calc(13.5px * var(--fs, 1))
+}
+
+.vh .bk-restaurar-pop small {
+   white-space: normal;
+   display: block;
+   margin-top: 2px;
+   color: var(--muted);
+   font-size: calc(12px * var(--fs, 1));
+   line-height: 1.4
+}
+
+@keyframes bk-desliza {
+   from {
+      opacity: 0;
+      max-height: 0
+   }
+
+   to {
+      opacity: 1;
+      max-height: 260px
+   }
+}
+
+/* o menu do Restaurar está dentro da tabela: as regras das tabelas põem os botões numa só linha, por isso aqui o texto quebra de novo
+   (o `:not(#x)` sobe a especificidade) */
+.vh .tbl td .bk-restaurar-pop button:not(#x),
+.vh .tbl td .bk-restaurar-pop button:not(#x) * {
+   white-space: normal !important
+}
+
+.vh .bk-restaurar-pop button:not(#x) > span {
+   flex: 1;
+   min-width: 0
+}
+
+/* Restaurar: painel que desliza para baixo por baixo da cópia, com as duas maneiras lado a lado (Silva, 21/10/2026) */
+.vh .tbl tr.dt-extra > td {
+   padding: 0;
+   background: var(--card);
+   white-space: normal
+}
+
+.vh .bk-rest-painel {
+   overflow: hidden;
+   animation: bk-desliza 0.22s ease-out
+}
+
+.vh .bk-rest-cab {
+   display: flex;
+   align-items: center;
+   justify-content: space-between;
+   gap: 16px;
+   padding: 12px 16px;
+   background: var(--soft);
+   border-bottom: 1px solid color-mix(in srgb, var(--line-soft) 55%, var(--card))
+}
+
+/* o corpo do painel, com fundo branco */
+.vh .bk-rest-corpo {
+   padding: 16px;
+   background: var(--card)
+}
+
+.vh .bk-rest-corpo.sem-recuo {
+   padding: 0
+}
+
+/* partes da cópia, uma por linha, com as cores intercaladas */
+.vh .bk-rest-linha {
+   display: flex;
+   flex-direction: column;
+   gap: 0;
+   padding: 0;
+   border-top: 1px solid color-mix(in srgb, var(--line-soft) 55%, var(--card));
+   border-bottom: 1px solid color-mix(in srgb, var(--line-soft) 55%, var(--card))
+}
+
+/* o título de cada opção, com o fundo branco; as opções e a descrição por baixo, com o fundo suave (Silva, 21/10/2026) */
+.vh .bk-rest-linha > .chk {
+   padding: 10px 16px;
+   background: var(--card)
+}
+
+.vh .bk-rest-linha > small {
+   padding: 6px 16px 8px 42px;
+   background: var(--soft);
+   border-top: 1px solid color-mix(in srgb, var(--line-soft) 55%, var(--card));
+   color: var(--muted);
+   font-size: calc(12px * var(--fs, 1))
+}
+
+/* linhas seguidas: a linha de baixo de uma é a de cima da seguinte, sem ficarem duas */
+.vh .bk-rest-linha + .bk-rest-linha {
+   margin-top: -1px
+}
+
+.vh .bk-rest-linha > small {
+   color: var(--muted);
+   font-size: calc(12px * var(--fs, 1))
+}
+
+.vh .bk-rest-linha .av-parte-itens {
+   margin: 0;
+   padding: 10px 16px 10px 42px;
+   width: auto;
+   background: var(--soft);
+   border-top: 1px solid color-mix(in srgb, var(--line-soft) 55%, var(--card));
+   animation: bk-desliza 0.2s ease-out
+}
+
+.vh .bk-rest-corpo .bk-rest-acoes {
+   margin: 0;
+   padding: 12px 16px;
+   border-top: 1px solid color-mix(in srgb, var(--line-soft) 55%, var(--card))
+}
+
+/* título e descrição apertados, centrados na vertical com o botão; se a descrição chegar ao botão, passa para uma segunda linha */
+.vh .bk-rest-tit {
+   flex: 1 1 0;
+   min-width: 0;
+   display: flex;
+   flex-direction: column;
+   gap: 2px
+}
+
+.vh .bk-rest-tit small {
+   color: var(--muted);
+   font-size: calc(12.5px * var(--fs, 1));
+   line-height: 1.35
+}
+
+.vh .bk-rest-dir {
+   display: flex;
+   flex: none;
+   align-items: center;
+   gap: 8px
+}
+
+.vh .bk-rest-opcoes {
+   display: grid;
+   grid-template-columns: repeat(2, minmax(0, 1fr));
+   gap: 12px
+}
+
+.vh .bk-rest-opcoes button {
+   display: flex;
+   align-items: flex-start;
+   gap: 12px;
+   padding: 14px 16px;
+   border: 1px solid var(--line);
+   border-radius: 6px;
+   background: var(--soft);
+   text-align: left;
+   cursor: pointer;
+   color: inherit
+}
+
+.vh .bk-rest-opcoes button:hover {
+   border-color: var(--red)
+}
+
+.vh .bk-rest-opcoes button > i {
+   flex: none;
+   width: 20px;
+   margin-top: 2px;
+   text-align: center;
+   color: var(--muted);
+   font-size: calc(16px * var(--fs, 1))
+}
+
+.vh .bk-rest-opcoes b {
+   display: block;
+   font-size: calc(14px * var(--fs, 1))
+}
+
+.vh .bk-rest-opcoes small {
+   display: block;
+   margin-top: 3px;
+   color: var(--muted);
+   font-size: calc(12.5px * var(--fs, 1));
+   line-height: 1.4
+}
+
+.vh .bk-rest-nota {
+   margin: 0 0 10px;
+   color: var(--muted);
+   font-size: calc(13px * var(--fs, 1));
+   line-height: 1.45
+}
+
+.vh .bk-rest-acoes {
+   display: flex;
+   justify-content: flex-end;
+   gap: 8px;
+   margin-top: 12px
+}
+
+/* dentro da tabela as regras dos botões põem o texto numa só linha: aqui quebra de novo */
+.vh .tbl td .bk-rest-painel button:not(#x),
+.vh .tbl td .bk-rest-painel button:not(#x) *,
+.vh .tbl td .bk-rest-painel .chk:not(#x) {
+   white-space: normal !important
+}
+
+.vh .tbl td .bk-rest-painel .bk-rest-acoes button:not(#x) {
+   white-space: nowrap !important
+}
+
+.vh .bk-rest-painel .av-parte-itens {
+   grid-template-columns: repeat(3, minmax(0, 1fr))
+}
+
+@media (max-width: 768px) {
+   .vh .bk-rest-opcoes {
+      grid-template-columns: 1fr
+   }
+
+   .vh .bk-rest-painel .av-parte-itens {
+      grid-template-columns: 1fr
+   }
+}
+
+.vh .tbl td .bk-rest-tit small:not(#x) {
+   white-space: normal !important
+}
+
+.vh .tbl td .bk-rest-dir .btn.r:not(#x) {
+   white-space: nowrap !important
+}
+
+/* o painel de restauro ocupa a largura toda da linha, sem o recuo das células */
+.vh .tbl tr.dt-extra > td:not(#x) {
+   padding: 0
+}
+
+/* Telemóvel (Silva, 21/10/2026): Cópias de segurança e Cópias agendadas numa só coluna, tudo a caber */
+@media (max-width: 768px) {
+   .vh .bk-recuo {
+      padding-left: 0
+   }
+
+   .vh .bk-topo {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 10px;
+      margin-bottom: 16px
+   }
+
+   .vh .bk-btns {
+      flex-direction: column
+   }
+
+   .vh .bk-btns .btn {
+      flex: none;
+      width: 100%;
+      justify-content: center
+   }
+
+   .vh .bk-corpo .bk-grelha {
+      grid-template-columns: 1fr
+   }
+
+   /* os botões de cada cópia, um por linha */
+   .vh .tbl[data-dt="backups-c"] .dns-acoes {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      width: 100%
+   }
+
+   .vh .tbl[data-dt="backups-c"] .dns-acoes .btn {
+      width: 100%;
+      justify-content: center
+   }
+
+   /* painel de restauro: o título e a descrição em cima, os botões por baixo, um por linha */
+   .vh .bk-rest-cab {
+      flex-wrap: wrap
+   }
+
+   .vh .bk-rest-dir {
+      width: 100%
+   }
+
+   .vh .bk-rest-dir .btn.r {
+      flex: 1;
+      justify-content: center
+   }
+
+   /* cartão do agendamento */
+   .vh .bk-agenda {
+      padding: 14px 16px 0
+   }
+
+   .vh .bk-agenda-cruz {
+      grid-template-columns: 1fr
+   }
+
+   .vh .bk-agenda-cruz > div,
+   .vh .bk-agenda-cruz > div:nth-child(odd) {
+      padding: 8px 0
+   }
+
+   .vh .bk-agenda-entra {
+      padding-left: 0
+   }
+
+   .vh .bk-agenda-acoes {
+      flex-direction: column;
+      align-items: stretch;
+      margin: 0 -16px;
+      padding: 12px 16px
+   }
+
+   .vh .bk-agenda-acoes .btn {
+      width: 100%;
+      justify-content: center
+   }
+
+   .vh .bk-agenda-acoes .sp {
+      display: none
    }
 }
