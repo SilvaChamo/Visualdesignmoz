@@ -11721,3 +11721,15 @@
    font-size: calc(13.5px * var(--fs, 1));
    line-height: 1.45
 }
+
+/* Popup do Painel de Manutenção do Servidor (a chave do cartão do servidor): é o componente da dashboard do site, num portal fora
+   do painel; aqui só ganha o fundo e os cantos dos popups do painel — fundo transparente sem desfoque e cantos de 4 px (--r) */
+.vh-popup-manut > .fixed {
+   background: rgba(20, 20, 22, .45);
+   -webkit-backdrop-filter: none;
+   backdrop-filter: none
+}
+
+.vh-popup-manut .rounded-xl {
+   border-radius: 4px
+}

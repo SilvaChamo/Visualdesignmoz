@@ -196,7 +196,7 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
   escolha dos separadores. Para forçar um ícone: `data-ic="globe"`; para dispensar: `data-ic-sem`. **Uma página nova não precisa de
   fazer nada** — mas confirmar que o ícone certo saiu (se não, ajustar `escolher()` ou pôr `data-ic` no campo).
 - Formulários sem contornos laterais; títulos e campos alinhados à esquerda pelo `--recuo`.
-- Janelas (popups): **25 px de espaço nos 4 cantos**; largura dinâmica só quando o domínio é comprido; no computador o
+- Janelas (popups): **o fundo é sempre transparente (escurece um pouco), sem desfoque** e os cantos dos cartões são os do painel (4 px, `--r`) — vale também para o popup do Painel de Manutenção do Servidor (a chave do cartão do servidor, `.vh-popup-manut`; Silva, 21/10/2026); **25 px de espaço nos 4 cantos**; largura dinâmica só quando o domínio é comprido; no computador o
   menu de opções de uma linha abre para a esquerda.
 
 ## Telemóvel (≤ 768 px)
@@ -266,6 +266,17 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
   estarem feitas e aprovadas pelo Silva (13/10/2026).
 - **Antes de publicar:** fazer todas as rectificações, mandar o comando do ponto 6 (dois ecrãs), esperar que o Silva diga
   que está bom, e só publicar quando ele disser "publica" (ver "Como se trabalha com o Silva").
+
+# Encomendas e contabilidade no painel (Silva, 21/10/2026)
+
+- **Copia-se, não se redesenha**: os componentes do site/dashboard antigo (`EncomendasListSection`, `CotacoesSection`, `EncomendasClientesSection`,
+  `ContabilidadeTable`…) entram no painel tal e qual, com as mesmas rotas; só muda o enquadramento (`.vh-site` / `.tw-livre`).
+- **A gestão, incluindo a contabilidade, é sempre no Admin** (`encomendas-admin.tsx`: Admin › Encomendas e contabilidade › Encomendas
+  (separadores Encomendas e Contas) e Contabilidade). **O menu Gestão é para o cliente**: Compras e encomendas › Encomendas e Facturação
+  (`encomendas.tsx`, `facturacao.tsx`) — abertas a todos os clientes e profissionais.
+- **O caminho que começa no site acaba no painel certo**: quem tem hospedagem ou domínio entra no painel (`/host:2026`) e vê as encomendas em
+  Compras e encomendas; quem só tem encomendas fica no `/encomendas` do site, que tem a ligação "Domínios e hospedagem" (→ `/precos` →
+  checkout) — ao pagar, a conta passa a cliente e o login leva ao painel. O checkout e o pagamento ficam como estão.
 
 # Autenticação em 2 passos (opcional — Silva, 21/10/2026)
 

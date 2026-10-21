@@ -1,7 +1,7 @@
 'use client';
 
 // Ferramentas de admin do servidor — "Monitor de processos" e "Serviços", no modelo do Process Monitor e do Service
-// Monitor do DirectAdmin (Silva, 16/10/2026: "parar o processo que consome mais CPU"; a chave do cartão do servidor, no
+// Monitor do DirectAdmin (Silva, 16/10/2026: "parar o processo que consome mais CPU"; o Monitor abre-se pelo menu Admin; a chave do cartão do servidor, no
 // painel inicial, abre o Monitor de processos). Só o administrador; dados de /api/vhost/admin-servidor.
 import { useEffect, useState } from 'react';
 import { useVH, type VH } from '../context';

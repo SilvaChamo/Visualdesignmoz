@@ -304,7 +304,7 @@ function EscreverMensagem() {
 let alvoBarra: HTMLElement | null = null;
 const ouvintesBarra = new Set<() => void>();
 const avisarBarra = () => ouvintesBarra.forEach((f) => f());
-function LugarBarraAntiga() {
+export function LugarBarraAntiga() {
   return (
     <span
       className="tw-livre barra-antiga"
@@ -323,7 +323,7 @@ function LugarBarraAntiga() {
     />
   );
 }
-function PonteBarraAntiga({ noTelemovel }: { noTelemovel: HTMLElement | null }) {
+export function PonteBarraAntiga({ noTelemovel }: { noTelemovel: HTMLElement | null }) {
   const { chrome } = useAdminSectionChrome();
   const alvo = useSyncExternalStore(
     (f) => {

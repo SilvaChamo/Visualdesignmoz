@@ -3,12 +3,11 @@
 // Gestão › Compras e encomendas › Facturação (Silva, 17/10/2026): as "Minhas compras" que já existem (painel antigo
 // /cliente) enquadradas no painel — o mesmo componente e a mesma rota (/api/client/minhas-compras), sem reescrever nada,
 // só com as cores do painel (.vh-site). Os dados de facturação (empresa, NUIT, morada…) já estão em Perfil › Dados
-// pessoais. Por agora só a sessão de administrador vê esta página (soAdminPorAgora).
+// pessoais. Aberta a todos os clientes e profissionais (Silva, 21/10/2026).
 import { MinhasComprasSection } from '@/components/client/MinhasComprasSection';
 import type { VH } from '../context';
 import type { ScreenFn } from '../screens';
 import { DESC, EN, MENU } from '../generated/data';
-import { soAdminPorAgora } from '../state';
 
 // ---------- Menu: "Facturação" no grupo "Compras e encomendas" da Gestão, a seguir a "Encomendas" ----------
 {
@@ -31,7 +30,6 @@ import { soAdminPorAgora } from '../state';
     });
   }
   DESC['utilizador/facturacao'] = ['As suas compras no site: pagamentos, recibos e renovações', 'Your purchases on the site: payments, receipts and renewals'];
-  soAdminPorAgora.add('utilizador/facturacao');
   // inglês do painel: só as frases que ainda não estão no dicionário (não muda a tradução de outras páginas)
   const novas: Record<string, string> = {
     'Compras e encomendas': 'Purchases and orders',

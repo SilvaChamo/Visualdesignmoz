@@ -389,7 +389,7 @@ export function ServerStatusModal({
 // Leitura periódica partilhada pelos dois componentes abaixo. Nunca acumula pedidos:
 // se o anterior ainda não terminou (por SSH a partir do Mac pode demorar mais do que
 // o intervalo), essa volta é saltada em vez de lançar outro pedido em paralelo.
-function useSystemStatus() {
+export function useSystemStatus() {
   const [data, setData] = useState<SystemStatusData | null>(null);
   const [loading, setLoading] = useState(true);
   const inFlight = useRef(0);

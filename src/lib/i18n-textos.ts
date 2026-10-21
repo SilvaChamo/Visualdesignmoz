@@ -314,6 +314,7 @@ export const EN: Record<string, string> = {
   "por semestre": "per semester",
   "por ano": "per year",
   "Hospedagem de Emails": "Email Hosting",
+  "Domínios e hospedagem": "Domains and hosting",
   "Planos e preços de email": "Email plans and prices",
   "O domínio escolhe-se depois de comprar — no seu painel, indica um domínio que já tenha ou compra um connosco.": "The domain is chosen after purchase — in your panel, enter a domain you already have or buy one from us.",
   "1 domínio de email": "1 email domain",
