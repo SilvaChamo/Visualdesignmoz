@@ -557,7 +557,6 @@ function ContasLista() {
   const enviados = todasRows.reduce((n, c) => n + c.enviadosHoje, 0);
   const cheias = todasRows.filter((c) => c.quotaMb > 0 && c.usadoMb / c.quotaMb > 0.8).length;
   const lim = pacoteDe(vh.s, vh.me)?.lim.emails;
-  const dkim = !!info.dominio?.dkim;
   const planoEmail = [vh.a.hpkg, vh.a.pkg]
     .map((nome) => EMAIL_PLANS.find((p) => p.hestiaPackage.toLowerCase() === String(nome || '').toLowerCase()) || emailPlanByProductName(nome))
     .find((p) => p !== undefined);
@@ -624,12 +623,6 @@ function ContasLista() {
               <i className="fa-solid fa-chart-pie" />
               {t('Uso de e-mail')}
             </button>
-            {info.temMail && (
-              <button className="btn g" onClick={() => noEmail(vh, d, { acao: 'dkim', ligar: !dkim }, dkim ? 'DKIM desligado' : 'DKIM ligado')}>
-                <i className="fa-solid fa-signature" />
-                {t(dkim ? 'Desligar DKIM' : 'Ligar DKIM')}
-              </button>
-            )}
             <button className="btn r" onClick={() => nav('/utilizador/email/nova')}>
               <i className="fa-solid fa-plus" />
               {t('Criar conta')}

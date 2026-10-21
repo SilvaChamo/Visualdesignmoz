@@ -700,9 +700,16 @@ export function IndicacaoDominio({ dominios, dominioUrl }: { dominios?: Screen['
   );
 }
 
+/** A conta tem mais de um domínio (dos que o seletor mostra nesta página): só então a indicação do domínio faz falta (Silva, 21/10/2026) */
+export function useVariosDominios(dominios?: Screen['dominios']): boolean {
+  const { a } = useVH();
+  const soSites = dominios === 'sites';
+  return a.domains.filter((d) => !soSites || (!d.soEmail && !d.soDominio)).length > 1;
+}
+
 /** Põe `children` (o botão da página, ou o "Ações") na linha de cima do cartão principal, com a indicação do domínio à
  *  esquerda. Sem lugar no cartão (páginas sem cartão), não desenha nada. */
-export function NoTopoCartao({ children, daPagina = false }: { children: ReactNode; daPagina?: boolean }) {
+export function NoTopoCartao({ children, daPagina = false, titulo }: { children: ReactNode; daPagina?: boolean; titulo?: string }) {
   const topo = useContext(TopoCartao);
   const setOcupado = topo?.setOcupado;
   // um botão posto pela própria página (corpo): as tabelas já não levam o "Ações" para esta linha
@@ -736,8 +743,8 @@ export function NoTopoCartao({ children, daPagina = false }: { children: ReactNo
   });
   if (!topo?.el || !temLugar) return null;
   return createPortal(
-    <div className="card-topo">
-      <IndicacaoDominio dominios={topo.dominios} dominioUrl={topo.dominioUrl} />
+    <div className={'card-topo' + (titulo ? ' card-topo-titulo' : '')}>
+      {titulo ? <p className="dom-ctx dom-titulo">{titulo}</p> : <IndicacaoDominio dominios={topo.dominios} dominioUrl={topo.dominioUrl} />}
       <div className="card-topo-btns" ref={botoes}>
         {children}
       </div>

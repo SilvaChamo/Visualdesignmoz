@@ -11911,7 +11911,74 @@
 
 /* Com a linha por baixo do botão e da indicação, o título ou o texto que vêm a seguir não ficam colados a ela (Silva, 21/10/2026) */
 @media (min-width: 769px) {
-   .vh .da-main-card .card-topo-slot:has(.card-topo):not(:has(+ .tbl, + .frm, + .ct-lista > .tbl:first-child)) {
+   .vh .da-main-card .card-topo-slot:has(.card-topo):not(:has(+ .tbl, + .frm, + .ct-lista > .tbl:first-child)):not(:has(.card-topo-titulo)) {
       margin-bottom: 22px
+   }
+}
+
+/* Domínios (experiência do Silva, 21/10/2026): por baixo da linha, o título e a descrição breve à esquerda e o botão à direita, na
+   mesma linha */
+.vh .seccao-h.dom-cab {
+   align-items: center;
+   flex-wrap: nowrap;
+   margin: 0 0 18px
+}
+
+.vh .seccao-h.dom-cab .btn {
+   flex: none
+}
+
+/* Domínios (experiência do Silva, 21/10/2026): o título da página, em letra light, no lugar da indicação do domínio; 5 px por cima e
+   por baixo da linha, com o botão logo a seguir a ela */
+.vh .da-main-card .card-topo.card-topo-titulo {
+   margin-top: 0;
+   padding: 0 0 5px
+}
+
+.vh .da-main-card .card-topo-slot:has(.card-topo-titulo):has(.card-topo) {
+   margin-bottom: 5px
+}
+
+.vh .da-main-card .card-topo.card-topo-titulo .dom-ctx.dom-titulo {
+   font-size: calc(22px * var(--fs, 1));
+   line-height: 1.1;
+   font-weight: 300;
+   color: var(--ink)
+}
+
+.vh .seccao-h.dom-cab {
+   align-items: flex-start;
+   margin: 0 0 20px
+}
+
+.vh .seccao-h.dom-cab .dom-ctx {
+   margin: 0;
+   flex: 1 1 0;
+   min-width: 0
+}
+
+
+/* Indicação do domínio, descrição ou dados da página: o texto começa a 5 px da linha, como o botão e o título (Silva, 21/10/2026) */
+.vh .seccao-h.dom-cab .dom-ctx {
+   align-self: flex-start;
+   line-height: 1.2
+}
+
+.vh .dom-ctx.dom-desc {
+   font-size: calc(13px * var(--fs, 1));
+   color: var(--muted)
+}
+
+/* E-mail: uma linha horizontal por baixo dos cartões de números, com 20 px de cada lado (os 20 de baixo são os da barra da pesquisa)
+   (Silva, 21/10/2026) */
+.vh .da-main-card .stats:has(+ .em-lista-card) {
+   padding-bottom: 20px;
+   border-bottom: 1px solid var(--line)
+}
+
+/* Descrição por baixo do título da página, na barra de cima: letra um pouco mais pequena, em todas as páginas (Silva, 21/10/2026) */
+@media (min-width: 769px) {
+   .vh .ptitle small {
+      font-size: calc(12px * var(--fs, 1))
    }
 }

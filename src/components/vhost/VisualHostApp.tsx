@@ -1538,7 +1538,15 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
                       const k = level + '/' + g;
                       return (
                         <Fragment key={k}>
-                          <button className={'grp' + (st.open[k] ? ' open' : '')} onClick={() => toggleGrp(k)}>
+                          <button
+                            className={'grp' + (st.open[k] ? ' open' : '')}
+                            onClick={() => {
+                              // ao abrir um grupo, o primeiro item fica activo (Silva, 21/10/2026); fechar um grupo aberto só o fecha
+                              const abrir = !st.open[k];
+                              toggleGrp(k);
+                              if (abrir && !(level === 'admin' && g === 'Configurações de acesso')) go(vis[0].id);
+                            }}
+                          >
                             <span>{t(g)}</span>
                             <i className="fa-solid fa-chevron-down chev" />
                           </button>
