@@ -7784,7 +7784,7 @@
 /* cartão "Informações do domínio": um só cartão, linhas em duas colunas; as linhas com página própria abrem-na */
 .vh .dom-info-grelha {
    display: grid;
-   grid-template-columns: repeat(2, minmax(0, 1fr));
+   grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
    column-gap: 28px;
    padding: 4px 18px 8px
 }
@@ -7802,17 +7802,35 @@
 .vh .dom-info-l>span {
    font-weight: 600;
    font-size: calc(13.5px * var(--fs, 1));
-   color: var(--muted)
+   color: var(--muted);
+   white-space: nowrap
 }
 
+/* nada neste cartão parte em duas linhas, em nenhum tamanho (Silva, 22/10/2026): o valor fica numa só linha e, se não
+   couber (ex.: o caminho da pasta do site), desliza na horizontal */
 .vh .dom-info-l>div {
    font-size: calc(13.5px * var(--fs, 1));
    min-width: 0;
-   overflow-wrap: anywhere;
+   white-space: nowrap;
    display: flex;
    gap: 6px;
-   flex-wrap: wrap;
-   align-items: center
+   flex-wrap: nowrap;
+   align-items: center;
+   overflow-x: auto;
+   scrollbar-width: none
+}
+
+.vh .dom-info-l>div::-webkit-scrollbar {
+   display: none
+}
+
+.vh .dom-info-l>div>* {
+   flex: none
+}
+
+.vh .dom-info-l>div code {
+   white-space: nowrap;
+   overflow-wrap: normal
 }
 
 .vh .dom-info-l>i {
@@ -7846,7 +7864,7 @@
 }
 
 .vh .dom-info-l .btn {
-   white-space: normal;
+   white-space: nowrap;
    height: auto;
    min-height: 30px;
    text-align: left
