@@ -136,9 +136,11 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
   fala com ele por dentro do servidor; para o abrir por fora, `ssh -p 2234 -L 8083:localhost:8083 root@169.58.148.144`). **aamihe.com só aceita o
   Cloudflare:** `vd-cloudflare-origem.conf` + `nginx.conf_vd-so-cloudflare` (quem pede ao IP do servidor leva 444). **CRON_SECRET** foi mudado a
   22/10/2026 (secret do GitHub + `.env.local` + crontab do root; os crons e os workflows usam o mesmo).
-  **Porta 2026 (22/10/2026):** só serve `host.visualdesignmoz.com`, que redireciona (307) para o painel, `https://visualdesignmoz.com/host:2026`, com
-  certificado Let's Encrypt gerido pelo Hestia (renova sozinho; `v-add-letsencrypt-domain vdadmin host.visualdesignmoz.com`). Pelo IP
-  (`169.58.148.144:2026`) o painel NÃO abre: o servidor por defeito dessa porta recusa a ligação TLS (`ssl_reject_handshake`).
+  **Porta 2026 (22/10/2026):** `host.visualdesignmoz.com:2026` só redireciona (307) para o painel, `https://visualdesignmoz.com/host:2026`, com
+  certificado Let's Encrypt gerido pelo Hestia (renova sozinho; `v-add-letsencrypt-domain vdadmin host.visualdesignmoz.com`). **O IP
+  (`https://169.58.148.144:2026/host:2026`) é só do programador, para resolver problemas, nunca para uso normal:** certificado próprio (um IP não
+  tem certificado válido, o navegador avisa) e só abre para os endereços de `/etc/nginx/conf.d/vd-admin-ip.conf` (hoje o do Silva); os outros levam a
+  ligação fechada (444). Para juntar um endereço acrescenta-se uma linha e recarrega-se o nginx.
 - **O CPU do servidor é um só** (Silva, 22/10/2026): tudo o que o mostra (janela de manutenção, cartão "Servidor" da barra lateral, cartão
   "Consumo CPU" do painel inicial) usa `useSystemStatus`, uma leitura ao vivo partilhada. Nunca outra medida ao lado.
 - **Nunca pesquisa à esquerda por cima do cartão principal** (13/10/2026). A "Busca" da barra de cima já procura na
