@@ -987,7 +987,7 @@ function VerDominio({ d }: { d: string }) {
           ['Contas FTP', String((x.ftp || []).length), 'ftp'],
           ['Redirecionamento', det ? (det.redirecionamento ? det.redirecionamento.url : t('Nenhum')) : <span className="dom-a-ler">…</span>, 'redirecionamentos'],
           ['Proteção hotlink', t('Configurar'), 'hotlink'],
-          ['Pasta do site', <code key="p">{x.docroot}</code>],
+          ['Pasta do site', <code key="p">{x.docroot}</code>, 'ficheiros/' + (x.docroot || '').replace(/^\/home\/[^/]+\//, '').replace(/\/+$/, '').split('/').filter(Boolean).map(encodeURIComponent).join('/')],
         ] as [string, ReactNode, string?][])),
   ];
   return (
