@@ -85,6 +85,16 @@ export function ServerStatusModal({
   const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [confirmReboot, setConfirmReboot] = useState(false);
   const [maintMessageInput, setMaintMessageInput] = useState(data?.maintenance?.message || '');
+  const [atualizando, setAtualizando] = useState(false);
+  // botão "Atualizar" (como o "Reiniciar MySQL"): lê o estado do servidor na hora (Silva, 22/10/2026)
+  const atualizarAgora = async () => {
+    setAtualizando(true);
+    try {
+      await onRefresh();
+    } finally {
+      setAtualizando(false);
+    }
+  };
 
   useEffect(() => {
     if (data?.maintenance?.message) {
@@ -257,7 +267,18 @@ export function ServerStatusModal({
               <h3 className="text-xs font-bold tracking-wider uppercase text-zinc-500 dark:text-zinc-400 flex items-center gap-1.5">
                 <Globe className="w-4 h-4 text-blue-500" /> Consumo por Site e Serviço no Servidor
               </h3>
-              <span className="text-[11px] text-zinc-500 dark:text-zinc-400">Identificação em Tempo Real</span>
+              <div className="flex items-center gap-2.5">
+                <span className="text-[11px] text-zinc-500 dark:text-zinc-400">Identificação em Tempo Real</span>
+                <button
+                  type="button"
+                  onClick={atualizarAgora}
+                  disabled={atualizando}
+                  className="px-2.5 py-1 text-[11px] font-semibold text-zinc-700 dark:text-zinc-300 border border-zinc-300 dark:border-zinc-700 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors flex items-center justify-center gap-1"
+                >
+                  <RotateCcw className={cn('w-3 h-3', atualizando && 'animate-spin')} />
+                  Atualizar
+                </button>
+              </div>
             </div>
             <div className="divide-y divide-zinc-200 dark:divide-zinc-800 rounded-xl border border-zinc-200/80 dark:border-white/10 overflow-hidden bg-white dark:bg-zinc-950">
               {data.topProcesses.map((proc, idx) => (
