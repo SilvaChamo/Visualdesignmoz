@@ -12435,7 +12435,7 @@ export function DeploySection({ sites }: { sites: DirectAdminWebsite[] }) {
         <select value={selectedDomain}
           onChange={e => setSelectedDomain(e.target.value)}
           className="flex-1 px-3 py-2.5 border border-gray-300 rounded text-sm">
-          <option value="visualdesignmoz.com">VisualDesign (site + painel, Hetzner)</option>
+          <option value="visualdesignmoz.com">VisualDesign (site + painel)</option>
           {activeSites.map(s => (
             <option key={s.domain} value={s.domain}>{s.domain}</option>
           ))}

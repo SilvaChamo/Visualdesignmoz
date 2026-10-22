@@ -5,7 +5,6 @@ export async function GET() {
     JSON.stringify({
       supabaseHost: supabaseUrl ? new URL(supabaseUrl).host : '(empty)',
       supabaseConfigured: Boolean(supabaseUrl && anonKey),
-      isHetzner: supabaseUrl.includes('supabase.visualdesignmoz.com'),
       isCloud: supabaseUrl.includes('supabase.co'),
       siteUrl: process.env.NEXT_PUBLIC_SITE_URL || '(empty)',
       passwordResetSmtp: process.env.PASSWORD_RESET_USE_SITE_SMTP || '(unset)',
