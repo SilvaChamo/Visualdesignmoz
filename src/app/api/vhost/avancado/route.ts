@@ -246,8 +246,19 @@ export async function GET(req: NextRequest) {
     case 'wp': {
       if (!d) return NextResponse.json({ erro: 'Escolha o domínio.' }, { status: 400 });
       try {
-        const [plugins, users] = await Promise.all([listWpPlugins(d), listWpUsers(d)]);
-        return ok({ plugins, users });
+        // se há uma versão nova do WordPress (o botão "Atualizar o WordPress" só aparece então): `wp core check-update` devolve a lista das
+        // versões disponíveis — vazia quando está atualizado. Sem resposta (null) não se sabe e o botão não aparece.
+        const nucleo = executeServerCommand(`sudo -u ${conta} /usr/local/bin/wp --path=${q(raizSite(srv, conta, d))} --skip-plugins --skip-themes core check-update --format=json 2>/dev/null; true`, { timeoutMs: 45_000 })
+          .then((out) => {
+            const ini = out.indexOf('[');
+            const fim = out.lastIndexOf(']');
+            if (ini < 0 || fim < ini) return null;
+            const lista = JSON.parse(out.slice(ini, fim + 1)) as { version?: string }[];
+            return { disponivel: lista.length > 0, versao: lista[0]?.version || '' };
+          })
+          .catch(() => null);
+        const [plugins, users, nucleoEstado] = await Promise.all([listWpPlugins(d), listWpUsers(d), nucleo]);
+        return ok({ plugins, users, nucleo: nucleoEstado });
       } catch (x) {
         return NextResponse.json({ erro: x instanceof Error ? x.message : 'WordPress não encontrado.' }, { status: 400 });
       }

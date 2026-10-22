@@ -1,0 +1,220 @@
+#!/usr/bin/env python3
+# Bloqueio automático de IPs maliciosos no Cloudflare (Silva, 22/10/2026) — para os sites que estão atrás do Cloudflare e cujo registo do Apache
+# já mostra o IP verdadeiro do visitante (hoje: aamihe.com; ver "apache2.conf_vd-ip-real" no regras.md).
+# Lê os últimos minutos do registo e bloqueia, no Cloudflare (o IP nem chega ao servidor), quem:
+#   - falha o login do WordPress 8 ou mais vezes (POST /wp-login.php com resposta 200: o login certo responde 302);
+#   - recebe 40 ou mais erros 403/404 (varrimento de ficheiros);
+#   - pede 3 ou mais ficheiros de ataque (.env, wp-config, /etc/passwd, /proc/self/environ, phpunit, .git…).
+# O bloqueio acaba sozinho ao fim de 24 h. Nunca bloqueia o servidor, endereços privados, a lista de permitidos nem quem acabou de entrar
+# com sucesso. Utilizadores móveis em Moçambique partilham IPs: por isso os limites são altos e o bloqueio é temporário.
+# Uso:  vd-banir-ips            (corre de 2 em 2 min, ver /etc/cron.d/vd-banir)
+#       VD_SIMULAR=1 vd-banir-ips   (só diz o que faria, não bloqueia nada)
+import datetime
+import ipaddress
+import json
+import os
+import re
+import sys
+import urllib.error
+import urllib.request
+
+DOMINIOS = os.environ.get('VD_DOMINIOS', 'aamihe.com').split(',')
+LOG_TPL = os.environ.get('VD_LOG_TPL', '/var/log/apache2/domains/{d}.log')
+ENV = os.environ.get('VD_ENV', '/opt/visualdesign-site-teste/.env.local')
+EST = os.environ.get('VD_EST', '/var/lib/vd-banir')
+LOGF = os.environ.get('VD_LOGF', '/var/log/vd-banir.log')
+PERMITIDOS = os.environ.get('VD_PERMITIDOS', '/etc/vd-banir.permitidos')
+SIMULAR = os.environ.get('VD_SIMULAR', '0') == '1'
+JANELA = datetime.timedelta(minutes=5)
+DURACAO = datetime.timedelta(hours=24)
+LIM_LOGIN, LIM_ERROS, LIM_SONDAS, MAX_POR_VOLTA = 8, 40, 3, 20
+SONDA = re.compile(r'(\.env|wp-config|/etc/passwd|proc/self/environ|eval-stdin|phpunit|/\.git/|/\.aws|/\.ssh|id_rsa|\.sql\b|\.bak\b|shell\.php|c99\.php)', re.I)
+LINHA = re.compile(r'^(\S+) \S+ \S+ \[([^\]]+)\] "(\S+) (\S+)[^"]*" (\d{3})')
+
+
+def agora():
+    return datetime.datetime.now(datetime.timezone.utc)
+
+
+def escrever(msg):
+    linha = f"{agora().astimezone().strftime('%Y-%m-%d %H:%M:%S')} {msg}"
+    try:
+        with open(LOGF, 'a') as f:
+            f.write(linha + '\n')
+    except OSError:
+        pass
+    print(linha)
+
+
+def credenciais():
+    env = {}
+    try:
+        for l in open(ENV, encoding='utf-8', errors='ignore'):
+            m = re.match(r'^\s*([A-Z0-9_]+)\s*=\s*(.*?)\s*$', l)
+            if m:
+                env[m.group(1)] = m.group(2).strip('"\'')
+    except OSError:
+        pass
+    if env.get('CLOUDFLARE_EMAIL') and env.get('CLOUDFLARE_GLOBAL_API_KEY'):
+        return {'X-Auth-Email': env['CLOUDFLARE_EMAIL'], 'X-Auth-Key': env['CLOUDFLARE_GLOBAL_API_KEY']}
+    if env.get('CLOUDFLARE_API_TOKEN_ACCOUNT'):
+        return {'Authorization': 'Bearer ' + env['CLOUDFLARE_API_TOKEN_ACCOUNT']}
+    return None
+
+
+H = None
+
+
+def api(caminho, metodo='GET', corpo=None):
+    req = urllib.request.Request('https://api.cloudflare.com/client/v4' + caminho, method=metodo, headers={**(H or {}), 'Content-Type': 'application/json'},
+                                 data=json.dumps(corpo).encode() if corpo is not None else None)
+    try:
+        return json.load(urllib.request.urlopen(req, timeout=30))
+    except urllib.error.HTTPError as e:
+        try:
+            return json.load(e)
+        except Exception:
+            return {'success': False, 'errors': [{'message': f'HTTP {e.code}'}]}
+    except Exception as e:  # rede em baixo: tenta na volta seguinte
+        return {'success': False, 'errors': [{'message': str(e)}]}
+
+
+def zona(dominio, est):
+    z = est.setdefault('zonas', {})
+    if dominio not in z:
+        r = api('/zones?name=' + dominio)
+        res = r.get('result') or []
+        if not res:
+            return None
+        z[dominio] = res[0]['id']
+    return z[dominio]
+
+
+def permitido(ip, extra):
+    try:
+        a = ipaddress.ip_address(ip)
+    except ValueError:
+        return True
+    if a.is_private or a.is_loopback or a.is_link_local or a.is_multicast or a.is_reserved:
+        return True
+    return ip in extra
+
+
+def alvo(ip):
+    a = ipaddress.ip_address(ip)
+    if a.version == 6:  # um IPv6 muda de endereço dentro do mesmo /64
+        return {'target': 'ip_range', 'value': str(ipaddress.ip_network(ip + '/64', strict=False))}
+    return {'target': 'ip', 'value': ip}
+
+
+def ler_pedidos(dominio, desde):
+    try:
+        with open(LOG_TPL.format(d=dominio), 'rb') as f:
+            f.seek(0, 2)
+            tam = f.tell()
+            f.seek(max(0, tam - 6_000_000))
+            linhas = f.read().decode('utf-8', 'ignore').splitlines()
+    except OSError:
+        return []
+    out = []
+    for l in linhas[-60000:]:
+        m = LINHA.match(l)
+        if not m:
+            continue
+        try:
+            t = datetime.datetime.strptime(m.group(2), '%d/%b/%Y:%H:%M:%S %z')
+        except ValueError:
+            continue
+        if t >= desde:
+            out.append((m.group(1), m.group(3), m.group(4), int(m.group(5))))
+    return out
+
+
+def main():
+    global H
+    os.makedirs(EST, exist_ok=True)
+    estf = os.path.join(EST, 'estado.json')
+    try:
+        est = json.load(open(estf))
+    except Exception:
+        est = {}
+    est.setdefault('banidos', {})
+    extra = set()
+    try:
+        extra = {l.split('#')[0].strip() for l in open(PERMITIDOS) if l.split('#')[0].strip()}
+    except OSError:
+        pass
+    H = credenciais()
+    if not H:
+        escrever('ERRO: sem credenciais do Cloudflare em ' + ENV)
+        return 1
+
+    # 1) levantar os bloqueios com mais de 24 h
+    for ip, b in list(est['banidos'].items()):
+        if datetime.datetime.fromisoformat(b['ate']) <= agora():
+            if not b.get('id'):  # já existia no Cloudflare (sem número guardado): só se esquece
+                del est['banidos'][ip]
+                continue
+            if SIMULAR:
+                escrever(f'[simular] levantava {ip}')
+                continue
+            r = api(f"/zones/{b['zona']}/firewall/access_rules/rules/{b['id']}", 'DELETE')
+            if r.get('success') or any('not found' in (e.get('message', '').lower()) for e in (r.get('errors') or [])):
+                escrever(f'levantado {ip} (passaram 24 h)')
+                del est['banidos'][ip]
+
+    # 2) procurar quem se portou mal nos últimos minutos
+    desde = agora() - JANELA
+    novos = 0
+    for dominio in DOMINIOS:
+        pedidos = ler_pedidos(dominio, desde)
+        login_falha, erros, sondas, entrou = {}, {}, {}, set()
+        for ip, metodo, url, cod in pedidos:
+            caminho = url.split('?')[0]
+            if metodo == 'POST' and caminho.endswith('/wp-login.php'):
+                if cod in (301, 302, 303):
+                    entrou.add(ip)
+                elif cod == 200:
+                    login_falha[ip] = login_falha.get(ip, 0) + 1
+            if cod in (403, 404):
+                erros[ip] = erros.get(ip, 0) + 1
+            if SONDA.search(url):
+                sondas[ip] = sondas.get(ip, 0) + 1
+        suspeitos = {}
+        for ip, n in login_falha.items():
+            if n >= LIM_LOGIN:
+                suspeitos[ip] = f'{n} logins falhados'
+        for ip, n in erros.items():
+            if n >= LIM_ERROS:
+                suspeitos.setdefault(ip, f'{n} erros 403/404')
+        for ip, n in sondas.items():
+            if n >= LIM_SONDAS:
+                suspeitos.setdefault(ip, f'{n} pedidos a ficheiros de ataque')
+        for ip, motivo in suspeitos.items():
+            if ip in est['banidos'] or ip in entrou or permitido(ip, extra) or novos >= MAX_POR_VOLTA:
+                continue
+            z = zona(dominio, est)
+            if not z:
+                escrever(f'ERRO: zona {dominio} não encontrada no Cloudflare')
+                continue
+            if SIMULAR:
+                escrever(f'[simular] bloqueava {ip} em {dominio}: {motivo}')
+                continue
+            r = api(f'/zones/{z}/firewall/access_rules/rules', 'POST',
+                    {'mode': 'block', 'configuration': alvo(ip), 'notes': f'vd-banir {agora():%d/%m/%Y %H:%M}: {motivo}'})
+            if r.get('success'):
+                est['banidos'][ip] = {'id': r['result']['id'], 'zona': z, 'dominio': dominio, 'motivo': motivo, 'ate': (agora() + DURACAO).isoformat()}
+                novos += 1
+                escrever(f'BLOQUEADO {ip} em {dominio}: {motivo}')
+            else:
+                msg = ' / '.join(e.get('message', '') for e in (r.get('errors') or []))
+                if 'already exists' in msg.lower() or 'duplicate' in msg.lower():
+                    est['banidos'][ip] = {'id': '', 'zona': z, 'dominio': dominio, 'motivo': motivo, 'ate': (agora() + DURACAO).isoformat()}
+                escrever(f'ERRO ao bloquear {ip}: {msg}')
+    if not SIMULAR:
+        json.dump(est, open(estf, 'w'))
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())
