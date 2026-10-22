@@ -25,6 +25,7 @@ jobs:
         uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.CONTABO_HOST }}
+          port: 2234
           username: root
           password: ${{ secrets.CONTABO_ROOT_PASSWORD }}
           command_timeout: 10m
@@ -60,6 +61,7 @@ jobs:
         uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.CONTABO_HOST }}
+          port: 2234
           username: root
           password: ${{ secrets.CONTABO_ROOT_PASSWORD }}
           script: |
@@ -93,6 +95,7 @@ jobs:
         uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.CONTABO_HOST }}
+          port: 2234
           username: root
           password: ${{ secrets.CONTABO_ROOT_PASSWORD }}
           script: |
@@ -151,6 +154,7 @@ jobs:
         uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.CONTABO_HOST }}
+          port: 2234
           username: root
           password: ${{ secrets.CONTABO_ROOT_PASSWORD }}
           envs: CONTABO_SSH_PUBKEY
@@ -171,6 +175,7 @@ jobs:
         uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.CONTABO_HOST }}
+          port: 2234
           username: root
           password: ${{ secrets.CONTABO_ROOT_PASSWORD }}
           script: |
@@ -192,6 +197,7 @@ jobs:
         uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.CONTABO_HOST }}
+          port: 2234
           username: root
           password: ${{ secrets.CONTABO_ROOT_PASSWORD }}
           command_timeout: 30m

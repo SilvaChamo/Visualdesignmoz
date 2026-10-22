@@ -129,6 +129,13 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
 - **Pacotes do revendedor** (Silva, 22/10/2026): o revendedor só vê e só atribui os pacotes **Pro-…** (Pro-Basico, Pro-Premium, Pro-Business),
   nunca todos os que o servidor tem — na interface (`pacotesDeCliente`), nos dados (`vhost-dados`) e na API (`pacotePermitido`). Criar um
   pacote novo no Hestia é `v-add-user-package FICHEIRO NOME` **sem** o `yes` final: o `yes` é "regravar" e só serve para um pacote que já existe.
+- **Segurança do servidor Contabo (22/10/2026):** SSH em `ssh root@169.58.148.144 -p 2234` (a porta 22 fica aberta só até os workflows do GitHub, já
+  passados para a 2234, estarem publicados; depois fecha-se — `ssh.socket.d/porta.conf` + regra "SSH-2234" do Hestia + `chains.conf` com `22,2234`).
+  Portas abertas ao exterior: 22/2234 (SSH), 25/465/587 (SMTP), 110/995 e 143/993 (POP3/IMAP: usados), 53 (DNS), 80/443 (web), 2026 (VisualHost).
+  **Fechadas por não se usarem:** 21 e 12000-12100 (FTP: 0 entradas certas em 3 semanas, só varrimentos) e 8083 (painel do Hestia: o VisualHost
+  fala com ele por dentro do servidor; para o abrir por fora, `ssh -p 2234 -L 8083:localhost:8083 root@169.58.148.144`). **aamihe.com só aceita o
+  Cloudflare:** `vd-cloudflare-origem.conf` + `nginx.conf_vd-so-cloudflare` (quem pede ao IP do servidor leva 444). **CRON_SECRET** foi mudado a
+  22/10/2026 (secret do GitHub + `.env.local` + crontab do root; os crons e os workflows usam o mesmo).
 - **O CPU do servidor é um só** (Silva, 22/10/2026): tudo o que o mostra (janela de manutenção, cartão "Servidor" da barra lateral, cartão
   "Consumo CPU" do painel inicial) usa `useSystemStatus`, uma leitura ao vivo partilhada. Nunca outra medida ao lado.
 - **Nunca pesquisa à esquerda por cima do cartão principal** (13/10/2026). A "Busca" da barra de cima já procura na
