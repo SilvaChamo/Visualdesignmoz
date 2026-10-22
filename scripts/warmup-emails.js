@@ -7,8 +7,12 @@
  * Exemplo: node scripts/warmup-emails.js oshercollective.com 10
  */
 
-const API_URL = 'https://37.27.17.25:8090/send-email-api.php';
-const API_TOKEN = 'vd_api_2024_secure_token';
+const API_URL = process.env.WARMUP_API_URL;
+const API_TOKEN = process.env.WARMUP_API_TOKEN;
+if (!API_URL || !API_TOKEN) {
+  console.error('Falta WARMUP_API_URL ou WARMUP_API_TOKEN no ambiente.');
+  process.exit(1);
+}
 
 // Lista de emails de teste para warm-up
 const TEST_EMAILS = [

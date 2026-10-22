@@ -8,7 +8,8 @@ async function main() {
   const { daRequest } = await import('../src/lib/directadmin');
   const { resolveDirectAdminCredentials } = await import('../src/lib/directadmin-credentials');
   const creds = await resolveDirectAdminCredentials('admin');
-  const pass = '1YkLc8INaRZ_k47AK0kOluzgrdQ9RsfX';
+  const pass = process.env.DA_KEY_PASSWORD;
+  if (!pass) throw new Error('Falta DA_KEY_PASSWORD no ambiente.');
 
   const keyRes = await daRequest(
     'CMD_API_LOGIN_KEYS',
