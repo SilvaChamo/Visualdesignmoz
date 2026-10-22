@@ -8,11 +8,15 @@
 ## Falta para fechar (por ordem)
 1. **M-Pesa em sandbox** — pendente da Vodacom; mensagem pronta em `docs/mpesa-pedido-vodacom.md`.
 2. **Troca do endereço do Supabase** (`supabase-contabo…` → `supabase…`): ver "TAREFA AGENDADA" em `regras.md`.
-3. **Fechar a porta 22 do SSH** (código e workflows já usam a 2234; falta fechar no servidor e confirmar de fora).
+3. ~~Fechar a porta 22 do SSH~~ — **já está fechada** (verificado a 22/10/2026 por leitura autorizada: o servidor só escuta na 2234 e o firewall
+   só tem regras para a 2234).
 4. **Segredo `CONTABO_ROOT_PASSWORD`** do GitHub: já nenhum workflow o usa (passaram à chave SSH, 22/10/2026). Falta só apagá-lo nos
    secrets do GitHub (Settings › Secrets) depois de o PR ser publicado e um dos workflows de manutenção correr bem.
-5. **Hetzner Object Storage (S3)**: `deploy/wordpress/*hetzner*`, `deploy/wp-s3-only.sh` e `deploy/da-backup-to-s3.sh` falam do armazenamento de
-   ficheiros do Hetzner (não do servidor). Confirmar se as imagens dos sites WordPress e as cópias ainda estão lá antes de o fechar.
+5. **Hetzner Object Storage (S3) — ainda em uso** (verificado a 22/10/2026): os sites **mltmark.com**, **oshercollective.com**, **lirandzojewelry.com** e
+   **msdn-moz.org** têm no servidor os plugins `vd-hetzner-media-urls.php` e `s3-endpoint-fix.php`, que apontam as imagens para o balde
+   `visualdesign-storage`. **aamihe.com e entrecamposblog.com não usam o balde** (ficheiros locais: 214 MB e 145 MB). Por isso a conta do Hetzner
+   (só o armazenamento) tem de continuar activa e os scripts `deploy/wordpress/*hetzner*`, `deploy/wp-s3-only.sh` e `deploy/da-backup-to-s3.sh`
+   ficam. Para cancelar de vez: copiar as imagens dos 4 sites para o Contabo e tirar esses plugins.
 6. **PRs antigos**: #95, #113, #106, #105 (juntar ou fechar); #28 e #3 são do Hetzner (fechar).
 7. **Quota do pacote `VD-Email-Basico` no Hestia** (o PR #105 só corrige o ficheiro do site).
 8. **Gestores (`manager`)** nas rotas `/api/da` e `/api/server-exec`: bloqueados (seguro) mas incompletos; testar com conta real.
