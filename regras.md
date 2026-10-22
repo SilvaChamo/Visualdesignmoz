@@ -144,7 +144,7 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
 - **TAREFA AGENDADA — troca do endereço do Supabase (23/10/2026 às 00:00, hora de Maputo; lembrar o Silva hoje às 23:30)** (Silva, 22/10/2026).
   Tirar o "contabo": a app passa de `https://supabase-contabo.visualdesignmoz.com` para `https://supabase.visualdesignmoz.com`. **Não se copia nada:**
   os dois nomes já apontam para o mesmo Supabase (nginx → `127.0.0.1:8000`). Já feito a 22/10: o Silva tirou o proxy do Cloudflare ao registo
-  `supabase` (só DNS) e emitiu-se o certificado Let's Encrypt de `supabase.visualdesignmoz.com` (válido até 20/01/2027, o Hestia renova).
+  `supabase` (só DNS) e emitiu-se o certificado Let's Encrypt de `supabase.visualdesignmoz.com` (válido até 20/01/2027, o Hestia renova). Também se tirou o alias "no" que o Hestia tinha posto no site `supabase` (aparecia como `server_name … no;`).
   **Falta fazer (à meia-noite; qualquer agente que veja esta nota e ainda não a encontre feita, faz — ver "Feito" no fim):**
   1. *(Silva, antes)* Se há login Google: acrescentar `https://supabase.visualdesignmoz.com/auth/v1/callback` aos endereços de retorno na consola do
      Google (manter o antigo).
@@ -155,7 +155,7 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
      deploy grava `NEXT_PUBLIC_SUPABASE_URL` no build e no `.env.local` (só se vê depois do deploy, ~15 min).
   4. Verificar: entrar no painel; `curl https://supabase.visualdesignmoz.com/auth/v1/health` (401 é normal sem chave).
   **Consequência avisada ao Silva:** o nome do cookie de sessão deriva do endereço (`sb-supabase-…` em vez de `sb-supabase-contabo-…`): **todos os
-  utilizadores têm de voltar a entrar uma vez.** O nome antigo fica a funcionar (nginx serve os dois): `/opt/basededadosagro-site` e
+  utilizadores têm de voltar a entrar uma vez, com o mesmo e-mail e a mesma palavra-passe** (contas e dados não mudam; só se perdem as sessões abertas). O nome antigo fica a funcionar (nginx serve os dois): `/opt/basededadosagro-site` e
   `/opt/visualdesign-panel` ainda usam o antigo e não precisam de mudar já. Reverter: voltar `.env` do Supabase, o secret e publicar.
   **Feito:** (ainda não) — quem fizer, escreve aqui a data e o resultado.
 - **O CPU do servidor é um só** (Silva, 22/10/2026): tudo o que o mostra (janela de manutenção, cartão "Servidor" da barra lateral, cartão
