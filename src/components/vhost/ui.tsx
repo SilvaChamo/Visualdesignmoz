@@ -6,6 +6,7 @@ import { Fragment, useContext, useEffect, useLayoutEffect, useRef, useState, typ
 import { createPortal } from 'react-dom';
 import { ServerStatusModal, useSystemStatus } from '@/components/admin/ServerStatusWidget';
 import { ConsultaPagina, TopoCartao, useVH } from './context';
+import { corUso } from './cor-uso';
 import { ChangeRoleModal } from './modals';
 import { noServidor } from './paginas/acoes';
 import { EN, HX, LEVELS, MENU, ROLES } from './generated/data';
@@ -56,16 +57,18 @@ export function Avatar({ a, outros = [] }: { a: Account; outros?: (string | unde
   );
 }
 
-export function Stat({ title, v, m, p }: { title: ReactNode; v: ReactNode; m: string; p: number }) {
+/** `uso`: o número e a barra mudam de cor com o enchimento (verde, âmbar, vermelho); `cor` força uma cor (ex.: caixas quase cheias) */
+export function Stat({ title, v, m, p, uso = false, cor }: { title: ReactNode; v: ReactNode; m: string; p: number; uso?: boolean; cor?: string }) {
   const { t } = useVH();
+  const c = cor ?? (uso ? corUso(p) : undefined);
   return (
     <div className="card stat">
       <small>{typeof title === 'string' ? t(title) : title}</small>
-      <strong>
+      <strong style={c && c !== '#10b981' ? { color: c } : undefined}>
         {v} <span>{t(m)}</span>
       </strong>
       <div className="bar">
-        <span style={{ width: Math.min(p, 100) + '%' }} />
+        <span style={{ width: Math.min(p, 100) + '%', ...(c ? { background: c } : {}) }} />
       </div>
     </div>
   );

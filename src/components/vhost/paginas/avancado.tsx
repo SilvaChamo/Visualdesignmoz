@@ -371,6 +371,7 @@ const mbTxt = (n: number) => (n >= 1024 ? (n / 1024).toFixed(2).replace('.', ','
     'No dia': 'On day',
     'de cada mês às': 'of each month at',
     'às': 'at',
+    'Atualizar o WordPress para a versão': 'Update WordPress to version',
   };
   for (const [pt, en] of Object.entries(novas)) if (!(pt in EN)) EN[pt] = en;
 }
@@ -2164,7 +2165,7 @@ function WpGerir({ d }: { d: string }) {
   const vh = useVH();
   const { t } = vh;
   const lista = useLer<{ instalados: Wp[] }>('wordpress');
-  const { dados, erro, ler } = useLer<{ plugins: Plugin[]; users: WpUser[] }>('wp', { d });
+  const { dados, erro, ler } = useLer<{ plugins: Plugin[]; users: WpUser[]; nucleo?: { disponivel: boolean; versao: string } | null }>('wp', { d });
   const wp = lista.dados?.instalados.find((x) => x.d === d);
   const plug = async (op: string, plugin = '') => (await noServidor(vh, { acao: 'wp-plugin', dominio: d, op, plugin }, 'Feito')) && ler();
   return (
@@ -2206,13 +2207,23 @@ function WpGerir({ d }: { d: string }) {
               ))}
             </select>
           </div>
-          <div>
-            <span>{t('Atualizar o WordPress para a última versão')}</span>
-            <button className="btn sm btn-ed" onClick={async () => (await noServidor(vh, { acao: 'wp-nucleo', dominio: d, op: 'atualizar' }, 'WordPress atualizado')) && lista.ler()}>
-              <i className="fa-solid fa-arrows-rotate" />
-              {t('Atualizar')}
-            </button>
-          </div>
+          {/* só há botão quando existe uma versão nova do WordPress; depois de atualizar, lê-se outra vez e o botão desaparece (Silva, 22/10/2026) */}
+          {dados?.nucleo?.disponivel && (
+            <div>
+              <span>{dados.nucleo.versao ? t('Atualizar o WordPress para a versão') + ' ' + dados.nucleo.versao : t('Atualizar o WordPress para a última versão')}</span>
+              <button
+                className="btn sm btn-ed"
+                onClick={async () => {
+                  if (await noServidor(vh, { acao: 'wp-nucleo', dominio: d, op: 'atualizar' }, 'WordPress atualizado')) {
+                    await Promise.all([lista.ler(), ler()]);
+                  }
+                }}
+              >
+                <i className="fa-solid fa-arrows-rotate" />
+                {t('Atualizar')}
+              </button>
+            </div>
+          )}
         </div>
       </Sec>
       {!dados ? (

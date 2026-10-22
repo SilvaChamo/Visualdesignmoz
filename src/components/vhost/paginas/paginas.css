@@ -12954,3 +12954,16 @@
       margin: 0 0 8px
    }
 }
+
+/* Cartões de números: cada informação numa só linha (Silva, 22/10/2026) — o título, o número e o que vem a seguir não partem; se não
+   cabe, o texto pequeno encolhe em vez de passar para a linha de baixo */
+.vh .stat small,
+.vh .stat strong {
+   white-space: nowrap;
+   overflow: hidden;
+   text-overflow: ellipsis
+}
+
+.vh .stat strong span {
+   font-size: calc(12.5px * var(--fs, 1))
+}

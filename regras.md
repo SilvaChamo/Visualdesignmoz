@@ -309,6 +309,12 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
   `/cache.php`, PHP em `images/`, `uploads/`…) → ligação fechada (444); `xmlrpc.php` e `wp-login.php` limitados por IP verdadeiro (30/min, folga de 20).
   **Não se usa fail2ban sobre os registos do Apache**: o tráfego que passa pelo proxy aparece lá com o IP do próprio servidor (169.58.148.144) e
   bloquearia o servidor a si mesmo.
+  **Excepção, aamihe.com (22/10/2026):** o Apache já regista o IP verdadeiro do visitante (ficheiros `apache2.conf_vd-ip-real` e
+  `apache2.ssl.conf_vd-ip-real` em `/home/aamihe/conf/web/aamihe.com/`: desligam o `mod_rpaf`, que com o `X-Forwarded-For` presente desfazia o
+  `mod_remoteip`). Nos outros sites continua a ver-se o IP do servidor — não usar fail2ban sobre os registos deles sem fazer o mesmo.
+  **WordPress:** `DISABLE_WP_CRON` só se usa com um cron do sistema que corra `wp cron event run --due-now` (aamihe.com: de 15 em 15 min, criado
+  com `v-add-cron-job`); sem ele as tarefas do WordPress nunca correm. **Só Moçambique:** regra do Cloudflare "Só Moçambique" no aamihe.com
+  (bloqueia tudo o que não vem de MZ, exceto o servidor e `/.well-known/`).
 - **`xmlrpc.php` bloqueado por completo (444) nos domínios de `/etc/nginx/vd-xmlrpc-bloquear.lista`** (cópia em `deploy/seguranca/`), só enquanto o site
   não tiver o plugin Jetpack (que o usa). Hoje: os 6 sites da Osher. Para juntar um site, acrescenta-se o domínio à lista (o instalador aplica em
   10 minutos, ou corre-se `/usr/local/sbin/vd-bloqueio-instalar`).

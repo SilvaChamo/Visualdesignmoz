@@ -15,6 +15,7 @@ import { Stat } from '../ui';
 import { Check, DataTable, MaisOpcoes, novaSenha, Senha, Switch, Tabs } from './componentes';
 import { Confirmar } from './pacotes';
 import { AO_ABRIR, EsperaPagina, FUNDO, useGet, useNaMemoria } from '../carga';
+import { corUso } from '../cor-uso';
 
 // ---------- Menu: Mailmarketing nos Extras, a seguir ao Webmail (sem mexer nos ficheiros gerados da maquete) ----------
 {
@@ -604,9 +605,9 @@ function ContasLista() {
           m={detalheContas}
           p={max === null ? 0 : pct(totalContas, max)}
         />
-        <Stat title="Espaço usado" v={mb(usado)} m="em todas as caixas" p={pct(usado, rows.reduce((n, c) => n + c.quotaMb, 0))} />
+        <Stat title="Espaço usado" uso v={mb(usado)} m="em todas as caixas" p={pct(usado, rows.reduce((n, c) => n + c.quotaMb, 0))} />
         <Stat title="Envios hoje" v={enviados} m="mensagens enviadas" p={0} />
-        <Stat title="Caixas quase cheias" v={cheias} m="acima de 80%" p={cheias * 20} />
+        <Stat title="Caixas quase cheias" v={cheias} m="acima de 80%" p={cheias * 20} cor={cheias === 0 ? corUso(0) : cheias < 3 ? corUso(70) : corUso(100)} />
       </div>
       {/* Card secundário: pesquisa + botões + lista de e-mails */}
       <div className="card em-lista-card">
@@ -708,10 +709,10 @@ function ContasLista() {
                 <div className="em-uso">
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 12.5, color: 'var(--muted)', marginBottom: 5 }}>
                     <span>{r.quotaMb > 0 ? mb(r.usadoMb) + ' / ' + mb(r.quotaMb) : mb(r.usadoMb) + ' · ' + t('sem limite')}</span>
-                    {r.quotaMb > 0 && <b style={{ color: p > 80 ? 'var(--red)' : 'var(--ink)' }}>{p}%</b>}
+                    {r.quotaMb > 0 && <b style={{ color: p >= 65 ? corUso(p) : 'var(--ink)' }}>{p}%</b>}
                   </div>
                   <div className="bar">
-                    <span style={{ width: p + '%' }} />
+                    <span style={{ width: p + '%', background: corUso(p) }} />
                   </div>
                 </div>
               );

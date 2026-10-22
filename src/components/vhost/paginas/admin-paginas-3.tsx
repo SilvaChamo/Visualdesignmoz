@@ -241,9 +241,9 @@ function EstatisticasServidor() {
       ) : aba === 'graficos' ? (
         <>
           <div className="stats ad-stats-dentro">
-            <Stat title="CPU em média" v={pct(media(cpuTot))} m="" p={media(cpuTot)} />
+            <Stat title="CPU em média" uso v={pct(media(cpuTot))} m="" p={media(cpuTot)} />
             <Stat title="Carga mais alta" v={num(d.carga[iCarga]?.l1 || 0, 2)} m={d.carga[iCarga] ? t('às') + ' ' + d.carga[iCarga].t : ''} p={((d.carga[iCarga]?.l1 || 0) / d.nucleos) * 100} />
-            <Stat title="Memória mais alta" v={pct(memMax)} m="" p={memMax} />
+            <Stat title="Memória mais alta" uso v={pct(memMax)} m="" p={memMax} />
             <Stat title="Rede no pico" v={kbs(redeTot[iRede] || 0)} m={d.rede[iRede] ? t('às') + ' ' + d.rede[iRede].t : ''} p={0} />
           </div>
           <div className="ad-grafs">

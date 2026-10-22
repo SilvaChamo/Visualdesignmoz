@@ -500,7 +500,8 @@ export async function generateWpAutoLoginToken(
     const raw = await runAsWpUser(
       install.user,
       install.path,
-      'user list --role=administrator --field=user_login --format=csv',
+      // sem plugins nem tema: só é preciso a tabela de utilizadores, e arrancar o WordPress inteiro custava 1 a 2 s a mais
+      '--skip-plugins --skip-themes user list --role=administrator --field=user_login --format=csv',
     ).catch(() => '');
     login = raw
       .split('\n')
@@ -516,7 +517,9 @@ export async function generateWpAutoLoginToken(
   const filePath = `${install.path}/${filename}`;
   // o Elementor abre pelo mesmo endereço do editor do WordPress, com action=elementor
   const acao = editor === 'elementor' ? 'elementor' : 'edit';
-  const destino = postId === undefined ? 'admin_url()' : `admin_url('post.php?post=${postId}&action=${acao}')`;
+  // sem página indicada entra na lista de Páginas e não no Painel (wp-admin/): o Painel carrega os widgets e as notícias do WordPress
+  // (e do Elementor) e demorava mais do dobro a abrir (7,8 s contra 3,3 s medidos no servidor; Silva, 22/10/2026)
+  const destino = postId === undefined ? "admin_url('edit.php?post_type=page')" : `admin_url('post.php?post=${postId}&action=${acao}')`;
 
   const phpContent = `<?php
 // Autologin gerado pelo painel
