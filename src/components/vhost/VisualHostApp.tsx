@@ -4,14 +4,16 @@
 // Mesma estrutura de HTML e mesmas classes, para o CSS da maquete (generated/maquete.css) se aplicar tal e qual.
 import { Component, Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState, useSyncExternalStore, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
+import { useTheme } from '@/contexts/ThemeContext';
 import { BarraPagina, ConsultaPagina, FaixaAbas, PesquisaPagina, TopoCartao, VHContext, type ItemPesquisa, type VH } from './context';
 import { GLOBAL, LEVELS, MENU, ROLES } from './generated/data';
 import { SEM_MENU } from './menu-contas';
 import { dominioVisivel, type DadosServidor } from './servidor';
 import { CACHE_DADOS_VHOST, apagarDadosVhost, guardarDadosVhost, tirarEntrada } from '@/lib/vhost-cache';
+import { idDispositivoPresenca } from '@/lib/vhost-presenca-id';
 import { COOKIE_TEMA, lerTema, valorCookieTema, type TemaConta } from '@/lib/vhost-tema-conta';
 import { translate, type Lang } from './i18n';
-import { EntradaPainel, EsperaEntrada, LINGUA_LS, type ModoTema } from './entrada';
+import { EntradaPainel, EsperaEntrada, LINGUA_LS } from './entrada';
 import { CodigoDoisPassos } from './dois-passos';
 import { auth, supabase } from '@/lib/supabase-client';
 import { MoreMenuModal } from './modals';
@@ -455,6 +457,7 @@ function PaginaSlot({ p, oculta, onPronta, registar }: { p: Pagina; oculta: bool
 export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSessao = false }: { versao?: string; dados?: DadosServidor | null; tema?: TemaConta | null; semSessao?: boolean }) {
   // conta os pedidos ao site para a linha de carregamento do topo (antes de o painel pedir os dados)
   useState(() => instalarContador());
+  const { theme: temaGlobal, setTheme: definirTemaGlobal } = useTheme();
   const pathname = usePathname() || BASE;
   // Entrada pelo login do site: o painel abre sem recarregar a página (src/components/auth/LoginForm.tsx), por isso não
   // há página do servidor a acertar — abre logo com a aparência guardada e a leitura que o login acabou de fazer, sem a
@@ -468,17 +471,16 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
     if (semSessao) return { ...s0, carga: 'erro', erro: { msg: 'Inicie sessão para ver o painel.', codigo: 401 } };
     if (!semServidor) {
       // o tema da conta que o servidor recebeu no cookie (igual no servidor e no navegador: a página já vem com ele)
-      const s1 = tema ? { ...s0, ...tema } : s0;
+      const s1 = tema ? { ...s0, ...tema, theme: temaGlobal } : { ...s0, theme: temaGlobal };
       return dados ? comDados(s1, dados, stripBase(pathname), false) : s1;
     }
     const n = comPreferencias(s0);
     const d = lerCache();
-    return d ? comTemaLocal(noNivelPermitido(comDados(n, d, stripBase(pathname)))) : n;
+    return d ? { ...comTemaLocal(noNivelPermitido(comDados(n, d, stripBase(pathname)))), theme: temaGlobal } : { ...n, theme: temaGlobal };
   });
   const dadosDoServidor = useRef(semServidor ? null : dados);
   // entrada do próprio painel (só quando o servidor recusa a sessão): modo do tema escolhido lá e "a entrar" (roda)
   const [aEntrar, setAEntrar] = useState(false);
-  const [modoTema, setModoTema] = useState<ModoTema>('light');
   /** já se renovou a sessão depois de uma recusa (só uma vez, até a leitura seguinte correr bem) */
   const renovouSessao = useRef(false);
   useBotoesTelemovel();
@@ -487,6 +489,8 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
   const inicial = useRef(stripBase(pathname));
   const ref = useRef(st);
   ref.current = st;
+  const temaGlobalRef = useRef(temaGlobal);
+  temaGlobalRef.current = temaGlobal;
 
   const [modal, setModal] = useState<ReactNode>(null);
   const [gaveta, setGaveta] = useState(false);
@@ -508,6 +512,10 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
     ref.current = next;
     setSt(next);
   }, []);
+
+  useEffect(() => {
+    if (ref.current.theme !== temaGlobal) commit({ ...ref.current, theme: temaGlobal, themePreview: null });
+  }, [commit, temaGlobal]);
 
   const pushUrl = (path: string, replace = false) => {
     const url = BASE + path;
@@ -670,7 +678,7 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
     // enquanto o servidor responde: o tema desta conta guardado neste navegador, ou fica o que está (nunca o de origem,
     // que no tema escuro era um clarão branco a cada recarga e ao entrar noutra conta)
     const local = lerTemaLocal(chave);
-    if (local) commit({ ...ref.current, ...local, themePreview: null });
+    if (local) commit({ ...ref.current, ...local, theme: temaGlobalRef.current, themePreview: null });
     const query = contaTemaImpersonada ? '?conta=' + encodeURIComponent(contaTema) : '';
     fetch('/api/vhost/tema-conta' + query, { cache: 'no-store', headers: FUNDO })
       .then(async (resposta) => {
@@ -686,7 +694,7 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
         temaProprio.current = !!dados.preferencias;
         // sem tema próprio, o tema do plano da conta (Admin › Pacotes › Tema); senão o de origem
         const doPlano = atual.temasPlano?.[acctOf(atual).pkg];
-        const n = { ...atual, ...(dados.preferencias || (doPlano ? { ...padrao, colorPreset: doPlano } : padrao)), themePreview: null };
+        const n = { ...atual, ...(dados.preferencias || (doPlano ? { ...padrao, colorPreset: doPlano } : padrao)), theme: temaGlobalRef.current, themePreview: null };
         commit(n);
         lembrarTema(n);
       })
@@ -934,6 +942,7 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        deviceId: idDispositivoPresenca(),
         aVer: cur.stack.length ? meOf(cur) : '',
         pagina: cur.path,
         secao,
@@ -955,7 +964,7 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
       enviarPresenca();
     };
     avisar();
-    const id = setInterval(avisar, 60_000);
+    const id = setInterval(avisar, 30_000);
     document.addEventListener('visibilitychange', avisar);
     return () => {
       clearInterval(id);
@@ -1125,6 +1134,7 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
       const dark = ref.current.theme !== 'dark';
       const theme: St['theme'] = dark ? 'dark' : 'light';
       const next = { ...ref.current, theme };
+      definirTemaGlobal(theme);
       commit(next);
       guardarTema(next);
       toast(dark ? 'Tema escuro' : 'Tema claro');
@@ -1295,18 +1305,6 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
 
   const colors = getThemeColors(st.colorPreset, st.customPrimary, over);
   const isDark = st.theme === 'dark';
-  // O modo claro/escuro é o do site todo (classe "dark" no <html>): o painel aplica-o e não o desfaz ao sair
-  useEffect(() => {
-    const h = document.documentElement;
-    const darkAnterior = h.classList.contains('dark');
-    const esquemaAnterior = h.style.colorScheme;
-    h.classList.toggle('dark', isDark);
-    h.style.colorScheme = isDark ? 'dark' : 'light';
-    return () => {
-      h.classList.toggle('dark', darkAnterior);
-      h.style.colorScheme = esquemaAnterior;
-    };
-  }, [isDark]);
   const rgbPrim = hexToRgb(colors.primary);
   const darkGlassRail = rgbPrim && st.colorPreset !== 'black' && st.colorPreset !== 'puro_black'
     ? `rgba(${rgbPrim.r}, ${rgbPrim.g}, ${rgbPrim.b}, 0.16)`
@@ -1351,13 +1349,12 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
         <EntradaPainel
           ocupado={ocupado}
           escuro={isDark}
-          modo={modoTema}
           lang={st.lang}
           voltarA={inicial.current && inicial.current !== '/' ? BASE + inicial.current : undefined}
-          onModo={(m) => {
-            setModoTema(m);
-            const dark = m === 'dark' || (m === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-            commit({ ...ref.current, theme: dark ? 'dark' : 'light' });
+          onToggleTheme={() => {
+            const theme: St['theme'] = ref.current.theme === 'dark' ? 'light' : 'dark';
+            definirTemaGlobal(theme);
+            commit({ ...ref.current, theme });
           }}
           onLang={(l) => {
             commit({ ...ref.current, lang: l });

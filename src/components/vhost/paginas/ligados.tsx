@@ -1,7 +1,7 @@
 'use client';
 
 // Admin › Gestão de contas › Contas ligadas: mantém a tabela actual e acrescenta separadores para actividade e histórico.
-// Cada painel aberto avisa o servidor a cada minuto; a lista de contas ligadas actualiza-se a cada 5 s.
+// Cada aparelho avisa o servidor a cada 30 segundos; a lista de contas ligadas actualiza-se a cada 5 s.
 import { useCallback, useEffect, useState } from 'react';
 import { useVH, type VH } from '../context';
 import type { ScreenFn } from '../screens';
@@ -32,6 +32,7 @@ import { Confirmar } from './pacotes';
 
 type Ligada = {
   uid: string;
+  deviceId: string;
   email: string;
   nome: string;
   papel: string;
@@ -171,7 +172,7 @@ function Ligados() {
           umaLinha
           barraFora
           rows={dados.ligadas}
-          rowKey={(r) => r.uid}
+          rowKey={(r) => `${r.uid}:${r.deviceId}`}
           search={(r) => [r.nome, r.email, r.conta, r.aVer, r.plano, r.local, r.ip, r.aparelho].join(' ')}
           empty="Ninguém tem o painel aberto neste momento"
           cols={[
@@ -241,7 +242,7 @@ function Ligados() {
           <DataTable
             id="actividade-tempo-real-contas-ligadas"
             rows={dados.ligadas}
-            rowKey={(r) => r.uid}
+            rowKey={(r) => `${r.uid}:${r.deviceId}`}
             search={(r) => [r.nome, r.email, r.conta, r.aVer, r.secao, r.acao].join(' ')}
             empty="Ninguém está ligado neste momento"
             cols={[

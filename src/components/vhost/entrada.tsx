@@ -4,7 +4,7 @@
  * Página de entrada do painel, no modelo da do DirectAdmin (pedido do Silva a 11/10: os clientes não devem notar a
  * troca). Só para entrar no painel: o registo e a recuperação da palavra-passe continuam no site. Fundo com a foto,
  * cartão com o logótipo horizontal da VisualDesign, Utilizador e Palavra-passe, botão Entrar, data e hora por baixo;
- * em cima, à direita, o modo (claro · automático · escuro) e a língua. Entra pelo mesmo caminho do site (auth.signIn:
+ *  em cima, à direita, um botão para alternar o tema e a língua. Entra pelo mesmo caminho do site (auth.signIn:
  * aceita o nome de utilizador ou o e-mail).
  */
 import { useEffect, useRef, useState } from 'react';
@@ -14,17 +14,15 @@ import { BarrasDa } from './carregador-da';
 import { FundoPainel } from './triangulos';
 import { marcarEntrada } from '@/lib/vhost-cache';
 
-export type ModoTema = 'light' | 'auto' | 'dark';
-
 /** Língua escolhida na entrada ou no painel (fica guardada no navegador) */
 export const LINGUA_LS = 'visualhost_lang';
 
 const TXT = {
-  pt: { user: 'Utilizador', userPh: 'Escreva o nome de utilizador ou e-mail', senha: 'Palavra-passe', senhaPh: 'Escreva a sua palavra-passe', entrar: 'Entrar', falta: 'Escreva o utilizador e a palavra-passe.', errado: 'Utilizador ou palavra-passe errados.', bloqueado: (min: number) => `Acesso temporariamente bloqueado por demasiadas tentativas de login falhadas. Aguarde ${min} minuto${min === 1 ? '' : 's'} antes de tentar novamente.`, ligacao: MSG_LIGACAO, mostrar: 'Mostrar a palavra-passe', esconder: 'Esconder a palavra-passe', claro: 'Claro', auto: 'Automático', escuro: 'Escuro', voltar: 'Depois de entrar, volta a' },
-  en: { user: 'Username', userPh: 'Please enter username or email', senha: 'Password', senhaPh: 'Please enter your password', entrar: 'Sign in', falta: 'Please enter your username and password.', errado: 'Wrong username or password.', bloqueado: (min: number) => `Sign-in temporarily blocked after too many failed attempts. Wait ${min} minute${min === 1 ? '' : 's'} before trying again.`, ligacao: { ip: 'No connection to the sign-in server: the server blocked access from your IP after too many failed attempts on this network (for example, an email app with an old password). Ask support to unblock the IP.', internet: 'No internet connection. Check your network and try again.', servidor: 'The sign-in server is not responding. Try again in a minute.' }, mostrar: 'Show password', esconder: 'Hide password', claro: 'Light', auto: 'Auto', escuro: 'Dark', voltar: 'After signing in, you return to' },
+  pt: { user: 'Utilizador', userPh: 'Escreva o nome de utilizador ou e-mail', senha: 'Palavra-passe', senhaPh: 'Escreva a sua palavra-passe', entrar: 'Entrar', falta: 'Escreva o utilizador e a palavra-passe.', errado: 'Utilizador ou palavra-passe errados.', bloqueado: (min: number) => `Acesso temporariamente bloqueado por demasiadas tentativas de login falhadas. Aguarde ${min} minuto${min === 1 ? '' : 's'} antes de tentar novamente.`, ligacao: MSG_LIGACAO, mostrar: 'Mostrar a palavra-passe', esconder: 'Esconder a palavra-passe', claro: 'Tema claro', escuro: 'Tema escuro', voltar: 'Depois de entrar, volta a' },
+  en: { user: 'Username', userPh: 'Please enter username or email', senha: 'Password', senhaPh: 'Please enter your password', entrar: 'Sign in', falta: 'Please enter your username and password.', errado: 'Wrong username or password.', bloqueado: (min: number) => `Sign-in temporarily blocked after too many failed attempts. Wait ${min} minute${min === 1 ? '' : 's'} before trying again.`, ligacao: { ip: 'No connection to the sign-in server: the server blocked access from your IP after too many failed attempts on this network (for example, an email app with an old password). Ask support to unblock the IP.', internet: 'No internet connection. Check your network and try again.', servidor: 'The sign-in server is not responding. Try again in a minute.' }, mostrar: 'Show password', esconder: 'Hide password', claro: 'Light theme', escuro: 'Dark theme', voltar: 'After signing in, you return to' },
 };
 
-export function EntradaPainel({ ocupado = false, escuro, modo, lang, voltarA, onModo, onLang, onEntrou }: { ocupado?: boolean; escuro: boolean; modo: ModoTema; lang: Lang; voltarA?: string; onModo: (m: ModoTema) => void; onLang: (l: Lang) => void; onEntrou: () => void }) {
+export function EntradaPainel({ ocupado = false, escuro, lang, voltarA, onToggleTheme, onLang, onEntrou }: { ocupado?: boolean; escuro: boolean; lang: Lang; voltarA?: string; onToggleTheme: () => void; onLang: (l: Lang) => void; onEntrou: () => void }) {
   const tx = TXT[lang === 'en' ? 'en' : 'pt'];
   const [user, setUser] = useState('');
   const [senha, setSenha] = useState('');
@@ -81,7 +79,7 @@ export function EntradaPainel({ ocupado = false, escuro, modo, lang, voltarA, on
   return (
     <div className="ent">
       <FundoPainel escuro={escuro} />
-      <TopoEntrada modo={modo} lang={lang} onModo={onModo} onLang={onLang} />
+      <TopoEntrada escuro={escuro} lang={lang} onToggleTheme={onToggleTheme} onLang={onLang} />
       <div className="ent-meio">
         <form className="ent-cartao" onSubmit={entrar} noValidate>
           {/* o logótipo leva ao site da VisualDesign; no escuro, a versão com as letras brancas */}
@@ -123,9 +121,8 @@ export function EntradaPainel({ ocupado = false, escuro, modo, lang, voltarA, on
   );
 }
 
-/** Canto superior direito da entrada: modo claro · automático · escuro e a língua, num menu encostado à direita do ecrã
- *  como no DA (mais estreito) */
-function TopoEntrada({ modo, lang, onModo, onLang }: { modo: ModoTema; lang: Lang; onModo: (m: ModoTema) => void; onLang: (l: Lang) => void }) {
+/** Canto superior direito da entrada: um botão para alternar o tema e o menu da língua. */
+function TopoEntrada({ escuro, lang, onToggleTheme, onLang }: { escuro: boolean; lang: Lang; onToggleTheme: () => void; onLang: (l: Lang) => void }) {
   const tx = TXT[lang === 'en' ? 'en' : 'pt'];
   const [linguas, setLinguas] = useState(false);
   const caixa = useRef<HTMLDivElement>(null);
@@ -144,19 +141,15 @@ function TopoEntrada({ modo, lang, onModo, onLang }: { modo: ModoTema; lang: Lan
   }, [linguas]);
   return (
     <div className="ent-cima">
-      <div className="ent-modos" role="radiogroup" aria-label="Tema">
-        {(
-          [
-            ['light', 'fa-sun', tx.claro],
-            ['auto', 'fa-circle-half-stroke', tx.auto],
-            ['dark', 'fa-moon', tx.escuro],
-          ] as const
-        ).map(([m, fa, nome]) => (
-          <button key={m} type="button" role="radio" aria-checked={modo === m} className={modo === m ? 'on' : ''} onClick={() => onModo(m)} title={nome} aria-label={nome}>
-            <i className={'fa-solid ' + fa} />
-          </button>
-        ))}
-      </div>
+      <button
+        type="button"
+        className="ent-tema"
+        onClick={onToggleTheme}
+        title={escuro ? tx.claro : tx.escuro}
+        aria-label={escuro ? tx.claro : tx.escuro}
+      >
+        <i className={'fa-solid ' + (escuro ? 'fa-sun' : 'fa-moon')} aria-hidden />
+      </button>
       <div className="ent-lingua" ref={caixa}>
         <button type="button" onClick={() => setLinguas(!linguas)} aria-expanded={linguas}>
           <i className="fa-solid fa-globe" />

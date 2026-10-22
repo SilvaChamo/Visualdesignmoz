@@ -4,8 +4,9 @@
 // Mensagens. Pedidos de suporte e mensagens vêm das tabelas do site (tickets_suporte, ticket_respostas,
 // notifications) por /api/vhost/suporte e /api/vhost/mensagens; o perfil por /api/vhost/perfil e, para a
 // palavra-passe e as sessões, pelo Supabase Auth do navegador (com a sessão da própria pessoa).
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { supabase } from '@/lib/supabase-client';
+import { idDispositivoPresenca } from '@/lib/vhost-presenca-id';
 import { useVH, type VH } from '../context';
 import type { ScreenFn } from '../screens';
 import { DESC, MENU } from '../generated/data';
@@ -658,6 +659,16 @@ function PerfilSessoes() {
   const { t, openM } = vh;
   const { alheia, rota } = vista(vh);
   const { dados, erro, ler } = useGet<DadosPerfil>(rota('/api/vhost/perfil'));
+  const { dados: presenca, erro: erroPresenca, ler: lerPresenca } = useGet<{ ligadas: PresencaSessao[] }>(
+    alheia ? null : '/api/vhost/presenca?proprias=1',
+  );
+  const [deviceId, setDeviceId] = useState('');
+  useEffect(() => {
+    if (alheia) return;
+    setDeviceId(idDispositivoPresenca());
+    const intervalo = setInterval(() => void lerPresenca(true), 30_000);
+    return () => clearInterval(intervalo);
+  }, [alheia, lerPresenca]);
   if (!dados) return <Carregando erro={erro} ler={ler} />;
   if (alheia)
     return (
@@ -709,6 +720,35 @@ function PerfilSessoes() {
           </div>
         </div>
       </Sec>
+      <Sec titulo="Aparelhos com sessão recente" desc="A lista mostra os aparelhos que comunicaram com o painel nos últimos 30 minutos.">
+        {erroPresenca ? (
+          <div className="imp">
+            <i className="fa-solid fa-triangle-exclamation" />
+            <div>{erroPresenca}</div>
+            <button className="btn g sm" onClick={() => void lerPresenca()}>{t('Tentar de novo')}</button>
+          </div>
+        ) : presenca?.ligadas.length ? (
+          <div className="da-grelha">
+            <div className="da-lin n3">
+              {presenca.ligadas.map((sessao) => {
+                const ligado = Date.now() - sessao.ultimo < 2 * 60_000;
+                return (
+                  <div className="da-cel" key={`${sessao.uid}:${sessao.deviceId}`}>
+                    <i className="fa-solid fa-display" />
+                    <div>
+                      <small>{t(sessao.deviceId === deviceId ? 'Este aparelho' : 'Outro aparelho')} · {t(ligado ? 'Ligado' : 'Sem sinal')}</small>
+                      <span>{sessao.aparelho || t('Navegador')}</span>
+                      <small>{new Date(sessao.ultimo).toLocaleString(vh.s.lang === 'en' ? 'en' : 'pt-PT')}</small>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          <p>{t(presenca ? 'Não há aparelhos com sessão recente.' : 'A carregar aparelhos ligados…')}</p>
+        )}
+      </Sec>
       <Sec titulo="Outras sessões" desc="Se entrou noutro computador ou telemóvel e não terminou a sessão, pode terminá-las todas daqui. Esta fica aberta.">
         <button
           className="btn r"
@@ -720,7 +760,24 @@ function PerfilSessoes() {
                 ok="Terminar"
                 onOk={async () => {
                   const { error } = await supabase.auth.signOut({ scope: 'others' });
-                  vh.toast(error ? error.message : 'As outras sessões foram terminadas');
+                  if (error) {
+                    vh.toast(error.message);
+                    return;
+                  }
+                  try {
+                    const resposta = await fetch('/api/vhost/presenca', {
+                      method: 'DELETE',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ deviceId: deviceId || idDispositivoPresenca() }),
+                    });
+                    const resultado = (await resposta.json().catch(() => ({}))) as { erro?: string };
+                    if (!resposta.ok) throw new Error(resultado.erro || `HTTP ${resposta.status}`);
+                    await lerPresenca(true);
+                    vh.toast('As outras sessões foram terminadas');
+                  } catch (erroLimpeza) {
+                    console.error('[VisualHost] não foi possível actualizar a lista de sessões terminadas', erroLimpeza);
+                    vh.toast('As outras sessões foram terminadas, mas não foi possível actualizar a lista de aparelhos.');
+                  }
                 }}
               />,
             )
@@ -733,6 +790,13 @@ function PerfilSessoes() {
     </>
   );
 }
+
+type PresencaSessao = {
+  uid: string;
+  deviceId: string;
+  aparelho: string;
+  ultimo: number;
+};
 
 type Ligando = { id: string; qr: string; segredo: string };
 type Estado2p = { ligado: boolean; desde: string | null; codigos: number };

@@ -175,7 +175,7 @@ function UserWidgets() {
           <Stat title="Contas de e-mail" uso v={a.mails.length} m={'/ ' + (maxMail ?? '∞')} p={pctDe(a.mails.length, maxMail)} />
         </div>
         <div className="stats-line" />
-        <DomTable />
+        <DomTable recuoInicial />
       </div>
       <div className="cols-side">
         {/* atalhos só para as páginas que o plano da conta deixa ver (Admin › Acessos por plano) */}
