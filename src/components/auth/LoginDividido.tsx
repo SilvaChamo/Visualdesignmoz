@@ -2,23 +2,20 @@
 
 /**
  * Página de login do site dividida ao meio (pedido do Silva, 13/10/2026): à esquerda uma imagem com a mensagem da
- * VisualDesign, à direita o formulário; no canto de cima à direita os mesmos botões da entrada do painel, no mesmo sítio
- * (modo claro · automático · escuro e a língua — src/components/vhost/entrada.tsx, TopoEntrada). No telemóvel e no
+ * VisualDesign, à direita o formulário; no canto de cima à direita os mesmos controlos da entrada do painel, no mesmo sítio
+ * (um botão de tema e a língua — src/components/vhost/entrada.tsx, TopoEntrada). No telemóvel e no
  * tablet a foto fica por trás, a ocupar o ecrã, com o formulário ao centro por cima dela (Silva, 14/10/2026: o
  * formulário sempre ao centro e com a imagem, em todos os aparelhos). No escuro, as cores do tema escuro do painel (o fundo é a parte mais escura
  * dele, --bg #15161e; linhas #393e4d; caixas #272a34).
  */
 import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
-import { Contrast, Globe, Mail, Moon, Server, Sun, type LucideIcon } from 'lucide-react'
+import { Globe, Mail, Moon, Server, Sun, type LucideIcon } from 'lucide-react'
 import { useTheme } from '@/contexts/ThemeContext'
 import { useI18n } from '@/lib/i18n'
 
-/** as mesmas chaves que a entrada do painel lê (entrada.tsx: modo do tema e LINGUA_LS) — o painel abre igual */
-const MODO_LS = 'visualhost_theme'
+/** a mesma chave de língua que a entrada do painel lê */
 const LINGUA_LS = 'visualhost_lang'
-
-type Modo = 'light' | 'auto' | 'dark'
 
 /** O modelo aprovado (Silva, 13/10/2026): no computador, a aba branca com o logótipo a entrar pela foto. Montado uma
  *  só vez pelo layout de src/app/(entrada) — as quatro páginas de entrada trocam só o conteúdo do cartão */
@@ -130,22 +127,13 @@ function FaixaBranca() {
   )
 }
 
-/** Canto de cima à direita: modo claro · automático · escuro e a língua, com as medidas da entrada do painel. No
+/** Canto de cima à direita: um botão de tema e a língua, com as medidas da entrada do painel. No
  *  telemóvel e no tablet (sem a imagem) ficam ao centro, num cabeçalho com uma linha por baixo (pedido do Silva) */
 function BotoesCanto() {
-  const { theme, setTheme } = useTheme()
-  const { lang, toggleLang } = useI18n()
-  const [modo, setModo] = useState<Modo>('light')
+  const { theme, toggleTheme } = useTheme()
+  const { lang, toggleLang, t } = useI18n()
   const [linguas, setLinguas] = useState(false)
   const caixa = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    let auto = false
-    try {
-      auto = localStorage.getItem(MODO_LS) === 'auto'
-    } catch {}
-    setModo(auto ? 'auto' : theme)
-  }, [theme])
 
   useEffect(() => {
     if (!linguas) return
@@ -159,14 +147,6 @@ function BotoesCanto() {
     }
   }, [linguas])
 
-  const escolherModo = (m: Modo) => {
-    setModo(m)
-    const escuro = m === 'dark' || (m === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches)
-    setTheme(escuro ? 'dark' : 'light')
-    try {
-      localStorage.setItem(MODO_LS, m)
-    } catch {}
-  }
   const escolherLingua = (l: 'pt' | 'en') => {
     if (l !== lang) toggleLang()
     try {
@@ -175,35 +155,17 @@ function BotoesCanto() {
     setLinguas(false)
   }
 
-  const modos: [Modo, LucideIcon, string][] = [
-    ['light', Sun, lang === 'en' ? 'Light' : 'Claro'],
-    ['auto', Contrast, lang === 'en' ? 'Auto' : 'Automático'],
-    ['dark', Moon, lang === 'en' ? 'Dark' : 'Escuro'],
-  ]
   return (
     <div className="absolute inset-x-0 top-0 z-20 flex items-center justify-center gap-6 border-b border-zinc-200 bg-[#fff] px-4 py-3 dark:border-[#393e4d] dark:bg-[#15161e] sm:gap-[34px] lg:inset-x-auto lg:right-4 lg:top-[10px] lg:justify-end lg:border-0 lg:bg-transparent lg:p-0 lg:dark:bg-transparent">
-      <div className="relative flex items-center gap-[14px]" role="radiogroup" aria-label={lang === 'en' ? 'Theme' : 'Tema'}>
-        <span aria-hidden className="absolute left-[18px] right-[18px] top-1/2 h-px bg-zinc-900/20 dark:bg-white/25" />
-        {modos.map(([m, Icone, nome]) => (
-          <button
-            key={m}
-            type="button"
-            role="radio"
-            aria-checked={modo === m}
-            onClick={() => escolherModo(m)}
-            title={nome}
-            aria-label={nome}
-            className={
-              'relative grid h-[34px] w-[34px] place-items-center rounded-full transition-colors ' +
-              (modo === m
-                ? 'bg-red-600 text-white shadow-[0_0_0_3px_rgba(220,38,38,0.3)]'
-                : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200 dark:bg-[#272a34] dark:text-zinc-200 dark:hover:bg-[#303440]')
-            }
-          >
-            <Icone className="h-[15px] w-[15px]" strokeWidth={2.25} aria-hidden />
-          </button>
-        ))}
-      </div>
+      <button
+        type="button"
+        onClick={toggleTheme}
+        title={theme === 'dark' ? t('Tema claro') : t('Tema escuro')}
+        aria-label={theme === 'dark' ? t('Mudar para tema claro') : t('Mudar para tema escuro')}
+        className="grid h-[34px] w-[34px] place-items-center rounded-full bg-zinc-100 text-zinc-700 transition-colors hover:bg-zinc-200 dark:bg-[#272a34] dark:text-zinc-200 dark:hover:bg-[#303440]"
+      >
+        {theme === 'dark' ? <Sun className="h-[15px] w-[15px]" strokeWidth={2.25} aria-hidden /> : <Moon className="h-[15px] w-[15px]" strokeWidth={2.25} aria-hidden />}
+      </button>
       <div className="relative" ref={caixa}>
         <button
           type="button"

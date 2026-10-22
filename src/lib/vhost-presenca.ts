@@ -2,13 +2,15 @@
  * Contas ligadas ao painel (Admin › Gestão de contas › Contas ligadas — pedido do Silva, 16/10/2026): quem tem o painel
  * aberto agora, em que conta e plano, de onde (IP → cidade e país) e com que aparelho.
  *
- * Cada painel aberto avisa a cada minuto (POST /api/vhost/presenca); aqui fica em memória do servidor (um só processo no
- * Contabo). Uma pessoa some da lista 30 min depois do último aviso. Ao reiniciar o site a lista volta a encher-se num
- * minuto — não é um registo histórico.
+ * Cada navegador avisa a cada 30 segundos (POST /api/vhost/presenca); a memória é separada por pessoa e aparelho.
+ * Uma presença some da lista 30 min depois do último aviso. Ao reiniciar o site a lista volta a encher-se com os avisos
+ * seguintes — não é um registo histórico.
  */
 export type Presenca = {
   /** id da pessoa (Supabase Auth) */
   uid: string;
+  /** identidade anónima deste navegador */
+  deviceId: string;
   email: string;
   nome: string;
   papel: string;
@@ -30,8 +32,8 @@ const GUARDA_MS = 30 * 60_000;
 const presencas = new Map<string, Presenca>();
 
 export function registarPresenca(p: Omit<Presenca, 'desde' | 'local' | 'secao' | 'acao'> & { local?: string; secao?: string; acao?: string }): Presenca {
-  const antes = presencas.get(p.uid);
-  // nova entrada (ou outra máquina): conta outra vez desde agora
+  const chave = `${p.uid}:${p.deviceId}`;
+  const antes = presencas.get(chave);
   const desde = antes && antes.ip === p.ip && Date.now() - antes.ultimo < GUARDA_MS ? antes.desde : Date.now();
   const nova: Presenca = {
     ...p,
@@ -40,7 +42,7 @@ export function registarPresenca(p: Omit<Presenca, 'desde' | 'local' | 'secao' |
     acao: p.acao || antes?.acao || '',
     desde,
   };
-  presencas.set(p.uid, nova);
+  presencas.set(chave, nova);
   return nova;
 }
 
@@ -48,6 +50,12 @@ export function listarPresencas(): Presenca[] {
   const limite = Date.now() - GUARDA_MS;
   for (const [k, v] of presencas) if (v.ultimo < limite) presencas.delete(k);
   return [...presencas.values()].sort((a, b) => b.ultimo - a.ultimo);
+}
+
+export function removerOutrasPresencas(uid: string, deviceId: string): void {
+  for (const [chave, presenca] of presencas) {
+    if (presenca.uid === uid && presenca.deviceId !== deviceId) presencas.delete(chave);
+  }
 }
 
 /** "Chrome · Windows", "Safari · iPhone" … */

@@ -18,11 +18,10 @@ export const metadata = {
   description: 'Painel de alojamento da VisualDesign',
 };
 
-// Antes de o painel aparecer (evita piscar em branco): sem o tema da conta no cookie (primeira vez neste navegador), o
-// modo escolhido na entrada; e a página toda no modo do painel, barras de deslocamento incluídas (o painel faz o mesmo
-// depois de ligado)
-const temaScript = (doLogin: boolean) =>
-  `try{var e=document.querySelector('.vh:not(.vh-carga)');if(e){${doLogin ? "var t=localStorage.getItem('visualhost_theme');if(t==='auto')t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';if(t==='dark'||t==='light')e.dataset.theme=t;" : ''}var d=e.dataset.theme==='dark',h=document.documentElement;h.classList.toggle('dark',d);h.style.colorScheme=d?'dark':'light'}}catch(e){}`;
+// Antes de o painel aparecer (evita piscar em branco), respeita primeiro o tema partilhado com o site. Se ainda não
+// houver escolha global, mantém como alternativa o tema da conta já desenhado no servidor.
+const temaScript = (fallback?: 'light' | 'dark') =>
+  `try{var e=document.querySelector('.vh:not(.vh-carga)'),m=document.cookie.match(/(?:^|; )vd-theme=(light|dark)(?:;|$)/),t=m?m[1]:localStorage.getItem('vd-theme'),d=t==='dark'||(t!=='light'&&${fallback ? fallback === 'dark' : "matchMedia('(prefers-color-scheme: dark)').matches"}),h=document.documentElement;if(e)e.dataset.theme=d?'dark':'light';h.classList.toggle('dark',d);h.style.colorScheme=d?'dark':'light'}catch(e){}`;
 
 /** Quanto a página espera pelos dados no servidor. Normalmente vêm logo (a última leitura fica em memória — ver
  *  lerDadosPainel); só depois de o site arrancar é que é preciso ler o servidor. Enquanto se espera, vê-se a página
@@ -39,13 +38,24 @@ export default async function VisualHostLayout({ children }: { children: React.R
     return (
       <>
         <VisualHostApp semSessao />
-        <script dangerouslySetInnerHTML={{ __html: temaScript(true) }} />
+        <script dangerouslySetInnerHTML={{ __html: temaScript() }} />
         {children}
       </>
     );
   }
   // tema da própria conta guardado pelo painel neste navegador (cookie)
-  const doCookie = temaDoCookie(jar.get(COOKIE_TEMA)?.value);
+  const temaContaCookie = temaDoCookie(jar.get(COOKIE_TEMA)?.value);
+  const temaGlobalValor = jar.get('vd-theme')?.value;
+  const temaGlobalCookie: TemaConta['theme'] | null = temaGlobalValor === 'light' || temaGlobalValor === 'dark' ? temaGlobalValor : null;
+  const doCookie = temaContaCookie
+    ? {
+        ...temaContaCookie,
+        tema: {
+          ...temaContaCookie.tema,
+          theme: temaGlobalCookie || temaContaCookie.tema.theme,
+        },
+      }
+    : null;
   // A página sai logo com o carregador do DA (as três barras, no fundo e na cor do tema da conta) e o painel entra no
   // lugar dele quando os dados chegam: nunca a tela branca ao recarregar (Silva, 16/10/2026). Se chegarem depressa, o
   // navegador continua a mostrar a página anterior até ao painel e as barras nem se veem.
@@ -77,7 +87,7 @@ async function PainelComDados({ doCookie }: { doCookie: { conta: string; tema: T
       {/* a versão do servidor que desenhou esta página: o painel compara-a com /api/versao para passar sozinho para
           a versão nova depois de uma publicação */}
       <VisualHostApp versao={versaoBuild()} dados={dados} tema={tema} />
-      <script dangerouslySetInnerHTML={{ __html: temaScript(!tema) }} />
+      <script dangerouslySetInnerHTML={{ __html: temaScript(tema?.theme) }} />
     </>
   );
 }

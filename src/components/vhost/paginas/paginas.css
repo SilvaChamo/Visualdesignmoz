@@ -6613,40 +6613,18 @@
    background: #1c1d21
 }
 
-/* canto superior direito: modo (claro · automático · escuro) e língua */
+/* canto superior direito: tema e língua */
 .vh .ent-cima {
    position: relative;
    z-index: 3;
    display: flex;
    justify-content: flex-end;
    align-items: center;
-   gap: 34px;
+   gap: 22px;
    padding: 10px 16px 0
 }
 
-.vh .ent-modos {
-   display: flex;
-   align-items: center;
-   gap: 14px;
-   position: relative
-}
-
-.vh .ent-modos::before {
-   content: "";
-   position: absolute;
-   left: 18px;
-   right: 18px;
-   top: 50%;
-   height: 1px;
-   background: color-mix(in srgb, var(--ink) 25%, transparent)
-}
-
-.vh[data-theme=dark] .ent-modos::before {
-   background: rgba(255, 255, 255, .25)
-}
-
-.vh .ent-modos button {
-   position: relative;
+.vh .ent-tema {
    width: 34px;
    height: 34px;
    border-radius: 50%;
@@ -6659,15 +6637,9 @@
    place-items: center
 }
 
-.vh[data-theme=dark] .ent-modos button {
+.vh[data-theme=dark] .ent-tema {
    background: #25262b;
    color: #e5e7eb
-}
-
-.vh .ent-modos button.on {
-   background: var(--red);
-   color: #fff;
-   box-shadow: 0 0 0 3px color-mix(in srgb, var(--red) 30%, transparent)
 }
 
 .vh .ent-lingua {
@@ -8703,6 +8675,27 @@
    display: none
 }
 
+@media(min-width:769px) {
+   .vh .tbl.dt-empilhar.dominios-widget-list.com-recuo-inicial thead th {
+      text-align: center
+   }
+
+   .vh .tbl.dt-empilhar.dominios-widget-list.com-recuo-inicial thead th:first-child {
+      text-align: left;
+      padding-left: 12px
+   }
+
+   .vh .tbl.dt-empilhar.dominios-widget-list.com-recuo-inicial tbody td:first-child {
+      padding-left: 12px;
+      text-align: left
+   }
+
+   .vh .tbl.dt-empilhar.dominios-widget-list thead th:nth-child(3),
+   .vh .tbl.dt-empilhar.dominios-widget-list tbody td:nth-child(3) {
+      text-align: center
+   }
+}
+
 @media(max-width:768px) {
    .vh .top:is(.painel-inicio, .painel-entrada) .ptitle .desktop-title {
       display: none
@@ -9022,7 +9015,7 @@
 
 /* Painel (widget dos domínios), telemóvel: o nome do campo em negrito, com a mesma fonte e o mesmo tamanho do valor, e
    os valores (Válido, 0, 8.3, 48 MB, Ativo) todos encostados à esquerda numa mesma linha vertical invisível; a coluna
-   dos nomes (7em) cabe o mais comprido, "Disco do site" (Silva, 16/10/2026) */
+   dos nomes (7em) cabe o mais comprido, "Disco" (Silva, 16/10/2026) */
 @media(max-width:768px) {
    .vh .tbl.dt-empilhar.dominios-widget-list tbody td[data-t] {
       gap: 25px;

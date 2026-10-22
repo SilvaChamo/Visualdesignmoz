@@ -2,15 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requirePanelBootstrapAccess } from '@/lib/panel-api-auth';
 import { lerRegisto } from '@/lib/vhost-dados';
 import { lerServidor } from '@/lib/vhost-servidor';
-import { aparelhoDe, listarPresencas, localDoIp, registarPresenca } from '@/lib/vhost-presenca';
+import { aparelhoDe, listarPresencas, localDoIp, registarPresenca, removerOutrasPresencas } from '@/lib/vhost-presenca';
 import { guardarEventoHistoricoVhost } from '@/lib/vhost-activity-history';
 
 export const dynamic = 'force-dynamic';
 
 /**
  * /api/vhost/presenca — Contas ligadas (Admin › Gestão de contas › Contas ligadas, pedido do Silva, 16/10/2026).
- * POST (sessão do painel)  { aVer?, pagina? }  — o painel aberto avisa a cada minuto que continua aberto
- * GET  (só admin)          { ligadas: [...] }  — quem tem o painel aberto, conta, plano, local, aparelho
+ * POST (sessão do painel)  { deviceId, aVer?, pagina? } — actualiza a presença anónima deste aparelho
+ * GET  (só admin ou própria pessoa) { ligadas: [...] } — presença global para Admin, própria para Perfil
+ * DELETE (própria pessoa)  { deviceId } — limpa a presença dos outros aparelhos após terminar as sessões
  * A pessoa e a sua conta vêm da sessão e do registo do site (nunca do pedido); o plano lê-se do servidor na altura.
  */
 const CONTA = /^[a-z0-9_.-]{1,60}$/;
@@ -28,11 +29,16 @@ export async function POST(req: NextRequest) {
   const auth = await requirePanelBootstrapAccess();
   if ('error' in auth) return NextResponse.json({ erro: 'Inicie sessão.' }, { status: 401 });
   const c = (await req.json().catch(() => ({}))) as {
+    deviceId?: unknown;
     aVer?: unknown;
     pagina?: unknown;
     secao?: unknown;
     evento?: { tipo?: unknown; secao?: unknown; acao?: unknown; duracaoSegundos?: unknown };
   };
+  const deviceId = typeof c.deviceId === 'string' ? c.deviceId : 'navegador-antigo';
+  if (!/^[\da-f-]{36}$/i.test(deviceId) && deviceId !== 'navegador-antigo') {
+    return NextResponse.json({ erro: 'Identidade do aparelho inválida.' }, { status: 400 });
+  }
   const reg = await lerRegisto().catch(() => null);
   const perfil = reg?.perfis.get(auth.user.id);
   const conta = perfil?.conta || (reg ? [...reg.contas].find(([, r]) => r.authUserId === auth.user.id)?.[0] : '') || '';
@@ -60,6 +66,7 @@ export async function POST(req: NextRequest) {
   const pais = req.headers.get('cf-ipcountry') || '';
   const p = registarPresenca({
     uid: auth.user.id,
+    deviceId,
     email: auth.user.email || perfil?.email || '',
     nome: (perfil?.name || '').trim(),
     papel: auth.user.role,
@@ -92,12 +99,26 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ ok: true });
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const auth = await requirePanelBootstrapAccess();
   if ('error' in auth) return NextResponse.json({ erro: 'Inicie sessão.' }, { status: 401 });
-  if (auth.user.role !== 'admin') return NextResponse.json({ erro: 'Só o administrador vê as contas ligadas.' }, { status: 403 });
-  const srv = await lerServidor().catch(() => null);
+  const proprias = req.nextUrl.searchParams.get('proprias') === '1';
+  if (auth.user.role !== 'admin' && !proprias) return NextResponse.json({ erro: 'Só o administrador vê as contas ligadas.' }, { status: 403 });
+  const srv = proprias ? null : await lerServidor().catch(() => null);
   const plano = (u: string) => (u && srv?.users[u]?.PACKAGE) || '';
-  const ligadas = listarPresencas().map((p) => ({ ...p, plano: plano(p.conta), planoAVer: plano(p.aVer) }));
+  const presencas = listarPresencas().filter((p) => (!proprias && auth.user.role === 'admin') || p.uid === auth.user.id);
+  const ligadas = presencas.map((p) => ({ ...p, plano: plano(p.conta), planoAVer: plano(p.aVer) }));
   return NextResponse.json({ ligadas, agora: Date.now() }, { headers: { 'Cache-Control': 'no-store' } });
+}
+
+export async function DELETE(req: NextRequest) {
+  const auth = await requirePanelBootstrapAccess();
+  if ('error' in auth) return NextResponse.json({ erro: 'Inicie sessão.' }, { status: 401 });
+  const corpo = (await req.json().catch(() => ({}))) as { deviceId?: unknown };
+  const deviceId = corpo.deviceId;
+  if (typeof deviceId !== 'string' || !/^[\da-f-]{36}$/i.test(deviceId)) {
+    return NextResponse.json({ erro: 'Identidade do aparelho inválida.' }, { status: 400 });
+  }
+  removerOutrasPresencas(auth.user.id, deviceId);
+  return NextResponse.json({ ok: true });
 }
