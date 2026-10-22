@@ -129,7 +129,7 @@ export function resolvePanelInnerRedirect(
  * Redirecções de rotas API do painel. Usa o hostname REAL do pedido
  * recebido (via `requestHostname`, tipicamente `getRequestHostname()`)
  * quando disponível e válido — o painel serve mais do que um domínio
- * (ex.: painel.visualdesignmoz.com, além de visualdesignmoz.com), e uma
+ * (além de visualdesignmoz.com, o endereço do painel pode ser outro), e uma
  * cookie definida na resposta anterior (ex.: impersonar revendedor) só
  * chega ao pedido seguinte se o redirect ficar no MESMO domínio onde foi
  * definida. Só cai para a origem pública (NEXT_PUBLIC_SITE_URL) quando o

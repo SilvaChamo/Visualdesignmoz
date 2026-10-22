@@ -139,7 +139,7 @@ export async function GET(req: NextRequest) {
       return adminListRedirect(hostname, result.error);
     }
     // O redirect tem de ficar no MESMO domínio onde a cookie de impersonação
-    // acabou de ser definida (ex.: painel.visualdesignmoz.com) — se saltar
+    // acabou de ser definida (o painel serve mais do que um domínio) — se saltar
     // para outro domínio, a cookie nunca chega ao pedido seguinte e o
     // painel do revendedor mostra sempre os dados do próprio admin.
     const target = resolvePanelApiRedirect('/revendedor?impersonate=1', hostname);

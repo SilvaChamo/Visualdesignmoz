@@ -8,7 +8,6 @@ const LEGACY_DIRECTADMIN_HOSTS = new Set([
   'host.visualdesigne.com',
   'painel.visualdesigne.com',
   'visualdesignmoz.com',
-  'painel.visualdesignmoz.com',
 ]);
 
 function cleanRawValue(value?: string) {

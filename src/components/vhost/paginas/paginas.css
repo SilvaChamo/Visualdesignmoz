@@ -12967,3 +12967,45 @@
 .vh .stat strong span {
    font-size: calc(12.5px * var(--fs, 1))
 }
+
+/* Botãozinho de atualizar o CPU (Silva, 22/10/2026): o painel já não lê o estado do servidor sozinho */
+.vh .stat {
+   position: relative
+}
+
+.vh .stat-acao {
+   position: absolute;
+   top: 6px;
+   right: 6px
+}
+
+.vh .stat-refresh {
+   width: 22px;
+   height: 22px;
+   padding: 0;
+   display: inline-flex;
+   align-items: center;
+   justify-content: center;
+   border: 0;
+   border-radius: 4px;
+   background: transparent;
+   color: var(--muted);
+   font-size: 11px;
+   cursor: pointer
+}
+
+.vh .stat-refresh:hover:not(:disabled) {
+   background: var(--soft);
+   color: var(--red)
+}
+
+.vh .stat-refresh:disabled {
+   cursor: default
+}
+
+.vh .stat-refresh-linha {
+   width: 18px;
+   height: 18px;
+   margin-left: 2px;
+   font-size: 10px
+}
