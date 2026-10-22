@@ -4,7 +4,7 @@ set -euo pipefail
 
 SERVER_HOST="${SERVER_HOST:-teste.visualdesignmoz.com}"
 SERVER_USER="${SERVER_USER:-root}"
-SSH_PORT="${SSH_PORT:-22}"
+SSH_PORT="${SSH_PORT:-2234}"  # o SSH do Contabo está na 2234 desde 22/10/2026 (a 22 fechou)
 SSH_KEY="${SSH_KEY:-$HOME/.ssh/claude_contabo}"
 REMOTE_DIR="${REMOTE_DIR:-/opt/visualdesign-panel}"
 APP_PORT="${APP_PORT:-3002}"
@@ -66,7 +66,7 @@ env_args+=(
   "HESTIA_PORT=8083"
   "HESTIA_USER=vdadmin"
   "SERVER_IP=169.58.148.144"
-  "SERVER_SSH_PORT=22"
+  "SERVER_SSH_PORT=2234"
   "SERVER_SSH_USER=root"
   "SERVER_USE_LOCAL_EXEC=true"
   "PORT=$APP_PORT"
