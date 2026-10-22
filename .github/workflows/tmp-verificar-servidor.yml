@@ -1,0 +1,58 @@
+name: TMP verificar servidor (só leitura)
+
+# Ficheiro temporário da auditoria de 22/10/2026 (leitura autorizada pelo Silva): só lê, não altera nada e não escreve segredos nos registos.
+# Corre ao enviar para o ramo de trabalho. Apagar depois de lido.
+
+on:
+  push:
+    branches:
+      - claude/amazing-meitner-by67l4
+    paths:
+      - '.github/workflows/tmp-verificar-servidor.yml'
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Portas vistas de fora
+        run: |
+          for p in 22 2234; do
+            if timeout 6 bash -c "echo > /dev/tcp/${{ secrets.CONTABO_HOST }}/$p" 2>/dev/null; then echo "porta $p: ABERTA"; else echo "porta $p: fechada ou sem resposta"; fi
+          done
+
+      - name: Servidor (só leitura)
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          port: 2234
+          username: root
+          key: ${{ secrets.CONTABO_SSH_KEY }}
+          command_timeout: 5m
+          script: |
+            echo "=== portas à escuta no servidor (22 / 2234) ==="
+            ss -tln | grep -E ':(22|2234)\b' || echo "(nenhuma)"
+            echo "=== regras de firewall com 22 ou 2234 ==="
+            iptables -S 2>/dev/null | grep -E 'dport (22|2234)\b' | head -10 || true
+            echo "=== sites aamihe / entrecampos ==="
+            for d in aamihe.com entrecamposblog.com entrecampos.co.mz; do
+              for root in /home/*/web/$d/public_html; do
+                [ -f "$root/wp-config.php" ] || continue
+                echo "--- $d  ($root)"
+                echo "wp-config, constantes de armazenamento externo (só os nomes):"
+                grep -ohE "(S3_UPLOADS_[A-Z_]+|AS3CF_[A-Z_]+|WP_OFFLOAD[A-Z_]*)" "$root/wp-config.php" | sort -u || true
+                echo "referências 'objectstorage' no wp-config: $(grep -c 'objectstorage' "$root/wp-config.php")"
+                echo "mu-plugins:"; ls "$root/wp-content/mu-plugins" 2>/dev/null || echo "(sem pasta)"
+                echo "plugins com s3/offload/storage:"; ls "$root/wp-content/plugins" 2>/dev/null | grep -iE "s3|offload|storage|media-cloud" || echo "(nenhum)"
+                echo "uploads locais: $(du -sh "$root/wp-content/uploads" 2>/dev/null | cut -f1) / $(find "$root/wp-content/uploads" -type f 2>/dev/null | wc -l) ficheiros"
+                U=$(stat -c %U "$root")
+                if command -v wp >/dev/null 2>&1; then
+                  P=$(sudo -u "$U" wp --path="$root" db prefix 2>/dev/null | tail -1)
+                  echo "posts com ligações para o armazém do Hetzner: $(sudo -u "$U" wp --path="$root" db query "SELECT COUNT(*) FROM ${P}posts WHERE post_content LIKE '%your-objectstorage%' OR guid LIKE '%your-objectstorage%'" --skip-column-names 2>/dev/null | tail -1)"
+                  echo "anexos (imagens) na biblioteca: $(sudo -u "$U" wp --path="$root" db query "SELECT COUNT(*) FROM ${P}posts WHERE post_type='attachment'" --skip-column-names 2>/dev/null | tail -1)"
+                fi
+              done
+            done
+            echo "=== o armazém do Hetzner ainda responde? ==="
+            curl -sS -m 8 -o /dev/null -w "HTTP %{http_code}\n" https://visualdesign-storage.hel1.your-objectstorage.com/ 2>&1 || true
+            echo "=== ficheiros mu-plugins do servidor que mencionam o armazém (só nomes) ==="
+            grep -rl "your-objectstorage" /home/*/web/*/public_html/wp-content/mu-plugins 2>/dev/null | head -10 || true
