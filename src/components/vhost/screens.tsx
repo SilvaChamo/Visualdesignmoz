@@ -87,7 +87,7 @@ export const cpuServidor = (v: { cpuPct?: number; carga: [number, number, number
   v.cpuPct != null && v.cpuPct >= 0 ? v.cpuPct : Math.min(100, Math.round((v.carga[0] / Math.max(1, v.cpus)) * 1000) / 10);
 
 function AdminWidgets() {
-  const { s, go } = useVH();
+  const { s, go, t } = useVH();
   const all = Object.entries(s.acc);
   const v = s.srv;
   const { data: vivo } = useSystemStatus();
@@ -97,11 +97,18 @@ function AdminWidgets() {
     <div className="cols">
       <div className="da-main-card cols-main">
         <div className="stats">
-          <Stat title="Contas" v={all.length} m="/ ∞" p={Math.min(100, all.length * 5)} />
-          <Stat title="Revendedores" v={all.filter(([, a]) => a.role === 'revenda').length} m="/ ∞" p={Math.min(100, all.filter(([, a]) => a.role === 'revenda').length * 10)} />
-          {/* números reais do servidor, explícitos (Silva, 14/10/2026): "41,8 GB de 300 GB · 14%", "13% de 6 núcleos" */}
-          <Stat title="Disco usado" v={v ? gbTxt(v.discoUsadoGb) : '—'} m={v ? 'de ' + gbTxt(v.discoTotalGb) + ' · ' + pctDe(v.discoUsadoGb, v.discoTotalGb) + '%' : ''} p={v ? pctDe(v.discoUsadoGb, v.discoTotalGb) : 0} />
-          <Stat title="Consumo CPU" v={v ? String(cpuAgora).replace('.', ',') + '%' : '—'} m={v ? 'de ' + v.cpus + ' núcleos' : ''} p={v ? cpuAgora : 0} />
+          {/* sem limite (∞) a barra fica vazia: antes enchia com o número de contas (6 contas = 30 %, a vermelho) e dizia o que não era verdade */}
+          <Stat title="Contas" v={all.length} m="/ ∞" p={0} />
+          <Stat title="Revendedores" v={all.filter(([, a]) => a.role === 'revenda').length} m="/ ∞" p={0} />
+          {/* números reais do servidor, explícitos (Silva, 14/10/2026): "41,8 GB de 300 GB" (a percentagem vai no título, para cada informação ficar numa linha), "13% de 6 núcleos" */}
+          <Stat
+            title={<>{t('Disco usado')}{v ? ' · ' + pctDe(v.discoUsadoGb, v.discoTotalGb) + '%' : ''}</>}
+            uso
+            v={v ? gbTxt(v.discoUsadoGb) : '—'}
+            m={v ? 'de ' + gbTxt(v.discoTotalGb) : ''}
+            p={v ? pctDe(v.discoUsadoGb, v.discoTotalGb) : 0}
+          />
+          <Stat title="Consumo CPU" uso v={v ? String(cpuAgora).replace('.', ',') + '%' : '—'} m={v ? 'de ' + v.cpus + ' núcleos' : ''} p={v ? cpuAgora : 0} />
         </div>
         <div className="stats-line" />
         <UsersTable rows={all} showCreator={false} />
@@ -133,10 +140,10 @@ function RevendaWidgets() {
     <div className="cols">
       <div className="da-main-card cols-main">
         <div className="stats">
-          <Stat title="Clientes" v={mine.length} m={'/ ' + (maxU ?? '∞')} p={pctDe(mine.length, maxU)} />
-          <Stat title="Domínios dos clientes" v={doms} m={'/ ' + (maxD ?? '∞')} p={pctDe(doms, maxD)} />
-          <Stat title="Disco usado" v={mbTexto(disco)} m={'/ ' + (maxDisco ? mbTexto(maxDisco) : '∞')} p={pctDe(disco, maxDisco)} />
-          <Stat title="Tráfego este mês" v={mbTexto(bw)} m={'/ ' + (maxBw ? mbTexto(maxBw) : '∞')} p={pctDe(bw, maxBw)} />
+          <Stat title="Clientes" uso v={mine.length} m={'/ ' + (maxU ?? '∞')} p={pctDe(mine.length, maxU)} />
+          <Stat title="Domínios dos clientes" uso v={doms} m={'/ ' + (maxD ?? '∞')} p={pctDe(doms, maxD)} />
+          <Stat title="Disco usado" uso v={mbTexto(disco)} m={'/ ' + (maxDisco ? mbTexto(maxDisco) : '∞')} p={pctDe(disco, maxDisco)} />
+          <Stat title="Tráfego este mês" uso v={mbTexto(bw)} m={'/ ' + (maxBw ? mbTexto(maxBw) : '∞')} p={pctDe(bw, maxBw)} />
         </div>
         <div className="stats-line" />
         <UsersTable rows={mine} showCreator={false} />
@@ -162,10 +169,10 @@ function UserWidgets() {
     <div className="cols">
       <div className="da-main-card cols-main">
         <div className="stats">
-          <Stat title="Espaço em disco" v={a.disk} m={'/ ' + (a.discoLimMb ? mbTexto(a.discoLimMb) : '∞')} p={pctDe(a.discoMb || 0, a.discoLimMb)} />
-          <Stat title="Tráfego este mês" v={mbTexto(a.bwMb || 0)} m={'/ ' + (a.bwLimMb ? mbTexto(a.bwLimMb) : '∞')} p={pctDe(a.bwMb || 0, a.bwLimMb)} />
-          <Stat title="Domínios" v={a.domains.length} m={'/ ' + (maxDom ?? '∞')} p={pctDe(a.domains.length, maxDom)} />
-          <Stat title="Contas de e-mail" v={a.mails.length} m={'/ ' + (maxMail ?? '∞')} p={pctDe(a.mails.length, maxMail)} />
+          <Stat title="Espaço em disco" uso v={a.disk} m={'/ ' + (a.discoLimMb ? mbTexto(a.discoLimMb) : '∞')} p={pctDe(a.discoMb || 0, a.discoLimMb)} />
+          <Stat title="Tráfego este mês" uso v={mbTexto(a.bwMb || 0)} m={'/ ' + (a.bwLimMb ? mbTexto(a.bwLimMb) : '∞')} p={pctDe(a.bwMb || 0, a.bwLimMb)} />
+          <Stat title="Domínios" uso v={a.domains.length} m={'/ ' + (maxDom ?? '∞')} p={pctDe(a.domains.length, maxDom)} />
+          <Stat title="Contas de e-mail" uso v={a.mails.length} m={'/ ' + (maxMail ?? '∞')} p={pctDe(a.mails.length, maxMail)} />
         </div>
         <div className="stats-line" />
         <DomTable />

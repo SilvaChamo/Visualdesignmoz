@@ -1158,7 +1158,7 @@ function Manutencao() {
   return (
     <>
       <div className="stats ad-stats-dentro">
-        <Stat title="Disco usado" v={mbTexto(usado)} m={'/ ' + mbTexto(dados.discoTotalMb)} p={dados.discoTotalMb ? (usado / dados.discoTotalMb) * 100 : 0} />
+        <Stat title="Disco usado" uso v={mbTexto(usado)} m={'/ ' + mbTexto(dados.discoTotalMb)} p={dados.discoTotalMb ? (usado / dados.discoTotalMb) * 100 : 0} />
         <Stat title="Registos (/var/log)" v={mbTexto(dados.registosMb)} m="" p={0} />
         <Stat title="Cache de pacotes" v={mbTexto(dados.aptMb)} m="" p={0} />
         <Stat title="Temporários (/tmp)" v={mbTexto(dados.tmpMb)} m="" p={0} />

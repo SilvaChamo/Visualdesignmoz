@@ -1453,10 +1453,10 @@ function UsoRecursos() {
   return (
     <>
       <div className="stats">
-        <Stat title="Espaço" v={mb(d.usadoMb)} m={d.limiteMb ? '/ ' + mb(d.limiteMb) : '/ ∞'} p={pct(d.usadoMb, d.limiteMb)} />
-        <Stat title="Tráfego este mês" v={mb(tr.usadoMb)} m={tr.limiteMb ? '/ ' + mb(tr.limiteMb) : '/ ∞'} p={pct(tr.usadoMb, tr.limiteMb)} />
-        <Stat title="Processador agora" v={a.cpu.toFixed(1).replace('.', ',') + '%'} m={'de ' + a.nucleos * 100 + '%'} p={pct(a.cpu, a.nucleos * 100)} />
-        <Stat title="Memória agora" v={mb(a.memoriaMb)} m={a.processos + ' processos'} p={pct(a.memoriaMb, a.memoriaTotalMb)} />
+        <Stat title="Espaço" uso v={mb(d.usadoMb)} m={d.limiteMb ? '/ ' + mb(d.limiteMb) : '/ ∞'} p={pct(d.usadoMb, d.limiteMb)} />
+        <Stat title="Tráfego este mês" uso v={mb(tr.usadoMb)} m={tr.limiteMb ? '/ ' + mb(tr.limiteMb) : '/ ∞'} p={pct(tr.usadoMb, tr.limiteMb)} />
+        <Stat title="Processador agora" uso v={a.cpu.toFixed(1).replace('.', ',') + '%'} m={'de ' + a.nucleos * 100 + '%'} p={pct(a.cpu, a.nucleos * 100)} />
+        <Stat title="Memória agora" uso v={mb(a.memoriaMb)} m={a.processos + ' processos'} p={pct(a.memoriaMb, a.memoriaTotalMb)} />
       </div>
       <Sec titulo="Onde está o espaço">
         <div className="da-lista">

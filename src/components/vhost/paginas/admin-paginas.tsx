@@ -6,6 +6,7 @@
 // /api/vhost/admin-servidor (script em src/lib/vhost-admin-py.ts) ou da leitura do painel.
 import { useEffect, useState, type ReactNode } from 'react';
 import { useVH, type VH } from '../context';
+import { corUso } from '../cor-uso';
 import type { ScreenFn } from '../screens';
 import { esquecerMemoria, useGet, useNaMemoria } from '../carga';
 import { Stat } from '../ui';
@@ -71,7 +72,7 @@ export function Uso({ v, max, texto }: { v: number; max?: number | null; texto: 
     <span className="pm-cpu ad-uso">
       <b>{texto}</b>
       <span className="bar">
-        <span style={{ width: (max ? p : 0) + '%', background: p >= 90 ? 'var(--red)' : p >= 75 ? '#f59e0b' : '#10b981' }} />
+        <span style={{ width: (max ? p : 0) + '%', background: corUso(p) }} />
       </span>
     </span>
   );
@@ -434,7 +435,7 @@ function MonitorBd() {
   return (
     <>
       <div className="stats">
-        <Stat title="Ligadas agora" v={n('Threads_connected')} m={'/ ' + (maxLig || '∞')} p={pct(n('Threads_connected'), maxLig)} />
+        <Stat title="Ligadas agora" uso v={n('Threads_connected')} m={'/ ' + (maxLig || '∞')} p={pct(n('Threads_connected'), maxLig)} />
         <Stat title="Consultas por segundo" v={num(n('Questions') / Math.max(1, n('Uptime')), 1)} m={num(n('Questions')) + ' ' + t('no total')} p={0} />
         <Stat title="Consultas lentas" v={num(n('Slow_queries'))} m={t('desde que arrancou')} p={0} />
         <Stat title="Ligada há" v={duracao(n('Uptime'))} m={(dados.variaveis.version || '').split('-')[0]} p={0} />
@@ -588,7 +589,7 @@ function ResumoEmail() {
             <Stat title="Recebidas" v={num(dados.total.recebidas)} m="" p={0} />
             <Stat title="Entregues" v={num(dados.total.entregues)} m="" p={0} />
             <Stat title="Adiadas" v={num(dados.total.adiadas)} m="" p={0} />
-            <Stat title="Falhadas" v={num(dados.total.falhadas)} m="" p={pct(dados.total.falhadas, dados.total.entregues + dados.total.falhadas)} />
+            <Stat title="Falhadas" uso v={num(dados.total.falhadas)} m="" p={pct(dados.total.falhadas, dados.total.entregues + dados.total.falhadas)} />
           </div>
           <DataTable
             id="ad-mail-resumo"
