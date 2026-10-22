@@ -187,7 +187,7 @@ jobs:
             set_env_var SERVER_SSH_KEY_PATH "/root/.ssh/app_self_key"
             set_env_var SERVER_IP "${{ secrets.CONTABO_HOST }}"
             set_env_var SERVER_SSH_USER "root"
-            set_env_var SERVER_SSH_PORT "22"
+            set_env_var SERVER_SSH_PORT "2234"
             # SERVER_IP (acima) é só para SSH interno (imap-host.ts,
             # ssh-connect-options.ts). getServerHost() (usado para apontar DNS
             # de sites novos e URLs de webmail) lê NEXT_PUBLIC_SERVER_IP, que
