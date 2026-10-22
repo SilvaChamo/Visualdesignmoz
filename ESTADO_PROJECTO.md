@@ -9,8 +9,8 @@
 1. **M-Pesa em sandbox** — pendente da Vodacom; mensagem pronta em `docs/mpesa-pedido-vodacom.md`.
 2. **Troca do endereço do Supabase** (`supabase-contabo…` → `supabase…`): ver "TAREFA AGENDADA" em `regras.md`.
 3. **Fechar a porta 22 do SSH** (código e workflows já usam a 2234; falta fechar no servidor e confirmar de fora).
-4. **Segredo `CONTABO_ROOT_PASSWORD`** do GitHub: ainda usado por `contabo-hestia-setup` e pelos `ops-pacote-hestia` e `ops-hestia-campos-pacote`
-   (decidir: mudar a palavra-passe ou passar esses workflows só para a chave SSH).
+4. **Segredo `CONTABO_ROOT_PASSWORD`** do GitHub: já nenhum workflow o usa (passaram à chave SSH, 22/10/2026). Falta só apagá-lo nos
+   secrets do GitHub (Settings › Secrets) depois de o PR ser publicado e um dos workflows de manutenção correr bem.
 5. **Hetzner Object Storage (S3)**: `deploy/wordpress/*hetzner*`, `deploy/wp-s3-only.sh` e `deploy/da-backup-to-s3.sh` falam do armazenamento de
    ficheiros do Hetzner (não do servidor). Confirmar se as imagens dos sites WordPress e as cópias ainda estão lá antes de o fechar.
 6. **PRs antigos**: #95, #113, #106, #105 (juntar ou fechar); #28 e #3 são do Hetzner (fechar).

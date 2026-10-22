@@ -47,7 +47,7 @@ jobs:
           host: ${{ secrets.CONTABO_HOST }}
           port: 2234
           username: root
-          password: ${{ secrets.CONTABO_ROOT_PASSWORD }}
+          key: ${{ secrets.CONTABO_SSH_KEY }}
           command_timeout: 10m
           envs: PACOTE,DISCO_MB,APLICAR,FORCAR
           script: |
