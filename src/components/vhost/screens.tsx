@@ -31,7 +31,7 @@ import { findItem, gItem, pacoteDe, route } from './state';
 import { mbTexto } from './servidor';
 import type { Lim } from './paginas/dados';
 import type { HxState, Level, MenuItem, Role } from './types';
-import { DaHomeCards, DomTable, HxCard, HxTag, MyAccountTool, RC, RI, ServerInfoCard, Stat, Tool, UsersTable } from './ui';
+import { DaHomeCards, DomTable, HxCard, HxTag, MyAccountTool, RC, RI, ServerInfoCard, Stat, AtualizarEstado, Tool, UsersTable } from './ui';
 
 export interface Crumb {
   t: string;
@@ -108,7 +108,7 @@ function AdminWidgets() {
             m={v ? 'de ' + gbTxt(v.discoTotalGb) : ''}
             p={v ? pctDe(v.discoUsadoGb, v.discoTotalGb) : 0}
           />
-          <Stat title="Consumo CPU" uso v={v ? String(cpuAgora).replace('.', ',') + '%' : '—'} m={v ? 'de ' + v.cpus + ' núcleos' : ''} p={v ? cpuAgora : 0} />
+          <Stat title="Consumo CPU" uso acao={<AtualizarEstado />} v={v ? String(cpuAgora).replace('.', ',') + '%' : '—'} m={v ? 'de ' + v.cpus + ' núcleos' : ''} p={v ? cpuAgora : 0} />
         </div>
         <div className="stats-line" />
         <UsersTable rows={all} showCreator={false} />

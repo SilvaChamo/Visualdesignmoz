@@ -394,13 +394,22 @@ export function ServerStatusModal({
 let estadoPartilhado: SystemStatusData | null = null;
 let estadoCarregado = false;
 let estadoEmVoo = false;
-let estadoRelogio: ReturnType<typeof setInterval> | null = null;
+let estadoUltima = 0;
+let estadoRelogio: ReturnType<typeof setTimeout> | null = null;
+let estadoRapidos = 0; // quantos pedem leitura rápida (a janela de manutenção aberta)
 const estadoOuvintes = new Set<() => void>();
 const avisarEstado = () => estadoOuvintes.forEach((f) => f());
+// Cada leitura corre um script no servidor (top, free, systemctl…): ~0,2 s de CPU. Só alimenta os cartões de CPU/RAM e a janela de manutenção, por isso
+// NÃO há leituras automáticas: lê-se uma vez ao abrir a página (e outra ao voltar a um separador parado há mais de 5 minutos); só com a janela de
+// manutenção aberta se lê de 8 em 8 s. Antes lia-se sempre, de 8 em 8 s, o dia inteiro, e o CPU do servidor subia sem parar (Silva, 22/10/2026:
+// "porque não pára definitivamente estas verificações").
+const INTERVALO_RAPIDO = 8_000;
+const ATRASO_MAX_AO_VOLTAR = 5 * 60_000;
 
 async function lerEstado() {
   if (estadoEmVoo) return;
   estadoEmVoo = true;
+  avisarEstado(); // para o botão de atualizar mostrar que está a ler
   try {
     const res = await fetch('/api/admin/system-status', { cache: 'no-store', headers: { 'x-vh-fundo': '1' } });
     if (!res.ok) throw new Error('Falha ao carregar métricas');
@@ -410,30 +419,59 @@ async function lerEstado() {
   } finally {
     estadoEmVoo = false;
     estadoCarregado = true;
+    estadoUltima = Date.now();
     avisarEstado();
   }
+}
+
+function agendarEstado() {
+  if (estadoRelogio) clearTimeout(estadoRelogio);
+  estadoRelogio = null;
+  // só há relógio com a janela de manutenção aberta
+  if (!estadoOuvintes.size || estadoRapidos <= 0) return;
+  estadoRelogio = setTimeout(async () => {
+    if (typeof document === 'undefined' || !document.hidden) await lerEstado();
+    agendarEstado();
+  }, INTERVALO_RAPIDO);
+}
+
+function aoVoltarAoSeparador() {
+  if (!document.hidden && Date.now() - estadoUltima > ATRASO_MAX_AO_VOLTAR) void lerEstado();
 }
 
 function subscreverEstado(f: () => void) {
   estadoOuvintes.add(f);
   if (estadoOuvintes.size === 1) {
     void lerEstado();
-    estadoRelogio = setInterval(() => void lerEstado(), 8000);
+    agendarEstado();
+    document.addEventListener('visibilitychange', aoVoltarAoSeparador);
   }
   return () => {
     estadoOuvintes.delete(f);
-    if (estadoOuvintes.size === 0 && estadoRelogio) {
-      clearInterval(estadoRelogio);
-      estadoRelogio = null;
+    if (estadoOuvintes.size === 0) {
+      agendarEstado();
+      document.removeEventListener('visibilitychange', aoVoltarAoSeparador);
     }
   };
 }
 
-export function useSystemStatus() {
+/** `rapido`: a janela de manutenção está aberta e quer os números de 8 em 8 s (sem ela não há leituras automáticas) */
+export function useSystemStatus(rapido = false) {
   const data = useSyncExternalStore(subscreverEstado, () => estadoPartilhado, () => null);
   const loading = useSyncExternalStore(subscreverEstado, () => !estadoCarregado, () => true);
+  const lendo = useSyncExternalStore(subscreverEstado, () => estadoEmVoo, () => false);
+  useEffect(() => {
+    if (!rapido) return;
+    estadoRapidos += 1;
+    void lerEstado();
+    agendarEstado();
+    return () => {
+      estadoRapidos -= 1;
+      agendarEstado();
+    };
+  }, [rapido]);
   const fetchStatus = useCallback(() => lerEstado(), []);
-  return { data, loading, fetchStatus };
+  return { data, loading, lendo, fetchStatus };
 }
 
 // Widget do Topo (Header)

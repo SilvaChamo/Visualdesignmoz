@@ -101,9 +101,13 @@ function parseSections(output: string): Record<string, string[]> {
   return sections;
 }
 
+// A mesma leitura serve todos durante 6 s: vários separadores ou administradores deixam de lançar um script cada no servidor.
+let cacheEstado: { at: number; corpo: unknown } | null = null;
+
 export async function GET(req: NextRequest) {
   const auth = await requireAdmin();
   if ('error' in auth) return auth.error;
+  if (cacheEstado && Date.now() - cacheEstado.at < 6_000) return NextResponse.json(cacheEstado.corpo);
   try {
     const sections = parseSections(await executeServerCommand(METRICS_SCRIPT, { fast: true }));
     const first = (key: string) => sections[key]?.[0] ?? '';
@@ -192,7 +196,7 @@ export async function GET(req: NextRequest) {
 
     const maintenance = getMaintenanceState();
 
-    return NextResponse.json({
+    const corpo = {
       cpu: {
         usage: cpuUsage,
         cores: numCores,
@@ -216,7 +220,9 @@ export async function GET(req: NextRequest) {
       uptime: Math.round(parseFloat(first('uptime')) || 0),
       maintenance,
       timestamp: new Date().toISOString(),
-    });
+    };
+    cacheEstado = { at: Date.now(), corpo };
+    return NextResponse.json(corpo);
   } catch (error: any) {
     console.error('Erro ao obter estado do sistema:', error);
     return NextResponse.json({ error: 'Erro ao obter métricas do sistema' }, { status: 500 });
@@ -226,6 +232,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const auth = await requireAdmin();
   if ('error' in auth) return auth.error;
+  cacheEstado = null; // uma ação (manutenção, reinício…) muda o estado: a leitura seguinte é nova
   try {
     const body = await req.json();
     const { action, active, message, pid } = body;

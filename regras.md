@@ -141,6 +141,23 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
   (`https://169.58.148.144:2026/host:2026`) é só do programador, para resolver problemas, nunca para uso normal:** certificado próprio (um IP não
   tem certificado válido, o navegador avisa) e só abre para os endereços de `/etc/nginx/conf.d/vd-admin-ip.conf` (hoje o do Silva); os outros levam a
   ligação fechada (444). Para juntar um endereço acrescenta-se uma linha e recarrega-se o nginx.
+- **TAREFA AGENDADA — troca do endereço do Supabase (23/10/2026 às 00:00, hora de Maputo; lembrar o Silva hoje às 23:30)** (Silva, 22/10/2026).
+  Tirar o "contabo": a app passa de `https://supabase-contabo.visualdesignmoz.com` para `https://supabase.visualdesignmoz.com`. **Não se copia nada:**
+  os dois nomes já apontam para o mesmo Supabase (nginx → `127.0.0.1:8000`). Já feito a 22/10: o Silva tirou o proxy do Cloudflare ao registo
+  `supabase` (só DNS) e emitiu-se o certificado Let's Encrypt de `supabase.visualdesignmoz.com` (válido até 20/01/2027, o Hestia renova).
+  **Falta fazer (à meia-noite; qualquer agente que veja esta nota e ainda não a encontre feita, faz — ver "Feito" no fim):**
+  1. *(Silva, antes)* Se há login Google: acrescentar `https://supabase.visualdesignmoz.com/auth/v1/callback` aos endereços de retorno na consola do
+     Google (manter o antigo).
+  2. No servidor, em `/opt/supabase-contabo/docker/.env`: `SUPABASE_PUBLIC_URL=https://supabase.visualdesignmoz.com` e
+     `API_EXTERNAL_URL=https://supabase.visualdesignmoz.com/auth/v1`; depois `cd /opt/supabase-contabo/docker && docker compose up -d` (recria só o que
+     mudou, uns segundos). `SITE_URL` e as listas de redirecionamento não mudam.
+  3. `gh secret set CONTABO_SUPABASE_URL --body https://supabase.visualdesignmoz.com` e publicar de novo (`gh workflow run "Deploy Visualdesign"`): o
+     deploy grava `NEXT_PUBLIC_SUPABASE_URL` no build e no `.env.local` (só se vê depois do deploy, ~15 min).
+  4. Verificar: entrar no painel; `curl https://supabase.visualdesignmoz.com/auth/v1/health` (401 é normal sem chave).
+  **Consequência avisada ao Silva:** o nome do cookie de sessão deriva do endereço (`sb-supabase-…` em vez de `sb-supabase-contabo-…`): **todos os
+  utilizadores têm de voltar a entrar uma vez.** O nome antigo fica a funcionar (nginx serve os dois): `/opt/basededadosagro-site` e
+  `/opt/visualdesign-panel` ainda usam o antigo e não precisam de mudar já. Reverter: voltar `.env` do Supabase, o secret e publicar.
+  **Feito:** (ainda não) — quem fizer, escreve aqui a data e o resultado.
 - **O CPU do servidor é um só** (Silva, 22/10/2026): tudo o que o mostra (janela de manutenção, cartão "Servidor" da barra lateral, cartão
   "Consumo CPU" do painel inicial) usa `useSystemStatus`, uma leitura ao vivo partilhada. Nunca outra medida ao lado.
 - **Nunca pesquisa à esquerda por cima do cartão principal** (13/10/2026). A "Busca" da barra de cima já procura na

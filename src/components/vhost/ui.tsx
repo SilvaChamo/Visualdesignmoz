@@ -57,12 +57,24 @@ export function Avatar({ a, outros = [] }: { a: Account; outros?: (string | unde
   );
 }
 
+/** Botãozinho que lê o estado do servidor (CPU, memória) na hora: o painel já não lê sozinho de tempos a tempos (Silva, 22/10/2026) */
+export function AtualizarEstado({ linha = false }: { linha?: boolean }) {
+  const { t } = useVH();
+  const { fetchStatus, lendo } = useSystemStatus();
+  return (
+    <button type="button" className={'stat-refresh' + (linha ? ' stat-refresh-linha' : '')} title={t('Atualizar o CPU agora')} aria-label={t('Atualizar o CPU agora')} disabled={lendo} onClick={() => void fetchStatus()}>
+      <i className={'fa-solid fa-rotate' + (lendo ? ' fa-spin' : '')} />
+    </button>
+  );
+}
+
 /** `uso`: só a barra muda de cor com o enchimento (verde, âmbar, vermelho) — o número mantém sempre a sua cor; `cor` força a cor da barra (ex.: caixas quase cheias) */
-export function Stat({ title, v, m, p, uso = false, cor }: { title: ReactNode; v: ReactNode; m: string; p: number; uso?: boolean; cor?: string }) {
+export function Stat({ title, v, m, p, uso = false, cor, acao }: { title: ReactNode; v: ReactNode; m: string; p: number; uso?: boolean; cor?: string; acao?: ReactNode }) {
   const { t } = useVH();
   const c = cor ?? (uso ? corUso(p) : undefined);
   return (
     <div className="card stat">
+      {acao && <div className="stat-acao">{acao}</div>}
       <small>{typeof title === 'string' ? t(title) : title}</small>
       <strong>
         {v} <span>{t(m)}</span>
@@ -367,7 +379,7 @@ EN['Não foi possível abrir o painel de manutenção (sem permissão de adminis
  *  rota (/api/admin/system-status) e só começa a ler quando abre. */
 function PopupManutencao({ fechar }: { fechar: () => void }) {
   const { toast, t } = useVH();
-  const { data, loading, fetchStatus } = useSystemStatus();
+  const { data, loading, fetchStatus } = useSystemStatus(true); // aberta: números de 8 em 8 s
   // a rota só responde a administradores do site: sem resposta, avisa em vez de ficar sem abrir
   useEffect(() => {
     if (!loading && !data) {
@@ -467,7 +479,7 @@ export function ServerInfoCard() {
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 4 }}>
             <span style={metric} title={'Carga ' + v.carga.join(' / ') + ' em ' + v.cpus + ' processadores'}>
-              <i className="fa-solid fa-gear" style={{ color: 'var(--red)' }} /> CONSUMO CPU
+              <i className="fa-solid fa-gear" style={{ color: 'var(--red)' }} /> CONSUMO CPU <AtualizarEstado linha />
             </span>
             <b style={{ color: 'var(--ink)' }}>
               {pct(cpu)} <span style={{ color: 'var(--muted)', fontWeight: 600 }}>de {v.cpus} núcleos</span>
