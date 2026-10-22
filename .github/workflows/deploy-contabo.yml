@@ -56,14 +56,14 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.CONTABO_SSH_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan "${{ secrets.CONTABO_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+          ssh-keyscan -p 2234 "${{ secrets.CONTABO_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
 
       # O código novo vai para uma pasta à parte (…-build), não para a do site em funcionamento: o site continua a
       # servir a versão anterior enquanto a nova é instalada e construída (ver "Publicar sem ecrã branco" mais abaixo).
       - name: Sync files to Contabo
         run: |
           rsync -avz --delete \
-            -e "ssh -i ~/.ssh/deploy_key" \
+            -e "ssh -p 2234 -i ~/.ssh/deploy_key" \
             --exclude 'node_modules' --exclude '.next' --exclude '.git' --exclude '*.env*' --exclude '.DS_Store' \
             ./ "root@${{ secrets.CONTABO_HOST }}:/opt/visualdesign-site-teste-build/"
 
@@ -71,6 +71,7 @@ jobs:
         uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.CONTABO_HOST }}
+          port: 2234
           username: root
           key: ${{ secrets.CONTABO_SSH_KEY }}
           # Desde 30 ago este site tem base de dados própria (Supabase no

@@ -57,14 +57,14 @@ export function Avatar({ a, outros = [] }: { a: Account; outros?: (string | unde
   );
 }
 
-/** `uso`: o número e a barra mudam de cor com o enchimento (verde, âmbar, vermelho); `cor` força uma cor (ex.: caixas quase cheias) */
+/** `uso`: só a barra muda de cor com o enchimento (verde, âmbar, vermelho) — o número mantém sempre a sua cor; `cor` força a cor da barra (ex.: caixas quase cheias) */
 export function Stat({ title, v, m, p, uso = false, cor }: { title: ReactNode; v: ReactNode; m: string; p: number; uso?: boolean; cor?: string }) {
   const { t } = useVH();
   const c = cor ?? (uso ? corUso(p) : undefined);
   return (
     <div className="card stat">
       <small>{typeof title === 'string' ? t(title) : title}</small>
-      <strong style={c && c !== '#10b981' ? { color: c } : undefined}>
+      <strong>
         {v} <span>{t(m)}</span>
       </strong>
       <div className="bar">

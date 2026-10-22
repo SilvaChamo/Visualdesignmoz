@@ -13,11 +13,12 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.CONTABO_SSH_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan "${{ secrets.CONTABO_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+          ssh-keyscan -p 2234 "${{ secrets.CONTABO_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
       - name: Verifica login associado e remove
         uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.CONTABO_HOST }}
+          port: 2234
           username: root
           key: ${{ secrets.CONTABO_SSH_KEY }}
           command_timeout: 2m

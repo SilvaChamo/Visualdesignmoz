@@ -45,6 +45,7 @@ jobs:
           FORCAR: ${{ inputs.forcar }}
         with:
           host: ${{ secrets.CONTABO_HOST }}
+          port: 2234
           username: root
           password: ${{ secrets.CONTABO_ROOT_PASSWORD }}
           command_timeout: 10m
