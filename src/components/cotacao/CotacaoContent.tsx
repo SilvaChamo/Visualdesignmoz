@@ -982,7 +982,7 @@ export function CotacaoContent({ painel = false }: { painel?: boolean } = {}) {
 
                     <div className="mb-4">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 shadow-sm">
-                        <div className="flex-1 min-w-0 space-y-2">
+                        <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <div className="relative flex items-center max-w-full">
                             <select
                               value={rascunho.categoriaId}
