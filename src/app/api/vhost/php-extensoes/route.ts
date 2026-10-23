@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requirePanelBootstrapAccess } from '@/lib/panel-api-auth';
 import { executeServerCommand } from '@/lib/server-ssh-exec';
-import { esquecerLeitura, lerServidor, type LeituraServidor } from '@/lib/vhost-servidor';
+import { lerServidor, type LeituraServidor } from '@/lib/vhost-servidor';
 import { lerRegisto, montarDados } from '@/lib/vhost-dados';
 import { EXTENSOES_PHP } from '@/lib/php-extensoes';
 
@@ -9,15 +9,20 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 200;
 
 /**
- * /api/vhost/php-extensoes — Definições PHP › Extensões (Silva, 23/10/2026).
- * GET  ?conta=&d=&versao=8.3   as extensões carregadas (`php -m`) e os pacotes php8.3-* instalados no servidor (só leitura).
- * POST { acao: ativar | desativar | instalar, conta, dominio, versao, ext }   SÓ administradores: mexe no PHP do servidor, por isso vale para
- *      todos os sites que usam essa versão (phpenmod/phpdismod/apt-get + reload do php-fpm). Só extensões do catálogo, nunca as essenciais.
+ * /api/vhost/php-extensoes — Definições PHP › Extensões, POR CONTA (Silva, 23/10/2026): cada conta tem as suas extensões.
+ * Quem faz o trabalho é o /usr/local/sbin/vd-php-conta (deploy/php-conta/vd-php-conta), que dá à conta um PHP-FPM só dela quando ela escolhe extensões.
+ * GET  ?conta=&d=&versao=8.3   estado da conta: dedicado, ativas, disponiveis (os pacotes instalados), essenciais
+ * POST { acao: aplicar, conta, dominio, versao, modulos: [...] }   a conta passa a ter estes módulos (qualquer conta do painel, só a sua)
+ *      { acao: repor, conta, dominio }                             a conta volta ao PHP do servidor
+ *      { acao: instalar, conta, dominio, versao, ext }             SÓ administradores: instala no servidor o pacote de uma extensão que ainda não existe
+ *                                                                  (fica desligada para todos; cada conta liga-a se quiser)
  */
 
 const DOM = /^(?=.{3,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/;
 const CONTA = /^[a-z0-9][a-z0-9_.-]{0,31}$/;
 const VERSAO = /^[5-9]\.\d$/;
+const MODULO = /^[a-z0-9_]{2,30}$/;
+const SCRIPT = '/usr/local/sbin/vd-php-conta';
 
 type Sessao = { userId: string; email: string; role: string };
 
@@ -36,17 +41,28 @@ async function verificar(s: Sessao, conta: string, d: string, srv: LeituraServid
   return null;
 }
 
-/** Módulos carregados e pacotes instalados da versão pedida */
-async function ler(versao: string): Promise<{ carregadas: string[]; pacotes: string[] }> {
-  const cmd = `v=${versao}; (php$v -m 2>/dev/null || true); echo '@@PKG'; (dpkg-query -W -f='\${Package}\\n' "php$v-*" 2>/dev/null || true)`;
-  const out = await executeServerCommand(cmd, { fast: true, timeoutMs: 20_000 });
-  const [mods, pks = ''] = out.split('@@PKG');
-  const linhas = (t: string) => t.split('\n').map((l) => l.trim()).filter(Boolean);
-  return {
-    carregadas: linhas(mods).filter((l) => !l.startsWith('[')).map((l) => l.toLowerCase()),
-    pacotes: linhas(pks),
-  };
+type Estado = { dedicado: boolean; ativas: string[]; disponiveis: string[]; essenciais: string[] };
+const lista = (v: string | undefined) => (v || '').split(',').map((x) => x.trim()).filter(Boolean);
+
+/** Corre o vd-php-conta; se ainda não estiver instalado no servidor, devolve SEM_SCRIPT */
+async function script(args: string, timeoutMs: number): Promise<string> {
+  const out = await executeServerCommand(`test -x ${SCRIPT} || { echo SEM_SCRIPT; exit 0; }; ${SCRIPT} ${args}`, { timeoutMs });
+  if (out.includes('SEM_SCRIPT')) throw new Error('SEM_SCRIPT');
+  return out;
 }
+
+/** Lê o estado de uma conta numa versão do PHP, pelo vd-php-conta */
+async function estado(conta: string, versao: string): Promise<Estado> {
+  const out = await script(`estado '${conta}' '${versao}'`, 30_000);
+  const v: Record<string, string> = {};
+  for (const l of out.split('\n')) {
+    const i = l.indexOf('=');
+    if (i > 0) v[l.slice(0, i).trim()] = l.slice(i + 1).trim();
+  }
+  return { dedicado: v.dedicado === 'sim', ativas: lista(v.ativas), disponiveis: lista(v.disponiveis), essenciais: lista(v.essenciais) };
+}
+
+const FALTA_SCRIPT = 'As extensões por conta ainda não estão instaladas neste servidor (instalam-se na próxima publicação).';
 
 export async function GET(req: NextRequest) {
   const a = await sessao();
@@ -60,9 +76,9 @@ export async function GET(req: NextRequest) {
   const erro = await verificar(a.s, conta, d, srv);
   if (erro) return NextResponse.json({ erro }, { status: 403 });
   try {
-    const { carregadas, pacotes } = await ler(versao);
-    return NextResponse.json({ versao, carregadas, pacotes, admin: a.s.role === 'admin' });
+    return NextResponse.json({ versao, ...(await estado(conta, versao)), admin: a.s.role === 'admin' });
   } catch (e) {
+    if (e instanceof Error && e.message === 'SEM_SCRIPT') return NextResponse.json({ erro: FALTA_SCRIPT }, { status: 503 });
     console.error('[vhost/php-extensoes]', e);
     return NextResponse.json({ erro: 'Não foi possível ler as extensões do servidor.' }, { status: 500 });
   }
@@ -71,30 +87,39 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const a = await sessao();
   if ('erro' in a) return a.erro;
-  if (a.s.role !== 'admin') return NextResponse.json({ erro: 'Só o administrador pode mudar as extensões do servidor.' }, { status: 403 });
   const c = (await req.json().catch(() => ({}))) as Record<string, unknown>;
   const acao = String(c.acao || '');
+  const conta = String(c.conta || '');
   const versao = String(c.versao || '');
-  const e = EXTENSOES_PHP.find((x) => x.k === String(c.ext || ''));
-  if (!['ativar', 'desativar', 'instalar'].includes(acao) || !VERSAO.test(versao) || !e) return NextResponse.json({ erro: 'Pedido inválido.' }, { status: 400 });
+  if (!['aplicar', 'repor', 'instalar'].includes(acao)) return NextResponse.json({ erro: 'Pedido inválido.' }, { status: 400 });
   const srv = await lerServidor();
-  const erro = await verificar(a.s, String(c.conta || ''), String(c.dominio || ''), srv);
+  const erro = await verificar(a.s, conta, String(c.dominio || ''), srv);
   if (erro) return NextResponse.json({ erro }, { status: 403 });
-  if (acao === 'desativar' && e.essencial) return NextResponse.json({ erro: 'Esta extensão é essencial: sem ela os sites deixam de funcionar.' }, { status: 400 });
-  if (acao === 'instalar' && (!e.pkg || e.pkg === 'common')) return NextResponse.json({ erro: 'Esta extensão já vem com o PHP.' }, { status: 400 });
-  const recarregar = `systemctl reload php${versao}-fpm`;
-  const comando =
-    acao === 'ativar'
-      ? `phpenmod -v ${versao} ${e.k} && ${recarregar}`
-      : acao === 'desativar'
-        ? `phpdismod -v ${versao} ${e.k} && ${recarregar}`
-        : `DEBIAN_FRONTEND=noninteractive apt-get install -y php${versao}-${e.pkg} && ${recarregar}`;
   try {
-    await executeServerCommand(comando, { timeoutMs: acao === 'instalar' ? 170_000 : 30_000 });
-    esquecerLeitura();
-    const { carregadas, pacotes } = await ler(versao);
-    return NextResponse.json({ ok: true, versao, carregadas, pacotes });
+    if (acao === 'repor') {
+      await script(`repor '${conta}'`, 60_000);
+    } else if (!VERSAO.test(versao)) {
+      return NextResponse.json({ erro: 'Versão do PHP inválida.' }, { status: 400 });
+    } else if (acao === 'aplicar') {
+      const modulos = (Array.isArray(c.modulos) ? c.modulos : []).map(String).filter((m) => MODULO.test(m));
+      await script(`aplicar '${conta}' '${modulos.join(',')}'`, 90_000);
+    } else {
+      if (a.s.role !== 'admin') return NextResponse.json({ erro: 'Só o administrador pode instalar extensões no servidor.' }, { status: 403 });
+      const e = EXTENSOES_PHP.find((x) => x.k === String(c.ext || ''));
+      if (!e || !e.pkg || e.pkg === 'common') return NextResponse.json({ erro: 'Esta extensão não se instala por pacote.' }, { status: 400 });
+      // instala o pacote e desliga logo no PHP do servidor o que ele trouxe (o pacote liga-se sozinho): as outras contas ficam como estavam
+      const lm = `ls /etc/php/${versao}/mods-available | sed 's/\\.ini$//'`;
+      const cmd = [
+        `antes=$(${lm})`,
+        `DEBIAN_FRONTEND=noninteractive apt-get install -y php${versao}-${e.pkg}`,
+        `for m in $(${lm}); do echo "$antes" | grep -qx "$m" || phpdismod -v ${versao} "$m"; done`,
+        `systemctl reload php${versao}-fpm`,
+      ].join(' && ');
+      await executeServerCommand(cmd, { timeoutMs: 170_000 });
+    }
+    return NextResponse.json({ ok: true, versao, ...(VERSAO.test(versao) ? await estado(conta, versao) : {}) });
   } catch (err) {
+    if (err instanceof Error && err.message === 'SEM_SCRIPT') return NextResponse.json({ erro: FALTA_SCRIPT }, { status: 503 });
     console.error('[vhost/php-extensoes]', err);
     return NextResponse.json({ erro: 'O servidor não conseguiu fazer a alteração.' }, { status: 500 });
   }

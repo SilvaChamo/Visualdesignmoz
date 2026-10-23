@@ -864,6 +864,8 @@ export async function POST(req: NextRequest) {
         const x = await hestia.changeWebDomainPhp(conta, dom, versao);
         if (!x.ok) falhas.push(dom);
       }
+      // as contas com extensões próprias (vd-php-conta) passam logo os pools novos para o PHP delas
+      await executeServerCommand('test -x /usr/local/sbin/vd-php-conta && /usr/local/sbin/vd-php-conta sincronizar || true', { timeoutMs: 60_000 }).catch(() => '');
       return resposta({ ok: !falhas.length, error: falhas.length ? 'Não foi possível mudar: ' + falhas.join(', ') : undefined });
     }
     case 'php-ini': {

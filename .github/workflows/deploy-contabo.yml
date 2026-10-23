@@ -284,6 +284,11 @@ jobs:
             pm2 save
             # a versão anterior só se apaga depois de a nova estar a correr
             rm -rf "$LIVE/node_modules.old" "$LIVE/.next.old"
+            # PHP por conta (Silva, 23/10/2026): o script que dá a cada conta o seu PHP-FPM com as suas extensões, e o cron que o mantém em ordem
+            # (só age em contas que já escolheram extensões; sem nenhuma, não faz nada)
+            install -m 0755 "$LIVE/deploy/php-conta/vd-php-conta" /usr/local/sbin/vd-php-conta || echo "AVISO: vd-php-conta não instalado"
+            printf '*/5 * * * * root /usr/local/sbin/vd-php-conta sincronizar >/dev/null 2>&1\n' > /etc/cron.d/vd-php-conta
+            chmod 644 /etc/cron.d/vd-php-conta
             # Reinicia o site sozinho se deixar de responder (commit 373a3863).
             bash scripts/install-site-watchdog.sh
 

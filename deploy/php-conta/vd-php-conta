@@ -1,0 +1,248 @@
+#!/bin/bash
+# vd-php-conta — PHP por conta (Silva, 23/10/2026): cada conta pode ter as suas próprias extensões PHP.
+#
+# O PHP lê as extensões quando o serviço arranca, e o Hestia põe todas as contas num só PHP-FPM por versão; por isso o que muda para uma conta
+# mudava para todas. Aqui, uma conta que escolhe extensões passa a ter um PHP-FPM só dela (um serviço "vd-php-fpm-<versão>-<conta>") com a sua
+# própria lista de extensões; as outras contas ficam no PHP-FPM partilhado, sem mudar nada. O socket de cada site é o mesmo (o servidor web nem
+# nota): o pool do Hestia limita-se a mudar de serviço.
+#
+# Uso (como root):
+#   vd-php-conta estado <conta> <versão>              mostra: dedicado, ativas, disponiveis, essenciais (uma linha cada, módulos separados por vírgulas)
+#   vd-php-conta aplicar <conta> <modulo,modulo,...>  a conta passa a ter exactamente estes módulos (mais os essenciais e o que eles exigem)
+#   vd-php-conta repor <conta>                        a conta volta ao PHP-FPM partilhado
+#   vd-php-conta sincronizar                          (cron) mantém as contas dedicadas em ordem: pools que o Hestia refez, versões mudadas…
+#
+# Variáveis para testes (sem systemd): VD_TESTE=1
+set -u
+
+ETC=${VD_ETC:-/etc/vd-php}
+PHP=${VD_PHP:-/etc/php}
+ARQ=$ETC/arquivo
+LOG=${VD_LOG:-/var/log/vd-php-conta.log}
+HESTIA=${VD_HESTIA:-/usr/local/hestia/bin}
+UNIDADES=${VD_UNIDADES:-/etc/systemd/system}
+# nunca se tiram: sem estes os sites deixam de funcionar (mysqli precisa do mysqlnd)
+ESSENCIAIS="mysqlnd mysqli curl mbstring xml ctype"
+
+mkdir -p "$ETC" "$ARQ" 2>/dev/null
+log() { echo "$(date '+%F %T') $*" >> "$LOG" 2>/dev/null; }
+erro() { echo "ERRO: $*" >&2; log "ERRO: $*"; exit 1; }
+
+conta_valida() {
+  [[ "$1" =~ ^[a-z0-9][a-z0-9_.-]{0,31}$ ]] || erro "conta inválida"
+  id -u "$1" >/dev/null 2>&1 || erro "a conta não existe"
+}
+versao_valida() { [[ "$1" =~ ^[5-9]\.[0-9]$ ]] || erro "versão inválida"; [ -d "$PHP/$1/mods-available" ] || erro "o PHP $1 não está instalado"; }
+
+# módulos que a versão tem (os pacotes instalados)
+disponiveis() { ls "$PHP/$1/mods-available" 2>/dev/null | sed -n 's/\.ini$//p'; }
+prioridade() { local p; p=$(sed -n 's/^; priority=\([0-9][0-9]*\).*/\1/p' "$PHP/$1/mods-available/$2.ini" 2>/dev/null | head -1); echo "${p:-20}"; }
+
+# o que um módulo exige para carregar
+dependencias() {
+  case "$1" in
+    mysqli) echo mysqlnd ;;
+    pdo_mysql) echo pdo mysqlnd ;;
+    pdo_sqlite|pdo_pgsql|pdo_odbc) echo pdo ;;
+    dom|simplexml|xmlreader|xmlwriter|xsl) echo xml ;;
+  esac
+}
+
+pool_da_conta() { grep -qE "^user[[:space:]]*=[[:space:]]*$2[[:space:]]*$" "$1"; } # ficheiro conta
+
+# versões em que a conta tem pools (no PHP-FPM partilhado ou no dela)
+versoes_da_conta() {
+  local f
+  for f in "$PHP"/*/fpm/pool.d/*.conf "$PHP"/*/fpm-contas/"$1"/pool.d/*.conf; do
+    [ -f "$f" ] || continue
+    pool_da_conta "$f" "$1" || continue
+    echo "$f" | sed -n "s#^$PHP/\([0-9]\.[0-9]\)/.*#\1#p"
+  done | sort -u
+}
+
+pools_partilhados() { # versão conta
+  local f
+  for f in "$PHP/$1"/fpm/pool.d/*.conf; do
+    [ -f "$f" ] && pool_da_conta "$f" "$2" && echo "$f"
+  done
+}
+
+unidade() { echo "vd-php-fpm-$1-$2"; }
+pasta() { echo "$PHP/$1/fpm-contas/$2"; }
+pidpartilhado() { echo "${VD_PID_PARTILHADO:-$PHP/$1/fpm/master.pid}"; }
+
+# --- serviços (com systemd; em teste, processos soltos) ---
+svc_ativo() { # unidade versão conta
+  if [ -n "${VD_TESTE:-}" ]; then local p; p="$(pasta "$2" "$3")/master.pid"; [ -f "$p" ] && kill -0 "$(cat "$p")" 2>/dev/null; return; fi
+  systemctl is-active --quiet "$1"
+}
+svc_recarregar_partilhado() { # versão
+  if [ -n "${VD_TESTE:-}" ]; then local p; p=$(cat "$(pidpartilhado "$1")" 2>/dev/null); [ -n "$p" ] && kill -USR2 "$p"; sleep 1; return 0; fi
+  systemctl reload "php$1-fpm" 2>/dev/null || systemctl restart "php$1-fpm"
+}
+svc_iniciar_ou_recarregar() { # unidade versão conta
+  if [ -n "${VD_TESTE:-}" ]; then
+    local d; d=$(pasta "$2" "$3")
+    if svc_ativo "$1" "$2" "$3"; then kill -USR2 "$(cat "$d/master.pid")"; else PHP_INI_SCAN_DIR="$d/conf.d" "/usr/sbin/php-fpm$2" --daemonize --fpm-config "$d/php-fpm.conf" -c "$d/php.ini" 9>&-; fi
+    sleep 1; return 0
+  fi
+  systemctl daemon-reload
+  if systemctl is-active --quiet "$1"; then systemctl reload "$1" || systemctl restart "$1"; else systemctl enable --now "$1"; fi
+}
+svc_parar() { # unidade versão conta
+  if [ -n "${VD_TESTE:-}" ]; then local p; p="$(pasta "$2" "$3")/master.pid"; [ -f "$p" ] && kill -QUIT "$(cat "$p")" 2>/dev/null; sleep 1; return 0; fi
+  systemctl disable --now "$1" 2>/dev/null; rm -f "$UNIDADES/$1.service"; systemctl daemon-reload
+}
+
+# --- o PHP-FPM dedicado de uma conta, numa versão ---
+gerar() { # versão conta  (módulos pedidos em $PEDIDOS)
+  local v=$1 c=$2 d; d=$(pasta "$v" "$c")
+  mkdir -p "$d/pool.d" "$d/conf.d"
+  cp -f "$PHP/$v/fpm/php.ini" "$d/php.ini"
+  cat > "$d/php-fpm.conf" <<EOF
+[global]
+pid = $d/master.pid
+error_log = /var/log/php$v-fpm-$c.log
+include=$d/pool.d/*.conf
+EOF
+  # o conjunto: pedidos + dependências + essenciais, só do que existe nesta versão
+  local disp mod dep final=" "
+  disp=" $(disponiveis "$v" | tr '\n' ' ') "
+  for mod in ${PEDIDOS:-} $ESSENCIAIS; do
+    for dep in $(dependencias "$mod") "$mod"; do
+      [[ "$disp" == *" $dep "* ]] && [[ "$final" != *" $dep "* ]] && final="$final$dep "
+    done
+  done
+  find "$d/conf.d" -maxdepth 1 -type l -delete
+  for mod in $final; do ln -s "$PHP/$v/mods-available/$mod.ini" "$d/conf.d/$(prioridade "$v" "$mod")-$mod.ini"; done
+  if [ -z "${VD_TESTE:-}" ]; then
+    cat > "$UNIDADES/$(unidade "$v" "$c").service" <<EOF
+[Unit]
+Description=PHP $v FPM da conta $c (extensões próprias; vd-php-conta)
+After=network.target
+
+[Service]
+Type=notify
+Environment=PHP_INI_SCAN_DIR=$d/conf.d
+ExecStart=/usr/sbin/php-fpm$v --nodaemonize --fpm-config $d/php-fpm.conf -c $d/php.ini
+ExecReload=/bin/kill -USR2 \$MAINPID
+
+[Install]
+WantedBy=multi-user.target
+EOF
+  fi
+}
+
+# passa os pools da conta (nesta versão) do PHP-FPM partilhado para o dedicado; devolve 0 se mudou alguma coisa
+mover_pools() { # versão conta
+  local v=$1 c=$2 d f mudou=1; d=$(pasta "$v" "$c")
+  for f in $(pools_partilhados "$v" "$c"); do
+    mkdir -p "$ARQ/$v/$c"
+    cp -f "$f" "$ARQ/$v/$c/$(basename "$f").$(date +%s)"
+    mv -f "$f" "$d/pool.d/$(basename "$f")"
+    mudou=0
+  done
+  return $mudou
+}
+
+# tira do dedicado os pools de sites que o Hestia já não tem, ou que passaram a outra versão do PHP.
+# Sem o Hestia, ou com qualquer erro que não seja "o site não existe" (código 3), não se apaga nada.
+limpar_pools() { # versão conta
+  local v=$1 c=$2 d f dom out rc be; d=$(pasta "$v" "$c")
+  [ -x "$HESTIA/v-list-web-domain" ] || return 0
+  for f in "$d"/pool.d/*.conf; do
+    [ -f "$f" ] || continue
+    dom=$(basename "$f" .conf)
+    out=$("$HESTIA/v-list-web-domain" "$c" "$dom" plain 2>/dev/null); rc=$?
+    if [ $rc -eq 3 ]; then rm -f "$f"; log "$c: pool de $dom removido (o site já não existe)"; continue; fi
+    [ $rc -eq 0 ] || continue
+    be=$(echo "$out" | grep -o 'PHP-[0-9]_[0-9]' | head -1)
+    if [ -n "$be" ] && [ "$be" != "PHP-${v/./_}" ]; then rm -f "$f"; log "$c: pool de $dom removido (agora usa $be)"; fi
+  done
+}
+
+aplicar_versao() { # versão conta
+  local v=$1 c=$2 d u; d=$(pasta "$v" "$c"); u=$(unidade "$v" "$c")
+  gerar "$v" "$c"
+  local mudou_partilhado=1
+  mover_pools "$v" "$c" && mudou_partilhado=0
+  limpar_pools "$v" "$c"
+  if ! ls "$d"/pool.d/*.conf >/dev/null 2>&1; then
+    svc_parar "$u" "$v" "$c"; rm -rf "$d"; log "$c: sem sites no PHP $v, serviço dedicado removido"; return 0
+  fi
+  [ $mudou_partilhado -eq 0 ] && svc_recarregar_partilhado "$v"
+  svc_iniciar_ou_recarregar "$u" "$v" "$c"
+  log "$c: PHP $v dedicado com $(ls "$d/conf.d" | wc -l) módulos"
+}
+
+cmd_aplicar() { # conta módulos
+  local c=$1 v mod pedidos=""
+  conta_valida "$c"
+  for mod in $(echo "$2" | tr ',' ' '); do [[ "$mod" =~ ^[a-z0-9_]{2,30}$ ]] && pedidos="$pedidos $mod"; done
+  printf '%s\n' $pedidos > "$ETC/$c.exts"
+  PEDIDOS="$pedidos"
+  local vs; vs=$(versoes_da_conta "$c")
+  [ -z "$vs" ] && erro "a conta não tem sites com PHP"
+  for v in $vs; do aplicar_versao "$v" "$c"; done
+}
+
+cmd_repor() { # conta
+  local c=$1 v d f u
+  conta_valida "$c"
+  for d in "$PHP"/*/fpm-contas/"$c"; do
+    [ -d "$d" ] || continue
+    v=$(echo "$d" | sed -n "s#^$PHP/\([0-9]\.[0-9]\)/.*#\1#p"); u=$(unidade "$v" "$c")
+    svc_parar "$u" "$v" "$c"
+    for f in "$d"/pool.d/*.conf; do [ -f "$f" ] && mv -f "$f" "$PHP/$v/fpm/pool.d/$(basename "$f")"; done
+    svc_recarregar_partilhado "$v"
+    rm -rf "$d"
+  done
+  rm -f "$ETC/$c.exts"
+  log "$c: de volta ao PHP-FPM partilhado"
+}
+
+cmd_estado() { # conta versão
+  local c=$1 v=$2 d
+  conta_valida "$c"; versao_valida "$v"
+  d=$(pasta "$v" "$c")
+  if [ -d "$d/conf.d" ] && [ -f "$ETC/$c.exts" ]; then
+    echo "dedicado=sim"
+    echo "ativas=$(ls "$d/conf.d" | sed -n 's/^[0-9]*-\(.*\)\.ini$/\1/p' | paste -sd, -)"
+  else
+    echo "dedicado=nao"
+    echo "ativas=$(ls "$PHP/$v/fpm/conf.d" 2>/dev/null | sed -n 's/^[0-9]*-\(.*\)\.ini$/\1/p' | paste -sd, -)"
+  fi
+  echo "disponiveis=$(disponiveis "$v" | paste -sd, -)"
+  echo "essenciais=$(echo $ESSENCIAIS | tr ' ' ',')"
+}
+
+cmd_sincronizar() {
+  local f c v d
+  for f in "$ETC"/*.exts; do
+    [ -f "$f" ] || continue
+    c=$(basename "$f" .exts)
+    id -u "$c" >/dev/null 2>&1 || continue
+    PEDIDOS=$(tr '\n' ' ' < "$f")
+    # o que o Hestia refez no partilhado, ou serviço parado
+    for v in $(versoes_da_conta "$c"); do
+      if [ -n "$(pools_partilhados "$v" "$c")" ] || ! svc_ativo "$(unidade "$v" "$c")" "$v" "$c"; then aplicar_versao "$v" "$c"; fi
+    done
+    for d in "$PHP"/*/fpm-contas/"$c"; do
+      [ -d "$d" ] || continue
+      v=$(echo "$d" | sed -n "s#^$PHP/\([0-9]\.[0-9]\)/.*#\1#p")
+      limpar_pools "$v" "$c"
+      ls "$d"/pool.d/*.conf >/dev/null 2>&1 || { svc_parar "$(unidade "$v" "$c")" "$v" "$c"; rm -rf "$d"; log "$c: sem sites no PHP $v, serviço dedicado removido"; }
+    done
+  done
+}
+
+cd / || exit 1
+exec 9>/run/vd-php-conta.lock 2>/dev/null || exec 9>/tmp/vd-php-conta.lock
+flock -w 120 9 || erro "ocupado"
+case "${1:-}" in
+  estado) cmd_estado "${2:-}" "${3:-}" ;;
+  aplicar) cmd_aplicar "${2:-}" "${3:-}" ;;
+  repor) cmd_repor "${2:-}" ;;
+  sincronizar) cmd_sincronizar ;;
+  *) echo "uso: vd-php-conta estado|aplicar|repor|sincronizar …" >&2; exit 2 ;;
+esac
