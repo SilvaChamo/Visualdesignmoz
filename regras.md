@@ -18,6 +18,20 @@ importante.
 
 A pasta de trabalho no Mac do Silva é `visualdesign-producao` (antes `visualdesign-teste`, que deixa de se usar).
 
+# Agentes na nuvem (online): conversa curta, tudo nos bastidores (Silva, 23/10/2026)
+
+**Só para os agentes que trabalham online (na nuvem, sem acesso à pasta local).** Os que trabalham no IDE (Cursor, Copilot, Codex, Gemini
+no editor) seguem os pontos 2 e 6 de "Como se trabalha com o Silva" como estão. Para o agente na nuvem, esta secção vale sobre qualquer outra
+nota deste ficheiro que fale de capturas ou de mensagens de progresso.
+
+- **Tudo nos bastidores:** ler, editar, medir, testar e corrigir sem escrever mensagens de progresso, sem explicar etapas e sem mostrar
+  medições, código ou comandos pelo caminho. A conversa fica curta: o Silva não quer uma conversa longa para ler.
+- **Ao concluir, só duas coisas:** as capturas de ecrã do resultado (computador e telemóvel, do painel verdadeiro com dados fictícios) e um
+  resumo **em muito poucas palavras** — o que mudou, onde, e numa linha o que ficou por decidir. Nunca mostrar capturas antes de a alteração estar
+  concluída (uma captura a meio parece uma alteração já feita).
+- **Não perguntar** o que se pode decidir com bom senso; nunca repetir o que o Silva acabou de dizer.
+- **Ao publicar:** na mesma mensagem, só o commit, o estado do deploy e o comando único de actualização local (ponto 6).
+
 # Língua: sempre português, nunca inglês (Silva, 17/10/2026 — regra rigorosa)
 
 **Fala-se sempre em português com o Silva — nunca em inglês**, em nenhuma circunstância (Silva, 17/10/2026: "nunca
