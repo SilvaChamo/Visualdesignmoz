@@ -4318,9 +4318,10 @@ function SeparadoresPhp({ on }: { on: 'definicoes' | 'extensoes' }) {
   );
 }
 
-type LeituraExt = { versao: string; carregadas: string[]; pacotes: string[]; admin?: boolean };
+type LeituraExt = { versao: string; dedicado: boolean; ativas: string[]; disponiveis: string[]; essenciais: string[]; admin?: boolean };
 
-/** Definições PHP › Extensões: as extensões do PHP do site por categorias, com uma caixa de seleção em cada uma — marcadas as ativas (Silva, 23/10/2026) */
+/** Definições PHP › Extensões, POR CONTA (Silva, 23/10/2026): as extensões do PHP da conta, por categorias, com uma caixa de seleção em cada uma —
+ *  marcadas as ativas. Ao aplicar, a conta passa a ter um PHP só dela; as outras contas não mudam. */
 function PhpExtensoes() {
   const vh = useVH();
   const { t, me } = vh;
@@ -4331,7 +4332,7 @@ function PhpExtensoes() {
   const url = x && det && /^\d+\.\d+$/.test(ativa) ? '/api/vhost/php-extensoes?conta=' + encodeURIComponent(me) + '&d=' + encodeURIComponent(x.name) + '&versao=' + encodeURIComponent(ativa) : null;
   const { dados, erro, ler } = useGet<LeituraExt>(url);
   const [lido, setLido] = useState<LeituraExt | null>(null);
-  /** o que a pessoa marcou (extensão → marcada); sem entrada, vale o estado do servidor */
+  /** o que a pessoa marcou (extensão → marcada); sem entrada, vale o estado da conta */
   const [marcas, setMarcas] = useState<Record<string, boolean>>({});
   const [aAplicar, setAAplicar] = useState(false);
   useEffect(() => {
@@ -4348,55 +4349,81 @@ function PhpExtensoes() {
   if (!det) return <Carregar erro={erroDet} ler={lerDet} />;
   if (!lido) return <Carregar erro={erro} ler={ler} />;
   const admin = !!lido.admin;
-  const estados = Object.fromEntries(EXTENSOES_PHP.map((e) => [e.k, estadoExtensao(e, lido.carregadas, lido.pacotes, lido.versao)])) as Record<string, EstadoExtensao>;
+  const estados = Object.fromEntries(EXTENSOES_PHP.map((e) => [e.k, estadoExtensao(e, lido.ativas, lido.disponiveis)])) as Record<string, EstadoExtensao>;
   const marcada = (e: ExtensaoPhp) => marcas[e.k] ?? estados[e.k] === 'ativa';
-  /** o que se pode mudar: nunca as essenciais, nem as que não se instalam por pacote */
-  const mudavel = (e: ExtensaoPhp) => admin && !e.essencial && (estados[e.k] !== 'nao-instalada' || (!!e.pkg && e.pkg !== 'common'));
-  const pedidos = EXTENSOES_PHP.filter((e) => mudavel(e) && marcada(e) !== (estados[e.k] === 'ativa')).map((e) => ({ e, acao: (marcada(e) ? (estados[e.k] === 'desativada' ? 'ativar' : 'instalar') : 'desativar') as 'ativar' | 'desativar' | 'instalar' }));
+  /** o que se pode mudar: nunca as essenciais nem as do próprio PHP; as que faltam instalar só o administrador */
+  const mudavel = (e: ExtensaoPhp) => !e.essencial && !!e.pkg && (estados[e.k] !== 'nao-instalada' || (admin && e.pkg !== 'common'));
+  const alteradas = EXTENSOES_PHP.filter((e) => mudavel(e) && marcada(e) !== (estados[e.k] === 'ativa'));
   const q = (cons?.q || '').trim().toLowerCase();
+  const chamar = async (corpo: Record<string, unknown>) => {
+    const r = await fetch('/api/vhost/php-extensoes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ conta: me, dominio: x.name, versao: lido.versao, ...corpo }) });
+    const j = (await r.json().catch(() => ({}))) as Partial<LeituraExt> & { erro?: string };
+    if (!r.ok) throw new Error(j.erro || 'O servidor não conseguiu fazer a alteração.');
+    return j;
+  };
   const aplicar = () =>
     vh.openM(
       <Confirmar
         titulo="Aplicar as alterações às extensões?"
         texto={
-          'PHP ' + lido.versao + ' do servidor — vale para todos os sites que usam esta versão. ' +
-          pedidos.map((p) => (p.acao === 'ativar' ? 'Ativar' : p.acao === 'desativar' ? 'Desativar' : 'Instalar') + ' ' + p.e.nome).join(' · ') +
-          (pedidos.some((p) => p.acao === 'instalar') ? '. A instalação pode demorar um minuto.' : '.')
+          'PHP ' + lido.versao + ' desta conta — só os sites desta conta mudam. ' +
+          alteradas.map((e) => (marcada(e) ? (estados[e.k] === 'nao-instalada' ? 'Instalar e ativar ' : 'Ativar ') : 'Desativar ') + e.nome).join(' · ') + '.'
         }
         ok="Aplicar"
         onOk={async () => {
           setAAplicar(true);
-          let atual = lido;
-          for (const p of pedidos) {
-            vh.toast(t(p.acao === 'instalar' ? 'A instalar' : 'A alterar') + ' ' + p.e.nome + '…');
-            const r = await fetch('/api/vhost/php-extensoes', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ acao: p.acao, conta: me, dominio: x.name, versao: lido.versao, ext: p.e.k }),
-            });
-            const j = (await r.json().catch(() => ({}))) as { erro?: string; carregadas?: string[]; pacotes?: string[] };
-            if (!r.ok) {
-              vh.toast(p.e.nome + ': ' + (j.erro || 'o servidor não conseguiu fazer a alteração.'));
-              break;
-            }
-            if (j.carregadas && j.pacotes) atual = { ...atual, carregadas: j.carregadas, pacotes: j.pacotes };
-            setLido(atual);
+          try {
+            vh.toast(t('A aplicar no servidor…'));
+            // as que faltam instalar (só o administrador) instalam-se primeiro; depois a conta recebe a lista completa
+            for (const e of alteradas.filter((e) => marcada(e) && estados[e.k] === 'nao-instalada')) await chamar({ acao: 'instalar', ext: e.k });
+            const catalogo = EXTENSOES_PHP.map((e) => e.k);
+            const modulos = [...lido.ativas.filter((m) => !catalogo.includes(m)), ...EXTENSOES_PHP.filter((e) => e.pkg && marcada(e)).map((e) => e.k)];
+            const j = await chamar({ acao: 'aplicar', modulos });
+            setLido({ ...lido, ...(j as Partial<LeituraExt>) });
+            setMarcas({});
+            vh.toast('Extensões atualizadas');
+          } catch (e) {
+            vh.toast(e instanceof Error ? e.message : 'O servidor não conseguiu fazer a alteração.');
+          } finally {
+            setAAplicar(false);
           }
-          setMarcas({});
-          setAAplicar(false);
-          vh.toast('Extensões atualizadas');
         }}
       />,
     );
+  const repor = () =>
+    vh.openM(
+      <Confirmar
+        titulo="Voltar às extensões do servidor?"
+        texto="Esta conta deixa de ter extensões próprias e volta ao PHP comum do servidor."
+        ok="Voltar"
+        onOk={async () => {
+          try {
+            const j = await reporEEstado();
+            setLido({ ...lido, ...(j as Partial<LeituraExt>) });
+            setMarcas({});
+            vh.toast('Extensões do servidor repostas');
+          } catch (e) {
+            vh.toast(e instanceof Error ? e.message : 'O servidor não conseguiu fazer a alteração.');
+          }
+        }}
+      />,
+    );
+  async function reporEEstado() {
+    const r = await fetch('/api/vhost/php-extensoes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ acao: 'repor', conta: me, dominio: x!.name }) });
+    if (!r.ok) throw new Error(((await r.json().catch(() => ({}))) as { erro?: string }).erro || 'O servidor não conseguiu fazer a alteração.');
+    const e = await fetch('/api/vhost/php-extensoes?conta=' + encodeURIComponent(me) + '&d=' + encodeURIComponent(x!.name) + '&versao=' + encodeURIComponent(lido!.versao), { cache: 'no-store' });
+    return (await e.json()) as LeituraExt;
+  }
+  const botaoAplicar = (
+    <button className="btn r" disabled={!alteradas.length || aAplicar} onClick={aplicar}>
+      <i className="fa-solid fa-floppy-disk" />
+      {t('Aplicar alterações')}
+    </button>
+  );
   return (
     <>
-      <NoTopoCartao daPagina modelo={{ titulo: t(tituloDoCartao('Extensões PHP')), sub: t('As extensões do PHP ' + lido.versao + ': marque as que o site precisa') }}>
-        {admin ? (
-          <button className="btn r" disabled={!pedidos.length || aAplicar} onClick={aplicar}>
-            <i className="fa-solid fa-floppy-disk" />
-            {t('Aplicar alterações')}
-          </button>
-        ) : null}
+      <NoTopoCartao daPagina modelo={{ titulo: t(tituloDoCartao('Extensões PHP')), sub: t('As extensões do PHP ' + lido.versao + ' desta conta: marque as que os seus sites precisam') }}>
+        {botaoAplicar}
       </NoTopoCartao>
       <SeparadoresPhp on="extensoes" />
       {CATEGORIAS_PHP.map((cat) => {
@@ -4414,24 +4441,22 @@ function PhpExtensoes() {
                   disabled={!mudavel(e)}
                   onChange={(v) => setMarcas({ ...marcas, [e.k]: v })}
                   label={e.nome}
-                  title={e.desc + ' (' + e.k + ')' + (estados[e.k] === 'nao-instalada' ? ' — ' + t('não instalada') : estados[e.k] === 'desativada' ? ' — ' + t('desativada') : '')}
+                  title={e.desc + ' (' + e.k + ')' + (estados[e.k] === 'nao-instalada' ? ' — ' + t(admin ? 'não instalada no servidor: ao aplicar, instala-se' : 'não instalada no servidor: peça ao suporte') : estados[e.k] === 'desativada' ? ' — ' + t('desativada') : '')}
                 />
               ))}
             </div>
           </Frm>
         );
       })}
-      {admin && (
-        <div className="acoes-topo ext-rodape">
-          <button className="btn r" disabled={!pedidos.length || aAplicar} onClick={aplicar}>
-            <i className="fa-solid fa-floppy-disk" />
-            {t('Aplicar alterações')}
+      <div className="acoes-topo ext-rodape">
+        {lido.dedicado && (
+          <button className="btn g" onClick={repor}>
+            {t('Voltar às extensões do servidor')}
           </button>
-        </div>
-      )}
-      <p className="em-nota">
-        {t(admin ? 'As extensões são do PHP do servidor: o que mudar aqui vale para todos os sites que usam a versão ' + lido.versao + '. As essenciais ficam sempre ativas.' : 'As extensões são do PHP do servidor e só o administrador as pode mudar. Precisa de uma que não está ativa? Peça-a ao suporte.')}
-      </p>
+        )}
+        {botaoAplicar}
+      </div>
+      <p className="em-nota">{t('As extensões são só desta conta: o que mudar aqui não afecta os outros clientes. As essenciais ficam sempre ativas.')}</p>
     </>
   );
 }
