@@ -854,6 +854,18 @@ export async function POST(req: NextRequest) {
     }
     case 'php-versao':
       return resposta(hestia.changeWebDomainPhp(conta, d, linhaLimpa(c.versao)));
+    case 'php-versao-conta': {
+      // a versão do PHP é da conta: todos os sites dela passam para a versão escolhida
+      const versao = linhaLimpa(c.versao);
+      if (!/^\d\.\d$/.test(versao)) return NextResponse.json({ erro: 'Versão do PHP inválida.' }, { status: 400 });
+      const dominios = Object.keys(srv.web[conta] || {});
+      const falhas: string[] = [];
+      for (const dom of dominios) {
+        const x = await hestia.changeWebDomainPhp(conta, dom, versao);
+        if (!x.ok) falhas.push(dom);
+      }
+      return resposta({ ok: !falhas.length, error: falhas.length ? 'Não foi possível mudar: ' + falhas.join(', ') : undefined });
+    }
     case 'php-ini': {
       if (!w) return NextResponse.json({ erro: 'Este domínio não tem site.' }, { status: 400 });
       const pares = (Array.isArray(c.regras) ? c.regras : []) as { k: string; v: string }[];

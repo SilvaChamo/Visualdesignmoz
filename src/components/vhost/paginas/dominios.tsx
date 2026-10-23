@@ -4236,7 +4236,7 @@ function Php() {
         </button>
       </NoTopoCartao>
       <SeparadoresPhp on="definicoes" />
-      <Frm className="php-versao" title="Versão PHP" desc="A versão usada por este site">
+      <Frm className="php-versao" title="Versão PHP" desc="A versão usada por todos os sites desta conta">
         <Row label="Versão">
           <div className="igrp php-campo">
             <span className="ib" style={{ cursor: 'default' }}>
@@ -4250,7 +4250,7 @@ function Php() {
                   void vh.recarregar(true);
                 }
               }}
-              onChange={async (e) => noServidor(vh, { acao: 'php-versao', dominio: x.name, versao: e.target.value }, 'PHP ' + e.target.value + ' em ' + x.name)}
+              onChange={async (e) => noServidor(vh, { acao: 'php-versao-conta', dominio: x.name, versao: e.target.value }, 'PHP ' + e.target.value + ' em todos os sites da conta')}
             >
               {!/^\d+\.\d+$/.test(ativa) && <option value={ativa}>{t('Padrão do servidor')}</option>}
               {versoes.map((p) => (
