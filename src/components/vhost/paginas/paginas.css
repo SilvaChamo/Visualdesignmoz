@@ -3828,7 +3828,9 @@
 .vh .fmda-menu-mais {
    position: absolute;
    top: 40px;
-   right: 0
+   right: 0;
+   width: max-content;
+   min-width: 0
 }
 
 .vh .fmda-menu button {
@@ -7824,6 +7826,11 @@
    cursor: pointer
 }
 
+/* "Pasta do site": a linha ocupa a largura toda do cartão (o caminho cabe numa só linha) e a letra é mais pequena (Silva, 23/10/2026) */
+.vh .dom-info-l .dom-pasta {
+   font-size: calc(11px * var(--fs, 1))
+}
+
 .vh .dom-info-l.lk:hover>div,
 .vh .dom-info-l.lk:hover>i {
    color: var(--red)
@@ -11794,6 +11801,26 @@
    border-radius: 4px
 }
 
+/* Mais (3 pontinhos): popup pequeno e aconchegante — cada opção numa só linha, letra de 12 px (Silva, 23/10/2026). Tem de vir depois
+   das regras gerais do menu e com mais força, senão estas ganham */
+.vh .fmda-menu.fmda-menu-mais {
+   padding: 3px 0
+}
+
+.vh .fmda-menu.fmda-menu-mais button {
+   gap: 8px;
+   height: 28px;
+   padding: 0 12px;
+   white-space: nowrap;
+   font-size: 12px
+}
+
+.vh .fmda-menu.fmda-menu-mais button i {
+   width: 13px;
+   flex: none;
+   font-size: 11px
+}
+
 /* Gestor de ficheiros › Mais: linha entre a opção "Mostrar/Ocultar ficheiros do root" e as ações dos ficheiros escolhidos */
 .vh .fmda-menu-sep {
    height: 1px;
@@ -12031,6 +12058,19 @@
    .vh .bk-grelha {
       grid-template-columns: repeat(2, minmax(0, 1fr))
    }
+}
+
+/* Cópias de segurança: o botão "Guardar escolhas" por baixo da grelha (Silva, 23/10/2026) */
+.vh .bk-guardar {
+   display: flex;
+   flex-wrap: wrap;
+   align-items: center;
+   gap: 10px;
+   margin-top: 10px
+}
+
+.vh .bk-guardar small {
+   color: var(--muted)
 }
 
 /* Cópias de segurança: o texto à esquerda e os botões à direita, por baixo da linha; as escolhas em grelha por baixo deles, com margem entre

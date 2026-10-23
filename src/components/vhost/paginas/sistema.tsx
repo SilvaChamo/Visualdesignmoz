@@ -188,6 +188,7 @@ const gravarPrefFm = (k: string, v: string) => {
 EN['Mostrar ficheiros do root'] ??= 'Show root files';
 EN['Ocultar ficheiros do root'] ??= 'Hide root files';
 EN['Raiz da conta'] ??= 'Account root';
+EN['Compactar ficheiros'] ??= 'Compress files';
 const rotaEditar = (c: string) => '/utilizador/ficheiros/_editar/' + encC(c);
 /** drwxr-xr-x a partir do número (644) e do tipo */
 const permTexto = (x: Item) => {
@@ -685,6 +686,7 @@ function Ficheiros({ caminho, lixo = false }: { caminho: string; lixo?: boolean 
     { k: 'nome', fa: 'fa-pen', t: 'Mudar nome', ativo: !!um, run: () => um && openM(<NomeModal titulo="Mudar nome" rotulo="Nome novo" inicial={um.nome} botao="Guardar" onOk={(n) => fazer({ acao: 'fm-renomear', caminho: juntar(caminho, um.nome), nome: n }, 'Nome mudado')} />) },
   ];
   const mais: AcaoFm[] = [
+    { k: 'compactar', fa: 'fa-file-zipper', t: 'Compactar ficheiros', ativo: escolhidos.length > 0, run: () => openM(<ArquivarModal inicial={um ? um.nome.replace(/\.[^.]+$/, '') || um.nome : 'arquivo'} onOk={(n) => fazer({ acao: 'fm-comprimir', pasta: caminho, nome: n, caminhos: caminhos() }, 'Arquivo criado')} />) },
     ...(um && !um.pasta && ARQUIVO.test(um.nome) ? [{ k: 'extrair', fa: 'fa-box-open', t: 'Extrair aqui', ativo: true, run: () => fazer({ acao: 'fm-extrair', caminho: juntar(caminho, um.nome), destino: caminho }, 'Extraído') }] : []),
     { k: 'perm', fa: 'fa-gear', t: 'Permissões', ativo: escolhidos.length > 0, run: () => openM(<PermModal inicial={um?.perm || '644'} onOk={(m) => fazer({ acao: 'fm-permissoes', caminhos: caminhos(), modo: m }, 'Permissões mudadas')} />) },
     { k: 'remover', fa: 'fa-trash-can', t: 'Remover', ativo: escolhidos.length > 0, perigo: true, run: apagar },
@@ -1009,7 +1011,7 @@ function Ficheiros({ caminho, lixo = false }: { caminho: string; lixo?: boolean 
           )}
           {menu && (
             <div className="fmda-menu" style={{ left: menu.x, top: menu.y }} onClick={(e) => e.stopPropagation()}>
-              {[...acoes, ...mais].map((a) => (
+              {[...acoes, ...mais.filter((a) => a.k !== 'compactar')].map((a) => (
                 <button
                   key={a.k}
                   className={a.perigo ? 'perigo' : ''}
