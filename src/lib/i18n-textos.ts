@@ -178,6 +178,7 @@ export const EN: Record<string, string> = {
   "Preencha o nome da empresa.": "Fill in the company name.",
   "Preencha o contacto.": "Fill in the contact.",
   "Indique um número de telefone moçambicano válido (ex: +258 84 000 0000).": "Enter a valid Mozambican phone number (e.g. +258 84 000 0000).",
+  "Indique um número de telefone válido, com indicativo (ex: +258 84 000 0000).": "Enter a valid phone number with country code (e.g. +258 84 000 0000).",
   "Preencha o email.": "Fill in the email.",
   "Preencha o nome do responsável.": "Fill in the name of the person in charge.",
   "Preencha o telefone do responsável.": "Fill in the phone of the person in charge.",

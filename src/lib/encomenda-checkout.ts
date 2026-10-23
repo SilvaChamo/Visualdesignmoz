@@ -244,11 +244,10 @@ export async function resolveEncomendaLandingPath(): Promise<string> {
   return destinoDepoisDoPagamento(encomendaLandingPath());
 }
 
-/** Telefone moçambicano (82–87), com ou sem +258 — o mesmo critério do formulário /cotacao. */
+/** Telefone com indicativo internacional (7 a 15 dígitos) — o contacto pode não ser moçambicano; o mesmo critério do formulário /cotacao. */
 function telefoneMzValido(raw: string): boolean {
   const digits = (raw || '').replace(/\D/g, '');
-  const local = digits.startsWith('258') ? digits.slice(3) : digits;
-  return /^8[2-7]\d{7}$/.test(local);
+  return digits.length >= 7 && digits.length <= 15;
 }
 
 /**
@@ -260,7 +259,7 @@ export function encomendaDadosEmFalta(draft: Pick<EncomendaDraft, 'tipoCliente' 
   const falta: string[] = [];
   const individual = draft.tipoCliente === 'individual';
   if (!draft.empresa?.trim()) falta.push(individual ? 'nome completo' : 'nome da empresa');
-  if (!telefoneMzValido(draft.telefoneInstitucional)) falta.push(individual ? 'contacto (telefone moçambicano)' : 'contacto da empresa (telefone moçambicano)');
+  if (!telefoneMzValido(draft.telefoneInstitucional)) falta.push(individual ? 'contacto (telefone)' : 'contacto da empresa (telefone)');
   if (!draft.emailInstitucional?.trim()) falta.push(individual ? 'e-mail' : 'e-mail da empresa');
   const responsavelPropio = !individual && draft.contaDados !== 'empresa';
   if (responsavelPropio) {

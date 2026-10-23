@@ -43,12 +43,10 @@ function minDeliveryDate() {
   return addBusinessDays(new Date(), 7).toISOString().split('T')[0];
 }
 
-// Aceita rede móvel moçambicana (82/83 Tmcel, 84/85 Vodacom, 86/87 Movitel),
-// com ou sem o indicativo +258, com ou sem espaços/traços.
+// Aceita qualquer número de telefone com indicativo internacional (7 a 15 dígitos): o contacto pode não ser moçambicano (Silva, 23/10/2026).
 function isValidMzPhone(raw: string): boolean {
   const digits = raw.replace(/\D/g, '');
-  const local = digits.startsWith('258') ? digits.slice(3) : digits;
-  return /^8[2-7]\d{7}$/.test(local);
+  return digits.length >= 7 && digits.length <= 15;
 }
 
 /** `painel`: aberto dentro do painel VisualHost (Gestão › Encomendas › Nova encomenda), sem moldura (iframe): mesmo formulário, só o passo "Serviço" */
@@ -436,14 +434,14 @@ export function CotacaoContent({ painel = false }: { painel?: boolean } = {}) {
     if (key === 'empresa') {
       if (!empresa.trim()) return tipoCliente === 'individual' ? 'Preencha o seu nome completo.' : 'Preencha o nome da empresa.';
       if (!telefoneInstitucional.trim()) return 'Preencha o contacto.';
-      if (!isValidMzPhone(telefoneInstitucional)) return 'Indique um número de telefone moçambicano válido (ex: +258 84 000 0000).';
+      if (!isValidMzPhone(telefoneInstitucional)) return 'Indique um número de telefone válido, com indicativo (ex: +258 84 000 0000).';
       if (!emailInstitucional.trim()) return 'Preencha o email.';
     }
     if (key === 'conta') {
       if (!usaDadosEmpresa) {
         if (!responsavel.trim()) return 'Preencha o nome do responsável.';
         if (!telefoneResponsavel.trim()) return 'Preencha o telefone do responsável.';
-        if (!isValidMzPhone(telefoneResponsavel)) return 'Indique um número de telefone moçambicano válido (ex: +258 84 000 0000).';
+        if (!isValidMzPhone(telefoneResponsavel)) return 'Indique um número de telefone válido, com indicativo (ex: +258 84 000 0000).';
         if (!emailResponsavel.trim()) return 'Preencha o email do responsável.';
       }
       if (precisaCriarConta) {
