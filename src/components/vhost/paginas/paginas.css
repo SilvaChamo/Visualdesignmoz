@@ -13740,27 +13740,44 @@
    max-width: none
 }
 
-/* Telemóvel: um botão sozinho fica sempre à direita, no seu tamanho (Silva, 23/10/2026) — nos rodapés de formulários e janelas, nas barras de botões, nos filtros e no fim
-   dos blocos das listas. Dois ou mais continuam lado a lado, como estavam. */
+/* Telemóvel (de 320 px, o mais pequeno, para cima) — um botão sozinho ocupa metade da largura, encostado à direita, quando o texto cabe nessa metade; se o texto é
+   comprido (marca .uma-coluna, posta por botoes-telemovel.ts) ocupa a largura toda (Silva, 23/10/2026). Vale nos rodapés de formulários e janelas, nas barras de
+   botões, nos filtros e no fim dos blocos das listas. Dois ou mais continuam lado a lado, como estavam. */
 @media (max-width: 768px) {
-   .vh :is(.frm-foot, .mfoot, .acoes-topo) > :is(.btn, button, a):only-child:not(#x),
-   .vh :is(.frm-foot, .mfoot, .acoes-topo).uma-coluna > :is(.btn, button, a):only-child:not(#x) {
-      flex: 0 0 auto !important;
+   .vh :is(.frm-foot, .mfoot, .acoes-topo) > :is(.btn, button, a):only-child:not(#x) {
+      flex: 0 0 calc(50% - 4px) !important;
       width: auto;
       max-width: 100%;
       margin-left: auto
    }
 
+   .vh :is(.frm-foot, .mfoot, .acoes-topo).uma-coluna > :is(.btn, button, a):only-child:not(#x) {
+      flex: 1 1 100% !important;
+      margin-left: 0
+   }
+
    .vh .em-filtros.em-rastreio > .btn:not(#x) {
-      flex: 0 0 auto;
+      flex: 0 0 calc(50% - 7px);
+      min-width: 0;
       margin-left: auto
+   }
+
+   .vh .em-filtros.em-rastreio.uma-coluna > .btn:not(#x) {
+      flex: 1 1 100%;
+      margin-left: 0
    }
 
    .vh .tbl.dt-empilhar tbody td.dt-acoes-linha > .btn:only-child:not(#x),
    .vh .tbl.dt-empilhar tbody td.dt-acoes-linha > :is(span, div):not(.menu):not(.wp-menu):not(.ssl-pop-menu) > .btn:only-child:not(#x) {
-      flex: 0 0 auto !important;
+      flex: 0 0 calc(50% - 4px) !important;
       width: auto !important;
       max-width: 100%;
       margin-left: auto !important
+   }
+
+   .vh .tbl.dt-empilhar tbody td.dt-acoes-linha.uma-coluna > .btn:only-child:not(#x),
+   .vh .tbl.dt-empilhar tbody td.dt-acoes-linha > :is(span, div).uma-coluna > .btn:only-child:not(#x) {
+      flex: 1 1 100% !important;
+      margin-left: 0 !important
    }
 }

@@ -6,7 +6,7 @@
 import { useEffect } from 'react';
 
 const BARRAS =
-  '.frm-foot, .mfoot, .acoes-topo, .tbl.dt-empilhar td.dt-acoes-linha, .tbl.dt-empilhar td.dt-acoes-linha > span:not(.menu), .tbl.dt-empilhar td.dt-acoes-linha > div:not(.menu):not(.wp-menu):not(.ssl-pop-menu)';
+  '.frm-foot, .mfoot, .acoes-topo, .em-filtros.em-rastreio, .tbl.dt-empilhar td.dt-acoes-linha, .tbl.dt-empilhar td.dt-acoes-linha > span:not(.menu), .tbl.dt-empilhar td.dt-acoes-linha > div:not(.menu):not(.wp-menu):not(.ssl-pop-menu)';
 const TELEMOVEL = '(max-width: 768px)';
 
 function acertar() {
