@@ -14256,7 +14256,8 @@
 }
 
 .vh .enc-contab [class~="flex-wrap"][class~="items-end"]:not(#x):not(#y) {
-   gap: 0
+   gap: 0;
+   padding-left: 10px
 }
 
 .vh .enc-contab [class~="flex-wrap"][class~="items-end"] > button:not(#x):not(#y) {
