@@ -13373,3 +13373,26 @@
       margin-bottom: 30px
    }
 }
+
+/* Listas: linhas suaves (início, entre linhas e fim) e o fundo das linhas alternadas ligeiramente mais leve (Silva, 23/10/2026).
+   Só computador e tablet; no telemóvel as linhas são blocos e ficam como estavam. A barra dos títulos mantém o fundo suave. */
+.vh {
+   --linha-lista: color-mix(in srgb, var(--line) 50%, var(--card));
+   --fundo-lista: color-mix(in srgb, var(--soft) 55%, var(--card))
+}
+
+@media (min-width: 769px) {
+   .vh :is(.tbl, .trf-tabela) thead th:not(#x) {
+      border-top-color: var(--linha-lista);
+      border-bottom-color: var(--linha-lista)
+   }
+
+   .vh :is(.tbl, .trf-tabela) tbody tr > td:not(#x),
+   .vh :is(.tbl, .trf-tabela) tbody tr:last-child > td:not(#x) {
+      border-bottom-color: var(--linha-lista)
+   }
+
+   .vh:not([data-theme=dark]) table tbody tr:nth-child(even):not(.grp):not(.sel):not(.dt-realce):not(:hover) > td:not(#x) {
+      background: var(--fundo-lista)
+   }
+}
