@@ -682,6 +682,7 @@ export const EN: Record<string, string> = {
  "Ir para o meu painel": "Go to my panel",
  "Voltar ao painel": "Back to dashboard",
  "Voltar ao meu painel": "Back to my panel",
+ "Voltar ao painel de administração": "Back to the administration panel",
  "Contas": "Accounts",
  "Disco usado": "Disk used",
  "Carga do servidor": "Server load",

@@ -326,27 +326,9 @@ export function SwitcherBar({ title, crumbs, dominios, dominioUrl }: { title: st
   );
 }
 
-/** Faixa amarela de "Entrar como" */
+/** "Entrar como": já não há faixa amarela — o botão de voltar está na barra de cima (VisualHostApp, `btn-imp`) */
 export function ImpBanner() {
-  const { s, a, me, t, backToMine } = useVH();
-  if (!s.stack.length) return null;
-  const o = s.acc[s.login];
-  return (
-    <div className="imp">
-      <i className="fa-solid fa-user-secret" />
-      <div>
-        Está a ver o painel de{' '}
-        <b>
-          {a.name} ({me})
-        </b>{' '}
-        · {ROLES[a.role]}. A sua sessão é de <b>{o.name}</b> ({ROLES[o.role]}).
-      </div>
-      <button className="btn g sm" onClick={backToMine}>
-        <i className="fa-solid fa-arrow-left" />
-        {t('Voltar ao meu painel')}
-      </button>
-    </div>
-  );
+  return null;
 }
 
 /** Notas técnicas no fim da página (endereço, equivalente DirectAdmin e situação no Hestia) */

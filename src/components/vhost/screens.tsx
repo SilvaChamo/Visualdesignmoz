@@ -323,7 +323,7 @@ function NiveisBody() {
         Como no DirectAdmin, o nível Admin já inclui tudo o que um revendedor faz, e o administrador cria contas de qualquer tipo e muda o tipo de uma conta (“Mudar tipo”) em Todos os
         utilizadores.
         <br />
-        <b>Entrar como</b> é outra coisa: é abrir o painel de <i>outra</i> pessoa (aparece uma faixa amarela com “Voltar ao meu painel”).
+        <b>Entrar como</b> é outra coisa: é abrir o painel de <i>outra</i> pessoa (aparece o botão “Voltar ao painel de administração” na barra de cima).
       </div>
       <div className="tbl" style={{ marginBottom: 26 }}>
         <table>
