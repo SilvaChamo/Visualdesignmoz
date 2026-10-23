@@ -13495,30 +13495,37 @@
    font-size: 11px
 }
 
-/* Rastreio de e-mail: os campos e o botão "Pesquisar" ficam sempre numa só linha (Silva, 23/10/2026). Quanto mais pequeno o ecrã, mais pequenos os campos
-   (caixa do ícone, margens e letra encolhem) — o ano e o calendário das datas cabem sempre. No telemóvel os campos vão em coluna. */
+/* Rastreio de e-mail: os campos e o botão "Pesquisar" ficam sempre numa só linha (Silva, 23/10/2026). Nenhum campo desce de 112 px (abaixo de 110 px o ícone do
+   campo não aparece) nem corta o texto; quando a linha não cabe (até 1100 px) os campos mantêm o tamanho e a linha desliza para os lados. No telemóvel vão em coluna. */
 @media (min-width: 769px) {
    .vh .em-filtros.em-rastreio:not(#x) {
       flex-wrap: nowrap;
       gap: 8px;
-      --icw: 36px
+      overflow-x: auto
    }
 
    .vh .em-filtros.em-rastreio > label:not(#x) {
       flex: 1 1 0;
-      min-width: 0
+      min-width: 112px
    }
 
    .vh .em-filtros.em-rastreio > label:nth-child(-n+2):not(#x) {
-      flex-grow: 1.15
+      flex-grow: 1.15;
+      min-width: 120px
    }
 
    .vh .em-filtros.em-rastreio > label:nth-child(3):not(#x) {
-      flex-grow: 2.2
+      flex-grow: 2.2;
+      min-width: 130px
+   }
+
+   .vh .em-filtros.em-rastreio > label:nth-child(4):not(#x) {
+      min-width: 120px
    }
 
    .vh .em-filtros.em-rastreio > label:nth-child(5):not(#x) {
-      flex-grow: 1.3
+      flex-grow: 1.3;
+      min-width: 176px
    }
 
    .vh .em-filtros.em-rastreio :is(input, select):not(#x) {
@@ -13527,20 +13534,9 @@
       padding-right: 6px
    }
 
-   .vh .em-filtros.em-rastreio select:not(#x) {
-      padding-right: 26px;
-      background-position: var(--ic-x, 11px) center, 0 0, var(--icw) 0, right 8px center
-   }
-
-   .vh .em-filtros.em-rastreio [data-ic]:not(#x) {
-      padding-left: calc(var(--icw) + 10px) !important;
-      background-position: calc((var(--icw) - 14px) / 2) center, 0 0, var(--icw) 0;
-      background-size: 14px, var(--icw) 100%, 1px 100%
-   }
-
-   .vh .em-filtros.em-rastreio select[data-ic]:not(#x) {
-      background-position: calc((var(--icw) - 14px) / 2) center, 0 0, var(--icw) 0, right 8px center;
-      background-size: 14px, var(--icw) 100%, 1px 100%, 12px
+   .vh .em-filtros.em-rastreio select:not(#x):not(#y) {
+      padding-right: 30px !important;
+      background-position: 11px center, 0 0, 36px 0, right 10px center !important
    }
 
    .vh .em-filtros.em-rastreio > .btn:not(#x) {
@@ -13549,38 +13545,7 @@
 }
 
 @media (min-width: 769px) and (max-width: 1300px) {
-   .vh .em-filtros.em-rastreio > label:nth-child(5):not(#x) {
-      min-width: 154px;
-      flex-grow: 1.5
-   }
-
-   .vh .em-filtros.em-rastreio:not(#x) {
-      gap: 6px;
-      --icw: 28px
-   }
-
-   .vh .em-filtros.em-rastreio :is(input, select):not(#x) {
-      font-size: 10.5px;
-      padding-right: 3px
-   }
-
-   .vh .em-filtros.em-rastreio select:not(#x) {
-      padding-right: 20px
-   }
-
-   .vh .em-filtros.em-rastreio > .btn:not(#x) {
-      padding: 0 10px;
-      gap: 6px;
-      font-size: 11.5px
-   }
-}
-
-@media (min-width: 769px) and (max-width: 1150px) {
-   .vh .em-filtros.em-rastreio input:not([type=date]):not(#x)::placeholder {
-      font-size: 10px
-   }
-
-   /* "Pesquisar" só com a lupa para o texto dos campos caber */
+   /* "Pesquisar" só com a lupa */
    .vh .em-filtros.em-rastreio > .btn:not(#x) {
       font-size: 0 !important;
       gap: 0 !important;
@@ -13590,46 +13555,27 @@
    .vh .em-filtros.em-rastreio > .btn:not(#x) i {
       font-size: 12px !important
    }
+}
+
+@media (min-width: 769px) and (max-width: 1100px) {
+   .vh .em-filtros.em-rastreio > label:not(#x) {
+      flex: 0 0 auto
+   }
 
    .vh .em-filtros.em-rastreio > label:nth-child(-n+2):not(#x) {
-      min-width: 104px
+      width: 140px
+   }
+
+   .vh .em-filtros.em-rastreio > label:nth-child(3):not(#x) {
+      width: 210px
    }
 
    .vh .em-filtros.em-rastreio > label:nth-child(4):not(#x) {
-      min-width: 82px
+      width: 124px
    }
 
    .vh .em-filtros.em-rastreio > label:nth-child(5):not(#x) {
-      min-width: 154px;
-      flex-grow: 1.5
-   }
-}
-
-@media (min-width: 769px) and (max-width: 1050px) {
-   .vh .em-filtros.em-rastreio:not(#x) {
-      gap: 4px;
-      --icw: 24px
-   }
-
-   .vh .em-filtros.em-rastreio > label:not(#x) {
-      font-size: 10.5px
-   }
-
-   .vh .em-filtros.em-rastreio :is(input, select):not(#x) {
-      font-size: 10px
-   }
-}
-
-/* Abaixo de ~1000 px a coluna do cartão (barra lateral aberta) é demasiado estreita para os 5 campos e o botão numa linha legível: aí quebram em duas linhas */
-@media (min-width: 769px) and (max-width: 999px) {
-   .vh .em-filtros.em-rastreio:not(#x) {
-      flex-wrap: wrap;
-      gap: 8px
-   }
-
-   .vh .em-filtros.em-rastreio > label:not(#x) {
-      flex: 1 1 150px;
-      min-width: 130px
+      width: 180px
    }
 }
 

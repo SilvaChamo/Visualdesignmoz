@@ -2075,8 +2075,8 @@ function Rastreio() {
         cols={[
           { k: 'dir', t: 'Direção', cell: (r) => <span title={t(r.dir === 'saida' ? 'Saída' : 'Entrada')}><i className={'fa-solid ' + (r.dir === 'saida' ? 'fa-arrow-up-right-from-square' : 'fa-arrow-down')} style={{ color: 'var(--muted)' }} /> {t(r.dir === 'saida' ? 'Saída' : 'Entrada')}</span> },
           { k: 'estado', t: 'Estado', cell: (r) => <span className={'tag ' + (ESTADOS[r.estado]?.[1] || 'off')} title={r.motivo || ''}>{t(ESTADOS[r.estado]?.[0] || r.estado)}</span> },
-          { k: 'de', t: 'De', cell: (r) => <span style={{ wordBreak: 'break-all' }}>{r.de || '<>'}</span> },
-          { k: 'para', t: 'Para', cell: (r) => <span style={{ whiteSpace: 'normal', wordBreak: 'break-all' }}>{r.para.join(', ') || '—'}</span> },
+          { k: 'de', t: 'De', cell: (r) => r.de || '<>' },
+          { k: 'para', t: 'Para', cell: (r) => r.para.join(', ') || '—' },
           { k: 'tam', t: 'Tamanho', cell: (r) => (r.tam ? (r.tam > 1048576 ? (r.tam / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(r.tam / 1024)) + ' KB') : '—') },
           { k: 'data', t: 'Data', sort: (r) => r.data, cell: (r) => dataPt(r.data.replace(' ', 'T')) },
         ]}
