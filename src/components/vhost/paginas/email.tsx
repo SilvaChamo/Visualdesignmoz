@@ -2044,7 +2044,7 @@ function Rastreio() {
             <option value="saida">{t('Só saída')}</option>
           </select>
         </label>
-        <button className="btn r" disabled={a} onClick={() => procurar()}>
+        <button className="btn r" disabled={a} onClick={() => procurar()} title={t('Pesquisar')} aria-label={t('Pesquisar')}>
           <i className="fa-solid fa-magnifying-glass" />
           {t('Pesquisar')}
         </button>
