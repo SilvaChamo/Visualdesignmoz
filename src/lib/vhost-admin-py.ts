@@ -148,7 +148,7 @@ LOGS = {
     'exim': '/var/log/exim4/mainlog', 'exim-rejeitados': '/var/log/exim4/rejectlog', 'dovecot': '/var/log/dovecot.log', 'fail2ban': '/var/log/fail2ban.log',
     'mariadb': '/var/log/mysql/error.log', 'hestia': '/usr/local/hestia/log/system.log', 'hestia-erros': '/usr/local/hestia/log/error.log',
     'hestia-entradas': '/usr/local/hestia/log/auth.log', 'cron-site': '/var/log/visualdesign-cron.log',
-    'site': '/root/.pm2/logs/visualdesign-site-teste-out.log', 'site-erros': '/root/.pm2/logs/visualdesign-site-teste-error.log',
+    'site': '/root/.pm2/logs/visualdesignmoz-out.log', 'site-erros': '/root/.pm2/logs/visualdesignmoz-error.log',
 }
 if ver == 'logs':
     f = LOGS.get(arg.get('ficheiro') or 'syslog')

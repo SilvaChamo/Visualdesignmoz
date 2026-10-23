@@ -6,12 +6,12 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-APP_NAME="visualdesign-site-teste"
+APP_NAME="visualdesignmoz"
 APP_PORT="3002"
 APP_HOST="teste.visualdesignmoz.com"
 MARKER="# visualdesign-site-watchdog"
 
-CRON_LINE="*/5 * * * * if ! curl -fsS -m 20 -H \"Host: ${APP_HOST}\" http://127.0.0.1:${APP_PORT}/ >/dev/null 2>&1; then pm2 restart ${APP_NAME} >/dev/null 2>&1 || pm2 start npm --name \"${APP_NAME}\" -- start -- -p ${APP_PORT} >/dev/null 2>&1 || true; fi ${MARKER}"
+CRON_LINE="*/5 * * * * if ! curl -fsS -m 20 -H \"Host: ${APP_HOST}\" http://127.0.0.1:${APP_PORT}/ >/dev/null 2>&1; then pm2 restart ${APP_NAME} >/dev/null 2>&1 || pm2 start /opt/visualdesignmoz/node_modules/next/dist/bin/next --name ${APP_NAME} -i 1 --cwd /opt/visualdesignmoz -- start -p ${APP_PORT} >/dev/null 2>&1 || true; fi ${MARKER}"
 
 CRON_FILE=$(mktemp)
 trap 'rm -f "$CRON_FILE"' EXIT

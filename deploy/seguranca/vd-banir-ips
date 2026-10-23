@@ -20,7 +20,7 @@ import urllib.request
 
 DOMINIOS = os.environ.get('VD_DOMINIOS', 'aamihe.com').split(',')
 LOG_TPL = os.environ.get('VD_LOG_TPL', '/var/log/apache2/domains/{d}.log')
-ENV = os.environ.get('VD_ENV', '/opt/visualdesign-site-teste/.env.local')
+ENV = os.environ.get('VD_ENV', '/opt/visualdesignmoz/.env.local')
 EST = os.environ.get('VD_EST', '/var/lib/vd-banir')
 LOGF = os.environ.get('VD_LOGF', '/var/log/vd-banir.log')
 PERMITIDOS = os.environ.get('VD_PERMITIDOS', '/etc/vd-banir.permitidos')

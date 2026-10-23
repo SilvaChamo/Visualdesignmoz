@@ -28,8 +28,8 @@ function identifyProcessName(user: string, args: string): { name: string; type: 
   }
 
   // Identificar aplicações Next.js / Node
-  if (args.includes('visualdesign-site-teste')) {
-    return { name: 'App: VisualDesign (Site Teste)', type: 'app' };
+  if (args.includes('visualdesignmoz') || args.includes('visualdesign-site-teste')) {
+    return { name: 'App: VisualDesign', type: 'app' };
   }
   if (args.includes('basededadosagro-site-teste')) {
     return { name: 'App: BaseDadosAgro (Site Teste)', type: 'app' };

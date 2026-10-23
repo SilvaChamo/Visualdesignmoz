@@ -65,7 +65,7 @@ jobs:
           rsync -avz --delete \
             -e "ssh -p 2234 -i ~/.ssh/deploy_key" \
             --exclude 'node_modules' --exclude '.next' --exclude '.git' --exclude '*.env*' --exclude '.DS_Store' \
-            ./ "root@${{ secrets.CONTABO_HOST }}:/opt/visualdesign-site-teste-build/"
+            ./ "root@${{ secrets.CONTABO_HOST }}:/opt/visualdesignmoz-build/"
 
       - name: Build and (re)start on Contabo
         uses: appleboy/ssh-action@v1.2.5
@@ -83,7 +83,15 @@ jobs:
           command_timeout: 30m
           script: |
             set -e
-            cd /opt/visualdesign-site-teste
+            # O site deixou de se chamar "teste" (Silva, 23/10/2026): a pasta em uso é /opt/visualdesignmoz (atalho para a versão em uso, em
+            # /opt/visualdesign-releases) e a app do pm2 chama-se visualdesignmoz. Na primeira vez a pasta antiga passa a ser a primeira versão.
+            mkdir -p /opt/visualdesign-releases
+            if [ ! -e /opt/visualdesignmoz ] && [ -d /opt/visualdesign-site-teste ] && [ ! -L /opt/visualdesign-site-teste ]; then
+              mv /opt/visualdesign-site-teste /opt/visualdesign-releases/inicial
+              ln -s /opt/visualdesign-releases/inicial /opt/visualdesignmoz
+            fi
+            rm -rf /opt/visualdesign-site-teste-build
+            cd /opt/visualdesignmoz
             touch .env.local
             set_env_var() {
               # grep -v + reescrever em vez de "sed -i s|...|...|" — um valor
@@ -226,8 +234,8 @@ jobs:
             # branco). Agora instala-se e constrói-se na pasta à parte (STAGE, onde o rsync acima pôs o código novo)
             # com o site a servir a versão anterior; no fim troca-se em segundos. Se o build falhar (set -e), o site
             # fica como estava.
-            LIVE=/opt/visualdesign-site-teste
-            STAGE=/opt/visualdesign-site-teste-build
+            LIVE=/opt/visualdesignmoz
+            STAGE=/opt/visualdesignmoz-build
             # as variáveis (.env.local, escrito acima na pasta do site) entram no build (NEXT_PUBLIC_*)
             for f in "$LIVE"/.env*; do if [ -f "$f" ]; then cp -a "$f" "$STAGE"/; fi; done
             cd "$STAGE"
@@ -267,11 +275,11 @@ jobs:
             # continuava a servir o código velho — abas de domínios vazias.
             pm2 delete visualdesign-panel || true
             # Publicar SEM corte (Silva, 23/10/2026): cada publicação é uma pasta própria em /opt/visualdesign-releases/<data> e
-            # /opt/visualdesign-site-teste passa a ser um atalho (symlink) para a versão em uso. O site corre em pm2 "cluster"
+            # /opt/visualdesignmoz passa a ser um atalho (symlink) para a versão em uso. O site corre em pm2 "cluster"
             # com 1 processo: o `pm2 reload` põe a versão nova a escutar na porta 3002 ANTES de a antiga sair, por isso não há um
             # único pedido falhado (testado com 600 pedidos seguidos durante a troca). A versão anterior fica na pasta dela para
             # a reversão automática se a nova não responder.
-            NAME=visualdesign-site-teste
+            NAME=visualdesignmoz
             RELEASES=/opt/visualdesign-releases
             mkdir -p "$RELEASES"
             NOVA="$RELEASES/$(date +%Y%m%d-%H%M%S)"
@@ -296,6 +304,7 @@ jobs:
               # só na primeira vez (o site estava em modo "fork"): passa a cluster. No modo cluster o pm2 usa o Node com que o seu
               # daemon arrancou; garante que é o Node 24 deste servidor (senão reinicia o daemon, que volta a pôr as apps no ar)
               pm2 delete "$NAME" || true
+              pm2 delete visualdesign-site-teste || true
               pm2 save --force
               DAEMON_NODE="$(readlink "/proc/$(cat /root/.pm2/pm2.pid 2>/dev/null || echo 0)/exe" 2>/dev/null || true)"
               if [ "$DAEMON_NODE" != "${NODE_ROOT}/bin/node" ]; then pm2 update || true; fi
