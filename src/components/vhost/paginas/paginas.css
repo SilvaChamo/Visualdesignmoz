@@ -5304,6 +5304,7 @@
    border: 2px solid var(--red);
    opacity: 0;
    pointer-events: none;
+   z-index: 0;
    animation: trfPulso 2.4s ease-out infinite
 }
 
@@ -5331,6 +5332,7 @@
 }
 
 .vh .trf-bola.para em {
+   z-index: 2; /* o visto verde fica por cima do pulso */
    position: absolute;
    right: -3px;
    bottom: -3px;
