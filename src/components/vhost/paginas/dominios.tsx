@@ -1618,17 +1618,6 @@ function DnsForm({ d, zona = d, fonte, r, onFeito }: { d: string; zona?: string;
 const valorDns = (r: RegistoDns) => r.valor;
 /** www → www.exemplo.co.mz; @ → exemplo.co.mz */
 const nomeCompleto = (r: RegistoDns, zona: string) => (r.nome === '@' || r.nome === zona ? zona : r.nome.endsWith('.' + zona) ? r.nome : r.nome + '.' + zona);
-/** ícone de cada tipo de registo nas opções por baixo da linha (Silva, 23/10/2026) */
-const ICONE_TIPO_DNS: Record<string, string> = {
-  '': 'fa-list',
-  A: 'fa-server',
-  CNAME: 'fa-link',
-  MX: 'fa-envelope',
-  TXT: 'fa-file-lines',
-  SRV: 'fa-gears',
-  NS: 'fa-sitemap',
-};
-
 function ttlTexto(ttl: number): string {
   if (ttl === 1) return 'Auto';
   if (ttl % 86400 === 0) return ttl / 86400 + (ttl === 86400 ? ' dia' : ' dias');
@@ -1758,7 +1747,7 @@ function Dns() {
             registos separados por "|" (Silva, 23/10/2026) */}
         <Tabs<string>
           abaixo
-          tabs={['', 'A', 'CNAME', 'MX', 'TXT', 'SRV', 'NS'].map((f) => [f || 'todos', f || 'Todos', ICONE_TIPO_DNS[f]] as [string, string, string])}
+          tabs={['', 'A', 'CNAME', 'MX', 'TXT', 'SRV', 'NS'].map((f) => [f || 'todos', f || 'Todos'] as [string, string])}
           on={filtro || 'todos'}
           onChange={(k) => setFiltro(k === 'todos' ? '' : k)}
         />
@@ -4320,8 +4309,8 @@ function SeparadoresPhp({ on }: { on: 'definicoes' | 'extensoes' }) {
     <Tabs<'definicoes' | 'extensoes'>
       abaixo
       tabs={[
-        ['definicoes', 'Definições', 'fa-sliders'],
-        ['extensoes', 'Extensões', 'fa-puzzle-piece'],
+        ['definicoes', 'Definições'],
+        ['extensoes', 'Extensões'],
       ]}
       on={on}
       onChange={(k) => vh.nav('/' + vh.s.level + '/php' + (k === 'extensoes' ? '/extensoes' : ''))}
