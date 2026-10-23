@@ -13476,3 +13476,21 @@
 .vh:not([data-theme=dark]) .dom-registar table tbody tr:nth-child(even):not(:hover):not(#x) {
    background: var(--fundo-lista)
 }
+
+/* Campos padronizados (Silva, 23/10/2026): a altura de todos os campos é a do botão base (32 px) e a letra dentro deles é de 12 px (mais pequena que o texto normal, 13-14 px, e que não se confunde com os subtítulos, 11,5 px) — texto, e-mail, palavra-passe, número, data, escolha (select), pesquisa e as caixas dos grupos (.igrp). Reduzem-se os campos, nunca o botão.
+   Valem para todos os campos do painel; só ficam de fora os seletores de navegação da barra (domínio e separadores), as caixas de seleção, os botões de opção e os campos de cor, deslizante e ficheiro. */
+.vh :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]), select:not([multiple]):not([size]):not(.da-domain-selector select):not(.ptabs-sel select), textarea):not(#x) {
+   font-size: 12px
+}
+
+.vh :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]), select:not([multiple]):not([size]):not(.da-domain-selector select):not(.ptabs-sel select)):not(#x),
+.vh .igrp :is(.ib, select):not(#x),
+.vh .search:not(#x) {
+   height: 32px;
+   min-height: 32px
+}
+
+.vh .search:not(#x) input,
+.vh .igrp .ib:not(#x) {
+   font-size: 12px
+}
