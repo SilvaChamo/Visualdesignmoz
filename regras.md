@@ -33,6 +33,17 @@ nota deste ficheiro que fale de capturas ou de mensagens de progresso.
 - **Não perguntar** o que se pode decidir com bom senso; nunca repetir o que o Silva acabou de dizer.
 - **Ao publicar:** na mesma mensagem, só o commit, o estado do deploy e o comando único de actualização local (ponto 6).
 
+# Como o site é publicado sem corte (Silva, 23/10/2026)
+
+O deploy é só o `.github/workflows/deploy-contabo.yml`, automático a cada merge em `main`; não se publica à mão no servidor.
+
+- Cada publicação é uma pasta nova em `/opt/visualdesign-releases/<data>`; `/opt/visualdesignmoz` é um atalho para a versão em uso. O site corre em pm2
+  "cluster" com 1 processo (nome `visualdesignmoz`) e o `pm2 reload` põe a versão nova no ar antes de a antiga sair: sem corte.
+- Se a versão nova não responder, o deploy volta sozinho à anterior e falha. Ficam as 3 versões mais recentes.
+- **Nunca** correr `pm2 restart/stop/delete` nem mexer na pasta ou no atalho à mão com o site no ar (isso corta o site); nunca voltar a pôr o site em
+  modo "fork" nem com mais de 1 processo (o painel guarda estado em memória, ex.: códigos de 2 passos).
+- O site já não se chama "teste" (só `teste.visualdesignmoz.com` mantém o nome, é um domínio do servidor). Não reintroduzir "teste" em pastas, apps ou scripts.
+
 # Língua: sempre português, nunca inglês (Silva, 17/10/2026 — regra rigorosa)
 
 **Fala-se sempre em português com o Silva — nunca em inglês**, em nenhuma circunstância (Silva, 17/10/2026: "nunca
