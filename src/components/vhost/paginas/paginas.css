@@ -14123,3 +14123,8 @@
 .vh .vh-nova-encomenda :is(.rounded-xl, .rounded-lg, .rounded-2xl, .rounded-md, button.rounded-full):not(#x) {
    border-radius: revert-layer
 }
+
+/* Nova encomenda: a pré-visualização (resumo à direita) começa logo abaixo da linha horizontal da barra de cima, com a margem padrão, sem espaço a mais (Silva, 23/10/2026) */
+.vh .vh-nova-encomenda [class*="lg:sticky"]:not(#x) {
+   top: calc(16px * var(--z, 1))
+}
