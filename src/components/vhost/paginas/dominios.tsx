@@ -1742,6 +1742,7 @@ function Dns() {
         {/* modelo global (regra do Silva, 13/10/2026): os filtros por tipo são os separadores — a faixa cinzenta que abre
             o cartão principal — e o "Ações" fica à direita dessa faixa */}
         <Tabs<string>
+          abaixo
           tabs={['', 'A', 'CNAME', 'MX', 'TXT', 'SRV', 'NS'].map((f) => [f || 'todos', f || 'Todos'] as [string, string])}
           on={filtro || 'todos'}
           onChange={(k) => setFiltro(k === 'todos' ? '' : k)}

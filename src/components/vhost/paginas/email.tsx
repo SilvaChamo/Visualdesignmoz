@@ -1993,10 +1993,10 @@ function Rastreio() {
   }, [d]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <>
-      <p className="em-nota em-nota-linha" style={{ marginTop: 0 }}>
+      <p className="em-nota em-nota-linha em-rastreio" style={{ marginTop: 0 }}>
         {t('Filtrar os registos do servidor de e-mail por datas e, se quiser, por endereço, estado de entrega e direção.')}
       </p>
-      <div className="em-filtros">
+      <div className="em-filtros em-rastreio">
         <label>
           {t('De')}
           <input type="date" value={f.de} max={f.ate} onChange={(e) => setF({ ...f, de: e.target.value })} />

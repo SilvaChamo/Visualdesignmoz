@@ -154,10 +154,29 @@ export function Funcionalidades({ campos, feats, set }: { campos: Campo[]; feats
 // ---------- Separadores ----------
 /** No topo da página ficam numa barra de ponta a ponta do cartão principal (como em Domínios); `sub` = separadores
  *  dentro de um separador (só sublinhados, para não haver duas barras seguidas) */
-export function Tabs<K extends string>({ tabs, on, onChange, sub }: { tabs: [K, string, string?][]; on: K; onChange: (k: K) => void; sub?: boolean }) {
+export function Tabs<K extends string>({ tabs, on, onChange, sub, abaixo }: { tabs: [K, string, string?][]; on: K; onChange: (k: K) => void; sub?: boolean; abaixo?: boolean }) {
   const { t } = useVH();
   const faixa = useContext(FaixaAbas);
   const topo = useContext(TopoCartao);
+  // `abaixo` (Silva, 23/10/2026): em vez da faixa cinzenta no topo, as opções vão por baixo da linha do título, como texto separado por "|"
+  // (como as opções por baixo do título no DirectAdmin); o cartão dá o lugar (topo.opcoesEl) e a página continua com o seu cabeçalho normal
+  if (abaixo) {
+    if (!topo?.opcoesEl) return null;
+    return createPortal(
+      <nav className="opcoes-linha" aria-label={t('Opções')}>
+        {tabs.map(([k, label, fa], i) => (
+          <Fragment key={k}>
+            {i > 0 && <span className="opcoes-sep" aria-hidden="true">|</span>}
+            <button className={on === k ? 'on' : ''} aria-current={on === k ? 'page' : undefined} onClick={() => onChange(k)}>
+              {fa && <i className={'fa-solid ' + fa} />}
+              {t(label)}
+            </button>
+          </Fragment>
+        ))}
+      </nav>,
+      topo.opcoesEl,
+    );
+  }
   const abas = (
     <div className={'ptabs' + (sub ? ' sub' : '')} role="tablist">
       {tabs.map(([k, label, fa]) => (

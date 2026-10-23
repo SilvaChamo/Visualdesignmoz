@@ -829,6 +829,7 @@ export function NoTopoCartao({
         ) : (
           <p className="dom-ctx dom-titulo">{modelo.titulo}</p>
         )}
+        <div className="card-topo-opcoes" ref={topo.setOpcoes} />
         <div className="card-topo-linha">
           {cons?.ativo ? (
             <div className="search dom-pesq">

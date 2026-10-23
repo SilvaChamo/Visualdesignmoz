@@ -13033,7 +13033,7 @@
 
 @media (min-width: 769px) {
    .vh .da-main-card .card-topo-linha .search.dom-pesq:not(#x) {
-      margin-left: var(--recuo, 12px)
+      margin-left: 0
    }
 }
 
@@ -13226,4 +13226,77 @@
       padding: 0 12px;
       text-align: center
    }
+}
+
+/* Rastreio de e-mail (Silva, 23/10/2026): mais espaço por baixo da linha (só nesta página) e, no telemóvel, os filtros bem arrumados — cada
+   campo com a sua etiqueta por cima, todos com a mesma altura e o mesmo espaço entre eles, e o botão a meia largura, à esquerda */
+.vh .em-nota.em-nota-linha.em-rastreio:not(#x) {
+   margin-bottom: 20px
+}
+
+@media (max-width: 768px) {
+   .vh .em-filtros.em-rastreio:not(#x) {
+      gap: 14px
+   }
+
+   .vh .em-filtros.em-rastreio label:not(#x) {
+      gap: 6px
+   }
+
+   .vh .em-filtros.em-rastreio :is(input, select):not(#x) {
+      height: 40px;
+      min-height: 40px;
+      box-sizing: border-box
+   }
+
+   .vh .em-filtros.em-rastreio > .btn:not(#x) {
+      flex: 0 0 calc(50% - 7px);
+      justify-content: center
+   }
+}
+
+/* Opções por baixo da linha do título, separadas por "|" (Silva, 23/10/2026): no lugar dos separadores cinzentos do topo — como as opções por
+   baixo do título no DirectAdmin. O texto e os ícones levam o recuo; a opção aberta fica a vermelho. */
+.vh .card-topo-opcoes:empty {
+   display: none
+}
+
+.vh .card-topo-opcoes {
+   padding: 10px var(--recuo, 12px) 0
+}
+
+.vh .opcoes-linha {
+   display: flex;
+   flex-wrap: wrap;
+   align-items: center;
+   column-gap: 12px;
+   row-gap: 4px;
+   font-size: calc(13px * var(--fs, 1))
+}
+
+.vh .opcoes-linha button {
+   display: inline-flex;
+   align-items: center;
+   gap: 6px;
+   padding: 4px 0;
+   border: 0;
+   background: none;
+   color: var(--ink);
+   font: inherit;
+   cursor: pointer
+}
+
+.vh .opcoes-linha button:hover,
+.vh .opcoes-linha button.on {
+   color: var(--red)
+}
+
+.vh .opcoes-linha button.on {
+   font-weight: 600
+}
+
+.vh .opcoes-sep {
+   color: var(--muted);
+   opacity: .6;
+   user-select: none
 }
