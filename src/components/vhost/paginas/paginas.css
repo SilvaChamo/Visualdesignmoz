@@ -10764,27 +10764,40 @@
 @media (min-width: 769px) {
    .vh {
       --fs0: .86;
-      --z: 1.06;
+      --z: 1;
    }
 }
 
 @media (min-width: 1100px) {
    .vh {
       --fs0: .9;
-      --z: 1.1;
+      --z: 1;
    }
 }
 
 @media (min-width: 1280px) {
    .vh {
       --fs0: .94;
-      --z: 1.15;
+      --z: 1;
+   }
+}
+
+@media (min-width: 1366px) {
+   .vh {
+      --z: 1.04;
    }
 }
 
 @media (min-width: 1440px) {
    .vh {
       --fs0: 1;
+      --z: 1.06;
+   }
+}
+
+@media (min-width: 1536px) {
+   .vh {
+      --z: 1.1;
    }
 }
 
