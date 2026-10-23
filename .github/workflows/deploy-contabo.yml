@@ -268,10 +268,12 @@ jobs:
             pm2 delete visualdesign-panel || true
             # Troca (o site só pára estes segundos): o código por rsync, com as mesmas exclusões de sempre (os .env*,
             # .git e .DS_Store da pasta do site ficam intactos); node_modules e .next por mv (instantâneo, mesmo disco).
+            # o código novo entra ANTES de parar o site (o servidor a correr só lê node_modules e .next, que se trocam abaixo): assim o
+            # corte fica só no arranque do Next (Silva, 23/10/2026: a actualização não pode bloquear a navegação)
+            rsync -a --delete --exclude 'node_modules' --exclude '.next' --exclude '.git' --exclude '*.env*' --exclude '.DS_Store' "$STAGE"/ "$LIVE"/
             pm2 stop visualdesign-site-teste || true
             sleep 1
             fuser -k 3002/tcp || true
-            rsync -a --delete --exclude 'node_modules' --exclude '.next' --exclude '.git' --exclude '*.env*' --exclude '.DS_Store' "$STAGE"/ "$LIVE"/
             rm -rf "$LIVE/node_modules.old" "$LIVE/.next.old"
             if [ -d "$LIVE/node_modules" ]; then mv "$LIVE/node_modules" "$LIVE/node_modules.old"; fi
             if [ -d "$LIVE/.next" ]; then mv "$LIVE/.next" "$LIVE/.next.old"; fi
