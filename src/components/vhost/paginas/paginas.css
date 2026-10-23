@@ -13834,7 +13834,7 @@
    display: grid;
    grid-template-columns: repeat(4, minmax(0, 1fr));
    gap: 4px 12px;
-   padding: 10px 12px
+   padding: 16px 12px 10px
 }
 
 .vh .frm.php-ext .ext-grade .chk {
