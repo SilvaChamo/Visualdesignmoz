@@ -421,7 +421,8 @@ export function CotacaoContent({ painel = false }: { painel?: boolean } = {}) {
       : Boolean(
           empresa && telefoneInstitucionalPreenchido && emailInstitucional && responsavel && telefoneResponsavelPreenchido && emailResponsavel,
         );
-  const STEPS = isPanelEmbed && hasUsableEntityData
+  // Dentro do painel, com sessão iniciada, vai sempre direito ao passo "Serviço": quem já tem conta não volta a preencher dados (Silva, 23/10/2026)
+  const STEPS = isPanelEmbed
     ? [{ key: 'servico', label: 'Serviço', icon: Package }]
     : [...baseSteps, { key: 'servico', label: 'Serviço', icon: Package }];
   // currentStep pode ficar temporariamente fora dos limites no primeiro render
@@ -467,15 +468,18 @@ export function CotacaoContent({ painel = false }: { painel?: boolean } = {}) {
 
   // Rascunho da encomenda (ver src/lib/encomenda-checkout.ts) — o contacto
   // da encomenda é o mesmo com que a conta foi criada (responsável ou empresa).
+  // No painel, o que a conta não tem guardado vem da própria sessão (nome e e-mail do login), para nunca pedir dados outra vez
+  const nomeSessao = String((authUser?.user_metadata as { nome?: string; full_name?: string } | undefined)?.nome || (authUser?.user_metadata as { full_name?: string } | undefined)?.full_name || authUser?.email?.split('@')[0] || '');
+  const doPainel = isPanelEmbed;
   const buildDraft = (): Omit<EncomendaDraft, 'savedAt'> => ({
-    tipoCliente,
-    empresa,
+    tipoCliente: doPainel && !hasUsableEntityData ? 'individual' : tipoCliente,
+    empresa: empresa || (doPainel ? nomeSessao : ''),
     nif,
     endereco,
     telefoneInstitucional,
-    emailInstitucional,
+    emailInstitucional: emailInstitucional || (doPainel ? authUser?.email || '' : ''),
     website: websitePreenchido ? website.trim() : '',
-    responsavel: contacto.nome,
+    responsavel: contacto.nome || (doPainel ? nomeSessao : ''),
     cargo: contacto.cargo,
     telefone: contacto.telefone,
     email: contacto.email || authUser?.email || '',
