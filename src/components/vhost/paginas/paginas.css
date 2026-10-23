@@ -13781,3 +13781,28 @@
       margin-left: 0 !important
    }
 }
+
+/* Telemóvel: nenhum botão corta o texto e o rodapé do formulário não leva fundo (Silva, 23/10/2026). Sem fundo a faixa não muda nada: o botão fica na largura toda, dentro
+   das margens (12 px). Quando o texto não cabe numa linha, passa à linha de baixo e o botão cresce em altura. */
+@media (max-width: 768px) {
+   .vh .frm-foot:not(#x):not(#y) {
+      background: transparent;
+      padding-left: 0;
+      padding-right: 0;
+      border-radius: 0
+   }
+
+   .vh :is(.frm-foot, .mfoot, .acoes-topo, .em-filtros.em-rastreio).uma-coluna > :is(.btn, button, a):not(#x),
+   .vh .tbl.dt-empilhar tbody td.dt-acoes-linha .uma-coluna > .btn:not(#x),
+   .vh .tbl.dt-empilhar tbody td.dt-acoes-linha.uma-coluna > .btn:not(#x),
+   .vh .da-main-card .card-topo-btns > [data-larga]:not(#x) {
+      white-space: normal !important;
+      height: auto !important;
+      min-height: var(--h-campo, 32px);
+      padding-top: 8px !important;
+      padding-bottom: 8px !important;
+      line-height: 1.25;
+      text-align: center;
+      overflow-wrap: anywhere
+   }
+}
