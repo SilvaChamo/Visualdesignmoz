@@ -1008,13 +1008,11 @@ function VerDominio({ d }: { d: string }) {
           [
             'Certificado SSL',
             det ? (
-              <span className="dom-ssl-estado">
-                <span className={'tag ' + (sslAtivo(det.certificado) ? 'ok' : 'w')}>{sslAtivo(det.certificado) ? t('Ativo') : t('Inativo')}</span>
-                {det.certificado && (
-                  <small>
-                    {t(sslAtivo(det.certificado) ? 'até' : 'expirou')} {dataLegivel(det.certificado.ate)}
-                  </small>
-                )}
+              <span
+                className={'tag ' + (sslAtivo(det.certificado) ? 'ok' : 'w')}
+                title={det.certificado ? t(sslAtivo(det.certificado) ? 'até' : 'expirou') + ' ' + dataLegivel(det.certificado.ate) : t('Sem certificado')}
+              >
+                {sslAtivo(det.certificado) ? t('Ativo') : t('Inativo')}
               </span>
             ) : (
               <span className="dom-a-ler">…</span>

@@ -7826,18 +7826,6 @@
    cursor: pointer
 }
 
-/* Certificado SSL: o estado e só a validade, numa só linha (Silva, 23/10/2026) */
-.vh .dom-info-l .dom-ssl-estado {
-   display: inline-flex;
-   align-items: center;
-   gap: 6px;
-   white-space: nowrap
-}
-
-.vh .dom-info-l .dom-ssl-estado small {
-   font-size: calc(11.5px * var(--fs, 1))
-}
-
 /* "Pasta do site": a linha ocupa a largura toda do cartão (o caminho cabe numa só linha) e a letra é mais pequena (Silva, 23/10/2026) */
 .vh .dom-info-l .dom-pasta {
    font-size: calc(11px * var(--fs, 1))
