@@ -13240,8 +13240,8 @@
    }
 
    .vh .em-filtros.em-rastreio :is(input, select):not(#x) {
-      height: 40px;
-      min-height: 40px;
+      height: 32px;
+      min-height: 32px;
       box-sizing: border-box
    }
 
@@ -13477,10 +13477,10 @@
    background: var(--fundo-lista)
 }
 
-/* Campos padronizados (Silva, 23/10/2026): a altura de todos os campos é a do botão base (32 px) e a letra dentro deles é de 12 px (mais pequena que o texto normal, 13-14 px, e que não se confunde com os subtítulos, 11,5 px) — texto, e-mail, palavra-passe, número, data, escolha (select), pesquisa e as caixas dos grupos (.igrp). Reduzem-se os campos, nunca o botão.
+/* Campos padronizados (Silva, 23/10/2026): a altura de todos os campos é a do botão base (32 px) e a letra dentro deles é de 11 px (em todos os campos, também nos de janelas e formulários) — texto, e-mail, palavra-passe, número, data, escolha (select), pesquisa e as caixas dos grupos (.igrp). Reduzem-se os campos, nunca o botão.
    Valem para todos os campos do painel; só ficam de fora os seletores de navegação da barra (domínio e separadores), as caixas de seleção, os botões de opção e os campos de cor, deslizante e ficheiro. */
 .vh :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]), select:not([multiple]):not([size]):not(.da-domain-selector select):not(.ptabs-sel select), textarea):not(#x) {
-   font-size: 12px
+   font-size: 11px
 }
 
 .vh :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]), select:not([multiple]):not([size]):not(.da-domain-selector select):not(.ptabs-sel select)):not(#x),
@@ -13492,5 +13492,26 @@
 
 .vh .search:not(#x) input,
 .vh .igrp .ib:not(#x) {
-   font-size: 12px
+   font-size: 11px
+}
+
+/* Rastreio de e-mail: os campos e o botão "Pesquisar" ficam numa só linha (Silva, 23/10/2026) — os campos encolhem, o botão mantém o seu tamanho */
+@media (min-width: 1051px) {
+   .vh .em-filtros.em-rastreio:not(#x) {
+      flex-wrap: nowrap
+   }
+
+   .vh .em-filtros.em-rastreio > label:not(#x) {
+      flex: 1 1 0;
+      min-width: 0
+   }
+
+   .vh .em-filtros.em-rastreio :is(input, select):not(#x) {
+      min-width: 0;
+      width: 100%
+   }
+
+   .vh .em-filtros.em-rastreio > .btn:not(#x) {
+      flex: none
+   }
 }
