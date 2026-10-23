@@ -12916,7 +12916,7 @@
 
 /* A descrição da página passa para dentro do cartão, por baixo do título (Silva, 21/10/2026): na barra de cima fica só o título */
 .vh .right:has(.pg-slot:not([aria-hidden="true"]) .card-topo-titulo:is(.card-topo-modelo, :has(.dom-titulo-bloco:not(:has(.dom-ind)))))
-   .ptitle small {
+   .ptitle small:not(.desc-barra) {
    display: none
 }
 

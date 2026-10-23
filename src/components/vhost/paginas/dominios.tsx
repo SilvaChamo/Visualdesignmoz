@@ -29,6 +29,7 @@ import { TransferirDominio } from './transferir-dominio';
     'Use a versão mais recente do PHP para acelerar o seu site': 'Use the latest PHP version to speed up your site',
     'Abrir os ficheiros deste domínio': 'Open this domain’s files',
     'Inativo': 'Inactive',
+    'Para onde apontam o seu site e o seu e-mail': 'Where your website and your email point to',
     'expirou': 'expired',
     'até': 'until',
     'Pendente': 'Pending',
@@ -2061,7 +2062,7 @@ function DescDns() {
   const f = dados?.dns.fonte;
   return <>{vh.t(f === 'hestia' ? 'Registos DNS deste domínio, guardados neste servidor' : f === 'nenhuma' ? 'O DNS deste domínio está fora da Visual Design' : 'Ligado à Cloudflare: o que alterar aqui muda logo nos registos DNS dos seus domínios')}</>;
 }
-export const dnsPagina: ScreenFn = () => ({ title: 'DNS', icone: 'fa-network-wired', iconeCor: 'c6', descEl: <DescDns />, actions: <NovoRegistoDns />, body: <Dns /> });
+export const dnsPagina: ScreenFn = () => ({ title: 'DNS', icone: 'fa-network-wired', iconeCor: 'c6', descBarra: 'Para onde apontam o seu site e o seu e-mail', descEl: <DescDns />, actions: <NovoRegistoDns />, body: <Dns /> });
 
 // ---------- SSL/TLS ----------
 function CertificadoModal({ d, onFeito }: { d: string; onFeito: () => void }) {

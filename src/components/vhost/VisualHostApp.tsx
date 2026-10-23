@@ -1618,8 +1618,8 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
                       </span>
                       <span className="mobile-title">{t('Painel')}</span>
                     </h1>
-                    <small id="pdesc" title={mostra.desc}>
-                      {mostra.scr.descEl ?? mostra.desc}
+                    <small id="pdesc" className={mostra.scr.descBarra ? 'desc-barra' : undefined} title={mostra.scr.descBarra ? t(mostra.scr.descBarra) : mostra.desc}>
+                      {mostra.scr.descBarra ? t(mostra.scr.descBarra) : mostra.scr.descEl ?? mostra.desc}
                     </small>
                   </div>
                 </div>
