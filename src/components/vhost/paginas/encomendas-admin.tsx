@@ -105,7 +105,7 @@ export const contabilidadePagina: ScreenFn = () => ({
   desc: 'Receitas, despesas, facturas e pagamentos das encomendas',
   actions: <LugarBarraAntiga />,
   body: (
-    <div className="tw-livre">
+    <div className="tw-livre enc-admin enc-contab">
       <ComBarraAntiga>
         <ContabilidadeTable />
       </ComBarraAntiga>
