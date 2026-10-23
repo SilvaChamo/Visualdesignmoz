@@ -3,7 +3,7 @@
 import { Fragment, useEffect, useState } from 'react'
 import { ChevronDown, ChevronRight, RotateCcw } from 'lucide-react'
 import {
-  panelSectionCard,
+  panelSectionCard, panelBtnSecondary,
   panelTabBar, panelTabBtn, panelTabBtnActive, panelTabBtnInactive,
 } from '@/lib/panel-ui'
 import { formatMt } from '@/lib/pricing-catalog'
@@ -133,7 +133,10 @@ export function ContabilidadeTable() {
     return () => clearInterval(interval)
   }, [])
 
+  const [erroCarga, setErroCarga] = useState('')
+
   const load = () => {
+    setErroCarga('')
     fetch('/api/admin/contabilidade')
       .then((r) => r.json())
       .then((data) => {
@@ -142,19 +145,31 @@ export function ContabilidadeTable() {
           setRegistos(data.registos ?? [])
           setEliminados(data.eliminados ?? [])
           setFechos(data.fechos ?? [])
+        } else {
+          setErroCarga(data.error || 'O servidor não devolveu a contabilidade.')
         }
       })
-      .catch((error) => console.error('Erro ao carregar contabilidade:', error))
+      .catch((error) => {
+        console.error('Erro ao carregar contabilidade:', error)
+        setErroCarga('Não foi possível ligar ao servidor.')
+      })
   }
 
   useEffect(() => {
     load()
   }, [])
 
-  useEsperaAte(!!(meses && registos && eliminados && fechos))
+  useEsperaAte(!!(meses && registos && eliminados && fechos) || !!erroCarga)
 
   if (!meses || !registos || !eliminados || !fechos) {
-    return null
+    if (!erroCarga) return null
+    return (
+      <div className={`${panelSectionCard} p-8 text-center text-sm text-gray-500 dark:text-zinc-400`}>
+        <p className="font-bold text-gray-900 dark:text-white">Não foi possível carregar a contabilidade.</p>
+        <p className="mt-1">{erroCarga}</p>
+        <button type="button" onClick={load} className={`${panelBtnSecondary} mt-4`}>Tentar de novo</button>
+      </div>
+    )
   }
 
   return (
