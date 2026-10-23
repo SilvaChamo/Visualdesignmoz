@@ -825,6 +825,7 @@ export function NoTopoCartao({
           <div className="dom-ctx dom-titulo-bloco">
             <p className="dom-titulo">{modelo.titulo}</p>
             <p className="dom-sub">{sub}</p>
+            <div className="card-topo-pag" ref={topo.setPag} />
           </div>
         ) : (
           <p className="dom-ctx dom-titulo">{modelo.titulo}</p>

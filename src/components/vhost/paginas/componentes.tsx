@@ -293,6 +293,7 @@ export function DataTable<T>({
   // em todas as listas o "Colunas" é só o ícone, à direita, dentro da barra das colunas (Silva, 21/10/2026)
   colunasNoCabecalho = true,
   paginacaoNoCabecalho = false,
+  paginacaoNoTopo = false,
   tituloAcoes,
 }: {
   id: string;
@@ -353,6 +354,8 @@ export function DataTable<T>({
   colunasNoCabecalho?: boolean;
   /** a paginação também na última célula do cabeçalho da tabela (barra dos títulos das colunas), além do fundo do cartão */
   paginacaoNoCabecalho?: boolean;
+  /** a paginação vai por cima da linha do título do cartão, à direita (Silva, 23/10/2026: DNS), e não no fundo */
+  paginacaoNoTopo?: boolean;
   /** título da coluna do fim (a das ações da linha), por cima do que lá está (ex.: o menu "⋯") */
   tituloAcoes?: string;
   /** notifica chaves das linhas selecionadas */
@@ -580,6 +583,8 @@ export function DataTable<T>({
 
   // Setas e "Página x de y" (sem o "1–20 de 67"): só no fundo do cartão, quando há mais de uma página (regra do Silva,
   // 13/10/2026 — nunca na faixa dos separadores nem por cima da tabela)
+  const topoCtx = useContext(TopoCartao);
+  const noTopo = paginacaoNoTopo && !!topoCtx?.pagEl;
   const paginador = (
     <div className="dt-pag">
       <button className="btn g sm" disabled={atual === 1} onClick={() => setPag(1)} aria-label={t('Primeira página')}>
@@ -760,10 +765,10 @@ export function DataTable<T>({
             )}
           </tbody>
         </table>
-        {(rodape || paginas > 1) && (
+        {(rodape || (paginas > 1 && !noTopo)) && (
           <div className="dt-fundo">
             {rodape}
-            {paginas > 1 && (
+            {paginas > 1 && !noTopo && (
               <>
                 <span className="sp" />
                 {paginador}
@@ -771,6 +776,8 @@ export function DataTable<T>({
             )}
           </div>
         )}
+        {/* por cima da linha do título a paginação está sempre presente: só fica ativa quando há mais de uma página (Silva, 23/10/2026) */}
+        {noTopo && createPortal(paginador, topoCtx!.pagEl!)}
       </div>
     </>
   );

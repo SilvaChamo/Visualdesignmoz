@@ -73,6 +73,9 @@ export const TopoCartao = createContext<{
   /** o lugar das opções por baixo da linha do título (Silva, 23/10/2026): `Tabs abaixo` põe lá as opções separadas por "|" */
   opcoesEl?: HTMLElement | null;
   setOpcoes?: (el: HTMLElement | null) => void;
+  /** o lugar da paginação por cima da linha do título, à direita (DataTable `paginacaoNoTopo`; Silva, 23/10/2026) */
+  pagEl?: HTMLElement | null;
+  setPag?: (el: HTMLElement | null) => void;
   temBotao: boolean;
   /** a página põe ela própria o seu botão na linha (corpo da página): as tabelas deixam o "Ações" onde estava */
   setOcupado: (v: boolean) => void;

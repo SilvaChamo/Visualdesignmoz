@@ -312,11 +312,12 @@ function PaginaSlot({ p, oculta, onPronta, registar }: { p: Pagina; oculta: bool
   const [topoCartao, setTopoCartao] = useState<HTMLElement | null>(null);
   const [topoTabs, setTopoTabs] = useState<HTMLElement | null>(null);
   const [opcoesEl, setOpcoesEl] = useState<HTMLElement | null>(null);
+  const [pagEl, setPagEl] = useState<HTMLElement | null>(null);
   // a página (dentro do corpo) pôs ela própria o seu botão na linha de cima (ex.: FTP › Criar): o "Ações" das tabelas fica onde estava
   const [ocupado, setOcupado] = useState(false);
   const topo = useMemo(
-    () => ({ el: p.semCartao || p.home ? null : topoTabs || topoCartao, setTabs: setTopoTabs, opcoesEl, setOpcoes: setOpcoesEl, temBotao: !p.semCartao && !p.home && (!!p.scr.actions || ocupado), setOcupado, dominios: p.scr.dominios, dominioUrl: p.scr.dominioUrl }),
-    [p.semCartao, p.home, p.scr.actions, p.scr.dominios, p.scr.dominioUrl, topoTabs, topoCartao, ocupado, opcoesEl],
+    () => ({ el: p.semCartao || p.home ? null : topoTabs || topoCartao, setTabs: setTopoTabs, opcoesEl, setOpcoes: setOpcoesEl, pagEl, setPag: setPagEl, temBotao: !p.semCartao && !p.home && (!!p.scr.actions || ocupado), setOcupado, dominios: p.scr.dominios, dominioUrl: p.scr.dominioUrl }),
+    [p.semCartao, p.home, p.scr.actions, p.scr.dominios, p.scr.dominioUrl, topoTabs, topoCartao, ocupado, opcoesEl, pagEl],
   );
   const pesquisa = useMemo(() => ({ registar: (id: string, fonte: () => ItemPesquisa[]) => registar(p.chave, id, fonte) }), [registar, p.chave]);
   // pesquisa da tabela posta na linha por baixo do título do cartão (DNS): o texto e se a tabela a pediu
