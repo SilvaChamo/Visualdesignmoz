@@ -13833,8 +13833,8 @@
 .vh .frm.php-ext .ext-grade {
    display: grid;
    grid-template-columns: repeat(4, minmax(0, 1fr));
-   gap: 10px 12px;
-   padding: 12px 12px
+   gap: 4px 12px;
+   padding: 6px 12px 8px
 }
 
 .vh .frm.php-ext .ext-grade .chk {
@@ -13882,6 +13882,11 @@
 }
 
 .vh .acoes-topo.ext-rodape {
-   justify-content: flex-start;
-   margin: 4px 0 14px
+   justify-content: flex-end;
+   margin: 12px 0 10px
+}
+
+/* sem a linha por baixo de cada categoria, os blocos ficam mais juntos */
+.vh .frm.php-ext:not(#x) {
+   margin-bottom: 8px
 }
