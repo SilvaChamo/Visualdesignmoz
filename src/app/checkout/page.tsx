@@ -1158,7 +1158,7 @@ function CheckoutContent() {
                   <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg p-6 space-y-5 shadow-sm">
                     <div>
                       <h2 className="text-xl font-bold text-slate-800 dark:text-zinc-50 font-panel">
-                        {isEncomenda && !encomendaTemValor ? 'Submeter Encomenda' : 'Finalizar Pagamento'}
+                        {isEncomenda && !encomendaTemValor ? 'Submeter' : 'Finalizar Pagamento'}
                       </h2>
                       <p className="text-xs text-slate-400 dark:text-zinc-550 mt-1">
                         {isEncomenda && !encomendaTemValor
@@ -1168,16 +1168,17 @@ function CheckoutContent() {
                     </div>
 
                     {isEncomenda && !encomendaTemValor ? (
-                      <div className="p-4 rounded-lg bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 flex items-start gap-3">
-                        <div className="p-3 rounded-md bg-slate-100 dark:bg-zinc-800 flex-shrink-0">
-                          <Info className="w-6 h-6 text-slate-500 dark:text-zinc-400" />
-                        </div>
-                        <div>
+                      <div className="p-4 rounded-lg bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 space-y-3">
+                        <div className="flex items-center gap-3">
+                          <div className="p-3 rounded-md bg-slate-100 dark:bg-zinc-800 flex-shrink-0">
+                            <Info className="w-6 h-6 text-slate-500 dark:text-zinc-400" />
+                          </div>
                           <h4 className="font-bold text-sm text-slate-800 dark:text-zinc-200">Encomenda Sob Consulta</h4>
-                          <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1 leading-relaxed">
-                            Ao clicar em "Submeter Pedido", a encomenda fica registada no seu painel. Depois de a equipa confirmar o valor, paga o adiantamento a partir de lá.
-                          </p>
                         </div>
+                        {/* a descrição ocupa a largura toda do quadro, por baixo do ícone e do título */}
+                        <p className="text-xs text-slate-500 dark:text-zinc-400 leading-relaxed">
+                          Ao clicar em "Submeter", a encomenda fica registada no seu painel. Depois de a equipa confirmar o valor, paga o adiantamento a partir de lá.
+                        </p>
                       </div>
                     ) : metodoPagamento === 'saldo' ? (
                       <div className="p-4 rounded-lg bg-teal-50 dark:bg-teal-900/10 border border-teal-100 dark:border-teal-800/60 flex items-start gap-3">
@@ -1280,7 +1281,7 @@ function CheckoutContent() {
                         {isSubmitting
                           ? 'A processar...'
                           : isEncomenda && !encomendaTemValor
-                            ? 'Submeter Pedido'
+                            ? 'Submeter'
                             : `Pagar ${payTotalLabel}`}
                       </button>
                       <button
