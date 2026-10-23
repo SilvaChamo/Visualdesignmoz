@@ -65,7 +65,8 @@ export function CotacaoContent({ painel = false }: { painel?: boolean } = {}) {
   // ?panel=1 sem sessão (fora do iframe autenticado de /encomendas) cai no
   // formulário público normal em vez de tentar saltar passos sem ter os
   // dados da empresa/responsável para preencher sozinho.
-  const isPanelEmbed = modoPainel && isAuthenticated === true;
+  // dentro do painel o formulário aparece logo (sem página em branco com roda): a sessão e os dados pré-preenchidos chegam depois, em segundo plano
+  const isPanelEmbed = modoPainel && (painel || isAuthenticated === true);
   // Baseado directamente no parâmetro (não em isPanelEmbed, que só fica
   // verdadeiro depois de authLoading resolver) — assim começa já a "true"
   // sem depender dessa corrida, evitando mostrar por instantes os campos
@@ -412,7 +413,7 @@ export function CotacaoContent({ painel = false }: { painel?: boolean } = {}) {
   const responsavelTemDados = Boolean(responsavel || telefoneResponsavelPreenchido || emailResponsavel);
   const mostrarLinhaAntesServicos = mostrarSeccaoResponsavel ? responsavelTemDados : entidadeTemDados;
 
-  if (isAuthenticated === null || (isPanelEmbed && prefillLoading) || (isEmbeddedFrame && isAuthenticated === false)) {
+  if (!painel && (isAuthenticated === null || (isPanelEmbed && prefillLoading) || (isEmbeddedFrame && isAuthenticated === false))) {
     return (
       <div className={isPanelEmbed ? 'flex items-center justify-center p-12' : 'min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-zinc-950'}>
         <Spinner className="w-10 h-10" />
@@ -945,7 +946,23 @@ export function CotacaoContent({ painel = false }: { painel?: boolean } = {}) {
                                 <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate">{li.produto}</p>
                               </div>
                               <div className="flex items-center gap-4 shrink-0">
-                                <span className="text-sm text-zinc-600 dark:text-zinc-300">Qtd.: {qty}</span>
+                                {/* a quantidade edita-se aqui mesmo, sem remover e voltar a adicionar o serviço */}
+                                <label className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-300">
+                                  <span>Qtd.:</span>
+                                  <input
+                                    type="number"
+                                    min={1}
+                                    step={1}
+                                    aria-label="Quantidade"
+                                    className={`${inputClass} !w-20`}
+                                    value={li.quantidade === 0 ? '' : qty}
+                                    onChange={(e) => {
+                                      const raw = e.target.value;
+                                      updateLineItemQuantidade(li.id, raw === '' ? 0 : Math.round(Number(raw)));
+                                    }}
+                                    onBlur={() => updateLineItemQuantidade(li.id, li.quantidade > 0 ? li.quantidade : 1)}
+                                  />
+                                </label>
                                 <button
                                   type="button"
                                   onClick={() => removerDaLista(li.id)}
