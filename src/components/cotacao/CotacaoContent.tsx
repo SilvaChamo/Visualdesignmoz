@@ -187,6 +187,29 @@ export function CotacaoContent({ painel = false }: { painel?: boolean } = {}) {
     clearError();
     setLineItems((prev) => (prev.length <= 1 ? prev : prev.filter((li) => li.id !== id)));
   };
+
+  // No painel (Nova encomenda) o serviço escolhe-se num só cartão que fica no lugar: "Adicionar serviços" junta-o à lista de cima e limpa o cartão
+  // para escolher outro (Silva, 23/10/2026)
+  const [rascunho, setRascunho] = useState<{ categoriaId: string; produto: string; quantidade: number }>({ categoriaId: '', produto: '', quantidade: 1 });
+  const removerDaLista = (id: string) => {
+    clearError();
+    setLineItems((prev) => prev.filter((li) => li.id !== id));
+  };
+  const adicionarRascunho = () => {
+    if (!rascunho.categoriaId || !rascunho.produto || !findItem(rascunho.categoriaId, rascunho.produto)) {
+      setErrorMessage('Seleccione o serviço e a especificação antes de adicionar.');
+      setStatus('error');
+      return;
+    }
+    if (rascunho.quantidade <= 0) {
+      setErrorMessage('Indique a quantidade do serviço.');
+      setStatus('error');
+      return;
+    }
+    clearError();
+    setLineItems((prev) => [...prev, { id: crypto.randomUUID(), categoriaId: rascunho.categoriaId, produto: rascunho.produto, quantidade: rascunho.quantidade }]);
+    setRascunho({ categoriaId: '', produto: '', quantidade: 1 });
+  };
   const addLineItem = () => {
     clearError();
     setLineItems((prev) => [
@@ -451,6 +474,7 @@ export function CotacaoContent({ painel = false }: { painel?: boolean } = {}) {
       }
     }
     if (key === 'servico') {
+      if (lineItems.length === 0 && modoPainel && rascunho.categoriaId) return 'Clique em "Adicionar serviços" para juntar este serviço à encomenda.';
       if (lineItems.length === 0) return 'Adicione pelo menos um serviço.';
       if (lineItems.some((li) => {
         if (li.categoriaId === CUSTOM_CATEGORIA_ID) return !li.produto.trim();
@@ -906,6 +930,113 @@ export function CotacaoContent({ painel = false }: { painel?: boolean } = {}) {
 
             {stepKey === 'servico' && (
               <>
+                {modoPainel ? (
+                  <>
+                    <div className="mb-4">
+                      <label className={labelClass}>Serviços seleccionados</label>
+                      {lineItems.length === 0 ? (
+                        <p className="text-sm text-zinc-500 dark:text-zinc-400">Ainda não adicionou nenhum serviço.</p>
+                      ) : (
+                        <div className="flex flex-col gap-2">
+                          {multiItemsPriced.map(({ li, categoriaLabel, qty }) => (
+                            <div key={li.id} className="flex items-center justify-between gap-3 p-3 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950">
+                              <div className="min-w-0">
+                                <p className="text-sm font-bold text-zinc-900 dark:text-white truncate">{categoriaLabel}</p>
+                                <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate">{li.produto}</p>
+                              </div>
+                              <div className="flex items-center gap-4 shrink-0">
+                                <span className="text-sm text-zinc-600 dark:text-zinc-300">Qtd.: {qty}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => removerDaLista(li.id)}
+                                  className="text-zinc-500 dark:text-zinc-400 hover:text-red-600 dark:hover:text-red-500 transition-colors"
+                                  aria-label="Remover serviço"
+                                  title="Remover este serviço"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="mb-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 shadow-sm">
+                        <div className="flex-1 min-w-0 space-y-2 sm:mr-[200px] mr-4">
+                          <div className="relative flex items-center max-w-full">
+                            <select
+                              value={rascunho.categoriaId}
+                              onChange={(e) => {
+                                clearError();
+                                setRascunho({ categoriaId: e.target.value, produto: '', quantidade: rascunho.quantidade });
+                              }}
+                              className={`w-full appearance-none bg-transparent text-sm cursor-pointer focus:outline-none truncate pr-6 ${rascunho.categoriaId ? 'font-bold text-zinc-900 dark:text-white' : 'text-zinc-400 dark:text-zinc-500 italic font-medium'}`}
+                            >
+                              {!rascunho.categoriaId && <option value="">Seleccionar serviço</option>}
+                              {BRANDS.map((brand) => {
+                                const brandCategories = CATEGORIES.filter((c) => c.brand === brand.id);
+                                if (brandCategories.length === 0) return null;
+                                return (
+                                  <optgroup key={brand.id} label={brand.label}>
+                                    {brandCategories.map((c) => (
+                                      <option key={c.id} value={c.id}>{c.label}</option>
+                                    ))}
+                                  </optgroup>
+                                );
+                              })}
+                            </select>
+                            <ChevronDown className="w-4 h-4 text-zinc-500 dark:text-zinc-400 absolute right-1 top-1/2 -translate-y-1/2 pointer-events-none" />
+                          </div>
+                          <div className="relative flex items-center max-w-full">
+                            <select
+                              value={rascunho.produto}
+                              onChange={(e) => {
+                                clearError();
+                                setRascunho({ ...rascunho, produto: e.target.value });
+                              }}
+                              className={`w-full appearance-none bg-transparent text-xs cursor-pointer focus:outline-none truncate pr-6 ${rascunho.produto ? 'text-zinc-600 dark:text-zinc-400' : 'text-zinc-400 dark:text-zinc-500 italic'}`}
+                            >
+                              {!rascunho.produto && <option value="">Seleccionar especificação</option>}
+                              {(categoryFor(rascunho.categoriaId)?.items ?? []).map((p) => (
+                                <option key={p.name} value={p.name}>
+                                  {p.name}
+                                  {p.sobConsulta ? ' (Sob Consulta)' : p.startingAt ? ` (a partir de ${formatMt(p.price)} MT)` : ''}
+                                </option>
+                              ))}
+                            </select>
+                            <ChevronDown className="w-3.5 h-3.5 text-zinc-400 absolute right-1 top-1/2 -translate-y-1/2 pointer-events-none" />
+                          </div>
+                        </div>
+                        <div className="w-20 shrink-0">
+                          <label className="block text-xs font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400 mb-1.5">Qtd.</label>
+                          <input
+                            type="number"
+                            min={1}
+                            step={1}
+                            className={inputClass}
+                            value={rascunho.quantidade === 0 ? '' : rascunho.quantidade}
+                            onChange={(e) => {
+                              const raw = e.target.value;
+                              setRascunho({ ...rascunho, quantidade: raw === '' ? 0 : Math.round(Number(raw)) });
+                            }}
+                            onBlur={() => setRascunho({ ...rascunho, quantidade: rascunho.quantidade > 0 ? rascunho.quantidade : 1 })}
+                          />
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={adicionarRascunho}
+                        className="mt-3 inline-flex items-center gap-1.5 text-sm font-bold text-red-600 dark:text-red-500 hover:text-red-700 dark:hover:text-red-400 transition-colors"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>Adicionar serviços</span>
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                <>
                 <div className="flex items-center justify-between mb-4">
                   <h2 className={`${sectionTitleClass} mb-0`}>Serviço</h2>
                   <button
@@ -1062,6 +1193,9 @@ export function CotacaoContent({ painel = false }: { painel?: boolean } = {}) {
                     })}
                   </div>
                 </div>
+
+                </>
+                )}
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
