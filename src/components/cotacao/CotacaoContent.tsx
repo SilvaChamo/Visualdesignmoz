@@ -50,7 +50,7 @@ function isValidMzPhone(raw: string): boolean {
 }
 
 /** `painel`: aberto dentro do painel VisualHost (Gestão › Encomendas › Nova encomenda), sem moldura (iframe): mesmo formulário, só o passo "Serviço" */
-export function CotacaoContent({ painel = false }: { painel?: boolean } = {}) {
+export function CotacaoContent({ painel = false, aoContinuar }: { painel?: boolean; aoContinuar?: () => void } = {}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const modoPainel = painel || searchParams.get('panel') === '1';
@@ -651,7 +651,10 @@ export function CotacaoContent({ painel = false }: { painel?: boolean } = {}) {
     // Dentro do iframe "Nova Encomenda" do painel, o checkout abre na janela
     // de topo — ficar preso dentro da caixinha do iframe não faria sentido.
     const inFrame = typeof window !== 'undefined' && window.top && window.top !== window.self;
-    if (inFrame) {
+    if (aoContinuar) {
+      // dentro do painel: o checkout abre na página seguinte do próprio painel
+      aoContinuar();
+    } else if (inFrame) {
       window.top!.location.href = ENCOMENDA_CHECKOUT_PATH;
     } else {
       router.push(ENCOMENDA_CHECKOUT_PATH);

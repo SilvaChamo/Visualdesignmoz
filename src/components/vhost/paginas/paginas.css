@@ -14173,3 +14173,8 @@
 .vh .btn.btn-imp i:not(#x):not(#y) {
    color: inherit !important
 }
+
+/* Checkout dentro do painel: o resumo e os cartões ocupam o cartão principal; a coluna da direita cola-se ao topo */
+.vh .vh-checkout-painel .sticky:not(#x) {
+   top: calc(16px * var(--z, 1))
+}
