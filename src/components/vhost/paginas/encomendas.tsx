@@ -174,8 +174,8 @@ const encomendasPaginaBase: ScreenFn = (vh: VH) => {
       crumbs: [{ t: 'Encomendas', path: BASE }, { t: 'Nova encomenda' }],
       body: (
         // a mesma vista que estava na moldura (iframe), com a mesma barra de cima: o título à esquerda e, onde estava o "fechar", o texto simples de voltar
-        <div className="tw-livre vh-nova-encomenda bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100 dark:border-zinc-800 shrink-0">
+        <div className="tw-livre vh-nova-encomenda">
+          <div className="flex items-center justify-between py-2.5 border-b nova-encomenda-barra shrink-0">
             <p className="text-sm font-bold text-gray-900 dark:text-white">Nova Encomenda</p>
             <button
               type="button"

@@ -26,6 +26,7 @@ import {
   descartarEncomendaRegistada,
   encomendaComprovativoPath,
   encomendaDraftSignature,
+  encomendaDadosEmFalta,
   encomendaRegistadaValida,
   priceEncomendaItems,
   resolveEncomendaLandingPath,
@@ -164,6 +165,8 @@ function CheckoutContent() {
   // A encomenda gravada ainda corresponde ao que está no rascunho (não foi
   // editada depois) — o resumo mostra o atalho para o comprovativo.
   const encomendaRegistada = encomendaRegistadaValida(encomendaDraft);
+  // Dados em falta da entidade: o painel deixa ir direito aos serviços, mas aqui não se paga nem se submete sem os completar
+  const dadosEmFalta = isEncomenda && encomendaDraft ? encomendaDadosEmFalta(encomendaDraft) : [];
   // "Editar dados"/"Cancelar encomenda" em curso (ver editarEncomenda mais
   // abaixo). Tem de ficar aqui, antes dos returns antecipados ("A validar
   // sessão", renovações) — senão o número de hooks muda entre renders.
@@ -361,6 +364,11 @@ function CheckoutContent() {
   const handlePay = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmitting) return; // Evita duplo-clique / duplo pagamento
+    if (dadosEmFalta.length > 0) {
+      setErrorMessage(`Complete os dados em falta para continuar: ${dadosEmFalta.join(', ')}.`);
+      setStatus('error');
+      return;
+    }
     // Encomendas: a conta cria-se no formulário /cotacao — aqui só se paga.
     if (isEncomenda && isAuthenticated === false) {
       setErrorMessage('Inicie sessão na conta criada no pedido para pagar a encomenda.');
@@ -1150,7 +1158,7 @@ function CheckoutContent() {
                   <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg p-6 space-y-5 shadow-sm">
                     <div>
                       <h2 className="text-xl font-bold text-slate-800 dark:text-zinc-50 font-panel">
-                        {isEncomenda && !encomendaTemValor ? 'Submeter Encomenda' : 'Finalizar Pagamento'}
+                        {isEncomenda && !encomendaTemValor ? 'Submeter' : 'Finalizar Pagamento'}
                       </h2>
                       <p className="text-xs text-slate-400 dark:text-zinc-550 mt-1">
                         {isEncomenda && !encomendaTemValor
@@ -1160,16 +1168,17 @@ function CheckoutContent() {
                     </div>
 
                     {isEncomenda && !encomendaTemValor ? (
-                      <div className="p-4 rounded-lg bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 flex items-start gap-3">
-                        <div className="p-3 rounded-md bg-slate-100 dark:bg-zinc-800 flex-shrink-0">
-                          <Info className="w-6 h-6 text-slate-500 dark:text-zinc-400" />
-                        </div>
-                        <div>
+                      <div className="p-4 rounded-lg bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 space-y-3">
+                        <div className="flex items-center gap-3">
+                          <div className="p-3 rounded-md bg-slate-100 dark:bg-zinc-800 flex-shrink-0">
+                            <Info className="w-6 h-6 text-slate-500 dark:text-zinc-400" />
+                          </div>
                           <h4 className="font-bold text-sm text-slate-800 dark:text-zinc-200">Encomenda Sob Consulta</h4>
-                          <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1 leading-relaxed">
-                            Ao clicar em "Submeter Pedido", a encomenda fica registada no seu painel. Depois de a equipa confirmar o valor, paga o adiantamento a partir de lá.
-                          </p>
                         </div>
+                        {/* a descrição ocupa a largura toda do quadro, por baixo do ícone e do título */}
+                        <p className="text-xs text-slate-500 dark:text-zinc-400 leading-relaxed">
+                          Ao clicar em "Submeter", a encomenda fica registada no seu painel. Depois de a equipa confirmar o valor, paga o adiantamento a partir de lá.
+                        </p>
                       </div>
                     ) : metodoPagamento === 'saldo' ? (
                       <div className="p-4 rounded-lg bg-teal-50 dark:bg-teal-900/10 border border-teal-100 dark:border-teal-800/60 flex items-start gap-3">
@@ -1233,16 +1242,34 @@ function CheckoutContent() {
                       </div>
                     )}
 
-                    <div className="mt-2 flex justify-start gap-3">
+                    {dadosEmFalta.length > 0 && (
+                      <div className="p-4 rounded-lg bg-rose-50 dark:bg-rose-900/10 border border-rose-200 dark:border-rose-800/60 flex flex-wrap items-center justify-between gap-3">
+                        <p className="text-xs text-rose-700 dark:text-rose-300 leading-relaxed">
+                          <span className="font-bold">Faltam dados para finalizar a encomenda: </span>
+                          {dadosEmFalta.join(', ')}.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={editarEncomenda}
+                          disabled={encomendaAccao !== null}
+                          className="bg-rose-600 hover:bg-rose-700 disabled:opacity-60 text-white font-bold text-xs px-4 py-2 rounded-md"
+                        >
+                          {encomendaAccao === 'editar' ? 'A abrir...' : 'Completar dados'}
+                        </button>
+                      </div>
+                    )}
+
+                    <div className="mt-2 flex flex-wrap justify-start gap-3">
                       <button
                         type="button"
                         onClick={handlePay}
                         disabled={
                           isSubmitting ||
+                          dadosEmFalta.length > 0 ||
                           (isEncomenda && isAuthenticated === false) ||
                           (metodoPagamento === 'saldo' && (saldoDisponivel ?? 0) < total)
                         }
-                        className={`disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold py-3 px-6 rounded-md flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                        className={`flex-1 sm:flex-none disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold py-3 px-6 rounded-md flex items-center justify-center gap-2 transition-all cursor-pointer ${
                           metodoPagamento === 'mpesa'
                             ? 'bg-red-600 hover:bg-red-700'
                             : metodoPagamento === 'saldo'
@@ -1254,14 +1281,14 @@ function CheckoutContent() {
                         {isSubmitting
                           ? 'A processar...'
                           : isEncomenda && !encomendaTemValor
-                            ? 'Submeter Pedido'
+                            ? 'Submeter'
                             : `Pagar ${payTotalLabel}`}
                       </button>
                       <button
                         type="button"
                         onClick={() => (isEncomenda ? cancelarEncomenda() : window.history.back())}
                         disabled={isSubmitting || encomendaAccao !== null}
-                        className="bg-transparent border border-slate-200 hover:border-slate-300 dark:border-zinc-800 dark:hover:border-zinc-700 text-slate-600 dark:text-zinc-400 font-bold py-3 px-6 rounded-md transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                        className="flex-1 sm:flex-none bg-transparent border border-slate-200 hover:border-slate-300 dark:border-zinc-800 dark:hover:border-zinc-700 text-slate-600 dark:text-zinc-400 font-bold py-3 px-6 rounded-md transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                       >
                         Cancelar
                       </button>
@@ -1339,7 +1366,7 @@ function CheckoutContent() {
                       <button
                         type="button"
                         onClick={handlePay}
-                        disabled={isSubmitting || (isEncomenda && isAuthenticated === false) || (status !== 'idle' && status !== 'error')}
+                        disabled={isSubmitting || dadosEmFalta.length > 0 || (isEncomenda && isAuthenticated === false) || (status !== 'idle' && status !== 'error')}
                         className="w-full flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold py-3 rounded-md transition-colors cursor-pointer"
                       >
                         <Smartphone className="w-4 h-4" />

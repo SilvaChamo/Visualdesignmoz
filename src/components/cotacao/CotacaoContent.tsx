@@ -43,12 +43,10 @@ function minDeliveryDate() {
   return addBusinessDays(new Date(), 7).toISOString().split('T')[0];
 }
 
-// Aceita rede móvel moçambicana (82/83 Tmcel, 84/85 Vodacom, 86/87 Movitel),
-// com ou sem o indicativo +258, com ou sem espaços/traços.
+// Aceita qualquer número de telefone com indicativo internacional (7 a 15 dígitos): o contacto pode não ser moçambicano (Silva, 23/10/2026).
 function isValidMzPhone(raw: string): boolean {
   const digits = raw.replace(/\D/g, '');
-  const local = digits.startsWith('258') ? digits.slice(3) : digits;
-  return /^8[2-7]\d{7}$/.test(local);
+  return digits.length >= 7 && digits.length <= 15;
 }
 
 /** `painel`: aberto dentro do painel VisualHost (Gestão › Encomendas › Nova encomenda), sem moldura (iframe): mesmo formulário, só o passo "Serviço" */
@@ -67,7 +65,8 @@ export function CotacaoContent({ painel = false }: { painel?: boolean } = {}) {
   // ?panel=1 sem sessão (fora do iframe autenticado de /encomendas) cai no
   // formulário público normal em vez de tentar saltar passos sem ter os
   // dados da empresa/responsável para preencher sozinho.
-  const isPanelEmbed = modoPainel && isAuthenticated === true;
+  // dentro do painel o formulário aparece logo (sem página em branco com roda): a sessão e os dados pré-preenchidos chegam depois, em segundo plano
+  const isPanelEmbed = modoPainel && (painel || isAuthenticated === true);
   // Baseado directamente no parâmetro (não em isPanelEmbed, que só fica
   // verdadeiro depois de authLoading resolver) — assim começa já a "true"
   // sem depender dessa corrida, evitando mostrar por instantes os campos
@@ -188,6 +187,29 @@ export function CotacaoContent({ painel = false }: { painel?: boolean } = {}) {
   const removeLineItem = (id: string) => {
     clearError();
     setLineItems((prev) => (prev.length <= 1 ? prev : prev.filter((li) => li.id !== id)));
+  };
+
+  // No painel (Nova encomenda) o serviço escolhe-se num só cartão que fica no lugar: "Adicionar serviços" junta-o à lista de cima e limpa o cartão
+  // para escolher outro (Silva, 23/10/2026)
+  const [rascunho, setRascunho] = useState<{ categoriaId: string; produto: string; quantidade: number }>({ categoriaId: '', produto: '', quantidade: 1 });
+  const removerDaLista = (id: string) => {
+    clearError();
+    setLineItems((prev) => prev.filter((li) => li.id !== id));
+  };
+  const adicionarRascunho = () => {
+    if (!rascunho.categoriaId || !rascunho.produto || !findItem(rascunho.categoriaId, rascunho.produto)) {
+      setErrorMessage('Seleccione o serviço e a especificação antes de adicionar.');
+      setStatus('error');
+      return;
+    }
+    if (rascunho.quantidade <= 0) {
+      setErrorMessage('Indique a quantidade do serviço.');
+      setStatus('error');
+      return;
+    }
+    clearError();
+    setLineItems((prev) => [...prev, { id: crypto.randomUUID(), categoriaId: rascunho.categoriaId, produto: rascunho.produto, quantidade: rascunho.quantidade }]);
+    setRascunho({ categoriaId: '', produto: '', quantidade: 1 });
   };
   const addLineItem = () => {
     clearError();
@@ -391,7 +413,7 @@ export function CotacaoContent({ painel = false }: { painel?: boolean } = {}) {
   const responsavelTemDados = Boolean(responsavel || telefoneResponsavelPreenchido || emailResponsavel);
   const mostrarLinhaAntesServicos = mostrarSeccaoResponsavel ? responsavelTemDados : entidadeTemDados;
 
-  if (isAuthenticated === null || (isPanelEmbed && prefillLoading) || (isEmbeddedFrame && isAuthenticated === false)) {
+  if (!painel && (isAuthenticated === null || (isPanelEmbed && prefillLoading) || (isEmbeddedFrame && isAuthenticated === false))) {
     return (
       <div className={isPanelEmbed ? 'flex items-center justify-center p-12' : 'min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-zinc-950'}>
         <Spinner className="w-10 h-10" />
@@ -421,7 +443,8 @@ export function CotacaoContent({ painel = false }: { painel?: boolean } = {}) {
       : Boolean(
           empresa && telefoneInstitucionalPreenchido && emailInstitucional && responsavel && telefoneResponsavelPreenchido && emailResponsavel,
         );
-  const STEPS = isPanelEmbed && hasUsableEntityData
+  // Dentro do painel, com sessão iniciada, vai sempre direito ao passo "Serviço": quem já tem conta não volta a preencher dados (Silva, 23/10/2026)
+  const STEPS = isPanelEmbed
     ? [{ key: 'servico', label: 'Serviço', icon: Package }]
     : [...baseSteps, { key: 'servico', label: 'Serviço', icon: Package }];
   // currentStep pode ficar temporariamente fora dos limites no primeiro render
@@ -435,14 +458,14 @@ export function CotacaoContent({ painel = false }: { painel?: boolean } = {}) {
     if (key === 'empresa') {
       if (!empresa.trim()) return tipoCliente === 'individual' ? 'Preencha o seu nome completo.' : 'Preencha o nome da empresa.';
       if (!telefoneInstitucional.trim()) return 'Preencha o contacto.';
-      if (!isValidMzPhone(telefoneInstitucional)) return 'Indique um número de telefone moçambicano válido (ex: +258 84 000 0000).';
+      if (!isValidMzPhone(telefoneInstitucional)) return 'Indique um número de telefone válido, com indicativo (ex: +258 84 000 0000).';
       if (!emailInstitucional.trim()) return 'Preencha o email.';
     }
     if (key === 'conta') {
       if (!usaDadosEmpresa) {
         if (!responsavel.trim()) return 'Preencha o nome do responsável.';
         if (!telefoneResponsavel.trim()) return 'Preencha o telefone do responsável.';
-        if (!isValidMzPhone(telefoneResponsavel)) return 'Indique um número de telefone moçambicano válido (ex: +258 84 000 0000).';
+        if (!isValidMzPhone(telefoneResponsavel)) return 'Indique um número de telefone válido, com indicativo (ex: +258 84 000 0000).';
         if (!emailResponsavel.trim()) return 'Preencha o email do responsável.';
       }
       if (precisaCriarConta) {
@@ -452,6 +475,7 @@ export function CotacaoContent({ painel = false }: { painel?: boolean } = {}) {
       }
     }
     if (key === 'servico') {
+      if (lineItems.length === 0 && modoPainel && rascunho.categoriaId) return 'Clique em "Adicionar serviços" para juntar este serviço à encomenda.';
       if (lineItems.length === 0) return 'Adicione pelo menos um serviço.';
       if (lineItems.some((li) => {
         if (li.categoriaId === CUSTOM_CATEGORIA_ID) return !li.produto.trim();
@@ -467,15 +491,18 @@ export function CotacaoContent({ painel = false }: { painel?: boolean } = {}) {
 
   // Rascunho da encomenda (ver src/lib/encomenda-checkout.ts) — o contacto
   // da encomenda é o mesmo com que a conta foi criada (responsável ou empresa).
+  // No painel, o que a conta não tem guardado vem da própria sessão (nome e e-mail do login), para nunca pedir dados outra vez
+  const nomeSessao = String((authUser?.user_metadata as { nome?: string; full_name?: string } | undefined)?.nome || (authUser?.user_metadata as { full_name?: string } | undefined)?.full_name || authUser?.email?.split('@')[0] || '');
+  const doPainel = isPanelEmbed;
   const buildDraft = (): Omit<EncomendaDraft, 'savedAt'> => ({
-    tipoCliente,
-    empresa,
+    tipoCliente: doPainel && !hasUsableEntityData ? 'individual' : tipoCliente,
+    empresa: empresa || (doPainel ? nomeSessao : ''),
     nif,
     endereco,
     telefoneInstitucional,
-    emailInstitucional,
+    emailInstitucional: emailInstitucional || (doPainel ? authUser?.email || '' : ''),
     website: websitePreenchido ? website.trim() : '',
-    responsavel: contacto.nome,
+    responsavel: contacto.nome || (doPainel ? nomeSessao : ''),
     cargo: contacto.cargo,
     telefone: contacto.telefone,
     email: contacto.email || authUser?.email || '',
@@ -663,7 +690,7 @@ export function CotacaoContent({ painel = false }: { painel?: boolean } = {}) {
       )}
 
       <div className={isPanelEmbed ? '' : 'bg-zinc-200 dark:bg-zinc-950'}>
-        <div className={isPanelEmbed ? 'p-4' : 'container mx-auto max-w-7xl px-4 sm:px-6 pt-12 pb-16'}>
+        <div className={isPanelEmbed ? 'p-4 cotacao-painel-pad' : 'container mx-auto max-w-7xl px-4 sm:px-6 pt-12 pb-16'}>
         <div className={isPanelEmbed ? '' : 'mx-5'}>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
 
@@ -904,6 +931,122 @@ export function CotacaoContent({ painel = false }: { painel?: boolean } = {}) {
 
             {stepKey === 'servico' && (
               <>
+                {modoPainel ? (
+                  <>
+                    {/* sem serviços adicionados não aparece nada por cima do cartão: ele fica logo no topo, à altura da pré-visualização */}
+                    {lineItems.length > 0 && (
+                    <div className="mb-4">
+                      <label className={labelClass}>Serviços seleccionados</label>
+                      {(
+                        <div className="flex flex-col gap-2">
+                          {multiItemsPriced.map(({ li, categoriaLabel, qty }) => (
+                            <div key={li.id} className="flex items-center justify-between gap-3 p-3 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950">
+                              <div className="min-w-0">
+                                <p className="text-sm font-bold text-zinc-900 dark:text-white truncate">{categoriaLabel}</p>
+                                <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate">{li.produto}</p>
+                              </div>
+                              <div className="flex items-center gap-4 shrink-0">
+                                {/* a quantidade edita-se aqui mesmo, sem remover e voltar a adicionar o serviço */}
+                                <label className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-300">
+                                  <span>Qtd.:</span>
+                                  <input
+                                    type="number"
+                                    min={1}
+                                    step={1}
+                                    aria-label="Quantidade"
+                                    className={`${inputClass} !w-20`}
+                                    value={li.quantidade === 0 ? '' : qty}
+                                    onChange={(e) => {
+                                      const raw = e.target.value;
+                                      updateLineItemQuantidade(li.id, raw === '' ? 0 : Math.round(Number(raw)));
+                                    }}
+                                    onBlur={() => updateLineItemQuantidade(li.id, li.quantidade > 0 ? li.quantidade : 1)}
+                                  />
+                                </label>
+                                <button
+                                  type="button"
+                                  onClick={() => removerDaLista(li.id)}
+                                  className="text-zinc-500 dark:text-zinc-400 hover:text-red-600 dark:hover:text-red-500 transition-colors"
+                                  aria-label="Remover serviço"
+                                  title="Remover este serviço"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    )}
+
+                    <div className="mb-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 shadow-sm">
+                        <div className="flex-1 min-w-0 space-y-2 sm:mr-[200px] mr-4">
+                          <div className="relative flex items-center max-w-full">
+                            <select
+                              value={rascunho.categoriaId}
+                              onChange={(e) => {
+                                clearError();
+                                setRascunho({ categoriaId: e.target.value, produto: '', quantidade: rascunho.quantidade });
+                              }}
+                              className={`w-full appearance-none bg-transparent text-sm cursor-pointer focus:outline-none truncate pr-6 ${rascunho.categoriaId ? 'font-bold text-zinc-900 dark:text-white' : 'text-zinc-400 dark:text-zinc-500 italic font-medium'}`}
+                            >
+                              {!rascunho.categoriaId && <option value="">Seleccionar serviço</option>}
+                              {BRANDS.map((brand) => {
+                                const brandCategories = CATEGORIES.filter((c) => c.brand === brand.id);
+                                if (brandCategories.length === 0) return null;
+                                return (
+                                  <optgroup key={brand.id} label={brand.label}>
+                                    {brandCategories.map((c) => (
+                                      <option key={c.id} value={c.id}>{c.label}</option>
+                                    ))}
+                                  </optgroup>
+                                );
+                              })}
+                            </select>
+                            <ChevronDown className="w-4 h-4 text-zinc-500 dark:text-zinc-400 absolute right-1 top-1/2 -translate-y-1/2 pointer-events-none" />
+                          </div>
+                          <div className="relative flex items-center max-w-full">
+                            <select
+                              value={rascunho.produto}
+                              onChange={(e) => {
+                                clearError();
+                                setRascunho({ ...rascunho, produto: e.target.value });
+                              }}
+                              className={`w-full appearance-none bg-transparent text-xs cursor-pointer focus:outline-none truncate pr-6 ${rascunho.produto ? 'text-zinc-600 dark:text-zinc-400' : 'text-zinc-400 dark:text-zinc-500 italic'}`}
+                            >
+                              {!rascunho.produto && <option value="">Seleccionar especificação</option>}
+                              {(categoryFor(rascunho.categoriaId)?.items ?? []).map((p) => (
+                                <option key={p.name} value={p.name}>
+                                  {p.name}
+                                  {p.sobConsulta ? ' (Sob Consulta)' : p.startingAt ? ` (a partir de ${formatMt(p.price)} MT)` : ''}
+                                </option>
+                              ))}
+                            </select>
+                            <ChevronDown className="w-3.5 h-3.5 text-zinc-400 absolute right-1 top-1/2 -translate-y-1/2 pointer-events-none" />
+                          </div>
+                        </div>
+                        <div className="w-20 shrink-0">
+                          <label className="block text-xs font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400 mb-1.5">Qtd.</label>
+                          <input
+                            type="number"
+                            min={1}
+                            step={1}
+                            className={inputClass}
+                            value={rascunho.quantidade === 0 ? '' : rascunho.quantidade}
+                            onChange={(e) => {
+                              const raw = e.target.value;
+                              setRascunho({ ...rascunho, quantidade: raw === '' ? 0 : Math.round(Number(raw)) });
+                            }}
+                            onBlur={() => setRascunho({ ...rascunho, quantidade: rascunho.quantidade > 0 ? rascunho.quantidade : 1 })}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                <>
                 <div className="flex items-center justify-between mb-4">
                   <h2 className={`${sectionTitleClass} mb-0`}>Serviço</h2>
                   <button
@@ -1061,6 +1204,9 @@ export function CotacaoContent({ painel = false }: { painel?: boolean } = {}) {
                   </div>
                 </div>
 
+                </>
+                )}
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className={labelClass}>Data-Limite de Entrega Pretendida</label>
@@ -1076,6 +1222,19 @@ export function CotacaoContent({ painel = false }: { painel?: boolean } = {}) {
                       Prazo mínimo de execução: 7 dias úteis a partir de hoje.
                     </p>
                   </div>
+                  {modoPainel && (
+                    // "Adicionar serviços" na mesma linha do texto "Data-limite de entrega pretendida", à direita (Silva, 23/10/2026)
+                    <div className="flex justify-end items-start sm:-mt-px">
+                      <button
+                        type="button"
+                        onClick={adicionarRascunho}
+                        className="inline-flex items-center gap-1.5 text-sm font-bold text-red-600 dark:text-red-500 hover:text-red-700 dark:hover:text-red-400 transition-colors"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>Adicionar serviços</span>
+                      </button>
+                    </div>
+                  )}
                   <div className="sm:col-span-2">
                     <label className={labelClass}>Notas (opcional)</label>
                     <textarea
