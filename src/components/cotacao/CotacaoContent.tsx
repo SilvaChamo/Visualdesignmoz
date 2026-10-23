@@ -1025,14 +1025,6 @@ export function CotacaoContent({ painel = false }: { painel?: boolean } = {}) {
                           />
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        onClick={adicionarRascunho}
-                        className="mt-3 inline-flex items-center gap-1.5 text-sm font-bold text-red-600 dark:text-red-500 hover:text-red-700 dark:hover:text-red-400 transition-colors"
-                      >
-                        <Plus className="w-4 h-4" />
-                        <span>Adicionar serviços</span>
-                      </button>
                     </div>
                   </>
                 ) : (
@@ -1212,6 +1204,19 @@ export function CotacaoContent({ painel = false }: { painel?: boolean } = {}) {
                       Prazo mínimo de execução: 7 dias úteis a partir de hoje.
                     </p>
                   </div>
+                  {modoPainel && (
+                    // "Adicionar serviços" na mesma linha do texto "Data-limite de entrega pretendida", à direita (Silva, 23/10/2026)
+                    <div className="flex justify-end items-start sm:-mt-px">
+                      <button
+                        type="button"
+                        onClick={adicionarRascunho}
+                        className="inline-flex items-center gap-1.5 text-sm font-bold text-red-600 dark:text-red-500 hover:text-red-700 dark:hover:text-red-400 transition-colors"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>Adicionar serviços</span>
+                      </button>
+                    </div>
+                  )}
                   <div className="sm:col-span-2">
                     <label className={labelClass}>Notas (opcional)</label>
                     <textarea
