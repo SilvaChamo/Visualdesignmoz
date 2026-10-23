@@ -10,6 +10,7 @@
 import { useEffect, useState } from 'react';
 import { EncomendasListSection } from '@/components/encomendas/EncomendasListSection';
 import { CotacaoContent } from '@/components/cotacao/CotacaoContent';
+import { CheckoutContent } from '@/components/checkout/CheckoutContent';
 import { Suspense } from 'react';
 import { EncomendasMensagensSection } from '@/components/encomendas/EncomendasMensagensSection';
 import { EncomendasPagamentosSection } from '@/components/encomendas/EncomendasPagamentosSection';
@@ -49,6 +50,8 @@ import { gestaoEncomendasPagina } from './encomendas-admin';
     Encomendas: 'Orders',
     Encomenda: 'Order',
     'Nova encomenda': 'New order',
+    'Finalizar encomenda': 'Finish order',
+    'Confirme os dados, escolha o pagamento e submeta': 'Confirm the details, choose the payment and submit',
     'Adicionar serviços': 'Add services',
     'Esta conta ainda não tem login no site.': 'This account does not have a login on the site yet.',
     'Não foi possível abrir as encomendas desta conta.': 'Could not open the orders of this account.',
@@ -167,6 +170,20 @@ const encomendasPaginaBase: ScreenFn = (vh: VH) => {
   if (vh.s.acc[vh.s.login]?.role === 'admin' && !vh.s.stack.length) return gestaoEncomendasPagina(vh);
   const [sub, encomenda] = vh.s.sub;
   // "Nova Encomenda": página própria que substitui toda a página das encomendas (lista, detalhe e resumo), com o botão de voltar (Silva, 23/10/2026)
+  // "Finalizar": o checkout da encomenda dentro do painel, sem sair do sítio; ao submeter volta-se à página das encomendas (Silva, 23/10/2026)
+  if (sub === 'checkout')
+    return {
+      title: 'Finalizar encomenda',
+      desc: 'Confirme os dados, escolha o pagamento e submeta',
+      crumbs: [{ t: 'Encomendas', path: BASE }, { t: 'Finalizar encomenda' }],
+      body: (
+        <div className="tw-livre vh-nova-encomenda vh-checkout-painel-wrap">
+          <Suspense fallback={null}>
+            <CheckoutContent painel={{ voltar: () => vh.nav(BASE), editar: () => vh.nav(BASE + '/nova') }} />
+          </Suspense>
+        </div>
+      ),
+    };
   if (sub === 'nova')
     return {
       title: 'Nova encomenda',
@@ -188,7 +205,7 @@ const encomendasPaginaBase: ScreenFn = (vh: VH) => {
             </button>
           </div>
           <Suspense fallback={null}>
-            <CotacaoContent painel />
+            <CotacaoContent painel aoContinuar={() => vh.nav(BASE + '/checkout')} />
           </Suspense>
         </div>
       ),
