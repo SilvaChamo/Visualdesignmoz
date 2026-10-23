@@ -14238,3 +14238,37 @@
 .vh .enc-contab [class~="shadow-sm"][class~="px-4"][class~="pt-2"]:not(#x):not(#y) {
    border-top-width: 0
 }
+
+/* Contabilidade: linhas das tabelas bem visíveis, como nas outras tabelas do painel */
+.vh .enc-contab table tbody > tr:not(:first-child):not(#x):not(#y) {
+   border-top: 1px solid var(--line) !important
+}
+
+.vh .enc-contab table thead tr:not(#x):not(#y) {
+   border-bottom: 1px solid var(--line) !important
+}
+
+/* Contabilidade: separadores como a barra de separadores do painel — só linhas: a linha de baixo corre a largura toda e o
+   separador aberto tem linhas nas laterais e em cima, abertas por baixo */
+.vh .enc-contab [class~="w-full"][class~="border-b"]:not(#x):not(#y) {
+   border-bottom: 1px solid var(--line)
+}
+
+.vh .enc-contab [class~="flex-wrap"][class~="items-end"]:not(#x):not(#y) {
+   gap: 0
+}
+
+.vh .enc-contab [class~="flex-wrap"][class~="items-end"] > button:not(#x):not(#y) {
+   padding: calc(9px * var(--z, 1)) calc(11px * var(--z, 1));
+   margin-bottom: -1px;
+   border: 1px solid transparent;
+   border-bottom: 0;
+   border-radius: var(--r) var(--r) 0 0
+}
+
+.vh .enc-contab [class~="flex-wrap"][class~="items-end"] > button[class~="z-10"]:not(#x):not(#y) {
+   border-color: var(--line);
+   border-bottom: 1px solid var(--card);
+   background: var(--card);
+   color: var(--red)
+}
