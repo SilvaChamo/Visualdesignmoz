@@ -24,7 +24,7 @@ import urllib.request
 H = '/usr/local/hestia/bin'
 IP = '169.58.148.144'
 NS = ['ns1.visualdesignmoz.com', 'ns2.visualdesignmoz.com', 'ns3.visualdesignmoz.com', 'ns4.visualdesignmoz.com']
-ENV_SITE = ['/opt/visualdesign-site-teste/.env.local', '/opt/visualdesign-site/.env.local']
+ENV_SITE = ['/opt/visualdesignmoz/.env.local', '/opt/visualdesign-site-teste/.env.local', '/opt/visualdesign-site/.env.local']
 TIPOS = ('A', 'AAAA', 'CNAME', 'MX', 'TXT', 'CAA', 'SRV')
 TRAVA = '/var/lock/vd-dns-sync.lock'
 

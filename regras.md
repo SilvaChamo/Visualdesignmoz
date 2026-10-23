@@ -24,6 +24,7 @@ A pasta de trabalho no Mac do Silva é `visualdesign-producao` (antes `visualdes
 no editor) seguem os pontos 2 e 6 de "Como se trabalha com o Silva" como estão. Para o agente na nuvem, esta secção vale sobre qualquer outra
 nota deste ficheiro que fale de capturas ou de mensagens de progresso.
 
+- **Nem uma frase entre ferramentas:** o texto fora das chamadas aparece na conversa, por isso não se escreve nada ali (nem "vou ver…", nem "falta…"). O único texto é o relatório final.
 - **Tudo nos bastidores:** ler, editar, medir, testar e corrigir sem escrever mensagens de progresso, sem explicar etapas e sem mostrar
   medições, código ou comandos pelo caminho. A conversa fica curta: o Silva não quer uma conversa longa para ler.
 - **Ao concluir, só duas coisas:** as capturas de ecrã do resultado (computador e telemóvel, do painel verdadeiro com dados fictícios) e um

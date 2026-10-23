@@ -34,7 +34,7 @@ jobs:
             df -h /
             echo ""
             echo "=== site de teste (código, sem node_modules/.next) ==="
-            du -sh --exclude=node_modules --exclude=.next /opt/visualdesign-site-teste 2>/dev/null
+            du -sh --exclude=node_modules --exclude=.next /opt/visualdesignmoz 2>/dev/null
             echo ""
             echo "=== stack Supabase própria (Docker: base de dados + storage) ==="
             du -sh /opt/supabase-contabo 2>/dev/null
@@ -50,8 +50,8 @@ jobs:
             ls -lh /home/*/backup 2>/dev/null || echo "(nenhum encontrado)"
             echo ""
             echo "=== total geral (tudo o que interessaria copiar) ==="
-            du -sh /opt/visualdesign-site-teste /opt/supabase-contabo /home/*/web /home/*/mail 2>/dev/null | tail -1
-            du -csh /opt/visualdesign-site-teste --exclude=node_modules --exclude=.next /opt/supabase-contabo/docker/volumes 2>/dev/null
+            du -sh /opt/visualdesignmoz /opt/supabase-contabo /home/*/web /home/*/mail 2>/dev/null | tail -1
+            du -csh /opt/visualdesignmoz --exclude=node_modules --exclude=.next /opt/supabase-contabo/docker/volumes 2>/dev/null
 
   test-hestia-api-from-server:
     if: ${{ inputs.stage == 'test-hestia-api-from-server' }}
@@ -65,7 +65,7 @@ jobs:
           username: root
           password: ${{ secrets.CONTABO_ROOT_PASSWORD }}
           script: |
-            cd /opt/visualdesign-site-teste
+            cd /opt/visualdesignmoz
             HOST=$(grep '^HESTIA_HOST=' .env.local | cut -d= -f2-)
             PORT=$(grep '^HESTIA_PORT=' .env.local | cut -d= -f2-)
             PORT="${PORT:-8083}"
