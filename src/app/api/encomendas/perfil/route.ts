@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
-import { saveProfileForAuthUser } from '@/lib/profile-db';
+import { saveProfileForAuthUser, profileAuthOrFilter } from '@/lib/profile-db';
+import { resolveEffectiveClientUser } from '@/lib/client-impersonation';
 
 // "O Meu Perfil" do cliente — self-service, sem impersonação: o utilizador
 // só pode ler/editar a sua própria conta (a sessão autenticada define o
@@ -9,24 +10,35 @@ import { saveProfileForAuthUser } from '@/lib/profile-db';
 // user_metadata (mesmo padrão do perfil do revendedor) porque a tabela
 // `profiles` só tem name/email genéricos.
 export async function GET() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: 'Não autenticado.' }, { status: 401 });
+  // Conta efectiva: um administrador em "Entrar como" vê os dados da conta que está a ver (cookie de impersonação, só para admins)
+  const efectivo = await resolveEffectiveClientUser();
+  if (!efectivo) return NextResponse.json({ error: 'Não autenticado.' }, { status: 401 });
 
   const admin = getSupabaseAdmin();
   if (!admin) return NextResponse.json({ error: 'Supabase Service Role não configurado.' }, { status: 500 });
 
-  const { data, error } = await admin.auth.admin.getUserById(user.id);
+  const { data, error } = await admin.auth.admin.getUserById(efectivo.user.id);
   if (error || !data?.user) {
     return NextResponse.json({ error: 'Utilizador não encontrado.' }, { status: 404 });
   }
+  const meta = data.user.user_metadata || {};
+
+  // Os dados pessoais do perfil vivem em dois sítios (user_metadata e tabela profiles): junta-se o que houver, para nenhum campo ficar por preencher
+  const { data: perfil } = await admin
+    .from('profiles')
+    .select('name, telefone, empresa, morada, cidade')
+    .or(profileAuthOrFilter(efectivo.user.id))
+    .limit(1)
+    .maybeSingle();
+  const p = (perfil || {}) as { name?: string | null; telefone?: string | null; empresa?: string | null; morada?: string | null; cidade?: string | null };
 
   return NextResponse.json({
     email: data.user.email || '',
-    nome: data.user.user_metadata?.nome || data.user.user_metadata?.full_name || '',
-    telefone: data.user.user_metadata?.telefone || '',
-    empresa: data.user.user_metadata?.empresa || '',
-    nif: data.user.user_metadata?.nif || '',
+    nome: meta.nome || meta.full_name || p.name || '',
+    telefone: meta.telefone || p.telefone || '',
+    empresa: meta.empresa || p.empresa || '',
+    nif: meta.nif || '',
+    endereco: [p.morada, p.cidade].filter(Boolean).join(', ') || meta.endereco || meta.morada || '',
   });
 }
 

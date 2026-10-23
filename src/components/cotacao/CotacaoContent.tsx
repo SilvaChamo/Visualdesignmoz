@@ -302,28 +302,30 @@ export function CotacaoContent({ painel = false, aoContinuar }: { painel?: boole
         const data = await res.json();
         const ultima = data?.success ? data.quotations?.[0] : null;
         if (cancelled) return;
+        // Os dados pessoais do perfil da conta (menu Perfil) completam tudo o que a última encomenda não trouxe — nenhum campo fica por preencher
+        const perfilRes = await fetch('/api/encomendas/perfil');
+        const perfil = perfilRes.ok ? await perfilRes.json() : null;
+        if (cancelled) return;
+        const emailPerfil = perfil?.email || authUser?.email || '';
+        const mudarVazio = <T extends string>(atual: T | undefined | null, novo: string, vazio: string) => (atual && atual.trim() && atual.trim() !== vazio.trim() ? atual : novo || vazio);
         if (ultima) {
-          setEmpresa(ultima.empresa || '');
-          setNif(ultima.nif || '');
-          setEndereco(ultima.endereco || '');
-          setTelefoneInstitucional(ultima.telefone_institucional || '+258 ');
-          setEmailInstitucional(ultima.email_institucional || '');
+          setEmpresa(ultima.empresa || perfil?.empresa || perfil?.nome || '');
+          setNif(ultima.nif || perfil?.nif || '');
+          setEndereco(ultima.endereco || perfil?.endereco || '');
+          setTelefoneInstitucional(mudarVazio(ultima.telefone_institucional, perfil?.telefone || '', '+258 '));
+          setEmailInstitucional(ultima.email_institucional || emailPerfil);
           setWebsite(ultima.website || 'https://');
-          setResponsavel(ultima.responsavel || '');
+          setResponsavel(ultima.responsavel || perfil?.nome || '');
           setCargo(ultima.cargo || '');
-          setTelefoneResponsavel(ultima.telefone || '+258 ');
-          setEmailResponsavel(ultima.email || '');
+          setTelefoneResponsavel(mudarVazio(ultima.telefone, perfil?.telefone || '', '+258 '));
+          setEmailResponsavel(ultima.email || emailPerfil);
           setTipoCliente(ultima.responsavel && ultima.responsavel === ultima.empresa ? 'individual' : 'empresa');
           return;
         }
-        // Primeira encomenda de sempre — não há "última cotação" de onde
-        // copiar, mas se o cliente já chegou autenticado ao painel, é porque
-        // já preencheu nome/telefone/empresa algures (registo ou "O Meu
-        // Perfil"). Usa isso em vez de o obrigar a repetir tudo.
-        const perfilRes = await fetch('/api/encomendas/perfil');
-        const perfil = perfilRes.ok ? await perfilRes.json() : null;
-        if (cancelled || !perfil) return;
-        const email = perfil.email || authUser?.email || '';
+        // Primeira encomenda de sempre — usa só o perfil da conta
+        if (!perfil) return;
+        const email = emailPerfil;
+        setEndereco(perfil.endereco || '');
         if (perfil.empresa) {
           setEmpresa(perfil.empresa);
           setNif(perfil.nif || '');
@@ -334,10 +336,9 @@ export function CotacaoContent({ painel = false, aoContinuar }: { painel?: boole
           setEmailResponsavel(email);
           setTipoCliente('empresa');
         } else if (perfil.nome) {
-          // Sem empresa registada — trata como pessoa singular, reaproveitando
-          // o mesmo campo "empresa" para o nome, tal como acontece quando uma
-          // encomenda anterior de pessoa singular é copiada (linha acima).
+          // Sem empresa registada — trata como pessoa singular
           setEmpresa(perfil.nome);
+          setNif(perfil.nif || '');
           setTelefoneInstitucional(perfil.telefone || '+258 ');
           setEmailInstitucional(email);
           setTipoCliente('individual');
