@@ -87,9 +87,11 @@ function AutoHeightIframe({ src, title }: { src: string; title: string }) {
 export function EncomendaDetalhe({
   quotationId,
   onChanged,
+  editarToken = 0,
 }: {
   quotationId: string;
   onChanged: () => void;
+  editarToken?: number;
 }) {
   const [items, setItems] = useState<QuotationRow[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -121,6 +123,14 @@ export function EncomendaDetalhe({
     setActionError('');
     fetchQuotation();
   }, [quotationId, fetchQuotation]);
+
+  const editarFeito = useRef(0);
+  useEffect(() => {
+    if (!editarToken || editarToken === editarFeito.current || !items) return;
+    const alvo = items.find((i) => i.status === 'pending' || i.status === 'rejected');
+    editarFeito.current = editarToken;
+    if (alvo) setEditingItemId(alvo.id);
+  }, [editarToken, items]);
 
   const handleCancelar = async () => {
     if (!window.confirm('Tem a certeza que quer cancelar esta encomenda?')) return;
