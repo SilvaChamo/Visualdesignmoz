@@ -294,6 +294,7 @@ export function DataTable<T>({
   colunasNoCabecalho = true,
   paginacaoNoCabecalho = false,
   paginacaoNoTopo = false,
+  paginacaoTambemNoFim = false,
   tituloAcoes,
 }: {
   id: string;
@@ -356,6 +357,8 @@ export function DataTable<T>({
   paginacaoNoCabecalho?: boolean;
   /** a paginação vai por cima da linha do título do cartão, à direita (Silva, 23/10/2026: DNS), e não no fundo */
   paginacaoNoTopo?: boolean;
+  /** além de por cima da linha do título, a paginação repete-se no fim da lista, à direita (DNS; Silva, 23/10/2026) */
+  paginacaoTambemNoFim?: boolean;
   /** título da coluna do fim (a das ações da linha), por cima do que lá está (ex.: o menu "⋯") */
   tituloAcoes?: string;
   /** notifica chaves das linhas selecionadas */
@@ -765,10 +768,10 @@ export function DataTable<T>({
             )}
           </tbody>
         </table>
-        {(rodape || (paginas > 1 && !noTopo)) && (
+        {(rodape || (paginas > 1 && (!noTopo || paginacaoTambemNoFim))) && (
           <div className="dt-fundo">
             {rodape}
-            {paginas > 1 && !noTopo && (
+            {paginas > 1 && (!noTopo || paginacaoTambemNoFim) && (
               <>
                 <span className="sp" />
                 {paginador}

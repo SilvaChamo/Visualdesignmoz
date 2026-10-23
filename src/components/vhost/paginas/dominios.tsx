@@ -1753,6 +1753,7 @@ function Dns() {
         <DataTable
           id="dns"
           paginacaoNoTopo
+          paginacaoTambemNoFim
           rows={rows}
           rowKey={(r) => r.id}
           rowSort={(a, b) => Number(a.tipo === 'NS') - Number(b.tipo === 'NS')}
