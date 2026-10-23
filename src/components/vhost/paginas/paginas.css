@@ -13670,3 +13670,61 @@
    white-space: normal;
    overflow-wrap: anywhere
 }
+
+/* Margens, preenchimento e barras proporcionais ao ecrã (Silva, 23/10/2026): a 1440 px ou mais ficam como estavam (k = 1); abaixo, tudo o que o rodeia o cartão
+   principal encolhe com a escala do painel (k = 0,86 a 1000 px): margens de cima e dos lados, preenchimento do cartão e altura das barras do domínio e de
+   Admin/Gestão */
+.vh {
+   --k: min(var(--fs, 1), 1)
+}
+
+@media (min-width: 769px) {
+   .vh main:not(#x) {
+      padding-top: calc(20px * var(--k));
+      padding-left: calc(20px * var(--k));
+      padding-right: calc(20px * var(--k))
+   }
+
+   .vh .da-main-card:not(#x):not(#y) {
+      padding: calc(24px * var(--k))
+   }
+
+   .vh .da-main-card:not(:has(> .ptabs-faixa)):has(> .card-topo-slot .card-topo-titulo):not(#x):not(#y) {
+      padding-top: calc(19px * var(--k))
+   }
+
+   .vh .da-switcher-bar:not(#x),
+   .vh .cols .da-switcher-bar:not(#x) {
+      height: calc(40px * var(--k));
+      margin: calc(-20px * var(--k)) calc(-20px * var(--k)) calc(20px * var(--k));
+      padding: 0 calc(20px * var(--k));
+      width: calc(100% + 40px * var(--k))
+   }
+
+   .vh .lvl:not(#x) {
+      height: calc(40px * var(--k))
+   }
+
+   .vh .lvl button:not(#x) {
+      height: calc(40px * var(--k))
+   }
+}
+
+/* Conta no fundo do menu: avatar, espaços e margens também proporcionais, para o e-mail caber numa só linha (Silva, 23/10/2026) */
+@media (min-width: 769px) {
+   .vh .acct:not(#x) {
+      padding: calc(12px * var(--k)) calc(14px * var(--k));
+      gap: calc(10px * var(--k))
+   }
+
+   .vh .acct .av:not(#x) {
+      width: calc(34px * var(--k));
+      height: calc(34px * var(--k))
+   }
+}
+
+/* "Ações" no fim da barra dos títulos: fixa à direita com uma sombra suave a separá-la das colunas que passam por baixo */
+.vh .tbl thead th.dt-th-acoes-fim:not(#x),
+.vh .tbl thead th.dt-th-cols:not(#x) {
+   box-shadow: -10px 0 8px -6px color-mix(in srgb, var(--soft) 90%, transparent)
+}
