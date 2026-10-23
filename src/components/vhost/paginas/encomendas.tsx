@@ -17,6 +17,7 @@ import type { ScreenFn } from '../screens';
 import { DESC, EN, MENU } from '../generated/data';
 import { useGet } from '../carga';
 import { Tabs } from './componentes';
+import { gestaoEncomendasPagina } from './encomendas-admin';
 
 // ---------- Menu: grupo "Compras e encomendas" na Gestão, antes de "Suporte e ajuda" ----------
 {
@@ -154,6 +155,8 @@ function Encomendas({ aba, encomenda }: { aba: string; encomenda?: string }) {
 }
 
 export const encomendasPagina: ScreenFn = (vh: VH) => {
+  // o administrador não faz encomendas, recebe-as: em Gestão › Encomendas vê as encomendas recebidas (Silva, 23/10/2026)
+  if (vh.s.acc[vh.s.login]?.role === 'admin' && !vh.s.stack.length) return gestaoEncomendasPagina(vh);
   if (vh.s.stack.length)
     return {
       title: 'Encomendas',

@@ -16,22 +16,14 @@ import { DESC, EN, MENU } from '../generated/data';
 import { Tabs } from './componentes';
 import { LugarBarraAntiga, PonteBarraAntiga } from './mensagem-todos';
 
-// ---------- Menu: grupo "Encomendas" no Admin, no fim do menu (Silva, 23/10/2026) ----------
+// ---------- Menu: grupo "Contabilidade" no Admin, no fim do menu (Silva, 23/10/2026). As encomendas recebidas vão para a Gestão
+// (Gestão › Encomendas, para a sessão de administrador — ver encomendas.tsx): o administrador recebe encomendas, não as faz. ----------
 {
   const grupos = MENU.admin;
-  if (!grupos.some(([g]) => g === 'Encomendas')) {
+  if (!grupos.some(([g]) => g === 'Contabilidade')) {
     grupos.push([
-      'Encomendas',
+      'Contabilidade',
       [
-        {
-          id: 'gestao-encomendas',
-          fa: 'fa-box-open',
-          t: 'Encomendas',
-          c: 'c2',
-          da: '—',
-          f: ['Todas as encomendas de produção gráfica, brindes e webdesign', 'Aprovar, pedir pagamento, entregar e cancelar', 'Contas de clientes das encomendas'],
-          hx: { s: 'app', cmd: '', n: 'Encomendas do site da VisualDesign' },
-        },
         {
           id: 'contabilidade',
           fa: 'fa-calculator',
@@ -54,7 +46,6 @@ import { LugarBarraAntiga, PonteBarraAntiga } from './mensagem-todos';
   for (const [pt, en] of Object.entries(novas)) if (!(pt in EN)) EN[pt] = en;
 }
 
-const BASE = '/admin/gestao-encomendas';
 type Aba = 'encomendas' | 'contas';
 
 /** O desenho do dashboard antigo, com os botões da secção na barra de cima */
@@ -69,7 +60,7 @@ function ComBarraAntiga({ children }: { children: React.ReactNode }) {
   );
 }
 
-function Encomendas({ aba }: { aba: Aba }) {
+function Encomendas({ aba, base }: { aba: Aba; base: string }) {
   const vh = useVH();
   return (
     <>
@@ -79,7 +70,7 @@ function Encomendas({ aba }: { aba: Aba }) {
           ['contas', 'Contas', 'fa-users'],
         ]}
         on={aba}
-        onChange={(k) => vh.nav(k === 'contas' ? BASE + '/contas' : BASE)}
+        onChange={(k) => vh.nav(k === 'contas' ? base + '/contas' : base)}
       />
       <div className="tw-livre enc-admin">
         <ComBarraAntiga key={aba}>{aba === 'contas' ? <EncomendasClientesSection isActive /> : <CotacoesSection />}</ComBarraAntiga>
@@ -88,14 +79,16 @@ function Encomendas({ aba }: { aba: Aba }) {
   );
 }
 
+/** As encomendas recebidas (de todos os clientes): aberta em Gestão › Encomendas pela sessão de administrador */
 export const gestaoEncomendasPagina: ScreenFn = (vh) => {
+  const base = '/' + vh.s.level + (vh.s.level === 'admin' ? '/gestao-encomendas' : '/encomendas');
   const aba: Aba = vh.s.sub[0] === 'contas' ? 'contas' : 'encomendas';
   return {
     title: 'Encomendas',
     desc: aba === 'contas' ? 'Contas de clientes das encomendas' : 'As encomendas de todos os clientes',
-    crumbs: [{ t: 'Encomendas', path: BASE }, ...(aba === 'contas' ? [{ t: 'Contas' }] : [])],
+    crumbs: [{ t: 'Encomendas', path: base }, ...(aba === 'contas' ? [{ t: 'Contas' }] : [])],
     actions: <LugarBarraAntiga />,
-    body: <Encomendas aba={aba} />,
+    body: <Encomendas aba={aba} base={base} />,
   };
 };
 
