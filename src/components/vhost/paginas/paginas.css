@@ -14278,3 +14278,8 @@
 .vh .enc-contab table th:not(#x):not(#y) {
    text-align: left
 }
+
+/* Contabilidade: a 1.ª coluna à esquerda; nas restantes, o título e o conteúdo ao centro (Silva, 23/10/2026) */
+.vh .enc-contab table :is(th, td):not(:first-child):not(#x):not(#y) {
+   text-align: center
+}
