@@ -7,6 +7,7 @@ import {
   panelTabBar, panelTabBtn, panelTabBtnActive, panelTabBtnInactive,
 } from '@/lib/panel-ui'
 import { formatMt } from '@/lib/pricing-catalog'
+import { BarrasDa } from '@/components/vhost/carregador-da'
 import { useEsperaAte } from '@/components/vhost/carga'
 import { ImageLightbox } from './ImageLightbox'
 import { useBatchNumeros, displayNumero } from '@/lib/use-batch-numeros'
@@ -162,7 +163,7 @@ export function ContabilidadeTable() {
   useEsperaAte(!!(meses && registos && eliminados && fechos) || !!erroCarga)
 
   if (!meses || !registos || !eliminados || !fechos) {
-    if (!erroCarga) return null
+    if (!erroCarga) return <div className="flex justify-center py-12"><BarrasDa /></div>
     return (
       <div className={`${panelSectionCard} p-8 text-center text-sm text-gray-500 dark:text-zinc-400`}>
         <p className="font-bold text-gray-900 dark:text-white">Não foi possível carregar a contabilidade.</p>
