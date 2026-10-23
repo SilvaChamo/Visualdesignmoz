@@ -14018,3 +14018,9 @@
 .vh .dom-busca-cartao button[type=button] i:not(#x):not(#y) {
    color: #fff !important
 }
+
+/* Dentro dos formulários (.frm) a letra dos campos é de 15 px (Silva, 23/10/2026); fora deles ficam os 14 px */
+.vh .frm :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]), select:not([multiple]):not([size]):not(.da-domain-selector select):not(.ptabs-sel select), textarea):not(#x):not(#y):not(#z),
+.vh .frm .search:not(#x):not(#y):not(#z) input {
+   font-size: 15px
+}
