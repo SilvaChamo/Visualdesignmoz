@@ -1187,7 +1187,7 @@ export function CotacaoContent({ painel = false }: { painel?: boolean } = {}) {
                   </div>
                 )}
 
-                <div className={`space-y-3 text-sm ${multiItemsPriced.length > 0 && mostrarLinhaAntesServicos ? 'border-t border-zinc-300 dark:border-zinc-600 pt-4' : ''}`}>
+                <div className={`space-y-3 text-sm ${mostrarLinhaAntesServicos ? 'border-t border-zinc-300 dark:border-zinc-600 pt-4' : ''}`}>
                   {multiItemsPriced.map(({ li, categoriaLabel, qty, sobConsultaItem, isCustom, precoUnitario, startingAt }) => (
                     <div key={li.id}>
                       {isCustom ? (
@@ -1224,8 +1224,8 @@ export function CotacaoContent({ painel = false }: { painel?: boolean } = {}) {
                   ))}
                 </div>
 
-                {/* a linha que separa só aparece quando há conteúdo (totais ou aviso) e algo acima dela */}
-                <div className={`space-y-1.5 text-sm ${(multiTotal > 0 || hasSobConsultaItem) && (multiItemsPriced.length > 0 || mostrarLinhaAntesServicos) ? 'border-t border-zinc-300 dark:border-zinc-600 pt-4' : ''}`}>
+                {/* a última linha (a dos totais) só aparece quando há conteúdo por baixo dela: sem totais nem aviso era uma linha duplicada */}
+                <div className={`space-y-1.5 text-sm ${multiTotal > 0 || hasSobConsultaItem ? 'border-t border-zinc-300 dark:border-zinc-600 pt-4' : ''}`}>
                   {multiTotal > 0 && (
                     <>
                       <div className="flex items-center justify-between">
