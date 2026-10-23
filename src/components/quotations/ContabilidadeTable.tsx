@@ -66,7 +66,7 @@ async function setRegistoDeleted(batchId: string, deleted: boolean): Promise<boo
     const data = await res.json()
     return Boolean(data.success)
   } catch (error) {
-    console.error('Erro ao actualizar registo de contabilidade:', error)
+    console.warn('Erro ao actualizar registo de contabilidade:', error)
     return false
   }
 }
@@ -151,7 +151,7 @@ export function ContabilidadeTable() {
         }
       })
       .catch((error) => {
-        console.error('Erro ao carregar contabilidade:', error)
+        console.warn('Erro ao carregar contabilidade:', error)
         setErroCarga('Não foi possível ligar ao servidor.')
       })
   }
@@ -266,7 +266,7 @@ function ResellerCreditsTable() {
     fetch('/api/admin/reseller-creditos')
       .then((r) => r.json())
       .then((data) => { if (data.success) setPedidos(data.pedidos) })
-      .catch((error) => console.error('Erro ao carregar créditos de revendedores:', error))
+      .catch((error) => console.warn('Erro ao carregar créditos de revendedores:', error))
   }
 
   useEffect(() => {
@@ -1032,7 +1032,7 @@ function RenewalPaymentsTable() {
     fetch('/api/admin/renewal-pagamentos')
       .then((r) => r.json())
       .then((data) => { if (data.success) setPedidos(data.pedidos) })
-      .catch((error) => console.error('Erro ao carregar pagamentos de renovação:', error))
+      .catch((error) => console.warn('Erro ao carregar pagamentos de renovação:', error))
   }
 
   useEffect(() => {
@@ -1245,7 +1245,7 @@ function CheckoutItemsByType({ types }: { types: string[] }) {
     fetch('/api/admin/checkout-pagamentos')
       .then((r) => r.json())
       .then((data) => { if (data.success) setPedidos(data.pedidos) })
-      .catch((error) => console.error('Erro ao carregar pagamentos do carrinho:', error))
+      .catch((error) => console.warn('Erro ao carregar pagamentos do carrinho:', error))
   }
 
   useEffect(() => {
@@ -1510,7 +1510,7 @@ function EncomendaPagamentosTable() {
     fetch('/api/admin/encomendas-pagamentos')
       .then((r) => r.json())
       .then((data) => { if (data.success) setPagamentos(data.pagamentos) })
-      .catch((error) => console.error('Erro ao carregar pagamentos de encomendas:', error))
+      .catch((error) => console.warn('Erro ao carregar pagamentos de encomendas:', error))
   }
 
   useEffect(() => {
