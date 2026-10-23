@@ -7,6 +7,7 @@ import {
   panelTabBar, panelTabBtn, panelTabBtnActive, panelTabBtnInactive,
 } from '@/lib/panel-ui'
 import { formatMt } from '@/lib/pricing-catalog'
+import { useEsperaAte } from '@/components/vhost/carga'
 import { ImageLightbox } from './ImageLightbox'
 import { useBatchNumeros, displayNumero } from '@/lib/use-batch-numeros'
 import { encomendaPaymentSplit } from '@/lib/encomenda-checkout'
@@ -149,6 +150,8 @@ export function ContabilidadeTable() {
   useEffect(() => {
     load()
   }, [])
+
+  useEsperaAte(!!(meses && registos && eliminados && fechos))
 
   if (!meses || !registos || !eliminados || !fechos) {
     return null

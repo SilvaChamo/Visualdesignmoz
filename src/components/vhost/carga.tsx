@@ -153,6 +153,15 @@ export interface Espera {
 }
 export const EsperaPagina = createContext<Espera | null>(null);
 
+/** Para componentes que lêem os seus dados sozinhos: a página anterior fica à vista até `pronto` ser verdadeiro */
+export function useEsperaAte(pronto: boolean) {
+  const espera = useContext(EsperaPagina);
+  useEffect(() => {
+    if (pronto || !espera) return;
+    return espera.comecar();
+  }, [pronto, espera]);
+}
+
 /** Leitura de uma página: mostra logo o que está em memória e atualiza por trás. `null` = não ler. */
 export function useGet<T>(url: string | null, opcoes: { fundo?: boolean } = {}) {
   const espera = useContext(EsperaPagina);
