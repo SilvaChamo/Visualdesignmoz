@@ -13977,8 +13977,10 @@
   font-size: calc(12.5px * var(--z, 1)) !important
 }
 
-.vh .dom-busca-cartao :has(> button[type=button]):not(#x) {
-  align-items: center !important
+@media (min-width: 640px) {
+  .vh .dom-busca-cartao :has(> button[type=button]):not(#x) {
+    align-items: center !important
+  }
 }
 
 /* "Ações" (e "Colunas") no fim da barra dos títulos: o ícone do chevron não fica encostado à margem direita (Silva, 23/10/2026) */
