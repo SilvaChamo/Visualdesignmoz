@@ -13299,6 +13299,11 @@
    font-weight: 600
 }
 
+/* ícones das opções em cinzento (Silva, 23/10/2026), também o da opção aberta */
+.vh .opcoes-linha button i:not(#x) {
+   color: var(--muted)
+}
+
 .vh .opcoes-sep {
    color: var(--muted);
    opacity: .6;
@@ -13319,7 +13324,7 @@
       flex-wrap: nowrap;
       white-space: nowrap;
       column-gap: calc(8px * var(--z, 1));
-      font-size: calc(12px * var(--fs, 1))
+      font-size: calc(11.5px * var(--fs, 1))
    }
 
    .vh .opcoes-linha:not(#x) button {
@@ -13345,7 +13350,7 @@
       flex-wrap: nowrap;
       white-space: nowrap;
       column-gap: 6px;
-      font-size: 11.5px
+      font-size: 11px
    }
 
    .vh .opcoes-linha:not(#x) button {
@@ -13360,7 +13365,7 @@
 @media (max-width: 360px) {
    .vh .opcoes-linha:not(#x) {
       column-gap: 4px;
-      font-size: 10px
+      font-size: 9.5px
    }
 
    .vh .opcoes-linha:not(#x) button {
