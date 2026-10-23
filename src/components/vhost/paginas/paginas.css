@@ -13728,3 +13728,14 @@
 .vh .tbl thead th.dt-th-cols:not(#x) {
    box-shadow: -10px 0 8px -6px color-mix(in srgb, var(--soft) 90%, transparent)
 }
+
+/* Campos e botões em linhas de formulário (Silva, 23/10/2026): num fundo liso (sem cor própria) vão até ao fim da linha, sem margem à direita — só o texto, os
+   ícones e as caixas de seleção levam recuo; num fundo com cor (linhas cinzentas alternadas das Definições PHP, a faixa do rodapé…) mantêm a margem para não
+   encostar ao limite da cor */
+.vh .da-main-card .frm:not(.php-defs):not(.php-versao):not(.pf-senha):not(.frm-lados) .frm-row:not(#x):not(#y) {
+   padding-right: 0
+}
+
+.vh .da-main-card .frm:not(.php-defs):not(.php-versao):not(.pf-senha):not(.frm-lados) .frm-ctl > :is(input, select, textarea, .igrp):not([type=checkbox]):not([type=radio]):not(#x) {
+   max-width: none
+}
