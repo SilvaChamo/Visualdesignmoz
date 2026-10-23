@@ -184,6 +184,8 @@ export const EN: Record<string, string> = {
   "Clique em \"Adicionar serviços\" para juntar este serviço à encomenda.": "Click \"Add services\" to add this service to the order.",
   "Ainda não adicionou nenhum serviço.": "You have not added any service yet.",
   "Qtd.:": "Qty.:",
+  "Valor a partir de": "Amount from",
+  "MT, estimado — a equipa confirma o valor final consoante o âmbito do trabalho.": "MT, estimated — the team confirms the final amount according to the scope of the work.",
   "Adicionar serviços": "Add services",
   "Preencha o email.": "Fill in the email.",
   "Preencha o nome do responsável.": "Fill in the name of the person in charge.",

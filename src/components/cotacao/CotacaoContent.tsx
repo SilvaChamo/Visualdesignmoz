@@ -1355,12 +1355,13 @@ export function CotacaoContent({ painel = false }: { painel?: boolean } = {}) {
                             <span className="text-zinc-800 dark:text-zinc-200">{qty}</span>
                           </div>
                           <div className="flex items-center justify-between">
-                            <span className="text-zinc-500 dark:text-zinc-400">V. Unitário{startingAt ? ' (estimativa)' : ''}</span>
-                            <span className="font-bold text-zinc-800 dark:text-zinc-200">{startingAt ? 'a partir de ' : ''}{formatMt(precoUnitario)} MT</span>
+                            <span className="text-zinc-500 dark:text-zinc-400">V. Unitário</span>
+                            <span className="font-bold text-zinc-800 dark:text-zinc-200 whitespace-nowrap">{formatMt(precoUnitario)} MT</span>
                           </div>
                           {startingAt && (
-                            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-                              Valor estimado — a equipa confirma o valor final consoante o âmbito do trabalho.
+                            // o valor fica numa só linha; o "a partir de" vai na nota, num cartão vermelho bem visível
+                            <p className="mt-1.5 rounded-md border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/20 px-2.5 py-1.5 text-xs font-medium text-red-700 dark:text-red-400">
+                              Valor a partir de {formatMt(precoUnitario)} MT, estimado — a equipa confirma o valor final consoante o âmbito do trabalho.
                             </p>
                           )}
                         </>
