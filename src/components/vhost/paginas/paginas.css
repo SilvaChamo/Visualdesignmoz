@@ -13997,12 +13997,21 @@
 
 .vh :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]), select:not([multiple]):not([size]):not(.da-domain-selector select):not(.ptabs-sel select), textarea):not(#x):not(#y),
 .vh .search:not(#x):not(#y) input {
-   font-size: 14px
+   font-size: 15px
 }
 
 .vh :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]), select:not([multiple]):not([size]):not(.da-domain-selector select):not(.ptabs-sel select)):not(#x):not(#y),
 .vh .igrp :is(.ib, select):not(#x):not(#y),
 .vh .search:not(#x):not(#y) {
+   height: var(--h-input);
+   min-height: var(--h-input);
+   padding-top: 0;
+   padding-bottom: 0
+}
+
+/* a caixa de escolha dos separadores (telemóvel) também é um campo */
+.vh .ptabs-sel select:not(#x):not(#y) {
+   font-size: 15px;
    height: var(--h-input);
    min-height: var(--h-input)
 }
