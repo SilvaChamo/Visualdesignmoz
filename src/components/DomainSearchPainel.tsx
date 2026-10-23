@@ -270,7 +270,7 @@ export default function DomainSearchPainel({
     <div className="flex flex-col gap-3">
       {isAdmin && results.length === 0 ? (
         <p className={`py-6 text-center text-sm ${mutedText}`}>
-          O registador não respondeu agora. Volte a carregar em Buscar daqui a pouco.
+          O registador não respondeu agora. Volte a carregar em Procurar daqui a pouco.
         </p>
       ) : null}
       {results.map((result) => (
@@ -600,7 +600,8 @@ export default function DomainSearchPainel({
           loading ? 'cursor-not-allowed opacity-50' : !searchQuery.trim() ? 'cursor-not-allowed opacity-100' : 'cursor-pointer'
         }`}
       >
-        {t('home.search.button') || 'Buscar'}
+        <i className="fa-solid fa-magnifying-glass" />
+        {t('painel.search.button') || 'Procurar'}
       </button>
     </div>
   )
