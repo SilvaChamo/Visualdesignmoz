@@ -8,7 +8,7 @@ import { Fragment, useCallback, useContext, useEffect, useLayoutEffect, useRef, 
 import { TopoCartao, useVH, type VH } from '../context';
 import type { ScreenFn } from '../screens';
 import type { BaseDados, Domain } from '../types';
-import { pacoteDe } from '../state';
+import { findItem, hasFeatOf, pacoteDe } from '../state';
 import { getPhpMyAdminUrl } from '@/lib/server-config';
 import { VISUALDESIGN_DEFAULT_NS } from '@/lib/visualdesign-dns';
 import { Check, DataTable, Frm, MaisOpcoes, novaSenha, Row, Senha, Switch, Tabs, type Col } from './componentes';
@@ -27,6 +27,7 @@ import { TransferirDominio } from './transferir-dominio';
     'Gestão de domínios': 'Domain management',
     'Subdomínios do site': 'Subdomains of the site',
     'Use a versão mais recente do PHP para acelerar o seu site': 'Use the latest PHP version to speed up your site',
+    'Abrir os ficheiros deste domínio': 'Open this domain’s files',
     'Crie bases de dados do seu site, com o número de utilizadores que lhes acedem, o tamanho e o número de tabelas abaixo': "Create your site's databases, with the number of users that access them, the size and the number of tables below",
     'Registos DNS deste domínio, guardados neste servidor': 'DNS records of this domain, stored on this server',
     'O DNS deste domínio está fora da Visual Design': 'The DNS of this domain is outside Visual Design',
@@ -495,6 +496,22 @@ function ListaDominios({ abaDom = 'meus', abrirNovo = false }: { abaDom?: AbaDom
                 <i className="fa-solid fa-gear" />
                 {t('Gerir')}
               </button>{' '}
+              {/* link para o gestor de ficheiros, já na pasta deste domínio (Silva, 23/10/2026) — só a quem o plano deixa ver */}
+              {!r.soEmail && !r.soDominio && hasFeatOf(vh.s, findItem('utilizador', 'ficheiros')?.feat, 'ficheiros', 'utilizador') && (
+                <>
+                  <button
+                    className="btn g sm"
+                    title={t('Abrir os ficheiros deste domínio')}
+                    onClick={() => {
+                      setDominio(r.name);
+                      nav('/utilizador/ficheiros/web/' + encodeURIComponent(r.name));
+                    }}
+                  >
+                    <i className="fa-solid fa-folder-open" />
+                    {t('Ficheiros')}
+                  </button>{' '}
+                </>
+              )}
               {!r.soEmail && !r.soDominio && <BotaoPassar dominio={r.name} />}
             </>
           )}
@@ -987,7 +1004,8 @@ function VerDominio({ d }: { d: string }) {
           ['Contas FTP', String((x.ftp || []).length), 'ftp'],
           ['Redirecionamento', det ? (det.redirecionamento ? det.redirecionamento.url : t('Nenhum')) : <span className="dom-a-ler">…</span>, 'redirecionamentos'],
           ['Proteção hotlink', t('Configurar'), 'hotlink'],
-          ['Pasta do site', <code key="p">{x.docroot}</code>],
+          // a pasta do site abre no gestor de ficheiros, já nessa pasta (Silva, 23/10/2026) — só a quem o plano deixa ver
+          ['Pasta do site', <code key="p" className="dom-pasta">{x.docroot}</code>, hasFeatOf(vh.s, findItem('utilizador', 'ficheiros')?.feat, 'ficheiros', 'utilizador') ? 'ficheiros/web/' + encodeURIComponent(d) : undefined],
         ] as [string, ReactNode, string?][])),
   ];
   return (
@@ -1004,7 +1022,7 @@ function VerDominio({ d }: { d: string }) {
         </div>
         <div className="dom-info-grelha">
           {info.map(([rot, valor, p]) => (
-            <div key={rot} className={'dom-info-l' + (p ? ' lk' : '')} onClick={p ? () => ir(p) : undefined}>
+            <div key={rot} className={'dom-info-l' + (p ? ' lk' : '') + (rot === 'Pasta do site' ? ' dom-info-larga' : '')} onClick={p ? () => ir(p) : undefined}>
               <span>{t(rot)}</span>
               <div>{valor}</div>
               {p && <i className="fa-solid fa-chevron-right" />}

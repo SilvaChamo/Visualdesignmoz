@@ -7826,6 +7826,11 @@
    cursor: pointer
 }
 
+/* "Pasta do site": a linha ocupa a largura toda do cartão (o caminho cabe numa só linha) e a letra é mais pequena (Silva, 23/10/2026) */
+.vh .dom-info-l .dom-pasta {
+   font-size: calc(11px * var(--fs, 1))
+}
+
 .vh .dom-info-l.lk:hover>div,
 .vh .dom-info-l.lk:hover>i {
    color: var(--red)
