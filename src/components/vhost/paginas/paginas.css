@@ -13987,3 +13987,49 @@
 .vh .tbl thead th.dt-th-cols:not(#x):not(#y) {
    padding-right: calc(14px * var(--z, 1))
 }
+
+/* Campos de todo o painel (Silva, 23/10/2026: "fonte 14 em todos os campos e a altura ligeiramente maior"): a letra de dentro dos campos é de 14 px e a altura
+   é de 40 px (em vez de 12 px e 34 px), em computador e em telemóvel. Só os campos (texto, e-mail, palavra-passe, número, data, escolha, área de texto, pesquisa
+   e a caixa cinzenta do ícone); os botões ficam como estavam, menos os que estão na mesma linha de um campo, que levam a mesma altura dele. */
+.vh {
+   --h-input: 40px
+}
+
+.vh :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]), select:not([multiple]):not([size]):not(.da-domain-selector select):not(.ptabs-sel select), textarea):not(#x):not(#y),
+.vh .search:not(#x):not(#y) input {
+   font-size: 15px
+}
+
+.vh :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]), select:not([multiple]):not([size]):not(.da-domain-selector select):not(.ptabs-sel select)):not(#x):not(#y),
+.vh .igrp :is(.ib, select):not(#x):not(#y),
+.vh .search:not(#x):not(#y) {
+   height: var(--h-input);
+   min-height: var(--h-input);
+   padding-top: 0;
+   padding-bottom: 0
+}
+
+/* a caixa de escolha dos separadores (telemóvel) também é um campo */
+.vh .ptabs-sel select:not(#x):not(#y) {
+   font-size: 15px;
+   height: var(--h-input);
+   min-height: var(--h-input)
+}
+
+.vh :is(div, form, label, span):has(> :is(.search, .igrp, input:not([type=checkbox]):not([type=radio]), select)) > .btn:not(.sm):not(.iconbtn):not(#x):not(#y),
+.vh .card-topo-linha:has(.search) .card-topo-btns .btn:not(.sm):not(.iconbtn):not(#x):not(#y),
+.vh .dom-busca-cartao button[type=button]:not(#x):not(#y) {
+   height: var(--h-input) !important;
+   min-height: var(--h-input) !important
+}
+
+/* botão "Procurar" de Registar domínio: a lupa é branca (sobre o fundo vermelho) */
+.vh .dom-busca-cartao button[type=button] i:not(#x):not(#y) {
+   color: #fff !important
+}
+
+/* Dentro dos formulários (.frm) a letra dos campos é de 15 px (Silva, 23/10/2026); fora deles ficam os 14 px */
+.vh .frm :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]), select:not([multiple]):not([size]):not(.da-domain-selector select):not(.ptabs-sel select), textarea):not(#x):not(#y):not(#z),
+.vh .frm .search:not(#x):not(#y):not(#z) input {
+   font-size: 15px
+}
