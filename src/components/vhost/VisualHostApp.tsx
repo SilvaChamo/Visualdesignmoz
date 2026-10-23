@@ -1113,6 +1113,8 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
     backToMine: () => {
       const cur = ref.current;
       const b = cur.stack[cur.stack.length - 1];
+      // ao voltar ao próprio painel, as encomendas deixam de ser as da conta que se estava a ver (ver /api/vhost/encomendas-como)
+      if (cur.stack.length === 1) void fetch('/api/vhost/encomendas-como', { method: 'DELETE' }).catch(() => {});
       const n = fromPath({ ...cur, stack: cur.stack.slice(0, -1), level: b.lv }, route(b.lv, b.pg));
       commit(n);
       pushUrl(n.path);
