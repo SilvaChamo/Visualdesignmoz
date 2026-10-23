@@ -10843,8 +10843,8 @@
 }
 
 .vh .da-main-card .card-topo .btn {
-   height: 32px;
-   min-height: 32px;
+   height: var(--h-campo, 32px);
+   min-height: var(--h-campo, 32px);
    padding: 0 14px;
    font-size: 12.5px;
 }
@@ -12742,8 +12742,8 @@
    Vale para todos os botões (formulários, janelas, cartões, páginas). Ficam de fora os pequenos das linhas das tabelas (.sm),
    os de só um ícone e os da barra de cima. */
 .vh .btn:not(.sm):not(.iconbtn):not(.topact .btn):not(#x) {
-   height: 32px;
-   min-height: 32px;
+   height: var(--h-campo, 32px);
+   min-height: var(--h-campo, 32px);
    padding: 0 14px;
    font-size: calc(12.5px * var(--fs, 1));
    line-height: 1
@@ -12971,7 +12971,7 @@
 .vh .seccao-h.dom-cab .search.dom-pesq {
    flex: 0 1 440px;
    width: 440px;
-   height: 32px;
+   height: var(--h-campo, 32px);
    box-sizing: border-box;
    padding: 0 10px;
    gap: 8px;
@@ -13016,7 +13016,7 @@
 .vh .card-topo-linha .search.dom-pesq {
    flex: 0 1 440px;
    width: 440px;
-   height: 32px;
+   height: var(--h-campo, 32px);
    box-sizing: border-box;
    padding: 0 10px;
    gap: 8px;
@@ -13480,14 +13480,14 @@
 /* Campos padronizados (Silva, 23/10/2026): a altura de todos os campos é a do botão base (32 px) e a letra dentro deles é de 11 px (em todos os campos, também nos de janelas e formulários) — texto, e-mail, palavra-passe, número, data, escolha (select), pesquisa e as caixas dos grupos (.igrp). Reduzem-se os campos, nunca o botão.
    Valem para todos os campos do painel; só ficam de fora os seletores de navegação da barra (domínio e separadores), as caixas de seleção, os botões de opção e os campos de cor, deslizante e ficheiro. */
 .vh :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]), select:not([multiple]):not([size]):not(.da-domain-selector select):not(.ptabs-sel select), textarea):not(#x) {
-   font-size: 11px
+   font-size: calc(11px * (.5 + .5 * min(var(--fs, 1), 1)))
 }
 
 .vh :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]), select:not([multiple]):not([size]):not(.da-domain-selector select):not(.ptabs-sel select)):not(#x),
 .vh .igrp :is(.ib, select):not(#x),
 .vh .search:not(#x) {
-   height: 32px;
-   min-height: 32px
+   height: var(--h-campo, 32px);
+   min-height: var(--h-campo, 32px)
 }
 
 .vh .search:not(#x) input,
@@ -13569,7 +13569,7 @@
 
 @media (min-width: 769px) and (max-width: 1100px) {
    .vh .em-filtros.em-rastreio:not(#x) {
-      --icw: 26px;
+      --icw: 24px;
       gap: 4px
    }
 
@@ -13582,11 +13582,11 @@
    }
 
    .vh .em-filtros.em-rastreio > label:nth-child(-n+2):not(#x) {
-      min-width: 122px
+      min-width: 114px
    }
 
    .vh .em-filtros.em-rastreio > label:nth-child(5):not(#x) {
-      min-width: 140px
+      min-width: 134px
    }
 
    .vh .em-filtros.em-rastreio input:not([type=date]):not(#x)::placeholder {
@@ -13641,7 +13641,32 @@
       width: clamp(50px, 4.86vw, 70px)
    }
 
+}
+
+/* Altura dos campos e dos botões proporcional ao ecrã (Silva, 23/10/2026): 32 px a partir de 1440 px e, abaixo, 32 px × o factor de escala do painel
+   (27,5 px a 1000 px) — campos e botão sempre com a mesma altura */
+.vh {
+   --h-campo: calc(32px * min(var(--fs, 1), 1))
+}
+
+/* Barra lateral dinâmica (Silva, 23/10/2026): a largura do menu segue a escala do texto (275 px a 1440 px) para nunca cortar uma letra e não alargar sem
+   necessidade; os nomes do menu e a conta nunca levam reticências (a conta passa à linha de baixo se for preciso) */
+@media (min-width: 769px) and (max-width: 1440px) {
    .vh .navcol:not(#x) {
-      width: clamp(196px, 19.1vw, 275px)
+      width: calc(275px * min(var(--fs, 1), 1))
    }
+}
+
+.vh .side a .lb:not(#x),
+.vh .side .grp span:not(#x) {
+   overflow: visible;
+   text-overflow: clip
+}
+
+.vh .acct span:not(#x),
+.vh .acct small:not(#x) {
+   overflow: visible;
+   text-overflow: clip;
+   white-space: normal;
+   overflow-wrap: anywhere
 }
