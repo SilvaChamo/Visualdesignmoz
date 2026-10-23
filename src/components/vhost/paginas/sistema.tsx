@@ -83,7 +83,7 @@ function Sec({ titulo, desc, numeros, children }: { titulo: string; desc?: strin
   );
 }
 
-const tam = (b: number) => (b >= 1073741824 ? (b / 1073741824).toFixed(2).replace('.', ',') + ' GB' : b >= 1048576 ? (b / 1048576).toFixed(1).replace('.', ',') + ' MB' : b >= 1024 ? Math.round(b / 1024) + ' KB' : b + ' B');
+export const tam = (b: number) => (b >= 1073741824 ? (b / 1073741824).toFixed(2).replace('.', ',') + ' GB' : b >= 1048576 ? (b / 1048576).toFixed(1).replace('.', ',') + ' MB' : b >= 1024 ? Math.round(b / 1024) + ' KB' : b + ' B');
 const mb = (n: number) => (n >= 1024 ? (n / 1024).toFixed(2).replace('.', ',') + ' GB' : n + ' MB');
 const pct = (v: number, max: number) => (max > 0 ? Math.min(100, Math.round((v / max) * 100)) : 0);
 
@@ -383,12 +383,12 @@ function MolduraFm({ botoes, children }: { botoes: ReactNode; children: ReactNod
 /** Envio de ficheiros, como a janela "Upload" do DA: zona para largar ou escolher, lista com o progresso de cada um.
  *  Cada ficheiro vai aos bocados de 16 MB, em bruto (o mesmo método rápido do gestor do site), por isso aceita
  *  ficheiros grandes; um de cada vez, pela ordem em que entraram. */
-type Envio = { id: string; f: File; feito: number; estado: 'espera' | 'envio' | 'ok' | 'erro' | 'cancelado'; erro?: string };
-const BOCADO = 16 * 1024 * 1024;
-const idEnvio = () => Array.from(crypto.getRandomValues(new Uint8Array(12)), (x) => x.toString(16).padStart(2, '0')).join('');
+export type Envio = { id: string; f: File; feito: number; estado: 'espera' | 'envio' | 'ok' | 'erro' | 'cancelado'; erro?: string };
+export const BOCADO = 16 * 1024 * 1024;
+export const idEnvio = () => Array.from(crypto.getRandomValues(new Uint8Array(12)), (x) => x.toString(16).padStart(2, '0')).join('');
 /** Campo de progresso de um envio (pedido do Silva a 11/10): alto, enche-se com uma cor suave e a percentagem conta de
  *  um em um (1, 2, 3…), a um ritmo que se vê, até ao valor real — e enche o campo todo quando o ficheiro chega */
-function CampoEnvio({ p, estado, erro }: { p: number; estado: Envio['estado']; erro?: string }) {
+export function CampoEnvio({ p, estado, erro }: { p: number; estado: Envio['estado']; erro?: string }) {
   const { t } = useVH();
   const [v, setV] = useState(0);
   useEffect(() => {

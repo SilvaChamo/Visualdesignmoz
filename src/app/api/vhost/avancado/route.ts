@@ -15,6 +15,7 @@ export const dynamic = 'force-dynamic';
  * /api/vhost/avancado — Menu Avançado do painel VisualHost (Hestia + Apache por trás do Nginx).
  * GET  ?conta=&ver=cron|backups|chaves|ssh|protegidas|git|wordpress|clamav   (e &d= para handlers, modsec, wp)
  * GET  ?conta=&ver=descarregar&f=<cópia>   descarrega uma cópia de segurança (aos poucos)
+ * POST (cabeçalhos x-vh-bk…)   carrega uma cópia de segurança (.tar) do computador, aos bocados; só o administrador
  * POST { acao, conta, … }   alterações; só nas contas que a sessão pode ver
  * O que o Hestia não guarda (pastas protegidas, repositórios Git, análises do antivírus) fica em /usr/local/vhost/<conta>/.
  */
@@ -166,6 +167,7 @@ export async function GET(req: NextRequest) {
         agendas: lerAgendas(sec.get('A') || ''),
         limite: Number(srv.packages[user.PACKAGE || '']?.BACKUPS) || 0,
         naFila: Number((sec.get('Q') || '').trim().split('\n').pop()) > 0,
+        podeCarregar: r.s.role === 'admin',
         exclusoes: excl,
         copias: Object.entries(b).map(([f, c]) => ({ f, tamanhoMb: Number(c.SIZE) || 0, data: (c.DATE || '') + ' ' + (c.TIME || ''), web: c.WEB || '', dns: c.DNS || '', mail: c.MAIL || '', db: c.DB || '', cron: c.CRON || '', udir: c.UDIR || '', duracao: Number(c.RUNTIME) || 0 })),
         sites: Object.keys(srv.web[conta] || {}),
@@ -350,9 +352,78 @@ export async function GET(req: NextRequest) {
 
 type Corpo = { acao: string; conta: string; dominio?: string; [k: string]: unknown };
 
+/** Carregar uma cópia de segurança do computador (Silva, 23/10/2026): o ficheiro .tar vai aos bocados de 16 MB, sem formulário, como o envio
+ *  do gestor de ficheiros. Os bocados juntam-se numa pasta só do root; no último, o ficheiro é conferido (tar válido, sem caminhos absolutos
+ *  nem "..", com a pasta pam/ que o Hestia põe em todas as cópias) e passa para /backup com o nome <conta>.<data>.tar, onde o Hestia o lista e
+ *  restaura como as outras. Só o administrador: o restauro corre como root e não se deve entregar a um ficheiro de um cliente. */
+async function carregarCopia(req: NextRequest, r: { s: Sessao }, envio: string): Promise<NextResponse> {
+  if (r.s.role !== 'admin') return NextResponse.json({ erro: 'Só o administrador pode carregar cópias de segurança.' }, { status: 403 });
+  const conta = req.headers.get('x-vh-conta') || '';
+  const srv = await lerServidor();
+  const e = await verificar(r.s, conta, null, srv);
+  if (e) return NextResponse.json({ erro: e }, { status: 403 });
+  const inicio = Number(req.headers.get('x-vh-inicio'));
+  const total = Number(req.headers.get('x-vh-total'));
+  if (!/^[a-f0-9]{24}$/.test(envio) || !Number.isSafeInteger(inicio) || inicio < 0 || !Number.isSafeInteger(total) || total <= 0) return NextResponse.json({ erro: 'Envio inválido.' }, { status: 400 });
+  if (total > 20 * 1024 ** 3) return NextResponse.json({ erro: 'A cópia pode ter até 20 GB.' }, { status: 400 });
+  const dir = '/var/tmp/vhost-bk-up';
+  const junto = `${dir}/${envio}`;
+  const tam = async () => Number((await executeServerCommand(`stat -c %s ${junto} 2>/dev/null || echo 0`, { timeoutMs: 20_000 })).trim()) || 0;
+  if (inicio === 0) {
+    // espaço para a cópia e para o restauro, que a desfaz ao lado dela
+    const livre = Number((await executeServerCommand(`install -d -m 700 ${dir} && rm -f ${junto} && find ${dir} -maxdepth 1 -type f -mmin +240 -delete; df -B1 --output=avail /backup | tail -n 1`, { timeoutMs: 20_000 })).trim().split('\n').pop()) || 0;
+    if (livre < total + 1024 ** 3) return NextResponse.json({ erro: 'Não há espaço livre no servidor para esta cópia.' }, { status: 400 });
+  } else if ((await tam()) !== inicio) return NextResponse.json({ erro: 'O envio perdeu-se a meio; volte a tentar.' }, { status: 409 });
+  try {
+    await uploadFileViaSsh(`${junto}.p`, req.body ? (req.body as unknown as import('stream/web').ReadableStream) : Buffer.alloc(0));
+    await executeServerCommand(`cat ${junto}.p >> ${junto} && rm -f ${junto}.p`, { timeoutMs: 120_000 });
+  } catch {
+    await executeServerCommand(`rm -f ${junto} ${junto}.p`, { timeoutMs: 20_000 });
+    return NextResponse.json({ erro: 'O envio falhou; volte a tentar.' }, { status: 500 });
+  }
+  if (req.headers.get('x-vh-fim') !== '1') return NextResponse.json({ ok: true });
+  const falha = async (erro: string, status = 400) => {
+    await executeServerCommand(`rm -f ${junto} ${junto}.p ${junto}.lst`, { timeoutMs: 20_000 });
+    return NextResponse.json({ erro }, { status });
+  };
+  if ((await tam()) !== total) return falha('O ficheiro chegou incompleto; volte a tentar.');
+  const nomeOriginal = decodeURIComponent(req.headers.get('x-vh-nome') || '');
+  const dataNome = (nomeOriginal.match(/(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2})\.tar$/) || [])[1] || '';
+  const teste = (
+    await executeServerCommand(
+      `if ! tar -tf ${junto} > ${junto}.lst 2>/dev/null; then echo INVALIDO; elif grep -qE '(^/|(^|/)\\.\\.(/|$))' ${junto}.lst; then echo PERIGO; elif ! grep -qE '^(\\./)?pam(/|$)' ${junto}.lst; then echo OUTRO; else echo OK; fi; rm -f ${junto}.lst`,
+      { timeoutMs: 600_000 },
+    )
+  )
+    .trim()
+    .split('\n')
+    .pop();
+  if (teste === 'INVALIDO') return falha('O ficheiro não é uma cópia de segurança válida (tem de ser um .tar inteiro).');
+  if (teste === 'PERIGO') return falha('Esta cópia tem caminhos que não são permitidos; não foi carregada.');
+  if (teste !== 'OK') return falha('Este ficheiro não parece uma cópia de segurança do painel (falta a parte "pam").');
+  // nome <conta>.<data>.tar (a data do nome original, ou a de agora), com o mesmo dono e permissões das outras cópias da conta
+  const sufixo = dataNome || '$(date +%F_%H-%M-%S)';
+  const out = await executeServerCommand(
+    `n=${conta}.${sufixo}.tar; if [ -e "/backup/$n" ]; then echo EXISTE; else ref=$(ls /backup/${conta}.*.tar 2>/dev/null | head -n 1); mv -f ${junto} "/backup/$n" && if [ -n "$ref" ]; then chown --reference="$ref" "/backup/$n"; chmod --reference="$ref" "/backup/$n"; else chmod 640 "/backup/$n"; fi && echo "OK:$n"; fi`,
+    { timeoutMs: 600_000 },
+  );
+  const fim = out.trim().split('\n').pop() || '';
+  if (fim === 'EXISTE') return falha('Esta cópia já está na lista (a mesma data e hora).');
+  const nome = fim.replace(/^OK:/, '');
+  if (!fim.startsWith('OK:') || !new RegExp(`^${conta.replace(/\./g, '\\.')}\\.[0-9_-]+\\.tar$`).test(nome)) return falha('Não foi possível guardar a cópia no servidor.', 500);
+  const lst = json<Record<string, unknown>>(await executeServerCommand(`${H}/v-list-user-backups ${conta} json`, { timeoutMs: 20_000 }), {});
+  if (!lst[nome]) {
+    await executeServerCommand(`rm -f ${q('/backup/' + nome)}`, { timeoutMs: 20_000 });
+    return NextResponse.json({ erro: 'O servidor não reconheceu esta cópia; foi apagada.' }, { status: 400 });
+  }
+  return NextResponse.json({ ok: true, f: nome });
+}
+
 export async function POST(req: NextRequest) {
   const r = await sessao();
   if ('erro' in r) return r.erro;
+  const envioCopia = req.headers.get('x-vh-bk');
+  if (envioCopia) return carregarCopia(req, r, envioCopia);
   let c: Corpo;
   try {
     c = (await req.json()) as Corpo;

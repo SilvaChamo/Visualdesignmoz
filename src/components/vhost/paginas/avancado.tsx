@@ -8,6 +8,7 @@ import { useVH, type VH } from '../context';
 import type { ScreenFn } from '../screens';
 import { Check, DataTable, novaSenha, Senha, Switch, Tabs } from './componentes';
 import { Confirmar } from './pacotes';
+import { BOCADO, CampoEnvio, idEnvio, tam as tamTxt, type Envio } from './sistema';
 import { useGet } from '../carga';
 import { EN } from '../generated/data';
 import { NoTopoCartao } from '../ui';
@@ -295,13 +296,22 @@ export const handlersPagina: ScreenFn = (vh) => {
 // ---------- Cópias de segurança ----------
 type Copia = { f: string; tamanhoMb: number; data: string; web: string; dns: string; mail: string; db: string; cron: string; udir: string; duracao: number };
 type Agenda = { id: number; freq: 'diaria' | 'semanal' | 'mensal'; hora: number; min: number; dia: number; pausada: boolean };
-type InfoBackups = { agendas: Agenda[]; limite: number; naFila: boolean; exclusoes: Record<string, string>; copias: Copia[]; sites: string[]; emails: string[]; dns: string[]; bds: string[] };
+type InfoBackups = { agendas: Agenda[]; limite: number; naFila: boolean; podeCarregar?: boolean; exclusoes: Record<string, string>; copias: Copia[]; sites: string[]; emails: string[]; dns: string[]; bds: string[] };
 const mbTxt = (n: number) => (n >= 1024 ? (n / 1024).toFixed(2).replace('.', ',') + ' GB' : n + ' MB');
 
 // Textos novos da página de Cópias de segurança, já em inglês
 {
   const novas: Record<string, string> = {
     'Guardar escolhas': 'Save choices',
+    'Carregar cópia': 'Upload backup',
+    'Carregar cópia de segurança': 'Upload a backup',
+    'Carregar cópia do computador': 'Upload a backup from your computer',
+    'Procura no computador o ficheiro .tar de uma cópia descarregada, carrega-o e restaura-o.': 'Browse your computer for the .tar file of a downloaded backup, upload it and restore it.',
+    'Escolha no computador o ficheiro .tar de uma cópia que descarregou. Depois de carregada, aparece na lista e pode restaurá-la.': 'Choose on your computer the .tar file of a backup you downloaded. Once uploaded, it appears in the list and you can restore it.',
+    'Arraste a cópia para aqui': 'Drag the backup here',
+    'Escolha um ficheiro .tar (uma cópia de segurança descarregada).': 'Choose a .tar file (a downloaded backup).',
+    'O ficheiro está vazio.': 'The file is empty.',
+    'Cópia carregada: escolha como a restaurar': 'Backup uploaded: choose how to restore it',
     'Marque pelo menos uma parte para a cópia.': 'Tick at least one part for the backup.',
     'Tem escolhas por guardar. Marque o que quiser e carregue em "Guardar escolhas".': 'You have unsaved choices. Tick what you want and press "Save choices".',
     'Guarde as escolhas antes de fazer a cópia.': 'Save your choices before making the backup.',
@@ -716,10 +726,138 @@ function AgendarModal({ atual, onFeito }: { atual: Agenda | null; onFeito: () =>
   );
 }
 
+/** Carregar uma cópia de segurança do computador (Silva, 23/10/2026): um ficheiro .tar feito com "Descarregar" (ou de outro servidor). Vai aos
+ *  bocados de 16 MB; ao chegar, entra na lista de cópias e abre-se o painel de restauro dela. Só o administrador (o servidor também o exige). */
+function CarregarCopiaModal({ onFeito }: { onFeito: (f: string) => void }) {
+  const vh = useVH();
+  const { t, closeM, me } = vh;
+  const [e, setE] = useState<Envio | null>(null);
+  const [arrasto, setArrasto] = useState(false);
+  const entrada = useRef<HTMLInputElement>(null);
+  const xhr = useRef<XMLHttpRequest | null>(null);
+  const fechado = useRef(false);
+  useEffect(() => {
+    fechado.current = false;
+    return () => {
+      fechado.current = true;
+      xhr.current?.abort();
+    };
+  }, []);
+  const bocado = (env: Envio, ini: number, fim: number) =>
+    new Promise<string>((ok, ko) => {
+      const x = new XMLHttpRequest();
+      xhr.current = x;
+      x.upload.onprogress = (ev) => {
+        env.feito = Math.min(env.f.size, ini + ev.loaded);
+        if (!fechado.current) setE({ ...env });
+      };
+      x.onload = () => {
+        let j: { ok?: boolean; erro?: string; f?: string } = {};
+        try {
+          j = JSON.parse(x.responseText);
+        } catch {}
+        if (x.status === 200 && j.ok) ok(j.f || '');
+        else ko(new Error(j.erro || 'O envio falhou'));
+      };
+      x.onerror = () => ko(new Error('Sem ligação ao site.'));
+      x.onabort = () => ko(new Error('cancelado'));
+      x.open('POST', '/api/vhost/avancado');
+      x.setRequestHeader('Content-Type', 'application/octet-stream');
+      x.setRequestHeader('x-vh-bk', env.id);
+      x.setRequestHeader('x-vh-conta', me);
+      x.setRequestHeader('x-vh-inicio', String(ini));
+      x.setRequestHeader('x-vh-total', String(env.f.size));
+      if (fim >= env.f.size) {
+        x.setRequestHeader('x-vh-fim', '1');
+        x.setRequestHeader('x-vh-nome', encodeURIComponent(env.f.name));
+      }
+      x.send(env.f.slice(ini, fim));
+    });
+  const enviar = async (f: File | undefined) => {
+    if (!f || (e && e.estado === 'envio')) return;
+    if (!/\.tar$/i.test(f.name)) return setE({ id: '', f, feito: 0, estado: 'erro', erro: t('Escolha um ficheiro .tar (uma cópia de segurança descarregada).') });
+    if (f.size === 0) return setE({ id: '', f, feito: 0, estado: 'erro', erro: t('O ficheiro está vazio.') });
+    const env: Envio = { id: idEnvio(), f, feito: 0, estado: 'envio' };
+    setE({ ...env });
+    try {
+      let nome = '';
+      for (let ini = 0; ini < f.size; ini += BOCADO) nome = await bocado(env, ini, Math.min(f.size, ini + BOCADO));
+      env.estado = 'ok';
+      env.feito = f.size;
+      if (fechado.current) return;
+      setE({ ...env });
+      closeM();
+      vh.toast(t('Cópia carregada: escolha como a restaurar'));
+      onFeito(nome);
+    } catch (er) {
+      const m = er instanceof Error ? er.message : 'O envio falhou';
+      env.estado = m === 'cancelado' ? 'cancelado' : 'erro';
+      env.erro = m;
+      if (!fechado.current) setE({ ...env });
+    }
+  };
+  const aEnviar = e?.estado === 'envio';
+  return (
+    <div className="fmda-up">
+      <h3>{t('Carregar cópia de segurança')}</h3>
+      <p className="fmda-up-para">{t('Escolha no computador o ficheiro .tar de uma cópia que descarregou. Depois de carregada, aparece na lista e pode restaurá-la.')}</p>
+      <div
+        className={'fmda-up-zona' + (arrasto ? ' on' : '')}
+        onClick={() => !aEnviar && entrada.current?.click()}
+        onDragOver={(ev) => {
+          ev.preventDefault();
+          setArrasto(true);
+        }}
+        onDragLeave={() => setArrasto(false)}
+        onDrop={(ev) => {
+          ev.preventDefault();
+          setArrasto(false);
+          void enviar(ev.dataTransfer.files[0]);
+        }}
+      >
+        <i className="fa-solid fa-cloud-arrow-up" />
+        <b>{t('Arraste a cópia para aqui')}</b>
+        <span>
+          {t('ou')} <u>{t('escolha no computador')}</u>
+        </span>
+      </div>
+      <input
+        ref={entrada}
+        type="file"
+        accept=".tar,application/x-tar"
+        hidden
+        onChange={(ev) => {
+          void enviar(ev.target.files?.[0]);
+          ev.target.value = '';
+        }}
+      />
+      {e && (
+        <ul className="fmda-up-lista">
+          <li className={'est-' + e.estado}>
+            <i className="fa-solid fa-box-archive" />
+            <div className="fmda-up-info">
+              <div className="fmda-up-linha">
+                <b title={e.f.name}>{e.f.name}</b>
+                <span>{tamTxt(e.f.size)}</span>
+              </div>
+              <CampoEnvio p={e.f.size ? Math.round((e.feito / e.f.size) * 100) : 0} estado={e.estado} erro={e.erro} />
+            </div>
+          </li>
+        </ul>
+      )}
+      <div className="mfoot">
+        <button className={'btn ' + (aEnviar ? 'g' : 'r')} onClick={closeM}>
+          {t(aEnviar ? 'Cancelar e fechar' : 'Fechar')}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 type ModoRestauro = 'escolher' | 'geral' | 'parcial';
 /** Painel que desliza para baixo, por baixo da cópia (Silva, 21/10/2026): primeiro as duas maneiras de restaurar, lado a lado — a cópia geral, que
  *  repõe tudo, ou a parcial, em que se escolhe o que repor. A parcial mostra as escolhas no mesmo sítio; a geral, o botão de restaurar a cópia geral. */
-function PainelRestaurar({ c, modo, setModo, fechar, onFeito }: { c: Copia; modo: ModoRestauro; setModo: (m: ModoRestauro) => void; fechar: () => void; onFeito: () => void }) {
+function PainelRestaurar({ c, modo, setModo, fechar, onFeito, onCarregar }: { c: Copia; modo: ModoRestauro; setModo: (m: ModoRestauro) => void; fechar: () => void; onFeito: () => void; onCarregar?: () => void }) {
   const vh = useVH();
   const { t, openM } = vh;
   const feito = () => {
@@ -762,8 +900,8 @@ function PainelRestaurar({ c, modo, setModo, fechar, onFeito }: { c: Copia; modo
         </div>
       </div>
       {modo === 'escolher' && (
-        <div className="bk-rest-corpo">
-          <div className="bk-rest-opcoes">
+        <div className="bk-rest-corpo so-vertical">
+          <div className={'bk-rest-opcoes' + (onCarregar ? ' tres' : '')}>
             <button onClick={() => setModo('geral')}>
               <i className="fa-solid fa-boxes-stacked" />
               <span>
@@ -778,6 +916,15 @@ function PainelRestaurar({ c, modo, setModo, fechar, onFeito }: { c: Copia; modo
                 <small>{t('Escolhe só o que repor (por exemplo, um site ou uma base de dados). Tudo o resto fica como está.')}</small>
               </span>
             </button>
+            {onCarregar && (
+              <button onClick={onCarregar}>
+                <i className="fa-solid fa-cloud-arrow-up" />
+                <span>
+                  <b>{t('Carregar cópia do computador')}</b>
+                  <small>{t('Procura no computador o ficheiro .tar de uma cópia descarregada, carrega-o e restaura-o.')}</small>
+                </span>
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -797,6 +944,16 @@ function Backups({ aba }: { aba: 'criar' | 'agendadas' }) {
   const { dados, erro, ler } = useLer<InfoBackups>('backups');
   const [aberta, setAberta] = useState<{ f: string; modo: ModoRestauro } | null>(null);
   const [porGuardar, setPorGuardar] = useState(false);
+  // carregar uma cópia do computador: ao chegar, entra na lista e abre-se já o painel de restauro dela
+  const carregar = () =>
+    openM(
+      <CarregarCopiaModal
+        onFeito={(f) => {
+          ler();
+          if (f) setAberta({ f, modo: 'escolher' });
+        }}
+      />,
+    );
   if (!dados) return <Carregando erro={erro} ler={ler} />;
   const tabela = () => (
     <DataTable
@@ -804,7 +961,7 @@ function Backups({ aba }: { aba: 'criar' | 'agendadas' }) {
       rows={dados.copias}
       rowKey={(r) => r.f}
       onRecarregar={ler}
-      linhaExtra={(r) => (aberta?.f === r.f ? <PainelRestaurar c={r} modo={aberta.modo} setModo={(modo) => setAberta({ f: r.f, modo })} fechar={() => setAberta(null)} onFeito={ler} /> : null)}
+      linhaExtra={(r) => (aberta?.f === r.f ? <PainelRestaurar c={r} modo={aberta.modo} setModo={(modo) => setAberta({ f: r.f, modo })} fechar={() => setAberta(null)} onFeito={ler} onCarregar={dados.podeCarregar ? carregar : undefined} /> : null)}
       empty="Ainda não há cópias de segurança"
       cols={[
         { k: 'data', t: 'Data', sort: (r) => r.data, cell: (r) => <b>{r.data}</b> },
@@ -883,6 +1040,12 @@ function Backups({ aba }: { aba: 'criar' | 'agendadas' }) {
                     <i className="fa-solid fa-calendar-days" />
                     {t('Agendar backup')}
                   </button>
+                  {dados.podeCarregar && (
+                    <button className="btn g" onClick={carregar}>
+                      <i className="fa-solid fa-cloud-arrow-up" />
+                      {t('Carregar cópia')}
+                    </button>
+                  )}
                 </div>
               </div>
               <Exclusoes key={JSON.stringify(dados.exclusoes)} info={dados} ler={ler} aoMudar={setPorGuardar} />

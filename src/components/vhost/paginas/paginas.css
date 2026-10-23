@@ -12411,6 +12411,11 @@
    padding: 0
 }
 
+/* as opções do Restaurar rentes às margens laterais da tabela, sem espaço dos lados (Silva, 23/10/2026) */
+.vh .bk-rest-corpo.so-vertical {
+   padding: 12px 0
+}
+
 /* partes da cópia, uma por linha, com as cores intercaladas */
 .vh .bk-rest-linha {
    display: flex;
@@ -12554,6 +12559,17 @@
 
 .vh .bk-rest-painel .av-parte-itens {
    grid-template-columns: repeat(3, minmax(0, 1fr))
+}
+
+/* o administrador tem uma terceira maneira: carregar a cópia do computador (Silva, 23/10/2026) */
+.vh .bk-rest-opcoes.tres {
+   grid-template-columns: repeat(3, minmax(0, 1fr))
+}
+
+@media (max-width: 1050px) {
+   .vh .bk-rest-opcoes.tres {
+      grid-template-columns: 1fr
+   }
 }
 
 @media (max-width: 768px) {
