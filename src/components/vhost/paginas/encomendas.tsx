@@ -7,7 +7,7 @@
 // site continua igual (os clientes só de encomendas ficam lá).
 // Aberta a todos os clientes e profissionais com conta no painel (Silva, 21/10/2026: "pode avançar"); quem só tem encomendas
 // continua no /encomendas do site, e passa para o painel quando comprar domínio ou hospedagem.
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { EncomendasListSection } from '@/components/encomendas/EncomendasListSection';
 import { CotacaoContent } from '@/components/cotacao/CotacaoContent';
 import { Suspense } from 'react';
@@ -15,6 +15,7 @@ import { EncomendasMensagensSection } from '@/components/encomendas/EncomendasMe
 import { EncomendasPagamentosSection } from '@/components/encomendas/EncomendasPagamentosSection';
 import { marcarVoltaAoPainel } from '@/lib/voltar-ao-painel';
 import { useVH, type VH } from '../context';
+import { meOf } from '../state';
 import type { ScreenFn } from '../screens';
 import { DESC, EN, MENU } from '../generated/data';
 import { useGet } from '../carga';
@@ -48,6 +49,8 @@ import { gestaoEncomendasPagina } from './encomendas-admin';
     Encomendas: 'Orders',
     Encomenda: 'Order',
     'Nova encomenda': 'New order',
+    'Esta conta ainda não tem login no site.': 'This account does not have a login on the site yet.',
+    'Não foi possível abrir as encomendas desta conta.': 'Could not open the orders of this account.',
     'Escolha o serviço e veja o resumo da encomenda': 'Choose the service and see the order summary',
     Todas: 'All',
     'Por pagar': 'To pay',
@@ -157,18 +160,9 @@ function Encomendas({ aba, encomenda }: { aba: string; encomenda?: string }) {
   );
 }
 
-export const encomendasPagina: ScreenFn = (vh: VH) => {
+const encomendasPaginaBase: ScreenFn = (vh: VH) => {
   // o administrador não faz encomendas, recebe-as: em Gestão › Encomendas vê as encomendas recebidas (Silva, 23/10/2026)
   if (vh.s.acc[vh.s.login]?.role === 'admin' && !vh.s.stack.length) return gestaoEncomendasPagina(vh);
-  if (vh.s.stack.length)
-    return {
-      title: 'Encomendas',
-      body: (
-        <div className="note">
-          {vh.t('As encomendas mostradas no painel são as da sua sessão no site. Para ver as de um cliente, use a gestão de encomendas do administrador.')}
-        </div>
-      ),
-    };
   const [sub, encomenda] = vh.s.sub;
   // "Nova Encomenda": página própria que substitui toda a página das encomendas (lista, detalhe e resumo), com o botão de voltar (Silva, 23/10/2026)
   if (sub === 'nova')
@@ -199,4 +193,34 @@ export const encomendasPagina: ScreenFn = (vh: VH) => {
     };
   const aba = ABAS.some(([k]) => k === sub) ? sub : 'encomendas';
   return { title: 'Encomendas', body: <Encomendas aba={aba} encomenda={encomenda} /> };
+};
+
+/** "Entrar como" uma conta › Encomendas (Silva, 23/10/2026): a mesma página do cliente (lista e nova encomenda), com as encomendas da conta que se está a ver.
+ *  Antes de a mostrar, o servidor passa a tratar o administrador como essa conta nas encomendas (/api/vhost/encomendas-como); se a conta ainda não tem
+ *  login no site, diz-se aqui. */
+function ComoConta({ conta, children }: { conta: string; children: React.ReactNode }) {
+  const { t } = useVH();
+  const [estado, setEstado] = useState<string>('');
+  useEffect(() => {
+    let cancelado = false;
+    setEstado('');
+    fetch('/api/vhost/encomendas-como', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ conta }) })
+      .then(async (r) => {
+        const j = (await r.json().catch(() => ({}))) as { success?: boolean; error?: string };
+        if (!cancelado) setEstado(r.ok && j.success ? 'ok' : j.error || 'Não foi possível abrir as encomendas desta conta.');
+      })
+      .catch(() => !cancelado && setEstado('Não foi possível abrir as encomendas desta conta.'));
+    return () => {
+      cancelado = true;
+    };
+  }, [conta]);
+  if (estado === 'ok') return <>{children}</>;
+  if (!estado) return null;
+  return <div className="note">{t(estado)}</div>;
+}
+
+export const encomendasPagina: ScreenFn = (vh: VH) => {
+  const pagina = encomendasPaginaBase(vh);
+  if (!vh.s.stack.length) return pagina;
+  return { ...pagina, body: <ComoConta conta={meOf(vh.s)}>{pagina.body}</ComoConta> };
 };
