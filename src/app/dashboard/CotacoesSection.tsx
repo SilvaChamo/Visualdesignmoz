@@ -107,10 +107,10 @@ function deliveryCountdown(dateStr: string, createdAtStr: string): { label: stri
 // ficam fora do fluxo principal, por isso vão no fim — e são baldes distintos,
 // para não misturar as duas origens diferentes.
 const BUCKET_ITEMS: { value: StatusBucket; label: string; icon: React.ElementType; fa: string }[] = [
-  { value: 'pending', label: 'Pendentes', icon: Clock, fa: 'fa-clock' },
-  { value: 'approved', label: 'Em produção', icon: Factory, fa: 'fa-industry' },
-  { value: 'delivered', label: 'Concluídas', icon: PackageCheck, fa: 'fa-box' },
-  { value: 'done', label: 'Entregues', icon: CheckCircle2, fa: 'fa-circle-check' },
+  { value: 'pending', label: 'Pendentes', icon: Clock, fa: 'fa-hourglass-half' },
+  { value: 'approved', label: 'Em produção', icon: Factory, fa: 'fa-gears' },
+  { value: 'delivered', label: 'Concluídas', icon: PackageCheck, fa: 'fa-clipboard-check' },
+  { value: 'done', label: 'Entregues', icon: CheckCircle2, fa: 'fa-truck' },
   { value: 'rejected', label: 'Rejeitadas', icon: Ban, fa: 'fa-ban' },
   { value: 'cancelled', label: 'Canceladas', icon: XCircle, fa: 'fa-circle-xmark' },
 ]

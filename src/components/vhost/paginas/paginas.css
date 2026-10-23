@@ -14047,20 +14047,18 @@
 /* Admin › Encomendas: a lista de secções (Recebidas, Pendentes…) sem sombra nem linha vermelha à esquerda, com os itens a começar logo na margem do cartão
    (Silva, 23/10/2026); ícones Font Awesome em cinzento, o da secção aberta a vermelho */
 .vh .enc-admin nav:not(#x):not(#y) {
-   padding-left: 0;
+   padding-left: calc(12px * var(--z, 1));
    box-shadow: none
 }
 
 .vh .enc-admin nav button:not(#x):not(#y) {
-   border-left-width: 0;
-   padding-left: calc(16px * var(--z, 1));
    gap: calc(10px * var(--z, 1))
 }
 
 .vh .enc-admin nav button i.enc-ic:not(#x):not(#y) {
-   color: var(--muted) !important;
-   font-size: calc(14px * var(--z, 1));
-   width: calc(18px * var(--z, 1));
+   color: color-mix(in srgb, var(--muted) 70%, var(--card)) !important;
+   font-size: calc(15px * var(--z, 1));
+   width: calc(20px * var(--z, 1));
    text-align: center;
    flex: none
 }
@@ -14082,11 +14080,21 @@
    color: var(--red) !important
 }
 
+.vh .enc-admin nav button[class~="border-transparent"]:hover:not(#x):not(#y) {
+   background: transparent !important
+}
+
 /* separadores por serviço (Todas, Design Gráfico…): sem linhas nas laterais e a linha vermelha só da largura do texto (Silva, 23/10/2026) */
 .vh .enc-admin .overflow-x-auto.shadow-sm:not(#x):not(#y) {
    box-shadow: none;
    border-left-width: 0;
-   border-right-width: 0
+   border-right-width: 0;
+   border-bottom: 1px solid var(--line)
+}
+
+.vh .enc-admin button.group:not(#x):not(#y) {
+   padding-top: calc(12px * var(--z, 1));
+   padding-bottom: calc(7px * var(--z, 1))
 }
 
 .vh .enc-admin button.group > span:first-child:not(#x):not(#y) {
@@ -14104,7 +14112,7 @@
    transition: transform .25s
 }
 
-.vh .enc-admin button.group[class~="text-red-600"] > span.absolute:not(#x):not(#y),
-.vh .enc-admin button.group:hover > span.absolute:not(#x):not(#y) {
+.vh .enc-admin button.group[class~="text-red-600"] > span.absolute:not(#x):not(#y) {
    transform: scaleX(1)
 }
+
