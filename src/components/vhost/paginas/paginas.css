@@ -12556,6 +12556,17 @@
    grid-template-columns: repeat(3, minmax(0, 1fr))
 }
 
+/* o administrador tem uma terceira maneira: carregar a cópia do computador (Silva, 23/10/2026) */
+.vh .bk-rest-opcoes.tres {
+   grid-template-columns: repeat(3, minmax(0, 1fr))
+}
+
+@media (max-width: 1050px) {
+   .vh .bk-rest-opcoes.tres {
+      grid-template-columns: 1fr
+   }
+}
+
 @media (max-width: 768px) {
    .vh .bk-rest-opcoes {
       grid-template-columns: 1fr
