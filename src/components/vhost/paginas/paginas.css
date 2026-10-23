@@ -13418,7 +13418,7 @@
    flex: 0 1 300px;
    width: 300px;
    margin-left: 0;
-   margin-right: 10px
+   margin-right: -4px
 }
 
 @media (max-width: 768px) {
