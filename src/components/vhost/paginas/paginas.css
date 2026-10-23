@@ -14120,8 +14120,27 @@
 
 /* Nova encomenda (Silva, 23/10/2026): a vista do formulário é a mesma que estava na moldura, sem alterações — as regras gerais do painel (arredondamentos
    do painel, letra e altura dos campos, ícones nos campos) não se aplicam aqui dentro */
-.vh .vh-nova-encomenda :is(.rounded-xl, .rounded-lg, .rounded-2xl, .rounded-md, button.rounded-full):not(#x) {
-   border-radius: revert-layer
+/* arredondamentos do painel (4 px) em todo o formulário, nada em "pílula" (Silva, 23/10/2026) */
+.vh .vh-nova-encomenda [class*="rounded-"]:not([class*="rounded-full"]):not(#x) {
+   border-radius: var(--r)
+}
+
+/* os dois seletores do serviço (serviço e especificação): com caixa visível e a seta no fim, por dentro da caixa (Silva, 23/10/2026) */
+.vh .vh-nova-encomenda .relative.flex.items-center.max-w-full > select:not(#x) {
+   height: calc(38px * var(--z, 1));
+   padding: 0 calc(34px * var(--z, 1)) 0 calc(12px * var(--z, 1));
+   border: 1px solid var(--line);
+   border-radius: var(--r);
+   background-color: var(--card);
+   font-size: 14px
+}
+
+.vh .vh-nova-encomenda .relative.flex.items-center.max-w-full > svg:not(#x) {
+   right: calc(12px * var(--z, 1));
+   width: calc(16px * var(--z, 1));
+   height: calc(16px * var(--z, 1));
+   color: var(--ink);
+   stroke-width: 2.5
 }
 
 /* Nova encomenda: a pré-visualização (resumo à direita) começa logo abaixo da linha horizontal da barra de cima, com a margem padrão, sem espaço a mais (Silva, 23/10/2026) */
