@@ -243,3 +243,30 @@ export function encomendaLandingPath(_role?: string | null, _products?: Products
 export async function resolveEncomendaLandingPath(): Promise<string> {
   return destinoDepoisDoPagamento(encomendaLandingPath());
 }
+
+/** Telefone moçambicano (82–87), com ou sem +258 — o mesmo critério do formulário /cotacao. */
+function telefoneMzValido(raw: string): boolean {
+  const digits = (raw || '').replace(/\D/g, '');
+  const local = digits.startsWith('258') ? digits.slice(3) : digits;
+  return /^8[2-7]\d{7}$/.test(local);
+}
+
+/**
+ * Dados da entidade que faltam (ou estão inválidos) para a encomenda poder ser paga/submetida (Silva, 23/10/2026): quem entra no painel vai
+ * direito aos serviços sem repetir dados, mas o que não estiver completo é exigido no checkout — nada passa sem estes dados.
+ * Devolve os nomes legíveis do que falta; vazio = completo.
+ */
+export function encomendaDadosEmFalta(draft: Pick<EncomendaDraft, 'tipoCliente' | 'empresa' | 'telefoneInstitucional' | 'emailInstitucional' | 'responsavel' | 'telefone' | 'email' | 'contaDados'>): string[] {
+  const falta: string[] = [];
+  const individual = draft.tipoCliente === 'individual';
+  if (!draft.empresa?.trim()) falta.push(individual ? 'nome completo' : 'nome da empresa');
+  if (!telefoneMzValido(draft.telefoneInstitucional)) falta.push(individual ? 'contacto (telefone moçambicano)' : 'contacto da empresa (telefone moçambicano)');
+  if (!draft.emailInstitucional?.trim()) falta.push(individual ? 'e-mail' : 'e-mail da empresa');
+  const responsavelPropio = !individual && draft.contaDados !== 'empresa';
+  if (responsavelPropio) {
+    if (!draft.responsavel?.trim()) falta.push('nome do responsável');
+    if (!telefoneMzValido(draft.telefone)) falta.push('telefone do responsável');
+    if (!draft.email?.trim()) falta.push('e-mail do responsável');
+  }
+  return falta;
+}

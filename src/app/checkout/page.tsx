@@ -26,6 +26,7 @@ import {
   descartarEncomendaRegistada,
   encomendaComprovativoPath,
   encomendaDraftSignature,
+  encomendaDadosEmFalta,
   encomendaRegistadaValida,
   priceEncomendaItems,
   resolveEncomendaLandingPath,
@@ -164,6 +165,8 @@ function CheckoutContent() {
   // A encomenda gravada ainda corresponde ao que está no rascunho (não foi
   // editada depois) — o resumo mostra o atalho para o comprovativo.
   const encomendaRegistada = encomendaRegistadaValida(encomendaDraft);
+  // Dados em falta da entidade: o painel deixa ir direito aos serviços, mas aqui não se paga nem se submete sem os completar
+  const dadosEmFalta = isEncomenda && encomendaDraft ? encomendaDadosEmFalta(encomendaDraft) : [];
   // "Editar dados"/"Cancelar encomenda" em curso (ver editarEncomenda mais
   // abaixo). Tem de ficar aqui, antes dos returns antecipados ("A validar
   // sessão", renovações) — senão o número de hooks muda entre renders.
@@ -361,6 +364,11 @@ function CheckoutContent() {
   const handlePay = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmitting) return; // Evita duplo-clique / duplo pagamento
+    if (dadosEmFalta.length > 0) {
+      setErrorMessage(`Complete os dados em falta para continuar: ${dadosEmFalta.join(', ')}.`);
+      setStatus('error');
+      return;
+    }
     // Encomendas: a conta cria-se no formulário /cotacao — aqui só se paga.
     if (isEncomenda && isAuthenticated === false) {
       setErrorMessage('Inicie sessão na conta criada no pedido para pagar a encomenda.');
@@ -1233,12 +1241,30 @@ function CheckoutContent() {
                       </div>
                     )}
 
+                    {dadosEmFalta.length > 0 && (
+                      <div className="p-4 rounded-lg bg-rose-50 dark:bg-rose-900/10 border border-rose-200 dark:border-rose-800/60 flex flex-wrap items-center justify-between gap-3">
+                        <p className="text-xs text-rose-700 dark:text-rose-300 leading-relaxed">
+                          <span className="font-bold">Faltam dados para finalizar a encomenda: </span>
+                          {dadosEmFalta.join(', ')}.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={editarEncomenda}
+                          disabled={encomendaAccao !== null}
+                          className="bg-rose-600 hover:bg-rose-700 disabled:opacity-60 text-white font-bold text-xs px-4 py-2 rounded-md"
+                        >
+                          {encomendaAccao === 'editar' ? 'A abrir...' : 'Completar dados'}
+                        </button>
+                      </div>
+                    )}
+
                     <div className="mt-2 flex justify-start gap-3">
                       <button
                         type="button"
                         onClick={handlePay}
                         disabled={
                           isSubmitting ||
+                          dadosEmFalta.length > 0 ||
                           (isEncomenda && isAuthenticated === false) ||
                           (metodoPagamento === 'saldo' && (saldoDisponivel ?? 0) < total)
                         }
@@ -1339,7 +1365,7 @@ function CheckoutContent() {
                       <button
                         type="button"
                         onClick={handlePay}
-                        disabled={isSubmitting || (isEncomenda && isAuthenticated === false) || (status !== 'idle' && status !== 'error')}
+                        disabled={isSubmitting || dadosEmFalta.length > 0 || (isEncomenda && isAuthenticated === false) || (status !== 'idle' && status !== 'error')}
                         className="w-full flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold py-3 rounded-md transition-colors cursor-pointer"
                       >
                         <Smartphone className="w-4 h-4" />
