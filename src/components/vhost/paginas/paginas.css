@@ -12786,8 +12786,8 @@
 }
 
 /* nada para pôr à direita (a página não tem botão visível): nem título nem linha */
-.vh .card-topo-slot:has(.card-topo-modelo .card-topo-btns:empty),
-.vh .card-topo-slot:has(.card-topo-modelo .card-topo-btns > .barra-antiga:empty:only-child) {
+.vh .card-topo-slot:has(.card-topo-modelo .card-topo-btns:empty):not(:has(.opcoes-linha)),
+.vh .card-topo-slot:has(.card-topo-modelo .card-topo-btns > .barra-antiga:empty:only-child):not(:has(.opcoes-linha)) {
    display: none
 }
 

@@ -14,6 +14,7 @@ import { VISUALDESIGN_DEFAULT_NS } from '@/lib/visualdesign-dns';
 import { Check, DataTable, Frm, MaisOpcoes, novaSenha, Row, Senha, Switch, Tabs, type Col } from './componentes';
 import { IndicacaoDominio, NoTopoCartao, useVariosDominios } from '../ui';
 import { tituloDoCartao } from '../titulos-cartao';
+import { EXTENSOES_PHP, estadoExtensao, type EstadoExtensao, type ExtensaoPhp } from '@/lib/php-extensoes';
 import { Confirmar } from './pacotes';
 import DomainSearch from '@/components/DomainSearchPainel';
 import { EsperaPagina, useGet, useNaMemoria } from '../carga';
@@ -4234,6 +4235,7 @@ function Php() {
           {t('Gravar alterações')}
         </button>
       </NoTopoCartao>
+      <SeparadoresPhp on="definicoes" />
       <Frm className="php-versao" title="Versão PHP" desc="A versão usada por este site">
         <Row label="Versão">
           <div className="igrp php-campo">
@@ -4300,4 +4302,123 @@ function Php() {
     </>
   );
 }
-export const phpPagina: ScreenFn = () => ({ title: 'Definições PHP', dominios: 'sites', body: <Php /> });
+/** Os separadores em texto, por baixo da linha de cima do cartão, ao lado do botão: Definições | Extensões (Silva, 23/10/2026) */
+function SeparadoresPhp({ on }: { on: 'definicoes' | 'extensoes' }) {
+  const vh = useVH();
+  return (
+    <Tabs<'definicoes' | 'extensoes'>
+      abaixo
+      tabs={[
+        ['definicoes', 'Definições'],
+        ['extensoes', 'Extensões'],
+      ]}
+      on={on}
+      onChange={(k) => vh.nav('/' + vh.s.level + '/php' + (k === 'extensoes' ? '/extensoes' : ''))}
+    />
+  );
+}
+
+type LeituraExt = { versao: string; carregadas: string[]; pacotes: string[]; admin?: boolean };
+type LinhaExt = ExtensaoPhp & { estado: EstadoExtensao };
+const ESTADO_EXT: Record<EstadoExtensao, [string, string]> = { ativa: ['Ativa', 'ok'], desativada: ['Desativada', 'off'], 'nao-instalada': ['Não instalada', 'bad'] };
+const NIVEL_EXT: Record<string, [string, string]> = { exigida: ['O WordPress exige', 'w'], recomendada: ['O WordPress recomenda', 'off'] };
+
+/** Definições PHP › Extensões: as extensões do PHP do site (as do WordPress e muitas outras), com o estado no servidor */
+function PhpExtensoes() {
+  const vh = useVH();
+  const { s, t, me } = vh;
+  const x = dominioAtual(vh);
+  const { det, erro: erroDet, ler: lerDet } = useDetalhe(x?.name || '');
+  const ativa = x ? (x.php === 'padrão' ? det?.phpPadrao || '8.3' : x.php) : '';
+  const url = x && det && /^\d+\.\d+$/.test(ativa) ? '/api/vhost/php-extensoes?conta=' + encodeURIComponent(me) + '&d=' + encodeURIComponent(x.name) + '&versao=' + encodeURIComponent(ativa) : null;
+  const { dados, erro, ler } = useGet<LeituraExt>(url);
+  const [lido, setLido] = useState<LeituraExt | null>(null);
+  useEffect(() => {
+    if (dados) setLido(dados);
+  }, [dados]);
+  if (!x) return <SemDominio />;
+  if (!det) return <Carregar erro={erroDet} ler={lerDet} />;
+  if (!lido) return <Carregar erro={erro} ler={ler} />;
+  const admin = !!lido.admin;
+  const rows: LinhaExt[] = EXTENSOES_PHP.map((e) => ({ ...e, estado: estadoExtensao(e, lido.carregadas, lido.pacotes, lido.versao) }));
+  const mudar = (e: LinhaExt, acao: 'ativar' | 'desativar' | 'instalar') => {
+    const verbo = acao === 'ativar' ? 'ativar' : acao === 'desativar' ? 'desativar' : 'instalar';
+    vh.openM(
+      <Confirmar
+        titulo={'Quer ' + verbo + ' a extensão ' + e.nome + '?'}
+        texto={'Vai mudar o PHP ' + lido.versao + ' do servidor: vale para todos os sites que usam esta versão.' + (acao === 'instalar' ? ' A instalação pode demorar um minuto.' : '')}
+        ok={acao === 'ativar' ? 'Ativar' : acao === 'desativar' ? 'Desativar' : 'Instalar'}
+        onOk={async () => {
+          vh.toast(t(acao === 'instalar' ? 'A instalar no servidor…' : 'A alterar no servidor…'));
+          const r = await fetch('/api/vhost/php-extensoes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ acao, conta: me, dominio: x.name, versao: lido.versao, ext: e.k }),
+          });
+          const j = (await r.json().catch(() => ({}))) as { erro?: string; carregadas?: string[]; pacotes?: string[] };
+          if (!r.ok) return vh.toast(j.erro || 'O servidor não conseguiu fazer a alteração.');
+          if (j.carregadas && j.pacotes) setLido({ ...lido, carregadas: j.carregadas, pacotes: j.pacotes });
+          vh.toast(e.nome + ': feito');
+        }}
+      />,
+    );
+  };
+  return (
+    <>
+      <NoTopoCartao daPagina modelo={{ titulo: t(tituloDoCartao('Extensões PHP')), sub: t('As extensões do PHP ' + lido.versao + ', as do WordPress e muitas outras') }}>
+        {null}
+      </NoTopoCartao>
+      <SeparadoresPhp on="extensoes" />
+      <DataTable<LinhaExt>
+        id="php-extensoes"
+        pesqJuntoBotao
+        porPagina={60}
+        rows={rows}
+        rowKey={(r) => r.k}
+        search={(r) => r.nome + ' ' + r.k + ' ' + r.desc}
+        empty="Nenhuma extensão encontrada"
+        cols={[
+          { k: 'nome', t: 'Extensão', sort: (r) => r.nome, cell: (r) => <b>{r.nome}</b> },
+          { k: 'modulo', t: 'Módulo', sort: (r) => r.k, cell: (r) => r.k },
+          { k: 'desc', t: 'Para que serve', cell: (r) => r.desc },
+          { k: 'wp', t: 'WordPress', cell: (r) => (NIVEL_EXT[r.nivel] ? <span className={'tag ' + NIVEL_EXT[r.nivel][1]}>{t(NIVEL_EXT[r.nivel][0])}</span> : '—') },
+          { k: 'estado', t: 'Estado', sort: (r) => r.estado, cell: (r) => <span className={'tag ' + ESTADO_EXT[r.estado][1]}>{t(ESTADO_EXT[r.estado][0])}</span> },
+        ]}
+        actions={
+          admin
+            ? (r) =>
+                r.estado === 'ativa' ? (
+                  r.essencial ? null : (
+                    <button className="btn g sm" onClick={() => mudar(r, 'desativar')}>
+                      {t('Desativar')}
+                    </button>
+                  )
+                ) : r.estado === 'desativada' ? (
+                  <button className="btn g sm" onClick={() => mudar(r, 'ativar')}>
+                    {t('Ativar')}
+                  </button>
+                ) : r.pkg && r.pkg !== 'common' ? (
+                  <button className="btn g sm" onClick={() => mudar(r, 'instalar')}>
+                    {t('Instalar')}
+                  </button>
+                ) : null
+            : undefined
+        }
+      />
+      <p className="em-nota">
+        {t(admin ? 'As extensões são do PHP do servidor: o que mudar aqui vale para todos os sites que usam a versão ' + lido.versao + '.' : 'As extensões são do PHP do servidor e só o administrador as pode mudar. Precisa de uma que não está ativa? Peça-a ao suporte.')}
+      </p>
+    </>
+  );
+}
+export const phpPagina: ScreenFn = (vh) => {
+  const [sub] = vh.s.sub;
+  if (sub === 'extensoes')
+    return {
+      title: 'Extensões PHP',
+      dominios: 'sites',
+      crumbs: [{ t: 'Definições PHP', path: '/' + vh.s.level + '/php' }, { t: 'Extensões' }],
+      body: <PhpExtensoes />,
+    };
+  return { title: 'Definições PHP', dominios: 'sites', body: <Php /> };
+};
