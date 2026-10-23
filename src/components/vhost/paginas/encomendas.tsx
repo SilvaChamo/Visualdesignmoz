@@ -49,6 +49,7 @@ import { gestaoEncomendasPagina } from './encomendas-admin';
     Encomendas: 'Orders',
     Encomenda: 'Order',
     'Nova encomenda': 'New order',
+    'Adicionar serviços': 'Add services',
     'Esta conta ainda não tem login no site.': 'This account does not have a login on the site yet.',
     'Não foi possível abrir as encomendas desta conta.': 'Could not open the orders of this account.',
     'Escolha o serviço e veja o resumo da encomenda': 'Choose the service and see the order summary',
@@ -68,6 +69,7 @@ import { gestaoEncomendasPagina } from './encomendas-admin';
     Cotação: 'Quote',
     Facturas: 'Invoices',
     Serviço: 'Service',
+    Serviços: 'Services',
     Quantidade: 'Quantity',
     Abrir: 'Open',
     Editar: 'Edit',
@@ -131,7 +133,7 @@ import { gestaoEncomendasPagina } from './encomendas-admin';
 const BASE = '/utilizador/encomendas';
 /** As secções do painel das encomendas (EncomendasSidebar), como separadores */
 const ABAS: [string, string, string][] = [
-  ['encomendas', 'Encomendas', 'fa-file-lines'],
+  ['encomendas', 'Serviços', 'fa-file-lines'],
   ['mensagens', 'Mensagens', 'fa-comments'],
   ['pagamentos', 'Pagamentos', 'fa-wallet'],
 ];
@@ -152,7 +154,7 @@ function Encomendas({ aba, encomenda }: { aba: string; encomenda?: string }) {
         onChange={(k) => vh.nav(k === 'encomendas' ? BASE : BASE + '/' + k)}
       />
       <div className="vh-site vh-encomendas">
-        {aba === 'encomendas' && <EncomendasListSection onNova={() => vh.nav(BASE + '/nova')} />}
+        {aba === 'encomendas' && <EncomendasListSection onNova={() => vh.nav(BASE + '/nova')} textoNova={vh.t('Adicionar serviços')} />}
         {aba === 'mensagens' && <EncomendasMensagensSection initialQuotationId={encomenda || null} />}
         {aba === 'pagamentos' && <EncomendasPagamentosSection />}
       </div>
