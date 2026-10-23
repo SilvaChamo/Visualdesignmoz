@@ -1644,6 +1644,13 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
                     {mostra.home ? null : mostra.semCartao || mostra.deny ? mostra.scr.actions : null}
                   </span>
                   <span id="topfix" className="topact">
+                    {/* "Entrar como": em vez da faixa amarela, o botão de voltar ao painel de administração, na cor da antiga faixa (Silva, 23/10/2026) */}
+                    {st.stack.length > 0 && (
+                      <button className="btn g btn-imp" onClick={vh.backToMine} title={t('Voltar ao painel de administração')}>
+                        <i className="fa-solid fa-arrow-left" />
+                        {t('Voltar ao painel de administração')}
+                      </button>
+                    )}
                     {/* Busca: procura na página aberta (o cartão desliza por baixo da faixa do seletor) */}
                     <button className={'btn g lupa-topo' + (pesqPag.aberta ? ' on' : '')} onClick={() => setPesqPag((x) => ({ aberta: !x.aberta, q: '', i: 0 }))} title={t(mostra.home ? 'Pesquisar no painel' : 'Pesquisar nesta página')}>
                       <i className="fa-solid fa-magnifying-glass" />

@@ -14156,3 +14156,20 @@
 .vh .vh-nova-encomenda .cotacao-painel-pad:not(#x) {
    padding: calc(16px * var(--z, 1)) 0 0
 }
+
+/* "Voltar ao painel de administração" (Entrar como): na cor da antiga faixa de impersonação, para não se confundir com os outros botões da barra de cima */
+.vh .btn.btn-imp:not(#x) {
+   background: var(--warnbg);
+   border-color: var(--warn);
+   color: var(--warn);
+   font-weight: 700
+}
+
+.vh .btn.btn-imp:hover:not(#x) {
+   background: var(--warn);
+   color: #fff
+}
+
+.vh .btn.btn-imp i:not(#x):not(#y) {
+   color: inherit !important
+}

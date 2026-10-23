@@ -1250,11 +1250,10 @@ function CheckoutContent() {
                         </p>
                         <button
                           type="button"
-                          onClick={editarEncomenda}
-                          disabled={encomendaAccao !== null}
+                          onClick={() => window.dispatchEvent(new Event('visualdesign:editar-dados-encomenda'))}
                           className="bg-rose-600 hover:bg-rose-700 disabled:opacity-60 text-white font-bold text-xs px-4 py-2 rounded-md"
                         >
-                          {encomendaAccao === 'editar' ? 'A abrir...' : 'Completar dados'}
+                          Completar dados
                         </button>
                       </div>
                     )}

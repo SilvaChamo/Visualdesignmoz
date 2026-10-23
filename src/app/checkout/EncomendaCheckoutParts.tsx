@@ -1,9 +1,10 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ClipboardList, Package, Sparkles, UserCircle } from 'lucide-react';
 import { CUSTOM_CATEGORIA_ID, formatMt } from '@/lib/pricing-catalog';
-import type { EncomendaDraft, priceEncomendaItems } from '@/lib/encomenda-checkout';
+import { saveEncomendaDraft, type EncomendaDraft, type priceEncomendaItems } from '@/lib/encomenda-checkout';
 
 type EncomendaPricing = ReturnType<typeof priceEncomendaItems>;
 
@@ -54,15 +55,85 @@ export function EncomendaFaturadoPara({
 }) {
   const escolha = podeFacturarResponsavel(draft);
   const emNomeDoResponsavel = escolha && facturarEm === 'responsavel';
+  // Os dados editam-se aqui mesmo (Silva, 23/10/2026): gravam no rascunho da encomenda, sem voltar ao formulário
+  const [aEditar, setAEditar] = useState(false);
+  const [form, setForm] = useState({ empresa: '', nif: '', emailInstitucional: '', telefoneInstitucional: '', endereco: '', responsavel: '', email: '', telefone: '' });
+  // "Completar dados" (aviso do checkout) abre esta edição
+  useEffect(() => {
+    const abrir = () => abrirEdicao();
+    window.addEventListener('visualdesign:editar-dados-encomenda', abrir);
+    return () => window.removeEventListener('visualdesign:editar-dados-encomenda', abrir);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft]);
+  const abrirEdicao = () => {
+    setForm({
+      empresa: draft.empresa,
+      nif: draft.nif,
+      emailInstitucional: draft.emailInstitucional || draft.email,
+      telefoneInstitucional: draft.telefoneInstitucional || draft.telefone,
+      endereco: draft.endereco,
+      responsavel: draft.responsavel,
+      email: draft.email,
+      telefone: draft.telefone,
+    });
+    setAEditar(true);
+  };
+  const guardar = () => {
+    const { savedAt: _savedAt, ...resto } = draft;
+    void _savedAt;
+    saveEncomendaDraft({ ...resto, ...form, ...(draft.tipoCliente === 'individual' ? { responsavel: form.empresa, email: form.emailInstitucional, telefone: form.telefoneInstitucional } : {}) });
+    setAEditar(false);
+  };
+  const campo = (k: keyof typeof form, rotulo: string, tipo = 'text') => (
+    <label key={k} className="block">
+      <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-400 dark:text-zinc-500 mb-1">{rotulo}</span>
+      <input
+        type={tipo}
+        value={form[k]}
+        onChange={(e) => setForm((f) => ({ ...f, [k]: e.target.value }))}
+        className="w-full text-xs border border-slate-200 dark:border-zinc-800 dark:bg-zinc-950 rounded px-2.5 py-1.5"
+      />
+    </label>
+  );
+  if (aEditar)
+    return (
+      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg p-6 shadow-sm">
+        <p className="text-[11px] font-bold uppercase tracking-wide text-red-600 dark:text-red-400 flex items-center gap-1.5 mb-3">
+          <UserCircle className="w-3.5 h-3.5" /> Faturado Para
+        </p>
+        <div className="space-y-2.5">
+          {campo('empresa', draft.tipoCliente === 'individual' ? 'Nome completo' : 'Nome da empresa')}
+          {draft.tipoCliente === 'empresa' && campo('nif', 'NUIT')}
+          {campo('emailInstitucional', 'E-mail', 'email')}
+          {campo('telefoneInstitucional', 'Contacto (telefone)', 'tel')}
+          {campo('endereco', 'Endereço')}
+          {escolha && (
+            <>
+              {campo('responsavel', 'Nome do responsável')}
+              {campo('email', 'E-mail do responsável', 'email')}
+              {campo('telefone', 'Telefone do responsável', 'tel')}
+            </>
+          )}
+        </div>
+        <div className="flex gap-2 pt-3">
+          <button type="button" onClick={guardar} className="bg-red-600 text-white text-xs font-bold px-3 py-1.5 rounded hover:bg-red-700">
+            Guardar
+          </button>
+          <button type="button" onClick={() => setAEditar(false)} className="text-xs font-bold text-slate-400 px-2">
+            Cancelar
+          </button>
+        </div>
+      </div>
+    );
   return (
     <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg p-6 shadow-sm">
       <div className="flex items-center justify-between mb-3">
         <p className="text-[11px] font-bold uppercase tracking-wide text-red-600 dark:text-red-400 flex items-center gap-1.5">
           <UserCircle className="w-3.5 h-3.5" /> Faturado Para
         </p>
-        <Link href={`${ENCOMENDA_EDIT_PATH}&passo=dados`} className="text-[10px] font-bold text-slate-400 hover:text-red-600 dark:hover:text-red-400">
+        <button type="button" onClick={abrirEdicao} className="text-[10px] font-bold text-slate-400 hover:text-red-600 dark:hover:text-red-400">
           Editar
-        </Link>
+        </button>
       </div>
 
       {escolha && (
