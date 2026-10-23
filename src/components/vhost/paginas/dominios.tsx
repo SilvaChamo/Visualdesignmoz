@@ -31,7 +31,6 @@ import { TransferirDominio } from './transferir-dominio';
     'conta': 'account',
     'contas': 'accounts',
     'Nenhuma conta': 'No accounts',
-    'Criar e-mail': 'Create email',
     'Crie bases de dados do seu site, com o número de utilizadores que lhes acedem, o tamanho e o número de tabelas abaixo': "Create your site's databases, with the number of users that access them, the size and the number of tables below",
     'Registos DNS deste domínio, guardados neste servidor': 'DNS records of this domain, stored on this server',
     'O DNS deste domínio está fora da Visual Design': 'The DNS of this domain is outside Visual Design',
@@ -1009,26 +1008,12 @@ function VerDominio({ d }: { d: string }) {
           ['Contas FTP', String((x.ftp || []).length), 'ftp'],
           ['Redirecionamento', det ? (det.redirecionamento ? det.redirecionamento.url : t('Nenhum')) : <span className="dom-a-ler">…</span>, 'redirecionamentos'],
           ['Proteção hotlink', t('Configurar'), 'hotlink'],
-          // contas de e-mail do domínio: quantas são, a lista e o atalho para criar uma nova (Silva, 23/10/2026) — só a quem o plano deixa ver o e-mail
+          // contas de e-mail do domínio: quantas são; a seta abre a página de e-mail, onde se cria uma nova (Silva, 23/10/2026) — só a quem o plano deixa ver o e-mail
           ...(hasFeatOf(vh.s, findItem('utilizador', 'email')?.feat, 'email', 'utilizador')
             ? ([
                 [
                   'Contas de e-mail',
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap' }}>
-                    {nMails > 0 ? nMails + ' ' + t(nMails === 1 ? 'conta' : 'contas') : t('Nenhuma conta')}
-                    <button
-                      className="btn g sm"
-                      title={t('Criar e-mail')}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setDominio(d);
-                        ir('email/nova');
-                      }}
-                    >
-                      <i className="fa-solid fa-plus" />
-                      {t('Criar')}
-                    </button>
-                  </span>,
+                  nMails > 0 ? nMails + ' ' + t(nMails === 1 ? 'conta' : 'contas') : t('Nenhuma conta'),
                   'email',
                 ],
               ] as [string, ReactNode, string?][])
