@@ -831,9 +831,9 @@ export function NoTopoCartao({
           <p className="dom-ctx dom-titulo">{modelo.titulo}</p>
         )}
         {/* com pesquisa, as opções (Tabs abaixo) ficam por baixo da linha, antes dela; sem pesquisa, ocupam o lugar dela, ao lado do botão */}
-        {cons?.ativo && <div className="card-topo-opcoes" ref={topo.setOpcoes} />}
+        {cons?.ativo === true && <div className="card-topo-opcoes" ref={topo.setOpcoes} />}
         <div className="card-topo-linha">
-          {cons?.ativo ? (
+          {cons?.ativo === true ? (
             <div className="search dom-pesq">
               <i className="fa-solid fa-magnifying-glass" />
               <input value={cons.q} onChange={(e) => cons.setQ(e.target.value)} placeholder={t('Pesquisar')} aria-label={t('Pesquisar')} />
@@ -841,6 +841,13 @@ export function NoTopoCartao({
             </div>
           ) : (
             <div className="card-topo-opcoes na-linha" ref={topo.setOpcoes} />
+          )}
+          {cons?.ativo === 'junto' && (
+            <div className="search dom-pesq dom-pesq-junto">
+              <i className="fa-solid fa-magnifying-glass" />
+              <input value={cons.q} onChange={(e) => cons.setQ(e.target.value)} placeholder={t('Pesquisar')} aria-label={t('Pesquisar')} />
+              {cons.q && <i className="fa-solid fa-xmark limpar" onClick={() => cons.setQ('')} />}
+            </div>
           )}
           <div className="card-topo-btns" ref={botoes}>
             {children}

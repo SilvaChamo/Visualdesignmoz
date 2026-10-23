@@ -281,6 +281,7 @@ export function DataTable<T>({
   semBusca = true,
   consulta,
   pesqCabecalho = false,
+  pesqJuntoBotao = false,
   acoesFixas = false,
   acoesDiretas = false,
   comSelecao = false,
@@ -294,6 +295,7 @@ export function DataTable<T>({
   colunasNoCabecalho = true,
   paginacaoNoCabecalho = false,
   paginacaoNoTopo = false,
+  paginacaoTambemNoFim = false,
   tituloAcoes,
 }: {
   id: string;
@@ -326,6 +328,8 @@ export function DataTable<T>({
   consulta?: string;
   /** a caixa de pesquisa fica na linha por baixo do título do cartão, à esquerda (NoTopoCartao `modelo`), e filtra esta tabela */
   pesqCabecalho?: boolean;
+  /** a pesquisa fica na linha do botão, mesmo à frente dele, e as opções mantêm o seu lugar à esquerda (DNS; Silva, 23/10/2026) */
+  pesqJuntoBotao?: boolean;
   /** à esquerda, "Colunas" e "Ações" sempre à vista (Ações inativo sem linhas escolhidas); a pesquisa com 1/4 da largura
    *  do cartão, à direita (pedido do Silva para as contas do Admin) */
   acoesFixas?: boolean;
@@ -356,6 +360,8 @@ export function DataTable<T>({
   paginacaoNoCabecalho?: boolean;
   /** a paginação vai por cima da linha do título do cartão, à direita (Silva, 23/10/2026: DNS), e não no fundo */
   paginacaoNoTopo?: boolean;
+  /** além de por cima da linha do título, a paginação repete-se no fim da lista, à direita (DNS; Silva, 23/10/2026) */
+  paginacaoTambemNoFim?: boolean;
   /** título da coluna do fim (a das ações da linha), por cima do que lá está (ex.: o menu "⋯") */
   tituloAcoes?: string;
   /** notifica chaves das linhas selecionadas */
@@ -370,13 +376,13 @@ export function DataTable<T>({
   const pesqPagina = useContext(PesquisaPagina);
   const [qInterno, setQ] = useState('');
   const cons = useContext(ConsultaPagina);
-  const ligada = pesqCabecalho && !!cons;
+  const ligada = (pesqCabecalho || pesqJuntoBotao) && !!cons;
   const ativarCons = cons?.ativar;
   useEffect(() => {
     if (!ligada || !ativarCons) return;
-    ativarCons(true);
+    ativarCons(pesqJuntoBotao ? 'junto' : true);
     return () => ativarCons(false);
-  }, [ligada, ativarCons]);
+  }, [ligada, ativarCons, pesqJuntoBotao]);
   const q = consulta ?? (ligada ? cons!.q : qInterno);
   // linha escolhida na lupa da barra de cima: fica realçada uns segundos
   const [realce, setRealce] = useState<string | null>(null);
@@ -765,10 +771,10 @@ export function DataTable<T>({
             )}
           </tbody>
         </table>
-        {(rodape || (paginas > 1 && !noTopo)) && (
+        {(rodape || (paginas > 1 && (!noTopo || paginacaoTambemNoFim))) && (
           <div className="dt-fundo">
             {rodape}
-            {paginas > 1 && !noTopo && (
+            {paginas > 1 && (!noTopo || paginacaoTambemNoFim) && (
               <>
                 <span className="sp" />
                 {paginador}

@@ -13373,3 +13373,106 @@
       margin-bottom: 30px
    }
 }
+
+/* Listas: linhas suaves (início, entre linhas e fim) e o fundo das linhas alternadas ligeiramente mais leve (Silva, 23/10/2026).
+   Só computador e tablet; no telemóvel as linhas são blocos e ficam como estavam. A barra dos títulos mantém o fundo suave. */
+.vh {
+   --linha-lista: color-mix(in srgb, var(--line) 50%, var(--card));
+   --fundo-lista: color-mix(in srgb, var(--soft) 55%, var(--card))
+}
+
+@media (min-width: 769px) {
+   .vh :is(.tbl, .trf-tabela) thead th:not(#x) {
+      border-top-color: var(--linha-lista);
+      border-bottom-color: var(--linha-lista)
+   }
+
+   .vh :is(.tbl, .trf-tabela) tbody tr > td:not(#x),
+   .vh :is(.tbl, .trf-tabela) tbody tr:last-child > td:not(#x) {
+      border-bottom-color: var(--linha-lista)
+   }
+
+   .vh:not([data-theme=dark]) table tbody tr:nth-child(even):not(.grp):not(.sel):not(.dt-realce):not(:hover) > td:not(#x) {
+      background: var(--fundo-lista)
+   }
+}
+
+/* Telemóvel: cada linha é um bloco, por isso o fundo alternado pinta o bloco inteiro (não célula a célula, que deixava riscas) e a
+   paginação lê-se "Página 1 de 2", sem a barra a mais (Silva, 23/10/2026) */
+@media (max-width: 768px) {
+   .vh:not([data-theme=dark]) .tbl.dt-empilhar tbody tr:nth-child(even):not(.grp):not(.sel):not(.dt-realce):not(:hover):not(#x) {
+      background-color: var(--fundo-lista)
+   }
+
+   .vh .tbl.dt-empilhar tbody tr:nth-child(even):not(.grp):not(.sel):not(.dt-realce):not(:hover) > td:not(#x) {
+      background: transparent
+   }
+
+   .vh .dt-pag .dt-pag-bar:not(#x) {
+      display: none
+   }
+}
+
+/* DNS: a pesquisa fica na linha do botão, mesmo à frente dele (à sua esquerda); as opções mantêm o lugar à esquerda (Silva, 23/10/2026) */
+.vh .card-topo-linha .search.dom-pesq.dom-pesq-junto:not(#x) {
+   flex: 0 1 300px;
+   width: 300px;
+   margin-left: 0;
+   margin-right: -4px
+}
+
+@media (max-width: 768px) {
+   .vh .card-topo-linha .search.dom-pesq.dom-pesq-junto:not(#x) {
+      flex: 1 1 100%;
+      width: auto;
+      margin: 0
+   }
+}
+
+/* Restantes listas (da-tbl, gestor de ficheiros, permissões, mini, Registar domínio): o mesmo modelo — linha no início, entre linhas e no fim, todas
+   suaves; barra dos títulos suave; sem linhas nas laterais; fundo alternado leve (Silva, 23/10/2026) */
+.vh .da-caixa:has(> table.da-tbl):not(#x) {
+   border-left: 0;
+   border-right: 0;
+   border-radius: 0;
+   border-color: var(--linha-lista)
+}
+
+.vh :is(.da-tbl, .fmda-tab, .fm-perm) th:not(#x) {
+   background: var(--soft);
+   border-bottom-color: var(--linha-lista)
+}
+
+.vh :is(.fmda-tab, .fm-perm) thead th:not(#x) {
+   border-top: 1px solid var(--linha-lista)
+}
+
+.vh :is(.da-tbl, .fmda-tab, .fm-perm) td:not(#x) {
+   border-bottom: 1px solid var(--linha-lista)
+}
+
+.vh .da-tbl tbody tr:last-child > td:not(#x) {
+   border-bottom: 0
+}
+
+.vh:not([data-theme=dark]) :is(.da-tbl, .fmda-tab, .fm-perm) tbody tr:nth-child(even):not(.on):not(:hover) > td:not(#x) {
+   background: var(--fundo-lista)
+}
+
+.vh .tbl.mini:not(#x) {
+   margin: 12px 0;
+   border-radius: 0
+}
+
+.vh .dom-registar table thead th:not(#x) {
+   border-top: 1px solid var(--linha-lista);
+   border-bottom: 1px solid var(--linha-lista)
+}
+
+.vh .dom-registar table tbody td:not(#x) {
+   border-bottom: 1px solid var(--linha-lista)
+}
+
+.vh:not([data-theme=dark]) .dom-registar table tbody tr:nth-child(even):not(:hover):not(#x) {
+   background: var(--fundo-lista)
+}
