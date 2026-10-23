@@ -1097,34 +1097,34 @@ function VerDominio({ d }: { d: string }) {
         )
           .filter(([, , , v]) => v && !x.soEmail)
           .map(([id, fa, rot]) => (
-            <button key={id} className="dom-op" onClick={() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'center' })}>
+            <button key={id} className={'dom-op co ' + ({ 'dom-info': 'c2', 'dom-renovacao': 'c3', 'dom-ns': 'c5', 'dom-trava': 'c4', 'dom-contactos': 'c6', 'dom-epp': 'c7' } as Record<string, string>)[id]} onClick={() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'center' })}>
               <i className={'fa-solid ' + fa} />
               {t(rot)}
             </button>
           ))}
         <h4>{t('Ações')}</h4>
         {reg.renovacao ? (
-          <a className="dom-op" href={'/renovacao/iniciar/domain/' + reg.renovacao}>
+          <a className="dom-op co c3" href={'/renovacao/iniciar/domain/' + reg.renovacao}>
             <i className="fa-solid fa-rotate-right" />
             {t('Renovar domínio')}
           </a>
         ) : (
-          <button className="dom-op" disabled title={t('Renova-se no registador onde o domínio está')}>
+          <button className="dom-op co c3" disabled title={t('Renova-se no registador onde o domínio está')}>
             <i className="fa-solid fa-rotate-right" />
             {t('Renovar domínio')}
           </button>
         )}
-        <button className="dom-op" onClick={() => nav('/' + vh.s.level + '/dominios/registar')}>
+        <button className="dom-op co c2" onClick={() => nav('/' + vh.s.level + '/dominios/registar')}>
           <i className="fa-solid fa-globe" />
           {t('Registar novo domínio')}
         </button>
-        <button className="dom-op" onClick={() => nav('/' + vh.s.level + '/dominios/transferir')}>
+        <button className="dom-op co c6" onClick={() => nav('/' + vh.s.level + '/dominios/transferir')}>
           <i className="fa-solid fa-share" />
           {t('Transferir um domínio')}
         </button>
         {/* domínios com registos em falta ficam ligados como os outros: repõe na Cloudflare o que falta (Silva, 16/10/2026) */}
         <button
-          className="dom-op"
+          className="dom-op co c4"
           onClick={() =>
             openM(
               <Confirmar
@@ -1148,14 +1148,14 @@ function VerDominio({ d }: { d: string }) {
         </button>
         <h4>{t('Alojamento')}</h4>
         {site && (
-          <a className="dom-op" href={'https://' + d} target="_blank" rel="noreferrer">
+          <a className="dom-op co c2" href={'https://' + d} target="_blank" rel="noreferrer">
             <i className="fa-solid fa-arrow-up-right-from-square" />
             {t('Abrir o site')}
           </a>
         )}
         {site && (
           <button
-            className="dom-op"
+            className="dom-op co c5"
             onClick={() =>
               openM(
                 <>
@@ -1178,21 +1178,21 @@ function VerDominio({ d }: { d: string }) {
           </button>
         )}
         {site && (
-          <button className="dom-op" onClick={() => openM(<MudarNomeModal d={d} />)}>
+          <button className="dom-op co c7" onClick={() => openM(<MudarNomeModal d={d} />)}>
             <i className="fa-solid fa-i-cursor" />
             {t('Mudar nome')}
           </button>
         )}
-        {site && <BotaoPassar dominio={d} etiqueta />}
+        {site && <BotaoPassar dominio={d} etiqueta cor="co c8" />}
         {x.soDominio && (
-          <a className="dom-op" href="/precos">
+          <a className="dom-op co c4" href="/precos">
             <i className="fa-solid fa-cart-shopping" />
             {t('Contratar alojamento ou e-mail')}
           </a>
         )}
         {!x.soDominio && (
         <button
-          className="dom-op"
+          className={'dom-op co ' + (x.status === 'ok' ? 'c4' : 'c3')}
           onClick={() => noServidor(vh, { acao: x.status === 'ok' ? 'dominio-suspender' : 'dominio-reativar', dominio: d }, x.status === 'ok' ? 'Domínio suspenso' : 'Domínio reativado')}
         >
           <i className={'fa-solid ' + (x.status === 'ok' ? 'fa-pause' : 'fa-play')} />

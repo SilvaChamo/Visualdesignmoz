@@ -7546,6 +7546,12 @@
    color: var(--red)
 }
 
+/* ícones da barra da direita coloridos, com as mesmas cores dos do submenu da esquerda (classes c1…c8; Silva, 23/10/2026) */
+.vh .dom-opcoes :is(.dom-op, .btn).co i,
+.vh .dom-opcoes :is(.dom-op, .btn).co:hover i {
+   color: var(--c)
+}
+
 /* Relatório do "Reprocessar DNS": cartão no fim da barra lateral (e dentro da janela, para vários domínios) */
 .vh .dom-rel {
    margin-top: 12px;
