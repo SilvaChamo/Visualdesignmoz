@@ -954,7 +954,7 @@ export function CotacaoContent({ painel = false }: { painel?: boolean } = {}) {
                                     min={1}
                                     step={1}
                                     aria-label="Quantidade"
-                                    className={`${inputClass} !w-20`}
+                                    className={`${inputClass} !w-16 !py-1 !px-2 text-center`}
                                     value={li.quantidade === 0 ? '' : qty}
                                     onChange={(e) => {
                                       const raw = e.target.value;
@@ -982,7 +982,7 @@ export function CotacaoContent({ painel = false }: { painel?: boolean } = {}) {
 
                     <div className="mb-4">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 shadow-sm">
-                        <div className="flex-1 min-w-0 space-y-2 sm:mr-[200px] mr-4">
+                        <div className="flex-1 min-w-0 space-y-2">
                           <div className="relative flex items-center max-w-full">
                             <select
                               value={rascunho.categoriaId}
@@ -1026,21 +1026,6 @@ export function CotacaoContent({ painel = false }: { painel?: boolean } = {}) {
                             </select>
                             <ChevronDown className="w-3.5 h-3.5 text-zinc-400 absolute right-1 top-1/2 -translate-y-1/2 pointer-events-none" />
                           </div>
-                        </div>
-                        <div className="w-20 shrink-0">
-                          <label className="block text-xs font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400 mb-1.5">Qtd.</label>
-                          <input
-                            type="number"
-                            min={1}
-                            step={1}
-                            className={inputClass}
-                            value={rascunho.quantidade === 0 ? '' : rascunho.quantidade}
-                            onChange={(e) => {
-                              const raw = e.target.value;
-                              setRascunho({ ...rascunho, quantidade: raw === '' ? 0 : Math.round(Number(raw)) });
-                            }}
-                            onBlur={() => setRascunho({ ...rascunho, quantidade: rascunho.quantidade > 0 ? rascunho.quantidade : 1 })}
-                          />
                         </div>
                       </div>
                     </div>
