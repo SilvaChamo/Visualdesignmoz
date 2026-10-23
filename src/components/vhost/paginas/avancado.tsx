@@ -304,6 +304,7 @@ const mbTxt = (n: number) => (n >= 1024 ? (n / 1024).toFixed(2).replace('.', ','
   const novas: Record<string, string> = {
     'Guardar escolhas': 'Save choices',
     'Carregar cópia': 'Upload backup',
+    'Para restaurar de um ficheiro do computador, carregue a cópia aqui.': 'To restore from a file on your computer, upload the backup here.',
     'Carregar cópia de segurança': 'Upload a backup',
     'Carregar cópia do computador': 'Upload a backup from your computer',
     'Procura no computador o ficheiro .tar de uma cópia descarregada, carrega-o e restaura-o.': 'Browse your computer for the .tar file of a downloaded backup, upload it and restore it.',
@@ -1040,17 +1041,20 @@ function Backups({ aba }: { aba: 'criar' | 'agendadas' }) {
                     <i className="fa-solid fa-calendar-days" />
                     {t('Agendar backup')}
                   </button>
-                  {dados.podeCarregar && (
-                    <button className="btn g" onClick={carregar}>
-                      <i className="fa-solid fa-cloud-arrow-up" />
-                      {t('Carregar cópia')}
-                    </button>
-                  )}
                 </div>
               </div>
               <Exclusoes key={JSON.stringify(dados.exclusoes)} info={dados} ler={ler} aoMudar={setPorGuardar} />
             </div>
             {tabela()}
+            {/* sem nenhuma cópia não há botão Restaurar: só neste caso a opção de carregar aparece cá fora (Silva, 23/10/2026) */}
+            {dados.podeCarregar && dados.copias.length === 0 && (
+              <div className="note">
+                <i className="fa-solid fa-cloud-arrow-up" /> {t('Para restaurar de um ficheiro do computador, carregue a cópia aqui.')}{' '}
+                <button className="btn g sm" onClick={carregar}>
+                  {t('Carregar cópia')}
+                </button>
+              </div>
+            )}
           </div>
         </>
       ) : aba === 'agendadas' ? (
