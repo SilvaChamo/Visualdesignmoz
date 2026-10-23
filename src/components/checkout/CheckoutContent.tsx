@@ -282,7 +282,20 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
       .select('telefone, morada, cidade')
       .or(profileAuthOrFilter(authUser.id))
       .maybeSingle()
-      .then(({ data }: { data: { telefone?: string | null; morada?: string | null; cidade?: string | null } | null }) => setProfileExtra(data));
+      .then(async ({ data }: { data: { telefone?: string | null; morada?: string | null; cidade?: string | null } | null }) => {
+        // o que a tabela de perfis não tem, vem dos restantes dados pessoais da conta (telefone e endereço)
+        let extra = data;
+        if (!data?.telefone || !data?.morada) {
+          try {
+            const r = await fetch('/api/encomendas/perfil');
+            const pf = r.ok ? await r.json() : null;
+            if (pf) extra = { telefone: data?.telefone || pf.telefone || null, morada: data?.morada || pf.endereco || null, cidade: data?.cidade || null };
+          } catch {
+            /* fica o que a tabela de perfis tem */
+          }
+        }
+        setProfileExtra(extra);
+      });
   }, [authUser]);
 
   // "Entrar como" — se um admin estiver a impersonar um revendedor/cliente, a

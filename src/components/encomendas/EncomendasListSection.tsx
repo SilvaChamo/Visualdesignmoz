@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { FileText, Trash2, Loader2, XCircle, Plus, X } from 'lucide-react';
+import { FileText, Trash2, Loader2, XCircle, Plus, X, Pencil } from 'lucide-react';
 import { formatMt } from '@/lib/pricing-catalog';
 import { statusMeta } from '@/lib/quotation-status-labels';
 import { groupIntoBatches, type BatchItem } from '@/lib/quotation-batch';
@@ -56,6 +56,7 @@ export function EncomendasListSection({ onNova, textoNova }: { onNova?: () => vo
   const batches = useMemo(() => groupIntoBatches(quotations), [quotations]);
   const numeros = useBatchNumeros();
 
+  const [editarToken, setEditarToken] = useState(0);
   const selectedBatch = batches.find((b) => b.items.some((i) => i.id === selectedId));
 
   const handleDeleteFromCard = async (e: React.MouseEvent, anchorId: string) => {
@@ -164,22 +165,32 @@ export function EncomendasListSection({ onNova, textoNova }: { onNova?: () => vo
                         className="inline-flex items-center gap-1 rounded-md border border-red-200 px-2 py-0.5 text-[11px] font-bold text-red-600 hover:bg-red-50 dark:border-red-900/40 dark:text-red-400 dark:hover:bg-red-950/20 transition-colors disabled:opacity-50"
                       >
                         {cancellingBatchId === batch.batchId ? <Spinner className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
-                        Cancelar encomenda
+                        Cancelar
+                      </button>
+                    )}
+                    {(batch.status === 'pending' || batch.status === 'rejected') && (
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setSelectedId(anchor.id); setEditarToken((n) => n + 1); }}
+                        className="inline-flex items-center gap-1 rounded-md border border-zinc-300 px-2 py-0.5 text-[11px] font-bold text-gray-700 hover:bg-gray-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800 transition-colors"
+                      >
+                        <Pencil className="w-3 h-3" />
+                        Editar
+                      </button>
+                    )}
+                    {(batch.status === 'done' || batch.status === 'cancelled' || batch.status === 'rejected') && (
+                      <button
+                        type="button"
+                        onClick={(e) => handleDeleteFromCard(e, anchor.id)}
+                        disabled={deletingBatchId === batch.batchId}
+                        className="inline-flex items-center gap-1 rounded-md border border-zinc-300 px-2 py-0.5 text-[11px] font-bold text-gray-700 hover:text-red-600 hover:border-red-300 dark:border-zinc-700 dark:text-zinc-300 transition-colors disabled:opacity-50"
+                      >
+                        {deletingBatchId === batch.batchId ? <Spinner className="w-3 h-3" /> : <Trash2 className="w-3 h-3" />}
+                        Eliminar
                       </button>
                     )}
                   </div>
                 </div>
-                {(batch.status === 'done' || batch.status === 'cancelled' || batch.status === 'rejected') && (
-                  <button
-                    type="button"
-                    onClick={(e) => handleDeleteFromCard(e, anchor.id)}
-                    disabled={deletingBatchId === batch.batchId}
-                    className="shrink-0 text-gray-300 hover:text-red-600 dark:text-zinc-600 dark:hover:text-red-500 transition-colors p-1"
-                    title="Eliminar encomenda"
-                  >
-                    {deletingBatchId === batch.batchId ? <Spinner className="w-4 h-4" /> : <Trash2 className="w-4 h-4" />}
-                  </button>
-                )}
               </div>
             </div>
           );
@@ -206,6 +217,7 @@ export function EncomendasListSection({ onNova, textoNova }: { onNova?: () => vo
           <EncomendaDetalhe
             quotationId={selectedBatch.primaryItem.id}
             onChanged={fetchQuotations}
+            editarToken={editarToken}
           />
         ) : (
           !loading && (

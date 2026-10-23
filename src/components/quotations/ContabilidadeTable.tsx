@@ -7,8 +7,8 @@ import {
   panelTabBar, panelTabBtn, panelTabBtnActive, panelTabBtnInactive,
 } from '@/lib/panel-ui'
 import { formatMt } from '@/lib/pricing-catalog'
+import { useEsperaAte } from '@/components/vhost/carga'
 import { ImageLightbox } from './ImageLightbox'
-import { Spinner } from '@/components/ui/spinner'
 import { useBatchNumeros, displayNumero } from '@/lib/use-batch-numeros'
 import { encomendaPaymentSplit } from '@/lib/encomenda-checkout'
 
@@ -151,8 +151,10 @@ export function ContabilidadeTable() {
     load()
   }, [])
 
+  useEsperaAte(!!(meses && registos && eliminados && fechos))
+
   if (!meses || !registos || !eliminados || !fechos) {
-    return <div className="flex items-center justify-center gap-2 py-12 text-sm text-gray-400 dark:text-zinc-500"><Spinner /> A carregar contabilidade...</div>
+    return null
   }
 
   return (
@@ -264,7 +266,7 @@ function ResellerCreditsTable() {
   }
 
   if (!pedidos) {
-    return <div className="flex items-center justify-center gap-2 py-12 text-sm text-gray-400 dark:text-zinc-500"><Spinner /> A carregar pedidos de crédito...</div>
+    return null
   }
   if (pedidos.length === 0) {
     return <div className={`${panelSectionCard} p-8 text-center text-sm text-gray-500 dark:text-zinc-400`}>Ainda não há pedidos de carregamento de saldo.</div>
@@ -1030,7 +1032,7 @@ function RenewalPaymentsTable() {
   }
 
   if (!pedidos) {
-    return <div className="flex items-center justify-center gap-2 py-12 text-sm text-gray-400 dark:text-zinc-500"><Spinner /> A carregar pagamentos de renovação...</div>
+    return null
   }
   if (pedidos.length === 0) {
     return <div className={`${panelSectionCard} p-8 text-center text-sm text-gray-500 dark:text-zinc-400`}>Ainda não há pedidos de pagamento de renovação.</div>
@@ -1269,7 +1271,7 @@ function CheckoutItemsByType({ types }: { types: string[] }) {
   }
 
   if (!pedidos) {
-    return <div className="flex items-center justify-center gap-2 py-12 text-sm text-gray-400 dark:text-zinc-500"><Spinner /> A carregar pagamentos do carrinho...</div>
+    return null
   }
 
   const rows = pedidos.flatMap((p) =>
@@ -1533,7 +1535,7 @@ function EncomendaPagamentosTable() {
   }
 
   if (!pagamentos) {
-    return <div className="flex items-center justify-center gap-2 py-12 text-sm text-gray-400 dark:text-zinc-500"><Spinner /> A carregar pagamentos de encomendas...</div>
+    return null
   }
 
   if (pagamentos.length === 0) {

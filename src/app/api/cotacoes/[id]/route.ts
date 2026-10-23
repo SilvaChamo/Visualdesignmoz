@@ -127,9 +127,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       return NextResponse.json({ error: 'Não tem permissão para editar esta encomenda.' }, { status: 403 });
     }
 
-    if (quotation.status !== 'pending') {
+    // Pendente, ou recusada pela equipa com a recomendação de editar: ao editar uma recusada, volta a pendente para nova análise
+    if (quotation.status !== 'pending' && quotation.status !== 'rejected') {
       return NextResponse.json(
-        { error: 'Só é possível editar enquanto a encomenda está pendente.' },
+        { error: 'Só é possível editar enquanto a encomenda está pendente ou foi recusada.' },
         { status: 409 },
       );
     }
@@ -142,6 +143,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     // recalculado) fica só na linha específica que o cliente está a editar.
     const sharedUpdate: Record<string, unknown> = {};
     const rowUpdate: Record<string, unknown> = {};
+    if (quotation.status === 'rejected') rowUpdate.status = 'pending';
 
     if (notas !== undefined) {
       sharedUpdate.notas = notas || null;
