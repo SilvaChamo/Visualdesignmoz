@@ -13864,3 +13864,24 @@
       padding-right: 12px
    }
 }
+
+/* Definições PHP e Extensões (Silva, 23/10/2026): sem a linha por baixo do último bloco; a barra de título de cada categoria com menos altura; o botão em baixo
+   encostado à margem da esquerda (sem fundo, sem recuo) */
+.vh .da-main-card > .frm.php-defs:not(#x),
+.vh .da-main-card > .frm.php-ext:not(#x) {
+   border-bottom: 0
+}
+
+.vh .frm.php-ext .frm-head:not(#x):not(#y) {
+   padding-top: 8px;
+   padding-bottom: 8px
+}
+
+.vh .frm.php-defs .frm-foot:not(#x):not(#y) {
+   padding-left: 0
+}
+
+.vh .acoes-topo.ext-rodape {
+   justify-content: flex-start;
+   margin: 4px 0 14px
+}

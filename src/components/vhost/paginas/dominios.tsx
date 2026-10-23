@@ -4421,6 +4421,14 @@ function PhpExtensoes() {
           </Frm>
         );
       })}
+      {admin && (
+        <div className="acoes-topo ext-rodape">
+          <button className="btn r" disabled={!pedidos.length || aAplicar} onClick={aplicar}>
+            <i className="fa-solid fa-floppy-disk" />
+            {t('Aplicar alterações')}
+          </button>
+        </div>
+      )}
       <p className="em-nota">
         {t(admin ? 'As extensões são do PHP do servidor: o que mudar aqui vale para todos os sites que usam a versão ' + lido.versao + '. As essenciais ficam sempre ativas.' : 'As extensões são do PHP do servidor e só o administrador as pode mudar. Precisa de uma que não está ativa? Peça-a ao suporte.')}
       </p>
