@@ -13560,11 +13560,11 @@
 
 /* Campos padronizados (Silva, 23/10/2026): a altura de todos os campos é a do botão base (34 px a 1440 px, um pouco menos nos ecrãs mais pequenos) e a letra dentro deles é de 12 px (em todos os campos, também nos de janelas e formulários) — texto, e-mail, palavra-passe, número, data, escolha (select), pesquisa e as caixas dos grupos (.igrp). Reduzem-se os campos, nunca o botão.
    Valem para todos os campos do painel; só ficam de fora os seletores de navegação da barra (domínio e separadores), as caixas de seleção, os botões de opção e os campos de cor, deslizante e ficheiro. */
-.vh :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]), select:not([multiple]):not([size]):not(.da-domain-selector select):not(.ptabs-sel select), textarea):not(#x) {
+.vh :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]), select:not([multiple]):not([size]):not(.da-domain-selector select):not(.ptabs-sel select), textarea):not(#x):not(.vh-nova-encomenda *) {
    font-size: calc(12px * var(--z, 1))
 }
 
-.vh :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]), select:not([multiple]):not([size]):not(.da-domain-selector select):not(.ptabs-sel select)):not(#x),
+.vh :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]), select:not([multiple]):not([size]):not(.da-domain-selector select):not(.ptabs-sel select)):not(#x):not(.vh-nova-encomenda *),
 .vh .igrp :is(.ib, select):not(#x),
 .vh .search:not(#x) {
    height: var(--h-campo, calc(32px * var(--z, 1)));
@@ -13995,12 +13995,12 @@
    --h-input: 40px
 }
 
-.vh :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]), select:not([multiple]):not([size]):not(.da-domain-selector select):not(.ptabs-sel select), textarea):not(#x):not(#y),
+.vh :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]), select:not([multiple]):not([size]):not(.da-domain-selector select):not(.ptabs-sel select), textarea):not(#x):not(#y):not(.vh-nova-encomenda *),
 .vh .search:not(#x):not(#y) input {
    font-size: 15px
 }
 
-.vh :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]), select:not([multiple]):not([size]):not(.da-domain-selector select):not(.ptabs-sel select)):not(#x):not(#y),
+.vh :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]), select:not([multiple]):not([size]):not(.da-domain-selector select):not(.ptabs-sel select)):not(#x):not(#y):not(.vh-nova-encomenda *),
 .vh .igrp :is(.ib, select):not(#x):not(#y),
 .vh .search:not(#x):not(#y) {
    height: var(--h-input);
@@ -14118,7 +14118,8 @@
    transform: scaleX(1)
 }
 
-/* Nova encomenda (página do painel, sem moldura): o resumo da encomenda à direita fica colado ao topo da janela, e o formulário não fica preso a uma altura */
-.vh .vh-nova-encomenda [class*="lg:sticky"]:not(#x) {
-   top: calc(16px * var(--z, 1))
+/* Nova encomenda (Silva, 23/10/2026): a vista do formulário é a mesma que estava na moldura, sem alterações — as regras gerais do painel (arredondamentos
+   do painel, letra e altura dos campos, ícones nos campos) não se aplicam aqui dentro */
+.vh .vh-nova-encomenda :is(.rounded-xl, .rounded-lg, .rounded-2xl, .rounded-md, button.rounded-full):not(#x) {
+   border-radius: revert-layer
 }

@@ -176,14 +176,21 @@ export const encomendasPagina: ScreenFn = (vh: VH) => {
       title: 'Nova encomenda',
       desc: 'Escolha o serviço e veja o resumo da encomenda',
       crumbs: [{ t: 'Encomendas', path: BASE }, { t: 'Nova encomenda' }],
-      actions: (
-        <button className="btn g" onClick={() => vh.nav(BASE)}>
-          <i className="fa-solid fa-arrow-left" />
-          {vh.t('Voltar às encomendas')}
-        </button>
-      ),
       body: (
-        <div className="vh-site vh-nova-encomenda">
+        // a mesma vista que estava na moldura (iframe), com a mesma barra de cima: o título à esquerda e, onde estava o "fechar", o texto simples de voltar
+        <div className="tw-livre vh-nova-encomenda bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100 dark:border-zinc-800 shrink-0">
+            <p className="text-sm font-bold text-gray-900 dark:text-white">Nova Encomenda</p>
+            <button
+              type="button"
+              onClick={() => vh.nav(BASE)}
+              className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900 dark:hover:text-zinc-200"
+              title={vh.t('Voltar às encomendas')}
+            >
+              <i className="fa-solid fa-arrow-left" />
+              {vh.t('Voltar às encomendas')}
+            </button>
+          </div>
           <Suspense fallback={null}>
             <CotacaoContent painel />
           </Suspense>
