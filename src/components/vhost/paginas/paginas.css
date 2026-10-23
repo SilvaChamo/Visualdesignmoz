@@ -13240,8 +13240,8 @@
    }
 
    .vh .em-filtros.em-rastreio :is(input, select):not(#x) {
-      height: 32px;
-      min-height: 32px;
+      height: var(--h-campo, 34px);
+      min-height: var(--h-campo, 34px);
       box-sizing: border-box
    }
 
@@ -13477,10 +13477,10 @@
    background: var(--fundo-lista)
 }
 
-/* Campos padronizados (Silva, 23/10/2026): a altura de todos os campos é a do botão base (32 px) e a letra dentro deles é de 11 px (em todos os campos, também nos de janelas e formulários) — texto, e-mail, palavra-passe, número, data, escolha (select), pesquisa e as caixas dos grupos (.igrp). Reduzem-se os campos, nunca o botão.
+/* Campos padronizados (Silva, 23/10/2026): a altura de todos os campos é a do botão base (34 px a 1440 px, um pouco menos nos ecrãs mais pequenos) e a letra dentro deles é de 12 px (em todos os campos, também nos de janelas e formulários) — texto, e-mail, palavra-passe, número, data, escolha (select), pesquisa e as caixas dos grupos (.igrp). Reduzem-se os campos, nunca o botão.
    Valem para todos os campos do painel; só ficam de fora os seletores de navegação da barra (domínio e separadores), as caixas de seleção, os botões de opção e os campos de cor, deslizante e ficheiro. */
 .vh :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]), select:not([multiple]):not([size]):not(.da-domain-selector select):not(.ptabs-sel select), textarea):not(#x) {
-   font-size: calc(11px * (.5 + .5 * min(var(--fs, 1), 1)))
+   font-size: 12px
 }
 
 .vh :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]), select:not([multiple]):not([size]):not(.da-domain-selector select):not(.ptabs-sel select)):not(#x),
@@ -13492,7 +13492,7 @@
 
 .vh .search:not(#x) input,
 .vh .igrp .ib:not(#x) {
-   font-size: 11px
+   font-size: 12px
 }
 
 /* Rastreio de e-mail: os campos e o botão "Pesquisar" ocupam sempre a largura toda, numa só linha (Silva, 23/10/2026). Quanto mais pequeno o ecrã, mais pequenos
@@ -13573,25 +13573,22 @@
       gap: 4px
    }
 
-   .vh .em-filtros.em-rastreio :is(input, select):not(#x) {
-      font-size: 10px
-   }
-
-   .vh .em-filtros.em-rastreio > label:not(#x) {
-      font-size: 10.5px
-   }
-
    .vh .em-filtros.em-rastreio > label:nth-child(-n+2):not(#x) {
-      min-width: 114px
+      min-width: 150px
    }
 
    .vh .em-filtros.em-rastreio > label:nth-child(5):not(#x) {
-      min-width: 134px
+      min-width: 164px
    }
 
-   .vh .em-filtros.em-rastreio input:not([type=date]):not(#x)::placeholder {
-      font-size: 10px
+   .vh .em-filtros.em-rastreio > label:nth-child(3):not(#x) {
+      min-width: 150px
    }
+
+   .vh .em-filtros.em-rastreio > label:nth-child(4):not(#x) {
+      min-width: 118px
+   }
+
 }
 
 /* Campos de data: o ano e o calendário cabem sempre, sem margens a mais (Silva, 23/10/2026) */
@@ -13646,7 +13643,7 @@
 /* Altura dos campos e dos botões proporcional ao ecrã (Silva, 23/10/2026): 32 px a partir de 1440 px e, abaixo, 32 px × o factor de escala do painel
    (27,5 px a 1000 px) — campos e botão sempre com a mesma altura */
 .vh {
-   --h-campo: calc(32px * min(var(--fs, 1), 1))
+   --h-campo: calc(34px * (.75 + .25 * min(var(--fs, 1), 1)))
 }
 
 /* Barra lateral dinâmica (Silva, 23/10/2026): a largura do menu segue a escala do texto (275 px a 1440 px) para nunca cortar uma letra e não alargar sem
@@ -13889,4 +13886,21 @@
 /* sem a linha por baixo de cada categoria, os blocos ficam mais juntos */
 .vh .frm.php-ext:not(#x) {
    margin-bottom: 10px
+}
+
+/* Registar domínio: o botão "Buscar" com a altura dos campos (e a letra do botão base), tudo centrado na vertical (Silva, 23/10/2026) */
+.vh .dom-busca-cartao button[type=button]:not(#x) {
+  height: var(--h-campo, 34px) !important;
+  min-height: var(--h-campo, 34px) !important;
+  padding: 0 14px !important;
+  font-size: 12.5px !important
+}
+
+.vh .dom-busca-cartao :has(> button[type=button]):not(#x) {
+  align-items: center !important
+}
+
+/* "Ações" (e "Colunas") no fim da barra dos títulos: o ícone do chevron não fica encostado à margem direita (Silva, 23/10/2026) */
+.vh .tbl thead th.dt-th-cols:not(#x):not(#y) {
+   padding-right: 14px
 }

@@ -266,24 +266,66 @@ jobs:
             # EADDRINUSE, o GitHub Actions marcava sucesso, e o site público
             # continuava a servir o código velho — abas de domínios vazias.
             pm2 delete visualdesign-panel || true
-            # Troca (o site só pára estes segundos): o código por rsync, com as mesmas exclusões de sempre (os .env*,
-            # .git e .DS_Store da pasta do site ficam intactos); node_modules e .next por mv (instantâneo, mesmo disco).
-            # o código novo entra ANTES de parar o site (o servidor a correr só lê node_modules e .next, que se trocam abaixo): assim o
-            # corte fica só no arranque do Next (Silva, 23/10/2026: a actualização não pode bloquear a navegação)
-            rsync -a --delete --exclude 'node_modules' --exclude '.next' --exclude '.git' --exclude '*.env*' --exclude '.DS_Store' "$STAGE"/ "$LIVE"/
-            pm2 stop visualdesign-site-teste || true
-            sleep 1
-            fuser -k 3002/tcp || true
-            rm -rf "$LIVE/node_modules.old" "$LIVE/.next.old"
-            if [ -d "$LIVE/node_modules" ]; then mv "$LIVE/node_modules" "$LIVE/node_modules.old"; fi
-            if [ -d "$LIVE/.next" ]; then mv "$LIVE/.next" "$LIVE/.next.old"; fi
-            mv "$STAGE/node_modules" "$LIVE/node_modules"
-            mv "$STAGE/.next" "$LIVE/.next"
-            cd "$LIVE"
-            pm2 start visualdesign-site-teste || pm2 start npm --name "visualdesign-site-teste" --cwd /opt/visualdesign-site-teste -- start -- -p 3002
+            # Publicar SEM corte (Silva, 23/10/2026): cada publicação é uma pasta própria em /opt/visualdesign-releases/<data> e
+            # /opt/visualdesign-site-teste passa a ser um atalho (symlink) para a versão em uso. O site corre em pm2 "cluster"
+            # com 1 processo: o `pm2 reload` põe a versão nova a escutar na porta 3002 ANTES de a antiga sair, por isso não há um
+            # único pedido falhado (testado com 600 pedidos seguidos durante a troca). A versão anterior fica na pasta dela para
+            # a reversão automática se a nova não responder.
+            NAME=visualdesign-site-teste
+            RELEASES=/opt/visualdesign-releases
+            mkdir -p "$RELEASES"
+            NOVA="$RELEASES/$(date +%Y%m%d-%H%M%S)"
+            # a pasta construída passa a ser a versão nova (mv no mesmo disco: instantâneo); a do build fica vazia para a próxima publicação
+            mv "$STAGE" "$NOVA"
+            mkdir -p "$STAGE"
+            # só na primeira vez: a pasta antiga do site passa a ser a primeira versão guardada e o seu caminho passa a ser o atalho
+            if [ ! -L "$LIVE" ]; then
+              mv "$LIVE" "$RELEASES/inicial"
+              ln -s "$RELEASES/inicial" "$LIVE"
+            fi
+            ANTERIOR="$(readlink "$LIVE")"
+            troca_atalho() { ln -sfn "$1" "$LIVE.novo" && mv -T "$LIVE.novo" "$LIVE"; }
+            troca_atalho "$NOVA"
+            # Um processo antigo (visualdesign-panel em /opt/visualdesign-panel) ficava a escutar a 3002 e o restart desta app
+            # falhava com EADDRINUSE (o GitHub Actions marcava sucesso e o site continuava com o código velho).
+            pm2 delete visualdesign-panel || true
+            if pm2 describe "$NAME" 2>/dev/null | grep -q cluster_mode; then
+              # o caso normal: troca sem corte
+              pm2 reload "$NAME" --update-env
+            else
+              # só na primeira vez (o site estava em modo "fork"): passa a cluster. No modo cluster o pm2 usa o Node com que o seu
+              # daemon arrancou; garante que é o Node 24 deste servidor (senão reinicia o daemon, que volta a pôr as apps no ar)
+              pm2 delete "$NAME" || true
+              pm2 save --force
+              DAEMON_NODE="$(readlink "/proc/$(cat /root/.pm2/pm2.pid 2>/dev/null || echo 0)/exe" 2>/dev/null || true)"
+              if [ "$DAEMON_NODE" != "${NODE_ROOT}/bin/node" ]; then pm2 update || true; fi
+              sleep 1
+              fuser -k 3002/tcp || true
+              pm2 start "$LIVE/node_modules/next/dist/bin/next" --name "$NAME" -i 1 --cwd "$LIVE" --listen-timeout 30000 -- start -p 3002
+            fi
             pm2 save
-            # a versão anterior só se apaga depois de a nova estar a correr
-            rm -rf "$LIVE/node_modules.old" "$LIVE/.next.old"
+            # a versão nova tem de responder; se não, volta-se à anterior e a publicação falha (o site fica como estava)
+            saude() {
+              local c i
+              for i in $(seq 1 30); do
+                c=$(curl -s -o /dev/null -w '%{http_code}' -m 10 -H "Host: teste.visualdesignmoz.com" http://127.0.0.1:3002/ || true)
+                case "$c" in 2*|3*) return 0 ;; esac
+                sleep 2
+              done
+              return 1
+            }
+            if ! saude; then
+              echo "A versão nova não respondeu: a voltar à anterior (${ANTERIOR})." >&2
+              troca_atalho "$ANTERIOR"
+              pm2 reload "$NAME" --update-env || true
+              exit 1
+            fi
+            # guarda as 3 versões mais recentes (a nova, a anterior e mais uma); as outras apagam-se
+            ls -1dt "$RELEASES"/*/ | tail -n +4 | while read -r antiga; do
+              antiga="${antiga%/}"
+              if [ "$antiga" != "$NOVA" ] && [ "$antiga" != "$ANTERIOR" ]; then rm -rf "$antiga"; fi
+            done
+            cd "$LIVE"
             # PHP por conta (Silva, 23/10/2026): o script que dá a cada conta o seu PHP-FPM com as suas extensões, e o cron que o mantém em ordem
             # (só age em contas que já escolheram extensões; sem nenhuma, não faz nada)
             install -m 0755 "$LIVE/deploy/php-conta/vd-php-conta" /usr/local/sbin/vd-php-conta || echo "AVISO: vd-php-conta não instalado"
