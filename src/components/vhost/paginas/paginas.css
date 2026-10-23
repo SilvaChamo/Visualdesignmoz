@@ -5260,7 +5260,7 @@
    display: flex;
    flex-direction: column;
    align-items: center;
-   gap: 6px;
+   gap: 18px; /* margem entre o círculo (e o seu pulso) e o nome por baixo (Silva, 23/10/2026) */
    margin: 0
 }
 
@@ -5288,12 +5288,51 @@
 }
 
 .vh .trf-bola.para {
-   background: linear-gradient(135deg, #2a0b0f 0%, #b4141f 55%, #ef3e4a 100%);
+   /* vermelho vivo da marca: mais claro em cima à esquerda e mais fundo em baixo à direita, sem o castanho escuro de antes (Silva, 23/10/2026) */
+   background: linear-gradient(145deg, #ff6b75 0%, #e5202e 52%, #b3121f 100%);
    color: #fff;
-   box-shadow: 0 6px 16px rgba(229, 32, 46, .3)
+   box-shadow: 0 0 0 4px color-mix(in srgb, var(--red) 14%, transparent), 0 8px 18px rgba(229, 32, 46, .32), inset 0 1px 0 rgba(255, 255, 255, .38)
+}
+
+/* pulso no círculo vermelho: dois anéis que se abrem e desvanecem, um meio ciclo depois do outro (Silva, 23/10/2026) */
+.vh .trf-bola.para::before,
+.vh .trf-bola.para::after {
+   content: '';
+   position: absolute;
+   inset: 0;
+   border-radius: 50%;
+   border: 2px solid var(--red);
+   opacity: 0;
+   pointer-events: none;
+   z-index: 0;
+   animation: trfPulso 2.4s ease-out infinite
+}
+
+.vh .trf-bola.para::after {
+   animation-delay: 1.2s
+}
+
+@keyframes trfPulso {
+   0% {
+      transform: scale(1);
+      opacity: .6
+   }
+
+   100% {
+      transform: scale(1.55);
+      opacity: 0
+   }
+}
+
+@media (prefers-reduced-motion: reduce) {
+   .vh .trf-bola.para::before,
+   .vh .trf-bola.para::after {
+      animation: none
+   }
 }
 
 .vh .trf-bola.para em {
+   z-index: 2; /* o visto verde fica por cima do pulso */
    position: absolute;
    right: -3px;
    bottom: -3px;
@@ -10539,10 +10578,6 @@
    border-radius: 0;
 }
 
-.vh .tbl[data-dt="dns"] tbody tr:last-child td {
-   border-bottom: 0;
-}
-
 .vh .tbl[data-dt="dns"] .dt-fundo {
    border-top: 0;
 }
@@ -12789,7 +12824,7 @@
 
    .vh .da-main-card .card-topo-btns:not(#x),
    .vh .da-main-card .em-acoes-topo:not(#x) {
-      padding-right: 12px
+      padding-right: 0
    }
 
    /* sem separadores: o título e a indicação começam no início da linha (o recuo é o que alinha com o ícone do primeiro separador) */
@@ -12877,14 +12912,14 @@
 
 /* A descrição da página passa para dentro do cartão, por baixo do título (Silva, 21/10/2026): na barra de cima fica só o título */
 .vh .right:has(.pg-slot:not([aria-hidden="true"]) .card-topo-titulo:is(.card-topo-modelo, :has(.dom-titulo-bloco:not(:has(.dom-ind)))))
-   .ptitle small {
+   .ptitle small:not(.desc-barra) {
    display: none
 }
 
 /* o botão de Domínios/Subdomínios acaba onde acabam os botões das linhas da tabela (12 px da beira), como nas outras páginas */
 @media (min-width: 769px) {
    .vh .da-main-card .seccao-h.dom-cab:not(#x) {
-      padding-right: 12px
+      padding-right: 0
    }
 }
 
@@ -12945,7 +12980,7 @@
 
 @media (min-width: 769px) {
    .vh .da-main-card .seccao-h.dom-cab .search.dom-pesq:not(#x) {
-      margin-left: 12px
+      margin-left: 0
    }
 }
 
@@ -12994,7 +13029,7 @@
 
 @media (min-width: 769px) {
    .vh .da-main-card .card-topo-linha .search.dom-pesq:not(#x) {
-      margin-left: var(--recuo, 12px)
+      margin-left: 0
    }
 }
 
@@ -13063,4 +13098,278 @@
    height: 18px;
    margin-left: 2px;
    font-size: 10px
+}
+
+
+/* ===== Margens e telemóvel (Silva, 23/10/2026) =====
+   As caixas (motores de busca, cartões, botões) alinham com as margens das tabelas, de beira a beira; só o texto, os ícones e as caixas de
+   seleção ficam para dentro, com o recuo (12 px) dos dois lados. */
+
+/* telemóvel: a indicação do domínio não aparece (já está na faixa de cima) — era ela que passava a duas linhas */
+@media (max-width: 768px) {
+   .vh .dom-ind:not(#x) {
+      display: none
+   }
+
+   /* Domínios: tudo numa só coluna — a pesquisa e o botão, cada um na sua linha, à largura toda */
+   .vh .seccao-h.dom-cab:not(#x) {
+      flex-direction: column;
+      align-items: stretch;
+      justify-content: flex-start;
+      gap: 8px
+   }
+
+   .vh .seccao-h.dom-cab .search.dom-pesq:not(#x) {
+      flex: none;
+      width: 100%;
+      margin: 0
+   }
+
+   .vh .seccao-h.dom-cab > .btn:not(#x) {
+      flex: none;
+      width: 100%;
+      justify-content: center
+   }
+
+   /* botões do topo do cartão: um só fica do lado direito, no seu tamanho; dois ou mais ficam lado a lado quando cabem, e quando o
+      texto de algum não cabe em meia largura todos ocupam a largura toda, um por linha (regra dos botões do telemóvel) */
+   .vh .da-main-card .card-topo-btns:not(#x) {
+      width: 100%;
+      justify-content: flex-start;
+      flex-wrap: wrap;
+      gap: 8px
+   }
+
+   .vh .da-main-card .card-topo-btns:not(#x) > :only-child {
+      flex: none;
+      width: auto;
+      max-width: 100%;
+      margin-left: auto
+   }
+
+   .vh .da-main-card .card-topo-btns:not(#x) > :not(:only-child) {
+      flex: 1 1 calc(50% - 4px);
+      width: auto;
+      max-width: none;
+      min-width: 0;
+      justify-content: center
+   }
+
+   .vh .da-main-card .card-topo-btns:not(#x):has(> [data-larga]) > :not(:only-child) {
+      flex: 0 0 100%
+   }
+
+   /* cartão com um aviso e um botão (ex.: "Ligar o e-mail neste domínio"): o botão ocupa a largura toda, afastado do texto */
+   .vh .card.empty > .btn:not(#x) {
+      display: flex;
+      width: 100%;
+      justify-content: center;
+      margin-top: 12px
+   }
+
+   /* Registar domínio: o cartão do motor de busca com pouco espaço dentro */
+   .vh .dom-busca-cartao:not(#x) {
+      padding: 12px
+   }
+}
+
+/* a barra cinzenta de confiança com 30 px por cima e por baixo, em todos os tamanhos (Silva, 23/10/2026) */
+.vh .trf-confianca:not(#x) {
+   padding-top: 30px;
+   padding-bottom: 30px
+}
+
+/* Transferir domínio: a barra de confiança numa só linha nos ecrãs de computador (a letra diminui até caber) e numa só coluna no
+   tablet e no telemóvel. Nos portáteis estreitos (1051–1299 px) o texto todo não cabe numa linha com letra legível: ficam duas. */
+@media (min-width: 1300px) {
+   .vh .trf-confianca:not(#x) {
+      container-type: inline-size;
+      flex-wrap: nowrap;
+      padding-left: 12px;
+      padding-right: 12px
+   }
+
+   .vh .trf-confianca > span:not(#x) {
+      flex: 0 1 auto;
+      padding: 0 clamp(4px, 1.1cqw, 14px);
+      white-space: nowrap;
+      font-size: clamp(9px, 1.18cqw, 12px)
+   }
+}
+
+@media (min-width: 1051px) and (max-width: 1299px) {
+   .vh .trf-confianca:not(#x) {
+      padding-left: 12px;
+      padding-right: 12px
+   }
+
+   .vh .trf-confianca > span:not(#x) {
+      padding: 0 10px;
+      font-size: 11px
+   }
+}
+
+@media (max-width: 1050px) {
+   .vh .trf-confianca:not(#x) {
+      flex-direction: column;
+      flex-wrap: nowrap;
+      align-items: center;
+      row-gap: 6px
+   }
+
+   .vh .trf-confianca > span:not(#x) {
+      border-left: 0;
+      padding: 0 12px;
+      text-align: center
+   }
+}
+
+/* Rastreio de e-mail (Silva, 23/10/2026): mais espaço por baixo da linha (só nesta página) e, no telemóvel, os filtros bem arrumados — cada
+   campo com a sua etiqueta por cima, todos com a mesma altura e o mesmo espaço entre eles, e o botão a meia largura, à esquerda */
+.vh .em-nota.em-nota-linha.em-rastreio:not(#x) {
+   margin-bottom: 20px
+}
+
+@media (max-width: 768px) {
+   .vh .em-filtros.em-rastreio:not(#x) {
+      gap: 14px
+   }
+
+   .vh .em-filtros.em-rastreio label:not(#x) {
+      gap: 6px
+   }
+
+   .vh .em-filtros.em-rastreio :is(input, select):not(#x) {
+      height: 40px;
+      min-height: 40px;
+      box-sizing: border-box
+   }
+
+   .vh .em-filtros.em-rastreio > .btn:not(#x) {
+      flex: 0 0 calc(50% - 7px);
+      justify-content: center
+   }
+}
+
+/* Opções por baixo da linha do título, separadas por "|" (Silva, 23/10/2026): no lugar dos separadores cinzentos do topo — como as opções por
+   baixo do título no DirectAdmin. O texto e os ícones levam o recuo; a opção aberta fica a vermelho. */
+.vh .card-topo-opcoes:empty {
+   display: none
+}
+
+.vh .card-topo-opcoes {
+   padding: 10px var(--recuo, 12px) 0
+}
+
+.vh .opcoes-linha {
+   display: flex;
+   flex-wrap: wrap;
+   align-items: center;
+   column-gap: 12px;
+   row-gap: 4px;
+   font-size: calc(13px * var(--fs, 1))
+}
+
+.vh .opcoes-linha button {
+   display: inline-flex;
+   align-items: center;
+   gap: 6px;
+   padding: 4px 0;
+   border: 0;
+   background: none;
+   color: var(--ink);
+   font: inherit;
+   cursor: pointer
+}
+
+.vh .opcoes-linha button:hover,
+.vh .opcoes-linha button.on {
+   color: var(--red)
+}
+
+.vh .opcoes-linha button.on {
+   font-weight: 600
+}
+
+.vh .opcoes-sep {
+   color: var(--muted);
+   opacity: .6;
+   user-select: none
+}
+
+/* sem caixa de pesquisa (DNS): as opções ocupam o lugar dela, à esquerda, na mesma linha do botão (Silva, 23/10/2026) */
+.vh .card-topo-linha > .card-topo-opcoes.na-linha:not(#x) {
+   flex: 1 1 0;
+   min-width: 0;
+   padding: 0 var(--recuo, 12px);
+   align-self: center
+}
+
+@media (max-width: 768px) {
+   .vh .card-topo-linha:has(> .card-topo-opcoes.na-linha):not(#x) {
+      flex-wrap: wrap;
+      row-gap: 8px
+   }
+
+   .vh .card-topo-linha > .card-topo-opcoes.na-linha:not(#x) {
+      flex: 1 1 100%;
+      padding: 0 var(--recuo, 12px)
+   }
+}
+
+/* A margem de cima do cartão é igual à dos lados: 25 px (1 px de borda + 24 px) nos 4 cantos (Silva, 23/10/2026) */
+/* medida pelo texto (não pela caixa): o título tem 5 px de ar por cima dentro da própria linha, por isso a caixa começa 5 px mais perto para o texto
+   ficar a 26 px do topo, como fica a 26 px da esquerda */
+@media (min-width: 769px) {
+   .vh .da-main-card:not(:has(> .ptabs-faixa)):has(> .card-topo-slot .card-topo-titulo):not(#x) {
+      padding-top: 19px
+   }
+}
+
+@media (max-width: 768px) {
+   .vh .da-main-card:not(:has(> .ptabs-faixa)):has(> .card-topo-slot .card-topo-titulo):not(#x) {
+      padding-top: 11px
+   }
+}
+
+/* paginação por cima da linha do título, à direita, na altura da descrição (Silva, 23/10/2026) */
+.vh .dom-titulo-bloco {
+   position: relative
+}
+
+.vh .card-topo-pag:empty {
+   display: none
+}
+
+.vh .card-topo-pag {
+   position: absolute;
+   right: 0;
+   bottom: 5px
+}
+
+@media (max-width: 768px) {
+   .vh .card-topo-pag:not(:empty) {
+      position: static;
+      align-self: flex-end;
+      margin-top: 6px
+   }
+}
+
+/* A última linha de cada tabela leva sempre a linha de fecho, a continuar as de dentro — em todas as tabelas, também nas que tinham a sua
+   regra própria (DNS, pacotes, Transferir) (Silva, 23/10/2026). No telemóvel as linhas são blocos e ficam como estavam. */
+@media (min-width: 769px) {
+   .vh :is(.tbl, .trf-tabela) tbody tr:last-child > td:not(#x) {
+      border-bottom: 1px solid var(--line)
+   }
+}
+
+/* mais espaço por baixo do botão e das opções, a afastar a lista: 30 px (Silva, 23/10/2026) */
+@media (min-width: 769px) {
+   .vh .card-topo-modelo .card-topo-linha:not(#x) {
+      margin-bottom: 30px
+   }
+
+   .vh .da-main-card .seccao-h.dom-cab:not(#x) {
+      margin-bottom: 30px
+   }
 }

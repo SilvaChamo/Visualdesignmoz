@@ -311,11 +311,13 @@ function PaginaSlot({ p, oculta, onPronta, registar }: { p: Pagina; oculta: bool
   // separadores dão logo por baixo da faixa deles
   const [topoCartao, setTopoCartao] = useState<HTMLElement | null>(null);
   const [topoTabs, setTopoTabs] = useState<HTMLElement | null>(null);
+  const [opcoesEl, setOpcoesEl] = useState<HTMLElement | null>(null);
+  const [pagEl, setPagEl] = useState<HTMLElement | null>(null);
   // a página (dentro do corpo) pôs ela própria o seu botão na linha de cima (ex.: FTP › Criar): o "Ações" das tabelas fica onde estava
   const [ocupado, setOcupado] = useState(false);
   const topo = useMemo(
-    () => ({ el: p.semCartao || p.home ? null : topoTabs || topoCartao, setTabs: setTopoTabs, temBotao: !p.semCartao && !p.home && (!!p.scr.actions || ocupado), setOcupado, dominios: p.scr.dominios, dominioUrl: p.scr.dominioUrl }),
-    [p.semCartao, p.home, p.scr.actions, p.scr.dominios, p.scr.dominioUrl, topoTabs, topoCartao, ocupado],
+    () => ({ el: p.semCartao || p.home ? null : topoTabs || topoCartao, setTabs: setTopoTabs, opcoesEl, setOpcoes: setOpcoesEl, pagEl, setPag: setPagEl, temBotao: !p.semCartao && !p.home && (!!p.scr.actions || ocupado), setOcupado, dominios: p.scr.dominios, dominioUrl: p.scr.dominioUrl }),
+    [p.semCartao, p.home, p.scr.actions, p.scr.dominios, p.scr.dominioUrl, topoTabs, topoCartao, ocupado, opcoesEl, pagEl],
   );
   const pesquisa = useMemo(() => ({ registar: (id: string, fonte: () => ItemPesquisa[]) => registar(p.chave, id, fonte) }), [registar, p.chave]);
   // pesquisa da tabela posta na linha por baixo do título do cartão (DNS): o texto e se a tabela a pediu
@@ -1611,11 +1613,14 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
                   <img className="only-m" src={logo} alt="" style={st.brand.logo ? { objectFit: 'contain' } : undefined} />
                   <div className="bt">
                     <h1 id="ptitle" title={mostra.title}>
-                      <span className="desktop-title">{mostra.title}</span>
+                      <span className="desktop-title">
+                        {mostra.scr.icone && <i className={'fa-solid ' + mostra.scr.icone + ' ' + (mostra.scr.iconeCor || '')} style={{ color: 'var(--c, var(--red))', marginRight: 10 }} />}
+                        {mostra.title}
+                      </span>
                       <span className="mobile-title">{t('Painel')}</span>
                     </h1>
-                    <small id="pdesc" title={mostra.desc}>
-                      {mostra.scr.descEl ?? mostra.desc}
+                    <small id="pdesc" className={mostra.scr.descBarra ? 'desc-barra' : undefined} title={mostra.scr.descBarra ? t(mostra.scr.descBarra) : mostra.desc}>
+                      {mostra.scr.descBarra ? t(mostra.scr.descBarra) : mostra.scr.descEl ?? mostra.desc}
                     </small>
                   </div>
                 </div>

@@ -43,6 +43,11 @@ export interface Screen {
   body: ReactNode;
   /** caminho na faixa por baixo da barra de cima (por defeito: só o título) */
   crumbs?: Crumb[];
+  /** descrição curta por baixo do título da barra de cima, diferente da de dentro do cartão (Silva, 23/10/2026) */
+  descBarra?: string;
+  /** ícone antes do título na barra de cima (Silva, 23/10/2026) e a classe da cor (c1…c8, as do menu) */
+  icone?: string;
+  iconeCor?: string;
   /** descrição na barra de cima (por defeito: a da página, em DESC) */
   desc?: string;
   /** descrição com dados vivos, no lugar de desc (ex.: Mensagens — "Todas as mensagens | 3 por ler") */

@@ -751,7 +751,7 @@ export function IndicacaoDominio({ dominios, dominioUrl, emLinha = false }: { do
       </span>
     );
   return (
-    <p className="dom-ctx">
+    <p className="dom-ctx dom-ind">
       <i className="fa-solid fa-globe" /> <b>{atual}</b> <span>· {t('muda-se no seletor em cima, à direita')}</span>
     </p>
   );
@@ -825,10 +825,13 @@ export function NoTopoCartao({
           <div className="dom-ctx dom-titulo-bloco">
             <p className="dom-titulo">{modelo.titulo}</p>
             <p className="dom-sub">{sub}</p>
+            <div className="card-topo-pag" ref={topo.setPag} />
           </div>
         ) : (
           <p className="dom-ctx dom-titulo">{modelo.titulo}</p>
         )}
+        {/* com pesquisa, as opções (Tabs abaixo) ficam por baixo da linha, antes dela; sem pesquisa, ocupam o lugar dela, ao lado do botão */}
+        {cons?.ativo && <div className="card-topo-opcoes" ref={topo.setOpcoes} />}
         <div className="card-topo-linha">
           {cons?.ativo ? (
             <div className="search dom-pesq">
@@ -837,7 +840,7 @@ export function NoTopoCartao({
               {cons.q && <i className="fa-solid fa-xmark limpar" onClick={() => cons.setQ('')} />}
             </div>
           ) : (
-            <span className="dom-ctx" />
+            <div className="card-topo-opcoes na-linha" ref={topo.setOpcoes} />
           )}
           <div className="card-topo-btns" ref={botoes}>
             {children}

@@ -254,6 +254,14 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
   novo no painel, correr `node scripts/gerar-cores-icones.cjs` e `node scripts/gerar-icones-campos.cjs`.** Ficam como estão os ícones de estrutura (setas,
   fechar, a rodar), a barra de cima, a barra de ícones e o menu da esquerda (têm as suas cores), e tudo o que já tem cor própria (botão vermelho,
   `btn-ed`/`btn-rm`, etiquetas, avisos, caixas de seleção, o gestor de ficheiros em `.fmda-icc`/`.fmda-raiz`) — a lista está em `FORA` no script.
+- **Margens: as caixas vão até às margens das tabelas; só o texto, os ícones e as caixas de seleção ficam para dentro** (Silva, 23/10/2026). Motores
+  de busca, cartões e botões alinham de beira a beira com as margens das tabelas (nada de 12 px para dentro); o texto, os ícones e os checkboxes
+  levam o recuo (`--recuo`, 12 px) dos dois lados. No telemóvel: a indicação do domínio não aparece; em Domínios tudo numa só coluna (pesquisa e
+  botão, um por linha, à largura toda); os botões do topo do cartão — um só fica à direita, no seu tamanho; dois ou mais ficam lado a lado quando
+  cabem e, se o texto de algum não cabe em meia largura, todos ocupam a largura toda, um por linha; um botão dentro de um cartão de aviso
+  (`.card.empty`) ocupa a largura toda; o cartão de pesquisa de Registar domínio leva só 12 px por dentro. Barra cinzenta de confiança (Transferir
+  domínio): 30 px por cima e por baixo; numa só linha de 1300 px para cima (a letra diminui até caber), em duas entre 1051 e 1299 px (não cabe
+  legível numa) e numa só coluna no tablet e no telemóvel.
 - Formulários sem contornos laterais; títulos e campos alinhados à esquerda pelo `--recuo`.
 - Janelas (popups): **o fundo é sempre transparente (escurece um pouco), sem desfoque** e os cantos dos cartões são os do painel (4 px, `--r`) — vale também para o popup do Painel de Manutenção do Servidor (a chave do cartão do servidor, `.vh-popup-manut`; Silva, 21/10/2026); **25 px de espaço nos 4 cantos**; largura dinâmica só quando o domínio é comprido; no computador o
   menu de opções de uma linha abre para a esquerda.

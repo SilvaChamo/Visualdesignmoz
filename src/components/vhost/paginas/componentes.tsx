@@ -154,10 +154,29 @@ export function Funcionalidades({ campos, feats, set }: { campos: Campo[]; feats
 // ---------- Separadores ----------
 /** No topo da página ficam numa barra de ponta a ponta do cartão principal (como em Domínios); `sub` = separadores
  *  dentro de um separador (só sublinhados, para não haver duas barras seguidas) */
-export function Tabs<K extends string>({ tabs, on, onChange, sub }: { tabs: [K, string, string?][]; on: K; onChange: (k: K) => void; sub?: boolean }) {
+export function Tabs<K extends string>({ tabs, on, onChange, sub, abaixo }: { tabs: [K, string, string?][]; on: K; onChange: (k: K) => void; sub?: boolean; abaixo?: boolean }) {
   const { t } = useVH();
   const faixa = useContext(FaixaAbas);
   const topo = useContext(TopoCartao);
+  // `abaixo` (Silva, 23/10/2026): em vez da faixa cinzenta no topo, as opções vão por baixo da linha do título, como texto separado por "|"
+  // (como as opções por baixo do título no DirectAdmin); o cartão dá o lugar (topo.opcoesEl) e a página continua com o seu cabeçalho normal
+  if (abaixo) {
+    if (!topo?.opcoesEl) return null;
+    return createPortal(
+      <nav className="opcoes-linha" aria-label={t('Opções')}>
+        {tabs.map(([k, label, fa], i) => (
+          <Fragment key={k}>
+            {i > 0 && <span className="opcoes-sep" aria-hidden="true">|</span>}
+            <button className={on === k ? 'on' : ''} aria-current={on === k ? 'page' : undefined} onClick={() => onChange(k)}>
+              {fa && <i className={'fa-solid ' + fa} />}
+              {t(label)}
+            </button>
+          </Fragment>
+        ))}
+      </nav>,
+      topo.opcoesEl,
+    );
+  }
   const abas = (
     <div className={'ptabs' + (sub ? ' sub' : '')} role="tablist">
       {tabs.map(([k, label, fa]) => (
@@ -274,6 +293,7 @@ export function DataTable<T>({
   // em todas as listas o "Colunas" é só o ícone, à direita, dentro da barra das colunas (Silva, 21/10/2026)
   colunasNoCabecalho = true,
   paginacaoNoCabecalho = false,
+  paginacaoNoTopo = false,
   tituloAcoes,
 }: {
   id: string;
@@ -334,6 +354,8 @@ export function DataTable<T>({
   colunasNoCabecalho?: boolean;
   /** a paginação também na última célula do cabeçalho da tabela (barra dos títulos das colunas), além do fundo do cartão */
   paginacaoNoCabecalho?: boolean;
+  /** a paginação vai por cima da linha do título do cartão, à direita (Silva, 23/10/2026: DNS), e não no fundo */
+  paginacaoNoTopo?: boolean;
   /** título da coluna do fim (a das ações da linha), por cima do que lá está (ex.: o menu "⋯") */
   tituloAcoes?: string;
   /** notifica chaves das linhas selecionadas */
@@ -561,6 +583,8 @@ export function DataTable<T>({
 
   // Setas e "Página x de y" (sem o "1–20 de 67"): só no fundo do cartão, quando há mais de uma página (regra do Silva,
   // 13/10/2026 — nunca na faixa dos separadores nem por cima da tabela)
+  const topoCtx = useContext(TopoCartao);
+  const noTopo = paginacaoNoTopo && !!topoCtx?.pagEl;
   const paginador = (
     <div className="dt-pag">
       <button className="btn g sm" disabled={atual === 1} onClick={() => setPag(1)} aria-label={t('Primeira página')}>
@@ -741,10 +765,10 @@ export function DataTable<T>({
             )}
           </tbody>
         </table>
-        {(rodape || paginas > 1) && (
+        {(rodape || (paginas > 1 && !noTopo)) && (
           <div className="dt-fundo">
             {rodape}
-            {paginas > 1 && (
+            {paginas > 1 && !noTopo && (
               <>
                 <span className="sp" />
                 {paginador}
@@ -752,6 +776,8 @@ export function DataTable<T>({
             )}
           </div>
         )}
+        {/* por cima da linha do título a paginação está sempre presente: só fica ativa quando há mais de uma página (Silva, 23/10/2026) */}
+        {noTopo && createPortal(paginador, topoCtx!.pagEl!)}
       </div>
     </>
   );
