@@ -263,20 +263,20 @@
    --ic-box: var(--soft);
    background-image: var(--ic), linear-gradient(var(--ic-box), var(--ic-box)), linear-gradient(var(--line), var(--line));
    background-repeat: no-repeat;
-   background-position: 11px center, 0 0, 36px 0;
-   background-size: 14px, 36px 100%, 1px 100%;
-   padding-left: 48px !important
+   background-position: calc(11px * var(--z, 1)) center, 0 0, calc(36px * var(--z, 1)) 0;
+   background-size: calc(14px * var(--z, 1)), calc(36px * var(--z, 1)) 100%, 1px 100%;
+   padding-left: calc(48px * var(--z, 1)) !important
 }
 
 .vh textarea[data-ic]:not(#x) {
-   background-position: 11px 13px, 0 0, 36px 0
+   background-position: calc(11px * var(--z, 1)) calc(13px * var(--z, 1)), 0 0, calc(36px * var(--z, 1)) 0
 }
 
 /* escolha (select): a seta própria à direita (a regra geral dos selects tem de ser vencida, daí os :not iguais) */
 .vh select[data-ic]:not(#x):not([multiple]):not([size]):not(.da-domain-selector select):not(.ptabs-sel select) {
    background-image: var(--ic), linear-gradient(var(--ic-box), var(--ic-box)), linear-gradient(var(--line), var(--line)), var(--seta-campo);
-   background-position: 11px center, 0 0, 36px 0, right 14px center;
-   background-size: 14px, 36px 100%, 1px 100%, 12px
+   background-position: calc(11px * var(--z, 1)) center, 0 0, calc(36px * var(--z, 1)) 0, right calc(14px * var(--z, 1)) center;
+   background-size: calc(14px * var(--z, 1)), calc(36px * var(--z, 1)) 100%, 1px 100%, calc(12px * var(--z, 1))
 }
 
 /* campos que já são cinzento suave (motor de busca de Registar domínio): a caixa um pouco mais escura para se ver */
