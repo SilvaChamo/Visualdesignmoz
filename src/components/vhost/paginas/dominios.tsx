@@ -28,6 +28,10 @@ import { TransferirDominio } from './transferir-dominio';
     'Subdomínios do site': 'Subdomains of the site',
     'Use a versão mais recente do PHP para acelerar o seu site': 'Use the latest PHP version to speed up your site',
     'Abrir os ficheiros deste domínio': 'Open this domain’s files',
+    'Inativo': 'Inactive',
+    'expirou': 'expired',
+    'até': 'until',
+    'Pendente': 'Pending',
     'conta': 'account',
     'contas': 'accounts',
     'Nenhuma conta': 'No accounts',
@@ -704,6 +708,19 @@ const dataLegivel = (s: string) => {
   const t = Date.parse(s);
   return isNaN(t) ? s : new Date(t).toLocaleDateString('pt-PT');
 };
+/** DNS ativo (Silva, 23/10/2026): os servidores de nomes públicos do domínio são os nossos (ns do Contabo), ou a Cloudflare é a que responde */
+const dnsAtivo = (dns: Detalhe['dns'], ns?: string[]) => {
+  if (dns.fonte === 'cloudflare') return !!dns.cloudflareAutoritativa;
+  if (dns.fonte !== 'hestia') return false;
+  const nossos = [VISUALDESIGN_DEFAULT_NS.ns1, VISUALDESIGN_DEFAULT_NS.ns2];
+  return !!ns && ns.length >= 2 && ns.every((n) => nossos.includes(n.toLowerCase().replace(/\.$/, '')));
+};
+/** Certificado SSL ativo: existe e ainda não expirou */
+const sslAtivo = (c: Detalhe['certificado']) => {
+  if (!c) return false;
+  const ate = Date.parse(c.ate);
+  return isNaN(ate) || ate > Date.now();
+};
 const dataCurta = (s: string) => {
   const m = s && /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
   return m ? m[3] + '/' + m[2] + '/' + m[1] : s || '—';
@@ -990,19 +1007,35 @@ function VerDominio({ d }: { d: string }) {
           ['Tráfego', x.bw || '—'],
           [
             'Certificado SSL',
-            det?.certificado ? (
-              <>
-                {det.certificado.emissor ? emissorCurto(det.certificado.emissor) : t('Certificado')} · {t('válido até')} {dataLegivel(det.certificado.ate)}
-              </>
-            ) : det ? (
-              <span className="tag w">{t('Sem certificado')}</span>
+            det ? (
+              <span className="dom-ssl-estado">
+                <span className={'tag ' + (sslAtivo(det.certificado) ? 'ok' : 'w')}>{sslAtivo(det.certificado) ? t('Ativo') : t('Inativo')}</span>
+                {det.certificado && (
+                  <small>
+                    {t(sslAtivo(det.certificado) ? 'até' : 'expirou')} {dataLegivel(det.certificado.ate)}
+                  </small>
+                )}
+              </span>
             ) : (
               <span className="dom-a-ler">…</span>
             ),
             'ssl',
           ],
           ['Versão PHP', 'PHP ' + x.php, 'php'],
-          ['DNS', det ? (det.dns.fonte === 'cloudflare' ? 'Cloudflare' : det.dns.fonte === 'hestia' ? t('Neste servidor') : t('Fora da Visual Design')) : <span className="dom-a-ler">…</span>, 'dns'],
+          [
+            'DNS',
+            det ? (
+              <span
+                className={'tag ' + (dnsAtivo(det.dns, det.ns) ? 'ok' : 'w')}
+                title={det.dns.fonte === 'cloudflare' ? 'Cloudflare' : det.dns.fonte === 'hestia' ? t('Neste servidor') : t('Fora da Visual Design')}
+              >
+                {dnsAtivo(det.dns, det.ns) ? 'OK' : t('Pendente')}
+              </span>
+            ) : (
+              <span className="dom-a-ler">…</span>
+            ),
+            'dns',
+          ],
           ['Subdomínios', String(nSubs), 'dominios/subdominios'],
           ['Apontadores', String((x.aliases || []).length), 'apontadores'],
           ['Contas FTP', String((x.ftp || []).length), 'ftp'],

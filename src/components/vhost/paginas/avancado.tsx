@@ -900,7 +900,7 @@ function PainelRestaurar({ c, modo, setModo, fechar, onFeito, onCarregar }: { c:
         </div>
       </div>
       {modo === 'escolher' && (
-        <div className="bk-rest-corpo">
+        <div className="bk-rest-corpo so-vertical">
           <div className={'bk-rest-opcoes' + (onCarregar ? ' tres' : '')}>
             <button onClick={() => setModo('geral')}>
               <i className="fa-solid fa-boxes-stacked" />
