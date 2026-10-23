@@ -932,11 +932,11 @@ export function CotacaoContent({ painel = false }: { painel?: boolean } = {}) {
               <>
                 {modoPainel ? (
                   <>
+                    {/* sem serviços adicionados não aparece nada por cima do cartão: ele fica logo no topo, à altura da pré-visualização */}
+                    {lineItems.length > 0 && (
                     <div className="mb-4">
                       <label className={labelClass}>Serviços seleccionados</label>
-                      {lineItems.length === 0 ? (
-                        <p className="text-sm text-zinc-500 dark:text-zinc-400">Ainda não adicionou nenhum serviço.</p>
-                      ) : (
+                      {(
                         <div className="flex flex-col gap-2">
                           {multiItemsPriced.map(({ li, categoriaLabel, qty }) => (
                             <div key={li.id} className="flex items-center justify-between gap-3 p-3 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950">
@@ -961,6 +961,7 @@ export function CotacaoContent({ painel = false }: { painel?: boolean } = {}) {
                         </div>
                       )}
                     </div>
+                    )}
 
                     <div className="mb-4">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 shadow-sm">
