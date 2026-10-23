@@ -13560,11 +13560,11 @@
 
 /* Campos padronizados (Silva, 23/10/2026): a altura de todos os campos é a do botão base (34 px a 1440 px, um pouco menos nos ecrãs mais pequenos) e a letra dentro deles é de 12 px (em todos os campos, também nos de janelas e formulários) — texto, e-mail, palavra-passe, número, data, escolha (select), pesquisa e as caixas dos grupos (.igrp). Reduzem-se os campos, nunca o botão.
    Valem para todos os campos do painel; só ficam de fora os seletores de navegação da barra (domínio e separadores), as caixas de seleção, os botões de opção e os campos de cor, deslizante e ficheiro. */
-.vh :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]), select:not([multiple]):not([size]):not(.da-domain-selector select):not(.ptabs-sel select), textarea):not(#x) {
+.vh :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]), select:not([multiple]):not([size]):not(.da-domain-selector select):not(.ptabs-sel select), textarea):not(#x):not(.vh-nova-encomenda *) {
    font-size: calc(12px * var(--z, 1))
 }
 
-.vh :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]), select:not([multiple]):not([size]):not(.da-domain-selector select):not(.ptabs-sel select)):not(#x),
+.vh :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]), select:not([multiple]):not([size]):not(.da-domain-selector select):not(.ptabs-sel select)):not(#x):not(.vh-nova-encomenda *),
 .vh .igrp :is(.ib, select):not(#x),
 .vh .search:not(#x) {
    height: var(--h-campo, calc(32px * var(--z, 1)));
@@ -13995,12 +13995,12 @@
    --h-input: 40px
 }
 
-.vh :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]), select:not([multiple]):not([size]):not(.da-domain-selector select):not(.ptabs-sel select), textarea):not(#x):not(#y),
+.vh :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]), select:not([multiple]):not([size]):not(.da-domain-selector select):not(.ptabs-sel select), textarea):not(#x):not(#y):not(.vh-nova-encomenda *),
 .vh .search:not(#x):not(#y) input {
    font-size: 15px
 }
 
-.vh :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]), select:not([multiple]):not([size]):not(.da-domain-selector select):not(.ptabs-sel select)):not(#x):not(#y),
+.vh :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]), select:not([multiple]):not([size]):not(.da-domain-selector select):not(.ptabs-sel select)):not(#x):not(#y):not(.vh-nova-encomenda *),
 .vh .igrp :is(.ib, select):not(#x):not(#y),
 .vh .search:not(#x):not(#y) {
    height: var(--h-input);
@@ -14032,4 +14032,94 @@
 .vh .frm :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]), select:not([multiple]):not([size]):not(.da-domain-selector select):not(.ptabs-sel select), textarea):not(#x):not(#y):not(#z),
 .vh .frm .search:not(#x):not(#y):not(#z) input {
    font-size: 15px
+}
+
+/* Admin › Encomendas (Silva, 23/10/2026): sem o botão "Actualizar" */
+.vh .da-main-card:has(.enc-admin) :is(.barra-antiga button, .barra-antiga-m button, button[title="Actualizar"]):not(#x) {
+   display: none
+}
+
+/* a linha de cima do cartão só tinha o botão: sai, e a lista de secções (e a sua linha vertical) encosta à linha do título e da descrição */
+.vh .da-main-card:has(.enc-admin) .card-topo-modelo .card-topo-linha:not(#x) {
+   display: none
+}
+
+/* Admin › Encomendas: a lista de secções (Recebidas, Pendentes…) sem sombra nem linha vermelha à esquerda, com os itens a começar logo na margem do cartão
+   (Silva, 23/10/2026); ícones Font Awesome em cinzento, o da secção aberta a vermelho */
+.vh .enc-admin nav:not(#x):not(#y) {
+   padding-left: calc(12px * var(--z, 1));
+   box-shadow: none
+}
+
+.vh .enc-admin nav button:not(#x):not(#y) {
+   gap: calc(10px * var(--z, 1))
+}
+
+.vh .enc-admin nav button i.enc-ic:not(#x):not(#y) {
+   color: color-mix(in srgb, var(--muted) 70%, var(--card)) !important;
+   font-size: calc(15px * var(--z, 1));
+   width: calc(20px * var(--z, 1));
+   text-align: center;
+   flex: none
+}
+
+.vh .enc-admin nav button[class*="text-red-600"] i.enc-ic:not(#x):not(#y) {
+   color: var(--red) !important
+}
+
+/* Encomendas do cliente › Nova encomenda: o formulário (página do site dentro de uma moldura) ocupa a altura do ecrã, sem ficar preso a uma caixa pequena
+   (Silva, 23/10/2026) */
+.vh .vh-encomendas iframe[title="Nova Encomenda"]:not(#x) {
+   height: calc(100vh - 100px);
+   min-height: 640px
+}
+
+/* hover da lista de secções (Silva, 23/10/2026): as letras e o ícone acendem a vermelho */
+.vh .enc-admin nav button:hover:not(#x):not(#y),
+.vh .enc-admin nav button:hover i.enc-ic:not(#x):not(#y) {
+   color: var(--red) !important
+}
+
+.vh .enc-admin nav button[class~="border-transparent"]:hover:not(#x):not(#y) {
+   background: transparent !important
+}
+
+/* separadores por serviço (Todas, Design Gráfico…): sem linhas nas laterais e a linha vermelha só da largura do texto (Silva, 23/10/2026) */
+.vh .enc-admin .overflow-x-auto.shadow-sm:not(#x):not(#y) {
+   border-left-width: 0;
+   border-right-width: 0;
+   border-bottom-width: 0;
+   box-shadow: inset 0 -1px 0 var(--line)
+}
+
+.vh .enc-admin button.group:not(#x):not(#y) {
+   padding-top: calc(12px * var(--z, 1));
+   padding-bottom: calc(7px * var(--z, 1));
+   padding-left: 0;
+   padding-right: calc(24px * var(--z, 1))
+}
+
+.vh .enc-admin button.group > span:first-child:not(#x):not(#y) {
+   transform: none;
+   translate: none !important
+}
+
+.vh .enc-admin button.group > span.absolute:not(#x):not(#y) {
+   left: 0;
+   right: calc(24px * var(--z, 1));
+   width: auto;
+   translate: none !important;
+   transform: scaleX(0);
+   transform-origin: left;
+   transition: transform .25s
+}
+
+.vh .enc-admin button.group[class~="text-red-600"] > span.absolute:not(#x):not(#y) {
+   transform: scaleX(1)
+}
+
+/* Nova encomenda (Silva, 23/10/2026): a vista do formulário é a mesma que estava na moldura, sem alterações — as regras gerais do painel (arredondamentos
+   do painel, letra e altura dos campos, ícones nos campos) não se aplicam aqui dentro */
+.vh .vh-nova-encomenda :is(.rounded-xl, .rounded-lg, .rounded-2xl, .rounded-md, button.rounded-full):not(#x) {
+   border-radius: revert-layer
 }

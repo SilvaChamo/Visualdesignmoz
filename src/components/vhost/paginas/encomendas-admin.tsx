@@ -11,28 +11,17 @@ import { CotacoesSection } from '@/app/dashboard/CotacoesSection';
 import { EncomendasClientesSection } from '@/components/dashboard/EncomendasClientesSection';
 import { ContabilidadeTable } from '@/components/quotations/ContabilidadeTable';
 import type { ScreenFn } from '../screens';
-import { useVH } from '../context';
 import { DESC, EN, MENU } from '../generated/data';
-import { Tabs } from './componentes';
 import { LugarBarraAntiga, PonteBarraAntiga } from './mensagem-todos';
 
-// ---------- Menu: grupo "Encomendas e contabilidade" no Admin, antes de "Gestão do servidor" ----------
+// ---------- Menu: grupo "Contabilidade" no Admin, no fim do menu (Silva, 23/10/2026). As encomendas recebidas vão para a Gestão
+// (Gestão › Encomendas, para a sessão de administrador — ver encomendas.tsx): o administrador recebe encomendas, não as faz. ----------
 {
   const grupos = MENU.admin;
-  if (!grupos.some(([g]) => g === 'Encomendas e contabilidade')) {
-    const i = grupos.findIndex(([g]) => g === 'Gestão do servidor');
-    grupos.splice(i < 0 ? grupos.length : i, 0, [
-      'Encomendas e contabilidade',
+  if (!grupos.some(([g]) => g === 'Contabilidade')) {
+    grupos.push([
+      'Contabilidade',
       [
-        {
-          id: 'gestao-encomendas',
-          fa: 'fa-box-open',
-          t: 'Encomendas',
-          c: 'c2',
-          da: '—',
-          f: ['Todas as encomendas de produção gráfica, brindes e webdesign', 'Aprovar, pedir pagamento, entregar e cancelar', 'Contas de clientes das encomendas'],
-          hx: { s: 'app', cmd: '', n: 'Encomendas do site da VisualDesign' },
-        },
         {
           id: 'contabilidade',
           fa: 'fa-calculator',
@@ -42,21 +31,29 @@ import { LugarBarraAntiga, PonteBarraAntiga } from './mensagem-todos';
           f: ['Receitas e despesas das encomendas', 'Facturas, pagamentos e fecho do ano'],
           hx: { s: 'app', cmd: '', n: 'Contabilidade do site da VisualDesign' },
         },
+        {
+          id: 'contas-encomendas',
+          fa: 'fa-users',
+          t: 'Contas',
+          c: 'c7',
+          da: '—',
+          f: ['Contas de clientes das encomendas', 'Criar, editar e apagar contas'],
+          hx: { s: 'app', cmd: '', n: 'Contas de clientes das encomendas do site da VisualDesign' },
+        },
       ],
     ]);
   }
   DESC['admin/gestao-encomendas'] = ['As encomendas de todos os clientes e as contas de quem encomenda', 'Every client’s orders and the accounts of those who order'];
+  DESC['admin/contas-encomendas'] = ['Contas de clientes das encomendas', 'Order clients’ accounts'];
   DESC['admin/contabilidade'] = ['Receitas, despesas, facturas e pagamentos das encomendas', 'Income, expenses, invoices and payments from orders'];
   const novas: Record<string, string> = {
-    'Encomendas e contabilidade': 'Orders and accounting',
+    Encomendas: 'Orders',
     Contabilidade: 'Accounting',
     Contas: 'Accounts',
   };
   for (const [pt, en] of Object.entries(novas)) if (!(pt in EN)) EN[pt] = en;
 }
 
-const BASE = '/admin/gestao-encomendas';
-type Aba = 'encomendas' | 'contas';
 
 /** O desenho do dashboard antigo, com os botões da secção na barra de cima */
 function ComBarraAntiga({ children }: { children: React.ReactNode }) {
@@ -70,35 +67,38 @@ function ComBarraAntiga({ children }: { children: React.ReactNode }) {
   );
 }
 
-function Encomendas({ aba }: { aba: Aba }) {
-  const vh = useVH();
+function Encomendas() {
   return (
-    <>
-      <Tabs<Aba>
-        tabs={[
-          ['encomendas', 'Encomendas', 'fa-box-open'],
-          ['contas', 'Contas', 'fa-users'],
-        ]}
-        on={aba}
-        onChange={(k) => vh.nav(k === 'contas' ? BASE + '/contas' : BASE)}
-      />
-      <div className="tw-livre">
-        <ComBarraAntiga key={aba}>{aba === 'contas' ? <EncomendasClientesSection isActive /> : <CotacoesSection />}</ComBarraAntiga>
-      </div>
-    </>
+    <div className="tw-livre enc-admin">
+      <ComBarraAntiga>
+        <CotacoesSection painel />
+      </ComBarraAntiga>
+    </div>
   );
 }
 
-export const gestaoEncomendasPagina: ScreenFn = (vh) => {
-  const aba: Aba = vh.s.sub[0] === 'contas' ? 'contas' : 'encomendas';
-  return {
-    title: 'Encomendas',
-    desc: aba === 'contas' ? 'Contas de clientes das encomendas' : 'As encomendas de todos os clientes',
-    crumbs: [{ t: 'Encomendas', path: BASE }, ...(aba === 'contas' ? [{ t: 'Contas' }] : [])],
-    actions: <LugarBarraAntiga />,
-    body: <Encomendas aba={aba} />,
-  };
-};
+/** As encomendas recebidas (de todos os clientes): aberta em Gestão › Encomendas pela sessão de administrador */
+export const gestaoEncomendasPagina: ScreenFn = () => ({
+  title: 'Encomendas',
+  desc: 'As encomendas de todos os clientes',
+  crumbs: [{ t: 'Encomendas' }],
+  actions: <LugarBarraAntiga />,
+  body: <Encomendas />,
+});
+
+/** Admin › Contas: as contas de quem encomenda (Silva, 23/10/2026) */
+export const contasEncomendasPagina: ScreenFn = () => ({
+  title: 'Contas',
+  desc: 'Contas de clientes das encomendas',
+  actions: <LugarBarraAntiga />,
+  body: (
+    <div className="tw-livre enc-admin">
+      <ComBarraAntiga>
+        <EncomendasClientesSection isActive />
+      </ComBarraAntiga>
+    </div>
+  ),
+});
 
 export const contabilidadePagina: ScreenFn = () => ({
   title: 'Contabilidade',

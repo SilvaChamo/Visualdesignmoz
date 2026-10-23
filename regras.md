@@ -32,6 +32,7 @@ nota deste ficheiro que fale de capturas ou de mensagens de progresso.
   concluída (uma captura a meio parece uma alteração já feita).
 - **Não perguntar** o que se pode decidir com bom senso; nunca repetir o que o Silva acabou de dizer.
 - **Ao publicar:** na mesma mensagem, só o commit, o estado do deploy e o comando único de actualização local (ponto 6).
+- **O comando de actualização local só se dá quando o Silva diz "publica"/"publique" ou o pede** (Silva, 23/10/2026: "só dá código de actualização quando eu disser publique ou quando eu pedir"). Nos relatórios de trabalho a meio não se manda comando nenhum.
 
 # Como o site é publicado sem corte (Silva, 23/10/2026)
 

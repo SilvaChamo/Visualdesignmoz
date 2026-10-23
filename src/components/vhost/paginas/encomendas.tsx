@@ -9,6 +9,8 @@
 // continua no /encomendas do site, e passa para o painel quando comprar domínio ou hospedagem.
 import { useEffect } from 'react';
 import { EncomendasListSection } from '@/components/encomendas/EncomendasListSection';
+import { CotacaoContent } from '@/components/cotacao/CotacaoContent';
+import { Suspense } from 'react';
 import { EncomendasMensagensSection } from '@/components/encomendas/EncomendasMensagensSection';
 import { EncomendasPagamentosSection } from '@/components/encomendas/EncomendasPagamentosSection';
 import { marcarVoltaAoPainel } from '@/lib/voltar-ao-painel';
@@ -17,6 +19,7 @@ import type { ScreenFn } from '../screens';
 import { DESC, EN, MENU } from '../generated/data';
 import { useGet } from '../carga';
 import { Tabs } from './componentes';
+import { gestaoEncomendasPagina } from './encomendas-admin';
 
 // ---------- Menu: grupo "Compras e encomendas" na Gestão, antes de "Suporte e ajuda" ----------
 {
@@ -45,6 +48,7 @@ import { Tabs } from './componentes';
     Encomendas: 'Orders',
     Encomenda: 'Order',
     'Nova encomenda': 'New order',
+    'Escolha o serviço e veja o resumo da encomenda': 'Choose the service and see the order summary',
     Todas: 'All',
     'Por pagar': 'To pay',
     'Em curso': 'In progress',
@@ -145,7 +149,7 @@ function Encomendas({ aba, encomenda }: { aba: string; encomenda?: string }) {
         onChange={(k) => vh.nav(k === 'encomendas' ? BASE : BASE + '/' + k)}
       />
       <div className="vh-site vh-encomendas">
-        {aba === 'encomendas' && <EncomendasListSection />}
+        {aba === 'encomendas' && <EncomendasListSection onNova={() => vh.nav(BASE + '/nova')} />}
         {aba === 'mensagens' && <EncomendasMensagensSection initialQuotationId={encomenda || null} />}
         {aba === 'pagamentos' && <EncomendasPagamentosSection />}
       </div>
@@ -154,6 +158,8 @@ function Encomendas({ aba, encomenda }: { aba: string; encomenda?: string }) {
 }
 
 export const encomendasPagina: ScreenFn = (vh: VH) => {
+  // o administrador não faz encomendas, recebe-as: em Gestão › Encomendas vê as encomendas recebidas (Silva, 23/10/2026)
+  if (vh.s.acc[vh.s.login]?.role === 'admin' && !vh.s.stack.length) return gestaoEncomendasPagina(vh);
   if (vh.s.stack.length)
     return {
       title: 'Encomendas',
@@ -164,6 +170,33 @@ export const encomendasPagina: ScreenFn = (vh: VH) => {
       ),
     };
   const [sub, encomenda] = vh.s.sub;
+  // "Nova Encomenda": página própria que substitui toda a página das encomendas (lista, detalhe e resumo), com o botão de voltar (Silva, 23/10/2026)
+  if (sub === 'nova')
+    return {
+      title: 'Nova encomenda',
+      desc: 'Escolha o serviço e veja o resumo da encomenda',
+      crumbs: [{ t: 'Encomendas', path: BASE }, { t: 'Nova encomenda' }],
+      body: (
+        // a mesma vista que estava na moldura (iframe), com a mesma barra de cima: o título à esquerda e, onde estava o "fechar", o texto simples de voltar
+        <div className="tw-livre vh-nova-encomenda bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100 dark:border-zinc-800 shrink-0">
+            <p className="text-sm font-bold text-gray-900 dark:text-white">Nova Encomenda</p>
+            <button
+              type="button"
+              onClick={() => vh.nav(BASE)}
+              className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900 dark:hover:text-zinc-200"
+              title={vh.t('Voltar às encomendas')}
+            >
+              <i className="fa-solid fa-arrow-left" />
+              {vh.t('Voltar às encomendas')}
+            </button>
+          </div>
+          <Suspense fallback={null}>
+            <CotacaoContent painel />
+          </Suspense>
+        </div>
+      ),
+    };
   const aba = ABAS.some(([k]) => k === sub) ? sub : 'encomendas';
   return { title: 'Encomendas', body: <Encomendas aba={aba} encomenda={encomenda} /> };
 };

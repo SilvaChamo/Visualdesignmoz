@@ -106,13 +106,13 @@ function deliveryCountdown(dateStr: string, createdAtStr: string): { label: stri
 // pagamento). Rejeitadas (a equipa recusou) e Canceladas (o cliente desistiu)
 // ficam fora do fluxo principal, por isso vão no fim — e são baldes distintos,
 // para não misturar as duas origens diferentes.
-const BUCKET_ITEMS: { value: StatusBucket; label: string; icon: React.ElementType }[] = [
-  { value: 'pending', label: 'Pendentes', icon: Clock },
-  { value: 'approved', label: 'Em produção', icon: Factory },
-  { value: 'delivered', label: 'Concluídas', icon: PackageCheck },
-  { value: 'done', label: 'Entregues', icon: CheckCircle2 },
-  { value: 'rejected', label: 'Rejeitadas', icon: Ban },
-  { value: 'cancelled', label: 'Canceladas', icon: XCircle },
+const BUCKET_ITEMS: { value: StatusBucket; label: string; icon: React.ElementType; fa: string }[] = [
+  { value: 'pending', label: 'Pendentes', icon: Clock, fa: 'fa-hourglass-half' },
+  { value: 'approved', label: 'Em produção', icon: Factory, fa: 'fa-gears' },
+  { value: 'delivered', label: 'Concluídas', icon: PackageCheck, fa: 'fa-clipboard-check' },
+  { value: 'done', label: 'Entregues', icon: CheckCircle2, fa: 'fa-truck' },
+  { value: 'rejected', label: 'Rejeitadas', icon: Ban, fa: 'fa-ban' },
+  { value: 'cancelled', label: 'Canceladas', icon: XCircle, fa: 'fa-circle-xmark' },
 ]
 
 const CATEGORY_LABELS = [...BRANDS.map((b) => b.label), 'Outros']
@@ -145,7 +145,8 @@ function writeCotacoesCache(data: QuotationRequest[]) {
   }
 }
 
-export function CotacoesSection() {
+/** `painel`: dentro do painel VisualHost (tem os ícones Font Awesome); no dashboard antigo ficam os ícones lucide */
+export function CotacoesSection({ painel = false }: { painel?: boolean } = {}) {
   const [cotacoes, setCotacoes] = useState<QuotationRequest[]>(() => readCotacoesCache() ?? [])
   const [loading, setLoading] = useState(() => readCotacoesCache() === null)
   const [navMode, setNavMode] = useState<NavMode>('categoria')
@@ -375,7 +376,7 @@ export function CotacoesSection() {
             onClick={() => { setNavMode('categoria'); setActiveCategory(null) }}
             className={navBtnClass(navMode === 'categoria')}
           >
-            <Inbox className="w-4 h-4 shrink-0" />
+            {painel ? <i className="fa-solid fa-fw fa-inbox enc-ic" /> : <Inbox className="w-4 h-4 shrink-0" />}
             <span className="flex-1 text-left">Recebidas</span>
           </button>
 
@@ -388,7 +389,7 @@ export function CotacoesSection() {
                 onClick={() => { setNavMode('bucket'); setActiveBucket(b.value) }}
                 className={navBtnClass(navMode === 'bucket' && activeBucket === b.value)}
               >
-                <Icon className="w-4 h-4 shrink-0" />
+                {painel ? <i className={'fa-solid fa-fw enc-ic ' + b.fa} /> : <Icon className="w-4 h-4 shrink-0" />}
                 <span className="flex-1">{b.label}</span>
                 <span className="text-xs text-gray-400 dark:text-zinc-500">{bucketCounts[b.value]}</span>
               </button>
@@ -400,7 +401,7 @@ export function CotacoesSection() {
             onClick={() => setNavMode('historico')}
             className={navBtnClass(navMode === 'historico')}
           >
-            <History className="w-4 h-4 shrink-0" /> Histórico
+            {painel ? <i className="fa-solid fa-fw fa-clock-rotate-left enc-ic" /> : <History className="w-4 h-4 shrink-0" />} Histórico
           </button>
         </nav>
 
