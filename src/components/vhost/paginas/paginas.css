@@ -14182,6 +14182,7 @@
 /* botões das linhas das tabelas: discretos, sem negrito nem contornos pesados */
 .vh .tbl td .btn.g.sm {
    font-weight: 500;
+   font-size: calc(12px * var(--fs, 1));
    color: var(--ink2, #4b5563);
    background: transparent;
    border-color: color-mix(in srgb, var(--line) 70%, transparent);
