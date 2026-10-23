@@ -14128,3 +14128,12 @@
 .vh .vh-nova-encomenda [class*="lg:sticky"]:not(#x) {
    top: calc(16px * var(--z, 1))
 }
+
+/* Nova encomenda: sem o segundo cartão dentro do cartão principal; o conteúdo nas margens normais e a linha horizontal por baixo do título e do "Voltar" bem visível (Silva, 23/10/2026) */
+.vh .vh-nova-encomenda .nova-encomenda-barra:not(#x) {
+   border-bottom: 1px solid var(--line)
+}
+
+.vh .vh-nova-encomenda .cotacao-painel-pad:not(#x) {
+   padding: calc(16px * var(--z, 1)) 0 0
+}

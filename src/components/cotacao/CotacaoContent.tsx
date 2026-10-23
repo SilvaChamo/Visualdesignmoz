@@ -667,7 +667,7 @@ export function CotacaoContent({ painel = false }: { painel?: boolean } = {}) {
       )}
 
       <div className={isPanelEmbed ? '' : 'bg-zinc-200 dark:bg-zinc-950'}>
-        <div className={isPanelEmbed ? 'p-4' : 'container mx-auto max-w-7xl px-4 sm:px-6 pt-12 pb-16'}>
+        <div className={isPanelEmbed ? 'p-4 cotacao-painel-pad' : 'container mx-auto max-w-7xl px-4 sm:px-6 pt-12 pb-16'}>
         <div className={isPanelEmbed ? '' : 'mx-5'}>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
 
