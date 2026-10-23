@@ -1,0 +1,65 @@
+{
+  "paleta": {
+    "vermelho": [
+      "#E5202E",
+      "#F2555F"
+    ],
+    "azul": [
+      "#2D7FF9",
+      "#5B9BFF"
+    ],
+    "verde": [
+      "#1C9D5B",
+      "#34C27A"
+    ],
+    "laranja": [
+      "#F08C00",
+      "#FFA733"
+    ],
+    "roxo": [
+      "#7B4DDB",
+      "#A98BF0"
+    ],
+    "turquesa": [
+      "#00A3B4",
+      "#2CC4D4"
+    ],
+    "rosa": [
+      "#E64A8B",
+      "#F26FA5"
+    ]
+  },
+  "campos": {
+    "globe": "azul",
+    "user": "roxo",
+    "mail": "rosa",
+    "lock": "laranja",
+    "folder": "laranja",
+    "search": "turquesa",
+    "link": "azul",
+    "phone": "verde",
+    "hash": "roxo",
+    "calendar": "vermelho",
+    "clock": "turquesa",
+    "server": "roxo",
+    "key": "rosa",
+    "texto": "azul",
+    "tag": "laranja",
+    "lista": "turquesa",
+    "ficheiro": "azul",
+    "base": "verde",
+    "escudo": "verde",
+    "cor": "rosa",
+    "imagem": "verde",
+    "terminal": "roxo",
+    "codigo": "roxo",
+    "caneta": "laranja",
+    "mapa": "vermelho",
+    "empresa": "azul",
+    "cartao": "turquesa",
+    "arroba": "rosa",
+    "envio": "azul",
+    "caixa": "turquesa",
+    "cartaaberta": "rosa"
+  }
+}

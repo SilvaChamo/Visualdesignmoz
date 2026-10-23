@@ -246,6 +246,14 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
   o campo e o olho; com `semGerar` (repetir, palavra-passe anterior) leva o cadeado), as pesquisas com a sua lupa, os campos com menos de 110 px de largura, o terminal e as caixas de
   escolha dos separadores. Para forçar um ícone: `data-ic="globe"`; para dispensar: `data-ic-sem`. **Uma página nova não precisa de
   fazer nada** — mas confirmar que o ícone certo saiu (se não, ajustar `escolher()` ou pôr `data-ic` no campo).
+- **Todos os ícones do painel são coloridos, cada um com a sua cor, sempre a mesma** (Silva, 23/10/2026: "todos os ícones coloridos, incluindo os dos
+  campos"). Paleta do submenu (vermelho, azul, verde, laranja, roxo, turquesa, rosa; versão mais clara no tema escuro). A cor de cada ícone Font Awesome
+  sai de `scripts/gerar-cores-icones.cjs` (por significado — lixo/proibir vermelho, certo/transferir verde, globo/ligação azul… — e, se não houver
+  regra, por um cálculo fixo do nome) e é gravada em `src/components/vhost/paginas/icones-cores.css` (**gerado, não editar à mão**). Os ícones das
+  caixas dos campos (`data-ic`) usam as cores de `scripts/cores-campos.json`, escritas pelo mesmo script, em `icones-campos.css`. **Ao usar um ícone
+  novo no painel, correr `node scripts/gerar-cores-icones.cjs` e `node scripts/gerar-icones-campos.cjs`.** Ficam como estão os ícones de estrutura (setas,
+  fechar, a rodar), a barra de cima, a barra de ícones e o menu da esquerda (têm as suas cores), e tudo o que já tem cor própria (botão vermelho,
+  `btn-ed`/`btn-rm`, etiquetas, avisos, caixas de seleção, o gestor de ficheiros em `.fmda-icc`/`.fmda-raiz`) — a lista está em `FORA` no script.
 - Formulários sem contornos laterais; títulos e campos alinhados à esquerda pelo `--recuo`.
 - Janelas (popups): **o fundo é sempre transparente (escurece um pouco), sem desfoque** e os cantos dos cartões são os do painel (4 px, `--r`) — vale também para o popup do Painel de Manutenção do Servidor (a chave do cartão do servidor, `.vh-popup-manut`; Silva, 21/10/2026); **25 px de espaço nos 4 cantos**; largura dinâmica só quando o domínio é comprido; no computador o
   menu de opções de uma linha abre para a esquerda.

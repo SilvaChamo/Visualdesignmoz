@@ -1,6 +1,8 @@
 // Gera src/components/vhost/paginas/icones-campos.css a partir dos SVG do Font Awesome (solid).
 // Uso: node scripts/gerar-icones-campos.cjs   (a escolha do ícone de cada campo está em src/components/vhost/icones-campos.ts)
 const fs = require('fs');
+// cores por ícone (Silva, 23/10/2026: ícones coloridos): scripts/cores-campos.json, escrito por scripts/gerar-cores-icones.cjs
+const cores = JSON.parse(fs.readFileSync('scripts/cores-campos.json', 'utf8'));
 const dir = 'node_modules/@fortawesome/fontawesome-free/svgs/solid/';
 const icones = { globe: 'globe', user: 'user', mail: 'envelope', lock: 'lock', folder: 'folder', search: 'magnifying-glass', link: 'link', phone: 'phone', hash: 'hashtag', calendar: 'calendar-days', clock: 'clock', server: 'server', key: 'key', texto: 'file-lines', tag: 'tag', lista: 'list', ficheiro: 'file', base: 'database', escudo: 'shield-halved', cor: 'palette', imagem: 'image', terminal: 'terminal', codigo: 'code', caneta: 'pen', mapa: 'location-dot', empresa: 'building', cartao: 'id-card', arroba: 'at', envio: 'paper-plane', caixa: 'inbox', cartaaberta: 'envelope-open-text' };
 const uri = (f, cor) => {
@@ -11,10 +13,10 @@ const seta = (cor) => `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
 let css = `/* Ícone de cada campo numa caixa cinzenta colada à esquerda, como nos campos das Definições PHP (Silva, 21/10/2026: "em todo o sítio onde
    puser ícone, assim como está na imagem"). A caixa é desenhada no próprio campo (fundo: ícone, caixa e linha), sem mexer na estrutura que
    o React desenha. O ícone vem de data-ic, posto por icones-campos.ts. GERADO por scripts/gerar-icones-campos.cjs (Font Awesome 6.5.2,
-   solid) — não editar à mão. Cor do ícone: a do .ib (--muted), no tema claro e no escuro. */
+   solid) — não editar à mão. Cor do ícone: a de cada ícone (scripts/cores-campos.json), mais clara no tema escuro. */
 `;
-for (const [n, f] of Object.entries(icones)) css += `.vh [data-ic="${n}"] {\n   --ic: url("${uri(f, '%236E6E73'.replace('%23', '#'))}")\n}\n\n`;
-for (const [n, f] of Object.entries(icones)) css += `.vh[data-theme=dark] [data-ic="${n}"] {\n   --ic: url("${uri(f, '#94A3B8')}")\n}\n\n`;
+for (const [n, f] of Object.entries(icones)) css += `.vh [data-ic="${n}"] {\n   --ic: url("${uri(f, cores.paleta[cores.campos[n] || 'azul'][0])}")\n}\n\n`;
+for (const [n, f] of Object.entries(icones)) css += `.vh[data-theme=dark] [data-ic="${n}"] {\n   --ic: url("${uri(f, cores.paleta[cores.campos[n] || 'azul'][1])}")\n}\n\n`;
 css += `.vh {
    --seta-campo: url("${seta('%236E6E73')}")
 }
