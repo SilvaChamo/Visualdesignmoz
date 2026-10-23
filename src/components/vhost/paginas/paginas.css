@@ -14259,10 +14259,10 @@
 }
 
 .vh .enc-contab [class~="flex-wrap"][class~="items-end"] > button:not(#x):not(#y) {
-   padding: calc(9px * var(--z, 1)) calc(11px * var(--z, 1));
+   padding: calc(5px * var(--z, 1)) calc(11px * var(--z, 1));
    margin-bottom: -1px;
    border: 1px solid transparent;
-   border-bottom: 0;
+   border-bottom: 1px solid var(--line);
    border-radius: var(--r) var(--r) 0 0
 }
 
