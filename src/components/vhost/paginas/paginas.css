@@ -3829,21 +3829,8 @@
    position: absolute;
    top: 40px;
    right: 0;
-   min-width: 150px
-}
-
-/* Mais (3 pontinhos): popup mais estreito e letra mais pequena (Silva, 23/10/2026) */
-.vh .fmda-menu-mais button {
-   gap: 8px;
-   height: 30px;
-   padding: 0 12px;
-   white-space: nowrap;
-   font-size: calc(12.5px * var(--fs, 1))
-}
-
-.vh .fmda-menu-mais button i {
-   width: 14px;
-   font-size: calc(11.5px * var(--fs, 1))
+   width: max-content;
+   min-width: 0
 }
 
 .vh .fmda-menu button {
@@ -11807,6 +11794,26 @@
 
 .vh-popup-manut .rounded-xl {
    border-radius: 4px
+}
+
+/* Mais (3 pontinhos): popup pequeno e aconchegante — cada opção numa só linha, letra de 12 px (Silva, 23/10/2026). Tem de vir depois
+   das regras gerais do menu e com mais força, senão estas ganham */
+.vh .fmda-menu.fmda-menu-mais {
+   padding: 3px 0
+}
+
+.vh .fmda-menu.fmda-menu-mais button {
+   gap: 8px;
+   height: 28px;
+   padding: 0 12px;
+   white-space: nowrap;
+   font-size: 12px
+}
+
+.vh .fmda-menu.fmda-menu-mais button i {
+   width: 13px;
+   flex: none;
+   font-size: 11px
 }
 
 /* Gestor de ficheiros › Mais: linha entre a opção "Mostrar/Ocultar ficheiros do root" e as ações dos ficheiros escolhidos */
