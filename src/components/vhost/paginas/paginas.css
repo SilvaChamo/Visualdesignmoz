@@ -10578,10 +10578,6 @@
    border-radius: 0;
 }
 
-.vh .tbl[data-dt="dns"] tbody tr:last-child td {
-   border-bottom: 0;
-}
-
 .vh .tbl[data-dt="dns"] .dt-fundo {
    border-top: 0;
 }
@@ -13321,9 +13317,11 @@
    }
 }
 
-/* Cartão sem faixa de separadores e com o título logo ao abrir (DNS): quase sem espaço por cima do título — 6 px (Silva, 23/10/2026) */
-.vh .da-main-card:not(:has(> .ptabs-faixa)):has(> .card-topo-slot .card-topo-titulo):not(#x) {
-   padding-top: 6px
+/* A margem de cima do cartão é igual à dos lados: 25 px (1 px de borda + 24 px) nos 4 cantos (Silva, 23/10/2026) */
+@media (max-width: 768px) {
+   .vh .da-main-card:not(:has(> .ptabs-faixa)):has(> .card-topo-slot .card-topo-titulo):not(#x) {
+      padding-top: 11px
+   }
 }
 
 /* paginação por cima da linha do título, à direita, na altura da descrição (Silva, 23/10/2026) */
@@ -13346,5 +13344,13 @@
       position: static;
       align-self: flex-end;
       margin-top: 6px
+   }
+}
+
+/* A última linha de cada tabela leva sempre a linha de fecho, a continuar as de dentro — em todas as tabelas, também nas que tinham a sua
+   regra própria (DNS, pacotes, Transferir) (Silva, 23/10/2026). No telemóvel as linhas são blocos e ficam como estavam. */
+@media (min-width: 769px) {
+   .vh :is(.tbl, .trf-tabela) tbody tr:last-child > td:not(#x) {
+      border-bottom: 1px solid var(--line)
    }
 }
