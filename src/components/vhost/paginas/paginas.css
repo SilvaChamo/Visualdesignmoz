@@ -14273,3 +14273,8 @@
    background: var(--card);
    color: var(--red)
 }
+
+/* Contabilidade: o título de todas as colunas alinhado à esquerda */
+.vh .enc-contab table th:not(#x):not(#y) {
+   text-align: left
+}
