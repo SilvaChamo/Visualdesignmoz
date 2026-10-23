@@ -34,9 +34,14 @@ export async function isProfileWhoisComplete(admin: SupabaseClient, authUserId: 
     .select('telefone, morada, cidade')
     .or(profileAuthOrFilter(authUserId))
     .maybeSingle();
-  if (!data) return false;
+  // O telefone também pode estar só nos dados da conta (user_metadata): conta como preenchido (Silva, 23/10/2026: os dados do perfil valem em todo o sistema)
+  const { data: conta } = await admin.auth.admin.getUserById(authUserId);
+  const telefoneConta = String(conta?.user?.user_metadata?.telefone || '').trim();
+  const linha = { ...((data || {}) as Record<string, unknown>) };
+  if (!String(linha.telefone || '').trim() && telefoneConta) linha.telefone = telefoneConta;
+  if (!data && !telefoneConta) return false;
   return WHOIS_REQUIRED_FIELDS.every((f) => {
-    const value = (data as Record<string, unknown>)[f];
+    const value = linha[f];
     return typeof value === 'string' && value.trim().length > 0;
   });
 }

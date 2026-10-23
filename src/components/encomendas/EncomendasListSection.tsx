@@ -174,7 +174,7 @@ export function EncomendasListSection({ onNova, textoNova }: { onNova?: () => vo
                     type="button"
                     onClick={(e) => handleDeleteFromCard(e, anchor.id)}
                     disabled={deletingBatchId === batch.batchId}
-                    className="shrink-0 text-gray-300 hover:text-red-600 dark:text-zinc-600 dark:hover:text-red-500 transition-colors p-1"
+                    className="shrink-0 text-gray-500 hover:text-red-600 dark:text-zinc-400 dark:hover:text-red-500 transition-colors p-1"
                     title="Eliminar encomenda"
                   >
                     {deletingBatchId === batch.batchId ? <Spinner className="w-4 h-4" /> : <Trash2 className="w-4 h-4" />}

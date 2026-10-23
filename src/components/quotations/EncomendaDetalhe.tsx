@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { XCircle, Pencil, CreditCard, AlertCircle, Loader2, CheckCircle2 } from 'lucide-react';
+import { XCircle, Pencil, CreditCard, AlertCircle, Loader2, CheckCircle2, Trash2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase-client';
 import { Spinner } from '@/components/ui/spinner';
 import { formatMt } from '@/lib/pricing-catalog';
@@ -177,8 +177,9 @@ export function EncomendaDetalhe({
   return (
     <div className="flex flex-col h-full">
       <div className={`${panelTabBar} px-4 pt-3`}>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap gap-5">
+        {/* os separadores assentam em baixo e a linha vermelha do ativo cobre a linha cinzenta da barra (Silva, 23/10/2026) */}
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div className="flex flex-wrap gap-5 -mb-px">
             {TABS.map((t) => (
               <button
                 key={t.id}
@@ -247,6 +248,29 @@ export function EncomendaDetalhe({
                         {item.produto} · Qtd: {item.quantidade} · {item.sob_consulta ? 'Sob Consulta' : `${formatMt(item.total_mt)} MT`}
                       </p>
                     </div>
+                    {item.status === 'rejected' && !isEditing && (
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-bold border ${statusMeta(item.status).color}`}>{statusMeta(item.status).label}</span>
+                        <button type="button" className={panelBtnSecondary} onClick={() => setEditingItemId(item.id)} title="Editar a encomenda e voltar a submetê-la">
+                          <Pencil className="w-4 h-4" /> Editar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (!window.confirm('Eliminar esta encomenda? Esta ação não pode ser desfeita.')) return;
+                            const r = await fetch(`/api/cotacoes/${item.id}`, { method: 'DELETE' });
+                            const j = await r.json().catch(() => ({}));
+                            if (r.ok && j.success) onChanged();
+                            else window.alert(j.error || 'Não foi possível eliminar a encomenda.');
+                          }}
+                          className="text-gray-500 hover:text-red-600 dark:text-zinc-400 dark:hover:text-red-500 transition-colors p-1"
+                          title="Eliminar encomenda"
+                          aria-label="Eliminar encomenda"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
                     {item.status === 'pending' && !isEditing && (
                       <button
                         type="button"
