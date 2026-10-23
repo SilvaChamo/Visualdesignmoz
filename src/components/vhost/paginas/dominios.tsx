@@ -4022,7 +4022,7 @@ function Redirecionamentos() {
           <input value={dom.url} onChange={(e) => setDom({ ...dom, url: e.target.value })} placeholder="https://outro-site.com" />
         </Row>
         <Row label="Tipo">
-          <select value={dom.codigo} onChange={(e) => setDom({ ...dom, codigo: e.target.value })} style={{ maxWidth: 320 }}>
+          <select value={dom.codigo} onChange={(e) => setDom({ ...dom, codigo: e.target.value })}>
             <option value="301">301 · {t('permanente')}</option>
             <option value="302">302 · {t('temporário')}</option>
           </select>
@@ -4048,7 +4048,7 @@ function Redirecionamentos() {
           <input value={nova.de} onChange={(e) => setNova({ ...nova, de: e.target.value })} placeholder="/promo" />
         </Row>
         <Row label="Tipo">
-          <select value={nova.tipo} onChange={(e) => setNova({ ...nova, tipo: e.target.value })} style={{ maxWidth: 320 }}>
+          <select value={nova.tipo} onChange={(e) => setNova({ ...nova, tipo: e.target.value })}>
             <option value="301">301 · {t('permanente')}</option>
             <option value="302">302 · {t('temporário')}</option>
           </select>

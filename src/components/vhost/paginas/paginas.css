@@ -13728,3 +13728,103 @@
 .vh .tbl thead th.dt-th-cols:not(#x) {
    box-shadow: -10px 0 8px -6px color-mix(in srgb, var(--soft) 90%, transparent)
 }
+
+/* Campos e botões em linhas de formulário (Silva, 23/10/2026): num fundo liso (sem cor própria) vão até ao fim da linha, sem margem à direita — só o texto, os
+   ícones e as caixas de seleção levam recuo; num fundo com cor (linhas cinzentas alternadas das Definições PHP, a faixa do rodapé…) mantêm a margem para não
+   encostar ao limite da cor */
+.vh .da-main-card .frm:not(.php-defs):not(.php-versao):not(.pf-senha):not(.frm-lados) .frm-row:not(#x):not(#y) {
+   padding-right: 0
+}
+
+.vh .da-main-card .frm:not(.php-defs):not(.php-versao):not(.pf-senha):not(.frm-lados) .frm-ctl > :is(input, select, textarea, .igrp):not([type=checkbox]):not([type=radio]):not(#x) {
+   max-width: none
+}
+
+/* Telemóvel (de 320 px, o mais pequeno, para cima) — um botão sozinho ocupa metade da largura, encostado à direita, quando o texto cabe nessa metade; se o texto é
+   comprido (marca .uma-coluna, posta por botoes-telemovel.ts) ocupa a largura toda (Silva, 23/10/2026). Vale nos rodapés de formulários e janelas, nas barras de
+   botões, nos filtros e no fim dos blocos das listas. Dois ou mais continuam lado a lado, como estavam. */
+@media (max-width: 768px) {
+   .vh :is(.frm-foot, .mfoot, .acoes-topo) > :is(.btn, button, a):only-child:not(#x) {
+      flex: 0 0 calc(50% - 4px) !important;
+      width: auto;
+      max-width: 100%;
+      margin-left: auto
+   }
+
+   .vh :is(.frm-foot, .mfoot, .acoes-topo).uma-coluna > :is(.btn, button, a):only-child:not(#x) {
+      flex: 1 1 100% !important;
+      margin-left: 0
+   }
+
+   .vh .em-filtros.em-rastreio > .btn:not(#x) {
+      flex: 0 0 calc(50% - 7px);
+      min-width: 0;
+      margin-left: auto
+   }
+
+   .vh .em-filtros.em-rastreio.uma-coluna > .btn:not(#x) {
+      flex: 1 1 100%;
+      margin-left: 0
+   }
+
+   .vh .tbl.dt-empilhar tbody td.dt-acoes-linha > .btn:only-child:not(#x),
+   .vh .tbl.dt-empilhar tbody td.dt-acoes-linha > :is(span, div):not(.menu):not(.wp-menu):not(.ssl-pop-menu) > .btn:only-child:not(#x) {
+      flex: 0 0 calc(50% - 4px) !important;
+      width: auto !important;
+      max-width: 100%;
+      margin-left: auto !important
+   }
+
+   .vh .tbl.dt-empilhar tbody td.dt-acoes-linha.uma-coluna > .btn:only-child:not(#x),
+   .vh .tbl.dt-empilhar tbody td.dt-acoes-linha > :is(span, div).uma-coluna > .btn:only-child:not(#x) {
+      flex: 1 1 100% !important;
+      margin-left: 0 !important
+   }
+}
+
+/* Telemóvel: nenhum botão corta o texto e o rodapé do formulário não leva fundo (Silva, 23/10/2026). Sem fundo a faixa não muda nada: o botão fica na largura toda, dentro
+   das margens (12 px). Quando o texto não cabe numa linha, passa à linha de baixo e o botão cresce em altura. */
+@media (max-width: 768px) {
+   .vh .frm-foot:not(#x):not(#y) {
+      background: transparent;
+      padding-left: 0;
+      padding-right: 0;
+      border-radius: 0
+   }
+
+   .vh :is(.frm-foot, .mfoot, .acoes-topo, .em-filtros.em-rastreio).uma-coluna > :is(.btn, button, a):not(#x),
+   .vh .tbl.dt-empilhar tbody td.dt-acoes-linha .uma-coluna > .btn:not(#x),
+   .vh .tbl.dt-empilhar tbody td.dt-acoes-linha.uma-coluna > .btn:not(#x),
+   .vh .da-main-card .card-topo-btns > [data-larga]:not(#x) {
+      white-space: normal !important;
+      height: auto !important;
+      min-height: var(--h-campo, 32px);
+      padding-top: 8px !important;
+      padding-bottom: 8px !important;
+      line-height: 1.25;
+      text-align: center;
+      overflow-wrap: anywhere
+   }
+}
+
+/* Telemóvel: nos formulários em linhas sem fundo os campos começam e acabam no mesmo sítio das linhas horizontais; só os rótulos (texto) levam recuo (Silva, 23/10/2026) */
+@media (max-width: 768px) {
+   .vh .da-main-card .frm:not(.php-defs):not(.php-versao):not(.pf-senha):not(.frm-lados) .frm-row:not(#x):not(#y) {
+      padding-left: 0;
+      padding-right: 0
+   }
+
+   .vh .da-main-card .frm:not(.php-defs):not(.php-versao):not(.pf-senha):not(.frm-lados) .frm-row > .frm-lb:not(#x):not(#y) {
+      padding-left: var(--recuo, 12px);
+      padding-right: var(--recuo, 12px)
+   }
+}
+
+/* Telemóvel: os campos dos formulários em linhas sem fundo ocupam a linha toda, mesmo quando a página lhes põe uma largura máxima (Silva, 23/10/2026) */
+@media (max-width: 768px) {
+   .vh .da-main-card .frm:not(.php-defs):not(.php-versao):not(.pf-senha):not(.frm-lados) .frm-ctl > :is(input, select, textarea, .igrp):not([type=checkbox]):not([type=radio]):not(#x) {
+      max-width: none !important;
+      width: 100% !important;
+      flex: 1 1 100%
+   }
+}
