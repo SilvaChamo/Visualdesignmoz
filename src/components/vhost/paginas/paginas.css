@@ -13318,6 +13318,14 @@
 }
 
 /* A margem de cima do cartão é igual à dos lados: 25 px (1 px de borda + 24 px) nos 4 cantos (Silva, 23/10/2026) */
+/* medida pelo texto (não pela caixa): o título tem 5 px de ar por cima dentro da própria linha, por isso a caixa começa 5 px mais perto para o texto
+   ficar a 26 px do topo, como fica a 26 px da esquerda */
+@media (min-width: 769px) {
+   .vh .da-main-card:not(:has(> .ptabs-faixa)):has(> .card-topo-slot .card-topo-titulo):not(#x) {
+      padding-top: 19px
+   }
+}
+
 @media (max-width: 768px) {
    .vh .da-main-card:not(:has(> .ptabs-faixa)):has(> .card-topo-slot .card-topo-titulo):not(#x) {
       padding-top: 11px
