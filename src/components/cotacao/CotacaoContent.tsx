@@ -1347,8 +1347,9 @@ export function CotacaoContent({ painel = false }: { painel?: boolean } = {}) {
                 )}
 
                 <div className={`space-y-3 text-sm ${mostrarLinhaAntesServicos ? 'border-t border-zinc-300 dark:border-zinc-600 pt-4' : ''}`}>
-                  {multiItemsPriced.map(({ li, categoriaLabel, qty, sobConsultaItem, isCustom, precoUnitario, startingAt }) => (
-                    <div key={li.id}>
+                  {multiItemsPriced.map(({ li, categoriaLabel, qty, sobConsultaItem, isCustom, precoUnitario, startingAt }, idx) => (
+                    // uma linha separa cada serviço do anterior (Silva, 23/10/2026)
+                    <div key={li.id} className={idx > 0 ? 'border-t border-zinc-300 dark:border-zinc-600 pt-3' : ''}>
                       {isCustom ? (
                         <>
                           <p className="font-semibold text-zinc-900 dark:text-white">{categoriaLabel}</p>
