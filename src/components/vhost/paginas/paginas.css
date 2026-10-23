@@ -13336,7 +13336,7 @@
    }
 
    .vh .card-topo-linha > .card-topo-opcoes.na-linha:not(#x) {
-      flex: 0 0 auto
+      flex: 1 0 auto
    }
 
    .vh .card-topo-linha .search.dom-pesq.dom-pesq-junto:not(#x) {
@@ -13370,24 +13370,6 @@
 
    .vh .opcoes-linha:not(#x) button {
       gap: 2px
-   }
-}
-
-/* tablet estreito: as opções (uma só linha) ficam por cima da pesquisa e do botão, que não deixam de caber */
-@media (min-width: 769px) and (max-width: 1099px) {
-   .vh .card-topo-linha:has(> .card-topo-opcoes.na-linha):not(#x) {
-      flex-wrap: wrap;
-      row-gap: calc(8px * var(--z, 1))
-   }
-
-   .vh .card-topo-linha > .card-topo-opcoes.na-linha:not(#x) {
-      flex: 1 1 100%
-   }
-
-   .vh .card-topo-linha .search.dom-pesq.dom-pesq-junto:not(#x) {
-      flex: 1 1 0;
-      min-width: calc(140px * var(--z, 1));
-      width: auto
    }
 }
 
