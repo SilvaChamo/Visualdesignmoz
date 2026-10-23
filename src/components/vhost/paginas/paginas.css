@@ -13576,6 +13576,18 @@
    font-size: calc(12px * var(--z, 1))
 }
 
+/* Formulários (Silva, 23/10/2026: "dentro do formulário letra de 12,5 e o campo ligeiramente maior"): os campos dentro de um formulário levam letra de 12,5 px e
+   38 px de altura (em vez de 12 px e 34 px) — a mesma proporção por ecrã; só vale dentro do formulário (.frm), os outros campos ficam como estavam. */
+.vh .frm:not(#x) {
+   --h-campo: calc(38px * (.75 + .25 * min(var(--fs0, 1), 1)) * var(--z, 1))
+}
+
+.vh .frm :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]), select:not([multiple]):not([size]), textarea):not(#x),
+.vh .frm .igrp .ib:not(#x),
+.vh .frm .search:not(#x) input {
+   font-size: calc(12.5px * var(--z, 1))
+}
+
 /* Rastreio de e-mail: os campos e o botão "Pesquisar" ocupam sempre a largura toda, numa só linha (Silva, 23/10/2026). Quanto mais pequeno o ecrã, mais pequenos
    ficam (caixa do ícone, letra, botão só com a lupa); só quando nem assim cabe (abaixo de ~950 px) a linha desliza para os lados. Nenhum campo desce de 110 px
    (abaixo disso o ícone do campo não aparece). No telemóvel vão em coluna. */
