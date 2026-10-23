@@ -97,4 +97,4 @@ export function useVH(): VH {
 
 /** Pesquisa posta pela tabela da página na linha por baixo do título do cartão, à esquerda (Silva, 22/10/2026: DNS, como Domínios).
  *  A tabela (`DataTable pesqCabecalho`) liga-a e filtra pelo texto; a linha do cartão (NoTopoCartao `modelo`) desenha a caixa. */
-export const ConsultaPagina = createContext<{ q: string; setQ: (v: string) => void; ativo: boolean; ativar: (v: boolean) => void } | null>(null);
+export const ConsultaPagina = createContext<{ q: string; setQ: (v: string) => void; ativo: boolean | 'junto'; ativar: (v: boolean | 'junto') => void } | null>(null);

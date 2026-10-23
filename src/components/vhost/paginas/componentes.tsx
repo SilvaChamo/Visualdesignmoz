@@ -281,6 +281,7 @@ export function DataTable<T>({
   semBusca = true,
   consulta,
   pesqCabecalho = false,
+  pesqJuntoBotao = false,
   acoesFixas = false,
   acoesDiretas = false,
   comSelecao = false,
@@ -327,6 +328,8 @@ export function DataTable<T>({
   consulta?: string;
   /** a caixa de pesquisa fica na linha por baixo do título do cartão, à esquerda (NoTopoCartao `modelo`), e filtra esta tabela */
   pesqCabecalho?: boolean;
+  /** a pesquisa fica na linha do botão, mesmo à frente dele, e as opções mantêm o seu lugar à esquerda (DNS; Silva, 23/10/2026) */
+  pesqJuntoBotao?: boolean;
   /** à esquerda, "Colunas" e "Ações" sempre à vista (Ações inativo sem linhas escolhidas); a pesquisa com 1/4 da largura
    *  do cartão, à direita (pedido do Silva para as contas do Admin) */
   acoesFixas?: boolean;
@@ -373,13 +376,13 @@ export function DataTable<T>({
   const pesqPagina = useContext(PesquisaPagina);
   const [qInterno, setQ] = useState('');
   const cons = useContext(ConsultaPagina);
-  const ligada = pesqCabecalho && !!cons;
+  const ligada = (pesqCabecalho || pesqJuntoBotao) && !!cons;
   const ativarCons = cons?.ativar;
   useEffect(() => {
     if (!ligada || !ativarCons) return;
-    ativarCons(true);
+    ativarCons(pesqJuntoBotao ? 'junto' : true);
     return () => ativarCons(false);
-  }, [ligada, ativarCons]);
+  }, [ligada, ativarCons, pesqJuntoBotao]);
   const q = consulta ?? (ligada ? cons!.q : qInterno);
   // linha escolhida na lupa da barra de cima: fica realçada uns segundos
   const [realce, setRealce] = useState<string | null>(null);

@@ -13396,3 +13396,35 @@
       background: var(--fundo-lista)
    }
 }
+
+/* Telemóvel: cada linha é um bloco, por isso o fundo alternado pinta o bloco inteiro (não célula a célula, que deixava riscas) e a
+   paginação lê-se "Página 1 de 2", sem a barra a mais (Silva, 23/10/2026) */
+@media (max-width: 768px) {
+   .vh:not([data-theme=dark]) .tbl.dt-empilhar tbody tr:nth-child(even):not(.grp):not(.sel):not(.dt-realce):not(:hover):not(#x) {
+      background-color: var(--fundo-lista)
+   }
+
+   .vh .tbl.dt-empilhar tbody tr:nth-child(even):not(.grp):not(.sel):not(.dt-realce):not(:hover) > td:not(#x) {
+      background: transparent
+   }
+
+   .vh .dt-pag .dt-pag-bar:not(#x) {
+      display: none
+   }
+}
+
+/* DNS: a pesquisa fica na linha do botão, mesmo à frente dele (à sua esquerda); as opções mantêm o lugar à esquerda (Silva, 23/10/2026) */
+.vh .card-topo-linha .search.dom-pesq.dom-pesq-junto:not(#x) {
+   flex: 0 1 300px;
+   width: 300px;
+   margin-left: 0;
+   margin-right: 10px
+}
+
+@media (max-width: 768px) {
+   .vh .card-topo-linha .search.dom-pesq.dom-pesq-junto:not(#x) {
+      flex: 1 1 100%;
+      width: auto;
+      margin: 0
+   }
+}

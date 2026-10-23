@@ -322,7 +322,7 @@ function PaginaSlot({ p, oculta, onPronta, registar }: { p: Pagina; oculta: bool
   const pesquisa = useMemo(() => ({ registar: (id: string, fonte: () => ItemPesquisa[]) => registar(p.chave, id, fonte) }), [registar, p.chave]);
   // pesquisa da tabela posta na linha por baixo do título do cartão (DNS): o texto e se a tabela a pediu
   const [consultaQ, setConsultaQ] = useState('');
-  const [consultaAtiva, setConsultaAtiva] = useState(false);
+  const [consultaAtiva, setConsultaAtiva] = useState<boolean | 'junto'>(false);
   const consulta = useMemo(() => ({ q: consultaQ, setQ: setConsultaQ, ativo: consultaAtiva, ativar: setConsultaAtiva }), [consultaQ, consultaAtiva]);
   const falta = useRef(0);
   const montada = useRef(false);

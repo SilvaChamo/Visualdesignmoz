@@ -1754,7 +1754,7 @@ function Dns() {
           id="dns"
           paginacaoNoTopo
           paginacaoTambemNoFim
-          pesqCabecalho
+          pesqJuntoBotao
           rows={rows}
           rowKey={(r) => r.id}
           rowSort={(a, b) => Number(a.tipo === 'NS') - Number(b.tipo === 'NS')}
