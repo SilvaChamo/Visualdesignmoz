@@ -129,7 +129,7 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
   de `--fs` em `paginas.css` (1 no telemóvel; 1,06 a 769 px, 1,1 a 1100, 1,15 a 1280, depois desce até 1 a 2000) e `--fs` = `--fs0` (escala antiga por
   ecrã) × `--z`. **Para mudar o tamanho de tudo muda-se só `--z`.** Medida nova em CSS escreve-se já assim (nunca px soltos). Não se usa a
   propriedade `zoom` do CSS (estraga os menus que se posicionam com `getBoundingClientRect`). As opções por baixo da linha (DNS: Todos | A | CNAME…;
-  PHP: Definições | Extensões) levam ícone, ficam sempre **numa só linha** (a pesquisa ao lado encolhe) e, abaixo de 1100 px, passam para cima da pesquisa.
+  PHP: Definições | Extensões) não levam ícones (Silva, 23/10/2026), ficam sempre **numa só linha** (a pesquisa ao lado encolhe) e, abaixo de 1100 px, passam para cima da pesquisa.
 
 - **A descrição de um título vai sempre junta ao título** (Silva, 21/10/2026: "nunca mais faça isso"). Em qualquer título —
   barra de cima, cabeçalho de um cartão, painel, janela — a descrição fica **encostada ao título, com no máximo 10 px de
