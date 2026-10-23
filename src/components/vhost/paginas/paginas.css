@@ -14033,3 +14033,13 @@
 .vh .frm .search:not(#x):not(#y):not(#z) input {
    font-size: 15px
 }
+
+/* Admin › Encomendas (Silva, 23/10/2026): sem o botão "Actualizar" */
+.vh .da-main-card:has(.enc-admin) :is(.barra-antiga button, .barra-antiga-m button, button[title="Actualizar"]):not(#x) {
+   display: none
+}
+
+/* a linha de cima do cartão só tinha o botão: sai, e a lista de secções (e a sua linha vertical) encosta à linha do título e da descrição */
+.vh .da-main-card:has(.enc-admin) .card-topo-modelo .card-topo-linha:not(#x) {
+   display: none
+}

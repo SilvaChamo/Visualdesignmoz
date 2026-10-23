@@ -16,13 +16,12 @@ import { DESC, EN, MENU } from '../generated/data';
 import { Tabs } from './componentes';
 import { LugarBarraAntiga, PonteBarraAntiga } from './mensagem-todos';
 
-// ---------- Menu: grupo "Encomendas e contabilidade" no Admin, antes de "Gestão do servidor" ----------
+// ---------- Menu: grupo "Encomendas" no Admin, no fim do menu (Silva, 23/10/2026) ----------
 {
   const grupos = MENU.admin;
-  if (!grupos.some(([g]) => g === 'Encomendas e contabilidade')) {
-    const i = grupos.findIndex(([g]) => g === 'Gestão do servidor');
-    grupos.splice(i < 0 ? grupos.length : i, 0, [
-      'Encomendas e contabilidade',
+  if (!grupos.some(([g]) => g === 'Encomendas')) {
+    grupos.push([
+      'Encomendas',
       [
         {
           id: 'gestao-encomendas',
@@ -48,7 +47,7 @@ import { LugarBarraAntiga, PonteBarraAntiga } from './mensagem-todos';
   DESC['admin/gestao-encomendas'] = ['As encomendas de todos os clientes e as contas de quem encomenda', 'Every client’s orders and the accounts of those who order'];
   DESC['admin/contabilidade'] = ['Receitas, despesas, facturas e pagamentos das encomendas', 'Income, expenses, invoices and payments from orders'];
   const novas: Record<string, string> = {
-    'Encomendas e contabilidade': 'Orders and accounting',
+    Encomendas: 'Orders',
     Contabilidade: 'Accounting',
     Contas: 'Accounts',
   };
@@ -82,7 +81,7 @@ function Encomendas({ aba }: { aba: Aba }) {
         on={aba}
         onChange={(k) => vh.nav(k === 'contas' ? BASE + '/contas' : BASE)}
       />
-      <div className="tw-livre">
+      <div className="tw-livre enc-admin">
         <ComBarraAntiga key={aba}>{aba === 'contas' ? <EncomendasClientesSection isActive /> : <CotacoesSection />}</ComBarraAntiga>
       </div>
     </>
