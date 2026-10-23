@@ -12786,8 +12786,8 @@
 }
 
 /* nada para pôr à direita (a página não tem botão visível): nem título nem linha */
-.vh .card-topo-slot:has(.card-topo-modelo .card-topo-btns:empty),
-.vh .card-topo-slot:has(.card-topo-modelo .card-topo-btns > .barra-antiga:empty:only-child) {
+.vh .card-topo-slot:has(.card-topo-modelo .card-topo-btns:empty):not(:has(.opcoes-linha)),
+.vh .card-topo-slot:has(.card-topo-modelo .card-topo-btns > .barra-antiga:empty:only-child):not(:has(.opcoes-linha)) {
    display: none
 }
 
@@ -13827,4 +13827,66 @@
       width: 100% !important;
       flex: 1 1 100%
    }
+}
+
+/* Extensões PHP: as extensões de cada categoria em 4 colunas (computador), 2 (tablet) e 1 (telemóvel), cada uma com a sua caixa de seleção (Silva, 23/10/2026) */
+.vh .frm.php-ext .ext-grade {
+   display: grid;
+   grid-template-columns: repeat(4, minmax(0, 1fr));
+   gap: 4px 12px;
+   padding: 16px 12px 10px
+}
+
+.vh .frm.php-ext .ext-grade .chk {
+   min-width: 0
+}
+
+@media (max-width: 1050px) {
+   .vh .frm.php-ext .ext-grade {
+      grid-template-columns: repeat(2, minmax(0, 1fr))
+   }
+}
+
+@media (max-width: 768px) {
+   .vh .frm.php-ext .ext-grade {
+      grid-template-columns: 1fr
+   }
+}
+
+/* O texto nunca encosta ao início da linha (Silva, 23/10/2026): nas listas sem caixa de seleção a primeira coluna leva 12 px de recuo à esquerda (e a
+   última 12 px à direita); as barras e as linhas continuam de ponta a ponta. Só computador e tablet. */
+@media (min-width: 769px) {
+   .vh .tbl:not(:has(th.ck)):not(.trf-tabela) :is(thead th, tbody td):first-child:not(.empty):not(#x) {
+      padding-left: 12px
+   }
+
+   .vh .tbl:not(:has(th.ck)) :is(thead th, tbody td):last-child:not(.empty):not(#x) {
+      padding-right: 12px
+   }
+}
+
+/* Definições PHP e Extensões (Silva, 23/10/2026): sem a linha por baixo do último bloco; a barra de título de cada categoria com menos altura; o botão em baixo
+   encostado à margem da esquerda (sem fundo, sem recuo) */
+.vh .da-main-card > .frm.php-defs:not(#x),
+.vh .da-main-card > .frm.php-ext:not(#x) {
+   border-bottom: 0
+}
+
+.vh .frm.php-ext .frm-head:not(#x):not(#y) {
+   padding-top: 5px;
+   padding-bottom: 5px
+}
+
+.vh .frm.php-defs .frm-foot:not(#x):not(#y) {
+   padding-left: 0
+}
+
+.vh .acoes-topo.ext-rodape {
+   justify-content: flex-end;
+   margin: 12px 0 10px
+}
+
+/* sem a linha por baixo de cada categoria, os blocos ficam mais juntos */
+.vh .frm.php-ext:not(#x) {
+   margin-bottom: 10px
 }

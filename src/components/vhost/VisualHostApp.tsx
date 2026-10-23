@@ -296,6 +296,8 @@ function comDados(cur: St, d: DadosServidor, caminhoDesejado: string, doNavegado
 }
 
 const nadaMuda = () => () => {};
+/** Quanto tempo a página anterior fica à vista à espera da seguinte (depois a nova abre, com o carregador do DA) */
+const ESPERA_MAX_MS = 1200;
 
 /** Lugar de uma página: escondido enquanto as leituras sem nada em memória não acabam; depois avisa (uma vez) */
 type RegistarFonte = (chave: string, id: string, fonte: () => ItemPesquisa[]) => () => void;
@@ -1237,6 +1239,14 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
     liberada.current = k;
     refazer();
   }, []);
+  // A página anterior espera pela nova, mas nunca mais do que ESPERA_MAX_MS: uma leitura lenta do servidor (ou a actualização por trás)
+  // não pode deixar a navegação parada — passado esse tempo a página nova abre já, com o carregador do DA no cartão, e o resto chega
+  // quando chegar (Silva, 23/10/2026)
+  useEffect(() => {
+    if (!aEspera) return;
+    const tm = setTimeout(() => libertar(chavePag), ESPERA_MAX_MS);
+    return () => clearTimeout(tm);
+  }, [aEspera, chavePag, libertar]);
   const toggleGrp = (k: string) => {
     const willOpen = !st.open[k];
     commit({ ...ref.current, open: willOpen ? { [k]: true } : { ...ref.current.open, [k]: false } });

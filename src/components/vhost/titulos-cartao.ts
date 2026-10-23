@@ -25,6 +25,7 @@ const TITULOS: Record<string, [string, string]> = {
   Redirecionamentos: ['Regras de redirecionamento', 'Redirect rules'],
   'Proteção hotlink': ['Proteja as suas imagens de outros sites', 'Protect your images from other sites'],
   'Definições PHP': ['Versão e ajustes do PHP', 'PHP version and settings'],
+  'Extensões PHP': ['Módulos PHP', 'PHP modules'],
   'Gerir WordPress': ['Gestão do site WordPress', 'WordPress site management'],
   'Pacotes de cliente': ['Pacotes e limites', 'Packages and limits'],
   Revendedores: ['Gestão de revendedores', 'Reseller management'],

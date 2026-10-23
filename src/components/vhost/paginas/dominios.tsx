@@ -5,7 +5,7 @@
 // VisualHost/05-da-gestao-de-dominios.md); dados e alterações reais no servidor (Hestia + Cloudflare) por
 // /api/vhost/dominio. As páginas de um só domínio usam o domínio escolhido no seletor da faixa de navegação.
 import { Fragment, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type TextareaHTMLAttributes } from 'react';
-import { TopoCartao, useVH, type VH } from '../context';
+import { ConsultaPagina, TopoCartao, useVH, type VH } from '../context';
 import type { ScreenFn } from '../screens';
 import type { BaseDados, Domain } from '../types';
 import { findItem, hasFeatOf, pacoteDe } from '../state';
@@ -14,6 +14,7 @@ import { VISUALDESIGN_DEFAULT_NS } from '@/lib/visualdesign-dns';
 import { Check, DataTable, Frm, MaisOpcoes, novaSenha, Row, Senha, Switch, Tabs, type Col } from './componentes';
 import { IndicacaoDominio, NoTopoCartao, useVariosDominios } from '../ui';
 import { tituloDoCartao } from '../titulos-cartao';
+import { CATEGORIAS_PHP, EXTENSOES_PHP, estadoExtensao, type EstadoExtensao, type ExtensaoPhp } from '@/lib/php-extensoes';
 import { Confirmar } from './pacotes';
 import DomainSearch from '@/components/DomainSearchPainel';
 import { EsperaPagina, useGet, useNaMemoria } from '../carga';
@@ -4234,6 +4235,7 @@ function Php() {
           {t('Gravar alterações')}
         </button>
       </NoTopoCartao>
+      <SeparadoresPhp on="definicoes" />
       <Frm className="php-versao" title="Versão PHP" desc="A versão usada por este site">
         <Row label="Versão">
           <div className="igrp php-campo">
@@ -4300,4 +4302,147 @@ function Php() {
     </>
   );
 }
-export const phpPagina: ScreenFn = () => ({ title: 'Definições PHP', dominios: 'sites', body: <Php /> });
+/** Os separadores em texto, por baixo da linha de cima do cartão, ao lado do botão: Definições | Extensões (Silva, 23/10/2026) */
+function SeparadoresPhp({ on }: { on: 'definicoes' | 'extensoes' }) {
+  const vh = useVH();
+  return (
+    <Tabs<'definicoes' | 'extensoes'>
+      abaixo
+      tabs={[
+        ['definicoes', 'Definições'],
+        ['extensoes', 'Extensões'],
+      ]}
+      on={on}
+      onChange={(k) => vh.nav('/' + vh.s.level + '/php' + (k === 'extensoes' ? '/extensoes' : ''))}
+    />
+  );
+}
+
+type LeituraExt = { versao: string; carregadas: string[]; pacotes: string[]; admin?: boolean };
+
+/** Definições PHP › Extensões: as extensões do PHP do site por categorias, com uma caixa de seleção em cada uma — marcadas as ativas (Silva, 23/10/2026) */
+function PhpExtensoes() {
+  const vh = useVH();
+  const { t, me } = vh;
+  const cons = useContext(ConsultaPagina);
+  const x = dominioAtual(vh);
+  const { det, erro: erroDet, ler: lerDet } = useDetalhe(x?.name || '');
+  const ativa = x ? (x.php === 'padrão' ? det?.phpPadrao || '8.3' : x.php) : '';
+  const url = x && det && /^\d+\.\d+$/.test(ativa) ? '/api/vhost/php-extensoes?conta=' + encodeURIComponent(me) + '&d=' + encodeURIComponent(x.name) + '&versao=' + encodeURIComponent(ativa) : null;
+  const { dados, erro, ler } = useGet<LeituraExt>(url);
+  const [lido, setLido] = useState<LeituraExt | null>(null);
+  /** o que a pessoa marcou (extensão → marcada); sem entrada, vale o estado do servidor */
+  const [marcas, setMarcas] = useState<Record<string, boolean>>({});
+  const [aAplicar, setAAplicar] = useState(false);
+  useEffect(() => {
+    if (dados) setLido(dados);
+  }, [dados]);
+  // a pesquisa fica na linha dos separadores, como no DNS
+  const ativarCons = cons?.ativar;
+  useEffect(() => {
+    if (!ativarCons) return;
+    ativarCons('junto');
+    return () => ativarCons(false);
+  }, [ativarCons]);
+  if (!x) return <SemDominio />;
+  if (!det) return <Carregar erro={erroDet} ler={lerDet} />;
+  if (!lido) return <Carregar erro={erro} ler={ler} />;
+  const admin = !!lido.admin;
+  const estados = Object.fromEntries(EXTENSOES_PHP.map((e) => [e.k, estadoExtensao(e, lido.carregadas, lido.pacotes, lido.versao)])) as Record<string, EstadoExtensao>;
+  const marcada = (e: ExtensaoPhp) => marcas[e.k] ?? estados[e.k] === 'ativa';
+  /** o que se pode mudar: nunca as essenciais, nem as que não se instalam por pacote */
+  const mudavel = (e: ExtensaoPhp) => admin && !e.essencial && (estados[e.k] !== 'nao-instalada' || (!!e.pkg && e.pkg !== 'common'));
+  const pedidos = EXTENSOES_PHP.filter((e) => mudavel(e) && marcada(e) !== (estados[e.k] === 'ativa')).map((e) => ({ e, acao: (marcada(e) ? (estados[e.k] === 'desativada' ? 'ativar' : 'instalar') : 'desativar') as 'ativar' | 'desativar' | 'instalar' }));
+  const q = (cons?.q || '').trim().toLowerCase();
+  const aplicar = () =>
+    vh.openM(
+      <Confirmar
+        titulo="Aplicar as alterações às extensões?"
+        texto={
+          'PHP ' + lido.versao + ' do servidor — vale para todos os sites que usam esta versão. ' +
+          pedidos.map((p) => (p.acao === 'ativar' ? 'Ativar' : p.acao === 'desativar' ? 'Desativar' : 'Instalar') + ' ' + p.e.nome).join(' · ') +
+          (pedidos.some((p) => p.acao === 'instalar') ? '. A instalação pode demorar um minuto.' : '.')
+        }
+        ok="Aplicar"
+        onOk={async () => {
+          setAAplicar(true);
+          let atual = lido;
+          for (const p of pedidos) {
+            vh.toast(t(p.acao === 'instalar' ? 'A instalar' : 'A alterar') + ' ' + p.e.nome + '…');
+            const r = await fetch('/api/vhost/php-extensoes', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ acao: p.acao, conta: me, dominio: x.name, versao: lido.versao, ext: p.e.k }),
+            });
+            const j = (await r.json().catch(() => ({}))) as { erro?: string; carregadas?: string[]; pacotes?: string[] };
+            if (!r.ok) {
+              vh.toast(p.e.nome + ': ' + (j.erro || 'o servidor não conseguiu fazer a alteração.'));
+              break;
+            }
+            if (j.carregadas && j.pacotes) atual = { ...atual, carregadas: j.carregadas, pacotes: j.pacotes };
+            setLido(atual);
+          }
+          setMarcas({});
+          setAAplicar(false);
+          vh.toast('Extensões atualizadas');
+        }}
+      />,
+    );
+  return (
+    <>
+      <NoTopoCartao daPagina modelo={{ titulo: t(tituloDoCartao('Extensões PHP')), sub: t('As extensões do PHP ' + lido.versao + ': marque as que o site precisa') }}>
+        {admin ? (
+          <button className="btn r" disabled={!pedidos.length || aAplicar} onClick={aplicar}>
+            <i className="fa-solid fa-floppy-disk" />
+            {t('Aplicar alterações')}
+          </button>
+        ) : null}
+      </NoTopoCartao>
+      <SeparadoresPhp on="extensoes" />
+      {CATEGORIAS_PHP.map((cat) => {
+        const todas = EXTENSOES_PHP.filter((e) => e.cat === cat);
+        const vistas = todas.filter((e) => !q || (e.nome + ' ' + e.k + ' ' + e.desc).toLowerCase().includes(q));
+        if (!vistas.length) return null;
+        const ativas = todas.filter((e) => estados[e.k] === 'ativa').length;
+        return (
+          <Frm key={cat} className="php-ext" title={cat} right={<span className="tag off">{ativas + ' / ' + todas.length + ' ' + t('ativas')}</span>}>
+            <div className="ext-grade">
+              {vistas.map((e) => (
+                <Check
+                  key={e.k}
+                  checked={marcada(e)}
+                  disabled={!mudavel(e)}
+                  onChange={(v) => setMarcas({ ...marcas, [e.k]: v })}
+                  label={e.nome}
+                  title={e.desc + ' (' + e.k + ')' + (estados[e.k] === 'nao-instalada' ? ' — ' + t('não instalada') : estados[e.k] === 'desativada' ? ' — ' + t('desativada') : '')}
+                />
+              ))}
+            </div>
+          </Frm>
+        );
+      })}
+      {admin && (
+        <div className="acoes-topo ext-rodape">
+          <button className="btn r" disabled={!pedidos.length || aAplicar} onClick={aplicar}>
+            <i className="fa-solid fa-floppy-disk" />
+            {t('Aplicar alterações')}
+          </button>
+        </div>
+      )}
+      <p className="em-nota">
+        {t(admin ? 'As extensões são do PHP do servidor: o que mudar aqui vale para todos os sites que usam a versão ' + lido.versao + '. As essenciais ficam sempre ativas.' : 'As extensões são do PHP do servidor e só o administrador as pode mudar. Precisa de uma que não está ativa? Peça-a ao suporte.')}
+      </p>
+    </>
+  );
+}
+export const phpPagina: ScreenFn = (vh) => {
+  const [sub] = vh.s.sub;
+  if (sub === 'extensoes')
+    return {
+      title: 'Extensões PHP',
+      dominios: 'sites',
+      crumbs: [{ t: 'Definições PHP', path: '/' + vh.s.level + '/php' }, { t: 'Extensões' }],
+      body: <PhpExtensoes />,
+    };
+  return { title: 'Definições PHP', dominios: 'sites', body: <Php /> };
+};
