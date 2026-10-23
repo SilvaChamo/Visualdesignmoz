@@ -5294,6 +5294,42 @@
    box-shadow: 0 0 0 4px color-mix(in srgb, var(--red) 14%, transparent), 0 8px 18px rgba(229, 32, 46, .32), inset 0 1px 0 rgba(255, 255, 255, .38)
 }
 
+/* pulso no círculo vermelho: dois anéis que se abrem e desvanecem, um meio ciclo depois do outro (Silva, 23/10/2026) */
+.vh .trf-bola.para::before,
+.vh .trf-bola.para::after {
+   content: '';
+   position: absolute;
+   inset: 0;
+   border-radius: 50%;
+   border: 2px solid var(--red);
+   opacity: 0;
+   pointer-events: none;
+   animation: trfPulso 2.4s ease-out infinite
+}
+
+.vh .trf-bola.para::after {
+   animation-delay: 1.2s
+}
+
+@keyframes trfPulso {
+   0% {
+      transform: scale(1);
+      opacity: .6
+   }
+
+   100% {
+      transform: scale(1.55);
+      opacity: 0
+   }
+}
+
+@media (prefers-reduced-motion: reduce) {
+   .vh .trf-bola.para::before,
+   .vh .trf-bola.para::after {
+      animation: none
+   }
+}
+
 .vh .trf-bola.para em {
    position: absolute;
    right: -3px;
