@@ -14043,3 +14043,35 @@
 .vh .da-main-card:has(.enc-admin) .card-topo-modelo .card-topo-linha:not(#x) {
    display: none
 }
+
+/* Admin › Encomendas: a lista de secções (Recebidas, Pendentes…) sem sombra nem linha vermelha à esquerda, com os itens a começar logo na margem do cartão
+   (Silva, 23/10/2026); ícones Font Awesome em cinzento, o da secção aberta a vermelho */
+.vh .enc-admin nav:not(#x):not(#y) {
+   padding-left: 0;
+   box-shadow: none
+}
+
+.vh .enc-admin nav button:not(#x):not(#y) {
+   border-left-width: 0;
+   padding-left: calc(12px * var(--z, 1));
+   gap: calc(10px * var(--z, 1))
+}
+
+.vh .enc-admin nav button i.enc-ic:not(#x):not(#y) {
+   color: var(--muted) !important;
+   font-size: calc(14px * var(--z, 1));
+   width: calc(18px * var(--z, 1));
+   text-align: center;
+   flex: none
+}
+
+.vh .enc-admin nav button[class*="text-red-600"] i.enc-ic:not(#x):not(#y) {
+   color: var(--red) !important
+}
+
+/* Encomendas do cliente › Nova encomenda: o formulário (página do site dentro de uma moldura) ocupa a altura do ecrã, sem ficar preso a uma caixa pequena
+   (Silva, 23/10/2026) */
+.vh .vh-encomendas iframe[title="Nova Encomenda"]:not(#x) {
+   height: calc(100vh - 100px);
+   min-height: 640px
+}

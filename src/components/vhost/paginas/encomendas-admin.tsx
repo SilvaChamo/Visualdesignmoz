@@ -71,7 +71,7 @@ function Encomendas() {
   return (
     <div className="tw-livre enc-admin">
       <ComBarraAntiga>
-        <CotacoesSection />
+        <CotacoesSection painel />
       </ComBarraAntiga>
     </div>
   );
