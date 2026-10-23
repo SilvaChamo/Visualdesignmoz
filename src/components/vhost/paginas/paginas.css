@@ -14193,3 +14193,48 @@
    border-color: var(--line);
    color: var(--ink);
 }
+
+/* Admin › Contabilidade (Silva, 23/10/2026): tabelas, separadores e botões como no resto do painel — sem linhas nas laterais nem sombras,
+   com o enquadramento todo à largura do cartão; cabeçalhos das tabelas sem maiúsculas */
+.vh .enc-contab [class~="shadow-sm"]:not(.overflow-x-auto):not(button):not(#x):not(#y) {
+   border-left-width: 0;
+   border-right-width: 0;
+   border-radius: 0;
+   box-shadow: none
+}
+
+.vh .enc-contab [class~="shadow-sm"][class~="px-4"][class~="pt-2"]:not(#x):not(#y) {
+   padding-left: 0;
+   padding-right: 0
+}
+
+.vh .enc-contab table thead tr:not(#x):not(#y) {
+   background: var(--soft);
+   font-size: 14px;
+   text-transform: none;
+   letter-spacing: 0;
+   color: var(--ink)
+}
+
+.vh .enc-contab table th:not(#x):not(#y) {
+   font-weight: 700;
+   text-transform: none;
+   letter-spacing: 0
+}
+
+.vh .enc-contab table td:not(#x):not(#y) {
+   font-size: 13px
+}
+
+.vh .enc-contab table tbody tr:not(#x):not(#y) {
+   border-left-width: 0;
+   border-right-width: 0
+}
+
+.vh .enc-contab .overflow-hidden:not(#x):not(#y) {
+   border-radius: 0
+}
+
+.vh .enc-contab [class~="shadow-sm"][class~="px-4"][class~="pt-2"]:not(#x):not(#y) {
+   border-top-width: 0
+}
