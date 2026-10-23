@@ -751,7 +751,7 @@ export function IndicacaoDominio({ dominios, dominioUrl, emLinha = false }: { do
       </span>
     );
   return (
-    <p className="dom-ctx">
+    <p className="dom-ctx dom-ind">
       <i className="fa-solid fa-globe" /> <b>{atual}</b> <span>· {t('muda-se no seletor em cima, à direita')}</span>
     </p>
   );
