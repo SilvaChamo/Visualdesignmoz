@@ -13806,3 +13806,25 @@
       overflow-wrap: anywhere
    }
 }
+
+/* Telemóvel: nos formulários em linhas sem fundo os campos começam e acabam no mesmo sítio das linhas horizontais; só os rótulos (texto) levam recuo (Silva, 23/10/2026) */
+@media (max-width: 768px) {
+   .vh .da-main-card .frm:not(.php-defs):not(.php-versao):not(.pf-senha):not(.frm-lados) .frm-row:not(#x):not(#y) {
+      padding-left: 0;
+      padding-right: 0
+   }
+
+   .vh .da-main-card .frm:not(.php-defs):not(.php-versao):not(.pf-senha):not(.frm-lados) .frm-row > .frm-lb:not(#x):not(#y) {
+      padding-left: var(--recuo, 12px);
+      padding-right: var(--recuo, 12px)
+   }
+}
+
+/* Telemóvel: os campos dos formulários em linhas sem fundo ocupam a linha toda, mesmo quando a página lhes põe uma largura máxima (Silva, 23/10/2026) */
+@media (max-width: 768px) {
+   .vh .da-main-card .frm:not(.php-defs):not(.php-versao):not(.pf-senha):not(.frm-lados) .frm-ctl > :is(input, select, textarea, .igrp):not([type=checkbox]):not([type=radio]):not(#x) {
+      max-width: none !important;
+      width: 100% !important;
+      flex: 1 1 100%
+   }
+}
