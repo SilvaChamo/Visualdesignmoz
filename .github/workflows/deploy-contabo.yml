@@ -33,23 +33,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version: '24'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build project
-        env:
-          # Base de dados PRÓPRIA do Contabo (27-30 ago). Secrets CONTABO_* /
-          # SUPABASE_CONTABO_*.
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.CONTABO_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_CONTABO_ANON_KEY }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_CONTABO_SERVICE_ROLE_KEY }}
-        run: npm run build
+      # Deploy mais rápido (Silva, 23/10/2026): o site é instalado e construído uma só vez, no servidor (mais abaixo). Antes
+      # construía-se também aqui, no GitHub, só para o deitar fora (o rsync não leva o .next) — cerca de 6 minutos a mais.
+      # Se o build falhar no servidor, a publicação falha e o site fica como estava.
 
       - name: Setup SSH key
         run: |
