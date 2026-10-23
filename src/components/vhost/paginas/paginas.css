@@ -10843,8 +10843,8 @@
 }
 
 .vh .da-main-card .card-topo .btn {
-   height: 32px;
-   min-height: 32px;
+   height: var(--h-campo, 32px);
+   min-height: var(--h-campo, 32px);
    padding: 0 14px;
    font-size: 12.5px;
 }
@@ -12742,8 +12742,8 @@
    Vale para todos os botões (formulários, janelas, cartões, páginas). Ficam de fora os pequenos das linhas das tabelas (.sm),
    os de só um ícone e os da barra de cima. */
 .vh .btn:not(.sm):not(.iconbtn):not(.topact .btn):not(#x) {
-   height: 32px;
-   min-height: 32px;
+   height: var(--h-campo, 32px);
+   min-height: var(--h-campo, 32px);
    padding: 0 14px;
    font-size: calc(12.5px * var(--fs, 1));
    line-height: 1
@@ -12971,7 +12971,7 @@
 .vh .seccao-h.dom-cab .search.dom-pesq {
    flex: 0 1 440px;
    width: 440px;
-   height: 32px;
+   height: var(--h-campo, 32px);
    box-sizing: border-box;
    padding: 0 10px;
    gap: 8px;
@@ -13016,7 +13016,7 @@
 .vh .card-topo-linha .search.dom-pesq {
    flex: 0 1 440px;
    width: 440px;
-   height: 32px;
+   height: var(--h-campo, 32px);
    box-sizing: border-box;
    padding: 0 10px;
    gap: 8px;
@@ -13240,8 +13240,8 @@
    }
 
    .vh .em-filtros.em-rastreio :is(input, select):not(#x) {
-      height: 40px;
-      min-height: 40px;
+      height: 32px;
+      min-height: 32px;
       box-sizing: border-box
    }
 
@@ -13475,4 +13475,256 @@
 
 .vh:not([data-theme=dark]) .dom-registar table tbody tr:nth-child(even):not(:hover):not(#x) {
    background: var(--fundo-lista)
+}
+
+/* Campos padronizados (Silva, 23/10/2026): a altura de todos os campos é a do botão base (32 px) e a letra dentro deles é de 11 px (em todos os campos, também nos de janelas e formulários) — texto, e-mail, palavra-passe, número, data, escolha (select), pesquisa e as caixas dos grupos (.igrp). Reduzem-se os campos, nunca o botão.
+   Valem para todos os campos do painel; só ficam de fora os seletores de navegação da barra (domínio e separadores), as caixas de seleção, os botões de opção e os campos de cor, deslizante e ficheiro. */
+.vh :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]), select:not([multiple]):not([size]):not(.da-domain-selector select):not(.ptabs-sel select), textarea):not(#x) {
+   font-size: calc(11px * (.5 + .5 * min(var(--fs, 1), 1)))
+}
+
+.vh :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]), select:not([multiple]):not([size]):not(.da-domain-selector select):not(.ptabs-sel select)):not(#x),
+.vh .igrp :is(.ib, select):not(#x),
+.vh .search:not(#x) {
+   height: var(--h-campo, 32px);
+   min-height: var(--h-campo, 32px)
+}
+
+.vh .search:not(#x) input,
+.vh .igrp .ib:not(#x) {
+   font-size: 11px
+}
+
+/* Rastreio de e-mail: os campos e o botão "Pesquisar" ocupam sempre a largura toda, numa só linha (Silva, 23/10/2026). Quanto mais pequeno o ecrã, mais pequenos
+   ficam (caixa do ícone, letra, botão só com a lupa); só quando nem assim cabe (abaixo de ~950 px) a linha desliza para os lados. Nenhum campo desce de 110 px
+   (abaixo disso o ícone do campo não aparece). No telemóvel vão em coluna. */
+@media (min-width: 769px) {
+   .vh .em-filtros.em-rastreio:not(#x) {
+      flex-wrap: nowrap;
+      gap: 6px;
+      overflow-x: auto;
+      --icw: 36px
+   }
+
+   .vh .em-filtros.em-rastreio > label:not(#x) {
+      flex: 1 1 0;
+      min-width: 110px
+   }
+
+   .vh .em-filtros.em-rastreio > label:nth-child(-n+2):not(#x) {
+      flex-grow: 1.15
+   }
+
+   .vh .em-filtros.em-rastreio > label:nth-child(3):not(#x) {
+      flex-grow: 2.2
+   }
+
+   .vh .em-filtros.em-rastreio > label:nth-child(5):not(#x) {
+      flex-grow: 1.3;
+      min-width: 150px
+   }
+
+   .vh .em-filtros.em-rastreio :is(input, select):not(#x) {
+      min-width: 0;
+      width: 100%;
+      padding-right: 6px
+   }
+
+   .vh .em-filtros.em-rastreio select:not(#x):not(#y) {
+      padding-right: 26px !important
+   }
+
+   .vh .em-filtros.em-rastreio [data-ic]:not(#x):not(#y) {
+      padding-left: calc(var(--icw) + 10px) !important;
+      background-position: calc((var(--icw) - 14px) / 2) center, 0 0, var(--icw) 0 !important;
+      background-size: 14px, var(--icw) 100%, 1px 100%
+   }
+
+   .vh .em-filtros.em-rastreio select[data-ic]:not(#x):not(#y) {
+      background-position: calc((var(--icw) - 14px) / 2) center, 0 0, var(--icw) 0, right 9px center !important;
+      background-size: 14px, var(--icw) 100%, 1px 100%, 12px
+   }
+
+   .vh .em-filtros.em-rastreio > .btn:not(#x) {
+      flex: none
+   }
+}
+
+@media (min-width: 769px) and (max-width: 1300px) {
+   .vh .em-filtros.em-rastreio:not(#x) {
+      --icw: 30px
+   }
+
+   /* "Pesquisar" só com a lupa */
+   .vh .em-filtros.em-rastreio > .btn:not(#x) {
+      font-size: 0 !important;
+      gap: 0 !important;
+      padding: 0 11px !important
+   }
+
+   .vh .em-filtros.em-rastreio > .btn:not(#x) i {
+      font-size: 12px !important
+   }
+}
+
+@media (min-width: 769px) and (max-width: 1100px) {
+   .vh .em-filtros.em-rastreio:not(#x) {
+      --icw: 24px;
+      gap: 4px
+   }
+
+   .vh .em-filtros.em-rastreio :is(input, select):not(#x) {
+      font-size: 10px
+   }
+
+   .vh .em-filtros.em-rastreio > label:not(#x) {
+      font-size: 10.5px
+   }
+
+   .vh .em-filtros.em-rastreio > label:nth-child(-n+2):not(#x) {
+      min-width: 114px
+   }
+
+   .vh .em-filtros.em-rastreio > label:nth-child(5):not(#x) {
+      min-width: 134px
+   }
+
+   .vh .em-filtros.em-rastreio input:not([type=date]):not(#x)::placeholder {
+      font-size: 10px
+   }
+}
+
+/* Campos de data: o ano e o calendário cabem sempre, sem margens a mais (Silva, 23/10/2026) */
+.vh input[type=date]:not(#x),
+.vh input[type=datetime-local]:not(#x) {
+   padding-right: 6px
+}
+
+.vh input[type=date]:not(#x)::-webkit-calendar-picker-indicator,
+.vh input[type=datetime-local]:not(#x)::-webkit-calendar-picker-indicator {
+   margin: 0 0 0 2px;
+   padding: 0
+}
+
+.vh .em-filtros.em-rastreio input[type=date]:not(#x) {
+   min-width: 0
+}
+
+/* telemóvel: o fundo das linhas alternadas já está tratado acima; o botão de opções do Rastreio fica à direita da barra dos títulos */
+
+/* telemóvel: o "Ações" no fim da barra dos títulos fica à direita de "Selecionar tudo" */
+@media (max-width: 768px) {
+   .vh .tbl.dt-empilhar thead th.dt-th-acoes-fim:not(#x) {
+      display: flex;
+      align-items: center;
+      margin-left: auto;
+      width: auto;
+      border: 0;
+      padding: 6px 14px
+   }
+}
+
+/* Motores de busca: todo o motor leva o mesmo fundo — o campo onde se escreve nunca fica com um fundo próprio (preto no tema escuro) (Silva, 23/10/2026) */
+.vh .search:not(#x) input,
+.vh .search:not(#x) input:focus,
+.vh .search:not(#x) input:-webkit-autofill {
+   background: transparent !important;
+   background-color: transparent !important;
+   box-shadow: none;
+   border: 0;
+   outline: 0
+}
+
+/* Barra lateral proporcional ao ecrã (Silva, 23/10/2026): a barra de ícones e o menu encolhem com a largura da janela (a 1440 px têm 70 + 275 px) */
+@media (min-width: 769px) and (max-width: 1440px) {
+   .vh .rail:not(#x) {
+      width: clamp(50px, 4.86vw, 70px)
+   }
+
+}
+
+/* Altura dos campos e dos botões proporcional ao ecrã (Silva, 23/10/2026): 32 px a partir de 1440 px e, abaixo, 32 px × o factor de escala do painel
+   (27,5 px a 1000 px) — campos e botão sempre com a mesma altura */
+.vh {
+   --h-campo: calc(32px * min(var(--fs, 1), 1))
+}
+
+/* Barra lateral dinâmica (Silva, 23/10/2026): a largura do menu segue a escala do texto (275 px a 1440 px) para nunca cortar uma letra e não alargar sem
+   necessidade; os nomes do menu e a conta nunca levam reticências (a conta passa à linha de baixo se for preciso) */
+@media (min-width: 769px) and (max-width: 1440px) {
+   .vh .navcol:not(#x) {
+      width: calc(275px * min(var(--fs, 1), 1))
+   }
+}
+
+.vh .side a .lb:not(#x),
+.vh .side .grp span:not(#x) {
+   overflow: visible;
+   text-overflow: clip
+}
+
+.vh .acct span:not(#x),
+.vh .acct small:not(#x) {
+   overflow: visible;
+   text-overflow: clip;
+   white-space: normal;
+   overflow-wrap: anywhere
+}
+
+/* Margens, preenchimento e barras proporcionais ao ecrã (Silva, 23/10/2026): a 1440 px ou mais ficam como estavam (k = 1); abaixo, tudo o que o rodeia o cartão
+   principal encolhe com a escala do painel (k = 0,86 a 1000 px): margens de cima e dos lados, preenchimento do cartão e altura das barras do domínio e de
+   Admin/Gestão */
+.vh {
+   --k: min(var(--fs, 1), 1)
+}
+
+@media (min-width: 769px) {
+   .vh main:not(#x) {
+      padding-top: calc(20px * var(--k));
+      padding-left: calc(20px * var(--k));
+      padding-right: calc(20px * var(--k))
+   }
+
+   .vh .da-main-card:not(#x):not(#y) {
+      padding: calc(24px * var(--k))
+   }
+
+   .vh .da-main-card:not(:has(> .ptabs-faixa)):has(> .card-topo-slot .card-topo-titulo):not(#x):not(#y) {
+      padding-top: calc(19px * var(--k))
+   }
+
+   .vh .da-switcher-bar:not(#x),
+   .vh .cols .da-switcher-bar:not(#x) {
+      height: calc(40px * var(--k));
+      margin: calc(-20px * var(--k)) calc(-20px * var(--k)) calc(20px * var(--k));
+      padding: 0 calc(20px * var(--k));
+      width: calc(100% + 40px * var(--k))
+   }
+
+   .vh .lvl:not(#x) {
+      height: calc(40px * var(--k))
+   }
+
+   .vh .lvl button:not(#x) {
+      height: calc(40px * var(--k))
+   }
+}
+
+/* Conta no fundo do menu: avatar, espaços e margens também proporcionais, para o e-mail caber numa só linha (Silva, 23/10/2026) */
+@media (min-width: 769px) {
+   .vh .acct:not(#x) {
+      padding: calc(12px * var(--k)) calc(14px * var(--k));
+      gap: calc(10px * var(--k))
+   }
+
+   .vh .acct .av:not(#x) {
+      width: calc(34px * var(--k));
+      height: calc(34px * var(--k))
+   }
+}
+
+/* "Ações" no fim da barra dos títulos: fixa à direita com uma sombra suave a separá-la das colunas que passam por baixo */
+.vh .tbl thead th.dt-th-acoes-fim:not(#x),
+.vh .tbl thead th.dt-th-cols:not(#x) {
+   box-shadow: -10px 0 8px -6px color-mix(in srgb, var(--soft) 90%, transparent)
 }
