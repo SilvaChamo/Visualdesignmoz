@@ -1967,6 +1967,22 @@ function Rastreio() {
   const [f, setF] = useState({ de: new Date(Date.now() - 6 * 86400000).toISOString().slice(0, 10), ate: hoje, end: endInicial || '', estado: '', dir: ['entrada', 'saida'].includes(dirInicial) ? dirInicial : '', max: '100' });
   const [msgs, setMsgs] = useState<Msg[] | null>(null);
   const [a, setA] = useState(false);
+  // O servidor só deixa ler os registos do exim: "apagar do histórico" tira as mensagens desta lista, neste navegador, sem tocar nos registos
+  const chaveOcultas = 'vh-rastreio-ocultas:' + d;
+  const [ocultas, setOcultas] = useState<string[]>([]);
+  useEffect(() => {
+    try {
+      setOcultas(JSON.parse(localStorage.getItem(chaveOcultas) || '[]'));
+    } catch {
+      setOcultas([]);
+    }
+  }, [chaveOcultas]);
+  const guardarOcultas = (n: string[]) => {
+    setOcultas(n);
+    try {
+      localStorage.setItem(chaveOcultas, JSON.stringify(n));
+    } catch {}
+  };
   const procurar = useCallback(
     async (x = f) => {
       if (!d) return;
@@ -2035,10 +2051,27 @@ function Rastreio() {
       </div>
       <DataTable
         id="email-rastreio"
-        rows={msgs || []}
+        acoesNoFim
+        rows={(msgs || []).filter((m) => !ocultas.includes(m.id))}
         rowKey={(r) => r.id}
         onRecarregar={() => procurar()}
         empty={msgs ? 'Nenhuma mensagem nestas condições' : 'A ler os registos…'}
+        bulk={[
+          { t: 'Mostrar o histórico escondido', fa: 'fa-eye', sempre: true, inativo: !ocultas.length, run: () => guardarOcultas([]) },
+          {
+            t: 'Limpar o histórico',
+            fa: 'fa-broom',
+            sempre: true,
+            inativo: !(msgs || []).some((m) => !ocultas.includes(m.id)),
+            run: () =>
+              vh.openM(<Confirmar titulo="Limpar o histórico?" texto="As mensagens desta lista deixam de aparecer neste navegador. Os registos do servidor não são apagados e podem voltar a mostrar-se." ok="Limpar" onOk={() => guardarOcultas([...new Set([...ocultas, ...(msgs || []).map((m) => m.id)])])} />),
+          },
+          {
+            t: 'Apagar do histórico',
+            fa: 'fa-trash',
+            run: (k) => guardarOcultas([...new Set([...ocultas, ...k])]),
+          },
+        ]}
         cols={[
           { k: 'dir', t: 'Direção', cell: (r) => <span title={t(r.dir === 'saida' ? 'Saída' : 'Entrada')}><i className={'fa-solid ' + (r.dir === 'saida' ? 'fa-arrow-up-right-from-square' : 'fa-arrow-down')} style={{ color: 'var(--muted)' }} /> {t(r.dir === 'saida' ? 'Saída' : 'Entrada')}</span> },
           { k: 'estado', t: 'Estado', cell: (r) => <span className={'tag ' + (ESTADOS[r.estado]?.[1] || 'off')} title={r.motivo || ''}>{t(ESTADOS[r.estado]?.[0] || r.estado)}</span> },

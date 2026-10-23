@@ -13495,15 +13495,36 @@
    font-size: 11px
 }
 
-/* Rastreio de e-mail: os campos e o botão "Pesquisar" ficam numa só linha (Silva, 23/10/2026) — os campos encolhem, o botão mantém o seu tamanho */
-@media (min-width: 1051px) {
+/* Rastreio de e-mail: os campos e o botão "Pesquisar" ficam numa só linha (Silva, 23/10/2026) — o botão mantém o seu tamanho, as datas, o ano e o calendário
+   cabem sempre e o endereço ocupa o que sobra. Abaixo de 1201 px (barra lateral aberta) não cabe: o botão passa para baixo */
+@media (min-width: 1201px) {
    .vh .em-filtros.em-rastreio:not(#x) {
       flex-wrap: nowrap
    }
 
    .vh .em-filtros.em-rastreio > label:not(#x) {
+      flex: 0 1 150px;
+      min-width: 125px
+   }
+
+   .vh .em-filtros.em-rastreio > label:nth-child(-n+2):not(#x) {
+      flex: 0 0 138px;
+      min-width: 138px
+   }
+
+   .vh .em-filtros.em-rastreio > label:nth-child(4):not(#x) {
+      flex-basis: 128px;
+      min-width: 125px
+   }
+
+   .vh .em-filtros.em-rastreio > label:nth-child(5):not(#x) {
+      flex-basis: 175px;
+      min-width: 172px
+   }
+
+   .vh .em-filtros.em-rastreio > label:nth-child(3):not(#x) {
       flex: 1 1 0;
-      min-width: 0
+      min-width: 110px
    }
 
    .vh .em-filtros.em-rastreio :is(input, select):not(#x) {
@@ -13513,5 +13534,35 @@
 
    .vh .em-filtros.em-rastreio > .btn:not(#x) {
       flex: none
+   }
+}
+
+/* Campos de data: o ano e o calendário cabem sempre, sem margens a mais (Silva, 23/10/2026) */
+.vh input[type=date]:not(#x),
+.vh input[type=datetime-local]:not(#x) {
+   padding-right: 6px
+}
+
+.vh input[type=date]:not(#x)::-webkit-calendar-picker-indicator,
+.vh input[type=datetime-local]:not(#x)::-webkit-calendar-picker-indicator {
+   margin: 0 0 0 2px;
+   padding: 0
+}
+
+.vh .em-filtros.em-rastreio input[type=date]:not(#x) {
+   min-width: 0
+}
+
+/* telemóvel: o fundo das linhas alternadas já está tratado acima; o botão de opções do Rastreio fica à direita da barra dos títulos */
+
+/* telemóvel: o "Ações" no fim da barra dos títulos fica à direita de "Selecionar tudo" */
+@media (max-width: 768px) {
+   .vh .tbl.dt-empilhar thead th.dt-th-acoes-fim:not(#x) {
+      display: flex;
+      align-items: center;
+      margin-left: auto;
+      width: auto;
+      border: 0;
+      padding: 6px 14px
    }
 }

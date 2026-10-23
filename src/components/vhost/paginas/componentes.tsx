@@ -290,6 +290,7 @@ export function DataTable<T>({
   barraFora = false,
   empilhar = true,
   acoesNaColuna = false,
+  acoesNoFim = false,
   linhaExtra,
   // em todas as listas o "Colunas" é só o ícone, à direita, dentro da barra das colunas (Silva, 21/10/2026)
   colunasNoCabecalho = true,
@@ -351,6 +352,8 @@ export function DataTable<T>({
   empilhar?: boolean | 'botoes-em-baixo' | 'tablet';
   /** o "Ações" no lugar do título da 1.ª coluna mesmo com separadores (Força bruta — modelo do Silva, 13/10/2026) */
   acoesNaColuna?: boolean;
+  /** o botão de opções fica no fim da barra dos títulos das colunas, à direita (com o das colunas), e não no lugar do título da 1.ª coluna (Rastreio; Silva, 23/10/2026) */
+  acoesNoFim?: boolean;
   /** painel que desliza por baixo de uma linha (ex.: as opções de restaurar uma cópia); sem nada, não há linha extra */
   linhaExtra?: (r: T) => ReactNode;
   /** o botão "Colunas" no cabeçalho da tabela, depois da última coluna, em vez de numa barra por cima do cartão
@@ -456,11 +459,11 @@ export function DataTable<T>({
   const comAcoes = temSelecao && bulk.length > 0;
   // o "Ações" nunca fica solto, nem na linha de cima do cartão (Silva, 21/10/2026: o "Opções" solto no canto não é para estar
   // lá): só aparece, no lugar do título da 1.ª coluna, quando há linhas escolhidas (ou opções que valem sempre)
-  const acoesNoCabecalho = comAcoes && !cabecalho && !acoesFixas;
+  const acoesNoCabecalho = comAcoes && !cabecalho && !acoesFixas && !acoesNoFim;
   const acoesNoTitulo = acoesNoCabecalho && (selKeys.length > 0 || bulk.some((b) => b.sempre));
   const colAcoes = !!actions;
   // coluna do fim: os botões de cada linha e, com colunasNoCabecalho, o "Colunas" no título dela
-  const colFim = colAcoes || (colunasNoCabecalho && !semCols);
+  const colFim = colAcoes || (colunasNoCabecalho && !semCols) || (acoesNoFim && comAcoes);
   const span = vcols.length + (temSelecao ? 1 : 0) + (colFim ? 1 : 0);
 
   const paginas = Math.max(1, Math.ceil(shown.length / porPagina));
@@ -556,7 +559,7 @@ export function DataTable<T>({
         <button
           className="btn g sm"
           onClick={(e) => {
-            if (!acoesOpen && acoesNoTitulo) {
+            if (!acoesOpen && (acoesNoTitulo || acoesNoFim)) {
               const r = e.currentTarget.getBoundingClientRect();
               const altura = bulk.length * 34 + 20;
               setAcoesPos({ top: window.innerHeight - r.bottom < altura + 12 && r.top > altura + 12 ? r.top - altura - 6 : r.bottom + 6, left: r.left });
@@ -660,7 +663,7 @@ export function DataTable<T>({
           const naBarra = colunasNoCabecalho ? null : colunas;
           const outros = !!(inicioBarra2 || barra2 || naBarra || recarregar || fimBarra);
           const linha =
-            outros || cabecalho || (!naFaixa && !acoesNoCabecalho && comAcoes) ? (
+            outros || cabecalho || (!naFaixa && !acoesNoCabecalho && !acoesNoFim && comAcoes) ? (
               <div className={'dt-bar dt-uma-linha' + (cabecalho ? ' com-cab' : '') + (barraFora ? ' dt-fora' : '')}>
                 {cabecalho}
                 <span className="sp" />
@@ -669,7 +672,7 @@ export function DataTable<T>({
                 {naBarra}
                 {recarregar}
                 {fimBarra}
-                {!naFaixa && !acoesNoCabecalho && comAcoes && menuAcoes(true)}
+                {!naFaixa && !acoesNoCabecalho && !acoesNoFim && comAcoes && menuAcoes(true)}
               </div>
             ) : null;
           return (
@@ -694,13 +697,13 @@ export function DataTable<T>({
         {recarregar}
         {fimBarra}
         {/* "Ações" sempre à vista e sempre o último à direita (regra do Silva, 13/10/2026) */}
-        {!acoesFixas && !barra2 && comAcoes && !acoesNoCabecalho && menuAcoes(true)}
+        {!acoesFixas && !barra2 && comAcoes && !acoesNoCabecalho && !acoesNoFim && menuAcoes(true)}
       </div>
       )}
       {barra2 && !umaLinha && (
         <div className="dt-bar dt-barra2">
           {inicioBarra2}
-          {!acoesNoCabecalho && menuAcoes(true)}
+          {!acoesNoCabecalho && !acoesNoFim && menuAcoes(true)}
           {barra2}
         </div>
       )}
@@ -730,7 +733,7 @@ export function DataTable<T>({
                   </th>
                 ),
               )}
-              {colunasNoCabecalho && colunas ? <th className="dt-th-cols">{colunas}</th> : paginacaoNoCabecalho && paginas > 1 ? <th className="dt-th-pag">{paginador}</th> : colFim && <th style={tituloAcoes ? { textAlign: 'right' } : undefined}>{tituloAcoes ? t(tituloAcoes) : null}</th>}
+              {colunasNoCabecalho && colunas ? <th className="dt-th-cols">{acoesNoFim && comAcoes && menuAcoes(true)}{colunas}</th> : paginacaoNoCabecalho && paginas > 1 ? <th className="dt-th-pag">{paginador}</th> : colFim && <th className={acoesNoFim && comAcoes ? 'dt-th-cols dt-th-acoes-fim' : undefined} style={tituloAcoes || (acoesNoFim && comAcoes) ? { textAlign: 'right' } : undefined}>{acoesNoFim && comAcoes ? menuAcoes(true) : tituloAcoes ? t(tituloAcoes) : null}</th>}
             </tr>
           </thead>
           <tbody>
