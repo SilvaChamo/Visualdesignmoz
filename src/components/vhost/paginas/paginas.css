@@ -13362,3 +13362,14 @@
       border-bottom: 1px solid var(--line)
    }
 }
+
+/* mais espaço por baixo do botão e das opções, a afastar a lista: 30 px (Silva, 23/10/2026) */
+@media (min-width: 769px) {
+   .vh .card-topo-modelo .card-topo-linha:not(#x) {
+      margin-bottom: 30px
+   }
+
+   .vh .da-main-card .seccao-h.dom-cab:not(#x) {
+      margin-bottom: 30px
+   }
+}
