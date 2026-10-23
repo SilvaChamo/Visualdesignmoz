@@ -1258,7 +1258,7 @@ function CheckoutContent() {
                       </div>
                     )}
 
-                    <div className="mt-2 flex justify-start gap-3">
+                    <div className="mt-2 flex flex-wrap justify-start gap-3">
                       <button
                         type="button"
                         onClick={handlePay}
@@ -1268,7 +1268,7 @@ function CheckoutContent() {
                           (isEncomenda && isAuthenticated === false) ||
                           (metodoPagamento === 'saldo' && (saldoDisponivel ?? 0) < total)
                         }
-                        className={`disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold py-3 px-6 rounded-md flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                        className={`flex-1 sm:flex-none disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold py-3 px-6 rounded-md flex items-center justify-center gap-2 transition-all cursor-pointer ${
                           metodoPagamento === 'mpesa'
                             ? 'bg-red-600 hover:bg-red-700'
                             : metodoPagamento === 'saldo'
@@ -1287,7 +1287,7 @@ function CheckoutContent() {
                         type="button"
                         onClick={() => (isEncomenda ? cancelarEncomenda() : window.history.back())}
                         disabled={isSubmitting || encomendaAccao !== null}
-                        className="bg-transparent border border-slate-200 hover:border-slate-300 dark:border-zinc-800 dark:hover:border-zinc-700 text-slate-600 dark:text-zinc-400 font-bold py-3 px-6 rounded-md transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                        className="flex-1 sm:flex-none bg-transparent border border-slate-200 hover:border-slate-300 dark:border-zinc-800 dark:hover:border-zinc-700 text-slate-600 dark:text-zinc-400 font-bold py-3 px-6 rounded-md transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                       >
                         Cancelar
                       </button>
