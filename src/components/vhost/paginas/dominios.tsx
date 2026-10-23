@@ -1741,6 +1741,9 @@ function Dns() {
         <>
         {/* modelo global (regra do Silva, 13/10/2026): os filtros por tipo são os separadores — a faixa cinzenta que abre
             o cartão principal — e o "Ações" fica à direita dessa faixa */}
+        {/* o separador principal fica na faixa de cima, com o nome da página; por baixo da linha, no lugar da pesquisa, os nomes dos registos
+            separados por "|" (Silva, 23/10/2026) */}
+        <Tabs<string> tabs={[['dns', 'DNS', 'fa-network-wired']]} on="dns" onChange={() => {}} />
         <Tabs<string>
           abaixo
           tabs={['', 'A', 'CNAME', 'MX', 'TXT', 'SRV', 'NS'].map((f) => [f || 'todos', f || 'Todos'] as [string, string])}
@@ -1749,7 +1752,6 @@ function Dns() {
         />
         <DataTable
           id="dns"
-          pesqCabecalho
           rows={rows}
           rowKey={(r) => r.id}
           rowSort={(a, b) => Number(a.tipo === 'NS') - Number(b.tipo === 'NS')}

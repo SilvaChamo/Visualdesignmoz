@@ -829,7 +829,8 @@ export function NoTopoCartao({
         ) : (
           <p className="dom-ctx dom-titulo">{modelo.titulo}</p>
         )}
-        <div className="card-topo-opcoes" ref={topo.setOpcoes} />
+        {/* com pesquisa, as opções (Tabs abaixo) ficam por baixo da linha, antes dela; sem pesquisa, ocupam o lugar dela, ao lado do botão */}
+        {cons?.ativo && <div className="card-topo-opcoes" ref={topo.setOpcoes} />}
         <div className="card-topo-linha">
           {cons?.ativo ? (
             <div className="search dom-pesq">
@@ -838,7 +839,7 @@ export function NoTopoCartao({
               {cons.q && <i className="fa-solid fa-xmark limpar" onClick={() => cons.setQ('')} />}
             </div>
           ) : (
-            <span className="dom-ctx" />
+            <div className="card-topo-opcoes na-linha" ref={topo.setOpcoes} />
           )}
           <div className="card-topo-btns" ref={botoes}>
             {children}

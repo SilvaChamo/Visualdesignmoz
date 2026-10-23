@@ -13300,3 +13300,23 @@
    opacity: .6;
    user-select: none
 }
+
+/* sem caixa de pesquisa (DNS): as opções ocupam o lugar dela, à esquerda, na mesma linha do botão (Silva, 23/10/2026) */
+.vh .card-topo-linha > .card-topo-opcoes.na-linha:not(#x) {
+   flex: 1 1 0;
+   min-width: 0;
+   padding: 0 var(--recuo, 12px);
+   align-self: center
+}
+
+@media (max-width: 768px) {
+   .vh .card-topo-linha:has(> .card-topo-opcoes.na-linha):not(#x) {
+      flex-wrap: wrap;
+      row-gap: 8px
+   }
+
+   .vh .card-topo-linha > .card-topo-opcoes.na-linha:not(#x) {
+      flex: 1 1 100%;
+      padding: 0 var(--recuo, 12px)
+   }
+}
