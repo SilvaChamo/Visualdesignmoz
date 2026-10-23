@@ -14284,3 +14284,28 @@
 .vh .enc-contab table :is(th, td):not(:first-child):not(#x):not(#y) {
    text-align: center
 }
+
+/* Contabilidade › Encomendas: fundo das encomendas alternado (branco, cinzento, branco…) com uma linha entre elas */
+.vh .enc-contab tbody.contab-zebra:nth-of-type(even):not(#x):not(#y) {
+   background: var(--soft)
+}
+
+.vh .enc-contab tbody.contab-zebra + tbody.contab-zebra:not(#x):not(#y) {
+   border-top: 1px solid var(--line)
+}
+
+.vh .enc-contab tbody.contab-zebra > tr:not(#x):not(#y) {
+   border-top: 0 !important
+}
+
+/* telemóvel: selector de separadores com o aspecto dos campos do painel */
+.vh .enc-contab select.contab-tab-select:not(#x):not(#y) {
+   height: calc(40px * var(--z, 1));
+   padding: 0 calc(12px * var(--z, 1));
+   border: 1px solid var(--line);
+   border-radius: var(--r);
+   background-color: var(--card);
+   color: var(--ink);
+   font-size: 15px;
+   font-weight: 600
+}

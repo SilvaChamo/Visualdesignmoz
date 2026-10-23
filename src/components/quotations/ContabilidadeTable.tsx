@@ -160,7 +160,25 @@ export function ContabilidadeTable() {
   return (
     <div>
       <div className={`${panelSectionCard} mb-4 px-4 pt-2`}>
-        <div className={panelTabBar}>
+        {/* telemóvel: um selector em vez da fila de separadores */}
+        <div className="pb-3 md:hidden">
+          <select
+            value={activeTab}
+            onChange={(e) => setActiveTab(e.target.value as ContabilidadeTab)}
+            className="contab-tab-select w-full"
+            aria-label="Secção da contabilidade"
+          >
+            {TABS.map((t) => {
+              const pendente = pendentesPorTab[t.id] || 0
+              return (
+                <option key={t.id} value={t.id}>
+                  {t.label}{pendente > 0 ? ` (${pendente})` : ''}
+                </option>
+              )
+            })}
+          </select>
+        </div>
+        <div className={`${panelTabBar} hidden md:block`}>
           <div className="flex flex-wrap items-end gap-5">
             {TABS.map((t) => {
               const pendente = pendentesPorTab[t.id] || 0
@@ -1559,13 +1577,12 @@ function EncomendaPagamentosTable() {
               <th className="px-4 py-2 align-middle text-left whitespace-nowrap">Aceitação</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100 dark:divide-zinc-800">
-            {pagamentos.map((p) => {
+          {pagamentos.map((p) => {
               const meta = ITEM_STATUS_META[p.status] || ITEM_STATUS_META.pending
               const isExpanded = expandedKey === p.key
               const resumo = p.itens.map((i) => i.categoria_label).join(', ')
               return (
-                <Fragment key={p.key}>
+                <tbody key={p.key} className="contab-zebra">
                 <tr className="hover:bg-gray-50 dark:hover:bg-zinc-800/30">
                   <td className="max-w-[16rem] px-4 py-2.5 font-medium text-gray-900 dark:text-white">
                     <div className="flex items-start gap-1.5">
@@ -1659,10 +1676,9 @@ function EncomendaPagamentosTable() {
                     </td>
                   </tr>
                 )}
-                </Fragment>
+                </tbody>
               )
             })}
-          </tbody>
         </table>
       </div>
       {lightboxUrl && <ImageLightbox url={lightboxUrl} onClose={() => setLightboxUrl(null)} />}
