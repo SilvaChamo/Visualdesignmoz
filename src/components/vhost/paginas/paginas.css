@@ -13716,9 +13716,9 @@
 
 /* Barra lateral dinâmica (Silva, 23/10/2026): a largura do menu segue a escala do texto (275 px a 1440 px) para nunca cortar uma letra e não alargar sem
    necessidade; os nomes do menu e a conta nunca levam reticências (a conta passa à linha de baixo se for preciso) */
-@media (min-width: 769px) and (max-width: 1440px) {
+@media (min-width: 769px) {
    .vh .navcol:not(#x) {
-      width: calc(275px * min(var(--fs0, 1), 1) * var(--z, 1))
+      width: calc(275px * max(var(--fs0, 1), .88) * var(--z, 1) * .95)
    }
 }
 

@@ -62,7 +62,7 @@
 .vh .pop a i{color:var(--muted)}.vh .pop a i.fa-check{color:var(--red)}
 .vh .pop-acct{padding:calc(8px * var(--z, 1)) calc(10px * var(--z, 1)) calc(10px * var(--z, 1));border-bottom:1px solid var(--line);margin-bottom:calc(4px * var(--z, 1))}
 .vh .pop-acct b{display:block}.vh .pop-acct span{display:block;font-size:calc(12.5px * var(--fs, 1));color:var(--muted)}
-.vh .navcol{width:calc(275px * var(--z, 1));display:flex;flex-direction:column;min-height:0}
+.vh .navcol{width:calc(275px * var(--z, 1) * .95);display:flex;flex-direction:column;min-height:0}
 .vh .navhead{height:calc(76px * var(--z, 1));flex:none;display:flex;flex-direction:column;justify-content:center;gap:calc(2px * var(--z, 1));padding:0 calc(20px * var(--z, 1));border-bottom:1px solid var(--line);min-width:0;background:transparent}
 .vh .navhead h1{font-size:calc(20px * var(--fs, 1));font-weight:800;letter-spacing:-.2px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .vh .navhead .dash{cursor:pointer}.vh .navhead .dash:hover,.vh .navhead .dash.on{color:var(--red)}
