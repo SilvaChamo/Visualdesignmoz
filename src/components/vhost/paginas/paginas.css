@@ -14236,7 +14236,8 @@
 }
 
 .vh .enc-contab [class~="shadow-sm"][class~="px-4"][class~="pt-2"]:not(#x):not(#y) {
-   border-top-width: 0
+   border-top-width: 0;
+   border-bottom-width: 0
 }
 
 /* Contabilidade: linhas das tabelas bem visíveis, como nas outras tabelas do painel */
