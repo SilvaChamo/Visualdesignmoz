@@ -314,8 +314,8 @@ const mbTxt = (n: number) => (n >= 1024 ? (n / 1024).toFixed(2).replace('.', ','
     'O ficheiro está vazio.': 'The file is empty.',
     'Cópia carregada: escolha como a restaurar': 'Backup uploaded: choose how to restore it',
     'Marque pelo menos uma parte para a cópia.': 'Tick at least one part for the backup.',
-    'Tem escolhas por guardar. Marque o que quiser e carregue em "Guardar escolhas".': 'You have unsaved choices. Tick what you want and press "Save choices".',
-    'Guarde as escolhas antes de fazer a cópia.': 'Save your choices before making the backup.',
+    'A guardar…': 'Saving…',
+    'Espere que as escolhas fiquem guardadas.': 'Wait for your choices to be saved.',
     'Escolhas guardadas': 'Choices saved',
     'Sites': 'Sites',
     'Outras pastas da conta': 'Other account folders',
@@ -400,47 +400,72 @@ const PARTES_COPIA: [string, string][] = [
 ];
 
 /** O que entra na cópia (Silva, 21/10/2026): a grelha com as partes da conta — marcada entra, desmarcada fica toda de fora ("*" = a parte
- *  toda); as exclusões por item que já existam no servidor mantêm-se. Silva, 23/10/2026: marcar não grava — escolhe-se quantas partes se
- *  quiser (sites sem bases de dados, bases de dados sem sites…) e só o botão "Guardar escolhas" grava. */
-function Exclusoes({ info, ler, aoMudar }: { info: InfoBackups; ler: () => void; aoMudar: (porGuardar: boolean) => void }) {
+ *  toda); as exclusões por item que já existam no servidor mantêm-se. Silva, 23/10/2026: grava logo ao marcar, sem botão, e sem bloquear —
+ *  pode-se continuar a marcar enquanto grava; cada gravação leva o que está marcado nesse momento (a última escolha ganha). */
+function Exclusoes({ info, aoMudar }: { info: InfoBackups; aoMudar: (porGuardar: boolean) => void }) {
   const vh = useVH();
   const { t } = vh;
   const partes = PARTES_COPIA.map(([k]) => k);
   const doServidor = () => Object.fromEntries(partes.map((k) => [k, new Set((info.exclusoes[k] || '').split(',').filter(Boolean))])) as Record<string, Set<string>>;
+  const serie = (v: Record<string, Set<string>>) => partes.map((k) => [...(v[k] || [])].sort().join(',')).join('|');
   const [x, setX] = useState<Record<string, Set<string>>>(doServidor);
-  const [aGuardar, setAGuardar] = useState(false);
-  const texto = (v: Record<string, Set<string>>, k: string) => [...(v[k] || [])].sort().join(',');
-  const porGuardar = partes.some((k) => texto(x, k) !== texto(doServidor(), k));
+  const atual = useRef(x); // o que está marcado agora (sem esperar pelo próximo desenho)
+  const guardado = useRef(serie(x)); // o que o servidor já tem
+  const aCorrer = useRef(false);
+  const [gravado, setGravado] = useState(guardado.current);
+  const [feito, setFeito] = useState(false);
+  const entra = (v: Record<string, Set<string>>, k: string) => !(v[k] || new Set()).has('*');
+  const nenhuma = partes.every((k) => !entra(x, k));
+  const porGuardar = serie(x) !== gravado;
   useEffect(() => aoMudar(porGuardar), [porGuardar]); // eslint-disable-line react-hooks/exhaustive-deps
-  const entra = (k: string) => !(x[k] || new Set()).has('*');
+  const gravar = async () => {
+    if (aCorrer.current) return; // já está a gravar: o ciclo apanha a escolha mais recente quando acabar esta
+    aCorrer.current = true;
+    try {
+      for (;;) {
+        const v = atual.current;
+        if (serie(v) === guardado.current || partes.every((k) => !entra(v, k))) break;
+        const exclusoes = Object.fromEntries(partes.map((k) => [k, [...(v[k] || [])].join(',')]));
+        try {
+          const r = await fetch('/api/vhost/avancado', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ conta: vh.me, acao: 'backup-exclusoes', exclusoes }) });
+          if (!r.ok) {
+            const j = (await r.json().catch(() => ({}))) as { erro?: string };
+            throw new Error(j.erro || 'A alteração falhou');
+          }
+        } catch (er) {
+          vh.toast(er instanceof Error && er.message !== 'Failed to fetch' ? er.message : 'Sem ligação ao site. Nada foi alterado.');
+          // volta ao que o servidor tem
+          const volta = Object.fromEntries(partes.map((k) => [k, new Set(guardado.current.split('|')[partes.indexOf(k)].split(',').filter(Boolean))])) as Record<string, Set<string>>;
+          atual.current = volta;
+          setX(volta);
+          return;
+        }
+        guardado.current = serie(v);
+        setGravado(guardado.current);
+      }
+      setFeito(serie(atual.current) === guardado.current);
+    } finally {
+      aCorrer.current = false;
+    }
+  };
   const mudar = (k: string, on: boolean) => {
     const antes = new Set(doServidor()[k]);
     antes.delete('*');
-    setX({ ...x, [k]: on ? antes : new Set(['*']) });
-  };
-  const nenhuma = partes.every((k) => !entra(k));
-  const guardar = async () => {
-    if (aGuardar) return;
-    if (nenhuma) return vh.toast(t('Marque pelo menos uma parte para a cópia.'));
-    setAGuardar(true);
-    const exclusoes = Object.fromEntries(partes.map((k) => [k, [...(x[k] || [])].join(',')]));
-    const ok = await noServidor(vh, { acao: 'backup-exclusoes', exclusoes }, 'Escolhas guardadas');
-    setAGuardar(false);
-    if (ok) ler();
+    const novo = { ...atual.current, [k]: on ? antes : new Set(['*']) };
+    atual.current = novo;
+    setX(novo);
+    setFeito(false);
+    void gravar();
   };
   return (
     <>
       <div className="bk-grelha">
         {PARTES_COPIA.map(([k, l]) => (
-          <Check key={k} checked={entra(k)} onChange={(on) => mudar(k, on)} label={l} />
+          <Check key={k} checked={entra(x, k)} onChange={(on) => mudar(k, on)} label={l} />
         ))}
       </div>
-      <div className="bk-guardar">
-        <button className="btn r" disabled={!porGuardar || aGuardar} onClick={() => void guardar()}>
-          <i className="fa-solid fa-floppy-disk" />
-          {t('Guardar escolhas')}
-        </button>
-        {porGuardar && <small>{t('Tem escolhas por guardar. Marque o que quiser e carregue em "Guardar escolhas".')}</small>}
+      <div className="bk-guardar" aria-live="polite">
+        {nenhuma ? <small>{t('Marque pelo menos uma parte para a cópia.')}</small> : porGuardar ? <small>{t('A guardar…')}</small> : feito ? <small>{t('Escolhas guardadas')}</small> : null}
       </div>
     </>
   );
@@ -1033,7 +1058,7 @@ function Backups({ aba }: { aba: 'criar' | 'agendadas' }) {
                 {t('Cópias guardadas')} <b>{dados.copias.length + ' / ' + (dados.limite || '—')}</b>
               </p>
                 <div className="bk-btns">
-                  <button className="btn r" disabled={dados.naFila || porGuardar} title={porGuardar ? t('Guarde as escolhas antes de fazer a cópia.') : undefined} onClick={async () => (await noServidor(vh, { acao: 'backup-criar' }, 'Cópia marcada: começa dentro de momentos')) && ler()}>
+                  <button className="btn r" disabled={dados.naFila || porGuardar} title={porGuardar ? t('Espere que as escolhas fiquem guardadas.') : undefined} onClick={async () => (await noServidor(vh, { acao: 'backup-criar' }, 'Cópia marcada: começa dentro de momentos')) && ler()}>
                     <i className="fa-solid fa-box-archive" />
                     {t('Fazer cópia agora')}
                   </button>
@@ -1043,7 +1068,7 @@ function Backups({ aba }: { aba: 'criar' | 'agendadas' }) {
                   </button>
                 </div>
               </div>
-              <Exclusoes key={JSON.stringify(dados.exclusoes)} info={dados} ler={ler} aoMudar={setPorGuardar} />
+              <Exclusoes info={dados} aoMudar={setPorGuardar} />
             </div>
             {tabela()}
             {/* sem nenhuma cópia não há botão Restaurar: só neste caso a opção de carregar aparece cá fora (Silva, 23/10/2026) */}
