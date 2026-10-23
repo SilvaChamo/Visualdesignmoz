@@ -1741,9 +1741,8 @@ function Dns() {
         <>
         {/* modelo global (regra do Silva, 13/10/2026): os filtros por tipo são os separadores — a faixa cinzenta que abre
             o cartão principal — e o "Ações" fica à direita dessa faixa */}
-        {/* o separador principal fica na faixa de cima, com o nome da página; por baixo da linha, no lugar da pesquisa, os nomes dos registos
-            separados por "|" (Silva, 23/10/2026) */}
-        <Tabs<string> tabs={[['dns', 'DNS', 'fa-network-wired']]} on="dns" onChange={() => {}} />
+        {/* sem faixa de separadores (o ícone está no título da barra de cima); por baixo da linha, no lugar da pesquisa, os nomes dos
+            registos separados por "|" (Silva, 23/10/2026) */}
         <Tabs<string>
           abaixo
           tabs={['', 'A', 'CNAME', 'MX', 'TXT', 'SRV', 'NS'].map((f) => [f || 'todos', f || 'Todos'] as [string, string])}
@@ -2062,7 +2061,7 @@ function DescDns() {
   const f = dados?.dns.fonte;
   return <>{vh.t(f === 'hestia' ? 'Registos DNS deste domínio, guardados neste servidor' : f === 'nenhuma' ? 'O DNS deste domínio está fora da Visual Design' : 'Ligado à Cloudflare: o que alterar aqui muda logo nos registos DNS dos seus domínios')}</>;
 }
-export const dnsPagina: ScreenFn = () => ({ title: 'DNS', descEl: <DescDns />, actions: <NovoRegistoDns />, body: <Dns /> });
+export const dnsPagina: ScreenFn = () => ({ title: 'DNS', icone: 'fa-network-wired', iconeCor: 'c6', descEl: <DescDns />, actions: <NovoRegistoDns />, body: <Dns /> });
 
 // ---------- SSL/TLS ----------
 function CertificadoModal({ d, onFeito }: { d: string; onFeito: () => void }) {

@@ -1612,7 +1612,10 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
                   <img className="only-m" src={logo} alt="" style={st.brand.logo ? { objectFit: 'contain' } : undefined} />
                   <div className="bt">
                     <h1 id="ptitle" title={mostra.title}>
-                      <span className="desktop-title">{mostra.title}</span>
+                      <span className="desktop-title">
+                        {mostra.scr.icone && <i className={'fa-solid ' + mostra.scr.icone + ' ' + (mostra.scr.iconeCor || '')} style={{ color: 'var(--c, var(--red))', marginRight: 10 }} />}
+                        {mostra.title}
+                      </span>
                       <span className="mobile-title">{t('Painel')}</span>
                     </h1>
                     <small id="pdesc" title={mostra.desc}>
