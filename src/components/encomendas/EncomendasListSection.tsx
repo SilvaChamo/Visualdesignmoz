@@ -16,7 +16,8 @@ type Quotation = BatchItem & {
   quantidade: number;
 };
 
-export function EncomendasListSection() {
+/** `onNova`: no painel VisualHost a "Nova Encomenda" abre uma página própria (Gestão › Encomendas › Nova) em vez da moldura ao lado */
+export function EncomendasListSection({ onNova }: { onNova?: () => void } = {}) {
   const [quotations, setQuotations] = useState<Quotation[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -102,7 +103,7 @@ export function EncomendasListSection() {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[400px_1fr] gap-4 lg:gap-6 min-h-0 h-full">
       <div className="space-y-3 lg:overflow-y-auto">
-        <button type="button" onClick={() => setCreatingNew(true)} className={`${panelBtnPrimary} w-full justify-center`}>
+        <button type="button" onClick={() => (onNova ? onNova() : setCreatingNew(true))} className={`${panelBtnPrimary} w-full justify-center`}>
           <Plus className="w-4 h-4" /> Nova Encomenda
         </button>
 

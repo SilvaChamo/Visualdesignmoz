@@ -14086,15 +14086,17 @@
 
 /* separadores por serviço (Todas, Design Gráfico…): sem linhas nas laterais e a linha vermelha só da largura do texto (Silva, 23/10/2026) */
 .vh .enc-admin .overflow-x-auto.shadow-sm:not(#x):not(#y) {
-   box-shadow: none;
    border-left-width: 0;
    border-right-width: 0;
-   border-bottom: 1px solid var(--line)
+   border-bottom-width: 0;
+   box-shadow: inset 0 -1px 0 var(--line)
 }
 
 .vh .enc-admin button.group:not(#x):not(#y) {
    padding-top: calc(12px * var(--z, 1));
-   padding-bottom: calc(7px * var(--z, 1))
+   padding-bottom: calc(7px * var(--z, 1));
+   padding-left: 0;
+   padding-right: calc(24px * var(--z, 1))
 }
 
 .vh .enc-admin button.group > span:first-child:not(#x):not(#y) {
@@ -14103,8 +14105,8 @@
 }
 
 .vh .enc-admin button.group > span.absolute:not(#x):not(#y) {
-   left: 16px;
-   right: 16px;
+   left: 0;
+   right: calc(24px * var(--z, 1));
    width: auto;
    translate: none !important;
    transform: scaleX(0);
@@ -14116,3 +14118,7 @@
    transform: scaleX(1)
 }
 
+/* Nova encomenda (página do painel, sem moldura): o resumo da encomenda à direita fica colado ao topo da janela, e o formulário não fica preso a uma altura */
+.vh .vh-nova-encomenda [class*="lg:sticky"]:not(#x) {
+   top: calc(16px * var(--z, 1))
+}

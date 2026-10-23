@@ -9,6 +9,8 @@
 // continua no /encomendas do site, e passa para o painel quando comprar domínio ou hospedagem.
 import { useEffect } from 'react';
 import { EncomendasListSection } from '@/components/encomendas/EncomendasListSection';
+import { CotacaoContent } from '@/components/cotacao/CotacaoContent';
+import { Suspense } from 'react';
 import { EncomendasMensagensSection } from '@/components/encomendas/EncomendasMensagensSection';
 import { EncomendasPagamentosSection } from '@/components/encomendas/EncomendasPagamentosSection';
 import { marcarVoltaAoPainel } from '@/lib/voltar-ao-painel';
@@ -46,6 +48,7 @@ import { gestaoEncomendasPagina } from './encomendas-admin';
     Encomendas: 'Orders',
     Encomenda: 'Order',
     'Nova encomenda': 'New order',
+    'Escolha o serviço e veja o resumo da encomenda': 'Choose the service and see the order summary',
     Todas: 'All',
     'Por pagar': 'To pay',
     'Em curso': 'In progress',
@@ -146,7 +149,7 @@ function Encomendas({ aba, encomenda }: { aba: string; encomenda?: string }) {
         onChange={(k) => vh.nav(k === 'encomendas' ? BASE : BASE + '/' + k)}
       />
       <div className="vh-site vh-encomendas">
-        {aba === 'encomendas' && <EncomendasListSection />}
+        {aba === 'encomendas' && <EncomendasListSection onNova={() => vh.nav(BASE + '/nova')} />}
         {aba === 'mensagens' && <EncomendasMensagensSection initialQuotationId={encomenda || null} />}
         {aba === 'pagamentos' && <EncomendasPagamentosSection />}
       </div>
@@ -167,6 +170,26 @@ export const encomendasPagina: ScreenFn = (vh: VH) => {
       ),
     };
   const [sub, encomenda] = vh.s.sub;
+  // "Nova Encomenda": página própria que substitui toda a página das encomendas (lista, detalhe e resumo), com o botão de voltar (Silva, 23/10/2026)
+  if (sub === 'nova')
+    return {
+      title: 'Nova encomenda',
+      desc: 'Escolha o serviço e veja o resumo da encomenda',
+      crumbs: [{ t: 'Encomendas', path: BASE }, { t: 'Nova encomenda' }],
+      actions: (
+        <button className="btn g" onClick={() => vh.nav(BASE)}>
+          <i className="fa-solid fa-arrow-left" />
+          {vh.t('Voltar às encomendas')}
+        </button>
+      ),
+      body: (
+        <div className="vh-site vh-nova-encomenda">
+          <Suspense fallback={null}>
+            <CotacaoContent painel />
+          </Suspense>
+        </div>
+      ),
+    };
   const aba = ABAS.some(([k]) => k === sub) ? sub : 'encomendas';
   return { title: 'Encomendas', body: <Encomendas aba={aba} encomenda={encomenda} /> };
 };
