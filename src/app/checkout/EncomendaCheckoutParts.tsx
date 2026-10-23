@@ -81,7 +81,7 @@ export function EncomendaFaturadoPara({
       key={k}
       type={tipo}
       value={form[k]}
-      placeholder={marcador}
+      placeholder={`Adicione ${marcador.charAt(0).toLowerCase()}${marcador.slice(1)}`}
       aria-label={marcador}
       data-campo-encomenda={k}
       onChange={(e) => setForm((f) => ({ ...f, [k]: e.target.value }))}

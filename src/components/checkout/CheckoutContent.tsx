@@ -1281,11 +1281,13 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                           (metodoPagamento === 'saldo' && (saldoDisponivel ?? 0) < total)
                         }
                         className={`flex-1 sm:flex-none disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold py-3 px-6 rounded-md flex items-center justify-center gap-2 transition-all cursor-pointer ${
-                          metodoPagamento === 'mpesa'
-                            ? 'bg-red-600 hover:bg-red-700'
-                            : metodoPagamento === 'saldo'
-                              ? 'bg-teal-600 hover:bg-teal-700'
-                              : 'bg-indigo-600 hover:bg-indigo-700'
+                          isEncomenda && !encomendaTemValor
+                            ? 'bg-black hover:bg-red-600'
+                            : metodoPagamento === 'mpesa'
+                              ? 'bg-red-600 hover:bg-red-700'
+                              : metodoPagamento === 'saldo'
+                                ? 'bg-teal-600 hover:bg-teal-700'
+                                : 'bg-indigo-600 hover:bg-indigo-700'
                         }`}
                       >
                         <Lock className="w-5 h-5 animate-pulse" />{' '}
