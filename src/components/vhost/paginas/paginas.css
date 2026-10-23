@@ -13339,6 +13339,35 @@
    }
 }
 
+/* telemóvel: também numa só linha, com letra e ícones mais pequenos para caberem aos 320 px */
+@media (max-width: 768px) {
+   .vh .opcoes-linha:not(#x) {
+      flex-wrap: nowrap;
+      white-space: nowrap;
+      column-gap: 6px;
+      font-size: 11.5px
+   }
+
+   .vh .opcoes-linha:not(#x) button {
+      gap: 3px
+   }
+
+   .vh .opcoes-linha:not(#x) button i {
+      font-size: .8em
+   }
+}
+
+@media (max-width: 360px) {
+   .vh .opcoes-linha:not(#x) {
+      column-gap: 4px;
+      font-size: 10px
+   }
+
+   .vh .opcoes-linha:not(#x) button {
+      gap: 2px
+   }
+}
+
 /* tablet estreito: as opções (uma só linha) ficam por cima da pesquisa e do botão, que não deixam de caber */
 @media (min-width: 769px) and (max-width: 1099px) {
    .vh .card-topo-linha:has(> .card-topo-opcoes.na-linha):not(#x) {
