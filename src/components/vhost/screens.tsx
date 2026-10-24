@@ -208,7 +208,8 @@ function InicioSoDominio() {
         displayName={vh.s.pessoa?.nome}
         sessionUser={vh.s.pessoa?.email}
         onNavigate={(secao) => {
-          if (secao === 'facturas' || secao === 'minhas-compras') vh.go('facturacao');
+          if (secao === 'transferir') vh.nav('/utilizador/dominios/transferir');
+          else if (secao === 'facturas' || secao === 'minhas-compras') vh.go('facturacao');
           else window.location.href = '/cliente';
         }}
       />

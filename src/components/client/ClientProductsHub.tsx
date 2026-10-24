@@ -257,44 +257,23 @@ export function ClientSidePanel({ displayName, sessionUser, onNavigate }: { disp
   ];
   return (
     <div className="space-y-4 p-3">
-      <div className="bg-white rounded border border-gray-200 shadow-sm p-5 dark:border-zinc-700 dark:bg-zinc-900">
-        <div className="flex flex-col items-center mb-4">
-          <div className="w-16 h-16 bg-red-600 rounded-full flex items-center justify-center mb-2">
-            <span className="text-white text-xl font-bold">{iniciais}</span>
+      <div className="bg-white rounded border border-gray-200 shadow-sm px-4 py-3 dark:border-zinc-700 dark:bg-zinc-900">
+        <div className="flex flex-col items-center gap-1.5">
+          <div className="w-14 h-14 bg-red-600 rounded-full flex items-center justify-center">
+            <span className="text-white text-lg font-bold">{iniciais}</span>
           </div>
-          {estado && (
-            <span
-              className={`px-2 py-0.5 rounded text-xs font-bold ${
-                activos! > 0
-                  ? 'bg-green-100 text-green-700 dark:bg-green-950/50 dark:text-green-400'
-                  : 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-400'
-              }`}
-            >
-              {estado}
-            </span>
-          )}
-        </div>
-        <div className="space-y-1.5 text-sm border-t border-gray-100 pt-4 text-center dark:border-zinc-800">
-          <p className="font-bold text-gray-900 dark:text-zinc-100">{nome}</p>
-          {sessionUser ? <p className="text-gray-500 text-xs break-all dark:text-zinc-400">{sessionUser}</p> : null}
+          <p className="text-sm font-bold text-gray-900 text-center leading-tight dark:text-zinc-100">{nome}</p>
         </div>
       </div>
 
       <div className="bg-white rounded border border-gray-200 shadow-sm p-5 text-center dark:border-zinc-700 dark:bg-zinc-900">
         <p className="text-xs font-bold text-gray-500 uppercase mb-2 dark:text-zinc-400">Novos Serviços</p>
-        <p className="text-xs text-gray-500 mb-3 dark:text-zinc-400">Transfira um domínio para a sua conta ou adicione e-mail profissional.</p>
+        <p className="text-xs text-gray-500 mb-3 dark:text-zinc-400">Adicione e-mail profissional à sua conta.</p>
         <a
-          href="#transferir"
-          onClick={(e) => {
-            e.preventDefault();
-            onNavigate?.('transferir');
-          }}
-          className="block w-full bg-red-600 hover:bg-red-700 text-white text-[10px] font-black uppercase tracking-widest py-2 rounded transition-all"
+          href="/precos/email"
+          className="bg-red-600 hover:bg-red-700 block w-full text-white py-2 rounded transition-all"
         >
-          Transferir Domínio
-        </a>
-        <a href="/precos/email" className="mt-2 inline-flex items-center gap-1 text-xs font-bold text-gray-700 hover:text-red-600 dark:text-zinc-300 dark:hover:text-red-400">
-          Planos de e-mail <ArrowRight className="w-3.5 h-3.5" />
+          Planos de e-mail
         </a>
       </div>
 
@@ -538,13 +517,18 @@ export function ClientDashboardView({
 
         {(domains.length === 0 || hosting.length === 0 || emailPlans.length === 0 || hasAnything) && (
           <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 shadow-sm space-y-6">
-            <div className="dom-titulo-bloco border-b border-zinc-200 dark:border-zinc-800 pb-3">
-              <p className="dom-titulo">{hasAnything ? 'Complete a sua conta' : 'Ainda não tem produtos activos na sua conta'}</p>
-              <p className="dom-sub">
-                {hasAnything
-                  ? 'Estes são os serviços que ainda não tem — escolha o que quer acrescentar à sua conta'
-                  : 'Escolha uma das opções abaixo para adquirir o seu domínio, hospedagem ou e-mail profissional'}
-              </p>
+            <div className="flex items-start justify-between gap-4 border-b border-zinc-200 dark:border-zinc-800 pb-3">
+              <div className="dom-titulo-bloco min-w-0">
+                <p className="dom-titulo">{hasAnything ? 'Complete a sua conta' : 'Ainda não tem produtos activos na sua conta'}</p>
+                <p className="dom-sub">
+                  {hasAnything
+                    ? 'Estes são os serviços que ainda não tem — escolha o que quer acrescentar à sua conta'
+                    : 'Escolha uma das opções abaixo para adquirir o seu domínio, hospedagem ou e-mail profissional'}
+                </p>
+              </div>
+              <button type="button" onClick={() => navigate('transferir')} className="btn-transferir shrink-0">
+                Transferir domínio
+              </button>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
