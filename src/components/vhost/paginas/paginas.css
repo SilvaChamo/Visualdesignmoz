@@ -2257,6 +2257,10 @@
    color: var(--ink)
 }
 
+.vh .em-opcoes .tag {
+   white-space: normal
+}
+
 .vh .em-radio {
    display: flex;
    gap: calc(18px * var(--z, 1));
