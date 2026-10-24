@@ -23,6 +23,7 @@ import { useTituloAjustado } from './titulo-ajustado';
 import { SAIR_POR_INATIVIDADE_ATIVO } from '@/lib/session-inactivity';
 import { BarraTopo, EsperaPagina, atividadeComeca, instalarContador, type Espera } from './carga';
 import { BarrasDa } from './carregador-da';
+import { ClientSidePanel } from '@/components/client/ClientProductsHub';
 import { useAvisosEncomendas } from './avisos-encomendas';
 import { badgeColors, getThemeColors, hexToRgb, luminancia, type CustomComponents } from './theme';
 import { FUNDO } from './carga';
@@ -46,6 +47,8 @@ import {
   initialState,
   isUser,
   meOf,
+  MENU_SO_DOMINIO,
+  soDominioDe,
   nomeNivel,
   dominioGuardado,
   guardarDominio,
@@ -1071,6 +1074,8 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
   const t = (text: string) => translate(st.lang, text);
   // balões no menu: encomenda nova, cancelada ou actualizada (e pagamentos por confirmar, para o administrador)
   const avisosMenu = useAvisosEncomendas(st.carga === 'ok' && !!st.login && !st.stack.length, st.acc[st.login]?.role === 'admin', s.page === 'encomendas', toast);
+  // quem só tem domínio (sem conta no servidor): menu reduzido
+  const soDominio = soDominioDe({ ...st, level });
   const go = (id: string) => nav(route(level, id));
   /** planos de cliente do servidor (submenus de Admin › Configurações de acesso) */
   const planosAcesso = Object.keys(st.db.pkgs).filter((p) => p !== 'system');
@@ -1532,7 +1537,7 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
                 </h1>
                 <p>{t('Olá, ' + pessoaNome.split(' ')[0])}</p>
               </div>
-              <div className="lvl" id="lvl" style={allowed.length > 1 ? undefined : { display: 'none' }}>
+              <div className="lvl" id="lvl" style={allowed.length > 1 && !soDominio ? undefined : { display: 'none' }}>
                 {allowed.map((k) => (
                   <button key={k} className={level === k && !sec ? 'on' : ''} onClick={() => setLevel(k)} title={t(nomeNivel(k))}>
                     {t(nomeNivel(k))}
@@ -1541,7 +1546,19 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
               </div>
               {/* Menu em categorias que abrem e fecham; sem a secção Início (o painel abre pelo símbolo ou por "Dashboard") */}
               <nav className="side" id="side">
-                {sec ? (
+                {soDominio ? (
+                  <div className="tw-livre lateral-cliente">
+                    <ClientSidePanel
+                      displayName={pessoaNome}
+                      sessionUser={pessoaEmail}
+                      onNavigate={(secao) => {
+                        if (secao === 'transferir') nav('/utilizador/dominios/transferir');
+                        else if (secao === 'facturas' || secao === 'minhas-compras') go('facturacao');
+                        else window.location.href = '/cliente';
+                      }}
+                    />
+                  </div>
+                ) : sec ? (
                   <>
                     <div className="grp open static">
                       <span>{t(sec.t)}</span>
@@ -1563,7 +1580,7 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
                   </>
                 ) : (
                   MENU[level]
-                    .filter(([g]) => g !== 'Início')
+                    .filter(([g]) => g !== 'Início' && (!soDominio || MENU_SO_DOMINIO.includes(g)))
                     .map(([g, items]) => {
                       const vis = items.filter((it) => !SEM_MENU.has(it.id) && vh.hasFeat(it.feat, it.id));
                       if (!vis.length) return null;
@@ -1579,7 +1596,7 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
                               if (abrir && !(level === 'admin' && g === 'Configurações de acesso')) go(vis[0].id);
                             }}
                           >
-                            <span>{t(g)}</span>
+                            <span>{t(soDominio && g === 'Compras e encomendas' ? 'Compras' : g)}</span>
                             {!st.open[k] && vis.some((it) => avisosMenu[it.id]) && <b className="nbal">{vis.reduce((soma, it) => soma + (avisosMenu[it.id]?.n || 0), 0)}</b>}
                             <i className="fa-solid fa-chevron-down chev" />
                           </button>

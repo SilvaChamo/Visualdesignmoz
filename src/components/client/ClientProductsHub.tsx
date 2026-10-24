@@ -17,6 +17,7 @@ import {
   Inbox,
   Receipt,
   RefreshCw,
+  Palette,
 } from 'lucide-react';
 import type { UserProductsSummary } from '@/lib/user-products';
 import { Spinner } from '@/components/ui/spinner';
@@ -149,7 +150,11 @@ export function ClientProductsHub({ onNavigate, displayName, sessionUser, onProd
   );
 }
 
-const RENEW_BUTTON_DAYS = 60;
+/** O botão Renovar aparece quando faltam 3 meses (Silva, 24/10/2026) */
+const RENEW_BUTTON_DAYS = 90;
+
+/** Cor da data de expiração: verde até faltarem 3 meses; daí passa pouco a pouco por amarelo e laranja até vermelho no dia em que expira */
+const expiryColor = (days: number): string => (days <= 0 ? 'hsl(0, 72%, 42%)' : days >= 90 ? 'hsl(140, 60%, 32%)' : `hsl(${Math.round((days / 90) * 140)}, 72%, 38%)`);
 
 const getDaysUntil = (date: string): number => {
   const today = new Date();
@@ -226,6 +231,77 @@ type ViewProps = {
   /** Idem — passa o registo (o cartão) para outra conta. */
   onMoveRecord?: (record: { kind: 'domain' | 'hosting'; id: string }, targetEmail: string) => Promise<void>;
 };
+
+/**
+ * Dados do cliente para a barra da esquerda do painel de quem só tem domínio (Silva, 24/10/2026): o perfil com o estado da conta,
+ * "Novos serviços" e "Acesso rápido" (os mesmos blocos que estavam na coluna da direita do início).
+ */
+export function ClientSidePanel({ displayName, sessionUser, onNavigate }: { displayName?: string | null; sessionUser?: string | null; onNavigate?: ClientNavigate }) {
+  const [activos, setActivos] = useState<number | null>(null);
+  useEffect(() => {
+    let vivo = true;
+    fetch('/api/my-products', { credentials: 'include' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!vivo || !d?.products) return;
+        const p = d.products;
+        setActivos((p.domains?.length ?? 0) + (p.hosting?.length ?? 0) + (p.emailPlans?.length ?? 0));
+      })
+      .catch(() => {});
+    return () => {
+      vivo = false;
+    };
+  }, []);
+  const nome = displayName || (sessionUser ? sessionUser.split('@')[0] : 'Cliente');
+  const iniciais = nome.substring(0, 2).toUpperCase();
+  const estado = activos === null ? null : activos > 0 ? 'Activo' : 'Sem produtos';
+  const atalhos = [
+    { label: 'As Minhas Compras', id: 'minhas-compras', icon: <ShoppingCart className="w-3.5 h-3.5" /> },
+    { label: 'Facturas', id: 'facturas', icon: <Receipt className="w-3.5 h-3.5" /> },
+  ];
+  return (
+    <div className="space-y-4 p-3">
+      <div className="bg-white rounded border border-gray-200 shadow-sm px-4 py-3 dark:border-zinc-700 dark:bg-zinc-900">
+        <div className="flex flex-col items-center gap-1.5">
+          <div className="w-14 h-14 bg-red-600 rounded-full flex items-center justify-center">
+            <span className="text-white text-lg font-bold">{iniciais}</span>
+          </div>
+          <p className="text-sm font-bold text-gray-900 text-center leading-tight dark:text-zinc-100">{nome}</p>
+          {estado && (
+            <p className={`text-xs leading-none ${activos! > 0 ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>
+              {activos! > 0 ? 'Conta activa' : 'Conta sem produtos'}
+            </p>
+          )}
+        </div>
+      </div>
+
+      <div className="bg-white rounded border border-gray-200 shadow-sm p-5 text-center dark:border-zinc-700 dark:bg-zinc-900">
+        <p className="text-xs font-bold text-gray-500 uppercase mb-2 dark:text-zinc-400">Novos Serviços</p>
+        <p className="text-xs text-gray-500 mb-3 dark:text-zinc-400">Adicione e-mail profissional à sua conta.</p>
+        <a href="/precos/email" className="btn-lateral-preto">
+          Planos de e-mail <ArrowRight className="w-3.5 h-3.5" />
+        </a>
+      </div>
+
+      <div className="bg-white rounded border border-gray-200 shadow-sm p-4 dark:border-zinc-700 dark:bg-zinc-900">
+        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-3 dark:text-zinc-400">Acesso Rápido</p>
+        <div className="space-y-1">
+          {atalhos.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => onNavigate?.(item.id)}
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 hover:text-red-600 rounded transition-colors text-left font-medium dark:text-zinc-300 dark:hover:bg-transparent dark:hover:text-red-400"
+            >
+              <span className="text-gray-400 dark:text-zinc-500">{item.icon}</span>
+              {item.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 /** Parte visual do dashboard (separada da leitura para poder ser pré-visualizada com dados fictícios). */
 export function ClientDashboardView({
@@ -356,6 +432,63 @@ export function ClientDashboardView({
   const AccountIcon = accountState.icon;
 
   return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <button
+          type="button"
+          onClick={() => (activeEmailPlans > 0 ? navigate('emails-new') : (window.location.href = '/precos/email'))}
+          className="bg-white rounded border border-gray-200 shadow-sm p-5 flex items-start gap-4 text-left cursor-pointer hover:shadow-md hover:border-blue-200 transition-all dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-blue-900/50"
+        >
+          <div className="p-3 bg-blue-50 rounded-lg dark:bg-blue-950/40">
+            <Mail className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+          </div>
+          <div>
+            <p className="text-sm text-gray-500 dark:text-zinc-400">Planos de E-mail</p>
+            <p className="text-lg font-bold text-gray-900 dark:text-zinc-100">{activeEmailPlans}</p>
+          </div>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => (domains.length > 0 ? navigate('domain-manager') : (window.location.href = '/servicos/dominios?origem=painel'))}
+          className="bg-white rounded border border-gray-200 shadow-sm p-5 flex items-start gap-4 text-left cursor-pointer hover:shadow-md hover:border-purple-200 transition-all dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-purple-900/50"
+        >
+          <div className="p-3 bg-purple-50 rounded-lg dark:bg-purple-950/40">
+            <Globe className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+          </div>
+          <div>
+            <p className="text-sm text-gray-500 dark:text-zinc-400">Domínios</p>
+            <p className="text-lg font-bold text-gray-900 dark:text-zinc-100">{domains.length}</p>
+          </div>
+        </button>
+
+        <div className="bg-white rounded border border-gray-200 shadow-sm p-5 flex items-start gap-4 dark:border-zinc-700 dark:bg-zinc-900">
+          <div className={`p-3 rounded-lg ${toneClasses.box}`}>
+            <AccountIcon className={`w-6 h-6 ${toneClasses.icon}`} />
+          </div>
+          <div>
+            <p className="text-sm text-gray-500 dark:text-zinc-400">Estado da Conta</p>
+            <p className="text-lg font-bold text-gray-900 dark:text-zinc-100">{accountState.label}</p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => navigate('facturas')}
+          className="bg-white rounded border border-gray-200 shadow-sm p-5 flex items-start gap-4 text-left cursor-pointer hover:shadow-md hover:border-red-200 transition-all dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-red-900/50"
+        >
+          <div className="p-3 bg-red-50 rounded-lg dark:bg-red-950/40">
+            <FileText className="w-6 h-6 text-red-600 dark:text-red-400" />
+          </div>
+          <div>
+            <p className="text-sm text-gray-500 dark:text-zinc-400">Próxima Renovação</p>
+            <p className="text-lg font-bold text-gray-900 dark:text-zinc-100">
+              {nextRenewal ? formatDate(nextRenewal.date) : 'N/A'}
+            </p>
+          </div>
+        </button>
+      </div>
+
     <div className="flex flex-col gap-5 lg:flex-row">
       <div className="min-w-0 flex-1 space-y-5">
         {loadFailed && (
@@ -388,85 +521,40 @@ export function ClientDashboardView({
           </div>
         )}
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <button
-            type="button"
-            onClick={() => (activeEmailPlans > 0 ? navigate('emails-new') : (window.location.href = '/precos/email'))}
-            className="bg-white rounded border border-gray-200 shadow-sm p-5 flex items-start gap-4 text-left cursor-pointer hover:shadow-md hover:border-blue-200 transition-all dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-blue-900/50"
-          >
-            <div className="p-3 bg-blue-50 rounded-lg dark:bg-blue-950/40">
-              <Mail className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500 dark:text-zinc-400">Planos de E-mail</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-zinc-100">{activeEmailPlans}</p>
-              <p className="text-xs text-gray-400 mt-0.5 dark:text-zinc-500">
-                {activeEmailPlans > 0 ? 'Ver contas de e-mail' : 'Ver planos de e-mail'}
-              </p>
-            </div>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => (domains.length > 0 ? navigate('domain-manager') : (window.location.href = '/servicos/dominios?origem=painel'))}
-            className="bg-white rounded border border-gray-200 shadow-sm p-5 flex items-start gap-4 text-left cursor-pointer hover:shadow-md hover:border-purple-200 transition-all dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-purple-900/50"
-          >
-            <div className="p-3 bg-purple-50 rounded-lg dark:bg-purple-950/40">
-              <Globe className="w-6 h-6 text-purple-600 dark:text-purple-400" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500 dark:text-zinc-400">Domínios</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-zinc-100">{domains.length}</p>
-              <p className="text-xs text-gray-400 mt-0.5 dark:text-zinc-500">{domains.length > 0 ? 'Domínios registados' : 'Registar domínio'}</p>
-            </div>
-          </button>
-
-          <div className="bg-white rounded border border-gray-200 shadow-sm p-5 flex items-start gap-4 dark:border-zinc-700 dark:bg-zinc-900">
-            <div className={`p-3 rounded-lg ${toneClasses.box}`}>
-              <AccountIcon className={`w-6 h-6 ${toneClasses.icon}`} />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500 dark:text-zinc-400">Estado da Conta</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-zinc-100">{accountState.label}</p>
-              <p className="text-xs text-gray-400 mt-0.5 dark:text-zinc-500">{accountState.hint}</p>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => navigate('facturas')}
-            className="bg-white rounded border border-gray-200 shadow-sm p-5 flex items-start gap-4 text-left cursor-pointer hover:shadow-md hover:border-red-200 transition-all dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-red-900/50"
-          >
-            <div className="p-3 bg-red-50 rounded-lg dark:bg-red-950/40">
-              <FileText className="w-6 h-6 text-red-600 dark:text-red-400" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500 dark:text-zinc-400">Próxima Renovação</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-zinc-100">
-                {nextRenewal ? formatDate(nextRenewal.date) : 'N/A'}
-              </p>
-              <p className="text-xs text-gray-400 mt-0.5 dark:text-zinc-500">Ver facturas</p>
-            </div>
-          </button>
-        </div>
-
-        {!hasAnything && (
+        {(domains.length === 0 || hosting.length === 0 || emailPlans.length === 0 || hasAnything) && (
           <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 shadow-sm space-y-6">
-            <div className="flex items-start gap-3 border-b border-zinc-100 dark:border-zinc-800 pb-4">
-              <div className="w-9 h-9 rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-100 dark:border-red-900/50 flex items-center justify-center text-red-600 dark:text-red-400 shrink-0">
-                <ShoppingCart className="w-4.5 h-4.5" />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-100">
-                  Ainda não tem produtos activos na sua conta
-                </h3>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-                  Escolha uma das opções abaixo para adquirir o seu domínio, hospedagem ou e-mail profissional:
+            <div className="border-b border-zinc-200 dark:border-zinc-800" style={{ paddingBottom: 10, marginBottom: 10 }}>
+              <div className="dom-titulo-bloco min-w-0">
+                <p className="dom-titulo">{hasAnything ? 'Complete a sua conta' : 'Ainda não tem produtos activos na sua conta'}</p>
+                <p className="dom-sub">
+                  {hasAnything
+                    ? 'Estes são os serviços que ainda não tem — escolha o que quer acrescentar à sua conta'
+                    : 'Escolha uma das opções abaixo para adquirir o seu domínio, hospedagem ou e-mail profissional'}
                 </p>
               </div>
             </div>
 
+            <div className="flex flex-wrap items-start justify-between gap-3" style={{ marginBottom: 30 }}>
+              <div className="flex flex-wrap items-center">
+                <button type="button" onClick={() => navigate('dns')} className="link-rapido">
+                  <i className="fa-solid fa-network-wired" style={{ color: 'var(--ci-turquesa, #00A3B4)' }} /> DNS
+                </button>
+                <span className="link-rapido-sep" aria-hidden="true">|</span>
+                <button type="button" onClick={() => navigate('php')} className="link-rapido">
+                  <i className="fa-brands fa-php" style={{ color: 'var(--ci-roxo, #7B4DDB)' }} /> Definições do PHP
+                </button>
+                <span className="link-rapido-sep" aria-hidden="true">|</span>
+                <button type="button" onClick={() => navigate('wordpress')} className="link-rapido">
+                  <i className="fa-brands fa-wordpress" style={{ color: 'var(--ci-azul, #2D7FF9)' }} /> Instalar site WordPress
+                </button>
+              </div>
+              <button type="button" onClick={() => navigate('transferir')} className="btn-transferir shrink-0">
+                Transferir domínio
+              </button>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {domains.length === 0 && (
               <a
                 href="/servicos/dominios"
                 className="group flex flex-col justify-between p-5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950/50 hover:border-red-500/50 hover:bg-white dark:hover:bg-zinc-900 transition-all shadow-sm"
@@ -487,7 +575,9 @@ export function ClientDashboardView({
                   <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
                 </div>
               </a>
+              )}
 
+              {hosting.length === 0 && (
               <a
                 href="/precos/hospedagem"
                 className="group flex flex-col justify-between p-5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950/50 hover:border-red-500/50 hover:bg-white dark:hover:bg-zinc-900 transition-all shadow-sm"
@@ -508,7 +598,9 @@ export function ClientDashboardView({
                   <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
                 </div>
               </a>
+              )}
 
+              {emailPlans.length === 0 && (
               <a
                 href="/precos/email"
                 className="group flex flex-col justify-between p-5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950/50 hover:border-red-500/50 hover:bg-white dark:hover:bg-zinc-900 transition-all shadow-sm"
@@ -526,6 +618,27 @@ export function ClientDashboardView({
                 </div>
                 <div className="mt-4 flex items-center gap-1.5 text-xs font-bold text-red-600 dark:text-red-400">
                   <span>Ver planos</span>
+                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+                </div>
+              </a>
+              )}
+              <a
+                href="/cotacao"
+                className="group flex flex-col justify-between p-5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950/50 hover:border-red-500/50 hover:bg-white dark:hover:bg-zinc-900 transition-all shadow-sm"
+              >
+                <div>
+                  <div className="w-10 h-10 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-100 dark:border-amber-900/50 flex items-center justify-center text-amber-600 dark:text-amber-400 mb-3">
+                    <Palette className="w-5 h-5" />
+                  </div>
+                  <h4 className="font-bold text-sm text-zinc-900 dark:text-zinc-100 group-hover:text-red-600 dark:group-hover:text-red-400 transition-colors">
+                    Serviços VisualDesign
+                  </h4>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                    Design gráfico, web design, brindes e produção audiovisual — peça a sua cotação.
+                  </p>
+                </div>
+                <div className="mt-4 flex items-center gap-1.5 text-xs font-bold text-red-600 dark:text-red-400">
+                  <span>Pedir cotação</span>
                   <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
                 </div>
               </a>
@@ -565,7 +678,7 @@ export function ClientDashboardView({
               const badge = STATE_BADGE[row.state];
               const ok = row.state === 'active';
               const showRenew =
-                ok && row.renewHref && row.expirationDate && getDaysUntil(row.expirationDate) <= RENEW_BUTTON_DAYS;
+                row.state !== 'awaiting_payment' && row.renewHref && row.expirationDate && getDaysUntil(row.expirationDate) <= RENEW_BUTTON_DAYS;
               const manage =
                 row.state === 'awaiting_payment'
                   ? null
@@ -583,7 +696,9 @@ export function ClientDashboardView({
                   <div className="flex items-center gap-4 min-w-0">
                     <div
                       className={`w-12 h-12 shrink-0 rounded flex items-center justify-center border ${
-                        ok
+                        ok && row.kind === 'domain'
+                          ? 'bg-blue-50 border-blue-100 dark:bg-blue-950/30 dark:border-blue-900/50'
+                          : ok
                           ? 'bg-green-50 border-green-100 dark:bg-green-950/30 dark:border-green-900/50'
                           : row.state === 'inactive'
                             ? 'bg-red-50 border-red-100 dark:bg-red-950/30 dark:border-red-900/50'
@@ -592,7 +707,9 @@ export function ClientDashboardView({
                     >
                       <Icon
                         className={`w-6 h-6 ${
-                          ok
+                          ok && row.kind === 'domain'
+                            ? 'text-blue-600 dark:text-blue-400'
+                            : ok
                             ? 'text-green-600 dark:text-green-400'
                             : row.state === 'inactive'
                               ? 'text-red-500 dark:text-red-400'
@@ -603,16 +720,16 @@ export function ClientDashboardView({
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
                         <h3 className="text-base font-bold text-gray-900 truncate dark:text-zinc-100">{row.title}</h3>
-                        {row.isDomainName && (
-                          <span className="text-xs text-gray-500 font-medium dark:text-zinc-400">
-                            {getDomainExtension(row.title)}
-                          </span>
-                        )}
+                        <span className="text-gray-300 dark:text-zinc-600 shrink-0" aria-hidden="true">|</span>
+                        <span className={`estado-ponto ${ok ? 'estado-ok' : row.state === 'inactive' ? 'estado-inativo' : 'estado-espera'}`}>
+                          <i />
+                          {badge.label.charAt(0) + badge.label.slice(1).toLowerCase()}
+                        </span>
                       </div>
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
                         <span className="text-xs text-gray-500 dark:text-zinc-400">{row.subtitle}</span>
                         {row.expirationDate && row.state !== 'awaiting_payment' ? (
-                          <span className={`flex items-center gap-1 text-xs font-medium ${ok ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-zinc-400'}`}>
+                          <span className="flex items-center gap-1 text-xs font-medium" style={{ color: expiryColor(getDaysUntil(row.expirationDate)) }}>
                             <Calendar className="w-3.5 h-3.5" />
                             Expiração: {formatDate(row.expirationDate)}
                           </span>
@@ -674,7 +791,6 @@ export function ClientDashboardView({
                         {deletingKey === row.key ? 'A ELIMINAR…' : 'ELIMINAR'}
                       </button>
                     ) : null}
-                    <span className={`px-3 py-1 rounded text-xs font-bold ${badge.className}`}>{badge.label}</span>
                   </div>
                 </div>
               );
@@ -754,6 +870,7 @@ export function ClientDashboardView({
           }}
         />
       )}
+    </div>
     </div>
   );
 }

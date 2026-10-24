@@ -19,6 +19,7 @@ import { editorSistemaPagina, estatisticasAdminPagina, ticketsAdminPagina } from
 import { ligadosPagina } from './paginas/ligados';
 import { sitesContasPagina } from './paginas/sites-contas';
 import { encomendasPagina } from './paginas/encomendas';
+import { ClientProductsHub } from '@/components/client/ClientProductsHub';
 import { contabilidadePagina, contasEncomendasPagina, gestaoEncomendasPagina } from './paginas/encomendas-admin';
 import { quarentenaPagina } from './paginas/quarentena';
 import { facturacaoPagina } from './paginas/facturacao';
@@ -27,7 +28,7 @@ import { catchAllPagina, emailPagina, feriasPagina, listasPagina, mailmarketingP
 import { apontadores, bdPagina, dnsPagina, dominios, ftpPagina, hotlink, phpPagina, phpmyadminPagina, redirecionamentos, sslPagina } from './paginas/dominios';
 import { ThemeCustomizerView, temaBase } from './paginas/tema';
 import { FEATS, GLOBAL, HX, HX_INFO, LEVELS, LOGIN_AS, MENU, PKGS, REMOVED, ROLE_INFO, ROLE_LEVELS, ROLES } from './generated/data';
-import { findItem, gItem, pacoteDe, route } from './state';
+import { findItem, gItem, pacoteDe, route, soDominioDe } from './state';
 import { mbTexto } from './servidor';
 import type { Lim } from './paginas/dados';
 import type { HxState, Level, MenuItem, Role } from './types';
@@ -197,6 +198,38 @@ function UserWidgets() {
 const home =
   (title: string, Widgets: () => ReactNode, actions: (vh: VH) => ReactNode): ScreenFn =>
   (vh) => ({ title, actions: actions(vh), body: vh.s.dashTab === 'menu' ? <DaHomeCards /> : <Widgets /> });
+
+/** Início de quem só tem domínio (sem conta no servidor): os 4 cartões em cima e, por baixo, os serviços que lhe faltam (Silva, 24/10/2026) */
+function InicioSoDominio() {
+  const vh = useVH();
+  return (
+    <div className="tw-livre inicio-so-dominio">
+      <ClientProductsHub
+        displayName={vh.s.pessoa?.nome}
+        sessionUser={vh.s.pessoa?.email}
+        onNavigate={(secao) => {
+          if (secao === 'transferir') vh.nav('/utilizador/dominios/transferir');
+          else if (secao === 'dns' || secao === 'php' || secao === 'wordpress') vh.go(secao);
+          else if (secao === 'facturas' || secao === 'minhas-compras') vh.go('facturacao');
+          else window.location.href = '/cliente';
+        }}
+      />
+    </div>
+  );
+}
+const inicioUtilizador: ScreenFn = (vh) => {
+  const soDominio = soDominioDe(vh.s);
+  return {
+    title: 'Painel',
+    actions: (
+      <button className="btn r" onClick={() => vh.nav('/utilizador/dominios/novo')}>
+        <i className="fa-solid fa-plus" />
+        {vh.t('Adicionar domínio')}
+      </button>
+    ),
+    body: vh.s.dashTab === 'menu' ? <DaHomeCards /> : soDominio ? <InicioSoDominio /> : <UserWidgets />,
+  };
+};
 
 // ---------- Domínios e e-mail ----------
 
@@ -639,12 +672,7 @@ export const SCREENS: Record<string, ScreenFn> = {
   'admin/inicio': home('Painel do servidor', AdminWidgets, newClientBtn),
   'revenda/inicio': home('Painel de revenda', RevendaWidgets, newClientBtn),
   // botão principal do topo: com a cor do tema e a altura dos outros (como "Novo cliente" no Admin)
-  'utilizador/inicio': home('Painel', UserWidgets, (vh) => (
-    <button className="btn r" onClick={() => vh.nav('/utilizador/dominios/novo')}>
-      <i className="fa-solid fa-plus" />
-      {vh.t('Adicionar domínio')}
-    </button>
-  )),
+  'utilizador/inicio': inicioUtilizador,
   // Gestão de domínios (disponível nos 3 painéis/níveis: admin, revenda e utilizador)
   'admin/dominios': dominios,
   'revenda/dominios': dominios,
