@@ -33,23 +33,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version: '24'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build project
-        env:
-          # Base de dados PRÓPRIA do Contabo (27-30 ago). Secrets CONTABO_* /
-          # SUPABASE_CONTABO_*.
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.CONTABO_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_CONTABO_ANON_KEY }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_CONTABO_SERVICE_ROLE_KEY }}
-        run: npm run build
+      # Deploy mais rápido (Silva, 23/10/2026): o site é instalado e construído uma só vez, no servidor (mais abaixo). Antes
+      # construía-se também aqui, no GitHub, só para o deitar fora (o rsync não leva o .next): entre 3 e 6 minutos a mais.
+      # Se o build falhar no servidor, a publicação falha e o site fica como estava.
 
       - name: Setup SSH key
         run: |
@@ -243,7 +229,24 @@ jobs:
             # servidor) passa sempre à frente. Antes o build levava os 6 núcleos e o site ficava parado/bloqueado
             # durante cada publicação, e o watchdog (curl de 20 s) chegava a reiniciá-lo a meio (Silva, 15/10/2026).
             BAIXA="nice -n 19 ionice -c3"
-            $BAIXA npm ci
+            # node_modules: se o package-lock.json e o Node são os mesmos da versão em uso, reaproveita-se o dela (cópia por
+            # ligações duras, segundos) em vez de reinstalar tudo (~3 min). A assinatura fica dentro do node_modules; sem ela
+            # (primeira publicação depois desta alteração), ou se a cópia falhar, instala-se como sempre.
+            ASSINATURA="$(sha256sum package-lock.json | cut -d' ' -f1)-$(node --version)"
+            REAPROVEITADO=0
+            if [ -f "$LIVE/node_modules/.vd-assinatura" ] && [ "$(cat "$LIVE/node_modules/.vd-assinatura")" = "$ASSINATURA" ]; then
+              rm -rf node_modules
+              if cp -al "$LIVE/node_modules" node_modules; then
+                REAPROVEITADO=1
+                echo "package-lock.json e Node iguais aos da versão em uso: node_modules reaproveitado."
+              else
+                rm -rf node_modules
+              fi
+            fi
+            if [ "$REAPROVEITADO" = 0 ]; then
+              $BAIXA npm ci --no-audit --no-fund
+              echo "$ASSINATURA" > node_modules/.vd-assinatura
+            fi
             # Build sempre limpo — publicações seguidas em cima da mesma pasta
             # .next (nunca apagada pelo rsync, ver --exclude acima) já causaram
             # "Invariant: client reference manifest ... does not exist" (bug
