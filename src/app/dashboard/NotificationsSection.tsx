@@ -20,7 +20,7 @@ import {
 import { panelTabList, panelTabBtn, panelCard, panelBtnPrimary, panelBtnSecondary, panelField } from '@/lib/panel-ui'
 import { Spinner } from '@/components/ui/spinner'
 import { buildSimpleNotificationEmailHtml } from '@/lib/renewal-templates'
-import { NotificationRichEditor } from './NotificationRichEditor'
+import { NotificationRichEditor } from '@/components/vhost/comuns/NotificationRichEditor'
 
 /** Extrai texto simples de HTML — usado para o título automático, o texto
  * guardado na base de dados (mostrado tal qual, sem HTML, no sino de

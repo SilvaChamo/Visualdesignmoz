@@ -21,7 +21,9 @@ export interface EmailPlanDef {
  */
 export const EMAIL_PLANS: EmailPlanDef[] = [
   // contas de e-mail: Básico 10, Premium 50, Enterprise ilimitadas (Silva, 17/10/2026)
-  { id: 'email-basico', label: 'Básico', accounts: 10, storageGb: 10, annualPrice: 3080, hestiaPackage: 'VD-Email-Basico', popular: false },
+  // storageGb segue sempre 500 MB por caixa (igual ao Premium: 25/50) — Básico com 10 GB
+  // para 10 contas era inconsistente com esse padrão (Silva, 19/10/2026).
+  { id: 'email-basico', label: 'Básico', accounts: 10, storageGb: 5, annualPrice: 3080, hestiaPackage: 'VD-Email-Basico', popular: false },
   { id: 'email-premium', label: 'Premium', accounts: 50, storageGb: 25, annualPrice: 4200, hestiaPackage: 'VD-Email-Premium', popular: true },
   { id: 'email-enterprise', label: 'Enterprise', accounts: null, storageGb: 50, annualPrice: 6528, hestiaPackage: 'VD-Email-Enterprise', popular: false },
 ];

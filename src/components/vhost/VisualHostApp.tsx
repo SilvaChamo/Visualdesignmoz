@@ -744,9 +744,8 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Sair (e inatividade): termina a sessão e vai para o login do site, que volta a este ecrã depois de entrar (Silva,
-  // 16/10/2026: "diretamente no login do site para se entrar no painel"). Sem cookie de sessão, o proxy já manda para lá.
-  const irParaLogin = useCallback(async (caminho = '') => {
+  // Limpeza comum ao terminar a sessão, seja por "Sair" ou por inactividade.
+  const limparSessao = useCallback(async () => {
     apagarCache();
     guardarEntrarComo('', []);
     esquecerTemas();
@@ -754,8 +753,21 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
     try {
       await auth.signOut();
     } catch {}
-    window.location.assign('/login' + (caminho ? '?redirect=' + encodeURIComponent(BASE + caminho) : ''));
   }, []);
+
+  // Sair: termina a sessão e vai para o login do site, que volta a este ecrã depois de entrar (Silva, 16/10/2026:
+  // "diretamente no login do site para se entrar no painel"). Único caso que vai para o login — é um clique explícito.
+  const irParaLogin = useCallback(async (caminho = '') => {
+    await limparSessao();
+    window.location.assign('/login' + (caminho ? '?redirect=' + encodeURIComponent(BASE + caminho) : ''));
+  }, [limparSessao]);
+
+  // Inactividade: termina a sessão sem perguntar, mas vai para a home do site, não para o login (Silva, 19/10/2026:
+  // só o botão Sair vai para o login; o resto vai para a home).
+  const irParaHome = useCallback(async () => {
+    await limparSessao();
+    window.location.assign('/');
+  }, [limparSessao]);
 
   // Leitura antiga (o servidor guarda-a até 60 min e lê a nova por trás — Silva, 17/10/2026): volta a pedir aos 3, 6, 10,
   // 20 e 30 s até chegar uma desta hora. O conteúdo fica à vista e só muda quando chega o novo (nunca tela branca).
@@ -1316,14 +1328,13 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
       } catch {}
       if (Date.now() - Math.max(ultimo, outro) < LIMITE) return;
       clearInterval(iv);
-      // como no DA: depois de entrar, volta à página onde estava
-      irParaLogin(ref.current.path || '/');
+      irParaHome();
     }, 30_000);
     return () => {
       evs.forEach((e) => window.removeEventListener(e, toque, { capture: true }));
       clearInterval(iv);
     };
-  }, [st.carga, irParaLogin]);
+  }, [st.carga, irParaHome]);
 
   const colors = getThemeColors(st.colorPreset, st.customPrimary, over);
   const isDark = st.theme === 'dark';

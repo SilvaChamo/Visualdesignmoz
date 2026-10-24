@@ -8,8 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { RichTextEditor } from '@/components/RichTextEditor';
-import { EmailTemplates } from '@/components/admin/EmailTemplates';
-import { useAdminSectionChrome } from '@/components/admin/AdminSectionChrome';
+import { EmailTemplates } from '@/components/vhost/comuns/EmailTemplates';
+import { useAdminSectionChrome } from '@/components/vhost/comuns/AdminSectionChrome';
 import { panelField, panelBtnPrimary, panelBtnSecondary } from '@/lib/panel-ui';
 import { Spinner } from '@/components/ui/spinner';
 

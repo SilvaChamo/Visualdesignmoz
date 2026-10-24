@@ -844,8 +844,10 @@ export async function POST(req: NextRequest) {
       const raiz = raizSite(srv, conta, d);
       const nome = (await executeServerCommand(`sudo -u ${conta} /usr/local/bin/wp --path=${q(raiz)} --skip-plugins --skip-themes config get DB_NAME 2>/dev/null`, { timeoutMs: 30_000 })).trim();
       const NUCLEO = ['wp-admin', 'wp-includes', 'wp-content', 'index.php', 'license.txt', 'readme.html', 'xmlrpc.php', 'wp-activate.php', 'wp-blog-header.php', 'wp-comments-post.php', 'wp-config.php', 'wp-config-sample.php', 'wp-cron.php', 'wp-links-opml.php', 'wp-load.php', 'wp-login.php', 'wp-mail.php', 'wp-settings.php', 'wp-signup.php', 'wp-trackback.php'];
-      const out = await executeServerCommand(`cd ${q(raiz)} && test -f wp-config.php && sudo -u ${conta} rm -rf -- ${NUCLEO.map(q).join(' ')} && echo FEITO`, { timeoutMs: 120_000 });
-      if (!/FEITO/.test(out)) return recusa('Não foi possível apagar o WordPress: ' + out.slice(0, 200));
+      // No servidor, um comando que falha devolve o texto do próprio comando: por isso o resultado vai numa marca com o
+      // código (WPRES:0 = apagou), que não está escrita no comando, e o comando acaba sempre com `echo`.
+      const out = await executeServerCommand(`cd ${q(raiz)} && test -f wp-config.php && sudo -u ${conta} rm -rf -- ${NUCLEO.map(q).join(' ')}; echo "WPRES:$?"`, { timeoutMs: 120_000 });
+      if (!/^WPRES:0\s*$/m.test(out)) return recusa('Não foi possível apagar o WordPress: ' + (out.replace(/^WPRES:\d+\s*$/m, '').trim() || 'não há WordPress (wp-config.php) nesta pasta').slice(0, 200));
       let bd = '';
       if (c.comBd && nome && (srv.db[conta] || {})[nome]) {
         const x = await hestia.deleteDatabase(conta, nome);

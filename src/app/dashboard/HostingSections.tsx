@@ -55,11 +55,11 @@ import { cpGetUsers, cpSaveUser, cpRemoveUser, cpSaveSubdomain, cpRemoveSubdomai
 import { EmailWebmailSection } from '@/components/dashboard/EmailWebmailSection'
 import { getServerHost, getDirectAdminAccessUrl, getDirectAdminFileManagerUrl, getDirectAdminWordPressUrl, getWebmailUrlForDomain } from '@/lib/server-config'
 import { AddEmailAccountModal } from '@/components/AddEmailAccountModal'
-import { EmailConfigResultModal, fetchEmailConfigBundle, type EmailConfigBundle } from '@/components/admin/EmailConfigResultModal'
+import { EmailConfigResultModal, fetchEmailConfigBundle, type EmailConfigBundle } from '@/components/vhost/comuns/EmailConfigResultModal'
 import { prefetchEmailConfigs, writeEmailConfigCache } from '@/lib/panel-email-config-cache'
 import { buildEmailConfigBundle } from '@/lib/email-client-config-export'
 import { buildPanelAccessConfigText } from '@/lib/panel-access-config-text'
-import { useAdminSectionChrome } from '@/components/admin/AdminSectionChrome'
+import { useAdminSectionChrome } from '@/components/vhost/comuns/AdminSectionChrome'
 import { HostingPackageFormInline } from '@/app/dashboard/HostingPackageFormInline'
 import { composePackageName, createDefaultResellerPackageForm, normalizePackageFormForEditor, packageListRowToForm, splitCompositePackageName, type ResellerPackageFormState } from '@/lib/reseller-package-form'
 import { parseJsonResponse } from '@/lib/safe-fetch-json'
@@ -8788,7 +8788,7 @@ function sortFmDirectoryEntries(rows: FmDirEntry[]): FmDirEntry[] {
 }
 
 const FileManagerCodeEditor = dynamic(
-  () => import('@/app/dashboard/FileManagerCodeEditor').then((m) => m.FileManagerCodeEditor),
+  () => import('@/components/vhost/comuns/FileManagerCodeEditor').then((m) => m.FileManagerCodeEditor),
   {
     ssr: false,
     loading: () => (

@@ -2,7 +2,7 @@
 
 // Ecrãs do painel (na maquete: o objeto P). Cada ecrã dá o título e os botões da barra de cima,
 // e o conteúdo da página.
-import { useSystemStatus } from '@/components/admin/ServerStatusWidget';
+import { useSystemStatus } from '@/components/vhost/comuns/ServerStatusWidget';
 import { Fragment, useState, type ReactNode } from 'react';
 import { useVH, type VH } from './context';
 import { ajudaPagina, apiPagina, msgAvisos, msgNaoLidas, msgTodas, perfilAvisos, perfilDoisPassos, perfilGeral, perfilSenha, perfilSessoes, prefFicheiros, prefIdioma, prefTabelas, ticketsPagina } from './paginas/suporte';

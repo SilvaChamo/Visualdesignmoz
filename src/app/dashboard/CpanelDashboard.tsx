@@ -12,7 +12,7 @@ import {
 } from 'lucide-react'
 import type { DirectAdminWebsite, DirectAdminUser } from '@/lib/directadmin-api'
 import { getServerHost } from '@/lib/server-config'
-import { ServerInfoCard } from '@/components/admin/ServerStatusWidget'
+import { ServerInfoCard } from '@/components/vhost/comuns/ServerStatusWidget'
 import { panelDashboardToolCardCompact, panelDashboardToolLabel, panelSectionPadding } from '@/lib/panel-ui'
 import {
   DASHBOARD_MENU_SECTION_STYLES,

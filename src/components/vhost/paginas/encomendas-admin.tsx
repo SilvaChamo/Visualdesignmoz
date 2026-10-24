@@ -6,9 +6,9 @@
 // o desenho do dashboard antigo (Tailwind) dentro do cartão principal (.tw-livre) e os botões da secção na barra de cima,
 // como em Mensagem a todos. O lado do cliente é Gestão › Compras e encomendas (encomendas.tsx).
 import { useState } from 'react';
-import { AdminSectionChromeProvider } from '@/components/admin/AdminSectionChrome';
-import { CotacoesSection } from '@/app/dashboard/CotacoesSection';
-import { EncomendasClientesSection } from '@/components/dashboard/EncomendasClientesSection';
+import { AdminSectionChromeProvider } from '@/components/vhost/comuns/AdminSectionChrome';
+import { CotacoesSection } from '@/components/vhost/comuns/CotacoesSection';
+import { EncomendasClientesSection } from '@/components/vhost/comuns/EncomendasClientesSection';
 import { ContabilidadeTable } from '@/components/quotations/ContabilidadeTable';
 import type { ScreenFn } from '../screens';
 import { DESC, EN, MENU } from '../generated/data';

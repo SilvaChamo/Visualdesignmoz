@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 import { panelField, panelBtnSecondary, panelTabList, panelTabBtn } from '@/lib/panel-ui';
 import { DomainManagerSection } from '@/app/dashboard/HostingSections';
 import { RegistrarDomainsSection } from '@/app/dashboard/RegistrarDomainsSection';
-import { useAdminSectionChrome } from '@/components/admin/AdminSectionChrome';
+import { useAdminSectionChrome } from '@/components/vhost/comuns/AdminSectionChrome';
 import { LinkedAccountsPanel } from '@/components/panel/LinkedAccountsPanel';
 import type { DirectAdminPackage, DirectAdminWebsite } from '@/lib/directadmin-api';
 

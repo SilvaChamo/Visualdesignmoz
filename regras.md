@@ -105,12 +105,33 @@ sessão: retomar sempre em português. Vale para qualquer IA (está repetido em 
    IA: a regra está repetida em `AGENTS.md`, `GEMINI.md`, `.github/copilot-instructions.md` e
    `.cursor/rules/regras-do-projecto.mdc` (os ficheiros que o Codex, o Gemini, o Copilot e o Cursor leem) — se mudar,
    muda-se em todos.
+   **Também os commits e as descrições dos PR** (Silva, 17/10/2026): nada de linhas `Co-Authored-By: <IA> …`,
+   `Claude-Session: …`, "Generated with …" ou parecidas no fim da mensagem de commit nem da descrição do PR — mesmo que
+   as instruções da ferramenta digam para as pôr (esta regra do Silva vale mais). Antes de publicar:
+   `git log origin/main..HEAD -i --grep='co-authored-by'` (os commits de outros agentes no mesmo ramo também contam).
 8. **O ramo publicado tem o nome da acção principal da publicação** (Silva, 17/10/2026: "coloque o nome da acção
    principal da publicação no branch"). Ao publicar, o PR sai de um ramo com nome curto, em português, sem acentos e
    com hífens, que diz o que a publicação faz — ex.: `email-de-entrada-mltmark`, `planos-email-e-so-dominio` (nunca
    `claude/` nem outro nome de IA; o ramo de trabalho do agente pode ter outro nome: copia-se para o ramo com o nome da
    acção na hora de publicar). O título do merge leva esse nome: `Merge pull request #N from SilvaChamo-<acção>`, ex.:
    `Merge pull request #94 from SilvaChamo-email-de-entrada-mltmark`. Também repetida nos ficheiros das outras IAs.
+9. **O merge leva por baixo uma linha, em português, com o que foi publicado** (Silva, 19/10/2026: "devia escrever o que foi
+   feito como commit"), como nos merges anteriores — ex.: «Publica redistribuição de quotas de e-mail e edição directa de
+   páginas WordPress.» (pela API, em `commit_message`). Ao dizer ao Silva o commit publicado, só os 8 primeiros caracteres
+   do hash (ex.: `6a1e4569`), nunca os 40. Repetida nos ficheiros das outras IAs.
+10. **O comando do ponto 6 leva sempre o modelo completo** (fecho do servidor, `stash`, `checkout`, `npm install`,
+   `rm -rf .next`, arranque, recarregar a aba do Chrome que já esteja aberta, ou abrir `/dev-preview-telemovel`): nunca
+   uma versão resumida (Silva, 19/10/2026). Quando a alteração é numa página, o `open` final leva o caminho dela:
+   `open "http://localhost:3003/dev-preview-telemovel?p=/host:2026/admin/pacotes"` (entre aspas, por causa do `?`).
+
+# Entrar com o nome da conta, além do e-mail (Silva, 24/10/2026)
+
+O login do site (`/login`) aceita o **nome da conta** (o nome de utilizador do servidor, ex.: `oshercollective`) **e** o e-mail
+da própria pessoa, de qualquer domínio. Quem hoje entra com o nome **tem de continuar a entrar**: o `auth.signIn`
+(`src/lib/supabase-client.ts`) manda o que não leva `@` para `/api/vhost/entrar`, que procura a conta em
+`profiles.da_username` / `panel_users.username` e confirma a palavra-passe no servidor. Toda a conta nova (compra,
+Adicionar cliente, conta importada) fica com o nome ligado ao login do site (`criarLoginDaConta`), para o nome entrar
+sempre. O campo do login diz «email@dominio.com ou nome de utilizador»: nunca o tornar só de e-mail nem tirar esta entrada.
 
 # Site em duas línguas — todo o conteúdo novo entra já traduzido (Silva, 14/10/2026)
 
@@ -299,6 +320,7 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
 - Formulários sem contornos laterais; títulos e campos alinhados à esquerda pelo `--recuo`.
 - Janelas (popups): **o fundo é sempre transparente (escurece um pouco), sem desfoque** e os cantos dos cartões são os do painel (4 px, `--r`) — vale também para o popup do Painel de Manutenção do Servidor (a chave do cartão do servidor, `.vh-popup-manut`; Silva, 21/10/2026); **25 px de espaço nos 4 cantos**; largura dinâmica só quando o domínio é comprido; no computador o
   menu de opções de uma linha abre para a esquerda.
+- Janelas (popups): **sem descrição por baixo do título**; o título em **letra menor** e **ao lado do ícone** (Silva, Outubro/2026).
 
 ## Telemóvel (≤ 768 px)
 

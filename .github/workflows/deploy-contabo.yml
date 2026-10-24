@@ -14,6 +14,11 @@ name: Deploy Visualdesign
 
 on:
   workflow_dispatch:
+    inputs:
+      ensaio:
+        description: 'Só ensaiar: constrói, envia e arranca a versão nova noutra porta para ver se responde, sem a pôr no ar'
+        type: boolean
+        default: false
   push:
     branches:
       - main
@@ -33,9 +38,16 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Deploy mais rápido (Silva, 23/10/2026): o site é instalado e construído uma só vez, no servidor (mais abaixo). Antes
-      # construía-se também aqui, no GitHub, só para o deitar fora (o rsync não leva o .next) — cerca de 6 minutos a mais.
-      # Se o build falhar no servidor, a publicação falha e o site fica como estava.
+      # Deploy em ~5 minutos (Silva, 24/10/2026): o site constrói-se UMA vez, aqui no GitHub (2 a 3 minutos), e o .next vai para o
+      # servidor, que já não o reconstrói (a prioridade mínima do servidor fazia o mesmo build demorar 8 a 9 minutos).
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
 
       - name: Setup SSH key
         run: |
@@ -44,29 +56,16 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -p 2234 "${{ secrets.CONTABO_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
 
-      # O código novo vai para uma pasta à parte (…-build), não para a do site em funcionamento: o site continua a
-      # servir a versão anterior enquanto a nova é instalada e construída (ver "Publicar sem ecrã branco" mais abaixo).
-      - name: Sync files to Contabo
-        run: |
-          rsync -avz --delete \
-            -e "ssh -p 2234 -i ~/.ssh/deploy_key" \
-            --exclude 'node_modules' --exclude '.next' --exclude '.git' --exclude '*.env*' --exclude '.DS_Store' \
-            ./ "root@${{ secrets.CONTABO_HOST }}:/opt/visualdesignmoz-build/"
-
-      - name: Build and (re)start on Contabo
+      # Passo 1 do servidor: só escreve o ambiente (.env.local da versão em uso). O GitHub lê-o a seguir, para construir o site
+      # com as mesmas variáveis (NEXT_PUBLIC_*) que o servidor sempre usou.
+      - name: Prepare server environment
         uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.CONTABO_HOST }}
           port: 2234
           username: root
           key: ${{ secrets.CONTABO_SSH_KEY }}
-          # Desde 30 ago este site tem base de dados própria (Supabase no
-          # Contabo, separada do Hetzner) — deixou de fazer sentido a regra
-          # antiga de "zero crons para não duplicar efeitos reais na BD
-          # partilhada". Tem os seus próprios crons de domínio (dns-retry,
-          # brevo-retry, mais abaixo), o sync do Hestia e a fila de
-          # mailmarketing. renewal-check/da-sync continuam só no Hetzner.
-          command_timeout: 30m
+          command_timeout: 10m
           script: |
             set -e
             # O site deixou de se chamar "teste" (Silva, 23/10/2026): a pasta em uso é /opt/visualdesignmoz (atalho para a versão em uso, em
@@ -194,6 +193,55 @@ jobs:
             set_env_var NEXT_PUBLIC_VD_NAMESERVERS "ns3.visualdesignmoz.com,ns4.visualdesignmoz.com"
             # Painel VisualHost (/vhost): alterações às contas do servidor ligadas para todas as contas (aprovado pelo Silva, 10/10/2026)
             set_env_var VHOST_ACOES_TODAS "1"
+
+      - name: Read server environment
+        run: |
+          # as mesmas variáveis com que o servidor sempre construiu (NEXT_PUBLIC_* ficam dentro do código do site)
+          scp -P 2234 -i ~/.ssh/deploy_key "root@${{ secrets.CONTABO_HOST }}:/opt/visualdesignmoz/.env.local" .env.production.local
+          test -s .env.production.local
+          # nada do que vem do servidor aparece nos registos (só valores longos e não públicos: máscaras curtas estragavam o texto)
+          while IFS= read -r linha; do
+            chave="${linha%%=*}"; valor="${linha#*=}"
+            case "$chave" in NEXT_PUBLIC_*|'') continue ;; esac
+            if [ ${#valor} -ge 12 ]; then echo "::add-mask::${valor}"; fi
+          done < .env.production.local
+
+      - name: Build project
+        env:
+          # 4 GB para o build (com o limite por defeito do Node o build já esgotou a memória, a 16/10/2026)
+          NODE_OPTIONS: --max-old-space-size=4096
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.CONTABO_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_CONTABO_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_CONTABO_SERVICE_ROLE_KEY }}
+        run: npm run build
+
+      # O código novo vai para uma pasta à parte (…-build), não para a do site em funcionamento: o site continua a
+      # servir a versão anterior enquanto a nova é instalada (ver "Publicar sem ecrã branco" mais abaixo).
+      - name: Sync files to Contabo
+        run: |
+          rsync -avz --delete \
+            -e "ssh -p 2234 -i ~/.ssh/deploy_key" \
+            --exclude 'node_modules' --exclude '.next/cache' --exclude '.git' --exclude '*.env*' --exclude '.DS_Store' \
+            ./ "root@${{ secrets.CONTABO_HOST }}:/opt/visualdesignmoz-build/"
+
+      # Passo 2 do servidor: já não constrói nada (o .next vem do GitHub); instala as dependências se for preciso e troca de versão
+      - name: Install and (re)start on Contabo
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          port: 2234
+          username: root
+          key: ${{ secrets.CONTABO_SSH_KEY }}
+          # Desde 30 ago este site tem base de dados própria (Supabase no
+          # Contabo, separada do Hetzner) — deixou de fazer sentido a regra
+          # antiga de "zero crons para não duplicar efeitos reais na BD
+          # partilhada". Tem os seus próprios crons de domínio (dns-retry,
+          # brevo-retry, mais abaixo), o sync do Hestia e a fila de
+          # mailmarketing. renewal-check/da-sync continuam só no Hetzner.
+          command_timeout: 30m
+          script: |
+            set -e
+            ENSAIO="${{ inputs.ensaio && '1' || '0' }}"
             # O projecto pede Node 24 (package.json "engines"); com o Node do
             # sistema o build falhava. Instala o Node oficial (com verificação
             # do checksum) só se ainda não existir. Vem do commit 8dc91244.
@@ -217,7 +265,7 @@ jobs:
             npm --version
             # Publicar sem ecrã branco (pedido do Silva, 13/10/2026): antes, o "npm ci" e o "rm -rf .next" + build corriam
             # na pasta do site em funcionamento, e durante os ~10 min do build o site ficava sem ficheiros (ecrã
-            # branco). Agora instala-se e constrói-se na pasta à parte (STAGE, onde o rsync acima pôs o código novo)
+            # branco). Agora instala-se na pasta à parte (STAGE, onde o rsync acima pôs o código novo, já construído no GitHub)
             # com o site a servir a versão anterior; no fim troca-se em segundos. Se o build falhar (set -e), o site
             # fica como estava.
             LIVE=/opt/visualdesignmoz
@@ -229,16 +277,47 @@ jobs:
             # servidor) passa sempre à frente. Antes o build levava os 6 núcleos e o site ficava parado/bloqueado
             # durante cada publicação, e o watchdog (curl de 20 s) chegava a reiniciá-lo a meio (Silva, 15/10/2026).
             BAIXA="nice -n 19 ionice -c3"
-            $BAIXA npm ci
-            # Build sempre limpo — publicações seguidas em cima da mesma pasta
-            # .next (nunca apagada pelo rsync, ver --exclude acima) já causaram
-            # "Invariant: client reference manifest ... does not exist" (bug
-            # conhecido do Next.js com builds incrementais sobre estado antigo).
-            # Apagar antes de reconstruir elimina essa classe de corrupção.
-            rm -rf .next
-            # 4 GB para o build: com o limite por defeito do Node (~2 GB) o build esgotou a memória a 16/10/2026 ("JavaScript
-            # heap out of memory", publicação do #87) e o site ficou na versão anterior; o servidor tem 12 GB
-            NODE_OPTIONS="--max-old-space-size=4096" $BAIXA npm run build
+            # node_modules: se o package-lock.json e o Node são os mesmos da versão em uso, reaproveita-se o dela (cópia por
+            # ligações duras, segundos) em vez de reinstalar tudo (~3 min). A assinatura fica dentro do node_modules; sem ela
+            # (primeira publicação depois desta alteração), ou se a cópia falhar, instala-se como sempre.
+            ASSINATURA="$(sha256sum package-lock.json | cut -d' ' -f1)-$(node --version)"
+            REAPROVEITADO=0
+            if [ -f "$LIVE/node_modules/.vd-assinatura" ] && [ "$(cat "$LIVE/node_modules/.vd-assinatura")" = "$ASSINATURA" ]; then
+              rm -rf node_modules
+              if cp -al "$LIVE/node_modules" node_modules; then
+                REAPROVEITADO=1
+                echo "package-lock.json e Node iguais aos da versão em uso: node_modules reaproveitado."
+              else
+                rm -rf node_modules
+              fi
+            fi
+            if [ "$REAPROVEITADO" = 0 ]; then
+              $BAIXA npm ci --no-audit --no-fund
+              echo "$ASSINATURA" > node_modules/.vd-assinatura
+            fi
+            # O .next já vem construído do GitHub (passo "Build project"; o rsync não leva a cache): aqui não se constrói nada.
+            # Sem ele, a publicação falha antes de mexer no site.
+            test -f "$STAGE/.next/BUILD_ID" || { echo "O .next não chegou ao servidor." >&2; exit 1; }
+            # Ensaio (execução manual com ensaio=true): arranca a versão nova noutra porta (3099), confirma que responde e
+            # termina — sem migrações, sem mexer no pm2 nem no atalho: o site em funcionamento não é tocado.
+            if [ "$ENSAIO" = "1" ]; then
+              echo "ENSAIO: a arrancar a versão nova na porta 3099 (o site em funcionamento não é tocado)."
+              ( cd "$STAGE" && exec nice -n 10 "${NODE_ROOT}/bin/node" node_modules/next/dist/bin/next start -p 3099 > /tmp/vd-ensaio.log 2>&1 ) &
+              ENSAIO_PID=$!
+              ENSAIO_OK=1
+              for i in $(seq 1 45); do
+                c=$(curl -s -o /dev/null -w '%{http_code}' -m 10 -H "Host: teste.visualdesignmoz.com" http://127.0.0.1:3099/ || true)
+                case "$c" in 2*|3*) ENSAIO_OK=0; break ;; esac
+                sleep 2
+              done
+              kill "$ENSAIO_PID" 2>/dev/null || true
+              sleep 2
+              kill -9 "$ENSAIO_PID" 2>/dev/null || true
+              if [ "$ENSAIO_OK" != 0 ]; then echo "ENSAIO FALHOU: a versão nova não respondeu na porta 3099." >&2; tail -n 40 /tmp/vd-ensaio.log >&2 || true; exit 1; fi
+              echo "ENSAIO OK: a versão nova respondeu (código ${c}). Nada foi publicado."
+              rm -rf "$STAGE"; mkdir -p "$STAGE"
+              exit 0
+            fi
             # Garante que o histórico de actividade existe antes de activar o código que o grava.
             DB_CONTAINER=$(docker ps --format '{{.Names}}' | grep -iE 'supabase.*db|supabase-db|postgres' | head -n1)
             if [ -z "$DB_CONTAINER" ]; then
