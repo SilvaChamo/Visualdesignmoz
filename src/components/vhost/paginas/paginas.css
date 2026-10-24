@@ -14373,14 +14373,15 @@
    padding: 0;
    border: 0;
    background: none;
-   color: var(--muted);
+   color: var(--red);
    font-size: calc(12.5px * var(--fs, 1));
    font-weight: 600;
    cursor: pointer
 }
 
 .vh .link-rapido:hover:not(#x):not(#y) {
-   color: var(--red)
+   color: var(--red-d, var(--red));
+   text-decoration: underline
 }
 
 .vh .link-rapido-sep:not(#x):not(#y) {
@@ -14408,4 +14409,16 @@
 
 .vh .btn-transferir:hover:not(#x):not(#y) {
    background: var(--red-d, var(--red))
+}
+
+/* telemóvel: as ligações rápidas passam a linha, sem as barras (que ficariam penduradas no fim da linha) */
+@media (max-width: 640px) {
+   .vh .link-rapido-sep:not(#x):not(#y) {
+      display: none
+   }
+
+   .vh .link-rapido:not(#x):not(#y) {
+      margin-right: calc(16px * var(--z, 1));
+      margin-bottom: calc(4px * var(--z, 1))
+   }
 }
