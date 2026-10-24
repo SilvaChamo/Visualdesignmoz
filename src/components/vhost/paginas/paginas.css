@@ -14365,25 +14365,28 @@
    background: var(--red)
 }
 
-/* ligações rápidas de gestão de domínios do início */
-.vh .btn-rapido:not(#x):not(#y) {
+/* ligações rápidas de gestão de domínios do início: só texto e um ícone pequeno, encostadas à linha, separadas por "|" */
+.vh .link-rapido:not(#x):not(#y) {
    display: inline-flex;
    align-items: center;
-   gap: calc(6px * var(--z, 1));
-   height: calc(34px * var(--z, 1));
-   padding: 0 calc(12px * var(--z, 1));
-   border: 1px solid var(--line);
-   border-radius: var(--r);
-   background: var(--card);
-   color: var(--ink);
+   gap: calc(5px * var(--z, 1));
+   padding: 0;
+   border: 0;
+   background: none;
+   color: var(--muted);
    font-size: calc(12.5px * var(--fs, 1));
    font-weight: 600;
    cursor: pointer
 }
 
-.vh .btn-rapido:hover:not(#x):not(#y) {
-   color: var(--red);
-   border-color: var(--red)
+.vh .link-rapido:hover:not(#x):not(#y) {
+   color: var(--red)
+}
+
+.vh .link-rapido-sep:not(#x):not(#y) {
+   margin: 0 calc(10px * var(--z, 1));
+   color: var(--line);
+   font-size: calc(12.5px * var(--fs, 1))
 }
 
 /* botões da barra da esquerda e do aviso de quem só tem domínio: como os botões vermelhos do painel */

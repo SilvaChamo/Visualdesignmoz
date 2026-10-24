@@ -525,16 +525,18 @@ export function ClientDashboardView({
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <button type="button" onClick={() => navigate('dns')} className="btn-rapido">
-                  <Network className="w-3.5 h-3.5" /> DNS
+            <div className="flex flex-wrap items-start justify-between gap-3" style={{ marginTop: 10 }}>
+              <div className="flex flex-wrap items-center">
+                <button type="button" onClick={() => navigate('dns')} className="link-rapido">
+                  <Network className="w-3 h-3" /> DNS
                 </button>
-                <button type="button" onClick={() => navigate('php')} className="btn-rapido">
-                  <Server className="w-3.5 h-3.5" /> Definições do PHP
+                <span className="link-rapido-sep" aria-hidden="true">|</span>
+                <button type="button" onClick={() => navigate('php')} className="link-rapido">
+                  <Server className="w-3 h-3" /> Definições do PHP
                 </button>
-                <button type="button" onClick={() => navigate('wordpress')} className="btn-rapido">
-                  <Globe className="w-3.5 h-3.5" /> Instalar site WordPress
+                <span className="link-rapido-sep" aria-hidden="true">|</span>
+                <button type="button" onClick={() => navigate('wordpress')} className="link-rapido">
+                  <Globe className="w-3 h-3" /> Instalar site WordPress
                 </button>
               </div>
               <button type="button" onClick={() => navigate('transferir')} className="btn-transferir shrink-0">
