@@ -227,6 +227,89 @@ type ViewProps = {
   onMoveRecord?: (record: { kind: 'domain' | 'hosting'; id: string }, targetEmail: string) => Promise<void>;
 };
 
+/**
+ * Dados do cliente para a barra da esquerda do painel de quem só tem domínio (Silva, 24/10/2026): o perfil com o estado da conta,
+ * "Novos serviços" e "Acesso rápido" (os mesmos blocos que estavam na coluna da direita do início).
+ */
+export function ClientSidePanel({ displayName, sessionUser, onNavigate }: { displayName?: string | null; sessionUser?: string | null; onNavigate?: ClientNavigate }) {
+  const [activos, setActivos] = useState<number | null>(null);
+  useEffect(() => {
+    let vivo = true;
+    fetch('/api/my-products', { credentials: 'include' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!vivo || !d?.products) return;
+        const p = d.products;
+        setActivos((p.domains?.length ?? 0) + (p.hosting?.length ?? 0) + (p.emailPlans?.length ?? 0));
+      })
+      .catch(() => {});
+    return () => {
+      vivo = false;
+    };
+  }, []);
+  const nome = displayName || (sessionUser ? sessionUser.split('@')[0] : 'Cliente');
+  const iniciais = nome.substring(0, 2).toUpperCase();
+  const estado = activos === null ? null : activos > 0 ? 'Activo' : 'Sem produtos';
+  const atalhos = [
+    { label: 'As Minhas Compras', id: 'minhas-compras', icon: <ShoppingCart className="w-3.5 h-3.5" /> },
+    { label: 'Facturas', id: 'facturas', icon: <Receipt className="w-3.5 h-3.5" /> },
+  ];
+  return (
+    <div className="space-y-4 p-3">
+      <div className="bg-white rounded border border-gray-200 shadow-sm p-5 dark:border-zinc-700 dark:bg-zinc-900">
+        <div className="flex flex-col items-center mb-4">
+          <div className="w-16 h-16 bg-red-600 rounded-full flex items-center justify-center mb-2">
+            <span className="text-white text-xl font-bold">{iniciais}</span>
+          </div>
+          {estado && (
+            <span
+              className={`px-2 py-0.5 rounded text-xs font-bold ${
+                activos! > 0
+                  ? 'bg-green-100 text-green-700 dark:bg-green-950/50 dark:text-green-400'
+                  : 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-400'
+              }`}
+            >
+              {estado}
+            </span>
+          )}
+        </div>
+        <div className="space-y-1.5 text-sm border-t border-gray-100 pt-4 text-center dark:border-zinc-800">
+          <p className="font-bold text-gray-900 dark:text-zinc-100">{nome}</p>
+          {sessionUser ? <p className="text-gray-500 text-xs break-all dark:text-zinc-400">{sessionUser}</p> : null}
+        </div>
+      </div>
+
+      <div className="bg-white rounded border border-gray-200 shadow-sm p-5 text-center dark:border-zinc-700 dark:bg-zinc-900">
+        <p className="text-xs font-bold text-gray-500 uppercase mb-2 dark:text-zinc-400">Novos Serviços</p>
+        <p className="text-xs text-gray-500 mb-3 dark:text-zinc-400">Registe outro domínio ou adicione e-mail profissional.</p>
+        <a href="/servicos/dominios?origem=painel" className="block w-full bg-red-600 hover:bg-red-700 text-white text-[10px] font-black uppercase tracking-widest py-2 rounded transition-all">
+          Registar Domínio
+        </a>
+        <a href="/precos/email" className="mt-2 inline-flex items-center gap-1 text-xs font-bold text-gray-700 hover:text-red-600 dark:text-zinc-300 dark:hover:text-red-400">
+          Planos de e-mail <ArrowRight className="w-3.5 h-3.5" />
+        </a>
+      </div>
+
+      <div className="bg-white rounded border border-gray-200 shadow-sm p-4 dark:border-zinc-700 dark:bg-zinc-900">
+        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-3 dark:text-zinc-400">Acesso Rápido</p>
+        <div className="space-y-1">
+          {atalhos.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => onNavigate?.(item.id)}
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 hover:text-red-600 rounded transition-colors text-left font-medium dark:text-zinc-300 dark:hover:bg-transparent dark:hover:text-red-400"
+            >
+              <span className="text-gray-400 dark:text-zinc-500">{item.icon}</span>
+              {item.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /** Parte visual do dashboard (separada da leitura para poder ser pré-visualizada com dados fictícios). */
 export function ClientDashboardView({
   products,

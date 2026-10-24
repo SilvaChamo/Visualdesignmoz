@@ -225,7 +225,7 @@ const inicioUtilizador: ScreenFn = (vh) => {
         {vh.t('Adicionar domínio')}
       </button>
     ),
-    body: soDominio ? <InicioSoDominio /> : vh.s.dashTab === 'menu' ? <DaHomeCards /> : <UserWidgets />,
+    body: vh.s.dashTab === 'menu' ? <DaHomeCards /> : soDominio ? <InicioSoDominio /> : <UserWidgets />,
   };
 };
 

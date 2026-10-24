@@ -23,6 +23,7 @@ import { useTituloAjustado } from './titulo-ajustado';
 import { SAIR_POR_INATIVIDADE_ATIVO } from '@/lib/session-inactivity';
 import { BarraTopo, EsperaPagina, atividadeComeca, instalarContador, type Espera } from './carga';
 import { BarrasDa } from './carregador-da';
+import { ClientSidePanel } from '@/components/client/ClientProductsHub';
 import { useAvisosEncomendas } from './avisos-encomendas';
 import { badgeColors, getThemeColors, hexToRgb, luminancia, type CustomComponents } from './theme';
 import { FUNDO } from './carga';
@@ -46,6 +47,8 @@ import {
   initialState,
   isUser,
   meOf,
+  MENU_SO_DOMINIO,
+  soDominioDe,
   nomeNivel,
   dominioGuardado,
   guardarDominio,
@@ -295,9 +298,6 @@ function comDados(cur: St, d: DadosServidor, caminhoDesejado: string, doNavegado
   const caminhoValido = isLevel(lvDesejado) && !allowedOf(n0).includes(lvDesejado) ? '/' + nivelInicial(n0) : caminhoDesejado;
   return fromPath(n0, caminhoValido);
 }
-
-/** Menu de quem só tem domínio (Silva, 24/10/2026) */
-const MENU_SO_DOMINIO = ['Gestão de domínios', 'Avançado', 'Sistema e ficheiros', 'Compras e encomendas', 'Suporte e ajuda'];
 
 const nadaMuda = () => () => {};
 /** Quanto tempo a página anterior fica à vista à espera da seguinte (depois a nova abre, com o carregador do DA) */
@@ -1063,7 +1063,7 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
   // balões no menu: encomenda nova, cancelada ou actualizada (e pagamentos por confirmar, para o administrador)
   const avisosMenu = useAvisosEncomendas(st.carga === 'ok' && !!st.login && !st.stack.length, st.acc[st.login]?.role === 'admin', s.page === 'encomendas', toast);
   // quem só tem domínio (sem conta no servidor): menu reduzido
-  const soDominio = st.carga === 'ok' && level === 'utilizador' && !st.acc[me];
+  const soDominio = soDominioDe({ ...st, level });
   const go = (id: string) => nav(route(level, id));
   /** planos de cliente do servidor (submenus de Admin › Configurações de acesso) */
   const planosAcesso = Object.keys(st.db.pkgs).filter((p) => p !== 'system');
@@ -1535,7 +1535,18 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
               </div>
               {/* Menu em categorias que abrem e fecham; sem a secção Início (o painel abre pelo símbolo ou por "Dashboard") */}
               <nav className="side" id="side">
-                {sec ? (
+                {soDominio ? (
+                  <div className="tw-livre lateral-cliente">
+                    <ClientSidePanel
+                      displayName={pessoaNome}
+                      sessionUser={pessoaEmail}
+                      onNavigate={(secao) => {
+                        if (secao === 'facturas' || secao === 'minhas-compras') go('facturacao');
+                        else window.location.href = '/cliente';
+                      }}
+                    />
+                  </div>
+                ) : sec ? (
                   <>
                     <div className="grp open static">
                       <span>{t(sec.t)}</span>
