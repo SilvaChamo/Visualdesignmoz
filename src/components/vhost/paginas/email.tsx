@@ -1905,9 +1905,12 @@ function Mx() {
             {info?.temMail ? (
               <span className="em-bloq" style={{ margin: 0 }}>
                 <span className={'tag ' + (local ? 'ok' : 'w')}>{t(local ? 'Sim — o MX aponta para este servidor' : 'O e-mail está ligado aqui, mas o MX aponta para outro sítio')}</span>
-                <button className="btn sm btn-rm" onClick={desligar}>
-                  {t('Desligar o e-mail neste servidor')}
-                </button>
+                {/* só quando o MX aponta para outro sítio: se aponta para cá, o e-mail é deste servidor e não há nada a desligar */}
+                {!local && (
+                  <button className="btn sm btn-rm" onClick={desligar}>
+                    {t('Desligar o e-mail neste servidor')}
+                  </button>
+                )}
               </span>
             ) : (
               <button className="btn sm btn-ed" onClick={() => noEmail(vh, d, { acao: 'dominio-ligar' }, 'E-mail ligado em ' + d, true)}>
