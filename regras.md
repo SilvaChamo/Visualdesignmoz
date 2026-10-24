@@ -111,6 +111,14 @@ sessão: retomar sempre em português. Vale para qualquer IA (está repetido em 
    `claude/` nem outro nome de IA; o ramo de trabalho do agente pode ter outro nome: copia-se para o ramo com o nome da
    acção na hora de publicar). O título do merge leva esse nome: `Merge pull request #N from SilvaChamo-<acção>`, ex.:
    `Merge pull request #94 from SilvaChamo-email-de-entrada-mltmark`. Também repetida nos ficheiros das outras IAs.
+9. **O merge leva por baixo uma linha, em português, com o que foi publicado** (Silva, 19/10/2026: "devia escrever o que foi
+   feito como commit"), como nos merges anteriores — ex.: «Publica redistribuição de quotas de e-mail e edição directa de
+   páginas WordPress.» (pela API, em `commit_message`). Ao dizer ao Silva o commit publicado, só os 8 primeiros caracteres
+   do hash (ex.: `6a1e4569`), nunca os 40. Repetida nos ficheiros das outras IAs.
+10. **O comando do ponto 6 leva sempre o modelo completo** (fecho do servidor, `stash`, `checkout`, `npm install`,
+   `rm -rf .next`, arranque, recarregar a aba do Chrome que já esteja aberta, ou abrir `/dev-preview-telemovel`): nunca
+   uma versão resumida (Silva, 19/10/2026). Quando a alteração é numa página, o `open` final leva o caminho dela:
+   `open "http://localhost:3003/dev-preview-telemovel?p=/host:2026/admin/pacotes"` (entre aspas, por causa do `?`).
 
 # Site em duas línguas — todo o conteúdo novo entra já traduzido (Silva, 14/10/2026)
 
