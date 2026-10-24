@@ -533,15 +533,15 @@ export function ClientDashboardView({
             <div className="flex flex-wrap items-start justify-between gap-3" style={{ marginBottom: 30 }}>
               <div className="flex flex-wrap items-center">
                 <button type="button" onClick={() => navigate('dns')} className="link-rapido">
-                  <Network className="w-3 h-3" /> DNS
+                  <i className="fa-solid fa-network-wired" style={{ color: 'var(--ci-turquesa, #00A3B4)' }} /> DNS
                 </button>
                 <span className="link-rapido-sep" aria-hidden="true">|</span>
                 <button type="button" onClick={() => navigate('php')} className="link-rapido">
-                  <Server className="w-3 h-3" /> Definições do PHP
+                  <i className="fa-brands fa-php" style={{ color: 'var(--ci-roxo, #7B4DDB)' }} /> Definições do PHP
                 </button>
                 <span className="link-rapido-sep" aria-hidden="true">|</span>
                 <button type="button" onClick={() => navigate('wordpress')} className="link-rapido">
-                  <Globe className="w-3 h-3" /> Instalar site WordPress
+                  <i className="fa-brands fa-wordpress" style={{ color: 'var(--ci-azul, #2D7FF9)' }} /> Instalar site WordPress
                 </button>
               </div>
               <button type="button" onClick={() => navigate('transferir')} className="btn-transferir shrink-0">
