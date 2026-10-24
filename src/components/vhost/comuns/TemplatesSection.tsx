@@ -36,7 +36,7 @@ import {
   saveTemplatesToServer,
   resetTemplatesOnServer
 } from '@/lib/renewal-templates'
-import { useAdminSectionChrome } from '@/components/admin/AdminSectionChrome'
+import { useAdminSectionChrome } from '@/components/vhost/comuns/AdminSectionChrome'
 
 const LAST_EDITED_KEY = 'visualdesign_last_edited_template_id'
 

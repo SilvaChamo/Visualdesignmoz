@@ -1,4 +1,4 @@
-import type { EmailConfigBundle } from '@/components/admin/EmailConfigResultModal';
+import type { EmailConfigBundle } from '@/components/vhost/comuns/EmailConfigResultModal';
 
 const CACHE_KEY = 'vd_email_config_v1';
 const MAX_ENTRIES = 120;

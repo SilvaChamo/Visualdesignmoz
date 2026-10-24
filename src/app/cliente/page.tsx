@@ -19,14 +19,14 @@ import { ClientProductsHub } from '@/components/client/ClientProductsHub'
 import { ClientAddDomainModal } from '@/components/client/ClientAddDomainModal'
 import { ResellerSidebar } from '@/components/revendedor/ResellerSidebar'
 import { clientPanelMenuDefs } from '@/lib/panel-client-menu'
-import { MinhasComprasSection } from '@/components/client/MinhasComprasSection'
+import { MinhasComprasSection } from '@/components/vhost/comuns/MinhasComprasSection'
 import { EncomendasListSection } from '@/components/encomendas/EncomendasListSection'
 import { EncomendasMensagensSection } from '@/components/encomendas/EncomendasMensagensSection'
 import { EncomendasPagamentosSection } from '@/components/encomendas/EncomendasPagamentosSection'
 import { usePanelSidebarCollapsed } from '@/hooks/usePanelSidebarCollapsed'
 import { clientSectionLabel } from '@/lib/panel-client-menu'
 import { PanelHeader } from '@/components/panel/PanelHeader'
-import { AdminSectionChromeProvider, useAdminSectionChrome } from '@/components/admin/AdminSectionChrome'
+import { AdminSectionChromeProvider, useAdminSectionChrome } from '@/components/vhost/comuns/AdminSectionChrome'
 import { panelBtnPrimary, panelBtnSecondary } from '@/lib/panel-ui'
 import { WordPressHubSection } from '@/app/dashboard/WordPressHubSection'
 import { DNSCentralSection } from '@/app/dashboard/DNSCentralSection'
@@ -52,10 +52,10 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { RichTextEditor } from "@/components/RichTextEditor"
-import { MultiFileUpload } from "@/components/admin/MultiFileUpload"
-import { SenderEmailSelector } from "@/components/admin/SenderEmailSelector"
-import { EmailTemplates } from "@/components/admin/EmailTemplates"
-import { CompanyLogoUpload, fetchCompanyLogoUrl } from "@/components/admin/CompanyLogoUpload"
+import { MultiFileUpload } from "@/components/vhost/comuns/MultiFileUpload"
+import { SenderEmailSelector } from "@/components/vhost/comuns/SenderEmailSelector"
+import { EmailTemplates } from "@/components/vhost/comuns/EmailTemplates"
+import { CompanyLogoUpload, fetchCompanyLogoUrl } from "@/components/vhost/comuns/CompanyLogoUpload"
 import { toast } from "sonner"
 import { directAdminAPI as panelAPI } from '@/lib/directadmin-api'
 import {

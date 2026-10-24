@@ -10,7 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { useAdminSectionChrome } from '@/components/admin/AdminSectionChrome'
+import { useAdminSectionChrome } from '@/components/vhost/comuns/AdminSectionChrome'
 import { Spinner } from '@/components/ui/spinner'
 import { panelBtnPrimary, panelBtnSecondary, panelField, panelSectionCard, panelInnerDetailCard, panelMobileCardGrid } from '@/lib/panel-ui'
 

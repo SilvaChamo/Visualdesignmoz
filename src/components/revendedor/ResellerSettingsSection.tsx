@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Image as ImageIcon } from 'lucide-react';
-import { CompanyLogoUpload, fetchCompanyLogoUrl } from '@/components/admin/CompanyLogoUpload';
+import { CompanyLogoUpload, fetchCompanyLogoUrl } from '@/components/vhost/comuns/CompanyLogoUpload';
 
 /**
  * Único sítio onde o revendedor define o seu logótipo — guardado em

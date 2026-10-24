@@ -17,7 +17,7 @@ import { QuotationHistoryTimeline } from '@/components/quotations/QuotationHisto
 import { QuotationMessagesThread } from '@/components/quotations/QuotationMessagesThread'
 import { QuotationAttachmentsPanel } from '@/components/quotations/QuotationAttachmentsPanel'
 import { QuotationBatchExpenses } from '@/components/quotations/QuotationBatchExpenses'
-import { useAdminSectionChrome } from '@/components/admin/AdminSectionChrome'
+import { useAdminSectionChrome } from '@/components/vhost/comuns/AdminSectionChrome'
 import { Spinner } from '@/components/ui/spinner'
 
 interface QuotationRequest extends BatchItem {

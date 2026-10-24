@@ -17,7 +17,7 @@ import {
 import { getCPUrl, getSnappyMailUrl, getServerHost, getActivePanelUrl, getDirectAdminFileManagerUrl, getDirectAdminAccessUrl, getDirectAdminWordPressUrl } from '@/lib/server-config';
 import { AdminSidebar } from '@/components/admin/AdminSidebar'
 import { Spinner } from '@/components/ui/spinner'
-import { AdminSectionChromeProvider, useAdminSectionChrome } from '@/components/admin/AdminSectionChrome'
+import { AdminSectionChromeProvider, useAdminSectionChrome } from '@/components/vhost/comuns/AdminSectionChrome'
 import { PanelHeader } from '@/components/panel/PanelHeader'
 import { PanelSectionKeepAlive } from '@/components/panel/PanelSectionKeepAlive'
 import { ListWebsitesSection, sortSitesPrimaryFirst } from '@/components/panel/ListWebsitesSection'
@@ -84,9 +84,9 @@ const NewsManagerSection = dynamic(() => import('./NewsManagerSection').then(m =
 const RenewalsSection = dynamic(() => import('./RenewalsSection').then(m => m.RenewalsSection), { ssr: false, loading: () => sectionLoadingFallback })
 const HostingPendingSection = dynamic(() => import('./HostingPendingSection').then(m => m.HostingPendingSection), { ssr: false, loading: () => sectionLoadingFallback })
 const NotificationsSection = dynamic(() => import('./NotificationsSection').then(m => m.NotificationsSection), { ssr: false, loading: () => sectionLoadingFallback })
-const CotacoesSection = dynamic(() => import('./CotacoesSection').then(m => m.CotacoesSection), { ssr: false, loading: () => sectionLoadingFallback })
+const CotacoesSection = dynamic(() => import('@/components/vhost/comuns/CotacoesSection').then(m => m.CotacoesSection), { ssr: false, loading: () => sectionLoadingFallback })
 const ContabilidadeTable = dynamic(() => import('@/components/quotations/ContabilidadeTable').then(m => m.ContabilidadeTable), { ssr: false, loading: () => sectionLoadingFallback })
-const TemplatesSection = dynamic(() => import('./TemplatesSection').then(m => m.TemplatesSection), { ssr: false })
+const TemplatesSection = dynamic(() => import('@/components/vhost/comuns/TemplatesSection').then(m => m.TemplatesSection), { ssr: false })
 const DNSCentralSection = dynamic(() => import('./DNSCentralSection').then(m => m.DNSCentralSection), { ssr: false, loading: () => sectionLoadingFallback })
 const DomainTransferSection = dynamic(() => import('./DomainTransferSection').then(m => m.DomainTransferSection), { ssr: false, loading: () => sectionLoadingFallback })
 const DomainDetailSection = dynamic(() => import('./DomainDetailSection').then(m => m.DomainDetailSection), { ssr: false, loading: () => sectionLoadingFallback })
@@ -125,8 +125,8 @@ import { applyAdminPanelScope, buildResellerOwnerTree, isAdminPanelSite } from '
 import { PRIMARY_RESELLER_DA_USER, isCompanyHostingOwner } from '@/lib/panel-contas-enrich'
 import { auth as panelAuth } from '@/lib/supabase-client'
 
-const MailMarketingSection = dynamic(() => import('@/components/dashboard/MailMarketingSection').then(m => m.MailMarketingSection), { ssr: false, loading: () => sectionLoadingFallback })
-const EncomendasClientesSection = dynamic(() => import('@/components/dashboard/EncomendasClientesSection').then(m => m.EncomendasClientesSection), { ssr: false, loading: () => sectionLoadingFallback })
+const MailMarketingSection = dynamic(() => import('@/components/vhost/comuns/MailMarketingSection').then(m => m.MailMarketingSection), { ssr: false, loading: () => sectionLoadingFallback })
+const EncomendasClientesSection = dynamic(() => import('@/components/vhost/comuns/EncomendasClientesSection').then(m => m.EncomendasClientesSection), { ssr: false, loading: () => sectionLoadingFallback })
 const DirectAdminEmailsSection = dynamic(() => import('./DirectAdminEmailsSection').then(m => m.DirectAdminEmailsSection), { ssr: false, loading: () => sectionLoadingFallback })
 
 const directAdminAPI = panelAPI

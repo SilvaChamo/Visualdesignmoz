@@ -4,7 +4,7 @@
 // para que o CSS de generated/maquete.css se aplique tal e qual.
 import { Fragment, useContext, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { ServerStatusModal, useSystemStatus } from '@/components/admin/ServerStatusWidget';
+import { ServerStatusModal, useSystemStatus } from '@/components/vhost/comuns/ServerStatusWidget';
 import { ConsultaPagina, TopoCartao, useVH } from './context';
 import { corUso } from './cor-uso';
 import { ChangeRoleModal } from './modals';
