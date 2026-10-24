@@ -118,7 +118,7 @@ function adminListRedirect(hostname: string, error?: string): NextResponse {
   const query = error
     ? `?section=hospedagem-contas&impersonate_error=${encodeURIComponent(error)}`
     : '?section=hospedagem-contas';
-  return NextResponse.redirect(resolvePanelApiRedirect(`/dashboard${query}`, hostname), { status: 307 });
+  return NextResponse.redirect(resolvePanelApiRedirect(`/vhost:2026${query}`, hostname), { status: 307 });
 }
 
 export async function GET(req: NextRequest) {
@@ -142,7 +142,7 @@ export async function GET(req: NextRequest) {
     // acabou de ser definida (o painel serve mais do que um domínio) — se saltar
     // para outro domínio, a cookie nunca chega ao pedido seguinte e o
     // painel do revendedor mostra sempre os dados do próprio admin.
-    const target = resolvePanelApiRedirect('/revendedor?impersonate=1', hostname);
+    const target = resolvePanelApiRedirect('/vhost:2026', hostname);
     return NextResponse.redirect(target, { status: 307 });
   }
 
@@ -178,7 +178,7 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     success: true,
     daUsername: result.userName,
-    redirect: resolvePanelApiRedirect('/revendedor?impersonate=1', getRequestHostname(req.headers, req.url)),
+    redirect: resolvePanelApiRedirect('/vhost:2026', getRequestHostname(req.headers, req.url)),
   });
 }
 
@@ -191,6 +191,6 @@ export async function DELETE(req: NextRequest) {
 
   return NextResponse.json({
     success: true,
-    redirect: resolvePanelApiRedirect('/dashboard?section=hospedagem-contas', getRequestHostname(req.headers, req.url)),
+    redirect: resolvePanelApiRedirect('/vhost:2026', getRequestHostname(req.headers, req.url)),
   });
 }

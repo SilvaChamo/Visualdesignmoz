@@ -183,6 +183,15 @@ sessão: retomar sempre em português. Vale para qualquer IA (está repetido em 
   sem ele pedir: já se parou um site real por engano.
 - Os dados das renovações (`domain_renewals`, `renewals`) nunca se alteram nem apagam por "limpeza".
 
+# Os painéis antigos já não existem (Silva, 24/10/2026: "o painel vhost é o principal")
+
+- Apagados: `/dashboard`, `/cliente`, `/revendedor` e `/profissional` (páginas, componentes e as rotas de API que só eles chamavam; ~56 mil linhas).
+  O **painel principal é só o vhost** (`/vhost:2026`) e não depende de nenhum deles. Nada de voltar a criar páginas nesses caminhos.
+- **Redirecção total** (`src/proxy.ts`): qualquer endereço `/dashboard…`, `/cliente…`, `/revendedor…`, `/profissional…` ou `/admin…` (favoritos, e-mails,
+  avisos já guardados) vai, num só salto (308), para `/vhost:2026`. O pagamento Stripe volta a `/vhost:2026/utilizador/encomendas`.
+- Uma rota de API só se apaga se nada no repositório a chama (código, scripts, workflows, `next.config`) e não for de chamada externa (webhooks, cron,
+  autoconfig de e-mail, auth, checkout).
+
 # Entrar com o nome da conta, além do e-mail (Silva, 24/10/2026)
 
 O login do site (`/login`) aceita o **nome da conta** (o nome de utilizador do servidor, ex.: `oshercollective`) **e** o e-mail

@@ -90,7 +90,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     notifyQuoteTeam({
       title: 'Cliente cancelou uma encomenda',
       message: `${quotation.empresa} cancelou a encomenda "${quotation.produto}" (${quotation.categoria_label})${batchIds.length > 1 ? ` e mais ${batchIds.length - 1} item(ns)` : ''}. Motivo: ${motivo || 'não indicado'}.`,
-      link: `${process.env.NEXT_PUBLIC_SITE_URL || ''}/dashboard?section=cotacoes`,
+      link: `${process.env.NEXT_PUBLIC_SITE_URL || ''}/vhost:2026`,
     }).catch((err) => console.error('[cotacoes/[id]/cancelar] falha ao notificar equipa:', err));
 
     return NextResponse.json({ success: true, quotation: updatedQuotations?.[0] });

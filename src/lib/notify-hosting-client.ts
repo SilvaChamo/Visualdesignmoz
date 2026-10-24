@@ -48,7 +48,7 @@ export async function notifyHostingAccountProvisioned(params: {
   const body = `
     <h2 style="margin: 0 0 12px 0; color: #111827; font-size: 18px;">${title}</h2>
     <p style="margin: 0; color: #374151; font-size: 14px; line-height: 1.6; white-space: pre-line;">${message}</p>
-    <p style="margin: 20px 0 0 0;"><a href="${SITE_URL}/dashboard" style="display: inline-block; padding: 10px 20px; background: #dc2626; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 14px;">Aceder ao painel</a></p>
+    <p style="margin: 20px 0 0 0;"><a href="${SITE_URL}/vhost:2026" style="display: inline-block; padding: 10px 20px; background: #dc2626; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 14px;">Aceder ao painel</a></p>
   `;
 
   const html = `

@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
 
   if (isHestiaOnlyDeploy()) {
     if (browserNav) {
-      return NextResponse.redirect(new URL('/dashboard', getPublicSiteOrigin()), {
+      return NextResponse.redirect(new URL('/vhost:2026', getPublicSiteOrigin()), {
         status: 307,
         headers: { 'Cache-Control': 'no-store' },
       });
@@ -97,7 +97,7 @@ export async function GET(request: NextRequest) {
       );
       if (browserNav) {
         return NextResponse.redirect(
-          new URL('/dashboard', getPublicSiteOrigin()),
+          new URL('/vhost:2026', getPublicSiteOrigin()),
           { status: 307 },
         );
       }

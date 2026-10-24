@@ -102,7 +102,7 @@ export async function PATCH(
   notifyQuoteTeam({
     title,
     message,
-    link: `${process.env.NEXT_PUBLIC_SITE_URL || ''}/dashboard?section=cotacoes`,
+    link: `${process.env.NEXT_PUBLIC_SITE_URL || ''}/vhost:2026`,
   }).catch((err) => console.error('[cotacoes/[id]/layouts/[layoutId]] falha ao notificar equipa:', err));
 
   return NextResponse.json({ success: true, layout: updated });

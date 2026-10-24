@@ -125,20 +125,7 @@ export function resolveUserRole(source: RoleSource): UserRole {
 
 /** Painel de cada papel antes do VisualHost (continuam a funcionar nestes endereços; não são o destino por defeito). */
 export function getLegacyPanelPathForRole(role: UserRole): string {
-  switch (role) {
-    case 'admin':
-    case 'manager':
-      return '/dashboard';
-    case 'reseller':
-      return '/revendedor';
-    case 'profissional':
-      return '/profissional';
-    case 'client':
-      return '/cliente';
-    case 'guest':
-    default:
-      return '/guest';
-  }
+  return role === 'guest' ? '/guest' : '/vhost:2026';
 }
 
 /** Destino depois de entrar: o painel VisualHost (/vhost) para todas as contas com painel (decisão do Silva,
