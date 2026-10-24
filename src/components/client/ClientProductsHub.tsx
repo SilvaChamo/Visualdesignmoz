@@ -514,7 +514,7 @@ export function ClientDashboardView({
 
         {(domains.length === 0 || hosting.length === 0 || emailPlans.length === 0 || hasAnything) && (
           <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 shadow-sm space-y-6">
-            <div className="border-b border-zinc-200 dark:border-zinc-800 pb-3">
+            <div className="border-b border-zinc-200 dark:border-zinc-800" style={{ paddingBottom: 10, marginBottom: 10 }}>
               <div className="dom-titulo-bloco min-w-0">
                 <p className="dom-titulo">{hasAnything ? 'Complete a sua conta' : 'Ainda não tem produtos activos na sua conta'}</p>
                 <p className="dom-sub">
@@ -525,7 +525,7 @@ export function ClientDashboardView({
               </div>
             </div>
 
-            <div className="flex flex-wrap items-start justify-between gap-3" style={{ marginTop: 10 }}>
+            <div className="flex flex-wrap items-start justify-between gap-3" style={{ marginBottom: 10 }}>
               <div className="flex flex-wrap items-center">
                 <button type="button" onClick={() => navigate('dns')} className="link-rapido">
                   <Network className="w-3 h-3" /> DNS
