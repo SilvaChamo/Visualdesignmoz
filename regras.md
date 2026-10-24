@@ -399,6 +399,11 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
 
 ## Carregamento, texto e entrega
 
+- **Mudar de página: a anterior fica à vista até a nova ter conteúdo; só uma animação de cada vez** (Silva, 24/10/2026). Sem limite curto de espera
+  (o de 1,2 s, de 23/10, foi tirado: só resta uma rede de segurança de 10 s para um servidor que não responde), e uma página vazia nunca é dada
+  como pronta (`PaginaSlot`, `verificar`). **A linha do topo** (`BarraTopo`) aparece enquanto a anterior está à vista à espera; **as barras do
+  cartão** só na primeira carga (sem página anterior: entrada, recarregar). **Nunca as duas ao mesmo tempo:** com as barras no cartão, a linha
+  do topo esconde-se (`html.vh-barras-no-cartao`). Não voltar a pôr um limite curto.
 - **Dentro do painel: nunca roda (spinner) nem esqueleto (skeleton)** (13/10/2026). Ao mudar de página, a página anterior
   fica à vista até a seguinte estar pronta. **Única exceção — no lugar da tela branca:** enquanto a página inteira ainda
   não tem conteúdo (ao recarregar, ou à espera dos dados), aparece o carregador do DA — as três barras do "WordPress
