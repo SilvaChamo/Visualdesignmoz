@@ -2367,7 +2367,7 @@ export const webmailPagina: ScreenFn = (vh) => ({
 });
 
 // ---------- Extras: Mailmarketing (a plataforma do site da VisualDesign, com os domínios desta conta) ----------
-const MailMarketingSection = dynamic(() => import('@/components/dashboard/MailMarketingSection').then((m) => m.MailMarketingSection), {
+const MailMarketingSection = dynamic(() => import('@/components/vhost/comuns/MailMarketingSection').then((m) => m.MailMarketingSection), {
   ssr: false,
   loading: () => null, // a abrir: só a linha do topo
 });

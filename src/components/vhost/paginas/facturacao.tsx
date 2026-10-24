@@ -4,7 +4,7 @@
 // /cliente) enquadradas no painel — o mesmo componente e a mesma rota (/api/client/minhas-compras), sem reescrever nada,
 // só com as cores do painel (.vh-site). Os dados de facturação (empresa, NUIT, morada…) já estão em Perfil › Dados
 // pessoais. Aberta a todos os clientes e profissionais (Silva, 21/10/2026).
-import { MinhasComprasSection } from '@/components/client/MinhasComprasSection';
+import { MinhasComprasSection } from '@/components/vhost/comuns/MinhasComprasSection';
 import type { VH } from '../context';
 import type { ScreenFn } from '../screens';
 import { DESC, EN, MENU } from '../generated/data';

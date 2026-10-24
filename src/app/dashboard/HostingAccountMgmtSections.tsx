@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Loader2, RefreshCw, Save, Trash2 } from 'lucide-react';
-import { useAdminSectionChrome } from '@/components/admin/AdminSectionChrome';
+import { useAdminSectionChrome } from '@/components/vhost/comuns/AdminSectionChrome';
 import { panelBtnPrimary, panelBtnSecondary, panelField } from '@/lib/panel-ui';
 import { PRIMARY_RESELLER_DA_USER } from '@/lib/panel-contas-enrich';
 import { Spinner } from '@/components/ui/spinner';

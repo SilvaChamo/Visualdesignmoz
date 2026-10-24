@@ -11,15 +11,15 @@ import {
   ChevronLeft, FileText, Image as ImageIcon, Users, Upload
 } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthProvider';
-import { useAdminSectionChrome } from '@/components/admin/AdminSectionChrome';
+import { useAdminSectionChrome } from '@/components/vhost/comuns/AdminSectionChrome';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RichTextEditor } from "@/components/RichTextEditor";
-import { MultiFileUpload } from "@/components/admin/MultiFileUpload";
-import { SenderEmailSelector } from "@/components/admin/SenderEmailSelector";
-import { EmailTemplates } from "@/components/admin/EmailTemplates";
-import { fetchCompanyLogoUrl } from "@/components/admin/CompanyLogoUpload";
+import { MultiFileUpload } from "@/components/vhost/comuns/MultiFileUpload";
+import { SenderEmailSelector } from "@/components/vhost/comuns/SenderEmailSelector";
+import { EmailTemplates } from "@/components/vhost/comuns/EmailTemplates";
+import { fetchCompanyLogoUrl } from "@/components/vhost/comuns/CompanyLogoUpload";
 import { toast } from "sonner";
 import directAdminAPI from '@/lib/directadmin-hosting-api';
 import {

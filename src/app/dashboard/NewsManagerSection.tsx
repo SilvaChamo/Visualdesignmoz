@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { CheckCircle, Edit2, Globe, Image as ImageIcon, Languages, Loader2, Newspaper, Plus, Save, Trash2, X } from 'lucide-react'
-import { MultiFileUpload } from '@/components/admin/MultiFileUpload'
+import { MultiFileUpload } from '@/components/vhost/comuns/MultiFileUpload'
 import { Spinner } from '@/components/ui/spinner'
 
 type NewsItem = {

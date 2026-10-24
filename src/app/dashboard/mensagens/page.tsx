@@ -7,9 +7,9 @@ import { Input } from "@/components/ui/input";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2, Send, FileText, FileArchive, File as FileIcon, X, LayoutTemplate, Sparkles, Newspaper, Plus } from "lucide-react";
-import { MultiFileUpload } from "@/components/admin/MultiFileUpload";
-import { SenderEmailSelector } from "@/components/admin/SenderEmailSelector";
-import { EmailTemplates } from "@/components/admin/EmailTemplates";
+import { MultiFileUpload } from "@/components/vhost/comuns/MultiFileUpload";
+import { SenderEmailSelector } from "@/components/vhost/comuns/SenderEmailSelector";
+import { EmailTemplates } from "@/components/vhost/comuns/EmailTemplates";
 import { toast } from "sonner";
 import { Spinner } from "@/components/ui/spinner";
 

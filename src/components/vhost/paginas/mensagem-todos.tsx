@@ -7,11 +7,11 @@
 // (Tailwind) dentro do cartão principal do painel (.tw-livre, ver paginas.css).
 import { useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
-import { AdminSectionChromeProvider, useAdminSectionChrome } from '@/components/admin/AdminSectionChrome';
-import { TemplatesSection } from '@/app/dashboard/TemplatesSection';
+import { AdminSectionChromeProvider, useAdminSectionChrome } from '@/components/vhost/comuns/AdminSectionChrome';
+import { TemplatesSection } from '@/components/vhost/comuns/TemplatesSection';
 import { Send, Users, AlertTriangle, CheckCircle, Info, X, Mail, Eye } from 'lucide-react';
 import { buildSimpleNotificationEmailHtml } from '@/lib/renewal-templates';
-import { NotificationRichEditor } from '@/app/dashboard/NotificationRichEditor';
+import { NotificationRichEditor } from '@/components/vhost/comuns/NotificationRichEditor';
 import type { ScreenFn } from '../screens';
 import { useVH } from '../context';
 import { Tabs } from './componentes';

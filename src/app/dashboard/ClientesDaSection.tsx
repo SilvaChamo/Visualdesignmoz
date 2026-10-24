@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useSearchParams } from 'next/navigation';
 import { Eye, EyeOff, Loader2, MoreVertical, PlusCircle, RefreshCw, X, ExternalLink } from 'lucide-react';
-import { useAdminSectionChrome } from '@/components/admin/AdminSectionChrome';
+import { useAdminSectionChrome } from '@/components/vhost/comuns/AdminSectionChrome';
 import { ProvisionClienteSection } from '@/app/dashboard/ProvisionClienteSection';
 import { consumeHostingAccountEdit } from '@/lib/panel-hosting-edit-nav';
 import type { DirectAdminPackage } from '@/lib/directadmin-api';

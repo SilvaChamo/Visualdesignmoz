@@ -5,7 +5,7 @@ import { Search } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme/ThemeToggle';
 import { cn } from '@/lib/utils';
 import { panelField, panelShellHeaderHeightLg } from '@/lib/panel-ui';
-import type { SectionChromeBack, SectionChromeSearch } from '@/components/admin/AdminSectionChrome';
+import type { SectionChromeBack, SectionChromeSearch } from '@/components/vhost/comuns/AdminSectionChrome';
 type PanelHeaderProps = {
   title: string;
   description?: string;

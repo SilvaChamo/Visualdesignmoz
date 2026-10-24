@@ -16,7 +16,7 @@ import { EN } from '../generated/data';
 import { lerPref } from './suporte';
 
 /** Editor com cores no código (o mesmo do gestor de ficheiros do site: CodeMirror), carregado só quando se abre um ficheiro */
-const EditorCodigo = dynamic(() => import('@/app/dashboard/FileManagerCodeEditor').then((m) => m.FileManagerCodeEditor), {
+const EditorCodigo = dynamic(() => import('@/components/vhost/comuns/FileManagerCodeEditor').then((m) => m.FileManagerCodeEditor), {
   ssr: false,
   loading: () => <div className="fmda-codigo-espera" />,
 });

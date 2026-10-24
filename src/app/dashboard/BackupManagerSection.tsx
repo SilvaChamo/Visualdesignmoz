@@ -26,7 +26,7 @@ import {
   readBackupListCache,
   writeBackupListCache,
 } from '@/lib/panel-backup-cache'
-import { useAdminSectionChrome } from '@/components/admin/AdminSectionChrome'
+import { useAdminSectionChrome } from '@/components/vhost/comuns/AdminSectionChrome'
 
 type BackupDomainMode = 'all' | 'selected'
 

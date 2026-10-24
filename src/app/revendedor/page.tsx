@@ -36,7 +36,7 @@ import {
 import { ClientesDaSection } from '../dashboard/ClientesDaSection'
 import { NotificationsSection } from '../dashboard/NotificationsSection'
 import { RenewalsSection } from '../dashboard/RenewalsSection'
-import { TemplatesSection } from '../dashboard/TemplatesSection'
+import { TemplatesSection } from '@/components/vhost/comuns/TemplatesSection'
 import { DNSCentralSection } from '../dashboard/DNSCentralSection'
 import { DomainTransferSection } from '../dashboard/DomainTransferSection'
 import { DomainDetailSection } from '../dashboard/DomainDetailSection'
@@ -50,14 +50,14 @@ import { ProvisionAccountFormInline } from '../dashboard/ProvisionAccountFormInl
 import { ResellerProvisionForm } from '../dashboard/ResellerProvisionForm'
 import { createDefaultResellerPackageForm } from '@/lib/reseller-package-form'
 import { ResellerSettingsSection } from '@/components/revendedor/ResellerSettingsSection'
-import { fetchCompanyLogoUrl } from '@/components/admin/CompanyLogoUpload'
+import { fetchCompanyLogoUrl } from '@/components/vhost/comuns/CompanyLogoUpload'
 import { ResellerProfileSection } from '@/components/revendedor/ResellerProfileSection'
 import { ResellerNotificationsInbox } from '@/components/revendedor/ResellerNotificationsInbox'
 import { directAdminAPI as panelAPI } from '@/lib/directadmin-api'
 import { supabase as createClientInstance } from '@/lib/supabase'
 import type { DirectAdminWebsite, DirectAdminUser, DirectAdminPackage } from '@/lib/directadmin-api'
 import { cn } from '@/lib/utils'
-import { MailMarketingSection } from '@/components/dashboard/MailMarketingSection'
+import { MailMarketingSection } from '@/components/vhost/comuns/MailMarketingSection'
 import {
   fetchPanelBootstrap,
   fetchPanelBootstrapStaleWhileRevalidate,
@@ -73,7 +73,7 @@ import { getPanelSectionMeta } from '@/lib/panel-section-meta'
 import { resolvePanelNavigation, resolveSectionId, type PanelMenuItemDef } from '@/lib/panel-admin-menu'
 import { PanelSectionKeepAlive } from '@/components/panel/PanelSectionKeepAlive'
 import { PanelHeader } from '@/components/panel/PanelHeader'
-import { AdminSectionChromeProvider, useAdminSectionChrome } from '@/components/admin/AdminSectionChrome'
+import { AdminSectionChromeProvider, useAdminSectionChrome } from '@/components/vhost/comuns/AdminSectionChrome'
 import { ListWebsitesSection as PanelListWebsitesSection } from '@/components/panel/ListWebsitesSection'
 
 const directAdminAPI = panelAPI
