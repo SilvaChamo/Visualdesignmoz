@@ -24,7 +24,21 @@ export async function GET() {
     if (error) throw error;
 
     const pendentes = new Set((data || []).map((r) => r.batch_id)).size;
-    return NextResponse.json({ success: true, stats: { pendentes } });
+
+    // As encomendas recentes (uma por lote, com o estado), para o painel avisar no menu quando entra uma nova ou uma é cancelada
+    const { data: recentes } = await supabase
+      .from('quotation_requests')
+      .select('batch_id, status, created_at')
+      .order('created_at', { ascending: false })
+      .limit(300);
+    const lotes = new Map<string, string>();
+    for (const r of recentes || []) if (!lotes.has(r.batch_id)) lotes.set(r.batch_id, r.status);
+
+    return NextResponse.json({
+      success: true,
+      stats: { pendentes },
+      lotes: [...lotes].map(([id, status]) => ({ id, status })),
+    });
   } catch (error: any) {
     console.error('[admin/cotacoes/pending-count] error:', error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });

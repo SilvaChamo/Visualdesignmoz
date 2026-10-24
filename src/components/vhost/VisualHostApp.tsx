@@ -23,6 +23,7 @@ import { useTituloAjustado } from './titulo-ajustado';
 import { SAIR_POR_INATIVIDADE_ATIVO } from '@/lib/session-inactivity';
 import { BarraTopo, EsperaPagina, atividadeComeca, instalarContador, type Espera } from './carga';
 import { BarrasDa } from './carregador-da';
+import { useAvisosEncomendas } from './avisos-encomendas';
 import { badgeColors, getThemeColors, hexToRgb, luminancia, type CustomComponents } from './theme';
 import { FUNDO } from './carga';
 
@@ -1056,6 +1057,8 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
   const missing = !st.deny && !SCREENS[GLOBAL[st.page] ? st.page : level + '/' + st.page] && !(GLOBAL[st.page] ? gItem(st) : findItem(level, st.page));
   const s: St = { ...st, level, deny: st.deny || (missing ? { type: '404' } : null) };
   const t = (text: string) => translate(st.lang, text);
+  // balões no menu: encomenda nova, cancelada ou actualizada (e pagamentos por confirmar, para o administrador)
+  const avisosMenu = useAvisosEncomendas(st.carga === 'ok' && !!st.login && !st.stack.length, st.acc[st.login]?.role === 'admin', s.page === 'encomendas', toast);
   const go = (id: string) => nav(route(level, id));
   /** planos de cliente do servidor (submenus de Admin › Configurações de acesso) */
   const planosAcesso = Object.keys(st.db.pkgs).filter((p) => p !== 'system');
@@ -1566,6 +1569,7 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
                             }}
                           >
                             <span>{t(g)}</span>
+                            {!st.open[k] && vis.some((it) => avisosMenu[it.id]) && <b className="nbal">{vis.reduce((soma, it) => soma + (avisosMenu[it.id]?.n || 0), 0)}</b>}
                             <i className="fa-solid fa-chevron-down chev" />
                           </button>
                           <div className="items">
@@ -1595,6 +1599,11 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
                                     {t(it.t)}
                                   </span>
                                   {it.opt && <em>{t('opc.')}</em>}
+                                  {avisosMenu[it.id] && (
+                                    <b className="nbal" title={avisosMenu[it.id].titulo}>
+                                      {avisosMenu[it.id].n}
+                                    </b>
+                                  )}
                                 </a>
                               ))}
                             </div>

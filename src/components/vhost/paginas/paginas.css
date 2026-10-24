@@ -14309,3 +14309,24 @@
    font-size: 15px;
    font-weight: 600
 }
+
+/* balão de novidades no menu (encomenda nova, cancelada…) */
+.vh .side .nbal:not(#x) {
+   margin-left: auto;
+   margin-right: calc(6px * var(--z, 1));
+   min-width: calc(18px * var(--z, 1));
+   height: calc(18px * var(--z, 1));
+   padding: 0 calc(5px * var(--z, 1));
+   border-radius: calc(9px * var(--z, 1));
+   background: var(--red);
+   color: #fff;
+   font-size: calc(10.5px * var(--fs, 1));
+   font-weight: 700;
+   line-height: calc(18px * var(--z, 1));
+   text-align: center;
+   flex: none
+}
+
+.vh .side .grp .nbal:not(#x) {
+   margin-right: calc(10px * var(--z, 1))
+}
