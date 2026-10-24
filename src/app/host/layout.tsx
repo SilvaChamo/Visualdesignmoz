@@ -1,5 +1,5 @@
 // Painel VisualHost. Ícones (Font Awesome) e estilos só carregam nesta parte do site.
-// O painel vive no layout para não perder o estado ao mudar de ecrã (/host:2026/admin, /host:2026/admin/dns, …).
+// O painel vive no layout para não perder o estado ao mudar de ecrã (/vhost:2026/admin, /vhost:2026/admin/dns, …).
 import { Suspense } from 'react';
 import { cookies } from 'next/headers';
 import { preload } from 'react-dom';

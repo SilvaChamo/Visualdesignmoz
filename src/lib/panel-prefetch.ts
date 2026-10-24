@@ -541,7 +541,7 @@ function noPainelAntigo(): boolean {
 export async function prefetchPanelContentOnLogin(role: UserRole): Promise<void> {
   const scope = roleToPrefetchScope(role);
   if (!scope || typeof window === 'undefined') return;
-  // Só no painel antigo. Todos os papéis entram agora no VisualHost (/host:2026), que não usa nada disto: no ecrã de
+  // Só no painel antigo. Todos os papéis entram agora no VisualHost (/vhost:2026), que não usa nada disto: no ecrã de
   // login esta fila (dois /api/panel/bootstrap e dezenas de leituras ao servidor) corria ao mesmo tempo que a leitura
   // que o login espera (/api/vhost/dados) e atrasava a entrada; depois continuava a correr dentro do VisualHost
   if (!noPainelAntigo()) return;

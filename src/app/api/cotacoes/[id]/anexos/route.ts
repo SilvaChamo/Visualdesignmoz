@@ -116,7 +116,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     notifyQuoteTeam({
       title: 'Comprovativo de encomenda recebido',
       message: `${access.quotation.empresa} enviou o comprovativo do ${fase === 'remanescente' ? 'remanescente (30%)' : 'adiantamento (70%)'} da encomenda (${access.quotation.produto}). Confirme em Contabilidade › Encomendas.`,
-      link: `${process.env.NEXT_PUBLIC_SITE_URL || ''}/dashboard?section=contabilidade`,
+      link: `${process.env.NEXT_PUBLIC_SITE_URL || ''}/vhost:2026`,
     }).catch((err) => console.error('[cotacoes/[id]/anexos] falha ao notificar equipa:', err));
   }
 

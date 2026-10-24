@@ -4,7 +4,7 @@ export const PANEL_INACTIVITY_MS = 30 * 60 * 1000
 
 export const LAST_ACTIVITY_STORAGE_KEY = 'vd_panel_last_activity_at'
 
-const PANEL_ROUTE_PREFIXES = ['/host:2026', '/host', '/vhost', '/dashboard', '/cliente', '/revendedor'] as const
+const PANEL_ROUTE_PREFIXES = ['/vhost:2026', '/host:2026', '/host', '/vhost', '/dashboard', '/cliente', '/revendedor'] as const
 
 export function isPanelRoute(pathname: string): boolean {
   return PANEL_ROUTE_PREFIXES.some(
@@ -27,9 +27,9 @@ export function getIdleMs(): number {
   return Date.now() - Number(raw)
 }
 
-/** DESLIGADO temporariamente a pedido do Silva (13/10/2026, madrugada): nenhuma sessão termina por inatividade
- *  (site e painel /vhost). Voltar a pôr `true` no fim. */
-export const SAIR_POR_INATIVIDADE_ATIVO = false
+/** Terminar a sessão por inactividade (site: 30 min; painel /vhost:2026: 20 min). Esteve desligado desde 13/10/2026 enquanto se
+ *  corrigia o login; religado a 24/10/2026, a pedido do Silva. No painel volta à entrada do próprio painel (VisualHostApp). */
+export const SAIR_POR_INATIVIDADE_ATIVO = true
 
 export function isIdleBeyond(limitMs: number): boolean {
   if (!SAIR_POR_INATIVIDADE_ATIVO) return false

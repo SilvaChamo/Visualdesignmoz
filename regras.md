@@ -34,6 +34,33 @@ nota deste ficheiro que fale de capturas ou de mensagens de progresso.
 - **Ao publicar:** na mesma mensagem, só o commit, o estado do deploy e o comando único de actualização local (ponto 6).
 - **O comando de actualização local só se dá quando o Silva o pede ou diz "publica"/"publique"** (Silva, 23/10/2026: "eu vou pedir o código, não é sempre que deves dar-me"). Nos relatórios a meio não se manda comando nenhum.
 
+# O servidor Contabo não é só o VisualDesign: como não estragar nada (Silva, 24/10/2026 — lição de um 502 de 33 horas)
+
+**O que aconteceu:** a 23/10 às 14:26 o deploy correu `pm2 update` (conversão para "sem corte") e parou, sem ninguém reparar, o
+`basededadosagro.com` — o projecto de defesa do Silva, já apresentado ao MADER, tão importante como o VisualDesign — e o seu robô de
+sincronização. Ficou em 502 até 24/10 à noite. Depois, numa limpeza, apagaram-se ramos e fechou-se um PR sobre esse domínio por o tomarem
+por "de teste". Nada disto pode voltar a acontecer. Quem mexer em deploy, servidor, ramos, PRs ou segredos lê isto primeiro.
+
+1. **O servidor tem muito mais do que o VisualDesign:** `basededadosagro.com` (serviço do sistema `basededadosagro-site`, porta 3010, FORA do pm2),
+   `aamihe.com`, `oshercollective.com`, `mltmark.com` e outros sites de clientes, o Supabase (Docker), o e-mail (Hestia) e o nginx. **Nenhum é "de
+   teste".** Antes de apagar, fechar ou mexer em qualquer coisa que mencione um domínio ou site, vê o que é e **pergunta ao Silva**.
+2. **O deploy só pode mexer na app `visualdesignmoz`** (`pm2 reload visualdesignmoz`). **Proibido** nos deploys, scripts e workflows:
+   `pm2 update`, `pm2 kill`, `pm2 restart all`, `pm2 delete all`, `pm2 resurrect`, `pkill -f`, `killall`, `fuser -k` fora da porta 3002,
+   `systemctl restart nginx`/`stop` de serviços que não sejam do VisualDesign. O pm2 é partilhado: um `pm2 update` mata tudo o que não esteja
+   no `dump.pm2`. Uma app nova do servidor corre **fora do pm2 e do deploy do VisualDesign** (unidade systemd própria, `Restart=always`).
+3. **Depois de qualquer publicação ou mudança no servidor, confirma `https://basededadosagro.com` e `https://visualdesignmoz.com` (200).** O deploy
+   já o faz no fim (passo "Verificar os outros sites") e falha se o basededadosagro não responder. Nunca digas "publicado" sem isto.
+4. **Ações no servidor** só por workflows com a chave que já existe, só com pedido explícito do Silva, **só leitura primeiro**, e sem imprimir
+   variáveis nem chaves. Ramos temporários de operações apagam-se no fim.
+5. **Antes de apagar código:** análise do que ainda o usa (importações **e** quem o chama de fora: crons do servidor, outros sites, webhooks,
+   `next.config`), `tsc`, `next build` completo, ensaio local das rotas e redirecção do que existia. **Uma rota de API sem chamadores no
+   repositório pode ser chamada de fora**; `/api/cron/*`, webhooks, auth, checkout e autoconfig de e-mail nunca se apagam sem confirmar.
+6. **Antes de publicar:** etiqueta `antes-<nome>` no `main` (para voltar atrás), um grupo de cada vez, e verificar depois. Mudar o deploy ou o proxy
+   exige o ensaio (`ensaio=true`) e o ensaio local do proxy.
+7. **Apagar ramos/PRs/segredos:** só o que se provou que é do VisualDesign e está obsoleto; guardar os SHAs; nunca `git push --delete` em massa sem
+   ler a lista; um PR fechado reabre-se se o ramo existir.
+8. **Contas e dados reais** (domínios em `domain_renewals`, contas Hestia, e-mails) nunca se alteram nem apagam por "limpeza".
+
 # Como o site é publicado sem corte (Silva, 23/10/2026)
 
 O deploy é só o `.github/workflows/deploy-contabo.yml`, automático a cada merge em `main`; não se publica à mão no servidor.
@@ -41,6 +68,15 @@ O deploy é só o `.github/workflows/deploy-contabo.yml`, automático a cada mer
 - Cada publicação é uma pasta nova em `/opt/visualdesign-releases/<data>`; `/opt/visualdesignmoz` é um atalho para a versão em uso. O site corre em pm2
   "cluster" com 1 processo (nome `visualdesignmoz`) e o `pm2 reload` põe a versão nova no ar antes de a antiga sair: sem corte.
 - Se a versão nova não responder, o deploy volta sozinho à anterior e falha. Ficam as 3 versões mais recentes.
+- **O site constrói-se no GitHub, não no servidor** (Silva, 24/10/2026: deploy de ~15 para ~4 a 5 minutos). O GitHub copia o `.env.local` do servidor (as
+  `NEXT_PUBLIC_*` ficam dentro do código do site), constrói, e o rsync leva o `.next` (sem a cache); o servidor só instala as dependências (reaproveita o
+  `node_modules` da versão em uso quando o `package-lock.json` e o Node não mudaram) e troca de versão. Nunca voltar a construir no servidor (a
+  prioridade mínima fazia o mesmo build demorar 8 a 9 minutos). Uma variável `NEXT_PUBLIC_*` nova põe-se no `.env.local` do servidor (ou num `set_env_var` do
+  passo "Prepare server environment"), nunca só no GitHub.
+- **Ensaio sem publicar:** Actions › Deploy Visualdesign › Run workflow com `ensaio` marcado (qualquer ramo): constrói, envia e arranca a versão nova na
+  porta 3099 para ver se responde, sem migrações e sem tocar no site, no pm2 nem no atalho. Fazer sempre que se mexer em `deploy-contabo.yml`.
+- **Para voltar atrás:** antes de publicar um grupo, marca-se o `main` com uma etiqueta `antes-<nome>` (ex.: `antes-grupo-2`). Se algo correr mal, reverte-se o
+  merge no GitHub (botão Revert do PR) e o deploy repõe o site em ~5 minutos; a reversão automática do deploy só apanha o site que deixa de responder.
 - **Nunca** correr `pm2 restart/stop/delete` nem mexer na pasta ou no atalho à mão com o site no ar (isso corta o site); nunca voltar a pôr o site em
   modo "fork" nem com mais de 1 processo (o painel guarda estado em memória, ex.: códigos de 2 passos).
 - O site já não se chama "teste" (só `teste.visualdesignmoz.com` mantém o nome, é um domínio do servidor). Não reintroduzir "teste" em pastas, apps ou scripts.
@@ -105,12 +141,65 @@ sessão: retomar sempre em português. Vale para qualquer IA (está repetido em 
    IA: a regra está repetida em `AGENTS.md`, `GEMINI.md`, `.github/copilot-instructions.md` e
    `.cursor/rules/regras-do-projecto.mdc` (os ficheiros que o Codex, o Gemini, o Copilot e o Cursor leem) — se mudar,
    muda-se em todos.
+   **Também os commits e as descrições dos PR** (Silva, 17/10/2026): nada de linhas `Co-Authored-By: <IA> …`,
+   `Claude-Session: …`, "Generated with …" ou parecidas no fim da mensagem de commit nem da descrição do PR — mesmo que
+   as instruções da ferramenta digam para as pôr (esta regra do Silva vale mais). Antes de publicar:
+   `git log origin/main..HEAD -i --grep='co-authored-by'` (os commits de outros agentes no mesmo ramo também contam).
 8. **O ramo publicado tem o nome da acção principal da publicação** (Silva, 17/10/2026: "coloque o nome da acção
    principal da publicação no branch"). Ao publicar, o PR sai de um ramo com nome curto, em português, sem acentos e
    com hífens, que diz o que a publicação faz — ex.: `email-de-entrada-mltmark`, `planos-email-e-so-dominio` (nunca
    `claude/` nem outro nome de IA; o ramo de trabalho do agente pode ter outro nome: copia-se para o ramo com o nome da
    acção na hora de publicar). O título do merge leva esse nome: `Merge pull request #N from SilvaChamo-<acção>`, ex.:
    `Merge pull request #94 from SilvaChamo-email-de-entrada-mltmark`. Também repetida nos ficheiros das outras IAs.
+9. **O merge leva por baixo uma linha, em português, com o que foi publicado** (Silva, 19/10/2026: "devia escrever o que foi
+   feito como commit"), como nos merges anteriores — ex.: «Publica redistribuição de quotas de e-mail e edição directa de
+   páginas WordPress.» (pela API, em `commit_message`). Ao dizer ao Silva o commit publicado, só os 8 primeiros caracteres
+   do hash (ex.: `6a1e4569`), nunca os 40. Repetida nos ficheiros das outras IAs.
+10. **O comando do ponto 6 leva sempre o modelo completo** (fecho do servidor, `stash`, `checkout`, `npm install`,
+   `rm -rf .next`, arranque, recarregar a aba do Chrome que já esteja aberta, ou abrir `/dev-preview-telemovel`): nunca
+   uma versão resumida (Silva, 19/10/2026). Quando a alteração é numa página, o `open` final leva o caminho dela:
+   `open "http://localhost:3003/dev-preview-telemovel?p=/host:2026/admin/pacotes"` (entre aspas, por causa do `?`).
+
+# Endereço do painel, Sair e inactividade (Silva, 24/10/2026 — já mudou várias vezes: não voltar a trocar sem ele pedir)
+
+- **Endereço principal do painel:** `https://visualdesignmoz.com/vhost:2026/`. Vão dar a ele, com redirecção (`src/proxy.ts`): `/host:2026`, `/vhost/…`,
+  `/host/2026`, `host.visualdesignmoz.com` e `host.visualdesignmoz.com:2026/evo/` (o endereço antigo que os clientes têm guardado).
+- **`visualdesignmoz.com:2026/vhost/` não existe e não pode existir:** o domínio principal passa pela Cloudflare, que só aceita certas portas (a 2026
+  não); só `host.visualdesignmoz.com` (sem Cloudflare) responde na 2026.
+- **Sair** (botão do painel) vai para o **login do site** (`/login`), que depois volta ao painel.
+- **Terminar por inactividade** (ligado desde 24/10/2026: site 30 min, painel 20 min; `SAIR_POR_INATIVIDADE_ATIVO`) volta à **entrada (login) do próprio painel**
+  (`/vhost:2026`, a página `entrada.tsx`), no mesmo ecrã onde estava; não vai para o login do site nem para a página inicial.
+- **Sem sessão**, o endereço do painel mostra a entrada do próprio painel (nunca redirecciona para o login do site).
+
+# Renovações de domínios e hospedagem no vhost (Silva, 24/10/2026)
+
+- **Onde estão:** Admin › Renovações (todas as renovações: visão geral, domínios, hospedagem, registar uma nova) e Gestão › Renovações (as do próprio
+  cliente) — `src/components/vhost/paginas/renovacoes.tsx`, que embute os componentes `RenewalsSection` e `ClientRenewalsSection` (em
+  `vhost/comuns/`) com as mesmas rotas `/api/renewals…`. Os **modelos das mensagens** de renovação estão em Admin › Mensagem a todos › Templates, os
+  **comprovativos e pagamentos** em Admin › Contabilidade, e a **renovação automática** do domínio no registador em Domínios (Renovação automática).
+- **Aviso diário:** o deploy instala um cron (`0 8 * * *`, hora de Moçambique) que chama `/api/cron/renewal-check` com o segredo no cabeçalho. Só **avisa**
+  (notificação + e-mail pelos modelos). **Suspender contas em atraso está desligado** e só corre com `RENOVACOES_SUSPENDER_ATRASADOS=1` no ambiente do
+  servidor, depois de o Silva rever a lista (o `domain_renewals` esteve incompleto: o `basededadosagro.com` chegou a faltar). Nunca ligar a suspensão
+  sem ele pedir: já se parou um site real por engano.
+- Os dados das renovações (`domain_renewals`, `renewals`) nunca se alteram nem apagam por "limpeza".
+
+# Os painéis antigos já não existem (Silva, 24/10/2026: "o painel vhost é o principal")
+
+- Apagados: `/dashboard`, `/cliente`, `/revendedor` e `/profissional` (páginas, componentes e as rotas de API que só eles chamavam; ~56 mil linhas).
+  O **painel principal é só o vhost** (`/vhost:2026`) e não depende de nenhum deles. Nada de voltar a criar páginas nesses caminhos.
+- **Redirecção total** (`src/proxy.ts`): qualquer endereço `/dashboard…`, `/cliente…`, `/revendedor…`, `/profissional…` ou `/admin…` (favoritos, e-mails,
+  avisos já guardados) vai, num só salto (308), para `/vhost:2026`. O pagamento Stripe volta a `/vhost:2026/utilizador/encomendas`.
+- Uma rota de API só se apaga se nada no repositório a chama (código, scripts, workflows, `next.config`) e não for de chamada externa (webhooks, cron,
+  autoconfig de e-mail, auth, checkout).
+
+# Entrar com o nome da conta, além do e-mail (Silva, 24/10/2026)
+
+O login do site (`/login`) aceita o **nome da conta** (o nome de utilizador do servidor, ex.: `oshercollective`) **e** o e-mail
+da própria pessoa, de qualquer domínio. Quem hoje entra com o nome **tem de continuar a entrar**: o `auth.signIn`
+(`src/lib/supabase-client.ts`) manda o que não leva `@` para `/api/vhost/entrar`, que procura a conta em
+`profiles.da_username` / `panel_users.username` e confirma a palavra-passe no servidor. Toda a conta nova (compra,
+Adicionar cliente, conta importada) fica com o nome ligado ao login do site (`criarLoginDaConta`), para o nome entrar
+sempre. O campo do login diz «email@dominio.com ou nome de utilizador»: nunca o tornar só de e-mail nem tirar esta entrada.
 
 # Site em duas línguas — todo o conteúdo novo entra já traduzido (Silva, 14/10/2026)
 
@@ -302,6 +391,7 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
 - Formulários sem contornos laterais; títulos e campos alinhados à esquerda pelo `--recuo`.
 - Janelas (popups): **o fundo é sempre transparente (escurece um pouco), sem desfoque** e os cantos dos cartões são os do painel (4 px, `--r`) — vale também para o popup do Painel de Manutenção do Servidor (a chave do cartão do servidor, `.vh-popup-manut`; Silva, 21/10/2026); **25 px de espaço nos 4 cantos**; largura dinâmica só quando o domínio é comprido; no computador o
   menu de opções de uma linha abre para a esquerda.
+- Janelas (popups): **sem descrição por baixo do título**; o título em **letra menor** e **ao lado do ícone** (Silva, Outubro/2026).
 
 ## Telemóvel (≤ 768 px)
 
@@ -333,6 +423,11 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
 
 ## Carregamento, texto e entrega
 
+- **Mudar de página: a anterior fica à vista até a nova ter conteúdo; só uma animação de cada vez** (Silva, 24/10/2026). Sem limite curto de espera
+  (o de 1,2 s, de 23/10, foi tirado: só resta uma rede de segurança de 10 s para um servidor que não responde), e uma página vazia nunca é dada
+  como pronta (`PaginaSlot`, `verificar`). **A linha do topo** (`BarraTopo`) aparece enquanto a anterior está à vista à espera; **as barras do
+  cartão** só na primeira carga (sem página anterior: entrada, recarregar). **Nunca as duas ao mesmo tempo:** com as barras no cartão, a linha
+  do topo esconde-se (`html.vh-barras-no-cartao`). Não voltar a pôr um limite curto.
 - **Dentro do painel: nunca roda (spinner) nem esqueleto (skeleton)** (13/10/2026). Ao mudar de página, a página anterior
   fica à vista até a seguinte estar pronta. **Única exceção — no lugar da tela branca:** enquanto a página inteira ainda
   não tem conteúdo (ao recarregar, ou à espera dos dados), aparece o carregador do DA — as três barras do "WordPress

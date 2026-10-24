@@ -13,7 +13,8 @@
     "start": "next start",
     "lint": "next lint",
     "test:email": "node scripts/test-email.mjs",
-    "i18n": "node scripts/i18n-verificar.mjs"
+    "i18n": "node scripts/i18n-verificar.mjs",
+    "atualizar": "bash scripts/atualizar-local.sh"
   },
   "dependencies": {
     "@codemirror/lang-css": "^6.3.1",

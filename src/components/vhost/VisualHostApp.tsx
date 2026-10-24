@@ -23,6 +23,7 @@ import { useTituloAjustado } from './titulo-ajustado';
 import { SAIR_POR_INATIVIDADE_ATIVO } from '@/lib/session-inactivity';
 import { BarraTopo, EsperaPagina, atividadeComeca, instalarContador, type Espera } from './carga';
 import { BarrasDa } from './carregador-da';
+import { ClientSidePanel } from '@/components/vhost/comuns/ClientProductsHub';
 import { useAvisosEncomendas } from './avisos-encomendas';
 import { badgeColors, getThemeColors, hexToRgb, luminancia, type CustomComponents } from './theme';
 import { FUNDO } from './carga';
@@ -46,6 +47,8 @@ import {
   initialState,
   isUser,
   meOf,
+  MENU_SO_DOMINIO,
+  soDominioDe,
   nomeNivel,
   dominioGuardado,
   guardarDominio,
@@ -61,9 +64,9 @@ import type { Account, Level, MenuItem } from './types';
 
 const useIsomorphicLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
-// O mesmo ecrã com o endereço do browser (/host:2026/…) ou com o da rota no servidor (/host/…, por causa da
+// O mesmo ecrã com o endereço do browser (/vhost:2026/…) ou com o da rota no servidor (/host/…, por causa da
 // reescrita em src/proxy.ts): os dois dão o mesmo caminho interno, sem diferenças entre servidor e browser
-const PREFIXOS = [BASE, '/host%3A2026', '/host%3a2026', '/host/2026', '/host'];
+const PREFIXOS = [BASE, '/vhost%3A2026', '/vhost%3a2026', '/host:2026', '/host%3A2026', '/host%3a2026', '/host/2026', '/host'];
 const stripBase = (p: string) => {
   const pre = PREFIXOS.find((b) => p === b || p.startsWith(b + '/'));
   return (pre ? p.slice(pre.length) : p).replace(/\/+$/, '') || '/';
@@ -297,8 +300,9 @@ function comDados(cur: St, d: DadosServidor, caminhoDesejado: string, doNavegado
 }
 
 const nadaMuda = () => () => {};
-/** Quanto tempo a página anterior fica à vista à espera da seguinte (depois a nova abre, com o carregador do DA) */
-const ESPERA_MAX_MS = 1200;
+/** A página anterior fica à vista até a seguinte ter conteúdo (Silva, 24/10/2026: "manter à vista o conteúdo da página anterior até o da
+ *  próxima aparecer"). Este tempo é só a rede de segurança para um servidor que não responde (depois a nova abre, com o carregador do DA). */
+const ESPERA_MAX_MS = 10_000;
 
 /** Lugar de uma página: escondido enquanto as leituras sem nada em memória não acabam; depois avisa (uma vez) */
 type RegistarFonte = (chave: string, id: string, fonte: () => ItemPesquisa[]) => () => void;
@@ -361,17 +365,27 @@ function PaginaSlot({ p, oculta, onPronta, registar }: { p: Pagina; oculta: bool
     timer.current = setTimeout(() => {
       if (montada.current && falta.current === 0) {
         avaliar();
-        if (!avisada.current) {
+        // só se liberta a página quando já tem conteúdo (a anterior fica à vista até lá); uma página que falha liberta-se por onFalha, e
+        // uma que nunca desenha nada, pela rede de segurança (ESPERA_MAX_MS)
+        if (!avisada.current && (teveConteudo.current || temConteudo())) {
           avisada.current = true;
           onPronta(chave);
         }
       }
     }, 40);
-  }, [onPronta, chave, avaliar]);
+  }, [onPronta, chave, avaliar, temConteudo]);
   // antes de pintar: se a página abre vazia, o cartão já nasce com o carregador (sem um instante de cartão em branco)
   useLayoutEffect(() => {
     avaliar();
   }, [avaliar]);
+  // Só uma animação de cada vez (Silva, 24/10/2026): enquanto o cartão mostra as barras (primeira carga), a linha do topo esconde-se; a linha
+  // do topo é para quando a página anterior ainda está à vista. O CSS (.vh-barras-no-cartao .vh-barra-topo) faz o resto.
+  const barrasVisiveis = carrega && !oculta;
+  useEffect(() => {
+    if (!barrasVisiveis) return;
+    document.documentElement.classList.add('vh-barras-no-cartao');
+    return () => document.documentElement.classList.remove('vh-barras-no-cartao');
+  }, [barrasVisiveis]);
   // páginas que desenham o conteúdo sem passar pelas leituras acima: quando o conteúdo aparece, o carregador sai
   useEffect(() => {
     const el = slotRef.current;
@@ -741,9 +755,8 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Sair (e inatividade): termina a sessão e vai para o login do site, que volta a este ecrã depois de entrar (Silva,
-  // 16/10/2026: "diretamente no login do site para se entrar no painel"). Sem cookie de sessão, o proxy já manda para lá.
-  const irParaLogin = useCallback(async (caminho = '') => {
+  // Limpeza comum ao terminar a sessão, seja por "Sair" ou por inactividade.
+  const limparSessao = useCallback(async () => {
     apagarCache();
     guardarEntrarComo('', []);
     esquecerTemas();
@@ -751,8 +764,24 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
     try {
       await auth.signOut();
     } catch {}
-    window.location.assign('/login' + (caminho ? '?redirect=' + encodeURIComponent(BASE + caminho) : ''));
   }, []);
+
+  // Sair: termina a sessão e vai para o login do site, que volta a este ecrã depois de entrar (Silva, 16/10/2026:
+  // "diretamente no login do site para se entrar no painel"). Único caso que vai para o login — é um clique explícito.
+  const irParaLogin = useCallback(async (caminho = '') => {
+    await limparSessao();
+    window.location.assign('/login' + (caminho ? '?redirect=' + encodeURIComponent(BASE + caminho) : ''));
+  }, [limparSessao]);
+
+  // Inactividade: termina a sessão sem perguntar e volta à entrada (login) do próprio painel, no mesmo ecrã onde estava (Silva,
+  // 24/10/2026: "ao ser desalogado por inactividade volta para o login do painel"; o Sair é que vai para o login do site).
+  const irParaEntradaDoPainel = useCallback(
+    async (caminho = '') => {
+      await limparSessao();
+      window.location.assign(BASE + (caminho && caminho !== '/' ? caminho : ''));
+    },
+    [limparSessao],
+  );
 
   // Leitura antiga (o servidor guarda-a até 60 min e lê a nova por trás — Silva, 17/10/2026): volta a pedir aos 3, 6, 10,
   // 20 e 30 s até chegar uma desta hora. O conteúdo fica à vista e só muda quando chega o novo (nunca tela branca).
@@ -1059,6 +1088,8 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
   const t = (text: string) => translate(st.lang, text);
   // balões no menu: encomenda nova, cancelada ou actualizada (e pagamentos por confirmar, para o administrador)
   const avisosMenu = useAvisosEncomendas(st.carga === 'ok' && !!st.login && !st.stack.length, st.acc[st.login]?.role === 'admin', s.page === 'encomendas', toast);
+  // quem só tem domínio (sem conta no servidor): menu reduzido
+  const soDominio = soDominioDe({ ...st, level });
   const go = (id: string) => nav(route(level, id));
   /** planos de cliente do servidor (submenus de Admin › Configurações de acesso) */
   const planosAcesso = Object.keys(st.db.pkgs).filter((p) => p !== 'system');
@@ -1285,7 +1316,7 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
   // Cores do tema escolhido, com as cores mudadas à mão nesse tema (ou as que estão a ser editadas), e cantos
   const over = st.themePreview || st.themeOver[st.colorPreset];
   // Sessão: nunca pede para entrar enquanto se mexe no painel (os pedidos /api/vhost renovam-na — src/proxy.ts); ao fim
-  // de 20 minutos sem tocar em nada (em nenhum separador), termina a sessão e vai para o login do site
+  // de 20 minutos sem tocar em nada (em nenhum separador), termina a sessão e volta à entrada do painel
   useEffect(() => {
     if (st.carga !== 'ok') return;
     if (!SAIR_POR_INATIVIDADE_ATIVO) return; // desligado por agora (ver session-inactivity.ts)
@@ -1311,14 +1342,13 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
       } catch {}
       if (Date.now() - Math.max(ultimo, outro) < LIMITE) return;
       clearInterval(iv);
-      // como no DA: depois de entrar, volta à página onde estava
-      irParaLogin(ref.current.path || '/');
+      irParaEntradaDoPainel(ref.current.path || '/');
     }, 30_000);
     return () => {
       evs.forEach((e) => window.removeEventListener(e, toque, { capture: true }));
       clearInterval(iv);
     };
-  }, [st.carga, irParaLogin]);
+  }, [st.carga, irParaEntradaDoPainel]);
 
   const colors = getThemeColors(st.colorPreset, st.customPrimary, over);
   const isDark = st.theme === 'dark';
@@ -1521,7 +1551,7 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
                 </h1>
                 <p>{t('Olá, ' + pessoaNome.split(' ')[0])}</p>
               </div>
-              <div className="lvl" id="lvl" style={allowed.length > 1 ? undefined : { display: 'none' }}>
+              <div className="lvl" id="lvl" style={allowed.length > 1 && !soDominio ? undefined : { display: 'none' }}>
                 {allowed.map((k) => (
                   <button key={k} className={level === k && !sec ? 'on' : ''} onClick={() => setLevel(k)} title={t(nomeNivel(k))}>
                     {t(nomeNivel(k))}
@@ -1530,7 +1560,19 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
               </div>
               {/* Menu em categorias que abrem e fecham; sem a secção Início (o painel abre pelo símbolo ou por "Dashboard") */}
               <nav className="side" id="side">
-                {sec ? (
+                {soDominio ? (
+                  <div className="tw-livre lateral-cliente">
+                    <ClientSidePanel
+                      displayName={pessoaNome}
+                      sessionUser={pessoaEmail}
+                      onNavigate={(secao) => {
+                        if (secao === 'transferir') nav('/utilizador/dominios/transferir');
+                        else if (secao === 'facturas' || secao === 'minhas-compras') go('facturacao');
+                        else window.location.href = '/cliente';
+                      }}
+                    />
+                  </div>
+                ) : sec ? (
                   <>
                     <div className="grp open static">
                       <span>{t(sec.t)}</span>
@@ -1552,7 +1594,7 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
                   </>
                 ) : (
                   MENU[level]
-                    .filter(([g]) => g !== 'Início')
+                    .filter(([g]) => g !== 'Início' && (!soDominio || MENU_SO_DOMINIO.includes(g)))
                     .map(([g, items]) => {
                       const vis = items.filter((it) => !SEM_MENU.has(it.id) && vh.hasFeat(it.feat, it.id));
                       if (!vis.length) return null;
@@ -1568,7 +1610,7 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
                               if (abrir && !(level === 'admin' && g === 'Configurações de acesso')) go(vis[0].id);
                             }}
                           >
-                            <span>{t(g)}</span>
+                            <span>{t(soDominio && g === 'Compras e encomendas' ? 'Compras' : g)}</span>
                             {!st.open[k] && vis.some((it) => avisosMenu[it.id]) && <b className="nbal">{vis.reduce((soma, it) => soma + (avisosMenu[it.id]?.n || 0), 0)}</b>}
                             <i className="fa-solid fa-chevron-down chev" />
                           </button>

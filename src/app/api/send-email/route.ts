@@ -72,7 +72,13 @@ export async function POST(req: NextRequest) {
     console.log('🚀 [send-email] Requisição recebida');
     try {
         const body = await req.json();
-        console.log('🚀 [send-email] Body:', JSON.stringify(body, null, 2));
+        // Nunca se escreve o pedido inteiro no log: leva a palavra-passe da caixa (fromPassword) e os anexos em base64.
+        console.log('🚀 [send-email] Pedido:', JSON.stringify({
+            from: body?.from,
+            to: body?.to,
+            subject: body?.subject,
+            anexos: Array.isArray(body?.attachments) ? body.attachments.length : 0,
+        }));
 
         const { from, to, cc, bcc, subject, html, replyTo, fromPassword, attachments } = body;
 

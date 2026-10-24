@@ -41,7 +41,7 @@ export default async function EncomendasLayout({ children }: { children: React.R
         <ImpersonationBanner
           label={impersonatedLabel}
           exitEndpoint="/api/admin/cotacoes/clientes/entrar"
-          exitRedirect="/dashboard?section=cotacoes-contas"
+          exitRedirect="/vhost:2026"
         />
       )}
       <div className="flex-1 min-h-0">{children}</div>

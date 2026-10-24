@@ -25,12 +25,12 @@ export async function GET(
     return NextResponse.redirect(`${origin}/login?redirect=/renovacao/iniciar/${type}/${id}`);
   }
   if (!VALID_TYPES.includes(type)) {
-    return NextResponse.redirect(`${origin}/dashboard?section=notificacoes-servidor`);
+    return NextResponse.redirect(`${origin}/vhost:2026`);
   }
 
   const admin = getSupabaseAdmin();
   if (!admin) {
-    return NextResponse.redirect(`${origin}/dashboard?section=notificacoes-servidor`);
+    return NextResponse.redirect(`${origin}/vhost:2026`);
   }
 
   const table = type === 'domain' ? 'domain_renewals' : 'hosting_renewals';
@@ -41,7 +41,7 @@ export async function GET(
     .eq('id', id)
     .single();
   if (renewalError || !renewal || renewal.user_id !== user.id) {
-    return NextResponse.redirect(`${origin}/dashboard?section=notificacoes-servidor`);
+    return NextResponse.redirect(`${origin}/vhost:2026`);
   }
 
   const { data: existing } = await admin
@@ -59,7 +59,7 @@ export async function GET(
 
   const valorMt = Number(renewal.renewal_price);
   if (!Number.isFinite(valorMt) || valorMt <= 0) {
-    return NextResponse.redirect(`${origin}/dashboard?section=notificacoes-servidor`);
+    return NextResponse.redirect(`${origin}/vhost:2026`);
   }
 
   // Método habitual do cliente (mesmo lookup do renewal-check/route.ts): último
@@ -88,7 +88,7 @@ export async function GET(
     .select()
     .single();
   if (error || !pedido) {
-    return NextResponse.redirect(`${origin}/dashboard?section=notificacoes-servidor`);
+    return NextResponse.redirect(`${origin}/vhost:2026`);
   }
 
   return NextResponse.redirect(`${origin}/checkout?renewalId=${pedido.id}`);

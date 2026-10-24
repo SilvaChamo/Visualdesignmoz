@@ -97,7 +97,7 @@ export function Navbar() {
     // Área do Cliente (requer login)
     { href: PUBLIC_PANEL_ENTRY, icon: Lock, title: 'Painel do Cliente', desc: 'Gerir a sua conta e serviços', bg: 'bg-slate-100', text: 'text-slate-700', tags: 'painel dashboard conta cliente', requiresLogin: true },
     { href: PUBLIC_PANEL_ENTRY, icon: Lock, title: 'Meus Domínios', desc: 'Gerir os seus domínios registados', bg: 'bg-teal-50', text: 'text-teal-700', tags: 'domínios meus gerir dns', requiresLogin: true },
-    { href: '/host:2026/admin', icon: Lock, title: 'Administração', desc: 'Painel de administração', bg: 'bg-red-50', text: 'text-red-700', tags: 'admin painel gestão administração', requiresLogin: true },
+    { href: '/vhost:2026/admin', icon: Lock, title: 'Administração', desc: 'Painel de administração', bg: 'bg-red-50', text: 'text-red-700', tags: 'admin painel gestão administração', requiresLogin: true },
   ]
 
   const isSearching = searchQuery.trim().length > 0

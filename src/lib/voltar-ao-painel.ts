@@ -8,7 +8,7 @@ const CHAVE = 'vd-voltar-painel';
 
 export function marcarVoltaAoPainel(caminho: string) {
   try {
-    sessionStorage.setItem(CHAVE, '/host:2026' + caminho);
+    sessionStorage.setItem(CHAVE, '/vhost:2026' + caminho);
   } catch {
     /* sem armazenamento: volta-se para a página por omissão */
   }
@@ -19,7 +19,7 @@ export function destinoDepoisDoPagamento(padrao: string): string {
   try {
     const c = typeof window !== 'undefined' ? sessionStorage.getItem(CHAVE) : null;
     // só caminhos do próprio painel (nunca outro site)
-    if (c && /^\/host:2026(\/[\w\-/]*)?$/.test(c)) return c;
+    if (c && /^\/v?host:2026(\/[\w\-/]*)?$/.test(c)) return c.replace(/^\/host:2026/, '/vhost:2026');
   } catch {
     /* sem armazenamento */
   }

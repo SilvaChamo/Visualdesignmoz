@@ -4,13 +4,13 @@
 // para que o CSS de generated/maquete.css se aplique tal e qual.
 import { Fragment, useContext, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { ServerStatusModal, useSystemStatus } from '@/components/admin/ServerStatusWidget';
+import { ServerStatusModal, useSystemStatus } from '@/components/vhost/comuns/ServerStatusWidget';
 import { ConsultaPagina, TopoCartao, useVH } from './context';
 import { corUso } from './cor-uso';
 import { ChangeRoleModal } from './modals';
 import { noServidor } from './paginas/acoes';
 import { EN, HX, LEVELS, MENU, ROLES } from './generated/data';
-import { descFor, findItem, gItem, ico, initials, nomeNivel, route } from './state';
+import { MENU_SO_DOMINIO, descFor, findItem, gItem, ico, initials, nomeNivel, route, soDominioDe } from './state';
 import type { Account, HxState, MenuItem, Role } from './types';
 import type { Screen } from './screens';
 import { GLOBAL } from './generated/data';
@@ -525,7 +525,8 @@ export function ServerInfoCard() {
 /** Separador "Menu" do painel inicial: todas as páginas do painel em cartões, por categoria */
 export function DaHomeCards() {
   const { s, t, go, hasFeat } = useVH();
-  const categories = MENU[s.level].filter(([g]) => g !== 'Início');
+  const soDominio = soDominioDe(s);
+  const categories = MENU[s.level].filter(([g]) => g !== 'Início' && (!soDominio || MENU_SO_DOMINIO.includes(g)));
   return (
     <div className="da-home-wrapper">
       <div className="da-home-grid">
@@ -535,7 +536,7 @@ export function DaHomeCards() {
           return (
             <div className="da-cat-section" style={{ marginBottom: 24 }} key={g}>
               <div className="da-cat-header">
-                <span className="da-cat-title">{t(g)}</span>
+                <span className="da-cat-title">{t(soDominio && g === 'Compras e encomendas' ? 'Compras' : g)}</span>
               </div>
               <div className="da-grid">
                 {vis.map((it) => (
