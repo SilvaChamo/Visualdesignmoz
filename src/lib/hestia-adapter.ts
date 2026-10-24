@@ -34,6 +34,13 @@ export async function issueLetsEncrypt(
   return finishLetsEncrypt(result);
 }
 
+/** Nenhuma conta se cria sem e-mail (Silva, 17/10/2026): é o e-mail que dá à conta o login do site e do painel. A
+ *  conta mltmark, importada sem ele, ficou sem forma de entrar. */
+export const SEM_EMAIL = 'Não se cria uma conta sem e-mail: escreva o e-mail do cliente.';
+export function emailDeContaValido(e: string | null | undefined): boolean {
+  return /^[^\s@,;:"'<>()]+@([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/i.test(String(e || '').trim());
+}
+
 /** Emite o certificado de e-mail do Hestia (mail.<domínio> e o alias global de webmail). */
 export async function issueMailLetsEncrypt(
   username: string,
@@ -94,6 +101,7 @@ export async function createAccount(input: {
   /** Quem pediu (só para o registo da passagem em /root/vh-passagens) */
   quem?: string;
 }): Promise<{ ok: boolean; error?: string; userExists?: boolean; aviso?: string; passou?: boolean }> {
+  if (!emailDeContaValido(input.email)) return { ok: false, error: SEM_EMAIL };
   const userResult = await hestiaCall('v-add-user', [
     input.username,
     input.password,
@@ -1210,6 +1218,7 @@ export async function createUserOnly(input: {
   email: string;
   packageName?: string;
 }): Promise<{ ok: boolean; error?: string }> {
+  if (!emailDeContaValido(input.email)) return { ok: false, error: SEM_EMAIL };
   const result = await hestiaCall('v-add-user', [
     input.username,
     input.password,
