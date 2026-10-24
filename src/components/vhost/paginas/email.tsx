@@ -1853,6 +1853,18 @@ function Mx() {
     );
   };
   const local = rows.some((r) => r.valor.replace(/\.$/, '') === 'mail.' + d);
+  const desligar = () =>
+    openM(
+      <Confirmar
+        titulo={'Desligar o e-mail de ' + d + ' neste servidor?'}
+        texto={
+          (info ? caixasNormais(info).length + ' caixa(s) de ' + d + ' neste servidor são apagadas com as mensagens. ' : '') +
+          'Use quando o e-mail do domínio está noutro sítio (Google, Microsoft, Zoho): enquanto está ligado aqui, o que ' + d + ' envia para outros domínios deste servidor é recusado e o que estes lhe enviam não sai daqui. O site não é afetado.'
+        }
+        ok="Desligar"
+        onOk={() => noEmail(vh, d, { acao: 'dominio-desligar' }, 'E-mail de ' + d + ' desligado neste servidor', true)}
+      />,
+    );
   return (
     <>
       {/* modelo da página de domínio (Silva, 13/10/2026): sem separadores, o "Ações" fica na linha dos títulos das
@@ -1891,7 +1903,15 @@ function Mx() {
           <div>
             <span>{t('Este servidor trata do e-mail deste domínio')}</span>
             {info?.temMail ? (
-              <span className={'tag ' + (local ? 'ok' : 'w')}>{t(local ? 'Sim — o MX aponta para este servidor' : 'O e-mail está ligado aqui, mas o MX aponta para outro sítio')}</span>
+              <span className="em-bloq" style={{ margin: 0 }}>
+                <span className={'tag ' + (local ? 'ok' : 'w')}>{t(local ? 'Sim — o MX aponta para este servidor' : 'O e-mail está ligado aqui, mas o MX aponta para outro sítio')}</span>
+                {/* só quando o MX aponta para outro sítio: se aponta para cá, o e-mail é deste servidor e não há nada a desligar */}
+                {!local && (
+                  <button className="btn sm btn-rm" onClick={desligar}>
+                    {t('Desligar o e-mail neste servidor')}
+                  </button>
+                )}
+              </span>
             ) : (
               <button className="btn sm btn-ed" onClick={() => noEmail(vh, d, { acao: 'dominio-ligar' }, 'E-mail ligado em ' + d, true)}>
                 {t('Ligar o e-mail neste servidor')}
