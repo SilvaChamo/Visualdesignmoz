@@ -3253,6 +3253,14 @@
    opacity: 1
 }
 
+/* Só uma animação de cada vez (Silva, 24/10/2026): enquanto o cartão mostra as barras do DA (primeira carga, sem página anterior à vista), a
+   linha do topo esconde-se; a linha do topo é para quando a página anterior ainda está à vista à espera da nova (VisualHostApp: PaginaSlot) */
+html.vh-barras-no-cartao .vh .vh-barra-topo,
+html.vh-barras-no-cartao .vh .vh-barra-topo.on {
+   opacity: 0 !important;
+   visibility: hidden
+}
+
 /* Linha de carregamento (pedido do Silva, 11/10): uma só barra, discreta — 4px, 16% da largura, devagar, esbatida
    nas pontas (o primeiro e o último quarto). Entra por um lado, atravessa, sai por completo pelo outro e volta */
 .vh .vh-barra-topo::before {

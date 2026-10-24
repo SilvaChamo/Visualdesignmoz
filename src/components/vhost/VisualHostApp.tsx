@@ -300,8 +300,9 @@ function comDados(cur: St, d: DadosServidor, caminhoDesejado: string, doNavegado
 }
 
 const nadaMuda = () => () => {};
-/** Quanto tempo a página anterior fica à vista à espera da seguinte (depois a nova abre, com o carregador do DA) */
-const ESPERA_MAX_MS = 1200;
+/** A página anterior fica à vista até a seguinte ter conteúdo (Silva, 24/10/2026: "manter à vista o conteúdo da página anterior até o da
+ *  próxima aparecer"). Este tempo é só a rede de segurança para um servidor que não responde (depois a nova abre, com o carregador do DA). */
+const ESPERA_MAX_MS = 10_000;
 
 /** Lugar de uma página: escondido enquanto as leituras sem nada em memória não acabam; depois avisa (uma vez) */
 type RegistarFonte = (chave: string, id: string, fonte: () => ItemPesquisa[]) => () => void;
@@ -364,17 +365,27 @@ function PaginaSlot({ p, oculta, onPronta, registar }: { p: Pagina; oculta: bool
     timer.current = setTimeout(() => {
       if (montada.current && falta.current === 0) {
         avaliar();
-        if (!avisada.current) {
+        // só se liberta a página quando já tem conteúdo (a anterior fica à vista até lá); uma página que falha liberta-se por onFalha, e
+        // uma que nunca desenha nada, pela rede de segurança (ESPERA_MAX_MS)
+        if (!avisada.current && (teveConteudo.current || temConteudo())) {
           avisada.current = true;
           onPronta(chave);
         }
       }
     }, 40);
-  }, [onPronta, chave, avaliar]);
+  }, [onPronta, chave, avaliar, temConteudo]);
   // antes de pintar: se a página abre vazia, o cartão já nasce com o carregador (sem um instante de cartão em branco)
   useLayoutEffect(() => {
     avaliar();
   }, [avaliar]);
+  // Só uma animação de cada vez (Silva, 24/10/2026): enquanto o cartão mostra as barras (primeira carga), a linha do topo esconde-se; a linha
+  // do topo é para quando a página anterior ainda está à vista. O CSS (.vh-barras-no-cartao .vh-barra-topo) faz o resto.
+  const barrasVisiveis = carrega && !oculta;
+  useEffect(() => {
+    if (!barrasVisiveis) return;
+    document.documentElement.classList.add('vh-barras-no-cartao');
+    return () => document.documentElement.classList.remove('vh-barras-no-cartao');
+  }, [barrasVisiveis]);
   // páginas que desenham o conteúdo sem passar pelas leituras acima: quando o conteúdo aparece, o carregador sai
   useEffect(() => {
     const el = slotRef.current;
