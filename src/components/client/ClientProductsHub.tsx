@@ -263,6 +263,11 @@ export function ClientSidePanel({ displayName, sessionUser, onNavigate }: { disp
             <span className="text-white text-lg font-bold">{iniciais}</span>
           </div>
           <p className="text-sm font-bold text-gray-900 text-center leading-tight dark:text-zinc-100">{nome}</p>
+          {estado && (
+            <p className={`text-xs leading-none ${activos! > 0 ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>
+              {activos! > 0 ? 'Conta activa' : 'Conta sem produtos'}
+            </p>
+          )}
         </div>
       </div>
 
@@ -525,7 +530,7 @@ export function ClientDashboardView({
               </div>
             </div>
 
-            <div className="flex flex-wrap items-start justify-between gap-3" style={{ marginBottom: 10 }}>
+            <div className="flex flex-wrap items-start justify-between gap-3" style={{ marginBottom: 30 }}>
               <div className="flex flex-wrap items-center">
                 <button type="button" onClick={() => navigate('dns')} className="link-rapido">
                   <Network className="w-3 h-3" /> DNS
