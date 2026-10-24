@@ -759,12 +759,15 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
     window.location.assign('/login' + (caminho ? '?redirect=' + encodeURIComponent(BASE + caminho) : ''));
   }, [limparSessao]);
 
-  // Inactividade: termina a sessão sem perguntar, mas vai para a home do site, não para o login (Silva, 19/10/2026:
-  // só o botão Sair vai para o login; o resto vai para a home).
-  const irParaHome = useCallback(async () => {
-    await limparSessao();
-    window.location.assign('/');
-  }, [limparSessao]);
+  // Inactividade: termina a sessão sem perguntar e volta à entrada (login) do próprio painel, no mesmo ecrã onde estava (Silva,
+  // 24/10/2026: "ao ser desalogado por inactividade volta para o login do painel"; o Sair é que vai para o login do site).
+  const irParaEntradaDoPainel = useCallback(
+    async (caminho = '') => {
+      await limparSessao();
+      window.location.assign(BASE + (caminho && caminho !== '/' ? caminho : ''));
+    },
+    [limparSessao],
+  );
 
   // Leitura antiga (o servidor guarda-a até 60 min e lê a nova por trás — Silva, 17/10/2026): volta a pedir aos 3, 6, 10,
   // 20 e 30 s até chegar uma desta hora. O conteúdo fica à vista e só muda quando chega o novo (nunca tela branca).
@@ -1297,7 +1300,7 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
   // Cores do tema escolhido, com as cores mudadas à mão nesse tema (ou as que estão a ser editadas), e cantos
   const over = st.themePreview || st.themeOver[st.colorPreset];
   // Sessão: nunca pede para entrar enquanto se mexe no painel (os pedidos /api/vhost renovam-na — src/proxy.ts); ao fim
-  // de 20 minutos sem tocar em nada (em nenhum separador), termina a sessão e vai para o login do site
+  // de 20 minutos sem tocar em nada (em nenhum separador), termina a sessão e volta à entrada do painel
   useEffect(() => {
     if (st.carga !== 'ok') return;
     if (!SAIR_POR_INATIVIDADE_ATIVO) return; // desligado por agora (ver session-inactivity.ts)
@@ -1323,13 +1326,13 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
       } catch {}
       if (Date.now() - Math.max(ultimo, outro) < LIMITE) return;
       clearInterval(iv);
-      irParaHome();
+      irParaEntradaDoPainel(ref.current.path || '/');
     }, 30_000);
     return () => {
       evs.forEach((e) => window.removeEventListener(e, toque, { capture: true }));
       clearInterval(iv);
     };
-  }, [st.carga, irParaHome]);
+  }, [st.carga, irParaEntradaDoPainel]);
 
   const colors = getThemeColors(st.colorPreset, st.customPrimary, over);
   const isDark = st.theme === 'dark';

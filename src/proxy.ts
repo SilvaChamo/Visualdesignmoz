@@ -40,7 +40,7 @@ const PAINEL_ENTRADA = `https://visualdesignmoz.com${PAINEL_BASE}`
 /** O endereço único como pode chegar (o ":" às vezes vem codificado) */
 const PAINEL_FORMAS = [PAINEL_BASE, '/host%3A2026', '/host%3a2026']
 /** Endereços antigos do painel neste site (por esta ordem: o mais comprido primeiro) */
-const PAINEL_ANTIGOS = ['/vhost', '/host/2026', '/host']
+const PAINEL_ANTIGOS = ['/vhost:2026', '/vhost%3A2026', '/vhost%3a2026', '/vhost', '/host/2026', '/host']
 /** Deixam de existir — "página não encontrada" (pedido do Silva, 13/10/2026: /vhost/2026 só serviu uma noite) */
 const PAINEL_INEXISTENTES = ['/vhost/2026']
 
@@ -392,8 +392,8 @@ export const config = {
     // endereço antigo do DirectAdmin, o painel (/host/2026/…) e os seus endereços antigos (/vhost/…, /host:2026/…)
     '/evo',
     '/evo/:path*',
-    '/vhost',
-    '/vhost/:path*',
+    // (o "(.*)" apanha também /vhost:2026, que o ":" impede de escrever como parâmetro)
+    '/vhost(.*)',
     '/host(.*)',
   ],
 }
