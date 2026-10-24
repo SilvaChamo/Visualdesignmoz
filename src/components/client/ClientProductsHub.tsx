@@ -269,11 +269,8 @@ export function ClientSidePanel({ displayName, sessionUser, onNavigate }: { disp
       <div className="bg-white rounded border border-gray-200 shadow-sm p-5 text-center dark:border-zinc-700 dark:bg-zinc-900">
         <p className="text-xs font-bold text-gray-500 uppercase mb-2 dark:text-zinc-400">Novos Serviços</p>
         <p className="text-xs text-gray-500 mb-3 dark:text-zinc-400">Adicione e-mail profissional à sua conta.</p>
-        <a
-          href="/precos/email"
-          className="bg-red-600 hover:bg-red-700 block w-full text-white py-2 rounded transition-all"
-        >
-          Planos de e-mail
+        <a href="/precos/email" className="btn-lateral-preto">
+          Planos de e-mail <ArrowRight className="w-3.5 h-3.5" />
         </a>
       </div>
 
@@ -517,7 +514,7 @@ export function ClientDashboardView({
 
         {(domains.length === 0 || hosting.length === 0 || emailPlans.length === 0 || hasAnything) && (
           <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 shadow-sm space-y-6">
-            <div className="flex items-start justify-between gap-4 border-b border-zinc-200 dark:border-zinc-800 pb-3">
+            <div className="border-b border-zinc-200 dark:border-zinc-800 pb-3">
               <div className="dom-titulo-bloco min-w-0">
                 <p className="dom-titulo">{hasAnything ? 'Complete a sua conta' : 'Ainda não tem produtos activos na sua conta'}</p>
                 <p className="dom-sub">
@@ -525,6 +522,20 @@ export function ClientDashboardView({
                     ? 'Estes são os serviços que ainda não tem — escolha o que quer acrescentar à sua conta'
                     : 'Escolha uma das opções abaixo para adquirir o seu domínio, hospedagem ou e-mail profissional'}
                 </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <button type="button" onClick={() => navigate('dns')} className="btn-rapido">
+                  <Network className="w-3.5 h-3.5" /> DNS
+                </button>
+                <button type="button" onClick={() => navigate('php')} className="btn-rapido">
+                  <Server className="w-3.5 h-3.5" /> Definições do PHP
+                </button>
+                <button type="button" onClick={() => navigate('wordpress')} className="btn-rapido">
+                  <Globe className="w-3.5 h-3.5" /> Instalar site WordPress
+                </button>
               </div>
               <button type="button" onClick={() => navigate('transferir')} className="btn-transferir shrink-0">
                 Transferir domínio
@@ -694,11 +705,7 @@ export function ClientDashboardView({
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
                         <h3 className="text-base font-bold text-gray-900 truncate dark:text-zinc-100">{row.title}</h3>
-                        {row.isDomainName && (
-                          <span className="text-xs text-gray-500 font-medium dark:text-zinc-400">
-                            {getDomainExtension(row.title)}
-                          </span>
-                        )}
+                        <span className={`px-2 py-0.5 rounded text-[11px] font-bold shrink-0 ${badge.className}`}>{badge.label}</span>
                       </div>
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
                         <span className="text-xs text-gray-500 dark:text-zinc-400">{row.subtitle}</span>
@@ -765,7 +772,6 @@ export function ClientDashboardView({
                         {deletingKey === row.key ? 'A ELIMINAR…' : 'ELIMINAR'}
                       </button>
                     ) : null}
-                    <span className={`px-3 py-1 rounded text-xs font-bold ${badge.className}`}>{badge.label}</span>
                   </div>
                 </div>
               );

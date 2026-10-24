@@ -209,6 +209,7 @@ function InicioSoDominio() {
         sessionUser={vh.s.pessoa?.email}
         onNavigate={(secao) => {
           if (secao === 'transferir') vh.nav('/utilizador/dominios/transferir');
+          else if (secao === 'dns' || secao === 'php' || secao === 'wordpress') vh.go(secao);
           else if (secao === 'facturas' || secao === 'minhas-compras') vh.go('facturacao');
           else window.location.href = '/cliente';
         }}
