@@ -237,7 +237,7 @@ jobs:
           # antiga de "zero crons para não duplicar efeitos reais na BD
           # partilhada". Tem os seus próprios crons de domínio (dns-retry,
           # brevo-retry, mais abaixo), o sync do Hestia e a fila de
-          # mailmarketing. renewal-check/da-sync continuam só no Hetzner.
+          # mailmarketing e o aviso das renovações (renewal-check). O da-sync ficou no Hetzner.
           command_timeout: 30m
           script: |
             set -e
@@ -424,6 +424,11 @@ jobs:
               echo "*/30 * * * * curl -fsS -H \"Host: teste.visualdesignmoz.com\" -H \"Authorization: Bearer ${CRON_SECRET_VALUE}\" http://127.0.0.1:3002/api/cron/dns-retry >> /var/log/visualdesign-cron.log 2>&1 # visualdesign-dns-retry") | crontab -
             (crontab -l 2>/dev/null | grep -v '# visualdesign-brevo-retry'; \
               echo "*/30 * * * * curl -fsS -H \"Host: teste.visualdesignmoz.com\" -H \"Authorization: Bearer ${CRON_SECRET_VALUE}\" http://127.0.0.1:3002/api/cron/brevo-retry >> /var/log/visualdesign-cron.log 2>&1 # visualdesign-brevo-retry") | crontab -
+            # Renovações (Silva, 24/10/2026): avisos aos clientes antes de expirarem os domínios e a hospedagem, todos os dias às 08:00 (hora do
+            # servidor, Moçambique). Estava só no Hetzner e deixou de correr quando ele fechou. Só avisa: suspender contas em atraso fica
+            # desligado até o Silva ligar RENOVACOES_SUSPENDER_ATRASADOS=1 (ver src/app/api/cron/renewal-check/route.ts).
+            (crontab -l 2>/dev/null | grep -v '# visualdesign-renewal-check'; \
+              echo "0 8 * * * curl -fsS -H \"Host: teste.visualdesignmoz.com\" -H \"Authorization: Bearer ${CRON_SECRET_VALUE}\" http://127.0.0.1:3002/api/cron/renewal-check >> /var/log/visualdesign-renewal-check.log 2>&1 # visualdesign-renewal-check") | crontab -
 
             # Reflecte o estado real do Hestia (contas/domínios/suspensões) de volta
             # para o espelho Supabase — sem isto, mudanças feitas directamente no

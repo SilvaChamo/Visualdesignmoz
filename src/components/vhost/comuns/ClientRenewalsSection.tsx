@@ -14,7 +14,7 @@ import {
   Mail,
   Wallet
 } from 'lucide-react'
-import PaymentMethodForm from './PaymentMethodForm'
+import PaymentMethodForm from '@/components/vhost/comuns/PaymentMethodForm'
 import { Spinner } from '@/components/ui/spinner'
 
 interface Renewal {

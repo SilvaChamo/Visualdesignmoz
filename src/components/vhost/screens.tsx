@@ -21,6 +21,7 @@ import { sitesContasPagina } from './paginas/sites-contas';
 import { encomendasPagina } from './paginas/encomendas';
 import { ClientProductsHub } from '@/components/client/ClientProductsHub';
 import { contabilidadePagina, contasEncomendasPagina, gestaoEncomendasPagina } from './paginas/encomendas-admin';
+import { renovacoesAdminPagina, renovacoesClientePagina } from './paginas/renovacoes';
 import { quarentenaPagina } from './paginas/quarentena';
 import { facturacaoPagina } from './paginas/facturacao';
 import { acessosPlanos } from './paginas/acessos';
@@ -784,6 +785,8 @@ export const SCREENS: Record<string, ScreenFn> = {
   'admin/gestao-encomendas': gestaoEncomendasPagina,
   'admin/contabilidade': contabilidadePagina,
   'admin/contas-encomendas': contasEncomendasPagina,
+  'admin/renovacoes': renovacoesAdminPagina,
+  'utilizador/renovacoes': renovacoesClientePagina,
   'admin/quarentena': quarentenaPagina,
   'admin/revendedores': contas('revenda'),
   'admin/profissionais': contas('profissional'),
