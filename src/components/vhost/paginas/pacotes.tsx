@@ -299,6 +299,8 @@ function ListaPacotes({ tipo }: { tipo: Tipo }) {
             )
           : undefined
       }
+      umaLinha
+      barraFora
       bulk={[
         // o administrador edita qualquer pacote (Silva, 16/10/2026); com um só assinalado
         ...(s.level === 'admin'
@@ -399,8 +401,10 @@ function EditarPacote({ tipo, nome }: { tipo: Tipo; nome: string | null }) {
       { acao: 'pacote-gravar', gravar: { nome: n, ...(nome && n !== nome ? { de: nome } : {}), editar: !!nome, lim: pu.lim, feats: pu.feats, rec: pu.rec, hestia: pu.hestia } },
       () => (nome ? 'Pacote ' + n + ' gravado' : 'Pacote ' + n + ' criado'),
     );
-    if (!feitas.length) return;
-    await fetch('/api/vhost/acessos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ temas: { [n]: pu.tema }, extras: { [n]: extrasDoPacote(pu) } }) }).catch(() => {});
+    if (feitas.length) {
+      await fetch('/api/vhost/acessos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ temas: { [n]: pu.tema }, extras: { [n]: extrasDoPacote(pu) } }) }).catch(() => {});
+    }
+    // Volta sempre à lista ao gravar — o toast já mostra erro, se houver; não fica preso no formulário.
     nav(base);
   };
   const gravar = () => {
