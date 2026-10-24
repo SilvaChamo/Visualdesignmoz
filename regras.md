@@ -116,6 +116,15 @@ sessão: retomar sempre em português. Vale para qualquer IA (está repetido em 
    acção na hora de publicar). O título do merge leva esse nome: `Merge pull request #N from SilvaChamo-<acção>`, ex.:
    `Merge pull request #94 from SilvaChamo-email-de-entrada-mltmark`. Também repetida nos ficheiros das outras IAs.
 
+# Entrar com o nome da conta, além do e-mail (Silva, 24/10/2026)
+
+O login do site (`/login`) aceita o **nome da conta** (o nome de utilizador do servidor, ex.: `oshercollective`) **e** o e-mail
+da própria pessoa, de qualquer domínio. Quem hoje entra com o nome **tem de continuar a entrar**: o `auth.signIn`
+(`src/lib/supabase-client.ts`) manda o que não leva `@` para `/api/vhost/entrar`, que procura a conta em
+`profiles.da_username` / `panel_users.username` e confirma a palavra-passe no servidor. Toda a conta nova (compra,
+Adicionar cliente, conta importada) fica com o nome ligado ao login do site (`criarLoginDaConta`), para o nome entrar
+sempre. O campo do login diz «email@dominio.com ou nome de utilizador»: nunca o tornar só de e-mail nem tirar esta entrada.
+
 # Site em duas línguas — todo o conteúdo novo entra já traduzido (Silva, 14/10/2026)
 
 O site público (tudo fora do painel `/host`) muda entre português e inglês no botão EN/PT. Escreve-se sempre em
