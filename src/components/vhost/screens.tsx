@@ -28,7 +28,7 @@ import { catchAllPagina, emailPagina, feriasPagina, listasPagina, mailmarketingP
 import { apontadores, bdPagina, dnsPagina, dominios, ftpPagina, hotlink, phpPagina, phpmyadminPagina, redirecionamentos, sslPagina } from './paginas/dominios';
 import { ThemeCustomizerView, temaBase } from './paginas/tema';
 import { FEATS, GLOBAL, HX, HX_INFO, LEVELS, LOGIN_AS, MENU, PKGS, REMOVED, ROLE_INFO, ROLE_LEVELS, ROLES } from './generated/data';
-import { findItem, gItem, pacoteDe, route } from './state';
+import { findItem, gItem, pacoteDe, route, soDominioDe } from './state';
 import { mbTexto } from './servidor';
 import type { Lim } from './paginas/dados';
 import type { HxState, Level, MenuItem, Role } from './types';
@@ -218,7 +218,7 @@ function InicioSoDominio() {
   );
 }
 const inicioUtilizador: ScreenFn = (vh) => {
-  const soDominio = vh.s.carga === 'ok' && !vh.s.acc[vh.me];
+  const soDominio = soDominioDe(vh.s);
   return {
     title: 'Painel',
     actions: (

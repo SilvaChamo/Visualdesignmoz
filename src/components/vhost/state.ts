@@ -135,7 +135,9 @@ export const acctOf = (s: St) => s.acc[meOf(s)] || VAZIA;
 export const allowedOf = (s: St) => (s.carga === 'ok' && !s.acc[meOf(s)] ? (['utilizador'] as Level[]) : ROLE_LEVELS[acctOf(s).role]);
 /** Quem só tem domínio (sem conta no servidor) vê um menu reduzido e os seus dados na barra da esquerda (Silva, 24/10/2026) */
 export const MENU_SO_DOMINIO = ['Gestão de domínios', 'Avançado', 'Sistema e ficheiros', 'Compras e encomendas', 'Suporte e ajuda'];
-export const soDominioDe = (s: St) => s.carga === 'ok' && s.level === 'utilizador' && !s.acc[meOf(s)];
+/** Só no computador local: `?vista=so-dominio` mostra a vista de quem só tem domínio, para a poder ver sem uma conta dessas */
+const verSoDominio = () => typeof window !== 'undefined' && window.location.hostname === 'localhost' && new URLSearchParams(window.location.search).get('vista') === 'so-dominio';
+export const soDominioDe = (s: St) => s.carga === 'ok' && s.level === 'utilizador' && (!s.acc[meOf(s)] || verSoDominio());
 /** Separador aberto ao entrar no painel ou numa conta: sempre "Gestão" (os dados da própria conta), para todos os que o
  *  têm (pedido do Silva, 14/10/2026 — antes voltava ao último separador em que se tinha trabalhado). */
 export const nivelInicial = (s: St): Level => {
