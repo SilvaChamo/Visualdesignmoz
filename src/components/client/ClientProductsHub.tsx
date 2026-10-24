@@ -282,9 +282,16 @@ export function ClientSidePanel({ displayName, sessionUser, onNavigate }: { disp
 
       <div className="bg-white rounded border border-gray-200 shadow-sm p-5 text-center dark:border-zinc-700 dark:bg-zinc-900">
         <p className="text-xs font-bold text-gray-500 uppercase mb-2 dark:text-zinc-400">Novos Serviços</p>
-        <p className="text-xs text-gray-500 mb-3 dark:text-zinc-400">Registe outro domínio ou adicione e-mail profissional.</p>
-        <a href="/servicos/dominios?origem=painel" className="block w-full bg-red-600 hover:bg-red-700 text-white text-[10px] font-black uppercase tracking-widest py-2 rounded transition-all">
-          Registar Domínio
+        <p className="text-xs text-gray-500 mb-3 dark:text-zinc-400">Transfira um domínio para a sua conta ou adicione e-mail profissional.</p>
+        <a
+          href="#transferir"
+          onClick={(e) => {
+            e.preventDefault();
+            onNavigate?.('transferir');
+          }}
+          className="block w-full bg-red-600 hover:bg-red-700 text-white text-[10px] font-black uppercase tracking-widest py-2 rounded transition-all"
+        >
+          Transferir Domínio
         </a>
         <a href="/precos/email" className="mt-2 inline-flex items-center gap-1 text-xs font-bold text-gray-700 hover:text-red-600 dark:text-zinc-300 dark:hover:text-red-400">
           Planos de e-mail <ArrowRight className="w-3.5 h-3.5" />
@@ -452,10 +459,7 @@ export function ClientDashboardView({
           </div>
           <div>
             <p className="text-sm text-gray-500 dark:text-zinc-400">Planos de E-mail</p>
-            <p className="text-2xl font-bold text-gray-900 dark:text-zinc-100">{activeEmailPlans}</p>
-            <p className="text-xs text-gray-400 mt-0.5 dark:text-zinc-500">
-              {activeEmailPlans > 0 ? 'Ver contas de e-mail' : 'Ver planos de e-mail'}
-            </p>
+            <p className="text-lg font-bold text-gray-900 dark:text-zinc-100">{activeEmailPlans}</p>
           </div>
         </button>
 
@@ -469,8 +473,7 @@ export function ClientDashboardView({
           </div>
           <div>
             <p className="text-sm text-gray-500 dark:text-zinc-400">Domínios</p>
-            <p className="text-2xl font-bold text-gray-900 dark:text-zinc-100">{domains.length}</p>
-            <p className="text-xs text-gray-400 mt-0.5 dark:text-zinc-500">{domains.length > 0 ? 'Domínios registados' : 'Registar domínio'}</p>
+            <p className="text-lg font-bold text-gray-900 dark:text-zinc-100">{domains.length}</p>
           </div>
         </button>
 
@@ -480,8 +483,7 @@ export function ClientDashboardView({
           </div>
           <div>
             <p className="text-sm text-gray-500 dark:text-zinc-400">Estado da Conta</p>
-            <p className="text-2xl font-bold text-gray-900 dark:text-zinc-100">{accountState.label}</p>
-            <p className="text-xs text-gray-400 mt-0.5 dark:text-zinc-500">{accountState.hint}</p>
+            <p className="text-lg font-bold text-gray-900 dark:text-zinc-100">{accountState.label}</p>
           </div>
         </div>
 
@@ -495,10 +497,9 @@ export function ClientDashboardView({
           </div>
           <div>
             <p className="text-sm text-gray-500 dark:text-zinc-400">Próxima Renovação</p>
-            <p className="text-2xl font-bold text-gray-900 dark:text-zinc-100">
+            <p className="text-lg font-bold text-gray-900 dark:text-zinc-100">
               {nextRenewal ? formatDate(nextRenewal.date) : 'N/A'}
             </p>
-            <p className="text-xs text-gray-400 mt-0.5 dark:text-zinc-500">Ver facturas</p>
           </div>
         </button>
       </div>
@@ -537,20 +538,13 @@ export function ClientDashboardView({
 
         {(domains.length === 0 || hosting.length === 0 || emailPlans.length === 0 || hasAnything) && (
           <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 shadow-sm space-y-6">
-            <div className="flex items-start gap-3 border-b border-zinc-100 dark:border-zinc-800 pb-4">
-              <div className="w-9 h-9 rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-100 dark:border-red-900/50 flex items-center justify-center text-red-600 dark:text-red-400 shrink-0">
-                <ShoppingCart className="w-4.5 h-4.5" />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-100">
-                  {hasAnything ? 'Complete a sua conta com os serviços que lhe faltam' : 'Ainda não tem produtos activos na sua conta'}
-                </h3>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-                  {hasAnything
-                    ? 'Estes são os serviços que ainda não tem — escolha o que quer acrescentar à sua conta:'
-                    : 'Escolha uma das opções abaixo para adquirir o seu domínio, hospedagem ou e-mail profissional:'}
-                </p>
-              </div>
+            <div className="dom-titulo-bloco border-b border-zinc-200 dark:border-zinc-800 pb-3">
+              <p className="dom-titulo">{hasAnything ? 'Complete a sua conta' : 'Ainda não tem produtos activos na sua conta'}</p>
+              <p className="dom-sub">
+                {hasAnything
+                  ? 'Estes são os serviços que ainda não tem — escolha o que quer acrescentar à sua conta'
+                  : 'Escolha uma das opções abaixo para adquirir o seu domínio, hospedagem ou e-mail profissional'}
+              </p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

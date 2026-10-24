@@ -1541,7 +1541,8 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
                       displayName={pessoaNome}
                       sessionUser={pessoaEmail}
                       onNavigate={(secao) => {
-                        if (secao === 'facturas' || secao === 'minhas-compras') go('facturacao');
+                        if (secao === 'transferir') nav('/utilizador/dominios/transferir');
+                        else if (secao === 'facturas' || secao === 'minhas-compras') go('facturacao');
                         else window.location.href = '/cliente';
                       }}
                     />
