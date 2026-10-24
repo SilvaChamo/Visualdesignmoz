@@ -34,6 +34,33 @@ nota deste ficheiro que fale de capturas ou de mensagens de progresso.
 - **Ao publicar:** na mesma mensagem, só o commit, o estado do deploy e o comando único de actualização local (ponto 6).
 - **O comando de actualização local só se dá quando o Silva o pede ou diz "publica"/"publique"** (Silva, 23/10/2026: "eu vou pedir o código, não é sempre que deves dar-me"). Nos relatórios a meio não se manda comando nenhum.
 
+# O servidor Contabo não é só o VisualDesign: como não estragar nada (Silva, 24/10/2026 — lição de um 502 de 33 horas)
+
+**O que aconteceu:** a 23/10 às 14:26 o deploy correu `pm2 update` (conversão para "sem corte") e parou, sem ninguém reparar, o
+`basededadosagro.com` — o projecto de defesa do Silva, já apresentado ao MADER, tão importante como o VisualDesign — e o seu robô de
+sincronização. Ficou em 502 até 24/10 à noite. Depois, numa limpeza, apagaram-se ramos e fechou-se um PR sobre esse domínio por o tomarem
+por "de teste". Nada disto pode voltar a acontecer. Quem mexer em deploy, servidor, ramos, PRs ou segredos lê isto primeiro.
+
+1. **O servidor tem muito mais do que o VisualDesign:** `basededadosagro.com` (serviço do sistema `basededadosagro-site`, porta 3010, FORA do pm2),
+   `aamihe.com`, `oshercollective.com`, `mltmark.com` e outros sites de clientes, o Supabase (Docker), o e-mail (Hestia) e o nginx. **Nenhum é "de
+   teste".** Antes de apagar, fechar ou mexer em qualquer coisa que mencione um domínio ou site, vê o que é e **pergunta ao Silva**.
+2. **O deploy só pode mexer na app `visualdesignmoz`** (`pm2 reload visualdesignmoz`). **Proibido** nos deploys, scripts e workflows:
+   `pm2 update`, `pm2 kill`, `pm2 restart all`, `pm2 delete all`, `pm2 resurrect`, `pkill -f`, `killall`, `fuser -k` fora da porta 3002,
+   `systemctl restart nginx`/`stop` de serviços que não sejam do VisualDesign. O pm2 é partilhado: um `pm2 update` mata tudo o que não esteja
+   no `dump.pm2`. Uma app nova do servidor corre **fora do pm2 e do deploy do VisualDesign** (unidade systemd própria, `Restart=always`).
+3. **Depois de qualquer publicação ou mudança no servidor, confirma `https://basededadosagro.com` e `https://visualdesignmoz.com` (200).** O deploy
+   já o faz no fim (passo "Verificar os outros sites") e falha se o basededadosagro não responder. Nunca digas "publicado" sem isto.
+4. **Ações no servidor** só por workflows com a chave que já existe, só com pedido explícito do Silva, **só leitura primeiro**, e sem imprimir
+   variáveis nem chaves. Ramos temporários de operações apagam-se no fim.
+5. **Antes de apagar código:** análise do que ainda o usa (importações **e** quem o chama de fora: crons do servidor, outros sites, webhooks,
+   `next.config`), `tsc`, `next build` completo, ensaio local das rotas e redirecção do que existia. **Uma rota de API sem chamadores no
+   repositório pode ser chamada de fora**; `/api/cron/*`, webhooks, auth, checkout e autoconfig de e-mail nunca se apagam sem confirmar.
+6. **Antes de publicar:** etiqueta `antes-<nome>` no `main` (para voltar atrás), um grupo de cada vez, e verificar depois. Mudar o deploy ou o proxy
+   exige o ensaio (`ensaio=true`) e o ensaio local do proxy.
+7. **Apagar ramos/PRs/segredos:** só o que se provou que é do VisualDesign e está obsoleto; guardar os SHAs; nunca `git push --delete` em massa sem
+   ler a lista; um PR fechado reabre-se se o ramo existir.
+8. **Contas e dados reais** (domínios em `domain_renewals`, contas Hestia, e-mails) nunca se alteram nem apagam por "limpeza".
+
 # Como o site é publicado sem corte (Silva, 23/10/2026)
 
 O deploy é só o `.github/workflows/deploy-contabo.yml`, automático a cada merge em `main`; não se publica à mão no servidor.
