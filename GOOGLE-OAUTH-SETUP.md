@@ -2,9 +2,9 @@
 
 ## O que significa
 
-O Google rejeita o login porque o **Redirect URI** que o Supabase Hetzner envia **não está registado** no Google Cloud Console.
+O Google rejeita o login porque o **Redirect URI** que o Supabase envia **não está registado** no Google Cloud Console.
 
-O Supabase Hetzner envia **sempre** este URI (copiar exactamente):
+O Supabase envia **sempre** este URI (copiar exactamente; é também o endereço novo da troca de `supabase-contabo` para `supabase`):
 
 ```
 https://supabase.visualdesignmoz.com/auth/v1/callback
@@ -74,12 +74,11 @@ Não é preciso redeploy. Só testar de novo o botão Google no login.
 
 **Causa:** `supabase.visualdesignmoz.com` estava a servir ficheiros estáticos (Apache) em vez do Kong Docker (`:8000`).
 
-**Correcção no servidor Hetzner:**
+**Correcção no servidor (Contabo):** o nginx deve passar `supabase.visualdesignmoz.com` para `127.0.0.1:8000` (Kong) e o Supabase
+deve estar a correr:
 ```bash
-ssh -i ~/.ssh/visualdesign_hetzner -p 2234 root@37.27.17.25
-bash /caminho/para/scripts/fix-supabase-apache-proxy.sh
-systemctl restart docker && bash /usr/local/bin/fix-docker-nat.sh
-cd /opt/supabase-aamihe/docker && docker compose up -d
+ssh root@169.58.148.144 -p 2234
+cd /opt/supabase-contabo/docker && docker compose up -d
 ```
 
 **Verificar:** `curl https://supabase.visualdesignmoz.com/auth/v1/health` deve devolver JSON (não HTML 404).

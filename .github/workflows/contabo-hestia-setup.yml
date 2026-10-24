@@ -27,7 +27,7 @@ jobs:
           host: ${{ secrets.CONTABO_HOST }}
           port: 2234
           username: root
-          password: ${{ secrets.CONTABO_ROOT_PASSWORD }}
+          key: ${{ secrets.CONTABO_SSH_KEY }}
           command_timeout: 10m
           script: |
             echo "=== espaço livre no disco (total) ==="
@@ -63,7 +63,7 @@ jobs:
           host: ${{ secrets.CONTABO_HOST }}
           port: 2234
           username: root
-          password: ${{ secrets.CONTABO_ROOT_PASSWORD }}
+          key: ${{ secrets.CONTABO_SSH_KEY }}
           script: |
             cd /opt/visualdesignmoz
             HOST=$(grep '^HESTIA_HOST=' .env.local | cut -d= -f2-)
@@ -97,7 +97,7 @@ jobs:
           host: ${{ secrets.CONTABO_HOST }}
           port: 2234
           username: root
-          password: ${{ secrets.CONTABO_ROOT_PASSWORD }}
+          key: ${{ secrets.CONTABO_SSH_KEY }}
           script: |
             echo "=== onde a mensagem de erro está definida ==="
             grep -rn "not allowed to connect with API" /usr/local/hestia/ 2>/dev/null
@@ -156,7 +156,7 @@ jobs:
           host: ${{ secrets.CONTABO_HOST }}
           port: 2234
           username: root
-          password: ${{ secrets.CONTABO_ROOT_PASSWORD }}
+          key: ${{ secrets.CONTABO_SSH_KEY }}
           envs: CONTABO_SSH_PUBKEY
           script: |
             mkdir -p /root/.ssh
@@ -177,7 +177,7 @@ jobs:
           host: ${{ secrets.CONTABO_HOST }}
           port: 2234
           username: root
-          password: ${{ secrets.CONTABO_ROOT_PASSWORD }}
+          key: ${{ secrets.CONTABO_SSH_KEY }}
           script: |
             hostnamectl
             echo '---'
@@ -199,7 +199,7 @@ jobs:
           host: ${{ secrets.CONTABO_HOST }}
           port: 2234
           username: root
-          password: ${{ secrets.CONTABO_ROOT_PASSWORD }}
+          key: ${{ secrets.CONTABO_SSH_KEY }}
           command_timeout: 30m
           script: |
             set -e

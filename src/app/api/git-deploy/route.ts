@@ -340,7 +340,7 @@ export async function POST(req: NextRequest) {
               success: true,
               output,
             },
-            message: 'Deploy do painel concluído com sucesso no servidor Hetzner!'
+            message: 'Deploy do painel concluído com sucesso no servidor!'
           })
         } catch (err: any) {
           return NextResponse.json({
