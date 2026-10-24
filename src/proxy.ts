@@ -32,27 +32,27 @@ const PUBLIC_MARKETING_PREFIXES = [
 
 /** Endereços antigos do painel: tudo o que lá chega vai para PAINEL_ENTRADA */
 const PANEL_HOSTS = new Set(['host.visualdesignmoz.com'])
-/** Endereço único do painel que se dá aos clientes (pedido do Silva, 13/10/2026): https://visualdesignmoz.com/host:2026/
+/** Endereço único do painel que se dá aos clientes (pedido do Silva, 13/10/2026): https://visualdesignmoz.com/vhost:2026/
  *  Servido pela rota src/app/host (reescrita aqui, sem redireccionar). */
-const PAINEL_BASE = '/host:2026'
+const PAINEL_BASE = '/vhost:2026'
 // sem a barra final: o Next tira-a com mais um salto
 const PAINEL_ENTRADA = `https://visualdesignmoz.com${PAINEL_BASE}`
 /** O endereço único como pode chegar (o ":" às vezes vem codificado) */
-const PAINEL_FORMAS = [PAINEL_BASE, '/host%3A2026', '/host%3a2026']
+const PAINEL_FORMAS = [PAINEL_BASE, '/vhost%3A2026', '/vhost%3a2026']
 /** Endereços antigos do painel neste site (por esta ordem: o mais comprido primeiro) */
-const PAINEL_ANTIGOS = ['/vhost', '/host/2026', '/host']
+const PAINEL_ANTIGOS = ['/host:2026', '/host%3A2026', '/host%3a2026', '/vhost', '/host/2026', '/host']
 /** Deixam de existir — "página não encontrada" (pedido do Silva, 13/10/2026: /vhost/2026 só serviu uma noite) */
 const PAINEL_INEXISTENTES = ['/vhost/2026']
 
 const comPrefixo = (pathname: string, prefixo: string) => pathname === prefixo || pathname.startsWith(`${prefixo}/`)
 
-/** O resto do caminho depois do endereço único (/host:2026/admin → /admin), ou null se não for o endereço único */
+/** O resto do caminho depois do endereço único (/vhost:2026/admin → /admin), ou null se não for o endereço único */
 function restoPainel(pathname: string): string | null {
   const forma = PAINEL_FORMAS.find((f) => comPrefixo(pathname, f))
   return forma ? pathname.slice(forma.length) : null
 }
 
-/** O mesmo ecrã do painel no endereço único, para um endereço antigo (/vhost/admin → /host:2026/admin) */
+/** O mesmo ecrã do painel no endereço único, para um endereço antigo (/vhost/admin, /host:2026/admin → /vhost:2026/admin) */
 function caminhoPainelAntigo(pathname: string): string | null {
   const antigo = PAINEL_ANTIGOS.find((a) => comPrefixo(pathname, a))
   return antigo ? PAINEL_BASE + pathname.slice(antigo.length) : null
@@ -85,12 +85,12 @@ export async function proxy(request: NextRequest) {
 
   // host.visualdesignmoz.com (também na porta 2026, a do DirectAdmin no Hetzner, e o /evo/ que os clientes têm
   // guardado) deixou de ser endereço do painel (pedido do Silva, 13/10/2026): vai tudo para o endereço único do
-  // painel, https://visualdesignmoz.com/host:2026/. O nginx desse nome já redirecciona; isto cobre o resto.
+  // painel, https://visualdesignmoz.com/vhost:2026/. O nginx desse nome já redirecciona; isto cobre o resto.
   // (menos /api/: um webhook ou integração apontado a este nome não pode ser redireccionado)
   if (PANEL_HOSTS.has(hostOnly) && !pathname.startsWith('/api/')) {
     return NextResponse.redirect(PAINEL_ENTRADA, 307)
   }
-  // O painel vive todo em /host:2026/… (endereço único, pedido do Silva a 13/10/2026): abre aqui directamente — a rota
+  // O painel vive todo em /vhost:2026/… (endereço único, pedido do Silva a 13/10/2026): abre aqui directamente — a rota
   // do Next é src/app/host, por isso reescreve-se (o endereço no browser não muda), com ou sem a barra final.
   const resto = restoPainel(pathname)
   if (resto !== null) {
@@ -392,8 +392,8 @@ export const config = {
     // endereço antigo do DirectAdmin, o painel (/host/2026/…) e os seus endereços antigos (/vhost/…, /host:2026/…)
     '/evo',
     '/evo/:path*',
-    '/vhost',
-    '/vhost/:path*',
+    // (o "(.*)" apanha também /vhost:2026, que o ":" impede de escrever como parâmetro)
+    '/vhost(.*)',
     '/host(.*)',
   ],
 }

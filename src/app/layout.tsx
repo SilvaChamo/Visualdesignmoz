@@ -100,7 +100,7 @@ export default function RootLayout({
             }}
           />
         )}
-        {/* Painel VisualHost (/host:2026, antes /vhost): pede os dados do servidor logo que a página chega, em paralelo
+        {/* Painel VisualHost (/vhost:2026): pede os dados do servidor logo que a página chega, em paralelo
             com o JavaScript (o painel usa esta resposta na primeira leitura — ver VisualHostApp, "carregar") */}
         <script
           dangerouslySetInnerHTML={{

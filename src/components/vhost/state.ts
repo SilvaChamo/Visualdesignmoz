@@ -1,5 +1,5 @@
 // Estado do painel (igual ao objeto S da maquete) e navegação: cada ecrã tem endereço próprio
-// /host:2026/<nivel>/<ecra> (na maquete era #/<nivel>/<ecra>).
+// /vhost:2026/<nivel>/<ecra> (na maquete era #/<nivel>/<ecra>).
 import { DESC, GLOBAL, LEVELS, MENU, ROLE_LEVELS } from './generated/data';
 import type { Lang } from './i18n';
 import type { Account, Level, MenuItem } from './types';
@@ -7,10 +7,10 @@ import { dbInicial, featsEfetivas, pacoteCompleto, type Db } from './paginas/dad
 import type { Pessoa, Servidor, ZonaDns } from './servidor';
 import type { CustomComponents } from './theme';
 
-// Endereço único do painel (pedido do Silva, 13/10/2026): https://visualdesignmoz.com/host:2026/… O servidor serve-o
+// Endereço único do painel (pedido do Silva, 13/10/2026): https://visualdesignmoz.com/vhost:2026/… O servidor serve-o
 // pela rota src/app/host (src/proxy.ts reescreve, sem redireccionar); os endereços antigos (/vhost/…, /host/2026/…,
 // host.visualdesignmoz.com) redireccionam para aqui.
-export const BASE = '/host:2026';
+export const BASE = '/vhost:2026';
 /** Símbolo da VisualDesign (o mesmo ficheiro que VisualHost/assets/vd-simbolo.png) */
 export const LOGO = '/icons/icon-96x96.png';
 

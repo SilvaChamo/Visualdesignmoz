@@ -133,6 +133,17 @@ sessão: retomar sempre em português. Vale para qualquer IA (está repetido em 
    uma versão resumida (Silva, 19/10/2026). Quando a alteração é numa página, o `open` final leva o caminho dela:
    `open "http://localhost:3003/dev-preview-telemovel?p=/host:2026/admin/pacotes"` (entre aspas, por causa do `?`).
 
+# Endereço do painel, Sair e inactividade (Silva, 24/10/2026 — já mudou várias vezes: não voltar a trocar sem ele pedir)
+
+- **Endereço principal do painel:** `https://visualdesignmoz.com/vhost:2026/`. Vão dar a ele, com redirecção (`src/proxy.ts`): `/host:2026`, `/vhost/…`,
+  `/host/2026`, `host.visualdesignmoz.com` e `host.visualdesignmoz.com:2026/evo/` (o endereço antigo que os clientes têm guardado).
+- **`visualdesignmoz.com:2026/vhost/` não existe e não pode existir:** o domínio principal passa pela Cloudflare, que só aceita certas portas (a 2026
+  não); só `host.visualdesignmoz.com` (sem Cloudflare) responde na 2026.
+- **Sair** (botão do painel) vai para o **login do site** (`/login`), que depois volta ao painel.
+- **Terminar por inactividade** (ligado desde 24/10/2026: site 30 min, painel 20 min; `SAIR_POR_INATIVIDADE_ATIVO`) volta à **entrada (login) do próprio painel**
+  (`/vhost:2026`, a página `entrada.tsx`), no mesmo ecrã onde estava; não vai para o login do site nem para a página inicial.
+- **Sem sessão**, o endereço do painel mostra a entrada do próprio painel (nunca redirecciona para o login do site).
+
 # Entrar com o nome da conta, além do e-mail (Silva, 24/10/2026)
 
 O login do site (`/login`) aceita o **nome da conta** (o nome de utilizador do servidor, ex.: `oshercollective`) **e** o e-mail
