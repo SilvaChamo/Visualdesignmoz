@@ -192,6 +192,9 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
   utilizadores têm de voltar a entrar uma vez, com o mesmo e-mail e a mesma palavra-passe** (contas e dados não mudam; só se perdem as sessões abertas). O nome antigo fica a funcionar (nginx serve os dois): `/opt/basededadosagro-site` e
   `/opt/visualdesign-panel` ainda usam o antigo e não precisam de mudar já. Reverter: voltar `.env` do Supabase, o secret e publicar.
   **Feito:** (ainda não) — quem fizer, escreve aqui a data e o resultado.
+- **TAREFA PENDENTE — M-Pesa em produção** (Silva, 22/10/2026): o M-Pesa está em sandbox (`MPESA_ENV` em `deploy-contabo.yml`). Fica pendente até a
+  Vodacom entregar as credenciais de produção; a mensagem para a Vodacom está em `docs/mpesa-pedido-vodacom.md`. Passar a produção só com o "avança"
+  do Silva (dinheiro real). **Feito:** (ainda não).
 - **O CPU do servidor é um só** (Silva, 22/10/2026): tudo o que o mostra (janela de manutenção, cartão "Servidor" da barra lateral, cartão
   "Consumo CPU" do painel inicial) usa `useSystemStatus`, uma leitura ao vivo partilhada. Nunca outra medida ao lado.
 - **Nunca pesquisa à esquerda por cima do cartão principal** (13/10/2026). A "Busca" da barra de cima já procura na

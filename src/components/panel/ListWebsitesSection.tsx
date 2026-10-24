@@ -694,7 +694,7 @@ function ListWebsitesSection({ sites, onRefresh, packages, setActiveSection, set
               Em <code>localhost</code> a API do DirectAdmin pode falhar (IP bloqueado ou sem acesso directo). Use o painel em produção{' '}
               (<strong>visualdesignmoz.com/dashboard</strong>), o DirectAdmin em{' '}
               <strong>https://host.visualdesignmoz.com:2026/</strong>, ou configure <code>SSH_PRIVATE_KEY</code> no{' '}
-              <code>.env.local</code> para SSH <code>root@37.27.17.25 -p 2234</code>.
+              <code>.env.local</code> para SSH <code>root@169.58.148.144 -p 2234</code>.
             </p>
           )}
         </div>
