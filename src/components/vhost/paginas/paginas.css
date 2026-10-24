@@ -14425,3 +14425,55 @@
       margin-bottom: calc(4px * var(--z, 1))
    }
 }
+
+/* estado do produto (Activo…): sem fundo nem negrito, com um ponto que pulsa antes do texto */
+.vh .estado-ponto:not(#x):not(#y) {
+   display: inline-flex;
+   align-items: center;
+   gap: calc(6px * var(--z, 1));
+   font-size: calc(11px * var(--fs, 1));
+   font-weight: 400;
+   white-space: nowrap
+}
+
+.vh .estado-ponto i:not(#x):not(#y) {
+   position: relative;
+   width: calc(7px * var(--z, 1));
+   height: calc(7px * var(--z, 1));
+   border-radius: 50%;
+   background: currentColor;
+   flex: none
+}
+
+.vh .estado-ponto i:not(#x):not(#y)::after {
+   content: "";
+   position: absolute;
+   inset: 0;
+   border-radius: 50%;
+   background: currentColor;
+   animation: vh-ponto-pulso 1.6s ease-out infinite
+}
+
+.vh .estado-ok:not(#x):not(#y) {
+   color: #1C9D5B
+}
+
+.vh .estado-espera:not(#x):not(#y) {
+   color: #D97706
+}
+
+.vh .estado-inativo:not(#x):not(#y) {
+   color: #DC2626
+}
+
+@keyframes vh-ponto-pulso {
+   0% {
+      transform: scale(1);
+      opacity: .55
+   }
+
+   100% {
+      transform: scale(2.6);
+      opacity: 0
+   }
+}

@@ -720,7 +720,11 @@ export function ClientDashboardView({
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
                         <h3 className="text-base font-bold text-gray-900 truncate dark:text-zinc-100">{row.title}</h3>
-                        <span className={`px-2 py-0.5 rounded text-[11px] font-bold shrink-0 ${ok && row.kind === 'domain' ? 'bg-blue-100 text-blue-700 dark:bg-blue-950/50 dark:text-blue-400' : badge.className}`}>{badge.label}</span>
+                        <span className="text-gray-300 dark:text-zinc-600 shrink-0" aria-hidden="true">|</span>
+                        <span className={`estado-ponto ${ok ? 'estado-ok' : row.state === 'inactive' ? 'estado-inativo' : 'estado-espera'}`}>
+                          <i />
+                          {badge.label.charAt(0) + badge.label.slice(1).toLowerCase()}
+                        </span>
                       </div>
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
                         <span className="text-xs text-gray-500 dark:text-zinc-400">{row.subtitle}</span>
