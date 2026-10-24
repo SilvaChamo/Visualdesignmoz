@@ -85,7 +85,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     notifyQuoteTeam({
       title: 'Cliente escolheu método para o remanescente',
       message: `${quotation.empresa} escolheu ${metodoLabel} para pagar o remanescente da encomenda (${siblings.map((i) => i.produto).join(', ')}). Valor: ${formatMt(remanescente)} MT.`,
-      link: `${process.env.NEXT_PUBLIC_SITE_URL || ''}/dashboard?section=cotacoes`,
+      link: `${process.env.NEXT_PUBLIC_SITE_URL || ''}/vhost:2026`,
     }).catch((err) => console.error('[cotacoes/pagamento-remanescente] falha ao notificar equipa:', err));
 
     return NextResponse.json({ success: true });

@@ -81,7 +81,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       message: `${quotation.empresa} escolheu ${metodoLabel} para a encomenda (${batchItems.map((i) => i.produto).join(', ')}). ${
         allSobConsulta ? 'Valor sob consulta — confirmar com o cliente.' : `Valor: ${formatMt(totalBatch)} MT.`
       }`,
-      link: `${process.env.NEXT_PUBLIC_SITE_URL || ''}/dashboard?section=cotacoes`,
+      link: `${process.env.NEXT_PUBLIC_SITE_URL || ''}/vhost:2026`,
     }).catch((err) => console.error('[cotacoes/pagamento] falha ao notificar equipa:', err));
 
     return NextResponse.json({ success: true });

@@ -187,11 +187,15 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // Legado: /admin → /dashboard
-  if (pathname === '/admin' || pathname.startsWith('/admin/')) {
-    const legacy = request.nextUrl.clone()
-    legacy.pathname = pathname.replace(/^\/admin/, '/dashboard')
-    return NextResponse.redirect(legacy, 308)
+  // Painéis antigos (/dashboard, /cliente, /revendedor, /profissional e o legado /admin): foram apagados a 24/10/2026 (Silva: "o painel
+  // vhost é o principal") e qualquer endereço deles — favoritos, e-mails, avisos já guardados — vai para o painel principal, num só
+  // salto e sem guardar o resto do endereço (os ecrãs antigos já não existem).
+  if (['/dashboard', '/cliente', '/revendedor', '/profissional', '/admin'].some((p) => comPrefixo(pathname, p))) {
+    const publico = (request.headers.get('x-forwarded-host') || request.headers.get('host') || hostOnly)
+      .split(',')[0]
+      .trim()
+      .toLowerCase()
+    return NextResponse.redirect(new URL(PAINEL_BASE, `https://${publico}`), 308)
   }
 
   // Páginas públicas de marketing (home, serviços, portfolio, preços, etc.)
@@ -293,7 +297,7 @@ export async function proxy(request: NextRequest) {
     return redirectWithSession(target)
   }
 
-  // Rotas do painel: /dashboard, /cliente, /revendedor, /guest
+  // Rotas do painel: /guest (os painéis antigos redireccionam mais acima)
   if (isPanelRoute(pathname) && !pathname.startsWith(PUBLIC_PANEL_ENTRY)) {
     if (!user) {
       return redirectWithSession(buildPanelLoginUrl(request.url))
@@ -333,28 +337,8 @@ export async function proxy(request: NextRequest) {
     appMetadata: user.app_metadata,
   })
 
-  if (pathname.startsWith('/cliente') && role !== 'client') {
-    return redirectWithSession(new URL(getRedirectPathForRole(role), request.url))
-  }
-
   if (pathname.startsWith('/guest') && role !== 'guest') {
     return redirectWithSession(new URL(getRedirectPathForRole(role), request.url))
-  }
-
-  if (pathname.startsWith('/revendedor') && role !== 'reseller' && role !== 'admin') {
-    return redirectWithSession(new URL(getRedirectPathForRole(role), request.url))
-  }
-
-  if (pathname.startsWith('/profissional') && role !== 'profissional' && role !== 'admin') {
-    return redirectWithSession(new URL(getRedirectPathForRole(role), request.url))
-  }
-
-  if (pathname.startsWith('/dashboard') && role === 'client') {
-    return redirectWithSession(new URL('/cliente', request.url))
-  }
-
-  if (pathname.startsWith('/dashboard') && role === 'profissional') {
-    return redirectWithSession(new URL('/profissional', request.url))
   }
 
   return response

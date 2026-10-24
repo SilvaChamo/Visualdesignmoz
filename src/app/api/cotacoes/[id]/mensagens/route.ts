@@ -132,7 +132,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     notifyQuoteTeam({
       title: 'Nova mensagem do cliente',
       message: `${quotation.empresa} enviou uma nova mensagem sobre a encomenda "${quotation.produto}". Aceda ao painel para ler e responder.`,
-      link: `${process.env.NEXT_PUBLIC_SITE_URL || ''}/dashboard?section=cotacoes`,
+      link: `${process.env.NEXT_PUBLIC_SITE_URL || ''}/vhost:2026`,
     }).catch((err) => console.error('[cotacoes/[id]/mensagens] falha ao notificar equipa:', err));
   } else {
     notifyQuoteClientNewMessage({

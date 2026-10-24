@@ -308,7 +308,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       message: `${quotation.empresa} editou o pedido "${quotation.produto}" (${quotation.categoria_label}).${
         novasCotacoes.length > 0 ? ` Adicionou ${novasCotacoes.length} novo(s) serviço(s).` : ''
       }`,
-      link: `${process.env.NEXT_PUBLIC_SITE_URL || ''}/dashboard?section=cotacoes`,
+      link: `${process.env.NEXT_PUBLIC_SITE_URL || ''}/vhost:2026`,
     }).catch((err) => console.error('[cotacoes/[id] PATCH] falha ao notificar equipa:', err));
 
     return NextResponse.json({ success: true, quotation: updatedQuotation, novasCotacoes });
