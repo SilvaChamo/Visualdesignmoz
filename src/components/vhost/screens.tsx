@@ -19,7 +19,7 @@ import { editorSistemaPagina, estatisticasAdminPagina, ticketsAdminPagina } from
 import { ligadosPagina } from './paginas/ligados';
 import { sitesContasPagina } from './paginas/sites-contas';
 import { encomendasPagina } from './paginas/encomendas';
-import { ClientProductsHub } from '@/components/client/ClientProductsHub';
+import { ClientProductsHub } from '@/components/vhost/comuns/ClientProductsHub';
 import { contabilidadePagina, contasEncomendasPagina, gestaoEncomendasPagina } from './paginas/encomendas-admin';
 import { renovacoesAdminPagina, renovacoesClientePagina } from './paginas/renovacoes';
 import { quarentenaPagina } from './paginas/quarentena';

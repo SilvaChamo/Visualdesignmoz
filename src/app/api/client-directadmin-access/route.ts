@@ -23,7 +23,7 @@ function isBrowserNavigation(request: NextRequest): boolean {
  */
 export async function GET(request: NextRequest) {
   const browserNav = isBrowserNavigation(request);
-  const dashboardUrl = new URL('/cliente', getPublicSiteOrigin());
+  const dashboardUrl = new URL('/vhost:2026', getPublicSiteOrigin());
 
   if (isHestiaOnlyDeploy()) {
     if (browserNav) {

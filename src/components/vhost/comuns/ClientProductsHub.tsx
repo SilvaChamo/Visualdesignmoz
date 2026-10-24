@@ -21,8 +21,8 @@ import {
 } from 'lucide-react';
 import type { UserProductsSummary } from '@/lib/user-products';
 import { Spinner } from '@/components/ui/spinner';
-import { PendingOrdersSection } from '@/components/client/PendingOrdersSection';
-import { attachEmailDomain } from '@/components/client/ClientAddDomainModal';
+import { PendingOrdersSection } from '@/components/vhost/comuns/PendingOrdersSection';
+import { attachEmailDomain } from '@/components/vhost/comuns/ClientAddDomainModal';
 import { MoveToAccountModal } from '@/components/panel/MoveToAccountModal';
 
 export type ClientNavigate = (section: string, opts?: { domain?: string }) => void;

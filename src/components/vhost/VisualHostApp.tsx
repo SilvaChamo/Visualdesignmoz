@@ -23,7 +23,7 @@ import { useTituloAjustado } from './titulo-ajustado';
 import { SAIR_POR_INATIVIDADE_ATIVO } from '@/lib/session-inactivity';
 import { BarraTopo, EsperaPagina, atividadeComeca, instalarContador, type Espera } from './carga';
 import { BarrasDa } from './carregador-da';
-import { ClientSidePanel } from '@/components/client/ClientProductsHub';
+import { ClientSidePanel } from '@/components/vhost/comuns/ClientProductsHub';
 import { useAvisosEncomendas } from './avisos-encomendas';
 import { badgeColors, getThemeColors, hexToRgb, luminancia, type CustomComponents } from './theme';
 import { FUNDO } from './carga';

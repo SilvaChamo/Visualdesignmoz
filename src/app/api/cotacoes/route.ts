@@ -252,7 +252,7 @@ export async function POST(request: NextRequest) {
     notifyQuoteTeam({
       title: validatedItems.length > 1 ? `Nova cotação recebida (${validatedItems.length} serviços)` : 'Nova cotação recebida',
       message: `${empresa} (${responsavel}) pediu cotação: ${resumo}. Contacto: ${telefone} / ${email}. Entrega pretendida até ${dataLimiteEntrega}.${pagamentoNota}`,
-      link: `${process.env.NEXT_PUBLIC_SITE_URL || ''}/dashboard?section=cotacoes`,
+      link: `${process.env.NEXT_PUBLIC_SITE_URL || ''}/vhost:2026`,
     }).catch((err) => console.error('[cotacoes] falha ao notificar equipa:', err));
 
     // O primeiro id serve de âncora da encomenda (anexos/mensagens agregam

@@ -22,7 +22,7 @@ export function PWAInstallPrompt() {
     }
 
     // Verifica se está na página /client
-    const isClient = window.location.pathname.startsWith("/cliente");
+    const isClient = window.location.pathname.startsWith("/vhost:2026");
     setIsClientPage(isClient);
     if (!isClient) return;
 

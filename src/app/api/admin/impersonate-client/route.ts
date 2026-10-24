@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
 
   const backToAdmin = (error?: string) => {
     const query = error ? `?section=cp-users&impersonate_error=${encodeURIComponent(error)}` : '?section=cp-users';
-    return NextResponse.redirect(resolvePanelApiRedirect(`/dashboard${query}`, hostname), { status: 307 });
+    return NextResponse.redirect(resolvePanelApiRedirect(`/vhost:2026${query}`, hostname), { status: 307 });
   };
 
   if (req.nextUrl.searchParams.get('exit') === '1') {
@@ -63,7 +63,7 @@ export async function GET(req: NextRequest) {
   if (role === 'client') {
     store.delete(IMPERSONATE_COOKIE);
     store.set(IMPERSONATE_CLIENT_COOKIE, target.id, COOKIE_OPTS);
-    return NextResponse.redirect(resolvePanelApiRedirect('/cliente?impersonate=1', hostname), { status: 307 });
+    return NextResponse.redirect(resolvePanelApiRedirect('/vhost:2026', hostname), { status: 307 });
   }
 
   if (role === 'profissional') {
@@ -72,7 +72,7 @@ export async function GET(req: NextRequest) {
     if (!daUsername) return backToAdmin('Esta conta profissional ainda não tem alojamento no servidor.');
     store.delete(IMPERSONATE_CLIENT_COOKIE);
     store.set(IMPERSONATE_COOKIE, daUsername, COOKIE_OPTS);
-    return NextResponse.redirect(resolvePanelApiRedirect('/profissional?impersonate=1', hostname), { status: 307 });
+    return NextResponse.redirect(resolvePanelApiRedirect('/vhost:2026', hostname), { status: 307 });
   }
 
   return backToAdmin('Só é possível entrar em contas de cliente ou profissional por aqui.');
