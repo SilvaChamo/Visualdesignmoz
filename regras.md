@@ -41,6 +41,15 @@ O deploy é só o `.github/workflows/deploy-contabo.yml`, automático a cada mer
 - Cada publicação é uma pasta nova em `/opt/visualdesign-releases/<data>`; `/opt/visualdesignmoz` é um atalho para a versão em uso. O site corre em pm2
   "cluster" com 1 processo (nome `visualdesignmoz`) e o `pm2 reload` põe a versão nova no ar antes de a antiga sair: sem corte.
 - Se a versão nova não responder, o deploy volta sozinho à anterior e falha. Ficam as 3 versões mais recentes.
+- **O site constrói-se no GitHub, não no servidor** (Silva, 24/10/2026: deploy de ~15 para ~4 a 5 minutos). O GitHub copia o `.env.local` do servidor (as
+  `NEXT_PUBLIC_*` ficam dentro do código do site), constrói, e o rsync leva o `.next` (sem a cache); o servidor só instala as dependências (reaproveita o
+  `node_modules` da versão em uso quando o `package-lock.json` e o Node não mudaram) e troca de versão. Nunca voltar a construir no servidor (a
+  prioridade mínima fazia o mesmo build demorar 8 a 9 minutos). Uma variável `NEXT_PUBLIC_*` nova põe-se no `.env.local` do servidor (ou num `set_env_var` do
+  passo "Prepare server environment"), nunca só no GitHub.
+- **Ensaio sem publicar:** Actions › Deploy Visualdesign › Run workflow com `ensaio` marcado (qualquer ramo): constrói, envia e arranca a versão nova na
+  porta 3099 para ver se responde, sem migrações e sem tocar no site, no pm2 nem no atalho. Fazer sempre que se mexer em `deploy-contabo.yml`.
+- **Para voltar atrás:** antes de publicar um grupo, marca-se o `main` com uma etiqueta `antes-<nome>` (ex.: `antes-grupo-2`). Se algo correr mal, reverte-se o
+  merge no GitHub (botão Revert do PR) e o deploy repõe o site em ~5 minutos; a reversão automática do deploy só apanha o site que deixa de responder.
 - **Nunca** correr `pm2 restart/stop/delete` nem mexer na pasta ou no atalho à mão com o site no ar (isso corta o site); nunca voltar a pôr o site em
   modo "fork" nem com mais de 1 processo (o painel guarda estado em memória, ex.: códigos de 2 passos).
 - O site já não se chama "teste" (só `teste.visualdesignmoz.com` mantém o nome, é um domínio do servidor). Não reintroduzir "teste" em pastas, apps ou scripts.
