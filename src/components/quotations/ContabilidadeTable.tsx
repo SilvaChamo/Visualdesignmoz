@@ -3,10 +3,11 @@
 import { Fragment, useEffect, useState } from 'react'
 import { ChevronDown, ChevronRight, RotateCcw } from 'lucide-react'
 import {
-  panelSectionCard,
+  panelSectionCard, panelBtnSecondary,
   panelTabBar, panelTabBtn, panelTabBtnActive, panelTabBtnInactive,
 } from '@/lib/panel-ui'
 import { formatMt } from '@/lib/pricing-catalog'
+import { BarrasDa } from '@/components/vhost/carregador-da'
 import { useEsperaAte } from '@/components/vhost/carga'
 import { ImageLightbox } from './ImageLightbox'
 import { useBatchNumeros, displayNumero } from '@/lib/use-batch-numeros'
@@ -65,7 +66,7 @@ async function setRegistoDeleted(batchId: string, deleted: boolean): Promise<boo
     const data = await res.json()
     return Boolean(data.success)
   } catch (error) {
-    console.error('Erro ao actualizar registo de contabilidade:', error)
+    console.warn('Erro ao actualizar registo de contabilidade:', error)
     return false
   }
 }
@@ -133,7 +134,10 @@ export function ContabilidadeTable() {
     return () => clearInterval(interval)
   }, [])
 
+  const [erroCarga, setErroCarga] = useState('')
+
   const load = () => {
+    setErroCarga('')
     fetch('/api/admin/contabilidade')
       .then((r) => r.json())
       .then((data) => {
@@ -142,25 +146,55 @@ export function ContabilidadeTable() {
           setRegistos(data.registos ?? [])
           setEliminados(data.eliminados ?? [])
           setFechos(data.fechos ?? [])
+        } else {
+          setErroCarga(data.error || 'O servidor não devolveu a contabilidade.')
         }
       })
-      .catch((error) => console.error('Erro ao carregar contabilidade:', error))
+      .catch((error) => {
+        console.warn('Erro ao carregar contabilidade:', error)
+        setErroCarga('Não foi possível ligar ao servidor.')
+      })
   }
 
   useEffect(() => {
     load()
   }, [])
 
-  useEsperaAte(!!(meses && registos && eliminados && fechos))
+  useEsperaAte(!!(meses && registos && eliminados && fechos) || !!erroCarga)
 
   if (!meses || !registos || !eliminados || !fechos) {
-    return null
+    if (!erroCarga) return <div className="flex justify-center py-12"><BarrasDa /></div>
+    return (
+      <div className={`${panelSectionCard} p-8 text-center text-sm text-gray-500 dark:text-zinc-400`}>
+        <p className="font-bold text-gray-900 dark:text-white">Não foi possível carregar a contabilidade.</p>
+        <p className="mt-1">{erroCarga}</p>
+        <button type="button" onClick={load} className={`${panelBtnSecondary} mt-4`}>Tentar de novo</button>
+      </div>
+    )
   }
 
   return (
     <div>
       <div className={`${panelSectionCard} mb-4 px-4 pt-2`}>
-        <div className={panelTabBar}>
+        {/* telemóvel: um selector em vez da fila de separadores */}
+        <div className="pb-3 md:hidden">
+          <select
+            value={activeTab}
+            onChange={(e) => setActiveTab(e.target.value as ContabilidadeTab)}
+            className="contab-tab-select w-full"
+            aria-label="Secção da contabilidade"
+          >
+            {TABS.map((t) => {
+              const pendente = pendentesPorTab[t.id] || 0
+              return (
+                <option key={t.id} value={t.id}>
+                  {t.label}{pendente > 0 ? ` (${pendente})` : ''}
+                </option>
+              )
+            })}
+          </select>
+        </div>
+        <div className={`${panelTabBar} hidden md:block`}>
           <div className="flex flex-wrap items-end gap-5">
             {TABS.map((t) => {
               const pendente = pendentesPorTab[t.id] || 0
@@ -232,7 +266,7 @@ function ResellerCreditsTable() {
     fetch('/api/admin/reseller-creditos')
       .then((r) => r.json())
       .then((data) => { if (data.success) setPedidos(data.pedidos) })
-      .catch((error) => console.error('Erro ao carregar créditos de revendedores:', error))
+      .catch((error) => console.warn('Erro ao carregar créditos de revendedores:', error))
   }
 
   useEffect(() => {
@@ -998,7 +1032,7 @@ function RenewalPaymentsTable() {
     fetch('/api/admin/renewal-pagamentos')
       .then((r) => r.json())
       .then((data) => { if (data.success) setPedidos(data.pedidos) })
-      .catch((error) => console.error('Erro ao carregar pagamentos de renovação:', error))
+      .catch((error) => console.warn('Erro ao carregar pagamentos de renovação:', error))
   }
 
   useEffect(() => {
@@ -1211,7 +1245,7 @@ function CheckoutItemsByType({ types }: { types: string[] }) {
     fetch('/api/admin/checkout-pagamentos')
       .then((r) => r.json())
       .then((data) => { if (data.success) setPedidos(data.pedidos) })
-      .catch((error) => console.error('Erro ao carregar pagamentos do carrinho:', error))
+      .catch((error) => console.warn('Erro ao carregar pagamentos do carrinho:', error))
   }
 
   useEffect(() => {
@@ -1476,7 +1510,7 @@ function EncomendaPagamentosTable() {
     fetch('/api/admin/encomendas-pagamentos')
       .then((r) => r.json())
       .then((data) => { if (data.success) setPagamentos(data.pagamentos) })
-      .catch((error) => console.error('Erro ao carregar pagamentos de encomendas:', error))
+      .catch((error) => console.warn('Erro ao carregar pagamentos de encomendas:', error))
   }
 
   useEffect(() => {
@@ -1559,13 +1593,12 @@ function EncomendaPagamentosTable() {
               <th className="px-4 py-2 align-middle text-left whitespace-nowrap">Aceitação</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100 dark:divide-zinc-800">
-            {pagamentos.map((p) => {
+          {pagamentos.map((p) => {
               const meta = ITEM_STATUS_META[p.status] || ITEM_STATUS_META.pending
               const isExpanded = expandedKey === p.key
               const resumo = p.itens.map((i) => i.categoria_label).join(', ')
               return (
-                <Fragment key={p.key}>
+                <tbody key={p.key} className="contab-zebra">
                 <tr className="hover:bg-gray-50 dark:hover:bg-zinc-800/30">
                   <td className="max-w-[16rem] px-4 py-2.5 font-medium text-gray-900 dark:text-white">
                     <div className="flex items-start gap-1.5">
@@ -1659,10 +1692,9 @@ function EncomendaPagamentosTable() {
                     </td>
                   </tr>
                 )}
-                </Fragment>
+                </tbody>
               )
             })}
-          </tbody>
         </table>
       </div>
       {lightboxUrl && <ImageLightbox url={lightboxUrl} onClose={() => setLightboxUrl(null)} />}

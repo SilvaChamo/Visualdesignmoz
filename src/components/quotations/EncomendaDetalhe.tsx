@@ -203,18 +203,8 @@ export function EncomendaDetalhe({
           </div>
 
           <div className="flex flex-wrap items-center gap-2 shrink-0 pb-2.5">
-            {/* Quando há uma ação disponível (cancelar), mostra o botão aqui
-                em vez do badge passivo — o badge só aparece quando não há
-                nada para o cliente fazer agora. Pagar fica junto aos itens,
-                não aqui (ver fim da lista na aba "Detalhes da Encomenda"). */}
-            {canEditOrCancel || canCancelOnly ? (
-              <button type="button" className={panelBtnSecondary} onClick={handleCancelar} disabled={cancelling}>
-                {cancelling ? <Spinner className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
-                Cancelar
-              </button>
-            ) : (
-              <span className={`px-2.5 py-1 rounded-full text-xs font-bold border shrink-0 ${meta.color}`}>{meta.label}</span>
-            )}
+            {/* o botão Cancelar (e Editar/Eliminar) está no cartão da encomenda, na lista à esquerda */}
+            <span className={`px-2.5 py-1 rounded-full text-xs font-bold border shrink-0 ${meta.color}`}>{meta.label}</span>
           </div>
         </div>
       </div>
