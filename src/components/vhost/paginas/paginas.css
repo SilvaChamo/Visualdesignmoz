@@ -14375,7 +14375,7 @@
    background: none;
    color: var(--ink);
    font-size: calc(12.5px * var(--fs, 1));
-   font-weight: 600;
+   font-weight: 400;
    cursor: pointer
 }
 
@@ -14384,7 +14384,7 @@
 }
 
 .vh .link-rapido:hover:not(#x):not(#y) {
-   text-decoration: underline
+   color: var(--red)
 }
 
 .vh .link-rapido-sep:not(#x):not(#y) {
