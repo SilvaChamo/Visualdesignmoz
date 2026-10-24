@@ -356,6 +356,69 @@ export function ClientDashboardView({
   const AccountIcon = accountState.icon;
 
   return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <button
+          type="button"
+          onClick={() => (activeEmailPlans > 0 ? navigate('emails-new') : (window.location.href = '/precos/email'))}
+          className="bg-white rounded border border-gray-200 shadow-sm p-5 flex items-start gap-4 text-left cursor-pointer hover:shadow-md hover:border-blue-200 transition-all dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-blue-900/50"
+        >
+          <div className="p-3 bg-blue-50 rounded-lg dark:bg-blue-950/40">
+            <Mail className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+          </div>
+          <div>
+            <p className="text-sm text-gray-500 dark:text-zinc-400">Planos de E-mail</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-zinc-100">{activeEmailPlans}</p>
+            <p className="text-xs text-gray-400 mt-0.5 dark:text-zinc-500">
+              {activeEmailPlans > 0 ? 'Ver contas de e-mail' : 'Ver planos de e-mail'}
+            </p>
+          </div>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => (domains.length > 0 ? navigate('domain-manager') : (window.location.href = '/servicos/dominios?origem=painel'))}
+          className="bg-white rounded border border-gray-200 shadow-sm p-5 flex items-start gap-4 text-left cursor-pointer hover:shadow-md hover:border-purple-200 transition-all dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-purple-900/50"
+        >
+          <div className="p-3 bg-purple-50 rounded-lg dark:bg-purple-950/40">
+            <Globe className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+          </div>
+          <div>
+            <p className="text-sm text-gray-500 dark:text-zinc-400">Domínios</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-zinc-100">{domains.length}</p>
+            <p className="text-xs text-gray-400 mt-0.5 dark:text-zinc-500">{domains.length > 0 ? 'Domínios registados' : 'Registar domínio'}</p>
+          </div>
+        </button>
+
+        <div className="bg-white rounded border border-gray-200 shadow-sm p-5 flex items-start gap-4 dark:border-zinc-700 dark:bg-zinc-900">
+          <div className={`p-3 rounded-lg ${toneClasses.box}`}>
+            <AccountIcon className={`w-6 h-6 ${toneClasses.icon}`} />
+          </div>
+          <div>
+            <p className="text-sm text-gray-500 dark:text-zinc-400">Estado da Conta</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-zinc-100">{accountState.label}</p>
+            <p className="text-xs text-gray-400 mt-0.5 dark:text-zinc-500">{accountState.hint}</p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => navigate('facturas')}
+          className="bg-white rounded border border-gray-200 shadow-sm p-5 flex items-start gap-4 text-left cursor-pointer hover:shadow-md hover:border-red-200 transition-all dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-red-900/50"
+        >
+          <div className="p-3 bg-red-50 rounded-lg dark:bg-red-950/40">
+            <FileText className="w-6 h-6 text-red-600 dark:text-red-400" />
+          </div>
+          <div>
+            <p className="text-sm text-gray-500 dark:text-zinc-400">Próxima Renovação</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-zinc-100">
+              {nextRenewal ? formatDate(nextRenewal.date) : 'N/A'}
+            </p>
+            <p className="text-xs text-gray-400 mt-0.5 dark:text-zinc-500">Ver facturas</p>
+          </div>
+        </button>
+      </div>
+
     <div className="flex flex-col gap-5 lg:flex-row">
       <div className="min-w-0 flex-1 space-y-5">
         {loadFailed && (
@@ -388,69 +451,7 @@ export function ClientDashboardView({
           </div>
         )}
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <button
-            type="button"
-            onClick={() => (activeEmailPlans > 0 ? navigate('emails-new') : (window.location.href = '/precos/email'))}
-            className="bg-white rounded border border-gray-200 shadow-sm p-5 flex items-start gap-4 text-left cursor-pointer hover:shadow-md hover:border-blue-200 transition-all dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-blue-900/50"
-          >
-            <div className="p-3 bg-blue-50 rounded-lg dark:bg-blue-950/40">
-              <Mail className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500 dark:text-zinc-400">Planos de E-mail</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-zinc-100">{activeEmailPlans}</p>
-              <p className="text-xs text-gray-400 mt-0.5 dark:text-zinc-500">
-                {activeEmailPlans > 0 ? 'Ver contas de e-mail' : 'Ver planos de e-mail'}
-              </p>
-            </div>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => (domains.length > 0 ? navigate('domain-manager') : (window.location.href = '/servicos/dominios?origem=painel'))}
-            className="bg-white rounded border border-gray-200 shadow-sm p-5 flex items-start gap-4 text-left cursor-pointer hover:shadow-md hover:border-purple-200 transition-all dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-purple-900/50"
-          >
-            <div className="p-3 bg-purple-50 rounded-lg dark:bg-purple-950/40">
-              <Globe className="w-6 h-6 text-purple-600 dark:text-purple-400" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500 dark:text-zinc-400">Domínios</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-zinc-100">{domains.length}</p>
-              <p className="text-xs text-gray-400 mt-0.5 dark:text-zinc-500">{domains.length > 0 ? 'Domínios registados' : 'Registar domínio'}</p>
-            </div>
-          </button>
-
-          <div className="bg-white rounded border border-gray-200 shadow-sm p-5 flex items-start gap-4 dark:border-zinc-700 dark:bg-zinc-900">
-            <div className={`p-3 rounded-lg ${toneClasses.box}`}>
-              <AccountIcon className={`w-6 h-6 ${toneClasses.icon}`} />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500 dark:text-zinc-400">Estado da Conta</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-zinc-100">{accountState.label}</p>
-              <p className="text-xs text-gray-400 mt-0.5 dark:text-zinc-500">{accountState.hint}</p>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => navigate('facturas')}
-            className="bg-white rounded border border-gray-200 shadow-sm p-5 flex items-start gap-4 text-left cursor-pointer hover:shadow-md hover:border-red-200 transition-all dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-red-900/50"
-          >
-            <div className="p-3 bg-red-50 rounded-lg dark:bg-red-950/40">
-              <FileText className="w-6 h-6 text-red-600 dark:text-red-400" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500 dark:text-zinc-400">Próxima Renovação</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-zinc-100">
-                {nextRenewal ? formatDate(nextRenewal.date) : 'N/A'}
-              </p>
-              <p className="text-xs text-gray-400 mt-0.5 dark:text-zinc-500">Ver facturas</p>
-            </div>
-          </button>
-        </div>
-
-        {!hasAnything && (
+        {(domains.length === 0 || hosting.length === 0 || emailPlans.length === 0) && (
           <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 shadow-sm space-y-6">
             <div className="flex items-start gap-3 border-b border-zinc-100 dark:border-zinc-800 pb-4">
               <div className="w-9 h-9 rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-100 dark:border-red-900/50 flex items-center justify-center text-red-600 dark:text-red-400 shrink-0">
@@ -458,15 +459,18 @@ export function ClientDashboardView({
               </div>
               <div>
                 <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-100">
-                  Ainda não tem produtos activos na sua conta
+                  {hasAnything ? 'Complete a sua conta com os serviços que lhe faltam' : 'Ainda não tem produtos activos na sua conta'}
                 </h3>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-                  Escolha uma das opções abaixo para adquirir o seu domínio, hospedagem ou e-mail profissional:
+                  {hasAnything
+                    ? 'Estes são os serviços que ainda não tem — escolha o que quer acrescentar à sua conta:'
+                    : 'Escolha uma das opções abaixo para adquirir o seu domínio, hospedagem ou e-mail profissional:'}
                 </p>
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {domains.length === 0 && (
               <a
                 href="/servicos/dominios"
                 className="group flex flex-col justify-between p-5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950/50 hover:border-red-500/50 hover:bg-white dark:hover:bg-zinc-900 transition-all shadow-sm"
@@ -487,7 +491,9 @@ export function ClientDashboardView({
                   <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
                 </div>
               </a>
+              )}
 
+              {hosting.length === 0 && (
               <a
                 href="/precos/hospedagem"
                 className="group flex flex-col justify-between p-5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950/50 hover:border-red-500/50 hover:bg-white dark:hover:bg-zinc-900 transition-all shadow-sm"
@@ -508,7 +514,9 @@ export function ClientDashboardView({
                   <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
                 </div>
               </a>
+              )}
 
+              {emailPlans.length === 0 && (
               <a
                 href="/precos/email"
                 className="group flex flex-col justify-between p-5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950/50 hover:border-red-500/50 hover:bg-white dark:hover:bg-zinc-900 transition-all shadow-sm"
@@ -529,6 +537,7 @@ export function ClientDashboardView({
                   <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
                 </div>
               </a>
+              )}
             </div>
           </div>
         )}
@@ -754,6 +763,7 @@ export function ClientDashboardView({
           }}
         />
       )}
+    </div>
     </div>
   );
 }
