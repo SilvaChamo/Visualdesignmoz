@@ -150,7 +150,11 @@ export function ClientProductsHub({ onNavigate, displayName, sessionUser, onProd
   );
 }
 
-const RENEW_BUTTON_DAYS = 60;
+/** O botão Renovar aparece quando faltam 3 meses (Silva, 24/10/2026) */
+const RENEW_BUTTON_DAYS = 90;
+
+/** Cor da data de expiração: verde até faltarem 3 meses; daí passa pouco a pouco por amarelo e laranja até vermelho no dia em que expira */
+const expiryColor = (days: number): string => (days <= 0 ? 'hsl(0, 72%, 42%)' : days >= 90 ? 'hsl(140, 60%, 32%)' : `hsl(${Math.round((days / 90) * 140)}, 72%, 38%)`);
 
 const getDaysUntil = (date: string): number => {
   const today = new Date();
@@ -674,7 +678,7 @@ export function ClientDashboardView({
               const badge = STATE_BADGE[row.state];
               const ok = row.state === 'active';
               const showRenew =
-                ok && row.renewHref && row.expirationDate && getDaysUntil(row.expirationDate) <= RENEW_BUTTON_DAYS;
+                row.state !== 'awaiting_payment' && row.renewHref && row.expirationDate && getDaysUntil(row.expirationDate) <= RENEW_BUTTON_DAYS;
               const manage =
                 row.state === 'awaiting_payment'
                   ? null
@@ -692,7 +696,9 @@ export function ClientDashboardView({
                   <div className="flex items-center gap-4 min-w-0">
                     <div
                       className={`w-12 h-12 shrink-0 rounded flex items-center justify-center border ${
-                        ok
+                        ok && row.kind === 'domain'
+                          ? 'bg-blue-50 border-blue-100 dark:bg-blue-950/30 dark:border-blue-900/50'
+                          : ok
                           ? 'bg-green-50 border-green-100 dark:bg-green-950/30 dark:border-green-900/50'
                           : row.state === 'inactive'
                             ? 'bg-red-50 border-red-100 dark:bg-red-950/30 dark:border-red-900/50'
@@ -701,7 +707,9 @@ export function ClientDashboardView({
                     >
                       <Icon
                         className={`w-6 h-6 ${
-                          ok
+                          ok && row.kind === 'domain'
+                            ? 'text-blue-600 dark:text-blue-400'
+                            : ok
                             ? 'text-green-600 dark:text-green-400'
                             : row.state === 'inactive'
                               ? 'text-red-500 dark:text-red-400'
@@ -712,12 +720,12 @@ export function ClientDashboardView({
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
                         <h3 className="text-base font-bold text-gray-900 truncate dark:text-zinc-100">{row.title}</h3>
-                        <span className={`px-2 py-0.5 rounded text-[11px] font-bold shrink-0 ${badge.className}`}>{badge.label}</span>
+                        <span className={`px-2 py-0.5 rounded text-[11px] font-bold shrink-0 ${ok && row.kind === 'domain' ? 'bg-blue-100 text-blue-700 dark:bg-blue-950/50 dark:text-blue-400' : badge.className}`}>{badge.label}</span>
                       </div>
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
                         <span className="text-xs text-gray-500 dark:text-zinc-400">{row.subtitle}</span>
                         {row.expirationDate && row.state !== 'awaiting_payment' ? (
-                          <span className={`flex items-center gap-1 text-xs font-medium ${ok ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-zinc-400'}`}>
+                          <span className="flex items-center gap-1 text-xs font-medium" style={{ color: expiryColor(getDaysUntil(row.expirationDate)) }}>
                             <Calendar className="w-3.5 h-3.5" />
                             Expiração: {formatDate(row.expirationDate)}
                           </span>
