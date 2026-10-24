@@ -45,7 +45,7 @@ export async function GET() {
       brevoOsherAppSenders: BREVO_SENDERS_OSHER,
     },
     receive: {
-      provider: 'hetzner-direct',
+      provider: 'servidor-direct',
       mx: { priority: 10, host: `mail.<dominio>. (-> ${getServerHost()})` },
       spf: buildEmailSpfRecord(getServerHost()),
       mailboxes: 'DirectAdmin / IMAP / Webmail',

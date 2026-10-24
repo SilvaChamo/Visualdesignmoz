@@ -511,7 +511,7 @@ export function NextJsSitesSection({
                 <input
                   value={form.hostingNote}
                   onChange={(e) => setForm({ ...form, hostingNote: e.target.value })}
-                  placeholder="Hetzner — mesmo servidor / Vercel / outro"
+                  placeholder="Contabo — mesmo servidor / Vercel / outro"
                   className={`${panelField} w-full`}
                 />
               </div>
@@ -529,7 +529,7 @@ export function NextJsSitesSection({
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">
-                  Nome do processo PM2 (opcional — só sites no Hetzner)
+                  Nome do processo PM2 (opcional — só sites no servidor)
                 </label>
                 <input
                   value={form.pm2ProcessName}

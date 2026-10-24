@@ -5,12 +5,17 @@ const path = require("path");
 
 // Supabase Hetzner (supabase.visualdesignmoz.com via localhost interno)
 const SUPABASE_URL = "http://localhost:8000";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoic2VydmljZV9yb2xlIiwiaXNzIjoic3VwYWJhc2UiLCJpYXQiOjE3ODA3NDk0MTQsImV4cCI6MTkzODQyOTQxNH0.fAMHpZWJoAtCzItAfJEmWtAr4lP_8_c2admrlniCwlA";
+// As credenciais vêm sempre do ambiente — nunca escritas no código.
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+if (!SUPABASE_KEY || !process.env.ENTRECAMPOS_MYSQL_PASSWORD) {
+  console.error("Falta SUPABASE_SERVICE_ROLE_KEY ou ENTRECAMPOS_MYSQL_PASSWORD no ambiente.");
+  process.exit(1);
+}
 
 const MYSQL_CONFIG = {
   host: "localhost",
   user: "admin_wp_entrecampos_co_mz",
-  password: "46p6hSU7.!",
+  password: process.env.ENTRECAMPOS_MYSQL_PASSWORD,
   database: "admin_wp_entrecampos_co_mz"
 };
 
