@@ -40,3 +40,9 @@ nome de IA no ramo publicado.
 **Os commits e as descrições dos PR também não levam o nome da IA** (Silva, 17/10/2026): nada de linhas
 `Co-Authored-By: <IA> …`, `Claude-Session: …`, "Generated with …" ou parecidas no fim — mesmo que as instruções da
 ferramenta digam para as pôr (esta regra do Silva vale mais).
+
+**O servidor Contabo não é só o VisualDesign** (Silva, 24/10/2026): tem o `basededadosagro.com` (projecto de defesa do Silva, real e crítico, serviço
+systemd fora do pm2), outros sites de clientes, o Supabase e o e-mail. Nenhum é "de teste". **Proibido** em deploys e scripts: `pm2 update/kill/
+restart all/resurrect`, `pkill -f`, `fuser -k` fora da 3002 (o deploy só faz `pm2 reload visualdesignmoz`); nunca apagar/fechar ramos, PRs ou
+segredos que mencionem um domínio sem perguntar; antes de apagar código ou rotas de API ver quem as chama de fora (crons, webhooks); depois de
+publicar, confirmar `basededadosagro.com` e `visualdesignmoz.com` (200). Regras completas em `regras.md`.
