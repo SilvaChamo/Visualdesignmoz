@@ -14373,14 +14373,17 @@
    padding: 0;
    border: 0;
    background: none;
-   color: var(--red);
+   color: var(--ink);
    font-size: calc(12.5px * var(--fs, 1));
    font-weight: 600;
    cursor: pointer
 }
 
+.vh .link-rapido i:not(#x):not(#y) {
+   font-size: calc(10px * var(--fs, 1))
+}
+
 .vh .link-rapido:hover:not(#x):not(#y) {
-   color: var(--red-d, var(--red));
    text-decoration: underline
 }
 
