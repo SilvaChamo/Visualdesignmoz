@@ -17,6 +17,7 @@ import {
   Inbox,
   Receipt,
   RefreshCw,
+  Palette,
 } from 'lucide-react';
 import type { UserProductsSummary } from '@/lib/user-products';
 import { Spinner } from '@/components/ui/spinner';
@@ -534,7 +535,7 @@ export function ClientDashboardView({
           </div>
         )}
 
-        {(domains.length === 0 || hosting.length === 0 || emailPlans.length === 0) && (
+        {(domains.length === 0 || hosting.length === 0 || emailPlans.length === 0 || hasAnything) && (
           <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 shadow-sm space-y-6">
             <div className="flex items-start gap-3 border-b border-zinc-100 dark:border-zinc-800 pb-4">
               <div className="w-9 h-9 rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-100 dark:border-red-900/50 flex items-center justify-center text-red-600 dark:text-red-400 shrink-0">
@@ -621,6 +622,26 @@ export function ClientDashboardView({
                 </div>
               </a>
               )}
+              <a
+                href="/cotacao"
+                className="group flex flex-col justify-between p-5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950/50 hover:border-red-500/50 hover:bg-white dark:hover:bg-zinc-900 transition-all shadow-sm"
+              >
+                <div>
+                  <div className="w-10 h-10 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-100 dark:border-amber-900/50 flex items-center justify-center text-amber-600 dark:text-amber-400 mb-3">
+                    <Palette className="w-5 h-5" />
+                  </div>
+                  <h4 className="font-bold text-sm text-zinc-900 dark:text-zinc-100 group-hover:text-red-600 dark:group-hover:text-red-400 transition-colors">
+                    Serviços VisualDesign
+                  </h4>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                    Design gráfico, web design, brindes e produção audiovisual — peça a sua cotação.
+                  </p>
+                </div>
+                <div className="mt-4 flex items-center gap-1.5 text-xs font-bold text-red-600 dark:text-red-400">
+                  <span>Pedir cotação</span>
+                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+                </div>
+              </a>
             </div>
           </div>
         )}
