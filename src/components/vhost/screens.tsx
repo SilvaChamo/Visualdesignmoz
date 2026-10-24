@@ -203,7 +203,7 @@ const home =
 function InicioSoDominio() {
   const vh = useVH();
   return (
-    <div className="tw-livre">
+    <div className="tw-livre inicio-so-dominio">
       <ClientProductsHub
         displayName={vh.s.pessoa?.nome}
         sessionUser={vh.s.pessoa?.email}

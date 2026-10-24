@@ -14330,3 +14330,8 @@
 .vh .side .grp .nbal:not(#x) {
    margin-right: calc(10px * var(--z, 1))
 }
+
+/* Início de quem só tem domínio: sem a coluna da direita (perfil, novos serviços, acesso rápido) */
+.vh .inicio-so-dominio .lg\:w-64:not(#x) {
+   display: none
+}

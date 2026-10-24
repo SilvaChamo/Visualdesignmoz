@@ -296,6 +296,9 @@ function comDados(cur: St, d: DadosServidor, caminhoDesejado: string, doNavegado
   return fromPath(n0, caminhoValido);
 }
 
+/** Menu de quem só tem domínio (Silva, 24/10/2026) */
+const MENU_SO_DOMINIO = ['Gestão de domínios', 'Avançado', 'Sistema e ficheiros', 'Compras e encomendas', 'Suporte e ajuda'];
+
 const nadaMuda = () => () => {};
 /** Quanto tempo a página anterior fica à vista à espera da seguinte (depois a nova abre, com o carregador do DA) */
 const ESPERA_MAX_MS = 1200;
@@ -1059,6 +1062,8 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
   const t = (text: string) => translate(st.lang, text);
   // balões no menu: encomenda nova, cancelada ou actualizada (e pagamentos por confirmar, para o administrador)
   const avisosMenu = useAvisosEncomendas(st.carga === 'ok' && !!st.login && !st.stack.length, st.acc[st.login]?.role === 'admin', s.page === 'encomendas', toast);
+  // quem só tem domínio (sem conta no servidor): menu reduzido
+  const soDominio = st.carga === 'ok' && level === 'utilizador' && !st.acc[me];
   const go = (id: string) => nav(route(level, id));
   /** planos de cliente do servidor (submenus de Admin › Configurações de acesso) */
   const planosAcesso = Object.keys(st.db.pkgs).filter((p) => p !== 'system');
@@ -1552,7 +1557,7 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
                   </>
                 ) : (
                   MENU[level]
-                    .filter(([g]) => g !== 'Início')
+                    .filter(([g]) => g !== 'Início' && (!soDominio || MENU_SO_DOMINIO.includes(g)))
                     .map(([g, items]) => {
                       const vis = items.filter((it) => !SEM_MENU.has(it.id) && vh.hasFeat(it.feat, it.id));
                       if (!vis.length) return null;
@@ -1568,7 +1573,7 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
                               if (abrir && !(level === 'admin' && g === 'Configurações de acesso')) go(vis[0].id);
                             }}
                           >
-                            <span>{t(g)}</span>
+                            <span>{t(soDominio && g === 'Compras e encomendas' ? 'Compras' : g)}</span>
                             {!st.open[k] && vis.some((it) => avisosMenu[it.id]) && <b className="nbal">{vis.reduce((soma, it) => soma + (avisosMenu[it.id]?.n || 0), 0)}</b>}
                             <i className="fa-solid fa-chevron-down chev" />
                           </button>
