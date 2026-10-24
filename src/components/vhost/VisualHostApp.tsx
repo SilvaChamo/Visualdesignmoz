@@ -1526,7 +1526,7 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
                 </h1>
                 <p>{t('Olá, ' + pessoaNome.split(' ')[0])}</p>
               </div>
-              <div className="lvl" id="lvl" style={allowed.length > 1 ? undefined : { display: 'none' }}>
+              <div className="lvl" id="lvl" style={allowed.length > 1 && !soDominio ? undefined : { display: 'none' }}>
                 {allowed.map((k) => (
                   <button key={k} className={level === k && !sec ? 'on' : ''} onClick={() => setLevel(k)} title={t(nomeNivel(k))}>
                     {t(nomeNivel(k))}
