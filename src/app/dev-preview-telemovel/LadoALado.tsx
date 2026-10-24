@@ -5,7 +5,7 @@
 // moldura leva a outra para o mesmo endereço.
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-const INICIO = '/host:2026/utilizador/ssl';
+const INICIO = '/vhost:2026/utilizador/ssl';
 const LARGURAS = [320, 390, 430] as const;
 const GUARDA = 'dev-preview-telemovel';
 
