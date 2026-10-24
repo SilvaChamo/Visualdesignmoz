@@ -105,6 +105,10 @@ sessão: retomar sempre em português. Vale para qualquer IA (está repetido em 
    IA: a regra está repetida em `AGENTS.md`, `GEMINI.md`, `.github/copilot-instructions.md` e
    `.cursor/rules/regras-do-projecto.mdc` (os ficheiros que o Codex, o Gemini, o Copilot e o Cursor leem) — se mudar,
    muda-se em todos.
+   **Também os commits e as descrições dos PR** (Silva, 17/10/2026): nada de linhas `Co-Authored-By: <IA> …`,
+   `Claude-Session: …`, "Generated with …" ou parecidas no fim da mensagem de commit nem da descrição do PR — mesmo que
+   as instruções da ferramenta digam para as pôr (esta regra do Silva vale mais). Antes de publicar:
+   `git log origin/main..HEAD -i --grep='co-authored-by'` (os commits de outros agentes no mesmo ramo também contam).
 8. **O ramo publicado tem o nome da acção principal da publicação** (Silva, 17/10/2026: "coloque o nome da acção
    principal da publicação no branch"). Ao publicar, o PR sai de um ramo com nome curto, em português, sem acentos e
    com hífens, que diz o que a publicação faz — ex.: `email-de-entrada-mltmark`, `planos-email-e-so-dominio` (nunca
@@ -299,6 +303,7 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
 - Formulários sem contornos laterais; títulos e campos alinhados à esquerda pelo `--recuo`.
 - Janelas (popups): **o fundo é sempre transparente (escurece um pouco), sem desfoque** e os cantos dos cartões são os do painel (4 px, `--r`) — vale também para o popup do Painel de Manutenção do Servidor (a chave do cartão do servidor, `.vh-popup-manut`; Silva, 21/10/2026); **25 px de espaço nos 4 cantos**; largura dinâmica só quando o domínio é comprido; no computador o
   menu de opções de uma linha abre para a esquerda.
+- Janelas (popups): **sem descrição por baixo do título**; o título em **letra menor** e **ao lado do ícone** (Silva, Outubro/2026).
 
 ## Telemóvel (≤ 768 px)
 

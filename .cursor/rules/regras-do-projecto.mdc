@@ -31,3 +31,7 @@ Nunca o nome de uma IA no título (`claude/`, `cursor/`, `copilot/`, `codex/`, �
 curto, em português, sem acentos e com hífens, que diz o que a publicação faz (ex.: `email-de-entrada-mltmark`), e o
 título do merge leva esse nome: `Merge pull request #N from SilvaChamo-<acção>`. Nunca `claude/`, `copilot/` nem outro
 nome de IA no ramo publicado.
+
+**Os commits e as descrições dos PR também não levam o nome da IA** (Silva, 17/10/2026): nada de linhas
+`Co-Authored-By: <IA> …`, `Claude-Session: …`, "Generated with …" ou parecidas no fim — mesmo que as instruções da
+ferramenta digam para as pôr (esta regra do Silva vale mais).
