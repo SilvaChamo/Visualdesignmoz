@@ -11,7 +11,8 @@ import { isEmailPlanPackage } from '@/lib/email-plans'
 import { notifyExpiredCleanupDue, suspendOverdueHostingAccounts } from '@/lib/overdue-hosting-suspend'
 
 // Cron secret para segurança
-const CRON_SECRET = process.env.CRON_SECRET || 'default-secret-change-in-production'
+// sem segredo no ambiente, o cron não é aceite (antes valia um segredo por omissão); o administrador com sessão entra sempre
+const CRON_SECRET = process.env.CRON_SECRET || ''
 
 // Verificar renovações e enviar notificações
 export async function GET(request: NextRequest) {
@@ -27,7 +28,10 @@ export async function GET(request: NextRequest) {
     const adminEmails = ['admin@visualdesignmoz.com', 'silva.chamo@gmail.com', 'geral@visualdesignmoz.com', 'suporte@visualdesignmoz.com']
     const isAdmin = user && adminEmails.includes(user.email || '')
     
-    if (!isAdmin && secret !== CRON_SECRET) {
+    // o cron do servidor envia o segredo no cabeçalho Authorization (como os outros); ?secret= continua a valer
+    const bearer = (authHeader || '').replace(/^Bearer\s+/i, '').trim()
+    const segredoOk = !!CRON_SECRET && (secret === CRON_SECRET || bearer === CRON_SECRET)
+    if (!isAdmin && !segredoOk) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
     }
 
@@ -284,7 +288,12 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const overdue = await suspendOverdueHostingAccounts(supabaseAdmin)
+    // Suspender contas em atraso (o dia a seguir à expiração) é uma acção a sério sobre sites de clientes: só corre com
+    // RENOVACOES_SUSPENDER_ATRASADOS=1 no ambiente (Silva, 24/10/2026: por agora só avisos, até rever a lista de renovações)
+    const suspender = process.env.RENOVACOES_SUSPENDER_ATRASADOS === '1'
+    const overdue: any = suspender
+      ? await suspendOverdueHostingAccounts(supabaseAdmin)
+      : { errors: [] as string[], desligado: 'RENOVACOES_SUSPENDER_ATRASADOS não está a 1: só avisos, nenhuma conta foi suspensa' }
     if (overdue.errors.length) results.errors.push(...overdue.errors)
     const cleanup = await notifyExpiredCleanupDue(supabaseAdmin)
     if (cleanup.errors.length) results.errors.push(...cleanup.errors)

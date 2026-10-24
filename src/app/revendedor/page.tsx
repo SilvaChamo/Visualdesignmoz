@@ -35,7 +35,7 @@ import {
 } from '../dashboard/DirectAdminSections'
 import { ClientesDaSection } from '../dashboard/ClientesDaSection'
 import { NotificationsSection } from '../dashboard/NotificationsSection'
-import { RenewalsSection } from '../dashboard/RenewalsSection'
+import { RenewalsSection } from '@/components/vhost/comuns/RenewalsSection'
 import { TemplatesSection } from '@/components/vhost/comuns/TemplatesSection'
 import { DNSCentralSection } from '../dashboard/DNSCentralSection'
 import { DomainTransferSection } from '../dashboard/DomainTransferSection'

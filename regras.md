@@ -171,6 +171,18 @@ sessão: retomar sempre em português. Vale para qualquer IA (está repetido em 
   (`/vhost:2026`, a página `entrada.tsx`), no mesmo ecrã onde estava; não vai para o login do site nem para a página inicial.
 - **Sem sessão**, o endereço do painel mostra a entrada do próprio painel (nunca redirecciona para o login do site).
 
+# Renovações de domínios e hospedagem no vhost (Silva, 24/10/2026)
+
+- **Onde estão:** Admin › Renovações (todas as renovações: visão geral, domínios, hospedagem, registar uma nova) e Gestão › Renovações (as do próprio
+  cliente) — `src/components/vhost/paginas/renovacoes.tsx`, que embute os componentes `RenewalsSection` e `ClientRenewalsSection` (em
+  `vhost/comuns/`) com as mesmas rotas `/api/renewals…`. Os **modelos das mensagens** de renovação estão em Admin › Mensagem a todos › Templates, os
+  **comprovativos e pagamentos** em Admin › Contabilidade, e a **renovação automática** do domínio no registador em Domínios (Renovação automática).
+- **Aviso diário:** o deploy instala um cron (`0 8 * * *`, hora de Moçambique) que chama `/api/cron/renewal-check` com o segredo no cabeçalho. Só **avisa**
+  (notificação + e-mail pelos modelos). **Suspender contas em atraso está desligado** e só corre com `RENOVACOES_SUSPENDER_ATRASADOS=1` no ambiente do
+  servidor, depois de o Silva rever a lista (o `domain_renewals` esteve incompleto: o `basededadosagro.com` chegou a faltar). Nunca ligar a suspensão
+  sem ele pedir: já se parou um site real por engano.
+- Os dados das renovações (`domain_renewals`, `renewals`) nunca se alteram nem apagam por "limpeza".
+
 # Entrar com o nome da conta, além do e-mail (Silva, 24/10/2026)
 
 O login do site (`/login`) aceita o **nome da conta** (o nome de utilizador do servidor, ex.: `oshercollective`) **e** o e-mail
