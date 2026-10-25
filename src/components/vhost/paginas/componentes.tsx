@@ -786,7 +786,7 @@ export function DataTable<T>({
           </div>
         )}
         {/* por cima da linha do título a paginação está sempre presente: só fica ativa quando há mais de uma página (Silva, 23/10/2026) */}
-        {noTopo && createPortal(paginador, topoCtx!.pagEl!)}
+        {noTopo && paginas > 1 && createPortal(paginador, topoCtx!.pagEl!)}
       </div>
     </>
   );

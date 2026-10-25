@@ -13098,14 +13098,16 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    }
 }
 
-/* Cartões de números: cada informação numa só linha (Silva, 22/10/2026) — o título, o número e o que vem a seguir não partem; se não
-   cabe, o texto pequeno encolhe em vez de passar para a linha de baixo */
+/* Cartões de números: cada informação numa só linha (Silva, 22/10/2026) — o título, o número e o que vem a seguir não partem; só se
+   não cabe passa à linha de baixo, nunca cortado com "…" (regra do painel; Silva, 25/10/2026) */
 .vh .stat small,
 .vh .stat strong {
-   white-space: nowrap;
-   overflow: hidden;
-   text-overflow: ellipsis
+   white-space: normal;
+   overflow: visible;
+   overflow-wrap: anywhere;
+   text-overflow: clip
 }
+
 
 .vh .stat strong span {
    font-size: calc(12.5px * var(--fs, 1))
@@ -13782,6 +13784,14 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
 .vh .side .grp span:not(#x) {
    overflow: visible;
    text-overflow: clip
+}
+
+/* nome comprido no menu (ex.: "Editor de ficheiros do sistema" a 980 px): passa à linha de baixo em vez de ficar cortado pela margem da barra */
+.vh .side a .lb:not(#x) {
+   white-space: normal;
+   overflow-wrap: anywhere;
+   min-width: 0;
+   line-height: 1.2
 }
 
 .vh .acct span:not(#x),
@@ -14632,5 +14642,18 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
       grid-row: auto;
       padding: calc(14px * var(--z, 1)) calc(12px * var(--z, 1));
       text-align: center
+   }
+}
+
+/* Telemóvel (≤768): os separadores secundários (ex.: Handlers definidos por si | Handlers do sistema) não deslizam cortados à direita:
+   passam à linha de baixo quando não cabem — Silva, 25/10/2026 */
+@media (max-width: 768px) {
+   .vh .ptabs.sub:not(#x) {
+      flex-wrap: wrap;
+      overflow: visible
+   }
+
+   .vh .ptabs.sub:not(#x) > button {
+      flex: 1 1 auto
    }
 }
