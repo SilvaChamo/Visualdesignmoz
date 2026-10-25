@@ -217,6 +217,30 @@ export interface RenewalTemplate {
 // ============================================
 
 export const defaultRenewalTemplates: RenewalTemplate[] = [
+  // Template 0: 90 dias = 3 meses (Primeiro aviso; Silva, 24/10/2026: "avisar o utilizador desde os 3 meses")
+  {
+    id: 'renewal-90-days',
+    name: 'Renovação em 3 Meses',
+    daysBefore: 90,
+    title: '🔔 Renovação em 3 meses - {{serviceName}}',
+    message: 'Olá {{clientName}}, o seu {{serviceName}} expira em 3 meses ({{expirationDate}}). Renove com tempo: se não for renovado até ao último dia, o serviço é suspenso.',
+    emailSubject: '🔔 {{serviceName}} expira em 3 meses ({{expirationDate}})',
+    emailBody: `
+<p>Faltam <strong>3 meses</strong> para o fim do prazo do seu serviço <strong>{{serviceName}}</strong>.</p>
+<div style="background:#f8fafc;border-left:4px solid #3b82f6;padding:20px;margin:25px 0;">
+  <p style="margin:8px 0;"><strong>📅 Último dia:</strong> {{expirationDate}}</p>
+  <p style="margin:8px 0;"><strong>💰 Renovação:</strong> {{renewalPrice}}</p>
+  <p style="margin:8px 0;"><strong>Faltam:</strong> {{daysRemaining}} dias</p>
+</div>
+<div style="text-align:left;margin:24px 0;">
+  <a href="{{renewalLink}}" class="vd-cta-btn" style="display:inline-block;background:#000000;color:white;padding:10px 24px;text-decoration:none;border-radius:4px;font-weight:bold;font-size:14px;">RENOVAR AGORA</a>
+</div>
+<p style="font-size:14px;color:#64748b;">Avisamos de novo aos 60, 45, 30, 15, 7, 3 e 1 dias. <strong>Se o serviço não for renovado até ao último dia, é suspenso</strong>; volta a funcionar quando a renovação for paga.</p>
+    `.trim(),
+    type: 'info',
+    urgency: 'low'
+  },
+
   // Template 1: 60 dias (Primeiro aviso)
   {
     id: 'renewal-60-days',

@@ -177,10 +177,13 @@ sessão: retomar sempre em português. Vale para qualquer IA (está repetido em 
   cliente) — `src/components/vhost/paginas/renovacoes.tsx`, que embute os componentes `RenewalsSection` e `ClientRenewalsSection` (em
   `vhost/comuns/`) com as mesmas rotas `/api/renewals…`. Os **modelos das mensagens** de renovação estão em Admin › Mensagem a todos › Templates, os
   **comprovativos e pagamentos** em Admin › Contabilidade, e a **renovação automática** do domínio no registador em Domínios (Renovação automática).
-- **Aviso diário:** o deploy instala um cron (`0 8 * * *`, hora de Moçambique) que chama `/api/cron/renewal-check` com o segredo no cabeçalho. Só **avisa**
-  (notificação + e-mail pelos modelos). **Suspender contas em atraso está desligado** e só corre com `RENOVACOES_SUSPENDER_ATRASADOS=1` no ambiente do
-  servidor, depois de o Silva rever a lista (o `domain_renewals` esteve incompleto: o `basededadosagro.com` chegou a faltar). Nunca ligar a suspensão
-  sem ele pedir: já se parou um site real por engano.
+- **Avisos e suspensão** (Silva, 24/10/2026: "avisar desde os 3 meses; quando chegar o último dia, suspender"): o deploy instala um cron
+  (`0 8 * * *`, hora de Moçambique) que chama `/api/cron/renewal-check` com o segredo no cabeçalho. **Avisa** (notificação + e-mail pelos modelos) aos
+  90 (3 meses), 60, 45, 30, 15, 7, 3 e 1 dias. **Passado o último dia suspende** o serviço (reversível: pagar a renovação reactiva), com **travões** em
+  `src/lib/overdue-hosting-suspend.ts`: só o que expirou há 30 dias ou menos (mais antigo avisa o admin), **no máximo 5 por dia**, **nunca**
+  `basededadosagro.com` nem `visualdesignmoz.com` (`RENOVACOES_NUNCA_SUSPENDER`), e o admin recebe a lista. O interruptor é
+  `RENOVACOES_SUSPENDER_ATRASADOS=1` (posto pelo deploy). **`/api/cron/renewal-check?simular=1`** (administrador com sessão) mostra o que seria
+  suspenso sem fazer nada: ver antes de mexer nos dados. Nunca tirar os travões: a tabela esteve incompleta e já se parou um site real por engano.
 - Os dados das renovações (`domain_renewals`, `renewals`) nunca se alteram nem apagam por "limpeza".
 
 # Os painéis antigos já não existem (Silva, 24/10/2026: "o painel vhost é o principal")

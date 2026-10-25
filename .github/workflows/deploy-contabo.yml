@@ -193,6 +193,10 @@ jobs:
             set_env_var NEXT_PUBLIC_VD_NAMESERVERS "ns3.visualdesignmoz.com,ns4.visualdesignmoz.com"
             # Painel VisualHost (/vhost): alterações às contas do servidor ligadas para todas as contas (aprovado pelo Silva, 10/10/2026)
             set_env_var VHOST_ACOES_TODAS "1"
+            # Renovações (Silva, 24/10/2026): avisos desde os 3 meses e, passado o último dia, suspensão do serviço (reversível: o pagamento da
+            # renovação reactiva). Com travões: só o que expirou há 30 dias ou menos, no máximo 5 por dia, nunca o basededadosagro.com nem o
+            # visualdesignmoz.com (RENOVACOES_NUNCA_SUSPENDER) e o admin é avisado. Ver src/lib/overdue-hosting-suspend.ts.
+            set_env_var RENOVACOES_SUSPENDER_ATRASADOS "1"
 
       - name: Read server environment
         run: |
