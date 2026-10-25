@@ -96,31 +96,94 @@ async function setServiceSuspended(
   return account.ok ? { ok: true } : { ok: false, error: `${domain}: ${account.error || `falha a ${verb} a conta`}` };
 }
 
-/**
- * Hospedagem e planos de email com data de validade já passada: suspende no
- * servidor e marca a linha como expired.
- */
-export async function suspendOverdueHostingAccounts(admin: SupabaseClient): Promise<{
+/** Travões da suspensão automática (Silva, 24/10/2026: "quando chegar o último dia, suspender"). Como a tabela de renovações pode ter linhas
+ *  velhas ou incompletas (o basededadosagro.com chegou a faltar), nunca se suspende às cegas: */
+const ATRASO_MAX_DIAS = 30; // só se suspende o que expirou há 30 dias ou menos; mais antigo avisa o admin e fica para rever à mão
+const SUSPENSOES_MAX_POR_CORRIDA = 5; // no máximo 5 por dia; o resto fica para o dia seguinte e o admin é avisado
+const NUNCA_SUSPENDER_POR_OMISSAO = 'basededadosagro.com,visualdesignmoz.com';
+
+/** Domínios que nunca se suspendem automaticamente (RENOVACOES_NUNCA_SUSPENDER, separados por vírgulas) */
+function dominioProtegido(domain: string): boolean {
+  const lista = (process.env.RENOVACOES_NUNCA_SUSPENDER || NUNCA_SUSPENDER_POR_OMISSAO)
+    .split(',')
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+  const d = domain.trim().toLowerCase();
+  return lista.some((p) => d === p || d.endsWith('.' + p));
+}
+
+export type ResultadoAtrasos = {
   attempted: number;
   suspended: number;
   errors: string[];
-}> {
-  const today = new Date().toISOString().slice(0, 10);
+  /** expirou há mais de ATRASO_MAX_DIAS: não se suspende, avisa-se o admin */
+  antigos: number;
+  /** domínios que nunca se suspendem */
+  protegidos: string[];
+  /** ficaram para o dia seguinte (limite por corrida) */
+  adiados: number;
+  /** só na simulação: o que seria suspenso */
+  planeados?: { domain: string; expiration: string | null; server: string | null }[];
+};
+
+/**
+ * Hospedagem e planos de email com data de validade já passada: suspende no servidor e marca a linha como expired.
+ * O serviço vale até ao último dia (a data de validade); a suspensão é no dia a seguir. Com `simular`, só diz o que faria.
+ */
+export async function suspendOverdueHostingAccounts(
+  admin: SupabaseClient,
+  opcoes: { simular?: boolean } = {},
+): Promise<ResultadoAtrasos> {
+  const hoje = new Date();
+  const today = hoje.toISOString().slice(0, 10);
+  const limite = new Date(hoje.getTime() - ATRASO_MAX_DIAS * 86_400_000).toISOString().slice(0, 10);
+  const result: ResultadoAtrasos = { attempted: 0, suspended: 0, errors: [], antigos: 0, protegidos: [], adiados: 0 };
+  if (opcoes.simular) result.planeados = [];
+
+  // o que expirou há mais de 30 dias nunca se suspende sozinho: pode ser uma linha velha ou esquecida
+  const { count: velhos } = await admin
+    .from('hosting_renewals')
+    .select('id', { count: 'exact', head: true })
+    .lt('expiration_date', limite)
+    .in('status', ['active', 'pending']);
+  result.antigos = velhos || 0;
+  if (result.antigos > 0 && !opcoes.simular) {
+    await notifyAdminOnce(
+      admin,
+      'Renovações em atraso há mais de 30 dias',
+      `${result.antigos} renovação(ões) de hospedagem expiraram há mais de ${ATRASO_MAX_DIAS} dias e ainda estão activas: não são suspensas automaticamente. Reveja-as em Admin › Renovações.`,
+    ).catch(() => false);
+  }
+
   const { data: rows, error } = await admin
     .from('hosting_renewals')
-    .select('id, user_id, domain_name, status, server')
+    .select('id, user_id, domain_name, status, server, expiration_date')
     .lt('expiration_date', today)
+    .gte('expiration_date', limite)
     .in('status', ['active', 'pending']);
 
   if (error) {
-    return { attempted: 0, suspended: 0, errors: [error.message] };
+    result.errors.push(error.message);
+    return result;
   }
 
-  const result = { attempted: 0, suspended: 0, errors: [] as string[] };
-
+  const suspensos: string[] = [];
   for (const row of (rows || []) as RenewalRow[]) {
     // Plano de email ainda sem domínio associado — nada no servidor para suspender.
     if (!String(row.domain_name || '').trim()) continue;
+    const dominio = String(row.domain_name).trim().toLowerCase();
+    if (dominioProtegido(dominio)) {
+      result.protegidos.push(dominio);
+      continue;
+    }
+    if (opcoes.simular) {
+      result.planeados!.push({ domain: dominio, expiration: row.expiration_date ?? null, server: row.server });
+      continue;
+    }
+    if (result.suspended >= SUSPENSOES_MAX_POR_CORRIDA) {
+      result.adiados += 1;
+      continue;
+    }
     result.attempted += 1;
 
     try {
@@ -138,11 +201,20 @@ export async function suspendOverdueHostingAccounts(admin: SupabaseClient): Prom
         result.errors.push(`${row.domain_name}: suspenso no servidor, mas o estado na BD falhou (${updateError.message})`);
       }
       result.suspended += 1;
+      suspensos.push(dominio);
     } catch (itemError) {
       result.errors.push(
         `${row.domain_name}: ${itemError instanceof Error ? itemError.message : 'erro ao suspender'}`,
       );
     }
+  }
+
+  if (suspensos.length > 0 || result.adiados > 0) {
+    await notifyAdminOnce(
+      admin,
+      'Serviços suspensos por atraso',
+      `${today}: suspensos ${suspensos.length} (${suspensos.join(', ') || '—'})${result.adiados ? `; ${result.adiados} ficam para amanhã (limite de ${SUSPENSOES_MAX_POR_CORRIDA} por dia)` : ''}. A renovação paga volta a activá-los.`,
+    ).catch(() => false);
   }
 
   return result;

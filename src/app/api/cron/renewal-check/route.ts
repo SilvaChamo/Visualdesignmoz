@@ -35,6 +35,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
     }
 
+    // ?simular=1 (administrador ou cron): só diz que serviços seriam suspensos hoje, sem avisar nem suspender ninguém
+    if (searchParams.get('simular') === '1') {
+      const urlSim = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+      const chaveSim = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+      const plano = await suspendOverdueHostingAccounts(createAdminClient(urlSim, chaveSim), { simular: true })
+      return NextResponse.json({ success: true, simular: true, suspensaoLigada: process.env.RENOVACOES_SUSPENDER_ATRASADOS === '1', overdueSuspend: plano })
+    }
+
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
     const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
     const supabaseAdmin = createAdminClient(supabaseUrl, supabaseKey)
