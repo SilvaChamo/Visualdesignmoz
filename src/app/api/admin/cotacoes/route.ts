@@ -181,7 +181,7 @@ export async function PATCH(request: Request) {
       const supabase = getSupabaseAdmin();
       const { data: existing, error: existingError } = await supabase
         .from('quotation_requests')
-        .select('quantidade, sob_consulta, sob_consulta_original, produto, empresa, responsavel, email')
+        .select('quantidade, sob_consulta, sob_consulta_original, produto, empresa, responsavel, email, user_id')
         .eq('id', id)
         .single();
 
