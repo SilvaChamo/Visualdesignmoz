@@ -13,16 +13,20 @@ name: Ops - Balde do Hetzner para o Contabo
 #               guarda cópia de segurança em /root/balde-hetzner-troca/, desactiva o Offload Media, tira os plugins do Hetzner
 #               (s3-endpoint-fix.php, vd-hetzner-media-urls.php), limpa a cache e confirma que a página já não chama o balde.
 #               Para desfazer: ver os comandos que a fase escreve no fim.
+#   verificar   SÓ LÊ: percorre todas as páginas publicadas de todos os WordPress do servidor e confirma que respondem 200, que nenhuma
+#               chama o balde e que todos os ficheiros de uploads que usam dão 200; aponta sobras do Hetzner (bloco do .htaccess,
+#               mu-plugins, wp-config, plugin Offload Media). Dá um resumo com o número de ocorrências.
 # Corre com nice/ionice para não pesar nos outros sites do servidor (basededadosagro.com, etc.).
 
 on:
   workflow_dispatch:
     inputs:
       fase:
-        description: 'inventario (só lê), copiar (cópia completa do balde, precisa do rclone) ou migrar (um domínio)'
+        description: 'inventario (só lê), verificar (só lê, todas as páginas), copiar (precisa do rclone) ou migrar (um domínio)'
         type: choice
         options:
           - inventario
+          - verificar
           - copiar
           - migrar
         default: inventario
@@ -54,7 +58,7 @@ jobs:
           script: |
             set -u
             export PATH="$PATH:/usr/local/bin"
-            case "$FASE" in (inventario|copiar|migrar) ;; (*) echo "Fase inválida"; exit 1;; esac
+            case "$FASE" in (inventario|verificar|copiar|migrar) ;; (*) echo "Fase inválida"; exit 1;; esac
             BUCKET=visualdesign-storage
             CONF=/root/.config/rclone/rclone.conf
             COPIA=/root/balde-hetzner-copia
@@ -82,6 +86,40 @@ jobs:
               echo "--- comparação final (o que ainda falta ou difere)"
               $RC check "hetzner-s3:$BUCKET" "$COPIA" --one-way --size-only --fast-list 2>&1 | tail -n 5
               echo "cópia local: $(du -sh "$COPIA" | cut -f1) em $COPIA"
+              exit 0
+            fi
+
+            if [ "$FASE" = "verificar" ]; then
+              PROBLEMAS=0
+              for cfg in $(ls /home/*/web/*/public_html/wp-config.php 2>/dev/null | grep -viE "backup|lixo"); do
+                D=$(dirname "$cfg"); U=$(stat -c %U "$D"); d=$(basename "$(dirname "$D")")
+                W="sudo -u $U $WP --path=$D --skip-plugins --skip-themes"
+                echo
+                echo "=================== $d ==================="
+                if [ -f "$D/.htaccess" ] && grep -q "VD-HETZNER-UPLOADS" "$D/.htaccess"; then echo "  PROBLEMA: o .htaccess ainda tem o bloco do balde"; PROBLEMAS=$((PROBLEMAS + 1)); fi
+                if ls "$D/wp-content/mu-plugins" 2>/dev/null | grep -qiE "hetzner|s3-"; then echo "  PROBLEMA: mu-plugin do Hetzner ainda presente"; PROBLEMAS=$((PROBLEMAS + 1)); fi
+                if grep -qE "AS3CF_SETTINGS|your-objectstorage" "$cfg"; then echo "  PROBLEMA: o wp-config ainda fala do balde"; PROBLEMAS=$((PROBLEMAS + 1)); fi
+                if [ -d "$D/wp-content/plugins/amazon-s3-and-cloudfront" ]; then echo "  AVISO: o plugin Offload Media ainda está instalado"; fi
+                T=$(mktemp -d)
+                { echo "https://$d/"; $W post list --post_type=page,post --post_status=publish --field=url 2>/dev/null; } | grep -E "^https?://" | sort -u | head -300 > "$T/paginas.txt"
+                NPAG=$(wc -l < "$T/paginas.txt"); MAU=0; BALDE=0; : > "$T/imgs.txt"
+                while IFS= read -r u; do
+                  c=$(curl -sL -m 25 -o "$T/p.html" -w '%{http_code}' "$u")
+                  if [ "$c" != 200 ]; then MAU=$((MAU + 1)); echo "  página $c: $u"; fi
+                  if grep -q "your-objectstorage" "$T/p.html"; then BALDE=$((BALDE + 1)); echo "  link ao balde em: $u"; fi
+                  grep -oE "https?://$d/wp-content/uploads/[^\"' )<>,]+" "$T/p.html" | sed -E 's/[?#].*$//' >> "$T/imgs.txt"
+                done < "$T/paginas.txt"
+                sort -u "$T/imgs.txt" | grep -E "\.[A-Za-z0-9]{2,5}$" > "$T/imgs_u.txt"
+                NIMG=$(wc -l < "$T/imgs_u.txt")
+                xargs -P 6 -I{} sh -c 'c=$(curl -s -o /dev/null -m 25 -w "%{http_code}" -I "{}"); [ "$c" = 200 ] || echo "$c {}"' < "$T/imgs_u.txt" > "$T/maus.txt"
+                NMAU=$(wc -l < "$T/maus.txt")
+                echo "  páginas: $NPAG (não-200: $MAU; com link ao balde: $BALDE); ficheiros de uploads usados: $NIMG (não dão 200: $NMAU)"
+                head -15 "$T/maus.txt" | sed 's/^/    /'
+                PROBLEMAS=$((PROBLEMAS + MAU + BALDE + NMAU))
+                rm -rf "$T"
+              done
+              echo
+              echo "RESUMO: $PROBLEMAS ocorrência(s) a ver"
               exit 0
             fi
 
