@@ -459,6 +459,7 @@ function ListaDominios({ abaDom = 'meus', abrirNovo = false }: { abaDom?: AbaDom
           id="dominios"
           umaLinha
           barraFora
+          empilhar={false}
           consulta={busca}
           rows={rows}
           cols={cols}
