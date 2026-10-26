@@ -126,8 +126,15 @@ jobs:
               $W plugin list --status=active --field=name 2>/dev/null | grep -iE "s3|offload|as3cf|hetzner"
               ls "$D/wp-content/mu-plugins" 2>/dev/null | grep -iE "hetzner|s3|as3cf"
               echo "--- referências ao balde na base de dados (só SELECT)"
-              q() { $W db query "$1" --skip-column-names 2>&1 | grep -vi "deprecated" | tail -1; }
-              echo "posts: $(q "SELECT COUNT(*) FROM ${P}posts WHERE LOCATE('your-objectstorage.com', post_content) > 0")  postmeta: $(q "SELECT COUNT(*) FROM ${P}postmeta WHERE LOCATE('your-objectstorage.com', meta_value) > 0")  options: $(q "SELECT COUNT(*) FROM ${P}options WHERE LOCATE('your-objectstorage.com', option_value) > 0")"
+              for par in posts:post_content postmeta:meta_value options:option_value; do
+                tab=${par%%:*}; col=${par##*:}
+                r=$($W db query "SELECT COUNT(*) FROM ${P}${tab} WHERE LOCATE('your-objectstorage.com', ${col}) > 0" --skip-column-names 2>&1 | grep -vi deprecated | tr '\n' ' ')
+                echo "${tab}: ${r:-<vazio>}"
+              done
+              echo "linhas que contêm o balde (nomes, não os valores):"
+              $W db query "SELECT 'option', option_name, LENGTH(option_value) FROM ${P}options WHERE LOCATE('your-objectstorage.com', option_value) > 0 LIMIT 15" --skip-column-names 2>&1 | grep -vi deprecated
+              $W db query "SELECT 'postmeta', post_id, meta_key FROM ${P}postmeta WHERE LOCATE('your-objectstorage.com', meta_value) > 0 LIMIT 15" --skip-column-names 2>&1 | grep -vi deprecated
+              $W db query "SELECT 'post', ID, post_type, post_status FROM ${P}posts WHERE LOCATE('your-objectstorage.com', post_content) > 0 OR LOCATE('your-objectstorage.com', guid) > 0 LIMIT 15" --skip-column-names 2>&1 | grep -vi deprecated
               echo "--- definições do Offload Media na base de dados (sem chaves)"
               $W db query "SELECT option_value FROM ${P}options WHERE option_name='tantan_wordpress_s3'" --skip-column-names 2>&1 | grep -oE 's:[0-9]+:"(bucket|region|serve-from-s3|remove-local-file|object-prefix|enable-object-prefix|object-versioning|use-yearmonth-folders|force-https|delivery-provider|provider)";[^;]*;' | head -20
               echo "--- uploads no disco: $(du -sh "$UP" 2>/dev/null | cut -f1), $(find "$UP" -type f 2>/dev/null | wc -l) ficheiros"
@@ -149,11 +156,15 @@ jobs:
                   info=$($W db query "SELECT meta_value FROM ${P}postmeta WHERE meta_key='amazonS3_info' AND post_id=(SELECT post_id FROM ${P}postmeta WHERE meta_key='_wp_attached_file' AND meta_value='$rel' LIMIT 1)" --skip-column-names 2>/dev/null)
                   chave=$(printf '%s' "$info" | grep -oE 's:3:"key";s:[0-9]+:"[^"]+"' | sed -E 's/^s:3:"key";s:[0-9]+:"//; s/"$//' | head -1)
                   balde=$(printf '%s' "$info" | grep -oE 's:6:"bucket";s:[0-9]+:"[^"]+"' | sed -E 's/^s:6:"bucket";s:[0-9]+:"//; s/"$//' | head -1)
-                  if [ -n "$chave" ]; then
-                    res=$(curl -sI -m 20 "https://hel1.your-objectstorage.com/${balde:-$BUCKET}/$chave" | tr -d '\r' | awk 'NR==1{c=$2} tolower($1)=="content-length:"{l=$2} END{print "HTTP " c ", " l " bytes"}')
-                    echo "  $rel  ->  ${balde:-$BUCKET}/$chave  [$res]"
+                  guid=$($W db query "SELECT guid FROM ${P}posts WHERE ID=(SELECT post_id FROM ${P}postmeta WHERE meta_key='_wp_attached_file' AND meta_value='$rel' LIMIT 1)" --skip-column-names 2>/dev/null | tail -1)
+                  url=""
+                  if [ -n "$chave" ]; then url="https://hel1.your-objectstorage.com/${balde:-$BUCKET}/$chave"; fi
+                  case "$guid" in (*your-objectstorage.com*) url="$guid";; esac
+                  if [ -n "$url" ]; then
+                    res=$(curl -sI -m 20 "$url" | tr -d '\r' | awk 'NR==1{c=$2} tolower($1)=="content-length:"{l=$2} END{print "HTTP " c ", " l " bytes"}')
+                    echo "  $rel  ->  $url  [$res]"
                   else
-                    echo "  $rel  ->  sem chave do Offload"
+                    echo "  $rel  ->  sem URL do balde (guid: ${guid:-vazio})"
                   fi
                 done < /tmp/falta_$$.txt
               fi
