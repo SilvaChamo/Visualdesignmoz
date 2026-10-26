@@ -571,7 +571,7 @@ export function DataTable<T>({
           }}
         >
           {selKeys.length > 0 && <span className="n">{selKeys.length}</span>}
-          {t('Ações')} <i className="fa-solid fa-caret-down" />
+          {t('Opções')} <i className="fa-solid fa-caret-down" />
         </button>
         {acoesOpen && (
           <div
@@ -736,7 +736,7 @@ export function DataTable<T>({
                   </th>
                 ),
               )}
-              {colunasNoCabecalho && colunas ? <th className="dt-th-cols">{acoesNoFim && comAcoes && menuAcoes(true)}{colunas}</th> : paginacaoNoCabecalho && paginas > 1 ? <th className="dt-th-pag">{paginador}</th> : colFim && <th className={acoesNoFim && comAcoes ? 'dt-th-cols dt-th-acoes-fim' : undefined} style={tituloAcoes || (acoesNoFim && comAcoes) ? { textAlign: 'right' } : undefined}>{acoesNoFim && comAcoes ? menuAcoes(true) : tituloAcoes ? t(tituloAcoes) : null}</th>}
+              {colunasNoCabecalho && colunas ? <th className="dt-th-cols">{acoesNoFim && comAcoes && menuAcoes(true)}{colunas}</th> : paginacaoNoCabecalho && paginas > 1 ? <th className="dt-th-pag">{paginador}</th> : colFim && <th className={acoesNoFim && comAcoes ? 'dt-th-cols dt-th-acoes-fim' : undefined} style={tituloAcoes || colAcoes || (acoesNoFim && comAcoes) ? { textAlign: 'right' } : undefined}>{acoesNoFim && comAcoes ? menuAcoes(true) : tituloAcoes ? t(tituloAcoes) : colAcoes ? t('Acção') : null}</th>}
             </tr>
           </thead>
           <tbody>

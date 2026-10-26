@@ -33,13 +33,14 @@ const PUBLIC_MARKETING_PREFIXES = [
 /** Endereços antigos do painel: tudo o que lá chega vai para PAINEL_ENTRADA */
 const PANEL_HOSTS = new Set(['host.visualdesignmoz.com'])
 /** Endereço único do painel que se dá aos clientes (pedido do Silva, 13/10/2026): https://visualdesignmoz.com/vhost:2026/
- *  Servido pela rota src/app/host (reescrita aqui, sem redireccionar). */
+ *  Servido pela rota src/app/vhost (reescrita aqui, sem redireccionar). */
 const PAINEL_BASE = '/vhost:2026'
 // sem a barra final: o Next tira-a com mais um salto
 const PAINEL_ENTRADA = `https://visualdesignmoz.com${PAINEL_BASE}`
 /** O endereço único como pode chegar (o ":" às vezes vem codificado) */
 const PAINEL_FORMAS = [PAINEL_BASE, '/vhost%3A2026', '/vhost%3a2026']
-/** Endereços antigos do painel neste site (por esta ordem: o mais comprido primeiro) */
+/** Endereços antigos do painel neste site (por esta ordem: o mais comprido primeiro). Ficam só como redirecção para casos omissos:
+ *  favoritos, e-mails já enviados e o que ainda apontar para o nome antigo `host` (Silva, 26/10/2026: "redireciona mesmo depois de apagar"). */
 const PAINEL_ANTIGOS = ['/host:2026', '/host%3A2026', '/host%3a2026', '/vhost', '/host/2026', '/host']
 /** Deixam de existir — "página não encontrada" (pedido do Silva, 13/10/2026: /vhost/2026 só serviu uma noite) */
 const PAINEL_INEXISTENTES = ['/vhost/2026']
@@ -56,6 +57,12 @@ function restoPainel(pathname: string): string | null {
 function caminhoPainelAntigo(pathname: string): string | null {
   const antigo = PAINEL_ANTIGOS.find((a) => comPrefixo(pathname, a))
   return antigo ? PAINEL_BASE + pathname.slice(antigo.length) : null
+}
+
+/** Origem para onde se redirecciona: https no site em produção, http no servidor local (o `next dev` só fala http;
+ *  com https o navegador dá ERR_SSL_PROTOCOL_ERROR e o projecto local parece desligado). */
+function origemPublica(publico: string): string {
+  return /^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(publico) ? `http://${publico}` : `https://${publico}`
 }
 
 /** Há cookie de sessão do site (Supabase)? Só a presença — a validade confirma-a o servidor de autenticação */
@@ -91,22 +98,23 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(PAINEL_ENTRADA, 307)
   }
   // O painel vive todo em /vhost:2026/… (endereço único, pedido do Silva a 13/10/2026): abre aqui directamente — a rota
-  // do Next é src/app/host, por isso reescreve-se (o endereço no browser não muda), com ou sem a barra final.
+  // do Next é src/app/vhost, por isso reescreve-se (o endereço no browser não muda), com ou sem a barra final.
   const resto = restoPainel(pathname)
   if (resto !== null) {
     const ecra = resto.replace(/\/+$/, '')
     // Sem sessão: o painel mostra a sua própria entrada (nada de redirecionar para o login do site — Silva, 19/10/2026:
     // quem usa o endereço do painel entra pela entrada do painel; só ao sair é que vai para o login do site).
     const rota = request.nextUrl.clone()
-    rota.pathname = `/host${ecra}`
+    rota.pathname = `/vhost${ecra}`
     // A página do painel lê os dados já no servidor (sem página branca ao recarregar), onde não pode gravar cookies: a
     // sessão renova-se aqui, antes, como nos pedidos /api/vhost
     const { updateSession } = await import('@/utils/supabase/middleware')
     return updateSession(request, (headers) => NextResponse.rewrite(rota, { request: { headers } }))
   }
-  // sem rota no Next (o painel está em src/app/host): mostra a página "não encontrada"
+  // /vhost/2026 não existe: "página não encontrada". A rota interna do painel é src/app/vhost, por isso não se deixa passar
+  // (serviria o painel num endereço que não existe): reescreve-se para um caminho sem rota, que dá o 404 do site
   if (PAINEL_INEXISTENTES.some((p) => comPrefixo(pathname, p))) {
-    return NextResponse.next()
+    return NextResponse.rewrite(new URL('/pagina-que-nao-existe', request.url))
   }
   // Os endereços antigos (/vhost/…, /host/2026/…, links de e-mails e favoritos) vão, num só salto,
   // para o mesmo ecrã no endereço único
@@ -116,7 +124,7 @@ export async function proxy(request: NextRequest) {
       .split(',')[0]
       .trim()
       .toLowerCase()
-    return NextResponse.redirect(new URL(`${antigo.replace(/\/+$/, '')}${request.nextUrl.search}`, `https://${publico}`), 308)
+    return NextResponse.redirect(new URL(`${antigo.replace(/\/+$/, '')}${request.nextUrl.search}`, origemPublica(publico)), 308)
   }
   // o /evo e outros /host… (que não são do painel) seguem como antes
   if (pathname === '/evo' || pathname.startsWith('/evo/') || pathname.startsWith('/host')) {
@@ -195,7 +203,7 @@ export async function proxy(request: NextRequest) {
       .split(',')[0]
       .trim()
       .toLowerCase()
-    return NextResponse.redirect(new URL(PAINEL_BASE, `https://${publico}`), 308)
+    return NextResponse.redirect(new URL(PAINEL_BASE, origemPublica(publico)), 308)
   }
 
   // Páginas públicas de marketing (home, serviços, portfolio, preços, etc.)

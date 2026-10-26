@@ -63,3 +63,13 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION clear_login_attempts(p_key TEXT) RETURNS VOID AS $$
   DELETE FROM login_attempts WHERE attempt_key = p_key;
 $$ LANGUAGE sql;
+
+-- Segurança: só o servidor (service_role) mexe nisto. Sem isto, qualquer pessoa com a chave pública do Supabase podia
+-- ler as tentativas (IP + e-mail) ou chamar clear_login_attempts para apagar o seu próprio contador e anular o bloqueio.
+ALTER TABLE login_attempts ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE login_attempts FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION register_login_attempt(TEXT, INTEGER, INTEGER, INTEGER) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION clear_login_attempts(TEXT) FROM PUBLIC, anon, authenticated;
+GRANT ALL ON TABLE login_attempts TO service_role;
+GRANT EXECUTE ON FUNCTION register_login_attempt(TEXT, INTEGER, INTEGER, INTEGER) TO service_role;
+GRANT EXECUTE ON FUNCTION clear_login_attempts(TEXT) TO service_role;

@@ -185,9 +185,12 @@ export interface TicketSuporte {
 
 // Funções de autenticação
 export class LoginRateLimitError extends Error {
-  constructor(message: string) {
+  /** quanto falta para poder tentar outra vez (do `Retry-After`); 0 = não se sabe */
+  segundos: number
+  constructor(message: string, segundos = 0) {
     super(message)
     this.name = 'LoginRateLimitError'
+    this.segundos = segundos
   }
 }
 
@@ -294,7 +297,7 @@ export const auth = {
       }
       if (syncRes?.status === 429) {
         const result = (await syncRes.json().catch(() => ({}))) as { error?: string }
-        throw new LoginRateLimitError(result.error || 'Acesso temporariamente bloqueado por excesso de tentativas.')
+        throw new LoginRateLimitError(result.error || 'Acesso temporariamente bloqueado por excesso de tentativas.', Number(syncRes.headers.get('Retry-After')) || 0)
       }
       if (syncRes?.ok) {
         const retry = await supabase.auth.signInWithPassword({
@@ -314,7 +317,7 @@ export const auth = {
           });
           if (r.status === 429) {
             const j = (await r.json().catch(() => ({}))) as { erro?: string };
-            throw new LoginRateLimitError(j.erro || 'Acesso temporariamente bloqueado por excesso de tentativas.');
+            throw new LoginRateLimitError(j.erro || 'Acesso temporariamente bloqueado por excesso de tentativas.', Number(r.headers.get('Retry-After')) || 0);
           }
           const j = (await r.json().catch(() => ({}))) as { email?: string; sessao?: boolean };
           if (j.email && j.sessao) {

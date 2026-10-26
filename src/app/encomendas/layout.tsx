@@ -5,6 +5,7 @@ import { resolveRoleForAuthUser } from '@/lib/server-auth-role';
 import { readImpersonateClientUserId } from '@/lib/client-impersonation';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { ImpersonationBanner } from '@/components/encomendas/ImpersonationBanner';
+import { PromoProdutos } from '@/components/encomendas/PromoProdutos';
 
 // Painel próprio das encomendas de design (marca VisualDesign) — separado dos
 // painéis de hospedagem (dashboard/client/guest/revendedor). Qualquer conta
@@ -44,6 +45,8 @@ export default async function EncomendasLayout({ children }: { children: React.R
           exitRedirect="/vhost:2026"
         />
       )}
+      {/* só quem ainda não tem domínio nem hospedagem (os outros têm o painel do serviço) */}
+      {role === 'guest' && <PromoProdutos />}
       <div className="flex-1 min-h-0">{children}</div>
     </div>
   );

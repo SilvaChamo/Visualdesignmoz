@@ -18,8 +18,8 @@ import { marcarEntrada } from '@/lib/vhost-cache';
 export const LINGUA_LS = 'visualhost_lang';
 
 const TXT = {
-  pt: { user: 'Utilizador', userPh: 'Escreva o nome de utilizador ou e-mail', senha: 'Palavra-passe', senhaPh: 'Escreva a sua palavra-passe', entrar: 'Entrar', falta: 'Escreva o utilizador e a palavra-passe.', errado: 'Utilizador ou palavra-passe errados.', bloqueado: (min: number) => `Acesso temporariamente bloqueado por demasiadas tentativas de login falhadas. Aguarde ${min} minuto${min === 1 ? '' : 's'} antes de tentar novamente.`, ligacao: MSG_LIGACAO, mostrar: 'Mostrar a palavra-passe', esconder: 'Esconder a palavra-passe', claro: 'Tema claro', escuro: 'Tema escuro', voltar: 'Depois de entrar, volta a' },
-  en: { user: 'Username', userPh: 'Please enter username or email', senha: 'Password', senhaPh: 'Please enter your password', entrar: 'Sign in', falta: 'Please enter your username and password.', errado: 'Wrong username or password.', bloqueado: (min: number) => `Sign-in temporarily blocked after too many failed attempts. Wait ${min} minute${min === 1 ? '' : 's'} before trying again.`, ligacao: { ip: 'No connection to the sign-in server: the server blocked access from your IP after too many failed attempts on this network (for example, an email app with an old password). Ask support to unblock the IP.', internet: 'No internet connection. Check your network and try again.', servidor: 'The sign-in server is not responding. Try again in a minute.' }, mostrar: 'Show password', esconder: 'Hide password', claro: 'Light theme', escuro: 'Dark theme', voltar: 'After signing in, you return to' },
+  pt: { user: 'Utilizador', userPh: 'Escreva o nome de utilizador ou e-mail', senha: 'Palavra-passe', senhaPh: 'Escreva a sua palavra-passe', entrar: 'Entrar', falta: 'Escreva o utilizador e a palavra-passe.', errado: 'Utilizador ou palavra-passe errados.', bloqueado: (min: number) => `Bloqueado por tentativas falhadas. Volte a tentar daqui a ${min} min.`, ligacao: MSG_LIGACAO, mostrar: 'Mostrar a palavra-passe', esconder: 'Esconder a palavra-passe', claro: 'Tema claro', escuro: 'Tema escuro', voltar: 'Depois de entrar, volta a' },
+  en: { user: 'Username', userPh: 'Please enter username or email', senha: 'Password', senhaPh: 'Please enter your password', entrar: 'Sign in', falta: 'Please enter your username and password.', errado: 'Wrong username or password.', bloqueado: (min: number) => `Blocked after failed attempts. Try again in ${min} min.`, ligacao: { ip: 'No connection to the sign-in server: the server blocked access from your IP after too many failed attempts on this network (for example, an email app with an old password). Ask support to unblock the IP.', internet: 'No internet connection. Check your network and try again.', servidor: 'The sign-in server is not responding. Try again in a minute.' }, mostrar: 'Show password', esconder: 'Hide password', claro: 'Light theme', escuro: 'Dark theme', voltar: 'After signing in, you return to' },
 };
 
 export function EntradaPainel({ ocupado = false, escuro, lang, voltarA, onToggleTheme, onLang, onEntrou }: { ocupado?: boolean; escuro: boolean; lang: Lang; voltarA?: string; onToggleTheme: () => void; onLang: (l: Lang) => void; onEntrou: () => void }) {
@@ -71,7 +71,7 @@ export function EntradaPainel({ ocupado = false, escuro, lang, voltarA, onToggle
       marcarEntrada('painel'); // ao sair, volta a esta entrada
       onEntrou();
     } catch (error) {
-      setErro(error instanceof LoginNetworkError ? tx.ligacao[error.tipo] : error instanceof LoginRateLimitError ? error.message : tx.errado);
+      setErro(error instanceof LoginNetworkError ? tx.ligacao[error.tipo] : error instanceof LoginRateLimitError ? tx.bloqueado(Math.max(1, Math.ceil((error.segundos || 15 * 60) / 60))) : tx.errado);
       setAEntrar(false);
     }
   };

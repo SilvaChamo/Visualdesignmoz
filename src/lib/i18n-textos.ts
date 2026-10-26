@@ -16,6 +16,14 @@ export const EN: Record<string, string> = {
   'O plano de e-mail precisa de um domínio: registe um novo, transfira ou use o seu. Os endereços ficam @ esse domínio.':
     'The e-mail plan needs a domain: register a new one, transfer one or use your own. The addresses will be @ that domain.',
   'Vamos usar {0} para este plano de e-mail.': 'We will use {0} for this e-mail plan.',
+  // painel das encomendas › faixa de publicidade de quem só tem encomendas (26/10/2026)
+  'Precisa de domínio, hospedagem ou e-mail profissional?': 'Need a domain, hosting or professional email?',
+  'Ao comprar, passa para o painel de gestão do serviço.': 'When you buy, you move to the service management panel.',
+  'Comprar domínio': 'Buy a domain',
+  'Comprar hospedagem': 'Buy hosting',
+  'E-mail profissional': 'Professional email',
+  // login › bloqueio por tentativas falhadas (26/10/2026)
+  'Bloqueado por tentativas falhadas. Volte a tentar daqui a {0} min.': 'Blocked after failed attempts. Try again in {0} min.',
   "Cidade de Maputo": "Maputo City",
   "Maputo Província": "Maputo Province",
   "Zambézia": "Zambezia",

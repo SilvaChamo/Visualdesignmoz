@@ -227,18 +227,29 @@ export async function upsertCloudflareRecord(
   try {
     const existing = await findExistingRecords(headers, zoneId, record.type, name);
 
-    // SPF só pode ter um por domínio (2 registos "v=spf1" causam permerror e
-    // podem reprovar TODO o email do domínio). #11 (2026-09-14): mudar o IP
-    // do servidor criava um SPF novo em vez de substituir o antigo —
-    // apanhado ao testar o email do entrecamposblog.com no Contabo. Limpa
-    // qualquer SPF "órfão" (diferente do que se está agora a aplicar) ANTES
-    // de decidir se há algo a fazer — senão, voltar a aplicar o mesmo valor
-    // correcto uma segunda vez nunca chegava a limpar o antigo (a verificação
-    // de "já está igual" abaixo saía mais cedo).
-    const isSpf = record.type === 'TXT' && /^v=spf1\b/i.test(content);
+    // SPF e DMARC só podem ter um registo por nome: dois "v=spf1" dão permerror (o SPF deixa de valer) e dois "v=DMARC1" fazem o
+    // DMARC ser ignorado. #11 (2026-09-14): mudar o IP do servidor criava um SPF novo em vez de substituir o antigo. Em
+    // 26/10/2026 viu-se o mesmo com o DMARC em 5 domínios (e no SPF do mltmark.com): o Cloudflare devolve os TXT criados à mão
+    // com aspas à volta (`"v=DMARC1; …"`), por isso nem a comparação nem a procura do "antigo" os reconheciam e cada
+    // aplicação criava um segundo. Agora compara-se sempre sem aspas. Limpa qualquer registo "órfão" (diferente do que se está
+    // agora a aplicar) ANTES de decidir se há algo a fazer — senão, voltar a aplicar o mesmo valor correcto nunca limpava o antigo.
+    const semAspas = (s: string) => s.trim().replace(/^"(.*)"$/, '$1');
+    const alvo = semAspas(content);
+    const familiaUnica = record.type === 'TXT' ? [/^v=spf1\b/i, /^v=DMARC1\b/i].find((re) => re.test(alvo)) : undefined;
+    // Um DMARC mais estrito do que o padrão (quarantine/reject) é uma decisão de alguém: o padrão do site é p=none, por isso
+    // reaplicá-lo (ex.: "Reprocessar DNS") não pode baixar a política. Fica o mais estrito e só se limpam os duplicados.
+    if (familiaUnica && /^v=DMARC1\b/i.test(alvo)) {
+      const estrito = existing.find((r) => /\bp=(quarantine|reject)\b/i.test(semAspas(r.content)));
+      if (estrito) {
+        for (const o of existing.filter((r) => r.id !== estrito.id)) {
+          await fetch(`${CF_API_BASE}/zones/${zoneId}/dns_records/${o.id}`, { method: 'DELETE', headers }).catch(() => {});
+        }
+        return { ok: true, name, type: record.type, action: 'skipped' };
+      }
+    }
     let candidates = existing;
-    if (isSpf) {
-      const stale = existing.filter((r) => /^v=spf1\b/i.test(r.content) && r.content !== content);
+    if (familiaUnica) {
+      const stale = existing.filter((r) => familiaUnica.test(semAspas(r.content)) && semAspas(r.content) !== alvo);
       for (const s of stale) {
         await fetch(`${CF_API_BASE}/zones/${zoneId}/dns_records/${s.id}`, { method: 'DELETE', headers }).catch(() => {});
       }
@@ -248,7 +259,7 @@ export async function upsertCloudflareRecord(
       candidates = existing.filter((r) => !staleIds.has(r.id));
     }
 
-    const sameContent = candidates.find((r) => r.content === content);
+    const sameContent = candidates.find((r) => semAspas(r.content) === alvo);
     if (sameContent) {
       return { ok: true, name, type: record.type, action: 'skipped' };
     }
@@ -300,6 +311,34 @@ export async function upsertCloudflareRecord(
       action: 'error',
       error: error instanceof Error ? error.message : 'Erro desconhecido',
     };
+  }
+}
+
+/** Estado da zona na Cloudflare ("active", "pending", "moved"…), ou null se não se conseguir ler. "moved": o domínio deixou de usar
+ *  os nameservers da Cloudflare (o DNS passou para outro sítio) — a zona e os registos ficam guardados, mas não valem. */
+export async function getCloudflareZoneStatus(zoneId: string): Promise<string | null> {
+  const headers = getCloudflareAuthHeaders();
+  if (!headers) return null;
+  try {
+    const res = await fetch(`${CF_API_BASE}/zones/${zoneId}`, { headers });
+    const data = (await res.json()) as { success: boolean; result?: { status?: string } };
+    return data.success ? data.result?.status || null : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Pede à Cloudflare que volte a verificar já os nameservers de uma zona (quando um domínio volta a usá-los, a zona passa de
+ *  "moved"/"pending" a "active"; sem isto, espera pela ronda da Cloudflare, que pode levar horas). */
+export async function requestCloudflareActivationCheck(zoneId: string): Promise<{ ok: boolean; error?: string }> {
+  const headers = getCloudflareAuthHeaders();
+  if (!headers) return { ok: false, error: 'Cloudflare não configurada' };
+  try {
+    const res = await fetch(`${CF_API_BASE}/zones/${zoneId}/activation_check`, { method: 'PUT', headers });
+    const data = (await res.json()) as { success: boolean; errors?: Array<{ message: string }> };
+    return data.success ? { ok: true } : { ok: false, error: data.errors?.map((e) => e.message).join('; ') || `HTTP ${res.status}` };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : 'Erro desconhecido' };
   }
 }
 

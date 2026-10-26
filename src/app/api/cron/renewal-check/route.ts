@@ -10,6 +10,7 @@ import {
 import { sendEmail } from '@/lib/email-service'
 import { isEmailPlanPackage } from '@/lib/email-plans'
 import { notifyExpiredCleanupDue, suspendOverdueHostingAccounts } from '@/lib/overdue-hosting-suspend'
+import { avisarPeriodoDeRecuperacao } from '@/lib/recuperacao-renovacao'
 
 // Cron secret para segurança
 // sem segredo no ambiente, o cron não é aceite (antes valia um segredo por omissão); o administrador com sessão entra sempre
@@ -40,8 +41,10 @@ export async function GET(request: NextRequest) {
     if (searchParams.get('simular') === '1') {
       const urlSim = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
       const chaveSim = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-      const plano = await suspendOverdueHostingAccounts(createAdminClient(urlSim, chaveSim), { simular: true })
-      return NextResponse.json({ success: true, simular: true, suspensaoLigada: process.env.RENOVACOES_SUSPENDER_ATRASADOS === '1', overdueSuspend: plano })
+      const adminSim = createAdminClient(urlSim, chaveSim)
+      const plano = await suspendOverdueHostingAccounts(adminSim, { simular: true })
+      const recuperacao = await avisarPeriodoDeRecuperacao(adminSim, { simular: true })
+      return NextResponse.json({ success: true, simular: true, suspensaoLigada: process.env.RENOVACOES_SUSPENDER_ATRASADOS === '1', overdueSuspend: plano, recuperacao })
     }
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
@@ -304,6 +307,11 @@ export async function GET(request: NextRequest) {
       ? await suspendOverdueHostingAccounts(supabaseAdmin)
       : { errors: [] as string[], desligado: 'RENOVACOES_SUSPENDER_ATRASADOS não está a 1: só avisos, nenhuma conta foi suspensa' }
     if (overdue.errors.length) results.errors.push(...overdue.errors)
+    // período de recuperação: avisa os clientes cujo serviço ficou suspenso (só com a suspensão ligada, como ela)
+    const recuperacao = suspender
+      ? await avisarPeriodoDeRecuperacao(supabaseAdmin)
+      : { avisados: 0, errors: [] as string[], desligado: 'sem suspensão automática não há período de recuperação' }
+    if (recuperacao.errors.length) results.errors.push(...recuperacao.errors)
     const cleanup = await notifyExpiredCleanupDue(supabaseAdmin)
     if (cleanup.errors.length) results.errors.push(...cleanup.errors)
 
@@ -312,6 +320,7 @@ export async function GET(request: NextRequest) {
       timestamp: new Date().toISOString(),
       ...results,
       overdueSuspend: overdue,
+      recuperacao,
       expiredCleanup: cleanup,
     })
 

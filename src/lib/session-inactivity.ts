@@ -4,7 +4,7 @@ export const PANEL_INACTIVITY_MS = 30 * 60 * 1000
 
 export const LAST_ACTIVITY_STORAGE_KEY = 'vd_panel_last_activity_at'
 
-const PANEL_ROUTE_PREFIXES = ['/vhost:2026', '/host:2026', '/host', '/vhost', '/dashboard', '/cliente', '/revendedor'] as const
+const PANEL_ROUTE_PREFIXES = ['/vhost:2026', '/vhost', '/dashboard', '/cliente', '/revendedor'] as const
 
 export function isPanelRoute(pathname: string): boolean {
   return PANEL_ROUTE_PREFIXES.some(

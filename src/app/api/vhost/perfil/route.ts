@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { checkAndRegisterLoginAttempt, loginRateLimitKey } from '@/lib/login-rate-limit';
+import { checkAndRegisterLoginAttempt, loginRateLimitKey, mensagemBloqueio } from '@/lib/login-rate-limit';
 import { requirePanelBootstrapAccess } from '@/lib/panel-api-auth';
 import { getDaSyncAdmin } from '@/lib/da-sync-schema';
 import { acessoConta, donoDaConta, perfilDaConta } from '@/lib/vhost-conta-cliente';
@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
     if (antiga && !conta && q.email && url && anon) {
       const limite = await checkAndRegisterLoginAttempt(loginRateLimitKey(req, 'senha:' + q.uid));
       if (!limite.allowed) {
-        return NextResponse.json({ erro: 'Demasiadas tentativas. Tente novamente daqui a alguns minutos.' }, { status: 429, headers: { 'Retry-After': String(limite.retryAfterSeconds) } });
+        return NextResponse.json({ erro: mensagemBloqueio(limite.retryAfterSeconds) }, { status: 429, headers: { 'Retry-After': String(limite.retryAfterSeconds) } });
       }
       const { error: errAntiga } = await createClient(url, anon, { auth: { persistSession: false, autoRefreshToken: false } }).auth.signInWithPassword({ email: q.email, password: antiga });
       if (errAntiga) return NextResponse.json({ erro: 'A palavra-passe anterior não está certa.' }, { status: 400 });

@@ -6,10 +6,11 @@ import { alojamentoVercel } from '@/lib/hospedagem-dns';
 import { executeServerCommand } from '@/lib/server-ssh-exec';
 import { hestiaCall } from '@/lib/hestia-client';
 import * as hestia from '@/lib/hestia-adapter';
-import { createCloudflareZone, deleteCloudflareDnsRecord, deleteHostARecord, findCloudflareZoneId, listCloudflareDnsRecords, updateCloudflareDnsRecord, upsertCloudflareRecord, type CloudflareRecordInput } from '@/lib/cloudflare-dns';
+import { createCloudflareZone, deleteCloudflareDnsRecord, deleteHostARecord, findCloudflareZoneId, getCloudflareZoneStatus, listCloudflareDnsRecords, requestCloudflareActivationCheck, updateCloudflareDnsRecord, upsertCloudflareRecord, type CloudflareRecordInput } from '@/lib/cloudflare-dns';
 import { provisionEmailAuthForDomain } from '@/lib/domain-email-auth';
 import { dynadotAPI } from '@/lib/dynadot-adapter';
 import { getServerHost } from '@/lib/server-config';
+import { VISUALDESIGN_NAMESERVERS } from '@/lib/visualdesign-dns';
 import { esquecerLeitura, lerServidor, type LeituraServidor } from '@/lib/vhost-servidor';
 import { lerRegisto, montarDados } from '@/lib/vhost-dados';
 import { instalarWebmail } from '@/lib/vhost-passar';
@@ -243,7 +244,9 @@ async function reprocessarDns(conta: string, d: string, srv: LeituraServidor) {
   // estacionamento dela (não tem DNS de ninguém para estragar); com DNS noutro sítio (Google, Vercel, outro registador…)
   // o painel não toca — diz o que fazer.
   const ns = await nameservers(zona);
-  const nossos = ns.length > 0 && ns.every((x) => /^ns[1-9]\./.test(x));
+  // os nossos são só os do servidor (ns1..ns4.visualdesignmoz.com): antes bastava começar por "ns1.", e o ns1.ibspark.com (ou o de qualquer
+  // outro) passava por nosso e o DNS dava-se como certo quando está noutro sítio
+  const nossos = ns.length > 0 && ns.every((x) => /^ns[1-9]\.visualdesignmoz\.com$/i.test(x));
   if (d === zona) {
     if (usaNameserversCloudflare(ns) || nossos) itens.push({ nome: 'Nameservers', estado: 'certo', detalhe: ns.join(', ') });
     else {
@@ -261,8 +264,17 @@ async function reprocessarDns(conta: string, d: string, srv: LeituraServidor) {
           detalhe:
             'O DNS está em ' + (ns.join(', ') || 'nameservers desconhecidos') + ', não na Cloudflare — mude os nameservers no registador' +
             (z.nameServers.length ? ' para ' + z.nameServers.join(', ') : '') +
-            ' (ou ponha lá o SPF: v=spf1 include:spf.brevo.com ip4:' + getServerHost() + ' ~all)',
+            ' (ou para os do servidor: ' + VISUALDESIGN_NAMESERVERS.join(', ') + '). Enquanto o DNS estiver lá, ponha nesse DNS o SPF v=spf1 include:spf.brevo.com ip4:' + getServerHost() + ' ~all e os registos de DKIM e DMARC que o Brevo indica',
         });
+      }
+    }
+    // Zona parada ("moved"/"pending": o DNS esteve noutro sítio) com os nameservers públicos já na Cloudflare: pede-lhe logo a
+    // verificação, para a zona voltar a ficar activa sem esperar pela ronda dela (o que se pôs acima passa então a valer)
+    if (usaNameserversCloudflare(ns)) {
+      const estadoZona = await getCloudflareZoneStatus(zid);
+      if (estadoZona && estadoZona !== 'active') {
+        const v = await requestCloudflareActivationCheck(zid);
+        itens.push({ nome: 'Zona na Cloudflare', estado: 'pendente', detalhe: estadoZona + ' — ' + (v.ok ? 'verificação pedida; fica activa em poucos minutos' : 'a Cloudflare confirma sozinha dentro de algumas horas') });
       }
     }
   }

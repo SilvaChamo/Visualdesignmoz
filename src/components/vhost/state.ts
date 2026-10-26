@@ -8,7 +8,7 @@ import type { Pessoa, Servidor, ZonaDns } from './servidor';
 import type { CustomComponents } from './theme';
 
 // Endereço único do painel (pedido do Silva, 13/10/2026): https://visualdesignmoz.com/vhost:2026/… O servidor serve-o
-// pela rota src/app/host (src/proxy.ts reescreve, sem redireccionar); os endereços antigos (/vhost/…, /host/2026/…,
+// pela rota src/app/vhost (src/proxy.ts reescreve, sem redireccionar); os endereços antigos (/vhost/…, /host/2026/…,
 // host.visualdesignmoz.com) redireccionam para aqui.
 export const BASE = '/vhost:2026';
 /** Símbolo da VisualDesign (o mesmo ficheiro que VisualHost/assets/vd-simbolo.png) */

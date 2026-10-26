@@ -95,7 +95,7 @@ async function resolvePanelStaffAuth(): Promise<PanelStaffAuthSuccess | PanelAut
  * Admin ou revendedor apenas — "manager"/"profissional" são explicitamente
  * rejeitados (403). Rotas que fazem sentido para uma conta "manager" ou
  * "profissional" com scope próprio devem usar requireAdminResellerOrManager()
- * em vez desta, caso a caso (ver AUDITORIA_PAINEL_PLANO_CORRECAO.md).
+ * em vez desta, caso a caso (ver docs/AUDITORIA_PAINEL_PLANO_CORRECAO.md).
  */
 export async function requireAdminOrReseller(): Promise<PanelAuthSuccess | PanelAuthFailure> {
   const result = await resolvePanelStaffAuth();

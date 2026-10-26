@@ -1,0 +1,62 @@
+name: Ops - Nginx da porta 2026 aponta para o endereço novo do painel (/vhost:2026)
+
+# O nginx da porta 2026 (host.visualdesignmoz.com:2026) só redirecciona para o painel e ainda aponta para o endereço antigo
+# /host:2026, que depois o site redirecciona outra vez para /vhost:2026 (Silva, 26/10/2026: "passar para vhost, quero o servidor
+# limpo"). Este passo troca, nos ficheiros do nginx, /host:2026 por /vhost:2026.
+#
+# Sem "aplicar" só LÊ: mostra os ficheiros e as linhas que falam do endereço antigo.
+# Com "aplicar": guarda uma cópia de cada ficheiro em /root/backups-removidos/, troca o endereço, testa o nginx (nginx -t) e só
+# então recarrega (reload, sem corte). Se o teste falhar, repõe as cópias e não recarrega nada.
+
+on:
+  workflow_dispatch:
+    inputs:
+      aplicar:
+        description: 'Aplicar a troca (desligado = só ler)'
+        type: boolean
+        default: false
+
+concurrency:
+  group: ops-nginx-porta-2026
+  cancel-in-progress: false
+
+jobs:
+  nginx:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Nginx da porta 2026 (ler e, se pedido, trocar para /vhost:2026)
+        uses: appleboy/ssh-action@v1.2.5
+        env:
+          APLICAR: ${{ inputs.aplicar }}
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          port: 2234
+          username: root
+          key: ${{ secrets.CONTABO_SSH_KEY }}
+          command_timeout: 5m
+          envs: APLICAR
+          script: |
+            set -u
+            echo "=== linhas do nginx com o endereço antigo (/host:2026)"
+            grep -rn "/host:2026" /etc/nginx 2>/dev/null || echo "(nenhuma: já está tudo em /vhost:2026)"
+            FICHEIROS=$(grep -rl "/host:2026" /etc/nginx 2>/dev/null || true)
+            if [ -z "$FICHEIROS" ]; then echo "Nada a trocar."; exit 0; fi
+            echo "=== ficheiros: $FICHEIROS"
+            if [ "$APLICAR" != "true" ]; then echo "Só leitura: nada foi alterado (volte a correr com 'aplicar')."; exit 0; fi
+            D=/root/backups-removidos/nginx-host2026-$(date +%F-%H%M%S)
+            mkdir -p "$D"
+            for f in $FICHEIROS; do
+              cp -a "$f" "$D/$(echo "$f" | tr '/' '_')"
+              sed -i 's#/host:2026#/vhost:2026#g' "$f"
+              echo "trocado: $f"
+            done
+            if nginx -t; then
+              systemctl reload nginx && echo "nginx recarregado (cópias em $D)"
+            else
+              echo "nginx -t FALHOU: a repor as cópias"
+              for f in $FICHEIROS; do cp -a "$D/$(echo "$f" | tr '/' '_')" "$f"; done
+              nginx -t && echo "cópias repostas; nada foi recarregado"
+              exit 1
+            fi
+            echo "=== resposta do endereço da porta 2026 (só cabeçalhos)"
+            curl -sk -m 10 -I https://host.visualdesignmoz.com:2026/ 2>/dev/null | head -5 || true
