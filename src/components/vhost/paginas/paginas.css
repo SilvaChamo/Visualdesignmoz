@@ -9034,12 +9034,24 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    margin: 0
 }
 
-.vh .mais-cab .mais-niveis,
 .vh .mais-cab .mais-titulo-acoes {
    display: flex;
    gap: calc(6px * var(--z, 1));
    min-width: 0;
    flex-shrink: 0
+}
+
+/* Admin e Gestão juntos ocupam metade da largura do cabeçalho (Silva, 26/10/2026), repartida por igual entre os dois */
+.vh .mais-cab .mais-niveis {
+   flex: 0 0 50%;
+   display: grid;
+   grid-template-columns: repeat(2, minmax(0, 1fr));
+   gap: calc(6px * var(--z, 1));
+   min-width: 0
+}
+
+.vh .mais-cab .mais-niveis .btn {
+   padding: 0 calc(4px * var(--z, 1))
 }
 
 .vh .mais-cab .btn {
