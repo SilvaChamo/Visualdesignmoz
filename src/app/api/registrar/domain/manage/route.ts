@@ -58,6 +58,8 @@ export type RegistoLocal = {
   autoRenew: boolean | null;
   isLocked: boolean | null;
   nameservers: string[];
+  /** há uma linha no registo de renovações (a da conta, se o pedido vem de um cliente) */
+  comRegisto: boolean;
 };
 
 async function lerRdap(domain: string): Promise<Pick<RegistoLocal, 'registrationDate' | 'expireDate' | 'isLocked' | 'nameservers'> | null> {
@@ -90,17 +92,19 @@ async function lerRdap(domain: string): Promise<Pick<RegistoLocal, 'registration
   }
 }
 
-async function loadRegistoLocal(domain: string): Promise<RegistoLocal | null> {
+/** `donoId`: para uma conta de cliente só conta o registo de renovações dela (o acesso ao domínio pode vir só da hospedagem, e a linha ser de outra
+ *  conta); a equipa (admin, revenda, gestor, profissional) já vê qualquer domínio nesta rota e fica sem filtro. */
+async function loadRegistoLocal(domain: string, donoId?: string): Promise<RegistoLocal | null> {
   const admin = getSupabaseAdmin();
   const [renovacao, rdap] = await Promise.all([
     admin
-      ? admin
-          .from('domain_renewals')
-          .select('registration_date, expiration_date, auto_renew')
-          .eq('domain_name', domain)
-          .order('expiration_date', { ascending: false })
-          .limit(1)
-          .then((r) => r.data?.[0] || null)
+      ? (() => {
+          const q = admin.from('domain_renewals').select('registration_date, expiration_date, auto_renew').eq('domain_name', domain);
+          return (donoId ? q.eq('user_id', donoId) : q)
+            .order('expiration_date', { ascending: false })
+            .limit(1)
+            .then((r) => r.data?.[0] || null);
+        })()
       : Promise.resolve(null),
     lerRdap(domain),
   ]);
@@ -112,6 +116,7 @@ async function loadRegistoLocal(domain: string): Promise<RegistoLocal | null> {
     autoRenew: typeof renovacao?.auto_renew === 'boolean' ? renovacao.auto_renew : null,
     isLocked: rdap?.isLocked ?? null,
     nameservers: rdap?.nameservers || [],
+    comRegisto: !!renovacao,
   };
 }
 
@@ -132,8 +137,10 @@ export async function GET(request: NextRequest) {
   ]);
   if (!result.success) {
     // domínio registado noutro registador: o painel mostra o que o servidor sabe dele (só leitura) em vez de "—"
-    const local = await loadRegistoLocal(domain);
-    return NextResponse.json({ success: false, error: result.error, local, contactPreview }, { status: 400 });
+    const cliente = auth.user.role === 'client';
+    const local = await loadRegistoLocal(domain, cliente ? auth.user.id : undefined);
+    // o perfil que o contactPreview lê é o da linha do registo de renovações (de qualquer conta): a um cliente sem linha própria não se mostra
+    return NextResponse.json({ success: false, error: result.error, local, contactPreview: cliente && !local?.comRegisto ? null : contactPreview }, { status: 400 });
   }
 
   return NextResponse.json({
