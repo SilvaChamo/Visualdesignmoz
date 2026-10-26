@@ -491,7 +491,7 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
   bloquearia o servidor a si mesmo.
   **Excepção, aamihe.com (22/10/2026):** o Apache já regista o IP verdadeiro do visitante (ficheiros `apache2.conf_vd-ip-real` e
   `apache2.ssl.conf_vd-ip-real` em `/home/aamihe/conf/web/aamihe.com/`: desligam o `mod_rpaf`, que com o `X-Forwarded-For` presente desfazia o
-  `mod_remoteip`). Nos outros sites continua a ver-se o IP do servidor — não usar fail2ban sobre os registos deles sem fazer o mesmo.
+  `mod_remoteip`). **Desde 26/10/2026 todos os sites têm o IP verdadeiro** (ficheiro global, ver "Contas ligadas… IP"): o fail2ban sobre os registos do Apache já é possível.
   **WordPress:** `DISABLE_WP_CRON` só se usa com um cron do sistema que corra `wp cron event run --due-now` (aamihe.com: de 15 em 15 min, criado
   com `v-add-cron-job`); sem ele as tarefas do WordPress nunca correm. **Só Moçambique:** regra do Cloudflare "Só Moçambique" no aamihe.com
   (bloqueia tudo o que não vem de MZ, exceto o servidor e `/.well-known/`).
@@ -507,6 +507,63 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
 - **Pasta `app/` do mltmark apagada (21/10/2026)**: era uma instalação antiga do WordPress, quase sem uso, com um `wp-config.php.bak-hetzner-creds`;
   cópia comprimida só do root em `/root/backups-removidos/mltmark-app-2026-10-21.tar.gz`.
 - **Quarentena do mltmark (17/08 e 26/05, restaurado de cópia de segurança)**: `/root/quarentena-mltmark-2026-10-21/` e `/root/quarentena-guarda/`.
+
+# Contas ligadas: sessões do WordPress e do webmail, histórico por sessões e IP (Silva, 25/10/2026)
+
+- **Caso que deu origem (Tatiana, oshercollective.com):** o ModSecurity (regra OWASP `932105`, "Unix Command Injection") bloqueava com 403 e a página "Access Denied" o CSS que
+  ela guardava no Editor do Site e no WPCode (`{ top:` lido como o comando `top`). **Excepção só nesse site:** `/home/oshercollective/conf/web/oshercollective.com/apache2.ssl.conf_vd-modsec-css`
+  (`SecRule` em fase 1 com `ctl:ruleRemoveTargetById=932105;ARGS:wpcode_snippet_code` e `…;ARGS:styles.css`, só em `/wp-admin/admin.php` e `/wp-json/wp/v2/global-styles/`).
+  `SecRuleUpdateTargetById` não funciona dentro de um site ("no ruleset in this context"). Um 403 de cliente investiga-se em **Admin › Contas ligadas › Histórico**: mostra a regra e o campo.
+- **Agora** mostra também as sessões abertas no WordPress (`/wp-admin` com resposta 200) e no webmail (Roundcube, `session.expires_at`), lidas do servidor por
+  `src/lib/vhost-actividade-servidor.ts` (um script Python só de leitura, `nice`, 45 s de memória; os registos do Apache rodam à meia-noite, por isso há cerca de 24 a 48 h de história do servidor).
+- **Histórico** = uma linha por sessão (painel: cliques de `vhost_activity_history`, pausa de 30 min separa sessões; WordPress: registos do servidor). Clicar abre o detalhe no próprio
+  separador, como sub-endereço do painel (`/admin/ligados/historico/<sessão>`): o caminho **Contas ligadas › Histórico › Sessão de …** fica na barra do selector de domínios (`crumbs`) e há um
+  "Voltar" discreto (nunca um caminho dentro da página). O mais recente fica sempre em cima (lista por última actividade; detalhe da hora mais recente para a mais antiga).
+  Detalhe: **Acção | Hora | Resultado** de cada passo (OK, Bloqueado, Erro, Falhou), com a regra e o campo do ModSecurity, e as tentativas repetidas juntas
+  ("Tentativas de guardar CSS… ×5"). Não há separador "Actividade". `src/lib/vhost-historico-sessoes.ts` e `/api/vhost/presenca/historico`.
+- **Limpar histórico:** o PostgREST do Supabase recusa `DELETE` sem filtro (`safeupdate`), por isso "todas as contas" filtra por data. O que vem dos registos do servidor não se apaga:
+  `vhost_history_limpeza` guarda uma marca e esconde o que for anterior (as duas tabelas/colunas novas estão em `supabase-vhost-activity-history.sql`, que o deploy aplica).
+- **IP:** o painel mostra o IP de cada sessão. O do painel vem dos cabeçalhos do pedido e fica guardado com cada acção (`vhost_activity_history.ip`, depois do deploy): a presença em memória
+  só dura 30 min e perde-se a cada reinício do site, por isso sem isto o IP desaparecia. **Nos sites WordPress o IP é o do visitante em TODOS os sites, também nos novos (26/10/2026):**
+  `/etc/apache2/conf.d/vd-ip-real.conf` (global, lido depois dos módulos) desliga o `mod_rpaf`, que o Hestia deixa ligado e que fazia o Apache e o PHP verem sempre o IP do servidor; o
+  `vd-bloqueio-instalar` (cron de 10 em 10 min, `deploy/seguranca/`) volta a criá-lo se alguém o apagar, sempre com `apache2ctl configtest` antes de recarregar. O nginx já resolvia o IP
+  verdadeiro por trás da Cloudflare (`cloudflare.inc`). Os ficheiros `apache2.conf_vd-ip-real` por domínio (aamihe, Osher) ficam e são inofensivos.
+
+# CPU e memória por conta, certificados e DNS (Silva, 26/10/2026)
+
+- **Cada conta tem o seu CPU e a sua memória, vindos do pacote** — para uma conta não gastar o CPU de todo o servidor e afectar os outros sites. **Nenhum pacote fica "ilimitado"** (nem por
+  defeito): o formulário de Pacotes cria pacotes novos com 100% / 100 ms / 1G / 512M (`PADRAO_RECURSOS`, `src/lib/pacote-hestia.ts`) e um campo em branco nunca vira ilimitado; só fica
+  ilimitado se o administrador marcar "Ilimitado". Valores dos pacotes (CPU_QUOTA · memória · swap; período 100 ms): Starter 25% · 256M · 128M; Email-Basico 50% · 512M · 256M; Email-Premium
+  75% · 768M · 384M; Email-Business 100% · 1G · 512M; VHost-Basico e Pro-Basico 150% · 1G · 512M; VHost-Pro 200% · 1536M · 768M; VHost-Premium e Pro-Premium 250% · 2G · 1G; VHost-Business e
+  Pro-Business 300% · 3G · 1G; default 300% · 3G · 1G; system 100% · 1G · 512M (100% = 1 núcleo; o servidor tem 6). Cópia dos pacotes de antes: `/root/backups-removidos/pacotes-cpu-2026-10-26/`.
+- **Como se aplica:** `RESOURCES_LIMIT='yes'` no Hestia (`v-add-sys-cgroups`) limita a shell e os crons da conta (fatia `user-<uid>.slice`), mas **o PHP dos sites corre num serviço partilhado e ficava
+  de fora**. Por isso `vd-php-conta` (`deploy/php-conta/`) dá a **toda a conta com limites o seu PHP-FPM** (`vd-php-fpm-<versão>-<conta>`, com as mesmas extensões do partilhado) e põe nele
+  `CPUQuota`, `MemoryHigh` (= MEMORY_LIMIT), `MemoryMax` (1,5×) e `MemorySwapMax`. Uma conta que passa o seu CPU fica mais lenta; as outras nem sentem. O cron de 5 em 5 minutos
+  (`vd-php-conta sincronizar`) trata de contas novas e de limites que mudam; mudar um pacote no painel reaplica-o às contas dele (`v-change-user-package` com FORCE) e em minutos o
+  serviço tem os limites novos. Conta com "unlimited" fica no PHP-FPM partilhado. **Desde 26/10/2026 as 6 contas** (aamihe, concordia, mltmark, oshercollective, provisualcorporate, vdadmin) **têm
+  PHP-FPM próprio com limites**; o partilhado ficou só com os pools `dummy` e `www`. Para tirar uma conta: `vd-php-conta repor <conta>` (e pôr "unlimited" no user.conf). Nunca apagar à mão
+  as unidades `vd-php-fpm-*`. Um 403 do nginx ao `wp-login.php` num pedido feito de dentro do servidor (IP do próprio servidor) é normal: confirma-se de fora.
+- **Certificados:** o Hestia só renova (cron diário 06:50, `v-update-letsencrypt-ssl`) os domínios com `LETSENCRYPT='yes'`; os que ficaram `no` (certificados trazidos do servidor anterior) nunca renovavam.
+  Em 26/10/2026 passaram a `yes` e a renovar sozinhos: oshercollective.com e menocrazy.app, mltmark.com, concordia.co.mz, visualdesignmoz.com e basededadosagro.com (site), e os certificados de
+  e-mail da concordia.co.mz e da provisualcorporate.co.mz. Sites que estão na Vercel (ex.: o site da provisualcorporate) não precisam de certificado aqui (a Vercel emite o seu); só o e-mail
+  (`mail.<domínio>`, `v-add-letsencrypt-domain <conta> <domínio> '' yes`). **Pendentes:** os certificados de e-mail do mltmark.com e do basededadosagro.com precisam do registo A `webmail.<domínio>`
+  na Cloudflare (sem ele o Hestia recusa); o shalomdeco.com não está delegado na Cloudflare (nameservers `ns1/ns2.ibspark.com` no registador) e a dona vai tratar dele. Antes de renovar um domínio
+  crítico (visualdesignmoz.com, basededadosagro.com): copiar `/home/<conta>/conf/web/<domínio>` e comparar a resposta (código e tamanho) antes e depois.
+- **Sites na Vercel não levam SSL daqui** (Silva, 26/10/2026): `alojamentoVercel` (`src/lib/hospedagem-dns.ts`) vê pelo DNS se o site está na Vercel — nameservers `…vercel-dns.com`, ou o domínio/www
+  com CNAME `…vercel-dns.com` ou IP 76.76.21.x / 66.33.60.x (com nameservers da Cloudflare só se vê pelo registo: é o caso de aamihe.com, provisualcorporate.co.mz e dos subdomínios
+  community.oshercollective.com e app.menocrazy.app). `issueLetsEncrypt` e o pedido automático ao criar conta/site já não pedem certificado a esses domínios (respondem "está na Vercel"); o
+  certificado de **e-mail** (`mail.<domínio>`) continua a pedir-se, porque o correio corre aqui.
+- **Só o administrador altera CPU e memória dos pacotes** (`pacote-gravar`/`pacote-apagar` respondem 403 a quem não é administrador; o revendedor só atribui os Pro-…; "limites próprios" de uma
+  conta ainda não chegam ao servidor). Um limite é um **tecto**, não uma reserva: a soma dos tectos pode passar os 600% do servidor; o que conta é o consumo real.
+- **Spam de pesquisa do WordPress (`/?s=…` sem referer)** leva 403 no nginx, antes do PHP, nos domínios de `/etc/nginx/vd-busca-spam.lista` (cópia em `deploy/seguranca/`; o `vd-bloqueio-instalar`
+  aplica-o): o mltmark.com chegava a 47 mil pesquisas por dia (74% de todo o tráfego, 84% robôs). Uma pesquisa verdadeira sai de uma página do próprio site e leva referer. Juntar um site =
+  acrescentar o domínio à lista; não pôr aplicações que usem `?s=` sem referer.
+- **"Reprocessar DNS"** cria agora também `webmail.<domínio>` (A, sem proxy), além de mail, ftp, pop, smtp, MX, SPF e DMARC: o Hestia exige-o para emitir o certificado de e-mail.
+- **DNS:** o "Reprocessar DNS" não usa o servidor anterior (o IP vem do Hestia ou de `NEXT_PUBLIC_SERVER_IP`, que em produção é `169.58.148.144`); o IP do Hetzner (`37.27.17.25`) só podia vir de
+  `deploy/env.production.template` e de `scripts/sync-directadmin-vercel-env.sh`, já corrigidos. Um domínio só tem o DNS da Cloudflare se os nameservers do registador forem os dela. Um domínio
+  nunca leva dois registos SPF (o lirandzojewelry.com tinha um antigo, inválido, com o IPv6 do Hetzner: apagado).
+- **msdn-moz.org:** `nginx.conf_vd-privado` e `nginx.ssl.conf_vd-privado` (em `/home/oshercollective/conf/web/msdn-moz.org/`) dão 404 ao `convidados.csv` (125 pessoas com e-mail), ao zip de instalação e às
+  notas de instalação, que o nginx servia como ficheiros estáticos; os scripts PHP continuam a lê-los do disco.
 
 # Autenticação em 2 passos (opcional — Silva, 21/10/2026)
 
