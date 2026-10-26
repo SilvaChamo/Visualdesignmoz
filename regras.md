@@ -176,7 +176,7 @@ sessão: retomar sempre em português. Vale para qualquer IA (está repetido em 
 - **`visualdesignmoz.com:2026/vhost/` não existe e não pode existir:** o domínio principal passa pela Cloudflare, que só aceita certas portas (a 2026
   não); só `host.visualdesignmoz.com` (sem Cloudflare) responde na 2026.
 - **Sair** (botão do painel) vai para o **login do site** (`/login`), que depois volta ao painel.
-- **Terminar por inactividade** (ligado desde 24/10/2026: site 30 min, painel 20 min; `SAIR_POR_INATIVIDADE_ATIVO`) volta à **entrada (login) do próprio painel**
+- **Terminar por inactividade** (ligado desde 24/10/2026; site e painel **30 min** desde 26/10/2026, pedido do Silva — o painel usa `PANEL_INACTIVITY_MS` de `session-inactivity.ts`, não um número à parte; `SAIR_POR_INATIVIDADE_ATIVO`) volta à **entrada (login) do próprio painel**
   (`/vhost:2026`, a página `entrada.tsx`), no mesmo ecrã onde estava; não vai para o login do site nem para a página inicial.
 - **Sem sessão**, o endereço do painel mostra a entrada do próprio painel (nunca redirecciona para o login do site).
 
