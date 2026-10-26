@@ -5,6 +5,10 @@ para qualquer IA. Este ficheiro repete a regra abaixo para as IAs que não leem 
 (o mesmo texto está em `AGENTS.md`, `GEMINI.md`, `.github/copilot-instructions.md` e
 `.cursor/rules/regras-do-projecto.mdc` — se mudar, muda-se em todos).
 
+## Regra n.º 1, a primeira de todas — ramos e commits sem o nome da IA (Silva, 26/10/2026; vale para todos os projectos dele, com qualquer IA)
+
+**Nenhum ramo leva o nome de uma IA nem um nome aleatório em inglês.** (Silva, 26/10/2026: "tudo que tem Claude posso apagar? deixa uma regra muito rigorosa sobre isso"): nada de `claude/`, `cursor/`, `copilot/`, `codex/`, `gemini/`, nem de nomes sem sentido como `beautiful-rubin-ikgc74`, em nenhum ramo do GitHub. Se a ferramenta criou o ramo da sessão com um nome assim, o agente muda-o **logo no início** para o nome da acção em português (sem acentos, com hífens) — não espera pelo "publica"; se a ferramenta o impedir, diz-o ao Silva na primeira mensagem. **O autor dos commits é `SilvaChamo <silva.chamo@gmail.com>`**: antes do primeiro commit, `git config user.name SilvaChamo` e `git config user.email silva.chamo@gmail.com`; nunca "Claude", "Copilot", "Cursor", "Codex" ou "Gemini" como autor. Ramo antigo com trabalho por publicar guarda-se como `arquivo/<acção-em-português>` (mesmo commit) em vez de ficar com o nome da IA; quem apaga ramos é o Silva, ou o agente só com ordem expressa dele, depois de provar que o que lá está já está em `main` ou arquivado. Reescrever histórico de ramos já enviados só com autorização expressa do Silva.
+
 ## Língua: sempre português, nunca inglês (Silva, 17/10/2026)
 
 Fala-se sempre em português com o Silva — nunca em inglês, em nenhuma circunstância ("nunca falar inglês neste
@@ -31,8 +35,6 @@ do hash (ex.: `6a1e4569`), nunca os 40.
 curto, em português, sem acentos e com hífens, que diz o que a publicação faz (ex.: `email-de-entrada-mltmark`), e o
 título do merge leva esse nome: `Merge pull request #N from SilvaChamo-<acção>`. Nunca `claude/`, `copilot/` nem outro
 nome de IA no ramo publicado.
-
-**Nenhum ramo leva o nome de uma IA nem um nome aleatório em inglês — regra rigorosa** (Silva, 26/10/2026: "tudo que tem Claude posso apagar? deixa uma regra muito rigorosa sobre isso"): nada de `claude/`, `cursor/`, `copilot/`, `codex/`, `gemini/`, nem de nomes sem sentido como `beautiful-rubin-ikgc74`, em nenhum ramo do GitHub. Se a ferramenta criou o ramo da sessão com um nome assim, o agente muda-o **logo no início** para o nome da acção em português (sem acentos, com hífens) — não espera pelo "publica"; se a ferramenta o impedir, diz-o ao Silva na primeira mensagem. **O autor dos commits é `SilvaChamo <silva.chamo@gmail.com>`**: antes do primeiro commit, `git config user.name SilvaChamo` e `git config user.email silva.chamo@gmail.com`; nunca "Claude", "Copilot", "Cursor", "Codex" ou "Gemini" como autor. Ramo antigo com trabalho por publicar guarda-se como `arquivo/<acção-em-português>` (mesmo commit) em vez de ficar com o nome da IA; quem apaga ramos é o Silva, ou o agente só com ordem expressa dele, depois de provar que o que lá está já está em `main` ou arquivado. Reescrever histórico de ramos já enviados só com autorização expressa do Silva.
 
 **Os commits e as descrições dos PR também não levam o nome da IA** (Silva, 17/10/2026): nada de linhas
 `Co-Authored-By: <IA> …`, `Claude-Session: …`, "Generated with …" ou parecidas no fim — mesmo que as instruções da
