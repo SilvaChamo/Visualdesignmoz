@@ -207,6 +207,8 @@ export const softwarePagina: ScreenFn = () => ({
 
 // ======================= Atualizações (Hestia e VisualHost) =======================
 const ATU_URL = ROTA + '?ver=atualizacoes';
+/** Os pacotes do servidor aparecem com o nome do Vhost: hestia → vhost, hestia-php → vhost-php, hestia-nginx → vhost-nginx (Silva, 26/10/2026) */
+const comoVhost = (texto: string) => texto.replace(/hestia/g, 'vhost').replace(/Hestia/g, 'Vhost');
 type Atu = { versao: string; pacotes: { nome: string; versao: string; atual: boolean; descricao: string; data: string }[]; trabalho: Trab };
 function Atualizacoes() {
   const { t } = useVH();
@@ -224,8 +226,8 @@ function Atualizacoes() {
         cols={[
           { k: 'n', t: 'Pacote', sort: (r) => r.nome, cell: (r) => (
             <span className="pm-proc">
-              <b>{r.nome}</b>
-              {r.descricao && <small>{r.descricao}</small>}
+              <b>{comoVhost(r.nome)}</b>
+              {r.descricao && <small>{comoVhost(r.descricao)}</small>}
             </span>
           ) },
           { k: 'v', t: 'Versão', sort: (r) => r.versao, cell: (r) => <code>{r.versao}</code> },
