@@ -104,7 +104,7 @@ export default function RootLayout({
             com o JavaScript (o painel usa esta resposta na primeira leitura — ver VisualHostApp, "carregar") */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `try{var vp=location.pathname.toLowerCase();if(vp.indexOf('/host:2026')===0||vp.indexOf('/host%3a2026')===0||vp.indexOf('/vhost')===0){var ac=typeof AbortController!=='undefined'?new AbortController():null;if(ac){setTimeout(function(){try{ac.abort()}catch(e){}},10000)};window.__vhDados=fetch('/api/vhost/dados',{cache:'no-store',credentials:'same-origin',signal:ac?ac.signal:undefined}).then(function(r){return r.json().catch(function(){return {}}).then(function(j){return {ok:r.ok,status:r.status,j:j}})}).catch(function(){return {ok:false,status:0,j:{erro:'Tempo limite excedido'}}})}}catch(e){}`,
+            __html: `try{var vp=location.pathname.toLowerCase();if(vp.indexOf('/vhost')===0){var ac=typeof AbortController!=='undefined'?new AbortController():null;if(ac){setTimeout(function(){try{ac.abort()}catch(e){}},10000)};window.__vhDados=fetch('/api/vhost/dados',{cache:'no-store',credentials:'same-origin',signal:ac?ac.signal:undefined}).then(function(r){return r.json().catch(function(){return {}}).then(function(j){return {ok:r.ok,status:r.status,j:j}})}).catch(function(){return {ok:false,status:0,j:{erro:'Tempo limite excedido'}}})}}catch(e){}`,
           }}
         />
         <script

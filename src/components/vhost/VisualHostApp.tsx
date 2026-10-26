@@ -64,9 +64,9 @@ import type { Account, Level, MenuItem } from './types';
 
 const useIsomorphicLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
-// O mesmo ecrã com o endereço do browser (/vhost:2026/…) ou com o da rota no servidor (/host/…, por causa da
+// O mesmo ecrã com o endereço do browser (/vhost:2026/…) ou com o da rota no servidor (/vhost/…, por causa da
 // reescrita em src/proxy.ts): os dois dão o mesmo caminho interno, sem diferenças entre servidor e browser
-const PREFIXOS = [BASE, '/vhost%3A2026', '/vhost%3a2026', '/host:2026', '/host%3A2026', '/host%3a2026', '/host/2026', '/host'];
+const PREFIXOS = [BASE, '/vhost%3A2026', '/vhost%3a2026', '/vhost'];
 const stripBase = (p: string) => {
   const pre = PREFIXOS.find((b) => p === b || p.startsWith(b + '/'));
   return (pre ? p.slice(pre.length) : p).replace(/\/+$/, '') || '/';
@@ -1382,7 +1382,7 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
   const logo = st.brand.logo || LOGO;
   const marca = st.brand.name.trim() || 'VisualHost';
 
-  // Ao recarregar ou abrir o endereço, a página já vem do servidor com os dados (src/app/host/layout.tsx). Só se o
+  // Ao recarregar ou abrir o endereço, a página já vem do servidor com os dados (src/app/vhost/layout.tsx). Só se o
   // servidor demorou e não há leitura guardada neste navegador: a página branca, sem esqueleto nem roda (Silva,
   // 15/10/2026: "não quero spinner dentro do painel"), até o painel aparecer já com o menu. Sem cookie de sessão: o
   // login do site (proxy). Sessão recusada: a entrada do painel. Sem acesso / servidor indisponível: aviso com o que

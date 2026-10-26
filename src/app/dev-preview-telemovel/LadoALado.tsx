@@ -130,7 +130,7 @@ export default function LadoALado() {
       const w = molduras[o]?.contentWindow;
       if (!w || atual[o] === mudou) return;
       ultimo.current[o] = mudou;
-      if (atual[o]?.startsWith('/host') && mudou.startsWith('/host') && !mudou.includes('?') && !mudou.includes('#')) {
+      if (atual[o]?.startsWith('/vhost') && mudou.startsWith('/vhost') && !mudou.includes('?') && !mudou.includes('#')) {
         w.history.pushState(null, '', mudou);
         w.dispatchEvent(new PopStateEvent('popstate'));
         // se o painel acertar o endereço ao mudar de página, isso não volta para a outra moldura

@@ -1,7 +1,7 @@
 // Carregador do DirectAdmin (as três barras do "WordPress Manager" do DA, a subir e a descer uma a seguir à outra) — o
 // que aparece no lugar da tela branca enquanto o painel ainda não tem conteúdo (Silva, 16/10/2026: "quando tenta surgir
 // a tela branca coloque o spinner do DA que está na imagem com o mesmo efeito"). Sem estado nem efeitos: serve tanto à
-// página do servidor (src/app/host/layout.tsx, enquanto os dados chegam) como ao painel no navegador.
+// página do servidor (src/app/vhost/layout.tsx, enquanto os dados chegam) como ao painel no navegador.
 import type { CSSProperties } from 'react';
 import { getThemeColors } from './theme';
 import type { TemaConta } from '@/lib/vhost-tema-conta';

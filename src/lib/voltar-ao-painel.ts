@@ -19,7 +19,7 @@ export function destinoDepoisDoPagamento(padrao: string): string {
   try {
     const c = typeof window !== 'undefined' ? sessionStorage.getItem(CHAVE) : null;
     // só caminhos do próprio painel (nunca outro site)
-    if (c && /^\/v?host:2026(\/[\w\-/]*)?$/.test(c)) return c.replace(/^\/host:2026/, '/vhost:2026');
+    if (c && /^\/vhost:2026(\/[\w\-/]*)?$/.test(c)) return c;
   } catch {
     /* sem armazenamento */
   }

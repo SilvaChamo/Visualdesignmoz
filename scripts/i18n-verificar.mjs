@@ -21,7 +21,7 @@ const ts = require('typescript');
 
 // Partes do site que NÃO são o site público (painéis, área de cliente, API) — não entram na verificação.
 const FORA = [
-  /^src\/app\/(api|host|painel|webmail|dashboard|actions|cliente|guest|revendedor|profissional|contabilidade|recibo|pagamento|encomendas|renovacao|credito|checkout|dev-preview[^/]*)\//,
+  /^src\/app\/(api|vhost|painel|webmail|dashboard|actions|cliente|guest|revendedor|profissional|contabilidade|recibo|pagamento|encomendas|renovacao|credito|checkout|dev-preview[^/]*)\//,
   /^src\/components\/(vhost|admin|dashboard|panel|client|guest|revendedor|encomendas|documents|ui)\//,
   /^src\/lib\/(?!(brand-landing-content|pricing-catalog|services-catalog|package-catalog|email-plans|hosting-plans|quotation-status-labels|auth-messages)\.ts$)/,
   /^src\/(contexts|hooks|types|utils|services)\//,
