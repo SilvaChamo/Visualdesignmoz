@@ -62,19 +62,27 @@ export function ChangeRoleModal({ u }: { u: string }) {
   );
 }
 
-/** Menu extra da barra de baixo do telemóvel (Silva, 26/10/2026): Webmail, Mailmarketing e phpMyAdmin, as páginas do grupo «Extras» */
-export function MenuExtraModal({ itens }: { itens: { id: string; fa: string; t: string; c?: string }[] }) {
-  const { t, closeM, nav } = useVH();
+/** Menu extra da barra de baixo do telemóvel (Silva, 26/10/2026): Webmail, Mailmarketing e phpMyAdmin, as páginas do grupo «Extras».
+ *  Abre no menu deslizante (off-canvas), com o mesmo cabeçalho e o mesmo botão de fechar do menu do ☰. */
+export function MenuExtraModal({ itens, fechar }: { itens: { id: string; fa: string; t: string; c?: string }[]; fechar: () => void }) {
+  const { t, nav } = useVH();
   return (
     <>
-      <h3>{t('Menu extra')}</h3>
-      <div className="mais-grelha" style={{ margin: '12px 0' }}>
+      <div className="mais-cab">
+        <h3>{t('Menu extra')}</h3>
+        <span className="mais-titulo-acoes">
+          <button type="button" className="btn g iconbtn" title={t('Fechar o menu')} aria-label={t('Fechar o menu')} onClick={fechar}>
+            <i className="fa-solid fa-xmark" />
+          </button>
+        </span>
+      </div>
+      <div className="mais-grelha">
         {itens.map((it) => (
           <button
             key={it.id}
             className="btn g sm mais-item"
             onClick={() => {
-              closeM();
+              fechar();
               nav('/utilizador/' + it.id);
             }}
           >
@@ -82,11 +90,6 @@ export function MenuExtraModal({ itens }: { itens: { id: string; fa: string; t: 
             {t(it.t)}
           </button>
         ))}
-      </div>
-      <div className="mfoot">
-        <button className="btn g" onClick={closeM}>
-          {t('Fechar')}
-        </button>
       </div>
     </>
   );

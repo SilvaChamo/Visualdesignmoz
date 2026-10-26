@@ -515,6 +515,7 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
 
   const [modal, setModal] = useState<ReactNode>(null);
   const [gaveta, setGaveta] = useState(false);
+  const [gavetaExtra, setGavetaExtra] = useState(false);
   const [toastMsg, setToastMsg] = useState({ text: '', on: false });
   const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [pop, setPop] = useState<Pop>(null);
@@ -1772,7 +1773,7 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
           {/* só as páginas que o plano da conta deixa ver (Admin › Acessos por plano) */}
           {/* o último botão abre o menu extra (Webmail, Mailmarketing e phpMyAdmin: o grupo «Extras»); o menu completo abre pelo ☰ da barra de cima (Silva, 26/10/2026) */}
           {[...TABBAR[level].filter(([id]) => id !== 'inicio' && vh.hasFeat(findItem(level, id)?.feat, id)), ...(extrasVisiveis.length ? [['extra', 'fa-ellipsis', 'Extra'] as [string, string, string]] : [])].map(([id, fa, label]) => (
-            <a key={id} className={s.page === id ? 'on' : ''} onClick={() => (id === 'extra' ? vh.openM(<MenuExtraModal itens={extrasVisiveis} />) : go(id))}>
+            <a key={id} className={s.page === id ? 'on' : ''} onClick={() => (id === 'extra' ? setGavetaExtra(true) : go(id))}>
               <i className={'fa-solid ' + fa} />
               {t(label)}
             </a>
@@ -1783,6 +1784,13 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
         <div className={'gaveta-bg' + (gaveta ? ' on' : '')} onClick={(e) => e.target === e.currentTarget && setGaveta(false)}>
           <aside className="gaveta" role="dialog" aria-label={t('Menu')}>
             {gaveta && <MoreMenuModal fechar={() => setGaveta(false)} />}
+          </aside>
+        </div>
+
+        {/* o menu extra da barra de baixo abre no mesmo formato do menu deslizante do ☰ */}
+        <div className={'gaveta-bg' + (gavetaExtra ? ' on' : '')} onClick={(e) => e.target === e.currentTarget && setGavetaExtra(false)}>
+          <aside className="gaveta" role="dialog" aria-label={t('Menu extra')}>
+            {gavetaExtra && <MenuExtraModal itens={extrasVisiveis} fechar={() => setGavetaExtra(false)} />}
           </aside>
         </div>
 
