@@ -224,14 +224,6 @@ function TransferirConteudo() {
     );
   }, [pesqPagina, chavePedidos]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const limpar = () => {
-    setDominio('');
-    setEpp('');
-    setMsg(null);
-    setPreco(null);
-    setValidado('');
-  };
-
   const validar = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!dominio.trim() || !epp.trim()) return;
@@ -345,9 +337,6 @@ function TransferirConteudo() {
                     {t('Validar domínio')}
                   </button>
                 )}
-                <button type="button" className="btn g" onClick={limpar}>
-                  {t('Limpar')}
-                </button>
               </div>
             </form>
           </div>
