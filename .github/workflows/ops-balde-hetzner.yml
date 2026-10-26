@@ -120,6 +120,17 @@ jobs:
               ls -1 /usr/local/share/wordpress-mu-plugins /usr/local/share/wordpress-scripts 2>/dev/null | head -30
               echo "(fim)"
               echo
+              echo "=== Quem escreve em oshercollective.com/legacy (dono e hora dos ficheiros) ==="
+              OD=/home/oshercollective/web/oshercollective.com/public_html
+              ls -la --time-style=full-iso "$OD/legacy" 2>/dev/null | head -12
+              echo "ficheiros alterados hoje desde as 06:00 fora de wp-content (dono, hora, nome):"
+              find "$OD" -maxdepth 3 -type f -newermt "2026-10-26 06:00" -not -path "*/wp-content/*" -printf '%u %TY-%Tm-%Td %TH:%TM  %p\n' 2>/dev/null | sort -k2,3 | tail -15
+              echo "(hora do servidor agora: $(date '+%Y-%m-%d %H:%M %Z'))"
+              echo
+              echo "=== Entradas SSH de hoje (quantas, utilizador, IP, chave) ==="
+              { grep -hE "Accepted (publickey|password)" /var/log/auth.log /var/log/auth.log.1 2>/dev/null; journalctl -u ssh -u sshd --since "2026-10-26 00:00" --no-pager 2>/dev/null | grep -E "Accepted (publickey|password)"; } | grep -E "Oct 26|2026-10-26" | awk '{ for (i=1;i<=NF;i++) { if ($i=="for") u=$(i+1); if ($i=="from") ip=$(i+1) } print u, ip, $NF }' | sort | uniq -c | sort -rn | head -15
+              echo "(fim)"
+              echo
               echo "=== Cópias de wp-config (data, tamanho, nome) ==="
               find /home -maxdepth 6 \( -name 'wp-config*.bak' -o -name 'wp-config.php.*' -o -name 'wp-config-*' -o -name 'wp-config.*.php' \) -not -path '*/.vh-lixo/*' -printf '%TY-%Tm-%Td %8s  %p\n' 2>/dev/null | head -30
               echo "(fim)"
