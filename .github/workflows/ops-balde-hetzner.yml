@@ -19,6 +19,7 @@ name: Ops - Balde do Hetzner para o Contabo
 #   varrer      SÓ LÊ: lista os ficheiros do servidor que ainda mencionam o balde (só os nomes), crons, scripts instalados e cópias de wp-config.
 #   limpar      (um domínio) apaga as cópias de wp-config (wp-config*.bak, etc.) que mencionam o balde, depois de confirmar que o
 #               wp-config.php actual responde; e, se pedido, põe uma nota em comentário HTML num ficheiro estático (nota_em).
+#   limpar-modelos  põe de lado (move, não apaga) os dois mu-plugins-modelo do Hetzner em /usr/local/share/wordpress-mu-plugins.
 # Corre com nice/ionice para não pesar nos outros sites do servidor (basededadosagro.com, etc.).
 
 on:
@@ -34,6 +35,7 @@ on:
           - copiar
           - migrar
           - limpar
+          - limpar-modelos
         default: inventario
       dominio:
         description: 'Só para migrar e limpar: o domínio do WordPress (ex.: oshercollective.com)'
@@ -68,7 +70,7 @@ jobs:
           script: |
             set -u
             export PATH="$PATH:/usr/local/bin"
-            case "$FASE" in (inventario|verificar|varrer|copiar|migrar|limpar) ;; (*) echo "Fase inválida"; exit 1;; esac
+            case "$FASE" in (inventario|verificar|varrer|copiar|migrar|limpar|limpar-modelos) ;; (*) echo "Fase inválida"; exit 1;; esac
             BUCKET=visualdesign-storage
             CONF=/root/.config/rclone/rclone.conf
             COPIA=/root/balde-hetzner-copia
@@ -134,6 +136,16 @@ jobs:
               echo "=== Cópias de wp-config (data, tamanho, nome) ==="
               find /home -maxdepth 6 \( -name 'wp-config*.bak' -o -name 'wp-config.php.*' -o -name 'wp-config-*' -o -name 'wp-config.*.php' \) -not -path '*/.vh-lixo/*' -printf '%TY-%Tm-%Td %8s  %p\n' 2>/dev/null | head -30
               echo "(fim)"
+              exit 0
+            fi
+
+            if [ "$FASE" = "limpar-modelos" ]; then
+              B="/root/balde-hetzner-troca/modelos-$(date +%Y%m%d-%H%M%S)"; mkdir -p "$B"
+              for f in /usr/local/share/wordpress-mu-plugins/hetzner-s3-uploads.php /usr/local/share/wordpress-mu-plugins/vd-hetzner-media-urls.php; do
+                if [ -f "$f" ]; then mv "$f" "$B/" && echo "posto de lado: $f"; else echo "já não existe: $f"; fi
+              done
+              echo "o que resta em /usr/local/share/wordpress-mu-plugins:"; ls -1 /usr/local/share/wordpress-mu-plugins
+              echo "Para desfazer: mv $B/*.php /usr/local/share/wordpress-mu-plugins/"
               exit 0
             fi
 
