@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { RefreshCw, Search, Send, LayoutTemplate, X, MoreVertical, Plus, Eye, EyeOff, RotateCcw, Check, Merge } from 'lucide-react';
 import { toast } from 'sonner';
@@ -403,18 +403,20 @@ function RowActionsMenu({
   onClose: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const menuW = 168;
-  const estimatedH = items.length * 30 + 4;
 
-  let top = anchorRect.top + anchorRect.height / 2 - estimatedH / 2;
-  if (typeof window !== 'undefined') {
-    top = Math.min(Math.max(8, top), window.innerHeight - estimatedH - 8);
-  }
-
-  let left = anchorRect.left - menuW;
-  if (typeof window !== 'undefined' && left < 8) {
-    left = anchorRect.right;
-  }
+  // depois de desenhado mede-se o menu: fica à esquerda do botão (a 6 px), centrado com ele na vertical e nunca cortado pela janela; se não
+  // couber à esquerda, passa para a direita do botão
+  useLayoutEffect(() => {
+    const m = ref.current;
+    if (!m) return;
+    const w = m.offsetWidth;
+    const h = m.offsetHeight;
+    const top = Math.max(8, Math.min(Math.round(anchorRect.top + anchorRect.height / 2 - h / 2), window.innerHeight - h - 8));
+    let left = anchorRect.left - w - 6;
+    if (left < 8) left = Math.min(anchorRect.right + 6, window.innerWidth - w - 8);
+    m.style.top = top + 'px';
+    m.style.left = left + 'px';
+  }, [anchorRect]);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -434,7 +436,7 @@ function RowActionsMenu({
   return createPortal(
     <div
       ref={ref}
-      style={{ position: 'fixed', top, left, zIndex: 9999 }}
+      style={{ position: 'fixed', top: anchorRect.top, left: anchorRect.left, zIndex: 9999 }}
       className="font-panel w-max rounded border border-zinc-200 bg-white py-0.5 text-xs shadow-2xl dark:border-zinc-700 dark:bg-zinc-900"
     >
       {items.map((item) => (
