@@ -1,14 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAdmin } from '@/lib/admin-api-auth'
 
 // WHMCS Proxy API - Server-side to bypass CORS and protect credentials
+// Só administradores: a rota fala com o WHMCS com as credenciais do servidor, por isso quem a chamasse sem sessão
+// podia correr qualquer acção da API (listar clientes, faturas…).
 export async function POST(request: NextRequest) {
+    const auth = await requireAdmin()
+    if ('error' in auth) return auth.error
+
     try {
         const body = await request.json()
         const { action, params = {} } = body
 
+        if (typeof action !== 'string' || !/^[A-Za-z]{1,64}$/.test(action)) {
+            return NextResponse.json({ result: 'error', message: 'Acção inválida.' }, { status: 400 })
+        }
+
         const apiUrl = 'https://www.mozserver.co.mz/includes/api.php'
         const email = process.env.WHMCS_API_EMAIL || ''
         const password = process.env.WHMCS_API_PASSWORD || ''
+
+        if (!email || !password) {
+            return NextResponse.json({ result: 'error', message: 'WHMCS_API_EMAIL e WHMCS_API_PASSWORD não configuradas.' }, { status: 503 })
+        }
 
         // Build form data
         const formData = new URLSearchParams()
