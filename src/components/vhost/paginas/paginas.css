@@ -14975,12 +14975,13 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    }
 }
 
-/* Telemóvel (≤768): as listas de domínios e de subdomínios com a disposição do computador e deslize horizontal, em vez de blocos empilhados (Silva, 26/10/2026) */
+/* Telemóvel (≤768): as listas de domínios, de subdomínios, de contas e o rastreio de e-mail com a disposição do computador e deslize horizontal, em vez de blocos empilhados (Silva, 26/10/2026) */
 @media (max-width: 768px) {
    .vh .tbl[data-dt="dominios"]:not(#x) tbody td:not(#x),
    .vh .tbl[data-dt="subdominios"]:not(#x) tbody td:not(#x),
    .vh .tbl[data-dt^="contas-"]:not(#x) tbody td:not(#x),
-   .vh .tbl[data-dt="email-contas"]:not(#x) tbody td:not(#x) {
+   .vh .tbl[data-dt="email-contas"]:not(#x) tbody td:not(#x),
+   .vh .tbl[data-dt="email-rastreio"]:not(#x) tbody td:not(#x) {
       padding: calc(6.2px * var(--z, 1)) 0 calc(6.2px * var(--z, 1)) calc(12px * var(--z, 1));
       font-size: calc(12.2px * var(--z, 1))
    }
@@ -14988,7 +14989,8 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    .vh .tbl[data-dt="dominios"]:not(#x) thead th:not(#x):not(.dt-th-cols),
    .vh .tbl[data-dt="subdominios"]:not(#x) thead th:not(#x):not(.dt-th-cols),
    .vh .tbl[data-dt^="contas-"]:not(#x) thead th:not(#x):not(.dt-th-cols),
-   .vh .tbl[data-dt="email-contas"]:not(#x) thead th:not(#x):not(.dt-th-cols) {
+   .vh .tbl[data-dt="email-contas"]:not(#x) thead th:not(#x):not(.dt-th-cols),
+   .vh .tbl[data-dt="email-rastreio"]:not(#x) thead th:not(#x):not(.dt-th-cols) {
       padding: calc(7px * var(--z, 1)) 0 calc(7px * var(--z, 1)) calc(12px * var(--z, 1));
       font-size: calc(13.2px * var(--z, 1))
    }
