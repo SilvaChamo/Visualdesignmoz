@@ -10,7 +10,7 @@
  */
 import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
-import { Globe, Mail, Moon, Server, Sun, type LucideIcon } from 'lucide-react'
+import { Globe, Mail, Moon, Server, Sun, SunMoon, type LucideIcon } from 'lucide-react'
 import { useTheme } from '@/contexts/ThemeContext'
 import { useI18n } from '@/lib/i18n'
 
@@ -127,10 +127,10 @@ function FaixaBranca() {
   )
 }
 
-/** Canto de cima à direita: um botão de tema e a língua, com as medidas da entrada do painel. No
+/** Canto de cima à direita: os três botões de tema (claro, automático, escuro) e a língua, com as medidas da entrada do painel. No
  *  telemóvel e no tablet (sem a imagem) ficam ao centro, num cabeçalho com uma linha por baixo (pedido do Silva) */
 function BotoesCanto() {
-  const { theme, toggleTheme } = useTheme()
+  const { theme, system, setTheme, followSystem } = useTheme()
   const { lang, toggleLang, t } = useI18n()
   const [linguas, setLinguas] = useState(false)
   const caixa = useRef<HTMLDivElement>(null)
@@ -157,15 +157,34 @@ function BotoesCanto() {
 
   return (
     <div className="absolute inset-x-0 top-0 z-20 flex items-center justify-center gap-6 border-b border-zinc-200 bg-[#fff] px-4 py-3 dark:border-[#393e4d] dark:bg-[#15161e] sm:gap-[34px] lg:inset-x-auto lg:right-4 lg:top-[10px] lg:justify-end lg:border-0 lg:bg-transparent lg:p-0 lg:dark:bg-transparent">
-      <button
-        type="button"
-        onClick={toggleTheme}
-        title={theme === 'dark' ? t('Tema claro') : t('Tema escuro')}
-        aria-label={theme === 'dark' ? t('Mudar para tema claro') : t('Mudar para tema escuro')}
-        className="grid h-[34px] w-[34px] place-items-center rounded-full bg-zinc-100 text-zinc-700 transition-colors hover:bg-zinc-200 dark:bg-[#272a34] dark:text-zinc-200 dark:hover:bg-[#303440]"
-      >
-        {theme === 'dark' ? <Sun className="h-[15px] w-[15px]" strokeWidth={2.25} aria-hidden /> : <Moon className="h-[15px] w-[15px]" strokeWidth={2.25} aria-hidden />}
-      </button>
+      <div className="flex items-center" role="group" aria-label={t('Tema')}>
+        {(
+          [
+            ['light', Sun, t('Tema claro'), !system && theme === 'light', () => setTheme('light')],
+            ['system', SunMoon, t('Tema do aparelho'), system, followSystem],
+            ['dark', Moon, t('Tema escuro'), !system && theme === 'dark', () => setTheme('dark')],
+          ] as const
+        ).map(([k, Icone, nome, activo, aplicar], i) => (
+          <div key={k} className="flex items-center">
+            {i > 0 && <span className="h-px w-3 bg-zinc-300 dark:bg-[#393e4d]" aria-hidden />}
+            <button
+              type="button"
+              onClick={aplicar}
+              title={nome}
+              aria-label={nome}
+              aria-pressed={activo}
+              className={
+                'grid h-[34px] w-[34px] place-items-center rounded-full transition-colors ' +
+                (activo
+                  ? 'bg-red-600 text-white'
+                  : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200 dark:bg-[#272a34] dark:text-zinc-200 dark:hover:bg-[#303440]')
+              }
+            >
+              <Icone className="h-[15px] w-[15px]" strokeWidth={2.25} aria-hidden />
+            </button>
+          </div>
+        ))}
+      </div>
       <div className="relative" ref={caixa}>
         <button
           type="button"

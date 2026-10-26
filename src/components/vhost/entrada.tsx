@@ -18,11 +18,11 @@ import { marcarEntrada } from '@/lib/vhost-cache';
 export const LINGUA_LS = 'visualhost_lang';
 
 const TXT = {
-  pt: { user: 'Utilizador', userPh: 'Escreva o nome de utilizador ou e-mail', senha: 'Palavra-passe', senhaPh: 'Escreva a sua palavra-passe', entrar: 'Entrar', falta: 'Escreva o utilizador e a palavra-passe.', errado: 'Utilizador ou palavra-passe errados.', bloqueado: (min: number) => `Bloqueado por tentativas falhadas. Volte a tentar daqui a ${min} min.`, ligacao: MSG_LIGACAO, mostrar: 'Mostrar a palavra-passe', esconder: 'Esconder a palavra-passe', claro: 'Tema claro', escuro: 'Tema escuro', voltar: 'Depois de entrar, volta a' },
-  en: { user: 'Username', userPh: 'Please enter username or email', senha: 'Password', senhaPh: 'Please enter your password', entrar: 'Sign in', falta: 'Please enter your username and password.', errado: 'Wrong username or password.', bloqueado: (min: number) => `Blocked after failed attempts. Try again in ${min} min.`, ligacao: { ip: 'No connection to the sign-in server: the server blocked access from your IP after too many failed attempts on this network (for example, an email app with an old password). Ask support to unblock the IP.', internet: 'No internet connection. Check your network and try again.', servidor: 'The sign-in server is not responding. Try again in a minute.' }, mostrar: 'Show password', esconder: 'Hide password', claro: 'Light theme', escuro: 'Dark theme', voltar: 'After signing in, you return to' },
+  pt: { user: 'Utilizador', userPh: 'Escreva o nome de utilizador ou e-mail', senha: 'Palavra-passe', senhaPh: 'Escreva a sua palavra-passe', entrar: 'Entrar', falta: 'Escreva o utilizador e a palavra-passe.', errado: 'Utilizador ou palavra-passe errados.', bloqueado: (min: number) => `Bloqueado por tentativas falhadas. Volte a tentar daqui a ${min} min.`, ligacao: MSG_LIGACAO, mostrar: 'Mostrar a palavra-passe', esconder: 'Esconder a palavra-passe', claro: 'Tema claro', escuro: 'Tema escuro', aparelho: 'Tema do aparelho', tema: 'Tema', voltar: 'Depois de entrar, volta a' },
+  en: { user: 'Username', userPh: 'Please enter username or email', senha: 'Password', senhaPh: 'Please enter your password', entrar: 'Sign in', falta: 'Please enter your username and password.', errado: 'Wrong username or password.', bloqueado: (min: number) => `Blocked after failed attempts. Try again in ${min} min.`, ligacao: { ip: 'No connection to the sign-in server: the server blocked access from your IP after too many failed attempts on this network (for example, an email app with an old password). Ask support to unblock the IP.', internet: 'No internet connection. Check your network and try again.', servidor: 'The sign-in server is not responding. Try again in a minute.' }, mostrar: 'Show password', esconder: 'Hide password', claro: 'Light theme', escuro: 'Dark theme', aparelho: 'Device theme', tema: 'Theme', voltar: 'After signing in, you return to' },
 };
 
-export function EntradaPainel({ ocupado = false, escuro, lang, voltarA, onToggleTheme, onLang, onEntrou }: { ocupado?: boolean; escuro: boolean; lang: Lang; voltarA?: string; onToggleTheme: () => void; onLang: (l: Lang) => void; onEntrou: () => void }) {
+export function EntradaPainel({ ocupado = false, escuro, automatico, lang, voltarA, onTema, onLang, onEntrou }: { ocupado?: boolean; escuro: boolean; automatico: boolean; lang: Lang; voltarA?: string; onTema: (modo: 'light' | 'dark' | 'system') => void; onLang: (l: Lang) => void; onEntrou: () => void }) {
   const tx = TXT[lang === 'en' ? 'en' : 'pt'];
   const [user, setUser] = useState('');
   const [senha, setSenha] = useState('');
@@ -79,7 +79,7 @@ export function EntradaPainel({ ocupado = false, escuro, lang, voltarA, onToggle
   return (
     <div className="ent">
       <FundoPainel escuro={escuro} />
-      <TopoEntrada escuro={escuro} lang={lang} onToggleTheme={onToggleTheme} onLang={onLang} />
+      <TopoEntrada escuro={escuro} automatico={automatico} lang={lang} onTema={onTema} onLang={onLang} />
       <div className="ent-meio">
         <form className="ent-cartao" onSubmit={entrar} noValidate>
           {/* o logótipo leva ao site da VisualDesign; no escuro, a versão com as letras brancas */}
@@ -121,8 +121,8 @@ export function EntradaPainel({ ocupado = false, escuro, lang, voltarA, onToggle
   );
 }
 
-/** Canto superior direito da entrada: um botão para alternar o tema e o menu da língua. */
-function TopoEntrada({ escuro, lang, onToggleTheme, onLang }: { escuro: boolean; lang: Lang; onToggleTheme: () => void; onLang: (l: Lang) => void }) {
+/** Canto superior direito da entrada: os três botões de tema (claro, automático, escuro) e o menu da língua. */
+function TopoEntrada({ escuro, automatico, lang, onTema, onLang }: { escuro: boolean; automatico: boolean; lang: Lang; onTema: (modo: 'light' | 'dark' | 'system') => void; onLang: (l: Lang) => void }) {
   const tx = TXT[lang === 'en' ? 'en' : 'pt'];
   const [linguas, setLinguas] = useState(false);
   const caixa = useRef<HTMLDivElement>(null);
@@ -141,15 +141,19 @@ function TopoEntrada({ escuro, lang, onToggleTheme, onLang }: { escuro: boolean;
   }, [linguas]);
   return (
     <div className="ent-cima">
-      <button
-        type="button"
-        className="ent-tema"
-        onClick={onToggleTheme}
-        title={escuro ? tx.claro : tx.escuro}
-        aria-label={escuro ? tx.claro : tx.escuro}
-      >
-        <i className={'fa-solid ' + (escuro ? 'fa-sun' : 'fa-moon')} aria-hidden />
-      </button>
+      <div className="ent-temas" role="group" aria-label={tx.tema}>
+        {(
+          [
+            ['light', 'fa-sun', tx.claro, !automatico && !escuro],
+            ['system', 'fa-circle-half-stroke', tx.aparelho, automatico],
+            ['dark', 'fa-moon', tx.escuro, !automatico && escuro],
+          ] as const
+        ).map(([modo, icone, nome, activo]) => (
+          <button key={modo} type="button" className={'ent-tema' + (activo ? ' on' : '')} onClick={() => onTema(modo)} title={nome} aria-label={nome} aria-pressed={activo}>
+            <i className={'fa-solid ' + icone} aria-hidden />
+          </button>
+        ))}
+      </div>
       <div className="ent-lingua" ref={caixa}>
         <button type="button" onClick={() => setLinguas(!linguas)} aria-expanded={linguas}>
           <i className="fa-solid fa-globe" />

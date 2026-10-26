@@ -6791,6 +6791,33 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    color: #e5e7eb
 }
 
+/* os três botões de tema, ligados por uma linha fina; o activo fica a vermelho */
+.vh .ent-temas {
+   display: flex;
+   align-items: center
+}
+
+.vh .ent-temas .ent-tema+.ent-tema {
+   margin-left: calc(12px * var(--z, 1));
+   position: relative
+}
+
+.vh .ent-temas .ent-tema+.ent-tema::before {
+   content: "";
+   position: absolute;
+   right: 100%;
+   top: 50%;
+   width: calc(12px * var(--z, 1));
+   height: 1px;
+   background: color-mix(in srgb, var(--ink) 25%, transparent)
+}
+
+.vh .ent-tema.on,
+.vh[data-theme=dark] .ent-tema.on {
+   background: #e3202c;
+   color: #fff
+}
+
 .vh .ent-lingua {
    position: relative
 }
@@ -11863,7 +11890,7 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    background: var(--soft)
 }
 
-/* Perfil › Autenticação em 2 passos, no formato do DirectAdmin: faixa com o ícone num bloco à esquerda (âmbar desligada, verde ligada), e os
+/* Perfil › Autenticação em 2 passos, no formato do DirectAdmin: faixa com o ícone num bloco à esquerda (preto desligada, verde ligada), e os
    códigos de recuperação numa caixa por baixo; só linhas de cima e de baixo, sem laterais (Silva, 21/10/2026) */
 .vh .pf-2p-faixa {
    display: flex;
@@ -11880,9 +11907,14 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    width: calc(70px * var(--z, 1));
    display: grid;
    place-items: center;
-   background: #B07F1B;
+   background: #000;
    color: #fff;
    font-size: calc(22px * var(--fs, 1))
+}
+
+/* o ícone do escudo sempre branco (as cores dos ícones do painel pintavam-no de verde; Silva, 26/10/2026) */
+.vh .pf-2p-ic i {
+   color: #fff !important
 }
 
 .vh .pf-2p-ic::after {
@@ -11892,7 +11924,7 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    top: 50%;
    margin-top: calc(-7px * var(--z, 1));
    border: 7px solid transparent;
-   border-left-color: #B07F1B;
+   border-left-color: #000;
    border-right: 0
 }
 
@@ -14845,4 +14877,29 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    height: calc(58px * var(--z, 1));
    min-height: calc(58px * var(--z, 1));
    font-size: calc(16px * var(--fs, 1))
+}
+
+/* Personalizar painel › as quatro categorias numa só linha; quando o espaço encolhe duas por linha e no telemóvel uma (Silva, 26/10/2026).
+   Mede a largura do próprio espaço (não a do ecrã), porque o menu da esquerda também ocupa lugar. */
+.vh .tema-cats-caixa {
+   container-type: inline-size
+}
+
+.vh .tema-cats {
+   display: grid;
+   grid-template-columns: repeat(4, minmax(0, 1fr));
+   gap: calc(20px * var(--z, 1));
+   margin-bottom: calc(24px * var(--z, 1))
+}
+
+@container (max-width: 960px) {
+   .vh .tema-cats {
+      grid-template-columns: repeat(2, minmax(0, 1fr))
+   }
+}
+
+@container (max-width: 520px) {
+   .vh .tema-cats {
+      grid-template-columns: 1fr
+   }
 }

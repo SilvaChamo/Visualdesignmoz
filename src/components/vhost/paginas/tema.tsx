@@ -12,6 +12,12 @@ type Cores = { primary: string; safe: string; danger: string; warning: string; r
 const CHAVES: (keyof Cores)[] = ['primary', 'safe', 'danger', 'warning', 'railBg', 'railInk', 'botoes'];
 const coresDe = (c: ReturnType<typeof getThemeColors>): Cores => ({ primary: c.primary, safe: c.safe, danger: c.danger, warning: c.warning, railBg: c.railBg, railInk: c.railInk, botoes: c.botoes });
 
+/** a cor do ícone de cada quadrado das cores é posta directamente no elemento, com prioridade sobre qualquer folha de estilo
+ *  (as cores automáticas dos ícones do painel pintavam estes ícones de azul e verde por cima das do tema) */
+const corNoIcone = (cor: string) => (el: HTMLElement | null) => {
+  el?.style.setProperty('color', cor, 'important');
+};
+
 export function ThemeCustomizerView() {
   const vh = useVH();
   const { s, t, nav, setColorPreset, saveThemeColors, previewThemeColors, toggleTheme, setRadius, setBrand, toast } = vh;
@@ -111,14 +117,8 @@ export function ThemeCustomizerView() {
             </p>
           </div>
 
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-              gap: '24px',
-              marginBottom: '24px',
-            }}
-          >
+          <div className="tema-cats-caixa">
+          <div className="tema-cats">
             {/* Categoria 1: Cores dos Componentes */}
             <div
               onClick={() => nav(basePath + '/cores')}
@@ -126,42 +126,38 @@ export function ThemeCustomizerView() {
                 background: 'var(--card)',
                 border: '1px solid var(--line)',
                 borderRadius: 'calc(var(--r) + 2px)',
-                padding: '24px',
+                padding: '20px',
                 cursor: 'pointer',
                 transition: 'all 0.2s ease',
                 boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '36px minmax(0, 1fr)', columnGap: 12, rowGap: 8 }}>
                 <div
                   style={{
-                    width: 44,
-                    height: 44,
+                    minHeight: 36,
                     borderRadius: 'var(--r)',
                     background: 'var(--tint)',
                     color: 'var(--red)',
                     display: 'grid',
                     placeItems: 'center',
-                    fontSize: 20,
+                    fontSize: 17,
                   }}
                 >
                   <i className="fa-solid fa-palette" />
                 </div>
                 <div>
-                  <h3 style={{ fontSize: 16, fontWeight: 800, margin: 0, color: 'var(--ink)' }}>
-                    {t('Cores dos Componentes')}
+                  <h3 style={{ fontSize: 15, fontWeight: 800, margin: 0, color: 'var(--ink)', whiteSpace: 'nowrap' }}>
+                    {t('Cores')}
                   </h3>
                   <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--red)', textTransform: 'uppercase' }}>
                     V-Host Colors
                   </span>
                 </div>
-              </div>
-              <p style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.4, margin: '0 0 16px' }}>
-                {t('Temas das marcas Visual, editor de cores de componentes (Primary, Safe, Danger, Warning, Barra Compacta e Ícones).')}
-              </p>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: 'var(--red)' }}>
-                <span>{t('Explorar Cores')}</span>
-                <i className="fa-solid fa-arrow-right" style={{ fontSize: 11 }} />
+                <div style={{ gridColumn: 2, display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: 'var(--red)' }}>
+                  <span>{t('Explorar Cores')}</span>
+                  <i className="fa-solid fa-arrow-right" style={{ fontSize: 11 }} />
+                </div>
               </div>
             </div>
 
@@ -172,42 +168,38 @@ export function ThemeCustomizerView() {
                 background: 'var(--card)',
                 border: '1px solid var(--line)',
                 borderRadius: 'calc(var(--r) + 2px)',
-                padding: '24px',
+                padding: '20px',
                 cursor: 'pointer',
                 transition: 'all 0.2s ease',
                 boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '36px minmax(0, 1fr)', columnGap: 12, rowGap: 8 }}>
                 <div
                   style={{
-                    width: 44,
-                    height: 44,
+                    minHeight: 36,
                     borderRadius: 'var(--r)',
                     background: 'var(--soft)',
                     color: 'var(--ink)',
                     display: 'grid',
                     placeItems: 'center',
-                    fontSize: 20,
+                    fontSize: 17,
                   }}
                 >
                   <i className="fa-solid fa-shapes" />
                 </div>
                 <div>
-                  <h3 style={{ fontSize: 16, fontWeight: 800, margin: 0, color: 'var(--ink)' }}>
+                  <h3 style={{ fontSize: 15, fontWeight: 800, margin: 0, color: 'var(--ink)', whiteSpace: 'nowrap' }}>
                     {t('Layout & Cantos')}
                   </h3>
                   <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>
                     Layout & Radius
                   </span>
                 </div>
-              </div>
-              <p style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.4, margin: '0 0 16px' }}>
-                {t('Ajuste a intensidade das curvas dos painéis (Border Radius: 4px padrão) e estrutura visual.')}
-              </p>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: 'var(--red)' }}>
-                <span>{t('Ajustar Layout')}</span>
-                <i className="fa-solid fa-arrow-right" style={{ fontSize: 11 }} />
+                <div style={{ gridColumn: 2, display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: 'var(--red)' }}>
+                  <span>{t('Ajustar Layout')}</span>
+                  <i className="fa-solid fa-arrow-right" style={{ fontSize: 11 }} />
+                </div>
               </div>
             </div>
 
@@ -218,42 +210,38 @@ export function ThemeCustomizerView() {
                 background: 'var(--card)',
                 border: '1px solid var(--line)',
                 borderRadius: 'calc(var(--r) + 2px)',
-                padding: '24px',
+                padding: '20px',
                 cursor: 'pointer',
                 transition: 'all 0.2s ease',
                 boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '36px minmax(0, 1fr)', columnGap: 12, rowGap: 8 }}>
                 <div
                   style={{
-                    width: 44,
-                    height: 44,
+                    minHeight: 36,
                     borderRadius: 'var(--r)',
                     background: 'var(--soft)',
                     color: 'var(--ink)',
                     display: 'grid',
                     placeItems: 'center',
-                    fontSize: 20,
+                    fontSize: 17,
                   }}
                 >
                   <i className="fa-solid fa-circle-half-stroke" />
                 </div>
                 <div>
-                  <h3 style={{ fontSize: 16, fontWeight: 800, margin: 0, color: 'var(--ink)' }}>
+                  <h3 style={{ fontSize: 15, fontWeight: 800, margin: 0, color: 'var(--ink)', whiteSpace: 'nowrap' }}>
                     {t('Modo de Exibição')}
                   </h3>
                   <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>
                     Light / Dark
                   </span>
                 </div>
-              </div>
-              <p style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.4, margin: '0 0 16px' }}>
-                {t('Alterne entre os modos Claro e Escuro para um maior conforto visual.')}
-              </p>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: 'var(--red)' }}>
-                <span>{t('Alterar Modo')}</span>
-                <i className="fa-solid fa-arrow-right" style={{ fontSize: 11 }} />
+                <div style={{ gridColumn: 2, display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: 'var(--red)' }}>
+                  <span>{t('Alterar Modo')}</span>
+                  <i className="fa-solid fa-arrow-right" style={{ fontSize: 11 }} />
+                </div>
               </div>
             </div>
 
@@ -264,44 +252,41 @@ export function ThemeCustomizerView() {
                 background: 'var(--card)',
                 border: '1px solid var(--line)',
                 borderRadius: 'calc(var(--r) + 2px)',
-                padding: '24px',
+                padding: '20px',
                 cursor: 'pointer',
                 transition: 'all 0.2s ease',
                 boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '36px minmax(0, 1fr)', columnGap: 12, rowGap: 8 }}>
                 <div
                   style={{
-                    width: 44,
-                    height: 44,
+                    minHeight: 36,
                     borderRadius: 'var(--r)',
                     background: 'var(--soft)',
                     color: 'var(--ink)',
                     display: 'grid',
                     placeItems: 'center',
-                    fontSize: 20,
+                    fontSize: 17,
                   }}
                 >
                   <i className="fa-solid fa-font" />
                 </div>
                 <div>
-                  <h3 style={{ fontSize: 16, fontWeight: 800, margin: 0, color: 'var(--ink)' }}>
+                  <h3 style={{ fontSize: 15, fontWeight: 800, margin: 0, color: 'var(--ink)', whiteSpace: 'nowrap' }}>
                     {t('Marca & Logótipo')}
                   </h3>
                   <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>
                     Branding
                   </span>
                 </div>
-              </div>
-              <p style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.4, margin: '0 0 16px' }}>
-                {t('Defina o nome do serviço, URL do logótipo da sua empresa e dados de rodapé.')}
-              </p>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: 'var(--red)' }}>
-                <span>{t('Definir Marca')}</span>
-                <i className="fa-solid fa-arrow-right" style={{ fontSize: 11 }} />
+                <div style={{ gridColumn: 2, display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: 'var(--red)' }}>
+                  <span>{t('Definir Marca')}</span>
+                  <i className="fa-solid fa-arrow-right" style={{ fontSize: 11 }} />
+                </div>
               </div>
             </div>
+          </div>
           </div>
         </div>
       )}
@@ -637,7 +622,7 @@ export function ThemeCustomizerView() {
                           }}
                           title="1º Fundo: Background da Barra Compacta"
                         >
-                          <i className="fa-solid fa-layer-group" />
+                          <i className="fa-solid fa-layer-group tema-sw-ic" ref={corNoIcone(corIcones)} />
                         </div>
 
                         {/* 2. Ícones (Cor dos Ícones da Barra) */}
@@ -655,7 +640,7 @@ export function ThemeCustomizerView() {
                           }}
                           title="2º Ícones: Ícones da Barra Compacta"
                         >
-                          <i className="fa-solid fa-icons" />
+                          <i className="fa-solid fa-icons tema-sw-ic" ref={corNoIcone(currentRailBg)} />
                         </div>
 
                         {/* 3. Links (Links & Destaques) */}
@@ -673,7 +658,7 @@ export function ThemeCustomizerView() {
                           }}
                           title="3º Links: Links & Destaques do Painel"
                         >
-                          <i className="fa-solid fa-link" />
+                          <i className="fa-solid fa-link tema-sw-ic" ref={corNoIcone('#fff')} />
                         </div>
 
                         {/* 4. Botões (Botões & Bolinhas de Mensagens) */}
@@ -691,7 +676,7 @@ export function ThemeCustomizerView() {
                           }}
                           title="4º Botões: Botões & Bolinhas de Mensagens"
                         >
-                          <i className="fa-solid fa-circle-dot" />
+                          <i className="fa-solid fa-circle-dot tema-sw-ic" ref={corNoIcone('#fff')} />
                         </div>
                       </div>
 
@@ -1209,13 +1194,8 @@ export function ThemeCustomizerView() {
           {t('Pré-visualização ao Vivo dos Componentes Herdados')}
         </h3>
 
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-            gap: 16,
-          }}
-        >
+        <div className="tema-cats-caixa">
+        <div className="tema-cats" style={{ marginBottom: 0, gap: 16 }}>
           {/* Item 1: Barra Compacta Herdada */}
           <div style={{ background: 'var(--soft)', padding: 14, borderRadius: 'var(--r)', border: '1px solid var(--line)' }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 8 }}>
@@ -1233,7 +1213,8 @@ export function ThemeCustomizerView() {
                   placeItems: 'center',
                 }}
               >
-                <i className="fa-solid fa-house" style={{ color: 'var(--rail-ink)' }} />
+                {/* a cor segue a dos ícones da barra definida nas cores (sem a pintura automática dos ícones do painel) */}
+                <i className="fa-solid fa-house tema-rail-ic" style={{ color: 'var(--rail-ink, #fff)' }} />
               </div>
               <div>
                 <span style={{ fontSize: 12, fontWeight: 700, display: 'block' }}>Barra Compacta</span>
@@ -1279,6 +1260,7 @@ export function ThemeCustomizerView() {
               </a>
             </div>
           </div>
+        </div>
         </div>
       </div>
     </div>
