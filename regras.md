@@ -363,8 +363,13 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
   também o ícone da gestão de ficheiros (só ícone, leva directo à página, só aparece a quem o plano deixa ver).
 - **O separador "Admin"** chama-se "Admin" em todos os painéis, também no do revendedor (`nomeNivel` em `state.ts` — tabs, caminho
   e pesquisa; "Revenda" já não aparece como nome de separador).
-- **O cartão principal chega ao fundo da janela** em computador e tablet: sem margem por baixo, sem a linha de baixo e
-  sem cantos de baixo arredondados. No telemóvel vai de ponta a ponta (ver abaixo).
+- **No fim do scroll fica só a margem dos lados e de cima** (Silva, 26/10/2026: «no fim do último card… a mesma margem das
+  laterais e do topo, em todos os cards, sem excepção»; substitui a regra de 20/10 «o cartão chega ao fundo da janela»): o
+  `main` tem a mesma margem (`20px × --k`) dos quatro lados e o cartão principal volta a ter a linha e os cantos de baixo. O
+  último elemento de cada contentor (`.pg-slot`, `.da-main-card`, `.da-lado`, `.cols-side`, `.dom-principal`) não leva margem
+  por baixo (somava-se ao preenchimento do cartão: 50 px em vez de 25). Nunca voltar a pôr margens grandes no fim de uma
+  página (o antigo `margin-bottom: 110px` era para um quadro "Maquete" que já não existe). No telemóvel: a altura da barra
+  de baixo (64 px) mais 12 px.
 
 ## Tabelas
 
@@ -682,6 +687,11 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
   nunca leva dois registos SPF (o lirandzojewelry.com tinha um antigo, inválido, com o IPv6 do Hetzner: apagado).
 - **msdn-moz.org:** `nginx.conf_vd-privado` e `nginx.ssl.conf_vd-privado` (em `/home/oshercollective/conf/web/msdn-moz.org/`) dão 404 ao `convidados.csv` (125 pessoas com e-mail), ao zip de instalação e às
   notas de instalação, que o nginx servia como ficheiros estáticos; os scripts PHP continuam a lê-los do disco.
+- **Cartão «Registo do domínio» sem «—» quando o servidor sabe o valor** (Silva, 26/10/2026: «os espaços com dados em falta devem ser preenchidos porque existe no servidor»;
+  `dominios.tsx`, rota `registrar/domain/manage`). Se a Dynadot não conhece o domínio (registado noutro registador), a rota devolve também `local`: datas e renovação
+  automática do registo de renovações (`domain_renewals`), datas, trava de transferência e nameservers da consulta pública RDAP (`rdap.org`, 4 s de limite) e os contactos
+  da conta (`contactPreview`). Os valores aparecem só para ver (interruptores e botões desativados); o que nenhuma fonte diz (ex.: privacidade WHOIS) fica «—», nunca
+  inventado. O nome de cada informação do cartão (`.dom-info-l > span`) fica numa só linha (coluna de 176 px).
 
 # Autenticação em 2 passos (opcional — Silva, 21/10/2026)
 

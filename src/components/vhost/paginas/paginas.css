@@ -291,6 +291,12 @@
    outline-offset: 2px
 }
 
+/* interruptor só para ver (ex.: registo de um domínio que está noutro registador) */
+.vh .sw input:disabled+span {
+   opacity: .55;
+   cursor: not-allowed
+}
+
 .vh .feats {
    display: grid;
    grid-template-columns: repeat(auto-fill, minmax(calc(300px * var(--z, 1)), 1fr))
@@ -2995,17 +3001,6 @@
    line-height: 1.5;
    white-space: pre-wrap;
    word-break: break-all
-}
-
-/* Espaço no fim das páginas de gestão, para o quadro "Maquete" (canto inferior direito) não tapar os botões */
-.vh main>.tema-pg,
-.vh main>.da-sec:last-child,
-.vh main>.frm:last-child,
-.vh main>.acoes-topo:last-child,
-.vh main>.tabcard:last-child,
-.vh main>.tbl.dt:last-child,
-.vh main>.passo:last-child {
-   margin-bottom: calc(110px * var(--z, 1))
 }
 
 @media(max-width:768px) {
@@ -7985,7 +7980,7 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
 
 .vh .dom-info-l {
    display: grid;
-   grid-template-columns: calc(150px * var(--z, 1)) minmax(0, 1fr) calc(14px * var(--z, 1));
+   grid-template-columns: calc(176px * var(--z, 1)) minmax(0, 1fr) calc(14px * var(--z, 1));
    gap: calc(12px * var(--z, 1));
    align-items: center;
    min-height: calc(46px * var(--z, 1));
@@ -7996,7 +7991,9 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
 .vh .dom-info-l>span {
    font-weight: 600;
    font-size: calc(13.5px * var(--fs, 1));
-   color: var(--muted)
+   color: var(--muted);
+   /* o nome de cada informação numa só linha (Silva, 26/10/2026: "não quero duas linhas do título") */
+   white-space: nowrap
 }
 
 .vh .dom-info-l>div {
@@ -8045,7 +8042,7 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
 }
 
 .vh .dom-info-l .btn {
-   white-space: normal;
+   white-space: nowrap;
    height: auto;
    min-height: calc(30px * var(--z, 1));
    text-align: left
@@ -8056,6 +8053,11 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    .vh .dom-info-l {
       grid-template-columns: minmax(0, 1fr) calc(14px * var(--z, 1));
       row-gap: calc(4px * var(--z, 1))
+   }
+
+   /* sem largura para o botão numa linha: aí o texto parte-se */
+   .vh .dom-info-l .btn {
+      white-space: normal
    }
 
    .vh .dom-info-l>span {
@@ -11549,17 +11551,18 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    backdrop-filter: none
 }
 
-/* Fim do cartão principal (Silva, 20/10/2026): sem margem por baixo no fim do scroll e sem a linha de baixo à vista — o cartão
-   chega ao fundo da janela. Só nos ecrãs de computador e tablet. */
-@media (min-width: 769px) {
-   .vh main {
-      padding-bottom: 0
-   }
+/* Fim do scroll (Silva, 26/10/2026: «no fim do último card… só a mesma margem das laterais e do topo, em todos os cards sem excepção»):
+   depois do último cartão fica só a margem de `main` (a mesma dos lados e de cima, ver `--k` mais abaixo). Substitui a regra de 20/10/2026
+   («o cartão chega ao fundo da janela»). O último elemento de cada contentor da página não leva margem por baixo: somava-se ao preenchimento
+   do cartão principal (25 + 25 = 50 px em vez de 25). */
+.vh main :is(.pg-slot, .da-main-card, .da-lado, .cols-side, .cols-main, .dom-principal) > :last-child:not(#x) {
+   margin-bottom: 0
+}
 
-   .vh main .da-main-card {
-      border-bottom-width: 0;
-      border-bottom-left-radius: 0;
-      border-bottom-right-radius: 0
+/* telemóvel: por baixo do último cartão, a margem dos lados (12 px) depois da barra de baixo, que é fixa (antes eram 140 px) */
+@media (max-width: 768px) {
+   .vh main:not(#x) {
+      padding-bottom: calc(calc(64px * var(--z, 1)) + calc(12px * var(--z, 1)) + env(safe-area-inset-bottom, 0px))
    }
 }
 
@@ -14002,7 +14005,8 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    .vh main:not(#x) {
       padding-top: calc(20px * var(--k));
       padding-left: calc(20px * var(--k));
-      padding-right: calc(20px * var(--k))
+      padding-right: calc(20px * var(--k));
+      padding-bottom: calc(20px * var(--k))
    }
 
    .vh .da-main-card:not(#x):not(#y) {
@@ -14971,12 +14975,13 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    }
 }
 
-/* Telemóvel (≤768): as listas de domínios e de subdomínios com a disposição do computador e deslize horizontal, em vez de blocos empilhados (Silva, 26/10/2026) */
+/* Telemóvel (≤768): as listas de domínios, de subdomínios, de contas e o rastreio de e-mail com a disposição do computador e deslize horizontal, em vez de blocos empilhados (Silva, 26/10/2026) */
 @media (max-width: 768px) {
    .vh .tbl[data-dt="dominios"]:not(#x) tbody td:not(#x),
    .vh .tbl[data-dt="subdominios"]:not(#x) tbody td:not(#x),
    .vh .tbl[data-dt^="contas-"]:not(#x) tbody td:not(#x),
-   .vh .tbl[data-dt="email-contas"]:not(#x) tbody td:not(#x) {
+   .vh .tbl[data-dt="email-contas"]:not(#x) tbody td:not(#x),
+   .vh .tbl[data-dt="email-rastreio"]:not(#x) tbody td:not(#x) {
       padding: calc(6.2px * var(--z, 1)) 0 calc(6.2px * var(--z, 1)) calc(12px * var(--z, 1));
       font-size: calc(12.2px * var(--z, 1))
    }
@@ -14984,7 +14989,8 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    .vh .tbl[data-dt="dominios"]:not(#x) thead th:not(#x):not(.dt-th-cols),
    .vh .tbl[data-dt="subdominios"]:not(#x) thead th:not(#x):not(.dt-th-cols),
    .vh .tbl[data-dt^="contas-"]:not(#x) thead th:not(#x):not(.dt-th-cols),
-   .vh .tbl[data-dt="email-contas"]:not(#x) thead th:not(#x):not(.dt-th-cols) {
+   .vh .tbl[data-dt="email-contas"]:not(#x) thead th:not(#x):not(.dt-th-cols),
+   .vh .tbl[data-dt="email-rastreio"]:not(#x) thead th:not(#x):not(.dt-th-cols) {
       padding: calc(7px * var(--z, 1)) 0 calc(7px * var(--z, 1)) calc(12px * var(--z, 1));
       font-size: calc(13.2px * var(--z, 1))
    }
@@ -15015,4 +15021,33 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
 .vh .navcol .lvl:not(#x):not(#y),
 .vh .navcol .lvl button:not(#x):not(#y) {
    height: calc(36px * var(--k, var(--z, 1)))
+}
+
+/* Telemóvel (≤768), página de e-mail (Silva, 26/10/2026: «muito espaço em cima do botão e linhas desnecessárias em cima e em baixo dos
+   cartões»): por baixo dos números não há linha nem os 44 px de antes (22 + 24 + 20), só os 12 px de margem do painel até ao botão; e o
+   cartão principal não repete a linha da faixa do domínio, que já está mesmo por cima dele (eram duas linhas seguidas). */
+@media (max-width: 768px) {
+   .vh .da-main-card .stats:has(+ .em-lista-card):not(#x) {
+      padding-bottom: 0;
+      border-bottom: 0;
+      margin-bottom: calc(12px * var(--z, 1))
+   }
+
+   .vh .da-main-card .stats:has(+ .em-lista-card) + .em-lista-card > .em-acoes-topo:not(#x) {
+      padding-top: 0
+   }
+
+   .vh .da-switcher-bar ~ .pg-slot > .da-main-card:not(#x) {
+      border-top: 0
+   }
+}
+
+/* "Opções" no fim da barra dos títulos (DataTable `acoesNoFim`, ex.: Rastreio de e-mail; Silva, 26/10/2026: «o botão acções está deslocado da lista»):
+   a coluna tem as classes do botão "Colunas" (só ícone, 28 × 28 px) e o texto «5 Opções ▾» saía da caixa para os dois lados, passando do fim das linhas.
+   O botão ocupa a largura do que tem lá dentro, e a coluna cresce com ele. */
+.vh .tbl thead th.dt-th-acoes-fim .btn:not(#x):not(#y) {
+   width: auto;
+   min-width: calc(28px * var(--z, 1));
+   padding: 0 calc(8px * var(--z, 1));
+   white-space: nowrap
 }

@@ -2086,6 +2086,7 @@ function Rastreio() {
       <DataTable
         id="email-rastreio"
         acoesNoFim
+        empilhar={false}
         rows={(msgs || []).filter((m) => !ocultas.includes(m.id))}
         rowKey={(r) => r.id}
         onRecarregar={() => procurar()}

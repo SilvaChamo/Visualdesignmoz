@@ -53,16 +53,16 @@ export function Check({ checked, onChange, label, muted, disabled, title }: { ch
   );
 }
 
-export function Switch({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label?: string }) {
+export function Switch({ checked, onChange, label, disabled }: { checked: boolean; onChange: (v: boolean) => void; label?: string; disabled?: boolean }) {
   // dentro de uma <label> (lista de funcionalidades) o clique chega à caixa pela label; sozinho, muda-se aqui
   return (
     <span
       className="sw"
       onClick={(e) => {
-        if ((e.target as HTMLElement).tagName !== 'INPUT' && !e.currentTarget.closest('label')) onChange(!checked);
+        if (!disabled && (e.target as HTMLElement).tagName !== 'INPUT' && !e.currentTarget.closest('label')) onChange(!checked);
       }}
     >
-      <input type="checkbox" role="switch" aria-label={label} checked={checked} onChange={(e) => onChange(e.target.checked)} />
+      <input type="checkbox" role="switch" aria-label={label} checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
       <span />
     </span>
   );
@@ -812,8 +812,9 @@ export function DataTable<T>({
 /** Menu "…" de uma linha (o mesmo aspeto do menu da página SSL) */
 export function MaisOpcoes({ itens, aoLado = false }: { itens: [string, string, () => void, boolean?][]; aoLado?: boolean }) {
   const { t } = useVH();
-  // posição fixa (calculada do botão): a tabela, que pode deslizar, não corta o menu. `top` = onde começa; `base` = onde acaba (abre para cima)
-  const [pos, setPos] = useState<{ top?: number; base?: number; right: number } | null>(null);
+  // posição fixa (calculada do botão): a tabela, que pode deslizar, não corta o menu. `top` = onde começa; `base` = onde acaba (abre para cima);
+  // `meio` = a altura do centro do botão (abre ao lado, centrado com ele)
+  const [pos, setPos] = useState<{ top?: number; base?: number; meio?: number; right: number } | null>(null);
   const ref = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   // o menu desenha-se na raiz do painel (portal): nenhuma tabela, cartão ou linha com recorte, transformação ou camada própria o corta ou tapa
@@ -822,9 +823,9 @@ export function MaisOpcoes({ itens, aoLado = false }: { itens: [string, string, 
     const r = ref.current?.getBoundingClientRect();
     if (pos || !r) return setPos(null);
     setAlvo((ref.current?.closest('.vh') as HTMLElement | null) || document.body);
-    // no computador o menu abre à esquerda do botão, à altura dele; só no telemóvel abre por baixo (ou por cima, se por baixo não houver espaço)
-    // (Silva, 26/10/2026). Com `aoLado` abre sempre à esquerda.
-    if (aoLado || window.innerWidth >= 769) return setPos({ right: window.innerWidth - r.left + 6, top: r.top });
+    // no computador o menu abre à esquerda do botão, centrado com ele na vertical (como o menu "⋯" do WordPress); só no telemóvel abre por baixo
+    // (ou por cima, se por baixo não houver espaço) (Silva, 26/10/2026). Com `aoLado` abre sempre à esquerda.
+    if (aoLado || window.innerWidth >= 769) return setPos({ right: window.innerWidth - r.left + 6, meio: r.top + r.height / 2 });
     const right = Math.max(8, window.innerWidth - r.right);
     const altura = itens.length * 36 + 16;
     setPos(window.innerHeight - r.bottom < altura + 12 && r.top > altura + 12 ? { base: r.top - 6, right } : { top: r.bottom + 6, right });
@@ -835,7 +836,7 @@ export function MaisOpcoes({ itens, aoLado = false }: { itens: [string, string, 
     const m = menuRef.current;
     if (!pos || !m) return;
     const h = Math.max(m.offsetHeight, m.scrollHeight);
-    let top = pos.top ?? (pos.base ?? 0) - h;
+    let top = pos.meio !== undefined ? Math.round(pos.meio - h / 2) : pos.top ?? (pos.base ?? 0) - h;
     top = Math.max(8, Math.min(top, window.innerHeight - h - 8));
     m.style.top = top + 'px';
     m.style.bottom = 'auto';

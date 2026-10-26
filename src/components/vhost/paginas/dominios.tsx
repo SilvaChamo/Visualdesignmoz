@@ -646,18 +646,25 @@ function useRegistador(d: string) {
   // a página nova espera por esta leitura antes de aparecer (a anterior fica à vista — Silva, 16/10/2026)
   const espera = useContext(EsperaPagina);
   const [info, setInfo] = useState<InfoRegisto | null>(null);
+  // domínio registado noutro registador: o que o servidor sabe dele (só leitura), para o cartão do registo não ficar cheio de "—"
+  const [local, setLocal] = useState<InfoRegisto | null>(null);
   const [erro, setErro] = useState('');
   const [renovacao, setRenovacao] = useState<string | null>(null);
   useEffect(() => {
     let fim = false;
     setInfo(null);
+    setLocal(null);
     setErro('');
     setRenovacao(null);
     if (!d) return;
     const acabou = espera?.comecar();
     fetch('/api/registrar/domain/manage?domain=' + encodeURIComponent(d), { credentials: 'include' })
       .then(async (r) => {
-        const j = (await r.json().catch(() => ({}))) as Partial<InfoRegisto> & { success?: boolean; error?: string };
+        const j = (await r.json().catch(() => ({}))) as Partial<InfoRegisto> & {
+          success?: boolean;
+          error?: string;
+          local?: Pick<InfoRegisto, 'isLocked' | 'autoRenew' | 'expireDate' | 'registrationDate' | 'nameservers'> | null;
+        };
         if (fim) return;
         if (r.ok && j.success)
           setInfo({
@@ -670,7 +677,20 @@ function useRegistador(d: string) {
             contactPreview: j.contactPreview ?? null,
           });
         // a mensagem do registador vem em inglês ("Could not find this domain"): o painel diz o que isso quer dizer
-        else setErro('Este domínio não está registado na Visual Design.');
+        else {
+          setErro('Este domínio não está registado na Visual Design.');
+          if (j.local)
+            setLocal({
+              isLocked: j.local.isLocked ?? null,
+              autoRenew: j.local.autoRenew ?? null,
+              expireDate: j.local.expireDate || '',
+              registrationDate: j.local.registrationDate || '',
+              nameservers: Array.isArray(j.local.nameservers) ? j.local.nameservers : [],
+              privacyEnabled: null,
+              contactPreview: j.contactPreview ?? null,
+            });
+          else if (j.contactPreview) setLocal({ isLocked: null, autoRenew: null, expireDate: '', registrationDate: '', nameservers: [], privacyEnabled: null, contactPreview: j.contactPreview });
+        }
       })
       .catch(() => !fim && setErro('Sem ligação ao site. Tente de novo.'))
       .finally(() => acabou?.());
@@ -686,7 +706,7 @@ function useRegistador(d: string) {
       fim = true;
     };
   }, [d]);
-  return { info, erro, renovacao, mudar: (x: Partial<InfoRegisto>) => setInfo((i) => (i ? { ...i, ...x } : i)) };
+  return { info, local, erro, renovacao, mudar: (x: Partial<InfoRegisto>) => setInfo((i) => (i ? { ...i, ...x } : i)) };
 }
 type Registador = ReturnType<typeof useRegistador>;
 
@@ -830,10 +850,10 @@ function RegistoDominio({ d, reg }: { d: string; reg: Registador }) {
     setAPedir('');
     return j;
   };
-  // domínio registado fora da Visual Design: a mesma página, com "—" e os controlos desativados (nunca valores
-  // inventados — pedido do Silva, 13/10/2026)
+  // domínio registado fora da Visual Design: a mesma página, com o que o servidor sabe dele (registo de renovações e consulta pública) e os
+  // controlos desativados; o que o servidor não sabe fica "—" (nunca valores inventados — pedido do Silva, 13/10/2026)
   const fora = !!reg.erro;
-  const i = reg.info;
+  const i = reg.info || reg.local;
   const c = i?.contactPreview;
   const sk = <span className="dom-a-ler">{fora ? '—' : '…'}</span>;
   return (
@@ -867,16 +887,17 @@ function RegistoDominio({ d, reg }: { d: string; reg: Registador }) {
                 <Switch
                   checked={!!i.autoRenew}
                   label={t('Renovação automática')}
+                  disabled={fora}
                   onChange={async (v) => {
                     const j = await pedir('renovar', { action: 'autorenew', isEnabled: v });
                     if (j) reg.mudar({ autoRenew: !!j.autoRenew });
                   }}
                 />
-                <small>{t(i.autoRenew ? 'Ligada' : 'Desligada')}</small>
+                <small>{i.autoRenew === null ? '—' : t(i.autoRenew ? 'Ligada' : 'Desligada')}</small>
               </>
             ) : fora ? (
               <>
-                <Switch checked={false} label={t('Renovação automática')} onChange={() => {}} />
+                <Switch checked={false} label={t('Renovação automática')} disabled onChange={() => {}} />
                 <small>—</small>
               </>
             ) : (
@@ -892,16 +913,17 @@ function RegistoDominio({ d, reg }: { d: string; reg: Registador }) {
                 <Switch
                   checked={!!i.isLocked}
                   label={t('Trava de registo')}
+                  disabled={fora}
                   onChange={async (v) => {
                     const j = await pedir('trava', { action: v ? 'lock' : 'unlock' });
                     if (j) reg.mudar({ isLocked: !!j.isLocked });
                   }}
                 />
-                <small>{t(i.isLocked ? 'Bloqueado — desligue para transferir' : 'Desbloqueado para transferir')}</small>
+                <small>{i.isLocked === null ? '—' : fora ? t(i.isLocked ? 'Bloqueado' : 'Desbloqueado') : t(i.isLocked ? 'Bloqueado — desligue para transferir' : 'Desbloqueado para transferir')}</small>
               </>
             ) : fora ? (
               <>
-                <Switch checked={false} label={t('Trava de registo')} onChange={() => {}} />
+                <Switch checked={false} label={t('Trava de registo')} disabled onChange={() => {}} />
                 <small>—</small>
               </>
             ) : (
@@ -937,7 +959,7 @@ function RegistoDominio({ d, reg }: { d: string; reg: Registador }) {
         </div>
         <div className="dom-info-l">
           <span>{t('Privacidade WHOIS')}</span>
-          <div>{i ? <span className={'tag ' + (i.privacyEnabled ? 'ok' : 'off')}>{t(i.privacyEnabled ? 'Ativa' : 'Desligada')}</span> : sk}</div>
+          <div>{i ? i.privacyEnabled === null ? '—' : <span className={'tag ' + (i.privacyEnabled ? 'ok' : 'off')}>{t(i.privacyEnabled ? 'Ativa' : 'Desligada')}</span> : sk}</div>
         </div>
         <div className="dom-info-l dom-info-larga" id="dom-contactos">
           <span>{t('Contactos WHOIS')}</span>
@@ -945,7 +967,7 @@ function RegistoDominio({ d, reg }: { d: string; reg: Registador }) {
             {i ? (
               <>
                 <span>{c ? [c.name, c.email].filter(Boolean).join(' · ') : '—'}</span>
-                <button className="btn g sm" disabled={aPedir === 'contactos'} onClick={() => pedir('contactos', { action: 'set-contacts' })}>
+                <button className="btn g sm" disabled={fora || aPedir === 'contactos'} onClick={() => pedir('contactos', { action: 'set-contacts' })}>
                   <i className="fa-solid fa-address-card" />
                   {t('Atualizar com os dados da conta')}
                 </button>
