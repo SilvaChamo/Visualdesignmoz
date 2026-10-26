@@ -16,22 +16,31 @@ name: Ops - Balde do Hetzner para o Contabo
 #   verificar   SÓ LÊ: percorre todas as páginas publicadas de todos os WordPress do servidor e confirma que respondem 200, que nenhuma
 #               chama o balde e que todos os ficheiros de uploads que usam dão 200; aponta sobras do Hetzner (bloco do .htaccess,
 #               mu-plugins, wp-config, plugin Offload Media). Dá um resumo com o número de ocorrências.
+#   varrer      SÓ LÊ: lista os ficheiros do servidor que ainda mencionam o balde (só os nomes), crons, scripts instalados e cópias de wp-config.
+#   limpar      (um domínio) apaga as cópias de wp-config (wp-config*.bak, etc.) que mencionam o balde, depois de confirmar que o
+#               wp-config.php actual responde; e, se pedido, põe uma nota em comentário HTML num ficheiro estático (nota_em).
 # Corre com nice/ionice para não pesar nos outros sites do servidor (basededadosagro.com, etc.).
 
 on:
   workflow_dispatch:
     inputs:
       fase:
-        description: 'inventario (só lê), verificar (só lê, todas as páginas), copiar (precisa do rclone) ou migrar (um domínio)'
+        description: 'inventario/verificar/varrer (só lêem), copiar (precisa do rclone), migrar e limpar (um domínio)'
         type: choice
         options:
           - inventario
           - verificar
+          - varrer
           - copiar
           - migrar
+          - limpar
         default: inventario
       dominio:
-        description: 'Só para migrar: o domínio do WordPress (ex.: oshercollective.com)'
+        description: 'Só para migrar e limpar: o domínio do WordPress (ex.: oshercollective.com)'
+        type: string
+        default: ''
+      nota_em:
+        description: 'Só para limpar: ficheiro HTML (relativo ao public_html, ex.: legacy/index.html) onde deixar a nota sobre o balde'
         type: string
         default: ''
 
@@ -48,17 +57,18 @@ jobs:
         env:
           FASE: ${{ inputs.fase }}
           DOMINIO: ${{ inputs.dominio }}
+          NOTA_EM: ${{ inputs.nota_em }}
         with:
           host: ${{ secrets.CONTABO_HOST }}
           port: 2234
           username: root
           key: ${{ secrets.CONTABO_SSH_KEY }}
           command_timeout: 30m
-          envs: FASE,DOMINIO
+          envs: FASE,DOMINIO,NOTA_EM
           script: |
             set -u
             export PATH="$PATH:/usr/local/bin"
-            case "$FASE" in (inventario|verificar|copiar|migrar) ;; (*) echo "Fase inválida"; exit 1;; esac
+            case "$FASE" in (inventario|verificar|varrer|copiar|migrar|limpar) ;; (*) echo "Fase inválida"; exit 1;; esac
             BUCKET=visualdesign-storage
             CONF=/root/.config/rclone/rclone.conf
             COPIA=/root/balde-hetzner-copia
@@ -86,6 +96,72 @@ jobs:
               echo "--- comparação final (o que ainda falta ou difere)"
               $RC check "hetzner-s3:$BUCKET" "$COPIA" --one-way --size-only --fast-list 2>&1 | tail -n 5
               echo "cópia local: $(du -sh "$COPIA" | cut -f1) em $COPIA"
+              exit 0
+            fi
+
+            if [ "$FASE" = "varrer" ]; then
+              PADRAO="your-objectstorage|hetzner-s3|hetzner-da-crypt|visualdesign-storage|visualdesign-backups|AS3CF_SETTINGS|S3_UPLOADS_BUCKET"
+              echo "=== Ficheiros do servidor que mencionam o balde do Hetzner (só os nomes; sem a pasta de cópias de segurança desta migração nem o lixo do painel) ==="
+              nice -n 10 ionice -c3 grep -rIl -E "$PADRAO" /root /home /opt /etc /usr/local /var/spool/cron /var/www --exclude-dir=balde-hetzner-troca --exclude-dir=.vh-lixo --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=cache --exclude-dir=.next --exclude-dir=logs 2>/dev/null | head -100
+              echo "(fim da lista)"
+              echo "no lixo do painel (.vh-lixo): $(nice -n 10 ionice -c3 grep -rIl -E "$PADRAO" /home/*/.vh-lixo 2>/dev/null | wc -l) ficheiros"
+              echo
+              echo "=== Remotos e chaves (só os nomes dos ficheiros) ==="
+              find /root /home /etc /opt /usr/local -maxdepth 6 \( -name rclone.conf -o -name '*.pass' -o -name 'wp-s3-hetzner.php' -o -name '.s3cfg' \) -not -path '*/.vh-lixo/*' 2>/dev/null | head
+              echo "(fim)"
+              echo
+              echo "=== Tarefas agendadas e serviços que falam do balde ==="
+              grep -rIlE "hetzner|rclone|as3cf|da-backup|wp-s3" /var/spool/cron /etc/cron.d /etc/cron.daily /etc/cron.weekly /etc/cron.hourly /etc/systemd/system 2>/dev/null | head
+              for c in /var/spool/cron/crontabs/*; do [ -f "$c" ] && grep -HnE "hetzner|rclone|as3cf|da-backup|wp-s3" "$c"; done
+              echo "(fim)"
+              echo
+              echo "=== Scripts do balde ainda instalados no servidor ==="
+              ls -1d /root/wp-s3-* /root/da-backup-to-s3.sh /root/aamihe-server-scripts /root/wp-as3cf-* /usr/local/share/wordpress-mu-plugins /usr/local/share/wordpress-scripts /usr/local/share/wordpress-plugins 2>/dev/null
+              ls -1 /usr/local/share/wordpress-mu-plugins /usr/local/share/wordpress-scripts 2>/dev/null | head -30
+              echo "(fim)"
+              echo
+              echo "=== Cópias de wp-config (data, tamanho, nome) ==="
+              find /home -maxdepth 6 \( -name 'wp-config*.bak' -o -name 'wp-config.php.*' -o -name 'wp-config-*' -o -name 'wp-config.*.php' \) -not -path '*/.vh-lixo/*' -printf '%TY-%Tm-%Td %8s  %p\n' 2>/dev/null | head -30
+              echo "(fim)"
+              exit 0
+            fi
+
+            if [ "$FASE" = "limpar" ]; then
+              case "$DOMINIO" in (''|*[!a-z0-9.-]*) echo "Indique o domínio do WordPress (ex.: mltmark.com)"; exit 1;; esac
+              D=$(find /home -maxdepth 4 -type d -path "/home/*/web/$DOMINIO/public_html" 2>/dev/null | head -1)
+              [ -n "$D" ] && [ -f "$D/wp-config.php" ] || { echo "WordPress de $DOMINIO não encontrado no Contabo"; exit 1; }
+              U=$(stat -c %U "$D"); W="sudo -u $U $WP --path=$D --skip-plugins --skip-themes"
+              P=$($W db prefix 2>/dev/null | tail -1)
+              if [ -z "$P" ] || ! grep -q "DB_NAME" "$D/wp-config.php"; then echo "O wp-config.php actual não responde — não apago nada"; exit 1; fi
+              echo "=== $DOMINIO: o wp-config.php actual responde (prefixo $P) ==="
+              APAGADOS=0
+              for f in "$D"/wp-config*; do
+                [ -f "$f" ] || continue
+                [ "$f" = "$D/wp-config.php" ] && continue
+                if grep -qE "your-objectstorage|AS3CF|S3_UPLOADS|visualdesign-storage" "$f"; then
+                  echo "  a apagar: $(stat -c '%y  %s bytes  %n' "$f")"
+                  if rm -f "$f"; then APAGADOS=$((APAGADOS + 1)); echo "  apagado"; fi
+                else
+                  echo "  mantido (não fala do balde): $f"
+                fi
+              done
+              echo "cópias de wp-config apagadas: $APAGADOS"
+              echo "restam em $D:"; ls -1 "$D" | grep -i "^wp-config" 
+              if [ -n "$NOTA_EM" ]; then
+                case "$NOTA_EM" in (*[!A-Za-z0-9_./-]*|*..*|/*) echo "nota_em inválido"; exit 1;; esac
+                F="$D/$NOTA_EM"
+                if [ ! -f "$F" ]; then echo "nota: o ficheiro $NOTA_EM não existe"
+                elif grep -q "NOTA-BALDE-HETZNER" "$F"; then echo "nota: já existe em $NOTA_EM"
+                else
+                  TS=$(date +%Y%m%d-%H%M%S); B="/root/balde-hetzner-troca/nota-$DOMINIO-$TS"; mkdir -p "$B"; cp -p "$F" "$B/$(printf '%s' "$NOTA_EM" | tr '/' '_')"
+                  NOTA="<!-- NOTA-BALDE-HETZNER (Silva, 26/10/2026): nada neste site deve apontar ao balde do Hetzner (hel1.your-objectstorage.com), que vai ser cancelado. Os ficheiros estão em /wp-content/uploads/ deste domínio: use esses URLs, por exemplo https://$DOMINIO/wp-content/uploads/AAAA/MM/ficheiro.webp. Ver regras.md. -->"
+                  awk -v nota="$NOTA" '{ print } !feito && /<head([ \t][^>]*)?>/ { print nota; feito = 1 }' "$F" > "$F.novo" && cat "$F.novo" > "$F"; rm -f "$F.novo"
+                  if grep -q "NOTA-BALDE-HETZNER" "$F"; then echo "nota deixada em $NOTA_EM (original em $B)"; else echo "nota NÃO inserida (não achei <head>)"; fi
+                fi
+                echo "links ao balde em $NOTA_EM: $(grep -c 'your-objectstorage' "$F" 2>/dev/null)"
+                echo "página: HTTP $(curl -s -o /dev/null -m 30 -w '%{http_code}' "https://$DOMINIO/${NOTA_EM%index.html}")"
+              fi
+              echo "teste público do .bak: HTTP $(curl -s -o /dev/null -m 20 -w '%{http_code}' "https://$DOMINIO/wp-config.php.bak")"
               exit 0
             fi
 
