@@ -10,12 +10,13 @@ import type { ScreenFn } from '../screens';
 import type { BaseDados, Domain } from '../types';
 import { findItem, hasFeatOf, pacoteDe } from '../state';
 import { getPhpMyAdminUrl } from '@/lib/server-config';
-import { VISUALDESIGN_DEFAULT_NS } from '@/lib/visualdesign-dns';
+import { VISUALDESIGN_DEFAULT_NS, ehNsNosso } from '@/lib/visualdesign-dns';
 import { Check, DataTable, Frm, MaisOpcoes, novaSenha, Row, Senha, Switch, Tabs, type Col } from './componentes';
 import { IndicacaoDominio, NoTopoCartao, useVariosDominios } from '../ui';
 import { tituloDoCartao } from '../titulos-cartao';
 import { CATEGORIAS_PHP, EXTENSOES_PHP, estadoExtensao, type EstadoExtensao, type ExtensaoPhp } from '@/lib/php-extensoes';
 import { Confirmar } from './pacotes';
+import { ApagarSite, corpoApagar, tipoDosDominios } from './apagar-site';
 import DomainSearch from '@/components/DomainSearchPainel';
 import { EsperaPagina, useGet, useNaMemoria } from '../carga';
 import { EN } from '../generated/data';
@@ -483,11 +484,10 @@ function ListaDominios({ abaDom = 'meus', abrirNovo = false }: { abaDom?: AbaDom
               fa: 'fa-trash',
               run: (k) =>
                 openM(
-                  <Confirmar
-                    titulo="Apagar domínios?"
-                    texto={'Vai apagar do servidor ' + k.join(', ') + ', com os ficheiros do site. As contas de e-mail do domínio ficam.'}
-                    ok="Apagar"
-                    onOk={() => varios(k, 'dominio-apagar', 'Apagado')}
+                  <ApagarSite
+                    dominios={k}
+                    tipo={tipoDosDominios(vh.a.domains, k)}
+                    aoApagar={(modo) => k.reduce<Promise<unknown>>((p, n) => p.then(() => noServidor(vh, corpoApagar(modo, n), 'Apagado: ' + n)), Promise.resolve())}
                   />,
                 ),
             },
@@ -714,8 +714,7 @@ const dataLegivel = (s: string) => {
 const dnsAtivo = (dns: Detalhe['dns'], ns?: string[]) => {
   if (dns.fonte === 'cloudflare') return !!dns.cloudflareAutoritativa;
   if (dns.fonte !== 'hestia') return false;
-  const nossos = [VISUALDESIGN_DEFAULT_NS.ns1, VISUALDESIGN_DEFAULT_NS.ns2];
-  return !!ns && ns.length >= 2 && ns.every((n) => nossos.includes(n.toLowerCase().replace(/\.$/, '')));
+  return !!ns && ns.length >= 2 && ns.every(ehNsNosso);
 };
 /** Certificado SSL ativo: existe e ainda não expirou */
 const sslAtivo = (c: Detalhe['certificado']) => {
@@ -734,7 +733,7 @@ function Nameservers({ d, reg, publicos }: { d: string; reg: Registador; publico
   const vh = useVH();
   const { t } = vh;
   const vd = [VISUALDESIGN_DEFAULT_NS.ns1, VISUALDESIGN_DEFAULT_NS.ns2];
-  const ehVd = (l: string[]) => l.length >= 2 && l.every((n) => vd.includes(n.toLowerCase().replace(/\.$/, '')));
+  const ehVd = (l: string[]) => l.length >= 2 && l.every(ehNsNosso);
   // domínio registado fora: os nameservers públicos, só para ver (mudam-se no registador onde está)
   const fora = !!reg.erro;
   const guardados = reg.info?.nameservers || (fora ? publicos || [] : null);
@@ -1205,11 +1204,10 @@ function VerDominio({ d }: { d: string }) {
           className="dom-op perigo"
           onClick={() =>
             openM(
-              <Confirmar
-                titulo="Apagar domínio?"
-                texto={'Vai apagar ' + d + ' do servidor, com os ficheiros do site. Não se pode desfazer.'}
-                ok="Apagar"
-                onOk={async () => (await noServidor(vh, { acao: 'dominio-apagar', dominio: d }, 'Domínio apagado')) && nav('/' + vh.s.level + '/dominios')}
+              <ApagarSite
+                dominios={[d]}
+                tipo={x.soEmail ? 'email' : x.soDominio ? 'dominio' : 'site'}
+                aoApagar={async (modo) => (await noServidor(vh, corpoApagar(modo, d), 'Domínio apagado')) && nav('/' + vh.s.level + '/dominios')}
               />,
             )
           }

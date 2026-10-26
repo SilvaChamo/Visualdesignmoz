@@ -1,6 +1,12 @@
 #!/bin/bash
 # vd-php-conta — PHP por conta (Silva, 23/10/2026): cada conta pode ter as suas próprias extensões PHP.
 #
+# LIMITES DE CPU E MEMÓRIA POR CONTA (Silva, 26/10/2026): o Hestia só limita os processos da própria conta (shell, cron); o PHP dos sites corre
+# num serviço partilhado e ficava de fora, por isso uma conta podia gastar o CPU de todo o servidor. Agora toda a conta que tem limites no
+# pacote (user.conf: CPU_QUOTA, CPU_QUOTA_PERIOD, MEMORY_LIMIT, SWAP_LIMIT) passa a ter o seu PHP-FPM dedicado, com as mesmas extensões do
+# partilhado, e o serviço leva esses limites (CPUQuota, MemoryHigh, MemoryMax, MemorySwapMax). Uma conta que passa o seu CPU fica mais lenta,
+# nunca derruba as outras. Contas com "unlimited" ficam no PHP-FPM partilhado. O cron (sincronizar) trata de contas novas e de limites que mudam.
+#
 # O PHP lê as extensões quando o serviço arranca, e o Hestia põe todas as contas num só PHP-FPM por versão; por isso o que muda para uma conta
 # mudava para todas. Aqui, uma conta que escolhe extensões passa a ter um PHP-FPM só dela (um serviço "vd-php-fpm-<versão>-<conta>") com a sua
 # própria lista de extensões; as outras contas ficam no PHP-FPM partilhado, sem mudar nada. O socket de cada site é o mesmo (o servidor web nem
@@ -23,6 +29,7 @@ HESTIA=${VD_HESTIA:-/usr/local/hestia/bin}
 UNIDADES=${VD_UNIDADES:-/etc/systemd/system}
 # nunca se tiram: sem estes os sites deixam de funcionar (mysqli precisa do mysqlnd)
 ESSENCIAIS="mysqlnd mysqli curl mbstring xml ctype"
+USUARIOS=${VD_USUARIOS:-/usr/local/hestia/data/users}
 
 mkdir -p "$ETC" "$ARQ" 2>/dev/null
 log() { echo "$(date '+%F %T') $*" >> "$LOG" 2>/dev/null; }
@@ -46,6 +53,35 @@ dependencias() {
     pdo_sqlite|pdo_pgsql|pdo_odbc) echo pdo ;;
     dom|simplexml|xmlreader|xmlwriter|xsl) echo xml ;;
   esac
+}
+
+# --- limites da conta (vêm do pacote, copiados para o user.conf do Hestia) ---
+valor_conta() { sed -n "s/^$2='\(.*\)'\$/\1/p" "$USUARIOS/$1/user.conf" 2>/dev/null | head -1; } # conta chave
+
+# linhas de [Service] do systemd com os limites da conta (vazio = sem limites). O MemoryHigh abranda a conta; o MemoryMax (1,5x) só pára
+# os processos dela se passar mesmo, sem tocar nas outras contas.
+limites_unidade() { # conta
+  local c=$1 cpu per mem swp bytes
+  cpu=$(valor_conta "$c" CPU_QUOTA); per=$(valor_conta "$c" CPU_QUOTA_PERIOD); mem=$(valor_conta "$c" MEMORY_LIMIT); swp=$(valor_conta "$c" SWAP_LIMIT)
+  if [[ "$cpu" =~ ^[1-9][0-9]*%$ ]]; then
+    echo "CPUQuota=$cpu"
+    [[ "$per" =~ ^[0-9]+(ms|s)$ ]] && echo "CPUQuotaPeriodSec=$per"
+  fi
+  if [[ "$mem" =~ ^[1-9][0-9]*[KMGT]?$ ]]; then
+    echo "MemoryHigh=$mem"
+    bytes=$(numfmt --from=iec "$mem" 2>/dev/null) && [ -n "$bytes" ] && echo "MemoryMax=$(( bytes + bytes / 2 ))"
+    [[ "$swp" =~ ^[0-9]+[KMGT]?$ ]] && echo "MemorySwapMax=$swp"
+  fi
+  return 0
+}
+tem_limites() { [ -n "$(limites_unidade "$1")" ]; }
+# os limites do serviço dedicado já não são os do pacote (o pacote ou a conta mudou)?
+limites_diferentes() { # versão conta
+  local f="$UNIDADES/$(unidade "$1" "$2").service" a b
+  [ -f "$f" ] || return 0
+  a=$(grep -E '^(CPUQuota|CPUQuotaPeriodSec|MemoryHigh|MemoryMax|MemorySwapMax)=' "$f" | sort)
+  b=$(limites_unidade "$2" | sort)
+  [ "$a" != "$b" ]
 }
 
 pool_da_conta() { grep -qE "^user[[:space:]]*=[[:space:]]*$2[[:space:]]*$" "$1"; } # ficheiro conta
@@ -106,9 +142,11 @@ error_log = /var/log/php$v-fpm-$c.log
 include=$d/pool.d/*.conf
 EOF
   # o conjunto: pedidos + dependências + essenciais, só do que existe nesta versão
-  local disp mod dep final=" "
+  local disp mod dep final=" " pedidos=${PEDIDOS:-}
+  # conta só com limites (sem extensões escolhidas): as mesmas extensões que o PHP-FPM partilhado tem
+  [ -n "${MODO_PARTILHADO:-}" ] && pedidos=$(ls "$PHP/$v/fpm/conf.d" 2>/dev/null | sed -n 's/^[0-9]*-\(.*\)\.ini$/\1/p' | tr '\n' ' ')
   disp=" $(disponiveis "$v" | tr '\n' ' ') "
-  for mod in ${PEDIDOS:-} $ESSENCIAIS; do
+  for mod in $pedidos $ESSENCIAIS; do
     for dep in $(dependencias "$mod") "$mod"; do
       [[ "$disp" == *" $dep "* ]] && [[ "$final" != *" $dep "* ]] && final="$final$dep "
     done
@@ -118,7 +156,7 @@ EOF
   if [ -z "${VD_TESTE:-}" ]; then
     cat > "$UNIDADES/$(unidade "$v" "$c").service" <<EOF
 [Unit]
-Description=PHP $v FPM da conta $c (extensões próprias; vd-php-conta)
+Description=PHP $v FPM da conta $c (vd-php-conta: extensões e limites próprios)
 After=network.target
 
 [Service]
@@ -126,6 +164,7 @@ Type=notify
 Environment=PHP_INI_SCAN_DIR=$d/conf.d
 ExecStart=/usr/sbin/php-fpm$v --nodaemonize --fpm-config $d/php-fpm.conf -c $d/php.ini
 ExecReload=/bin/kill -USR2 \$MAINPID
+$(limites_unidade "$c")
 
 [Install]
 WantedBy=multi-user.target
@@ -180,7 +219,7 @@ cmd_aplicar() { # conta módulos
   conta_valida "$c"
   for mod in $(echo "$2" | tr ',' ' '); do [[ "$mod" =~ ^[a-z0-9_]{2,30}$ ]] && pedidos="$pedidos $mod"; done
   printf '%s\n' $pedidos > "$ETC/$c.exts"
-  PEDIDOS="$pedidos"
+  PEDIDOS="$pedidos"; unset MODO_PARTILHADO
   local vs; vs=$(versoes_da_conta "$c")
   [ -z "$vs" ] && erro "a conta não tem sites com PHP"
   for v in $vs; do aplicar_versao "$v" "$c"; done
@@ -199,6 +238,12 @@ cmd_repor() { # conta
   done
   rm -f "$ETC/$c.exts"
   log "$c: de volta ao PHP-FPM partilhado"
+  # com limites no pacote a conta não pode ficar no partilhado: volta logo ao dedicado, com as extensões do partilhado
+  if tem_limites "$c"; then
+    PEDIDOS=""; MODO_PARTILHADO=1
+    for v in $(versoes_da_conta "$c"); do aplicar_versao "$v" "$c"; done
+    unset MODO_PARTILHADO
+  fi
 }
 
 cmd_estado() { # conta versão
@@ -217,15 +262,25 @@ cmd_estado() { # conta versão
 }
 
 cmd_sincronizar() {
-  local f c v d
-  for f in "$ETC"/*.exts; do
-    [ -f "$f" ] || continue
-    c=$(basename "$f" .exts)
+  local c v d f tem
+  # o PHP-FPM dedicado escreve os registos em /var/log/php<versão>-fpm-<conta>.log: roda-os (uma vez, aqui, para não depender do deploy)
+  [ -f /etc/logrotate.d/vd-php-fpm ] || [ -n "${VD_TESTE:-}" ] || printf '/var/log/php*-fpm-*.log {\n    weekly\n    rotate 4\n    compress\n    missingok\n    notifempty\n    copytruncate\n}\n' > /etc/logrotate.d/vd-php-fpm 2>/dev/null
+  # as contas com extensões escolhidas e as que têm limites no pacote
+  for c in $( { for f in "$ETC"/*.exts; do [ -f "$f" ] && basename "$f" .exts; done; ls "$USUARIOS" 2>/dev/null; } | sort -u ); do
+    [[ "$c" =~ ^[a-z0-9][a-z0-9_.-]{0,31}$ ]] || continue
     id -u "$c" >/dev/null 2>&1 || continue
-    PEDIDOS=$(tr '\n' ' ' < "$f")
-    # o que o Hestia refez no partilhado, ou serviço parado
+    unset MODO_PARTILHADO; PEDIDOS=""
+    if [ -f "$ETC/$c.exts" ]; then PEDIDOS=$(tr '\n' ' ' < "$ETC/$c.exts")
+    elif tem_limites "$c"; then MODO_PARTILHADO=1
+    else
+      # sem extensões próprias e sem limites: se ainda tinha o PHP-FPM dedicado (de limites que já não existem), volta ao partilhado
+      tem=1; for d in "$PHP"/*/fpm-contas/"$c"; do [ -d "$d" ] && tem=0; done
+      [ $tem -eq 0 ] && cmd_repor "$c"
+      continue
+    fi
+    # o que o Hestia refez no partilhado, serviço parado ou limites que mudaram
     for v in $(versoes_da_conta "$c"); do
-      if [ -n "$(pools_partilhados "$v" "$c")" ] || ! svc_ativo "$(unidade "$v" "$c")" "$v" "$c"; then aplicar_versao "$v" "$c"; fi
+      if [ -n "$(pools_partilhados "$v" "$c")" ] || ! svc_ativo "$(unidade "$v" "$c")" "$v" "$c" || limites_diferentes "$v" "$c"; then aplicar_versao "$v" "$c"; fi
     done
     for d in "$PHP"/*/fpm-contas/"$c"; do
       [ -d "$d" ] || continue

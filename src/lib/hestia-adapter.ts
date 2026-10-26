@@ -8,6 +8,7 @@ import { hestiaCall, hestiaCallJson } from '@/lib/hestia-client';
 import { executeServerCommand } from '@/lib/server-ssh-exec';
 import { getPhpMyAdminUrl } from '@/lib/server-config';
 import { juntarCamposPacote } from '@/lib/pacote-hestia';
+import { alojamentoVercel } from '@/lib/hospedagem-dns';
 
 function isAlreadyExistsError(error?: string): boolean {
   return (error || '').toLowerCase().includes('exists');
@@ -25,13 +26,26 @@ export async function issueLetsEncrypt(
   domain: string,
   /** apontadores a incluir no certificado; omitido = o que o Hestia fizer por defeito */
   aliases?: string[],
-): Promise<{ ok: boolean; error?: string; output?: string }> {
+): Promise<{ ok: boolean; error?: string; output?: string; skipped?: boolean }> {
+  // Silva, 26/10/2026: um site que está na Vercel (pelos nameservers ou pelo registo do domínio) tem o certificado da Vercel; o domínio nem
+  // aponta para este servidor e o Let's Encrypt não conseguiria validar. Não se pede aqui. (O certificado do e-mail, mail.<domínio>, é outro caso.)
+  if ((await alojamentoVercel(domain).catch(() => null)) === true) {
+    return { ok: true, skipped: true, output: `O site de ${domain} está na Vercel (pelo DNS): o certificado é da Vercel, por isso não se pede aqui.` };
+  }
   const result = await hestiaCall(
     'v-add-letsencrypt-domain',
     [username, domain, ...(aliases?.length ? [aliases.join(',')] : [])],
     { timeoutMs: 120_000, sshTimeoutMs: 120_000, sshFallbackOnTransportError: false },
   );
   return finishLetsEncrypt(result);
+}
+
+/** O pedido de certificado ao criar uma conta ou um site, por trás e sem esperar: nunca para um site da Vercel (ver issueLetsEncrypt) */
+function pedirLetsEncryptPorTras(username: string, domain: string): void {
+  void (async () => {
+    if ((await alojamentoVercel(domain).catch(() => null)) === true) return;
+    await hestiaCall('v-add-letsencrypt-domain', [username, domain]).catch(() => {});
+  })();
 }
 
 /** Nenhuma conta se cria sem e-mail (Silva, 17/10/2026): é o e-mail que dá à conta o login do site e do painel. A
@@ -154,7 +168,7 @@ export async function createAccount(input: {
   // 'await' para valer: a criação responde logo, e o certificado fica
   // pendente até o DNS apontar para cá (sem nenhum retentor automático
   // ainda — só resolve numa próxima chamada manual a este comando).
-  hestiaCall('v-add-letsencrypt-domain', [input.username, input.domain]).catch(() => {});
+  pedirLetsEncryptPorTras(input.username, input.domain);
 
   // Mesma automação de SPF/DKIM/DMARC/Brevo que já corre ao criar um site no
   // DirectAdmin — sem isto, uma conta nova no Hestia ficava sempre sem
@@ -177,7 +191,7 @@ export async function addWebDomain(username: string, domain: string): Promise<{ 
   const result = await hestiaCall('v-add-web-domain', [username, domain]);
   if (!result.ok && !isAlreadyExistsError(result.error)) return { ok: false, error: result.error };
   // SSL best-effort, sem bloquear a resposta — ver comentário em createAccount().
-  hestiaCall('v-add-letsencrypt-domain', [username, domain]).catch(() => {});
+  pedirLetsEncryptPorTras(username, domain);
   const { runEmailDnsAutomation } = await import('@/lib/domain-email-auth');
   runEmailDnsAutomation(domain);
   return { ok: true };

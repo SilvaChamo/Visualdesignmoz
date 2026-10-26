@@ -138,6 +138,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     notifyQuoteClientNewMessage({
       to: quotation.email,
       clientName: quotation.responsavel || quotation.empresa,
+      userId: quotation.user_id,
       produto: quotation.produto,
       quotationId: id,
     }).catch((err) => console.error('[cotacoes/[id]/mensagens] falha ao notificar cliente:', err));

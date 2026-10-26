@@ -12,11 +12,15 @@
    só tem regras para a 2234).
 4. **Segredo `CONTABO_ROOT_PASSWORD`** do GitHub: já nenhum workflow o usa (passaram à chave SSH, 22/10/2026). Falta só apagá-lo nos
    secrets do GitHub (Settings › Secrets) depois de o PR ser publicado e um dos workflows de manutenção correr bem.
-5. **Hetzner Object Storage (S3) — ainda em uso** (verificado a 22/10/2026): os sites **mltmark.com**, **oshercollective.com**, **lirandzojewelry.com** e
-   **msdn-moz.org** têm no servidor os plugins `vd-hetzner-media-urls.php` e `s3-endpoint-fix.php`, que apontam as imagens para o balde
-   `visualdesign-storage`. **aamihe.com e entrecamposblog.com não usam o balde** (ficheiros locais: 214 MB e 145 MB). Por isso a conta do Hetzner
-   (só o armazenamento) tem de continuar activa e os scripts `deploy/wordpress/*hetzner*`, `deploy/wp-s3-only.sh` e `deploy/da-backup-to-s3.sh`
-   ficam. Para cancelar de vez: copiar as imagens dos 4 sites para o Contabo e tirar esses plugins.
+5. **Hetzner Object Storage (S3) — os sites já não o usam** (verificado e migrado a 26/10/2026 pelo workflow `ops-balde-hetzner.yml`): nenhum dos
+   `wp-config` tem a configuração do balde, a base de dados não tem nenhum URL do balde e o servidor já não tem chaves dele (`rclone.conf` não existe).
+   O único site que ainda chamava o balde era **oshercollective.com** (3 imagens do Offload Media e as miniaturas): os 14 ficheiros foram trazidos
+   para `wp-content/uploads`, o Offload Media foi desactivado e os plugins `s3-endpoint-fix.php` e `vd-hetzner-media-urls.php` foram postos de lado em
+   `/root/balde-hetzner-troca/<domínio>-<data>/` nos 4 sites (mltmark, oshercollective, lirandzojewelry, msdn-moz), com os comandos para desfazer no registo
+   da corrida. **Falta antes de cancelar a conta do Hetzner:** o servidor não tem chaves do balde, por isso não se consegue listar o que mais lá está
+   (ficheiros que nenhum site referencia, o balde de backups do DirectAdmin de `da-backup-to-s3.sh`). Ver no painel do Hetzner o tamanho de cada balde e,
+   se houver mais do que estes sites, criar chaves só de leitura, guardá-las como segredos do GitHub e correr a fase `copiar`. Os scripts
+   `deploy/wordpress/*hetzner*`, `deploy/wp-s3-only.sh` e `deploy/da-backup-to-s3.sh` podem sair do repositório depois disso.
 6. **PRs abertos** (26/10/2026): #180 (Next 16.1 → 16.4.3, corrige o alerta crítico do GitHub) e #181 (nodemailer 8 → 10, o transporte do Brevo) pedem
    teste antes de juntar; **#3 repõe o basededadosagro.com em `domain_renewals` (escrita na base de dados, só com o OK do Silva) — nunca fechar**.
 7. **Quota do pacote `VD-Email-Basico` no Hestia** (o PR #105 só corrige o ficheiro do site).

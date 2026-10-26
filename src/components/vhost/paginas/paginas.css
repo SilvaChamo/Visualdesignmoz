@@ -470,6 +470,100 @@
    margin-top: calc(12px * var(--z, 1))
 }
 
+/* Contas ligadas: texto pequeno por baixo do dado principal, e o histórico por sessões (Silva, 25/10/2026) */
+.vh .vh-lig-sub {
+   font-size: calc(12px * var(--fs, 1));
+   color: var(--muted)
+}
+
+.vh .vh-hist-etiquetas {
+   display: inline-flex;
+   flex-wrap: wrap;
+   gap: calc(6px * var(--z, 1))
+}
+
+.vh .tbl tr.dt-clicavel {
+   cursor: pointer
+}
+
+.vh .tbl tr.dt-clicavel:hover td {
+   background: var(--tint)
+}
+
+.vh .tbl tr.dt-clicavel:focus-visible {
+   outline: calc(2px * var(--z, 1)) solid var(--red);
+   outline-offset: calc(-2px * var(--z, 1))
+}
+
+.vh .vh-hist-voltar {
+   display: inline-flex;
+   align-items: center;
+   gap: calc(6px * var(--z, 1));
+   margin: 0 0 calc(10px * var(--z, 1)) calc(-8px * var(--z, 1));
+   padding: calc(3px * var(--z, 1)) calc(8px * var(--z, 1));
+   font-size: calc(12px * var(--fs, 1));
+   border: 0;
+   border-radius: var(--r);
+   background: none;
+   color: var(--muted);
+   font: inherit;
+   cursor: pointer
+}
+
+.vh .vh-hist-voltar:hover {
+   background: var(--soft);
+   color: var(--red)
+}
+
+.vh .vh-hist-resumo {
+   display: grid;
+   grid-template-columns: repeat(auto-fit, minmax(calc(170px * var(--z, 1)), 1fr));
+   gap: calc(14px * var(--z, 1));
+   margin: 0 0 calc(12px * var(--z, 1));
+   padding: calc(14px * var(--z, 1))
+}
+
+.vh .vh-hist-resumo > div {
+   display: flex;
+   flex-direction: column;
+   gap: calc(3px * var(--z, 1));
+   min-width: 0
+}
+
+.vh .vh-hist-resumo > div > span {
+   font-size: calc(12px * var(--fs, 1));
+   color: var(--muted)
+}
+
+.vh .vh-hist-resumo > div > em {
+   font-size: calc(12px * var(--fs, 1));
+   font-style: normal;
+   color: var(--muted);
+   overflow-wrap: anywhere
+}
+
+.vh .vh-hist-filtro {
+   display: flex;
+   flex-wrap: wrap;
+   gap: calc(8px * var(--z, 1));
+   margin: 0 0 calc(12px * var(--z, 1))
+}
+
+.vh .tbl tr.vh-hist-mau td:first-child {
+   box-shadow: inset calc(3px * var(--z, 1)) 0 0 var(--red)
+}
+
+.vh .vh-hist-detalhe {
+   padding: calc(2px * var(--z, 1)) 0 calc(4px * var(--z, 1));
+   font-size: calc(12px * var(--fs, 1));
+   color: var(--ink);
+   white-space: normal
+}
+
+.vh .vh-hist-detalhe i {
+   margin-right: calc(6px * var(--z, 1))
+}
+
 @media(max-width:768px) {
    .vh .vh-historico-selector {
       width: 100%;
@@ -14696,4 +14790,48 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    .vh .ptabs.sub:not(#x) > button {
       flex: 1 1 auto
    }
+}
+
+/* Popup "Apagar" um domínio: o que apagar (só o site, o site e a base, ou tudo) — Silva, 26/10/2026 */
+.vh .vh-apagar-ops {
+   display: flex;
+   flex-direction: column;
+   gap: calc(8px * var(--z, 1));
+   margin: calc(10px * var(--z, 1)) 0
+}
+
+.vh .vh-apagar-op {
+   display: flex;
+   align-items: flex-start;
+   gap: calc(10px * var(--z, 1));
+   padding: calc(10px * var(--z, 1)) calc(12px * var(--z, 1));
+   border: calc(1px * var(--z, 1)) solid var(--line);
+   border-radius: var(--r);
+   cursor: pointer
+}
+
+.vh .vh-apagar-op.on {
+   border-color: var(--red);
+   background: var(--tint)
+}
+
+.vh .vh-apagar-op input {
+   margin-top: calc(3px * var(--z, 1))
+}
+
+.vh .vh-apagar-op b {
+   display: block
+}
+
+.vh .vh-apagar-op small {
+   display: block;
+   margin-top: calc(2px * var(--z, 1));
+   font-size: calc(12px * var(--fs, 1));
+   color: var(--muted)
+}
+
+.vh .vh-apagar-aviso {
+   margin: calc(6px * var(--z, 1)) 0 0;
+   font-size: calc(12px * var(--fs, 1));
+   color: var(--red)
 }

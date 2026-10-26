@@ -7,44 +7,20 @@
  */
 import { createClient } from '@supabase/supabase-js';
 import { sendEmail } from '@/lib/email-service';
-import { emailHeader, emailGreeting, emailFooter } from '@/lib/renewal-templates';
+import { buildEmailDocument, escapeHtml } from '@/lib/renewal-templates';
 
 // Caixa de sistema dedicada — antes ia para o email pessoal do admin
 // (silva.chamo@gmail.com), o que misturava alertas de servidor com correio
 // normal e passava despercebido.
 const TEAM_EMAIL = 'servidor@visualdesignmoz.com';
-const SUPPORT_EMAIL = 'suporte@visualdesignmoz.com';
-const SUPPORT_PHONE = '+258 85 242 5525';
 const COMPANY_NAME = 'VisualDesign';
 
 function buildErrorEmailHtml(context: string, message: string) {
   const body = `
-    <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 20px; font-family: 'Exo 2', sans-serif;">
-      <p style="margin: 0 0 8px 0; color: #991b1b; font-weight: bold;">Erro inesperado no servidor</p>
-      <p style="margin: 0 0 8px 0; color: #374151; font-size: 14px;"><strong>Onde:</strong> ${context}</p>
-      <pre style="white-space: pre-wrap; word-break: break-word; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 6px; padding: 12px; font-size: 12px; color: #374151;">${message}</pre>
-    </div>
+    <p style="margin: 0 0 8px 0; color: #4b5563; font-size: 14px; line-height: 1.5; font-family: 'Exo 2', sans-serif;"><strong>Onde:</strong> ${escapeHtml(context)}</p>
+    <pre style="margin: 0; white-space: pre-wrap; word-break: break-word; background: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 2px; padding: 10px 14px; font-size: 12px; color: #4b5563;">${escapeHtml(message)}</pre>
   `;
-  return `
-<!DOCTYPE html>
-<html>
-<head><meta charset="UTF-8"></head>
-<body style="margin: 0; padding: 0; font-family: 'Exo 2', sans-serif; background: #f3f4f6;">
-  <table width="100%" cellpadding="0" cellspacing="0" border="0">
-    ${emailHeader(COMPANY_NAME)}
-    <tr>
-      <td align="center" style="padding: 24px 12px; background: #f3f4f6;">
-        <table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px; width: 100%; background: #ffffff; border: 1px solid #e5e7eb;">
-          <tr><td>${emailGreeting('Equipa')}</td></tr>
-          <tr><td style="padding: 20px 24px;">${body}</td></tr>
-          <tr><td>${emailFooter(SUPPORT_EMAIL, SUPPORT_PHONE, COMPANY_NAME)}</td></tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>
-  `.trim();
+  return buildEmailDocument({ companyName: COMPANY_NAME, clientName: 'Admin', title: 'Erro inesperado no servidor', bodyHtml: body });
 }
 
 function adminClient() {

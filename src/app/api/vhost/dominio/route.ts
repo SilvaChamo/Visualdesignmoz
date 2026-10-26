@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { X509Certificate } from 'node:crypto';
 import { Resolver } from 'node:dns/promises';
 import { requirePanelBootstrapAccess } from '@/lib/panel-api-auth';
+import { alojamentoVercel } from '@/lib/hospedagem-dns';
 import { executeServerCommand } from '@/lib/server-ssh-exec';
 import { hestiaCall } from '@/lib/hestia-client';
 import * as hestia from '@/lib/hestia-adapter';
@@ -121,20 +122,7 @@ async function nameservers(zona: string): Promise<string[]> {
 const usaNameserversCloudflare = (ns: string[]) =>
   ns.length > 0 && ns.every((name) => /^[a-z0-9-]+\.ns\.cloudflare\.com$/.test(name));
 
-async function alojamentoVercelPublico(dominio: string): Promise<boolean | null> {
-  const resolver = new Resolver({ timeout: 2500, tries: 1 });
-  resolver.setServers(['1.1.1.1', '8.8.8.8']);
-  const nomes = [dominio, `www.${dominio}`];
-  const respostas = await Promise.all(
-    nomes.map((nome) => Promise.allSettled([resolver.resolveCname(nome), resolver.resolve4(nome)])),
-  );
-  const valores = respostas.flatMap((resposta) => resposta.flatMap((resultado) => resultado.status === 'fulfilled' ? resultado.value : []));
-  if (valores.some((valor) => typeof valor === 'string' && valor.toLowerCase().includes('vercel'))) return true;
-  if (
-    valores.some((valor) => typeof valor === 'string' && /^(76\.76\.21\.|66\.33\.60\.)/.test(valor))
-  ) return true;
-  return respostas.some((resposta) => resposta.some((resultado) => resultado.status === 'fulfilled')) ? false : null;
-}
+const alojamentoVercelPublico = alojamentoVercel;
 
 type DnsDominio = { fonte: 'hestia' | 'cloudflare' | 'nenhuma'; zona: string; cloudflareAutoritativa?: boolean; registos: { id: string; nome: string; tipo: string; valor: string; ttl: number; prio?: string; proxied?: boolean }[] };
 
@@ -531,6 +519,34 @@ async function escreverBloco(conta: string, ficheiro: string, marca: string[], l
 
 const linhaLimpa = (v: unknown) => String(v ?? '').replace(/[\r\n]/g, ' ').trim();
 
+/** Domínios que nunca se apagam daqui: o próprio painel, o site de produção e o projecto de defesa do Silva (basededadosagro.com) */
+const PROTEGIDOS = new Set(['visualdesignmoz.com', 'www.visualdesignmoz.com', 'host.visualdesignmoz.com', 'basededadosagro.com', 'www.basededadosagro.com']);
+
+/** O que é só deste site e se apaga com ele (popup "Apagar", Silva, 26/10/2026). A base de dados vem do wp-config.php do site (DB_NAME) e só conta se
+ *  mais nenhum site da conta a usar; os agendamentos (crons) são os que apontam para a pasta dele. Lê-se ANTES de apagar o site (o wp-config.php vai com ele).
+ *  Nunca se apaga o que não se consegue ligar a este site. */
+async function dadosSoDoSite(conta: string, d: string, srv: LeituraServidor): Promise<{ bases: string[]; crons: string[]; aviso: string }> {
+  const base = `/home/${conta}/web/${d}`;
+  const lido = await executeServerCommand(`grep -m1 -E "DB_NAME" ${q(base + '/public_html/wp-config.php')} 2>/dev/null`, { timeoutMs: 15_000 }).catch(() => '');
+  const nome = lido.match(/DB_NAME['"]\s*,\s*['"]([A-Za-z0-9_]+)['"]/)?.[1] || '';
+  const bases: string[] = [];
+  let aviso = '';
+  if (!nome) aviso = 'A base de dados não foi apagada: não se encontrou qual é a deste site (não é WordPress).';
+  else if (!srv.db[conta]?.[nome]) aviso = `A base ${nome} já não existe no servidor.`;
+  else {
+    const usos = Number((await executeServerCommand(`grep -lF -- ${q(nome)} /home/${conta}/web/*/public_html/wp-config.php 2>/dev/null | wc -l`, { timeoutMs: 15_000 }).catch(() => '9')).trim()) || 9;
+    if (usos > 1) aviso = `A base ${nome} também é usada por outro site da conta: não foi apagada.`;
+    else bases.push(nome);
+  }
+  const lista = await executeServerCommand(`/usr/local/hestia/bin/v-list-cron-jobs ${q(conta)} plain 2>/dev/null | awk -F'\t' '{print $1"\t"$7}'`, { timeoutMs: 15_000 }).catch(() => '');
+  const crons = lista
+    .split('\n')
+    .map((l) => l.split('\t'))
+    .filter(([id, cmd]) => /^\d+$/.test(id || '') && !!cmd && (cmd.includes(`/web/${d}/`) || cmd.includes(`wp-cron-${d}.lock`)))
+    .map(([id]) => id);
+  return { bases, crons, aviso };
+}
+
 export async function POST(req: NextRequest) {
   const r = await sessao();
   if ('erro' in r) return r.erro;
@@ -622,12 +638,16 @@ export async function POST(req: NextRequest) {
   // certificado e as contas FTP, o domínio de e-mail com todas as caixas, a zona DNS do Hestia e o A do endereço (e do www)
   // na Cloudflare. Só o administrador. Ficam de fora: as bases de dados da conta, a zona da Cloudflare de um domínio principal
   // e o registo do domínio (esses não são do site).
+  // Cada conta apaga os SEUS domínios (e o revendedor os dos seus clientes): `verificar` confirma que a conta é do painel de quem pede e que o domínio é dela.
+  // Só o administrador apaga de qualquer conta (é o que a página "Sites das contas" faz).
   if (c.acao === 'dominio-eliminar-tudo') {
-    if (r.s.role !== 'admin') return NextResponse.json({ erro: 'Só o administrador elimina sites de outras contas.' }, { status: 403 });
     if (!CONTA.test(conta) || !DOM.test(d)) return NextResponse.json({ erro: 'Conta ou domínio inválido.' }, { status: 400 });
-    // o próprio painel e o site de produção nunca se eliminam daqui
-    const protegidos = new Set(['visualdesignmoz.com', 'www.visualdesignmoz.com', 'host.visualdesignmoz.com', String(getServerHost() || '').toLowerCase()]);
-    if (protegidos.has(d)) return NextResponse.json({ erro: d + ' é do próprio painel e do site da Visual Design: não se elimina daqui.' }, { status: 403 });
+    if (r.s.role !== 'admin') {
+      const fora = await verificar(r.s, conta, d, srv);
+      if (fora) return NextResponse.json({ erro: fora }, { status: 403 });
+    }
+    // o próprio painel, o site de produção e o projecto de defesa nunca se eliminam daqui
+    if (PROTEGIDOS.has(d) || d === String(getServerHost() || '').toLowerCase()) return NextResponse.json({ erro: d + ' é do próprio painel e dos sites da Visual Design: não se elimina daqui.' }, { status: 403 });
     const temWeb = !!srv.web[conta]?.[d];
     const temMail = !!srv.mail[conta]?.[d];
     const temDns = !!srv.dns[conta]?.[d];
@@ -635,6 +655,8 @@ export async function POST(req: NextRequest) {
       esquecerLeitura();
       return NextResponse.json({ erro: 'Este site já não existe no servidor. A lista foi actualizada.' }, { status: 409 });
     }
+    // com `bd`: também a base de dados do site e os agendamentos dele (lidos antes, o wp-config.php vai com o site)
+    const dados = c.bd === true && temWeb ? await dadosSoDoSite(conta, d, srv) : null;
     const feitos: string[] = [];
     const falhas: string[] = [];
     const passo = async (nome: string, p: Promise<{ ok: boolean; error?: string }>) => {
@@ -642,13 +664,17 @@ export async function POST(req: NextRequest) {
       (x.ok ? feitos : falhas).push(x.ok ? nome : nome + ' (' + (x.error || 'erro') + ')');
     };
     if (temWeb) await passo('site e ficheiros', call('v-delete-web-domain', [conta, d]));
+    if (dados && !falhas.length) {
+      for (const b of dados.bases) await passo('base de dados ' + b, call('v-delete-database', [conta, b]));
+      for (const id of dados.crons) await passo('agendamento ' + id, call('v-delete-cron-job', [conta, id]));
+    }
     if (temMail) await passo('e-mail e caixas', call('v-delete-mail-domain', [conta, d]));
     if (temDns) await passo('zona DNS', call('v-delete-dns-domain', [conta, d]));
     await passo('DNS da Cloudflare', deleteHostARecord(d));
     await passo('DNS do www', deleteHostARecord('www.' + d));
     esquecerLeitura();
     if (falhas.length) return NextResponse.json({ erro: 'Não ficou tudo eliminado. Feito: ' + (feitos.join(', ') || 'nada') + '. Falhou: ' + falhas.join('; ') + '.' }, { status: 502 });
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, ...(dados?.aviso ? { aviso: 'Eliminado. ' + dados.aviso } : {}) });
   }
 
   const e = await verificar(r.s, conta, d, srv);
@@ -710,8 +736,36 @@ export async function POST(req: NextRequest) {
       await executeServerCommand(`rm -rf ${q(dir)}`, { timeoutMs: 20_000 }).catch(() => '');
       return resposta(x);
     }
-    case 'dominio-apagar':
+    case 'dominio-apagar': {
+      if (PROTEGIDOS.has(d)) return NextResponse.json({ erro: d + ' é do próprio painel e dos sites da Visual Design: não se apaga daqui.' }, { status: 403 });
+      const modo = String(c.modo || 'site');
+      // "Só o site" (por defeito): o site e os ficheiros; ficam o e-mail, o DNS e as bases de dados. "O site e a base de dados": também a base e os crons do
+      // site. Quem pode apagar o domínio (a conta dele, o revendedor, o administrador) já foi confirmado por `verificar`, acima.
+      if (modo === 'site-bd') {
+        if (!w) return NextResponse.json({ erro: 'Este domínio não tem site.' }, { status: 400 });
+        const dados = await dadosSoDoSite(conta, d, srv);
+        const site = await call('v-delete-web-domain', [conta, d]);
+        if (!site.ok) {
+          esquecerLeitura();
+          return NextResponse.json({ erro: 'Não foi possível apagar o site (a base de dados ficou como estava): ' + (site.error || 'o servidor recusou') }, { status: 400 });
+        }
+        const feitos = ['site e ficheiros'];
+        const falhas: string[] = [];
+        for (const b of dados.bases) {
+          const x = await call('v-delete-database', [conta, b]);
+          (x.ok ? feitos : falhas).push(x.ok ? 'base de dados ' + b : 'base de dados ' + b + ' (' + (x.error || 'erro') + ')');
+        }
+        for (const id of dados.crons) {
+          const x = await call('v-delete-cron-job', [conta, id]);
+          (x.ok ? feitos : falhas).push(x.ok ? 'agendamento ' + id : 'agendamento ' + id + ' (' + (x.error || 'erro') + ')');
+        }
+        esquecerLeitura();
+        if (falhas.length) return NextResponse.json({ erro: 'O site foi apagado, mas algo ficou: ' + falhas.join('; ') + '.' }, { status: 502 });
+        return NextResponse.json({ ok: true, aviso: 'Apagado: ' + feitos.join(', ') + '. O e-mail e o DNS ficam.' + (dados.aviso ? ' ' + dados.aviso : '') });
+      }
+      if (modo !== 'site') return NextResponse.json({ erro: 'Modo de apagar inválido.' }, { status: 400 });
       return resposta(call(w ? 'v-delete-web-domain' : 'v-delete-mail-domain', [conta, d]));
+    }
     case 'dominio-suspender':
       return resposta(call('v-suspend-web-domain', [conta, d]));
     case 'dominio-reativar':

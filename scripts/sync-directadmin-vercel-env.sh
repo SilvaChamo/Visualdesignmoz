@@ -37,7 +37,8 @@ upsert DIRECTADMIN_USER "${USER:-admin}"
 upsert DIRECTADMIN_URL "https://${HOST:-host.visualdesignmoz.com}:${PORT:-2026}"
 upsert NEXT_PUBLIC_DIRECTADMIN_HOST "${HOST:-host.visualdesignmoz.com}"
 upsert NEXT_PUBLIC_DIRECTADMIN_PORT "${PORT:-2026}"
-upsert NEXT_PUBLIC_SERVER_IP "37.27.17.25"
+# IP do servidor actual (Contabo); o do Hetzner (37.27.17.25) já não existe e nunca mais deve ir para o DNS
+upsert NEXT_PUBLIC_SERVER_IP "169.58.148.144"
 upsert DIRECTADMIN_LOGIN_KEY "$LOGIN_KEY" 1
 
 echo "✅ DirectAdmin env na Vercel. Execute: npx vercel --prod"
