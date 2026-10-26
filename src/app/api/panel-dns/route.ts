@@ -1,3 +1,4 @@
+import { mensagemPublica } from '@/lib/mensagem-publica';
 import { NextRequest, NextResponse } from 'next/server';
 import { daAddDnsRecord, daDeleteDnsRecord, normalizeDnsNameForDa } from '@/lib/da-dns-ops';
 import {
@@ -209,7 +210,7 @@ export async function POST(req: NextRequest) {
         ttl,
       });
       if (!result.ok) {
-        return NextResponse.json({ success: false, error: result.error || 'Falha ao criar registo na Cloudflare' }, { status: 502 });
+        return NextResponse.json({ success: false, error: mensagemPublica(result.error, auth.user.role === 'admin', 'Falha ao criar o registo DNS. Se continuar, contacte o suporte.') }, { status: 502 });
       }
       // Contabo: sem espelho — a lista seguinte lê directo da Cloudflare.
       const mirror = isHestiaOnlyDeploy()
@@ -217,7 +218,7 @@ export async function POST(req: NextRequest) {
         : await upsertMirrorDns({ domain, name: name === '@' ? domain : name, type, value, ttl });
       return NextResponse.json({
         success: true,
-        message: 'Registo DNS criado na Cloudflare.',
+        message: 'Registo DNS criado.',
         id: mirror?.id,
       });
     }
@@ -225,7 +226,7 @@ export async function POST(req: NextRequest) {
     if (isHestiaOnlyDeploy()) {
       return NextResponse.json({
         success: false,
-        error: 'Neste servidor o DNS autoritativo é a Cloudflare. Sem zona para este domínio, não há onde gravar o registo.',
+        error: 'Neste servidor o DNS é gerido pelo Vhost. Sem zona para este domínio, não há onde gravar o registo.',
       }, { status: 409 });
     }
 
@@ -238,7 +239,7 @@ export async function POST(req: NextRequest) {
       const hestiaName = normalizeDnsNameForHestia(name, domain);
       const result = await hestiaAdapter.addDnsRecord(owner, domain, hestiaName, type, value, ttl);
       if (!result.ok) {
-        return NextResponse.json({ success: false, error: result.error || 'Falha ao criar registo' }, { status: 502 });
+        return NextResponse.json({ success: false, error: mensagemPublica(result.error, auth.user.role === 'admin', 'Falha ao criar registo. Se continuar, contacte o suporte.') }, { status: 502 });
       }
       const mirrorName = hestiaName === '@' ? domain : hestiaName;
       const mirror = await upsertMirrorDns({ domain, name: mirrorName, type, value, ttl });
@@ -256,7 +257,7 @@ export async function POST(req: NextRequest) {
 
     const result = await daAddDnsRecord(creds, { domain, name, type, value, ttl });
     if (!result.ok) {
-      return NextResponse.json({ success: false, error: result.error || 'Falha ao criar registo' }, { status: 502 });
+      return NextResponse.json({ success: false, error: mensagemPublica(result.error, auth.user.role === 'admin', 'Falha ao criar registo. Se continuar, contacte o suporte.') }, { status: 502 });
     }
 
     const mirrorName = normalizeDnsNameForDa(name, domain).replace(/\.$/, '');
@@ -304,18 +305,18 @@ export async function DELETE(req: NextRequest) {
     if (cfZoneId && id.length > 8) {
       const cfDel = await deleteCloudflareDnsRecord(cfZoneId, id);
       if (!cfDel.ok) {
-        return NextResponse.json({ success: false, error: cfDel.error || 'Falha ao remover na Cloudflare' }, { status: 502 });
+        return NextResponse.json({ success: false, error: mensagemPublica(cfDel.error, auth.user.role === 'admin', 'Falha ao remover o registo DNS. Se continuar, contacte o suporte.') }, { status: 502 });
       }
       if (!isHestiaOnlyDeploy()) await deleteMirrorDnsById(id).catch(() => {});
-      return NextResponse.json({ success: true, message: 'Registo DNS removido na Cloudflare.' });
+      return NextResponse.json({ success: true, message: 'Registo DNS removido.' });
     }
 
     if (isHestiaOnlyDeploy()) {
       return NextResponse.json({
         success: false,
         error: cfZoneId
-          ? 'Registo não encontrado na Cloudflare.'
-          : 'Neste servidor o DNS autoritativo é a Cloudflare.',
+          ? 'Registo não encontrado no DNS.'
+          : 'Neste servidor o DNS é gerido pelo Vhost.',
       }, { status: cfZoneId ? 404 : 409 });
     }
 
@@ -358,7 +359,7 @@ export async function DELETE(req: NextRequest) {
       }
       const result = await hestiaAdapter.deleteDnsRecord(owner, domain, match.id);
       if (!result.ok) {
-        return NextResponse.json({ success: false, error: result.error || 'Falha ao remover registo' }, { status: 502 });
+        return NextResponse.json({ success: false, error: mensagemPublica(result.error, auth.user.role === 'admin', 'Falha ao remover registo. Se continuar, contacte o suporte.') }, { status: 502 });
       }
       await deleteMirrorDnsById(id);
       return NextResponse.json({ success: true, message: 'Registo DNS removido com sucesso.' });
@@ -376,7 +377,7 @@ export async function DELETE(req: NextRequest) {
       value: String(row.value),
     });
     if (!result.ok) {
-      return NextResponse.json({ success: false, error: result.error || 'Falha ao remover registo' }, { status: 502 });
+      return NextResponse.json({ success: false, error: mensagemPublica(result.error, auth.user.role === 'admin', 'Falha ao remover registo. Se continuar, contacte o suporte.') }, { status: 502 });
     }
 
     await deleteMirrorDnsById(id);

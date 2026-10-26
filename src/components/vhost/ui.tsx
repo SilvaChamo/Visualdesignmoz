@@ -121,7 +121,7 @@ export function HxTag({ s }: { s: HxState }) {
 export function HxCard({ hx }: { hx: MenuItem['hx'] }) {
   return (
     <div className="card">
-      <small>No servidor Contabo (Hestia)</small>
+      <small>No servidor</small>
       <HxTag s={hx.s} />
       {hx.n && <p style={{ marginTop: 8, lineHeight: 1.5 }}>{hx.n}</p>}
       {hx.cmd && (

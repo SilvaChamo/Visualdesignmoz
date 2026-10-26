@@ -1832,7 +1832,7 @@ function Mx() {
   const dns = dados?.dns ?? null;
   if (!d) return <SemEmail d="" />;
   if (!dns) return <Carregando erro={erro} ler={ler} />;
-  if (dns.fonte === 'nenhuma') return <div className="note">{t('O DNS deste domínio não está neste servidor nem na Cloudflare da VisualDesign: os registos MX mudam-se onde o domínio foi registado.')}</div>;
+  if (dns.fonte === 'nenhuma') return <div className="note">{t('O DNS deste domínio não está neste servidor nem no DNS da VisualDesign: os registos MX mudam-se onde o domínio foi registado.')}</div>;
   const rows = dns.registos.filter((r) => r.tipo === 'MX');
   const apagar = (ids: string[]) =>
     openM(
@@ -1980,7 +1980,7 @@ function DescMx() {
       {f && f !== 'nenhuma' && (
         <>
           <span className="pdesc-sep">|</span>
-          {vh.t(f === 'cloudflare' ? 'DNS na Cloudflare' : 'DNS neste servidor')}
+          {vh.t(f === 'cloudflare' ? 'DNS da Visual Design' : 'DNS neste servidor')}
         </>
       )}
     </>

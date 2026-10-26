@@ -432,7 +432,7 @@ export function RenewalsSection({ initialTab = 'overview', hideTabs = false }: R
                                 rel="noopener noreferrer"
                                 className="text-xs font-medium text-orange-700 hover:underline"
                               >
-                                Recuperar na Dynadot →
+                                Recuperar o domínio →
                               </a>
                             )}
                           </div>
@@ -501,7 +501,7 @@ export function RenewalsSection({ initialTab = 'overview', hideTabs = false }: R
                               rel="noopener noreferrer"
                               className="text-xs font-medium text-orange-700 hover:underline"
                             >
-                              Recuperar na Dynadot →
+                              Recuperar o domínio →
                             </a>
                           )}
                         </div>

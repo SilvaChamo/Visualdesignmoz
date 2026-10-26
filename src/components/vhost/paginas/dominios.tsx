@@ -41,7 +41,7 @@ import { TransferirDominio } from './transferir-dominio';
     'Crie bases de dados do seu site, com o número de utilizadores que lhes acedem, o tamanho e o número de tabelas abaixo': "Create your site's databases, with the number of users that access them, the size and the number of tables below",
     'Registos DNS deste domínio, guardados neste servidor': 'DNS records of this domain, stored on this server',
     'O DNS deste domínio está fora da Visual Design': 'The DNS of this domain is outside Visual Design',
-    'Ligado à Cloudflare: o que alterar aqui muda logo nos registos DNS dos seus domínios': "Connected to Cloudflare: what you change here changes your domains' DNS records right away",
+    'Ligado ao DNS do Vhost: o que alterar aqui muda logo nos registos DNS dos seus domínios': "Connected to Vhost DNS: what you change here changes your domains' DNS records right away",
     'Gerir os domínios e os subdomínios desta conta': 'Manage the domains and subdomains of this account',
     'Os sites e os domínios desta conta': 'The sites and domains of this account',
     'Os subdomínios e as pastas deste domínio': 'The subdomains and folders of this domain',
@@ -472,15 +472,7 @@ function ListaDominios({ abaDom = 'meus', abrirNovo = false }: { abaDom?: AbaDom
             {
               t: 'Reprocessar DNS',
               fa: 'fa-arrows-rotate',
-              run: (k) =>
-                openM(
-                  <Confirmar
-                    titulo="Reprocessar o DNS?"
-                    texto={t('Repõe os registos do site e do e-mail (SPF, DKIM, DMARC, MX) de {0} que estiverem em falta ou errados, em qualquer domínio — também os registados fora da Dynadot — e confere no fim. O que já está certo fica como está.').replace('{0}', k.join(', '))}
-                    ok="Reprocessar"
-                    onOk={() => reprocessarVarios(vh, k)}
-                  />,
-                ),
+              run: (k) => reprocessarVarios(vh, k), // sem janela de confirmação: ao clicar, processa (Silva, 26/10/2026)
             },
             {
               t: 'Apagar',
@@ -788,7 +780,7 @@ function Nameservers({ d, reg, publicos }: { d: string; reg: Registador; publico
                 <input type="radio" name={'ns-' + d} checked={modo === 'outros'} disabled={fora} onChange={() => setModo('outros')} />
                 <span>
                   <b>{t('Nameservers personalizados')}</b>
-                  <small>{t('Aponta este domínio para os nameservers indicados (ex.: Cloudflare, outro fornecedor).')}</small>
+                  <small>{t('Aponta este domínio para os nameservers indicados (os do Vhost ou de outro serviço de DNS).')}</small>
                 </span>
               </label>
             </div>
@@ -1001,7 +993,7 @@ function VerDominio({ d }: { d: string }) {
     ],
     ...(x.soDominio
       ? ([
-          ['DNS', det ? (det.dns.fonte === 'cloudflare' ? 'Cloudflare' : det.dns.fonte === 'hestia' ? t('Neste servidor') : t('Fora da Visual Design')) : <span className="dom-a-ler">…</span>, 'dns'],
+          ['DNS', det ? (det.dns.fonte === 'cloudflare' ? t('Na Visual Design') : det.dns.fonte === 'hestia' ? t('Neste servidor') : t('Fora da Visual Design')) : <span className="dom-a-ler">…</span>, 'dns'],
         ] as [string, ReactNode, string?][])
       : [['Espaço em disco', x.disk] as [string, ReactNode]]),
     ...(!site
@@ -1028,7 +1020,7 @@ function VerDominio({ d }: { d: string }) {
             det ? (
               <span
                 className={'tag ' + (dnsAtivo(det.dns, det.ns) ? 'ok' : 'w')}
-                title={det.dns.fonte === 'cloudflare' ? 'Cloudflare' : det.dns.fonte === 'hestia' ? t('Neste servidor') : t('Fora da Visual Design')}
+                title={det.dns.fonte === 'cloudflare' ? t('Na Visual Design') : det.dns.fonte === 'hestia' ? t('Neste servidor') : t('Fora da Visual Design')}
               >
                 {dnsAtivo(det.dns, det.ns) ? 'OK' : t('Pendente')}
               </span>
@@ -1128,19 +1120,10 @@ function VerDominio({ d }: { d: string }) {
         {/* domínios com registos em falta ficam ligados como os outros: repõe na Cloudflare o que falta (Silva, 16/10/2026) */}
         <button
           className="dom-op co c4"
-          onClick={() =>
-            openM(
-              <Confirmar
-                titulo="Reprocessar o DNS?"
-                texto={t('Repõe na Cloudflare os registos do site e do e-mail deste domínio que estiverem em falta ou errados. O que já está certo fica como está.')}
-                ok="Reprocessar"
-                onOk={async () => {
-                  const [r] = await reprocessarVarios(vh, [d]);
-                  if (r.ok) ler();
-                }}
-              />,
-            )
-          }
+          onClick={async () => {
+            const [r] = await reprocessarVarios(vh, [d]); // sem janela de confirmação (Silva, 26/10/2026); o relatório aparece no fim
+            if (r.ok) ler();
+          }}
         >
           <i className="fa-solid fa-arrows-rotate" />
           {t('Reprocessar DNS')}
@@ -1734,7 +1717,7 @@ function Dns() {
   return (
     <>
       {dns.fonte === 'nenhuma' ? (
-        <div className="note">{t('O DNS deste domínio não está neste servidor nem na Cloudflare da VisualDesign: os registos mudam-se onde o domínio foi registado.')}</div>
+        <div className="note">{t('O DNS deste domínio não está neste servidor nem no DNS da VisualDesign: os registos mudam-se onde o domínio foi registado.')}</div>
       ) : (
         <>
         {/* modelo global (regra do Silva, 13/10/2026): os filtros por tipo são os separadores — a faixa cinzenta que abre
@@ -1803,7 +1786,7 @@ function Dns() {
                     <button
                       className="btn sm btn-ed btn-dns-edit dns-ed-nome"
                       disabled={!editavel(r)}
-                      title={editavel(r) ? t('Editar') : t('Este tipo muda-se na Cloudflare')}
+                      title={editavel(r) ? t('Editar') : t('Este tipo não se edita aqui')}
                       aria-label={t('Editar')}
                       onClick={() => iniciarEdicao(r)}
                     >
@@ -1911,7 +1894,7 @@ function Dns() {
                       if (r.tipo === 'NS') return null;
                       const pode = ['A', 'AAAA', 'CNAME'].includes(r.tipo) && !soLeitura(r);
                       return (
-                        <label className={'dns-proxy' + (r.proxied ? ' on' : '') + (!pode ? ' disabled' : '')} title={pode ? t('Ligar ou desligar o proxy da Cloudflare') : undefined}>
+                        <label className={'dns-proxy' + (r.proxied ? ' on' : '') + (!pode ? ' disabled' : '')} title={pode ? t('Ligar ou desligar o proxy do DNS') : undefined}>
                           <span className="sw">
                             <input type="checkbox" role="switch" checked={!!r.proxied} disabled={!pode || aMudarProxy !== null} onChange={(e) => mudarProxy(r, e.target.checked)} />
                             <span aria-hidden="true" />
@@ -1985,7 +1968,7 @@ function Dns() {
                 <button
                   className="btn sm btn-ed btn-dns-edit"
                   disabled={!editavel(r)}
-                  title={editavel(r) ? '' : t('Este tipo muda-se na Cloudflare')}
+                  title={editavel(r) ? '' : t('Este tipo não se edita aqui')}
                   onClick={() => iniciarEdicao(r)}
                 >
                   <i className="fa-solid fa-pen-to-square" />
@@ -2060,7 +2043,7 @@ function DescDns() {
   const x = dominioAtual(vh, false);
   const dados = useNaMemoria<{ dns: { fonte: string } }>(x ? '/api/vhost/dominio?conta=' + encodeURIComponent(vh.me) + '&d=' + encodeURIComponent(x.name) + '&so=dns' : '');
   const f = dados?.dns.fonte;
-  return <>{vh.t(f === 'hestia' ? 'Registos DNS deste domínio, guardados neste servidor' : f === 'nenhuma' ? 'O DNS deste domínio está fora da Visual Design' : 'Ligado à Cloudflare: o que alterar aqui muda logo nos registos DNS dos seus domínios')}</>;
+  return <>{vh.t(f === 'hestia' ? 'Registos DNS deste domínio, guardados neste servidor' : f === 'nenhuma' ? 'O DNS deste domínio está fora da Visual Design' : 'Ligado ao DNS do Vhost: o que alterar aqui muda logo nos registos DNS dos seus domínios')}</>;
 }
 export const dnsPagina: ScreenFn = () => ({ title: 'DNS', descBarra: 'Para onde apontam o seu site e o seu e-mail', descEl: <DescDns />, actions: <NovoRegistoDns />, body: <Dns /> });
 
