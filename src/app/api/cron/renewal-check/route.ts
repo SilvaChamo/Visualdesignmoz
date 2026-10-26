@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { nomeDoPerfil } from '@/lib/perfil-conta'
 import { createClient } from '@/utils/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import {
@@ -100,7 +101,7 @@ export async function GET(request: NextRequest) {
               continue
             }
 
-            const clientName = userData.user_metadata?.full_name || userData.email?.split('@')[0] || 'Cliente'
+            const clientName = await nomeDoPerfil(supabaseAdmin, renewal.user_id, userData.user_metadata?.full_name || userData.email?.split('@')[0] || 'Cliente')
 
             // Marca de deduplicação para este serviço+dias. A tabela renewal_reminders
             // (pensada originalmente para isto) não existe em produção — em vez de

@@ -1,9 +1,9 @@
 import { sendEmail } from '@/lib/email-service';
-import { emailHeader, emailGreeting, emailFooter, wrapContentInFrame } from '@/lib/renewal-templates';
+import { buildEmailDocument, escapeHtml } from '@/lib/renewal-templates';
+import { getSupabaseAdmin } from '@/lib/supabase-admin';
+import { nomeDoPerfil } from '@/lib/perfil-conta';
 import { formatMt } from '@/lib/pricing-catalog';
 
-const SUPPORT_EMAIL = 'suporte@visualdesignmoz.com';
-const SUPPORT_PHONE = '+258 85 242 5525';
 const COMPANY_NAME = 'VisualDesign';
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://visualdesignmoz.com';
 // noreply propositado — estas notificações nunca esperam resposta por email,
@@ -25,35 +25,11 @@ function buildClientEmailHtml(params: {
   const { clientName, title, message, ctaLink, ctaText } = params;
 
   const body = `
-    <h2 style="margin: 0 0 12px 0; color: #111827; font-size: 18px;">${title}</h2>
-    <p style="margin: 0; color: #374151; font-size: 14px; line-height: 1.6; white-space: pre-line;">${message}</p>
-    ${ctaLink ? `<p style="margin: 20px 0 0 0;"><a href="${ctaLink}" style="display: inline-block; padding: 10px 20px; background: #dc2626; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 14px;">${ctaText || 'Aceder à plataforma'}</a></p>` : ''}
+    <p style="margin: 0; color: #4b5563; font-size: 14px; line-height: 1.5; white-space: pre-line; font-family: 'Exo 2', sans-serif;">${escapeHtml(message)}</p>
+    ${ctaLink ? `<p style="margin: 20px 0 0 0;"><a href="${ctaLink}" style="display: inline-block; padding: 8px 14px; background: #dc2626; color: #ffffff; text-decoration: none; border-radius: 2px; font-size: 12px; font-weight: bold; font-family: 'Exo 2', sans-serif;">${escapeHtml(ctaText || 'Aceder à plataforma')} &rarr;</a></p>` : ''}
   `;
 
-  return `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${title}</title>
-</head>
-<body style="margin: 0; padding: 0; font-family: 'Exo 2', sans-serif; background: #f3f4f6;">
-  <table width="100%" cellpadding="0" cellspacing="0" border="0">
-    ${emailHeader(COMPANY_NAME)}
-    <tr>
-      <td align="center" style="padding: 24px 12px; background: #f3f4f6;">
-        <table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px; width: 100%; background: #ffffff; border: 1px solid #e5e7eb;">
-          <tr><td>${emailGreeting(clientName)}</td></tr>
-          <tr><td style="padding: 20px 24px;">${wrapContentInFrame(body, 'low')}</td></tr>
-          <tr><td>${emailFooter(SUPPORT_EMAIL, SUPPORT_PHONE, COMPANY_NAME)}</td></tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>
-  `.trim();
+  return buildEmailDocument({ companyName: COMPANY_NAME, clientName, title, bodyHtml: body });
 }
 
 /**
@@ -67,8 +43,11 @@ export async function notifyQuoteClientStatusChange(params: {
   produto: string;
   status: 'approved' | 'rejected' | 'delivered' | 'done';
   rejectionReason?: string | null;
+  /** Conta do cliente — o nome do cumprimento vem do perfil dela. */
+  userId?: string | null;
 }) {
-  const { to, clientName, produto, status, rejectionReason } = params;
+  const { to, produto, status, rejectionReason, userId } = params;
+  const clientName = await nomeDoPerfil(getSupabaseAdmin(), userId, params.clientName);
 
   const title = {
     approved: 'A sua encomenda foi aprovada',
@@ -109,8 +88,10 @@ export async function notifyQuoteClientNewMessage(params: {
   clientName: string;
   produto: string;
   quotationId: string;
+  userId?: string | null;
 }) {
-  const { to, clientName, produto, quotationId } = params;
+  const { to, produto, quotationId, userId } = params;
+  const clientName = await nomeDoPerfil(getSupabaseAdmin(), userId, params.clientName);
   const title = 'Nova mensagem sobre a sua encomenda';
   const body = `A equipa respondeu sobre a sua encomenda "${produto}". Aceda à plataforma para ver a conversa completa e responder.`;
   const ctaLink = `${SITE_URL}/encomendas?section=mensagens&quotationId=${quotationId}`;
@@ -139,8 +120,10 @@ export async function notifyQuoteClientPriceDefined(params: {
   clientName: string;
   produto: string;
   valorMt: number;
+  userId?: string | null;
 }) {
-  const { to, clientName, produto, valorMt } = params;
+  const { to, produto, valorMt, userId } = params;
+  const clientName = await nomeDoPerfil(getSupabaseAdmin(), userId, params.clientName);
   const title = 'Valor definido para o seu pedido sob consulta';
   const message = `A equipa definiu o valor para o pedido "${produto}": ${formatMt(valorMt)} MT.\n\nAceda ao painel para ver os detalhes e avançar com o pagamento.`;
 
@@ -168,8 +151,10 @@ export async function notifyQuoteClientNewLayout(params: {
   produto: string;
   descricao: string;
   fase: number;
+  userId?: string | null;
 }) {
-  const { to, clientName, produto, descricao, fase } = params;
+  const { to, produto, descricao, fase, userId } = params;
+  const clientName = await nomeDoPerfil(getSupabaseAdmin(), userId, params.clientName);
   const title = `Novo layout enviado: ${descricao} — Fase ${fase}`;
   const body = `A equipa enviou um novo layout para a sua encomenda "${produto}":\n\nFase ${fase} — ${descricao}\n\nEntre no painel para ver e descarregar.`;
 

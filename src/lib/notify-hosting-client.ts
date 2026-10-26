@@ -1,11 +1,9 @@
 import { sendEmail } from '@/lib/email-service';
-import { emailHeader, emailGreeting, emailFooter, wrapContentInFrame } from '@/lib/renewal-templates';
+import { buildEmailDocument, escapeHtml } from '@/lib/renewal-templates';
 import { VISUALDESIGN_DEFAULT_NS } from '@/lib/visualdesign-dns';
 import { getServerHost } from '@/lib/server-config';
 import { isHestiaOnlyDeploy } from '@/lib/hosting-provider';
 
-const SUPPORT_EMAIL = 'suporte@visualdesignmoz.com';
-const SUPPORT_PHONE = '+258 85 242 5525';
 const COMPANY_NAME = 'VisualDesign';
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://visualdesignmoz.com';
 const NOREPLY_EMAIL = 'noreply@visualdesignmoz.com';
@@ -46,35 +44,11 @@ export async function notifyHostingAccountProvisioned(params: {
       `A propagação pode demorar algumas horas. Qualquer dúvida, contacte-nos.`;
 
   const body = `
-    <h2 style="margin: 0 0 12px 0; color: #111827; font-size: 18px;">${title}</h2>
-    <p style="margin: 0; color: #374151; font-size: 14px; line-height: 1.6; white-space: pre-line;">${message}</p>
-    <p style="margin: 20px 0 0 0;"><a href="${SITE_URL}/vhost:2026" style="display: inline-block; padding: 10px 20px; background: #dc2626; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 14px;">Aceder ao painel</a></p>
+    <p style="margin: 0; color: #4b5563; font-size: 14px; line-height: 1.5; white-space: pre-line; font-family: 'Exo 2', sans-serif;">${escapeHtml(message)}</p>
+    <p style="margin: 20px 0 0 0;"><a href="${SITE_URL}/vhost:2026" style="display: inline-block; padding: 8px 14px; background: #dc2626; color: #ffffff; text-decoration: none; border-radius: 2px; font-size: 12px; font-weight: bold; font-family: 'Exo 2', sans-serif;">Aceder ao painel &rarr;</a></p>
   `;
 
-  const html = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${title}</title>
-</head>
-<body style="margin: 0; padding: 0; font-family: 'Exo 2', sans-serif; background: #f3f4f6;">
-  <table width="100%" cellpadding="0" cellspacing="0" border="0">
-    ${emailHeader(COMPANY_NAME)}
-    <tr>
-      <td align="center" style="padding: 24px 12px; background: #f3f4f6;">
-        <table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px; width: 100%; background: #ffffff; border: 1px solid #e5e7eb;">
-          <tr><td>${emailGreeting(clientName)}</td></tr>
-          <tr><td style="padding: 20px 24px;">${wrapContentInFrame(body, 'low')}</td></tr>
-          <tr><td>${emailFooter(SUPPORT_EMAIL, SUPPORT_PHONE, COMPANY_NAME)}</td></tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>
-  `.trim();
+  const html = buildEmailDocument({ companyName: COMPANY_NAME, clientName, title, bodyHtml: body });
 
   try {
     await sendEmail({

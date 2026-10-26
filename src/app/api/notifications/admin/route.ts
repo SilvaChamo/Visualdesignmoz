@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { sendEmail as sendTransactionalEmail } from '@/lib/email-service'
+import { nomeDoPerfil } from '@/lib/perfil-conta'
 import { buildSimpleNotificationEmailHtml as buildNotificationEmailHtml } from '@/lib/renewal-templates'
 
 // Verificar se é admin
@@ -89,7 +90,7 @@ export async function POST(request: NextRequest) {
           if (!user.email || !notification) continue
 
           try {
-            const clientName = user.user_metadata?.full_name || user.email.split('@')[0] || 'Cliente'
+            const clientName = await nomeDoPerfil(supabaseAdmin, user.id, user.user_metadata?.full_name || user.email.split('@')[0] || 'Cliente')
             await sendTransactionalEmail({
               to: user.email,
               subject: title,
@@ -152,7 +153,7 @@ export async function POST(request: NextRequest) {
           emailError = 'Usuário sem email cadastrado'
         } else {
           try {
-            const clientName = targetUser.user_metadata?.full_name || targetUser.email.split('@')[0] || 'Cliente'
+            const clientName = await nomeDoPerfil(supabaseAdmin, targetUser.id, targetUser.user_metadata?.full_name || targetUser.email.split('@')[0] || 'Cliente')
             await sendTransactionalEmail({
               to: targetUser.email,
               subject: title,
