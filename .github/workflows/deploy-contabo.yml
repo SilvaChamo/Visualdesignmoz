@@ -188,8 +188,8 @@ jobs:
             # omissão (IP antigo do Hetzner). Confirmado ao vivo 1 set: o
             # site novo entrecamposblog.com ficou sem DNS por causa disto.
             set_env_var NEXT_PUBLIC_SERVER_IP "${{ secrets.CONTABO_HOST }}"
-            # Nameservers deste servidor (Hestia do Contabo). O Hetzner usa ns1/ns2;
-            # um domínio nunca deve misturar os dois pares (ver visualdesign-dns.ts).
+            # Par de nameservers que se dá aos clientes (Hestia do Contabo). ns1 a ns4 são todos deste servidor
+            # (ver visualdesign-dns.ts); um domínio deve usar sempre o mesmo par.
             set_env_var NEXT_PUBLIC_VD_NAMESERVERS "ns3.visualdesignmoz.com,ns4.visualdesignmoz.com"
             # Painel VisualHost (/vhost): alterações às contas do servidor ligadas para todas as contas (aprovado pelo Silva, 10/10/2026)
             set_env_var VHOST_ACOES_TODAS "1"
