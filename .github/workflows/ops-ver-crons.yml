@@ -1,0 +1,55 @@
+name: Ops - Ver os crons do servidor (só leitura)
+
+# Mostra, sem alterar nada, se os crons do servidor correram: o aviso diário das renovações (08:00), o sync do Entrecampos e o resto
+# do que está agendado para o VisualDesign. Esconde segredos (Bearer, JWT, palavras-passe) e os dados dos clientes (lista "details"
+# da resposta do cron). Pedido do Silva a 26/10/2026 (não há acesso ao servidor a não ser pelos workflows).
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: ops-ver-crons
+  cancel-in-progress: false
+
+jobs:
+  crons:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Crons do servidor e o que cada um escreveu (só leitura)
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          port: 2234
+          username: root
+          key: ${{ secrets.CONTABO_SSH_KEY }}
+          command_timeout: 5m
+          script: |
+            set -u
+            esconder() { sed -E 's/(Bearer )[^" \\]+/\1***/g; s/eyJ[A-Za-z0-9._-]{20,}/***jwt***/g; s/(PASSWORD|PASS|KEY|SECRET|TOKEN)=[^ ";]+/\1=***/g'; }
+            echo "=== hora do servidor: $(date '+%d/%m/%Y %H:%M:%S %Z')"
+            echo
+            echo "=== crontab do root: o que está agendado para o VisualDesign (segredos escondidos)"
+            crontab -l 2>/dev/null | grep -iE "visualdesign|entrecampos|sync|renewal|vd-" | esconder | cut -c1-260 || echo "(nada)"
+            echo
+            echo "=== /etc/cron.d com entrecampos ou vd-"
+            grep -rlE "entrecampos|sync-entrecampos" /etc/cron.d /etc/cron.daily /etc/cron.hourly 2>/dev/null | head -5 || true
+            ls /etc/cron.d 2>/dev/null | grep -iE "vd-|visualdesign|entrecampos" || true
+            echo
+            echo "=== aviso diário das renovações (renewal-check): ficheiro e execuções"
+            L=/var/log/visualdesign-renewal-check.log
+            if [ -f "$L" ]; then
+              ls -l --time-style=long-iso "$L" | awk '{print "ficheiro: "$6" "$7" "$5" bytes"}'
+              echo "--- resumo das últimas respostas (sem a lista de clientes):"
+              tail -c 8000 "$L" | sed -E 's/"details":\[[^]]*\]/"details":[...]/g' | esconder | grep -oE '"(timestamp|processed|notifications|emails|success|errors)":("[^"]*"|[0-9]+|true|false|\[[^]]{0,200}\])' | paste -sd' ' | fold -w 200 | tail -n 12
+              echo "--- fim do ficheiro (resposta de erro, se houver):"
+              tail -n 3 "$L" | esconder | cut -c1-300 | grep -viE '^\{' || true
+            else
+              echo "(o ficheiro $L não existe: o cron das 08:00 ainda não correu ou não escreve aí)"
+            fi
+            echo
+            echo "=== registos de cada cron do Entrecampos e do VisualDesign (últimas linhas)"
+            for f in $(crontab -l 2>/dev/null | grep -iE "entrecampos|sync-entrecampos" | grep -oE '>> *[^ ]+' | awk '{print $2}' | sort -u) /var/log/visualdesign-cron.log; do
+              [ -f "$f" ] || continue
+              echo "--- $f  ($(ls -l --time-style=long-iso "$f" | awk '{print $6" "$7}'))"
+              tail -n 15 "$f" | esconder | cut -c1-220
+            done
