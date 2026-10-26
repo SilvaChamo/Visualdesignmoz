@@ -14955,3 +14955,14 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
       font-size: calc(13.2px * var(--z, 1))
    }
 }
+
+/* O ícone «Colunas» fixo à direita já não tapa o título da coluna que passa por baixo (ex.: «Estado» cortado em «Est») — Silva, 26/10/2026:
+   o fundo suave passa para a linha toda e a célula fixa fica transparente, só o ícone fica por cima */
+.vh .tbl thead:has(th.dt-th-cols:not(.dt-th-acoes-fim)) tr:not(#x) {
+   background: var(--soft)
+}
+
+.vh .tbl thead th.dt-th-cols:not(.dt-th-acoes-fim):not(#x):not(#y) {
+   background: transparent;
+   box-shadow: none
+}
