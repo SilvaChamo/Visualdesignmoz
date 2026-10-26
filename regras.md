@@ -558,6 +558,18 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
 - **Spam de pesquisa do WordPress (`/?s=…` sem referer)** leva 403 no nginx, antes do PHP, nos domínios de `/etc/nginx/vd-busca-spam.lista` (cópia em `deploy/seguranca/`; o `vd-bloqueio-instalar`
   aplica-o): o mltmark.com chegava a 47 mil pesquisas por dia (74% de todo o tráfego, 84% robôs). Uma pesquisa verdadeira sai de uma página do próprio site e leva referer. Juntar um site =
   acrescentar o domínio à lista; não pôr aplicações que usem `?s=` sem referer.
+- **Força bruta ao wp-login (fail2ban, 26/10/2026):** o jail `vd-wp-login` (cópias em `deploy/seguranca/fail2ban/`: filtro em `/etc/fail2ban/filter.d/vd-wp-login.conf`, jail em `/etc/fail2ban/jail.d/vd-wp-login.local`) bloqueia
+  24 h nas portas 80/443 (cadeia `WEB` do Hestia) o IP com 8 logins falhados (POST `/wp-login.php` com resposta 200; um login com sucesso responde 302) em 5 minutos. Só vale para sites **sem
+  Cloudflare à frente** (oshercollective.com, msdn-moz.org, elimservicos.com): atrás da Cloudflare o iptables só vê os IPs dela e o bloqueio faz-se na Cloudflare. O fail2ban tira a data da linha antes de
+  aplicar o filtro: não se escreve `[data]` na expressão. Para juntar um site, acrescentar o seu registo ao `logpath`. O primeiro bloqueio é de quem já atacava o msdn-moz.org (4 223 logins falhados num dia).
+- **Cron do WordPress pelo sistema** (26/10/2026): oshercollective.com, msdn-moz.org, lirandzojewelry.com e mltmark.com têm `DISABLE_WP_CRON` e um cron do Hestia por site (de 15 em 15 min, minutos desfasados,
+  `flock -n … nice -n 10 wp cron event run --due-now`, na conta do próprio site: gasta o CPU dela). Tira os `wp-cron.php` por visita (cerca de 500 por dia no Osher, 600 no mltmark). **Cuidado:**
+  `wp cron event list --due-now --format=count` conta TODOS os eventos agendados, não só os que estão em atraso (e `next_run_relative` é o tempo até à próxima execução): não serve para medir atrasos.
+- **Actualizações automáticas** (26/10/2026): plugins e temas dos 3 WordPress do Osher (inclui o Elementor); o WP Offload Media passou a 3.4.3 em todos. O WordPress em si segue as actualizações de segurança
+  automáticas por defeito. Se uma actualização estragar um site: `wp plugin install <plugin> --version=<anterior> --force` e `wp plugin auto-updates disable <plugin>`.
+- **aamihe.com está na Vercel** (26/10/2026): a renovação Let's Encrypt do site no servidor foi desligada (`LETSENCRYPT='no'`; o certificado actual fica até expirar) e o cron `vd-banir` (que bloqueava IPs pelos registos
+  do aamihe) saiu de `/etc/cron.d` (o script `deploy/seguranca/vd-banir-ips` fica, para outros sites atrás da Cloudflare). **A conta aamihe NÃO se apaga:** o correio do aamihe.com ainda é aqui (MX `mail.aamihe.com`, 3 caixas, 6,6 MB),
+  há 2 crons de WordPress, a base `aamihe_aamihe_bd` e uma pessoa do painel ligada à conta.
 - **"Reprocessar DNS"** cria agora também `webmail.<domínio>` (A, sem proxy), além de mail, ftp, pop, smtp, MX, SPF e DMARC: o Hestia exige-o para emitir o certificado de e-mail.
 - **DNS:** o "Reprocessar DNS" não usa o servidor anterior (o IP vem do Hestia ou de `NEXT_PUBLIC_SERVER_IP`, que em produção é `169.58.148.144`); o IP do Hetzner (`37.27.17.25`) só podia vir de
   `deploy/env.production.template` e de `scripts/sync-directadmin-vercel-env.sh`, já corrigidos. Um domínio só tem o DNS da Cloudflare se os nameservers do registador forem os dela. Um domínio
