@@ -14861,3 +14861,96 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
 .vh .card.empty.sem-email > .btn:not(#x) {
    margin-top: 0
 }
+
+/* Telemóvel (≤768): a lista de DNS com a mesma disposição do computador — o lápis de editar na coluna «Acção» (só o ícone), o nome inteiro, o
+   conteúdo numa caixa como no computador — e a tabela desliza na horizontal (Silva, 26/10/2026) */
+@media (max-width: 768px) {
+   .vh .tbl[data-dt="dns"]:not(#x) table {
+      min-width: calc(900px * var(--z, 1))
+   }
+
+   .vh .tbl[data-dt="dns"]:not(#x) .dns-ed-nome:not(#x) {
+      display: none
+   }
+
+   .vh .tbl[data-dt="dns"]:not(#x) .dns-acoes > .btn-dns-edit:not(#x) {
+      display: inline-flex;
+      padding-left: calc(9px * var(--z, 1));
+      padding-right: calc(9px * var(--z, 1))
+   }
+
+   .vh .tbl[data-dt="dns"]:not(#x) td.dt-acoes-linha:not(#x) {
+      display: table-cell
+   }
+
+   .vh .tbl[data-dt="dns"]:not(#x) .dns-bt-txt:not(#x) {
+      display: none
+   }
+
+   .vh .tbl[data-dt="dns"]:not(#x) th:nth-child(4),
+   .vh .tbl[data-dt="dns"]:not(#x) td:nth-child(4) {
+      width: 100%;
+      white-space: normal
+   }
+
+   .vh .tbl[data-dt="dns"]:not(#x) td:nth-child(4) *:not(.dns-valor-caixa):not(#x) {
+      white-space: normal !important;
+      overflow-wrap: anywhere !important
+   }
+
+   .vh .tbl[data-dt="dns"]:not(#x) th:last-child,
+   .vh .tbl[data-dt="dns"]:not(#x) td:last-child {
+      width: 1%
+   }
+
+   .vh .tbl[data-dt="dns"]:not(#x) td .dns-valor-caixa:not(#x) {
+      width: 100%;
+      max-width: clamp(calc(300px * var(--z, 1)), 46cqw, calc(760px * var(--z, 1)))
+   }
+
+   .vh .tbl[data-dt="dns"]:not(#x) tbody tr td.ck + td > b:not(#x) {
+      font-size: inherit;
+      overflow: visible;
+      text-overflow: clip
+   }
+
+   /* as medidas das células e do botão, as mesmas do computador (linhas baixas, letra pequena) */
+   .vh .tbl[data-dt="dns"]:not(#x) tbody td:not(#x) {
+      padding: calc(6.2px * var(--z, 1)) calc(10px * var(--z, 1));
+      font-size: calc(12.2px * var(--z, 1))
+   }
+
+   .vh .tbl[data-dt="dns"]:not(#x) tbody td.ck:not(#x) {
+      padding: calc(6.2px * var(--z, 1)) calc(20px * var(--z, 1)) calc(6.2px * var(--z, 1)) calc(14px * var(--z, 1))
+   }
+
+   .vh .tbl[data-dt="dns"]:not(#x) tbody td.dt-acoes-linha:not(#x) {
+      padding: calc(6.2px * var(--z, 1)) calc(12px * var(--z, 1)) calc(6.2px * var(--z, 1)) calc(10px * var(--z, 1))
+   }
+
+   .vh .tbl[data-dt="dns"]:not(#x) .dns-acoes > .btn-dns-edit:not(#x) {
+      height: calc(24px * var(--z, 1));
+      min-height: 0;
+      width: auto
+   }
+
+   /* títulos das colunas com o mesmo recuo e a mesma letra do computador */
+   .vh .tbl[data-dt="dns"]:not(#x) thead th:not(#x) {
+      padding: calc(7px * var(--z, 1)) calc(10px * var(--z, 1));
+      font-size: calc(13.2px * var(--z, 1))
+   }
+
+   .vh .tbl[data-dt="dns"]:not(#x) thead th.ck:not(#x) {
+      padding: calc(7px * var(--z, 1)) calc(20px * var(--z, 1)) calc(7px * var(--z, 1)) calc(14px * var(--z, 1))
+   }
+
+   /* o botão Editar no fim da linha, encostado à esquerda da coluna «Acção» */
+   .vh .tbl[data-dt="dns"]:not(#x) td.dt-acoes-linha:not(#x),
+   .vh .tbl[data-dt="dns"]:not(#x) th:last-child:not(#x) {
+      text-align: left
+   }
+
+   .vh .tbl[data-dt="dns"]:not(#x) td.dt-acoes-linha .dns-acoes:not(#x) {
+      justify-content: flex-start
+   }
+}
