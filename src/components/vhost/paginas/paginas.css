@@ -15020,3 +15020,22 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
 .vh .navcol .lvl button:not(#x):not(#y) {
    height: calc(36px * var(--k, var(--z, 1)))
 }
+
+/* Telemóvel (≤768), página de e-mail (Silva, 26/10/2026: «muito espaço em cima do botão e linhas desnecessárias em cima e em baixo dos
+   cartões»): por baixo dos números não há linha nem os 44 px de antes (22 + 24 + 20), só os 12 px de margem do painel até ao botão; e o
+   cartão principal não repete a linha da faixa do domínio, que já está mesmo por cima dele (eram duas linhas seguidas). */
+@media (max-width: 768px) {
+   .vh .da-main-card .stats:has(+ .em-lista-card):not(#x) {
+      padding-bottom: 0;
+      border-bottom: 0;
+      margin-bottom: calc(12px * var(--z, 1))
+   }
+
+   .vh .da-main-card .stats:has(+ .em-lista-card) + .em-lista-card > .em-acoes-topo:not(#x) {
+      padding-top: 0
+   }
+
+   .vh .da-switcher-bar ~ .pg-slot > .da-main-card:not(#x) {
+      border-top: 0
+   }
+}
