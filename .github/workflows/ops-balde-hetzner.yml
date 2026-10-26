@@ -169,6 +169,13 @@ jobs:
                 done < /tmp/falta_$$.txt
               fi
               rm -f /tmp/anexos_$$.txt /tmp/falta_$$.txt
+              if [ -n "$($W db query "SHOW TABLES LIKE '${P}as3cf_items'" --skip-column-names 2>/dev/null)" ]; then
+                echo "--- tabela do Offload Media (${P}as3cf_items): $($W db query "SELECT COUNT(*) FROM ${P}as3cf_items" --skip-column-names 2>/dev/null | tail -1) linhas"
+                echo "(fonte, bucket, região, caminho no balde, caminho original, tamanho do extra_info)"
+                $W db query "SELECT source_id, bucket, region, path, original_path, LENGTH(extra_info) FROM ${P}as3cf_items ORDER BY id LIMIT 25" --skip-column-names 2>&1 | grep -vi deprecated | cut -c1-260
+                echo "--- extra_info do primeiro item (só nomes de ficheiros e tamanhos)"
+                $W db query "SELECT extra_info FROM ${P}as3cf_items ORDER BY id LIMIT 1" --skip-column-names 2>/dev/null | grep -oE 's:[0-9]+:"[^"]*(\.webp|\.png|\.jpe?g)"|"(bucket|path|is_private)"' | head -12
+              fi
               if [ "$TEM_RCLONE" = 1 ]; then
                 P2="hetzner-s3:$BUCKET/wp/$d/uploads"
                 echo "--- no balde: $($RC size "$P2" --fast-list 2>&1 | tr '\n' ' ')"
