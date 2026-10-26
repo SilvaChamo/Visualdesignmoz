@@ -3003,17 +3003,6 @@
    word-break: break-all
 }
 
-/* Espaço no fim das páginas de gestão, para o quadro "Maquete" (canto inferior direito) não tapar os botões */
-.vh main>.tema-pg,
-.vh main>.da-sec:last-child,
-.vh main>.frm:last-child,
-.vh main>.acoes-topo:last-child,
-.vh main>.tabcard:last-child,
-.vh main>.tbl.dt:last-child,
-.vh main>.passo:last-child {
-   margin-bottom: calc(110px * var(--z, 1))
-}
-
 @media(max-width:768px) {
    .vh .frm-row {
       grid-template-columns: 1fr;
@@ -11557,17 +11546,18 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    backdrop-filter: none
 }
 
-/* Fim do cartão principal (Silva, 20/10/2026): sem margem por baixo no fim do scroll e sem a linha de baixo à vista — o cartão
-   chega ao fundo da janela. Só nos ecrãs de computador e tablet. */
-@media (min-width: 769px) {
-   .vh main {
-      padding-bottom: 0
-   }
+/* Fim do scroll (Silva, 26/10/2026: «no fim do último card… só a mesma margem das laterais e do topo, em todos os cards sem excepção»):
+   depois do último cartão fica só a margem de `main` (a mesma dos lados e de cima, ver `--k` mais abaixo). Substitui a regra de 20/10/2026
+   («o cartão chega ao fundo da janela»). O último elemento de cada contentor da página não leva margem por baixo: somava-se ao preenchimento
+   do cartão principal (25 + 25 = 50 px em vez de 25). */
+.vh main :is(.pg-slot, .da-main-card, .da-lado, .cols-side, .cols-main, .dom-principal) > :last-child:not(#x) {
+   margin-bottom: 0
+}
 
-   .vh main .da-main-card {
-      border-bottom-width: 0;
-      border-bottom-left-radius: 0;
-      border-bottom-right-radius: 0
+/* telemóvel: por baixo do último cartão, a margem dos lados (12 px) depois da barra de baixo, que é fixa (antes eram 140 px) */
+@media (max-width: 768px) {
+   .vh main:not(#x) {
+      padding-bottom: calc(calc(64px * var(--z, 1)) + calc(12px * var(--z, 1)) + env(safe-area-inset-bottom, 0px))
    }
 }
 
@@ -14010,7 +14000,8 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    .vh main:not(#x) {
       padding-top: calc(20px * var(--k));
       padding-left: calc(20px * var(--k));
-      padding-right: calc(20px * var(--k))
+      padding-right: calc(20px * var(--k));
+      padding-bottom: calc(20px * var(--k))
    }
 
    .vh .da-main-card:not(#x):not(#y) {

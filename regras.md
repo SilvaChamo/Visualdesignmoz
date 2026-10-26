@@ -358,8 +358,13 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
   também o ícone da gestão de ficheiros (só ícone, leva directo à página, só aparece a quem o plano deixa ver).
 - **O separador "Admin"** chama-se "Admin" em todos os painéis, também no do revendedor (`nomeNivel` em `state.ts` — tabs, caminho
   e pesquisa; "Revenda" já não aparece como nome de separador).
-- **O cartão principal chega ao fundo da janela** em computador e tablet: sem margem por baixo, sem a linha de baixo e
-  sem cantos de baixo arredondados. No telemóvel vai de ponta a ponta (ver abaixo).
+- **No fim do scroll fica só a margem dos lados e de cima** (Silva, 26/10/2026: «no fim do último card… a mesma margem das
+  laterais e do topo, em todos os cards, sem excepção»; substitui a regra de 20/10 «o cartão chega ao fundo da janela»): o
+  `main` tem a mesma margem (`20px × --k`) dos quatro lados e o cartão principal volta a ter a linha e os cantos de baixo. O
+  último elemento de cada contentor (`.pg-slot`, `.da-main-card`, `.da-lado`, `.cols-side`, `.dom-principal`) não leva margem
+  por baixo (somava-se ao preenchimento do cartão: 50 px em vez de 25). Nunca voltar a pôr margens grandes no fim de uma
+  página (o antigo `margin-bottom: 110px` era para um quadro "Maquete" que já não existe). No telemóvel: a altura da barra
+  de baixo (64 px) mais 12 px.
 
 ## Tabelas
 
