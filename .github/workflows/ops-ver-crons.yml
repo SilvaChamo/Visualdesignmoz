@@ -47,6 +47,19 @@ jobs:
               echo "(o ficheiro $L não existe: o cron das 08:00 ainda não correu ou não escreve aí)"
             fi
             echo
+            echo "=== o sync do Entrecampos: onde está agendado e se correu"
+            for u in $(cut -d: -f1 /etc/passwd); do crontab -u "$u" -l 2>/dev/null | grep -iE "entrecampos" | esconder | sed "s/^/crontab de $u: /" | cut -c1-240; done
+            echo "--- temporizadores do systemd (entrecampos/sync):"
+            systemctl list-timers --all 2>/dev/null | grep -iE "entrecampos|sync" | cut -c1-200 || echo "(nenhum)"
+            echo "--- tarefas 'at' pendentes:"
+            atq 2>/dev/null | head -5 || echo "(atq não existe)"
+            echo "--- processos pm2 com entrecampos/sync (só ler):"
+            pm2 list 2>/dev/null | grep -iE "entrecampos|sync" | cut -c1-200 || echo "(nenhum)"
+            echo "--- ficheiros que mencionam sync-entrecampos:"
+            grep -rlI "sync-entrecampos" /etc /root /usr/local/bin /usr/local/sbin /opt --exclude-dir=node_modules --exclude-dir=.next --exclude-dir=.git --exclude-dir=docker 2>/dev/null | head -10 || true
+            echo "--- registos com entrecampos no nome:"
+            ls -l --time-style=long-iso /var/log 2>/dev/null | grep -iE "entrecampos|bdagro" | awk '{print $6" "$7" "$8" "$5" bytes"}' || true
+            echo
             echo "=== registos de cada cron do Entrecampos e do VisualDesign (últimas linhas)"
             for f in $(crontab -l 2>/dev/null | grep -iE "entrecampos|sync-entrecampos" | grep -oE '>> *[^ ]+' | awk '{print $2}' | sort -u) /var/log/visualdesign-cron.log; do
               [ -f "$f" ] || continue
