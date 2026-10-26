@@ -809,7 +809,7 @@ function Ficheiros({ caminho, lixo = false }: { caminho: string; lixo?: boolean 
             {!lixoD.dados ? (
               <Carregando erro={lixoD.erro} ler={lixoD.ler} />
             ) : (
-              <table className="fmda-tab">
+              <div className="fmda-deslize"><table className="fmda-tab">
                 <thead>
                   <tr>
                     <th className="fmda-chk">
@@ -841,7 +841,7 @@ function Ficheiros({ caminho, lixo = false }: { caminho: string; lixo?: boolean 
                     </tr>
                   )}
                 </tbody>
-              </table>
+              </table></div>
             )}
           </section>
         </div>
@@ -958,7 +958,7 @@ function Ficheiros({ caminho, lixo = false }: { caminho: string; lixo?: boolean 
           {!dados ? (
             <Carregando erro={erro} ler={ler} />
           ) : (
-            <table className="fmda-tab">
+            <div className="fmda-deslize"><table className="fmda-tab">
               <thead>
                 <tr>
                   <th className="fmda-chk">
@@ -1007,7 +1007,7 @@ function Ficheiros({ caminho, lixo = false }: { caminho: string; lixo?: boolean 
                   </tr>
                 )}
               </tbody>
-            </table>
+            </table></div>
           )}
           {menu && (
             <div className="fmda-menu" style={{ left: menu.x, top: menu.y }} onClick={(e) => e.stopPropagation()}>

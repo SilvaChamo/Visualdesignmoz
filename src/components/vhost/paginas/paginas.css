@@ -4282,10 +4282,6 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
       font-size: calc(13.5px * var(--fs, 1))
    }
 
-   .vh .fmda-tab td.fmda-nome {
-      white-space: normal;
-      overflow-wrap: anywhere
-   }
 }
 
 @media(max-width:860px) {
@@ -4293,12 +4289,6 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
       display: none
    }
 
-   .vh .fmda-tab th:nth-child(5),
-   .vh .fmda-tab td:nth-child(5),
-   .vh .fmda-tab th:nth-child(7),
-   .vh .fmda-tab td:nth-child(7) {
-      display: none
-   }
 
    .vh .fmda-ac {
       font-size: 0;
@@ -4307,6 +4297,16 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
 
    .vh .fmda-ac i {
       font-size: calc(15px * var(--fs, 1))
+   }
+}
+
+@media(min-width:769px) and (max-width:860px) {
+
+   .vh .fmda-tab th:nth-child(5),
+   .vh .fmda-tab td:nth-child(5),
+   .vh .fmda-tab th:nth-child(7),
+   .vh .fmda-tab td:nth-child(7) {
+      display: none
    }
 }
 
@@ -14748,127 +14748,17 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    }
 }
 
-/* Telemóvel (≤768): a lista do gestor de ficheiros em blocos, numa só coluna — caixa, ícone e nome em cima (o nome parte-se
-   onde for preciso, nunca a meio de palavras curtas), tamanho e data por baixo (Silva, 25/10/2026) */
+/* Telemóvel (≤768): a lista do gestor de ficheiros fica completa (todas as colunas, numa só linha cada) e desliza na horizontal
+   (Silva, 26/10/2026: "deixa a lista completa com deslize horizontal no mobile") */
 @media (max-width: 768px) {
-   .vh .fmda-tab:not(#x),
-   .vh .fmda-tab:not(#x) thead,
-   .vh .fmda-tab:not(#x) tbody {
-      display: block
+   .vh .fmda-deslize:not(#x) {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch
    }
 
-   /* os títulos das colunas ficam, numa só linha e a toda a largura, como no resto do painel: só saem os que não cabem
-      (o ícone, as permissões e o UID/GID) */
-   .vh .fmda-tab:not(#x) thead tr {
-      display: flex;
-      align-items: center;
-      min-height: calc(46px * var(--z, 1));
-      background: var(--soft)
-   }
-
-   .vh .fmda-tab:not(#x) thead th {
-      display: flex;
-      align-items: center;
-      flex: 0 0 auto;
-      width: auto;
-      min-width: 0;
-      border-top: 0;
-      border-bottom: 0
-   }
-
-   /* a caixa ocupa a coluna da caixa e a do ícone dos blocos: "Nome" fica por cima do nome de cada ficheiro */
-   .vh .fmda-tab:not(#x) thead th.fmda-chk {
-      width: calc(86px * var(--z, 1));
-      padding: 0 0 0 calc(12px * var(--z, 1))
-   }
-
-   .vh .fmda-tab:not(#x) thead th:nth-child(3) {
-      flex: 1 1 auto;
-      padding-left: 0
-   }
-
-   .vh .fmda-tab:not(#x) thead th:nth-child(2),
-   .vh .fmda-tab:not(#x) thead th:nth-child(5):not(:last-child),
-   .vh .fmda-tab:not(#x) thead th:nth-child(7) {
-      display: none
-   }
-
-   .vh .fmda-tab:not(#x) tbody tr {
-      display: grid;
-      grid-template-columns: calc(40px * var(--z, 1)) calc(46px * var(--z, 1)) minmax(0, 1fr) auto;
-      align-items: center;
-      row-gap: calc(2px * var(--z, 1));
-      padding: calc(8px * var(--z, 1)) 0
-   }
-
-   .vh .fmda-tab:not(#x) tbody td {
-      display: block;
-      height: auto;
-      padding: 0;
-      border: 0;
-      white-space: normal;
-      overflow-wrap: anywhere;
-      min-width: 0
-   }
-
-   .vh .fmda-tab:not(#x) tbody td.fmda-chk {
-      grid-column: 1;
-      grid-row: 1 / span 2;
-      width: auto
-   }
-
-   .vh .fmda-tab:not(#x) tbody td.fmda-icc {
-      grid-column: 2;
-      grid-row: 1 / span 2
-   }
-
-   /* as letras do tipo (HTML, PHP, PNG…) ficam numa só linha e mais pequenas: a regra das células partia-as uma por linha */
-   .vh .fmda-tab:not(#x) tbody td.fmda-icc .fmda-ic {
-      width: calc(30px * var(--z, 1))
-   }
-
-   .vh .fmda-tab:not(#x) tbody td.fmda-icc .fmda-ic b {
-      white-space: nowrap;
-      overflow-wrap: normal;
-      font-size: calc(5.5px * var(--fs, 1));
-      line-height: calc(8px * var(--z, 1));
-      padding: 0 calc(1.5px * var(--z, 1))
-   }
-
-   .vh .fmda-tab:not(#x) tbody td:nth-child(3) {
-      grid-column: 3 / -1;
-      grid-row: 1;
-      font-weight: 600
-   }
-
-   .vh .fmda-tab:not(#x) tbody td:nth-child(4) {
-      grid-column: 3;
-      grid-row: 2;
-      font-size: calc(12px * var(--fs, 1));
-      color: var(--muted)
-   }
-
-   .vh .fmda-tab:not(#x) tbody td.fmda-mono,
-   .vh .fmda-tab:not(#x) tbody td:nth-child(7) {
-      display: none
-   }
-
-   .vh .fmda-tab:not(#x) tbody td:nth-child(6),
-   .vh .fmda-tab:not(#x) tbody td:nth-child(5):not(.fmda-mono) {
-      grid-column: 4;
-      grid-row: 2;
-      font-size: calc(12px * var(--fs, 1));
-      color: var(--muted);
-      text-align: right;
-      padding-right: calc(12px * var(--z, 1))
-   }
-
-   .vh .fmda-tab:not(#x) tbody tr.fmda-vazio td {
-      grid-column: 1 / -1;
-      grid-row: auto;
-      padding: calc(14px * var(--z, 1)) calc(12px * var(--z, 1));
-      text-align: center;
-      border-bottom: 1px solid var(--linha-lista)
+   .vh .fmda-tab:not(#x) {
+      width: max-content;
+      min-width: 100%
    }
 }
 
