@@ -14999,3 +14999,10 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
       font-size: calc(13.2px * var(--z, 1))
    }
 }
+
+/* Lista de domínios: «Gerir» e «Ficheiros» só com o ícone (Silva, 26/10/2026) */
+.vh .tbl[data-dt="dominios"] td .btn.sm.iconbtn:not(#x) {
+   width: calc(30px * var(--z, 1));
+   padding: 0;
+   justify-content: center
+}

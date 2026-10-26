@@ -498,29 +498,29 @@ function ListaDominios({ abaDom = 'meus', abrirNovo = false }: { abaDom?: AbaDom
           actions={(r) => (
             <>
               <button
-                className="btn g sm"
-                title={t('Escolher este domínio no seletor')}
+                className="btn g sm iconbtn"
+                title={t('Gerir')}
+                aria-label={t('Gerir')}
                 onClick={() => {
                   setDominio(r.name);
                   nav('/' + vh.s.level + '/dominios/' + encodeURIComponent(r.name));
                 }}
               >
                 <i className="fa-solid fa-gear" />
-                {t('Gerir')}
               </button>{' '}
               {/* link para o gestor de ficheiros, já na pasta deste domínio (Silva, 23/10/2026) — só a quem o plano deixa ver */}
               {!r.soEmail && !r.soDominio && hasFeatOf(vh.s, findItem('utilizador', 'ficheiros')?.feat, 'ficheiros', 'utilizador') && (
                 <>
                   <button
-                    className="btn g sm"
+                    className="btn g sm iconbtn"
                     title={t('Abrir os ficheiros deste domínio')}
+                    aria-label={t('Abrir os ficheiros deste domínio')}
                     onClick={() => {
                       setDominio(r.name);
                       nav('/utilizador/ficheiros/web/' + encodeURIComponent(r.name));
                     }}
                   >
                     <i className="fa-solid fa-folder-open" />
-                    {t('Ficheiros')}
                   </button>{' '}
                 </>
               )}
