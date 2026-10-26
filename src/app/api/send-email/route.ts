@@ -166,9 +166,9 @@ export async function POST(req: NextRequest) {
             }
 
             try {
-                console.log('📧 A tentar via relay Brevo (reserva)...');
+                console.log('📧 A tentar via relay de reserva...');
                 const result = await sendSmtpMail(mailInput);
-                console.log('✅ Email enviado com sucesso via Brevo (reserva), ID:', result.messageId);
+                console.log('✅ Email enviado com sucesso via relay de reserva, ID:', result.messageId);
 
                 if (authorizedPassword) {
                     try {
@@ -186,7 +186,7 @@ export async function POST(req: NextRequest) {
                     savedToSent: !!authorizedPassword
                 });
             } catch (brevoError: any) {
-                console.error('❌ SMTP Brevo (reserva) também falhou:', brevoError.message);
+                console.error('❌ SMTP de reserva também falhou:', brevoError.message);
                 return NextResponse.json({
                     success: false,
                     error: brevoError.message,

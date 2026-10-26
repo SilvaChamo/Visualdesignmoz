@@ -90,7 +90,7 @@ export async function ensureBrevoDomainAuth(domain: string): Promise<BrevoDomain
   const domainName = domain.trim().toLowerCase();
 
   if (!apiKey) {
-    return { ok: false, domainName, dkim: [], alreadyExisted: false, error: 'BREVO_API_KEY não configurada' };
+    return { ok: false, domainName, dkim: [], alreadyExisted: false, error: 'O envio de e-mail não está configurado' };
   }
   if (!domainName) {
     return { ok: false, domainName, dkim: [], alreadyExisted: false, error: 'Domínio vazio' };
@@ -122,7 +122,7 @@ export async function ensureBrevoDomainAuth(domain: string): Promise<BrevoDomain
         domainName,
         dkim: [],
         alreadyExisted: false,
-        error: msg || `Brevo respondeu ${createRes.status} ao criar domínio`,
+        error: msg || `O envio respondeu ${createRes.status} ao criar domínio`,
       };
     }
 
@@ -136,7 +136,7 @@ export async function ensureBrevoDomainAuth(domain: string): Promise<BrevoDomain
         domainName,
         dkim: [],
         alreadyExisted: true,
-        error: `Domínio já existe na Brevo mas não foi possível ler config (HTTP ${getRes.status})`,
+        error: `Domínio já existe no envio mas não foi possível ler a configuração (HTTP ${getRes.status})`,
       };
     }
     const existing = (await getRes.json()) as BrevoDomainConfigResponse;
@@ -148,7 +148,7 @@ export async function ensureBrevoDomainAuth(domain: string): Promise<BrevoDomain
       domainName,
       dkim: [],
       alreadyExisted: false,
-      error: error instanceof Error ? error.message : 'Erro desconhecido ao contactar Brevo',
+      error: error instanceof Error ? error.message : 'Erro desconhecido ao contactar o envio',
     };
   }
 }
@@ -216,7 +216,7 @@ export async function ensureBrevoSender(
 ): Promise<{ ok: boolean; alreadyExisted: boolean; error?: string }> {
   const apiKey = getBrevoApiKey();
   const cleanEmail = email.trim().toLowerCase();
-  if (!apiKey) return { ok: false, alreadyExisted: false, error: 'BREVO_API_KEY não configurada' };
+  if (!apiKey) return { ok: false, alreadyExisted: false, error: 'O envio de e-mail não está configurado' };
   if (!cleanEmail.includes('@')) return { ok: false, alreadyExisted: false, error: 'Email inválido' };
 
   try {

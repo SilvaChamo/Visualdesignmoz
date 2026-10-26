@@ -57,10 +57,10 @@ export async function GET() {
     },
     message: brevoTransactional
       ? isBrevoApiConfigured()
-        ? 'Brevo API configurada (envio transaccional)'
-        : 'Brevo SMTP configurado (envio transaccional)'
+        ? 'API de envio configurada (envio transaccional)'
+        : 'SMTP de envio configurado (envio transaccional)'
       : configured
-        ? 'SMTP geral configurado, mas Brevo transaccional em falta'
-        : 'Defina BREVO_API_KEY ou SMTP_MASTER_PASSWORD (xsmtpsib) na Vercel',
+        ? 'SMTP geral configurado, mas o envio transaccional está em falta'
+        : 'Defina a chave da API de envio ou SMTP_MASTER_PASSWORD no servidor',
   });
 }

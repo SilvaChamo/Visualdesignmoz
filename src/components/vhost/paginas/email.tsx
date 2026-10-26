@@ -14,7 +14,7 @@ import { EMAIL_PLANS, emailPlanByProductName } from '@/lib/email-plans';
 import { Stat } from '../ui';
 import { Check, DataTable, MaisOpcoes, novaSenha, Senha, Switch, Tabs } from './componentes';
 import { Confirmar } from './pacotes';
-import { RelatorioDns, reprocessarUm } from './dominios';
+import { reprocessarUm } from './dominios';
 import { AO_ABRIR, EsperaPagina, FUNDO, useGet, useNaMemoria } from '../carga';
 import { corUso } from '../cor-uso';
 
@@ -165,11 +165,11 @@ function Carregando({ erro, ler }: { erro: string; ler: () => void }) {
   ) : null; // a carregar: só a linha do topo
 }
 
-/** O domínio ainda não tem e-mail neste servidor. O botão é o "Reprocessar DNS" das configurações do domínio (mesmo título, mesma
- *  confirmação e mesmo relatório; Silva, 26/10/2026): o servidor liga primeiro o e-mail do domínio e repõe a seguir os registos */
+/** O domínio ainda não tem e-mail neste servidor. O botão mantém o nome «Ligar o e-mail neste domínio», sem janelas, e faz o mesmo que o
+ *  "Reprocessar DNS" das configurações do domínio (Silva, 26/10/2026): o servidor liga primeiro o e-mail e repõe a seguir os registos */
 function SemEmail({ d }: { d: string }) {
   const vh = useVH();
-  const { t, openM, closeM } = vh;
+  const { t } = vh;
   if (!d)
     return (
       <div className="card empty">
@@ -183,38 +183,16 @@ function SemEmail({ d }: { d: string }) {
       </p>
       <button
         className="btn r"
-        onClick={() =>
-          openM(
-            <Confirmar
-              titulo="Reprocessar o DNS?"
-              texto={t('Liga o e-mail deste domínio neste servidor e repõe na Cloudflare os registos do site e do e-mail que estiverem em falta ou errados. O que já está certo fica como está.')}
-              ok="Reprocessar"
-              onOk={async () => {
-                vh.toast(t('A reprocessar o DNS…'));
-                const r = await reprocessarUm(vh, d, true);
-                vh.toast(r.aviso);
-                lerEmail(vh.me, d).catch(() => null); // a página passa a mostrar as caixas e os reencaminhamentos
-                if (r.ok) vh.recarregar(true);
-                openM(
-                  <>
-                    <h3>{t('DNS reprocessado')}</h3>
-                    <div style={{ margin: '14px 0', maxHeight: '60vh', overflowY: 'auto' }}>
-                      <RelatorioDns dominio={d} itens={r.itens} />
-                    </div>
-                    <div className="mfoot">
-                      <button className="btn r" onClick={closeM}>
-                        {t('Fechar')}
-                      </button>
-                    </div>
-                  </>,
-                );
-              }}
-            />,
-          )
-        }
+        onClick={async () => {
+          vh.toast(t('A reprocessar o DNS…'));
+          const r = await reprocessarUm(vh, d, true);
+          vh.toast(r.aviso);
+          lerEmail(vh.me, d).catch(() => null); // a página passa a mostrar as caixas e os reencaminhamentos
+          if (r.ok) vh.recarregar(true);
+        }}
       >
-        <i className="fa-solid fa-arrows-rotate" />
-        {t('Reprocessar DNS')}
+        <i className="fa-solid fa-envelope-circle-check" />
+        {t('Ligar o e-mail neste domínio')}
       </button>
     </div>
   );
@@ -1851,7 +1829,7 @@ function Mx() {
   const dns = dados?.dns ?? null;
   if (!d) return <SemEmail d="" />;
   if (!dns) return <Carregando erro={erro} ler={ler} />;
-  if (dns.fonte === 'nenhuma') return <div className="note">{t('O DNS deste domínio não está neste servidor nem na Cloudflare da VisualDesign: os registos MX mudam-se onde o domínio foi registado.')}</div>;
+  if (dns.fonte === 'nenhuma') return <div className="note">{t('O DNS deste domínio não está neste servidor nem no DNS da VisualDesign: os registos MX mudam-se onde o domínio foi registado.')}</div>;
   const rows = dns.registos.filter((r) => r.tipo === 'MX');
   const apagar = (ids: string[]) =>
     openM(
@@ -1999,7 +1977,7 @@ function DescMx() {
       {f && f !== 'nenhuma' && (
         <>
           <span className="pdesc-sep">|</span>
-          {vh.t(f === 'cloudflare' ? 'DNS na Cloudflare' : 'DNS neste servidor')}
+          {vh.t(f === 'cloudflare' ? 'DNS da Visual Design' : 'DNS neste servidor')}
         </>
       )}
     </>

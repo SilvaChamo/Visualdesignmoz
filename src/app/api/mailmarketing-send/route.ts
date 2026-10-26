@@ -107,7 +107,7 @@ async function sendSingleBatchViaBrevo(
   fromName: string = 'VisualDesign'
 ): Promise<{ success: boolean; sent: number; failed: number; errors: string[] }> {
   if (!isBrevoApiConfigured()) {
-    return { success: false, sent: 0, failed: to.length, errors: ['BREVO_API_KEY não configurada.'] };
+    return { success: false, sent: 0, failed: to.length, errors: ['A chave da API de envio não está configurada.'] };
   }
   try {
     const cleanFromEmail = extractEmail(fromEmail || getMarketingFromEmail());
@@ -124,7 +124,7 @@ async function sendSingleBatchViaBrevo(
     });
     return { success: true, sent: to.length, failed: 0, errors: [] };
   } catch (err: any) {
-    return { success: false, sent: 0, failed: to.length, errors: [err?.message || 'Brevo batch failed'] };
+    return { success: false, sent: 0, failed: to.length, errors: [err?.message || 'Batch send failed'] };
   }
 }
 
@@ -377,7 +377,7 @@ export async function GET(req: NextRequest) {
       success: true,
       brevo: {
         status: isBrevoApiConfigured() ? 'connected' : 'error',
-        error: isBrevoApiConfigured() ? undefined : 'BREVO_API_KEY não configurada.',
+        error: isBrevoApiConfigured() ? undefined : 'A chave da API de envio não está configurada.',
       },
     };
 

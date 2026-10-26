@@ -98,20 +98,20 @@ function generatePasswordRecoveryEmailText(actionLink: string): string {
 function resetEmailErrorMessage(error: { message?: string; status?: number }): string {
   const raw = String(error.message || '').trim();
   if (error.status === 504) {
-    return 'O servidor de email não respondeu a tempo. Verifique o Brevo na Vercel.';
+    return 'O servidor de email não respondeu a tempo. Tente de novo dentro de instantes.';
   }
   if (/error sending recovery email/i.test(raw)) {
     return 'O Supabase não conseguiu enviar o email de recuperação. Verifique SMTP no servidor (Exim/porta 25).';
   }
   if (/invalid login|authentication failed|535/i.test(raw)) {
-    return 'Chave SMTP Brevo inválida ou expirada. Gere uma nova em Brevo → SMTP e API e actualize SMTP_MASTER_PASSWORD na Vercel.';
+    return 'A chave SMTP do envio é inválida ou expirou. Contacte o suporte.';
   }
   const rateLimit = raw.match(/only request this after (\d+) seconds/i);
   if (rateLimit) {
     return `Aguarde ${rateLimit[1]} segundos e tente novamente.`;
   }
   if (!raw || raw === '{}') {
-    return 'Não foi possível enviar o email de recuperação. Verifique Brevo e redeploy na Vercel.';
+    return 'Não foi possível enviar o email de recuperação. Tente de novo mais tarde.';
   }
   return raw;
 }
@@ -121,11 +121,11 @@ async function sendRecoveryEmailViaBrevo(email: string, actionLink: string): Pro
   if (!isBrevoTransactionalConfigured()) {
     if (isSmtpConfigured() && isDirectAdminSmtpHost()) {
       throw new Error(
-        'SMTP aponta para o servidor DirectAdmin, que não entrega para Gmail. Configure BREVO_API_KEY ou SMTP_MASTER_PASSWORD (chave xsmtpsib) na Vercel.',
+        'O SMTP actual não entrega para Gmail. Configure o envio autenticado no servidor.',
       );
     }
     throw new Error(
-      'Brevo não configurado. Defina BREVO_API_KEY (xkeysib) ou SMTP_MASTER_PASSWORD (xsmtpsib) na Vercel.',
+      'O envio de email não está configurado no servidor.',
     );
   }
 

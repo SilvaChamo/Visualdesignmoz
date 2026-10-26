@@ -101,8 +101,8 @@ export async function createCloudflareZone(
 > {
   const headers = getCloudflareAuthHeaders();
   const accountId = process.env.CLOUDFLARE_ACCOUNT_ID?.trim();
-  if (!headers) return { ok: false, error: 'CLOUDFLARE_EMAIL/CLOUDFLARE_GLOBAL_API_KEY (ou CLOUDFLARE_API_TOKEN_ACCOUNT) não configurados' };
-  if (!accountId) return { ok: false, error: 'CLOUDFLARE_ACCOUNT_ID não configurado' };
+  if (!headers) return { ok: false, error: 'As credenciais do DNS não estão configuradas' };
+  if (!accountId) return { ok: false, error: 'A conta do DNS não está configurada' };
 
   const clean = domain.trim().toLowerCase().replace(/\.$/, '');
 
@@ -155,7 +155,7 @@ export async function deleteCloudflareZone(
   const zoneId = await findCloudflareZoneId(domain);
   if (!zoneId) return { ok: true, alreadyGone: true };
   const headers = getCloudflareAuthHeaders();
-  if (!headers) return { ok: false, error: 'Cloudflare não configurada' };
+  if (!headers) return { ok: false, error: 'DNS não configurado' };
   try {
     const res = await fetch(`${CF_API_BASE}/zones/${zoneId}`, { method: 'DELETE', headers });
     if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };
@@ -215,7 +215,7 @@ export async function upsertCloudflareRecord(
       name: record.name,
       type: record.type,
       action: 'error',
-      error: 'CLOUDFLARE_EMAIL/CLOUDFLARE_GLOBAL_API_KEY (ou CLOUDFLARE_API_TOKEN_ACCOUNT) não configurados',
+      error: 'As credenciais do DNS não estão configuradas',
     };
   }
 
@@ -332,7 +332,7 @@ export async function getCloudflareZoneStatus(zoneId: string): Promise<string | 
  *  "moved"/"pending" a "active"; sem isto, espera pela ronda da Cloudflare, que pode levar horas). */
 export async function requestCloudflareActivationCheck(zoneId: string): Promise<{ ok: boolean; error?: string }> {
   const headers = getCloudflareAuthHeaders();
-  if (!headers) return { ok: false, error: 'Cloudflare não configurada' };
+  if (!headers) return { ok: false, error: 'DNS não configurado' };
   try {
     const res = await fetch(`${CF_API_BASE}/zones/${zoneId}/activation_check`, { method: 'PUT', headers });
     const data = (await res.json()) as { success: boolean; errors?: Array<{ message: string }> };
@@ -389,7 +389,7 @@ export async function deleteCloudflareDnsRecord(
   recordId: string,
 ): Promise<{ ok: boolean; error?: string }> {
   const headers = getCloudflareAuthHeaders();
-  if (!headers) return { ok: false, error: 'Cloudflare não configurada' };
+  if (!headers) return { ok: false, error: 'DNS não configurado' };
   // zoneId/recordId acabam interpolados directamente no URL da API — o
   // segundo vem do id que o cliente manda no pedido DELETE do painel, por
   // isso valida-se a forma (id real da Cloudflare é sempre hex de 32) antes
@@ -418,7 +418,7 @@ export async function updateCloudflareDnsRecord(
   record: CloudflareRecordInput,
 ): Promise<{ ok: boolean; error?: string }> {
   const headers = getCloudflareAuthHeaders();
-  if (!headers) return { ok: false, error: 'Cloudflare não configurada' };
+  if (!headers) return { ok: false, error: 'DNS não configurado' };
   if (!CLOUDFLARE_ID_RE.test(zoneId) || !CLOUDFLARE_ID_RE.test(recordId)) return { ok: false, error: 'Id de zona/registo inválido' };
   try {
     const atual = await fetch(`${CF_API_BASE}/zones/${zoneId}/dns_records/${recordId}`, { headers });
@@ -443,7 +443,7 @@ export async function pointDomainToServerIp(
 ): Promise<{ ok: boolean; error?: string }> {
   const clean = domain.trim().toLowerCase().replace(/\.$/, '');
   const found = await findCloudflareZoneForHost(clean);
-  if (!found) return { ok: false, error: 'Sem zona Cloudflare para este domínio' };
+  if (!found) return { ok: false, error: 'Sem zona DNS para este domínio' };
   const { zoneId, zoneName } = found;
 
   if (clean === zoneName) {
@@ -482,7 +482,7 @@ export async function deleteHostARecord(host: string): Promise<{ ok: boolean; er
   const { zoneId, zoneName } = found;
   const fqdn = clean === zoneName ? zoneName : clean;
   const headers = getCloudflareAuthHeaders();
-  if (!headers) return { ok: false, error: 'Cloudflare não configurada' };
+  if (!headers) return { ok: false, error: 'DNS não configurado' };
   try {
     const existing = await findExistingRecords(headers, zoneId, 'A', fqdn);
     if (!existing.length) return { ok: true };
@@ -508,7 +508,7 @@ export async function applyCloudflareSafeCacheDefaults(
   domain: string,
 ): Promise<{ ok: boolean; error?: string }> {
   const headers = getCloudflareAuthHeaders();
-  if (!headers) return { ok: false, error: 'Cloudflare não configurada' };
+  if (!headers) return { ok: false, error: 'DNS não configurado' };
   const clean = domain.trim().toLowerCase().replace(/\.$/, '');
   const errors: string[] = [];
 
@@ -593,7 +593,7 @@ export async function deleteCloudflareEmailRecords(
   zoneId: string,
 ): Promise<{ ok: boolean; deleted: number; error?: string }> {
   const headers = getCloudflareAuthHeaders();
-  if (!headers) return { ok: false, deleted: 0, error: 'CLOUDFLARE_EMAIL/CLOUDFLARE_GLOBAL_API_KEY (ou CLOUDFLARE_API_TOKEN_ACCOUNT) não configurados' };
+  if (!headers) return { ok: false, deleted: 0, error: 'As credenciais do DNS não estão configuradas' };
 
   const clean = domain.trim().toLowerCase().replace(/\.$/, '');
   const emailSubdomains = new Set([`mail.${clean}`, `ftp.${clean}`, `pop.${clean}`, `smtp.${clean}`]);

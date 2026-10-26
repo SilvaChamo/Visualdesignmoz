@@ -39,7 +39,7 @@ export const sendEmail = async (options: EmailOptions) => {
     replyTo: options.replyTo,
   });
 
-  console.log(`Email sent via Brevo (${parseFromEmail(fromHeader)}):`, info.messageId);
+  console.log(`Email sent via relay (${parseFromEmail(fromHeader)}):`, info.messageId);
   return {
     success: true,
     method: 'brevo-smtp',

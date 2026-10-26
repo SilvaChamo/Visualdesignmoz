@@ -67,9 +67,9 @@ export async function POST(req: NextRequest) {
     // 2) DNS — melhor esforço. Subdomínios usam a zona do domínio pai.
     const dns = await pointHostingHostToServer(domainName);
     steps.push({
-      step: 'DNS apontado para o servidor (Cloudflare)',
+      step: 'DNS apontado para o servidor',
       ok: dns.ok,
-      detail: dns.ok ? undefined : dns.error || 'Domínio sem zona na Cloudflare — aponta o DNS manualmente.',
+      detail: dns.ok ? undefined : dns.error || 'Domínio sem zona DNS — aponta o DNS manualmente.',
     });
 
     // 3) Painel de hospedagem (DirectAdmin ou Hestia, consoante a conta) — em

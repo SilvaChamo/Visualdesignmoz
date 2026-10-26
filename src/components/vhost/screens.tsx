@@ -407,7 +407,7 @@ function NiveisBody() {
         ))}
       </div>
       <div className="sec">
-        <h3>O que o servidor Contabo (Hestia) já faz</h3>
+        <h3>O que o servidor já faz</h3>
         <a onClick={() => nav('/mapa')}>Ver ecrã a ecrã</a>
       </div>
       <p style={{ color: 'var(--muted)', margin: '-6px 0 12px' }}>

@@ -956,7 +956,7 @@ export function createDirectAdminAPI(credentials: DirectAdminCredentials) {
       // placeholder de texto, nunca uma chave DKIM válida).
       const auth = await ensureBrevoDomainAuth(domain);
       if (!auth.ok || auth.dkim.length === 0) {
-        return { success: false, message: auth.error || 'Brevo não devolveu registo DKIM' };
+        return { success: false, message: auth.error || 'O envio não devolveu registo DKIM' };
       }
       // A Brevo pode devolver 1 registo (esquema antigo, TXT) ou 2 (esquema
       // actual, dois CNAME) — aplica todos, senão a verificação na Brevo
@@ -976,7 +976,7 @@ export function createDirectAdminAPI(credentials: DirectAdminCredentials) {
       const allOk = results.every((r) => r.ok);
       return {
         success: allOk,
-        message: allOk ? 'DKIM activado (chave real da Brevo)' : results.find((r) => !r.ok)?.error,
+        message: allOk ? 'DKIM activado (chave real do envio)' : results.find((r) => !r.ok)?.error,
       };
     },
 

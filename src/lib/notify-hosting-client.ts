@@ -32,7 +32,7 @@ export async function notifyHostingAccountProvisioned(params: {
       `Utilizador: ${daUsername}\n` +
       `Password: ${password} (a mesma que usa para entrar no seu painel VisualDesign)\n` +
       `IP do servidor: ${getServerHost()}\n\n` +
-      `O domínio já fica apontado automaticamente (Cloudflare). A propagação pode demorar algumas horas. Qualquer dúvida, contacte-nos.`
+      `O domínio já fica apontado automaticamente. A propagação pode demorar algumas horas. Qualquer dúvida, contacte-nos.`
     : `A sua conta de hospedagem para o domínio "${domain}" já está activa.\n\n` +
       `Aceda ao seu painel VisualDesign e clique em "Direct Admin" — entra directamente, sem pedir password outra vez.\n\n` +
       `Se precisar de aceder directamente ao DirectAdmin (fora do painel):\n` +

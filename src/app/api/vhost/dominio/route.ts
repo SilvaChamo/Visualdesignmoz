@@ -194,11 +194,11 @@ async function reprocessarDns(conta: string, d: string, srv: LeituraServidor, li
   // vermelho = falhou; laranja = ainda não se vê no DNS público ("pendente")
   const itens: ItemRelatorio[] = [];
   const z = await createCloudflareZone(zona);
-  if (!z.ok) return NextResponse.json({ erro: 'Não foi possível criar a zona na Cloudflare: ' + z.error }, { status: 502 });
+  if (!z.ok) return NextResponse.json({ erro: 'Não foi possível criar a zona DNS: ' + z.error }, { status: 502 });
   const zid = z.zoneId;
   if (!z.alreadyExisted) {
     zonasCf.delete(zona);
-    itens.push({ nome: 'Zona na Cloudflare', estado: 'novo', detalhe: 'criada' });
+    itens.push({ nome: 'Zona DNS', estado: 'novo', detalhe: 'criada' });
   }
   const w = srv.web[conta]?.[d];
   if (w && (await alojamentoVercelPublico(d)) !== true) {
@@ -232,7 +232,7 @@ async function reprocessarDns(conta: string, d: string, srv: LeituraServidor, li
   if (temEmail) {
     const e = await provisionEmailAuthForDomain(d, { rapido: true });
     for (const x of e.records) itens.push({ nome: `${x.type} ${x.name}`, estado: !x.ok ? 'falhou' : x.action === 'skipped' ? 'certo' : 'novo', detalhe: x.error });
-    if (!e.brevoOk && e.brevoError) itens.push({ nome: 'DKIM (Brevo)', estado: 'falhou', detalhe: e.brevoError });
+    if (!e.brevoOk && e.brevoError) itens.push({ nome: 'DKIM de envio', estado: 'falhou', detalhe: e.brevoError });
     const dkim = await dkimDoServidor(conta, d);
     if (!dkim) itens.push({ nome: 'DKIM do servidor', estado: 'falhou', detalhe: 'não foi possível criar a chave' });
     else {
@@ -264,16 +264,16 @@ async function reprocessarDns(conta: string, d: string, srv: LeituraServidor, li
         const x = await dynadotAPI.setNameservers(zona, z.nameServers);
         if (x.success) {
           nsGuardados.delete(zona);
-          itens.push({ nome: 'Nameservers', estado: 'novo', detalhe: 'mudados na Dynadot para ' + x.hosts.join(', ') });
-        } else itens.push({ nome: 'Nameservers', estado: 'falhou', detalhe: 'Dynadot: ' + x.error });
+          itens.push({ nome: 'Nameservers', estado: 'novo', detalhe: 'mudados no registador para ' + x.hosts.join(', ') });
+        } else itens.push({ nome: 'Nameservers', estado: 'falhou', detalhe: 'Registador: ' + x.error });
       } else {
         itens.push({
           nome: 'Nameservers',
           estado: 'falhou',
           detalhe:
-            'O DNS está em ' + (ns.join(', ') || 'nameservers desconhecidos') + ', não na Cloudflare — mude os nameservers no registador' +
+            'O DNS está em ' + (ns.join(', ') || 'nameservers desconhecidos') + ', não no DNS do Vhost — mude os nameservers no registador' +
             (z.nameServers.length ? ' para ' + z.nameServers.join(', ') : '') +
-            ' (ou para os do servidor: ' + VISUALDESIGN_NAMESERVERS.join(', ') + '). Enquanto o DNS estiver lá, ponha nesse DNS o SPF v=spf1 include:spf.brevo.com ip4:' + getServerHost() + ' ~all e os registos de DKIM e DMARC que o Brevo indica',
+            ' (ou para os do servidor: ' + VISUALDESIGN_NAMESERVERS.join(', ') + '). Enquanto o DNS estiver lá, ponha nesse DNS o SPF v=spf1 include:spf.brevo.com ip4:' + getServerHost() + ' ~all e os registos de DKIM e DMARC que o Vhost indica',
         });
       }
     }
@@ -283,7 +283,7 @@ async function reprocessarDns(conta: string, d: string, srv: LeituraServidor, li
       const estadoZona = await getCloudflareZoneStatus(zid);
       if (estadoZona && estadoZona !== 'active') {
         const v = await requestCloudflareActivationCheck(zid);
-        itens.push({ nome: 'Zona na Cloudflare', estado: 'pendente', detalhe: estadoZona + ' — ' + (v.ok ? 'verificação pedida; fica activa em poucos minutos' : 'a Cloudflare confirma sozinha dentro de algumas horas') });
+        itens.push({ nome: 'Zona DNS', estado: 'pendente', detalhe: estadoZona + ' — ' + (v.ok ? 'verificação pedida; fica activa em poucos minutos' : 'a zona confirma-se sozinha dentro de algumas horas') });
       }
     }
   }
@@ -679,7 +679,7 @@ export async function POST(req: NextRequest) {
     }
     if (temMail) await passo('e-mail e caixas', call('v-delete-mail-domain', [conta, d]));
     if (temDns) await passo('zona DNS', call('v-delete-dns-domain', [conta, d]));
-    await passo('DNS da Cloudflare', deleteHostARecord(d));
+    await passo('DNS do domínio', deleteHostARecord(d));
     await passo('DNS do www', deleteHostARecord('www.' + d));
     esquecerLeitura();
     if (falhas.length) return NextResponse.json({ erro: 'Não ficou tudo eliminado. Feito: ' + (feitos.join(', ') || 'nada') + '. Falhou: ' + falhas.join('; ') + '.' }, { status: 502 });
@@ -860,9 +860,9 @@ export async function POST(req: NextRequest) {
       const zid = await zonaCf(zona);
       if (!zid) {
         if (srv.dns[conta]?.[d]) return resposta(hestia.addDnsRecord(conta, d, nome, tipo, valor, ttl, linhaLimpa(c.prio) || undefined), false);
-        return NextResponse.json({ erro: 'O DNS deste domínio não está nem no servidor nem na Cloudflare.' }, { status: 400 });
+        return NextResponse.json({ erro: 'O DNS deste domínio não está gerido aqui.' }, { status: 400 });
       }
-      if (!NA_CLOUDFLARE.includes(tipo)) return NextResponse.json({ erro: 'Na Cloudflare, por agora só A, AAAA, CNAME, TXT e MX.' }, { status: 400 });
+      if (!NA_CLOUDFLARE.includes(tipo)) return NextResponse.json({ erro: 'Por agora só se editam registos A, AAAA, CNAME, TXT e MX.' }, { status: 400 });
       const x = await upsertCloudflareRecord(zid, zona, { type: tipo as CloudflareRecordInput['type'], name: nome, content: valor, ttl, priority: Number(c.prio) || undefined, proxied: c.proxied === true });
       if (x.ok) espelharNoServidor(zona);
       return resposta({ ok: x.ok, error: x.error }, false);
@@ -880,7 +880,7 @@ export async function POST(req: NextRequest) {
         if (srv.dns[conta]?.[d]) return resposta(call('v-change-dns-record', [conta, d, id, nome, tipo, valor, linhaLimpa(c.prio), 'yes', String(ttl)]), false);
         return NextResponse.json({ erro: 'Zona não encontrada.' }, { status: 400 });
       }
-      if (!NA_CLOUDFLARE.includes(tipo)) return NextResponse.json({ erro: 'Este tipo de registo muda-se na Cloudflare.' }, { status: 400 });
+      if (!NA_CLOUDFLARE.includes(tipo)) return NextResponse.json({ erro: 'Este tipo de registo não se edita aqui.' }, { status: 400 });
       // o proxy (nuvem laranja) fica como estava, a não ser que o pedido o mude
       const x = await updateCloudflareDnsRecord(zid, id, zona, { type: tipo as CloudflareRecordInput['type'], name: nome, content: valor, ttl, priority: Number(c.prio) || undefined, proxied: typeof c.proxied === 'boolean' ? c.proxied : undefined });
       if (x.ok) espelharNoServidor(zona);
@@ -904,9 +904,9 @@ export async function POST(req: NextRequest) {
       if (!['A', 'AAAA', 'CNAME'].includes(tipo)) return NextResponse.json({ erro: 'Só os registos A, AAAA e CNAME podem ter proxy.' }, { status: 400 });
       const zona = zonaDe(d);
       const zid = await zonaCf(zona);
-      if (!zid) return NextResponse.json({ erro: 'O DNS deste domínio não está na Cloudflare.' }, { status: 400 });
+      if (!zid) return NextResponse.json({ erro: 'O DNS deste domínio não está gerido pelo Vhost.' }, { status: 400 });
       if (!usaNameserversCloudflare(await nameservers(zona))) {
-        return NextResponse.json({ erro: 'O domínio não está a usar nameservers da Cloudflare.' }, { status: 409 });
+        return NextResponse.json({ erro: 'O domínio não está a usar os nameservers do Vhost.' }, { status: 409 });
       }
       return resposta(updateCloudflareDnsRecord(zid, id, zona, { type: tipo as CloudflareRecordInput['type'], name: nome, content: valor, ttl: c.proxied ? 1 : Number(c.ttl) || 1, proxied: c.proxied }), false);
     }
