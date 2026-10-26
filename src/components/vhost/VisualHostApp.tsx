@@ -1728,10 +1728,6 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
                     <button className="btn g iconbtn" onClick={vh.toggleTheme} title={t('Tema claro/escuro')}>
                       <i className={'fa-solid ' + (st.theme === 'dark' ? 'fa-sun' : 'fa-moon')} />
                     </button>
-                    {/* telemóvel: o menu deslizante (do lado direito), do tamanho dos outros botões (Silva, 15/10/2026) */}
-                    <button className="btn g iconbtn only-m" onClick={() => setGaveta(true)} title={t('Menu')} aria-label={t('Menu')}>
-                      <i className="fa-solid fa-bars" />
-                    </button>
                   </span>
                 </div>
               </header>

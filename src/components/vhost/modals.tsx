@@ -77,10 +77,8 @@ export function MoreMenuModal({ fechar }: { fechar?: () => void } = {}) {
               <button
                 key={k}
                 className={'btn ' + (s.level === k ? 'r' : 'g') + ' sm'}
-                onClick={() => {
-                  fecha();
-                  setLevel(k);
-                }}
+                // não fecha o menu: ao mudar de Admin para Gestão (ou ao contrário) ainda falta escolher a opção onde se quer chegar
+                onClick={() => setLevel(k)}
               >
                 {t(nomeNivel(k))}
               </button>
