@@ -435,8 +435,9 @@
    padding: calc(14px * var(--z, 1))
 }
 
+/* Histórico: as listas ficam directamente no cartão principal, nas margens normais, sem um segundo cartão por dentro (Silva, 26/10/2026) */
 .vh .vh-historico-tabela {
-   padding: calc(14px * var(--z, 1))
+   padding: 0
 }
 
 .vh .vh-historico-acoes {
