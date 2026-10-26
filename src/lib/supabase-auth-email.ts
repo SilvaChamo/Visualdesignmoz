@@ -1,3 +1,4 @@
+import { mensagemPublica } from '@/lib/mensagem-publica';
 import { sendBrevoTransactionalEmail, isBrevoApiConfigured } from '@/lib/brevo-mail';
 import { getDefaultFromForDomain, getDomainFromEmail } from '@/lib/email-domains';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
@@ -97,11 +98,13 @@ function generatePasswordRecoveryEmailText(actionLink: string): string {
 
 function resetEmailErrorMessage(error: { message?: string; status?: number }): string {
   const raw = String(error.message || '').trim();
+  // a causa real fica explícita no registo (para o administrador); quem pediu a recuperação só vê uma frase nossa
+  console.error('[recuperação de palavra-passe] causa real:', error.status ?? '', raw || '(sem texto)');
   if (error.status === 504) {
     return 'O servidor de email não respondeu a tempo. Tente de novo dentro de instantes.';
   }
   if (/error sending recovery email/i.test(raw)) {
-    return 'O Supabase não conseguiu enviar o email de recuperação. Verifique SMTP no servidor (Exim/porta 25).';
+    return 'Não foi possível enviar o email de recuperação neste momento. Tente de novo mais tarde; se continuar, contacte o suporte.';
   }
   if (/invalid login|authentication failed|535/i.test(raw)) {
     return 'A chave SMTP do envio é inválida ou expirou. Contacte o suporte.';
@@ -113,12 +116,13 @@ function resetEmailErrorMessage(error: { message?: string; status?: number }): s
   if (!raw || raw === '{}') {
     return 'Não foi possível enviar o email de recuperação. Tente de novo mais tarde.';
   }
-  return raw;
+  return mensagemPublica(raw, false, 'Não foi possível enviar o email de recuperação. Tente de novo mais tarde.');
 }
 
 async function sendRecoveryEmailViaBrevo(email: string, actionLink: string): Promise<void> {
   // Recuperação de senha tem de sair via Brevo — Exim no Hetzner bloqueia porta 25 (Gmail nunca recebe).
   if (!isBrevoTransactionalConfigured()) {
+    console.error('[recuperação de palavra-passe] Brevo não configurado: defina BREVO_API_KEY ou SMTP_MASTER_PASSWORD (o SMTP actual aponta para o DirectAdmin, que não entrega para Gmail)');
     if (isSmtpConfigured() && isDirectAdminSmtpHost()) {
       throw new Error(
         'O SMTP actual não entrega para Gmail. Configure o envio autenticado no servidor.',

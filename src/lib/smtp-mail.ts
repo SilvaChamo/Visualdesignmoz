@@ -148,7 +148,7 @@ export function createBrevoTransport(): Mail {
 export async function sendTransactionalSmtpMail(input: SendSmtpMailInput) {
   if (!isBrevoSmtpConfigured()) {
     throw new Error(
-      'O SMTP de envio não está configurado no servidor.',
+      'Brevo SMTP não configurado. Defina BREVO_SMTP_PASS ou SMTP_MASTER_PASSWORD na Vercel.',
     );
   }
   const transport = createBrevoTransport();
@@ -214,7 +214,7 @@ export type SendSmtpMailInput = {
 export async function sendSmtpMail(input: SendSmtpMailInput) {
   if (!isSmtpConfigured()) {
     throw new Error(
-      'SMTP não configurado. Defina SMTP_HOST, SMTP_USER e SMTP_PASS no servidor.',
+      'SMTP não configurado. Defina SMTP_HOST, SMTP_USER e SMTP_PASS (Brevo) na Vercel.',
     );
   }
 

@@ -12,6 +12,7 @@ import { dynadotAPI } from '@/lib/dynadot-adapter';
 import { getServerHost } from '@/lib/server-config';
 import { VISUALDESIGN_NAMESERVERS } from '@/lib/visualdesign-dns';
 import { esquecerLeitura, lerServidor, type LeituraServidor } from '@/lib/vhost-servidor';
+import { mensagemPublica } from '@/lib/mensagem-publica';
 import { lerRegisto, montarDados } from '@/lib/vhost-dados';
 import { instalarWebmail } from '@/lib/vhost-passar';
 import { limparSslPendente, marcarSslPendente } from '@/lib/vhost-ssl-pendente';
@@ -188,13 +189,15 @@ async function dkimDoServidor(conta: string, d: string): Promise<string | null> 
  *  também os domínios registados fora da Dynadot: a zona e os registos fazem-se na Cloudflare e, se os nameservers
  *  públicos não forem os dela, muda-os na Dynadot (quando o domínio está lá) ou diz quais pôr no registador. No fim
  *  confere o DNS público. O que já está certo fica como está, com o proxy que tinha. */
-async function reprocessarDns(conta: string, d: string, srv: LeituraServidor, ligarEmail = false) {
+async function reprocessarDns(conta: string, d: string, srv: LeituraServidor, ligarEmail = false, admin = false) {
+  // o administrador vê o erro explícito (que serviço falhou); os outros uma frase genérica, sem nomes de terceiros (Silva, 26/10/2026)
+  const pub = (m?: string, quando?: string) => mensagemPublica(m, admin, quando);
   const zona = zonaDe(d);
   // O que o painel mostra no cartão do relatório: verde = posto agora ("novo") ou já estava certo ("certo");
   // vermelho = falhou; laranja = ainda não se vê no DNS público ("pendente")
   const itens: ItemRelatorio[] = [];
   const z = await createCloudflareZone(zona);
-  if (!z.ok) return NextResponse.json({ erro: 'Não foi possível criar a zona DNS: ' + z.error }, { status: 502 });
+  if (!z.ok) return NextResponse.json({ erro: admin ? 'Não foi possível criar a zona DNS: ' + z.error : 'Não foi possível criar a zona DNS. Tente de novo; se continuar, contacte o suporte.' }, { status: 502 });
   const zid = z.zoneId;
   if (!z.alreadyExisted) {
     zonasCf.delete(zona);
@@ -216,7 +219,7 @@ async function reprocessarDns(conta: string, d: string, srv: LeituraServidor, li
       const x = a
         ? await updateCloudflareDnsRecord(zid, a.id, zona, { type: 'A', name: nome, content: ip })
         : await upsertCloudflareRecord(zid, zona, { type: 'A', name: nome, content: ip, proxied: false });
-      itens.push({ nome: rotulo, estado: x.ok ? 'novo' : 'falhou', detalhe: x.ok ? '→ ' + ip : x.error || 'erro' });
+      itens.push({ nome: rotulo, estado: x.ok ? 'novo' : 'falhou', detalhe: x.ok ? '→ ' + ip : pub(x.error) });
     }
   }
   let temEmail = !!srv.mail[conta]?.[d];
@@ -224,15 +227,15 @@ async function reprocessarDns(conta: string, d: string, srv: LeituraServidor, li
   // gera o DKIM e mexe no DNS: damos-lhe folga) e logo a seguir repõem-se os registos de e-mail, como neste mesmo botão
   if (!temEmail && ligarEmail) {
     const x = await hestiaCall('v-add-mail-domain', [conta, d], { timeoutMs: 60_000, sshTimeoutMs: 60_000 });
-    if (!x.ok) return NextResponse.json({ erro: 'Não foi possível ligar o e-mail neste domínio: ' + (x.error || 'o servidor recusou') }, { status: 502 });
+    if (!x.ok) return NextResponse.json({ erro: admin ? 'Não foi possível ligar o e-mail neste domínio: ' + (x.error || 'o servidor recusou') : 'Não foi possível ligar o e-mail neste domínio. Tente de novo; se continuar, contacte o suporte.' }, { status: 502 });
     esquecerLeitura();
     itens.push({ nome: 'E-mail neste servidor', estado: 'novo', detalhe: 'domínio de e-mail ligado' });
     temEmail = true;
   }
   if (temEmail) {
     const e = await provisionEmailAuthForDomain(d, { rapido: true });
-    for (const x of e.records) itens.push({ nome: `${x.type} ${x.name}`, estado: !x.ok ? 'falhou' : x.action === 'skipped' ? 'certo' : 'novo', detalhe: x.error });
-    if (!e.brevoOk && e.brevoError) itens.push({ nome: 'DKIM de envio', estado: 'falhou', detalhe: e.brevoError });
+    for (const x of e.records) itens.push({ nome: `${x.type} ${x.name}`, estado: !x.ok ? 'falhou' : x.action === 'skipped' ? 'certo' : 'novo', detalhe: !x.ok ? pub(x.error) : x.error });
+    if (!e.brevoOk && e.brevoError) itens.push({ nome: 'DKIM de envio', estado: 'falhou', detalhe: pub(e.brevoError) });
     const dkim = await dkimDoServidor(conta, d);
     if (!dkim) itens.push({ nome: 'DKIM do servidor', estado: 'falhou', detalhe: 'não foi possível criar a chave' });
     else {
@@ -245,7 +248,7 @@ async function reprocessarDns(conta: string, d: string, srv: LeituraServidor, li
           : antiga
             ? { ...(await updateCloudflareDnsRecord(zid, antiga.id, zona, { type: 'TXT', name: nome, content: dkim })), action: 'updated' as string | undefined }
             : await upsertCloudflareRecord(zid, zona, { type: 'TXT', name: nome, content: dkim, ttl: 3600 });
-      itens.push({ nome: 'DKIM do servidor', estado: !x.ok ? 'falhou' : x.action === 'skipped' ? 'certo' : 'novo', detalhe: x.error });
+      itens.push({ nome: 'DKIM do servidor', estado: !x.ok ? 'falhou' : x.action === 'skipped' ? 'certo' : 'novo', detalhe: !x.ok ? pub(x.error) : x.error });
     }
   }
   // O DNS só vale se o registador apontar para quem o serve: Cloudflare, ou os ns do próprio servidor (que copiam a
@@ -265,7 +268,7 @@ async function reprocessarDns(conta: string, d: string, srv: LeituraServidor, li
         if (x.success) {
           nsGuardados.delete(zona);
           itens.push({ nome: 'Nameservers', estado: 'novo', detalhe: 'mudados no registador para ' + x.hosts.join(', ') });
-        } else itens.push({ nome: 'Nameservers', estado: 'falhou', detalhe: 'Registador: ' + x.error });
+        } else itens.push({ nome: 'Nameservers', estado: 'falhou', detalhe: admin ? 'Dynadot: ' + x.error : pub(x.error) });
       } else {
         itens.push({
           nome: 'Nameservers',
@@ -559,6 +562,8 @@ async function dadosSoDoSite(conta: string, d: string, srv: LeituraServidor): Pr
 export async function POST(req: NextRequest) {
   const r = await sessao();
   if ('erro' in r) return r.erro;
+  const admin = r.s.role === 'admin';
+  const pub = (m?: string, quando = 'o servidor recusou') => mensagemPublica(m, admin, quando);
   let c: Corpo;
   try {
     c = (await req.json()) as Corpo;
@@ -573,7 +578,7 @@ export async function POST(req: NextRequest) {
   const resposta = async (p: Promise<{ ok: boolean; error?: string }> | { ok: boolean; error?: string }, esquecer = true) => {
     const x = await p;
     if ((x.ok || c.acao === 'dominio-apagar') && esquecer) esquecerLeitura();
-    return NextResponse.json(x.ok ? { ok: true } : { erro: x.error || 'O servidor recusou.' }, { status: x.ok ? 200 : 400 });
+    return NextResponse.json(x.ok ? { ok: true } : { erro: pub(x.error, 'O servidor recusou o pedido. Tente de novo; se continuar, contacte o suporte.') }, { status: x.ok ? 200 : 400 });
   };
   const call = async (cmd: string, args: string[]) => {
     const x = await hestiaCall(cmd, args);
@@ -604,7 +609,7 @@ export async function POST(req: NextRequest) {
       const y = await call('v-change-web-domain-docroot', [conta, novo, d, '/' + sub]);
       if (!y.ok) {
         esquecerLeitura();
-        return NextResponse.json({ erro: 'O subdomínio foi criado, mas ficou com pasta própria: o servidor não aceitou usar ' + d + '/' + sub + ' (' + (y.error || 'erro') + ').' }, { status: 502 });
+        return NextResponse.json({ erro: 'O subdomínio foi criado, mas ficou com pasta própria: o servidor não aceitou usar ' + d + '/' + sub + ' (' + pub(y.error, 'erro') + ').' }, { status: 502 });
       }
     }
     // Subdomínio: o A na zona do domínio pai (sem ele o endereço não abre e o Let's Encrypt falha — "DNS record … doesn't
@@ -670,7 +675,7 @@ export async function POST(req: NextRequest) {
     const falhas: string[] = [];
     const passo = async (nome: string, p: Promise<{ ok: boolean; error?: string }>) => {
       const x = await p.catch((err: unknown) => ({ ok: false, error: err instanceof Error ? err.message : 'erro' }));
-      (x.ok ? feitos : falhas).push(x.ok ? nome : nome + ' (' + (x.error || 'erro') + ')');
+      (x.ok ? feitos : falhas).push(x.ok ? nome : nome + ' (' + pub(x.error, 'erro') + ')');
     };
     if (temWeb) await passo('site e ficheiros', call('v-delete-web-domain', [conta, d]));
     if (dados && !falhas.length) {
@@ -756,17 +761,17 @@ export async function POST(req: NextRequest) {
         const site = await call('v-delete-web-domain', [conta, d]);
         if (!site.ok) {
           esquecerLeitura();
-          return NextResponse.json({ erro: 'Não foi possível apagar o site (a base de dados ficou como estava): ' + (site.error || 'o servidor recusou') }, { status: 400 });
+          return NextResponse.json({ erro: 'Não foi possível apagar o site (a base de dados ficou como estava): ' + pub(site.error) }, { status: 400 });
         }
         const feitos = ['site e ficheiros'];
         const falhas: string[] = [];
         for (const b of dados.bases) {
           const x = await call('v-delete-database', [conta, b]);
-          (x.ok ? feitos : falhas).push(x.ok ? 'base de dados ' + b : 'base de dados ' + b + ' (' + (x.error || 'erro') + ')');
+          (x.ok ? feitos : falhas).push(x.ok ? 'base de dados ' + b : 'base de dados ' + b + ' (' + pub(x.error, 'erro') + ')');
         }
         for (const id of dados.crons) {
           const x = await call('v-delete-cron-job', [conta, id]);
-          (x.ok ? feitos : falhas).push(x.ok ? 'agendamento ' + id : 'agendamento ' + id + ' (' + (x.error || 'erro') + ')');
+          (x.ok ? feitos : falhas).push(x.ok ? 'agendamento ' + id : 'agendamento ' + id + ' (' + pub(x.error, 'erro') + ')');
         }
         esquecerLeitura();
         if (falhas.length) return NextResponse.json({ erro: 'O site foi apagado, mas algo ficou: ' + falhas.join('; ') + '.' }, { status: 502 });
@@ -911,7 +916,7 @@ export async function POST(req: NextRequest) {
       return resposta(updateCloudflareDnsRecord(zid, id, zona, { type: tipo as CloudflareRecordInput['type'], name: nome, content: valor, ttl: c.proxied ? 1 : Number(c.ttl) || 1, proxied: c.proxied }), false);
     }
     case 'dns-reprocessar':
-      return reprocessarDns(conta, d, srv, c.ligarEmail === true);
+      return reprocessarDns(conta, d, srv, c.ligarEmail === true, r.s.role === 'admin');
     case 'redir-dominio': {
       const url = linhaLimpa(c.url);
       if (!/^https?:\/\/\S+$/.test(url)) return NextResponse.json({ erro: 'Destino inválido (https://…).' }, { status: 400 });

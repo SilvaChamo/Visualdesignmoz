@@ -71,7 +71,7 @@ export async function purgeRegistrarTestDomains(): Promise<{
     }
 
     const cf = await deleteCloudflareZone(domain);
-    if (!cf.ok) errors.push(`${domain} (dns): ${cf.error}`);
+    if (!cf.ok) errors.push(`${domain} (cloudflare): ${cf.error}`);
 
     const owner = await getMirrorSiteOwner(domain);
     if (owner) {

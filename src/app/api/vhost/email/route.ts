@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requirePanelBootstrapAccess } from '@/lib/panel-api-auth';
 import { executeServerCommand } from '@/lib/server-ssh-exec';
 import { hestiaCall } from '@/lib/hestia-client';
+import { mensagemPublica } from '@/lib/mensagem-publica';
 import { EMAIL_PLANS } from '@/lib/email-plans';
 import { allocateEmailQuotas, type EmailQuotaChange } from '@/lib/email-quota-allocation';
 import { esquecerLeitura, lerServidor, type LeituraServidor } from '@/lib/vhost-servidor';
@@ -264,7 +265,7 @@ export async function POST(req: NextRequest) {
   // `esquecer`: a alteração muda o que a leitura geral do servidor mostra (caixas, uso, domínios)
   const resposta = (x: { ok: boolean; error?: string; status?: number }, esquecer = true, mais: Record<string, unknown> = {}) => {
     if (x.ok && esquecer) esquecerLeitura();
-    return NextResponse.json(x.ok ? { ok: true, ...mais } : { erro: x.error || 'O servidor recusou.' }, { status: x.ok ? 200 : x.status || 400 });
+    return NextResponse.json(x.ok ? { ok: true, ...mais } : { erro: mensagemPublica(x.error, r.s.role === 'admin', 'O servidor recusou o pedido. Tente de novo; se continuar, contacte o suporte.') }, { status: x.ok ? 200 : x.status || 400 });
   };
   /** Corre vários comandos do Hestia por ordem; pára no primeiro que falhe */
   const seguidos = async (cmds: [string, string[]][]) => {

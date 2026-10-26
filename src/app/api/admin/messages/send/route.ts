@@ -20,7 +20,7 @@ async function sendOne(
 ): Promise<void> {
     // Forçar uso exclusivo da API Brevo
     if (!isBrevoApiConfigured()) {
-        throw new Error('A chave da API de envio não está configurada. Não é possível enviar campanhas sem acesso à API de envio.');
+        throw new Error('BREVO_API_KEY não configurada na Vercel. Não é possível enviar campanhas sem acesso à API Brevo.');
     }
     await sendBrevoTransactionalEmail({ from, to, subject, html });
 }

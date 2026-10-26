@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
 
   if (!secret) {
     return NextResponse.json(
-      { error: 'CRON_SECRET não configurado — repetição do envio desactivada por segurança.' },
+      { error: 'CRON_SECRET não configurado — retry de Brevo desactivado por segurança.' },
       { status: 503 },
     );
   }
@@ -75,7 +75,7 @@ export async function GET(req: NextRequest) {
           await admin.from('notifications').insert({
             user_id: row.user_id,
             title: 'Email do domínio autenticado',
-            message: `O envio de email para ${domainName} ficou autenticado (DKIM/SPF confirmados).`,
+            message: `O envio de email para ${domainName} ficou autenticado na Brevo (DKIM/SPF confirmados).`,
             type: 'success',
             category: 'system',
           });

@@ -51,7 +51,7 @@ export async function sendBrevoTransactionalEmail(
 ): Promise<{ messageId?: string }> {
   const apiKey = getBrevoApiKey();
   if (!apiKey) {
-    throw new Error('A chave da API de envio não está configurada.');
+    throw new Error('BREVO_API_KEY não configurada na Vercel.');
   }
 
   const fromHeader =
@@ -86,7 +86,7 @@ export async function sendBrevoTransactionalEmail(
 
   if (!res.ok) {
     const detail = body.message || body.code || `HTTP ${res.status}`;
-    throw new Error(`API de envio: ${detail}`);
+    throw new Error(`Brevo API: ${detail}`);
   }
 
   return { messageId: body.messageId };
@@ -114,7 +114,7 @@ export async function sendBrevoBulkEmail(
 ): Promise<{ messageId?: string }> {
   const apiKey = getBrevoApiKey();
   if (!apiKey) {
-    throw new Error('A chave da API de envio não está configurada.');
+    throw new Error('BREVO_API_KEY não configurada na Vercel.');
   }
   if (input.bcc.length === 0) {
     throw new Error('Sem destinatários para este lote.');
@@ -150,7 +150,7 @@ export async function sendBrevoBulkEmail(
 
   if (!res.ok) {
     const detail = body.message || body.code || `HTTP ${res.status}`;
-    throw new Error(`API de envio: ${detail}`);
+    throw new Error(`Brevo API: ${detail}`);
   }
 
   return { messageId: body.messageId };

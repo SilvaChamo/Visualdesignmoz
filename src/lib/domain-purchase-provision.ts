@@ -94,7 +94,7 @@ export async function autoProvisionPurchasedDomain(input: {
         : { step: 'nameservers', ok: false, error: ns.error },
     );
   } else {
-    steps.push({ step: 'nameservers', ok: false, error: 'O DNS não devolveu nameservers (a zona já existia?)' });
+    steps.push({ step: 'nameservers', ok: false, error: 'Cloudflare não devolveu nameservers (zona já existia?)' });
   }
 
   // 4) DNS de e-mail — a mesma automação usada para domínios que os clientes
