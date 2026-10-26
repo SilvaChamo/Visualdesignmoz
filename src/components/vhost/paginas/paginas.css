@@ -3582,10 +3582,11 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    font-size: calc(14px * var(--fs, 1))
 }
 
+/* Janelas (popups): o fundo escurece um pouco mas NUNCA desfoca (regra do Silva; 26/10/2026 voltou a aparecer com desfoque) */
 .vh .modal-bg {
    z-index: 550;
-   backdrop-filter: blur(3px);
-   -webkit-backdrop-filter: blur(3px)
+   backdrop-filter: none;
+   -webkit-backdrop-filter: none
 }
 
 .vh .toast {
