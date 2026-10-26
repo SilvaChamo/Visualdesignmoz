@@ -29,8 +29,16 @@
     em produção que o 6.º erro seguido devolve 429.
 12. **Período de recuperação das renovações (26/10/2026)**: 30 dias depois do fim do prazo, com o serviço suspenso; o cliente é avisado no dia da
     suspensão, a meio e nos últimos dias (`src/lib/recuperacao-renovacao.ts`, chamado pelo cron `renewal-check`).
-13. **DMARC do visualdesignmoz.com**: o registo duplicado de 24/07 foi apagado no Cloudflare a 26/10/2026 (fica um só, `p=none; fo=1`). Falta subir para
-    `p=quarantine` depois de um e-mail de teste mostrar "DMARC: PASS" no Gmail (enviado a 26/10 pelo Brevo, entregue; falta o Silva ver o cabeçalho).
+13. **DMARC e SPF de todos os domínios (auditados a 26/10/2026, 13 zonas do Cloudflare e 13 domínios do Brevo)**: visualdesignmoz.com ficou com um só DMARC (apagado o duplicado de 24/07).
+    A 26/10 apagou-se também o DMARC duplicado antigo (entre aspas, sem `fo=1`) em lirandzojewelry.com, mltmark.com, msdn-moz.org e provisualcorporate.co.mz e juntaram-se os 2 SPF do
+    mltmark.com num só (MX, A e DKIM intactos; cópia completa do DNS antes em `scratchpad/dns-copia-completa-antes.json`); o Brevo já mostra o DMARC verificado nos 4. **DMARC subido a 26/10/2026** (o e-mail de teste do Brevo passou SPF, DKIM e DMARC no Gmail): `p=quarantine; pct=25` em aamihe.com, concordia.co.mz, entrecamposblog.com,
+    lirandzojewelry.com, menocrazy.app, mltmark.com, msdn-moz.org, oshercollective.com, provisualcorporate.co.mz e visualdesignmoz.com (cópia dos antigos em `scratchpad/dmarc-antes-quarantine.json`;
+    para voltar atrás basta repor `p=none`). **Ficam em `p=none`:** basededadosagro.com (falta a chave DKIM do servidor `mail._domainkey`; só depois de a ter), elimservicos.com (e-mail do Google,
+    sem DKIM do servidor; decidir) e shalomdeco.com (DNS fora do Cloudflare). **Passar de 25% a 100% ao fim de uma semana** se nenhum cliente se queixar. O site já não baixa um DMARC mais
+    estrito (reaplicar o DNS / "Reprocessar DNS" mantém `quarantine`). O concordia.co.mz ficou igual aos outros (SPF com o Brevo; DMARC `p=none` com relatórios, em vez de `quarantine` sem `rua`). Por decisão da dona fica à espera: **shalomdeco.com** já não usa o Cloudflare (DNS em ns1/ns2.ibspark.com; o Brevo não vê o DKIM nem o DMARC lá). Quando a dona decidir voltar, o botão "Reprocessar DNS" (Gestão de domínios) repõe os registos de e-mail na zona (que o Cloudflare guarda como "moved"), troca o SPF com o erro `ip4: ` e, se os nameservers já forem os da Cloudflare, pede a verificação da zona; o botão deixou de dar `ns1.ibspark.com` por servidor nosso.
+    A causa estava em `upsertCloudflareRecord` (o DMARC não era tratado como registo único e os TXT com aspas não eram reconhecidos): corrigido, com teste. O e-mail de teste do Brevo
+    ao Gmail (07:55) deu **DKIM FAIL por "temperror (dns failure for signature)"** e DMARC FAIL (SPF passa mas para sender-sib.com): as chaves resolvem bem, repetiu-se o teste; só
+    subir para `p=quarantine` com DKIM e DMARC em PASS.
 14. **`servidor@visualdesignmoz.com` não existe no servidor de e-mail** do Contabo ("550 Unrouteable address", também para qualquer endereço inexistente do
     domínio; `geral@` recebe bem). Os avisos de erro do site (`error-log.ts`) iam para essa caixa e perdiam-se (24 numa semana, bloqueados pelo Brevo): passaram para
     `SITE_NOTIFY_EMAIL` (geral@). Para voltar à caixa própria: criá-la no Hestia (`v-add-mail-account`), tirá-la da lista de bloqueados do Brevo e repor o destino.

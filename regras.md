@@ -529,6 +529,16 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
   (`scripts/migrate-login-rate-limit.sql`, com RLS e permissões só para o servidor; criadas a 26/10/2026): sem elas falha "aberto" e deixa entrar —
   confirmar depois de publicar que o 6.º erro seguido devolve 429. Nunca desligar sem o Silva pedir.
 
+# DNS de e-mail: SPF, DKIM e DMARC de todos os domínios (Silva, 26/10/2026)
+
+- **Um só SPF e um só DMARC por domínio** (dois registos invalidam-nos). O site garante-o em `upsertCloudflareRecord` (`src/lib/cloudflare-dns.ts`): compara sem as aspas que
+  o Cloudflare põe nos TXT criados à mão e apaga o "órfão"; **nunca baixa um DMARC mais estrito** (`quarantine`/`reject`) para o padrão `p=none`.
+- **Padrão de um domínio novo:** SPF `v=spf1 include:spf.brevo.com ip4:<servidor> ~all`, DKIM do Brevo (`brevo1`/`brevo2._domainkey`) e do servidor (`mail._domainkey`), DMARC
+  `p=none; rua=mailto:rua@dmarc.brevo.com; fo=1`. Só se sobe a política depois de um e-mail de teste do Brevo ao Gmail mostrar SPF, DKIM e DMARC em PASS
+  (Gmail › ⋮ › Mostrar original). Subida feita a 26/10/2026: `quarantine; pct=25` em 10 domínios, depois 100% se ninguém se queixar.
+- Os nameservers contam: um domínio com o DNS fora do Cloudflare (ex.: shalomdeco.com em ibspark.com) não recebe nada do que o site escreve na zona. O "Reprocessar DNS" (Gestão
+  de domínios) só dá os nameservers por certos se forem `ns1`…`ns4.visualdesignmoz.com` ou os do Cloudflare, e pede a verificação da zona parada quando já os usa.
+
 # Autenticação em 2 passos (opcional — Silva, 21/10/2026)
 
 - **Nunca obrigatória**: só afecta quem a liga em Perfil › Autenticação em 2 passos (aplicação de autenticação, TOTP do Supabase;
