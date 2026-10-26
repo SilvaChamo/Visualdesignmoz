@@ -20,7 +20,7 @@ import { MoreMenuModal } from './modals';
 import { SCREENS, denyScreen, placeholder, type Screen } from './screens';
 import { PesquisaNaPagina } from './pesquisa-pagina';
 import { useTituloAjustado } from './titulo-ajustado';
-import { SAIR_POR_INATIVIDADE_ATIVO } from '@/lib/session-inactivity';
+import { PANEL_INACTIVITY_MS, SAIR_POR_INATIVIDADE_ATIVO } from '@/lib/session-inactivity';
 import { BarraTopo, EsperaPagina, atividadeComeca, instalarContador, type Espera } from './carga';
 import { BarrasDa } from './carregador-da';
 import { ClientSidePanel } from '@/components/vhost/comuns/ClientProductsHub';
@@ -1316,11 +1316,11 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
   // Cores do tema escolhido, com as cores mudadas à mão nesse tema (ou as que estão a ser editadas), e cantos
   const over = st.themePreview || st.themeOver[st.colorPreset];
   // Sessão: nunca pede para entrar enquanto se mexe no painel (os pedidos /api/vhost renovam-na — src/proxy.ts); ao fim
-  // de 20 minutos sem tocar em nada (em nenhum separador), termina a sessão e volta à entrada do painel
+  // de 30 minutos sem tocar em nada (em nenhum separador; Silva, 26/10/2026), termina a sessão e volta à entrada do painel
   useEffect(() => {
     if (st.carga !== 'ok') return;
     if (!SAIR_POR_INATIVIDADE_ATIVO) return; // desligado por agora (ver session-inactivity.ts)
-    const LIMITE = 20 * 60_000;
+    const LIMITE = PANEL_INACTIVITY_MS; // 30 min, o mesmo valor de session-inactivity.ts
     const K = 'vh-ultimo-toque';
     let ultimo = Date.now();
     let gravado = 0;
