@@ -88,5 +88,13 @@ export function getDefaultEmailDnsRecords(
       value: serverIp || '',
       ttl: 3600,
     },
+    // webmail.<domínio>: o Hestia exige-o no DNS para emitir o certificado de e-mail (v-add-letsencrypt-domain … yes); sem ele recusa
+    // ("DNS record for webmail.… doesn't exist") e o certificado de e-mail nunca renova sozinho (Silva, 26/10/2026)
+    {
+      name: 'webmail',
+      type: 'A' as const,
+      value: serverIp || '',
+      ttl: 3600,
+    },
   ].filter((r) => r.type !== 'A' || Boolean(r.value));
 }
