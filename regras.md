@@ -676,6 +676,11 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
   nunca leva dois registos SPF (o lirandzojewelry.com tinha um antigo, inválido, com o IPv6 do Hetzner: apagado).
 - **msdn-moz.org:** `nginx.conf_vd-privado` e `nginx.ssl.conf_vd-privado` (em `/home/oshercollective/conf/web/msdn-moz.org/`) dão 404 ao `convidados.csv` (125 pessoas com e-mail), ao zip de instalação e às
   notas de instalação, que o nginx servia como ficheiros estáticos; os scripts PHP continuam a lê-los do disco.
+- **Cartão «Registo do domínio» sem «—» quando o servidor sabe o valor** (Silva, 26/10/2026: «os espaços com dados em falta devem ser preenchidos porque existe no servidor»;
+  `dominios.tsx`, rota `registrar/domain/manage`). Se a Dynadot não conhece o domínio (registado noutro registador), a rota devolve também `local`: datas e renovação
+  automática do registo de renovações (`domain_renewals`), datas, trava de transferência e nameservers da consulta pública RDAP (`rdap.org`, 4 s de limite) e os contactos
+  da conta (`contactPreview`). Os valores aparecem só para ver (interruptores e botões desativados); o que nenhuma fonte diz (ex.: privacidade WHOIS) fica «—», nunca
+  inventado. O nome de cada informação do cartão (`.dom-info-l > span`) fica numa só linha (coluna de 176 px).
 
 # Autenticação em 2 passos (opcional — Silva, 21/10/2026)
 
