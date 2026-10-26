@@ -67,7 +67,7 @@ for (const n of [...usados].sort()) {
 // ---- onde o ícone leva a cor própria: o conteúdo (cartão principal, lado, janelas, gestor de ficheiros) — não a barra de cima, a barra
 // de ícones nem o menu da esquerda, que já têm as suas cores — e nunca dentro do que já tem cor própria (botão vermelho, etiquetas…)
 const AREAS = ['.da-main-card', '.da-lado', '.modal', '.fmda-corpo'];
-const FORA = ['.trf-bola.para', '.fmda-icc', '.fmda-raiz', '.btn.r', '.btn-ed', '.btn-rm', '.btn.on', '.btn-save', '.tag', '.note', '.imp', '.chk', '.toast', '.perigo', '.dt-btn-direto', '.fmda-tb', '.opcoes-linha', '.da-card-ic', '.pf-2p-ic', '.tema-rail-ic'];
+const FORA = ['.trf-bola.para', '.fmda-icc', '.fmda-raiz', '.btn.r', '.btn-ed', '.btn-rm', '.btn.on', '.btn-save', '.tag', '.note', '.imp', '.chk', '.toast', '.perigo', '.dt-btn-direto', '.fmda-tb', '.opcoes-linha', '.da-card-ic', '.pf-2p-ic', '.tema-rail-ic', '.tema-sw-ic'];
 
 let css = `/* Cor de cada ícone do painel (Silva, 23/10/2026: "todos os ícones coloridos"). GERADO por scripts/gerar-cores-icones.cjs — não editar à mão.
    Paleta do submenu (c1…c7), com versão mais clara no tema escuro. Cada ícone tem sempre a mesma cor. Ficam de fora os ícones de estrutura

@@ -616,7 +616,7 @@ export function ThemeCustomizerView() {
                           }}
                           title="1º Fundo: Background da Barra Compacta"
                         >
-                          <i className="fa-solid fa-layer-group" />
+                          <i className="fa-solid fa-layer-group tema-sw-ic" />
                         </div>
 
                         {/* 2. Ícones (Cor dos Ícones da Barra) */}
@@ -634,7 +634,7 @@ export function ThemeCustomizerView() {
                           }}
                           title="2º Ícones: Ícones da Barra Compacta"
                         >
-                          <i className="fa-solid fa-icons" />
+                          <i className="fa-solid fa-icons tema-sw-ic" />
                         </div>
 
                         {/* 3. Links (Links & Destaques) */}
@@ -652,7 +652,7 @@ export function ThemeCustomizerView() {
                           }}
                           title="3º Links: Links & Destaques do Painel"
                         >
-                          <i className="fa-solid fa-link" />
+                          <i className="fa-solid fa-link tema-sw-ic" />
                         </div>
 
                         {/* 4. Botões (Botões & Bolinhas de Mensagens) */}
@@ -670,7 +670,7 @@ export function ThemeCustomizerView() {
                           }}
                           title="4º Botões: Botões & Bolinhas de Mensagens"
                         >
-                          <i className="fa-solid fa-circle-dot" />
+                          <i className="fa-solid fa-circle-dot tema-sw-ic" />
                         </div>
                       </div>
 
