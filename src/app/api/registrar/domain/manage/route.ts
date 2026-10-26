@@ -49,6 +49,72 @@ async function loadWhoisPreview(domain: string, fallbackUserId: string): Promise
   };
 }
 
+/** O que o servidor sabe de um domínio que a Dynadot não conhece (registado noutro registador): o registo de renovações da Visual Design
+ *  (datas e renovação automática) e a consulta pública RDAP (datas reais, trava de transferência, nameservers). Nunca inventa: o que
+ *  nenhuma das duas fontes diz fica `null`/vazio. */
+export type RegistoLocal = {
+  registrationDate: string;
+  expireDate: string;
+  autoRenew: boolean | null;
+  isLocked: boolean | null;
+  nameservers: string[];
+};
+
+async function lerRdap(domain: string): Promise<Pick<RegistoLocal, 'registrationDate' | 'expireDate' | 'isLocked' | 'nameservers'> | null> {
+  try {
+    const r = await fetch('https://rdap.org/domain/' + encodeURIComponent(domain), {
+      headers: { Accept: 'application/rdap+json' },
+      redirect: 'follow',
+      cache: 'no-store',
+      signal: AbortSignal.timeout(4000),
+    });
+    if (!r.ok) return null;
+    const j = (await r.json()) as {
+      events?: { eventAction?: string; eventDate?: string }[];
+      status?: string[];
+      nameservers?: { ldhName?: string }[];
+    };
+    const data = (acao: string) => {
+      const e = (j.events || []).find((x) => x.eventAction === acao && x.eventDate);
+      return e?.eventDate ? e.eventDate.slice(0, 10) : '';
+    };
+    const estados = (j.status || []).map((x) => x.toLowerCase());
+    return {
+      registrationDate: data('registration'),
+      expireDate: data('expiration'),
+      isLocked: estados.length ? estados.some((x) => x === 'client transfer prohibited' || x === 'server transfer prohibited') : null,
+      nameservers: (j.nameservers || []).map((n) => String(n.ldhName || '').toLowerCase()).filter(Boolean),
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function loadRegistoLocal(domain: string): Promise<RegistoLocal | null> {
+  const admin = getSupabaseAdmin();
+  const [renovacao, rdap] = await Promise.all([
+    admin
+      ? admin
+          .from('domain_renewals')
+          .select('registration_date, expiration_date, auto_renew')
+          .eq('domain_name', domain)
+          .order('expiration_date', { ascending: false })
+          .limit(1)
+          .then((r) => r.data?.[0] || null)
+      : Promise.resolve(null),
+    lerRdap(domain),
+  ]);
+  if (!renovacao && !rdap) return null;
+  // as datas vêm do registo público (é o que vale no registador); na falta dele, do registo de renovações
+  return {
+    registrationDate: rdap?.registrationDate || String(renovacao?.registration_date || ''),
+    expireDate: rdap?.expireDate || String(renovacao?.expiration_date || ''),
+    autoRenew: typeof renovacao?.auto_renew === 'boolean' ? renovacao.auto_renew : null,
+    isLocked: rdap?.isLocked ?? null,
+    nameservers: rdap?.nameservers || [],
+  };
+}
+
 /** Detalhes e acções de gestão de domínio no registador (Dynadot). */
 export async function GET(request: NextRequest) {
   const domain = request.nextUrl.searchParams.get('domain')?.trim().toLowerCase();
@@ -65,7 +131,9 @@ export async function GET(request: NextRequest) {
     loadWhoisPreview(domain, auth.user.id),
   ]);
   if (!result.success) {
-    return NextResponse.json({ success: false, error: result.error }, { status: 400 });
+    // domínio registado noutro registador: o painel mostra o que o servidor sabe dele (só leitura) em vez de "—"
+    const local = await loadRegistoLocal(domain);
+    return NextResponse.json({ success: false, error: result.error, local, contactPreview }, { status: 400 });
   }
 
   return NextResponse.json({

@@ -53,16 +53,16 @@ export function Check({ checked, onChange, label, muted, disabled, title }: { ch
   );
 }
 
-export function Switch({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label?: string }) {
+export function Switch({ checked, onChange, label, disabled }: { checked: boolean; onChange: (v: boolean) => void; label?: string; disabled?: boolean }) {
   // dentro de uma <label> (lista de funcionalidades) o clique chega à caixa pela label; sozinho, muda-se aqui
   return (
     <span
       className="sw"
       onClick={(e) => {
-        if ((e.target as HTMLElement).tagName !== 'INPUT' && !e.currentTarget.closest('label')) onChange(!checked);
+        if (!disabled && (e.target as HTMLElement).tagName !== 'INPUT' && !e.currentTarget.closest('label')) onChange(!checked);
       }}
     >
-      <input type="checkbox" role="switch" aria-label={label} checked={checked} onChange={(e) => onChange(e.target.checked)} />
+      <input type="checkbox" role="switch" aria-label={label} checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
       <span />
     </span>
   );

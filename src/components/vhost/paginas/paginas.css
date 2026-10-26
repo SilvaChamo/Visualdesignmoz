@@ -291,6 +291,12 @@
    outline-offset: 2px
 }
 
+/* interruptor só para ver (ex.: registo de um domínio que está noutro registador) */
+.vh .sw input:disabled+span {
+   opacity: .55;
+   cursor: not-allowed
+}
+
 .vh .feats {
    display: grid;
    grid-template-columns: repeat(auto-fill, minmax(calc(300px * var(--z, 1)), 1fr))
@@ -7985,7 +7991,7 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
 
 .vh .dom-info-l {
    display: grid;
-   grid-template-columns: calc(150px * var(--z, 1)) minmax(0, 1fr) calc(14px * var(--z, 1));
+   grid-template-columns: calc(176px * var(--z, 1)) minmax(0, 1fr) calc(14px * var(--z, 1));
    gap: calc(12px * var(--z, 1));
    align-items: center;
    min-height: calc(46px * var(--z, 1));
@@ -7996,7 +8002,9 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
 .vh .dom-info-l>span {
    font-weight: 600;
    font-size: calc(13.5px * var(--fs, 1));
-   color: var(--muted)
+   color: var(--muted);
+   /* o nome de cada informação numa só linha (Silva, 26/10/2026: "não quero duas linhas do título") */
+   white-space: nowrap
 }
 
 .vh .dom-info-l>div {
