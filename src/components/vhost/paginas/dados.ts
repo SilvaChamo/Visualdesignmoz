@@ -2,6 +2,8 @@
 // modelos de mensagem). Copiados do DirectAdmin — ver VisualHost/04-da-gestao-de-contas.md.
 // As contas, os pacotes de cliente e a informação das contas vêm do servidor (/api/vhost/dados).
 
+import { PADRAO_RECURSOS } from '@/lib/pacote-hestia';
+
 export type Unit = 'MB' | 'GB' | 'TB';
 /** Um limite: valor, "Ilimitado" e (para tráfego/disco) a unidade */
 export interface Lim {
@@ -90,14 +92,14 @@ export const FUNC_REVENDA: Campo[] = [
 
 // ---------- Limites de recursos ----------
 export const RECURSOS: Campo[] = [
-  { k: 'cpu', t: 'Quota de CPU', en: 'CPU Quota', ph: '400%', help: 'Percentagem de um núcleo do processador. Mais de 100% para vários núcleos. Só tem efeito com os limites de recursos ligados no servidor.' },
+  { k: 'cpu', t: 'Quota de CPU', en: 'CPU Quota', ph: '100%', help: 'Quanto CPU a conta pode gastar: 100% = 1 núcleo, 250% = 2,5 núcleos (o servidor tem 6). Vale para o PHP dos sites e para os trabalhos agendados da conta. Não deixes ilimitado: uma conta sem limite pode gastar o CPU de todo o servidor e afectar os outros sites.' },
   { k: 'ioread', t: 'Leitura máxima do disco', en: 'IO Read Bandwidth Max', ph: '5M', help: 'Velocidade máxima de leitura do disco.' },
   { k: 'iopsread', t: 'Leituras por segundo', en: 'IOPS Read Max', ph: '1K', help: 'Máximo de operações de leitura do disco por segundo.' },
   { k: 'iowrite', t: 'Escrita máxima no disco', en: 'IO Write Bandwidth Max', ph: '5M', help: 'Velocidade máxima de escrita no disco.' },
   { k: 'iopswrite', t: 'Escritas por segundo', en: 'IOPS Write Max', ph: '1K', help: 'Máximo de operações de escrita no disco por segundo.' },
   { k: 'memhigh', t: 'Memória (abrandar acima de)', en: 'Memory High', ph: '1G', help: 'Acima deste valor, a conta fica mais lenta.' },
-  { k: 'memmax', t: 'Memória máxima', en: 'Memory Max', ph: '2G', help: 'Limite absoluto: acima dele, os processos são terminados.' },
-  { k: 'swap', t: 'Swap máximo', en: 'Swap Max', ph: '1G', help: 'Memória de troca (disco) que a conta pode usar.' },
+  { k: 'memmax', t: 'Memória máxima', en: 'Memory Max', ph: '1G', help: 'Memória da conta (MEMORY_LIMIT do Hestia): acima deste valor a conta fica mais lenta; acima de 1,5 vezes, os processos dela são terminados, sem afectar as outras contas.' },
+  { k: 'swap', t: 'Swap máximo', en: 'Swap Max', ph: '512M', help: 'Memória de troca (disco) que a conta pode usar.' },
   { k: 'cpuperiod', t: 'Período da quota de CPU', en: 'CPU Quota Period', ph: '100ms', help: 'Janela de tempo em que a quota de CPU se aplica (ex.: 100ms).' },
   { k: 'tasks', t: 'Máximo de tarefas', en: 'Tasks Max', ph: '512', help: 'Máximo de processos que a conta pode ter ao mesmo tempo.' },
 ];
@@ -132,6 +134,14 @@ export interface PacoteRevenda {
 const L = (v: string | number, unit?: Unit): Lim => ({ v: String(v), unl: false, ...(unit ? { unit } : {}) });
 const U = (unit?: Unit): Lim => ({ v: '', unl: true, ...(unit ? { unit } : {}) });
 const recursosLivres = (): Record<string, Lim> => Object.fromEntries(RECURSOS.map((c) => [c.k, U()]));
+/** Recursos de um pacote novo (Silva, 26/10/2026): CPU, período, memória e swap já com valor — nunca "ilimitado" por defeito */
+const recursosPadrao = (): Record<string, Lim> => ({
+  ...recursosLivres(),
+  cpu: L(PADRAO_RECURSOS.CPU_QUOTA),
+  cpuperiod: L(PADRAO_RECURSOS.CPU_QUOTA_PERIOD),
+  memmax: L(PADRAO_RECURSOS.MEMORY_LIMIT),
+  swap: L(PADRAO_RECURSOS.SWAP_LIMIT),
+});
 
 /** Tudo ligado e sem limites (administradores e revendedores na sua própria conta, quando o pacote não é conhecido) */
 export function pacoteCompleto(): PacoteUtilizador {
@@ -163,7 +173,7 @@ export function pacoteVazio(): PacoteUtilizador {
     tema: TEMAS[0],
     idioma: IDIOMAS[0],
     acme: ACME[0],
-    rec: recursosLivres(),
+    rec: recursosPadrao(),
   };
 }
 
@@ -174,7 +184,7 @@ export function pacoteRevendaVazio(): PacoteRevenda {
     feats: Object.fromEntries(FUNC_REVENDA.map((c) => [c.k, !['aftp', 'catchall', 'sshusers'].includes(c.k)])),
     nsProprios: false,
     ipServidor: true,
-    rec: recursosLivres(),
+    rec: recursosPadrao(),
   };
 }
 

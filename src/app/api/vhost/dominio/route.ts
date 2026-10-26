@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { X509Certificate } from 'node:crypto';
 import { Resolver } from 'node:dns/promises';
 import { requirePanelBootstrapAccess } from '@/lib/panel-api-auth';
+import { alojamentoVercel } from '@/lib/hospedagem-dns';
 import { executeServerCommand } from '@/lib/server-ssh-exec';
 import { hestiaCall } from '@/lib/hestia-client';
 import * as hestia from '@/lib/hestia-adapter';
@@ -120,20 +121,7 @@ async function nameservers(zona: string): Promise<string[]> {
 const usaNameserversCloudflare = (ns: string[]) =>
   ns.length > 0 && ns.every((name) => /^[a-z0-9-]+\.ns\.cloudflare\.com$/.test(name));
 
-async function alojamentoVercelPublico(dominio: string): Promise<boolean | null> {
-  const resolver = new Resolver({ timeout: 2500, tries: 1 });
-  resolver.setServers(['1.1.1.1', '8.8.8.8']);
-  const nomes = [dominio, `www.${dominio}`];
-  const respostas = await Promise.all(
-    nomes.map((nome) => Promise.allSettled([resolver.resolveCname(nome), resolver.resolve4(nome)])),
-  );
-  const valores = respostas.flatMap((resposta) => resposta.flatMap((resultado) => resultado.status === 'fulfilled' ? resultado.value : []));
-  if (valores.some((valor) => typeof valor === 'string' && valor.toLowerCase().includes('vercel'))) return true;
-  if (
-    valores.some((valor) => typeof valor === 'string' && /^(76\.76\.21\.|66\.33\.60\.)/.test(valor))
-  ) return true;
-  return respostas.some((resposta) => resposta.some((resultado) => resultado.status === 'fulfilled')) ? false : null;
-}
+const alojamentoVercelPublico = alojamentoVercel;
 
 type DnsDominio = { fonte: 'hestia' | 'cloudflare' | 'nenhuma'; zona: string; cloudflareAutoritativa?: boolean; registos: { id: string; nome: string; tipo: string; valor: string; ttl: number; prio?: string; proxied?: boolean }[] };
 

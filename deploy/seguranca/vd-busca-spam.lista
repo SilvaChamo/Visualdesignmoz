@@ -1,0 +1,4 @@
+# Domínios onde o spam de pesquisa (/?s=… sem referer) leva 403 no nginx, antes de chegar ao PHP (um por linha, # comenta).
+# Juntar um site: acrescentar aqui o domínio (o vd-bloqueio-instalar aplica em 10 minutos, ou corre-se /usr/local/sbin/vd-bloqueio-instalar).
+# Só para sites WordPress cujas pesquisas saem de uma página do próprio site; não pôr aplicações que usem ?s= sem referer.
+mltmark.com
