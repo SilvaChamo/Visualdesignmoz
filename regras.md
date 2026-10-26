@@ -567,9 +567,14 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
   `wp cron event list --due-now --format=count` conta TODOS os eventos agendados, não só os que estão em atraso (e `next_run_relative` é o tempo até à próxima execução): não serve para medir atrasos.
 - **Actualizações automáticas** (26/10/2026): plugins e temas dos 3 WordPress do Osher (inclui o Elementor); o WP Offload Media passou a 3.4.3 em todos. O WordPress em si segue as actualizações de segurança
   automáticas por defeito. Se uma actualização estragar um site: `wp plugin install <plugin> --version=<anterior> --force` e `wp plugin auto-updates disable <plugin>`.
+- **ModSecurity sem leitura das respostas só no oshercollective.com** (26/10/2026, o Silva confirmou): `apache2.ssl.conf_vd-modsec-resposta` (`SecResponseBodyAccess Off`) nesse site. As regras `RESPONSE-951`
+  (fugas de erros de SQL) falhavam centenas de vezes por dia ("PCRE limits exceeded") nas páginas pesadas do Elementor, sem apanhar nada; não eram tentativas de acesso de ninguém. A protecção contra pedidos
+  (o que quem visita envia) continua toda ligada: um `;cat /etc/passwd` e um `UNION SELECT` simulados continuam a dar 403. Nos outros sites não se mexeu (não têm essas falhas).
 - **aamihe.com está na Vercel** (26/10/2026): a renovação Let's Encrypt do site no servidor foi desligada (`LETSENCRYPT='no'`; o certificado actual fica até expirar) e o cron `vd-banir` (que bloqueava IPs pelos registos
   do aamihe) saiu de `/etc/cron.d` (o script `deploy/seguranca/vd-banir-ips` fica, para outros sites atrás da Cloudflare). **A conta aamihe NÃO se apaga:** o correio do aamihe.com ainda é aqui (MX `mail.aamihe.com`, 3 caixas, 6,6 MB),
   há 2 crons de WordPress, a base `aamihe_aamihe_bd` e uma pessoa do painel ligada à conta.
+  O Silva quer que a conta só ocupe espaço com correio (site de 623 MB e base de 71 MB a sair). **Cópia final verificada** em `/root/backups-removidos/aamihe-site-final/` (tar do Hestia de 25/10, dados do site em zstd testados, dump da
+  base): o `v-delete-web-domain` só apaga o site (vhost, PHP, ficheiros), não toca no correio, nas caixas nem na zona DNS; a base e os 2 crons apagam-se à parte. Pendente de confirmação explícita do apagamento.
 - **"Reprocessar DNS"** cria agora também `webmail.<domínio>` (A, sem proxy), além de mail, ftp, pop, smtp, MX, SPF e DMARC: o Hestia exige-o para emitir o certificado de e-mail.
 - **DNS:** o "Reprocessar DNS" não usa o servidor anterior (o IP vem do Hestia ou de `NEXT_PUBLIC_SERVER_IP`, que em produção é `169.58.148.144`); o IP do Hetzner (`37.27.17.25`) só podia vir de
   `deploy/env.production.template` e de `scripts/sync-directadmin-vercel-env.sh`, já corrigidos. Um domínio só tem o DNS da Cloudflare se os nameservers do registador forem os dela. Um domínio
