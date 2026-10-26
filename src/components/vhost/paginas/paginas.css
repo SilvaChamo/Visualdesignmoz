@@ -9002,7 +9002,7 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    align-items: center;
    justify-content: space-between;
    gap: calc(8px * var(--z, 1));
-   margin-bottom: calc(10px * var(--z, 1))
+   margin-bottom: calc(12px * var(--z, 1))
 }
 
 .vh .mais-titulo h3 {
@@ -9013,6 +9013,58 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    display: flex;
    gap: calc(6px * var(--z, 1));
    flex-shrink: 0
+}
+
+/* Menu do telemóvel (Silva, 26/10/2026): cabeçalho com fundo suave e uma linha por baixo — Admin | Gestão à esquerda, Sair e Fechar à
+   direita, na mesma linha. Sem o botão das línguas (a língua escolhe-se na entrada e vale para todo o projecto).
+   Os quatro botões têm a mesma altura e acompanham a largura do ecrã (--mb: ~30px aos 320px, no máximo 36px). */
+.vh .mais-cab {
+   --mb: calc(clamp(29px, 9.4vw, 36px) * var(--z, 1));
+   display: flex;
+   align-items: center;
+   justify-content: space-between;
+   gap: calc(10px * var(--z, 1));
+   margin: calc(-18px * var(--z, 1)) calc(-16px * var(--z, 1)) calc(14px * var(--z, 1));
+   padding: calc(12px * var(--z, 1)) calc(16px * var(--z, 1));
+   background: var(--soft);
+   border-bottom: 1px solid var(--line)
+}
+
+.vh .mais-cab h3 {
+   margin: 0
+}
+
+.vh .mais-cab .mais-titulo-acoes {
+   display: flex;
+   gap: calc(6px * var(--z, 1));
+   min-width: 0;
+   flex-shrink: 0
+}
+
+/* Admin e Gestão juntos ocupam metade da largura do cabeçalho (Silva, 26/10/2026), repartida por igual entre os dois */
+.vh .mais-cab .mais-niveis {
+   flex: 0 0 50%;
+   display: grid;
+   grid-template-columns: repeat(2, minmax(0, 1fr));
+   gap: calc(6px * var(--z, 1));
+   min-width: 0
+}
+
+.vh .mais-cab .mais-niveis .btn {
+   padding: 0 calc(4px * var(--z, 1))
+}
+
+.vh .mais-cab .btn {
+   height: var(--mb);
+   min-height: 0;
+   padding: 0 calc(var(--mb) * .42);
+   justify-content: center;
+   font-size: clamp(calc(11.5px * var(--z, 1)), 3.6vw, calc(13px * var(--z, 1)))
+}
+
+.vh .mais-cab .btn.iconbtn {
+   width: var(--mb);
+   padding: 0
 }
 
 .vh .mais-niveis {
@@ -9188,7 +9240,11 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
 }
 
 .vh .gaveta .mais-titulo {
-   margin-bottom: 0
+   margin-bottom: calc(12px * var(--z, 1))
+}
+
+.vh .gaveta .mais-titulo h3 {
+   margin: 0
 }
 
 @media(min-width:769px) {
@@ -13900,11 +13956,11 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    --h-campo: calc(34px * (.75 + .25 * min(var(--fs0, 1), 1)) * var(--z, 1))
 }
 
-/* Barra lateral dinâmica (Silva, 23/10/2026): a largura do menu segue a escala do texto (275 px a 1440 px) para nunca cortar uma letra e não alargar sem
+/* Barra lateral dinâmica (Silva, 23/10/2026): a largura do menu segue a escala do texto (248 px a 1440 px) para nunca cortar uma letra e não alargar sem
    necessidade; os nomes do menu e a conta nunca levam reticências (a conta passa à linha de baixo se for preciso) */
 @media (min-width: 769px) {
    .vh .navcol:not(#x) {
-      width: calc(275px * max(var(--fs0, 1), .88) * var(--z, 1) * .95)
+      width: calc(275px * max(var(--fs0, 1), .88) * var(--z, 1) * .9)
    }
 }
 
@@ -14902,4 +14958,13 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    .vh .tema-cats {
       grid-template-columns: 1fr
    }
+}
+
+/* Cartão «O domínio ainda não recebe e-mail neste servidor»: o texto e o botão formam um só bloco, juntos (Silva, 26/10/2026) */
+.vh .card.empty.sem-email > p {
+   margin: 0 0 calc(10px * var(--z, 1))
+}
+
+.vh .card.empty.sem-email > .btn:not(#x) {
+   margin-top: 0
 }

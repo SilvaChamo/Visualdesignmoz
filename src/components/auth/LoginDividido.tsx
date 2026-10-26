@@ -14,8 +14,8 @@ import { Globe, Mail, Moon, Server, Sun, SunMoon, type LucideIcon } from 'lucide
 import { useTheme } from '@/contexts/ThemeContext'
 import { useI18n } from '@/lib/i18n'
 
-/** a mesma chave de língua que a entrada do painel lê */
-const LINGUA_LS = 'visualhost_lang'
+/** a mesma chave de língua que o site e o painel leem */
+const LINGUA_LS = 'vd-lang'
 
 /** O modelo aprovado (Silva, 13/10/2026): no computador, a aba branca com o logótipo a entrar pela foto. Montado uma
  *  só vez pelo layout de src/app/(entrada) — as quatro páginas de entrada trocam só o conteúdo do cartão */

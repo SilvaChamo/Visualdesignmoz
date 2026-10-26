@@ -13,10 +13,11 @@ import { CACHE_DADOS_VHOST, apagarDadosVhost, guardarDadosVhost, tirarEntrada } 
 import { idDispositivoPresenca } from '@/lib/vhost-presenca-id';
 import { COOKIE_TEMA, lerTema, valorCookieTema, type TemaConta } from '@/lib/vhost-tema-conta';
 import { translate, type Lang } from './i18n';
+import { useI18n } from '@/lib/i18n';
 import { EntradaPainel, EsperaEntrada, LINGUA_LS } from './entrada';
 import { CodigoDoisPassos } from './dois-passos';
 import { auth, supabase } from '@/lib/supabase-client';
-import { MoreMenuModal } from './modals';
+import { MenuExtraModal, MoreMenuModal } from './modals';
 import { SCREENS, denyScreen, placeholder, type Screen } from './screens';
 import { PesquisaNaPagina } from './pesquisa-pagina';
 import { useTituloAjustado } from './titulo-ajustado';
@@ -180,7 +181,7 @@ function comPreferencias(s: St): St {
   const n = { ...s };
   try {
     if (localStorage.getItem('visualhost_dashtab') === 'menu') n.dashTab = 'menu';
-    const lg = localStorage.getItem(LINGUA_LS);
+    const lg = localStorage.getItem(LINGUA_LS) || localStorage.getItem('visualhost_lang');
     if (lg === 'pt' || lg === 'en') n.lang = lg;
   } catch {}
   return n;
@@ -476,6 +477,7 @@ function PaginaSlot({ p, oculta, onPronta, registar }: { p: Pagina; oculta: bool
 export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSessao = false }: { versao?: string; dados?: DadosServidor | null; tema?: TemaConta | null; semSessao?: boolean }) {
   // conta os pedidos ao site para a linha de carregamento do topo (antes de o painel pedir os dados)
   useState(() => instalarContador());
+  const { lang: langSite, setLang: definirLangSite } = useI18n();
   const { theme: temaGlobal, system: temaAutomatico, setTheme: definirTemaGlobal, followSystem: seguirAparelho } = useTheme();
   const pathname = usePathname() || BASE;
   // Entrada pelo login do site: o painel abre sem recarregar a página (src/components/auth/LoginForm.tsx), por isso não
@@ -535,6 +537,18 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
   useEffect(() => {
     if (ref.current.theme !== temaGlobal) commit({ ...ref.current, theme: temaGlobal, themePreview: null });
   }, [commit, temaGlobal]);
+
+  // Uma só língua em todo o projecto: a que se escolhe na entrada, no site ou nas preferências vale para o site e para o painel.
+  // Só segue quem não mudou: se mudou o site, o painel segue; se mudou o painel, o site segue (sem voltar atrás ao arrancar).
+  const langVista = useRef({ site: langSite, painel: st.lang });
+  useEffect(() => {
+    const v = langVista.current;
+    if (langSite !== v.site && st.lang !== langSite) commit({ ...ref.current, lang: langSite });
+    else if (st.lang !== v.painel && langSite !== st.lang) definirLangSite(st.lang);
+    v.site = langSite;
+    v.painel = st.lang;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [langSite, st.lang]);
 
   const pushUrl = (path: string, replace = false) => {
     const url = BASE + path;
@@ -919,7 +933,7 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
     };
     const onClick = (e: MouseEvent) => {
       const el = e.target as Element | null;
-      if (!el?.closest?.('#pop') && !el?.closest?.('.rb.lang') && !el?.closest?.('#acct')) setPop(null);
+      if (!el?.closest?.('#pop') && !el?.closest?.('#acct')) setPop(null);
     };
     document.addEventListener('keydown', onKey);
     document.addEventListener('click', onClick);
@@ -1085,6 +1099,10 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
   const level = allowed.includes(st.level) ? st.level : allowed[0];
   const missing = !st.deny && !SCREENS[GLOBAL[st.page] ? st.page : level + '/' + st.page] && !(GLOBAL[st.page] ? gItem(st) : findItem(level, st.page));
   const s: St = { ...st, level, deny: st.deny || (missing ? { type: '404' } : null) };
+  /** páginas do grupo «Extras» (Webmail, Mailmarketing, phpMyAdmin) que o plano da conta deixa ver: o menu extra da barra de baixo */
+  const extrasVisiveis = allowed.includes('utilizador')
+    ? (MENU.utilizador.find(([g]) => g === 'Extras')?.[1] ?? []).filter((it) => hasFeatOf(s, it.feat, it.id, 'utilizador'))
+    : [];
   const t = (text: string) => translate(st.lang, text);
   // balões no menu: encomenda nova, cancelada ou actualizada (e pagamentos por confirmar, para o administrador)
   const avisosMenu = useAvisosEncomendas(st.carga === 'ok' && !!st.login && !st.stack.length, st.acc[st.login]?.role === 'admin', s.page === 'encomendas', toast);
@@ -1537,10 +1555,6 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
                   <i className="fa-solid fa-folder-open" />
                 </div>
               )}
-              <div className="rb lang" title={t('Idioma')} onClick={(e) => openPop('lang', e.currentTarget)}>
-                <i className="fa-solid fa-globe" />
-                <b>{st.lang.toUpperCase()}</b>
-              </div>
               <div className="rb" title={t('Pesquisar funcionalidades (Ctrl+K)')} onClick={openSearch}>
                 <i className="fa-solid fa-magnifying-glass" />
               </div>
@@ -1756,8 +1770,9 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
         <nav className="tabbar" id="tabbar">
           {/* sem o Início: a casa já está na faixa por baixo da barra de cima (Silva, 16/10/2026) */}
           {/* só as páginas que o plano da conta deixa ver (Admin › Acessos por plano) */}
-          {[...TABBAR[level].filter(([id]) => id !== 'inicio' && vh.hasFeat(findItem(level, id)?.feat, id)), ['mais', 'fa-bars', 'Mais'] as [string, string, string]].map(([id, fa, label]) => (
-            <a key={id} className={s.page === id ? 'on' : ''} onClick={() => (id === 'mais' ? setGaveta(true) : go(id))}>
+          {/* o último botão abre o menu extra (Webmail, Mailmarketing e phpMyAdmin: o grupo «Extras»); o menu completo abre pelo ☰ da barra de cima (Silva, 26/10/2026) */}
+          {[...TABBAR[level].filter(([id]) => id !== 'inicio' && vh.hasFeat(findItem(level, id)?.feat, id)), ...(extrasVisiveis.length ? [['extra', 'fa-ellipsis', 'Extra'] as [string, string, string]] : [])].map(([id, fa, label]) => (
+            <a key={id} className={s.page === id ? 'on' : ''} onClick={() => (id === 'extra' ? vh.openM(<MenuExtraModal itens={extrasVisiveis} />) : go(id))}>
               <i className={'fa-solid ' + fa} />
               {t(label)}
             </a>
@@ -1800,18 +1815,6 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
 
         {/* Pequenos menus da barra de ícones (idioma) e da conta */}
         <div className={'pop' + (pop ? ' on' : '')} id="pop" style={pop ? { left: pop.left, top: pop.top, bottom: pop.bottom } : undefined}>
-          {pop?.kind === 'lang' &&
-            (
-              [
-                ['pt', 'Português'],
-                ['en', 'English'],
-              ] as const
-            ).map(([k, label]) => (
-              <a key={k} onClick={() => vh.setLang(k)}>
-                <span>{label}</span>
-                {st.lang === k && <i className="fa-solid fa-check" />}
-              </a>
-            ))}
           {pop?.kind === 'conta' && (
             <>
               <div className="pop-acct">
