@@ -160,24 +160,6 @@ export function RelatorioDns({ dominio, itens, onFechar }: { dominio: string; it
   );
 }
 
-/** O relatório do DNS numa janela (Silva, 26/10/2026): o mesmo no «Reprocessar DNS» da gestão do domínio e no «Conectar domínio no servidor» do e-mail */
-export function abrirRelatorioDns(vh: VH, dominio: string, itens: ItemRel[]) {
-  const { t, openM, closeM } = vh;
-  openM(
-    <>
-      <h3>{t('DNS reprocessado')}</h3>
-      <div style={{ margin: '14px 0', maxHeight: '60vh', overflowY: 'auto' }}>
-        <RelatorioDns dominio={dominio} itens={itens} />
-      </div>
-      <div className="mfoot">
-        <button className="btn r" onClick={closeM}>
-          {t('Fechar')}
-        </button>
-      </div>
-    </>,
-  );
-}
-
 export type ResultadoDns = { ok: boolean; aviso: string; itens: ItemRel[] };
 /** Pede ao servidor que reprocesse o DNS de um domínio e devolve o relatório. `ligarEmail`: o ecrã de e-mail usa o mesmo
  *  botão e, se o domínio ainda não recebe e-mail neste servidor, o servidor liga-o antes de repor os registos */
@@ -194,12 +176,12 @@ export async function reprocessarUm(vh: VH, dominio: string, ligarEmail = false)
 
 /** Reprocessar o DNS de vários domínios, um a um, e mostrar numa janela o relatório de cada um: repõe o site e o
  *  e-mail (SPF, DKIM, DMARC, MX), serve domínios registados em qualquer registador e confere no fim. */
-async function reprocessarVarios(vh: VH, nomes: string[]) {
+export async function reprocessarVarios(vh: VH, nomes: string[], ligarEmail = false) {
   const { t, openM, closeM } = vh;
   const resultados: { d: string; r: ResultadoDns }[] = [];
   for (const [i, dominio] of nomes.entries()) {
     vh.toast(t('A reprocessar o DNS…') + ' ' + dominio + ' (' + (i + 1) + '/' + nomes.length + ')');
-    resultados.push({ d: dominio, r: await reprocessarUm(vh, dominio) });
+    resultados.push({ d: dominio, r: await reprocessarUm(vh, dominio, ligarEmail) });
   }
   vh.toast(t('DNS reprocessado'));
   openM(
@@ -217,6 +199,7 @@ async function reprocessarVarios(vh: VH, nomes: string[]) {
       </div>
     </>,
   );
+  return resultados.map((x) => x.r);
 }
 
 function nomeDnsPertence(nome: string, dominio: string, host: string): boolean {
@@ -1151,10 +1134,7 @@ function VerDominio({ d }: { d: string }) {
                 texto={t('Repõe na Cloudflare os registos do site e do e-mail deste domínio que estiverem em falta ou errados. O que já está certo fica como está.')}
                 ok="Reprocessar"
                 onOk={async () => {
-                  vh.toast(t('A reprocessar o DNS…'));
-                  const r = await reprocessarUm(vh, d);
-                  vh.toast(r.aviso);
-                  abrirRelatorioDns(vh, d, r.itens);
+                  const [r] = await reprocessarVarios(vh, [d]);
                   if (r.ok) ler();
                 }}
               />,
@@ -1778,7 +1758,7 @@ function Dns() {
           onRecarregar={ler}
           umaLinha
           barraFora
-          empilhar="botoes-em-baixo"
+          empilhar={false}
           empty="Nenhum registo encontrado para este filtro"
           cols={[
             {

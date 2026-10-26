@@ -14,7 +14,7 @@ import { EMAIL_PLANS, emailPlanByProductName } from '@/lib/email-plans';
 import { Stat } from '../ui';
 import { Check, DataTable, MaisOpcoes, novaSenha, Senha, Switch, Tabs } from './componentes';
 import { Confirmar } from './pacotes';
-import { abrirRelatorioDns, reprocessarUm } from './dominios';
+import { reprocessarVarios } from './dominios';
 import { AO_ABRIR, EsperaPagina, FUNDO, useGet, useNaMemoria } from '../carga';
 import { corUso } from '../cor-uso';
 
@@ -187,13 +187,10 @@ function SemEmail({ d }: { d: string }) {
         disabled={ocupado}
         onClick={async () => {
           setOcupado(true);
-          vh.toast(t('A reprocessar o DNS…'));
           try {
-            const r = await reprocessarUm(vh, d, true);
-            vh.toast(r.aviso);
+            const [r] = await reprocessarVarios(vh, [d], true);
             lerEmail(vh.me, d).catch(() => null); // a página passa a mostrar as caixas e os reencaminhamentos
             if (r.ok) vh.recarregar(true);
-            abrirRelatorioDns(vh, d, r.itens);
           } finally {
             setOcupado(false);
           }
