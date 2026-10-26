@@ -36,6 +36,7 @@ function ajustar() {
     el.style.fontSize = '';
     el.style.whiteSpace = '';
     el.style.textOverflow = '';
+    el.style.overflowWrap = '';
     el.style.display = '';
   }
   const topo = document.querySelector<HTMLElement>('.vh header.top');
@@ -59,6 +60,8 @@ function ajustar() {
       else {
         el.style.whiteSpace = 'normal';
         el.style.textOverflow = 'clip';
+        // um domínio comprido não tem espaços: sem isto a linha de baixo nunca chegava a existir e o fim ficava cortado
+        el.style.overflowWrap = 'anywhere';
       }
     }
   }
