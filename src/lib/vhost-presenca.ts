@@ -87,3 +87,13 @@ export async function localDoIp(ip: string): Promise<string> {
     return '';
   }
 }
+
+/** Cidade e país do IP só se já estiverem em memória; se não, pede-os por trás para a próxima vez (não atrasa a resposta). */
+export function localDoIpEmMemoria(ip: string): string {
+  if (!ip) return '';
+  if (PRIVADO.test(ip)) return 'Rede local';
+  const g = locais.get(ip);
+  if (g && g.ate > Date.now()) return g.local;
+  void localDoIp(ip);
+  return '';
+}

@@ -22,3 +22,18 @@ CREATE INDEX IF NOT EXISTS vhost_activity_history_created_idx
 ALTER TABLE public.vhost_activity_history ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.vhost_activity_history FROM anon, authenticated;
 GRANT ALL ON public.vhost_activity_history TO service_role;
+
+-- 25/10/2026 (Contas ligadas › Histórico por sessões): de onde e com que aparelho foi cada acção
+ALTER TABLE public.vhost_activity_history ADD COLUMN IF NOT EXISTS ip TEXT NOT NULL DEFAULT '';
+ALTER TABLE public.vhost_activity_history ADD COLUMN IF NOT EXISTS aparelho TEXT NOT NULL DEFAULT '';
+
+-- "Limpar histórico": o que vem dos registos do servidor (WordPress) não se apaga; esconde-se o que for anterior a esta marca.
+-- escopo: 'todas' ou 'conta:<nome da conta do servidor>'
+CREATE TABLE IF NOT EXISTS public.vhost_history_limpeza (
+  escopo TEXT PRIMARY KEY,
+  limpo_em TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE public.vhost_history_limpeza ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.vhost_history_limpeza FROM anon, authenticated;
+GRANT ALL ON public.vhost_history_limpeza TO service_role;
