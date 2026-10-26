@@ -133,6 +133,20 @@ jobs:
               { grep -hE "Accepted (publickey|password)" /var/log/auth.log /var/log/auth.log.1 2>/dev/null; journalctl -u ssh -u sshd --since "2026-10-26 00:00" --no-pager 2>/dev/null | grep -E "Accepted (publickey|password)"; } | grep -E "Oct 26|2026-10-26" | awk '{ for (i=1;i<=NF;i++) { if ($i=="for") u=$(i+1); if ($i=="from") ip=$(i+1) } print u, ip, $NF }' | sort | uniq -c | sort -rn | head -15
               echo "(fim)"
               echo
+              echo "=== Quem regravou o /legacy do Osher: o que os registos mostram na hora de cada gravação (hora do servidor, CAT) ==="
+              for hm in 08:53 14:57 15:10 16:22 16:09; do
+                echo "--- ${hm}"
+                for lg in /var/log/nginx/domains/oshercollective.com.log /var/log/apache2/domains/oshercollective.com.log /var/log/nginx/domains/oshercollective.com.log.1 /var/log/apache2/domains/oshercollective.com.log.1; do
+                  [ -f "$lg" ] && grep -h "26/Oct/2026:${hm}:" "$lg" 2>/dev/null | grep -vE "GET /(wp-content|wp-includes)|\.(css|js|png|jpe?g|webp|svg|woff2?|ico)( |\?)" | cut -c1-260 | head -6
+                done
+              done
+              echo "--- FTP/SFTP (vsftpd e sshd) que mencionam o utilizador do site ou o legacy, hoje"
+              grep -hE "legacy|oshercollective" /var/log/vsftpd.log /var/log/vsftpd.log.1 /var/log/xferlog 2>/dev/null | grep -E "Oct 26|26 Oct|2026-10-26" | cut -c1-240 | tail -15
+              { grep -hE "oshercollective" /var/log/auth.log /var/log/auth.log.1 2>/dev/null; journalctl --since "2026-10-26 00:00" --no-pager 2>/dev/null | grep -E "sshd|sftp|vsftpd" | grep "oshercollective"; } | grep -E "Oct 26|2026-10-26" | cut -c1-240 | tail -15
+              echo "--- processos do utilizador do site agora"
+              ps -u oshercollective -o pid,etime,cmd 2>/dev/null | cut -c1-200 | head -12
+              echo "(fim)"
+              echo
               echo "=== Cópias de wp-config (data, tamanho, nome) ==="
               find /home -maxdepth 6 \( -name 'wp-config*.bak' -o -name 'wp-config.php.*' -o -name 'wp-config-*' -o -name 'wp-config.*.php' \) -not -path '*/.vh-lixo/*' -printf '%TY-%Tm-%Td %8s  %p\n' 2>/dev/null | head -30
               echo "(fim)"
