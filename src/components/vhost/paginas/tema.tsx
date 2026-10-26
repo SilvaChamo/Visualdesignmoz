@@ -12,6 +12,12 @@ type Cores = { primary: string; safe: string; danger: string; warning: string; r
 const CHAVES: (keyof Cores)[] = ['primary', 'safe', 'danger', 'warning', 'railBg', 'railInk', 'botoes'];
 const coresDe = (c: ReturnType<typeof getThemeColors>): Cores => ({ primary: c.primary, safe: c.safe, danger: c.danger, warning: c.warning, railBg: c.railBg, railInk: c.railInk, botoes: c.botoes });
 
+/** a cor do ícone de cada quadrado das cores é posta directamente no elemento, com prioridade sobre qualquer folha de estilo
+ *  (as cores automáticas dos ícones do painel pintavam estes ícones de azul e verde por cima das do tema) */
+const corNoIcone = (cor: string) => (el: HTMLElement | null) => {
+  el?.style.setProperty('color', cor, 'important');
+};
+
 export function ThemeCustomizerView() {
   const vh = useVH();
   const { s, t, nav, setColorPreset, saveThemeColors, previewThemeColors, toggleTheme, setRadius, setBrand, toast } = vh;
@@ -616,7 +622,7 @@ export function ThemeCustomizerView() {
                           }}
                           title="1º Fundo: Background da Barra Compacta"
                         >
-                          <i className="fa-solid fa-layer-group tema-sw-ic" />
+                          <i className="fa-solid fa-layer-group tema-sw-ic" ref={corNoIcone(corIcones)} />
                         </div>
 
                         {/* 2. Ícones (Cor dos Ícones da Barra) */}
@@ -634,7 +640,7 @@ export function ThemeCustomizerView() {
                           }}
                           title="2º Ícones: Ícones da Barra Compacta"
                         >
-                          <i className="fa-solid fa-icons tema-sw-ic" />
+                          <i className="fa-solid fa-icons tema-sw-ic" ref={corNoIcone(currentRailBg)} />
                         </div>
 
                         {/* 3. Links (Links & Destaques) */}
@@ -652,7 +658,7 @@ export function ThemeCustomizerView() {
                           }}
                           title="3º Links: Links & Destaques do Painel"
                         >
-                          <i className="fa-solid fa-link tema-sw-ic" />
+                          <i className="fa-solid fa-link tema-sw-ic" ref={corNoIcone('#fff')} />
                         </div>
 
                         {/* 4. Botões (Botões & Bolinhas de Mensagens) */}
@@ -670,7 +676,7 @@ export function ThemeCustomizerView() {
                           }}
                           title="4º Botões: Botões & Bolinhas de Mensagens"
                         >
-                          <i className="fa-solid fa-circle-dot tema-sw-ic" />
+                          <i className="fa-solid fa-circle-dot tema-sw-ic" ref={corNoIcone('#fff')} />
                         </div>
                       </div>
 
