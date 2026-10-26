@@ -7,7 +7,7 @@ import {
 import { getProfileForAuthUser } from '@/lib/profile-db';
 import { belongsToCurrentPanel, resolveAccountPanelSite } from '@/lib/panel-tenant';
 import { ADMIN_BOOTSTRAP_EMAILS } from '@/lib/panel-user-registry';
-import { loginRateLimitKey, checkAndRegisterLoginAttempt, clearLoginAttempts } from '@/lib/login-rate-limit';
+import { loginRateLimitKey, checkAndRegisterLoginAttempt, clearLoginAttempts, mensagemBloqueio } from '@/lib/login-rate-limit';
 import { isHestiaOnlyDeploy } from '@/lib/hosting-provider';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
     const rateLimit = await checkAndRegisterLoginAttempt(rateLimitKey);
     if (!rateLimit.allowed) {
       return NextResponse.json(
-        { success: false, error: 'Demasiadas tentativas. Tente novamente daqui a alguns minutos.' },
+        { success: false, error: mensagemBloqueio(rateLimit.retryAfterSeconds) },
         { status: 429, headers: { 'Retry-After': String(rateLimit.retryAfterSeconds) } },
       );
     }

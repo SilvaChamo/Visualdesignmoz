@@ -8,13 +8,21 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-/** DESLIGADO temporariamente a pedido do Silva (13/10/2026, madrugada): o bloqueio de 15 min impedia-o de entrar
- *  enquanto se corrigia o login. Voltar a pôr `true` quando o login estiver estável. */
-export const BLOQUEIO_POR_TENTATIVAS_ATIVO = false;
+/** Ligado outra vez a 26/10/2026 (esteve desligado desde 13/10, quando o bloqueio de 15 min impedia o Silva de entrar
+ *  enquanto se corrigia o login). Só funciona com a tabela e as funções criadas na base de dados
+ *  (`scripts/migrate-login-rate-limit.sql`): sem elas falha "aberto" e deixa entrar. */
+export const BLOQUEIO_POR_TENTATIVAS_ATIVO = true;
 
-const MAX_ATTEMPTS = 5;
+// A função SQL bloqueia na tentativa de ordem MAX_ATTEMPTS: com 6, as 5 primeiras falhadas passam e a 6.ª já fica bloqueada
+const MAX_ATTEMPTS = 6;
 const WINDOW_SECONDS = 5 * 60;
 const BLOCK_SECONDS = 15 * 60;
+
+/** Aviso de bloqueio, numa linha, igual em todos os logins (`segundos` vem do `Retry-After`). */
+export function mensagemBloqueio(segundos: number): string {
+  const minutos = Math.max(1, Math.ceil((segundos || BLOCK_SECONDS) / 60));
+  return `Bloqueado por tentativas falhadas. Volte a tentar daqui a ${minutos} min.`;
+}
 
 const MIGRATION_SQL = `
 CREATE TABLE IF NOT EXISTS login_attempts (
@@ -77,6 +85,14 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION clear_login_attempts(p_key TEXT) RETURNS VOID AS $$
   DELETE FROM login_attempts WHERE attempt_key = p_key;
 $$ LANGUAGE sql;
+
+ALTER TABLE login_attempts ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE login_attempts FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION register_login_attempt(TEXT, INTEGER, INTEGER, INTEGER) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION clear_login_attempts(TEXT) FROM PUBLIC, anon, authenticated;
+GRANT ALL ON TABLE login_attempts TO service_role;
+GRANT EXECUTE ON FUNCTION register_login_attempt(TEXT, INTEGER, INTEGER, INTEGER) TO service_role;
+GRANT EXECUTE ON FUNCTION clear_login_attempts(TEXT) TO service_role;
 `;
 
 let schemaReady = false;

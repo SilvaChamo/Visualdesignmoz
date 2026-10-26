@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { checkAndRegisterLoginAttempt, clearLoginAttempts, loginRateLimitKey } from '@/lib/login-rate-limit';
+import { checkAndRegisterLoginAttempt, clearLoginAttempts, loginRateLimitKey, mensagemBloqueio } from '@/lib/login-rate-limit';
 import { isHestiaOnlyDeploy } from '@/lib/hosting-provider';
 import { createClient as clienteComCookies } from '@/utils/supabase/server';
 
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
   const chave = loginRateLimitKey(req, 'utilizador:' + pedido);
   const limite = await checkAndRegisterLoginAttempt(chave);
   if (!limite.allowed) {
-    return NextResponse.json({ erro: 'Demasiadas tentativas. Tente novamente daqui a alguns minutos.' }, { status: 429, headers: { 'Retry-After': String(limite.retryAfterSeconds) } });
+    return NextResponse.json({ erro: mensagemBloqueio(limite.retryAfterSeconds) }, { status: 429, headers: { 'Retry-After': String(limite.retryAfterSeconds) } });
   }
 
   if (adminDoDominio) {
