@@ -10,7 +10,7 @@ import type { ScreenFn } from '../screens';
 import type { BaseDados, Domain } from '../types';
 import { findItem, hasFeatOf, pacoteDe } from '../state';
 import { getPhpMyAdminUrl } from '@/lib/server-config';
-import { VISUALDESIGN_DEFAULT_NS } from '@/lib/visualdesign-dns';
+import { VISUALDESIGN_DEFAULT_NS, ehNsNosso } from '@/lib/visualdesign-dns';
 import { Check, DataTable, Frm, MaisOpcoes, novaSenha, Row, Senha, Switch, Tabs, type Col } from './componentes';
 import { IndicacaoDominio, NoTopoCartao, useVariosDominios } from '../ui';
 import { tituloDoCartao } from '../titulos-cartao';
@@ -714,8 +714,7 @@ const dataLegivel = (s: string) => {
 const dnsAtivo = (dns: Detalhe['dns'], ns?: string[]) => {
   if (dns.fonte === 'cloudflare') return !!dns.cloudflareAutoritativa;
   if (dns.fonte !== 'hestia') return false;
-  const nossos = [VISUALDESIGN_DEFAULT_NS.ns1, VISUALDESIGN_DEFAULT_NS.ns2];
-  return !!ns && ns.length >= 2 && ns.every((n) => nossos.includes(n.toLowerCase().replace(/\.$/, '')));
+  return !!ns && ns.length >= 2 && ns.every(ehNsNosso);
 };
 /** Certificado SSL ativo: existe e ainda não expirou */
 const sslAtivo = (c: Detalhe['certificado']) => {
@@ -734,7 +733,7 @@ function Nameservers({ d, reg, publicos }: { d: string; reg: Registador; publico
   const vh = useVH();
   const { t } = vh;
   const vd = [VISUALDESIGN_DEFAULT_NS.ns1, VISUALDESIGN_DEFAULT_NS.ns2];
-  const ehVd = (l: string[]) => l.length >= 2 && l.every((n) => vd.includes(n.toLowerCase().replace(/\.$/, '')));
+  const ehVd = (l: string[]) => l.length >= 2 && l.every(ehNsNosso);
   // domínio registado fora: os nameservers públicos, só para ver (mudam-se no registador onde está)
   const fora = !!reg.erro;
   const guardados = reg.info?.nameservers || (fora ? publicos || [] : null);

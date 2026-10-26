@@ -15,6 +15,7 @@ import { Confirmar } from './pacotes';
 import { Carregando } from './avancado';
 import { mbTexto } from '../servidor';
 import type { Account } from '../types';
+import { ehNsNosso } from '@/lib/visualdesign-dns';
 
 export const ROTA = '/api/vhost/admin-servidor';
 export const num = (n: number, casas = 0) => n.toLocaleString('pt-PT', { maximumFractionDigits: casas, minimumFractionDigits: casas });
@@ -197,7 +198,7 @@ function Nameservers() {
   const vh = useVH();
   const { t } = vh;
   const [aba, setAba] = useState<AbaN>('todas');
-  const doServidor = (ns?: string[]) => !!ns?.length && ns.every((x) => NS_SERVIDOR.includes(x.toLowerCase()));
+  const doServidor = (ns?: string[]) => !!ns?.length && ns.every((x) => ehNsNosso(x) || NS_SERVIDOR.includes(x.toLowerCase()));
   const contas = Object.entries(vh.s.acc).map(([u, a]) => ({ u, a }));
   const linhas = contas.filter(({ a }) => (aba === 'todas' ? true : aba === 'servidor' ? doServidor(a.ns) : !doServidor(a.ns)));
   const mudar = (k: string[]) => vh.openM(<MudarNs contas={k} onFeito={() => vh.recarregar(true)} />);

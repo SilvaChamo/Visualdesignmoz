@@ -1,0 +1,124 @@
+name: Ops - Balde do Hetzner para o Contabo
+
+# Passa o conteúdo do balde do Hetzner (visualdesign-storage) para o Contabo, para se poder cancelar a conta do Hetzner
+# (Silva, 26/10/2026). Em fases, para ver o que há antes de mexer:
+#   inventario  SÓ LÊ: espaço livre, o que ocupa espaço (aamihe incluído), o que há no balde e como se compara com o que está
+#               em cada site (sites WordPress com plugins do balde: mltmark.com, oshercollective.com, lirandzojewelry.com, msdn-moz.org).
+#   copiar      faz uma cópia completa do balde para /root/balde-hetzner-copia (rclone copy: só acrescenta, nunca apaga nem
+#               move; não toca nos sites). Recusa-se se não houver espaço livre para o balde inteiro mais 10 GB de folga.
+# A troca dos sites (tirar os plugins do balde e as imagens passarem a vir do Contabo) só se faz depois de se ver o resultado
+# destas duas fases. Corre com nice/ionice para não pesar nos outros sites do servidor (basededadosagro.com, etc.).
+
+on:
+  workflow_dispatch:
+    inputs:
+      fase:
+        description: 'inventario (só lê) ou copiar (cópia completa do balde, sem apagar nada)'
+        type: choice
+        options:
+          - inventario
+          - copiar
+        default: inventario
+
+concurrency:
+  group: ops-balde-hetzner
+  cancel-in-progress: false
+
+jobs:
+  balde:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Balde do Hetzner (inventário ou cópia)
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
+        env:
+          FASE: ${{ inputs.fase }}
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          port: 2234
+          username: root
+          key: ${{ secrets.CONTABO_SSH_KEY }}
+          command_timeout: 30m
+          envs: FASE
+          script: |
+            set -u
+            export PATH="$PATH:/usr/local/bin"
+            case "$FASE" in (inventario|copiar) ;; (*) echo "Fase inválida"; exit 1;; esac
+            BUCKET=visualdesign-storage
+            CONF=/root/.config/rclone/rclone.conf
+            COPIA=/root/balde-hetzner-copia
+            SITES="mltmark.com oshercollective.com lirandzojewelry.com msdn-moz.org aamihe.com entrecamposblog.com"
+            RC="nice -n 10 ionice -c3 rclone --config $CONF"
+
+            echo "=== Espaço no servidor ==="
+            df -h / /home /root 2>/dev/null | sort -u
+            echo
+            echo "=== O que mais ocupa em /home (2 níveis) ==="
+            nice -n 10 ionice -c3 du -xh --max-depth=2 /home 2>/dev/null | sort -rh | head -25
+            echo
+            echo "=== aamihe.com: pastas e bases de dados ==="
+            for p in $(find /home -maxdepth 4 -type d \( -path "*/web/aamihe.com" -o -path "*/domains/aamihe.com" \) 2>/dev/null); do du -sh "$p" 2>/dev/null; du -h --max-depth=2 "$p" 2>/dev/null | sort -rh | head -8; done
+            mysql -N -e "SELECT table_schema, ROUND(SUM(data_length+index_length)/1024/1024) AS MB FROM information_schema.tables GROUP BY table_schema ORDER BY MB DESC LIMIT 12" 2>&1 | head -14
+            echo "--- tabelas de tradução (TranslatePress) maiores que 5 MB"
+            mysql -N -e "SELECT table_schema, table_name, ROUND((data_length+index_length)/1024/1024) AS MB FROM information_schema.tables WHERE table_name LIKE '%trp%' AND (data_length+index_length) > 5*1024*1024 ORDER BY MB DESC LIMIT 15" 2>&1 | head -15
+            echo
+
+            echo "=== rclone e remoto do balde ==="
+            command -v rclone >/dev/null 2>&1 || { echo "rclone NÃO está instalado neste servidor"; exit 1; }
+            [ -f "$CONF" ] || { echo "Falta $CONF (remoto hetzner-s3 com as chaves do balde)"; exit 1; }
+            grep -E '^\[' "$CONF"
+            echo
+            echo "=== Balde $BUCKET ==="
+            $RC lsd "hetzner-s3:$BUCKET" 2>&1 | head -20
+            echo "--- prefixos em wp/"
+            $RC lsd "hetzner-s3:$BUCKET/wp" 2>&1 | head -40
+            echo "--- tamanho total"
+            $RC size "hetzner-s3:$BUCKET" --fast-list 2>&1
+
+            if [ "$FASE" = "inventario" ]; then
+              for d in $SITES; do
+                echo
+                echo "=================== $d ==================="
+                D=$(find /home -maxdepth 4 -type d -path "/home/*/web/$d/public_html" 2>/dev/null | head -1)
+                echo "pasta: ${D:-NÃO ENCONTRADA no Contabo}"
+                if [ -n "$D" ] && [ -f "$D/wp-config.php" ]; then
+                  echo "dono: $(stat -c %U "$D")"
+                  echo "--- wp-config (sem chaves nem segredos)"
+                  grep -nE "AS3CF_SETTINGS|serve-from-s3|remove-local-file|object-prefix|'bucket'|S3_UPLOADS|WP_CONTENT_URL|UPLOADS" "$D/wp-config.php" | grep -viE "key|secret" | cut -c1-200
+                  echo "--- plugins relacionados com o balde"
+                  ls "$D/wp-content/mu-plugins" "$D/wp-content/plugins" 2>/dev/null | grep -iE "hetzner|s3|offload|as3cf" | sort -u
+                  echo "--- uploads locais: $(du -sh "$D/wp-content/uploads" 2>/dev/null | cut -f1), $(find "$D/wp-content/uploads" -type f 2>/dev/null | wc -l) ficheiros"
+                elif [ -n "$D" ]; then
+                  echo "sem wp-config.php (WordPress já não está nesta pasta)"
+                fi
+                P="hetzner-s3:$BUCKET/wp/$d/uploads"
+                echo "--- no balde: $($RC size "$P" --fast-list 2>&1 | tr '\n' ' ')"
+                $RC lsf -R --files-only "$P" 2>/dev/null > /tmp/chaves_$d.txt
+                echo "ficheiros no balde: $(wc -l < /tmp/chaves_$d.txt), com pasta de versão (AAAA/MM/DDHHMMSS/): $(grep -cE '^[0-9]{4}/[0-9]{2}/[0-9]{8}/' /tmp/chaves_$d.txt)"
+                echo "exemplos:"; head -5 /tmp/chaves_$d.txt
+                if [ -n "$D" ] && [ -d "$D/wp-content/uploads" ]; then
+                  $RC check "$P" "$D/wp-content/uploads" --one-way --size-only --missing-on-dst /tmp/falta_$d.txt >/dev/null 2>&1
+                  echo "no balde mas NÃO no site (mesmo caminho): $(wc -l < /tmp/falta_$d.txt 2>/dev/null || echo ?)"
+                fi
+                rm -f /tmp/chaves_$d.txt /tmp/falta_$d.txt
+              done
+              echo
+              echo "Inventário concluído: nada foi alterado."
+              exit 0
+            fi
+
+            echo
+            echo "=== Cópia completa do balde para $COPIA ==="
+            BYTES=$($RC size "hetzner-s3:$BUCKET" --json --fast-list 2>/dev/null | python3 -c 'import sys,json; print(json.load(sys.stdin)["bytes"])' 2>/dev/null)
+            case "$BYTES" in (''|*[!0-9]*) echo "Não consegui saber o tamanho do balde — não copio"; exit 1;; esac
+            mkdir -p "$COPIA"
+            LIVRE=$(df -PB1 "$COPIA" | awk 'NR==2{print $4}')
+            FOLGA=$((10 * 1024 * 1024 * 1024))
+            echo "balde: $((BYTES / 1048576)) MB; livre: $((LIVRE / 1048576)) MB; folga exigida: 10240 MB"
+            if [ "$LIVRE" -lt $((BYTES + FOLGA)) ]; then
+              echo "SEM ESPAÇO para o balde inteiro com folga — não copio nada."
+              exit 1
+            fi
+            $RC copy "hetzner-s3:$BUCKET" "$COPIA" --fast-list --transfers 4 --checkers 8 --stats 60s --stats-one-line 2>&1 | tail -n 30
+            echo "--- comparação final (o que ainda falta ou difere)"
+            $RC check "hetzner-s3:$BUCKET" "$COPIA" --one-way --size-only --fast-list 2>&1 | tail -n 5
+            echo "cópia local: $(du -sh "$COPIA" | cut -f1) em $COPIA"
