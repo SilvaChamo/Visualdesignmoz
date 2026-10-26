@@ -257,9 +257,8 @@ export async function POST(req: NextRequest) {
   if (e) return NextResponse.json({ erro: e }, { status: 403 });
   const recusa = (erro: string, status = 400) => NextResponse.json({ erro }, { status });
   const call = async (cmd: string, args: string[]) => {
-    // ligar/desligar o e-mail de um domínio gera o DKIM e mexe no DNS e nas filas do servidor: leva mais do que os 5 s das
-    // outras operações e, ao desistir cedo, o pedido ficava a meio (o domínio sem e-mail e a mensagem "demorou a responder")
-    const x = await hestiaCall(cmd, args, /^v-(add|delete)-mail-domain$/.test(cmd) ? { timeoutMs: 60_000 } : undefined);
+    // ligar/desligar o e-mail de um domínio gera o DKIM e mexe no DNS e nas filas do servidor: damos-lhe folga (60 s) em vez dos 5 s das outras
+    const x = await hestiaCall(cmd, args, /^v-(add|delete)-mail-domain$/.test(cmd) ? { timeoutMs: 60_000, sshTimeoutMs: 60_000 } : undefined);
     return { ok: x.ok, error: x.error };
   };
   // `esquecer`: a alteração muda o que a leitura geral do servidor mostra (caixas, uso, domínios)
