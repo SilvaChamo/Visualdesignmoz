@@ -160,6 +160,24 @@ export function RelatorioDns({ dominio, itens, onFechar }: { dominio: string; it
   );
 }
 
+/** O relatório do DNS numa janela (Silva, 26/10/2026): o mesmo no «Reprocessar DNS» da gestão do domínio e no «Conectar domínio no servidor» do e-mail */
+export function abrirRelatorioDns(vh: VH, dominio: string, itens: ItemRel[]) {
+  const { t, openM, closeM } = vh;
+  openM(
+    <>
+      <h3>{t('DNS reprocessado')}</h3>
+      <div style={{ margin: '14px 0', maxHeight: '60vh', overflowY: 'auto' }}>
+        <RelatorioDns dominio={dominio} itens={itens} />
+      </div>
+      <div className="mfoot">
+        <button className="btn r" onClick={closeM}>
+          {t('Fechar')}
+        </button>
+      </div>
+    </>,
+  );
+}
+
 export type ResultadoDns = { ok: boolean; aviso: string; itens: ItemRel[] };
 /** Pede ao servidor que reprocesse o DNS de um domínio e devolve o relatório. `ligarEmail`: o ecrã de e-mail usa o mesmo
  *  botão e, se o domínio ainda não recebe e-mail neste servidor, o servidor liga-o antes de repor os registos */
@@ -973,7 +991,6 @@ function VerDominio({ d }: { d: string }) {
   const { det, erro, ler } = useDetalhe(x && !x.soEmail ? d : '');
 
   const reg = useRegistador(x && !x.soEmail ? d : '');
-  const [relatorio, setRelatorio] = useState<ItemRel[] | null>(null);
 
   useEffect(() => {
     if (s.dominio !== d) setDominio(d, false);
@@ -1135,10 +1152,9 @@ function VerDominio({ d }: { d: string }) {
                 ok="Reprocessar"
                 onOk={async () => {
                   vh.toast(t('A reprocessar o DNS…'));
-                  setRelatorio(null);
                   const r = await reprocessarUm(vh, d);
                   vh.toast(r.aviso);
-                  setRelatorio(r.itens);
+                  abrirRelatorioDns(vh, d, r.itens);
                   if (r.ok) ler();
                 }}
               />,
@@ -1216,7 +1232,6 @@ function VerDominio({ d }: { d: string }) {
           <i className="fa-solid fa-trash" />
           {t('Apagar')}
         </button>
-        {relatorio && <RelatorioDns dominio={d} itens={relatorio} onFechar={() => setRelatorio(null)} />}
       </aside>
       </div>
     </>

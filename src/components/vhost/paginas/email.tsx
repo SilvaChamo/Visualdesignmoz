@@ -14,7 +14,7 @@ import { EMAIL_PLANS, emailPlanByProductName } from '@/lib/email-plans';
 import { Stat } from '../ui';
 import { Check, DataTable, MaisOpcoes, novaSenha, Senha, Switch, Tabs } from './componentes';
 import { Confirmar } from './pacotes';
-import { RelatorioDns, reprocessarUm } from './dominios';
+import { abrirRelatorioDns, reprocessarUm } from './dominios';
 import { AO_ABRIR, EsperaPagina, FUNDO, useGet, useNaMemoria } from '../carga';
 import { corUso } from '../cor-uso';
 
@@ -169,7 +169,7 @@ function Carregando({ erro, ler }: { erro: string; ler: () => void }) {
  *  (Silva, 26/10/2026), e no fim mostra o relatório dos registos: o servidor liga primeiro o e-mail do domínio e repõe a seguir os registos */
 function SemEmail({ d }: { d: string }) {
   const vh = useVH();
-  const { t, openM, closeM } = vh;
+  const { t } = vh;
   const [ocupado, setOcupado] = useState(false);
   if (!d)
     return (
@@ -193,19 +193,7 @@ function SemEmail({ d }: { d: string }) {
             vh.toast(r.aviso);
             lerEmail(vh.me, d).catch(() => null); // a página passa a mostrar as caixas e os reencaminhamentos
             if (r.ok) vh.recarregar(true);
-            openM(
-              <>
-                <h3>{t('DNS reprocessado')}</h3>
-                <div style={{ margin: '14px 0', maxHeight: '60vh', overflowY: 'auto' }}>
-                  <RelatorioDns dominio={d} itens={r.itens} />
-                </div>
-                <div className="mfoot">
-                  <button className="btn r" onClick={closeM}>
-                    {t('Fechar')}
-                  </button>
-                </div>
-              </>,
-            );
+            abrirRelatorioDns(vh, d, r.itens);
           } finally {
             setOcupado(false);
           }
