@@ -1357,6 +1357,7 @@ function Subdominios() {
       tituloAcoes="Acção"
       umaLinha
       barraFora
+      empilhar={false}
       rows={rows}
       rowKey={(r) => r.id}
       search={(r) => r.nome}
