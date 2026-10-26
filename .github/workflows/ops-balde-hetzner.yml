@@ -36,6 +36,7 @@ on:
           - migrar
           - limpar
           - limpar-modelos
+          - logs-painel
         default: inventario
       dominio:
         description: 'Só para migrar e limpar: o domínio do WordPress (ex.: oshercollective.com)'
@@ -70,7 +71,7 @@ jobs:
           script: |
             set -u
             export PATH="$PATH:/usr/local/bin"
-            case "$FASE" in (inventario|verificar|varrer|copiar|migrar|limpar|limpar-modelos) ;; (*) echo "Fase inválida"; exit 1;; esac
+            case "$FASE" in (inventario|verificar|varrer|copiar|migrar|limpar|limpar-modelos|logs-painel) ;; (*) echo "Fase inválida"; exit 1;; esac
             BUCKET=visualdesign-storage
             CONF=/root/.config/rclone/rclone.conf
             COPIA=/root/balde-hetzner-copia
@@ -157,6 +158,29 @@ jobs:
               echo "=== Cópias de wp-config (data, tamanho, nome) ==="
               find /home -maxdepth 6 \( -name 'wp-config*.bak' -o -name 'wp-config.php.*' -o -name 'wp-config-*' -o -name 'wp-config.*.php' \) -not -path '*/.vh-lixo/*' -printf '%TY-%Tm-%Td %8s  %p\n' 2>/dev/null | head -30
               echo "(fim)"
+              exit 0
+            fi
+
+            if [ "$FASE" = "logs-painel" ]; then
+              MASC='s/[A-Za-z0-9_+\/=-]{32,}/***/g'
+              echo "=== Pedidos POST /api/vhost/dominio hoje: estados (nginx e apache do painel) ==="
+              for lg in /var/log/nginx/domains/visualdesignmoz.com.log /var/log/apache2/domains/visualdesignmoz.com.log; do
+                [ -f "$lg" ] && { echo "$lg"; grep -h "POST /api/vhost/dominio" "$lg" | grep "26/Oct/2026" | awk '{print $9}' | sort | uniq -c; }
+              done
+              echo "--- os de hoje com estado >= 400 (hora, estado, bytes)"
+              for lg in /var/log/nginx/domains/visualdesignmoz.com.log /var/log/apache2/domains/visualdesignmoz.com.log; do
+                [ -f "$lg" ] && grep -h "POST /api/vhost/dominio" "$lg" | grep "26/Oct/2026" | awk '$9 >= 400 {print $4, $9, $10}' | tail -15
+              done
+              echo "=== Ficheiros de registo do pm2 ==="
+              ls -la /root/.pm2/logs 2>/dev/null | grep -i visualdesign
+              echo "=== Erros do painel (pm2, últimas linhas; cadeias longas mascaradas) ==="
+              for f in /root/.pm2/logs/visualdesignmoz-error.log /root/.pm2/logs/visualdesignmoz-error-0.log; do
+                [ -f "$f" ] && { echo "--- $f"; tail -n 150 "$f" | sed -E "$MASC" | cut -c1-260; }
+              done
+              echo "=== Saída do painel que fala de dominio/apagar/eliminar (últimas) ==="
+              for f in /root/.pm2/logs/visualdesignmoz-out.log /root/.pm2/logs/visualdesignmoz-out-0.log; do
+                [ -f "$f" ] && { echo "--- $f"; grep -iE "apagar|eliminar|delete|dominio" "$f" | tail -n 25 | sed -E "$MASC" | cut -c1-260; }
+              done
               exit 0
             fi
 
