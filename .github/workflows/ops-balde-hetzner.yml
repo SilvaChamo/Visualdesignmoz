@@ -174,11 +174,10 @@ jobs:
                 case "$NOTA_EM" in (*[!A-Za-z0-9_./-]*|*..*|/*) echo "nota_em inválido"; exit 1;; esac
                 F="$D/$NOTA_EM"
                 if [ ! -f "$F" ]; then echo "nota: o ficheiro $NOTA_EM não existe"
-                elif grep -q "NOTA-BALDE-HETZNER" "$F"; then echo "nota: já existe em $NOTA_EM"
                 else
                   TS=$(date +%Y%m%d-%H%M%S); B="/root/balde-hetzner-troca/nota-$DOMINIO-$TS"; mkdir -p "$B"; cp -p "$F" "$B/$(printf '%s' "$NOTA_EM" | tr '/' '_')"
-                  NOTA="<!-- NOTA-BALDE-HETZNER (Silva, 26/10/2026): nada neste site deve apontar ao balde do Hetzner (hel1.your-objectstorage.com), que vai ser cancelado. Os ficheiros estão em /wp-content/uploads/ deste domínio: use esses URLs, por exemplo https://$DOMINIO/wp-content/uploads/AAAA/MM/ficheiro.webp. Ver regras.md. -->"
-                  awk -v nota="$NOTA" '{ print } !feito && /<head([ \t][^>]*)?>/ { print nota; feito = 1 }' "$F" > "$F.novo" && cat "$F.novo" > "$F"; rm -f "$F.novo"
+                  NOTA="<!-- NOTA-BALDE-HETZNER (Silva, 26/10/2026): nada neste site deve apontar ao balde do Hetzner (Object Storage), que vai ser cancelado. Os ficheiros estão em /wp-content/uploads/ deste domínio: use esses URLs, por exemplo https://$DOMINIO/wp-content/uploads/AAAA/MM/ficheiro.webp (sem a pasta de versão de 8 números). Ver regras.md. -->"
+                  grep -v "NOTA-BALDE-HETZNER" "$F" | awk -v nota="$NOTA" '{ print } !feito && /<head([ \t][^>]*)?>/ { print nota; feito = 1 }' > "$F.novo" && cat "$F.novo" > "$F"; rm -f "$F.novo"
                   if grep -q "NOTA-BALDE-HETZNER" "$F"; then echo "nota deixada em $NOTA_EM (original em $B)"; else echo "nota NÃO inserida (não achei <head>)"; fi
                 fi
                 echo "links ao balde em $NOTA_EM: $(grep -c 'your-objectstorage' "$F" 2>/dev/null)"
