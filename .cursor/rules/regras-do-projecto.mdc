@@ -50,3 +50,8 @@ systemd fora do pm2), outros sites de clientes, o Supabase e o e-mail. Nenhum é
 restart all/resurrect`, `pkill -f`, `fuser -k` fora da 3002 (o deploy só faz `pm2 reload visualdesignmoz`); nunca apagar/fechar ramos, PRs ou
 segredos que mencionem um domínio sem perguntar; antes de apagar código ou rotas de API ver quem as chama de fora (crons, webhooks); depois de
 publicar, confirmar `basededadosagro.com` e `visualdesignmoz.com` (200). Regras completas em `regras.md`.
+
+**Nada aponta ao balde do Hetzner** (Silva, 26/10/2026): o Object Storage do Hetzner (`*.your-objectstorage.com`, balde `visualdesign-storage`) vai ser
+cancelado. Nenhuma página, ficheiro estático, CSS, plugin, script ou configuração deve apontar a ele: as imagens dos sites estão no próprio domínio,
+em `https://<domínio>/wp-content/uploads/AAAA/MM/ficheiro` (sem a pasta de 8 números que os URLs do balde levavam). Ao exportar ou copiar páginas,
+trocar esses URLs antes de as enviar. Verificar com o workflow `ops-balde-hetzner.yml` (fase `verificar`). Regras completas em `regras.md`.

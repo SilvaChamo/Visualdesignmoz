@@ -65,6 +65,26 @@ por "de teste". Nada disto pode voltar a acontecer. Quem mexer em deploy, servid
    ler a lista; um PR fechado reabre-se se o ramo existir.
 8. **Contas e dados reais** (domínios em `domain_renewals`, contas Hestia, e-mails) nunca se alteram nem apagam por "limpeza".
 
+# Nada aponta ao balde do Hetzner (Silva, 26/10/2026: "nada deve apontar ao balde do hetzner")
+
+O Object Storage do Hetzner (balde `visualdesign-storage`, endereços `*.your-objectstorage.com`) vai ser cancelado. Os sites WordPress do servidor
+(mltmark.com, oshercollective.com, lirandzojewelry.com, msdn-moz.org) já foram passados para o Contabo e já não o usam.
+
+- **Nada** deve apontar a ele: páginas, ficheiros estáticos (HTML exportado, CSS, JS), plugins, mu-plugins, `.htaccess`, `wp-config`, scripts, e-mails.
+  Não criar plugins nem scripts novos para o balde (os antigos saíram do git a 26/10/2026; ficam no histórico).
+- As imagens e ficheiros de cada site estão no próprio domínio: `https://<domínio>/wp-content/uploads/AAAA/MM/ficheiro.ext`. Os URLs do balde levavam
+  uma pasta de versão de 8 números a mais (`.../2026/08/02115232/ficheiro.webp`); essa pasta não existe no disco do Contabo.
+- **Ao exportar ou copiar uma página** (HTML estático, clone, página "legacy"), trocar primeiro os URLs do balde pelos do próprio domínio. Aconteceu a
+  26/10/2026: a página estática `oshercollective.com/legacy/` foi regravada três vezes, pela conta do próprio site (não pelo deploy nem pelo GitHub),
+  sempre com o ícone do balde, a partir de uma cópia antiga. Ficou uma nota em comentário HTML nessa página.
+- **Como verificar** (só lê): workflow manual `ops-balde-hetzner.yml`, fase `verificar` (todas as páginas de todos os WordPress: links ao balde,
+  ficheiros de `uploads` que não dão 200, sobras do Hetzner) e fase `varrer` (ficheiros do servidor que ainda mencionam o balde, crons, scripts
+  instalados). A fase `migrar` (um domínio) traz do balde o que faltar e tira o Offload Media e os plugins do Hetzner; `limpar` apaga cópias de
+  `wp-config` que mencionem o balde. Cópias de segurança de cada acção em `/root/balde-hetzner-troca/`, com os comandos para desfazer no registo.
+- **Decisão do Silva (26/10/2026): não é preciso listar o que mais existe no balde** ("se nada está ligado ao balde e está a funcionar perfeitamente, não falta nada; já se fez esta medição milhões de vezes").
+  O que conta é que nada aponte a ele e tudo funcione: `verificar` dá 0 links e 0 ficheiros em falta. As cópias antigas em `/root` que o mencionam
+  (`backup_sync_20261012`, `backups-removidos`, `vh-passagens`, `aamihe-contabo-prewipe-20260906`) são cópias de segurança e não ligam nada ao balde.
+
 # Como o site é publicado sem corte (Silva, 23/10/2026)
 
 O deploy é só o `.github/workflows/deploy-contabo.yml`, automático a cada merge em `main`; não se publica à mão no servidor.
