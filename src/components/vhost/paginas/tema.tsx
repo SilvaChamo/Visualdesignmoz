@@ -126,7 +126,7 @@ export function ThemeCustomizerView() {
                 boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
                 <div
                   style={{
                     width: 44,
@@ -148,11 +148,11 @@ export function ThemeCustomizerView() {
                   <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--red)', textTransform: 'uppercase' }}>
                     V-Host Colors
                   </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: 'var(--red)', marginTop: 8 }}>
+                    <span>{t('Explorar Cores')}</span>
+                    <i className="fa-solid fa-arrow-right" style={{ fontSize: 11 }} />
+                  </div>
                 </div>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: 'var(--red)' }}>
-                <span>{t('Explorar Cores')}</span>
-                <i className="fa-solid fa-arrow-right" style={{ fontSize: 11 }} />
               </div>
             </div>
 
@@ -169,7 +169,7 @@ export function ThemeCustomizerView() {
                 boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
                 <div
                   style={{
                     width: 44,
@@ -191,11 +191,11 @@ export function ThemeCustomizerView() {
                   <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>
                     Layout & Radius
                   </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: 'var(--red)', marginTop: 8 }}>
+                    <span>{t('Ajustar Layout')}</span>
+                    <i className="fa-solid fa-arrow-right" style={{ fontSize: 11 }} />
+                  </div>
                 </div>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: 'var(--red)' }}>
-                <span>{t('Ajustar Layout')}</span>
-                <i className="fa-solid fa-arrow-right" style={{ fontSize: 11 }} />
               </div>
             </div>
 
@@ -212,7 +212,7 @@ export function ThemeCustomizerView() {
                 boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
                 <div
                   style={{
                     width: 44,
@@ -234,11 +234,11 @@ export function ThemeCustomizerView() {
                   <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>
                     Light / Dark
                   </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: 'var(--red)', marginTop: 8 }}>
+                    <span>{t('Alterar Modo')}</span>
+                    <i className="fa-solid fa-arrow-right" style={{ fontSize: 11 }} />
+                  </div>
                 </div>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: 'var(--red)' }}>
-                <span>{t('Alterar Modo')}</span>
-                <i className="fa-solid fa-arrow-right" style={{ fontSize: 11 }} />
               </div>
             </div>
 
@@ -255,7 +255,7 @@ export function ThemeCustomizerView() {
                 boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
                 <div
                   style={{
                     width: 44,
@@ -277,11 +277,11 @@ export function ThemeCustomizerView() {
                   <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>
                     Branding
                   </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: 'var(--red)', marginTop: 8 }}>
+                    <span>{t('Definir Marca')}</span>
+                    <i className="fa-solid fa-arrow-right" style={{ fontSize: 11 }} />
+                  </div>
                 </div>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: 'var(--red)' }}>
-                <span>{t('Definir Marca')}</span>
-                <i className="fa-solid fa-arrow-right" style={{ fontSize: 11 }} />
               </div>
             </div>
           </div>
