@@ -80,7 +80,7 @@ async function setServiceSuspended(
   const verb = suspended ? 'suspender' : 'reactivar';
 
   if (row.server === 'Mail') {
-    if (provider !== 'hestia') return { ok: false, error: `${domain}: plano de email fora do Hestia — ${verb} à mão` };
+    if (provider !== 'hestia') return { ok: false, error: `${domain}: plano de email fora do Vhost — ${verb} à mão` };
     const mail = suspended
       ? await hestiaAdapter.suspendMailDomain(owner, domain)
       : await hestiaAdapter.unsuspendMailDomain(owner, domain);

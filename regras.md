@@ -614,6 +614,16 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
   Cloudflare (pede cartão; 10 GB grátis, as cópias recentes ocupam cerca de 4 GB; a API responde "enable R2 through the Dashboard" até lá), criar o balde e a chave só dele, configurar o rclone e ligar o cron das 07:00 (`/etc/cron.d/vd-backup-externo`). A
   palavra-passe de cifra tem de existir também fora do servidor, sem ela as cópias não se abrem. O aamihe ficou com 12 MB (só correio); a cópia do site está em `/root/backups-removidos/aamihe-site-final/`.
 
+- **As mensagens ao utilizador dizem "Vhost", nunca "Hestia"** (Silva, 26/10/2026: "em vez de dizer o Hestia, dizer Vhost"). Erros, avisos, toasts e textos do painel que falam do servidor
+  usam "Vhost" (ex.: «O Vhost demorou a responder…»), e a tradução em inglês em `src/components/vhost/generated/data.ts` acompanha (a chave em português tem de ser igual ao texto do código).
+  Só mudam os textos que se vêem: nomes de funções, ficheiros, comandos (`v-…`), variáveis (`HESTIA_HOST`), caminhos e registos internos (`[cron/hestia-sync] …`) ficam como estão. Ficaram
+  de fora por trocarem o sentido (ver o relatório ao Silva): a tabela "o que o Hestia já faz / o que o VisualHost completa" (`data.ts`, `screens.tsx`, `ui.tsx`), «Atualizações › Hestia e VisualHost»,
+  «Painel Hestia» (o painel do próprio Hestia) e «Hestia {versão}» em Sistema (a versão não é do Vhost).
+- **Ligar o e-mail de um domínio é o mesmo botão do "Reprocessar DNS"** (Silva, 26/10/2026): no ecrã de e-mail, um domínio sem e-mail neste servidor mostra «Reprocessar DNS» (mesmo título, mesma
+  confirmação e mesmo relatório que em Domínios › Gerir domínio). O pedido `dns-reprocessar` leva `ligarEmail: true`: liga primeiro o domínio de e-mail (`v-add-mail-domain`, 60 s de limite) e repõe a
+  seguir os registos na Cloudflare (MX, SPF, DKIM, DMARC, mail/webmail). Os pedidos `v-add-mail-domain` e `v-delete-mail-domain` têm 60 s, não os 5 s do resto: com 5 s o painel desistia, o pedido
+  ficava a meio e aparecia «demorou a responder» com o domínio ainda sem e-mail. **Um domínio de e-mail ligado no Hestia não chega:** sem MX/SPF/DKIM na Cloudflare o e-mail não entra nem sai bem
+  (ver `producoes.visualdesignmoz.com`, 26/10/2026: só tinha o registo A e o servidor respondia «550 relay not permitted»).
 - **ModSecurity sem leitura das respostas só no oshercollective.com** (26/10/2026, o Silva confirmou): `apache2.ssl.conf_vd-modsec-resposta` (`SecResponseBodyAccess Off`) nesse site. As regras `RESPONSE-951`
   (fugas de erros de SQL) falhavam centenas de vezes por dia ("PCRE limits exceeded") nas páginas pesadas do Elementor, sem apanhar nada; não eram tentativas de acesso de ninguém. A protecção contra pedidos
   (o que quem visita envia) continua toda ligada: um `;cat /etc/passwd` e um `UNION SELECT` simulados continuam a dar 403. Nos outros sites não se mexeu (não têm essas falhas).

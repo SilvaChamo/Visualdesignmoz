@@ -368,7 +368,7 @@ export function ServerStatusModal({
         {/* Zona de Perigo / Reboot do Servidor */}
         <div className="pt-4 border-t border-zinc-200/80 dark:border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h4 className="text-xs font-bold text-zinc-900 dark:text-zinc-100">Reinício do Servidor Hestia</h4>
+            <h4 className="text-xs font-bold text-zinc-900 dark:text-zinc-100">Reinício do Servidor Vhost</h4>
             <p className="text-[11px] text-zinc-500 dark:text-zinc-400">Executa um reboot completo do sistema operativo em caso de lentidão persistente.</p>
           </div>
 

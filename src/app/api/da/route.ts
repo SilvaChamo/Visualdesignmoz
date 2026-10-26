@@ -716,7 +716,7 @@ async function tryHestiaAction(
         return { handled: false };
     }
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Erro interno (Hestia)';
+    const message = err instanceof Error ? err.message : 'Erro interno (Vhost)';
     return { handled: true, response: NextResponse.json({ success: false, error: message }, { status: 500 }) };
   }
 
@@ -827,7 +827,7 @@ async function tryHestiaMirrorRead(
         return { handled: false };
     }
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Erro interno (espelho Hestia)';
+    const message = err instanceof Error ? err.message : 'Erro interno (espelho Vhost)';
     return {
       handled: true,
       response: NextResponse.json({ success: false, error: message }, { status: 500 }),
@@ -861,7 +861,7 @@ export async function POST(req: NextRequest) {
       if (!daApi) {
         const mirrorRead = await tryHestiaMirrorRead(action, params, mirrorScope, managed);
         if (mirrorRead.handled) return mirrorRead.response;
-        return NextResponse.json({ success: false, error: `Acção "${action}" ainda não está disponível no Hestia.` }, { status: 501 });
+        return NextResponse.json({ success: false, error: `Acção "${action}" ainda não está disponível no Vhost.` }, { status: 501 });
       }
 
     let data: unknown;
@@ -1241,7 +1241,7 @@ export async function GET(req: NextRequest) {
       if (action === 'listPackages') {
         return NextResponse.json({ success: true, data: await listMirrorPackages(mirrorScope) });
       }
-      return NextResponse.json({ success: false, error: `GET action "${action}" ainda não está disponível no Hestia.` }, { status: 501 });
+      return NextResponse.json({ success: false, error: `GET action "${action}" ainda não está disponível no Vhost.` }, { status: 501 });
     }
 
     let data: unknown;

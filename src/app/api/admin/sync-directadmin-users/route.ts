@@ -105,7 +105,7 @@ async function syncFromHestia(admin: any): Promise<SyncResults> {
   const users = await hestiaAdapter.listUsers();
   for (const hestiaUser of users) {
     const webDomains = await hestiaAdapter.listWebDomains(hestiaUser.username).catch((error: any) => {
-      results.errors.push(`${hestiaUser.username}: ${error?.message || 'Erro ao listar domínios no Hestia'}`);
+      results.errors.push(`${hestiaUser.username}: ${error?.message || 'Erro ao listar domínios no Vhost'}`);
       return [];
     });
 
@@ -115,7 +115,7 @@ async function syncFromHestia(admin: any): Promise<SyncResults> {
       const emailAccounts = await hestiaAdapter
         .listMailAccounts(hestiaUser.username, domain)
         .catch((error: any) => {
-          results.errors.push(`${domain}: ${error?.message || 'Erro ao listar emails no Hestia'}`);
+          results.errors.push(`${domain}: ${error?.message || 'Erro ao listar emails no Vhost'}`);
           return [];
         });
 

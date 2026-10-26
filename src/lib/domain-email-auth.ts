@@ -78,7 +78,7 @@ async function applyRecordAnyProvider(
 
   if (fallback?.provider === 'hestia') {
     if (!fallback.owner) {
-      return { name: record.name, type: record.type, ok: false, error: 'Dono do domínio não identificado no Hestia' };
+      return { name: record.name, type: record.type, ok: false, error: 'Dono do domínio não identificado no Vhost' };
     }
     const hestiaAdapter = await import('@/lib/hestia-adapter');
     const result = await hestiaAdapter.addDnsRecord(

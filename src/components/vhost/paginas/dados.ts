@@ -98,7 +98,7 @@ export const RECURSOS: Campo[] = [
   { k: 'iowrite', t: 'Escrita máxima no disco', en: 'IO Write Bandwidth Max', ph: '5M', help: 'Velocidade máxima de escrita no disco.' },
   { k: 'iopswrite', t: 'Escritas por segundo', en: 'IOPS Write Max', ph: '1K', help: 'Máximo de operações de escrita no disco por segundo.' },
   { k: 'memhigh', t: 'Memória (abrandar acima de)', en: 'Memory High', ph: '1G', help: 'Acima deste valor, a conta fica mais lenta.' },
-  { k: 'memmax', t: 'Memória máxima', en: 'Memory Max', ph: '1G', help: 'Memória da conta (MEMORY_LIMIT do Hestia): acima deste valor a conta fica mais lenta; acima de 1,5 vezes, os processos dela são terminados, sem afectar as outras contas.' },
+  { k: 'memmax', t: 'Memória máxima', en: 'Memory Max', ph: '1G', help: 'Memória da conta (MEMORY_LIMIT do Vhost): acima deste valor a conta fica mais lenta; acima de 1,5 vezes, os processos dela são terminados, sem afectar as outras contas.' },
   { k: 'swap', t: 'Swap máximo', en: 'Swap Max', ph: '512M', help: 'Memória de troca (disco) que a conta pode usar.' },
   { k: 'cpuperiod', t: 'Período da quota de CPU', en: 'CPU Quota Period', ph: '100ms', help: 'Janela de tempo em que a quota de CPU se aplica (ex.: 100ms).' },
   { k: 'tasks', t: 'Máximo de tarefas', en: 'Tasks Max', ph: '512', help: 'Máximo de processos que a conta pode ter ao mesmo tempo.' },

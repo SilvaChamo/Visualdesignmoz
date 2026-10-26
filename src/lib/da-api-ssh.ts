@@ -10,7 +10,7 @@ import {
 } from '@/lib/directadmin-credentials';
 import { CANONICAL_DIRECTADMIN_PORT, normalizeDirectAdminHost } from '@/lib/directadmin-url';
 
-const DA_UNAVAILABLE = 'DirectAdmin não está disponível neste servidor (Hestia).';
+const DA_UNAVAILABLE = 'DirectAdmin não está disponível neste servidor (Vhost).';
 
 function isHestiaOnlyDeploy(): boolean {
   return (process.env.DEFAULT_HOSTING_PROVIDER || '').trim().toLowerCase() === 'hestia';

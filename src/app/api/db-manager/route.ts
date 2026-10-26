@@ -431,7 +431,7 @@ async function handleHestiaDatabaseAction(
   domain: string,
 ): Promise<NextResponse> {
   const hestiaUnsupported =
-    'Esta operação não está disponível no Hestia.';
+    'Esta operação não está disponível no Vhost.';
 
   try {
     switch (action) {
@@ -751,7 +751,7 @@ async function handleHestiaDatabaseAction(
         return NextResponse.json({ success: false, error: hestiaUnsupported }, { status: 400 });
       default:
         return NextResponse.json(
-          { success: false, error: `Acção "${action}" ainda não está disponível para contas Hestia.` },
+          { success: false, error: `Acção "${action}" ainda não está disponível para contas Vhost.` },
           { status: 400 },
         );
     }

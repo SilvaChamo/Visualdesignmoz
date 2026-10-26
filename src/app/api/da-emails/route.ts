@@ -89,7 +89,7 @@ export async function GET(req: NextRequest) {
 
       if (provider === 'hestia') {
         if (!owner) {
-          return NextResponse.json({ success: false, error: 'Dono do domínio não identificado no Hestia.' }, { status: 404 });
+          return NextResponse.json({ success: false, error: 'Dono do domínio não identificado no Vhost.' }, { status: 404 });
         }
         const accounts = await hestiaAdapter.listMailAccounts(owner, domain);
         const emails = accounts.map((a) => ({
@@ -156,7 +156,7 @@ export async function POST(req: NextRequest) {
 
       if (provider === 'hestia') {
         if (!owner) {
-          return NextResponse.json({ success: false, error: 'Dono do domínio não identificado no Hestia.' }, { status: 404 });
+          return NextResponse.json({ success: false, error: 'Dono do domínio não identificado no Vhost.' }, { status: 404 });
         }
         const result = await hestiaAdapter.addMailAccount(owner, domain, username, password, Number(quota) || undefined);
         if (!result.ok) {
@@ -207,7 +207,7 @@ export async function DELETE(req: NextRequest) {
 
     if (provider === 'hestia') {
       if (!owner) {
-        return NextResponse.json({ success: false, error: 'Dono do domínio não identificado no Hestia.' }, { status: 404 });
+        return NextResponse.json({ success: false, error: 'Dono do domínio não identificado no Vhost.' }, { status: 404 });
       }
       const result = await hestiaAdapter.deleteMailAccount(owner, domain, username);
       if (!result.ok) {
@@ -247,7 +247,7 @@ export async function PATCH(req: NextRequest) {
 
     if (provider === 'hestia') {
       if (!owner) {
-        return NextResponse.json({ success: false, error: 'Dono do domínio não identificado no Hestia.' }, { status: 404 });
+        return NextResponse.json({ success: false, error: 'Dono do domínio não identificado no Vhost.' }, { status: 404 });
       }
       const result = await hestiaAdapter.changeMailAccountPassword(owner, domain, username, password);
       if (!result.ok) {

@@ -88,7 +88,7 @@ async function requestDirectAdminHttp(
   credentials: DirectAdminCredentials,
 ): Promise<string> {
   if (isHestiaOnlyDeploy()) {
-    throw new Error('DirectAdmin não está disponível neste servidor (Hestia).');
+    throw new Error('DirectAdmin não está disponível neste servidor (Vhost).');
   }
   const base = buildDaBase();
   const url = new URL(`${base}/${endpoint}`);

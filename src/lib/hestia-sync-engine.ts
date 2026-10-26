@@ -59,7 +59,7 @@ export async function runHestiaFullSync(): Promise<HestiaSyncResult> {
   try {
     users = await listUsers();
   } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : 'Falha ao ler HestiaCP';
+    const msg = e instanceof Error ? e.message : 'Falha ao ler Vhost';
     return {
       ok: false,
       startedAt,

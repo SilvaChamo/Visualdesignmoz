@@ -56,7 +56,7 @@ async function missingDaCredsMessage(daUsername?: string | null): Promise<string
   if (daUsername) {
     const { getProviderByUsername } = await import('@/lib/hosting-provider');
     if ((await getProviderByUsername(daUsername)) === 'hestia') {
-      return 'Esta conta já está no Hestia — a gestão de DNS por aqui ainda só cobre contas DirectAdmin.';
+      return 'Esta conta já está no Vhost — a gestão de DNS por aqui ainda só cobre contas DirectAdmin.';
     }
   }
   return 'Credenciais de revendedor indisponíveis';
@@ -233,7 +233,7 @@ export async function POST(req: NextRequest) {
 
     if (provider === 'hestia') {
       if (!owner) {
-        return NextResponse.json({ success: false, error: 'Dono do domínio não identificado no Hestia.' }, { status: 404 });
+        return NextResponse.json({ success: false, error: 'Dono do domínio não identificado no Vhost.' }, { status: 404 });
       }
       const hestiaName = normalizeDnsNameForHestia(name, domain);
       const result = await hestiaAdapter.addDnsRecord(owner, domain, hestiaName, type, value, ttl);
@@ -339,7 +339,7 @@ export async function DELETE(req: NextRequest) {
 
     if (provider === 'hestia') {
       if (!owner) {
-        return NextResponse.json({ success: false, error: 'Dono do domínio não identificado no Hestia.' }, { status: 404 });
+        return NextResponse.json({ success: false, error: 'Dono do domínio não identificado no Vhost.' }, { status: 404 });
       }
       // O Hestia apaga por ID numérico próprio (não guardado no espelho) —
       // encontra-se o registo real a corresponder por nome+tipo+valor,
@@ -354,7 +354,7 @@ export async function DELETE(req: NextRequest) {
       if (!match) {
         // Já não existe no servidor — limpa o espelho na mesma para não ficar preso.
         await deleteMirrorDnsById(id);
-        return NextResponse.json({ success: true, message: 'Registo já não existia no Hestia; espelho limpo.' });
+        return NextResponse.json({ success: true, message: 'Registo já não existia no Vhost; espelho limpo.' });
       }
       const result = await hestiaAdapter.deleteDnsRecord(owner, domain, match.id);
       if (!result.ok) {
