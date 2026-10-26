@@ -8,19 +8,28 @@ name: Ops - Balde do Hetzner para o Contabo
 #   copiar      faz uma cópia completa do balde para /root/balde-hetzner-copia (rclone copy: só acrescenta, nunca apaga nem
 #               move; não toca nos sites). Precisa do remoto hetzner-s3 do rclone e recusa-se se não houver espaço livre para o
 #               balde inteiro mais 10 GB de folga.
-# A troca dos sites (tirar os plugins do balde e as imagens passarem a vir do Contabo) só se faz depois de se ver o resultado
-# destas duas fases. Corre com nice/ionice para não pesar nos outros sites do servidor (basededadosagro.com, etc.).
+#   migrar      (um domínio de cada vez) traz do balde, por HTTP público e sem chaves, os ficheiros que a biblioteca do WordPress
+#               tem no Offload Media e faltam no disco do Contabo (original e miniaturas); SÓ se os originais vierem todos,
+#               guarda cópia de segurança em /root/balde-hetzner-troca/, desactiva o Offload Media, tira os plugins do Hetzner
+#               (s3-endpoint-fix.php, vd-hetzner-media-urls.php), limpa a cache e confirma que a página já não chama o balde.
+#               Para desfazer: ver os comandos que a fase escreve no fim.
+# Corre com nice/ionice para não pesar nos outros sites do servidor (basededadosagro.com, etc.).
 
 on:
   workflow_dispatch:
     inputs:
       fase:
-        description: 'inventario (só lê) ou copiar (cópia completa do balde, sem apagar nada)'
+        description: 'inventario (só lê), copiar (cópia completa do balde, precisa do rclone) ou migrar (um domínio)'
         type: choice
         options:
           - inventario
           - copiar
+          - migrar
         default: inventario
+      dominio:
+        description: 'Só para migrar: o domínio do WordPress (ex.: oshercollective.com)'
+        type: string
+        default: ''
 
 concurrency:
   group: ops-balde-hetzner
@@ -34,17 +43,18 @@ jobs:
         uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         env:
           FASE: ${{ inputs.fase }}
+          DOMINIO: ${{ inputs.dominio }}
         with:
           host: ${{ secrets.CONTABO_HOST }}
           port: 2234
           username: root
           key: ${{ secrets.CONTABO_SSH_KEY }}
           command_timeout: 30m
-          envs: FASE
+          envs: FASE,DOMINIO
           script: |
             set -u
             export PATH="$PATH:/usr/local/bin"
-            case "$FASE" in (inventario|copiar) ;; (*) echo "Fase inválida"; exit 1;; esac
+            case "$FASE" in (inventario|copiar|migrar) ;; (*) echo "Fase inválida"; exit 1;; esac
             BUCKET=visualdesign-storage
             CONF=/root/.config/rclone/rclone.conf
             COPIA=/root/balde-hetzner-copia
@@ -72,6 +82,77 @@ jobs:
               echo "--- comparação final (o que ainda falta ou difere)"
               $RC check "hetzner-s3:$BUCKET" "$COPIA" --one-way --size-only --fast-list 2>&1 | tail -n 5
               echo "cópia local: $(du -sh "$COPIA" | cut -f1) em $COPIA"
+              exit 0
+            fi
+
+            if [ "$FASE" = "migrar" ]; then
+              case "$DOMINIO" in (''|*[!a-z0-9.-]*) echo "Indique o domínio do WordPress (ex.: oshercollective.com)"; exit 1;; esac
+              D=$(find /home -maxdepth 4 -type d -path "/home/*/web/$DOMINIO/public_html" 2>/dev/null | head -1)
+              [ -n "$D" ] && [ -f "$D/wp-config.php" ] || { echo "WordPress de $DOMINIO não encontrado no Contabo"; exit 1; }
+              U=$(stat -c %U "$D"); UP="$D/wp-content/uploads"; MU="$D/wp-content/mu-plugins"
+              W="sudo -u $U $WP --path=$D --skip-plugins --skip-themes"
+              WC="sudo -u $U $WP --path=$D"
+              sql() { $W db query "$1" --skip-column-names 2>/dev/null | grep -v '^$' | tail -n1; }
+              P=$($W db prefix 2>/dev/null | tail -1)
+              [ -n "$P" ] || { echo "wp-cli não respondeu (prefixo da base de dados)"; exit 1; }
+              TS=$(date +%Y%m%d-%H%M%S); B="/root/balde-hetzner-troca/$DOMINIO-$TS"; mkdir -p "$B"
+              ligacoes() { curl -sL -m 30 "$1" | grep -oE "https?://[a-z0-9.-]*your-objectstorage\.com[^\"' )<]*" | sort -u | wc -l; }
+              echo "=== $DOMINIO (utilizador $U) — cópia de segurança em $B ==="
+              echo "ANTES: página inicial com links ao balde: $(ligacoes "https://$DOMINIO/?vd=a$TS")"
+
+              echo "=== 1. Trazer do balde o que falta no disco ==="
+              ORIG_FALHAS=0; TRAZIDOS=0; MINI_FALHAS=0
+              $W db query "SELECT source_id, bucket, path FROM ${P}as3cf_items" --skip-column-names 2>/dev/null | grep -v '^$' > "$B/itens.txt"
+              echo "itens do Offload Media: $(wc -l < "$B/itens.txt")"
+              while IFS=$'\t' read -r id bkt key; do
+                case "$id" in (''|*[!0-9]*) continue;; esac
+                [ -n "$bkt" ] && [ -n "$key" ] || continue
+                rel=$(sql "SELECT meta_value FROM ${P}postmeta WHERE post_id=$id AND meta_key='_wp_attached_file' LIMIT 1")
+                meta=$(sql "SELECT meta_value FROM ${P}postmeta WHERE post_id=$id AND meta_key='_wp_attachment_metadata' LIMIT 1")
+                [ -n "$rel" ] || { echo "  item $id sem _wp_attached_file — salto"; continue; }
+                ldir=$(dirname "$rel"); kdir=$(dirname "$key"); orig=$(basename "$rel")
+                nomes="$orig $(printf '%s' "$meta" | grep -oE 's:4:"file";s:[0-9]+:"[^"]+"' | sed -E 's/^s:4:"file";s:[0-9]+:"//; s/"$//' | grep -v '/')"
+                for n in $nomes; do
+                  dest="$UP/$ldir/$n"; [ "$ldir" = "." ] && dest="$UP/$n"
+                  [ -s "$dest" ] && continue
+                  [ -d "$(dirname "$dest")" ] || { mkdir -p "$(dirname "$dest")"; chown "$U:$U" "$(dirname "$dest")"; }
+                  if curl -fsS -m 90 -o "$dest.parte" "https://hel1.your-objectstorage.com/$bkt/$kdir/$n" 2>/dev/null && [ -s "$dest.parte" ]; then
+                    mv "$dest.parte" "$dest"; chown "$U:$U" "$dest"; chmod 644 "$dest"; TRAZIDOS=$((TRAZIDOS + 1)); echo "  trazido: ${dest#$UP/}  ($(stat -c %s "$dest") bytes)"
+                  else
+                    rm -f "$dest.parte"
+                    if [ "$n" = "$orig" ]; then ORIG_FALHAS=$((ORIG_FALHAS + 1)); echo "  FALHOU o ORIGINAL: $bkt/$kdir/$n"; else MINI_FALHAS=$((MINI_FALHAS + 1)); echo "  miniatura não está no balde: $kdir/$n"; fi
+                  fi
+                done
+              done < "$B/itens.txt"
+              echo "trazidos: $TRAZIDOS; originais que falharam: $ORIG_FALHAS; miniaturas que o balde não tem: $MINI_FALHAS"
+              if [ "$ORIG_FALHAS" -gt 0 ]; then echo "Há originais que não vieram — NÃO mexo no site."; exit 1; fi
+
+              echo "=== 2. Tirar o balde do site ==="
+              $W option get active_plugins --format=json > "$B/active_plugins.json" 2>/dev/null
+              for f in s3-endpoint-fix.php vd-hetzner-media-urls.php hetzner-s3-uploads.php; do
+                if [ -f "$MU/$f" ]; then mv "$MU/$f" "$B/$f" && echo "  mu-plugin posto de lado: $f"; fi
+              done
+              if $WC plugin is-active amazon-s3-and-cloudfront 2>/dev/null; then
+                $WC plugin deactivate amazon-s3-and-cloudfront 2>&1 | tail -2
+                echo "amazon-s3-and-cloudfront" > "$B/desactivado.txt"
+              else echo "  Offload Media não estava activo"; fi
+
+              echo "=== 3. Limpar a cache ==="
+              $WC cache flush 2>&1 | tail -1
+              $WC eval 'if (function_exists("WP_Optimize") && WP_Optimize()->get_page_cache()) { WP_Optimize()->get_page_cache()->purge(); echo "cache de páginas do WP-Optimize limpa"; } else { echo "sem cache de páginas do WP-Optimize"; }' 2>&1 | tail -1
+              echo
+
+              echo "=== 4. Verificação ==="
+              echo "DEPOIS: página inicial com links ao balde: $(ligacoes "https://$DOMINIO/?vd=b$TS") (sem cache) e $(ligacoes "https://$DOMINIO/") (com cache)"
+              echo "página inicial: HTTP $(curl -s -o /dev/null -m 30 -w '%{http_code}' "https://$DOMINIO/")"
+              curl -sL -m 30 "https://$DOMINIO/?vd=c$TS" | grep -oE '<link[^>]*rel=.(shortcut )?icon.[^>]*>' | head -3
+              for href in $(curl -sL -m 30 "https://$DOMINIO/?vd=d$TS" | grep -oE '<link[^>]*rel=.(shortcut )?icon.[^>]*>' | grep -oE 'href=.[^"'"'"' ]+' | sed -E 's/^href=.//' | sort -u | head -3); do
+                echo "  ícone $href -> HTTP $(curl -s -o /dev/null -m 30 -w '%{http_code}' "$href")"
+              done
+              echo
+              echo "Para DESFAZER (no servidor, como root):"
+              echo "  mv $B/*.php $MU/"
+              echo "  sudo -u $U $WP --path=$D plugin activate amazon-s3-and-cloudfront"
               exit 0
             fi
 
@@ -156,7 +237,7 @@ jobs:
                   info=$($W db query "SELECT meta_value FROM ${P}postmeta WHERE meta_key='amazonS3_info' AND post_id=(SELECT post_id FROM ${P}postmeta WHERE meta_key='_wp_attached_file' AND meta_value='$rel' LIMIT 1)" --skip-column-names 2>/dev/null)
                   chave=$(printf '%s' "$info" | grep -oE 's:3:"key";s:[0-9]+:"[^"]+"' | sed -E 's/^s:3:"key";s:[0-9]+:"//; s/"$//' | head -1)
                   balde=$(printf '%s' "$info" | grep -oE 's:6:"bucket";s:[0-9]+:"[^"]+"' | sed -E 's/^s:6:"bucket";s:[0-9]+:"//; s/"$//' | head -1)
-                  guid=$($W db query "SELECT guid FROM ${P}posts WHERE ID=(SELECT post_id FROM ${P}postmeta WHERE meta_key='_wp_attached_file' AND meta_value='$rel' LIMIT 1)" --skip-column-names 2>/dev/null | tail -1)
+                  guid=$($W db query "SELECT guid FROM ${P}posts WHERE ID=(SELECT post_id FROM ${P}postmeta WHERE meta_key='_wp_attached_file' AND meta_value='$rel' LIMIT 1)" --skip-column-names 2>/dev/null | grep -v '^$' | tail -n1)
                   url=""
                   if [ -n "$chave" ]; then url="https://hel1.your-objectstorage.com/${balde:-$BUCKET}/$chave"; fi
                   case "$guid" in (*your-objectstorage.com*) url="$guid";; esac
@@ -170,7 +251,7 @@ jobs:
               fi
               rm -f /tmp/anexos_$$.txt /tmp/falta_$$.txt
               if [ -n "$($W db query "SHOW TABLES LIKE '${P}as3cf_items'" --skip-column-names 2>/dev/null)" ]; then
-                echo "--- tabela do Offload Media (${P}as3cf_items): $($W db query "SELECT COUNT(*) FROM ${P}as3cf_items" --skip-column-names 2>/dev/null | tail -1) linhas"
+                echo "--- tabela do Offload Media (${P}as3cf_items): $($W db query "SELECT COUNT(*) FROM ${P}as3cf_items" --skip-column-names 2>/dev/null | grep -v '^$' | tail -n1) linhas"
                 echo "(fonte, bucket, região, caminho no balde, caminho original, tamanho do extra_info)"
                 $W db query "SELECT source_id, bucket, region, path, original_path, LENGTH(extra_info) FROM ${P}as3cf_items ORDER BY id LIMIT 25" --skip-column-names 2>&1 | grep -vi deprecated | cut -c1-260
                 echo "--- extra_info do primeiro item (só nomes de ficheiros e tamanhos)"
