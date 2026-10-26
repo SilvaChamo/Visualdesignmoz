@@ -14861,31 +14861,3 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
 .vh .card.empty.sem-email > .btn:not(#x) {
    margin-top: 0
 }
-
-/* Telemóvel (≤768): a lista de DNS fica completa, como a do gestor de ficheiros — todas as colunas, cada registo numa só linha (o valor
-   longo de um TXT também) e a tabela desliza na horizontal (Silva, 26/10/2026) */
-@media (max-width: 768px) {
-   .vh .tbl[data-dt="dns"]:not(#x) td:nth-child(4) *:not(#x),
-   .vh .tbl[data-dt="dns"]:not(#x) td .dns-valor-caixa:not(#x) {
-      white-space: nowrap !important;
-      overflow-wrap: normal !important;
-      word-break: normal !important
-   }
-
-   /* a coluna «Acção» (Editar) também fica à vista: a lista é a completa */
-   .vh .tbl[data-dt="dns"]:not(#x) .dns-acoes > .btn-dns-edit:not(#x) {
-      display: inline-flex
-   }
-
-   .vh .tbl[data-dt="dns"]:not(#x) td.dt-acoes-linha:not(#x) {
-      display: table-cell
-   }
-
-   .vh .tbl[data-dt="dns"]:not(#x) td .dns-valor-caixa:not(#x) {
-      width: auto;
-      max-width: none;
-      max-height: none;
-      overflow: visible;
-      padding: 0
-   }
-}
