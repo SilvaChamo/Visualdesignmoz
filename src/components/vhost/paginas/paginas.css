@@ -15039,3 +15039,13 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
       border-top: 0
    }
 }
+
+/* "Opções" no fim da barra dos títulos (DataTable `acoesNoFim`, ex.: Rastreio de e-mail; Silva, 26/10/2026: «o botão acções está deslocado da lista»):
+   a coluna tem as classes do botão "Colunas" (só ícone, 28 × 28 px) e o texto «5 Opções ▾» saía da caixa para os dois lados, passando do fim das linhas.
+   O botão ocupa a largura do que tem lá dentro, e a coluna cresce com ele. */
+.vh .tbl thead th.dt-th-acoes-fim .btn:not(#x):not(#y) {
+   width: auto;
+   min-width: calc(28px * var(--z, 1));
+   padding: 0 calc(8px * var(--z, 1));
+   white-space: nowrap
+}
