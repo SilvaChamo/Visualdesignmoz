@@ -142,6 +142,18 @@ jobs:
               $WC eval 'if (function_exists("WP_Optimize") && WP_Optimize()->get_page_cache()) { WP_Optimize()->get_page_cache()->purge(); echo "cache de páginas do WP-Optimize limpa"; } else { echo "sem cache de páginas do WP-Optimize"; }' 2>&1 | tail -1
               echo
 
+              echo "=== 3a. Regras do balde no .htaccess (redirecionam para o balde o que não existe em uploads) ==="
+              HT="$D/.htaccess"
+              if [ -f "$HT" ] && grep -q "BEGIN VD-HETZNER-UPLOADS" "$HT"; then
+                cp -p "$HT" "$B/htaccess.antes"
+                IMUT=0; if lsattr "$HT" 2>/dev/null | awk '{print $1}' | grep -q i; then IMUT=1; chattr -i "$HT"; fi
+                sed '/# BEGIN VD-HETZNER-UPLOADS/,/# END VD-HETZNER-UPLOADS/d' "$HT" > "$HT.novo" && cat "$HT.novo" > "$HT"; rm -f "$HT.novo"
+                if [ "$IMUT" = 1 ]; then chattr +i "$HT"; fi
+                echo "  bloco VD-HETZNER-UPLOADS removido do .htaccess (original em $B/htaccess.antes)"
+              else
+                echo "  nenhum bloco VD-HETZNER-UPLOADS"
+              fi
+              [ -f "$HT" ] && echo "  linhas do .htaccess que ainda falam do balde: $(grep -c 'objectstorage' "$HT")"
               echo "=== 3b. Ficheiros estáticos (fora do WordPress) que ainda chamam o balde ==="
               ESTAT=$(nice -n 10 ionice -c3 grep -rIl --exclude-dir=cache --exclude-dir=uploads --exclude-dir=node_modules "your-objectstorage.com" "$D" 2>/dev/null | head -50)
               [ -n "$ESTAT" ] || echo "  nenhum"
@@ -172,6 +184,7 @@ jobs:
               echo
               echo "Para DESFAZER (no servidor, como root):"
               echo "  mv $B/*.php $MU/"
+              echo "  cp -p $B/htaccess.antes $D/.htaccess   (só se o .htaccess tiver sido alterado)"
               echo "  (ficheiros estáticos corrigidos: os originais estão em $B/estaticos/, com o caminho a _ em vez de /)"
               echo "  sudo -u $U $WP --path=$D plugin activate amazon-s3-and-cloudfront"
               exit 0
