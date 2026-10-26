@@ -8042,7 +8042,7 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
 }
 
 .vh .dom-info-l .btn {
-   white-space: normal;
+   white-space: nowrap;
    height: auto;
    min-height: calc(30px * var(--z, 1));
    text-align: left
@@ -8053,6 +8053,11 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    .vh .dom-info-l {
       grid-template-columns: minmax(0, 1fr) calc(14px * var(--z, 1));
       row-gap: calc(4px * var(--z, 1))
+   }
+
+   /* sem largura para o botão numa linha: aí o texto parte-se */
+   .vh .dom-info-l .btn {
+      white-space: normal
    }
 
    .vh .dom-info-l>span {
