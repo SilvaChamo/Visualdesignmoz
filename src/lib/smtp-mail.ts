@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer';
 import type Mail from 'nodemailer/lib/mailer';
+import type { SentMessageInfo } from 'nodemailer';
 
 export function getSmtpHost(): string {
   return (
@@ -272,7 +273,7 @@ function createWebmailSmtpTransport(authUser: string, authPass: string): Mail {
 export async function sendWebmailSmtpMail(
   input: SendSmtpMailInput,
   auth: { user: string; pass: string },
-): Promise<ReturnType<Mail['sendMail']>> {
+): Promise<SentMessageInfo> {
   const transport = createWebmailSmtpTransport(auth.user, auth.pass);
   transport.on('error', (err) => console.error('[smtp] erro tardio no transporte (webmail):', err));
   return transport.sendMail(input);
