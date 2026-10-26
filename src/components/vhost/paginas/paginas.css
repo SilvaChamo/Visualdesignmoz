@@ -6791,6 +6791,33 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    color: #e5e7eb
 }
 
+/* os três botões de tema, ligados por uma linha fina; o activo fica a vermelho */
+.vh .ent-temas {
+   display: flex;
+   align-items: center
+}
+
+.vh .ent-temas .ent-tema+.ent-tema {
+   margin-left: calc(12px * var(--z, 1));
+   position: relative
+}
+
+.vh .ent-temas .ent-tema+.ent-tema::before {
+   content: "";
+   position: absolute;
+   right: 100%;
+   top: 50%;
+   width: calc(12px * var(--z, 1));
+   height: 1px;
+   background: color-mix(in srgb, var(--ink) 25%, transparent)
+}
+
+.vh .ent-tema.on,
+.vh[data-theme=dark] .ent-tema.on {
+   background: #e3202c;
+   color: #fff
+}
+
 .vh .ent-lingua {
    position: relative
 }

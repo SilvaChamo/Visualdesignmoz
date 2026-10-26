@@ -10,6 +10,7 @@
 export const EN: Record<string, string> = {
   'Tema claro': 'Light theme',
   'Tema escuro': 'Dark theme',
+  'Tema do aparelho': 'Device theme',
   'Mudar para tema claro': 'Switch to light theme',
   'Mudar para tema escuro': 'Switch to dark theme',
   // checkout › domínio do plano de e-mail (17/10/2026)

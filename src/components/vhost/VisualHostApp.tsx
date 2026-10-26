@@ -476,7 +476,7 @@ function PaginaSlot({ p, oculta, onPronta, registar }: { p: Pagina; oculta: bool
 export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSessao = false }: { versao?: string; dados?: DadosServidor | null; tema?: TemaConta | null; semSessao?: boolean }) {
   // conta os pedidos ao site para a linha de carregamento do topo (antes de o painel pedir os dados)
   useState(() => instalarContador());
-  const { theme: temaGlobal, setTheme: definirTemaGlobal } = useTheme();
+  const { theme: temaGlobal, system: temaAutomatico, setTheme: definirTemaGlobal, followSystem: seguirAparelho } = useTheme();
   const pathname = usePathname() || BASE;
   // Entrada pelo login do site: o painel abre sem recarregar a página (src/components/auth/LoginForm.tsx), por isso não
   // há página do servidor a acertar — abre logo com a aparência guardada e a leitura que o login acabou de fazer, sem a
@@ -1396,11 +1396,18 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
         <EntradaPainel
           ocupado={ocupado}
           escuro={isDark}
+          automatico={temaAutomatico}
           lang={st.lang}
           voltarA={inicial.current && inicial.current !== '/' ? BASE + inicial.current : undefined}
-          onToggleTheme={() => {
-            const theme: St['theme'] = ref.current.theme === 'dark' ? 'light' : 'dark';
-            definirTemaGlobal(theme);
+          onTema={(modo) => {
+            let theme: St['theme'];
+            if (modo === 'system') {
+              seguirAparelho();
+              theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+            } else {
+              theme = modo;
+              definirTemaGlobal(theme);
+            }
             commit({ ...ref.current, theme });
           }}
           onLang={(l) => {
