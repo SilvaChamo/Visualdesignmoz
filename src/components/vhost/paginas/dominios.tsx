@@ -16,6 +16,7 @@ import { IndicacaoDominio, NoTopoCartao, useVariosDominios } from '../ui';
 import { tituloDoCartao } from '../titulos-cartao';
 import { CATEGORIAS_PHP, EXTENSOES_PHP, estadoExtensao, type EstadoExtensao, type ExtensaoPhp } from '@/lib/php-extensoes';
 import { Confirmar } from './pacotes';
+import { ApagarSite, corpoApagar, tipoDosDominios } from './apagar-site';
 import DomainSearch from '@/components/DomainSearchPainel';
 import { EsperaPagina, useGet, useNaMemoria } from '../carga';
 import { EN } from '../generated/data';
@@ -483,11 +484,10 @@ function ListaDominios({ abaDom = 'meus', abrirNovo = false }: { abaDom?: AbaDom
               fa: 'fa-trash',
               run: (k) =>
                 openM(
-                  <Confirmar
-                    titulo="Apagar domínios?"
-                    texto={'Vai apagar do servidor ' + k.join(', ') + ', com os ficheiros do site. As contas de e-mail do domínio ficam.'}
-                    ok="Apagar"
-                    onOk={() => varios(k, 'dominio-apagar', 'Apagado')}
+                  <ApagarSite
+                    dominios={k}
+                    tipo={tipoDosDominios(vh.a.domains, k)}
+                    aoApagar={(modo) => k.reduce<Promise<unknown>>((p, n) => p.then(() => noServidor(vh, corpoApagar(modo, n), 'Apagado: ' + n)), Promise.resolve())}
                   />,
                 ),
             },
@@ -1204,11 +1204,10 @@ function VerDominio({ d }: { d: string }) {
           className="dom-op perigo"
           onClick={() =>
             openM(
-              <Confirmar
-                titulo="Apagar domínio?"
-                texto={'Vai apagar ' + d + ' do servidor, com os ficheiros do site. Não se pode desfazer.'}
-                ok="Apagar"
-                onOk={async () => (await noServidor(vh, { acao: 'dominio-apagar', dominio: d }, 'Domínio apagado')) && nav('/' + vh.s.level + '/dominios')}
+              <ApagarSite
+                dominios={[d]}
+                tipo={x.soEmail ? 'email' : x.soDominio ? 'dominio' : 'site'}
+                aoApagar={async (modo) => (await noServidor(vh, corpoApagar(modo, d), 'Domínio apagado')) && nav('/' + vh.s.level + '/dominios')}
               />,
             )
           }

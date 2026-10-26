@@ -14791,3 +14791,47 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
       flex: 1 1 auto
    }
 }
+
+/* Popup "Apagar" um domínio: o que apagar (só o site, o site e a base, ou tudo) — Silva, 26/10/2026 */
+.vh .vh-apagar-ops {
+   display: flex;
+   flex-direction: column;
+   gap: calc(8px * var(--z, 1));
+   margin: calc(10px * var(--z, 1)) 0
+}
+
+.vh .vh-apagar-op {
+   display: flex;
+   align-items: flex-start;
+   gap: calc(10px * var(--z, 1));
+   padding: calc(10px * var(--z, 1)) calc(12px * var(--z, 1));
+   border: calc(1px * var(--z, 1)) solid var(--line);
+   border-radius: var(--r);
+   cursor: pointer
+}
+
+.vh .vh-apagar-op.on {
+   border-color: var(--red);
+   background: var(--tint)
+}
+
+.vh .vh-apagar-op input {
+   margin-top: calc(3px * var(--z, 1))
+}
+
+.vh .vh-apagar-op b {
+   display: block
+}
+
+.vh .vh-apagar-op small {
+   display: block;
+   margin-top: calc(2px * var(--z, 1));
+   font-size: calc(12px * var(--fs, 1));
+   color: var(--muted)
+}
+
+.vh .vh-apagar-aviso {
+   margin: calc(6px * var(--z, 1)) 0 0;
+   font-size: calc(12px * var(--fs, 1));
+   color: var(--red)
+}
