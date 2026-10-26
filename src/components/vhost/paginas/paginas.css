@@ -14892,7 +14892,7 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    margin-bottom: calc(24px * var(--z, 1))
 }
 
-@container (max-width: 900px) {
+@container (max-width: 960px) {
    .vh .tema-cats {
       grid-template-columns: repeat(2, minmax(0, 1fr))
    }

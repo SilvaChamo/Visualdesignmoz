@@ -120,28 +120,28 @@ export function ThemeCustomizerView() {
                 background: 'var(--card)',
                 border: '1px solid var(--line)',
                 borderRadius: 'calc(var(--r) + 2px)',
-                padding: '24px',
+                padding: '20px',
                 cursor: 'pointer',
                 transition: 'all 0.2s ease',
                 boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
               }}
             >
-              <div style={{ display: 'grid', gridTemplateColumns: '44px minmax(0, 1fr)', columnGap: 14, rowGap: 8 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '36px minmax(0, 1fr)', columnGap: 12, rowGap: 8 }}>
                 <div
                   style={{
-                    minHeight: 40,
+                    minHeight: 36,
                     borderRadius: 'var(--r)',
                     background: 'var(--tint)',
                     color: 'var(--red)',
                     display: 'grid',
                     placeItems: 'center',
-                    fontSize: 20,
+                    fontSize: 17,
                   }}
                 >
                   <i className="fa-solid fa-palette" />
                 </div>
                 <div>
-                  <h3 style={{ fontSize: 16, fontWeight: 800, margin: 0, color: 'var(--ink)' }}>
+                  <h3 style={{ fontSize: 15, fontWeight: 800, margin: 0, color: 'var(--ink)', whiteSpace: 'nowrap' }}>
                     {t('Cores')}
                   </h3>
                   <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--red)', textTransform: 'uppercase' }}>
@@ -162,28 +162,28 @@ export function ThemeCustomizerView() {
                 background: 'var(--card)',
                 border: '1px solid var(--line)',
                 borderRadius: 'calc(var(--r) + 2px)',
-                padding: '24px',
+                padding: '20px',
                 cursor: 'pointer',
                 transition: 'all 0.2s ease',
                 boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
               }}
             >
-              <div style={{ display: 'grid', gridTemplateColumns: '44px minmax(0, 1fr)', columnGap: 14, rowGap: 8 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '36px minmax(0, 1fr)', columnGap: 12, rowGap: 8 }}>
                 <div
                   style={{
-                    minHeight: 40,
+                    minHeight: 36,
                     borderRadius: 'var(--r)',
                     background: 'var(--soft)',
                     color: 'var(--ink)',
                     display: 'grid',
                     placeItems: 'center',
-                    fontSize: 20,
+                    fontSize: 17,
                   }}
                 >
                   <i className="fa-solid fa-shapes" />
                 </div>
                 <div>
-                  <h3 style={{ fontSize: 16, fontWeight: 800, margin: 0, color: 'var(--ink)' }}>
+                  <h3 style={{ fontSize: 15, fontWeight: 800, margin: 0, color: 'var(--ink)', whiteSpace: 'nowrap' }}>
                     {t('Layout & Cantos')}
                   </h3>
                   <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>
@@ -204,28 +204,28 @@ export function ThemeCustomizerView() {
                 background: 'var(--card)',
                 border: '1px solid var(--line)',
                 borderRadius: 'calc(var(--r) + 2px)',
-                padding: '24px',
+                padding: '20px',
                 cursor: 'pointer',
                 transition: 'all 0.2s ease',
                 boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
               }}
             >
-              <div style={{ display: 'grid', gridTemplateColumns: '44px minmax(0, 1fr)', columnGap: 14, rowGap: 8 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '36px minmax(0, 1fr)', columnGap: 12, rowGap: 8 }}>
                 <div
                   style={{
-                    minHeight: 40,
+                    minHeight: 36,
                     borderRadius: 'var(--r)',
                     background: 'var(--soft)',
                     color: 'var(--ink)',
                     display: 'grid',
                     placeItems: 'center',
-                    fontSize: 20,
+                    fontSize: 17,
                   }}
                 >
                   <i className="fa-solid fa-circle-half-stroke" />
                 </div>
                 <div>
-                  <h3 style={{ fontSize: 16, fontWeight: 800, margin: 0, color: 'var(--ink)' }}>
+                  <h3 style={{ fontSize: 15, fontWeight: 800, margin: 0, color: 'var(--ink)', whiteSpace: 'nowrap' }}>
                     {t('Modo de Exibição')}
                   </h3>
                   <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>
@@ -246,28 +246,28 @@ export function ThemeCustomizerView() {
                 background: 'var(--card)',
                 border: '1px solid var(--line)',
                 borderRadius: 'calc(var(--r) + 2px)',
-                padding: '24px',
+                padding: '20px',
                 cursor: 'pointer',
                 transition: 'all 0.2s ease',
                 boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
               }}
             >
-              <div style={{ display: 'grid', gridTemplateColumns: '44px minmax(0, 1fr)', columnGap: 14, rowGap: 8 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '36px minmax(0, 1fr)', columnGap: 12, rowGap: 8 }}>
                 <div
                   style={{
-                    minHeight: 40,
+                    minHeight: 36,
                     borderRadius: 'var(--r)',
                     background: 'var(--soft)',
                     color: 'var(--ink)',
                     display: 'grid',
                     placeItems: 'center',
-                    fontSize: 20,
+                    fontSize: 17,
                   }}
                 >
                   <i className="fa-solid fa-font" />
                 </div>
                 <div>
-                  <h3 style={{ fontSize: 16, fontWeight: 800, margin: 0, color: 'var(--ink)' }}>
+                  <h3 style={{ fontSize: 15, fontWeight: 800, margin: 0, color: 'var(--ink)', whiteSpace: 'nowrap' }}>
                     {t('Marca & Logótipo')}
                   </h3>
                   <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>
