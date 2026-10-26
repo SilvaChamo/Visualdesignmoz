@@ -14975,14 +14975,16 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
 @media (max-width: 768px) {
    .vh .tbl[data-dt="dominios"]:not(#x) tbody td:not(#x),
    .vh .tbl[data-dt="subdominios"]:not(#x) tbody td:not(#x),
-   .vh .tbl[data-dt^="contas-"]:not(#x) tbody td:not(#x) {
+   .vh .tbl[data-dt^="contas-"]:not(#x) tbody td:not(#x),
+   .vh .tbl[data-dt="email-contas"]:not(#x) tbody td:not(#x) {
       padding: calc(6.2px * var(--z, 1)) 0 calc(6.2px * var(--z, 1)) calc(12px * var(--z, 1));
       font-size: calc(12.2px * var(--z, 1))
    }
 
    .vh .tbl[data-dt="dominios"]:not(#x) thead th:not(#x):not(.dt-th-cols),
    .vh .tbl[data-dt="subdominios"]:not(#x) thead th:not(#x):not(.dt-th-cols),
-   .vh .tbl[data-dt^="contas-"]:not(#x) thead th:not(#x):not(.dt-th-cols) {
+   .vh .tbl[data-dt^="contas-"]:not(#x) thead th:not(#x):not(.dt-th-cols),
+   .vh .tbl[data-dt="email-contas"]:not(#x) thead th:not(#x):not(.dt-th-cols) {
       padding: calc(7px * var(--z, 1)) 0 calc(7px * var(--z, 1)) calc(12px * var(--z, 1));
       font-size: calc(13.2px * var(--z, 1))
    }
