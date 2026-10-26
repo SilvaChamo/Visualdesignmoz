@@ -470,6 +470,100 @@
    margin-top: calc(12px * var(--z, 1))
 }
 
+/* Contas ligadas: texto pequeno por baixo do dado principal, e o histórico por sessões (Silva, 25/10/2026) */
+.vh .vh-lig-sub {
+   font-size: calc(12px * var(--fs, 1));
+   color: var(--muted)
+}
+
+.vh .vh-hist-etiquetas {
+   display: inline-flex;
+   flex-wrap: wrap;
+   gap: calc(6px * var(--z, 1))
+}
+
+.vh .tbl tr.dt-clicavel {
+   cursor: pointer
+}
+
+.vh .tbl tr.dt-clicavel:hover td {
+   background: var(--tint)
+}
+
+.vh .tbl tr.dt-clicavel:focus-visible {
+   outline: calc(2px * var(--z, 1)) solid var(--red);
+   outline-offset: calc(-2px * var(--z, 1))
+}
+
+.vh .vh-hist-voltar {
+   display: inline-flex;
+   align-items: center;
+   gap: calc(6px * var(--z, 1));
+   margin: 0 0 calc(10px * var(--z, 1)) calc(-8px * var(--z, 1));
+   padding: calc(3px * var(--z, 1)) calc(8px * var(--z, 1));
+   font-size: calc(12px * var(--fs, 1));
+   border: 0;
+   border-radius: var(--r);
+   background: none;
+   color: var(--muted);
+   font: inherit;
+   cursor: pointer
+}
+
+.vh .vh-hist-voltar:hover {
+   background: var(--soft);
+   color: var(--red)
+}
+
+.vh .vh-hist-resumo {
+   display: grid;
+   grid-template-columns: repeat(auto-fit, minmax(calc(170px * var(--z, 1)), 1fr));
+   gap: calc(14px * var(--z, 1));
+   margin: 0 0 calc(12px * var(--z, 1));
+   padding: calc(14px * var(--z, 1))
+}
+
+.vh .vh-hist-resumo > div {
+   display: flex;
+   flex-direction: column;
+   gap: calc(3px * var(--z, 1));
+   min-width: 0
+}
+
+.vh .vh-hist-resumo > div > span {
+   font-size: calc(12px * var(--fs, 1));
+   color: var(--muted)
+}
+
+.vh .vh-hist-resumo > div > em {
+   font-size: calc(12px * var(--fs, 1));
+   font-style: normal;
+   color: var(--muted);
+   overflow-wrap: anywhere
+}
+
+.vh .vh-hist-filtro {
+   display: flex;
+   flex-wrap: wrap;
+   gap: calc(8px * var(--z, 1));
+   margin: 0 0 calc(12px * var(--z, 1))
+}
+
+.vh .tbl tr.vh-hist-mau td:first-child {
+   box-shadow: inset calc(3px * var(--z, 1)) 0 0 var(--red)
+}
+
+.vh .vh-hist-detalhe {
+   padding: calc(2px * var(--z, 1)) 0 calc(4px * var(--z, 1));
+   font-size: calc(12px * var(--fs, 1));
+   color: var(--ink);
+   white-space: normal
+}
+
+.vh .vh-hist-detalhe i {
+   margin-right: calc(6px * var(--z, 1))
+}
+
 @media(max-width:768px) {
    .vh .vh-historico-selector {
       width: 100%;
@@ -8357,6 +8451,26 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    .vh .tbl.dt-empilhar-tablet tbody td:is(.dt-ate-1050, .dt-ate-1300, .dt-ate-1600) {
       display: flex
    }
+
+   /* a regra das tabelas de computador (colunas com 1% de largura) deixava cada dado com 5 px e o texto partia-se
+      letra a letra: em blocos o dado ocupa a largura do bloco, como no telemóvel */
+   .vh .tbl.dt-empilhar-tablet:not([data-dt="dns"]) :is(th, td):not(:last-child) {
+      width: auto
+   }
+
+   .vh .tbl.dt-empilhar-tablet tbody td {
+      overflow-wrap: anywhere;
+      min-width: 0
+   }
+
+   .vh .tbl.dt-empilhar-tablet tbody td .cell>div {
+      min-width: 0
+   }
+
+   .vh .tbl.dt-empilhar-tablet tbody td .cell :is(b, span) {
+      white-space: normal;
+      overflow-wrap: anywhere
+   }
 }
 
 /* Computador (1301–1600) e portátil (1051–1300) — pedido do Silva, 13/10/2026: Dashboard mais compacta (cartões mais
@@ -13078,14 +13192,16 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    }
 }
 
-/* Cartões de números: cada informação numa só linha (Silva, 22/10/2026) — o título, o número e o que vem a seguir não partem; se não
-   cabe, o texto pequeno encolhe em vez de passar para a linha de baixo */
+/* Cartões de números: cada informação numa só linha (Silva, 22/10/2026) — o título, o número e o que vem a seguir não partem; só se
+   não cabe passa à linha de baixo, nunca cortado com "…" (regra do painel; Silva, 25/10/2026) */
 .vh .stat small,
 .vh .stat strong {
-   white-space: nowrap;
-   overflow: hidden;
-   text-overflow: ellipsis
+   white-space: normal;
+   overflow: visible;
+   overflow-wrap: anywhere;
+   text-overflow: clip
 }
+
 
 .vh .stat strong span {
    font-size: calc(12.5px * var(--fs, 1))
@@ -13506,6 +13622,17 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    }
 }
 
+/* Tablet ao alto (769–1000), tabelas em blocos: o mesmo do telemóvel — o fundo alternado pinta o bloco inteiro */
+@media (min-width: 769px) and (max-width: 1000px) {
+   .vh:not([data-theme=dark]) .tbl.dt-empilhar-tablet tbody tr:nth-child(even):not(.grp):not(.sel):not(.dt-realce):not(:hover):not(#x) {
+      background-color: var(--fundo-lista)
+   }
+
+   .vh .tbl.dt-empilhar-tablet tbody tr:nth-child(even):not(.grp):not(.sel):not(.dt-realce):not(:hover) > td:not(#x) {
+      background: transparent
+   }
+}
+
 /* DNS: a pesquisa fica na linha do botão, mesmo à frente dele (à sua esquerda); as opções mantêm o lugar à esquerda (Silva, 23/10/2026) */
 .vh .card-topo-linha .search.dom-pesq.dom-pesq-junto:not(#x) {
    flex: 0 1 calc(300px * var(--z, 1));
@@ -13753,6 +13880,14 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    text-overflow: clip
 }
 
+/* nome comprido no menu (ex.: "Editor de ficheiros do sistema" a 980 px): passa à linha de baixo em vez de ficar cortado pela margem da barra */
+.vh .side a .lb:not(#x) {
+   white-space: normal;
+   overflow-wrap: anywhere;
+   min-width: 0;
+   line-height: 1.2
+}
+
 .vh .acct span:not(#x),
 .vh .acct small:not(#x) {
    overflow: visible;
@@ -13777,6 +13912,11 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
 
    .vh .da-main-card:not(#x):not(#y) {
       padding: calc(24px * var(--k))
+   }
+
+   /* a faixa dos separadores compensa o mesmo preenchimento do cartão (com --z passava 2 px das bordas a 980 px) */
+   .vh .da-main-card:not(#x):not(#y) > .ptabs-faixa:first-child {
+      margin: calc(-24px * var(--k)) calc(-24px * var(--k)) calc(24px * var(--k))
    }
 
    .vh .da-main-card:not(:has(> .ptabs-faixa)):has(> .card-topo-slot .card-topo-titulo):not(#x):not(#y) {
@@ -14487,5 +14627,167 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    100% {
       transform: scale(2.6);
       opacity: 0
+   }
+}
+
+/* Telemóvel (≤768): os cartões da página de um domínio (Informações, Servidores de nome, Registo do domínio…) vão de ponta a
+   ponta do ecrã, sem contornos laterais nem cantos, como o cartão principal; o texto fica a 12 px da borda (--recuo) —
+   Silva, 25/10/2026 */
+@media (max-width: 768px) {
+   .vh .dom-gestao .frm:not(#x) {
+      margin-left: calc(-12px * var(--z, 1));
+      margin-right: calc(-12px * var(--z, 1));
+      border-left: 0;
+      border-right: 0;
+      border-radius: 0
+   }
+
+   .vh .dom-gestao .frm .frm-head:not(#x) {
+      border-radius: 0;
+      padding-left: calc(12px * var(--z, 1));
+      padding-right: calc(12px * var(--z, 1))
+   }
+
+   .vh .dom-gestao .frm .dom-info-grelha:not(#x),
+   .vh .dom-gestao .frm .frm-row:not(#x) {
+      padding-left: calc(12px * var(--z, 1));
+      padding-right: calc(12px * var(--z, 1))
+   }
+}
+
+/* Telemóvel (≤768): a lista do gestor de ficheiros em blocos, numa só coluna — caixa, ícone e nome em cima (o nome parte-se
+   onde for preciso, nunca a meio de palavras curtas), tamanho e data por baixo (Silva, 25/10/2026) */
+@media (max-width: 768px) {
+   .vh .fmda-tab:not(#x),
+   .vh .fmda-tab:not(#x) thead,
+   .vh .fmda-tab:not(#x) tbody {
+      display: block
+   }
+
+   /* os títulos das colunas ficam, numa só linha e a toda a largura, como no resto do painel: só saem os que não cabem
+      (o ícone, as permissões e o UID/GID) */
+   .vh .fmda-tab:not(#x) thead tr {
+      display: flex;
+      align-items: center;
+      min-height: calc(46px * var(--z, 1));
+      background: var(--soft)
+   }
+
+   .vh .fmda-tab:not(#x) thead th {
+      display: flex;
+      align-items: center;
+      flex: 0 0 auto;
+      width: auto;
+      min-width: 0;
+      border-top: 0;
+      border-bottom: 0
+   }
+
+   /* a caixa ocupa a coluna da caixa e a do ícone dos blocos: "Nome" fica por cima do nome de cada ficheiro */
+   .vh .fmda-tab:not(#x) thead th.fmda-chk {
+      width: calc(86px * var(--z, 1));
+      padding: 0 0 0 calc(12px * var(--z, 1))
+   }
+
+   .vh .fmda-tab:not(#x) thead th:nth-child(3) {
+      flex: 1 1 auto;
+      padding-left: 0
+   }
+
+   .vh .fmda-tab:not(#x) thead th:nth-child(2),
+   .vh .fmda-tab:not(#x) thead th:nth-child(5):not(:last-child),
+   .vh .fmda-tab:not(#x) thead th:nth-child(7) {
+      display: none
+   }
+
+   .vh .fmda-tab:not(#x) tbody tr {
+      display: grid;
+      grid-template-columns: calc(40px * var(--z, 1)) calc(46px * var(--z, 1)) minmax(0, 1fr) auto;
+      align-items: center;
+      row-gap: calc(2px * var(--z, 1));
+      padding: calc(8px * var(--z, 1)) 0
+   }
+
+   .vh .fmda-tab:not(#x) tbody td {
+      display: block;
+      height: auto;
+      padding: 0;
+      border: 0;
+      white-space: normal;
+      overflow-wrap: anywhere;
+      min-width: 0
+   }
+
+   .vh .fmda-tab:not(#x) tbody td.fmda-chk {
+      grid-column: 1;
+      grid-row: 1 / span 2;
+      width: auto
+   }
+
+   .vh .fmda-tab:not(#x) tbody td.fmda-icc {
+      grid-column: 2;
+      grid-row: 1 / span 2
+   }
+
+   /* as letras do tipo (HTML, PHP, PNG…) ficam numa só linha e mais pequenas: a regra das células partia-as uma por linha */
+   .vh .fmda-tab:not(#x) tbody td.fmda-icc .fmda-ic {
+      width: calc(30px * var(--z, 1))
+   }
+
+   .vh .fmda-tab:not(#x) tbody td.fmda-icc .fmda-ic b {
+      white-space: nowrap;
+      overflow-wrap: normal;
+      font-size: calc(5.5px * var(--fs, 1));
+      line-height: calc(8px * var(--z, 1));
+      padding: 0 calc(1.5px * var(--z, 1))
+   }
+
+   .vh .fmda-tab:not(#x) tbody td:nth-child(3) {
+      grid-column: 3 / -1;
+      grid-row: 1;
+      font-weight: 600
+   }
+
+   .vh .fmda-tab:not(#x) tbody td:nth-child(4) {
+      grid-column: 3;
+      grid-row: 2;
+      font-size: calc(12px * var(--fs, 1));
+      color: var(--muted)
+   }
+
+   .vh .fmda-tab:not(#x) tbody td.fmda-mono,
+   .vh .fmda-tab:not(#x) tbody td:nth-child(7) {
+      display: none
+   }
+
+   .vh .fmda-tab:not(#x) tbody td:nth-child(6),
+   .vh .fmda-tab:not(#x) tbody td:nth-child(5):not(.fmda-mono) {
+      grid-column: 4;
+      grid-row: 2;
+      font-size: calc(12px * var(--fs, 1));
+      color: var(--muted);
+      text-align: right;
+      padding-right: calc(12px * var(--z, 1))
+   }
+
+   .vh .fmda-tab:not(#x) tbody tr.fmda-vazio td {
+      grid-column: 1 / -1;
+      grid-row: auto;
+      padding: calc(14px * var(--z, 1)) calc(12px * var(--z, 1));
+      text-align: center;
+      border-bottom: 1px solid var(--linha-lista)
+   }
+}
+
+/* Telemóvel (≤768): os separadores secundários (ex.: Handlers definidos por si | Handlers do sistema) não deslizam cortados à direita:
+   passam à linha de baixo quando não cabem — Silva, 25/10/2026 */
+@media (max-width: 768px) {
+   .vh .ptabs.sub:not(#x) {
+      flex-wrap: wrap;
+      overflow: visible
+   }
+
+   .vh .ptabs.sub:not(#x) > button {
+      flex: 1 1 auto
    }
 }

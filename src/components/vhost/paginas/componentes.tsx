@@ -2,7 +2,7 @@
 
 // Peças das páginas de gestão: formulário em linhas, limites com "Ilimitado", palavra-passe,
 // separadores e tabela com pesquisa/colunas/seleção/ações em massa (como nas listas do DirectAdmin).
-import { Fragment, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useContext, useEffect, useMemo, useRef, useState, type KeyboardEvent as TeclaReact, type MouseEvent as RatoReact, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { BarraPagina, ConsultaPagina, FaixaAbas, PesquisaPagina, TopoCartao, useVH } from '../context';
 import type { Campo, Lim, Unit } from './dados';
@@ -292,6 +292,7 @@ export function DataTable<T>({
   acoesNaColuna = false,
   acoesNoFim = false,
   linhaExtra,
+  aoAbrirLinha,
   // em todas as listas o "Colunas" é só o ícone, à direita, dentro da barra das colunas (Silva, 21/10/2026)
   colunasNoCabecalho = true,
   paginacaoNoCabecalho = false,
@@ -356,6 +357,8 @@ export function DataTable<T>({
   acoesNoFim?: boolean;
   /** painel que desliza por baixo de uma linha (ex.: as opções de restaurar uma cópia); sem nada, não há linha extra */
   linhaExtra?: (r: T) => ReactNode;
+  /** a linha toda abre alguma coisa ao clicar (ex.: o detalhe de uma sessão em Contas ligadas); cliques em botões, ligações e campos dentro da linha não contam */
+  aoAbrirLinha?: (r: T) => void;
   /** o botão "Colunas" no cabeçalho da tabela, depois da última coluna, em vez de numa barra por cima do cartão
    *  (modelo do Silva, 14/10/2026 — listas de contas) */
   colunasNoCabecalho?: boolean;
@@ -744,7 +747,21 @@ export function DataTable<T>({
                 const extra = linhaExtra ? linhaExtra(r) : null;
                 return (
                   <Fragment key={k}>
-                  <tr data-k={k} className={(on ? 'sel ' : '') + (realce === k ? 'dt-realce ' : '') + (rowClass ? rowClass(r) : '')}>
+                  <tr
+                    data-k={k}
+                    className={(on ? 'sel ' : '') + (realce === k ? 'dt-realce ' : '') + (aoAbrirLinha ? 'dt-clicavel ' : '') + (rowClass ? rowClass(r) : '')}
+                    {...(aoAbrirLinha
+                      ? {
+                          tabIndex: 0,
+                          onClick: (e: RatoReact) => {
+                            if (!(e.target as HTMLElement).closest('a,button,input,select,textarea,label')) aoAbrirLinha(r);
+                          },
+                          onKeyDown: (e: TeclaReact) => {
+                            if (e.key === 'Enter' && e.target === e.currentTarget) aoAbrirLinha(r);
+                          },
+                        }
+                      : {})}
+                  >
                     {temSelecao && (
                       <td className="ck">
                         <input type="checkbox" aria-label={t('Selecionar')} checked={on} onChange={() => setSel(on ? sel.filter((x) => x !== k) : [...sel, k])} />
@@ -786,7 +803,7 @@ export function DataTable<T>({
           </div>
         )}
         {/* por cima da linha do título a paginação está sempre presente: só fica ativa quando há mais de uma página (Silva, 23/10/2026) */}
-        {noTopo && createPortal(paginador, topoCtx!.pagEl!)}
+        {noTopo && paginas > 1 && createPortal(paginador, topoCtx!.pagEl!)}
       </div>
     </>
   );

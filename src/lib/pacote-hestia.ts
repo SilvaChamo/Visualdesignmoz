@@ -16,6 +16,10 @@ export const CAMPOS_TEXTO_HESTIA = ['SHELL', 'NS', 'BACKUPS_INCREMENTAL', 'WEB_T
 
 const inteiro = (v: unknown) => (/^\d{1,9}$/.test(String(v ?? '').trim()) ? String(Number(String(v).trim())) : null);
 
+/** Valores com que um pacote nasce (Silva, 26/10/2026): CPU e memória nunca vêm "ilimitados" por defeito. Sem limite a conta não tem o seu
+ *  PHP-FPM (vd-php-conta) e um site pode gastar o CPU de todo o servidor e afectar os outros. Só fica ilimitado se o administrador o pedir. */
+export const PADRAO_RECURSOS: Record<string, string> = { CPU_QUOTA: '100%', CPU_QUOTA_PERIOD: '100ms', MEMORY_LIMIT: '1G', SWAP_LIMIT: '512M' };
+
 /** "400" ou "400%" → "400%" (o Hestia só aceita N%, com N ≥ 1) */
 export function normCpu(v: string): string | null {
   const m = /^\s*([1-9]\d{0,5})\s*%?\s*$/.exec(v);
@@ -92,8 +96,13 @@ export function camposHestia(
   const recurso = (campo: string, k: string, norm: (v: string) => string | null, exemplo: string) => {
     const l = rec[k];
     if (!l) return;
-    if (l.unl || !String(l.v ?? '').trim()) {
+    // "ilimitado" só quando o administrador o marca; em branco fica o valor por defeito, nunca ilimitado
+    if (l.unl) {
       campos[campo] = 'unlimited';
+      return;
+    }
+    if (!String(l.v ?? '').trim()) {
+      campos[campo] = PADRAO_RECURSOS[campo];
       return;
     }
     const v = norm(String(l.v));
@@ -150,5 +159,7 @@ export function juntarCamposPacote(atual: string, campos: Record<string, string>
     if (editar && antes !== undefined && CAMPOS_SIM_NAO.has(k) && !exatos.includes(k) && desligado(antes) === desligado(v)) continue;
     linhas.set(k, v);
   }
+  // um pacote novo nunca fica sem CPU e memória definidos (o Hestia poria "unlimited")
+  if (!editar) for (const [k, v] of Object.entries(PADRAO_RECURSOS)) if (!linhas.has(k)) linhas.set(k, v);
   return [...linhas].map(([k, v]) => `${k}='${v}'`).join('\n') + '\n';
 }

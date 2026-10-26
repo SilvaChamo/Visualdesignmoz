@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requirePanelBootstrapAccess } from '@/lib/panel-api-auth';
 import { lerRegisto } from '@/lib/vhost-dados';
 import { lerServidor } from '@/lib/vhost-servidor';
-import { aparelhoDe, listarPresencas, localDoIp, registarPresenca, removerOutrasPresencas } from '@/lib/vhost-presenca';
+import { aparelhoDe, listarPresencas, localDoIp, localDoIpEmMemoria, registarPresenca, removerOutrasPresencas } from '@/lib/vhost-presenca';
+import { sessoesExternasAgora } from '@/lib/vhost-actividade-servidor';
 import { guardarEventoHistoricoVhost } from '@/lib/vhost-activity-history';
 
 export const dynamic = 'force-dynamic';
@@ -10,7 +11,8 @@ export const dynamic = 'force-dynamic';
 /**
  * /api/vhost/presenca — Contas ligadas (Admin › Gestão de contas › Contas ligadas, pedido do Silva, 16/10/2026).
  * POST (sessão do painel)  { deviceId, aVer?, pagina? } — actualiza a presença anónima deste aparelho
- * GET  (só admin ou própria pessoa) { ligadas: [...] } — presença global para Admin, própria para Perfil
+ * GET  (só admin ou própria pessoa) { ligadas: [...], externas } — presença global para Admin, própria para Perfil; `externas` são as
+ *      sessões abertas no WordPress dos sites e no webmail, lidas dos registos do servidor (Silva, 25/10/2026)
  * DELETE (própria pessoa)  { deviceId } — limpa a presença dos outros aparelhos após terminar as sessões
  * A pessoa e a sua conta vêm da sessão e do registo do site (nunca do pedido); o plano lê-se do servidor na altura.
  */
@@ -93,10 +95,74 @@ export async function POST(req: NextRequest) {
       section: secaoEvento,
       action: acao,
       duration_seconds: duracaoSegundos,
+      ip,
+      aparelho: aparelhoDe(req.headers.get('user-agent') || ''),
     });
     if (erroHistorico) return NextResponse.json({ erro: erroHistorico }, { status: 500 });
   }
   return NextResponse.json({ ok: true });
+}
+
+type ExternaAgora = {
+  chave: string;
+  origem: 'wordpress' | 'webmail';
+  onde: string;
+  conta: string;
+  plano: string;
+  pessoa: string;
+  email: string;
+  ip: string;
+  local: string;
+  aparelho: string;
+  desde: number;
+  ultimo: number;
+};
+
+/** WordPress e webmail abertos agora. A primeira leitura ao servidor pode demorar: não atrasa o resto — fica por trás e serve no aviso seguinte. */
+async function externasAgora(srv: Awaited<ReturnType<typeof lerServidor>> | null): Promise<ExternaAgora[]> {
+  const leitura = await Promise.race([
+    sessoesExternasAgora().catch(() => null),
+    new Promise<null>((r) => setTimeout(() => r(null), 3500)),
+  ]);
+  if (!leitura) return [];
+  const reg = await lerRegisto().catch(() => null);
+  const pessoaDe = (conta: string) => {
+    for (const p of reg?.perfis.values() || []) if (p.conta === conta) return p;
+    return null;
+  };
+  const planoDe = (conta: string) => (conta && srv?.users[conta]?.PACKAGE) || '';
+  const wp = leitura.wordpress.map((s): ExternaAgora => {
+    const p = pessoaDe(s.conta);
+    return {
+      chave: s.id,
+      origem: 'wordpress',
+      onde: `WordPress · ${s.dominio}`,
+      conta: s.conta,
+      plano: planoDe(s.conta),
+      pessoa: p?.name || p?.email || s.conta,
+      email: p?.email || '',
+      ip: s.ip,
+      local: localDoIpEmMemoria(s.ip),
+      aparelho: s.aparelho,
+      desde: s.desde,
+      ultimo: s.ultimo,
+    };
+  });
+  const mail = leitura.webmail.map((w): ExternaAgora => ({
+    chave: `m|${w.email}`,
+    origem: 'webmail',
+    onde: `Webmail · ${w.dominio}`,
+    conta: w.conta,
+    plano: planoDe(w.conta),
+    pessoa: w.email,
+    email: w.email,
+    ip: w.ip,
+    local: localDoIpEmMemoria(w.ip),
+    aparelho: '',
+    desde: w.ultimo,
+    ultimo: w.ultimo,
+  }));
+  return [...wp, ...mail].sort((a, b) => b.ultimo - a.ultimo);
 }
 
 export async function GET(req: NextRequest) {
@@ -104,11 +170,13 @@ export async function GET(req: NextRequest) {
   if ('error' in auth) return NextResponse.json({ erro: 'Inicie sessão.' }, { status: 401 });
   const proprias = req.nextUrl.searchParams.get('proprias') === '1';
   if (auth.user.role !== 'admin' && !proprias) return NextResponse.json({ erro: 'Só o administrador vê as contas ligadas.' }, { status: 403 });
-  const srv = proprias ? null : await lerServidor().catch(() => null);
+  // tudo o que é de todo o servidor (presenças de outros, WordPress, webmail) só sai para o administrador e fora de `proprias`
+  const verTudo = !proprias && auth.user.role === 'admin';
+  const srv = verTudo ? await lerServidor().catch(() => null) : null;
   const plano = (u: string) => (u && srv?.users[u]?.PACKAGE) || '';
-  const presencas = listarPresencas().filter((p) => (!proprias && auth.user.role === 'admin') || p.uid === auth.user.id);
+  const presencas = listarPresencas().filter((p) => verTudo || p.uid === auth.user.id);
   const ligadas = presencas.map((p) => ({ ...p, plano: plano(p.conta), planoAVer: plano(p.aVer) }));
-  return NextResponse.json({ ligadas, agora: Date.now() }, { headers: { 'Cache-Control': 'no-store' } });
+  return NextResponse.json({ ligadas, externas: verTudo ? await externasAgora(srv) : [], agora: Date.now() }, { headers: { 'Cache-Control': 'no-store' } });
 }
 
 export async function DELETE(req: NextRequest) {
