@@ -15020,3 +15020,9 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
 .vh .da-switcher-bar .da-switcher-tabs:not(#x):not(#y) {
    height: 100%
 }
+
+/* Botões Admin | Gestão da barra lateral com a mesma altura da faixa Widgets | Menu (36 px; Silva, 26/10/2026) */
+.vh .navcol .lvl:not(#x):not(#y),
+.vh .navcol .lvl button:not(#x):not(#y) {
+   height: calc(36px * var(--k, var(--z, 1)))
+}
