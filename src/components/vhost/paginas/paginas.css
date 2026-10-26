@@ -744,16 +744,7 @@
    }
 }
 
-/* listas de contas: o "Entrar" da linha fica só com o ícone em todos os tamanhos (o nome aparece ao passar o rato) */
-.vh .btn.ct-entrar {
-   width: calc(30px * var(--z, 1));
-   padding: 0;
-   justify-content: center
-}
-
-.vh .btn.ct-entrar span {
-   display: none
-}
+/* listas de contas: o "Entrar" da linha leva o ícone e o texto «Entrar» (Silva, 26/10/2026) */
 
 /* "Colunas" no cabeçalho da tabela, depois da última coluna (DataTable colunasNoCabecalho — listas de contas) */
 .vh .tbl th.dt-th-cols {
@@ -10948,10 +10939,6 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    .vh .tbl td .btn.sm {
       height: calc(26px * var(--fs, 1));
       min-height: calc(26px * var(--fs, 1));
-   }
-
-   .vh .btn.ct-entrar {
-      width: calc(26px * var(--z, 1));
    }
 }
 
