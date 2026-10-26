@@ -243,7 +243,7 @@ function Ramo({ c, nivel, atual, ir }: { c: string; nivel: number; atual: string
         const cc = juntar(c, x.nome);
         return (
           <li key={cc}>
-            <div className={'fmda-no' + (atual === cc ? ' on' : '')} style={{ paddingLeft: 14 + nivel * 14 }} onClick={() => ir(cc)}>
+            <div className={'fmda-no' + (atual === cc ? ' on' : '')} style={{ paddingLeft: 2 + nivel * 14 }} onClick={() => ir(cc)}>
               <RamoSeta c={cc} />
               <i className="fa-solid fa-folder" />
               <span>{x.nome}</span>
