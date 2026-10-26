@@ -594,7 +594,8 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
   aplica-o): o mltmark.com chegava a 47 mil pesquisas por dia (74% de todo o tráfego, 84% robôs). Uma pesquisa verdadeira sai de uma página do próprio site e leva referer. Juntar um site =
   acrescentar o domínio à lista; não pôr aplicações que usem `?s=` sem referer.
 - **Força bruta ao wp-login (fail2ban, 26/10/2026):** o jail `vd-wp-login` (cópias em `deploy/seguranca/fail2ban/`: filtro em `/etc/fail2ban/filter.d/vd-wp-login.conf`, jail em `/etc/fail2ban/jail.d/vd-wp-login.local`) bloqueia
-  24 h nas portas 80/443 (cadeia `WEB` do Hestia) o IP com 8 logins falhados (POST `/wp-login.php` com resposta 200; um login com sucesso responde 302) em 5 minutos. Só vale para sites **sem
+  24 h nas portas 80/443 (cadeia `WEB` do Hestia) o IP com 6 logins falhados (POST `/wp-login.php` com resposta 200; um login com sucesso responde 302) em 6 horas (eram 8 em 5 minutos, mas os atacantes
+  vão devagar: o 91.92.243.247 fez 90 tentativas em 5 h, no máximo 2 por 5 min, e nunca era apanhado). Só vale para sites **sem
   Cloudflare à frente** (oshercollective.com, msdn-moz.org, elimservicos.com): atrás da Cloudflare o iptables só vê os IPs dela e o bloqueio faz-se na Cloudflare. O fail2ban tira a data da linha antes de
   aplicar o filtro: não se escreve `[data]` na expressão. Para juntar um site, acrescentar o seu registo ao `logpath`. O primeiro bloqueio é de quem já atacava o msdn-moz.org (4 223 logins falhados num dia).
 - **Cron do WordPress pelo sistema** (26/10/2026): oshercollective.com, msdn-moz.org, lirandzojewelry.com e mltmark.com têm `DISABLE_WP_CRON` e um cron do Hestia por site (de 15 em 15 min, minutos desfasados,
@@ -608,7 +609,11 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
   caixas e DNS, via `dominio-eliminar-tudo` com `bd`); **só e-mail** → *Só o e-mail* ou *Tudo*; **só domínio** (plano VD-Dominio) → *Tudo*. A base vem do `wp-config.php` do site (`DB_NAME`) e só se apaga se mais nenhum site da conta a usar;
   os crons são os que apontam para a pasta do site; se o site não for WordPress a base não se apaga e o aviso diz porquê. **Nunca** se apagam daqui o painel, o visualdesignmoz.com nem o basededadosagro.com (`PROTEGIDOS`). A página
   "Sites das contas" (administrador, contas de outros) continua com o seu "eliminar tudo" (sem a base).
-- **Cópias de segurança fora do servidor:** por decidir (Google Drive numa conta limpa, Backblaze B2 ou Cloudflare R2). O R2 ainda não está activo na conta Cloudflare (a API responde "enable R2 through the Dashboard").
+- **Cópias de segurança fora do servidor: Cloudflare R2** (decidido pelo Silva a 26/10/2026). `deploy/backup/vd-backup-externo` (instalado em `/usr/local/sbin`) envia as cópias do Hestia (`/backup/*.tar`) para o R2, **cifradas no servidor** (rclone crypt;
+  remoto `vd-backup-cifrado:`), com `nice`/`ionice` e limite de banda, guarda 14 dias e avisa por e-mail se falhar; `estado` e `testar-restauro` provam que funciona e que a cópia abre. Sem o remoto configurado não faz nada. **Falta:** activar o R2 no painel da
+  Cloudflare (pede cartão; 10 GB grátis, as cópias recentes ocupam cerca de 4 GB; a API responde "enable R2 through the Dashboard" até lá), criar o balde e a chave só dele, configurar o rclone e ligar o cron das 07:00 (`/etc/cron.d/vd-backup-externo`). A
+  palavra-passe de cifra tem de existir também fora do servidor, sem ela as cópias não se abrem. O aamihe ficou com 12 MB (só correio); a cópia do site está em `/root/backups-removidos/aamihe-site-final/`.
+
 - **ModSecurity sem leitura das respostas só no oshercollective.com** (26/10/2026, o Silva confirmou): `apache2.ssl.conf_vd-modsec-resposta` (`SecResponseBodyAccess Off`) nesse site. As regras `RESPONSE-951`
   (fugas de erros de SQL) falhavam centenas de vezes por dia ("PCRE limits exceeded") nas páginas pesadas do Elementor, sem apanhar nada; não eram tentativas de acesso de ninguém. A protecção contra pedidos
   (o que quem visita envia) continua toda ligada: um `;cat /etc/passwd` e um `UNION SELECT` simulados continuam a dar 403. Nos outros sites não se mexeu (não têm essas falhas).

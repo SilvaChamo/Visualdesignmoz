@@ -1,0 +1,67 @@
+#!/bin/bash
+# vd-backup-externo — cópias de segurança para FORA do servidor (Silva, 26/10/2026).
+#
+# Envia as cópias do Hestia (/backup/<conta>.<data>.tar) para o Cloudflare R2, cifradas aqui antes de saírem (rclone crypt): quem guarda não consegue ler nada.
+# Guarda 14 dias lá e apaga o que for mais velho. Sem o remoto configurado não faz nada (é seguro deixar o cron ligado).
+#
+# O remoto é o `vd-backup-cifrado:` do rclone (um remoto "crypt" sobre o balde do R2). Configuração e chaves ficam em /root/.config/rclone/rclone.conf
+# (só do root). A palavra-passe de cifra tem de existir também FORA do servidor: sem ela as cópias não se abrem.
+#
+# Uso (como root):
+#   vd-backup-externo enviar            envia as cópias novas e apaga as mais velhas que 14 dias (é o que o cron faz)
+#   vd-backup-externo estado            último envio, tamanho lá e as cópias mais recentes
+#   vd-backup-externo testar-restauro   traz a cópia mais pequena de volta e confirma que se abre (prova de que dá para restaurar)
+set -u
+
+REMOTO=${VD_REMOTO:-vd-backup-cifrado:}
+ORIGEM=${VD_ORIGEM:-/backup}
+DIAS=${VD_DIAS:-14}
+LIMITE_BANDA=${VD_BANDA:-20M}
+LOG=${VD_LOG:-/var/log/vd-backup-externo.log}
+AVISAR=${VD_AVISAR:-silva.chamo@gmail.com}
+
+log() { echo "$(date '+%F %T') $*" >> "$LOG" 2>/dev/null; }
+configurado() { rclone listremotes 2>/dev/null | grep -qx "${REMOTO%%:*}:"; }
+avisar() { echo "$1" | mail -s "[vd-backup-externo] $(hostname) — $2" "$AVISAR" 2>/dev/null; }
+
+exec 9>/run/vd-backup-externo.lock 2>/dev/null || exec 9>/tmp/vd-backup-externo.lock
+flock -n 9 || { echo "já há um envio a correr"; exit 0; }
+
+cmd_enviar() {
+  configurado || { log "remoto ${REMOTO} ainda não configurado: nada a fazer"; exit 0; }
+  [ -d "$ORIGEM" ] || { log "ERRO: $ORIGEM não existe"; avisar "A pasta $ORIGEM não existe." "erro"; exit 1; }
+  log "a enviar $ORIGEM (só ficheiros .tar com mais de 10 min, para não apanhar cópias a meio)"
+  # nice/ionice: o servidor tem muita carga. --ignore-existing: cada cópia tem a data no nome, nunca se reenvia. --min-age 10m: não apanha cópias ainda a ser escritas.
+  if ! nice -n 19 ionice -c3 rclone copy "$ORIGEM" "$REMOTO" --include '*.tar' --ignore-existing --min-age 10m --transfers 1 --checkers 2 \
+        --bwlimit "$LIMITE_BANDA" --retries 3 --low-level-retries 5 --log-file "$LOG" --log-level NOTICE; then
+    log "ERRO no envio"; avisar "O envio das cópias para fora do servidor falhou. Ver $LOG." "envio falhou"; exit 1
+  fi
+  # só depois de enviar bem se apaga o que é mais velho do que $DIAS dias lá (as cópias locais seguem a rotação do Hestia)
+  nice -n 19 ionice -c3 rclone delete "$REMOTO" --min-age "${DIAS}d" --log-file "$LOG" --log-level NOTICE || log "AVISO: não foi possível limpar as cópias antigas"
+  log "envio concluído: $(rclone size "$REMOTO" 2>/dev/null | tr '\n' ' ')"
+}
+
+cmd_estado() {
+  configurado || { echo "remoto ${REMOTO} ainda não configurado"; exit 0; }
+  echo "últimas linhas do registo:"; tail -n 5 "$LOG" 2>/dev/null
+  echo; echo "tamanho lá: $(rclone size "$REMOTO" 2>/dev/null | tr '\n' ' ')"
+  echo "mais recentes:"; rclone lsl "$REMOTO" 2>/dev/null | sort -k2,3 | tail -n 6
+}
+
+cmd_testar() {
+  configurado || { echo "remoto ${REMOTO} ainda não configurado"; exit 1; }
+  local f t; t=$(mktemp -d /root/teste-restauro.XXXXXX) || exit 1
+  f=$(rclone lsl "$REMOTO" 2>/dev/null | sort -n | head -n 1 | awk '{print $4}')
+  [ -n "$f" ] || { echo "não há cópias lá"; exit 1; }
+  echo "a trazer $f de volta…"
+  rclone copy "$REMOTO$f" "$t" --log-level NOTICE || { echo "ERRO a trazer a cópia"; exit 1; }
+  if tar -tf "$t/$f" >/dev/null 2>&1; then echo "OK: a cópia abre-se e está inteira ($(du -h "$t/$f" | cut -f1))"; else echo "ERRO: a cópia não abre"; fi
+  find "$t" -mindepth 1 -maxdepth 1 -name '*.tar' -delete; rmdir "$t" 2>/dev/null
+}
+
+case "${1:-}" in
+  enviar) cmd_enviar ;;
+  estado) cmd_estado ;;
+  testar-restauro) cmd_testar ;;
+  *) echo "uso: vd-backup-externo enviar|estado|testar-restauro" >&2; exit 2 ;;
+esac
