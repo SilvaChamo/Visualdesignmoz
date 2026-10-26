@@ -301,7 +301,7 @@ export const denyScreen: ScreenFn = (vh) => {
           <h1>{t('Não incluído no seu pacote')}</h1>
           <p>
             O pacote <b>{a.pkg}</b> não inclui <b>{FEATS[d.it.feat!]}</b>.<br />
-            No VisualHost este item nem aparece no menu desta conta.
+            No painel este item nem aparece no menu desta conta.
           </p>
           <button className="btn r" onClick={() => setLevel('utilizador')}>
             {t('Voltar ao painel')}
@@ -317,7 +317,7 @@ export const denyScreen: ScreenFn = (vh) => {
           <i className="fa-solid fa-circle-question" />
         </div>
         <h1>{t('Página não encontrada')}</h1>
-        <p>Este endereço não existe no VisualHost.</p>
+        <p>Este endereço não existe no painel.</p>
         <button className="btn r" onClick={() => setLevel(allowed[0])}>
           {t('Ir para o meu painel')}
         </button>
@@ -354,7 +354,7 @@ function NiveisBody() {
         Só <b>Administrador</b> e <b>Revendedor</b> têm parte de gestão; <b>Profissional</b> e <b>Cliente</b> só têm funcionalidades — a diferença entre eles é o pacote (o Profissional tem site, o
         Cliente só e-mail/domínio), como no site atual.
         <br />
-        Como no DirectAdmin, o nível Admin já inclui tudo o que um revendedor faz, e o administrador cria contas de qualquer tipo e muda o tipo de uma conta (“Mudar tipo”) em Todos os
+        Como no painel anterior, o nível Admin já inclui tudo o que um revendedor faz, e o administrador cria contas de qualquer tipo e muda o tipo de uma conta (“Mudar tipo”) em Todos os
         utilizadores.
         <br />
         <b>Entrar como</b> é outra coisa: é abrir o painel de <i>outra</i> pessoa (aparece o botão “Voltar ao painel de administração” na barra de cima).
@@ -411,7 +411,7 @@ function NiveisBody() {
         <a onClick={() => nav('/mapa')}>Ver ecrã a ecrã</a>
       </div>
       <p style={{ color: 'var(--muted)', margin: '-6px 0 12px' }}>
-        O VisualHost fala com o Hestia pela API. Onde o Hestia não chega, o VisualHost completa (base de dados própria ou agente no servidor).
+        O painel fala com o servidor pela API. Onde o servidor não chega, o painel completa (base de dados própria ou agente no servidor).
       </p>
       <div className="stats">
         {HX_KEYS.map((s) => (
@@ -433,7 +433,7 @@ function NiveisBody() {
         <h3>O que o pacote do cliente liga e desliga</h3>
       </div>
       <p style={{ color: 'var(--muted)', margin: '-6px 0 12px' }}>
-        No nível Utilizador, o menu esconde o que o pacote não inclui (como no DirectAdmin). Experimente entrar como <b>Cliente B</b> (pacote Só e-mail).
+        No nível Utilizador, o menu esconde o que o pacote não inclui (como no painel anterior). Experimente entrar como <b>Cliente B</b> (pacote Só e-mail).
       </p>
       <div className="tbl">
         <table>
@@ -495,9 +495,9 @@ function MapTable({ groups, filter }: { groups: MapGroup[]; filter: string }) {
         <thead>
           <tr>
             <th>Ecrã</th>
-            <th>Endereço VisualHost</th>
-            <th>Equivalente DirectAdmin</th>
-            <th>No servidor (Hestia)</th>
+            <th>Endereço no painel</th>
+            <th>Equivalente no painel anterior</th>
+            <th>No servidor</th>
           </tr>
         </thead>
         <tbody>
@@ -604,13 +604,13 @@ function MapaBody() {
         }))}
       />
       <div className="sec">
-        <h3>Não passam para o VisualDA</h3>
+        <h3>Não passam para este painel</h3>
       </div>
       <div className="tbl">
         <table>
           <thead>
             <tr>
-              <th>Ecrã DirectAdmin</th>
+              <th>Ecrã do painel anterior</th>
               <th>Rotas</th>
               <th>Motivo</th>
             </tr>

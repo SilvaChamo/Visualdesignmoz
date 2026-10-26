@@ -94,6 +94,14 @@ type EventoSsl = { data: string; comando: string; acao: string };
 type HistoricoSsl = { historico: EventoSsl[] };
 type AlvoSsl = { id: string; dominio: string; tipo: 'site' | 'email'; nomes: string[]; estado: 'ok' | 'externo' | 'desconhecido' | 'em-falta' };
 
+/** Quando o servidor responde com erro mas sem mensagem (página de erro, tempo esgotado, sessão terminada), diz-se o que se sabe em vez de «A alteração falhou» sozinho */
+const mensagemSemCausa = (estado: number) =>
+  estado === 401
+    ? 'A sessão terminou. Entre de novo e repita.'
+    : estado === 502 || estado === 503 || estado === 504 || estado === 524
+      ? 'O servidor demorou a responder (erro ' + estado + '). O pedido pode ainda estar em curso: actualize a lista daqui a instantes antes de repetir.'
+      : 'A alteração falhou (erro ' + estado + '). Actualize a lista e tente de novo; se continuar, contacte o suporte.';
+
 /** Faz uma alteração ao domínio no servidor; depois volta a ler os dados (`recarregar`: a conta toda; os registos
  *  de DNS não a mudam). Devolve true se correu bem. */
 async function noServidor(vh: VH, corpo: Record<string, unknown>, ok: string, recarregar = true): Promise<boolean> {
@@ -102,7 +110,7 @@ async function noServidor(vh: VH, corpo: Record<string, unknown>, ok: string, re
     const r = await fetch('/api/vhost/dominio', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ conta: vh.me, ...corpo }) });
     const j = (await r.json().catch(() => ({}))) as { erro?: string; aviso?: string };
     if (!r.ok) {
-      vh.toast(j.erro || 'A alteração falhou');
+      vh.toast(j.erro || mensagemSemCausa(r.status));
       if (corpo.acao === 'dominio-apagar') await vh.recarregar(true);
       return false;
     }

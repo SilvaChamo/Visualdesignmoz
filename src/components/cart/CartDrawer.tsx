@@ -222,7 +222,7 @@ export function CartDrawer() {
                       </div>
                       <div>
                         <h4 className="font-bold text-slate-800 dark:text-zinc-200 text-sm group-hover:text-red-600 transition-colors">Alojamento Web {t(plan.nameKey)}</h4>
-                        <p className="text-[10px] text-slate-500 dark:text-zinc-400">{HOSTING_PLAN_STORAGE_GB[plan.id]}GB SSD · DirectAdmin</p>
+                        <p className="text-[10px] text-slate-500 dark:text-zinc-400">{HOSTING_PLAN_STORAGE_GB[plan.id]}GB SSD · Painel de controlo</p>
                       </div>
                     </div>
                     <div className="text-right flex-shrink-0">
@@ -360,7 +360,7 @@ export function CartDrawer() {
                       </div>
                       <div>
                         <h4 className="font-bold text-slate-800 text-sm group-hover:text-red-600 transition-colors">Alojamento Web {t(plan.nameKey)}</h4>
-                        <p className="text-[10px] text-slate-500">{HOSTING_PLAN_STORAGE_GB[plan.id]}GB SSD · DirectAdmin</p>
+                        <p className="text-[10px] text-slate-500">{HOSTING_PLAN_STORAGE_GB[plan.id]}GB SSD · Painel de controlo</p>
                       </div>
                     </div>
                     <div className="text-right flex-shrink-0">
