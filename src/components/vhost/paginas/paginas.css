@@ -744,16 +744,7 @@
    }
 }
 
-/* listas de contas: o "Entrar" da linha fica só com o ícone em todos os tamanhos (o nome aparece ao passar o rato) */
-.vh .btn.ct-entrar {
-   width: calc(30px * var(--z, 1));
-   padding: 0;
-   justify-content: center
-}
-
-.vh .btn.ct-entrar span {
-   display: none
-}
+/* listas de contas: o "Entrar" da linha leva o ícone e o texto «Entrar» (Silva, 26/10/2026) */
 
 /* "Colunas" no cabeçalho da tabela, depois da última coluna (DataTable colunasNoCabecalho — listas de contas) */
 .vh .tbl th.dt-th-cols {
@@ -3752,7 +3743,10 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
 /* barra dos domínios do gestor: encolhe nos portáteis pequenos (360 px nos ecrãs grandes, até 220 px) */
 .vh .fmda-arvore {
    flex: none;
-   width: clamp(calc(220px * var(--z, 1)), 19vw, calc(360px * var(--z, 1)));
+   /* a barra alarga conforme o nome mais comprido, numa só linha (Silva, 26/10/2026: "nem quero duas linhas na barra lateral") */
+   width: max-content;
+   min-width: clamp(calc(220px * var(--z, 1)), 19vw, calc(360px * var(--z, 1)));
+   max-width: 45%;
    border-right: 1px solid var(--line);
    overflow: auto;
    padding: calc(8px * var(--z, 1)) calc(5px * var(--z, 1))
@@ -3789,7 +3783,7 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
 .vh .fmda-no {
    display: flex;
    align-items: center;
-   gap: calc(10px * var(--z, 1));
+   gap: calc(5px * var(--z, 1));
    height: calc(32px * var(--z, 1));
    border-radius: 4px;
    cursor: pointer;
@@ -4279,10 +4273,6 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
       font-size: calc(13.5px * var(--fs, 1))
    }
 
-   .vh .fmda-tab td.fmda-nome {
-      white-space: normal;
-      overflow-wrap: anywhere
-   }
 }
 
 @media(max-width:860px) {
@@ -4290,12 +4280,6 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
       display: none
    }
 
-   .vh .fmda-tab th:nth-child(5),
-   .vh .fmda-tab td:nth-child(5),
-   .vh .fmda-tab th:nth-child(7),
-   .vh .fmda-tab td:nth-child(7) {
-      display: none
-   }
 
    .vh .fmda-ac {
       font-size: 0;
@@ -4304,6 +4288,16 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
 
    .vh .fmda-ac i {
       font-size: calc(15px * var(--fs, 1))
+   }
+}
+
+@media(min-width:769px) and (max-width:860px) {
+
+   .vh .fmda-tab th:nth-child(5),
+   .vh .fmda-tab td:nth-child(5),
+   .vh .fmda-tab th:nth-child(7),
+   .vh .fmda-tab td:nth-child(7) {
+      display: none
    }
 }
 
@@ -4884,6 +4878,24 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    display: flex;
    gap: calc(8px * var(--z, 1));
    flex-wrap: wrap
+}
+
+/* o botão «Validar domínio» fica à esquerda, no seu tamanho, no computador e nos ecrãs maiores, sem o «Limpar»; só no telemóvel há o «Limpar» e os
+   dois preenchem a largura toda, lado a lado, como os campos (Silva, 26/10/2026) */
+.vh .trf-botoes>.btn.trf-limpar:not(#x) {
+   display: none
+}
+
+@media (max-width: 768px) {
+   .vh .trf-botoes>.btn:not(#x) {
+      flex: 1 1 calc(50% - calc(4px * var(--z, 1)));
+      min-width: max-content;
+      justify-content: center
+   }
+
+   .vh .trf-botoes>.btn.trf-limpar:not(#x) {
+      display: inline-flex
+   }
 }
 
 .vh .btn.trf-btn-p {
@@ -10946,10 +10958,6 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
       height: calc(26px * var(--fs, 1));
       min-height: calc(26px * var(--fs, 1));
    }
-
-   .vh .btn.ct-entrar {
-      width: calc(26px * var(--z, 1));
-   }
 }
 
 /* telemóvel: o "Ações" (no lugar do título da 1.ª coluna) fica ao lado de "Selecionar tudo" quando há linhas escolhidas */
@@ -14745,127 +14753,17 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    }
 }
 
-/* Telemóvel (≤768): a lista do gestor de ficheiros em blocos, numa só coluna — caixa, ícone e nome em cima (o nome parte-se
-   onde for preciso, nunca a meio de palavras curtas), tamanho e data por baixo (Silva, 25/10/2026) */
+/* Telemóvel (≤768): a lista do gestor de ficheiros fica completa (todas as colunas, numa só linha cada) e desliza na horizontal
+   (Silva, 26/10/2026: "deixa a lista completa com deslize horizontal no mobile") */
 @media (max-width: 768px) {
-   .vh .fmda-tab:not(#x),
-   .vh .fmda-tab:not(#x) thead,
-   .vh .fmda-tab:not(#x) tbody {
-      display: block
+   .vh .fmda-deslize:not(#x) {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch
    }
 
-   /* os títulos das colunas ficam, numa só linha e a toda a largura, como no resto do painel: só saem os que não cabem
-      (o ícone, as permissões e o UID/GID) */
-   .vh .fmda-tab:not(#x) thead tr {
-      display: flex;
-      align-items: center;
-      min-height: calc(46px * var(--z, 1));
-      background: var(--soft)
-   }
-
-   .vh .fmda-tab:not(#x) thead th {
-      display: flex;
-      align-items: center;
-      flex: 0 0 auto;
-      width: auto;
-      min-width: 0;
-      border-top: 0;
-      border-bottom: 0
-   }
-
-   /* a caixa ocupa a coluna da caixa e a do ícone dos blocos: "Nome" fica por cima do nome de cada ficheiro */
-   .vh .fmda-tab:not(#x) thead th.fmda-chk {
-      width: calc(86px * var(--z, 1));
-      padding: 0 0 0 calc(12px * var(--z, 1))
-   }
-
-   .vh .fmda-tab:not(#x) thead th:nth-child(3) {
-      flex: 1 1 auto;
-      padding-left: 0
-   }
-
-   .vh .fmda-tab:not(#x) thead th:nth-child(2),
-   .vh .fmda-tab:not(#x) thead th:nth-child(5):not(:last-child),
-   .vh .fmda-tab:not(#x) thead th:nth-child(7) {
-      display: none
-   }
-
-   .vh .fmda-tab:not(#x) tbody tr {
-      display: grid;
-      grid-template-columns: calc(40px * var(--z, 1)) calc(46px * var(--z, 1)) minmax(0, 1fr) auto;
-      align-items: center;
-      row-gap: calc(2px * var(--z, 1));
-      padding: calc(8px * var(--z, 1)) 0
-   }
-
-   .vh .fmda-tab:not(#x) tbody td {
-      display: block;
-      height: auto;
-      padding: 0;
-      border: 0;
-      white-space: normal;
-      overflow-wrap: anywhere;
-      min-width: 0
-   }
-
-   .vh .fmda-tab:not(#x) tbody td.fmda-chk {
-      grid-column: 1;
-      grid-row: 1 / span 2;
-      width: auto
-   }
-
-   .vh .fmda-tab:not(#x) tbody td.fmda-icc {
-      grid-column: 2;
-      grid-row: 1 / span 2
-   }
-
-   /* as letras do tipo (HTML, PHP, PNG…) ficam numa só linha e mais pequenas: a regra das células partia-as uma por linha */
-   .vh .fmda-tab:not(#x) tbody td.fmda-icc .fmda-ic {
-      width: calc(30px * var(--z, 1))
-   }
-
-   .vh .fmda-tab:not(#x) tbody td.fmda-icc .fmda-ic b {
-      white-space: nowrap;
-      overflow-wrap: normal;
-      font-size: calc(5.5px * var(--fs, 1));
-      line-height: calc(8px * var(--z, 1));
-      padding: 0 calc(1.5px * var(--z, 1))
-   }
-
-   .vh .fmda-tab:not(#x) tbody td:nth-child(3) {
-      grid-column: 3 / -1;
-      grid-row: 1;
-      font-weight: 600
-   }
-
-   .vh .fmda-tab:not(#x) tbody td:nth-child(4) {
-      grid-column: 3;
-      grid-row: 2;
-      font-size: calc(12px * var(--fs, 1));
-      color: var(--muted)
-   }
-
-   .vh .fmda-tab:not(#x) tbody td.fmda-mono,
-   .vh .fmda-tab:not(#x) tbody td:nth-child(7) {
-      display: none
-   }
-
-   .vh .fmda-tab:not(#x) tbody td:nth-child(6),
-   .vh .fmda-tab:not(#x) tbody td:nth-child(5):not(.fmda-mono) {
-      grid-column: 4;
-      grid-row: 2;
-      font-size: calc(12px * var(--fs, 1));
-      color: var(--muted);
-      text-align: right;
-      padding-right: calc(12px * var(--z, 1))
-   }
-
-   .vh .fmda-tab:not(#x) tbody tr.fmda-vazio td {
-      grid-column: 1 / -1;
-      grid-row: auto;
-      padding: calc(14px * var(--z, 1)) calc(12px * var(--z, 1));
-      text-align: center;
-      border-bottom: 1px solid var(--linha-lista)
+   .vh .fmda-tab:not(#x) {
+      width: max-content;
+      min-width: 100%
    }
 }
 
@@ -14967,4 +14865,137 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
 
 .vh .card.empty.sem-email > .btn:not(#x) {
    margin-top: 0
+}
+
+/* Telemóvel (≤768): a lista de DNS com a mesma disposição do computador — o lápis de editar na coluna «Acção» (só o ícone), o nome inteiro, o
+   conteúdo numa caixa como no computador — e a tabela desliza na horizontal (Silva, 26/10/2026) */
+@media (max-width: 768px) {
+   .vh .tbl[data-dt="dns"]:not(#x) table {
+      min-width: calc(900px * var(--z, 1))
+   }
+
+   .vh .tbl[data-dt="dns"]:not(#x) .dns-ed-nome:not(#x) {
+      display: none
+   }
+
+   .vh .tbl[data-dt="dns"]:not(#x) .dns-acoes > .btn-dns-edit:not(#x) {
+      display: inline-flex;
+      padding-left: calc(9px * var(--z, 1));
+      padding-right: calc(9px * var(--z, 1))
+   }
+
+   .vh .tbl[data-dt="dns"]:not(#x) td.dt-acoes-linha:not(#x) {
+      display: table-cell
+   }
+
+   .vh .tbl[data-dt="dns"]:not(#x) .dns-bt-txt:not(#x) {
+      display: none
+   }
+
+   .vh .tbl[data-dt="dns"]:not(#x) th:nth-child(4),
+   .vh .tbl[data-dt="dns"]:not(#x) td:nth-child(4) {
+      width: 100%;
+      white-space: normal
+   }
+
+   .vh .tbl[data-dt="dns"]:not(#x) td:nth-child(4) *:not(.dns-valor-caixa):not(#x) {
+      white-space: normal !important;
+      overflow-wrap: anywhere !important
+   }
+
+   .vh .tbl[data-dt="dns"]:not(#x) th:last-child,
+   .vh .tbl[data-dt="dns"]:not(#x) td:last-child {
+      width: 1%
+   }
+
+   .vh .tbl[data-dt="dns"]:not(#x) td .dns-valor-caixa:not(#x) {
+      width: 100%;
+      max-width: clamp(calc(300px * var(--z, 1)), 46cqw, calc(760px * var(--z, 1)))
+   }
+
+   .vh .tbl[data-dt="dns"]:not(#x) tbody tr td.ck + td > b:not(#x) {
+      font-size: inherit;
+      overflow: visible;
+      text-overflow: clip
+   }
+
+   /* as medidas das células e do botão, as mesmas do computador (linhas baixas, letra pequena) */
+   .vh .tbl[data-dt="dns"]:not(#x) tbody td:not(#x) {
+      padding: calc(6.2px * var(--z, 1)) calc(10px * var(--z, 1));
+      font-size: calc(12.2px * var(--z, 1))
+   }
+
+   .vh .tbl[data-dt="dns"]:not(#x) tbody td.ck:not(#x) {
+      padding: calc(6.2px * var(--z, 1)) calc(20px * var(--z, 1)) calc(6.2px * var(--z, 1)) calc(14px * var(--z, 1))
+   }
+
+   .vh .tbl[data-dt="dns"]:not(#x) tbody td.dt-acoes-linha:not(#x) {
+      padding: calc(6.2px * var(--z, 1)) calc(12px * var(--z, 1)) calc(6.2px * var(--z, 1)) calc(10px * var(--z, 1))
+   }
+
+   .vh .tbl[data-dt="dns"]:not(#x) .dns-acoes > .btn-dns-edit:not(#x) {
+      height: calc(24px * var(--z, 1));
+      min-height: 0;
+      width: auto
+   }
+
+   /* títulos das colunas com o mesmo recuo e a mesma letra do computador */
+   .vh .tbl[data-dt="dns"]:not(#x) thead th:not(#x) {
+      padding: calc(7px * var(--z, 1)) calc(10px * var(--z, 1));
+      font-size: calc(13.2px * var(--z, 1))
+   }
+
+   .vh .tbl[data-dt="dns"]:not(#x) thead th.ck:not(#x) {
+      padding: calc(7px * var(--z, 1)) calc(20px * var(--z, 1)) calc(7px * var(--z, 1)) calc(14px * var(--z, 1))
+   }
+
+   /* o botão Editar no fim da linha, encostado à esquerda da coluna «Acção» */
+   .vh .tbl[data-dt="dns"]:not(#x) td.dt-acoes-linha:not(#x),
+   .vh .tbl[data-dt="dns"]:not(#x) th:last-child:not(#x) {
+      text-align: left
+   }
+
+   .vh .tbl[data-dt="dns"]:not(#x) td.dt-acoes-linha .dns-acoes:not(#x) {
+      justify-content: flex-start
+   }
+}
+
+/* Telemóvel (≤768): as listas dos widgets do painel inicial (utilizadores e domínios) ficam com a disposição do computador e deslizam na
+   horizontal, em vez de empilhar em blocos (Silva, 26/10/2026) */
+@media (max-width: 768px) {
+   .vh .tbl.deslize-mobile:not(#x) tbody td:not(#x) {
+      padding: calc(6.2px * var(--z, 1)) calc(10px * var(--z, 1)) calc(6.2px * var(--z, 1)) calc(12px * var(--z, 1));
+      font-size: calc(12.2px * var(--z, 1))
+   }
+
+   .vh .tbl.deslize-mobile:not(#x) thead th:not(#x) {
+      padding: calc(7px * var(--z, 1)) calc(10px * var(--z, 1)) calc(7px * var(--z, 1)) calc(12px * var(--z, 1));
+      font-size: calc(13.2px * var(--z, 1))
+   }
+}
+
+/* O ícone «Colunas» fixo à direita já não tapa o título da coluna que passa por baixo (ex.: «Estado» cortado em «Est») — Silva, 26/10/2026:
+   o fundo suave passa para a linha toda e a célula fixa fica transparente, só o ícone fica por cima */
+.vh .tbl thead:has(th.dt-th-cols:not(.dt-th-acoes-fim)) tr:not(#x) {
+   background: var(--soft)
+}
+
+.vh .tbl thead th.dt-th-cols:not(.dt-th-acoes-fim):not(#x):not(#y) {
+   background: transparent;
+   box-shadow: none
+}
+
+/* Telemóvel (≤768): as listas de domínios e de subdomínios com a disposição do computador e deslize horizontal, em vez de blocos empilhados (Silva, 26/10/2026) */
+@media (max-width: 768px) {
+   .vh .tbl[data-dt="dominios"]:not(#x) tbody td:not(#x),
+   .vh .tbl[data-dt="subdominios"]:not(#x) tbody td:not(#x) {
+      padding: calc(6.2px * var(--z, 1)) 0 calc(6.2px * var(--z, 1)) calc(12px * var(--z, 1));
+      font-size: calc(12.2px * var(--z, 1))
+   }
+
+   .vh .tbl[data-dt="dominios"]:not(#x) thead th:not(#x):not(.dt-th-cols),
+   .vh .tbl[data-dt="subdominios"]:not(#x) thead th:not(#x):not(.dt-th-cols) {
+      padding: calc(7px * var(--z, 1)) 0 calc(7px * var(--z, 1)) calc(12px * var(--z, 1));
+      font-size: calc(13.2px * var(--z, 1))
+   }
 }

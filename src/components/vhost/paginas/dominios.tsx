@@ -176,12 +176,12 @@ export async function reprocessarUm(vh: VH, dominio: string, ligarEmail = false)
 
 /** Reprocessar o DNS de vários domínios, um a um, e mostrar numa janela o relatório de cada um: repõe o site e o
  *  e-mail (SPF, DKIM, DMARC, MX), serve domínios registados em qualquer registador e confere no fim. */
-async function reprocessarVarios(vh: VH, nomes: string[]) {
+export async function reprocessarVarios(vh: VH, nomes: string[], ligarEmail = false) {
   const { t, openM, closeM } = vh;
   const resultados: { d: string; r: ResultadoDns }[] = [];
   for (const [i, dominio] of nomes.entries()) {
     vh.toast(t('A reprocessar o DNS…') + ' ' + dominio + ' (' + (i + 1) + '/' + nomes.length + ')');
-    resultados.push({ d: dominio, r: await reprocessarUm(vh, dominio) });
+    resultados.push({ d: dominio, r: await reprocessarUm(vh, dominio, ligarEmail) });
   }
   vh.toast(t('DNS reprocessado'));
   openM(
@@ -199,6 +199,7 @@ async function reprocessarVarios(vh: VH, nomes: string[]) {
       </div>
     </>,
   );
+  return resultados.map((x) => x.r);
 }
 
 function nomeDnsPertence(nome: string, dominio: string, host: string): boolean {
@@ -458,6 +459,7 @@ function ListaDominios({ abaDom = 'meus', abrirNovo = false }: { abaDom?: AbaDom
           id="dominios"
           umaLinha
           barraFora
+          empilhar={false}
           consulta={busca}
           rows={rows}
           cols={cols}
@@ -973,7 +975,6 @@ function VerDominio({ d }: { d: string }) {
   const { det, erro, ler } = useDetalhe(x && !x.soEmail ? d : '');
 
   const reg = useRegistador(x && !x.soEmail ? d : '');
-  const [relatorio, setRelatorio] = useState<ItemRel[] | null>(null);
 
   useEffect(() => {
     if (s.dominio !== d) setDominio(d, false);
@@ -1134,11 +1135,7 @@ function VerDominio({ d }: { d: string }) {
                 texto={t('Repõe na Cloudflare os registos do site e do e-mail deste domínio que estiverem em falta ou errados. O que já está certo fica como está.')}
                 ok="Reprocessar"
                 onOk={async () => {
-                  vh.toast(t('A reprocessar o DNS…'));
-                  setRelatorio(null);
-                  const r = await reprocessarUm(vh, d);
-                  vh.toast(r.aviso);
-                  setRelatorio(r.itens);
+                  const [r] = await reprocessarVarios(vh, [d]);
                   if (r.ok) ler();
                 }}
               />,
@@ -1216,7 +1213,6 @@ function VerDominio({ d }: { d: string }) {
           <i className="fa-solid fa-trash" />
           {t('Apagar')}
         </button>
-        {relatorio && <RelatorioDns dominio={d} itens={relatorio} onFechar={() => setRelatorio(null)} />}
       </aside>
       </div>
     </>
@@ -1361,6 +1357,7 @@ function Subdominios() {
       tituloAcoes="Acção"
       umaLinha
       barraFora
+      empilhar={false}
       rows={rows}
       rowKey={(r) => r.id}
       search={(r) => r.nome}
@@ -1763,7 +1760,7 @@ function Dns() {
           onRecarregar={ler}
           umaLinha
           barraFora
-          empilhar="botoes-em-baixo"
+          empilhar={false}
           empty="Nenhum registo encontrado para este filtro"
           cols={[
             {

@@ -345,7 +345,7 @@ function TransferirConteudo() {
                     {t('Validar domínio')}
                   </button>
                 )}
-                <button type="button" className="btn g" onClick={limpar}>
+                <button type="button" className="btn g trf-limpar" onClick={limpar}>
                   {t('Limpar')}
                 </button>
               </div>
