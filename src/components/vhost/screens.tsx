@@ -109,7 +109,7 @@ function AdminWidgets() {
           <Stat title="Revendedores" v={all.filter(([, a]) => a.role === 'revenda').length} m="/ ∞" p={0} />
           {/* números reais do servidor, explícitos (Silva, 14/10/2026): "41,8 GB de 300 GB" (a percentagem vai no título, para cada informação ficar numa linha), "13% de 6 núcleos" */}
           <Stat
-            title={<>{t('Disco usado')}{v ? ' · ' + pctDe(v.discoUsadoGb, v.discoTotalGb) + '%' : ''}</>}
+            title={<>{t('Disco')}{v ? ' · ' + pctDe(v.discoUsadoGb, v.discoTotalGb) + '%' : ''}</>}
             uso
             v={v ? gbTxt(v.discoUsadoGb) : '—'}
             m={v ? 'de ' + gbTxt(v.discoTotalGb) : ''}

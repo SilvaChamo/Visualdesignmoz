@@ -115,7 +115,7 @@
 .vh .stat strong span{font-size:calc(14px * var(--fs, 1));color:var(--muted);font-weight:600}
 .vh .bar{height:calc(6px * var(--z, 1));border-radius:var(--r);background:var(--soft);overflow:hidden}
 .vh .bar span{display:block;height:100%;background:var(--red)}
-.vh .cols{display:grid;grid-template-columns:minmax(0,1fr) calc(290px * var(--z, 1));gap:calc(24px * var(--z, 1));align-items:start;position:relative;width:100%}
+.vh .cols{display:grid;grid-template-columns:minmax(0,1fr) calc(264px * var(--z, 1));gap:calc(24px * var(--z, 1));align-items:start;position:relative;width:100%}
 .vh .stats-line{display:none}
 .vh .cols>div{min-width:0}
 .vh .cols>div+div{position:relative;border-left:1px solid var(--line-soft);padding-left:calc(20px * var(--z, 1));margin:0;min-height:0;background:transparent;display:flex;flex-direction:column;gap:calc(14px * var(--z, 1))}
@@ -264,7 +264,7 @@
 @media(max-width:1300px){
  .vh .da-grid{grid-template-columns:repeat(5,1fr)}
  .vh .stats{grid-template-columns:repeat(4,1fr);gap:calc(12px * var(--z, 1))}
- .vh .cols{grid-template-columns:minmax(0,1fr) calc(250px * var(--z, 1));gap:calc(18px * var(--z, 1));padding-top:calc(10px * var(--z, 1))}
+ .vh .cols{grid-template-columns:minmax(0,1fr) calc(230px * var(--z, 1));gap:calc(18px * var(--z, 1));padding-top:calc(10px * var(--z, 1))}
  .vh main{padding:calc(18px * var(--z, 1)) calc(20px * var(--z, 1)) calc(40px * var(--z, 1))}
  .vh .da-switcher-bar{margin:calc(-18px * var(--z, 1)) calc(-20px * var(--z, 1)) calc(16px * var(--z, 1)) calc(-20px * var(--z, 1));padding:0 calc(20px * var(--z, 1));height:calc(40px * var(--z, 1));width:calc(100% + calc(40px * var(--z, 1)))}
  .vh .cols .da-switcher-bar{margin:calc(-18px * var(--z, 1)) calc(-18px * var(--z, 1)) calc(16px * var(--z, 1)) calc(-20px * var(--z, 1));width:calc(100% + calc(38px * var(--z, 1)));border-right:1px solid var(--line)}
