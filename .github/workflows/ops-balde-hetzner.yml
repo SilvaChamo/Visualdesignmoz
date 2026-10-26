@@ -143,6 +143,13 @@ jobs:
               echo "--- FTP/SFTP (vsftpd e sshd) que mencionam o utilizador do site ou o legacy, hoje"
               grep -hE "legacy|oshercollective" /var/log/vsftpd.log /var/log/vsftpd.log.1 /var/log/xferlog 2>/dev/null | grep -E "Oct 26|26 Oct|2026-10-26" | cut -c1-240 | tail -15
               { grep -hE "oshercollective" /var/log/auth.log /var/log/auth.log.1 2>/dev/null; journalctl --since "2026-10-26 00:00" --no-pager 2>/dev/null | grep -E "sshd|sftp|vsftpd" | grep "oshercollective"; } | grep -E "Oct 26|2026-10-26" | cut -c1-240 | tail -15
+              echo "--- tarefas cron do utilizador do site (cada linha, com cadeias longas mascaradas)"
+              crontab -u oshercollective -l 2>&1 | grep -v '^#' | grep -v '^$' | sed -E 's/[A-Za-z0-9_+\/=-]{28,}/***/g' | cut -c1-240 | head -20
+              echo "--- o que o sistema registou nos minutos de cada gravação (CAT)"
+              for jan in "2026-10-26 14:56:30|2026-10-26 14:58:30" "2026-10-26 15:10:00|2026-10-26 15:11:30" "2026-10-26 16:21:30|2026-10-26 16:23:30"; do
+                echo "  janela ${jan%%|*} — ${jan##*|}"
+                journalctl --since "${jan%%|*}" --until "${jan##*|}" --no-pager 2>/dev/null | grep -vE "systemd\[1\]: (Started|Starting|Finished)|Accepted publickey|Received disconnect|Disconnected from|Connection (closed|reset)|session (opened|closed) for user root" | sed -E 's/[A-Za-z0-9_+\/=-]{28,}/***/g' | cut -c1-230 | head -14
+              done
               echo "--- processos do utilizador do site agora"
               ps -u oshercollective -o pid,etime,cmd 2>/dev/null | cut -c1-200 | head -12
               echo "(fim)"
