@@ -3,7 +3,7 @@
 // Recebe um JSON em base64 no argv: { conta, op, ... } e responde com uma linha JSON.
 
 export const FM_PY = String.raw`
-import base64, grp, json, os, pwd, shutil, stat, sys, tarfile, time, uuid, zipfile
+import base64, grp, json, os, pwd, re, shutil, stat, sys, tarfile, time, urllib.parse, uuid, zipfile
 a = json.loads(base64.b64decode(sys.argv[1]).decode('utf-8'))
 BASE = os.path.realpath('/home/' + a['conta'])
 def fim(x):
@@ -70,6 +70,32 @@ def nome_ok(n):
     if not n or n in ('.', '..') or '/' in n or '\0' in n or len(n) > 255:
         erro('Nome inválido.')
     return n
+# --- balde_fora: o balde do Hetzner (Object Storage) foi cancelado (Silva, 26/10/2026: "nada deve apontar ao balde"); ao guardar ou enviar um
+# ficheiro de texto do site, os links para ele passam para o ficheiro do próprio site (o ícone e as imagens continuam lá). Só se troca quando o ficheiro
+# existe em web/<domínio>/public_html/wp-content/uploads desta conta; senão o link fica e o painel avisa. O URL do balde levava uma pasta de versão
+# de 8 números (2026/08/02115232/ficheiro) que no disco não existe.
+EXT_TEXTO = ('.html', '.htm', '.css', '.js', '.json', '.svg', '.xml', '.php', '.txt', '.md')
+BALDE_RE = re.compile(r'https?://(?:[a-z0-9-]+\.)*your-objectstorage\.com/(?:[a-z0-9._-]+/)?wp/([a-z0-9.-]+)/uploads/([0-9]{4}/[0-9]{2})/(?:[0-9]{8}/)?([^\s"\'<>()?#,;\\]+)', re.I)
+def balde_fora(dados, nome):
+    if not str(nome).lower().endswith(EXT_TEXTO) or len(dados) > 4 * 1024 * 1024 or b'\0' in dados:
+        return dados, 0, 0
+    try:
+        texto = dados.decode('utf-8')
+    except UnicodeDecodeError:
+        return dados, 0, 0
+    if 'your-objectstorage' not in texto.lower():
+        return dados, 0, 0
+    cont = [0, 0]
+    def troca(m):
+        dom, ym, f = m.group(1).lower(), m.group(2), m.group(3)
+        local = os.path.realpath(os.path.join(BASE, 'web', dom, 'public_html', 'wp-content', 'uploads', ym, urllib.parse.unquote(f)))
+        if local.startswith(BASE + '/') and os.path.isfile(local):
+            cont[0] += 1
+            return 'https://' + dom + '/wp-content/uploads/' + ym + '/' + f
+        cont[1] += 1
+        return m.group(0)
+    return BALDE_RE.sub(troca, texto).encode('utf-8'), cont[0], cont[1]
+# --- fim balde_fora
 op = a['op']
 try:
     if op == 'listar':
@@ -101,10 +127,11 @@ try:
         if a.get('novo') and os.path.lexists(p): erro('Já existe um ficheiro com esse nome.')
         if os.path.isdir(p): erro('É uma pasta.')
         tmp = p + '.vhost-tmp'
-        open(tmp, 'wb').write(sys.stdin.buffer.read() if a.get('stdin') else base64.b64decode(a.get('texto64', '')))
+        dados, trocados, mantidos = balde_fora(sys.stdin.buffer.read() if a.get('stdin') else base64.b64decode(a.get('texto64', '')), n)
+        open(tmp, 'wb').write(dados)
         if os.path.exists(p): shutil.copymode(p, tmp)
         os.replace(tmp, p)
-        fim({'ok': True})
+        fim({'ok': True, 'trocados': trocados, 'mantidos': mantidos})
     if op == 'pasta':
         pasta = seguro(a.get('pasta'))
         p = seguro(os.path.join(rel(pasta), nome_ok(a['nome'])), existe=False)
@@ -288,8 +315,13 @@ try:
         tmp = a['tmp']
         if not tmp.startswith('/tmp/vhost-up-') or '/' in tmp[len('/tmp/'):]: erro('Envio inválido.')
         shutil.move(tmp, dest)
+        trocados = mantidos = 0
+        if dest.lower().endswith(EXT_TEXTO) and os.path.getsize(dest) <= 4 * 1024 * 1024:
+            antes = open(dest, 'rb').read()
+            depois, trocados, mantidos = balde_fora(antes, dest)
+            if depois != antes: open(dest, 'wb').write(depois)
         os.chmod(dest, 0o644)
-        fim({'ok': True})
+        fim({'ok': True, 'trocados': trocados, 'mantidos': mantidos})
     erro('Operação desconhecida.')
 except SystemExit:
     raise
