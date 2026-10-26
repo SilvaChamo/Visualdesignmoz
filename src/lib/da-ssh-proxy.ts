@@ -28,7 +28,7 @@ export async function requestDirectAdminViaSsh(
   credentials: DirectAdminCredentials,
 ): Promise<string> {
   if (isHestiaOnlyDeploy()) {
-    throw new Error('DirectAdmin não está disponível neste servidor (Hestia).');
+    throw new Error('DirectAdmin não está disponível neste servidor (Vhost).');
   }
   const user = shellQuote(credentials.user);
   const apiSetup = `API=$(${DA_BIN} api-url --user=${user} 2>/dev/null | tail -1)`;

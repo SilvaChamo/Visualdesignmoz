@@ -188,7 +188,7 @@ async function dkimDoServidor(conta: string, d: string): Promise<string | null> 
  *  também os domínios registados fora da Dynadot: a zona e os registos fazem-se na Cloudflare e, se os nameservers
  *  públicos não forem os dela, muda-os na Dynadot (quando o domínio está lá) ou diz quais pôr no registador. No fim
  *  confere o DNS público. O que já está certo fica como está, com o proxy que tinha. */
-async function reprocessarDns(conta: string, d: string, srv: LeituraServidor) {
+async function reprocessarDns(conta: string, d: string, srv: LeituraServidor, ligarEmail = false) {
   const zona = zonaDe(d);
   // O que o painel mostra no cartão do relatório: verde = posto agora ("novo") ou já estava certo ("certo");
   // vermelho = falhou; laranja = ainda não se vê no DNS público ("pendente")
@@ -219,7 +219,16 @@ async function reprocessarDns(conta: string, d: string, srv: LeituraServidor) {
       itens.push({ nome: rotulo, estado: x.ok ? 'novo' : 'falhou', detalhe: x.ok ? '→ ' + ip : x.error || 'erro' });
     }
   }
-  const temEmail = !!srv.mail[conta]?.[d];
+  let temEmail = !!srv.mail[conta]?.[d];
+  // Pedido do ecrã de e-mail (Silva, 26/10/2026): o domínio ainda não recebe e-mail aqui — liga-se primeiro (v-add-mail-domain, que
+  // gera o DKIM e leva mais do que os 5 s habituais) e logo a seguir repõem-se os registos de e-mail, como neste mesmo botão
+  if (!temEmail && ligarEmail) {
+    const x = await hestiaCall('v-add-mail-domain', [conta, d], { timeoutMs: 60_000 });
+    if (!x.ok) return NextResponse.json({ erro: 'Não foi possível ligar o e-mail neste domínio: ' + (x.error || 'o servidor recusou') }, { status: 502 });
+    esquecerLeitura();
+    itens.push({ nome: 'E-mail neste servidor', estado: 'novo', detalhe: 'domínio de e-mail ligado' });
+    temEmail = true;
+  }
   if (temEmail) {
     const e = await provisionEmailAuthForDomain(d, { rapido: true });
     for (const x of e.records) itens.push({ nome: `${x.type} ${x.name}`, estado: !x.ok ? 'falhou' : x.action === 'skipped' ? 'certo' : 'novo', detalhe: x.error });
@@ -902,7 +911,7 @@ export async function POST(req: NextRequest) {
       return resposta(updateCloudflareDnsRecord(zid, id, zona, { type: tipo as CloudflareRecordInput['type'], name: nome, content: valor, ttl: c.proxied ? 1 : Number(c.ttl) || 1, proxied: c.proxied }), false);
     }
     case 'dns-reprocessar':
-      return reprocessarDns(conta, d, srv);
+      return reprocessarDns(conta, d, srv, c.ligarEmail === true);
     case 'redir-dominio': {
       const url = linhaLimpa(c.url);
       if (!/^https?:\/\/\S+$/.test(url)) return NextResponse.json({ erro: 'Destino inválido (https://…).' }, { status: 400 });

@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
       });
     }
     return NextResponse.json(
-      { error: 'Neste servidor a hospedagem é Hestia — o DirectAdmin não é usado.' },
+      { error: 'Neste servidor a hospedagem é Vhost — o DirectAdmin não é usado.' },
       { status: 409 },
     );
   }

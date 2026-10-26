@@ -117,12 +117,12 @@ async function noServidor(vh: VH, corpo: Record<string, unknown>, ok: string, re
 
 /** Relatório do "Reprocessar DNS" (Silva, 20/10/2026): cada registo com o seu estado — verde: posto agora ou já certo;
  *  vermelho: falhou (com o motivo); laranja: ainda não se vê no DNS público. O que falta vem primeiro. */
-type ItemRel = { nome: string; estado: 'novo' | 'certo' | 'falhou' | 'pendente'; detalhe?: string };
+export type ItemRel = { nome: string; estado: 'novo' | 'certo' | 'falhou' | 'pendente'; detalhe?: string };
 const ORDEM_REL: Record<ItemRel['estado'], number> = { falhou: 0, pendente: 1, novo: 2, certo: 3 };
 const ICONE_REL: Record<ItemRel['estado'], string> = { novo: 'fa-circle-check', certo: 'fa-circle-check', falhou: 'fa-circle-xmark', pendente: 'fa-clock' };
 const TEXTO_REL: Record<ItemRel['estado'], string> = { novo: 'Adicionado', certo: 'Certo', falhou: 'Falhou', pendente: 'A propagar' };
 
-function RelatorioDns({ dominio, itens, onFechar }: { dominio: string; itens: ItemRel[]; onFechar?: () => void }) {
+export function RelatorioDns({ dominio, itens, onFechar }: { dominio: string; itens: ItemRel[]; onFechar?: () => void }) {
   const { t } = useVH();
   const ordenados = [...itens].sort((x, y) => ORDEM_REL[x.estado] - ORDEM_REL[y.estado]);
   const n = (e: ItemRel['estado']) => itens.filter((i) => i.estado === e).length;
@@ -160,11 +160,12 @@ function RelatorioDns({ dominio, itens, onFechar }: { dominio: string; itens: It
   );
 }
 
-type ResultadoDns = { ok: boolean; aviso: string; itens: ItemRel[] };
-/** Pede ao servidor que reprocesse o DNS de um domínio e devolve o relatório */
-async function reprocessarUm(vh: VH, dominio: string): Promise<ResultadoDns> {
+export type ResultadoDns = { ok: boolean; aviso: string; itens: ItemRel[] };
+/** Pede ao servidor que reprocesse o DNS de um domínio e devolve o relatório. `ligarEmail`: o ecrã de e-mail usa o mesmo
+ *  botão e, se o domínio ainda não recebe e-mail neste servidor, o servidor liga-o antes de repor os registos */
+export async function reprocessarUm(vh: VH, dominio: string, ligarEmail = false): Promise<ResultadoDns> {
   try {
-    const r = await fetch('/api/vhost/dominio', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ conta: vh.me, acao: 'dns-reprocessar', dominio }) });
+    const r = await fetch('/api/vhost/dominio', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ conta: vh.me, acao: 'dns-reprocessar', dominio, ...(ligarEmail ? { ligarEmail: true } : {}) }) });
     const j = (await r.json().catch(() => ({}))) as { erro?: string; aviso?: string; relatorio?: ItemRel[] };
     if (!r.ok) return { ok: false, aviso: j.erro || 'A alteração falhou', itens: [{ nome: 'DNS', estado: 'falhou', detalhe: j.erro || 'A alteração falhou' }] };
     return { ok: true, aviso: j.aviso || 'DNS reprocessado', itens: j.relatorio || [] };

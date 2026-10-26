@@ -21,7 +21,7 @@ function resolveHestiaConfig(): { host: string; port: string; user: string; pass
   const user = readEnv('HESTIA_USER') || 'vdadmin';
   const password = readEnv('HESTIA_PASSWORD');
   if (!host || !password) {
-    throw new Error('Credenciais HestiaCP ausentes. Configure HESTIA_HOST e HESTIA_PASSWORD.');
+    throw new Error('Credenciais Vhost ausentes. Configure HESTIA_HOST e HESTIA_PASSWORD.');
   }
   return { host, port, user, password };
 }
@@ -74,7 +74,7 @@ async function hestiaCallViaSsh(cmd: string, args: string[], timeoutMs = 20_000)
       ok: false,
       exitCode: -1,
       output: '',
-      error: e instanceof Error ? e.message : 'Ligação SSH ao Hestia falhou',
+      error: e instanceof Error ? e.message : 'Ligação SSH ao Vhost falhou',
     };
   }
 }
@@ -133,7 +133,7 @@ async function hestiaCallDireto(cmd: string, args: string[], options: HestiaCall
         ok: false,
         exitCode: -1,
         output: '',
-        error: 'O Hestia demorou a responder. O pedido pode ainda estar em curso; não foi repetido automaticamente.',
+        error: 'O Vhost demorou a responder. O pedido pode ainda estar em curso; não foi repetido automaticamente.',
       };
     }
     if (options.sshFallbackOnTransportError === false) {
@@ -141,7 +141,7 @@ async function hestiaCallDireto(cmd: string, args: string[], options: HestiaCall
         ok: false,
         exitCode: -1,
         output: '',
-        error: 'Não foi possível confirmar se o Hestia recebeu o pedido; não foi repetido para evitar duplicar a operação.',
+        error: 'Não foi possível confirmar se o Vhost recebeu o pedido; não foi repetido para evitar duplicar a operação.',
       };
     }
     return hestiaCallViaSsh(cmd, args, options.sshTimeoutMs ?? HESTIA_SSH_FALLBACK_MS);
@@ -178,6 +178,6 @@ export async function hestiaCallJson<T = unknown>(cmd: string, args: string[] = 
   try {
     return { ok: true, data: JSON.parse(result.output) as T };
   } catch {
-    return { ok: false, error: 'Resposta inválida do Hestia' };
+    return { ok: false, error: 'Resposta inválida do Vhost' };
   }
 }

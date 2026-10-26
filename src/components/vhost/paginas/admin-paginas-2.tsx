@@ -220,7 +220,7 @@ function Atualizacoes() {
         id="ad-atu"
         empilhar="tablet"        rows={dados.pacotes}
         rowKey={(r) => r.nome}
-        empty="Nenhum pacote do Hestia"
+        empty="Nenhum pacote do Vhost"
         cols={[
           { k: 'n', t: 'Pacote', sort: (r) => r.nome, cell: (r) => (
             <span className="pm-proc">
@@ -240,7 +240,7 @@ function Atualizacoes() {
           </Opcao>
         </div>
       </Sec>
-      <Trabalho tr={dados.trabalho} ler={ler} titulo="A atualizar o Hestia" />
+      <Trabalho tr={dados.trabalho} ler={ler} titulo="A atualizar o Vhost" />
     </>
   );
 }
@@ -250,12 +250,12 @@ function BotaoAtualizarHestia() {
     <BotaoTopo
       mostrar={!d?.trabalho.aCorrer}
       fa="fa-arrows-rotate"
-      texto="Atualizar o Hestia"
-      titulo="Atualizar o Hestia?"
-      aviso="Instala as versões novas dos pacotes do Hestia. Os sites continuam no ar; o painel do Hestia pode reiniciar."
+      texto="Atualizar o Vhost"
+      titulo="Atualizar o Vhost?"
+      aviso="Instala as versões novas dos pacotes do Vhost. Os sites continuam no ar; o painel do Vhost pode reiniciar."
       ok="Atualizar"
       corpo={{ acao: 'hestia-atualizar' }}
-      msg="A atualizar o Hestia…"
+      msg="A atualizar o Vhost…"
     />
   );
 }
@@ -414,7 +414,7 @@ type Def = { hostname: string; fuso: string; fusos: string[]; config: Record<str
 type AbaD = 'servidor' | 'opcoes' | 'config';
 const OPCOES: [string, string, string, string, string][] = [
   // chave, título, explicação, valor ligado, valor desligado
-  ['UPGRADE_SEND_EMAIL', 'Avisar por e-mail das atualizações', 'Manda um e-mail ao administrador quando o Hestia se atualiza.', 'true', 'false'],
+  ['UPGRADE_SEND_EMAIL', 'Avisar por e-mail das atualizações', 'Manda um e-mail ao administrador quando o Vhost se atualiza.', 'true', 'false'],
   ['UPGRADE_SEND_EMAIL_LOG', 'Juntar o registo da atualização ao e-mail', '', 'true', 'false'],
   ['POLICY_USER_VIEW_LOGS', 'Os clientes podem ver os registos da conta', '', 'yes', 'no'],
   ['POLICY_USER_DELETE_BACKUPS', 'Os clientes podem apagar os seus backups', '', 'yes', 'no'],
@@ -747,7 +747,7 @@ function BotaoBackupSistema() {
       fa="fa-hard-drive"
       texto="Fazer cópia agora"
       titulo="Fazer a cópia do sistema?"
-      aviso="Copia as configurações do servidor e do Hestia para a pasta dos backups."
+      aviso="Copia as configurações do servidor e do Vhost para a pasta dos backups."
       ok="Fazer cópia"
       corpo={{ acao: 'bs-criar' }}
       msg="A fazer a cópia…"
@@ -1110,7 +1110,7 @@ function ImportarContas() {
             run: (k) => {
               const f = k.length === 1 ? dados.ficheiros.find((x) => x.nome === k[0]) : undefined;
               if (!f) return vh.toast('Escolha só um ficheiro');
-              if (!dados.scripts[f.tipo]) return vh.toast(t('Este Hestia não tem o importador do') + ' ' + ORIGEM[f.tipo]);
+              if (!dados.scripts[f.tipo]) return vh.toast(t('Este Vhost não tem o importador do') + ' ' + ORIGEM[f.tipo]);
               confirmar(vh, 'Importar a conta?', f.nome + ' (' + ORIGEM[f.tipo] + ') — ' + t('cria a conta com os sites, e-mails e bases de dados da cópia.'), 'Importar', { acao: 'importar', ficheiro: f.nome, tipo: f.tipo }, 'A importar…');
             },
           },
@@ -1167,7 +1167,7 @@ function Manutencao() {
         <div className="em-opcoes">
           {tarefa('Limpar o disco', 'Cache de pacotes, registos do sistema com mais de 14 dias e temporários com mais de 7.', 'Limpar', 'fa-broom', 'Apaga só ficheiros temporários e registos antigos; os sites e os e-mails não mudam.', 'mnt-limpar')}
           {tarefa('Reconstruir todas as contas', 'Volta a escrever as configurações web, DNS, e-mail e cron de todas as contas.', 'Reconstruir', 'fa-hammer', 'Pode demorar alguns minutos; os serviços recarregam no fim.', 'mnt-reconstruir')}
-          {dados.reparar && tarefa('Verificar e reparar a configuração', 'Corrige as definições do Hestia que estiverem em falta ou erradas.', 'Reparar', 'fa-screwdriver-wrench', 'Repara a configuração do Hestia (v-repair-sys-config).', 'mnt-reparar')}
+          {dados.reparar && tarefa('Verificar e reparar a configuração', 'Corrige as definições do Vhost que estiverem em falta ou erradas.', 'Reparar', 'fa-screwdriver-wrench', 'Repara a configuração do Vhost (v-repair-sys-config).', 'mnt-reparar')}
         </div>
       </Sec>
       <Trabalho tr={dados.trabalho} ler={ler} titulo="Manutenção a correr" />
