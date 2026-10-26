@@ -12,12 +12,17 @@ import * as hestiaAdapter from '@/lib/hestia-adapter';
  *  1. no dia seguinte à expiração — suspende no servidor (site ou email),
  *     reversível: o pagamento da renovação volta a activar
  *     (reactivateRenewedHosting, chamado em confirmRenewalPayment);
+ *  1b. período de recuperação (Silva, 26/10/2026: "o básico que todos usam"): RECUPERACAO_DIAS (30) depois do fim do prazo, com o
+ *     serviço suspenso e nada apagado; o cliente é avisado no dia da suspensão, a meio e nos últimos dias
+ *     (recuperacao-renovacao.ts, chamado pelo cron);
  *  2. fim do período de redenção do domínio (~60 dias, ver domain-redemption.ts)
  *     — avisa o admin para fazer a cópia e remover do servidor;
  *  3. um ano depois — avisa o admin que a cópia já pode ser apagada.
  * Os passos 2 e 3 só avisam: apagar é irreversível e fica com a equipa.
  */
 
+/** Dias de recuperação depois do fim do prazo: o mesmo período de graça de 30 dias que os domínios já têm (domain-redemption.ts). */
+export const RECUPERACAO_DIAS = 30;
 const REDEMPTION_END_DAYS = 60;
 const BACKUP_KEEP_DAYS = 365;
 
@@ -103,7 +108,7 @@ const SUSPENSOES_MAX_POR_CORRIDA = 5; // no máximo 5 por dia; o resto fica para
 const NUNCA_SUSPENDER_POR_OMISSAO = 'basededadosagro.com,visualdesignmoz.com';
 
 /** Domínios que nunca se suspendem automaticamente (RENOVACOES_NUNCA_SUSPENDER, separados por vírgulas) */
-function dominioProtegido(domain: string): boolean {
+export function dominioProtegido(domain: string): boolean {
   const lista = (process.env.RENOVACOES_NUNCA_SUSPENDER || NUNCA_SUSPENDER_POR_OMISSAO)
     .split(',')
     .map((s) => s.trim().toLowerCase())
@@ -213,7 +218,7 @@ export async function suspendOverdueHostingAccounts(
     await notifyAdminOnce(
       admin,
       'Serviços suspensos por atraso',
-      `${today}: suspensos ${suspensos.length} (${suspensos.join(', ') || '—'})${result.adiados ? `; ${result.adiados} ficam para amanhã (limite de ${SUSPENSOES_MAX_POR_CORRIDA} por dia)` : ''}. A renovação paga volta a activá-los.`,
+      `${today}: suspensos ${suspensos.length} (${suspensos.join(', ') || '—'})${result.adiados ? `; ${result.adiados} ficam para amanhã (limite de ${SUSPENSOES_MAX_POR_CORRIDA} por dia)` : ''}. A renovação paga volta a activá-los; os clientes têm ${RECUPERACAO_DIAS} dias para recuperar e são avisados.`,
     ).catch(() => false);
   }
 
