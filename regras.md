@@ -608,7 +608,11 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
   caixas e DNS, via `dominio-eliminar-tudo` com `bd`); **só e-mail** → *Só o e-mail* ou *Tudo*; **só domínio** (plano VD-Dominio) → *Tudo*. A base vem do `wp-config.php` do site (`DB_NAME`) e só se apaga se mais nenhum site da conta a usar;
   os crons são os que apontam para a pasta do site; se o site não for WordPress a base não se apaga e o aviso diz porquê. **Nunca** se apagam daqui o painel, o visualdesignmoz.com nem o basededadosagro.com (`PROTEGIDOS`). A página
   "Sites das contas" (administrador, contas de outros) continua com o seu "eliminar tudo" (sem a base).
-- **Cópias de segurança fora do servidor:** por decidir (Google Drive numa conta limpa, Backblaze B2 ou Cloudflare R2). O R2 ainda não está activo na conta Cloudflare (a API responde "enable R2 through the Dashboard").
+- **Cópias de segurança fora do servidor: Cloudflare R2** (decidido pelo Silva a 26/10/2026). `deploy/backup/vd-backup-externo` (instalado em `/usr/local/sbin`) envia as cópias do Hestia (`/backup/*.tar`) para o R2, **cifradas no servidor** (rclone crypt;
+  remoto `vd-backup-cifrado:`), com `nice`/`ionice` e limite de banda, guarda 14 dias e avisa por e-mail se falhar; `estado` e `testar-restauro` provam que funciona e que a cópia abre. Sem o remoto configurado não faz nada. **Falta:** activar o R2 no painel da
+  Cloudflare (pede cartão; 10 GB grátis, as cópias recentes ocupam cerca de 4 GB; a API responde "enable R2 through the Dashboard" até lá), criar o balde e a chave só dele, configurar o rclone e ligar o cron das 07:00 (`/etc/cron.d/vd-backup-externo`). A
+  palavra-passe de cifra tem de existir também fora do servidor, sem ela as cópias não se abrem. O aamihe ficou com 12 MB (só correio); a cópia do site está em `/root/backups-removidos/aamihe-site-final/`.
+
 - **ModSecurity sem leitura das respostas só no oshercollective.com** (26/10/2026, o Silva confirmou): `apache2.ssl.conf_vd-modsec-resposta` (`SecResponseBodyAccess Off`) nesse site. As regras `RESPONSE-951`
   (fugas de erros de SQL) falhavam centenas de vezes por dia ("PCRE limits exceeded") nas páginas pesadas do Elementor, sem apanhar nada; não eram tentativas de acesso de ninguém. A protecção contra pedidos
   (o que quem visita envia) continua toda ligada: um `;cat /etc/passwd` e um `UNION SELECT` simulados continuam a dar 403. Nos outros sites não se mexeu (não têm essas falhas).
