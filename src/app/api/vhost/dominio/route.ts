@@ -559,7 +559,7 @@ async function dadosSoDoSite(conta: string, d: string, srv: LeituraServidor): Pr
   return { bases, crons, aviso };
 }
 
-export async function POST(req: NextRequest) {
+async function tratarPedido(req: NextRequest) {
   const r = await sessao();
   if ('erro' in r) return r.erro;
   const admin = r.s.role === 'admin';
@@ -573,7 +573,8 @@ export async function POST(req: NextRequest) {
   const conta = String(c.conta || '');
   const d = String(c.dominio || '').toLowerCase();
   let srv = await lerServidor();
-  if (c.acao === 'dominio-apagar') srv = await lerServidor(true);
+  // a releitura forçada garante que um domínio acabado de criar já aparece; se o servidor demorar a responder, vale a leitura que já havia
+  if (c.acao === 'dominio-apagar') srv = await lerServidor(true).catch(() => srv);
   // `esquecer`: a alteração muda a lista de contas/domínios (os registos de DNS não mudam)
   const resposta = async (p: Promise<{ ok: boolean; error?: string }> | { ok: boolean; error?: string }, esquecer = true) => {
     const x = await p;
@@ -958,5 +959,22 @@ export async function POST(req: NextRequest) {
     }
     default:
       return NextResponse.json({ erro: 'Ação desconhecida.' }, { status: 400 });
+  }
+}
+
+/** Qualquer erro que rebente dentro do pedido (o servidor não responde, uma leitura falha, ...) devolve JSON com a causa; antes saía uma página de erro sem
+ *  mensagem e o painel só mostrava «A alteração falhou» (Silva, 26/10/2026: o botão Apagar dos domínios). O administrador vê a causa; os outros, uma frase útil. */
+export async function POST(req: NextRequest) {
+  try {
+    return await tratarPedido(req);
+  } catch (e) {
+    console.error('[api/vhost/dominio] erro no pedido:', e);
+    const r = await sessao().catch(() => null);
+    const admin = !!r && 's' in r && r.s.role === 'admin';
+    const causa = e instanceof Error ? e.message : String(e);
+    return NextResponse.json(
+      { erro: mensagemPublica(admin ? 'Erro no pedido: ' + causa : '', admin, 'O servidor não respondeu a tempo. Actualize a lista: se a alteração já estiver feita, não precisa de repetir; se não, tente de novo.') },
+      { status: 500 },
+    );
   }
 }
