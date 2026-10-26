@@ -3762,7 +3762,7 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    display: flex;
    align-items: center;
    gap: calc(14px * var(--z, 1));
-   height: calc(30px * var(--z, 1));
+   min-height: calc(30px * var(--z, 1));
    padding: 0 calc(18px * var(--z, 1));
    border-radius: 4px;
    background: color-mix(in srgb, var(--red) 72%, #fff);
@@ -3790,11 +3790,26 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    display: flex;
    align-items: center;
    gap: calc(10px * var(--z, 1));
-   height: calc(32px * var(--z, 1));
+   min-height: calc(32px * var(--z, 1));
    border-radius: 4px;
    cursor: pointer;
-   font-size: calc(15px * var(--fs, 1));
-   white-space: nowrap
+   font-size: calc(15px * var(--fs, 1))
+}
+
+/* o nome da pasta nunca é cortado (Silva, 26/10/2026): se não cabe na barra, passa à linha de baixo */
+.vh .fmda-no>span:not(#x) {
+   min-width: 0;
+   white-space: normal;
+   overflow-wrap: anywhere;
+   line-height: 1.2;
+   padding: calc(4px * var(--z, 1)) 0
+}
+
+.vh .fmda-raiz>span:not(#x) {
+   min-width: 0;
+   white-space: normal;
+   overflow-wrap: anywhere;
+   line-height: 1.2
 }
 
 .vh .fmda-no:hover {
