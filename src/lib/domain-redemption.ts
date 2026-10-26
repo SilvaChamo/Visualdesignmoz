@@ -34,13 +34,13 @@ export function getRedemptionInfo(daysRemaining: number): RedemptionInfo | null 
   if (daysPastExpiry <= 60) {
     return {
       label: 'Período de redenção — recuperação cara',
-      hint: `Expirou há ${daysPastExpiry} dias. Já saiu do registo — só é recuperável pagando uma taxa bem mais alta do que uma renovação normal, directamente no site da Dynadot.`,
+      hint: `Expirou há ${daysPastExpiry} dias. Já saiu do registo — só é recuperável pagando uma taxa bem mais alta do que uma renovação normal, directamente no registador.`,
       className: 'bg-orange-100 text-orange-700',
     }
   }
   return {
     label: 'Provavelmente perdido',
-    hint: `Expirou há ${daysPastExpiry} dias. Pode já estar livre para qualquer pessoa registar — confirme no site da Dynadot.`,
+    hint: `Expirou há ${daysPastExpiry} dias. Pode já estar livre para qualquer pessoa registar — confirme no registador.`,
     className: 'bg-red-100 text-red-700',
   }
 }

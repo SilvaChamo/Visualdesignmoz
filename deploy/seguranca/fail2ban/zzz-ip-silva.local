@@ -1,0 +1,6 @@
+# IPs do Silva: nunca se bloqueiam em nenhum jail (Silva, 26/10/2026: "negar bloqueio do meu IP, nunca fazer isso").
+# O IP dele muda dentro da rede 41.220.201.x: quando mudar, acrescentar aqui, em /etc/vd-banir.permitidos, em /etc/exim4/white-blocks.conf
+# e no geo $vd_ip_livre de /etc/nginx/conf.d/vd-bloqueio.conf. Os jails que têm ignoreip próprio (phpmyadmin-auth e recidive em
+# zz-mocambique.local, vd-wp-login em vd-wp-login.local) levam os IPs lá. Vai em /etc/fail2ban/jail.d/zzz-ip-silva.local.
+[DEFAULT]
+ignoreip = 41.220.201.71 41.220.201.107

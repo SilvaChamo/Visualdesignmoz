@@ -450,7 +450,7 @@ export async function listWebDomains(username: string): Promise<HestiaWebDomain[
   // depois, sem eu ter tocado em nada. Atirar o erro deixa o try/catch já
   // existente no chamador (sync e hosting-resolver) tratar isto como "esta
   // conta falhou", nunca como "conta sem sites".
-  if (!result.ok) throw new Error(result.error || 'Falha ao listar domínios no Hestia');
+  if (!result.ok) throw new Error(result.error || 'Falha ao listar domínios no Vhost');
   return Object.entries(result.data).map(([domain, d]) => ({
     domain,
     ip: d.IP || '',
@@ -847,7 +847,7 @@ export async function addMailDomain(username: string, domain: string): Promise<{
  * nunca confundir "falhou" com "não tem domínios". */
 export async function listMailDomains(username: string): Promise<string[]> {
   const result = await hestiaCallJson<Record<string, Record<string, string>>>('v-list-mail-domains', [username]);
-  if (!result.ok) throw new Error(result.error || 'Falha ao listar domínios de email no Hestia');
+  if (!result.ok) throw new Error(result.error || 'Falha ao listar domínios de email no Vhost');
   return Object.keys(result.data);
 }
 

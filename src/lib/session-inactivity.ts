@@ -27,7 +27,7 @@ export function getIdleMs(): number {
   return Date.now() - Number(raw)
 }
 
-/** Terminar a sessão por inactividade (site: 30 min; painel /vhost:2026: 20 min). Esteve desligado desde 13/10/2026 enquanto se
+/** Terminar a sessão por inactividade (site e painel: 30 min, pedido do Silva a 26/10/2026). Esteve desligado desde 13/10/2026 enquanto se
  *  corrigia o login; religado a 24/10/2026, a pedido do Silva. No painel volta à entrada do próprio painel (VisualHostApp). */
 export const SAIR_POR_INATIVIDADE_ATIVO = true
 

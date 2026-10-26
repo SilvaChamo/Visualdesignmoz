@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
 
     if (provider !== 'hestia') {
       return NextResponse.json(
-        { success: false, error: 'Este painel está configurado para hospedagem Hestia; o domínio não está associado a uma conta Hestia.' },
+        { success: false, error: 'Este painel está configurado para hospedagem Vhost; o domínio não está associado a uma conta Vhost.' },
         { status: 409 },
       );
     }
@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
     });
     if (!dbResult.ok) {
       return NextResponse.json(
-        { success: false, error: dbResult.error || 'Falha ao criar base de dados no Hestia' },
+        { success: false, error: dbResult.error || 'Falha ao criar base de dados no Vhost' },
         { status: 502 },
       );
     }

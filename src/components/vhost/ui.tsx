@@ -121,7 +121,7 @@ export function HxTag({ s }: { s: HxState }) {
 export function HxCard({ hx }: { hx: MenuItem['hx'] }) {
   return (
     <div className="card">
-      <small>No servidor Contabo (Hestia)</small>
+      <small>No servidor</small>
       <HxTag s={hx.s} />
       {hx.n && <p style={{ marginTop: 8, lineHeight: 1.5 }}>{hx.n}</p>}
       {hx.cmd && (
@@ -565,7 +565,7 @@ export function UsersTable({ rows, showCreator = true }: { rows: [string, Accoun
     noServidor(vh, { acao: suspender ? 'suspender' : 'reativar', contas: [u] }, () => u + ': ' + (suspender ? 'suspenso' : 'reativado'));
   };
   return (
-    <div className="tbl dt-empilhar">
+    <div className="tbl deslize-mobile">
       <table>
         <thead>
           <tr>
@@ -650,7 +650,7 @@ export function DomTable({ filter = '', recuoInicial = false }: { filter?: strin
   // para o cliente não comparar os dois (Silva, 16/10/2026: "não é explícito, ele pode reclamar")
   const ajudaDisco = t('Espaço usado pelos ficheiros deste site. O total da conta (com e-mails e bases de dados) está em Espaço em disco, por cima.');
   return (
-    <div className={'tbl dt-empilhar dominios-widget-list' + (recuoInicial ? ' com-recuo-inicial' : '')}>
+    <div className={'tbl deslize-mobile dominios-widget-list' + (recuoInicial ? ' com-recuo-inicial' : '')}>
       <table>
         <thead>
           <tr>

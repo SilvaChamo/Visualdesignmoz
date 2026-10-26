@@ -425,7 +425,7 @@ function Ligados() {
         </div>
       )}
       {lista?.semServidor && <div className="note vh-historico-erro">{t('O servidor não respondeu: só se vê o histórico do painel.')}</div>}
-      <div className="card vh-historico-tabela">
+      <div className="vh-historico-tabela">
         <DataTable<SessaoHistorico>
           id="historico-sessoes"
           rows={lista?.sessoes || []}
@@ -550,7 +550,7 @@ function Ligados() {
           {t('Só problemas')} ({todasLinhas.filter(ehProblema).length})
         </button>
       </div>
-      <div className="card vh-historico-tabela">
+      <div className="vh-historico-tabela">
         <DataTable<LinhaDetalhe>
           id="historico-detalhe"
           rows={linhasVistas}

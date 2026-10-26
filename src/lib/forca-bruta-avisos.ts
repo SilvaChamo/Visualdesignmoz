@@ -93,7 +93,7 @@ export type ResultadoForcaBruta = { ok: boolean; erro?: string; bloqueados?: num
 
 export async function avisarForcaBruta(): Promise<ResultadoForcaBruta> {
   const bloqueios = await lerBloqueios();
-  if (!bloqueios) return { ok: false, erro: 'Não foi possível ler os bloqueios do Hestia' };
+  if (!bloqueios) return { ok: false, erro: 'Não foi possível ler os bloqueios do Vhost' };
 
   let vistos: string[] | null = null;
   try {

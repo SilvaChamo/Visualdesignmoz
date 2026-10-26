@@ -35,7 +35,7 @@ function hestiaDaApiStub(): DirectAdminServerAPI {
   return new Proxy({} as DirectAdminServerAPI, {
     get(_target, prop) {
       return async () => {
-        throw new Error(`DirectAdmin.${String(prop)} não está disponível neste servidor (Hestia).`);
+        throw new Error(`DirectAdmin.${String(prop)} não está disponível neste servidor (Vhost).`);
       };
     },
   });

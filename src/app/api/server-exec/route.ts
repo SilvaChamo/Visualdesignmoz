@@ -220,7 +220,7 @@ async function tryHestiaCreateWebsite(
   const result = await addWebDomain(owner, domain);
   if (!result.ok) {
     return NextResponse.json(
-      { success: false, error: result.error || 'Falha ao criar domínio no Hestia' },
+      { success: false, error: result.error || 'Falha ao criar domínio no Vhost' },
       { status: 500 },
     );
   }
@@ -282,7 +282,7 @@ async function tryHestiaSubdomain(
     : await deleteWebDomain(owner, fullSub);
   if (!result.ok) {
     return NextResponse.json(
-      { success: false, error: result.error || 'Falha ao gerir subdomínio no Hestia' },
+      { success: false, error: result.error || 'Falha ao gerir subdomínio no Vhost' },
       { status: 500 },
     );
   }

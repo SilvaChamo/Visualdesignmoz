@@ -19,6 +19,7 @@ import { scheduleDaSync } from '@/lib/da-sync-engine';
 import { getProviderByUsername } from '@/lib/hosting-provider';
 import {
   findCloudflareZoneId,
+  findCloudflareZoneForHost,
   upsertCloudflareRecord,
   deleteCloudflareEmailRecords,
 } from '@/lib/cloudflare-dns';
@@ -43,6 +44,25 @@ async function resolveFallbackHostingProvider(
 }
 
 /**
+ * Nome do registo relativo à ZONA do DNS. A zona pode ser a do domínio principal: `producoes.exemplo.com` vive na zona `exemplo.com`, e aí
+ * o MX dele é `producoes`, o `mail` dele é `mail.producoes`, o DMARC `_dmarc.producoes`. Antes os registos iam com o nome relativo ao próprio
+ * subdomínio e, sem zona com esse nome, caíam no DNS interno (26/10/2026: 11 falhas ao ligar o e-mail de producoes.visualdesignmoz.com).
+ * `modo`: 'dominio' = o nome vem relativo ao domínio (os registos por omissão: '@', 'mail', '_dmarc'); 'misto' = vem de fora e pode vir relativo
+ * ao domínio, já relativo à zona ou completo (o que a API de envio devolve).
+ */
+export function nomeNaZona(nome: string, dominio: string, zona: string, modo: 'dominio' | 'misto' = 'dominio'): string {
+  if (dominio === zona) return (nome || '').trim() || '@';
+  const sufixo = dominio.slice(0, -(zona.length + 1));
+  const n = (nome || '').trim().replace(/\.$/, '');
+  if (!n || n === '@' || n === dominio) return sufixo;
+  if (modo === 'misto') {
+    if (n === sufixo || n.endsWith(`.${sufixo}`)) return n; // já relativo à zona
+    if (n.endsWith(`.${dominio}`)) return n.slice(0, -(zona.length + 1)); // completo
+  }
+  return `${n}.${sufixo}`;
+}
+
+/**
  * Aplica um registo de DNS de e-mail no sítio certo: se o domínio já tiver
  * zona própria na Cloudflare, aplica lá (é o que fica realmente visível
  * publicamente); caso contrário cai no DNS interno de quem hospeda o
@@ -55,11 +75,13 @@ async function applyRecordAnyProvider(
   fallback: { provider: 'hestia' | 'directadmin'; owner: string | null } | null,
   creds: Awaited<ReturnType<typeof resolveDirectAdminCredentials>> | null,
   record: EmailDnsRecord,
+  zoneName: string = cleanDomain,
+  modo: 'dominio' | 'misto' = 'dominio',
 ): Promise<DnsAutomationRecordResult> {
   if (cfZoneId) {
-    const r = await upsertCloudflareRecord(cfZoneId, cleanDomain, {
+    const r = await upsertCloudflareRecord(cfZoneId, zoneName, {
       type: record.type,
-      name: record.name,
+      name: nomeNaZona(record.name, cleanDomain, zoneName, modo),
       content: record.type === 'MX' && record.priority != null ? record.value : record.value,
       ttl: record.ttl,
       priority: record.priority,
@@ -78,7 +100,7 @@ async function applyRecordAnyProvider(
 
   if (fallback?.provider === 'hestia') {
     if (!fallback.owner) {
-      return { name: record.name, type: record.type, ok: false, error: 'Dono do domínio não identificado no Hestia' };
+      return { name: record.name, type: record.type, ok: false, error: 'Dono do domínio não identificado no Vhost' };
     }
     const hestiaAdapter = await import('@/lib/hestia-adapter');
     const result = await hestiaAdapter.addDnsRecord(
@@ -179,7 +201,9 @@ export async function provisionEmailAuthForDomain(
     // Se o domínio já tiver zona própria na Cloudflare, os registos vão lá
     // (é o que fica visível publicamente); senão cai no DNS interno de quem
     // hospeda o domínio hoje (Hestia ou DirectAdmin).
-    const cfZoneId = await findCloudflareZoneId(cleanDomain);
+    const cf = await findCloudflareZoneForHost(cleanDomain);
+    const cfZoneId = cf?.zoneId ?? null;
+    const zoneName = cf?.zoneName ?? cleanDomain;
     const fallback = cfZoneId ? null : await resolveFallbackHostingProvider(cleanDomain);
     const creds =
       cfZoneId || fallback?.provider === 'hestia' ? null : await resolveDirectAdminCredentials('admin');
@@ -188,7 +212,7 @@ export async function provisionEmailAuthForDomain(
     //    chamada externa)
     const baseRecords = getDefaultEmailDnsRecords(cleanDomain, serverIp);
     for (const record of baseRecords) {
-      results.push(await applyRecordAnyProvider(cleanDomain, cfZoneId, fallback, creds, record));
+      results.push(await applyRecordAnyProvider(cleanDomain, cfZoneId, fallback, creds, record, zoneName, 'dominio'));
     }
 
     // 2) DKIM real + brevo-code (dependem da API da Brevo — falha aqui não
@@ -205,7 +229,7 @@ export async function provisionEmailAuthForDomain(
             type: dkimRecord.type,
             value: dkimRecord.value,
             ttl: 3600,
-          }),
+          }, zoneName, 'misto'),
         );
       }
       if (brevoAuth.brevoCode) {
@@ -215,7 +239,7 @@ export async function provisionEmailAuthForDomain(
             type: 'TXT',
             value: brevoAuth.brevoCode.value,
             ttl: 3600,
-          }),
+          }, zoneName, 'misto'),
         );
       }
     }

@@ -599,7 +599,7 @@ export async function PATCH(req: NextRequest) {
 
     if (mailProvider === 'hestia') {
       if (!mailOwner) {
-        return NextResponse.json({ error: 'Dono do domínio não identificado no Hestia.' }, { status: 404 });
+        return NextResponse.json({ error: 'Dono do domínio não identificado no Vhost.' }, { status: 404 });
       }
       const hestiaAdapter = await import('@/lib/hestia-adapter')
       const result = await hestiaAdapter.changeMailAccountPassword(mailOwner, domain, username, newPassword)
