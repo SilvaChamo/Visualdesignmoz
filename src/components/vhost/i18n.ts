@@ -28,6 +28,10 @@ const EN_RX: [RegExp, Rep][] = [
   [/^Editar com Elementor$/, 'Edit with Elementor'],
   [/^Ver a página online$/, 'View page online'],
   [/^A abrir o Elementor…$/, 'Opening Elementor…'],
+  [/^Mudar nome$/, 'Rename'],
+  [/^Opções$/, 'Options'],
+  [/^Mudar nome da página$/, 'Rename page'],
+  [/^Página renomeada$/, 'Page renamed'],
 ];
 
 export function translate(lang: Lang, v: string): string {

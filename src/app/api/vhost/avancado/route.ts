@@ -823,6 +823,23 @@ export async function POST(req: NextRequest) {
       );
       return resposta({ ok: /Success/i.test(out), error: out.slice(0, 300) });
     }
+    case 'wp-pagina-renomear': {
+      // menu "⋯" das páginas do WordPress › Mudar nome: só o título da página (o conteúdo e o endereço ficam como estão)
+      if (!d) return recusa('Escolha o domínio.');
+      const id = Number(c.id);
+      const titulo = linha(c.titulo).slice(0, 300);
+      if (!Number.isSafeInteger(id) || id <= 0) return recusa('Página inválida.');
+      if (!titulo) return recusa('O título não pode ficar vazio.');
+      const raiz = raizSite(srv, conta, d);
+      const wp = `sudo -u ${conta} /usr/local/bin/wp --path=${q(raiz)} --skip-plugins --skip-themes`;
+      const tipo = (await executeServerCommand(`${wp} post get ${id} --field=post_type 2>/dev/null`, { timeoutMs: 40_000 })).trim();
+      if (tipo !== 'page') return recusa('Página não encontrada.');
+      const out = await executeServerCommand(
+        `adm=$(${wp} user list --role=administrator --field=user_login --orderby=ID 2>/dev/null | head -1); ${wp} post update ${id} --post_title=${q(titulo)} \${adm:+--user="$adm"} 2>&1`,
+        { timeoutMs: 60_000 },
+      );
+      return resposta({ ok: /Success/i.test(out), error: out.slice(0, 300) }, true);
+    }
     case 'wp-bd-senha': {
       // nova palavra-passe da base do WordPress: no MySQL (Hestia) e no wp-config.php — a antiga nunca é lida
       if (!d) return recusa('Escolha o domínio.');

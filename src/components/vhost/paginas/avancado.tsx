@@ -2088,7 +2088,7 @@ function WordPressLista() {
                 <tr>
                   <th>{t('Domínio')}</th>
                   <th>{t('Pasta')}</th>
-                  <th style={{ textAlign: 'right' }}>{t('Ações')}</th>
+                  <th style={{ textAlign: 'right' }}>{t('Acção')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -2543,12 +2543,37 @@ function WpPaginas({ d }: { d: string }) {
               { fa: 'fa-pen', t: 'Editar no WordPress', run: () => entrarWp(vh, d, undefined, r.ID) },
               // só as páginas feitas com o Elementor têm esta opção (o editor de blocos estragava-as)
               ...(r.elementor ? [{ fa: 'fa-pen-to-square', t: 'Editar com Elementor', run: () => entrarWp(vh, d, undefined, r.ID, 'elementor') }] : []),
+              { fa: 'fa-i-cursor', t: 'Mudar nome', run: () => vh.openM(<NomePaginaModal inicial={r.post_title} onOk={async (titulo) => { if (await noServidor(vh, { acao: 'wp-pagina-renomear', dominio: d, id: r.ID, titulo }, 'Página renomeada')) ler(); }} />) },
               { fa: 'fa-arrow-up-right-from-square', t: 'Ver a página online', run: () => r.url && window.open(r.url, '_blank', 'noopener,noreferrer') },
             ]}
           />
         )}
       />
     </Sec>
+  );
+}
+
+/** "Mudar nome" de uma página do WordPress: só o título (o conteúdo e o endereço ficam como estão) */
+function NomePaginaModal({ inicial, onOk }: { inicial: string; onOk: (titulo: string) => void }) {
+  const { t, closeM } = useVH();
+  const [v, setV] = useState(inicial || '');
+  const ok = () => v.trim() && (closeM(), onOk(v.trim()));
+  return (
+    <>
+      <h3>{t('Mudar nome da página')}</h3>
+      <div className="f">
+        <label>{t('Nome')}</label>
+        <input value={v} onChange={(e) => setV(e.target.value)} autoFocus onFocus={(e) => e.target.select()} onKeyDown={(e) => e.key === 'Enter' && ok()} maxLength={300} />
+      </div>
+      <div className="mfoot">
+        <button className="btn g" onClick={closeM}>
+          {t('Cancelar')}
+        </button>
+        <button className="btn r" disabled={!v.trim()} onClick={ok}>
+          {t('Guardar')}
+        </button>
+      </div>
+    </>
   );
 }
 
