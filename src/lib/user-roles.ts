@@ -129,10 +129,12 @@ export function getLegacyPanelPathForRole(role: UserRole): string {
 }
 
 /** Destino depois de entrar: o painel VisualHost (/vhost) para todas as contas com painel (decisão do Silva,
- *  10/10/2026 — "faça este painel o principal substituindo o antigo"); só os visitantes sem conta de alojamento
- *  continuam no /guest. */
+ *  10/10/2026 — "faça este painel o principal substituindo o antigo"); quem só tem encomendas (sem domínio nem hospedagem)
+ *  fica no seu painel de encomendas, /encomendas (Silva, 26/10/2026), onde pode adicionar, gerir, cancelar e eliminar
+ *  encomendas e vê a publicidade de domínios e hospedagem; ao comprar, passa para o painel certo (só domínio: a vista
+ *  compacta; hospedagem: o painel do pacote). */
 export function getRedirectPathForRole(role: UserRole): string {
-  return role === 'guest' ? '/guest' : '/vhost:2026';
+  return role === 'guest' ? '/encomendas' : '/vhost:2026';
 }
 
 export function isPanelRole(role: UserRole): boolean {
