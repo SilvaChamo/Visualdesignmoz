@@ -594,7 +594,8 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
   aplica-o): o mltmark.com chegava a 47 mil pesquisas por dia (74% de todo o tráfego, 84% robôs). Uma pesquisa verdadeira sai de uma página do próprio site e leva referer. Juntar um site =
   acrescentar o domínio à lista; não pôr aplicações que usem `?s=` sem referer.
 - **Força bruta ao wp-login (fail2ban, 26/10/2026):** o jail `vd-wp-login` (cópias em `deploy/seguranca/fail2ban/`: filtro em `/etc/fail2ban/filter.d/vd-wp-login.conf`, jail em `/etc/fail2ban/jail.d/vd-wp-login.local`) bloqueia
-  24 h nas portas 80/443 (cadeia `WEB` do Hestia) o IP com 8 logins falhados (POST `/wp-login.php` com resposta 200; um login com sucesso responde 302) em 5 minutos. Só vale para sites **sem
+  24 h nas portas 80/443 (cadeia `WEB` do Hestia) o IP com 6 logins falhados (POST `/wp-login.php` com resposta 200; um login com sucesso responde 302) em 6 horas (eram 8 em 5 minutos, mas os atacantes
+  vão devagar: o 91.92.243.247 fez 90 tentativas em 5 h, no máximo 2 por 5 min, e nunca era apanhado). Só vale para sites **sem
   Cloudflare à frente** (oshercollective.com, msdn-moz.org, elimservicos.com): atrás da Cloudflare o iptables só vê os IPs dela e o bloqueio faz-se na Cloudflare. O fail2ban tira a data da linha antes de
   aplicar o filtro: não se escreve `[data]` na expressão. Para juntar um site, acrescentar o seu registo ao `logpath`. O primeiro bloqueio é de quem já atacava o msdn-moz.org (4 223 logins falhados num dia).
 - **Cron do WordPress pelo sistema** (26/10/2026): oshercollective.com, msdn-moz.org, lirandzojewelry.com e mltmark.com têm `DISABLE_WP_CRON` e um cron do Hestia por site (de 15 em 15 min, minutos desfasados,
