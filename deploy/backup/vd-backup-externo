@@ -35,7 +35,7 @@ cmd_enviar() {
   [ -d "$ORIGEM" ] || { log "ERRO: $ORIGEM não existe"; avisar "A pasta $ORIGEM não existe." "erro"; exit 1; }
   log "a enviar $ORIGEM (só ficheiros .tar com mais de 10 min, para não apanhar cópias a meio)"
   # nice/ionice: o servidor tem muita carga. --ignore-existing: cada cópia tem a data no nome, nunca se reenvia. --min-age 10m: não apanha cópias ainda a ser escritas.
-  if ! nice -n 19 ionice -c3 rclone copy "$ORIGEM" "$REMOTO" --include '*.tar' --ignore-existing --min-age 10m --transfers 1 --checkers 2 \
+  if ! nice -n 19 ionice -c3 rclone copy "$ORIGEM" "$REMOTO" --include '*.tar' --ignore-existing --min-age 10m --max-age "${DIAS}d" --transfers 1 --checkers 2 \
         --bwlimit "$LIMITE_BANDA" --retries 3 --low-level-retries 5 --log-file "$LOG" --log-level NOTICE; then
     log "ERRO no envio"; avisar "O envio das cópias para fora do servidor falhou. Ver $LOG." "envio falhou"; exit 1
   fi
