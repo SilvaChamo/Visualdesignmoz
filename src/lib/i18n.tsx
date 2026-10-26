@@ -9,6 +9,8 @@ type Dict = Record<string, string>
 type I18nContextValue = {
   lang: Lang
   toggleLang: () => void
+  /** escolhe a língua de todo o projecto (site e painel falam a mesma, guardada em 'vd-lang') */
+  setLang: (l: Lang) => void
   t: (key: string) => string
 }
 
@@ -1713,7 +1715,8 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
   const [isLoaded, setIsLoaded] = useState(false)
 
   useEffect(() => {
-    const saved = localStorage.getItem('vd-lang')
+    // 'visualhost_lang' era a chave que só o painel usava: quem só tinha essa continua com a língua que escolheu
+    const saved = localStorage.getItem('vd-lang') || localStorage.getItem('visualhost_lang')
     if (saved === 'en' || saved === 'pt') {
       setLang(saved)
     }
@@ -1738,7 +1741,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
       return translation
     }
     const toggleLang = () => setLang((prev) => (prev === 'pt' ? 'en' : 'pt'))
-    return { lang, t, toggleLang }
+    return { lang, t, toggleLang, setLang }
   }, [lang])
 
   // a página aparece logo (já vem desenhada do servidor, em português) e só depois troca para a língua guardada no

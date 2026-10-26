@@ -14,7 +14,7 @@ import { EMAIL_PLANS, emailPlanByProductName } from '@/lib/email-plans';
 import { Stat } from '../ui';
 import { Check, DataTable, MaisOpcoes, novaSenha, Senha, Switch, Tabs } from './componentes';
 import { Confirmar } from './pacotes';
-import { reprocessarUm } from './dominios';
+import { reprocessarVarios } from './dominios';
 import { AO_ABRIR, EsperaPagina, FUNDO, useGet, useNaMemoria } from '../carga';
 import { corUso } from '../cor-uso';
 
@@ -165,11 +165,12 @@ function Carregando({ erro, ler }: { erro: string; ler: () => void }) {
   ) : null; // a carregar: só a linha do topo
 }
 
-/** O domínio ainda não tem e-mail neste servidor. O botão mantém o nome «Ligar o e-mail neste domínio», sem janelas, e faz o mesmo que o
- *  "Reprocessar DNS" das configurações do domínio (Silva, 26/10/2026): o servidor liga primeiro o e-mail e repõe a seguir os registos */
+/** O domínio ainda não tem e-mail neste servidor. O botão faz o "Reprocessar DNS" das configurações do domínio, directo, sem janela de confirmação
+ *  (Silva, 26/10/2026), e no fim mostra o relatório dos registos: o servidor liga primeiro o e-mail do domínio e repõe a seguir os registos */
 function SemEmail({ d }: { d: string }) {
   const vh = useVH();
   const { t } = vh;
+  const [ocupado, setOcupado] = useState(false);
   if (!d)
     return (
       <div className="card empty">
@@ -177,22 +178,26 @@ function SemEmail({ d }: { d: string }) {
       </div>
     );
   return (
-    <div className="card empty">
+    <div className="card empty sem-email">
       <p>
         {t('O domínio')} <b>{d}</b> {t('ainda não recebe e-mail neste servidor.')}
       </p>
       <button
         className="btn r"
+        disabled={ocupado}
         onClick={async () => {
-          vh.toast(t('A reprocessar o DNS…'));
-          const r = await reprocessarUm(vh, d, true);
-          vh.toast(r.aviso);
-          lerEmail(vh.me, d).catch(() => null); // a página passa a mostrar as caixas e os reencaminhamentos
-          if (r.ok) vh.recarregar(true);
+          setOcupado(true);
+          try {
+            const [r] = await reprocessarVarios(vh, [d], true);
+            lerEmail(vh.me, d).catch(() => null); // a página passa a mostrar as caixas e os reencaminhamentos
+            if (r.ok) vh.recarregar(true);
+          } finally {
+            setOcupado(false);
+          }
         }}
       >
-        <i className="fa-solid fa-envelope-circle-check" />
-        {t('Ligar o e-mail neste domínio')}
+        <i className="fa-solid fa-arrows-rotate" />
+        {t('Conectar domínio no servidor')}
       </button>
     </div>
   );
@@ -645,7 +650,7 @@ function ContasLista() {
         id="email-contas"
         umaLinha
         barraFora
-        empilhar
+        empilhar={false}
         rows={rows}
         rowKey={(r) => r.nome}
         onRecarregar={() => void lerEmail(vh.me, d)}
@@ -775,10 +780,8 @@ function ContasLista() {
                 ['fa-key', 'Mudar palavra-passe', () => openM(<SenhaModal d={d} acc={r.nome} />)],
                 ['fa-sliders', 'Mudar limites', () => openM(<LimitesModal d={d} c={r} />)],
                 ['fa-gear', 'Configurar o e-mail', () => openM(<DadosConta acc={r.nome} d={d} />)],
-                ['fa-file-lines', 'Descarregar credenciais para Outlook', () => void baixarCredenciaisOutlook(vh, r.nome, d)],
-                ['fa-download', 'Descarregar configuração Apple (iPhone, iPad, Mac)', () => configApple(r.nome, d)],
-                ['fa-right-to-bracket', 'Registo SMTP de entrada', () => nav('/utilizador/rastreio/entrada/' + encodeURIComponent(r.nome + '@' + d))],
-                ['fa-right-from-bracket', 'Registo SMTP de saída', () => nav('/utilizador/rastreio/saida/' + encodeURIComponent(r.nome + '@' + d))],
+                ['fa-file-lines', 'Baixar credenciais de Outlook', () => void baixarCredenciaisOutlook(vh, r.nome, d)],
+                ['fa-download', 'Baixar configurações Apple', () => configApple(r.nome, d)],
                 ['fa-trash', 'Apagar', () => apagar([r.nome]), true],
               ]}
             />
@@ -2360,10 +2363,7 @@ function Webmail() {
         const rows = caixasNormais(info);
         return (
           <>
-            <div className="note">
-              {t('Carregue em Abrir ao lado de uma conta: o Roundcube abre noutra janela já dentro da caixa, sem pedir a palavra-passe.')}
-              {!info.dominio?.webmail && ' ' + t('O webmail está desligado neste domínio.')}
-            </div>
+            {!info.dominio?.webmail && <div className="note">{t('O webmail está desligado neste domínio.')}</div>}
             <DataTable
               id="webmail"
               rows={rows}
