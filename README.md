@@ -4,7 +4,7 @@ Site e painel de gestão (VisualHost) da VisualDesign: domínios, hospedagem, e-
 Next.js 16 (App Router) + TypeScript + Supabase (próprio, no Contabo) + Hestia (painel de alojamento).
 
 - Site: https://visualdesignmoz.com
-- Painel: https://visualdesignmoz.com/host:2026
+- Painel: https://visualdesignmoz.com/vhost:2026
 
 ## Regras de trabalho
 

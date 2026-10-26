@@ -164,6 +164,11 @@ sessão: retomar sempre em português. Vale para qualquer IA (está repetido em 
 
 - **Endereço principal do painel:** `https://visualdesignmoz.com/vhost:2026/`. Vão dar a ele, com redirecção (`src/proxy.ts`): `/host:2026`, `/vhost/…`,
   `/host/2026`, `host.visualdesignmoz.com` e `host.visualdesignmoz.com:2026/evo/` (o endereço antigo que os clientes têm guardado).
+  **O `host` só sobrevive como redirecção** (Silva, 26/10/2026: "deixar vhost… quero o servidor limpo"): a pasta interna do painel passou de `src/app/host` a
+  **`src/app/vhost`** (destino da reescrita em `src/proxy.ts`); o código, os e-mails, as notificações e os modelos guardados só usam `/vhost:2026` (os 16 avisos antigos
+  de `/dashboard?section=…` passaram a `/vhost:2026/…` na base de dados). A redirecção de `/host:2026`, `/host`, `/host/2026`, `/vhost/…` (`PAINEL_ANTIGOS`) fica **de propósito**,
+  só para casos omissos (favoritos, e-mails já enviados). O nginx da porta 2026 passa a apontar a `/vhost:2026` com o workflow `ops-nginx-porta-2026.yml` (sem "aplicar" só
+  lê; com "aplicar" faz cópia, `nginx -t` e só então recarrega). `/vhost/2026` continua a dar 404 (rewrite para um caminho sem rota).
 - **`visualdesignmoz.com:2026/vhost/` não existe e não pode existir:** o domínio principal passa pela Cloudflare, que só aceita certas portas (a 2026
   não); só `host.visualdesignmoz.com` (sem Cloudflare) responde na 2026.
 - **Sair** (botão do painel) vai para o **login do site** (`/login`), que depois volta ao painel.
@@ -184,6 +189,10 @@ sessão: retomar sempre em português. Vale para qualquer IA (está repetido em 
   `basededadosagro.com` nem `visualdesignmoz.com` (`RENOVACOES_NUNCA_SUSPENDER`), e o admin recebe a lista. O interruptor é
   `RENOVACOES_SUSPENDER_ATRASADOS=1` (posto pelo deploy). **`/api/cron/renewal-check?simular=1`** (administrador com sessão) mostra o que seria
   suspenso sem fazer nada: ver antes de mexer nos dados. Nunca tirar os travões: a tabela esteve incompleta e já se parou um site real por engano.
+- **Período de recuperação: 30 dias** (Silva, 26/10/2026: "o básico que todos usam"; é o mesmo período de graça de 30 dias dos domínios). Suspende-se no dia
+  a seguir ao fim do prazo (como está) e durante 30 dias o serviço fica suspenso, sem apagar nada; pagar a renovação reactiva. O cliente é avisado
+  (notificação + e-mail) no dia da suspensão, a meio (dia 15) e nos últimos dias (dia 27): `src/lib/recuperacao-renovacao.ts`, chamado pelo cron e
+  incluído no `?simular=1`. Passado o período o serviço pode ser removido, mas a limpeza continua manual (avisos ao administrador aos 60 dias e a 1 ano).
 - Os dados das renovações (`domain_renewals`, `renewals`) nunca se alteram nem apagam por "limpeza".
 
 # Os painéis antigos já não existem (Silva, 24/10/2026: "o painel vhost é o principal")
@@ -435,7 +444,7 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
   fica à vista até a seguinte estar pronta. **Única exceção — no lugar da tela branca:** enquanto a página inteira ainda
   não tem conteúdo (ao recarregar, ou à espera dos dados), aparece o carregador do DA — as três barras do "WordPress
   Manager" do DirectAdmin, na cor do tema, no fundo do tema (16/10/2026). Está em
-  `src/components/vhost/carregador-da.tsx`: a página do servidor (`src/app/host/layout.tsx`) sai logo com ele (Suspense)
+  `src/components/vhost/carregador-da.tsx`: a página do servidor (`src/app/vhost/layout.tsx`) sai logo com ele (Suspense)
   e o painel entra no lugar dele. A roda depois de entrar pela entrada do próprio painel fica numa página branca
   (pedido dele).
 - **NUNCA TELA BRANCA, em nenhuma circunstância e em todas as páginas** (regra rigorosa, 16/10/2026 — vale para todas as
@@ -479,6 +488,10 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
 - **O caminho que começa no site acaba no painel certo**: quem tem hospedagem ou domínio entra no painel (`/host:2026`) e vê as encomendas em
   Compras e encomendas; quem só tem encomendas fica no `/encomendas` do site, que tem a ligação "Domínios e hospedagem" (→ `/precos` →
   checkout) — ao pagar, a conta passa a cliente e o login leva ao painel. O checkout e o pagamento ficam como estão.
+- **Quem só tem encomendas fica no `/encomendas`** (Silva, 26/10/2026: "é lá onde elas devem ficar"): o painel antigo, onde adiciona, gere, cancela e elimina
+  encomendas, com uma faixa de publicidade de domínio, hospedagem e e-mail (`PromoProdutos`, só para o papel `guest`). O login e o `/guest` (que só redirecciona)
+  levam para lá (`getRedirectPathForRole`). Ao comprar só um domínio passa para a vista compacta do vhost (a barra vermelha); ao comprar hospedagem, para o painel
+  do pacote. Não se passa este painel para o vhost.
 
 # Segurança dos sites do servidor (Silva, 21/10/2026)
 
@@ -507,6 +520,14 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
 - **Pasta `app/` do mltmark apagada (21/10/2026)**: era uma instalação antiga do WordPress, quase sem uso, com um `wp-config.php.bak-hetzner-creds`;
   cópia comprimida só do root em `/root/backups-removidos/mltmark-app-2026-10-21.tar.gz`.
 - **Quarentena do mltmark (17/08 e 26/05, restaurado de cópia de segurança)**: `/root/quarentena-mltmark-2026-10-21/` e `/root/quarentena-guarda/`.
+
+# Bloqueio por tentativas falhadas no login (Silva, 26/10/2026)
+
+- **Ligado outra vez** (esteve desligado desde 13/10): depois de 5 tentativas falhadas em 5 minutos a
+  mesma rede e conta ficam 15 minutos bloqueadas, com o aviso numa linha — "Bloqueado por tentativas falhadas. Volte a tentar daqui a N min." (`mensagemBloqueio` em
+  `src/lib/login-rate-limit.ts`; vale para o login do site, o do painel e a mudança de palavra-passe). **Precisa da tabela e das funções na base de dados**
+  (`scripts/migrate-login-rate-limit.sql`, com RLS e permissões só para o servidor; criadas a 26/10/2026): sem elas falha "aberto" e deixa entrar —
+  confirmar depois de publicar que o 6.º erro seguido devolve 429. Nunca desligar sem o Silva pedir.
 
 # Autenticação em 2 passos (opcional — Silva, 21/10/2026)
 

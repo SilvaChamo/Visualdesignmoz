@@ -18,7 +18,7 @@ import { classifyRegistrarDomains } from '@/lib/registrar-domain-ownership';
  * (15 ago 2026) — antes disto devolvia sempre 403 para quem não fosse admin, o
  * que fazia um domínio comprado SOZINHO (sem hospedagem, ex: painel Profissional
  * self-service) nunca aparecer no painel de quem o comprou — só ficava visível
- * para o admin. Ver AUDITORIA_PAINEL_PLANO_CORRECAO.md, P1-6 (gap conhecido,
+ * para o admin. Ver docs/AUDITORIA_PAINEL_PLANO_CORRECAO.md, P1-6 (gap conhecido,
  * fechado agora).
  */
 export async function GET(request: Request) {
