@@ -20,6 +20,9 @@ LIMITE_BANDA=${VD_BANDA:-20M}
 LOG=${VD_LOG:-/var/log/vd-backup-externo.log}
 AVISAR=${VD_AVISAR:-silva.chamo@gmail.com}
 
+# Só IPv4: pela ligação IPv6 deste servidor o R2 recusa o aperto de mão TLS ("tls: handshake failure"); por IPv4 funciona (26/10/2026)
+export RCLONE_BIND=0.0.0.0
+
 log() { echo "$(date '+%F %T') $*" >> "$LOG" 2>/dev/null; }
 configurado() { rclone listremotes 2>/dev/null | grep -qx "${REMOTO%%:*}:"; }
 avisar() { echo "$1" | mail -s "[vd-backup-externo] $(hostname) — $2" "$AVISAR" 2>/dev/null; }
