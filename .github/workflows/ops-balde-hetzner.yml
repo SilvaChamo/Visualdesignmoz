@@ -126,16 +126,37 @@ jobs:
               $W plugin list --status=active --field=name 2>/dev/null | grep -iE "s3|offload|as3cf|hetzner"
               ls "$D/wp-content/mu-plugins" 2>/dev/null | grep -iE "hetzner|s3|as3cf"
               echo "--- referências ao balde na base de dados (só SELECT)"
-              q() { $W db query "$1" --skip-column-names 2>/dev/null | tail -1; }
-              echo "posts: $(q "SELECT COUNT(*) FROM ${P}posts WHERE post_content LIKE '%your-objectstorage.com%'")  postmeta: $(q "SELECT COUNT(*) FROM ${P}postmeta WHERE meta_value LIKE '%your-objectstorage.com%'")  options: $(q "SELECT COUNT(*) FROM ${P}options WHERE option_value LIKE '%your-objectstorage.com%'")"
+              q() { $W db query "$1" --skip-column-names 2>&1 | grep -vi "deprecated" | tail -1; }
+              echo "posts: $(q "SELECT COUNT(*) FROM ${P}posts WHERE LOCATE('your-objectstorage.com', post_content) > 0")  postmeta: $(q "SELECT COUNT(*) FROM ${P}postmeta WHERE LOCATE('your-objectstorage.com', meta_value) > 0")  options: $(q "SELECT COUNT(*) FROM ${P}options WHERE LOCATE('your-objectstorage.com', option_value) > 0")"
+              echo "--- definições do Offload Media na base de dados (sem chaves)"
+              $W db query "SELECT option_value FROM ${P}options WHERE option_name='tantan_wordpress_s3'" --skip-column-names 2>&1 | grep -oE 's:[0-9]+:"(bucket|region|serve-from-s3|remove-local-file|object-prefix|enable-object-prefix|object-versioning|use-yearmonth-folders|force-https|delivery-provider|provider)";[^;]*;' | head -20
               echo "--- uploads no disco: $(du -sh "$UP" 2>/dev/null | cut -f1), $(find "$UP" -type f 2>/dev/null | wc -l) ficheiros"
-              $W db query "SELECT meta_value FROM ${P}postmeta WHERE meta_key='_wp_attached_file'" --skip-column-names 2>/dev/null > /tmp/anexos_$$.txt
-              total=$(wc -l < /tmp/anexos_$$.txt); falta=0; : > /tmp/falta_$$.txt
-              while IFS= read -r rel; do
-                if [ -n "$rel" ] && [ ! -f "$UP/$rel" ]; then falta=$((falta + 1)); [ "$falta" -le 10 ] && echo "$rel" >> /tmp/falta_$$.txt; fi
+              $W db query "SELECT p.meta_value, IFNULL(m.meta_value,'') FROM ${P}postmeta p LEFT JOIN ${P}postmeta m ON m.post_id=p.post_id AND m.meta_key='_wp_attachment_metadata' WHERE p.meta_key='_wp_attached_file'" --skip-column-names 2>/dev/null > /tmp/anexos_$$.txt
+              total=$(wc -l < /tmp/anexos_$$.txt); falta=0; faltam_mini=0; : > /tmp/falta_$$.txt
+              while IFS=$'\t' read -r rel meta; do
+                [ -n "$rel" ] || continue
+                dir=$(dirname "$rel"); [ "$dir" = "." ] && dir=""
+                if [ ! -f "$UP/$rel" ]; then falta=$((falta + 1)); [ "$falta" -le 10 ] && echo "$rel" >> /tmp/falta_$$.txt; fi
+                for f in $(printf '%s' "$meta" | grep -oE 's:4:"file";s:[0-9]+:"[^"]+"' | sed -E 's/^s:4:"file";s:[0-9]+:"//; s/"$//' | grep -v '/'); do
+                  [ -f "$UP/${dir:+$dir/}$f" ] || faltam_mini=$((faltam_mini + 1))
+                done
               done < /tmp/anexos_$$.txt
-              echo "biblioteca de media: $total anexos; em falta no disco do Contabo: $falta"
-              if [ "$falta" -gt 0 ]; then echo "exemplos em falta:"; cat /tmp/falta_$$.txt; fi
+              echo "biblioteca de media: $total anexos; originais em falta no disco do Contabo: $falta; miniaturas em falta: $faltam_mini"
+              if [ "$falta" -gt 0 ]; then
+                echo "em falta (com a chave no balde, se o Offload a guardou, e se o balde ainda a serve):"
+                while IFS= read -r rel; do
+                  case "$rel" in (*"'"*) continue;; esac
+                  info=$($W db query "SELECT meta_value FROM ${P}postmeta WHERE meta_key='amazonS3_info' AND post_id=(SELECT post_id FROM ${P}postmeta WHERE meta_key='_wp_attached_file' AND meta_value='$rel' LIMIT 1)" --skip-column-names 2>/dev/null)
+                  chave=$(printf '%s' "$info" | grep -oE 's:3:"key";s:[0-9]+:"[^"]+"' | sed -E 's/^s:3:"key";s:[0-9]+:"//; s/"$//' | head -1)
+                  balde=$(printf '%s' "$info" | grep -oE 's:6:"bucket";s:[0-9]+:"[^"]+"' | sed -E 's/^s:6:"bucket";s:[0-9]+:"//; s/"$//' | head -1)
+                  if [ -n "$chave" ]; then
+                    res=$(curl -sI -m 20 "https://hel1.your-objectstorage.com/${balde:-$BUCKET}/$chave" | tr -d '\r' | awk 'NR==1{c=$2} tolower($1)=="content-length:"{l=$2} END{print "HTTP " c ", " l " bytes"}')
+                    echo "  $rel  ->  ${balde:-$BUCKET}/$chave  [$res]"
+                  else
+                    echo "  $rel  ->  sem chave do Offload"
+                  fi
+                done < /tmp/falta_$$.txt
+              fi
               rm -f /tmp/anexos_$$.txt /tmp/falta_$$.txt
               if [ "$TEM_RCLONE" = 1 ]; then
                 P2="hetzner-s3:$BUCKET/wp/$d/uploads"
