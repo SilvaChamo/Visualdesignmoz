@@ -221,9 +221,9 @@ async function reprocessarDns(conta: string, d: string, srv: LeituraServidor, li
   }
   let temEmail = !!srv.mail[conta]?.[d];
   // Pedido do ecrã de e-mail (Silva, 26/10/2026): o domínio ainda não recebe e-mail aqui — liga-se primeiro (v-add-mail-domain, que
-  // gera o DKIM e leva mais do que os 5 s habituais) e logo a seguir repõem-se os registos de e-mail, como neste mesmo botão
+  // gera o DKIM e mexe no DNS: damos-lhe folga) e logo a seguir repõem-se os registos de e-mail, como neste mesmo botão
   if (!temEmail && ligarEmail) {
-    const x = await hestiaCall('v-add-mail-domain', [conta, d], { timeoutMs: 60_000 });
+    const x = await hestiaCall('v-add-mail-domain', [conta, d], { timeoutMs: 60_000, sshTimeoutMs: 60_000 });
     if (!x.ok) return NextResponse.json({ erro: 'Não foi possível ligar o e-mail neste domínio: ' + (x.error || 'o servidor recusou') }, { status: 502 });
     esquecerLeitura();
     itens.push({ nome: 'E-mail neste servidor', estado: 'novo', detalhe: 'domínio de e-mail ligado' });

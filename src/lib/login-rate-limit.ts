@@ -6,6 +6,7 @@
  * perder tentativas em concorrência.
  */
 
+import { readFileSync } from 'node:fs';
 import { createClient } from '@supabase/supabase-js';
 
 /** Ligado outra vez a 26/10/2026 (esteve desligado desde 13/10, quando o bloqueio de 15 min impedia o Silva de entrar
@@ -129,12 +130,39 @@ async function ensureLoginRateLimitSchema(): Promise<boolean> {
   return false;
 }
 
+/** IP do visitante. O `x-real-ip` é posto pelo nginx com o IP verdadeiro e substitui o que o visitante mandar (o painel só se alcança
+ *  por ele: a porta 3002 não responde de fora). O `x-forwarded-for` não serve: o nginx acrescenta ao que o visitante escreveu, e
+ *  ele podia fugir ao limite com um IP por tentativa, ou bloquear outra pessoa de propósito (Silva, 26/10/2026). Sem `x-real-ip`
+ *  (ambiente local) cai para o `x-forwarded-for`. */
+function ipDoPedido(request: Request): string {
+  return request.headers.get('x-real-ip')?.trim() || request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+}
+
+/** IPs que nunca ficam bloqueados (o do Silva, "nunca bloquear o meu IP", 26/10/2026): as mesmas linhas de /etc/vd-banir.permitidos,
+ *  que o vd-banir-ips respeita e onde se acrescenta o IP novo quando mudar. Lê-se do disco e guarda-se 60 s; sem o ficheiro (ambiente
+ *  local) ninguém é isento. */
+let ipsLivres: { ate: number; ips: Set<string> } | null = null;
+function ipIsentoDeBloqueio(ip: string): boolean {
+  if (!ipsLivres || ipsLivres.ate < Date.now()) {
+    const ips = new Set<string>();
+    try {
+      for (const linha of readFileSync(process.env.VD_PERMITIDOS || '/etc/vd-banir.permitidos', 'utf8').split('\n')) {
+        const v = linha.replace(/#.*/, '').trim();
+        if (/^[0-9a-f:.]+$/i.test(v)) ips.add(v.toLowerCase());
+      }
+    } catch {
+      /* sem ficheiro: ninguém é isento */
+    }
+    ipsLivres = { ate: Date.now() + 60_000, ips };
+  }
+  return ipsLivres.ips.has(ip.toLowerCase());
+}
+
+const PREFIXO_LIVRE = 'livre|';
+
 export function loginRateLimitKey(request: Request, email: string): string {
-  const ip =
-    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-    request.headers.get('x-real-ip') ||
-    'unknown';
-  return `${ip}:${email.toLowerCase().trim()}`;
+  const ip = ipDoPedido(request);
+  return `${ipIsentoDeBloqueio(ip) ? PREFIXO_LIVRE : ''}${ip}:${email.toLowerCase().trim()}`;
 }
 
 /**
@@ -146,6 +174,7 @@ export async function checkAndRegisterLoginAttempt(
   key: string,
 ): Promise<{ allowed: boolean; retryAfterSeconds: number }> {
   if (!BLOQUEIO_POR_TENTATIVAS_ATIVO) return { allowed: true, retryAfterSeconds: 0 };
+  if (key.startsWith(PREFIXO_LIVRE)) return { allowed: true, retryAfterSeconds: 0 }; // IP isento: nunca se conta nem bloqueia
   const admin = adminClient();
   if (!admin) return { allowed: true, retryAfterSeconds: 0 };
 

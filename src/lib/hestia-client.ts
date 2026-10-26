@@ -9,6 +9,8 @@
  * (0 = sucesso) — mais fiável do que tentar interpretar texto de erro.
  */
 
+import { connect } from 'node:net';
+
 function readEnv(name: string): string {
   const value = process.env[name];
   if (!value) return '';
@@ -103,9 +105,33 @@ export async function hestiaCall(cmd: string, args: string[] = [], options: Hest
   }
 }
 
+/** A porta da API abre a partir daqui? Em produção sim (o painel corre no próprio servidor); no computador do Silva não: a 8083 só
+ *  responde ao servidor. O resultado guarda-se (60 s se não abre, 5 min se abre). */
+const alcance = new Map<string, { ok: boolean; ate: number }>();
+export async function apiAlcancavel(host: string, port: string, esperaMs = 2_500): Promise<boolean> {
+  const k = `${host}:${port}`;
+  const guardado = alcance.get(k);
+  if (guardado && guardado.ate > Date.now()) return guardado.ok;
+  const ok = await new Promise<boolean>((resolve) => {
+    const s = connect({ host, port: Number(port) });
+    const fim = (r: boolean) => {
+      s.destroy();
+      resolve(r);
+    };
+    s.setTimeout(esperaMs, () => fim(false));
+    s.once('connect', () => fim(true));
+    s.once('error', () => fim(false));
+  });
+  alcance.set(k, { ok, ate: Date.now() + (ok ? 5 * 60_000 : 60_000) });
+  return ok;
+}
+
 async function hestiaCallDireto(cmd: string, args: string[], options: HestiaCallOptions): Promise<HestiaCallResult> {
   const { host, port, user, password } = resolveHestiaConfig();
   const timeoutMs = options.timeoutMs ?? HESTIA_HTTP_TIMEOUT_MS;
+  // Sem alcance à API (o painel a correr no computador do Silva): o pedido nem chegaria ao Hestia, por isso é seguro ir já por SSH,
+  // também nas alterações. Antes esperava 5 s e desistia com «demorou a responder» (as leituras caíam para SSH, as alterações não).
+  if (!(await apiAlcancavel(host, port))) return hestiaCallViaSsh(cmd, args, options.sshTimeoutMs ?? HESTIA_SSH_FALLBACK_MS);
 
   const body = new URLSearchParams();
   body.set('user', user);
