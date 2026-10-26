@@ -613,6 +613,8 @@ export const EN: Record<string, string> = {
  "Palavra-passe": "Password",
  "Credenciais Outlook": "Outlook credentials",
  "Descarregar credenciais para Outlook": "Download Outlook credentials",
+ "Baixar credenciais de Outlook": "Download Outlook credentials",
+ "Baixar configurações Apple": "Download Apple settings",
  "ex.: 2 GB ou 500 MB": "e.g. 2 GB or 500 MB",
  "Disponível no plano": "Available in plan",
  "Máximo possível para esta caixa": "Maximum possible for this mailbox",

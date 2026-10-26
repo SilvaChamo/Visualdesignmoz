@@ -11945,12 +11945,9 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
 }
 
 
-/* Barra das colunas: o ícone "Colunas" fica sempre à vista, encostado à direita da barra, mesmo quando a tabela desliza na horizontal
-   (Silva, 21/10/2026) */
+/* Barra das colunas: o ícone "Colunas" já não fica fixo (Silva, 26/10/2026): faz parte da coluna da Acção, desliza com ela e só aparece
+   quando essa coluna entra na vista */
 .vh .tbl thead th.dt-th-cols {
-   position: sticky;
-   right: 0;
-   z-index: 2;
    background: var(--soft)
 }
 
@@ -14974,27 +14971,20 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    }
 }
 
-/* O ícone «Colunas» fixo à direita já não tapa o título da coluna que passa por baixo (ex.: «Estado» cortado em «Est») — Silva, 26/10/2026:
-   o fundo suave passa para a linha toda e a célula fixa fica transparente, só o ícone fica por cima */
-.vh .tbl thead:has(th.dt-th-cols:not(.dt-th-acoes-fim)) tr:not(#x) {
-   background: var(--soft)
-}
-
-.vh .tbl thead th.dt-th-cols:not(.dt-th-acoes-fim):not(#x):not(#y) {
-   background: transparent;
-   box-shadow: none
-}
-
 /* Telemóvel (≤768): as listas de domínios e de subdomínios com a disposição do computador e deslize horizontal, em vez de blocos empilhados (Silva, 26/10/2026) */
 @media (max-width: 768px) {
    .vh .tbl[data-dt="dominios"]:not(#x) tbody td:not(#x),
-   .vh .tbl[data-dt="subdominios"]:not(#x) tbody td:not(#x) {
+   .vh .tbl[data-dt="subdominios"]:not(#x) tbody td:not(#x),
+   .vh .tbl[data-dt^="contas-"]:not(#x) tbody td:not(#x),
+   .vh .tbl[data-dt="email-contas"]:not(#x) tbody td:not(#x) {
       padding: calc(6.2px * var(--z, 1)) 0 calc(6.2px * var(--z, 1)) calc(12px * var(--z, 1));
       font-size: calc(12.2px * var(--z, 1))
    }
 
    .vh .tbl[data-dt="dominios"]:not(#x) thead th:not(#x):not(.dt-th-cols),
-   .vh .tbl[data-dt="subdominios"]:not(#x) thead th:not(#x):not(.dt-th-cols) {
+   .vh .tbl[data-dt="subdominios"]:not(#x) thead th:not(#x):not(.dt-th-cols),
+   .vh .tbl[data-dt^="contas-"]:not(#x) thead th:not(#x):not(.dt-th-cols),
+   .vh .tbl[data-dt="email-contas"]:not(#x) thead th:not(#x):not(.dt-th-cols) {
       padding: calc(7px * var(--z, 1)) 0 calc(7px * var(--z, 1)) calc(12px * var(--z, 1));
       font-size: calc(13.2px * var(--z, 1))
    }
@@ -15005,4 +14995,24 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    width: calc(30px * var(--z, 1));
    padding: 0;
    justify-content: center
+}
+
+/* Faixa Widgets | Menu e seletor de domínios ligeiramente mais baixa: 36 px em vez de 40 px, em todos os tamanhos (Silva, 26/10/2026) */
+.vh .da-switcher-bar:not(#x):not(#y),
+.vh .cols .da-switcher-bar:not(#x):not(#y) {
+   height: calc(36px * var(--k, var(--z, 1)))
+}
+
+.vh .da-switcher-bar .da-sw-tab:not(#x):not(#y) {
+   height: calc(36px * var(--k, var(--z, 1)))
+}
+
+.vh .da-switcher-bar .da-switcher-tabs:not(#x):not(#y) {
+   height: 100%
+}
+
+/* Botões Admin | Gestão da barra lateral com a mesma altura da faixa Widgets | Menu (36 px; Silva, 26/10/2026) */
+.vh .navcol .lvl:not(#x):not(#y),
+.vh .navcol .lvl button:not(#x):not(#y) {
+   height: calc(36px * var(--k, var(--z, 1)))
 }

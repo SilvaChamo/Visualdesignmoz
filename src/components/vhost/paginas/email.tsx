@@ -650,7 +650,7 @@ function ContasLista() {
         id="email-contas"
         umaLinha
         barraFora
-        empilhar
+        empilhar={false}
         rows={rows}
         rowKey={(r) => r.nome}
         onRecarregar={() => void lerEmail(vh.me, d)}
@@ -780,10 +780,8 @@ function ContasLista() {
                 ['fa-key', 'Mudar palavra-passe', () => openM(<SenhaModal d={d} acc={r.nome} />)],
                 ['fa-sliders', 'Mudar limites', () => openM(<LimitesModal d={d} c={r} />)],
                 ['fa-gear', 'Configurar o e-mail', () => openM(<DadosConta acc={r.nome} d={d} />)],
-                ['fa-file-lines', 'Descarregar credenciais para Outlook', () => void baixarCredenciaisOutlook(vh, r.nome, d)],
-                ['fa-download', 'Descarregar configuração Apple (iPhone, iPad, Mac)', () => configApple(r.nome, d)],
-                ['fa-right-to-bracket', 'Registo SMTP de entrada', () => nav('/utilizador/rastreio/entrada/' + encodeURIComponent(r.nome + '@' + d))],
-                ['fa-right-from-bracket', 'Registo SMTP de saída', () => nav('/utilizador/rastreio/saida/' + encodeURIComponent(r.nome + '@' + d))],
+                ['fa-file-lines', 'Baixar credenciais de Outlook', () => void baixarCredenciaisOutlook(vh, r.nome, d)],
+                ['fa-download', 'Baixar configurações Apple', () => configApple(r.nome, d)],
                 ['fa-trash', 'Apagar', () => apagar([r.nome]), true],
               ]}
             />
