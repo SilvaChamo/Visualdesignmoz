@@ -1,0 +1,14 @@
+# Jail do fail2ban: força bruta ao wp-login.php dos sites SEM Cloudflare à frente (Silva, 26/10/2026). 8 logins falhados em 5 minutos = IP bloqueado 24 h
+# nas portas 80 e 443 (cadeia WEB do Hestia), como o vd-banir-ips fazia para o aamihe. Não serve para sites atrás da Cloudflare (o iptables só vê os IPs
+# dela): nesses o bloqueio faz-se na Cloudflare. Para juntar um site, acrescentar o seu registo em /var/log/apache2/domains/ ao logpath.
+[vd-wp-login]
+enabled  = true
+filter   = vd-wp-login
+action   = hestia[name=WEB]
+logpath  = /var/log/apache2/domains/oshercollective.com.log
+           /var/log/apache2/domains/msdn-moz.org.log
+           /var/log/apache2/domains/elimservicos.com.log
+maxretry = 8
+findtime = 300
+bantime  = 86400
+ignoreip = 127.0.0.1/8 ::1 169.58.148.144
