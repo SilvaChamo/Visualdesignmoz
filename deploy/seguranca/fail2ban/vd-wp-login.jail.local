@@ -12,4 +12,4 @@ logpath  = /var/log/apache2/domains/oshercollective.com.log
 maxretry = 6
 findtime = 21600
 bantime  = 86400
-ignoreip = 127.0.0.1/8 ::1 169.58.148.144
+ignoreip = 127.0.0.1/8 ::1 169.58.148.144 41.220.201.71 41.220.201.107
