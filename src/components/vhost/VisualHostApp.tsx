@@ -13,6 +13,7 @@ import { CACHE_DADOS_VHOST, apagarDadosVhost, guardarDadosVhost, tirarEntrada } 
 import { idDispositivoPresenca } from '@/lib/vhost-presenca-id';
 import { COOKIE_TEMA, lerTema, valorCookieTema, type TemaConta } from '@/lib/vhost-tema-conta';
 import { translate, type Lang } from './i18n';
+import { useI18n } from '@/lib/i18n';
 import { EntradaPainel, EsperaEntrada, LINGUA_LS } from './entrada';
 import { CodigoDoisPassos } from './dois-passos';
 import { auth, supabase } from '@/lib/supabase-client';
@@ -180,7 +181,7 @@ function comPreferencias(s: St): St {
   const n = { ...s };
   try {
     if (localStorage.getItem('visualhost_dashtab') === 'menu') n.dashTab = 'menu';
-    const lg = localStorage.getItem(LINGUA_LS);
+    const lg = localStorage.getItem(LINGUA_LS) || localStorage.getItem('visualhost_lang');
     if (lg === 'pt' || lg === 'en') n.lang = lg;
   } catch {}
   return n;
@@ -476,6 +477,7 @@ function PaginaSlot({ p, oculta, onPronta, registar }: { p: Pagina; oculta: bool
 export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSessao = false }: { versao?: string; dados?: DadosServidor | null; tema?: TemaConta | null; semSessao?: boolean }) {
   // conta os pedidos ao site para a linha de carregamento do topo (antes de o painel pedir os dados)
   useState(() => instalarContador());
+  const { lang: langSite, setLang: definirLangSite } = useI18n();
   const { theme: temaGlobal, system: temaAutomatico, setTheme: definirTemaGlobal, followSystem: seguirAparelho } = useTheme();
   const pathname = usePathname() || BASE;
   // Entrada pelo login do site: o painel abre sem recarregar a página (src/components/auth/LoginForm.tsx), por isso não
@@ -535,6 +537,18 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
   useEffect(() => {
     if (ref.current.theme !== temaGlobal) commit({ ...ref.current, theme: temaGlobal, themePreview: null });
   }, [commit, temaGlobal]);
+
+  // Uma só língua em todo o projecto: a que se escolhe na entrada, no site ou nas preferências vale para o site e para o painel.
+  // Só segue quem não mudou: se mudou o site, o painel segue; se mudou o painel, o site segue (sem voltar atrás ao arrancar).
+  const langVista = useRef({ site: langSite, painel: st.lang });
+  useEffect(() => {
+    const v = langVista.current;
+    if (langSite !== v.site && st.lang !== langSite) commit({ ...ref.current, lang: langSite });
+    else if (st.lang !== v.painel && langSite !== st.lang) definirLangSite(st.lang);
+    v.site = langSite;
+    v.painel = st.lang;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [langSite, st.lang]);
 
   const pushUrl = (path: string, replace = false) => {
     const url = BASE + path;
@@ -919,7 +933,7 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
     };
     const onClick = (e: MouseEvent) => {
       const el = e.target as Element | null;
-      if (!el?.closest?.('#pop') && !el?.closest?.('.rb.lang') && !el?.closest?.('#acct')) setPop(null);
+      if (!el?.closest?.('#pop') && !el?.closest?.('#acct')) setPop(null);
     };
     document.addEventListener('keydown', onKey);
     document.addEventListener('click', onClick);
@@ -1537,10 +1551,6 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
                   <i className="fa-solid fa-folder-open" />
                 </div>
               )}
-              <div className="rb lang" title={t('Idioma')} onClick={(e) => openPop('lang', e.currentTarget)}>
-                <i className="fa-solid fa-globe" />
-                <b>{st.lang.toUpperCase()}</b>
-              </div>
               <div className="rb" title={t('Pesquisar funcionalidades (Ctrl+K)')} onClick={openSearch}>
                 <i className="fa-solid fa-magnifying-glass" />
               </div>
@@ -1800,18 +1810,6 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
 
         {/* Pequenos menus da barra de ícones (idioma) e da conta */}
         <div className={'pop' + (pop ? ' on' : '')} id="pop" style={pop ? { left: pop.left, top: pop.top, bottom: pop.bottom } : undefined}>
-          {pop?.kind === 'lang' &&
-            (
-              [
-                ['pt', 'Português'],
-                ['en', 'English'],
-              ] as const
-            ).map(([k, label]) => (
-              <a key={k} onClick={() => vh.setLang(k)}>
-                <span>{label}</span>
-                {st.lang === k && <i className="fa-solid fa-check" />}
-              </a>
-            ))}
           {pop?.kind === 'conta' && (
             <>
               <div className="pop-acct">

@@ -15,7 +15,8 @@ import { FundoPainel } from './triangulos';
 import { marcarEntrada } from '@/lib/vhost-cache';
 
 /** Língua escolhida na entrada ou no painel (fica guardada no navegador) */
-export const LINGUA_LS = 'visualhost_lang';
+/** a mesma chave do site: a língua escolhida (na entrada, no site ou nas preferências) vale para todo o projecto */
+export const LINGUA_LS = 'vd-lang';
 
 const TXT = {
   pt: { user: 'Utilizador', userPh: 'Escreva o nome de utilizador ou e-mail', senha: 'Palavra-passe', senhaPh: 'Escreva a sua palavra-passe', entrar: 'Entrar', falta: 'Escreva o utilizador e a palavra-passe.', errado: 'Utilizador ou palavra-passe errados.', bloqueado: (min: number) => `Bloqueado por tentativas falhadas. Volte a tentar daqui a ${min} min.`, ligacao: MSG_LIGACAO, mostrar: 'Mostrar a palavra-passe', esconder: 'Esconder a palavra-passe', claro: 'Tema claro', escuro: 'Tema escuro', aparelho: 'Tema do aparelho', tema: 'Tema', voltar: 'Depois de entrar, volta a' },
