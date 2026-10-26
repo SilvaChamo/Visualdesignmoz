@@ -1097,12 +1097,12 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
   const tituloPainel = a.role !== 'admin' ? empresa || me.charAt(0).toUpperCase() + me.slice(1) : 'Dashboard';
   const allowed = allowedOf(st);
   const level = allowed.includes(st.level) ? st.level : allowed[0];
+  const missing = !st.deny && !SCREENS[GLOBAL[st.page] ? st.page : level + '/' + st.page] && !(GLOBAL[st.page] ? gItem(st) : findItem(level, st.page));
+  const s: St = { ...st, level, deny: st.deny || (missing ? { type: '404' } : null) };
   /** páginas do grupo «Extras» (Webmail, Mailmarketing, phpMyAdmin) que o plano da conta deixa ver: o menu extra da barra de baixo */
   const extrasVisiveis = allowed.includes('utilizador')
     ? (MENU.utilizador.find(([g]) => g === 'Extras')?.[1] ?? []).filter((it) => hasFeatOf(s, it.feat, it.id, 'utilizador'))
     : [];
-  const missing = !st.deny && !SCREENS[GLOBAL[st.page] ? st.page : level + '/' + st.page] && !(GLOBAL[st.page] ? gItem(st) : findItem(level, st.page));
-  const s: St = { ...st, level, deny: st.deny || (missing ? { type: '404' } : null) };
   const t = (text: string) => translate(st.lang, text);
   // balões no menu: encomenda nova, cancelada ou actualizada (e pagamentos por confirmar, para o administrador)
   const avisosMenu = useAvisosEncomendas(st.carga === 'ok' && !!st.login && !st.stack.length, st.acc[st.login]?.role === 'admin', s.page === 'encomendas', toast);
