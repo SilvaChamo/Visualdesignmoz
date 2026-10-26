@@ -142,7 +142,7 @@ export function ThemeCustomizerView() {
                 </div>
                 <div>
                   <h3 style={{ fontSize: 16, fontWeight: 800, margin: 0, color: 'var(--ink)' }}>
-                    {t('Cores dos Componentes')}
+                    {t('Cores')}
                   </h3>
                   <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--red)', textTransform: 'uppercase' }}>
                     V-Host Colors
