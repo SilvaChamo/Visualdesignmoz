@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { findItem, formatMt, CUSTOM_CATEGORIA_ID } from '@/lib/pricing-catalog';
-import { notifyQuoteTeam } from '@/lib/notify-quote-team';
+import { notifyQuoteTeam, formatDataExtenso } from '@/lib/notify-quote-team';
+import { batchNumero } from '@/lib/quotation-batch';
+import { computeNumeroMap } from '@/lib/quotation-numero';
+import { carregarPerfilConta } from '@/lib/perfil-conta';
 import { resolveRoleForAuthUser } from '@/lib/server-auth-role';
 import { resolveEffectiveClientUserId } from '@/lib/client-impersonation';
 import { computeUnreadByBatch } from '@/lib/quotation-unread';
@@ -249,10 +252,47 @@ export async function POST(request: NextRequest) {
     const pagamentoNota = metodoPagamento
       ? ` Vai pagar o adiantamento por ${metodoPagamento === 'mpesa' ? 'M-Pesa' : 'Transferência Bancária'} — o comprovativo chega à Contabilidade › Encomendas.`
       : '';
+
+    // Número prático da encomenda (ex.: 292026D002), o mesmo que o cliente e o
+    // painel mostram — sai da sequência de todas as encomendas. Se a leitura
+    // falhar, o do batch_id (igual ao "Cotação Nº" do documento) serve de reserva.
+    let numeroCotacao = batchNumero(batchId);
+    try {
+      const { data: todas } = await admin
+        .from('quotation_requests')
+        .select('id, batch_id, categoria_id, created_at')
+        .order('created_at', { ascending: true });
+      numeroCotacao = computeNumeroMap(todas || []).get(batchId) ?? numeroCotacao;
+    } catch (err) {
+      console.error('[cotacoes] falha ao calcular o número da cotação:', err);
+    }
+
+    // Quem pediu: o aviso à equipa usa os dados do perfil da conta (nome, telefone,
+    // e-mail, empresa), não o que veio escrito no formulário; só sem perfil é que
+    // serve o do formulário.
+    const perfil = await carregarPerfilConta(admin, user.id);
+
     notifyQuoteTeam({
       title: validatedItems.length > 1 ? `Nova cotação recebida (${validatedItems.length} serviços)` : 'Nova cotação recebida',
       message: `${empresa} (${responsavel}) pediu cotação: ${resumo}. Contacto: ${telefone} / ${email}. Entrega pretendida até ${dataLimiteEntrega}.${pagamentoNota}`,
       link: `${process.env.NEXT_PUBLIC_SITE_URL || ''}/vhost:2026`,
+      order: {
+        cliente: perfil?.empresa || empresa,
+        numero: numeroCotacao,
+        itens: validatedItems.map(({ categoriaLabel, produto, quantidadeNum, sobConsulta, totalMt }) => ({
+          nome: produto,
+          categoria: categoriaLabel,
+          quantidade: quantidadeNum,
+          valor: sobConsulta ? 'Sob Consulta' : `${formatMt(totalMt)} MT`,
+        })),
+        entrega: formatDataExtenso(dataLimiteEntrega),
+        pagamento: metodoPagamento
+          ? `Vai pagar o adiantamento por ${metodoPagamento === 'mpesa' ? 'M-Pesa' : 'Transferência Bancária'} — o comprovativo chega à Encomendas > Contabilidade.`
+          : undefined,
+        responsavel: perfil?.nome || responsavel,
+        telefone: perfil?.telefone || telefone,
+        email: perfil?.email || email,
+      },
     }).catch((err) => console.error('[cotacoes] falha ao notificar equipa:', err));
 
     // O primeiro id serve de âncora da encomenda (anexos/mensagens agregam

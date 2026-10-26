@@ -207,6 +207,7 @@ export async function PATCH(request: Request) {
         notifyQuoteClientPriceDefined({
           to: existing.email,
           clientName: existing.responsavel || existing.empresa,
+          userId: existing.user_id,
           produto: existing.produto,
           valorMt: totalMt,
         }).catch((err) => console.error('[admin/cotacoes] falha ao notificar cliente do valor definido:', err));
@@ -358,6 +359,7 @@ export async function PATCH(request: Request) {
       notifyQuoteClientStatusChange({
         to: data.email,
         clientName: data.responsavel || data.empresa,
+        userId: data.user_id,
         produto: data.produto,
         status,
         rejectionReason: data.rejection_reason,

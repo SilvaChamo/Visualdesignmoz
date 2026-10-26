@@ -150,6 +150,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   notifyQuoteClientNewLayout({
     to: quotation.email,
     clientName: quotation.responsavel || quotation.empresa,
+    userId: quotation.user_id,
     produto: quotation.produto,
     descricao,
     fase,

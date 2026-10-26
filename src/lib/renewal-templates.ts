@@ -84,24 +84,58 @@ export const emailHeader = (companyName: string) => `
 </tr>
 `.trim()
 
-// Saudação pessoal — fica dentro do cartão de conteúdo (primeira linha),
-// não no cabeçalho de largura total.
-export const emailGreeting = (clientName: string) => `
-<div style="padding: 20px 24px 0 24px; font-family: 'Exo 2', sans-serif;">
-  <p style="margin: 0; font-size: 14px; color: #1f2937; font-weight: normal; font-family: 'Exo 2', sans-serif;">
-    <strong style="color: #000000;">Prezado(a) Sr(a). ${clientName}</strong>,
-  </p>
-</div>
+// Texto de utilizador entra sempre escapado no cartão.
+export const escapeHtml = (text: string) =>
+  String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+
+// Layout único de todos os e-mails (Silva, 26/10/2026): cabeçalho preto, e por
+// baixo UM cartão com a linha vermelha em cima — "Olá: nome", título com linha,
+// conteúdo e rodapé de uma linha, tudo lá dentro. Quem envia só fornece o título
+// e o corpo; nada fica fora do cartão.
+const EMAIL_FONT = "'Exo 2', sans-serif"
+
+export const emailCard = (params: { clientName: string; title?: string; bodyHtml: string }) => `
+<tr>
+  <td align="center" style="padding: 24px 12px; background: #f3f4f6; font-family: ${EMAIL_FONT};">
+    <table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px; width: 100%; background: #ffffff; border: 1px solid #e5e7eb; border-top: 3px solid #dc2626; font-family: ${EMAIL_FONT};">
+      <tr><td style="padding: 12px 24px 0 24px; font-size: 11px; color: #111827; text-align: left; font-family: ${EMAIL_FONT};">Olá: ${escapeHtml(params.clientName)}</td></tr>
+      ${params.title ? `<tr><td style="padding: 6px 24px 0 24px; text-align: left;">
+        <h2 style="margin: 0; padding: 0 0 8px 0; border-bottom: 1px solid #d1d5db; color: #1f2937; font-size: 18px; font-weight: bold; font-family: ${EMAIL_FONT};">${escapeHtml(params.title)}</h2>
+      </td></tr>` : ''}
+      <tr><td style="padding: 16px 24px 24px 24px; text-align: left; font-size: 14px; color: #4b5563; font-family: ${EMAIL_FONT};">${params.bodyHtml}</td></tr>
+      <tr><td style="padding: 16px 24px; background: #f8fafc; border-top: 1px solid #e2e8f0; text-align: center; color: #374151; font-size: 11px; font-family: ${EMAIL_FONT};"><strong>VisualDESIGN</strong> &copy; ${new Date().getFullYear()} Todos os direitos reservados</td></tr>
+    </table>
+  </td>
+</tr>
 `.trim()
 
-// Tom suave — fundo claro em vez do cinza-escuro anterior, mais discreto.
-export const emailFooter = (supportEmail: string, supportPhone: string, companyName: string) => `
-<div style="padding: 18px 24px; background: #f8fafc; text-align: center; border-top: 1px solid #e2e8f0; font-family: 'Exo 2', sans-serif;">
-  <p style="margin: 0; color: #64748b; font-size: 12px; font-weight: 600; letter-spacing: 1px; font-family: 'Exo 2', sans-serif;">${companyName.toUpperCase()}</p>
-  <p style="margin: 6px 0 0 0; color: #94a3b8; font-size: 10px; font-family: 'Exo 2', sans-serif;">
-    © ${new Date().getFullYear()} Todos os direitos reservados
-  </p>
-</div>
+export const buildEmailDocument = (params: {
+  companyName: string
+  clientName: string
+  title: string
+  bodyHtml: string
+  /** Título do separador/assunto, quando diferente do título do cartão. */
+  docTitle?: string
+}) => `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${escapeHtml(params.docTitle || params.title)}</title>
+  ${EMAIL_CLIENT_RESET_STYLE}
+</head>
+<body marginwidth="0" marginheight="0" topmargin="0" leftmargin="0" style="margin: 0; padding: 0; width: 100%; font-family: ${EMAIL_FONT}; font-size: 14px; background: #f3f4f6;">
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0; padding:0; font-family: ${EMAIL_FONT};">
+    ${emailHeader(params.companyName)}
+    ${emailCard({ clientName: params.clientName, title: params.title, bodyHtml: params.bodyHtml })}
+  </table>
+</body>
+</html>
 `.trim()
 
 // Notificações admin livres (tab "Enviar Notificação" em Notificações → Servidor):
@@ -140,36 +174,16 @@ export function buildSimpleNotificationEmailHtml(params: {
     : `<p style="margin: 0; color: #374151; font-size: 14px; line-height: 1.6; white-space: pre-line; font-family: 'Exo 2', sans-serif; font-weight: normal;">${message}</p>`
 
   const body = `
-    ${title ? `<h2 style="margin: 0 0 12px 0; color: #111827; font-size: 18px; font-family: 'Exo 2', sans-serif; font-weight: 600;">${title}</h2>` : ''}
     ${messageBlock}
-    ${link ? `<p style="margin: 20px 0 0 0;"><a href="${link}" style="display: inline-block; padding: 10px 20px; background: #dc2626; color: #ffffff; text-decoration: none; border-radius: 4px; font-size: 14px; font-family: 'Exo 2', sans-serif;">${linkText || 'Ver mais'}</a></p>` : ''}
+    ${link ? `<p style="margin: 20px 0 0 0;"><a href="${link}" style="display: inline-block; padding: 8px 14px; background: #dc2626; color: #ffffff; text-decoration: none; border-radius: 2px; font-size: 12px; font-weight: bold; font-family: 'Exo 2', sans-serif;">${escapeHtml(linkText || 'Ver mais')} &rarr;</a></p>` : ''}
   `
 
-  return `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${title}</title>
-  ${EMAIL_CLIENT_RESET_STYLE}
-</head>
-<body marginwidth="0" marginheight="0" topmargin="0" leftmargin="0" style="margin: 0; padding: 0; width: 100%; font-family: 'Exo 2', sans-serif; font-size: 14px; background: #f3f4f6;">
-  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0; padding:0; font-family: 'Exo 2', sans-serif;">
-    ${emailHeader(NOTIFICATION_COMPANY_NAME)}
-    <tr>
-      <td align="center" style="padding: 24px 12px; background: #f3f4f6; font-family: 'Exo 2', sans-serif;">
-        <table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px; width: 100%; background: #ffffff; border: 1px solid #e5e7eb; border-top: 3px solid #dc2626; font-family: 'Exo 2', sans-serif;">
-          <tr><td>${emailGreeting(clientName)}</td></tr>
-          <tr><td style="padding: 20px 24px;">${wrapContentInFrame(body, urgencyForNotificationType(type))}</td></tr>
-          <tr><td>${emailFooter(NOTIFICATION_SUPPORT_EMAIL, NOTIFICATION_SUPPORT_PHONE, NOTIFICATION_COMPANY_NAME)}</td></tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>
-  `.trim()
+  return buildEmailDocument({
+    companyName: NOTIFICATION_COMPANY_NAME,
+    clientName,
+    title,
+    bodyHtml: wrapContentInFrame(body, urgencyForNotificationType(type)),
+  })
 }
 
 export const emailAttentionCard = (supportEmail: string, dashboardLink?: string, clientAreaLink?: string) => `
@@ -702,55 +716,32 @@ export function processTemplate(
   processed.message = replaceVars(processed.message)
   processed.emailSubject = replaceVars(processed.emailSubject)
   
-  // Processar corpo do email e adicionar cabeçalho/rodapé
-  const processedBody = replaceVars(processed.emailBody)
-  const header = emailHeader(variables.companyName)
-  const greeting = emailGreeting(variables.clientName)
-  const footer = emailFooter(variables.supportEmail, variables.supportPhone, variables.companyName)
-  
+  // Corpo do email dentro do cartão único (ver emailCard). A saudação "Olá: nome"
+  // já vem no topo do cartão, por isso tira-se a linha "Olá nome," que os modelos
+  // (também os guardados no servidor) repetem no início do texto.
+  const nomeEscapado = variables.clientName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const processedBody = replaceVars(processed.emailBody).replace(
+    new RegExp(`(<p[^>]*>\\s*)?Olá\\s+${nomeEscapado}\\s*,\\s*(</p>)?`, 'gi'),
+    '',
+  ).trim()
+
   // Card de atenção é opcional - só adiciona se includeAttentionCard não for explicitamente false
   const includeAttentionCard = template.includeAttentionCard !== false
   // Usar links com autenticação automática se disponíveis
   const dashboardLink = variables.dashboardAutoLoginLink || 'https://visualdesignmoz.com/client'
   const clientAreaLink = variables.clientAreaAutoLoginLink || 'https://visualdesignmoz.com/client'
   const attentionCard = includeAttentionCard ? emailAttentionCard(variables.supportEmail, dashboardLink, clientAreaLink) : ''
-  
-  // Envolver o conteúdo principal no quadro com linha colorida conforme urgência
+
   const mainContent = wrapContentInFrame(processedBody, template.urgency)
-  
-  // Card de atenção fica FORA do quadro, aparecendo separadamente abaixo
   const fullContent = mainContent + (attentionCard ? `<div style="margin-top: 15px;">${attentionCard}</div>` : '')
-  
-  processed.emailBody = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${processed.emailSubject}</title>
-  ${EMAIL_CLIENT_RESET_STYLE}
-</head>
-<body marginwidth="0" marginheight="0" topmargin="0" leftmargin="0" style="margin: 0; padding: 0; width: 100%; font-family: 'Exo 2', sans-serif; font-size: 14px; background: #f3f4f6;">
-  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0; padding:0; font-family: 'Exo 2', sans-serif;">
-    ${header}
-    <tr>
-      <td align="center" style="padding: 24px 12px; background: #f3f4f6; font-family: 'Exo 2', sans-serif;">
-        <table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px; width: 100%; background: #ffffff; border: 1px solid #e5e7eb; border-top: 3px solid #dc2626; font-family: 'Exo 2', sans-serif;">
-          <tr><td>${greeting}</td></tr>
-          <tr>
-            <td style="padding: 20px 24px;">
-              ${fullContent}
-            </td>
-          </tr>
-          <tr><td>${footer}</td></tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>
-  `.trim()
-  
+
+  processed.emailBody = buildEmailDocument({
+    companyName: variables.companyName,
+    clientName: variables.clientName,
+    title: processed.emailSubject,
+    bodyHtml: fullContent,
+  })
+
   return processed
 }
 
