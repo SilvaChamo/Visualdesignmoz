@@ -63,6 +63,17 @@ async function garantirLixo(conta: string) {
   await executeServerCommand(`p=/home/${conta}/.vh-lixo; [ -e "$p" ] || { mkdir -m 700 "$p" 2>/dev/null && chown -h ${conta}:${conta} "$p"; }; true`, { timeoutMs: 20_000 });
 }
 
+/** O gestor de ficheiros troca, ao guardar ou enviar um ficheiro de texto do site, os links do armazenamento antigo (o balde que foi cancelado) pelos do
+ *  próprio site (Silva, 26/10/2026: "nada deve apontar ao balde"). Aviso para o ecrã, sem nomes de fornecedores. */
+function avisoArmazenamentoAntigo(x: Record<string, unknown>): { aviso?: string } {
+  const trocados = Number(x.trocados) || 0;
+  const mantidos = Number(x.mantidos) || 0;
+  const partes: string[] = [];
+  if (trocados) partes.push(`${trocados} link(s) do armazenamento antigo foram trocados pelos do próprio site.`);
+  if (mantidos) partes.push(`${mantidos} link(s) do armazenamento antigo ficaram: o ficheiro não existe neste site.`);
+  return partes.length ? { aviso: partes.join(' ') } : {};
+}
+
 async function fm(conta: string, args: Record<string, unknown>, entrada?: string): Promise<Record<string, unknown>> {
   // `entrada`: ficheiro (pasta só do root) lido pela entrada do programa e apagado a seguir — para textos grandes
   const out = await executeServerCommand(`sudo -u ${conta} -H python3 -c "$(echo ${b64(FM_PY)} | base64 -d)" ${b64(JSON.stringify({ conta, ...args, ...(entrada ? { stdin: true } : {}) }))}${entrada ? ' < ' + entrada : ''} 2>&1${entrada ? '; rm -f ' + entrada : ''}`, { timeoutMs: 120_000 });
@@ -248,7 +259,7 @@ export async function POST(req: NextRequest) {
       await executeServerCommand(`rm -f ${tmp}`, { timeoutMs: 20_000 });
       return NextResponse.json({ erro: String(x.erro) }, { status: 400 });
     }
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, ...avisoArmazenamentoAntigo(x) });
   }
 
   // carregar ficheiros (formulário com os ficheiros)
@@ -303,7 +314,7 @@ export async function POST(req: NextRequest) {
     }
     if (['fm-apagar', 'fm-restaurar', 'fm-esvaziar'].includes(acao)) await garantirLixo(conta);
     const x = await fm(conta, { op: ops[acao], ...args }, entrada);
-    return x.erro ? recusa(String(x.erro)) : NextResponse.json({ ok: true });
+    return x.erro ? recusa(String(x.erro)) : NextResponse.json({ ok: true, ...(acao === 'fm-guardar' ? avisoArmazenamentoAntigo(x) : {}) });
   }
 
   switch (acao) {

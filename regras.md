@@ -77,6 +77,11 @@ O Object Storage do Hetzner (balde `visualdesign-storage`, endereços `*.your-ob
 - **Ao exportar ou copiar uma página** (HTML estático, clone, página "legacy"), trocar primeiro os URLs do balde pelos do próprio domínio. Aconteceu a
   26/10/2026: a página estática `oshercollective.com/legacy/` foi regravada três vezes, pela conta do próprio site (não pelo deploy nem pelo GitHub),
   sempre com o ícone do balde, a partir de uma cópia antiga. Ficou uma nota em comentário HTML nessa página.
+- **O gestor de ficheiros do painel já não deixa entrar links do balde** (Silva, 26/10/2026: "resolva o problema do gestor de ficheiros para nunca mais voltar a
+  acontecer, mas manter o ícone presente"). Ao guardar no editor ou enviar um ficheiro de texto (`.html`, `.htm`, `.css`, `.js`, `.json`, `.svg`, `.xml`, `.php`,
+  `.txt`, `.md`), troca os links do balde pelos do próprio site (`https://<domínio>/wp-content/uploads/AAAA/MM/ficheiro`, sem a pasta de 8 números) quando o
+  ficheiro existe em `web/<domínio>/public_html/wp-content/uploads` da conta; o ícone e as imagens continuam presentes. Se o ficheiro não existir, o link fica
+  e o ecrã avisa. Código: `balde_fora` em `src/lib/vhost-ficheiros-py.ts` (corre como o utilizador da conta). Não olha dentro de arquivos `.zip` extraídos.
 - **Como verificar** (só lê): workflow manual `ops-balde-hetzner.yml`, fase `verificar` (todas as páginas de todos os WordPress: links ao balde,
   ficheiros de `uploads` que não dão 200, sobras do Hetzner) e fase `varrer` (ficheiros do servidor que ainda mencionam o balde, crons, scripts
   instalados). A fase `migrar` (um domínio) traz do balde o que faltar e tira o Offload Media e os plugins do Hetzner; `limpar` apaga cópias de

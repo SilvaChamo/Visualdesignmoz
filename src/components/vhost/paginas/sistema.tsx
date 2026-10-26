@@ -38,7 +38,8 @@ async function noServidor(vh: VH, corpo: Record<string, unknown>, ok: string): P
       vh.toast(String(j.erro || 'A alteração falhou'));
       return null;
     }
-    if (ok) vh.toast(ok);
+    const aviso = typeof j.aviso === 'string' ? j.aviso : '';
+    if (aviso || ok) vh.toast(aviso || ok);
     return j;
   } catch {
     vh.toast('Sem ligação ao site. Nada foi alterado.');
