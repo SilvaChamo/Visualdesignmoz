@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useI18n } from '@/lib/i18n'
 import { Globe, User, ShoppingCart, HelpCircle, Rocket, Server, CreditCard, Shield, Grid, Layers, Package, BookOpen, Lock, Camera, Palette, Monitor, Mail, FileText, Megaphone, PenTool, Film, Search as SearchIcon } from 'lucide-react'
 import Link from 'next/link'
@@ -11,7 +11,7 @@ import { useEncomendaDraft } from '@/lib/use-encomenda-draft'
 import { useCurrency } from '@/contexts/CurrencyContext'
 import { cn } from '@/lib/utils'
 import { PANEL_LOGIN_HREF, PUBLIC_PANEL_ENTRY } from '@/lib/panel-origin'
-import { ThemeToggle } from '@/components/theme/ThemeToggle'
+import { BotoesTemaIdioma } from '@/components/theme/BotoesTemaIdioma'
 import { useAuth } from '@/components/auth/AuthProvider'
 
 export function Navbar() {
@@ -46,6 +46,7 @@ export function Navbar() {
   }, [user, userRole])
   const showEncomendasLink = hasEncomendas
   const router = useRouter()
+  const pathname = usePathname()
   const [showLaunchpad, setShowLaunchpad] = useState(false)
   const [showTopBar, setShowTopBar] = useState(true)
   const [lastScrollY, setLastScrollY] = useState(0)
@@ -357,10 +358,7 @@ export function Navbar() {
               </Link>
             )}
 
-            <ThemeToggle
-              size="sm"
-              className="hidden lg:inline-flex !h-auto !w-auto !border-0 !bg-transparent !p-0 !text-white hover:!text-red-500 hover:!bg-transparent shadow-none dark:!text-zinc-300 dark:hover:!text-red-400 dark:!bg-transparent"
-            />
+            <BotoesTemaIdioma className="hidden lg:flex" semIdioma={pathname.startsWith('/checkout')} />
           </div>
         </div>
       </div>

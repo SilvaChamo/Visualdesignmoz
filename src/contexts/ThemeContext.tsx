@@ -6,8 +6,12 @@ export type ThemeMode = 'light' | 'dark';
 
 type ThemeContextValue = {
   theme: ThemeMode;
+  /** true quando a pessoa não escolheu (segue o tema do aparelho) */
+  system: boolean;
   setTheme: (theme: ThemeMode) => void;
   toggleTheme: () => void;
+  /** esquece a escolha e passa a seguir o tema do aparelho */
+  followSystem: () => void;
 };
 
 const STORAGE_KEY = 'vd-theme';
@@ -53,6 +57,24 @@ function resolveTheme(): ThemeMode {
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 
+function systemTheme(): ThemeMode {
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+function clearStoredTheme() {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    /* ignore */
+  }
+  try {
+    const secure = window.location.protocol === 'https:' ? '; Secure' : '';
+    document.cookie = `${STORAGE_KEY}=; path=/; max-age=0; SameSite=Lax${secure}`;
+  } catch {
+    /* ignore */
+  }
+}
+
 function persistTheme(theme: ThemeMode) {
   try {
     localStorage.setItem(STORAGE_KEY, theme);
@@ -69,20 +91,24 @@ function persistTheme(theme: ThemeMode) {
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<ThemeMode>('light');
+  const [system, setSystem] = useState(false);
 
   useIsomorphicLayoutEffect(() => {
     const initial = resolveTheme();
     setThemeState(initial);
+    setSystem(!readStoredTheme());
     applyTheme(initial);
 
     const onStorage = (event: StorageEvent) => {
       if (event.key !== STORAGE_KEY) return;
       if (event.newValue === 'light' || event.newValue === 'dark') {
+        setSystem(false);
         setThemeState(event.newValue);
         applyTheme(event.newValue);
       } else if (!event.newValue) {
         // Se a storage for limpa, volta ao tema do sistema
-        const sysTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        const sysTheme = systemTheme();
+        setSystem(true);
         setThemeState(sysTheme);
         applyTheme(sysTheme);
       }
@@ -115,12 +141,22 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const setTheme = useCallback((next: ThemeMode) => {
+    setSystem(false);
     setThemeState(next);
     persistTheme(next);
     applyTheme(next);
   }, []);
 
+  const followSystem = useCallback(() => {
+    clearStoredTheme();
+    const sys = systemTheme();
+    setSystem(true);
+    setThemeState(sys);
+    applyTheme(sys);
+  }, []);
+
   const toggleTheme = useCallback(() => {
+    setSystem(false);
     setThemeState((prev) => {
       const next: ThemeMode = prev === 'dark' ? 'light' : 'dark';
       persistTheme(next);
@@ -130,7 +166,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <ThemeContext.Provider value={{ theme, setTheme, toggleTheme }}>
+    <ThemeContext.Provider value={{ theme, system, setTheme, toggleTheme, followSystem }}>
       {children}
     </ThemeContext.Provider>
   );

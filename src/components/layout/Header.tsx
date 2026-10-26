@@ -373,7 +373,7 @@ export function Header({ isScrolled = false }: { isScrolled?: boolean }) {
                 className={cn(
                   mobileBarBtn,
                   'bg-black dark:bg-zinc-900 hover:bg-red-600 dark:hover:bg-zinc-800 text-white text-xs font-extrabold',
-                  isOpen ? 'hidden lg:flex' : 'flex'
+                  isOpen ? 'hidden' : 'flex lg:hidden'
                 )}
                 type="button"
               >
