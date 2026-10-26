@@ -17,7 +17,7 @@ import { useI18n } from '@/lib/i18n';
 import { EntradaPainel, EsperaEntrada, LINGUA_LS } from './entrada';
 import { CodigoDoisPassos } from './dois-passos';
 import { auth, supabase } from '@/lib/supabase-client';
-import { MoreMenuModal } from './modals';
+import { MenuExtraModal, MoreMenuModal } from './modals';
 import { SCREENS, denyScreen, placeholder, type Screen } from './screens';
 import { PesquisaNaPagina } from './pesquisa-pagina';
 import { useTituloAjustado } from './titulo-ajustado';
@@ -1097,6 +1097,10 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
   const tituloPainel = a.role !== 'admin' ? empresa || me.charAt(0).toUpperCase() + me.slice(1) : 'Dashboard';
   const allowed = allowedOf(st);
   const level = allowed.includes(st.level) ? st.level : allowed[0];
+  /** páginas do grupo «Extras» (Webmail, Mailmarketing, phpMyAdmin) que o plano da conta deixa ver: o menu extra da barra de baixo */
+  const extrasVisiveis = allowed.includes('utilizador')
+    ? (MENU.utilizador.find(([g]) => g === 'Extras')?.[1] ?? []).filter((it) => hasFeatOf(s, it.feat, it.id, 'utilizador'))
+    : [];
   const missing = !st.deny && !SCREENS[GLOBAL[st.page] ? st.page : level + '/' + st.page] && !(GLOBAL[st.page] ? gItem(st) : findItem(level, st.page));
   const s: St = { ...st, level, deny: st.deny || (missing ? { type: '404' } : null) };
   const t = (text: string) => translate(st.lang, text);
@@ -1728,6 +1732,10 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
                     <button className="btn g iconbtn" onClick={vh.toggleTheme} title={t('Tema claro/escuro')}>
                       <i className={'fa-solid ' + (st.theme === 'dark' ? 'fa-sun' : 'fa-moon')} />
                     </button>
+                    {/* telemóvel: o menu deslizante (do lado direito), do tamanho dos outros botões (Silva, 15/10/2026) */}
+                    <button className="btn g iconbtn only-m" onClick={() => setGaveta(true)} title={t('Menu')} aria-label={t('Menu')}>
+                      <i className="fa-solid fa-bars" />
+                    </button>
                   </span>
                 </div>
               </header>
@@ -1762,8 +1770,9 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
         <nav className="tabbar" id="tabbar">
           {/* sem o Início: a casa já está na faixa por baixo da barra de cima (Silva, 16/10/2026) */}
           {/* só as páginas que o plano da conta deixa ver (Admin › Acessos por plano) */}
-          {[...TABBAR[level].filter(([id]) => id !== 'inicio' && vh.hasFeat(findItem(level, id)?.feat, id)), ['mais', 'fa-bars', 'Mais'] as [string, string, string]].map(([id, fa, label]) => (
-            <a key={id} className={s.page === id ? 'on' : ''} onClick={() => (id === 'mais' ? setGaveta(true) : go(id))}>
+          {/* o último botão abre o menu extra (Webmail, Mailmarketing e phpMyAdmin: o grupo «Extras»); o menu completo abre pelo ☰ da barra de cima (Silva, 26/10/2026) */}
+          {[...TABBAR[level].filter(([id]) => id !== 'inicio' && vh.hasFeat(findItem(level, id)?.feat, id)), ...(extrasVisiveis.length ? [['extra', 'fa-ellipsis', 'Extra'] as [string, string, string]] : [])].map(([id, fa, label]) => (
+            <a key={id} className={s.page === id ? 'on' : ''} onClick={() => (id === 'extra' ? vh.openM(<MenuExtraModal itens={extrasVisiveis} />) : go(id))}>
               <i className={'fa-solid ' + fa} />
               {t(label)}
             </a>

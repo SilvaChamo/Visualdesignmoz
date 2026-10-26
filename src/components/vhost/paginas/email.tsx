@@ -177,7 +177,7 @@ function SemEmail({ d }: { d: string }) {
       </div>
     );
   return (
-    <div className="card empty">
+    <div className="card empty sem-email">
       <p>
         {t('O domínio')} <b>{d}</b> {t('ainda não recebe e-mail neste servidor.')}
       </p>
@@ -214,7 +214,7 @@ function SemEmail({ d }: { d: string }) {
         }
       >
         <i className="fa-solid fa-arrows-rotate" />
-        {t('Reprocessar DNS')}
+        {t('Conectar domínio no servidor')}
       </button>
     </div>
   );
@@ -2382,10 +2382,7 @@ function Webmail() {
         const rows = caixasNormais(info);
         return (
           <>
-            <div className="note">
-              {t('Carregue em Abrir ao lado de uma conta: o Roundcube abre noutra janela já dentro da caixa, sem pedir a palavra-passe.')}
-              {!info.dominio?.webmail && ' ' + t('O webmail está desligado neste domínio.')}
-            </div>
+            {!info.dominio?.webmail && <div className="note">{t('O webmail está desligado neste domínio.')}</div>}
             <DataTable
               id="webmail"
               rows={rows}

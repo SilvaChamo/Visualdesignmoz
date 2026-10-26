@@ -62,6 +62,36 @@ export function ChangeRoleModal({ u }: { u: string }) {
   );
 }
 
+/** Menu extra da barra de baixo do telemóvel (Silva, 26/10/2026): Webmail, Mailmarketing e phpMyAdmin, as páginas do grupo «Extras» */
+export function MenuExtraModal({ itens }: { itens: { id: string; fa: string; t: string; c?: string }[] }) {
+  const { t, closeM, nav } = useVH();
+  return (
+    <>
+      <h3>{t('Menu extra')}</h3>
+      <div className="mais-grelha" style={{ margin: '12px 0' }}>
+        {itens.map((it) => (
+          <button
+            key={it.id}
+            className="btn g sm mais-item"
+            onClick={() => {
+              closeM();
+              nav('/utilizador/' + it.id);
+            }}
+          >
+            <i className={ico(it.fa) + (it.c ? ' ' + it.c : '')} style={it.c ? { color: 'var(--c)' } : undefined} />
+            {t(it.t)}
+          </button>
+        ))}
+      </div>
+      <div className="mfoot">
+        <button className="btn g" onClick={closeM}>
+          {t('Fechar')}
+        </button>
+      </div>
+    </>
+  );
+}
+
 /** Menu completo do telemóvel: abre na janela do "Mais" (barra de baixo) e no menu deslizante do ☰ (barra de cima) */
 export function MoreMenuModal({ fechar }: { fechar?: () => void } = {}) {
   const { s, t, allowed, hasFeat, closeM, setLevel, go, logout } = useVH();

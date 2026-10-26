@@ -13956,11 +13956,11 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    --h-campo: calc(34px * (.75 + .25 * min(var(--fs0, 1), 1)) * var(--z, 1))
 }
 
-/* Barra lateral dinâmica (Silva, 23/10/2026): a largura do menu segue a escala do texto (275 px a 1440 px) para nunca cortar uma letra e não alargar sem
+/* Barra lateral dinâmica (Silva, 23/10/2026): a largura do menu segue a escala do texto (248 px a 1440 px) para nunca cortar uma letra e não alargar sem
    necessidade; os nomes do menu e a conta nunca levam reticências (a conta passa à linha de baixo se for preciso) */
 @media (min-width: 769px) {
    .vh .navcol:not(#x) {
-      width: calc(275px * max(var(--fs0, 1), .88) * var(--z, 1) * .95)
+      width: calc(275px * max(var(--fs0, 1), .88) * var(--z, 1) * .9)
    }
 }
 
@@ -14958,4 +14958,13 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    .vh .tema-cats {
       grid-template-columns: 1fr
    }
+}
+
+/* Cartão «O domínio ainda não recebe e-mail neste servidor»: o texto e o botão formam um só bloco, juntos (Silva, 26/10/2026) */
+.vh .card.empty.sem-email > p {
+   margin: 0 0 calc(10px * var(--z, 1))
+}
+
+.vh .card.empty.sem-email > .btn:not(#x) {
+   margin-top: 0
 }
