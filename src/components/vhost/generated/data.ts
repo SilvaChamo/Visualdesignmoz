@@ -5,7 +5,7 @@ import type { Account, GlobalSection, HxState, Level, MenuGroup, Removed, Role }
 export const LEVELS: Record<Level, string> = {"admin":"Admin","revenda":"Revenda","utilizador":"Gestão"};
 export const ROLES: Record<Role, string> = {"admin":"Administrador","revenda":"Revendedor","profissional":"Profissional","cliente":"Cliente"};
 export const ROLE_INFO: Record<Role, string> = {
- "admin": "Gere o servidor e todas as contas (tudo o que o DirectAdmin faz)",
+ "admin": "Gere o servidor e todas as contas (tudo o que o painel anterior fazia)",
  "revenda": "Gere os seus próprios clientes",
  "profissional": "Conta com site: domínios, e-mail, ficheiros, bases de dados, WordPress…",
  "cliente": "Conta sem site: e-mail e domínio"
@@ -37,12 +37,12 @@ export const PKGS: Record<string, string[]> = {
  "Só e-mail": ["dns","ssl","spam","catchall"]
 };
 export const ROLE_PKGS: Record<Role, string[]> = {"admin":["Completo"],"revenda":["Completo"],"profissional":["Starter","Business"],"cliente":["Só e-mail"]};
-export const HX: Record<HxState, string> = {"sim":"Hestia faz","parcial":"Hestia + VisualHost","app":"Feito pelo VisualHost","extra":"Ferramenta extra"};
+export const HX: Record<HxState, string> = {"sim":"O servidor faz","parcial":"Servidor + painel","app":"Feito pelo painel","extra":"Ferramenta extra"};
 export const HX_INFO: Record<HxState, string> = {
- "sim": "O Hestia já faz — o VisualHost só chama a API",
- "parcial": "O Hestia faz a base; o VisualHost completa (dados próprios ou agente no servidor)",
- "app": "Não depende do servidor: fica no próprio VisualHost (base de dados ou agente)",
- "extra": "O Hestia não traz de origem: instala-se a ferramenta no servidor e o VisualHost gere-a"
+ "sim": "O servidor já faz — o painel só o usa",
+ "parcial": "O servidor faz a base; o painel completa (dados próprios ou agente no servidor)",
+ "app": "Não depende do servidor: fica no próprio painel (base de dados ou agente)",
+ "extra": "Não vem de origem: instala-se a ferramenta no servidor e o painel gere-a"
 };
 export const MENU: Record<Level, MenuGroup[]> = {
  admin: [
@@ -50,58 +50,58 @@ export const MENU: Record<Level, MenuGroup[]> = {
    {"id":"inicio","fa":"fa-house","t":"Painel do servidor","c":"c1","da":"/ (dashboard)","f":["Carga, disco e tráfego do servidor","Contas recentes","Atalho para a sua própria conta"],"hx":{"s":"sim","cmd":"v-list-sys-info, v-list-sys-rrd, v-list-users-stats","n":""}}
   ]],
   ["Gestão de contas", [
-   {"id":"novo-cliente","fa":"fa-user-plus","t":"Adicionar cliente","c":"c3","da":"/my-users/create","f":["Utilizador, e-mail, senha, domínio, pacote","Mensagem de boas-vindas"],"hx":{"s":"sim","cmd":"v-add-user, v-change-user-package, v-add-web-domain","n":"Quem criou a conta fica guardado no VisualDA"}},
+   {"id":"novo-cliente","fa":"fa-user-plus","t":"Adicionar cliente","c":"c3","da":"/my-users/create","f":["Utilizador, e-mail, senha, domínio, pacote","Mensagem de boas-vindas"],"hx":{"s":"sim","cmd":"v-add-user, v-change-user-package, v-add-web-domain","n":"Quem criou a conta fica guardado no painel"}},
    {"id":"utilizadores","fa":"fa-users","t":"Todos os utilizadores","c":"c5","da":"/all-users","f":["Todas as contas: administradores, revendedores e clientes","Suspender, reativar, apagar, enviar mensagem","Entrar como qualquer conta"],"hx":{"s":"sim","cmd":"v-list-users, v-suspend-user, v-unsuspend-user, v-delete-user","n":""}},
-   {"id":"meus-clientes","fa":"fa-user-group","t":"Os meus clientes","c":"c5","da":"/my-users","f":["Clientes criados pelo próprio administrador","Mudar pacote, suspender, entrar como"],"hx":{"s":"parcial","cmd":"v-list-users","n":"O Hestia não sabe quem criou cada conta — essa ligação fica no VisualDA"}},
-   {"id":"pacotes","fa":"fa-box","t":"Pacotes de cliente","c":"c4","da":"/user-packages","f":["Limites: disco, tráfego, domínios, e-mails, BDs, FTP…","Funcionalidades ligar/desligar (o que o cliente vê no menu)","Criar, copiar, apagar"],"hx":{"s":"parcial","cmd":"v-list-user-packages, v-add-user-package, v-update-user-package, v-delete-user-package","n":"Limites no Hestia; o liga/desliga de funcionalidades do menu fica no VisualDA"}},
-   {"id":"mover","fa":"fa-people-arrows","t":"Mover clientes","c":"c7","da":"/move-users","f":["Escolher o revendedor de destino","Selecionar clientes e mover"],"hx":{"s":"app","cmd":"","n":"Só muda o dono no VisualDA — a conta no Hestia não mexe"}},
+   {"id":"meus-clientes","fa":"fa-user-group","t":"Os meus clientes","c":"c5","da":"/my-users","f":["Clientes criados pelo próprio administrador","Mudar pacote, suspender, entrar como"],"hx":{"s":"parcial","cmd":"v-list-users","n":"O servidor não sabe quem criou cada conta — essa ligação fica no painel"}},
+   {"id":"pacotes","fa":"fa-box","t":"Pacotes de cliente","c":"c4","da":"/user-packages","f":["Limites: disco, tráfego, domínios, e-mails, BDs, FTP…","Funcionalidades ligar/desligar (o que o cliente vê no menu)","Criar, copiar, apagar"],"hx":{"s":"parcial","cmd":"v-list-user-packages, v-add-user-package, v-update-user-package, v-delete-user-package","n":"Limites no servidor; o liga/desliga de funcionalidades do menu fica no painel"}},
+   {"id":"mover","fa":"fa-people-arrows","t":"Mover clientes","c":"c7","da":"/move-users","f":["Escolher o revendedor de destino","Selecionar clientes e mover"],"hx":{"s":"app","cmd":"","n":"Só muda o dono no painel — a conta no servidor não mexe"}},
    {"id":"modelos-mensagem","fa":"fa-envelope-open-text","t":"Modelos de mensagem","c":"c6","da":"/message-templates","f":["Mensagem de boas-vindas","Mensagem de suspensão"],"hx":{"s":"app","cmd":"","n":""}},
    {"id":"senhas","fa":"fa-key","t":"Mudar senhas","c":"c8","da":"/change-passwords","f":["Mudar a senha de qualquer conta"],"hx":{"s":"sim","cmd":"v-change-user-password","n":""}},
-   {"id":"revendedores","fa":"fa-user-tie","t":"Revendedores","c":"c2","da":"/resellers, /resellers/create","f":["Lista de revendedores com pacote, disco e tráfego","Criar, modificar e ver revendedor"],"hx":{"s":"app","cmd":"v-add-user","n":"O Hestia não tem revendedores — o VisualDA guarda quem é revendedor e quais clientes são seus (o site já faz isto: Revendedor Essencial/Expandido)"}},
-   {"id":"pacotes-revenda","fa":"fa-boxes-stacked","t":"Pacotes de revenda","c":"c4","da":"/reseller-packages","f":["Máximo de clientes, disco e tráfego por revenda","Funcionalidades que a revenda pode dar aos clientes"],"hx":{"s":"app","cmd":"","n":"Limites de revenda controlados pelo VisualDA"}},
-   {"id":"administradores","fa":"fa-user-gear","t":"Administradores","c":"c8","da":"/admins, /admins/create","f":["Lista de administradores","Criar administrador"],"hx":{"s":"parcial","cmd":"v-add-user, v-change-user-role","n":"O acesso de administrador ao VisualDA é dado pelo login do painel"}}
+   {"id":"revendedores","fa":"fa-user-tie","t":"Revendedores","c":"c2","da":"/resellers, /resellers/create","f":["Lista de revendedores com pacote, disco e tráfego","Criar, modificar e ver revendedor"],"hx":{"s":"app","cmd":"v-add-user","n":"O servidor não tem revendedores — o painel guarda quem é revendedor e quais clientes são seus (o site já faz isto: Revendedor Essencial/Expandido)"}},
+   {"id":"pacotes-revenda","fa":"fa-boxes-stacked","t":"Pacotes de revenda","c":"c4","da":"/reseller-packages","f":["Máximo de clientes, disco e tráfego por revenda","Funcionalidades que a revenda pode dar aos clientes"],"hx":{"s":"app","cmd":"","n":"Limites de revenda controlados pelo painel"}},
+   {"id":"administradores","fa":"fa-user-gear","t":"Administradores","c":"c8","da":"/admins, /admins/create","f":["Lista de administradores","Criar administrador"],"hx":{"s":"parcial","cmd":"v-add-user, v-change-user-role","n":"O acesso de administrador é dado pelo login do painel"}}
   ]],
   ["Gestão do servidor", [
    {"id":"definicoes","fa":"fa-sliders","t":"Definições do servidor","c":"c8","da":"/settings","f":["Geral: avisos, auto-suspensão, auto-atualização","Servidor: hostname, NS1/NS2, fuso horário","Segurança: senhas fortes, força bruta","E-mail, base de dados e backup"],"hx":{"s":"parcial","cmd":"v-list-sys-config, v-change-sys-config-value, v-change-sys-hostname, v-change-sys-timezone","n":""}},
-   {"id":"httpd","fa":"fa-file-code","t":"Modelos do servidor web","c":"c5","da":"/custom-httpd, /nginx-templates","f":["Modelo Nginx/Apache por domínio","Versão PHP-FPM por domínio","Reconstruir configurações"],"hx":{"s":"parcial","cmd":"v-list-web-templates, v-change-web-domain-tpl, v-change-web-domain-proxy-tpl, v-change-web-domain-backend-tpl, v-rebuild-web-domains","n":"O Hestia usa modelos em vez de editar o ficheiro de cada domínio"}},
+   {"id":"httpd","fa":"fa-file-code","t":"Modelos do servidor web","c":"c5","da":"/custom-httpd, /nginx-templates","f":["Modelo Nginx/Apache por domínio","Versão PHP-FPM por domínio","Reconstruir configurações"],"hx":{"s":"parcial","cmd":"v-list-web-templates, v-change-web-domain-tpl, v-change-web-domain-proxy-tpl, v-change-web-domain-backend-tpl, v-rebuild-web-domains","n":"O servidor usa modelos em vez de editar o ficheiro de cada domínio"}},
    {"id":"dns","fa":"fa-network-wired","t":"Zonas DNS (todas)","c":"c6","da":"/dns-zones","f":["Todas as zonas do servidor","Criar zona (domínio, IP, NS)","Editar registos de qualquer domínio","DNSSEC"],"hx":{"s":"sim","cmd":"v-list-dns-domains, v-add-dns-domain, v-list-dns-records, v-change-dns-domain-dnssec","n":""}},
    {"id":"ips","fa":"fa-ethernet","t":"IPs","c":"c2","da":"/ip-manager","f":["IPs do servidor","Atribuir a revendedores","Partilhar, libertar, apagar"],"hx":{"s":"sim","cmd":"v-list-sys-ips, v-add-sys-ip, v-change-sys-ip-owner, v-change-sys-ip-status, v-delete-sys-ip","n":""}},
    {"id":"nameservers","fa":"fa-tower-broadcast","t":"Nameservers","c":"c2","da":"/nameservers","f":["NS1 e NS2 do servidor e de cada conta"],"hx":{"s":"sim","cmd":"v-change-user-ns, v-list-user-ns","n":""}},
-   {"id":"multi-servidor","fa":"fa-server","t":"Multi-servidor","c":"c8","da":"/multi-server","f":["Ligar servidores DNS secundários"],"hx":{"s":"parcial","cmd":"v-add-remote-dns-host","n":"No Hestia só existe o cluster de DNS"}},
+   {"id":"multi-servidor","fa":"fa-server","t":"Multi-servidor","c":"c8","da":"/multi-server","f":["Ligar servidores DNS secundários"],"hx":{"s":"parcial","cmd":"v-add-remote-dns-host","n":"No servidor só existe o cluster de DNS"}},
    {"id":"php-basedir","fa":"fa-brands fa-php","t":"PHP (open_basedir)","c":"c5","da":"/php-safe-mode","f":["Ativar/desativar por domínio"],"hx":{"s":"parcial","cmd":"v-change-web-domain-backend-tpl","n":"Controlado pelo modelo PHP-FPM do domínio"}},
    {"id":"ssl","fa":"fa-lock","t":"SSL dos domínios","c":"c3","da":"/admin-ssl","f":["Estado do certificado de cada domínio do servidor","Pedir de novo","SSL automático"],"hx":{"s":"sim","cmd":"v-list-web-domains, v-add-letsencrypt-domain, v-schedule-letsencrypt-domain","n":""}},
-   {"id":"modsecurity","fa":"fa-shield-halved","t":"ModSecurity (WAF)","c":"c3","da":"/modsecurity","f":["Registo de pedidos bloqueados","Regras OWASP"],"hx":{"s":"extra","cmd":"","n":"Instalar o ModSecurity com as regras OWASP no servidor web do Hestia"},"opt":true},
-   {"id":"security-txt","fa":"fa-file-shield","t":"Security.txt","c":"c3","da":"/security-txt","f":["Relatório security.txt por domínio"],"hx":{"s":"app","cmd":"","n":"O VisualDA verifica cada domínio"}},
+   {"id":"modsecurity","fa":"fa-shield-halved","t":"ModSecurity (WAF)","c":"c3","da":"/modsecurity","f":["Registo de pedidos bloqueados","Regras OWASP"],"hx":{"s":"extra","cmd":"","n":"Instalar o ModSecurity com as regras OWASP no servidor web"},"opt":true},
+   {"id":"security-txt","fa":"fa-file-shield","t":"Security.txt","c":"c3","da":"/security-txt","f":["Relatório security.txt por domínio"],"hx":{"s":"app","cmd":"","n":"O painel verifica cada domínio"}},
    {"id":"tls-servidor","fa":"fa-award","t":"Certificado do painel","c":"c3","da":"/server-tls","f":["Estado do certificado do painel","Renovar ou trocar"],"hx":{"s":"sim","cmd":"v-add-letsencrypt-host, v-list-sys-hestia-ssl, v-change-sys-hestia-ssl","n":""}},
-   {"id":"software","fa":"fa-cubes","t":"Versões PHP e software","c":"c5","da":"/custombuild","f":["Instalar e remover versões PHP","PHP predefinido do servidor"],"hx":{"s":"parcial","cmd":"v-list-sys-php, v-add-web-php, v-delete-web-php, v-change-sys-php","n":"O Hestia não tem CustomBuild: só gere versões PHP; o resto vem do instalador do Hestia"}},
-   {"id":"pacotes-sistema","fa":"fa-box-open","t":"Atualizações do sistema","c":"c4","da":"/system-packages","f":["Atualizar tudo ou pacote a pacote","Histórico"],"hx":{"s":"parcial","cmd":"v-list-sys-hestia-updates, v-update-sys-hestia-all","n":"Pacotes do sistema operativo atualizados pelo agente do VisualDA"}}
+   {"id":"software","fa":"fa-cubes","t":"Versões PHP e software","c":"c5","da":"/custombuild","f":["Instalar e remover versões PHP","PHP predefinido do servidor"],"hx":{"s":"parcial","cmd":"v-list-sys-php, v-add-web-php, v-delete-web-php, v-change-sys-php","n":"Só gere versões PHP; o resto vem do instalador do servidor"}},
+   {"id":"pacotes-sistema","fa":"fa-box-open","t":"Atualizações do sistema","c":"c4","da":"/system-packages","f":["Atualizar tudo ou pacote a pacote","Histórico"],"hx":{"s":"parcial","cmd":"v-list-sys-hestia-updates, v-update-sys-hestia-all","n":"Pacotes do sistema operativo atualizados pelo agente do painel"}}
   ]],
   ["Ferramentas de admin", [
    {"id":"backups","fa":"fa-box-archive","t":"Backups","c":"c8","da":"/admin-backup-and-restore","f":["Agendar backups de todas as contas","Destino local ou remoto","Restaurar contas"],"hx":{"s":"sim","cmd":"v-backup-users, v-list-user-backups, v-restore-user, v-add-backup-host","n":""}},
-   {"id":"forca-bruta","fa":"fa-user-lock","t":"Força bruta","c":"c1","da":"/brute-force-monitor","f":["IPs bloqueados por tentativas falhadas","Bloquear / desbloquear IPs"],"hx":{"s":"sim","cmd":"v-list-firewall-ban, v-add-firewall-ban, v-delete-firewall-ban","n":"No Hestia é o Fail2ban"}},
-   {"id":"firewall","fa":"fa-fire","t":"Firewall","c":"c4","da":"plugin ConfigServer Firewall (CSF)","f":["Regras de entrada e saída","Listas de IPs (ipset)"],"hx":{"s":"sim","cmd":"v-list-firewall, v-add-firewall-rule, v-change-firewall-rule, v-delete-firewall-rule, v-add-firewall-ipset","n":""},"note":"No DirectAdmin é um plugin (CSF); no Hestia a firewall já vem incluída"},
+   {"id":"forca-bruta","fa":"fa-user-lock","t":"Força bruta","c":"c1","da":"/brute-force-monitor","f":["IPs bloqueados por tentativas falhadas","Bloquear / desbloquear IPs"],"hx":{"s":"sim","cmd":"v-list-firewall-ban, v-add-firewall-ban, v-delete-firewall-ban","n":"No servidor é o Fail2ban"}},
+   {"id":"firewall","fa":"fa-fire","t":"Firewall","c":"c4","da":"plugin de firewall","f":["Regras de entrada e saída","Listas de IPs (ipset)"],"hx":{"s":"sim","cmd":"v-list-firewall, v-add-firewall-rule, v-change-firewall-rule, v-delete-firewall-rule, v-add-firewall-ipset","n":""},"note":"No painel anterior é um plugin; no servidor a firewall já vem incluída"},
    {"id":"processos","fa":"fa-microchip","t":"Monitor de processos","c":"c7","da":"/process-monitor","f":["CPU e memória do servidor","Processos que mais consomem"],"hx":{"s":"parcial","cmd":"v-list-sys-cpu-status, v-list-sys-memory-status","n":""}},
-   {"id":"fila-email","fa":"fa-envelopes-bulk","t":"Fila de e-mail","c":"c2","da":"/mail-queue","f":["Mensagens em espera","Tentar de novo, apagar"],"hx":{"s":"parcial","cmd":"v-delete-sys-mail-queue","n":"Ver a fila e reenviar é feito pelo agente do VisualDA"}},
+   {"id":"fila-email","fa":"fa-envelopes-bulk","t":"Fila de e-mail","c":"c2","da":"/mail-queue","f":["Mensagens em espera","Tentar de novo, apagar"],"hx":{"s":"parcial","cmd":"v-delete-sys-mail-queue","n":"Ver a fila e reenviar é feito pelo agente do painel"}},
    {"id":"rastreio-email","fa":"fa-route","t":"Rastreio de e-mail","c":"c2","da":"/email-tracking","f":["Percurso de cada e-mail no servidor","Filtros por data, domínio, estado"],"hx":{"s":"app","cmd":"","n":"O agente lê os registos do servidor de e-mail"}},
-   {"id":"resumo-email","fa":"fa-chart-pie","t":"Resumo de e-mail","c":"c2","da":"/email-summary","f":["Entregues, falhados, adiados por domínio"],"hx":{"s":"app","cmd":"v-list-sys-mail-status","n":"Totais calculados pelo VisualDA a partir dos registos"}},
+   {"id":"resumo-email","fa":"fa-chart-pie","t":"Resumo de e-mail","c":"c2","da":"/email-summary","f":["Entregues, falhados, adiados por domínio"],"hx":{"s":"app","cmd":"v-list-sys-mail-status","n":"Totais calculados pelo painel a partir dos registos"}},
    {"id":"monitor-bd","fa":"fa-database","t":"Monitor da BD","c":"c5","da":"/db-monitor","f":["Estado da base de dados"],"hx":{"s":"parcial","cmd":"v-list-sys-db-status","n":""}},
    {"id":"servicos","fa":"fa-gears","t":"Serviços","c":"c4","da":"/services","f":["Estado, memória e tarefas de cada serviço","Reiniciar serviço"],"hx":{"s":"sim","cmd":"v-list-sys-services, v-restart-service, v-change-sys-service-config","n":""}},
    {"id":"backup-sistema","fa":"fa-hard-drive","t":"Backup do sistema","c":"c8","da":"/system-backup","f":["Configurações do servidor","Envio para servidor remoto"],"hx":{"s":"parcial","cmd":"v-backup-users, v-add-backup-host","n":"A configuração do servidor (/etc) é copiada pelo agente"}},
-   {"id":"importar-contas","fa":"fa-file-import","t":"Importar contas","c":"c3","da":"/cpanel-import","f":["Importar de cPanel","Importar do DirectAdmin (para a mudança)","Estado de cada importação"],"hx":{"s":"sim","cmd":"v-import-cpanel, v-import-directadmin","n":"O Hestia também importa contas do DirectAdmin — útil para a migração"}},
-   {"id":"mensagem-todos","fa":"fa-bullhorn","t":"Mensagem a todos","c":"c7","da":"/message-users","f":["Destinatários, assunto e mensagem","Enviar também por e-mail"],"hx":{"s":"parcial","cmd":"v-add-user-notification","n":"Aviso no painel + e-mail enviado pelo VisualDA"}},
-   {"id":"tema","fa":"fa-palette","t":"Personalizar painel","c":"c7","da":"/customize-skin, /skins","f":["Cores, logótipo e CSS","Menu e widgets por nível","Página de login"],"hx":{"s":"app","cmd":"","n":"O visual é do próprio VisualDA"}},
+   {"id":"importar-contas","fa":"fa-file-import","t":"Importar contas","c":"c3","da":"/cpanel-import","f":["Importar de outros painéis","Importar do painel anterior (para a mudança)","Estado de cada importação"],"hx":{"s":"sim","cmd":"v-import-cpanel, v-import-directadmin","n":"O servidor também importa contas do painel anterior — útil para a migração"}},
+   {"id":"mensagem-todos","fa":"fa-bullhorn","t":"Mensagem a todos","c":"c7","da":"/message-users","f":["Destinatários, assunto e mensagem","Enviar também por e-mail"],"hx":{"s":"parcial","cmd":"v-add-user-notification","n":"Aviso no painel + e-mail enviado pelo painel"}},
+   {"id":"tema","fa":"fa-palette","t":"Personalizar painel","c":"c7","da":"/customize-skin, /skins","f":["Cores, logótipo e CSS","Menu e widgets por nível","Página de login"],"hx":{"s":"app","cmd":"","n":"O visual é do próprio painel"}},
    {"id":"manutencao","fa":"fa-screwdriver-wrench","t":"Manutenção","c":"c8","da":"/maintenance","f":["Verificação e reparação geral"],"hx":{"s":"sim","cmd":"v-repair-sys-config, v-rebuild-all","n":""}}
   ]],
   ["Sistema e ficheiros", [
    {"id":"cron","fa":"fa-clock","t":"Cron de todas as contas","c":"c7","da":"/cron-jobs","f":["Tarefas cron de todas as contas"],"hx":{"s":"sim","cmd":"v-list-users, v-list-cron-jobs","n":"Junta as tarefas de todas as contas"}},
-   {"id":"editor-sistema","fa":"fa-file-pen","t":"Editor de ficheiros do sistema","c":"c8","da":"/file-editor","f":["Ficheiros de configuração do servidor","Editar e gravar com cópia de segurança"],"hx":{"s":"app","cmd":"","n":"Feito pelo agente do VisualDA"}},
+   {"id":"editor-sistema","fa":"fa-file-pen","t":"Editor de ficheiros do sistema","c":"c8","da":"/file-editor","f":["Ficheiros de configuração do servidor","Editar e gravar com cópia de segurança"],"hx":{"s":"app","cmd":"","n":"Feito pelo agente do painel"}},
    {"id":"logs","fa":"fa-file-lines","t":"Logs","c":"c7","da":"/log-viewer","f":["Escolher ficheiro de log e nº de linhas","Pesquisar"],"hx":{"s":"parcial","cmd":"v-list-user-log, v-list-user-auth-log, v-list-web-domain-errorlog","n":"Registos do sistema lidos pelo agente"}},
    {"id":"estatisticas","fa":"fa-chart-line","t":"Estatísticas do servidor","c":"c6","da":"/server-stats","f":["Gráficos de carga, memória, rede, tráfego"],"hx":{"s":"sim","cmd":"v-list-sys-rrd","n":""}},
-   {"id":"recursos","fa":"fa-gauge-high","t":"Uso por conta","c":"c6","da":"/users-resource-usage","f":["Disco e tráfego por conta"],"hx":{"s":"parcial","cmd":"v-list-users-stats","n":"CPU/memória por conta não existe no Hestia"}}
+   {"id":"recursos","fa":"fa-gauge-high","t":"Uso por conta","c":"c6","da":"/users-resource-usage","f":["Disco e tráfego por conta"],"hx":{"s":"parcial","cmd":"v-list-users-stats","n":"CPU/memória por conta não existe no servidor"}}
   ]],
   ["Suporte", [
-   {"id":"tickets","fa":"fa-life-ring","t":"Tickets","c":"c1","da":"/ticket-management","f":["Todos os pedidos de suporte","Responder, fechar, criar"],"hx":{"s":"app","cmd":"","n":"Guardados no VisualDA"}},
-   {"id":"atualizacoes","fa":"fa-arrows-rotate","t":"Atualizações","c":"c3","da":"/updates","f":["Atualizações do Hestia","Versão do VisualDA"],"hx":{"s":"sim","cmd":"v-list-sys-hestia-updates, v-update-sys-hestia-all","n":"O VisualDA atualiza-se pelo deploy"}}
+   {"id":"tickets","fa":"fa-life-ring","t":"Tickets","c":"c1","da":"/ticket-management","f":["Todos os pedidos de suporte","Responder, fechar, criar"],"hx":{"s":"app","cmd":"","n":"Guardados no painel"}},
+   {"id":"atualizacoes","fa":"fa-arrows-rotate","t":"Atualizações","c":"c3","da":"/updates","f":["Atualizações do servidor","Versão do painel"],"hx":{"s":"sim","cmd":"v-list-sys-hestia-updates, v-update-sys-hestia-all","n":"O painel atualiza-se pelo deploy"}}
   ]],
   ["Módulos opcionais", [
    {"id":"redis","fa":"fa-layer-group","t":"Redis","c":"c7","da":"/redis","f":["Ativar Redis por conta"],"hx":{"s":"extra","cmd":"","n":"Instalar o Redis no servidor"},"opt":true},
@@ -109,7 +109,7 @@ export const MENU: Record<Level, MenuGroup[]> = {
    {"id":"netdata","fa":"fa-chart-area","t":"Métricas Netdata","c":"c6","da":"/netdata","f":["Métricas do servidor em tempo real"],"hx":{"s":"extra","cmd":"","n":"Instalar o Netdata no servidor"},"opt":true}
   ]],
   ["Configurações de acesso", [
-   {"id":"acessos","fa":"fa-user-shield","t":"Acessos por plano","c":"c1","da":"","f":["O que cada plano vê na barra lateral","Esconder páginas aos clientes de um plano"],"hx":{"s":"app","cmd":"","n":"Guardado pelo VisualHost no servidor"}}
+   {"id":"acessos","fa":"fa-user-shield","t":"Acessos por plano","c":"c1","da":"","f":["O que cada plano vê na barra lateral","Esconder páginas aos clientes de um plano"],"hx":{"s":"app","cmd":"","n":"Guardado pelo painel no servidor"}}
   ]]
  ],
  revenda: [
@@ -117,9 +117,9 @@ export const MENU: Record<Level, MenuGroup[]> = {
    {"id":"inicio","fa":"fa-house","t":"Painel de revenda","c":"c1","da":"/ (dashboard)","f":["Clientes, domínios, disco e tráfego","Atalho para a sua própria conta"],"hx":{"s":"app","cmd":"v-list-user-stats","n":"Soma o uso dos clientes da revenda"}}
   ]],
   ["Gestão de contas", [
-   {"id":"novo-cliente","fa":"fa-user-plus","t":"Adicionar cliente","c":"c3","da":"/my-users/create","f":["Utilizador, e-mail, senha, domínio, pacote","Mensagem de boas-vindas"],"hx":{"s":"sim","cmd":"v-add-user, v-change-user-package","n":"O cliente fica ligado a esta revenda no VisualDA"}},
-   {"id":"clientes","fa":"fa-users","t":"Os meus clientes","c":"c5","da":"/my-users","f":["Clientes desta revenda","Suspender, reativar, mudar pacote","Entrar como o cliente"],"hx":{"s":"parcial","cmd":"v-list-users, v-suspend-user, v-unsuspend-user","n":"Só aparecem as contas que o VisualDA liga a esta revenda"}},
-   {"id":"pacotes","fa":"fa-box","t":"Pacotes de cliente","c":"c4","da":"/user-packages","f":["Limites: disco, tráfego, domínios, e-mails, BDs…","Funcionalidades ligar/desligar"],"hx":{"s":"parcial","cmd":"v-list-user-packages, v-add-user-package","n":"No Hestia os pacotes são do servidor inteiro — o VisualDA separa os de cada revenda"}},
+   {"id":"novo-cliente","fa":"fa-user-plus","t":"Adicionar cliente","c":"c3","da":"/my-users/create","f":["Utilizador, e-mail, senha, domínio, pacote","Mensagem de boas-vindas"],"hx":{"s":"sim","cmd":"v-add-user, v-change-user-package","n":"O cliente fica ligado a esta revenda no painel"}},
+   {"id":"clientes","fa":"fa-users","t":"Os meus clientes","c":"c5","da":"/my-users","f":["Clientes desta revenda","Suspender, reativar, mudar pacote","Entrar como o cliente"],"hx":{"s":"parcial","cmd":"v-list-users, v-suspend-user, v-unsuspend-user","n":"Só aparecem as contas que o painel liga a esta revenda"}},
+   {"id":"pacotes","fa":"fa-box","t":"Pacotes de cliente","c":"c4","da":"/user-packages","f":["Limites: disco, tráfego, domínios, e-mails, BDs…","Funcionalidades ligar/desligar"],"hx":{"s":"parcial","cmd":"v-list-user-packages, v-add-user-package","n":"Os pacotes são do servidor inteiro — o painel separa os de cada revenda"}},
    {"id":"senhas","fa":"fa-key","t":"Mudar senhas","c":"c8","da":"/change-passwords","f":["Mudar a senha de um cliente seu"],"hx":{"s":"sim","cmd":"v-change-user-password","n":""}},
    {"id":"modelos-mensagem","fa":"fa-envelope-open-text","t":"Modelos de mensagem","c":"c6","da":"/message-templates","f":["Mensagem de boas-vindas","Mensagem de suspensão"],"hx":{"s":"app","cmd":"","n":""}}
   ]],
@@ -155,25 +155,25 @@ export const MENU: Record<Level, MenuGroup[]> = {
    {"id":"ftp","fa":"fa-server","t":"FTP","c":"c8","da":"/ftp-accounts","f":["Criar contas FTP por pasta","Mudar senha e pasta"],"hx":{"s":"sim","cmd":"v-add-web-domain-ftp, v-change-web-domain-ftp-password, v-change-web-domain-ftp-path, v-delete-web-domain-ftp","n":""},"feat":"ftp"},
    {"id":"bd","fa":"fa-database","t":"Bases de dados","c":"c5","da":"/database","f":["Criar bases de dados e utilizadores","Mudar senha","phpMyAdmin com 1 clique"],"hx":{"s":"sim","cmd":"v-list-databases, v-add-database, v-change-database-password, v-delete-database","n":""},"feat":"bd"},
    {"id":"apontadores","fa":"fa-arrow-right-arrow-left","t":"Apontadores","c":"c4","da":"/domain-pointers","f":["Outro domínio a mostrar o mesmo site (alias)"],"hx":{"s":"sim","cmd":"v-add-web-domain-alias, v-delete-web-domain-alias","n":""}},
-   {"id":"redirecionamentos","fa":"fa-diamond-turn-right","t":"Redirecionamentos","c":"c7","da":"/redirects","f":["Redirecionar o domínio ou páginas (301/302)"],"hx":{"s":"parcial","cmd":"v-add-web-domain-redirect, v-delete-web-domain-redirect","n":"O Hestia redireciona o domínio inteiro; páginas soltas são feitas pelo VisualDA"},"feat":"web"},
-   {"id":"hotlink","fa":"fa-link-slash","t":"Proteção hotlink","c":"c4","da":"/hotlinks","f":["Impedir que outros sites usem as suas imagens"],"hx":{"s":"app","cmd":"","n":"Regras escritas pelo VisualDA na configuração do site"},"feat":"web"},
-   {"id":"php","fa":"fa-brands fa-php","t":"Definições PHP","c":"c5","da":"/php-settings","f":["Versão PHP por domínio","Ajustes (memory_limit, upload…)"],"hx":{"s":"parcial","cmd":"v-change-web-domain-backend-tpl, v-list-sys-php","n":"Versão pelo Hestia; ajustes pelo VisualDA"},"feat":"php"},
+   {"id":"redirecionamentos","fa":"fa-diamond-turn-right","t":"Redirecionamentos","c":"c7","da":"/redirects","f":["Redirecionar o domínio ou páginas (301/302)"],"hx":{"s":"parcial","cmd":"v-add-web-domain-redirect, v-delete-web-domain-redirect","n":"O servidor redireciona o domínio inteiro; páginas soltas são feitas pelo painel"},"feat":"web"},
+   {"id":"hotlink","fa":"fa-link-slash","t":"Proteção hotlink","c":"c4","da":"/hotlinks","f":["Impedir que outros sites usem as suas imagens"],"hx":{"s":"app","cmd":"","n":"Regras escritas pelo painel na configuração do site"},"feat":"web"},
+   {"id":"php","fa":"fa-brands fa-php","t":"Definições PHP","c":"c5","da":"/php-settings","f":["Versão PHP por domínio","Ajustes (memory_limit, upload…)"],"hx":{"s":"parcial","cmd":"v-change-web-domain-backend-tpl, v-list-sys-php","n":"Versão pelo servidor; ajustes pelo painel"},"feat":"php"},
    // "WordPress" passou de "Avançado" para "Gestão de domínios" (pedido do Silva, 14/10/2026) — editado à mão
-   {"id":"wordpress","fa":"fa-brands fa-wordpress","t":"WordPress","c":"c2","da":"/wordpress","f":["Instalar WordPress em 1 minuto","Utilizadores e atualizações"],"hx":{"s":"parcial","cmd":"v-quick-install-app","n":"Instalação pelo Hestia; utilizadores e atualizações pelo WP-CLI (o site já tem isto)"},"feat":"wordpress"},
+   {"id":"wordpress","fa":"fa-brands fa-wordpress","t":"WordPress","c":"c2","da":"/wordpress","f":["Instalar WordPress em 1 minuto","Utilizadores e atualizações"],"hx":{"s":"parcial","cmd":"v-quick-install-app","n":"Instalação pelo servidor; utilizadores e atualizações pelo WP-CLI (o site já tem isto)"},"feat":"wordpress"},
   ]],
   ["E-mail", [
    {"id":"email","fa":"fa-envelope","t":"Contas de e-mail","c":"c2","da":"/email/accounts","f":["Criar contas com quota e limite de envio","Mudar senha","DKIM"],"hx":{"s":"sim","cmd":"v-list-mail-accounts, v-add-mail-account, v-change-mail-account-quota, v-change-mail-account-password, v-change-mail-account-rate-limit, v-add-mail-domain-dkim","n":""}},
    {"id":"reencaminhamentos","fa":"fa-share","t":"Reencaminhamentos","c":"c6","da":"/email/forwarders","f":["Reencaminhar para um ou vários destinos","Só reencaminhar (sem guardar cópia)"],"hx":{"s":"sim","cmd":"v-add-mail-account-forward, v-add-mail-account-fwd-only, v-delete-mail-account-forward","n":""}},
    {"id":"respostas","fa":"fa-reply-all","t":"Respostas automáticas","c":"c4","da":"/email/autoresponders","f":["Resposta automática por endereço"],"hx":{"s":"sim","cmd":"v-add-mail-account-autoreply, v-list-mail-account-autoreply, v-delete-mail-account-autoreply","n":""}},
-   {"id":"ferias","fa":"fa-umbrella-beach","t":"Mensagens de férias","c":"c3","da":"/email/vacations","f":["Mensagem com data de início e fim"],"hx":{"s":"parcial","cmd":"v-add-mail-account-autoreply, v-delete-mail-account-autoreply","n":"Usa a resposta automática do Hestia; o VisualDA liga e desliga nas datas"}},
-   {"id":"spam","fa":"fa-shield-virus","t":"Filtros anti-spam","c":"c1","da":"/email/filters, /email/spamassassin","f":["Anti-spam ligado/desligado","Bloquear remetentes e domínios"],"hx":{"s":"parcial","cmd":"v-add-mail-domain-antispam, v-add-mail-domain-reject","n":"SpamAssassin pelo Hestia; listas de bloqueio por remetente pelo VisualDA"},"feat":"spam"},
-   {"id":"listas","fa":"fa-list","t":"Listas de correio","c":"c5","da":"/email/lists","f":["Criar listas","Subscritores"],"hx":{"s":"extra","cmd":"","n":"Instalar um gestor de listas (ex.: Mailman) ligado ao e-mail do Hestia"}},
+   {"id":"ferias","fa":"fa-umbrella-beach","t":"Mensagens de férias","c":"c3","da":"/email/vacations","f":["Mensagem com data de início e fim"],"hx":{"s":"parcial","cmd":"v-add-mail-account-autoreply, v-delete-mail-account-autoreply","n":"Usa a resposta automática do servidor; o painel liga e desliga nas datas"}},
+   {"id":"spam","fa":"fa-shield-virus","t":"Filtros anti-spam","c":"c1","da":"/email/filters, /email/spamassassin","f":["Anti-spam ligado/desligado","Bloquear remetentes e domínios"],"hx":{"s":"parcial","cmd":"v-add-mail-domain-antispam, v-add-mail-domain-reject","n":"SpamAssassin pelo servidor; listas de bloqueio por remetente pelo painel"},"feat":"spam"},
+   {"id":"listas","fa":"fa-list","t":"Listas de correio","c":"c5","da":"/email/lists","f":["Criar listas","Subscritores"],"hx":{"s":"extra","cmd":"","n":"Instalar um gestor de listas ligado ao e-mail do servidor"}},
    {"id":"mx","fa":"fa-server","t":"Registos MX","c":"c8","da":"/dns-records/mx-records","f":["Para onde vai o e-mail do domínio"],"hx":{"s":"sim","cmd":"v-list-dns-records, v-add-dns-record","n":""},"feat":"dns"},
    {"id":"rastreio","fa":"fa-route","t":"Rastreio de e-mail","c":"c2","da":"/email/tracking","f":["Percurso de cada e-mail enviado e recebido"],"hx":{"s":"app","cmd":"","n":"O agente lê os registos do servidor de e-mail"}},
    {"id":"imapsync","fa":"fa-right-left","t":"Migração de e-mail","c":"c6","da":"/imapsync","f":["Importar caixas de outro servidor"],"hx":{"s":"extra","cmd":"","n":"Instalar o imapsync no servidor"}}
   ]],
   ["Avançado", [
-   {"id":"handlers","fa":"fa-file-circle-question","t":"Handlers e MIME","c":"c8","da":"/handlers, /mimetypes","f":["Apache handlers e tipos MIME"],"hx":{"s":"extra","cmd":"","n":"Precisa do Apache por trás do Nginx (opção do Hestia); o VisualDA escreve as regras no .htaccess"},"feat":"web"},
+   {"id":"handlers","fa":"fa-file-circle-question","t":"Handlers e MIME","c":"c8","da":"/handlers, /mimetypes","f":["Apache handlers e tipos MIME"],"hx":{"s":"extra","cmd":"","n":"Precisa do Apache por trás do Nginx (opção do servidor); o painel escreve as regras no .htaccess"},"feat":"web"},
    {"id":"catch-all","fa":"fa-inbox","t":"Catch-all","c":"c8","da":"/email/catch-all","f":["E-mails para endereços inexistentes: rejeitar ou enviar para uma conta"],"hx":{"s":"sim","cmd":"v-add-mail-domain-catchall, v-change-mail-domain-catchall, v-delete-mail-domain-catchall","n":""},"feat":"catchall"},
    {"id":"backups","fa":"fa-box-archive","t":"Backups","c":"c8","da":"/user-backups","f":["Criar backup","Restaurar a partir de backup"],"hx":{"s":"sim","cmd":"v-backup-user, v-list-user-backups, v-restore-user","n":""}},
    {"id":"cron","fa":"fa-clock","t":"Tarefas cron","c":"c7","da":"/cronjobs","f":["Criar e editar tarefas agendadas"],"hx":{"s":"sim","cmd":"v-list-cron-jobs, v-add-cron-job, v-change-cron-job, v-delete-cron-job","n":""},"feat":"cron"},
@@ -181,8 +181,8 @@ export const MENU: Record<Level, MenuGroup[]> = {
    {"id":"pastas-protegidas","fa":"fa-folder-closed","t":"Pastas protegidas","c":"c7","da":"/protected-directories","f":["Proteger pastas com utilizador e senha"],"hx":{"s":"sim","cmd":"v-add-web-domain-httpauth, v-change-web-domain-httpauth, v-delete-web-domain-httpauth","n":""},"feat":"web"},
    {"id":"ssh","fa":"fa-key","t":"Chaves SSH","c":"c8","da":"/ssh-keys","f":["Adicionar e apagar chaves SSH","Ligar/desligar acesso SSH"],"hx":{"s":"sim","cmd":"v-add-user-ssh-key, v-list-user-ssh-key, v-delete-user-ssh-key, v-change-user-shell","n":""},"feat":"ssh"},
    {"id":"modsecurity","fa":"fa-shield-halved","t":"Firewall de aplicação","c":"c3","da":"/modsecurity","f":["Pedidos bloqueados no seu site"],"hx":{"s":"extra","cmd":"","n":"Usa o ModSecurity instalado pelo administrador"},"opt":true},
-   {"id":"git","fa":"fa-code-branch","t":"Git","c":"c4","da":"/git-version","f":["Repositórios ligados a um domínio"],"hx":{"s":"extra","cmd":"","n":"Instalar o Git no servidor; o VisualDA liga o repositório ao domínio pelo agente"},"feat":"git"},
-   {"id":"clamav","fa":"fa-virus-slash","t":"Antivírus","c":"c3","da":"/clamav","f":["Analisar ficheiros e e-mail"],"hx":{"s":"parcial","cmd":"v-add-mail-domain-antivirus","n":"O Hestia só analisa o e-mail; analisar ficheiros fica com o agente"},"feat":"clamav"}
+   {"id":"git","fa":"fa-code-branch","t":"Git","c":"c4","da":"/git-version","f":["Repositórios ligados a um domínio"],"hx":{"s":"extra","cmd":"","n":"Instalar o Git no servidor; o painel liga o repositório ao domínio pelo agente"},"feat":"git"},
+   {"id":"clamav","fa":"fa-virus-slash","t":"Antivírus","c":"c3","da":"/clamav","f":["Analisar ficheiros e e-mail"],"hx":{"s":"parcial","cmd":"v-add-mail-domain-antivirus","n":"O servidor só analisa o e-mail; analisar ficheiros fica com o agente"},"feat":"clamav"}
   ]],
   ["Sistema e ficheiros", [
    {"id":"ficheiros","fa":"fa-folder-open","t":"Gestor de ficheiros","c":"c4","da":"/filemanager","f":["Navegar, criar, editar, carregar","Permissões","Comprimir e extrair"],"hx":{"s":"sim","cmd":"v-add-sys-filemanager","n":"O site já tem um gestor de ficheiros próprio"}},
@@ -191,25 +191,25 @@ export const MENU: Record<Level, MenuGroup[]> = {
    {"id":"info-sistema","fa":"fa-circle-info","t":"Informação do sistema","c":"c8","da":"/system-info","f":["Versões de software do servidor"],"hx":{"s":"sim","cmd":"v-list-sys-info, v-list-sys-php","n":""},"feat":"sysinfo"},
    {"id":"estatisticas","fa":"fa-chart-line","t":"Estatísticas","c":"c6","da":"/stats","f":["Uso da conta e histórico","Estatísticas de visitas (AWStats)"],"hx":{"s":"sim","cmd":"v-list-user-stats, v-add-web-domain-stats","n":""}},
    {"id":"logs-site","fa":"fa-file-lines","t":"Resumo do site e logs","c":"c7","da":"/domain-statistics","f":["Log de erros e de acessos"],"hx":{"s":"sim","cmd":"v-list-web-domain-accesslog, v-list-web-domain-errorlog","n":""},"feat":"web"},
-   {"id":"recursos","fa":"fa-gauge-high","t":"Uso de recursos","c":"c6","da":"/resource-usage","f":["Disco e tráfego da conta"],"hx":{"s":"parcial","cmd":"v-list-user-stats","n":"CPU/memória por conta não existe no Hestia"}}
+   {"id":"recursos","fa":"fa-gauge-high","t":"Uso de recursos","c":"c6","da":"/resource-usage","f":["Disco e tráfego da conta"],"hx":{"s":"parcial","cmd":"v-list-user-stats","n":"CPU/memória por conta não existe no servidor"}}
   ]],
   ["Extras", [
-   {"id":"webmail","fa":"fa-envelope-open","t":"Webmail","c":"c3","da":"/roundcube","f":["Abrir o Roundcube com entrada automática"],"hx":{"s":"sim","cmd":"v-add-mail-domain-webmail","n":"Roundcube do Hestia"}},
+   {"id":"webmail","fa":"fa-envelope-open","t":"Webmail","c":"c3","da":"/roundcube","f":["Abrir o webmail com entrada automática"],"hx":{"s":"sim","cmd":"v-add-mail-domain-webmail","n":"Webmail do servidor"}},
    {"id":"phpmyadmin","fa":"fa-table","t":"phpMyAdmin","c":"c5","da":"/phpmyadmin","f":["Abrir o phpMyAdmin com entrada automática"],"hx":{"s":"sim","cmd":"v-add-sys-pma-sso","n":""},"feat":"bd"}
   ]],
   ["Suporte e ajuda", [
    {"id":"ajuda","fa":"fa-circle-question","t":"Ajuda","c":"c8","da":"/site-helper","f":["Guias e respostas rápidas"],"hx":{"s":"app","cmd":"","n":""}},
    {"id":"tickets","fa":"fa-life-ring","t":"Suporte","c":"c1","da":"/tickets","f":["Abrir pedido de suporte","Ver respostas"],"hx":{"s":"app","cmd":"","n":""}},
-   {"id":"api","fa":"fa-book","t":"Documentação da API","c":"c8","da":"/api-docs","f":["API do VisualDA para integrações"],"hx":{"s":"app","cmd":"","n":""}}
+   {"id":"api","fa":"fa-book","t":"Documentação da API","c":"c8","da":"/api-docs","f":["API do painel para integrações"],"hx":{"s":"app","cmd":"","n":""}}
   ]]
  ]
 };
 export const GLOBAL: Record<string, GlobalSection> = {
  "perfil": {"t":"Perfil","fa":"fa-user", "sub": [
-  {"id":"geral","fa":"fa-id-card","t":"Dados pessoais","c":"c2","da":"/profile/general","f":["Nome e e-mail de contacto","Iniciais ou foto da conta"],"hx":{"s":"app","cmd":"v-change-user-contact","n":"O e-mail de contacto também é atualizado no Hestia"}},
-  {"id":"senha","fa":"fa-key","t":"Palavra-passe","c":"c4","da":"/profile/general (senha)","f":["Mudar a palavra-passe","Regras de palavra-passe segura"],"hx":{"s":"app","cmd":"","n":"Login do VisualDA"}},
-  {"id":"sessoes","fa":"fa-display","t":"Sessões","c":"c6","da":"/profile/sessions","f":["Sessão atual","Terminar as outras sessões","Histórico de entradas"],"hx":{"s":"app","cmd":"","n":"Sessões do VisualDA"}},
-  {"id":"dois-passos","fa":"fa-shield-halved","t":"Autenticação em 2 passos","c":"c3","da":"/profile/two-step-auth","f":["Ativar com aplicação de autenticação","Códigos de recuperação"],"hx":{"s":"app","cmd":"","n":"Login do VisualDA"}},
+  {"id":"geral","fa":"fa-id-card","t":"Dados pessoais","c":"c2","da":"/profile/general","f":["Nome e e-mail de contacto","Iniciais ou foto da conta"],"hx":{"s":"app","cmd":"v-change-user-contact","n":"O e-mail de contacto também é atualizado no servidor"}},
+  {"id":"senha","fa":"fa-key","t":"Palavra-passe","c":"c4","da":"/profile/general (senha)","f":["Mudar a palavra-passe","Regras de palavra-passe segura"],"hx":{"s":"app","cmd":"","n":"Login do painel"}},
+  {"id":"sessoes","fa":"fa-display","t":"Sessões","c":"c6","da":"/profile/sessions","f":["Sessão atual","Terminar as outras sessões","Histórico de entradas"],"hx":{"s":"app","cmd":"","n":"Sessões do painel"}},
+  {"id":"dois-passos","fa":"fa-shield-halved","t":"Autenticação em 2 passos","c":"c3","da":"/profile/two-step-auth","f":["Ativar com aplicação de autenticação","Códigos de recuperação"],"hx":{"s":"app","cmd":"","n":"Login do painel"}},
   {"id":"notificacoes","fa":"fa-bell","t":"Notificações","c":"c1","da":"/profile/general (notificações)","f":["Aviso quando a conta se aproxima do limite","Avisos de segurança"],"hx":{"s":"app","cmd":"","n":""}}
  ]},
  "preferencias": {"t":"Preferências","fa":"fa-gear", "sub": [
@@ -227,8 +227,8 @@ export const GLOBAL: Record<string, GlobalSection> = {
  "mapa": {"t":"Mapa de rotas","demo":true}
 };
 export const REMOVED: Removed[] = [
- {"t":"Licença do DirectAdmin","da":"/license","why":"O VisualDA é nosso e o Hestia é gratuito — não há licença para gerir"},
- {"t":"Gestor de plugins","da":"/admin/plugin-manager","why":"O Hestia não tem plugins; no VisualDA os módulos são nossos"},
+ {"t":"Licença do painel anterior","da":"/license","why":"O painel é nosso e o servidor é gratuito — não há licença para gerir"},
+ {"t":"Gestor de plugins","da":"/admin/plugin-manager","why":"O servidor não tem plugins; no painel os módulos são nossos"},
  {"t":"Upload File (plugin próprio)","da":"plugin uploadfile (nos 3 níveis)","why":"Passa a fazer parte do Gestor de ficheiros"},
  {"t":"Webmail Squirrelmail","da":"/squirrelmail","why":"Fica só o Roundcube"},
  {"t":"Criar revendedor / administrador / ticket","da":"/resellers/create, /admins/create, /ticket-management/create","why":"Passam a botão dentro da lista respetiva"},

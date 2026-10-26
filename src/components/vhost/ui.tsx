@@ -341,10 +341,10 @@ export function RouteFoot() {
   return (
     <div className="rfoot">
       <span>
-        Endereço no VisualHost <code>{route(s.level, s.page) + (g && g.sub ? '/' + s.gsub : '')}</code>
+        Endereço no painel <code>{route(s.level, s.page) + (g && g.sub ? '/' + s.gsub : '')}</code>
       </span>
       <span>
-        Equivalente no DirectAdmin <code>{it.da}</code>
+        Equivalente no painel anterior <code>{it.da}</code>
       </span>
       <span>
         No servidor <HxTag s={it.hx.s} />
