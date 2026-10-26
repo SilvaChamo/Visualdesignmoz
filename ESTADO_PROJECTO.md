@@ -21,10 +21,9 @@
    Os scripts do balde (`deploy/wordpress/*hetzner*`, `wp-as3cf-bootstrap.sh`, `deploy/wp-s3-only.sh`, `deploy/da-backup-to-s3.sh`, ...) saíram do git.
    **A página estática `oshercollective.com/legacy/` é regravada por alguém de fora (conta do próprio site) com o ícone do balde:** foi trocado três vezes e
    ficou uma nota; quem a envia tem de usar o URL do próprio domínio.
-   **Falta antes de cancelar a conta do Hetzner:** o servidor não tem chaves do balde, por isso não se consegue listar o que mais lá está (ficheiros que
-   nenhum site referencia, o balde de backups do DirectAdmin, que é encriptado e só se lê com a palavra-passe do rclone crypt). Ver no painel do Hetzner o
-   tamanho de cada balde e, se houver mais do que estes sites, criar chaves só de leitura, guardá-las como segredos do GitHub e correr a fase `copiar`.
-   Cópias antigas em `/root` que ainda mencionam o balde: `backup_sync_20261012`, `backups-removidos`, `vh-passagens`, `aamihe-contabo-prewipe-20260906`.
+   **Decisão do Silva (26/10/2026): não é preciso listar o que mais existe no balde.** Se nada está ligado a ele e tudo funciona (`verificar` dá 0 links e 0
+   ficheiros em falta), não falta nada: a conta do Hetzner pode ser cancelada. Cópias antigas em `/root` que ainda o mencionam (`backup_sync_20261012`,
+   `backups-removidos`, `vh-passagens`, `aamihe-contabo-prewipe-20260906`) são cópias de segurança e não ligam nada ao balde.
 6. **PRs abertos** (26/10/2026): #180 (Next 16.1 → 16.4.3, corrige o alerta crítico do GitHub) e #181 (nodemailer 8 → 10, o transporte do Brevo) pedem
    teste antes de juntar; **#3 repõe o basededadosagro.com em `domain_renewals` (escrita na base de dados, só com o OK do Silva) — nunca fechar**.
 7. **Quota do pacote `VD-Email-Basico` no Hestia** (o PR #105 só corrige o ficheiro do site).

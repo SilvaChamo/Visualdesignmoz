@@ -81,8 +81,9 @@ O Object Storage do Hetzner (balde `visualdesign-storage`, endereços `*.your-ob
   ficheiros de `uploads` que não dão 200, sobras do Hetzner) e fase `varrer` (ficheiros do servidor que ainda mencionam o balde, crons, scripts
   instalados). A fase `migrar` (um domínio) traz do balde o que faltar e tira o Offload Media e os plugins do Hetzner; `limpar` apaga cópias de
   `wp-config` que mencionem o balde. Cópias de segurança de cada acção em `/root/balde-hetzner-troca/`, com os comandos para desfazer no registo.
-- Antes de cancelar o Hetzner falta ainda listar o que mais existe no balde (o servidor não tem as chaves dele) e decidir o que fazer às cópias antigas
-  em `/root` que o mencionam (`backup_sync_20261012`, `backups-removidos`, `vh-passagens`, `aamihe-contabo-prewipe-20260906`).
+- **Decisão do Silva (26/10/2026): não é preciso listar o que mais existe no balde** ("se nada está ligado ao balde e está a funcionar perfeitamente, não falta nada; já se fez esta medição milhões de vezes").
+  O que conta é que nada aponte a ele e tudo funcione: `verificar` dá 0 links e 0 ficheiros em falta. As cópias antigas em `/root` que o mencionam
+  (`backup_sync_20261012`, `backups-removidos`, `vh-passagens`, `aamihe-contabo-prewipe-20260906`) são cópias de segurança e não ligam nada ao balde.
 
 # Como o site é publicado sem corte (Silva, 23/10/2026)
 
