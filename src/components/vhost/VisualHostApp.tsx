@@ -999,6 +999,8 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
       }),
       keepalive: true,
     }).then(async (resposta) => {
+      // sessão já terminada (ou ainda sem entrar): não é um erro, o painel trata da entrada pelos outros pedidos — não se regista na consola
+      if (resposta.status === 401) return;
       if (!resposta.ok) {
         const dados = (await resposta.json().catch(() => ({}))) as { erro?: string };
         throw new Error(dados.erro || `HTTP ${resposta.status}`);
