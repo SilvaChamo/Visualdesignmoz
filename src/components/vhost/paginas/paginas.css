@@ -4880,6 +4880,14 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    flex-wrap: wrap
 }
 
+/* os botões (Validar domínio | Limpar) preenchem a largura toda, como os campos: dois lado a lado, divididos por igual; se o texto de um não cabe em
+   meia largura, esse passa para a linha de baixo, também a toda a largura (Silva, 26/10/2026) */
+.vh .trf-botoes>.btn:not(#x) {
+   flex: 1 1 calc(50% - calc(4px * var(--z, 1)));
+   min-width: max-content;
+   justify-content: center
+}
+
 .vh .btn.trf-btn-p {
    background: color-mix(in srgb, var(--red) 10%, transparent);
    border-color: color-mix(in srgb, var(--red) 40%, transparent);
