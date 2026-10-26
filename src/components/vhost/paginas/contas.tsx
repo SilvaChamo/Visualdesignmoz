@@ -382,7 +382,7 @@ function ListaContas({ kind }: { kind: Kind }) {
         barraFora
         semCols={false}
         colunasNoCabecalho
-        empilhar="tablet"
+        empilhar={false}
         empty="Ainda não há contas aqui"
         actions={([u, a]) =>
           u === me ? (

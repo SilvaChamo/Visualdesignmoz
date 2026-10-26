@@ -14974,27 +14974,32 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    }
 }
 
-/* O ícone «Colunas» fixo à direita já não tapa o título da coluna que passa por baixo (ex.: «Estado» cortado em «Est») — Silva, 26/10/2026:
-   o fundo suave passa para a linha toda e a célula fixa fica transparente, só o ícone fica por cima */
-.vh .tbl thead:has(th.dt-th-cols:not(.dt-th-acoes-fim)) tr:not(#x) {
-   background: var(--soft)
+/* A coluna «Acção» fica fixa à direita quando a lista desliza na horizontal: o ícone «Colunas» do cabeçalho e os botões de cada linha ficam sempre à vista,
+   alinhados na mesma coluna (Silva, 26/10/2026). Só nas listas em tabela (nas empilhadas, em blocos, não se aplica). */
+.vh .tbl:not(.dt-empilhar):not(.dt-empilhar-tablet):has(th.dt-th-cols:not(.dt-th-acoes-fim)) tbody td.dt-acoes-linha:not(#x) {
+   position: sticky;
+   right: 0;
+   z-index: 1;
+   background: var(--card);
+   box-shadow: -10px 0 8px -6px color-mix(in srgb, var(--soft) 90%, transparent)
 }
 
-.vh .tbl thead th.dt-th-cols:not(.dt-th-acoes-fim):not(#x):not(#y) {
-   background: transparent;
-   box-shadow: none
+.vh .tbl:not(.dt-empilhar):not(.dt-empilhar-tablet):has(th.dt-th-cols:not(.dt-th-acoes-fim)) tbody tr:nth-child(even) > td.dt-acoes-linha:not(#x):not(#y) {
+   background: var(--fundo-lista, var(--soft))
 }
 
 /* Telemóvel (≤768): as listas de domínios e de subdomínios com a disposição do computador e deslize horizontal, em vez de blocos empilhados (Silva, 26/10/2026) */
 @media (max-width: 768px) {
    .vh .tbl[data-dt="dominios"]:not(#x) tbody td:not(#x),
-   .vh .tbl[data-dt="subdominios"]:not(#x) tbody td:not(#x) {
+   .vh .tbl[data-dt="subdominios"]:not(#x) tbody td:not(#x),
+   .vh .tbl[data-dt^="contas-"]:not(#x) tbody td:not(#x) {
       padding: calc(6.2px * var(--z, 1)) 0 calc(6.2px * var(--z, 1)) calc(12px * var(--z, 1));
       font-size: calc(12.2px * var(--z, 1))
    }
 
    .vh .tbl[data-dt="dominios"]:not(#x) thead th:not(#x):not(.dt-th-cols),
-   .vh .tbl[data-dt="subdominios"]:not(#x) thead th:not(#x):not(.dt-th-cols) {
+   .vh .tbl[data-dt="subdominios"]:not(#x) thead th:not(#x):not(.dt-th-cols),
+   .vh .tbl[data-dt^="contas-"]:not(#x) thead th:not(#x):not(.dt-th-cols) {
       padding: calc(7px * var(--z, 1)) 0 calc(7px * var(--z, 1)) calc(12px * var(--z, 1));
       font-size: calc(13.2px * var(--z, 1))
    }
