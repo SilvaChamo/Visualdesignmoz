@@ -127,6 +127,30 @@ jobs:
               echo "trazidos: $TRAZIDOS; originais que falharam: $ORIG_FALHAS; miniaturas que o balde não tem: $MINI_FALHAS"
               if [ "$ORIG_FALHAS" -gt 0 ]; then echo "Há originais que não vieram — NÃO mexo no site."; exit 1; fi
 
+              echo "=== 1b. Ficheiros que o site refere em wp-content/uploads e faltam no disco (o .htaccess antigo redireccionava-os para o balde) ==="
+              {
+                for par in posts:post_content postmeta:meta_value options:option_value; do
+                  tab=${par%%:*}; col=${par##*:}
+                  $W db query "SELECT ${col} FROM ${P}${tab} WHERE LOCATE('uploads', ${col}) > 0 AND LOCATE('wp-content', ${col}) > 0" --skip-column-names 2>/dev/null
+                done
+                find "$UP/elementor/css" "$D/wp-content/themes" -type f \( -name '*.css' -o -name '*.php' -o -name '*.js' \) -size -2M 2>/dev/null | head -3000 | xargs -r cat 2>/dev/null
+              } | sed -E 's#\\+/#/#g' | grep -oE "wp-content/uploads/[A-Za-z0-9_./%@+-]+\.(webp|png|jpe?g|gif|svg|ico|pdf|mp4|mp3|zip|woff2?|ttf)" | sed -E 's#^wp-content/uploads/##; s#%20# #g' | sort -u > "$B/referidos.txt"
+              echo "ficheiros distintos referidos: $(wc -l < "$B/referidos.txt")"
+              REF_FALTAM=0; REF_TRAZIDOS=0; REF_PERDIDOS=0
+              while IFS= read -r rel; do
+                [ -n "$rel" ] || continue
+                case "$rel" in (*..*|/*) continue;; esac
+                [ -s "$UP/$rel" ] && continue
+                REF_FALTAM=$((REF_FALTAM + 1)); dest="$UP/$rel"
+                install -d -o "$U" -g "$U" "$(dirname "$dest")"
+                if curl -fsS -m 90 -o "$dest.parte" "https://hel1.your-objectstorage.com/$BUCKET/wp/$DOMINIO/uploads/$rel" 2>/dev/null && [ -s "$dest.parte" ]; then
+                  mv "$dest.parte" "$dest"; chown "$U:$U" "$dest"; chmod 644 "$dest"; REF_TRAZIDOS=$((REF_TRAZIDOS + 1)); echo "  trazido do balde: $rel ($(stat -c %s "$dest") bytes)"
+                else
+                  rm -f "$dest.parte"; REF_PERDIDOS=$((REF_PERDIDOS + 1)); echo "  não está no disco nem no balde: $rel"
+                fi
+              done < "$B/referidos.txt"
+              echo "referidos em falta: $REF_FALTAM; trazidos do balde: $REF_TRAZIDOS; não existem em lado nenhum: $REF_PERDIDOS"
+
               echo "=== 2. Tirar o balde do site ==="
               $W option get active_plugins --format=json > "$B/active_plugins.json" 2>/dev/null
               for f in s3-endpoint-fix.php vd-hetzner-media-urls.php hetzner-s3-uploads.php; do
@@ -136,6 +160,36 @@ jobs:
                 $WC plugin deactivate amazon-s3-and-cloudfront 2>&1 | tail -2
                 echo "amazon-s3-and-cloudfront" > "$B/desactivado.txt"
               else echo "  Offload Media não estava activo"; fi
+
+              echo "=== 2b. Apagar o plugin Offload Media (só se nada o usar; antes guarda as tabelas e as definições dele) ==="
+              PLG="$D/wp-content/plugins/amazon-s3-and-cloudfront"
+              if [ ! -d "$PLG" ]; then
+                echo "  plugin não está instalado"
+              else
+                USOS_FICH=$(grep -rIl -iE "as3cf|amazon-s3-and-cloudfront|wp offload" "$D/wp-content/plugins" "$D/wp-content/themes" "$D/wp-content/mu-plugins" 2>/dev/null | grep -v "^$PLG/" | head -5)
+                U_POSTS=$(sql "SELECT COUNT(*) FROM ${P}posts WHERE LOCATE('as3cf', post_content) > 0 OR LOCATE('amazon-s3', post_content) > 0")
+                U_META=$(sql "SELECT COUNT(*) FROM ${P}postmeta WHERE meta_key <> 'amazonS3_info' AND (LOCATE('as3cf', meta_value) > 0 OR LOCATE('amazon-s3', meta_value) > 0)")
+                U_OPC=$(sql "SELECT COUNT(*) FROM ${P}options WHERE option_name NOT LIKE 'as3cf%' AND option_name NOT LIKE 'tantan%' AND option_name NOT LIKE '%transient%' AND option_name NOT IN ('recently_activated','active_plugins','uninstall_plugins','auto_update_plugins','active_sitewide_plugins') AND (LOCATE('as3cf', option_value) > 0 OR LOCATE('amazon-s3', option_value) > 0)")
+                echo "  usado por outros ficheiros: ${USOS_FICH:-nenhum}"
+                echo "  referências no conteúdo/formulários: artigos=${U_POSTS:-?} meta=${U_META:-?} opções=${U_OPC:-?}"
+                if [ -n "$USOS_FICH" ] || [ "${U_POSTS:-1}" != 0 ] || [ "${U_META:-1}" != 0 ] || [ "${U_OPC:-1}" != 0 ]; then
+                  echo "  ALGO USA O PLUGIN (ou não consegui confirmar) — não apago; fica só desactivado."
+                else
+                  TABS=$($W db query "SHOW TABLES LIKE '${P}as3cf%'" --skip-column-names 2>/dev/null | grep -v '^$' | paste -sd, -)
+                  COPIA_OK=1
+                  if [ -n "$TABS" ]; then
+                    $W db export - --tables="$TABS" > "$B/offload-tabelas.sql" 2>/dev/null; [ -s "$B/offload-tabelas.sql" ] && echo "  tabelas guardadas: $TABS" || { COPIA_OK=0; echo "  não consegui guardar as tabelas"; }
+                  fi
+                  $W option get tantan_wordpress_s3 --format=json > "$B/offload-definicoes.json" 2>/dev/null; chmod 600 "$B"/offload-* 2>/dev/null
+                  if [ "$COPIA_OK" = 1 ]; then
+                    $WC plugin delete amazon-s3-and-cloudfront 2>&1 | tail -2
+                    [ -d "$PLG" ] && echo "  AVISO: a pasta do plugin ainda existe" || echo "  plugin apagado"
+                  else
+                    echo "  sem cópia das tabelas — não apago"
+                  fi
+                fi
+              fi
+              echo
 
               echo "=== 3. Limpar a cache ==="
               $WC cache flush 2>&1 | tail -1
@@ -177,6 +231,9 @@ jobs:
               echo "=== 4. Verificação ==="
               echo "DEPOIS: página inicial com links ao balde: $(ligacoes "https://$DOMINIO/?vd=b$TS") (sem cache) e $(ligacoes "https://$DOMINIO/") (com cache)"
               echo "página inicial: HTTP $(curl -s -o /dev/null -m 30 -w '%{http_code}' "https://$DOMINIO/")"
+              IMGS=$(curl -sL -m 30 "https://$DOMINIO/?vd=e$TS" | grep -oE "https://$DOMINIO/wp-content/uploads/[^\"' )<>,]+" | sed -E 's/[?#].*$//' | sort -u)
+              MAUS=0; for img in $IMGS; do c=$(curl -s -o /dev/null -m 25 -w '%{http_code}' -I "$img"); if [ "$c" != 200 ]; then MAUS=$((MAUS + 1)); echo "  $c $img"; fi; done
+              echo "imagens de uploads na página inicial: $(printf '%s\n' "$IMGS" | grep -c .); que não dão 200: $MAUS"
               curl -sL -m 30 "https://$DOMINIO/?vd=c$TS" | grep -oE '<link[^>]*rel=.(shortcut )?icon.[^>]*>' | head -3
               for href in $(curl -sL -m 30 "https://$DOMINIO/?vd=d$TS" | grep -oE '<link[^>]*rel=.(shortcut )?icon.[^>]*>' | grep -oE 'href=.[^"'"'"' ]+' | sed -E 's/^href=.//' | sort -u | head -3); do
                 echo "  ícone $href -> HTTP $(curl -s -o /dev/null -m 30 -w '%{http_code}' "$href")"
