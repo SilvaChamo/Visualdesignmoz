@@ -3752,7 +3752,10 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
 /* barra dos domínios do gestor: encolhe nos portáteis pequenos (360 px nos ecrãs grandes, até 220 px) */
 .vh .fmda-arvore {
    flex: none;
-   width: clamp(calc(220px * var(--z, 1)), 19vw, calc(360px * var(--z, 1)));
+   /* a barra alarga conforme o nome mais comprido, numa só linha (Silva, 26/10/2026: "nem quero duas linhas na barra lateral") */
+   width: max-content;
+   min-width: clamp(calc(220px * var(--z, 1)), 19vw, calc(360px * var(--z, 1)));
+   max-width: 45%;
    border-right: 1px solid var(--line);
    overflow: auto;
    padding: calc(8px * var(--z, 1)) calc(5px * var(--z, 1))
@@ -3762,7 +3765,7 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    display: flex;
    align-items: center;
    gap: calc(14px * var(--z, 1));
-   min-height: calc(30px * var(--z, 1));
+   height: calc(30px * var(--z, 1));
    padding: 0 calc(18px * var(--z, 1));
    border-radius: 4px;
    background: color-mix(in srgb, var(--red) 72%, #fff);
@@ -3790,26 +3793,11 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    display: flex;
    align-items: center;
    gap: calc(10px * var(--z, 1));
-   min-height: calc(32px * var(--z, 1));
+   height: calc(32px * var(--z, 1));
    border-radius: 4px;
    cursor: pointer;
-   font-size: calc(15px * var(--fs, 1))
-}
-
-/* o nome da pasta nunca é cortado (Silva, 26/10/2026): se não cabe na barra, passa à linha de baixo */
-.vh .fmda-no>span:not(#x) {
-   min-width: 0;
-   white-space: normal;
-   overflow-wrap: anywhere;
-   line-height: 1.2;
-   padding: calc(4px * var(--z, 1)) 0
-}
-
-.vh .fmda-raiz>span:not(#x) {
-   min-width: 0;
-   white-space: normal;
-   overflow-wrap: anywhere;
-   line-height: 1.2
+   font-size: calc(15px * var(--fs, 1));
+   white-space: nowrap
 }
 
 .vh .fmda-no:hover {
