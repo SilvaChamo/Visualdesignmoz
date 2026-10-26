@@ -150,9 +150,6 @@ export function ThemeCustomizerView() {
                   </span>
                 </div>
               </div>
-              <p style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.4, margin: '0 0 16px' }}>
-                {t('Temas das marcas Visual, editor de cores de componentes (Primary, Safe, Danger, Warning, Barra Compacta e Ícones).')}
-              </p>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: 'var(--red)' }}>
                 <span>{t('Explorar Cores')}</span>
                 <i className="fa-solid fa-arrow-right" style={{ fontSize: 11 }} />
@@ -196,9 +193,6 @@ export function ThemeCustomizerView() {
                   </span>
                 </div>
               </div>
-              <p style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.4, margin: '0 0 16px' }}>
-                {t('Ajuste a intensidade das curvas dos painéis (Border Radius: 4px padrão) e estrutura visual.')}
-              </p>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: 'var(--red)' }}>
                 <span>{t('Ajustar Layout')}</span>
                 <i className="fa-solid fa-arrow-right" style={{ fontSize: 11 }} />
@@ -242,9 +236,6 @@ export function ThemeCustomizerView() {
                   </span>
                 </div>
               </div>
-              <p style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.4, margin: '0 0 16px' }}>
-                {t('Alterne entre os modos Claro e Escuro para um maior conforto visual.')}
-              </p>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: 'var(--red)' }}>
                 <span>{t('Alterar Modo')}</span>
                 <i className="fa-solid fa-arrow-right" style={{ fontSize: 11 }} />
@@ -288,9 +279,6 @@ export function ThemeCustomizerView() {
                   </span>
                 </div>
               </div>
-              <p style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.4, margin: '0 0 16px' }}>
-                {t('Defina o nome do serviço, URL do logótipo da sua empresa e dados de rodapé.')}
-              </p>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: 'var(--red)' }}>
                 <span>{t('Definir Marca')}</span>
                 <i className="fa-solid fa-arrow-right" style={{ fontSize: 11 }} />
@@ -1204,13 +1192,8 @@ export function ThemeCustomizerView() {
           {t('Pré-visualização ao Vivo dos Componentes Herdados')}
         </h3>
 
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-            gap: 16,
-          }}
-        >
+        <div className="tema-cats-caixa">
+        <div className="tema-cats" style={{ marginBottom: 0, gap: 16 }}>
           {/* Item 1: Barra Compacta Herdada */}
           <div style={{ background: 'var(--soft)', padding: 14, borderRadius: 'var(--r)', border: '1px solid var(--line)' }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 8 }}>
@@ -1228,7 +1211,8 @@ export function ThemeCustomizerView() {
                   placeItems: 'center',
                 }}
               >
-                <i className="fa-solid fa-house" style={{ color: 'var(--rail-ink)' }} />
+                {/* a cor segue a dos ícones da barra definida nas cores (sem a pintura automática dos ícones do painel) */}
+                <i className="fa-solid fa-house tema-rail-ic" style={{ color: 'var(--rail-ink, #fff)' }} />
               </div>
               <div>
                 <span style={{ fontSize: 12, fontWeight: 700, display: 'block' }}>Barra Compacta</span>
@@ -1274,6 +1258,7 @@ export function ThemeCustomizerView() {
               </a>
             </div>
           </div>
+        </div>
         </div>
       </div>
     </div>
