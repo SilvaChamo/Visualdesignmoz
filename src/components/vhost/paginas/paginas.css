@@ -14878,3 +14878,28 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    min-height: calc(58px * var(--z, 1));
    font-size: calc(16px * var(--fs, 1))
 }
+
+/* Personalizar painel › as quatro categorias numa só linha; quando o espaço encolhe duas por linha e no telemóvel uma (Silva, 26/10/2026).
+   Mede a largura do próprio espaço (não a do ecrã), porque o menu da esquerda também ocupa lugar. */
+.vh .tema-cats-caixa {
+   container-type: inline-size
+}
+
+.vh .tema-cats {
+   display: grid;
+   grid-template-columns: repeat(4, minmax(0, 1fr));
+   gap: calc(20px * var(--z, 1));
+   margin-bottom: calc(24px * var(--z, 1))
+}
+
+@container (max-width: 900px) {
+   .vh .tema-cats {
+      grid-template-columns: repeat(2, minmax(0, 1fr))
+   }
+}
+
+@container (max-width: 520px) {
+   .vh .tema-cats {
+      grid-template-columns: 1fr
+   }
+}

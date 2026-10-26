@@ -111,14 +111,8 @@ export function ThemeCustomizerView() {
             </p>
           </div>
 
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-              gap: '24px',
-              marginBottom: '24px',
-            }}
-          >
+          <div className="tema-cats-caixa">
+          <div className="tema-cats">
             {/* Categoria 1: Cores dos Componentes */}
             <div
               onClick={() => nav(basePath + '/cores')}
@@ -302,6 +296,7 @@ export function ThemeCustomizerView() {
                 <i className="fa-solid fa-arrow-right" style={{ fontSize: 11 }} />
               </div>
             </div>
+          </div>
           </div>
         </div>
       )}
