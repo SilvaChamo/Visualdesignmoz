@@ -650,7 +650,7 @@ function ContasLista() {
         id="email-contas"
         umaLinha
         barraFora
-        empilhar
+        empilhar={false}
         rows={rows}
         rowKey={(r) => r.nome}
         onRecarregar={() => void lerEmail(vh.me, d)}

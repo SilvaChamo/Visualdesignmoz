@@ -2,7 +2,7 @@
 
 // Peças das páginas de gestão: formulário em linhas, limites com "Ilimitado", palavra-passe,
 // separadores e tabela com pesquisa/colunas/seleção/ações em massa (como nas listas do DirectAdmin).
-import { Fragment, useContext, useEffect, useMemo, useRef, useState, type KeyboardEvent as TeclaReact, type MouseEvent as RatoReact, type ReactNode } from 'react';
+import { Fragment, useContext, useEffect, useMemo, useRef, useState, type KeyboardEvent as TeclaReact, type MouseEvent as RatoReact, type ReactNode, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { BarraPagina, ConsultaPagina, FaixaAbas, PesquisaPagina, TopoCartao, useVH } from '../context';
 import type { Campo, Lim, Unit } from './dados';
@@ -812,22 +812,37 @@ export function DataTable<T>({
 /** Menu "…" de uma linha (o mesmo aspeto do menu da página SSL) */
 export function MaisOpcoes({ itens, aoLado = false }: { itens: [string, string, () => void, boolean?][]; aoLado?: boolean }) {
   const { t } = useVH();
-  // posição fixa (calculada do botão): a tabela, que pode deslizar, não corta o menu; sem espaço por baixo, abre para cima
-  const [pos, setPos] = useState<{ top?: number; bottom?: number; right: number } | null>(null);
-  // aoLado: o menu abre à esquerda do botão (à altura dele), não por baixo
-  const posLado = (r: DOMRect, altura: number) => ({ right: window.innerWidth - r.left + 6, ...(window.innerHeight - r.top < altura + 12 ? { bottom: Math.max(8, window.innerHeight - r.bottom) } : { top: r.top }) });
+  // posição fixa (calculada do botão): a tabela, que pode deslizar, não corta o menu. `top` = onde começa; `base` = onde acaba (abre para cima)
+  const [pos, setPos] = useState<{ top?: number; base?: number; right: number } | null>(null);
   const ref = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  // o menu desenha-se na raiz do painel (portal): nenhuma tabela, cartão ou linha com recorte, transformação ou camada própria o corta ou tapa
+  const [alvo, setAlvo] = useState<HTMLElement | null>(null);
   const alternar = () => {
     const r = ref.current?.getBoundingClientRect();
     if (pos || !r) return setPos(null);
-    const altura = itens.length * 36 + 16;
+    setAlvo((ref.current?.closest('.vh') as HTMLElement | null) || document.body);
+    // no computador o menu abre à esquerda do botão, à altura dele; só no telemóvel abre por baixo (ou por cima, se por baixo não houver espaço)
+    // (Silva, 26/10/2026). Com `aoLado` abre sempre à esquerda.
+    if (aoLado || window.innerWidth >= 769) return setPos({ right: window.innerWidth - r.left + 6, top: r.top });
     const right = Math.max(8, window.innerWidth - r.right);
-    if (aoLado) return setPos(posLado(r, altura));
-    setPos(window.innerHeight - r.bottom < altura + 12 && r.top > altura + 12 ? { bottom: window.innerHeight - r.top + 6, right } : { top: r.bottom + 6, right });
+    const altura = itens.length * 36 + 16;
+    setPos(window.innerHeight - r.bottom < altura + 12 && r.top > altura + 12 ? { base: r.top - 6, right } : { top: r.bottom + 6, right });
   };
+  // depois de desenhado mede-se o menu e põe-se de modo a nunca ficar cortado pelo fundo ou pelo topo da janela (as últimas linhas da lista
+  // e as janelas baixas escondiam as opções de baixo)
+  useLayoutEffect(() => {
+    const m = menuRef.current;
+    if (!pos || !m) return;
+    const h = Math.max(m.offsetHeight, m.scrollHeight);
+    let top = pos.top ?? (pos.base ?? 0) - h;
+    top = Math.max(8, Math.min(top, window.innerHeight - h - 8));
+    m.style.top = top + 'px';
+    m.style.bottom = 'auto';
+  }, [pos]);
   useEffect(() => {
     if (!pos) return;
-    const fechar = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && setPos(null);
+    const fechar = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && !menuRef.current?.contains(e.target as Node) && setPos(null);
     const sair = () => setPos(null);
     document.addEventListener('mousedown', fechar);
     window.addEventListener('scroll', sair, true);
@@ -843,8 +858,8 @@ export function MaisOpcoes({ itens, aoLado = false }: { itens: [string, string, 
       <button className={'btn g sm iconbtn' + (pos ? ' on' : '')} title={t('Mais opções')} aria-label={t('Mais opções')} aria-expanded={!!pos} onClick={alternar}>
         <i className="fa-solid fa-ellipsis" />
       </button>
-      {pos && (
-        <div className="ssl-pop-menu" style={{ position: 'fixed', top: pos.top, bottom: pos.bottom, right: pos.right, zIndex: 520 }}>
+      {pos && alvo && createPortal(
+        <div ref={menuRef} className="ssl-pop-menu" style={{ position: 'fixed', top: pos.top ?? 0, right: pos.right, zIndex: 1000, maxHeight: 'calc(100vh - 16px)', overflowY: 'auto' }}>
           {itens.map(([fa, txt, f, perigo]) => (
             <button
               key={txt}
@@ -858,7 +873,8 @@ export function MaisOpcoes({ itens, aoLado = false }: { itens: [string, string, 
               {t(txt)}
             </button>
           ))}
-        </div>
+        </div>,
+        alvo,
       )}
     </div>
   );
