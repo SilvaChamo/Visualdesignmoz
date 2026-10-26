@@ -14591,7 +14591,7 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
 
    /* a caixa ocupa a coluna da caixa e a do ícone dos blocos: "Nome" fica por cima do nome de cada ficheiro */
    .vh .fmda-tab:not(#x) thead th.fmda-chk {
-      width: calc(74px * var(--z, 1));
+      width: calc(86px * var(--z, 1));
       padding: 0 0 0 calc(12px * var(--z, 1))
    }
 
@@ -14608,7 +14608,7 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
 
    .vh .fmda-tab:not(#x) tbody tr {
       display: grid;
-      grid-template-columns: calc(40px * var(--z, 1)) calc(34px * var(--z, 1)) minmax(0, 1fr) auto;
+      grid-template-columns: calc(40px * var(--z, 1)) calc(46px * var(--z, 1)) minmax(0, 1fr) auto;
       align-items: center;
       row-gap: calc(2px * var(--z, 1));
       padding: calc(8px * var(--z, 1)) 0
@@ -14633,6 +14633,19 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    .vh .fmda-tab:not(#x) tbody td.fmda-icc {
       grid-column: 2;
       grid-row: 1 / span 2
+   }
+
+   /* as letras do tipo (HTML, PHP, PNG…) ficam numa só linha e mais pequenas: a regra das células partia-as uma por linha */
+   .vh .fmda-tab:not(#x) tbody td.fmda-icc .fmda-ic {
+      width: calc(30px * var(--z, 1))
+   }
+
+   .vh .fmda-tab:not(#x) tbody td.fmda-icc .fmda-ic b {
+      white-space: nowrap;
+      overflow-wrap: normal;
+      font-size: calc(5.5px * var(--fs, 1));
+      line-height: calc(8px * var(--z, 1));
+      padding: 0 calc(1.5px * var(--z, 1))
    }
 
    .vh .fmda-tab:not(#x) tbody td:nth-child(3) {
