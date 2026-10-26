@@ -14835,3 +14835,12 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    font-size: calc(12px * var(--fs, 1));
    color: var(--red)
 }
+
+/* Entrada do painel: os campos voltam a ser grandes, como os da entrada do DA (Silva, 26/10/2026: "estavam grandes como os do DA").
+   A regra geral dos campos do painel (40 px de altura, 15 px de letra) passou por cima dos 58 px e dos 16 px da entrada; aqui
+   a entrada volta a mandar nos seus campos (os três :not(#…) só servem para ganhar à regra geral). */
+.vh .ent-cartao input:not(#x):not(#y):not(#z) {
+   height: calc(58px * var(--z, 1));
+   min-height: calc(58px * var(--z, 1));
+   font-size: calc(16px * var(--fs, 1))
+}
