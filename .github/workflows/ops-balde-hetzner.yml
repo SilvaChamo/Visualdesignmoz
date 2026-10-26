@@ -166,7 +166,9 @@ jobs:
               if [ ! -d "$PLG" ]; then
                 echo "  plugin não está instalado"
               else
-                USOS_FICH=$(grep -rIl -iE "as3cf|amazon-s3-and-cloudfront|wp offload" "$D/wp-content/plugins" "$D/wp-content/themes" "$D/wp-content/mu-plugins" 2>/dev/null | grep -v "^$PLG/" | head -5)
+                USOS_FICH=$(grep -rIl -iE "as3cf|amazon-s3-and-cloudfront|wp offload" --include='*.php' --include='*.js' "$D/wp-content/plugins" "$D/wp-content/themes" "$D/wp-content/mu-plugins" 2>/dev/null | grep -v "^$PLG/" | head -5)
+                echo "  menções só em metadados (json, readme, traduções; não contam como uso):"
+                grep -rIn -iE -o ".{0,60}(as3cf|amazon-s3-and-cloudfront|wp offload).{0,60}" --exclude='*.php' --exclude='*.js' "$D/wp-content/plugins" "$D/wp-content/themes" 2>/dev/null | grep -v "^$PLG/" | cut -c1-260 | head -6
                 U_POSTS=$(sql "SELECT COUNT(*) FROM ${P}posts WHERE LOCATE('as3cf', post_content) > 0 OR LOCATE('amazon-s3', post_content) > 0")
                 U_META=$(sql "SELECT COUNT(*) FROM ${P}postmeta WHERE meta_key <> 'amazonS3_info' AND (LOCATE('as3cf', meta_value) > 0 OR LOCATE('amazon-s3', meta_value) > 0)")
                 U_OPC=$(sql "SELECT COUNT(*) FROM ${P}options WHERE option_name NOT LIKE 'as3cf%' AND option_name NOT LIKE 'tantan%' AND option_name NOT LIKE '%transient%' AND option_name NOT IN ('recently_activated','active_plugins','uninstall_plugins','auto_update_plugins','active_sitewide_plugins') AND (LOCATE('as3cf', option_value) > 0 OR LOCATE('amazon-s3', option_value) > 0)")
