@@ -3792,7 +3792,7 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
 .vh .fmda-no {
    display: flex;
    align-items: center;
-   gap: calc(10px * var(--z, 1));
+   gap: calc(5px * var(--z, 1));
    height: calc(32px * var(--z, 1));
    border-radius: 4px;
    cursor: pointer;
