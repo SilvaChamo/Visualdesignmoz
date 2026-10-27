@@ -62,7 +62,7 @@ export async function GET(req: NextRequest) {
   const sessionUser = await resolveSessionUser(supabase);
 
   if (!sessionUser) {
-    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+    return NextResponse.json({ error: 'A sua sessão expirou. Entre novamente para realizar esta acção.' }, { status: 401 });
   }
   const session = { user: sessionUser };
 
@@ -271,7 +271,7 @@ export async function POST(req: NextRequest) {
   const supabase = await createClient()
   const sessionUser = await resolveSessionUser(supabase);
 
-  if (!sessionUser) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+  if (!sessionUser) return NextResponse.json({ error: 'A sua sessão expirou. Entre novamente para realizar esta acção.' }, { status: 401 });
   const session = { user: sessionUser };
 
   try {
@@ -552,7 +552,7 @@ export async function PATCH(req: NextRequest) {
   const supabase = await createClient()
   const sessionUser = await resolveSessionUser(supabase);
 
-  if (!sessionUser) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+  if (!sessionUser) return NextResponse.json({ error: 'A sua sessão expirou. Entre novamente para realizar esta acção.' }, { status: 401 });
 
   try {
     const { email, newPassword } = await req.json()
@@ -651,7 +651,7 @@ export async function DELETE(req: NextRequest) {
   const supabase = await createClient()
   const sessionUser = await resolveSessionUser(supabase);
 
-  if (!sessionUser) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+  if (!sessionUser) return NextResponse.json({ error: 'A sua sessão expirou. Entre novamente para realizar esta acção.' }, { status: 401 });
   const session = { user: sessionUser };
 
   try {

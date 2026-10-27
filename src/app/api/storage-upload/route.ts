@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
     // Só quem tem sessão carrega ficheiros: o endereço devolvido é público e o armazenamento é nosso.
     const sessao = await getVerifiedSession(await createSessionClient());
     if (!sessao?.user) {
-      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+      return NextResponse.json({ error: 'A sua sessão expirou. Entre novamente para realizar esta acção.' }, { status: 401 });
     }
 
     const form = await req.formData();

@@ -3,6 +3,7 @@ import { createClient } from '@/utils/supabase/server';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { ensureQuotationAttachmentsBucket, QUOTATION_ATTACHMENTS_BUCKET, getAttachmentSignedUrl } from '@/lib/quotation-attachments-bucket';
 import { compressImageToMaxSize } from '@/lib/image-compress';
+import { notifyQuoteTeam } from '@/lib/notify-quote-team';
 
 const MAX_SIZE_BYTES = 10 * 1024 * 1024;
 
@@ -26,7 +27,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const { data: session, error: sessionError } = await admin
     .from('checkout_sessions')
-    .select('id, user_id, status')
+    .select('id, user_id, status, items, total_mt, metodo_pagamento, comprovativo_url')
     .eq('id', id)
     .single();
   if (sessionError || !session) {
@@ -81,6 +82,19 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (updateError) {
     console.error('[checkout comprovativo] update error:', updateError);
     return NextResponse.json({ error: 'Não foi possível registar o comprovativo.' }, { status: 500 });
+  }
+
+  // Só agora o pedido é "novo" para a equipa: o cliente já pagou e enviou o comprovativo. Avisa uma vez
+  // (um segundo envio do mesmo pedido substitui o ficheiro, sem repetir o aviso).
+  if (!session.comprovativo_url) {
+    const nomes = (Array.isArray(session.items) ? session.items : []).map((i: { name?: string }) => i.name).filter(Boolean).join(', ');
+    notifyQuoteTeam({
+      title: 'Novo comprovativo de pagamento (checkout)',
+      message: `${user.email} enviou o comprovativo de ${nomes || 'um pedido'} (${session.total_mt} MT) via ${
+        session.metodo_pagamento === 'mpesa' ? 'M-Pesa' : 'Transferência Bancária'
+      }. Aguarda confirmação da equipa.`,
+      link: `${process.env.NEXT_PUBLIC_SITE_URL || ''}/admin`,
+    }).catch((err) => console.error('[checkout comprovativo] falha ao notificar equipa:', err));
   }
 
   const signedUrl = await getAttachmentSignedUrl(updated.comprovativo_url);

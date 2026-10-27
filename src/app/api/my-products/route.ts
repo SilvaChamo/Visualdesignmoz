@@ -13,7 +13,7 @@ export async function GET() {
   const user = effective?.user ?? null;
 
   if (!user) {
-    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+    return NextResponse.json({ error: 'A sua sessão expirou. Entre novamente para realizar esta acção.' }, { status: 401 });
   }
 
   // Mesma leitura do /api/panel/bootstrap (panel-client-context): service role

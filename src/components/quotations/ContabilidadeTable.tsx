@@ -1281,7 +1281,7 @@ function CheckoutItemsByType({ types }: { types: string[] }) {
 
   const deleteHostingItem = async (pedidoId: string, itemIndex: number, domain?: string) => {
     const aviso = domain
-      ? `Apagar esta encomenda de hospedagem (${domain})? Isto remove o pedido, o registo de hospedagem, e o site real no servidor. Não pode ser desfeito.`
+      ? `Apagar esta encomenda de hospedagem (${domain})? Isto remove o pedido, o registo de hospedagem e o site criado por esta encomenda no servidor (sites reais, como os da conta principal, ficam intactos; o registo do domínio também não é apagado). Não pode ser desfeito.`
       : 'Apagar esta encomenda de hospedagem? Isto remove o pedido e o registo de hospedagem. Não pode ser desfeito.'
     if (!window.confirm(aviso)) return
 
@@ -1389,8 +1389,14 @@ function CheckoutItemsByType({ types }: { types: string[] }) {
                   </td>
                   <td className="whitespace-nowrap px-4 py-2.5 text-left">
                     <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${meta.className}`}>{meta.label}</span>
-                    {itemStatus === 'failed' && item.rejectionReason && (
-                      <p className="mt-1 text-xs text-gray-400 dark:text-zinc-500">{item.rejectionReason}</p>
+                    {itemStatus === 'failed' && (
+                      <button
+                        type="button"
+                        onClick={() => setExpandedKey(isExpanded ? null : key)}
+                        className="mt-1 block text-xs text-gray-400 hover:text-gray-700 hover:underline dark:text-zinc-500 dark:hover:text-zinc-200"
+                      >
+                        {isExpanded ? 'Esconder motivo' : 'Ver motivo'}
+                      </button>
                     )}
                   </td>
                   <td className="whitespace-nowrap px-4 py-2.5 text-left">
@@ -1441,8 +1447,8 @@ function CheckoutItemsByType({ types }: { types: string[] }) {
                             {i.type === 'hosting' && i.hostingDomain ? ` (${i.hostingDomain})` : ''}
                           </DetailLine>
                         ))}
-                        extra={
-                          item.type === 'hosting'
+                        extra={[
+                          ...(item.type === 'hosting'
                             ? [{
                                 titulo: 'Domínio da Hospedagem',
                                 conteudo: (
@@ -1454,8 +1460,18 @@ function CheckoutItemsByType({ types }: { types: string[] }) {
                                   />
                                 ),
                               }]
-                            : []
-                        }
+                            : []),
+                          ...(itemStatus === 'failed'
+                            ? [{
+                                titulo: 'Motivo da Rejeição',
+                                conteudo: (
+                                  <p className="text-sm text-gray-700 dark:text-zinc-200">
+                                    {item.rejectionReason || 'Sem motivo indicado.'}
+                                  </p>
+                                ),
+                              }]
+                            : []),
+                        ]}
                       />
                     </td>
                   </tr>

@@ -96,7 +96,7 @@ export async function POST(req: NextRequest) {
         const supabase = await createClient();
         const session = await getVerifiedSession(supabase);
         if (!session) {
-            return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+            return NextResponse.json({ error: 'A sua sessão expirou. Entre novamente para realizar esta acção.' }, { status: 401 });
         }
         const authorizedPassword = await resolveMailboxPassword(from, fromPassword, session);
         if (!authorizedPassword) {

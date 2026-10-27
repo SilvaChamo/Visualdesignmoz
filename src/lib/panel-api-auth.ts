@@ -42,7 +42,7 @@ async function resolvePanelStaffAuth(): Promise<PanelStaffAuthSuccess | PanelAut
 
   if (userError || !user) {
     return {
-      error: NextResponse.json({ error: 'Não autorizado' }, { status: 401 }),
+      error: NextResponse.json({ error: 'A sua sessão expirou. Entre novamente para realizar esta acção.' }, { status: 401 }),
     };
   }
 
@@ -136,7 +136,7 @@ export async function requirePanelBootstrapAccess(): Promise<
     const nomes = (await cookies()).getAll().map((c) => c.name).filter((n) => n.startsWith('sb-'));
     console.warn('[panel-auth] sessão recusada:', error?.name || 'sem utilizador', error?.message || '', '| cookies:', nomes.join(',') || 'nenhum');
     return {
-      error: NextResponse.json({ error: 'Não autorizado' }, { status: 401 }),
+      error: NextResponse.json({ error: 'A sua sessão expirou. Entre novamente para realizar esta acção.' }, { status: 401 }),
     };
   }
 

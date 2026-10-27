@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
     data: { user },
     error,
   } = await supabase.auth.getUser();
-  if (error || !user) return NextResponse.json({ erro: 'Não autorizado' }, { status: 401 });
+  if (error || !user) return NextResponse.json({ erro: 'A sua sessão expirou. Entre novamente para realizar esta acção.' }, { status: 401 });
   const sb = getDaSyncAdmin();
   if (!sb) return NextResponse.json({ erro: 'Registo do site indisponível.' }, { status: 503 });
   if (!temSegredo()) return NextResponse.json({ erro: 'Códigos de recuperação indisponíveis neste servidor.' }, { status: 503 });

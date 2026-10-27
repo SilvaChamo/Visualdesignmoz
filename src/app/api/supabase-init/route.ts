@@ -11,7 +11,7 @@ export async function POST() {
   const supabaseAuth = await createClient();
   const session = await getVerifiedSession(supabaseAuth);
 
-  if (!session) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+  if (!session) return NextResponse.json({ error: 'A sua sessão expirou. Entre novamente para realizar esta acção.' }, { status: 401 });
 
   const isExplicitAdmin = adminEmails.includes(session.user?.email || '');
   if (session.user?.app_metadata?.role !== 'admin' && !isExplicitAdmin) {

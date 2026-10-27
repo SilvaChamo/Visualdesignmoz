@@ -36,7 +36,7 @@ export async function resolveQuotationAccess(quotationId: string): Promise<Quota
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return { ok: false, response: NextResponse.json({ error: 'Não autorizado' }, { status: 401 }) };
+    return { ok: false, response: NextResponse.json({ error: 'A sua sessão expirou. Entre novamente para realizar esta acção.' }, { status: 401 }) };
   }
 
   const admin = getSupabaseAdmin();

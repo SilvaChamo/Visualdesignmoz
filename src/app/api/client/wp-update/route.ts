@@ -14,7 +14,7 @@ async function requireClient() {
 
   if (error || !user?.email) {
     return {
-      error: NextResponse.json({ error: 'Não autorizado' }, { status: 401 }),
+      error: NextResponse.json({ error: 'A sua sessão expirou. Entre novamente para realizar esta acção.' }, { status: 401 }),
     } as const;
   }
 

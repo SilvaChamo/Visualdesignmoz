@@ -18,7 +18,7 @@ function admin() {
 // (src/app/cliente/page.tsx).
 export async function GET() {
   const auth = await requirePanelBootstrapAccess();
-  if ('error' in auth) return NextResponse.json({ error: 'Não autorizado.' }, { status: 401 });
+  if ('error' in auth) return NextResponse.json({ error: 'A sua sessão expirou. Entre novamente para realizar esta acção.' }, { status: 401 });
   const userId = await resolveEffectivePanelUserId(auth.user);
 
   const { data } = await admin()
@@ -32,7 +32,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   const auth = await requirePanelBootstrapAccess();
-  if ('error' in auth) return NextResponse.json({ error: 'Não autorizado.' }, { status: 401 });
+  if ('error' in auth) return NextResponse.json({ error: 'A sua sessão expirou. Entre novamente para realizar esta acção.' }, { status: 401 });
   const userId = await resolveEffectivePanelUserId(auth.user);
 
   const form = await request.formData();
@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE() {
   const auth = await requirePanelBootstrapAccess();
-  if ('error' in auth) return NextResponse.json({ error: 'Não autorizado.' }, { status: 401 });
+  if ('error' in auth) return NextResponse.json({ error: 'A sua sessão expirou. Entre novamente para realizar esta acção.' }, { status: 401 });
   const userId = await resolveEffectivePanelUserId(auth.user);
 
   const { error } = await admin()

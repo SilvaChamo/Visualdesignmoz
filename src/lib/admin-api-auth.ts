@@ -27,7 +27,7 @@ export async function requireAdmin(): Promise<AdminAuthSuccess | AdminAuthFailur
 
   if (userError || !user?.email) {
     return {
-      error: NextResponse.json({ error: 'Não autorizado' }, { status: 401 }),
+      error: NextResponse.json({ error: 'A sua sessão expirou. Entre novamente para realizar esta acção.' }, { status: 401 }),
     };
   }
 

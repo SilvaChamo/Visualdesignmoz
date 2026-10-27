@@ -67,13 +67,13 @@ function daLocalBaseUrl(cmd: string, params?: Record<string, string>) {
 function parseDaRequestResult(raw: string): { ok: boolean; raw: string; error?: string } {
   if (!raw) return { ok: false, raw: '', error: 'Ligação ao servidor indisponível' };
   if (isDaAuthFailure(raw)) {
-    return { ok: false, raw, error: 'Não autorizado no servidor' };
+    return { ok: false, raw, error: 'Não autorizado' };
   }
   const parsed = parseDaResponse(raw);
   if (parsed.error) {
     const err = parsed.details || parsed.text || 'Pedido ao servidor falhou';
     if (isDaAuthFailure(raw, err)) {
-      return { ok: false, raw, error: 'Não autorizado no servidor' };
+      return { ok: false, raw, error: 'Não autorizado' };
     }
     return { ok: false, raw, error: err };
   }
@@ -187,7 +187,7 @@ export async function daPostViaSshAsDaUser(
 
 function parseLegacyDaJson(raw: string): { ok: boolean; data?: Record<string, unknown>; error?: string } {
   if (!raw) return { ok: false, error: 'Resposta vazia do servidor' };
-  if (isDaAuthFailure(raw)) return { ok: false, error: 'Não autorizado no servidor' };
+  if (isDaAuthFailure(raw)) return { ok: false, error: 'Não autorizado' };
 
   const trimmed = raw.trim();
   if (trimmed.includes('error=') || (trimmed.includes('&') && trimmed.includes('='))) {
@@ -282,7 +282,7 @@ function buildDaJsonCurlAsUser(
 
 function parseDaJsonBody(raw: string): { ok: boolean; data?: unknown; error?: string } {
   if (!raw) return { ok: false, error: 'Resposta vazia do servidor' };
-  if (isDaAuthFailure(raw)) return { ok: false, error: 'Não autorizado no servidor' };
+  if (isDaAuthFailure(raw)) return { ok: false, error: 'Não autorizado' };
   try {
     const data = JSON.parse(raw);
     if (data && typeof data === 'object' && 'type' in data && String((data as { type?: string }).type).includes('ERROR')) {
