@@ -91,7 +91,7 @@ jobs:
             fi
             echo
             echo "=== o que responde o site (pedido local ao servidor, com o domínio): código · tempo · bytes"
-            t() { curl -sk -m 60 --resolve "$DOMINIO:443:127.0.0.1" -o /dev/null -w "$1 -> %{http_code} · %{time_total}s · %{size_download} bytes\n" "$2" $3; }
+            t() { curl -sk -m 60 --resolve "$DOMINIO:443:127.0.0.1" -o /dev/null -w "$1 -> %{http_code} · %{time_total}s · %{size_download} bytes\n" "$2"; }
             t "página inicial          " "https://$DOMINIO/"
             t "pré-visualização        " "https://$DOMINIO/?elementor-preview=1&ver=1"
             t "admin-ajax (GET)        " "https://$DOMINIO/wp-admin/admin-ajax.php"
