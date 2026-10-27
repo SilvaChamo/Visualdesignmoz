@@ -162,6 +162,7 @@ export const IGUAIS: string[] = [
  "{0}?ver=multi",
  "{0}?ver=backups",
  "{0}?ver=backup-sistema",
+ "{0}?ver=backups-fila",
  "{0}?ver=httpd",
  "{0}?ver=basedir",
  "{0}?ver=security-txt",

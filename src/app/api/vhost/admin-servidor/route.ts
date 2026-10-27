@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requirePanelBootstrapAccess } from '@/lib/panel-api-auth';
 import net from 'net';
 import { randomBytes } from 'crypto';
-import { executeServerCommand, uploadFileViaSsh } from '@/lib/server-ssh-exec';
+import { Readable } from 'stream';
+import { executeServerCommand, streamServerFile, uploadFileViaSsh } from '@/lib/server-ssh-exec';
 import { ADMIN_PY } from '@/lib/vhost-admin-py';
 
 export const dynamic = 'force-dynamic';
@@ -134,7 +135,7 @@ async function noServidorAdmin(arg: Record<string, unknown>, timeoutMs = 120_000
     return null;
   }
 }
-const VER_ADMIN = new Set(['ips', 'cron', 'bd', 'fila', 'mail-resumo', 'mail-rastreio', 'logs', 'firewall', 'php', 'atualizacoes', 'pacotes', 'tls', 'definicoes', 'multi', 'backups', 'backup-sistema', 'httpd', 'basedir', 'security-txt', 'modsec', 'extras', 'importar', 'manutencao', 'estatisticas', 'editor', 'editor-ler']);
+const VER_ADMIN = new Set(['ips', 'cron', 'bd', 'fila', 'mail-resumo', 'mail-rastreio', 'logs', 'firewall', 'php', 'atualizacoes', 'pacotes', 'tls', 'definicoes', 'multi', 'backups', 'backups-fila', 'backup-sistema', 'httpd', 'basedir', 'security-txt', 'modsec', 'extras', 'importar', 'manutencao', 'estatisticas', 'editor', 'editor-ler']);
 const DOM = /^(?=.{3,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/;
 const CONTA = /^[a-z0-9][a-z0-9_.-]{0,31}$/;
 const HOST = /^(?=.{3,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/i;
@@ -316,6 +317,20 @@ export async function GET(req: NextRequest) {
   if (recusa) return recusa;
   const sp = req.nextUrl.searchParams;
   const ver = sp.get('ver') || '';
+  if (ver === 'bk-descarregar') {
+    // Descarregar uma cópia de uma conta (Admin › Backups): só nomes que o próprio servidor lista para essa conta, enviados por fluxo (há cópias de GB)
+    const conta = sp.get('conta') || '';
+    const f = sp.get('f') || '';
+    if (!CONTA.test(conta) || !new RegExp(`^${conta.replace(/[.]/g, '\\.')}\\.[0-9_-]+\\.tar$`).test(f)) return NextResponse.json({ erro: 'Cópia inválida.' }, { status: 400 });
+    try {
+      const lst = JSON.parse((await executeServerCommand(`/usr/local/hestia/bin/v-list-user-backups ${conta} json`, { timeoutMs: 20_000 })) || '{}') as Record<string, unknown>;
+      if (!lst[f]) return NextResponse.json({ erro: 'Cópia inexistente.' }, { status: 404 });
+      const fluxo = streamServerFile('/backup/' + f);
+      return new NextResponse(Readable.toWeb(fluxo) as ReadableStream, { headers: { 'Content-Type': 'application/x-tar', 'Content-Disposition': `attachment; filename="${f}"`, 'Cache-Control': 'no-store' } });
+    } catch {
+      return NextResponse.json({ erro: 'Sem ligação ao servidor.' }, { status: 502 });
+    }
+  }
   if (VER_ADMIN.has(ver)) {
     try {
       const r = await noServidorAdmin({ ver, ficheiro: sp.get('ficheiro') || '', linhas: Number(sp.get('linhas')) || 0, q: (sp.get('q') || '').slice(0, 120), horas: Number(sp.get('horas')) || 0, dia: Number(sp.get('dia')) || 0 });
