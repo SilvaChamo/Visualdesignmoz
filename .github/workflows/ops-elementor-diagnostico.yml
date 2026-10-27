@@ -1,0 +1,115 @@
+name: Ops - Diagnóstico do Elementor num site (só leitura)
+
+# Só LÊ, não altera nada: para um site WordPress com o erro «nenhuma área de conteúdo encontrada» / «Não consegue editar?» do Elementor,
+# mostra de que conta é, os limites de CPU e memória do PHP dessa conta (e se foram atingidos), o memory_limit real, o tema e o modelo,
+# o que respondem a página, a pré-visualização do Elementor e o admin-ajax, os bloqueios do ModSecurity e os erros recentes do Apache/nginx.
+# Esconde segredos (nada de wp-config nem de variáveis: só as constantes de memória). Pedido do Silva a 27/10/2026.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dominio:
+        description: 'Domínio do site (ex.: entrecamposblog.com)'
+        required: true
+        default: 'entrecamposblog.com'
+
+concurrency:
+  group: ops-elementor-diagnostico
+  cancel-in-progress: false
+
+jobs:
+  diagnostico:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Diagnóstico do Elementor (só leitura)
+        uses: appleboy/ssh-action@v1.2.5
+        env:
+          DOMINIO: ${{ inputs.dominio }}
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          port: 2234
+          username: root
+          key: ${{ secrets.CONTABO_SSH_KEY }}
+          command_timeout: 6m
+          envs: DOMINIO
+          script: |
+            set -u
+            case "$DOMINIO" in (*[!a-z0-9.-]*|''|*..*) echo "Domínio inválido"; exit 1;; esac
+            echo "=== hora do servidor: $(date '+%d/%m/%Y %H:%M:%S %Z') · domínio: $DOMINIO"
+            CONTA=""
+            for d in /home/*/web/"$DOMINIO"; do [ -d "$d" ] && CONTA=$(echo "$d" | cut -d/ -f3) && break; done
+            if [ -z "$CONTA" ]; then echo "O domínio $DOMINIO não está em nenhuma conta do servidor (/home/*/web)."; exit 0; fi
+            RAIZ=/home/$CONTA/web/$DOMINIO/public_html
+            echo "conta: $CONTA · pasta: $RAIZ"
+            echo
+            echo "=== pacote e limites da conta"
+            /usr/local/hestia/bin/v-list-user "$CONTA" plain 2>/dev/null | awk '{print "PACOTE/ESPAÇO/RECURSOS:", $0}' | cut -c1-200 | head -3 || true
+            PKG=$(/usr/local/hestia/bin/v-list-user "$CONTA" json 2>/dev/null | grep -oE '"PACKAGE": *"[^"]*"' | head -1); echo "$PKG"
+            echo
+            echo "=== PHP-FPM da conta: unidade, limites (CPU/memória) e se foram atingidos"
+            for u in $(systemctl list-units --all --no-legend 'vd-php-fpm-*' 2>/dev/null | awk '{print $1}' | grep -- "-$CONTA\.service"); do
+              echo "unidade: $u"
+              systemctl show "$u" -p ActiveState -p CPUQuotaPerSecUSec -p MemoryHigh -p MemoryMax -p MemorySwapMax -p MemoryCurrent -p MemoryPeak -p NRestarts -p Result 2>/dev/null
+              CG=$(systemctl show "$u" -p ControlGroup --value 2>/dev/null)
+              if [ -n "$CG" ] && [ -f "/sys/fs/cgroup$CG/cpu.stat" ]; then
+                echo "--- cpu.stat (nr_throttled alto = o CPU da conta está a ser travado):"
+                grep -E 'nr_periods|nr_throttled|throttled_usec' "/sys/fs/cgroup$CG/cpu.stat"
+              fi
+              [ -f "/sys/fs/cgroup$CG/memory.events" ] && { echo "--- memory.events (oom/oom_kill > 0 = o PHP foi morto por falta de memória):"; cat "/sys/fs/cgroup$CG/memory.events"; }
+            done
+            echo "--- mortes por falta de memória no kernel (últimos registos):"
+            dmesg -T 2>/dev/null | grep -iE 'out of memory|oom-kill|killed process' | tail -n 5 || true
+            echo
+            echo "=== memory_limit e tempos reais do PHP deste site (valores do pool/ini, não do WordPress)"
+            for f in /etc/php/*/fpm/pool.d/"$DOMINIO".conf /etc/php/*/fpm/pool.d/"$CONTA"*.conf /home/"$CONTA"/conf/web/"$DOMINIO"/php-fpm.conf; do
+              [ -f "$f" ] && { echo "--- $f"; grep -E 'memory_limit|max_execution_time|request_terminate_timeout|pm\.max_children|pm\.max_requests|upload_max|post_max|max_input_vars' "$f" | head -n 12; }
+            done
+            for f in /etc/php/*/fpm/php.ini; do echo "--- $f (global)"; grep -E '^(memory_limit|max_execution_time|max_input_vars|post_max_size)' "$f"; done
+            echo
+            echo "=== WordPress: tema, modelo da página e plugins de cache/optimização"
+            WP=$(command -v wp || echo /usr/local/bin/wp)
+            if [ -x "$WP" ] && [ -f "$RAIZ/wp-config.php" ]; then
+              W="sudo -u $CONTA $WP --path=$RAIZ --skip-plugins --skip-themes"
+              echo "WordPress: $($W core version 2>&1 | head -1)"
+              echo "--- constantes de memória do wp-config (só estas):"
+              grep -E "WP_MEMORY_LIMIT|WP_MAX_MEMORY_LIMIT|DISABLE_WP_CRON|WP_DEBUG'" "$RAIZ/wp-config.php" | cut -c1-120
+              echo "--- tema activo:"; $W theme list --status=active --fields=name,version,status 2>&1 | head -n 4
+              echo "--- plugins activos (Elementor, cache, segurança, manutenção):"
+              $W plugin list --status=active --fields=name,version 2>&1 | grep -iE 'elementor|cache|rocket|litespeed|autoptimize|wordfence|security|maintenance|coming|offload|smush|optimiz|perfmatters|jetpack|name' | head -n 25
+              echo "--- páginas feitas com o Elementor e o modelo de cada uma (primeiras 15):"
+              $W post list --post_type=page --post_status=publish,draft --fields=ID,post_title --format=csv 2>/dev/null | tail -n +2 | head -n 15 | while IFS=, read -r id titulo; do
+                tpl=$($W post meta get "$id" _wp_page_template 2>/dev/null); ed=$($W post meta get "$id" _elementor_edit_mode 2>/dev/null)
+                echo "  #$id $titulo | modelo: ${tpl:-(por omissão)} | elementor: ${ed:-não}"
+              done
+            else
+              echo "(wp-cli ou wp-config.php não encontrados em $RAIZ)"
+            fi
+            echo
+            echo "=== o que responde o site (pedido local ao servidor, com o domínio): código · tempo · bytes"
+            t() { curl -sk -m 60 --resolve "$DOMINIO:443:127.0.0.1" -o /dev/null -w "$1 -> %{http_code} · %{time_total}s · %{size_download} bytes\n" "$2" $3; }
+            t "página inicial          " "https://$DOMINIO/"
+            t "pré-visualização        " "https://$DOMINIO/?elementor-preview=1&ver=1"
+            t "admin-ajax (GET)        " "https://$DOMINIO/wp-admin/admin-ajax.php"
+            t "wp-json                 " "https://$DOMINIO/wp-json/"
+            echo "--- a pré-visualização traz a marca do Elementor? (conta de 'elementor' no HTML; 0 = a página não foi desenhada pelo tema/Elementor)"
+            curl -sk -m 60 --resolve "$DOMINIO:443:127.0.0.1" "https://$DOMINIO/?elementor-preview=1&ver=1" | grep -oiE 'elementor|Access Denied|Forbidden|Fatal error|maintenance' | sort | uniq -c | head -n 6
+            echo
+            echo "=== ModSecurity: regras que dispararam neste site (últimas 24 h, por número da regra)"
+            for L in /var/log/apache2/domains/"$DOMINIO".error.log /var/log/apache2/domains/"$DOMINIO".log; do
+              [ -f "$L" ] && echo "(registo: $L)" && grep -a 'ModSecurity' "$L" | tail -n 4000 | grep -aoE '\[id "[0-9]+"\]' | sort | uniq -c | sort -rn | head -n 10
+            done
+            echo "--- últimas 8 linhas do ModSecurity (URI e regra, sem cabeçalhos):"
+            grep -a 'ModSecurity' /var/log/apache2/domains/"$DOMINIO".error.log 2>/dev/null | tail -n 8 | grep -aoE '\[id "[0-9]+"\]|\[msg "[^"]{0,90}|\[uri "[^"]{0,120}|\[data "[^"]{0,80}' | paste -sd' ' | fold -w 190 | head -n 12
+            echo
+            echo "=== erros recentes do PHP/Apache deste site (últimas 15 linhas relevantes)"
+            grep -aiE 'fatal|allowed memory|exhausted|timeout|timed out|segfault|child pid .* exit' /var/log/apache2/domains/"$DOMINIO".error.log 2>/dev/null | tail -n 15 | cut -c1-260
+            echo
+            echo "=== acessos do editor nas últimas 2 000 linhas do nginx: estados HTTP e os mais lentos"
+            A=/var/log/nginx/domains/$DOMINIO.log
+            if [ -f "$A" ]; then
+              tail -n 2000 "$A" | grep -aE 'elementor|admin-ajax|wp-json' | awk '{print $9}' | sort | uniq -c | sort -rn | head -n 8
+              echo "--- últimos 8 pedidos do Elementor (sem IPs):"
+              tail -n 2000 "$A" | grep -aE 'elementor' | tail -n 8 | awk '{print $4, $6, $7, $9, $10}' | cut -c1-200
+            else echo "(sem $A)"; fi
+            echo
+            echo "=== fim do diagnóstico (nada foi alterado)"
