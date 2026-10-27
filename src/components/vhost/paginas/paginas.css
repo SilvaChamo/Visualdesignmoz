@@ -15065,3 +15065,29 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    overflow: hidden;
    text-overflow: ellipsis
 }
+
+/* Admin › Backups (Silva, 27/10/2026): no telemóvel a descrição do cartão fica numa só linha (sai o texto de base, ficam só os números) */
+@media (max-width: 768px) {
+   .vh .dom-sub .pdesc-base-tel {
+      display: none
+   }
+
+   .vh .dom-sub .pdesc-base-tel+span>.pdesc-sep {
+      display: none
+   }
+
+   .vh .dom-titulo-bloco:has(.pdesc-base-tel) .dom-sub:not(#x) {
+      white-space: nowrap
+   }
+}
+
+/* Nome da cópia numa só linha, também no telemóvel: a tabela desliza na horizontal em vez de partir o nome (Silva, 27/10/2026) */
+.vh .ad-cmd.ad-cmd-1l:not(#x) {
+   white-space: nowrap;
+   word-break: normal;
+   overflow-wrap: normal
+}
+
+.vh td:has(.ad-cmd-1l):not(#x) {
+   white-space: nowrap
+}

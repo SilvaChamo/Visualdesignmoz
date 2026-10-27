@@ -23,12 +23,15 @@ for _ in $(seq 90); do
   sleep 1
 done
 
+# Duas vistas sempre (Silva, 27/10/2026: «duas vistas»): a aba que já tiver o localhost:3003 aberto passa para a pré-visualização de computador e
+# telemóvel lado a lado, na página pedida (antes só se recarregava a aba, e quem a tinha numa vista simples nunca via a do telemóvel).
+ALVO="http://localhost:3003/dev-preview-telemovel?p=$CAMINHO"
 RECARREGOU=$(osascript \
   -e 'set achou to false' \
   -e 'if application "Google Chrome" is running then' \
   -e 'tell application "Google Chrome"' \
   -e 'repeat with w in windows' -e 'repeat with t in tabs of w' \
-  -e 'if URL of t contains "localhost:3003" then' -e 'reload t' -e 'set achou to true' -e 'end if' \
+  -e 'if achou is false and URL of t contains "localhost:3003" then' -e "set URL of t to \"$ALVO\"" -e 'set achou to true' -e 'end if' \
   -e 'end repeat' -e 'end repeat' -e 'end tell' -e 'end if' -e 'return achou' 2>/dev/null)
-[ "$RECARREGOU" = "true" ] || open "http://localhost:3003/dev-preview-telemovel?p=$CAMINHO"
+[ "$RECARREGOU" = "true" ] || open "$ALVO"
 echo "Pronto: $RAMO em http://localhost:3003$CAMINHO (mensagens do servidor em /tmp/visualdesign-dev.log)"

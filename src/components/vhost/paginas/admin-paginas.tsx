@@ -42,7 +42,7 @@ export async function pedir(vh: VH, corpo: Record<string, unknown>, ok: string):
 }
 
 /** Descrição da barra de cima: texto fixo | números da leitura que a página já fez */
-export function Resumo<T>({ url, base, partes }: { url: string; base: string; partes: (d: T) => (string | false | null | undefined)[] }) {
+export function Resumo<T>({ url, base, partes, baseNaoNoTelemovel = false }: { url: string; base: string; partes: (d: T) => (string | false | null | undefined)[]; baseNaoNoTelemovel?: boolean }) {
   const { t } = useVH();
   const d = useNaMemoria<T>(url);
   // ao passar de uma página com descrição para outra, a mesma peça fica um instante com os dados da anterior: sem números nessa passagem,
@@ -57,7 +57,8 @@ export function Resumo<T>({ url, base, partes }: { url: string; base: string; pa
   }
   return (
     <>
-      {t(base)}
+      {/* no telemóvel a descrição cabe numa só linha: o texto de base (que repete o título) sai e ficam só os números */}
+      {baseNaoNoTelemovel && extras.some(Boolean) ? <span className="pdesc-base-tel">{t(base)}</span> : t(base)}
       {extras.filter(Boolean).map((p, i) => (
         <span key={i}>
           <span className="pdesc-sep">|</span>
