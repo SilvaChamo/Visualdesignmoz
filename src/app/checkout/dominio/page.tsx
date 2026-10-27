@@ -19,7 +19,7 @@ type Staged =
 
 const MODE_META: Record<Mode, { title: string; Icon: typeof Globe }> = {
   register: { title: 'Registar um novo domínio', Icon: Globe },
-  transfer: { title: 'Transferir domínio para a MozServer', Icon: ArrowRightLeft },
+  transfer: { title: 'Transferir domínio para a VisualDesign', Icon: ArrowRightLeft },
   existing: { title: 'Vou usar o meu domínio já existente e atualizar os nameservers — DNS', Icon: ServerCog },
 };
 

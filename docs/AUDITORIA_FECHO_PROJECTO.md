@@ -132,7 +132,7 @@ com todos os pontos corrigidos; deploy sem corte com reversão; isenção do IP 
    - `POST /api/migrate-contacts` — migração pontual que reescreve `newsletter_subscribers` de qualquer pessoa que a chame. Sem chamadores no repositório.
    - `GET /api/check-smtp-config` — mostra a configuração de envio (servidor, porta, prefixo do utilizador, remetentes, SPF calculado).
    - **Não li** (a confirmar quem as chama e se têm protecção própria): `auth/email-livre` (permite saber se um e-mail está registado), `auth/reset-password`,
-     `submit-ticket`, `domain-check`, `domain-tld-prices`, `public/site-news`, `mozserver-proxy`, `whmcs-proxy`, `my-products`, `vhost/dados`, `vhost/aquecer`,
+     `submit-ticket`, `domain-check`, `domain-tld-prices`, `public/site-news`, `whmcs-proxy`, `my-products`, `vhost/dados`, `vhost/aquecer`,
      `webmail-redirect`, `versao`, e as `cotacoes/[id]/*` (estas usam `resolveQuotationAccess`).
    - **Regra 5 de `regras.md`:** nada se apaga sem ver quem chama de fora (crons, webhooks, outros sites). Primeiro ver os registos do nginx dos últimos 30
      dias para estas rotas; depois proteger (sessão de administrador ou `CRON_SECRET`) ou apagar com redirecção.
@@ -218,17 +218,17 @@ Não se apagou nenhuma rota (regra 5: não há como ver, daqui, quem as chama de
 | `GET /api/get-all-contacts` | qualquer visitante lia nomes e e-mails de clientes | administrador com sessão, ou `Authorization: Bearer ${CRON_SECRET}` (para um chamador de fora) |
 | `POST /api/migrate-contacts` | qualquer visitante reescrevia `newsletter_subscribers` | só administrador |
 | `GET /api/check-smtp-config` | configuração de envio à vista | só administrador |
-| `POST /api/mozserver-proxy` | qualquer visitante corria pedidos à API de um fornecedor externo com uma **chave escrita no código** | só administrador; a chave vem de `MOZSERVER_API_TOKEN` |
+| `POST /api/mozserver-proxy` | qualquer visitante corria pedidos à API de um fornecedor externo com uma **chave escrita no código** | **rota apagada** (27/10/2026, por ordem do Silva: não tem aplicação neste projecto, nem chamadores no repositório) |
 | `POST /api/auth/email-livre` | limite por IP lia o primeiro valor de `x-forwarded-for` (o visitante podia variá-lo e fugir ao limite) | lê `x-real-ip` posto pelo nginx |
 
-**A chave que estava em `mozserver-proxy` está no histórico do git: tem de se considerar comprometida** — pedir uma nova ao fornecedor (ou confirmar que a conta
-já não existe) e só depois pô-la, se for preciso, em `MOZSERVER_API_TOKEN` no `.env.local` do servidor.
+**A chave que estava em `mozserver-proxy` já não está no código.** Continua no histórico do git (reescrevê-lo só com autorização expressa do Silva); como a rota e a integração
+saíram, basta ela não valer para nada — pedir ao fornecedor que a revogue, ou deixá-la morrer com a conta.
 
 **Ainda por tratar (não alterado):**
 - `POST /api/auth/reset-password` — sem limite nem Turnstile: dá para encher a caixa de qualquer pessoa de e-mails de recuperação.
 - `POST /api/submit-ticket` — o «captcha» compara duas respostas **enviadas pelo próprio cliente** (`captchaAnswer` e `captchaResult`), por isso não protege de nada; pôr Turnstile.
 - `POST /api/domain-check` — pública e sem limite; cada pedido pode ir ao registador (custo e abuso).
 - Antes de dar o assunto por fechado: ler, no servidor e só em leitura, os registos do nginx dos últimos 30 dias para `get-all-contacts`, `migrate-contacts`,
-  `check-smtp-config` e `mozserver-proxy`, para ver se alguém de fora as chamava (quem as chamar passa a levar 401/403).
+  `check-smtp-config`, para ver se alguém de fora as chamava (quem as chamar passa a levar 401/403).
 - Lidas e sem problema: `whmcs-proxy` (já exige administrador), `webmail-redirect` (só acrescenta ao endereço do webmail), `versao`, `vhost/aquecer`,
   `domain-tld-prices` e `public/site-news` (públicas por desenho).
