@@ -63,6 +63,8 @@ const getTypeColor = (type: string) => {
  *  se escolhido, também por e-mail (POST /api/notifications/admin) */
 function EscreverMensagem() {
   const vh = useVH();
+  // o revendedor escreve a todos os clientes que criou (a procura de um cliente por e-mail é do administrador)
+  const revenda = vh.s.level === 'revenda';
   const [messageHtml, setMessageHtml] = useState('');
   const [type, setType] = useState<Tipo>('info');
   const [category, setCategory] = useState('general');
@@ -168,10 +170,12 @@ function EscreverMensagem() {
                 <span className="text-sm text-gray-700">Todos os clientes</span>
                 <Users className="w-4 h-4 text-gray-400" />
               </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="radio" checked={!sendToAll} onChange={() => setSendToAll(false)} className="w-4 h-4 text-blue-600" />
-                <span className="text-sm text-gray-700">Cliente específico</span>
-              </label>
+              {!revenda && (
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="radio" checked={!sendToAll} onChange={() => setSendToAll(false)} className="w-4 h-4 text-blue-600" />
+                  <span className="text-sm text-gray-700">Cliente específico</span>
+                </label>
+              )}
             </div>
 
             {!sendToAll && (
@@ -353,14 +357,17 @@ function MensagemTodos({ aba }: { aba: Aba }) {
   const [linhaTelemovel, setLinhaTelemovel] = useState<HTMLDivElement | null>(null);
   return (
     <>
-      <Tabs<Aba>
-        tabs={[
-          ['escrever', 'Escrever mensagem', 'fa-pen-to-square'],
-          ['templates', 'Templates', 'fa-file-lines'],
-        ]}
-        on={aba}
-        onChange={(k) => vh.nav('/' + vh.s.level + '/mensagem-todos' + (k === 'templates' ? '/templates' : ''))}
-      />
+      {/* os templates das notificações são do administrador */}
+      {vh.s.level !== 'revenda' && (
+        <Tabs<Aba>
+          tabs={[
+            ['escrever', 'Escrever mensagem', 'fa-pen-to-square'],
+            ['templates', 'Templates', 'fa-file-lines'],
+          ]}
+          on={aba}
+          onChange={(k) => vh.nav('/' + vh.s.level + '/mensagem-todos' + (k === 'templates' ? '/templates' : ''))}
+        />
+      )}
       <div className="tw-livre">
         {aba === 'templates' ? (
           <AdminSectionChromeProvider>
@@ -377,11 +384,12 @@ function MensagemTodos({ aba }: { aba: Aba }) {
 }
 
 export const mensagemTodos: ScreenFn = (vh) => {
-  const aba: Aba = vh.s.sub[0] === 'templates' ? 'templates' : 'escrever';
-  const base = { t: 'Mensagem a todos', path: '/' + vh.s.level + '/mensagem-todos' };
+  const revenda = vh.s.level === 'revenda';
+  const aba: Aba = !revenda && vh.s.sub[0] === 'templates' ? 'templates' : 'escrever';
+  const base = { t: revenda ? 'Mensagem aos clientes' : 'Mensagem a todos', path: '/' + vh.s.level + '/mensagem-todos' };
   return {
-    title: 'Mensagem a todos',
-    desc: aba === 'templates' ? 'Templates das notificações' : 'Aviso a todas as contas ou a um cliente',
+    title: revenda ? 'Mensagem aos clientes' : 'Mensagem a todos',
+    desc: aba === 'templates' ? 'Templates das notificações' : revenda ? 'Aviso a todos os seus clientes' : 'Aviso a todas as contas ou a um cliente',
     crumbs: [base, { t: aba === 'templates' ? 'Templates' : 'Escrever mensagem' }],
     actions: aba === 'templates' ? <LugarBarraAntiga /> : undefined,
     body: <MensagemTodos aba={aba} />,

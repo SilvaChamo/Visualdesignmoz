@@ -805,6 +805,7 @@ export const SCREENS: Record<string, ScreenFn> = {
   'revenda/estatisticas': estatisticasRevendaPagina,
   'revenda/backups': backupsClientesPagina,
   'revenda/tickets': ticketsAdminPagina,
+  'revenda/mensagem-todos': mensagemTodos,
   'preferencias/aparencia': temaScreen,
   'preferencias/idioma': prefIdioma,
   'preferencias/tabelas': prefTabelas,
