@@ -94,7 +94,7 @@ export function Tool({ fa, c, title, sub, onClick }: { fa: string; c: string; ti
         <i className={ico(fa)} />
       </div>
       <div>
-        <b>{t(title)}</b>
+        <b title={t(title)}>{t(title)}</b>
         <span>{t(sub)}</span>
       </div>
     </div>

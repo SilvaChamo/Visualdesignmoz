@@ -15051,3 +15051,22 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    padding: 0 calc(8px * var(--z, 1));
    white-space: nowrap
 }
+
+/* Barra lateral direita: o título de cada cartão fica sempre numa só linha (Silva, 27/10/2026: "não quero duas linhas no título da
+   barra lateral direita"). Em ecrãs largos o título é um pouco mais pequeno para caber inteiro; se ainda assim não couber (língua
+   com nomes longos), corta com reticências em vez de quebrar a linha — o nome completo vê-se ao passar o rato. */
+.vh .cols-side .tool > div {
+   min-width: 0
+}
+
+.vh .cols-side .tool b {
+   white-space: nowrap;
+   overflow: hidden;
+   text-overflow: ellipsis
+}
+
+@media(min-width:1601px) {
+   .vh .cols-side .tool b {
+      font-size: calc(14px * var(--fs, 1))
+   }
+}
