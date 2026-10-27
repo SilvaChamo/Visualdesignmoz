@@ -719,6 +719,10 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
   (as cópias ocupam cerca de 6 GB: acima disso paga-se cêntimos). O aamihe ficou com 12 MB (só correio); a cópia do site está em `/root/backups-removidos/aamihe-site-final/`.
   **Estado (26/10/2026):** primeiro envio feito (13 cópias, 5,9 GiB no R2) e `testar-restauro` passou. Só se enviam cópias com menos de 14 dias (`--max-age`), as mais velhas nem sobem. **Falta ligar o cron diário** `/etc/cron.d/vd-backup-externo` (`0 7 * * * root /usr/local/sbin/vd-backup-externo enviar >/dev/null 2>&1`): a instalação foi recusada pela protecção do ambiente (persistência no servidor) e fica à espera da ordem expressa do Silva; até lá o envio é manual (`vd-backup-externo enviar`). As cópias do Hestia saem ao domingo às 05:10 e a pedido.
 
+- **Backup manual corre já, mesmo havendo agendamento** (Silva, 27/10/2026: «pode ser algo urgente… não podemos depender do programa do servidor»). Admin › Backups › «Backup de todas as contas» e «Fazer backup agora» (por
+  conta) já não passam pela fila do servidor (`v-schedule-user-backup` recusava com «backup is already scheduled» quando havia um agendado): lançam `v-backup-user` em segundo plano, uma conta a seguir à outra, com
+  `nice`/`ionice` (trabalho `backup-agora` em `vhost-admin-py.ts`), e a página mostra o registo do trabalho. Nunca voltar a pôr a fila neste botão; o agendamento semanal (domingo 05:10) continua como estava.
+
 - **As mensagens ao utilizador dizem "Vhost", nunca "Hestia"** (Silva, 26/10/2026: "em vez de dizer o Hestia, dizer Vhost"). Erros, avisos, toasts e textos do painel que falam do servidor
   usam "Vhost" (ex.: «O Vhost demorou a responder…»), e a tradução em inglês em `src/components/vhost/generated/data.ts` acompanha (a chave em português tem de ser igual ao texto do código).
   Só mudam os textos que se vêem: nomes de funções, ficheiros, comandos (`v-…`), variáveis (`HESTIA_HOST`), caminhos e registos internos (`[cron/hestia-sync] …`) ficam como estão. Ficaram
