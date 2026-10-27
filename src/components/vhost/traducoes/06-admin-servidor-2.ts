@@ -271,8 +271,6 @@ export const admin_servidor_2: Record<string, string> = {
  "Baixar": "Download",
  "março": "March",
  "sáb": "Sat",
- "Edição rápida": "Quick edit",
- "Edição rápida (endereço, estado e modelo)": "Quick edit (address, status and template)",
  "Predefinição do tema": "Theme default",
  "Elementor largura total": "Elementor full width",
  "Página actualizada": "Page updated",
