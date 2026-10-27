@@ -300,11 +300,12 @@ if ver == 'backups':
     sai({'backups': lista, 'config': {k: cfg.get(k, '') for k in ('BACKUP', 'BACKUPS', 'BACKUP_GZIP', 'BACKUP_MODE', 'BACKUP_SYSTEM')}, 'contas': utilizadores(), 'trabalho': estado_trabalho('backup-agora')})
 if acao == 'bk-criar':
     # Backup manual: corre já, uma conta a seguir à outra, sem passar pela fila do servidor (a fila recusa com «backup is already scheduled»
-    # quando já há um agendado, e um problema urgente não pode esperar pelo agendamento). Em segundo plano e com prioridade baixa.
+    # quando já há um agendado, e um problema urgente não pode esperar pelo agendamento). Em segundo plano e com prioridade baixa; uma conta que a fila
+    # do servidor já está a copiar nesse momento fica de fora (duas cópias da mesma conta ao mesmo tempo estragavam-se uma à outra).
     validas = set(utilizadores())
     contas = [u for u in arg['contas'] if u in validas]
     if not contas: sai({'ok': False, 'erro': 'Conta desconhecida.'})
-    lanca('backup-agora', '; '.join(f'echo "== {u}: início $(date +%H:%M:%S)"; nice -n 10 ionice -c2 -n7 {H}/v-backup-user {u} && echo "{u}: pronto" || echo "{u}: FALHOU"' for u in contas))
+    lanca('backup-agora', '; '.join(f'echo "== {u}: início $(date +%H:%M:%S)"; if pgrep -f "^/bin/bash {H}/v-backup-user {u}( |$)" >/dev/null; then echo "{u}: já está a ser copiada pela fila do servidor, ignorada"; else nice -n 10 ionice -c2 -n7 {H}/v-backup-user {u} && echo "{u}: pronto" || echo "{u}: FALHOU"; fi' for u in contas))
 if acao == 'bk-restaurar':
     if not BK.match(arg['nome']): sai({'ok': False, 'erro': 'Cópia inválida.'})
     ok, out = hok('v-schedule-user-restore', arg['conta'], arg['nome']); sai({'ok': ok, 'erro': out if not ok else ''})
