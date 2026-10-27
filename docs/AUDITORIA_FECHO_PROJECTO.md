@@ -122,7 +122,7 @@ com todos os pontos corrigidos; deploy sem corte com reversão; isenção do IP 
    `/etc/cron.d/vd-backup-externo` (`0 7 * * *`) **não foi instalado** (a protecção do ambiente recusou; espera a ordem expressa do Silva). Sem ele só há
    cópias manuais e a cópia mais recente do R2 envelhece. Dar a ordem, instalar, e confirmar com `vd-backup-externo estado` no dia seguinte.
    Confirmar também que o Silva guardou a palavra-passe de cifra num gestor de palavras-passe (sem ela as cópias não se abrem).
-2. **Rotas de API sem autenticação e com a chave de serviço do Supabase.** Heurística sobre as 150 rotas (procura de qualquer verificação de sessão,
+2. **Rotas de API sem autenticação e com a chave de serviço do Supabase.** Heurística sobre as 185 rotas (procura de qualquer verificação de sessão,
    `CRON_SECRET` ou assinatura); as seguintes não têm nenhuma e **li o código das três primeiras**:
    - `GET /api/get-all-contacts?domain=…` — devolve nomes e e-mails de `email_contas` dos domínios `visualdesignmoz.com`, `anap.co.mz`,
      `entrecampos.co.mz`, `aamihe.com` a qualquer visitante. Sem chamadores no repositório.
