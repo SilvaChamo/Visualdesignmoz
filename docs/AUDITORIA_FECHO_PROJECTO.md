@@ -1,9 +1,12 @@
 # Auditoria para fechar o projecto — 27/10/2026
 
+> **O Hetzner já está fechado** (servidor desligado a 19/10/2026; do balde de ficheiros só falta cancelar a conta). Nada no projecto depende dele e não se propõe nem se faz
+> nenhuma alteração para ele. Tudo o que ainda o menciona (comentários, secrets, histórico do git) é resto a limpar, não dependência.
+
 Levantamento do que falta em configurações gerais, tradução, facturação e segurança do servidor. Feito a partir do código, dos
 workflows, de `regras.md` e de `ESTADO_PROJECTO.md` no ramo `main` (commit `b8a75df9`). **Nada foi alterado no código nem no servidor.**
 
-**O que esta auditoria não consegue ver:** o estado real do servidor Contabo (crons, firewall, certificados, Docker), os secrets do GitHub
+**O que esta auditoria não consegue ver:** o estado real do servidor (crons, firewall, certificados, Docker), os secrets do GitHub
 e a consola da Cloudflare/Brevo/Stripe. Esses pontos vão marcados «a confirmar no servidor» e só se confirmam com um workflow de leitura
 (regra 4 de `regras.md`: só leitura primeiro, com pedido do Silva).
 
@@ -122,7 +125,7 @@ com todos os pontos corrigidos; deploy sem corte com reversão; isenção do IP 
    `/etc/cron.d/vd-backup-externo` (`0 7 * * *`) **não foi instalado** (a protecção do ambiente recusou; espera a ordem expressa do Silva). Sem ele só há
    cópias manuais e a cópia mais recente do R2 envelhece. Dar a ordem, instalar, e confirmar com `vd-backup-externo estado` no dia seguinte.
    Confirmar também que o Silva guardou a palavra-passe de cifra num gestor de palavras-passe (sem ela as cópias não se abrem).
-2. **Rotas de API sem autenticação e com a chave de serviço do Supabase.** Heurística sobre as 185 rotas (procura de qualquer verificação de sessão,
+2. **Rotas de API sem autenticação e com a chave de serviço do Supabase.** **Resolvido no código em 27/10/2026 (ver «Ponto 3 — feito» no fim); falta publicar.** Heurística sobre as 185 rotas (procura de qualquer verificação de sessão,
    `CRON_SECRET` ou assinatura); as seguintes não têm nenhuma e **li o código das três primeiras**:
    - `GET /api/get-all-contacts?domain=…` — devolve nomes e e-mails de `email_contas` dos domínios `visualdesignmoz.com`, `anap.co.mz`,
      `entrecampos.co.mz`, `aamihe.com` a qualquer visitante. Sem chamadores no repositório.
@@ -141,7 +144,7 @@ com todos os pontos corrigidos; deploy sem corte com reversão; isenção do IP 
    na nota; se não, fazer (todos os utilizadores voltam a entrar uma vez) e acrescentar o URL de retorno no Google.
 5. **Credenciais do Hetzner.** O repositório ainda lista nos workflows secrets como `DIRECTADMIN_HOST/USER/PASSWORD/LOGIN_KEY/PORT/PROTOCOL` e `HESTIA_ADMIN_*`;
    `ESTADO_PROJECTO.md` regista que a chave `service_role` do Supabase antigo, o MySQL e o DirectAdmin do Hetzner estiveram no código (decidido em 22/10 não as
-   mudar). **Com o Hetzner a cancelar, mudar de decisão:** confirmar que o Supabase antigo já não existe (a chave deixa de valer) ou rodá-la; apagar os secrets
+   mudar). **O Hetzner já está fechado, por isso a razão de 22/10 (não afectar clientes) acabou — mudar de decisão:** confirmar que o Supabase antigo já não existe (a chave deixa de valer) ou rodá-la; apagar os secrets
    que nenhum workflow usa (`CONTABO_ROOT_PASSWORD`, os do DirectAdmin se o deploy os escreve só por herança); decidir se se limpa o histórico do git
    (reescrever histórico só com autorização expressa do Silva — alternativa: manter privado e rodar tudo o que lá esteve).
 6. **O site liga-se ao servidor como `root` por SSH** (`SERVER_SSH_KEY_PATH=/root/.ssh/app_self_key`, a mesma chave do deploy `CONTABO_SSH_KEY`). Uma falha
@@ -203,3 +206,29 @@ com todos os pontos corrigidos; deploy sem corte com reversão; isenção do IP 
 6. Tradução: 1 texto, português de Portugal nos resíduos, varrimento dinâmico nos três papéis.
 7. M-Pesa em produção (último, com pagamento de teste de valor mínimo), depois reconciliação.
 8. Actualizar `ESTADO_PROJECTO.md` e fechar a lista.
+
+---
+
+## 7. Ponto 3 — rotas sem autenticação: feito no ramo (27/10/2026)
+
+Não se apagou nenhuma rota (regra 5: não há como ver, daqui, quem as chama de fora); protegeram-se.
+
+| Rota | Antes | Agora |
+|------|-------|-------|
+| `GET /api/get-all-contacts` | qualquer visitante lia nomes e e-mails de clientes | administrador com sessão, ou `Authorization: Bearer ${CRON_SECRET}` (para um chamador de fora) |
+| `POST /api/migrate-contacts` | qualquer visitante reescrevia `newsletter_subscribers` | só administrador |
+| `GET /api/check-smtp-config` | configuração de envio à vista | só administrador |
+| `POST /api/mozserver-proxy` | qualquer visitante corria pedidos à API de um fornecedor externo com uma **chave escrita no código** | só administrador; a chave vem de `MOZSERVER_API_TOKEN` |
+| `POST /api/auth/email-livre` | limite por IP lia o primeiro valor de `x-forwarded-for` (o visitante podia variá-lo e fugir ao limite) | lê `x-real-ip` posto pelo nginx |
+
+**A chave que estava em `mozserver-proxy` está no histórico do git: tem de se considerar comprometida** — pedir uma nova ao fornecedor (ou confirmar que a conta
+já não existe) e só depois pô-la, se for preciso, em `MOZSERVER_API_TOKEN` no `.env.local` do servidor.
+
+**Ainda por tratar (não alterado):**
+- `POST /api/auth/reset-password` — sem limite nem Turnstile: dá para encher a caixa de qualquer pessoa de e-mails de recuperação.
+- `POST /api/submit-ticket` — o «captcha» compara duas respostas **enviadas pelo próprio cliente** (`captchaAnswer` e `captchaResult`), por isso não protege de nada; pôr Turnstile.
+- `POST /api/domain-check` — pública e sem limite; cada pedido pode ir ao registador (custo e abuso).
+- Antes de dar o assunto por fechado: ler, no servidor e só em leitura, os registos do nginx dos últimos 30 dias para `get-all-contacts`, `migrate-contacts`,
+  `check-smtp-config` e `mozserver-proxy`, para ver se alguém de fora as chamava (quem as chamar passa a levar 401/403).
+- Lidas e sem problema: `whmcs-proxy` (já exige administrador), `webmail-redirect` (só acrescenta ao endereço do webmail), `versao`, `vhost/aquecer`,
+  `domain-tld-prices` e `public/site-news` (públicas por desenho).

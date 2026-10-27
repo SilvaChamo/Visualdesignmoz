@@ -2,6 +2,12 @@
 
 **Vale para todos os projectos do Silva, com qualquer IA** (Claude, Cursor, Copilot, Codex, Gemini…): antes de qualquer outra regra deste ficheiro. **Nenhum ramo leva o nome de uma IA nem um nome aleatório em inglês.** (Silva, 26/10/2026: "tudo que tem Claude posso apagar? deixa uma regra muito rigorosa sobre isso"): nada de `claude/`, `cursor/`, `copilot/`, `codex/`, `gemini/`, nem de nomes sem sentido como `beautiful-rubin-ikgc74`, em nenhum ramo do GitHub. Se a ferramenta criou o ramo da sessão com um nome assim, o agente muda-o **logo no início** para o nome da acção em português (sem acentos, com hífens) — não espera pelo "publica"; se a ferramenta o impedir, diz-o ao Silva na primeira mensagem. **O autor dos commits é `SilvaChamo <silva.chamo@gmail.com>`**: antes do primeiro commit, `git config user.name SilvaChamo` e `git config user.email silva.chamo@gmail.com`; nunca "Claude", "Copilot", "Cursor", "Codex" ou "Gemini" como autor. Ramo antigo com trabalho por publicar guarda-se como `arquivo/<acção-em-português>` (mesmo commit) em vez de ficar com o nome da IA; quem apaga ramos é o Silva, ou o agente só com ordem expressa dele, depois de provar que o que lá está já está em `main` ou arquivado. Reescrever histórico de ramos já enviados só com autorização expressa do Silva.
 
+# Nunca nomear o fornecedor do servidor (Silva, 27/10/2026)
+
+Em qualquer projecto do Silva, com qualquer IA: nas conversas, relatórios, documentos, commits e PR fala-se sempre **«o servidor»**, nunca o nome da empresa que o aloja
+(«o estado real do Contabo» está errado; «o estado real do servidor» está certo). Os nomes técnicos que já existem (ficheiros como `deploy-contabo.yml`, caminhos, secrets) ficam como
+estão, mas não se repetem em texto novo. Do Hetzner diz-se só que **já está fechado**, quando for preciso lembrá-lo (README e `regras.md` já o dizem).
+
 # Esta é a pasta de trabalho — e o site em produção
 
 **NOTA PARA QUALQUER AGENTE (19/10/2026) — LER ANTES DE COMEÇAR.** Só existe um ramo que publica: **`main`**, e é o do
