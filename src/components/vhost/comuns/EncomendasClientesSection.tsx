@@ -12,6 +12,7 @@ import { EmailTemplates } from '@/components/vhost/comuns/EmailTemplates';
 import { useAdminSectionChrome } from '@/components/vhost/comuns/AdminSectionChrome';
 import { panelField, panelBtnPrimary, panelBtnSecondary } from '@/lib/panel-ui';
 import { Spinner } from '@/components/ui/spinner';
+import { dataSo } from '../datas';
 
 interface EncomendaCliente {
   userId: string;
@@ -246,7 +247,7 @@ export function EncomendasClientesSection({ isActive }: { isActive: boolean }) {
                   </span>
                 </td>
                 <td className="px-5 py-2.5 text-gray-500 dark:text-zinc-400">
-                  {c.encomendas > 0 ? new Date(c.lastCreatedAt).toLocaleDateString('pt-PT') : '—'}
+                  {c.encomendas > 0 ? dataSo(new Date(c.lastCreatedAt)) : '—'}
                 </td>
                 <td className="px-5 py-2.5 text-right">
                   <button

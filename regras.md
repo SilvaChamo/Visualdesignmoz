@@ -785,6 +785,17 @@ nível Revenda parte dessa lista ou de uma rota que a aplica no servidor; **nunc
   de fora a pedido de um utilizador — precisa de decisão do Silva (limites, registo e conta importada ligada à revenda por `parent_username`) antes de se escrever.
 - «Zona DNS» é uma só entrada no menu da revenda (a mesma página da Gestão › DNS, do domínio escolhido): sem «dos clientes» no nome.
 
+# Datas do painel: dia, mês e ano, com muitas formas à escolha (Silva, 27/10/2026)
+
+- **Todas as datas do painel** (listas, cópias, mensagens, pedidos, ficheiros, renovações, encomendas) **seguem a escolha de Preferências › Idioma e data › Formato da data**, por omissão **dia/mês/ano** (`31/12/2026, 14:30`), nunca o ISO do servidor
+  (`2026-12-31`). **Um só sítio**: `src/components/vhost/datas.ts` (`dataPt` para texto do servidor, `dataDe` para `Date`, `dataSo` para dias sem hora, `nomeCopia` para o nome das cópias). **Nunca** `toLocaleDateString('pt-PT')` nem fatiar
+  (`slice(0, 10)`) uma data no ecrã: usar estas funções. A ordenação das tabelas continua a usar o texto original.
+- **Formas à escolha** (`FORMATOS_DATA`, 15; o nome de cada uma na escolha é o exemplo de 31/12/2026 14:30): `31/12/2026, 14:30` · `31-12-2026 14:30` · `31.12.2026 14:30` · `31/12/26, 14:30` · `31/12/2026 14h30` · `31/12/2026, 2:30 PM` ·
+  `31/12/2026` (sem hora) · `31 dez 2026, 14:30` · `31 dez 2026, 2:30 PM` · `qui, 31 dez 2026, 14:30` · `31 de dezembro de 2026, 14:30` · `12/31/2026, 2:30 PM` · `2026-12-31 14:30` · `2026/12/31 14:30` · `2026-12-31T14:30`. Os meses e os dias da semana
+  seguem o idioma do painel. Para acrescentar uma forma: uma linha em `FORMATOS_DATA`, e o nome inglês dos meses já lá está.
+- **Mudar a escolha vale logo**, sem recarregar: `gravarFormatoData` guarda e avisa (`vh-data-mudou`) e todas as tabelas (`DataTable` usa `useFormatoData`) desenham-se de novo.
+- **Nome das cópias de segurança**: `vdadmin.2026-10-27_22-29-54.tar` mostra-se `vdadmin 27/10/2026:22.29.tar` (ou `vdadmin 27 out 2026, 22:29.tar` na forma curta…); só o que se vê, a cópia chama-se como no servidor. Leva sempre a hora.
+
 # Autenticação em 2 passos (opcional — Silva, 21/10/2026)
 
 - **Nunca obrigatória**: só afecta quem a liga em Perfil › Autenticação em 2 passos (aplicação de autenticação, TOTP do Supabase;

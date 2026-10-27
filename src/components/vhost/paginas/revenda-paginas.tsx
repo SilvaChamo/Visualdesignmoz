@@ -13,6 +13,7 @@ import { Carregando } from './avancado';
 import { DataTable, Frm, Row, Senha } from './componentes';
 import { Sec } from './avancado';
 import { ROTA_REVENDA, Uso, num, usoContasPagina } from './admin-paginas';
+import { dataPt } from '../datas';
 
 /** Contas dos clientes da revenda (a própria conta do revendedor fica de fora) */
 function useClientes() {
@@ -204,7 +205,7 @@ function SecurityTxtRevenda() {
         },
         { k: 'e', t: 'Estado', sort: (r) => estadoStxt(r)[1], cell: (r) => <span className={'tag ' + estadoStxt(r)[0]}>{t(estadoStxt(r)[1])}</span> },
         { k: 'c', t: 'Contacto', ate: 1300, cell: (r) => campoStxt(r.texto, 'Contact') || '—' },
-        { k: 'x', t: 'Expira em', ate: 1050, sort: (r) => campoStxt(r.texto, 'Expires'), cell: (r) => campoStxt(r.texto, 'Expires').slice(0, 10) || '—' },
+        { k: 'x', t: 'Expira em', ate: 1050, sort: (r) => campoStxt(r.texto, 'Expires'), cell: (r) => dataPt(campoStxt(r.texto, 'Expires').slice(0, 10)) || '—' },
       ]}
     />
   );

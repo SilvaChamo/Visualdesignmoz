@@ -14,6 +14,7 @@ import { FUNDO, lerUrl, naMemoria, useGet } from '../carga';
 import { LOGO } from '../state';
 import { EN } from '../generated/data';
 import { lerPref } from './suporte';
+import { dataPt } from '../datas';
 
 /** Editor com cores no código (o mesmo do gestor de ficheiros do site: CodeMirror), carregado só quando se abre um ficheiro */
 const EditorCodigo = dynamic(() => import('@/components/vhost/comuns/FileManagerCodeEditor').then((m) => m.FileManagerCodeEditor), {
@@ -204,7 +205,7 @@ const permTexto = (x: Item) => {
   return (x.atalho ? 'l' : x.pasta ? 'd' : '-') + r;
 };
 /** "2026-10-07 11:31" → "07/10/2026, 11:31" (como no DA) */
-const dataDa = (d: string) => (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(d) ? (lerPref('vh-data', 'dmy') === 'ymd' ? d.slice(0, 16) : `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}, ${d.slice(11, 16)}`) : d);
+const dataDa = (d: string) => dataPt(d);
 const tipoFicheiro = (n: string) => {
   const e = (n.match(/\.([a-z0-9]+)$/i) || [])[1]?.toLowerCase() || '';
   if (/^(zip|tar|gz|tgz|rar|7z)$/.test(e)) return ['fa-file-zipper', 'c-arq', e.toUpperCase()];

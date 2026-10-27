@@ -269,4 +269,6 @@ export const admin_servidor_2: Record<string, string> = {
  "Cópia inválida.": "Invalid backup.",
  "Cópia inexistente.": "Backup not found.",
  "Baixar": "Download",
+ "março": "March",
+ "sáb": "Sat",
 };

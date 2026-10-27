@@ -22,6 +22,7 @@ import { EsperaPagina, useGet, useNaMemoria } from '../carga';
 import { EN } from '../generated/data';
 import { BotaoPassar } from './passar';
 import { TransferirDominio } from './transferir-dominio';
+import { dataPt, dataSo } from '../datas';
 
 // Textos novos do cabeçalho de Domínios e Subdomínios, já em inglês (regra do Silva: conteúdo novo entra traduzido)
 {
@@ -731,7 +732,7 @@ const emissorCurto = (e: string) => (/\bO\s*=\s*([^,]+)/.exec(e)?.[1] || /\bCN\s
 /** "Dec 25 11:33:51 2026 GMT" ou "2026-12-25" → "25/12/2026" */
 const dataLegivel = (s: string) => {
   const t = Date.parse(s);
-  return isNaN(t) ? s : new Date(t).toLocaleDateString('pt-PT');
+  return isNaN(t) ? s : dataSo(new Date(t));
 };
 /** DNS ativo (Silva, 23/10/2026): os servidores de nomes públicos do domínio são os nossos (ns do Contabo), ou a Cloudflare é a que responde */
 const dnsAtivo = (dns: Detalhe['dns'], ns?: string[]) => {
@@ -745,10 +746,7 @@ const sslAtivo = (c: Detalhe['certificado']) => {
   const ate = Date.parse(c.ate);
   return isNaN(ate) || ate > Date.now();
 };
-const dataCurta = (s: string) => {
-  const m = s && /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
-  return m ? m[3] + '/' + m[2] + '/' + m[1] : s || '—';
-};
+const dataCurta = (s: string) => (s ? dataPt(s) : '—');
 
 /** Nameservers do domínio (modelo do painel antigo, pedido do Silva 13/10/2026): DNS predefinido da Visual Design ou
  *  nameservers personalizados (NS1/NS2). Se o domínio não foi registado connosco, mostra os nameservers públicos. */

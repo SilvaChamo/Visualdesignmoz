@@ -16,6 +16,7 @@ import { Carregando } from './avancado';
 import { mbTexto } from '../servidor';
 import type { Account } from '../types';
 import { ehNsNosso } from '@/lib/visualdesign-dns';
+import { dataPt } from '../datas';
 
 export const ROTA = '/api/vhost/admin-servidor';
 export const ROTA_REVENDA = '/api/vhost/revenda';
@@ -682,7 +683,7 @@ function RastreioEmail() {
           rowKey={(r) => r.id}
           empty={q ? 'Nenhuma mensagem encontrada' : 'Sem mensagens no período'}
           cols={[
-            { k: 'd', t: 'Data', sort: (r) => r.data, cell: (r) => r.data.slice(0, 16) },
+            { k: 'd', t: 'Data', sort: (r) => r.data, cell: (r) => dataPt(r.data.slice(0, 16)) },
             {
               k: 'f',
               t: 'Mensagem',

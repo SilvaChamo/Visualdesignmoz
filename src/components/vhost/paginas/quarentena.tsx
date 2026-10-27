@@ -11,6 +11,7 @@ import { esquecerMemoria, useGet, useNaMemoria } from '../carga';
 import { DESC, EN, MENU } from '../generated/data';
 import { DataTable } from './componentes';
 import { Carregando } from './avancado';
+import { dataPt } from '../datas';
 
 const ROTA = '/api/vhost/quarentena';
 type Item = { id: string; nome: string; original: string; site: string; motivo: string; tam: number; data: string; lote: string };
@@ -168,7 +169,7 @@ function Quarentena() {
           { k: 'o', t: 'Origem', ate: 1300, sort: (r) => r.original, cell: (r) => <code title={r.original}>{r.original.replace(/^\/home\/[^/]+\/web\/[^/]+\/public_html\//, '')}</code> },
           { k: 'm', t: 'Motivo', ate: 1600, sort: (r) => r.motivo, cell: (r) => <span className="pm-desc">{r.motivo}</span> },
           { k: 't', t: 'Tamanho', right: true, sort: (r) => r.tam, cell: (r) => mem(r.tam) },
-          { k: 'd', t: 'Data', right: true, ate: 1300, sort: (r) => r.data, cell: (r) => r.data },
+          { k: 'd', t: 'Data', right: true, ate: 1300, sort: (r) => r.data, cell: (r) => dataPt(r.data) },
         ]}
         actions={(r) => (
           <>

@@ -15,6 +15,7 @@ import { Confirmar } from './pacotes';
 import { Carregando, Sec } from './avancado';
 import { mbTexto } from '../servidor';
 import { ROTA, ROTA_REVENDA, Resumo, pedir } from './admin-paginas';
+import { dataPt, nomeCopia } from '../datas';
 
 // ---------- comum ----------
 type Trab = { aCorrer: boolean; registo: string[] };
@@ -232,7 +233,7 @@ function Atualizacoes() {
           ) },
           { k: 'v', t: 'Versão', sort: (r) => r.versao, cell: (r) => <code>{r.versao}</code> },
           { k: 'e', t: 'Estado', sort: (r) => (r.atual ? 1 : 0), cell: (r) => <span className={'tag ' + (r.atual ? 'ok' : 'w')}>{t(r.atual ? 'Atualizado' : 'Há atualização')}</span> },
-          { k: 'd', t: 'Data', ate: 1050, sort: (r) => r.data, cell: (r) => r.data || '—' },
+          { k: 'd', t: 'Data', ate: 1050, sort: (r) => r.data, cell: (r) => dataPt(r.data) || '—' },
         ]}
       />
       <Sec titulo="VisualHost" desc="O painel atualiza-se sozinho a cada publicação; quem estiver a usar passa para a versão nova ao voltar ao separador.">
@@ -327,7 +328,7 @@ function PacotesSistema() {
           rowKey={(r) => r.k}
           empty="Sem histórico"
           cols={[
-            { k: 'd', t: 'Data', sort: (r) => r.data, cell: (r) => r.data },
+            { k: 'd', t: 'Data', sort: (r) => r.data, cell: (r) => dataPt(r.data) },
             { k: 't', t: 'Tipo', cell: (r) => (r.tipo ? t(r.tipo) : '—') },
             { k: 'p', t: 'Pacotes', right: true, sort: (r) => r.pacotes, cell: (r) => r.pacotes },
             { k: 'c', t: 'Comando', cell: (r) => <span className="pm-proc"><small className="ad-cmd">{r.comando}</small></span> },
@@ -568,7 +569,7 @@ function MultiServidor() {
         { k: 'p', t: 'Porta', cell: (r) => r.porta },
         { k: 'u', t: 'Utilizador', cell: (r) => r.user + (r.dnsUser ? ' / ' + r.dnsUser : '') },
         { k: 'e', t: 'Estado', sort: (r) => (r.suspenso ? 0 : 1), cell: (r) => <span className={'tag ' + (r.suspenso ? 'off' : 'ok')}>{t(r.suspenso ? 'Suspenso' : 'Ligado')}</span> },
-        { k: 'd', t: 'Desde', ate: 1050, sort: (r) => r.data, cell: (r) => r.data },
+        { k: 'd', t: 'Desde', ate: 1050, sort: (r) => r.data, cell: (r) => dataPt(r.data) },
       ]}
       acoesNaColuna
       bulk={[{ t: 'Apagar', fa: 'fa-trash-can', run: (k) => confirmar(vh, 'Desligar os servidores?', k.join(', ') + ' — ' + t('deixam de receber as zonas DNS deste servidor.'), 'Apagar', { acao: 'multi-apagar', hosts: k }, 'Servidores desligados') }]}
@@ -643,8 +644,8 @@ function BackupsAdmin() {
   });
   const criar = (k: string[]) => void lancarBackup(vh, k);
   const restaurar = (c: Copia) =>
-    confirmar(vh, 'Restaurar a conta?', c.conta + ' ← ' + c.nome + ' — ' + t('os sites, e-mails, bases de dados e tarefas da conta voltam ao estado desta cópia.'), 'Restaurar', { acao: 'bk-restaurar', conta: c.conta, nome: c.nome }, 'Restauro na fila');
-  const apagar = (cs: Copia[]) => confirmar(vh, 'Apagar as cópias?', cs.map((c) => c.nome).join(', '), 'Apagar', { acao: 'bk-apagar', itens: cs.map((c) => ({ conta: c.conta, nome: c.nome })) }, 'Cópias apagadas');
+    confirmar(vh, 'Restaurar a conta?', c.conta + ' ← ' + nomeCopia(c.nome) + ' — ' + t('os sites, e-mails, bases de dados e tarefas da conta voltam ao estado desta cópia.'), 'Restaurar', { acao: 'bk-restaurar', conta: c.conta, nome: c.nome }, 'Restauro na fila');
+  const apagar = (cs: Copia[]) => confirmar(vh, 'Apagar as cópias?', cs.map((c) => nomeCopia(c.nome)).join(', '), 'Apagar', { acao: 'bk-apagar', itens: cs.map((c) => ({ conta: c.conta, nome: c.nome })) }, 'Cópias apagadas');
   return (
     <>
       <Trabalho tr={dados.trabalho} ler={ler} titulo="A fazer backup agora" />
@@ -669,8 +670,8 @@ function BackupsAdmin() {
           empty="Nenhum backup"
           cols={[
             { k: 'c', t: 'Conta', sort: (r) => r.conta, cell: (r) => <b>{r.conta}</b> },
-            { k: 'n', t: 'Cópia', cell: (r) => <span className="pm-proc"><small className="ad-cmd ad-cmd-1l">{r.nome}</small></span> },
-            { k: 'd', t: 'Data', sort: (r) => r.data + r.hora, cell: (r) => r.data + ' ' + r.hora.slice(0, 5) },
+            { k: 'n', t: 'Cópia', cell: (r) => <span className="pm-proc"><small className="ad-cmd ad-cmd-1l">{nomeCopia(r.nome)}</small></span> },
+            { k: 'd', t: 'Data', sort: (r) => r.data + r.hora, cell: (r) => dataPt(r.data + ' ' + r.hora.slice(0, 5)) },
             { k: 'm', t: 'Tamanho', right: true, sort: (r) => r.mb, cell: (r) => mbTexto(r.mb) },
             { k: 't', t: 'Demorou', ate: 1300, cell: (r) => (r.demorou ? r.demorou + ' min' : '—') },
           ]}
@@ -719,7 +720,7 @@ function BackupsAdmin() {
             { k: 'u', t: 'Conta', sort: (r) => r.u, cell: (r) => <b>{r.u}</b> },
             { k: 'n', t: 'Cópias', right: true, sort: (r) => r.n, cell: (r) => r.n },
             { k: 'm', t: 'Espaço', right: true, sort: (r) => r.mb, cell: (r) => mbTexto(r.mb) },
-            { k: 'l', t: 'Última cópia', sort: (r) => r.ultima, cell: (r) => r.ultima.slice(0, 16) || <span className="tag w">{t('Nenhuma')}</span> },
+            { k: 'l', t: 'Última cópia', sort: (r) => r.ultima, cell: (r) => dataPt(r.ultima.slice(0, 16)) || <span className="tag w">{t('Nenhuma')}</span> },
           ]}
           actions={(r) => (
             <span className="dns-acoes">
@@ -778,7 +779,7 @@ function BackupSistema() {
         empty="Ainda não há cópias do sistema"
         cols={[
           { k: 'n', t: 'Cópia', sort: (r) => r.nome, cell: (r) => <span className="pm-proc"><small className="ad-cmd">{r.nome}</small></span> },
-          { k: 'd', t: 'Data', sort: (r) => r.data, cell: (r) => r.data },
+          { k: 'd', t: 'Data', sort: (r) => r.data, cell: (r) => dataPt(r.data) },
           { k: 'm', t: 'Tamanho', right: true, sort: (r) => r.mb, cell: (r) => mbTexto(r.mb) },
         ]}
         acoesNaColuna
@@ -1018,7 +1019,7 @@ function SecurityTxt() {
           { k: 'd', t: 'Domínio', sort: (r) => r.dominio, cell: (r) => <DomCel r={r} /> },
           { k: 'e', t: 'Estado', sort: (r) => estadoStxt(r)[1], cell: (r) => <span className={'tag ' + estadoStxt(r)[0]}>{t(estadoStxt(r)[1])}</span> },
           { k: 'c', t: 'Contacto', cell: (r) => <span className="pm-proc"><small className="ad-cmd">{campoStxt(r.texto, 'Contact') || '—'}</small></span> },
-          { k: 'x', t: 'Expira', ate: 1050, sort: (r) => campoStxt(r.texto, 'Expires'), cell: (r) => campoStxt(r.texto, 'Expires').slice(0, 10) || '—' },
+          { k: 'x', t: 'Expira', ate: 1050, sort: (r) => campoStxt(r.texto, 'Expires'), cell: (r) => dataPt(campoStxt(r.texto, 'Expires').slice(0, 10)) || '—' },
         ]}
         acoesNaColuna
         bulk={[
@@ -1230,7 +1231,7 @@ function ImportarContas() {
           { k: 'n', t: 'Ficheiro', sort: (r) => r.nome, cell: (r) => <span className="pm-proc"><small className="ad-cmd">{r.nome}</small></span> },
           { k: 'o', t: 'Origem', sort: (r) => r.tipo, cell: (r) => <span className={'tag ' + (dados.scripts[r.tipo] ? 'ok' : 'w')}>{ORIGEM[r.tipo]}</span> },
           { k: 'm', t: 'Tamanho', right: true, sort: (r) => r.mb, cell: (r) => mbTexto(r.mb) },
-          { k: 'd', t: 'Data', sort: (r) => r.data, cell: (r) => r.data },
+          { k: 'd', t: 'Data', sort: (r) => r.data, cell: (r) => dataPt(r.data) },
         ]}
         acoesNaColuna
         bulk={[
