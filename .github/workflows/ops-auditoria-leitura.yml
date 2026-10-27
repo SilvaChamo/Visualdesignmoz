@@ -1,0 +1,93 @@
+name: Ops - Auditoria do servidor (só leitura)
+
+# Lê o estado do servidor para fechar a auditoria (docs/AUDITORIA_FECHO_PROJECTO.md) SEM alterar nada e SEM imprimir segredos:
+# quem chamou as rotas que se protegeram, o endereço do Supabase, o cron das cópias, o modo do Stripe (só o prefixo da chave),
+# variáveis que sobraram do fornecedor antigo (só os nomes), certificados de e-mail, o nginx da porta 2026, portas abertas,
+# fail2ban, SSH e actualizações de segurança pendentes. Pedido do Silva a 27/10/2026 (regra 4 de regras.md: só leitura primeiro).
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: ops-auditoria-leitura
+  cancel-in-progress: false
+
+jobs:
+  auditoria:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ler o servidor (só leitura)
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          port: 2234
+          username: root
+          key: ${{ secrets.CONTABO_SSH_KEY }}
+          command_timeout: 8m
+          script: |
+            set -u
+            titulo() { echo; echo "=================== $1"; }
+            ENV=/opt/visualdesignmoz/.env.local
+
+            titulo "1. Quem chamou as rotas protegidas nos registos do nginx (30 dias)"
+            ROTAS='/api/(get-all-contacts|migrate-contacts|check-smtp-config|mozserver-proxy|whmcs-proxy|submit-ticket)'
+            for L in $(ls /var/log/nginx/domains/visualdesignmoz.com*.log* /var/log/nginx/access.log* 2>/dev/null | head -40); do
+              case "$L" in *.gz) zcat "$L" 2>/dev/null ;; *) cat "$L" 2>/dev/null ;; esac
+            done | grep -E "\"(GET|POST|PUT|DELETE|OPTIONS) $ROTAS" | awk '{ip=$1; for(i=1;i<=NF;i++){ if($i ~ /^"(GET|POST|PUT|DELETE|OPTIONS)$/){m=$i; p=$(i+1); st=$(i+3)} } print p, m, st, ip}' | sed 's/?.*//' | sort | uniq -c | sort -rn | head -40 || true
+            echo "(vazio = ninguém chamou nos registos guardados: $(ls /var/log/nginx/domains/visualdesignmoz.com*.log* 2>/dev/null | wc -l) ficheiros lidos)"
+
+            titulo "2. Endereço do Supabase (a troca de 23/10)"
+            grep -E '^(SUPABASE_PUBLIC_URL|API_EXTERNAL_URL)=' /opt/supabase-contabo/docker/.env 2>/dev/null || echo "(sem /opt/supabase-contabo/docker/.env)"
+            grep -E '^NEXT_PUBLIC_SUPABASE_URL=' "$ENV" 2>/dev/null || echo "(sem NEXT_PUBLIC_SUPABASE_URL no .env.local)"
+            for h in supabase.visualdesignmoz.com supabase-contabo.visualdesignmoz.com; do
+              echo "$h /auth/v1/health -> $(curl -s -o /dev/null -m 10 -w '%{http_code}' https://$h/auth/v1/health)"
+            done
+
+            titulo "3. Cópias fora do servidor (R2)"
+            ls -l /etc/cron.d/vd-backup-externo 2>&1 | cut -c1-160
+            cat /etc/cron.d/vd-backup-externo 2>/dev/null | grep -v '^#' | cut -c1-200 || true
+            /usr/local/sbin/vd-backup-externo estado 2>&1 | tail -25 | cut -c1-200 || true
+
+            titulo "4. Stripe: modo das chaves (só o prefixo, nunca o valor)"
+            for v in STRIPE_SECRET_KEY NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY; do
+              val=$(grep -E "^$v=" "$ENV" 2>/dev/null | cut -d= -f2- | tr -d '"'"'"' ')
+              if [ -n "$val" ]; then echo "$v: ${val:0:8}…"; else echo "$v: (vazia ou em falta)"; fi
+            done
+            grep -qE '^STRIPE_WEBHOOK_SECRET=.+' "$ENV" 2>/dev/null && echo "STRIPE_WEBHOOK_SECRET: definido" || echo "STRIPE_WEBHOOK_SECRET: em falta"
+            grep -E '^(MPESA_ENV|NEXT_PUBLIC_MPESA_ENV)=' "$ENV" 2>/dev/null
+
+            titulo "5. Variáveis do fornecedor antigo que ainda estão no .env.local (só os nomes)"
+            grep -oE '^(WHMCS|MOZSERVER|DIRECTADMIN|DA_|HETZNER|S3_|AS3CF)[A-Z0-9_]*' "$ENV" 2>/dev/null | sort -u || true
+            echo "(vazio = nenhuma)"
+
+            titulo "6. Todas as variáveis do .env.local (só os nomes, para comparar com o deploy)"
+            grep -oE '^[A-Z][A-Z0-9_]*=' "$ENV" 2>/dev/null | tr -d '=' | sort | paste -sd' ' | fold -w 180
+
+            titulo "7. Certificados de e-mail (mltmark.com, basededadosagro.com) e registo webmail"
+            for d in mltmark.com basededadosagro.com; do
+              echo "--- $d"
+              echo "webmail A: $(dig +short A webmail.$d 2>/dev/null | head -2 | paste -sd' ')"
+              echo | timeout 10 openssl s_client -connect 127.0.0.1:993 -servername mail.$d 2>/dev/null | openssl x509 -noout -subject -issuer -dates 2>/dev/null | cut -c1-160 || echo "(sem certificado lido)"
+            done
+
+            titulo "8. nginx da porta 2026 (para onde aponta)"
+            grep -rn "listen.*2026" /etc/nginx/conf.d /etc/nginx/sites-enabled 2>/dev/null | cut -c1-160 | head -5
+            grep -rhnE "host:2026|vhost:2026" /etc/nginx/conf.d /etc/nginx/sites-enabled 2>/dev/null | cut -c1-200 | head -8
+
+            titulo "9. Portas à escuta e firewall"
+            ss -tlnH 2>/dev/null | awk '{print $4}' | sed -E 's/.*:([0-9]+)$/\1/' | sort -n | uniq | paste -sd' '
+            iptables -S INPUT 2>/dev/null | head -5 | cut -c1-160
+
+            titulo "10. fail2ban e SSH"
+            fail2ban-client status 2>/dev/null | tail -3
+            sshd -T 2>/dev/null | grep -E '^(port|permitrootlogin|passwordauthentication|pubkeyauthentication) '
+
+            titulo "11. Actualizações de segurança pendentes e reinício necessário"
+            echo "pacotes de segurança por actualizar: $(apt list --upgradable 2>/dev/null | grep -ci security)"
+            [ -f /var/run/reboot-required ] && echo "REINÍCIO NECESSÁRIO" || echo "sem reinício pendente"
+            systemctl is-enabled unattended-upgrades 2>/dev/null || echo "unattended-upgrades: não activo"
+
+            titulo "12. Aplicações no pm2 e serviços dos outros sites"
+            pm2 list --no-color 2>/dev/null | cut -c1-150 | head -14
+            systemctl is-active basededadosagro-site 2>/dev/null | sed 's/^/basededadosagro-site: /'
+            echo "disco: $(df -h / | awk 'NR==2{print $5" usado de "$2}')"

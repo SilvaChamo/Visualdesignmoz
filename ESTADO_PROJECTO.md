@@ -1,4 +1,7 @@
-# Estado do projecto — VisualDesign (auditoria de 22/10/2026, actualizado a 26/10/2026)
+# Estado do projecto — VisualDesign (auditoria de 22/10/2026, actualizado a 27/10/2026)
+
+> **O Hetzner já está fechado** (servidor desligado a 19/10/2026; só falta cancelar a conta do balde de ficheiros). Nada depende dele.
+> O que falta para fechar, ponto a ponto, está em `docs/AUDITORIA_FECHO_PROJECTO.md`.
 
 ## Em produção
 - Site e painel no **Contabo** (Hestia), publicados por cada merge em `main`. Hetzner (servidor) desligado.
@@ -24,15 +27,15 @@
    **Decisão do Silva (26/10/2026): não é preciso listar o que mais existe no balde.** Se nada está ligado a ele e tudo funciona (`verificar` dá 0 links e 0
    ficheiros em falta), não falta nada: a conta do Hetzner pode ser cancelada. Cópias antigas em `/root` que ainda o mencionam (`backup_sync_20261012`,
    `backups-removidos`, `vh-passagens`, `aamihe-contabo-prewipe-20260906`) são cópias de segurança e não ligam nada ao balde.
-6. **PRs abertos** (26/10/2026): #180 (Next 16.1 → 16.4.3, corrige o alerta crítico do GitHub) e #181 (nodemailer 8 → 10, o transporte do Brevo) pedem
-   teste antes de juntar; **#3 repõe o basededadosagro.com em `domain_renewals` (escrita na base de dados, só com o OK do Silva) — nunca fechar**.
+6. **PRs abertos** (27/10/2026): o Next (16.4.3) e o nodemailer (10) já estão actualizados e publicados (os antigos #180 e #181 já não estão abertos);
+   **#3 repõe o basededadosagro.com em `domain_renewals` (escrita na base de dados, só com o OK do Silva) — nunca fechar**.
 7. **Quota do pacote `VD-Email-Basico` no Hestia** (o PR #105 só corrige o ficheiro do site).
 8. **Gestores (`manager`)** nas rotas `/api/da` e `/api/server-exec`: bloqueados (seguro) mas incompletos; testar com conta real.
 9. **Telemóvel**: ecrãs varridos a 320, 390, 980 e 1280 px (#191, 26/10/2026); falta a aprovação do Silva.
 10. **Referências ao Hetzner**: restam comentários em `src/lib` e `src/app/api` a explicar os ramos DirectAdmin ainda no código. Só desaparecem
     removendo esses ramos (trabalho à parte).
 11. **Bloqueio de login (26/10/2026)**: ligado no código (5 falhadas → 15 min, aviso numa linha). A tabela e as funções foram criadas na base de dados a
-    26/10 (`scripts/migrate-login-rate-limit.sql`; testado: a 6.ª tentativa bloqueia 15 min e a chave pública não tem acesso). Falta publicar e confirmar
+    26/10 (`scripts/migrate-login-rate-limit.sql`; testado: a 6.ª tentativa bloqueia 15 min e a chave pública não tem acesso). Publicado; falta confirmar
     em produção que o 6.º erro seguido devolve 429.
 12. **Período de recuperação das renovações (26/10/2026)**: 30 dias depois do fim do prazo, com o serviço suspenso; o cliente é avisado no dia da
     suspensão, a meio e nos últimos dias (`src/lib/recuperacao-renovacao.ts`, chamado pelo cron `renewal-check`).
@@ -66,3 +69,10 @@ Hetzner). O repositório é privado; decidido a 22/10/2026 não as mudar, para n
 ## Arquivo
 Notas e scripts antigos (Gmail/SMTP, DKIM, planos de 2026) estão em `docs/arquivo/` e `scripts/arquivo/`.
 Auditoria de segurança do painel: `docs/AUDITORIA_PAINEL_PLANO_CORRECAO.md`.
+
+## 27/10/2026 — auditoria de fecho (resumo do que mudou)
+- Rotas protegidas: `get-all-contacts`, `migrate-contacts` e `check-smtp-config` só com administrador (a primeira também com `CRON_SECRET`); rotas do fornecedor antigo (`mozserver-proxy`, `whmcs-proxy`) apagadas, com a chave que tinham no código.
+- Limite de pedidos (`src/lib/limite-pedidos.ts`) em `auth/reset-password`, `submit-ticket` e `domain-check`; `submit-ticket` escapa o HTML dos e-mails.
+- Regras num único ficheiro (`regras.md`; `AGENTS.md` só como porta de entrada). Nunca nomear o fornecedor do servidor.
+- Verificação em cada PR (`.github/workflows/verificar-pr.yml`): tipos e traduções do site e do painel. Painel e site com 0 textos sem inglês.
+- Lockfile regenerado com o Node 24 (`npm ci` volta a funcionar).
