@@ -17,12 +17,23 @@ export function BarrasDa() {
   );
 }
 
-/** Página inteira com as barras ao centro, no fundo e na cor do tema da conta (o do cookie, se o servidor o tiver) */
+/** Roda como a do DA (medida no vídeo do Silva): um arco que cresce e encolhe enquanto gira */
+export function Roda({ tamanho, traco, grande }: { tamanho: number; traco: number; grande?: boolean }) {
+  const meio = tamanho / 2;
+  return (
+    <svg className={'ent-roda' + (grande ? ' grande' : '')} width={tamanho} height={tamanho} viewBox={`0 0 ${tamanho} ${tamanho}`} aria-hidden>
+      <circle cx={meio} cy={meio} r={meio - traco / 2} fill="none" strokeWidth={traco} pathLength={100} />
+    </svg>
+  );
+}
+
+/** Página inteira com a roda ao centro (a de quem entra directamente pelo endereço do painel), no fundo e na cor do tema da conta
+ *  (o do cookie, se o servidor o tiver) */
 export function CarregadorDa({ tema }: { tema?: TemaConta | null }) {
   const estilo = tema ? ({ '--red': getThemeColors(tema.colorPreset, tema.customPrimary, tema.themeOver[tema.colorPreset]).primary } as CSSProperties) : undefined;
   return (
-    <div className="vh vh-carga" data-theme={tema?.theme || 'light'} style={estilo}>
-      <BarrasDa />
+    <div className="vh vh-carga" data-theme={tema?.theme || 'light'} style={estilo} role="status" aria-label="A abrir o painel">
+      <Roda tamanho={97} traco={10} grande />
     </div>
   );
 }

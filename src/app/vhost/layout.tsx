@@ -13,6 +13,7 @@ import { versaoBuild } from '@/lib/versao-build';
 import { lerDadosPainel, type LeituraPainel } from '@/lib/vhost-dados-painel';
 import { COOKIE_TEMA, temaDoCookie, type TemaConta } from '@/lib/vhost-tema-conta';
 import { CarregadorDa } from '@/components/vhost/carregador-da';
+import { COOKIE_VIA_SITE } from '@/lib/vhost-cache';
 import { TemaScript } from '@/components/vhost/TemaScript';
 import { TraducaoPainel } from '@/components/vhost/TraducaoPainel';
 
@@ -60,9 +61,22 @@ export default async function VisualHostLayout({ children }: { children: React.R
         },
       }
     : null;
-  // A página sai logo com o carregador do DA (as três barras, no fundo e na cor do tema da conta) e o painel entra no
-  // lugar dele quando os dados chegam: nunca a tela branca ao recarregar (Silva, 16/10/2026). Se chegarem depressa, o
-  // navegador continua a mostrar a página anterior até ao painel e as barras nem se veem.
+  // Entrada pelo login do site (Silva, 27/10/2026): o login já preparou as páginas no navegador (a leitura guardada) enquanto o
+  // formulário processava, por isso o painel abre já, sem esperar pelos dados aqui e sem nenhum carregador (nem barras, nem roda,
+  // nem página em branco). Só quem entra directamente pelo endereço do painel espera, e vê a roda.
+  if (jar.get(COOKIE_VIA_SITE)?.value === '1') {
+    return (
+      <>
+        <VisualHostApp versao={versaoBuild()} dados={null} tema={doCookie?.tema ?? null} />
+        <TraducaoPainel />
+        <TemaScript codigo={temaScript(doCookie?.tema.theme)} />
+        {children}
+      </>
+    );
+  }
+  // A página sai logo com a roda do DA (no fundo e na cor do tema da conta) e o painel entra no
+  // lugar dela quando os dados chegam: nunca a tela branca ao recarregar (Silva, 16/10/2026). Se chegarem depressa, o
+  // navegador continua a mostrar a página anterior até ao painel e a roda nem se vê.
   return (
     <>
       <Suspense fallback={<CarregadorDa tema={doCookie?.tema} />}>

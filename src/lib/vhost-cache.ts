@@ -60,3 +60,28 @@ export function tirarEntrada(): EntradaPainel | null {
     return null;
   }
 }
+
+/** Entrada pelo login do site (Silva, 27/10/2026): o login prepara as páginas enquanto o formulário processa e o painel abre já
+ *  pronto, sem barras, sem página em branco e sem roda. Quem entra directamente pelo endereço do painel vê a roda enquanto o
+ *  conteúdo se prepara. A marca é um cookie de 20 s (o servidor também a lê, para não esperar pelos dados) e sai logo que o painel abre. */
+export const COOKIE_VIA_SITE = 'vh-via-site';
+
+export function marcarViaSite() {
+  try {
+    document.cookie = `${COOKIE_VIA_SITE}=1; path=/; max-age=20; samesite=lax`;
+  } catch {}
+}
+
+export function viaSiteAgora(): boolean {
+  try {
+    return typeof document !== 'undefined' && document.cookie.split('; ').includes(`${COOKIE_VIA_SITE}=1`);
+  } catch {
+    return false;
+  }
+}
+
+export function limparViaSite() {
+  try {
+    document.cookie = `${COOKIE_VIA_SITE}=; path=/; max-age=0`;
+  } catch {}
+}

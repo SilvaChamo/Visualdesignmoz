@@ -8,7 +8,7 @@ import { auth } from '@/lib/supabase-client'
 import { useI18n } from '@/lib/i18n'
 import { googleOAuthUserMessage } from '@/lib/auth-messages'
 import { PUBLIC_PANEL_ENTRY } from '@/lib/panel-origin'
-import { aquecerDadosVhost, marcarEntrada, preCarregarDadosVhost } from '@/lib/vhost-cache'
+import { aquecerDadosVhost, marcarEntrada, marcarViaSite, preCarregarDadosVhost } from '@/lib/vhost-cache'
 import type { UserRole } from '@/lib/user-roles'
 import { CampoFlutuante, OlhoSenha, botaoCls, botaoClaroCls, ligacaoCls, subtituloCls, tituloCls, formularioCls } from '@/components/auth/campos'
 import { authErrorBoxClass } from '@/components/auth/auth-styles'
@@ -57,6 +57,7 @@ function LoginFormInner() {
     // O painel abre sem recarregar a página (pedido do Silva, 13/10/2026): este ecrã fica à vista, com "A entrar…",
     // até o painel aparecer já com os dados lidos acima — sem a página branca com a roda pelo meio
     if (/^\/host(:|%3a)2026(\/|$)/i.test(target)) {
+      marcarViaSite() // o painel abre já pronto, sem barras nem roda (a roda é só de quem entra pelo endereço do painel)
       router.push(target)
       return
     }

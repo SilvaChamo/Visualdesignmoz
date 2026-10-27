@@ -9,7 +9,7 @@ import { BarraPagina, ConsultaPagina, FaixaAbas, PesquisaPagina, TopoCartao, VHC
 import { GLOBAL, LEVELS, MENU, ROLES } from './generated/data';
 import { SEM_MENU } from './menu-contas';
 import { dominioVisivel, type DadosServidor } from './servidor';
-import { CACHE_DADOS_VHOST, apagarDadosVhost, guardarDadosVhost, tirarEntrada } from '@/lib/vhost-cache';
+import { CACHE_DADOS_VHOST, apagarDadosVhost, guardarDadosVhost, limparViaSite, tirarEntrada, viaSiteAgora } from '@/lib/vhost-cache';
 import { idDispositivoPresenca } from '@/lib/vhost-presenca-id';
 import { COOKIE_TEMA, lerTema, valorCookieTema, type TemaConta } from '@/lib/vhost-tema-conta';
 import { translate, type Lang } from './i18n';
@@ -23,7 +23,7 @@ import { PesquisaNaPagina } from './pesquisa-pagina';
 import { useTituloAjustado } from './titulo-ajustado';
 import { PANEL_INACTIVITY_MS, SAIR_POR_INATIVIDADE_ATIVO } from '@/lib/session-inactivity';
 import { BarraTopo, EsperaPagina, atividadeComeca, instalarContador, type Espera } from './carga';
-import { BarrasDa } from './carregador-da';
+import { Roda } from './carregador-da';
 import { ClientSidePanel } from '@/components/vhost/comuns/ClientProductsHub';
 import { useAvisosEncomendas } from './avisos-encomendas';
 import { badgeColors, getThemeColors, hexToRgb, luminancia, type CustomComponents } from './theme';
@@ -358,7 +358,8 @@ function PaginaSlot({ p, oculta, onPronta, registar }: { p: Pagina; oculta: bool
     if (teveConteudo.current) return;
     const vazia = falta.current > 0 || !temConteudo();
     if (!vazia) teveConteudo.current = true;
-    setCarrega(vazia);
+    // quem entrou pelo login do site nunca vê o carregador: o painel já abre preparado (ver vhost-cache.ts)
+    setCarrega(vazia && !viaSiteAgora());
   }, [temConteudo]);
   const verificar = useCallback(() => {
     clearTimeout(timer.current);
@@ -402,7 +403,7 @@ function PaginaSlot({ p, oculta, onPronta, registar }: { p: Pagina; oculta: bool
     () => ({
       comecar: () => {
         falta.current++;
-        if (!teveConteudo.current) setCarrega(true);
+        if (!teveConteudo.current && !viaSiteAgora()) setCarrega(true);
         let feito = false;
         return () => {
           if (feito) return;
@@ -459,7 +460,7 @@ function PaginaSlot({ p, oculta, onPronta, registar }: { p: Pagina; oculta: bool
           {!p.semCartao && !p.home && p.scr.actions && <NoTopoCartao modelo={{ titulo: p.vh.t(tituloDoCartao(p.scr.title)), sub: p.scr.subTitulo ? p.vh.t(p.scr.subTitulo) : p.scr.descEl ?? (p.desc || undefined) }}>{p.scr.actions}</NoTopoCartao>}
           {carrega && !oculta && (
             <div className="da-main-card pg-carga">
-              <BarrasDa />
+              <Roda tamanho={64} traco={7} grande />
             </div>
           )}
           </TopoCartao.Provider>
@@ -477,6 +478,12 @@ function PaginaSlot({ p, oculta, onPronta, registar }: { p: Pagina; oculta: bool
 export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSessao = false }: { versao?: string; dados?: DadosServidor | null; tema?: TemaConta | null; semSessao?: boolean }) {
   // conta os pedidos ao site para a linha de carregamento do topo (antes de o painel pedir os dados)
   useState(() => instalarContador());
+  // a marca da entrada pelo login do site (cookie de 20 s) sai passados uns segundos: depois disso, as páginas voltam a mostrar o carregador normal
+  useEffect(() => {
+    if (!viaSiteAgora()) return;
+    const t = setTimeout(limparViaSite, 8000);
+    return () => clearTimeout(t);
+  }, []);
   const { lang: langSite, setLang: definirLangSite } = useI18n();
   const { theme: temaGlobal, system: temaAutomatico, setTheme: definirTemaGlobal, followSystem: seguirAparelho } = useTheme();
   const pathname = usePathname() || BASE;
@@ -934,7 +941,7 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
     };
     const onClick = (e: MouseEvent) => {
       const el = e.target as Element | null;
-      if (!el?.closest?.('#pop') && !el?.closest?.('#acct')) setPop(null);
+      if (!el?.closest?.('#pop') && !el?.closest?.('.rb.lang') && !el?.closest?.('#acct')) setPop(null);
     };
     document.addEventListener('keydown', onKey);
     document.addEventListener('click', onClick);
@@ -1558,6 +1565,10 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
                   <i className="fa-solid fa-folder-open" />
                 </div>
               )}
+              <div className="rb lang" title={t('Idioma')} onClick={(e) => openPop('lang', e.currentTarget)}>
+                <i className="fa-solid fa-globe" />
+                <b>{st.lang.toUpperCase()}</b>
+              </div>
               <div className="rb" title={t('Pesquisar funcionalidades (Ctrl+K)')} onClick={openSearch}>
                 <i className="fa-solid fa-magnifying-glass" />
               </div>
@@ -1825,6 +1836,18 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
 
         {/* Pequenos menus da barra de ícones (idioma) e da conta */}
         <div className={'pop' + (pop ? ' on' : '')} id="pop" style={pop ? { left: pop.left, top: pop.top, bottom: pop.bottom } : undefined}>
+          {pop?.kind === 'lang' &&
+            (
+              [
+                ['pt', 'Português'],
+                ['en', 'English'],
+              ] as const
+            ).map(([k, label]) => (
+              <a key={k} onClick={() => vh.setLang(k)}>
+                <span>{label}</span>
+                {st.lang === k && <i className="fa-solid fa-check" />}
+              </a>
+            ))}
           {pop?.kind === 'conta' && (
             <>
               <div className="pop-acct">

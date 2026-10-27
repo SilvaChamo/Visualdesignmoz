@@ -162,6 +162,19 @@ sessão: retomar sempre em português. Vale para qualquer IA (está repetido em 
    responder "OK".
    O `rm -rf .next` apaga a cache do servidor local antes de arrancar (uma cache velha depois de mudar de ramo fazia o
    site local piscar e não abrir — Silva, 14/10/2026); a primeira página demora um pouco mais a compilar.
+   **Actualizar não pára nada** (Silva, 27/10/2026: "o site online não pode se desligar porque está a actualizar… nem o servidor local pode parar… nem se pode ver que o site está a ser actualizado"):
+   o comando por omissão **não fecha o servidor local nem apaga o `.next`** — muda de ramo e o `next dev` apanha as mudanças sozinho (a página recarrega, sem paragem); só faz `npm install` se o
+   `package-lock.json` mudou; só liga o servidor se a porta 3003 estiver parada. A lógica está em `scripts/atualizar-local.sh` (o mesmo de `npm run atualizar`), por isso o comando que se
+   dá ao Silva é **curto, numa linha** (trocar `RAMO` e o caminho da página; vai buscar o script ao próprio ramo, para funcionar mesmo que a pasta local ainda não o tenha):
+   ```
+   git fetch -q origin RAMO && bash <(git show origin/RAMO:scripts/atualizar-local.sh) RAMO /CAMINHO
+   ```
+   O comando completo acima (fecha, apaga a cache e liga) fica só para quando o servidor está encravado ou não responde, e diz-se ao Silva porquê. Nunca dar o modelo gigante por omissão.
+   Online já é assim: o deploy constrói no GitHub, põe a versão nova numa pasta à parte e o `pm2 reload visualdesignmoz` só troca quando a nova já escuta (sem ecrã branco, ver `deploy-contabo.yml`);
+   nenhuma alteração ao deploy pode introduzir paragem, `pm2 restart` ou `rm -rf .next` na pasta em uso.
+6b. **Um único ramo até o Silva dizer «publica»** (Silva, 27/10/2026: «todos os assuntos que eu te peço para fazer coloque no mesmo ramo até eu dizer publique»; «costuma fazer tudo num único ramo para não termos que passar por isso»).
+   Todos os pedidos de uma sessão vão para o mesmo ramo, um commit por assunto, sem criar um ramo novo por pedido (isso obrigava o Silva a actualizar o computador ramo a ramo). O ramo tem nome em
+   português com a acção principal (regra n.º 1) e é o único que se dá nos comandos de actualizar localmente. **Ao terminar cada assunto, faz-se commit e envia-se para esse ramo (push) e deixa-se lá** — sem pedir licença e sem publicar (Silva, 27/10/2026: «quando terminar um assunto, commitar e deixar»). Só se publica (PR e merge) quando o Silva disser «publica», e publica-se esse ramo inteiro.
 7. **As publicações não levam o nome da inteligência artificial** (Silva, 16/10/2026). O título do merge em
    `main` fica só `Merge pull request #N from SilvaChamo-<fim do ramo>` — de preferência o mais
    curto, ex.: `Merge pull request #86 from SilvaChamo-51l13p`; no máximo `Merge pull request #86 from

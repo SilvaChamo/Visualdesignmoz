@@ -11501,13 +11501,14 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    padding-top: calc(2px * var(--z, 1));
 }
 
-/* Menu da barra lateral esquerda mais pequeno (Silva, 20/10/2026): categorias 16 -> 15 px, páginas 14 -> 13 px. */
+/* Menu da barra lateral esquerda mais pequeno (Silva, 20/10/2026): categorias 16 -> 15 px, páginas 14 -> 13 px.
+   Mais um pouco (Silva, 27/10/2026: «reduza ligeiramente»): categorias 14,5 px, páginas 12,5 px. */
 .vh .side .grp {
-   font-size: calc(15px * var(--fs, 1))
+   font-size: calc(14.5px * var(--fs, 1))
 }
 
 .vh .side a {
-   font-size: calc(13px * var(--fs, 1))
+   font-size: calc(12.5px * var(--fs, 1))
 }
 
 /* Títulos das colunas em texto normal, sem maiúsculas (Silva, 20/10/2026). */
@@ -15050,4 +15051,17 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    min-width: calc(28px * var(--z, 1));
    padding: 0 calc(8px * var(--z, 1));
    white-space: nowrap
+}
+
+/* Barra lateral direita: o título de cada cartão fica sempre numa só linha (Silva, 27/10/2026: "não quero duas linhas no título da
+   barra lateral direita"). O tamanho da letra não se mexe (Silva, 27/10/2026: «a fonte aumentou, reponha»); se o título não couber, corta com
+   reticências em vez de quebrar a linha — o nome completo vê-se ao passar o rato. */
+.vh .cols-side .tool > div {
+   min-width: 0
+}
+
+.vh .cols-side .tool b {
+   white-space: nowrap;
+   overflow: hidden;
+   text-overflow: ellipsis
 }
