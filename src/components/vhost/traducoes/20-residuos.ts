@@ -52,4 +52,7 @@ export const residuos: Record<string, string> = {
  "Excelente": "Excellent",
  "Registador actual": "Current registrar",
  "Veja o nosso guia sobre como transferir um domínio": "See our guide on how to transfer a domain",
+ "Esconder motivo": "Hide reason",
+ "Motivo da Rejeição": "Reason for rejection",
+ "Sem motivo indicado.": "No reason given.",
 };
