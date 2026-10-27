@@ -1,25 +1,34 @@
-#!/bin/bash
-# Actualiza o projecto local e volta a pôr o servidor a correr, num só comando (Silva, 24/10/2026).
-#   bash scripts/atualizar-local.sh            → actualiza o ramo em que está
-#   bash scripts/atualizar-local.sh <ramo>     → muda para esse ramo e actualiza
-# Pára sozinho o servidor que estiver na porta 3003, instala dependências só se mudaram e arranca o `npm run dev`.
-set -e
-cd "$(dirname "$0")/.."
-
+#!/usr/bin/env bash
+# Actualiza o projecto local para um ramo do GitHub SEM parar o servidor (Silva, 27/10/2026: "nem o servidor local pode parar").
+# Uso (dentro da pasta visualdesign-producao):  bash scripts/atualizar-local.sh [RAMO] [/caminho-da-pagina]
+# Sem RAMO, actualiza o ramo em que está. Também corre com `npm run atualizar`.
+# Guarda à parte o que estiver por gravar (git stash, recupera-se com `git stash pop`), põe a pasta no ramo, só faz `npm install`
+# se o package-lock.json mudou, só liga o servidor (porta 3003) se estiver parado, e recarrega a aba do Chrome que já tiver
+# o localhost:3003 aberto (se não houver, abre a pré-visualização de computador e telemóvel).
+set -u
+cd "$(git rev-parse --show-toplevel)" || exit 1
 RAMO="${1:-$(git rev-parse --abbrev-ref HEAD)}"
-git fetch origin "$RAMO"
-[ "$(git rev-parse --abbrev-ref HEAD)" = "$RAMO" ] || git checkout "$RAMO"
+CAMINHO="${2:-/}"
 
-ANTES="$(git rev-parse HEAD)"
-git pull --ff-only origin "$RAMO"
+git stash -u -m "antes de $RAMO"
+ANTES=$(git rev-parse HEAD:package-lock.json 2>/dev/null)
+git fetch origin "$RAMO" && git checkout -B "$RAMO" "origin/$RAMO" || { echo "Não consegui passar para o ramo $RAMO."; exit 1; }
+[ "$ANTES" = "$(git rev-parse HEAD:package-lock.json 2>/dev/null)" ] || npm install || exit 1
 
-# dependências: só quando o package-lock mudou (ou ainda não há node_modules)
-if [ ! -d node_modules ] || ! git diff --quiet "$ANTES" HEAD -- package-lock.json; then
-  npm install
+if ! lsof -ti tcp:3003 -sTCP:LISTEN >/dev/null; then
+  (nohup npm run dev > /tmp/visualdesign-dev.log 2>&1 &)
 fi
+for _ in $(seq 90); do
+  [ "$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "http://localhost:3003$CAMINHO")" != "000" ] && break
+  sleep 1
+done
 
-# pára o servidor que já estiver a correr na 3003 e começa de novo, com a cache limpa
-PIDS="$(lsof -ti tcp:3003 2>/dev/null || true)"
-[ -z "$PIDS" ] || kill $PIDS 2>/dev/null || true
-rm -rf .next
-exec npm run dev
+RECARREGOU=$(osascript \
+  -e 'set achou to false' \
+  -e 'if application "Google Chrome" is running then' \
+  -e 'tell application "Google Chrome"' \
+  -e 'repeat with w in windows' -e 'repeat with t in tabs of w' \
+  -e 'if URL of t contains "localhost:3003" then' -e 'reload t' -e 'set achou to true' -e 'end if' \
+  -e 'end repeat' -e 'end repeat' -e 'end tell' -e 'end if' -e 'return achou' 2>/dev/null)
+[ "$RECARREGOU" = "true" ] || open "http://localhost:3003/dev-preview-telemovel?p=$CAMINHO"
+echo "Pronto: $RAMO em http://localhost:3003$CAMINHO (mensagens do servidor em /tmp/visualdesign-dev.log)"
