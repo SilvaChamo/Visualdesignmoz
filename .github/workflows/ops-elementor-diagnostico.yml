@@ -101,6 +101,25 @@ jobs:
             echo "--- a pré-visualização traz a marca do Elementor? (conta de 'elementor' no HTML; 0 = a página não foi desenhada pelo tema/Elementor)"
             curl -sk -m 60 --resolve "$DOMINIO:443:$IPSITE" "https://$DOMINIO/?elementor-preview=1&ver=1" | grep -oiE 'elementor|Access Denied|Forbidden|Fatal error|maintenance' | sort | uniq -c | head -n 6
             echo
+            echo "=== cabeçalhos da pré-visualização (o editor mostra o site numa moldura: X-Frame-Options DENY ou CSP frame-ancestors a bloqueiam)"
+            curl -skI -m 40 --resolve "$DOMINIO:443:$IPSITE" "https://$DOMINIO/?elementor-preview=1&ver=1" | tr -d '\r' | grep -iE '^(HTTP|server|x-frame-options|content-security-policy|x-content-type|referrer-policy|cache-control|location|x-powered-by|x-cache|set-cookie)' | sed -E 's/(set-cookie: [^=]*)=.*/\1=***/I' | cut -c1-220
+            echo "--- o mesmo vindo da internet (Cloudflare à frente? cf-ray / cf-cache-status / server):"
+            curl -sI -m 40 "https://$DOMINIO/" | tr -d '\r' | grep -iE '^(HTTP|server|cf-ray|cf-cache-status|x-frame-options|content-security-policy|via)' | cut -c1-200
+            echo "--- onde há X-Frame-Options / frame-ancestors na configuração (nginx, apache, conf do site, modelos):"
+            grep -rnE 'X-Frame-Options|frame-ancestors' /etc/nginx /etc/apache2 "/home/$CONTA/conf/web/$DOMINIO" /usr/local/hestia/data/templates/web 2>/dev/null | cut -c1-200 | head -n 12
+            echo "--- cabeçalhos postos pelo WordPress/plugins no PHP (mu-plugins e plugins do site):"
+            grep -rlE "X-Frame-Options|frame-ancestors" "$RAIZ/wp-content/mu-plugins" "$RAIZ/wp-content/plugins" 2>/dev/null | head -n 8
+            echo
+            echo "=== Redis (cache de objectos do WordPress): responde? memória?"
+            redis-cli ping 2>&1 | head -n 1
+            redis-cli info memory 2>/dev/null | grep -E 'used_memory_human|maxmemory_human|maxmemory_policy' | head -n 3
+            [ -x "$WP" ] && sudo -u "$CONTA" "$WP" --path="$RAIZ" --skip-plugins --skip-themes redis status 2>&1 | head -n 8
+            echo
+            echo "=== páginas com redirecionamentos ou código próprio (as que o editor abre mas não são só Elementor): o conteúdo contém shortcode/PHP?"
+            for id in 16688 17577 18016; do
+              sudo -u "$CONTA" "$WP" --path="$RAIZ" --skip-plugins --skip-themes post get "$id" --field=post_content 2>/dev/null | head -c 300 | tr '\n' ' ' | sed -E "s/^/  #$id conteúdo: /"; echo
+            done
+            echo
             echo "=== ModSecurity: regras que dispararam neste site (últimas 24 h, por número da regra)"
             for L in /var/log/apache2/domains/"$DOMINIO".error.log /var/log/apache2/domains/"$DOMINIO".log; do
               [ -f "$L" ] && echo "(registo: $L)" && grep -a 'ModSecurity' "$L" | tail -n 4000 | grep -aoE '\[id "[0-9]+"\]' | sort | uniq -c | sort -rn | head -n 10
