@@ -10,7 +10,7 @@ import { useVH, type VH, TopoCartao } from '../context';
 import type { ScreenFn } from '../screens';
 import { DESC, MENU } from '../generated/data';
 import { pacoteDe } from '../state';
-import { EMAIL_PLANS, emailPlanByProductName } from '@/lib/email-plans';
+import { emailPlanOfPackages } from '@/lib/email-plans';
 import { Stat } from '../ui';
 import { Check, DataTable, MaisOpcoes, novaSenha, Senha, Switch, Tabs } from './componentes';
 import { Confirmar } from './pacotes';
@@ -574,11 +574,11 @@ function ContasLista() {
   const enviados = todasRows.reduce((n, c) => n + c.enviadosHoje, 0);
   const cheias = todasRows.filter((c) => c.quotaMb > 0 && c.usadoMb / c.quotaMb > 0.8).length;
   const lim = pacoteDe(vh.s, vh.me)?.lim.emails;
-  const planoEmail = [vh.a.hpkg, vh.a.pkg]
-    .map((nome) => EMAIL_PLANS.find((p) => p.hestiaPackage.toLowerCase() === String(nome || '').toLowerCase()) || emailPlanByProductName(nome))
-    .find((p) => p !== undefined);
+  const planoEmail = emailPlanOfPackages(vh.a.hpkg, vh.a.pkg);
   const max = planoEmail ? planoEmail.accounts : !lim || lim.unl ? null : Number(lim.v) || null;
-  const totalContas = vh.a.mails.length;
+  // os outros domínios vêm da leitura geral do painel; o domínio aberto, da leitura desta página (mais recente)
+  const outrosMails = vh.a.mails.filter((mail) => mail.dom !== d);
+  const totalContas = outrosMails.length + info.caixas.length;
   const diferencaContas = max === null ? null : max - totalContas;
   const detalheContas = max === null
     ? 'Sem limite de contas no plano'
@@ -586,6 +586,8 @@ function ContasLista() {
       ? `${max} contas no plano · limite ultrapassado por ${Math.abs(diferencaContas)}`
       : `${max} contas no plano · ${diferencaContas ?? 0} restantes`;
   const limitePlanoMb = planoEmail ? planoEmail.storageGb * 1024 : null;
+  // o plano conta o espaço de todas as caixas da conta (todos os domínios), não só as do domínio escolhido
+  const usadoConta = outrosMails.reduce((n, mail) => n + mail.used, 0) + info.caixas.reduce((n, c) => n + c.usadoMb, 0);
   const quotaMaximaMb = limitePlanoMb === null ? null : Math.max(0, limitePlanoMb - vh.a.mails
     .filter((mail) => !quotaEdit || mail.user !== quotaEdit.user || mail.dom !== d)
     .reduce((soma, mail) => soma + Math.max(1, Math.ceil(mail.used / 0.8)), 0));
@@ -621,7 +623,13 @@ function ContasLista() {
           m={detalheContas}
           p={max === null ? 0 : pct(totalContas, max)}
         />
-        <Stat title="Espaço usado" uso v={mb(usado)} m="em todas as caixas" p={pct(usado, rows.reduce((n, c) => n + c.quotaMb, 0))} />
+        <Stat
+          title="Espaço usado"
+          uso
+          v={mb(usadoConta)}
+          m={limitePlanoMb === null ? 'em todas as caixas' : t('de {0} do plano').replace('{0}', mb(limitePlanoMb))}
+          p={limitePlanoMb === null ? pct(usado, todasRows.reduce((n, c) => n + c.quotaMb, 0)) : pct(usadoConta, limitePlanoMb)}
+        />
         <Stat title="Envios hoje" v={enviados} m="mensagens enviadas" p={0} />
         <Stat title="Caixas quase cheias" v={cheias} m="acima de 80%" p={cheias * 20} cor={cheias === 0 ? corUso(0) : cheias < 3 ? corUso(70) : corUso(100)} />
       </div>

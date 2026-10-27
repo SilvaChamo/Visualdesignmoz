@@ -808,6 +808,7 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
   // 20 e 30 s até chegar uma desta hora. O conteúdo fica à vista e só muda quando chega o novo (nunca tela branca).
   const releitura = useRef<{ n: number; timer?: ReturnType<typeof setTimeout> }>({ n: 0 });
   const carregarRef = useRef<() => void>(() => {});
+  const ultimaAssinatura = useRef('');
   const relerSeVelha = useCallback((d: DadosServidor) => {
     clearTimeout(releitura.current.timer);
     if ((d.idadeMs ?? 0) <= 60_000) {
@@ -912,7 +913,13 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
         const d = j as DadosServidor;
         renovouSessao.current = false;
         guardarCache(d);
-        aplicar(d);
+        // leitura igual à que já está no ecrã (só mudou a idade): não se redesenha o painel — era o "piscar" a cada releitura
+        const { idadeMs: _idade, lidoEm: _lido, ...conteudo } = d;
+        const assinatura = JSON.stringify(conteudo);
+        if (!(ref.current.carga === 'ok' && assinatura === ultimaAssinatura.current)) {
+          ultimaAssinatura.current = assinatura;
+          aplicar(d);
+        }
         relerSeVelha(d);
       } catch {
         if (ref.current.carga === 'ok') return; // o painel já está à vista (última leitura): fica como está

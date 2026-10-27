@@ -60,3 +60,13 @@ export function emailPlanByProductName(name: string | null | undefined): EmailPl
 export function isEmailPlanPackage(name: string | null | undefined): boolean {
   return Boolean(emailPlanByProductName(name));
 }
+
+/** Plano de e-mail de uma conta, a partir do pacote do servidor (VD-Email-…) ou do nome do produto (Email …). */
+export function emailPlanOfPackages(...names: Array<string | null | undefined>): EmailPlanDef | undefined {
+  for (const name of names) {
+    const clean = String(name || '').trim().toLowerCase();
+    const plan = EMAIL_PLANS.find((p) => p.hestiaPackage.toLowerCase() === clean) || emailPlanByProductName(name);
+    if (plan) return plan;
+  }
+  return undefined;
+}
