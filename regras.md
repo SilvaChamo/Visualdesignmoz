@@ -164,11 +164,12 @@ sessão: retomar sempre em português. Vale para qualquer IA (está repetido em 
    site local piscar e não abrir — Silva, 14/10/2026); a primeira página demora um pouco mais a compilar.
    **Actualizar não pára nada** (Silva, 27/10/2026: "o site online não pode se desligar porque está a actualizar… nem o servidor local pode parar… nem se pode ver que o site está a ser actualizado"):
    o comando por omissão **não fecha o servidor local nem apaga o `.next`** — muda de ramo e o `next dev` apanha as mudanças sozinho (a página recarrega, sem paragem); só faz `npm install` se o
-   `package-lock.json` mudou; só liga o servidor se a porta 3003 estiver parada. O comando completo acima (fecha, apaga a cache e liga) fica só para quando o servidor está encravado ou não responde,
-   e diz-se ao Silva porquê. Modelo por omissão (trocar `RAMO` e o caminho da página):
+   `package-lock.json` mudou; só liga o servidor se a porta 3003 estiver parada. A lógica está em `scripts/atualizar-local.sh` (o mesmo de `npm run atualizar`), por isso o comando que se
+   dá ao Silva é **curto, numa linha** (trocar `RAMO` e o caminho da página; vai buscar o script ao próprio ramo, para funcionar mesmo que a pasta local ainda não o tenha):
    ```
-   git stash -u -m "antes de RAMO"; ANTES=$(git rev-parse HEAD:package-lock.json); git fetch origin RAMO && git checkout -B RAMO origin/RAMO && { [ "$ANTES" = "$(git rev-parse HEAD:package-lock.json)" ] || npm install; } && { lsof -ti tcp:3003 -sTCP:LISTEN >/dev/null || (nohup npm run dev > /tmp/visualdesign-dev.log 2>&1 &); } && { for i in $(seq 90); do [ "$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 'http://localhost:3003/CAMINHO')" != "000" ] && break; sleep 1; done; [ "$(osascript -e 'set achou to false' -e 'if application "Google Chrome" is running then' -e 'tell application "Google Chrome"' -e 'repeat with w in windows' -e 'repeat with t in tabs of w' -e 'if URL of t contains "localhost:3003" then' -e 'reload t' -e 'set achou to true' -e 'end if' -e 'end repeat' -e 'end repeat' -e 'end tell' -e 'end if' -e 'return achou' 2>/dev/null)" = "true" ] || open "http://localhost:3003/dev-preview-telemovel?p=/CAMINHO"; }
+   git fetch -q origin RAMO && bash <(git show origin/RAMO:scripts/atualizar-local.sh) RAMO /CAMINHO
    ```
+   O comando completo acima (fecha, apaga a cache e liga) fica só para quando o servidor está encravado ou não responde, e diz-se ao Silva porquê. Nunca dar o modelo gigante por omissão.
    Online já é assim: o deploy constrói no GitHub, põe a versão nova numa pasta à parte e o `pm2 reload visualdesignmoz` só troca quando a nova já escuta (sem ecrã branco, ver `deploy-contabo.yml`);
    nenhuma alteração ao deploy pode introduzir paragem, `pm2 restart` ou `rm -rf .next` na pasta em uso.
 7. **As publicações não levam o nome da inteligência artificial** (Silva, 16/10/2026). O título do merge em
