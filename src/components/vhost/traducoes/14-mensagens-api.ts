@@ -66,6 +66,7 @@ export const mensagens_api: Record<string, string> = {
  "E-mail de contacto inválido.": "Invalid contact e-mail.",
  "O servidor recusou o nome: {0}. Nada foi gravado.": "The server refused the name: {0}. Nothing was saved.",
  "Não autorizado": "Not authorised",
+ "A sua sessão expirou. Entre novamente para realizar esta acção.": "Your session has expired. Sign in again to do this.",
  "Registo do site indisponível.": "Website record unavailable.",
  "Códigos de recuperação indisponíveis neste servidor.": "Recovery codes unavailable on this server.",
  "Demasiadas tentativas. Tente novamente daqui a 15 minutos.": "Too many attempts. Try again in 15 minutes.",

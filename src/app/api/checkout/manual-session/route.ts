@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { resolveCartItems, toValidatedCartItems, type CatalogCartItem } from '@/lib/package-catalog';
-import { notifyQuoteTeam } from '@/lib/notify-quote-team';
 import { isProfileWhoisComplete } from '@/lib/profile-db';
 import { promoteBuyerAfterPurchase } from '@/lib/checkout-fulfillment';
 import { resolveCheckoutActor } from '@/lib/checkout-actor';
@@ -98,16 +97,8 @@ export async function POST(request: NextRequest) {
       console.error('[checkout/manual-session] promoteBuyerAfterPurchase falhou:', err);
     }
 
-    const quemPaga = actor.impersonating
-      ? `${user.email} (em nome de ${actor.impersonatedLabel})`
-      : user.email;
-    notifyQuoteTeam({
-      title: 'Novo pedido de pagamento manual (checkout)',
-      message: `${quemPaga} quer pagar ${resolved.map((r) => r.item.name).join(', ')} (${totalMt} MT) via ${
-        metodoPagamento === 'mpesa' ? 'M-Pesa' : 'Transferência Bancária'
-      }. Fica a aguardar comprovativo e confirmação da equipa.`,
-      link: `${process.env.NEXT_PUBLIC_SITE_URL || ''}/admin`,
-    }).catch((err) => console.error('[checkout/manual-session] falha ao notificar equipa:', err));
+    // A equipa só é avisada quando o comprovativo chega (ver /api/checkout/[id]/comprovativo): até lá o
+    // cliente ainda não pagou e não há nada para confirmar.
 
     return NextResponse.json({ success: true, session });
   } catch (error: unknown) {

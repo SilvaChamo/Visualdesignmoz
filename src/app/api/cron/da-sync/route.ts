@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
   }
 
   if (auth !== `Bearer ${secret}`) {
-    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+    return NextResponse.json({ error: 'A sua sessão expirou. Entre novamente para realizar esta acção.' }, { status: 401 });
   }
 
   if ((process.env.DEFAULT_HOSTING_PROVIDER || '').trim().toLowerCase() === 'hestia') {

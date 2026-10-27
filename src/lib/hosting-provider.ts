@@ -114,7 +114,7 @@ export async function deleteHostingWebDomain(
   domain: string,
 ): Promise<{ ok: boolean; error?: string }> {
   if (provider === 'hestia') return hestiaAdapter.deleteWebDomain(username, domain);
-  return { ok: false, error: 'Eliminação de site individual ainda não implementada para DirectAdmin.' };
+  return { ok: false, error: 'Esta função ainda não está implementada.' };
 }
 
 export async function changeHostingAccountPassword(

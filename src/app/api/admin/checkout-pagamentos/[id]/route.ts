@@ -2,7 +2,9 @@ import { NextResponse } from 'next/server';
 import { requireAdminOrReseller } from '@/lib/panel-api-auth';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { fulfillCheckout, HOSTING_DOMAIN_REGEX } from '@/lib/checkout-fulfillment';
-import { deleteHostingWebDomain } from '@/lib/hosting-provider';
+import { deleteHostingWebDomain, getProviderByUsername } from '@/lib/hosting-provider';
+import { dominioProtegido } from '@/lib/overdue-hosting-suspend';
+import { mensagemPublica } from '@/lib/mensagem-publica';
 import { sanitizeDaUsername } from '@/lib/reseller-provision';
 import type { CatalogCartItem } from '@/lib/package-catalog';
 
@@ -165,11 +167,18 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       const siteOwner = await getMirrorSiteOwner(domain);
       const site = siteOwner ? { owner: siteOwner } : null;
 
-      if (site?.owner) {
-        const provider = renewal?.server === 'Hestia' ? 'hestia' : 'directadmin';
+      // Um site que vive na conta principal do servidor, ou num domínio protegido, não foi criado por esta
+      // encomenda (o checkout cria uma conta própria para o cliente): é um site real, nunca se apaga daqui.
+      const contaPrincipal = (process.env.HESTIA_USER || 'vdadmin').trim();
+      const siteReal = !!site?.owner && (site.owner === contaPrincipal || dominioProtegido(domain));
+
+      if (siteReal) {
+        warnings.push(`O site ${domain} é um site real do servidor, não foi criado por esta encomenda; por isso foi mantido. Só apaguei a encomenda e o registo de hospedagem.`);
+      } else if (site?.owner) {
+        const provider = await getProviderByUsername(site.owner);
         const result = await deleteHostingWebDomain(provider, site.owner, domain);
         if (!result.ok) {
-          warnings.push(`Não foi possível remover o site real do servidor (${site.owner}/${domain}): ${result.error}. Confirme manualmente.`);
+          warnings.push(`Não foi possível remover o site do servidor (${site.owner}/${domain}): ${mensagemPublica(result.error, false, 'o servidor não confirmou a remoção')}. Confirme manualmente.`);
         }
         await supabase.from('panel_sites').delete().eq('domain', domain);
       } else {
