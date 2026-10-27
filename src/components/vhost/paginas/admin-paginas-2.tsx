@@ -14,7 +14,7 @@ import { DataTable, Switch, Tabs } from './componentes';
 import { Confirmar } from './pacotes';
 import { Carregando, Sec } from './avancado';
 import { mbTexto } from '../servidor';
-import { ROTA, Resumo, pedir } from './admin-paginas';
+import { ROTA, ROTA_REVENDA, Resumo, pedir } from './admin-paginas';
 
 // ---------- comum ----------
 type Trab = { aCorrer: boolean; registo: string[] };
@@ -1081,6 +1081,41 @@ export const modsecAdminPagina: ScreenFn = () => ({
 const IMP_URL = ROTA + '?ver=importar';
 type Imp = { pasta: string; ficheiros: { nome: string; mb: number; data: string; tipo: 'cpanel' | 'directadmin' }[]; scripts: Record<'cpanel' | 'directadmin', boolean>; trabalho: Trab };
 const ORIGEM: Record<string, string> = { cpanel: 'cPanel', directadmin: 'DirectAdmin' };
+/** Quem pode importar do cPanel: um interruptor por revendedor, tudo desligado até o administrador o ligar (Silva, 27/10/2026) */
+function AutorizarRevendas() {
+  const vh = useVH();
+  const { t } = vh;
+  const revendedores = Object.entries(vh.s.acc).filter(([, a]) => a.role === 'revenda').map(([u, a]) => ({ u, email: a.email }));
+  const { dados, erro, ler } = useGet<{ autorizadas: Record<string, string> }>(ROTA_REVENDA + '?ver=importar-autorizacoes');
+  const mudar = async (conta: string, ligado: boolean) => {
+    try {
+      const r = await fetch(ROTA_REVENDA, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ acao: 'importar-autorizar', conta, ligado }) });
+      const j = (await r.json().catch(() => ({}))) as { erro?: string };
+      if (!r.ok) return vh.toast(j.erro || 'A alteração falhou');
+      vh.toast(ligado ? 'Importação ligada para ' + conta : 'Importação desligada para ' + conta);
+      ler(true);
+    } catch {
+      vh.toast('Sem ligação ao site. Nada foi alterado.');
+    }
+  };
+  return (
+    <Sec titulo="Importar do cPanel nas revendas" desc="Deixe um revendedor trazer as contas que tem num servidor cPanel só quando ele o pedir; depois de importar, desligue. Por defeito está tudo desligado.">
+      {!dados ? (
+        <Carregando erro={erro} ler={ler} />
+      ) : !revendedores.length ? (
+        <p className="pm-desc">{t('Ainda não há revendedores.')}</p>
+      ) : (
+        <div className="em-opcoes">
+          {revendedores.map(({ u, email }) => (
+            <Opcao key={u} titulo={u} sub={email + ' — ' + t(dados.autorizadas[u] ? 'Pode importar' : 'Importação desligada')}>
+              <Switch checked={!!dados.autorizadas[u]} label={t('Pode importar do cPanel') + ' — ' + u} onChange={(v) => void mudar(u, v)} />
+            </Opcao>
+          ))}
+        </div>
+      )}
+    </Sec>
+  );
+}
 function ImportarContas() {
   const vh = useVH();
   const { t } = vh;
@@ -1127,6 +1162,7 @@ function ImportarContas() {
           ))}
         </div>
       </Sec>
+      <AutorizarRevendas />
       <Trabalho tr={dados.trabalho} ler={ler} titulo="A importar" />
     </>
   );

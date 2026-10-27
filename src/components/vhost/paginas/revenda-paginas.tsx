@@ -213,8 +213,10 @@ export const securityTxtRevendaPagina: ScreenFn = () => ({ title: 'Security.txt'
 
 // ---------- Importar do cPanel: as contas que o revendedor tem num servidor cPanel, trazidas para esta revenda ----------
 // (no DirectAdmin: «Importar do cPanel» — lista das importações, «Nova importação» e, no início, as credenciais do servidor remoto.)
-// A ligação a um servidor remoto ainda não está ativa neste servidor: por isso a página diz-o e o botão não envia nada — as credenciais
-// nunca saem do navegador.
+// Só funciona quando o administrador liga o interruptor desta revenda (Admin › Importar contas); por defeito está desligado.
+// Feito: ligar ao servidor remoto e listar as contas (só leitura). Por fazer: copiar as contas escolhidas — escreve-se quando houver o primeiro
+// pedido, com o servidor desse cliente para testar.
+const URL_IMPORTAR = ROTA_REVENDA + '?ver=importar';
 /** Linha de passo (texto à esquerda, etiqueta à direita), como as opções das preferências */
 function Opcao({ titulo, sub, children }: { titulo: string; sub?: string; children: ReactNode }) {
   const { t } = useVH();
@@ -229,10 +231,35 @@ function Opcao({ titulo, sub, children }: { titulo: string; sub?: string; childr
   );
 }
 
-function ImportarCpanel() {
+function AvisoImportacao({ autorizado }: { autorizado: boolean }) {
   const { t } = useVH();
   return (
+    <p className="note">
+      <i className={'fa-solid ' + (autorizado ? 'fa-circle-check' : 'fa-lock')} style={{ color: autorizado ? 'var(--ok)' : 'var(--red)' }} />{' '}
+      {t(autorizado ? 'A importação está ligada na sua revenda. O administrador desliga-a quando terminar.' : 'A importação está desligada na sua revenda. O administrador liga-a quando precisar de importar contas e desliga-a depois.')}
+    </p>
+  );
+}
+
+function BotaoNovaImportacao() {
+  const { t, nav } = useVH();
+  const { dados } = useGet<{ autorizado: boolean }>(URL_IMPORTAR);
+  const ligado = !!dados?.autorizado;
+  return (
+    <button className="btn r" disabled={!ligado} title={ligado ? undefined : t('Desligada: peça ao administrador para a ligar')} onClick={() => nav('/revenda/importar-contas/nova')}>
+      <i className="fa-solid fa-plus" />
+      {t('Nova importação')}
+    </button>
+  );
+}
+
+function ImportarCpanel() {
+  const { t } = useVH();
+  const { dados, erro, ler } = useGet<{ autorizado: boolean }>(URL_IMPORTAR);
+  if (!dados) return <Carregando erro={erro} ler={ler} />;
+  return (
     <>
+      <AvisoImportacao autorizado={dados.autorizado} />
       <Sec titulo="Importações" desc="As contas que traz de um servidor cPanel para esta revenda. Cada importação cria as contas, com os sites, os e-mails e as bases de dados, e deixa-as ligadas a si.">
         <DataTable
           id="rev-cpanel"
@@ -268,15 +295,36 @@ function ImportarCpanel() {
   );
 }
 
+type ContaRemota = { conta: string; dominio: string };
 function NovaImportacaoCpanel() {
   const vh = useVH();
   const { t, nav } = vh;
+  const { dados, erro, ler } = useGet<{ autorizado: boolean }>(URL_IMPORTAR);
   const [f, setF] = useState({ host: '', porta: '22', utilizador: 'root', senha: '' });
+  const [aLer, setALer] = useState(false);
+  const [contas, setContas] = useState<ContaRemota[] | null>(null);
+  const [escolhidas, setEscolhidas] = useState<string[]>([]);
+  if (!dados) return <Carregando erro={erro} ler={ler} />;
+  const ligado = dados.autorizado;
+  const carregar = async () => {
+    setALer(true);
+    try {
+      const r = await fetch(ROTA_REVENDA, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ acao: 'cpanel-contas', host: f.host, porta: Number(f.porta), utilizador: f.utilizador, senha: f.senha }) });
+      const j = (await r.json().catch(() => ({}))) as { contas?: ContaRemota[]; erro?: string };
+      if (!r.ok || !j.contas) return vh.toast(j.erro || 'Não foi possível ler as contas');
+      setContas(j.contas);
+      setEscolhidas([]);
+      // a palavra-passe não fica no ecrã depois de usada
+      setF((x) => ({ ...x, senha: '' }));
+    } catch {
+      vh.toast('Sem ligação ao site. Tente de novo.');
+    } finally {
+      setALer(false);
+    }
+  };
   return (
     <>
-      <p className="note">
-        <i className="fa-solid fa-circle-info" style={{ color: 'var(--red)' }} /> {t('A ligação a servidores cPanel remotos ainda não está ativa neste servidor. Quando estiver, os dados abaixo servem só para esta importação e não ficam guardados.')}
-      </p>
+      <AvisoImportacao autorizado={ligado} />
       <Frm
         title="Credenciais do servidor cPanel remoto"
         desc="O servidor onde estão as contas que quer trazer para a sua revenda"
@@ -285,26 +333,49 @@ function NovaImportacaoCpanel() {
             <button className="btn g" onClick={() => nav('/revenda/importar-contas')}>
               {t('Cancelar')}
             </button>
-            <button className="btn r" disabled title={t('Ainda não está ativo neste servidor')}>
-              <i className="fa-solid fa-cloud-arrow-down" />
+            <button className="btn r" disabled={!ligado || aLer || !f.host || !f.senha || !f.utilizador || !f.porta} onClick={() => void carregar()}>
+              <i className={'fa-solid ' + (aLer ? 'fa-spinner fa-spin' : 'fa-cloud-arrow-down')} />
               {t('Carregar contas')}
             </button>
           </>
         }
       >
         <Row label="Servidor" hint="Endereço (ex.: cpanel.empresa.com ou o IP)">
-          <input value={f.host} onChange={(e) => setF({ ...f, host: e.target.value.trim() })} placeholder="cpanel.empresa.com" autoComplete="off" />
+          <input value={f.host} disabled={!ligado} onChange={(e) => setF({ ...f, host: e.target.value.trim() })} placeholder="cpanel.empresa.com" autoComplete="off" />
         </Row>
         <Row label="Porta" hint="A do SSH, normalmente 22">
-          <input value={f.porta} onChange={(e) => setF({ ...f, porta: e.target.value.replace(/\D/g, '').slice(0, 5) })} inputMode="numeric" autoComplete="off" />
+          <input value={f.porta} disabled={!ligado} onChange={(e) => setF({ ...f, porta: e.target.value.replace(/\D/g, '').slice(0, 5) })} inputMode="numeric" autoComplete="off" />
         </Row>
         <Row label="Utilizador" hint="Normalmente root">
-          <input value={f.utilizador} onChange={(e) => setF({ ...f, utilizador: e.target.value.trim() })} autoComplete="off" />
+          <input value={f.utilizador} disabled={!ligado} onChange={(e) => setF({ ...f, utilizador: e.target.value.trim() })} autoComplete="off" />
         </Row>
-        <Row label="Palavra-passe">
+        <Row label="Palavra-passe" hint="Só é usada para ler as contas; não fica guardada">
           <Senha value={f.senha} onChange={(v) => setF({ ...f, senha: v })} semGerar />
         </Row>
       </Frm>
+      {contas && (
+        <Sec titulo="Contas do servidor" desc="Marque as que quer trazer para a sua revenda.">
+          <DataTable
+            id="rev-cpanel-contas"
+            umaLinha
+            barraFora
+            empilhar="tablet"
+            rows={contas}
+            rowKey={(r) => r.conta}
+            search={(r) => r.conta + ' ' + r.dominio}
+            empty="Nenhuma conta"
+            cols={[
+              { k: 'c', t: 'Conta', sort: (r) => r.conta, cell: (r) => <b>{r.conta}</b> },
+              { k: 'd', t: 'Domínio principal', sort: (r) => r.dominio, cell: (r) => r.dominio },
+            ]}
+            bulk={[{ t: 'Importar', fa: 'fa-file-import', inativo: true, run: (k) => setEscolhidas(k) }]}
+          />
+          <p className="note">
+            <i className="fa-solid fa-circle-info" style={{ color: 'var(--red)' }} /> {t('Falta a cópia das contas escolhidas: ainda não está ligada. Faz-se quando houver o primeiro pedido, com o servidor desse cliente para testar.')}
+            {escolhidas.length ? ' (' + escolhidas.length + ')' : ''}
+          </p>
+        </Sec>
+      )}
     </>
   );
 }
@@ -315,12 +386,7 @@ export const importarCpanelPagina: ScreenFn = (vh) => {
   return {
     title: 'Importar do cPanel',
     desc: 'Traga as contas que tem num servidor cPanel',
-    actions: (
-      <button className="btn r" onClick={() => vh.nav('/revenda/importar-contas/nova')}>
-        <i className="fa-solid fa-plus" />
-        {vh.t('Nova importação')}
-      </button>
-    ),
+    actions: <BotaoNovaImportacao />,
     body: <ImportarCpanel />,
   };
 };
