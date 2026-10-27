@@ -14,7 +14,7 @@ import { CampoFlutuante, OlhoSenha, botaoCls, botaoClaroCls, ligacaoCls, subtitu
 import { authErrorBoxClass } from '@/components/auth/auth-styles'
 
 /** os botões do login têm a mesma altura dos campos (Silva, 27/10/2026) */
-const botaoAlto = (cls: string) => cls.replace('h-[clamp(38px,2.8vw,40px)]', 'h-[clamp(42px,3.2vw,46px)]')
+const botaoAlto = (cls: string) => cls.replace('h-[clamp(38px,2.8vw,40px)]', 'h-[clamp(40px,3.05vw,44px)]')
 
 function LoginFormInner() {
   const [email, setEmail] = useState('')

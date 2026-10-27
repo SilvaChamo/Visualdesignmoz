@@ -74,7 +74,7 @@ export function CampoFlutuante({
         onChange={(e) => onChange(e.target.value)}
         placeholder=" "
         className={
-          (alto ? caixaCls.replace('h-[clamp(38px,2.9vw,42px)]', 'h-[clamp(42px,3.2vw,46px)]') : caixaCls) +
+          (alto ? caixaCls.replace('h-[clamp(38px,2.9vw,42px)]', 'h-[clamp(40px,3.05vw,44px)]') : caixaCls) +
           'placeholder:text-transparent ' +
           (children ? 'px-10 lg:pl-3.5' : '')
         }
