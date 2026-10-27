@@ -263,8 +263,7 @@ function TransferirConteudo() {
   const paraOCarrinho = () => {
     if (!validado || preco === null) return;
     addItem({ id: validado, type: 'domain', name: validado, price: preco, period: 1, authCode: epp.trim() });
-    // o pagamento fica dentro do painel (Domínios › Finalizar compra)
-    vh.nav('/' + vh.s.level + '/dominios/checkout');
+    window.location.href = '/checkout';
   };
 
   const todos = comEncomenda.length > 0 && comEncomenda.every((p) => marcados.has(p.id));

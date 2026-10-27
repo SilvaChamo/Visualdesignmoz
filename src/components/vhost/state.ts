@@ -167,8 +167,7 @@ export const pacoteDe = (s: St, u: string) => {
 const GRUPOS_SEMPRE = ['Início', 'Compras e encomendas', 'Suporte e ajuda'];
 export function fixoNoPlano(pkg: string | undefined, id: string): boolean {
   const p = (pkg || '').toLowerCase();
-  // (Silva, 27/10/2026: o plano de e-mail só tem a página Domínios — adicionar, registar e transferir —, sem as páginas do site)
-  if (p.startsWith('vd-email-')) return id !== 'dominios' && !!MENU.utilizador.find(([g]) => g === 'Gestão de domínios')?.[1].some((it) => it.id === id);
+  if (p.startsWith('vd-email-')) return !!MENU.utilizador.find(([g]) => g === 'Gestão de domínios')?.[1].some((it) => it.id === id);
   if (p === 'vd-dominio') {
     if (id === 'dominios' || id === 'dns') return false;
     return !MENU.utilizador.some(([g, itens]) => GRUPOS_SEMPRE.includes(g) && itens.some((it) => it.id === id));

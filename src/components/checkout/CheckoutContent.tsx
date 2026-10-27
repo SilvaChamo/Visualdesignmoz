@@ -123,12 +123,7 @@ function redirectPathForSession(
 
 /** `painel`: o checkout das encomendas aberto dentro do painel VisualHost (Gestão › Encomendas › Finalizar), sem sair do sítio (Silva, 23/10/2026).
  *  `voltar` leva à página das encomendas (depois de submeter/cancelar); `editar` volta à nova encomenda para mudar os serviços. */
-export type CheckoutPainel = {
-  voltar: () => void;
-  editar: () => void;
-  /** Compra de domínios/serviços do carrinho dentro do painel (Domínios › Finalizar compra), em vez de uma encomenda de design */
-  carrinho?: boolean;
-};
+export type CheckoutPainel = { voltar: () => void; editar: () => void };
 
 export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
   const { items, total, clearCart, updateItemPeriod, removeItem } = useCart();
@@ -142,7 +137,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
   // Encomenda VisualDesign vinda de /cotacao ("Pagar factura") — o mesmo
   // checkout, mas o que se paga é a encomenda guardada no rascunho local (ver
   // src/lib/encomenda-checkout.ts), não o carrinho de domínios/hospedagem.
-  const isEncomenda = Boolean(painel && !painel.carrinho) || searchParams.get('encomenda') === '1';
+  const isEncomenda = Boolean(painel) || searchParams.get('encomenda') === '1';
   // Sempre actualizado (o rascunho só é apagado depois do comprovativo ou de
   // um cancelamento) — voltar atrás no browser nunca perde a encomenda.
   const encomendaDraft = useEncomendaDraft();
@@ -201,10 +196,10 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
   // sempre primeiro para /checkout/dominio (rede de segurança para quem
   // chega aqui directamente, ex. voltar atrás no browser).
   useEffect(() => {
-    if (renewalId || isEncomenda || painel) return;
+    if (renewalId || isEncomenda) return;
     const entry = checkoutEntryPath(items);
     if (entry !== '/checkout') router.replace(entry);
-  }, [items, renewalId, isEncomenda, painel, router]);
+  }, [items, renewalId, isEncomenda, router]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [metodoPagamento, setMetodoPagamento] = useState<MetodoPagamento>('transferencia');
@@ -582,10 +577,6 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
           throw new Error(data.error || 'Não foi possível pagar com o saldo.');
         }
         clearCart();
-        if (painel) {
-          painel.voltar();
-          return;
-        }
         const { data: { session: refreshedSession } } = await supabase.auth.refreshSession();
         router.push(redirectPathForSession(refreshedSession));
         return;
@@ -630,7 +621,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
         setMpesaPassoId(data.session.id);
       }
       restoredPendingIdRef.current = data.session.id;
-      if (!painel) router.replace(`/checkout?pendingId=${data.session.id}`);
+      router.replace(`/checkout?pendingId=${data.session.id}`);
       setStatus('idle');
       setIsSubmitting(false);
       return;
@@ -793,7 +784,6 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
             metodoPagamento={manualSession.metodoPagamento}
             avisoTeste={mpesaAvisoTeste}
             onContinue={async () => {
-              if (painel) return painel.voltar();
               const { data: { session: refreshedSession } } = await supabase.auth.refreshSession();
               router.push(redirectPathForSession(refreshedSession));
             }}
@@ -806,7 +796,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
               Não existem produtos ou domínios prontos para finalização de compra.
             </p>
             <button
-              onClick={() => (painel ? painel.editar() : router.push('/'))}
+              onClick={() => router.push('/')}
               className="bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-md transition-colors"
             >
               Pesquisar Domínio
