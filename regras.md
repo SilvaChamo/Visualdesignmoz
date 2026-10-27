@@ -177,7 +177,7 @@ sessão: retomar sempre em português. Vale para qualquer agente (as regras de b
    ```
    git fetch -q origin RAMO && bash <(git show origin/RAMO:scripts/atualizar-local.sh) RAMO /CAMINHO
    ```
-   **Sempre as duas vistas** (Silva, 27/10/2026: «duas vistas»): a aba que já tiver o `localhost:3003` aberto passa para `/dev-preview-telemovel?p=/CAMINHO` (computador e telemóvel lado a lado) em vez de só recarregar. O comando completo acima (fecha, apaga a cache e liga) fica só para quando o servidor está encravado ou não responde, e diz-se ao Silva porquê. Nunca dar o modelo gigante por omissão.
+   **Sempre as duas vistas, sem recarregar** (Silva, 27/10/2026: «duas vistas»; «aplica só as mudanças no projecto local, sem reload da página»): mudar de ramo chega, o `next dev` põe as alterações na página aberta sozinho (sem recarregar). Uma aba que já esteja em `/dev-preview-telemovel` **não se toca**; uma aba aberta noutra página passa, uma vez, para `/dev-preview-telemovel?p=/CAMINHO` (computador e telemóvel lado a lado); sem aba, abre-se. O comando completo acima (fecha, apaga a cache e liga) fica só para quando o servidor está encravado ou não responde, e diz-se ao Silva porquê. Nunca dar o modelo gigante por omissão.
    Online já é assim: o deploy constrói no GitHub, põe a versão nova numa pasta à parte e o `pm2 reload visualdesignmoz` só troca quando a nova já escuta (sem ecrã branco, ver `deploy-contabo.yml`);
    nenhuma alteração ao deploy pode introduzir paragem, `pm2 restart` ou `rm -rf .next` na pasta em uso.
 6b. **Um único ramo até o Silva dizer «publica»** (Silva, 27/10/2026: «todos os assuntos que eu te peço para fazer coloque no mesmo ramo até eu dizer publique»; «costuma fazer tudo num único ramo para não termos que passar por isso»).
