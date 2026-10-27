@@ -2,8 +2,11 @@
 
 import { useEffect, useState } from 'react'
 import { buildPanelLoginUrl } from '@/lib/panel-origin'
+import { guardarLingua, lerLinguaGuardada } from '@/lib/lingua'
 
 function clearSiteStorage() {
+  // a língua que a pessoa escolheu fica (Silva, 27/10/2026)
+  const lingua = lerLinguaGuardada()
   try {
     localStorage.clear()
     sessionStorage.clear()
@@ -14,13 +17,15 @@ function clearSiteStorage() {
   const names = document.cookie
     .split(';')
     .map((c) => c.split('=')[0]?.trim())
-    .filter(Boolean)
+    .filter((n) => n && n !== 'vd-lang')
 
   for (const name of names) {
     document.cookie = `${name}=; path=/; max-age=0`
     document.cookie = `${name}=; path=/; domain=localhost; max-age=0`
     document.cookie = `${name}=; path=/; domain=.localhost; max-age=0`
   }
+
+  if (lingua) guardarLingua(lingua)
 
   return {
     cookies: names,

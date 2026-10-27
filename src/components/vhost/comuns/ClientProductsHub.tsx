@@ -58,6 +58,7 @@ export function ClientProductsHub({ onNavigate, displayName, sessionUser, onProd
   // null = ainda não sabemos (primeira leitura) — não deve disparar o aviso,
   // só uma leitura seguinte com MAIS produtos activos do que a anterior.
   const previousActiveCountRef = useRef<number | null>(null);
+  const assinaturaRef = useRef('');
 
   const loadProducts = () => {
     fetch('/api/my-products', { credentials: 'include' })
@@ -67,7 +68,12 @@ export function ClientProductsHub({ onNavigate, displayName, sessionUser, onProd
       })
       .then((data) => {
         const nextProducts: UserProductsSummary | null = data.products ?? null;
-        setProducts(nextProducts);
+        // só redesenha se mudou alguma coisa (a sondagem de 6 s não pode fazer o painel piscar)
+        const assinatura = JSON.stringify(nextProducts);
+        if (assinatura !== assinaturaRef.current) {
+          assinaturaRef.current = assinatura;
+          setProducts(nextProducts);
+        }
         setLoadFailed(false);
 
         // A equipa aprovou um pagamento pendente entretanto (M-Pesa/Transferência)

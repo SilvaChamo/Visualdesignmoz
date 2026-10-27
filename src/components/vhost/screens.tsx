@@ -32,6 +32,7 @@ import { ThemeCustomizerView, temaBase } from './paginas/tema';
 import { FEATS, GLOBAL, HX, HX_INFO, LEVELS, LOGIN_AS, MENU, PKGS, REMOVED, ROLE_INFO, ROLE_LEVELS, ROLES } from './generated/data';
 import { findItem, gItem, pacoteDe, route, soDominioDe } from './state';
 import { mbTexto } from './servidor';
+import { emailPlanOfPackages } from '@/lib/email-plans';
 import type { Lim } from './paginas/dados';
 import type { HxState, Level, MenuItem, Role } from './types';
 import { DaHomeCards, DomTable, HxCard, HxTag, MyAccountTool, RC, RI, ServerInfoCard, Stat, AtualizarEstado, Tool, UsersTable } from './ui';
@@ -172,12 +173,16 @@ function UserWidgets() {
   const { s, me, a, go, hasFeat } = vh;
   const p = pacoteDe(s, me);
   const maxDom = limN(p?.lim.domains);
-  const maxMail = limN(p?.lim.emails);
+  // plano de e-mail: os limites são os do plano comprado (contas e espaço das caixas), não os do pacote do servidor
+  const plano = emailPlanOfPackages(a.hpkg, a.pkg);
+  const maxMail = plano ? plano.accounts : limN(p?.lim.emails);
+  const discoLimMb = plano ? plano.storageGb * 1024 : a.discoLimMb;
+  const discoMb = plano ? a.mails.reduce((n, m) => n + m.used, 0) : a.discoMb || 0;
   return (
     <div className="cols">
       <div className="da-main-card cols-main">
         <div className="stats">
-          <Stat title="Espaço em disco" uso v={a.disk} m={'/ ' + (a.discoLimMb ? mbTexto(a.discoLimMb) : '∞')} p={pctDe(a.discoMb || 0, a.discoLimMb)} />
+          <Stat title="Espaço em disco" uso v={plano ? mbTexto(discoMb) : a.disk} m={'/ ' + (discoLimMb ? mbTexto(discoLimMb) : '∞')} p={pctDe(discoMb, discoLimMb)} />
           <Stat title="Tráfego este mês" uso v={mbTexto(a.bwMb || 0)} m={'/ ' + (a.bwLimMb ? mbTexto(a.bwLimMb) : '∞')} p={pctDe(a.bwMb || 0, a.bwLimMb)} />
           <Stat title="Domínios" uso v={a.domains.length} m={'/ ' + (maxDom ?? '∞')} p={pctDe(a.domains.length, maxDom)} />
           <Stat title="Contas de e-mail" uso v={a.mails.length} m={'/ ' + (maxMail ?? '∞')} p={pctDe(a.mails.length, maxMail)} />

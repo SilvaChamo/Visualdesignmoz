@@ -6,7 +6,7 @@
 // Os modelos das mensagens de renovação já estão em Admin › Mensagem a todos › Templates (TemplatesSection); os comprovativos e pagamentos
 // das renovações, em Admin › Contabilidade. O aviso diário aos clientes é o /api/cron/renewal-check (instalado pelo deploy).
 import { RenewalsSection } from '@/components/vhost/comuns/RenewalsSection';
-import ClientRenewalsSection from '@/components/vhost/comuns/ClientRenewalsSection';
+import ClientRenewalsSection, { type SiteInfo } from '@/components/vhost/comuns/ClientRenewalsSection';
 import type { ScreenFn } from '../screens';
 import { DESC, EN, MENU } from '../generated/data';
 
@@ -68,13 +68,25 @@ export const renovacoesAdminPagina: ScreenFn = () => ({
 });
 
 /** Gestão › Renovações: as renovações do próprio cliente */
-export const renovacoesClientePagina: ScreenFn = () => ({
+export const renovacoesClientePagina: ScreenFn = (vh) => {
+  // um por domínio da conta, com o que o servidor leu: caixas de e-mail, espaço e tráfego
+  const sites: SiteInfo[] = vh.a.domains
+    .filter((d) => !d.soDominio)
+    .map((d) => ({
+      domain: d.name,
+      emailAccounts: vh.a.mails.filter((m) => m.dom === d.name).length,
+      diskUsage: d.disk,
+      bandwidth: d.bw ?? '—',
+      status: d.status === 'ok' ? 'active' : 'suspended',
+    }));
+  return {
   title: 'Renovações',
   desc: 'Os seus domínios e serviços a expirar',
   crumbs: [{ t: 'Renovações' }],
   body: (
     <div className="tw-livre">
-      <ClientRenewalsSection sites={[]} />
+      <ClientRenewalsSection sites={sites} />
     </div>
   ),
-});
+  };
+};

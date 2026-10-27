@@ -14,6 +14,8 @@ import { PAISES, separarTelefone, urlBandeira } from '@/components/auth/paises'
 // "agressivas" (Silva, 14/10/2026)
 export const tituloCls = 'text-center text-[clamp(20px,1.65vw,24px)] font-semibold leading-tight tracking-tight text-zinc-900 dark:text-zinc-50'
 export const subtituloCls = 'mt-1.5 text-center text-[clamp(12.5px,0.95vw,14px)] text-zinc-500 dark:text-zinc-400'
+/** descrição do login: um pouco mais pequena que a dos outros formulários (Silva, 27/10/2026) */
+export const subtituloLoginCls = 'mt-0.5 whitespace-pre-line text-center text-[clamp(10.5px,0.82vw,12.5px)] text-zinc-500 dark:text-zinc-400'
 export const botaoCls =
   'inline-flex h-[clamp(38px,2.8vw,40px)] w-full items-center justify-center gap-2 rounded-md bg-red-600 text-[clamp(13.5px,0.98vw,14.5px)] font-semibold text-white transition-colors hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-60'
 export const botaoClaroCls =
@@ -39,6 +41,7 @@ export function CampoFlutuante({
   autoComplete,
   minLength,
   obrigatorio = false,
+  alto = false,
   value,
   onChange,
   children,
@@ -50,6 +53,8 @@ export function CampoFlutuante({
   autoComplete?: string
   minLength?: number
   obrigatorio?: boolean
+  /** campo ligeiramente mais alto (login do site, Silva, 27/10/2026: +4 px) */
+  alto?: boolean
   value: string
   onChange: (v: string) => void
   /** botão dentro do campo, à direita (ex.: o olho da palavra-passe) */
@@ -69,7 +74,7 @@ export function CampoFlutuante({
         onChange={(e) => onChange(e.target.value)}
         placeholder=" "
         className={
-          caixaCls +
+          (alto ? caixaCls.replace('h-[clamp(38px,2.9vw,42px)]', 'h-[clamp(40px,3.05vw,44px)]') : caixaCls) +
           'placeholder:text-transparent ' +
           (children ? 'px-10 lg:pl-3.5' : '')
         }

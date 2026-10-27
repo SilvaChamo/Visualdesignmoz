@@ -10,7 +10,7 @@ import { corUso } from './cor-uso';
 import { ChangeRoleModal } from './modals';
 import { noServidor } from './paginas/acoes';
 import { EN, HX, LEVELS, MENU, ROLES } from './generated/data';
-import { MENU_SO_DOMINIO, descFor, findItem, gItem, ico, initials, nomeNivel, route, soDominioDe } from './state';
+import { MENU_SO_DOMINIO, descFor, findItem, gItem, ico, initials, nomeNivel, route, rotuloItem, soDominioDe } from './state';
 import type { Account, HxState, MenuItem, Role } from './types';
 import type { Screen } from './screens';
 import { GLOBAL } from './generated/data';
@@ -574,7 +574,7 @@ export function DaHomeCards() {
                     <div className={'da-card-ic ' + it.c}>
                       <i className={ico(it.fa)} />
                     </div>
-                    <span className="da-card-title">{t(it.t)}</span>
+                    <span className="da-card-title">{t(rotuloItem(s, it))}</span>
                   </div>
                 ))}
               </div>

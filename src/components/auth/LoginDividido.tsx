@@ -13,9 +13,8 @@ import { useEffect, useRef, useState } from 'react'
 import { Globe, Mail, Moon, Server, Sun, SunMoon, type LucideIcon } from 'lucide-react'
 import { useTheme } from '@/contexts/ThemeContext'
 import { useI18n } from '@/lib/i18n'
+import { guardarLingua } from '@/lib/lingua'
 
-/** a mesma chave de língua que o site e o painel leem */
-const LINGUA_LS = 'vd-lang'
 
 /** O modelo aprovado (Silva, 13/10/2026): no computador, a aba branca com o logótipo a entrar pela foto. Montado uma
  *  só vez pelo layout de src/app/(entrada) — as quatro páginas de entrada trocam só o conteúdo do cartão */
@@ -68,7 +67,7 @@ export function LoginDividido({ children }: { children: React.ReactNode }) {
             <div className="rounded-[10px] bg-[#fff] px-5 pb-6 pt-5 shadow-[0_0_60px_-18px_rgba(0,0,0,0.6)] dark:bg-[#15161e] lg:border lg:border-zinc-200 lg:px-[clamp(22px,1.95vw,30px)] lg:pb-[clamp(24px,2.2vw,32px)] lg:pt-[clamp(22px,1.95vw,28px)] lg:shadow-[0_0_36px_-10px_rgba(24,24,27,0.18)] lg:dark:border-[#2a2d3a] lg:dark:shadow-[0_0_36px_-10px_rgba(0,0,0,0.7)]">
               {/* no telemóvel e no tablet o logótipo fica no cartão, por cima do título (a imagem tem ~13% de margem
                   vazia em cima e em baixo); no computador está na aba da foto */}
-              <Link href="/" className="-mt-2 mb-1 flex justify-center lg:hidden" title="VisualDesign">
+              <Link href="/" className="relative z-10 -mt-2 mb-1 flex justify-center lg:hidden" title="VisualDesign">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src="/assets/logotype.png" alt="VisualDesign" className="h-[84px] w-auto object-contain dark:hidden" />
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -149,9 +148,7 @@ function BotoesCanto() {
 
   const escolherLingua = (l: 'pt' | 'en') => {
     if (l !== lang) toggleLang()
-    try {
-      localStorage.setItem(LINGUA_LS, l)
-    } catch {}
+    guardarLingua(l)
     setLinguas(false)
   }
 

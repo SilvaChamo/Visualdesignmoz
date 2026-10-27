@@ -1,6 +1,7 @@
 'use client'
 
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { guardarLingua, lerLinguaGuardada } from '@/lib/lingua'
 
 export type Lang = 'pt' | 'en'
 
@@ -501,7 +502,7 @@ const dict: Record<Lang, Dict> = {
 
     // Login page
     'login.title': 'Bem-vindo à VisualDesign',
-    'login.subtitle': 'Gira o alojamento, os domínios e o e-mail da sua empresa.',
+    'login.subtitle': 'Faça a gestão das suas encomendas, domínios, hospedagem\ne e-mails da sua empresa.',
     'login.user': 'E-mail ou nome de utilizador',
     'login.userPlaceholder': 'email@dominio.com ou nome de utilizador',
     'login.forgot': 'Recuperar senha',
@@ -537,6 +538,7 @@ const dict: Record<Lang, Dict> = {
     'rec.sentHint': 'Veja a caixa de entrada e a pasta de spam. O link expira em 60 minutos.',
     'rec.resend': 'Reenviar e-mail',
     'rec.error': 'Não foi possível enviar o e-mail de recuperação. Tente mais tarde.',
+    'rec.robot': 'Confirme que não é um robô para continuar.',
     'nova.title': 'Nova palavra-passe',
     'nova.subtitle': 'Defina a nova palavra-passe de acesso.',
     'nova.password': 'Nova palavra-passe',
@@ -1364,7 +1366,7 @@ const dict: Record<Lang, Dict> = {
 
     // Login page
     'login.title': 'Welcome to VisualDesign',
-    'login.subtitle': 'Manage your company’s hosting, domains and email.',
+    'login.subtitle': 'Manage your company’s orders, domains, hosting and emails.',
     'login.user': 'Email or username',
     'login.userPlaceholder': 'email@domain.com or username',
     'login.forgot': 'Recover password',
@@ -1400,6 +1402,7 @@ const dict: Record<Lang, Dict> = {
     'rec.sentHint': 'Check your inbox and spam folder. The link expires in 60 minutes.',
     'rec.resend': 'Resend email',
     'rec.error': 'The recovery email could not be sent. Please try again later.',
+    'rec.robot': 'Confirm that you are not a robot to continue.',
     'nova.title': 'New password',
     'nova.subtitle': 'Set your new sign-in password.',
     'nova.password': 'New password',
@@ -1715,17 +1718,16 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
   const [isLoaded, setIsLoaded] = useState(false)
 
   useEffect(() => {
-    // 'visualhost_lang' era a chave que só o painel usava: quem só tinha essa continua com a língua que escolheu
-    const saved = localStorage.getItem('vd-lang') || localStorage.getItem('visualhost_lang')
-    if (saved === 'en' || saved === 'pt') {
-      setLang(saved)
-    }
+    // o português é a língua de origem; só se muda para a que a pessoa escolheu (e ficou guardada, ver lingua.ts)
+    const saved = lerLinguaGuardada()
+    if (saved) setLang(saved)
     setIsLoaded(true)
   }, [])
 
   useEffect(() => {
     if (isLoaded) {
-      localStorage.setItem('vd-lang', lang)
+      // só se grava a escolha de quem já escolheu ou muda para inglês: abrir o site em português não conta como escolha
+      if (lang === 'en' || lerLinguaGuardada()) guardarLingua(lang)
       document.documentElement.lang = lang === 'pt' ? 'pt-MZ' : 'en'
     }
   }, [lang, isLoaded])

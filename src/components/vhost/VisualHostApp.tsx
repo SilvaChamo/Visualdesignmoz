@@ -14,7 +14,8 @@ import { idDispositivoPresenca } from '@/lib/vhost-presenca-id';
 import { COOKIE_TEMA, lerTema, valorCookieTema, type TemaConta } from '@/lib/vhost-tema-conta';
 import { translate, type Lang } from './i18n';
 import { useI18n } from '@/lib/i18n';
-import { EntradaPainel, EsperaEntrada, LINGUA_LS } from './entrada';
+import { EntradaPainel, EsperaEntrada } from './entrada';
+import { guardarLingua, lerLinguaGuardada } from '@/lib/lingua';
 import { CodigoDoisPassos } from './dois-passos';
 import { auth, supabase } from '@/lib/supabase-client';
 import { MenuExtraModal, MoreMenuModal } from './modals';
@@ -54,6 +55,7 @@ import {
   dominioGuardado,
   guardarDominio,
   route,
+  rotuloItem,
   type DashTab,
   type St,
 } from './state';
@@ -180,8 +182,8 @@ function comPreferencias(s: St): St {
   const n = { ...s };
   try {
     if (localStorage.getItem('visualhost_dashtab') === 'menu') n.dashTab = 'menu';
-    const lg = localStorage.getItem(LINGUA_LS) || localStorage.getItem('visualhost_lang');
-    if (lg === 'pt' || lg === 'en') n.lang = lg;
+    const lg = lerLinguaGuardada();
+    if (lg) n.lang = lg;
   } catch {}
   return n;
 }
@@ -808,6 +810,7 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
   // 20 e 30 s até chegar uma desta hora. O conteúdo fica à vista e só muda quando chega o novo (nunca tela branca).
   const releitura = useRef<{ n: number; timer?: ReturnType<typeof setTimeout> }>({ n: 0 });
   const carregarRef = useRef<() => void>(() => {});
+  const ultimaAssinatura = useRef('');
   const relerSeVelha = useCallback((d: DadosServidor) => {
     clearTimeout(releitura.current.timer);
     if ((d.idadeMs ?? 0) <= 60_000) {
@@ -912,7 +915,13 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
         const d = j as DadosServidor;
         renovouSessao.current = false;
         guardarCache(d);
-        aplicar(d);
+        // leitura igual à que já está no ecrã (só mudou a idade): não se redesenha o painel — era o "piscar" a cada releitura
+        const { idadeMs: _idade, lidoEm: _lido, ...conteudo } = d;
+        const assinatura = JSON.stringify(conteudo);
+        if (!(ref.current.carga === 'ok' && assinatura === ultimaAssinatura.current)) {
+          ultimaAssinatura.current = assinatura;
+          aplicar(d);
+        }
         relerSeVelha(d);
       } catch {
         if (ref.current.carga === 'ok') return; // o painel já está à vista (última leitura): fica como está
@@ -1194,9 +1203,7 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
     setNotes: (on) => commit({ ...ref.current, notes: on }),
     setLang: (l: Lang) => {
       commit({ ...ref.current, lang: l });
-      try {
-        localStorage.setItem(LINGUA_LS, l);
-      } catch {}
+      guardarLingua(l);
       closePop();
       toast(l === 'en' ? 'Language: English' : 'Idioma: Português');
     },
@@ -1442,9 +1449,7 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
           }}
           onLang={(l) => {
             commit({ ...ref.current, lang: l });
-            try {
-              localStorage.setItem(LINGUA_LS, l);
-            } catch {}
+            guardarLingua(l);
           }}
           onEntrou={() => {
             setAEntrar(true);
@@ -1674,8 +1679,8 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
                                   <span className={'ic ' + it.c}>
                                     <i className={ico(it.fa)} />
                                   </span>
-                                  <span className="lb" title={t(it.t)}>
-                                    {t(it.t)}
+                                  <span className="lb" title={t(rotuloItem(s, it))}>
+                                    {t(rotuloItem(s, it))}
                                   </span>
                                   {it.opt && <em>{t('opc.')}</em>}
                                   {avisosMenu[it.id] && (

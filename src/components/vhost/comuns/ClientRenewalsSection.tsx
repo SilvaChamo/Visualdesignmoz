@@ -29,7 +29,7 @@ interface Renewal {
   type: 'domain' | 'hosting'
 }
 
-interface SiteInfo {
+export interface SiteInfo {
   domain: string
   emailAccounts: number
   diskUsage: string
@@ -37,7 +37,9 @@ interface SiteInfo {
   status: string
 }
 
-export default function ClientRenewalsSection({ sites }: { sites: any[] }) {
+/** `sites`: um por domínio da conta, já com os números reais lidos do servidor (nunca valores inventados). Pode chegar como
+ *  uma lista nova a cada desenho da página: por isso nada aqui depende da identidade dela. */
+export default function ClientRenewalsSection({ sites }: { sites: SiteInfo[] }) {
   const [renewals, setRenewals] = useState<Renewal[]>([])
   const [stats, setStats] = useState({
     total: 0,
@@ -49,16 +51,16 @@ export default function ClientRenewalsSection({ sites }: { sites: any[] }) {
   })
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'all' | 'domains' | 'hosting'>('all')
-  const [siteDetails, setSiteDetails] = useState<SiteInfo[]>([])
+  const siteDetails = sites || []
   const [paymentMethods, setPaymentMethods] = useState<any[]>([])
   const [showPaymentForm, setShowPaymentForm] = useState(false)
   const [processingPayment, setProcessingPayment] = useState<string | null>(null)
 
+  // só ao abrir: depender de `sites` (lista nova a cada desenho) voltava a ler tudo sem parar e o ecrã piscava entre o esqueleto e os dados
   useEffect(() => {
     loadRenewals()
-    generateSiteDetails()
     loadPaymentMethods()
-  }, [sites])
+  }, [])
 
   const loadPaymentMethods = async () => {
     try {
@@ -110,7 +112,7 @@ export default function ClientRenewalsSection({ sites }: { sites: any[] }) {
   }
 
   const loadRenewals = async () => {
-    setLoading(true)
+    // o esqueleto só aparece na primeira leitura; ao actualizar, os dados continuam à vista
     try {
       const res = await fetch('/api/renewals')
       const data = await res.json()
@@ -121,27 +123,13 @@ export default function ClientRenewalsSection({ sites }: { sites: any[] }) {
           ...(data.hosting || []).map((h: any) => ({ ...h, type: 'hosting' as const }))
         ]
         setRenewals(allRenewals)
-        setStats(data.stats)
+        setStats({ ...data.stats, totalValue: data.stats?.totalValue ?? data.stats?.totalRevenue ?? 0 })
       }
     } catch (error) {
       console.error('Erro ao carregar renovações:', error)
     } finally {
       setLoading(false)
     }
-  }
-
-  const generateSiteDetails = () => {
-    if (!sites || sites.length === 0) return
-    
-    const details: SiteInfo[] = sites.map(site => ({
-      domain: site.domain,
-      emailAccounts: Math.floor(Math.random() * 5) + 1,
-      diskUsage: `${(Math.random() * 2 + 0.1).toFixed(1)} GB`,
-      bandwidth: `${(Math.random() * 50 + 10).toFixed(0)} GB`,
-      status: site.state === 1 ? 'active' : 'suspended'
-    }))
-    
-    setSiteDetails(details)
   }
 
   const getDaysRemaining = (expirationDate: string) => {
@@ -210,7 +198,7 @@ export default function ClientRenewalsSection({ sites }: { sites: any[] }) {
             </div>
             <div>
               <p className="text-xs text-emerald-100">Domínios Activos</p>
-              <p className="text-2xl font-bold">{sites?.length || 0}</p>
+              <p className="text-2xl font-bold">{siteDetails.length}</p>
             </div>
           </div>
         </div>

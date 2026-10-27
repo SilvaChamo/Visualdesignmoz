@@ -8,9 +8,13 @@
  */
 const PANEL_CACHE_PREFIXES = ['vd_', 'vd-', 'panel_', 'panel-', 'webmail_'];
 
+/** Preferências da pessoa, não caches da conta: a língua escolhida fica para todas as sessões (Silva, 27/10/2026) */
+const PREFERENCIAS_QUE_FICAM = ['vd-lang'];
+
 function sweepStorage(storage: Storage): void {
   const keys = Object.keys(storage);
   for (const key of keys) {
+    if (PREFERENCIAS_QUE_FICAM.includes(key)) continue;
     if (PANEL_CACHE_PREFIXES.some((prefix) => key.startsWith(prefix))) {
       storage.removeItem(key);
     }

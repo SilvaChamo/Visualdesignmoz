@@ -10,8 +10,11 @@ import { googleOAuthUserMessage } from '@/lib/auth-messages'
 import { PUBLIC_PANEL_ENTRY } from '@/lib/panel-origin'
 import { aquecerDadosVhost, marcarEntrada, marcarViaSite, preCarregarDadosVhost } from '@/lib/vhost-cache'
 import type { UserRole } from '@/lib/user-roles'
-import { CampoFlutuante, OlhoSenha, botaoCls, botaoClaroCls, ligacaoCls, subtituloCls, tituloCls, formularioCls } from '@/components/auth/campos'
+import { CampoFlutuante, OlhoSenha, botaoCls, botaoClaroCls, ligacaoCls, subtituloLoginCls, tituloCls, formularioCls } from '@/components/auth/campos'
 import { authErrorBoxClass } from '@/components/auth/auth-styles'
+
+/** os botões do login têm a mesma altura dos campos (Silva, 27/10/2026) */
+const botaoAlto = (cls: string) => cls.replace('h-[clamp(38px,2.8vw,40px)]', 'h-[clamp(40px,3.05vw,44px)]')
 
 function LoginFormInner() {
   const [email, setEmail] = useState('')
@@ -110,8 +113,12 @@ function LoginFormInner() {
     <>
       {/* no telemóvel e no tablet a imagem (com o logótipo) não aparece: o logótipo fica por cima do formulário */}
       {/* no telemóvel e no tablet tudo ao centro (pedido do Silva, 13/10/2026) */}
-      <h1 className={tituloCls}>{t('login.title')}</h1>
-      <p className={subtituloCls}>{t('login.subtitle')}</p>
+      {/* cabeçalho do formulário: título e descrição, fechados por uma linha separadora (Silva, 27/10/2026) */}
+      {/* no telemóvel o fundo cobre também o logótipo (que está no cartão, por cima deste cabeçalho): o cabeçalho sobe 100 px (logótipo + folgas) */}
+      <div className="-mx-5 -mt-[100px] rounded-t-[9px] border-b border-red-600/25 bg-zinc-50 px-5 pb-[clamp(9px,0.8vw,12px)] pt-[92px] dark:border-red-500/30 dark:bg-white/[0.03] lg:-mx-[clamp(22px,1.95vw,30px)] lg:-mt-[clamp(22px,1.95vw,28px)] lg:px-[clamp(22px,1.95vw,30px)] lg:pt-[clamp(22px,1.95vw,28px)]">
+        <h1 className={tituloCls}>{t('login.title')}</h1>
+        <p className={subtituloLoginCls}>{t('login.subtitle')}</p>
+      </div>
 
       {error && <div className={`mt-6 ${authErrorBoxClass}`}>{error}</div>}
 
@@ -132,7 +139,7 @@ function LoginFormInner() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className={formularioCls}>
+      <form onSubmit={handleSubmit} className={formularioCls.replace('mt-[clamp(16px,1.6vw,24px)]', 'mt-[clamp(16px,1.4vw,20px)]')}>
         <div className="absolute -z-10 opacity-0 pointer-events-none" aria-hidden="true">
           <input
             type="text"
@@ -150,6 +157,7 @@ function LoginFormInner() {
           dica={t('login.userPlaceholder')}
           autoComplete="username"
           obrigatorio
+          alto
           value={email}
           onChange={setEmail}
         />
@@ -163,6 +171,7 @@ function LoginFormInner() {
             autoComplete="current-password"
             minLength={6}
             obrigatorio
+            alto
             value={password}
             onChange={setPassword}
           >
@@ -170,7 +179,7 @@ function LoginFormInner() {
           </CampoFlutuante>
         </div>
 
-        <button type="submit" disabled={loading} className={botaoCls}>
+        <button type="submit" disabled={loading} className={botaoAlto(botaoCls)}>
           {loading ? t('login.signingIn') : t('login.signIn')}
         </button>
 
@@ -185,7 +194,7 @@ function LoginFormInner() {
           type="button"
           onClick={handleGoogleLogin}
           disabled={loadingGoogle}
-          className={botaoClaroCls}
+          className={botaoAlto(botaoClaroCls)}
         >
           <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden>
             <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />

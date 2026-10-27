@@ -258,4 +258,5 @@ export const email: Record<string, string> = {
  "Catch-all desligado": "Catch-all off",
  "O webmail está desligado neste domínio.": "Webmail is turned off on this domain.",
  "Editor de mensagem": "Message editor",
+ "de {0} do plano": "of {0} in the plan",
 };
