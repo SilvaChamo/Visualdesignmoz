@@ -615,6 +615,18 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
   cópia comprimida só do root em `/root/backups-removidos/mltmark-app-2026-10-21.tar.gz`.
 - **Quarentena do mltmark (17/08 e 26/05, restaurado de cópia de segurança)**: `/root/quarentena-mltmark-2026-10-21/` e `/root/quarentena-guarda/`.
 
+# PHP: falhas críticas de 21/10/2026 — CVE-2026-109618 e CVE-2026-109619 (aviso recebido a 27/10/2026)
+
+- **O que é:** duas falhas que dão execução remota de código sem login, já exploradas, em todo o PHP que serve pedidos (PHP-FPM incluído). Versões corrigidas: **8.5.12, 8.4.27, 8.3.36 e 8.2.35** (a 8.2 acaba a
+  31/12/2026); a 8.1 e as anteriores não têm correcção oficial. Nos pacotes da distribuição a correcção chega **sem mudar o número da versão** (o changelog traz `CVE-2026-109618_109619.patch`): ver o changelog, não só a versão.
+- **Só se corrige actualizando E reiniciando** todos os PHP-FPM; sem reinício o código velho continua a correr. Atenção aos **`vd-php-fpm-<versão>-<conta>` de cada conta** (`deploy/php-conta/`): correm o mesmo binário
+  `/usr/sbin/php-fpm<versão>` mas o `apt` não os conhece, por isso não reiniciam sozinhos com a actualização.
+- **Como se faz:** workflow manual `ops-php-seguranca.yml` (Actions › Run workflow), por fases: `verificar` (só lê: versões, changelog, processos ainda com o binário antigo, mod_php, estado dos sites), `indicios` (só lê: ficheiros PHP novos
+  onde não devem estar, crons, chaves SSH, ligações de saída desde 21/10) e `actualizar` (só com «confirmar» marcado, ordem expressa do Silva: «avança»; simula e aborta se removesse pacotes, guarda o estado em
+  `/root/php-seguranca-<data>/`, actualiza só `php*`, reinicia um a um os PHP-FPM partilhados e os de cada conta e confirma os sites; falha se `basededadosagro.com` ou `visualdesignmoz.com` não derem 200). Antes de «actualizar»,
+  o Silva cria uma cópia/instantâneo do servidor no painel do servidor. Nunca se toca no pm2 nem no nginx.
+- **Estado (27/10/2026):** workflow escrito, ainda por correr no servidor (a verificação e a actualização esperam a publicação e o «avança» do Silva). **Feito:** (ainda não) — quem fizer, escreve aqui a data e o resultado.
+
 # Bloqueio por tentativas falhadas no login (Silva, 26/10/2026)
 
 - **Ligado outra vez** (esteve desligado desde 13/10): depois de 5 tentativas falhadas em 5 minutos a
@@ -706,6 +718,10 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
   (password e password2) **existe também fora do servidor**: foi gravada no Mac do Silva em `~/Desktop/chave-cifra-backups-visualdesign.txt` para ele a guardar num gestor de palavras-passe; sem ela as cópias não se abrem. O R2 é grátis até 10 GB
   (as cópias ocupam cerca de 6 GB: acima disso paga-se cêntimos). O aamihe ficou com 12 MB (só correio); a cópia do site está em `/root/backups-removidos/aamihe-site-final/`.
   **Estado (26/10/2026):** primeiro envio feito (13 cópias, 5,9 GiB no R2) e `testar-restauro` passou. Só se enviam cópias com menos de 14 dias (`--max-age`), as mais velhas nem sobem. **Falta ligar o cron diário** `/etc/cron.d/vd-backup-externo` (`0 7 * * * root /usr/local/sbin/vd-backup-externo enviar >/dev/null 2>&1`): a instalação foi recusada pela protecção do ambiente (persistência no servidor) e fica à espera da ordem expressa do Silva; até lá o envio é manual (`vd-backup-externo enviar`). As cópias do Hestia saem ao domingo às 05:10 e a pedido.
+
+- **Backup manual corre já, mesmo havendo agendamento** (Silva, 27/10/2026: «pode ser algo urgente… não podemos depender do programa do servidor»). Admin › Backups › «Backup de todas as contas» e «Fazer backup agora» (por
+  conta) já não passam pela fila do servidor (`v-schedule-user-backup` recusava com «backup is already scheduled» quando havia um agendado): lançam `v-backup-user` em segundo plano, uma conta a seguir à outra, com
+  `nice`/`ionice` (trabalho `backup-agora` em `vhost-admin-py.ts`), e a página mostra o registo do trabalho. Nunca voltar a pôr a fila neste botão; o agendamento semanal (domingo 05:10) continua como estava.
 
 - **As mensagens ao utilizador dizem "Vhost", nunca "Hestia"** (Silva, 26/10/2026: "em vez de dizer o Hestia, dizer Vhost"). Erros, avisos, toasts e textos do painel que falam do servidor
   usam "Vhost" (ex.: «O Vhost demorou a responder…»), e a tradução em inglês em `src/components/vhost/generated/data.ts` acompanha (a chave em português tem de ser igual ao texto do código).

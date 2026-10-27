@@ -1,0 +1,210 @@
+name: "Ops - PHP: correcção das falhas críticas de 21/10/2026 (CVE-2026-109618 e CVE-2026-109619)"
+
+# Aviso de 27/10/2026: o projecto PHP corrigiu a 21/10/2026 duas falhas críticas (execução remota de código sem login, já exploradas):
+# CVE-2026-109618 e CVE-2026-109619. Versões corrigidas: 8.5.12, 8.4.27, 8.3.36 e 8.2.35 (a 8.2 acaba a 31/12/2026); a 8.1 e as anteriores já
+# não têm correcção oficial. Só se corrige actualizando e REINICIANDO todos os PHP-FPM (sem reinício o código velho continua a correr).
+# Não há acesso ao servidor a não ser pelos workflows (regras.md): três fases, a primeira e a segunda só lêem.
+#   verificar   : versões instaladas e em execução, se já há pacote corrigido, mod_php, serviços PHP-FPM (partilhados e por conta) e o código dos sites.
+#                 Só actualiza a lista de pacotes (apt-get update); não instala nem reinicia nada.
+#   indicios    : procura sinais de intrusão desde 21/10 (ficheiros PHP novos onde não devem estar, crons, chaves SSH, ligações de saída). Só lê.
+#   backups     : só lê: cópias do Hestia em /backup (datas e tamanhos), a fila que dá «backup is already scheduled», cópias a correr,
+#                 o cron que despeja a fila e o estado do envio para fora do servidor. Serve para ter a certeza da cópia antes de «actualizar».
+#   actualizar  : só com «confirmar» marcado (ordem expressa do Silva: «avança»). Guarda o estado, simula, actualiza SÓ os pacotes php*,
+#                 reinicia os PHP-FPM um a um (incluindo os `vd-php-fpm-*` de cada conta, que o apt não conhece) e confirma os sites.
+# Nunca se mexe no pm2, no nginx nem no basededadosagro-site: o fim confirma basededadosagro.com e visualdesignmoz.com (200).
+
+on:
+  workflow_dispatch:
+    inputs:
+      fase:
+        description: "verificar (só lê) | indicios (só lê) | backups (só lê) | actualizar (muda o servidor)"
+        type: choice
+        required: true
+        default: verificar
+        options:
+          - verificar
+          - indicios
+          - backups
+          - actualizar
+      confirmar:
+        description: "Só para «actualizar»: marcar quando o Silva disser «avança»"
+        type: boolean
+        required: false
+        default: false
+
+concurrency:
+  group: ops-php-seguranca
+  cancel-in-progress: false
+
+jobs:
+  php:
+    runs-on: ubuntu-latest
+    steps:
+      - name: PHP no servidor (${{ inputs.fase }})
+        uses: appleboy/ssh-action@v1.2.5
+        env:
+          FASE: ${{ inputs.fase }}
+          CONFIRMAR: ${{ inputs.confirmar }}
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          port: 2234
+          username: root
+          key: ${{ secrets.CONTABO_SSH_KEY }}
+          envs: FASE,CONFIRMAR
+          command_timeout: 20m
+          script: |
+            set -u
+            echo "=== hora do servidor: $(date '+%d/%m/%Y %H:%M:%S %Z') | fase: $FASE"
+            echo
+
+            corrigida() { case "$1" in 8.5) echo 8.5.12;; 8.4) echo 8.4.27;; 8.3) echo 8.3.36;; 8.2) echo 8.2.35;; *) echo "";; esac; }
+            upstream() { sed -E 's/^[0-9]+://; s/^([0-9]+\.[0-9]+\.[0-9]+).*/\1/'; }
+
+            # versões dos pacotes PHP: instalada, candidata no repositório e se já está corrigida
+            resumo() {
+              echo "--- pacotes (instalada → candidata) e estado face às versões corrigidas"
+              for pkg in $(dpkg-query -W -f='${db:Status-Abbrev} ${Package}\n' 'php[0-9].[0-9]-fpm' 'php[0-9].[0-9]-cli' 'php[0-9].[0-9]-cgi' 'libapache2-mod-php*' 2>/dev/null | awk '$1=="ii"{print $2}' | sort -u); do
+                v=${pkg#libapache2-mod-php}; v=${v#php}; v=${v%%-*}
+                inst=$(dpkg-query -W -f='${Version}' "$pkg" 2>/dev/null)
+                cand=$(apt-cache policy "$pkg" 2>/dev/null | awk '/Candidate:/{print $2}')
+                fix=$(corrigida "$v"); up=$(echo "$inst" | upstream)
+                if zgrep -qs -E "CVE-2026-109618" "/usr/share/doc/$pkg/changelog.Debian.gz" && zgrep -qs -E "CVE-2026-109619" "/usr/share/doc/$pkg/changelog.Debian.gz"; then estado="CORRIGIDA (o changelog do pacote instalado traz as duas correcções)"
+                elif [ -n "$fix" ] && dpkg --compare-versions "$up" ge "$fix"; then estado="CORRIGIDA ($up >= $fix)"
+                elif [ -n "$cand" ] && [ "$cand" != "(none)" ] && dpkg --compare-versions "$cand" gt "$inst"; then estado="FALTA ACTUALIZAR: há pacote mais recente no repositório ($cand); confirma-se no changelog depois de instalar"
+                elif [ -z "$fix" ]; then estado="SEM CORRECÇÃO OFICIAL (versão fora de suporte: passar a 8.3 ou 8.4)"
+                else estado="FALTA ACTUALIZAR: o repositório ainda não tem o pacote corrigido (instalada $inst)"; fi
+                echo "$pkg  $inst → ${cand:-?}  |  $estado"
+              done
+              echo "--- o changelog dos pacotes menciona as duas falhas? (pacotes da distribuição levam a correcção sem mudar o número)"
+              zgrep -h -E "CVE-2026-10961[89]" /usr/share/doc/php*/changelog*.gz 2>/dev/null | sort -u | head -6 || true
+              echo "--- pacotes retidos (hold) de PHP:"; apt-mark showhold 2>/dev/null | grep -i php || echo "(nenhum)"
+              echo "--- origem dos pacotes PHP (repositório):"
+              apt-cache policy php8.3-fpm php8.4-fpm 2>/dev/null | grep -E "^php|\*\*\*|http" | head -8
+            }
+
+            # processos PHP-FPM e Apache: ainda a correr o binário antigo (apagado do disco) = falta reiniciar
+            em_execucao() {
+              echo "--- PHP-FPM em execução (binário e versão); «(deleted)» = ainda corre o código ANTIGO e falta reiniciar"
+              velhos=0
+              for pid in $(pgrep -x 'php-fpm[0-9]\.[0-9]'); do
+                exe=$(readlink "/proc/$pid/exe" 2>/dev/null); cmd=$(tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null | cut -c1-110)
+                case "$cmd" in *"master process"*|*"--fpm-config"*) echo "master $pid  $exe  | $cmd";; esac
+                case "$exe" in *deleted*) velhos=$((velhos+1));; esac
+              done
+              echo "processos PHP-FPM com binário antigo: $velhos"
+              for pid in $(pgrep -x 'apache2' | head -3); do echo "apache2 $pid  $(readlink /proc/$pid/exe)"; done
+              echo "--- mod_php no Apache (risco maior):"; (apache2ctl -M 2>/dev/null | grep -i php) || echo "(não está carregado: o Apache não corre PHP; só o PHP-FPM conta)"
+              echo "--- serviços PHP-FPM:"
+              systemctl list-units --type=service --no-legend 'php*-fpm.service' 'vd-php-fpm-*.service' 2>/dev/null | awk '{print $1, $3, $4}'
+              echo "--- CLI:"; php -v 2>/dev/null | head -1 || echo "(sem php no PATH)"
+              for b in /usr/bin/php[0-9].[0-9] /usr/sbin/php-fpm[0-9].[0-9]; do [ -x "$b" ] && echo "$b: $($b -v 2>/dev/null | head -1 | cut -c1-60)"; done
+              return $velhos
+            }
+
+            # código HTTP de cada site (para comparar antes e depois)
+            estado_sites() {
+              for d in $( (ls -d /home/*/web/*/ 2>/dev/null | xargs -r -n1 basename; echo basededadosagro.com; echo visualdesignmoz.com) | sort -u); do
+                printf '%s %s\n' "$(curl -o /dev/null -s -m 12 -w '%{http_code}' "https://$d/" 2>/dev/null)" "$d"
+              done
+            }
+
+            if [ "$FASE" = "verificar" ]; then
+              echo "=== sistema"; . /etc/os-release; echo "$PRETTY_NAME | $(uname -r)"
+              echo; echo "=== a actualizar só a lista de pacotes (nada é instalado)"
+              apt-get update -qq 2>&1 | tail -3
+              echo; echo "=== versões"; resumo
+              echo; echo "=== o que está mesmo a correr"; em_execucao || true
+              echo; echo "=== estado dos sites (código HTTP)"; estado_sites
+              echo; echo "=== fim da verificação (nada foi alterado)"
+
+            elif [ "$FASE" = "indicios" ]; then
+              DESDE=2026-10-21
+              echo "=== sinais de intrusão desde $DESDE (só leitura)"
+              echo "--- ficheiros PHP novos ou alterados onde nunca deviam estar (uploads, images, cache, tmp):"
+              find /home/*/web/*/public_html \( -path '*/wp-content/uploads/*' -o -path '*/images/*' -o -path '*/cache/*' -o -path '*/tmp/*' \) -type f \( -name '*.php' -o -name '*.phtml' -o -name '*.phar' -o -name '.htaccess' \) -newermt "$DESDE" 2>/dev/null | grep -v -E '/(cache|wp-content/cache)/.*index\.php$' | head -40
+              echo "--- ficheiros que começam por <?php mas têm extensão de imagem ou fonte:"
+              find /home/*/web/*/public_html -type f \( -iname '*.jpg' -o -iname '*.png' -o -iname '*.gif' -o -iname '*.ico' -o -iname '*.woff*' \) -newermt "$DESDE" -size -200k 2>/dev/null | head -3000 | xargs -r grep -l -a '^<?php' 2>/dev/null | head -20
+              echo "--- ficheiros PHP em /tmp, /dev/shm e /var/tmp:"
+              find /tmp /dev/shm /var/tmp -type f \( -name '*.php' -o -perm -u+x \) -newermt "$DESDE" 2>/dev/null | head -20
+              echo "--- crons alterados desde $DESDE:"
+              find /etc/cron.d /etc/cron.daily /etc/cron.hourly /var/spool/cron -type f -newermt "$DESDE" 2>/dev/null | head -20
+              echo "--- chaves SSH alteradas:"
+              find /root/.ssh /home/*/.ssh -type f -newermt "$DESDE" 2>/dev/null | head -10
+              echo "--- contas de sistema novas (UID >= 1000):"
+              awk -F: '$3>=1000 && $3<65000{print $1, $3, $6}' /etc/passwd | head -30
+              echo "--- processos de contas dos sites com mais CPU:"
+              ps -eo user:14,pid,pcpu,etimes,args --sort=-pcpu | awk 'NR==1 || ($1!="root" && $1!="www-data" && $1!="postgres")' | head -12 | cut -c1-180
+              echo "--- ligações de saída por destino (as 12 mais frequentes, sem as portas 80/443/25/465/587/993/995):"
+              ss -Htn state established 2>/dev/null | awk '{split($4,l,":"); split($3,r,":"); p=r[length(r)]; if (p!=80&&p!=443&&p!=25&&p!=465&&p!=587&&p!=993&&p!=995&&p!=2234&&p!=8000&&p!=5432) print $3}' | sed -E 's/:[0-9]+$//' | sort | uniq -c | sort -rn | head -12
+              echo "--- últimas linhas da guarda dos sites:"
+              tail -n 12 /var/log/vd-guarda.log 2>/dev/null | cut -c1-220 || echo "(sem registo)"
+              echo; echo "=== fim (nada foi alterado). Qualquer ficheiro suspeito: não apagar; a guarda move-o para /root/quarentena-guarda/"
+
+            elif [ "$FASE" = "backups" ]; then
+              echo "=== cópias do Hestia em /backup (mais recentes primeiro)"
+              ls -lt --time-style=long-iso /backup/*.tar 2>/dev/null | awk '{print $6" "$7"  "$5" bytes  "$8}' | head -20
+              df -h /backup 2>/dev/null | tail -1
+              echo; echo "=== fila de cópias do Hestia (a mensagem «backup is already scheduled» vem daqui)"
+              ls -l --time-style=long-iso /usr/local/hestia/data/queue/ 2>/dev/null
+              echo "--- conteúdo da fila de cópias:"; cat /usr/local/hestia/data/queue/backup.pipe 2>/dev/null | cut -c1-200 || true
+              echo "--- cópias a correr agora:"; pgrep -af 'v-backup|v-update-sys-queue|v-restore' | cut -c1-200 || echo "(nenhuma)"
+              echo "--- cron do root que despeja a fila:"; crontab -l 2>/dev/null | grep -iE 'queue|v-backup' | cut -c1-200
+              echo "--- registo do Hestia sobre cópias (últimas linhas):"; grep -i backup /var/log/hestia/system.log 2>/dev/null | tail -n 14 | cut -c1-200
+              echo; echo "=== envio para fora do servidor"
+              ls /etc/cron.d/vd-backup-externo 2>/dev/null || echo "(o cron diário do envio externo ainda não está instalado: o envio é manual)"
+              [ -x /usr/local/sbin/vd-backup-externo ] && timeout 120 /usr/local/sbin/vd-backup-externo estado 2>&1 | tail -n 25 | cut -c1-200
+              echo; echo "=== fim (nada foi alterado)"
+
+            elif [ "$FASE" = "actualizar" ]; then
+              if [ "$CONFIRMAR" != "true" ]; then echo "FALTA marcar «confirmar» (ordem expressa do Silva: «avança»). Nada foi feito."; exit 1; fi
+              export DEBIAN_FRONTEND=noninteractive
+              D=/root/php-seguranca-$(date +%Y%m%d-%H%M); mkdir -p "$D"; chmod 700 "$D"
+              echo "=== 1. cópia do estado em $D"
+              dpkg-query -W -f='${Package} ${Version}\n' 'php*' 'libapache2-mod-php*' > "$D/pacotes-antes.txt" 2>/dev/null
+              tar czf "$D/etc-php.tgz" /etc/php 2>/dev/null; estado_sites > "$D/sites-antes.txt"
+              echo "pacotes guardados: $(wc -l < "$D/pacotes-antes.txt") | /etc/php: $(du -h "$D/etc-php.tgz" | cut -f1)"
+              echo; echo "=== 2. estado antes"; resumo
+              echo; echo "=== 3. simulação (nada é instalado)"
+              apt-get update -qq 2>&1 | tail -3
+              PKGS=$(dpkg-query -W -f='${db:Status-Abbrev} ${Package}\n' 'php*' 'libapache2-mod-php*' 2>/dev/null | awk '$1=="ii"{print $2}' | sort -u)
+              SIM=$(apt-get -s install --only-upgrade -o Dpkg::Options::=--force-confold $PKGS 2>&1)
+              echo "$SIM" | grep -E '^(Inst|Remv)' | cut -c1-150
+              if echo "$SIM" | grep -q '^Remv'; then echo "ABORTADO: a actualização removeria pacotes. Nada foi alterado."; exit 1; fi
+              if ! echo "$SIM" | grep -q '^Inst'; then
+                echo "Nada para actualizar: o repositório ainda não tem o pacote corrigido (ver o estado em cima). Nada foi alterado; voltar a correr mais tarde."
+                exit 2
+              fi
+              echo; echo "=== 4. actualização (só pacotes php*; os ficheiros de configuração do servidor ficam como estão)"
+              apt-get install --only-upgrade -y -o Dpkg::Options::=--force-confold $PKGS 2>&1 | tail -n 15
+              echo; echo "=== 5. reiniciar os PHP-FPM, um a um"
+              for u in $(systemctl list-units --type=service --state=active --no-legend 'php*-fpm.service' | awk '{print $1}'); do
+                v=${u#php}; v=${v%%-*}
+                if /usr/sbin/php-fpm$v -t >/dev/null 2>&1; then systemctl restart "$u"; sleep 2; echo "$u: $(systemctl is-active "$u")"
+                else echo "$u: a configuração não passa no teste (php-fpm -t); NÃO reiniciado"; /usr/sbin/php-fpm$v -t 2>&1 | tail -3; fi
+              done
+              for u in $(systemctl list-units --type=service --state=active --no-legend 'vd-php-fpm-*.service' | awk '{print $1}'); do
+                systemctl restart "$u"; sleep 2; echo "$u: $(systemctl is-active "$u")"
+              done
+              if apache2ctl -M 2>/dev/null | grep -qi php; then
+                echo "mod_php carregado: a reiniciar o Apache"; apache2ctl configtest 2>&1 | tail -1 && systemctl restart apache2; sleep 2; echo "apache2: $(systemctl is-active apache2)"
+              fi
+              echo; echo "=== 6. estado depois"; resumo
+              echo; em_execucao; VELHOS=$?
+              echo; echo "=== 7. sites (antes → depois)"
+              estado_sites > "$D/sites-depois.txt"
+              diff <(sort -k2 "$D/sites-antes.txt") <(sort -k2 "$D/sites-depois.txt") && echo "iguais aos de antes" || true
+              cat "$D/sites-depois.txt"
+              FALHA=0
+              # basededadosagro.com responde 200 por fora; o visualdesignmoz.com visto de dentro do servidor dá 000 (passa pelo proxy externo),
+              # por isso confirma-se a app directamente na porta 3002 (200 ou redirecção) e compara-se com o «antes»
+              grep -q "^200 basededadosagro.com$" "$D/sites-depois.txt" || { echo "ATENÇÃO: basededadosagro.com não responde 200"; FALHA=1; }
+              LOC=$(curl -o /dev/null -s -m 10 -w '%{http_code}' http://127.0.0.1:3002/ 2>/dev/null)
+              echo "visualdesignmoz.com (app na porta 3002, por dentro): $LOC"
+              case "$LOC" in 2*|3*) ;; *) echo "ATENÇÃO: o visualdesignmoz.com não responde na porta 3002"; FALHA=1;; esac
+              [ "$VELHOS" -eq 0 ] || { echo "ATENÇÃO: ainda há $VELHOS processos PHP-FPM com o binário antigo"; FALHA=1; }
+              echo; echo "=== fim. Para voltar atrás: pacotes de antes em $D/pacotes-antes.txt, configuração em $D/etc-php.tgz"
+              exit $FALHA
+
+            else
+              echo "fase desconhecida: $FASE"; exit 1
+            fi
