@@ -1281,7 +1281,7 @@ function CheckoutItemsByType({ types }: { types: string[] }) {
 
   const deleteHostingItem = async (pedidoId: string, itemIndex: number, domain?: string) => {
     const aviso = domain
-      ? `Apagar esta encomenda de hospedagem (${domain})? Isto remove o pedido, o registo de hospedagem, e o site real no servidor. Não pode ser desfeito.`
+      ? `Apagar esta encomenda de hospedagem (${domain})? Isto remove o pedido, o registo de hospedagem e o site criado por esta encomenda no servidor (sites reais, como os da conta principal, ficam intactos; o registo do domínio também não é apagado). Não pode ser desfeito.`
       : 'Apagar esta encomenda de hospedagem? Isto remove o pedido e o registo de hospedagem. Não pode ser desfeito.'
     if (!window.confirm(aviso)) return
 
