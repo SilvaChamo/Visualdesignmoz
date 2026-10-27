@@ -23,15 +23,19 @@ for _ in $(seq 90); do
   sleep 1
 done
 
-# Duas vistas sempre (Silva, 27/10/2026: «duas vistas»): a aba que já tiver o localhost:3003 aberto passa para a pré-visualização de computador e
-# telemóvel lado a lado, na página pedida (antes só se recarregava a aba, e quem a tinha numa vista simples nunca via a do telemóvel).
+# Sem recarregar a página (Silva, 27/10/2026: «aplica as alterações sem ser necessário fazer reload da página… só as mudanças no projecto local»):
+# mudar de ramo já chega — o `next dev` apanha os ficheiros alterados e põe-nos na página aberta (Fast Refresh e CSS ao vivo), sem recarregar nem
+# perder o que está no ecrã. Por isso, se a aba que já tem o localhost:3003 está na pré-visualização de computador e telemóvel (duas vistas), NÃO se
+# lhe toca. Só se uma aba aberta estiver noutra página é que passa, uma vez, para as duas vistas (Silva, 27/10/2026: «duas vistas»); sem aba, abre-se.
 ALVO="http://localhost:3003/dev-preview-telemovel?p=$CAMINHO"
-RECARREGOU=$(osascript \
+ABA=$(osascript \
   -e 'set achou to false' \
   -e 'if application "Google Chrome" is running then' \
   -e 'tell application "Google Chrome"' \
   -e 'repeat with w in windows' -e 'repeat with t in tabs of w' \
-  -e 'if achou is false and URL of t contains "localhost:3003" then' -e "set URL of t to \"$ALVO\"" -e 'set achou to true' -e 'end if' \
+  -e 'if achou is false and URL of t contains "localhost:3003" then' \
+  -e 'if URL of t does not contain "dev-preview-telemovel" then' -e "set URL of t to \"$ALVO\"" -e 'end if' \
+  -e 'set achou to true' -e 'end if' \
   -e 'end repeat' -e 'end repeat' -e 'end tell' -e 'end if' -e 'return achou' 2>/dev/null)
-[ "$RECARREGOU" = "true" ] || open "$ALVO"
+[ "$ABA" = "true" ] || open "$ALVO"
 echo "Pronto: $RAMO em http://localhost:3003$CAMINHO (mensagens do servidor em /tmp/visualdesign-dev.log)"

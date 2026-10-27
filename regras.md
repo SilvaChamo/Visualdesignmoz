@@ -31,6 +31,16 @@ importante.
 
 A pasta de trabalho no Mac do Silva é `visualdesign-producao` (antes `visualdesign-teste`, que deixa de se usar).
 
+# Actualizar o site local: SEMPRE o script `scripts/atualizar-local.sh`, qualquer agente (Silva, 27/10/2026)
+
+**Para qualquer agente, com qualquer IA: para actualizar o site local usa-se sempre este script** (o mesmo de `npm run atualizar`), nunca comandos soltos, `git pull`, `checkout` à mão nem o «modelo gigante» do ponto 6 (esse só quando o servidor local está encravado e se diz porquê).
+O script muda de ramo sem parar o servidor, sem apagar a cache e **sem recarregar a página** (o `next dev` põe as alterações na aba aberta); só liga o servidor se estiver parado, só faz `npm install` se o `package-lock.json` mudou, e abre/mantém a pré-visualização de computador e telemóvel
+(`/dev-preview-telemovel`). **O comando que se dá ao Silva** é sempre esta única linha (trocar `RAMO` e o caminho da página):
+```
+git fetch -q origin RAMO && bash <(git show origin/RAMO:scripts/atualizar-local.sh) RAMO /CAMINHO
+```
+O agente que tem a pasta local faz o mesmo ele próprio (`bash scripts/atualizar-local.sh RAMO /CAMINHO`). Se o script precisar de mudar, muda-se o script (e esta regra), nunca se dá outro comando.
+
 # Agentes na nuvem (online): conversa curta, tudo nos bastidores (Silva, 23/10/2026)
 
 **Só para os agentes que trabalham online (na nuvem, sem acesso à pasta local).** Os que trabalham no IDE (Cursor, Copilot, Codex, Gemini
@@ -177,7 +187,7 @@ sessão: retomar sempre em português. Vale para qualquer agente (as regras de b
    ```
    git fetch -q origin RAMO && bash <(git show origin/RAMO:scripts/atualizar-local.sh) RAMO /CAMINHO
    ```
-   **Sempre as duas vistas** (Silva, 27/10/2026: «duas vistas»): a aba que já tiver o `localhost:3003` aberto passa para `/dev-preview-telemovel?p=/CAMINHO` (computador e telemóvel lado a lado) em vez de só recarregar. O comando completo acima (fecha, apaga a cache e liga) fica só para quando o servidor está encravado ou não responde, e diz-se ao Silva porquê. Nunca dar o modelo gigante por omissão.
+   **Sempre as duas vistas, sem recarregar** (Silva, 27/10/2026: «duas vistas»; «aplica só as mudanças no projecto local, sem reload da página»): mudar de ramo chega, o `next dev` põe as alterações na página aberta sozinho (sem recarregar). Uma aba que já esteja em `/dev-preview-telemovel` **não se toca**; uma aba aberta noutra página passa, uma vez, para `/dev-preview-telemovel?p=/CAMINHO` (computador e telemóvel lado a lado); sem aba, abre-se. O comando completo acima (fecha, apaga a cache e liga) fica só para quando o servidor está encravado ou não responde, e diz-se ao Silva porquê. Nunca dar o modelo gigante por omissão.
    Online já é assim: o deploy constrói no GitHub, põe a versão nova numa pasta à parte e o `pm2 reload visualdesignmoz` só troca quando a nova já escuta (sem ecrã branco, ver `deploy-contabo.yml`);
    nenhuma alteração ao deploy pode introduzir paragem, `pm2 restart` ou `rm -rf .next` na pasta em uso.
 6b. **Um único ramo até o Silva dizer «publica»** (Silva, 27/10/2026: «todos os assuntos que eu te peço para fazer coloque no mesmo ramo até eu dizer publique»; «costuma fazer tudo num único ramo para não termos que passar por isso»).
