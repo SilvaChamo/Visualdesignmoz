@@ -110,8 +110,11 @@ function LoginFormInner() {
     <>
       {/* no telemóvel e no tablet a imagem (com o logótipo) não aparece: o logótipo fica por cima do formulário */}
       {/* no telemóvel e no tablet tudo ao centro (pedido do Silva, 13/10/2026) */}
-      <h1 className={tituloCls}>{t('login.title')}</h1>
-      <p className={subtituloLoginCls}>{t('login.subtitle')}</p>
+      {/* cabeçalho do formulário: título e descrição, fechados por uma linha separadora (Silva, 27/10/2026) */}
+      <div className="border-b border-zinc-200 pb-[clamp(14px,1.2vw,18px)] dark:border-[#393e4d]">
+        <h1 className={tituloCls}>{t('login.title')}</h1>
+        <p className={subtituloLoginCls}>{t('login.subtitle')}</p>
+      </div>
 
       {error && <div className={`mt-6 ${authErrorBoxClass}`}>{error}</div>}
 
