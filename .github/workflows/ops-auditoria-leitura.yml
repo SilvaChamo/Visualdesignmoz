@@ -91,3 +91,22 @@ jobs:
             pm2 list --no-color 2>/dev/null | cut -c1-150 | head -14
             systemctl is-active basededadosagro-site 2>/dev/null | sed 's/^/basededadosagro-site: /'
             echo "disco: $(df -h / | awk 'NR==2{print $5" usado de "$2}')"
+
+            titulo "13. Onde estão os registos de acesso e quem chamou as rotas protegidas (30 dias)"
+            ls -d /var/log/nginx /var/log/apache2/domains /var/log/nginx/domains 2>/dev/null
+            ls /var/log/nginx 2>/dev/null | head -20 | paste -sd' '
+            ls /var/log/apache2/domains 2>/dev/null | grep -i visualdesignmoz | head -10 | paste -sd' '
+            for L in $(ls /var/log/nginx/*access*.log* /var/log/apache2/domains/visualdesignmoz.com*.log* /var/log/nginx/domains/*visualdesignmoz*.log* 2>/dev/null | head -60); do
+              case "$L" in *.gz) zcat "$L" 2>/dev/null ;; *) cat "$L" 2>/dev/null ;; esac
+            done | grep -E "\"(GET|POST|PUT|DELETE|OPTIONS) /api/(get-all-contacts|migrate-contacts|check-smtp-config|mozserver-proxy|whmcs-proxy|submit-ticket)" | awk '{for(i=1;i<=NF;i++){ if($i ~ /^"(GET|POST|PUT|DELETE|OPTIONS)$/){print $(i+1), $i, $(i+3), $1} } }' | sed 's/?[^ ]*//' | sort | uniq -c | sort -rn | head -30 || true
+            echo "(fim; vazio = ninguém chamou nos registos lidos)"
+
+            titulo "14. Firewall completa (regras de entrada) e porta 21"
+            iptables -S INPUT 2>/dev/null | sed -E 's/-s [0-9./]+/-s <ip>/' | cut -c1-170 | head -60
+            ss -tlnp 2>/dev/null | grep -E ':(21|3306|5432|6379|6543|8000|8080|8081|8083|8084|8443) ' | awk '{print $4, $NF}' | cut -c1-120
+
+            titulo "15. SSH efectivo (a configuração pedida ao próprio sshd e ficheiros extra)"
+            ls /etc/ssh/sshd_config.d/ 2>/dev/null
+            grep -rhE '^\s*(PasswordAuthentication|PermitRootLogin|PubkeyAuthentication|Port|AllowUsers|MaxAuthTries)\b' /etc/ssh/sshd_config /etc/ssh/sshd_config.d/ 2>/dev/null | sort -u
+            ss -tlnp 2>/dev/null | grep -E 'sshd|ssh' | awk '{print $4}' | paste -sd' '
+            grep -c 'Failed password' /var/log/auth.log 2>/dev/null | sed 's/^/tentativas de palavra-passe falhadas no auth.log: /'
