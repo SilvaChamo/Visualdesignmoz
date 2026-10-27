@@ -412,11 +412,15 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
   e o ícone do primeiro separador; **as linhas vão a toda a largura do cartão**. Espaço **antes e depois de cada
   linha**, igual em todo o lado (nada colado a uma linha).
 - **Menu da barra lateral esquerda**: categorias 15 px, páginas 13 px.
+- **Barra compacta: o «Sair» do fundo realça-se (selecionado e ao passar o rato) até à beira de baixo da janela, sem margem por baixo** (Silva, 27/10/2026; a barra não tem `padding-bottom`).
 - **Barra compacta (ícones à esquerda)** (Silva, 21/10/2026): o símbolo ocupa 76 px (a altura da barra de cima), por isso o primeiro
   ícone (Mensagens) começa na linha de cima do separador Admin; botões de 64 px (idioma 68 px) para dar espaço entre ícones; leva
   também o ícone da gestão de ficheiros (só ícone, leva directo à página, só aparece a quem o plano deixa ver).
 - **O separador "Admin"** chama-se "Admin" em todos os painéis, também no do revendedor (`nomeNivel` em `state.ts` — tabs, caminho
   e pesquisa; "Revenda" já não aparece como nome de separador).
+- **O cartão principal «não acaba» no fim do scroll** (Silva, 27/10/2026: «o card principal não deve mostrar a linha de baixo, nem onde termina no fim do scroll; só se tiver outro card dentro dele é que mostra a margem»; **substitui a regra de 26/10 logo abaixo, só no computador**):
+  `main` sem margem por baixo e o cartão principal sem a linha nem os cantos de baixo (parece continuar para lá da janela). Só se houver outro cartão (`.card`) lá dentro é que o cartão principal mantém o espaço por baixo (o seu
+  preenchimento); sem cartão lá dentro, nem esse espaço. No telemóvel fica como estava (barra de baixo + 12 px). CSS no fim de `paginas.css`.
 - **No fim do scroll fica só a margem dos lados e de cima** (Silva, 26/10/2026: «no fim do último card… a mesma margem das
   laterais e do topo, em todos os cards, sem excepção»; substitui a regra de 20/10 «o cartão chega ao fundo da janela»): o
   `main` tem a mesma margem (`20px × --k`) dos quatro lados e o cartão principal volta a ter a linha e os cantos de baixo. O

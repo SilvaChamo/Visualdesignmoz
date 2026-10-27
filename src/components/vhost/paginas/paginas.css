@@ -15091,3 +15091,34 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
 .vh td:has(.ad-cmd-1l):not(#x) {
    white-space: nowrap
 }
+
+/* Fim do scroll: o cartão principal «não acaba» (Silva, 27/10/2026: «o card principal não deve mostrar a linha de baixo, nem onde termina no fim do
+   scroll; só se tiver outro card dentro dele é que mostra a margem»). Computador: `main` deixa de ter margem por baixo e o cartão principal perde a
+   linha e os cantos de baixo, por isso parece continuar para lá da janela. Substitui a regra de 26/10/2026 (margem igual à dos lados por baixo do
+   último cartão). Um cartão (`.card`) lá dentro mantém o espaço por baixo (o preenchimento do cartão principal); sem cartão lá dentro, nem esse espaço. */
+@media (min-width: 769px) {
+   .vh main:not(#x) {
+      padding-bottom: 0
+   }
+
+   .vh main .da-main-card:not(#x):not(#y) {
+      border-bottom: 0;
+      border-bottom-left-radius: 0;
+      border-bottom-right-radius: 0
+   }
+
+   .vh main .da-main-card:not(:has(.card)):not(#x):not(#y) {
+      padding-bottom: 0
+   }
+}
+
+/* Barra compacta: o «Sair» no fundo é selecionado (e fica realçado ao passar o rato) até à beira de baixo da janela, sem margem por baixo
+   (Silva, 27/10/2026: «ao selecionar mostra margem em baixo, não pode, deve selecionar toda a área de baixo»; «no hover também mostra, não pode»).
+   A margem era o `padding-bottom` de 10 px da própria barra, que deixava um friso sem realce por baixo do último botão. */
+.vh .rail:not(#x) {
+   padding-bottom: 0
+}
+
+.vh .rail .rb.sair:not(#x) {
+   flex-shrink: 0
+}
