@@ -6,6 +6,11 @@ name: Ops - Diagnóstico do Elementor num site (só leitura)
 # Esconde segredos (nada de wp-config nem de variáveis: só as constantes de memória). Pedido do Silva a 27/10/2026.
 
 on:
+  # só para correr a partir do ramo de trabalho, antes de o ficheiro estar em main (o GitHub só deixa «Run workflow» com ficheiros
+  # que já estão em main): corre uma vez ao enviar uma alteração a ESTE ficheiro, com o domínio por omissão
+  push:
+    branches: [painel-email-dados-e-refresh]
+    paths: ['.github/workflows/ops-elementor-diagnostico.yml']
   workflow_dispatch:
     inputs:
       dominio:
@@ -24,7 +29,7 @@ jobs:
       - name: Diagnóstico do Elementor (só leitura)
         uses: appleboy/ssh-action@v1.2.5
         env:
-          DOMINIO: ${{ inputs.dominio }}
+          DOMINIO: ${{ inputs.dominio || 'entrecamposblog.com' }}
         with:
           host: ${{ secrets.CONTABO_HOST }}
           port: 2234
