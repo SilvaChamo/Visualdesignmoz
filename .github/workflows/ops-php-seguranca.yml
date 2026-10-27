@@ -177,7 +177,12 @@ jobs:
               diff <(sort -k2 "$D/sites-antes.txt") <(sort -k2 "$D/sites-depois.txt") && echo "iguais aos de antes" || true
               cat "$D/sites-depois.txt"
               FALHA=0
-              for d in basededadosagro.com visualdesignmoz.com; do grep -q "^200 $d$" "$D/sites-depois.txt" || { echo "ATENÇÃO: $d não responde 200"; FALHA=1; }; done
+              # basededadosagro.com responde 200 por fora; o visualdesignmoz.com visto de dentro do servidor dá 000 (passa pelo proxy externo),
+              # por isso confirma-se a app directamente na porta 3002 (200 ou redirecção) e compara-se com o «antes»
+              grep -q "^200 basededadosagro.com$" "$D/sites-depois.txt" || { echo "ATENÇÃO: basededadosagro.com não responde 200"; FALHA=1; }
+              LOC=$(curl -o /dev/null -s -m 10 -w '%{http_code}' http://127.0.0.1:3002/ 2>/dev/null)
+              echo "visualdesignmoz.com (app na porta 3002, por dentro): $LOC"
+              case "$LOC" in 2*|3*) ;; *) echo "ATENÇÃO: o visualdesignmoz.com não responde na porta 3002"; FALHA=1;; esac
               [ "$VELHOS" -eq 0 ] || { echo "ATENÇÃO: ainda há $VELHOS processos PHP-FPM com o binário antigo"; FALHA=1; }
               echo; echo "=== fim. Para voltar atrás: pacotes de antes em $D/pacotes-antes.txt, configuração em $D/etc-php.tgz"
               exit $FALHA
