@@ -60,7 +60,7 @@ const socialIconsHtml = () => `<table cellpadding="0" cellspacing="0" border="0"
       </tr></table>`
 
 // Cabeçalho partilhado por todos os emails transaccionais: fundo esticado à
-// largura total da página (igual ao email da MozServer e aos templates de
+// largura total da página (igual ao email anterior e aos templates de
 // mailmarketing), mas o conteúdo (logo + redes sociais) fica alinhado à
 // mesma largura/margens do cartão de conteúdo (600px) — não à largura total
 // do fundo. Logo à esquerda, redes sociais à direita — sem linha de destaque

@@ -1,12 +1,17 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { requireAdmin } from '@/lib/admin-api-auth'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
 const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
 
+// Migração pontual: só administrador (antes qualquer visitante a podia correr e reescrever os subscritores).
 export async function POST() {
+    const auth = await requireAdmin()
+    if ('error' in auth) return auth.error
+
     try {
         // Buscar todos os contatos que não têm panel: 'client'
         const { data: allContacts, error: fetchError } = await supabaseAdmin
