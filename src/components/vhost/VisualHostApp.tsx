@@ -54,6 +54,7 @@ import {
   dominioGuardado,
   guardarDominio,
   route,
+  rotuloItem,
   type DashTab,
   type St,
 } from './state';
@@ -1681,8 +1682,8 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
                                   <span className={'ic ' + it.c}>
                                     <i className={ico(it.fa)} />
                                   </span>
-                                  <span className="lb" title={t(it.t)}>
-                                    {t(it.t)}
+                                  <span className="lb" title={t(rotuloItem(s, it))}>
+                                    {t(rotuloItem(s, it))}
                                   </span>
                                   {it.opt && <em>{t('opc.')}</em>}
                                   {avisosMenu[it.id] && (

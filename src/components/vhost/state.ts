@@ -125,6 +125,8 @@ export function guardarDominio(conta: string, d: string) {
     if (conta) localStorage.setItem(chaveDominio(conta), d);
   } catch {}
 }
+/** Nome de um item do menu: para o cliente, «Encomendas» chama-se «Compras» (Silva, 27/10/2026); o administrador, que recebe encomendas, continua com «Encomendas» */
+export const rotuloItem = (s: St, it: { id: string; t: string }) => (it.id === 'encomendas' && !(s.acc[s.login]?.role === 'admin' && !s.stack.length) ? 'Compras' : it.t);
 export const meOf = (s: St) => (s.stack.length ? s.stack[s.stack.length - 1].u : s.login);
 /** Conta vazia enquanto os dados do servidor não chegam (o painel mostra "a carregar") */
 const VAZIA: Account = { name: '', email: '', role: 'admin', creator: '', pkg: '', state: 'ok', disk: '0 MB', domains: [], mails: [] };
