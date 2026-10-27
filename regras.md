@@ -276,7 +276,7 @@ antigos) sem nenhum `t()`. Ficou assim:
   ou `` `…${x}` `` escreve-se no dicionário como modelo com `{0}` (o ecrã recebe a frase inteira). Antes de dar uma alteração ao painel por concluída:
   **`npm run i18n:painel` tem de dar 0 textos sem inglês** (lista o que falta, com ficheiro e linha; `-v` mostra cada texto, `--json` a lista para copiar).
 - **As duas línguas são o português de Portugal e o inglês britânico** (Silva, 27/10/2026: «o português nem é do Brasil: é de Portugal, o dicionário antigo que Moçambique fala; o inglês deve ser de Inglaterra»).
-  Português: `utilizador`, `ficheiro`, `descarregar` (nunca `usuário`, `arquivo`, `baixar`), `guardar` (nunca `salvar`), `registar` (nunca `cadastrar`), `gerir` (nunca `gerenciar`), «o seu
+  Português: `utilizador`, `ficheiro`, `descarregar` (nunca `usuário`, `arquivo`; «Baixar» fica onde «Descarregar» é comprido demais — Silva, 27/10/2026), `guardar` (nunca `salvar`), `registar` (nunca `cadastrar`), `gerir` (nunca `gerenciar`), «o seu
   domínio» com artigo (nunca «seu domínio»), nada de «você»; grafia de Moçambique: `actualizar`, `correcto`, `excepção`, `facturação`, `contacto`. Inglês: `colour`, `customise`, `organisation`,
   `authorise`, `centre`, `licence`, `cancelled` (nunca as formas americanas); nomes de produtos (WordPress «Customizer») ficam como são.
 - **O verificador já não dá por traduzida uma lista de dois textos** (27/10/2026): uma lista `['título', 'texto']` ou `['pergunta', 'resposta']` era tomada por um par português/inglês e escondia
