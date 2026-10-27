@@ -114,7 +114,7 @@ function LoginFormInner() {
       {/* no telemóvel e no tablet a imagem (com o logótipo) não aparece: o logótipo fica por cima do formulário */}
       {/* no telemóvel e no tablet tudo ao centro (pedido do Silva, 13/10/2026) */}
       {/* cabeçalho do formulário: título e descrição, fechados por uma linha separadora (Silva, 27/10/2026) */}
-      <div className="-mx-5 border-b border-zinc-200 px-5 pb-[clamp(9px,0.8vw,12px)] dark:border-[#393e4d] lg:-mx-[clamp(22px,1.95vw,30px)] lg:px-[clamp(22px,1.95vw,30px)]">
+      <div className="-mx-5 border-b border-zinc-200 bg-zinc-50 px-5 pb-[clamp(9px,0.8vw,12px)] pt-2 dark:border-[#393e4d] dark:bg-white/[0.03] lg:-mx-[clamp(22px,1.95vw,30px)] lg:-mt-[clamp(22px,1.95vw,28px)] lg:rounded-t-[9px] lg:px-[clamp(22px,1.95vw,30px)] lg:pt-[clamp(22px,1.95vw,28px)]">
         <h1 className={tituloCls}>{t('login.title')}</h1>
         <p className={subtituloLoginCls}>{t('login.subtitle')}</p>
       </div>
