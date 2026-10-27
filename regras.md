@@ -800,6 +800,13 @@ nível Revenda parte dessa lista ou de uma rota que a aplica no servidor; **nunc
 - **Mudar a escolha vale logo**, sem recarregar: `gravarFormatoData` guarda e avisa (`vh-data-mudou`) e todas as tabelas (`DataTable` usa `useFormatoData`) desenham-se de novo.
 - **Nome das cópias de segurança**: `vdadmin.2026-10-27_22-29-54.tar` mostra-se `vdadmin 27/10/2026:22.29.tar` (ou `vdadmin 27 out 2026, 22:29.tar` na forma curta…); só o que se vê, a cópia chama-se como no servidor. Leva sempre a hora.
 
+# Páginas do WordPress no painel: edição rápida em cada linha e um só botão (Silva, 27/10/2026)
+
+- **Gerir WordPress › Páginas** (`WpPaginas` em `avancado.tsx`): cada página tem uma **seta** (chevron) à frente do título que abre por baixo da linha a **Edição rápida**, como a do WordPress: **Título, Endereço (slug), Estado** e, só nas páginas feitas com o
+  **Elementor**, o **Modelo** (Predefinição do tema · Elementor Canvas · Elementor largura total = meta `_wp_page_template`: `default`, `elementor_canvas`, `elementor_header_footer`). Guarda por `wp-pagina-editar` (WP-CLI como administrador do site; o slug só
+  aceita `a-z`, números e hífenes; «Agendada» não se muda daqui; o modelo só se grava se a página for do Elementor). Mudar o endereço muda o link: o ecrã avisa. Os mesmos dados também abrem pelo menu «⋯» › «Edição rápida».
+- **Um só botão por linha**: a lista de instalações (Gestor de WordPress) deixa de ter «Gerir» e «⋯» lado a lado; **«Gerir» é o primeiro item do menu «⋯»**, com as outras opções. Em listas novas, nunca um botão solto ao lado do menu «⋯».
+
 # Autenticação em 2 passos (opcional — Silva, 21/10/2026)
 
 - **Nunca obrigatória**: só afecta quem a liga em Perfil › Autenticação em 2 passos (aplicação de autenticação, TOTP do Supabase;

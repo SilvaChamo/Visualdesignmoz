@@ -1790,7 +1790,7 @@ type Wp = { d: string; pasta: string; versao: string; titulo: string; url: strin
 type Plugin = { name: string; title?: string; status: string; version: string; update: string | null; update_version?: string };
 type WpUser = { ID?: number; user_login: string; display_name?: string; user_email?: string; roles?: string; user_registered?: string };
 /** "2025-02-05 17:54:10" → "05/02/2025, 17:54" (como no DA) */
-const dataWp = (d?: string) => (d && /^\d{4}-\d\d-\d\d \d\d:\d\d/.test(d) ? `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}, ${d.slice(11, 16)}` : d || '—');
+const dataWp = (d?: string) => (d ? dataPt(d) : '—');
 const AUTO: Record<string, string> = { true: 'Todas', minor: 'Só de segurança', false: 'Desligada' };
 
 /** Abre o painel do WordPress já com sessão. A janela abre-se logo no clique (depois de esperar pelo servidor o
@@ -2049,11 +2049,9 @@ function WordPressLista() {
           ]}
           actions={(r) => (
             <span className="dns-acoes">
-              <button className="btn sm g" onClick={() => nav('/utilizador/wordpress/' + enc(r.d))}>
-                {t('Gerir')}
-              </button>
               <MenuPontos
                 itens={[
+                  { fa: 'fa-gear', t: 'Gerir', run: () => nav('/utilizador/wordpress/' + enc(r.d)) },
                   { fa: 'fa-window-maximize', t: 'Abrir o painel do WordPress', run: () => entrarWp(vh, r.d) },
                   { fa: 'fa-users', t: 'Abrir a lista de utilizadores', run: () => nav('/utilizador/wordpress/' + enc(r.d) + '/utilizadores') },
                   { fa: 'fa-arrows-rotate', t: 'Gerir a atualização automática', run: () => openM(<WpAutoModal d={r.d} atual={r.auto} depois={ler} />) },
@@ -2504,7 +2502,7 @@ function WpAbas({ d, aba }: { d: string; aba: AbaWp }) {
   );
 }
 
-type PaginaWp = { ID: number; post_title: string; post_status: string; post_modified: string; post_name: string; url?: string; elementor?: boolean };
+type PaginaWp = { ID: number; post_title: string; post_status: string; post_modified: string; post_name: string; url?: string; elementor?: boolean; modelo?: string };
 const ESTADO_PG: Record<string, string> = { publish: 'Publicada', draft: 'Rascunho', pending: 'Pendente', private: 'Privada', future: 'Agendada' };
 
 /** Separador "Páginas": as páginas do site; "Editar" abre o editor de blocos do WordPress dentro do painel */
@@ -2512,6 +2510,8 @@ function WpPaginas({ d }: { d: string }) {
   const vh = useVH();
   const { t, nav } = vh;
   const { dados, erro, ler } = useLer<{ paginas: PaginaWp[] }>('wppaginas', { d });
+  // a página com a edição rápida aberta (a seta de cada linha, como a «Edição rápida» do WordPress)
+  const [aberta, setAberta] = useState<number | null>(null);
   if (!dados) return <Carregando erro={erro} ler={ler} />;
   const enc = encodeURIComponent;
   return (
@@ -2530,6 +2530,9 @@ function WpPaginas({ d }: { d: string }) {
             sort: (r) => r.post_title,
             cell: (r) => (
               <span className="wp-pg-tit">
+                <button className={'wp-pg-chev' + (aberta === r.ID ? ' on' : '')} aria-expanded={aberta === r.ID} title={t('Edição rápida')} aria-label={t('Edição rápida')} onClick={() => setAberta(aberta === r.ID ? null : r.ID)}>
+                  <i className={'fa-solid ' + (aberta === r.ID ? 'fa-chevron-up' : 'fa-chevron-down')} />
+                </button>
                 <b>{r.post_title || t('(sem título)')}</b>
                 {r.elementor && <span className="tag off">Elementor</span>}
               </span>
@@ -2538,9 +2541,11 @@ function WpPaginas({ d }: { d: string }) {
           { k: 'e', t: 'Estado', cell: (r) => <span className={'tag ' + (r.post_status === 'publish' ? 'ok' : 'off')}>{t(ESTADO_PG[r.post_status] || r.post_status)}</span> },
           { k: 'm', t: 'Última alteração', sort: (r) => r.post_modified, cell: (r) => dataWp(r.post_modified) },
         ]}
+        linhaExtra={(r) => (aberta === r.ID ? <EdicaoRapidaPagina key={r.ID} d={d} r={r} fechar={() => setAberta(null)} depois={() => ler(true)} /> : null)}
         actions={(r) => (
           <MenuPontos
             itens={[
+              { fa: 'fa-sliders', t: 'Edição rápida (endereço, estado e modelo)', run: () => setAberta(r.ID) },
               { fa: 'fa-pen', t: 'Editar no WordPress', run: () => entrarWp(vh, d, undefined, r.ID) },
               // só as páginas feitas com o Elementor têm esta opção (o editor de blocos estragava-as)
               ...(r.elementor ? [{ fa: 'fa-pen-to-square', t: 'Editar com Elementor', run: () => entrarWp(vh, d, undefined, r.ID, 'elementor') }] : []),
@@ -2551,6 +2556,94 @@ function WpPaginas({ d }: { d: string }) {
         )}
       />
     </Sec>
+  );
+}
+
+/** Modelos de uma página feita com o Elementor (o seletor «Modelo» da edição rápida do WordPress) */
+const MODELOS_ELEMENTOR: [string, string][] = [
+  ['default', 'Predefinição do tema'],
+  ['elementor_canvas', 'Elementor Canvas'],
+  ['elementor_header_footer', 'Elementor largura total'],
+];
+const ESTADOS_EDITAVEIS: [string, string][] = [
+  ['publish', 'Publicada'],
+  ['draft', 'Rascunho'],
+  ['pending', 'Pendente'],
+  ['private', 'Privada'],
+];
+
+/** Linha que se abre pela seta de cada página (como a «Edição rápida» do WordPress): título, endereço (slug), estado e, nas páginas feitas com o
+ *  Elementor, o modelo (largura total, Canvas…). Guarda pelo WP-CLI; mudar o endereço muda o link da página. */
+function EdicaoRapidaPagina({ d, r, fechar, depois }: { d: string; r: PaginaWp; fechar: () => void; depois: () => void }) {
+  const vh = useVH();
+  const { t } = vh;
+  const [titulo, setTitulo] = useState(r.post_title || '');
+  const [slug, setSlug] = useState(r.post_name || '');
+  // «Agendada» não se muda daqui (deixa-se como está)
+  const editavel = ESTADOS_EDITAVEIS.some(([k]) => k === r.post_status);
+  const [estado, setEstado] = useState(editavel ? r.post_status : '');
+  const [modelo, setModelo] = useState(MODELOS_ELEMENTOR.some(([k]) => k === r.modelo) ? (r.modelo as string) : 'default');
+  const slugOk = /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug);
+  const mudou = titulo !== (r.post_title || '') || slug !== (r.post_name || '') || (editavel && estado !== r.post_status) || (r.elementor && modelo !== (MODELOS_ELEMENTOR.some(([k]) => k === r.modelo) ? r.modelo : 'default'));
+  const guardar = async () => {
+    const ok = await noServidor(vh, { acao: 'wp-pagina-editar', dominio: d, id: r.ID, titulo, slug, estado: editavel ? estado : '', modelo: r.elementor ? modelo : '' }, 'Página actualizada');
+    if (ok) {
+      depois();
+      fechar();
+    }
+  };
+  return (
+    <div className="wp-edicao">
+      <h4>{t('Edição rápida')}</h4>
+      <div className="wp-edicao-grelha">
+        <div className="f">
+          <label>{t('Título')}</label>
+          <input value={titulo} onChange={(e) => setTitulo(e.target.value)} maxLength={300} />
+        </div>
+        <div className="f">
+          <label>{t('Endereço (slug)')}</label>
+          <input value={slug} onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/\s+/g, '-'))} maxLength={190} aria-invalid={!slugOk} />
+          {!slugOk && <small className="wp-edicao-aviso">{t('Só letras minúsculas, números e hífenes (ex.: sobre-nos).')}</small>}
+        </div>
+        <div className="f">
+          <label>{t('Estado')}</label>
+          {editavel ? (
+            <select value={estado} onChange={(e) => setEstado(e.target.value)}>
+              {ESTADOS_EDITAVEIS.map(([k, n]) => (
+                <option key={k} value={k}>
+                  {t(n)}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <select value="" disabled>
+              <option value="">{t(ESTADO_PG[r.post_status] || r.post_status)}</option>
+            </select>
+          )}
+        </div>
+        {r.elementor && (
+          <div className="f">
+            <label>{t('Modelo')}</label>
+            <select value={modelo} onChange={(e) => setModelo(e.target.value)}>
+              {MODELOS_ELEMENTOR.map(([k, n]) => (
+                <option key={k} value={k}>
+                  {t(n)}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+      </div>
+      <p className="wp-edicao-nota">{t('Mudar o endereço muda o link da página: os links antigos deixam de funcionar.')}</p>
+      <div className="wp-edicao-botoes">
+        <button className="btn r" disabled={!mudou || !titulo.trim() || !slugOk} onClick={guardar}>
+          {t('Actualizar')}
+        </button>
+        <button className="btn g" onClick={fechar}>
+          {t('Cancelar')}
+        </button>
+      </div>
+    </div>
   );
 }
 
