@@ -693,6 +693,16 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
   da conta (`contactPreview`). Os valores aparecem só para ver (interruptores e botões desativados); o que nenhuma fonte diz (ex.: privacidade WHOIS) fica «—», nunca
   inventado. O nome de cada informação do cartão (`.dom-info-l > span`) fica numa só linha (coluna de 176 px).
 
+# Menu Admin do revendedor (Silva, 26/10/2026)
+O revendedor só vê a sua conta e as dos clientes que criou (`vhost-dados.ts`, `visiveis`; `src/lib/vhost-revenda.ts` → `clientesDaRevenda`). Cada página do
+nível Revenda parte dessa lista ou de uma rota que a aplica no servidor; **nunca** se liga um ecrã do Admin a `/api/vhost/admin-servidor` (só o administrador).
+- Sem rota nova (usam `s.acc`): Uso por cliente, Estatísticas da revenda (sem histórico por mês: não é guardado) e Backups dos clientes (entra na conta do cliente e
+  abre as cópias dele).
+- `suporte-admin` (Tickets) e `notifications/admin` (Mensagem aos clientes) aceitam também o revendedor, limitados aos clientes dele (403/404 para os de fora).
+- `/api/vhost/revenda`: IPs e Security.txt (só para ver) e Nameservers (`ns-conta`, só contas suas). Qualquer operação nova da revenda entra aqui, com o mesmo teste.
+- **Falta:** Importar contas (cPanel). A lista do Admin são os ficheiros que estão na pasta de importação do servidor, de todos; a revenda precisa de enviar o seu ficheiro e
+  a conta importada ficar-lhe ligada (`parent_username`). Até lá a página mostra as funcionalidades previstas.
+
 # Autenticação em 2 passos (opcional — Silva, 21/10/2026)
 
 - **Nunca obrigatória**: só afecta quem a liga em Perfil › Autenticação em 2 passos (aplicação de autenticação, TOTP do Supabase;
