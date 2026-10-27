@@ -86,6 +86,36 @@ export function Stat({ title, v, m, p, uso = false, cor, acao }: { title: ReactN
   );
 }
 
+/** Título de um cartão da barra lateral direita: sempre numa só linha, em qualquer ecrã e língua (Silva, 27/10/2026: «não quero duas linhas
+ *  de título nesta barra, independentemente do dispositivo»). Só encolhe a letra, em passos de 0,5 px (até 10 px), se não couber na largura
+ *  do cartão; se couber, fica com o tamanho de sempre. */
+function TituloUmaLinha({ texto }: { texto: string }) {
+  const ref = useRef<HTMLElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const ajustar = () => {
+      el.style.fontSize = '';
+      let px = parseFloat(getComputedStyle(el).fontSize);
+      while (el.scrollWidth > el.clientWidth + 0.5 && px > 10) {
+        px -= 0.5;
+        el.style.fontSize = px + 'px';
+      }
+    };
+    ajustar();
+    const obs = new ResizeObserver(ajustar);
+    obs.observe(el);
+    // o tipo de letra pode chegar depois da primeira medição
+    document.fonts?.ready.then(ajustar).catch(() => {});
+    return () => obs.disconnect();
+  }, [texto]);
+  return (
+    <b ref={ref} title={texto}>
+      {texto}
+    </b>
+  );
+}
+
 export function Tool({ fa, c, title, sub, onClick }: { fa: string; c: string; title: string; sub: string; onClick: () => void }) {
   const { t } = useVH();
   return (
@@ -94,7 +124,7 @@ export function Tool({ fa, c, title, sub, onClick }: { fa: string; c: string; ti
         <i className={ico(fa)} />
       </div>
       <div>
-        <b title={t(title)}>{t(title)}</b>
+        <TituloUmaLinha texto={t(title)} />
         <span>{t(sub)}</span>
       </div>
     </div>
