@@ -4,6 +4,7 @@ import {
   requestPasswordResetEmail,
 } from '@/lib/supabase-auth-email';
 import { turnstileValido } from '@/lib/turnstile';
+import { ipDoPedido, passouOLimite } from '@/lib/limite-pedidos';
 
 export async function POST(req: NextRequest) {
   try {
@@ -19,6 +20,12 @@ export async function POST(req: NextRequest) {
 
     if (!email) {
       return NextResponse.json({ error: 'Indique o email.' }, { status: 400 });
+    }
+
+    // Limite por rede e por endereço: o "não sou um robô" trava programas, mas uma pessoa podia encher a caixa de outra
+    // com e-mails de recuperação.
+    if (passouOLimite(`reset-ip:${ipDoPedido(req)}`, 20, 10 * 60_000) || passouOLimite(`reset-email:${email.toLowerCase()}`, 3, 60 * 60_000)) {
+      return NextResponse.json({ error: 'Demasiados pedidos. Tente novamente daqui a algum tempo.' }, { status: 429 });
     }
 
     await requestPasswordResetEmail(email);

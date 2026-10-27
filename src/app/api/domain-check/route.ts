@@ -1,8 +1,13 @@
 import { NextResponse } from 'next/server';
 import { checkAvailability } from '@/lib/dynadot-adapter';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
+import { ipDoPedido, passouOLimite } from '@/lib/limite-pedidos';
 
 export async function POST(req: Request) {
+  // Pública e cada pedido pode ir ao registador (custo e abuso): 400 pedidos por 10 minutos por rede (cada pesquisa do site faz cerca de 16, uma por extensão).
+  if (passouOLimite(`domain-check:${ipDoPedido(req)}`, 400, 10 * 60_000)) {
+    return NextResponse.json({ status: 'ERROR', message: 'Demasiadas pesquisas. Tente novamente daqui a alguns minutos.' }, { status: 429 });
+  }
   try {
     const { domain, tld } = await req.json();
     console.log(`[API] Verificando domínio: ${domain} com TLD: ${tld} (via Dynadot)`);
