@@ -780,8 +780,8 @@ function ContasLista() {
                 ['fa-key', 'Mudar palavra-passe', () => openM(<SenhaModal d={d} acc={r.nome} />)],
                 ['fa-sliders', 'Mudar limites', () => openM(<LimitesModal d={d} c={r} />)],
                 ['fa-gear', 'Configurar o e-mail', () => openM(<DadosConta acc={r.nome} d={d} />)],
-                ['fa-file-lines', 'Baixar credenciais de Outlook', () => void baixarCredenciaisOutlook(vh, r.nome, d)],
-                ['fa-download', 'Baixar configurações Apple', () => configApple(r.nome, d)],
+                ['fa-file-lines', 'Descarregar credenciais do Outlook', () => void baixarCredenciaisOutlook(vh, r.nome, d)],
+                ['fa-download', 'Descarregar configurações Apple', () => configApple(r.nome, d)],
                 ['fa-trash', 'Apagar', () => apagar([r.nome]), true],
               ]}
             />

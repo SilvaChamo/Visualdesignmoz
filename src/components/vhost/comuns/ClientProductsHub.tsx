@@ -685,7 +685,7 @@ export function ClientDashboardView({
                   : row.kind === 'email'
                     ? { label: 'CAIXAS DE E-MAIL', go: () => navigate('emails-new') }
                     : row.isDomainName
-                      ? { label: 'GERENCIAR', go: () => navigate('domain-detail', row.title) }
+                      ? { label: 'GERIR', go: () => navigate('domain-detail', row.title) }
                       : null;
 
               return (

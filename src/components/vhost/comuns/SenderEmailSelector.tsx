@@ -126,7 +126,7 @@ export function SenderEmailSelector({ value, onChange, layout = 'row', currentUs
                         className={`${layout === 'col' ? 'w-full' : 'shrink-0'} gap-2 bg-emerald-50 border border-emerald-300 text-emerald-600 hover:bg-emerald-100 hover:text-emerald-700 h-10 rounded font-black uppercase text-[10px] tracking-widest transition-all  border-none !opacity-100`}
                     >
                         <Plus className="w-4 h-4 text-white" />
-                        Cadastrar Email
+                        Registar e-mail
                     </Button>
                 </DialogTrigger>
                 <DialogContent className="rounded bg-white dark:bg-white border-slate-200">

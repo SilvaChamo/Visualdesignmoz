@@ -243,7 +243,7 @@ export default function PaymentMethodForm({ onClose, onSuccess }: PaymentMethodF
               ) : (
                 <>
                   <Check className="w-4 h-4" />
-                  Salvar
+                  Guardar
                 </>
               )}
             </button>

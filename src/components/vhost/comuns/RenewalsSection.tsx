@@ -180,7 +180,7 @@ export function RenewalsSection({ initialTab = 'overview', hideTabs = false }: R
       const userData = await userRes.json()
       
       if (!userData.user) {
-        alert('Usuário não encontrado')
+        alert('Utilizador não encontrado')
         setSubmitting(false)
         return
       }
@@ -202,7 +202,7 @@ export function RenewalsSection({ initialTab = 'overview', hideTabs = false }: R
       })
 
       if (res.ok) {
-        alert('✅ Cadastrado com sucesso!')
+        alert('✅ Registado com sucesso!')
         setFormDomain('')
         setFormRegistrationDate('')
         setFormExpiration('')
@@ -214,11 +214,11 @@ export function RenewalsSection({ initialTab = 'overview', hideTabs = false }: R
         setActiveTab('overview')
       } else {
         const errBody = await res.json().catch(() => ({}))
-        alert(`❌ ${errBody.error || 'Erro ao cadastrar'}`)
+        alert(`❌ ${errBody.error || 'Erro ao registar'}`)
       }
     } catch (error) {
       console.error('Erro:', error)
-      alert('❌ Erro ao cadastrar')
+      alert('❌ Erro ao registar')
     } finally {
       setSubmitting(false)
     }
@@ -340,7 +340,7 @@ export function RenewalsSection({ initialTab = 'overview', hideTabs = false }: R
               }`}
             >
               <Plus className="w-4 h-4 inline" />
-              Cadastrar
+              Registar
             </button>
           )}
         </div>
@@ -652,7 +652,7 @@ export function RenewalsSection({ initialTab = 'overview', hideTabs = false }: R
                 className="w-full py-3 bg-blue-50 text-blue-600 border border-blue-200 rounded font-bold hover:bg-blue-100 hover:text-blue-700 disabled:opacity-50 flex items-center justify-center gap-2 transition-colors"
               >
                 <Plus className="w-5 h-5" />
-                {submitting ? 'Cadastrando...' : 'Cadastrar Serviço'}
+                {submitting ? 'A registar...' : 'Registar serviço'}
               </button>
             </form>
           )}

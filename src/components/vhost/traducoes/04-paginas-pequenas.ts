@@ -365,9 +365,6 @@ export const paginas_pequenas: Record<string, string> = {
  "Estado do pagamento do pedido de transferência": "Payment status of the transfer request",
  "Tipo de Pagamento": "Payment Type",
  "Registador atual": "Current registrar",
- "Antes de transferir seu domínio": "Before transferring your domain",
- "Antes de iniciar sua": "Before starting your",
  "transferência de domínio": "domain transfer",
- ", reserve um momento rápido para garantir que tudo esteja pronto. Um início tranquilo significa que sua transferência será concluída mais rapidamente.": ", take a quick moment to make sure everything is ready. A smooth start means your transfer will be completed faster.",
  "Veja nosso guia de como transferir um domínio": "See our guide on how to transfer a domain",
 };

@@ -86,7 +86,7 @@ export function EmailConfigResultModal({ open, config, onClose }: Props) {
             onClick={() => downloadTextFile(`configuracao-outlook-${domain}.txt`, config.outlookFile)}
             className={panelBtnSecondary}
           >
-            <Download className="h-4 w-4" /> Baixar ficheiro
+            <Download className="h-4 w-4" /> Descarregar ficheiro
           </button>
           <button
             type="button"

@@ -87,6 +87,9 @@ function pareceTexto(s) {
   return /[A-ZÀ-Úa-zà-ú]{3}/.test(t);
 }
 
+// inglês: nem acentos portugueses nem palavras que só existem em português
+const pareceIngles = (t) => !/[à-úÀ-Ú]/.test(t) && !/\b(de|da|dos|das|para|com|não|uma|que|está|são|seu|sua|você|ao|aos|pelo|pela|também|ou|os|nos|nas|já|ainda|este|esta|isto)\b/i.test(t);
+
 const ATRIBUTOS_FORA = new Set(['className', 'href', 'src', 'id', 'key', 'type', 'name', 'style', 'target', 'rel', 'role', 'as', 'variant', 'size', 'sizes', 'value', 'autoComplete', 'inputMode', 'pattern', 'method', 'action', 'htmlFor', 'fill', 'stroke', 'd', 'viewBox', 'data-theme', 'lang', 'accept', 'defaultValue', 'for', 'width', 'height', 'color', 'transform', 'cx', 'cy', 'r', 'points', 'xmlns', 'data-sem-traducao']);
 
 function ignorar(no) {
@@ -188,6 +191,7 @@ const fontesDic = [
 ];
 for (const f of fontesDic) {
   const sf = ts.createSourceFile(f, fs.readFileSync(path.join(raiz, f), 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+  const ehDicionario = /(^|\/)(generated\/data|traducoes\/[^/]+)\.ts$/.test(f);
   const v = (n) => {
     if (ts.isPropertyAssignment(n) && (ts.isStringLiteral(n.name) || ts.isNoSubstitutionTemplateLiteral(n.name)) && (ts.isStringLiteral(n.initializer) || ts.isNoSubstitutionTemplateLiteral(n.initializer))) {
       comIngles.add(normal(n.name.text));
@@ -197,8 +201,10 @@ for (const f of fontesDic) {
     if (ts.isVariableDeclaration(n) && n.name.getText() === 'IGUAIS' && n.initializer && ts.isArrayLiteralExpression(n.initializer)) {
       for (const e of n.initializer.elements) if (ts.isStringLiteral(e)) comIngles.add(normal(e.text));
     }
-    // pares [pt, en] (TITULOS, DESC…)
-    if (ts.isArrayLiteralExpression(n) && n.elements.length === 2 && n.elements.every((e) => ts.isStringLiteral(e))) {
+    // pares [pt, en] (DESC de generated/data.ts…): só nos ficheiros do dicionário. Nas páginas, uma lista de dois textos é [título, texto] ou
+    // [pergunta, resposta] — dava ambos por traduzidos e escondia textos por traduzir (ex.: a lista «Antes de transferir» e a Ajuda)
+    // (fora do dicionário só conta como par quando o segundo texto parece inglês: sem acentos nem palavras portuguesas)
+    if (ts.isArrayLiteralExpression(n) && n.elements.length === 2 && n.elements.every((e) => ts.isStringLiteral(e)) && pareceIngles(n.elements[1].text)) {
       comIngles.add(normal(n.elements[0].text));
       valoresEn.add(normal(n.elements[1].text));
     }
