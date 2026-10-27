@@ -186,13 +186,20 @@ export async function POST(req: NextRequest) {
     const aut = await lerAutorizadas();
     if (c.ligado) aut[conta] = new Date().toISOString();
     else delete aut[conta];
+    // grava e lê de volta no mesmo comando: só se diz que ficou feito se o servidor confirmar o que ficou no ficheiro
+    let gravado: Record<string, unknown> | null = null;
     try {
-      await executeServerCommand(
-        `mkdir -p ${VHOST_DIR} && chmod 700 ${VHOST_DIR} && echo ${b64(JSON.stringify(aut))} | base64 -d > ${FICHEIRO_IMPORTAR}.tmp && chmod 600 ${FICHEIRO_IMPORTAR}.tmp && mv ${FICHEIRO_IMPORTAR}.tmp ${FICHEIRO_IMPORTAR}`,
+      const out = await executeServerCommand(
+        `mkdir -p ${VHOST_DIR} && chmod 700 ${VHOST_DIR} && echo ${b64(JSON.stringify(aut))} | base64 -d > ${FICHEIRO_IMPORTAR}.tmp && chmod 600 ${FICHEIRO_IMPORTAR}.tmp && mv ${FICHEIRO_IMPORTAR}.tmp ${FICHEIRO_IMPORTAR} && cat ${FICHEIRO_IMPORTAR}`,
         { timeoutMs: 30_000 },
       );
+      const l = out.split('\n').reverse().find((x) => x.trim().startsWith('{'));
+      gravado = l ? (JSON.parse(l) as Record<string, unknown>) : null;
     } catch {
       return NextResponse.json({ erro: 'Sem ligação ao servidor. Nada foi alterado.' }, { status: 502 });
+    }
+    if (!gravado || (typeof gravado[conta] === 'string') !== c.ligado) {
+      return NextResponse.json({ erro: 'O servidor não confirmou a gravação. Nada foi alterado; tente de novo.' }, { status: 502 });
     }
     return NextResponse.json({ ok: true, autorizadas: aut });
   }

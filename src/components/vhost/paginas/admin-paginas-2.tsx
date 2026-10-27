@@ -1087,15 +1087,24 @@ function AutorizarRevendas() {
   const { t } = vh;
   const revendedores = Object.entries(vh.s.acc).filter(([, a]) => a.role === 'revenda').map(([u, a]) => ({ u, email: a.email }));
   const { dados, erro, ler } = useGet<{ autorizadas: Record<string, string> }>(ROTA_REVENDA + '?ver=importar-autorizacoes');
+  // o interruptor muda logo ao clicar (o servidor leva uns segundos por SSH) e fica parado até o servidor confirmar; se falhar, volta ao que estava
+  const [aGuardar, setAGuardar] = useState<Record<string, boolean>>({});
+  const ligada = (u: string) => (u in aGuardar ? aGuardar[u] : !!dados?.autorizadas[u]);
   const mudar = async (conta: string, ligado: boolean) => {
+    setAGuardar((p) => ({ ...p, [conta]: ligado }));
     try {
       const r = await fetch(ROTA_REVENDA, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ acao: 'importar-autorizar', conta, ligado }) });
       const j = (await r.json().catch(() => ({}))) as { erro?: string };
-      if (!r.ok) return vh.toast(j.erro || 'A alteração falhou');
-      vh.toast(ligado ? 'Importação ligada para ' + conta : 'Importação desligada para ' + conta);
-      ler(true);
+      vh.toast(!r.ok ? j.erro || 'A alteração falhou' : ligado ? 'Importação ligada para ' + conta : 'Importação desligada para ' + conta);
     } catch {
       vh.toast('Sem ligação ao site. Nada foi alterado.');
+    } finally {
+      await ler(true);
+      setAGuardar((p) => {
+        const n = { ...p };
+        delete n[conta];
+        return n;
+      });
     }
   };
   return (
@@ -1107,8 +1116,8 @@ function AutorizarRevendas() {
       ) : (
         <div className="em-opcoes">
           {revendedores.map(({ u, email }) => (
-            <Opcao key={u} titulo={u} sub={email + ' — ' + t(dados.autorizadas[u] ? 'Pode importar' : 'Importação desligada')}>
-              <Switch checked={!!dados.autorizadas[u]} label={t('Pode importar do cPanel') + ' — ' + u} onChange={(v) => void mudar(u, v)} />
+            <Opcao key={u} titulo={u} sub={email + ' — ' + t(u in aGuardar ? 'A guardar…' : ligada(u) ? 'Pode importar' : 'Importação desligada')}>
+              <Switch checked={ligada(u)} disabled={u in aGuardar} label={t('Pode importar do cPanel') + ' — ' + u} onChange={(v) => void mudar(u, v)} />
             </Opcao>
           ))}
         </div>

@@ -125,4 +125,6 @@ export const revenda: Record<string, string> = {
  "Contas de cliente: {0} de {1} · pacote {2}": "Client accounts: {0} of {1} · package {2}",
  "{0} suspensos": "{0} suspended",
  "{0} e-mails": "{0} emails",
+ "A guardar…": "Saving…",
+ "O servidor não confirmou a gravação. Nada foi alterado; tente de novo.": "The server did not confirm the save. Nothing was changed; try again.",
 };
