@@ -3,13 +3,15 @@
 // Páginas do menu Admin do revendedor (Silva, 26/10/2026: «o menu Admin do revendedor está vazio… copie as páginas do Admin»).
 // O painel só dá ao revendedor as suas contas e as dos clientes que criou (`vhost-dados.ts`, `visiveis`), por isso estas páginas
 // partem da mesma lista do painel (`s.acc`) e nunca leem o servidor inteiro. O que precisa do servidor está em /api/vhost/revenda.
+import { useState, type ReactNode } from 'react';
 import { useVH } from '../context';
 import type { ScreenFn } from '../screens';
 import { useGet } from '../carga';
 import { Stat } from '../ui';
 import { mbTexto } from '../servidor';
 import { Carregando } from './avancado';
-import { DataTable } from './componentes';
+import { DataTable, Frm, Row, Senha } from './componentes';
+import { Sec } from './avancado';
 import { ROTA_REVENDA, Uso, num, usoContasPagina } from './admin-paginas';
 
 /** Contas dos clientes da revenda (a própria conta do revendedor fica de fora) */
@@ -208,3 +210,117 @@ function SecurityTxtRevenda() {
   );
 }
 export const securityTxtRevendaPagina: ScreenFn = () => ({ title: 'Security.txt', desc: 'O security.txt dos domínios dos seus clientes', body: <SecurityTxtRevenda /> });
+
+// ---------- Importar do cPanel: as contas que o revendedor tem num servidor cPanel, trazidas para esta revenda ----------
+// (no DirectAdmin: «Importar do cPanel» — lista das importações, «Nova importação» e, no início, as credenciais do servidor remoto.)
+// A ligação a um servidor remoto ainda não está ativa neste servidor: por isso a página diz-o e o botão não envia nada — as credenciais
+// nunca saem do navegador.
+/** Linha de passo (texto à esquerda, etiqueta à direita), como as opções das preferências */
+function Opcao({ titulo, sub, children }: { titulo: string; sub?: string; children: ReactNode }) {
+  const { t } = useVH();
+  return (
+    <div>
+      <span>
+        {t(titulo)}
+        {sub && <small>{t(sub)}</small>}
+      </span>
+      {children}
+    </div>
+  );
+}
+
+function ImportarCpanel() {
+  const { t } = useVH();
+  return (
+    <>
+      <Sec titulo="Importações" desc="As contas que traz de um servidor cPanel para esta revenda. Cada importação cria as contas, com os sites, os e-mails e as bases de dados, e deixa-as ligadas a si.">
+        <DataTable
+          id="rev-cpanel"
+          umaLinha
+          barraFora
+          empilhar="tablet"
+          rows={[] as { id: string; conta: string; estagio: string; servidor: string; inicio: string; fim: string }[]}
+          rowKey={(r) => r.id}
+          empty="Ainda não fez nenhuma importação. Carregue em «Nova importação» para começar."
+          cols={[
+            { k: 'c', t: 'Conta', cell: (r) => <b>{r.conta}</b> },
+            { k: 'e', t: 'Estágio', cell: (r) => r.estagio },
+            { k: 's', t: 'Servidor remoto', ate: 1300, cell: (r) => r.servidor },
+            { k: 'i', t: 'Início', ate: 1050, cell: (r) => r.inicio },
+            { k: 'f', t: 'Fim', ate: 1050, cell: (r) => r.fim || '—' },
+          ]}
+        />
+      </Sec>
+      <Sec titulo="Como funciona" desc="Três passos, sem mexer nos ficheiros do servidor cPanel.">
+        <div className="em-opcoes">
+          <Opcao titulo="1. Ligue-se ao seu servidor cPanel" sub="Indique o endereço, a porta, o utilizador e a palavra-passe do servidor onde tem as contas.">
+            <span className="tag off">{t('Servidor remoto')}</span>
+          </Opcao>
+          <Opcao titulo="2. Escolha as contas" sub="O painel lista as contas desse servidor; marque as que quer trazer.">
+            <span className="tag off">{t('Contas')}</span>
+          </Opcao>
+          <Opcao titulo="3. Acompanhe a importação" sub="Cada conta passa por estágios até ficar pronta na sua revenda; vê aqui o estado e a data.">
+            <span className="tag off">{t('Estágio')}</span>
+          </Opcao>
+        </div>
+      </Sec>
+    </>
+  );
+}
+
+function NovaImportacaoCpanel() {
+  const vh = useVH();
+  const { t, nav } = vh;
+  const [f, setF] = useState({ host: '', porta: '22', utilizador: 'root', senha: '' });
+  return (
+    <>
+      <p className="note">
+        <i className="fa-solid fa-circle-info" style={{ color: 'var(--red)' }} /> {t('A ligação a servidores cPanel remotos ainda não está ativa neste servidor. Quando estiver, os dados abaixo servem só para esta importação e não ficam guardados.')}
+      </p>
+      <Frm
+        title="Credenciais do servidor cPanel remoto"
+        desc="O servidor onde estão as contas que quer trazer para a sua revenda"
+        foot={
+          <>
+            <button className="btn g" onClick={() => nav('/revenda/importar-contas')}>
+              {t('Cancelar')}
+            </button>
+            <button className="btn r" disabled title={t('Ainda não está ativo neste servidor')}>
+              <i className="fa-solid fa-cloud-arrow-down" />
+              {t('Carregar contas')}
+            </button>
+          </>
+        }
+      >
+        <Row label="Servidor" hint="Endereço (ex.: cpanel.empresa.com ou o IP)">
+          <input value={f.host} onChange={(e) => setF({ ...f, host: e.target.value.trim() })} placeholder="cpanel.empresa.com" autoComplete="off" />
+        </Row>
+        <Row label="Porta" hint="A do SSH, normalmente 22">
+          <input value={f.porta} onChange={(e) => setF({ ...f, porta: e.target.value.replace(/\D/g, '').slice(0, 5) })} inputMode="numeric" autoComplete="off" />
+        </Row>
+        <Row label="Utilizador" hint="Normalmente root">
+          <input value={f.utilizador} onChange={(e) => setF({ ...f, utilizador: e.target.value.trim() })} autoComplete="off" />
+        </Row>
+        <Row label="Palavra-passe">
+          <Senha value={f.senha} onChange={(v) => setF({ ...f, senha: v })} semGerar />
+        </Row>
+      </Frm>
+    </>
+  );
+}
+
+export const importarCpanelPagina: ScreenFn = (vh) => {
+  const base = { t: 'Importar do cPanel', path: '/revenda/importar-contas' };
+  if (vh.s.sub[0] === 'nova') return { title: 'Nova importação', crumbs: [base, { t: 'Nova importação' }], desc: 'Ligue-se ao servidor cPanel onde estão as contas', body: <NovaImportacaoCpanel /> };
+  return {
+    title: 'Importar do cPanel',
+    desc: 'Traga as contas que tem num servidor cPanel',
+    actions: (
+      <button className="btn r" onClick={() => vh.nav('/revenda/importar-contas/nova')}>
+        <i className="fa-solid fa-plus" />
+        {vh.t('Nova importação')}
+      </button>
+    ),
+    body: <ImportarCpanel />,
+  };
+};

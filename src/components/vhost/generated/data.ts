@@ -131,6 +131,7 @@ export const MENU: Record<Level, MenuGroup[]> = {
   ]],
   ["Ferramentas de revenda", [
    {"id":"backups","fa":"fa-box-archive","t":"Backups dos clientes","c":"c8","da":"reseller-backups","f":["Agendar backups dos clientes","Restaurar"],"hx":{"s":"sim","cmd":"v-backup-user, v-list-user-backups, v-restore-user","n":""}},
+   {"id":"importar-contas","fa":"fa-file-import","t":"Importar do cPanel","c":"c3","da":"/cpanel-import","f":["Trazer as contas que tem num servidor cPanel","Nova importação: servidor, porta, utilizador e palavra-passe","Acompanhar as importações"],"hx":{"s":"sim","cmd":"v-import-cpanel","n":""}},
    {"id":"mensagem-todos","fa":"fa-bullhorn","t":"Mensagem aos clientes","c":"c7","da":"/message-users","f":["Mensagem para todos os seus clientes"],"hx":{"s":"parcial","cmd":"v-add-user-notification","n":""}},
    {"id":"tema","fa":"fa-palette","t":"Personalizar painel","c":"c7","da":"/customize-skin, /skins","f":["Cores e logótipo da sua marca"],"hx":{"s":"app","cmd":"","n":""}}
   ]],
@@ -294,6 +295,7 @@ export const DESC: Record<string, [string, string]> = {
  "revenda/dns": ["Editar a zona DNS de cada um dos seus domínios","Edit the DNS zone of each of your domains"],
  "revenda/security-txt": ["Verificar o security.txt dos domínios dos seus clientes","Check security.txt on your users’ domains"],
  "revenda/backups": ["Agendar e restaurar cópias de segurança dos seus clientes","Schedule and restore your users’ backups"],
+ "revenda/importar-contas": ["Trazer para a sua revenda as contas que tem num servidor cPanel","Bring into your reseller the accounts you have on a cPanel server"],
  "revenda/mensagem-todos": ["Enviar um aviso a todos os seus clientes","Send a notice to all your users"],
  "revenda/tema": ["Ajustar o painel às cores da sua marca","Brand the panel with your colours"],
  "revenda/estatisticas": ["Uso total e histórico da revenda","Total usage and history of your reseller account"],
@@ -465,6 +467,7 @@ export const EN: Record<string, string> = {
  "Serviços": "System Services",
  "Backup do sistema": "System Backup",
  "Importar contas": "Import Accounts",
+ "Importar do cPanel": "Import from cPanel",
  "Mensagem a todos": "Message All Users",
  "Personalizar painel": "Customize Panel",
  "Manutenção": "Maintenance",

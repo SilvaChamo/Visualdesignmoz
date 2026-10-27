@@ -700,9 +700,12 @@ nível Revenda parte dessa lista ou de uma rota que a aplica no servidor; **nunc
   abre as cópias dele).
 - `suporte-admin` (Tickets) e `notifications/admin` (Mensagem aos clientes) aceitam também o revendedor, limitados aos clientes dele (403/404 para os de fora).
 - `/api/vhost/revenda`: IPs e Security.txt (só para ver) e Nameservers (`ns-conta`, só contas suas). Qualquer operação nova da revenda entra aqui, com o mesmo teste.
-- **Importar contas não está no menu da revenda** (Silva, 27/10/2026: «se não são dele são do administrador: ele não cria as suas contas?»): a revenda cria os clientes
-  em «Adicionar cliente»; a importação de cPanel é do Admin. «Zona DNS» é uma só entrada no menu da revenda (a mesma página da Gestão › DNS, do domínio escolhido):
-  sem «dos clientes» no nome.
+- **«Importar do cPanel»** (Silva, 27/10/2026: «permite o revendedor importar as contas que tem no cPanel para o painel; deve ser explícito»): é a importação a partir de um servidor
+  cPanel **remoto** (como no DirectAdmin: lista de importações com «Nova importação» e, no início, servidor, porta, utilizador e palavra-passe). Não é a importação do Admin
+  (ficheiros da pasta de backups do servidor, de todos). A página está desenhada (`revenda-paginas.tsx`, `importarCpanelPagina`) mas **a ligação ao servidor remoto ainda não
+  existe**: o botão «Carregar contas» está desativado, diz-o na página e as credenciais não saem do navegador. Fazê-la é abrir ligações SSH do nosso servidor para servidores
+  de fora a pedido de um utilizador — precisa de decisão do Silva (limites, registo e conta importada ligada à revenda por `parent_username`) antes de se escrever.
+- «Zona DNS» é uma só entrada no menu da revenda (a mesma página da Gestão › DNS, do domínio escolhido): sem «dos clientes» no nome.
 
 # Autenticação em 2 passos (opcional — Silva, 21/10/2026)
 
