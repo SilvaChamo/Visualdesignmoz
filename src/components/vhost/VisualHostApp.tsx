@@ -934,7 +934,7 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
     };
     const onClick = (e: MouseEvent) => {
       const el = e.target as Element | null;
-      if (!el?.closest?.('#pop') && !el?.closest?.('#acct')) setPop(null);
+      if (!el?.closest?.('#pop') && !el?.closest?.('.rb.lang') && !el?.closest?.('#acct')) setPop(null);
     };
     document.addEventListener('keydown', onKey);
     document.addEventListener('click', onClick);
@@ -1558,6 +1558,10 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
                   <i className="fa-solid fa-folder-open" />
                 </div>
               )}
+              <div className="rb lang" title={t('Idioma')} onClick={(e) => openPop('lang', e.currentTarget)}>
+                <i className="fa-solid fa-globe" />
+                <b>{st.lang.toUpperCase()}</b>
+              </div>
               <div className="rb" title={t('Pesquisar funcionalidades (Ctrl+K)')} onClick={openSearch}>
                 <i className="fa-solid fa-magnifying-glass" />
               </div>
@@ -1825,6 +1829,18 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
 
         {/* Pequenos menus da barra de ícones (idioma) e da conta */}
         <div className={'pop' + (pop ? ' on' : '')} id="pop" style={pop ? { left: pop.left, top: pop.top, bottom: pop.bottom } : undefined}>
+          {pop?.kind === 'lang' &&
+            (
+              [
+                ['pt', 'Português'],
+                ['en', 'English'],
+              ] as const
+            ).map(([k, label]) => (
+              <a key={k} onClick={() => vh.setLang(k)}>
+                <span>{label}</span>
+                {st.lang === k && <i className="fa-solid fa-check" />}
+              </a>
+            ))}
           {pop?.kind === 'conta' && (
             <>
               <div className="pop-acct">
