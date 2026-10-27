@@ -283,7 +283,7 @@ export async function GET(req: NextRequest) {
       const raiz = raizSite(srv, conta, d);
       const wp = `sudo -u ${conta} /usr/local/bin/wp --path=${q(raiz)} --skip-plugins --skip-themes`;
       const out = await executeServerCommand(
-        `echo @@P; ${wp} post list --post_type=page --post_status=publish,draft,pending,private,future --orderby=title --order=asc --fields=ID,post_title,post_status,post_modified,post_name,url --format=json 2>/dev/null; echo; echo @@E; ${wp} post list --post_type=page --post_status=any --meta_key=_elementor_edit_mode --meta_value=builder --format=ids 2>/dev/null`,
+        `echo @@P; ${wp} post list --post_type=page --post_status=publish,draft,pending,private,future --orderby=title --order=asc --fields=ID,post_title,post_status,post_modified,post_name,url --format=json 2>/dev/null; echo; echo @@E; ${wp} post list --post_type=page --post_status=any --meta_key=_elementor_edit_mode --meta_value=builder --format=ids 2>/dev/null; echo; echo @@T; ${wp} eval ${q('foreach (get_posts(array("post_type"=>"page","post_status"=>"any","numberposts"=>-1,"fields"=>"ids")) as $i) { echo $i."=".get_post_meta($i,"_wp_page_template",true)."\n"; }')} 2>/dev/null`,
         { timeoutMs: 40_000 },
       );
       const parte = (k: string) => (out.split('@@' + k)[1] || '').split('@@')[0].trim();
@@ -294,7 +294,12 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ erro: 'WordPress não encontrado neste domínio.' }, { status: 400 });
       }
       const elementor = parte('E').split(/\s+/).filter(Boolean).map(Number);
-      return ok({ paginas: paginas.map((x) => ({ ...x, elementor: elementor.includes(Number(x.ID)) })) });
+      const modelos: Record<string, string> = {};
+      for (const l of parte('T').split('\n')) {
+        const m = l.trim().match(/^(\d+)=(.*)$/);
+        if (m) modelos[m[1]] = m[2] || 'default';
+      }
+      return ok({ paginas: paginas.map((x) => ({ ...x, elementor: elementor.includes(Number(x.ID)), modelo: modelos[String(x.ID)] || 'default' })) });
     }
     case 'wpidioma': {
       // traduções do editor de blocos que o próprio site já tem (wp-content/languages/<língua>-*.json): com o site em
@@ -822,6 +827,31 @@ export async function POST(req: NextRequest) {
         { timeoutMs: 60_000 },
       );
       return resposta({ ok: /Success/i.test(out), error: out.slice(0, 300) });
+    }
+    case 'wp-pagina-editar': {
+      // linha da lista de páginas › edição rápida: título, endereço (slug), estado e, nas páginas feitas com o Elementor, o modelo (largura total, Canvas…)
+      if (!d) return recusa('Escolha o domínio.');
+      const id = Number(c.id);
+      if (!Number.isSafeInteger(id) || id <= 0) return recusa('Página inválida.');
+      const titulo = linha(c.titulo).slice(0, 300);
+      const slug = linha(c.slug).toLowerCase();
+      const estado = linha(c.estado);
+      const modelo = linha(c.modelo);
+      if (!titulo) return recusa('O título não pode ficar vazio.');
+      if (!slug || slug.length > 190 || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) return recusa('O endereço só pode ter letras minúsculas, números e hífenes (ex.: sobre-nos).');
+      if (estado && !['publish', 'draft', 'pending', 'private'].includes(estado)) return recusa('Estado inválido.');
+      if (modelo && !['default', 'elementor_canvas', 'elementor_header_footer'].includes(modelo)) return recusa('Modelo inválido.');
+      const raiz = raizSite(srv, conta, d);
+      const wp = `sudo -u ${conta} /usr/local/bin/wp --path=${q(raiz)} --skip-plugins --skip-themes`;
+      const tipo = (await executeServerCommand(`${wp} post get ${id} --field=post_type 2>/dev/null`, { timeoutMs: 40_000 })).trim();
+      if (tipo !== 'page') return recusa('Página não encontrada.');
+      let cmd = `adm=$(${wp} user list --role=administrator --field=user_login --orderby=ID 2>/dev/null | head -1); ${wp} post update ${id} --post_title=${q(titulo)} --post_name=${q(slug)}${estado ? ' --post_status=' + q(estado) : ''} \${adm:+--user="$adm"} 2>&1`;
+      if (modelo) {
+        // o modelo só se muda nas páginas feitas com o Elementor (nas outras depende do tema)
+        cmd += `; [ "$(${wp} post meta get ${id} _elementor_edit_mode 2>/dev/null)" = builder ] && ${wp} post meta update ${id} _wp_page_template ${q(modelo)} 2>&1`;
+      }
+      const out = await executeServerCommand(cmd, { timeoutMs: 60_000 });
+      return resposta({ ok: /Success: Updated post/i.test(out) && !/Error/i.test(out), error: out.slice(0, 300) }, true);
     }
     case 'wp-pagina-renomear': {
       // menu "⋯" das páginas do WordPress › Mudar nome: só o título da página (o conteúdo e o endereço ficam como estão)

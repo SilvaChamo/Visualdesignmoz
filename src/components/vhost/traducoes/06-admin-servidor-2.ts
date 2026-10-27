@@ -271,4 +271,11 @@ export const admin_servidor_2: Record<string, string> = {
  "Baixar": "Download",
  "março": "March",
  "sáb": "Sat",
+ "Predefinição do tema": "Theme default",
+ "Elementor largura total": "Elementor full width",
+ "Página actualizada": "Page updated",
+ "Endereço (slug)": "Address (slug)",
+ "Só letras minúsculas, números e hífenes (ex.: sobre-nos).": "Lowercase letters, numbers and hyphens only (e.g. about-us).",
+ "Mudar o endereço muda o link da página: os links antigos deixam de funcionar.": "Changing the address changes the page link: old links stop working.",
+ "Edição rápida": "Quick edit",
 };
