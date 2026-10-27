@@ -13,9 +13,8 @@ import { useEffect, useRef, useState } from 'react'
 import { Globe, Mail, Moon, Server, Sun, SunMoon, type LucideIcon } from 'lucide-react'
 import { useTheme } from '@/contexts/ThemeContext'
 import { useI18n } from '@/lib/i18n'
+import { guardarLingua } from '@/lib/lingua'
 
-/** a mesma chave de língua que o site e o painel leem */
-const LINGUA_LS = 'vd-lang'
 
 /** O modelo aprovado (Silva, 13/10/2026): no computador, a aba branca com o logótipo a entrar pela foto. Montado uma
  *  só vez pelo layout de src/app/(entrada) — as quatro páginas de entrada trocam só o conteúdo do cartão */
@@ -149,9 +148,7 @@ function BotoesCanto() {
 
   const escolherLingua = (l: 'pt' | 'en') => {
     if (l !== lang) toggleLang()
-    try {
-      localStorage.setItem(LINGUA_LS, l)
-    } catch {}
+    guardarLingua(l)
     setLinguas(false)
   }
 

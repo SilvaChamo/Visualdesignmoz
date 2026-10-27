@@ -7,29 +7,47 @@ import { MailCheck } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
 import { CampoFlutuante, botaoCls, ligacaoCls, subtituloCls, tituloCls, formularioCls } from '@/components/auth/campos'
 import { authErrorBoxClass, authHintBoxClass } from '@/components/auth/auth-styles'
+import { Turnstile } from '@/components/auth/Turnstile'
 
 export default function ForgotPasswordPage() {
-  const { t } = useI18n()
+  const { t, lang } = useI18n()
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [enviado, setEnviado] = useState(false)
   const [error, setError] = useState('')
+  // "não sou um robô" (Turnstile da Cloudflare), como no registo: o resultado vale uma vez e ~5 minutos; depois de cada
+  // tentativa (ou ao reenviar) a caixa volta a aparecer com um resultado novo
+  const [robo, setRobo] = useState('')
+  const [roboEm, setRoboEm] = useState(0)
+  const [roboVez, setRoboVez] = useState(0)
+  const aoRobo = (token: string) => {
+    setRobo(token)
+    setRoboEm(token ? Date.now() : 0)
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!robo || Date.now() - roboEm > 280_000) {
+      setError(t('rec.robot'))
+      setRobo('')
+      setRoboVez((v) => v + 1)
+      return
+    }
     setLoading(true)
     setError('')
     try {
       const res = await fetch('/api/auth/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, turnstile: robo }),
       })
       const ct = res.headers.get('content-type') || ''
       const data = ct.includes('application/json') ? await res.json().catch(() => ({})) : {}
       if (!res.ok) throw new Error(String(data?.error || ''))
       setEnviado(true)
     } catch (err: unknown) {
+      setRobo('')
+      setRoboVez((v) => v + 1)
       const msg = err instanceof Error && err.message && err.message !== '{}' ? err.message : ''
       setError(msg || t('rec.error'))
     } finally {
@@ -50,7 +68,7 @@ export default function ForgotPasswordPage() {
           </p>
           <div className={`mt-5 text-left ${authHintBoxClass}`}>{t('rec.sentHint')}</div>
           <div className="mt-6 flex items-center justify-between gap-4">
-            <button type="button" onClick={() => setEnviado(false)} className={ligacaoCls}>
+            <button type="button" onClick={() => { setRobo(''); setRoboVez((v) => v + 1); setEnviado(false) }} className={ligacaoCls}>
               {t('rec.resend')}
             </button>
             <Link href="/login" className={ligacaoCls}>
@@ -76,7 +94,8 @@ export default function ForgotPasswordPage() {
               value={email}
               onChange={setEmail}
             />
-            <button type="submit" disabled={loading} className={botaoCls}>
+            <Turnstile key={'rec-' + roboVez} onToken={aoRobo} lang={lang} />
+            <button type="submit" disabled={loading || !robo} className={botaoCls}>
               {loading ? t('rec.sending') : t('rec.send')}
             </button>
             <p className="text-center text-[clamp(12px,0.95vw,13px)] text-zinc-500 dark:text-zinc-400">{t('rec.hint')}</p>

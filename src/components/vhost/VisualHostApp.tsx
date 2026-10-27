@@ -14,7 +14,8 @@ import { idDispositivoPresenca } from '@/lib/vhost-presenca-id';
 import { COOKIE_TEMA, lerTema, valorCookieTema, type TemaConta } from '@/lib/vhost-tema-conta';
 import { translate, type Lang } from './i18n';
 import { useI18n } from '@/lib/i18n';
-import { EntradaPainel, EsperaEntrada, LINGUA_LS } from './entrada';
+import { EntradaPainel, EsperaEntrada } from './entrada';
+import { guardarLingua, lerLinguaGuardada } from '@/lib/lingua';
 import { CodigoDoisPassos } from './dois-passos';
 import { auth, supabase } from '@/lib/supabase-client';
 import { MenuExtraModal, MoreMenuModal } from './modals';
@@ -181,8 +182,8 @@ function comPreferencias(s: St): St {
   const n = { ...s };
   try {
     if (localStorage.getItem('visualhost_dashtab') === 'menu') n.dashTab = 'menu';
-    const lg = localStorage.getItem(LINGUA_LS) || localStorage.getItem('visualhost_lang');
-    if (lg === 'pt' || lg === 'en') n.lang = lg;
+    const lg = lerLinguaGuardada();
+    if (lg) n.lang = lg;
   } catch {}
   return n;
 }
@@ -1202,9 +1203,7 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
     setNotes: (on) => commit({ ...ref.current, notes: on }),
     setLang: (l: Lang) => {
       commit({ ...ref.current, lang: l });
-      try {
-        localStorage.setItem(LINGUA_LS, l);
-      } catch {}
+      guardarLingua(l);
       closePop();
       toast(l === 'en' ? 'Language: English' : 'Idioma: Português');
     },
@@ -1450,9 +1449,7 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
           }}
           onLang={(l) => {
             commit({ ...ref.current, lang: l });
-            try {
-              localStorage.setItem(LINGUA_LS, l);
-            } catch {}
+            guardarLingua(l);
           }}
           onEntrou={() => {
             setAEntrar(true);
