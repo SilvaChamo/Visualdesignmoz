@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
     const bearer = (authHeader || '').replace(/^Bearer\s+/i, '').trim()
     const segredoOk = !!CRON_SECRET && (secret === CRON_SECRET || bearer === CRON_SECRET)
     if (!isAdmin && !segredoOk) {
-      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
+      return NextResponse.json({ error: 'A sua sessão expirou. Entre novamente para realizar esta acção.' }, { status: 401 })
     }
 
     // ?simular=1 (administrador ou cron): só diz que serviços seriam suspensos hoje, sem avisar nem suspender ninguém

@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
   const isAdmin = Boolean(user && ADMIN_EMAILS.includes(user.email || ''));
   const secretOk = Boolean(CRON_SECRET) && secretMatches(providedSecret, CRON_SECRET!);
   if (!isAdmin && !secretOk) {
-    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+    return NextResponse.json({ error: 'A sua sessão expirou. Entre novamente para realizar esta acção.' }, { status: 401 });
   }
 
   const domain = (searchParams.get('domain') || '').trim().toLowerCase();

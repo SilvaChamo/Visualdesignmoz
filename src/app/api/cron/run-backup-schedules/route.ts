@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
   const authHeader = req.headers.get('authorization') || ''
   const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
   if (secret !== CRON_SECRET && bearer !== CRON_SECRET) {
-    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
+    return NextResponse.json({ error: 'A sua sessão expirou. Entre novamente para realizar esta acção.' }, { status: 401 })
   }
 
   const now = new Date()

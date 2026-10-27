@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
   const isAdmin = Boolean(user && ADMIN_EMAILS.includes(user.email || ''));
 
   if (!isAdmin && secret !== CRON_SECRET) {
-    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+    return NextResponse.json({ error: 'A sua sessão expirou. Entre novamente para realizar esta acção.' }, { status: 401 });
   }
 
   const result = await syncAllTldPrices();

@@ -15,7 +15,7 @@ const CRON_SECRET = process.env.CRON_SECRET || 'default-secret-change-in-product
 export async function GET(request: NextRequest) {
   const secret = request.nextUrl.searchParams.get('secret');
   if (secret !== CRON_SECRET) {
-    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+    return NextResponse.json({ error: 'A sua sessão expirou. Entre novamente para realizar esta acção.' }, { status: 401 });
   }
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
