@@ -277,6 +277,16 @@ mesma alteração a linha inglesa no dicionário — sem esperar que o Silva pe�
   tradução (`t()` em `src/components/vhost/i18n.ts`) e fica de fora desta verificação — ver a secção seguinte.
 - Textos que já usam `t('chave')` de `src/lib/i18n.tsx` continuam a funcionar; não é preciso convertê-los.
 
+# A língua de origem é o português e o inglês escolhido fica (Silva, 27/10/2026)
+
+- **A língua de origem do site e do painel é sempre o português** (nunca o inglês, mesmo com o navegador em inglês). Só muda quando a pessoa escolhe o inglês, e essa escolha fica
+  **para todas as sessões**: guarda-se no `localStorage` e num cookie de 1 ano, ambos `vd-lang` (`src/lib/lingua.ts`: `lerLinguaGuardada`, `guardarLingua`). **Nunca apagar a chave `vd-lang`**: a limpeza
+  das caches do painel ao terminar a sessão (`panel-session-cache-clear.ts`) e a página `/auth/clear-storage` já a deixam ficar (antes apagavam-na e a escolha perdia-se).
+- **Recuperar senha leva o «não sou um robô» (Turnstile)**, como o registo: o botão só liga depois da verificação e `/api/auth/reset-password` confirma-a na Cloudflare (`turnstileValido`).
+- **Login do site** (Silva, 27/10/2026): campos e botões com a mesma altura (44 px no computador, 40 px no telemóvel; só no login, não nos outros formulários); cabeçalho do cartão (logótipo no telemóvel, título e
+  descrição) com fundo muito suave e uma linha vermelha suave e transparente de lado a lado; a descrição tem duas linhas («…hospedagem / e e-mails da sua empresa.»).
+- **Diagnóstico do Elementor** (só leitura): workflow `ops-elementor-diagnostico.yml` (Actions › Run workflow, com o domínio). Só corre com ordem expressa do Silva.
+
 # Painel em duas línguas — nenhuma página fora da tradução (Silva, 27/10/2026)
 
 Silva, 27/10/2026: «tem muitas páginas não traduzidas no painel… espero que não tenha nenhuma página fora da tradução». A auditoria
