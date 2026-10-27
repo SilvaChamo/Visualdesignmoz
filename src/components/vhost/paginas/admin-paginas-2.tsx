@@ -658,6 +658,7 @@ function BackupsAdmin() {
       />
       {aba === 'copias' ? (
         <DataTable
+          key="ad-bk"
           id="ad-bk"
           umaLinha
           barraFora
@@ -705,6 +706,7 @@ function BackupsAdmin() {
         />
       ) : (
         <DataTable
+          key="ad-bk-contas"
           id="ad-bk-contas"
           umaLinha
           barraFora
