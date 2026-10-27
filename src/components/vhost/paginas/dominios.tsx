@@ -2745,7 +2745,7 @@ function Ssl({ tab, verCertDomain }: { tab: TabSsl; verCertDomain: string | null
                     onChange={async (v) =>
                       (await noServidor(vh, { acao: 'ssl-forcar', dominio: x.name, ligar: v }, v ? 'HTTPS forçado' : 'HTTPS deixou de ser forçado')) && ler()
                     }
-                    label="Forçar HTTPS"
+                    label={t('Forçar HTTPS')}
                   />
                 </Row>
               )}

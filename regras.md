@@ -255,8 +255,26 @@ mesma alteração a linha inglesa no dicionário — sem esperar que o Silva pe�
 - Nomes próprios, siglas e textos iguais nas duas línguas vão para a lista `IGUAIS` do mesmo ficheiro.
 - Antes de dar uma alteração por concluída: `npm run i18n` tem de dar **0 textos sem inglês** (lista o que falta, com
   ficheiro e linha). Zonas que não se traduzem: `data-sem-traducao` no elemento. O painel (`.vh`) tem a sua própria
-  tradução (`t()` em `src/components/vhost/i18n.ts`) e fica de fora.
+  tradução (`t()` em `src/components/vhost/i18n.ts`) e fica de fora desta verificação — ver a secção seguinte.
 - Textos que já usam `t('chave')` de `src/lib/i18n.tsx` continuam a funcionar; não é preciso convertê-los.
+
+# Painel em duas línguas — nenhuma página fora da tradução (Silva, 27/10/2026)
+
+Silva, 27/10/2026: «tem muitas páginas não traduzidas no painel… espero que não tenha nenhuma página fora da tradução». A auditoria
+encontrou ~3 000 textos do painel sem inglês (o dicionário só tinha 445 linhas) e componentes inteiros (`comuns/…`, vindos dos painéis
+antigos) sem nenhum `t()`. Ficou assim:
+
+- **Dicionário do painel** = `EN` de `src/components/vhost/generated/data.ts` + as linhas `novas` de cada página + **`src/components/vhost/traducoes/`**
+  (um ficheiro por zona, `chave em português → inglês`, juntos por `traducoes/index.ts`; `traducoes/iguais.ts` lista o que é igual nas duas línguas: código,
+  nomes, siglas, texto já em inglês). Frases com partes que mudam escrevem-se `{0}`, `{1}`… (`"Pacote {0} criado": "Package {0} created"`); `translate()`
+  (`i18n.ts`) aplica o modelo com mais texto fixo primeiro.
+- **Rede de segurança:** `src/components/vhost/TraducaoPainel.tsx` (montada em `src/app/vhost/layout.tsx`) aplica o mesmo dicionário a todo o texto e a
+  `placeholder`/`title`/`alt`/`aria-label` que chegam ao ecrã dentro de `.vh` (também janelas e listas que abrem depois) quando o inglês está escolhido; voltar ao
+  português repõe os originais. Não mexe em `code`/`pre`/`textarea`, em `[data-sem-traducao]` nem em editores. Janelas pelo portal para o `body` leva
+  `data-vh-portal` para entrarem na tradução.
+- **Regra para todo o texto novo do painel** (como no site público): acrescentar a linha inglesa no dicionário na mesma alteração. Texto montado com `'…' + x`
+  ou `` `…${x}` `` escreve-se no dicionário como modelo com `{0}` (o ecrã recebe a frase inteira). Antes de dar uma alteração ao painel por concluída:
+  **`npm run i18n:painel` tem de dar 0 textos sem inglês** (lista o que falta, com ficheiro e linha; `-v` mostra cada texto, `--json` a lista para copiar).
 
 # Regras de layout do Silva (valem para todas as páginas, sempre)
 
@@ -692,6 +710,20 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
   automática do registo de renovações (`domain_renewals`), datas, trava de transferência e nameservers da consulta pública RDAP (`rdap.org`, 4 s de limite) e os contactos
   da conta (`contactPreview`). Os valores aparecem só para ver (interruptores e botões desativados); o que nenhuma fonte diz (ex.: privacidade WHOIS) fica «—», nunca
   inventado. O nome de cada informação do cartão (`.dom-info-l > span`) fica numa só linha (coluna de 176 px).
+
+# Menu Admin do revendedor (Silva, 26/10/2026)
+O revendedor só vê a sua conta e as dos clientes que criou (`vhost-dados.ts`, `visiveis`; `src/lib/vhost-revenda.ts` → `clientesDaRevenda`). Cada página do
+nível Revenda parte dessa lista ou de uma rota que a aplica no servidor; **nunca** se liga um ecrã do Admin a `/api/vhost/admin-servidor` (só o administrador).
+- Sem rota nova (usam `s.acc`): Uso por cliente, Estatísticas da revenda (sem histórico por mês: não é guardado) e Backups dos clientes (entra na conta do cliente e
+  abre as cópias dele).
+- `suporte-admin` (Tickets) e `notifications/admin` (Mensagem aos clientes) aceitam também o revendedor, limitados aos clientes dele (403/404 para os de fora).
+- `/api/vhost/revenda`: IPs e Security.txt (só para ver) e Nameservers (`ns-conta`, só contas suas). Qualquer operação nova da revenda entra aqui, com o mesmo teste.
+- **«Importar do cPanel»** (Silva, 27/10/2026: «permite o revendedor importar as contas que tem no cPanel para o painel; deve ser explícito»): é a importação a partir de um servidor
+  cPanel **remoto** (como no DirectAdmin: lista de importações com «Nova importação» e, no início, servidor, porta, utilizador e palavra-passe). Não é a importação do Admin
+  (ficheiros da pasta de backups do servidor, de todos). A página está desenhada (`revenda-paginas.tsx`, `importarCpanelPagina`) mas **a ligação ao servidor remoto ainda não
+  existe**: o botão «Carregar contas» está desativado, diz-o na página e as credenciais não saem do navegador. Fazê-la é abrir ligações SSH do nosso servidor para servidores
+  de fora a pedido de um utilizador — precisa de decisão do Silva (limites, registo e conta importada ligada à revenda por `parent_username`) antes de se escrever.
+- «Zona DNS» é uma só entrada no menu da revenda (a mesma página da Gestão › DNS, do domínio escolhido): sem «dos clientes» no nome.
 
 # Autenticação em 2 passos (opcional — Silva, 21/10/2026)
 

@@ -63,6 +63,9 @@ const getTypeColor = (type: string) => {
  *  se escolhido, também por e-mail (POST /api/notifications/admin) */
 function EscreverMensagem() {
   const vh = useVH();
+  const { t } = vh;
+  // o revendedor escreve a todos os clientes que criou (a procura de um cliente por e-mail é do administrador)
+  const revenda = vh.s.level === 'revenda';
   const [messageHtml, setMessageHtml] = useState('');
   const [type, setType] = useState<Tipo>('info');
   const [category, setCategory] = useState('general');
@@ -152,26 +155,28 @@ function EscreverMensagem() {
             <Send className="w-6 h-6 text-blue-600" />
           </div>
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">Enviar Notificação</h3>
-            <p className="text-sm text-gray-500">Envie notificações para clientes específicos ou para todos</p>
+            <h3 className="text-lg font-semibold text-gray-900">{t('Enviar Notificação')}</h3>
+            <p className="text-sm text-gray-500">{t('Envie notificações para clientes específicos ou para todos')}</p>
           </div>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Destinatário */}
           <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-            <label className="block text-sm font-medium text-gray-700 mb-3">Destinatário</label>
+            <label className="block text-sm font-medium text-gray-700 mb-3">{t('Destinatário')}</label>
             {/* no telemóvel as duas opções uma por baixo da outra (Silva, 14/10/2026: uma só coluna) */}
             <div className="flex flex-col gap-3 sm:flex-row sm:gap-4">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input type="radio" checked={sendToAll} onChange={() => setSendToAll(true)} className="w-4 h-4 text-blue-600" />
-                <span className="text-sm text-gray-700">Todos os clientes</span>
+                <span className="text-sm text-gray-700">{t('Todos os clientes')}</span>
                 <Users className="w-4 h-4 text-gray-400" />
               </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="radio" checked={!sendToAll} onChange={() => setSendToAll(false)} className="w-4 h-4 text-blue-600" />
-                <span className="text-sm text-gray-700">Cliente específico</span>
-              </label>
+              {!revenda && (
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="radio" checked={!sendToAll} onChange={() => setSendToAll(false)} className="w-4 h-4 text-blue-600" />
+                  <span className="text-sm text-gray-700">{t('Cliente específico')}</span>
+                </label>
+              )}
             </div>
 
             {!sendToAll && (
@@ -190,30 +195,30 @@ function EscreverMensagem() {
 
           {/* Mensagem — o mesmo editor completo dos Templates; o título do sino sai do texto escrito aqui */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Mensagem</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('Mensagem')}</label>
             <NotificationRichEditor value={messageHtml} onChange={setMessageHtml} />
           </div>
 
           {/* Tipo e Categoria */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Tipo</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{t('Tipo')}</label>
               <select value={type} onChange={(e) => setType(e.target.value as Tipo)} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
-                <option value="info">ℹ️ Informativo</option>
-                <option value="success">✅ Sucesso</option>
-                <option value="warning">⚠️ Aviso</option>
-                <option value="error">❌ Erro</option>
+                <option value="info">{t('ℹ️ Informativo')}</option>
+                <option value="success">{t('✅ Sucesso')}</option>
+                <option value="warning">{t('⚠️ Aviso')}</option>
+                <option value="error">{t('❌ Erro')}</option>
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Categoria</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{t('Categoria')}</label>
               <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
-                <option value="general">Geral</option>
+                <option value="general">{t('Geral')}</option>
                 <option value="email">Email</option>
-                <option value="domain">Domínio</option>
-                <option value="payment">Pagamento</option>
-                <option value="support">Suporte</option>
-                <option value="system">Sistema</option>
+                <option value="domain">{t('Domínio')}</option>
+                <option value="payment">{t('Pagamento')}</option>
+                <option value="support">{t('Suporte')}</option>
+                <option value="system">{t('Sistema')}</option>
               </select>
             </div>
           </div>
@@ -221,12 +226,12 @@ function EscreverMensagem() {
           {/* Link opcional */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Link (opcional)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{t('Link (opcional)')}</label>
               <input type="url" value={link} onChange={(e) => setLink(e.target.value)} placeholder="https://..." className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Texto do Link</label>
-              <input type="text" value={linkText} onChange={(e) => setLinkText(e.target.value)} placeholder="Ver detalhes" className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+              <label className="block text-sm font-medium text-gray-700 mb-1">{t('Texto do Link')}</label>
+              <input type="text" value={linkText} onChange={(e) => setLinkText(e.target.value)} placeholder={t('Ver detalhes')} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
             </div>
           </div>
 
@@ -235,7 +240,7 @@ function EscreverMensagem() {
             <input type="checkbox" id="sendEmail" checked={sendEmail} onChange={(e) => setSendEmail(e.target.checked)} className="w-4 h-4 text-yellow-600" />
             <label htmlFor="sendEmail" className="flex items-center gap-2 text-sm text-yellow-800 cursor-pointer">
               <Mail className="w-4 h-4" />
-              Também enviar por email
+              {t('Também enviar por email')}
             </label>
           </div>
 
@@ -262,12 +267,12 @@ function EscreverMensagem() {
             {sending ? (
               <>
                 <Send className="w-5 h-5" />
-                Enviando...
+                {t('Enviando...')}
               </>
             ) : (
               <>
                 <Send className="w-5 h-5" />
-                {sendToAll ? 'Enviar para Todos' : 'Enviar Notificação'}
+                {sendToAll ? t('Enviar para Todos') : t('Enviar Notificação')}
               </>
             )}
           </button>
@@ -277,7 +282,7 @@ function EscreverMensagem() {
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
         <h4 className="font-medium text-gray-900 flex items-center gap-2 mb-4">
           <Eye className="w-5 h-5" />
-          Preview ao Vivo
+          {t('Preview ao Vivo')}
         </h4>
         <div className="border border-gray-200 rounded overflow-hidden">
           <div
@@ -285,7 +290,7 @@ function EscreverMensagem() {
               __html: buildSimpleNotificationEmailHtml({
                 clientName: previewClientName,
                 title: previewPlainText ? previewTitle : '',
-                message: previewPlainText || 'A mensagem que escreveres aqui aparece assim no email.',
+                message: previewPlainText || t('A mensagem que escreveres aqui aparece assim no email.'),
                 messageHtml: messageHtml || undefined,
                 link: link || undefined,
                 linkText: linkText || undefined,
@@ -353,14 +358,17 @@ function MensagemTodos({ aba }: { aba: Aba }) {
   const [linhaTelemovel, setLinhaTelemovel] = useState<HTMLDivElement | null>(null);
   return (
     <>
-      <Tabs<Aba>
-        tabs={[
-          ['escrever', 'Escrever mensagem', 'fa-pen-to-square'],
-          ['templates', 'Templates', 'fa-file-lines'],
-        ]}
-        on={aba}
-        onChange={(k) => vh.nav('/' + vh.s.level + '/mensagem-todos' + (k === 'templates' ? '/templates' : ''))}
-      />
+      {/* os templates das notificações são do administrador */}
+      {vh.s.level !== 'revenda' && (
+        <Tabs<Aba>
+          tabs={[
+            ['escrever', 'Escrever mensagem', 'fa-pen-to-square'],
+            ['templates', 'Templates', 'fa-file-lines'],
+          ]}
+          on={aba}
+          onChange={(k) => vh.nav('/' + vh.s.level + '/mensagem-todos' + (k === 'templates' ? '/templates' : ''))}
+        />
+      )}
       <div className="tw-livre">
         {aba === 'templates' ? (
           <AdminSectionChromeProvider>
@@ -377,11 +385,12 @@ function MensagemTodos({ aba }: { aba: Aba }) {
 }
 
 export const mensagemTodos: ScreenFn = (vh) => {
-  const aba: Aba = vh.s.sub[0] === 'templates' ? 'templates' : 'escrever';
-  const base = { t: 'Mensagem a todos', path: '/' + vh.s.level + '/mensagem-todos' };
+  const revenda = vh.s.level === 'revenda';
+  const aba: Aba = !revenda && vh.s.sub[0] === 'templates' ? 'templates' : 'escrever';
+  const base = { t: revenda ? 'Mensagem aos clientes' : 'Mensagem a todos', path: '/' + vh.s.level + '/mensagem-todos' };
   return {
-    title: 'Mensagem a todos',
-    desc: aba === 'templates' ? 'Templates das notificações' : 'Aviso a todas as contas ou a um cliente',
+    title: revenda ? 'Mensagem aos clientes' : 'Mensagem a todos',
+    desc: aba === 'templates' ? 'Templates das notificações' : revenda ? 'Aviso a todos os seus clientes' : 'Aviso a todas as contas ou a um cliente',
     crumbs: [base, { t: aba === 'templates' ? 'Templates' : 'Escrever mensagem' }],
     actions: aba === 'templates' ? <LugarBarraAntiga /> : undefined,
     body: <MensagemTodos aba={aba} />,

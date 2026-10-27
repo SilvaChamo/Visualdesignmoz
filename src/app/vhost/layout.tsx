@@ -14,6 +14,7 @@ import { lerDadosPainel, type LeituraPainel } from '@/lib/vhost-dados-painel';
 import { COOKIE_TEMA, temaDoCookie, type TemaConta } from '@/lib/vhost-tema-conta';
 import { CarregadorDa } from '@/components/vhost/carregador-da';
 import { TemaScript } from '@/components/vhost/TemaScript';
+import { TraducaoPainel } from '@/components/vhost/TraducaoPainel';
 
 export const metadata = {
   title: 'VisualHost',
@@ -40,6 +41,7 @@ export default async function VisualHostLayout({ children }: { children: React.R
     return (
       <>
         <VisualHostApp semSessao />
+        <TraducaoPainel />
         <TemaScript codigo={temaScript()} />
         {children}
       </>
@@ -89,6 +91,7 @@ async function PainelComDados({ doCookie }: { doCookie: { conta: string; tema: T
       {/* a versão do servidor que desenhou esta página: o painel compara-a com /api/versao para passar sozinho para
           a versão nova depois de uma publicação */}
       <VisualHostApp versao={versaoBuild()} dados={dados} tema={tema} />
+      <TraducaoPainel />
       <TemaScript codigo={temaScript(tema?.theme)} />
     </>
   );

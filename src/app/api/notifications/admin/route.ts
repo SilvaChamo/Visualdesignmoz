@@ -4,6 +4,9 @@ import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { sendEmail as sendTransactionalEmail } from '@/lib/email-service'
 import { nomeDoPerfil } from '@/lib/perfil-conta'
 import { buildSimpleNotificationEmailHtml as buildNotificationEmailHtml } from '@/lib/renewal-templates'
+import { requireAdminOrReseller } from '@/lib/panel-api-auth'
+import { getDaSyncAdmin } from '@/lib/da-sync-schema'
+import { clientesDaRevenda } from '@/lib/vhost-revenda'
 
 // Verificar se é admin
 async function isAdmin(supabase: any): Promise<boolean> {
@@ -18,9 +21,18 @@ async function isAdmin(supabase: any): Promise<boolean> {
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()
-    
+
+    // Administrador: qualquer utilizador. Revendedor (menu Admin da revenda): só os clientes que criou — «todos» quer dizer todos esses.
+    let ambito: { authIds: string[] } | null = null
     if (!(await isAdmin(supabase))) {
-      return NextResponse.json({ error: 'Acesso restrito a administradores' }, { status: 403 })
+      const staff = await requireAdminOrReseller()
+      const sb = getDaSyncAdmin()
+      if ('error' in staff || staff.user.role !== 'reseller' || !sb) {
+        return NextResponse.json({ error: 'Acesso restrito a administradores' }, { status: 403 })
+      }
+      const meus = await clientesDaRevenda(sb, staff.user.id)
+      if (!meus.eu) return NextResponse.json({ error: 'A sua conta do site ainda não está ligada a uma conta do servidor.' }, { status: 403 })
+      ambito = { authIds: meus.authIds }
     }
 
     const {
@@ -47,8 +59,14 @@ export async function POST(request: NextRequest) {
     let notifications = []
 
     if (sendToAll) {
-      // Enviar para todos os usuários
-      const { data: users } = await supabaseAdmin.auth.admin.listUsers()
+      // Enviar para todos os usuários (revendedor: só os clientes dele)
+      const { data: users } = ambito
+        ? {
+            data: {
+              users: (await Promise.all(ambito.authIds.map(async (id) => (await supabaseAdmin.auth.admin.getUserById(id)).data.user))).filter((u): u is NonNullable<typeof u> => !!u),
+            },
+          }
+        : await supabaseAdmin.auth.admin.listUsers()
 
       if (!users?.users?.length) {
         return NextResponse.json({ error: 'Nenhum usuário encontrado' }, { status: 404 })
@@ -123,6 +141,9 @@ export async function POST(request: NextRequest) {
       })
     } else if (userId) {
       // Enviar para usuário específico
+      if (ambito && !ambito.authIds.includes(String(userId))) {
+        return NextResponse.json({ error: 'Só pode escrever aos clientes que criou.' }, { status: 403 })
+      }
       const { data, error } = await supabaseAdmin
         .from('notifications')
         .insert({

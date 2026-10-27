@@ -16,6 +16,7 @@ import { processosPagina, servicosPagina } from './paginas/servidor-admin';
 import { cronAdminPagina, filaEmailPagina, firewallPagina, ipsPagina, logsAdminPagina, monitorBdPagina, nameserversPagina, rastreioEmailPagina, resumoEmailPagina, usoContasPagina } from './paginas/admin-paginas';
 import { atualizacoesPagina, backupSistemaPagina, backupsAdminPagina, basedirPagina, definicoesPagina, httpdPagina, importarContasPagina, manutencaoPagina, modsecAdminPagina, multiServidorPagina, netdataPagina, pacotesSistemaPagina, redisPagina, securityTxtPagina, softwarePagina, tlsServidorPagina, unitPagina } from './paginas/admin-paginas-2';
 import { editorSistemaPagina, estatisticasAdminPagina, ticketsAdminPagina } from './paginas/admin-paginas-3';
+import { backupsClientesPagina, estatisticasRevendaPagina, importarCpanelPagina, ipsRevendaPagina, securityTxtRevendaPagina, usoClientesPagina } from './paginas/revenda-paginas';
 import { ligadosPagina } from './paginas/ligados';
 import { sitesContasPagina } from './paginas/sites-contas';
 import { encomendasPagina } from './paginas/encomendas';
@@ -66,11 +67,11 @@ export interface Screen {
 export type ScreenFn = (vh: VH) => Screen;
 
 function SeeAll({ id }: { id: string }) {
-  const { go } = useVH();
+  const { go, t } = useVH();
   return (
     <div style={{ marginTop: 14, textAlign: 'right' }}>
       <a onClick={() => go(id)} style={{ color: 'var(--red)', fontWeight: 700, fontSize: 13.5, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-        Ver todas as contas <i className="fa-solid fa-chevron-right" style={{ fontSize: 11 }} />
+        {t('Ver todas as contas')} <i className="fa-solid fa-chevron-right" style={{ fontSize: 11 }} />
       </a>
     </div>
   );
@@ -799,6 +800,16 @@ export const SCREENS: Record<string, ScreenFn> = {
   'revenda/modelos-mensagem': modelos,
   'admin/tema': temaScreen,
   'revenda/tema': temaScreen,
+  // menu Admin do revendedor: só os clientes da revenda
+  'revenda/recursos': usoClientesPagina,
+  'revenda/estatisticas': estatisticasRevendaPagina,
+  'revenda/backups': backupsClientesPagina,
+  'revenda/tickets': ticketsAdminPagina,
+  'revenda/mensagem-todos': mensagemTodos,
+  'revenda/ips': ipsRevendaPagina,
+  'revenda/importar-contas': importarCpanelPagina,
+  'revenda/nameservers': nameserversPagina,
+  'revenda/security-txt': securityTxtRevendaPagina,
   'preferencias/aparencia': temaScreen,
   'preferencias/idioma': prefIdioma,
   'preferencias/tabelas': prefTabelas,
