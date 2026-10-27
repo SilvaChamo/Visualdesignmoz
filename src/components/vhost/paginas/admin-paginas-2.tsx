@@ -1087,24 +1087,36 @@ function AutorizarRevendas() {
   const { t } = vh;
   const revendedores = Object.entries(vh.s.acc).filter(([, a]) => a.role === 'revenda').map(([u, a]) => ({ u, email: a.email }));
   const { dados, erro, ler } = useGet<{ autorizadas: Record<string, string> }>(ROTA_REVENDA + '?ver=importar-autorizacoes');
-  // o interruptor muda logo ao clicar (o servidor leva uns segundos por SSH) e fica parado até o servidor confirmar; se falhar, volta ao que estava
+  // Por SSH cada pedido leva segundos: o interruptor muda logo ao clicar e fica parado («A guardar…») até o servidor responder; a resposta traz
+  // o ficheiro como ficou (não se espera por outra leitura); se falhar, volta ao que estava e o motivo fica escrito debaixo do nome.
   const [aGuardar, setAGuardar] = useState<Record<string, boolean>>({});
-  const ligada = (u: string) => (u in aGuardar ? aGuardar[u] : !!dados?.autorizadas[u]);
+  const [confirmadas, setConfirmadas] = useState<Record<string, string> | null>(null);
+  const [falhas, setFalhas] = useState<Record<string, string>>({});
+  const ligada = (u: string) => (u in aGuardar ? aGuardar[u] : !!(confirmadas ?? dados?.autorizadas)?.[u]);
   const mudar = async (conta: string, ligado: boolean) => {
+    setFalhas((p) => ({ ...p, [conta]: '' }));
     setAGuardar((p) => ({ ...p, [conta]: ligado }));
     try {
       const r = await fetch(ROTA_REVENDA, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ acao: 'importar-autorizar', conta, ligado }) });
-      const j = (await r.json().catch(() => ({}))) as { erro?: string };
-      vh.toast(!r.ok ? j.erro || 'A alteração falhou' : ligado ? 'Importação ligada para ' + conta : 'Importação desligada para ' + conta);
+      const j = (await r.json().catch(() => ({}))) as { erro?: string; autorizadas?: Record<string, string> };
+      if (!r.ok || !j.autorizadas) {
+        const motivo = j.erro || 'A alteração falhou';
+        setFalhas((p) => ({ ...p, [conta]: motivo }));
+        vh.toast(motivo);
+      } else {
+        setConfirmadas(j.autorizadas);
+        vh.toast(ligado ? 'Importação ligada para ' + conta : 'Importação desligada para ' + conta);
+      }
     } catch {
+      setFalhas((p) => ({ ...p, [conta]: 'Sem ligação ao site. Nada foi alterado.' }));
       vh.toast('Sem ligação ao site. Nada foi alterado.');
     } finally {
-      await ler(true);
       setAGuardar((p) => {
         const n = { ...p };
         delete n[conta];
         return n;
       });
+      void ler(true).then(() => setConfirmadas(null));
     }
   };
   return (
@@ -1116,9 +1128,22 @@ function AutorizarRevendas() {
       ) : (
         <div className="em-opcoes">
           {revendedores.map(({ u, email }) => (
-            <Opcao key={u} titulo={u} sub={email + ' — ' + t(u in aGuardar ? 'A guardar…' : ligada(u) ? 'Pode importar' : 'Importação desligada')}>
+            // a linha inteira é um interruptor (o clique no próprio interruptor trata-se nele)
+            <div
+              key={u}
+              style={{ cursor: u in aGuardar ? 'wait' : 'pointer' }}
+              onClick={(e) => {
+                if (u in aGuardar || (e.target as HTMLElement).closest('.sw')) return;
+                void mudar(u, !ligada(u));
+              }}
+            >
+              <span>
+                {u}
+                <small>{email + ' — ' + t(u in aGuardar ? 'A guardar…' : ligada(u) ? 'Pode importar' : 'Importação desligada')}</small>
+                {falhas[u] && <small style={{ color: 'var(--red)' }}>{t(falhas[u])}</small>}
+              </span>
               <Switch checked={ligada(u)} disabled={u in aGuardar} label={t('Pode importar do cPanel') + ' — ' + u} onChange={(v) => void mudar(u, v)} />
-            </Opcao>
+            </div>
           ))}
         </div>
       )}

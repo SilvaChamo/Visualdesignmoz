@@ -127,4 +127,6 @@ export const revenda: Record<string, string> = {
  "{0} e-mails": "{0} emails",
  "A guardar…": "Saving…",
  "O servidor não confirmou a gravação. Nada foi alterado; tente de novo.": "The server did not confirm the save. Nothing was changed; try again.",
+ "O servidor não confirmou a gravação ({0}). Nada foi alterado; tente de novo.": "The server did not confirm the save ({0}). Nothing was changed; try again.",
+ "sem resposta": "no response",
 };

@@ -330,7 +330,7 @@ function ArquivarModal({ inicial, onOk }: { inicial: string; onOk: (nome: string
     <>
       <h3>{t('Arquivar')}</h3>
       <div className="f">
-        <label>{t('Nome do arquivo')}</label>
+        <label>{t('Nome do ficheiro')}</label>
         <input value={n} onChange={(e) => setN(e.target.value)} autoFocus onFocus={(e) => e.target.select()} />
       </div>
       <div className="f">

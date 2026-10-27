@@ -29,7 +29,7 @@ const METODO: Record<string, string> = { mpesa: 'M-Pesa', emola: 'e-Mola', trans
 /** coluna "Status" dos Pedidos Abertos: o estado do pagamento; "Concluído" quando a Dynadot já confirmou a transferência */
 const PAGAMENTO: Record<Encomenda['status'], [string, string]> = {
   pending: ['A aguardar pagamento', 'w'],
-  paid: ['Processando', 'p'],
+  paid: ['A processar', 'p'],
   failed: ['Pagamento rejeitado', 'bad'],
 };
 const CONCLUIDO: [string, string] = ['Concluído', 'ok'];
@@ -37,10 +37,10 @@ const emCurso = (p: Pedido) => p.status === 'submitted' || p.status === 'waiting
 /** a ICANN dá ao registador anterior até 5–7 dias para responder; usamos 7 (o pior caso) para não prometer mais rápido */
 const DIAS = 7;
 const DICAS: [string, string][] = [
-  ['Sem mudanças recentes', 'Seu domínio não pode ter sido registrado, transferido ou atualizado nos últimos 60 dias. Recomendamos iniciar sua transferência pelo menos 2 semanas antes do vencimento.'],
-  ['Email Whois atualizado', 'Certifique-se de que seu endereço de e-mail Whois está correto. É para lá que o link de aprovação da transferência será enviado.'],
-  ['Renovação de 1 ano incluída', 'Quando a transferência for concluída, você estenderá automaticamente seu registro por 1 ano (algumas exceções de TLD se aplicam).'],
-  ['Dica rápida para transferência', 'Se seu domínio expirou recentemente, talvez ainda seja possível transferi-lo após renová-lo no seu agente de registros atual.'],
+  ['Sem alterações recentes', 'O seu domínio não pode ter sido registado, transferido ou actualizado nos últimos 60 dias. Recomendamos iniciar a transferência pelo menos 2 semanas antes do vencimento.'],
+  ['E-mail Whois actualizado', 'Confirme que o seu endereço de e-mail Whois está correcto. É para lá que será enviado o link de aprovação da transferência.'],
+  ['Renovação de 1 ano incluída', 'Quando a transferência terminar, o registo é prolongado automaticamente por 1 ano (aplicam-se algumas excepções de TLD).'],
+  ['Dica rápida para transferência', 'Se o seu domínio expirou há pouco, ainda pode ser possível transferi-lo depois de o renovar no seu agente de registo actual.'],
 ];
 
 function useContagem(fimMs: number) {
@@ -375,19 +375,19 @@ function TransferirConteudo() {
 
         <div className="trf-confianca">
           <span>
-            {t('Agente de registro credenciado pela')} <b>ICANN</b>
+            {t('Agente de registo acreditado pela')} <b>ICANN</b>
           </span>
           <span>
-            {t('Confiado por')} <b>10M+</b> {t('Clientes')}
+            {t('Com a confiança de')} <b>10M+</b> {t('Clientes')}
           </span>
           <span>
-            {t('Mais de')} <b>8M+</b> {t('Domínios')}
+            {t('Mais de')} <b>8M</b> {t('Domínios')}
           </span>
           <span>
-            <b>{t('Grátis')}</b> {t('Privacidade WHOIS')}
+            <b>{t('Privacidade WHOIS grátis')}</b>
           </span>
           <span className="trf-estrelas">
-            <b>Excellent</b>
+            <b>{t('Excelente')}</b>
             {[1, 2, 3, 4, 5].map((i) => (
               <i key={i}>★</i>
             ))}
@@ -463,7 +463,7 @@ function TransferirConteudo() {
               <span className="trf-bola de">
                 <i className="fa-solid fa-globe" />
               </span>
-              <figcaption>{t('Registador atual')}</figcaption>
+              <figcaption>{t('Registador actual')}</figcaption>
             </figure>
             <span className="trf-via">
               <i className="fa-solid fa-chevron-right" />
@@ -478,13 +478,13 @@ function TransferirConteudo() {
               <figcaption>{vh.s.brand.name.trim() || 'VisualDesign'}</figcaption>
             </figure>
           </div>
-          <h3>{t('Antes de transferir seu domínio')}</h3>
+          <h3>{t('Antes de transferir o seu domínio')}</h3>
           <p>
-            {t('Antes de iniciar sua')} <u>{t('transferência de domínio')}</u>
-            {t(', reserve um momento rápido para garantir que tudo esteja pronto. Um início tranquilo significa que sua transferência será concluída mais rapidamente.')}
+            {t('Antes de iniciar a')} <u>{t('transferência de domínio')}</u>
+            {t(', reserve um momento para confirmar que está tudo pronto. Um início sem problemas faz com que a transferência termine mais depressa.')}
           </p>
           <a className="btn trf-btn-p" href="/ajuda/dominios/transferir" target="_blank" rel="noopener noreferrer">
-            {t('Veja nosso guia de como transferir um domínio')}
+            {t('Veja o nosso guia sobre como transferir um domínio')}
             <i className="fa-solid fa-chevron-right" />
           </a>
         </div>

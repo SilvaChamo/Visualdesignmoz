@@ -190,7 +190,7 @@ export default function ClientRenewalsSection({ sites }: { sites: any[] }) {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Serviços</h2>
-          <p className="text-gray-500 mt-1">Gerencie seus domínios, hospedagem e renovações</p>
+          <p className="text-gray-500 mt-1">Gira os seus domínios, o alojamento e as renovações</p>
         </div>
         <button 
           onClick={loadRenewals}

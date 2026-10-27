@@ -341,14 +341,14 @@ function VerPedido({ id }: { id: string }) {
       <div className="tk-fio">
         <div className="tk-msg cliente">
           <div className="tk-cab">
-            <b>{t(alheia ? 'Cliente' : 'Você')}</b> · {dataPt(p.created_at)}
+            <b>{t(alheia ? 'Cliente' : 'Eu')}</b> · {dataPt(p.created_at)}
           </div>
           <div className="tk-txt">{p.descricao}</div>
         </div>
         {dados.respostas.map((r) => (
           <div key={r.id} className={'tk-msg ' + (r.respondente === 'cliente' ? 'cliente' : 'equipa')}>
             <div className="tk-cab">
-              <b>{r.respondente === 'cliente' ? t(alheia ? 'Cliente' : 'Você') : t('Equipa de suporte')}</b> · {dataPt(r.created_at)}
+              <b>{r.respondente === 'cliente' ? t(alheia ? 'Cliente' : 'Eu') : t('Equipa de suporte')}</b> · {dataPt(r.created_at)}
             </div>
             <div className="tk-txt">{r.resposta}</div>
           </div>
