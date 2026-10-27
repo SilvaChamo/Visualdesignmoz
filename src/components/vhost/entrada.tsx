@@ -10,9 +10,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { auth, LoginNetworkError, LoginRateLimitError, MSG_LIGACAO } from '@/lib/supabase-client';
 import type { Lang } from './i18n';
-import { Roda } from './carregador-da';
+import { BarrasDa, Roda } from './carregador-da';
 import { FundoPainel } from './triangulos';
-import { marcarEntrada } from '@/lib/vhost-cache';
+import { apagarDadosVhost, marcarEntrada } from '@/lib/vhost-cache';
 
 /** Língua escolhida na entrada ou no painel (fica guardada no navegador) */
 /** a mesma chave do site: a língua escolhida (na entrada, no site ou nas preferências) vale para todo o projecto */
@@ -69,6 +69,7 @@ export function EntradaPainel({ ocupado = false, escuro, automatico, lang, volta
         email = j.email;
       }
       await auth.signIn(email, senha);
+      apagarDadosVhost(); // a leitura de quem entrou antes neste navegador (ex.: o admin) nunca serve para a conta nova
       marcarEntrada('painel'); // ao sair, volta a esta entrada
       onEntrou();
     } catch (error) {
@@ -189,17 +190,19 @@ function TopoEntrada({ escuro, automatico, lang, onTema, onLang }: { escuro: boo
 
 export { Roda };
 
-/** Espera de quem entra directamente pelo endereço do painel (Silva, 27/10/2026): a roda do DA a girar enquanto o conteúdo se prepara.
- *  Com `roda` (depois de entrar pela entrada do próprio painel) a página é branca; sem ela (ao recarregar, ainda sem os dados) o
- *  fundo é o do tema. Quem entra pelo login do site não vê nenhuma espera: o login prepara tudo antes. */
-export function EsperaEntrada({ roda = true }: { roda?: boolean }) {
-  return roda ? (
-    <div className="ent-espera" role="status" aria-label="A abrir o painel">
-      <Roda tamanho={97} traco={10} grande />
-    </div>
-  ) : (
+/** A roda do DA só aparece aqui (Silva, 27/10/2026): depois de escrever os dados na entrada do próprio painel, enquanto o conteúdo se prepara.
+ *  Fora disso — ao recarregar ou mudar de página — as três barras; e quem vem do login do site (`viaSite`) não vê nada: o login já
+ *  preparou tudo. */
+export function EsperaEntrada({ roda = true, viaSite = false }: { roda?: boolean; viaSite?: boolean }) {
+  if (roda)
+    return (
+      <div className="ent-espera" role="status" aria-label="A abrir o painel">
+        <Roda tamanho={97} traco={10} grande />
+      </div>
+    );
+  return (
     <div className="ent-espera sem-roda" role="status" aria-label="A abrir o painel">
-      <Roda tamanho={97} traco={10} grande />
+      {!viaSite && <BarrasDa />}
     </div>
   );
 }

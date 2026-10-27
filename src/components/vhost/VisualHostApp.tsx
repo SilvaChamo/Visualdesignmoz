@@ -9,7 +9,7 @@ import { BarraPagina, ConsultaPagina, FaixaAbas, PesquisaPagina, TopoCartao, VHC
 import { GLOBAL, LEVELS, MENU, ROLES } from './generated/data';
 import { SEM_MENU } from './menu-contas';
 import { dominioVisivel, type DadosServidor } from './servidor';
-import { CACHE_DADOS_VHOST, apagarDadosVhost, guardarDadosVhost, limparViaSite, tirarEntrada, viaSiteAgora } from '@/lib/vhost-cache';
+import { CACHE_DADOS_VHOST, apagarDadosVhost, guardarDadosVhost, lerDadosVhostGuardados, limparViaSite, tirarEntrada, viaSiteAgora } from '@/lib/vhost-cache';
 import { idDispositivoPresenca } from '@/lib/vhost-presenca-id';
 import { COOKIE_TEMA, lerTema, valorCookieTema, type TemaConta } from '@/lib/vhost-tema-conta';
 import { translate, type Lang } from './i18n';
@@ -23,7 +23,7 @@ import { PesquisaNaPagina } from './pesquisa-pagina';
 import { useTituloAjustado } from './titulo-ajustado';
 import { PANEL_INACTIVITY_MS, SAIR_POR_INATIVIDADE_ATIVO } from '@/lib/session-inactivity';
 import { BarraTopo, EsperaPagina, atividadeComeca, instalarContador, type Espera } from './carga';
-import { Roda } from './carregador-da';
+import { BarrasDa } from './carregador-da';
 import { ClientSidePanel } from '@/components/vhost/comuns/ClientProductsHub';
 import { useAvisosEncomendas } from './avisos-encomendas';
 import { badgeColors, getThemeColors, hexToRgb, luminancia, type CustomComponents } from './theme';
@@ -167,8 +167,7 @@ const CACHE_DADOS = CACHE_DADOS_VHOST;
 function lerCache(): DadosServidor | null {
   try {
     localStorage.removeItem('vh-dados');
-    const v = localStorage.getItem(CACHE_DADOS);
-    return v ? (JSON.parse(v) as DadosServidor) : null;
+    return lerDadosVhostGuardados<DadosServidor>();
   } catch {
     return null;
   }
@@ -460,7 +459,7 @@ function PaginaSlot({ p, oculta, onPronta, registar }: { p: Pagina; oculta: bool
           {!p.semCartao && !p.home && p.scr.actions && <NoTopoCartao modelo={{ titulo: p.vh.t(tituloDoCartao(p.scr.title)), sub: p.scr.subTitulo ? p.vh.t(p.scr.subTitulo) : p.scr.descEl ?? (p.desc || undefined) }}>{p.scr.actions}</NoTopoCartao>}
           {carrega && !oculta && (
             <div className="da-main-card pg-carga">
-              <Roda tamanho={64} traco={7} grande />
+              <BarrasDa />
             </div>
           )}
           </TopoCartao.Provider>
@@ -475,7 +474,7 @@ function PaginaSlot({ p, oculta, onPronta, registar }: { p: Pagina; oculta: bool
 }
 
 /** dados: a leitura que o servidor já fez ao desenhar a página (null se demorou ou falhou: o painel lê-a aqui) */
-export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSessao = false }: { versao?: string; dados?: DadosServidor | null; tema?: TemaConta | null; semSessao?: boolean }) {
+export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSessao = false, viaSite = false }: { versao?: string; dados?: DadosServidor | null; tema?: TemaConta | null; semSessao?: boolean; viaSite?: boolean }) {
   // conta os pedidos ao site para a linha de carregamento do topo (antes de o painel pedir os dados)
   useState(() => instalarContador());
   // a marca da entrada pelo login do site (cookie de 20 s) sai passados uns segundos: depois disso, as páginas voltam a mostrar o carregador normal
@@ -825,6 +824,9 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
     async (fresco = false) => {
       // Nunca uma página em branco enquanto se lê o servidor (pedido do Silva): ao abrir, mostra logo a última leitura
       // guardada neste navegador e atualiza por trás quando a resposta chegar
+      // Entrada pelo login do site: o login já leu e guardou tudo (e o painel abriu com isso): não se lê outra vez — o sistema não processa
+      // duas vezes (Silva, 27/10/2026). Depois, a leitura periódica mantém-no fresco.
+      if (!fresco && ref.current.carga === 'ok' && viaSiteAgora()) return;
       const daCache = !fresco && ref.current.carga !== 'ok' ? lerCache() : null;
       if (daCache) aplicar(daCache);
       try {
@@ -1459,7 +1461,7 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
         entradaPainel(true)
       ) : (
         <div className="vh" data-theme={st.theme} style={themeStyles as React.CSSProperties} lang="pt-PT" suppressHydrationWarning>
-          <EsperaEntrada roda={false} />
+          <EsperaEntrada roda={false} viaSite={viaSite} />
         </div>
       );
     // a conta tem os 2 passos ligados e a sessão ainda só tem a palavra-passe: o código da aplicação (o servidor responde 428)

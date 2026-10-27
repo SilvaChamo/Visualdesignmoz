@@ -7,10 +7,53 @@
 // 'vh-dados-2': as leituras guardadas antes de 13/10 podiam ter os dados inventados do local — ficam esquecidas
 export const CACHE_DADOS_VHOST = 'vh-dados-2';
 
+/** O utilizador da sessão aberta neste navegador (lido do cookie da sessão do Supabase, sem ir à rede); null se não se consegue ler */
+export function utilizadorDaSessao(): string | null {
+  try {
+    const pedacos = new Map<string, string>();
+    for (const c of document.cookie.split('; ')) {
+      const i = c.indexOf('=');
+      const nome = c.slice(0, i);
+      if (/^sb-.+-auth-token(\.\d+)?$/.test(nome)) pedacos.set(nome, c.slice(i + 1));
+    }
+    const base = [...pedacos.keys()].map((k) => k.replace(/\.\d+$/, ''))[0];
+    if (!base) return null;
+    let v = pedacos.get(base) ?? '';
+    if (!v) for (let n = 0; pedacos.has(`${base}.${n}`); n++) v += pedacos.get(`${base}.${n}`);
+    v = decodeURIComponent(v);
+    if (v.startsWith('base64-')) v = atob(v.slice(7).replace(/-/g, '+').replace(/_/g, '/'));
+    const id = JSON.parse(v)?.user?.id;
+    return typeof id === 'string' ? id : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Guarda a leitura com o utilizador a quem pertence: a de outra conta nunca se mostra (ao entrar noutra conta no mesmo navegador, o painel
+ *  mostrava primeiro os dados da conta anterior — o admin — e só depois trocava para os da conta nova; Silva, 27/10/2026) */
 export function guardarDadosVhost(d: unknown) {
   try {
-    localStorage.setItem(CACHE_DADOS_VHOST, JSON.stringify(d));
+    localStorage.setItem(CACHE_DADOS_VHOST, JSON.stringify({ ...(d as object), __uid: utilizadorDaSessao() ?? '' }));
   } catch {}
+}
+
+/** A última leitura guardada, se for do utilizador da sessão actual (senão apaga-a e devolve null) */
+export function lerDadosVhostGuardados<T>(): T | null {
+  try {
+    const v = localStorage.getItem(CACHE_DADOS_VHOST);
+    if (!v) return null;
+    const d = JSON.parse(v) as T & { __uid?: string | null };
+    const agora = utilizadorDaSessao();
+    // leitura guardada antes desta regra (sem o campo) ou de outro utilizador: não serve. Se o utilizador não se conseguiu ler ('' ou null),
+    // não há como comparar e a leitura serve como sempre.
+    if (d.__uid === undefined || (d.__uid && agora && d.__uid !== agora)) {
+      apagarDadosVhost();
+      return null;
+    }
+    return d;
+  } catch {
+    return null;
+  }
 }
 
 export function apagarDadosVhost() {
