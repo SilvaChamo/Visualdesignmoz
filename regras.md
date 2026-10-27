@@ -198,7 +198,7 @@ sessão: retomar sempre em português. Vale para qualquer agente (as regras de b
    com hífens, que diz o que a publicação faz — ex.: `email-de-entrada-mltmark`, `planos-email-e-so-dominio` (nunca
    `claude/` nem outro nome de IA; o ramo de trabalho do agente pode ter outro nome: copia-se para o ramo com o nome da
    acção na hora de publicar). O título do merge leva esse nome: `Merge pull request #N from SilvaChamo-<acção>`, ex.:
-   `Merge pull request #94 from SilvaChamo-email-de-entrada-mltmark`. Também repetida nos ficheiros das outras IAs.
+   `Merge pull request #94 from SilvaChamo-email-de-entrada-mltmark`.
 9. **O merge leva por baixo uma linha, em português, com o que foi publicado** (Silva, 19/10/2026: "devia escrever o que foi
    feito como commit"), como nos merges anteriores — ex.: «Publica redistribuição de quotas de e-mail e edição directa de
    páginas WordPress.» (pela API, em `commit_message`). Ao dizer ao Silva o commit publicado, só os 8 primeiros caracteres
