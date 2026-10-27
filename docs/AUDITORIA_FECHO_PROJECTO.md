@@ -132,7 +132,7 @@ com todos os pontos corrigidos; deploy sem corte com reversão; isenção do IP 
    - `POST /api/migrate-contacts` — migração pontual que reescreve `newsletter_subscribers` de qualquer pessoa que a chame. Sem chamadores no repositório.
    - `GET /api/check-smtp-config` — mostra a configuração de envio (servidor, porta, prefixo do utilizador, remetentes, SPF calculado).
    - **Não li** (a confirmar quem as chama e se têm protecção própria): `auth/email-livre` (permite saber se um e-mail está registado), `auth/reset-password`,
-     `submit-ticket`, `domain-check`, `domain-tld-prices`, `public/site-news`, `whmcs-proxy`, `my-products`, `vhost/dados`, `vhost/aquecer`,
+     `submit-ticket`, `domain-check`, `domain-tld-prices`, `public/site-news`, `my-products`, `vhost/dados`, `vhost/aquecer`,
      `webmail-redirect`, `versao`, e as `cotacoes/[id]/*` (estas usam `resolveQuotationAccess`).
    - **Regra 5 de `regras.md`:** nada se apaga sem ver quem chama de fora (crons, webhooks, outros sites). Primeiro ver os registos do nginx dos últimos 30
      dias para estas rotas; depois proteger (sessão de administrador ou `CRON_SECRET`) ou apagar com redirecção.
@@ -230,5 +230,5 @@ saíram, basta ela não valer para nada — pedir ao fornecedor que a revogue, o
 - `POST /api/domain-check` — pública e sem limite; cada pedido pode ir ao registador (custo e abuso).
 - Antes de dar o assunto por fechado: ler, no servidor e só em leitura, os registos do nginx dos últimos 30 dias para `get-all-contacts`, `migrate-contacts`,
   `check-smtp-config`, para ver se alguém de fora as chamava (quem as chamar passa a levar 401/403).
-- Lidas e sem problema: `whmcs-proxy` (já exige administrador), `webmail-redirect` (só acrescenta ao endereço do webmail), `versao`, `vhost/aquecer`,
+- `POST /api/whmcs-proxy` **apagada** (27/10/2026, por ordem do Silva): falava com o WHMCS do fornecedor antigo, ninguém a chamava. Lidas e sem problema: `webmail-redirect` (só acrescenta ao endereço do webmail), `versao`, `vhost/aquecer`,
   `domain-tld-prices` e `public/site-news` (públicas por desenho).
