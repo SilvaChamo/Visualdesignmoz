@@ -61,25 +61,16 @@ export default async function VisualHostLayout({ children }: { children: React.R
         },
       }
     : null;
-  // Entrada pelo login do site (Silva, 27/10/2026): o login já preparou as páginas no navegador (a leitura guardada) enquanto o
-  // formulário processava, por isso o painel abre já, sem esperar pelos dados aqui e sem nenhum carregador (nem barras, nem roda,
-  // nem página em branco). Só quem entra directamente pelo endereço do painel espera, e vê a roda.
-  if (jar.get(COOKIE_VIA_SITE)?.value === '1') {
-    return (
-      <>
-        <VisualHostApp versao={versaoBuild()} dados={null} tema={doCookie?.tema ?? null} />
-        <TraducaoPainel />
-        <TemaScript codigo={temaScript(doCookie?.tema.theme)} />
-        {children}
-      </>
-    );
-  }
+  // Entrada pelo login do site (Silva, 27/10/2026): nenhum carregador à vista (nem barras, nem roda); o painel continua a abrir com os
+  // dados lidos aqui no servidor, como sempre (sem eles, o painel pedia-os ao navegador logo a seguir ao login e uma recusa da sessão
+  // nesse instante mandava de volta ao login, em ciclo). Quem entra directamente pelo endereço do painel vê a roda enquanto espera.
+  const viaSite = jar.get(COOKIE_VIA_SITE)?.value === '1';
   // A página sai logo com a roda do DA (no fundo e na cor do tema da conta) e o painel entra no
   // lugar dela quando os dados chegam: nunca a tela branca ao recarregar (Silva, 16/10/2026). Se chegarem depressa, o
   // navegador continua a mostrar a página anterior até ao painel e a roda nem se vê.
   return (
     <>
-      <Suspense fallback={<CarregadorDa tema={doCookie?.tema} />}>
+      <Suspense fallback={viaSite ? null : <CarregadorDa tema={doCookie?.tema} />}>
         <PainelComDados doCookie={doCookie} />
       </Suspense>
       {children}
