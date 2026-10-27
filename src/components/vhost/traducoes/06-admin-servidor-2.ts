@@ -266,4 +266,7 @@ export const admin_servidor_2: Record<string, string> = {
  "Instalar o Redis?": "Install Redis?",
  "Instala o redis-server e liga-o no arranque.": "Installs redis-server and enables it at boot.",
  "A instalar o Redis": "Installing Redis",
+ "Cópia inválida.": "Invalid backup.",
+ "Cópia inexistente.": "Backup not found.",
+ "Baixar": "Download",
 };

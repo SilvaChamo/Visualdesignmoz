@@ -642,6 +642,9 @@ function BackupsAdmin() {
     return { u, n: cs.length, mb: cs.reduce((s, c) => s + c.mb, 0), ultima };
   });
   const criar = (k: string[]) => void lancarBackup(vh, k);
+  const restaurar = (c: Copia) =>
+    confirmar(vh, 'Restaurar a conta?', c.conta + ' ← ' + c.nome + ' — ' + t('os sites, e-mails, bases de dados e tarefas da conta voltam ao estado desta cópia.'), 'Restaurar', { acao: 'bk-restaurar', conta: c.conta, nome: c.nome }, 'Restauro na fila');
+  const apagar = (cs: Copia[]) => confirmar(vh, 'Apagar as cópias?', cs.map((c) => c.nome).join(', '), 'Apagar', { acao: 'bk-apagar', itens: cs.map((c) => ({ conta: c.conta, nome: c.nome })) }, 'Cópias apagadas');
   return (
     <>
       <Trabalho tr={dados.trabalho} ler={ler} titulo="A fazer backup agora" />
@@ -670,6 +673,22 @@ function BackupsAdmin() {
             { k: 'm', t: 'Tamanho', right: true, sort: (r) => r.mb, cell: (r) => mbTexto(r.mb) },
             { k: 't', t: 'Demorou', ate: 1300, cell: (r) => (r.demorou ? r.demorou + ' min' : '—') },
           ]}
+          actions={(r) => (
+            <span className="dns-acoes">
+              <button className="btn sm btn-ed" onClick={() => restaurar(r)}>
+                <i className="fa-solid fa-clock-rotate-left" />
+                {t('Restaurar')}
+              </button>
+              <a className="btn sm btn-ed" href={ROTA + '?ver=bk-descarregar&conta=' + encodeURIComponent(r.conta) + '&f=' + encodeURIComponent(r.nome)}>
+                <i className="fa-solid fa-download" />
+                {t('Baixar')}
+              </a>
+              <button className="btn sm btn-rm" onClick={() => apagar([r])}>
+                <i className="fa-solid fa-trash-can" />
+                {t('Apagar')}
+              </button>
+            </span>
+          )}
           acoesNaColuna
           bulk={[
             {
@@ -678,10 +697,10 @@ function BackupsAdmin() {
               run: (k) => {
                 const [c, ...mais] = escolhidas(k);
                 if (!c || mais.length) return vh.toast('Escolha só uma cópia');
-                confirmar(vh, 'Restaurar a conta?', c.conta + ' ← ' + c.nome + ' — ' + t('os sites, e-mails, bases de dados e tarefas da conta voltam ao estado desta cópia.'), 'Restaurar', { acao: 'bk-restaurar', conta: c.conta, nome: c.nome }, 'Restauro na fila');
+                restaurar(c);
               },
             },
-            { t: 'Apagar', fa: 'fa-trash-can', run: (k) => confirmar(vh, 'Apagar as cópias?', escolhidas(k).map((c) => c.nome).join(', '), 'Apagar', { acao: 'bk-apagar', itens: escolhidas(k).map((c) => ({ conta: c.conta, nome: c.nome })) }, 'Cópias apagadas') },
+            { t: 'Apagar', fa: 'fa-trash-can', run: (k) => apagar(escolhidas(k)) },
           ]}
         />
       ) : (
@@ -699,6 +718,14 @@ function BackupsAdmin() {
             { k: 'm', t: 'Espaço', right: true, sort: (r) => r.mb, cell: (r) => mbTexto(r.mb) },
             { k: 'l', t: 'Última cópia', sort: (r) => r.ultima, cell: (r) => r.ultima.slice(0, 16) || <span className="tag w">{t('Nenhuma')}</span> },
           ]}
+          actions={(r) => (
+            <span className="dns-acoes">
+              <button className="btn sm btn-ed" onClick={() => criar([r.u])}>
+                <i className="fa-solid fa-box-archive" />
+                {t('Fazer backup agora')}
+              </button>
+            </span>
+          )}
           acoesNaColuna
           bulk={[{ t: 'Fazer backup agora', fa: 'fa-box-archive', run: criar }]}
         />
