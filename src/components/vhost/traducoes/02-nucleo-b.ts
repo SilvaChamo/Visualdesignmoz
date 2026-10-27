@@ -1,0 +1,22 @@
+// Inglês do painel — 02-nucleo-b (auditoria de 27/10/2026). Chave = texto em português tal como está no código.
+export const nucleo_b: Record<string, string> = {
+ "Profissionais": "Professionals",
+ "Entrar": "Sign in",
+ "Nada encontrado.": "Nothing found.",
+ "Consumo CPU": "CPU usage",
+ "núcleos": "cores",
+ "Criar conta de e-mail": "Create e-mail account",
+ "A conta": "The account",
+ "Sim": "Yes",
+ "Motivo": "Reason",
+ "Importar e-mails": "Import e-mails",
+ "Extensões PHP": "PHP extensions",
+ "Gerir WordPress": "Manage WordPress",
+ "Limpar": "Clear",
+ "Servidor": "Server",
+ "IP do Servidor": "Server IP",
+ "Carga": "Load",
+ "Entrar no painel desta conta": "Sign in to this account's panel",
+ "Ainda não há contas aqui": "There are no accounts here yet",
+ "muda-se no seletor em cima, à direita": "change it with the selector at the top right",
+};
