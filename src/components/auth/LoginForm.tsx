@@ -13,6 +13,9 @@ import type { UserRole } from '@/lib/user-roles'
 import { CampoFlutuante, OlhoSenha, botaoCls, botaoClaroCls, ligacaoCls, subtituloLoginCls, tituloCls, formularioCls } from '@/components/auth/campos'
 import { authErrorBoxClass } from '@/components/auth/auth-styles'
 
+/** os botões do login têm a mesma altura dos campos (Silva, 27/10/2026) */
+const botaoAlto = (cls: string) => cls.replace('h-[clamp(38px,2.8vw,40px)]', 'h-[clamp(42px,3.2vw,46px)]')
+
 function LoginFormInner() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -107,13 +110,13 @@ function LoginFormInner() {
   }
 
   return (
-    <div className="relative">
+    <>
       {/* no telemóvel e no tablet a imagem (com o logótipo) não aparece: o logótipo fica por cima do formulário */}
       {/* no telemóvel e no tablet tudo ao centro (pedido do Silva, 13/10/2026) */}
-      {/* cabeçalho do formulário: o título, fechado por uma linha separadora (Silva, 27/10/2026). A descrição, que é longa,
-          fica numa só linha por baixo do cartão (fora do formulário) e não parte o texto */}
+      {/* cabeçalho do formulário: título e descrição, fechados por uma linha separadora (Silva, 27/10/2026) */}
       <div className="border-b border-zinc-200 pb-[clamp(14px,1.2vw,18px)] dark:border-[#393e4d]">
         <h1 className={tituloCls}>{t('login.title')}</h1>
+        <p className={subtituloLoginCls}>{t('login.subtitle')}</p>
       </div>
 
       {error && <div className={`mt-6 ${authErrorBoxClass}`}>{error}</div>}
@@ -175,7 +178,7 @@ function LoginFormInner() {
           </CampoFlutuante>
         </div>
 
-        <button type="submit" disabled={loading} className={botaoCls}>
+        <button type="submit" disabled={loading} className={botaoAlto(botaoCls)}>
           {loading ? t('login.signingIn') : t('login.signIn')}
         </button>
 
@@ -190,7 +193,7 @@ function LoginFormInner() {
           type="button"
           onClick={handleGoogleLogin}
           disabled={loadingGoogle}
-          className={botaoClaroCls}
+          className={botaoAlto(botaoClaroCls)}
         >
           <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden>
             <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -216,9 +219,7 @@ function LoginFormInner() {
         </div>
       </form>
 
-      {/* a descrição: fora do formulário, por baixo do cartão, numa só linha */}
-      <p className={subtituloLoginCls}>{t('login.subtitle')}</p>
-    </div>
+    </>
   )
 }
 
