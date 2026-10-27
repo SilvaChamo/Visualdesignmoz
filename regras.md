@@ -255,8 +255,26 @@ mesma alteração a linha inglesa no dicionário — sem esperar que o Silva pe�
 - Nomes próprios, siglas e textos iguais nas duas línguas vão para a lista `IGUAIS` do mesmo ficheiro.
 - Antes de dar uma alteração por concluída: `npm run i18n` tem de dar **0 textos sem inglês** (lista o que falta, com
   ficheiro e linha). Zonas que não se traduzem: `data-sem-traducao` no elemento. O painel (`.vh`) tem a sua própria
-  tradução (`t()` em `src/components/vhost/i18n.ts`) e fica de fora.
+  tradução (`t()` em `src/components/vhost/i18n.ts`) e fica de fora desta verificação — ver a secção seguinte.
 - Textos que já usam `t('chave')` de `src/lib/i18n.tsx` continuam a funcionar; não é preciso convertê-los.
+
+# Painel em duas línguas — nenhuma página fora da tradução (Silva, 27/10/2026)
+
+Silva, 27/10/2026: «tem muitas páginas não traduzidas no painel… espero que não tenha nenhuma página fora da tradução». A auditoria
+encontrou ~3 000 textos do painel sem inglês (o dicionário só tinha 445 linhas) e componentes inteiros (`comuns/…`, vindos dos painéis
+antigos) sem nenhum `t()`. Ficou assim:
+
+- **Dicionário do painel** = `EN` de `src/components/vhost/generated/data.ts` + as linhas `novas` de cada página + **`src/components/vhost/traducoes/`**
+  (um ficheiro por zona, `chave em português → inglês`, juntos por `traducoes/index.ts`; `traducoes/iguais.ts` lista o que é igual nas duas línguas: código,
+  nomes, siglas, texto já em inglês). Frases com partes que mudam escrevem-se `{0}`, `{1}`… (`"Pacote {0} criado": "Package {0} created"`); `translate()`
+  (`i18n.ts`) aplica o modelo com mais texto fixo primeiro.
+- **Rede de segurança:** `src/components/vhost/TraducaoPainel.tsx` (montada em `src/app/vhost/layout.tsx`) aplica o mesmo dicionário a todo o texto e a
+  `placeholder`/`title`/`alt`/`aria-label` que chegam ao ecrã dentro de `.vh` (também janelas e listas que abrem depois) quando o inglês está escolhido; voltar ao
+  português repõe os originais. Não mexe em `code`/`pre`/`textarea`, em `[data-sem-traducao]` nem em editores. Janelas pelo portal para o `body` leva
+  `data-vh-portal` para entrarem na tradução.
+- **Regra para todo o texto novo do painel** (como no site público): acrescentar a linha inglesa no dicionário na mesma alteração. Texto montado com `'…' + x`
+  ou `` `…${x}` `` escreve-se no dicionário como modelo com `{0}` (o ecrã recebe a frase inteira). Antes de dar uma alteração ao painel por concluída:
+  **`npm run i18n:painel` tem de dar 0 textos sem inglês** (lista o que falta, com ficheiro e linha; `-v` mostra cada texto, `--json` a lista para copiar).
 
 # Regras de layout do Silva (valem para todas as páginas, sempre)
 

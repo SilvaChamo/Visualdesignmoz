@@ -110,7 +110,7 @@ function MailMarketingCampaignsSkeleton() {
 // toda, incluindo a barra lateral.
 function ModalPortal({ children }: { children: React.ReactNode }) {
   if (typeof document === 'undefined') return null;
-  return createPortal(children, document.body);
+  return createPortal(<div data-vh-portal>{children}</div>, document.body);
 }
 
 // Popup partilhado de Adicionar/Editar Contacto — usado quer na página de

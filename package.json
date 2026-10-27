@@ -14,6 +14,7 @@
     "lint": "next lint",
     "test:email": "node scripts/test-email.mjs",
     "i18n": "node scripts/i18n-verificar.mjs",
+    "i18n:painel": "node scripts/i18n-painel-verificar.mjs --api",
     "atualizar": "bash scripts/atualizar-local.sh"
   },
   "dependencies": {

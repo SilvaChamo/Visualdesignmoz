@@ -1,6 +1,7 @@
 // Idiomas: Português (base) e English. Como na maquete, os textos conhecidos são trocados
 // (dicionário EN + algumas frases com partes variáveis); o resto fica em português.
 import { EN } from './generated/data';
+import './traducoes';
 
 export type Lang = 'pt' | 'en';
 
@@ -34,11 +35,48 @@ const EN_RX: [RegExp, Rep][] = [
   [/^Página renomeada$/, 'Page renamed'],
 ];
 
+// Frases com partes variáveis escritas no dicionário como «{0}», «{1}»… ("Apagar {0} contas": "Delete {0} accounts"): viram
+// expressões regulares, feitas uma vez e refeitas só se o dicionário crescer (as páginas acrescentam as suas linhas ao carregar).
+let modelos: { re: RegExp; en: string }[] = [];
+let normais = new Map<string, string>();
+let tamanho = -1;
+const normal = (x: string) => x.replace(/\s+/g, ' ').trim();
+function preparar() {
+  const chaves = Object.keys(EN);
+  if (chaves.length === tamanho) return;
+  tamanho = chaves.length;
+  modelos = [];
+  normais = new Map();
+  // o modelo com mais texto fixo primeiro: «Palavra-passe de {0} mudada» antes de «Palavra-passe de {0}»
+  chaves.sort((a, b) => b.replace(/\{\d\}/g, '').length - a.replace(/\{\d\}/g, '').length);
+  for (const pt of chaves) {
+    const k = normal(pt);
+    if (/\{\d\}/.test(k)) {
+      const fonte = k.replace(/[.*+?^$()|[\]\\]/g, '\\$&').replace(/\\?\{(\d)\\?\}/g, '(?<v$1>[\\s\\S]+?)');
+      modelos.push({ re: new RegExp('^' + fonte + '$'), en: EN[pt] });
+    } else if (!normais.has(k)) normais.set(k, EN[pt]);
+  }
+}
+
 export function translate(lang: Lang, v: string): string {
   if (lang !== 'en') return v;
   const t = v.trim();
   if (!t) return v;
   let r: string | undefined = EN[t];
+  if (r === undefined) {
+    preparar();
+    const n = normal(t);
+    r = normais.get(n);
+    if (r === undefined) {
+      for (const m of modelos) {
+        const g = m.re.exec(n);
+        if (g) {
+          r = m.en.replace(/\{(\d)\}/g, (_x, i) => g.groups?.['v' + i] ?? '');
+          break;
+        }
+      }
+    }
+  }
   if (r === undefined) {
     for (const [rx, rep] of EN_RX) {
       if (rx.test(t)) {
@@ -47,5 +85,5 @@ export function translate(lang: Lang, v: string): string {
       }
     }
   }
-  return r === undefined ? v : v.replace(t, r);
+  return r === undefined ? v : v.replace(t, () => r as string);
 }
