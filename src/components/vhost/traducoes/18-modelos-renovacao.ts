@@ -16,9 +16,9 @@ export const modelos_renovacao: Record<string, string> = {
  "O servidor não devolveu templates válidos; a mostrar a cópia guardada localmente.": "The server did not return valid templates; showing the locally saved copy.",
  "Erro ao carregar do localStorage:": "Error loading from localStorage:",
  "Erro ao carregar templates do servidor:": "Error loading templates from the server:",
- "Erro ao salvar templates no servidor": "Error saving templates on the server",
+ "Erro ao guardar modelos no servidor": "Error saving templates on the server",
  "Erro {0}: {1}": "Error {0}: {1}",
- "Erro ao salvar templates no servidor:": "Error saving templates on the server:",
- "Erro ao salvar no localStorage:": "Error saving to localStorage:",
+ "Erro ao guardar modelos no servidor:": "Error saving templates on the server:",
+ "Erro ao guardar no localStorage:": "Error saving to localStorage:",
  "Erro ao resetar templates no servidor:": "Error resetting templates on the server:",
 };

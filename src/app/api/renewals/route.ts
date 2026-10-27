@@ -213,7 +213,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: `${type === 'domain' ? 'Domínio' : 'Hospedagem'} cadastrado com sucesso`,
+      message: `${type === 'domain' ? 'Domínio registado' : 'Hospedagem registada'} com sucesso`,
       data
     })
   } catch (error) {

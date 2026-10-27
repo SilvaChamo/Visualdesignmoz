@@ -55,4 +55,5 @@ export const residuos: Record<string, string> = {
  "Esconder motivo": "Hide reason",
  "Motivo da Rejeição": "Reason for rejection",
  "Sem motivo indicado.": "No reason given.",
+ "O cliente ainda não indicou o domínio.": "The customer has not given the domain yet.",
 };
