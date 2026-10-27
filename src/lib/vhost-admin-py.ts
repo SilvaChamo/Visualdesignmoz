@@ -297,10 +297,14 @@ if ver == 'backups':
         for n, v in hj('v-list-user-backups', u).items():
             lista.append({'conta': u, 'nome': n, 'mb': float(v.get('SIZE') or 0), 'data': v.get('DATE', ''), 'hora': v.get('TIME', ''), 'tipo': v.get('TYPE', ''), 'demorou': v.get('RUNTIME', '')})
     cfg = config()
-    sai({'backups': lista, 'config': {k: cfg.get(k, '') for k in ('BACKUP', 'BACKUPS', 'BACKUP_GZIP', 'BACKUP_MODE', 'BACKUP_SYSTEM')}, 'contas': utilizadores()})
+    sai({'backups': lista, 'config': {k: cfg.get(k, '') for k in ('BACKUP', 'BACKUPS', 'BACKUP_GZIP', 'BACKUP_MODE', 'BACKUP_SYSTEM')}, 'contas': utilizadores(), 'trabalho': estado_trabalho('backup-agora')})
 if acao == 'bk-criar':
-    erros = [u + ': ' + o for u in arg['contas'] for ok, o in [hok('v-schedule-user-backup', u)] if not ok]
-    sai({'ok': not erros, 'erro': '; '.join(erros)[-400:]})
+    # Backup manual: corre já, uma conta a seguir à outra, sem passar pela fila do servidor (a fila recusa com «backup is already scheduled»
+    # quando já há um agendado, e um problema urgente não pode esperar pelo agendamento). Em segundo plano e com prioridade baixa.
+    validas = set(utilizadores())
+    contas = [u for u in arg['contas'] if u in validas]
+    if not contas: sai({'ok': False, 'erro': 'Conta desconhecida.'})
+    lanca('backup-agora', '; '.join(f'echo "== {u}: início $(date +%H:%M:%S)"; nice -n 10 ionice -c2 -n7 {H}/v-backup-user {u} && echo "{u}: pronto" || echo "{u}: FALHOU"' for u in contas))
 if acao == 'bk-restaurar':
     if not BK.match(arg['nome']): sai({'ok': False, 'erro': 'Cópia inválida.'})
     ok, out = hok('v-schedule-user-restore', arg['conta'], arg['nome']); sai({'ok': ok, 'erro': out if not ok else ''})

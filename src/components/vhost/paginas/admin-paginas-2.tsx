@@ -595,7 +595,7 @@ export const multiServidorPagina: ScreenFn = () => ({
 // ======================= Backups (todas as contas) =======================
 const BK_URL = ROTA + '?ver=backups';
 type Copia = { conta: string; nome: string; mb: number; data: string; hora: string; tipo: string; demorou: string };
-type Bk = { backups: Copia[]; config: Record<string, string>; contas: string[] };
+type Bk = { backups: Copia[]; config: Record<string, string>; contas: string[]; trabalho?: Trab };
 type AbaK = 'copias' | 'contas';
 function BackupsAdmin() {
   const vh = useVH();
@@ -611,9 +611,10 @@ function BackupsAdmin() {
     const ultima = cs.map((c) => c.data + ' ' + c.hora).sort().pop() || '';
     return { u, n: cs.length, mb: cs.reduce((s, c) => s + c.mb, 0), ultima };
   });
-  const criar = (k: string[]) => confirmar(vh, 'Fazer backup agora?', k.join(', ') + ' — ' + t('fica na fila do servidor e chega por e-mail o aviso quando acabar.'), 'Fazer backup', { acao: 'bk-criar', contas: k }, 'Backup na fila');
+  const criar = (k: string[]) => confirmar(vh, 'Fazer backup agora?', k.join(', ') + ' — ' + t('corre já no servidor, mesmo que haja um agendado; o progresso aparece nesta página.'), 'Fazer backup', { acao: 'bk-criar', contas: k }, 'Backup a correr');
   return (
     <>
+      <Trabalho tr={dados.trabalho} ler={ler} titulo="A fazer backup agora" />
       <Tabs<AbaK>
         on={aba}
         onChange={setAba}
@@ -683,10 +684,10 @@ function BotaoBackupTodas() {
       fa="fa-box-archive"
       texto="Backup de todas as contas"
       titulo="Fazer backup de todas as contas?"
-      aviso="Cada conta entra na fila do servidor; pode demorar, conforme o tamanho."
+      aviso="Cada conta é copiada já, uma a seguir à outra, mesmo que haja backups agendados; pode demorar, conforme o tamanho."
       ok="Fazer backup"
       corpo={{ acao: 'bk-criar', contas: d?.contas || [] }}
-      msg="Backups na fila"
+      msg="Backup a correr"
     />
   );
 }
