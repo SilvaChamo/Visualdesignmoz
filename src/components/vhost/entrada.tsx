@@ -10,7 +10,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { auth, LoginNetworkError, LoginRateLimitError, MSG_LIGACAO } from '@/lib/supabase-client';
 import type { Lang } from './i18n';
-import { BarrasDa } from './carregador-da';
+import { Roda } from './carregador-da';
 import { FundoPainel } from './triangulos';
 import { marcarEntrada } from '@/lib/vhost-cache';
 
@@ -187,27 +187,19 @@ function TopoEntrada({ escuro, automatico, lang, onTema, onLang }: { escuro: boo
   );
 }
 
-/** Roda como a do DA (medida no vídeo do Silva): um arco que cresce e encolhe enquanto gira */
-export function Roda({ tamanho, traco, grande }: { tamanho: number; traco: number; grande?: boolean }) {
-  const meio = tamanho / 2;
-  return (
-    <svg className={'ent-roda' + (grande ? ' grande' : '')} width={tamanho} height={tamanho} viewBox={`0 0 ${tamanho} ${tamanho}`} aria-hidden>
-      <circle cx={meio} cy={meio} r={meio - traco / 2} fill="none" strokeWidth={traco} pathLength={100} />
-    </svg>
-  );
-}
+export { Roda };
 
-/** Depois de entrar pela entrada do painel: página branca com a roda a girar (como no DA). Sem a roda (ao recarregar,
- *  enquanto o painel ainda não tem os dados): as três barras do DA no fundo do tema — nunca a tela branca (Silva,
- *  16/10/2026) */
+/** Espera de quem entra directamente pelo endereço do painel (Silva, 27/10/2026): a roda do DA a girar enquanto o conteúdo se prepara.
+ *  Com `roda` (depois de entrar pela entrada do próprio painel) a página é branca; sem ela (ao recarregar, ainda sem os dados) o
+ *  fundo é o do tema. Quem entra pelo login do site não vê nenhuma espera: o login prepara tudo antes. */
 export function EsperaEntrada({ roda = true }: { roda?: boolean }) {
   return roda ? (
     <div className="ent-espera" role="status" aria-label="A abrir o painel">
       <Roda tamanho={97} traco={10} grande />
     </div>
   ) : (
-    <div className="ent-espera sem-roda">
-      <BarrasDa />
+    <div className="ent-espera sem-roda" role="status" aria-label="A abrir o painel">
+      <Roda tamanho={97} traco={10} grande />
     </div>
   );
 }
