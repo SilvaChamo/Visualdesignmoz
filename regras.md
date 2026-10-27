@@ -412,11 +412,15 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
   e o ícone do primeiro separador; **as linhas vão a toda a largura do cartão**. Espaço **antes e depois de cada
   linha**, igual em todo o lado (nada colado a uma linha).
 - **Menu da barra lateral esquerda**: categorias 15 px, páginas 13 px.
+- **Barra compacta: o «Sair» do fundo realça-se (selecionado e ao passar o rato) até à beira de baixo da janela, sem margem por baixo** (Silva, 27/10/2026; a barra não tem `padding-bottom`).
 - **Barra compacta (ícones à esquerda)** (Silva, 21/10/2026): o símbolo ocupa 76 px (a altura da barra de cima), por isso o primeiro
   ícone (Mensagens) começa na linha de cima do separador Admin; botões de 64 px (idioma 68 px) para dar espaço entre ícones; leva
   também o ícone da gestão de ficheiros (só ícone, leva directo à página, só aparece a quem o plano deixa ver).
 - **O separador "Admin"** chama-se "Admin" em todos os painéis, também no do revendedor (`nomeNivel` em `state.ts` — tabs, caminho
   e pesquisa; "Revenda" já não aparece como nome de separador).
+- **O cartão principal «não acaba» no fim do scroll** (Silva, 27/10/2026: «o card principal não deve mostrar a linha de baixo, nem onde termina no fim do scroll; só se tiver outro card dentro dele é que mostra a margem»; **substitui a regra de 26/10 logo abaixo, só no computador**):
+  `main` sem margem por baixo e o cartão principal sem a linha nem os cantos de baixo (parece continuar para lá da janela). Só se houver outro cartão (`.card`) lá dentro é que o cartão principal mantém o espaço por baixo (o seu
+  preenchimento); sem cartão lá dentro, nem esse espaço. No telemóvel fica como estava (barra de baixo + 12 px). CSS no fim de `paginas.css`.
 - **No fim do scroll fica só a margem dos lados e de cima** (Silva, 26/10/2026: «no fim do último card… a mesma margem das
   laterais e do topo, em todos os cards, sem excepção»; substitui a regra de 20/10 «o cartão chega ao fundo da janela»): o
   `main` tem a mesma margem (`20px × --k`) dos quatro lados e o cartão principal volta a ter a linha e os cantos de baixo. O
@@ -722,7 +726,7 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
 - **Backup manual corre já, mesmo havendo agendamento** (Silva, 27/10/2026: «pode ser algo urgente… não podemos depender do programa do servidor»). Admin › Backups › «Backup de todas as contas» e «Fazer backup agora» (por
   conta) já não passam pela fila do servidor (`v-schedule-user-backup` recusava com «backup is already scheduled» quando havia um agendado): lançam `v-backup-user` em segundo plano, uma conta a seguir à outra, com
   `nice`/`ionice` (trabalho `backup-agora` em `vhost-admin-py.ts`), e a página mostra o registo do trabalho. **Cada cópia tem a coluna «Acção» com Restaurar, Baixar e Apagar** (Silva, 27/10/2026: «está a faltar acções»; as mesmas opções continuam em «Opções» para várias linhas) e cada conta, em Contas, «Fazer backup agora». «Baixar» é
-  `/api/vhost/admin-servidor?ver=bk-descarregar&conta=…&f=…` (só administrador; só aceita nomes `<conta>.<data>.tar` que o próprio servidor lista para essa conta; envia por fluxo, há cópias de GB). **No telemóvel (Silva, 27/10/2026): a lista de cópias e a de contas ficam como no computador, com deslize horizontal para ver o que está escondido (`empilhar={false}`), cada linha numa só linha (o nome da cópia leva `ad-cmd-1l`: sem partir), e a descrição do cartão numa só linha (`Resumo baseNaoNoTelemovel`: sai o texto de base, ficam só «7 cópias | em /backup | guarda 2 por conta»).** Nunca voltar a pôr a fila neste botão; o agendamento semanal (domingo 05:10) continua como estava. **Antes de lançar, o painel lê de novo o que o servidor está a copiar** (`ver=backups-fila`: processos `v-backup-user` e a fila dele): se houver uma fila a correr, abre um popup que diz o que está a copiar e o que espera na fila e pergunta «Continuar mesmo assim?»
+  `/api/vhost/admin-servidor?ver=bk-descarregar&conta=…&f=…` (só administrador; só aceita nomes `<conta>.<data>.tar` que o próprio servidor lista para essa conta; envia por fluxo, há cópias de GB). **No telemóvel (Silva, 27/10/2026): a lista de cópias e a de contas ficam como no computador, com deslize horizontal para ver o que está escondido (`empilhar={false}`), cada linha numa só linha (o nome da cópia leva `ad-cmd-1l`: sem partir), e a descrição do cartão numa só linha (`Resumo baseNaoNoTelemovel`: sai o texto de base, ficam só «7 cópias | em /backup | guarda 2 por conta»).** **As duas tabelas (Cópias e Contas) levam `key` própria:** sem ela o React reaproveitava a mesma tabela ao mudar de separador e as colunas escolhidas na primeira escondiam «Conta» e «Última cópia» na segunda (Silva, 27/10/2026: «coloque o nome da conta e não apenas o número»). Nunca voltar a pôr a fila neste botão; o agendamento semanal (domingo 05:10) continua como estava. **Antes de lançar, o painel lê de novo o que o servidor está a copiar** (`ver=backups-fila`: processos `v-backup-user` e a fila dele): se houver uma fila a correr, abre um popup que diz o que está a copiar e o que espera na fila e pergunta «Continuar mesmo assim?»
   (as contas que já estão a ser copiadas ficam de fora, duas cópias da mesma conta ao mesmo tempo estragam-se); se já houver um backup manual a correr, só avisa.
 
 - **As mensagens ao utilizador dizem "Vhost", nunca "Hestia"** (Silva, 26/10/2026: "em vez de dizer o Hestia, dizer Vhost"). Erros, avisos, toasts e textos do painel que falam do servidor
@@ -784,6 +788,17 @@ nível Revenda parte dessa lista ou de uma rota que a aplica no servidor; **nunc
   existe**: o botão «Carregar contas» está desativado, diz-o na página e as credenciais não saem do navegador. Fazê-la é abrir ligações SSH do nosso servidor para servidores
   de fora a pedido de um utilizador — precisa de decisão do Silva (limites, registo e conta importada ligada à revenda por `parent_username`) antes de se escrever.
 - «Zona DNS» é uma só entrada no menu da revenda (a mesma página da Gestão › DNS, do domínio escolhido): sem «dos clientes» no nome.
+
+# Datas do painel: dia, mês e ano, com muitas formas à escolha (Silva, 27/10/2026)
+
+- **Todas as datas do painel** (listas, cópias, mensagens, pedidos, ficheiros, renovações, encomendas) **seguem a escolha de Preferências › Idioma e data › Formato da data**, por omissão **dia/mês/ano** (`31/12/2026, 14:30`), nunca o ISO do servidor
+  (`2026-12-31`). **Um só sítio**: `src/components/vhost/datas.ts` (`dataPt` para texto do servidor, `dataDe` para `Date`, `dataSo` para dias sem hora, `nomeCopia` para o nome das cópias). **Nunca** `toLocaleDateString('pt-PT')` nem fatiar
+  (`slice(0, 10)`) uma data no ecrã: usar estas funções. A ordenação das tabelas continua a usar o texto original.
+- **Formas à escolha** (`FORMATOS_DATA`, 15; o nome de cada uma na escolha é o exemplo de 31/12/2026 14:30): `31/12/2026, 14:30` · `31-12-2026 14:30` · `31.12.2026 14:30` · `31/12/26, 14:30` · `31/12/2026 14h30` · `31/12/2026, 2:30 PM` ·
+  `31/12/2026` (sem hora) · `31 dez 2026, 14:30` · `31 dez 2026, 2:30 PM` · `qui, 31 dez 2026, 14:30` · `31 de dezembro de 2026, 14:30` · `12/31/2026, 2:30 PM` · `2026-12-31 14:30` · `2026/12/31 14:30` · `2026-12-31T14:30`. Os meses e os dias da semana
+  seguem o idioma do painel. Para acrescentar uma forma: uma linha em `FORMATOS_DATA`, e o nome inglês dos meses já lá está.
+- **Mudar a escolha vale logo**, sem recarregar: `gravarFormatoData` guarda e avisa (`vh-data-mudou`) e todas as tabelas (`DataTable` usa `useFormatoData`) desenham-se de novo.
+- **Nome das cópias de segurança**: `vdadmin.2026-10-27_22-29-54.tar` mostra-se `vdadmin 27/10/2026:22.29.tar` (ou `vdadmin 27 out 2026, 22:29.tar` na forma curta…); só o que se vê, a cópia chama-se como no servidor. Leva sempre a hora.
 
 # Autenticação em 2 passos (opcional — Silva, 21/10/2026)
 

@@ -12,6 +12,7 @@ import { DataTable, Tabs } from './componentes';
 import { Confirmar } from './pacotes';
 import { Carregando, Sec } from './avancado';
 import { ROTA, num, pedir } from './admin-paginas';
+import { dataDe } from '../datas';
 
 type Trab = { aCorrer: boolean; registo: string[] };
 
@@ -513,9 +514,7 @@ const ESTADOS: Record<string, [string, string]> = { open: ['Por responder', 'bad
 const estado = (s: string) => ESTADOS[s] || [s || 'Por responder', 'bad'];
 const dataCurta = (iso: string) => {
   const d = new Date(iso);
-  if (isNaN(d.getTime())) return '—';
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()}, ${p(d.getHours())}:${p(d.getMinutes())}`;
+  return isNaN(d.getTime()) ? '—' : dataDe(d);
 };
 async function tkPedir(vh: VH, corpo: Record<string, unknown>, ok: string): Promise<Record<string, unknown> | null> {
   try {

@@ -13,6 +13,7 @@ import { useGet } from '../carga';
 import { EN } from '../generated/data';
 import { NoTopoCartao } from '../ui';
 import dynamic from 'next/dynamic';
+import { dataDe, dataPt } from '../datas';
 
 /** Editor de blocos do WordPress (Gutenberg), carregado só quando se abre uma página para editar */
 const EditorBlocos = dynamic(() => import('./gutenberg'), { ssr: false, loading: () => <div className="gb-espera" /> });
@@ -570,7 +571,7 @@ function proximaExecucao(a: Agenda): Date {
   }
   return d;
 }
-const dataHora = (d: Date) => d.toLocaleDateString('pt-PT') + ' ' + dois(d.getHours()) + ':' + dois(d.getMinutes());
+const dataHora = (d: Date) => dataDe(d);
 
 /** O cartão da cópia agendada (como o do agendamento do DirectAdmin): quando, para quem, para onde e o que entra, com executar agora, modificar,
  *  pausar e eliminar */
@@ -906,7 +907,7 @@ function PainelRestaurar({ c, modo, setModo, fechar, onFeito, onCarregar }: { c:
       <div className="bk-rest-cab">
         <div className="bk-rest-tit">
           <b>
-            {t('Restaurar a cópia de')} {c.data} · {mbTxt(c.tamanhoMb)}
+            {t('Restaurar a cópia de')} {dataPt(c.data)} · {mbTxt(c.tamanhoMb)}
           </b>
           <small>{descricao}</small>
         </div>
@@ -990,7 +991,7 @@ function Backups({ aba }: { aba: 'criar' | 'agendadas' }) {
       linhaExtra={(r) => (aberta?.f === r.f ? <PainelRestaurar c={r} modo={aberta.modo} setModo={(modo) => setAberta({ f: r.f, modo })} fechar={() => setAberta(null)} onFeito={ler} onCarregar={dados.podeCarregar ? carregar : undefined} /> : null)}
       empty="Ainda não há cópias de segurança"
       cols={[
-        { k: 'data', t: 'Data', sort: (r) => r.data, cell: (r) => <b>{r.data}</b> },
+        { k: 'data', t: 'Data', sort: (r) => r.data, cell: (r) => <b>{dataPt(r.data)}</b> },
         { k: 'tam', t: 'Tamanho', sort: (r) => r.tamanhoMb, cell: (r) => mbTxt(r.tamanhoMb) },
         { k: 'cont', t: 'Conteúdo', cell: (r) => <span style={{ whiteSpace: 'normal' }}>{[r.web && 'sites', r.mail && 'e-mail', r.db && 'bases de dados', r.dns && 'DNS', r.cron && 'cron'].filter(Boolean).join(', ') || '—'}</span> },
         { k: 'dur', t: 'Duração', cell: (r) => (r.duracao ? r.duracao + ' min' : '—'), hidden: true },
@@ -1006,7 +1007,7 @@ function Backups({ aba }: { aba: 'criar' | 'agendadas' }) {
             <i className="fa-solid fa-download" />
             {t('Descarregar')}
           </a>
-          <button className="btn sm btn-rm" onClick={() => openM(<Confirmar titulo="Apagar cópia?" texto={'Vai apagar a cópia de ' + r.data + ' (' + mbTxt(r.tamanhoMb) + ').'} ok="Apagar" onOk={async () => (await noServidor(vh, { acao: 'backup-apagar', f: r.f }, 'Cópia apagada')) && ler()} />)}>
+          <button className="btn sm btn-rm" onClick={() => openM(<Confirmar titulo="Apagar cópia?" texto={'Vai apagar a cópia de ' + dataPt(r.data) + ' (' + mbTxt(r.tamanhoMb) + ').'} ok="Apagar" onOk={async () => (await noServidor(vh, { acao: 'backup-apagar', f: r.f }, 'Cópia apagada')) && ler()} />)}>
             <i className="fa-solid fa-trash-can" />
             {t('Apagar')}
           </button>
@@ -1306,7 +1307,7 @@ function ChavesLista() {
           { k: 'id', t: 'Chave', cell: (r) => <code>{r.id}</code> },
           { k: 'com', t: 'Nome', cell: (r) => r.comentario || '—' },
           { k: 'perm', t: 'Pode', cell: (r) => <span style={{ whiteSpace: 'normal' }}>{r.permissoes ? r.permissoes.split(',').map((p) => PERMISSOES.find((x) => x[0] === p.trim())?.[1] || p.trim()).join(', ') : t('Tudo')}</span> },
-          { k: 'data', t: 'Criada', cell: (r) => r.data },
+          { k: 'data', t: 'Criada', cell: (r) => dataPt(r.data) },
         ]}
         actions={(r) => (
           <button className="btn sm btn-rm" onClick={() => apagar([r.id])}>

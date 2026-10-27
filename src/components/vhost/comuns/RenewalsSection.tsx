@@ -25,6 +25,7 @@ import { Spinner } from '@/components/ui/spinner'
 import { splitCompositePackageName } from '@/lib/reseller-package-form'
 import { readListCache, writeListCache } from '@/lib/panel-list-cache'
 import { getRedemptionInfo, DYNADOT_ACCOUNT_URL } from '@/lib/domain-redemption'
+import { dataSo } from '../datas';
 
 const RENEWALS_CACHE_KEY = 'vd_renewals_v1'
 
@@ -479,7 +480,7 @@ export function RenewalsSection({ initialTab = 'overview', hideTabs = false }: R
                           <p className="font-medium">{service.domain_name}</p>
                           <p className="text-sm text-gray-500">
                             Cliente: {service.user_email || service.user_id} |
-                            Expira: {new Date(service.expiration_date).toLocaleDateString('pt-PT')} |
+                            Expira: {dataSo(new Date(service.expiration_date))} |
                             {service.renewal_price} MT
                           </p>
                           {redemption && <p className="text-sm text-orange-700 mt-1">{redemption.hint}</p>}

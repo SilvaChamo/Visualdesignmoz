@@ -15,6 +15,7 @@ import { esquecerMemoria, useGet, useNaMemoria } from '../carga';
 import { DataTable, Frm, Row, Senha, Switch, Tabs } from './componentes';
 import { Confirmar } from './pacotes';
 import { EditarDadosModal } from './cliente-dados';
+import { FORMATOS_DATA, dataDe, dataSo, exemploData, gravarFormatoData } from '../datas';
 
 // ---------- Peças comuns ----------
 /** Ao "entrar como" outra conta, as páginas por pessoa (Perfil, Mensagens, Suporte) mostram os dados do cliente dono
@@ -105,10 +106,7 @@ const dataPt = (iso?: string | null) => {
   if (!iso) return '—';
   const d = new Date(iso);
   if (isNaN(d.getTime())) return '—';
-  const p = (n: number) => String(n).padStart(2, '0');
-  return lerPref('vh-data', 'dmy') === 'ymd'
-    ? `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
-    : `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()}, ${p(d.getHours())}:${p(d.getMinutes())}`;
+  return dataDe(d);
 };
 
 /** Preferências do navegador (Preferências → Idioma, Tabelas, Gestor de ficheiros) */
@@ -738,7 +736,7 @@ function PerfilSessoes() {
                     <div>
                       <small>{t(sessao.deviceId === deviceId ? 'Este aparelho' : 'Outro aparelho')} · {t(ligado ? 'Ligado' : 'Sem sinal')}</small>
                       <span>{sessao.aparelho || t('Navegador')}</span>
-                      <small>{new Date(sessao.ultimo).toLocaleString(vh.s.lang === 'en' ? 'en' : 'pt-PT')}</small>
+                      <small>{dataDe(new Date(sessao.ultimo))}</small>
                     </div>
                   </div>
                 );
@@ -902,7 +900,7 @@ function PerfilDoisPassos() {
           <div className="pf-2p-cx">
             <h4>{t('Autenticação em 2 passos')}</h4>
             <p>
-              {alheia ? t('Esta conta') : t('A sua conta')} {ligado ? t('tem a autenticação em 2 passos ligada') + (dados.desde ? ' ' + t('desde') + ' ' + new Date(dados.desde).toLocaleDateString('pt-PT') : '') + '.' : t('tem a autenticação em 2 passos desligada.')}
+              {alheia ? t('Esta conta') : t('A sua conta')} {ligado ? t('tem a autenticação em 2 passos ligada') + (dados.desde ? ' ' + t('desde') + ' ' + dataSo(new Date(dados.desde)) : '') + '.' : t('tem a autenticação em 2 passos desligada.')}
             </p>
             {adminImpersonando ? (
               ligado && (
@@ -1052,18 +1050,21 @@ function PrefIdioma() {
             <option value="en">English</option>
           </select>
         </Opcao>
-        <Opcao titulo="Formato da data" sub="Nas listas de mensagens, pedidos e ficheiros.">
+        <Opcao titulo="Formato da data" sub="Em todo o painel: listas, cópias, mensagens, pedidos e ficheiros.">
           <select
             className="em-sel"
             value={data}
             onChange={(e) => {
               setData(e.target.value);
-              gravarPref('vh-data', e.target.value);
+              gravarFormatoData(e.target.value);
               vh.toast('Guardado');
             }}
           >
-            <option value="dmy">{t('31/12/2026, 14:30')}</option>
-            <option value="ymd">{t('2026-12-31 14:30')}</option>
+            {FORMATOS_DATA.map((f) => (
+              <option key={f.id} value={f.id}>
+                {exemploData(f)}
+              </option>
+            ))}
           </select>
         </Opcao>
       </div>

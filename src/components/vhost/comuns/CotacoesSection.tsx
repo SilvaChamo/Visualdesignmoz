@@ -19,6 +19,7 @@ import { QuotationAttachmentsPanel } from '@/components/quotations/QuotationAtta
 import { QuotationBatchExpenses } from '@/components/quotations/QuotationBatchExpenses'
 import { useAdminSectionChrome } from '@/components/vhost/comuns/AdminSectionChrome'
 import { Spinner } from '@/components/ui/spinner'
+import { dataSo } from '../datas';
 
 interface QuotationRequest extends BatchItem {
   empresa: string
@@ -464,8 +465,8 @@ export function CotacoesSection({ painel = false }: { painel?: boolean } = {}) {
                         <div className="min-w-0 flex-1">
                           <p className="truncate font-bold text-gray-900 dark:text-white">{company}</p>
                           <p className="text-xs text-gray-500 dark:text-zinc-400">
-                            {orderCount} {orderCount === 1 ? 'encomenda' : 'encomendas'} · 1ª encomenda em {new Date(firstOrderAt).toLocaleDateString('pt-PT')}
-                            {lastDeliveryAt && ` · última entrega em ${new Date(lastDeliveryAt).toLocaleDateString('pt-PT')}`}
+                            {orderCount} {orderCount === 1 ? 'encomenda' : 'encomendas'} · 1ª encomenda em {dataSo(new Date(firstOrderAt))}
+                            {lastDeliveryAt && ` · última entrega em ${dataSo(new Date(lastDeliveryAt))}`}
                           </p>
                         </div>
                         <ChevronDown className={`w-4 h-4 shrink-0 text-gray-400 transition-transform ${isOpen ? '' : '-rotate-90'}`} />
@@ -697,7 +698,7 @@ function BatchCard({
                 {meta.label}
               </span>
               <span className="justify-self-start text-xs text-gray-500 dark:text-zinc-400 whitespace-nowrap">
-                {new Date(anchor.created_at).toLocaleDateString('pt-PT')}
+                {dataSo(new Date(anchor.created_at))}
               </span>
             </div>
           </div>
@@ -753,7 +754,7 @@ function BatchCard({
                     className="font-bold text-gray-900 dark:text-white hover:text-red-600 dark:hover:text-red-400 hover:underline decoration-dotted underline-offset-2 transition-colors"
                     title="Clique para alterar o prazo"
                   >
-                    Entrega até {new Date(anchor.data_limite_entrega).toLocaleDateString('pt-PT')}
+                    Entrega até {dataSo(new Date(anchor.data_limite_entrega))}
                   </button>
                 )}
                 {/* Estado da encomenda junto ao prazo — só informativo, sem dropdown nem
@@ -1005,7 +1006,7 @@ function BatchCard({
                       {payments.map((p) => (
                         <p key={p.phase} className="text-gray-600 dark:text-zinc-300">
                           {p.phase === 'advance' ? 'Adiantamento' : 'Remanescente'}: {formatMt(p.valor_mt)} MT
-                          {p.metodo ? ` (${p.metodo})` : ''} — {new Date(p.confirmed_at).toLocaleDateString('pt-PT')}
+                          {p.metodo ? ` (${p.metodo})` : ''} — {dataSo(new Date(p.confirmed_at))}
                         </p>
                       ))}
                     </div>

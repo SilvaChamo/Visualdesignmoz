@@ -6,6 +6,7 @@ import { Fragment, useContext, useEffect, useMemo, useRef, useState, type Keyboa
 import { createPortal } from 'react-dom';
 import { BarraPagina, ConsultaPagina, FaixaAbas, PesquisaPagina, TopoCartao, useVH } from '../context';
 import type { Campo, Lim, Unit } from './dados';
+import { useFormatoData } from '../datas';
 
 // ---------- Formulário ----------
 /** `semCabecalho`: o título (e a descrição) vão para cima da linha do cartão, no modelo de Domínios (NoTopoCartao `modelo`); o formulário
@@ -404,6 +405,7 @@ export function DataTable<T>({
   const [sel, setSel] = useState<string[]>([]);
   const [sort, setSort] = useState<{ k: string; dir: 1 | -1 } | null>(null);
   const colsRef = useRef<HTMLDivElement>(null);
+  useFormatoData(); // a forma da data mudou (Preferências): desenha-se de novo
 
   useEffect(() => {
     const saved = lerCols(id);

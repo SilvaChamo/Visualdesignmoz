@@ -6,6 +6,7 @@ import { panelSectionCard } from '@/lib/panel-ui';
 import { checkoutItemSummary, type CheckoutItemLike } from '@/lib/checkout-item-labels';
 import { openDocumentWindow } from '@/components/documents/VisualDesignDocument';
 import { Spinner } from '@/components/ui/spinner';
+import { dataSo } from '../datas';
 
 type Compra = {
   id: string;
@@ -101,7 +102,7 @@ export function MinhasComprasSection() {
                   </td>
                   <td aria-hidden />
                   <td className={`${TD} text-right text-gray-500 dark:text-zinc-400`}>
-                    {new Date(compra.created_at).toLocaleDateString('pt-PT')}
+                    {dataSo(new Date(compra.created_at))}
                   </td>
                   <td className={`${TD} text-right`}>
                     <div className="inline-flex items-center gap-2">

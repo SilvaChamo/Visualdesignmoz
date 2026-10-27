@@ -13,6 +13,7 @@ import { useCurrency } from '@/contexts/CurrencyContext';
 import { MZN_TO_USD_RATE } from '@/lib/currency';
 import { PesquisaPagina, useVH } from '../context';
 import { EsperaPagina, esquecerMemoria, useGet } from '../carga';
+import { dataSo } from '../datas';
 
 type Encomenda = { orderId: string; costMt: number; paidMt: number; metodoPagamento: string; status: 'pending' | 'paid' | 'failed' };
 type Pedido = {
@@ -433,7 +434,7 @@ function TransferirConteudo() {
                       </td>
                       <td className="trf-dom">{p.domain_name}</td>
                       <td className="trf-fraco">{o.orderId}</td>
-                      <td className="trf-fraco">{new Date(p.created_at).toLocaleDateString('pt-PT')}</td>
+                      <td className="trf-fraco">{dataSo(new Date(p.created_at))}</td>
                       <td>
                         <b>{formatPrice(o.costMt)}</b>
                       </td>

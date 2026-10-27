@@ -115,7 +115,7 @@ export const suporte: Record<string, string> = {
  "Entradas a partir de aparelhos novos e mudanças de palavra-passe.": "Sign-ins from new devices and password changes.",
  "Idioma do painel": "Panel language",
  "Formato da data": "Date format",
- "Nas listas de mensagens, pedidos e ficheiros.": "In the lists of messages, requests and files.",
+ "Em todo o painel: listas, cópias, mensagens, pedidos e ficheiros.": "Throughout the panel: lists, backups, messages, requests and files.",
  "Valem para todas as listas do painel, neste navegador.": "They apply to all panel lists, in this browser.",
  "Escolher as colunas visíveis": "Choose the visible columns",
  "Mostra o botão Colunas por cima das tabelas.": "Shows the Columns button above the tables.",

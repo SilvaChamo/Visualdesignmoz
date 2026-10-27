@@ -24,6 +24,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { PendingOrdersSection } from '@/components/vhost/comuns/PendingOrdersSection';
 import { attachEmailDomain } from '@/components/vhost/comuns/ClientAddDomainModal';
 import { MoveToAccountModal } from '@/components/panel/MoveToAccountModal';
+import { dataSo } from '../datas';
 
 export type ClientNavigate = (section: string, opts?: { domain?: string }) => void;
 
@@ -172,7 +173,7 @@ const getDaysUntil = (date: string): number => {
 
 const formatDate = (date: string): string => {
   const parsed = new Date(date);
-  return Number.isNaN(parsed.getTime()) ? date : parsed.toLocaleDateString('pt-PT');
+  return Number.isNaN(parsed.getTime()) ? date : dataSo(parsed);
 };
 
 const getDomainExtension = (domain: string): string => {

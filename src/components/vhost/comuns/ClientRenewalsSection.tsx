@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import PaymentMethodForm from '@/components/vhost/comuns/PaymentMethodForm'
 import { Spinner } from '@/components/ui/spinner'
+import { dataSo } from '../datas';
 
 interface Renewal {
   id: string
@@ -350,7 +351,7 @@ export default function ClientRenewalsSection({ sites }: { sites: SiteInfo[] }) 
                     <div>
                       <p className="font-medium">{renewal.domain_name}</p>
                       <p className="text-sm opacity-75">
-                        Expira em {days} dias ({new Date(renewal.expiration_date).toLocaleDateString('pt-BR')})
+                        Expira em {days} dias ({dataSo(new Date(renewal.expiration_date))})
                       </p>
                     </div>
                   </div>

@@ -16,6 +16,7 @@ import { useGet } from '../carga';
 import { DataTable, Tabs } from './componentes';
 import { Carregando } from './avancado';
 import { Confirmar } from './pacotes';
+import { dataDe } from '../datas';
 
 // ---------- Menu: "Contas ligadas" no fim de Gestão de contas ----------
 {
@@ -440,7 +441,7 @@ function Ligados() {
               sort: (r) => r.fim,
               cell: (r) => (
                 <div>
-                  {new Date(r.fim).toLocaleString()}
+                  {dataDe(new Date(r.fim))}
                   <div className="vh-lig-sub">
                     {t('desde')} {hm(r.inicio)} · {duracao(r.fim - r.inicio)}
                   </div>
@@ -630,7 +631,7 @@ const baseLigados = (s: VH['s']) => '/' + s.level + '/' + s.page;
 /** "Sessão de 25/10/2026, 15:17" — a data vem da própria chave da sessão (o último pedaço é o início em ms) */
 function rotuloSessao(id: string): string {
   const inicio = Number(id.split('|').pop());
-  return Number.isFinite(inicio) ? 'Sessão de ' + new Date(inicio).toLocaleString() : 'Sessão';
+  return Number.isFinite(inicio) ? 'Sessão de ' + dataDe(new Date(inicio)) : 'Sessão';
 }
 
 export const ligadosPagina: ScreenFn = (vh: VH) => {
