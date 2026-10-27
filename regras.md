@@ -174,7 +174,7 @@ sessão: retomar sempre em português. Vale para qualquer IA (está repetido em 
    nenhuma alteração ao deploy pode introduzir paragem, `pm2 restart` ou `rm -rf .next` na pasta em uso.
 6b. **Um único ramo até o Silva dizer «publica»** (Silva, 27/10/2026: «todos os assuntos que eu te peço para fazer coloque no mesmo ramo até eu dizer publique»; «costuma fazer tudo num único ramo para não termos que passar por isso»).
    Todos os pedidos de uma sessão vão para o mesmo ramo, um commit por assunto, sem criar um ramo novo por pedido (isso obrigava o Silva a actualizar o computador ramo a ramo). O ramo tem nome em
-   português com a acção principal (regra n.º 1) e é o único que se dá nos comandos de actualizar localmente. Só se publica (PR e merge) quando o Silva disser «publica», e publica-se esse ramo inteiro.
+   português com a acção principal (regra n.º 1) e é o único que se dá nos comandos de actualizar localmente. **Ao terminar cada assunto, faz-se commit e envia-se para esse ramo (push) e deixa-se lá** — sem pedir licença e sem publicar (Silva, 27/10/2026: «quando terminar um assunto, commitar e deixar»). Só se publica (PR e merge) quando o Silva disser «publica», e publica-se esse ramo inteiro.
 7. **As publicações não levam o nome da inteligência artificial** (Silva, 16/10/2026). O título do merge em
    `main` fica só `Merge pull request #N from SilvaChamo-<fim do ramo>` — de preferência o mais
    curto, ex.: `Merge pull request #86 from SilvaChamo-51l13p`; no máximo `Merge pull request #86 from
