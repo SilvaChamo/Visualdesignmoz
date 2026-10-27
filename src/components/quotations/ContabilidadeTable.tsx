@@ -468,62 +468,6 @@ function ClienteDetailRow({
   return <DetailGrid columns={[clienteColumn, ...itemColumns(itensTitulo || 'Itens', itens), ...extra]} />
 }
 
-/**
- * #6 — corrige/define o domínio de uma hospedagem mesmo aqui, junto aos
- * dados do responsável, antes de confirmar o pagamento. Selector com os
- * domínios já no mesmo pedido + opção de escrever um novo manualmente.
- */
-function HostingDomainFixField({
-  pedidoItems,
-  currentDomain,
-  value,
-  onChange,
-}: {
-  pedidoItems: { type: string; name: string }[]
-  currentDomain?: string
-  value: string
-  onChange: (v: string) => void
-}) {
-  const isManual = value !== '' && !pedidoItems.some((i) => i.type === 'domain' && i.name.toLowerCase() === value.toLowerCase())
-  const [showManual, setShowManual] = useState(isManual)
-  const domainItems = pedidoItems.filter((i) => i.type === 'domain')
-
-  return (
-    <div className="max-w-xs">
-      <select
-        value={showManual ? '__manual__' : value}
-        onChange={(e) => {
-          if (e.target.value === '__manual__') {
-            setShowManual(true)
-            return
-          }
-          setShowManual(false)
-          onChange(e.target.value)
-        }}
-        className="w-full rounded border border-gray-200 bg-white px-2.5 py-1.5 text-sm text-gray-700 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200"
-      >
-        <option value="">Sem domínio</option>
-        {domainItems.map((d) => (
-          <option key={d.name} value={d.name.toLowerCase()}>{d.name}</option>
-        ))}
-        <option value="__manual__">Escrever outro domínio…</option>
-      </select>
-      {showManual && (
-        <input
-          type="text"
-          value={value}
-          onChange={(e) => onChange(e.target.value.toLowerCase().trim())}
-          placeholder="ex: oseudominio.co.mz"
-          className="mt-1.5 w-full rounded border border-gray-200 bg-white px-2.5 py-1.5 text-sm text-gray-700 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200"
-        />
-      )}
-      {currentDomain && (
-        <p className="mt-1 text-[10px] text-gray-400 dark:text-zinc-500">Domínio actual: {currentDomain}</p>
-      )}
-    </div>
-  )
-}
-
 function BalancoTable({ meses, registos }: { meses: MonthRow[]; registos: RegistoRow[] }) {
   // Aberto por omissão — o objectivo é ver logo as encomendas de cada mês,
   // não escondê-las atrás de mais um clique.
@@ -1237,10 +1181,6 @@ function CheckoutItemsByType({ types }: { types: string[] }) {
   const [deletingKey, setDeletingKey] = useState<string | null>(null)
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
   const [expandedKey, setExpandedKey] = useState<string | null>(null)
-  // #6: corrige/define o domínio de uma hospedagem mesmo aqui, antes de confirmar —
-  // sem isto, um pedido de hospedagem sem domínio ficava preso sem forma de o resolver.
-  const [domainDraft, setDomainDraft] = useState<Record<string, string>>({})
-
   const load = () => {
     fetch('/api/admin/checkout-pagamentos')
       .then((r) => r.json())
@@ -1252,7 +1192,7 @@ function CheckoutItemsByType({ types }: { types: string[] }) {
     load()
   }, [])
 
-  const respond = async (pedidoId: string, itemIndex: number, status: 'paid' | 'failed', hostingDomain?: string) => {
+  const respond = async (pedidoId: string, itemIndex: number, status: 'paid' | 'failed') => {
     let rejectionReason: string | null = null
     if (status === 'failed') {
       rejectionReason = window.prompt('Motivo da rejeição (opcional):', '')
@@ -1267,7 +1207,7 @@ function CheckoutItemsByType({ types }: { types: string[] }) {
       const res = await fetch(`/api/admin/checkout-pagamentos/${pedidoId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ itemIndex, status, rejectionReason, hostingDomain }),
+        body: JSON.stringify({ itemIndex, status, rejectionReason }),
       })
       const data = await res.json()
       if (!data.success) throw new Error(data.error || 'Não foi possível actualizar o item.')
@@ -1406,7 +1346,7 @@ function CheckoutItemsByType({ types }: { types: string[] }) {
                           <button
                             type="button"
                             disabled={updatingKey === key}
-                            onClick={() => respond(p.id, itemIndex, 'paid', domainDraft[key])}
+                            onClick={() => respond(p.id, itemIndex, 'paid')}
                             className="text-xs font-medium text-green-600 hover:underline disabled:opacity-50 dark:text-green-400"
                           >
                             Confirmar
@@ -1452,12 +1392,9 @@ function CheckoutItemsByType({ types }: { types: string[] }) {
                             ? [{
                                 titulo: 'Domínio da Hospedagem',
                                 conteudo: (
-                                  <HostingDomainFixField
-                                    pedidoItems={p.items}
-                                    currentDomain={item.hostingDomain}
-                                    value={domainDraft[key] ?? item.hostingDomain ?? ''}
-                                    onChange={(v) => setDomainDraft((d) => ({ ...d, [key]: v }))}
-                                  />
+                                  <p className="text-sm text-gray-700 dark:text-zinc-200">
+                                    {item.hostingDomain || 'O cliente ainda não indicou o domínio.'}
+                                  </p>
                                 ),
                               }]
                             : []),
