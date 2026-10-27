@@ -60,7 +60,7 @@ const socialIconsHtml = () => `<table cellpadding="0" cellspacing="0" border="0"
       </tr></table>`
 
 // Cabeçalho partilhado por todos os emails transaccionais: fundo esticado à
-// largura total da página (igual ao email da MozServer e aos templates de
+// largura total da página (igual ao email anterior e aos templates de
 // mailmarketing), mas o conteúdo (logo + redes sociais) fica alinhado à
 // mesma largura/margens do cartão de conteúdo (600px) — não à largura total
 // do fundo. Logo à esquerda, redes sociais à direita — sem linha de destaque
@@ -895,7 +895,7 @@ export async function saveTemplatesToServer(templates: RenewalTemplate[]): Promi
     
     if (!response.ok) {
       // Tentar obter mensagem de erro da API
-      let errorMessage = 'Erro ao salvar templates no servidor'
+      let errorMessage = 'Erro ao guardar modelos no servidor'
       try {
         const errorData = await response.json()
         if (errorData.error) {
@@ -917,14 +917,14 @@ export async function saveTemplatesToServer(templates: RenewalTemplate[]): Promi
     
     return data.success === true
   } catch (error) {
-    console.error('Erro ao salvar templates no servidor:', error)
+    console.error('Erro ao guardar modelos no servidor:', error)
     // Fallback: tentar salvar no localStorage apenas
     try {
       if (typeof window !== 'undefined') {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(templates))
       }
     } catch (e) {
-      console.error('Erro ao salvar no localStorage:', e)
+      console.error('Erro ao guardar no localStorage:', e)
     }
     return false
   }

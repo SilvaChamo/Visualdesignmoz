@@ -119,7 +119,7 @@ export async function POST(request: Request) {
       })
     
     if (error) {
-      console.error('Erro ao salvar templates:', error)
+      console.error('Erro ao guardar modelos:', error)
       // Se a tabela não existe, retornar erro específico
       const errorMsg = error.message || ''
       const isTableNotFound = 

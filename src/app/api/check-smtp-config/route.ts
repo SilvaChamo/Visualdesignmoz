@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { requireAdmin } from '@/lib/admin-api-auth';
 import {
   getDefaultFrom,
   getMarketingFromEmail,
@@ -21,7 +22,11 @@ import {
   isBrevoTransactionalConfigured,
 } from '@/lib/smtp-mail';
 
+// Mostra a configuração de envio de e-mail: só administrador.
 export async function GET() {
+  const auth = await requireAdmin();
+  if ('error' in auth) return auth.error;
+
   const configured = isSmtpConfigured();
   const brevoTransactional = isBrevoTransactionalConfigured();
 

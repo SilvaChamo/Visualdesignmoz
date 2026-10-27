@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
+import { requireAdmin } from '@/lib/admin-api-auth';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
@@ -15,8 +16,16 @@ const ALLOWED_DOMAINS = [
 /**
  * GET /api/get-all-contacts
  * Contactos do domínio a partir do Supabase (email_contas).
+ * Só administrador com sessão, ou quem traz `Authorization: Bearer ${CRON_SECRET}` (um chamador de fora, como um cron
+ * ou outro site): sem isto qualquer visitante lia os e-mails dos clientes.
  */
 export async function GET(req: NextRequest) {
+  const segredo = process.env.CRON_SECRET;
+  const comSegredo = !!segredo && req.headers.get('authorization') === `Bearer ${segredo}`;
+  if (!comSegredo) {
+    const auth = await requireAdmin();
+    if ('error' in auth) return auth.error;
+  }
   const { searchParams } = new URL(req.url);
   const domain = searchParams.get('domain') || 'visualdesignmoz.com';
 

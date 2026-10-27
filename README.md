@@ -1,7 +1,10 @@
 # VisualDesign
 
 Site e painel de gestão (VisualHost) da VisualDesign: domínios, hospedagem, e-mail, encomendas e contabilidade.
-Next.js 16 (App Router) + TypeScript + Supabase (próprio, no Contabo) + Hestia (painel de alojamento).
+Next.js 16 (App Router) + TypeScript + Supabase (próprio, no servidor do projecto) + Hestia (painel de alojamento).
+
+> **O Hetzner já está fechado** (servidor desligado a 19/10/2026; só falta cancelar a conta do balde de ficheiros). Nada neste projecto depende dele:
+> não usar, não trazer nada de lá e não propor nem fazer alterações para ele. O único servidor é o do projecto; fala-se sempre "o servidor", sem nomear o fornecedor.
 
 - Site: https://visualdesignmoz.com
 - Painel: https://visualdesignmoz.com/vhost:2026
@@ -25,7 +28,7 @@ workflow de deploy a partir dos secrets do GitHub.
 
 ## Publicação
 
-Cada merge em `main` publica no Contabo (`.github/workflows/deploy-contabo.yml`, SSH pela porta 2234). Não há outro deploy.
+Cada merge em `main` publica no servidor (`.github/workflows/deploy-contabo.yml`, SSH pela porta 2234). Não há outro deploy.
 
 ## Onde está o quê
 

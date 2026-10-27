@@ -376,7 +376,7 @@ const dict: Record<Lang, Dict> = {
     'services.web.card.desc': 'Sites modernos, responsivos e otimizados para conversão',
     'services.graphic.card.desc': 'Identidade visual e materiais gráficos profissionais',
     'services.marketing.card.desc': 'Estratégias digitais para aumentar sua visibilidade online',
-    'services.dev.card.desc': 'Aplicações web customizadas e sistemas robustos',
+    'services.dev.card.desc': 'Aplicações web personalizadas e sistemas robustos',
 
     // Services - Design Gráfico subpage
     'services.design.pageTitle': 'Nossos Serviços de Design Gráfico',
@@ -667,7 +667,7 @@ const dict: Record<Lang, Dict> = {
     'services.marketing.step1.title': 'Análise de Mercado',
     'services.marketing.step1.desc': 'Estudo completo do seu nicho e concorrentes',
     'services.marketing.step2.title': 'Estratégia Personalizada',
-    'services.marketing.step2.desc': 'Plano de acção customizado para seus objectivos',
+    'services.marketing.step2.desc': 'Plano de acção personalizado para os seus objectivos',
     'services.marketing.step3.title': 'Otimização Contínua',
     'services.marketing.step3.desc': 'Monitoramento e ajustes constantes para melhores resultados',
 
@@ -794,7 +794,7 @@ const dict: Record<Lang, Dict> = {
     'services.list.web.11': 'Sistemas de pagamento',
     'services.list.web.12': 'Gestão de estoque',
     'services.list.web.13': 'Aplicações web',
-    'services.list.web.14': 'Sistemas customizados',
+    'services.list.web.14': 'Sistemas personalizados',
     'services.list.web.15': 'Integrações API',
     'services.list.web.16': 'Dashboards',
     'services.list.web.17': 'Wireframing',

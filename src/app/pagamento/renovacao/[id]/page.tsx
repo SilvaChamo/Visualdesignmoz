@@ -243,7 +243,7 @@ export default function PagamentoRenovacaoPage() {
 
           {paymentMethods.length === 0 ? (
             <div className="text-center py-4">
-              <p className="text-gray-600 mb-4">Nenhum método de pagamento cadastrado</p>
+              <p className="text-gray-600 mb-4">Nenhum método de pagamento registado</p>
               <Link
                 href="/pagamento/metodos"
                 className="text-red-600 hover:text-red-700 font-medium"
