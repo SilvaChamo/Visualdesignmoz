@@ -1,9 +1,8 @@
-# Regras do projecto para qualquer IA (Cursor, Copilot, Codex, Gemini…)
+# Regras do projecto para qualquer agente
 
-As regras completas de trabalho deste projecto estão em `regras.md`, na raiz — lê-o inteiro antes de começar: valem
-para qualquer IA. Este ficheiro repete a regra abaixo para as IAs que não leem `regras.md`
-(o mesmo texto está em `AGENTS.md`, `GEMINI.md`, `.github/copilot-instructions.md` e
-`.cursor/rules/regras-do-projecto.mdc` — se mudar, muda-se em todos).
+**Há um único ficheiro de regras: `regras.md`, na raiz — lê-o inteiro antes de começar.** É lá que se escreve toda a regra nova do Silva; este `AGENTS.md` é só a porta
+de entrada (o nome padrão que os agentes procuram) e repete abaixo as regras que não podem falhar, para quem não abrir o outro ficheiro. Não há cópias por ferramenta
+(apagaram-se as de cada marca, 27/10/2026): se uma regra mudar, muda-se em `regras.md` e, só se for uma das de baixo, aqui.
 
 ## Regra n.º 1, a primeira de todas — ramos e commits sem o nome da IA (Silva, 26/10/2026; vale para todos os projectos dele, com qualquer IA)
 

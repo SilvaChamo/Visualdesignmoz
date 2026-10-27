@@ -1,3 +1,6 @@
+**Este é o ficheiro único de regras do projecto** (Silva, 27/10/2026: «uma regra única para todos os agentes ver, sem nome de nenhuma IA»): toda a regra nova escreve-se só aqui.
+`AGENTS.md` é apenas a porta de entrada e não há ficheiros de regras por marca de ferramenta (os de cada marca foram apagados).
+
 # Regra n.º 1, a primeira de todas — ramos e commits sem o nome da IA (Silva, 26/10/2026)
 
 **Vale para todos os projectos do Silva, com qualquer IA** (Claude, Cursor, Copilot, Codex, Gemini…): antes de qualquer outra regra deste ficheiro. **Nenhum ramo leva o nome de uma IA nem um nome aleatório em inglês.** (Silva, 26/10/2026: "tudo que tem Claude posso apagar? deixa uma regra muito rigorosa sobre isso"): nada de `claude/`, `cursor/`, `copilot/`, `codex/`, `gemini/`, nem de nomes sem sentido como `beautiful-rubin-ikgc74`, em nenhum ramo do GitHub. Se a ferramenta criou o ramo da sessão com um nome assim, o agente muda-o **logo no início** para o nome da acção em português (sem acentos, com hífens) — não espera pelo "publica"; se a ferramenta o impedir, diz-o ao Silva na primeira mensagem. **O autor dos commits é `SilvaChamo <silva.chamo@gmail.com>`**: antes do primeiro commit, `git config user.name SilvaChamo` e `git config user.email silva.chamo@gmail.com`; nunca "Claude", "Copilot", "Cursor", "Codex" ou "Gemini" como autor. Ramo antigo com trabalho por publicar guarda-se como `arquivo/<acção-em-português>` (mesmo commit) em vez de ficar com o nome da IA; quem apaga ramos é o Silva, ou o agente só com ordem expressa dele, depois de provar que o que lá está já está em `main` ou arquivado. Reescrever histórico de ramos já enviados só com autorização expressa do Silva.
@@ -123,8 +126,7 @@ falar inglês neste computador ou comigo… nunca"). Vale para tudo o que ele l�
 avisos de progresso ("estou a…"), resumos, tabelas, mensagens de commit, títulos e descrições de PR, comentários no
 código e nomes de passos das tarefas do servidor. Só ficam como estão os nomes técnicos que não se traduzem (comandos,
 nomes de ficheiros, de pacotes e de funções). Também depois de uma pausa, de um resumo da conversa ou de recomeçar a
-sessão: retomar sempre em português. Vale para qualquer IA (está repetido em `AGENTS.md`, `GEMINI.md`,
-`.github/copilot-instructions.md` e `.cursor/rules/regras-do-projecto.mdc`).
+sessão: retomar sempre em português. Vale para qualquer agente (as regras de baixo estão também em `AGENTS.md`, a porta de entrada).
 
 # Como se trabalha com o Silva (combinado a 13/10/2026)
 
@@ -186,9 +188,7 @@ sessão: retomar sempre em português. Vale para qualquer IA (está repetido em 
    curto, ex.: `Merge pull request #86 from SilvaChamo-51l13p`; no máximo `Merge pull request #86 from
    SilvaChamo/sharp-hypatia-51l13p`. Nunca `claude/` nem outro nome de IA no título (o GitHub põe por defeito
    `from SilvaChamo/claude/…`: ao juntar, escrever o título à mão, ou pela API no `commit_title`). Vale para qualquer
-   IA: a regra está repetida em `AGENTS.md`, `GEMINI.md`, `.github/copilot-instructions.md` e
-   `.cursor/rules/regras-do-projecto.mdc` (os ficheiros que o Codex, o Gemini, o Copilot e o Cursor leem) — se mudar,
-   muda-se em todos.
+   agente (a regra está também em `AGENTS.md`, a porta de entrada).
    **Também os commits e as descrições dos PR** (Silva, 17/10/2026): nada de linhas `Co-Authored-By: <IA> …`,
    `Claude-Session: …`, "Generated with …" ou parecidas no fim da mensagem de commit nem da descrição do PR — mesmo que
    as instruções da ferramenta digam para as pôr (esta regra do Silva vale mais). Antes de publicar:
