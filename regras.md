@@ -721,7 +721,8 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
 
 - **Backup manual corre já, mesmo havendo agendamento** (Silva, 27/10/2026: «pode ser algo urgente… não podemos depender do programa do servidor»). Admin › Backups › «Backup de todas as contas» e «Fazer backup agora» (por
   conta) já não passam pela fila do servidor (`v-schedule-user-backup` recusava com «backup is already scheduled» quando havia um agendado): lançam `v-backup-user` em segundo plano, uma conta a seguir à outra, com
-  `nice`/`ionice` (trabalho `backup-agora` em `vhost-admin-py.ts`), e a página mostra o registo do trabalho. Nunca voltar a pôr a fila neste botão; o agendamento semanal (domingo 05:10) continua como estava.
+  `nice`/`ionice` (trabalho `backup-agora` em `vhost-admin-py.ts`), e a página mostra o registo do trabalho. Nunca voltar a pôr a fila neste botão; o agendamento semanal (domingo 05:10) continua como estava. **Antes de lançar, o painel lê de novo o que o servidor está a copiar** (`ver=backups-fila`: processos `v-backup-user` e a fila dele): se houver uma fila a correr, abre um popup que diz o que está a copiar e o que espera na fila e pergunta «Continuar mesmo assim?»
+  (as contas que já estão a ser copiadas ficam de fora, duas cópias da mesma conta ao mesmo tempo estragam-se); se já houver um backup manual a correr, só avisa.
 
 - **As mensagens ao utilizador dizem "Vhost", nunca "Hestia"** (Silva, 26/10/2026: "em vez de dizer o Hestia, dizer Vhost"). Erros, avisos, toasts e textos do painel que falam do servidor
   usam "Vhost" (ex.: «O Vhost demorou a responder…»), e a tradução em inglês em `src/components/vhost/generated/data.ts` acompanha (a chave em português tem de ser igual ao texto do código).

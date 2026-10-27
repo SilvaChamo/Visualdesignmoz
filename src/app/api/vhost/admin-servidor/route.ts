@@ -134,7 +134,7 @@ async function noServidorAdmin(arg: Record<string, unknown>, timeoutMs = 120_000
     return null;
   }
 }
-const VER_ADMIN = new Set(['ips', 'cron', 'bd', 'fila', 'mail-resumo', 'mail-rastreio', 'logs', 'firewall', 'php', 'atualizacoes', 'pacotes', 'tls', 'definicoes', 'multi', 'backups', 'backup-sistema', 'httpd', 'basedir', 'security-txt', 'modsec', 'extras', 'importar', 'manutencao', 'estatisticas', 'editor', 'editor-ler']);
+const VER_ADMIN = new Set(['ips', 'cron', 'bd', 'fila', 'mail-resumo', 'mail-rastreio', 'logs', 'firewall', 'php', 'atualizacoes', 'pacotes', 'tls', 'definicoes', 'multi', 'backups', 'backups-fila', 'backup-sistema', 'httpd', 'basedir', 'security-txt', 'modsec', 'extras', 'importar', 'manutencao', 'estatisticas', 'editor', 'editor-ler']);
 const DOM = /^(?=.{3,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/;
 const CONTA = /^[a-z0-9][a-z0-9_.-]{0,31}$/;
 const HOST = /^(?=.{3,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/i;

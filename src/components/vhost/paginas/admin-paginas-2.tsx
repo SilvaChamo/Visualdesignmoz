@@ -8,7 +8,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useVH, type VH } from '../context';
 import type { ScreenFn } from '../screens';
-import { useGet, useNaMemoria } from '../carga';
+import { lerUrl, useGet, useNaMemoria } from '../carga';
 import { Stat } from '../ui';
 import { DataTable, Switch, Tabs } from './componentes';
 import { Confirmar } from './pacotes';
@@ -596,6 +596,36 @@ export const multiServidorPagina: ScreenFn = () => ({
 const BK_URL = ROTA + '?ver=backups';
 type Copia = { conta: string; nome: string; mb: number; data: string; hora: string; tipo: string; demorou: string };
 type Bk = { backups: Copia[]; config: Record<string, string>; contas: string[]; trabalho?: Trab };
+// Backup manual: corre já, mesmo que haja backups agendados. Antes de lançar lê (de novo) o que o servidor está a copiar e, se houver
+// uma fila a correr, informa e pergunta se quer continuar mesmo assim (as contas que estão a ser copiadas agora ficam de fora).
+const BK_FILA_URL = ROTA + '?ver=backups-fila';
+type FilaBk = { fila: { aCopiar: string[]; naFila: string[] }; manual: boolean };
+async function lancarBackup(vh: VH, contas: string[], titulo = 'Fazer backup agora?', texto = 'corre já no servidor, mesmo que haja um agendado; o progresso aparece nesta página.') {
+  const { t } = vh;
+  const corpo = { acao: 'bk-criar', contas };
+  let f: FilaBk | null = null;
+  try {
+    f = await lerUrl<FilaBk>(BK_FILA_URL, { fundo: true });
+  } catch {
+    f = null;
+  }
+  if (f?.manual) {
+    vh.toast(t('Já há um backup manual a correr: veja o progresso nesta página.'));
+    return;
+  }
+  const copiar = f?.fila.aCopiar || [];
+  const fila = f?.fila.naFila || [];
+  if (!copiar.length && !fila.length) {
+    confirmar(vh, titulo, (titulo === 'Fazer backup agora?' ? contas.join(', ') + ' — ' : '') + t(texto), 'Fazer backup', corpo, 'Backup a correr');
+    return;
+  }
+  const partes: string[] = [];
+  if (copiar.length) partes.push(t('A copiar agora: {0}.').replace('{0}', copiar.join(', ')));
+  if (fila.length) partes.push(t('Na fila do servidor: {0}.').replace('{0}', fila.join(', ')));
+  partes.push(t('As contas que estão a ser copiadas agora ficam de fora; as outras copiam-se já. Continuar mesmo assim?'));
+  confirmar(vh, 'Há backups em curso', partes.join(' '), 'Continuar mesmo assim', corpo, 'Backup a correr');
+}
+
 type AbaK = 'copias' | 'contas';
 function BackupsAdmin() {
   const vh = useVH();
@@ -611,7 +641,7 @@ function BackupsAdmin() {
     const ultima = cs.map((c) => c.data + ' ' + c.hora).sort().pop() || '';
     return { u, n: cs.length, mb: cs.reduce((s, c) => s + c.mb, 0), ultima };
   });
-  const criar = (k: string[]) => confirmar(vh, 'Fazer backup agora?', k.join(', ') + ' — ' + t('corre já no servidor, mesmo que haja um agendado; o progresso aparece nesta página.'), 'Fazer backup', { acao: 'bk-criar', contas: k }, 'Backup a correr');
+  const criar = (k: string[]) => void lancarBackup(vh, k);
   return (
     <>
       <Trabalho tr={dados.trabalho} ler={ler} titulo="A fazer backup agora" />
@@ -677,18 +707,17 @@ function BackupsAdmin() {
   );
 }
 function BotaoBackupTodas() {
+  const vh = useVH();
   const d = useNaMemoria<Bk>(BK_URL);
+  if (!d?.contas.length) return null;
   return (
-    <BotaoTopo
-      mostrar={!!d?.contas.length}
-      fa="fa-box-archive"
-      texto="Backup de todas as contas"
-      titulo="Fazer backup de todas as contas?"
-      aviso="Cada conta é copiada já, uma a seguir à outra, mesmo que haja backups agendados; pode demorar, conforme o tamanho."
-      ok="Fazer backup"
-      corpo={{ acao: 'bk-criar', contas: d?.contas || [] }}
-      msg="Backup a correr"
-    />
+    <button
+      className="btn r"
+      onClick={() => void lancarBackup(vh, d.contas, 'Fazer backup de todas as contas?', 'Cada conta é copiada já, uma a seguir à outra, mesmo que haja backups agendados; pode demorar, conforme o tamanho.')}
+    >
+      <i className="fa-solid fa-box-archive" />
+      {vh.t('Backup de todas as contas')}
+    </button>
   );
 }
 export const backupsAdminPagina: ScreenFn = () => ({

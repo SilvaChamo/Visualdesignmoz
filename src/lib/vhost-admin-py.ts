@@ -291,6 +291,21 @@ if acao == 'multi-apagar':
 
 # ---------- Backups das contas ----------
 BK = re.compile(r'^[A-Za-z0-9._-]{1,120}\.tar(\.gz|\.zst)?$')
+def fila_backups():
+    # o que o servidor está a copiar agora (processos v-backup-user) e o que ainda espera na fila dele
+    na_fila = []
+    try:
+        for l in open('/usr/local/hestia/data/queue/backup.pipe'):
+            m = re.search(r'v-backup-user (\S+)', l)
+            if m and m.group(1) not in na_fila: na_fila.append(m.group(1))
+    except Exception: pass
+    a_copiar = []
+    for l in run(['pgrep', '-af', '^/bin/bash ' + H + '/v-backup-user ']).split('\n'):
+        m = re.search(r'v-backup-user (\S+)', l)
+        if m and m.group(1) not in a_copiar: a_copiar.append(m.group(1))
+    return {'aCopiar': a_copiar, 'naFila': [u for u in na_fila if u not in a_copiar]}
+if ver == 'backups-fila':
+    sai({'fila': fila_backups(), 'manual': a_correr('backup-agora')})
 if ver == 'backups':
     lista = []
     for u in utilizadores():
