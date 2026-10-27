@@ -661,14 +661,14 @@ function BackupsAdmin() {
           id="ad-bk"
           umaLinha
           barraFora
-          empilhar="tablet"
+          empilhar={false}
           rows={dados.backups}
           rowKey={chave}
           search={(r) => r.conta + ' ' + r.nome}
           empty="Nenhum backup"
           cols={[
             { k: 'c', t: 'Conta', sort: (r) => r.conta, cell: (r) => <b>{r.conta}</b> },
-            { k: 'n', t: 'Cópia', cell: (r) => <span className="pm-proc"><small className="ad-cmd">{r.nome}</small></span> },
+            { k: 'n', t: 'Cópia', cell: (r) => <span className="pm-proc"><small className="ad-cmd ad-cmd-1l">{r.nome}</small></span> },
             { k: 'd', t: 'Data', sort: (r) => r.data + r.hora, cell: (r) => r.data + ' ' + r.hora.slice(0, 5) },
             { k: 'm', t: 'Tamanho', right: true, sort: (r) => r.mb, cell: (r) => mbTexto(r.mb) },
             { k: 't', t: 'Demorou', ate: 1300, cell: (r) => (r.demorou ? r.demorou + ' min' : '—') },
@@ -708,7 +708,8 @@ function BackupsAdmin() {
           id="ad-bk-contas"
           umaLinha
           barraFora
-          empilhar="tablet"          rows={contas}
+          empilhar={false}
+          rows={contas}
           rowKey={(r) => r.u}
           search={(r) => r.u}
           empty="Nenhuma conta"
@@ -750,7 +751,7 @@ function BotaoBackupTodas() {
 export const backupsAdminPagina: ScreenFn = () => ({
   title: 'Backups',
   desc: 'Backups de todas as contas',
-  descEl: <Resumo<Bk> url={BK_URL} base="Backups de todas as contas" partes={(d) => [d.backups.length + ' cópias', d.config.BACKUP ? 'em ' + d.config.BACKUP : null, d.config.BACKUPS ? 'guarda ' + d.config.BACKUPS + ' por conta' : null]} />,
+  descEl: <Resumo<Bk> url={BK_URL} base="Backups de todas as contas" partes={(d) => [d.backups.length + ' cópias', d.config.BACKUP ? 'em ' + d.config.BACKUP : null, d.config.BACKUPS ? 'guarda ' + d.config.BACKUPS + ' por conta' : null]} baseNaoNoTelemovel />,
   actions: <BotaoBackupTodas />,
   body: <BackupsAdmin />,
 });
