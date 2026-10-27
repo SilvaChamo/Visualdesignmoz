@@ -9,6 +9,10 @@ name: "Ops - PHP: correcção das falhas críticas de 21/10/2026 (CVE-2026-10961
 #   indicios    : procura sinais de intrusão desde 21/10 (ficheiros PHP novos onde não devem estar, crons, chaves SSH, ligações de saída). Só lê.
 #   backups     : só lê: cópias do Hestia em /backup (datas e tamanhos), a fila que dá «backup is already scheduled», cópias a correr,
 #                 o cron que despeja a fila e o estado do envio para fora do servidor. Serve para ter a certeza da cópia antes de «actualizar».
+#   enviar-copias: só com «confirmar»: corre já o envio das cópias do Hestia para fora do servidor (`vd-backup-externo enviar`: cifrado, só o que ainda
+#                 não foi, só cópias com mais de 10 min; nada se apaga localmente).
+#   cron-envio  : só com «confirmar» (ordem do Silva, 27/10/2026: «resolver o envio manual»): instala o cron diário `/etc/cron.d/vd-backup-externo`
+#                 (07:00 do servidor) para o envio deixar de ser manual. Idempotente; mostra o ficheiro e confirma que o cron está activo.
 #   actualizar  : só com «confirmar» marcado (ordem expressa do Silva: «avança»). Guarda o estado, simula, actualiza SÓ os pacotes php*,
 #                 reinicia os PHP-FPM um a um (incluindo os `vd-php-fpm-*` de cada conta, que o apt não conhece) e confirma os sites.
 # Nunca se mexe no pm2, no nginx nem no basededadosagro-site: o fim confirma basededadosagro.com e visualdesignmoz.com (200).
@@ -17,7 +21,7 @@ on:
   workflow_dispatch:
     inputs:
       fase:
-        description: "verificar (só lê) | indicios (só lê) | backups (só lê) | actualizar (muda o servidor)"
+        description: "verificar (só lê) | indicios (só lê) | backups (só lê) | enviar-copias | cron-envio | actualizar (muda o servidor)"
         type: choice
         required: true
         default: verificar
@@ -25,9 +29,11 @@ on:
           - verificar
           - indicios
           - backups
+          - enviar-copias
+          - cron-envio
           - actualizar
       confirmar:
-        description: "Só para «actualizar»: marcar quando o Silva disser «avança»"
+        description: "Só para «actualizar», «enviar-copias» e «cron-envio»: marcar quando o Silva disser «avança»"
         type: boolean
         required: false
         default: false
@@ -154,6 +160,26 @@ jobs:
               ls /etc/cron.d/vd-backup-externo 2>/dev/null || echo "(o cron diário do envio externo ainda não está instalado: o envio é manual)"
               [ -x /usr/local/sbin/vd-backup-externo ] && timeout 120 /usr/local/sbin/vd-backup-externo estado 2>&1 | tail -n 25 | cut -c1-200
               echo; echo "=== fim (nada foi alterado)"
+
+            elif [ "$FASE" = "enviar-copias" ] || [ "$FASE" = "cron-envio" ]; then
+              if [ "$CONFIRMAR" != "true" ]; then echo "FALTA marcar «confirmar» (ordem expressa do Silva). Nada foi feito."; exit 1; fi
+              [ -x /usr/local/sbin/vd-backup-externo ] || { echo "ERRO: /usr/local/sbin/vd-backup-externo não existe"; exit 1; }
+              if [ "$FASE" = "enviar-copias" ]; then
+                echo "=== antes"; /usr/local/sbin/vd-backup-externo estado 2>&1 | tail -n 9 | cut -c1-200
+                echo; echo "=== a enviar as cópias novas (cifradas; só o que ainda não foi; cópias com menos de 10 min ficam para a próxima)"
+                timeout 17m /usr/local/sbin/vd-backup-externo enviar; echo "código: $?"
+                echo; echo "=== depois"; /usr/local/sbin/vd-backup-externo estado 2>&1 | tail -n 9 | cut -c1-200
+                echo; echo "--- cópias locais ainda sem envio (as de menos de 10 min ou a meio):"
+                find /backup -maxdepth 1 -name '*.tar' -newermt '-10 minutes' -printf '%TY-%Tm-%Td %TH:%TM %f\n' 2>/dev/null
+              else
+                F=/etc/cron.d/vd-backup-externo
+                printf '%s\n' '# Envio diário das cópias do Hestia para fora do servidor, cifradas (Silva, 27/10/2026). deploy/backup/vd-backup-externo' 'SHELL=/bin/bash' 'PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin' '0 7 * * * root /usr/local/sbin/vd-backup-externo enviar >/dev/null 2>&1' > "$F.novo"
+                chown root:root "$F.novo"; chmod 644 "$F.novo"; mv -f "$F.novo" "$F"
+                echo "=== $F"; cat "$F"; ls -l "$F"
+                echo "--- serviço cron: $(systemctl is-active cron 2>/dev/null)"
+                echo "--- o envio é seguro de repetir (trava própria, nice/ionice, limite de banda 20M, avisa por e-mail se falhar)"
+              fi
+              echo; echo "=== fim"
 
             elif [ "$FASE" = "actualizar" ]; then
               if [ "$CONFIRMAR" != "true" ]; then echo "FALTA marcar «confirmar» (ordem expressa do Silva: «avança»). Nada foi feito."; exit 1; fi
