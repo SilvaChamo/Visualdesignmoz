@@ -15123,7 +15123,27 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    flex-shrink: 0
 }
 
-/* Lista de páginas do WordPress: o «Gerir» do menu «⋯» abre a edição rápida por baixo da linha (Silva, 27/10/2026) */
+/* Lista de páginas do WordPress: a seta antes do nome (como no WordPress) e o item «Edição rápida» do menu «⋯» abrem a edição rápida por baixo da linha (Silva, 27/10/2026) */
+.vh .wp-pg-chev {
+   display: inline-grid;
+   place-items: center;
+   width: calc(24px * var(--z, 1));
+   height: calc(24px * var(--z, 1));
+   padding: 0;
+   border: 0;
+   border-radius: var(--r);
+   background: transparent;
+   color: var(--muted);
+   cursor: pointer;
+   font-size: calc(11px * var(--fs, 1))
+}
+
+.vh .wp-pg-chev:hover,
+.vh .wp-pg-chev.on {
+   background: var(--soft);
+   color: var(--red)
+}
+
 .vh .wp-edicao {
    padding: calc(12px * var(--z, 1)) var(--recuo, calc(12px * var(--z, 1))) calc(14px * var(--z, 1));
    white-space: normal

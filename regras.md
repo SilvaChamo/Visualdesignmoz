@@ -802,11 +802,11 @@ nível Revenda parte dessa lista ou de uma rota que a aplica no servidor; **nunc
 
 # Páginas do WordPress no painel: edição rápida em cada linha e um só botão (Silva, 27/10/2026)
 
-- **Gerir WordPress › Páginas** (`WpPaginas` em `avancado.tsx`) fica como está; só se acrescenta o item **«Gerir»** ao menu «⋯» de cada página (Silva, 27/10/2026: «mantém tudo como está, só o botão Gerir dentro do popup, apenas com o nome, sem descrição»). «Gerir» abre por baixo
+- **Gerir WordPress › Páginas** (`WpPaginas` em `avancado.tsx`) fica como está; só se acrescenta uma **seta (chevron) antes do nome da página**, como no WordPress, e o item **«Edição rápida»** ao menu «⋯» de cada página (Silva, 27/10/2026: «só o ícone antes do nome; o resto como está; no popup, «Edição rápida»; nunca descrições»). A seta e o item abrem por baixo
   da linha a **Edição rápida**, como a do WordPress: **Título, Endereço (slug), Estado** e, só nas páginas feitas com o **Elementor**, o **Modelo** (Predefinição do tema · Elementor Canvas · Elementor largura total = meta `_wp_page_template`: `default`, `elementor_canvas`,
   `elementor_header_footer`). Guarda por `wp-pagina-editar` (WP-CLI como administrador do site; o slug só aceita `a-z`, números e hífenes; «Agendada» não se muda daqui; o modelo só se grava se a página for do Elementor). Mudar o endereço muda o link: o ecrã avisa.
 - **WordPress › Utilizadores no telemóvel: o botão «Entrar» de cada utilizador fica à esquerda** (Silva, 27/10/2026), com metade da largura; nas outras listas continua o que a regra de 23/10 diz.
-- **Nos menus «⋯» os itens levam só o nome** («Gerir», «Mudar nome», «Apagar»): **nunca descrições, frases ou explicações dentro do popup** (Silva, 27/10/2026: «nunca faça mais isso»). O que precisa de explicação vai para a janela ou para a linha que o item abre.
+- **Nos menus «⋯» os itens levam só o nome** («Edição rápida», «Mudar nome», «Apagar»): **nunca descrições, frases ou explicações dentro do popup** (Silva, 27/10/2026: «nunca faça mais isso»). O que precisa de explicação vai para a janela ou para a linha que o item abre.
 - **Um só botão por linha**: a lista de instalações (Gestor de WordPress) deixa de ter «Gerir» e «⋯» lado a lado; **«Gerir» é o primeiro item do menu «⋯»**, com as outras opções. Em listas novas, nunca um botão solto ao lado do menu «⋯».
 
 # Autenticação em 2 passos (opcional — Silva, 21/10/2026)

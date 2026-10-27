@@ -2530,6 +2530,9 @@ function WpPaginas({ d }: { d: string }) {
             sort: (r) => r.post_title,
             cell: (r) => (
               <span className="wp-pg-tit">
+                <button className={'wp-pg-chev' + (aberta === r.ID ? ' on' : '')} aria-expanded={aberta === r.ID} title={t('Edição rápida')} aria-label={t('Edição rápida')} onClick={() => setAberta(aberta === r.ID ? null : r.ID)}>
+                  <i className={'fa-solid ' + (aberta === r.ID ? 'fa-chevron-up' : 'fa-chevron-down')} />
+                </button>
                 <b>{r.post_title || t('(sem título)')}</b>
                 {r.elementor && <span className="tag off">Elementor</span>}
               </span>
@@ -2542,7 +2545,7 @@ function WpPaginas({ d }: { d: string }) {
         actions={(r) => (
           <MenuPontos
             itens={[
-              { fa: 'fa-gear', t: 'Gerir', run: () => setAberta(aberta === r.ID ? null : r.ID) },
+              { fa: 'fa-sliders', t: 'Edição rápida', run: () => setAberta(aberta === r.ID ? null : r.ID) },
               { fa: 'fa-pen', t: 'Editar no WordPress', run: () => entrarWp(vh, d, undefined, r.ID) },
               // só as páginas feitas com o Elementor têm esta opção (o editor de blocos estragava-as)
               ...(r.elementor ? [{ fa: 'fa-pen-to-square', t: 'Editar com Elementor', run: () => entrarWp(vh, d, undefined, r.ID, 'elementor') }] : []),
