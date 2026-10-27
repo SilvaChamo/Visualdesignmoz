@@ -41,6 +41,28 @@ async function noServidorAdmin(arg: Record<string, unknown>, timeoutMs = 120_000
 }
 
 const FICHEIRO_IMPORTAR = `${VHOST_DIR}/importar-revenda.json`;
+/** Corre no servidor (python3): muda uma conta no ficheiro das revendas autorizadas e devolve o ficheiro como ficou */
+const GRAVAR_AUTORIZACAO_PY = String.raw`
+import json, os, sys, base64
+arg = json.loads(base64.b64decode(sys.argv[1]).decode())
+d = '/usr/local/vhost'
+f = d + '/importar-revenda.json'
+os.makedirs(d, exist_ok=True)
+try: os.chmod(d, 0o700)
+except Exception: pass
+try:
+    cur = json.load(open(f))
+    if not isinstance(cur, dict): cur = {}
+except Exception:
+    cur = {}
+if arg['ligado']: cur[arg['conta']] = arg['quando']
+else: cur.pop(arg['conta'], None)
+tmp = f + '.tmp'
+with open(tmp, 'w') as h: json.dump(cur, h)
+os.chmod(tmp, 0o600)
+os.replace(tmp, f)
+print(json.dumps({'ok': True, 'autorizadas': json.load(open(f))}))
+`;
 const CONTA_RE = /^[a-z0-9][a-z0-9_.-]{0,31}$/;
 
 /** Revendedores a quem o administrador deixou importar do cPanel (conta → quando); guardado no servidor, como as outras definições do painel */
@@ -186,22 +208,25 @@ export async function POST(req: NextRequest) {
     const aut = await lerAutorizadas();
     if (c.ligado) aut[conta] = new Date().toISOString();
     else delete aut[conta];
-    // grava e lê de volta no mesmo comando: só se diz que ficou feito se o servidor confirmar o que ficou no ficheiro
-    let gravado: Record<string, unknown> | null = null;
+    // um só pedido ao servidor: lê o ficheiro, muda a conta e grava (ficheiro novo + troca), e devolve o que ficou gravado. Por SSH cada pedido
+    // leva segundos; só se diz que ficou feito se o servidor devolver o ficheiro com a alteração, e se falhar diz-se porquê.
+    const arg = { conta, ligado: c.ligado, quando: new Date().toISOString() };
+    let saida = '';
     try {
-      const out = await executeServerCommand(
-        `mkdir -p ${VHOST_DIR} && chmod 700 ${VHOST_DIR} && echo ${b64(JSON.stringify(aut))} | base64 -d > ${FICHEIRO_IMPORTAR}.tmp && chmod 600 ${FICHEIRO_IMPORTAR}.tmp && mv ${FICHEIRO_IMPORTAR}.tmp ${FICHEIRO_IMPORTAR} && cat ${FICHEIRO_IMPORTAR}`,
-        { timeoutMs: 30_000 },
-      );
-      const l = out.split('\n').reverse().find((x) => x.trim().startsWith('{'));
-      gravado = l ? (JSON.parse(l) as Record<string, unknown>) : null;
+      saida = await executeServerCommand(`python3 -c "$(echo ${b64(GRAVAR_AUTORIZACAO_PY)} | base64 -d)" ${b64(JSON.stringify(arg))} 2>&1`, { timeoutMs: 30_000 });
     } catch {
       return NextResponse.json({ erro: 'Sem ligação ao servidor. Nada foi alterado.' }, { status: 502 });
     }
-    if (!gravado || (typeof gravado[conta] === 'string') !== c.ligado) {
-      return NextResponse.json({ erro: 'O servidor não confirmou a gravação. Nada foi alterado; tente de novo.' }, { status: 502 });
+    const linha = saida.split('\n').reverse().find((x) => x.trim().startsWith('{'));
+    let gravado: { ok?: boolean; autorizadas?: Record<string, string> } | null = null;
+    try {
+      gravado = linha ? JSON.parse(linha) : null;
+    } catch {}
+    if (!gravado?.ok || (typeof gravado.autorizadas?.[conta] === 'string') !== c.ligado) {
+      const motivo = saida.trim().split('\n').filter(Boolean).pop() || 'sem resposta';
+      return NextResponse.json({ erro: 'O servidor não confirmou a gravação (' + motivo.slice(0, 160) + '). Nada foi alterado; tente de novo.' }, { status: 502 });
     }
-    return NextResponse.json({ ok: true, autorizadas: aut });
+    return NextResponse.json({ ok: true, autorizadas: gravado.autorizadas });
   }
   const q = await soRevendedor();
   if ('erro' in q) return q.erro;
