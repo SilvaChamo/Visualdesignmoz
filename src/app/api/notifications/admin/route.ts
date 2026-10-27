@@ -171,7 +171,7 @@ export async function POST(request: NextRequest) {
         const { data: { user: targetUser } } = await supabaseAdmin.auth.admin.getUserById(userId)
 
         if (!targetUser?.email) {
-          emailError = 'Usuário sem email cadastrado'
+          emailError = 'Utilizador sem e-mail registado'
         } else {
           try {
             const clientName = await nomeDoPerfil(supabaseAdmin, targetUser.id, targetUser.user_metadata?.full_name || targetUser.email.split('@')[0] || 'Cliente')

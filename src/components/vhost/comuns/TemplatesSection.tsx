@@ -890,7 +890,7 @@ export function TemplatesSection() {
         setSaveError('Falha ao guardar no servidor')
       }
     } catch (error: any) {
-      console.error('Erro ao salvar templates:', error)
+      console.error('Erro ao guardar modelos:', error)
       setSaveStatus('error')
       setSaveError(error.message || 'Erro desconhecido ao guardar')
     }
@@ -898,7 +898,7 @@ export function TemplatesSection() {
 
   // Resetar para padrão no servidor
   const resetToDefault = async () => {
-    if (confirm('Tem certeza que deseja restaurar os templates padrão? Todas as customizações serão perdidas permanentemente.')) {
+    if (confirm('Tem a certeza de que deseja restaurar os modelos predefinidos? Todas as personalizações serão perdidas permanentemente.')) {
       try {
         setSaveStatus('saving')
         const success = await resetTemplatesOnServer()

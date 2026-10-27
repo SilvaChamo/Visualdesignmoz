@@ -895,7 +895,7 @@ export async function saveTemplatesToServer(templates: RenewalTemplate[]): Promi
     
     if (!response.ok) {
       // Tentar obter mensagem de erro da API
-      let errorMessage = 'Erro ao salvar templates no servidor'
+      let errorMessage = 'Erro ao guardar modelos no servidor'
       try {
         const errorData = await response.json()
         if (errorData.error) {
@@ -917,14 +917,14 @@ export async function saveTemplatesToServer(templates: RenewalTemplate[]): Promi
     
     return data.success === true
   } catch (error) {
-    console.error('Erro ao salvar templates no servidor:', error)
+    console.error('Erro ao guardar modelos no servidor:', error)
     // Fallback: tentar salvar no localStorage apenas
     try {
       if (typeof window !== 'undefined') {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(templates))
       }
     } catch (e) {
-      console.error('Erro ao salvar no localStorage:', e)
+      console.error('Erro ao guardar no localStorage:', e)
     }
     return false
   }

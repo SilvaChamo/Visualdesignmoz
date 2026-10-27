@@ -88,7 +88,7 @@ export const NEW_MENU_ITEM_DEFS: PanelMenuItemDef[] = [
     subItems: [
       { id: 'notificacoes-servidor', label: 'Servidor' },
       { id: 'renewals', label: 'Visão geral' },
-      { id: 'cadastrar-renovacao', label: 'Cadastrar' },
+      { id: 'cadastrar-renovacao', label: 'Registar' },
       { id: 'templates-renovacao', label: 'Templates' },
     ],
   },
@@ -195,7 +195,7 @@ export const RESELLER_MAIN_MENU_DEFS: PanelMenuItemDef[] = [
     subItems: [
       { id: 'notificacoes-recebidas', label: 'Recebidas' },
       { id: 'renewals', label: 'Visão geral' },
-      { id: 'cadastrar-renovacao', label: 'Cadastrar' },
+      { id: 'cadastrar-renovacao', label: 'Registar' },
       { id: 'templates-renovacao', label: 'Templates' },
     ],
   },
