@@ -31,6 +31,16 @@ importante.
 
 A pasta de trabalho no Mac do Silva é `visualdesign-producao` (antes `visualdesign-teste`, que deixa de se usar).
 
+# Actualizar o site local: SEMPRE o script `scripts/atualizar-local.sh`, qualquer agente (Silva, 27/10/2026)
+
+**Para qualquer agente, com qualquer IA: para actualizar o site local usa-se sempre este script** (o mesmo de `npm run atualizar`), nunca comandos soltos, `git pull`, `checkout` à mão nem o «modelo gigante» do ponto 6 (esse só quando o servidor local está encravado e se diz porquê).
+O script muda de ramo sem parar o servidor, sem apagar a cache e **sem recarregar a página** (o `next dev` põe as alterações na aba aberta); só liga o servidor se estiver parado, só faz `npm install` se o `package-lock.json` mudou, e abre/mantém a pré-visualização de computador e telemóvel
+(`/dev-preview-telemovel`). **O comando que se dá ao Silva** é sempre esta única linha (trocar `RAMO` e o caminho da página):
+```
+git fetch -q origin RAMO && bash <(git show origin/RAMO:scripts/atualizar-local.sh) RAMO /CAMINHO
+```
+O agente que tem a pasta local faz o mesmo ele próprio (`bash scripts/atualizar-local.sh RAMO /CAMINHO`). Se o script precisar de mudar, muda-se o script (e esta regra), nunca se dá outro comando.
+
 # Agentes na nuvem (online): conversa curta, tudo nos bastidores (Silva, 23/10/2026)
 
 **Só para os agentes que trabalham online (na nuvem, sem acesso à pasta local).** Os que trabalham no IDE (Cursor, Copilot, Codex, Gemini

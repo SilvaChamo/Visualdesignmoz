@@ -14,6 +14,11 @@ Em qualquer projecto do Silva, com qualquer IA: nas conversas, relatórios, docu
 («o estado real do Contabo» está errado; «o estado real do servidor» está certo). Os nomes técnicos que já existem (ficheiros como `deploy-contabo.yml`, caminhos, secrets) ficam como
 estão, mas não se repetem em texto novo. Do Hetzner diz-se só que **já está fechado**, quando for preciso lembrá-lo (README e `regras.md` já o dizem).
 
+## Actualizar o site local: sempre o script (Silva, 27/10/2026)
+
+Qualquer agente, com qualquer IA, actualiza o site local **só com `scripts/atualizar-local.sh`** (ou `npm run atualizar`): muda de ramo sem parar o servidor, sem apagar a cache e sem recarregar a página, e abre as duas vistas (computador e telemóvel). O comando que se dá ao Silva é
+`git fetch -q origin RAMO && bash <(git show origin/RAMO:scripts/atualizar-local.sh) RAMO /CAMINHO`. Nunca outros comandos nem o «modelo gigante» (ver `regras.md`).
+
 ## Língua: sempre português, nunca inglês (Silva, 17/10/2026)
 
 Fala-se sempre em português com o Silva — nunca em inglês, em nenhuma circunstância ("nunca falar inglês neste
