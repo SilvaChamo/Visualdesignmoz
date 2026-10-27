@@ -519,6 +519,12 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
   `src/components/vhost/carregador-da.tsx`: a página do servidor (`src/app/vhost/layout.tsx`) sai logo com ele (Suspense)
   e o painel entra no lugar dele. A roda depois de entrar pela entrada do próprio painel fica numa página branca
   (pedido dele).
+  **A roda só existe depois de escrever os dados na entrada do próprio painel** (Silva, 27/10/2026: «a roda é só depois do formulário do painel para quem
+  entra directo»): em todo o resto — recarregar, mudar de página, primeira carga do cartão — são as barras (`BarrasDa`), nunca a roda. **Entrada pelo login
+  do site: nenhum carregador** — o login lê e guarda os dados enquanto o botão está em «A entrar…» e o painel abre pronto, sem ler outra vez. O login só marca a
+  entrada (`marcarViaSite`) se o destino bater no padrão de `LoginForm.tsx` (`/v?host:2026`): quando a pasta passou de `host` a `vhost` (26/10) o padrão ficou
+  para trás, a entrada passou a ser uma página nova com roda — se o endereço do painel mudar outra vez, mudar também esse padrão. A leitura guardada no navegador
+  (`vh-dados-2`) leva o utilizador a quem pertence (`__uid`) e só serve a esse: noutra conta no mesmo navegador não se vê primeiro a do admin.
 - **NUNCA TELA BRANCA, em nenhuma circunstância e em todas as páginas** (regra rigorosa, 16/10/2026 — vale para todas as
   páginas que se criarem): ao abrir uma página, a anterior fica à vista até a nova ter o conteúdo; ao recarregar, o
   conteúdo continua visível e só "pisca" quando chega o novo. Como cumprir no VisualHost:

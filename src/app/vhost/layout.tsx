@@ -67,7 +67,7 @@ export default async function VisualHostLayout({ children }: { children: React.R
   if (jar.get(COOKIE_VIA_SITE)?.value === '1') {
     return (
       <>
-        <VisualHostApp versao={versaoBuild()} dados={null} tema={doCookie?.tema ?? null} />
+        <VisualHostApp versao={versaoBuild()} dados={null} tema={doCookie?.tema ?? null} viaSite />
         <TraducaoPainel />
         <TemaScript codigo={temaScript(doCookie?.tema.theme)} />
         {children}

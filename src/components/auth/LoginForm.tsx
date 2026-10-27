@@ -56,7 +56,7 @@ function LoginFormInner() {
     const target = pedido || (await auth.getRedirectPath(undefined, role))
     // O painel abre sem recarregar a página (pedido do Silva, 13/10/2026): este ecrã fica à vista, com "A entrar…",
     // até o painel aparecer já com os dados lidos acima — sem a página branca com a roda pelo meio
-    if (/^\/host(:|%3a)2026(\/|$)/i.test(target)) {
+    if (/^\/v?host(:|%3a)2026(\/|$)/i.test(target)) {
       marcarViaSite() // o painel abre já pronto, sem barras nem roda (a roda é só de quem entra pelo endereço do painel)
       router.push(target)
       return
