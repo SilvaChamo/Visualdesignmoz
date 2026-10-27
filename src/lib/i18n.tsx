@@ -502,7 +502,7 @@ const dict: Record<Lang, Dict> = {
 
     // Login page
     'login.title': 'Bem-vindo à VisualDesign',
-    'login.subtitle': 'Faça a gestão dos seus produtos, alojamento, domínios e e-mails profissionais da sua empresa.',
+    'login.subtitle': 'Faça a gestão das suas encomendas, domínios, hospedagem e e-mails da sua empresa.',
     'login.user': 'E-mail ou nome de utilizador',
     'login.userPlaceholder': 'email@dominio.com ou nome de utilizador',
     'login.forgot': 'Recuperar senha',
@@ -1366,7 +1366,7 @@ const dict: Record<Lang, Dict> = {
 
     // Login page
     'login.title': 'Welcome to VisualDesign',
-    'login.subtitle': 'Manage your company’s products, hosting, domains and professional emails.',
+    'login.subtitle': 'Manage your company’s orders, domains, hosting and emails.',
     'login.user': 'Email or username',
     'login.userPlaceholder': 'email@domain.com or username',
     'login.forgot': 'Recover password',

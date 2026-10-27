@@ -15,7 +15,7 @@ import { PAISES, separarTelefone, urlBandeira } from '@/components/auth/paises'
 export const tituloCls = 'text-center text-[clamp(20px,1.65vw,24px)] font-semibold leading-tight tracking-tight text-zinc-900 dark:text-zinc-50'
 export const subtituloCls = 'mt-1.5 text-center text-[clamp(12.5px,0.95vw,14px)] text-zinc-500 dark:text-zinc-400'
 /** descrição do login: um pouco mais pequena que a dos outros formulários (Silva, 27/10/2026) */
-export const subtituloLoginCls = 'mt-1.5 text-balance text-center text-[clamp(11.5px,0.85vw,12.5px)] text-zinc-500 dark:text-zinc-400'
+export const subtituloLoginCls = 'pointer-events-none absolute left-1/2 top-full mt-[calc(clamp(24px,2.2vw,32px)+16px)] w-[calc(100vw-32px)] max-w-[420px] -translate-x-1/2 text-balance text-center text-[clamp(11.5px,0.85vw,12.5px)] text-white/85 lg:text-zinc-500 lg:dark:text-zinc-400 lg:w-max lg:max-w-none lg:whitespace-nowrap'
 export const botaoCls =
   'inline-flex h-[clamp(38px,2.8vw,40px)] w-full items-center justify-center gap-2 rounded-md bg-red-600 text-[clamp(13.5px,0.98vw,14.5px)] font-semibold text-white transition-colors hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-60'
 export const botaoClaroCls =
