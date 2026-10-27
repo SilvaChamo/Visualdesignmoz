@@ -25,7 +25,7 @@ function demasiados(ip: string): boolean {
  * Responde { livre: true } ou { livre: false, erro }. Se o servidor de autenticação falhar, deixa seguir.
  */
 export async function POST(req: NextRequest) {
-  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || req.headers.get('x-real-ip') || 'desconhecido';
+  const ip = req.headers.get('x-real-ip') || req.headers.get('x-forwarded-for')?.split(',').pop()?.trim() || 'desconhecido';
   if (demasiados(ip)) {
     return NextResponse.json({ livre: false, erro: 'Demasiadas verificações. Tente novamente daqui a alguns minutos.' }, { status: 429 });
   }

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAdmin } from '@/lib/admin-api-auth'
 
 // Domain pricing table
 const DOMAIN_PRICES: Record<string, { price: number; currency: string }> = {
@@ -54,7 +55,8 @@ async function checkDomainAvailability(domain: string, tld: string) {
     // Attempt MozServer API first
     try {
         const mozserverUrl = 'https://www.mozserver.co.mz/api'
-        const token = 'JI9ZP78LANWNSAU38BC60OX3TM0PQP3G'
+        const token = process.env.MOZSERVER_API_TOKEN || ''
+        if (!token) throw new Error('MOZSERVER_API_TOKEN não configurada')
 
         const response = await fetch(`${mozserverUrl}/check-domain`, {
             method: 'POST',
@@ -92,7 +94,12 @@ async function checkDomainAvailability(domain: string, tld: string) {
 }
 
 // MozServer Proxy API - Server-side to bypass CORS
+// Só administradores: a rota fala com a API externa com a chave do servidor, por isso quem a chamasse sem sessão
+// podia correr qualquer pedido com essa chave. A chave vem do ambiente (MOZSERVER_API_TOKEN), nunca do código.
 export async function POST(request: NextRequest) {
+    const auth = await requireAdmin()
+    if ('error' in auth) return auth.error
+
     try {
         const body = await request.json()
         const { endpoint, method = 'POST', payload } = body
@@ -112,7 +119,10 @@ export async function POST(request: NextRequest) {
 
         // For other endpoints, try MozServer API directly
         const mozserverUrl = 'https://www.mozserver.co.mz/api'
-        const token = 'JI9ZP78LANWNSAU38BC60OX3TM0PQP3G'
+        const token = process.env.MOZSERVER_API_TOKEN || ''
+        if (!token) {
+            return NextResponse.json({ error: 'MOZSERVER_API_TOKEN não configurada.' }, { status: 503 })
+        }
 
         const url = `${mozserverUrl}${endpoint}`
         const fetchOptions: RequestInit = {
