@@ -138,7 +138,7 @@ function LoginFormInner() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className={formularioCls.replace('mt-[clamp(16px,1.6vw,24px)]', 'mt-[clamp(12px,1.1vw,16px)]')}>
+      <form onSubmit={handleSubmit} className={formularioCls.replace('mt-[clamp(16px,1.6vw,24px)]', 'mt-[clamp(16px,1.4vw,20px)]')}>
         <div className="absolute -z-10 opacity-0 pointer-events-none" aria-hidden="true">
           <input
             type="text"
