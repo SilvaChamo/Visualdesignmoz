@@ -41,6 +41,8 @@ interface DomainSearchProps {
   /** Padding vertical ligeiramente maior nos campos e no botão de busca. */
   spacious?: boolean
   searchContainerClassName?: string
+  /** No painel: a compra continua dentro dele (checkout do painel) em vez de ir à página /checkout do site. */
+  aoComprar?: () => void
 }
 
 const TLDS = DOMAIN_TLD_PRICES
@@ -54,6 +56,7 @@ export default function DomainSearchPainel({
   lightSection = false,
   spacious = false,
   searchContainerClassName = '',
+  aoComprar,
 }: DomainSearchProps) {
   const { t } = useI18n()
   const { addItem, setIsCartOpen } = useCart()
@@ -257,7 +260,9 @@ export default function DomainSearchPainel({
           renewPrice: finalRenewPrice,
         })
 
-        if (isAdmin) {
+        if (aoComprar) {
+          aoComprar()
+        } else if (isAdmin) {
           window.location.href = '/checkout'
         } else {
           setIsCartOpen(true)

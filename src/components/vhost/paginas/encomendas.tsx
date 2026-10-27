@@ -22,7 +22,6 @@ import { DESC, EN, MENU } from '../generated/data';
 import { useGet } from '../carga';
 import { Tabs } from './componentes';
 import { gestaoEncomendasPagina } from './encomendas-admin';
-import { ProdutosEmFalta } from '../comuns/ProdutosEmFalta';
 
 // ---------- Menu: grupo "Compras e encomendas" na Gestão, antes de "Suporte e ajuda" ----------
 {
@@ -44,22 +43,11 @@ import { ProdutosEmFalta } from '../comuns/ProdutosEmFalta';
       ],
     ]);
   }
-  DESC['utilizador/encomendas'] = ['As suas compras e encomendas à VisualDesign: estado, mensagens e pagamento, e os produtos que lhe faltam', 'Your purchases and orders with VisualDesign: status, messages and payment, and the products you are missing'];
+  DESC['utilizador/encomendas'] = ['As suas compras e encomendas à VisualDesign: estado, mensagens e pagamento', 'Your purchases and orders with VisualDesign: status, messages and payment'];
   // inglês do painel: só as frases que ainda não estão no dicionário (não muda a tradução de outras páginas)
   const novas: Record<string, string> = {
     'Compras e encomendas': 'Purchases and orders',
     Encomendas: 'Orders',
-    'Adicionar produtos em falta': 'Add missing products',
-    'Estes são os serviços que ainda não tem na conta — escolha o que quer acrescentar': 'These are the services you do not have on your account yet — choose what to add',
-    'Registar domínio': 'Register domain',
-    'Registar agora': 'Register now',
-    'Hospedagem web': 'Web hosting',
-    'Ver planos': 'See plans',
-    'Pesquise e registe o seu domínio (.co.mz, .com, .org) para a sua marca.': 'Search and register your domain (.co.mz, .com, .org) for your brand.',
-    'Alojamento rápido e seguro para o seu site WordPress, com e-mail incluído.': 'Fast, secure hosting for your WordPress site, with e-mail included.',
-    'Contas de e-mail com o seu próprio domínio, webmail e anti-spam.': 'E-mail accounts on your own domain, with webmail and anti-spam.',
-    'Design gráfico, web design, brindes e produção audiovisual — peça a sua cotação.': 'Graphic design, web design, gifts and audiovisual production — ask for a quote.',
-    'Serviços VisualDesign': 'VisualDesign services',
     'O seu plano de e-mail ainda não tem domínio associado. Registe um domínio novo ou associe um que já tenha, para o e-mail começar a funcionar.': 'Your e-mail plan does not have a domain yet. Register a new domain or link one you already own, so the e-mail can start working.',
     Encomenda: 'Order',
     'Nova encomenda': 'New order',
@@ -170,7 +158,6 @@ function Encomendas({ aba, encomenda }: { aba: string; encomenda?: string }) {
         onChange={(k) => vh.nav(k === 'encomendas' ? BASE : BASE + '/' + k)}
       />
       <div className="vh-site vh-encomendas">
-        {aba === 'encomendas' && !vh.s.stack.length && <ProdutosEmFalta onNovaEncomenda={() => vh.nav(BASE + '/nova')} aoComprar={() => marcarVoltaAoPainel(BASE)} />}
         {aba === 'encomendas' && <EncomendasListSection onNova={() => vh.nav(BASE + '/nova')} textoNova={vh.t('Adicionar serviços')} />}
         {aba === 'mensagens' && <EncomendasMensagensSection initialQuotationId={encomenda || null} />}
         {aba === 'pagamentos' && <EncomendasPagamentosSection />}

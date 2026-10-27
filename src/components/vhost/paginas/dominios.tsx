@@ -4,7 +4,7 @@
 // redirecionamentos, proteção hotlink e definições PHP. Campos copiados do DirectAdmin (ver
 // VisualHost/05-da-gestao-de-dominios.md); dados e alterações reais no servidor (Hestia + Cloudflare) por
 // /api/vhost/dominio. As páginas de um só domínio usam o domínio escolhido no seletor da faixa de navegação.
-import { Fragment, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type TextareaHTMLAttributes } from 'react';
+import { Fragment, Suspense, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type TextareaHTMLAttributes } from 'react';
 import { ConsultaPagina, TopoCartao, useVH, type VH } from '../context';
 import type { ScreenFn } from '../screens';
 import type { BaseDados, Domain } from '../types';
@@ -18,6 +18,9 @@ import { CATEGORIAS_PHP, EXTENSOES_PHP, estadoExtensao, type EstadoExtensao, typ
 import { Confirmar } from './pacotes';
 import { ApagarSite, corpoApagar, tipoDosDominios } from './apagar-site';
 import DomainSearch from '@/components/DomainSearchPainel';
+import { CheckoutContent } from '@/components/checkout/CheckoutContent';
+import { attachEmailDomain } from '@/components/vhost/comuns/ClientAddDomainModal';
+import { emailPlanOfPackages } from '@/lib/email-plans';
 import { EsperaPagina, useGet, useNaMemoria } from '../carga';
 import { EN } from '../generated/data';
 import { BotaoPassar } from './passar';
@@ -389,6 +392,7 @@ function ListaDominios({ abaDom = 'meus', abrirNovo = false }: { abaDom?: AbaDom
     openM(<NovoDominio />);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [abrirNovo]);
+  const planoEmail = emailPlanOfPackages(a.hpkg, a.pkg);
   const sites = a.domains;
   const rows: LinhaDom[] = sites.filter((x) => !sites.some((y) => y !== x && ehSub(x.name, y.name))).map((x) => ({ ...x, subs: sites.filter((y) => ehSub(y.name, x.name)).length }));
   const cols: Col<LinhaDom>[] = [
@@ -437,7 +441,8 @@ function ListaDominios({ abaDom = 'meus', abrirNovo = false }: { abaDom?: AbaDom
       <Tabs<AbaDom>
         tabs={[
           ['meus', 'Domínios', 'fa-globe'],
-          ['subdominios', 'Subdomínios', 'fa-sitemap'],
+          // plano de e-mail: sem site, por isso sem subdomínios
+          ...(planoEmail ? [] : [['subdominios', 'Subdomínios', 'fa-sitemap'] as [AbaDom, string, string]]),
           ['registar', 'Registar domínio', 'fa-cart-shopping'],
           ['transferir', 'Transferir domínio', 'fa-right-left'],
         ]}
@@ -448,7 +453,7 @@ function ListaDominios({ abaDom = 'meus', abrirNovo = false }: { abaDom?: AbaDom
       {abaDom === 'registar' ? (
         <Frm className="dom-registar">
           <div className="dom-registar-corpo">
-            <DomainSearch isAdmin />
+            <DomainSearch isAdmin aoComprar={() => nav('/' + vh.s.level + '/dominios/checkout')} />
           </div>
         </Frm>
       ) : abaDom === 'subdominios' ? (
@@ -540,9 +545,25 @@ function NovoDominio() {
   const { t, nav, closeM } = vh;
   const [d, setD] = useState('');
   const [ssl, setSsl] = useState(true);
+  // plano de e-mail: o domínio liga-se ao plano (caixas de e-mail), não se cria um site
+  const planoEmail = emailPlanOfPackages(vh.a.hpkg, vh.a.pkg);
   const criar = async () => {
     const n = d.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*$/, '');
     if (!/^([a-z0-9-]+\.)+[a-z]{2,}$/.test(n)) return vh.toast('Escreva um domínio válido (ex.: empresa.co.mz)');
+    if (planoEmail) {
+      closeM();
+      vh.toast('A ligar o domínio ao plano de e-mail…');
+      const r = await attachEmailDomain(n);
+      if (!r.ok) {
+        vh.toast(/à espera de domínio/i.test(r.error) ? 'O seu plano de e-mail já tem um domínio associado (um domínio por plano).' : r.error);
+        return;
+      }
+      await vh.recarregar(true);
+      vh.setDominio(r.domain);
+      vh.toast('Domínio ' + r.domain + ' ligado ao plano de e-mail');
+      nav('/' + vh.s.level + '/dominios');
+      return;
+    }
     closeM();
     if (await noServidor(vh, { acao: 'dominio-criar', dominio: n, ssl }, 'Domínio ' + n + ' criado')) {
       vh.setDominio(n);
@@ -562,13 +583,16 @@ function NovoDominio() {
         </span>
         <small style={{ color: 'var(--muted)' }}>{t('Sem maiúsculas, www ou http://')}</small>
       </div>
-      <div className="sub-enderecos">
-        <label className={'sub-end' + (ssl ? ' on' : '')}>
-          <input type="checkbox" checked={ssl} onChange={(e) => setSsl(e.target.checked)} />
-          <span>{t('Pedir certificado SSL automático')}</span>
-          <small>{t("Certificado grátis Let's Encrypt, pedido logo a seguir")}</small>
-        </label>
-      </div>
+      {!planoEmail && (
+        <div className="sub-enderecos">
+          <label className={'sub-end' + (ssl ? ' on' : '')}>
+            <input type="checkbox" checked={ssl} onChange={(e) => setSsl(e.target.checked)} />
+            <span>{t('Pedir certificado SSL automático')}</span>
+            <small>{t("Certificado grátis Let's Encrypt, pedido logo a seguir")}</small>
+          </label>
+        </div>
+      )}
+      {planoEmail && <p style={{ color: 'var(--muted)', fontSize: 12.5 }}>{t('Use este botão para um domínio que já tem: o plano de e-mail passa a receber o correio dele. Para um domínio novo, use «Registar domínio».')}</p>}
       <div className="mfoot">
         <button className="btn g" onClick={closeM}>
           {t('Cancelar')}
@@ -1240,6 +1264,28 @@ export const dominios: ScreenFn = (vh) => {
   if (sub === 'registar') return { title: 'Domínios', crumbs: [base, { t: 'Registar domínio' }], body: <ListaDominios abaDom="registar" /> };
   if (sub === 'subdominios') return { title: 'Domínios', desc: 'Os subdomínios e as pastas deste domínio', dominios: 'sites', crumbs: [base, { t: 'Subdomínios' }], body: <ListaDominios abaDom="subdominios" /> };
   if (sub === 'transferir') return { title: 'Domínios', crumbs: [base, { t: 'Transferir domínio' }], body: <ListaDominios abaDom="transferir" /> };
+  if (sub === 'checkout')
+    return {
+      title: 'Domínios',
+      desc: 'Confirme os dados, escolha o pagamento e conclua a compra',
+      crumbs: [base, { t: 'Finalizar compra' }],
+      body: (
+        <div className="tw-livre vh-nova-encomenda vh-checkout-painel-wrap">
+          <Suspense fallback={null}>
+            <CheckoutContent
+              painel={{
+                carrinho: true,
+                voltar: () => {
+                  vh.nav(base.path);
+                  void vh.recarregar(true);
+                },
+                editar: () => vh.nav(base.path + '/registar'),
+              }}
+            />
+          </Suspense>
+        </div>
+      ),
+    };
   if (sub === 'novo') return { title: 'Domínios', desc: 'Gerir os domínios e os subdomínios desta conta', body: <ListaDominios abrirNovo /> };
   if (sub) return { title: sub, desc: 'Resumo e atalhos do domínio', crumbs: [{ t: 'Domínios', path: '/' + vh.s.level + '/dominios' }, { t: sub }], dominioUrl: { d: sub, ir: (n) => '/' + vh.s.level + '/dominios/' + encodeURIComponent(n) }, body: <VerDominio d={sub} /> };
   return { title: 'Domínios', desc: 'Os sites e os domínios desta conta', body: <ListaDominios /> };

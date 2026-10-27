@@ -353,4 +353,10 @@ export const dominios: Record<string, string> = {
  "não instalada no servidor: peça ao suporte": "not installed on the server: ask support",
  "Voltar às extensões do servidor": "Back to the server extensions",
  "As extensões são só desta conta: o que mudar aqui não afecta os outros clientes. As essenciais ficam sempre ativas.": "The extensions are only for this account: what you change here does not affect other clients. The essential ones always stay on.",
+ "A ligar o domínio ao plano de e-mail…": "Linking the domain to the e-mail plan…",
+ "O seu plano de e-mail já tem um domínio associado (um domínio por plano).": "Your e-mail plan already has a domain (one domain per plan).",
+ "Use este botão para um domínio que já tem: o plano de e-mail passa a receber o correio dele. Para um domínio novo, use «Registar domínio».": "Use this button for a domain you already own: the e-mail plan will receive its mail. For a new domain, use “Register domain”.",
+ "Confirme os dados, escolha o pagamento e conclua a compra": "Confirm the details, choose the payment and complete the purchase",
+ "Finalizar compra": "Finish purchase",
+ "Domínio {0} ligado ao plano de e-mail": "Domain {0} linked to the e-mail plan",
 };
