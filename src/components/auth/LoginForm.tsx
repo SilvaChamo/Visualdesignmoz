@@ -10,7 +10,7 @@ import { googleOAuthUserMessage } from '@/lib/auth-messages'
 import { PUBLIC_PANEL_ENTRY } from '@/lib/panel-origin'
 import { aquecerDadosVhost, marcarEntrada, marcarViaSite, preCarregarDadosVhost } from '@/lib/vhost-cache'
 import type { UserRole } from '@/lib/user-roles'
-import { CampoFlutuante, OlhoSenha, botaoCls, botaoClaroCls, ligacaoCls, subtituloCls, tituloCls, formularioCls } from '@/components/auth/campos'
+import { CampoFlutuante, OlhoSenha, botaoCls, botaoClaroCls, ligacaoCls, subtituloLoginCls, tituloCls, formularioCls } from '@/components/auth/campos'
 import { authErrorBoxClass } from '@/components/auth/auth-styles'
 
 function LoginFormInner() {
@@ -111,7 +111,7 @@ function LoginFormInner() {
       {/* no telemóvel e no tablet a imagem (com o logótipo) não aparece: o logótipo fica por cima do formulário */}
       {/* no telemóvel e no tablet tudo ao centro (pedido do Silva, 13/10/2026) */}
       <h1 className={tituloCls}>{t('login.title')}</h1>
-      <p className={subtituloCls}>{t('login.subtitle')}</p>
+      <p className={subtituloLoginCls}>{t('login.subtitle')}</p>
 
       {error && <div className={`mt-6 ${authErrorBoxClass}`}>{error}</div>}
 
