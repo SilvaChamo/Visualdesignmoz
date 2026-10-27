@@ -34,7 +34,7 @@ import {
   type MetodoEncomenda,
 } from '@/lib/encomenda-checkout';
 import { useEncomendaDraft } from '@/lib/use-encomenda-draft';
-import { MPESA_NUMBER, BANK_NAME, BANK_ACCOUNT, BANK_NIB } from '@/lib/quotation-payment-info';
+import { MPESA_NUMBER, BANK_NAME, BANK_ACCOUNT, BANK_NIB, SUPORTE_TELEFONE } from '@/lib/quotation-payment-info';
 import { formatMt } from '@/lib/pricing-catalog';
 import { DOMAIN_TLD_PRICES, domainRegistrationPriceMt } from '@/lib/domain-tld-prices';
 import { getHostingPlan, getHostingCyclePrice, type HostingBillingCycle } from '@/lib/hosting-plans';
@@ -208,6 +208,9 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
   // enquanto isto não for null, o checkout mostra o passo de upload em vez
   // do carrinho (mesmo já vazio) ou do formulário de pagamento.
   const [manualSession, setManualSession] = useState<{ id: string; metodoPagamento: 'mpesa' | 'transferencia' } | null>(null);
+  // Pedido M-Pesa recém-criado que ainda tem de passar pelo passo do número (ver MpesaTesteStep).
+  const [mpesaPassoId, setMpesaPassoId] = useState<string | null>(null);
+  const [mpesaPassoValor, setMpesaPassoValor] = useState<number | undefined>(undefined);
   const restoredPendingIdRef = React.useRef<string | null>(null);
 
   // Recupera este passo depois de um recarregamento a meio (ex: refresh
@@ -612,6 +615,10 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
       clearCart();
       const manualMetodo = metodoPagamento === 'mpesa' ? 'mpesa' : 'transferencia';
       setManualSession({ id: data.session.id, metodoPagamento: manualMetodo });
+      if (manualMetodo === 'mpesa') {
+        setMpesaPassoValor(Number(data.session.total_mt) || undefined);
+        setMpesaPassoId(data.session.id);
+      }
       restoredPendingIdRef.current = data.session.id;
       router.replace(`/checkout?pendingId=${data.session.id}`);
       setStatus('idle');
@@ -764,6 +771,12 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
           </div>
         ) : isEncomenda && !encomendaDraft ? (
           <EncomendaVazia />
+        ) : manualSession && mpesaPassoId === manualSession.id ? (
+          <MpesaTesteStep
+            sessionId={manualSession.id}
+            valorMt={mpesaPassoValor}
+            onDone={() => setMpesaPassoId(null)}
+          />
         ) : manualSession ? (
           <ManualPaymentUploadStep
             uploadUrl={`/api/checkout/${manualSession.id}/comprovativo`}
@@ -1475,6 +1488,124 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Passo do número M-Pesa, entre «Pagar Agora» e o comprovativo. Enquanto o M-Pesa está em sandbox o pedido
+ * segue o protocolo (o cliente dá o número e confirma no telemóvel) mas NÃO é cobrado: no fim o cliente é
+ * avisado de que o valor não foi deduzido, tem de pagar a sério e enviar o comprovativo. Fora do sandbox
+ * (produção) o passo salta-se sozinho e o checkout vai direito ao comprovativo.
+ */
+function MpesaTesteStep({ sessionId, valorMt, onDone }: { sessionId: string; valorMt?: number; onDone: () => void }) {
+  const [fase, setFase] = useState<'a-verificar' | 'numero' | 'a-pagar' | 'aviso'>('a-verificar');
+  const [numero, setNumero] = useState('');
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let cancelado = false;
+    fetch('/api/checkout/mpesa-teste')
+      .then((r) => r.json())
+      .then((d) => {
+        if (cancelado) return;
+        if (d?.sandbox) setFase('numero');
+        else onDone();
+      })
+      .catch(() => { if (!cancelado) onDone(); });
+    return () => { cancelado = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const pagar = async () => {
+    const digitos = numero.replace(/\D/g, '');
+    const msisdn = digitos.length === 9 ? `258${digitos}` : digitos;
+    if (!/^258\d{9}$/.test(msisdn)) {
+      setError('Indique um número M-Pesa válido (ex.: 84 000 0000).');
+      return;
+    }
+    setError('');
+    setFase('a-pagar');
+    try {
+      await fetch('/api/checkout/mpesa-teste', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId, msisdn }),
+      });
+    } catch {
+      // O resultado do teste não muda o que o cliente tem de fazer a seguir.
+    }
+    setFase('aviso');
+  };
+
+  return (
+    <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg p-8 max-w-lg mx-auto space-y-5 shadow-sm">
+      {fase === 'a-verificar' && (
+        <div className="flex justify-center py-6"><Spinner className="w-8 h-8" /></div>
+      )}
+
+      {fase === 'numero' && (
+        <>
+          <div className="text-center space-y-1">
+            <h2 className="text-lg font-bold text-slate-800 dark:text-zinc-100 font-panel">Pagar com M-Pesa</h2>
+            <p className="text-sm text-slate-500 dark:text-zinc-400">
+              Indique o número M-Pesa que vai fazer o pagamento.
+            </p>
+          </div>
+          {valorMt ? (
+            <p className="text-sm text-slate-700 dark:text-zinc-300 text-center">
+              Valor a pagar: <span className="font-mono font-bold">{formatMt(valorMt)} MT</span>
+            </p>
+          ) : null}
+          <input
+            type="tel"
+            inputMode="numeric"
+            placeholder="84 000 0000"
+            value={numero}
+            onChange={(e) => setNumero(e.target.value)}
+            className="w-full border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 rounded-md px-4 py-3 text-sm text-slate-800 dark:text-zinc-100"
+          />
+          {error && <p className="text-xs text-rose-600 dark:text-rose-400">{error}</p>}
+          <button
+            type="button"
+            onClick={pagar}
+            className="w-full inline-flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-md transition-colors"
+          >
+            <Smartphone className="w-4 h-4" /> Pagar com M-Pesa
+          </button>
+        </>
+      )}
+
+      {fase === 'a-pagar' && (
+        <div className="text-center space-y-3 py-4">
+          <Spinner className="w-8 h-8 mx-auto" />
+          <p className="text-sm text-slate-600 dark:text-zinc-300">
+            Confirme o pagamento no seu telemóvel (introduza o PIN do M-Pesa). Pode demorar até 1 minuto.
+          </p>
+        </div>
+      )}
+
+      {fase === 'aviso' && (
+        <>
+          <div className="text-center space-y-1">
+            <h2 className="text-lg font-bold text-slate-800 dark:text-zinc-100 font-panel">Estamos em ambiente de teste</h2>
+            <p className="text-sm text-slate-500 dark:text-zinc-400">
+              O valor não foi deduzido da sua conta M-Pesa e o seu pedido ainda não está pago.
+            </p>
+          </div>
+          <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded-lg p-4 text-sm text-slate-700 dark:text-zinc-300 space-y-1.5">
+            <p>Para concluir a compra, faça o pagamento a sério para <span className="font-mono font-bold">{MPESA_NUMBER}</span> e envie o comprovativo no passo seguinte.</p>
+            <p>Precisa de ajuda? Ligue para o suporte: <span className="font-mono font-bold">{SUPORTE_TELEFONE}</span>.</p>
+          </div>
+          <button
+            type="button"
+            onClick={onDone}
+            className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-md transition-colors"
+          >
+            Continuar para o comprovativo
+          </button>
+        </>
+      )}
     </div>
   );
 }
