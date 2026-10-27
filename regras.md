@@ -255,7 +255,9 @@ mesma alteração a linha inglesa no dicionário — sem esperar que o Silva pe�
 - Nomes próprios, siglas e textos iguais nas duas línguas vão para a lista `IGUAIS` do mesmo ficheiro.
 - Antes de dar uma alteração por concluída: `npm run i18n` tem de dar **0 textos sem inglês** (lista o que falta, com
   ficheiro e linha). Zonas que não se traduzem: `data-sem-traducao` no elemento. O painel (`.vh`) tem a sua própria
-  tradução (`t()` em `src/components/vhost/i18n.ts`) e fica de fora.
+  tradução (`t()` em `src/components/vhost/i18n.ts`) e fica de fora. **Textos novos do painel entram em `src/components/vhost/traducoes-painel.ts`** (português → inglês; frases com
+  partes variáveis em `EN_RX`, no `i18n.ts`) e todo o texto fixo passa por `t()` — nunca escrito solto no JSX (foi o que deixava palavras em português com o painel em inglês).
+  Para ver o que falta: abrir o painel em inglês e percorrer as páginas dos três níveis a procurar texto em português (feito a 27/10/2026: ~290 textos traduzidos).
 - Textos que já usam `t('chave')` de `src/lib/i18n.tsx` continuam a funcionar; não é preciso convertê-los.
 
 # Regras de layout do Silva (valem para todas as páginas, sempre)

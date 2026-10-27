@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { useVH } from '@/components/vhost/context'
 import { Undo2, Redo2, Italic, Underline, List, Link, Type, Code } from 'lucide-react'
 
 const fontSizes = [10, 11, 12, 13, 14, 16, 18, 20, 22, 24, 28, 36, 48]
@@ -29,6 +30,7 @@ export function NotificationRichEditor({
   value: string
   onChange: (html: string) => void
 }) {
+  const { t } = useVH()
   const editorRef = useRef<HTMLDivElement>(null)
   const colorPickerRef = useRef<HTMLDivElement>(null)
   const fontSizeDropdownRef = useRef<HTMLDivElement>(null)
@@ -277,20 +279,20 @@ export function NotificationRichEditor({
 
       {editorMode === 'visual' && (
         <div className="flex items-center gap-1 bg-gray-50 border border-gray-200 border-b-0 rounded-t px-2 py-1.5">
-          <button type="button" onClick={handleUndo} disabled={historyIndex <= 0} className="p-1.5 hover:bg-white hover:shadow rounded transition-all disabled:opacity-30 disabled:cursor-not-allowed" title="Desfazer (Ctrl+Z)">
+          <button type="button" onClick={handleUndo} disabled={historyIndex <= 0} className="p-1.5 hover:bg-white hover:shadow rounded transition-all disabled:opacity-30 disabled:cursor-not-allowed" title={t('Desfazer (Ctrl+Z)')}>
             <Undo2 className="w-4 h-4 text-gray-700" />
           </button>
-          <button type="button" onClick={handleRedo} disabled={historyIndex >= history.length - 1} className="p-1.5 hover:bg-white hover:shadow rounded transition-all disabled:opacity-30 disabled:cursor-not-allowed" title="Refazer (Ctrl+Y)">
+          <button type="button" onClick={handleRedo} disabled={historyIndex >= history.length - 1} className="p-1.5 hover:bg-white hover:shadow rounded transition-all disabled:opacity-30 disabled:cursor-not-allowed" title={t('Refazer (Ctrl+Y)')}>
             <Redo2 className="w-4 h-4 text-gray-700" />
           </button>
           <div className="w-px h-5 bg-gray-300 mx-1" />
-          <button type="button" onClick={() => { document.execCommand('bold', false, undefined); afterCommand() }} className="w-7 p-1.5 hover:bg-white hover:shadow rounded transition-all flex items-center justify-center" title="Negrito (Ctrl+B)">
+          <button type="button" onClick={() => { document.execCommand('bold', false, undefined); afterCommand() }} className="w-7 p-1.5 hover:bg-white hover:shadow rounded transition-all flex items-center justify-center" title={t('Negrito (Ctrl+B)')}>
             <span className="font-bold text-gray-700 text-sm leading-none">B</span>
           </button>
-          <button type="button" onClick={() => { document.execCommand('italic', false, undefined); afterCommand() }} className="p-1.5 hover:bg-white hover:shadow rounded transition-all" title="Itálico (Ctrl+I)">
+          <button type="button" onClick={() => { document.execCommand('italic', false, undefined); afterCommand() }} className="p-1.5 hover:bg-white hover:shadow rounded transition-all" title={t('Itálico (Ctrl+I)')}>
             <Italic className="w-4 h-4 text-gray-700" />
           </button>
-          <button type="button" onClick={() => { document.execCommand('underline', false, undefined); afterCommand() }} className="p-1.5 hover:bg-white hover:shadow rounded transition-all" title="Sublinhado (Ctrl+U)">
+          <button type="button" onClick={() => { document.execCommand('underline', false, undefined); afterCommand() }} className="p-1.5 hover:bg-white hover:shadow rounded transition-all" title={t('Sublinhado (Ctrl+U)')}>
             <Underline className="w-4 h-4 text-gray-700" />
           </button>
           <div className="w-px h-5 bg-gray-300 mx-1" />
@@ -300,7 +302,7 @@ export function NotificationRichEditor({
               onClick={() => setColorPickerOpen(!colorPickerOpen)}
               className="w-4 h-4 rounded border border-gray-300 hover:scale-110 transition-transform"
               style={{ backgroundColor: currentTextColor }}
-              title="Paleta de Cores"
+              title={t('Paleta de Cores')}
             />
             {colorPickerOpen && (
               <div className="absolute top-full left-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-50 p-3 min-w-[220px]">
@@ -319,7 +321,7 @@ export function NotificationRichEditor({
                       type="button"
                       onClick={() => applyBgColor(null)}
                       className="w-5 h-5 rounded border border-gray-300 hover:scale-110 transition-transform relative bg-white overflow-hidden"
-                      title="Sem fundo"
+                      title={t('Sem fundo')}
                     >
                       <span className="absolute inset-0" style={{ background: 'linear-gradient(to top right, transparent calc(50% - 1px), #dc2626, transparent calc(50% + 1px))' }} />
                     </button>
@@ -332,10 +334,10 @@ export function NotificationRichEditor({
             )}
           </div>
           <div className="w-px h-5 bg-gray-300 mx-1" />
-          <button type="button" onClick={insertList} className="p-1.5 hover:bg-white hover:shadow rounded transition-all" title="Lista">
+          <button type="button" onClick={insertList} className="p-1.5 hover:bg-white hover:shadow rounded transition-all" title={t('Lista')}>
             <List className="w-4 h-4 text-gray-700" />
           </button>
-          <button type="button" onClick={insertLink} className="p-1.5 hover:bg-white hover:shadow rounded transition-all" title="Link (Ctrl+K)">
+          <button type="button" onClick={insertLink} className="p-1.5 hover:bg-white hover:shadow rounded transition-all" title={t('Link (Ctrl+K)')}>
             <Link className="w-4 h-4 text-gray-700" />
           </button>
           <div ref={fontSizeDropdownRef} className="relative ml-auto">
@@ -343,7 +345,7 @@ export function NotificationRichEditor({
               type="button"
               onClick={() => setFontSizeDropdownOpen(!fontSizeDropdownOpen)}
               className="flex items-center gap-1 px-2 py-1.5 hover:bg-white hover:shadow rounded transition-all border border-gray-300 bg-white"
-              title="Tamanho da Fonte"
+              title={t('Tamanho da Fonte')}
             >
               <span className="text-xs font-medium text-gray-700 min-w-[20px]">{currentFontSize}</span>
               <svg className="w-3 h-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">

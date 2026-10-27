@@ -1038,7 +1038,7 @@ export function contas(kind: Kind): ScreenFn {
         botao('r', b + '/novo', 'Novo administrador', 'fa-user-gear')
       );
     const v = kind === 'meus' ? vagas(s, me) : null;
-    const desc = v && v.limite !== null ? t('Contas de cliente') + ': ' + v.usadas + ' ' + t('de') + ' ' + v.limite + ' · ' + t('pacote') + ' ' + v.plano : undefined;
+    const desc = v && v.limite !== null ? t('Contas de cliente: ' + v.usadas + ' de ' + v.limite + ' · pacote ' + v.plano) : undefined;
     return { title: listaT, desc, actions, body: <ListaContas kind={kind} /> };
   };
 }

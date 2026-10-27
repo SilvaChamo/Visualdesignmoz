@@ -67,11 +67,11 @@ export interface Screen {
 export type ScreenFn = (vh: VH) => Screen;
 
 function SeeAll({ id }: { id: string }) {
-  const { go } = useVH();
+  const { go, t } = useVH();
   return (
     <div style={{ marginTop: 14, textAlign: 'right' }}>
       <a onClick={() => go(id)} style={{ color: 'var(--red)', fontWeight: 700, fontSize: 13.5, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-        Ver todas as contas <i className="fa-solid fa-chevron-right" style={{ fontSize: 11 }} />
+        {t('Ver todas as contas')} <i className="fa-solid fa-chevron-right" style={{ fontSize: 11 }} />
       </a>
     </div>
   );

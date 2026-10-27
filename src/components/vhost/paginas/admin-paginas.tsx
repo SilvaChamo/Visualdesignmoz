@@ -61,7 +61,7 @@ export function Resumo<T>({ url, base, partes }: { url: string; base: string; pa
       {extras.filter(Boolean).map((p, i) => (
         <span key={i}>
           <span className="pdesc-sep">|</span>
-          {p}
+          {t(String(p))}
         </span>
       ))}
     </>

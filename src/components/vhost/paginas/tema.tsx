@@ -1218,7 +1218,7 @@ export function ThemeCustomizerView() {
               </div>
               <div>
                 <span style={{ fontSize: 12, fontWeight: 700, display: 'block' }}>Barra Compacta</span>
-                <span style={{ fontSize: 11, color: 'var(--muted)' }}>100% sólida e opaca</span>
+                <span style={{ fontSize: 11, color: 'var(--muted)' }}>{t('100% sólida e opaca')}</span>
               </div>
             </div>
           </div>
@@ -1231,9 +1231,9 @@ export function ThemeCustomizerView() {
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <button className="btn r sm">
                 <i className="fa-solid fa-check" />
-                Primário
+                {t('Primário')}
               </button>
-              <button className="btn sm">Secundário</button>
+              <button className="btn sm">{t('Secundário')}</button>
             </div>
           </div>
 
@@ -1256,7 +1256,7 @@ export function ThemeCustomizerView() {
             <div className="side" style={{ padding: 0 }}>
               <a className="on" style={{ margin: 0, padding: '6px 10px', fontSize: 13 }}>
                 <i className="fa-solid fa-star ic" />
-                Página Ativa
+                {t('Página Ativa')}
               </a>
             </div>
           </div>
