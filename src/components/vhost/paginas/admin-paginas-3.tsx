@@ -572,7 +572,7 @@ function TicketsAdmin() {
         cols={[
           { k: 'a', t: 'Pedido', sort: (r) => r.assunto, cell: (r) => (
             <span className="pm-proc">
-              <a className="lk" onClick={() => nav('/admin/tickets/' + r.id)}>
+              <a className="lk" onClick={() => nav('/' + vh.s.level + '/tickets/' + r.id)}>
                 {r.assunto}
               </a>
               <small>{r.cliente || r.email || t('Cliente sem nome')}</small>
@@ -738,7 +738,7 @@ function NovoTicket() {
               setAEnviar(true);
               const j = await tkPedir(vh, { acao: 'criar', ...f }, 'Pedido criado');
               setAEnviar(false);
-              if (j?.id) nav('/admin/tickets/' + j.id);
+              if (j?.id) nav('/' + vh.s.level + '/tickets/' + j.id);
             }}
           >
             <i className="fa-solid fa-paper-plane" />
@@ -772,15 +772,15 @@ function ClienteDoTicket({ id }: { id: string }) {
 }
 export const ticketsAdminPagina: ScreenFn = (vh) => {
   const [a] = vh.s.sub;
-  const base = { t: 'Tickets', path: '/admin/tickets' };
+  const base = { t: 'Tickets', path: '/' + vh.s.level + '/tickets' };
   if (a === 'novo') return { title: 'Novo pedido', crumbs: [base, { t: 'Novo pedido' }], desc: 'Em nome de um cliente', body: <NovoTicket /> };
   if (a) return { title: 'Pedido de suporte', crumbs: [base, { t: 'Pedido' }], descEl: <ClienteDoTicket id={a} />, body: <VerTicket key={a} id={a} /> };
   return {
     title: 'Tickets',
-    desc: 'Pedidos de suporte de todos os clientes',
+    desc: vh.s.level === 'revenda' ? 'Pedidos de suporte dos seus clientes' : 'Pedidos de suporte de todos os clientes',
     descEl: <ResumoTickets />,
     actions: (
-      <button className="btn r" onClick={() => vh.nav('/admin/tickets/novo')}>
+      <button className="btn r" onClick={() => vh.nav('/' + vh.s.level + '/tickets/novo')}>
         <i className="fa-solid fa-plus" />
         {vh.t('Novo pedido')}
       </button>
