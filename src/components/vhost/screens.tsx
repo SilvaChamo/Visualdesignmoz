@@ -16,7 +16,7 @@ import { processosPagina, servicosPagina } from './paginas/servidor-admin';
 import { cronAdminPagina, filaEmailPagina, firewallPagina, ipsPagina, logsAdminPagina, monitorBdPagina, nameserversPagina, rastreioEmailPagina, resumoEmailPagina, usoContasPagina } from './paginas/admin-paginas';
 import { atualizacoesPagina, backupSistemaPagina, backupsAdminPagina, basedirPagina, definicoesPagina, httpdPagina, importarContasPagina, manutencaoPagina, modsecAdminPagina, multiServidorPagina, netdataPagina, pacotesSistemaPagina, redisPagina, securityTxtPagina, softwarePagina, tlsServidorPagina, unitPagina } from './paginas/admin-paginas-2';
 import { editorSistemaPagina, estatisticasAdminPagina, ticketsAdminPagina } from './paginas/admin-paginas-3';
-import { backupsClientesPagina, estatisticasRevendaPagina, usoClientesPagina } from './paginas/revenda-paginas';
+import { backupsClientesPagina, estatisticasRevendaPagina, ipsRevendaPagina, securityTxtRevendaPagina, usoClientesPagina } from './paginas/revenda-paginas';
 import { ligadosPagina } from './paginas/ligados';
 import { sitesContasPagina } from './paginas/sites-contas';
 import { encomendasPagina } from './paginas/encomendas';
@@ -806,6 +806,9 @@ export const SCREENS: Record<string, ScreenFn> = {
   'revenda/backups': backupsClientesPagina,
   'revenda/tickets': ticketsAdminPagina,
   'revenda/mensagem-todos': mensagemTodos,
+  'revenda/ips': ipsRevendaPagina,
+  'revenda/nameservers': nameserversPagina,
+  'revenda/security-txt': securityTxtRevendaPagina,
   'preferencias/aparencia': temaScreen,
   'preferencias/idioma': prefIdioma,
   'preferencias/tabelas': prefTabelas,

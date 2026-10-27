@@ -18,13 +18,15 @@ import type { Account } from '../types';
 import { ehNsNosso } from '@/lib/visualdesign-dns';
 
 export const ROTA = '/api/vhost/admin-servidor';
+export const ROTA_REVENDA = '/api/vhost/revenda';
 export const num = (n: number, casas = 0) => n.toLocaleString('pt-PT', { maximumFractionDigits: casas, minimumFractionDigits: casas });
 const pct = (v: number, max?: number | null) => (max ? Math.min(100, Math.round((v / max) * 100)) : 0);
 
 export async function pedir(vh: VH, corpo: Record<string, unknown>, ok: string): Promise<Record<string, unknown> | null> {
   vh.toast('A alterar no servidor…');
   try {
-    const r = await fetch(ROTA, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corpo) });
+    // no menu Admin do revendedor os mesmos ecrãs falam com a rota da revenda, que só deixa mexer nas contas dele
+    const r = await fetch(vh.s.level === 'revenda' ? ROTA_REVENDA : ROTA, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corpo) });
     const j = (await r.json().catch(() => ({}))) as Record<string, unknown>;
     if (!r.ok) {
       vh.toast(String(j.erro || 'A alteração falhou'));

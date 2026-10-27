@@ -5,10 +5,12 @@
 // partem da mesma lista do painel (`s.acc`) e nunca leem o servidor inteiro. O que precisa do servidor está em /api/vhost/revenda.
 import { useVH } from '../context';
 import type { ScreenFn } from '../screens';
+import { useGet } from '../carga';
 import { Stat } from '../ui';
 import { mbTexto } from '../servidor';
+import { Carregando } from './avancado';
 import { DataTable } from './componentes';
-import { Uso, num, usoContasPagina } from './admin-paginas';
+import { ROTA_REVENDA, Uso, num, usoContasPagina } from './admin-paginas';
 
 /** Contas dos clientes da revenda (a própria conta do revendedor fica de fora) */
 function useClientes() {
@@ -122,3 +124,87 @@ export const backupsClientesPagina: ScreenFn = () => ({
   desc: 'Criar e restaurar as cópias de segurança de cada cliente',
   body: <BackupsClientes />,
 });
+
+// ---------- IPs: os partilhados e os que o servidor atribuiu à revenda (só para ver; quem os atribui é o administrador) ----------
+type Ip = { ip: string; dono: string; estado: string; nome: string; nat: string; interface: string; mascara: string; contas: number; dominios: number };
+function IpsRevenda() {
+  const { t } = useVH();
+  const { dados, erro, ler } = useGet<{ ips: Ip[] }>(ROTA_REVENDA + '?ver=ips');
+  if (!dados) return <Carregando erro={erro} ler={ler} />;
+  return (
+    <DataTable
+      id="rev-ips"
+      umaLinha
+      barraFora
+      empilhar="tablet"
+      rows={dados.ips}
+      rowKey={(r) => r.ip}
+      search={(r) => r.ip + ' ' + r.nome + ' ' + r.interface}
+      empty="Ainda não tem IPs atribuídos"
+      cols={[
+        {
+          k: 'ip',
+          t: 'Endereço IP',
+          sort: (r) => r.ip,
+          cell: (r) => (
+            <span className="pm-proc">
+              <code>{r.ip}</code>
+              {r.nat && <small>NAT {r.nat}</small>}
+            </span>
+          ),
+        },
+        { k: 'e', t: 'Estado', sort: (r) => r.estado, cell: (r) => <span className={'tag ' + (r.estado === 'shared' ? 'ok' : 'w')}>{t(r.estado === 'shared' ? 'Partilhado' : 'Dedicado')}</span> },
+        { k: 'd', t: 'Atribuído a', ate: 1050, sort: (r) => r.dono, cell: (r) => (r.dono ? t('A sua revenda') : '—') },
+        { k: 'n', t: 'Nome', ate: 1300, cell: (r) => r.nome || '—' },
+        { k: 'i', t: 'Interface', ate: 1600, cell: (r) => (r.interface || '—') + (r.mascara ? ' / ' + r.mascara : '') },
+        { k: 'c', t: 'Contas', right: true, sort: (r) => r.contas, cell: (r) => (r.dono ? r.contas : '—') },
+        { k: 'w', t: 'Sites', right: true, sort: (r) => r.dominios, cell: (r) => (r.dono ? r.dominios : '—') },
+      ]}
+    />
+  );
+}
+export const ipsRevendaPagina: ScreenFn = () => ({ title: 'IPs', desc: 'Os IPs partilhados e os atribuídos à sua revenda', body: <IpsRevenda /> });
+
+// ---------- Security.txt: o relatório dos domínios dos clientes ----------
+type Stxt = { conta: string; dominio: string; texto: string };
+const campoStxt = (txt: string, k: string) => (txt.match(new RegExp('^' + k + ':\\s*(.+)$', 'mi')) || [])[1]?.trim() || '';
+function estadoStxt(r: Stxt): ['ok' | 'w' | 'bad' | 'off', string] {
+  if (!r.texto.trim()) return ['off', 'Em falta'];
+  const exp = campoStxt(r.texto, 'Expires');
+  if (!campoStxt(r.texto, 'Contact') || !exp) return ['w', 'Incompleto'];
+  return Date.parse(exp) < Date.now() ? ['bad', 'Expirado'] : ['ok', 'Válido'];
+}
+function SecurityTxtRevenda() {
+  const { t } = useVH();
+  const { dados, erro, ler } = useGet<{ dominios: Stxt[] }>(ROTA_REVENDA + '?ver=security-txt');
+  if (!dados) return <Carregando erro={erro} ler={ler} />;
+  return (
+    <DataTable
+      id="rev-security-txt"
+      umaLinha
+      barraFora
+      empilhar="tablet"
+      rows={dados.dominios}
+      rowKey={(r) => r.conta + '/' + r.dominio}
+      search={(r) => r.dominio + ' ' + r.conta}
+      empty="Os seus clientes ainda não têm domínios com site"
+      cols={[
+        {
+          k: 'd',
+          t: 'Domínio',
+          sort: (r) => r.dominio,
+          cell: (r) => (
+            <span className="pm-proc">
+              <b>{r.dominio}</b>
+              <small>{r.conta}</small>
+            </span>
+          ),
+        },
+        { k: 'e', t: 'Estado', sort: (r) => estadoStxt(r)[1], cell: (r) => <span className={'tag ' + estadoStxt(r)[0]}>{t(estadoStxt(r)[1])}</span> },
+        { k: 'c', t: 'Contacto', ate: 1300, cell: (r) => campoStxt(r.texto, 'Contact') || '—' },
+        { k: 'x', t: 'Expira em', ate: 1050, sort: (r) => campoStxt(r.texto, 'Expires'), cell: (r) => campoStxt(r.texto, 'Expires').slice(0, 10) || '—' },
+      ]}
+    />
+  );
+}
+export const securityTxtRevendaPagina: ScreenFn = () => ({ title: 'Security.txt', desc: 'O security.txt dos domínios dos seus clientes', body: <SecurityTxtRevenda /> });
