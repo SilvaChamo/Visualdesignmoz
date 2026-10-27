@@ -150,6 +150,7 @@ function LoginFormInner() {
           dica={t('login.userPlaceholder')}
           autoComplete="username"
           obrigatorio
+          alto
           value={email}
           onChange={setEmail}
         />
@@ -163,6 +164,7 @@ function LoginFormInner() {
             autoComplete="current-password"
             minLength={6}
             obrigatorio
+            alto
             value={password}
             onChange={setPassword}
           >

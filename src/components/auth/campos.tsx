@@ -39,6 +39,7 @@ export function CampoFlutuante({
   autoComplete,
   minLength,
   obrigatorio = false,
+  alto = false,
   value,
   onChange,
   children,
@@ -50,6 +51,8 @@ export function CampoFlutuante({
   autoComplete?: string
   minLength?: number
   obrigatorio?: boolean
+  /** campo ligeiramente mais alto (login do site, Silva, 27/10/2026: +4 px) */
+  alto?: boolean
   value: string
   onChange: (v: string) => void
   /** botão dentro do campo, à direita (ex.: o olho da palavra-passe) */
@@ -69,7 +72,7 @@ export function CampoFlutuante({
         onChange={(e) => onChange(e.target.value)}
         placeholder=" "
         className={
-          caixaCls +
+          (alto ? caixaCls.replace('h-[clamp(38px,2.9vw,42px)]', 'h-[clamp(42px,3.2vw,46px)]') : caixaCls) +
           'placeholder:text-transparent ' +
           (children ? 'px-10 lg:pl-3.5' : '')
         }
