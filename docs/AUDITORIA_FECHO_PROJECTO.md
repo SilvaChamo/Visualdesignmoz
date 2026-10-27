@@ -232,3 +232,31 @@ saíram, basta ela não valer para nada — pedir ao fornecedor que a revogue, o
   `check-smtp-config`, para ver se alguém de fora as chamava (quem as chamar passa a levar 401/403).
 - `POST /api/whmcs-proxy` **apagada** (27/10/2026, por ordem do Silva): falava com o WHMCS do fornecedor antigo, ninguém a chamava. Lidas e sem problema: `webmail-redirect` (só acrescenta ao endereço do webmail), `versao`, `vhost/aquecer`,
   `domain-tld-prices` e `public/site-news` (públicas por desenho).
+
+---
+
+## 8. Ponto da situação — 27/10/2026, fim do dia
+
+**Feito e publicado:** ponto 3 (rotas sem autenticação), regras num único ficheiro, lockfile, `verificar-pr.yml`, tradução do painel a 0 e português de Portugal.
+
+**Feito no ramo `limites-nas-rotas-publicas-e-leituras-do-servidor` (por publicar):**
+- `auth/reset-password`: limite de 20 pedidos por rede em 10 min e 3 por endereço por hora (o Turnstile já estava; trava programas, não uma pessoa a encher a caixa de outra).
+- `submit-ticket`: limite de 5 por rede e 3 por endereço por hora; escapa o HTML de todos os campos nos dois e-mails; valida o endereço; tamanho máximo dos campos; só aceita anexos `https`. **Continua sem nenhum chamador no repositório** — se os registos do nginx disserem que ninguém de fora a usa, apaga-se.
+- `domain-check`: limite de 400 pedidos por rede em 10 min (cada pesquisa do site faz cerca de 16).
+- `.github/workflows/ops-auditoria-leitura.yml`: leitura do servidor, sem alterar nada nem mostrar segredos (registos do nginx das rotas protegidas, endereço do Supabase, cron das cópias, prefixo das chaves do Stripe, variáveis do fornecedor antigo, certificados de e-mail, nginx da porta 2026, portas, fail2ban, SSH, actualizações pendentes).
+- `ESTADO_PROJECTO.md` actualizado; `SUPABASE_CONTABO_SETUP_MANUAL.md` (guia de uma instalação já feita) passou a `docs/arquivo/`.
+
+**Tentado e não possível daqui:** correr essa leitura. Um workflow novo só se pode lançar depois de estar em `main`, e a protecção do ambiente recusou lançar leituras ao servidor por outra via. Fica à espera do «publica» e de o correres tu (Actions › Ops - Auditoria do servidor (só leitura) › Run workflow).
+
+**Fica só para o Silva** (nada disto se resolve com código):
+1. Dizer «publica» para este ramo e correr o workflow de leitura (ou autorizar-me a corrê-lo).
+2. Decisões fiscais: certificação AT/SAF-T, IVA nas compras do carrinho, factura além do recibo, NUIT obrigatório às empresas, morada e nome legal nos documentos.
+3. Ordem expressa para instalar o cron das cópias no R2.
+4. Texto legal (responsável pelo tratamento, conservação, cookies) revisto por um jurista.
+5. Dados da empresa para o pedido à Vodacom (nome legal, NUIT, contacto) e enviá-lo.
+6. Nos Settings do GitHub: apagar os secrets que já ninguém usa (`CONTABO_ROOT_PASSWORD` e os do DirectAdmin, depois de eu confirmar pela leitura que nenhum workflow os usa) e ligar o Dependabot de segurança.
+7. Pedir ao fornecedor antigo que revogue a chave que esteve no código, e decidir se se reescreve o histórico do git.
+8. Decisões sobre DNS de e-mail: `elimservicos.com` e `shalomdeco.com` (a dona), DMARC a 100 % a partir de 02/11.
+9. «Avança» para qualquer alteração ao servidor que a leitura mostre ser precisa (troca do endereço do Supabase, separar a chave SSH da aplicação da do deploy, registo A `webmail.` no DNS, nginx da porta 2026).
+10. Apagar os ramos antigos, incluindo `claude/focused-turing-p63thb`, `auditoria-fecho-projecto` e `verificacao-nos-pr-e-traducao`.
+11. M-Pesa (último): credenciais de produção, «avança» e pagamento de teste.
