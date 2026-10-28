@@ -1,7 +1,7 @@
 #!/bin/bash
 # Instala/actualiza a tarefa periódica dos avisos de força bruta (/api/cron/forca-bruta): de 10 em 10 minutos lê os
 # IPs bloqueados pelo fail2ban do Hestia e põe uma mensagem nas Mensagens dos administradores quando há novos —
-# como o DirectAdmin fazia no Hetzner. Corre a partir do deploy-contabo.yml, depois do build+restart, como os
+# como o DirectAdmin fazia no Hetzner. Corre a partir do deploy-visualdesign.yml, depois do build+restart, como os
 # outros install-*-cron.sh.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -13,7 +13,7 @@ if [ -z "$CRON_SECRET_VALUE" ]; then
 fi
 
 MARKER="# visualdesign-forca-bruta"
-# Host explícito (sem ele o Next.js responde com um redirect para si mesmo — ver install-hestia-cron.sh)
+# Host explícito (sem ele o Next.js responde com um redirect para si mesmo — ver instalar-cron-servidor.sh)
 CRON_LINE="*/10 * * * * curl -fsS -H \"Host: visualdesignmoz.com\" -H \"Authorization: Bearer ${CRON_SECRET_VALUE}\" http://127.0.0.1:3002/api/cron/forca-bruta >> /var/log/visualdesign-cron.log 2>&1 ${MARKER}"
 
 CRON_FILE=$(mktemp)

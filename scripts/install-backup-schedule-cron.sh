@@ -4,8 +4,8 @@
 # dois servidores (Hetzner nem Contabo): o endpoint /api/cron/run-backup-schedules
 # já existia mas nunca era chamado por ninguém, por isso nenhum agendamento
 # de backup alguma vez corria sozinho. Corre a partir do próprio
-# deploy-contabo.yml, sempre depois do build+restart — mesmo padrão de
-# install-hestia-cron.sh.
+# deploy-visualdesign.yml, sempre depois do build+restart — mesmo padrão de
+# instalar-cron-servidor.sh.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -17,7 +17,7 @@ fi
 
 MARKER="# visualdesign-backup-schedules"
 # Host explícito: sem isto o Next.js devolve um redirect 308 para si mesmo em
-# vez de correr a rota (mesma armadilha documentada em install-hestia-cron.sh).
+# vez de correr a rota (mesma armadilha documentada em instalar-cron-servidor.sh).
 # De 15 em 15 min — suficiente para nunca atrasar um agendamento por mais de
 # 15 min sem sobrecarregar o servidor com backups completos de conta.
 CRON_LINE="*/15 * * * * curl -fsS -H \"Host: teste.visualdesignmoz.com\" -H \"Authorization: Bearer ${CRON_SECRET_VALUE}\" http://127.0.0.1:3002/api/cron/run-backup-schedules >> /var/log/visualdesign-cron.log 2>&1 ${MARKER}"

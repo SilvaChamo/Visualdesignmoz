@@ -36,13 +36,13 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error('Erro ao buscar usuários:', error)
-      return NextResponse.json({ error: 'Erro ao buscar usuários' }, { status: 500 })
+      return NextResponse.json({ error: 'Erro ao procurar utilizadores' }, { status: 500 })
     }
 
     const user = users?.find((u: any) => u.email?.toLowerCase() === email.toLowerCase())
 
     if (!user) {
-      return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 })
+      return NextResponse.json({ error: 'Utilizador não encontrado' }, { status: 404 })
     }
 
     return NextResponse.json({

@@ -3,7 +3,7 @@
  *
  * ns1, ns2, ns3 e ns4.visualdesignmoz.com apontam todos para o servidor Contabo (Hestia) e servem as mesmas zonas
  * (confirmado em 26/10/2026): qualquer um deles é nosso. O par que se dá aos clientes vem de NEXT_PUBLIC_VD_NAMESERVERS
- * no deploy (deploy-contabo.yml) e, sem isso, são ns1/ns2.
+ * no deploy (deploy-visualdesign.yml) e, sem isso, são ns1/ns2.
  */
 export const VISUALDESIGN_TODOS_NS = [
   'ns1.visualdesignmoz.com',

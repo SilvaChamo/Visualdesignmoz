@@ -1,0 +1,84 @@
+name: Ops - DMARC de pct=25 para pct=100 (DNS)
+
+# Silva, 28/10/2026: «pode passar» o DMARC a 100 %. Os domínios abaixo estão com p=quarantine; pct=25 desde 26/10/2026.
+# Sem «aplicar» só LÊ o registo _dmarc de cada um. Com «aplicar» troca APENAS pct=25 por pct=100 nos registos que já são
+# p=quarantine (nunca mexe em p=none, nunca sobe a p=reject, nunca cria nem apaga registos). Guarda no registo da corrida o texto
+# anterior de cada um, para voltar atrás (basta repor pct=25). Chave do DNS: a mesma do painel, lida no servidor, nunca impressa.
+# Ficam de fora (p=none): basededadosagro.com (falta a chave DKIM do servidor), elimservicos.com, shalomdeco.com.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dominios:
+        description: 'Domínios separados por espaço'
+        required: true
+        default: 'aamihe.com concordia.co.mz entrecamposblog.com lirandzojewelry.com menocrazy.app mltmark.com msdn-moz.org oshercollective.com provisualcorporate.co.mz visualdesignmoz.com'
+      aplicar:
+        description: 'Aplicar a troca (desligado = só ler)'
+        type: boolean
+        default: false
+
+concurrency:
+  group: ops-dmarc-subir
+  cancel-in-progress: false
+
+jobs:
+  dmarc:
+    runs-on: ubuntu-latest
+    steps:
+      - name: DMARC (ler e, se pedido, subir a 100 %)
+        uses: appleboy/ssh-action@v1.2.5
+        env:
+          DOMINIOS: ${{ inputs.dominios }}
+          APLICAR: ${{ inputs.aplicar }}
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          port: 2234
+          username: root
+          key: ${{ secrets.CONTABO_SSH_KEY }}
+          command_timeout: 5m
+          envs: DOMINIOS,APLICAR
+          script: |
+            set -u
+            echo "$DOMINIOS" | grep -qE '^[a-z0-9. -]+$' || { echo "Domínios inválidos"; exit 1; }
+            ENVF=/opt/visualdesignmoz/.env.local
+            lerenv() { grep -E "^$1=" "$ENVF" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'"; }
+            export CF_EMAIL="$(lerenv CLOUDFLARE_EMAIL)" CF_KEY="$(lerenv CLOUDFLARE_GLOBAL_API_KEY)" CF_TOKEN="$(lerenv CLOUDFLARE_API_TOKEN_ACCOUNT)"
+            [ -n "$CF_EMAIL$CF_TOKEN" ] || { echo "Sem chave do DNS no servidor"; exit 1; }
+            python3 - <<'PY'
+            import os, json, urllib.request, urllib.error
+            H = {'Content-Type': 'application/json'}
+            if os.environ.get('CF_EMAIL') and os.environ.get('CF_KEY'):
+                H['X-Auth-Email'] = os.environ['CF_EMAIL']; H['X-Auth-Key'] = os.environ['CF_KEY']
+            else:
+                H['Authorization'] = 'Bearer ' + os.environ['CF_TOKEN']
+            def api(method, path, body=None):
+                req = urllib.request.Request('https://api.cloudflare.com/client/v4' + path,
+                    data=json.dumps(body).encode() if body is not None else None, headers=H, method=method)
+                try:
+                    return json.load(urllib.request.urlopen(req, timeout=30))
+                except urllib.error.HTTPError as e:
+                    try: return json.load(e)
+                    except Exception: return {'success': False, 'errors': [{'message': 'HTTP %s' % e.code}]}
+                except Exception as e:
+                    return {'success': False, 'errors': [{'message': str(e)[:100]}]}
+            aplicar = os.environ.get('APLICAR') == 'true'
+            for dom in os.environ['DOMINIOS'].split():
+                z = (api('GET', '/zones?name=' + dom).get('result') or [])
+                if not z:
+                    print('%-28s zona não encontrada' % dom); continue
+                zid = z[0]['id']
+                recs = api('GET', '/zones/%s/dns_records?type=TXT&name=_dmarc.%s' % (zid, dom)).get('result') or []
+                if len(recs) != 1:
+                    print('%-28s %d registos _dmarc (esperava 1): não mexo' % (dom, len(recs))); continue
+                r = recs[0]; txt = r['content'].strip('"')
+                print('%-28s ANTES: %s' % (dom, txt))
+                if 'p=quarantine' not in txt or 'pct=25' not in txt:
+                    print('%-28s nada a fazer (não é quarantine com pct=25)' % ''); continue
+                if not aplicar:
+                    print('%-28s (só leitura)' % ''); continue
+                novo = txt.replace('pct=25', 'pct=100')
+                body = {'type': 'TXT', 'name': r['name'], 'content': novo, 'ttl': r.get('ttl', 1)}
+                p = api('PUT', '/zones/%s/dns_records/%s' % (zid, r['id']), body)
+                print('%-28s %s -> %s' % ('', 'FEITO' if p.get('success') else 'FALHOU %s' % [e.get('message') for e in p.get('errors', [])], novo))
+            PY

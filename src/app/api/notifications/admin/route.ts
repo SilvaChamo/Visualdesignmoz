@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
         : await supabaseAdmin.auth.admin.listUsers()
 
       if (!users?.users?.length) {
-        return NextResponse.json({ error: 'Nenhum usuário encontrado' }, { status: 404 })
+        return NextResponse.json({ error: 'Nenhum utilizador encontrado' }, { status: 404 })
       }
 
       const notificationsToInsert = users.users.map((user: any) => ({
@@ -133,7 +133,7 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         success: true,
-        message: `Notificação enviada para ${users.users.length} usuários`,
+        message: `Notificação enviada para ${users.users.length} utilizadores`,
         count: users.users.length,
         emailsSent,
         emailsFailed,

@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status')
     const days = searchParams.get('days') // dias até vencimento
 
-    let result: any = { domains: [], hosting: [] }
+    const result: any = { domains: [], hosting: [] }
 
     // Buscar domínios
     if (!type || type === 'domain') {

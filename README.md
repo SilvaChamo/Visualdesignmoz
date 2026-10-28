@@ -20,6 +20,9 @@ quando o Silva disser "publica"; tudo em português; texto novo no site entra j�
 npm install
 npm run dev      # http://localhost:3003 (pré-visualização: /dev-preview-telemovel)
 npm run i18n     # tem de dar 0 textos sem inglês
+npm run i18n:painel  # idem, para o painel
+npm run lint     # só os erros travam (npm run lint -- --quiet)
+npm test         # testes unitários
 npm run build
 ```
 
@@ -28,7 +31,7 @@ workflow de deploy a partir dos secrets do GitHub.
 
 ## Publicação
 
-Cada merge em `main` publica no servidor (`.github/workflows/deploy-contabo.yml`, SSH pela porta 2234). Não há outro deploy.
+Cada merge em `main` publica no servidor (`.github/workflows/deploy-visualdesign.yml`, SSH pela porta 2234). Não há outro deploy.
 
 ## Onde está o quê
 

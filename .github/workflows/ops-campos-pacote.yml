@@ -1,4 +1,4 @@
-name: Ops - Campos de pacote do Hestia (só leitura)
+name: Ops - Campos de pacote do alojamento (só leitura)
 
 # Mostra o que o Hestia deste servidor aceita num pacote: versão, os pacotes existentes, como o Hestia valida cada
 # campo e que comandos de pacote existem. NÃO altera nada.
@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: ops-hestia-campos-pacote
+  group: ops-campos-pacote
   cancel-in-progress: false
 
 jobs:

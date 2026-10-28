@@ -775,7 +775,7 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
     const n = n0.stack.length ? comTemaLocal(n0) : n0;
     commit(n);
     if (n.path !== inicial.current) pushUrl(n.path, true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
 
   // Limpeza comum ao terminar a sessão, seja por "Sair" ou por inactividade.

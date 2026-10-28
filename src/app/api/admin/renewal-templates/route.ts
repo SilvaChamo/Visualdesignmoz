@@ -185,7 +185,7 @@ export async function DELETE() {
     
     return NextResponse.json({ 
       success: true, 
-      message: 'Templates resetados para padrão' 
+      message: 'Modelos repostos para os predefinidos' 
     })
   } catch (error: any) {
     console.error('Erro na API de templates:', error)

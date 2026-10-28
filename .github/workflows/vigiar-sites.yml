@@ -1,0 +1,63 @@
+name: Vigiar os sites (de fora do servidor)
+
+# Silva, 28/10/2026: «monitorização, activar». De 15 em 15 minutos, a partir do GitHub (fora do servidor), pede a página principal de cada site.
+# Se algum não responder como esperado em 3 tentativas seguidas (20 s entre elas), abre um aviso (issue) «Site em baixo» e o GitHub manda e-mail a
+# quem vigia o repositório; quando voltar a responder, fecha o aviso sozinho. Existe por causa do 502 de 33 horas de 23/10/2026, que só se descobriu tarde.
+# Não toca no servidor nem usa segredos. O GitHub pode atrasar execuções agendadas alguns minutos e desliga-as se o repositório ficar 60 dias sem actividade.
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: vigiar-sites
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  vigiar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Pedir cada site e abrir ou fechar o aviso
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -u
+          # nome|endereço|códigos aceites (separados por vírgula)
+          SITES='visualdesignmoz.com|https://visualdesignmoz.com/|200,301,302
+          basededadosagro.com|https://basededadosagro.com/|200,301,302
+          base de dados (login)|https://supabase.visualdesignmoz.com/auth/v1/health|200,401'
+          ESTRAGOS=""
+          while IFS='|' read -r NOME URL OK; do
+            NOME=$(echo "$NOME" | xargs)
+            [ -z "$NOME" ] && continue
+            BOM=0; CODIGO=000
+            for T in 1 2 3; do
+              CODIGO=$(curl -s -o /dev/null -m 20 -w '%{http_code}' -A 'vigiar-sites (GitHub Actions)' "$URL" || true)
+              case ",$OK," in *",$CODIGO,"*) BOM=1; break ;; esac
+              sleep 20
+            done
+            echo "$NOME -> $CODIGO ($([ $BOM = 1 ] && echo ok || echo FALHOU))"
+            [ $BOM = 1 ] || ESTRAGOS="$ESTRAGOS- $NOME respondeu $CODIGO ($URL)\n"
+          done <<< "$SITES"
+
+          TITULO="Site em baixo"
+          ABERTO=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "\"$TITULO\" in:title" --json number --jq '.[0].number // empty')
+          if [ -n "$ESTRAGOS" ]; then
+            CORPO=$(printf "Verificação de %s (de fora do servidor):\n\n%b\nAs três tentativas seguidas falharam. Este aviso fecha-se sozinho quando os sites voltarem a responder." "$(date -u +'%d/%m/%Y %H:%M UTC')" "$ESTRAGOS")
+            if [ -z "$ABERTO" ]; then
+              gh issue create --repo "$GITHUB_REPOSITORY" --title "$TITULO" --body "$CORPO"
+            else
+              gh issue comment "$ABERTO" --repo "$GITHUB_REPOSITORY" --body "$CORPO"
+            fi
+            exit 1
+          fi
+          if [ -n "$ABERTO" ]; then
+            gh issue close "$ABERTO" --repo "$GITHUB_REPOSITORY" --comment "Todos os sites voltaram a responder ($(date -u +'%d/%m/%Y %H:%M UTC'))."
+          fi
+          echo "Todos os sites responderam como esperado."

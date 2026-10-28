@@ -220,7 +220,7 @@ export async function provisionPanelAccountToServer(userName: string): Promise<{
   // A conta acabou de nascer no servidor real com quota/limites do pacote —
   // sem isto, o admin só via esses valores 20 min depois (na próxima cron),
   // e nem isso corria de facto (crontab do Contabo nunca chegou a ser
-  // instalado com sucesso, ver deploy-contabo.yml). Não bloqueia a resposta
+  // instalado com sucesso, ver deploy-visualdesign.yml). Não bloqueia a resposta
   // ao cliente por causa disto.
   if (result.ok && provider === 'hestia') {
     runHestiaFullSyncDeduped().catch((err) =>

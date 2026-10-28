@@ -1,7 +1,7 @@
 name: Deploy Visualdesign
 
 # ============================================================================
-# Este é o ÚNICO deploy do projecto: o site em produção é o do Contabo e é
+# Este é o ÚNICO deploy do projecto: o site em produção é o do servidor actual e é
 # publicado a cada push em `main` (o Hetzner foi desligado a 19/10/2026 e os
 # seus workflows apagados; o `main` antigo, do Hetzner, está guardado em
 # `arquivo/main-hetzner` — não usar).
@@ -26,7 +26,7 @@ on:
 # uma publicação de cada vez: um push novo espera que a anterior acabe (duas
 # publicações sobrepostas já estragaram o node_modules)
 concurrency:
-  group: deploy-contabo
+  group: deploy-visualdesign
   cancel-in-progress: false
 
 jobs:
@@ -123,7 +123,8 @@ jobs:
             set_env_var TURNSTILE_SECRET_KEY "${{ secrets.TURNSTILE_SECRET_KEY }}"
             # Idem ao passo de build acima: secrets próprios do Contabo, nunca
             # os partilhados com o Hetzner.
-            set_env_var NEXT_PUBLIC_SUPABASE_URL "${{ secrets.CONTABO_SUPABASE_URL }}"
+            # Endereço do Supabase sem «contabo» (Silva, 28/10/2026); o nome antigo continua a responder no nginx.
+            set_env_var NEXT_PUBLIC_SUPABASE_URL "https://supabase.visualdesignmoz.com"
             set_env_var NEXT_PUBLIC_SUPABASE_ANON_KEY "${{ secrets.SUPABASE_CONTABO_ANON_KEY }}"
             set_env_var SUPABASE_SERVICE_ROLE_KEY "${{ secrets.SUPABASE_CONTABO_SERVICE_ROLE_KEY }}"
             # Segredos antigos com que ainda há passwords cifradas (LEGACY_ENCRYPTION_SECRETS em da-credential-store.ts e
@@ -175,9 +176,15 @@ jobs:
             # tal como acontece no Hetzner. Reaproveita a mesma chave já usada
             # para o deploy, escrita agora num ficheiro estável no servidor.
             mkdir -p /root/.ssh
-            echo "${{ secrets.CONTABO_SSH_KEY }}" > /root/.ssh/app_self_key
-            chmod 600 /root/.ssh/app_self_key
-            set_env_var SERVER_SSH_KEY_PATH "/root/.ssh/app_self_key"
+            if [ -f /root/.ssh/vd_app_key ]; then
+              # Chave PRÓPRIA da aplicação (Silva, 28/10/2026): distinta da chave do deploy e só aceite a partir deste servidor
+              # (workflow «Ops - Fecho do servidor», fase chave-app). A chave do deploy deixa de ser gravada no disco.
+              set_env_var SERVER_SSH_KEY_PATH "/root/.ssh/vd_app_key"
+            else
+              echo "${{ secrets.CONTABO_SSH_KEY }}" > /root/.ssh/app_self_key
+              chmod 600 /root/.ssh/app_self_key
+              set_env_var SERVER_SSH_KEY_PATH "/root/.ssh/app_self_key"
+            fi
             set_env_var SERVER_IP "${{ secrets.CONTABO_HOST }}"
             set_env_var SERVER_SSH_USER "root"
             set_env_var SERVER_SSH_PORT "2234"
@@ -214,14 +221,14 @@ jobs:
         env:
           # 4 GB para o build (com o limite por defeito do Node o build já esgotou a memória, a 16/10/2026)
           NODE_OPTIONS: --max-old-space-size=4096
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.CONTABO_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_URL: https://supabase.visualdesignmoz.com
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_CONTABO_ANON_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_CONTABO_SERVICE_ROLE_KEY }}
         run: npm run build
 
       # O código novo vai para uma pasta à parte (…-build), não para a do site em funcionamento: o site continua a
       # servir a versão anterior enquanto a nova é instalada (ver "Publicar sem ecrã branco" mais abaixo).
-      - name: Sync files to Contabo
+      - name: Enviar os ficheiros para o servidor
         run: |
           rsync -avz --delete \
             -e "ssh -p 2234 -i ~/.ssh/deploy_key" \
@@ -229,7 +236,7 @@ jobs:
             ./ "root@${{ secrets.CONTABO_HOST }}:/opt/visualdesignmoz-build/"
 
       # Passo 2 do servidor: já não constrói nada (o .next vem do GitHub); instala as dependências se for preciso e troca de versão
-      - name: Install and (re)start on Contabo
+      - name: Instalar e pôr no ar no servidor
         uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.CONTABO_HOST }}
@@ -437,11 +444,11 @@ jobs:
             # Reflecte o estado real do Hestia (contas/domínios/suspensões) de volta
             # para o espelho Supabase — sem isto, mudanças feitas directamente no
             # painel Hestia nunca apareciam no painel VisualDesign. Script próprio
-            # (scripts/install-hestia-cron.sh) em vez de shell inline aqui: a versão
+            # (scripts/instalar-cron-servidor.sh) em vez de shell inline aqui: a versão
             # inline anterior falhava silenciosamente dentro do ssh-action de forma
             # não reproduzível por SSH directo (ver histórico do ficheiro) — mesmo
             # depois de reescrita, voltou a falhar aqui dentro sem falhar à mão.
-            bash scripts/install-hestia-cron.sh
+            bash scripts/instalar-cron-servidor.sh
             bash scripts/install-mailmarketing-cron.sh
             bash scripts/install-backup-schedule-cron.sh
             # avisos de força bruta nas Mensagens dos administradores (como o DirectAdmin fazia no Hetzner)
@@ -450,7 +457,7 @@ jobs:
       # Os outros sites do servidor (Silva, 24/10/2026): o deploy só mexe no visualdesignmoz, mas em 23/10 um `pm2 update` deixou o
       # basededadosagro.com (projecto de defesa do Silva) em 502 durante 33 horas sem ninguém reparar. Se um destes sites não
       # responder, a publicação falha (e o GitHub avisa), em vez de ninguém dar por isso.
-      - name: Verify the other sites on the server
+      - name: Verificar os outros sites do servidor
         run: |
           falhou=0
           for u in https://basededadosagro.com https://visualdesignmoz.com; do
@@ -467,7 +474,7 @@ jobs:
       # Cloudflare (Silva, 28/10/2026): as páginas públicas do Next.js trazem `s-maxage=31536000` e a Cloudflare guarda-as (regras de cache do
       # visualdesignmoz.com, ver regras.md). Depois de cada publicação a cache tem de ser limpa, senão a Cloudflare serviria HTML antigo a apontar
       # para ficheiros `_next/static` que já não existem. Corre por último: se falhar a publicação fica a vermelho e avisa, mas o site já está no ar.
-      - name: Clear Cloudflare cache of visualdesignmoz.com
+      - name: Limpar a cache da CDN do visualdesignmoz.com
         if: ${{ !inputs.ensaio }}
         uses: appleboy/ssh-action@v1.2.5
         with:
@@ -477,4 +484,4 @@ jobs:
           key: ${{ secrets.CONTABO_SSH_KEY }}
           command_timeout: 3m
           script: |
-            bash /opt/visualdesignmoz/scripts/limpar-cache-cloudflare.sh visualdesignmoz.com
+            bash /opt/visualdesignmoz/scripts/limpar-cache-cdn.sh visualdesignmoz.com

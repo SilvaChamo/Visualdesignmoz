@@ -1,7 +1,7 @@
 #!/bin/bash
 # Instala/actualiza a tarefa periódica que sincroniza o estado real do Hestia
 # (contas/domínios/quotas) de volta para o espelho Supabase. Corre a partir
-# do próprio deploy-contabo.yml, sempre depois do build+restart.
+# do próprio deploy-visualdesign.yml, sempre depois do build+restart.
 #
 # Extraído do workflow para um ficheiro real de propósito: a versão anterior
 # construía a linha de cron inline dentro do YAML (heredoc + pipe + aspas

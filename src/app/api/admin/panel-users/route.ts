@@ -210,7 +210,7 @@ async function syncAutomaticPanelRoles(admin: SupabaseClient) {
     // Admin e gestão são manuais — não sobrescrever.
     if (isManualPanelRole(currentProfileRole) || isManualPanelRole(currentMetaRole)) continue;
 
-    let role = resolveUserRole({
+    const role = resolveUserRole({
       email,
       userMetadata: authUser.user_metadata as Record<string, unknown>,
       appMetadata: authUser.app_metadata as Record<string, unknown>,

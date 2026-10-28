@@ -246,7 +246,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next()
   }
 
-  let response = NextResponse.next({
+  const response = NextResponse.next({
     request: {
       headers: request.headers,
     },

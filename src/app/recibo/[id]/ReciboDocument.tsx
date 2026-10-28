@@ -1,5 +1,6 @@
 import { metodoPagamentoLabel } from '@/lib/quotation-payment-info';
 import { formatMt } from '@/lib/pricing-catalog';
+import { IVA_TAXA, decomporCompra } from '@/lib/iva';
 import {
   CHECKOUT_ITEM_TYPE_LABELS,
   checkoutItemDetail,
@@ -40,6 +41,9 @@ export type ReciboDocumentProps = {
  * caixa de pagamento e selo.
  */
 export function ReciboDocument({ receiptNumber, issuedAt, cliente, compra }: ReciboDocumentProps) {
+  // Compras novas: IVA acrescentado ao preço das linhas; compras antigas: IVA já incluído nos preços (ver src/lib/iva.ts).
+  const somaLinhas = compra.items.reduce((soma, item) => soma + (item.price ?? 0), 0);
+  const iva = decomporCompra(somaLinhas, compra.totalMt);
   const dataEmissao = new Date(issuedAt || compra.paidAt).toLocaleDateString('pt-PT', DATE_LONG);
 
   return (
@@ -91,11 +95,23 @@ export function ReciboDocument({ receiptNumber, issuedAt, cliente, compra }: Rec
           </tbody>
           <tfoot>
             <tr>
+              <td colSpan={2} className="pt-2 text-right text-zinc-600 border-t border-zinc-200">Valor sem IVA</td>
+              <td className="pt-2 text-right text-zinc-600 border-t border-zinc-200">{formatMt(iva.semIvaMt)} MT</td>
+            </tr>
+            <tr>
+              <td colSpan={2} className="text-right text-zinc-600">IVA ({Math.round(IVA_TAXA * 100)}%)</td>
+              <td className="text-right text-zinc-600">{formatMt(iva.ivaMt)} MT</td>
+            </tr>
+            <tr>
               <td colSpan={2} className="pt-2 text-right font-bold text-zinc-900 border-t border-zinc-200">Total pago</td>
               <td className="pt-2 text-right font-bold text-zinc-900 border-t border-zinc-200">{formatMt(compra.totalMt)} MT</td>
             </tr>
           </tfoot>
         </table>
+
+        <p className="text-xs text-zinc-500 -mt-6 mb-8">{iva.acrescentado
+            ? `Os preços das linhas não incluem IVA; acresce IVA à taxa de ${Math.round(IVA_TAXA * 100)}%.`
+            : `Os preços das linhas incluem IVA à taxa de ${Math.round(IVA_TAXA * 100)}%.`}</p>
 
         {/* Pagamento — o que foi efectivamente pago e confirmado. */}
         <div className="bg-red-50 border border-red-200 rounded-md p-4 text-sm">

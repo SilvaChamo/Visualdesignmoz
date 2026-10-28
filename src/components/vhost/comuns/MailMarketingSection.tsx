@@ -503,7 +503,7 @@ function MailMarketingComposer({ selectedSite, setSelectedSite, sites, onGoToHis
       }
 
       const emailList = Array.from(new Set(allRecipients.map((r: any) => r.email))).filter(Boolean);
-      let targetDomain = selectedSite || process.env.NEXT_PUBLIC_DEFAULT_DOMAIN || 'visualdesign.pt';
+      const targetDomain = selectedSite || process.env.NEXT_PUBLIC_DEFAULT_DOMAIN || 'visualdesign.pt';
 
       const clientName = user?.user_metadata?.full_name || user?.user_metadata?.nome || senderEmail?.split('@')[0] || user?.email?.split('@')[0] || '';
       const clientEmail = senderEmail || user?.email || '';
