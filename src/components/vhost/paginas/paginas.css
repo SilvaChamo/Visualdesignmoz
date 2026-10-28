@@ -11565,6 +11565,11 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    .vh main:not(#x) {
       padding-bottom: calc(calc(64px * var(--z, 1)) + calc(12px * var(--z, 1)) + env(safe-area-inset-bottom, 0px))
    }
+
+   /* sem a linha de baixo do cartão principal, como no computador (Silva, 28/10/2026: «a linha, ali em baixo, não quero»): o cartão não acaba, o espaço por baixo é o do próprio cartão */
+   .vh main .da-main-card:not(#x):not(#y) {
+      border-bottom: 0
+   }
 }
 
 /* Nomes da primeira coluna das tabelas na cor normal do texto; vermelho só ao passar o rato, como nos domínios (Silva, 20/10/2026) */
