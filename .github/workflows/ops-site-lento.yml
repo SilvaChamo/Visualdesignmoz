@@ -70,6 +70,17 @@ jobs:
             for i in 1 2; do curl -sk -m 10 --resolve "$DOMINIO:443:$IPSITE" -o /dev/null -w "ligação %{time_connect}s · primeiro byte %{time_starttransfer}s · total %{time_total}s · código %{http_code}\n" "https://$DOMINIO/"; done
             echo "--- uma página sem cache (sem WordPress carregado a fundo): robots.txt"
             curl -sk -m 10 --resolve "$DOMINIO:443:$IPSITE" -o /dev/null -w "código %{http_code} · %{time_total}s\n" "https://$DOMINIO/robots.txt"
+            titulo "7b. O que fazem os trabalhadores presos: consultas à base de dados (tempo · estado · início da consulta) e ligações de saída"
+            mysql -e "SHOW FULL PROCESSLIST" 2>&1 | awk -F'\t' 'NR==1{next} $6>3 {printf "%ss · %s · %s\n", $6, $7, substr($8,1,90)}' | head -n 14
+            echo "--- ligações dos php-fpm da conta a outros servidores (destino:porta · quantas):"
+            ss -tnp 2>/dev/null | grep -E 'php-fpm' | awk '{print $5}' | sed -E 's/^(127\.0\.0\.1|\[::1\]):/local:/' | sort | uniq -c | sort -rn | head -n 8
+            echo "--- onde está parado cada trabalhador (wchan):"
+            for pid in $(pgrep -u "$CONTA" -f 'php-fpm: pool' | head -n 8); do echo "$pid: $(cat /proc/$pid/wchan 2>/dev/null) · $(awk '{print $14\"+\"$15\" ticks de CPU\"}' /proc/$pid/stat 2>/dev/null)"; done
+            titulo "7c. Pedidos aceites pelo Apache nos últimos 3 000 registos: hora de cada um dos 12 mais frequentes · estado · endereço (acção do ajax)"
+            AL=/var/log/apache2/domains/$DOMINIO.log
+            [ -f "$AL" ] && tail -n 3000 "$AL" | awk '{u=$7; a=""; if (match(u,/action=[a-z_0-9-]+/)) a=substr(u,RSTART,RLENGTH); sub(/\?.*/,"",u); print $9, u, a}' | sort | uniq -c | sort -rn | head -n 14
+            echo "--- primeiro e último registo:"; [ -f "$AL" ] && { tail -n 3000 "$AL" | head -n 1 | grep -oE '\[[^]]+\]'; tail -n 1 "$AL" | grep -oE '\[[^]]+\]'; }
+            echo "--- quem pede (3 000 últimos; último número do IP escondido):"; [ -f "$AL" ] && tail -n 3000 "$AL" | awk '{print $1}' | sed -E 's/\.[0-9]+$/.x/' | sort | uniq -c | sort -rn | head -n 6
             titulo "8. Que pedidos entraram nos últimos 3 000 registos do nginx (estado · endereço sem parâmetros · quantos)"
             LOG=/var/log/nginx/domains/$DOMINIO.log
             [ -f "$LOG" ] && tail -n 3000 "$LOG" | awk '{u=$7; sub(/\?.*/,"",u); print $9, u}' | sort | uniq -c | sort -rn | head -n 14
