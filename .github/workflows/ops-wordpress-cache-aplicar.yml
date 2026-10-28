@@ -54,7 +54,7 @@ jobs:
           script: |
             set -u
             titulo() { echo; echo "=================== $1"; }
-            case "$DOMINIOS" in (*[!a-z0-9. -]*|'') echo "Domínios inválidos"; exit 1;; esac
+            echo "$DOMINIOS" | grep -qE '^[a-z0-9. -]+$' || { echo "Domínios inválidos"; exit 1; }
             WP=$(command -v wp || echo /usr/local/bin/wp)
             WORK=/root/wp-cache-aplicar-$(date +%Y%m%d-%H%M%S)
             mkdir -p "$WORK" && chmod 700 "$WORK"
