@@ -513,7 +513,7 @@ export async function POST(req: NextRequest) {
         if (hestiaResponse) return hestiaResponse;
       }
 
-      let data = await DA_MUTATION_PROXY[action](api, params as Record<string, unknown>);
+      const data = await DA_MUTATION_PROXY[action](api, params as Record<string, unknown>);
       const ok = mutationSucceeded(data);
       const errMsg =
         ok || typeof data !== 'object' || data === null

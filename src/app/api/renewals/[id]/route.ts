@@ -16,7 +16,7 @@ export async function GET(
     const { id } = await params
 
     // Buscar em domain_renewals
-    let { data: domainRenewal, error: domainError } = await supabase
+    const { data: domainRenewal, error: domainError } = await supabase
       .from('domain_renewals')
       .select('*')
       .eq('id', id)
@@ -31,7 +31,7 @@ export async function GET(
     }
 
     // Buscar em hosting_renewals
-    let { data: hostingRenewal, error: hostingError } = await supabase
+    const { data: hostingRenewal, error: hostingError } = await supabase
       .from('hosting_renewals')
       .select('*')
       .eq('id', id)

@@ -1,0 +1,28 @@
+# Dependabot (Silva, 28/10/2026: «liga»). Os pedidos de actualização de segurança chegam sozinhos; os de versão só
+# uma vez por semana e agrupados, para não encherem o GitHub. Nada se junta a `main` sem o «publica» do Silva.
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    groups:
+      menores-e-correcoes:
+        update-types:
+          - "minor"
+          - "patch"
+    ignore:
+      # O Next e o React sobem à mão, com ensaio (ver regras.md).
+      - dependency-name: "next"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react-dom"
+        update-types: ["version-update:semver-major"]
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 3

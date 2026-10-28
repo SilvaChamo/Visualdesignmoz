@@ -1,0 +1,195 @@
+name: Ops - Fecho do servidor (Supabase, SSH, chave da aplicação)
+
+# Três acções do fecho do projecto (Silva, 28/10/2026: «vamos fazer agora», «resolver»). Cada fase LÊ por omissão e só altera
+# com «aplicar». Antes de alterar guarda cópia em /root/fecho-servidor/<data>/ e testa; se o teste falhar, repõe a cópia.
+#
+#  supabase  → troca o endereço do Supabase de supabase-contabo.visualdesignmoz.com para supabase.visualdesignmoz.com
+#              (SUPABASE_PUBLIC_URL e API_EXTERNAL_URL no .env do Supabase + docker compose up -d). Os dois nomes continuam a responder.
+#              O deploy (deploy-contabo.yml) já grava o endereço novo no site. Quem tem sessão aberta volta a entrar uma vez.
+#              ANTES: se há login Google, juntar https://supabase.visualdesignmoz.com/auth/v1/callback na consola do Google (manter o antigo).
+#              ORDEM: correr «aplicar» e, logo a seguir, publicar (o site passa a falar com o nome novo).
+#  ssh       → endurece o SSH (só chave: PermitRootLogin prohibit-password, PasswordAuthentication no). Recusa-se a aplicar se
+#              alguma conta que não seja root entrou com palavra-passe nos últimos 30 dias (a não ser com «forcar»).
+#  chave-app → cria uma chave PRÓPRIA da aplicação (/root/.ssh/vd_app_key), distinta da chave do deploy, só aceite a partir deste
+#              servidor (from=). O deploy passa a usá-la e deixa de gravar a chave do deploy no disco. «concluir» apaga a cópia
+#              antiga (/root/.ssh/app_self_key) depois de o site já estar a usar a nova.
+#
+# Nunca mexe no pm2, no nginx, nos outros sites nem em contas. Não imprime chaves nem segredos.
+
+on:
+  workflow_dispatch:
+    inputs:
+      fase:
+        description: 'O que fazer'
+        type: choice
+        options:
+          - supabase
+          - ssh
+          - chave-app
+          - chave-app-concluir
+        default: supabase
+      aplicar:
+        description: 'Aplicar (desligado = só ler)'
+        type: boolean
+        default: false
+      forcar:
+        description: 'Só para «ssh»: aplicar mesmo que contas sem ser root tenham entrado com palavra-passe'
+        type: boolean
+        default: false
+
+concurrency:
+  group: ops-fecho-servidor
+  cancel-in-progress: false
+
+jobs:
+  fecho:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fecho do servidor (ler e, se pedido, alterar)
+        uses: appleboy/ssh-action@v1.2.5
+        env:
+          FASE: ${{ inputs.fase }}
+          APLICAR: ${{ inputs.aplicar }}
+          FORCAR: ${{ inputs.forcar }}
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          port: 2234
+          username: root
+          key: ${{ secrets.CONTABO_SSH_KEY }}
+          command_timeout: 10m
+          envs: FASE,APLICAR,FORCAR
+          script: |
+            set -u
+            titulo() { echo; echo "=== $*"; }
+            D=/root/fecho-servidor/$(date +%F-%H%M%S)
+            NOVO_SUPABASE="https://supabase.visualdesignmoz.com"
+
+            case "$FASE" in
+
+            supabase)
+              titulo "Supabase — onde está a configuração"
+              SDIR=""
+              for c in /opt/supabase-contabo/docker /opt/supabase/docker /opt/supabase-contabo; do
+                [ -f "$c/.env" ] && SDIR="$c" && break
+              done
+              if [ -z "$SDIR" ]; then
+                SDIR=$(dirname "$(find /opt -maxdepth 4 -name .env -path '*supabase*' 2>/dev/null | head -1)" 2>/dev/null)
+              fi
+              if [ -z "$SDIR" ] || [ ! -f "$SDIR/.env" ]; then echo "Não encontrei o .env do Supabase em /opt."; exit 1; fi
+              echo "pasta: $SDIR"
+              echo "--- endereços actuais (só estas duas chaves)"
+              grep -E '^(SUPABASE_PUBLIC_URL|API_EXTERNAL_URL)=' "$SDIR/.env"
+              echo "--- NEXT_PUBLIC_SUPABASE_URL do site (.env.local)"
+              grep -h '^NEXT_PUBLIC_SUPABASE_URL=' /opt/visualdesignmoz/.env.local 2>/dev/null || echo "(não encontrado)"
+              echo "--- respostas dos dois nomes (401 = normal sem chave)"
+              for h in supabase-contabo.visualdesignmoz.com supabase.visualdesignmoz.com; do
+                echo "$h: $(curl -s -o /dev/null -w '%{http_code}' --max-time 15 https://$h/auth/v1/health)"
+              done
+              if [ "$APLICAR" != "true" ]; then echo; echo "Só leitura: nada foi alterado."; exit 0; fi
+
+              titulo "A aplicar"
+              mkdir -p "$D"; cp -a "$SDIR/.env" "$D/supabase.env"; chmod 600 "$D/supabase.env"
+              sed -i -E "s#^(SUPABASE_PUBLIC_URL)=.*#\1=$NOVO_SUPABASE#; s#^(API_EXTERNAL_URL)=.*#\1=$NOVO_SUPABASE/auth/v1#" "$SDIR/.env"
+              grep -E '^(SUPABASE_PUBLIC_URL|API_EXTERNAL_URL)=' "$SDIR/.env"
+              cd "$SDIR" && docker compose up -d 2>&1 | tail -15
+              sleep 12
+              ok=1
+              for h in supabase-contabo.visualdesignmoz.com supabase.visualdesignmoz.com; do
+                c=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 https://$h/auth/v1/health)
+                echo "$h: $c"
+                [ "$c" = "401" ] || [ "$c" = "200" ] || ok=0
+              done
+              if [ "$ok" != "1" ]; then
+                echo "Um dos endereços não respondeu como esperado: a repor o .env anterior."
+                cp -a "$D/supabase.env" "$SDIR/.env" && cd "$SDIR" && docker compose up -d 2>&1 | tail -5
+                exit 1
+              fi
+              echo "Feito. Cópia do .env anterior em $D. Agora publicar para o site usar o endereço novo."
+              ;;
+
+            ssh)
+              titulo "SSH — configuração efectiva (sshd -T)"
+              sshd -T 2>/dev/null | grep -E '^(permitrootlogin|passwordauthentication|kbdinteractiveauthentication|pubkeyauthentication|port) '
+              ls /etc/ssh/sshd_config.d/ 2>/dev/null
+              titulo "Quem entrou com palavra-passe nos últimos 30 dias (sem mostrar endereços)"
+              LOGS=$(ls /var/log/auth.log* 2>/dev/null)
+              for L in $LOGS; do case "$L" in *.gz) zcat "$L" ;; *) cat "$L" ;; esac; done 2>/dev/null \
+                | grep -E 'Accepted password for' | sed -E 's/.*Accepted password for ([^ ]+) from .*/\1/' | sort | uniq -c | sort -rn | head -20
+              OUTROS=$(for L in $LOGS; do case "$L" in *.gz) zcat "$L" ;; *) cat "$L" ;; esac; done 2>/dev/null \
+                | grep -E 'Accepted password for' | sed -E 's/.*Accepted password for ([^ ]+) from .*/\1/' | grep -vx root | sort -u | paste -sd' ')
+              echo "(fim; vazio = ninguém entrou com palavra-passe nos registos disponíveis)"
+              if [ "$APLICAR" != "true" ]; then echo; echo "Só leitura: nada foi alterado."; exit 0; fi
+              if [ -n "$OUTROS" ] && [ "$FORCAR" != "true" ]; then
+                echo "RECUSADO: estas contas entraram com palavra-passe: $OUTROS. Passar a só chave cortava-lhes o acesso. Use «forcar» se for mesmo isso que se quer."
+                exit 1
+              fi
+              titulo "A aplicar"
+              mkdir -p "$D"; cp -a /etc/ssh/sshd_config.d "$D/sshd_config.d" 2>/dev/null || true; cp -a /etc/ssh/sshd_config "$D/sshd_config"
+              cat > /etc/ssh/sshd_config.d/00-vd-so-chave.conf <<'EOF'
+            # Fecho do projecto (Silva, 28/10/2026): o servidor só aceita chave SSH. O primeiro valor lido ganha, por isso este ficheiro vem primeiro.
+            PermitRootLogin prohibit-password
+            PasswordAuthentication no
+            KbdInteractiveAuthentication no
+            EOF
+              if ! sshd -t; then echo "sshd -t FALHOU: a repor"; rm -f /etc/ssh/sshd_config.d/00-vd-so-chave.conf; exit 1; fi
+              (systemctl reload ssh 2>/dev/null || systemctl reload sshd 2>/dev/null || true)
+              sleep 2
+              sshd -T 2>/dev/null | grep -E '^(permitrootlogin|passwordauthentication) '
+              # Prova: uma ligação nova com a chave ainda entra?
+              CHAVE=/root/.ssh/vd_app_key; [ -f "$CHAVE" ] || CHAVE=/root/.ssh/app_self_key
+              if ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o ConnectTimeout=10 -p 2234 -i "$CHAVE" root@127.0.0.1 true 2>/dev/null; then
+                echo "Ligação nova com chave: OK. Feito (cópia em $D)."
+              else
+                echo "A ligação nova com chave FALHOU: a repor a configuração anterior."
+                rm -f /etc/ssh/sshd_config.d/00-vd-so-chave.conf
+                (systemctl reload ssh 2>/dev/null || systemctl reload sshd 2>/dev/null || true)
+                exit 1
+              fi
+              ;;
+
+            chave-app)
+              titulo "Chave da aplicação — estado"
+              ls -l /root/.ssh/vd_app_key /root/.ssh/app_self_key 2>&1 | awk '{print $1, $NF}'
+              echo "--- SERVER_SSH_KEY_PATH do site"
+              grep -h '^SERVER_SSH_KEY_PATH=' /opt/visualdesignmoz/.env.local 2>/dev/null || echo "(não encontrado)"
+              echo "--- impressões digitais (não são segredos)"
+              for k in /root/.ssh/vd_app_key /root/.ssh/app_self_key; do [ -f "$k" ] && ssh-keygen -lf "$k" 2>/dev/null; done
+              if [ "$APLICAR" != "true" ]; then echo; echo "Só leitura: nada foi alterado."; exit 0; fi
+              titulo "A criar a chave própria da aplicação"
+              mkdir -p /root/.ssh "$D"; chmod 700 /root/.ssh
+              cp -a /root/.ssh/authorized_keys "$D/authorized_keys"
+              if [ ! -f /root/.ssh/vd_app_key ]; then
+                ssh-keygen -q -t ed25519 -N '' -C 'vd-app (so a partir do proprio servidor)' -f /root/.ssh/vd_app_key
+              fi
+              chmod 600 /root/.ssh/vd_app_key
+              IPS="127.0.0.1,::1"
+              for ip in $(hostname -I 2>/dev/null); do IPS="$IPS,$ip"; done
+              PUB=$(cut -d' ' -f1,2 /root/.ssh/vd_app_key.pub)
+              sed -i '/vd-app (so a partir do proprio servidor)/d' /root/.ssh/authorized_keys
+              echo "from=\"$IPS\",no-port-forwarding,no-agent-forwarding,no-X11-forwarding $PUB vd-app (so a partir do proprio servidor)" >> /root/.ssh/authorized_keys
+              chmod 600 /root/.ssh/authorized_keys
+              if ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o ConnectTimeout=10 -p 2234 -i /root/.ssh/vd_app_key root@127.0.0.1 true 2>/dev/null; then
+                echo "Chave nova entra a partir do servidor: OK."
+                ssh-keygen -lf /root/.ssh/vd_app_key
+                echo "Agora publicar: o deploy passa a apontar o site para /root/.ssh/vd_app_key. Depois, correr «chave-app-concluir»."
+              else
+                echo "A chave nova NÃO entrou: a repor authorized_keys."
+                cp -a "$D/authorized_keys" /root/.ssh/authorized_keys
+                exit 1
+              fi
+              ;;
+
+            chave-app-concluir)
+              titulo "Chave da aplicação — concluir"
+              EM_USO=$(grep -h '^SERVER_SSH_KEY_PATH=' /opt/visualdesignmoz/.env.local 2>/dev/null | cut -d= -f2- | tr -d '"')
+              echo "o site usa: ${EM_USO:-?}"
+              if [ "$EM_USO" != "/root/.ssh/vd_app_key" ]; then
+                echo "O site ainda não usa a chave nova: publique primeiro (deploy) e volte a correr esta fase."; exit 1
+              fi
+              ls -l /root/.ssh/app_self_key 2>&1 | awk '{print $1, $NF}'
+              if [ "$APLICAR" != "true" ]; then echo; echo "Só leitura: nada foi alterado."; exit 0; fi
+              mkdir -p "$D"
+              [ -f /root/.ssh/app_self_key ] && cp -a /root/.ssh/app_self_key "$D/app_self_key" && chmod 600 "$D/app_self_key" && rm -f /root/.ssh/app_self_key && echo "Cópia da chave do deploy apagada do disco (guardada em $D; apague-a de lá passados alguns dias)."
+              ;;
+
+            esac

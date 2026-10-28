@@ -325,15 +325,15 @@ export function getThemeColors(
   const normalizedId = presetId === 'red' ? 'visualdesign' : presetId === 'blue' ? 'visualpro' : presetId;
   const preset = THEME_PRESETS.find((p) => p.id === normalizedId) || THEME_PRESETS[0];
 
-  let primary = customComponents?.primary || (presetId === 'custom' && customPrimary ? customPrimary : preset.primary);
-  let dark = darkenHex(primary, 18);
-  let safe = customComponents?.safe || '#1C9D5B';
-  let danger = customComponents?.danger || '#E5202E';
-  let warning = customComponents?.warning || '#FBBF24';
-  let railBg = customComponents?.railBg || (presetId === 'custom' && customPrimary ? customPrimary : preset.railBg);
-  let railOn = darkenHex(railBg, 15);
-  let railHov = darkenHex(railBg, 10);
-  let railInk = customComponents?.railInk || preset.railInk || '#FFFFFF';
+  const primary = customComponents?.primary || (presetId === 'custom' && customPrimary ? customPrimary : preset.primary);
+  const dark = darkenHex(primary, 18);
+  const safe = customComponents?.safe || '#1C9D5B';
+  const danger = customComponents?.danger || '#E5202E';
+  const warning = customComponents?.warning || '#FBBF24';
+  const railBg = customComponents?.railBg || (presetId === 'custom' && customPrimary ? customPrimary : preset.railBg);
+  const railOn = darkenHex(railBg, 15);
+  const railHov = darkenHex(railBg, 10);
+  const railInk = customComponents?.railInk || preset.railInk || '#FFFFFF';
 
   let tint = preset.tint;
   let tintDark = preset.tintDark;

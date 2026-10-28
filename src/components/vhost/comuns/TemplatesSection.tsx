@@ -805,7 +805,7 @@ export function TemplatesSection() {
     } catch {
       selectTemplate(pickDefaultTemplate(defaultRenewalTemplates))
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [])
 
   // Carregar templates do servidor e reconciliar com o que já está aberto
