@@ -973,7 +973,7 @@ export function TemplatesSection() {
           <button
             onClick={resetToDefault}
             className="h-[38px] px-4 bg-red-50 border border-red-200 text-red-600 font-bold rounded hover:bg-red-100 hover:text-red-700 transition-colors flex items-center gap-2"
-            title="Restaurar templates padrão — elimina definitivamente as personalizações guardadas"
+            title="Restaurar modelos predefinidos — elimina definitivamente as personalizações guardadas"
           >
             <Trash2 className="w-4 h-4" />
             Eliminar

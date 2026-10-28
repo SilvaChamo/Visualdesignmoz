@@ -100,7 +100,7 @@ export async function GET(request: NextRequest) {
             const { data: { user: userData } } = await supabaseAdmin.auth.admin.getUserById(renewal.user_id)
             
             if (!userData) {
-              results.errors.push(`Usuário não encontrado: ${renewal.user_id}`)
+              results.errors.push(`Utilizador não encontrado: ${renewal.user_id}`)
               continue
             }
 
