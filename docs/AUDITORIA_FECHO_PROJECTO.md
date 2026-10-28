@@ -283,3 +283,12 @@ saíram, basta ela não valer para nada — pedir ao fornecedor que a revogue, o
 
 **Segunda leitura (ramo `resultados-da-auditoria-e-segunda-leitura`):** secções 13 a 15 do mesmo workflow: onde estão os registos de acesso e quem chamou as rotas, a firewall de entrada completa e a porta 21,
 e a configuração efectiva do SSH. Só depois dela se decide o endurecimento do SSH e o fecho de portas.
+
+---
+
+## 10. Ponto da situação — 28/10/2026 (ramo `fecho-do-projecto`)
+
+Resposta do Silva ponto a ponto e o que ficou feito está em `ESTADO_PROJECTO.md` («Falta para fechar»). Em resumo: IVA discriminado nos recibos do carrinho; lint, testes e build nos PR; Dependabot;
+fluxos `Ops - Fecho do servidor` (Supabase, SSH só chave, chave própria da aplicação) e `Ops - DMARC` prontos a correr depois de publicar; português de Portugal nos últimos textos; fase 1 da saída do DirectAdmin
+(10 rotas sem chamadores apagadas); lista dos ramos já fundidos em `docs/ramos-para-apagar-2026-10-28.md`. Por tratar: M-Pesa, Stripe, texto legal, facturação certificada.
+

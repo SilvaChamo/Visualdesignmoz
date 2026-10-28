@@ -398,6 +398,7 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
   **Consequência avisada ao Silva:** o nome do cookie de sessão deriva do endereço (`sb-supabase-…` em vez de `sb-supabase-contabo-…`): **todos os
   utilizadores têm de voltar a entrar uma vez, com o mesmo e-mail e a mesma palavra-passe** (contas e dados não mudam; só se perdem as sessões abertas). O nome antigo fica a funcionar (nginx serve os dois): `/opt/basededadosagro-site` e
   `/opt/visualdesign-panel` ainda usam o antigo e não precisam de mudar já. Reverter: voltar `.env` do Supabase, o secret e publicar.
+  **Preparado a 28/10/2026:** workflow `Ops - Fecho do servidor`, fase `supabase` (sem «aplicar» lê; com «aplicar» faz cópia do `.env`, troca os dois endereços, `docker compose up -d` e repõe se um dos nomes deixar de responder); o `deploy-contabo.yml` já grava o endereço novo no site. Ordem: Google (callback novo) → «aplicar» → publicar.
   **Feito:** (ainda não) — quem fizer, escreve aqui a data e o resultado.
 - **TAREFA PENDENTE — M-Pesa em produção** (Silva, 22/10/2026): o M-Pesa está em sandbox (`MPESA_ENV` em `deploy-contabo.yml`). Fica pendente até a
   Vodacom entregar as credenciais de produção; a mensagem para a Vodacom está em `docs/mpesa-pedido-vodacom.md`. Passar a produção só com o "avança"
