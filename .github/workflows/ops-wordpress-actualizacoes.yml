@@ -79,4 +79,18 @@ jobs:
               titulo "5. Idem, com o contexto de administração (WP_ADMIN) definido antes de carregar o WordPress"
               $W --exec='define("WP_ADMIN", true);' eval 'delete_site_transient("update_plugins"); wp_update_plugins();'" $LER_TRANSIENT" 2>&1 | head -n 30
             fi
+            titulo "6. Quem regista actualizações no wp-cli (ganchos) e o que a lista guardada contém além das actualizações"
+            $W eval '
+            global $wp_filter;
+            foreach (array("pre_set_site_transient_update_plugins", "site_transient_update_plugins", "pre_site_transient_update_plugins") as $h) {
+              echo $h.": ";
+              if (empty($wp_filter[$h])) { echo "(nenhum)\n"; continue; }
+              $n = array();
+              foreach ($wp_filter[$h]->callbacks as $cbs) foreach ($cbs as $cb) { $f = $cb["function"]; if (is_array($f)) $n[] = (is_object($f[0]) ? get_class($f[0]) : $f[0])."::".$f[1]; elseif (is_string($f)) $n[] = $f; else $n[] = "closure"; }
+              echo implode(", ", $n)."\n";
+            }
+            $t = get_site_transient("update_plugins");
+            echo "verificados: ".(isset($t->checked) ? count($t->checked) : 0)." · sem actualização: ".(isset($t->no_update) ? count($t->no_update) : 0)." · falhas: ".json_encode(isset($t->failed_checks) ? $t->failed_checks : null)."\n";
+            echo "is_admin() no wp-cli: ".(is_admin() ? "sim" : "não")."\n";
+            ' 2>&1 | cut -c1-400 | head -n 12
             titulo "fim da leitura"
