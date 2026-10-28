@@ -4,16 +4,16 @@ name: Ops - Porque um site WordPress responde 504 (só leitura)
 # estado do Redis (lento, bloqueado) e a resposta do site por etapas. Pedido do Silva a 28/10/2026 (entrecamposblog.com deu 504).
 
 on:
-  # só para registar o fluxo a partir do ramo de trabalho: corre uma vez ao enviar uma alteração a ESTE ficheiro. Tira-se depois.
-  push:
-    branches: [cache-e-extensoes-wordpress]
-    paths: ['.github/workflows/ops-site-lento.yml']
   workflow_dispatch:
     inputs:
       dominio:
         description: 'Domínio do site'
         required: true
         default: 'entrecamposblog.com'
+      reiniciar:
+        description: 'Depois de ler, reiniciar o PHP-FPM da conta (liberta os trabalhadores presos; ~2 s de interrupção nos sites da conta)'
+        type: boolean
+        default: false
 
 concurrency:
   group: ops-site-lento
@@ -27,13 +27,14 @@ jobs:
         uses: appleboy/ssh-action@v1.2.5
         env:
           DOMINIO: ${{ inputs.dominio || 'entrecamposblog.com' }}
+          REINICIAR: ${{ inputs.reiniciar && 'sim' || 'nao' }}
         with:
           host: ${{ secrets.CONTABO_HOST }}
           port: 2234
           username: root
           key: ${{ secrets.CONTABO_SSH_KEY }}
           command_timeout: 5m
-          envs: DOMINIO
+          envs: DOMINIO,REINICIAR
           script: |
             set -u
             titulo() { echo; echo "=================== $1"; }
@@ -64,9 +65,27 @@ jobs:
             redis-cli info stats | grep -E 'instantaneous_ops_per_sec|rejected_connections|evicted_keys'
             redis-cli slowlog get 5 | head -n 24 | cut -c1-100
             redis-cli --latency -i 1 -c 3 2>/dev/null | head -n 2
-            titulo "7. A resposta do site por etapas (a partir do servidor, 25 s de limite)"
+            titulo "7. A resposta do site por etapas (a partir do servidor, 10 s de limite)"
             IPSITE=$(/usr/local/hestia/bin/v-list-web-domain "$CONTA" "$DOMINIO" json 2>/dev/null | grep -oE '"IP": *"[0-9.]+"' | head -1 | grep -oE '[0-9.]+' | head -1); IPSITE=${IPSITE:-127.0.0.1}
-            for i in 1 2; do curl -sk -m 25 --resolve "$DOMINIO:443:$IPSITE" -o /dev/null -w "ligação %{time_connect}s · primeiro byte %{time_starttransfer}s · total %{time_total}s · código %{http_code}\n" "https://$DOMINIO/"; done
+            for i in 1 2; do curl -sk -m 10 --resolve "$DOMINIO:443:$IPSITE" -o /dev/null -w "ligação %{time_connect}s · primeiro byte %{time_starttransfer}s · total %{time_total}s · código %{http_code}\n" "https://$DOMINIO/"; done
             echo "--- uma página sem cache (sem WordPress carregado a fundo): robots.txt"
-            curl -sk -m 25 --resolve "$DOMINIO:443:$IPSITE" -o /dev/null -w "código %{http_code} · %{time_total}s\n" "https://$DOMINIO/robots.txt"
+            curl -sk -m 10 --resolve "$DOMINIO:443:$IPSITE" -o /dev/null -w "código %{http_code} · %{time_total}s\n" "https://$DOMINIO/robots.txt"
+            titulo "8. Que pedidos entraram nos últimos 3 000 registos do nginx (estado · endereço sem parâmetros · quantos)"
+            LOG=/var/log/nginx/domains/$DOMINIO.log
+            [ -f "$LOG" ] && tail -n 3000 "$LOG" | awk '{u=$7; sub(/\?.*/,"",u); print $9, u}' | sort | uniq -c | sort -rn | head -n 14
+            echo "--- primeiros e últimos registos (hora):"; [ -f "$LOG" ] && { tail -n 3000 "$LOG" | head -n 1 | grep -oE '\[[^]]+\]'; tail -n 1 "$LOG" | grep -oE '\[[^]]+\]'; }
+            echo "--- quem pede (quantos pedidos por endereço, último número escondido):"
+            [ -f "$LOG" ] && tail -n 3000 "$LOG" | awk '{print $1}' | sed -E 's/\.[0-9]+$/.x/' | sort | uniq -c | sort -rn | head -n 6
+            echo "--- pedidos a wp-cron.php e admin-ajax.php nos últimos 3 000:"; [ -f "$LOG" ] && tail -n 3000 "$LOG" | grep -cE 'wp-cron.php|admin-ajax.php'
+            if [ "$REINICIAR" = "sim" ] && [ -n "${U:-}" ]; then
+              titulo "9. A reiniciar $U (liberta os trabalhadores presos)"
+              systemctl restart "$U"; sleep 4
+              systemctl show "$U" -p ActiveState -p ActiveEnterTimestamp
+              echo "processos php-fpm da conta: $(ps -u "$CONTA" -o args= 2>/dev/null | grep -c 'php-fpm: pool')"
+              for d in "$DOMINIO" desporto.entrecamposblog.com producoes.visualdesignmoz.com; do
+                curl -sk -m 20 --resolve "$d:443:$IPSITE" -o /dev/null -w "$d: %{http_code} · %{time_total}s\n" "https://$d/"
+              done
+              sleep 10
+              echo "--- dez segundos depois:"; ps -u "$CONTA" -o pid,etime,pcpu,stat,args 2>/dev/null | grep 'php-fpm: pool' | head -n 10 | cut -c1-100
+            fi
             titulo "fim da leitura (nada foi alterado)"
