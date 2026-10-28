@@ -1,0 +1,62 @@
+name: Ops - Quem usa a base 3 do Redis (só leitura)
+
+# Só LÊ: descobre que aplicação escreve na base 3 do Redis (1 708 chaves sem validade). Mostra a segurança do Redis (só os nomes das directivas),
+# as chaves de amostra (só o início do nome, o tipo, a validade, há quanto tempo não são lidas e o tamanho; nunca os valores), os comandos que o Redis
+# mais recebeu, os clientes ligados à base 3, 20 segundos de actividade nessa base (só o comando e o início do nome da chave) e os ficheiros do servidor
+# que falam em Redis (só os nomes). Pedido do Silva a 28/10/2026.
+
+on:
+  # só para registar o fluxo a partir do ramo de trabalho, antes de estar em main: corre uma vez ao enviar uma alteração a ESTE ficheiro.
+  push:
+    branches: [cache-e-extensoes-wordpress]
+    paths: ['.github/workflows/ops-redis-base3.yml']
+  workflow_dispatch:
+
+concurrency:
+  group: ops-redis-base3
+  cancel-in-progress: false
+
+jobs:
+  leitura:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Base 3 do Redis (só leitura)
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          port: 2234
+          username: root
+          key: ${{ secrets.CONTABO_SSH_KEY }}
+          command_timeout: 6m
+          script: |
+            set -u
+            titulo() { echo; echo "=================== $1"; }
+            titulo "1. Segurança do Redis (só nomes das directivas) e bases"
+            grep -hE '^(requirepass|rename-command|aclfile|user |bind|port|protected-mode|save |appendonly|dir )' /etc/redis/redis.conf | sed -E 's/^(requirepass|masterauth) .*/\1 ***/; s/^(user [^ ]+) .*/\1 ***/' | cut -c1-80
+            redis-cli info keyspace | grep -E '^db'
+            redis-cli -n 3 dbsize
+            titulo "2. Tentativa de ler 10 chaves da base 3 (erros visíveis)"
+            redis-cli -n 3 scan 0 count 300 2>&1 | head -n 12 | cut -c1-60
+            titulo "3. Prefixos das chaves da base 3 (início do nome até 20 letras) e da base 0"
+            for db in 3 0; do
+              echo "--- base $db:"
+              redis-cli -n "$db" --scan 2>&1 | head -n 3000 | sed -E 's/^(.{1,20}).*/\1/; s/[0-9a-f]{8,}/#/g' | sort | uniq -c | sort -rn | head -n 12
+            done
+            titulo "4. Amostra de 12 chaves da base 3: tipo · validade (s) · parada há (s) · tamanho (bytes) · início do nome"
+            redis-cli -n 3 --scan 2>/dev/null | head -n 4000 | shuf -n 12 | while read -r k; do
+              t=$(redis-cli -n 3 type "$k"); v=$(redis-cli -n 3 ttl "$k"); i=$(redis-cli -n 3 object idletime "$k"); m=$(redis-cli -n 3 memory usage "$k")
+              echo "$t · ttl $v · parada $i · $m B · $(echo "$k" | cut -c1-28)"
+            done
+            titulo "5. Comandos mais recebidos (o tipo de uso denuncia a aplicação)"
+            redis-cli info commandstats | sed -E 's/cmdstat_//; s/:calls=([0-9]+).*/ \1/' | sort -k2 -n -r | head -n 12
+            titulo "6. Clientes ligados agora (sem endereços de fora): base · nome · comando · parado há"
+            redis-cli client list | grep -oE 'laddr=[^ ]+|db=[0-9]+|name=[^ ]*|cmd=[^ ]+|idle=[0-9]+|lib-name=[^ ]*' | paste -sd' ' | sed 's/laddr=/\nladdr=/g' | head -n 12
+            titulo "7. Vinte segundos de actividade na base 3 (só comando e início do nome da chave; sem valores)"
+            timeout 20 redis-cli monitor 2>/dev/null | grep -E ' \[3 ' | awk '{c=$4; k=$5; gsub(/"/,"",c); gsub(/"/,"",k); print c, substr(k,1,24)}' | sed -E 's/[0-9a-f]{8,}/#/g' | sort | uniq -c | sort -rn | head -n 12 || true
+            echo "(fim dos 20 segundos)"
+            titulo "8. Ficheiros do servidor que falam em Redis (só os nomes)"
+            docker ps --format '{{.Names}}' 2>/dev/null | grep -i redis || echo "(nenhum contentor com redis no nome)"
+            grep -rIl -i redis /etc/exim4 /etc/dovecot /etc/roundcube /etc/supervisor /etc/systemd/system /usr/local/hestia/conf /etc/php 2>/dev/null | head -n 15
+            grep -lE "WP_REDIS_DATABASE|WP_REDIS_HOST" /home/*/web/*/public_html/wp-config.php /home/*/web/*/public_html/*/wp-config.php 2>/dev/null | head -n 10
+            for d in /opt/*; do [ -d "$d" ] && c=$(grep -rIl -i --include='.env*' --include='*.service' --include='*.conf' --include='*.json' -E 'redis' "$d" --exclude-dir=node_modules --exclude-dir=.next --exclude-dir=.git --exclude-dir=docker 2>/dev/null | head -n 3 | paste -sd' ') && [ -n "$c" ] && echo "$d: $c"; done | cut -c1-200 | head -n 12
+            titulo "fim da leitura (nada foi alterado)"
