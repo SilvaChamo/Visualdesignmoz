@@ -10,9 +10,6 @@ name: Ops - Gravar os erros do PHP na pasta do site (error_log e slow_log; sem �
 # noutras contas ou domínios. Cópia do que muda, `php-fpm -t` e `nginx -t` antes, recarga suave (`reload`). Sem «aplicar» só mostra o que faria.
 
 on:
-  push:
-    branches: [margem-de-baixo-em-todas-as-paginas]
-    paths: ['.github/workflows/ops-php-erros-gravar.yml']
   workflow_dispatch:
     inputs:
       dominio:
