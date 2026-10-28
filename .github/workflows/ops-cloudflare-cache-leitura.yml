@@ -40,11 +40,20 @@ jobs:
             titulo() { echo; echo "=================== $1"; }
             echo "$DOMINIOS" | grep -qE '^[a-z0-9. -]+$' || { echo "Domínios inválidos"; exit 1; }
             ENVF=/opt/visualdesignmoz/.env.local
-            T=$(grep -E '^CLOUDFLARE_API_TOKEN_ACCOUNT=' "$ENVF" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'")
-            [ -z "$T" ] && { echo "Sem CLOUDFLARE_API_TOKEN_ACCOUNT no servidor"; exit 0; }
-            cf() { curl -s -m 30 -H "Authorization: Bearer $T" -H "Content-Type: application/json" "https://api.cloudflare.com/client/v4$1"; }
+            lerenv() { grep -E "^$1=" "$ENVF" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'"; }
+            CE=$(lerenv CLOUDFLARE_EMAIL); CK=$(lerenv CLOUDFLARE_GLOBAL_API_KEY); T=$(lerenv CLOUDFLARE_API_TOKEN_ACCOUNT)
+            echo "variáveis no servidor: CLOUDFLARE_EMAIL $([ -n "$CE" ] && echo sim || echo não) · CLOUDFLARE_GLOBAL_API_KEY $([ -n "$CK" ] && echo sim || echo não) · CLOUDFLARE_API_TOKEN_ACCOUNT $([ -n "$T" ] && echo sim || echo não)"
+            if [ -n "$CE" ] && [ -n "$CK" ]; then
+              echo "a usar: Global API Key (a mesma que o painel usa)"
+              cf() { curl -s -m 30 -H "X-Auth-Email: $CE" -H "X-Auth-Key: $CK" -H "Content-Type: application/json" "https://api.cloudflare.com/client/v4$1"; }
+              VERIFICAR=/user
+            elif [ -n "$T" ]; then
+              echo "a usar: token restrito"
+              cf() { curl -s -m 30 -H "Authorization: Bearer $T" -H "Content-Type: application/json" "https://api.cloudflare.com/client/v4$1"; }
+              VERIFICAR=/user/tokens/verify
+            else echo "Sem chave da Cloudflare no servidor"; exit 0; fi
             titulo "1. A chave da conta (estado e permissões, sem mostrar a chave)"
-            cf /user/tokens/verify | python3 -c 'import sys,json; d=json.load(sys.stdin); r=d.get("result") or {}; print("válida:", d.get("success"), "· estado:", r.get("status"), "· erros:", [e.get("message") for e in d.get("errors",[])])' 2>&1
+            cf $VERIFICAR | python3 -c 'import sys,json; d=json.load(sys.stdin); r=d.get("result") or {}; print("válida:", d.get("success"), "· estado:", r.get("status", "n/a"), "· erros:", [e.get("message") for e in d.get("errors",[])])' 2>&1
             for DOM in $DOMINIOS; do
               titulo "$DOM"
               ZID=$(cf "/zones?name=$DOM" | python3 -c 'import sys,json; d=json.load(sys.stdin); r=d.get("result") or []; print(r[0]["id"] if r else "")' 2>/dev/null)
