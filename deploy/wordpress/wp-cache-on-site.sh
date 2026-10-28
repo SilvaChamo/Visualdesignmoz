@@ -69,12 +69,14 @@ if (class_exists("WPO_Page_Cache")) { WPO_Page_Cache::instance()->enable(); }
 '
 passo "WP_CACHE definido" garantir_wp_cache
 
-# 4. cache de objectos em Redis, só se o Redis responder; prefixo próprio e esvaziar só as chaves deste site
+# 4. cache de objectos em Redis, só se o Redis responder; prefixo próprio, esvaziar só as chaves deste site e todas com validade (para o
+#    limite de memória do Redis, política volatile-lru, só poder apagar chaves de cache e nunca dados de outras aplicações)
 if [[ "$(redis-cli ping 2>/dev/null)" == "PONG" ]]; then
   passo "Redis Cache instalado" wpu plugin install redis-cache
   passo "Redis Cache activo" wpu eval 'require_once ABSPATH."wp-admin/includes/plugin.php"; $r = activate_plugin("redis-cache/redis-cache.php"); if (is_wp_error($r)) { echo $r->get_error_message(); exit(1); }'
   passo "prefixo do Redis" cfg WP_REDIS_PREFIX "$PREFIXO"
   passo "esvaziar só as chaves do site" cfg WP_REDIS_SELECTIVE_FLUSH true --raw
+  passo "validade das chaves (7 dias)" cfg WP_REDIS_MAXTTL 604800 --raw
   passo "cache de objectos ligada" wpu redis enable
 else
   echo "[AVISO] Redis não responde: cache de objectos por ligar"
