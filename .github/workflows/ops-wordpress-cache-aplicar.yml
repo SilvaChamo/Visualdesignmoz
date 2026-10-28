@@ -92,8 +92,8 @@ jobs:
                 break
               fi
             done
-            titulo "os outros sites (têm de dar 200)"
-            for s in basededadosagro.com visualdesignmoz.com; do r=$(curl -sS -m 30 -o /dev/null -w '%{http_code} · %{time_total}s' "https://$s/" 2>&1); echo "$s (a partir do servidor) -> $r · saída $?"; done
+            titulo "o basededadosagro.com a partir do servidor (o visualdesignmoz.com não se abre a si próprio daqui: vê-se de fora, no passo seguinte)"
+            for s in basededadosagro.com; do r=$(curl -sS -m 30 -o /dev/null -w '%{http_code} · %{time_total}s' "https://$s/" 2>&1); echo "$s (a partir do servidor) -> $r · saída $?"; done
             titulo "fim ($([ "$FALHOU" = 0 ] && echo sem falhas || echo COM FALHAS))"
             exit "$FALHOU"
 

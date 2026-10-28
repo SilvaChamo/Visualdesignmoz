@@ -26,6 +26,15 @@ passo() {
   return 0
 }
 
+# wp config set com a âncora normal; se o wp-config não a tem (ex.: entrecamposblog.com), põe antes do require do wp-settings.php
+cfg() {
+  wpu config set "$@" 2>/dev/null && return 0
+  wpu config set "$@" --anchor="require_once ABSPATH . 'wp-settings.php';" --placement=before 2>&1
+}
+
+# o WP-Optimize costuma pôr o WP_CACHE sozinho ao ligar a cache; só se não o pôs é que se define aqui
+garantir_wp_cache() { wpu config has WP_CACHE >/dev/null 2>&1 || cfg WP_CACHE true --raw; }
+
 # Prefixo das chaves do Redis: um por site (e por pasta, se o WordPress não está na raiz). Isola os sites que partilham o Redis.
 RAIZ_SITE="/home/$WP_USER/web/$DOMINIO/public_html"
 REL="${WP_PATH#"$RAIZ_SITE"}"
@@ -51,22 +60,21 @@ passo "sem Akismet nem Hello Dolly" bash -c "sudo -u '$WP_USER' '$WP' --path='$W
 # 3. WP-Optimize activo e cache de página ligada (opção + advanced-cache.php + WP_CACHE)
 passo "WP-Optimize instalado" wpu plugin install wp-optimize
 passo "WP-Optimize activo" wpu plugin activate wp-optimize
-passo "WP_CACHE a true" wpu config set WP_CACHE true --raw
 passo "cache de página ligada" wpu eval '
 $c = get_option("wpo_page_cache_config", array());
 if (!is_array($c)) $c = array();
 $c["enable_page_caching"] = true;
 update_option("wpo_page_cache_config", $c);
 if (class_exists("WPO_Page_Cache")) { WPO_Page_Cache::instance()->enable(); }
-do_action("wpo_cache_config_updated");
 '
+passo "WP_CACHE definido" garantir_wp_cache
 
 # 4. cache de objectos em Redis, só se o Redis responder; prefixo próprio e esvaziar só as chaves deste site
 if [[ "$(redis-cli ping 2>/dev/null)" == "PONG" ]]; then
   passo "Redis Cache instalado" wpu plugin install redis-cache
-  passo "Redis Cache activo" wpu plugin activate redis-cache
-  passo "prefixo do Redis" wpu config set WP_REDIS_PREFIX "$PREFIXO"
-  passo "esvaziar só as chaves do site" wpu config set WP_REDIS_SELECTIVE_FLUSH true --raw
+  passo "Redis Cache activo" wpu eval 'require_once ABSPATH."wp-admin/includes/plugin.php"; $r = activate_plugin("redis-cache/redis-cache.php"); if (is_wp_error($r)) { echo $r->get_error_message(); exit(1); }'
+  passo "prefixo do Redis" cfg WP_REDIS_PREFIX "$PREFIXO"
+  passo "esvaziar só as chaves do site" cfg WP_REDIS_SELECTIVE_FLUSH true --raw
   passo "cache de objectos ligada" wpu redis enable
 else
   echo "[AVISO] Redis não responde: cache de objectos por ligar"
