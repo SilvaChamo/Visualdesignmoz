@@ -6,11 +6,6 @@ name: Ops - Plugins que entram por defeito nos WordPress (só leitura)
 # wp-config nem de variáveis, só a contagem de uma constante. Pedido do Silva a 28/10/2026 (regra 4 de regras.md: só leitura primeiro).
 
 on:
-  # só para correr a partir do ramo de trabalho, antes de o ficheiro estar em main (o GitHub só deixa «Run workflow» com ficheiros
-  # que já estão em main): corre uma vez ao enviar uma alteração a ESTE ficheiro. Tira-se quando o ficheiro entrar em main.
-  push:
-    branches: [cache-e-extensoes-wordpress]
-    paths: ['.github/workflows/ops-wordpress-plugins-padrao.yml']
   workflow_dispatch:
 
 concurrency:

@@ -6,10 +6,6 @@ name: Ops - Quem usa a base 3 do Redis (só leitura)
 # que falam em Redis (só os nomes). Pedido do Silva a 28/10/2026.
 
 on:
-  # só para registar o fluxo a partir do ramo de trabalho, antes de estar em main: corre uma vez ao enviar uma alteração a ESTE ficheiro.
-  push:
-    branches: [cache-e-extensoes-wordpress]
-    paths: ['.github/workflows/ops-redis-base3.yml']
   workflow_dispatch:
 
 concurrency:

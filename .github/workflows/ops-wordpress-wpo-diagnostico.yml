@@ -6,10 +6,6 @@ name: Ops - Diagnóstico da cache de página do WP-Optimize (só leitura e uma t
 # (como o script faz, e carregando antes as funções do administrador), a ver qual funciona. Pedido do Silva a 28/10/2026.
 
 on:
-  # só para correr a partir do ramo de trabalho, antes de o ficheiro estar em main. Tira-se quando o ficheiro entrar em main.
-  push:
-    branches: [cache-e-extensoes-wordpress]
-    paths: ['.github/workflows/ops-wordpress-wpo-diagnostico.yml']
   workflow_dispatch:
     inputs:
       dominios:

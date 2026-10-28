@@ -8,11 +8,6 @@ name: Ops - Aplicar a cache e o stack a sites WordPress já existentes
 # Pedido do Silva a 28/10/2026 («avança»). Nunca toca no pm2, no nginx nem em mais nenhum site.
 
 on:
-  # só para registar o fluxo a partir do ramo de trabalho, antes de estar em main: ao enviar uma alteração a ESTE ficheiro corre uma vez
-  # SÓ A LER (sem confirmar). Tira-se quando o ficheiro entrar em main.
-  push:
-    branches: [cache-e-extensoes-wordpress]
-    paths: ['.github/workflows/ops-wordpress-cache-aplicar.yml']
   workflow_dispatch:
     inputs:
       dominios:

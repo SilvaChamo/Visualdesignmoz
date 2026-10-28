@@ -5,10 +5,6 @@ name: Ops - Cache dos sites Node.js, Next.js e WordPress antigos (só leitura)
 # chaves e o estado do WP-Optimize. Nada de segredos: só nomes. Pedido do Silva a 28/10/2026 (regra 4 de regras.md: só leitura primeiro).
 
 on:
-  # só para registar o fluxo a partir do ramo de trabalho, antes de estar em main: corre uma vez ao enviar uma alteração a ESTE ficheiro.
-  push:
-    branches: [cache-e-extensoes-wordpress]
-    paths: ['.github/workflows/ops-cache-leitura.yml']
   workflow_dispatch:
 
 concurrency:

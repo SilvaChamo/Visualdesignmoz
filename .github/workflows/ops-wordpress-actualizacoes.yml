@@ -7,11 +7,6 @@ name: Ops - Actualizações de plugins que o painel não vê (só leitura)
 # Pedido do Silva a 28/10/2026 (regra 4 de regras.md: só leitura primeiro).
 
 on:
-  # só para correr a partir do ramo de trabalho, antes de o ficheiro estar em main: corre uma vez ao enviar uma alteração a ESTE
-  # ficheiro, só a leitura (sem refrescar). Tira-se quando o ficheiro entrar em main.
-  push:
-    branches: [cache-e-extensoes-wordpress]
-    paths: ['.github/workflows/ops-wordpress-actualizacoes.yml']
   workflow_dispatch:
     inputs:
       dominio:
