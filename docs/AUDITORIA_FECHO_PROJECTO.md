@@ -175,8 +175,9 @@ com todos os pontos corrigidos; deploy sem corte com reversão; isenção do IP 
 1. **Sem verificação antes de publicar** (B). Só existe o workflow de deploy (corre em cada merge em `main`); nenhum workflow corre `tsc`, `lint`
    ou `npm run i18n`/`i18n:painel` nos PR, e há **um único teste** (`email-quota-allocation.test.mjs`). Acrescentar um workflow de PR com `tsc --noEmit`,
    `next lint`, `npm run i18n` e `npm run i18n:painel`, e um teste de fumo (login, checkout de teste, `/recibo`).
-2. **Dependabot activo** (`.github/dependabot.yml`; alertas de segurança ligados a 28/10/2026). Há 4 alertas abertos: 1 alto, 1 médio e 2 baixos
-   (em `serialize-javascript` e `deepmerge`); os alertas corrigidos continuam no histórico.
+2. **Dependabot activo** (`.github/dependabot.yml`; alertas de segurança ligados a 28/10/2026). Os quatro alertas de `serialize-javascript` e `deepmerge`
+   foram corrigidos no ramo `tratar-pendencias-github` (versão segura de `serialize-javascript` e cópia local de `deepmerge` com as chaves perigosas
+   bloqueadas). `npm audit` não aponta vulnerabilidades; depois do merge, confirmar que os alertas do GitHub fecharam.
 3. **Política de Privacidade e Termos genéricos** (B): 6 secções curtas, «Última actualização: Julho de 2026», sem identificar o responsável pelo tratamento
    (nome legal, NUIT, morada, contacto), sem prazos de conservação, sem lista de categorias de dados de pagamento e sem página de **cookies**. Não há faixa de
    consentimento de cookies. Rever com um jurista à luz da legislação moçambicana aplicável e da dos clientes no estrangeiro.

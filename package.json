@@ -92,5 +92,9 @@
     "postcss": "^8.4.38",
     "tailwindcss": "^4.3.2",
     "typescript": "^5"
+  },
+  "overrides": {
+    "deepmerge": "file:vendor/deepmerge",
+    "serialize-javascript": "7.1.3"
   }
 }
