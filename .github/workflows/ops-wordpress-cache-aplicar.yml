@@ -93,6 +93,13 @@ jobs:
               fi
             done
             titulo "os outros sites (têm de dar 200)"
-            for s in basededadosagro.com visualdesignmoz.com; do echo "$s -> $(curl -s -m 30 -o /dev/null -w '%{http_code}' "https://$s/")"; done
+            for s in basededadosagro.com visualdesignmoz.com; do r=$(curl -sS -m 30 -o /dev/null -w '%{http_code} · %{time_total}s' "https://$s/" 2>&1); echo "$s (a partir do servidor) -> $r · saída $?"; done
             titulo "fim ($([ "$FALHOU" = 0 ] && echo sem falhas || echo COM FALHAS))"
             exit "$FALHOU"
+
+      - name: Os sites vistos de fora (a partir do GitHub)
+        if: always()
+        run: |
+          for s in basededadosagro.com visualdesignmoz.com entrecamposblog.com desporto.entrecamposblog.com producoes.visualdesignmoz.com; do
+            echo "$s -> $(curl -sS -m 30 -o /dev/null -w '%{http_code} · %{time_total}s' "https://$s/" 2>&1)"
+          done
