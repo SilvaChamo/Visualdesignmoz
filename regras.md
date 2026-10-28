@@ -41,6 +41,17 @@ git fetch -q origin RAMO && bash <(git show origin/RAMO:scripts/atualizar-local.
 ```
 O agente que tem a pasta local faz o mesmo ele próprio (`bash scripts/atualizar-local.sh RAMO /CAMINHO`). Se o script precisar de mudar, muda-se o script (e esta regra), nunca se dá outro comando.
 
+# O servidor local arranca SÓ com `npm run dev` — nunca com flags nem outro modo (Silva, 28/10/2026)
+
+**Para qualquer agente, com qualquer IA, logo ao entrar no projecto:** o servidor local (porta 3003) é `npm run dev` (que corre `next dev --port 3003` com o Turbopack) e **nada mais**. Nunca `--webpack`, `--turbopack`, outra porta, `npx next dev` nem qualquer flag «para testar».
+Porquê: em 28/10/2026 um agente sugeriu `next dev --webpack`; esse modo não compila o projecto (`UnhandledSchemeError: node:child_process`), o servidor ficou a dar erro 500 com as páginas penduradas e o site local ficou em baixo. O `--webpack` só existe no `build` de produção (`npm run build`), nunca em desenvolvimento.
+
+- **Site local em baixo ou a piscar:** não se experimentam modos de arranque. O agente pede primeiro o registo (`tail -50 /tmp/visualdesign-dev.log`) e só depois propõe uma correcção. Quando é preciso reiniciar, dá-se só isto, que fecha o servidor e liga-o outra vez:
+  `pkill -9 -f "next dev"; lsof -ti tcp:3003 -sTCP:LISTEN | xargs kill -9 2>/dev/null; sleep 1; rm -rf .next; npm run dev`
+- **Não se muda o `dev` do `package.json`** (nem a configuração do Next) para tentar resolver um problema do site local sem o Silva pedir e sem o agente o ter testado na pasta local.
+- **Um só servidor por pasta:** antes de ligar outro, ver se a 3003 já responde (`lsof -ti tcp:3003 -sTCP:LISTEN`). Dois `next dev` na mesma pasta disputam a cache `.next` e o site pisca.
+- Nunca se dá ao Silva um comando que o agente não tenha confirmado; se não pode testar (agente na nuvem), diz-o.
+
 # Agentes na nuvem (online): conversa curta, tudo nos bastidores (Silva, 23/10/2026)
 
 **Só para os agentes que trabalham online (na nuvem, sem acesso à pasta local).** Os que trabalham no IDE (Cursor, Copilot, Codex, Gemini

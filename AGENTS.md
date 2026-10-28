@@ -19,6 +19,10 @@ estão, mas não se repetem em texto novo. Do Hetzner diz-se só que **já está
 Qualquer agente, com qualquer IA, actualiza o site local **só com `scripts/atualizar-local.sh`** (ou `npm run atualizar`): muda de ramo sem parar o servidor, sem apagar a cache e sem recarregar a página, e abre as duas vistas (computador e telemóvel). O comando que se dá ao Silva é
 `git fetch -q origin RAMO && bash <(git show origin/RAMO:scripts/atualizar-local.sh) RAMO /CAMINHO`. Nunca outros comandos nem o «modelo gigante» (ver `regras.md`).
 
+## Servidor local: só `npm run dev`, nunca flags (Silva, 28/10/2026)
+
+O site local arranca **só com `npm run dev`** (Turbopack, porta 3003). Nunca `--webpack`, `--turbopack`, `npx next dev` nem outro modo «para testar»: o `--webpack` não compila este projecto (`node:child_process`), deixa o servidor a dar erro 500 e deita o site local abaixo. Se o site local falhar, pede-se primeiro o registo (`tail -50 /tmp/visualdesign-dev.log`) e não se experimentam modos de arranque. Detalhes em `regras.md`.
+
 ## Língua: sempre português, nunca inglês (Silva, 17/10/2026)
 
 Fala-se sempre em português com o Silva — nunca em inglês, em nenhuma circunstância ("nunca falar inglês neste
