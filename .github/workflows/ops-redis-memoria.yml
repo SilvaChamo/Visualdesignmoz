@@ -26,7 +26,7 @@ on:
         type: boolean
         default: false
       limpar:
-        description: 'Apagar a cache órfã (base 3: aamihe:Aimes:*; base 0: prefixos antigos parados há mais de 30 min)'
+        description: 'Apagar a cache órfã (base 3: aamihe:Aimes:*; base 0: prefixos antigos parados há mais de 15 min)'
         type: boolean
         default: false
 
@@ -102,20 +102,19 @@ jobs:
               titulo "7. Limpeza da cache órfã (só chaves de cache; nada de contas nem de dados)"
               echo "--- base 3: aamihe:Aimes:* (cache do site aamihe.com, apagado do servidor a 26/10/2026)"
               echo "chaves antes: $(redis-cli -n 3 dbsize)"
-              menor=$(redis-cli -n 3 --scan --pattern 'aamihe:Aimes:*' | head -n 80 | while IFS= read -r k; do redis-cli -n 3 object idletime "$k"; done | sort -n | head -n 1)
-              echo "menor tempo parado entre as primeiras 80 (s): ${menor:-?}"
-              if [ -n "${menor:-}" ] && [ "$menor" -gt 86400 ]; then
-                redis-cli -n 3 --scan --pattern 'aamihe:Aimes:*' | while IFS= read -r k; do redis-cli -n 3 unlink "$k" >/dev/null; done
-                echo "chaves depois: $(redis-cli -n 3 dbsize)"
-              else
-                echo "ALERTA: há chaves usadas há menos de 1 dia (ou nenhuma): não se apaga nada na base 3"
-              fi
-              echo "--- base 0: prefixos antigos (tudo o que não começa por vd_) e parado há mais de 30 min"
+              apagadas=0; mantidas=0
+              L=$(mktemp); redis-cli -n 3 --scan --pattern 'aamihe:Aimes:*' > "$L"
+              while IFS= read -r k; do
+                i=$(redis-cli -n 3 object idletime "$k")
+                if [ "${i:-0}" -gt 86400 ]; then redis-cli -n 3 unlink "$k" >/dev/null; apagadas=$((apagadas+1)); else mantidas=$((mantidas+1)); fi
+              done < "$L"; rm -f "$L"
+              echo "apagadas (paradas há mais de 1 dia): $apagadas · mantidas (usadas há menos de 1 dia): $mantidas · chaves depois: $(redis-cli -n 3 dbsize)"
+              echo "--- base 0: prefixos antigos (tudo o que não começa por vd_) e parado há mais de 15 min"
               echo "chaves antes: $(redis-cli -n 0 dbsize) · com o prefixo novo (vd_): $(redis-cli -n 0 --scan --pattern 'vd_*' | wc -l)"
               apagadas=0
               redis-cli -n 0 --scan | grep -v '^vd_' | while IFS= read -r k; do
                 i=$(redis-cli -n 0 object idletime "$k")
-                if [ "${i:-0}" -gt 1800 ]; then redis-cli -n 0 unlink "$k" >/dev/null; fi
+                if [ "${i:-0}" -gt 900 ]; then redis-cli -n 0 unlink "$k" >/dev/null; fi
               done
               echo "chaves depois: $(redis-cli -n 0 dbsize) · com o prefixo novo (vd_): $(redis-cli -n 0 --scan --pattern 'vd_*' | wc -l)"
               redis-cli info memory | grep -E '^used_memory_human'
