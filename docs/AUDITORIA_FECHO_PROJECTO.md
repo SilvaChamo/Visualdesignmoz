@@ -260,3 +260,26 @@ saíram, basta ela não valer para nada — pedir ao fornecedor que a revogue, o
 9. «Avança» para qualquer alteração ao servidor que a leitura mostre ser precisa (troca do endereço do Supabase, separar a chave SSH da aplicação da do deploy, registo A `webmail.` no DNS, nginx da porta 2026).
 10. Apagar os ramos antigos, incluindo `claude/focused-turing-p63thb`, `auditoria-fecho-projecto` e `verificacao-nos-pr-e-traducao`.
 11. M-Pesa (último): credenciais de produção, «avança» e pagamento de teste.
+
+---
+
+## 9. Resultado da leitura do servidor — 27/10/2026, 20:34 (workflow `Ops - Auditoria do servidor (só leitura)`, sem alterar nada)
+
+| Ponto | Resultado | Estado |
+|-------|-----------|--------|
+| Site e outros sites | `visualdesignmoz` no pm2 «online»; `basededadosagro-site` activo; disco 26 % | ✔ |
+| Certificados de e-mail `mltmark.com` e `basededadosagro.com` | emitidos a 26/10, válidos até 24/01/2027; registo `webmail.` existe nos dois | ✔ resolvido |
+| nginx da porta 2026 | já responde 307 para `https://visualdesignmoz.com/vhost:2026` | ✔ resolvido |
+| Variáveis do fornecedor antigo no `.env.local` | `WHMCS_*` e `MOZSERVER_*` **não existem**; ficam `DIRECTADMIN_HOST/LOGIN_KEY/PASSWORD/PORT/PROTOCOL/USER` (os ramos DirectAdmin do código ainda as lêem) | a limpar com a remoção dos ramos |
+| **Endereço do Supabase** | `.env` do Supabase e `NEXT_PUBLIC_SUPABASE_URL` ainda em `supabase-contabo…`; os dois endereços respondem (401 = normal) | **troca de 23/10 por fazer** |
+| **Cópias no R2** | `/etc/cron.d/vd-backup-externo` **não existe**; último envio 26/10 17:37 (13 objectos, 5,9 GiB); cópias do Hestia mais recentes de 25/10 | **falta o cron** |
+| **Stripe** | `STRIPE_SECRET_KEY` = `sk_test_…`, chave pública = `pk_test_…` (**modo de teste**); `STRIPE_WEBHOOK_SECRET` definido | **pagamentos por cartão não são reais** |
+| M-Pesa | `MPESA_ENV=sandbox` | último passo |
+| Actualizações | 1 pacote de segurança por actualizar; `unattended-upgrades` activo; sem reinício pendente | baixo |
+| fail2ban | 8 jails activas (ssh, exim, dovecot, hestia, phpmyadmin, recidive, vsftpd, vd-wp-login) | ✔ |
+| **SSH** | `sshd -T` mostra `permitrootlogin yes` e `passwordauthentication yes` (a porta real é a 2234 pelo `ssh.socket`) | **endurecer: só chave** (a confirmar na 2.ª leitura) |
+| Portas à escuta | 21, 25, 53, 80, 110, 143, 443, 465, 587, 993, 995, 2026, 2234 e também 3306, 5432, 6379, 6543, 8000, 8080, 8081, 8083, 8084, 8443, 3002, 3010 (política de entrada `DROP`; a 2.ª leitura mostra quais estão mesmo abertas) | a confirmar |
+| Registos do nginx | o caminho previsto não existia (**0 ficheiros lidos**): não se sabe se alguém de fora chamava as rotas protegidas | 2.ª leitura procura o caminho certo |
+
+**Segunda leitura (ramo `resultados-da-auditoria-e-segunda-leitura`):** secções 13 a 15 do mesmo workflow: onde estão os registos de acesso e quem chamou as rotas, a firewall de entrada completa e a porta 21,
+e a configuração efectiva do SSH. Só depois dela se decide o endurecimento do SSH e o fecho de portas.

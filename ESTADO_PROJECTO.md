@@ -76,3 +76,6 @@ Auditoria de segurança do painel: `docs/AUDITORIA_PAINEL_PLANO_CORRECAO.md`.
 - Regras num único ficheiro (`regras.md`; `AGENTS.md` só como porta de entrada). Nunca nomear o fornecedor do servidor.
 - Verificação em cada PR (`.github/workflows/verificar-pr.yml`): tipos e traduções do site e do painel. Painel e site com 0 textos sem inglês.
 - Lockfile regenerado com o Node 24 (`npm ci` volta a funcionar).
+
+## 27/10/2026, 20:34 — leitura do servidor
+Resolvidos: certificados de e-mail do mltmark.com e do basededadosagro.com, nginx da porta 2026. **Por fazer:** troca do endereço do Supabase (continua `supabase-contabo…`), cron das cópias no R2 (não existe), Stripe em modo real (as chaves são `sk_test_`/`pk_test_`), SSH só com chave. Detalhe em `docs/AUDITORIA_FECHO_PROJECTO.md`, secção 9.
