@@ -42,6 +42,9 @@ else
   echo "[AVISO] mu-plugin do stack: ficheiros não encontrados"
 fi
 
+# VD_SO_MU=1: só actualiza o mu-plugin do stack (ex.: para um site antigo receber o que mudou nele) e sai
+[[ "${VD_SO_MU:-}" == "1" ]] && exit 0
+
 # 2. fora Akismet e Hello Dolly (o slug do segundo é «hello»; o ficheiro solto também sai)
 passo "sem Akismet nem Hello Dolly" bash -c "sudo -u '$WP_USER' '$WP' --path='$WP_PATH' plugin delete akismet hello 2>&1; rm -f '$WP_PATH/wp-content/plugins/hello.php'; true"
 
