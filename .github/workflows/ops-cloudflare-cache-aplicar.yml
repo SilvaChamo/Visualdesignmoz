@@ -10,10 +10,6 @@ name: Ops - Cache da Cloudflare do visualdesignmoz.com (regras de cache e limpez
 # «desfazer» (repõe as regras de antes). Sem nenhuma só lê. Pedido do Silva a 28/10/2026.
 
 on:
-  # só para registar o fluxo a partir do ramo de trabalho, antes de estar em main: corre uma vez SÓ A LER. Tira-se quando o ficheiro entrar em main.
-  push:
-    branches: [cloudflare-cache-do-site]
-    paths: ['.github/workflows/ops-cloudflare-cache-aplicar.yml']
   workflow_dispatch:
     inputs:
       limpar:

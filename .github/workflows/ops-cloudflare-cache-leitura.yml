@@ -5,10 +5,6 @@ name: Ops - Cache da Cloudflare dos sites (só leitura)
 # Cloudflare a guardar HTML do visualdesignmoz.com (pedido do Silva a 28/10/2026; regra 4 de regras.md: só leitura primeiro).
 
 on:
-  # só para registar o fluxo a partir do ramo de trabalho, antes de estar em main: corre uma vez ao enviar uma alteração a ESTE ficheiro.
-  push:
-    branches: [cloudflare-cache-do-site]
-    paths: ['.github/workflows/ops-cloudflare-cache-leitura.yml']
   workflow_dispatch:
     inputs:
       dominios:

@@ -8,10 +8,6 @@ name: Ops - Limite de tempo real dos pedidos PHP de uma conta (lê; com «aplica
 # Só a conta indicada; nunca os modelos do Hestia nem as outras contas. Pedido do Silva a 28/10/2026.
 
 on:
-  # só para registar o fluxo a partir do ramo de trabalho: corre uma vez ao enviar uma alteração a ESTE ficheiro, SÓ A LER.
-  push:
-    branches: [cloudflare-cache-do-site]
-    paths: ['.github/workflows/ops-php-tempo-limite.yml']
   workflow_dispatch:
     inputs:
       conta:
