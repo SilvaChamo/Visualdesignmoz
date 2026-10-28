@@ -110,3 +110,22 @@ jobs:
             for u in error_log slow_log; do echo "$u -> $(curl -sk -o /dev/null -m 10 -w '%{http_code}' --resolve "$DOMINIO":443:127.0.0.1 "https://$DOMINIO/$u")"; done
             echo "site -> $(curl -sk -o /dev/null -m 15 -w '%{http_code}' --resolve "$DOMINIO":443:127.0.0.1 "https://$DOMINIO/")"
             titulo "fim"
+
+  fora:
+    # confirmação vista de fora (o servidor não abre os próprios sites): os registos não se abrem pela web e o site e os sites críticos respondem
+    needs: gravar
+    runs-on: ubuntu-latest
+    steps:
+      - name: Códigos vistos de fora
+        env:
+          DOMINIO: ${{ inputs.dominio || 'entrecamposblog.com' }}
+        run: |
+          echo "$DOMINIO" | grep -qE '^[a-z0-9.-]+$' || { echo "Domínio inválido"; exit 1; }
+          falhou=0
+          for u in "https://$DOMINIO/error_log:404" "https://$DOMINIO/slow_log:404" "https://$DOMINIO/:200" "https://basededadosagro.com/:200" "https://visualdesignmoz.com/:200"; do
+            url="${u%:*}"; esperado="${u##*:}"
+            c=$(curl -s -o /dev/null -m 30 -L -w '%{http_code}' "$url")
+            echo "$url -> $c (esperado $esperado)"
+            [ "$c" = "$esperado" ] || falhou=1
+          done
+          exit $falhou
