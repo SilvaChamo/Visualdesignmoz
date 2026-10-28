@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { getStripe, isStripeConfigured, mznToUsdCents } from '@/lib/stripe';
+import { acrescentarIva, IVA_TAXA } from '@/lib/iva';
 import { resolveCartItems, toValidatedCartItems, type CatalogCartItem } from '@/lib/package-catalog';
 import { isProfileWhoisComplete } from '@/lib/profile-db';
 import { promoteBuyerAfterPurchase } from '@/lib/checkout-fulfillment';
@@ -42,7 +43,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const totalMt = resolved.reduce((sum, r) => sum + r.priceMt, 0);
+    // O IVA (16 %) acrescenta-se ao preço dos itens; `total_mt` guarda o total a pagar, já com IVA (ver src/lib/iva.ts).
+    const { ivaMt, totalMt } = acrescentarIva(resolved.reduce((sum, r) => sum + r.priceMt, 0));
 
     // #26: a conversão MT->USD usada para cobrar é uma taxa própria, separada
     // da que forma os preços de venda a partir do custo da Dynadot -- por
@@ -120,7 +122,18 @@ export async function POST(request: NextRequest) {
           unit_amount: mznToUsdCents(r.priceMt),
         },
         quantity: 1,
-      })),
+      })).concat(
+        ivaMt > 0
+          ? [{
+              price_data: {
+                currency: 'usd',
+                product_data: { name: `IVA (${Math.round(IVA_TAXA * 100)}%)` },
+                unit_amount: mznToUsdCents(ivaMt),
+              },
+              quantity: 1,
+            }]
+          : [],
+      ),
       metadata: { checkout_session_id: session.id, user_id: actor.buyerUserId },
       success_url: `${origin}/vhost:2026/utilizador/encomendas`,
       cancel_url: `${origin}/checkout`,

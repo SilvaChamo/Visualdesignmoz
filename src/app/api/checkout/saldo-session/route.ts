@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
+import { acrescentarIva } from '@/lib/iva';
 import { resolveCartItems, toValidatedCartItems, type CatalogCartItem } from '@/lib/package-catalog';
 import { isProfileWhoisComplete } from '@/lib/profile-db';
 import { deductResellerBalance, refundResellerBalance } from '@/lib/reseller-balance';
@@ -64,7 +65,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const totalMt = resolved.reduce((sum, r) => sum + r.priceMt, 0);
+    // O IVA (16 %) acrescenta-se ao preço dos itens; `total_mt` guarda o total a pagar, já com IVA (ver src/lib/iva.ts).
+    const { totalMt } = acrescentarIva(resolved.reduce((sum, r) => sum + r.priceMt, 0));
 
     const hasDomain = resolved.some((r) => r.item.type === 'domain');
     if (hasDomain && !(await isProfileWhoisComplete(admin, actor.buyerUserId))) {

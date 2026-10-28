@@ -1,6 +1,6 @@
 import { metodoPagamentoLabel } from '@/lib/quotation-payment-info';
 import { formatMt } from '@/lib/pricing-catalog';
-import { IVA_TAXA, separarIvaIncluido } from '@/lib/iva';
+import { IVA_TAXA, decomporCompra } from '@/lib/iva';
 import {
   CHECKOUT_ITEM_TYPE_LABELS,
   checkoutItemDetail,
@@ -41,7 +41,9 @@ export type ReciboDocumentProps = {
  * caixa de pagamento e selo.
  */
 export function ReciboDocument({ receiptNumber, issuedAt, cliente, compra }: ReciboDocumentProps) {
-  const iva = separarIvaIncluido(compra.totalMt);
+  // Compras novas: IVA acrescentado ao preço das linhas; compras antigas: IVA já incluído nos preços (ver src/lib/iva.ts).
+  const somaLinhas = compra.items.reduce((soma, item) => soma + (item.price ?? 0), 0);
+  const iva = decomporCompra(somaLinhas, compra.totalMt);
   const dataEmissao = new Date(issuedAt || compra.paidAt).toLocaleDateString('pt-PT', DATE_LONG);
 
   return (
@@ -107,7 +109,9 @@ export function ReciboDocument({ receiptNumber, issuedAt, cliente, compra }: Rec
           </tfoot>
         </table>
 
-        <p className="text-xs text-zinc-500 -mt-6 mb-8">Os preços das linhas incluem IVA à taxa de {Math.round(IVA_TAXA * 100)}%.</p>
+        <p className="text-xs text-zinc-500 -mt-6 mb-8">{iva.acrescentado
+            ? `Os preços das linhas não incluem IVA; acresce IVA à taxa de ${Math.round(IVA_TAXA * 100)}%.`
+            : `Os preços das linhas incluem IVA à taxa de ${Math.round(IVA_TAXA * 100)}%.`}</p>
 
         {/* Pagamento — o que foi efectivamente pago e confirmado. */}
         <div className="bg-red-50 border border-red-200 rounded-md p-4 text-sm">

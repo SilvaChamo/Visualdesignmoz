@@ -69,6 +69,7 @@ const HOSTING_CYCLE_MONTHS: Record<HostingBillingCycle, number> = { monthly: 1, 
 const HOSTING_CYCLE_LABELS: Record<HostingBillingCycle, string> = { monthly: 'Mensal', semiannual: 'Semestral', annual: 'Anual' };
 import { checkoutEntryPath } from '@/lib/checkout-flow';
 import { profileAuthOrFilter } from '@/lib/profile-db';
+import { acrescentarIva, IVA_TAXA } from '@/lib/iva';
 import {
   CreditCard,
   Lock,
@@ -677,7 +678,9 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
   // Depois de "Fazer login" volta ao mesmo checkout — no caso da encomenda,
   // o rascunho continua guardado e é retomado.
   const checkoutReturnPath = isEncomenda ? '/checkout?encomenda=1' : '/checkout';
-  const payTotalLabel = isEncomenda ? `${formatMt(encomendaPricing?.adiantamentoMt ?? 0)} MT` : formatPrice(total);
+  // O IVA (16 %) acrescenta-se ao preço dos itens do carrinho (Silva, 28/10/2026); `total` é o subtotal sem IVA.
+  const ivaCarrinho = acrescentarIva(total);
+  const payTotalLabel = isEncomenda ? `${formatMt(encomendaPricing?.adiantamentoMt ?? 0)} MT` : formatPrice(ivaCarrinho.totalMt);
 
   // Editar ou cancelar a meio do pagamento: a encomenda já gravada (sem
   // comprovativo) sai da base de dados; ao editar, os dados continuam no
@@ -1181,16 +1184,27 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                     </div>
 
                     <div className="pt-3 mt-1 border-t border-dashed border-slate-300 dark:border-zinc-700 space-y-1.5">
-                      <div className="flex justify-between items-center">
-                        <span className="font-black text-slate-800 dark:text-zinc-100 text-sm uppercase">Total</span>
+                      <div className="flex justify-between items-center text-sm text-slate-500 dark:text-zinc-400">
+                        <span>Subtotal</span>
                         <div className="flex items-center justify-end gap-2">
-                          <span className="font-black text-xl text-red-600 dark:text-red-400">{formatPrice(total)}</span>
+                          <span>{formatPrice(ivaCarrinho.subtotalMt)}</span>
                           <span className="w-6 h-6 flex-shrink-0" aria-hidden="true" />
                         </div>
                       </div>
-                      <p className="text-[11px] text-slate-400 dark:text-zinc-500 text-right pr-8">
-                        Preço final — já inclui IVA (16%): base {formatPrice(total / 1.16)} + IVA {formatPrice(total - total / 1.16)}
-                      </p>
+                      <div className="flex justify-between items-center text-sm text-slate-500 dark:text-zinc-400">
+                        <span>{`IVA (${Math.round(IVA_TAXA * 100)}%)`}</span>
+                        <div className="flex items-center justify-end gap-2">
+                          <span>{formatPrice(ivaCarrinho.ivaMt)}</span>
+                          <span className="w-6 h-6 flex-shrink-0" aria-hidden="true" />
+                        </div>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="font-black text-slate-800 dark:text-zinc-100 text-sm uppercase">Total</span>
+                        <div className="flex items-center justify-end gap-2">
+                          <span className="font-black text-xl text-red-600 dark:text-red-400">{formatPrice(ivaCarrinho.totalMt)}</span>
+                          <span className="w-6 h-6 flex-shrink-0" aria-hidden="true" />
+                        </div>
+                      </div>
                     </div>
                   </div>
                   )}
@@ -1306,7 +1320,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                           isSubmitting ||
                           dadosEmFalta.length > 0 ||
                           (isEncomenda && isAuthenticated === false) ||
-                          (metodoPagamento === 'saldo' && (saldoDisponivel ?? 0) < total)
+                          (metodoPagamento === 'saldo' && (saldoDisponivel ?? 0) < ivaCarrinho.totalMt)
                         }
                         className={`flex-1 sm:flex-none disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold py-3 px-6 rounded-md flex items-center justify-center gap-2 transition-all cursor-pointer ${
                           isEncomenda && !encomendaTemValor
@@ -1394,7 +1408,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                       <p className="text-slate-700 dark:text-zinc-300">
                         Saldo disponível: <span className="font-mono font-bold">{formatMt(saldoDisponivel ?? 0)} MT</span>
                       </p>
-                      {(saldoDisponivel ?? 0) < total && (
+                      {(saldoDisponivel ?? 0) < ivaCarrinho.totalMt && (
                         <p className="text-xs text-rose-600 dark:text-rose-400">
                           Saldo insuficiente para esta compra — carregue mais saldo no seu painel de revendedor.
                         </p>
