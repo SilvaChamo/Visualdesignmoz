@@ -1,0 +1,72 @@
+name: Ops - Porque um site WordPress responde 504 (só leitura)
+
+# Só LÊ: carga do servidor, estado e limites do PHP-FPM da conta, processos que mais gastam, últimos erros do Apache e do nginx do site,
+# estado do Redis (lento, bloqueado) e a resposta do site por etapas. Pedido do Silva a 28/10/2026 (entrecamposblog.com deu 504).
+
+on:
+  # só para registar o fluxo a partir do ramo de trabalho: corre uma vez ao enviar uma alteração a ESTE ficheiro. Tira-se depois.
+  push:
+    branches: [cache-e-extensoes-wordpress]
+    paths: ['.github/workflows/ops-site-lento.yml']
+  workflow_dispatch:
+    inputs:
+      dominio:
+        description: 'Domínio do site'
+        required: true
+        default: 'entrecamposblog.com'
+
+concurrency:
+  group: ops-site-lento
+  cancel-in-progress: false
+
+jobs:
+  leitura:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Diagnóstico no servidor (só leitura)
+        uses: appleboy/ssh-action@v1.2.5
+        env:
+          DOMINIO: ${{ inputs.dominio || 'entrecamposblog.com' }}
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          port: 2234
+          username: root
+          key: ${{ secrets.CONTABO_SSH_KEY }}
+          command_timeout: 5m
+          envs: DOMINIO
+          script: |
+            set -u
+            titulo() { echo; echo "=================== $1"; }
+            case "$DOMINIO" in (*[!a-z0-9.-]*|''|*..*) echo "Domínio inválido"; exit 1;; esac
+            CONTA=""; for d in /home/*/web/"$DOMINIO"; do [ -d "$d" ] && CONTA=$(echo "$d" | cut -d/ -f3) && break; done
+            [ -z "$CONTA" ] && { echo "Domínio não está no servidor"; exit 0; }
+            RAIZ=/home/$CONTA/web/$DOMINIO/public_html
+            titulo "1. Carga do servidor · $(date '+%H:%M:%S %Z')"
+            uptime; free -m | awk 'NR<=2'
+            titulo "2. PHP-FPM da conta $CONTA: estado, memória, CPU travado"
+            U=$(systemctl list-units --all --no-legend 'vd-php-fpm-*' 2>/dev/null | awk '{print $1}' | grep -- "-$CONTA\.service" | head -1)
+            echo "unidade: ${U:-nenhuma}"
+            [ -n "${U:-}" ] && systemctl show "$U" -p ActiveState -p NRestarts -p MemoryCurrent -p MemoryPeak -p MemoryHigh -p CPUQuotaPerSecUSec -p ActiveEnterTimestamp
+            CG=$(systemctl show "${U:-x}" -p ControlGroup --value 2>/dev/null)
+            [ -n "$CG" ] && [ -f "/sys/fs/cgroup$CG/cpu.stat" ] && grep -E 'nr_periods|nr_throttled|throttled_usec' "/sys/fs/cgroup$CG/cpu.stat"
+            [ -n "$CG" ] && [ -f "/sys/fs/cgroup$CG/memory.events" ] && tr '\n' ' ' < "/sys/fs/cgroup$CG/memory.events" && echo
+            echo "processos php-fpm da conta: $(ps -u "$CONTA" -o args= 2>/dev/null | grep -c 'php-fpm: pool')"
+            titulo "3. Processos que mais gastam CPU agora"
+            ps -eo user:12,pid,pcpu,pmem,etime,stat,args --sort=-pcpu 2>/dev/null | head -n 12 | cut -c1-150
+            titulo "4. Pedidos do PHP da conta em curso há muito tempo (etime, estado)"
+            ps -u "$CONTA" -o pid,etime,pcpu,stat,args 2>/dev/null | grep -E 'php|wp' | grep -v grep | head -n 12 | cut -c1-150
+            titulo "5. Últimos erros do Apache e do nginx deste site"
+            for L in /var/log/apache2/domains/"$DOMINIO".error.log /var/log/nginx/domains/"$DOMINIO".error.log; do
+              echo "--- $L"; tail -n 400 "$L" 2>/dev/null | grep -aiE 'timeout|timed out|fatal|exhausted|segfault|AH0|upstream|redis|Allowed memory' | tail -n 8 | cut -c1-220
+            done
+            titulo "6. Redis: lento, bloqueado, ligações"
+            redis-cli info clients | grep -E 'connected_clients|blocked_clients'
+            redis-cli info stats | grep -E 'instantaneous_ops_per_sec|rejected_connections|evicted_keys'
+            redis-cli slowlog get 5 | head -n 24 | cut -c1-100
+            redis-cli --latency -i 1 -c 3 2>/dev/null | head -n 2
+            titulo "7. A resposta do site por etapas (a partir do servidor, 25 s de limite)"
+            IPSITE=$(/usr/local/hestia/bin/v-list-web-domain "$CONTA" "$DOMINIO" json 2>/dev/null | grep -oE '"IP": *"[0-9.]+"' | head -1 | grep -oE '[0-9.]+' | head -1); IPSITE=${IPSITE:-127.0.0.1}
+            for i in 1 2; do curl -sk -m 25 --resolve "$DOMINIO:443:$IPSITE" -o /dev/null -w "ligação %{time_connect}s · primeiro byte %{time_starttransfer}s · total %{time_total}s · código %{http_code}\n" "https://$DOMINIO/"; done
+            echo "--- uma página sem cache (sem WordPress carregado a fundo): robots.txt"
+            curl -sk -m 25 --resolve "$DOMINIO:443:$IPSITE" -o /dev/null -w "código %{http_code} · %{time_total}s\n" "https://$DOMINIO/robots.txt"
+            titulo "fim da leitura (nada foi alterado)"
