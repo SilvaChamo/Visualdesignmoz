@@ -853,6 +853,18 @@ nível Revenda parte dessa lista ou de uma rota que a aplica no servidor; **nunc
   Medido depois: uma página que não vem da cache (`/robots.txt`) leva 5 a 9 s neste site (Elementor, JetEngine, Code Snippets…), por isso uma rajada de pedidos sem cache enche o pool. **Antes de reiniciar o PHP-FPM de uma conta, ver primeiro se já recuperou** (`ops-site-lento.yml`, sem «reiniciar» só lê): o reinício corta os pedidos em curso nos outros sites da conta (desporto e produções) e desta vez não foi preciso.
 - **O servidor não se sobrecarrega (Silva, 28/10/2026):** o script e os fluxos correm com `nice -n 10 ionice -c3`, um site de cada vez e com 15 s de pausa entre sites; cache nova começa fria, por isso não se mexe em vários sites ao mesmo tempo.
 
+# Cloudflare: cache do HTML do visualdesignmoz.com e limpeza em cada publicação (Silva, 28/10/2026)
+
+- **A chave:** o painel usa a **Global API Key** (`CLOUDFLARE_EMAIL` + `CLOUDFLARE_GLOBAL_API_KEY`, no `.env.local` do servidor; acesso total à conta) quando existe; o token restrito (`CLOUDFLARE_API_TOKEN_ACCOUNT`) só lê definições e DNS e **não** vê Page Rules nem Cache Rules. Qualquer leitura ou escrita de regras faz-se com a Global Key, a partir do servidor, pelos fluxos
+  `ops-cloudflare-cache-leitura.yml` (só lê) e `ops-cloudflare-cache-aplicar.yml` (fases «limpar», «aplicar» e «desfazer»). Nunca se imprime a chave.
+- **Estado de partida (28/10/2026):** os três domínios são do plano gratuito, com `cache_level=simplified` e `browser_cache_ttl=0`. O visualdesignmoz.com, o basededadosagro.com e o entrecamposblog.com têm uma **Page Rule «bypass»** em `*dominio/*` (o padrão de segurança do painel,
+  `applyCloudflareSafeCacheDefaults`, nascido do incidente do menocrazy.app a 10/09 em que o HTML de um cliente ficou antigo). O basededadosagro.com tem ainda duas Cache Rules («respeitar a origem» e «nunca guardar `/api/*`») e a Cloudflare guarda-lhe o HTML (`REVALIDATED`); as Cache Rules passam à frente da Page Rule.
+- **Regra para os sites de clientes e para os WordPress: não se liga cache de HTML na Cloudflare** (o WP-Optimize e o Redis já servem a página rápido, e um HTML antigo num site de cliente é pior do que um site lento).
+- **visualdesignmoz.com (Next.js):** duas Cache Rules (`ops-cloudflare-cache-aplicar.yml`, fase «aplicar», descrição «VD 28/10/2026…»): (1) «respeitar a origem»: só se guarda o que o Next.js marca como público (páginas já geradas, `s-maxage=31536000`; as dinâmicas trazem `private, no-store`);
+  (2) «nunca guardar» as rotas privadas (`/api/`, `/vhost`, `/host`, `/auth`, `/login`, `/painel`, `/cliente`, `/guest`, `/checkout`, `/encomendas`, `/pagamento`, `/recibo`, `/webmail`, `/contabilidade`, `/renovacao`). O fluxo confirma de fora (as públicas dão HIT à segunda, as privadas nunca) e **desfaz sozinho** se falhar; «desfazer» repõe as regras de antes.
+- **Obrigatório, no deploy:** como a validade das páginas é de 1 ano, o `deploy-contabo.yml` limpa a cache da Cloudflare no fim de cada publicação (`scripts/limpar-cache-cloudflare.sh`, último passo; fica a vermelho se a Cloudflare recusar). **Sem este passo não se ligam as regras**: depois de um deploy a Cloudflare serviria HTML antigo a apontar para ficheiros `_next/static` que já não existem.
+  Ao mexer em `deploy-contabo.yml` faz-se sempre o ensaio (`ensaio` marcado).
+
 # Plugins desactualizados que o painel não via (Silva, 28/10/2026)
 
 - **Causa:** o painel lê as actualizações com `wp plugin list`, e o wp-cli só carrega os actualizadores que um plugin regista fora do administrador (no entrecamposblog.com só o Freemius e o JetEngine). Os plugins pagos (PRO Elements, LoginPress Pro, JetSmartFilters…) registam o seu só no administrador, por isso o WordPress mostrava 5 actualizações

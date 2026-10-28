@@ -463,3 +463,18 @@ jobs:
             if [ "$ok" = 1 ]; then echo "$u -> $c"; else echo "ATENÇÃO: $u não responde (código $c)"; falhou=1; fi
           done
           [ "$falhou" = 0 ]
+
+      # Cloudflare (Silva, 28/10/2026): as páginas públicas do Next.js trazem `s-maxage=31536000` e a Cloudflare guarda-as (regras de cache do
+      # visualdesignmoz.com, ver regras.md). Depois de cada publicação a cache tem de ser limpa, senão a Cloudflare serviria HTML antigo a apontar
+      # para ficheiros `_next/static` que já não existem. Corre por último: se falhar a publicação fica a vermelho e avisa, mas o site já está no ar.
+      - name: Clear Cloudflare cache of visualdesignmoz.com
+        if: ${{ !inputs.ensaio }}
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          port: 2234
+          username: root
+          key: ${{ secrets.CONTABO_SSH_KEY }}
+          command_timeout: 3m
+          script: |
+            bash /opt/visualdesignmoz/scripts/limpar-cache-cloudflare.sh visualdesignmoz.com

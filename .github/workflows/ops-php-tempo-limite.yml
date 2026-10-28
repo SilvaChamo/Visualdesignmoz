@@ -1,0 +1,98 @@
+name: Ops - Limite de tempo real dos pedidos PHP de uma conta (lê; com «aplicar» põe o limite)
+
+# Os trabalhadores do PHP-FPM do entrecamposblog.com ficaram presos mais de 6 minutos em pedidos do editor do Elementor (504 para os visitantes,
+# 28/10/2026). O `max_execution_time` (60 s) só conta tempo de CPU, não a espera por rede ou por outro serviço, por isso nada os mandava parar.
+# Sem «aplicar» só lê os pools da conta. Com «aplicar», cada pool da conta ganha `request_terminate_timeout` (tempo real; o nginx já dá 504 aos 30 s,
+# deixar o PHP continuar minutos só gasta trabalhadores), com cópia dos ficheiros, `php-fpm -t` antes e recarga suave (`reload`, sem cortar pedidos).
+# Também junta o domínio à lista que bloqueia o xmlrpc.php (516 pedidos de robôs nas últimas 20 h; o instalador aplica em 10 minutos).
+# Só a conta indicada; nunca os modelos do Hestia nem as outras contas. Pedido do Silva a 28/10/2026.
+
+on:
+  workflow_dispatch:
+    inputs:
+      conta:
+        description: 'Conta (nome de utilizador do servidor)'
+        required: true
+        default: 'vdadmin'
+      segundos:
+        description: 'Limite de tempo real por pedido (segundos)'
+        required: true
+        default: '90'
+      aplicar:
+        description: 'Aplicar de verdade (desmarcado: só lê)'
+        type: boolean
+        default: false
+
+concurrency:
+  group: ops-php-tempo-limite
+  cancel-in-progress: false
+
+jobs:
+  limite:
+    runs-on: ubuntu-latest
+    steps:
+      - name: PHP-FPM da conta (servidor)
+        uses: appleboy/ssh-action@v1.2.5
+        env:
+          CONTA: ${{ inputs.conta || 'vdadmin' }}
+          SEGUNDOS: ${{ inputs.segundos || '90' }}
+          APLICAR: ${{ inputs.aplicar && 'sim' || 'nao' }}
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          port: 2234
+          username: root
+          key: ${{ secrets.CONTABO_SSH_KEY }}
+          command_timeout: 6m
+          envs: CONTA,SEGUNDOS,APLICAR
+          script: |
+            set -u
+            titulo() { echo; echo "=================== $1"; }
+            echo "$CONTA" | grep -qE '^[a-z0-9_-]{2,32}$' || { echo "Conta inválida"; exit 1; }
+            echo "$SEGUNDOS" | grep -qE '^[0-9]{2,3}$' || { echo "Segundos inválidos"; exit 1; }
+            V=8.3
+            D=/etc/php/$V/fpm-contas/$CONTA
+            U=vd-php-fpm-$V-$CONTA
+            titulo "1. Pools da conta $CONTA (o PHP-FPM dedicado)"
+            [ -d "$D/pool.d" ] || { echo "Esta conta não tem PHP-FPM dedicado ($D/pool.d não existe): nada a fazer"; exit 0; }
+            for f in "$D"/pool.d/*.conf; do
+              echo "--- $(basename "$f")"
+              grep -E '^(pm|pm\.max_children|pm\.start_servers|pm\.process_idle_timeout|pm\.max_requests|request_terminate_timeout|request_slowlog_timeout|slowlog|php_admin_value\[max_execution_time\]) *=' "$f" | cut -c1-90
+            done
+            echo "--- estado do serviço: $(systemctl is-active "$U")"
+            titulo "2. Lista que bloqueia o xmlrpc.php"
+            L=/etc/nginx/vd-xmlrpc-bloquear.lista
+            if [ -f "$L" ]; then echo "linhas: $(grep -cvE '^\s*(#|$)' "$L") · entrecamposblog.com já está: $(grep -cx 'entrecamposblog.com' "$L")"; else echo "(ficheiro $L não existe)"; fi
+
+            if [ "$APLICAR" = "sim" ]; then
+              titulo "3. A aplicar: request_terminate_timeout = ${SEGUNDOS}s em cada pool da conta"
+              B=/root/php-tempo-limite-$(date +%Y%m%d-%H%M%S); mkdir -p "$B"; chmod 700 "$B"
+              cp -a "$D/pool.d" "$B/pool.d" && echo "cópia dos pools em $B"
+              [ -f "$L" ] && cp -p "$L" "$B/"
+              for f in "$D"/pool.d/*.conf; do
+                if grep -qE '^request_terminate_timeout *=' "$f"; then
+                  sed -i -E "s/^request_terminate_timeout *=.*/request_terminate_timeout = ${SEGUNDOS}s/" "$f"
+                else
+                  printf '\nrequest_terminate_timeout = %ss\n' "$SEGUNDOS" >> "$f"
+                fi
+                echo "$(basename "$f"): $(grep -E '^request_terminate_timeout' "$f")"
+              done
+              echo "--- verificação da configuração (php-fpm -t):"
+              if PHP_INI_SCAN_DIR="$D/conf.d" "/usr/sbin/php-fpm$V" -t --fpm-config "$D/php-fpm.conf" -c "$D/php.ini" 2>&1 | tail -n 3; then :; fi
+              if PHP_INI_SCAN_DIR="$D/conf.d" "/usr/sbin/php-fpm$V" -t --fpm-config "$D/php-fpm.conf" -c "$D/php.ini" >/dev/null 2>&1; then
+                echo "configuração válida: recarga suave de $U"
+                systemctl reload "$U" && sleep 3 && echo "estado: $(systemctl is-active "$U")"
+              else
+                echo "ALERTA: configuração inválida: a repor os pools de antes"
+                rm -rf "$D/pool.d" && cp -a "$B/pool.d" "$D/pool.d"
+                exit 1
+              fi
+              if [ -f "$L" ] && ! grep -qx 'entrecamposblog.com' "$L"; then
+                echo "entrecamposblog.com" >> "$L"; echo "entrecamposblog.com juntado a $L (o instalador aplica em até 10 minutos)"
+              fi
+              titulo "4. Os sites da conta continuam bem?"
+              for d in entrecamposblog.com desporto.entrecamposblog.com producoes.visualdesignmoz.com; do
+                echo "$d: $(curl -sk -m 20 -o /dev/null -w '%{http_code} · %{time_total}s' "https://$d/")"
+              done
+              echo "--- basededadosagro.com: $(curl -s -m 30 -o /dev/null -w '%{http_code}' https://basededadosagro.com/)"
+            fi
+            titulo "fim ($([ "$APLICAR" = sim ] && echo aplicado || echo só leitura))"

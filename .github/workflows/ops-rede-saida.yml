@@ -1,0 +1,57 @@
+name: Ops - Pedidos que o servidor faz para fora e o IPv6 (só leitura)
+
+# Só LÊ e mede: quanto demora o servidor a resolver nomes e a abrir ligações para fora com IPv4 e com IPv6, para servidores de actualizações e de
+# licenças do WordPress, para o próprio domínio de um site e para a Cloudflare. Os pedidos do PHP que ficam à espera enchem o PHP-FPM e dão 504
+# (entrecamposblog.com, 28/10/2026) e o mesmo sintoma deu o erro «cURL 28» do loopback no Estado do site. Não altera nada.
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: ops-rede-saida
+  cancel-in-progress: false
+
+jobs:
+  leitura:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Rede de saída (só leitura)
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          port: 2234
+          username: root
+          key: ${{ secrets.CONTABO_SSH_KEY }}
+          command_timeout: 5m
+          script: |
+            set -u
+            titulo() { echo; echo "=================== $1"; }
+            titulo "1. Resolução de nomes (DNS) e preferência de endereços"
+            grep -E '^(nameserver|options|search)' /etc/resolv.conf | cut -c1-60
+            echo "--- /etc/gai.conf (linhas activas):"; grep -vE '^\s*(#|$)' /etc/gai.conf 2>/dev/null | head -n 5
+            echo "--- IPv6 global neste servidor:"; ip -6 addr show scope global 2>/dev/null | grep -c inet6
+            ip -6 route show default 2>/dev/null | head -n 2
+            titulo "2. Tempo a resolver nomes (como o PHP faz: getaddrinfo)"
+            for h in api.wordpress.org downloads.wordpress.org elementor.com my.elementor.com entrecamposblog.com api.cloudflare.com; do
+              s=$(date +%s.%N); r=$(getent ahosts "$h" | awk '{print $1}' | sort -u | tr '\n' ' ' | cut -c1-90); e=$(date +%s.%N)
+              printf "%s: %.2fs · %s\n" "$h" "$(echo "$e - $s" | bc -l)" "$r"
+            done
+            titulo "3. Ligação HTTPS para fora: IPv4 contra IPv6 (limite de 8 s)"
+            for h in api.wordpress.org downloads.wordpress.org my.elementor.com api.cloudflare.com; do
+              for v in 4 6; do
+                printf "%s -%s: " "$h" "$v"
+                curl -"$v" -sS -m 8 -o /dev/null -w "%{http_code} · ligação %{time_connect}s · total %{time_total}s\n" "https://$h/" 2>&1 | tail -n 1 | cut -c1-120
+              done
+            done
+            titulo "4. O mesmo que o WordPress faz no «loopback»: abrir o próprio site pelo endereço público (sem --resolve)"
+            for h in entrecamposblog.com desporto.entrecamposblog.com; do
+              for v in 4 6; do
+                printf "%s -%s: " "$h" "$v"
+                curl -"$v" -sk -m 8 -o /dev/null -w "%{http_code} · ligação %{time_connect}s · total %{time_total}s\n" "https://$h/" 2>&1 | tail -n 1 | cut -c1-120
+              done
+            done
+            titulo "5. O padrão do PHP: curl sem forçar a versão (o que o WordPress usa)"
+            for h in api.wordpress.org my.elementor.com entrecamposblog.com; do
+              printf "%s: " "$h"; curl -sk -m 10 -o /dev/null -w "%{http_code} · DNS %{time_namelookup}s · ligação %{time_connect}s · total %{time_total}s\n" "https://$h/" 2>&1 | tail -n 1 | cut -c1-120
+            done
+            titulo "fim da leitura (nada foi alterado)"
