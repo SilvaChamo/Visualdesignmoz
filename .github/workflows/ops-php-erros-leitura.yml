@@ -6,6 +6,9 @@ name: Ops - Onde o PHP grava os erros de um site (só leitura)
 # Só lê; não altera nada.
 
 on:
+  push:
+    branches: [margem-de-baixo-em-todas-as-paginas]
+    paths: ['.github/workflows/ops-php-erros-leitura.yml']
   workflow_dispatch:
     inputs:
       dominio:
