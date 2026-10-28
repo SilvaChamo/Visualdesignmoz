@@ -1,0 +1,82 @@
+name: Ops - Plugins que entram por defeito nos WordPress (só leitura)
+
+# Só LÊ, não altera nada: mostra o que o servidor tem preparado para um WordPress novo (scripts de cache, mu-plugins, Akismet/Hello Dolly
+# do pacote do WordPress) e, para cada site WordPress já instalado, os plugins activos, os mu-plugins, os «drop-ins» de cache
+# (object-cache.php, advanced-cache.php), se a cache de página do WP-Optimize está ligada e o estado do Redis. Sem segredos: nada de
+# wp-config nem de variáveis, só a contagem de uma constante. Pedido do Silva a 28/10/2026 (regra 4 de regras.md: só leitura primeiro).
+
+on:
+  # só para correr a partir do ramo de trabalho, antes de o ficheiro estar em main (o GitHub só deixa «Run workflow» com ficheiros
+  # que já estão em main): corre uma vez ao enviar uma alteração a ESTE ficheiro. Tira-se quando o ficheiro entrar em main.
+  push:
+    branches: [cache-e-extensoes-wordpress]
+    paths: ['.github/workflows/ops-wordpress-plugins-padrao.yml']
+  workflow_dispatch:
+
+concurrency:
+  group: ops-wordpress-plugins-padrao
+  cancel-in-progress: false
+
+jobs:
+  leitura:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Plugins e cache dos WordPress do servidor (só leitura)
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          port: 2234
+          username: root
+          key: ${{ secrets.CONTABO_SSH_KEY }}
+          command_timeout: 8m
+          script: |
+            set -u
+            titulo() { echo; echo "=================== $1"; }
+            WP=$(command -v wp || echo /usr/local/bin/wp)
+            titulo "hora do servidor: $(date '+%d/%m/%Y %H:%M:%S %Z')"
+
+            titulo "1. Scripts de cache e mu-plugins preparados no servidor (existem? quando foram mudados?)"
+            for f in /root/wp-cache-on-site.sh /root/wp-enable-wpo-cache.sh /root/wp-remove-default-plugins.sh /root/wp-repair-all-sites.sh; do
+              if [ -e "$f" ]; then ls -l --time-style=long-iso "$f" | awk '{print "existe: "$6" "$7" "$5" bytes "$8}'; else echo "NÃO existe: $f"; fi
+            done
+            ls -l --time-style=long-iso /usr/local/share/wordpress-mu-plugins /usr/local/share/wordpress-mu-plugins/visualdesign 2>&1 | head -n 12
+
+            titulo "2. O que o WP-Optimize recebe do script de activação (/root/wp-enable-wpo-cache.sh, até 60 linhas, segredos escondidos)"
+            [ -f /root/wp-enable-wpo-cache.sh ] && sed -E 's/(PASS|PASSWORD|KEY|SECRET|TOKEN)=[^ ";]+/\1=***/g' /root/wp-enable-wpo-cache.sh | head -n 60 || echo "(não existe)"
+
+            titulo "3. Quem chama estes scripts quando se instala um WordPress? (hooks do Hestia, crons, ficheiros)"
+            grep -rlI -E "wp-cache-on-site|wordpress_install_post|wp-enable-wpo-cache|wp-repair-all-sites" /usr/local/hestia/data /usr/local/hestia/bin /usr/local/hestia/conf /etc/cron.d /etc/cron.daily /etc/cron.hourly /var/spool/cron /usr/local/sbin /usr/local/bin /opt 2>/dev/null | grep -v node_modules | head -n 15
+            echo "--- crontab do root (só linhas com wp-):"
+            crontab -l 2>/dev/null | grep -iE "wp-|wordpress" | cut -c1-200
+            echo "--- registos de arranque da cache (últimas 8 linhas, /var/log/wp-cache-bootstrap.log):"
+            tail -n 8 /var/log/wp-cache-bootstrap.log 2>/dev/null | cut -c1-200 || echo "(sem registo)"
+
+            titulo "4. Plugins que vêm no pacote do WordPress (ficheiro descarregado pelo wp-cli, em cache)"
+            Z=$(ls -t /root/.wp-cli/cache/core/wordpress-*.tar.gz /home/*/.wp-cli/cache/core/wordpress-*.tar.gz 2>/dev/null | head -1)
+            if [ -n "$Z" ]; then echo "ficheiro: $Z"; tar -tzf "$Z" 2>/dev/null | grep -E '^wordpress/wp-content/plugins/[^/]+/?$' | sed 's#wordpress/wp-content/plugins/##' | head -n 10; else echo "(sem pacote em cache: o wp-cli descarrega do WordPress.org; o pacote oficial traz Akismet e Hello Dolly)"; fi
+
+            titulo "5. Redis do servidor: memória, limite, bases de dados em uso"
+            redis-cli ping 2>&1 | head -n 1
+            redis-cli config get maxmemory 2>/dev/null | paste -sd' '
+            redis-cli config get maxmemory-policy 2>/dev/null | paste -sd' '
+            redis-cli info keyspace 2>/dev/null | grep -E '^db[0-9]+' | head -n 5
+            echo "--- prefixos de chaves (primeiras 400 chaves, só o prefixo antes de ':'):"
+            redis-cli --scan --count 400 2>/dev/null | head -n 400 | sed -E 's/:.*//' | sort | uniq -c | sort -rn | head -n 12
+
+            titulo "6. Cada site WordPress: conta, domínio, plugins activos, mu-plugins, cache"
+            for cfg in /home/*/web/*/public_html/wp-config.php; do
+              [ -f "$cfg" ] || continue
+              RAIZ=$(dirname "$cfg"); CONTA=$(echo "$RAIZ" | cut -d/ -f3); DOM=$(echo "$RAIZ" | cut -d/ -f5)
+              W="sudo -u $CONTA $WP --path=$RAIZ --skip-plugins --skip-themes"
+              echo
+              echo "###### $DOM (conta $CONTA) · WordPress $($W core version 2>/dev/null | head -1)"
+              echo "plugins activos: $($W plugin list --status=active --field=name 2>/dev/null | paste -sd' ')"
+              echo "plugins inactivos: $($W plugin list --status=inactive --field=name 2>/dev/null | paste -sd' ')"
+              echo "mu-plugins: $(ls "$RAIZ/wp-content/mu-plugins" 2>/dev/null | paste -sd' ')"
+              echo "drop-ins em wp-content: $(ls "$RAIZ/wp-content" 2>/dev/null | grep -E '^(object-cache|advanced-cache|maintenance|db)\.php$' | paste -sd' ')"
+              echo "WP_CACHE definido no wp-config: $(grep -c "WP_CACHE" "$cfg" 2>/dev/null) linha(s) · WP_REDIS_PREFIX definido: $(grep -c "WP_REDIS_PREFIX" "$cfg" 2>/dev/null) linha(s)"
+              echo "cache de página do WP-Optimize: $($W option get wpo_page_cache_config --format=json 2>/dev/null | grep -oE '"enable_page_caching":[^,}]*' | head -1)"
+              echo "prefixo das tabelas: $(grep -oE "table_prefix *= *'[^']*'" "$cfg" | head -1)"
+            done
+
+            titulo "fim da leitura (nada foi alterado)"
