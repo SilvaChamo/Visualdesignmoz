@@ -15107,7 +15107,10 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
       border-bottom-right-radius: 0
    }
 
-   .vh main .da-main-card:not(:has(.card)):not(#x):not(#y) {
+   /* «outro cartão lá dentro» = qualquer caixa com contorno: um `.card`, um formulário com contorno (os `.frm` que não são filhos directos do cartão
+      principal, e os que o mantêm: Certificados do domínio, PHP, palavra-passe) — Silva, 28/10/2026: «o segundo card dentro do principal deve mostrar a
+      margem de 20 ou 25 px no fim do scroll, igual à dos lados; vale para todos os cards dentro do principal, sem mexer no principal» */
+   .vh main .da-main-card:not(:has(.card, .frm-lados, .php-defs, .php-versao, .pf-senha, > * .frm)):not(#x):not(#y) {
       padding-bottom: 0
    }
 }
