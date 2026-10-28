@@ -1,0 +1,111 @@
+name: Ops - Aplicar a cache e o stack a sites WordPress já existentes
+
+# Aplica o `deploy/wordpress/wp-cache-on-site.sh` (WP-Optimize activo com a cache de página, Redis com prefixo próprio do site, mu-plugin do
+# stack, sem Akismet nem Hello Dolly) aos domínios indicados, um a um. É o mesmo script que o painel chama ao instalar um WordPress novo.
+# Sem «confirmar» só LÊ (mostra o estado actual de cada site). Com «confirmar»: cópia do wp-config e da lista de plugins em
+# /root/wp-cache-aplicar-<data>/ (só root), aplica, mede o site antes e depois e, se a página inicial deixar de dar 200, desfaz sozinho
+# (desactiva o WP-Optimize, WP_CACHE a false, apaga o advanced-cache.php). No fim confirma basededadosagro.com e visualdesignmoz.com (200).
+# Pedido do Silva a 28/10/2026 («avança»). Nunca toca no pm2, no nginx nem em mais nenhum site.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dominios:
+        description: 'Domínios separados por espaço'
+        required: true
+        default: 'producoes.visualdesignmoz.com desporto.entrecamposblog.com entrecamposblog.com'
+      confirmar:
+        description: 'Aplicar de verdade (desmarcado: só lê)'
+        type: boolean
+        default: false
+      so_redis:
+        description: 'Só o prefixo, o esvaziar selectivo e a validade do Redis (para sites que já têm a cache de objectos em Redis)'
+        type: boolean
+        default: false
+
+concurrency:
+  group: ops-wordpress-cache-aplicar
+  cancel-in-progress: false
+
+jobs:
+  aplicar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Empacotar a pasta deploy/wordpress
+        id: pacote
+        run: echo "b64=$(tar -czf - -C deploy wordpress | base64 -w0)" >> "$GITHUB_OUTPUT"
+
+      - name: Aplicar no servidor
+        uses: appleboy/ssh-action@v1.2.5
+        env:
+          DOMINIOS: ${{ inputs.dominios || 'producoes.visualdesignmoz.com desporto.entrecamposblog.com entrecamposblog.com' }}
+          CONFIRMAR: ${{ inputs.confirmar && 'sim' || 'nao' }}
+          SO_REDIS: ${{ inputs.so_redis && 'sim' || 'nao' }}
+          PACOTE_B64: ${{ steps.pacote.outputs.b64 }}
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          port: 2234
+          username: root
+          key: ${{ secrets.CONTABO_SSH_KEY }}
+          command_timeout: 15m
+          envs: DOMINIOS,CONFIRMAR,SO_REDIS,PACOTE_B64
+          script: |
+            set -u
+            titulo() { echo; echo "=================== $1"; }
+            echo "$DOMINIOS" | grep -qE '^[a-z0-9. -]+$' || { echo "Domínios inválidos"; exit 1; }
+            WP=$(command -v wp || echo /usr/local/bin/wp)
+            WORK=/root/wp-cache-aplicar-$(date +%Y%m%d-%H%M%S)
+            mkdir -p "$WORK" && chmod 700 "$WORK"
+            echo "$PACOTE_B64" | base64 -d | tar -xz -C "$WORK"
+            SCRIPT="$WORK/wordpress/wp-cache-on-site.sh"
+            bash -n "$SCRIPT" || { echo "O script não passou a verificação de sintaxe"; exit 1; }
+            titulo "modo: $([ "$CONFIRMAR" = sim ] && echo APLICAR || echo só leitura) · $(date '+%d/%m/%Y %H:%M:%S %Z') · cópias em $WORK"
+            codigo() { curl -sk -m 40 --resolve "$1:443:$2" -o /dev/null -w '%{http_code} · %{time_total}s' "https://$1/"; }
+            FALHOU=0
+            for DOM in $DOMINIOS; do
+              CONTA=""; for d in /home/*/web/"$DOM"; do [ -d "$d" ] && CONTA=$(echo "$d" | cut -d/ -f3) && break; done
+              [ -z "$CONTA" ] && { titulo "$DOM: não está em nenhuma conta do servidor, ignorado"; continue; }
+              RAIZ=/home/$CONTA/web/$DOM/public_html
+              [ -f "$RAIZ/wp-config.php" ] || { titulo "$DOM: sem WordPress na raiz, ignorado"; continue; }
+              W="sudo -u $CONTA $WP --path=$RAIZ --skip-plugins --skip-themes"
+              IPSITE=$(/usr/local/hestia/bin/v-list-web-domain "$CONTA" "$DOM" json 2>/dev/null | grep -oE '"IP": *"[0-9.]+"' | head -1 | grep -oE '[0-9.]+' | head -1); IPSITE=${IPSITE:-127.0.0.1}
+              titulo "$DOM (conta $CONTA)"
+              echo "antes · plugins activos: $($W plugin list --status=active --field=name 2>/dev/null | paste -sd' ')"
+              echo "antes · drop-ins: $(ls "$RAIZ/wp-content" | grep -E '^(object-cache|advanced-cache|maintenance)\.php$' | paste -sd' ') · mu-plugins: $(ls "$RAIZ/wp-content/mu-plugins" 2>/dev/null | paste -sd' ')"
+              echo "antes · página inicial: $(codigo "$DOM" "$IPSITE")"
+              [ "$CONFIRMAR" = sim ] || continue
+              cp -p "$RAIZ/wp-config.php" "$WORK/wp-config.$DOM.bak"
+              $W plugin list --fields=name,status,version --format=csv > "$WORK/plugins.$DOM.csv" 2>/dev/null
+              VD_SO_REDIS=$([ "$SO_REDIS" = sim ] && echo 1 || echo 0) nice -n 10 ionice -c3 bash "$SCRIPT" "$RAIZ" "$CONTA" "$DOM"
+              # a primeira visita enche a cache; medem-se duas
+              A=$(codigo "$DOM" "$IPSITE"); B=$(codigo "$DOM" "$IPSITE")
+              echo "depois · página inicial: $A · segunda visita: $B"
+              if [ "${A%% *}" != "200" ] || [ "${B%% *}" != "200" ]; then
+                if [ "$SO_REDIS" = sim ]; then
+                  echo "ALERTA: $DOM deixou de dar 200: a repor o wp-config.php de antes"
+                  cp -p "$WORK/wp-config.$DOM.bak" "$RAIZ/wp-config.php"
+                else
+                  echo "ALERTA: $DOM deixou de dar 200: a desfazer a cache de página"
+                  $W plugin deactivate wp-optimize 2>&1 | tail -n 1
+                  sudo -u "$CONTA" "$WP" --path="$RAIZ" --skip-plugins --skip-themes config set WP_CACHE false --raw 2>&1 | tail -n 1
+                  rm -f "$RAIZ/wp-content/advanced-cache.php"
+                fi
+                echo "depois de desfazer: $(codigo "$DOM" "$IPSITE")"
+                FALHOU=1
+                break
+              fi
+              sleep 15
+            done
+            titulo "o basededadosagro.com a partir do servidor (o visualdesignmoz.com não se abre a si próprio daqui: vê-se de fora, no passo seguinte)"
+            for s in basededadosagro.com; do r=$(curl -sS -m 30 -o /dev/null -w '%{http_code} · %{time_total}s' "https://$s/" 2>&1); echo "$s (a partir do servidor) -> $r · saída $?"; done
+            titulo "fim ($([ "$FALHOU" = 0 ] && echo sem falhas || echo COM FALHAS))"
+            exit "$FALHOU"
+
+      - name: Os sites vistos de fora (a partir do GitHub)
+        if: always()
+        run: |
+          for s in basededadosagro.com visualdesignmoz.com entrecamposblog.com desporto.entrecamposblog.com producoes.visualdesignmoz.com; do
+            echo "$s -> $(curl -sS -m 30 -o /dev/null -w '%{http_code} · %{time_total}s' "https://$s/" 2>&1)"
+          done

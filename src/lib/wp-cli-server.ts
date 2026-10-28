@@ -62,6 +62,10 @@ export async function resolveDomainSitePath(
   return user ? { user, path } : null;
 }
 
+/** Preparação do WordPress no servidor (WP-Optimize e cache de página, Redis com prefixo próprio, mu-plugin, sem Akismet/Hello Dolly).
+ *  Vive na pasta da versão em uso, por isso cada deploy a actualiza; é a mesma que o workflow ops-wordpress-cache-aplicar.yml usa nos sites antigos. */
+const WP_PREPARAR_SCRIPT = '/opt/visualdesignmoz/deploy/wordpress/wp-cache-on-site.sh';
+
 export async function installWordPressSite(input: {
   domain: string;
   directory?: string;
@@ -122,6 +126,8 @@ export async function installWordPressSite(input: {
   //  - ligações permanentes "bonitas" (/nome-do-artigo/). Usa-se
   //    `option update permalink_structure` + `rewrite flush` de propósito:
   //    `wp rewrite structure` rebenta com erro de subprocesso nalgumas versões.
+  //  - cache e plugins por defeito: corre o script do servidor (WP-Optimize activo com a cache de página ligada, Redis com prefixo
+  //    próprio do site, mu-plugin do stack, sem Akismet nem Hello Dolly). Está fora do código do painel para ser a mesma preparação em todo o lado.
   // Best-effort: se algum falhar, a instalação continua válida na mesma.
   for (const extra of [
     `option update permalink_structure '/%postname%/'`,
@@ -129,6 +135,12 @@ export async function installWordPressSite(input: {
   ]) {
     outputs.push(await runAsWpUser(site.user, wpPath, extra).catch(() => ''));
   }
+  outputs.push(
+    await executeServerCommand(
+      `test -f ${WP_PREPARAR_SCRIPT} && bash ${WP_PREPARAR_SCRIPT} ${shellQuote(wpPath)} ${shellQuote(site.user)} ${shellQuote(input.domain)} 2>&1; true`,
+      { timeoutMs: 240_000 },
+    ).catch(() => ''),
+  );
 
   return { ok: true, output: outputs.join('\n') || 'WordPress instalado com sucesso.' };
 }
@@ -217,16 +229,40 @@ export async function listWpPlugins(domain: string): Promise<WpPluginRow[]> {
 
   // Só plugins normais (activos/inactivos) — alinha com o ecrã «Plugins» do WordPress.
   // Must-use e drop-ins são infra da hospedagem, visíveis no WP em separado.
-  const raw = await runAsWpUser(
-    install.user,
-    install.path,
-    'plugin list --format=json --status=active,inactive',
-  );
+  // A lista guardada pelo mu-plugin (vd_plugin_updates) vem em paralelo: o wp-cli não carrega os actualizadores que os plugins pagos só
+  // registam no administrador, por isso sozinho não via as actualizações que o WordPress mostra.
+  const [raw, guardadas] = await Promise.all([
+    runAsWpUser(install.user, install.path, 'plugin list --format=json --status=active,inactive'),
+    runAsWpUser(install.user, install.path, '--skip-plugins --skip-themes option get vd_plugin_updates --format=json').catch(() => ''),
+  ]);
   const rows = parseWpJson<WpPluginRow[]>(raw);
   if (!Array.isArray(rows)) {
     throw new Error('Lista de plugins inválida');
   }
-  return rows;
+  return juntarActualizacoesDoAdmin(rows, guardadas);
+}
+
+/** Marca como «available» os plugins que o administrador do WordPress diz ter versão nova e o wp-cli não viu. Só vale se a versão
+ *  guardada for diferente da instalada (depois de actualizar, a cópia pode demorar até 10 min a renovar-se). */
+export function juntarActualizacoesDoAdmin(rows: WpPluginRow[], guardadasRaw: string): WpPluginRow[] {
+  let guardadas: Record<string, string> = {};
+  try {
+    const ini = guardadasRaw.indexOf('{');
+    const obj = ini >= 0 ? (JSON.parse(guardadasRaw.slice(ini)) as { plugins?: Record<string, string> }) : null;
+    if (obj && obj.plugins && typeof obj.plugins === 'object') guardadas = obj.plugins;
+  } catch {
+    return rows;
+  }
+  const porNome = new Map<string, string>();
+  for (const [ficheiro, versao] of Object.entries(guardadas)) {
+    const nome = ficheiro.includes('/') ? ficheiro.split('/')[0] : ficheiro.replace(/\.php$/, '');
+    if (versao) porNome.set(nome, versao);
+  }
+  return rows.map((p) => {
+    const nova = porNome.get(p.name);
+    if (!nova || p.update === 'available' || nova === p.version) return p;
+    return { ...p, update: 'available', update_version: nova };
+  });
 }
 
 export async function updateWpPlugin(

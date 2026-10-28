@@ -1,0 +1,59 @@
+name: Ops - Diagnóstico da cache de página do WP-Optimize (só leitura e uma tentativa de ligar)
+
+# Para os sites onde o `wp-cache-on-site.sh` deu erro ao ligar a cache de página (erro fatal em class-wpo-cache-rules.php) e onde o
+# `wp config set` não achou onde pôr as constantes (wp-config.php sem a linha «That's all, stop editing»): mostra o que diz o erro,
+# as linhas do plugin em causa, as linhas de âncora do wp-config (só as que não têm segredos) e tenta ligar a cache de página duas vezes
+# (como o script faz, e carregando antes as funções do administrador), a ver qual funciona. Pedido do Silva a 28/10/2026.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dominios:
+        description: 'Domínios separados por espaço'
+        required: true
+        default: 'desporto.entrecamposblog.com entrecamposblog.com'
+
+concurrency:
+  group: ops-wordpress-wpo-diagnostico
+  cancel-in-progress: false
+
+jobs:
+  diagnostico:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Diagnóstico no servidor
+        uses: appleboy/ssh-action@v1.2.5
+        env:
+          DOMINIOS: ${{ inputs.dominios || 'desporto.entrecamposblog.com entrecamposblog.com' }}
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          port: 2234
+          username: root
+          key: ${{ secrets.CONTABO_SSH_KEY }}
+          command_timeout: 8m
+          envs: DOMINIOS
+          script: |
+            set -u
+            titulo() { echo; echo "=================== $1"; }
+            echo "$DOMINIOS" | grep -qE '^[a-z0-9. -]+$' || { echo "Domínios inválidos"; exit 1; }
+            WP=$(command -v wp || echo /usr/local/bin/wp)
+            for DOM in $DOMINIOS; do
+              CONTA=""; for d in /home/*/web/"$DOM"; do [ -d "$d" ] && CONTA=$(echo "$d" | cut -d/ -f3) && break; done
+              [ -z "$CONTA" ] && { titulo "$DOM: não está no servidor"; continue; }
+              RAIZ=/home/$CONTA/web/$DOM/public_html
+              W="sudo -u $CONTA $WP --path=$RAIZ"
+              titulo "$DOM (conta $CONTA)"
+              echo "--- wp-config.php: linhas de âncora (sem segredos; número da linha e início do texto)"
+              grep -nE "stop editing|wp-settings|WP_CACHE|WP_REDIS|ABSPATH|table_prefix|WP_DEBUG'" "$RAIZ/wp-config.php" | cut -c1-90
+              echo "--- plugin WP-Optimize: versão e as linhas 455 a 470 de cache/class-wpo-cache-rules.php"
+              grep -m1 -E '^ \* Version:' "$RAIZ/wp-content/plugins/wp-optimize/wp-optimize.php"
+              sed -n 455,470p "$RAIZ/wp-content/plugins/wp-optimize/cache/class-wpo-cache-rules.php" | cut -c1-160
+              echo "--- estado da cache de página agora"
+              $W eval 'echo "WP_CACHE: ".(defined("WP_CACHE") ? var_export(WP_CACHE, true) : "não definido")."\n"; echo "advanced-cache.php: ".(file_exists(WP_CONTENT_DIR."/advanced-cache.php") ? "existe" : "não existe")."\n"; $c = get_option("wpo_page_cache_config"); echo "enable_page_caching: ".(is_array($c) && isset($c["enable_page_caching"]) ? var_export($c["enable_page_caching"], true) : "?")."\n";' 2>&1 | head -n 6
+              echo "--- tentativa A (como o script faz): enable() apanhando o erro"
+              $W eval 'try { WPO_Page_Cache::instance()->enable(); echo "A: sem erro\n"; } catch (Throwable $e) { echo "A: ".get_class($e).": ".$e->getMessage()." em ".basename($e->getFile()).":".$e->getLine()."\n"; }' 2>&1 | cut -c1-300 | head -n 6
+              echo "--- tentativa B: carregando antes as funções do administrador (file.php, misc.php, plugin.php)"
+              $W eval 'require_once ABSPATH."wp-admin/includes/file.php"; require_once ABSPATH."wp-admin/includes/misc.php"; require_once ABSPATH."wp-admin/includes/plugin.php"; try { WPO_Page_Cache::instance()->enable(); echo "B: sem erro\n"; } catch (Throwable $e) { echo "B: ".get_class($e).": ".$e->getMessage()." em ".basename($e->getFile()).":".$e->getLine()."\n"; }' 2>&1 | cut -c1-300 | head -n 6
+              curl -sk -m 40 -o /dev/null -w "página inicial depois: %{http_code} · %{time_total}s\n" "https://$DOM/"
+            done
+            titulo "fim"

@@ -1,0 +1,66 @@
+name: Ops - Cache dos sites Node.js, Next.js e WordPress antigos (só leitura)
+
+# Só LÊ: (1) que aplicações Node.js/Next.js correm no servidor, se usam Redis e que cabeçalhos de cache servem (vistos de fora); (2) nos WordPress
+# que já existiam (mltmark, lirandzojewelry, msdn-moz, oshercollective): que ficheiro de cache de objectos têm, se o Redis está ligado, o prefixo das
+# chaves e o estado do WP-Optimize. Nada de segredos: só nomes. Pedido do Silva a 28/10/2026 (regra 4 de regras.md: só leitura primeiro).
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: ops-cache-leitura
+  cancel-in-progress: false
+
+jobs:
+  leitura:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cabeçalhos de cache vistos de fora
+        run: |
+          for u in https://visualdesignmoz.com/ https://visualdesignmoz.com/precos https://visualdesignmoz.com/sobre-nos https://basededadosagro.com/; do
+            echo "=== $u"
+            curl -sSI -m 30 "$u" | tr -d '\r' | grep -iE '^(HTTP|cache-control|cf-cache-status|age|etag|x-nextjs-cache|x-nextjs-prerender|x-powered-by|content-encoding|vary)' | cut -c1-160
+          done
+          echo "=== um ficheiro estático do Next.js (de /_next/static)"
+          A=$(curl -s -m 30 https://visualdesignmoz.com/ | grep -oE '/_next/static/[^"]+\.(js|css)' | head -1)
+          [ -n "$A" ] && curl -sSI -m 30 "https://visualdesignmoz.com$A" | tr -d '\r' | grep -iE '^(HTTP|cache-control|cf-cache-status|age|content-encoding)'
+
+      - name: Servidor (só leitura)
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          port: 2234
+          username: root
+          key: ${{ secrets.CONTABO_SSH_KEY }}
+          command_timeout: 8m
+          script: |
+            set -u
+            titulo() { echo; echo "=================== $1"; }
+            WP=$(command -v wp || echo /usr/local/bin/wp)
+            titulo "1. Aplicações Node.js (pm2 e serviços do sistema), sem variáveis"
+            pm2 list 2>/dev/null | cut -c1-120 | head -n 20
+            systemctl list-units --type=service --state=running --no-legend 2>/dev/null | grep -iE 'node|next|basededadosagro|visualdesign' | awk '{print $1}' | head -n 10
+            titulo "2. Alguma aplicação Node.js tem cliente de Redis nas dependências? (só o nome do pacote)"
+            for d in /opt/visualdesignmoz /opt/basededadosagro-site /opt/visualdesign-panel; do
+              [ -f "$d/package.json" ] && echo "$d: $(grep -oE '"(ioredis|redis|@upstash/redis|cache-manager[^"]*|@neshca/cache-handler|lru-cache)": *"[^"]*"' "$d/package.json" | paste -sd' ')"
+            done
+            titulo "3. Quem usa a base 3 do Redis? (nomes dos prefixos, sem valores)"
+            redis-cli -n 3 --scan --count 500 2>/dev/null | head -n 400 | sed -E 's/^([^:]{1,24}).*/\1/' | sort | uniq -c | sort -rn | head -n 8
+            echo "--- base 0 (prefixos):"
+            redis-cli -n 0 --scan --count 500 2>/dev/null | head -n 400 | sed -E 's/^([^:]{1,24}).*/\1/' | sort | uniq -c | sort -rn | head -n 8
+            titulo "4. WordPress que já existiam: cache de objectos, Redis e WP-Optimize"
+            for DOM in mltmark.com lirandzojewelry.com msdn-moz.org oshercollective.com; do
+              CONTA=""; for d in /home/*/web/"$DOM"; do [ -d "$d" ] && CONTA=$(echo "$d" | cut -d/ -f3) && break; done
+              [ -z "$CONTA" ] && continue
+              RAIZ=/home/$CONTA/web/$DOM/public_html
+              W="sudo -u $CONTA $WP --path=$RAIZ --skip-plugins --skip-themes"
+              echo
+              echo "###### $DOM (conta $CONTA)"
+              echo "object-cache.php: $(grep -m1 -E 'Plugin Name:' "$RAIZ/wp-content/object-cache.php" 2>/dev/null | cut -c1-100)"
+              echo "plugins de cache: $($W plugin list --status=active --field=name 2>/dev/null | grep -iE 'redis|optimize|cache' | paste -sd' ')"
+              echo "WP_REDIS_ no wp-config: $(grep -oE "WP_REDIS_[A-Z_]+" "$RAIZ/wp-config.php" | sort -u | paste -sd' ') · WP_CACHE: $(grep -c WP_CACHE "$RAIZ/wp-config.php") linha(s)"
+              echo "prefixo das tabelas: $(grep -oE "table_prefix *= *'[^']*'" "$RAIZ/wp-config.php" | head -1)"
+              echo "redis-cache instalado: $([ -d "$RAIZ/wp-content/plugins/redis-cache" ] && echo sim || echo não)"
+              echo "$($W eval 'echo "cache de objectos externa: ".(wp_using_ext_object_cache() ? "sim" : "não"); echo " · classe: ".(isset($GLOBALS["wp_object_cache"]) ? get_class($GLOBALS["wp_object_cache"]) : "?");' 2>&1 | head -n 2 | cut -c1-200)"
+            done
+            titulo "fim da leitura (nada foi alterado)"

@@ -424,3 +424,30 @@ function vd_set_option(string $key, $value): void
 		update_option($key, $value, false);
 	}
 }
+
+/**
+ * Actualizações de plugins vistas já com o administrador carregado (Silva, 28/10/2026). Muitos plugins pagos (PRO Elements, LoginPress Pro,
+ * JetSmartFilters…) só registam o seu actualizador no administrador, por isso o wp-cli do painel não via as actualizações que o WordPress
+ * mostra em Plugins. Aqui guarda-se, no máximo de 10 em 10 minutos, a lista que o administrador vê; o painel lê-a com
+ * `wp option get vd_plugin_updates` (ficheiro do plugin → versão nova) e compara com a versão instalada.
+ */
+add_action('admin_init', 'vd_guardar_actualizacoes_plugins', 99);
+
+function vd_guardar_actualizacoes_plugins(): void
+{
+	$antigo = get_option('vd_plugin_updates');
+	if (is_array($antigo) && isset($antigo['em']) && (time() - (int) $antigo['em']) < 10 * MINUTE_IN_SECONDS) {
+		return;
+	}
+	$t = get_site_transient('update_plugins');
+	if (!is_object($t)) {
+		return;
+	}
+	$lista = [];
+	if (!empty($t->response) && is_array($t->response)) {
+		foreach ($t->response as $ficheiro => $o) {
+			$lista[(string) $ficheiro] = (is_object($o) && isset($o->new_version)) ? (string) $o->new_version : '';
+		}
+	}
+	update_option('vd_plugin_updates', ['em' => time(), 'plugins' => $lista], false);
+}

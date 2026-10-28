@@ -1,0 +1,91 @@
+name: Ops - Actualizações de plugins que o painel não vê (só leitura)
+
+# Compara o que o WordPress mostra em Plugins (actualizações disponíveis) com o que o painel lê (`wp plugin list`): idade e conteúdo da
+# lista de actualizações guardada pelo WordPress, o cron do WordPress (e do sistema) que a devia renovar e a coluna «update» do wp-cli.
+# Só lê. Com «refrescar» marcado também força uma nova verificação das actualizações (apaga e recria só a lista guardada
+# `update_plugins`, o mesmo que o botão «Verificar de novo» do WordPress) e mostra o resultado, com e sem o contexto de administração.
+# Pedido do Silva a 28/10/2026 (regra 4 de regras.md: só leitura primeiro).
+
+on:
+  workflow_dispatch:
+    inputs:
+      dominio:
+        description: 'Domínio do site (ex.: entrecamposblog.com)'
+        required: true
+        default: 'entrecamposblog.com'
+      refrescar:
+        description: 'Forçar nova verificação das actualizações (só apaga e recria a lista guardada)'
+        type: boolean
+        default: false
+
+concurrency:
+  group: ops-wordpress-actualizacoes
+  cancel-in-progress: false
+
+jobs:
+  leitura:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Actualizações de plugins (só leitura)
+        uses: appleboy/ssh-action@v1.2.5
+        env:
+          DOMINIO: ${{ inputs.dominio || 'entrecamposblog.com' }}
+          REFRESCAR: ${{ inputs.refrescar && 'sim' || 'nao' }}
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          port: 2234
+          username: root
+          key: ${{ secrets.CONTABO_SSH_KEY }}
+          command_timeout: 6m
+          envs: DOMINIO,REFRESCAR
+          script: |
+            set -u
+            case "$DOMINIO" in (*[!a-z0-9.-]*|''|*..*) echo "Domínio inválido"; exit 1;; esac
+            titulo() { echo; echo "=================== $1"; }
+            CONTA=""
+            for d in /home/*/web/"$DOMINIO"; do [ -d "$d" ] && CONTA=$(echo "$d" | cut -d/ -f3) && break; done
+            [ -z "$CONTA" ] && { echo "O domínio $DOMINIO não está em nenhuma conta do servidor."; exit 0; }
+            RAIZ=/home/$CONTA/web/$DOMINIO/public_html
+            WP=$(command -v wp || echo /usr/local/bin/wp)
+            W="sudo -u $CONTA $WP --path=$RAIZ"
+            LER_TRANSIENT='$t = get_site_transient("update_plugins"); echo "última verificação: ".(isset($t->last_checked) ? date("d/m/Y H:i:s", $t->last_checked)." (há ".round((time()-$t->last_checked)/60)." min)" : "nunca")."\n"; $n = isset($t->response) ? count($t->response) : 0; echo "plugins com actualização na lista guardada: $n\n"; if ($n) foreach ($t->response as $f => $o) echo "  $f -> ".($o->new_version ?? "?")."\n"; echo "cache de objectos externa: ".(wp_using_ext_object_cache() ? "sim" : "não")."\n";'
+            titulo "$DOMINIO (conta $CONTA) · hora: $(date '+%d/%m/%Y %H:%M:%S %Z')"
+
+            titulo "1. Cron do WordPress"
+            echo "DISABLE_WP_CRON no wp-config: $(grep -E "DISABLE_WP_CRON" "$RAIZ/wp-config.php" | cut -c1-80 | head -1)"
+            echo "--- eventos que renovam as actualizações:"
+            $W cron event list --fields=hook,next_run_relative --format=csv 2>/dev/null | grep -E 'hook|wp_update_plugins|wp_version_check|wp_update_themes'
+            echo "--- cron do sistema desta conta (wp / wp-cron):"
+            crontab -u "$CONTA" -l 2>/dev/null | grep -E 'wp |wp-cron' | cut -c1-200 || echo "(nenhum)"
+
+            titulo "2. Lista de actualizações guardada pelo WordPress (o que o painel herda)"
+            $W eval "$LER_TRANSIENT" 2>&1 | head -n 30
+
+            titulo "3. O que o painel lê: wp plugin list (só os que têm actualização)"
+            $W plugin list --fields=name,version,update,update_version --format=csv 2>&1 | grep -vE ',none,' | head -n 30
+            echo "total de plugins: $($W plugin list --format=count 2>/dev/null)"
+
+            if [ "$REFRESCAR" = "sim" ]; then
+              titulo "4. Depois de forçar a verificação (contexto normal do wp-cli)"
+              $W eval 'delete_site_transient("update_plugins"); wp_update_plugins();'" $LER_TRANSIENT" 2>&1 | head -n 30
+              echo "--- plugin list a seguir:"
+              $W plugin list --fields=name,version,update,update_version --format=csv 2>&1 | grep -vE ',none,' | head -n 30
+
+              titulo "5. Idem, com o contexto de administração (WP_ADMIN) definido antes de carregar o WordPress"
+              $W --exec='define("WP_ADMIN", true);' eval 'delete_site_transient("update_plugins"); wp_update_plugins();'" $LER_TRANSIENT" 2>&1 | head -n 30
+            fi
+            titulo "6. Quem regista actualizações no wp-cli (ganchos) e o que a lista guardada contém além das actualizações"
+            $W eval '
+            global $wp_filter;
+            foreach (array("pre_set_site_transient_update_plugins", "site_transient_update_plugins", "pre_site_transient_update_plugins") as $h) {
+              echo $h.": ";
+              if (empty($wp_filter[$h])) { echo "(nenhum)\n"; continue; }
+              $n = array();
+              foreach ($wp_filter[$h]->callbacks as $cbs) foreach ($cbs as $cb) { $f = $cb["function"]; if (is_array($f)) $n[] = (is_object($f[0]) ? get_class($f[0]) : $f[0])."::".$f[1]; elseif (is_string($f)) $n[] = $f; else $n[] = "closure"; }
+              echo implode(", ", $n)."\n";
+            }
+            $t = get_site_transient("update_plugins");
+            echo "verificados: ".(isset($t->checked) ? count($t->checked) : 0)." · sem actualização: ".(isset($t->no_update) ? count($t->no_update) : 0)." · falhas: ".json_encode(isset($t->failed_checks) ? $t->failed_checks : null)."\n";
+            echo "is_admin() no wp-cli: ".(is_admin() ? "sim" : "não")."\n";
+            ' 2>&1 | cut -c1-400 | head -n 12
+            titulo "fim da leitura"
