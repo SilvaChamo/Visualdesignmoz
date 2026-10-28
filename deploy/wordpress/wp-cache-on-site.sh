@@ -18,7 +18,8 @@ AQUI="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 [[ -z "$DOMINIO" ]] && DOMINIO="$(echo "$WP_PATH" | cut -d/ -f5)"
 case "$WP_USER$DOMINIO" in (*[!A-Za-z0-9._-]*) echo "Conta ou domínio inválidos."; exit 1;; esac
 
-wpu() { sudo -u "$WP_USER" "$WP" --path="$WP_PATH" "$@"; }
+# nice/ionice: o servidor é partilhado, o trabalho de um site não deve atrasar os outros
+wpu() { sudo -u "$WP_USER" nice -n 10 ionice -c3 "$WP" --path="$WP_PATH" "$@"; }
 passo() {
   local titulo="$1" out rc; shift
   out=$("$@" 2>&1); rc=$?
@@ -41,6 +42,19 @@ REL="${WP_PATH#"$RAIZ_SITE"}"
 PREFIXO="vd_$(echo "$DOMINIO$REL" | tr 'A-Z./-' 'a-z___' | tr -cd 'a-z0-9_')_"
 
 echo "=== $DOMINIO (conta $WP_USER) · prefixo do Redis: $PREFIXO"
+
+# VD_SO_REDIS=1: para um site que já tem a cache de objectos em Redis (o drop-in) e só lhe faltam o prefixo próprio, o esvaziar só as chaves
+# do site e a validade das chaves. Não mexe em plugins, no mu-plugin nem na cache de página.
+if [[ "${VD_SO_REDIS:-}" == "1" ]]; then
+  if [[ "$(redis-cli ping 2>/dev/null)" == "PONG" ]]; then
+    passo "prefixo do Redis" cfg WP_REDIS_PREFIX "$PREFIXO"
+    passo "esvaziar só as chaves do site" cfg WP_REDIS_SELECTIVE_FLUSH true --raw
+    passo "validade das chaves (7 dias)" cfg WP_REDIS_MAXTTL 604800 --raw
+  else
+    echo "[AVISO] Redis não responde: nada a fazer"
+  fi
+  exit 0
+fi
 
 # 1. mu-plugin do stack (versão desta pasta; se faltar, a que está em /usr/local/share)
 MU_ROOT="$AQUI"; [[ -f "$MU_ROOT/00-visualdesign-loader.php" && -f "$MU_ROOT/visualdesign/stack.php" ]] || MU_ROOT="${MU_PLUGIN_SRC:-/usr/local/share/wordpress-mu-plugins}"
