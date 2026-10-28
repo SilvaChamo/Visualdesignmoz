@@ -79,3 +79,10 @@ Auditoria de segurança do painel: `docs/AUDITORIA_PAINEL_PLANO_CORRECAO.md`.
 
 ## 27/10/2026, 20:34 — leitura do servidor
 Resolvidos: certificados de e-mail do mltmark.com e do basededadosagro.com, nginx da porta 2026. **Por fazer:** troca do endereço do Supabase (continua `supabase-contabo…`), cron das cópias no R2 (não existe), Stripe em modo real (as chaves são `sk_test_`/`pk_test_`), SSH só com chave. Detalhe em `docs/AUDITORIA_FECHO_PROJECTO.md`, secção 9.
+
+## 28/10/2026, 10:12 — segunda leitura do servidor (só leitura; workflows `ops-php-seguranca` fase `backups` e `ops-auditoria-leitura`)
+- **Envio das cópias para fora do servidor: confirmado.** O cron `/etc/cron.d/vd-backup-externo` existe e correu às 07:00:11 de hoje, acabando às 07:01:25 (19 objectos, 7,773 GiB no R2). As seis cópias mais recentes (vdadmin, provisualcorporate, aamihe, oshercollective, mltmark e concordia, feitas a 27/10 entre as 22:29 e as 22:52) estão lá. Não havia cópias novas desde ontem à noite, por isso o envio de hoje não acrescentou contas.
+- **Troca do endereço do Supabase: continua por fazer.** `SUPABASE_PUBLIC_URL`, `API_EXTERNAL_URL` e `NEXT_PUBLIC_SUPABASE_URL` ainda apontam para `supabase-contabo…`; os dois nomes respondem (401 no `/auth/v1/health` sem chave, o esperado).
+- **Certificados de e-mail: resolvidos.** `mail.mltmark.com` e `mail.basededadosagro.com` têm certificado Let's Encrypt de 26/10/2026, válido até 24/01/2027.
+- Sem actualizações de segurança por instalar nem reinício pendente; `unattended-upgrades` activo; pm2 só com o `visualdesignmoz` (online) e o `basededadosagro-site` activo; disco a 24%.
+- Ainda por decidir: Stripe em modo de teste (`sk_test_`/`pk_test_`), M-Pesa em `sandbox`, variáveis `DIRECTADMIN_*` ainda no `.env.local` (o aviso «nenhuma» do workflow engana: só procura nomes que começam por `DA_`, `WHMCS`, etc.) e o SSH com `permitrootlogin yes` e `passwordauthentication yes` na configuração (a porta 22 está fechada no firewall).
