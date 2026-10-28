@@ -1,12 +1,6 @@
-# Ramos já fundidos em `main` (28/10/2026) — prontos a apagar
+# Ramos já fundidos em `main` — apagados a 28/10/2026
 
-Todos são antepassados de `main`: apagá-los não perde nada. Ficam de fora `main`, os `arquivo/*`, o PR aberto #3 (`ops/dynadot-teste-e-repor-dominio`, nunca fechar) e os ramos que ainda não estão em `main` por histórico (não se apagam sem o Silva ver).
-
-Para apagar (uma linha):
-
-```bash
-git push origin --delete cartao-encomenda-e-deploy-rapido checkout-dentro-do-painel contabilidade-como-painel reverter-deploy avisos-no-menu-e-ajustes remover-paineis-antigos barra-do-seletor-de-dominios-mais-baixa botao-offcanvas-e-menu-extra botoes-tema-e-idioma-na-home lista-dominios-botoes-so-icones lista-utilizadores-deslize-e-acoes-fixas menu-email-baixar-e-sem-registos-smtp menu-para-a-esquerda-e-lista-email-com-deslize menu-telemovel-botoes-sair-e-fechar nomes-vhost-nas-atualizacoes ajustes-do-painel-roda-lingua-e-encomendas auditoria-traducao-painel encomendas-sem-escolha-de-dominio lingua-na-barra-vermelha-e-menu-esquerdo-menor painel-email-dados-e-refresh resultados-da-auditoria-e-segunda-leitura roda-so-na-entrada-directa-do-painel titulos-da-barra-direita-numa-linha php-correccao-seguranca regra-servidor-local-so-npm-run-dev
-```
+Todos foram verificados: o SHA remoto correspondia ao registo abaixo e cada commit era antepassado de `main`. A remoção não afecta `main`; ficam de fora os `arquivo/*`, o PR aberto #3 (`ops/dynadot-teste-e-repor-dominio`, não fechar) e os ramos que ainda não estão em `main`.
 
 Para recuperar um: `git branch NOME SHA && git push origin NOME`.
 

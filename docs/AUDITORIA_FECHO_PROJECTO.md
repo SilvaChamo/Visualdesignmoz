@@ -142,10 +142,10 @@ com todos os pontos corrigidos; deploy sem corte com reversão; isenção do IP 
 4. **Troca do endereço do Supabase** (`supabase-contabo.…` → `supabase.…`): agendada para 23/10 às 00:00 e a nota «Feito» de `regras.md` continua a dizer
    «(ainda não)». Confirmar no servidor (`/opt/supabase-contabo/docker/.env`, secret `CONTABO_SUPABASE_URL`, `/auth/v1/health`). Se já foi feita, escrever a data
    na nota; se não, fazer (todos os utilizadores voltam a entrar uma vez) e acrescentar o URL de retorno no Google.
-5. **Credenciais do Hetzner.** O repositório ainda lista nos workflows secrets como `DIRECTADMIN_HOST/USER/PASSWORD/LOGIN_KEY/PORT/PROTOCOL` e `HESTIA_ADMIN_*`;
+5. **Credenciais antigas.** O repositório ainda lista nos workflows secrets como `DIRECTADMIN_HOST/USER/PASSWORD/LOGIN_KEY/PORT/PROTOCOL` e `HESTIA_ADMIN_*`;
    `ESTADO_PROJECTO.md` regista que a chave `service_role` do Supabase antigo, o MySQL e o DirectAdmin do Hetzner estiveram no código (decidido em 22/10 não as
-   mudar). **O Hetzner já está fechado, por isso a razão de 22/10 (não afectar clientes) acabou — mudar de decisão:** confirmar que o Supabase antigo já não existe (a chave deixa de valer) ou rodá-la; apagar os secrets
-   que nenhum workflow usa (`CONTABO_ROOT_PASSWORD`, os do DirectAdmin se o deploy os escreve só por herança); decidir se se limpa o histórico do git
+   mudar). **O Hetzner já está fechado, por isso a razão de 22/10 (não afectar clientes) acabou — mudar de decisão:** confirmar que o Supabase antigo já não existe (a chave deixa de valer) ou rodá-la; `CONTABO_ROOT_PASSWORD` foi removido a 28/10/2026 após confirmar que nenhum workflow o usa; rever os secrets
+   do DirectAdmin e os que o deploy escreve só por herança; decidir se se limpa o histórico do git
    (reescrever histórico só com autorização expressa do Silva — alternativa: manter privado e rodar tudo o que lá esteve).
 6. **O site liga-se ao servidor como `root` por SSH** (`SERVER_SSH_KEY_PATH=/root/.ssh/app_self_key`, a mesma chave do deploy `CONTABO_SSH_KEY`). Uma falha
    de execução no painel dá acesso total ao servidor, incluindo o `basededadosagro.com`. Reduzir: chave própria da aplicação, num utilizador com `sudo`
@@ -175,8 +175,8 @@ com todos os pontos corrigidos; deploy sem corte com reversão; isenção do IP 
 1. **Sem verificação antes de publicar** (B). Só existe o workflow de deploy (corre em cada merge em `main`); nenhum workflow corre `tsc`, `lint`
    ou `npm run i18n`/`i18n:painel` nos PR, e há **um único teste** (`email-quota-allocation.test.mjs`). Acrescentar um workflow de PR com `tsc --noEmit`,
    `next lint`, `npm run i18n` e `npm run i18n:painel`, e um teste de fumo (login, checkout de teste, `/recibo`).
-2. **Sem Dependabot** (`.github/dependabot.yml` não existe). Os alertas críticos de Next e nodemailer já foram resolvidos (Next 16.4.3, nodemailer ^10.2.1;
-   os PR #180 e #181 de `ESTADO_PROJECTO.md` já não estão abertos — esse documento está desactualizado neste ponto). Ligar Dependabot de segurança.
+2. **Dependabot activo** (`.github/dependabot.yml`; alertas de segurança ligados a 28/10/2026). Há 4 alertas abertos: 1 alto, 1 médio e 2 baixos
+   (em `serialize-javascript` e `deepmerge`); os alertas corrigidos continuam no histórico.
 3. **Política de Privacidade e Termos genéricos** (B): 6 secções curtas, «Última actualização: Julho de 2026», sem identificar o responsável pelo tratamento
    (nome legal, NUIT, morada, contacto), sem prazos de conservação, sem lista de categorias de dados de pagamento e sem página de **cookies**. Não há faixa de
    consentimento de cookies. Rever com um jurista à luz da legislação moçambicana aplicável e da dos clientes no estrangeiro.
@@ -184,8 +184,8 @@ com todos os pontos corrigidos; deploy sem corte com reversão; isenção do IP 
    `SUPABASE_CONTABO_SETUP_MANUAL.md` precisam de uma passagem; a lista «Falta para fechar» tem 18 itens, vários já cumpridos.
 5. **Ficheiros SQL soltos na raiz** (≈ 60 `supabase-*.sql`) e em `scripts/`: não há registo de quais já foram aplicados (o deploy aplica só alguns). Criar uma
    pasta `supabase/migrations` com ordem e estado, ou uma tabela de controlo, para recriar a base do zero se for preciso.
-6. **Ramos antigos**: o GitHub tem ~95 ramos (16 `arquivo/…`, vários `ops/…` e de trabalho já publicados). Limpar só pelo Silva (regra n.º 1), depois de provar que
-   cada um está em `main`; guardar os SHAs. **O ramo `claude/focused-turing-p63thb` desta sessão ainda existe no GitHub** — a regra n.º 1 manda que nenhum ramo leve
+6. **Ramos antigos**: 25 ramos de trabalho já fundidos foram apagados a 28/10/2026 após confirmar os SHAs e que eram antepassados de `main` (registo em
+   `docs/ramos-para-apagar-2026-10-28.md`). Os restantes ramos `arquivo/…`, `ops/…` e de trabalho continuam a exigir verificação individual. **O ramo `claude/focused-turing-p63thb` desta sessão ainda existe no GitHub** — a regra n.º 1 manda que nenhum ramo leve
    o nome de uma IA; esta auditoria foi enviada para `auditoria-fecho-projecto` e o antigo fica para o Silva apagar.
 7. **Restos do Hetzner/DirectAdmin no código** (C): comentários em ~20 ficheiros de `src/lib` e `src/app/api` e os ramos DirectAdmin ainda vivos em
    `/api/da`, `server-exec`, `panel-dns`. Só saem retirando esses ramos (trabalho à parte, com a análise de chamadores da regra 5).
@@ -254,11 +254,11 @@ saíram, basta ela não valer para nada — pedir ao fornecedor que a revogue, o
 3. Ordem expressa para instalar o cron das cópias no R2.
 4. Texto legal (responsável pelo tratamento, conservação, cookies) revisto por um jurista.
 5. Dados da empresa para o pedido à Vodacom (nome legal, NUIT, contacto) e enviá-lo.
-6. Nos Settings do GitHub: apagar os secrets que já ninguém usa (`CONTABO_ROOT_PASSWORD` e os do DirectAdmin, depois de eu confirmar pela leitura que nenhum workflow os usa) e ligar o Dependabot de segurança.
+6. Nos Settings do GitHub: rever os secrets `DIRECTADMIN_*` e apagar apenas os que nenhum workflow usa; `CONTABO_ROOT_PASSWORD` já foi removido e os alertas do Dependabot estão activos.
 7. Pedir ao fornecedor antigo que revogue a chave que esteve no código, e decidir se se reescreve o histórico do git.
 8. Decisões sobre DNS de e-mail: `elimservicos.com` e `shalomdeco.com` (a dona), DMARC a 100 % a partir de 02/11.
 9. «Avança» para qualquer alteração ao servidor que a leitura mostre ser precisa (troca do endereço do Supabase, separar a chave SSH da aplicação da do deploy, registo A `webmail.` no DNS, nginx da porta 2026).
-10. Apagar os ramos antigos, incluindo `claude/focused-turing-p63thb`, `auditoria-fecho-projecto` e `verificacao-nos-pr-e-traducao`.
+10. Apagar outros ramos antigos, incluindo `claude/focused-turing-p63thb`, `auditoria-fecho-projecto` e `verificacao-nos-pr-e-traducao`, depois de confirmar cada SHA e que não há trabalho exclusivo.
 11. M-Pesa (último): credenciais de produção, «avança» e pagamento de teste.
 
 ---
@@ -291,4 +291,3 @@ e a configuração efectiva do SSH. Só depois dela se decide o endurecimento do
 Resposta do Silva ponto a ponto e o que ficou feito está em `ESTADO_PROJECTO.md` («Falta para fechar»). Em resumo: IVA discriminado nos recibos do carrinho; lint, testes e build nos PR; Dependabot;
 fluxos `Ops - Fecho do servidor` (Supabase, SSH só chave, chave própria da aplicação) e `Ops - DMARC` prontos a correr depois de publicar; português de Portugal nos últimos textos; fase 1 da saída do DirectAdmin
 (10 rotas sem chamadores apagadas); lista dos ramos já fundidos em `docs/ramos-para-apagar-2026-10-28.md`. Por tratar: M-Pesa, Stripe, texto legal, facturação certificada.
-
