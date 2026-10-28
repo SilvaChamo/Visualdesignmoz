@@ -1,0 +1,79 @@
+name: Ops - Cache da Cloudflare dos sites (só leitura)
+
+# Só LÊ a configuração de cache da Cloudflare de alguns domínios: nível de cache, TTL do navegador, Page Rules, regras de cache e se a chave
+# da conta tem permissão para ver/alterar regras de cache e limpar a cache. Não mostra chaves nem identificadores da conta. Antes de pôr a
+# Cloudflare a guardar HTML do visualdesignmoz.com (pedido do Silva a 28/10/2026; regra 4 de regras.md: só leitura primeiro).
+
+on:
+  # só para registar o fluxo a partir do ramo de trabalho, antes de estar em main: corre uma vez ao enviar uma alteração a ESTE ficheiro.
+  push:
+    branches: [cloudflare-cache-do-site]
+    paths: ['.github/workflows/ops-cloudflare-cache-leitura.yml']
+  workflow_dispatch:
+    inputs:
+      dominios:
+        description: 'Domínios separados por espaço'
+        required: true
+        default: 'visualdesignmoz.com basededadosagro.com entrecamposblog.com'
+
+concurrency:
+  group: ops-cloudflare-cache-leitura
+  cancel-in-progress: false
+
+jobs:
+  leitura:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cloudflare (só leitura, a partir do servidor)
+        uses: appleboy/ssh-action@v1.2.5
+        env:
+          DOMINIOS: ${{ inputs.dominios || 'visualdesignmoz.com basededadosagro.com entrecamposblog.com' }}
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          port: 2234
+          username: root
+          key: ${{ secrets.CONTABO_SSH_KEY }}
+          command_timeout: 5m
+          envs: DOMINIOS
+          script: |
+            set -u
+            titulo() { echo; echo "=================== $1"; }
+            echo "$DOMINIOS" | grep -qE '^[a-z0-9. -]+$' || { echo "Domínios inválidos"; exit 1; }
+            ENVF=/opt/visualdesignmoz/.env.local
+            T=$(grep -E '^CLOUDFLARE_API_TOKEN_ACCOUNT=' "$ENVF" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'")
+            [ -z "$T" ] && { echo "Sem CLOUDFLARE_API_TOKEN_ACCOUNT no servidor"; exit 0; }
+            cf() { curl -s -m 30 -H "Authorization: Bearer $T" -H "Content-Type: application/json" "https://api.cloudflare.com/client/v4$1"; }
+            titulo "1. A chave da conta (estado e permissões, sem mostrar a chave)"
+            cf /user/tokens/verify | python3 -c 'import sys,json; d=json.load(sys.stdin); r=d.get("result") or {}; print("válida:", d.get("success"), "· estado:", r.get("status"), "· erros:", [e.get("message") for e in d.get("errors",[])])' 2>&1
+            for DOM in $DOMINIOS; do
+              titulo "$DOM"
+              ZID=$(cf "/zones?name=$DOM" | python3 -c 'import sys,json; d=json.load(sys.stdin); r=d.get("result") or []; print(r[0]["id"] if r else "")' 2>/dev/null)
+              [ -z "$ZID" ] && { echo "(zona não encontrada nesta conta ou sem permissão)"; continue; }
+              echo "plano: $(cf "/zones/$ZID" | python3 -c 'import sys,json; r=json.load(sys.stdin).get("result") or {}; print((r.get("plan") or {}).get("name"), "· estado:", r.get("status"))' 2>&1)"
+              echo "--- definições de cache:"
+              for S in cache_level browser_cache_ttl always_online rocket_loader development_mode; do
+                echo "$S: $(cf "/zones/$ZID/settings/$S" | python3 -c 'import sys,json; d=json.load(sys.stdin); r=d.get("result") or {}; print(r.get("value", [e.get("message") for e in d.get("errors",[])]))' 2>&1)"
+              done
+              echo "--- Page Rules (padrão · acções):"
+              cf "/zones/$ZID/pagerules" | python3 -c '
+            import sys,json
+            d=json.load(sys.stdin)
+            if not d.get("success"): print("erro:", [e.get("message") for e in d.get("errors",[])])
+            for r in d.get("result") or []:
+                t=(r.get("targets") or [{}])[0].get("constraint",{}).get("value")
+                a=[(x.get("id"), x.get("value")) for x in r.get("actions") or []]
+                print(" -", r.get("status"), t, a)
+            if d.get("success") and not d.get("result"): print(" (nenhuma)")
+            ' 2>&1
+              echo "--- Regras de cache (Cache Rules):"
+              cf "/zones/$ZID/rulesets/phases/http_request_cache_settings/entrypoint" | python3 -c '
+            import sys,json
+            d=json.load(sys.stdin)
+            if not d.get("success"):
+                print(" (nenhum conjunto ainda ou sem permissão:", [e.get("message") for e in d.get("errors",[])], ")")
+            else:
+                for r in (d.get("result") or {}).get("rules") or []:
+                    print(" -", r.get("enabled"), r.get("description"), "|", r.get("expression"), "|", r.get("action_parameters"))
+            ' 2>&1
+            done
+            titulo "fim da leitura (nada foi alterado)"
