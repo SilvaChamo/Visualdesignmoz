@@ -9,6 +9,8 @@ name: "Ops - PHP: correcção das falhas críticas de 21/10/2026 (CVE-2026-10961
 #   indicios    : procura sinais de intrusão desde 21/10 (ficheiros PHP novos onde não devem estar, crons, chaves SSH, ligações de saída). Só lê.
 #   backups     : só lê: cópias do Hestia em /backup (datas e tamanhos), a fila que dá «backup is already scheduled», cópias a correr,
 #                 o cron que despeja a fila e o estado do envio para fora do servidor. Serve para ter a certeza da cópia antes de «actualizar».
+#   site        : só lê: que versão do painel o servidor está a servir (atalho, BUILD_ID, resposta da app na porta 3002, pm2) e se o código das
+#                 alterações recentes está mesmo no build (procura marcas no CSS/JS). Para responder a «não vejo as alterações online».
 #   enviar-copias: só com «confirmar»: corre já o envio das cópias do Hestia para fora do servidor (`vd-backup-externo enviar`: cifrado, só o que ainda
 #                 não foi, só cópias com mais de 10 min; nada se apaga localmente).
 #   cron-envio  : só com «confirmar» (ordem do Silva, 27/10/2026: «resolver o envio manual»): instala o cron diário `/etc/cron.d/vd-backup-externo`
@@ -21,7 +23,7 @@ on:
   workflow_dispatch:
     inputs:
       fase:
-        description: "verificar (só lê) | indicios (só lê) | backups (só lê) | enviar-copias | cron-envio | actualizar (muda o servidor)"
+        description: "verificar (só lê) | indicios (só lê) | backups (só lê) | site (só lê) | enviar-copias | cron-envio | actualizar (muda o servidor)"
         type: choice
         required: true
         default: verificar
@@ -29,6 +31,7 @@ on:
           - verificar
           - indicios
           - backups
+          - site
           - enviar-copias
           - cron-envio
           - actualizar
@@ -159,6 +162,20 @@ jobs:
               echo; echo "=== envio para fora do servidor"
               ls /etc/cron.d/vd-backup-externo 2>/dev/null || echo "(o cron diário do envio externo ainda não está instalado: o envio é manual)"
               [ -x /usr/local/sbin/vd-backup-externo ] && timeout 120 /usr/local/sbin/vd-backup-externo estado 2>&1 | tail -n 25 | cut -c1-200
+              echo; echo "=== fim (nada foi alterado)"
+
+            elif [ "$FASE" = "site" ]; then
+              echo "=== a versão do painel que o servidor está a servir"
+              echo "atalho /opt/visualdesignmoz → $(readlink -f /opt/visualdesignmoz)"
+              echo "--- versões guardadas (a mais recente primeiro):"; ls -1dt --time-style=long-iso /opt/visualdesign-releases/* 2>/dev/null | head -4 | while read d; do echo "$d  $(stat -c %y "$d" | cut -c1-16)"; done
+              echo "BUILD_ID em uso: $(cat /opt/visualdesignmoz/.next/BUILD_ID 2>/dev/null)"
+              echo "versão que a app responde (porta 3002): $(curl -s -m 10 http://127.0.0.1:3002/api/versao | cut -c1-120)"
+              echo "--- pm2 (só ler):"; pm2 describe visualdesignmoz 2>/dev/null | grep -E "status|uptime|restarts|exec cwd" | sed 's/[│]//g' | tr -s ' ' | head -6
+              echo "--- o código das alterações recentes está no build? (ficheiros com cada marca em .next/static)"
+              for m in wp-pg-chev ad-cmd-1l wp-edicao vh-data-mudou bk-descarregar; do n=$(grep -rl -- "$m" /opt/visualdesignmoz/.next 2>/dev/null | wc -l); echo "$m: $n ficheiros"; done
+              echo "--- service worker (cópia guardada no navegador):"
+              ls /opt/visualdesignmoz/public 2>/dev/null | grep -iE "^sw|workbox|manifest" | head -5
+              curl -s -m 10 -o /dev/null -w "sw.js: HTTP %{http_code}\n" http://127.0.0.1:3002/sw.js
               echo; echo "=== fim (nada foi alterado)"
 
             elif [ "$FASE" = "enviar-copias" ] || [ "$FASE" = "cron-envio" ]; then
