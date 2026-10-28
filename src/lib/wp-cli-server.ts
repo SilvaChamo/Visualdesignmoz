@@ -62,6 +62,16 @@ export async function resolveDomainSitePath(
   return user ? { user, path } : null;
 }
 
+/** Liga a cache de página do WP-Optimize (corre com o plugin já activo): opção + advanced-cache.php. */
+const WPO_LIGAR_CACHE_PHP = `
+$c = get_option("wpo_page_cache_config", array());
+if (!is_array($c)) $c = array();
+$c["enable_page_caching"] = true;
+update_option("wpo_page_cache_config", $c);
+if (class_exists("WPO_Page_Cache")) { WPO_Page_Cache::instance()->enable(); }
+do_action("wpo_cache_config_updated");
+`;
+
 export async function installWordPressSite(input: {
   domain: string;
   directory?: string;
@@ -122,10 +132,19 @@ export async function installWordPressSite(input: {
   //  - ligações permanentes "bonitas" (/nome-do-artigo/). Usa-se
   //    `option update permalink_structure` + `rewrite flush` de propósito:
   //    `wp rewrite structure` rebenta com erro de subprocesso nalgumas versões.
+  //  - fora Akismet e Hello Dolly (vêm no pacote do WordPress; o slug do segundo é `hello`)
+  //    e dentro o WP-Optimize já activo e com a cache de página ligada (o mesmo que têm os
+  //    sites que já estavam preparados): sem isto o site fica lento e o Estado do site pede
+  //    cache. O eval faz o mesmo que o ecrã «Cache» do plugin: grava a opção, escreve o
+  //    advanced-cache.php e põe WP_CACHE a true no wp-config.
   // Best-effort: se algum falhar, a instalação continua válida na mesma.
   for (const extra of [
     `option update permalink_structure '/%postname%/'`,
     'rewrite flush --hard',
+    'plugin delete akismet hello',
+    'plugin install wp-optimize --activate',
+    'config set WP_CACHE true --raw',
+    `eval ${shellQuote(WPO_LIGAR_CACHE_PHP)}`,
   ]) {
     outputs.push(await runAsWpUser(site.user, wpPath, extra).catch(() => ''));
   }

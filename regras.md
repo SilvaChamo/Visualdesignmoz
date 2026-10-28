@@ -831,6 +831,15 @@ nível Revenda parte dessa lista ou de uma rota que a aplica no servidor; **nunc
 - **Nos menus «⋯» os itens levam só o nome** («Edição rápida», «Mudar nome», «Apagar»): **nunca descrições, frases ou explicações dentro do popup** (Silva, 27/10/2026: «nunca faça mais isso»). O que precisa de explicação vai para a janela ou para a linha que o item abre.
 - **Um só botão por linha**: a lista de instalações (Gestor de WordPress) deixa de ter «Gerir» e «⋯» lado a lado; **«Gerir» é o primeiro item do menu «⋯»**, com as outras opções. Em listas novas, nunca um botão solto ao lado do menu «⋯».
 
+# WordPress novo: sai com o WP-Optimize activo e a cache de página ligada (Silva, 28/10/2026)
+
+- **Regra:** todo o WordPress instalado pelo painel (`installWordPressSite`, em `src/lib/wp-cli-server.ts`, usado por Admin › `wp-install` e pelo Gestor de WordPress) fica no fim da instalação com o **WP-Optimize activo e a cache de página ligada**
+  (opção `wpo_page_cache_config`, `advanced-cache.php` e `WP_CACHE` a `true`), sem o Silva ter de fazer nada. **Akismet e Hello Dolly saem** (vêm no pacote do WordPress; o slug do segundo é `hello`, não `hello-dolly`). Passos «melhor esforço»: se um falhar, a instalação continua válida.
+- **Porquê:** a leitura do servidor de 28/10/2026 (`ops-wordpress-plugins-padrao.yml`, só leitura) mostrou que **os scripts de cache** (`wp-cache-on-site.sh`, `wp-enable-wpo-cache.sh`, `wp-remove-default-plugins.sh`, `wp-repair-all-sites.sh`) **não estão instalados no servidor**
+  (só existem dentro das pastas das versões do deploy), que **nada os chama** (nem gancho do painel de hospedagem, nem cron) e que `wordpress_install_post.sh` é do tempo do DirectAdmin. Um WordPress novo ficava só com o pacote do WordPress (Akismet e Hello Dolly), sem cache nenhuma.
+  Sites já preparados (mltmark, lirandzojewelry, msdn-moz, oshercollective) têm WP-Optimize + cache de página; **entrecamposblog.com, desporto.entrecamposblog.com e producoes.visualdesignmoz.com não tinham** (leitura de 28/10/2026).
+- **Sites antigos** não se mexem sem o «avança» do Silva (só ler primeiro). **Redis** não entra por defeito: o servidor partilha o Redis (sem limite de memória, política `noeviction`) e os sites que usem `wp_` como prefixo das tabelas misturavam a cache; só se liga o `redis-cache` com `WP_REDIS_PREFIX` próprio de cada site.
+
 # Autenticação em 2 passos (opcional — Silva, 21/10/2026)
 
 - **Nunca obrigatória**: só afecta quem a liga em Perfil › Autenticação em 2 passos (aplicação de autenticação, TOTP do Supabase;
