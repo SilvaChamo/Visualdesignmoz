@@ -831,14 +831,27 @@ nível Revenda parte dessa lista ou de uma rota que a aplica no servidor; **nunc
 - **Nos menus «⋯» os itens levam só o nome** («Edição rápida», «Mudar nome», «Apagar»): **nunca descrições, frases ou explicações dentro do popup** (Silva, 27/10/2026: «nunca faça mais isso»). O que precisa de explicação vai para a janela ou para a linha que o item abre.
 - **Um só botão por linha**: a lista de instalações (Gestor de WordPress) deixa de ter «Gerir» e «⋯» lado a lado; **«Gerir» é o primeiro item do menu «⋯»**, com as outras opções. Em listas novas, nunca um botão solto ao lado do menu «⋯».
 
-# WordPress novo: sai com o WP-Optimize activo e a cache de página ligada (Silva, 28/10/2026)
+# WordPress novo: sai com o WP-Optimize activo, a cache de página e o Redis ligados (Silva, 28/10/2026)
 
-- **Regra:** todo o WordPress instalado pelo painel (`installWordPressSite`, em `src/lib/wp-cli-server.ts`, usado por Admin › `wp-install` e pelo Gestor de WordPress) fica no fim da instalação com o **WP-Optimize activo e a cache de página ligada**
-  (opção `wpo_page_cache_config`, `advanced-cache.php` e `WP_CACHE` a `true`), sem o Silva ter de fazer nada. **Akismet e Hello Dolly saem** (vêm no pacote do WordPress; o slug do segundo é `hello`, não `hello-dolly`). Passos «melhor esforço»: se um falhar, a instalação continua válida.
-- **Porquê:** a leitura do servidor de 28/10/2026 (`ops-wordpress-plugins-padrao.yml`, só leitura) mostrou que **os scripts de cache** (`wp-cache-on-site.sh`, `wp-enable-wpo-cache.sh`, `wp-remove-default-plugins.sh`, `wp-repair-all-sites.sh`) **não estão instalados no servidor**
-  (só existem dentro das pastas das versões do deploy), que **nada os chama** (nem gancho do painel de hospedagem, nem cron) e que `wordpress_install_post.sh` é do tempo do DirectAdmin. Um WordPress novo ficava só com o pacote do WordPress (Akismet e Hello Dolly), sem cache nenhuma.
-  Sites já preparados (mltmark, lirandzojewelry, msdn-moz, oshercollective) têm WP-Optimize + cache de página; **entrecamposblog.com, desporto.entrecamposblog.com e producoes.visualdesignmoz.com não tinham** (leitura de 28/10/2026).
-- **Sites antigos** não se mexem sem o «avança» do Silva (só ler primeiro). **Redis** não entra por defeito: o servidor partilha o Redis (sem limite de memória, política `noeviction`) e os sites que usem `wp_` como prefixo das tabelas misturavam a cache; só se liga o `redis-cache` com `WP_REDIS_PREFIX` próprio de cada site.
+- **Regra:** todo o WordPress instalado pelo painel (`installWordPressSite`, em `src/lib/wp-cli-server.ts`, usado por Admin › `wp-install` e pelo Gestor de WordPress) fica no fim da instalação **preparado pelo servidor**: o painel só chama
+  `/opt/visualdesignmoz/deploy/wordpress/wp-cache-on-site.sh <pasta> <conta> <domínio>` (a pasta da versão em uso, por isso cada deploy o actualiza; não depende de nada em `/root`). O script, que é a única fonte desta preparação: copia o mu-plugin do stack, apaga Akismet e Hello Dolly
+  (o slug do segundo é `hello`), instala e activa o **WP-Optimize com a cache de página ligada** (`WPO_Page_Cache::instance()->enable()`; o plugin põe o `WP_CACHE` sozinho) e liga o **Redis com prefixo próprio do site** (`WP_REDIS_PREFIX=vd_<domínio>_`) e `WP_REDIS_SELECTIVE_FLUSH`
+  (sem isto «esvaziar a cache» num site apagava a base 0 inteira, que o Redis partilha). Cada passo avisa e segue; pode correr outra vez no mesmo site. **Honeypot não entra** (não foi pedido e os sites preparados antes também não o têm).
+- **Porquê:** a leitura do servidor de 28/10/2026 mostrou que os scripts antigos (`/root/wp-cache-on-site.sh`…) não estavam instalados no servidor e nada os chamava (o `wordpress_install_post.sh` é do tempo do DirectAdmin); um WordPress novo ficava só com o pacote do WordPress, sem cache.
+- **Armadilhas já pisadas (não repetir):** (1) o mu-plugin esconde o `redis-cache` da lista de plugins, também do wp-cli: `wp plugin activate redis-cache` dá «plugin could not be found»; activa-se por `activate_plugin("redis-cache/redis-cache.php")` num `wp eval`.
+  (2) Nunca `do_action("wpo_cache_config_updated")` sem argumento: o gancho do WP-Optimize espera a configuração e dá erro fatal (`class-wpo-cache-rules.php`, linha 465); o `enable()` já chega. (3) Há `wp-config.php` sem a linha «That's all, stop editing» (entrecamposblog.com): o `wp config set` falha com «Unable to locate placement anchor»; o script repete
+  com `--anchor="require_once ABSPATH . 'wp-settings.php';" --placement=before` (função `cfg`). (4) O servidor **não consegue abrir o próprio `visualdesignmoz.com`** (ligação recusada na porta 443): confirmar este site sempre **de fora** (passo do GitHub), nunca a partir do servidor.
+- **Sites que já existiam:** só com o «avança» do Silva, pelo workflow `ops-wordpress-cache-aplicar.yml` (sem «confirmar» só lê; com «confirmar» guarda cópia do wp-config e da lista de plugins em `/root/wp-cache-aplicar-<data>/`, aplica, mede o site antes e depois e desfaz sozinho se a página inicial deixar de dar 200).
+  Aplicado a 28/10/2026 a producoes.visualdesignmoz.com, desporto.entrecamposblog.com e entrecamposblog.com (a página inicial deste passou de 4 a 7 s para menos de 1 s). mltmark, lirandzojewelry, msdn-moz e oshercollective já tinham WP-Optimize e cache de página de antes; **nunca se lhes aplicou o Redis com prefixo próprio**
+  (lirandzojewelry, msdn-moz e oshercollective usam todos `wp_` como prefixo das tabelas: se usarem o Redis, misturam a cache; verificar antes de mexer). O Redis do servidor continua sem limite de memória (`maxmemory 0`, `noeviction`) e é partilhado (bases 0 e 3): não se muda sem ver quem mais o usa.
+
+# Plugins desactualizados que o painel não via (Silva, 28/10/2026)
+
+- **Causa:** o painel lê as actualizações com `wp plugin list`, e o wp-cli só carrega os actualizadores que um plugin regista fora do administrador (no entrecamposblog.com só o Freemius e o JetEngine). Os plugins pagos (PRO Elements, LoginPress Pro, JetSmartFilters…) registam o seu só no administrador, por isso o WordPress mostrava 5 actualizações
+  e o painel 0. Forçar a verificação no wp-cli não resolve (testado). Não era falha de ligação.
+- **Correcção:** o mu-plugin do stack (`deploy/wordpress/visualdesign/stack.php`, `vd_guardar_actualizacoes_plugins`) guarda, de 10 em 10 minutos e **só quando há um pedido ao administrador** (`admin_init`), a lista que o administrador vê na opção `vd_plugin_updates`; `listWpPlugins` junta essa lista à do wp-cli
+  (`juntarActualizacoesDoAdmin`) quando a versão guardada difere da instalada. **Só funciona em sites com o mu-plugin novo e depois de alguém abrir o administrador do WordPress uma vez.** Para pôr o mu-plugin novo num site antigo sem tocar no resto: `VD_SO_MU=1 bash wp-cache-on-site.sh <pasta>`.
+  O botão «Actualizar» do painel continua a usar o wp-cli e não actualiza plugins pagos sem licença.
 
 # Autenticação em 2 passos (opcional — Silva, 21/10/2026)
 
