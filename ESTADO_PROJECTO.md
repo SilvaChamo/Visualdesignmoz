@@ -68,7 +68,13 @@ Resolvidos: certificados de e-mail do mltmark.com e do basededadosagro.com, ngin
 
 ## 28/10/2026, 10:12 — segunda leitura do servidor (só leitura; workflows `ops-php-seguranca` fase `backups` e `ops-auditoria-leitura`)
 - **Envio das cópias para fora do servidor: confirmado.** O cron `/etc/cron.d/vd-backup-externo` existe e correu às 07:00:11 de hoje, acabando às 07:01:25 (19 objectos, 7,773 GiB no R2). As seis cópias mais recentes (vdadmin, provisualcorporate, aamihe, oshercollective, mltmark e concordia, feitas a 27/10 entre as 22:29 e as 22:52) estão lá. Não havia cópias novas desde ontem à noite, por isso o envio de hoje não acrescentou contas.
-- **Troca do endereço do Supabase: continua por fazer.** `SUPABASE_PUBLIC_URL`, `API_EXTERNAL_URL` e `NEXT_PUBLIC_SUPABASE_URL` ainda apontam para `supabase-contabo…`; os dois nomes respondem (401 no `/auth/v1/health` sem chave, o esperado).
+- **Troca do endereço do Supabase: continua por fazer.** Naquela leitura, `SUPABASE_PUBLIC_URL`, `API_EXTERNAL_URL` e `NEXT_PUBLIC_SUPABASE_URL` ainda apontavam para `supabase-contabo…`; os dois nomes respondiam (401 no `/auth/v1/health` sem chave, o esperado).
 - **Certificados de e-mail: resolvidos.** `mail.mltmark.com` e `mail.basededadosagro.com` têm certificado Let's Encrypt de 26/10/2026, válido até 24/01/2027.
 - Sem actualizações de segurança por instalar nem reinício pendente; `unattended-upgrades` activo; pm2 só com o `visualdesignmoz` (online) e o `basededadosagro-site` activo; disco a 24%.
 - Ainda por decidir: Stripe em modo de teste (`sk_test_`/`pk_test_`), M-Pesa em `sandbox`, variáveis `DIRECTADMIN_*` ainda no `.env.local` (o aviso «nenhuma» do workflow engana: só procura nomes que começam por `DA_`, `WHMCS`, etc.) e o SSH com `permitrootlogin yes` e `passwordauthentication yes` na configuração (a porta 22 está fechada no firewall).
+
+## 28/10/2026 — verificação mais recente das cópias e do Supabase
+- **Cópias fora do servidor: cron confirmado a funcionar.** O ficheiro `/etc/cron.d/vd-backup-externo` agenda o envio diário às 07:00. O último registo confirma a execução de 28/10 às 07:01:25: 19 objectos, 7,773 GiB. Não falta instalar o cron.
+- **Supabase: migração ainda por fazer.** O `.env` do serviço ainda anuncia `https://supabase-contabo.visualdesignmoz.com`; o `.env.local` do site já aponta para `https://supabase.visualdesignmoz.com`. Os dois endereços dão 401 em `/auth/v1/health`, resposta esperada sem chave.
+- **Login Google:** o pedido actual ainda usa `https://supabase-contabo.visualdesignmoz.com/auth/v1/callback`. Antes de migrar o serviço, acrescentar `https://supabase.visualdesignmoz.com/auth/v1/callback` aos endereços autorizados no Google e manter o antigo.
+- **Palavra-passe de cifra das cópias:** continua por confirmar se foi guardada no gestor de palavras-passe; não foi lida nem alterada nesta verificação.

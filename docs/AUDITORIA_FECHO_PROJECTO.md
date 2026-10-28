@@ -121,10 +121,7 @@ com todos os pontos corrigidos; deploy sem corte com reversão; isenção do IP 
 ### Falta
 
 **A — bloqueia o fecho**
-1. **Cópias de segurança fora do servidor** (`regras.md`, «Cópias… Cloudflare R2»): o primeiro envio e o teste de restauro passaram, mas o cron
-   `/etc/cron.d/vd-backup-externo` (`0 7 * * *`) **não foi instalado** (a protecção do ambiente recusou; espera a ordem expressa do Silva). Sem ele só há
-   cópias manuais e a cópia mais recente do R2 envelhece. Dar a ordem, instalar, e confirmar com `vd-backup-externo estado` no dia seguinte.
-   Confirmar também que o Silva guardou a palavra-passe de cifra num gestor de palavras-passe (sem ela as cópias não se abrem).
+1. **Cópias de segurança fora do servidor**: o cron `/etc/cron.d/vd-backup-externo` (`0 7 * * *`) está instalado. A verificação de 28/10 confirmou a execução às 07:01:25, com 19 objectos e 7,773 GiB. Falta confirmar que a palavra-passe de cifra foi guardada num gestor de palavras-passe; sem ela as cópias não se abrem.
 2. **Rotas de API sem autenticação e com a chave de serviço do Supabase.** **Resolvido no código em 27/10/2026 (ver «Ponto 3 — feito» no fim); falta publicar.** Heurística sobre as 185 rotas (procura de qualquer verificação de sessão,
    `CRON_SECRET` ou assinatura); as seguintes não têm nenhuma e **li o código das três primeiras**:
    - `GET /api/get-all-contacts?domain=…` — devolve nomes e e-mails de `email_contas` dos domínios `visualdesignmoz.com`, `anap.co.mz`,
@@ -284,6 +281,13 @@ saíram, basta ela não valer para nada — pedir ao fornecedor que a revogue, o
 
 **Segunda leitura (ramo `resultados-da-auditoria-e-segunda-leitura`):** secções 13 a 15 do mesmo workflow: onde estão os registos de acesso e quem chamou as rotas, a firewall de entrada completa e a porta 21,
 e a configuração efectiva do SSH. Só depois dela se decide o endurecimento do SSH e o fecho de portas.
+
+### Actualização — verificação de 28/10/2026
+
+- **Cópias externas:** o cron diário está instalado e o último envio confirmado foi às 07:01:25, com 19 objectos e 7,773 GiB.
+- **Supabase:** `SUPABASE_PUBLIC_URL` e `API_EXTERNAL_URL` ainda usam o endereço antigo; o `.env.local` do site já usa `https://supabase.visualdesignmoz.com`. Os dois endereços respondem com 401 em `/auth/v1/health`, normal sem chave.
+- **Login Google:** o pedido actual ainda envia o retorno para `https://supabase-contabo.visualdesignmoz.com/auth/v1/callback`. É preciso autorizar o retorno novo na consola do Google antes de alterar o serviço.
+- **Palavra-passe de cifra:** permanece por confirmar se foi guardada no gestor de palavras-passe.
 
 ---
 
