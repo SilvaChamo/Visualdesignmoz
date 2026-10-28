@@ -1,0 +1,70 @@
+name: Ops - Onde o PHP grava os erros de um site (só leitura)
+
+# Pedido do Silva a 28/10/2026: ao abrir o Elementor e falhar, o sistema devia ter gravado o erro num ficheiro na pasta do site (visível no gestor de
+# ficheiros) para se consultar o problema real. Antes de mudar o que quer que seja, esta leitura mostra onde os erros vão parar hoje: o pool PHP-FPM
+# do domínio, os ficheiros de registo que existem (PHP, nginx, PHP-FPM da conta), o que têm de recente e se já há um `error_log` na pasta do site.
+# Só lê; não altera nada.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dominio:
+        description: 'Domínio do site (ex.: entrecamposblog.com)'
+        required: true
+        default: 'entrecamposblog.com'
+
+concurrency:
+  group: ops-php-erros
+  cancel-in-progress: false
+
+jobs:
+  leitura:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Registos de erros do site (servidor)
+        uses: appleboy/ssh-action@v1.2.5
+        env:
+          DOMINIO: ${{ inputs.dominio || 'entrecamposblog.com' }}
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          port: 2234
+          username: root
+          key: ${{ secrets.CONTABO_SSH_KEY }}
+          command_timeout: 5m
+          envs: DOMINIO
+          script: |
+            set -u
+            echo "$DOMINIO" | grep -qE '^[a-z0-9.-]+$' || { echo "Domínio inválido"; exit 1; }
+            titulo() { echo; echo "=================== $1"; }
+            CONTA=""
+            for d in /home/*/web/"$DOMINIO"; do [ -d "$d" ] && CONTA=$(echo "$d" | cut -d/ -f3) && break; done
+            [ -z "$CONTA" ] && { echo "O domínio $DOMINIO não está em nenhuma conta do servidor."; exit 0; }
+            RAIZ=/home/$CONTA/web/$DOMINIO
+            titulo "$DOMINIO (conta $CONTA) · $(date '+%d/%m/%Y %H:%M:%S')"
+            titulo "1. Pool PHP-FPM do domínio (só linhas de registo e limites)"
+            for f in /etc/php/*/fpm-contas/"$CONTA"/pool.d/"$DOMINIO".conf /etc/php/*/fpm/pool.d/"$DOMINIO".conf; do
+              [ -f "$f" ] && { echo "--- $f"; grep -E 'error_log|log_errors|display_errors|slowlog|catch_workers_output|decorate_workers_output|request_terminate_timeout|user *=' "$f" | cut -c1-200; }
+            done
+            titulo "2. Modelo de pool que o Hestia usa para este domínio"
+            grep -E "^(BACKEND|PROXY|WEB_TPL)|BACKEND=|TPL=" /usr/local/hestia/data/users/"$CONTA"/web.conf 2>/dev/null | grep -F "$DOMINIO" | head -2 | tr ' ' '\n' | grep -E "^'?(BACKEND|PROXY|TPL)" | head -5
+            for t in /usr/local/hestia/data/templates/web/php-fpm/default.tpl; do [ -f "$t" ] && { echo "--- $t"; grep -E 'error_log|slowlog|catch_workers' "$t" | cut -c1-200; }; done
+            titulo "3. Ficheiros de registo que existem para este site"
+            ls -la "$RAIZ"/logs/ 2>/dev/null | head -10
+            ls -la /var/log/nginx/domains/"$DOMINIO"*.log /var/log/apache2/domains/"$DOMINIO"*.log 2>/dev/null
+            ls -la /var/log/php*-fpm-"$CONTA".log /var/log/php*-fpm.log 2>/dev/null
+            echo "--- na pasta do site (public_html) há:"
+            ls -la "$RAIZ"/public_html/error_log "$RAIZ"/public_html/*.log "$RAIZ"/public_html/wp-content/debug.log 2>/dev/null || echo "(nenhum error_log, .log nem debug.log)"
+            titulo "4. Últimas linhas do registo de erros do nginx deste site (erros de PHP/timeouts)"
+            for L in /var/log/nginx/domains/"$DOMINIO".error.log /var/log/apache2/domains/"$DOMINIO".error.log; do
+              [ -f "$L" ] || continue
+              echo "--- $L ($(wc -l < "$L") linhas) · tipos de erro mais frequentes:"
+              sed -E 's/^\[[^]]*\] //; s/\[client [^]]*\] //; s/\[pid [0-9:a-z ]*\] //; s/[0-9]{3,}/N/g' "$L" | cut -c1-110 | sort | uniq -c | sort -rn | head -n 12
+              echo "--- últimas 15 linhas:"; tail -n 15 "$L" | cut -c1-300
+            done
+            titulo "5. Últimas linhas do registo do PHP-FPM da conta (timeouts, processos mortos)"
+            for f in /var/log/php*-fpm-"$CONTA".log; do [ -f "$f" ] && { echo "--- $f"; tail -n 25 "$f" | cut -c1-260; }; done
+            titulo "6. WP_DEBUG e registo do WordPress"
+            grep -E "WP_DEBUG|WP_DEBUG_LOG|WP_DEBUG_DISPLAY" "$RAIZ"/public_html/wp-config.php 2>/dev/null | cut -c1-120
+            echo "--- php.ini do pool: log_errors / error_log"
+            for f in /etc/php/*/fpm/php.ini; do echo "$f: $(grep -E '^(log_errors|error_log|display_errors) *=' "$f" | tr '\n' ' ')"; done
+            titulo "fim da leitura"

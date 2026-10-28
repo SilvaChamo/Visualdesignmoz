@@ -1,0 +1,131 @@
+name: Ops - Gravar os erros do PHP na pasta do site (error_log e slow_log; sem «aplicar» só mostra)
+
+# Pedido do Silva a 28/10/2026: o Elementor falhava e nada ficava gravado na pasta do site para se ver o problema real. A leitura (ops-php-erros-leitura.yml)
+# mostrou que o pool do domínio não tem `error_log`: os erros fatais do PHP perdem-se, e o que existe (o registo do Apache, com os «timeout specified has expired»
+# do editor do Elementor) está em /var/log, fora do alcance do gestor de ficheiros. Com «aplicar», o pool do domínio passa a gravar:
+#   public_html/error_log  — erros graves do PHP (fatais, memória esgotada, erros de análise); os avisos e notas não, para não encher;
+#   public_html/slow_log   — o rasto (backtrace) de todo o pedido que passe de 15 s, com o ficheiro e a linha onde estava preso (o do Elementor, por exemplo).
+# Os dois ficheiros ficam do utilizador da conta e são **negados à web** (nginx do domínio, ficheiro `nginx.conf_erros` em conf/web/<domínio>/, que o Hestia mantém
+# nas reconstruções) e rodados a 5 MB (`copytruncate`, 2 cópias). Só mexe no pool deste domínio e num ficheiro do nginx dele: nunca nos modelos do Hestia, nem
+# noutras contas ou domínios. Cópia do que muda, `php-fpm -t` e `nginx -t` antes, recarga suave (`reload`). Sem «aplicar» só mostra o que faria.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dominio:
+        description: 'Domínio do site (ex.: entrecamposblog.com)'
+        required: true
+        default: 'entrecamposblog.com'
+      aplicar:
+        description: 'Aplicar de verdade (desmarcado: só mostra)'
+        type: boolean
+        default: false
+
+concurrency:
+  group: ops-php-erros
+  cancel-in-progress: false
+
+jobs:
+  gravar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pool do domínio (servidor)
+        uses: appleboy/ssh-action@v1.2.5
+        env:
+          DOMINIO: ${{ inputs.dominio || 'entrecamposblog.com' }}
+          APLICAR: ${{ inputs.aplicar && 'sim' || 'nao' }}
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          port: 2234
+          username: root
+          key: ${{ secrets.CONTABO_SSH_KEY }}
+          command_timeout: 6m
+          envs: DOMINIO,APLICAR
+          script: |
+            set -u
+            echo "$DOMINIO" | grep -qE '^[a-z0-9.-]+$' || { echo "Domínio inválido"; exit 1; }
+            titulo() { echo; echo "=================== $1"; }
+            CONTA=""
+            for d in /home/*/web/"$DOMINIO"; do [ -d "$d" ] && CONTA=$(echo "$d" | cut -d/ -f3) && break; done
+            [ -z "$CONTA" ] && { echo "O domínio $DOMINIO não está em nenhuma conta do servidor."; exit 0; }
+            RAIZ=/home/$CONTA/web/$DOMINIO/public_html
+            POOL=""
+            for f in /etc/php/*/fpm-contas/"$CONTA"/pool.d/"$DOMINIO".conf /etc/php/*/fpm/pool.d/"$DOMINIO".conf; do [ -f "$f" ] && POOL="$f" && break; done
+            [ -z "$POOL" ] && { echo "Sem pool PHP-FPM para $DOMINIO."; exit 0; }
+            V=$(echo "$POOL" | cut -d/ -f4)
+            FPM=/usr/sbin/php-fpm$V
+            if echo "$POOL" | grep -q fpm-contas; then CONF=/etc/php/$V/fpm-contas/$CONTA/php-fpm.conf; INI=/etc/php/$V/fpm-contas/$CONTA/php.ini; UNIDADE=vd-php-fpm-$V-$CONTA; else CONF=/etc/php/$V/fpm/php-fpm.conf; INI=/etc/php/$V/fpm/php.ini; UNIDADE=php$V-fpm; fi
+            CONFNGINX=/home/$CONTA/conf/web/$DOMINIO
+            titulo "1. $DOMINIO (conta $CONTA) · pool $POOL · serviço $UNIDADE ($(systemctl is-active "$UNIDADE"))"
+            echo "--- linhas de registo que o pool já tem:"; grep -nE 'error_log|log_errors|slowlog|request_slowlog_timeout|error_reporting' "$POOL" || echo "(nenhuma)"
+            echo "--- o modelo do nginx do Hestia inclui os ficheiros nginx.conf_*? (necessário para negar os registos à web)"
+            grep -hE 'nginx\.conf_\*' /home/$CONTA/conf/web/$DOMINIO/nginx.conf /home/$CONTA/conf/web/$DOMINIO/nginx.ssl.conf 2>/dev/null | head -3 || true
+            ls -la "$CONFNGINX"/ 2>/dev/null | head -12
+            echo "--- ficheiros que já existem na pasta do site:"; ls -la "$RAIZ"/error_log "$RAIZ"/slow_log 2>/dev/null || echo "(nenhum)"
+            titulo "2. O que será acrescentado ao pool"
+            cat <<LINHAS
+            php_admin_value[log_errors] = on
+            php_admin_value[error_log] = $RAIZ/error_log
+            php_admin_value[error_reporting] = 4437
+            request_slowlog_timeout = 15s
+            slowlog = $RAIZ/slow_log
+            LINHAS
+            echo "(4437 = só erros graves: E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR, E_RECOVERABLE_ERROR)"
+            echo "nginx do domínio ($CONFNGINX/nginx.conf_erros): location ~ ^/(error_log|slow_log)\$ { return 404; }"
+            if [ "$APLICAR" != "sim" ]; then titulo "Só mostrei: nada foi alterado (marca «aplicar» para gravar)"; exit 0; fi
+
+            titulo "3. A aplicar"
+            B=/root/php-erros-$(date +%Y%m%d-%H%M%S); mkdir -p "$B" && cp -a "$POOL" "$B/pool.conf" && echo "cópia do pool em $B"
+            [ -f "$CONFNGINX/nginx.conf_erros" ] && cp -a "$CONFNGINX/nginx.conf_erros" "$B/"
+            # tira as linhas nossas de uma aplicação anterior e volta a pô-las (pode correr mais de uma vez)
+            sed -i '/^; vd-erros-inicio/,/^; vd-erros-fim/d' "$POOL"
+            sed -i -E '/^(php_admin_value\[(log_errors|error_log|error_reporting)\]|request_slowlog_timeout|slowlog) *=/d' "$POOL"
+            { echo "; vd-erros-inicio (Silva, 28/10/2026: erros do PHP gravados na pasta do site)"
+              echo "php_admin_value[log_errors] = on"
+              echo "php_admin_value[error_log] = $RAIZ/error_log"
+              echo "php_admin_value[error_reporting] = 4437"
+              echo "request_slowlog_timeout = 15s"
+              echo "slowlog = $RAIZ/slow_log"
+              echo "; vd-erros-fim"; } >> "$POOL"
+            for a in error_log slow_log; do touch "$RAIZ/$a"; chown "$CONTA:$CONTA" "$RAIZ/$a"; chmod 640 "$RAIZ/$a"; done
+            printf 'location ~ ^/(error_log|slow_log)$ {\n    return 404;\n}\n' > "$CONFNGINX/nginx.conf_erros"; chown root:"$CONTA" "$CONFNGINX/nginx.conf_erros" 2>/dev/null || true
+            cat > /etc/logrotate.d/vd-erros-site <<'ROT'
+            /home/*/web/*/public_html/error_log /home/*/web/*/public_html/slow_log {
+                size 5M
+                rotate 2
+                compress
+                missingok
+                notifempty
+                copytruncate
+            }
+            ROT
+            if "$FPM" -t -y "$CONF" -c "$INI" >"$B/fpm-t.txt" 2>&1; then echo "php-fpm -t: ok"; else echo "php-fpm -t FALHOU, a repor:"; tail -n 5 "$B/fpm-t.txt"; cp -a "$B/pool.conf" "$POOL"; exit 1; fi
+            if nginx -t >"$B/nginx-t.txt" 2>&1; then echo "nginx -t: ok"; else echo "nginx -t FALHOU, a repor:"; tail -n 5 "$B/nginx-t.txt"; cp -a "$B/pool.conf" "$POOL"; rm -f "$CONFNGINX/nginx.conf_erros"; [ -f "$B/nginx.conf_erros" ] && cp -a "$B/nginx.conf_erros" "$CONFNGINX/"; exit 1; fi
+            systemctl reload "$UNIDADE" && echo "PHP-FPM recarregado (suave)"; systemctl reload nginx && echo "nginx recarregado (suave)"
+            sleep 3; echo "serviço: $(systemctl is-active "$UNIDADE")"
+            titulo "4. Confirmação"
+            grep -nE 'error_log|slowlog|error_reporting|request_slowlog' "$POOL"
+            ls -la "$RAIZ"/error_log "$RAIZ"/slow_log
+            echo "--- de dentro do servidor (o domínio aponta para o próprio, por isso só vale o código):"
+            for u in error_log slow_log; do echo "$u -> $(curl -sk -o /dev/null -m 10 -w '%{http_code}' --resolve "$DOMINIO":443:127.0.0.1 "https://$DOMINIO/$u")"; done
+            echo "site -> $(curl -sk -o /dev/null -m 15 -w '%{http_code}' --resolve "$DOMINIO":443:127.0.0.1 "https://$DOMINIO/")"
+            titulo "fim"
+
+  fora:
+    # confirmação vista de fora (o servidor não abre os próprios sites): os registos não se abrem pela web (403 ou 404, nunca 200) e o site e os sites críticos respondem
+    needs: gravar
+    runs-on: ubuntu-latest
+    steps:
+      - name: Códigos vistos de fora
+        env:
+          DOMINIO: ${{ inputs.dominio || 'entrecamposblog.com' }}
+        run: |
+          echo "$DOMINIO" | grep -qE '^[a-z0-9.-]+$' || { echo "Domínio inválido"; exit 1; }
+          falhou=0
+          for u in "https://$DOMINIO/error_log:40x" "https://$DOMINIO/slow_log:40x" "https://$DOMINIO/:200" "https://basededadosagro.com/:200" "https://visualdesignmoz.com/:200"; do
+            url="${u%:*}"; esperado="${u##*:}"
+            c=$(curl -s -o /dev/null -m 30 -L -w '%{http_code}' "$url")
+            echo "$url -> $c (esperado $esperado)"
+            case "$esperado:$c" in 40x:403|40x:404) ;; *) [ "$c" = "$esperado" ] || falhou=1;; esac
+          done
+          exit $falhou
