@@ -1,0 +1,175 @@
+name: Ops - Cache da Cloudflare do visualdesignmoz.com (regras de cache e limpeza)
+
+# Põe a Cloudflare a guardar as páginas PÚBLICAS do visualdesignmoz.com (Next.js) e a nunca guardar as privadas. Duas Cache Rules, como o
+# basededadosagro.com já tem: (1) «respeitar a origem»: só se guarda o que o próprio Next.js marca como público (páginas já geradas,
+# `s-maxage=31536000`; as dinâmicas trazem `private, no-store` e nunca se guardam); (2) «nunca guardar» as rotas privadas (/api, /vhost, /host,
+# /auth, /login, /painel, /cliente, /guest, /checkout, /encomendas, /pagamento, /recibo, /webmail, /contabilidade, /renovacao). Só este domínio.
+# REQUISITO: o deploy já tem de limpar a cache da Cloudflare (scripts/limpar-cache-cloudflare.sh), senão, depois de cada publicação, a
+# Cloudflare serviria HTML antigo a apontar para ficheiros que já não existem.
+# Fases: «limpar» (só testa a limpeza da cache), «aplicar» (grava as regras, com cópia das de antes, e confirma de fora; se falhar, desfaz sozinho),
+# «desfazer» (repõe as regras de antes). Sem nenhuma só lê. Pedido do Silva a 28/10/2026.
+
+on:
+  # só para registar o fluxo a partir do ramo de trabalho, antes de estar em main: corre uma vez SÓ A LER. Tira-se quando o ficheiro entrar em main.
+  push:
+    branches: [cloudflare-cache-do-site]
+    paths: ['.github/workflows/ops-cloudflare-cache-aplicar.yml']
+  workflow_dispatch:
+    inputs:
+      limpar:
+        description: 'Só testar a limpeza da cache da Cloudflare (script do deploy)'
+        type: boolean
+        default: false
+      aplicar:
+        description: 'Gravar as regras de cache (confirma de fora e desfaz se falhar)'
+        type: boolean
+        default: false
+      desfazer:
+        description: 'Repor as regras de cache de antes (apaga as de hoje)'
+        type: boolean
+        default: false
+
+concurrency:
+  group: ops-cloudflare-cache-aplicar
+  cancel-in-progress: false
+
+env:
+  DOMINIO: visualdesignmoz.com
+
+jobs:
+  cloudflare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Empacotar o script de limpeza
+        id: pacote
+        run: echo "b64=$(base64 -w0 scripts/limpar-cache-cloudflare.sh)" >> "$GITHUB_OUTPUT"
+
+      - name: Cloudflare (servidor)
+        id: servidor
+        uses: appleboy/ssh-action@v1.2.5
+        env:
+          LIMPAR: ${{ inputs.limpar && 'sim' || 'nao' }}
+          APLICAR: ${{ inputs.aplicar && 'sim' || 'nao' }}
+          DESFAZER: ${{ inputs.desfazer && 'sim' || 'nao' }}
+          SCRIPT_B64: ${{ steps.pacote.outputs.b64 }}
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          port: 2234
+          username: root
+          key: ${{ secrets.CONTABO_SSH_KEY }}
+          command_timeout: 5m
+          envs: LIMPAR,APLICAR,DESFAZER,SCRIPT_B64
+          script: |
+            set -u
+            DOM=visualdesignmoz.com
+            ENVF=/opt/visualdesignmoz/.env.local
+            lerenv() { grep -E "^$1=" "$ENVF" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'"; }
+            export CF_EMAIL="$(lerenv CLOUDFLARE_EMAIL)" CF_KEY="$(lerenv CLOUDFLARE_GLOBAL_API_KEY)" CF_TOKEN="$(lerenv CLOUDFLARE_API_TOKEN_ACCOUNT)" DOM LIMPAR APLICAR DESFAZER
+            [ -z "$CF_EMAIL$CF_TOKEN" ] && { echo "Sem chave da Cloudflare no servidor"; exit 1; }
+            B=/root/cloudflare-cache-$(date +%Y%m%d-%H%M%S); mkdir -p "$B"; chmod 700 "$B"; export B
+            if [ "$LIMPAR" = "sim" ]; then
+              echo "=== a testar o script de limpeza do deploy"
+              echo "$SCRIPT_B64" | base64 -d > "$B/limpar.sh"; bash "$B/limpar.sh" "$DOM"; echo "saída: $?"
+            fi
+            python3 - <<'PY'
+            import os, json, urllib.request, urllib.error, sys
+            H = {'Content-Type': 'application/json'}
+            if os.environ.get('CF_EMAIL') and os.environ.get('CF_KEY'):
+                H['X-Auth-Email'] = os.environ['CF_EMAIL']; H['X-Auth-Key'] = os.environ['CF_KEY']
+            else:
+                H['Authorization'] = 'Bearer ' + os.environ['CF_TOKEN']
+            def api(m, p, b=None):
+                r = urllib.request.Request('https://api.cloudflare.com/client/v4' + p, data=json.dumps(b).encode() if b is not None else None, headers=H, method=m)
+                try: return json.load(urllib.request.urlopen(r, timeout=30))
+                except urllib.error.HTTPError as e:
+                    try: return json.load(e)
+                    except Exception: return {'success': False, 'errors': [{'message': 'HTTP %s' % e.code}]}
+            dom = os.environ['DOM']
+            zid = api('GET', '/zones?name=' + dom)['result'][0]['id']
+            fase = '/zones/%s/rulesets/phases/http_request_cache_settings/entrypoint' % zid
+            antes = api('GET', fase)
+            regras_antes = (antes.get('result') or {}).get('rules') or [] if antes.get('success') else []
+            print('regras de cache de antes:', len(regras_antes), [r.get('description') for r in regras_antes])
+            open(os.environ['B'] + '/regras-antes.json', 'w').write(json.dumps(regras_antes))
+            host = '(http.host eq "%s" or http.host eq "www.%s")' % (dom, dom)
+            privadas = ['/api/', '/vhost', '/host', '/auth', '/login', '/painel', '/cliente', '/guest', '/checkout', '/encomendas', '/pagamento', '/recibo', '/webmail', '/contabilidade', '/renovacao']
+            caminhos = ' or '.join('starts_with(http.request.uri.path, "%s")' % c for c in privadas)
+            nossas = [
+                {'action': 'set_cache_settings', 'enabled': True, 'expression': host,
+                 'description': 'VD 28/10/2026: guardar o que o Next.js marca como público (respeita a origem); o resto é private/no-store',
+                 'action_parameters': {'cache': True, 'edge_ttl': {'mode': 'respect_origin'}}},
+                {'action': 'set_cache_settings', 'enabled': True, 'expression': host + ' and (' + caminhos + ')',
+                 'description': 'VD 28/10/2026: nunca guardar rotas privadas (api, painel, login, checkout…)',
+                 'action_parameters': {'cache': False}},
+            ]
+            if os.environ.get('APLICAR') == 'sim':
+                sem_nossas = [r for r in regras_antes if not str(r.get('description', '')).startswith('VD 28/10/2026')]
+                corpo = {'rules': sem_nossas + nossas}
+                out = api('PUT', fase, corpo)
+                print('gravar as regras:', out.get('success'), [e.get('message') for e in out.get('errors', [])])
+                if not out.get('success'): sys.exit(1)
+            elif os.environ.get('DESFAZER') == 'sim':
+                sem_nossas = [r for r in regras_antes if not str(r.get('description', '')).startswith('VD 28/10/2026')]
+                out = api('PUT', fase, {'rules': sem_nossas})
+                print('repor as regras de antes:', out.get('success'), [e.get('message') for e in out.get('errors', [])])
+                if not out.get('success'): sys.exit(1)
+            agora = api('GET', fase)
+            print('regras de cache agora:', [(r.get('enabled'), r.get('description')) for r in ((agora.get('result') or {}).get('rules') or [])])
+            PY
+
+      - name: Confirmar de fora (a partir do GitHub)
+        id: fora
+        if: ${{ inputs.aplicar }}
+        run: |
+          set -u
+          falhou=0
+          pedir() { curl -sS -m 30 -D - -o /dev/null "$1" 2>&1 | tr -d '\r' | grep -iE '^(HTTP|cf-cache-status|cache-control|age)' | paste -sd' · '; }
+          echo "--- páginas públicas (a segunda tem de dar HIT):"
+          for u in https://visualdesignmoz.com/ https://visualdesignmoz.com/precos https://visualdesignmoz.com/sobre-nos; do
+            curl -sS -m 30 -o /dev/null "$u"; sleep 1
+            r=$(pedir "$u"); echo "$u -> $r"
+            echo "$r" | grep -q 'HTTP/2 200' || falhou=1
+          done
+          echo "--- rotas privadas (nunca podem dar HIT):"
+          for u in https://visualdesignmoz.com/vhost:2026 https://visualdesignmoz.com/api/platform/profile https://visualdesignmoz.com/login https://visualdesignmoz.com/auth/clear-storage; do
+            curl -sS -m 30 -o /dev/null "$u"; sleep 1
+            r=$(pedir "$u"); echo "$u -> $r"
+            echo "$r" | grep -qi 'cf-cache-status: HIT' && { echo "ALERTA: $u foi servido da cache"; falhou=1; }
+          done
+          home=$(pedir https://visualdesignmoz.com/); echo "$home" | grep -qi 'cf-cache-status: HIT' || { echo "AVISO: a página inicial ainda não dá HIT (pode ser a Page Rule de bypass)"; }
+          [ "$falhou" = 0 ]
+
+      - name: Desfazer sozinho se a confirmação falhou
+        if: ${{ failure() && steps.fora.outcome == 'failure' }}
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          port: 2234
+          username: root
+          key: ${{ secrets.CONTABO_SSH_KEY }}
+          command_timeout: 3m
+          script: |
+            ENVF=/opt/visualdesignmoz/.env.local
+            lerenv() { grep -E "^$1=" "$ENVF" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'"; }
+            export CF_EMAIL="$(lerenv CLOUDFLARE_EMAIL)" CF_KEY="$(lerenv CLOUDFLARE_GLOBAL_API_KEY)" CF_TOKEN="$(lerenv CLOUDFLARE_API_TOKEN_ACCOUNT)"
+            python3 - <<'PY'
+            import os, json, urllib.request, urllib.error
+            H = {'Content-Type': 'application/json'}
+            if os.environ.get('CF_EMAIL') and os.environ.get('CF_KEY'):
+                H['X-Auth-Email'] = os.environ['CF_EMAIL']; H['X-Auth-Key'] = os.environ['CF_KEY']
+            else:
+                H['Authorization'] = 'Bearer ' + os.environ['CF_TOKEN']
+            def api(m, p, b=None):
+                r = urllib.request.Request('https://api.cloudflare.com/client/v4' + p, data=json.dumps(b).encode() if b is not None else None, headers=H, method=m)
+                try: return json.load(urllib.request.urlopen(r, timeout=30))
+                except urllib.error.HTTPError as e: return json.load(e)
+            zid = api('GET', '/zones?name=visualdesignmoz.com')['result'][0]['id']
+            fase = '/zones/%s/rulesets/phases/http_request_cache_settings/entrypoint' % zid
+            atual = (api('GET', fase).get('result') or {}).get('rules') or []
+            ficam = [r for r in atual if not str(r.get('description', '')).startswith('VD 28/10/2026')]
+            print('ALERTA: confirmação falhou; a apagar as regras de hoje:', api('PUT', fase, {'rules': ficam}).get('success'))
+            api('POST', '/zones/%s/purge_cache' % zid, {'purge_everything': True})
+            print('cache limpa')
+            PY
