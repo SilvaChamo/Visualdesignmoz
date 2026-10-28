@@ -11565,6 +11565,11 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    .vh main:not(#x) {
       padding-bottom: calc(calc(64px * var(--z, 1)) + calc(12px * var(--z, 1)) + env(safe-area-inset-bottom, 0px))
    }
+
+   /* sem a linha de baixo do cartão principal, como no computador (Silva, 28/10/2026: «a linha, ali em baixo, não quero»): o cartão não acaba, o espaço por baixo é o do próprio cartão */
+   .vh main .da-main-card:not(#x):not(#y) {
+      border-bottom: 0
+   }
 }
 
 /* Nomes da primeira coluna das tabelas na cor normal do texto; vermelho só ao passar o rato, como nos domínios (Silva, 20/10/2026) */
@@ -15107,11 +15112,17 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
       border-bottom-right-radius: 0
    }
 
-   /* «outro cartão lá dentro» = qualquer caixa com contorno: um `.card`, um formulário com contorno (os `.frm` que não são filhos directos do cartão
-      principal, e os que o mantêm: Certificados do domínio, PHP, palavra-passe) — Silva, 28/10/2026: «o segundo card dentro do principal deve mostrar a
-      margem de 20 ou 25 px no fim do scroll, igual à dos lados; vale para todos os cards dentro do principal, sem mexer no principal» */
-   .vh main .da-main-card:not(:has(.card, .frm-lados, .php-defs, .php-versao, .pf-senha, > * .frm)):not(#x):not(#y) {
-      padding-bottom: 0
+   /* Todas as páginas têm margem por baixo do último conteúdo (Silva, 28/10/2026: «dê espaço em baixo do conteúdo no fim do scroll de todas as páginas;
+      o conteúdo não pode ficar colado à parte de baixo do ecrã; onde não há card, o próprio conteúdo deve ter margem»). O cartão principal mantém o seu
+      preenchimento de baixo (maquete.css: 24 px × --z), com ou sem cartão lá dentro; as páginas sem cartão principal (Início) e a coluna do lado ficam
+      com a mesma margem por baixo, dada pelo próprio conteúdo (o `main` continua sem margem para o cartão principal «não acabar»). */
+   .vh main > .pg-slot > :last-child:not(.da-main-card, .da-com-lado, .cols, .pg-barra, .pg-carga):not(#x):not(#y) {
+      margin-bottom: calc(24px * var(--z, 1))
+   }
+
+   /* a coluna do lado do Início (`.cols-side`) não estica até ao fundo: quando é mais alta que o cartão, o último bloco dela também fica com a margem */
+   .vh main .cols > .cols-side:not(#x):not(#y) {
+      padding-bottom: calc(24px * var(--z, 1))
    }
 }
 
