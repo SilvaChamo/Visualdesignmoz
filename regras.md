@@ -10,8 +10,8 @@
 # Nunca nomear o fornecedor do servidor (Silva, 27/10/2026)
 
 Em qualquer projecto do Silva, com qualquer IA: nas conversas, relatórios, documentos, commits e PR fala-se sempre **«o servidor»**, nunca o nome da empresa que o aloja
-(«o estado real do Contabo» está errado; «o estado real do servidor» está certo). Os nomes técnicos que já existem (ficheiros como `deploy-contabo.yml`, caminhos, secrets) ficam como
-estão, mas não se repetem em texto novo. Do Hetzner diz-se só que **já está fechado**, quando for preciso lembrá-lo (README e `regras.md` já o dizem).
+(«o estado real do Contabo» está errado; «o estado real do servidor» está certo). **Nomes genéricos (Silva, 28/10/2026): nenhum nome novo de ficheiro, workflow, script, pasta, ramo ou título leva o nome de um fornecedor** (nem do servidor, nem do registador, nem do e-mail, do DNS, dos pagamentos ou da base de dados: nada de `contabo`, `hestia`, `dynadot`, `hetzner`, `cloudflare`, `brevo`, `stripe`… nos nomes). Usa-se «servidor», «alojamento», «registador», «cdn», «base de dados»… Já foram renomeados os ficheiros dos workflows e dos scripts (`deploy-visualdesign.yml`, `preparar-servidor.yml`, `scripts/servidor/`…). Ficam por ora, por serem identificadores técnicos que não se mudam sem ensaio: os nomes dos secrets do GitHub, as variáveis de ambiente, os módulos `src/lib/*-adapter.ts` e os valores de configuração.
+Do Hetzner diz-se só que **já está fechado**, quando for preciso lembrá-lo (README e `regras.md` já o dizem).
 
 # Esta é a pasta de trabalho — e o site em produção
 
@@ -27,7 +27,7 @@ publica-se por PR para `main`**.
 Este projecto (pasta local `visualdesign-producao`, dev server na porta 3003) é onde todo o trabalho acontece.
 **O site em produção é o do Contabo** (Silva, 14/10/2026: "esqueça Hetzner… agora o site em produção é da Contabo"; o
 servidor foi reforçado para 200 GB de disco, 12 GB de RAM e 6 núcleos): cada push em `main` (ou seja, cada merge de PR)
-publica no Contabo (`.github/workflows/deploy-contabo.yml`, que publica com `NEXT_PUBLIC_SITE_URL=https://visualdesignmoz.com`).
+publica no Contabo (`.github/workflows/deploy-visualdesign.yml`, que publica com `NEXT_PUBLIC_SITE_URL=https://visualdesignmoz.com`).
 Como cada publicação vai directa à produção, a regra "só se publica quando o Silva disser 'publica'" é ainda mais
 importante.
 
@@ -114,7 +114,7 @@ O Object Storage do Hetzner (balde `visualdesign-storage`, endereços `*.your-ob
   `.txt`, `.md`), troca os links do balde pelos do próprio site (`https://<domínio>/wp-content/uploads/AAAA/MM/ficheiro`, sem a pasta de 8 números) quando o
   ficheiro existe em `web/<domínio>/public_html/wp-content/uploads` da conta; o ícone e as imagens continuam presentes. Se o ficheiro não existir, o link fica
   e o ecrã avisa. Código: `balde_fora` em `src/lib/vhost-ficheiros-py.ts` (corre como o utilizador da conta). Não olha dentro de arquivos `.zip` extraídos.
-- **Como verificar** (só lê): workflow manual `ops-balde-hetzner.yml`, fase `verificar` (todas as páginas de todos os WordPress: links ao balde,
+- **Como verificar** (só lê): workflow manual `ops-balde-antigo.yml`, fase `verificar` (todas as páginas de todos os WordPress: links ao balde,
   ficheiros de `uploads` que não dão 200, sobras do Hetzner) e fase `varrer` (ficheiros do servidor que ainda mencionam o balde, crons, scripts
   instalados). A fase `migrar` (um domínio) traz do balde o que faltar e tira o Offload Media e os plugins do Hetzner; `limpar` apaga cópias de
   `wp-config` que mencionem o balde. Cópias de segurança de cada acção em `/root/balde-hetzner-troca/`, com os comandos para desfazer no registo.
@@ -124,7 +124,7 @@ O Object Storage do Hetzner (balde `visualdesign-storage`, endereços `*.your-ob
 
 # Como o site é publicado sem corte (Silva, 23/10/2026)
 
-O deploy é só o `.github/workflows/deploy-contabo.yml`, automático a cada merge em `main`; não se publica à mão no servidor.
+O deploy é só o `.github/workflows/deploy-visualdesign.yml`, automático a cada merge em `main`; não se publica à mão no servidor.
 
 - Cada publicação é uma pasta nova em `/opt/visualdesign-releases/<data>`; `/opt/visualdesignmoz` é um atalho para a versão em uso. O site corre em pm2
   "cluster" com 1 processo (nome `visualdesignmoz`) e o `pm2 reload` põe a versão nova no ar antes de a antiga sair: sem corte.
@@ -135,7 +135,7 @@ O deploy é só o `.github/workflows/deploy-contabo.yml`, automático a cada mer
   prioridade mínima fazia o mesmo build demorar 8 a 9 minutos). Uma variável `NEXT_PUBLIC_*` nova põe-se no `.env.local` do servidor (ou num `set_env_var` do
   passo "Prepare server environment"), nunca só no GitHub.
 - **Ensaio sem publicar:** Actions › Deploy Visualdesign › Run workflow com `ensaio` marcado (qualquer ramo): constrói, envia e arranca a versão nova na
-  porta 3099 para ver se responde, sem migrações e sem tocar no site, no pm2 nem no atalho. Fazer sempre que se mexer em `deploy-contabo.yml`.
+  porta 3099 para ver se responde, sem migrações e sem tocar no site, no pm2 nem no atalho. Fazer sempre que se mexer em `deploy-visualdesign.yml`.
 - **Para voltar atrás:** antes de publicar um grupo, marca-se o `main` com uma etiqueta `antes-<nome>` (ex.: `antes-grupo-2`). Se algo correr mal, reverte-se o
   merge no GitHub (botão Revert do PR) e o deploy repõe o site em ~5 minutos; a reversão automática do deploy só apanha o site que deixa de responder.
 - **Nunca** correr `pm2 restart/stop/delete` nem mexer na pasta ou no atalho à mão com o site no ar (isso corta o site); nunca voltar a pôr o site em
@@ -201,7 +201,7 @@ sessão: retomar sempre em português. Vale para qualquer agente (as regras de b
    git fetch -q origin RAMO && bash <(git show origin/RAMO:scripts/atualizar-local.sh) RAMO /CAMINHO
    ```
    **Sempre as duas vistas, sem recarregar** (Silva, 27/10/2026: «duas vistas»; «aplica só as mudanças no projecto local, sem reload da página»): mudar de ramo chega, o `next dev` põe as alterações na página aberta sozinho (sem recarregar). Uma aba que já esteja em `/dev-preview-telemovel` **não se toca**; uma aba aberta noutra página passa, uma vez, para `/dev-preview-telemovel?p=/CAMINHO` (computador e telemóvel lado a lado); sem aba, abre-se. O comando completo acima (fecha, apaga a cache e liga) fica só para quando o servidor está encravado ou não responde, e diz-se ao Silva porquê. Nunca dar o modelo gigante por omissão.
-   Online já é assim: o deploy constrói no GitHub, põe a versão nova numa pasta à parte e o `pm2 reload visualdesignmoz` só troca quando a nova já escuta (sem ecrã branco, ver `deploy-contabo.yml`);
+   Online já é assim: o deploy constrói no GitHub, põe a versão nova numa pasta à parte e o `pm2 reload visualdesignmoz` só troca quando a nova já escuta (sem ecrã branco, ver `deploy-visualdesign.yml`);
    nenhuma alteração ao deploy pode introduzir paragem, `pm2 restart` ou `rm -rf .next` na pasta em uso.
 6b. **Um único ramo até o Silva dizer «publica»** (Silva, 27/10/2026: «todos os assuntos que eu te peço para fazer coloque no mesmo ramo até eu dizer publique»; «costuma fazer tudo num único ramo para não termos que passar por isso»).
    Todos os pedidos de uma sessão vão para o mesmo ramo, um commit por assunto, sem criar um ramo novo por pedido (isso obrigava o Silva a actualizar o computador ramo a ramo). O ramo tem nome em
@@ -398,9 +398,9 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
   **Consequência avisada ao Silva:** o nome do cookie de sessão deriva do endereço (`sb-supabase-…` em vez de `sb-supabase-contabo-…`): **todos os
   utilizadores têm de voltar a entrar uma vez, com o mesmo e-mail e a mesma palavra-passe** (contas e dados não mudam; só se perdem as sessões abertas). O nome antigo fica a funcionar (nginx serve os dois): `/opt/basededadosagro-site` e
   `/opt/visualdesign-panel` ainda usam o antigo e não precisam de mudar já. Reverter: voltar `.env` do Supabase, o secret e publicar.
-  **Preparado a 28/10/2026:** workflow `Ops - Fecho do servidor`, fase `supabase` (sem «aplicar» lê; com «aplicar» faz cópia do `.env`, troca os dois endereços, `docker compose up -d` e repõe se um dos nomes deixar de responder); o `deploy-contabo.yml` já grava o endereço novo no site. Ordem: Google (callback novo) → «aplicar» → publicar.
+  **Preparado a 28/10/2026:** workflow `Ops - Fecho do servidor`, fase `supabase` (sem «aplicar» lê; com «aplicar» faz cópia do `.env`, troca os dois endereços, `docker compose up -d` e repõe se um dos nomes deixar de responder); o `deploy-visualdesign.yml` já grava o endereço novo no site. Ordem: Google (callback novo) → «aplicar» → publicar.
   **Feito:** (ainda não) — quem fizer, escreve aqui a data e o resultado.
-- **TAREFA PENDENTE — M-Pesa em produção** (Silva, 22/10/2026): o M-Pesa está em sandbox (`MPESA_ENV` em `deploy-contabo.yml`). Fica pendente até a
+- **TAREFA PENDENTE — M-Pesa em produção** (Silva, 22/10/2026): o M-Pesa está em sandbox (`MPESA_ENV` em `deploy-visualdesign.yml`). Fica pendente até a
   Vodacom entregar as credenciais de produção; a mensagem para a Vodacom está em `docs/mpesa-pedido-vodacom.md`. Passar a produção só com o "avança"
   do Silva (dinheiro real). **Feito:** (ainda não).
 - **O CPU do servidor é um só** (Silva, 22/10/2026): tudo o que o mostra (janela de manutenção, cartão "Servidor" da barra lateral, cartão
@@ -861,14 +861,14 @@ nível Revenda parte dessa lista ou de uma rota que a aplica no servidor; **nunc
 # Cloudflare: cache do HTML do visualdesignmoz.com e limpeza em cada publicação (Silva, 28/10/2026)
 
 - **A chave:** o painel usa a **Global API Key** (`CLOUDFLARE_EMAIL` + `CLOUDFLARE_GLOBAL_API_KEY`, no `.env.local` do servidor; acesso total à conta) quando existe; o token restrito (`CLOUDFLARE_API_TOKEN_ACCOUNT`) só lê definições e DNS e **não** vê Page Rules nem Cache Rules. Qualquer leitura ou escrita de regras faz-se com a Global Key, a partir do servidor, pelos fluxos
-  `ops-cloudflare-cache-leitura.yml` (só lê) e `ops-cloudflare-cache-aplicar.yml` (fases «limpar», «aplicar» e «desfazer»). Nunca se imprime a chave.
+  `ops-cache-cdn-leitura.yml` (só lê) e `ops-cache-cdn-aplicar.yml` (fases «limpar», «aplicar» e «desfazer»). Nunca se imprime a chave.
 - **Estado de partida (28/10/2026):** os três domínios são do plano gratuito, com `cache_level=simplified` e `browser_cache_ttl=0`. O visualdesignmoz.com, o basededadosagro.com e o entrecamposblog.com têm uma **Page Rule «bypass»** em `*dominio/*` (o padrão de segurança do painel,
   `applyCloudflareSafeCacheDefaults`, nascido do incidente do menocrazy.app a 10/09 em que o HTML de um cliente ficou antigo). O basededadosagro.com tem ainda duas Cache Rules («respeitar a origem» e «nunca guardar `/api/*`») e a Cloudflare guarda-lhe o HTML (`REVALIDATED`); as Cache Rules passam à frente da Page Rule.
 - **Regra para os sites de clientes e para os WordPress: não se liga cache de HTML na Cloudflare** (o WP-Optimize e o Redis já servem a página rápido, e um HTML antigo num site de cliente é pior do que um site lento).
-- **visualdesignmoz.com (Next.js):** duas Cache Rules (`ops-cloudflare-cache-aplicar.yml`, fase «aplicar», descrição «VD 28/10/2026…»): (1) «respeitar a origem»: só se guarda o que o Next.js marca como público (páginas já geradas, `s-maxage=31536000`; as dinâmicas trazem `private, no-store`);
+- **visualdesignmoz.com (Next.js):** duas Cache Rules (`ops-cache-cdn-aplicar.yml`, fase «aplicar», descrição «VD 28/10/2026…»): (1) «respeitar a origem»: só se guarda o que o Next.js marca como público (páginas já geradas, `s-maxage=31536000`; as dinâmicas trazem `private, no-store`);
   (2) «nunca guardar» as rotas privadas (`/api/`, `/vhost`, `/host`, `/auth`, `/login`, `/painel`, `/cliente`, `/guest`, `/checkout`, `/encomendas`, `/pagamento`, `/recibo`, `/webmail`, `/contabilidade`, `/renovacao`). O fluxo confirma de fora (as públicas dão HIT à segunda, as privadas nunca) e **desfaz sozinho** se falhar; «desfazer» repõe as regras de antes.
-- **Obrigatório, no deploy:** como a validade das páginas é de 1 ano, o `deploy-contabo.yml` limpa a cache da Cloudflare no fim de cada publicação (`scripts/limpar-cache-cloudflare.sh`, último passo; fica a vermelho se a Cloudflare recusar). **Sem este passo não se ligam as regras**: depois de um deploy a Cloudflare serviria HTML antigo a apontar para ficheiros `_next/static` que já não existem.
-  Ao mexer em `deploy-contabo.yml` faz-se sempre o ensaio (`ensaio` marcado).
+- **Obrigatório, no deploy:** como a validade das páginas é de 1 ano, o `deploy-visualdesign.yml` limpa a cache da Cloudflare no fim de cada publicação (`scripts/limpar-cache-cdn.sh`, último passo; fica a vermelho se a Cloudflare recusar). **Sem este passo não se ligam as regras**: depois de um deploy a Cloudflare serviria HTML antigo a apontar para ficheiros `_next/static` que já não existem.
+  Ao mexer em `deploy-visualdesign.yml` faz-se sempre o ensaio (`ensaio` marcado).
 
 # Plugins desactualizados que o painel não via (Silva, 28/10/2026)
 

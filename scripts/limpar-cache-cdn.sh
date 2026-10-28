@@ -1,8 +1,8 @@
 #!/bin/bash
-# Limpa a cache da Cloudflare de um domínio (Silva, 28/10/2026). Corre no servidor, no fim de cada publicação (deploy-contabo.yml): as páginas
+# Limpa a cache da Cloudflare de um domínio (Silva, 28/10/2026). Corre no servidor, no fim de cada publicação (deploy-visualdesign.yml): as páginas
 # públicas do Next.js trazem `s-maxage=31536000` e a Cloudflare passa a guardá-las; sem limpar, depois de um deploy serviria HTML antigo a
 # apontar para ficheiros `_next/static` que já não existem.
-# Uso: limpar-cache-cloudflare.sh [domínio]     (por omissão visualdesignmoz.com)
+# Uso: limpar-cache-cdn.sh [domínio]     (por omissão visualdesignmoz.com)
 # Usa as mesmas chaves que o painel (CLOUDFLARE_EMAIL + CLOUDFLARE_GLOBAL_API_KEY, ou o token) lidas de .env.local; nunca as imprime.
 # Sai com 0 se limpou (ou se não há chave da Cloudflare: nada a fazer) e com 1 se a Cloudflare recusou depois de 3 tentativas.
 set -u

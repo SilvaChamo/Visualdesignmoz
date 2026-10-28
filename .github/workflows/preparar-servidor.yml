@@ -1,4 +1,4 @@
-name: Contabo Hestia Setup
+name: Preparar o servidor (instalação inicial)
 
 on:
   workflow_dispatch:

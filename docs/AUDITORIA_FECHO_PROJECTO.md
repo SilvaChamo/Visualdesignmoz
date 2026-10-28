@@ -47,7 +47,7 @@ Legenda: **A** = bloqueia o fecho · **B** = fazer antes de dar por fechado · *
 - Gestão › Facturação (cliente) e Admin › Contabilidade existem no painel.
 
 ### Falta
-1. **M-Pesa em produção** (A). `deploy-contabo.yml` fixa `MPESA_ENV` e `NEXT_PUBLIC_MPESA_ENV` em `sandbox`. Passos, por esta ordem:
+1. **M-Pesa em produção** (A). `deploy-visualdesign.yml` fixa `MPESA_ENV` e `NEXT_PUBLIC_MPESA_ENV` em `sandbox`. Passos, por esta ordem:
    enviar `docs/mpesa-pedido-vodacom.md` (faltam os campos `[nome legal]`, `[NUIT]`, contacto) → receber API Key, Public Key, Service Provider
    Code, host e porta de produção → actualizar os 5 secrets `MPESA_*` → mudar as duas variáveis para `production` → pagamento de teste de
    valor mínimo. Só com o «avança» do Silva (dinheiro real).

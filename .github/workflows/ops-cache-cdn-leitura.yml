@@ -1,4 +1,4 @@
-name: Ops - Cache da Cloudflare dos sites (só leitura)
+name: Ops - Cache da CDN dos sites (só leitura)
 
 # Só LÊ a configuração de cache da Cloudflare de alguns domínios: nível de cache, TTL do navegador, Page Rules, regras de cache e se a chave
 # da conta tem permissão para ver/alterar regras de cache e limpar a cache. Não mostra chaves nem identificadores da conta. Antes de pôr a
@@ -13,7 +13,7 @@ on:
         default: 'visualdesignmoz.com basededadosagro.com entrecamposblog.com'
 
 concurrency:
-  group: ops-cloudflare-cache-leitura
+  group: ops-cache-cdn-leitura
   cancel-in-progress: false
 
 jobs:

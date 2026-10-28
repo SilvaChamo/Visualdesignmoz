@@ -1,4 +1,4 @@
-name: Ops - Balde do Hetzner para o Contabo
+name: Ops - Balde de ficheiros antigo para o servidor actual
 
 # Passa o conteúdo do balde do Hetzner (visualdesign-storage) para o Contabo, para se poder cancelar a conta do Hetzner
 # (Silva, 26/10/2026). Em fases, para ver o que há antes de mexer:
@@ -47,7 +47,7 @@ on:
         default: ''
 
 concurrency:
-  group: ops-balde-hetzner
+  group: ops-balde-antigo
   cancel-in-progress: false
 
 jobs:

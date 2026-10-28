@@ -1,10 +1,10 @@
-name: Ops - Cache da Cloudflare do visualdesignmoz.com (regras de cache e limpeza)
+name: Ops - Cache da CDN do visualdesignmoz.com (regras de cache e limpeza)
 
 # Põe a Cloudflare a guardar as páginas PÚBLICAS do visualdesignmoz.com (Next.js) e a nunca guardar as privadas. Duas Cache Rules, como o
 # basededadosagro.com já tem: (1) «respeitar a origem»: só se guarda o que o próprio Next.js marca como público (páginas já geradas,
 # `s-maxage=31536000`; as dinâmicas trazem `private, no-store` e nunca se guardam); (2) «nunca guardar» as rotas privadas (/api, /vhost, /host,
 # /auth, /login, /painel, /cliente, /guest, /checkout, /encomendas, /pagamento, /recibo, /webmail, /contabilidade, /renovacao). Só este domínio.
-# REQUISITO: o deploy já tem de limpar a cache da Cloudflare (scripts/limpar-cache-cloudflare.sh), senão, depois de cada publicação, a
+# REQUISITO: o deploy já tem de limpar a cache da Cloudflare (scripts/limpar-cache-cdn.sh), senão, depois de cada publicação, a
 # Cloudflare serviria HTML antigo a apontar para ficheiros que já não existem.
 # Fases: «limpar» (só testa a limpeza da cache), «aplicar» (grava as regras, com cópia das de antes, e confirma de fora; se falhar, desfaz sozinho),
 # «desfazer» (repõe as regras de antes). Sem nenhuma só lê. Pedido do Silva a 28/10/2026.
@@ -26,7 +26,7 @@ on:
         default: false
 
 concurrency:
-  group: ops-cloudflare-cache-aplicar
+  group: ops-cache-cdn-aplicar
   cancel-in-progress: false
 
 env:
@@ -40,7 +40,7 @@ jobs:
 
       - name: Empacotar o script de limpeza
         id: pacote
-        run: echo "b64=$(base64 -w0 scripts/limpar-cache-cloudflare.sh)" >> "$GITHUB_OUTPUT"
+        run: echo "b64=$(base64 -w0 scripts/limpar-cache-cdn.sh)" >> "$GITHUB_OUTPUT"
 
       - name: Cloudflare (servidor)
         id: servidor

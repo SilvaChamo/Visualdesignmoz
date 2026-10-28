@@ -1,11 +1,11 @@
-name: Ops - Fecho do servidor (Supabase, SSH, chave da aplicação)
+name: Ops - Fecho do servidor (endereço da base de dados, SSH, chave da aplicação)
 
 # Três acções do fecho do projecto (Silva, 28/10/2026: «vamos fazer agora», «resolver»). Cada fase LÊ por omissão e só altera
 # com «aplicar». Antes de alterar guarda cópia em /root/fecho-servidor/<data>/ e testa; se o teste falhar, repõe a cópia.
 #
-#  supabase  → troca o endereço do Supabase de supabase-contabo.visualdesignmoz.com para supabase.visualdesignmoz.com
-#              (SUPABASE_PUBLIC_URL e API_EXTERNAL_URL no .env do Supabase + docker compose up -d). Os dois nomes continuam a responder.
-#              O deploy (deploy-contabo.yml) já grava o endereço novo no site. Quem tem sessão aberta volta a entrar uma vez.
+#  supabase  → troca o endereço da base de dados de supabase-contabo.visualdesignmoz.com para supabase.visualdesignmoz.com
+#              (SUPABASE_PUBLIC_URL e API_EXTERNAL_URL no .env da base de dados + docker compose up -d). Os dois nomes continuam a responder.
+#              O deploy (deploy-visualdesign.yml) já grava o endereço novo no site. Quem tem sessão aberta volta a entrar uma vez.
 #              ANTES: se há login Google, juntar https://supabase.visualdesignmoz.com/auth/v1/callback na consola do Google (manter o antigo).
 #              ORDEM: correr «aplicar» e, logo a seguir, publicar (o site passa a falar com o nome novo).
 #  ssh       → endurece o SSH (só chave: PermitRootLogin prohibit-password, PasswordAuthentication no). Recusa-se a aplicar se
@@ -67,7 +67,7 @@ jobs:
             case "$FASE" in
 
             supabase)
-              titulo "Supabase — onde está a configuração"
+              titulo "base de dados — onde está a configuração"
               SDIR=""
               for c in /opt/supabase-contabo/docker /opt/supabase/docker /opt/supabase-contabo; do
                 [ -f "$c/.env" ] && SDIR="$c" && break
@@ -75,7 +75,7 @@ jobs:
               if [ -z "$SDIR" ]; then
                 SDIR=$(dirname "$(find /opt -maxdepth 4 -name .env -path '*supabase*' 2>/dev/null | head -1)" 2>/dev/null)
               fi
-              if [ -z "$SDIR" ] || [ ! -f "$SDIR/.env" ]; then echo "Não encontrei o .env do Supabase em /opt."; exit 1; fi
+              if [ -z "$SDIR" ] || [ ! -f "$SDIR/.env" ]; then echo "Não encontrei o .env da base de dados em /opt."; exit 1; fi
               echo "pasta: $SDIR"
               echo "--- endereços actuais (só estas duas chaves)"
               grep -E '^(SUPABASE_PUBLIC_URL|API_EXTERNAL_URL)=' "$SDIR/.env"

@@ -32,5 +32,5 @@ VisualDesign — https://visualdesignmoz.com
 
 ## Para nós (não enviar)
 - Quando chegarem as credenciais: criar/actualizar os secrets do GitHub `MPESA_API_KEY`, `MPESA_PUBLIC_KEY`, `MPESA_SERVICE_PROVIDER_CODE`,
-  `MPESA_HOST`, `MPESA_PORT`, e em `.github/workflows/deploy-contabo.yml` mudar `MPESA_ENV` e `NEXT_PUBLIC_MPESA_ENV` de `sandbox` para
+  `MPESA_HOST`, `MPESA_PORT`, e em `.github/workflows/deploy-visualdesign.yml` mudar `MPESA_ENV` e `NEXT_PUBLIC_MPESA_ENV` de `sandbox` para
   `production`. Envolve dinheiro real: só com o "avança" do Silva e depois de um pagamento de teste de valor mínimo.

@@ -11,8 +11,8 @@ de entrada (o nome padrão que os agentes procuram) e repete abaixo as regras qu
 ## Nunca nomear o fornecedor do servidor (Silva, 27/10/2026)
 
 Em qualquer projecto do Silva, com qualquer IA: nas conversas, relatórios, documentos, commits e PR fala-se sempre **«o servidor»**, nunca o nome da empresa que o aloja
-(«o estado real do Contabo» está errado; «o estado real do servidor» está certo). Os nomes técnicos que já existem (ficheiros como `deploy-contabo.yml`, caminhos, secrets) ficam como
-estão, mas não se repetem em texto novo. Do Hetzner diz-se só que **já está fechado**, quando for preciso lembrá-lo (README e `regras.md` já o dizem).
+(«o estado real do Contabo» está errado; «o estado real do servidor» está certo). **Nomes genéricos (Silva, 28/10/2026): nenhum nome novo de ficheiro, workflow, script, pasta, ramo ou título leva o nome de um fornecedor** (nem do servidor, nem do registador, nem do e-mail, do DNS, dos pagamentos ou da base de dados: nada de `contabo`, `hestia`, `dynadot`, `hetzner`, `cloudflare`, `brevo`, `stripe`… nos nomes). Usa-se «servidor», «alojamento», «registador», «cdn», «base de dados»… Já foram renomeados os ficheiros dos workflows e dos scripts (`deploy-visualdesign.yml`, `preparar-servidor.yml`, `scripts/servidor/`…). Ficam por ora, por serem identificadores técnicos que não se mudam sem ensaio: os nomes dos secrets do GitHub, as variáveis de ambiente, os módulos `src/lib/*-adapter.ts` e os valores de configuração.
+Do Hetzner diz-se só que **já está fechado**, quando for preciso lembrá-lo (README e `regras.md` já o dizem).
 
 ## Actualizar o site local: sempre o script (Silva, 27/10/2026)
 
@@ -63,7 +63,7 @@ publicar, confirmar `basededadosagro.com` e `visualdesignmoz.com` (200). Regras 
 **Nada aponta ao balde do Hetzner** (Silva, 26/10/2026): o Object Storage do Hetzner (`*.your-objectstorage.com`, balde `visualdesign-storage`) vai ser
 cancelado. Nenhuma página, ficheiro estático, CSS, plugin, script ou configuração deve apontar a ele: as imagens dos sites estão no próprio domínio,
 em `https://<domínio>/wp-content/uploads/AAAA/MM/ficheiro` (sem a pasta de 8 números que os URLs do balde levavam). Ao exportar ou copiar páginas,
-trocar esses URLs antes de as enviar. Verificar com o workflow `ops-balde-hetzner.yml` (fase `verificar`). Regras completas em `regras.md`.
+trocar esses URLs antes de as enviar. Verificar com o workflow `ops-balde-antigo.yml` (fase `verificar`). Regras completas em `regras.md`.
 
 <!-- BEGIN:nextjs-agent-rules -->
 

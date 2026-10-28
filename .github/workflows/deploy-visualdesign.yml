@@ -1,7 +1,7 @@
 name: Deploy Visualdesign
 
 # ============================================================================
-# Este é o ÚNICO deploy do projecto: o site em produção é o do Contabo e é
+# Este é o ÚNICO deploy do projecto: o site em produção é o do servidor actual e é
 # publicado a cada push em `main` (o Hetzner foi desligado a 19/10/2026 e os
 # seus workflows apagados; o `main` antigo, do Hetzner, está guardado em
 # `arquivo/main-hetzner` — não usar).
@@ -26,7 +26,7 @@ on:
 # uma publicação de cada vez: um push novo espera que a anterior acabe (duas
 # publicações sobrepostas já estragaram o node_modules)
 concurrency:
-  group: deploy-contabo
+  group: deploy-visualdesign
   cancel-in-progress: false
 
 jobs:
@@ -444,11 +444,11 @@ jobs:
             # Reflecte o estado real do Hestia (contas/domínios/suspensões) de volta
             # para o espelho Supabase — sem isto, mudanças feitas directamente no
             # painel Hestia nunca apareciam no painel VisualDesign. Script próprio
-            # (scripts/install-hestia-cron.sh) em vez de shell inline aqui: a versão
+            # (scripts/instalar-cron-servidor.sh) em vez de shell inline aqui: a versão
             # inline anterior falhava silenciosamente dentro do ssh-action de forma
             # não reproduzível por SSH directo (ver histórico do ficheiro) — mesmo
             # depois de reescrita, voltou a falhar aqui dentro sem falhar à mão.
-            bash scripts/install-hestia-cron.sh
+            bash scripts/instalar-cron-servidor.sh
             bash scripts/install-mailmarketing-cron.sh
             bash scripts/install-backup-schedule-cron.sh
             # avisos de força bruta nas Mensagens dos administradores (como o DirectAdmin fazia no Hetzner)
@@ -484,4 +484,4 @@ jobs:
           key: ${{ secrets.CONTABO_SSH_KEY }}
           command_timeout: 3m
           script: |
-            bash /opt/visualdesignmoz/scripts/limpar-cache-cloudflare.sh visualdesignmoz.com
+            bash /opt/visualdesignmoz/scripts/limpar-cache-cdn.sh visualdesignmoz.com

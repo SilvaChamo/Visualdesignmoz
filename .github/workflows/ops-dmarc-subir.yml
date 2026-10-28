@@ -1,9 +1,9 @@
-name: Ops - DMARC de pct=25 para pct=100 (Cloudflare)
+name: Ops - DMARC de pct=25 para pct=100 (DNS)
 
 # Silva, 28/10/2026: «pode passar» o DMARC a 100 %. Os domínios abaixo estão com p=quarantine; pct=25 desde 26/10/2026.
 # Sem «aplicar» só LÊ o registo _dmarc de cada um. Com «aplicar» troca APENAS pct=25 por pct=100 nos registos que já são
 # p=quarantine (nunca mexe em p=none, nunca sobe a p=reject, nunca cria nem apaga registos). Guarda no registo da corrida o texto
-# anterior de cada um, para voltar atrás (basta repor pct=25). Chave da Cloudflare: a mesma do painel, lida no servidor, nunca impressa.
+# anterior de cada um, para voltar atrás (basta repor pct=25). Chave do DNS: a mesma do painel, lida no servidor, nunca impressa.
 # Ficam de fora (p=none): basededadosagro.com (falta a chave DKIM do servidor), elimservicos.com, shalomdeco.com.
 
 on:
@@ -44,7 +44,7 @@ jobs:
             ENVF=/opt/visualdesignmoz/.env.local
             lerenv() { grep -E "^$1=" "$ENVF" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'"; }
             export CF_EMAIL="$(lerenv CLOUDFLARE_EMAIL)" CF_KEY="$(lerenv CLOUDFLARE_GLOBAL_API_KEY)" CF_TOKEN="$(lerenv CLOUDFLARE_API_TOKEN_ACCOUNT)"
-            [ -n "$CF_EMAIL$CF_TOKEN" ] || { echo "Sem chave da Cloudflare no servidor"; exit 1; }
+            [ -n "$CF_EMAIL$CF_TOKEN" ] || { echo "Sem chave do DNS no servidor"; exit 1; }
             python3 - <<'PY'
             import os, json, urllib.request, urllib.error
             H = {'Content-Type': 'application/json'}

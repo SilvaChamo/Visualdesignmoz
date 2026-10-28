@@ -1,4 +1,4 @@
-name: Ops - Limite de disco de um pacote do Hestia
+name: Ops - Limite de disco de um pacote de alojamento
 
 # Muda o DISK_QUOTA de um pacote do Hestia (ex.: VD-Email-Basico) pelo comando validado do próprio Hestia
 # (v-add-user-package com rewrite, nunca escrevendo no ficheiro à mão) e volta a atribuir o pacote às contas que o têm,
@@ -29,7 +29,7 @@ on:
         default: false
 
 concurrency:
-  group: ops-pacote-hestia
+  group: ops-pacote-alojamento
   cancel-in-progress: false
 
 jobs:

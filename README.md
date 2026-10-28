@@ -31,7 +31,7 @@ workflow de deploy a partir dos secrets do GitHub.
 
 ## Publicação
 
-Cada merge em `main` publica no servidor (`.github/workflows/deploy-contabo.yml`, SSH pela porta 2234). Não há outro deploy.
+Cada merge em `main` publica no servidor (`.github/workflows/deploy-visualdesign.yml`, SSH pela porta 2234). Não há outro deploy.
 
 ## Onde está o quê
 
