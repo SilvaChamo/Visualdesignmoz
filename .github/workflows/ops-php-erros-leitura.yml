@@ -58,7 +58,12 @@ jobs:
             echo "--- na pasta do site (public_html) há:"
             ls -la "$RAIZ"/public_html/error_log "$RAIZ"/public_html/*.log "$RAIZ"/public_html/wp-content/debug.log 2>/dev/null || echo "(nenhum error_log, .log nem debug.log)"
             titulo "4. Últimas linhas do registo de erros do nginx deste site (erros de PHP/timeouts)"
-            tail -n 25 /var/log/nginx/domains/"$DOMINIO".error.log 2>/dev/null | cut -c1-260 || echo "(sem registo)"
+            for L in /var/log/nginx/domains/"$DOMINIO".error.log /var/log/apache2/domains/"$DOMINIO".error.log; do
+              [ -f "$L" ] || continue
+              echo "--- $L ($(wc -l < "$L") linhas) · tipos de erro mais frequentes:"
+              sed -E 's/^\[[^]]*\] //; s/\[client [^]]*\] //; s/\[pid [0-9:a-z ]*\] //; s/[0-9]{3,}/N/g' "$L" | cut -c1-110 | sort | uniq -c | sort -rn | head -n 12
+              echo "--- últimas 15 linhas:"; tail -n 15 "$L" | cut -c1-300
+            done
             titulo "5. Últimas linhas do registo do PHP-FPM da conta (timeouts, processos mortos)"
             for f in /var/log/php*-fpm-"$CONTA".log; do [ -f "$f" ] && { echo "--- $f"; tail -n 25 "$f" | cut -c1-260; }; done
             titulo "6. WP_DEBUG e registo do WordPress"
