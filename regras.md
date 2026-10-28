@@ -41,6 +41,17 @@ git fetch -q origin RAMO && bash <(git show origin/RAMO:scripts/atualizar-local.
 ```
 O agente que tem a pasta local faz o mesmo ele próprio (`bash scripts/atualizar-local.sh RAMO /CAMINHO`). Se o script precisar de mudar, muda-se o script (e esta regra), nunca se dá outro comando.
 
+# O servidor local arranca SÓ com `npm run dev` — nunca com flags nem outro modo (Silva, 28/10/2026)
+
+**Para qualquer agente, com qualquer IA, logo ao entrar no projecto:** o servidor local (porta 3003) é `npm run dev` (que corre `next dev --port 3003` com o Turbopack) e **nada mais**. Nunca `--webpack`, `--turbopack`, outra porta, `npx next dev` nem qualquer flag «para testar».
+Porquê: em 28/10/2026 um agente sugeriu `next dev --webpack`; esse modo não compila o projecto (`UnhandledSchemeError: node:child_process`), o servidor ficou a dar erro 500 com as páginas penduradas e o site local ficou em baixo. O `--webpack` só existe no `build` de produção (`npm run build`), nunca em desenvolvimento.
+
+- **Site local em baixo ou a piscar:** não se experimentam modos de arranque. O agente pede primeiro o registo (`tail -50 /tmp/visualdesign-dev.log`) e só depois propõe uma correcção. Quando é preciso reiniciar, dá-se só isto, que fecha o servidor e liga-o outra vez:
+  `pkill -9 -f "next dev"; lsof -ti tcp:3003 -sTCP:LISTEN | xargs kill -9 2>/dev/null; sleep 1; rm -rf .next; npm run dev`
+- **Não se muda o `dev` do `package.json`** (nem a configuração do Next) para tentar resolver um problema do site local sem o Silva pedir e sem o agente o ter testado na pasta local.
+- **Um só servidor por pasta:** antes de ligar outro, ver se a 3003 já responde (`lsof -ti tcp:3003 -sTCP:LISTEN`). Dois `next dev` na mesma pasta disputam a cache `.next` e o site pisca.
+- Nunca se dá ao Silva um comando que o agente não tenha confirmado; se não pode testar (agente na nuvem), diz-o.
+
 # Agentes na nuvem (online): conversa curta, tudo nos bastidores (Silva, 23/10/2026)
 
 **Só para os agentes que trabalham online (na nuvem, sem acesso à pasta local).** Os que trabalham no IDE (Cursor, Copilot, Codex, Gemini
@@ -639,7 +650,7 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
   onde não devem estar, crons, chaves SSH, ligações de saída desde 21/10) e `actualizar` (só com «confirmar» marcado, ordem expressa do Silva: «avança»; simula e aborta se removesse pacotes, guarda o estado em
   `/root/php-seguranca-<data>/`, actualiza só `php*`, reinicia um a um os PHP-FPM partilhados e os de cada conta e confirma os sites; falha se `basededadosagro.com` ou `visualdesignmoz.com` não derem 200). Antes de «actualizar»,
   o Silva cria uma cópia/instantâneo do servidor no painel do servidor. Nunca se toca no pm2 nem no nginx.
-- **Estado (27/10/2026):** workflow escrito, ainda por correr no servidor (a verificação e a actualização esperam a publicação e o «avança» do Silva). **Feito:** (ainda não) — quem fizer, escreve aqui a data e o resultado.
+- **Feito a 27/10/2026:** PHP 8.3.33 → **8.3.36** (única versão instalada) com os 6 PHP-FPM reiniciados (o partilhado e os das contas concordia, mltmark, oshercollective, provisualcorporate, vdadmin), 0 processos com o binário antigo, sites em 200; a lista de pacotes e a configuração de antes estão em `/root/php-seguranca-20261027-2258/`. **Por fazer:** o PHP vem de um repositório externo ao Ubuntu, que normalmente não entra nas actualizações de segurança automáticas — ver o PHP todos os meses (`ops-php-seguranca.yml`, fase `verificar`); a chave `/root/.ssh/app_self_key` apareceu alterada desde 21/10 e falta o Silva confirmar que foi ele ou o painel.
 
 # Bloqueio por tentativas falhadas no login (Silva, 26/10/2026)
 
@@ -731,7 +742,7 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
   "vd-backup-externo (balde arquivobackup)" na conta Cloudflare). **Só IPv4** (`RCLONE_BIND=0.0.0.0` no script): pela ligação IPv6 deste servidor o R2 recusa o aperto de mão TLS ("tls: handshake failure"). A palavra-passe de cifra
   (password e password2) **existe também fora do servidor**: foi gravada no Mac do Silva em `~/Desktop/chave-cifra-backups-visualdesign.txt` para ele a guardar num gestor de palavras-passe; sem ela as cópias não se abrem. O R2 é grátis até 10 GB
   (as cópias ocupam cerca de 6 GB: acima disso paga-se cêntimos). O aamihe ficou com 12 MB (só correio); a cópia do site está em `/root/backups-removidos/aamihe-site-final/`.
-  **Estado (26/10/2026):** primeiro envio feito (13 cópias, 5,9 GiB no R2) e `testar-restauro` passou. Só se enviam cópias com menos de 14 dias (`--max-age`), as mais velhas nem sobem. **Falta ligar o cron diário** `/etc/cron.d/vd-backup-externo` (`0 7 * * * root /usr/local/sbin/vd-backup-externo enviar >/dev/null 2>&1`): a instalação foi recusada pela protecção do ambiente (persistência no servidor) e fica à espera da ordem expressa do Silva; até lá o envio é manual (`vd-backup-externo enviar`). As cópias do Hestia saem ao domingo às 05:10 e a pedido.
+  **Estado (26/10/2026):** primeiro envio feito (13 cópias, 5,9 GiB no R2) e `testar-restauro` passou. Só se enviam cópias com menos de 14 dias (`--max-age`), as mais velhas nem sobem. **O cron diário `/etc/cron.d/vd-backup-externo` (07:00) foi instalado a 27/10/2026 por ordem do Silva** (workflow `ops-php-seguranca.yml`, fase `cron-envio`; `enviar-copias` envia já); o envio já não é manual. **Confirmado a 28/10/2026:** correu às 07:00:11 e acabou às 07:01:25 (19 objectos, 7,773 GiB no R2), com as seis cópias de 27/10 lá.
 
 - **Backup manual corre já, mesmo havendo agendamento** (Silva, 27/10/2026: «pode ser algo urgente… não podemos depender do programa do servidor»). Admin › Backups › «Backup de todas as contas» e «Fazer backup agora» (por
   conta) já não passam pela fila do servidor (`v-schedule-user-backup` recusava com «backup is already scheduled» quando havia um agendado): lançam `v-backup-user` em segundo plano, uma conta a seguir à outra, com
