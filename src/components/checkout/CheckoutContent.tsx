@@ -1133,8 +1133,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
             motivoNovoComprovativo={manualSession.motivo}
             avisoTeste={mpesaAvisoTeste}
             uploadFields={tokenPedido ? { token: tokenPedido } : undefined}
-            successMessage={tokenPedido ? 'A nossa equipa vai confirmar o pagamento. Quando estiver confirmado, criamos a sua conta e enviamos-lhe um e-mail com o acesso.' : undefined}
-            textoContinuar={tokenPedido ? 'Voltar ao início' : undefined}
+            successMessage={tokenPedido ? 'A nossa equipa vai confirmar o pagamento. Entretanto já pode entrar no painel; as configurações do seu plano abrem assim que o pagamento for confirmado.' : undefined}
             onSent={() => {
               clearCart();
               limparFormulario();
@@ -1145,12 +1144,8 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
               }
             }}
             onContinue={async () => {
-              if (tokenPedido) {
-                router.push('/');
-                return;
-              }
               const { data: { session: refreshedSession } } = await supabase.auth.refreshSession();
-              router.push(redirectPathForSession(refreshedSession));
+              router.push(refreshedSession ? redirectPathForSession(refreshedSession) : `/login?redirect=${encodeURIComponent(PUBLIC_PANEL_ENTRY)}`);
             }}
           />
         ) : !isEncomenda && (!carrinhoLido || searchParams.get('pago') === '1') ? (

@@ -42,7 +42,7 @@ export const compras: Record<string, string> = {
  "Indique a sua morada e a província: são os dados da conta e, nos domínios, do registo oficial (WHOIS).": "Enter your address and province: they are the account details and, for domains, the official registration (WHOIS) details.",
  "Indique o telefone, a morada e a província: são os dados da conta e, nos domínios, do registo oficial (WHOIS).": "Enter your phone, address and province: they are the account details and, for domains, the official registration (WHOIS) details.",
  "Não foi possível guardar os dados da conta.": "Could not save the account details.",
- "A nossa equipa vai confirmar o pagamento. Quando estiver confirmado, criamos a sua conta e enviamos-lhe um e-mail com o acesso.": "Our team will confirm the payment. Once it is confirmed, we will create your account and email you the access details.",
+ "A nossa equipa vai confirmar o pagamento. Entretanto já pode entrar no painel; as configurações do seu plano abrem assim que o pagamento for confirmado.": "Our team will confirm the payment. Meanwhile you can already enter the panel; your plan's settings open as soon as the payment is confirmed.",
  "Voltar ao início": "Back to the home page",
  "Não foi possível confirmar o pagamento no M-Pesa. O PIN escreve-se no telemóvel, não aqui: confirme que o pedido chegou ao número indicado e tente outra vez.": "The payment could not be confirmed on M-Pesa. The PIN is entered on your phone, not here: check that the request reached the number and try again.",
  "Já paguei por outra via — continuar para o comprovativo": "I already paid another way — continue to the receipt",
