@@ -48,7 +48,6 @@ export const compras: Record<string, string> = {
  "Este nome de utilizador já existe.": "This username already exists.",
  "Nome livre.": "Name available.",
  "Faltam dados da conta. Clique em «Editar» para os completar.": "Some account details are missing. Click “Editar” to complete them.",
- "Nome de acesso da conta. Não pode mudar depois.": "Account login name. It cannot be changed later.",
  "Motivo do cancelamento do pedido (o cliente é avisado):": "Reason for cancelling the order (the client is told):",
  "Motivo da rejeição (ex.: imagem ilegível, valor errado). O cliente vê-o e volta a enviar o comprovativo:": "Reason for the rejection (e.g. unreadable image, wrong amount). The client sees it and sends the proof of payment again:",
  "O comprovativo não serve: o cliente vê o motivo e envia outro": "The proof is not valid: the client sees the reason and sends another",
