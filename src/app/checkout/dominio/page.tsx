@@ -25,7 +25,7 @@ const MODE_META: Record<Mode, { title: string; Icon: typeof Globe }> = {
 
 export default function EscolherDominioPage() {
   const router = useRouter();
-  const { items, addItem, updateItemHostingDomain } = useCart();
+  const { items, addItem, updateItemHostingDomain, ready } = useCart();
   const { formatPrice } = useCurrency();
 
   const [mode, setMode] = useState<Mode>('register');
@@ -55,6 +55,8 @@ export default function EscolherDominioPage() {
   const planos = ehEmail ? '/precos/email' : '/precos/hospedagem';
 
   useEffect(() => {
+    // só depois de o carrinho guardado ser lido: ao recarregar esta página `items` começa vazio e mandava sempre para os planos
+    if (!ready) return;
     if (items.length === 0) {
       router.replace('/precos/hospedagem');
       return;
@@ -63,7 +65,7 @@ export default function EscolherDominioPage() {
       router.replace('/checkout');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items.length, pending.length]);
+  }, [ready, items.length, pending.length]);
 
   const resetStage = () => {
     setStaged(null);

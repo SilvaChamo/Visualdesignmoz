@@ -109,4 +109,9 @@ export interface Account {
   dbs?: BaseDados[];
   /** pastas criadas como endereço "atrás" de um domínio (dominio.com/loja) */
   subpastas?: { d: string; nome: string }[];
+  /** Conta ainda sem serviço no servidor (comprou e espera): `pagamento` = a equipa ainda não confirmou o comprovativo;
+   *  `preparacao` = pago, o servidor está a criar a conta. Enquanto existir, as configurações do plano ficam fechadas. */
+  aguarda?: { motivo: 'pagamento' | 'preparacao'; plano: string };
+  /** Conta de hospedagem adicional da mesma pessoa (comprou outra hospedagem com os mesmos dados): escolhe-se no menu da conta. */
+  propria?: boolean;
 }

@@ -3,15 +3,17 @@ import { randomBytes } from 'node:crypto';
 import { createClient } from '@/utils/supabase/server';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { c2bSingleStagePay } from '@/lib/mpesa-client';
+import { resolveCheckoutActor } from '@/lib/checkout-actor';
+import { mpesaEmSandbox } from '@/lib/mpesa-ambiente';
+import { garantirPedidosSemConta } from '@/lib/checkout-schema';
+import { tokenDoPedidoConfere } from '@/lib/pedido-sem-conta';
 
 // Passo M-Pesa do checkout para clientes normais enquanto o M-Pesa está em sandbox (MPESA_ENV=sandbox): o cliente
 // dá o número e o pedido segue o protocolo C2B de teste, mas NADA é cobrado nem activado — o pedido continua
 // 'pending' e o cliente paga a sério e envia o comprovativo (ver /api/checkout/[id]/comprovativo). Em produção
 // isto fica desligado e o checkout vai direito ao comprovativo. A cobrança real com activação automática é
 // /api/checkout/mpesa-pay (só administradores).
-function sandboxActivo(): boolean {
-  return (process.env.MPESA_ENV || '').trim().toLowerCase() === 'sandbox';
-}
+const sandboxActivo = mpesaEmSandbox;
 
 export async function GET() {
   return NextResponse.json({ sandbox: sandboxActivo() });
@@ -26,15 +28,12 @@ export async function POST(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: 'A sua sessão expirou. Entre novamente para realizar esta acção.' }, { status: 401 });
-  }
-
   const admin = getSupabaseAdmin();
   if (!admin) {
     return NextResponse.json({ error: 'Serviço indisponível.' }, { status: 503 });
   }
 
+  await garantirPedidosSemConta(admin);
   const body = await request.json().catch(() => ({}));
   const sessionId = String(body.sessionId || '').trim();
   const msisdn = String(body.msisdn || '').replace(/\D/g, '');
@@ -44,22 +43,30 @@ export async function POST(request: NextRequest) {
 
   const { data: session } = await admin
     .from('checkout_sessions')
-    .select('id, user_id, status, metodo_pagamento, total_mt, mpesa_last_response')
+    .select('id, user_id, status, metodo_pagamento, total_mt, mpesa_last_response, token_acesso')
     .eq('id', sessionId)
     .maybeSingle();
-  if (!session || session.user_id !== user.id) {
+  // pedido de quem ainda não tem conta: vale a chave do navegador; os outros, o dono (ou quem compra «em nome de»)
+  const autorizado = !session
+    ? false
+    : !session.user_id
+      ? tokenDoPedidoConfere(session.token_acesso, body.token)
+      : !!user && session.user_id === (await resolveCheckoutActor(admin, user)).buyerUserId;
+  if (!session || !autorizado) {
+    if (!user && !body.token) return NextResponse.json({ error: 'A sua sessão expirou. Entre novamente para realizar esta acção.' }, { status: 401 });
     return NextResponse.json({ error: 'Pedido não encontrado.' }, { status: 404 });
   }
   if (session.status !== 'pending' || session.metodo_pagamento !== 'mpesa') {
     return NextResponse.json({ error: 'Este pedido não está à espera de pagamento M-Pesa.' }, { status: 409 });
   }
-  // Uma tentativa de teste por pedido.
-  if (session.mpesa_last_response) {
-    return NextResponse.json({ success: true, simulated: true, jaTestado: true });
+  // Já confirmado no telemóvel: não se pede outra vez. Se a tentativa anterior falhou, pede-se de novo.
+  if (String(session.mpesa_last_response || '').startsWith('[teste][ok]')) {
+    return NextResponse.json({ success: true, simulated: true, aprovado: true, jaTestado: true });
   }
 
   // A referência NÃO é gravada em `mpesa_third_party_reference`: se o callback do sandbox chegasse a
   // /api/webhook/mpesa com esta referência, o pedido seria dado como pago e activado.
+  // Sem credenciais ou sem ligação à Vodacom o teste falha, mas o cliente segue na mesma para o comprovativo.
   const result = await c2bSingleStagePay(
     {
       msisdn,
@@ -68,12 +75,32 @@ export async function POST(request: NextRequest) {
       transactionReference: `VD${Date.now().toString().slice(-10)}`,
     },
     2,
-  );
+  ).catch((e: unknown) => ({ ok: false as const, raw: '', error: e instanceof Error ? e.message : 'M-Pesa indisponível' }));
 
   await admin
     .from('checkout_sessions')
-    .update({ mpesa_last_response: `[teste] ${result.ok ? result.raw : result.raw || result.error}` })
+    .update({ mpesa_last_response: `[teste][${result.ok ? 'ok' : 'falhou'}] ${result.ok ? result.raw : result.raw || result.error}` })
     .eq('id', sessionId);
 
-  return NextResponse.json({ success: true, simulated: true, aprovado: result.ok });
+  if (!result.ok) console.warn('[mpesa-teste] não confirmado:', result.error, result.raw || '');
+  return NextResponse.json({
+    success: true,
+    simulated: true,
+    aprovado: result.ok,
+    ...(result.ok ? {} : { erro: motivoDaFalha(result) }),
+  });
+}
+
+/** Diz ao cliente a causa da falha, sem nomes de terceiros; a quem testa em local, o que falta ou o que o M-Pesa respondeu. */
+function motivoDaFalha(result: { error?: string; gatewayNoise?: boolean }): string {
+  const erro = String(result.error || '');
+  const local = process.env.NODE_ENV !== 'production';
+  if (/credenciais m-pesa ausentes/i.test(erro)) {
+    return local
+      ? 'Faltam as credenciais do M-Pesa neste projecto (MPESA_API_KEY, MPESA_PUBLIC_KEY e MPESA_SERVICE_PROVIDER_CODE no .env.local).'
+      : 'O pagamento por M-Pesa não está disponível neste momento. Continue para o comprovativo.';
+  }
+  if (result.gatewayNoise) return 'O M-Pesa não respondeu a tempo. Tente outra vez dentro de instantes.';
+  if (erro) return `O M-Pesa não confirmou o pagamento: ${erro}.`.replace(/\.\.$/, '.');
+  return 'Não foi possível confirmar o pagamento no M-Pesa. O PIN escreve-se no telemóvel, não aqui: confirme que o pedido chegou ao número indicado e tente outra vez.';
 }

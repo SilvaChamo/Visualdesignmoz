@@ -9,6 +9,7 @@ export const IGUAIS: string[] = [
  "[VisualHost] não foi possível carregar o tema da conta",
  "[VisualHost] não foi possível registar actividade:",
  "conta:",
+ "vh-conta-activa:",
  "?conta=",
  "Timeout",
  "Language: English",
@@ -275,6 +276,9 @@ export const IGUAIS: string[] = [
  "id, status, descricao",
  "id, dominio, plano, status, data_renovacao",
  "id, items, total_mt, metodo_pagamento, status, comprovativo_url, created_at",
+ "id, items, total_mt, metodo_pagamento, status, comprovativo_url, rejection_reason, created_at",
+ "id, status, items, created_at, fulfilled_at",
+ "id, status, items, created_at, fulfilled_at, metodo_pagamento",
  "Zip",
  "Intl",
  "Fileinfo",
@@ -301,4 +305,5 @@ export const IGUAIS: string[] = [
  "Xdebug",
  "'Exo 2', sans-serif",
  "[renewal-templates] Erro ao carregar do servidor:",
+ "dark:bg-zinc-950",
 ];

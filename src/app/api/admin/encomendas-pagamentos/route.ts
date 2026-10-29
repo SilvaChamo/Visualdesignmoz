@@ -134,7 +134,10 @@ export async function GET() {
       const metodoAdiantamento = batch.items.find((i) => i.metodo_pagamento)?.metodo_pagamento ?? null;
       // 'pending' com método gravado = encomenda antiga anterior a este fluxo,
       // ou comprovativo rejeitado antes de o método ser limpo — nada a decidir.
-      if (metodoAdiantamento && (batch.status === 'payment_selected' || PAID_ADVANCE_STATUSES.includes(batch.status))) {
+      // Só cai na Contabilidade depois de concluída pelo cliente: o pagamento por confirmar só aparece quando o comprovativo foi
+      // enviado (o último passo); o já confirmado fica sempre.
+      const provaAdiantamento = pickComprovativo(anexos, 'adiantamento');
+      if (metodoAdiantamento && ((batch.status === 'payment_selected' && provaAdiantamento) || PAID_ADVANCE_STATUSES.includes(batch.status))) {
         pagamentos.push({
           ...base,
           key: `${batch.batchId}-advance`,
@@ -142,12 +145,13 @@ export async function GET() {
           status: batch.status === 'payment_selected' ? 'pending' : 'paid',
           metodo: metodoAdiantamento,
           valorMt: split.adiantamentoMt,
-          comprovativoPath: pickComprovativo(anexos, 'adiantamento')?.file_url ?? null,
+          comprovativoPath: provaAdiantamento?.file_url ?? null,
         });
       }
 
       const metodoRemanescente = batch.items.find((i) => i.remanescente_metodo_pagamento)?.remanescente_metodo_pagamento ?? null;
-      if (metodoRemanescente && (batch.status === 'delivered' || batch.status === 'done')) {
+      const provaRemanescente = pickComprovativo(anexos, 'remanescente');
+      if (metodoRemanescente && ((batch.status === 'delivered' && provaRemanescente) || batch.status === 'done')) {
         pagamentos.push({
           ...base,
           key: `${batch.batchId}-remainder`,
@@ -155,7 +159,7 @@ export async function GET() {
           status: batch.status === 'delivered' ? 'pending' : 'paid',
           metodo: metodoRemanescente,
           valorMt: split.remanescenteMt,
-          comprovativoPath: pickComprovativo(anexos, 'remanescente')?.file_url ?? null,
+          comprovativoPath: provaRemanescente?.file_url ?? null,
         });
       }
     }

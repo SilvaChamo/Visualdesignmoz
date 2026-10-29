@@ -14,7 +14,7 @@ export const BASE = '/vhost:2026';
 /** Símbolo da VisualDesign (o mesmo ficheiro que VisualHost/assets/vd-simbolo.png) */
 export const LOGO = '/icons/icon-96x96.png';
 
-export type Deny = { type: 'nivel'; lv: Level } | { type: 'pacote'; it: MenuItem } | { type: '404' };
+export type Deny = { type: 'nivel'; lv: Level } | { type: 'pacote'; it: MenuItem } | { type: 'aguarda'; it: MenuItem } | { type: '404' };
 export type DashTab = 'widgets' | 'menu';
 
 export interface St {
@@ -39,6 +39,8 @@ export interface St {
   php: string[];
   /** quem fez login */
   login: string;
+  /** conta de hospedagem que se está a ver, entre as da própria pessoa ('' = a principal, a do login) */
+  activa: string;
   /** quem entrou, como está no perfil do site (nome, e-mail, empresa) */
   pessoa: Pessoa | null;
   /** "entrar como": cada entrada guarda para onde voltar */
@@ -86,6 +88,7 @@ export function initialState(path: string): St {
       extrasPlano: {},
       php: [],
       login: '',
+      activa: '',
       pessoa: null,
       stack: [],
       path: '',
@@ -127,7 +130,7 @@ export function guardarDominio(conta: string, d: string) {
 }
 /** Nome de um item do menu: para o cliente, «Encomendas» chama-se «Compras» (Silva, 27/10/2026); o administrador, que recebe encomendas, continua com «Encomendas» */
 export const rotuloItem = (s: St, it: { id: string; t: string }) => (it.id === 'encomendas' && !(s.acc[s.login]?.role === 'admin' && !s.stack.length) ? 'Compras' : it.t);
-export const meOf = (s: St) => (s.stack.length ? s.stack[s.stack.length - 1].u : s.login);
+export const meOf = (s: St) => (s.stack.length ? s.stack[s.stack.length - 1].u : s.activa && s.acc[s.activa]?.propria ? s.activa : s.login);
 /** Conta vazia enquanto os dados do servidor não chegam (o painel mostra "a carregar") */
 const VAZIA: Account = { name: '', email: '', role: 'admin', creator: '', pkg: '', state: 'ok', disk: '0 MB', domains: [], mails: [] };
 export const acctOf = (s: St) => s.acc[meOf(s)] || VAZIA;
@@ -139,7 +142,9 @@ export const allowedOf = (s: St) => (s.carga === 'ok' && !s.acc[meOf(s)] ? (['ut
 export const MENU_SO_DOMINIO = ['Gestão de domínios', 'Avançado', 'Sistema e ficheiros', 'Compras e encomendas', 'Suporte e ajuda'];
 /** Só no computador local: `?vista=so-dominio` mostra a vista de quem só tem domínio, para a poder ver sem uma conta dessas */
 const verSoDominio = () => typeof window !== 'undefined' && window.location.hostname === 'localhost' && new URLSearchParams(window.location.search).get('vista') === 'so-dominio';
-export const soDominioDe = (s: St) => s.carga === 'ok' && s.level === 'utilizador' && (!s.acc[meOf(s)] || verSoDominio());
+/** Conta do plano «só domínio» (VD-Dominio): vê o painel só do domínio, com as ofertas dos outros produtos (Silva, 17/10/2026) */
+const ePlanoSoDominio = (a: Account | undefined) => !!a && isUser(a.role) && (a.hpkg || a.pkg || '').toLowerCase() === 'vd-dominio';
+export const soDominioDe = (s: St) => s.carga === 'ok' && s.level === 'utilizador' && (!s.acc[meOf(s)] || ePlanoSoDominio(s.acc[meOf(s)]) || verSoDominio());
 /** Separador aberto ao entrar no painel ou numa conta: sempre "Gestão" (os dados da própria conta), para todos os que o
  *  têm (pedido do Silva, 14/10/2026 — antes voltava ao último separador em que se tinha trabalhado). */
 export const nivelInicial = (s: St): Level => {
@@ -174,6 +179,13 @@ export function fixoNoPlano(pkg: string | undefined, id: string): boolean {
   }
   return false;
 }
+/** Enquanto a conta espera (confirmação do comprovativo, ou a conta a ser criada) só abrem o início, as compras e o suporte; as
+ *  configurações do plano aparecem no menu mas ficam fechadas até o serviço estar pronto (Silva, 29/10/2026). */
+export const aguardaDe = (s: St) => acctOf(s).aguarda;
+export function fechadoAteConfirmar(s: St, id: string, lv: Level = s.level): boolean {
+  if (lv !== 'utilizador' || !aguardaDe(s)) return false;
+  return !MENU.utilizador.some(([g, itens]) => GRUPOS_SEMPRE.includes(g) && itens.some((it) => it.id === id));
+}
 /** A página `id` da Gestão está escondida pelo plano da conta que se vê (Admin › Acessos por plano)? Só vale para
  *  contas de clientes (cliente/profissional): administradores e revendedores vêem sempre tudo. */
 export const ocultoNoPlano = (s: St, id: string, lv: Level = s.level) => {
@@ -202,7 +214,8 @@ export function comAcessos(s: St, acessos: Record<string, string[]>): St {
   const n: St = { ...s, acessos };
   if (n.deny || GLOBAL[n.page]) return n;
   const it = findItem(n.level, n.page);
-  if (it && !hasFeatOf(n, it.feat, it.id)) n.deny = { type: 'pacote', it };
+  if (it && fechadoAteConfirmar(n, it.id)) n.deny = { type: 'aguarda', it };
+  else if (it && !hasFeatOf(n, it.feat, it.id)) n.deny = { type: 'pacote', it };
   return n;
 }
 /** Nome do nível nos separadores, no caminho e na pesquisa: o separador de quem revende também se chama "Admin"
@@ -264,7 +277,8 @@ export function fromPath(s: St, path: string): St {
       else {
         // abre-se só a categoria da página onde se está; no painel inicial fica tudo fechado (abre-se ao carregar)
         n.open = it.group !== 'Início' ? { [lv + '/' + it.group]: true } : {};
-        if (!hasFeatOf(s, it.feat, it.id, lv)) n.deny = { type: 'pacote', it };
+        if (fechadoAteConfirmar(s, it.id, lv)) n.deny = { type: 'aguarda', it };
+        else if (!hasFeatOf(s, it.feat, it.id, lv)) n.deny = { type: 'pacote', it };
       }
     }
   } else {

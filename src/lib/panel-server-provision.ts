@@ -95,7 +95,9 @@ async function markAccountServerLinked(params: {
   await patchMirrorUser(params.userName, { updated_at: new Date().toISOString() });
 }
 
-export async function provisionPanelAccountToServer(userName: string): Promise<{
+/** `adicional`: conta nova de quem já tinha outra no servidor (segunda hospedagem). Não toca na ligação, no perfil nem na
+ *  palavra-passe da conta principal; a palavra-passe desta vem do registo da própria conta. */
+export async function provisionPanelAccountToServer(userName: string, opcoes: { adicional?: boolean } = {}): Promise<{
   ok: boolean;
   linked: boolean;
   error?: string;
@@ -108,7 +110,7 @@ export async function provisionPanelAccountToServer(userName: string): Promise<{
 
   const { data: panelUser } = await sb
     .from('panel_users')
-    .select('username, acl, package_name, email, first_name, last_name, auth_user_id')
+    .select('username, acl, package_name, email, first_name, last_name, auth_user_id, da_password_encrypted')
     .eq('username', username)
     .maybeSingle();
 
@@ -125,7 +127,7 @@ export async function provisionPanelAccountToServer(userName: string): Promise<{
     .eq('panel_slug', PANEL_SLUG.toLowerCase())
     .maybeSingle();
 
-  if (authRow?.server_linked === true) {
+  if (authRow?.server_linked === true && !opcoes.adicional) {
     return { ok: true, linked: true };
   }
 
@@ -145,11 +147,9 @@ export async function provisionPanelAccountToServer(userName: string): Promise<{
   // email_contas.senha_servidor: essa tabela tem cliente_id como FK para
   // 'clientes' (tabela legada, vazia em produção), nunca para auth.users,
   // por isso o lookup por cliente_id=userId falhava sempre em silêncio.
-  const { data: profileRow } = await sb
-    .from('profiles')
-    .select('da_password_encrypted')
-    .eq('user_id', userId)
-    .maybeSingle();
+  const { data: profileRow } = opcoes.adicional
+    ? { data: { da_password_encrypted: panelUser.da_password_encrypted } }
+    : await sb.from('profiles').select('da_password_encrypted').eq('user_id', userId).maybeSingle();
 
   if (!profileRow?.da_password_encrypted) {
     return { ok: false, linked: false, error: 'Credenciais da conta em falta' };
@@ -194,14 +194,18 @@ export async function provisionPanelAccountToServer(userName: string): Promise<{
     email.split('@')[0];
   const role: UserRole = (authRow?.role as UserRole) || 'client';
 
-  await markAccountServerLinked({
-    userId,
-    email: email.toLowerCase(),
-    role,
-    name: displayName,
-    userName: username,
-    domain,
-  });
+  if (opcoes.adicional) {
+    await patchMirrorUser(username, { updated_at: new Date().toISOString() });
+  } else {
+    await markAccountServerLinked({
+      userId,
+      email: email.toLowerCase(),
+      role,
+      name: displayName,
+      userName: username,
+      domain,
+    });
+  }
 
   // Só notifica o cliente quando a conta foi mesmo criada agora nesta
   // tentativa (result.ok) — se caiu no ramo "já existe" (isDaAlreadyExistsError),
@@ -264,13 +268,15 @@ export async function provisionPendingPanelAccounts(): Promise<{
     const userId = String(row.user_id || '');
     if (!userId) continue;
 
-    const { data: panelUser } = await sb
+    // quem tem várias contas: tenta a mais antiga (a principal); as adicionais são provisionadas na própria compra
+    const { data: panelUsers } = await sb
       .from('panel_users')
       .select('username')
       .eq('auth_user_id', userId)
-      .maybeSingle();
+      .order('created_at', { ascending: true })
+      .limit(1);
 
-    const username = String(panelUser?.username || '').trim();
+    const username = String(panelUsers?.[0]?.username || '').trim();
     if (!username) continue;
 
     attempted += 1;

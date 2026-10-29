@@ -87,23 +87,29 @@ export async function notifyQuoteTeam(params: { title: string; message: string; 
   try {
     if (serviceKey && supabaseUrl) {
       const admin = createAdminClient(supabaseUrl, serviceKey);
-      const { data: adminProfile } = await admin
+      // notifications.user_id aponta para auth.users(id): o identificador do administrador é profiles.user_id, nunca profiles.id
+      // (que é uma chave própria da tabela e fazia o aviso falhar sempre, em silêncio). Avisa todos os administradores.
+      const { data: admins } = await admin
         .from('profiles')
-        .select('id')
+        .select('user_id')
         .eq('role', 'admin')
-        .limit(1)
-        .maybeSingle();
+        .not('user_id', 'is', null)
+        .limit(10);
 
-      if (adminProfile?.id) {
-        await admin.from('notifications').insert({
-          user_id: adminProfile.id,
-          title,
-          message,
-          type: 'info',
-          category: 'general',
-          link,
-          link_text: link ? 'Ver no painel' : undefined,
-        });
+      const destinos = Array.from(new Set((admins || []).map((a) => a.user_id as string).filter(Boolean)));
+      if (destinos.length) {
+        const { error: avisoErro } = await admin.from('notifications').insert(
+          destinos.map((userId) => ({
+            user_id: userId,
+            title,
+            message,
+            type: 'info',
+            category: 'general',
+            link,
+            link_text: link ? 'Ver no painel' : undefined,
+          })),
+        );
+        if (avisoErro) console.error('[notify-quote-team] aviso interno recusado:', avisoErro.message);
       }
     }
   } catch (err) {

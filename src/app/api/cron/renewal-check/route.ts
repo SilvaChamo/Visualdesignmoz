@@ -11,6 +11,7 @@ import { sendEmail } from '@/lib/email-service'
 import { isEmailPlanPackage } from '@/lib/email-plans'
 import { notifyExpiredCleanupDue, suspendOverdueHostingAccounts } from '@/lib/overdue-hosting-suspend'
 import { avisarPeriodoDeRecuperacao } from '@/lib/recuperacao-renovacao'
+import { expirarPedidosManuais } from '@/lib/pedidos-manuais'
 
 // Cron secret para segurança
 // sem segredo no ambiente, o cron não é aceite (antes valia um segredo por omissão); o administrador com sessão entra sempre
@@ -314,6 +315,9 @@ export async function GET(request: NextRequest) {
     if (recuperacao.errors.length) results.errors.push(...recuperacao.errors)
     const cleanup = await notifyExpiredCleanupDue(supabaseAdmin)
     if (cleanup.errors.length) results.errors.push(...cleanup.errors)
+    // pedidos de M-Pesa/Transferência sem comprovativo há muito tempo: expiram (nada se apaga)
+    const pedidos = await expirarPedidosManuais(supabaseAdmin)
+    if (pedidos.errors.length) results.errors.push(...pedidos.errors)
 
     return NextResponse.json({
       success: true,
@@ -322,6 +326,7 @@ export async function GET(request: NextRequest) {
       overdueSuspend: overdue,
       recuperacao,
       expiredCleanup: cleanup,
+      pedidosExpirados: pedidos.expirados,
     })
 
   } catch (error: any) {

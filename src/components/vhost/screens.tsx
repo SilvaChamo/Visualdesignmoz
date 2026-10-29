@@ -3,7 +3,7 @@
 // Ecrãs do painel (na maquete: o objeto P). Cada ecrã dá o título e os botões da barra de cima,
 // e o conteúdo da página.
 import { useSystemStatus } from '@/components/vhost/comuns/ServerStatusWidget';
-import { Fragment, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useVH, type VH } from './context';
 import { ajudaPagina, apiPagina, msgAvisos, msgNaoLidas, msgTodas, perfilAvisos, perfilDoisPassos, perfilGeral, perfilSenha, perfilSessoes, prefFicheiros, prefIdioma, prefTabelas, ticketsPagina } from './paginas/suporte';
 import { contas, modelos, mover, novaConta, senhas } from './paginas/contas';
@@ -224,6 +224,53 @@ function InicioSoDominio() {
     </div>
   );
 }
+/** Início de quem comprou e ainda espera (Silva, 29/10/2026): o estado do pedido, com o painel do pacote pago já à vista mas as
+ *  configurações fechadas. Por M-Pesa/Transferência espera a confirmação da equipa; por cartão ou saldo, só os segundos que o
+ *  servidor demora a criar a conta. Em qualquer dos casos o painel volta a ler sozinho e abre assim que o serviço está pronto. */
+function InicioAguarda() {
+  const vh = useVH();
+  const aguarda = vh.a.aguarda;
+  const recarregar = useRef(vh.recarregar);
+  useEffect(() => {
+    recarregar.current = vh.recarregar;
+  });
+  useEffect(() => {
+    const id = setInterval(() => void recarregar.current(true), 8000);
+    return () => clearInterval(id);
+  }, []);
+  const preparacao = aguarda?.motivo === 'preparacao';
+  return (
+    <div className="tw-livre inicio-so-dominio">
+      <div className="mb-5 flex items-start gap-3 rounded border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/50 dark:bg-amber-950/30">
+        <i className={'fa-solid mt-0.5 text-amber-600 ' + (preparacao ? 'fa-gears' : 'fa-hourglass-half')} />
+        <div>
+          <p className="text-sm font-bold text-amber-900 dark:text-amber-200">
+            {vh.t(preparacao ? 'A preparar o seu serviço' : 'A aguardar a confirmação do pagamento')}
+            {aguarda?.plano ? ` — ${aguarda.plano}` : ''}
+          </p>
+          <p className="mt-1 text-xs text-amber-800 dark:text-amber-300">
+            {vh.t(
+              preparacao
+                ? 'O pagamento foi confirmado. O servidor está a criar o seu plano e as configurações abrem aqui dentro de instantes.'
+                : 'As configurações do seu plano estão no menu, mas só abrem quando a nossa equipa confirmar o pagamento. Se ainda não enviou o comprovativo, faça-o no pedido pendente abaixo.',
+            )}
+          </p>
+        </div>
+      </div>
+      <ClientProductsHub
+        displayName={vh.s.pessoa?.nome}
+        sessionUser={vh.s.pessoa?.email}
+        onProductsChanged={() => void vh.recarregar(true)}
+        onNavigate={(secao) => {
+          if (secao === 'facturas' || secao === 'minhas-compras') vh.go('facturacao');
+          else if (secao === 'transferir') vh.nav('/utilizador/dominios/transferir');
+          else vh.go('inicio');
+        }}
+      />
+    </div>
+  );
+}
+
 const inicioUtilizador: ScreenFn = (vh) => {
   const soDominio = soDominioDe(vh.s);
   return {
@@ -234,7 +281,7 @@ const inicioUtilizador: ScreenFn = (vh) => {
         {vh.t('Adicionar domínio')}
       </button>
     ),
-    body: vh.s.dashTab === 'menu' ? <DaHomeCards /> : soDominio ? <InicioSoDominio /> : <UserWidgets />,
+    body: vh.s.dashTab === 'menu' ? <DaHomeCards /> : vh.a.aguarda ? <InicioAguarda /> : soDominio ? <InicioSoDominio /> : <UserWidgets />,
   };
 };
 
@@ -296,6 +343,30 @@ export const denyScreen: ScreenFn = (vh) => {
         </div>
       ),
     };
+  if (d.type === 'aguarda') {
+    const motivo = a.aguarda?.motivo;
+    return {
+      title: 'A aguardar',
+      body: (
+        <div className="deny">
+          <div className="ic c4">
+            <i className={'fa-solid ' + (motivo === 'preparacao' ? 'fa-gears' : 'fa-hourglass-half')} />
+          </div>
+          <h1>{t(motivo === 'preparacao' ? 'A preparar o seu serviço' : 'A aguardar a confirmação do pagamento')}</h1>
+          <p>
+            {motivo === 'preparacao'
+              ? t('O pagamento foi confirmado e o servidor está a criar o seu plano. Esta página abre sozinha dentro de instantes.')
+              : t('Assim que a nossa equipa confirmar o comprovativo, abre o acesso às configurações do seu plano.')}
+            <br />
+            {t('Entretanto pode acompanhar o pedido e falar com o suporte.')}
+          </p>
+          <button className="btn r" onClick={() => vh.go('inicio')}>
+            {t('Ver o estado do pedido')}
+          </button>
+        </div>
+      ),
+    };
+  }
   if (d.type === 'pacote')
     return {
       title: 'Não incluído no pacote',

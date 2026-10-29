@@ -14,6 +14,7 @@ import { mbTexto, type DadosServidor, type Servidor, type ZonaDns } from '@/comp
 import type { LeituraServidor } from '@/lib/vhost-servidor';
 import { getDaSyncAdmin } from '@/lib/da-sync-schema';
 import { buyerRoleForPackage } from '@/lib/user-roles';
+import type { CompraPendente } from '@/lib/vhost-compra-pendente';
 
 type Linha = Record<string, string>;
 
@@ -128,7 +129,12 @@ function uptimeTxt(min: number): string {
   return d ? `${d} dia${d === 1 ? '' : 's'}, ${h} h` : `${h} h ${Math.round(min % 60)} min`;
 }
 
-export function montarDados(srv: LeituraServidor, reg: RegistoSite, sessao: Sessao): DadosServidor {
+/** Nome da conta provisória de quem comprou e ainda não tem conta no servidor (nunca coincide com uma conta real). */
+export const CONTA_PROVISORIA = 'conta-pendente';
+
+/** `compra`: o que a sessão comprou e ainda espera (confirmação ou criação da conta). Só serve a quem não tem conta no
+ *  servidor: dá-lhe uma conta provisória com o pacote pago, para ver já o painel certo, com as configurações fechadas. */
+export function montarDados(srv: LeituraServidor, reg: RegistoSite, sessao: Sessao, compra?: CompraPendente | null): DadosServidor {
   const apiUser = (process.env.HESTIA_USER || 'vdadmin').trim();
   const nomes = Object.keys(srv.users);
   const adminConta =
@@ -247,12 +253,53 @@ export function montarDados(srv: LeituraServidor, reg: RegistoSite, sessao: Sess
     info[u] = { bw: mbTexto(num(x.U_BANDWIDTH)), ip: ipConta, dbs: num(x.U_DATABASES), criada: r?.criada ? dataPt(r.criada.slice(0, 10)) : dataPt(x.DATE, x.TIME) };
   }
 
+  // Comprou e ainda não tem conta no servidor: conta provisória com o pacote pago (nunca para a equipa)
+  if ((!me || !contas[me]) && compra && sessao.role !== 'admin' && sessao.role !== 'reseller' && sessao.role !== 'manager') {
+    const perfilCompra = reg.perfis.get(sessao.userId);
+    const papel: Role = buyerRoleForPackage(compra.pacote) === 'profissional' ? 'profissional' : 'cliente';
+    const dominiosCompra: Domain[] = compra.dominios.map((d) => ({
+      name: d,
+      ssl: 'w',
+      php: '—',
+      disk: '0 MB',
+      status: 'ok',
+      ...(compra.tipo === 'dominio' ? { soDominio: true } : compra.tipo === 'email' ? { soEmail: true } : {}),
+    }));
+    me = CONTA_PROVISORIA;
+    contas[me] = {
+      name: (perfilCompra?.name || sessao.email.split('@')[0] || '').trim(),
+      email: perfilCompra?.email || sessao.email,
+      ...(perfilCompra?.empresa ? { empresa: perfilCompra.empresa } : {}),
+      role: papel,
+      creator: adminConta,
+      pkg: compra.pacote,
+      hpkg: compra.pacote,
+      state: 'ok',
+      disk: '0 MB',
+      discoMb: 0,
+      discoLimMb: null,
+      bwMb: 0,
+      bwLimMb: null,
+      ns: [],
+      domains: dominiosCompra,
+      dbs: [],
+      mails: [],
+      aguarda: { motivo: compra.aguarda, plano: compra.plano },
+    };
+    info[me] = { bw: '0 MB', ip: '', dbs: 0, criada: '—' };
+  }
+
   // O que esta sessão pode ver
   const minha = contas[me];
   let visiveis: string[];
   if (sessao.role === 'admin') visiveis = nomes;
   else if (minha?.role === 'revenda') visiveis = nomes.filter((u) => u === me || contas[u].creator === me);
-  else visiveis = me ? [me] : [];
+  else if (me) {
+    // a sua conta e as contas de hospedagem adicionais da mesma pessoa (cada hospedagem comprada tem a sua conta)
+    const adicionais = nomes.filter((u) => u !== me && reg.contas.get(u)?.authUserId === sessao.userId);
+    for (const u of adicionais) contas[u].propria = true;
+    visiveis = [me, ...adicionais];
+  } else visiveis = [];
   const ver = new Set(visiveis);
   const filtra = <T,>(o: Record<string, T>) => Object.fromEntries(Object.entries(o).filter(([k]) => ver.has(k)));
 

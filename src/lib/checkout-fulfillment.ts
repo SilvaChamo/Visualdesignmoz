@@ -16,16 +16,10 @@ import { after } from 'next/server';
 import { getProfileForAuthUser, saveProfileForAuthUser } from '@/lib/profile-db';
 import { buyerRoleForPackage, isProfissionalHostingPlan } from '@/lib/user-roles';
 import { emailPlanProductName, getEmailPlan } from '@/lib/email-plans';
+import { PACOTES_HOSPEDAGEM } from '@/lib/pacotes-compra';
 
-// Pacote dedicado por plano — tem de corresponder aos `defaultPackageName` de
-// HOSTING_PLAN_PRESETS em reseller-package-form.ts, que é o que a secção
-// "Pacotes" do admin cria de facto no DirectAdmin.
-const HOSTING_PLAN_PACKAGE_NAMES: Record<string, string> = {
-  'hosting-basico': 'VD-Host-Basico',
-  'hosting-pro': 'VD-Host-Pro',
-  'hosting-business': 'VD-Host-Business',
-  'hosting-enterprise': 'VD-Host-Enterprise',
-};
+// Pacote dedicado por plano: ver PACOTES_HOSPEDAGEM em pacotes-compra.ts (a mesma tabela do painel de quem espera confirmação).
+const HOSTING_PLAN_PACKAGE_NAMES = PACOTES_HOSPEDAGEM;
 
 // Pacote de recurso, confirmado a existir sempre no servidor — usado enquanto
 // o pacote dedicado de um plano ainda não tiver sido criado lá (ver
@@ -134,36 +128,45 @@ export async function provisionHostingAccountOnPanel(params: {
   /** Servidor de hospedagem que vai tratar esta conta. Omitir mantém o
    * comportamento actual (DirectAdmin). */
   provider?: 'directadmin' | 'hestia';
+  /** Nome de utilizador escolhido no checkout para esta conta de hospedagem (se estiver ocupado, escolhe-se um parecido). */
+  username?: string;
 }): Promise<{ ok: boolean; daUsername: string; password: string; error?: string }> {
   const { admin, userId, email, displayName, domainName, packageName, renewalId } = params;
   try {
     const password = params.sharedPassword || generateProvisionerPassword();
-    const daUsername = await pickAvailableMirrorUsername(domainName.split('.')[0] || email.split('@')[0]);
+    const daUsername = await pickAvailableMirrorUsername(params.username || domainName.split('.')[0] || email.split('@')[0]);
 
-    const { saveProfileForAuthUser: savePassword } = await import('@/lib/profile-db');
-    await savePassword(admin, userId, {
-      email,
-      da_password_encrypted: encryptDaSecret(password),
-    });
     // Painel pelo plano (ver promoteBuyerAfterPurchase): Pro/Business/Enterprise
     // → 'profissional'; Básico → 'client'. Contas da equipa
     // (admin/manager/reseller) ficam como estão.
     const existingProfile = await getProfileForAuthUser(admin, userId, email);
+    // Quem já tem uma conta no servidor e compra outra hospedagem recebe uma conta NOVA (o seu domínio, o seu nome de
+    // utilizador), sem mexer na conta que já tinha: o perfil, a ligação ao servidor e a palavra-passe da principal ficam como estão.
+    const adicional = Boolean(String(existingProfile?.da_username || '').trim());
+    if (!adicional) {
+      const { saveProfileForAuthUser: savePassword } = await import('@/lib/profile-db');
+      await savePassword(admin, userId, {
+        email,
+        da_password_encrypted: encryptDaSecret(password),
+      });
+    }
     const STAFF_ROLES = ['admin', 'manager', 'reseller'];
     const resolvedRole = STAFF_ROLES.includes(existingProfile?.role || '')
       ? (existingProfile!.role as 'admin' | 'manager' | 'reseller')
       : ((await promoteBuyerAfterPurchase(admin, userId, [
           { type: 'hosting', id: params.planId, packageName },
         ])) ?? 'client');
-    await upsertPanelAuthAccount(admin, {
-      userId,
-      email,
-      role: resolvedRole,
-      name: displayName,
-      serverLinked: false,
-      daUsername: null,
-      provider: params.provider,
-    });
+    if (!adicional) {
+      await upsertPanelAuthAccount(admin, {
+        userId,
+        email,
+        role: resolvedRole,
+        name: displayName,
+        serverLinked: false,
+        daUsername: null,
+        provider: params.provider,
+      });
+    }
     await upsertMirrorUser({
       username: daUsername,
       email,
@@ -174,9 +177,11 @@ export async function provisionHostingAccountOnPanel(params: {
       hosting_provider: params.provider,
     });
     await upsertMirrorSite({ domain: domainName, owner: daUsername, admin_email: email, package: packageName });
+    // a conta nova nasce sem a palavra-passe no registo (o upsert acima não a grava): vai logo a seguir, só para as contas adicionais
+    if (adicional) await admin.from('panel_users').update({ da_password_encrypted: encryptDaSecret(password) }).eq('username', daUsername);
 
     const task = async () => {
-      const result = await provisionPanelAccountToServer(daUsername);
+      const result = await provisionPanelAccountToServer(daUsername, { adicional });
       if (result.ok) {
         if (renewalId) {
           await admin.from('hosting_renewals').update({ status: 'active' }).eq('id', renewalId);
@@ -374,6 +379,9 @@ export async function fulfillCheckout(
   userId: string,
   items: CatalogCartItem[],
   paymentMethod: string,
+  /** Todos os itens do pedido, quando só alguns são activados agora (a equipa confirma item a item): a conta «só domínio»
+   *  decide-se olhando para o pedido inteiro, não só para o item que se confirma. */
+  itensDoPedido?: CatalogCartItem[],
 ) {
   const today = new Date().toISOString().split('T')[0];
   const total = items.reduce((sum, item) => sum + (item.price || 0), 0);
@@ -687,6 +695,7 @@ export async function fulfillCheckout(
           sharedPassword: sharedHostingPassword,
           provider: hostingProvider,
           planId: item.id,
+          username: item.contaUtilizador,
         });
       }
     }
@@ -736,7 +745,8 @@ export async function fulfillCheckout(
     .filter((i) => i.type === 'domain')
     .map((i) => i.name.toLowerCase().trim())
     .filter((d) => HOSTING_DOMAIN_REGEX.test(d));
-  if (admin && email && soDominios.length && !items.some((i) => i.type === 'hosting' || i.type === 'email')) {
+  const pedidoInteiro = itensDoPedido && itensDoPedido.length ? itensDoPedido : items;
+  if (admin && email && soDominios.length && !pedidoInteiro.some((i) => i.type === 'hosting' || i.type === 'email')) {
     const { provisionDomainOnlyAccount } = await import('@/lib/domain-only-provision');
     const conta = await provisionDomainOnlyAccount(admin, userId, soDominios, email, displayName).catch(
       (e: unknown) => ({ ok: false as const, error: e instanceof Error ? e.message : String(e) }),

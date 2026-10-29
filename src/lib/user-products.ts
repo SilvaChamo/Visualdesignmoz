@@ -16,6 +16,8 @@ export type PendingCheckoutSession = {
   totalMt: number;
   createdAt: string;
   hasComprovativo: boolean;
+  /** Motivo pelo qual a equipa pediu outro comprovativo (o cliente vê-o e volta a anexar). */
+  rejectionReason: string | null;
   items: Array<{
     type: 'domain' | 'hosting' | 'ssl' | 'email';
     name: string;
@@ -80,7 +82,7 @@ export async function fetchUserProductsSummary(
       .eq('cliente_id', userId),
     supabase
       .from('checkout_sessions')
-      .select('id, items, total_mt, metodo_pagamento, status, comprovativo_url, created_at')
+      .select('id, items, total_mt, metodo_pagamento, status, comprovativo_url, rejection_reason, created_at')
       .eq('user_id', userId)
       .eq('status', 'pending'),
   ]);
@@ -101,6 +103,7 @@ export async function fetchUserProductsSummary(
       totalMt: row.total_mt ?? 0,
       createdAt: row.created_at,
       hasComprovativo: Boolean(row.comprovativo_url),
+      rejectionReason: (row.rejection_reason as string | null) ?? null,
       items: items.map((item) => ({
         type: item.type as PendingCheckoutSession['items'][number]['type'],
         name: item.name as string,

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireAdminOrReseller } from '@/lib/panel-api-auth';
 import { getDaSyncAdmin } from '@/lib/da-sync-schema';
 import { lerServidor } from '@/lib/vhost-servidor';
+import { ligarPerfilPorEmail } from '@/lib/ligar-perfil-conta';
 
 /**
  * Acesso de quem gere a uma conta de alojamento de um cliente (antes só em /api/vhost/cliente): o administrador vê
@@ -44,6 +45,14 @@ export async function perfilDaConta(sb: NonNullable<ReturnType<typeof getDaSyncA
   if (!perfil) {
     perfil = ((await sb.from('profiles').select(cols).eq('da_username', conta).maybeSingle()).data as Record<string, string | null> | null) || null;
     uid = perfil?.user_id ? String(perfil.user_id) : '';
+  }
+  // ainda sem perfil ligado: liga-se sozinha ao perfil com o mesmo e-mail (e relê-o)
+  if (!uid && pu?.email) {
+    const ligado = await ligarPerfilPorEmail(sb, conta, pu.email as string);
+    if (ligado) {
+      uid = ligado;
+      perfil = ((await sb.from('profiles').select(cols).eq('user_id', uid).maybeSingle()).data as Record<string, string | null> | null) || null;
+    }
   }
   return { pu, perfil, uid };
 }

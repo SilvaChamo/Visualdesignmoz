@@ -85,6 +85,10 @@ async function hestiaCallViaSsh(cmd: string, args: string[], timeoutMs = 20_000)
  * Hestia não está alcançável a partir da rede actual (ex.: Mac fora da VPN). */
 const HESTIA_HTTP_TIMEOUT_MS = 5_000;
 const HESTIA_SSH_FALLBACK_MS = 12_000;
+/** Apagar/criar/mudar contas, pacotes e domínios no Hestia demora (refaz serviços); com 5 s o pedido «falhava» a meio e a conta
+ *  ficava por apagar no painel (Silva, 29/10/2026: não conseguia apagar a conta entrecampos). */
+const HESTIA_ALTERACAO_TIMEOUT_MS = 120_000;
+const ALTERA_O_SERVIDOR = /^v-(add|delete|change|suspend|unsuspend|rebuild|restart|update)-/;
 
 type HestiaCallOptions = {
   timeoutMs?: number;
@@ -128,10 +132,12 @@ export async function apiAlcancavel(host: string, port: string, esperaMs = 2_500
 
 async function hestiaCallDireto(cmd: string, args: string[], options: HestiaCallOptions): Promise<HestiaCallResult> {
   const { host, port, user, password } = resolveHestiaConfig();
-  const timeoutMs = options.timeoutMs ?? HESTIA_HTTP_TIMEOUT_MS;
+  const demorada = ALTERA_O_SERVIDOR.test(cmd);
+  const timeoutMs = options.timeoutMs ?? (demorada ? HESTIA_ALTERACAO_TIMEOUT_MS : HESTIA_HTTP_TIMEOUT_MS);
+  const sshMs = options.sshTimeoutMs ?? (demorada ? HESTIA_ALTERACAO_TIMEOUT_MS : HESTIA_SSH_FALLBACK_MS);
   // Sem alcance à API (o painel a correr no computador do Silva): o pedido nem chegaria ao Hestia, por isso é seguro ir já por SSH,
   // também nas alterações. Antes esperava 5 s e desistia com «demorou a responder» (as leituras caíam para SSH, as alterações não).
-  if (!(await apiAlcancavel(host, port))) return hestiaCallViaSsh(cmd, args, options.sshTimeoutMs ?? HESTIA_SSH_FALLBACK_MS);
+  if (!(await apiAlcancavel(host, port))) return hestiaCallViaSsh(cmd, args, sshMs);
 
   const body = new URLSearchParams();
   body.set('user', user);
@@ -153,13 +159,13 @@ async function hestiaCallDireto(cmd: string, args: string[], options: HestiaCall
     const nomeErro = e instanceof Error ? e.name : '';
     // Leituras (v-list-*) não mudam nada: repetir por SSH é seguro e evita o painel sem dados quando a API tarda.
     // Só as operações que alteram o servidor deixam de se repetir (para não duplicar apagar/emitir SSL).
-    if (cmd.startsWith('v-list-')) return hestiaCallViaSsh(cmd, args, options.sshTimeoutMs ?? HESTIA_SSH_FALLBACK_MS);
+    if (cmd.startsWith('v-list-')) return hestiaCallViaSsh(cmd, args, sshMs);
     if (nomeErro === 'TimeoutError' || nomeErro === 'AbortError') {
       return {
         ok: false,
         exitCode: -1,
         output: '',
-        error: 'O Vhost demorou a responder. O pedido pode ainda estar em curso; não foi repetido automaticamente.',
+        error: 'O servidor demorou a responder. O pedido pode ainda estar em curso; não foi repetido automaticamente.',
       };
     }
     if (options.sshFallbackOnTransportError === false) {
@@ -167,10 +173,10 @@ async function hestiaCallDireto(cmd: string, args: string[], options: HestiaCall
         ok: false,
         exitCode: -1,
         output: '',
-        error: 'Não foi possível confirmar se o Vhost recebeu o pedido; não foi repetido para evitar duplicar a operação.',
+        error: 'Não foi possível confirmar se o servidor recebeu o pedido; não foi repetido para evitar duplicar a operação.',
       };
     }
-    return hestiaCallViaSsh(cmd, args, options.sshTimeoutMs ?? HESTIA_SSH_FALLBACK_MS);
+    return hestiaCallViaSsh(cmd, args, sshMs);
   }
 
   const output = (await response.text()).trim();
@@ -188,7 +194,7 @@ async function hestiaCallDireto(cmd: string, args: string[], options: HestiaCall
   if (exitCode !== 0) {
     // (com returncode=yes o corpo é só o código; 10 = E_FORBIDDEN, o mesmo "IP is not allowed")
     if (/ip is not allowed/i.test(output) || (options.codigoDeSaida && exitCode === 10)) {
-      return hestiaCallViaSsh(cmd, args, options.sshTimeoutMs ?? HESTIA_SSH_FALLBACK_MS);
+      return hestiaCallViaSsh(cmd, args, sshMs);
     }
     return { ok: false, exitCode, output, error: output || `Comando ${cmd} falhou (código ${exitCode})` };
   }

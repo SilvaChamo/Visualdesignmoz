@@ -68,6 +68,9 @@ const DOMAIN_REGISTRATION_YEARS = [1, 2, 3, 5, 10];
 const HOSTING_CYCLE_MONTHS: Record<HostingBillingCycle, number> = { monthly: 1, semiannual: 6, annual: 12 };
 const HOSTING_CYCLE_LABELS: Record<HostingBillingCycle, string> = { monthly: 'Mensal', semiannual: 'Semestral', annual: 'Anual' };
 import { checkoutEntryPath } from '@/lib/checkout-flow';
+import { referenciaPedido } from '@/lib/checkout-referencia';
+import { nomeContaValido, NOME_CONTA_ERRO } from '@/lib/conta-hospedagem';
+import { mensagemEmailInvalido } from '@/lib/email-valido';
 import { profileAuthOrFilter } from '@/lib/profile-db';
 import { acrescentarIva, IVA_TAXA } from '@/lib/iva';
 import {
@@ -84,28 +87,85 @@ import {
   EyeOff,
   Smartphone,
   Landmark,
+  Briefcase,
   ShieldCheck,
-  BadgeCheck,
   Zap,
-  Printer,
-  FileDown,
   ArrowLeft,
   Info,
   Building2,
-  UserCircle,
   Wallet,
   CheckCircle2,
   Paperclip,
-  Trash2
+  Trash2,
+  User,
+  Phone,
+  MapPin,
+  Map as MapaIcone,
+  KeyRound,
+  Wand2
 } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
 
 type MetodoPagamento = 'stripe' | 'mpesa' | 'transferencia' | 'saldo';
 
+// Campos do checkout: sem etiquetas, a dica fica dentro do campo e o ícone (a cores) numa caixa à esquerda, como nos outros
+// formulários do site.
+const campoCls =
+  'h-10 w-full min-w-0 flex-1 bg-transparent px-3 text-sm text-slate-800 dark:text-zinc-100 placeholder:text-slate-400 dark:placeholder:text-zinc-500 outline-none disabled:cursor-default disabled:bg-slate-50 dark:disabled:bg-zinc-900 disabled:text-slate-600';
+const campoVazioCls = campoCls.replace('text-slate-800 dark:text-zinc-100', 'text-slate-400 dark:text-zinc-500');
+const caixaCampoCls =
+  'flex items-stretch overflow-hidden rounded border border-zinc-300 bg-white dark:border-zinc-700 dark:bg-zinc-950 transition-colors focus-within:border-red-500 focus-within:ring-2 focus-within:ring-red-500/20';
+const corIcone = (Icone: unknown) =>
+  (new Map<unknown, string>([
+    [User, 'text-violet-600'],
+    [Phone, 'text-green-600'],
+    [Building2, 'text-blue-500'],
+    [Mail, 'text-sky-500'],
+    [Briefcase, 'text-indigo-500'],
+    [KeyRound, 'text-amber-500'],
+    [MapPin, 'text-red-500'],
+    [Landmark, 'text-red-500'],
+    [MapaIcone, 'text-teal-500'],
+  ]).get(Icone) || 'text-slate-400');
+function IconeCaixa({ icone: Icone }: { icone: React.ComponentType<{ className?: string }> }) {
+  return (
+    <span className="flex w-10 shrink-0 items-center justify-center border-r border-zinc-300 bg-slate-50 dark:border-zinc-700 dark:bg-zinc-900">
+      <Icone className={`h-4 w-4 ${corIcone(Icone)}`} />
+    </span>
+  );
+}
+function LinhaDado({ icone: Icone, valor }: { icone: React.ComponentType<{ className?: string }>; valor: string }) {
+  return (
+    <p className="flex items-center gap-2.5 text-sm text-slate-700 dark:text-zinc-300 break-all">
+      <Icone className={`h-4 w-4 shrink-0 ${corIcone(Icone)}`} />
+      {valor ? valor : <span className="text-rose-600">Em falta</span>}
+    </p>
+  );
+}
+function CampoIcone({ icone, children }: { icone: React.ComponentType<{ className?: string }>; children: React.ReactNode }) {
+  return (
+    <div className={`relative ${caixaCampoCls}`}>
+      <IconeCaixa icone={icone} />
+      {children}
+    </div>
+  );
+}
+
+/** Telefone com o indicativo escolhido; se a pessoa já escreveu o indicativo (+258… ou 00258…), fica como escreveu. */
+function telefoneCompleto(escrito: string, prefixo: string): string {
+  const t = escrito.trim();
+  if (!t) return t;
+  if (/^(\+|00)/.test(t)) return t;
+  const digitos = t.replace(/\D/g, '');
+  const prefixoDigitos = prefixo.replace(/\D/g, '');
+  if (digitos.startsWith(prefixoDigitos) && digitos.length >= prefixoDigitos.length + 8) return `+${digitos}`;
+  return `${prefixo} ${digitos}`;
+}
+
 const METODO_META: Record<MetodoPagamento, { label: string; icon: typeof Smartphone }> = {
   transferencia: { label: 'Transferência Bancária', icon: Landmark },
   mpesa: { label: 'M-Pesa', icon: Smartphone },
-  stripe: { label: 'Cartão (Stripe)', icon: CreditCard },
+  stripe: { label: 'Cartão', icon: CreditCard },
   saldo: { label: 'Saldo da Conta', icon: Wallet },
 };
 
@@ -127,7 +187,7 @@ function redirectPathForSession(
 export type CheckoutPainel = { voltar: () => void; editar: () => void };
 
 export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
-  const { items, total, clearCart, updateItemPeriod, removeItem } = useCart();
+  const { items, total, clearCart, updateItemPeriod, removeItem, updateItemContaUtilizador, ready: carrinhoLido } = useCart();
   const router = useRouter();
   const { user: authUser, loading: authLoading } = useAuth();
   const isAuthenticated = authLoading ? null : !!authUser;
@@ -202,38 +262,96 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
     if (entry !== '/checkout') router.replace(entry);
   }, [items, renewalId, isEncomenda, router]);
 
+  // Renovação sem sessão: vai ao login e volta (num efeito, nunca durante o desenho)
+  useEffect(() => {
+    if (renewalId && isAuthenticated === false) router.push(`/login?redirect=${encodeURIComponent(`/checkout?renewalId=${renewalId}`)}`);
+  }, [renewalId, isAuthenticated, router]);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Quem ainda não tem conta continua a ver o formulário completo enquanto se cria a conta e se segue para o passo seguinte
+  // (a página não muda de aspecto a meio do processamento).
+  const [comoVisitante, setComoVisitante] = useState(false);
+  // Quem tem conta vê os seus dados escritos; «Editar» abre os campos.
+  const [editando, setEditando] = useState(false);
+  const [savingDados, setSavingDados] = useState(false);
+  const copiaAntesDeEditar = React.useRef<{ form: Record<string, string>; prefixo: string } | null>(null);
+  useEffect(() => {
+    if (!isSubmitting) setComoVisitante(false);
+  }, [isSubmitting]);
   const [metodoPagamento, setMetodoPagamento] = useState<MetodoPagamento>('transferencia');
 
   // Pedido de M-Pesa/Transferência já criado, à espera do comprovativo —
   // enquanto isto não for null, o checkout mostra o passo de upload em vez
   // do carrinho (mesmo já vazio) ou do formulário de pagamento.
-  const [manualSession, setManualSession] = useState<{ id: string; metodoPagamento: 'mpesa' | 'transferencia' } | null>(null);
+  const [manualSession, setManualSession] = useState<{ id: string; metodoPagamento: 'mpesa' | 'transferencia'; totalMt?: number; comprovativoEnviado?: boolean; motivo?: string | null } | null>(null);
   // Pedido M-Pesa recém-criado que ainda tem de passar pelo passo do número (ver MpesaTesteStep).
   const [mpesaPassoId, setMpesaPassoId] = useState<string | null>(null);
   const [mpesaAvisoTeste, setMpesaAvisoTeste] = useState(false);
   const [mpesaPassoValor, setMpesaPassoValor] = useState<number | undefined>(undefined);
   const restoredPendingIdRef = React.useRef<string | null>(null);
+  // Pedido de quem ainda não tem conta (M-Pesa/Transferência): a chave com que este navegador lê o pedido e envia o comprovativo.
+  const CHAVE_PEDIDO_SEM_CONTA = 'vd_pedido_sem_conta';
+  const [tokenPedido, setTokenPedido] = useState<string | null>(null);
+  const lerPedidoSemConta = (): { id: string; token: string } | null => {
+    try {
+      const v = JSON.parse(sessionStorage.getItem(CHAVE_PEDIDO_SEM_CONTA) || 'null');
+      return v && v.id && v.token ? v : null;
+    } catch {
+      return null;
+    }
+  };
 
   // Recupera este passo depois de um recarregamento a meio (ex: refresh
   // acidental) — sem isto a página cairia no ecrã genérico de "carrinho
   // vazio" (o carrinho já foi limpo ao criar o pedido pendente).
   useEffect(() => {
     const pendingId = searchParams.get('pendingId');
-    if (!pendingId || isAuthenticated !== true || restoredPendingIdRef.current === pendingId) return;
+    if (!pendingId || isAuthenticated === null || restoredPendingIdRef.current === pendingId) return;
+    const semConta = isAuthenticated === false ? lerPedidoSemConta() : null;
+    if (isAuthenticated === false && semConta?.id !== pendingId) return;
     restoredPendingIdRef.current = pendingId;
-    fetch(`/api/checkout/session-status?session_id=${encodeURIComponent(pendingId)}`)
+    if (semConta) setTokenPedido(semConta.token);
+    fetch(`/api/checkout/session-status?session_id=${encodeURIComponent(pendingId)}${semConta ? `&token=${encodeURIComponent(semConta.token)}` : ''}`)
       .then((r) => r.json())
       .then((data) => {
         const s = data?.session;
         if (data.success && s?.status === 'pending' && (s.metodo_pagamento === 'mpesa' || s.metodo_pagamento === 'transferencia')) {
-          setManualSession({ id: s.id, metodoPagamento: s.metodo_pagamento });
+          setManualSession({
+            id: s.id,
+            metodoPagamento: s.metodo_pagamento,
+            totalMt: Number(s.total_mt) || undefined,
+            comprovativoEnviado: Boolean(s.comprovativo_url),
+            motivo: s.rejection_reason ?? null,
+          });
         } else {
           router.replace('/checkout');
         }
       })
       .catch(() => router.replace('/checkout'));
   }, [searchParams, isAuthenticated, router]);
+
+  // Voltar atrás (botão do navegador) do passo do comprovativo para o checkout: mostra o carrinho outra vez, em vez de ficar preso
+  // no passo. Só reage a uma mudança do endereço (de «com pedido» para «sem pedido»), nunca ao criar o pedido.
+  const pedidoAnterior = React.useRef<string | null>(null);
+  useEffect(() => {
+    const atual = searchParams.get('pendingId');
+    if (pedidoAnterior.current && !atual) {
+      setManualSession(null);
+      setMpesaPassoId(null);
+      restoredPendingIdRef.current = null;
+    }
+    pedidoAnterior.current = atual;
+  }, [searchParams]);
+
+  // Pagamento por cartão concluído (o serviço de pagamento devolve aqui): só agora o carrinho esvazia e segue-se para o painel.
+  useEffect(() => {
+    // só depois de o carrinho guardado ser lido (senão a leitura repunha os itens por cima)
+    if (searchParams.get('pago') !== '1' || !carrinhoLido) return;
+    clearCart();
+    limparFormulario();
+    router.replace(PUBLIC_PANEL_ENTRY);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, carrinhoLido]);
 
   // M-Pesa/Transferência/Saldo não processam USD — se o cliente troca a
   // moeda no topo do site enquanto está no checkout, o método tem de
@@ -269,12 +387,46 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
     password: '',
     empresa: '',
     endereco: '',
-    endereco2: '',
+    emailEmpresa: '',
+    cargo: '',
     cidade: '',
     estado: '',
-    codigoPostal: '',
     pais: 'Mozambique'
   });
+  const [telefonePrefixo, setTelefonePrefixo] = useState('+258');
+  // O que a pessoa escreveu no formulário guarda-se (nunca a palavra-passe) para voltar atrás e encontrá-lo como o deixou;
+  const CHAVE_FORMULARIO = 'vd_checkout_form';
+  const [rascunhoLido, setRascunhoLido] = useState(false);
+  useEffect(() => {
+    try {
+      const guardado = sessionStorage.getItem(CHAVE_FORMULARIO);
+      if (guardado) {
+        const { prefixo, ...campos } = JSON.parse(guardado) as Record<string, string>;
+        setAccountForm((f) => ({ ...f, ...campos, password: '' }));
+        if (prefixo) setTelefonePrefixo(prefixo);
+      }
+    } catch {
+      /* sem armazenamento: o formulário começa vazio */
+    }
+    setRascunhoLido(true);
+  }, []);
+  useEffect(() => {
+    if (!rascunhoLido) return;
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { password: _senha, ...semSenha } = accountForm;
+      sessionStorage.setItem(CHAVE_FORMULARIO, JSON.stringify({ ...semSenha, prefixo: telefonePrefixo }));
+    } catch {
+      /* sem armazenamento */
+    }
+  }, [accountForm, telefonePrefixo, rascunhoLido]);
+  const limparFormulario = () => {
+    try {
+      sessionStorage.removeItem(CHAVE_FORMULARIO);
+    } catch {
+      /* sem armazenamento */
+    }
+  };
   const [showPassword, setShowPassword] = useState(false);
 
   // Morada/telefone do perfil (WHOIS) — para o card "Faturado Para" de quem já
@@ -300,8 +452,19 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
           }
         }
         setProfileExtra(extra);
-      });
+      })
+      .catch(() => undefined);
   }, [authUser]);
+
+  // Os dados que o sistema já tem desta conta (perfil + dados do registo): nada se volta a pedir ao que já existe.
+  const metaConta = (authUser?.user_metadata || {}) as Record<string, unknown>;
+  const texto = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
+  const dadosConta = {
+    telefone: texto(profileExtra?.telefone) || texto(metaConta.telefone),
+    morada: texto(profileExtra?.morada) || texto(metaConta.endereco),
+    cidade: texto(profileExtra?.cidade) || texto(metaConta.cidade),
+    provincia: texto(metaConta.provincia),
+  };
 
   // "Entrar como" — se um admin estiver a impersonar um revendedor/cliente, a
   // compra corre como essa conta (servidor: /lib/checkout-actor.ts). Aqui só
@@ -320,76 +483,113 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
       .catch(() => setBuyingAs(null));
   }, [authUser]);
 
-  // Editar telefone/morada/cidade sem sair do checkout — "Completar Dados"
-  // já não manda para /cliente (dava problemas de navegação para contas que
-  // não são 'client'); passa a editar aqui mesmo, os mesmos campos que a
-  // Dynadot exige no registo WHOIS do domínio.
-  const [editingProfile, setEditingProfile] = useState(false);
-  const [savingProfile, setSavingProfile] = useState(false);
-  const [profileEditForm, setProfileEditForm] = useState({ email: '', telefone: '', morada: '', cidade: '' });
-  const startEditingProfile = () => {
-    setProfileEditForm({
-      email: authUser?.email || '',
-      telefone: profileExtra?.telefone || '',
-      morada: profileExtra?.morada || '',
-      cidade: profileExtra?.cidade || '',
-    });
-    setEditingProfile(true);
-  };
-  const saveProfileExtra = async () => {
-    if (!authUser) return;
-    setSavingProfile(true);
-    try {
-      const newEmail = profileEditForm.email.toLowerCase().trim();
-      // #22: o email identifica a conta no Auth — trocar isto tem de actualizar
-      // Auth e o perfil juntos (nunca só um), por isso passa por uma rota
-      // própria com service role em vez do update directo usado abaixo.
-      if (newEmail && newEmail !== (authUser.email || '').toLowerCase()) {
-        const res = await fetch('/api/account/update-email', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ newEmail }),
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok || !data.success) {
-          throw new Error(data.error || 'Erro ao trocar email.');
-        }
-        // Actualiza a sessão local para reflectir o novo email sem sair do checkout.
-        await supabase.auth.refreshSession();
-      }
+  // O formulário abre com os dados da conta (nome, e-mail, telefone, morada, província) em vez de campos vazios; o que a pessoa
+  // já escreveu (rascunho) não é substituído.
+  useEffect(() => {
+    if (!authUser || !rascunhoLido) return;
+    const fonte = buyingAs
+      ? { nome: buyingAs.billing?.nome || '', email: buyingAs.email || '', telefone: buyingAs.billing?.telefone || '', morada: buyingAs.billing?.morada || '', provincia: '' }
+      : { nome: texto(metaConta.nome) || texto(metaConta.full_name), email: authUser.email || '', telefone: dadosConta.telefone, morada: dadosConta.morada, provincia: dadosConta.provincia };
+    const prefixo = ['+258', '+244', '+351', '+55'].find((x) => fonte.telefone.replace(/\s/g, '').startsWith(x));
+    const numero = prefixo ? fonte.telefone.replace(/\s/g, '').slice(prefixo.length) : fonte.telefone.replace(/^\+\d+\s*/, '');
+    const [primeiro, ...resto] = fonte.nome.split(/\s+/).filter(Boolean);
+    setAccountForm((f) => ({
+      ...f,
+      name: f.name || primeiro || '',
+      sobrenome: f.sobrenome || resto.join(' '),
+      email: f.email || fonte.email,
+      telefone: f.telefone || numero,
+      endereco: f.endereco || fonte.morada,
+      emailEmpresa: f.emailEmpresa || (buyingAs ? '' : texto(metaConta.email_empresa)),
+      cargo: f.cargo || (buyingAs ? '' : texto(metaConta.cargo)),
+      estado: f.estado || (MOZAMBIQUE_PROVINCIAS.includes(fonte.provincia) ? fonte.provincia : ''),
+    }));
+    if (prefixo && !accountForm.telefone) setTelefonePrefixo(prefixo);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authUser, rascunhoLido, profileExtra, buyingAs]);
 
-      const { data: existing } = await supabase
-        .from('profiles')
-        .select('id')
-        .or(profileAuthOrFilter(authUser.id))
-        .maybeSingle();
-      const payload = {
-        user_id: authUser.id,
-        telefone: profileEditForm.telefone || null,
-        morada: profileEditForm.morada || null,
-        cidade: profileEditForm.cidade || null,
-        updated_at: new Date().toISOString(),
-      };
-      const { error } = existing?.id
-        ? await supabase.from('profiles').update(payload).eq('id', existing.id)
-        : await supabase.from('profiles').insert(payload);
-      if (error) throw error;
-      setProfileExtra({ telefone: payload.telefone, morada: payload.morada, cidade: payload.cidade });
-      setEditingProfile(false);
-      if (status === 'error') {
-        setStatus('idle');
-        setErrorMessage('');
-      }
-    } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : 'Erro ao guardar dados.');
-    } finally {
-      setSavingProfile(false);
+  // Grava telefone, morada, cidade e província da conta (a cidade segue igual à província quando não há outra).
+  const gravarPerfil = async (v: { telefone: string; morada: string; cidade: string; provincia: string; emailEmpresa?: string; cargo?: string }) => {
+    if (!authUser) return;
+    const { data: existing } = await supabase
+      .from('profiles')
+      .select('id')
+      .or(profileAuthOrFilter(authUser.id))
+      .maybeSingle();
+    const payload = {
+      user_id: authUser.id,
+      telefone: v.telefone || null,
+      morada: v.morada || null,
+      cidade: v.cidade || dadosConta.cidade || v.provincia || null,
+      updated_at: new Date().toISOString(),
+    };
+    const { error } = existing?.id
+      ? await supabase.from('profiles').update(payload).eq('id', existing.id)
+      : await supabase.from('profiles').insert(payload);
+    if (error) throw error;
+    // a província não tem coluna no perfil: guarda-se nos dados da conta (onde o registo já a põe)
+    const novoEmailEmpresa = (v.emailEmpresa ?? texto(metaConta.email_empresa)).trim();
+    const novoCargo = (v.cargo ?? texto(metaConta.cargo)).trim();
+    if (v.provincia !== dadosConta.provincia || novoEmailEmpresa !== texto(metaConta.email_empresa) || novoCargo !== texto(metaConta.cargo)) {
+      await supabase.auth.updateUser({ data: { provincia: v.provincia, email_empresa: novoEmailEmpresa, cargo: novoCargo } });
     }
+    setProfileExtra({ telefone: payload.telefone, morada: payload.morada, cidade: payload.cidade });
   };
+  // Quem tem conta pode mudar a palavra-passe ao editar os dados (campo opcional: vazio = não muda).
+  const mudarSenha = async () => {
+    const nova = accountForm.password;
+    if (!nova) return;
+    if (nova.length < 6 || nova.length > 20) throw new Error('A palavra-passe deve ter entre 6 e 20 caracteres.');
+    const { error } = await supabase.auth.updateUser({ password: nova });
+    if (error) throw new Error(error.message);
+    setAccountForm((f) => ({ ...f, password: '' }));
+    setShowPassword(false);
+  };
+
+  // Cada hospedagem tem a sua conta no servidor (o seu domínio e o seu nome de utilizador), mesmo para quem já tem outra conta.
+  // O campo começa vazio: quem compra escolhe o nome; vê já se está livre.
+  const [contaLivre, setContaLivre] = useState<Record<string, { livre: boolean; msg: string } | 'a-verificar'>>({});
+  const nomesContaChave = items.filter((i) => i.type === 'hosting').map((i) => `${i.id}:${i.contaUtilizador || ''}`).join('|');
+  useEffect(() => {
+    if (isAuthenticated !== true) return;
+    let activo = true;
+    const timer = setTimeout(() => {
+      for (const item of items) {
+        const nome = (item.contaUtilizador || '').trim();
+        if (item.type !== 'hosting' || !nome) continue;
+        if (!nomeContaValido(nome)) {
+          setContaLivre((c) => ({ ...c, [item.id]: { livre: false, msg: NOME_CONTA_ERRO } }));
+          continue;
+        }
+        setContaLivre((c) => ({ ...c, [item.id]: 'a-verificar' }));
+        fetch(`/api/checkout/utilizador-disponivel?u=${encodeURIComponent(nome)}`)
+          .then((r) => r.json())
+          .then((d) => {
+            if (activo) setContaLivre((c) => ({ ...c, [item.id]: { livre: Boolean(d?.valido && d?.livre), msg: d?.error || '' } }));
+          })
+          .catch(() => {
+            if (activo) setContaLivre((c) => ({ ...c, [item.id]: { livre: true, msg: '' } }));
+          });
+      }
+    }, 500);
+    return () => {
+      activo = false;
+      clearTimeout(timer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nomesContaChave, isAuthenticated]);
+  const contaHospedagemInvalida = items.some(
+    (i) => i.type === 'hosting' && (!nomeContaValido((i.contaUtilizador || '').trim()) || (typeof contaLivre[i.id] === 'object' && !(contaLivre[i.id] as { livre: boolean }).livre)),
+  );
 
   // Flow State
   const [status, setStatus] = useState<'idle' | 'registering' | 'redirecting' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
+  // O aviso de erro fica no topo da página: ao aparecer, a página sobe até ele (quem clicou em «Pagar» lá em baixo via «nada acontecer»).
+  const caixaErroRef = React.useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (status === 'error' && errorMessage) caixaErroRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [status, errorMessage]);
 
   const handlePay = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -405,8 +605,56 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
       setStatus('error');
       return;
     }
+    const faltamDados = !isEncomenda && isAuthenticated === true && !buyingAs && (!accountForm.telefone.trim() || !accountForm.endereco.trim() || !accountForm.estado);
+    if (!isEncomenda && (contaHospedagemInvalida || faltamDados)) {
+      // quem tem conta vê os dados em texto: abre os campos para corrigir o que falta
+      if (isAuthenticated === true && !comoVisitante && !editando) {
+        copiaAntesDeEditar.current = { form: { ...accountForm }, prefixo: telefonePrefixo };
+        setEditando(true);
+      }
+      setErrorMessage(
+        contaHospedagemInvalida
+          ? 'Confira o nome da empresa (utilizador): tem de ser válido e estar livre.'
+          : 'Indique o telefone, a morada e a província: são os dados da conta e, nos domínios, do registo oficial (WHOIS).',
+      );
+      setStatus('error');
+      return;
+    }
+    if (isAuthenticated === false && !isEncomenda) setComoVisitante(true);
     setIsSubmitting(true);
     setErrorMessage('');
+
+    if (isAuthenticated === true && !buyingAs && !isEncomenda) {
+      if (!accountForm.telefone.trim() || !accountForm.endereco.trim() || !accountForm.estado) {
+        setErrorMessage('Indique o telefone, a morada e a província: são os dados da conta e, nos domínios, do registo oficial (WHOIS).');
+        setStatus('error');
+        setIsSubmitting(false);
+        return;
+      }
+      const erroEmailEmpresa = accountForm.emailEmpresa.trim() ? mensagemEmailInvalido(accountForm.emailEmpresa, 'O e-mail da empresa') : null;
+      if (erroEmailEmpresa) {
+        setErrorMessage(erroEmailEmpresa);
+        setStatus('error');
+        setIsSubmitting(false);
+        return;
+      }
+      try {
+        await gravarPerfil({
+          telefone: telefoneCompleto(accountForm.telefone, telefonePrefixo),
+          morada: accountForm.endereco.trim(),
+          cidade: accountForm.estado,
+          provincia: accountForm.estado,
+          emailEmpresa: accountForm.emailEmpresa,
+          cargo: accountForm.cargo,
+        });
+        await mudarSenha();
+      } catch (err: unknown) {
+        setErrorMessage(err instanceof Error ? err.message : 'Não foi possível guardar os dados da conta.');
+        setStatus('error');
+        setIsSubmitting(false);
+        return;
+      }
+    }
 
     if (isAuthenticated === false) {
       if (!accountForm.name.trim()) {
@@ -421,8 +669,22 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
         setIsSubmitting(false);
         return;
       }
+      const erroEmail = mensagemEmailInvalido(accountForm.email, 'O e-mail da pessoa responsável');
+      const erroEmailEmpresa = accountForm.emailEmpresa.trim() ? mensagemEmailInvalido(accountForm.emailEmpresa, 'O e-mail da empresa') : null;
+      if (erroEmail || erroEmailEmpresa) {
+        setErrorMessage(erroEmail || erroEmailEmpresa || '');
+        setStatus('error');
+        setIsSubmitting(false);
+        return;
+      }
       if (!accountForm.telefone.trim()) {
         setErrorMessage('Por favor, introduza o seu Telefone para criar a conta.');
+        setStatus('error');
+        setIsSubmitting(false);
+        return;
+      }
+      if (!accountForm.endereco.trim() || !accountForm.estado) {
+        setErrorMessage('Indique a sua morada e a província: são os dados da conta e, nos domínios, do registo oficial (WHOIS).');
         setStatus('error');
         setIsSubmitting(false);
         return;
@@ -436,6 +698,52 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
     }
 
     try {
+      // M-Pesa/Transferência de quem ainda não tem conta: agora não se cria nada (nem login, nem conta no servidor, nem
+      // hospedagem). O pedido guarda os dados digitados e tudo nasce quando a equipa confirma o comprovativo.
+      if (isAuthenticated === false && !isEncomenda && (metodoPagamento === 'mpesa' || metodoPagamento === 'transferencia')) {
+        const anterior = lerPedidoSemConta();
+        const res = await fetch('/api/checkout/pedido-sem-conta', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            items,
+            metodoPagamento,
+            senha: accountForm.password,
+            anterior,
+            dados: {
+              nome: accountForm.name,
+              apelido: accountForm.sobrenome,
+              email: accountForm.email,
+              telefone: telefoneCompleto(accountForm.telefone, telefonePrefixo),
+              morada: accountForm.endereco,
+              provincia: accountForm.estado,
+              emailEmpresa: accountForm.emailEmpresa,
+              cargo: accountForm.cargo,
+              empresa: items.find((i) => i.type === 'hosting')?.contaUtilizador || accountForm.empresa,
+            },
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success) throw new Error(data.error || 'Não foi possível registar o pedido de pagamento.');
+        try {
+          sessionStorage.setItem(CHAVE_PEDIDO_SEM_CONTA, JSON.stringify({ id: data.session.id, token: data.token }));
+        } catch {
+          /* sem armazenamento: o passo seguinte continua nesta página */
+        }
+        setTokenPedido(data.token);
+        const metodo = metodoPagamento === 'mpesa' ? 'mpesa' : 'transferencia';
+        setManualSession({ id: data.session.id, metodoPagamento: metodo, totalMt: Number(data.session.total_mt) || undefined });
+        if (metodo === 'mpesa') {
+          setMpesaPassoValor(Number(data.session.total_mt) || undefined);
+          setMpesaPassoId(data.session.id);
+        }
+        restoredPendingIdRef.current = data.session.id;
+        router.push(`/checkout?pendingId=${data.session.id}`);
+        setStatus('idle');
+        setIsSubmitting(false);
+        return;
+      }
+
       if (isAuthenticated === false) {
         setStatus('registering');
         const res = await fetch('/api/auth/register', {
@@ -445,10 +753,13 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
             email: accountForm.email,
             password: accountForm.password,
             nome: `${accountForm.name} ${accountForm.sobrenome}`.trim(),
-            telefone: accountForm.telefone,
-            empresa: accountForm.empresa,
-            endereco: accountForm.endereco,
-            cidade: accountForm.cidade,
+            telefone: telefoneCompleto(accountForm.telefone, telefonePrefixo),
+            empresa: items.find((i) => i.type === 'hosting')?.contaUtilizador || accountForm.empresa,
+            endereco: accountForm.endereco.trim(),
+            cidade: accountForm.estado,
+            provincia: accountForm.estado,
+            emailEmpresa: accountForm.emailEmpresa,
+            cargo: accountForm.cargo,
             pais: accountForm.pais,
           })
         });
@@ -578,6 +889,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
           throw new Error(data.error || 'Não foi possível pagar com o saldo.');
         }
         clearCart();
+        limparFormulario();
         const { data: { session: refreshedSession } } = await supabase.auth.refreshSession();
         router.push(redirectPathForSession(refreshedSession));
         return;
@@ -614,15 +926,15 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
       if (!res.ok || !data.success) {
         throw new Error(data.error || 'Não foi possível registar o pedido de pagamento.');
       }
-      clearCart();
+      // O carrinho só esvazia quando a compra se conclui (comprovativo enviado): até lá, voltar atrás ao checkout mostra-o intacto.
       const manualMetodo = metodoPagamento === 'mpesa' ? 'mpesa' : 'transferencia';
-      setManualSession({ id: data.session.id, metodoPagamento: manualMetodo });
+      setManualSession({ id: data.session.id, metodoPagamento: manualMetodo, totalMt: Number(data.session.total_mt) || undefined });
       if (manualMetodo === 'mpesa') {
         setMpesaPassoValor(Number(data.session.total_mt) || undefined);
         setMpesaPassoId(data.session.id);
       }
       restoredPendingIdRef.current = data.session.id;
-      router.replace(`/checkout?pendingId=${data.session.id}`);
+      router.push(`/checkout?pendingId=${data.session.id}`);
       setStatus('idle');
       setIsSubmitting(false);
       return;
@@ -632,6 +944,36 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
       setIsSubmitting(false);
     }
   };
+
+  // O nome da empresa de uma hospedagem é o nome de utilizador da sua conta no servidor: pede-se nos dados da empresa.
+  const campoNomeEmpresa = (item: (typeof items)[number]) => {
+    const estado = contaLivre[item.id];
+    const nome = (item.contaUtilizador || '').trim();
+    let nota: React.ReactNode = null;
+    if (nome && !nomeContaValido(nome)) nota = <span className="mt-1 block text-[11px] text-rose-600">{NOME_CONTA_ERRO}</span>;
+    else if (estado && estado !== 'a-verificar' && !estado.livre) nota = <span className="mt-1 block text-[11px] text-rose-600">{estado.msg || 'Este nome de utilizador já existe.'}</span>;
+    return (
+      <div key={item.id}>
+        <CampoIcone icone={Building2}>
+          <input
+            type="text"
+            value={item.contaUtilizador || ''}
+            maxLength={20}
+            autoComplete="off"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            aria-label="Nome da empresa (utilizador)"
+            placeholder={itensHospedagem.length > 1 && item.hostingDomain ? item.hostingDomain + ' — Nome da empresa (utilizador) *' : 'Nome da empresa (utilizador) *'}
+            onChange={(e) => updateItemContaUtilizador(item.id, e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ''))}
+            className={campoCls}
+          />
+        </CampoIcone>
+        {nota}
+      </div>
+    );
+  };
+  const itensHospedagem = items.filter((i) => i.type === 'hosting');
 
   if (isAuthenticated === null) {
     return (
@@ -650,7 +992,6 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
   // abaixo, que servem só para compras novas.
   if (renewalId) {
     if (isAuthenticated === false) {
-      router.push(`/login?redirect=${encodeURIComponent(`/checkout?renewalId=${renewalId}`)}`);
       return (
         <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-zinc-950">
           <Spinner className="w-10 h-10" />
@@ -778,6 +1119,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
         ) : manualSession && mpesaPassoId === manualSession.id ? (
           <MpesaTesteStep
             sessionId={manualSession.id}
+            token={tokenPedido}
             valorMt={mpesaPassoValor}
             onDone={(testado) => { setMpesaAvisoTeste(testado); setMpesaPassoId(null); }}
           />
@@ -785,12 +1127,36 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
           <ManualPaymentUploadStep
             uploadUrl={`/api/checkout/${manualSession.id}/comprovativo`}
             metodoPagamento={manualSession.metodoPagamento}
+            valorMt={manualSession.totalMt}
+            referencia={referenciaPedido(manualSession.id)}
+            jaEnviado={manualSession.comprovativoEnviado}
+            motivoNovoComprovativo={manualSession.motivo}
             avisoTeste={mpesaAvisoTeste}
+            uploadFields={tokenPedido ? { token: tokenPedido } : undefined}
+            successMessage={tokenPedido ? 'A nossa equipa vai confirmar o pagamento. Quando estiver confirmado, criamos a sua conta e enviamos-lhe um e-mail com o acesso.' : undefined}
+            textoContinuar={tokenPedido ? 'Voltar ao início' : undefined}
+            onSent={() => {
+              clearCart();
+              limparFormulario();
+              try {
+                sessionStorage.removeItem(CHAVE_PEDIDO_SEM_CONTA);
+              } catch {
+                /* sem armazenamento */
+              }
+            }}
             onContinue={async () => {
+              if (tokenPedido) {
+                router.push('/');
+                return;
+              }
               const { data: { session: refreshedSession } } = await supabase.auth.refreshSession();
               router.push(redirectPathForSession(refreshedSession));
             }}
           />
+        ) : !isEncomenda && (!carrinhoLido || searchParams.get('pago') === '1') ? (
+          <div className="flex items-center justify-center py-24">
+            <Spinner className="w-10 h-10" />
+          </div>
         ) : !isEncomenda && items.length === 0 ? (
           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg p-12 text-center max-w-lg mx-auto space-y-6 shadow-sm">
             <ShoppingCart className="w-16 h-16 text-slate-300 dark:text-zinc-700 mx-auto" />
@@ -811,13 +1177,12 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
             {/* Left Column: Account data / form and loading steps */}
             <div className="lg:col-span-9 space-y-5">
 
-              {/* Dados da conta — só quando já tem sessão iniciada; para quem não
-                  tem conta, é o próprio formulário abaixo que cumpre este papel. */}
-              {isAuthenticated === true && (status === 'idle' || status === 'error') && (
+              {/* Encomendas: quem factura e em nome de quem. Nas compras de domínio e hospedagem os dados são os do formulário abaixo. */}
+              {isAuthenticated === true && isEncomenda && encomendaDraft && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg p-6 shadow-sm">
                     <p className="text-[11px] font-bold uppercase tracking-wide text-red-600 dark:text-red-400 flex items-center gap-1.5 mb-3">
-                      <Building2 className="w-3.5 h-3.5" /> Faturado Por
+                      <Building2 className="w-3.5 h-3.5" /> Facturado Por
                     </p>
                     <p className="font-bold text-slate-800 dark:text-zinc-100 text-sm">VisualDESIGN Services, Lda.</p>
                     <p className="text-xs text-slate-500 dark:text-zinc-400 mt-2 leading-relaxed">
@@ -826,107 +1191,56 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                     <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">info@visualdesignmoz.com</p>
                     <p className="text-xs text-slate-500 dark:text-zinc-400 mt-2">NUIT: 400597243</p>
                   </div>
+                  <EncomendaFaturadoPara draft={encomendaDraft} facturarEm={facturarEm} onFacturarEmChange={setFacturarEm} />
+                </div>
+              )}
 
-                  {isEncomenda && encomendaDraft ? (
-                    <EncomendaFaturadoPara draft={encomendaDraft} facturarEm={facturarEm} onFacturarEmChange={setFacturarEm} />
-                  ) : (
+              {/* Quem tem conta vê os dados que escreveu (ou os da conta) como texto; «Editar» abre os campos. */}
+              {isAuthenticated === true && !comoVisitante && !editando && !isEncomenda && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg p-6 shadow-sm">
-                    <div className="flex items-center justify-between mb-3">
-                      <p className="text-[11px] font-bold uppercase tracking-wide text-red-600 dark:text-red-400 flex items-center gap-1.5">
-                        <UserCircle className="w-3.5 h-3.5" /> Faturado Para
-                      </p>
-                      {!editingProfile && !buyingAs && (
-                        <button type="button" onClick={startEditingProfile} className="text-[10px] font-bold text-slate-400 hover:text-red-600 dark:hover:text-red-400">
-                          Editar
-                        </button>
-                      )}
+                    <p className="text-[11px] font-bold uppercase tracking-wide text-red-600 dark:text-red-400 flex items-center gap-1.5 mb-4">
+                      <User className="w-3.5 h-3.5" /> Dados da Pessoa Responsável
+                    </p>
+                    <div className="space-y-2.5">
+                      <LinhaDado icone={User} valor={[accountForm.name, accountForm.sobrenome].filter(Boolean).join(' ')} />
+                      {accountForm.cargo ? <LinhaDado icone={Briefcase} valor={accountForm.cargo} /> : null}
+                      <LinhaDado icone={Mail} valor={authUser?.email || accountForm.email} />
+                      <LinhaDado icone={Phone} valor={accountForm.telefone ? `${telefonePrefixo} ${accountForm.telefone}` : ''} />
                     </div>
-                    {buyingAs ? (
-                      <p className="mb-2 inline-flex items-center gap-1 rounded bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700 dark:bg-amber-950/40 dark:text-amber-400">
-                        Em nome de: {buyingAs.label}
-                      </p>
-                    ) : null}
-                    <p className="font-bold text-slate-800 dark:text-zinc-100 text-sm">{buyingAs?.billing?.nome || clientName}</p>
-                    <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1 truncate">Email: {buyingAs?.email || authUser?.email}</p>
-
-                    {editingProfile ? (
-                      <div className="mt-3 space-y-2">
-                        <input
-                          type="email"
-                          value={profileEditForm.email}
-                          onChange={(e) => setProfileEditForm((f) => ({ ...f, email: e.target.value }))}
-                          placeholder="Email"
-                          className="w-full text-xs border border-slate-200 dark:border-zinc-800 dark:bg-zinc-950 rounded px-2.5 py-1.5"
-                        />
-                        <input
-                          value={profileEditForm.telefone}
-                          onChange={(e) => setProfileEditForm((f) => ({ ...f, telefone: e.target.value }))}
-                          placeholder="Telefone"
-                          className="w-full text-xs border border-slate-200 dark:border-zinc-800 dark:bg-zinc-950 rounded px-2.5 py-1.5"
-                        />
-                        <input
-                          value={profileEditForm.morada}
-                          onChange={(e) => setProfileEditForm((f) => ({ ...f, morada: e.target.value }))}
-                          placeholder="Morada"
-                          className="w-full text-xs border border-slate-200 dark:border-zinc-800 dark:bg-zinc-950 rounded px-2.5 py-1.5"
-                        />
-                        <input
-                          value={profileEditForm.cidade}
-                          onChange={(e) => setProfileEditForm((f) => ({ ...f, cidade: e.target.value }))}
-                          placeholder="Cidade"
-                          className="w-full text-xs border border-slate-200 dark:border-zinc-800 dark:bg-zinc-950 rounded px-2.5 py-1.5"
-                        />
-                        <div className="flex gap-2 pt-1">
-                          <button
-                            type="button"
-                            onClick={saveProfileExtra}
-                            disabled={savingProfile}
-                            className="bg-red-600 text-white text-xs font-bold px-3 py-1.5 rounded hover:bg-red-700 disabled:opacity-50"
-                          >
-                            {savingProfile ? 'A guardar...' : 'Guardar'}
-                          </button>
-                          <button type="button" onClick={() => setEditingProfile(false)} className="text-xs font-bold text-slate-400 px-2">
-                            Cancelar
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <>
-                        <p className="text-xs text-slate-500 dark:text-zinc-400 mt-2">
-                          Endereço: {buyingAs
-                            ? [buyingAs.billing?.morada, buyingAs.billing?.cidade].filter(Boolean).join(', ') || '—'
-                            : [profileExtra?.morada, profileExtra?.cidade].filter(Boolean).join(', ') || '—'}
-                        </p>
-                        <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
-                          Contacto: {buyingAs
-                            ? buyingAs.billing?.telefone || '—'
-                            : profileExtra?.telefone || authUser?.user_metadata?.telefone || '—'}
-                        </p>
-                        {buyingAs ? (
-                          <p className="mt-2 text-[10px] text-amber-600 dark:text-amber-500">
-                            Estes são os dados da conta {buyingAs.label}. Se estiverem incompletos, complete o perfil dessa conta antes de comprar um domínio.
-                          </p>
-                        ) : null}
-                      </>
-                    )}
                   </div>
-                  )}
+                  <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg p-6 shadow-sm">
+                    <div className="flex items-center justify-between mb-4">
+                      <p className="text-[11px] font-bold uppercase tracking-wide text-red-600 dark:text-red-400 flex items-center gap-1.5">
+                        <Building2 className="w-3.5 h-3.5" /> Dados da Empresa
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          copiaAntesDeEditar.current = { form: { ...accountForm }, prefixo: telefonePrefixo };
+                          setEditando(true);
+                        }}
+                        className="text-[10px] font-bold text-slate-400 hover:text-red-600 dark:hover:text-red-400"
+                      >
+                        Editar
+                      </button>
+                    </div>
+                    <div className="space-y-2.5">
+                      {itensHospedagem.map((i) => (
+                        <LinhaDado key={i.id} icone={Building2} valor={i.contaUtilizador || ''} />
+                      ))}
+                      {accountForm.emailEmpresa ? <LinhaDado icone={Mail} valor={accountForm.emailEmpresa} /> : null}
+                      <LinhaDado icone={MapPin} valor={accountForm.endereco} />
+                      <LinhaDado icone={MapaIcone} valor={accountForm.estado} />
+                    </div>
+                  </div>
                 </div>
               )}
 
               {/* PROCESSING STEPS */}
-              {(status === 'registering' || status === 'redirecting') && (
-                <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg p-10 text-center space-y-4 shadow-sm">
-                  <Spinner className="w-12 h-12 mx-auto" />
-                  <h3 className="text-lg font-bold text-slate-800 dark:text-zinc-100 font-panel">
-                    {status === 'registering' ? 'A criar a sua conta...' : isEncomenda ? 'A registar a encomenda...' : 'A abrir o pagamento seguro da Stripe...'}
-                  </h3>
-                </div>
-              )}
-
               {/* ERROR STATE */}
               {status === 'error' && errorMessage && (
-                <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/50 rounded-lg p-5 flex items-start gap-3">
+                <div ref={caixaErroRef} className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/50 rounded-lg p-5 flex items-start gap-3">
                   <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
                   <div>
                     <h4 className="font-bold text-red-800 dark:text-red-300 text-sm font-panel">Falha na Transação</h4>
@@ -936,21 +1250,12 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                         Fazer Login
                       </Link>
                     )}
-                    {errorMessage.toLowerCase().includes('a minha conta') && (
-                      <button
-                        type="button"
-                        onClick={startEditingProfile}
-                        className="mt-4 bg-red-600 text-white font-bold text-xs px-4 py-2 rounded-lg hover:bg-red-700 transition-colors inline-block"
-                      >
-                        Completar Dados
-                      </button>
-                    )}
                   </div>
                 </div>
               )}
 
               {/* PAY FORM */}
-              {(status === 'idle' || status === 'error') && (
+              {(
                 <div className="space-y-5">
 
                   {isEncomenda && encomendaRegistada && (
@@ -975,103 +1280,149 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                     <EncomendaLoginNecessario loginHref={`/login?redirect=${encodeURIComponent(checkoutReturnPath)}`} />
                   )}
 
-                  {isAuthenticated === false && !isEncomenda && (
+                  {isAuthenticated !== null && !isEncomenda && (isAuthenticated !== true || comoVisitante || editando) && (
                     <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg p-6 shadow-sm">
-                      <div className="mb-6 pb-4 border-b border-slate-100 dark:border-zinc-800 flex justify-between items-center">
-                        <p className="text-sm text-slate-600 dark:text-zinc-400">
-                          Já tem uma conta? <Link href={`/login?redirect=${encodeURIComponent(checkoutReturnPath)}`} className="text-blue-600 font-bold hover:underline">Inicie sessão</Link> para concluir o processo de pagamento.
-                        </p>
-                      </div>
+                      {(isAuthenticated !== true || comoVisitante) && (
+                        <div className="mb-6 pb-4 border-b border-slate-100 dark:border-zinc-800 flex justify-between items-center">
+                          <p className="text-sm text-slate-600 dark:text-zinc-400">
+                            Já tem uma conta? <Link href={`/login?redirect=${encodeURIComponent(checkoutReturnPath)}`} className="text-blue-600 font-bold hover:underline">Inicie sessão</Link> para concluir o processo de pagamento.
+                          </p>
+                        </div>
+                      )}
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-8">
                         {/* Dados da pessoa responsável */}
-                        <div className="space-y-4">
-                          <h3 className="text-xs font-bold uppercase tracking-wide text-slate-400 dark:text-zinc-500 pb-3 border-b border-slate-100 dark:border-zinc-800">
+                        <div className="space-y-3">
+                          <h3 className="text-xs font-bold uppercase tracking-wide text-slate-700 dark:text-zinc-300 pb-3 border-b border-slate-100 dark:border-zinc-800">
                             Dados da Pessoa Responsável
                           </h3>
-                          <div>
-                            <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 mb-1.5 block">Nome</label>
-                            <input type="text" value={accountForm.name} onChange={e => setAccountForm(p => ({ ...p, name: e.target.value }))} className="w-full px-4 py-2 border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 text-slate-800 dark:text-zinc-100 rounded-md text-sm outline-none focus:ring-1 focus:ring-blue-500" />
+                          <div className="grid grid-cols-2 gap-3">
+                          <CampoIcone icone={User}>
+                            <input type="text" aria-label="Nome" placeholder="Nome *" value={accountForm.name} onChange={e => setAccountForm(p => ({ ...p, name: e.target.value }))} className={campoCls} />
+                          </CampoIcone>
+                          <CampoIcone icone={User}>
+                            <input type="text" aria-label="Apelido" placeholder="Apelido" value={accountForm.sobrenome} onChange={e => setAccountForm(p => ({ ...p, sobrenome: e.target.value }))} className={campoCls} />
+                          </CampoIcone>
                           </div>
-                          <div>
-                            <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 mb-1.5 block">Sobrenome</label>
-                            <input type="text" value={accountForm.sobrenome} onChange={e => setAccountForm(p => ({ ...p, sobrenome: e.target.value }))} className="w-full px-4 py-2 border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 text-slate-800 dark:text-zinc-100 rounded-md text-sm outline-none focus:ring-1 focus:ring-blue-500" />
-                          </div>
-                          <div>
-                            <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 mb-1.5 block">E-mail</label>
-                            <input type="email" value={accountForm.email} onChange={e => setAccountForm(p => ({ ...p, email: e.target.value }))} className="w-full px-4 py-2 border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 text-slate-800 dark:text-zinc-100 rounded-md text-sm outline-none focus:ring-1 focus:ring-blue-500" />
-                          </div>
-                          <div>
-                            <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 mb-1.5 block">Telefone</label>
-                            <div className="flex border border-slate-200 dark:border-zinc-800 rounded-md bg-slate-50 dark:bg-zinc-950 overflow-hidden focus-within:ring-1 focus-within:ring-blue-500">
-                              <div className="relative flex items-center border-r border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-900">
-                                <select className="pl-3 pr-8 py-2 bg-transparent text-sm text-slate-700 dark:text-zinc-300 outline-none cursor-pointer appearance-none w-full h-full">
-                                  <option value="+258">🇲🇿 +258</option>
-                                  <option value="+244">🇦🇴 +244</option>
-                                  <option value="+351">🇵🇹 +351</option>
-                                  <option value="+55">🇧🇷 +55</option>
-                                </select>
-                                <svg className="w-3 h-3 text-slate-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
-                              </div>
-                              <input type="tel" value={accountForm.telefone} onChange={e => setAccountForm(p => ({ ...p, telefone: e.target.value }))} className="flex-1 min-w-0 px-3 py-2 bg-transparent text-slate-800 dark:text-zinc-100 text-sm outline-none" />
+                          <CampoIcone icone={Briefcase}>
+                            <input type="text" aria-label="Cargo" placeholder="Cargo" value={accountForm.cargo} onChange={e => setAccountForm(p => ({ ...p, cargo: e.target.value }))} className={campoCls} />
+                          </CampoIcone>
+                          <CampoIcone icone={Mail}>
+                            <input type="email" aria-label="E-mail" placeholder="E-mail *" disabled={isAuthenticated === true && !comoVisitante} value={isAuthenticated === true && !comoVisitante && authUser?.email ? authUser.email : accountForm.email} onChange={e => setAccountForm(p => ({ ...p, email: e.target.value }))} className={campoCls} />
+                          </CampoIcone>
+                          <div className={caixaCampoCls}>
+                            <IconeCaixa icone={Phone} />
+                            <div className="relative flex items-center border-r border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950">
+                              <select aria-label="Indicativo" value={telefonePrefixo} onChange={(e) => setTelefonePrefixo(e.target.value)} className="pl-3 pr-8 h-10 bg-transparent text-sm text-slate-700 dark:text-zinc-300 outline-none cursor-pointer appearance-none">
+                                <option value="+258">🇲🇿 +258</option>
+                                <option value="+244">🇦🇴 +244</option>
+                                <option value="+351">🇵🇹 +351</option>
+                                <option value="+55">🇧🇷 +55</option>
+                              </select>
+                              <svg className="w-3 h-3 text-slate-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
                             </div>
+                            <input type="tel" aria-label="Telefone" placeholder="Telefone *" value={accountForm.telefone} onChange={e => setAccountForm(p => ({ ...p, telefone: e.target.value }))} className={campoCls} />
                           </div>
-                          <div>
-                            <div className="flex justify-between items-end mb-1.5">
-                              <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 block">Palavra-passe para a conta (mín. 6 caracteres)</label>
-                              <button type="button" onClick={() => { setAccountForm(p => ({ ...p, password: Math.random().toString(36).slice(-6) + Math.random().toString(36).slice(-2).toUpperCase() + '@' })); setShowPassword(true); }} className="text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:underline">Gerar senha segura</button>
-                            </div>
-                            <div className="relative">
-                              <input type={showPassword ? 'text' : 'password'} value={accountForm.password} onChange={e => setAccountForm(p => ({ ...p, password: e.target.value }))} className="w-full px-4 py-2 border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 text-slate-800 dark:text-zinc-100 rounded-md text-sm outline-none focus:ring-1 focus:ring-blue-500 pr-10" />
-                              <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-zinc-300">
+                          {(isAuthenticated !== true || comoVisitante || editando) && (
+                          <CampoIcone icone={KeyRound}>
+                            <input type={showPassword ? 'text' : 'password'} aria-label="Palavra-passe" placeholder={isAuthenticated === true && !comoVisitante ? 'Nova palavra-passe (opcional)' : 'Palavra-passe (6 a 20 caracteres) *'} maxLength={20} autoComplete="new-password" value={accountForm.password} onChange={e => setAccountForm(p => ({ ...p, password: e.target.value }))} className={campoCls} />
+                            <div className="flex items-center gap-2 pr-3 text-slate-400">
+                              <button type="button" title="Gerar senha segura" aria-label="Gerar senha segura" onClick={() => { setAccountForm(p => ({ ...p, password: Math.random().toString(36).slice(-6) + Math.random().toString(36).slice(-2).toUpperCase() + '@' })); setShowPassword(true); }} className="hover:text-blue-600 dark:hover:text-blue-400">
+                                <Wand2 className="w-4 h-4" />
+                              </button>
+                              <button type="button" aria-label="Mostrar palavra-passe" onClick={() => setShowPassword(!showPassword)} className="hover:text-slate-600 dark:hover:text-zinc-300">
                                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                               </button>
                             </div>
-                          </div>
+                          </CampoIcone>
+                          )}
                         </div>
 
                         {/* Dados da empresa */}
-                        <div className="space-y-4 md:pl-8 md:border-l border-slate-100 dark:border-zinc-800">
-                          <h3 className="text-xs font-bold uppercase tracking-wide text-slate-400 dark:text-zinc-500 pb-3 border-b border-slate-100 dark:border-zinc-800">
+                        <div className="space-y-3">
+                          <h3 className="text-xs font-bold uppercase tracking-wide text-slate-700 dark:text-zinc-300 pb-3 border-b border-slate-100 dark:border-zinc-800">
                             Dados da Empresa
                           </h3>
-                          <div>
-                            <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 mb-1.5 block">Empresa</label>
-                            <input type="text" value={accountForm.empresa} onChange={e => setAccountForm(p => ({ ...p, empresa: e.target.value }))} className="w-full px-4 py-2 border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 text-slate-800 dark:text-zinc-100 rounded-md text-sm outline-none focus:ring-1 focus:ring-blue-500" />
-                          </div>
-                          <div>
-                            <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 mb-1.5 block">Endereço</label>
-                            <input type="text" value={accountForm.endereco} onChange={e => setAccountForm(p => ({ ...p, endereco: e.target.value }))} className="w-full px-4 py-2 border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 text-slate-800 dark:text-zinc-100 rounded-md text-sm outline-none focus:ring-1 focus:ring-blue-500" />
-                          </div>
-                          <div>
-                            <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 mb-1.5 block">Endereço 2</label>
-                            <input type="text" value={accountForm.endereco2} onChange={e => setAccountForm(p => ({ ...p, endereco2: e.target.value }))} className="w-full px-4 py-2 border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 text-slate-800 dark:text-zinc-100 rounded-md text-sm outline-none focus:ring-1 focus:ring-blue-500" />
-                          </div>
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 mb-1.5 block">Cidade</label>
-                              <input type="text" value={accountForm.cidade} onChange={e => setAccountForm(p => ({ ...p, cidade: e.target.value }))} className="w-full px-4 py-2 border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 text-slate-800 dark:text-zinc-100 rounded-md text-sm outline-none focus:ring-1 focus:ring-blue-500" />
-                            </div>
-                            <div>
-                              <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 mb-1.5 block">Código Postal</label>
-                              <input type="text" value={accountForm.codigoPostal} onChange={e => setAccountForm(p => ({ ...p, codigoPostal: e.target.value }))} className="w-full px-4 py-2 border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 text-slate-800 dark:text-zinc-100 rounded-md text-sm outline-none focus:ring-1 focus:ring-blue-500" />
-                            </div>
-                          </div>
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 mb-1.5 block">Província</label>
-                              <select value={accountForm.estado} onChange={e => setAccountForm(p => ({ ...p, estado: e.target.value }))} className="w-full px-4 py-2 border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 text-slate-800 dark:text-zinc-100 rounded-md text-sm outline-none focus:ring-1 focus:ring-blue-500">
-                                <option value="">Escolher…</option>
-                                {MOZAMBIQUE_PROVINCIAS.map((p) => (
-                                  <option key={p} value={p}>{p}</option>
-                                ))}
-                              </select>
-                            </div>
-                            <div>
-                              <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 mb-1.5 block">País</label>
-                              <input type="text" value="Moçambique" disabled readOnly className="w-full px-4 py-2 border border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-900 text-slate-500 dark:text-zinc-400 rounded-md text-sm outline-none cursor-not-allowed" />
-                            </div>
-                          </div>
+                          {itensHospedagem.length > 0 ? (
+                            itensHospedagem.map(campoNomeEmpresa)
+                          ) : (
+                            <CampoIcone icone={Building2}>
+                              <input type="text" aria-label="Empresa" placeholder="Empresa" value={accountForm.empresa} onChange={e => setAccountForm(p => ({ ...p, empresa: e.target.value }))} className={campoCls} />
+                            </CampoIcone>
+                          )}
+                          <CampoIcone icone={Mail}>
+                            <input type="email" aria-label="E-mail da empresa" placeholder="E-mail da empresa" value={accountForm.emailEmpresa} onChange={e => setAccountForm(p => ({ ...p, emailEmpresa: e.target.value }))} className={campoCls} />
+                          </CampoIcone>
+                          <CampoIcone icone={MapPin}>
+                            <input type="text" aria-label="Morada" placeholder="Morada *" value={accountForm.endereco} onChange={e => setAccountForm(p => ({ ...p, endereco: e.target.value }))} className={campoCls} />
+                          </CampoIcone>
+                          <CampoIcone icone={MapaIcone}>
+                            <select aria-label="Província" value={accountForm.estado} onChange={e => setAccountForm(p => ({ ...p, estado: e.target.value }))} className={accountForm.estado ? campoCls : campoVazioCls}>
+                              <option value="">Província *</option>
+                              {MOZAMBIQUE_PROVINCIAS.map((p) => (
+                                <option key={p} value={p}>{p}</option>
+                              ))}
+                            </select>
+                          </CampoIcone>
+                      {isAuthenticated === true && !comoVisitante && editando && (
+                        <div className="flex items-center justify-start gap-2 h-10">
+                          <button
+                            type="button"
+                            disabled={savingDados}
+                            onClick={async () => {
+                              if (!accountForm.telefone.trim() || !accountForm.endereco.trim() || !accountForm.estado) {
+                                setErrorMessage('Indique o telefone, a morada e a província: são os dados da conta e, nos domínios, do registo oficial (WHOIS).');
+                                setStatus('error');
+                                return;
+                              }
+                              const erroEmailEmpresa = accountForm.emailEmpresa.trim() ? mensagemEmailInvalido(accountForm.emailEmpresa, 'O e-mail da empresa') : null;
+                              if (erroEmailEmpresa) {
+                                setErrorMessage(erroEmailEmpresa);
+                                setStatus('error');
+                                return;
+                              }
+                              setSavingDados(true);
+                              try {
+                                if (!buyingAs) {
+                                  await gravarPerfil({
+                                    telefone: telefoneCompleto(accountForm.telefone, telefonePrefixo),
+                                    morada: accountForm.endereco.trim(),
+                                    cidade: accountForm.estado,
+                                    provincia: accountForm.estado,
+                                    emailEmpresa: accountForm.emailEmpresa,
+                                    cargo: accountForm.cargo,
+                                  });
+                                  await mudarSenha();
+                                }
+                                setErrorMessage('');
+                                setStatus('idle');
+                                setEditando(false);
+                              } catch (err: unknown) {
+                                setErrorMessage(err instanceof Error ? err.message : 'Não foi possível guardar os dados da conta.');
+                                setStatus('error');
+                              } finally {
+                                setSavingDados(false);
+                              }
+                            }}
+                            className="bg-red-600 text-white text-xs font-bold px-4 py-2 rounded hover:bg-red-700 disabled:opacity-50"
+                          >
+                            {savingDados ? 'A guardar...' : 'Guardar'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (copiaAntesDeEditar.current) {
+                                setAccountForm((f) => ({ ...f, ...copiaAntesDeEditar.current!.form, password: '' }));
+                                setTelefonePrefixo(copiaAntesDeEditar.current.prefixo);
+                              }
+                              setEditando(false);
+                            }}
+                            className="border border-slate-300 dark:border-zinc-700 text-slate-600 dark:text-zinc-300 text-xs font-bold px-4 py-2 rounded hover:bg-slate-50 dark:hover:bg-zinc-800"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      )}
                         </div>
                       </div>
                     </div>
@@ -1255,10 +1606,10 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                         </div>
                         <div>
                           <h4 className="font-bold text-sm text-indigo-800 dark:text-indigo-300">
-                            Pagamento seguro por cartão (Stripe)
+                            Pagamento seguro por cartão
                           </h4>
                           <p className="text-xs text-indigo-600 dark:text-indigo-400 mt-1 leading-relaxed">
-                            Ao clicar em "Pagar", será encaminhado para a página segura da Stripe para introduzir os dados do cartão. Este site nunca vê nem guarda o número do seu cartão.
+                            Ao clicar em "Pagar", será encaminhado para a página segura de pagamento para introduzir os dados do cartão. Este site nunca vê nem guarda o número do seu cartão.
                           </p>
                         </div>
                       </div>
@@ -1425,10 +1776,10 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                         className="w-full flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold py-3 rounded-md transition-colors cursor-pointer"
                       >
                         <Smartphone className="w-4 h-4" />
-                        Pagar Agora
+                        Pagar com
                         <span className="italic font-black tracking-tight">m-pesa</span>
                       </button>
-                      <p className="text-[11px] text-center text-slate-400 dark:text-zinc-500">Clique aqui para Pagar com M-Pesa</p>
+                      <p className="text-[11px] text-center text-slate-400 dark:text-zinc-500">O pedido fica registado e depois envia o valor e o comprovativo.</p>
                     </div>
                   )}
                   {metodoPagamento === 'transferencia' && !(isEncomenda && !encomendaTemValor) && (
@@ -1440,7 +1791,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                   )}
                   {metodoPagamento === 'stripe' && (
                     <p className="text-slate-500 dark:text-zinc-400 text-xs leading-relaxed">
-                      Clique em "Pagar {payTotalLabel}" à esquerda para continuar para a página segura da Stripe.
+                      Clique em "Pagar {payTotalLabel}" à esquerda para continuar para a página segura de pagamento.
                     </p>
                   )}
                 </div>
@@ -1449,22 +1800,13 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                   <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-500 dark:text-zinc-400 bg-slate-100 dark:bg-zinc-800 px-2 py-1 rounded">
                     <ShieldCheck className="w-3.5 h-3.5 text-green-600" /> SSL Seguro
                   </span>
-                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-500 dark:text-zinc-400 bg-slate-100 dark:bg-zinc-800 px-2 py-1 rounded">
-                    <BadgeCheck className="w-3.5 h-3.5 text-green-600" /> PCI Compliant
-                  </span>
                 </div>
               </div>
 
               <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg overflow-hidden shadow-sm">
                 <p className="px-5 pt-4 pb-1 text-xs font-bold uppercase tracking-wide text-slate-600 dark:text-zinc-300 flex items-center gap-1.5">
-                  <Zap className="w-3.5 h-3.5" /> Ações Rápidas
+                  <Zap className="w-3.5 h-3.5" /> Acções Rápidas
                 </p>
-                <button type="button" onClick={() => window.print()} className="w-full flex items-center gap-2.5 px-5 py-3 text-sm text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 hover:text-red-600 dark:hover:text-red-400 cursor-pointer border-t border-slate-100 dark:border-zinc-800">
-                  <Printer className="w-4 h-4 text-slate-400" /> Imprimir Fatura
-                </button>
-                <button type="button" onClick={() => window.print()} className="w-full flex items-center gap-2.5 px-5 py-3 text-sm text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 hover:text-red-600 dark:hover:text-red-400 cursor-pointer border-t border-slate-100 dark:border-zinc-800">
-                  <FileDown className="w-4 h-4 text-slate-400" /> Download PDF
-                </button>
                 <button type="button" onClick={() => (painel ? painel.voltar() : router.push(isEncomenda ? destinoDepoisDoPagamento('/encomendas') : PUBLIC_PANEL_ENTRY))} className="w-full flex items-center gap-2.5 px-5 py-3 text-sm text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 hover:text-red-600 dark:hover:text-red-400 cursor-pointer border-t border-slate-100 dark:border-zinc-800">
                   <ArrowLeft className="w-4 h-4 text-slate-400" /> Retornar ao Painel
                 </button>
@@ -1491,7 +1833,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                     </p>
                     <div className="border-t border-dashed border-slate-200 dark:border-zinc-800 my-3" />
                     <p className="text-xs text-slate-500 dark:text-zinc-400 leading-relaxed">
-                      Pagamentos por Cartão (Stripe) são confirmados e activados automaticamente.
+                      Pagamentos por cartão são confirmados e activados automaticamente.
                     </p>
                   </>
                 )}
@@ -1514,10 +1856,11 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
  * avisado, no ecrã do comprovativo, de que o valor não foi deduzido. Fora do sandbox
  * (produção) o passo salta-se sozinho e o checkout vai direito ao comprovativo.
  */
-function MpesaTesteStep({ sessionId, valorMt, onDone }: { sessionId: string; valorMt?: number; onDone: (testado: boolean) => void }) {
+function MpesaTesteStep({ sessionId, token, valorMt, onDone }: { sessionId: string; token?: string | null; valorMt?: number; onDone: (testado: boolean) => void }) {
   const [fase, setFase] = useState<'a-verificar' | 'numero' | 'a-pagar'>('a-verificar');
   const [numero, setNumero] = useState('');
   const [error, setError] = useState('');
+  const [falhas, setFalhas] = useState(0);
 
   useEffect(() => {
     let cancelado = false;
@@ -1542,16 +1885,29 @@ function MpesaTesteStep({ sessionId, valorMt, onDone }: { sessionId: string; val
     }
     setError('');
     setFase('a-pagar');
+    // O pedido vai para o telemóvel; esta chamada só termina quando a pessoa confirma (ou recusa). Só depois de confirmar
+    // aparece o campo do comprovativo.
+    let aprovado = false;
+    let aviso = 'Não foi possível confirmar o pagamento no M-Pesa. O PIN escreve-se no telemóvel, não aqui: confirme que o pedido chegou ao número indicado e tente outra vez.';
     try {
-      await fetch('/api/checkout/mpesa-teste', {
+      const res = await fetch('/api/checkout/mpesa-teste', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId, msisdn }),
+        body: JSON.stringify({ sessionId, msisdn, ...(token ? { token } : {}) }),
       });
+      const d = await res.json().catch(() => ({}));
+      aprovado = Boolean(d?.aprovado);
+      if (!aprovado && d?.erro) aviso = String(d.erro);
     } catch {
-      // O resultado do teste não muda o que o cliente tem de fazer a seguir.
+      /* fica o aviso */
     }
-    onDone(true);
+    if (aprovado) {
+      onDone(true);
+      return;
+    }
+    setFalhas((n) => n + 1);
+    setError(aviso);
+    setFase('numero');
   };
 
   return (
@@ -1589,6 +1945,15 @@ function MpesaTesteStep({ sessionId, valorMt, onDone }: { sessionId: string; val
           >
             <Smartphone className="w-4 h-4" /> Pagar com M-Pesa
           </button>
+          {falhas >= 2 && (
+            <button
+              type="button"
+              onClick={() => onDone(true)}
+              className="w-full text-xs font-bold text-slate-500 hover:text-slate-800 dark:text-zinc-400 dark:hover:text-zinc-100 underline"
+            >
+              Já paguei por outra via — continuar para o comprovativo
+            </button>
+          )}
         </>
       )}
 
@@ -1596,7 +1961,7 @@ function MpesaTesteStep({ sessionId, valorMt, onDone }: { sessionId: string; val
         <div className="text-center space-y-3 py-4">
           <Spinner className="w-8 h-8 mx-auto" />
           <p className="text-sm text-slate-600 dark:text-zinc-300">
-            Confirme o pagamento no seu telemóvel (introduza o PIN do M-Pesa). Pode demorar até 1 minuto.
+            Enviámos o pedido de pagamento para o número indicado. Abra o pedido do M-Pesa no telemóvel e escreva lá o seu PIN (não é aqui no site). Pode demorar até 1 minuto.
           </p>
         </div>
       )}
@@ -1617,8 +1982,12 @@ function ManualPaymentUploadStep({
   uploadFields,
   metodoPagamento,
   valorMt,
+  referencia,
+  jaEnviado = false,
+  motivoNovoComprovativo,
   avisoTeste,
   successMessage = 'Aguarde a aprovação da nossa equipa para aceder à gestão do(s) seu(s) produto(s).',
+  textoContinuar = 'Aceder ao Painel',
   onSent,
   secondaryActions,
   onContinue,
@@ -1627,9 +1996,17 @@ function ManualPaymentUploadStep({
   uploadFields?: Record<string, string>;
   metodoPagamento: 'mpesa' | 'transferencia';
   valorMt?: number;
+  /** Referência do pedido, a escrever na transferência/M-Pesa para a equipa reconhecer o pagamento. */
+  referencia?: string;
+  /** O comprovativo já foi enviado (o cliente voltou a abrir o pedido): mostra só o estado. */
+  jaEnviado?: boolean;
+  /** A equipa pediu outro comprovativo: o motivo. */
+  motivoNovoComprovativo?: string | null;
   /** M-Pesa de teste já percorrido: avisa que nada foi deduzido. */
   avisoTeste?: boolean;
   successMessage?: string;
+  /** texto do botão depois do envio (quem comprou sem conta ainda não tem painel) */
+  textoContinuar?: string;
   /** Depois de o comprovativo seguir com sucesso. */
   onSent?: () => void;
   /** Por baixo do envio, enquanto ainda não foi enviado (ex.: editar/cancelar a encomenda). */
@@ -1638,7 +2015,7 @@ function ManualPaymentUploadStep({
 }) {
   const [file, setFile] = useState<File | null>(null);
   const [sending, setSending] = useState(false);
-  const [sent, setSent] = useState(false);
+  const [sent, setSent] = useState(jaEnviado);
   const [error, setError] = useState('');
   const [enteringPanel, setEnteringPanel] = useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -1682,7 +2059,7 @@ function ManualPaymentUploadStep({
             className="mt-2 inline-flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white font-bold py-3 px-6 rounded-md transition-colors"
           >
             {enteringPanel ? <Spinner className="w-4 h-4" /> : null}
-            {enteringPanel ? 'A entrar...' : 'Aceder ao Painel'}
+            {enteringPanel ? 'A entrar...' : textoContinuar}
           </button>
         </div>
       ) : (
@@ -1700,6 +2077,9 @@ function ManualPaymentUploadStep({
             {valorMt ? (
               <p className="pb-1">Valor a pagar: <span className="font-mono font-bold">{formatMt(valorMt)} MT</span></p>
             ) : null}
+            {referencia ? (
+              <p className="pb-1">Referência (indique-a no pagamento): <span className="font-mono font-bold">{referencia}</span></p>
+            ) : null}
             {metodoPagamento === 'mpesa' ? (
               <p>Envie o valor para <span className="font-mono font-bold">{MPESA_NUMBER}</span>.</p>
             ) : (
@@ -1710,6 +2090,12 @@ function ManualPaymentUploadStep({
               </>
             )}
           </div>
+
+          {motivoNovoComprovativo && (
+            <div className="bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900 rounded-lg p-4 text-sm text-rose-800 dark:text-rose-300">
+              A equipa pediu outro comprovativo: {motivoNovoComprovativo}
+            </div>
+          )}
 
           {avisoTeste && (
             <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded-lg p-4 text-sm text-slate-700 dark:text-zinc-300 space-y-1">

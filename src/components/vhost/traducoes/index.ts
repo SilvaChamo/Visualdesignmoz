@@ -21,6 +21,7 @@ import { php_extensoes } from './17-php-extensoes';
 import { modelos_renovacao } from './18-modelos-renovacao';
 import { revenda } from './19-revenda';
 import { residuos } from './20-residuos';
+import { compras } from './21-compras';
 
-const TRADUCOES: Record<string, string> = { ...nucleo, ...nucleo_b, ...comuns_a, ...paginas_pequenas, ...admin_servidor, ...admin_servidor_2, ...contas_sistema, ...suporte, ...email, ...avancado, ...dominios, ...modelos, ...extras, ...mensagens_api, ...mensagens_lib, ...externos, ...php_extensoes, ...modelos_renovacao, ...revenda, ...residuos };
+const TRADUCOES: Record<string, string> = { ...nucleo, ...nucleo_b, ...comuns_a, ...paginas_pequenas, ...admin_servidor, ...admin_servidor_2, ...contas_sistema, ...suporte, ...email, ...avancado, ...dominios, ...modelos, ...extras, ...mensagens_api, ...mensagens_lib, ...externos, ...php_extensoes, ...modelos_renovacao, ...revenda, ...residuos, ...compras };
 for (const [pt, en] of Object.entries(TRADUCOES)) if (!(pt in EN)) EN[pt] = en;

@@ -4,6 +4,7 @@ import { resolveQuotationAccess } from '@/lib/quotation-access';
 import { ensureQuotationAttachmentsBucket, QUOTATION_ATTACHMENTS_BUCKET, getAttachmentSignedUrl, getAttachmentSignedUrls } from '@/lib/quotation-attachments-bucket';
 import { compressImageToMaxSize } from '@/lib/image-compress';
 import { notifyQuoteTeam } from '@/lib/notify-quote-team';
+import { comprovativoValido, COMPROVATIVO_ERRO } from '@/lib/comprovativo-ficheiro';
 import { comprovativoFaseFromPath, comprovativoStoragePath, isComprovativoFase } from '@/lib/quotation-comprovativo';
 
 const MAX_SIZE_BYTES = 10 * 1024 * 1024; // 10MB, mesmo limite por omissão de MultiFileUpload
@@ -66,6 +67,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
   if (file.size > MAX_SIZE_BYTES) {
     return NextResponse.json({ error: 'Ficheiro demasiado grande (máx. 10MB).' }, { status: 400 });
+  }
+  // um comprovativo de pagamento só pode ser imagem ou PDF (os outros anexos da encomenda não têm esta regra)
+  if (fase && !comprovativoValido(file)) {
+    return NextResponse.json({ error: COMPROVATIVO_ERRO }, { status: 400 });
   }
 
   await ensureQuotationAttachmentsBucket();

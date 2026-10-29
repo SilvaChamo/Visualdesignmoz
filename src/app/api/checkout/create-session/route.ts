@@ -7,6 +7,7 @@ import { resolveCartItems, toValidatedCartItems, type CatalogCartItem } from '@/
 import { isProfileWhoisComplete } from '@/lib/profile-db';
 import { promoteBuyerAfterPurchase } from '@/lib/checkout-fulfillment';
 import { resolveCheckoutActor } from '@/lib/checkout-actor';
+import { validarContasDeHospedagem } from '@/lib/conta-hospedagem-servidor';
 
 export async function POST(request: NextRequest) {
   try {
@@ -70,17 +71,20 @@ export async function POST(request: NextRequest) {
     // corre como a conta impersonada (dono do domínio, WHOIS, faturação).
     const actor = await resolveCheckoutActor(admin, user);
 
-    const hasDomain = resolved.some((r) => r.item.type === 'domain');
-    if (hasDomain && !(await isProfileWhoisComplete(admin, actor.buyerUserId))) {
+    // Os dados da conta (telefone, morada, cidade) são precisos em qualquer compra: facturação, contacto e, nos domínios, o registo oficial (WHOIS)
+    if (!(await isProfileWhoisComplete(admin, actor.buyerUserId))) {
       return NextResponse.json(
         {
           error: actor.impersonating
-            ? `A conta ${actor.impersonatedLabel} ainda não tem telefone, morada e cidade preenchidos — são os dados usados no registo oficial do domínio. Complete o perfil dessa conta antes de comprar.`
-            : 'Antes de comprar um domínio precisa de completar o telefone, morada e cidade em "A Minha Conta" — são os dados usados no registo oficial do domínio.',
+            ? `A conta ${actor.impersonatedLabel} ainda não tem telefone, morada e cidade preenchidos — são os dados da conta e do registo oficial dos domínios. Complete o perfil dessa conta antes de comprar.`
+            : 'Antes de comprar precisa de completar o telefone, morada e cidade em "A Minha Conta" — são os dados da sua conta e do registo oficial dos domínios.',
         },
         { status: 400 },
       );
     }
+
+    const erroConta = await validarContasDeHospedagem(admin, toValidatedCartItems(resolved));
+    if (erroConta) return NextResponse.json({ error: erroConta }, { status: 400 });
 
     const { data: session, error: insertError } = await admin
       .from('checkout_sessions')
@@ -135,7 +139,7 @@ export async function POST(request: NextRequest) {
           : [],
       ),
       metadata: { checkout_session_id: session.id, user_id: actor.buyerUserId },
-      success_url: `${origin}/vhost:2026/utilizador/encomendas`,
+      success_url: `${origin}/checkout?pago=1`,
       cancel_url: `${origin}/checkout`,
     });
 
