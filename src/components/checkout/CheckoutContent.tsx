@@ -1888,7 +1888,7 @@ function MpesaTesteStep({ sessionId, token, valorMt, onDone }: { sessionId: stri
     // O pedido vai para o telemóvel; esta chamada só termina quando a pessoa confirma (ou recusa). Só depois de confirmar
     // aparece o campo do comprovativo.
     let aprovado = false;
-    let aviso = 'Não foi possível confirmar o pagamento no M-Pesa. Confirme no telemóvel com o PIN e tente outra vez.';
+    let aviso = 'Não foi possível confirmar o pagamento no M-Pesa. O PIN escreve-se no telemóvel, não aqui: confirme que o pedido chegou ao número indicado e tente outra vez.';
     try {
       const res = await fetch('/api/checkout/mpesa-teste', {
         method: 'POST',
@@ -1961,7 +1961,7 @@ function MpesaTesteStep({ sessionId, token, valorMt, onDone }: { sessionId: stri
         <div className="text-center space-y-3 py-4">
           <Spinner className="w-8 h-8 mx-auto" />
           <p className="text-sm text-slate-600 dark:text-zinc-300">
-            Confirme o pagamento no seu telemóvel (introduza o PIN do M-Pesa). Pode demorar até 1 minuto.
+            Enviámos o pedido de pagamento para o número indicado. Abra o pedido do M-Pesa no telemóvel e escreva lá o seu PIN (não é aqui no site). Pode demorar até 1 minuto.
           </p>
         </div>
       )}

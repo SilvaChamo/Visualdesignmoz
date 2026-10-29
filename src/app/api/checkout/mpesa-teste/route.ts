@@ -82,10 +82,25 @@ export async function POST(request: NextRequest) {
     .update({ mpesa_last_response: `[teste][${result.ok ? 'ok' : 'falhou'}] ${result.ok ? result.raw : result.raw || result.error}` })
     .eq('id', sessionId);
 
+  if (!result.ok) console.warn('[mpesa-teste] não confirmado:', result.error, result.raw || '');
   return NextResponse.json({
     success: true,
     simulated: true,
     aprovado: result.ok,
-    ...(result.ok ? {} : { erro: 'Não foi possível confirmar o pagamento no M-Pesa. Confirme no telemóvel com o PIN e tente outra vez.' }),
+    ...(result.ok ? {} : { erro: motivoDaFalha(result) }),
   });
+}
+
+/** Diz ao cliente a causa da falha, sem nomes de terceiros; a quem testa em local, o que falta ou o que o M-Pesa respondeu. */
+function motivoDaFalha(result: { error?: string; gatewayNoise?: boolean }): string {
+  const erro = String(result.error || '');
+  const local = process.env.NODE_ENV !== 'production';
+  if (/credenciais m-pesa ausentes/i.test(erro)) {
+    return local
+      ? 'Faltam as credenciais do M-Pesa neste projecto (MPESA_API_KEY, MPESA_PUBLIC_KEY e MPESA_SERVICE_PROVIDER_CODE no .env.local).'
+      : 'O pagamento por M-Pesa não está disponível neste momento. Continue para o comprovativo.';
+  }
+  if (result.gatewayNoise) return 'O M-Pesa não respondeu a tempo. Tente outra vez dentro de instantes.';
+  if (erro) return `O M-Pesa não confirmou o pagamento: ${erro}.`.replace(/\.\.$/, '.');
+  return 'Não foi possível confirmar o pagamento no M-Pesa. O PIN escreve-se no telemóvel, não aqui: confirme que o pedido chegou ao número indicado e tente outra vez.';
 }
