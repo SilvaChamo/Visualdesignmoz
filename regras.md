@@ -966,3 +966,7 @@ Repete isto para cada secção/UI em que trabalhares — não só para esta func
    d) **criar pacotes manualmente** — hoje só se atribui um pacote que já existe no servidor (`changeUserPackage`); criar/editar os limites de um pacote não está feito (ver nota em `hestia-adapter.ts`).
 2. **Conta sem perfil ligado** (caso `entrecampos`): contas criadas no servidor (ou numa compra de teste) podem ficar sem o perfil do site ligado (`panel_users.auth_user_id` / `profiles.da_username`). O administrador liga-as em «Editar» → ligar perfil, com o e-mail do perfil. Falta descobrir porque é que a compra não deixou a ligação feita.
 3. **Apagar no servidor demorava mais de 5 s** e o painel dava «O Vhost demorou a responder»: as alterações (`v-add-/v-delete-/v-change-/v-suspend-…`) passaram a esperar até 120 s e, se não houver resposta, o apagar confirma se a conta já não existe (`hestia-client.ts`, `deleteAccount`). Confirmar em produção.
+
+## Quem é administrador (Silva, 29/10/2026)
+
+Só **silva.chamo@gmail.com** e **admin@visualdesignmoz.com** são administradores por defeito (`ADMIN_BOOTSTRAP_EMAILS` em `panel-user-registry.ts`). Qualquer outro e-mail — incluindo `silvanochamo@gmail.com` e `silva.chamo@visualdesignmoz.com` — entra como cliente, a não ser que o perfil na base de dados (`profiles.role = 'admin'`) o torne administrador. Para testar compras como cliente, usar um e-mail fora desta lista.

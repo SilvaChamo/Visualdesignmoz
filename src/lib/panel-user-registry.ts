@@ -2,11 +2,10 @@ import type { UserRole } from '@/lib/user-roles';
 import { PANEL_SLUG } from '@/lib/panel-tenant';
 
 /** Emails com acesso de bootstrap ao painel admin (API), sem promover papel automaticamente. */
+// Só estes dois (Silva, 29/10/2026): os outros e-mails entram como clientes, para se poder testar as compras como cliente.
 export const ADMIN_BOOTSTRAP_EMAILS = new Set([
   'silva.chamo@gmail.com',
-  'silva.chamo@visualdesignmoz.com',
   'admin@visualdesignmoz.com',
-  'silvanochamo@gmail.com',
 ]);
 
 type PanelRegistry = {
