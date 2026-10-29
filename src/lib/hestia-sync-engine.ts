@@ -20,6 +20,7 @@
 
 import { listMailDomains, listUsers, listWebDomains } from '@/lib/hestia-adapter';
 import { getDaSyncAdmin } from '@/lib/da-sync-schema';
+import { ligarPerfilPorEmail } from '@/lib/ligar-perfil-conta';
 
 export type HestiaSyncResult = {
   ok: boolean;
@@ -125,7 +126,11 @@ export async function runHestiaFullSync(): Promise<HestiaSyncResult> {
         { onConflict: 'username' },
       );
       if (error) errors.push(`user ${user.username}: ${error.message}`);
-      else counts.users++;
+      else {
+        counts.users++;
+        // conta sem perfil do site ligado: liga-se sozinha ao perfil com o mesmo e-mail
+        if (!existing?.auth_user_id && (await ligarPerfilPorEmail(admin, user.username, user.email))) panelManagedUsernames.add(user.username);
+      }
     } catch (e: unknown) {
       errors.push(`user ${user.username}: ${e instanceof Error ? e.message : 'erro'}`);
     }

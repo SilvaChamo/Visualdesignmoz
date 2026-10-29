@@ -165,7 +165,7 @@ async function hestiaCallDireto(cmd: string, args: string[], options: HestiaCall
         ok: false,
         exitCode: -1,
         output: '',
-        error: 'O Vhost demorou a responder. O pedido pode ainda estar em curso; não foi repetido automaticamente.',
+        error: 'O servidor demorou a responder. O pedido pode ainda estar em curso; não foi repetido automaticamente.',
       };
     }
     if (options.sshFallbackOnTransportError === false) {
@@ -173,7 +173,7 @@ async function hestiaCallDireto(cmd: string, args: string[], options: HestiaCall
         ok: false,
         exitCode: -1,
         output: '',
-        error: 'Não foi possível confirmar se o Vhost recebeu o pedido; não foi repetido para evitar duplicar a operação.',
+        error: 'Não foi possível confirmar se o servidor recebeu o pedido; não foi repetido para evitar duplicar a operação.',
       };
     }
     return hestiaCallViaSsh(cmd, args, sshMs);
