@@ -51,6 +51,7 @@ import {
   meOf,
   MENU_SO_DOMINIO,
   soDominioDe,
+  fechadoAteConfirmar,
   nomeNivel,
   dominioGuardado,
   guardarDominio,
@@ -1683,6 +1684,7 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
                                     {t(rotuloItem(s, it))}
                                   </span>
                                   {it.opt && <em>{t('opc.')}</em>}
+                                  {fechadoAteConfirmar(s, it.id) && <i className="fa-solid fa-lock" style={{ marginLeft: 'auto', fontSize: '0.8em', opacity: 0.6 }} title={t('Disponível quando o serviço estiver pronto')} />}
                                   {avisosMenu[it.id] && (
                                     <b className="nbal" title={avisosMenu[it.id].titulo}>
                                       {avisosMenu[it.id].n}

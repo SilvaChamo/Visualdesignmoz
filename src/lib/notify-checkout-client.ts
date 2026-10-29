@@ -32,7 +32,7 @@ function textos(evento: EventoCompra, pedido: Pedido, motivo?: string | null): {
     case 'criado':
       return {
         titulo: 'Pedido registado — falta o pagamento',
-        mensagem: `Registámos ${nomes}. ${dados}, indicando a referência ${ref}, e depois envie o comprovativo no painel (Início › Pedidos pendentes). O acesso às configurações do seu plano abre assim que a equipa confirmar o pagamento.`,
+        mensagem: `Registámos ${nomes}. ${dados}, indicando a referência ${ref}, e depois envie o comprovativo no painel (página Compras). O acesso às configurações do seu plano abre assim que a equipa confirmar o pagamento.`,
         tipo: 'info',
       };
     case 'comprovativo':
@@ -50,7 +50,7 @@ function textos(evento: EventoCompra, pedido: Pedido, motivo?: string | null): {
     case 'novo-comprovativo':
       return {
         titulo: 'Precisamos de um novo comprovativo',
-        mensagem: `Não conseguimos validar o comprovativo do pedido ${ref} (${nomes}).${motivo ? ` Motivo: ${motivo}.` : ''} Envie outro no painel (Início › Pedidos pendentes).`,
+        mensagem: `Não conseguimos validar o comprovativo do pedido ${ref} (${nomes}).${motivo ? ` Motivo: ${motivo}.` : ''} Envie outro no painel (página Compras).`,
         tipo: 'warning',
       };
     case 'rejeitado':

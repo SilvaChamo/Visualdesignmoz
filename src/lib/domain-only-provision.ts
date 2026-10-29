@@ -15,7 +15,8 @@ import { generateProvisionerPassword } from '@/lib/reseller-auto-provision';
 import { upsertMirrorSite, upsertMirrorUser } from '@/lib/panel-mirror-write';
 import { pickAvailableMirrorUsername } from '@/lib/email-plan-provision';
 
-export const PACOTE_SO_DOMINIO = 'VD-Dominio';
+import { PACOTE_SO_DOMINIO } from '@/lib/pacotes-compra';
+export { PACOTE_SO_DOMINIO };
 const NOME_DO_PLANO = 'Só domínio';
 
 export async function provisionDomainOnlyAccount(

@@ -4,6 +4,7 @@
 import { requirePanelBootstrapAccess } from '@/lib/panel-api-auth';
 import { LEITURA_FRESCA_MS, idadeLeitura, lerServidor, lerServidorParaPagina } from '@/lib/vhost-servidor';
 import { lerRegisto, lerRegistoParaPagina, montarDados } from '@/lib/vhost-dados';
+import { lerCompraPendente } from '@/lib/vhost-compra-pendente';
 import type { DadosServidor } from '@/components/vhost/servidor';
 
 export type LeituraPainel = { ok: true; dados: DadosServidor } | { ok: false; erro: string; codigo: 401 | 403 | 428 | 500 };
@@ -29,8 +30,19 @@ export async function lerDadosPainel(fresco = false, paraPagina = false): Promis
     // A conta não está numa leitura que já não é desta hora (a memória guarda até 60 min): pode ter sido criada há pouco
     // (ex.: por uma compra). Lê o servidor agora antes de dizer que não está ligada — no máximo uma leitura por minuto,
     // porque a seguinte já é fresca.
-    if ((!dados.me || !dados.contas[dados.me]) && idadeLeitura(srv) > LEITURA_FRESCA_MS)
-      dados = montarDados(await lerServidor(true), paraPagina ? await lerRegisto() : reg, sessao);
+    let srvAtual = srv;
+    let regAtual = reg;
+    if ((!dados.me || !dados.contas[dados.me]) && idadeLeitura(srv) > LEITURA_FRESCA_MS) {
+      srvAtual = await lerServidor(true);
+      regAtual = paraPagina ? await lerRegisto() : reg;
+      dados = montarDados(srvAtual, regAtual, sessao);
+    }
+    // Sem conta no servidor mas com uma compra a aguardar (confirmação do comprovativo, ou a conta ainda a ser criada): entra
+    // no painel do pacote que comprou, com as configurações fechadas (conta provisória; nunca para a equipa)
+    if ((!dados.me || !dados.contas[dados.me]) && auth.user.role !== 'admin') {
+      const compra = await lerCompraPendente(auth.user.id);
+      if (compra) dados = montarDados(srvAtual, regAtual, sessao, compra);
+    }
     if (!dados.me || !dados.contas[dados.me])
       return { ok: false, codigo: 403, erro: 'A sua conta do site ainda não está ligada a uma conta do servidor.' };
     return { ok: true, dados };

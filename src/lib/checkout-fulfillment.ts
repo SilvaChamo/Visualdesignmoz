@@ -16,16 +16,10 @@ import { after } from 'next/server';
 import { getProfileForAuthUser, saveProfileForAuthUser } from '@/lib/profile-db';
 import { buyerRoleForPackage, isProfissionalHostingPlan } from '@/lib/user-roles';
 import { emailPlanProductName, getEmailPlan } from '@/lib/email-plans';
+import { PACOTES_HOSPEDAGEM } from '@/lib/pacotes-compra';
 
-// Pacote dedicado por plano — tem de corresponder aos `defaultPackageName` de
-// HOSTING_PLAN_PRESETS em reseller-package-form.ts, que é o que a secção
-// "Pacotes" do admin cria de facto no DirectAdmin.
-const HOSTING_PLAN_PACKAGE_NAMES: Record<string, string> = {
-  'hosting-basico': 'VD-Host-Basico',
-  'hosting-pro': 'VD-Host-Pro',
-  'hosting-business': 'VD-Host-Business',
-  'hosting-enterprise': 'VD-Host-Enterprise',
-};
+// Pacote dedicado por plano: ver PACOTES_HOSPEDAGEM em pacotes-compra.ts (a mesma tabela do painel de quem espera confirmação).
+const HOSTING_PLAN_PACKAGE_NAMES = PACOTES_HOSPEDAGEM;
 
 // Pacote de recurso, confirmado a existir sempre no servidor — usado enquanto
 // o pacote dedicado de um plano ainda não tiver sido criado lá (ver

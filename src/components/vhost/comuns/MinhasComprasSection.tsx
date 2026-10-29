@@ -6,6 +6,8 @@ import { panelSectionCard } from '@/lib/panel-ui';
 import { checkoutItemSummary, type CheckoutItemLike } from '@/lib/checkout-item-labels';
 import { openDocumentWindow } from '@/components/documents/VisualDesignDocument';
 import { Spinner } from '@/components/ui/spinner';
+import { PendingOrdersSection } from '@/components/vhost/comuns/PendingOrdersSection';
+import type { PendingCheckoutSession } from '@/lib/user-products';
 import { dataSo } from '../datas';
 
 type Compra = {
@@ -40,18 +42,30 @@ const LINK = 'text-xs font-medium text-red-600 hover:underline dark:text-red-400
 export function MinhasComprasSection() {
   const [compras, setCompras] = useState<Compra[] | null>(null);
   const [error, setError] = useState('');
+  // pedidos por M-Pesa/Transferência ainda por pagar: aqui o cliente vê o valor, a referência e anexa o comprovativo
+  const [pendentes, setPendentes] = useState<PendingCheckoutSession[]>([]);
 
-  useEffect(() => {
-    let cancelled = false;
+  const lerPendentes = () => {
+    fetch('/api/my-products', { credentials: 'include' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setPendentes(d?.products?.pendingSessions ?? []))
+      .catch(() => {});
+  };
+
+  const lerCompras = () => {
     fetch('/api/client/minhas-compras')
       .then((r) => r.json())
       .then((data) => {
-        if (cancelled) return;
         if (data.success) setCompras(data.compras);
         else setError(data.error || 'Não foi possível carregar as suas compras.');
       })
-      .catch(() => { if (!cancelled) setError('Não foi possível carregar as suas compras.'); });
-    return () => { cancelled = true; };
+      .catch(() => setError('Não foi possível carregar as suas compras.'));
+  };
+
+  useEffect(() => {
+    lerPendentes();
+    lerCompras();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (error) {
@@ -67,6 +81,8 @@ export function MinhasComprasSection() {
   }
 
   return (
+    <div className="space-y-4">
+    <PendingOrdersSection sessions={pendentes} onUploaded={() => { lerPendentes(); lerCompras(); }} />
     <div className={`${panelSectionCard} overflow-hidden`}>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
@@ -113,7 +129,7 @@ export function MinhasComprasSection() {
                         <a href={compra.renovacao_url} className={LINK}>Renovar</a>
                       )}
                       {compra.status === 'pending' && compra.metodo_pagamento !== 'stripe' && (
-                        <a href="/vhost:2026#pedidos-pendentes" className={LINK}>
+                        <a href="#pedidos-pendentes" className={LINK}>
                           {compra.comprovativo_url ? 'Ver pedido' : 'Anexar comprovativo'}
                         </a>
                       )}
@@ -143,6 +159,7 @@ export function MinhasComprasSection() {
           </tbody>
         </table>
       </div>
+    </div>
     </div>
   );
 }

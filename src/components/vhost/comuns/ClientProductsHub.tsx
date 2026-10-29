@@ -391,6 +391,8 @@ export function ClientDashboardView({
   }, [pendingSessions, domains, emailPlans, hosting]);
 
   const activeCount = rows.filter((r) => r.state !== 'awaiting_payment').length;
+  // o que já foi comprado e espera confirmação não se volta a oferecer
+  const jaPedido = (k: ServiceRow['kind']) => rows.some((r) => r.kind === k && r.state === 'awaiting_payment');
   const hasAnything = rows.length > 0;
 
   const nextRenewal = useMemo(() => {
@@ -561,7 +563,7 @@ export function ClientDashboardView({
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {domains.length === 0 && (
+              {domains.length === 0 && !jaPedido('domain') && (
               <a
                 href="/servicos/dominios"
                 className="group flex flex-col justify-between p-5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950/50 hover:border-red-500/50 hover:bg-white dark:hover:bg-zinc-900 transition-all shadow-sm"
@@ -584,7 +586,7 @@ export function ClientDashboardView({
               </a>
               )}
 
-              {hosting.length === 0 && (
+              {hosting.length === 0 && !jaPedido('hosting') && (
               <a
                 href="/precos/hospedagem"
                 className="group flex flex-col justify-between p-5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950/50 hover:border-red-500/50 hover:bg-white dark:hover:bg-zinc-900 transition-all shadow-sm"
@@ -607,7 +609,7 @@ export function ClientDashboardView({
               </a>
               )}
 
-              {emailPlans.length === 0 && (
+              {emailPlans.length === 0 && !jaPedido('email') && (
               <a
                 href="/precos/email"
                 className="group flex flex-col justify-between p-5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950/50 hover:border-red-500/50 hover:bg-white dark:hover:bg-zinc-900 transition-all shadow-sm"
