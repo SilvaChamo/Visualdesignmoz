@@ -30,6 +30,8 @@ interface CartContextType {
   updateItemHostingDomain: (id: string, hostingDomain: string) => void;
   clearCart: () => void;
   total: number;
+  /** O carrinho guardado no navegador já foi lido (antes disso `items` vem vazio e não quer dizer «carrinho vazio»). */
+  ready: boolean;
   isCartOpen: boolean;
   setIsCartOpen: (isOpen: boolean) => void;
 }
@@ -39,6 +41,7 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [ready, setReady] = useState(false);
 
   // Load from local storage on init
   useEffect(() => {
@@ -50,12 +53,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
     } catch (e) {
       console.error("Failed to load cart from local storage", e);
     }
+    setReady(true);
   }, []);
 
   // Save to local storage on change
   useEffect(() => {
+    // antes de ler o carrinho guardado, `items` é [] — gravar agora apagava o carrinho de quem recarrega a página
+    if (!ready) return;
     localStorage.setItem('vd_cart', JSON.stringify(items));
-  }, [items]);
+  }, [items, ready]);
 
   const addItem = (item: CartItem) => {
     // CORRIGIDO (14 ago 2026) — chegou a bloquear-se aqui por engano. Esta
@@ -93,7 +99,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const total = items.reduce((acc, item) => acc + item.price, 0);
 
   return (
-    <CartContext.Provider value={{ items, addItem, removeItem, updateItemPeriod, updateItemHostingDomain, clearCart, total, isCartOpen, setIsCartOpen }}>
+    <CartContext.Provider value={{ items, addItem, removeItem, updateItemPeriod, updateItemHostingDomain, clearCart, total, ready, isCartOpen, setIsCartOpen }}>
       {children}
     </CartContext.Provider>
   );

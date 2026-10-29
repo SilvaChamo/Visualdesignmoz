@@ -5,6 +5,7 @@ import { Clock, Upload, CheckCircle2, Smartphone, Landmark, CreditCard } from 'l
 import type { PendingCheckoutSession } from '@/lib/user-products';
 import { MPESA_NUMBER, BANK_NAME, BANK_ACCOUNT, BANK_NIB, metodoPagamentoLabel } from '@/lib/quotation-payment-info';
 import { formatMt } from '@/lib/pricing-catalog';
+import { referenciaPedido } from '@/lib/checkout-referencia';
 import { Spinner } from '@/components/ui/spinner';
 
 type Props = {
@@ -54,6 +55,9 @@ function PendingOrderCard({ session, onUploaded }: { session: PendingCheckoutSes
         </div>
         <span className="font-bold text-gray-900 text-sm">{formatMt(session.totalMt)} MT</span>
       </div>
+      <p className="text-xs text-gray-500">
+        Referência do pedido: <span className="font-mono font-bold text-gray-800">{referenciaPedido(session.id)}</span>
+      </p>
 
       <ul className="text-xs text-gray-600 list-disc list-inside space-y-0.5">
         {session.items.map((item, i) => (
@@ -70,13 +74,19 @@ function PendingOrderCard({ session, onUploaded }: { session: PendingCheckoutSes
           </div>
         ) : (
           <div className="space-y-2">
+            {session.rejectionReason && (
+              <p className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-md p-2.5">
+                A equipa pediu outro comprovativo: {session.rejectionReason}
+              </p>
+            )}
             <div className="bg-white border border-gray-200 rounded-lg p-3 text-xs text-gray-700 space-y-0.5">
+              <p>Valor a pagar: <span className="font-bold">{formatMt(session.totalMt)} MT</span> — indique a referência <span className="font-mono font-bold">{referenciaPedido(session.id)}</span>.</p>
               {session.metodoPagamento === 'mpesa' ? (
                 <p>Envie o valor para <span className="font-bold">{MPESA_NUMBER}</span>.</p>
               ) : (
                 <>
                   <p>{BANK_NAME}</p>
-                  <p>Conta BCI: <span className="font-bold">{BANK_ACCOUNT}</span></p>
+                  <p>Conta: <span className="font-bold">{BANK_ACCOUNT}</span></p>
                   <p>NIB: <span className="font-bold">{BANK_NIB}</span></p>
                 </>
               )}

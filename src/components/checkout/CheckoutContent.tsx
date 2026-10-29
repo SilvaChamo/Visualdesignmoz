@@ -68,6 +68,7 @@ const DOMAIN_REGISTRATION_YEARS = [1, 2, 3, 5, 10];
 const HOSTING_CYCLE_MONTHS: Record<HostingBillingCycle, number> = { monthly: 1, semiannual: 6, annual: 12 };
 const HOSTING_CYCLE_LABELS: Record<HostingBillingCycle, string> = { monthly: 'Mensal', semiannual: 'Semestral', annual: 'Anual' };
 import { checkoutEntryPath } from '@/lib/checkout-flow';
+import { referenciaPedido } from '@/lib/checkout-referencia';
 import { profileAuthOrFilter } from '@/lib/profile-db';
 import { acrescentarIva, IVA_TAXA } from '@/lib/iva';
 import {
@@ -85,10 +86,7 @@ import {
   Smartphone,
   Landmark,
   ShieldCheck,
-  BadgeCheck,
   Zap,
-  Printer,
-  FileDown,
   ArrowLeft,
   Info,
   Building2,
@@ -102,10 +100,21 @@ import { Spinner } from '@/components/ui/spinner';
 
 type MetodoPagamento = 'stripe' | 'mpesa' | 'transferencia' | 'saldo';
 
+/** Telefone com o indicativo escolhido; se a pessoa já escreveu o indicativo (+258… ou 00258…), fica como escreveu. */
+function telefoneCompleto(escrito: string, prefixo: string): string {
+  const t = escrito.trim();
+  if (!t) return t;
+  if (/^(\+|00)/.test(t)) return t;
+  const digitos = t.replace(/\D/g, '');
+  const prefixoDigitos = prefixo.replace(/\D/g, '');
+  if (digitos.startsWith(prefixoDigitos) && digitos.length >= prefixoDigitos.length + 8) return `+${digitos}`;
+  return `${prefixo} ${digitos}`;
+}
+
 const METODO_META: Record<MetodoPagamento, { label: string; icon: typeof Smartphone }> = {
   transferencia: { label: 'Transferência Bancária', icon: Landmark },
   mpesa: { label: 'M-Pesa', icon: Smartphone },
-  stripe: { label: 'Cartão (Stripe)', icon: CreditCard },
+  stripe: { label: 'Cartão', icon: CreditCard },
   saldo: { label: 'Saldo da Conta', icon: Wallet },
 };
 
@@ -127,7 +136,7 @@ function redirectPathForSession(
 export type CheckoutPainel = { voltar: () => void; editar: () => void };
 
 export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
-  const { items, total, clearCart, updateItemPeriod, removeItem } = useCart();
+  const { items, total, clearCart, updateItemPeriod, removeItem, ready: carrinhoLido } = useCart();
   const router = useRouter();
   const { user: authUser, loading: authLoading } = useAuth();
   const isAuthenticated = authLoading ? null : !!authUser;
@@ -202,13 +211,18 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
     if (entry !== '/checkout') router.replace(entry);
   }, [items, renewalId, isEncomenda, router]);
 
+  // Renovação sem sessão: vai ao login e volta (num efeito, nunca durante o desenho)
+  useEffect(() => {
+    if (renewalId && isAuthenticated === false) router.push(`/login?redirect=${encodeURIComponent(`/checkout?renewalId=${renewalId}`)}`);
+  }, [renewalId, isAuthenticated, router]);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [metodoPagamento, setMetodoPagamento] = useState<MetodoPagamento>('transferencia');
 
   // Pedido de M-Pesa/Transferência já criado, à espera do comprovativo —
   // enquanto isto não for null, o checkout mostra o passo de upload em vez
   // do carrinho (mesmo já vazio) ou do formulário de pagamento.
-  const [manualSession, setManualSession] = useState<{ id: string; metodoPagamento: 'mpesa' | 'transferencia' } | null>(null);
+  const [manualSession, setManualSession] = useState<{ id: string; metodoPagamento: 'mpesa' | 'transferencia'; totalMt?: number; comprovativoEnviado?: boolean; motivo?: string | null } | null>(null);
   // Pedido M-Pesa recém-criado que ainda tem de passar pelo passo do número (ver MpesaTesteStep).
   const [mpesaPassoId, setMpesaPassoId] = useState<string | null>(null);
   const [mpesaAvisoTeste, setMpesaAvisoTeste] = useState(false);
@@ -227,7 +241,13 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
       .then((data) => {
         const s = data?.session;
         if (data.success && s?.status === 'pending' && (s.metodo_pagamento === 'mpesa' || s.metodo_pagamento === 'transferencia')) {
-          setManualSession({ id: s.id, metodoPagamento: s.metodo_pagamento });
+          setManualSession({
+            id: s.id,
+            metodoPagamento: s.metodo_pagamento,
+            totalMt: Number(s.total_mt) || undefined,
+            comprovativoEnviado: Boolean(s.comprovativo_url),
+            motivo: s.rejection_reason ?? null,
+          });
         } else {
           router.replace('/checkout');
         }
@@ -272,9 +292,9 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
     endereco2: '',
     cidade: '',
     estado: '',
-    codigoPostal: '',
     pais: 'Mozambique'
   });
+  const [telefonePrefixo, setTelefonePrefixo] = useState('+258');
   const [showPassword, setShowPassword] = useState(false);
 
   // Morada/telefone do perfil (WHOIS) — para o card "Faturado Para" de quem já
@@ -387,6 +407,9 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
     }
   };
 
+  // Comprar um domínio exige morada e cidade (são os dados do registo oficial): pede-se já aqui, antes de criar a conta
+  const carrinhoTemDominio = !isEncomenda && items.some((i) => i.type === 'domain');
+
   // Flow State
   const [status, setStatus] = useState<'idle' | 'registering' | 'redirecting' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
@@ -427,6 +450,12 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
         setIsSubmitting(false);
         return;
       }
+      if (carrinhoTemDominio && (!accountForm.endereco.trim() || !accountForm.cidade.trim())) {
+        setErrorMessage('Para registar um domínio indique a sua morada e cidade: são os dados do registo oficial do domínio.');
+        setStatus('error');
+        setIsSubmitting(false);
+        return;
+      }
       if (accountForm.password.length < 6) {
         setErrorMessage('A Palavra-passe é demasiado curta. Deve ter no mínimo 6 caracteres.');
         setStatus('error');
@@ -445,10 +474,11 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
             email: accountForm.email,
             password: accountForm.password,
             nome: `${accountForm.name} ${accountForm.sobrenome}`.trim(),
-            telefone: accountForm.telefone,
+            telefone: telefoneCompleto(accountForm.telefone, telefonePrefixo),
             empresa: accountForm.empresa,
-            endereco: accountForm.endereco,
+            endereco: [accountForm.endereco, accountForm.endereco2].map((x) => x.trim()).filter(Boolean).join(', '),
             cidade: accountForm.cidade,
+            provincia: accountForm.estado,
             pais: accountForm.pais,
           })
         });
@@ -616,7 +646,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
       }
       clearCart();
       const manualMetodo = metodoPagamento === 'mpesa' ? 'mpesa' : 'transferencia';
-      setManualSession({ id: data.session.id, metodoPagamento: manualMetodo });
+      setManualSession({ id: data.session.id, metodoPagamento: manualMetodo, totalMt: Number(data.session.total_mt) || undefined });
       if (manualMetodo === 'mpesa') {
         setMpesaPassoValor(Number(data.session.total_mt) || undefined);
         setMpesaPassoId(data.session.id);
@@ -650,7 +680,6 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
   // abaixo, que servem só para compras novas.
   if (renewalId) {
     if (isAuthenticated === false) {
-      router.push(`/login?redirect=${encodeURIComponent(`/checkout?renewalId=${renewalId}`)}`);
       return (
         <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-zinc-950">
           <Spinner className="w-10 h-10" />
@@ -785,12 +814,20 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
           <ManualPaymentUploadStep
             uploadUrl={`/api/checkout/${manualSession.id}/comprovativo`}
             metodoPagamento={manualSession.metodoPagamento}
+            valorMt={manualSession.totalMt}
+            referencia={referenciaPedido(manualSession.id)}
+            jaEnviado={manualSession.comprovativoEnviado}
+            motivoNovoComprovativo={manualSession.motivo}
             avisoTeste={mpesaAvisoTeste}
             onContinue={async () => {
               const { data: { session: refreshedSession } } = await supabase.auth.refreshSession();
               router.push(redirectPathForSession(refreshedSession));
             }}
           />
+        ) : !isEncomenda && !carrinhoLido ? (
+          <div className="flex items-center justify-center py-24">
+            <Spinner className="w-10 h-10" />
+          </div>
         ) : !isEncomenda && items.length === 0 ? (
           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg p-12 text-center max-w-lg mx-auto space-y-6 shadow-sm">
             <ShoppingCart className="w-16 h-16 text-slate-300 dark:text-zinc-700 mx-auto" />
@@ -817,7 +854,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg p-6 shadow-sm">
                     <p className="text-[11px] font-bold uppercase tracking-wide text-red-600 dark:text-red-400 flex items-center gap-1.5 mb-3">
-                      <Building2 className="w-3.5 h-3.5" /> Faturado Por
+                      <Building2 className="w-3.5 h-3.5" /> Facturado Por
                     </p>
                     <p className="font-bold text-slate-800 dark:text-zinc-100 text-sm">VisualDESIGN Services, Lda.</p>
                     <p className="text-xs text-slate-500 dark:text-zinc-400 mt-2 leading-relaxed">
@@ -833,7 +870,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                   <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg p-6 shadow-sm">
                     <div className="flex items-center justify-between mb-3">
                       <p className="text-[11px] font-bold uppercase tracking-wide text-red-600 dark:text-red-400 flex items-center gap-1.5">
-                        <UserCircle className="w-3.5 h-3.5" /> Faturado Para
+                        <UserCircle className="w-3.5 h-3.5" /> Facturado Para
                       </p>
                       {!editingProfile && !buyingAs && (
                         <button type="button" onClick={startEditingProfile} className="text-[10px] font-bold text-slate-400 hover:text-red-600 dark:hover:text-red-400">
@@ -919,7 +956,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                 <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg p-10 text-center space-y-4 shadow-sm">
                   <Spinner className="w-12 h-12 mx-auto" />
                   <h3 className="text-lg font-bold text-slate-800 dark:text-zinc-100 font-panel">
-                    {status === 'registering' ? 'A criar a sua conta...' : isEncomenda ? 'A registar a encomenda...' : 'A abrir o pagamento seguro da Stripe...'}
+                    {status === 'registering' ? 'A criar a sua conta...' : isEncomenda ? 'A registar a encomenda...' : 'A abrir o pagamento seguro...'}
                   </h3>
                 </div>
               )}
@@ -994,7 +1031,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                             <input type="text" value={accountForm.name} onChange={e => setAccountForm(p => ({ ...p, name: e.target.value }))} className="w-full px-4 py-2 border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 text-slate-800 dark:text-zinc-100 rounded-md text-sm outline-none focus:ring-1 focus:ring-blue-500" />
                           </div>
                           <div>
-                            <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 mb-1.5 block">Sobrenome</label>
+                            <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 mb-1.5 block">Apelido</label>
                             <input type="text" value={accountForm.sobrenome} onChange={e => setAccountForm(p => ({ ...p, sobrenome: e.target.value }))} className="w-full px-4 py-2 border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 text-slate-800 dark:text-zinc-100 rounded-md text-sm outline-none focus:ring-1 focus:ring-blue-500" />
                           </div>
                           <div>
@@ -1002,10 +1039,10 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                             <input type="email" value={accountForm.email} onChange={e => setAccountForm(p => ({ ...p, email: e.target.value }))} className="w-full px-4 py-2 border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 text-slate-800 dark:text-zinc-100 rounded-md text-sm outline-none focus:ring-1 focus:ring-blue-500" />
                           </div>
                           <div>
-                            <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 mb-1.5 block">Telefone</label>
+                            <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 mb-1.5 block">Telefone *</label>
                             <div className="flex border border-slate-200 dark:border-zinc-800 rounded-md bg-slate-50 dark:bg-zinc-950 overflow-hidden focus-within:ring-1 focus-within:ring-blue-500">
                               <div className="relative flex items-center border-r border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-900">
-                                <select className="pl-3 pr-8 py-2 bg-transparent text-sm text-slate-700 dark:text-zinc-300 outline-none cursor-pointer appearance-none w-full h-full">
+                                <select value={telefonePrefixo} onChange={(e) => setTelefonePrefixo(e.target.value)} className="pl-3 pr-8 py-2 bg-transparent text-sm text-slate-700 dark:text-zinc-300 outline-none cursor-pointer appearance-none w-full h-full">
                                   <option value="+258">🇲🇿 +258</option>
                                   <option value="+244">🇦🇴 +244</option>
                                   <option value="+351">🇵🇹 +351</option>
@@ -1040,24 +1077,18 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                             <input type="text" value={accountForm.empresa} onChange={e => setAccountForm(p => ({ ...p, empresa: e.target.value }))} className="w-full px-4 py-2 border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 text-slate-800 dark:text-zinc-100 rounded-md text-sm outline-none focus:ring-1 focus:ring-blue-500" />
                           </div>
                           <div>
-                            <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 mb-1.5 block">Endereço</label>
+                            <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 mb-1.5 block">Morada{carrinhoTemDominio ? ' *' : ''}</label>
                             <input type="text" value={accountForm.endereco} onChange={e => setAccountForm(p => ({ ...p, endereco: e.target.value }))} className="w-full px-4 py-2 border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 text-slate-800 dark:text-zinc-100 rounded-md text-sm outline-none focus:ring-1 focus:ring-blue-500" />
                           </div>
                           <div>
-                            <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 mb-1.5 block">Endereço 2</label>
+                            <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 mb-1.5 block">Morada (continuação)</label>
                             <input type="text" value={accountForm.endereco2} onChange={e => setAccountForm(p => ({ ...p, endereco2: e.target.value }))} className="w-full px-4 py-2 border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 text-slate-800 dark:text-zinc-100 rounded-md text-sm outline-none focus:ring-1 focus:ring-blue-500" />
                           </div>
                           <div className="grid grid-cols-2 gap-4">
                             <div>
-                              <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 mb-1.5 block">Cidade</label>
+                              <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 mb-1.5 block">Cidade{carrinhoTemDominio ? ' *' : ''}</label>
                               <input type="text" value={accountForm.cidade} onChange={e => setAccountForm(p => ({ ...p, cidade: e.target.value }))} className="w-full px-4 py-2 border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 text-slate-800 dark:text-zinc-100 rounded-md text-sm outline-none focus:ring-1 focus:ring-blue-500" />
                             </div>
-                            <div>
-                              <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 mb-1.5 block">Código Postal</label>
-                              <input type="text" value={accountForm.codigoPostal} onChange={e => setAccountForm(p => ({ ...p, codigoPostal: e.target.value }))} className="w-full px-4 py-2 border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 text-slate-800 dark:text-zinc-100 rounded-md text-sm outline-none focus:ring-1 focus:ring-blue-500" />
-                            </div>
-                          </div>
-                          <div className="grid grid-cols-2 gap-4">
                             <div>
                               <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 mb-1.5 block">Província</label>
                               <select value={accountForm.estado} onChange={e => setAccountForm(p => ({ ...p, estado: e.target.value }))} className="w-full px-4 py-2 border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 text-slate-800 dark:text-zinc-100 rounded-md text-sm outline-none focus:ring-1 focus:ring-blue-500">
@@ -1067,6 +1098,8 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                                 ))}
                               </select>
                             </div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
                             <div>
                               <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 mb-1.5 block">País</label>
                               <input type="text" value="Moçambique" disabled readOnly className="w-full px-4 py-2 border border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-900 text-slate-500 dark:text-zinc-400 rounded-md text-sm outline-none cursor-not-allowed" />
@@ -1255,10 +1288,10 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                         </div>
                         <div>
                           <h4 className="font-bold text-sm text-indigo-800 dark:text-indigo-300">
-                            Pagamento seguro por cartão (Stripe)
+                            Pagamento seguro por cartão
                           </h4>
                           <p className="text-xs text-indigo-600 dark:text-indigo-400 mt-1 leading-relaxed">
-                            Ao clicar em "Pagar", será encaminhado para a página segura da Stripe para introduzir os dados do cartão. Este site nunca vê nem guarda o número do seu cartão.
+                            Ao clicar em "Pagar", será encaminhado para a página segura de pagamento para introduzir os dados do cartão. Este site nunca vê nem guarda o número do seu cartão.
                           </p>
                         </div>
                       </div>
@@ -1425,10 +1458,10 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                         className="w-full flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold py-3 rounded-md transition-colors cursor-pointer"
                       >
                         <Smartphone className="w-4 h-4" />
-                        Pagar Agora
+                        Pagar com
                         <span className="italic font-black tracking-tight">m-pesa</span>
                       </button>
-                      <p className="text-[11px] text-center text-slate-400 dark:text-zinc-500">Clique aqui para Pagar com M-Pesa</p>
+                      <p className="text-[11px] text-center text-slate-400 dark:text-zinc-500">O pedido fica registado e depois envia o valor e o comprovativo.</p>
                     </div>
                   )}
                   {metodoPagamento === 'transferencia' && !(isEncomenda && !encomendaTemValor) && (
@@ -1440,7 +1473,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                   )}
                   {metodoPagamento === 'stripe' && (
                     <p className="text-slate-500 dark:text-zinc-400 text-xs leading-relaxed">
-                      Clique em "Pagar {payTotalLabel}" à esquerda para continuar para a página segura da Stripe.
+                      Clique em "Pagar {payTotalLabel}" à esquerda para continuar para a página segura de pagamento.
                     </p>
                   )}
                 </div>
@@ -1449,22 +1482,13 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                   <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-500 dark:text-zinc-400 bg-slate-100 dark:bg-zinc-800 px-2 py-1 rounded">
                     <ShieldCheck className="w-3.5 h-3.5 text-green-600" /> SSL Seguro
                   </span>
-                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-500 dark:text-zinc-400 bg-slate-100 dark:bg-zinc-800 px-2 py-1 rounded">
-                    <BadgeCheck className="w-3.5 h-3.5 text-green-600" /> PCI Compliant
-                  </span>
                 </div>
               </div>
 
               <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg overflow-hidden shadow-sm">
                 <p className="px-5 pt-4 pb-1 text-xs font-bold uppercase tracking-wide text-slate-600 dark:text-zinc-300 flex items-center gap-1.5">
-                  <Zap className="w-3.5 h-3.5" /> Ações Rápidas
+                  <Zap className="w-3.5 h-3.5" /> Acções Rápidas
                 </p>
-                <button type="button" onClick={() => window.print()} className="w-full flex items-center gap-2.5 px-5 py-3 text-sm text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 hover:text-red-600 dark:hover:text-red-400 cursor-pointer border-t border-slate-100 dark:border-zinc-800">
-                  <Printer className="w-4 h-4 text-slate-400" /> Imprimir Fatura
-                </button>
-                <button type="button" onClick={() => window.print()} className="w-full flex items-center gap-2.5 px-5 py-3 text-sm text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 hover:text-red-600 dark:hover:text-red-400 cursor-pointer border-t border-slate-100 dark:border-zinc-800">
-                  <FileDown className="w-4 h-4 text-slate-400" /> Download PDF
-                </button>
                 <button type="button" onClick={() => (painel ? painel.voltar() : router.push(isEncomenda ? destinoDepoisDoPagamento('/encomendas') : PUBLIC_PANEL_ENTRY))} className="w-full flex items-center gap-2.5 px-5 py-3 text-sm text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 hover:text-red-600 dark:hover:text-red-400 cursor-pointer border-t border-slate-100 dark:border-zinc-800">
                   <ArrowLeft className="w-4 h-4 text-slate-400" /> Retornar ao Painel
                 </button>
@@ -1491,7 +1515,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                     </p>
                     <div className="border-t border-dashed border-slate-200 dark:border-zinc-800 my-3" />
                     <p className="text-xs text-slate-500 dark:text-zinc-400 leading-relaxed">
-                      Pagamentos por Cartão (Stripe) são confirmados e activados automaticamente.
+                      Pagamentos por cartão são confirmados e activados automaticamente.
                     </p>
                   </>
                 )}
@@ -1542,14 +1566,20 @@ function MpesaTesteStep({ sessionId, valorMt, onDone }: { sessionId: string; val
     }
     setError('');
     setFase('a-pagar');
+    // Não espera mais de 20 s: o resultado do teste não muda o que o cliente tem de fazer a seguir.
+    const ctrl = new AbortController();
+    const limite = setTimeout(() => ctrl.abort(), 20_000);
     try {
       await fetch('/api/checkout/mpesa-teste', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sessionId, msisdn }),
+        signal: ctrl.signal,
       });
     } catch {
-      // O resultado do teste não muda o que o cliente tem de fazer a seguir.
+      // idem
+    } finally {
+      clearTimeout(limite);
     }
     onDone(true);
   };
@@ -1617,6 +1647,9 @@ function ManualPaymentUploadStep({
   uploadFields,
   metodoPagamento,
   valorMt,
+  referencia,
+  jaEnviado = false,
+  motivoNovoComprovativo,
   avisoTeste,
   successMessage = 'Aguarde a aprovação da nossa equipa para aceder à gestão do(s) seu(s) produto(s).',
   onSent,
@@ -1627,6 +1660,12 @@ function ManualPaymentUploadStep({
   uploadFields?: Record<string, string>;
   metodoPagamento: 'mpesa' | 'transferencia';
   valorMt?: number;
+  /** Referência do pedido, a escrever na transferência/M-Pesa para a equipa reconhecer o pagamento. */
+  referencia?: string;
+  /** O comprovativo já foi enviado (o cliente voltou a abrir o pedido): mostra só o estado. */
+  jaEnviado?: boolean;
+  /** A equipa pediu outro comprovativo: o motivo. */
+  motivoNovoComprovativo?: string | null;
   /** M-Pesa de teste já percorrido: avisa que nada foi deduzido. */
   avisoTeste?: boolean;
   successMessage?: string;
@@ -1638,7 +1677,7 @@ function ManualPaymentUploadStep({
 }) {
   const [file, setFile] = useState<File | null>(null);
   const [sending, setSending] = useState(false);
-  const [sent, setSent] = useState(false);
+  const [sent, setSent] = useState(jaEnviado);
   const [error, setError] = useState('');
   const [enteringPanel, setEnteringPanel] = useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -1700,6 +1739,9 @@ function ManualPaymentUploadStep({
             {valorMt ? (
               <p className="pb-1">Valor a pagar: <span className="font-mono font-bold">{formatMt(valorMt)} MT</span></p>
             ) : null}
+            {referencia ? (
+              <p className="pb-1">Referência (indique-a no pagamento): <span className="font-mono font-bold">{referencia}</span></p>
+            ) : null}
             {metodoPagamento === 'mpesa' ? (
               <p>Envie o valor para <span className="font-mono font-bold">{MPESA_NUMBER}</span>.</p>
             ) : (
@@ -1710,6 +1752,12 @@ function ManualPaymentUploadStep({
               </>
             )}
           </div>
+
+          {motivoNovoComprovativo && (
+            <div className="bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900 rounded-lg p-4 text-sm text-rose-800 dark:text-rose-300">
+              A equipa pediu outro comprovativo: {motivoNovoComprovativo}
+            </div>
+          )}
 
           {avisoTeste && (
             <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded-lg p-4 text-sm text-slate-700 dark:text-zinc-300 space-y-1">

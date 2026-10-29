@@ -15,6 +15,8 @@ type Compra = {
   metodo_pagamento: string;
   status: 'pending' | 'paid' | 'failed' | 'expired' | string;
   created_at: string;
+  comprovativo_url?: string | null;
+  rejection_reason?: string | null;
   /** Algum serviço desta compra já passou da data sem ser renovado (ver a rota). */
   renovacao_url: string | null;
 };
@@ -109,6 +111,16 @@ export function MinhasComprasSection() {
                       <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${meta.className}`}>{meta.label}</span>
                       {compra.renovacao_url && (
                         <a href={compra.renovacao_url} className={LINK}>Renovar</a>
+                      )}
+                      {compra.status === 'pending' && compra.metodo_pagamento !== 'stripe' && (
+                        <a href="/vhost:2026#pedidos-pendentes" className={LINK}>
+                          {compra.comprovativo_url ? 'Ver pedido' : 'Anexar comprovativo'}
+                        </a>
+                      )}
+                      {compra.status === 'failed' && compra.rejection_reason && (
+                        <span className="text-xs text-gray-500 dark:text-zinc-400" title={compra.rejection_reason}>
+                          {compra.rejection_reason}
+                        </span>
                       )}
                     </div>
                   </td>
