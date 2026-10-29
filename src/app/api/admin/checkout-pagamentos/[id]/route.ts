@@ -116,12 +116,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     // Confirmar é o gatilho final: quem comprou sem conta só recebe o login agora (e a seguir a hospedagem).
     let dono: string | null = session.user_id || null;
     let contaCriada = false;
+    let avisosServidor: string[] = [];
     if (status === 'paid') {
       const r = await donoDoPedidoAoAprovar(supabase, session);
       dono = r.userId;
       contaCriada = r.contaCriada;
       // o pedido inteiro vai como contexto: a conta «só domínio» não pode ser criada por o item confirmado primeiro ser o domínio
-      await fulfillCheckout(supabase, dono, [item], session.metodo_pagamento, items);
+      const feito = await fulfillCheckout(supabase, dono, [item], session.metodo_pagamento, items, { esperarServidor: true });
+      avisosServidor = feito.avisos || [];
     }
 
     const updatedItems = items.map((it, idx) =>
@@ -154,7 +156,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       motivo,
     });
 
-    return NextResponse.json({ success: true, pedido: data });
+    return NextResponse.json({ success: true, pedido: data, avisos: avisosServidor });
   } catch (error: any) {
     console.error('[admin/checkout-pagamentos PATCH] error:', error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });

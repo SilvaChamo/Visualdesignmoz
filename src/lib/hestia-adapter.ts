@@ -138,7 +138,11 @@ export async function createAccount(input: {
   if (input.passarDeContas?.length) {
     const { dominioParaConta } = await import('@/lib/vhost-passar');
     const est = await dominioParaConta(input.username, input.domain, input.passarDeContas, input.quem || 'compra');
-    if (est.estado === 'falhou') return { ok: false, error: est.erro };
+    // Um domínio que não consegue passar para a conta nova nunca impede a conta de existir (Silva, 29/10/2026: «o domínio estando noutra
+    // conta não pode impedir criar a conta»): a conta fica criada e a equipa é avisada de que o domínio tem de ser passado.
+    if (est.estado === 'falhou') {
+      return { ok: true, aviso: `A conta ${input.username} ficou criada, mas o domínio ${input.domain} não passou para ela: ${est.erro} O administrador tem de o passar.` };
+    }
     if (est.estado === 'noutra-conta') {
       return { ok: true, aviso: `O domínio ${input.domain} está na conta ${est.dono}; a conta ${input.username} ficou criada sem ele. O administrador tem de decidir.` };
     }

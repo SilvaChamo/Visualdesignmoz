@@ -101,6 +101,8 @@ export async function provisionPanelAccountToServer(userName: string, opcoes: { 
   ok: boolean;
   linked: boolean;
   error?: string;
+  /** a conta ficou criada, mas houve algo a decidir (ex.: o domínio está noutra conta) */
+  aviso?: string;
 }> {
   const sb = getDaSyncAdmin();
   if (!sb) return { ok: false, linked: false, error: 'Base de dados indisponível' };
@@ -243,7 +245,7 @@ export async function provisionPanelAccountToServer(userName: string, opcoes: { 
     })().catch((err) => console.error('[panel-server-provision] retry SSL:', err));
   }
 
-  return { ok: true, linked: true };
+  return { ok: true, linked: true, ...(aviso ? { aviso } : {}) };
 }
 
 export async function provisionPendingPanelAccounts(): Promise<{

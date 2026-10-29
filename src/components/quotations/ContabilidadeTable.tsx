@@ -1218,6 +1218,7 @@ function CheckoutItemsByType({ types }: { types: string[] }) {
       })
       const data = await res.json()
       if (!data.success) throw new Error(data.error || 'Não foi possível actualizar o item.')
+      if (data.avisos?.length) window.alert('Pagamento confirmado, mas atenção:\n' + data.avisos.join('\n'))
       load()
     } catch (error: any) {
       window.alert(error.message || 'Falha ao comunicar com o servidor.')
