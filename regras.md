@@ -878,6 +878,16 @@ nível Revenda parte dessa lista ou de uma rota que a aplica no servidor; **nunc
   (`juntarActualizacoesDoAdmin`) quando a versão guardada difere da instalada. **Só funciona em sites com o mu-plugin novo e depois de alguém abrir o administrador do WordPress uma vez.** Para pôr o mu-plugin novo num site antigo sem tocar no resto: `VD_SO_MU=1 bash wp-cache-on-site.sh <pasta>`.
   O botão «Actualizar» do painel continua a usar o wp-cli e não actualiza plugins pagos sem licença.
 
+# Compra por M-Pesa/Transferência e o painel de quem acabou de comprar (Silva, 29/10/2026)
+
+- **O painel segue o produto comprado:** só domínio → painel só do domínio (pacote `VD-Dominio`: Domínios, DNS, compras e suporte) com as ofertas dos outros produtos; hospedagem ou e-mail → o painel do pacote pago (`pacotes-compra.ts` é a tabela única de produto → pacote, usada pela activação e pelo painel).
+- **Pagamento automático (cartão, saldo):** o cliente volta ao início do painel (`/vhost:2026`); até o servidor criar a conta vê «a preparar o seu serviço» e o painel abre sozinho (lê de 8 em 8 s).
+- **Pagamento manual (comprovativo):** o percurso é o mesmo (checkout → comprovativo → painel). No painel a conta é **provisória** (`vhost-compra-pendente.ts`, `CONTA_PROVISORIA` em `vhost-dados.ts`): vê o painel do pacote pago, mas só abrem o início, as compras e o suporte (`fechadoAteConfirmar` em `state.ts`; o resto do menu fica com cadeado e abre «a aguardar a confirmação do pagamento»). Quando a equipa confirma, o servidor cria a conta real e o painel destranca-se sozinho. A conta provisória **nunca** serve a equipa (administrador, revendedor, gestor) nem autoriza chamadas ao servidor.
+- **Equipa (Contabilidade › Domínios / Hospedagem / E-mails):** «Confirmar» sem comprovativo pede confirmação expressa (o servidor recusa sem `semComprovativo`); «Novo comprovativo» devolve o item ao cliente com o motivo; «Rejeitar» é definitivo. Em qualquer caso o cliente é avisado no painel e por e-mail (`notify-checkout-client.ts`). Confirma-se um pedido de cada vez (bloqueio em memória; o site corre num só processo). A conta «só domínio» decide-se olhando para o pedido inteiro (`itensDoPedido` em `fulfillCheckout`).
+- **Referência do pedido** (`referenciaPedido`: 8 caracteres): aparece no passo do comprovativo, nos pedidos pendentes, no aviso e no e-mail; o cliente escreve-a no pagamento. Pedidos de M-Pesa/Transferência **sem comprovativo expiram aos 30 dias** (cron diário das renovações); nada se apaga.
+- **Comprovativos só em imagem ou PDF** (`comprovativo-ficheiro.ts`, validado no servidor). O preço de um domínio só vale se o `id` for igual ao `name` (`package-catalog.ts`).
+- **O passo do número M-Pesa de teste está desligado** para os clientes (liga-se com `MPESA_PASSO_TESTE=1` junto de `MPESA_ENV=sandbox`). Fica por fazer, e depende da operadora entregar a API verdadeira: a cobrança automática do cliente (`mpesa-pay`, hoje só administradores) e a autenticação do `webhook/mpesa` (hoje sem assinatura) — não abrir o webhook em produção sem isso.
+
 # Autenticação em 2 passos (opcional — Silva, 21/10/2026)
 
 - **Nunca obrigatória**: só afecta quem a liga em Perfil › Autenticação em 2 passos (aplicação de autenticação, TOTP do Supabase;
