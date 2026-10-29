@@ -971,3 +971,5 @@ Repete isto para cada secção/UI em que trabalhares — não só para esta func
 ## Quem é administrador (Silva, 29/10/2026)
 
 Só **silva.chamo@gmail.com** e **admin@visualdesignmoz.com** são administradores por defeito (`ADMIN_BOOTSTRAP_EMAILS` em `panel-user-registry.ts`). Qualquer outro e-mail — incluindo `silvanochamo@gmail.com` e `silva.chamo@visualdesignmoz.com` — entra como cliente, a não ser que o perfil na base de dados (`profiles.role = 'admin'`) o torne administrador. Para testar compras como cliente, usar um e-mail fora desta lista.
+
+- **`panel_auth_accounts.role` não aceita «profissional»** (29/10/2026): a tabela só tem admin/manager/reseller/client/guest; `upsertPanelAuthAccount` grava «client» para os planos Pro, Business e Enterprise. Era o que impedia criar a conta (e o login) de quem comprava um plano Pro («violates check constraint panel_auth_accounts_role_check»).
