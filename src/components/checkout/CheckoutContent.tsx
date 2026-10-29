@@ -1268,11 +1268,16 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                           <h3 className="text-xs font-bold uppercase tracking-wide text-slate-700 dark:text-zinc-300 pb-3 border-b border-slate-100 dark:border-zinc-800">
                             Dados da Pessoa Responsável
                           </h3>
+                          <div className="grid grid-cols-2 gap-3">
                           <CampoIcone icone={User}>
                             <input type="text" aria-label="Nome" placeholder="Nome *" value={accountForm.name} onChange={e => setAccountForm(p => ({ ...p, name: e.target.value }))} className={campoCls} />
                           </CampoIcone>
                           <CampoIcone icone={User}>
                             <input type="text" aria-label="Apelido" placeholder="Apelido" value={accountForm.sobrenome} onChange={e => setAccountForm(p => ({ ...p, sobrenome: e.target.value }))} className={campoCls} />
+                          </CampoIcone>
+                          </div>
+                          <CampoIcone icone={Briefcase}>
+                            <input type="text" aria-label="Cargo" placeholder="Cargo" value={accountForm.cargo} onChange={e => setAccountForm(p => ({ ...p, cargo: e.target.value }))} className={campoCls} />
                           </CampoIcone>
                           <CampoIcone icone={Mail}>
                             <input type="email" aria-label="E-mail" placeholder="E-mail *" disabled={isAuthenticated === true && !comoVisitante} value={isAuthenticated === true && !comoVisitante && authUser?.email ? authUser.email : accountForm.email} onChange={e => setAccountForm(p => ({ ...p, email: e.target.value }))} className={campoCls} />
@@ -1290,9 +1295,6 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                             </div>
                             <input type="tel" aria-label="Telefone" placeholder="Telefone *" value={accountForm.telefone} onChange={e => setAccountForm(p => ({ ...p, telefone: e.target.value }))} className={campoCls} />
                           </div>
-                          <CampoIcone icone={Briefcase}>
-                            <input type="text" aria-label="Cargo" placeholder="Cargo" value={accountForm.cargo} onChange={e => setAccountForm(p => ({ ...p, cargo: e.target.value }))} className={campoCls} />
-                          </CampoIcone>
                           {(isAuthenticated !== true || comoVisitante) && (
                           <CampoIcone icone={KeyRound}>
                             <input type={showPassword ? 'text' : 'password'} aria-label="Palavra-passe" placeholder="Palavra-passe (6 a 20 caracteres) *" maxLength={20} autoComplete="new-password" value={accountForm.password} onChange={e => setAccountForm(p => ({ ...p, password: e.target.value }))} className={campoCls} />
