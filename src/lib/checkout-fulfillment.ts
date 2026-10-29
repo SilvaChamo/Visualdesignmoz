@@ -3,7 +3,7 @@ import { createClient as createAdminClient } from '@supabase/supabase-js';
 import type { CatalogCartItem } from '@/lib/package-catalog';
 import { generateProvisionerPassword } from '@/lib/reseller-auto-provision';
 import { sanitizeDaUsername } from '@/lib/reseller-provision';
-import { encryptDaSecret } from '@/lib/da-credential-store';
+import { decryptDaSecret, encryptDaSecret } from '@/lib/da-credential-store';
 import { upsertPanelAuthAccount } from '@/lib/panel-auth-accounts';
 import { upsertMirrorUser, upsertMirrorSite } from '@/lib/panel-mirror-write';
 import { provisionPanelAccountToServer } from '@/lib/panel-server-provision';
@@ -16,22 +16,14 @@ import { after } from 'next/server';
 import { getProfileForAuthUser, saveProfileForAuthUser } from '@/lib/profile-db';
 import { buyerRoleForPackage, isProfissionalHostingPlan } from '@/lib/user-roles';
 import { emailPlanProductName, getEmailPlan } from '@/lib/email-plans';
+import {
+  FALLBACK_HOSTING_PACKAGE_NAME,
+  hostingPackageNamesForPlan,
+} from '@/lib/hosting-plan-packages';
 
 // Pacote dedicado por plano — tem de corresponder aos `defaultPackageName` de
 // HOSTING_PLAN_PRESETS em reseller-package-form.ts, que é o que a secção
 // "Pacotes" do admin cria de facto no DirectAdmin.
-const HOSTING_PLAN_PACKAGE_NAMES: Record<string, string> = {
-  'hosting-basico': 'VD-Host-Basico',
-  'hosting-pro': 'VD-Host-Pro',
-  'hosting-business': 'VD-Host-Business',
-  'hosting-enterprise': 'VD-Host-Enterprise',
-};
-
-// Pacote de recurso, confirmado a existir sempre no servidor — usado enquanto
-// o pacote dedicado de um plano ainda não tiver sido criado lá (ver
-// resolveHostingPackageName).
-const FALLBACK_PACKAGE = 'VisualDESIGN';
-
 /**
  * Qual servidor de hospedagem recebe as contas NOVAS a partir de agora.
  * Só fica 'hestia' na instância do Contabo (variável definida só no
@@ -79,15 +71,25 @@ async function listRealPackageNames(provider: 'directadmin' | 'hestia'): Promise
  * planos está a funcionar.
  */
 async function resolveHostingPackageName(planId: string, provider: 'directadmin' | 'hestia'): Promise<string> {
-  const desired = HOSTING_PLAN_PACKAGE_NAMES[planId];
-  if (!desired) return FALLBACK_PACKAGE;
+  const candidates = hostingPackageNamesForPlan(planId);
+  const fallback = provider === 'hestia' ? 'default' : FALLBACK_HOSTING_PACKAGE_NAME;
   const realNames = await listRealPackageNames(provider);
-  if (realNames.has(desired)) return desired;
+  const packageByLowerName = new Map([...realNames].map((name) => [name.toLowerCase(), name]));
+  const availablePackage = candidates
+    .map((name) => packageByLowerName.get(name.toLowerCase()))
+    .find((name): name is string => Boolean(name));
+  if (availablePackage) return availablePackage;
+  if (candidates.length === 0) {
+    const availableFallback = packageByLowerName.get(fallback.toLowerCase());
+    if (availableFallback) return availableFallback;
+    throw new Error(`O pacote de alojamento "${fallback}" não existe no servidor.`);
+  }
+  const message = `O plano "${planId}" não tem pacote correspondente no servidor. Esperado: ${candidates.join(' ou ')}.`;
   await alertAdminOfTrackingFailure(
     'pacote de hospedagem em falta',
-    `O plano "${planId}" devia usar o pacote "${desired}" no ${provider === 'hestia' ? 'HestiaCP' : 'DirectAdmin'}, mas esse pacote ainda não existe no servidor — a conta foi criada com "${FALLBACK_PACKAGE}" em vez disso, sem os limites do plano vendido. Cria o pacote "${desired}" para este plano ficar realmente diferenciado.`,
+    message,
   );
-  return FALLBACK_PACKAGE;
+  throw new Error(message);
 }
 
 /**
@@ -98,15 +100,45 @@ async function resolveHostingPackageName(planId: string, provider: 'directadmin'
  * que faz a sincronização real de forma assíncrona e best-effort, com nova
  * tentativa automática mais tarde se falhar).
  */
-async function pickAvailableMirrorUsername(base: string): Promise<string> {
+async function pickAvailableMirrorUsername(base: string, userId: string, domain: string): Promise<string> {
   const sb = getDaSyncAdmin();
   const sanitized = sanitizeDaUsername(base);
-  if (!sb) return sanitized;
-  for (const candidate of [sanitized, `${sanitized}1`, `${sanitized}2`, `${sanitized}${Date.now().toString().slice(-4)}`]) {
-    const { data } = await sb.from('panel_users').select('username').eq('username', candidate).maybeSingle();
-    if (!data) return candidate;
+  if (!sb) throw new Error('Base de dados indisponível para registar a conta no painel.');
+
+  const { data: existingSite, error: siteError } = await sb
+    .from('panel_sites')
+    .select('owner')
+    .eq('domain', domain)
+    .maybeSingle();
+  if (siteError) throw new Error(`Não foi possível verificar o domínio no painel: ${siteError.message}`);
+  if (existingSite?.owner) {
+    const { data: existingOwner, error: ownerError } = await sb
+      .from('panel_users')
+      .select('auth_user_id')
+      .eq('username', existingSite.owner)
+      .maybeSingle();
+    if (ownerError) throw new Error(`Não foi possível verificar a conta do domínio: ${ownerError.message}`);
+    if (existingOwner?.auth_user_id !== userId) {
+      throw new Error('O domínio já está associado a outra conta do painel.');
+    }
+    return String(existingSite.owner);
   }
-  return `${sanitized}${Date.now().toString().slice(-6)}`;
+
+  const candidates = [sanitized, `${sanitized}1`, `${sanitized}2`];
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const suffix = `${Date.now().toString(36)}${attempt}`;
+    const candidate = candidates[attempt] || sanitizeDaUsername(
+      `${sanitized.slice(0, Math.max(1, 20 - suffix.length))}${suffix}`,
+    );
+    const { data, error } = await sb
+      .from('panel_users')
+      .select('username, auth_user_id')
+      .eq('username', candidate)
+      .maybeSingle();
+    if (error) throw new Error(`Não foi possível verificar o utilizador do painel: ${error.message}`);
+    if (!data || data.auth_user_id === userId) return candidate;
+  }
+  throw new Error('Não foi possível encontrar um utilizador livre para esta conta de hospedagem.');
 }
 
 /** Mesma validação usada no checkout (#6) — reaproveitada pelo #32 (completar hospedagens pendentes). */
@@ -137,8 +169,18 @@ export async function provisionHostingAccountOnPanel(params: {
 }): Promise<{ ok: boolean; daUsername: string; password: string; error?: string }> {
   const { admin, userId, email, displayName, domainName, packageName, renewalId } = params;
   try {
-    const password = params.sharedPassword || generateProvisionerPassword();
-    const daUsername = await pickAvailableMirrorUsername(domainName.split('.')[0] || email.split('@')[0]);
+    const daUsername = await pickAvailableMirrorUsername(
+      domainName.split('.')[0] || email.split('@')[0],
+      userId,
+      domainName,
+    );
+
+    const existingProfile = await getProfileForAuthUser(admin, userId, email);
+    const reusablePassword =
+      existingProfile?.da_username === daUsername && existingProfile.da_password_encrypted
+        ? decryptDaSecret(existingProfile.da_password_encrypted)
+        : '';
+    const password = params.sharedPassword || reusablePassword || generateProvisionerPassword();
 
     const { saveProfileForAuthUser: savePassword } = await import('@/lib/profile-db');
     await savePassword(admin, userId, {
@@ -148,7 +190,6 @@ export async function provisionHostingAccountOnPanel(params: {
     // Painel pelo plano (ver promoteBuyerAfterPurchase): Pro/Business/Enterprise
     // → 'profissional'; Básico → 'client'. Contas da equipa
     // (admin/manager/reseller) ficam como estão.
-    const existingProfile = await getProfileForAuthUser(admin, userId, email);
     const STAFF_ROLES = ['admin', 'manager', 'reseller'];
     const resolvedRole = STAFF_ROLES.includes(existingProfile?.role || '')
       ? (existingProfile!.role as 'admin' | 'manager' | 'reseller')
@@ -164,7 +205,7 @@ export async function provisionHostingAccountOnPanel(params: {
       daUsername: null,
       provider: params.provider,
     });
-    await upsertMirrorUser({
+    const mirrorUser = await upsertMirrorUser({
       username: daUsername,
       email,
       first_name: displayName,
@@ -173,7 +214,9 @@ export async function provisionHostingAccountOnPanel(params: {
       package_name: packageName,
       hosting_provider: params.provider,
     });
-    await upsertMirrorSite({ domain: domainName, owner: daUsername, admin_email: email, package: packageName });
+    if (!mirrorUser.ok) throw new Error(`Não foi possível registar a conta no painel: ${mirrorUser.error || 'erro desconhecido'}`);
+    const mirrorSite = await upsertMirrorSite({ domain: domainName, owner: daUsername, admin_email: email, package: packageName });
+    if (!mirrorSite.ok) throw new Error(`Não foi possível associar o domínio à conta do painel: ${mirrorSite.error || 'erro desconhecido'}`);
 
     const task = async () => {
       const result = await provisionPanelAccountToServer(daUsername);
@@ -374,6 +417,7 @@ export async function fulfillCheckout(
   userId: string,
   items: CatalogCartItem[],
   paymentMethod: string,
+  options: { idempotencyKey?: string } = {},
 ) {
   const today = new Date().toISOString().split('T')[0];
   const total = items.reduce((sum, item) => sum + (item.price || 0), 0);
@@ -613,6 +657,9 @@ export async function fulfillCheckout(
     }
 
     if (item.type === 'hosting') {
+      if (!admin || !email) {
+        throw new Error('Não foi possível identificar a conta de serviço e o e-mail do comprador para provisionar a hospedagem.');
+      }
       // #6: o domínio de destino nunca vem de `name` (nome comercial do
       // plano, ex. "Alojamento Web Básico") — isso fazia a criação da conta
       // no DirectAdmin falhar sempre e a hospedagem ficar presa em
@@ -640,30 +687,57 @@ export async function fulfillCheckout(
       // único estado "ainda não activo" já aceite pelo CHECK constraint de
       // hosting_renewals.status.
       const willProvision = Boolean(admin && email);
-      const { data: renewalRow, error: insErr } = await supabase
-        .from('hosting_renewals')
-        .insert({
-          user_id: userId,
-          domain_name: domainName,
-          package_name: packageName,
-          start_date: today,
-          expiration_date: hostingExpires,
-          renewal_price: item.price,
-          currency: 'MZN',
-          status: willProvision ? 'pending' : 'active',
-          server: hostingProvider === 'hestia' ? 'Hestia' : 'DirectAdmin',
-          notes: `Compra carrinho (${paymentMethod})`,
-        })
-        .select('id')
-        .single();
-      if (insErr) {
-        console.warn('[checkout-fulfillment] hosting_renewals:', insErr.message);
-        await alertAdminOfTrackingFailure('hosting_renewals', insErr.message);
+      const renewalNotes = options.idempotencyKey
+        ? `Compra carrinho (${paymentMethod}) [checkout_item:${options.idempotencyKey}]`
+        : `Compra carrinho (${paymentMethod})`;
+      let renewalRow: { id: string; status?: string } | null = null;
+      let reusedRenewal = false;
+
+      if (options.idempotencyKey) {
+        const { data: existingRenewal, error: lookupError } = await supabase
+          .from('hosting_renewals')
+          .select('id, status')
+          .eq('user_id', userId)
+          .eq('domain_name', domainName)
+          .eq('notes', renewalNotes)
+          .maybeSingle();
+        if (lookupError) {
+          throw new Error(`Não foi possível verificar o registo da hospedagem: ${lookupError.message}`);
+        }
+        if (existingRenewal) {
+          renewalRow = existingRenewal;
+          reusedRenewal = true;
+        }
+      }
+
+      if (!renewalRow) {
+        const { data: insertedRenewal, error: insErr } = await supabase
+          .from('hosting_renewals')
+          .insert({
+            user_id: userId,
+            domain_name: domainName,
+            package_name: packageName,
+            start_date: today,
+            expiration_date: hostingExpires,
+            renewal_price: item.price,
+            currency: 'MZN',
+            status: willProvision ? 'pending' : 'active',
+            server: hostingProvider === 'hestia' ? 'Hestia' : 'DirectAdmin',
+            notes: renewalNotes,
+          })
+          .select('id, status')
+          .single();
+        if (insErr) {
+          console.warn('[checkout-fulfillment] hosting_renewals:', insErr.message);
+          await alertAdminOfTrackingFailure('hosting_renewals', insErr.message);
+          throw new Error(`Não foi possível registar a hospedagem para renovação: ${insErr.message}`);
+        }
+        renewalRow = insertedRenewal;
       }
       created.push(`hospedagem:${domainName}`);
       const renewalId = renewalRow?.id ?? null;
 
-      // Regista a conta no painel (espelho Supabase) já, automaticamente —
+      // Regista a conta no painel já, automaticamente —
       // o cliente é levado para o painel dele logo a seguir ao pagamento, com
       // a hospedagem lá mesmo antes de o servidor confirmar (estado
       // "A provisionar"). A criação real no DirectAdmin corre em segundo
@@ -674,9 +748,9 @@ export async function fulfillCheckout(
       // válido não há nada de real para provisionar — fica 'pending' à
       // espera de um admin associar o domínio certo, em vez de criar uma
       // conta com um domínio inventado (ex.: "<username>.com").
-      if (admin && email && hostingDomainValid) {
+      if (admin && email && hostingDomainValid && renewalRow?.status !== 'active') {
         if (!sharedHostingPassword) sharedHostingPassword = generateProvisionerPassword();
-        await provisionHostingAccountOnPanel({
+        const panelAccount = await provisionHostingAccountOnPanel({
           admin,
           userId,
           email,
@@ -684,10 +758,13 @@ export async function fulfillCheckout(
           domainName,
           packageName,
           renewalId,
-          sharedPassword: sharedHostingPassword,
+          sharedPassword: reusedRenewal ? null : sharedHostingPassword,
           provider: hostingProvider,
           planId: item.id,
         });
+        if (!panelAccount.ok) {
+          throw new Error(`Não foi possível registar a hospedagem no painel: ${panelAccount.error || 'erro desconhecido'}`);
+        }
       }
     }
 

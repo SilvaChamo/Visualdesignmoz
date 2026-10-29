@@ -76,7 +76,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
 
     if (status === 'paid') {
-      await fulfillCheckout(supabase, session.user_id, [item], session.metodo_pagamento);
+      await fulfillCheckout(supabase, session.user_id, [item], session.metodo_pagamento, {
+        idempotencyKey: `${id}:${itemIndex}`,
+      });
     }
 
     const updatedItems = items.map((it, idx) =>
