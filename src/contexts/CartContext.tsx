@@ -52,8 +52,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
     try {
       const saved = localStorage.getItem('vd_cart');
       if (saved) {
-        setItems(JSON.parse(saved));
+        let lidos: CartItem[] = JSON.parse(saved);
+        // Uma versão anterior propunha um nome de utilizador a partir do domínio e guardava-o no carrinho: limpa-se uma só vez,
+        // para o campo abrir vazio. Depois disto só fica o que a pessoa escrever.
+        if (!localStorage.getItem('vd_cart_conta_limpa')) {
+          lidos = lidos.map((i) => (i.contaUtilizador ? { ...i, contaUtilizador: '' } : i));
+          localStorage.setItem('vd_cart', JSON.stringify(lidos));
+        }
+        setItems(lidos);
       }
+      localStorage.setItem('vd_cart_conta_limpa', '1');
     } catch (e) {
       console.error("Failed to load cart from local storage", e);
     }
