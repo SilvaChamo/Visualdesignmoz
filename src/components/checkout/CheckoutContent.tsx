@@ -69,7 +69,7 @@ const HOSTING_CYCLE_MONTHS: Record<HostingBillingCycle, number> = { monthly: 1, 
 const HOSTING_CYCLE_LABELS: Record<HostingBillingCycle, string> = { monthly: 'Mensal', semiannual: 'Semestral', annual: 'Anual' };
 import { checkoutEntryPath } from '@/lib/checkout-flow';
 import { referenciaPedido } from '@/lib/checkout-referencia';
-import { nomeContaValido, sugerirNomeConta, NOME_CONTA_ERRO } from '@/lib/conta-hospedagem';
+import { nomeContaValido, NOME_CONTA_ERRO } from '@/lib/conta-hospedagem';
 import { profileAuthOrFilter } from '@/lib/profile-db';
 import { acrescentarIva, IVA_TAXA } from '@/lib/iva';
 import {
@@ -447,17 +447,8 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
   };
 
   // Cada hospedagem tem a sua conta no servidor (o seu domínio e o seu nome de utilizador), mesmo para quem já tem outra conta.
-  // Propõe-se o nome a partir do domínio; a pessoa pode mudá-lo e vê já se está livre.
+  // O campo começa vazio: quem compra escolhe o nome; vê já se está livre.
   const [contaLivre, setContaLivre] = useState<Record<string, { livre: boolean; msg: string } | 'a-verificar'>>({});
-  useEffect(() => {
-    for (const item of items) {
-      if (item.type === 'hosting' && !item.contaUtilizador && item.hostingDomain) {
-        const sugestao = sugerirNomeConta(item.hostingDomain);
-        if (sugestao) updateItemContaUtilizador(item.id, sugestao);
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items]);
   const nomesContaChave = items.filter((i) => i.type === 'hosting').map((i) => `${i.id}:${i.contaUtilizador || ''}`).join('|');
   useEffect(() => {
     if (isAuthenticated !== true) return;
@@ -767,6 +758,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
           type="text"
           value={item.contaUtilizador || ''}
           maxLength={20}
+          autoComplete="off"
           autoCapitalize="none"
           autoCorrect="off"
           spellCheck={false}
