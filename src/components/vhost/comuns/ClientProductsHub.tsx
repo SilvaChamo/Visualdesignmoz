@@ -36,6 +36,8 @@ type Props = {
   onProductsChanged?: () => void;
   /** Admin dentro da conta do cliente — mostra "Eliminar" nos cartões (limpeza de duplicados). */
   impersonating?: boolean;
+  /** Esconde os cartões de ofertas (registar domínio, e-mail, serviços): só fazem sentido a quem comprou só um domínio. */
+  semOfertas?: boolean;
 };
 
 // Só a contagem interessa aqui — a lista/estado detalhado de cada encomenda
@@ -50,7 +52,7 @@ type Quotation = {
  * o mesmo dashboard do painel Profissional (ResellerDashboard), adaptado a
  * quem não tem site: domínios e planos de email em vez de sites WordPress.
  */
-export function ClientProductsHub({ onNavigate, displayName, sessionUser, onProductsChanged, impersonating = false }: Props) {
+export function ClientProductsHub({ onNavigate, displayName, sessionUser, onProductsChanged, impersonating = false, semOfertas = false }: Props) {
   const [loading, setLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
   const [products, setProducts] = useState<UserProductsSummary | null>(null);
@@ -135,6 +137,7 @@ export function ClientProductsHub({ onNavigate, displayName, sessionUser, onProd
       onNavigate={onNavigate}
       displayName={displayName}
       sessionUser={sessionUser}
+      semOfertas={semOfertas}
       onDeleteRecord={impersonating ? async (record) => {
         const res = await fetch(`/api/admin/impersonate-client/products?kind=${record.kind}&id=${encodeURIComponent(record.id)}`, { method: 'DELETE' });
         const data = await res.json().catch(() => ({}));
@@ -233,6 +236,7 @@ type ViewProps = {
   onNavigate?: ClientNavigate;
   displayName?: string | null;
   sessionUser?: string | null;
+  semOfertas?: boolean;
   /** Só com o admin dentro da conta do cliente — apaga o registo (o cartão), nunca nada no servidor. */
   onDeleteRecord?: (record: { kind: 'domain' | 'hosting'; id: string }) => Promise<void>;
   /** Idem — passa o registo (o cartão) para outra conta. */
@@ -322,6 +326,7 @@ export function ClientDashboardView({
   onNavigate,
   displayName,
   sessionUser,
+  semOfertas = false,
   onDeleteRecord,
   onMoveRecord,
 }: ViewProps) {
@@ -530,7 +535,7 @@ export function ClientDashboardView({
           </div>
         )}
 
-        {(domains.length === 0 || hosting.length === 0 || emailPlans.length === 0 || hasAnything) && (
+        {!semOfertas && (domains.length === 0 || hosting.length === 0 || emailPlans.length === 0 || hasAnything) && (
           <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 shadow-sm space-y-6">
             <div className="border-b border-zinc-200 dark:border-zinc-800" style={{ paddingBottom: 10, marginBottom: 10 }}>
               <div className="dom-titulo-bloco min-w-0">
