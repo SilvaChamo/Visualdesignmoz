@@ -57,9 +57,9 @@ export async function POST(request: NextRequest) {
   if (session.status !== 'pending' || session.metodo_pagamento !== 'mpesa') {
     return NextResponse.json({ error: 'Este pedido não está à espera de pagamento M-Pesa.' }, { status: 409 });
   }
-  // Uma tentativa de teste por pedido.
-  if (session.mpesa_last_response) {
-    return NextResponse.json({ success: true, simulated: true, jaTestado: true });
+  // Já confirmado no telemóvel: não se pede outra vez. Se a tentativa anterior falhou, pede-se de novo.
+  if (String(session.mpesa_last_response || '').startsWith('[teste][ok]')) {
+    return NextResponse.json({ success: true, simulated: true, aprovado: true, jaTestado: true });
   }
 
   // A referência NÃO é gravada em `mpesa_third_party_reference`: se o callback do sandbox chegasse a
@@ -77,8 +77,13 @@ export async function POST(request: NextRequest) {
 
   await admin
     .from('checkout_sessions')
-    .update({ mpesa_last_response: `[teste] ${result.ok ? result.raw : result.raw || result.error}` })
+    .update({ mpesa_last_response: `[teste][${result.ok ? 'ok' : 'falhou'}] ${result.ok ? result.raw : result.raw || result.error}` })
     .eq('id', sessionId);
 
-  return NextResponse.json({ success: true, simulated: true, aprovado: result.ok });
+  return NextResponse.json({
+    success: true,
+    simulated: true,
+    aprovado: result.ok,
+    ...(result.ok ? {} : { erro: 'Não foi possível confirmar o pagamento no M-Pesa. Confirme no telemóvel com o PIN e tente outra vez.' }),
+  });
 }

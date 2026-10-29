@@ -1799,6 +1799,7 @@ function MpesaTesteStep({ sessionId, token, valorMt, onDone }: { sessionId: stri
   const [fase, setFase] = useState<'a-verificar' | 'numero' | 'a-pagar'>('a-verificar');
   const [numero, setNumero] = useState('');
   const [error, setError] = useState('');
+  const [falhas, setFalhas] = useState(0);
 
   useEffect(() => {
     let cancelado = false;
@@ -1823,16 +1824,29 @@ function MpesaTesteStep({ sessionId, token, valorMt, onDone }: { sessionId: stri
     }
     setError('');
     setFase('a-pagar');
+    // O pedido vai para o telemóvel; esta chamada só termina quando a pessoa confirma (ou recusa). Só depois de confirmar
+    // aparece o campo do comprovativo.
+    let aprovado = false;
+    let aviso = 'Não foi possível confirmar o pagamento no M-Pesa. Confirme no telemóvel com o PIN e tente outra vez.';
     try {
-      await fetch('/api/checkout/mpesa-teste', {
+      const res = await fetch('/api/checkout/mpesa-teste', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sessionId, msisdn, ...(token ? { token } : {}) }),
       });
+      const d = await res.json().catch(() => ({}));
+      aprovado = Boolean(d?.aprovado);
+      if (!aprovado && d?.erro) aviso = String(d.erro);
     } catch {
-      // O resultado do teste não muda o que o cliente tem de fazer a seguir.
+      /* fica o aviso */
     }
-    onDone(true);
+    if (aprovado) {
+      onDone(true);
+      return;
+    }
+    setFalhas((n) => n + 1);
+    setError(aviso);
+    setFase('numero');
   };
 
   return (
@@ -1870,6 +1884,15 @@ function MpesaTesteStep({ sessionId, token, valorMt, onDone }: { sessionId: stri
           >
             <Smartphone className="w-4 h-4" /> Pagar com M-Pesa
           </button>
+          {falhas >= 2 && (
+            <button
+              type="button"
+              onClick={() => onDone(true)}
+              className="w-full text-xs font-bold text-slate-500 hover:text-slate-800 dark:text-zinc-400 dark:hover:text-zinc-100 underline"
+            >
+              Já paguei por outra via — continuar para o comprovativo
+            </button>
+          )}
         </>
       )}
 

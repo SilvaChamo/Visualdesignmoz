@@ -44,6 +44,8 @@ export const compras: Record<string, string> = {
  "Não foi possível guardar os dados da conta.": "Could not save the account details.",
  "A nossa equipa vai confirmar o pagamento. Quando estiver confirmado, criamos a sua conta e enviamos-lhe um e-mail com o acesso.": "Our team will confirm the payment. Once it is confirmed, we will create your account and email you the access details.",
  "Voltar ao início": "Back to the home page",
+ "Não foi possível confirmar o pagamento no M-Pesa. Confirme no telemóvel com o PIN e tente outra vez.": "The payment could not be confirmed on M-Pesa. Confirm on your phone with your PIN and try again.",
+ "Já paguei por outra via — continuar para o comprovativo": "I already paid another way — continue to the receipt",
  "Morada *": "Address *",
  "Cidade *": "City *",
  "Província *": "Province *",
