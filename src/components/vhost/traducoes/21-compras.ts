@@ -43,6 +43,7 @@ export const compras: Record<string, string> = {
  "Cidade *": "City *",
  "Província *": "Province *",
  "Nome de utilizador da conta de hospedagem": "Hosting account username",
+ "Nome da empresa (nome de utilizador da conta de hospedagem)": "Company name (hosting account username)",
  "A verificar…": "Checking…",
  "Este nome de utilizador já existe.": "This username already exists.",
  "Nome livre.": "Name available.",

@@ -576,7 +576,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
             password: accountForm.password,
             nome: `${accountForm.name} ${accountForm.sobrenome}`.trim(),
             telefone: telefoneCompleto(accountForm.telefone, telefonePrefixo),
-            empresa: accountForm.empresa,
+            empresa: items.find((i) => i.type === 'hosting')?.contaUtilizador || accountForm.empresa,
             endereco: [accountForm.endereco, accountForm.endereco2].map((x) => x.trim()).filter(Boolean).join(', '),
             cidade: accountForm.cidade,
             provincia: accountForm.estado,
@@ -763,6 +763,36 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
       setIsSubmitting(false);
     }
   };
+
+  // O nome da empresa de uma hospedagem é o nome de utilizador da sua conta no servidor: pede-se nos dados da empresa.
+  const campoNomeEmpresa = (item: (typeof items)[number]) => {
+    const estado = contaLivre[item.id];
+    const nome = (item.contaUtilizador || '').trim();
+    let nota: React.ReactNode = <span className="mt-1 block text-[11px] text-slate-400">É o nome de acesso desta conta de hospedagem; não se pode mudar depois.</span>;
+    if (nome && !nomeContaValido(nome)) nota = <span className="mt-1 block text-[11px] text-rose-600">{NOME_CONTA_ERRO}</span>;
+    else if (estado === 'a-verificar') nota = <span className="mt-1 block text-[11px] text-slate-400">A verificar…</span>;
+    else if (estado && !estado.livre) nota = <span className="mt-1 block text-[11px] text-rose-600">{estado.msg || 'Este nome de utilizador já existe.'}</span>;
+    else if (estado && estado.livre && nome) nota = <span className="mt-1 block text-[11px] text-green-600">Nome livre.</span>;
+    return (
+      <div key={item.id}>
+        <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 mb-1.5 block">
+          Nome da empresa (nome de utilizador da conta de hospedagem){item.hostingDomain ? ` — ${item.hostingDomain}` : ''} *
+        </label>
+        <input
+          type="text"
+          value={item.contaUtilizador || ''}
+          maxLength={20}
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          onChange={(e) => updateItemContaUtilizador(item.id, e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ''))}
+          className="w-full px-4 py-2 border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 text-slate-800 dark:text-zinc-100 rounded-md text-sm font-mono font-bold outline-none focus:ring-1 focus:ring-blue-500"
+        />
+        {nota}
+      </div>
+    );
+  };
+  const itensHospedagem = items.filter((i) => i.type === 'hosting');
 
   if (isAuthenticated === null) {
     return (
@@ -1063,6 +1093,15 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                 </div>
               )}
 
+              {isAuthenticated === true && !isEncomenda && itensHospedagem.length > 0 && (status === 'idle' || status === 'error') && (
+                <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg p-6 shadow-sm space-y-4">
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-red-600 dark:text-red-400 flex items-center gap-1.5">
+                    <Building2 className="w-3.5 h-3.5" /> Dados da Empresa
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">{itensHospedagem.map(campoNomeEmpresa)}</div>
+                </div>
+              )}
+
               {/* PROCESSING STEPS */}
               {(status === 'registering' || status === 'redirecting') && (
                 <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg p-10 text-center space-y-4 shadow-sm">
@@ -1184,10 +1223,14 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                           <h3 className="text-xs font-bold uppercase tracking-wide text-slate-400 dark:text-zinc-500 pb-3 border-b border-slate-100 dark:border-zinc-800">
                             Dados da Empresa
                           </h3>
-                          <div>
-                            <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 mb-1.5 block">Empresa</label>
-                            <input type="text" value={accountForm.empresa} onChange={e => setAccountForm(p => ({ ...p, empresa: e.target.value }))} className="w-full px-4 py-2 border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 text-slate-800 dark:text-zinc-100 rounded-md text-sm outline-none focus:ring-1 focus:ring-blue-500" />
-                          </div>
+                          {itensHospedagem.length > 0 ? (
+                            itensHospedagem.map(campoNomeEmpresa)
+                          ) : (
+                            <div>
+                              <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 mb-1.5 block">Empresa</label>
+                              <input type="text" value={accountForm.empresa} onChange={e => setAccountForm(p => ({ ...p, empresa: e.target.value }))} className="w-full px-4 py-2 border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 text-slate-800 dark:text-zinc-100 rounded-md text-sm outline-none focus:ring-1 focus:ring-blue-500" />
+                            </div>
+                          )}
                           <div>
                             <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 mb-1.5 block">Morada *</label>
                             <input type="text" value={accountForm.endereco} onChange={e => setAccountForm(p => ({ ...p, endereco: e.target.value }))} className="w-full px-4 py-2 border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 text-slate-800 dark:text-zinc-100 rounded-md text-sm outline-none focus:ring-1 focus:ring-blue-500" />
@@ -1245,30 +1288,6 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                               <h4 className="font-bold text-slate-800 dark:text-zinc-100 text-sm break-all leading-tight">{item.name}</h4>
                               {(item.type === 'hosting' || item.type === 'email') && item.hostingDomain && (
                                 <p className="text-[11px] text-slate-400 dark:text-zinc-500 mt-0.5 break-all">{item.hostingDomain}</p>
-                              )}
-                              {item.type === 'hosting' && (
-                                <label className="mt-2 block">
-                                  <span className="text-[11px] font-bold text-slate-500 dark:text-zinc-400">Nome de utilizador da conta de hospedagem</span>
-                                  <input
-                                    type="text"
-                                    value={item.contaUtilizador || ''}
-                                    maxLength={20}
-                                    autoCapitalize="none"
-                                    autoCorrect="off"
-                                    spellCheck={false}
-                                    onChange={(e) => updateItemContaUtilizador(item.id, e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ''))}
-                                    className="mt-1 w-full max-w-xs rounded border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 px-2.5 py-1.5 text-xs font-mono font-bold text-slate-700 dark:text-zinc-200 outline-none focus:ring-1 focus:ring-blue-500"
-                                  />
-                                  {(() => {
-                                    const estado = contaLivre[item.id];
-                                    const nome = (item.contaUtilizador || '').trim();
-                                    if (nome && !nomeContaValido(nome)) return <span className="mt-1 block text-[11px] text-rose-600">{NOME_CONTA_ERRO}</span>;
-                                    if (estado === 'a-verificar') return <span className="mt-1 block text-[11px] text-slate-400">A verificar…</span>;
-                                    if (estado && !estado.livre) return <span className="mt-1 block text-[11px] text-rose-600">{estado.msg || 'Este nome de utilizador já existe.'}</span>;
-                                    if (estado && estado.livre && nome) return <span className="mt-1 block text-[11px] text-green-600">Nome livre.</span>;
-                                    return <span className="mt-1 block text-[11px] text-slate-400">É o nome de acesso desta conta de hospedagem; não se pode mudar depois.</span>;
-                                  })()}
-                                </label>
                               )}
                             </div>
                           </div>
