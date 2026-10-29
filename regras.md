@@ -952,3 +952,13 @@ instala por defeito). Em vez disso:
    Playwright em si fica instalado (devDependency permanente, não desinstalar).
 
 Repete isto para cada secção/UI em que trabalhares — não só para esta funcionalidade.
+
+## Pendentes do painel de administração (Silva, 29/10/2026)
+
+1. **Todos os utilizadores** (`/vhost:2026/admin/utilizadores`): confirmar, em produção, que funcionam:
+   a) apagar contas (seleccionar → «Apagar»);
+   b) editar a conta (ícone do lápis);
+   c) mudar o pacote de uma conta;
+   d) **criar pacotes manualmente** — hoje só se atribui um pacote que já existe no servidor (`changeUserPackage`); criar/editar os limites de um pacote não está feito (ver nota em `hestia-adapter.ts`).
+2. **Conta sem perfil ligado** (caso `entrecampos`): contas criadas no servidor (ou numa compra de teste) podem ficar sem o perfil do site ligado (`panel_users.auth_user_id` / `profiles.da_username`). O administrador liga-as em «Editar» → ligar perfil, com o e-mail do perfil. Falta descobrir porque é que a compra não deixou a ligação feita.
+3. **Apagar no servidor demorava mais de 5 s** e o painel dava «O Vhost demorou a responder»: as alterações (`v-add-/v-delete-/v-change-/v-suspend-…`) passaram a esperar até 120 s e, se não houver resposta, o apagar confirma se a conta já não existe (`hestia-client.ts`, `deleteAccount`). Confirmar em produção.

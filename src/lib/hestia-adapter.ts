@@ -244,6 +244,11 @@ export async function unsuspendAccount(username: string): Promise<{ ok: boolean;
 
 export async function deleteAccount(username: string): Promise<{ ok: boolean; error?: string }> {
   const result = await hestiaCall('v-delete-user', [username]);
+  // Sem resposta a tempo: o pedido pode ter corrido na mesma. Se a conta já não existe no servidor, está apagada.
+  if (!result.ok && result.exitCode === -1) {
+    const ainda = await hestiaCall('v-list-user', [username, 'json']);
+    if (!ainda.ok) return { ok: true };
+  }
   return { ok: result.ok, error: result.error };
 }
 
