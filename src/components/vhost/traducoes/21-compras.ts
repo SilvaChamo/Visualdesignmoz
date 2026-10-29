@@ -53,6 +53,7 @@ export const compras: Record<string, string> = {
  "O e-mail da pessoa responsável": "The responsible person's email",
  "{0} «{1}» não é válido: {2}.": "{0} “{1}” is not valid: {2}.",
  "Enviámos o pedido de pagamento para o número indicado. Abra o pedido do M-Pesa no telemóvel e escreva lá o seu PIN (não é aqui no site). Pode demorar até 1 minuto.": "We sent the payment request to the number provided. Open the M-Pesa request on your phone and enter your PIN there (not on this site). It may take up to 1 minute.",
+ "Pagamento confirmado, mas atenção: {0}": "Payment confirmed, but note: {0}",
  "Morada *": "Address *",
  "Cidade *": "City *",
  "Província *": "Province *",
