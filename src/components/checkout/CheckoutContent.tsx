@@ -258,6 +258,12 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
   }, [renewalId, isAuthenticated, router]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Quem ainda não tem conta continua a ver o formulário completo enquanto se cria a conta e se segue para o passo seguinte
+  // (a página não muda de aspecto a meio do processamento).
+  const [comoVisitante, setComoVisitante] = useState(false);
+  useEffect(() => {
+    if (!isSubmitting) setComoVisitante(false);
+  }, [isSubmitting]);
   const [metodoPagamento, setMetodoPagamento] = useState<MetodoPagamento>('transferencia');
 
   // Pedido de M-Pesa/Transferência já criado, à espera do comprovativo —
@@ -544,6 +550,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
       setStatus('error');
       return;
     }
+    if (isAuthenticated === false && !isEncomenda) setComoVisitante(true);
     setIsSubmitting(true);
     setErrorMessage('');
 
@@ -999,7 +1006,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
 
               {/* Dados da conta — só quando já tem sessão iniciada; para quem não
                   tem conta, é o próprio formulário abaixo que cumpre este papel. */}
-              {isAuthenticated === true && (status === 'idle' || status === 'error') && (
+              {isAuthenticated === true && !comoVisitante && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg p-6 shadow-sm">
                     <p className="text-[11px] font-bold uppercase tracking-wide text-red-600 dark:text-red-400 flex items-center gap-1.5 mb-3">
@@ -1105,7 +1112,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                 </div>
               )}
 
-              {isAuthenticated === true && !isEncomenda && itensHospedagem.length > 0 && (status === 'idle' || status === 'error') && (
+              {isAuthenticated === true && !comoVisitante && !isEncomenda && itensHospedagem.length > 0 && (
                 <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg p-6 shadow-sm space-y-4">
                   <p className="text-[11px] font-bold uppercase tracking-wide text-red-600 dark:text-red-400 flex items-center gap-1.5">
                     <Building2 className="w-3.5 h-3.5" /> Dados da Empresa
@@ -1115,15 +1122,6 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
               )}
 
               {/* PROCESSING STEPS */}
-              {(status === 'registering' || status === 'redirecting') && (
-                <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg p-10 text-center space-y-4 shadow-sm">
-                  <Spinner className="w-12 h-12 mx-auto" />
-                  <h3 className="text-lg font-bold text-slate-800 dark:text-zinc-100 font-panel">
-                    {status === 'registering' ? 'A criar a sua conta...' : isEncomenda ? 'A registar a encomenda...' : 'A abrir o pagamento seguro...'}
-                  </h3>
-                </div>
-              )}
-
               {/* ERROR STATE */}
               {status === 'error' && errorMessage && (
                 <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/50 rounded-lg p-5 flex items-start gap-3">
@@ -1150,7 +1148,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
               )}
 
               {/* PAY FORM */}
-              {(status === 'idle' || status === 'error') && (
+              {(
                 <div className="space-y-5">
 
                   {isEncomenda && encomendaRegistada && (
@@ -1175,7 +1173,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                     <EncomendaLoginNecessario loginHref={`/login?redirect=${encodeURIComponent(checkoutReturnPath)}`} />
                   )}
 
-                  {isAuthenticated === false && !isEncomenda && (
+                  {(isAuthenticated === false || comoVisitante) && !isEncomenda && (
                     <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg p-6 shadow-sm">
                       <div className="mb-6 pb-4 border-b border-slate-100 dark:border-zinc-800 flex justify-between items-center">
                         <p className="text-sm text-slate-600 dark:text-zinc-400">
