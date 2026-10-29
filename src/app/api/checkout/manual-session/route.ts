@@ -73,11 +73,43 @@ export async function POST(request: NextRequest) {
     const erroConta = await validarContasDeHospedagem(admin, toValidatedCartItems(resolved));
     if (erroConta) return NextResponse.json({ error: erroConta }, { status: 400 });
 
+    // Voltar atrás ao checkout e clicar outra vez em «Pagar» não cria outro pedido: o carrinho só esvazia depois de concluir a compra,
+    // por isso o mesmo pedido ainda aberto (mesmos itens, mesmo método, sem comprovativo) volta a ser o mesmo. Os pedidos abertos
+    // que já não correspondem ao carrinho (mudou itens ou método) ficam substituídos por este.
+    const itensValidados = toValidatedCartItems(resolved);
+    const assinatura = (itens: CatalogCartItem[], metodo: string, total: number) =>
+      JSON.stringify([
+        metodo,
+        Math.round(Number(total) * 100),
+        itens
+          .map((i) => [i.type, i.id, i.name, i.period, Math.round(Number(i.price) * 100), i.hostingDomain || '', i.contaUtilizador || '', i.authCode ? 1 : 0].join('|'))
+          .sort(),
+      ]);
+    const { data: abertos } = await admin
+      .from('checkout_sessions')
+      .select('*')
+      .eq('user_id', actor.buyerUserId)
+      .eq('status', 'pending')
+      .in('metodo_pagamento', VALID_METHODS)
+      .is('comprovativo_url', null)
+      .order('created_at', { ascending: true });
+    const minha = assinatura(itensValidados, metodoPagamento, totalMt);
+    let reutilizado: Record<string, unknown> | null = null;
+    for (const aberto of abertos || []) {
+      const igual = assinatura((aberto.items as CatalogCartItem[]) || [], String(aberto.metodo_pagamento), Number(aberto.total_mt)) === minha;
+      if (igual && !reutilizado) {
+        reutilizado = aberto;
+        continue;
+      }
+      await admin.from('checkout_sessions').update({ status: 'expired' }).eq('id', aberto.id).eq('status', 'pending').is('comprovativo_url', null);
+    }
+    if (reutilizado) return NextResponse.json({ success: true, session: reutilizado, reutilizado: true });
+
     const { data: session, error: insertError } = await admin
       .from('checkout_sessions')
       .insert({
         user_id: actor.buyerUserId,
-        items: toValidatedCartItems(resolved),
+        items: itensValidados,
         total_mt: totalMt,
         currency: 'mzn',
         status: 'pending',

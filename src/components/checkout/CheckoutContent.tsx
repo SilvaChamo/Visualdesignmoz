@@ -256,6 +256,28 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
       .catch(() => router.replace('/checkout'));
   }, [searchParams, isAuthenticated, router]);
 
+  // Voltar atrás (botão do navegador) do passo do comprovativo para o checkout: mostra o carrinho outra vez, em vez de ficar preso
+  // no passo. Só reage a uma mudança do endereço (de «com pedido» para «sem pedido»), nunca ao criar o pedido.
+  const pedidoAnterior = React.useRef<string | null>(null);
+  useEffect(() => {
+    const atual = searchParams.get('pendingId');
+    if (pedidoAnterior.current && !atual) {
+      setManualSession(null);
+      setMpesaPassoId(null);
+      restoredPendingIdRef.current = null;
+    }
+    pedidoAnterior.current = atual;
+  }, [searchParams]);
+
+  // Pagamento por cartão concluído (o serviço de pagamento devolve aqui): só agora o carrinho esvazia e segue-se para o painel.
+  useEffect(() => {
+    // só depois de o carrinho guardado ser lido (senão a leitura repunha os itens por cima)
+    if (searchParams.get('pago') !== '1' || !carrinhoLido) return;
+    clearCart();
+    router.replace(PUBLIC_PANEL_ENTRY);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, carrinhoLido]);
+
   // M-Pesa/Transferência/Saldo não processam USD — se o cliente troca a
   // moeda no topo do site enquanto está no checkout, o método tem de
   // acompanhar para nunca ficar um valor em USD "por pagar" com M-Pesa.
@@ -723,7 +745,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
       if (!res.ok || !data.success) {
         throw new Error(data.error || 'Não foi possível registar o pedido de pagamento.');
       }
-      clearCart();
+      // O carrinho só esvazia quando a compra se conclui (comprovativo enviado): até lá, voltar atrás ao checkout mostra-o intacto.
       const manualMetodo = metodoPagamento === 'mpesa' ? 'mpesa' : 'transferencia';
       setManualSession({ id: data.session.id, metodoPagamento: manualMetodo, totalMt: Number(data.session.total_mt) || undefined });
       if (manualMetodo === 'mpesa') {
@@ -731,7 +753,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
         setMpesaPassoId(data.session.id);
       }
       restoredPendingIdRef.current = data.session.id;
-      router.replace(`/checkout?pendingId=${data.session.id}`);
+      router.push(`/checkout?pendingId=${data.session.id}`);
       setStatus('idle');
       setIsSubmitting(false);
       return;
@@ -898,12 +920,13 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
             jaEnviado={manualSession.comprovativoEnviado}
             motivoNovoComprovativo={manualSession.motivo}
             avisoTeste={mpesaAvisoTeste}
+            onSent={clearCart}
             onContinue={async () => {
               const { data: { session: refreshedSession } } = await supabase.auth.refreshSession();
               router.push(redirectPathForSession(refreshedSession));
             }}
           />
-        ) : !isEncomenda && !carrinhoLido ? (
+        ) : !isEncomenda && (!carrinhoLido || searchParams.get('pago') === '1') ? (
           <div className="flex items-center justify-center py-24">
             <Spinner className="w-10 h-10" />
           </div>
