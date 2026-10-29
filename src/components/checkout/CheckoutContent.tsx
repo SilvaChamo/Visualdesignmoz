@@ -1209,7 +1209,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                             <input type="tel" aria-label="Telefone" placeholder="Telefone *" value={accountForm.telefone} onChange={e => setAccountForm(p => ({ ...p, telefone: e.target.value }))} className={campoCls} />
                           </div>
                           <CampoIcone icone={KeyRound}>
-                            <input type={showPassword ? 'text' : 'password'} aria-label="Palavra-passe" placeholder="Palavra-passe (mín. 6 caracteres) *" autoComplete="new-password" value={accountForm.password} onChange={e => setAccountForm(p => ({ ...p, password: e.target.value }))} className={campoCls} />
+                            <input type={showPassword ? 'text' : 'password'} aria-label="Palavra-passe" placeholder="Palavra-passe (6 a 20 caracteres) *" maxLength={20} autoComplete="new-password" value={accountForm.password} onChange={e => setAccountForm(p => ({ ...p, password: e.target.value }))} className={campoCls} />
                             <div className="flex items-center gap-2 pr-3 text-slate-400">
                               <button type="button" title="Gerar senha segura" aria-label="Gerar senha segura" onClick={() => { setAccountForm(p => ({ ...p, password: Math.random().toString(36).slice(-6) + Math.random().toString(36).slice(-2).toUpperCase() + '@' })); setShowPassword(true); }} className="hover:text-blue-600 dark:hover:text-blue-400">
                                 <Wand2 className="w-4 h-4" />

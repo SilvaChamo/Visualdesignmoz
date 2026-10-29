@@ -49,7 +49,7 @@ export const compras: Record<string, string> = {
  "Nome *": "First name *",
  "Apelido *": "Last name *",
  "Indicativo": "Dial code",
- "Palavra-passe (mín. 6 caracteres) *": "Password (min. 6 characters) *",
+ "Palavra-passe (6 a 20 caracteres) *": "Password (6 to 20 characters) *",
  "A verificar…": "Checking…",
  "Este nome de utilizador já existe.": "This username already exists.",
  "Nome livre.": "Name available.",
