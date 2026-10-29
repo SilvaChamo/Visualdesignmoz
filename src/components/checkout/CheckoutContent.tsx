@@ -70,6 +70,7 @@ const HOSTING_CYCLE_LABELS: Record<HostingBillingCycle, string> = { monthly: 'Me
 import { checkoutEntryPath } from '@/lib/checkout-flow';
 import { referenciaPedido } from '@/lib/checkout-referencia';
 import { nomeContaValido, NOME_CONTA_ERRO } from '@/lib/conta-hospedagem';
+import { mensagemEmailInvalido } from '@/lib/email-valido';
 import { profileAuthOrFilter } from '@/lib/profile-db';
 import { acrescentarIva, IVA_TAXA } from '@/lib/iva';
 import {
@@ -630,6 +631,13 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
         setIsSubmitting(false);
         return;
       }
+      const erroEmailEmpresa = accountForm.emailEmpresa.trim() ? mensagemEmailInvalido(accountForm.emailEmpresa, 'O e-mail da empresa') : null;
+      if (erroEmailEmpresa) {
+        setErrorMessage(erroEmailEmpresa);
+        setStatus('error');
+        setIsSubmitting(false);
+        return;
+      }
       try {
         await gravarPerfil({
           telefone: telefoneCompleto(accountForm.telefone, telefonePrefixo),
@@ -657,6 +665,14 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
       }
       if (!accountForm.email.trim()) {
         setErrorMessage('Por favor, introduza o seu Email para criar a conta.');
+        setStatus('error');
+        setIsSubmitting(false);
+        return;
+      }
+      const erroEmail = mensagemEmailInvalido(accountForm.email, 'O e-mail da pessoa responsável');
+      const erroEmailEmpresa = accountForm.emailEmpresa.trim() ? mensagemEmailInvalido(accountForm.emailEmpresa, 'O e-mail da empresa') : null;
+      if (erroEmail || erroEmailEmpresa) {
+        setErrorMessage(erroEmail || erroEmailEmpresa || '');
         setStatus('error');
         setIsSubmitting(false);
         return;
@@ -1356,6 +1372,12 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                             onClick={async () => {
                               if (!accountForm.telefone.trim() || !accountForm.endereco.trim() || !accountForm.estado) {
                                 setErrorMessage('Indique o telefone, a morada e a província: são os dados da conta e, nos domínios, do registo oficial (WHOIS).');
+                                setStatus('error');
+                                return;
+                              }
+                              const erroEmailEmpresa = accountForm.emailEmpresa.trim() ? mensagemEmailInvalido(accountForm.emailEmpresa, 'O e-mail da empresa') : null;
+                              if (erroEmailEmpresa) {
+                                setErrorMessage(erroEmailEmpresa);
                                 setStatus('error');
                                 return;
                               }

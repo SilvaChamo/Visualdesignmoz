@@ -1,3 +1,4 @@
+import { mensagemEmailInvalido } from '@/lib/email-valido';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { createClient as createServerClient } from '@/utils/supabase/server';
@@ -31,6 +32,9 @@ export async function POST(request: NextRequest) {
     if (!email || !password || !nome || !telefone) {
       return NextResponse.json({ error: 'Preencha nome, telefone, email e password.' }, { status: 400 });
     }
+
+    const erroEmail = mensagemEmailInvalido(String(email), 'O e-mail');
+    if (erroEmail) return NextResponse.json({ error: erroEmail }, { status: 400 });
 
     if (String(password).length < 6) {
       return NextResponse.json({ error: 'A password deve ter no mínimo 6 caracteres.' }, { status: 400 });
