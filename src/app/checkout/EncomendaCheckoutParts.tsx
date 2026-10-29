@@ -48,10 +48,12 @@ export function EncomendaFaturadoPara({
   draft,
   facturarEm,
   onFacturarEmChange,
+  inlineEditing = true,
 }: {
   draft: EncomendaDraft;
   facturarEm: FacturarEm;
   onFacturarEmChange: (value: FacturarEm) => void;
+  inlineEditing?: boolean;
 }) {
   const escolha = podeFacturarResponsavel(draft);
   const emNomeDoResponsavel = escolha && facturarEm === 'responsavel';
@@ -96,6 +98,61 @@ export function EncomendaFaturadoPara({
     window.addEventListener('visualdesign:editar-dados-encomenda', focarPrimeiro);
     return () => window.removeEventListener('visualdesign:editar-dados-encomenda', focarPrimeiro);
   }, []);
+  if (!inlineEditing) {
+    return (
+      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg p-6 shadow-sm">
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-[11px] font-bold uppercase tracking-wide text-red-600 dark:text-red-400 flex items-center gap-1.5">
+            <UserCircle className="w-3.5 h-3.5" /> Faturado Para
+          </p>
+          <Link href={`${ENCOMENDA_EDIT_PATH}&passo=dados`} className="text-[10px] font-bold text-slate-400 hover:text-red-600 dark:hover:text-red-400">
+            Editar
+          </Link>
+        </div>
+
+        {escolha && (
+          <div className="mb-3 flex items-center gap-1 p-0.5 bg-slate-100 dark:bg-zinc-800 rounded-md w-fit">
+            {(['empresa', 'responsavel'] as const).map((opcao) => (
+              <button
+                key={opcao}
+                type="button"
+                onClick={() => onFacturarEmChange(opcao)}
+                className={`px-3 py-1 rounded text-[11px] font-bold transition-colors ${
+                  facturarEm === opcao ? 'bg-white dark:bg-zinc-950 text-slate-800 dark:text-white shadow-sm' : 'text-slate-500 dark:text-zinc-400'
+                }`}
+              >
+                {opcao === 'empresa' ? 'Empresa (recomendado)' : 'Responsável'}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {emNomeDoResponsavel ? (
+          <>
+            <p className="font-bold text-slate-800 dark:text-zinc-100 text-sm">
+              {draft.responsavel}{draft.cargo ? ` — ${draft.cargo}` : ''}
+            </p>
+            <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1 truncate">Email: {draft.email}</p>
+            <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">Contacto: {draft.telefone}</p>
+            <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">Endereço: {draft.endereco || '—'}</p>
+          </>
+        ) : (
+          <>
+            <p className="font-bold text-slate-800 dark:text-zinc-100 text-sm">{draft.empresa}</p>
+            {draft.nif && <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">NUIT: {draft.nif}</p>}
+            {escolha && (
+              <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
+                Responsável: {draft.responsavel}{draft.cargo ? ` — ${draft.cargo}` : ''}
+              </p>
+            )}
+            <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1 truncate">Email: {draft.emailInstitucional || draft.email}</p>
+            <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">Contacto: {draft.telefoneInstitucional || draft.telefone}</p>
+            <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">Endereço: {draft.endereco || '—'}</p>
+          </>
+        )}
+      </div>
+    );
+  }
   return (
     <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg p-6 shadow-sm">
       <div className="flex items-center justify-between mb-3">
