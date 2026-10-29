@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireAdminOrReseller } from '@/lib/panel-api-auth';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { getAttachmentSignedUrls } from '@/lib/quotation-attachments-bucket';
+import { garantirPedidosSemConta } from '@/lib/checkout-schema';
 import { cadastroDoPedido } from '@/lib/pedido-sem-conta';
 
 // Lista (só os concluídos pelo cliente, ver o filtro abaixo) os pedidos de pagamento manual (M-Pesa/Transferência) de compras
@@ -18,6 +19,8 @@ export async function GET() {
   if (!supabase) {
     return NextResponse.json({ success: false, error: 'Supabase Service Role não configurado.' }, { status: 503 });
   }
+
+  await garantirPedidosSemConta(supabase);
 
   try {
     const { data, error } = await supabase

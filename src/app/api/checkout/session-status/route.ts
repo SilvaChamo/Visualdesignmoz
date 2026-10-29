@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { resolveCheckoutActor } from '@/lib/checkout-actor';
+import { garantirPedidosSemConta } from '@/lib/checkout-schema';
 import { tokenDoPedidoConfere } from '@/lib/pedido-sem-conta';
 
 export async function GET(request: NextRequest) {
@@ -20,6 +21,7 @@ export async function GET(request: NextRequest) {
   if (!user && token) {
     const adminSemConta = getSupabaseAdmin();
     if (!adminSemConta) return NextResponse.json({ error: 'Serviço indisponível.' }, { status: 503 });
+    await garantirPedidosSemConta(adminSemConta);
     const { data } = await adminSemConta
       .from('checkout_sessions')
       .select('id, status, items, total_mt, metodo_pagamento, comprovativo_url, rejection_reason, token_acesso, user_id')

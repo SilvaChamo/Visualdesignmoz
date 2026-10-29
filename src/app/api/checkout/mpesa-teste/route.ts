@@ -5,6 +5,7 @@ import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { c2bSingleStagePay } from '@/lib/mpesa-client';
 import { resolveCheckoutActor } from '@/lib/checkout-actor';
 import { mpesaEmSandbox } from '@/lib/mpesa-ambiente';
+import { garantirPedidosSemConta } from '@/lib/checkout-schema';
 import { tokenDoPedidoConfere } from '@/lib/pedido-sem-conta';
 
 // Passo M-Pesa do checkout para clientes normais enquanto o M-Pesa está em sandbox (MPESA_ENV=sandbox): o cliente
@@ -32,6 +33,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Serviço indisponível.' }, { status: 503 });
   }
 
+  await garantirPedidosSemConta(admin);
   const body = await request.json().catch(() => ({}));
   const sessionId = String(body.sessionId || '').trim();
   const msisdn = String(body.msisdn || '').replace(/\D/g, '');

@@ -4,6 +4,7 @@ import { acrescentarIva } from '@/lib/iva';
 import { resolveCartItems, toValidatedCartItems, type CatalogCartItem } from '@/lib/package-catalog';
 import { validarContasDeHospedagem } from '@/lib/conta-hospedagem-servidor';
 import { authUserExists, EXISTING_ACCOUNT_MESSAGE } from '@/lib/conta-existe';
+import { garantirPedidosSemConta } from '@/lib/checkout-schema';
 import { mensagemEmailInvalido } from '@/lib/email-valido';
 import { cifrarSenhaPedido, novoTokenPedido, tokenDoPedidoConfere, type CadastroPedido } from '@/lib/pedido-sem-conta';
 
@@ -19,6 +20,8 @@ export async function POST(request: NextRequest) {
   try {
     const admin = getSupabaseAdmin();
     if (!admin) return NextResponse.json({ error: 'Serviço indisponível.' }, { status: 503 });
+
+    await garantirPedidosSemConta(admin);
 
     const body = await request.json().catch(() => ({}));
     const items: CatalogCartItem[] = Array.isArray(body.items) ? body.items : [];

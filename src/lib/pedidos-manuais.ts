@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { PEDIDO_MANUAL_VALIDADE_DIAS } from '@/lib/checkout-referencia';
 import { avisarClienteCompra } from '@/lib/notify-checkout-client';
+import { garantirPedidosSemConta } from '@/lib/checkout-schema';
 import { destinatarioDoPedido } from '@/lib/pedido-sem-conta';
 
 /**
@@ -10,6 +11,7 @@ import { destinatarioDoPedido } from '@/lib/pedido-sem-conta';
  */
 export async function expirarPedidosManuais(admin: SupabaseClient): Promise<{ expirados: number; errors: string[] }> {
   const errors: string[] = [];
+  await garantirPedidosSemConta(admin);
   const limite = new Date(Date.now() - PEDIDO_MANUAL_VALIDADE_DIAS * 24 * 60 * 60 * 1000).toISOString();
   const { data, error } = await admin
     .from('checkout_sessions')

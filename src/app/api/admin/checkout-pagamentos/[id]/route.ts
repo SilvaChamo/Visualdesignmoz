@@ -8,6 +8,7 @@ import { mensagemPublica } from '@/lib/mensagem-publica';
 import { sanitizeDaUsername } from '@/lib/reseller-provision';
 import type { CatalogCartItem } from '@/lib/package-catalog';
 import { avisarClienteCompra } from '@/lib/notify-checkout-client';
+import { garantirPedidosSemConta } from '@/lib/checkout-schema';
 import { destinatarioDoPedido, donoDoPedidoAoAprovar } from '@/lib/pedido-sem-conta';
 
 type CartItemWithStatus = CatalogCartItem & { status?: 'pending' | 'paid' | 'failed'; rejectionReason?: string | null };
@@ -54,6 +55,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       return NextResponse.json({ success: false, error: 'itemIndex obrigatório.' }, { status: 400 });
     }
 
+    await garantirPedidosSemConta(supabase);
     const { data: session, error: sessionError } = await supabase
       .from('checkout_sessions')
       .select('id, user_id, items, status, metodo_pagamento, total_mt, comprovativo_url, cadastro')

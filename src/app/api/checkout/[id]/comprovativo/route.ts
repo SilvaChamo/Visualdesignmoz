@@ -8,6 +8,7 @@ import { comprovativoValido, COMPROVATIVO_ERRO } from '@/lib/comprovativo-fichei
 import { resolveCheckoutActor } from '@/lib/checkout-actor';
 import { avisarClienteCompra } from '@/lib/notify-checkout-client';
 import { referenciaPedido } from '@/lib/checkout-referencia';
+import { garantirPedidosSemConta } from '@/lib/checkout-schema';
 import { destinatarioDoPedido, tokenDoPedidoConfere } from '@/lib/pedido-sem-conta';
 
 const MAX_SIZE_BYTES = 10 * 1024 * 1024;
@@ -23,6 +24,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!admin) {
     return NextResponse.json({ error: 'Serviço indisponível.' }, { status: 503 });
   }
+
+  await garantirPedidosSemConta(admin);
 
   const { id } = await params;
 
