@@ -461,7 +461,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
         user_id: authUser.id,
         telefone: profileEditForm.telefone || null,
         morada: profileEditForm.morada || null,
-        cidade: profileEditForm.cidade || null,
+        cidade: profileEditForm.cidade || dadosConta.cidade || profileEditForm.provincia || null,
         updated_at: new Date().toISOString(),
       };
       const { error } = existing?.id
@@ -566,8 +566,8 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
         setIsSubmitting(false);
         return;
       }
-      if (!accountForm.endereco.trim() || !accountForm.cidade.trim() || !accountForm.estado) {
-        setErrorMessage('Indique a sua morada, cidade e província: são os dados da conta e, nos domínios, do registo oficial (WHOIS).');
+      if (!accountForm.endereco.trim() || !accountForm.estado) {
+        setErrorMessage('Indique a sua morada e a província: são os dados da conta e, nos domínios, do registo oficial (WHOIS).');
         setStatus('error');
         setIsSubmitting(false);
         return;
@@ -593,7 +593,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
             telefone: telefoneCompleto(accountForm.telefone, telefonePrefixo),
             empresa: items.find((i) => i.type === 'hosting')?.contaUtilizador || accountForm.empresa,
             endereco: accountForm.endereco.trim(),
-            cidade: accountForm.cidade,
+            cidade: accountForm.estado,
             provincia: accountForm.estado,
             pais: accountForm.pais,
           })
@@ -1061,9 +1061,6 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                           <CampoIcone icone={MapPin}>
                             <input value={valor('morada')} disabled={!aEditar} onChange={(e) => setProfileEditForm((f) => ({ ...f, morada: e.target.value }))} aria-label="Morada" placeholder="Morada" className={classe} />
                           </CampoIcone>
-                          <CampoIcone icone={Landmark}>
-                            <input value={valor('cidade')} disabled={!aEditar} onChange={(e) => setProfileEditForm((f) => ({ ...f, cidade: e.target.value }))} aria-label="Cidade" placeholder="Cidade" className={classe} />
-                          </CampoIcone>
                           <CampoIcone icone={MapaIcone}>
                             <select
                               value={valor('provincia')}
@@ -1225,7 +1222,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                         </div>
 
                         {/* Dados da empresa */}
-                        <div className="space-y-3 md:pl-8 md:border-l border-slate-100 dark:border-zinc-800">
+                        <div className="space-y-3">
                           <h3 className="text-xs font-bold uppercase tracking-wide text-slate-400 dark:text-zinc-500 pb-3 border-b border-slate-100 dark:border-zinc-800">
                             Dados da Empresa
                           </h3>
@@ -1242,19 +1239,14 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                           <CampoIcone icone={MapPin}>
                             <input type="text" aria-label="Morada" placeholder="Morada *" value={accountForm.endereco} onChange={e => setAccountForm(p => ({ ...p, endereco: e.target.value }))} className={campoCls} />
                           </CampoIcone>
-                          <div className="grid grid-cols-2 gap-3">
-                            <CampoIcone icone={Landmark}>
-                              <input type="text" aria-label="Cidade" placeholder="Cidade *" value={accountForm.cidade} onChange={e => setAccountForm(p => ({ ...p, cidade: e.target.value }))} className={campoCls} />
-                            </CampoIcone>
-                            <CampoIcone icone={MapaIcone}>
-                              <select aria-label="Província" value={accountForm.estado} onChange={e => setAccountForm(p => ({ ...p, estado: e.target.value }))} className={accountForm.estado ? campoCls : campoVazioCls}>
-                                <option value="">Província *</option>
-                                {MOZAMBIQUE_PROVINCIAS.map((p) => (
-                                  <option key={p} value={p}>{p}</option>
-                                ))}
-                              </select>
-                            </CampoIcone>
-                          </div>
+                          <CampoIcone icone={MapaIcone}>
+                            <select aria-label="Província" value={accountForm.estado} onChange={e => setAccountForm(p => ({ ...p, estado: e.target.value }))} className={accountForm.estado ? campoCls : campoVazioCls}>
+                              <option value="">Província *</option>
+                              {MOZAMBIQUE_PROVINCIAS.map((p) => (
+                                <option key={p} value={p}>{p}</option>
+                              ))}
+                            </select>
+                          </CampoIcone>
                         </div>
                       </div>
                     </div>
