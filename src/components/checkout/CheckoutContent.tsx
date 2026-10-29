@@ -301,6 +301,8 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
   // Morada/telefone do perfil (WHOIS) — para o card "Faturado Para" de quem já
   // tem conta; não vem no user_metadata, só na tabela profiles.
   const [profileExtra, setProfileExtra] = useState<{ telefone?: string | null; morada?: string | null; cidade?: string | null } | null>(null);
+  const [perfilLido, setPerfilLido] = useState(false);
+  const [actorLido, setActorLido] = useState(false);
   useEffect(() => {
     if (!authUser) return;
     supabase
@@ -321,8 +323,20 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
           }
         }
         setProfileExtra(extra);
-      });
+        setPerfilLido(true);
+      })
+      .catch(() => setPerfilLido(true));
   }, [authUser]);
+
+  // Os dados que o sistema já tem desta conta (perfil + dados do registo): nada se volta a pedir ao que já existe.
+  const metaConta = (authUser?.user_metadata || {}) as Record<string, unknown>;
+  const texto = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
+  const dadosConta = {
+    telefone: texto(profileExtra?.telefone) || texto(metaConta.telefone),
+    morada: texto(profileExtra?.morada) || texto(metaConta.endereco),
+    cidade: texto(profileExtra?.cidade) || texto(metaConta.cidade),
+    provincia: texto(metaConta.provincia),
+  };
 
   // "Entrar como" — se um admin estiver a impersonar um revendedor/cliente, a
   // compra corre como essa conta (servidor: /lib/checkout-actor.ts). Aqui só
@@ -338,7 +352,8 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
     fetch('/api/checkout/actor', { credentials: 'include' })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => setBuyingAs(d && d.impersonating ? d : null))
-      .catch(() => setBuyingAs(null));
+      .catch(() => setBuyingAs(null))
+      .finally(() => setActorLido(true));
   }, [authUser]);
 
   // Editar telefone/morada/cidade sem sair do checkout — "Completar Dados"
@@ -347,13 +362,14 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
   // Dynadot exige no registo WHOIS do domínio.
   const [editingProfile, setEditingProfile] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
-  const [profileEditForm, setProfileEditForm] = useState({ email: '', telefone: '', morada: '', cidade: '' });
+  const [profileEditForm, setProfileEditForm] = useState({ email: '', telefone: '', morada: '', cidade: '', provincia: '' });
   const startEditingProfile = () => {
     setProfileEditForm({
       email: authUser?.email || '',
-      telefone: profileExtra?.telefone || '',
-      morada: profileExtra?.morada || '',
-      cidade: profileExtra?.cidade || '',
+      telefone: dadosConta.telefone,
+      morada: dadosConta.morada,
+      cidade: dadosConta.cidade,
+      provincia: dadosConta.provincia,
     });
     setEditingProfile(true);
   };
@@ -395,6 +411,10 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
         ? await supabase.from('profiles').update(payload).eq('id', existing.id)
         : await supabase.from('profiles').insert(payload);
       if (error) throw error;
+      // a província não tem coluna no perfil: guarda-se nos dados da conta (onde o registo já a põe)
+      if (profileEditForm.provincia !== dadosConta.provincia) {
+        await supabase.auth.updateUser({ data: { provincia: profileEditForm.provincia } });
+      }
       setProfileExtra({ telefone: payload.telefone, morada: payload.morada, cidade: payload.cidade });
       setEditingProfile(false);
       if (status === 'error') {
@@ -452,6 +472,17 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
   const contaHospedagemInvalida = items.some(
     (i) => i.type === 'hosting' && (!nomeContaValido((i.contaUtilizador || '').trim()) || (typeof contaLivre[i.id] === 'object' && !(contaLivre[i.id] as { livre: boolean }).livre)),
   );
+
+  // Faltam dados da conta (telefone, morada ou cidade)? O formulário abre já, com o que o sistema tem preenchido, em vez de
+  // esperar pelo erro ao clicar em «Pagar».
+  const edicaoAbertaAuto = React.useRef(false);
+  useEffect(() => {
+    if (edicaoAbertaAuto.current || !authUser || !perfilLido || !actorLido || buyingAs || isEncomenda || renewalId) return;
+    if (dadosConta.telefone && dadosConta.morada && dadosConta.cidade) return;
+    edicaoAbertaAuto.current = true;
+    startEditingProfile();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authUser, perfilLido, actorLido, buyingAs, isEncomenda, renewalId, dadosConta.telefone, dadosConta.morada, dadosConta.cidade]);
 
   // Flow State
   const [status, setStatus] = useState<'idle' | 'registering' | 'redirecting' | 'error'>('idle');
@@ -961,6 +992,16 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                           placeholder="Cidade"
                           className="w-full text-xs border border-slate-200 dark:border-zinc-800 dark:bg-zinc-950 rounded px-2.5 py-1.5"
                         />
+                        <select
+                          value={profileEditForm.provincia}
+                          onChange={(e) => setProfileEditForm((f) => ({ ...f, provincia: e.target.value }))}
+                          className="w-full text-xs border border-slate-200 dark:border-zinc-800 dark:bg-zinc-950 rounded px-2.5 py-1.5"
+                        >
+                          <option value="">Província…</option>
+                          {MOZAMBIQUE_PROVINCIAS.map((p) => (
+                            <option key={p} value={p}>{p}</option>
+                          ))}
+                        </select>
                         <div className="flex gap-2 pt-1">
                           <button
                             type="button"
@@ -980,12 +1021,12 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                         <p className="text-xs text-slate-500 dark:text-zinc-400 mt-2">
                           Endereço: {buyingAs
                             ? [buyingAs.billing?.morada, buyingAs.billing?.cidade].filter(Boolean).join(', ') || '—'
-                            : [profileExtra?.morada, profileExtra?.cidade].filter(Boolean).join(', ') || '—'}
+                            : [dadosConta.morada, dadosConta.cidade, dadosConta.provincia].filter(Boolean).join(', ') || '—'}
                         </p>
                         <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
                           Contacto: {buyingAs
                             ? buyingAs.billing?.telefone || '—'
-                            : profileExtra?.telefone || authUser?.user_metadata?.telefone || '—'}
+                            : dadosConta.telefone || '—'}
                         </p>
                         {buyingAs ? (
                           <p className="mt-2 text-[10px] text-amber-600 dark:text-amber-500">

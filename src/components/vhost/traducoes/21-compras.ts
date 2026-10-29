@@ -53,4 +53,5 @@ export const compras: Record<string, string> = {
  "Fecha o pedido de vez: o cliente não pode reenviar": "Closes the order for good: the client cannot resend",
  "Cancelar pedido": "Cancel order",
  "Está a ver a conta {0}": "You are viewing the account {0}",
+ "Província…": "Province…",
 };
