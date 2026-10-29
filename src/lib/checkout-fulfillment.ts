@@ -130,7 +130,10 @@ export async function provisionHostingAccountOnPanel(params: {
   provider?: 'directadmin' | 'hestia';
   /** Nome de utilizador escolhido no checkout para esta conta de hospedagem (se estiver ocupado, escolhe-se um parecido). */
   username?: string;
-}): Promise<{ ok: boolean; daUsername: string; password: string; error?: string }> {
+  /** Espera (até ~45 s) pelo resultado no servidor em vez de o deixar em segundo plano — usado pelo «Confirmar» da equipa,
+   *  para dizer logo se a conta foi criada ou porque não foi. */
+  esperar?: boolean;
+}): Promise<{ ok: boolean; daUsername: string; password: string; error?: string; servidor?: { ok: boolean; error?: string; pendente?: boolean } }> {
   const { admin, userId, email, displayName, domainName, packageName, renewalId } = params;
   try {
     const password = params.sharedPassword || generateProvisionerPassword();
@@ -180,7 +183,7 @@ export async function provisionHostingAccountOnPanel(params: {
     // a conta nova nasce sem a palavra-passe no registo (o upsert acima não a grava): vai logo a seguir, só para as contas adicionais
     if (adicional) await admin.from('panel_users').update({ da_password_encrypted: encryptDaSecret(password) }).eq('username', daUsername);
 
-    const task = async () => {
+    const task = async (): Promise<{ ok: boolean; error?: string }> => {
       const result = await provisionPanelAccountToServer(daUsername, { adicional });
       if (result.ok) {
         if (renewalId) {
@@ -194,7 +197,15 @@ export async function provisionHostingAccountOnPanel(params: {
           `${domainName} (${daUsername}): ${result.error || 'erro desconhecido'}`,
         );
       }
+      return { ok: result.ok, error: result.error };
     };
+    if (params.esperar) {
+      const limite = new Promise<{ ok: boolean; error?: string; pendente: boolean }>((resolve) =>
+        setTimeout(() => resolve({ ok: true, pendente: true }), 45_000),
+      );
+      const servidor = await Promise.race([task().catch((e: unknown) => ({ ok: false, error: e instanceof Error ? e.message : String(e) })), limite]);
+      return { ok: true, daUsername, password, servidor };
+    }
     try {
       after(task);
     } catch {
@@ -382,7 +393,9 @@ export async function fulfillCheckout(
   /** Todos os itens do pedido, quando só alguns são activados agora (a equipa confirma item a item): a conta «só domínio»
    *  decide-se olhando para o pedido inteiro, não só para o item que se confirma. */
   itensDoPedido?: CatalogCartItem[],
+  opcoes: { esperarServidor?: boolean } = {},
 ) {
+  const avisos: string[] = [];
   const today = new Date().toISOString().split('T')[0];
   const total = items.reduce((sum, item) => sum + (item.price || 0), 0);
   const created: string[] = [];
@@ -684,7 +697,7 @@ export async function fulfillCheckout(
       // conta com um domínio inventado (ex.: "<username>.com").
       if (admin && email && hostingDomainValid) {
         if (!sharedHostingPassword) sharedHostingPassword = generateProvisionerPassword();
-        await provisionHostingAccountOnPanel({
+        const feita = await provisionHostingAccountOnPanel({
           admin,
           userId,
           email,
@@ -696,7 +709,13 @@ export async function fulfillCheckout(
           provider: hostingProvider,
           planId: item.id,
           username: item.contaUtilizador,
+          esperar: opcoes.esperarServidor,
         });
+        if (!feita.ok) avisos.push(`${domainName}: não foi possível registar a conta (${feita.error || 'erro desconhecido'}).`);
+        else if (feita.servidor?.pendente) avisos.push(`${domainName}: a conta ainda está a ser criada no servidor; confirme daqui a pouco na lista de utilizadores.`);
+        else if (feita.servidor && !feita.servidor.ok) avisos.push(`${domainName}: a conta não foi criada no servidor (${feita.servidor.error || 'erro desconhecido'}).`);
+      } else if (item.type === 'hosting') {
+        avisos.push(`${domainName || item.name}: sem um domínio válido não se cria a conta no servidor; defina o domínio da hospedagem.`);
       }
     }
 
@@ -777,5 +796,5 @@ export async function fulfillCheckout(
   // nunca passou por lá (ex.: script de correcção manual/admin).
   if (admin) await promoteBuyerAfterPurchase(admin, userId, items);
 
-  return { created, total };
+  return { created, total, avisos };
 }
