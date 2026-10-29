@@ -753,7 +753,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
   const campoNomeEmpresa = (item: (typeof items)[number]) => {
     const estado = contaLivre[item.id];
     const nome = (item.contaUtilizador || '').trim();
-    let nota: React.ReactNode = <span className="mt-1 block text-[11px] text-slate-400">É o nome de acesso desta conta de hospedagem; não se pode mudar depois.</span>;
+    let nota: React.ReactNode = <span className="mt-1 block text-[11px] text-slate-400">Nome de acesso da conta. Não pode mudar depois.</span>;
     if (nome && !nomeContaValido(nome)) nota = <span className="mt-1 block text-[11px] text-rose-600">{NOME_CONTA_ERRO}</span>;
     else if (estado === 'a-verificar') nota = <span className="mt-1 block text-[11px] text-slate-400">A verificar…</span>;
     else if (estado && !estado.livre) nota = <span className="mt-1 block text-[11px] text-rose-600">{estado.msg || 'Este nome de utilizador já existe.'}</span>;
@@ -761,7 +761,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
     return (
       <div key={item.id}>
         <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 mb-1.5 block">
-          Nome da empresa (nome de utilizador da conta de hospedagem){item.hostingDomain ? ` — ${item.hostingDomain}` : ''} *
+          Nome da empresa (utilizador){itensHospedagem.length > 1 && item.hostingDomain ? ` — ${item.hostingDomain}` : ''} *
         </label>
         <input
           type="text"
