@@ -1,6 +1,6 @@
 # Auditoria ao checkout — M-Pesa e transferência bancária (29/10/2026)
 
-> **Estado (29/10/2026, mesmo dia):** corrigidos A1–A7 e M2, M4, M5, M6 (nos commits do ramo `auditoria-fluxo-checkout-mpesa-banco`) e o percurso por produto no painel (ver `regras.md`). Ficam por decidir/fazer: M1 (depende da API verdadeira da operadora), M3 («não sou um robô» no checkout — decisão de política do Silva), M7 (confirmar no servidor que as migrações do checkout estão aplicadas) e M8 (texto de aviso sobre o preço/disponibilidade do domínio até à confirmação).
+> **Estado (29/10/2026, mesmo dia):** corrigidos A1–A5, A7 e M2, M4, M5, M6 (A6 fica como estava, por decisão do Silva: o passo do número M-Pesa mantém-se) (nos commits do ramo `auditoria-fluxo-checkout-mpesa-banco`) e o percurso por produto no painel (ver `regras.md`). Ficam por decidir/fazer: M1 (depende da API verdadeira da operadora), M3 («não sou um robô» no checkout — decisão de política do Silva), M7 (confirmar no servidor que as migrações do checkout estão aplicadas) e M8 (texto de aviso sobre o preço/disponibilidade do domínio até à confirmação).
 
 Só o **fluxo** (não a API de teste da operadora). Auditoria de leitura: li as regras (`AGENTS.md`, `regras.md` inteiros) e depois o código de ponta a ponta, sem correr o site nem tocar na base de dados. Nada foi alterado no código.
 

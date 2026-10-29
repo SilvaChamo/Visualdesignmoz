@@ -294,7 +294,12 @@ export function montarDados(srv: LeituraServidor, reg: RegistoSite, sessao: Sess
   let visiveis: string[];
   if (sessao.role === 'admin') visiveis = nomes;
   else if (minha?.role === 'revenda') visiveis = nomes.filter((u) => u === me || contas[u].creator === me);
-  else visiveis = me ? [me] : [];
+  else if (me) {
+    // a sua conta e as contas de hospedagem adicionais da mesma pessoa (cada hospedagem comprada tem a sua conta)
+    const adicionais = nomes.filter((u) => u !== me && reg.contas.get(u)?.authUserId === sessao.userId);
+    for (const u of adicionais) contas[u].propria = true;
+    visiveis = [me, ...adicionais];
+  } else visiveis = [];
   const ver = new Set(visiveis);
   const filtra = <T,>(o: Record<string, T>) => Object.fromEntries(Object.entries(o).filter(([k]) => ver.has(k)));
 

@@ -1196,10 +1196,10 @@ function CheckoutItemsByType({ types }: { types: string[] }) {
     let rejectionReason: string | null = null
     let semComprovativo = false
     if (status === 'failed') {
-      rejectionReason = window.prompt('Motivo da rejeição definitiva (o cliente é avisado):', '')
+      rejectionReason = window.prompt('Motivo do cancelamento do pedido (o cliente é avisado):', '')
       if (rejectionReason === null) return
     } else if (status === 'reenviar') {
-      rejectionReason = window.prompt('O que está mal no comprovativo? (o cliente é avisado e volta a anexar):', '')
+      rejectionReason = window.prompt('Motivo da rejeição (ex.: imagem ilegível, valor errado). O cliente vê-o e volta a enviar o comprovativo:', '')
       if (rejectionReason === null) return
     } else if (!temComprovativo) {
       if (!window.confirm('Este pedido ainda não tem comprovativo. Só confirme se o dinheiro já entrou na conta — o produto é activado de imediato (um domínio é registado a sério). Confirmar mesmo assim?')) return
@@ -1363,18 +1363,19 @@ function CheckoutItemsByType({ types }: { types: string[] }) {
                             type="button"
                             disabled={updatingKey === key || !p.comprovativo_url}
                             onClick={() => respond(p.id, itemIndex, 'reenviar')}
-                            className="text-xs font-medium text-amber-600 hover:underline disabled:opacity-40 dark:text-amber-400"
-                            title="O comprovativo não serve: o cliente envia outro"
+                            className="text-xs font-medium text-rose-600 hover:underline disabled:opacity-40 dark:text-rose-400"
+                            title="O comprovativo não serve: o cliente vê o motivo e envia outro"
                           >
-                            Novo comprovativo
+                            Rejeitar
                           </button>
                           <button
                             type="button"
                             disabled={updatingKey === key}
                             onClick={() => respond(p.id, itemIndex, 'failed')}
-                            className="text-xs font-medium text-rose-600 hover:underline disabled:opacity-50 dark:text-rose-400"
+                            className="text-xs font-medium text-gray-500 hover:underline disabled:opacity-50 dark:text-zinc-500"
+                            title="Fecha o pedido de vez: o cliente não pode reenviar"
                           >
-                            Rejeitar
+                            Cancelar pedido
                           </button>
                         </>
                       )}

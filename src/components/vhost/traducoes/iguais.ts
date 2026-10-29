@@ -9,6 +9,7 @@ export const IGUAIS: string[] = [
  "[VisualHost] não foi possível carregar o tema da conta",
  "[VisualHost] não foi possível registar actividade:",
  "conta:",
+ "vh-conta-activa:",
  "?conta=",
  "Timeout",
  "Language: English",

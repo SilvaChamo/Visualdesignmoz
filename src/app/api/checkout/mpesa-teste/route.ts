@@ -10,11 +10,8 @@ import { resolveCheckoutActor } from '@/lib/checkout-actor';
 // 'pending' e o cliente paga a sério e envia o comprovativo (ver /api/checkout/[id]/comprovativo). Em produção
 // isto fica desligado e o checkout vai direito ao comprovativo. A cobrança real com activação automática é
 // /api/checkout/mpesa-pay (só administradores).
-//
-// O passo só aparece ao cliente se for ligado de propósito (MPESA_PASSO_TESTE=1): enquanto a operadora não der a API verdadeira,
-// o cliente real vai direito ao comprovativo, sem pedir o número nem esperar por uma cobrança que não existe.
 function sandboxActivo(): boolean {
-  return (process.env.MPESA_ENV || '').trim().toLowerCase() === 'sandbox' && (process.env.MPESA_PASSO_TESTE || '').trim() === '1';
+  return (process.env.MPESA_ENV || '').trim().toLowerCase() === 'sandbox';
 }
 
 export async function GET() {

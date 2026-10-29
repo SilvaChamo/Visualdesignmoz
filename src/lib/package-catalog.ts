@@ -15,6 +15,8 @@ export type CatalogCartItem = {
   /** #6: domínio de destino de um item de hospedagem — nunca usar `name`
    * (nome comercial do plano) como domínio. */
   hostingDomain?: string;
+  /** Hospedagem: nome de utilizador da conta no servidor (cada hospedagem tem a sua conta). */
+  contaUtilizador?: string;
 };
 
 /**

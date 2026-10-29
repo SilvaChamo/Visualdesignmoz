@@ -30,6 +30,8 @@ export interface VH {
   /** volta a ler os dados do servidor (depois de uma alteração) */
   recarregar: (fresco?: boolean) => Promise<void>;
   enterAs: (u: string) => void;
+  /** Troca para outra conta de hospedagem da própria pessoa (comprou mais do que uma). */
+  trocarConta: (u: string) => void;
   backToMine: () => void;
   setDashTab: (t: DashTab) => void;
   setNotes: (on: boolean) => void;

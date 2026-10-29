@@ -39,6 +39,8 @@ export interface St {
   php: string[];
   /** quem fez login */
   login: string;
+  /** conta de hospedagem que se está a ver, entre as da própria pessoa ('' = a principal, a do login) */
+  activa: string;
   /** quem entrou, como está no perfil do site (nome, e-mail, empresa) */
   pessoa: Pessoa | null;
   /** "entrar como": cada entrada guarda para onde voltar */
@@ -86,6 +88,7 @@ export function initialState(path: string): St {
       extrasPlano: {},
       php: [],
       login: '',
+      activa: '',
       pessoa: null,
       stack: [],
       path: '',
@@ -127,7 +130,7 @@ export function guardarDominio(conta: string, d: string) {
 }
 /** Nome de um item do menu: para o cliente, «Encomendas» chama-se «Compras» (Silva, 27/10/2026); o administrador, que recebe encomendas, continua com «Encomendas» */
 export const rotuloItem = (s: St, it: { id: string; t: string }) => (it.id === 'encomendas' && !(s.acc[s.login]?.role === 'admin' && !s.stack.length) ? 'Compras' : it.t);
-export const meOf = (s: St) => (s.stack.length ? s.stack[s.stack.length - 1].u : s.login);
+export const meOf = (s: St) => (s.stack.length ? s.stack[s.stack.length - 1].u : s.activa && s.acc[s.activa]?.propria ? s.activa : s.login);
 /** Conta vazia enquanto os dados do servidor não chegam (o painel mostra "a carregar") */
 const VAZIA: Account = { name: '', email: '', role: 'admin', creator: '', pkg: '', state: 'ok', disk: '0 MB', domains: [], mails: [] };
 export const acctOf = (s: St) => s.acc[meOf(s)] || VAZIA;

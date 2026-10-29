@@ -7,6 +7,7 @@ import { isProfileWhoisComplete } from '@/lib/profile-db';
 import { deductResellerBalance, refundResellerBalance } from '@/lib/reseller-balance';
 import { fulfillCheckout } from '@/lib/checkout-fulfillment';
 import { resolveCheckoutActor } from '@/lib/checkout-actor';
+import { validarContasDeHospedagem } from '@/lib/conta-hospedagem-servidor';
 
 // Paga uma compra nova do carrinho com o saldo do revendedor
 // (reseller_credits) — ao contrário de M-Pesa/Transferência, não fica
@@ -68,17 +69,20 @@ export async function POST(request: NextRequest) {
     // O IVA (16 %) acrescenta-se ao preço dos itens; `total_mt` guarda o total a pagar, já com IVA (ver src/lib/iva.ts).
     const { totalMt } = acrescentarIva(resolved.reduce((sum, r) => sum + r.priceMt, 0));
 
-    const hasDomain = resolved.some((r) => r.item.type === 'domain');
-    if (hasDomain && !(await isProfileWhoisComplete(admin, actor.buyerUserId))) {
+    // Os dados da conta (telefone, morada, cidade) são precisos em qualquer compra: facturação, contacto e, nos domínios, o registo oficial (WHOIS)
+    if (!(await isProfileWhoisComplete(admin, actor.buyerUserId))) {
       return NextResponse.json(
         {
           error: actor.impersonating
-            ? `A conta ${actor.impersonatedLabel} ainda não tem telefone, morada e cidade preenchidos — são os dados usados no registo oficial do domínio. Complete o perfil dessa conta antes de comprar.`
-            : 'Antes de comprar um domínio precisa de completar o telefone, morada e cidade em "A Minha Conta" — são os dados usados no registo oficial do domínio.',
+            ? `A conta ${actor.impersonatedLabel} ainda não tem telefone, morada e cidade preenchidos — são os dados da conta e do registo oficial dos domínios. Complete o perfil dessa conta antes de comprar.`
+            : 'Antes de comprar precisa de completar o telefone, morada e cidade em "A Minha Conta" — são os dados da sua conta e do registo oficial dos domínios.',
         },
         { status: 400 },
       );
     }
+
+    const erroConta = await validarContasDeHospedagem(admin, toValidatedCartItems(resolved));
+    if (erroConta) return NextResponse.json({ error: erroConta }, { status: 400 });
 
     const deducted = await deductResellerBalance(admin, daUsername, totalMt);
     if (!deducted.ok) {

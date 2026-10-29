@@ -128,36 +128,45 @@ export async function provisionHostingAccountOnPanel(params: {
   /** Servidor de hospedagem que vai tratar esta conta. Omitir mantém o
    * comportamento actual (DirectAdmin). */
   provider?: 'directadmin' | 'hestia';
+  /** Nome de utilizador escolhido no checkout para esta conta de hospedagem (se estiver ocupado, escolhe-se um parecido). */
+  username?: string;
 }): Promise<{ ok: boolean; daUsername: string; password: string; error?: string }> {
   const { admin, userId, email, displayName, domainName, packageName, renewalId } = params;
   try {
     const password = params.sharedPassword || generateProvisionerPassword();
-    const daUsername = await pickAvailableMirrorUsername(domainName.split('.')[0] || email.split('@')[0]);
+    const daUsername = await pickAvailableMirrorUsername(params.username || domainName.split('.')[0] || email.split('@')[0]);
 
-    const { saveProfileForAuthUser: savePassword } = await import('@/lib/profile-db');
-    await savePassword(admin, userId, {
-      email,
-      da_password_encrypted: encryptDaSecret(password),
-    });
     // Painel pelo plano (ver promoteBuyerAfterPurchase): Pro/Business/Enterprise
     // → 'profissional'; Básico → 'client'. Contas da equipa
     // (admin/manager/reseller) ficam como estão.
     const existingProfile = await getProfileForAuthUser(admin, userId, email);
+    // Quem já tem uma conta no servidor e compra outra hospedagem recebe uma conta NOVA (o seu domínio, o seu nome de
+    // utilizador), sem mexer na conta que já tinha: o perfil, a ligação ao servidor e a palavra-passe da principal ficam como estão.
+    const adicional = Boolean(String(existingProfile?.da_username || '').trim());
+    if (!adicional) {
+      const { saveProfileForAuthUser: savePassword } = await import('@/lib/profile-db');
+      await savePassword(admin, userId, {
+        email,
+        da_password_encrypted: encryptDaSecret(password),
+      });
+    }
     const STAFF_ROLES = ['admin', 'manager', 'reseller'];
     const resolvedRole = STAFF_ROLES.includes(existingProfile?.role || '')
       ? (existingProfile!.role as 'admin' | 'manager' | 'reseller')
       : ((await promoteBuyerAfterPurchase(admin, userId, [
           { type: 'hosting', id: params.planId, packageName },
         ])) ?? 'client');
-    await upsertPanelAuthAccount(admin, {
-      userId,
-      email,
-      role: resolvedRole,
-      name: displayName,
-      serverLinked: false,
-      daUsername: null,
-      provider: params.provider,
-    });
+    if (!adicional) {
+      await upsertPanelAuthAccount(admin, {
+        userId,
+        email,
+        role: resolvedRole,
+        name: displayName,
+        serverLinked: false,
+        daUsername: null,
+        provider: params.provider,
+      });
+    }
     await upsertMirrorUser({
       username: daUsername,
       email,
@@ -168,9 +177,11 @@ export async function provisionHostingAccountOnPanel(params: {
       hosting_provider: params.provider,
     });
     await upsertMirrorSite({ domain: domainName, owner: daUsername, admin_email: email, package: packageName });
+    // a conta nova nasce sem a palavra-passe no registo (o upsert acima não a grava): vai logo a seguir, só para as contas adicionais
+    if (adicional) await admin.from('panel_users').update({ da_password_encrypted: encryptDaSecret(password) }).eq('username', daUsername);
 
     const task = async () => {
-      const result = await provisionPanelAccountToServer(daUsername);
+      const result = await provisionPanelAccountToServer(daUsername, { adicional });
       if (result.ok) {
         if (renewalId) {
           await admin.from('hosting_renewals').update({ status: 'active' }).eq('id', renewalId);
@@ -684,6 +695,7 @@ export async function fulfillCheckout(
           sharedPassword: sharedHostingPassword,
           provider: hostingProvider,
           planId: item.id,
+          username: item.contaUtilizador,
         });
       }
     }

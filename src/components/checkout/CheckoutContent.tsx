@@ -69,6 +69,7 @@ const HOSTING_CYCLE_MONTHS: Record<HostingBillingCycle, number> = { monthly: 1, 
 const HOSTING_CYCLE_LABELS: Record<HostingBillingCycle, string> = { monthly: 'Mensal', semiannual: 'Semestral', annual: 'Anual' };
 import { checkoutEntryPath } from '@/lib/checkout-flow';
 import { referenciaPedido } from '@/lib/checkout-referencia';
+import { nomeContaValido, sugerirNomeConta, NOME_CONTA_ERRO } from '@/lib/conta-hospedagem';
 import { profileAuthOrFilter } from '@/lib/profile-db';
 import { acrescentarIva, IVA_TAXA } from '@/lib/iva';
 import {
@@ -136,7 +137,7 @@ function redirectPathForSession(
 export type CheckoutPainel = { voltar: () => void; editar: () => void };
 
 export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
-  const { items, total, clearCart, updateItemPeriod, removeItem, ready: carrinhoLido } = useCart();
+  const { items, total, clearCart, updateItemPeriod, removeItem, updateItemContaUtilizador, ready: carrinhoLido } = useCart();
   const router = useRouter();
   const { user: authUser, loading: authLoading } = useAuth();
   const isAuthenticated = authLoading ? null : !!authUser;
@@ -407,8 +408,50 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
     }
   };
 
-  // Comprar um domínio exige morada e cidade (são os dados do registo oficial): pede-se já aqui, antes de criar a conta
-  const carrinhoTemDominio = !isEncomenda && items.some((i) => i.type === 'domain');
+  // Cada hospedagem tem a sua conta no servidor (o seu domínio e o seu nome de utilizador), mesmo para quem já tem outra conta.
+  // Propõe-se o nome a partir do domínio; a pessoa pode mudá-lo e vê já se está livre.
+  const [contaLivre, setContaLivre] = useState<Record<string, { livre: boolean; msg: string } | 'a-verificar'>>({});
+  useEffect(() => {
+    for (const item of items) {
+      if (item.type === 'hosting' && !item.contaUtilizador && item.hostingDomain) {
+        const sugestao = sugerirNomeConta(item.hostingDomain);
+        if (sugestao) updateItemContaUtilizador(item.id, sugestao);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items]);
+  const nomesContaChave = items.filter((i) => i.type === 'hosting').map((i) => `${i.id}:${i.contaUtilizador || ''}`).join('|');
+  useEffect(() => {
+    if (isAuthenticated !== true) return;
+    let activo = true;
+    const timer = setTimeout(() => {
+      for (const item of items) {
+        const nome = (item.contaUtilizador || '').trim();
+        if (item.type !== 'hosting' || !nome) continue;
+        if (!nomeContaValido(nome)) {
+          setContaLivre((c) => ({ ...c, [item.id]: { livre: false, msg: NOME_CONTA_ERRO } }));
+          continue;
+        }
+        setContaLivre((c) => ({ ...c, [item.id]: 'a-verificar' }));
+        fetch(`/api/checkout/utilizador-disponivel?u=${encodeURIComponent(nome)}`)
+          .then((r) => r.json())
+          .then((d) => {
+            if (activo) setContaLivre((c) => ({ ...c, [item.id]: { livre: Boolean(d?.valido && d?.livre), msg: d?.error || '' } }));
+          })
+          .catch(() => {
+            if (activo) setContaLivre((c) => ({ ...c, [item.id]: { livre: true, msg: '' } }));
+          });
+      }
+    }, 500);
+    return () => {
+      activo = false;
+      clearTimeout(timer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nomesContaChave, isAuthenticated]);
+  const contaHospedagemInvalida = items.some(
+    (i) => i.type === 'hosting' && (!nomeContaValido((i.contaUtilizador || '').trim()) || (typeof contaLivre[i.id] === 'object' && !(contaLivre[i.id] as { livre: boolean }).livre)),
+  );
 
   // Flow State
   const [status, setStatus] = useState<'idle' | 'registering' | 'redirecting' | 'error'>('idle');
@@ -425,6 +468,11 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
     // Encomendas: a conta cria-se no formulário /cotacao — aqui só se paga.
     if (isEncomenda && isAuthenticated === false) {
       setErrorMessage('Inicie sessão na conta criada no pedido para pagar a encomenda.');
+      setStatus('error');
+      return;
+    }
+    if (!isEncomenda && contaHospedagemInvalida) {
+      setErrorMessage('Confira o nome de utilizador da conta de hospedagem: tem de ser válido e estar livre.');
       setStatus('error');
       return;
     }
@@ -450,8 +498,8 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
         setIsSubmitting(false);
         return;
       }
-      if (carrinhoTemDominio && (!accountForm.endereco.trim() || !accountForm.cidade.trim())) {
-        setErrorMessage('Para registar um domínio indique a sua morada e cidade: são os dados do registo oficial do domínio.');
+      if (!accountForm.endereco.trim() || !accountForm.cidade.trim() || !accountForm.estado) {
+        setErrorMessage('Indique a sua morada, cidade e província: são os dados da conta e, nos domínios, do registo oficial (WHOIS).');
         setStatus('error');
         setIsSubmitting(false);
         return;
@@ -1077,7 +1125,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                             <input type="text" value={accountForm.empresa} onChange={e => setAccountForm(p => ({ ...p, empresa: e.target.value }))} className="w-full px-4 py-2 border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 text-slate-800 dark:text-zinc-100 rounded-md text-sm outline-none focus:ring-1 focus:ring-blue-500" />
                           </div>
                           <div>
-                            <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 mb-1.5 block">Morada{carrinhoTemDominio ? ' *' : ''}</label>
+                            <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 mb-1.5 block">Morada *</label>
                             <input type="text" value={accountForm.endereco} onChange={e => setAccountForm(p => ({ ...p, endereco: e.target.value }))} className="w-full px-4 py-2 border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 text-slate-800 dark:text-zinc-100 rounded-md text-sm outline-none focus:ring-1 focus:ring-blue-500" />
                           </div>
                           <div>
@@ -1086,11 +1134,11 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                           </div>
                           <div className="grid grid-cols-2 gap-4">
                             <div>
-                              <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 mb-1.5 block">Cidade{carrinhoTemDominio ? ' *' : ''}</label>
+                              <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 mb-1.5 block">Cidade *</label>
                               <input type="text" value={accountForm.cidade} onChange={e => setAccountForm(p => ({ ...p, cidade: e.target.value }))} className="w-full px-4 py-2 border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 text-slate-800 dark:text-zinc-100 rounded-md text-sm outline-none focus:ring-1 focus:ring-blue-500" />
                             </div>
                             <div>
-                              <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 mb-1.5 block">Província</label>
+                              <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 mb-1.5 block">Província *</label>
                               <select value={accountForm.estado} onChange={e => setAccountForm(p => ({ ...p, estado: e.target.value }))} className="w-full px-4 py-2 border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 text-slate-800 dark:text-zinc-100 rounded-md text-sm outline-none focus:ring-1 focus:ring-blue-500">
                                 <option value="">Escolher…</option>
                                 {MOZAMBIQUE_PROVINCIAS.map((p) => (
@@ -1133,6 +1181,30 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                               <h4 className="font-bold text-slate-800 dark:text-zinc-100 text-sm break-all leading-tight">{item.name}</h4>
                               {(item.type === 'hosting' || item.type === 'email') && item.hostingDomain && (
                                 <p className="text-[11px] text-slate-400 dark:text-zinc-500 mt-0.5 break-all">{item.hostingDomain}</p>
+                              )}
+                              {item.type === 'hosting' && (
+                                <label className="mt-2 block">
+                                  <span className="text-[11px] font-bold text-slate-500 dark:text-zinc-400">Nome de utilizador da conta de hospedagem</span>
+                                  <input
+                                    type="text"
+                                    value={item.contaUtilizador || ''}
+                                    maxLength={20}
+                                    autoCapitalize="none"
+                                    autoCorrect="off"
+                                    spellCheck={false}
+                                    onChange={(e) => updateItemContaUtilizador(item.id, e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ''))}
+                                    className="mt-1 w-full max-w-xs rounded border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 px-2.5 py-1.5 text-xs font-mono font-bold text-slate-700 dark:text-zinc-200 outline-none focus:ring-1 focus:ring-blue-500"
+                                  />
+                                  {(() => {
+                                    const estado = contaLivre[item.id];
+                                    const nome = (item.contaUtilizador || '').trim();
+                                    if (nome && !nomeContaValido(nome)) return <span className="mt-1 block text-[11px] text-rose-600">{NOME_CONTA_ERRO}</span>;
+                                    if (estado === 'a-verificar') return <span className="mt-1 block text-[11px] text-slate-400">A verificar…</span>;
+                                    if (estado && !estado.livre) return <span className="mt-1 block text-[11px] text-rose-600">{estado.msg || 'Este nome de utilizador já existe.'}</span>;
+                                    if (estado && estado.livre && nome) return <span className="mt-1 block text-[11px] text-green-600">Nome livre.</span>;
+                                    return <span className="mt-1 block text-[11px] text-slate-400">É o nome de acesso desta conta de hospedagem; não se pode mudar depois.</span>;
+                                  })()}
+                                </label>
                               )}
                             </div>
                           </div>
@@ -1353,6 +1425,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                           isSubmitting ||
                           dadosEmFalta.length > 0 ||
                           (isEncomenda && isAuthenticated === false) ||
+                          (!isEncomenda && contaHospedagemInvalida) ||
                           (metodoPagamento === 'saldo' && (saldoDisponivel ?? 0) < ivaCarrinho.totalMt)
                         }
                         className={`flex-1 sm:flex-none disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold py-3 px-6 rounded-md flex items-center justify-center gap-2 transition-all cursor-pointer ${
@@ -1566,20 +1639,14 @@ function MpesaTesteStep({ sessionId, valorMt, onDone }: { sessionId: string; val
     }
     setError('');
     setFase('a-pagar');
-    // Não espera mais de 20 s: o resultado do teste não muda o que o cliente tem de fazer a seguir.
-    const ctrl = new AbortController();
-    const limite = setTimeout(() => ctrl.abort(), 20_000);
     try {
       await fetch('/api/checkout/mpesa-teste', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sessionId, msisdn }),
-        signal: ctrl.signal,
       });
     } catch {
-      // idem
-    } finally {
-      clearTimeout(limite);
+      // O resultado do teste não muda o que o cliente tem de fazer a seguir.
     }
     onDone(true);
   };

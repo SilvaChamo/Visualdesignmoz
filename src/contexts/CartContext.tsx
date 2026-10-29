@@ -16,6 +16,8 @@ export type CartItem = {
    * domínio válido e faz a activação no DirectAdmin falhar sempre. Pedido no
    * checkout antes de deixar pagar. */
   hostingDomain?: string;
+  /** Hospedagem: nome de utilizador da conta de hospedagem (cada hospedagem tem a sua conta no servidor). */
+  contaUtilizador?: string;
 };
 
 interface CartContextType {
@@ -28,6 +30,8 @@ interface CartContextType {
   updateItemPeriod: (id: string, period: number, price: number) => void;
   /** #6: define o domínio de destino de um item de hospedagem já no carrinho. */
   updateItemHostingDomain: (id: string, hostingDomain: string) => void;
+  /** Hospedagem: define o nome de utilizador da conta de hospedagem. */
+  updateItemContaUtilizador: (id: string, contaUtilizador: string) => void;
   clearCart: () => void;
   total: number;
   /** O carrinho guardado no navegador já foi lido (antes disso `items` vem vazio e não quer dizer «carrinho vazio»). */
@@ -92,6 +96,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setItems((prev) => prev.map((item) => (item.id === id ? { ...item, hostingDomain } : item)));
   };
 
+  const updateItemContaUtilizador = (id: string, contaUtilizador: string) => {
+    setItems((prev) => prev.map((item) => (item.id === id ? { ...item, contaUtilizador } : item)));
+  };
+
   const clearCart = () => {
     setItems([]);
   };
@@ -99,7 +107,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const total = items.reduce((acc, item) => acc + item.price, 0);
 
   return (
-    <CartContext.Provider value={{ items, addItem, removeItem, updateItemPeriod, updateItemHostingDomain, clearCart, total, ready, isCartOpen, setIsCartOpen }}>
+    <CartContext.Provider value={{ items, addItem, removeItem, updateItemPeriod, updateItemHostingDomain, updateItemContaUtilizador, clearCart, total, ready, isCartOpen, setIsCartOpen }}>
       {children}
     </CartContext.Provider>
   );

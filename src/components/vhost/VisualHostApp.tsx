@@ -216,6 +216,23 @@ function lerEntrarComo(login: string, contas: Record<string, unknown>): St['stac
     return [];
   }
 }
+/** Conta de hospedagem que a pessoa estava a ver (quando tem mais do que uma), por login, neste navegador */
+const CHAVE_ACTIVA = 'vh-conta-activa:';
+function lerContaActiva(login: string, contas: Record<string, { propria?: boolean }>): string {
+  try {
+    const u = (login && localStorage.getItem(CHAVE_ACTIVA + login)) || '';
+    return u && contas[u]?.propria ? u : '';
+  } catch {
+    return '';
+  }
+}
+function guardarContaActiva(login: string, u: string) {
+  try {
+    if (!login) return;
+    if (u) localStorage.setItem(CHAVE_ACTIVA + login, u);
+    else localStorage.removeItem(CHAVE_ACTIVA + login);
+  } catch {}
+}
 function guardarEntrarComo(login: string, stack: St['stack']) {
   try {
     if (login && stack.length) sessionStorage.setItem(CHAVE_ENTRAR, JSON.stringify({ login, stack }));
@@ -285,6 +302,7 @@ function comDados(cur: St, d: DadosServidor, caminhoDesejado: string, doNavegado
     ...cur,
     acc: d.contas,
     login: d.me,
+    activa: cur.activa && d.contas[cur.activa]?.propria ? cur.activa : lerContaActiva(d.me, d.contas),
     pessoa: d.pessoa || null,
     stack: !primeira ? cur.stack.filter((x) => d.contas[x.u]) : doNavegador ? lerEntrarComo(d.me, d.contas) : [],
     srv: d.servidor,
@@ -1184,6 +1202,18 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
       pushUrl(n.path);
       toast('Está a ver o painel de ' + u);
     },
+    trocarConta: (u) => {
+      const cur = ref.current;
+      if (!cur.acc[u] || (u !== cur.login && !cur.acc[u].propria)) return;
+      const activa = u === cur.login ? '' : u;
+      guardarContaActiva(cur.login, activa);
+      const n0: St = { ...cur, activa, dominio: dominioGuardado(u), stack: [] };
+      const lv = nivelInicial(n0);
+      const n = fromPath({ ...n0, level: lv }, '/' + lv);
+      commit(n);
+      pushUrl(n.path);
+      toast('Está a ver a conta ' + u);
+    },
     backToMine: () => {
       const cur = ref.current;
       const b = cur.stack[cur.stack.length - 1];
@@ -1867,6 +1897,25 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
                   {isUser(a.role) ? ' · ' + a.pkg : ''}
                 </span>
               </div>
+              {Object.keys(st.acc).filter((k) => k === st.login || st.acc[k].propria).length > 1 &&
+                !st.stack.length &&
+                Object.keys(st.acc)
+                  .filter((k) => k === st.login || st.acc[k].propria)
+                  .map((k) => (
+                    <a
+                      key={'conta:' + k}
+                      onClick={() => {
+                        closePop();
+                        vh.trocarConta(k);
+                      }}
+                    >
+                      <span>
+                        {k}
+                        {st.acc[k].domains[0] ? ' · ' + st.acc[k].domains[0].name : ''}
+                      </span>
+                      {me === k && <i className="fa-solid fa-check" />}
+                    </a>
+                  ))}
               <a
                 onClick={() => {
                   closePop();
