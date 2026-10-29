@@ -9,7 +9,9 @@ import { resolveCheckoutActor } from '@/lib/checkout-actor';
 import { avisarClienteCompra } from '@/lib/notify-checkout-client';
 import { referenciaPedido } from '@/lib/checkout-referencia';
 import { garantirPedidosSemConta } from '@/lib/checkout-schema';
-import { destinatarioDoPedido, tokenDoPedidoConfere } from '@/lib/pedido-sem-conta';
+import { cadastroDoPedido, destinatarioDoPedido, donoDoPedidoAoAprovar, tokenDoPedidoConfere } from '@/lib/pedido-sem-conta';
+import { decryptDaSecret } from '@/lib/da-credential-store';
+import { promoteBuyerAfterPurchase } from '@/lib/checkout-fulfillment';
 
 const MAX_SIZE_BYTES = 10 * 1024 * 1024;
 
@@ -103,6 +105,28 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({ error: 'Não foi possível registar o comprovativo.' }, { status: 500 });
   }
 
+  // Pedido de quem ainda não tinha conta: com o comprovativo enviado, a pessoa passa a ter o login do site (para entrar no painel,
+  // onde espera pela confirmação com o plano ainda fechado). A conta de hospedagem no servidor só nasce quando a equipa confirma.
+  let donoId: string | null = session.user_id || null;
+  let sessaoIniciada = Boolean(user);
+  if (!donoId) {
+    try {
+      const cad = cadastroDoPedido(session);
+      const senha = cad?.senha ? decryptDaSecret(cad.senha) : '';
+      const dono = await donoDoPedidoAoAprovar(admin, session);
+      donoId = dono.userId;
+      await promoteBuyerAfterPurchase(admin, donoId, Array.isArray(session.items) ? session.items : []).catch((err) =>
+        console.error('[checkout comprovativo] promoteBuyerAfterPurchase falhou:', err),
+      );
+      if (dono.contaCriada && cad && senha) {
+        const { error: erroEntrada } = await supabase.auth.signInWithPassword({ email: cad.email, password: senha });
+        sessaoIniciada = !erroEntrada;
+      }
+    } catch (err) {
+      console.error('[checkout comprovativo] não foi possível criar o login do cliente:', err);
+    }
+  }
+
   // Só agora o pedido é "novo" para a equipa: o cliente já pagou e enviou o comprovativo. Avisa uma vez
   // (um segundo envio do mesmo pedido substitui o ficheiro, sem repetir o aviso).
   if (!session.comprovativo_url) {
@@ -117,7 +141,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
   // o cliente fica a saber que o comprovativo chegou (também ao reenviar depois de um pedido de novo comprovativo)
   avisarClienteCompra({
-    userId: session.user_id || null,
+    userId: donoId,
     para: destinatarioDoPedido(session),
     evento: 'comprovativo',
     pedido: { id, total_mt: Number(session.total_mt) || 0, metodo_pagamento: session.metodo_pagamento, items: Array.isArray(session.items) ? session.items : [] },
@@ -127,5 +151,5 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const { token_acesso: _t, cadastro: _c, ...semSegredos } = updated;
   void _t;
   void _c;
-  return NextResponse.json({ success: true, session: { ...semSegredos, comprovativo_url: signedUrl } });
+  return NextResponse.json({ success: true, sessaoIniciada, session: { ...semSegredos, comprovativo_url: signedUrl } });
 }
