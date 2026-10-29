@@ -34,6 +34,7 @@ export async function POST(request: NextRequest) {
       provincia: texto(d.provincia, 60),
       empresa: texto(d.empresa, 120),
       emailEmpresa: texto(d.emailEmpresa, 160).toLowerCase(),
+      cargo: texto(d.cargo, 80),
     };
     const senha = String(body.senha || '');
 

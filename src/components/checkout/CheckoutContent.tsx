@@ -86,6 +86,7 @@ import {
   EyeOff,
   Smartphone,
   Landmark,
+  Briefcase,
   ShieldCheck,
   Zap,
   ArrowLeft,
@@ -119,6 +120,7 @@ const corIcone = (Icone: unknown) =>
     [Phone, 'text-green-600'],
     [Building2, 'text-blue-500'],
     [Mail, 'text-sky-500'],
+    [Briefcase, 'text-indigo-500'],
     [KeyRound, 'text-amber-500'],
     [MapPin, 'text-red-500'],
     [Landmark, 'text-red-500'],
@@ -385,6 +387,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
     empresa: '',
     endereco: '',
     emailEmpresa: '',
+    cargo: '',
     cidade: '',
     estado: '',
     pais: 'Mozambique'
@@ -497,6 +500,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
       telefone: f.telefone || numero,
       endereco: f.endereco || fonte.morada,
       emailEmpresa: f.emailEmpresa || (buyingAs ? '' : texto(metaConta.email_empresa)),
+      cargo: f.cargo || (buyingAs ? '' : texto(metaConta.cargo)),
       estado: f.estado || (MOZAMBIQUE_PROVINCIAS.includes(fonte.provincia) ? fonte.provincia : ''),
     }));
     if (prefixo && !accountForm.telefone) setTelefonePrefixo(prefixo);
@@ -504,7 +508,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
   }, [authUser, rascunhoLido, profileExtra, buyingAs]);
 
   // Grava telefone, morada, cidade e província da conta (a cidade segue igual à província quando não há outra).
-  const gravarPerfil = async (v: { telefone: string; morada: string; cidade: string; provincia: string; emailEmpresa?: string }) => {
+  const gravarPerfil = async (v: { telefone: string; morada: string; cidade: string; provincia: string; emailEmpresa?: string; cargo?: string }) => {
     if (!authUser) return;
     const { data: existing } = await supabase
       .from('profiles')
@@ -524,8 +528,9 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
     if (error) throw error;
     // a província não tem coluna no perfil: guarda-se nos dados da conta (onde o registo já a põe)
     const novoEmailEmpresa = (v.emailEmpresa ?? texto(metaConta.email_empresa)).trim();
-    if (v.provincia !== dadosConta.provincia || novoEmailEmpresa !== texto(metaConta.email_empresa)) {
-      await supabase.auth.updateUser({ data: { provincia: v.provincia, email_empresa: novoEmailEmpresa } });
+    const novoCargo = (v.cargo ?? texto(metaConta.cargo)).trim();
+    if (v.provincia !== dadosConta.provincia || novoEmailEmpresa !== texto(metaConta.email_empresa) || novoCargo !== texto(metaConta.cargo)) {
+      await supabase.auth.updateUser({ data: { provincia: v.provincia, email_empresa: novoEmailEmpresa, cargo: novoCargo } });
     }
     setProfileExtra({ telefone: payload.telefone, morada: payload.morada, cidade: payload.cidade });
   };
@@ -621,6 +626,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
           cidade: accountForm.estado,
           provincia: accountForm.estado,
           emailEmpresa: accountForm.emailEmpresa,
+          cargo: accountForm.cargo,
         });
       } catch (err: unknown) {
         setErrorMessage(err instanceof Error ? err.message : 'Não foi possível guardar os dados da conta.');
@@ -684,6 +690,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
               morada: accountForm.endereco,
               provincia: accountForm.estado,
               emailEmpresa: accountForm.emailEmpresa,
+              cargo: accountForm.cargo,
               empresa: items.find((i) => i.type === 'hosting')?.contaUtilizador || accountForm.empresa,
             },
           }),
@@ -724,6 +731,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
             cidade: accountForm.estado,
             provincia: accountForm.estado,
             emailEmpresa: accountForm.emailEmpresa,
+            cargo: accountForm.cargo,
             pais: accountForm.pais,
           })
         });
@@ -1170,6 +1178,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                       <LinhaDado icone={User} valor={[accountForm.name, accountForm.sobrenome].filter(Boolean).join(' ')} />
                       <LinhaDado icone={Mail} valor={authUser?.email || accountForm.email} />
                       <LinhaDado icone={Phone} valor={accountForm.telefone ? `${telefonePrefixo} ${accountForm.telefone}` : ''} />
+                      {accountForm.cargo ? <LinhaDado icone={Briefcase} valor={accountForm.cargo} /> : null}
                     </div>
                   </div>
                   <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg p-6 shadow-sm">
@@ -1281,6 +1290,9 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                             </div>
                             <input type="tel" aria-label="Telefone" placeholder="Telefone *" value={accountForm.telefone} onChange={e => setAccountForm(p => ({ ...p, telefone: e.target.value }))} className={campoCls} />
                           </div>
+                          <CampoIcone icone={Briefcase}>
+                            <input type="text" aria-label="Cargo" placeholder="Cargo" value={accountForm.cargo} onChange={e => setAccountForm(p => ({ ...p, cargo: e.target.value }))} className={campoCls} />
+                          </CampoIcone>
                           {(isAuthenticated !== true || comoVisitante) && (
                           <CampoIcone icone={KeyRound}>
                             <input type={showPassword ? 'text' : 'password'} aria-label="Palavra-passe" placeholder="Palavra-passe (6 a 20 caracteres) *" maxLength={20} autoComplete="new-password" value={accountForm.password} onChange={e => setAccountForm(p => ({ ...p, password: e.target.value }))} className={campoCls} />
@@ -1344,6 +1356,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                                     cidade: accountForm.estado,
                                     provincia: accountForm.estado,
                                     emailEmpresa: accountForm.emailEmpresa,
+                                    cargo: accountForm.cargo,
                                   });
                                 }
                                 setErrorMessage('');
