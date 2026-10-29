@@ -260,6 +260,7 @@ function InicioAguarda() {
       <ClientProductsHub
         displayName={vh.s.pessoa?.nome}
         sessionUser={vh.s.pessoa?.email}
+        semOfertas={!soDominioDe(vh.s)}
         onProductsChanged={() => void vh.recarregar(true)}
         onNavigate={(secao) => {
           if (secao === 'facturas' || secao === 'minhas-compras') vh.go('facturacao');

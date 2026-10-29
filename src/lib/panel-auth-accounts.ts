@@ -94,7 +94,9 @@ export async function upsertPanelAuthAccount(
   const payload: Record<string, unknown> = {
     user_id: params.userId,
     email,
-    role: params.role,
+    // a tabela só aceita admin/manager/reseller/client/guest: «profissional» (plano Pro, Business, Enterprise) é um cliente; o painel
+    // Profissional vem do plano e do perfil, não desta coluna (era isto que impedia criar a conta de quem comprava um plano Pro)
+    role: params.role === 'profissional' ? 'client' : params.role,
     name: params.name?.trim() || email.split('@')[0] || null,
     panel_slug: (params.panelSlug || PANEL_SLUG).toLowerCase(),
     server_linked: params.serverLinked === true,
