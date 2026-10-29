@@ -47,6 +47,8 @@ export const compras: Record<string, string> = {
  "Não foi possível confirmar o pagamento no M-Pesa. Confirme no telemóvel com o PIN e tente outra vez.": "The payment could not be confirmed on M-Pesa. Confirm on your phone with your PIN and try again.",
  "Já paguei por outra via — continuar para o comprovativo": "I already paid another way — continue to the receipt",
  "Cargo": "Job title",
+ "Nova palavra-passe (opcional)": "New password (optional)",
+ "A palavra-passe deve ter entre 6 e 20 caracteres.": "The password must be between 6 and 20 characters.",
  "Morada *": "Address *",
  "Cidade *": "City *",
  "Província *": "Province *",

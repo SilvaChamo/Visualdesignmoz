@@ -534,6 +534,17 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
     }
     setProfileExtra({ telefone: payload.telefone, morada: payload.morada, cidade: payload.cidade });
   };
+  // Quem tem conta pode mudar a palavra-passe ao editar os dados (campo opcional: vazio = não muda).
+  const mudarSenha = async () => {
+    const nova = accountForm.password;
+    if (!nova) return;
+    if (nova.length < 6 || nova.length > 20) throw new Error('A palavra-passe deve ter entre 6 e 20 caracteres.');
+    const { error } = await supabase.auth.updateUser({ password: nova });
+    if (error) throw new Error(error.message);
+    setAccountForm((f) => ({ ...f, password: '' }));
+    setShowPassword(false);
+  };
+
   // Cada hospedagem tem a sua conta no servidor (o seu domínio e o seu nome de utilizador), mesmo para quem já tem outra conta.
   // O campo começa vazio: quem compra escolhe o nome; vê já se está livre.
   const [contaLivre, setContaLivre] = useState<Record<string, { livre: boolean; msg: string } | 'a-verificar'>>({});
@@ -628,6 +639,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
           emailEmpresa: accountForm.emailEmpresa,
           cargo: accountForm.cargo,
         });
+        await mudarSenha();
       } catch (err: unknown) {
         setErrorMessage(err instanceof Error ? err.message : 'Não foi possível guardar os dados da conta.');
         setStatus('error');
@@ -1295,9 +1307,9 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                             </div>
                             <input type="tel" aria-label="Telefone" placeholder="Telefone *" value={accountForm.telefone} onChange={e => setAccountForm(p => ({ ...p, telefone: e.target.value }))} className={campoCls} />
                           </div>
-                          {(isAuthenticated !== true || comoVisitante) && (
+                          {(isAuthenticated !== true || comoVisitante || editando) && (
                           <CampoIcone icone={KeyRound}>
-                            <input type={showPassword ? 'text' : 'password'} aria-label="Palavra-passe" placeholder="Palavra-passe (6 a 20 caracteres) *" maxLength={20} autoComplete="new-password" value={accountForm.password} onChange={e => setAccountForm(p => ({ ...p, password: e.target.value }))} className={campoCls} />
+                            <input type={showPassword ? 'text' : 'password'} aria-label="Palavra-passe" placeholder={isAuthenticated === true && !comoVisitante ? 'Nova palavra-passe (opcional)' : 'Palavra-passe (6 a 20 caracteres) *'} maxLength={20} autoComplete="new-password" value={accountForm.password} onChange={e => setAccountForm(p => ({ ...p, password: e.target.value }))} className={campoCls} />
                             <div className="flex items-center gap-2 pr-3 text-slate-400">
                               <button type="button" title="Gerar senha segura" aria-label="Gerar senha segura" onClick={() => { setAccountForm(p => ({ ...p, password: Math.random().toString(36).slice(-6) + Math.random().toString(36).slice(-2).toUpperCase() + '@' })); setShowPassword(true); }} className="hover:text-blue-600 dark:hover:text-blue-400">
                                 <Wand2 className="w-4 h-4" />
@@ -1336,10 +1348,8 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                               ))}
                             </select>
                           </CampoIcone>
-                        </div>
-                      </div>
                       {isAuthenticated === true && !comoVisitante && editando && (
-                        <div className="mt-6 flex gap-2">
+                        <div className="flex items-center justify-end gap-2 h-10">
                           <button
                             type="button"
                             disabled={savingDados}
@@ -1360,6 +1370,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                                     emailEmpresa: accountForm.emailEmpresa,
                                     cargo: accountForm.cargo,
                                   });
+                                  await mudarSenha();
                                 }
                                 setErrorMessage('');
                                 setStatus('idle');
@@ -1390,6 +1401,8 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                           </button>
                         </div>
                       )}
+                        </div>
+                      </div>
                     </div>
                   )}
 
