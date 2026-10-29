@@ -95,11 +95,51 @@ import {
   Wallet,
   CheckCircle2,
   Paperclip,
-  Trash2
+  Trash2,
+  User,
+  Phone,
+  MapPin,
+  Map as MapaIcone,
+  KeyRound,
+  Wand2
 } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
 
 type MetodoPagamento = 'stripe' | 'mpesa' | 'transferencia' | 'saldo';
+
+// Campos do checkout: sem etiquetas, a dica fica dentro do campo e o ícone (a cores) numa caixa à esquerda, como nos outros
+// formulários do site.
+const campoCls =
+  'h-10 w-full min-w-0 flex-1 bg-transparent px-3 text-sm text-slate-800 dark:text-zinc-100 placeholder:text-slate-400 dark:placeholder:text-zinc-500 outline-none disabled:cursor-default disabled:bg-slate-50 dark:disabled:bg-zinc-900 disabled:text-slate-600';
+const campoVazioCls = campoCls.replace('text-slate-800 dark:text-zinc-100', 'text-slate-400 dark:text-zinc-500');
+const caixaCampoCls =
+  'flex items-stretch overflow-hidden rounded border border-zinc-300 bg-white dark:border-zinc-700 dark:bg-zinc-950 transition-colors focus-within:border-red-500 focus-within:ring-2 focus-within:ring-red-500/20';
+const corIcone = (Icone: unknown) =>
+  (new Map<unknown, string>([
+    [User, 'text-violet-600'],
+    [Phone, 'text-green-600'],
+    [Building2, 'text-blue-500'],
+    [Mail, 'text-sky-500'],
+    [KeyRound, 'text-amber-500'],
+    [MapPin, 'text-red-500'],
+    [Landmark, 'text-red-500'],
+    [MapaIcone, 'text-teal-500'],
+  ]).get(Icone) || 'text-slate-400');
+function IconeCaixa({ icone: Icone }: { icone: React.ComponentType<{ className?: string }> }) {
+  return (
+    <span className="flex w-10 shrink-0 items-center justify-center border-r border-zinc-300 bg-slate-50 dark:border-zinc-700 dark:bg-zinc-900">
+      <Icone className={`h-4 w-4 ${corIcone(Icone)}`} />
+    </span>
+  );
+}
+function CampoIcone({ icone, children }: { icone: React.ComponentType<{ className?: string }>; children: React.ReactNode }) {
+  return (
+    <div className={`relative ${caixaCampoCls}`}>
+      <IconeCaixa icone={icone} />
+      {children}
+    </div>
+  );
+}
 
 /** Telefone com o indicativo escolhido; se a pessoa já escreveu o indicativo (+258… ou 00258…), fica como escreveu. */
 function telefoneCompleto(escrito: string, prefixo: string): string {
@@ -750,20 +790,21 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
     else if (estado && estado.livre && nome) nota = <span className="mt-1 block text-[11px] text-green-600">Nome livre.</span>;
     return (
       <div key={item.id}>
-        <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 mb-1.5 block">
-          Nome da empresa (utilizador){itensHospedagem.length > 1 && item.hostingDomain ? ` — ${item.hostingDomain}` : ''} *
-        </label>
-        <input
-          type="text"
-          value={item.contaUtilizador || ''}
-          maxLength={20}
-          autoComplete="off"
-          autoCapitalize="none"
-          autoCorrect="off"
-          spellCheck={false}
-          onChange={(e) => updateItemContaUtilizador(item.id, e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ''))}
-          className="w-full px-4 py-2 border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 text-slate-800 dark:text-zinc-100 rounded-md text-sm outline-none focus:ring-1 focus:ring-blue-500"
-        />
+        <CampoIcone icone={Building2}>
+          <input
+            type="text"
+            value={item.contaUtilizador || ''}
+            maxLength={20}
+            autoComplete="off"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            aria-label="Nome da empresa (utilizador)"
+            placeholder={itensHospedagem.length > 1 && item.hostingDomain ? item.hostingDomain + ' — Nome da empresa (utilizador) *' : 'Nome da empresa (utilizador) *'}
+            onChange={(e) => updateItemContaUtilizador(item.id, e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ''))}
+            className={campoCls}
+          />
+        </CampoIcone>
         {nota}
       </div>
     );
@@ -998,33 +1039,45 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                       const aEditar = editingProfile && !buyingAs;
                       const valor = (campo: 'telefone' | 'morada' | 'cidade' | 'provincia') =>
                         aEditar ? profileEditForm[campo] : buyingAs ? (buyingAs.billing?.[campo as 'telefone' | 'morada' | 'cidade'] || '') : dadosConta[campo];
-                      const classe = `w-full text-xs border border-slate-200 dark:border-zinc-800 rounded px-2.5 py-1.5 ${aEditar ? 'dark:bg-zinc-950' : 'bg-slate-50 dark:bg-zinc-900 text-slate-600 dark:text-zinc-400 cursor-default'}`;
+                      const classe = campoCls;
                       const faltam = !buyingAs && (!dadosConta.telefone || !dadosConta.morada || !dadosConta.cidade);
                       return (
                         <div className="mt-3 space-y-2">
                           {aEditar ? (
-                            <input
-                              type="email"
-                              value={profileEditForm.email}
-                              onChange={(e) => setProfileEditForm((f) => ({ ...f, email: e.target.value }))}
-                              placeholder="Email"
-                              className={classe}
-                            />
+                            <CampoIcone icone={Mail}>
+                              <input
+                                type="email"
+                                value={profileEditForm.email}
+                                onChange={(e) => setProfileEditForm((f) => ({ ...f, email: e.target.value }))}
+                                aria-label="Email"
+                                placeholder="Email"
+                                className={classe}
+                              />
+                            </CampoIcone>
                           ) : null}
-                          <input value={valor('telefone')} disabled={!aEditar} onChange={(e) => setProfileEditForm((f) => ({ ...f, telefone: e.target.value }))} placeholder="Telefone" className={classe} />
-                          <input value={valor('morada')} disabled={!aEditar} onChange={(e) => setProfileEditForm((f) => ({ ...f, morada: e.target.value }))} placeholder="Morada" className={classe} />
-                          <input value={valor('cidade')} disabled={!aEditar} onChange={(e) => setProfileEditForm((f) => ({ ...f, cidade: e.target.value }))} placeholder="Cidade" className={classe} />
-                          <select
-                            value={valor('provincia')}
-                            disabled={!aEditar}
-                            onChange={(e) => setProfileEditForm((f) => ({ ...f, provincia: e.target.value }))}
-                            className={classe}
-                          >
-                            <option value="">Província…</option>
-                            {MOZAMBIQUE_PROVINCIAS.map((p) => (
-                              <option key={p} value={p}>{p}</option>
-                            ))}
-                          </select>
+                          <CampoIcone icone={Phone}>
+                            <input value={valor('telefone')} disabled={!aEditar} onChange={(e) => setProfileEditForm((f) => ({ ...f, telefone: e.target.value }))} aria-label="Telefone" placeholder="Telefone" className={classe} />
+                          </CampoIcone>
+                          <CampoIcone icone={MapPin}>
+                            <input value={valor('morada')} disabled={!aEditar} onChange={(e) => setProfileEditForm((f) => ({ ...f, morada: e.target.value }))} aria-label="Morada" placeholder="Morada" className={classe} />
+                          </CampoIcone>
+                          <CampoIcone icone={Landmark}>
+                            <input value={valor('cidade')} disabled={!aEditar} onChange={(e) => setProfileEditForm((f) => ({ ...f, cidade: e.target.value }))} aria-label="Cidade" placeholder="Cidade" className={classe} />
+                          </CampoIcone>
+                          <CampoIcone icone={MapaIcone}>
+                            <select
+                              value={valor('provincia')}
+                              disabled={!aEditar}
+                              aria-label="Província"
+                              onChange={(e) => setProfileEditForm((f) => ({ ...f, provincia: e.target.value }))}
+                              className={valor('provincia') ? classe : classe.replace('text-slate-800 dark:text-zinc-100', 'text-slate-400 dark:text-zinc-500')}
+                            >
+                              <option value="">Província</option>
+                              {MOZAMBIQUE_PROVINCIAS.map((p) => (
+                                <option key={p} value={p}>{p}</option>
+                              ))}
+                            </select>
+                          </CampoIcone>
                           {aEditar ? (
                             <div className="flex gap-2 pt-1">
                               <button
@@ -1135,82 +1188,72 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-8">
                         {/* Dados da pessoa responsável */}
-                        <div className="space-y-4">
+                        <div className="space-y-3">
                           <h3 className="text-xs font-bold uppercase tracking-wide text-slate-400 dark:text-zinc-500 pb-3 border-b border-slate-100 dark:border-zinc-800">
                             Dados da Pessoa Responsável
                           </h3>
-                          <div>
-                            <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 mb-1.5 block">Nome</label>
-                            <input type="text" value={accountForm.name} onChange={e => setAccountForm(p => ({ ...p, name: e.target.value }))} className="w-full px-4 py-2 border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 text-slate-800 dark:text-zinc-100 rounded-md text-sm outline-none focus:ring-1 focus:ring-blue-500" />
-                          </div>
-                          <div>
-                            <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 mb-1.5 block">Apelido</label>
-                            <input type="text" value={accountForm.sobrenome} onChange={e => setAccountForm(p => ({ ...p, sobrenome: e.target.value }))} className="w-full px-4 py-2 border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 text-slate-800 dark:text-zinc-100 rounded-md text-sm outline-none focus:ring-1 focus:ring-blue-500" />
-                          </div>
-                          <div>
-                            <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 mb-1.5 block">Telefone *</label>
-                            <div className="flex border border-slate-200 dark:border-zinc-800 rounded-md bg-slate-50 dark:bg-zinc-950 overflow-hidden focus-within:ring-1 focus-within:ring-blue-500">
-                              <div className="relative flex items-center border-r border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-900">
-                                <select value={telefonePrefixo} onChange={(e) => setTelefonePrefixo(e.target.value)} className="pl-3 pr-8 py-2 bg-transparent text-sm text-slate-700 dark:text-zinc-300 outline-none cursor-pointer appearance-none w-full h-full">
-                                  <option value="+258">🇲🇿 +258</option>
-                                  <option value="+244">🇦🇴 +244</option>
-                                  <option value="+351">🇵🇹 +351</option>
-                                  <option value="+55">🇧🇷 +55</option>
-                                </select>
-                                <svg className="w-3 h-3 text-slate-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
-                              </div>
-                              <input type="tel" value={accountForm.telefone} onChange={e => setAccountForm(p => ({ ...p, telefone: e.target.value }))} className="flex-1 min-w-0 px-3 py-2 bg-transparent text-slate-800 dark:text-zinc-100 text-sm outline-none" />
+                          <CampoIcone icone={User}>
+                            <input type="text" aria-label="Nome" placeholder="Nome *" value={accountForm.name} onChange={e => setAccountForm(p => ({ ...p, name: e.target.value }))} className={campoCls} />
+                          </CampoIcone>
+                          <CampoIcone icone={User}>
+                            <input type="text" aria-label="Apelido" placeholder="Apelido" value={accountForm.sobrenome} onChange={e => setAccountForm(p => ({ ...p, sobrenome: e.target.value }))} className={campoCls} />
+                          </CampoIcone>
+                          <div className={caixaCampoCls}>
+                            <IconeCaixa icone={Phone} />
+                            <div className="relative flex items-center border-r border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950">
+                              <select aria-label="Indicativo" value={telefonePrefixo} onChange={(e) => setTelefonePrefixo(e.target.value)} className="pl-3 pr-8 h-10 bg-transparent text-sm text-slate-700 dark:text-zinc-300 outline-none cursor-pointer appearance-none">
+                                <option value="+258">🇲🇿 +258</option>
+                                <option value="+244">🇦🇴 +244</option>
+                                <option value="+351">🇵🇹 +351</option>
+                                <option value="+55">🇧🇷 +55</option>
+                              </select>
+                              <svg className="w-3 h-3 text-slate-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
                             </div>
+                            <input type="tel" aria-label="Telefone" placeholder="Telefone *" value={accountForm.telefone} onChange={e => setAccountForm(p => ({ ...p, telefone: e.target.value }))} className={campoCls} />
                           </div>
-                          <div>
-                            <div className="flex justify-between items-end mb-1.5">
-                              <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 block">Palavra-passe para a conta (mín. 6 caracteres)</label>
-                              <button type="button" onClick={() => { setAccountForm(p => ({ ...p, password: Math.random().toString(36).slice(-6) + Math.random().toString(36).slice(-2).toUpperCase() + '@' })); setShowPassword(true); }} className="text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:underline">Gerar senha segura</button>
-                            </div>
-                            <div className="relative">
-                              <input type={showPassword ? 'text' : 'password'} value={accountForm.password} onChange={e => setAccountForm(p => ({ ...p, password: e.target.value }))} className="w-full px-4 py-2 border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 text-slate-800 dark:text-zinc-100 rounded-md text-sm outline-none focus:ring-1 focus:ring-blue-500 pr-10" />
-                              <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-zinc-300">
+                          <CampoIcone icone={KeyRound}>
+                            <input type={showPassword ? 'text' : 'password'} aria-label="Palavra-passe" placeholder="Palavra-passe (mín. 6 caracteres) *" autoComplete="new-password" value={accountForm.password} onChange={e => setAccountForm(p => ({ ...p, password: e.target.value }))} className={campoCls} />
+                            <div className="flex items-center gap-2 pr-3 text-slate-400">
+                              <button type="button" title="Gerar senha segura" aria-label="Gerar senha segura" onClick={() => { setAccountForm(p => ({ ...p, password: Math.random().toString(36).slice(-6) + Math.random().toString(36).slice(-2).toUpperCase() + '@' })); setShowPassword(true); }} className="hover:text-blue-600 dark:hover:text-blue-400">
+                                <Wand2 className="w-4 h-4" />
+                              </button>
+                              <button type="button" aria-label="Mostrar palavra-passe" onClick={() => setShowPassword(!showPassword)} className="hover:text-slate-600 dark:hover:text-zinc-300">
                                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                               </button>
                             </div>
-                          </div>
+                          </CampoIcone>
                         </div>
 
                         {/* Dados da empresa */}
-                        <div className="space-y-4 md:pl-8 md:border-l border-slate-100 dark:border-zinc-800">
+                        <div className="space-y-3 md:pl-8 md:border-l border-slate-100 dark:border-zinc-800">
                           <h3 className="text-xs font-bold uppercase tracking-wide text-slate-400 dark:text-zinc-500 pb-3 border-b border-slate-100 dark:border-zinc-800">
                             Dados da Empresa
                           </h3>
                           {itensHospedagem.length > 0 ? (
                             itensHospedagem.map(campoNomeEmpresa)
                           ) : (
-                            <div>
-                              <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 mb-1.5 block">Empresa</label>
-                              <input type="text" value={accountForm.empresa} onChange={e => setAccountForm(p => ({ ...p, empresa: e.target.value }))} className="w-full px-4 py-2 border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 text-slate-800 dark:text-zinc-100 rounded-md text-sm outline-none focus:ring-1 focus:ring-blue-500" />
-                            </div>
+                            <CampoIcone icone={Building2}>
+                              <input type="text" aria-label="Empresa" placeholder="Empresa" value={accountForm.empresa} onChange={e => setAccountForm(p => ({ ...p, empresa: e.target.value }))} className={campoCls} />
+                            </CampoIcone>
                           )}
-                          <div>
-                            <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 mb-1.5 block">E-mail</label>
-                            <input type="email" value={accountForm.email} onChange={e => setAccountForm(p => ({ ...p, email: e.target.value }))} className="w-full px-4 py-2 border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 text-slate-800 dark:text-zinc-100 rounded-md text-sm outline-none focus:ring-1 focus:ring-blue-500" />
-                          </div>
-                          <div>
-                            <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 mb-1.5 block">Morada *</label>
-                            <input type="text" value={accountForm.endereco} onChange={e => setAccountForm(p => ({ ...p, endereco: e.target.value }))} className="w-full px-4 py-2 border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 text-slate-800 dark:text-zinc-100 rounded-md text-sm outline-none focus:ring-1 focus:ring-blue-500" />
-                          </div>
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 mb-1.5 block">Cidade *</label>
-                              <input type="text" value={accountForm.cidade} onChange={e => setAccountForm(p => ({ ...p, cidade: e.target.value }))} className="w-full px-4 py-2 border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 text-slate-800 dark:text-zinc-100 rounded-md text-sm outline-none focus:ring-1 focus:ring-blue-500" />
-                            </div>
-                            <div>
-                              <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 mb-1.5 block">Província *</label>
-                              <select value={accountForm.estado} onChange={e => setAccountForm(p => ({ ...p, estado: e.target.value }))} className="w-full px-4 py-2 border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 text-slate-800 dark:text-zinc-100 rounded-md text-sm outline-none focus:ring-1 focus:ring-blue-500">
-                                <option value="">Escolher…</option>
+                          <CampoIcone icone={Mail}>
+                            <input type="email" aria-label="E-mail" placeholder="E-mail *" value={accountForm.email} onChange={e => setAccountForm(p => ({ ...p, email: e.target.value }))} className={campoCls} />
+                          </CampoIcone>
+                          <CampoIcone icone={MapPin}>
+                            <input type="text" aria-label="Morada" placeholder="Morada *" value={accountForm.endereco} onChange={e => setAccountForm(p => ({ ...p, endereco: e.target.value }))} className={campoCls} />
+                          </CampoIcone>
+                          <div className="grid grid-cols-2 gap-3">
+                            <CampoIcone icone={Landmark}>
+                              <input type="text" aria-label="Cidade" placeholder="Cidade *" value={accountForm.cidade} onChange={e => setAccountForm(p => ({ ...p, cidade: e.target.value }))} className={campoCls} />
+                            </CampoIcone>
+                            <CampoIcone icone={MapaIcone}>
+                              <select aria-label="Província" value={accountForm.estado} onChange={e => setAccountForm(p => ({ ...p, estado: e.target.value }))} className={accountForm.estado ? campoCls : campoVazioCls}>
+                                <option value="">Província *</option>
                                 {MOZAMBIQUE_PROVINCIAS.map((p) => (
                                   <option key={p} value={p}>{p}</option>
                                 ))}
                               </select>
-                            </div>
+                            </CampoIcone>
                           </div>
                         </div>
                       </div>
