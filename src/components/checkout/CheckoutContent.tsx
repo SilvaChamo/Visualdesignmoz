@@ -1349,7 +1349,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                             </select>
                           </CampoIcone>
                       {isAuthenticated === true && !comoVisitante && editando && (
-                        <div className="flex items-center justify-end gap-2 h-10">
+                        <div className="flex items-center justify-start gap-2 h-10">
                           <button
                             type="button"
                             disabled={savingDados}
@@ -1395,7 +1395,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                               }
                               setEditando(false);
                             }}
-                            className="text-xs font-bold text-slate-400 px-3"
+                            className="border border-slate-300 dark:border-zinc-700 text-slate-600 dark:text-zinc-300 text-xs font-bold px-4 py-2 rounded hover:bg-slate-50 dark:hover:bg-zinc-800"
                           >
                             Cancelar
                           </button>
