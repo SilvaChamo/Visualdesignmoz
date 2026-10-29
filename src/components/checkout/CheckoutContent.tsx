@@ -384,6 +384,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
     password: '',
     empresa: '',
     endereco: '',
+    emailEmpresa: '',
     cidade: '',
     estado: '',
     pais: 'Mozambique'
@@ -495,6 +496,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
       email: f.email || fonte.email,
       telefone: f.telefone || numero,
       endereco: f.endereco || fonte.morada,
+      emailEmpresa: f.emailEmpresa || (buyingAs ? '' : texto(metaConta.email_empresa)),
       estado: f.estado || (MOZAMBIQUE_PROVINCIAS.includes(fonte.provincia) ? fonte.provincia : ''),
     }));
     if (prefixo && !accountForm.telefone) setTelefonePrefixo(prefixo);
@@ -502,7 +504,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
   }, [authUser, rascunhoLido, profileExtra, buyingAs]);
 
   // Grava telefone, morada, cidade e província da conta (a cidade segue igual à província quando não há outra).
-  const gravarPerfil = async (v: { telefone: string; morada: string; cidade: string; provincia: string }) => {
+  const gravarPerfil = async (v: { telefone: string; morada: string; cidade: string; provincia: string; emailEmpresa?: string }) => {
     if (!authUser) return;
     const { data: existing } = await supabase
       .from('profiles')
@@ -521,8 +523,9 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
       : await supabase.from('profiles').insert(payload);
     if (error) throw error;
     // a província não tem coluna no perfil: guarda-se nos dados da conta (onde o registo já a põe)
-    if (v.provincia !== dadosConta.provincia) {
-      await supabase.auth.updateUser({ data: { provincia: v.provincia } });
+    const novoEmailEmpresa = (v.emailEmpresa ?? texto(metaConta.email_empresa)).trim();
+    if (v.provincia !== dadosConta.provincia || novoEmailEmpresa !== texto(metaConta.email_empresa)) {
+      await supabase.auth.updateUser({ data: { provincia: v.provincia, email_empresa: novoEmailEmpresa } });
     }
     setProfileExtra({ telefone: payload.telefone, morada: payload.morada, cidade: payload.cidade });
   };
@@ -617,6 +620,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
           morada: accountForm.endereco.trim(),
           cidade: accountForm.estado,
           provincia: accountForm.estado,
+          emailEmpresa: accountForm.emailEmpresa,
         });
       } catch (err: unknown) {
         setErrorMessage(err instanceof Error ? err.message : 'Não foi possível guardar os dados da conta.');
@@ -679,6 +683,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
               telefone: telefoneCompleto(accountForm.telefone, telefonePrefixo),
               morada: accountForm.endereco,
               provincia: accountForm.estado,
+              emailEmpresa: accountForm.emailEmpresa,
               empresa: items.find((i) => i.type === 'hosting')?.contaUtilizador || accountForm.empresa,
             },
           }),
@@ -718,6 +723,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
             endereco: accountForm.endereco.trim(),
             cidade: accountForm.estado,
             provincia: accountForm.estado,
+            emailEmpresa: accountForm.emailEmpresa,
             pais: accountForm.pais,
           })
         });
@@ -1186,6 +1192,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                       {itensHospedagem.map((i) => (
                         <LinhaDado key={i.id} icone={Building2} valor={i.contaUtilizador || ''} />
                       ))}
+                      {accountForm.emailEmpresa ? <LinhaDado icone={Mail} valor={accountForm.emailEmpresa} /> : null}
                       <LinhaDado icone={MapPin} valor={accountForm.endereco} />
                       <LinhaDado icone={MapaIcone} valor={accountForm.estado} />
                     </div>
@@ -1258,6 +1265,9 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                           <CampoIcone icone={User}>
                             <input type="text" aria-label="Apelido" placeholder="Apelido" value={accountForm.sobrenome} onChange={e => setAccountForm(p => ({ ...p, sobrenome: e.target.value }))} className={campoCls} />
                           </CampoIcone>
+                          <CampoIcone icone={Mail}>
+                            <input type="email" aria-label="E-mail" placeholder="E-mail *" disabled={isAuthenticated === true && !comoVisitante} value={isAuthenticated === true && !comoVisitante && authUser?.email ? authUser.email : accountForm.email} onChange={e => setAccountForm(p => ({ ...p, email: e.target.value }))} className={campoCls} />
+                          </CampoIcone>
                           <div className={caixaCampoCls}>
                             <IconeCaixa icone={Phone} />
                             <div className="relative flex items-center border-r border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950">
@@ -1299,7 +1309,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                             </CampoIcone>
                           )}
                           <CampoIcone icone={Mail}>
-                            <input type="email" aria-label="E-mail" placeholder="E-mail *" disabled={isAuthenticated === true && !comoVisitante} value={isAuthenticated === true && !comoVisitante && authUser?.email ? authUser.email : accountForm.email} onChange={e => setAccountForm(p => ({ ...p, email: e.target.value }))} className={campoCls} />
+                            <input type="email" aria-label="E-mail da empresa" placeholder="E-mail da empresa" value={accountForm.emailEmpresa} onChange={e => setAccountForm(p => ({ ...p, emailEmpresa: e.target.value }))} className={campoCls} />
                           </CampoIcone>
                           <CampoIcone icone={MapPin}>
                             <input type="text" aria-label="Morada" placeholder="Morada *" value={accountForm.endereco} onChange={e => setAccountForm(p => ({ ...p, endereco: e.target.value }))} className={campoCls} />
@@ -1333,6 +1343,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                                     morada: accountForm.endereco.trim(),
                                     cidade: accountForm.estado,
                                     provincia: accountForm.estado,
+                                    emailEmpresa: accountForm.emailEmpresa,
                                   });
                                 }
                                 setErrorMessage('');

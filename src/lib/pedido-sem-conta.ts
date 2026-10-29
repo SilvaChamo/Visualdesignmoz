@@ -17,6 +17,7 @@ export type CadastroPedido = {
   morada: string;
   provincia: string;
   empresa: string;
+  emailEmpresa?: string;
   /** palavra-passe escolhida, cifrada; apaga-se quando o login é criado */
   senha?: string;
 };
@@ -47,6 +48,7 @@ export function cadastroDoPedido(row: { cadastro?: unknown } | null | undefined)
     morada: String(c.morada || ''),
     provincia: String(c.provincia || ''),
     empresa: String(c.empresa || ''),
+    emailEmpresa: String(c.emailEmpresa || '').trim(),
     senha: c.senha ? String(c.senha) : undefined,
   };
 }
@@ -91,7 +93,7 @@ export async function donoDoPedidoAoAprovar(
       email: c.email,
       password: senha,
       email_confirm: true,
-      user_metadata: { role: 'guest', nome, telefone: c.telefone, empresa: c.empresa, endereco: c.morada, provincia: c.provincia, pais: 'Mozambique' },
+      user_metadata: { role: 'guest', nome, telefone: c.telefone, empresa: c.empresa, email_empresa: c.emailEmpresa || '', endereco: c.morada, provincia: c.provincia, pais: 'Mozambique' },
     });
     if (error || !data.user) throw new Error(error?.message || 'Não foi possível criar a conta do cliente.');
     userId = data.user.id;

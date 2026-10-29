@@ -33,12 +33,14 @@ export async function POST(request: NextRequest) {
       morada: texto(d.morada),
       provincia: texto(d.provincia, 60),
       empresa: texto(d.empresa, 120),
+      emailEmpresa: texto(d.emailEmpresa, 160).toLowerCase(),
     };
     const senha = String(body.senha || '');
 
     if (!VALID_METHODS.includes(metodoPagamento)) return NextResponse.json({ error: 'Método de pagamento inválido.' }, { status: 400 });
     if (items.length === 0) return NextResponse.json({ error: 'Carrinho vazio.' }, { status: 400 });
     if (!dados.nome) return NextResponse.json({ error: 'Por favor, preencha o seu Nome.' }, { status: 400 });
+    if (dados.emailEmpresa && !EMAIL_OK.test(dados.emailEmpresa)) return NextResponse.json({ error: 'Introduza um e-mail da empresa válido.' }, { status: 400 });
     if (!EMAIL_OK.test(dados.email)) return NextResponse.json({ error: 'Introduza um e-mail válido.' }, { status: 400 });
     if (!dados.telefone || !dados.morada || !dados.provincia) {
       return NextResponse.json({ error: 'Indique o telefone, a morada e a província: são os dados da conta e, nos domínios, do registo oficial (WHOIS).' }, { status: 400 });
