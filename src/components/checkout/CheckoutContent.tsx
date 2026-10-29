@@ -1188,9 +1188,9 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                     </p>
                     <div className="space-y-2.5">
                       <LinhaDado icone={User} valor={[accountForm.name, accountForm.sobrenome].filter(Boolean).join(' ')} />
+                      {accountForm.cargo ? <LinhaDado icone={Briefcase} valor={accountForm.cargo} /> : null}
                       <LinhaDado icone={Mail} valor={authUser?.email || accountForm.email} />
                       <LinhaDado icone={Phone} valor={accountForm.telefone ? `${telefonePrefixo} ${accountForm.telefone}` : ''} />
-                      {accountForm.cargo ? <LinhaDado icone={Briefcase} valor={accountForm.cargo} /> : null}
                     </div>
                   </div>
                   <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg p-6 shadow-sm">
