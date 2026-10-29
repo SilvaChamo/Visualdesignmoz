@@ -17,6 +17,7 @@ import { getProfileForAuthUser, saveProfileForAuthUser } from '@/lib/profile-db'
 import { buyerRoleForPackage, isProfissionalHostingPlan } from '@/lib/user-roles';
 import { emailPlanProductName, getEmailPlan } from '@/lib/email-plans';
 import { PACOTES_HOSPEDAGEM } from '@/lib/pacotes-compra';
+import { PANEL_SLUG } from '@/lib/panel-tenant';
 
 // Pacote dedicado por plano: ver PACOTES_HOSPEDAGEM em pacotes-compra.ts (a mesma tabela do painel de quem espera confirmação).
 const HOSTING_PLAN_PACKAGE_NAMES = PACOTES_HOSPEDAGEM;
@@ -145,7 +146,15 @@ export async function provisionHostingAccountOnPanel(params: {
     const existingProfile = await getProfileForAuthUser(admin, userId, email);
     // Quem já tem uma conta no servidor e compra outra hospedagem recebe uma conta NOVA (o seu domínio, o seu nome de
     // utilizador), sem mexer na conta que já tinha: o perfil, a ligação ao servidor e a palavra-passe da principal ficam como estão.
-    const adicional = Boolean(String(existingProfile?.da_username || '').trim());
+    // «Já tem conta no servidor» vê-se pelo perfil e também pela ligação do login (um administrador, por exemplo, está ligado à conta
+    // principal sem ter `da_username`): nesse caso esta compra cria uma conta NOVA, em vez de se dar por feita a que já existia.
+    const { data: ligacao } = await admin
+      .from('panel_auth_accounts')
+      .select('server_linked')
+      .eq('user_id', userId)
+      .eq('panel_slug', PANEL_SLUG.toLowerCase())
+      .maybeSingle();
+    const adicional = Boolean(String(existingProfile?.da_username || '').trim()) || ligacao?.server_linked === true;
     if (!adicional) {
       const { saveProfileForAuthUser: savePassword } = await import('@/lib/profile-db');
       await savePassword(admin, userId, {
