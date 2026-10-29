@@ -39,8 +39,10 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [cartLoaded, setCartLoaded] = useState(false);
 
-  // Load from local storage on init
+  // Load before saving: writing the initial empty state here could erase the
+  // cart when the customer returns from login to continue checkout.
   useEffect(() => {
     try {
       const saved = localStorage.getItem('vd_cart');
@@ -49,13 +51,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
       }
     } catch (e) {
       console.error("Failed to load cart from local storage", e);
+    } finally {
+      setCartLoaded(true);
     }
   }, []);
 
   // Save to local storage on change
   useEffect(() => {
+    if (!cartLoaded) return;
     localStorage.setItem('vd_cart', JSON.stringify(items));
-  }, [items]);
+  }, [items, cartLoaded]);
 
   const addItem = (item: CartItem) => {
     // CORRIGIDO (14 ago 2026) — chegou a bloquear-se aqui por engano. Esta
