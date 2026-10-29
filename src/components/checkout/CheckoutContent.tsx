@@ -131,6 +131,14 @@ function IconeCaixa({ icone: Icone }: { icone: React.ComponentType<{ className?:
     </span>
   );
 }
+function LinhaDado({ icone: Icone, valor }: { icone: React.ComponentType<{ className?: string }>; valor: string }) {
+  return (
+    <p className="flex items-center gap-2.5 text-sm text-slate-700 dark:text-zinc-300 break-all">
+      <Icone className={`h-4 w-4 shrink-0 ${corIcone(Icone)}`} />
+      {valor ? valor : <span className="text-rose-600">Em falta</span>}
+    </p>
+  );
+}
 function CampoIcone({ icone, children }: { icone: React.ComponentType<{ className?: string }>; children: React.ReactNode }) {
   return (
     <div className={`relative ${caixaCampoCls}`}>
@@ -260,6 +268,10 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
   // Quem ainda não tem conta continua a ver o formulário completo enquanto se cria a conta e se segue para o passo seguinte
   // (a página não muda de aspecto a meio do processamento).
   const [comoVisitante, setComoVisitante] = useState(false);
+  // Quem tem conta vê os seus dados escritos; «Editar» abre os campos.
+  const [editando, setEditando] = useState(false);
+  const [savingDados, setSavingDados] = useState(false);
+  const copiaAntesDeEditar = React.useRef<{ form: Record<string, string>; prefixo: string } | null>(null);
   useEffect(() => {
     if (!isSubmitting) setComoVisitante(false);
   }, [isSubmitting]);
@@ -824,9 +836,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
     const nome = (item.contaUtilizador || '').trim();
     let nota: React.ReactNode = null;
     if (nome && !nomeContaValido(nome)) nota = <span className="mt-1 block text-[11px] text-rose-600">{NOME_CONTA_ERRO}</span>;
-    else if (estado === 'a-verificar') nota = <span className="mt-1 block text-[11px] text-slate-400">A verificar…</span>;
-    else if (estado && !estado.livre) nota = <span className="mt-1 block text-[11px] text-rose-600">{estado.msg || 'Este nome de utilizador já existe.'}</span>;
-    else if (estado && estado.livre && nome) nota = <span className="mt-1 block text-[11px] text-green-600">Nome livre.</span>;
+    else if (estado && estado !== 'a-verificar' && !estado.livre) nota = <span className="mt-1 block text-[11px] text-rose-600">{estado.msg || 'Este nome de utilizador já existe.'}</span>;
     return (
       <div key={item.id}>
         <CampoIcone icone={Building2}>
@@ -1054,6 +1064,46 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                 </div>
               )}
 
+              {/* Quem tem conta vê os dados que escreveu (ou os da conta) como texto; «Editar» abre os campos. */}
+              {isAuthenticated === true && !comoVisitante && !editando && !isEncomenda && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg p-6 shadow-sm">
+                    <p className="text-[11px] font-bold uppercase tracking-wide text-red-600 dark:text-red-400 flex items-center gap-1.5 mb-4">
+                      <User className="w-3.5 h-3.5" /> Dados da Pessoa Responsável
+                    </p>
+                    <div className="space-y-2.5">
+                      <LinhaDado icone={User} valor={[accountForm.name, accountForm.sobrenome].filter(Boolean).join(' ')} />
+                      <LinhaDado icone={Mail} valor={authUser?.email || accountForm.email} />
+                      <LinhaDado icone={Phone} valor={accountForm.telefone ? `${telefonePrefixo} ${accountForm.telefone}` : ''} />
+                    </div>
+                  </div>
+                  <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg p-6 shadow-sm">
+                    <div className="flex items-center justify-between mb-4">
+                      <p className="text-[11px] font-bold uppercase tracking-wide text-red-600 dark:text-red-400 flex items-center gap-1.5">
+                        <Building2 className="w-3.5 h-3.5" /> Dados da Empresa
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          copiaAntesDeEditar.current = { form: { ...accountForm }, prefixo: telefonePrefixo };
+                          setEditando(true);
+                        }}
+                        className="text-[10px] font-bold text-slate-400 hover:text-red-600 dark:hover:text-red-400"
+                      >
+                        Editar
+                      </button>
+                    </div>
+                    <div className="space-y-2.5">
+                      {itensHospedagem.map((i) => (
+                        <LinhaDado key={i.id} icone={Building2} valor={i.contaUtilizador || ''} />
+                      ))}
+                      <LinhaDado icone={MapPin} valor={accountForm.endereco} />
+                      <LinhaDado icone={MapaIcone} valor={accountForm.estado} />
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* PROCESSING STEPS */}
               {/* ERROR STATE */}
               {status === 'error' && errorMessage && (
@@ -1097,7 +1147,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                     <EncomendaLoginNecessario loginHref={`/login?redirect=${encodeURIComponent(checkoutReturnPath)}`} />
                   )}
 
-                  {isAuthenticated !== null && !isEncomenda && (
+                  {isAuthenticated !== null && !isEncomenda && (isAuthenticated !== true || comoVisitante || editando) && (
                     <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg p-6 shadow-sm">
                       {(isAuthenticated !== true || comoVisitante) && (
                         <div className="mb-6 pb-4 border-b border-slate-100 dark:border-zinc-800 flex justify-between items-center">
@@ -1175,6 +1225,56 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                           </CampoIcone>
                         </div>
                       </div>
+                      {isAuthenticated === true && !comoVisitante && editando && (
+                        <div className="mt-6 flex gap-2">
+                          <button
+                            type="button"
+                            disabled={savingDados}
+                            onClick={async () => {
+                              if (!accountForm.telefone.trim() || !accountForm.endereco.trim() || !accountForm.estado) {
+                                setErrorMessage('Indique o telefone, a morada e a província: são os dados da conta e, nos domínios, do registo oficial (WHOIS).');
+                                setStatus('error');
+                                return;
+                              }
+                              setSavingDados(true);
+                              try {
+                                if (!buyingAs) {
+                                  await gravarPerfil({
+                                    telefone: telefoneCompleto(accountForm.telefone, telefonePrefixo),
+                                    morada: accountForm.endereco.trim(),
+                                    cidade: accountForm.estado,
+                                    provincia: accountForm.estado,
+                                  });
+                                }
+                                setErrorMessage('');
+                                setStatus('idle');
+                                setEditando(false);
+                              } catch (err: unknown) {
+                                setErrorMessage(err instanceof Error ? err.message : 'Não foi possível guardar os dados da conta.');
+                                setStatus('error');
+                              } finally {
+                                setSavingDados(false);
+                              }
+                            }}
+                            className="bg-red-600 text-white text-xs font-bold px-4 py-2 rounded hover:bg-red-700 disabled:opacity-50"
+                          >
+                            {savingDados ? 'A guardar...' : 'Guardar'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (copiaAntesDeEditar.current) {
+                                setAccountForm((f) => ({ ...f, ...copiaAntesDeEditar.current!.form, password: '' }));
+                                setTelefonePrefixo(copiaAntesDeEditar.current.prefixo);
+                              }
+                              setEditando(false);
+                            }}
+                            className="text-xs font-bold text-slate-400 px-3"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
 
