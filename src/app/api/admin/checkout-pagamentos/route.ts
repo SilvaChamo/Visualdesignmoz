@@ -3,7 +3,7 @@ import { requireAdminOrReseller } from '@/lib/panel-api-auth';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { getAttachmentSignedUrls } from '@/lib/quotation-attachments-bucket';
 
-// Lista os pedidos de pagamento manual (M-Pesa/Transferência) de compras
+// Lista (só os concluídos pelo cliente, ver o filtro abaixo) os pedidos de pagamento manual (M-Pesa/Transferência) de compras
 // novas do carrinho, para a equipa confirmar/rejeitar. Pagamentos por
 // Cartão (Stripe) nunca aparecem aqui — já chegam confirmados pelo webhook.
 export async function GET() {
@@ -23,6 +23,9 @@ export async function GET() {
       .from('checkout_sessions')
       .select('id, user_id, items, total_mt, metodo_pagamento, status, comprovativo_url, rejection_reason, created_at')
       .neq('metodo_pagamento', 'stripe')
+      // Só cai na Contabilidade depois de concluído pelo cliente: pedido com comprovativo enviado (o último passo) ou já pago.
+      // Os que ainda esperam pelo pagamento, ou que ficaram sem comprovativo, não aparecem.
+      .or('comprovativo_url.not.is.null,status.eq.paid')
       .order('created_at', { ascending: false });
     if (error) throw error;
 

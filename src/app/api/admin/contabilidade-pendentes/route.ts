@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireAdminOrReseller } from '@/lib/panel-api-auth';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
+import { pickComprovativo } from '@/lib/quotation-comprovativo';
 
 /**
  * Contagem única de tudo o que está pendente de confirmação na Contabilidade
@@ -33,7 +34,7 @@ export async function GET() {
       // /api/admin/encomendas-pagamentos, contadas por encomenda e fase.
       supabase
         .from('quotation_requests')
-        .select('batch_id, status, remanescente_metodo_pagamento')
+        .select('id, batch_id, status, remanescente_metodo_pagamento')
         .in('status', ['payment_selected', 'delivered']),
     ]);
 
@@ -53,10 +54,29 @@ export async function GET() {
     }
     const comprasPendentes = dominios + hospedagem + emails;
 
+    // Encomendas: só contam as que o cliente já concluiu, isto é, com o comprovativo da fase enviado (mesma regra de
+    // /api/admin/encomendas-pagamentos). Antes contavam desde o clique em «Pagar».
+    const linhas = encomendasRows.data || [];
+    const anexosPorLote = new Map<string, { file_url: string; file_name: string }[]>();
+    if (linhas.length > 0) {
+      const { data: anexos } = await supabase
+        .from('quotation_attachments')
+        .select('quotation_id, file_url, file_name')
+        .eq('uploaded_by_role', 'client')
+        .in('quotation_id', linhas.map((r) => r.id))
+        .order('created_at', { ascending: true });
+      const loteDe = new Map(linhas.map((r) => [r.id, r.batch_id]));
+      for (const anexo of anexos || []) {
+        const lote = loteDe.get(anexo.quotation_id);
+        if (!lote) continue;
+        anexosPorLote.set(lote, [...(anexosPorLote.get(lote) ?? []), anexo]);
+      }
+    }
     const encomendasPendentes = new Set<string>();
-    for (const row of encomendasRows.data || []) {
-      if (row.status === 'payment_selected') encomendasPendentes.add(`${row.batch_id}-advance`);
-      else if (row.remanescente_metodo_pagamento) encomendasPendentes.add(`${row.batch_id}-remainder`);
+    for (const row of linhas) {
+      const anexos = anexosPorLote.get(row.batch_id) ?? [];
+      if (row.status === 'payment_selected' && pickComprovativo(anexos, 'adiantamento')) encomendasPendentes.add(`${row.batch_id}-advance`);
+      else if (row.status === 'delivered' && row.remanescente_metodo_pagamento && pickComprovativo(anexos, 'remanescente')) encomendasPendentes.add(`${row.batch_id}-remainder`);
     }
     const encomendas = encomendasPendentes.size;
 
