@@ -1186,7 +1186,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-8">
                         {/* Dados da pessoa responsável */}
                         <div className="space-y-3">
-                          <h3 className="text-xs font-bold uppercase tracking-wide text-slate-400 dark:text-zinc-500 pb-3 border-b border-slate-100 dark:border-zinc-800">
+                          <h3 className="text-xs font-bold uppercase tracking-wide text-slate-700 dark:text-zinc-300 pb-3 border-b border-slate-100 dark:border-zinc-800">
                             Dados da Pessoa Responsável
                           </h3>
                           <CampoIcone icone={User}>
@@ -1223,7 +1223,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
 
                         {/* Dados da empresa */}
                         <div className="space-y-3">
-                          <h3 className="text-xs font-bold uppercase tracking-wide text-slate-400 dark:text-zinc-500 pb-3 border-b border-slate-100 dark:border-zinc-800">
+                          <h3 className="text-xs font-bold uppercase tracking-wide text-slate-700 dark:text-zinc-300 pb-3 border-b border-slate-100 dark:border-zinc-800">
                             Dados da Empresa
                           </h3>
                           {itensHospedagem.length > 0 ? (
