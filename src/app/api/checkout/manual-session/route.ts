@@ -6,6 +6,7 @@ import { resolveCartItems, toValidatedCartItems, type CatalogCartItem } from '@/
 import { isProfileWhoisComplete } from '@/lib/profile-db';
 import { promoteBuyerAfterPurchase } from '@/lib/checkout-fulfillment';
 import { resolveCheckoutActor } from '@/lib/checkout-actor';
+import { avisarClienteCompra } from '@/lib/notify-checkout-client';
 
 const VALID_METHODS = ['mpesa', 'transferencia'];
 
@@ -98,6 +99,14 @@ export async function POST(request: NextRequest) {
     } catch (err) {
       console.error('[checkout/manual-session] promoteBuyerAfterPurchase falhou:', err);
     }
+
+    // O cliente recebe já os dados de pagamento, o valor e a referência (aviso no painel e e-mail): se fechar o separador antes
+    // de anexar o comprovativo, tem tudo para continuar a partir do painel.
+    avisarClienteCompra({
+      userId: actor.buyerUserId,
+      evento: 'criado',
+      pedido: { id: session.id, total_mt: totalMt, metodo_pagamento: metodoPagamento, items: resolved.map((r) => r.item) },
+    }).catch(() => {});
 
     // A equipa só é avisada quando o comprovativo chega (ver /api/checkout/[id]/comprovativo): até lá o
     // cliente ainda não pagou e não há nada para confirmar.

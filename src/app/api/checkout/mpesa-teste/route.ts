@@ -3,14 +3,18 @@ import { randomBytes } from 'node:crypto';
 import { createClient } from '@/utils/supabase/server';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { c2bSingleStagePay } from '@/lib/mpesa-client';
+import { resolveCheckoutActor } from '@/lib/checkout-actor';
 
 // Passo M-Pesa do checkout para clientes normais enquanto o M-Pesa está em sandbox (MPESA_ENV=sandbox): o cliente
 // dá o número e o pedido segue o protocolo C2B de teste, mas NADA é cobrado nem activado — o pedido continua
 // 'pending' e o cliente paga a sério e envia o comprovativo (ver /api/checkout/[id]/comprovativo). Em produção
 // isto fica desligado e o checkout vai direito ao comprovativo. A cobrança real com activação automática é
 // /api/checkout/mpesa-pay (só administradores).
+//
+// O passo só aparece ao cliente se for ligado de propósito (MPESA_PASSO_TESTE=1): enquanto a operadora não der a API verdadeira,
+// o cliente real vai direito ao comprovativo, sem pedir o número nem esperar por uma cobrança que não existe.
 function sandboxActivo(): boolean {
-  return (process.env.MPESA_ENV || '').trim().toLowerCase() === 'sandbox';
+  return (process.env.MPESA_ENV || '').trim().toLowerCase() === 'sandbox' && (process.env.MPESA_PASSO_TESTE || '').trim() === '1';
 }
 
 export async function GET() {
@@ -47,7 +51,7 @@ export async function POST(request: NextRequest) {
     .select('id, user_id, status, metodo_pagamento, total_mt, mpesa_last_response')
     .eq('id', sessionId)
     .maybeSingle();
-  if (!session || session.user_id !== user.id) {
+  if (!session || session.user_id !== (await resolveCheckoutActor(admin, user)).buyerUserId) {
     return NextResponse.json({ error: 'Pedido não encontrado.' }, { status: 404 });
   }
   if (session.status !== 'pending' || session.metodo_pagamento !== 'mpesa') {

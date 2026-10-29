@@ -3,6 +3,7 @@ import { createClient } from '@/utils/supabase/server';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { ensureQuotationAttachmentsBucket, QUOTATION_ATTACHMENTS_BUCKET, getAttachmentSignedUrl } from '@/lib/quotation-attachments-bucket';
 import { compressImageToMaxSize } from '@/lib/image-compress';
+import { comprovativoValido, COMPROVATIVO_ERRO } from '@/lib/comprovativo-ficheiro';
 
 const MAX_SIZE_BYTES = 10 * 1024 * 1024;
 
@@ -46,6 +47,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
   if (file.size > MAX_SIZE_BYTES) {
     return NextResponse.json({ error: 'Ficheiro demasiado grande (máx. 10MB).' }, { status: 400 });
+  }
+  if (!comprovativoValido(file)) {
+    return NextResponse.json({ error: COMPROVATIVO_ERRO }, { status: 400 });
   }
 
   await ensureQuotationAttachmentsBucket();

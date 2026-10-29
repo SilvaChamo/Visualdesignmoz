@@ -135,7 +135,7 @@ export async function POST(request: NextRequest) {
           : [],
       ),
       metadata: { checkout_session_id: session.id, user_id: actor.buyerUserId },
-      success_url: `${origin}/vhost:2026/utilizador/encomendas`,
+      success_url: `${origin}/vhost:2026`,
       cancel_url: `${origin}/checkout`,
     });
 

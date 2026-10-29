@@ -1192,11 +1192,18 @@ function CheckoutItemsByType({ types }: { types: string[] }) {
     load()
   }, [])
 
-  const respond = async (pedidoId: string, itemIndex: number, status: 'paid' | 'failed') => {
+  const respond = async (pedidoId: string, itemIndex: number, status: 'paid' | 'failed' | 'reenviar', temComprovativo = true) => {
     let rejectionReason: string | null = null
+    let semComprovativo = false
     if (status === 'failed') {
-      rejectionReason = window.prompt('Motivo da rejeição (opcional):', '')
+      rejectionReason = window.prompt('Motivo da rejeição definitiva (o cliente é avisado):', '')
       if (rejectionReason === null) return
+    } else if (status === 'reenviar') {
+      rejectionReason = window.prompt('O que está mal no comprovativo? (o cliente é avisado e volta a anexar):', '')
+      if (rejectionReason === null) return
+    } else if (!temComprovativo) {
+      if (!window.confirm('Este pedido ainda não tem comprovativo. Só confirme se o dinheiro já entrou na conta — o produto é activado de imediato (um domínio é registado a sério). Confirmar mesmo assim?')) return
+      semComprovativo = true
     } else if (!window.confirm('Confirmar este item? O produto é activado de imediato.')) {
       return
     }
@@ -1207,7 +1214,7 @@ function CheckoutItemsByType({ types }: { types: string[] }) {
       const res = await fetch(`/api/admin/checkout-pagamentos/${pedidoId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ itemIndex, status, rejectionReason }),
+        body: JSON.stringify({ itemIndex, status, rejectionReason, semComprovativo }),
       })
       const data = await res.json()
       if (!data.success) throw new Error(data.error || 'Não foi possível actualizar o item.')
@@ -1346,10 +1353,20 @@ function CheckoutItemsByType({ types }: { types: string[] }) {
                           <button
                             type="button"
                             disabled={updatingKey === key}
-                            onClick={() => respond(p.id, itemIndex, 'paid')}
+                            onClick={() => respond(p.id, itemIndex, 'paid', Boolean(p.comprovativo_url))}
                             className="text-xs font-medium text-green-600 hover:underline disabled:opacity-50 dark:text-green-400"
+                            title={p.comprovativo_url ? undefined : 'Sem comprovativo: confirme só se o dinheiro já entrou'}
                           >
                             Confirmar
+                          </button>
+                          <button
+                            type="button"
+                            disabled={updatingKey === key || !p.comprovativo_url}
+                            onClick={() => respond(p.id, itemIndex, 'reenviar')}
+                            className="text-xs font-medium text-amber-600 hover:underline disabled:opacity-40 dark:text-amber-400"
+                            title="O comprovativo não serve: o cliente envia outro"
+                          >
+                            Novo comprovativo
                           </button>
                           <button
                             type="button"
@@ -1471,9 +1488,10 @@ function EncomendaPagamentosTable() {
   }, [])
 
   const confirmar = async (p: EncomendaPagamento) => {
+    const semProva = p.comprovativoUrl ? '' : 'Ainda não há comprovativo: só confirme se o dinheiro já entrou na conta. '
     const aviso = p.phase === 'advance'
-      ? 'Confirmar o adiantamento? A encomenda passa a "Em produção" e a factura é emitida.'
-      : 'Confirmar o remanescente? A encomenda passa a "Entregue".'
+      ? `${semProva}Confirmar o adiantamento? A encomenda passa a "Em produção" e a factura é emitida.`
+      : `${semProva}Confirmar o remanescente? A encomenda passa a "Entregue".`
     if (!window.confirm(aviso)) return
 
     const from = p.phase === 'advance' ? 'payment_selected' : 'delivered'

@@ -55,6 +55,12 @@ export async function resolveCartItems(items: CatalogCartItem[]): Promise<Catalo
   for (const item of items) {
     if (item.type === 'domain') {
       const domainName = (item.id || item.name || '').toLowerCase().trim();
+      // O preço sai da extensão do `id`, mas é o `name` que se regista no registador: têm de ser o mesmo domínio, senão
+      // dava para pagar o preço de uma extensão barata e registar uma cara.
+      if (domainName !== String(item.name || '').toLowerCase().trim()) {
+        rejected.push(item);
+        continue;
+      }
       const tld = tldPrices.find((t) => domainName.endsWith(t.value));
       if (!tld) {
         rejected.push(item);

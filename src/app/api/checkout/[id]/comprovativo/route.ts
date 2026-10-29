@@ -4,6 +4,10 @@ import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { ensureQuotationAttachmentsBucket, QUOTATION_ATTACHMENTS_BUCKET, getAttachmentSignedUrl } from '@/lib/quotation-attachments-bucket';
 import { compressImageToMaxSize } from '@/lib/image-compress';
 import { notifyQuoteTeam } from '@/lib/notify-quote-team';
+import { comprovativoValido, COMPROVATIVO_ERRO } from '@/lib/comprovativo-ficheiro';
+import { resolveCheckoutActor } from '@/lib/checkout-actor';
+import { avisarClienteCompra } from '@/lib/notify-checkout-client';
+import { referenciaPedido } from '@/lib/checkout-referencia';
 
 const MAX_SIZE_BYTES = 10 * 1024 * 1024;
 
@@ -33,8 +37,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (sessionError || !session) {
     return NextResponse.json({ error: 'Pedido não encontrado.' }, { status: 404 });
   }
+  // o dono do pedido; ou um administrador a comprar «em nome de» essa conta (entrar como), cujo pedido fica na conta imitada
   if (session.user_id !== user.id) {
-    return NextResponse.json({ error: 'Não tem permissão para editar este pedido.' }, { status: 403 });
+    const actor = await resolveCheckoutActor(admin, user);
+    if (actor.buyerUserId !== session.user_id) {
+      return NextResponse.json({ error: 'Não tem permissão para editar este pedido.' }, { status: 403 });
+    }
   }
   if (session.status !== 'pending') {
     return NextResponse.json({ error: 'Este pedido já foi respondido pela equipa.' }, { status: 409 });
@@ -47,6 +55,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
   if (file.size > MAX_SIZE_BYTES) {
     return NextResponse.json({ error: 'Ficheiro demasiado grande (máx. 10MB).' }, { status: 400 });
+  }
+  if (!comprovativoValido(file)) {
+    return NextResponse.json({ error: COMPROVATIVO_ERRO }, { status: 400 });
   }
 
   await ensureQuotationAttachmentsBucket();
@@ -75,7 +86,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   // temporário), nunca guardado permanentemente.
   const { data: updated, error: updateError } = await admin
     .from('checkout_sessions')
-    .update({ comprovativo_url: uploadData.path })
+    .update({ comprovativo_url: uploadData.path, rejection_reason: null })
     .eq('id', id)
     .select()
     .single();
@@ -90,12 +101,18 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const nomes = (Array.isArray(session.items) ? session.items : []).map((i: { name?: string }) => i.name).filter(Boolean).join(', ');
     notifyQuoteTeam({
       title: 'Novo comprovativo de pagamento (checkout)',
-      message: `${user.email} enviou o comprovativo de ${nomes || 'um pedido'} (${session.total_mt} MT) via ${
+      message: `${user.email} enviou o comprovativo do pedido ${referenciaPedido(id)}: ${nomes || 'um pedido'} (${session.total_mt} MT) via ${
         session.metodo_pagamento === 'mpesa' ? 'M-Pesa' : 'Transferência Bancária'
       }. Aguarda confirmação da equipa.`,
-      link: `${process.env.NEXT_PUBLIC_SITE_URL || ''}/admin`,
+      link: `${process.env.NEXT_PUBLIC_SITE_URL || ''}/vhost:2026`,
     }).catch((err) => console.error('[checkout comprovativo] falha ao notificar equipa:', err));
   }
+  // o cliente fica a saber que o comprovativo chegou (também ao reenviar depois de um pedido de novo comprovativo)
+  avisarClienteCompra({
+    userId: session.user_id,
+    evento: 'comprovativo',
+    pedido: { id, total_mt: Number(session.total_mt) || 0, metodo_pagamento: session.metodo_pagamento, items: Array.isArray(session.items) ? session.items : [] },
+  }).catch(() => {});
 
   const signedUrl = await getAttachmentSignedUrl(updated.comprovativo_url);
   return NextResponse.json({ success: true, session: { ...updated, comprovativo_url: signedUrl } });

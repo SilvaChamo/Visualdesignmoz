@@ -26,7 +26,8 @@ export async function GET() {
     const [creditos, renovacoes, compras, encomendasRows] = await Promise.all([
       supabase.from('reseller_credit_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
       supabase.from('renewal_payment_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
-      supabase.from('checkout_sessions').select('items').neq('metodo_pagamento', 'stripe').eq('status', 'pending'),
+      // só pedidos que já têm comprovativo: sem ele não há nada para a equipa decidir
+      supabase.from('checkout_sessions').select('items').neq('metodo_pagamento', 'stripe').eq('status', 'pending').not('comprovativo_url', 'is', null),
       // Adiantamento à espera ('payment_selected') ou remanescente com método
       // já escolhido numa encomenda pronta ('delivered') — mesmas regras de
       // /api/admin/encomendas-pagamentos, contadas por encomenda e fase.

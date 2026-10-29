@@ -7,6 +7,7 @@ import { dominioProtegido } from '@/lib/overdue-hosting-suspend';
 import { mensagemPublica } from '@/lib/mensagem-publica';
 import { sanitizeDaUsername } from '@/lib/reseller-provision';
 import type { CatalogCartItem } from '@/lib/package-catalog';
+import { avisarClienteCompra } from '@/lib/notify-checkout-client';
 
 type CartItemWithStatus = CatalogCartItem & { status?: 'pending' | 'paid' | 'failed'; rejectionReason?: string | null };
 
@@ -19,6 +20,10 @@ type CartItemWithStatus = CatalogCartItem & { status?: 'pending' | 'paid' | 'fai
  * (`checkout_sessions.status`) fica derivado: só passa a 'paid' quando
  * todos os itens estiverem 'paid'.
  */
+// Pedidos que estão a ser confirmados neste momento (o site corre num só processo): dois cliques, ou dois
+// administradores, não activam o mesmo item duas vezes.
+const emCurso = new Set<string>();
+
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireAdminOrReseller();
   if ('error' in auth) return auth.error;
@@ -32,11 +37,16 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
 
   const { id } = await params;
+  if (emCurso.has(id)) {
+    return NextResponse.json({ success: false, error: 'Este pedido está a ser tratado agora. Espere uns segundos e actualize a lista.' }, { status: 409 });
+  }
+  emCurso.add(id);
 
   try {
     const body = await request.json();
-    const { itemIndex, status, rejectionReason, hostingDomain } = body || {};
-    if (status !== 'paid' && status !== 'failed') {
+    const { itemIndex, status, rejectionReason, hostingDomain, semComprovativo } = body || {};
+    // 'reenviar' = o comprovativo não serve: o item continua por pagar e o cliente envia outro (a rejeição final é 'failed')
+    if (status !== 'paid' && status !== 'failed' && status !== 'reenviar') {
       return NextResponse.json({ success: false, error: 'Estado inválido.' }, { status: 400 });
     }
     if (typeof itemIndex !== 'number') {
@@ -45,7 +55,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     const { data: session, error: sessionError } = await supabase
       .from('checkout_sessions')
-      .select('id, user_id, items, status, metodo_pagamento')
+      .select('id, user_id, items, status, metodo_pagamento, total_mt, comprovativo_url')
       .eq('id', id)
       .single();
     if (sessionError || !session) {
@@ -62,6 +72,30 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       return NextResponse.json({ success: false, error: 'Este item já foi respondido.' }, { status: 409 });
     }
 
+    // Activar um serviço (domínio registado a sério, conta criada) sem ter visto o comprovativo só com decisão expressa.
+    if (status === 'paid' && !session.comprovativo_url && semComprovativo !== true) {
+      return NextResponse.json(
+        { success: false, error: 'Este pedido ainda não tem comprovativo. Confirme só se o dinheiro já entrou na conta.', semComprovativo: true },
+        { status: 409 },
+      );
+    }
+
+    const motivo = typeof rejectionReason === 'string' && rejectionReason.trim() ? rejectionReason.trim() : null;
+    const pedidoParaAviso = { id: session.id, total_mt: Number(session.total_mt) || 0, metodo_pagamento: session.metodo_pagamento, items: [item] };
+
+    if (status === 'reenviar') {
+      const updatedItems = items.map((it, idx) => (idx === itemIndex ? { ...it, rejectionReason: motivo } : it));
+      const { data, error } = await supabase
+        .from('checkout_sessions')
+        .update({ items: updatedItems, comprovativo_url: null, rejection_reason: motivo })
+        .eq('id', id)
+        .select()
+        .single();
+      if (error) throw error;
+      await avisarClienteCompra({ userId: session.user_id, evento: 'novo-comprovativo', pedido: pedidoParaAviso, motivo });
+      return NextResponse.json({ success: true, pedido: data });
+    }
+
     // #6: o admin pode corrigir/definir o domínio de uma hospedagem aqui mesmo,
     // antes de confirmar — sem isto, um pedido sem domínio ficava preso sem
     // forma de o resolver a partir da Contabilidade.
@@ -76,11 +110,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
 
     if (status === 'paid') {
-      await fulfillCheckout(supabase, session.user_id, [item], session.metodo_pagamento);
+      // o pedido inteiro vai como contexto: a conta «só domínio» não pode ser criada por o item confirmado primeiro ser o domínio
+      await fulfillCheckout(supabase, session.user_id, [item], session.metodo_pagamento, items);
     }
 
     const updatedItems = items.map((it, idx) =>
-      idx === itemIndex ? { ...item, status, rejectionReason: status === 'failed' ? rejectionReason || null : null } : it,
+      idx === itemIndex ? { ...item, status, rejectionReason: status === 'failed' ? motivo : null } : it,
     );
     const allPaid = updatedItems.every((it) => (it.status ?? session.status) === 'paid');
     const allDone = updatedItems.every((it) => (it.status ?? session.status) !== 'pending');
@@ -92,16 +127,27 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         items: updatedItems,
         status: newRowStatus,
         fulfilled_at: allPaid ? new Date().toISOString() : undefined,
+        ...(status === 'paid' ? { rejection_reason: null } : {}),
+        ...(status === 'failed' ? { rejection_reason: motivo } : {}),
       })
       .eq('id', id)
       .select()
       .single();
     if (error) throw error;
 
+    await avisarClienteCompra({
+      userId: session.user_id,
+      evento: status === 'paid' ? 'confirmado' : 'rejeitado',
+      pedido: pedidoParaAviso,
+      motivo,
+    });
+
     return NextResponse.json({ success: true, pedido: data });
   } catch (error: any) {
     console.error('[admin/checkout-pagamentos PATCH] error:', error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  } finally {
+    emCurso.delete(id);
   }
 }
 

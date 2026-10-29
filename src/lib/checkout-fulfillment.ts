@@ -374,6 +374,9 @@ export async function fulfillCheckout(
   userId: string,
   items: CatalogCartItem[],
   paymentMethod: string,
+  /** Todos os itens do pedido, quando só alguns são activados agora (a equipa confirma item a item): a conta «só domínio»
+   *  decide-se olhando para o pedido inteiro, não só para o item que se confirma. */
+  itensDoPedido?: CatalogCartItem[],
 ) {
   const today = new Date().toISOString().split('T')[0];
   const total = items.reduce((sum, item) => sum + (item.price || 0), 0);
@@ -736,7 +739,8 @@ export async function fulfillCheckout(
     .filter((i) => i.type === 'domain')
     .map((i) => i.name.toLowerCase().trim())
     .filter((d) => HOSTING_DOMAIN_REGEX.test(d));
-  if (admin && email && soDominios.length && !items.some((i) => i.type === 'hosting' || i.type === 'email')) {
+  const pedidoInteiro = itensDoPedido && itensDoPedido.length ? itensDoPedido : items;
+  if (admin && email && soDominios.length && !pedidoInteiro.some((i) => i.type === 'hosting' || i.type === 'email')) {
     const { provisionDomainOnlyAccount } = await import('@/lib/domain-only-provision');
     const conta = await provisionDomainOnlyAccount(admin, userId, soDominios, email, displayName).catch(
       (e: unknown) => ({ ok: false as const, error: e instanceof Error ? e.message : String(e) }),
