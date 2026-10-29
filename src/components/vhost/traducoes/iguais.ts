@@ -305,4 +305,5 @@ export const IGUAIS: string[] = [
  "Xdebug",
  "'Exo 2', sans-serif",
  "[renewal-templates] Erro ao carregar do servidor:",
+ "dark:bg-zinc-950",
 ];

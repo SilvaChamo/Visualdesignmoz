@@ -323,8 +323,6 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
   // Morada/telefone do perfil (WHOIS) — para o card "Faturado Para" de quem já
   // tem conta; não vem no user_metadata, só na tabela profiles.
   const [profileExtra, setProfileExtra] = useState<{ telefone?: string | null; morada?: string | null; cidade?: string | null } | null>(null);
-  const [perfilLido, setPerfilLido] = useState(false);
-  const [actorLido, setActorLido] = useState(false);
   useEffect(() => {
     if (!authUser) return;
     supabase
@@ -345,9 +343,8 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
           }
         }
         setProfileExtra(extra);
-        setPerfilLido(true);
       })
-      .catch(() => setPerfilLido(true));
+      .catch(() => undefined);
   }, [authUser]);
 
   // Os dados que o sistema já tem desta conta (perfil + dados do registo): nada se volta a pedir ao que já existe.
@@ -374,8 +371,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
     fetch('/api/checkout/actor', { credentials: 'include' })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => setBuyingAs(d && d.impersonating ? d : null))
-      .catch(() => setBuyingAs(null))
-      .finally(() => setActorLido(true));
+      .catch(() => setBuyingAs(null));
   }, [authUser]);
 
   // Editar telefone/morada/cidade sem sair do checkout — "Completar Dados"
@@ -494,17 +490,6 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
   const contaHospedagemInvalida = items.some(
     (i) => i.type === 'hosting' && (!nomeContaValido((i.contaUtilizador || '').trim()) || (typeof contaLivre[i.id] === 'object' && !(contaLivre[i.id] as { livre: boolean }).livre)),
   );
-
-  // Faltam dados da conta (telefone, morada ou cidade)? O formulário abre já, com o que o sistema tem preenchido, em vez de
-  // esperar pelo erro ao clicar em «Pagar».
-  const edicaoAbertaAuto = React.useRef(false);
-  useEffect(() => {
-    if (edicaoAbertaAuto.current || !authUser || !perfilLido || !actorLido || buyingAs || isEncomenda || renewalId) return;
-    if (dadosConta.telefone && dadosConta.morada && dadosConta.cidade) return;
-    edicaoAbertaAuto.current = true;
-    startEditingProfile();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authUser, perfilLido, actorLido, buyingAs, isEncomenda, renewalId, dadosConta.telefone, dadosConta.morada, dadosConta.cidade]);
 
   // Flow State
   const [status, setStatus] = useState<'idle' | 'registering' | 'redirecting' | 'error'>('idle');
@@ -1018,76 +1003,62 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                     <p className="font-bold text-slate-800 dark:text-zinc-100 text-sm">{buyingAs?.billing?.nome || clientName}</p>
                     <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1 truncate">Email: {buyingAs?.email || authUser?.email}</p>
 
-                    {editingProfile ? (
-                      <div className="mt-3 space-y-2">
-                        <input
-                          type="email"
-                          value={profileEditForm.email}
-                          onChange={(e) => setProfileEditForm((f) => ({ ...f, email: e.target.value }))}
-                          placeholder="Email"
-                          className="w-full text-xs border border-slate-200 dark:border-zinc-800 dark:bg-zinc-950 rounded px-2.5 py-1.5"
-                        />
-                        <input
-                          value={profileEditForm.telefone}
-                          onChange={(e) => setProfileEditForm((f) => ({ ...f, telefone: e.target.value }))}
-                          placeholder="Telefone"
-                          className="w-full text-xs border border-slate-200 dark:border-zinc-800 dark:bg-zinc-950 rounded px-2.5 py-1.5"
-                        />
-                        <input
-                          value={profileEditForm.morada}
-                          onChange={(e) => setProfileEditForm((f) => ({ ...f, morada: e.target.value }))}
-                          placeholder="Morada"
-                          className="w-full text-xs border border-slate-200 dark:border-zinc-800 dark:bg-zinc-950 rounded px-2.5 py-1.5"
-                        />
-                        <input
-                          value={profileEditForm.cidade}
-                          onChange={(e) => setProfileEditForm((f) => ({ ...f, cidade: e.target.value }))}
-                          placeholder="Cidade"
-                          className="w-full text-xs border border-slate-200 dark:border-zinc-800 dark:bg-zinc-950 rounded px-2.5 py-1.5"
-                        />
-                        <select
-                          value={profileEditForm.provincia}
-                          onChange={(e) => setProfileEditForm((f) => ({ ...f, provincia: e.target.value }))}
-                          className="w-full text-xs border border-slate-200 dark:border-zinc-800 dark:bg-zinc-950 rounded px-2.5 py-1.5"
-                        >
-                          <option value="">Província…</option>
-                          {MOZAMBIQUE_PROVINCIAS.map((p) => (
-                            <option key={p} value={p}>{p}</option>
-                          ))}
-                        </select>
-                        <div className="flex gap-2 pt-1">
-                          <button
-                            type="button"
-                            onClick={saveProfileExtra}
-                            disabled={savingProfile}
-                            className="bg-red-600 text-white text-xs font-bold px-3 py-1.5 rounded hover:bg-red-700 disabled:opacity-50"
+                    {(() => {
+                      const aEditar = editingProfile && !buyingAs;
+                      const valor = (campo: 'telefone' | 'morada' | 'cidade' | 'provincia') =>
+                        aEditar ? profileEditForm[campo] : buyingAs ? (buyingAs.billing?.[campo as 'telefone' | 'morada' | 'cidade'] || '') : dadosConta[campo];
+                      const classe = `w-full text-xs border border-slate-200 dark:border-zinc-800 rounded px-2.5 py-1.5 ${aEditar ? 'dark:bg-zinc-950' : 'bg-slate-50 dark:bg-zinc-900 text-slate-600 dark:text-zinc-400 cursor-default'}`;
+                      const faltam = !buyingAs && (!dadosConta.telefone || !dadosConta.morada || !dadosConta.cidade);
+                      return (
+                        <div className="mt-3 space-y-2">
+                          {aEditar ? (
+                            <input
+                              type="email"
+                              value={profileEditForm.email}
+                              onChange={(e) => setProfileEditForm((f) => ({ ...f, email: e.target.value }))}
+                              placeholder="Email"
+                              className={classe}
+                            />
+                          ) : null}
+                          <input value={valor('telefone')} disabled={!aEditar} onChange={(e) => setProfileEditForm((f) => ({ ...f, telefone: e.target.value }))} placeholder="Telefone" className={classe} />
+                          <input value={valor('morada')} disabled={!aEditar} onChange={(e) => setProfileEditForm((f) => ({ ...f, morada: e.target.value }))} placeholder="Morada" className={classe} />
+                          <input value={valor('cidade')} disabled={!aEditar} onChange={(e) => setProfileEditForm((f) => ({ ...f, cidade: e.target.value }))} placeholder="Cidade" className={classe} />
+                          <select
+                            value={valor('provincia')}
+                            disabled={!aEditar}
+                            onChange={(e) => setProfileEditForm((f) => ({ ...f, provincia: e.target.value }))}
+                            className={classe}
                           >
-                            {savingProfile ? 'A guardar...' : 'Guardar'}
-                          </button>
-                          <button type="button" onClick={() => setEditingProfile(false)} className="text-xs font-bold text-slate-400 px-2">
-                            Cancelar
-                          </button>
+                            <option value="">Província…</option>
+                            {MOZAMBIQUE_PROVINCIAS.map((p) => (
+                              <option key={p} value={p}>{p}</option>
+                            ))}
+                          </select>
+                          {aEditar ? (
+                            <div className="flex gap-2 pt-1">
+                              <button
+                                type="button"
+                                onClick={saveProfileExtra}
+                                disabled={savingProfile}
+                                className="bg-red-600 text-white text-xs font-bold px-3 py-1.5 rounded hover:bg-red-700 disabled:opacity-50"
+                              >
+                                {savingProfile ? 'A guardar...' : 'Guardar'}
+                              </button>
+                              <button type="button" onClick={() => setEditingProfile(false)} className="text-xs font-bold text-slate-400 px-2">
+                                Cancelar
+                              </button>
+                            </div>
+                          ) : faltam ? (
+                            <p className="text-[10px] text-amber-600 dark:text-amber-500">Faltam dados da conta. Clique em «Editar» para os completar.</p>
+                          ) : null}
+                          {buyingAs ? (
+                            <p className="mt-2 text-[10px] text-amber-600 dark:text-amber-500">
+                              Estes são os dados da conta {buyingAs.label}. Se estiverem incompletos, complete o perfil dessa conta antes de comprar um domínio.
+                            </p>
+                          ) : null}
                         </div>
-                      </div>
-                    ) : (
-                      <>
-                        <p className="text-xs text-slate-500 dark:text-zinc-400 mt-2">
-                          Endereço: {buyingAs
-                            ? [buyingAs.billing?.morada, buyingAs.billing?.cidade].filter(Boolean).join(', ') || '—'
-                            : [dadosConta.morada, dadosConta.cidade, dadosConta.provincia].filter(Boolean).join(', ') || '—'}
-                        </p>
-                        <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
-                          Contacto: {buyingAs
-                            ? buyingAs.billing?.telefone || '—'
-                            : dadosConta.telefone || '—'}
-                        </p>
-                        {buyingAs ? (
-                          <p className="mt-2 text-[10px] text-amber-600 dark:text-amber-500">
-                            Estes são os dados da conta {buyingAs.label}. Se estiverem incompletos, complete o perfil dessa conta antes de comprar um domínio.
-                          </p>
-                        ) : null}
-                      </>
-                    )}
+                      );
+                    })()}
                   </div>
                   )}
                 </div>
