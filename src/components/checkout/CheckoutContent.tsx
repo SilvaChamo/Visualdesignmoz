@@ -91,7 +91,6 @@ import {
   ArrowLeft,
   Info,
   Building2,
-  UserCircle,
   Wallet,
   CheckCircle2,
   Paperclip,
@@ -365,11 +364,8 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
   });
   const [telefonePrefixo, setTelefonePrefixo] = useState('+258');
   // O que a pessoa escreveu no formulário guarda-se (nunca a palavra-passe) para voltar atrás e encontrá-lo como o deixou;
-  // «formularioAtivo» diz que a conta foi criada a partir dele nesta sessão e que este formulário continua a ser o que se mostra.
   const CHAVE_FORMULARIO = 'vd_checkout_form';
-  const CHAVE_FORMULARIO_ATIVO = 'vd_checkout_form_ativo';
   const [rascunhoLido, setRascunhoLido] = useState(false);
-  const [formularioAtivo, setFormularioAtivo] = useState(false);
   useEffect(() => {
     try {
       const guardado = sessionStorage.getItem(CHAVE_FORMULARIO);
@@ -378,7 +374,6 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
         setAccountForm((f) => ({ ...f, ...campos, password: '' }));
         if (prefixo) setTelefonePrefixo(prefixo);
       }
-      setFormularioAtivo(sessionStorage.getItem(CHAVE_FORMULARIO_ATIVO) === '1');
     } catch {
       /* sem armazenamento: o formulário começa vazio */
     }
@@ -397,11 +392,9 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
   const limparFormulario = () => {
     try {
       sessionStorage.removeItem(CHAVE_FORMULARIO);
-      sessionStorage.removeItem(CHAVE_FORMULARIO_ATIVO);
     } catch {
       /* sem armazenamento */
     }
-    setFormularioAtivo(false);
   };
   const [showPassword, setShowPassword] = useState(false);
 
@@ -459,23 +452,29 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
       .catch(() => setBuyingAs(null));
   }, [authUser]);
 
-  // Editar telefone/morada/cidade sem sair do checkout — "Completar Dados"
-  // já não manda para /cliente (dava problemas de navegação para contas que
-  // não são 'client'); passa a editar aqui mesmo, os mesmos campos que a
-  // Dynadot exige no registo WHOIS do domínio.
-  const [editingProfile, setEditingProfile] = useState(false);
-  const [savingProfile, setSavingProfile] = useState(false);
-  const [profileEditForm, setProfileEditForm] = useState({ email: '', telefone: '', morada: '', cidade: '', provincia: '' });
-  const startEditingProfile = () => {
-    setProfileEditForm({
-      email: authUser?.email || '',
-      telefone: dadosConta.telefone,
-      morada: dadosConta.morada,
-      cidade: dadosConta.cidade,
-      provincia: dadosConta.provincia,
-    });
-    setEditingProfile(true);
-  };
+  // O formulário abre com os dados da conta (nome, e-mail, telefone, morada, província) em vez de campos vazios; o que a pessoa
+  // já escreveu (rascunho) não é substituído.
+  useEffect(() => {
+    if (!authUser || !rascunhoLido) return;
+    const fonte = buyingAs
+      ? { nome: buyingAs.billing?.nome || '', email: buyingAs.email || '', telefone: buyingAs.billing?.telefone || '', morada: buyingAs.billing?.morada || '', provincia: '' }
+      : { nome: texto(metaConta.nome) || texto(metaConta.full_name), email: authUser.email || '', telefone: dadosConta.telefone, morada: dadosConta.morada, provincia: dadosConta.provincia };
+    const prefixo = ['+258', '+244', '+351', '+55'].find((x) => fonte.telefone.replace(/\s/g, '').startsWith(x));
+    const numero = prefixo ? fonte.telefone.replace(/\s/g, '').slice(prefixo.length) : fonte.telefone.replace(/^\+\d+\s*/, '');
+    const [primeiro, ...resto] = fonte.nome.split(/\s+/).filter(Boolean);
+    setAccountForm((f) => ({
+      ...f,
+      name: f.name || primeiro || '',
+      sobrenome: f.sobrenome || resto.join(' '),
+      email: f.email || fonte.email,
+      telefone: f.telefone || numero,
+      endereco: f.endereco || fonte.morada,
+      estado: f.estado || (MOZAMBIQUE_PROVINCIAS.includes(fonte.provincia) ? fonte.provincia : ''),
+    }));
+    if (prefixo && !accountForm.telefone) setTelefonePrefixo(prefixo);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authUser, rascunhoLido, profileExtra, buyingAs]);
+
   // Grava telefone, morada, cidade e província da conta (a cidade segue igual à província quando não há outra).
   const gravarPerfil = async (v: { telefone: string; morada: string; cidade: string; provincia: string }) => {
     if (!authUser) return;
@@ -501,41 +500,6 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
     }
     setProfileExtra({ telefone: payload.telefone, morada: payload.morada, cidade: payload.cidade });
   };
-  const saveProfileExtra = async () => {
-    if (!authUser) return;
-    setSavingProfile(true);
-    try {
-      const newEmail = profileEditForm.email.toLowerCase().trim();
-      // #22: o email identifica a conta no Auth — trocar isto tem de actualizar
-      // Auth e o perfil juntos (nunca só um), por isso passa por uma rota
-      // própria com service role em vez do update directo usado abaixo.
-      if (newEmail && newEmail !== (authUser.email || '').toLowerCase()) {
-        const res = await fetch('/api/account/update-email', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ newEmail }),
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok || !data.success) {
-          throw new Error(data.error || 'Erro ao trocar email.');
-        }
-        // Actualiza a sessão local para reflectir o novo email sem sair do checkout.
-        await supabase.auth.refreshSession();
-      }
-
-      await gravarPerfil({ telefone: profileEditForm.telefone, morada: profileEditForm.morada, cidade: profileEditForm.cidade, provincia: profileEditForm.provincia });
-      setEditingProfile(false);
-      if (status === 'error') {
-        setStatus('idle');
-        setErrorMessage('');
-      }
-    } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : 'Erro ao guardar dados.');
-    } finally {
-      setSavingProfile(false);
-    }
-  };
-
   // Cada hospedagem tem a sua conta no servidor (o seu domínio e o seu nome de utilizador), mesmo para quem já tem outra conta.
   // O campo começa vazio: quem compra escolhe o nome; vê já se está livre.
   const [contaLivre, setContaLivre] = useState<Record<string, { livre: boolean; msg: string } | 'a-verificar'>>({});
@@ -599,7 +563,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
     setIsSubmitting(true);
     setErrorMessage('');
 
-    if (isAuthenticated === true && formularioAtivo && !isEncomenda) {
+    if (isAuthenticated === true && !buyingAs && !isEncomenda) {
       if (!accountForm.telefone.trim() || !accountForm.endereco.trim() || !accountForm.estado) {
         setErrorMessage('Indique o telefone, a morada e a província: são os dados da conta e, nos domínios, do registo oficial (WHOIS).');
         setStatus('error');
@@ -709,8 +673,6 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
         // evento que pode não disparar a tempo (era isto que causava o falso
         // "faça login" mesmo com a conta e a sessão já certas).
         await supabase.auth.refreshSession();
-        try { sessionStorage.setItem(CHAVE_FORMULARIO_ATIVO, '1'); } catch { /* sem armazenamento */ }
-        setFormularioAtivo(true);
       }
 
       if (isEncomenda) {
@@ -1074,9 +1036,8 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
             {/* Left Column: Account data / form and loading steps */}
             <div className="lg:col-span-9 space-y-5">
 
-              {/* Dados da conta — só quando já tem sessão iniciada; para quem não
-                  tem conta, é o próprio formulário abaixo que cumpre este papel. */}
-              {isAuthenticated === true && !comoVisitante && !formularioAtivo && (
+              {/* Encomendas: quem factura e em nome de quem. Nas compras de domínio e hospedagem os dados são os do formulário abaixo. */}
+              {isAuthenticated === true && isEncomenda && encomendaDraft && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg p-6 shadow-sm">
                     <p className="text-[11px] font-bold uppercase tracking-wide text-red-600 dark:text-red-400 flex items-center gap-1.5 mb-3">
@@ -1089,105 +1050,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                     <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">info@visualdesignmoz.com</p>
                     <p className="text-xs text-slate-500 dark:text-zinc-400 mt-2">NUIT: 400597243</p>
                   </div>
-
-                  {isEncomenda && encomendaDraft ? (
-                    <EncomendaFaturadoPara draft={encomendaDraft} facturarEm={facturarEm} onFacturarEmChange={setFacturarEm} />
-                  ) : (
-                  <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg p-6 shadow-sm">
-                    <div className="flex items-center justify-between mb-3">
-                      <p className="text-[11px] font-bold uppercase tracking-wide text-red-600 dark:text-red-400 flex items-center gap-1.5">
-                        <UserCircle className="w-3.5 h-3.5" /> Facturado Para
-                      </p>
-                      {!editingProfile && !buyingAs && (
-                        <button type="button" onClick={startEditingProfile} className="text-[10px] font-bold text-slate-400 hover:text-red-600 dark:hover:text-red-400">
-                          Editar
-                        </button>
-                      )}
-                    </div>
-                    {buyingAs ? (
-                      <p className="mb-2 inline-flex items-center gap-1 rounded bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700 dark:bg-amber-950/40 dark:text-amber-400">
-                        Em nome de: {buyingAs.label}
-                      </p>
-                    ) : null}
-                    <p className="font-bold text-slate-800 dark:text-zinc-100 text-sm">{buyingAs?.billing?.nome || clientName}</p>
-                    <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1 truncate">Email: {buyingAs?.email || authUser?.email}</p>
-
-                    {(() => {
-                      const aEditar = editingProfile && !buyingAs;
-                      const valor = (campo: 'telefone' | 'morada' | 'cidade' | 'provincia') =>
-                        aEditar ? profileEditForm[campo] : buyingAs ? (buyingAs.billing?.[campo as 'telefone' | 'morada' | 'cidade'] || '') : dadosConta[campo];
-                      const classe = campoCls;
-                      const faltam = !buyingAs && (!dadosConta.telefone || !dadosConta.morada || !dadosConta.cidade);
-                      return (
-                        <div className="mt-3 space-y-2">
-                          {aEditar ? (
-                            <CampoIcone icone={Mail}>
-                              <input
-                                type="email"
-                                value={profileEditForm.email}
-                                onChange={(e) => setProfileEditForm((f) => ({ ...f, email: e.target.value }))}
-                                aria-label="Email"
-                                placeholder="Email"
-                                className={classe}
-                              />
-                            </CampoIcone>
-                          ) : null}
-                          <CampoIcone icone={Phone}>
-                            <input value={valor('telefone')} disabled={!aEditar} onChange={(e) => setProfileEditForm((f) => ({ ...f, telefone: e.target.value }))} aria-label="Telefone" placeholder="Telefone" className={classe} />
-                          </CampoIcone>
-                          <CampoIcone icone={MapPin}>
-                            <input value={valor('morada')} disabled={!aEditar} onChange={(e) => setProfileEditForm((f) => ({ ...f, morada: e.target.value }))} aria-label="Morada" placeholder="Morada" className={classe} />
-                          </CampoIcone>
-                          <CampoIcone icone={MapaIcone}>
-                            <select
-                              value={valor('provincia')}
-                              disabled={!aEditar}
-                              aria-label="Província"
-                              onChange={(e) => setProfileEditForm((f) => ({ ...f, provincia: e.target.value }))}
-                              className={valor('provincia') ? classe : classe.replace('text-slate-800 dark:text-zinc-100', 'text-slate-400 dark:text-zinc-500')}
-                            >
-                              <option value="">Província</option>
-                              {MOZAMBIQUE_PROVINCIAS.map((p) => (
-                                <option key={p} value={p}>{p}</option>
-                              ))}
-                            </select>
-                          </CampoIcone>
-                          {aEditar ? (
-                            <div className="flex gap-2 pt-1">
-                              <button
-                                type="button"
-                                onClick={saveProfileExtra}
-                                disabled={savingProfile}
-                                className="bg-red-600 text-white text-xs font-bold px-3 py-1.5 rounded hover:bg-red-700 disabled:opacity-50"
-                              >
-                                {savingProfile ? 'A guardar...' : 'Guardar'}
-                              </button>
-                              <button type="button" onClick={() => setEditingProfile(false)} className="text-xs font-bold text-slate-400 px-2">
-                                Cancelar
-                              </button>
-                            </div>
-                          ) : faltam ? (
-                            <p className="text-[10px] text-amber-600 dark:text-amber-500">Faltam dados da conta. Clique em «Editar» para os completar.</p>
-                          ) : null}
-                          {buyingAs ? (
-                            <p className="mt-2 text-[10px] text-amber-600 dark:text-amber-500">
-                              Estes são os dados da conta {buyingAs.label}. Se estiverem incompletos, complete o perfil dessa conta antes de comprar um domínio.
-                            </p>
-                          ) : null}
-                        </div>
-                      );
-                    })()}
-                  </div>
-                  )}
-                </div>
-              )}
-
-              {isAuthenticated === true && !comoVisitante && !formularioAtivo && !isEncomenda && itensHospedagem.length > 0 && (
-                <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg p-6 shadow-sm space-y-4">
-                  <p className="text-[11px] font-bold uppercase tracking-wide text-red-600 dark:text-red-400 flex items-center gap-1.5">
-                    <Building2 className="w-3.5 h-3.5" /> Dados da Empresa
-                  </p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">{itensHospedagem.map(campoNomeEmpresa)}</div>
+                  <EncomendaFaturadoPara draft={encomendaDraft} facturarEm={facturarEm} onFacturarEmChange={setFacturarEm} />
                 </div>
               )}
 
@@ -1203,15 +1066,6 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                       <Link href={`/login?redirect=${encodeURIComponent(checkoutReturnPath)}`} className="mt-4 bg-red-600 text-white font-bold text-xs px-4 py-2 rounded-lg hover:bg-red-700 transition-colors inline-block">
                         Fazer Login
                       </Link>
-                    )}
-                    {errorMessage.toLowerCase().includes('a minha conta') && (
-                      <button
-                        type="button"
-                        onClick={startEditingProfile}
-                        className="mt-4 bg-red-600 text-white font-bold text-xs px-4 py-2 rounded-lg hover:bg-red-700 transition-colors inline-block"
-                      >
-                        Completar Dados
-                      </button>
                     )}
                   </div>
                 </div>
@@ -1243,7 +1097,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                     <EncomendaLoginNecessario loginHref={`/login?redirect=${encodeURIComponent(checkoutReturnPath)}`} />
                   )}
 
-                  {(isAuthenticated === false || comoVisitante || (isAuthenticated === true && formularioAtivo)) && !isEncomenda && (
+                  {isAuthenticated !== null && !isEncomenda && (
                     <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg p-6 shadow-sm">
                       {(isAuthenticated !== true || comoVisitante) && (
                         <div className="mb-6 pb-4 border-b border-slate-100 dark:border-zinc-800 flex justify-between items-center">
