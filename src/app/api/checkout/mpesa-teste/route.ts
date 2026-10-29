@@ -4,15 +4,14 @@ import { createClient } from '@/utils/supabase/server';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { c2bSingleStagePay } from '@/lib/mpesa-client';
 import { resolveCheckoutActor } from '@/lib/checkout-actor';
+import { mpesaEmSandbox } from '@/lib/mpesa-ambiente';
 
 // Passo M-Pesa do checkout para clientes normais enquanto o M-Pesa está em sandbox (MPESA_ENV=sandbox): o cliente
 // dá o número e o pedido segue o protocolo C2B de teste, mas NADA é cobrado nem activado — o pedido continua
 // 'pending' e o cliente paga a sério e envia o comprovativo (ver /api/checkout/[id]/comprovativo). Em produção
 // isto fica desligado e o checkout vai direito ao comprovativo. A cobrança real com activação automática é
 // /api/checkout/mpesa-pay (só administradores).
-function sandboxActivo(): boolean {
-  return (process.env.MPESA_ENV || '').trim().toLowerCase() === 'sandbox';
-}
+const sandboxActivo = mpesaEmSandbox;
 
 export async function GET() {
   return NextResponse.json({ sandbox: sandboxActivo() });
@@ -61,6 +60,7 @@ export async function POST(request: NextRequest) {
 
   // A referência NÃO é gravada em `mpesa_third_party_reference`: se o callback do sandbox chegasse a
   // /api/webhook/mpesa com esta referência, o pedido seria dado como pago e activado.
+  // Sem credenciais ou sem ligação à Vodacom o teste falha, mas o cliente segue na mesma para o comprovativo.
   const result = await c2bSingleStagePay(
     {
       msisdn,
@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
       transactionReference: `VD${Date.now().toString().slice(-10)}`,
     },
     2,
-  );
+  ).catch((e: unknown) => ({ ok: false as const, raw: '', error: e instanceof Error ? e.message : 'M-Pesa indisponível' }));
 
   await admin
     .from('checkout_sessions')

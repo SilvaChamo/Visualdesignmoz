@@ -67,6 +67,7 @@ nota deste ficheiro que fale de capturas ou de mensagens de progresso.
   resumo **em muito poucas palavras** — o que mudou, onde, e numa linha o que ficou por decidir. Nunca mostrar capturas antes de a alteração estar
   concluída (uma captura a meio parece uma alteração já feita).
 - **Não perguntar** o que se pode decidir com bom senso; nunca repetir o que o Silva acabou de dizer.
+- **Formato do relatório** (Silva, 29/10/2026): no máximo **3 parágrafos muito curtos** — a causa, o que foi feito e, se nada foi feito, a sugestão. Só o essencial, sem listas longas nem pormenores.
 - **Ao publicar:** na mesma mensagem, só o commit, o estado do deploy e o comando único de actualização local (ponto 6).
 - **O comando de actualização local só se dá quando o Silva o pede ou diz "publica"/"publique"** (Silva, 23/10/2026: "eu vou pedir o código, não é sempre que deves dar-me"). Nos relatórios a meio não se manda comando nenhum.
 
