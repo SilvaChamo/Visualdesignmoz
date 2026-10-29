@@ -6,7 +6,6 @@ export const compras: Record<string, string> = {
  "Facturado Para": "Billed To",
  "A abrir o pagamento seguro...": "Opening the secure payment...",
  "Telefone *": "Phone *",
- "Morada (continuação)": "Address (continued)",
  "Pagamento seguro por cartão": "Secure card payment",
  "Ao clicar em \"Pagar\", será encaminhado para a página segura de pagamento para introduzir os dados do cartão. Este site nunca vê nem guarda o número do seu cartão.": "When you click \"Pay\", you will be taken to the secure payment page to enter your card details. This site never sees or stores your card number.",
  "Pagar com": "Pay with",

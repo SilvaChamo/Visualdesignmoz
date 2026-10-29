@@ -312,7 +312,6 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
     password: '',
     empresa: '',
     endereco: '',
-    endereco2: '',
     cidade: '',
     estado: '',
     pais: 'Mozambique'
@@ -553,7 +552,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
             nome: `${accountForm.name} ${accountForm.sobrenome}`.trim(),
             telefone: telefoneCompleto(accountForm.telefone, telefonePrefixo),
             empresa: items.find((i) => i.type === 'hosting')?.contaUtilizador || accountForm.empresa,
-            endereco: [accountForm.endereco, accountForm.endereco2].map((x) => x.trim()).filter(Boolean).join(', '),
+            endereco: accountForm.endereco.trim(),
             cidade: accountForm.cidade,
             provincia: accountForm.estado,
             pais: accountForm.pais,
@@ -1197,10 +1196,6 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                           <div>
                             <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 mb-1.5 block">Morada *</label>
                             <input type="text" value={accountForm.endereco} onChange={e => setAccountForm(p => ({ ...p, endereco: e.target.value }))} className="w-full px-4 py-2 border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 text-slate-800 dark:text-zinc-100 rounded-md text-sm outline-none focus:ring-1 focus:ring-blue-500" />
-                          </div>
-                          <div>
-                            <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 mb-1.5 block">Morada (continuação)</label>
-                            <input type="text" value={accountForm.endereco2} onChange={e => setAccountForm(p => ({ ...p, endereco2: e.target.value }))} className="w-full px-4 py-2 border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 text-slate-800 dark:text-zinc-100 rounded-md text-sm outline-none focus:ring-1 focus:ring-blue-500" />
                           </div>
                           <div className="grid grid-cols-2 gap-4">
                             <div>
