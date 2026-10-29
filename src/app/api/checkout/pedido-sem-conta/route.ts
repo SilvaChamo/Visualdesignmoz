@@ -100,7 +100,9 @@ export async function POST(request: NextRequest) {
       .single();
     if (error || !session) {
       console.error('[checkout/pedido-sem-conta] insert error:', error);
-      return NextResponse.json({ error: 'Não foi possível iniciar o pedido.' }, { status: 500 });
+      // no projecto local, a causa habitual é a base de dados ainda não ter a alteração deste fluxo
+      const dica = process.env.NODE_ENV !== 'production' ? ' (confirme que a base de dados tem a alteração supabase-checkout-sessions-sem-conta.sql)' : '';
+      return NextResponse.json({ error: 'Não foi possível iniciar o pedido.' + dica }, { status: 500 });
     }
     return NextResponse.json({ success: true, session, token });
   } catch (error: unknown) {
