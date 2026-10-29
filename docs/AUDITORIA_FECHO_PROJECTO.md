@@ -289,6 +289,13 @@ e a configuração efectiva do SSH. Só depois dela se decide o endurecimento do
 - **Login Google:** o pedido actual ainda envia o retorno para `https://supabase-contabo.visualdesignmoz.com/auth/v1/callback`. É preciso autorizar o retorno novo na consola do Google antes de alterar o serviço.
 - **Palavra-passe de cifra:** permanece por confirmar se foi guardada no gestor de palavras-passe.
 
+### Estado confirmado a 30/10/2026
+
+- **Supabase:** o nome do projecto é `visualdesign`; `SUPABASE_PUBLIC_URL` e `API_EXTERNAL_URL` usam `https://supabase.visualdesignmoz.com`. O endereço antigo continua a responder como compatibilidade.
+- **Aplicações:** o deploy do VisualDesign já usa o endereço novo. O ambiente e o build activo de `basededadosagro.com` também foram actualizados; a compilação isolada terminou com êxito.
+- **Verificação:** `visualdesignmoz.com` e `basededadosagro.com` respondem HTTP 200. `/auth/v1/health` responde 401 nos dois endereços, esperado sem chave.
+- **Google:** o Supabase activo não tem credenciais de OAuth Google configuradas; não foi necessário alterar callbacks.
+
 ---
 
 ## 10. Ponto da situação — 28/10/2026 (ramo `fecho-do-projecto`)

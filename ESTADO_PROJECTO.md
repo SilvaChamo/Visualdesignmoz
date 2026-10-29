@@ -1,14 +1,14 @@
-# Estado do projecto — VisualDesign (auditoria de 22/10/2026, actualizado a 27/10/2026)
+# Estado do projecto — VisualDesign (auditoria de 22/10/2026, actualizado a 30/10/2026)
 
 > **O Hetzner já está fechado** (servidor desligado a 19/10/2026; só falta cancelar a conta do balde de ficheiros). Nada depende dele.
 > O que falta para fechar está abaixo; o levantamento original e o detalhe estão em `docs/AUDITORIA_FECHO_PROJECTO.md`.
 
 ## Em produção
-- Site e painel no **Contabo** (Hestia), publicados por cada merge em `main`. Hetzner (servidor) desligado.
-- Supabase próprio no Contabo. CI: últimos deploys todos verdes. Traduções: 0 textos sem inglês.
+- Site e painel no servidor, publicados por cada merge em `main`. Hetzner (servidor) desligado.
+- Supabase próprio, com o nome de projecto `visualdesign` e o endereço `https://supabase.visualdesignmoz.com`. CI: últimos deploys todos verdes. Traduções: 0 textos sem inglês.
 - Segurança do servidor: SSH na 2234, FTP e painel do Hestia fechados, bloqueio no nginx, guarda de sites, 2 passos opcional.
 
-## Falta para fechar (28/10/2026, depois das decisões do Silva)
+## Falta para fechar (30/10/2026, depois das decisões do Silva)
 
 **Só o Silva (decisões ou contas externas)**
 1. **M-Pesa em `sandbox`** — por tratar, pendente da Vodacom (`docs/mpesa-pedido-vodacom.md`); o webhook M-Pesa só se autentica no go-live.
@@ -18,16 +18,17 @@
 5. **Palavra-passe de cifra das cópias do R2:** existe, num ficheiro no Mac do Silva (`~/Desktop/chave-cifra-backups-visualdesign.txt`, gravado a 26/10). Falta só guardá-la num gestor de palavras-passe e apagar o ficheiro do ambiente de trabalho; sem ela as cópias do R2 não se abrem (o cron `vd-backup-externo` existe e corre às 07:00).
 6. **GitHub › Settings:** `CONTABO_ROOT_PASSWORD` removido em 28/10/2026 (nenhum workflow o usa); alertas do Dependabot activos. Os secrets `DIRECTADMIN_*` ficam pendentes de confirmação individual.
 7. ~~Brevo / caixa `servidor@`~~ — feito (o Silva confirmou a 28/10/2026).
-8. **Google (login):** juntar `https://supabase.visualdesignmoz.com/auth/v1/callback` aos endereços de retorno **antes** de correr a troca do Supabase (manter o antigo).
+8. **Google (login):** o Supabase activo não tem credenciais de OAuth Google configuradas; não foi necessário alterar callbacks para a mudança de endereço.
 9. ~~**Ramos:** os 25 ramos já fundidos em `main` foram apagados a 28/10/2026, depois de confirmar os SHAs; registo e recuperação em `docs/ramos-para-apagar-2026-10-28.md`.~~
 
 **Prontos no ramo — depois de publicar, correr (Actions › Run workflow, primeiro sem «aplicar»)**
-10. `Ops - Fecho do servidor`, fase **supabase** (troca do endereço; depois publicar), fase **ssh** (só chave; recusa se alguma conta sem ser root usou palavra-passe), fases **chave-app** e **chave-app-concluir** (chave própria da aplicação, só aceite a partir do servidor, separada da chave do deploy). O deploy foi mudado para usar o endereço novo do Supabase e a chave própria quando existe — **fazer o ensaio do deploy** (`ensaio` marcado) antes de publicar.
+10. `Ops - Fecho do servidor`, fase **ssh** (só chave; recusa se alguma conta sem ser root usou palavra-passe), fases **chave-app** e **chave-app-concluir** (chave própria da aplicação, só aceite a partir do servidor, separada da chave do deploy). A troca do endereço do Supabase está concluída; o deploy já usa o endereço novo e a chave própria quando existe — **fazer o ensaio do deploy** (`ensaio` marcado) antes de publicar.
 11. `Ops - DMARC de pct=25 para pct=100 (DNS)`: sobe só os domínios que já estão em `p=quarantine; pct=25`.
 12. `Ops - Auditoria do servidor (só leitura)`: a secção 13 procura nos registos do nginx quem chamou as rotas protegidas; ler o resultado.
 13. `Ops - Limite de disco de um pacote de alojamento`: quota do `VD-Email-Basico`.
 
 **Feito nesta passagem (código)**
+- **Supabase alinhado a 30/10/2026:** nome do projecto `visualdesign`; serviço e aplicações usam `https://supabase.visualdesignmoz.com`. O endereço antigo continua activo como compatibilidade. O site `basededadosagro.com` foi reconstruído e activado com o endereço novo. Os dois sites públicos respondem HTTP 200; os dois endpoints `/auth/v1/health` devolvem 401 sem chave, como esperado.
 - **Monitorização externa activa** (`.github/workflows/vigiar-sites.yml`): de 15 em 15 minutos, a partir do GitHub, pede visualdesignmoz.com, basededadosagro.com e o login da base de dados; se falharem 3 tentativas seguidas abre o aviso «Site em baixo» (e-mail para quem vigia o repositório) e fecha-o quando voltarem. Começa a correr depois de publicado.
 - **Checkout com IVA acrescentado** (Silva, 28/10/2026): o IVA de 16 % soma-se ao preço dos itens (subtotal, IVA e total no checkout, na Stripe como linha à parte, no saldo e nos pagamentos manuais); o recibo distingue as compras novas (IVA acrescentado) das antigas (IVA incluído).
 - **Nomes genéricos:** ficheiros dos workflows e scripts sem nomes de fornecedores (`deploy-visualdesign.yml`, `preparar-servidor.yml`, `scripts/servidor/`…); regra em `regras.md`. Ficam por mudar, por serem identificadores técnicos: os nomes dos secrets do GitHub, variáveis de ambiente e módulos `src/lib/*-adapter.ts`.
