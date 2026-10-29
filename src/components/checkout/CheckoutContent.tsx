@@ -551,6 +551,11 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
   // Flow State
   const [status, setStatus] = useState<'idle' | 'registering' | 'redirecting' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
+  // O aviso de erro fica no topo da página: ao aparecer, a página sobe até ele (quem clicou em «Pagar» lá em baixo via «nada acontecer»).
+  const caixaErroRef = React.useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (status === 'error' && errorMessage) caixaErroRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [status, errorMessage]);
 
   const handlePay = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -566,8 +571,18 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
       setStatus('error');
       return;
     }
-    if (!isEncomenda && contaHospedagemInvalida) {
-      setErrorMessage('Confira o nome de utilizador da conta de hospedagem: tem de ser válido e estar livre.');
+    const faltamDados = !isEncomenda && isAuthenticated === true && !buyingAs && (!accountForm.telefone.trim() || !accountForm.endereco.trim() || !accountForm.estado);
+    if (!isEncomenda && (contaHospedagemInvalida || faltamDados)) {
+      // quem tem conta vê os dados em texto: abre os campos para corrigir o que falta
+      if (isAuthenticated === true && !comoVisitante && !editando) {
+        copiaAntesDeEditar.current = { form: { ...accountForm }, prefixo: telefonePrefixo };
+        setEditando(true);
+      }
+      setErrorMessage(
+        contaHospedagemInvalida
+          ? 'Confira o nome da empresa (utilizador): tem de ser válido e estar livre.'
+          : 'Indique o telefone, a morada e a província: são os dados da conta e, nos domínios, do registo oficial (WHOIS).',
+      );
       setStatus('error');
       return;
     }
@@ -1107,7 +1122,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
               {/* PROCESSING STEPS */}
               {/* ERROR STATE */}
               {status === 'error' && errorMessage && (
-                <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/50 rounded-lg p-5 flex items-start gap-3">
+                <div ref={caixaErroRef} className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/50 rounded-lg p-5 flex items-start gap-3">
                   <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
                   <div>
                     <h4 className="font-bold text-red-800 dark:text-red-300 text-sm font-panel">Falha na Transação</h4>
@@ -1521,7 +1536,6 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                           isSubmitting ||
                           dadosEmFalta.length > 0 ||
                           (isEncomenda && isAuthenticated === false) ||
-                          (!isEncomenda && contaHospedagemInvalida) ||
                           (metodoPagamento === 'saldo' && (saldoDisponivel ?? 0) < ivaCarrinho.totalMt)
                         }
                         className={`flex-1 sm:flex-none disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold py-3 px-6 rounded-md flex items-center justify-center gap-2 transition-all cursor-pointer ${

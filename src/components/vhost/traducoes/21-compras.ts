@@ -37,6 +37,7 @@ export const compras: Record<string, string> = {
  "Entretanto pode acompanhar o pedido e falar com o suporte.": "Meanwhile you can follow the order and talk to support.",
  "Ver o estado do pedido": "See the order status",
  "Confira o nome de utilizador da conta de hospedagem: tem de ser válido e estar livre.": "Check the hosting account username: it must be valid and available.",
+ "Confira o nome da empresa (utilizador): tem de ser válido e estar livre.": "Check the company name (username): it must be valid and available.",
  "Indique a sua morada, cidade e província: são os dados da conta e, nos domínios, do registo oficial (WHOIS).": "Enter your address, city and province: they are the account details and, for domains, the official registration (WHOIS) details.",
  "Indique a sua morada e a província: são os dados da conta e, nos domínios, do registo oficial (WHOIS).": "Enter your address and province: they are the account details and, for domains, the official registration (WHOIS) details.",
  "Indique o telefone, a morada e a província: são os dados da conta e, nos domínios, do registo oficial (WHOIS).": "Enter your phone, address and province: they are the account details and, for domains, the official registration (WHOIS) details.",
