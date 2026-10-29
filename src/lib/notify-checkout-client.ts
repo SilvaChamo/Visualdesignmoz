@@ -73,15 +73,48 @@ function textos(evento: EventoCompra, pedido: Pedido, motivo?: string | null): {
  * Nunca lança erro — um aviso falhado não pode estragar a confirmação nem o envio do comprovativo.
  */
 export async function avisarClienteCompra(params: {
-  userId: string;
+  /** null: pedido de quem ainda não tem conta (o login só nasce na aprovação) — vai só o e-mail, para `para` */
+  userId: string | null;
   evento: EventoCompra;
   pedido: Pedido;
   motivo?: string | null;
+  para?: { email: string; nome: string } | null;
+  /** o login foi criado agora, na aprovação: o e-mail diz como entrar */
+  contaCriada?: boolean;
 }): Promise<void> {
   const { userId, evento, pedido, motivo } = params;
   const admin = getSupabaseAdmin();
   if (!admin) return;
-  const { titulo, mensagem, tipo } = textos(evento, pedido, motivo);
+  const base = textos(evento, pedido, motivo);
+  const { titulo, tipo } = base;
+  let mensagem = base.mensagem;
+  if (!userId && evento === 'comprovativo') {
+    mensagem = `${mensagem} Quando o pagamento for confirmado, criamos a sua conta e enviamos-lhe outro e-mail.`;
+  }
+  if (params.contaCriada && params.para?.email) {
+    mensagem = `${mensagem} A sua conta foi criada: entre com o e-mail ${params.para.email} e a palavra-passe que escolheu na compra.`;
+  }
+
+  if (!userId) {
+    if (!params.para?.email) return;
+    try {
+      await sendEmail({
+        to: params.para.email,
+        subject: titulo,
+        html: buildEmailDocument({
+          companyName: COMPANY_NAME,
+          clientName: params.para.nome,
+          title: titulo,
+          bodyHtml: `<p style="margin: 0; color: #4b5563; font-size: 14px; line-height: 1.5; font-family: 'Exo 2', sans-serif;">${escapeHtml(mensagem)}</p>`,
+        }),
+        from: NOREPLY_EMAIL,
+        category: 'transactional',
+      });
+    } catch (err) {
+      console.error('[notify-checkout-client] falha ao enviar o e-mail:', err);
+    }
+    return;
+  }
 
   try {
     await admin.from('notifications').insert({

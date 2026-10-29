@@ -8,6 +8,7 @@ import { comprovativoValido, COMPROVATIVO_ERRO } from '@/lib/comprovativo-fichei
 import { resolveCheckoutActor } from '@/lib/checkout-actor';
 import { avisarClienteCompra } from '@/lib/notify-checkout-client';
 import { referenciaPedido } from '@/lib/checkout-referencia';
+import { destinatarioDoPedido, tokenDoPedidoConfere } from '@/lib/pedido-sem-conta';
 
 const MAX_SIZE_BYTES = 10 * 1024 * 1024;
 
@@ -18,10 +19,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: 'Faça login para continuar.' }, { status: 401 });
-  }
-
   const admin = getSupabaseAdmin();
   if (!admin) {
     return NextResponse.json({ error: 'Serviço indisponível.' }, { status: 503 });
@@ -31,14 +28,23 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const { data: session, error: sessionError } = await admin
     .from('checkout_sessions')
-    .select('id, user_id, status, items, total_mt, metodo_pagamento, comprovativo_url')
+    .select('id, user_id, status, items, total_mt, metodo_pagamento, comprovativo_url, cadastro, token_acesso')
     .eq('id', id)
     .single();
   if (sessionError || !session) {
     return NextResponse.json({ error: 'Pedido não encontrado.' }, { status: 404 });
   }
-  // o dono do pedido; ou um administrador a comprar «em nome de» essa conta (entrar como), cujo pedido fica na conta imitada
-  if (session.user_id !== user.id) {
+
+  const form = await request.formData();
+  if (!session.user_id) {
+    // pedido de quem ainda não tem conta: vale a chave que o navegador guardou ao criar o pedido
+    if (!tokenDoPedidoConfere(session.token_acesso, form.get('token'))) {
+      return NextResponse.json({ error: 'Não tem permissão para editar este pedido.' }, { status: 403 });
+    }
+  } else if (!user) {
+    return NextResponse.json({ error: 'Faça login para continuar.' }, { status: 401 });
+  } else if (session.user_id !== user.id) {
+    // o dono do pedido; ou um administrador a comprar «em nome de» essa conta (entrar como), cujo pedido fica na conta imitada
     const actor = await resolveCheckoutActor(admin, user);
     if (actor.buyerUserId !== session.user_id) {
       return NextResponse.json({ error: 'Não tem permissão para editar este pedido.' }, { status: 403 });
@@ -48,7 +54,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({ error: 'Este pedido já foi respondido pela equipa.' }, { status: 409 });
   }
 
-  const form = await request.formData();
   const file = form.get('file') as File | null;
   if (!file) {
     return NextResponse.json({ error: 'Ficheiro em falta.' }, { status: 400 });
@@ -101,7 +106,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const nomes = (Array.isArray(session.items) ? session.items : []).map((i: { name?: string }) => i.name).filter(Boolean).join(', ');
     notifyQuoteTeam({
       title: 'Novo comprovativo de pagamento (checkout)',
-      message: `${user.email} enviou o comprovativo do pedido ${referenciaPedido(id)}: ${nomes || 'um pedido'} (${session.total_mt} MT) via ${
+      message: `${user?.email || destinatarioDoPedido(session)?.email || 'O cliente'} enviou o comprovativo do pedido ${referenciaPedido(id)}: ${nomes || 'um pedido'} (${session.total_mt} MT) via ${
         session.metodo_pagamento === 'mpesa' ? 'M-Pesa' : 'Transferência Bancária'
       }. Aguarda confirmação da equipa.`,
       link: `${process.env.NEXT_PUBLIC_SITE_URL || ''}/vhost:2026`,
@@ -109,11 +114,15 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
   // o cliente fica a saber que o comprovativo chegou (também ao reenviar depois de um pedido de novo comprovativo)
   avisarClienteCompra({
-    userId: session.user_id,
+    userId: session.user_id || null,
+    para: destinatarioDoPedido(session),
     evento: 'comprovativo',
     pedido: { id, total_mt: Number(session.total_mt) || 0, metodo_pagamento: session.metodo_pagamento, items: Array.isArray(session.items) ? session.items : [] },
   }).catch(() => {});
 
   const signedUrl = await getAttachmentSignedUrl(updated.comprovativo_url);
-  return NextResponse.json({ success: true, session: { ...updated, comprovativo_url: signedUrl } });
+  const { token_acesso: _t, cadastro: _c, ...semSegredos } = updated;
+  void _t;
+  void _c;
+  return NextResponse.json({ success: true, session: { ...semSegredos, comprovativo_url: signedUrl } });
 }

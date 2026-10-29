@@ -42,6 +42,8 @@ export const compras: Record<string, string> = {
  "Indique a sua morada e a província: são os dados da conta e, nos domínios, do registo oficial (WHOIS).": "Enter your address and province: they are the account details and, for domains, the official registration (WHOIS) details.",
  "Indique o telefone, a morada e a província: são os dados da conta e, nos domínios, do registo oficial (WHOIS).": "Enter your phone, address and province: they are the account details and, for domains, the official registration (WHOIS) details.",
  "Não foi possível guardar os dados da conta.": "Could not save the account details.",
+ "A nossa equipa vai confirmar o pagamento. Quando estiver confirmado, criamos a sua conta e enviamos-lhe um e-mail com o acesso.": "Our team will confirm the payment. Once it is confirmed, we will create your account and email you the access details.",
+ "Voltar ao início": "Back to the home page",
  "Morada *": "Address *",
  "Cidade *": "City *",
  "Província *": "Province *",

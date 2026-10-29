@@ -5,6 +5,7 @@ import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { c2bSingleStagePay } from '@/lib/mpesa-client';
 import { resolveCheckoutActor } from '@/lib/checkout-actor';
 import { mpesaEmSandbox } from '@/lib/mpesa-ambiente';
+import { tokenDoPedidoConfere } from '@/lib/pedido-sem-conta';
 
 // Passo M-Pesa do checkout para clientes normais enquanto o M-Pesa está em sandbox (MPESA_ENV=sandbox): o cliente
 // dá o número e o pedido segue o protocolo C2B de teste, mas NADA é cobrado nem activado — o pedido continua
@@ -26,10 +27,6 @@ export async function POST(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: 'A sua sessão expirou. Entre novamente para realizar esta acção.' }, { status: 401 });
-  }
-
   const admin = getSupabaseAdmin();
   if (!admin) {
     return NextResponse.json({ error: 'Serviço indisponível.' }, { status: 503 });
@@ -44,10 +41,17 @@ export async function POST(request: NextRequest) {
 
   const { data: session } = await admin
     .from('checkout_sessions')
-    .select('id, user_id, status, metodo_pagamento, total_mt, mpesa_last_response')
+    .select('id, user_id, status, metodo_pagamento, total_mt, mpesa_last_response, token_acesso')
     .eq('id', sessionId)
     .maybeSingle();
-  if (!session || session.user_id !== (await resolveCheckoutActor(admin, user)).buyerUserId) {
+  // pedido de quem ainda não tem conta: vale a chave do navegador; os outros, o dono (ou quem compra «em nome de»)
+  const autorizado = !session
+    ? false
+    : !session.user_id
+      ? tokenDoPedidoConfere(session.token_acesso, body.token)
+      : !!user && session.user_id === (await resolveCheckoutActor(admin, user)).buyerUserId;
+  if (!session || !autorizado) {
+    if (!user && !body.token) return NextResponse.json({ error: 'A sua sessão expirou. Entre novamente para realizar esta acção.' }, { status: 401 });
     return NextResponse.json({ error: 'Pedido não encontrado.' }, { status: 404 });
   }
   if (session.status !== 'pending' || session.metodo_pagamento !== 'mpesa') {

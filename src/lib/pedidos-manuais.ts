@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { PEDIDO_MANUAL_VALIDADE_DIAS } from '@/lib/checkout-referencia';
 import { avisarClienteCompra } from '@/lib/notify-checkout-client';
+import { destinatarioDoPedido } from '@/lib/pedido-sem-conta';
 
 /**
  * Pedidos pagos por M-Pesa/Transferência que ficaram abertos sem nenhum comprovativo durante `PEDIDO_MANUAL_VALIDADE_DIAS`
@@ -12,7 +13,7 @@ export async function expirarPedidosManuais(admin: SupabaseClient): Promise<{ ex
   const limite = new Date(Date.now() - PEDIDO_MANUAL_VALIDADE_DIAS * 24 * 60 * 60 * 1000).toISOString();
   const { data, error } = await admin
     .from('checkout_sessions')
-    .select('id, user_id, items, total_mt, metodo_pagamento')
+    .select('id, user_id, items, total_mt, metodo_pagamento, cadastro')
     .eq('status', 'pending')
     .neq('metodo_pagamento', 'stripe')
     .is('comprovativo_url', null)
@@ -34,7 +35,8 @@ export async function expirarPedidosManuais(admin: SupabaseClient): Promise<{ ex
     }
     expirados += 1;
     await avisarClienteCompra({
-      userId: pedido.user_id as string,
+      userId: (pedido.user_id as string | null) || null,
+      para: destinatarioDoPedido(pedido),
       evento: 'expirado',
       pedido: {
         id: pedido.id as string,

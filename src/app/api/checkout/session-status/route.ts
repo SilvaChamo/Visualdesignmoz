@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { resolveCheckoutActor } from '@/lib/checkout-actor';
+import { tokenDoPedidoConfere } from '@/lib/pedido-sem-conta';
 
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
@@ -9,13 +10,32 @@ export async function GET(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) {
-    return NextResponse.json({ error: 'A sua sessão expirou. Entre novamente para realizar esta acção.' }, { status: 401 });
-  }
-
   const sessionId = request.nextUrl.searchParams.get('session_id');
   if (!sessionId) {
     return NextResponse.json({ error: 'session_id em falta' }, { status: 400 });
+  }
+
+  // Pedido de quem ainda não tem conta: lê-se com a chave que o navegador guardou ao criar o pedido.
+  const token = request.nextUrl.searchParams.get('token');
+  if (!user && token) {
+    const adminSemConta = getSupabaseAdmin();
+    if (!adminSemConta) return NextResponse.json({ error: 'Serviço indisponível.' }, { status: 503 });
+    const { data } = await adminSemConta
+      .from('checkout_sessions')
+      .select('id, status, items, total_mt, metodo_pagamento, comprovativo_url, rejection_reason, token_acesso, user_id')
+      .eq('id', sessionId)
+      .maybeSingle();
+    if (!data || data.user_id || !tokenDoPedidoConfere(data.token_acesso, token)) {
+      return NextResponse.json({ error: 'Sessão não encontrada' }, { status: 404 });
+    }
+    const { token_acesso: _t, user_id: _u, ...pedido } = data;
+    void _t;
+    void _u;
+    return NextResponse.json({ success: true, session: pedido });
+  }
+
+  if (!user) {
+    return NextResponse.json({ error: 'A sua sessão expirou. Entre novamente para realizar esta acção.' }, { status: 401 });
   }
 
   // O dono do pedido; um administrador a comprar «em nome de» outra conta (entrar como) lê o pedido dessa conta.

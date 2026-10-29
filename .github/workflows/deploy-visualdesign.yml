@@ -339,6 +339,8 @@ jobs:
             DB_USER=$(docker exec "$DB_CONTAINER" printenv POSTGRES_USER 2>/dev/null || echo postgres)
             DB_NAME=$(docker exec "$DB_CONTAINER" printenv POSTGRES_DB 2>/dev/null || echo postgres)
             docker exec -i "$DB_CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 < "$STAGE/supabase-vhost-activity-history.sql"
+            # Pedidos de compra de quem ainda não tem conta (o login só nasce quando a equipa aprova o comprovativo).
+            docker exec -i "$DB_CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 < "$STAGE/supabase-checkout-sessions-sem-conta.sql"
             docker exec "$DB_CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 -c "NOTIFY pgrst, 'reload schema';"
             HISTORY_TABLE=$(docker exec "$DB_CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 -t -c "SELECT to_regclass('public.vhost_activity_history');" | tr -d '[:space:]')
             if [ "$HISTORY_TABLE" != "vhost_activity_history" ]; then

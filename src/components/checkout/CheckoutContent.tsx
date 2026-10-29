@@ -286,15 +286,29 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
   const [mpesaAvisoTeste, setMpesaAvisoTeste] = useState(false);
   const [mpesaPassoValor, setMpesaPassoValor] = useState<number | undefined>(undefined);
   const restoredPendingIdRef = React.useRef<string | null>(null);
+  // Pedido de quem ainda não tem conta (M-Pesa/Transferência): a chave com que este navegador lê o pedido e envia o comprovativo.
+  const CHAVE_PEDIDO_SEM_CONTA = 'vd_pedido_sem_conta';
+  const [tokenPedido, setTokenPedido] = useState<string | null>(null);
+  const lerPedidoSemConta = (): { id: string; token: string } | null => {
+    try {
+      const v = JSON.parse(sessionStorage.getItem(CHAVE_PEDIDO_SEM_CONTA) || 'null');
+      return v && v.id && v.token ? v : null;
+    } catch {
+      return null;
+    }
+  };
 
   // Recupera este passo depois de um recarregamento a meio (ex: refresh
   // acidental) — sem isto a página cairia no ecrã genérico de "carrinho
   // vazio" (o carrinho já foi limpo ao criar o pedido pendente).
   useEffect(() => {
     const pendingId = searchParams.get('pendingId');
-    if (!pendingId || isAuthenticated !== true || restoredPendingIdRef.current === pendingId) return;
+    if (!pendingId || isAuthenticated === null || restoredPendingIdRef.current === pendingId) return;
+    const semConta = isAuthenticated === false ? lerPedidoSemConta() : null;
+    if (isAuthenticated === false && semConta?.id !== pendingId) return;
     restoredPendingIdRef.current = pendingId;
-    fetch(`/api/checkout/session-status?session_id=${encodeURIComponent(pendingId)}`)
+    if (semConta) setTokenPedido(semConta.token);
+    fetch(`/api/checkout/session-status?session_id=${encodeURIComponent(pendingId)}${semConta ? `&token=${encodeURIComponent(semConta.token)}` : ''}`)
       .then((r) => r.json())
       .then((data) => {
         const s = data?.session;
@@ -646,6 +660,50 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
     }
 
     try {
+      // M-Pesa/Transferência de quem ainda não tem conta: agora não se cria nada (nem login, nem conta no servidor, nem
+      // hospedagem). O pedido guarda os dados digitados e tudo nasce quando a equipa confirma o comprovativo.
+      if (isAuthenticated === false && !isEncomenda && (metodoPagamento === 'mpesa' || metodoPagamento === 'transferencia')) {
+        const anterior = lerPedidoSemConta();
+        const res = await fetch('/api/checkout/pedido-sem-conta', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            items,
+            metodoPagamento,
+            senha: accountForm.password,
+            anterior,
+            dados: {
+              nome: accountForm.name,
+              apelido: accountForm.sobrenome,
+              email: accountForm.email,
+              telefone: telefoneCompleto(accountForm.telefone, telefonePrefixo),
+              morada: accountForm.endereco,
+              provincia: accountForm.estado,
+              empresa: items.find((i) => i.type === 'hosting')?.contaUtilizador || accountForm.empresa,
+            },
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success) throw new Error(data.error || 'Não foi possível registar o pedido de pagamento.');
+        try {
+          sessionStorage.setItem(CHAVE_PEDIDO_SEM_CONTA, JSON.stringify({ id: data.session.id, token: data.token }));
+        } catch {
+          /* sem armazenamento: o passo seguinte continua nesta página */
+        }
+        setTokenPedido(data.token);
+        const metodo = metodoPagamento === 'mpesa' ? 'mpesa' : 'transferencia';
+        setManualSession({ id: data.session.id, metodoPagamento: metodo, totalMt: Number(data.session.total_mt) || undefined });
+        if (metodo === 'mpesa') {
+          setMpesaPassoValor(Number(data.session.total_mt) || undefined);
+          setMpesaPassoId(data.session.id);
+        }
+        restoredPendingIdRef.current = data.session.id;
+        router.push(`/checkout?pendingId=${data.session.id}`);
+        setStatus('idle');
+        setIsSubmitting(false);
+        return;
+      }
+
       if (isAuthenticated === false) {
         setStatus('registering');
         const res = await fetch('/api/auth/register', {
@@ -1019,6 +1077,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
         ) : manualSession && mpesaPassoId === manualSession.id ? (
           <MpesaTesteStep
             sessionId={manualSession.id}
+            token={tokenPedido}
             valorMt={mpesaPassoValor}
             onDone={(testado) => { setMpesaAvisoTeste(testado); setMpesaPassoId(null); }}
           />
@@ -1031,8 +1090,23 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
             jaEnviado={manualSession.comprovativoEnviado}
             motivoNovoComprovativo={manualSession.motivo}
             avisoTeste={mpesaAvisoTeste}
-            onSent={() => { clearCart(); limparFormulario(); }}
+            uploadFields={tokenPedido ? { token: tokenPedido } : undefined}
+            successMessage={tokenPedido ? 'A nossa equipa vai confirmar o pagamento. Quando estiver confirmado, criamos a sua conta e enviamos-lhe um e-mail com o acesso.' : undefined}
+            textoContinuar={tokenPedido ? 'Voltar ao início' : undefined}
+            onSent={() => {
+              clearCart();
+              limparFormulario();
+              try {
+                sessionStorage.removeItem(CHAVE_PEDIDO_SEM_CONTA);
+              } catch {
+                /* sem armazenamento */
+              }
+            }}
             onContinue={async () => {
+              if (tokenPedido) {
+                router.push('/');
+                return;
+              }
               const { data: { session: refreshedSession } } = await supabase.auth.refreshSession();
               router.push(redirectPathForSession(refreshedSession));
             }}
@@ -1721,7 +1795,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
  * avisado, no ecrã do comprovativo, de que o valor não foi deduzido. Fora do sandbox
  * (produção) o passo salta-se sozinho e o checkout vai direito ao comprovativo.
  */
-function MpesaTesteStep({ sessionId, valorMt, onDone }: { sessionId: string; valorMt?: number; onDone: (testado: boolean) => void }) {
+function MpesaTesteStep({ sessionId, token, valorMt, onDone }: { sessionId: string; token?: string | null; valorMt?: number; onDone: (testado: boolean) => void }) {
   const [fase, setFase] = useState<'a-verificar' | 'numero' | 'a-pagar'>('a-verificar');
   const [numero, setNumero] = useState('');
   const [error, setError] = useState('');
@@ -1753,7 +1827,7 @@ function MpesaTesteStep({ sessionId, valorMt, onDone }: { sessionId: string; val
       await fetch('/api/checkout/mpesa-teste', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId, msisdn }),
+        body: JSON.stringify({ sessionId, msisdn, ...(token ? { token } : {}) }),
       });
     } catch {
       // O resultado do teste não muda o que o cliente tem de fazer a seguir.
@@ -1829,6 +1903,7 @@ function ManualPaymentUploadStep({
   motivoNovoComprovativo,
   avisoTeste,
   successMessage = 'Aguarde a aprovação da nossa equipa para aceder à gestão do(s) seu(s) produto(s).',
+  textoContinuar = 'Aceder ao Painel',
   onSent,
   secondaryActions,
   onContinue,
@@ -1846,6 +1921,8 @@ function ManualPaymentUploadStep({
   /** M-Pesa de teste já percorrido: avisa que nada foi deduzido. */
   avisoTeste?: boolean;
   successMessage?: string;
+  /** texto do botão depois do envio (quem comprou sem conta ainda não tem painel) */
+  textoContinuar?: string;
   /** Depois de o comprovativo seguir com sucesso. */
   onSent?: () => void;
   /** Por baixo do envio, enquanto ainda não foi enviado (ex.: editar/cancelar a encomenda). */
@@ -1898,7 +1975,7 @@ function ManualPaymentUploadStep({
             className="mt-2 inline-flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white font-bold py-3 px-6 rounded-md transition-colors"
           >
             {enteringPanel ? <Spinner className="w-4 h-4" /> : null}
-            {enteringPanel ? 'A entrar...' : 'Aceder ao Painel'}
+            {enteringPanel ? 'A entrar...' : textoContinuar}
           </button>
         </div>
       ) : (
