@@ -320,6 +320,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
     // só depois de o carrinho guardado ser lido (senão a leitura repunha os itens por cima)
     if (searchParams.get('pago') !== '1' || !carrinhoLido) return;
     clearCart();
+    limparFormulario();
     router.replace(PUBLIC_PANEL_ENTRY);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, carrinhoLido]);
@@ -363,6 +364,45 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
     pais: 'Mozambique'
   });
   const [telefonePrefixo, setTelefonePrefixo] = useState('+258');
+  // O que a pessoa escreveu no formulário guarda-se (nunca a palavra-passe) para voltar atrás e encontrá-lo como o deixou;
+  // «formularioAtivo» diz que a conta foi criada a partir dele nesta sessão e que este formulário continua a ser o que se mostra.
+  const CHAVE_FORMULARIO = 'vd_checkout_form';
+  const CHAVE_FORMULARIO_ATIVO = 'vd_checkout_form_ativo';
+  const [rascunhoLido, setRascunhoLido] = useState(false);
+  const [formularioAtivo, setFormularioAtivo] = useState(false);
+  useEffect(() => {
+    try {
+      const guardado = sessionStorage.getItem(CHAVE_FORMULARIO);
+      if (guardado) {
+        const { prefixo, ...campos } = JSON.parse(guardado) as Record<string, string>;
+        setAccountForm((f) => ({ ...f, ...campos, password: '' }));
+        if (prefixo) setTelefonePrefixo(prefixo);
+      }
+      setFormularioAtivo(sessionStorage.getItem(CHAVE_FORMULARIO_ATIVO) === '1');
+    } catch {
+      /* sem armazenamento: o formulário começa vazio */
+    }
+    setRascunhoLido(true);
+  }, []);
+  useEffect(() => {
+    if (!rascunhoLido) return;
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { password: _senha, ...semSenha } = accountForm;
+      sessionStorage.setItem(CHAVE_FORMULARIO, JSON.stringify({ ...semSenha, prefixo: telefonePrefixo }));
+    } catch {
+      /* sem armazenamento */
+    }
+  }, [accountForm, telefonePrefixo, rascunhoLido]);
+  const limparFormulario = () => {
+    try {
+      sessionStorage.removeItem(CHAVE_FORMULARIO);
+      sessionStorage.removeItem(CHAVE_FORMULARIO_ATIVO);
+    } catch {
+      /* sem armazenamento */
+    }
+    setFormularioAtivo(false);
+  };
   const [showPassword, setShowPassword] = useState(false);
 
   // Morada/telefone do perfil (WHOIS) — para o card "Faturado Para" de quem já
@@ -436,6 +476,31 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
     });
     setEditingProfile(true);
   };
+  // Grava telefone, morada, cidade e província da conta (a cidade segue igual à província quando não há outra).
+  const gravarPerfil = async (v: { telefone: string; morada: string; cidade: string; provincia: string }) => {
+    if (!authUser) return;
+    const { data: existing } = await supabase
+      .from('profiles')
+      .select('id')
+      .or(profileAuthOrFilter(authUser.id))
+      .maybeSingle();
+    const payload = {
+      user_id: authUser.id,
+      telefone: v.telefone || null,
+      morada: v.morada || null,
+      cidade: v.cidade || dadosConta.cidade || v.provincia || null,
+      updated_at: new Date().toISOString(),
+    };
+    const { error } = existing?.id
+      ? await supabase.from('profiles').update(payload).eq('id', existing.id)
+      : await supabase.from('profiles').insert(payload);
+    if (error) throw error;
+    // a província não tem coluna no perfil: guarda-se nos dados da conta (onde o registo já a põe)
+    if (v.provincia !== dadosConta.provincia) {
+      await supabase.auth.updateUser({ data: { provincia: v.provincia } });
+    }
+    setProfileExtra({ telefone: payload.telefone, morada: payload.morada, cidade: payload.cidade });
+  };
   const saveProfileExtra = async () => {
     if (!authUser) return;
     setSavingProfile(true);
@@ -458,27 +523,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
         await supabase.auth.refreshSession();
       }
 
-      const { data: existing } = await supabase
-        .from('profiles')
-        .select('id')
-        .or(profileAuthOrFilter(authUser.id))
-        .maybeSingle();
-      const payload = {
-        user_id: authUser.id,
-        telefone: profileEditForm.telefone || null,
-        morada: profileEditForm.morada || null,
-        cidade: profileEditForm.cidade || dadosConta.cidade || profileEditForm.provincia || null,
-        updated_at: new Date().toISOString(),
-      };
-      const { error } = existing?.id
-        ? await supabase.from('profiles').update(payload).eq('id', existing.id)
-        : await supabase.from('profiles').insert(payload);
-      if (error) throw error;
-      // a província não tem coluna no perfil: guarda-se nos dados da conta (onde o registo já a põe)
-      if (profileEditForm.provincia !== dadosConta.provincia) {
-        await supabase.auth.updateUser({ data: { provincia: profileEditForm.provincia } });
-      }
-      setProfileExtra({ telefone: payload.telefone, morada: payload.morada, cidade: payload.cidade });
+      await gravarPerfil({ telefone: profileEditForm.telefone, morada: profileEditForm.morada, cidade: profileEditForm.cidade, provincia: profileEditForm.provincia });
       setEditingProfile(false);
       if (status === 'error') {
         setStatus('idle');
@@ -553,6 +598,28 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
     if (isAuthenticated === false && !isEncomenda) setComoVisitante(true);
     setIsSubmitting(true);
     setErrorMessage('');
+
+    if (isAuthenticated === true && formularioAtivo && !isEncomenda) {
+      if (!accountForm.telefone.trim() || !accountForm.endereco.trim() || !accountForm.estado) {
+        setErrorMessage('Indique o telefone, a morada e a província: são os dados da conta e, nos domínios, do registo oficial (WHOIS).');
+        setStatus('error');
+        setIsSubmitting(false);
+        return;
+      }
+      try {
+        await gravarPerfil({
+          telefone: telefoneCompleto(accountForm.telefone, telefonePrefixo),
+          morada: accountForm.endereco.trim(),
+          cidade: accountForm.estado,
+          provincia: accountForm.estado,
+        });
+      } catch (err: unknown) {
+        setErrorMessage(err instanceof Error ? err.message : 'Não foi possível guardar os dados da conta.');
+        setStatus('error');
+        setIsSubmitting(false);
+        return;
+      }
+    }
 
     if (isAuthenticated === false) {
       if (!accountForm.name.trim()) {
@@ -642,6 +709,8 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
         // evento que pode não disparar a tempo (era isto que causava o falso
         // "faça login" mesmo com a conta e a sessão já certas).
         await supabase.auth.refreshSession();
+        try { sessionStorage.setItem(CHAVE_FORMULARIO_ATIVO, '1'); } catch { /* sem armazenamento */ }
+        setFormularioAtivo(true);
       }
 
       if (isEncomenda) {
@@ -731,6 +800,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
           throw new Error(data.error || 'Não foi possível pagar com o saldo.');
         }
         clearCart();
+        limparFormulario();
         const { data: { session: refreshedSession } } = await supabase.auth.refreshSession();
         router.push(redirectPathForSession(refreshedSession));
         return;
@@ -974,7 +1044,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
             jaEnviado={manualSession.comprovativoEnviado}
             motivoNovoComprovativo={manualSession.motivo}
             avisoTeste={mpesaAvisoTeste}
-            onSent={clearCart}
+            onSent={() => { clearCart(); limparFormulario(); }}
             onContinue={async () => {
               const { data: { session: refreshedSession } } = await supabase.auth.refreshSession();
               router.push(redirectPathForSession(refreshedSession));
@@ -1006,7 +1076,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
 
               {/* Dados da conta — só quando já tem sessão iniciada; para quem não
                   tem conta, é o próprio formulário abaixo que cumpre este papel. */}
-              {isAuthenticated === true && !comoVisitante && (
+              {isAuthenticated === true && !comoVisitante && !formularioAtivo && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg p-6 shadow-sm">
                     <p className="text-[11px] font-bold uppercase tracking-wide text-red-600 dark:text-red-400 flex items-center gap-1.5 mb-3">
@@ -1112,7 +1182,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                 </div>
               )}
 
-              {isAuthenticated === true && !comoVisitante && !isEncomenda && itensHospedagem.length > 0 && (
+              {isAuthenticated === true && !comoVisitante && !formularioAtivo && !isEncomenda && itensHospedagem.length > 0 && (
                 <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg p-6 shadow-sm space-y-4">
                   <p className="text-[11px] font-bold uppercase tracking-wide text-red-600 dark:text-red-400 flex items-center gap-1.5">
                     <Building2 className="w-3.5 h-3.5" /> Dados da Empresa
@@ -1173,13 +1243,15 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                     <EncomendaLoginNecessario loginHref={`/login?redirect=${encodeURIComponent(checkoutReturnPath)}`} />
                   )}
 
-                  {(isAuthenticated === false || comoVisitante) && !isEncomenda && (
+                  {(isAuthenticated === false || comoVisitante || (isAuthenticated === true && formularioAtivo)) && !isEncomenda && (
                     <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg p-6 shadow-sm">
-                      <div className="mb-6 pb-4 border-b border-slate-100 dark:border-zinc-800 flex justify-between items-center">
-                        <p className="text-sm text-slate-600 dark:text-zinc-400">
-                          Já tem uma conta? <Link href={`/login?redirect=${encodeURIComponent(checkoutReturnPath)}`} className="text-blue-600 font-bold hover:underline">Inicie sessão</Link> para concluir o processo de pagamento.
-                        </p>
-                      </div>
+                      {(isAuthenticated !== true || comoVisitante) && (
+                        <div className="mb-6 pb-4 border-b border-slate-100 dark:border-zinc-800 flex justify-between items-center">
+                          <p className="text-sm text-slate-600 dark:text-zinc-400">
+                            Já tem uma conta? <Link href={`/login?redirect=${encodeURIComponent(checkoutReturnPath)}`} className="text-blue-600 font-bold hover:underline">Inicie sessão</Link> para concluir o processo de pagamento.
+                          </p>
+                        </div>
+                      )}
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-8">
                         {/* Dados da pessoa responsável */}
@@ -1206,6 +1278,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                             </div>
                             <input type="tel" aria-label="Telefone" placeholder="Telefone *" value={accountForm.telefone} onChange={e => setAccountForm(p => ({ ...p, telefone: e.target.value }))} className={campoCls} />
                           </div>
+                          {(isAuthenticated !== true || comoVisitante) && (
                           <CampoIcone icone={KeyRound}>
                             <input type={showPassword ? 'text' : 'password'} aria-label="Palavra-passe" placeholder="Palavra-passe (6 a 20 caracteres) *" maxLength={20} autoComplete="new-password" value={accountForm.password} onChange={e => setAccountForm(p => ({ ...p, password: e.target.value }))} className={campoCls} />
                             <div className="flex items-center gap-2 pr-3 text-slate-400">
@@ -1217,6 +1290,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                               </button>
                             </div>
                           </CampoIcone>
+                          )}
                         </div>
 
                         {/* Dados da empresa */}
@@ -1232,7 +1306,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                             </CampoIcone>
                           )}
                           <CampoIcone icone={Mail}>
-                            <input type="email" aria-label="E-mail" placeholder="E-mail *" value={accountForm.email} onChange={e => setAccountForm(p => ({ ...p, email: e.target.value }))} className={campoCls} />
+                            <input type="email" aria-label="E-mail" placeholder="E-mail *" disabled={isAuthenticated === true && !comoVisitante} value={isAuthenticated === true && !comoVisitante && authUser?.email ? authUser.email : accountForm.email} onChange={e => setAccountForm(p => ({ ...p, email: e.target.value }))} className={campoCls} />
                           </CampoIcone>
                           <CampoIcone icone={MapPin}>
                             <input type="text" aria-label="Morada" placeholder="Morada *" value={accountForm.endereco} onChange={e => setAccountForm(p => ({ ...p, endereco: e.target.value }))} className={campoCls} />

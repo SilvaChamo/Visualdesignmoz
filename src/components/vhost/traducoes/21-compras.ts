@@ -39,6 +39,8 @@ export const compras: Record<string, string> = {
  "Confira o nome de utilizador da conta de hospedagem: tem de ser válido e estar livre.": "Check the hosting account username: it must be valid and available.",
  "Indique a sua morada, cidade e província: são os dados da conta e, nos domínios, do registo oficial (WHOIS).": "Enter your address, city and province: they are the account details and, for domains, the official registration (WHOIS) details.",
  "Indique a sua morada e a província: são os dados da conta e, nos domínios, do registo oficial (WHOIS).": "Enter your address and province: they are the account details and, for domains, the official registration (WHOIS) details.",
+ "Indique o telefone, a morada e a província: são os dados da conta e, nos domínios, do registo oficial (WHOIS).": "Enter your phone, address and province: they are the account details and, for domains, the official registration (WHOIS) details.",
+ "Não foi possível guardar os dados da conta.": "Could not save the account details.",
  "Morada *": "Address *",
  "Cidade *": "City *",
  "Província *": "Province *",
