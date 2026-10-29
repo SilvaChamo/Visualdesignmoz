@@ -1212,12 +1212,6 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                               </select>
                             </div>
                           </div>
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 mb-1.5 block">País</label>
-                              <input type="text" value="Moçambique" disabled readOnly className="w-full px-4 py-2 border border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-900 text-slate-500 dark:text-zinc-400 rounded-md text-sm outline-none cursor-not-allowed" />
-                            </div>
-                          </div>
                         </div>
                       </div>
                     </div>
