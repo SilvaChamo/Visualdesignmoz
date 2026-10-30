@@ -82,7 +82,7 @@ jobs:
             [ -f "$CONFNGINX/nginx.conf_erros" ] && cp -a "$CONFNGINX/nginx.conf_erros" "$B/"
             # tira as linhas nossas de uma aplicação anterior e volta a pô-las (pode correr mais de uma vez)
             sed -i '/^; vd-erros-inicio/,/^; vd-erros-fim/d' "$POOL"
-            sed -i -E '/^(php_admin_value\[(log_errors|error_log|error_reporting)\]|request_slowlog_timeout|slowlog) *=/d' "$POOL"
+            sed -i -E '/^(php_admin_(value|flag)\[(log_errors|error_log|error_reporting)\]|request_slowlog_timeout|slowlog) *=/d' "$POOL"
             { echo "; vd-erros-inicio (Silva, 28/10/2026: erros do PHP gravados na pasta do site)"
               echo "php_admin_value[log_errors] = on"
               echo "php_admin_value[error_log] = $RAIZ/error_log"

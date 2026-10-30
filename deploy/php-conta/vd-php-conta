@@ -229,18 +229,16 @@ garantir_registo_erros() { # versão conta
     dom=$(basename "$f" .conf); raiz=/home/$c/web/$dom/public_html
     [ -d "$raiz" ] || continue
     cop="$ARQ/$c-$dom.pool.$(date +%s)"
-    if grep -qE '^[[:space:]]*php_admin_value\[error_log\]' "$f"; then
-      # bloco do workflow com o nível antigo (4437: só erros graves) ou noutra pasta (conta antiga): põe-se o nível e o caminho certos
-      grep -qE "^php_admin_value\[error_reporting\] = $NIVEL_ERROS\$" "$f" && grep -qF "php_admin_value[error_log] = $raiz/error_log" "$f" && continue
-      cp -p "$f" "$cop"
-      sed -i -E "s#^(php_admin_value\[error_reporting\]) *=.*#\1 = $NIVEL_ERROS#; s#^(php_admin_value\[error_log\]) *=.*#\1 = $raiz/error_log#; s#^(slowlog) *=.*#\1 = $raiz/slow_log#" "$f"
-    else
-      cp -p "$f" "$cop"
-      sed -i -E '/^(php_admin_value\[(log_errors|error_log|error_reporting)\]|request_slowlog_timeout|slowlog) *=/d' "$f"
-      { printf '\n; vd-erros-inicio (erros do PHP gravados na pasta do site)\nphp_admin_value[log_errors] = on\n'
-        printf 'php_admin_value[error_log] = %s/error_log\nphp_admin_value[error_reporting] = %s\n' "$raiz" "$NIVEL_ERROS"
-        printf 'request_slowlog_timeout = 15s\nslowlog = %s/slow_log\n; vd-erros-fim\n' "$raiz"; } >> "$f"
-    fi
+    # já certo (caminho desta conta, nível actual e rasto dos pedidos lentos): nada a fazer
+    grep -qF "php_admin_value[error_log] = $raiz/error_log" "$f" && grep -qE "^php_admin_value\[error_reporting\] = $NIVEL_ERROS\$" "$f" \
+      && grep -qF "slowlog = $raiz/slow_log" "$f" && continue
+    # senão tira-se o que lá houver (o do Hestia manda os erros para /var/log, fora do alcance do gestor de ficheiros; o do workflow pode ser de outra conta
+    # ou do nível antigo) e põe-se o bloco certo
+    cp -p "$f" "$cop"
+    sed -i -E '/^; vd-erros-inicio/,/^; vd-erros-fim/d; /^(php_admin_value|php_admin_flag)\[(log_errors|error_log|error_reporting)\] *=/d; /^(request_slowlog_timeout|slowlog) *=/d' "$f"
+    { printf '\n; vd-erros-inicio (erros do PHP gravados na pasta do site)\nphp_admin_value[log_errors] = on\n'
+      printf 'php_admin_value[error_log] = %s/error_log\nphp_admin_value[error_reporting] = %s\n' "$raiz" "$NIVEL_ERROS"
+      printf 'request_slowlog_timeout = 15s\nslowlog = %s/slow_log\n; vd-erros-fim\n' "$raiz"; } >> "$f"
     if [ -z "${VD_TESTE:-}" ] && ! "/usr/sbin/php-fpm$v" -t -y "$conf" -c "$ini" >/dev/null 2>&1; then
       cp -p "$cop" "$f"; log "ERRO: $c: $dom: pool reposto (php-fpm -t falhou ao pôr o registo de erros)"; continue
     fi
