@@ -5,9 +5,6 @@ name: Ops - Auditar as imagens grandes dos sites WordPress (so leitura)
 # Não altera nada. Pedido do Silva a 30/10/2026.
 
 on:
-  push:
-    branches: [php-lento-disco-e-opcache]
-    paths: ['.github/workflows/ops-imagens-auditar.yml']
   workflow_dispatch:
 
 concurrency:

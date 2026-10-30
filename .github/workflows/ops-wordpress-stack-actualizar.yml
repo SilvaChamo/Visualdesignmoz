@@ -1,7 +1,8 @@
 name: Ops - Actualizar o mu-plugin do stack (Jetpack bloqueado) nos sites WordPress que já existem
 
 # Copia o `deploy/wordpress/visualdesign/stack.php` para o mu-plugin de cada site WordPress do servidor que já o tem (os sites novos recebem-no do
-# `wp-cache-on-site.sh`), para o Jetpack e a família deixarem de se poder instalar e activar (Silva, 30/10/2026: o xmlrpc.php fica sempre bloqueado).
+# `wp-cache-on-site.sh`), para o Jetpack e a família deixarem de se poder instalar e activar (Silva, 30/10/2026: o xmlrpc.php fica sempre bloqueado) e para
+# as imagens serem comprimidas e convertidas em WebP (até 250 KB) ao subir.
 # Antes de copiar testa a sintaxe com `php -l`; guarda a cópia do ficheiro antigo em /root/stack-actualizar-<data>/; mantém o dono do ficheiro.
 # Mostra, por site, se já tem o Jetpack (e o apaga só quando o próprio WordPress correr a limpeza, na próxima visita ao painel).
 # Sem «aplicar» só lê. Nunca toca no pm2 nem no nginx.
@@ -44,13 +45,13 @@ jobs:
             set -u
             T=/tmp/stack-novo.php; echo "$STACK" | base64 -d > "$T"
             php -l "$T" >/dev/null 2>&1 || { echo "ERRO: o stack.php novo tem erro de sintaxe; nada foi mudado"; exit 1; }
-            grep -q "VD_BLOCKED_JETPACK_PLUGINS" "$T" || { echo "ERRO: o stack.php não tem a lista do Jetpack"; exit 1; }
+            grep -q "VD_BLOCKED_JETPACK_PLUGINS" "$T" && grep -q "vd_img_otimizar_upload" "$T" || { echo "ERRO: o stack.php não tem a lista do Jetpack e a compressão de imagens"; exit 1; }
             B=/root/stack-actualizar-$(date +%Y%m%d-%H%M%S); [ "$APLICAR" = "true" ] && { install -d -m 700 "$B"; echo "cópias em $B"; }
             echo "=== sites WordPress (conta · domínio · stack · jetpack)"
             for f in /home/*/web/*/public_html/wp-content/mu-plugins/visualdesign/stack.php; do
               [ -f "$f" ] || continue
               u=$(echo "$f" | cut -d/ -f3); dom=$(echo "$f" | cut -d/ -f5); raiz=/home/$u/web/$dom/public_html
-              ja=$(grep -c "VD_BLOCKED_JETPACK_PLUGINS" "$f")
+              ja=$(grep -c "vd_img_otimizar_upload" "$f")
               jp=$([ -d "$raiz/wp-content/plugins/jetpack" ] && echo "TEM O JETPACK" || echo "sem Jetpack")
               if [ "$APLICAR" = "true" ] && [ "$ja" = 0 ]; then
                 cp -p "$f" "$B/$u-$dom-stack.php"

@@ -639,6 +639,11 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
   **WordPress:** `DISABLE_WP_CRON` só se usa com um cron do sistema que corra `wp cron event run --due-now` (aamihe.com: de 15 em 15 min, criado
   com `v-add-cron-job`); sem ele as tarefas do WordPress nunca correm. **Só Moçambique:** regra do Cloudflare "Só Moçambique" no aamihe.com
   (bloqueia tudo o que não vem de MZ, exceto o servidor e `/.well-known/`).
+- **Imagens comprimidas ao subir, em todos os sites WordPress** (Silva, 30/10/2026: «não rejeitar, mas comprimir automaticamente todas as imagens ao subir sem perder qualidade, até 250 KB no máximo, e converter em WebP, a nível do servidor»):
+  o mu-plugin do stack (`deploy/wordpress/visualdesign/stack.php`, filtro `wp_handle_upload`, função `vd_img_otimizar_upload`) pega em qualquer JPEG, PNG ou WebP que se envie, **sem recusar nenhum tamanho**, redimensiona o lado maior para 2560 px,
+  grava-a como `.webp` (qualidade 82 a descer até 58) e, se ainda passar de 250 KB, reduz 15 % de cada vez até caber (nunca abaixo de 800 px). Mantém a transparência e a orientação EXIF; deixa como estão o GIF, o SVG, o que for animado e
+  o que já era pequeno e não ficaria menor; qualquer erro deixa o original (o envio nunca falha por isto). Usa o GD do PHP. Vale para todas as contas porque o stack está em todos os sites (os novos recebem-no do `wp-cache-on-site.sh`, os que já existiam do
+  workflow `ops-wordpress-stack-actualizar.yml`). **Não mexe nas imagens que já estão na biblioteca** (mudar a extensão partia os endereços): `ops-imagens-auditar.yml` lista as maiores; só se comprimem com o «avança» do Silva.
 - **Tempo máximo real por pedido PHP: 90 s em todo o pool dedicado** (Silva, 30/10/2026): o `max_execution_time` só conta CPU, e pedidos do editor do Elementor ficavam minutos presos, enchiam os 8 trabalhadores do pool
   do entrecamposblog.com e o site caía para os visitantes. O `vd-php-conta sincronizar` (cron de 5 em 5 minutos) põe `request_terminate_timeout = 90s` em cada pool que não tenha um valor próprio, também nos que o Hestia
   refaz depois de uma passagem de conta. O workflow `ops-php-tempo-limite.yml` muda o valor de uma conta (60 s no entrecamposblog.com). **Perfil do PHP:** `ops-php-perfil.yml` liga uns minutos o registo de pedidos lentos e mostra que plugins gastam o CPU.
