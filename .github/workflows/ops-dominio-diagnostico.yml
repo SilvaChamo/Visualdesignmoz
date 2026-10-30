@@ -95,6 +95,17 @@ jobs:
             echo "--- certificado a validar a sério (sem -k), pelo DNS público:"
             curl -sS -o /dev/null -m 12 -w '%{http_code}\n' "https://$DOMINIO/" 2>&1 | cut -c1-200
             echo
+            echo "=== suspensão: a conta $CONTA e todos os domínios suspensos do servidor"
+            echo "conta: $($H/v-list-user "$CONTA" json 2>/dev/null | grep -E '"(SUSPENDED|PACKAGE|DATE|TIME)"' | tr -d ' \n')"
+            echo "--- domínios web suspensos (conta · domínio):"
+            for u in $($H/v-list-users plain 2>/dev/null | awk '{print $1}'); do grep -E "SUSPENDED='yes'" /usr/local/hestia/data/users/$u/web.conf 2>/dev/null | grep -o "DOMAIN='[^']*'" | sed "s/^/$u · /"; done | head -30
+            echo "--- contas suspensas:"
+            $H/v-list-users json 2>/dev/null | grep -B14 '"SUSPENDED": "yes"' | grep -E '^ *"[a-z0-9_-]+": \{' | head
+            echo "--- cópias da passagem (últimas 3) e registo:"
+            ls -1t /root/vh-passagens 2>/dev/null | head -4; tail -n 4 /root/vh-passagens/registo.log 2>/dev/null
+            echo "--- registo do Hestia sobre este domínio (últimas linhas):"
+            grep -h "$DOMINIO" /usr/local/hestia/log/system.log 2>/dev/null | tail -n 12 | cut -c1-200
+            echo
             echo "=== erros recentes (nginx e Apache deste domínio)"
             for f in /var/log/nginx/domains/"$DOMINIO".error.log /var/log/apache2/domains/"$DOMINIO".error.log; do
               [ -f "$f" ] && { echo "--- $f"; tail -n 12 "$f" | cut -c1-220; }
