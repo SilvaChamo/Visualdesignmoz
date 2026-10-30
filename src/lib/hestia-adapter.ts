@@ -9,7 +9,7 @@ import { executeServerCommand } from '@/lib/server-ssh-exec';
 import { getPhpMyAdminUrl } from '@/lib/server-config';
 import { juntarCamposPacote } from '@/lib/pacote-hestia';
 import { alojamentoVercel } from '@/lib/hospedagem-dns';
-import { pacoteNoServidor } from '@/lib/pacotes-compra';
+import { procurarPacote } from '@/lib/pacotes-compra';
 
 function isAlreadyExistsError(error?: string): boolean {
   return (error || '').toLowerCase().includes('exists');
@@ -92,10 +92,10 @@ async function finishLetsEncrypt(
 
 export type HestiaPackage = { packageName: string };
 
-/** O pacote pedido com o nome que ele tem no servidor (`vhost-pro` ou o antigo `VD-Host-Pro`); se não existe, o nome pedido. */
+/** O pacote pedido com o nome que ele tem no servidor (ex.: `vhost-pro` ou o antigo `VD-Host-Pro`); se não se encontra, o nome pedido (o servidor recusa). */
 async function nomeDoPacoteNoServidor(pedido: string): Promise<string> {
-  const { nome, recurso } = pacoteNoServidor(pedido, (await listPackages()).map((p) => p.packageName));
-  return recurso ? pedido : nome;
+  const achado = procurarPacote(pedido, (await listPackages()).map((p) => p.packageName));
+  return 'nome' in achado ? achado.nome : pedido;
 }
 
 export async function listPackages(): Promise<HestiaPackage[]> {

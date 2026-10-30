@@ -164,7 +164,8 @@ export const pacoteDe = (s: St, u: string) => {
   if (!a) return undefined;
   // pacote da conta no servidor (nos revendedores "pkg" é o pacote de revenda); administradores e revendedores
   // sem pacote conhecido ficam com tudo
-  return s.db.custom[u] || s.db.pkgs[a.hpkg || a.pkg] || (a.role === 'admin' || a.role === 'revenda' ? pacoteCompleto() : undefined);
+  const nome = a.hpkg || a.pkg;
+  return s.db.custom[u] || s.db.pkgs[nome] || Object.entries(s.db.pkgs).find(([n]) => chavePacote(n) === chavePacote(nome))?.[1] || (a.role === 'admin' || a.role === 'revenda' ? pacoteCompleto() : undefined);
 };
 /** Páginas que um plano nunca tem, seja qual for o Admin › Acessos por plano (Silva, 17/10/2026):
  *  - planos de e-mail (vhost-email-*): sem "Gestão de domínios" — não têm site ("o plano email sem site não deve ter

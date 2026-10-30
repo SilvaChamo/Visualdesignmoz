@@ -1,5 +1,5 @@
 import { getEmailPlan } from '@/lib/email-plans';
-import { chavePacote } from '@/lib/pacote-nome';
+import { chavePacote, familiaDoPacote } from '@/lib/pacote-nome';
 
 /**
  * Que pacote do servidor corresponde a cada produto do carrinho. Fonte única: a activação da compra
@@ -26,19 +26,31 @@ export function pacoteDoItem(item: { type: string; id?: string }): string | null
   return null;
 }
 
-/** Pacotes de recurso, por ordem, para quando o do plano ainda não existe no servidor. */
-const PACOTES_DE_RECURSO = ['VisualDESIGN', 'default'];
+export type PacoteProcurado = { nome: string } | { erro: string };
 
 /**
- * O pacote como existe no servidor: o mesmo pacote com o nome novo ou o antigo (ver `chavePacote`). Se não existir, usa o primeiro
- * pacote de recurso que exista; sem nenhum, o primeiro da lista. `reais` vazio = não foi possível ler o servidor: fica o pedido, que
- * o servidor aceita ou recusa.
+ * Procura, entre os pacotes que já existem no servidor, o que corresponde ao pedido (ex.: `vhost-pro`). Nunca cria nada nem cai num
+ * pacote de recurso (Silva, 30/10/2026: «não pode criar um e não pode ir para o VisualDESIGN»):
+ *  1. o mesmo nome (maiúsculas, `_` e o prefixo antigo `VD-` não contam);
+ *  2. senão, o único pacote da mesma família (hospedagem, e-mail, domínio) com a palavra final do plano no nome (`pro` → `vhost-hosting-pro`);
+ *  3. senão, um erro que diz o que existe, para a equipa escolher.
+ * `reais` vazio = não foi possível ler o servidor: fica o nome pedido, que o servidor aceita ou recusa.
  */
-export function pacoteNoServidor(pedido: string, reais: Iterable<string>): { nome: string; recurso: boolean } {
-  const porChave = new Map([...reais].map((n) => [chavePacote(n), n]));
-  if (!porChave.size) return { nome: pedido, recurso: false };
-  const igual = porChave.get(chavePacote(pedido));
-  if (igual) return { nome: igual, recurso: false };
-  const recurso = PACOTES_DE_RECURSO.map((n) => porChave.get(chavePacote(n))).find(Boolean);
-  return { nome: recurso || [...porChave.values()][0], recurso: true };
+export function procurarPacote(pedido: string, reais: Iterable<string>): PacoteProcurado {
+  const lista = [...reais];
+  if (!lista.length) return { nome: pedido };
+  const chave = chavePacote(pedido);
+  const igual = lista.find((n) => chavePacote(n) === chave);
+  if (igual) return { nome: igual };
+  const familia = familiaDoPacote(pedido);
+  const palavra = chave.split('-').pop() || '';
+  const parecidos = familia && palavra ? lista.filter((n) => familiaDoPacote(n) === familia && chavePacote(n).split('-').includes(palavra)) : [];
+  if (parecidos.length === 1) return { nome: parecidos[0] };
+  const daFamilia = lista.filter((n) => (familia ? familiaDoPacote(n) === familia : true) && chavePacote(n) !== 'default' && chavePacote(n) !== 'visualdesign');
+  const existentes = daFamilia.length ? daFamilia.join(', ') : lista.join(', ');
+  return {
+    erro: parecidos.length
+      ? `Há vários pacotes que podem ser o "${pedido}": ${parecidos.join(', ')}. Deixe só um com o nome "${pedido}" em Admin › Pacotes.`
+      : `Não existe no servidor o pacote "${pedido}". Pacotes existentes: ${existentes}. Crie ou renomeie um para "${pedido}" em Admin › Pacotes e confirme outra vez.`,
+  };
 }

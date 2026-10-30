@@ -13,7 +13,7 @@ import { getDaSyncAdmin } from '@/lib/da-sync-schema';
 import { PANEL_SLUG } from '@/lib/panel-tenant';
 import type { UserRole } from '@/lib/user-roles';
 import { patchMirrorUser } from '@/lib/panel-mirror-write';
-import { pacoteNoServidor } from '@/lib/pacotes-compra';
+import { procurarPacote } from '@/lib/pacotes-compra';
 import { runHestiaFullSyncDeduped } from '@/lib/hestia-sync-engine';
 import { getProviderByUsername, isHestiaOnlyDeploy } from '@/lib/hosting-provider';
 import { getServerHost } from '@/lib/server-config';
@@ -168,12 +168,12 @@ export async function provisionPanelAccountToServer(userName: string, opcoes: { 
     ? 'hestia'
     : await getProviderByUsername(username);
 
-  // O pacote gravado pode já não existir no servidor (ex.: o de recurso): usa o que existe em vez de falhar a criar a conta.
-  let avisoPacote = '';
+  // O pacote da conta tem de existir no servidor (com o nome novo ou o antigo). Se não existir não se cria a conta noutro pacote:
+  // fica por criar, com a mensagem a dizer o que falta.
   if (provider === 'hestia') {
-    const { nome, recurso } = pacoteNoServidor(packageName, (await hestiaAdapter.listPackages()).map((p) => p.packageName));
-    if (recurso) avisoPacote = `o pacote "${packageName}" não existe no servidor; a conta foi criada com "${nome}"`;
-    packageName = nome;
+    const achado = procurarPacote(packageName, (await hestiaAdapter.listPackages()).map((p) => p.packageName));
+    if ('erro' in achado) return { ok: false, linked: false, error: achado.erro };
+    packageName = achado.nome;
   }
 
   const result =
@@ -196,7 +196,7 @@ export async function provisionPanelAccountToServer(userName: string, opcoes: { 
 
   // Domínio noutra conta de cliente: a conta ficou criada sem ele; fica o aviso para o administrador decidir
   // (plano 07, ponto 3: nunca passa sozinho de uma conta de cliente).
-  const aviso = [(result as { aviso?: string }).aviso, avisoPacote].filter(Boolean).join('; ');
+  const aviso = (result as { aviso?: string }).aviso;
   if (aviso) console.error('[panel-server-provision] ATENÇÃO administrador:', aviso);
 
   const displayName =

@@ -8,8 +8,7 @@ import { upsertPanelAuthAccount } from '@/lib/panel-auth-accounts';
 import { upsertMirrorUser, upsertMirrorSite } from '@/lib/panel-mirror-write';
 import { provisionPanelAccountToServer } from '@/lib/panel-server-provision';
 import { getAdminDirectAdminAPI } from '@/lib/directadmin-adapter';
-import { gravarPacote, listPackages as listHestiaPackages } from '@/lib/hestia-adapter';
-import { HOSTING_PLAN_PRESETS } from '@/lib/reseller-package-form';
+import { listPackages as listHestiaPackages } from '@/lib/hestia-adapter';
 import { getDaSyncAdmin } from '@/lib/da-sync-schema';
 import { autoProvisionPurchasedDomain } from '@/lib/domain-purchase-provision';
 import { requiresManualRegistration } from '@/lib/domain-registration-support';
@@ -17,16 +16,11 @@ import { after } from 'next/server';
 import { getProfileForAuthUser, saveProfileForAuthUser } from '@/lib/profile-db';
 import { buyerRoleForPackage, isProfissionalHostingPlan } from '@/lib/user-roles';
 import { emailPlanProductName, getEmailPlan } from '@/lib/email-plans';
-import { PACOTES_HOSPEDAGEM, pacoteNoServidor } from '@/lib/pacotes-compra';
+import { PACOTES_HOSPEDAGEM, procurarPacote } from '@/lib/pacotes-compra';
 import { PANEL_SLUG } from '@/lib/panel-tenant';
 
 // Pacote dedicado por plano: ver PACOTES_HOSPEDAGEM em pacotes-compra.ts (a mesma tabela do painel de quem espera confirmação).
 const HOSTING_PLAN_PACKAGE_NAMES = PACOTES_HOSPEDAGEM;
-
-// Pacote de recurso, confirmado a existir sempre no servidor — usado enquanto
-// o pacote dedicado de um plano ainda não tiver sido criado lá (ver
-// resolveHostingPackageName).
-const FALLBACK_PACKAGE = 'VisualDESIGN';
 
 /**
  * Qual servidor de hospedagem recebe as contas NOVAS a partir de agora.
@@ -65,48 +59,17 @@ async function listRealPackageNames(provider: 'directadmin' | 'hestia'): Promise
   }
 }
 
-/** Cria no servidor o pacote de um plano de hospedagem, com os limites do plano (HOSTING_PLAN_PRESETS). Devolve false se o servidor recusar. */
-async function criarPacoteDoPlano(planId: string, nome: string): Promise<boolean> {
-  const limites = HOSTING_PLAN_PRESETS.find((p) => p.id === planId)?.form.limits;
-  if (!limites) return false;
-  const valor = (k: keyof typeof limites) => (limites[k].unlimited ? 'unlimited' : limites[k].value);
-  const feito = await gravarPacote(
-    nome,
-    { DISK_QUOTA: valor('quota'), BANDWIDTH: valor('bandwidth'), WEB_DOMAINS: valor('vdomains'), MAIL_ACCOUNTS: valor('nemails'), DATABASES: valor('mysql') },
-    false,
-  );
-  if (!feito.ok) {
-    console.error('[checkout-fulfillment] não foi possível criar o pacote do plano:', nome, feito.error);
-    return false;
-  }
-  packageNameCache = null;
-  return true;
-}
-
 /**
- * Cada plano do carrinho devia usar o seu próprio pacote DirectAdmin (limites
- * de espaço/banda/emails reais e diferentes por plano) — mas só se esse
- * pacote já existir de facto no servidor. Criar uma conta com um pacote que
- * não existe faz a criação falhar sempre (foi assim que ficou preso a um
- * pacote único antes). Enquanto o pacote dedicado não existir lá, cai no
- * pacote de recurso e avisa o admin, em vez de fingir que a diferenciação de
- * planos está a funcionar.
+ * O pacote do servidor onde a conta do plano comprado fica enquadrada: procura-se entre os que já existem (nunca se cria um, nunca
+ * se usa o de recurso). Sem correspondência, falha com a lista do que existe e o «Confirmar» pode repetir-se depois de o pacote
+ * existir (repetir não duplica nada — ver `chave` em fulfillCheckout).
  */
 async function resolveHostingPackageName(planId: string, provider: 'directadmin' | 'hestia'): Promise<string> {
-  const desired = HOSTING_PLAN_PACKAGE_NAMES[planId] || FALLBACK_PACKAGE;
-  let { nome, recurso } = pacoteNoServidor(desired, await listRealPackageNames(provider));
-  if (recurso && provider === 'hestia' && HOSTING_PLAN_PACKAGE_NAMES[planId]) {
-    // o pacote do plano ainda não existe: cria-se com os limites do plano (Admin › Pacotes pode depois ajustá-los)
-    const criado = await criarPacoteDoPlano(planId, desired);
-    if (criado) ({ nome, recurso } = { nome: desired, recurso: false });
-  }
-  if (recurso) {
-    await alertAdminOfTrackingFailure(
-      'pacote de hospedagem em falta',
-      `O plano "${planId}" devia usar o pacote "${desired}" no ${provider === 'hestia' ? 'HestiaCP' : 'DirectAdmin'}, mas esse pacote não existe no servidor — a conta foi criada com "${nome}" em vez disso, sem os limites do plano vendido. Cria o pacote "${desired}" para este plano ficar realmente diferenciado.`,
-    );
-  }
-  return nome;
+  const desired = HOSTING_PLAN_PACKAGE_NAMES[planId];
+  if (!desired) throw new Error(`O plano "${planId}" não tem pacote definido.`);
+  const achado = procurarPacote(desired, await listRealPackageNames(provider));
+  if ('erro' in achado) throw new Error(achado.erro);
+  return achado.nome;
 }
 
 /**
