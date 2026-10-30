@@ -1,0 +1,76 @@
+name: Ops - Reproduzir no servidor a pagina do painel do WordPress que da 500 (com o erro do PHP gravado)
+
+# O PHP deste servidor não gravava os erros em lado nenhum (sem `error_log` no pool), por isso um 500 do painel ficava sem causa à vista. Este workflow:
+# 1) liga, nos pools da conta, o registo de erros do PHP para /var/log/php8.3-fpm-<conta>-erros.log (`catch_workers_output`, `log_errors`; já rodado pelo logrotate de
+#    /var/log/php*-fpm-*.log; cópia dos pools antes; `php-fpm -t` antes de recarregar; recarga suave); 2) entra no painel como administrador (ficheiro de entrada de uso único,
+#    igual ao do botão «Painel do WordPress»), pede a página indicada como um navegador e mostra o estado, o tempo e o início da resposta; 3) mostra o erro que o PHP gravou.
+# O registo de erros fica ligado (Silva, 28/10/2026: «o sistema devia gravar o erro num ficheiro»). Só a conta indicada.
+
+on:
+  push:
+    branches: [erros-do-painel-wordpress]
+    paths: ['.github/workflows/ops-painel-reproduzir.yml']
+  workflow_dispatch:
+    inputs:
+      dominio:
+        description: 'Domínio'
+        required: true
+        default: 'entrecamposblog.com'
+      pagina:
+        description: 'Endereço do painel (ex.: /wp-admin/admin.php?page=WP-Optimize)'
+        required: true
+        default: '/wp-admin/admin.php?page=WP-Optimize'
+
+concurrency:
+  group: ops-painel-reproduzir
+  cancel-in-progress: false
+
+jobs:
+  reproduzir:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Reproduzir a página (servidor)
+        uses: appleboy/ssh-action@v1.2.5
+        env:
+          DOMINIO: ${{ inputs.dominio || 'entrecamposblog.com' }}
+          PAGINA: ${{ inputs.pagina || '/wp-admin/admin.php?page=WP-Optimize' }}
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          port: 2234
+          username: root
+          key: ${{ secrets.CONTABO_SSH_KEY }}
+          command_timeout: 6m
+          envs: DOMINIO,PAGINA
+          script: |
+            set -u
+            echo "$DOMINIO" | grep -qE '^[a-z0-9.-]{3,80}$' || { echo "Domínio inválido"; exit 1; }
+            echo "$PAGINA" | grep -qE '^/[A-Za-z0-9_./?=&%-]{1,160}$' || { echo "Endereço inválido"; exit 1; }
+            CONTA=$(/usr/local/hestia/bin/v-search-domain-owner "$DOMINIO" 2>/dev/null | head -1); [ -z "$CONTA" ] && { echo "Sem dono"; exit 1; }
+            R=/home/$CONTA/web/$DOMINIO/public_html; V=8.3; D=/etc/php/$V/fpm-contas/$CONTA; U=vd-php-fpm-$V-$CONTA; LOG=/var/log/php$V-fpm-$CONTA-erros.log
+            t() { echo; echo "=================== $1"; }
+            t "1. Registo de erros do PHP nos pools da conta $CONTA"
+            B=/root/php-erros-$(date +%Y%m%d-%H%M%S); install -d -m 700 "$B"; cp -a "$D/pool.d" "$B/pool.d"; echo "cópia dos pools em $B"
+            touch "$LOG"; chmod 640 "$LOG"; chown root:"$CONTA" "$LOG" 2>/dev/null
+            chmod 666 "$LOG"
+            for f in "$D"/pool.d/*.conf; do
+              sed -i -E '/^(catch_workers_output|php_admin_value\[error_log\]|php_admin_flag\[log_errors\]|php_admin_value\[error_reporting\])[[:space:]]*=/d' "$f"
+              printf '\ncatch_workers_output = yes\nphp_admin_flag[log_errors] = on\nphp_admin_value[error_log] = %s\nphp_admin_value[error_reporting] = 22527\n' "$LOG" >> "$f"
+            done
+            PHP_INI_SCAN_DIR="$D/conf.d" /usr/sbin/php-fpm$V -t --fpm-config "$D/php-fpm.conf" -c "$D/php.ini" >/dev/null 2>&1 && systemctl reload "$U" || { echo "ALERTA: configuração inválida; a repor"; rm -rf "$D/pool.d"; cp -a "$B/pool.d" "$D/pool.d"; exit 1; }
+            sleep 3; echo "serviço: $(systemctl is-active $U) · registo: $LOG"
+            t "2. Entrar no painel e pedir $PAGINA"
+            ADM=$(sudo -u $CONTA /usr/local/bin/wp --path=$R --skip-plugins --skip-themes user list --role=administrator --field=ID 2>/dev/null | head -1)
+            TOK=$(head -c 12 /dev/urandom | od -An -tx1 | tr -d ' \n'); F=$R/wp-login-vd$TOK.php
+            printf '<?php\nrequire_once __DIR__ . "/wp-load.php";\n@unlink(__FILE__);\n$u = get_user_by("id", %s);\nif (!$u) { exit("sem utilizador"); }\nwp_set_current_user($u->ID); wp_set_auth_cookie($u->ID, false, true);\nwp_safe_redirect(admin_url("index.php")); exit;\n' "${ADM:-1}" | sudo -u $CONTA tee "$F" >/dev/null
+            IP=$(grep "DOMAIN='$DOMINIO'" /usr/local/hestia/data/users/$CONTA/web.conf | grep -o "IP='[^']*'" | cut -d"'" -f2)
+            J=/tmp/vd-jar-$CONTA; rm -f $J
+            echo "entrada: $(curl -sk -L -m 40 -c $J -b $J -o /dev/null -w '%{http_code} %{time_total}s' --resolve "$DOMINIO:443:$IP" "https://$DOMINIO/wp-login-vd$TOK.php")"
+            rm -f "$F"
+            for i in 1 2; do
+              echo "--- pedido $i: $(curl -sk -m 60 -b $J -o /tmp/vd-resp-$CONTA.html -w 'estado %{http_code} · %{time_total}s · %{size_download} bytes' --resolve "$DOMINIO:443:$IP" "https://$DOMINIO$PAGINA")"
+              head -c 600 /tmp/vd-resp-$CONTA.html | sed 's/<[^>]*>/ /g' | tr -s ' \n' ' ' | cut -c1-300; echo
+            done
+            rm -f $J /tmp/vd-resp-$CONTA.html
+            t "3. O que o PHP gravou (últimas 40 linhas)"
+            tail -n 40 "$LOG" | cut -c1-300
+            t "fim (o registo de erros fica ligado)"
