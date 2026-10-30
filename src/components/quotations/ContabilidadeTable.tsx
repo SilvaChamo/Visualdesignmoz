@@ -1227,6 +1227,28 @@ function CheckoutItemsByType({ types }: { types: string[] }) {
     }
   }
 
+  // Hospedagem já confirmada cuja conta não ficou criada: repete só a criação da conta (não repete o pagamento nem avisa o cliente)
+  const repetirConta = async (pedidoId: string, itemIndex: number) => {
+    if (!window.confirm('Criar de novo a conta desta hospedagem? O pagamento já está confirmado e não se repete.')) return
+    const key = `${pedidoId}-${itemIndex}`
+    setUpdatingKey(key)
+    try {
+      const res = await fetch(`/api/admin/checkout-pagamentos/${pedidoId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ itemIndex, status: 'paid', repetir: true }),
+      })
+      const data = await res.json()
+      if (!data.success) throw new Error(data.error || 'Não foi possível criar a conta.')
+      window.alert(data.avisos?.length ? 'Conta pedida, mas atenção:\n' + data.avisos.join('\n') : 'Conta pedida ao servidor: aparece na lista dentro de instantes. Se falhar, chega um aviso às notificações.')
+      load()
+    } catch (error: any) {
+      window.alert(error.message || 'Falha ao comunicar com o servidor.')
+    } finally {
+      setUpdatingKey(null)
+    }
+  }
+
   const deleteHostingItem = async (pedidoId: string, itemIndex: number, domain?: string) => {
     const aviso = domain
       ? `Apagar esta encomenda de hospedagem (${domain})? Isto remove o pedido, o registo de hospedagem e o site criado por esta encomenda no servidor (sites reais, como os da conta principal, ficam intactos; o registo do domínio também não é apagado). Não pode ser desfeito.`
@@ -1379,6 +1401,17 @@ function CheckoutItemsByType({ types }: { types: string[] }) {
                             Cancelar pedido
                           </button>
                         </>
+                      )}
+                      {item.type === 'hosting' && itemStatus === 'paid' && (
+                        <button
+                          type="button"
+                          disabled={updatingKey === key}
+                          onClick={() => repetirConta(p.id, itemIndex)}
+                          className="text-xs font-medium text-green-600 hover:underline disabled:opacity-50 dark:text-green-400"
+                          title="O pagamento está confirmado mas a conta não ficou criada: tenta criá-la de novo"
+                        >
+                          Criar conta de novo
+                        </button>
                       )}
                       {item.type === 'hosting' && (
                         <button

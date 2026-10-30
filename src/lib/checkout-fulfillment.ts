@@ -128,12 +128,9 @@ export async function provisionHostingAccountOnPanel(params: {
   provider?: 'directadmin' | 'hestia';
   /** Nome de utilizador escolhido no checkout para esta conta de hospedagem (se estiver ocupado, escolhe-se um parecido). */
   username?: string;
-  /** Espera (até ~45 s) pelo resultado no servidor em vez de o deixar em segundo plano — usado pelo «Confirmar» da equipa,
-   *  para dizer logo se a conta foi criada ou porque não foi. */
-  esperar?: boolean;
   /** O «Confirmar» já correu antes para este item: reaproveita a conta que ficou registada no painel. */
   repetida?: boolean;
-}): Promise<{ ok: boolean; daUsername: string; password: string; error?: string; servidor?: { ok: boolean; error?: string; pendente?: boolean; aviso?: string } }> {
+}): Promise<{ ok: boolean; daUsername: string; password: string; error?: string }> {
   const { admin, userId, email, displayName, domainName, packageName, renewalId } = params;
   try {
     const password = params.sharedPassword || generateProvisionerPassword();
@@ -212,13 +209,6 @@ export async function provisionHostingAccountOnPanel(params: {
       }
       return { ok: result.ok, error: result.error, aviso: result.aviso };
     };
-    if (params.esperar) {
-      const limite = new Promise<{ ok: boolean; error?: string; pendente?: boolean; aviso?: string }>((resolve) =>
-        setTimeout(() => resolve({ ok: true, pendente: true }), 45_000),
-      );
-      const servidor = await Promise.race([task().catch((e: unknown) => ({ ok: false, error: e instanceof Error ? e.message : String(e) })), limite]);
-      return { ok: true, daUsername, password, servidor };
-    }
     try {
       after(task);
     } catch {
@@ -407,7 +397,7 @@ export async function fulfillCheckout(
    *  decide-se olhando para o pedido inteiro, não só para o item que se confirma. */
   itensDoPedido?: CatalogCartItem[],
   /** `chave`: identifica este item do pedido (`<pedido>:<posição>`); repetir o «Confirmar» depois de uma falha não duplica o registo da hospedagem. */
-  opcoes: { esperarServidor?: boolean; chave?: string } = {},
+  opcoes: { chave?: string; repetir?: boolean } = {},
 ) {
   const avisos: string[] = [];
   const today = new Date().toISOString().split('T')[0];
@@ -739,13 +729,13 @@ export async function fulfillCheckout(
           provider: hostingProvider,
           planId: item.id,
           username: item.contaUtilizador,
-          esperar: opcoes.esperarServidor,
           repetida: reutilizada,
         });
-        if (!feita.ok) avisos.push(`${domainName}: não foi possível registar a conta (${feita.error || 'erro desconhecido'}).`);
-        else if (feita.servidor?.pendente) avisos.push(`${domainName}: a conta ainda está a ser criada no servidor; confirme daqui a pouco na lista de utilizadores.`);
-        else if (feita.servidor?.ok && feita.servidor.aviso) avisos.push(`${domainName}: ${feita.servidor.aviso}`);
-        else if (feita.servidor && !feita.servidor.ok) avisos.push(`${domainName}: a conta não foi criada no servidor (${feita.servidor.error || 'erro desconhecido'}).`);
+        if (!feita.ok) {
+          // no «Confirmar» o pedido fica por confirmar para se poder repetir; os outros caminhos (cartão, saldo) só avisam
+          if (opcoes.chave) throw new Error(`${domainName}: não foi possível registar a conta (${feita.error || 'erro desconhecido'}). O pedido continua por confirmar.`);
+          avisos.push(`${domainName}: não foi possível registar a conta (${feita.error || 'erro desconhecido'}).`);
+        }
       } else if (item.type === 'hosting') {
         avisos.push(`${domainName || item.name}: sem um domínio válido não se cria a conta no servidor; defina o domínio da hospedagem.`);
       }
@@ -805,7 +795,7 @@ export async function fulfillCheckout(
     if (!conta.ok) await alertAdminOfTrackingFailure('conta só de domínio', `${soDominios.join(', ')}: ${conta.error}`);
   }
 
-  await supabase.from('pagamentos').insert({
+  if (!opcoes.repetir) await supabase.from('pagamentos').insert({
     user_id: userId,
     domain: items.map((i) => i.name).join(', '),
     valor: total,
