@@ -60,11 +60,12 @@ jobs:
             titulo "$DOMINIO (conta $CONTA) · hora: $(date '+%d/%m/%Y %H:%M:%S %Z')"
             if [ "$JET_CODIGO" = "sim" ]; then
               titulo "Jet Dashboard: código das actualizações (só leitura; sem comentários nem linhas vazias)"
-              PM=$(ls "$RAIZ"/wp-content/plugins/jet-engine/framework/jet-dashboard/inc/plugin-manager.php 2>/dev/null | head -1)
-              echo "--- $(echo "$PM" | sed "s#$RAIZ/wp-content/plugins/##"): construtor e check_update"
-              grep -nE "function |add_action|add_filter|is_admin|wp_doing_cron|WP_CLI|get_site_transient|set_site_transient|DOING_CRON" "$PM" | cut -c1-150 | head -n 30
-              echo "--- quem cria o Plugin_Manager e em que condições:"
-              grep -rnE "Plugin_Manager|is_admin\(\)|admin_init|current_screen" "$RAIZ"/wp-content/plugins/jet-engine/framework/jet-dashboard/ 2>/dev/null | grep -vE "^\S+:[0-9]+:\s*(//|\*)" | sed "s#$RAIZ/wp-content/plugins/jet-engine/framework/jet-dashboard/##" | cut -c1-150 | head -n 25
+              D="$RAIZ/wp-content/plugins/jet-engine/framework/jet-dashboard"
+              lim() { sed -E 's/^[[:space:]]+//; /^(\/\/|\*|\/\*)/d; /^$/d' | cut -c1-120; }
+              echo "--- plugin-manager.php: generate_register_plugin_data e check_update"
+              sed -n '102,134p;288,327p' "$D/inc/plugin-manager.php" | lim
+              echo "--- jet-dashboard.php: classe, instância e condições"
+              grep -nE "^namespace|^class |get_instance|function init|is_admin|new Plugin_Manager|plugin_manager|add_action|add_filter" "$D/jet-dashboard.php" | cut -c1-130 | head -n 30
               exit 0
             fi
 
