@@ -1,0 +1,83 @@
+name: Ops - Comprimir as imagens grandes que ja existem num WordPress (sem perda visivel)
+
+# Pedido do Silva a 30/10/2026: «pode comprimir as existentes desde que não percam qualidade». Para cada domínio indicado procura em wp-content/uploads os JPEG e PNG
+# com mais de 250 KB e usa o `deploy/wordpress/comprimir-imagens.php` (como a conta do próprio site): JPEG reescrito sem metadados só se o PSNR ficar >= 38 dB e poupar
+# 15% ou mais; PNG só sem perda. Não muda nomes, extensões nem dimensões, por isso nenhum endereço se parte. Sem «aplicar» só mede e diz quanto poupava. Com «aplicar»
+# guarda antes cada original em /root/imagens-originais/<domínio>/ (para repor, copiar de volta) e escreve o resultado no próprio ficheiro (mesmo dono e permissões).
+# No fim confirma os sites. Nunca toca no pm2 nem no nginx.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dominios:
+        description: 'Domínios separados por espaço'
+        required: true
+        default: 'entrecamposblog.com mltmark.com'
+      aplicar:
+        description: 'Aplicar (desligado = só medir)'
+        type: boolean
+        default: false
+
+concurrency:
+  group: ops-imagens-comprimir
+  cancel-in-progress: false
+
+jobs:
+  comprimir:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Empacotar o script
+        id: pacote
+        run: echo "php=$(base64 -w0 deploy/wordpress/comprimir-imagens.php)" >> "$GITHUB_OUTPUT"
+
+      - name: Comprimir no servidor
+        uses: appleboy/ssh-action@v1.2.5
+        env:
+          PHP_SCRIPT: ${{ steps.pacote.outputs.php }}
+          DOMINIOS: ${{ inputs.dominios }}
+          APLICAR: ${{ inputs.aplicar }}
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          port: 2234
+          username: root
+          key: ${{ secrets.CONTABO_SSH_KEY }}
+          command_timeout: 25m
+          envs: PHP_SCRIPT,DOMINIOS,APLICAR
+          script: |
+            set -u
+            case "$DOMINIOS" in (*[!a-z0-9.\ -]*|'') echo "Lista inválida"; exit 1;; esac
+            S=/usr/local/share/comprimir-imagens.php
+            echo "$PHP_SCRIPT" | base64 -d > "$S.novo" && php -l "$S.novo" >/dev/null 2>&1 || { echo "ERRO: o script tem erro de sintaxe"; exit 1; }
+            mv "$S.novo" "$S"; chmod 644 "$S"
+            TOTAL_ANTES=0; TOTAL_DEPOIS=0; TOTAL_N=0
+            for dom in $DOMINIOS; do
+              conta=$(/usr/local/hestia/bin/v-search-domain-owner "$dom" 2>/dev/null | head -1); [ -z "$conta" ] && { echo "== $dom: sem dono"; continue; }
+              raiz=/home/$conta/web/$dom/public_html; up=$raiz/wp-content/uploads
+              [ -d "$up" ] || { echo "== $dom: sem uploads"; continue; }
+              echo; echo "=== $dom (conta $conta)"
+              OUT=/tmp/vdimg-$conta-$$; rm -rf "$OUT"; mkdir -p "$OUT"; chown "$conta":"$conta" "$OUT"
+              find "$up" -type f \( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' \) -size +250k > "$OUT.lista"
+              echo "candidatas (acima de 250 KB): $(wc -l < "$OUT.lista")"
+              sudo -u "$conta" php -d memory_limit=1024M "$S" "$OUT" < "$OUT.lista" > "$OUT.relatorio" 2>"$OUT.erros"
+              ok=$(grep -c '^OK|' "$OUT.relatorio"); antes=$(awk -F'|' '/^OK\|/ {s+=$4} END {print s+0}' "$OUT.relatorio"); depois=$(awk -F'|' '/^OK\|/ {s+=$5} END {print s+0}' "$OUT.relatorio")
+              echo "comprimíveis sem perda visível: $ok · $((antes/1048576)) MB -> $((depois/1048576)) MB (poupança: $(( (antes-depois)/1048576 )) MB)"
+              echo "--- as 8 maiores poupanças:"; awk -F'|' '/^OK\|/ {printf "%9d KB -> %6d KB  psnr %s  %s\n", $4/1024, $5/1024, $6, $2}' "$OUT.relatorio" | sort -rn | head -8 | sed "s#$raiz/##"
+              [ -s "$OUT.erros" ] && echo "avisos do PHP: $(head -c 300 "$OUT.erros")"
+              if [ "$APLICAR" = "true" ] && [ "$ok" -gt 0 ]; then
+                B=/root/imagens-originais/$dom; mkdir -p "$B"; n=0
+                while IFS='|' read -r tag f idx a d p; do
+                  [ "$tag" = OK ] || continue
+                  [ -f "$OUT/$idx.dat" ] && [ -f "$f" ] || continue
+                  rel=${f#$raiz/}; mkdir -p "$B/$(dirname "$rel")"; cp -p "$f" "$B/$rel" || continue
+                  cat "$OUT/$idx.dat" > "$f" && n=$((n+1))
+                done < "$OUT.relatorio"
+                echo "aplicado: $n ficheiros (originais em $B)"
+                TOTAL_N=$((TOTAL_N+n)); TOTAL_ANTES=$((TOTAL_ANTES+antes)); TOTAL_DEPOIS=$((TOTAL_DEPOIS+depois))
+              fi
+              rm -rf "$OUT" "$OUT.lista" "$OUT.relatorio" "$OUT.erros"
+              printf '%s %s\n' "$dom" "$(curl -sS -o /dev/null -m 25 -w '%{http_code}' https://$dom/ 2>&1 | cut -c1-30)"
+            done
+            echo; echo "=== sites críticos"
+            for s in https://basededadosagro.com https://mltmark.com https://entrecamposblog.com; do printf '%s %s\n' "$s" "$(curl -sS -o /dev/null -m 25 -w '%{http_code}' "$s" 2>&1 | cut -c1-30)"; done
