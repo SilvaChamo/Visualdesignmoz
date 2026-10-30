@@ -14,6 +14,10 @@ on:
         description: 'Domínio'
         required: true
         default: 'entrecamposblog.com'
+      pagina:
+        description: 'Página do painel (valor de ?page=, ex.: WP-Optimize, wpo_cache)'
+        required: false
+        default: 'WP-Optimize'
 
 concurrency:
   group: ops-erros-painel
@@ -27,13 +31,14 @@ jobs:
         uses: appleboy/ssh-action@v1.2.5
         env:
           DOMINIO: ${{ inputs.dominio || 'entrecamposblog.com' }}
+          PAGINA: ${{ inputs.pagina || 'WP-Optimize' }}
         with:
           host: ${{ secrets.CONTABO_HOST }}
           port: 2234
           username: root
           key: ${{ secrets.CONTABO_SSH_KEY }}
           command_timeout: 5m
-          envs: DOMINIO
+          envs: DOMINIO,PAGINA
           script: |
             set -u
             echo "$DOMINIO" | grep -qE '^[a-z0-9.-]{3,80}$' || { echo "Domínio inválido"; exit 1; }
@@ -61,4 +66,21 @@ jobs:
             echo "wp-content/upgrade: $(ls -A $R/wp-content/upgrade 2>/dev/null | head -5 | tr '\n' ' ')"
             echo "plugins (data de alteração, 8 mais recentes):"; ls -lt --time-style=+%d/%m\ %H:%M $R/wp-content/plugins | sed -n 2,9p | awk '{print "  "$6" "$7" "$8}'
             echo "plugins activos: $(sudo -u $CONTA /usr/local/bin/wp --path=$R --skip-plugins --skip-themes option get active_plugins --format=json 2>/dev/null | cut -c1-300)"
+            t "7. A página do painel que falha, reproduzida no servidor como administrador (com os erros do PHP à vista)"
+            PAG=${PAGINA:-WP-Optimize}
+            ADM=$(sudo -u $CONTA /usr/local/bin/wp --path=$R --skip-plugins --skip-themes user list --role=administrator --field=ID 2>/dev/null | head -1)
+            cat > /tmp/painel-$CONTA.php <<PHP
+            <?php
+            \$_GET['page'] = '$PAG'; \$_REQUEST['page'] = '$PAG';
+            \$_SERVER['REQUEST_URI'] = '/wp-admin/admin.php?page=$PAG'; \$_SERVER['SCRIPT_NAME'] = '/wp-admin/admin.php'; \$_SERVER['PHP_SELF'] = '/wp-admin/admin.php';
+            \$_SERVER['REQUEST_METHOD'] = 'GET'; \$_SERVER['HTTPS'] = 'on';
+            if (!defined('WP_ADMIN')) { define('WP_ADMIN', true); }
+            register_shutdown_function(function () { \$e = error_get_last(); echo "\nFIM: " . (\$e ? json_encode(\$e, JSON_UNESCAPED_SLASHES) : 'sem erro fatal') . " · memória de pico " . round(memory_get_peak_usage(true) / 1048576) . " MB · bytes gerados " . ob_get_length() . "\n"; });
+            ob_start();
+            require ABSPATH . 'wp-admin/admin.php';
+            PHP
+            chmod 644 /tmp/painel-$CONTA.php
+            echo "administrador: $ADM · página: $PAG"
+            ( cd $R && time sudo -u $CONTA timeout 55 php -d display_errors=1 -d log_errors=0 -d error_reporting=32767 -d memory_limit=512M /usr/local/bin/wp --path=$R --user=${ADM:-1} eval-file /tmp/painel-$CONTA.php 2>&1 | grep -vE '^\s*$' | cut -c1-260 | tail -n 30 ) 2>&1 | tail -n 36
+            rm -f /tmp/painel-$CONTA.php
             t "fim da leitura (nada foi alterado)"
