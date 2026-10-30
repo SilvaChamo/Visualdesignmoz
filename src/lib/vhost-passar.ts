@@ -127,7 +127,7 @@ for b in $BASES; do r="\${b#\${DE}_}"; if grep -q "^DB='\${PARA}_$r'" "$HD/$PARA
 B="/root/vh-passagens/$(date +%Y%m%d-%H%M%S)-$D"; install -d -m 700 /root/vh-passagens "$B"; echo "COPIA=$B"
 w=$(grep "DOMAIN='$D'" "$HD/$DE/web.conf" 2>/dev/null)
 ip=$(echo "$w" | grep -o "IP='[^']*'" | cut -d"'" -f2); ssl=0; echo "$w" | grep -q "SSL='yes'" && ssl=1
-url() { [ -z "$w" ] && { echo 000; return; }; if [ $ssl = 1 ]; then curl -sk -o /dev/null -w '%{http_code}' --max-time 20 --resolve "$D:443:$ip" "https://$D/"; else curl -s -o /dev/null -w '%{http_code}' --max-time 20 --resolve "$D:80:$ip" "http://$D/"; fi; }
+url() { [ -z "$w" ] && { echo 000; return; }; if [ $ssl = 1 ]; then ini="https://$D/"; else ini="http://$D/"; fi; curl -sk -L --max-redirs 5 -o /dev/null -w '%{http_code}' --max-time 20 --resolve "$D:443:$ip" --resolve "$D:80:$ip" --resolve "www.$D:443:$ip" --resolve "www.$D:80:$ip" "$ini"; }
 emails() { f="$HD/$1/mail/$D.conf"; if [ -f "$f" ]; then grep -c "^ACCOUNT=" "$f" || true; else echo 0; fi; }
 ANTES=$(url); MA=$(emails "$DE"); echo "ANTES=$ANTES"
 cfg_de="/home/$DE/web/$D/public_html/wp-config.php"
