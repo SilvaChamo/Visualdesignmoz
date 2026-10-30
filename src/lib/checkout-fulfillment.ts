@@ -16,7 +16,7 @@ import { after } from 'next/server';
 import { getProfileForAuthUser, saveProfileForAuthUser } from '@/lib/profile-db';
 import { buyerRoleForPackage, isProfissionalHostingPlan } from '@/lib/user-roles';
 import { emailPlanProductName, getEmailPlan } from '@/lib/email-plans';
-import { PACOTES_HOSPEDAGEM } from '@/lib/pacotes-compra';
+import { PACOTES_HOSPEDAGEM, pacoteNoServidor } from '@/lib/pacotes-compra';
 import { PANEL_SLUG } from '@/lib/panel-tenant';
 
 // Pacote dedicado por plano: ver PACOTES_HOSPEDAGEM em pacotes-compra.ts (a mesma tabela do painel de quem espera confirmação).
@@ -74,15 +74,15 @@ async function listRealPackageNames(provider: 'directadmin' | 'hestia'): Promise
  * planos está a funcionar.
  */
 async function resolveHostingPackageName(planId: string, provider: 'directadmin' | 'hestia'): Promise<string> {
-  const desired = HOSTING_PLAN_PACKAGE_NAMES[planId];
-  if (!desired) return FALLBACK_PACKAGE;
-  const realNames = await listRealPackageNames(provider);
-  if (realNames.has(desired)) return desired;
-  await alertAdminOfTrackingFailure(
-    'pacote de hospedagem em falta',
-    `O plano "${planId}" devia usar o pacote "${desired}" no ${provider === 'hestia' ? 'HestiaCP' : 'DirectAdmin'}, mas esse pacote ainda não existe no servidor — a conta foi criada com "${FALLBACK_PACKAGE}" em vez disso, sem os limites do plano vendido. Cria o pacote "${desired}" para este plano ficar realmente diferenciado.`,
-  );
-  return FALLBACK_PACKAGE;
+  const desired = HOSTING_PLAN_PACKAGE_NAMES[planId] || FALLBACK_PACKAGE;
+  const { nome, recurso } = pacoteNoServidor(desired, await listRealPackageNames(provider));
+  if (recurso) {
+    await alertAdminOfTrackingFailure(
+      'pacote de hospedagem em falta',
+      `O plano "${planId}" devia usar o pacote "${desired}" no ${provider === 'hestia' ? 'HestiaCP' : 'DirectAdmin'}, mas esse pacote não existe no servidor — a conta foi criada com "${nome}" em vez disso, sem os limites do plano vendido. Cria o pacote "${desired}" para este plano ficar realmente diferenciado.`,
+    );
+  }
+  return nome;
 }
 
 /**

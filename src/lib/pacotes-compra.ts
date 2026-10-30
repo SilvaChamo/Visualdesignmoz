@@ -24,3 +24,19 @@ export function pacoteDoItem(item: { type: string; id?: string }): string | null
   if (item.type === 'domain') return PACOTE_SO_DOMINIO;
   return null;
 }
+
+/** Pacotes de recurso, por ordem, para quando o do plano ainda não existe no servidor. */
+const PACOTES_DE_RECURSO = ['VisualDESIGN', 'default'];
+
+/**
+ * O pacote como existe no servidor (sem distinguir maiúsculas). Se não existir, usa o primeiro pacote de recurso que exista; sem
+ * nenhum, o primeiro da lista. `reais` vazio = não foi possível ler o servidor: fica o pedido, que o servidor aceita ou recusa.
+ */
+export function pacoteNoServidor(pedido: string, reais: Iterable<string>): { nome: string; recurso: boolean } {
+  const porNome = new Map([...reais].map((n) => [n.toLowerCase(), n]));
+  if (!porNome.size) return { nome: pedido, recurso: false };
+  const igual = porNome.get(pedido.toLowerCase());
+  if (igual) return { nome: igual, recurso: false };
+  const recurso = PACOTES_DE_RECURSO.map((n) => porNome.get(n.toLowerCase())).find(Boolean);
+  return { nome: recurso || [...porNome.values()][0], recurso: true };
+}

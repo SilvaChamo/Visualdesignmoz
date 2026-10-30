@@ -13,6 +13,7 @@ import { getDaSyncAdmin } from '@/lib/da-sync-schema';
 import { PANEL_SLUG } from '@/lib/panel-tenant';
 import type { UserRole } from '@/lib/user-roles';
 import { patchMirrorUser } from '@/lib/panel-mirror-write';
+import { pacoteNoServidor } from '@/lib/pacotes-compra';
 import { runHestiaFullSyncDeduped } from '@/lib/hestia-sync-engine';
 import { getProviderByUsername, isHestiaOnlyDeploy } from '@/lib/hosting-provider';
 import { getServerHost } from '@/lib/server-config';
@@ -138,7 +139,7 @@ export async function provisionPanelAccountToServer(userName: string, opcoes: { 
     .find((s) => (s.owner || '').toLowerCase() === username.toLowerCase());
 
   const domain = String(site?.domain || `${username}.com`).trim().toLowerCase();
-  const packageName = String(panelUser.package_name || site?.package || 'Default').trim() || 'Default';
+  let packageName = String(panelUser.package_name || site?.package || 'Default').trim() || 'Default';
   const email = String(site?.adminEmail || panelUser.email || authRow?.email || '').trim();
 
   if (!email.includes('@')) {
@@ -167,6 +168,14 @@ export async function provisionPanelAccountToServer(userName: string, opcoes: { 
     ? 'hestia'
     : await getProviderByUsername(username);
 
+  // O pacote gravado pode já não existir no servidor (ex.: o de recurso): usa o que existe em vez de falhar a criar a conta.
+  let avisoPacote = '';
+  if (provider === 'hestia') {
+    const { nome, recurso } = pacoteNoServidor(packageName, (await hestiaAdapter.listPackages()).map((p) => p.packageName));
+    if (recurso) avisoPacote = `o pacote "${packageName}" não existe no servidor; a conta foi criada com "${nome}"`;
+    packageName = nome;
+  }
+
   const result =
     provider === 'hestia'
       ? await hestiaAdapter.createAccount({ username, password, email, domain, packageName, passarDeContas: [contaAdmin()], quem: 'compra:' + username })
@@ -187,7 +196,7 @@ export async function provisionPanelAccountToServer(userName: string, opcoes: { 
 
   // Domínio noutra conta de cliente: a conta ficou criada sem ele; fica o aviso para o administrador decidir
   // (plano 07, ponto 3: nunca passa sozinho de uma conta de cliente).
-  const aviso = (result as { aviso?: string }).aviso;
+  const aviso = [(result as { aviso?: string }).aviso, avisoPacote].filter(Boolean).join('; ');
   if (aviso) console.error('[panel-server-provision] ATENÇÃO administrador:', aviso);
 
   const displayName =
