@@ -22,7 +22,7 @@
  * Sem dependências de servidor — seguro em componentes cliente.
  */
 
-import { chavePacote } from '@/lib/pacote-nome';
+import { chavePacote, eHospedagemBasica, familiaDoPacote } from '@/lib/pacote-nome';
 
 export type AccountLevel = 'basico' | 'premium' | 'enterprise';
 
@@ -50,7 +50,11 @@ const LEVEL_BY_PACKAGE: Record<string, AccountLevel> = {
 /** Nível do pacote, ou null para pacotes fora dos planos (ex.: "default" da
  * própria VisualDesign, pacotes antigos do DirectAdmin) — nesses nada muda. */
 export function accountLevelForPackage(packageName: string | null | undefined): AccountLevel | null {
-  return LEVEL_BY_PACKAGE[chavePacote(packageName)] ?? null;
+  const key = chavePacote(packageName);
+  if (LEVEL_BY_PACKAGE[key]) return LEVEL_BY_PACKAGE[key];
+  // pacote novo de hospedagem criado em Admin › Pacotes: o «Básico» é um domínio; os outros, vários domínios (o limite vem do próprio pacote)
+  if (familiaDoPacote(key) !== 'hospedagem') return null;
+  return eHospedagemBasica(key) ? 'basico' : 'premium';
 }
 
 /** Limite total de domínios (conta principal + contas ligadas) por pacote,

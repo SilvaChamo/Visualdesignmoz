@@ -1,4 +1,4 @@
-import { chavePacote } from '@/lib/pacote-nome';
+import { chavePacote, eHospedagemBasica, familiaDoPacote } from '@/lib/pacote-nome';
 import {
   ADMIN_BOOTSTRAP_EMAILS,
   resolveRegistryPanelRole,
@@ -64,7 +64,10 @@ export function buyerRoleForPackage(packageName: string | null | undefined): 'pr
   const key = chavePacote(packageName);
   if (PROFISSIONAL_PACKAGES.has(key)) return 'profissional';
   if (CLIENT_PACKAGES.has(key)) return 'client';
-  return null;
+  // pacote novo criado em Admin › Pacotes: só o «Básico» (e os de e-mail e domínio) dá o painel Cliente; os outros de hospedagem, o Profissional
+  const familia = familiaDoPacote(key);
+  if (!familia) return null;
+  return familia === 'hospedagem' && !eHospedagemBasica(key) ? 'profissional' : 'client';
 }
 
 /** Resolve o papel efectivo do utilizador */
