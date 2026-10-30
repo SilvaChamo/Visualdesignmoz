@@ -96,7 +96,7 @@ jobs:
               echo "slowlog = $RAIZ/slow_log"
               echo "; vd-erros-fim"; } >> "$POOL"
             for a in error_log slow_log; do touch "$RAIZ/$a"; chown "$CONTA:$CONTA" "$RAIZ/$a"; chmod 640 "$RAIZ/$a"; done
-            printf 'location ~ ^/(error_log|slow_log)$ {\n    return 404;\n}\n' > "$CONFNGINX/nginx.conf_erros"; chown root:"$CONTA" "$CONFNGINX/nginx.conf_erros" 2>/dev/null || true
+            for n in nginx.conf_erros nginx.ssl.conf_erros; do printf 'location ~ ^/(error_log|slow_log)$ {\n    return 404;\n}\n' > "$CONFNGINX/$n"; chown root:"$CONTA" "$CONFNGINX/$n" 2>/dev/null || true; done
             cat > /etc/logrotate.d/vd-erros-site <<'ROT'
             /home/*/web/*/public_html/error_log /home/*/web/*/public_html/slow_log {
                 size 5M
@@ -193,17 +193,22 @@ jobs:
     steps:
       - name: Códigos vistos de fora
         run: |
-          falhou=0
+          falhou=0; RES=''
           for dom in desporto.entrecamposblog.com entrecamposblog.com mltmark.com lirandzojewelry.com msdn-moz.org oshercollective.com producoes.visualdesignmoz.com; do
             for a in error_log slow_log; do
-              c=$(curl -s -o /dev/null -m 30 -L -w '%{http_code}' "https://$dom/$a")
-              echo "https://$dom/$a -> $c (esperado 403 ou 404)"
-              case "$c" in 403|404) ;; *) falhou=1;; esac
+              c=$(curl -s -o /dev/null -m 30 -L -w '%{http_code} %{time_total}s' "https://$dom/$a" || echo "falhou($?)")
+              echo "https://$dom/$a -> $c (esperado 403 ou 404)"; RES="$RES | $dom/$a $c"
+              case "${c%% *}" in 403|404) ;; *) falhou=1;; esac
             done
           done
           for u in https://entrecamposblog.com/ https://mltmark.com/ https://oshercollective.com/ https://basededadosagro.com/ https://visualdesignmoz.com/; do
-            c=$(curl -s -o /dev/null -m 30 -L -w '%{http_code}' "$u")
-            echo "$u -> $c (esperado 200)"
-            [ "$c" = 200 ] || falhou=1
+            c=$(curl -s -o /dev/null -m 30 -L -w '%{http_code} %{time_total}s' "$u" || echo "falhou($?)")
+            echo "$u -> $c (esperado 200)"; RES="$RES | $u $c"
+            [ "${c%% *}" = 200 ] || falhou=1
           done
+          for a in error_log slow_log; do
+            curl -s -m 40 -D /tmp/h.txt -o /tmp/b.txt "https://entrecamposblog.com/$a" || true
+            RES="$RES | DETALHE $a: $(head -1 /tmp/h.txt | tr -d '\r') · $(grep -i '^content-type' /tmp/h.txt | tr -d '\r') · $(grep -i '^cf-cache-status' /tmp/h.txt | tr -d '\r') · $(wc -c < /tmp/b.txt) bytes · começa por PHP? $(head -c 300 /tmp/b.txt | grep -c 'PHP ' || true)"
+          done
+          echo "::notice title=Fora::$RES"
           exit $falhou

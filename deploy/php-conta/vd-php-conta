@@ -223,6 +223,22 @@ garantir_tempo_limite() { # versão conta
 # deixou de existir); aqui voltam a pôr-se em cada passagem do sincronizar. Nível 7159 = E_ALL sem E_NOTICE, E_USER_NOTICE, E_DEPRECATED, E_USER_DEPRECATED.
 # Os dois ficheiros ficam do dono da conta, negados à web (nginx.conf_erros) e rodados a 5 MB (logrotate, como no workflow). Devolve 0 se mudou algum pool.
 NIVEL_ERROS=${VD_NIVEL_ERROS:-7159}
+# Os registos nunca se abrem pela web (30/10/2026): o Hestia tem dois servidores por domínio, o do porto 80 (inclui nginx.conf_*) e o HTTPS (inclui nginx.ssl.conf_*); a regra
+# só em nginx.conf_erros não chegava ao HTTPS e o error_log do entrecamposblog.com abriu pela web (200). Escrevem-se os dois ficheiros e os registos ficam 640 (o nginx não os lê).
+garantir_negacao_web() { # conta domínio raiz
+  local c=$1 dom=$2 raiz=$3 cn=/home/$1/conf/web/$2 n a
+  [ -d "$cn" ] || return 0
+  for n in nginx.conf_erros nginx.ssl.conf_erros; do
+    [ -f "$cn/$n" ] && grep -qF 'error_log|slow_log' "$cn/$n" && continue
+    if [ -n "${VD_SIMULAR:-}" ]; then echo "$c $dom: POR ACTUALIZAR ($n em falta)"; continue; fi
+    printf 'location ~ ^/(error_log|slow_log)$ {\n    return 404;\n}\n' > "$cn/$n"; chown root:"$c" "$cn/$n" 2>/dev/null
+    NGINX_RECARREGAR=1
+    log "$c: $dom: $n criado (registos de erros negados à web)"
+  done
+  [ -n "${VD_SIMULAR:-}" ] || for a in error_log slow_log; do [ -f "$raiz/$a" ] && chmod 640 "$raiz/$a" 2>/dev/null; done
+  return 0
+}
+
 garantir_registo_erros() { # versão conta
   local v=$1 c=$2 f d dom raiz cn conf ini mudou=1 cop; d=$(pasta "$v" "$c"); conf="$d/php-fpm.conf"; ini="$d/php.ini"
   for f in "$d"/pool.d/*.conf; do
@@ -235,6 +251,12 @@ garantir_registo_erros() { # versão conta
     # já certo (caminho desta conta, nível actual e rasto dos pedidos lentos): nada a fazer
     if grep -qF "php_admin_value[error_log] = $raiz/error_log" "$f" && grep -qE "^php_admin_value\[error_reporting\] = $NIVEL_ERROS\$" "$f" \
       && grep -qF "slowlog = $raiz/slow_log" "$f"; then
+      # os ficheiros voltam sozinhos se alguém os apagar (Silva, 30/10/2026): o PHP recria o error_log no erro seguinte e aqui, de 5 em 5 minutos,
+      # recriam-se os dois vazios (o rasto dos pedidos lentos precisa do ficheiro; sem ele o PHP-FPM não escreve)
+      if [ -z "${VD_SIMULAR:-}" ]; then
+        for a in error_log slow_log; do [ -f "$raiz/$a" ] || { touch "$raiz/$a"; chown "$c:$c" "$raiz/$a" 2>/dev/null; chmod 640 "$raiz/$a"; log "$c: $dom: $a recriado (tinha sido apagado)"; }; done
+      fi
+      garantir_negacao_web "$c" "$dom" "$raiz"
       [ -z "${VD_FALAR:-}" ] || echo "$c $dom: já certo"
       continue
     fi
@@ -250,11 +272,7 @@ garantir_registo_erros() { # versão conta
       cp -p "$cop" "$f"; log "ERRO: $c: $dom: pool reposto (php-fpm -t falhou ao pôr o registo de erros)"; continue
     fi
     for a in error_log slow_log; do [ -f "$raiz/$a" ] || { touch "$raiz/$a"; chown "$c:$c" "$raiz/$a" 2>/dev/null; chmod 640 "$raiz/$a"; }; done
-    cn=/home/$c/conf/web/$dom
-    if [ -d "$cn" ] && [ ! -f "$cn/nginx.conf_erros" ]; then
-      printf 'location ~ ^/(error_log|slow_log)$ {\n    return 404;\n}\n' > "$cn/nginx.conf_erros"; chown root:"$c" "$cn/nginx.conf_erros" 2>/dev/null
-      NGINX_RECARREGAR=1
-    fi
+    garantir_negacao_web "$c" "$dom" "$raiz"
     log "$c: $dom: registo de erros do PHP em $raiz/error_log (nível $NIVEL_ERROS)"
     [ -z "${VD_FALAR:-}" ] || echo "$c $dom: registo de erros posto em $raiz/error_log (nível $NIVEL_ERROS)"
     mudou=0
@@ -363,6 +381,31 @@ corrigir_hestia() {
   done
 }
 
+# Actualizações dos plugins Jet (30/10/2026): o cron do WordPress corre fora do administrador e o Jet só se inicia lá, por isso a lista de actualizações que o painel
+# lê nunca os trazia. De hora a hora, um site WordPress de cada vez (a cada passagem do sincronizar), o servidor corre a verificação completa no contexto de
+# administração (mu-plugin do stack: `VD_CTX_ADMIN=1 wp eval vd_verificar_actualizacoes_admin()`), em segundo plano, como o dono da conta e com prioridade mínima.
+ACT_WP_MINUTOS=${VD_ACT_WP_MINUTOS:-60}
+verificar_actualizacoes_wp() {
+  [ -z "${VD_TESTE:-}" ] || return 0
+  local d f c dom raiz marca; mkdir -p "$ETC/act-wp" 2>/dev/null
+  for d in "$PHP"/*/fpm-contas/*; do
+    [ -d "$d" ] || continue
+    c=$(basename "$d")
+    for f in "$d"/pool.d/*.conf; do
+      [ -f "$f" ] || continue
+      dom=$(basename "$f" .conf); raiz=/home/$c/web/$dom/public_html
+      [ -f "$raiz/wp-config.php" ] || continue
+      grep -q "vd-contexto-admin" "$raiz/wp-content/mu-plugins/visualdesign/stack.php" 2>/dev/null || continue
+      marca="$ETC/act-wp/$c-$dom"
+      [ -n "$(find "$marca" -mmin -"$ACT_WP_MINUTOS" 2>/dev/null)" ] && continue
+      touch "$marca"
+      ( setsid timeout 180 sudo -u "$c" nice -n 10 ionice -c3 env VD_CTX_ADMIN=1 /usr/local/bin/wp --path="$raiz" eval 'if (function_exists("vd_verificar_actualizacoes_admin")) { vd_verificar_actualizacoes_admin(); }' >/dev/null 2>&1 9>&- & )
+      log "$c: $dom: verificação das actualizações dos plugins (contexto de administração) lançada"
+      return 0   # um site de cada vez
+    done
+  done
+}
+
 cmd_sincronizar() {
   local c v d f tem
   corrigir_hestia
@@ -395,6 +438,7 @@ cmd_sincronizar() {
     done
   done
   recarregar_nginx_se_preciso
+  verificar_actualizacoes_wp
 }
 
 cd / || exit 1

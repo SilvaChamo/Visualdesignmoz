@@ -73,6 +73,7 @@ export function FileManagerCodeEditor({
   onChange,
   fillHeight = false,
   dark = false,
+  soLeitura = false,
 }: {
   fileName: string;
   value: string;
@@ -80,6 +81,8 @@ export function FileManagerCodeEditor({
   fillHeight?: boolean;
   /** tema escuro (painel VisualHost no modo escuro) */
   dark?: boolean;
+  /** só para ver: não se escreve no texto */
+  soLeitura?: boolean;
 }) {
   const extensions = useMemo(() => languageExtension(fileName), [fileName]);
 
@@ -90,6 +93,8 @@ export function FileManagerCodeEditor({
       theme={dark ? githubDark : githubLight}
       extensions={extensions}
       onChange={onChange}
+      readOnly={soLeitura}
+      editable={!soLeitura}
       basicSetup={{
         lineNumbers: true,
         highlightActiveLineGutter: true,
