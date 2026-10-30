@@ -192,6 +192,9 @@ EN['Ocultar ficheiros do root'] ??= 'Hide root files';
 EN['Raiz da conta'] ??= 'Account root';
 EN['Compactar ficheiros'] ??= 'Compress files';
 const rotaEditar = (c: string) => '/utilizador/ficheiros/_editar/' + encC(c);
+const rotaVer = (c: string) => '/utilizador/ficheiros/_ver/' + encC(c);
+// registos (error_log, slow_log, *.log): ao abrir abrem só para ver
+const REGISTO = /^(error_log|slow_log|access_log|php_errorlog)(\.[0-9]+)?$|\.log$/i;
 /** drwxr-xr-x a partir do número (644) e do tipo */
 const permTexto = (x: Item) => {
   const m = x.perm.slice(-3);
@@ -666,7 +669,7 @@ function Ficheiros({ caminho, lixo = false }: { caminho: string; lixo?: boolean 
   const escolhidos = itens.filter((x) => sel.includes(x.nome));
   const um = escolhidos.length === 1 ? escolhidos[0] : null;
   const caminhos = () => escolhidos.map((x) => juntar(caminho, x.nome));
-  const abrir = (x: Item) => (x.pasta ? ir(juntar(caminho, x.nome)) : TEXTO.test(x.nome) ? nav(rotaEditar(juntar(caminho, x.nome))) : window.location.assign(url(me, 'descarregar', { caminho: juntar(caminho, x.nome) })));
+  const abrir = (x: Item) => (x.pasta ? ir(juntar(caminho, x.nome)) : TEXTO.test(x.nome) ? nav((REGISTO.test(x.nome) ? rotaVer : rotaEditar)(juntar(caminho, x.nome))) : window.location.assign(url(me, 'descarregar', { caminho: juntar(caminho, x.nome) })));
   // "Carregar" abre a janela de envio (como no DA); arrastar ficheiros para a lista abre-a já com eles
   const carregar = (fs?: FileList | null) => openM(<CarregarModal pasta={caminho} iniciais={fs ? Array.from(fs) : []} onFeito={ler} />);
   const novaPasta = () => openM(<NomeModal titulo="Criar pasta" rotulo="Nome da pasta" inicial={t('Nova pasta')} botao="Criar" onOk={(n) => fazer({ acao: 'fm-pasta', pasta: caminho, nome: n }, 'Pasta criada')} />);
@@ -677,9 +680,12 @@ function Ficheiros({ caminho, lixo = false }: { caminho: string; lixo?: boolean 
     openM(<Confirmar titulo="Mover para a reciclagem?" texto={ns.join(', ') + ' — ' + t('vai para a Reciclagem; pode restaurá-lo de lá.')} ok="Remover" onOk={() => fazer({ acao: 'fm-apagar', caminhos: caminhos() }, 'Movido para a reciclagem')} />);
   };
   const acoes: AcaoFm[] = [
-    um?.pasta
-      ? { k: 'abrir', fa: 'fa-folder-open', t: 'Abrir', ativo: true, run: () => abrir(um) }
-      : { k: 'editar', fa: 'fa-pen-to-square', t: 'Editar', ativo: !!um && TEXTO.test(um.nome), run: () => um && nav(rotaEditar(juntar(caminho, um.nome))) },
+    ...(um?.pasta
+      ? [{ k: 'abrir', fa: 'fa-folder-open', t: 'Abrir', ativo: true, run: () => abrir(um) }]
+      : [
+          { k: 'ver', fa: 'fa-eye', t: 'Ver', ativo: !!um && TEXTO.test(um.nome), run: () => um && nav(rotaVer(juntar(caminho, um.nome))) },
+          { k: 'editar', fa: 'fa-pen-to-square', t: 'Editar', ativo: !!um && TEXTO.test(um.nome), run: () => um && nav(rotaEditar(juntar(caminho, um.nome))) },
+        ]),
     { k: 'copiar', fa: 'fa-copy', t: 'Copiar', ativo: escolhidos.length > 0, run: () => openM(<DestinoModal titulo="Copiar para" inicial={caminho} botao="Copiar" onOk={(d) => fazer({ acao: 'fm-copiar', caminhos: caminhos(), destino: d }, 'Copiado')} />) },
     { k: 'duplicar', fa: 'fa-clone', t: 'Duplicar', ativo: escolhidos.length > 0, run: () => fazer({ acao: 'fm-duplicar', caminhos: caminhos() }, 'Duplicado') },
     { k: 'mover', fa: 'fa-arrow-right-to-bracket', t: 'Mover', ativo: escolhidos.length > 0, run: () => openM(<DestinoModal titulo="Mover para" inicial={caminho} botao="Mover" onOk={(d) => fazer({ acao: 'fm-mover', caminhos: caminhos(), destino: d }, 'Movido')} />) },
@@ -1035,7 +1041,7 @@ function Ficheiros({ caminho, lixo = false }: { caminho: string; lixo?: boolean 
   );
 }
 
-function Editor({ caminho }: { caminho: string }) {
+function Editor({ caminho, soVer = false }: { caminho: string; soVer?: boolean }) {
   const vh = useVH();
   const { t, nav } = vh;
   const { dados, erro, ler } = useLer<{ caminho: string; texto: string; parcial?: boolean }>('ler', { caminho });
@@ -1045,7 +1051,7 @@ function Editor({ caminho }: { caminho: string }) {
   const voltar = () => nav(rotaFm(pasta));
   const v = texto ?? dados?.texto ?? '';
   // registo grande aberto só pelo fim: não se guarda (gravar trocaria o ficheiro inteiro pelo bocado visto)
-  const mudou = !!dados && !dados.parcial && texto !== null && texto !== dados.texto;
+  const mudou = !soVer && !!dados && !dados.parcial && texto !== null && texto !== dados.texto;
   const guardar = async () => {
     if (await noServidor(vh, { acao: 'fm-guardar', pasta, nome, texto: v }, 'Guardado')) {
       setTexto(null);
@@ -1056,10 +1062,23 @@ function Editor({ caminho }: { caminho: string }) {
     <MolduraFm
       botoes={
         <nav className="fmda-tbs">
-          <button className="fmda-tb" disabled={!mudou} onClick={guardar}>
-            <i className="fa-solid fa-floppy-disk" />
-            <span>{t('Guardar')}</span>
-          </button>
+          {soVer ? (
+            <>
+              <button className="fmda-tb" onClick={() => ler()}>
+                <i className="fa-solid fa-rotate" />
+                <span>{t('Actualizar')}</span>
+              </button>
+              <button className="fmda-tb" onClick={() => nav(rotaEditar(caminho))}>
+                <i className="fa-solid fa-pen-to-square" />
+                <span>{t('Editar')}</span>
+              </button>
+            </>
+          ) : (
+            <button className="fmda-tb" disabled={!mudou} onClick={guardar}>
+              <i className="fa-solid fa-floppy-disk" />
+              <span>{t('Guardar')}</span>
+            </button>
+          )}
           <button className="fmda-tb" onClick={voltar}>
             <i className="fa-solid fa-xmark" />
             <span>{t('Fechar')}</span>
@@ -1085,6 +1104,7 @@ function Editor({ caminho }: { caminho: string }) {
           )}
           <span className="sp" />
           {mudou && <span className="tag w">{t('Por guardar')}</span>}
+          {soVer && !dados?.parcial && <span className="tag">{t('Só para ver')}</span>}
           {dados?.parcial && <span className="tag w">{t('Só leitura: últimas linhas do registo')}</span>}
         </div>
         {!dados ? (
@@ -1101,10 +1121,10 @@ function Editor({ caminho }: { caminho: string }) {
               }
             }}
           >
-            <EditorCodigo fileName={nome} value={v} onChange={(x) => setTexto(x)} fillHeight dark={vh.s.theme === 'dark'} />
+            <EditorCodigo fileName={nome} value={v} onChange={(x) => setTexto(x)} fillHeight dark={vh.s.theme === 'dark'} soLeitura={soVer} />
           </div>
         )}
-        <p className="fmda-nota">{t('Ctrl+S (ou ⌘S) guarda. O ficheiro fica com o utilizador da conta como dono.')}</p>
+        <p className="fmda-nota">{soVer ? t('Só para ver: o ficheiro não se altera aqui. Use «Editar» para o mudar.') : t('Ctrl+S (ou ⌘S) guarda. O ficheiro fica com o utilizador da conta como dono.')}</p>
       </div>
     </MolduraFm>
   );
@@ -1113,6 +1133,10 @@ function Editor({ caminho }: { caminho: string }) {
 export const ficheirosPagina: ScreenFn = (vh) => {
   const sub = vh.s.sub;
   const base = { t: 'Gestor de ficheiros', path: '/utilizador/ficheiros' };
+  if (sub[0] === '_ver') {
+    const c = sub.slice(1).join('/');
+    return { title: 'Ver ficheiro', desc: c.split('/').pop(), crumbs: [base, { t: 'Ver' }], body: <Editor key={'ver' + c} caminho={c} soVer /> };
+  }
   if (sub[0] === '_editar') {
     const c = sub.slice(1).join('/');
     return { title: 'Editar ficheiro', desc: c.split('/').pop(), crumbs: [base, { t: 'Editar' }], body: <Editor key={c} caminho={c} /> };
