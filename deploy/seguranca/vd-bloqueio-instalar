@@ -4,7 +4,7 @@
 #  3) spam de pesquisa (/?s=… sem referer) com 403, só nos domínios de /etc/nginx/vd-busca-spam.lista (vd-busca-spam.inc);
 #  4) o IP verdadeiro do visitante em TODOS os sites do Apache (conf.d/vd-ip-real.conf: mod_rpaf desligado), também nos novos.
 #  2) bloqueio TOTAL do xmlrpc.php (vd-xmlrpc.inc) só nos domínios de /etc/nginx/vd-xmlrpc-bloquear.lista (um por linha, # comenta)
-#     e só enquanto o site NÃO tiver o plugin Jetpack (que precisa do xmlrpc.php): se o Jetpack aparecer, o bloqueio sai sozinho.
+#     e, desde 30/10/2026, em TODOS os sites WordPress (excepto os da vd-xmlrpc-permitir.lista), só enquanto o site NÃO tiver o plugin Jetpack (que precisa do xmlrpc.php): se o Jetpack aparecer, o bloqueio sai sozinho.
 # Se a configuração ficar inválida, desfaz tudo e avisa (nunca deixa o nginx em baixo). Corre de 10 em 10 minutos (/etc/cron.d/vd-guarda).
 export LC_ALL=C
 INC=/etc/nginx/vd-bloqueio.inc
@@ -18,6 +18,12 @@ MUDOU=0
 # o domínio está na lista (uma linha por domínio, # comenta)
 na_lista() { [ -f "$LISTA" ] && sed 's/#.*//; s/[[:space:]]//g' "$LISTA" | grep -qxF -- "$1"; }
 na_lista_busca() { [ -f "$LISTA_BUSCA" ] && sed 's/#.*//; s/[[:space:]]//g' "$LISTA_BUSCA" | grep -qxF -- "$1"; }
+# xmlrpc.php bloqueado em TODOS os sites WordPress (Silva, 30/10/2026: «garanta que nenhum domínio fique de fora»): os robôs chegavam a ser 13% dos pedidos do
+# entrecamposblog.com (cada um carrega o WordPress inteiro e enchia o PHP). Ficam de fora só os sites com o Jetpack (que o usa) e os domínios de
+# /etc/nginx/vd-xmlrpc-permitir.lista (uma excepção deliberada: um domínio por linha, # comenta). A vd-xmlrpc-bloquear.lista continua a valer (bloqueia mesmo sem WordPress).
+PERMITIR=/etc/nginx/vd-xmlrpc-permitir.lista
+na_lista_permitir() { [ -f "$PERMITIR" ] && sed 's/#.*//; s/[[:space:]]//g' "$PERMITIR" | grep -qxF -- "$1"; }
+e_wordpress() { [ -f "$1/wp-config.php" ] || [ -d "$1/wp-includes" ]; }
 
 for d in /home/*/conf/web/*/; do
   dominio="$(basename "$d")"
@@ -31,7 +37,7 @@ for d in /home/*/conf/web/*/; do
     if ! cmp -s "$INC" "$alvo"; then cp "$INC" "$alvo" && MUDOU=1; fi
 
     alvo_x="${d}${f}_vd-xmlrpc"
-    if [ -f "$XML" ] && na_lista "$dominio" && [ ! -d "$raiz/wp-content/plugins/jetpack" ]; then
+    if [ -f "$XML" ] && ! na_lista_permitir "$dominio" && [ ! -d "$raiz/wp-content/plugins/jetpack" ] && { na_lista "$dominio" || e_wordpress "$raiz"; }; then
       if ! cmp -s "$XML" "$alvo_x"; then cp "$XML" "$alvo_x" && MUDOU=1; fi
     elif [ -f "$alvo_x" ]; then
       rm -f "$alvo_x" && MUDOU=1                  # saiu da lista, ou o site passou a usar o Jetpack
