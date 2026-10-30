@@ -62,10 +62,11 @@ jobs:
               titulo "Jet Dashboard: código das actualizações (só leitura; sem comentários nem linhas vazias)"
               D="$RAIZ/wp-content/plugins/jet-engine/framework/jet-dashboard"
               lim() { sed -E 's/^[[:space:]]+//; /^(\/\/|\*|\/\*)/d; /^$/d' | cut -c1-120; }
-              echo "--- jet-dashboard.php 140-225 (construtor, init_managers)"
-              sed -n '140,225p' "$D/jet-dashboard.php" | lim
-              echo "--- como o jet-engine carrega e inicia o Jet Dashboard"
-              grep -rnE "jet-dashboard/jet-dashboard.php|Dashboard::get_instance\(\)->init|Jet_Dashboard.*init|jet_dashboard.*init" "$RAIZ/wp-content/plugins/jet-engine/" --include=*.php 2>/dev/null | grep -v "/framework/jet-dashboard/" | sed "s#$RAIZ/wp-content/plugins/##" | cut -c1-160 | head -n 8
+              E="$RAIZ/wp-content/plugins/jet-engine"
+              echo "--- jet-engine.php 160-170 e 346-362"
+              sed -n '160,170p;346,362p' "$E/jet-engine.php" | lim
+              echo "--- modules-updater.php 265-300"
+              sed -n '265,300p' "$E/includes/modules/modules-updater.php" | lim
               exit 0
             fi
 
