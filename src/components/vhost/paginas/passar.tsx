@@ -5,10 +5,11 @@
  * de destino e as bases de dados, e faz a passagem em segundo plano, a mostrar como vai (plano
  * VisualHost/07-plano-passar-dominios-entre-contas.md). Só para administradores e revendedores.
  */
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import type { VH } from '../context';
 import { useVH } from '../context';
 import { Check } from './componentes';
+import { NovaConta } from './contas';
 
 export type PrevisaoPassagem = {
   dominio: string;
@@ -96,6 +97,8 @@ export function PassarDominioModal({ dominio }: { dominio: string }) {
   const [bases, setBases] = useState<string[]>([]);
   const [segundos, setSegundos] = useState<number | null>(null);
   const [res, setRes] = useState<Resultado | null>(null);
+  // «Nova conta…»: a janela passa a mostrar o formulário de criação de conta e volta aqui, com a conta nova escolhida
+  const [aCriar, setACriar] = useState(false);
   const vivo = useRef(true);
   useEffect(() => {
     vivo.current = true;
@@ -119,6 +122,19 @@ export function PassarDominioModal({ dominio }: { dominio: string }) {
       // o domínio já não é desta conta: volta à lista
       nav('/utilizador/dominios');
     }
+  };
+  // O servidor só responde no fim, sem passos pelo caminho: a barra enche-se por estimativa (depressa ao princípio, devagar perto do fim,
+  // nunca passa dos 95 % antes de acabar); as bases de dados escolhidas alongam o tempo previsto.
+  const previsto = 30 + 45 * bases.length;
+  const percentagem = segundos === null ? 0 : Math.min(95, Math.round(100 * (1 - Math.exp(-segundos / previsto))));
+  const contaCriada = (u: string) => {
+    setACriar(false);
+    setR(null);
+    lerPrevisao(dominio).then((j) => {
+      if (!vivo.current) return;
+      setR(j);
+      setPara(j.destinos?.includes(u) ? u : j.destinos?.[0] || '');
+    });
   };
   const passar = async () => {
     if (!para) return toast('Escolha a conta de destino');
@@ -152,6 +168,16 @@ export function PassarDominioModal({ dominio }: { dominio: string }) {
       </>
     );
   const p = r.previsao;
+  if (aCriar)
+    return (
+      <>
+        <h3>{t('Nova conta')}</h3>
+        <p style={{ color: 'var(--muted)', marginBottom: 12 }}>
+          {t('Crie a conta para onde vai passar')} <b style={{ color: 'var(--ink)' }}>{p.dominio}</b>. {t('Depois de criada, volta aqui para concluir a passagem.')}
+        </p>
+        <NovaConta tipo="cliente" embutido={{ dominio: p.dominio, aoCriar: contaCriada, aoCancelar: () => setACriar(false) }} />
+      </>
+    );
   if (res)
     return (
       <>
@@ -195,17 +221,7 @@ export function PassarDominioModal({ dominio }: { dominio: string }) {
               </option>
             ))}
           </select>
-          <button
-            className="btn g"
-            disabled={segundos !== null}
-            onClick={() => {
-              try {
-                sessionStorage.setItem('vh-novo-dominio', p.dominio);
-              } catch {}
-              closeM();
-              nav('/' + (vh.s.level === 'revenda' ? 'revenda' : 'admin') + '/novo-cliente');
-            }}
-          >
+          <button className="btn g" disabled={segundos !== null} onClick={() => setACriar(true)}>
             <i className="fa-solid fa-user-plus" />
             {t('Nova conta…')}
           </button>
@@ -218,22 +234,30 @@ export function PassarDominioModal({ dominio }: { dominio: string }) {
       {p.todasBases.length > 0 && (
         <div className="f">
           <label>{t('Bases de dados que passam')}</label>
-          {p.todasBases.map((b) => (
-            <Check
-              key={b}
-              checked={bases.includes(b)}
-              onChange={(v) => setBases(v ? [...bases, b] : bases.filter((x) => x !== b))}
-              label={b + (b === p.baseWp ? ' (WordPress)' : '') + (bases.includes(b) && para ? ' → ' + para + '_' + b.slice(p.dono.length + 1) : '')}
-            />
-          ))}
+          <div className="passar-bases">
+            {p.todasBases.map((b) => (
+              <Fragment key={b}>
+                <Check
+                  checked={bases.includes(b)}
+                  onChange={(v) => setBases(v ? [...bases, b] : bases.filter((x) => x !== b))}
+                  label={b + (b === p.baseWp ? ' (WordPress)' : '')}
+                />
+                <span className={'passar-destino' + (bases.includes(b) ? '' : ' off')}>{para ? para + '_' + b.slice(p.dono.length + 1) : ''}</span>
+              </Fragment>
+            ))}
+          </div>
         </div>
       )}
       <p className="passar-nota">
         {t('O site fica parado alguns segundos e o DNS não muda. Antes de começar guarda-se uma cópia; se algum passo falhar, volta tudo para trás.')}
       </p>
+      <div className="fmda-up-campo passar-barra" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percentagem}>
+        <div className="fmda-up-enche" style={{ width: percentagem + '%' }} />
+        <b>{percentagem}%</b>
+      </div>
       {segundos !== null && (
         <p className="passar-espera">
-          <span className="passar-roda" /> {t('A passar…')} {segundos > 0 ? segundos + ' s' : ''} {t('(as bases de dados são copiadas; pode demorar alguns minutos)')}
+          {t('A passar…')} {segundos > 0 ? segundos + ' s' : ''} {t('(as bases de dados são copiadas; pode demorar alguns minutos)')}
         </p>
       )}
       <div className="mfoot">
