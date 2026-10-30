@@ -7485,27 +7485,19 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    color: var(--muted)
 }
 
-.vh .passar-nova {
-   display: flex;
-   justify-content: flex-start;
-   margin-top: calc(8px * var(--z, 1))
-}
-
 .vh .passar-bases {
    display: grid;
-   grid-template-columns: repeat(2, minmax(0, 1fr));
-   gap: calc(8px * var(--z, 1)) calc(20px * var(--z, 1))
+   grid-template-columns: max-content minmax(0, 1fr);
+   align-items: center;
+   gap: calc(8px * var(--z, 1)) calc(24px * var(--z, 1))
 }
 
 .vh .passar-bases .chk {
    display: flex;
    align-items: center;
-   gap: calc(12px * var(--z, 1))
-}
-
-.vh .passar-bases .chk {
-   white-space: normal;
-   overflow-wrap: anywhere
+   gap: calc(12px * var(--z, 1));
+   margin: 0;
+   white-space: normal
 }
 
 .vh .passar-bases .chk input {
@@ -7513,9 +7505,25 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    margin: 0
 }
 
+.vh .passar-destino {
+   min-width: 0;
+   overflow-wrap: anywhere;
+   text-align: left;
+   color: var(--ink);
+   font-size: calc(13.5px * var(--fs, 1))
+}
+
+.vh .passar-destino.off {
+   color: var(--muted)
+}
+
 @media (max-width: 520px) {
    .vh .passar-bases {
-      grid-template-columns: minmax(0, 1fr)
+      column-gap: calc(12px * var(--z, 1))
+   }
+
+   .vh .passar-destino {
+      font-size: calc(12px * var(--fs, 1))
    }
 }
 

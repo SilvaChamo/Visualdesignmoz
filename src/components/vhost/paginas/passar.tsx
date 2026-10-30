@@ -5,7 +5,7 @@
  * de destino e as bases de dados, e faz a passagem em segundo plano, a mostrar como vai (plano
  * VisualHost/07-plano-passar-dominios-entre-contas.md). Só para administradores e revendedores.
  */
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import type { VH } from '../context';
 import { useVH } from '../context';
 import { Check } from './componentes';
@@ -212,20 +212,16 @@ export function PassarDominioModal({ dominio }: { dominio: string }) {
       </p>
       <div className="f">
         <label>{t('Passar para a conta')}</label>
-        <select value={para} onChange={(e) => setPara(e.target.value)} disabled={segundos !== null} style={{ width: '100%' }}>
-          {r.destinos.map((u) => (
-            <option key={u} value={u}>
-              {u}
-              {vh.s.acc[u]?.name ? ' — ' + vh.s.acc[u].name : ''}
-            </option>
-          ))}
-        </select>
-        <div className="passar-nova">
-          <button
-            className="btn g"
-            disabled={segundos !== null}
-            onClick={() => setACriar(true)}
-          >
+        <div style={{ display: 'flex', gap: 8 }}>
+          <select value={para} onChange={(e) => setPara(e.target.value)} disabled={segundos !== null} style={{ flex: 1 }}>
+            {r.destinos.map((u) => (
+              <option key={u} value={u}>
+                {u}
+                {vh.s.acc[u]?.name ? ' — ' + vh.s.acc[u].name : ''}
+              </option>
+            ))}
+          </select>
+          <button className="btn g" disabled={segundos !== null} onClick={() => setACriar(true)}>
             <i className="fa-solid fa-user-plus" />
             {t('Nova conta…')}
           </button>
@@ -240,13 +236,14 @@ export function PassarDominioModal({ dominio }: { dominio: string }) {
           <label>{t('Bases de dados que passam')}</label>
           <div className="passar-bases">
             {p.todasBases.map((b) => (
-              <Check
-                key={b}
-                checked={bases.includes(b)}
-                disabled={segundos !== null}
-                onChange={(v) => setBases(v ? [...bases, b] : bases.filter((x) => x !== b))}
-                label={b + (b === p.baseWp ? ' (WordPress)' : '') + (bases.includes(b) && para ? ' → ' + para + '_' + b.slice(p.dono.length + 1) : '')}
-              />
+              <Fragment key={b}>
+                <Check
+                  checked={bases.includes(b)}
+                  onChange={(v) => setBases(v ? [...bases, b] : bases.filter((x) => x !== b))}
+                  label={b + (b === p.baseWp ? ' (WordPress)' : '')}
+                />
+                <span className={'passar-destino' + (bases.includes(b) ? '' : ' off')}>{para ? para + '_' + b.slice(p.dono.length + 1) : ''}</span>
+              </Fragment>
             ))}
           </div>
         </div>
