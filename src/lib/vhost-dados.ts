@@ -7,6 +7,7 @@
  * - O que cada um vê: administrador → tudo; revendedor → a sua conta e as dos seus clientes;
  *   restantes → só a sua conta.
  */
+import { CONTA_PROVISORIA } from '@/lib/conta-provisoria';
 import { pendentesDaConta, sslPendente } from '@/lib/vhost-ssl-pendente';
 import type { Account, BaseDados, Domain, Mailbox, Role } from '@/components/vhost/types';
 import { ACME, IDIOMAS, RECURSOS, TEMAS, type InfoConta, type Lim, type PacoteUtilizador } from '@/components/vhost/paginas/dados';
@@ -129,8 +130,7 @@ function uptimeTxt(min: number): string {
   return d ? `${d} dia${d === 1 ? '' : 's'}, ${h} h` : `${h} h ${Math.round(min % 60)} min`;
 }
 
-/** Nome da conta provisória de quem comprou e ainda não tem conta no servidor (nunca coincide com uma conta real). */
-export const CONTA_PROVISORIA = 'conta-pendente';
+export { CONTA_PROVISORIA };
 
 /** `compra`: o que a sessão comprou e ainda espera (confirmação ou criação da conta). Só serve a quem não tem conta no
  *  servidor: dá-lhe uma conta provisória com o pacote pago, para ver já o painel certo, com as configurações fechadas. */
@@ -254,8 +254,8 @@ export function montarDados(srv: LeituraServidor, reg: RegistoSite, sessao: Sess
   }
 
   // Comprou e ainda não tem conta no servidor: conta provisória com o pacote pago (nunca para a equipa)
-  // O administrador que compra um plano vê o painel dele como uma conta sua à parte (`propria`): abre-a em vez de ficar no painel de
-  // administração, sem deixar de ser administrador (a conta provisória nunca é a sua principal, nem a equipa pode agir por ela).
+  // O administrador que compra um plano vê o painel dele (o painel abre-o como «entrar como», com «Voltar ao painel de administração»), sem
+  // deixar de ser administrador: a conta provisória nunca é a sua principal, nem a equipa pode agir por ela.
   const compraDeAdmin = Boolean(compra) && sessao.role === 'admin';
   if (compra && (compraDeAdmin || ((!me || !contas[me]) && sessao.role !== 'reseller' && sessao.role !== 'manager'))) {
     const perfilCompra = reg.perfis.get(sessao.userId);
@@ -288,7 +288,6 @@ export function montarDados(srv: LeituraServidor, reg: RegistoSite, sessao: Sess
       dbs: [],
       mails: [],
       aguarda: { motivo: compra.aguarda, plano: compra.plano },
-      ...(compraDeAdmin ? { propria: true } : {}),
     };
     info[CONTA_PROVISORIA] = { bw: '0 MB', ip: '', dbs: 0, criada: '—' };
   }

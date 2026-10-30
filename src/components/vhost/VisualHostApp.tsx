@@ -2,6 +2,7 @@
 
 // Painel VisualHost — versão React da maquete aprovada (VisualHost/maquete-visualhost.html).
 // Mesma estrutura de HTML e mesmas classes, para o CSS da maquete (generated/maquete.css) se aplicar tal e qual.
+import { CONTA_PROVISORIA } from '@/lib/conta-provisoria';
 import { Component, Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState, useSyncExternalStore, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -298,19 +299,20 @@ function comDados(cur: St, d: DadosServidor, caminhoDesejado: string, doNavegado
     c.mails = c.mails.filter((m) => dominioVisivel(m.dom));
   }
   const primeira = cur.carga !== 'ok';
-  // acabou de comprar um plano com uma conta que já tem painel: abre o painel do plano comprado, não o principal
-  const daCompra = doNavegador && abrirCompraPedido() ? Object.keys(d.contas).find((k) => d.contas[k].propria && d.contas[k].aguarda) : undefined;
-  if (daCompra) {
-    limparAbrirCompra();
-    guardarContaActiva(d.me, daCompra);
-  }
+  // O administrador que acabou de comprar um plano abre o painel do plano comprado (como «entrar como», com «Voltar ao painel de
+  // administração»), e não o de administração. A conta provisória só entra na lista de contas do administrador enquanto a vê: fora
+  // disso não aparece em nenhuma das suas listas.
+  const pilhaGuardada = primeira ? (doNavegador ? lerEntrarComo(d.me, d.contas) : []) : cur.stack;
+  const daCompra = doNavegador && d.contas[CONTA_PROVISORIA]?.aguarda && d.contas[d.me]?.role === 'admin' && abrirCompraPedido();
+  if (daCompra) limparAbrirCompra();
+  if (d.contas[CONTA_PROVISORIA] && d.contas[d.me]?.role === 'admin' && !daCompra && !pilhaGuardada.some((x) => x.u === CONTA_PROVISORIA)) delete d.contas[CONTA_PROVISORIA];
   const n0: St = {
     ...cur,
     acc: d.contas,
     login: d.me,
-    activa: daCompra || (cur.activa && d.contas[cur.activa]?.propria ? cur.activa : lerContaActiva(d.me, d.contas)),
+    activa: cur.activa && d.contas[cur.activa]?.propria ? cur.activa : lerContaActiva(d.me, d.contas),
     pessoa: d.pessoa || null,
-    stack: !primeira ? cur.stack.filter((x) => d.contas[x.u]) : doNavegador ? lerEntrarComo(d.me, d.contas) : [],
+    stack: daCompra ? [{ u: CONTA_PROVISORIA, lv: 'admin', pg: 'inicio' }] : !primeira ? cur.stack.filter((x) => d.contas[x.u]) : pilhaGuardada,
     srv: d.servidor,
     dns: d.dns,
     php: d.php || [],
@@ -322,7 +324,7 @@ function comDados(cur: St, d: DadosServidor, caminhoDesejado: string, doNavegado
   // Se o caminho inicial pedido (ex: /admin vindo de outra sessão) não for permitido para esta conta,
   // abre diretamente o nível inicial da conta em vez de mostrar "Sem acesso" logo ao entrar
   const lvDesejado = caminhoDesejado.replace(/^\/+/, '').split('/')[0];
-  const caminhoValido = isLevel(lvDesejado) && !allowedOf(n0).includes(lvDesejado) ? '/' + nivelInicial(n0) : caminhoDesejado;
+  const caminhoValido = daCompra || (isLevel(lvDesejado) && !allowedOf(n0).includes(lvDesejado)) ? '/' + nivelInicial(n0) : caminhoDesejado;
   return fromPath(n0, caminhoValido);
 }
 
