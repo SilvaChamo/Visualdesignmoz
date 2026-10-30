@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabase-client';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { PUBLIC_PANEL_ENTRY } from '@/lib/panel-origin';
-import { marcarViaSite, preCarregarDadosVhost } from '@/lib/vhost-cache';
+import { marcarViaSite, pedirAbrirCompra, preCarregarDadosVhost } from '@/lib/vhost-cache';
 import { destinoDepoisDoPagamento } from '@/lib/voltar-ao-painel';
 import Link from 'next/link';
 import { RenewalCheckout } from '@/app/checkout/RenewalCheckout';
@@ -1149,6 +1149,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
               if (refreshedSession) {
                 // como o login do site: esquece a leitura de quem entrou antes neste navegador (ex.: o admin) e lê já a da conta nova,
                 // para o painel abrir com os dados do pacote comprado e não mostrar primeiro os de outra conta
+                pedirAbrirCompra();
                 await preCarregarDadosVhost();
                 marcarViaSite();
               }

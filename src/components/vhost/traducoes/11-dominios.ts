@@ -2,6 +2,7 @@
 export const dominios: Record<string, string> = {
  "A sessão terminou. Entre de novo e repita.": "The session ended. Sign in again and repeat.",
  "O servidor demorou a responder (erro": "The server took too long to respond (error",
+ "O pedido do certificado segue em curso no servidor (pode levar uns minutos). Actualize a página daqui a instantes e veja o Histórico de aprovisionamento.": "The certificate request is still running on the server (it may take a few minutes). Refresh the page in a moment and check the Provisioning history.",
  "). O pedido pode ainda estar em curso: actualize a lista daqui a instantes antes de repetir.": "). The request may still be in progress: refresh the list in a moment before repeating.",
  "A alteração falhou (erro": "The change failed (error",
  "). Actualize a lista e tente de novo; se continuar, contacte o suporte.": "). Refresh the list and try again; if it continues, contact support.",

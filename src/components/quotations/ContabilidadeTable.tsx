@@ -1402,7 +1402,7 @@ function CheckoutItemsByType({ types }: { types: string[] }) {
                           </button>
                         </>
                       )}
-                      {item.type === 'hosting' && itemStatus === 'paid' && (
+                      {item.type === 'hosting' && itemStatus === 'paid' && !(item as { contaCriada?: boolean }).contaCriada && (
                         <button
                           type="button"
                           disabled={updatingKey === key}
