@@ -161,6 +161,8 @@ if [ -x /usr/local/sbin/vd-php-conta ]; then
   for u in /etc/systemd/system/vd-php-fpm-*-$DE.service; do [ -f "$u" ] && systemctl reload "$(basename "$u" .service)" >/dev/null 2>&1; done
   /usr/local/sbin/vd-php-conta sincronizar >/dev/null 2>&1 || echo "AVISO=O PHP das contas não foi sincronizado; o cron trata disso em 5 minutos."
 fi
+# o bloqueio do nginx (xmlrpc, sondas, limite de ritmo) volta a ir para a configuração nova do site, sem esperar pelo cron de 10 minutos
+[ -x /usr/local/sbin/vd-bloqueio-instalar ] && /usr/local/sbin/vd-bloqueio-instalar >/dev/null 2>&1
 for b in $BASES; do
   r="\${b#\${DE}_}"
   out=$($H/v-change-database-owner "$b" "$PARA" 2>&1); rc=$?
