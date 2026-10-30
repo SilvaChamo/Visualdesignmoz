@@ -5,9 +5,6 @@ name: Ops - Reparar um domínio suspenso depois da passagem de conta
 # antes e verificação depois (também os outros sites). Só toca neste domínio; reversível com v-suspend-web-domain.
 
 on:
-  push:
-    branches: [continuar-correccoes-contas-e-dominios]
-    paths: ['.github/workflows/ops-dominio-reparar.yml']
   workflow_dispatch:
     inputs:
       dominio:
@@ -26,7 +23,7 @@ jobs:
       - name: Reparar o domínio
         uses: appleboy/ssh-action@v1.2.5
         env:
-          DOMINIO: ${{ inputs.dominio || 'entrecamposblog.com' }}
+          DOMINIO: ${{ inputs.dominio }}
         with:
           host: ${{ secrets.CONTABO_HOST }}
           port: 2234
@@ -37,59 +34,56 @@ jobs:
           script: |
             set -u
             H=/usr/local/hestia/bin
-            CONTA=$($H/v-search-domain-owner "$DOMINIO" 2>/dev/null | head -1)
-            [ -z "$CONTA" ] && { echo "Sem dono: nada a fazer."; exit 1; }
-            W=/usr/local/hestia/data/users/$CONTA/web.conf
-            UD=/usr/local/hestia/data/users/$CONTA/ssl
-            B=/root/vh-passagens/reparo-$(date +%Y%m%d-%H%M%S)-$DOMINIO
-            install -d -m 700 "$B"; cp -p "$W" "$B/web.conf"; echo "cópia: $B"
-            est() { echo "suspenso=$(grep "DOMAIN='$DOMINIO'" "$W" | grep -c "SUSPENDED='yes'") SSL=$(grep "DOMAIN='$DOMINIO'" "$W" | grep -o "SSL='[^']*'") pasta-conf=$([ -d /home/$CONTA/conf/web/$DOMINIO ] && echo sim || echo NAO) pool=$(find -L /etc/php -name "$DOMINIO.conf" 2>/dev/null | head -1)"; }
-            echo "=== antes: $(est)"
-            echo "--- certificado guardado: $(ls "$UD" 2>&1 | grep -F "$DOMINIO" | tr '\n' ' ')"
-            echo "--- certificado noutras contas: $(ls /usr/local/hestia/data/users/*/ssl/ 2>/dev/null | grep -F "$DOMINIO" | sort -u | tr '\n' ' ')"
-            # 1. o pool do PHP que a passagem deixou por criar (sem ele o servidor não reactiva o site: «php-fpm pool doesn't exist»)
-            if [ -z "$(find -L /etc/php -name "$DOMINIO.conf" 2>/dev/null | head -1)" ]; then
-              echo "=== criar o pool do PHP na conta $CONTA: $($H/v-add-web-domain-backend "$CONTA" "$DOMINIO" default yes 2>&1 | tail -2)"
-            fi
-            # 2. o certificado: se a conta nova não o tem mas outra conta (a antiga) ainda o tem, traz as cópias
-            if ! ls "$UD" 2>/dev/null | grep -qF "$DOMINIO.crt"; then
-              for o in /usr/local/hestia/data/users/*/ssl; do
-                [ "$o" = "$UD" ] && continue
-                [ -f "$o/$DOMINIO.crt" ] && [ -f "$o/$DOMINIO.key" ] || continue
-                install -d -m 755 "$UD"; for e in crt key pem ca; do [ -f "$o/$DOMINIO.$e" ] && cp -p "$o/$DOMINIO.$e" "$UD/"; done
-                echo "certificado copiado de $o"; break
-              done
-            fi
-            # 3. reactivar o site (refaz o pool, o nginx e o Apache) e reconstruí-lo
-            if grep "DOMAIN='$DOMINIO'" "$W" | grep -q "SUSPENDED='yes'"; then
-              echo "=== reactivar: $($H/v-unsuspend-web-domain "$CONTA" "$DOMINIO" no 2>&1 | tail -3)"
-            fi
-            if [ ! -f /home/$CONTA/conf/web/$DOMINIO/nginx.conf ]; then
-              echo "=== reconstruir: $($H/v-rebuild-web-domain "$CONTA" "$DOMINIO" no 2>&1 | tail -3)"
-            fi
-            # 4. só se recarrega o nginx se a configuração estiver certa; se não estiver, tira-se só a deste domínio
-            if nginx -t >/dev/null 2>&1; then systemctl reload nginx; echo "nginx recarregado"
-            else
-              echo "AVISO: nginx -t falhou: $(nginx -t 2>&1 | tail -3 | tr '\n' ' ')"
-              rm -f /etc/nginx/conf.d/domains/"$DOMINIO".conf /etc/nginx/conf.d/domains/"$DOMINIO".ssl.conf
-              nginx -t >/dev/null 2>&1 && systemctl reload nginx && echo "retirada a configuração deste domínio; nginx recarregado"
-            fi
+            B=/root/vh-passagens/reparo-$(date +%Y%m%d-%H%M%S); install -d -m 700 "$B/hestia"; export B
+            echo "cópias em $B"
+            # 1. a causa: o Hestia procura as pastas pool.d do PHP e só aceita uma; com o PHP por conta (fpm-contas/*) acha várias e falha
+            #    («php-fpm pool doesn't exist»). Passa a ignorar as pastas das contas. Com cópia de cada ficheiro; se a sintaxe falhar, repõe.
+            python3 - <<'PY'
+            import glob, os, shutil, subprocess
+            a = '-name "*fpm.d" \\)'
+            b = '-name "*fpm.d" \\) -not -path "*/fpm-contas/*"'
+            for f in glob.glob('/usr/local/hestia/func/*') + glob.glob('/usr/local/hestia/bin/v-*'):
+                try: t = open(f).read()
+                except Exception: continue
+                if a in t and b not in t:
+                    shutil.copy2(f, os.environ['B'] + '/hestia/' + os.path.basename(f))
+                    open(f, 'w').write(t.replace(a, b))
+                    ok = subprocess.run(['bash', '-n', f]).returncode == 0
+                    if not ok: shutil.copy2(os.environ['B'] + '/hestia/' + os.path.basename(f), f)
+                    print('corrigido' if ok else 'REPOSTO (sintaxe)', f)
+            PY
+            echo "--- procuras que ainda sobram: $(grep -rlE 'find -L /etc/php[^|]*-name "pool.d"' /usr/local/hestia/func /usr/local/hestia/bin 2>/dev/null | xargs grep -L 'fpm-contas' 2>/dev/null | tr '\n' ' ')"
+            # 2. cada domínio: pool, reactivar, reconstruir, e só então o nginx
+            for DOMINIO in entrecamposblog.com basededadosagro.com; do
+              CONTA=$($H/v-search-domain-owner "$DOMINIO" 2>/dev/null | head -1)
+              [ -z "$CONTA" ] && { echo "== $DOMINIO: sem dono"; continue; }
+              W=/usr/local/hestia/data/users/$CONTA/web.conf; cp -p "$W" "$B/web.conf.$CONTA"
+              est() { echo "suspenso=$(grep "DOMAIN='$DOMINIO'" "$W" | grep -c "SUSPENDED='yes'") pasta-conf=$([ -f /home/$CONTA/conf/web/$DOMINIO/nginx.conf ] && echo sim || echo NAO) pool=$(find -L /etc/php -name "$DOMINIO.conf" 2>/dev/null | head -1)"; }
+              echo; echo "=== $DOMINIO (conta $CONTA) antes: $(est)"
+              if [ -z "$(find -L /etc/php -name "$DOMINIO.conf" 2>/dev/null | head -1)" ]; then echo "pool: $($H/v-add-web-domain-backend "$CONTA" "$DOMINIO" default no 2>&1 | tail -2)"; fi
+              if grep "DOMAIN='$DOMINIO'" "$W" | grep -q "SUSPENDED='yes'"; then echo "reactivar: $($H/v-unsuspend-web-domain "$CONTA" "$DOMINIO" no 2>&1 | tail -2)"; fi
+              if [ ! -f /home/$CONTA/conf/web/$DOMINIO/nginx.conf ]; then echo "reconstruir: $($H/v-rebuild-web-domain "$CONTA" "$DOMINIO" no 2>&1 | tail -3)"; fi
+              echo "depois: $(est)"
+              if nginx -t >/dev/null 2>&1; then systemctl reload nginx && echo "nginx recarregado"
+              else
+                echo "AVISO: nginx -t falhou: $(nginx -t 2>&1 | tail -3 | tr '\n' ' ')"
+                rm -f /etc/nginx/conf.d/domains/"$DOMINIO".conf /etc/nginx/conf.d/domains/"$DOMINIO".ssl.conf
+                nginx -t >/dev/null 2>&1 && systemctl reload nginx && echo "retirada a configuração deste domínio; nginx recarregado"
+              fi
+            done
             systemctl reload apache2 2>/dev/null || true
-            # 5. o PHP desta conta no serviço próprio (como nas outras contas)
+            # 3. o PHP de cada conta no serviço próprio, como nas outras
             /usr/local/sbin/vd-php-conta sincronizar 2>&1 | tail -3
             sleep 4
-            echo "=== depois: $(est)"
-            ls -l /home/$CONTA/conf/web/$DOMINIO/ 2>&1 | awk '{print $NF}' | tr '\n' ' '; echo
-            echo "--- nginx -t: $(nginx -t 2>&1 | tail -1)"
-            echo "--- certificado que o servidor entrega:"
-            echo | timeout 10 openssl s_client -connect 127.0.0.1:443 -servername "$DOMINIO" 2>/dev/null | openssl x509 -noout -subject -issuer -dates 2>&1 | head -4
-            echo "--- serviço e sockets PHP: $(systemctl is-active vd-php-fpm-8.3-$CONTA 2>&1) · $(ls -l /run/php/*"$DOMINIO"* 2>/dev/null | awk '{print $3, $NF}' | tr '\n' ';')"
-            echo "=== respostas (código · redirecção)"
-            for u in "https://$DOMINIO/" "https://$DOMINIO/wp-login.php"; do
-              h=$(echo "$u" | sed -E 's#https://([^/]+)/.*#\1#')
-              printf '%-45s local: %s\n' "$u" "$(curl -sk -o /dev/null -m 15 -w '%{http_code} %{redirect_url}' --resolve "$h:443:127.0.0.1" "$u" 2>&1 | cut -c1-90)"
-              printf '%-45s público: %s\n' "$u" "$(curl -sS -o /dev/null -m 15 -w '%{http_code} %{redirect_url}' "$u" 2>&1 | cut -c1-120)"
+            echo; echo "=== verificação"
+            for DOMINIO in entrecamposblog.com basededadosagro.com; do
+              CONTA=$($H/v-search-domain-owner "$DOMINIO" 2>/dev/null | head -1)
+              IPL=$(grep "DOMAIN='$DOMINIO'" /usr/local/hestia/data/users/$CONTA/web.conf | grep -o "IP='[^']*'" | cut -d"'" -f2)
+              echo "--- $DOMINIO: conf=$(ls /home/$CONTA/conf/web/$DOMINIO 2>/dev/null | tr '\n' ' ')"
+              echo "    certificado: $(echo | timeout 10 openssl s_client -connect $IPL:443 -servername "$DOMINIO" 2>/dev/null | openssl x509 -noout -subject -dates 2>&1 | tr '\n' ' ' | cut -c1-150)"
+              for u in "https://$DOMINIO/" "https://$DOMINIO/wp-login.php"; do
+                printf '    %-42s servidor: %s | público: %s\n' "$u" "$(curl -sk -o /dev/null -m 15 -w '%{http_code}' --resolve "$DOMINIO:443:$IPL" "$u" 2>&1)" "$(curl -sS -o /dev/null -m 15 -w '%{http_code} %{redirect_url}' "$u" 2>&1 | cut -c1-100)"
+              done
             done
-            echo "=== os outros sites"
-            for s in https://basededadosagro.com https://visualdesignmoz.com https://mltmark.com; do printf '%s %s\n' "$s" "$(curl -s -o /dev/null -m 15 -w '%{http_code}' "$s")"; done
-            echo "--- basededadosagro.com: dono=$($H/v-search-domain-owner basededadosagro.com 2>/dev/null | head -1) · nginx: $(grep -rl 'server_name[^;]*basededadosagro.com' /etc/nginx 2>/dev/null | head -3 | tr '\n' ' ')"
+            echo "--- PHP: $(systemctl list-units --all --no-legend 'vd-php-fpm-*' | awk '{print $1, $3}' | tr '\n' ';')"
+            echo "--- outros: mltmark $(curl -s -o /dev/null -m 15 -w '%{http_code}' https://mltmark.com) · app 3002 $(curl -s -o /dev/null -m 8 -w '%{http_code}' http://127.0.0.1:3002/)"
