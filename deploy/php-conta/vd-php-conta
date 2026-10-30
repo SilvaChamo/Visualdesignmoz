@@ -368,6 +368,31 @@ corrigir_hestia() {
   done
 }
 
+# Actualizações dos plugins Jet (30/10/2026): o cron do WordPress corre fora do administrador e o Jet só se inicia lá, por isso a lista de actualizações que o painel
+# lê nunca os trazia. De hora a hora, um site WordPress de cada vez (a cada passagem do sincronizar), o servidor corre a verificação completa no contexto de
+# administração (mu-plugin do stack: `VD_CTX_ADMIN=1 wp eval vd_verificar_actualizacoes_admin()`), em segundo plano, como o dono da conta e com prioridade mínima.
+ACT_WP_MINUTOS=${VD_ACT_WP_MINUTOS:-60}
+verificar_actualizacoes_wp() {
+  [ -z "${VD_TESTE:-}" ] || return 0
+  local d f c dom raiz marca; mkdir -p "$ETC/act-wp" 2>/dev/null
+  for d in "$PHP"/*/fpm-contas/*; do
+    [ -d "$d" ] || continue
+    c=$(basename "$d")
+    for f in "$d"/pool.d/*.conf; do
+      [ -f "$f" ] || continue
+      dom=$(basename "$f" .conf); raiz=/home/$c/web/$dom/public_html
+      [ -f "$raiz/wp-config.php" ] || continue
+      grep -q "vd-contexto-admin" "$raiz/wp-content/mu-plugins/visualdesign/stack.php" 2>/dev/null || continue
+      marca="$ETC/act-wp/$c-$dom"
+      [ -n "$(find "$marca" -mmin -"$ACT_WP_MINUTOS" 2>/dev/null)" ] && continue
+      touch "$marca"
+      ( setsid timeout 180 sudo -u "$c" nice -n 10 ionice -c3 env VD_CTX_ADMIN=1 /usr/local/bin/wp --path="$raiz" eval 'if (function_exists("vd_verificar_actualizacoes_admin")) { vd_verificar_actualizacoes_admin(); }' >/dev/null 2>&1 9>&- & )
+      log "$c: $dom: verificação das actualizações dos plugins (contexto de administração) lançada"
+      return 0   # um site de cada vez
+    done
+  done
+}
+
 cmd_sincronizar() {
   local c v d f tem
   corrigir_hestia
@@ -400,6 +425,7 @@ cmd_sincronizar() {
     done
   done
   recarregar_nginx_se_preciso
+  verificar_actualizacoes_wp
 }
 
 cd / || exit 1

@@ -41,8 +41,10 @@ export interface WpPluginRow {
   update_version?: string;
 }
 
-async function runAsWpUser(user: string, wpPath: string, wpArgs: string): Promise<string> {
-  const cmd = `sudo -u ${shellQuote(user)} /usr/local/bin/wp --path=${shellQuote(wpPath)} ${wpArgs} 2>&1`;
+/** `admin`: o wp-cli corre como o admin-ajax (mu-plugin do stack, `VD_CTX_ADMIN=1`): os plugins Jet só se iniciam assim e só assim trazem o pacote de actualização. */
+async function runAsWpUser(user: string, wpPath: string, wpArgs: string, admin = false): Promise<string> {
+  const env = admin ? 'env VD_CTX_ADMIN=1 ' : '';
+  const cmd = `sudo -u ${shellQuote(user)} ${env}/usr/local/bin/wp --path=${shellQuote(wpPath)} ${wpArgs} 2>&1`;
   return (await executeServerCommand(cmd)).trim();
 }
 
@@ -283,6 +285,7 @@ export async function updateWpPlugin(
     install.user,
     install.path,
     `plugin update ${shellQuote(safePlugin)}`,
+    true,
   );
   const failed =
     /error:|failed|fatal/i.test(output) && !/success|updated/i.test(output);
@@ -297,7 +300,7 @@ export async function updateAllWpPlugins(
     return { ok: false, output: 'WordPress não encontrado neste domínio' };
   }
 
-  const output = await runAsWpUser(install.user, install.path, 'plugin update --all');
+  const output = await runAsWpUser(install.user, install.path, 'plugin update --all', true);
   const failed =
     /error:|failed|fatal/i.test(output) && !/success|updated|already/i.test(output);
   return { ok: !failed, output };

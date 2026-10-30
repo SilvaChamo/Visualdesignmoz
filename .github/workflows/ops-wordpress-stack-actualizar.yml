@@ -49,13 +49,13 @@ jobs:
             trap 'sleep 1; echo "::notice title=Resumo::$(tr "\n" "|" < /tmp/saida-stack.txt | cut -c1-3500)"' EXIT
             T=/tmp/stack-novo.php; echo "$STACK" | base64 -d > "$T"
             php -l "$T" >/dev/null 2>&1 || { echo "ERRO: o stack.php novo tem erro de sintaxe; nada foi mudado"; exit 1; }
-            grep -q "VD_BLOCKED_JETPACK_PLUGINS" "$T" && grep -q "vd_img_otimizar_upload" "$T" && grep -q "vd-alias-jet-wp-error" "$T" || { echo "ERRO: o stack.php não tem a lista do Jetpack, a compressão de imagens e o alias do Jet Elements"; exit 1; }
+            grep -q "VD_BLOCKED_JETPACK_PLUGINS" "$T" && grep -q "vd_img_otimizar_upload" "$T" && grep -q "vd-contexto-admin" "$T" || { echo "ERRO: o stack.php não tem a lista do Jetpack, a compressão de imagens, o alias do Jet Elements e o contexto de administração"; exit 1; }
             B=/root/stack-actualizar-$(date +%Y%m%d-%H%M%S); [ "$APLICAR" = "true" ] && { install -d -m 700 "$B"; echo "cópias em $B"; }
             echo "=== sites WordPress (conta · domínio · stack · jetpack)"
             for f in /home/*/web/*/public_html/wp-content/mu-plugins/visualdesign/stack.php; do
               [ -f "$f" ] || continue
               u=$(echo "$f" | cut -d/ -f3); dom=$(echo "$f" | cut -d/ -f5); raiz=/home/$u/web/$dom/public_html
-              ja=$(grep -c "vd-alias-jet-wp-error" "$f")
+              ja=$(grep -c "vd-contexto-admin" "$f")
               jp=$([ -d "$raiz/wp-content/plugins/jetpack" ] && echo "TEM O JETPACK" || echo "sem Jetpack")
               if [ "$APLICAR" = "true" ] && [ "$ja" = 0 ]; then
                 cp -p "$f" "$B/$u-$dom-stack.php"

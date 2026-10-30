@@ -2,6 +2,17 @@
 defined('ABSPATH') || exit;
 
 /**
+ * vd-contexto-admin (Silva, 30/10/2026): os plugins Jet (Crocoblock) só se iniciam com is_admin() verdadeiro (`jet_dashboard_init`: `is_admin() || $force`), por isso a
+ * verificação de actualizações feita pelo cron do servidor ou pelo wp-cli nunca os vê: a lista guardada do WordPress ficava sem o jet-engine, jet-elements,
+ * jet-smart-filters… e o painel mostrava «nada para actualizar». Com `VD_CTX_ADMIN=1` no ambiente, o wp-cli corre como o admin-ajax (WP_ADMIN e DOING_AJAX; sem DOING_AJAX
+ * o LoginPress «esconder o login» redirecciona e mata o comando). Só vale no wp-cli e só quando o servidor o pede; nunca na web.
+ */
+if (defined('WP_CLI') && WP_CLI && getenv('VD_CTX_ADMIN') === '1') {
+	defined('WP_ADMIN') || define('WP_ADMIN', true);
+	defined('DOING_AJAX') || define('DOING_AJAX', true);
+}
+
+/**
  * vd-alias-jet-wp-error (Silva, 30/10/2026): o Jet Elements escreve `new WP_Error(...)` dentro do espaço de nomes `Jet_Elements\Endpoints`, sem a barra
  * inicial, e quando a verificação de permissão de um pedido REST falha o PHP procura `Jet_Elements\Endpoints\WP_Error`, que não existe, e dá erro fatal
  * (500; visto em entrecamposblog.com ao abrir as definições do WP-Optimize, elementor-template.php:255). O alias faz esse nome apontar para o WP_Error
@@ -466,6 +477,15 @@ function vd_set_option(string $key, $value): void
  * `wp option get vd_plugin_updates` (ficheiro do plugin → versão nova) e compara com a versão instalada.
  */
 add_action('admin_init', 'vd_guardar_actualizacoes_plugins', 99);
+
+/** Verificação completa, chamada pelo servidor com `VD_CTX_ADMIN=1 wp eval 'vd_verificar_actualizacoes_admin();'` (ver acima): renova a lista do WordPress já com os plugins Jet e guarda-a. */
+function vd_verificar_actualizacoes_admin(): void
+{
+	delete_site_transient('update_plugins');
+	wp_update_plugins();
+	delete_option('vd_plugin_updates');
+	vd_guardar_actualizacoes_plugins();
+}
 
 function vd_guardar_actualizacoes_plugins(): void
 {
