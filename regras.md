@@ -87,8 +87,11 @@ por "de teste". Nada disto pode voltar a acontecer. Quem mexer em deploy, servid
    no `dump.pm2`. Uma app nova do servidor corre **fora do pm2 e do deploy do VisualDesign** (unidade systemd própria, `Restart=always`).
 3. **Depois de qualquer publicação ou mudança no servidor, confirma `https://basededadosagro.com` e `https://visualdesignmoz.com` (200).** O deploy
    já o faz no fim (passo "Verificar os outros sites") e falha se o basededadosagro não responder. Nunca digas "publicado" sem isto.
-4. **Ações no servidor** só por workflows com a chave que já existe, só com pedido explícito do Silva, **só leitura primeiro**, e sem imprimir
-   variáveis nem chaves. Ramos temporários de operações apagam-se no fim.
+4. **Ações no servidor** (Silva, 30/10/2026: «deve permitir trabalhar mesmo sem ter que usar workflow»): **por workflow ou directamente por SSH**, o que o agente tiver
+   à mão — o workflow não é obrigatório. Sempre com pedido explícito do Silva, **só leitura primeiro**, cópia de cada ficheiro antes de o mudar (em
+   `/root/vh-passagens/`), um domínio de cada vez, sem imprimir variáveis nem chaves, e a verificar no fim os sites críticos (ponto 3). Em ambos os casos valem as
+   proibições do ponto 2 (nada de `pm2 update/kill`, `pkill -f`, `killall`, restart do nginx…). Se uma passagem ou reparação falhar, o agente pára e diz o que viu.
+   Ramos temporários de operações apagam-se no fim.
 5. **Antes de apagar código:** análise do que ainda o usa (importações **e** quem o chama de fora: crons do servidor, outros sites, webhooks,
    `next.config`), `tsc`, `next build` completo, ensaio local das rotas e redirecção do que existia. **Uma rota de API sem chamadores no
    repositório pode ser chamada de fora**; `/api/cron/*`, webhooks, auth, checkout e autoconfig de e-mail nunca se apagam sem confirmar.
