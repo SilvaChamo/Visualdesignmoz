@@ -37,25 +37,28 @@ jobs:
           script: |
             set -u
             H=/usr/local/hestia/bin
-            echo "=== hora: $(date '+%H:%M:%S %Z')"
-            echo "=== sites que têm de estar no ar (3 tentativas cada: código e tempo)"
-            for s in https://visualdesignmoz.com https://basededadosagro.com https://mltmark.com; do
-              for i in 1 2 3; do printf '%s %s\n' "$s" "$(curl -s -o /dev/null -m 15 -w '%{http_code} %{time_total}s %{redirect_url}' "$s" 2>&1 | cut -c1-100)"; sleep 1; done
+            for DOMINIO in entrecamposblog.com basededadosagro.com; do
+              CONTA=$($H/v-search-domain-owner "$DOMINIO" 2>/dev/null | head -1)
+              W=/usr/local/hestia/data/users/$CONTA/web.conf
+              IPL=$(grep "DOMAIN='$DOMINIO'" "$W" | grep -o "IP='[^']*'" | cut -d"'" -f2)
+              R=/home/$CONTA/web/$DOMINIO/public_html
+              echo; echo "################ $DOMINIO (conta $CONTA, ip $IPL)"
+              grep "DOMAIN='$DOMINIO'" "$W" | tr ' ' '\n' | grep -E "^(TPL|PROXY|BACKEND|SSL|DOCUMENT_ROOT|ALIAS)=" | tr '\n' ' '; echo
+              echo "--- pasta: $(ls -ld /home/$CONTA /home/$CONTA/web /home/$CONTA/web/$DOMINIO $R 2>&1 | awk '{print $1,$3,$NF}' | tr '\n' ';')"
+              echo "--- ficheiros: $(ls $R 2>&1 | head -12 | tr '\n' ' ')"
+              echo "--- a conta lê o index? $(sudo -u $CONTA sh -c "test -r $R/index.php || test -r $R/index.html" && echo sim || echo NAO)"
+              P=$(find -L /etc/php -name "$DOMINIO.conf" 2>/dev/null | head -1)
+              echo "--- pool: $P"; grep -E '^(user|group|listen|listen\.owner|chdir|php_admin_value\[open_basedir|pm\.max)' "$P" 2>/dev/null | head -8
+              echo "--- socket: $(ls -l /run/php/*$DOMINIO* 2>&1 | awk '{print $3, $NF}' | tr '\n' ';')"
+              echo "--- apache: $(grep -hE 'DocumentRoot|ServerName|SetHandler|proxy:' /home/$CONTA/conf/web/$DOMINIO/apache2.conf 2>&1 | sed 's/^ *//' | head -5 | tr '\n' ' ')"
+              echo "--- nginx: $(grep -hE 'proxy_pass|root |return 301|rewrite' /home/$CONTA/conf/web/$DOMINIO/nginx.conf /home/$CONTA/conf/web/$DOMINIO/nginx.ssl.conf 2>&1 | sed 's/^ *//' | sort -u | head -8 | tr '\n' ' ')"
+              echo "--- ficheiros forcessl: $(cat /home/$CONTA/conf/web/$DOMINIO/nginx.forcessl.conf 2>&1 | head -3 | tr '\n' ' ')"
+              echo "--- resposta do servidor a /wp-login.php (cabeçalhos):"; curl -sk -D - -o /dev/null -m 15 --resolve "$DOMINIO:443:$IPL" "https://$DOMINIO/wp-login.php" | head -8
+              echo "--- resposta do servidor a / :"; curl -sk -D - -o /dev/null -m 15 --resolve "$DOMINIO:443:$IPL" "https://$DOMINIO/" | head -8
+              echo "--- pelo DNS público (cabeçalhos):"; curl -sI -m 15 "https://$DOMINIO/" | head -10
+              echo "--- DNS: $(getent ahostsv4 $DOMINIO | awk '{print $1}' | sort -u | tr '\n' ' ')"
+              for f in /var/log/nginx/domains/$DOMINIO.error.log /var/log/apache2/domains/$DOMINIO.error.log /var/log/php8.3-fpm.log /var/log/php8.3-fpm-$CONTA.log; do [ -f "$f" ] && { echo "--- $f"; tail -n 6 "$f" | cut -c1-230; }; done
+              echo "--- acessos recentes: $(tail -n 5 /var/log/nginx/domains/$DOMINIO.log 2>/dev/null | awk '{print $9, $7}' | tr '\n' ';')"
             done
-            echo "--- visualdesignmoz por este servidor: $(curl -sk -o /dev/null -m 10 -w '%{http_code}' --resolve visualdesignmoz.com:443:127.0.0.1 https://visualdesignmoz.com/)"
-            echo "--- app na porta 3002: $(curl -s -o /dev/null -m 8 -w '%{http_code}' http://127.0.0.1:3002/)"
-            pm2 jlist 2>/dev/null | python3 -c "import sys,json; [print('pm2', a['name'], a['pm2_env']['status'], 'reinícios', a['pm2_env'].get('restart_time')) for a in json.load(sys.stdin)]" 2>&1 | head -6
-            echo
-            echo "=== basededadosagro.com"
-            for u in vdadmin bsededados; do echo "web.conf de $u: $(grep -c "DOMAIN='basededadosagro.com'" /usr/local/hestia/data/users/$u/web.conf 2>/dev/null) · SUSPENDED=$(grep "DOMAIN='basededadosagro.com'" /usr/local/hestia/data/users/$u/web.conf 2>/dev/null | grep -o "SUSPENDED='[^']*'") · TPL/PROXY=$(grep "DOMAIN='basededadosagro.com'" /usr/local/hestia/data/users/$u/web.conf 2>/dev/null | grep -oE "(TPL|PROXY|BACKEND)='[^']*'" | tr '\n' ' ')"; done
-            echo "conf da conta: $(ls /home/bsededados/conf/web/basededadosagro.com 2>&1 | tr '\n' ' ')"
-            echo "nginx que mencionam a porta 3010 ou o domínio:"; grep -rlE "3010|basededadosagro" /etc/nginx 2>/dev/null | head -8
-            echo "serviço: $(systemctl is-active basededadosagro-site) · porta 3010: $(curl -s -o /dev/null -m 8 -w '%{http_code}' http://127.0.0.1:3010/)"
-            echo "últimas passagens do domínio:"; grep -h "basededadosagro" /usr/local/hestia/log/system.log 2>/dev/null | tail -n 8 | cut -c1-170
-            echo "cópia da passagem: $(ls -d /root/vh-passagens/*basededadosagro* 2>/dev/null | tail -1) · conteúdo: $(ls $(ls -d /root/vh-passagens/*basededadosagro* 2>/dev/null | tail -1) 2>&1 | tr '\n' ' ')"
-            echo
-            echo "=== Hestia: de onde vem o erro do pool (func/domain.sh)"
-            sed -n 95,135p /usr/local/hestia/func/domain.sh
-            echo "--- pools.d que existem: $(find -L /etc/php -type d -name pool.d 2>/dev/null | tr '\n' ' ')"
-            echo "--- modelo default: $(grep -hE '^(user|listen|php_admin_value\[error_log)' /usr/local/hestia/data/templates/web/php-fpm/default.tpl 2>/dev/null | head -4 | tr '\n' ' ')"
-            grep -rn "WEB_BACKEND\|BACKEND_TEMPLATE" /usr/local/hestia/conf/hestia.conf 2>/dev/null | head -3
+            echo; echo "--- php-fpm partilhado: $(systemctl is-active php8.3-fpm) · teste: $(php-fpm8.3 -t 2>&1 | tail -1)"
+            echo "--- apache: $(apache2ctl -t 2>&1 | tail -1)"
