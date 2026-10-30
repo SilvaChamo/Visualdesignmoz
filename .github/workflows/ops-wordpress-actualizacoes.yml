@@ -62,11 +62,19 @@ jobs:
               titulo "Jet Dashboard: código das actualizações (só leitura; sem comentários nem linhas vazias)"
               D="$RAIZ/wp-content/plugins/jet-engine/framework/jet-dashboard"
               lim() { sed -E 's/^[[:space:]]+//; /^(\/\/|\*|\/\*)/d; /^$/d' | cut -c1-120; }
-              E="$RAIZ/wp-content/plugins/jet-engine"
-              echo "--- jet-engine.php 160-170 e 346-362"
-              sed -n '160,170p;346,362p' "$E/jet-engine.php" | lim
-              echo "--- modules-updater.php 265-300"
-              sed -n '265,300p' "$E/includes/modules/modules-updater.php" | lim
+              echo "--- teste: verificação das actualizações como o admin-ajax a faz (WP_ADMIN e DOING_AJAX definidos; só apaga e recria a lista guardada)"
+              $W --exec='define("WP_ADMIN", true); define("DOING_AJAX", true);' eval '
+              delete_site_transient("update_plugins"); wp_update_plugins();
+              $t = get_site_transient("update_plugins");
+              echo "última verificação: ".(isset($t->last_checked) ? date("H:i:s", $t->last_checked) : "nunca")."\n";
+              $n = isset($t->response) ? count($t->response) : 0; echo "plugins com actualização: $n\n";
+              if ($n) foreach ($t->response as $f => $o) echo "  $f -> ".($o->new_version ?? "?")."\n";
+              global $wp_filter; $h = $wp_filter["pre_set_site_transient_update_plugins"]; $c = array();
+              foreach ($h->callbacks as $cbs) foreach ($cbs as $cb) { $f = $cb["function"]; $c[] = is_array($f) ? (is_object($f[0]) ? get_class($f[0]) : $f[0])."::".$f[1] : (is_string($f) ? $f : "closure"); }
+              echo "ganchos: ".implode(", ", $c)."\n";
+              echo "is_admin(): ".(is_admin() ? "sim" : "não")."\n";' 2>&1 | grep -vE '^#[0-9]+ |^Warning: Some code' | cut -c1-200 | head -n 25
+              echo "--- depois, o que o painel vê (wp plugin list, só com actualização):"
+              $W plugin list --fields=name,version,update,update_version --format=csv 2>&1 | grep -vE ',none,|^(00-|advanced|maintenance|object)' | head -n 15
               exit 0
             fi
 
