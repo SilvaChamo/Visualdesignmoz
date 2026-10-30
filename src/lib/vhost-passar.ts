@@ -128,8 +128,9 @@ B="/root/vh-passagens/$(date +%Y%m%d-%H%M%S)-$D"; install -d -m 700 /root/vh-pas
 w=$(grep "DOMAIN='$D'" "$HD/$DE/web.conf" 2>/dev/null)
 ip=$(echo "$w" | grep -o "IP='[^']*'" | cut -d"'" -f2); ssl=0; echo "$w" | grep -q "SSL='yes'" && ssl=1
 url() { [ -z "$w" ] && { echo 000; return; }; if [ $ssl = 1 ]; then ini="https://$D/"; else ini="http://$D/"; fi; curl -sk -L --max-redirs 5 -o /dev/null -w '%{http_code}' --max-time 20 --resolve "$D:443:$ip" --resolve "$D:80:$ip" --resolve "www.$D:443:$ip" --resolve "www.$D:80:$ip" "$ini"; }
+susp() { grep "DOMAIN='$D'" "$HD/$1/web.conf" 2>/dev/null | grep -c "SUSPENDED='yes'" || true; }
 emails() { f="$HD/$1/mail/$D.conf"; if [ -f "$f" ]; then grep -c "^ACCOUNT=" "$f" || true; else echo 0; fi; }
-ANTES=$(url); MA=$(emails "$DE"); echo "ANTES=$ANTES"
+ANTES=$(url); MA=$(emails "$DE"); echo "ANTES=$ANTES"; SA=$(susp "$DE")
 cfg_de="/home/$DE/web/$D/public_html/wp-config.php"
 [ -f "$cfg_de" ] && cp -p "$cfg_de" "$B/wp-config.php"
 cp -p "/home/$DE/conf/web/$D/"nginx*.conf_webmail "$B/" 2>/dev/null
@@ -164,6 +165,13 @@ if [ -f "$cfg" ] && [ -n "$movidas" ]; then
   else echo "FALHA=Não foi possível ajustar o WordPress."; desfazer; exit 1; fi
 fi
 if webmail "$PARA"; then echo "PASSO=Webmail em https://$D/webmail"; else echo "AVISO=A regra do webmail não foi posta (o nginx recusou)."; fi
+# o site tem de ficar tal como estava: se o servidor o deixou suspenso ou sem a configuração do nginx (o painel do WordPress e o
+# certificado deixam de funcionar e nem a página de «suspenso» aparece), reactiva-o e reconstrói-o; se não conseguir, desfaz tudo
+if [ -n "$w" ] && [ "$SA" = 0 ]; then
+  if [ "$(susp "$PARA")" != 0 ]; then $H/v-unsuspend-web-domain "$PARA" "$D" >/dev/null 2>&1; echo "AVISO=O servidor deixou o site suspenso na conta nova; foi reactivado."; fi
+  [ -f "/home/$PARA/conf/web/$D/nginx.conf" ] || $H/v-rebuild-web-domain "$PARA" "$D" yes >/dev/null 2>&1
+  if [ "$(susp "$PARA")" != 0 ] || [ ! -f "/home/$PARA/conf/web/$D/nginx.conf" ]; then echo "FALHA=O site ficou suspenso ou sem configuração na conta nova."; desfazer; exit 1; fi
+fi
 sleep 2
 DEPOIS=$(url); MD=$(emails "$PARA"); echo "DEPOIS=$DEPOIS"
 if [ "$ANTES" != 000 ] && [ "\${ANTES:0:1}" != "\${DEPOIS:0:1}" ]; then echo "FALHA=O site respondia $ANTES e passou a responder $DEPOIS."; desfazer; exit 1; fi

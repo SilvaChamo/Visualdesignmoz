@@ -1,0 +1,61 @@
+name: Ops - Diagnóstico de um domínio depois da passagem de conta (só leitura)
+
+# Só LÊ, não altera nada: para um domínio que acabou de passar de uma conta para outra, mostra de que conta é agora, se sobrou configuração
+# da conta antiga, o que o nginx e o Apache têm para ele, o certificado que o servidor entrega de facto, o que respondem a página e o
+# wp-login (por este servidor e pelo DNS público) e os erros recentes. Sem wp-config nem variáveis. Pedido do Silva a 30/10/2026.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dominio:
+        description: 'Domínio (ex.: entrecamposblog.com)'
+        required: true
+        default: 'entrecamposblog.com'
+
+concurrency:
+  group: ops-dominio-diagnostico
+  cancel-in-progress: false
+
+jobs:
+  diagnostico:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Diagnóstico do domínio (só leitura)
+        uses: appleboy/ssh-action@v1.2.5
+        env:
+          DOMINIO: ${{ inputs.dominio }}
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          port: 2234
+          username: root
+          key: ${{ secrets.CONTABO_SSH_KEY }}
+          command_timeout: 5m
+          envs: DOMINIO
+          script: |
+            set -u
+            H=/usr/local/hestia/bin
+            for DOMINIO in entrecamposblog.com basededadosagro.com; do
+              CONTA=$($H/v-search-domain-owner "$DOMINIO" 2>/dev/null | head -1)
+              W=/usr/local/hestia/data/users/$CONTA/web.conf
+              IPL=$(grep "DOMAIN='$DOMINIO'" "$W" | grep -o "IP='[^']*'" | cut -d"'" -f2)
+              R=/home/$CONTA/web/$DOMINIO/public_html
+              echo; echo "################ $DOMINIO (conta $CONTA, ip $IPL)"
+              grep "DOMAIN='$DOMINIO'" "$W" | tr ' ' '\n' | grep -E "^(TPL|PROXY|BACKEND|SSL|DOCUMENT_ROOT|ALIAS)=" | tr '\n' ' '; echo
+              echo "--- pasta: $(ls -ld /home/$CONTA /home/$CONTA/web /home/$CONTA/web/$DOMINIO $R 2>&1 | awk '{print $1,$3,$NF}' | tr '\n' ';')"
+              echo "--- ficheiros: $(ls $R 2>&1 | head -12 | tr '\n' ' ')"
+              echo "--- a conta lê o index? $(sudo -u $CONTA sh -c "test -r $R/index.php || test -r $R/index.html" && echo sim || echo NAO)"
+              P=$(find -L /etc/php -name "$DOMINIO.conf" 2>/dev/null | head -1)
+              echo "--- pool: $P"; grep -E '^(user|group|listen|listen\.owner|chdir|php_admin_value\[open_basedir|pm\.max)' "$P" 2>/dev/null | head -8
+              echo "--- socket: $(ls -l /run/php/*$DOMINIO* 2>&1 | awk '{print $3, $NF}' | tr '\n' ';')"
+              echo "--- apache: $(grep -hE 'DocumentRoot|ServerName|SetHandler|proxy:' /home/$CONTA/conf/web/$DOMINIO/apache2.conf 2>&1 | sed 's/^ *//' | head -5 | tr '\n' ' ')"
+              echo "--- nginx: $(grep -hE 'proxy_pass|root |return 301|rewrite' /home/$CONTA/conf/web/$DOMINIO/nginx.conf /home/$CONTA/conf/web/$DOMINIO/nginx.ssl.conf 2>&1 | sed 's/^ *//' | sort -u | head -8 | tr '\n' ' ')"
+              echo "--- ficheiros forcessl: $(cat /home/$CONTA/conf/web/$DOMINIO/nginx.forcessl.conf 2>&1 | head -3 | tr '\n' ' ')"
+              echo "--- resposta do servidor a /wp-login.php (cabeçalhos):"; curl -sk -D - -o /dev/null -m 15 --resolve "$DOMINIO:443:$IPL" "https://$DOMINIO/wp-login.php" | head -8
+              echo "--- resposta do servidor a / :"; curl -sk -D - -o /dev/null -m 15 --resolve "$DOMINIO:443:$IPL" "https://$DOMINIO/" | head -8
+              echo "--- pelo DNS público (cabeçalhos):"; curl -sI -m 15 "https://$DOMINIO/" | head -10
+              echo "--- DNS: $(getent ahostsv4 $DOMINIO | awk '{print $1}' | sort -u | tr '\n' ' ')"
+              for f in /var/log/nginx/domains/$DOMINIO.error.log /var/log/apache2/domains/$DOMINIO.error.log /var/log/php8.3-fpm.log /var/log/php8.3-fpm-$CONTA.log; do [ -f "$f" ] && { echo "--- $f"; tail -n 6 "$f" | cut -c1-230; }; done
+              echo "--- acessos recentes: $(tail -n 5 /var/log/nginx/domains/$DOMINIO.log 2>/dev/null | awk '{print $9, $7}' | tr '\n' ';')"
+            done
+            echo; echo "--- php-fpm partilhado: $(systemctl is-active php8.3-fpm) · teste: $(php-fpm8.3 -t 2>&1 | tail -1)"
+            echo "--- apache: $(apache2ctl -t 2>&1 | tail -1)"
