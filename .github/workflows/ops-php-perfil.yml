@@ -1,0 +1,78 @@
+name: Ops - Perfil do PHP de uma conta (que plugin gasta o CPU)
+
+# O entrecamposblog.com gasta os 8 trabalhadores do PHP em pedidos que demoram mais de 10 s mesmo sem cache (robots.txt, wp-json, editor do Elementor).
+# Liga por uns minutos o registo de pedidos lentos do PHP-FPM (`request_slowlog_timeout = 2s`: guarda a pilha do que o PHP está a fazer), faz uns pedidos
+# sem cache a partir do servidor, mostra que plugins e funções aparecem mais vezes e volta a pôr os pools como estavam (cópia antes; `php-fpm -t` antes de
+# recarregar; recarga suave). Só a conta indicada. Sem «aplicar» só lê. Pedido do Silva a 30/10/2026.
+
+on:
+  workflow_dispatch:
+    inputs:
+      conta:
+        description: 'Conta'
+        required: true
+        default: 'entrecampos'
+      dominio:
+        description: 'Domínio dos pedidos de teste'
+        required: true
+        default: 'entrecamposblog.com'
+      aplicar:
+        description: 'Aplicar (desligado = só ler)'
+        type: boolean
+        default: false
+
+concurrency:
+  group: ops-php-perfil
+  cancel-in-progress: false
+
+jobs:
+  perfil:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Perfil do PHP (servidor)
+        uses: appleboy/ssh-action@v1.2.5
+        env:
+          CONTA: ${{ inputs.conta }}
+          DOMINIO: ${{ inputs.dominio }}
+          APLICAR: ${{ inputs.aplicar }}
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          port: 2234
+          username: root
+          key: ${{ secrets.CONTABO_SSH_KEY }}
+          command_timeout: 9m
+          envs: CONTA,DOMINIO,APLICAR
+          script: |
+            set -u
+            echo "$CONTA" | grep -qE '^[a-z0-9_-]{2,32}$' || { echo "Conta inválida"; exit 1; }
+            echo "$DOMINIO" | grep -qE '^[a-z0-9.-]{3,80}$' || { echo "Domínio inválido"; exit 1; }
+            V=8.3; D=/etc/php/$V/fpm-contas/$CONTA; U=vd-php-fpm-$V-$CONTA; LOG=/var/log/php$V-fpm-$CONTA-lento.log
+            [ -d "$D/pool.d" ] || { echo "Sem PHP-FPM dedicado para $CONTA"; exit 0; }
+            echo "pools: $(ls $D/pool.d | tr '\n' ' ') · serviço: $(systemctl is-active $U)"
+            [ "$APLICAR" = "true" ] || { echo "Só leitura: nada foi alterado."; exit 0; }
+            B=/root/php-perfil-$(date +%Y%m%d-%H%M%S); install -d -m 700 "$B"; cp -a "$D/pool.d" "$B/pool.d"; echo "cópia dos pools em $B"
+            : > "$LOG"; chmod 666 "$LOG"
+            for f in "$D"/pool.d/*.conf; do
+              sed -i -E '/^(request_slowlog_timeout|slowlog)[[:space:]]*=/d' "$f"
+              printf '\nrequest_slowlog_timeout = 2s\nslowlog = %s\n' "$LOG" >> "$f"
+            done
+            recarregar() { PHP_INI_SCAN_DIR="$D/conf.d" /usr/sbin/php-fpm$V -t --fpm-config "$D/php-fpm.conf" -c "$D/php.ini" >/dev/null 2>&1 && systemctl reload "$U"; }
+            recarregar || { echo "ALERTA: configuração inválida; a repor"; rm -rf "$D/pool.d"; cp -a "$B/pool.d" "$D/pool.d"; exit 1; }
+            sleep 3
+            u=$(/usr/local/hestia/bin/v-search-domain-owner "$DOMINIO" 2>/dev/null | head -1)
+            ip=$(grep "DOMAIN='$DOMINIO'" /usr/local/hestia/data/users/$u/web.conf | grep -o "IP='[^']*'" | cut -d"'" -f2)
+            echo "=== pedidos sem cache a partir do servidor (em paralelo, até 60 s)"
+            for i in 1 2 3; do ( curl -sk -o /dev/null -m 60 -w "robots.txt: %{http_code} %{time_total}s\n" --resolve "$DOMINIO:443:$ip" "https://$DOMINIO/robots.txt?x=$RANDOM" ) & done
+            for i in 1 2; do ( curl -sk -o /dev/null -m 60 -w "wp-json: %{http_code} %{time_total}s\n" --resolve "$DOMINIO:443:$ip" "https://$DOMINIO/wp-json/?x=$RANDOM" ) & done
+            for i in 1 2; do ( curl -sk -o /dev/null -m 60 -w "inicio sem cache: %{http_code} %{time_total}s\n" --resolve "$DOMINIO:443:$ip" "https://$DOMINIO/?semcache=$RANDOM" ) & done
+            wait
+            sleep 5
+            echo "=== pedidos lentos registados: $(grep -c '^\[' "$LOG")"
+            echo "--- plugins nas pilhas (quantas vezes aparecem):"
+            grep -o 'wp-content/\(plugins\|themes\|mu-plugins\)/[^/]*' "$LOG" | sort | uniq -c | sort -rn | head -12
+            echo "--- funções no topo de cada pilha (primeira linha depois do cabeçalho):"
+            awk '/^\[0x/ && !v {print; v=1} /^$/ {v=0}' "$LOG" | sed -E 's/^\[0x[0-9a-f]+\] //' | cut -c1-170 | sort | uniq -c | sort -rn | head -12
+            echo "--- um exemplo completo:"; awk 'BEGIN{n=0} /^$/ {n++; if(n==2) exit} {print}' "$LOG" | cut -c1-200 | head -30
+            echo "=== a repor os pools como estavam"
+            rm -rf "$D/pool.d"; cp -a "$B/pool.d" "$D/pool.d"; recarregar && echo "pools repostos; serviço: $(systemctl is-active $U)"
+            echo "sites: entrecamposblog.com $(curl -sS -o /dev/null -m 20 -w '%{http_code}' https://entrecamposblog.com/) · basededadosagro.com $(curl -sS -o /dev/null -m 20 -w '%{http_code}' https://basededadosagro.com/)"

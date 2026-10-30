@@ -201,12 +201,27 @@ limpar_pools() { # versão conta
   done
 }
 
+# Todo o pool dedicado tem um tempo máximo REAL por pedido (30/10/2026): o max_execution_time só conta CPU, e pedidos do editor do Elementor ficavam
+# minutos presos, enchiam os 8 trabalhadores do pool e o site caía para os visitantes. O Hestia refaz os pools sem este ajuste (passagem de conta, mudar
+# o PHP, reconstruir); aqui volta a pôr-se em cada passagem do sincronizar. Quem já tiver um valor próprio (ex.: workflow ops-php-tempo-limite) não é mexido.
+TEMPO_LIMITE_PEDIDO=${VD_TEMPO_LIMITE:-90s}
+garantir_tempo_limite() { # versão conta
+  local f d; d=$(pasta "$1" "$2")
+  for f in "$d"/pool.d/*.conf; do
+    [ -f "$f" ] || continue
+    grep -qE '^[[:space:]]*request_terminate_timeout[[:space:]]*=' "$f" && continue
+    printf '\nrequest_terminate_timeout = %s\n' "$TEMPO_LIMITE_PEDIDO" >> "$f"
+    log "$2: $(basename "$f") ganhou request_terminate_timeout = $TEMPO_LIMITE_PEDIDO"
+  done
+}
+
 aplicar_versao() { # versão conta
   local v=$1 c=$2 d u; d=$(pasta "$v" "$c"); u=$(unidade "$v" "$c")
   gerar "$v" "$c"
   local mudou_partilhado=1
   mover_pools "$v" "$c" && mudou_partilhado=0
   limpar_pools "$v" "$c"
+  garantir_tempo_limite "$v" "$c"
   if ! ls "$d"/pool.d/*.conf >/dev/null 2>&1; then
     svc_parar "$u" "$v" "$c"; rm -rf "$d"; log "$c: sem sites no PHP $v, serviço dedicado removido"; return 0
   fi
