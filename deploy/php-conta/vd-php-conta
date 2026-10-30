@@ -17,6 +17,7 @@
 #   vd-php-conta aplicar <conta> <modulo,modulo,...>  a conta passa a ter exactamente estes módulos (mais os essenciais e o que eles exigem)
 #   vd-php-conta repor <conta>                        a conta volta ao PHP-FPM partilhado
 #   vd-php-conta sincronizar                          (cron) mantém as contas dedicadas em ordem: pools que o Hestia refez, versões mudadas…
+#   vd-php-conta corrigir-hestia                      faz o Hestia ignorar as pastas das contas ao procurar o pool.d (ver abaixo); idempotente
 #
 # Variáveis para testes (sem systemd): VD_TESTE=1
 set -u
@@ -261,8 +262,26 @@ cmd_estado() { # conta versão
   echo "essenciais=$(echo $ESSENCIAIS | tr ' ' ',')"
 }
 
+# O Hestia procura as pastas pool.d do PHP e só aceita uma; com o PHP por conta (fpm-contas/*) acha várias e falha («php-fpm pool doesn't
+# exist») ao passar um domínio para outra conta, ao criar ou reconstruir sites (30/10/2026: três sites ficaram em baixo e o PHP partilhado
+# parou). Aqui a procura passa a ignorar as pastas das contas. Idempotente, com cópia de cada ficheiro em $ARQ; se a sintaxe falhar repõe-no.
+# Corre a cada 5 minutos (sincronizar), por isso um upgrade do Hestia que o desfaça é refeito sozinho.
+corrigir_hestia() {
+  local raiz=${VD_HESTIA_RAIZ:-/usr/local/hestia} f cop
+  [ -d "$raiz/func" ] || return 0
+  for f in "$raiz"/func/* "$raiz"/bin/v-*; do
+    [ -f "$f" ] || continue
+    grep -F -- '-name "*fpm.d" \)' "$f" 2>/dev/null | grep -vqF 'fpm-contas' || continue
+    cop="$ARQ/$(basename "$f").hestia.$(date +%s)"
+    cp -p "$f" "$cop"
+    sed -i 's#-name "\*fpm\.d" \\)#-name "*fpm.d" \\) -not -path "*/fpm-contas/*"#' "$f"
+    if bash -n "$f" 2>/dev/null; then log "hestia: procura do pool.d corrigida em $f"; else cp -p "$cop" "$f"; log "ERRO: hestia: $f reposto (sintaxe)"; fi
+  done
+}
+
 cmd_sincronizar() {
   local c v d f tem
+  corrigir_hestia
   # o PHP-FPM dedicado escreve os registos em /var/log/php<versão>-fpm-<conta>.log: roda-os (uma vez, aqui, para não depender do deploy)
   [ -f /etc/logrotate.d/vd-php-fpm ] || [ -n "${VD_TESTE:-}" ] || printf '/var/log/php*-fpm-*.log {\n    weekly\n    rotate 4\n    compress\n    missingok\n    notifempty\n    copytruncate\n}\n' > /etc/logrotate.d/vd-php-fpm 2>/dev/null
   # as contas com extensões escolhidas e as que têm limites no pacote
@@ -299,5 +318,6 @@ case "${1:-}" in
   aplicar) cmd_aplicar "${2:-}" "${3:-}" ;;
   repor) cmd_repor "${2:-}" ;;
   sincronizar) cmd_sincronizar ;;
-  *) echo "uso: vd-php-conta estado|aplicar|repor|sincronizar …" >&2; exit 2 ;;
+  corrigir-hestia) corrigir_hestia ;;
+  *) echo "uso: vd-php-conta estado|aplicar|repor|sincronizar|corrigir-hestia …" >&2; exit 2 ;;
 esac
