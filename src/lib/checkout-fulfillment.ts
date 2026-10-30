@@ -93,10 +93,19 @@ async function resolveHostingPackageName(planId: string, provider: 'directadmin'
  * que faz a sincronização real de forma assíncrona e best-effort, com nova
  * tentativa automática mais tarde se falhar).
  */
-async function pickAvailableMirrorUsername(base: string): Promise<string> {
+async function pickAvailableMirrorUsername(base: string, repetida: { userId: string; domain: string } | null): Promise<string> {
   const sb = getDaSyncAdmin();
   const sanitized = sanitizeDaUsername(base);
   if (!sb) return sanitized;
+  // «Confirmar» repetido depois de uma falha: a conta que a primeira tentativa já registou para este domínio reaproveita-se
+  // (outra conta nova duplicava a hospedagem).
+  if (repetida) {
+    const { data: site } = await sb.from('panel_sites').select('owner').eq('domain', repetida.domain).maybeSingle();
+    if (site?.owner) {
+      const { data: dono } = await sb.from('panel_users').select('auth_user_id').eq('username', site.owner).maybeSingle();
+      if (dono?.auth_user_id === repetida.userId) return String(site.owner);
+    }
+  }
   for (const candidate of [sanitized, `${sanitized}1`, `${sanitized}2`, `${sanitized}${Date.now().toString().slice(-4)}`]) {
     const { data } = await sb.from('panel_users').select('username').eq('username', candidate).maybeSingle();
     if (!data) return candidate;
@@ -134,11 +143,13 @@ export async function provisionHostingAccountOnPanel(params: {
   /** Espera (até ~45 s) pelo resultado no servidor em vez de o deixar em segundo plano — usado pelo «Confirmar» da equipa,
    *  para dizer logo se a conta foi criada ou porque não foi. */
   esperar?: boolean;
+  /** O «Confirmar» já correu antes para este item: reaproveita a conta que ficou registada no painel. */
+  repetida?: boolean;
 }): Promise<{ ok: boolean; daUsername: string; password: string; error?: string; servidor?: { ok: boolean; error?: string; pendente?: boolean; aviso?: string } }> {
   const { admin, userId, email, displayName, domainName, packageName, renewalId } = params;
   try {
     const password = params.sharedPassword || generateProvisionerPassword();
-    const daUsername = await pickAvailableMirrorUsername(params.username || domainName.split('.')[0] || email.split('@')[0]);
+    const daUsername = await pickAvailableMirrorUsername(params.username || domainName.split('.')[0] || email.split('@')[0], params.repetida ? { userId, domain: domainName } : null);
 
     // Painel pelo plano (ver promoteBuyerAfterPurchase): Pro/Business/Enterprise
     // → 'profissional'; Básico → 'client'. Contas da equipa
@@ -179,7 +190,7 @@ export async function provisionHostingAccountOnPanel(params: {
         provider: params.provider,
       });
     }
-    await upsertMirrorUser({
+    const contaPainel = await upsertMirrorUser({
       username: daUsername,
       email,
       first_name: displayName,
@@ -188,7 +199,9 @@ export async function provisionHostingAccountOnPanel(params: {
       package_name: packageName,
       hosting_provider: params.provider,
     });
-    await upsertMirrorSite({ domain: domainName, owner: daUsername, admin_email: email, package: packageName });
+    if (!contaPainel.ok) throw new Error(`Não foi possível registar a conta no painel: ${contaPainel.error || 'erro desconhecido'}`);
+    const sitePainel = await upsertMirrorSite({ domain: domainName, owner: daUsername, admin_email: email, package: packageName });
+    if (!sitePainel.ok) throw new Error(`Não foi possível associar o domínio à conta no painel: ${sitePainel.error || 'erro desconhecido'}`);
     // a conta nova nasce sem a palavra-passe no registo (o upsert acima não a grava): vai logo a seguir, só para as contas adicionais
     if (adicional) await admin.from('panel_users').update({ da_password_encrypted: encryptDaSecret(password) }).eq('username', daUsername);
 
@@ -405,7 +418,8 @@ export async function fulfillCheckout(
   /** Todos os itens do pedido, quando só alguns são activados agora (a equipa confirma item a item): a conta «só domínio»
    *  decide-se olhando para o pedido inteiro, não só para o item que se confirma. */
   itensDoPedido?: CatalogCartItem[],
-  opcoes: { esperarServidor?: boolean } = {},
+  /** `chave`: identifica este item do pedido (`<pedido>:<posição>`); repetir o «Confirmar» depois de uma falha não duplica o registo da hospedagem. */
+  opcoes: { esperarServidor?: boolean; chave?: string } = {},
 ) {
   const avisos: string[] = [];
   const today = new Date().toISOString().split('T')[0];
@@ -673,25 +687,41 @@ export async function fulfillCheckout(
       // único estado "ainda não activo" já aceite pelo CHECK constraint de
       // hosting_renewals.status.
       const willProvision = Boolean(admin && email);
-      const { data: renewalRow, error: insErr } = await supabase
-        .from('hosting_renewals')
-        .insert({
-          user_id: userId,
-          domain_name: domainName,
-          package_name: packageName,
-          start_date: today,
-          expiration_date: hostingExpires,
-          renewal_price: item.price,
-          currency: 'MZN',
-          status: willProvision ? 'pending' : 'active',
-          server: hostingProvider === 'hestia' ? 'Hestia' : 'DirectAdmin',
-          notes: `Compra carrinho (${paymentMethod})`,
-        })
-        .select('id')
-        .single();
-      if (insErr) {
-        console.warn('[checkout-fulfillment] hosting_renewals:', insErr.message);
-        await alertAdminOfTrackingFailure('hosting_renewals', insErr.message);
+      const notas = `Compra carrinho (${paymentMethod})${opcoes.chave ? ` [item:${opcoes.chave}]` : ''}`;
+      let renewalRow: { id: string; status?: string } | null = null;
+      let reutilizada = false;
+      if (opcoes.chave) {
+        const { data: existente } = await supabase
+          .from('hosting_renewals')
+          .select('id, status')
+          .eq('user_id', userId)
+          .eq('notes', notas)
+          .maybeSingle();
+        renewalRow = existente;
+        reutilizada = Boolean(existente);
+      }
+      if (!renewalRow) {
+        const { data: inserida, error: insErr } = await supabase
+          .from('hosting_renewals')
+          .insert({
+            user_id: userId,
+            domain_name: domainName,
+            package_name: packageName,
+            start_date: today,
+            expiration_date: hostingExpires,
+            renewal_price: item.price,
+            currency: 'MZN',
+            status: willProvision ? 'pending' : 'active',
+            server: hostingProvider === 'hestia' ? 'Hestia' : 'DirectAdmin',
+            notes: notas,
+          })
+          .select('id, status')
+          .single();
+        if (insErr) {
+          console.warn('[checkout-fulfillment] hosting_renewals:', insErr.message);
+          await alertAdminOfTrackingFailure('hosting_renewals', insErr.message);
+        }
+        renewalRow = inserida;
       }
       created.push(`hospedagem:${domainName}`);
       const renewalId = renewalRow?.id ?? null;
@@ -707,7 +737,7 @@ export async function fulfillCheckout(
       // válido não há nada de real para provisionar — fica 'pending' à
       // espera de um admin associar o domínio certo, em vez de criar uma
       // conta com um domínio inventado (ex.: "<username>.com").
-      if (admin && email && hostingDomainValid) {
+      if (admin && email && hostingDomainValid && renewalRow?.status !== 'active') {
         if (!sharedHostingPassword) sharedHostingPassword = generateProvisionerPassword();
         const feita = await provisionHostingAccountOnPanel({
           admin,
@@ -722,6 +752,7 @@ export async function fulfillCheckout(
           planId: item.id,
           username: item.contaUtilizador,
           esperar: opcoes.esperarServidor,
+          repetida: reutilizada,
         });
         if (!feita.ok) avisos.push(`${domainName}: não foi possível registar a conta (${feita.error || 'erro desconhecido'}).`);
         else if (feita.servidor?.pendente) avisos.push(`${domainName}: a conta ainda está a ser criada no servidor; confirme daqui a pouco na lista de utilizadores.`);
