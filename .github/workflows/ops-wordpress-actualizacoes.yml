@@ -40,6 +40,9 @@ jobs:
           envs: DOMINIO,REFRESCAR
           script: |
             set -u
+            # o registo do GitHub nem sempre se consegue abrir: o resumo sai também como anotação da tarefa (uma linha, separada por «|»)
+            : > /tmp/saida-act.txt; exec > >(tee -a /tmp/saida-act.txt) 2>&1
+            trap 'sleep 1; echo "::notice title=Resumo::$(tr "\n" "|" < /tmp/saida-act.txt | cut -c1-3900)"' EXIT
             case "$DOMINIO" in (*[!a-z0-9.-]*|''|*..*) echo "Domínio inválido"; exit 1;; esac
             titulo() { echo; echo "=================== $1"; }
             CONTA=""
