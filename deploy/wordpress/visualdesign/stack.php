@@ -81,9 +81,32 @@ const VD_BLOCKED_FILE_MANAGER_PLUGINS = [
 	'manager-for-ftp-and-sftp/fmanager.php',
 ];
 
+/**
+ * Jetpack e os plugins da família — bloqueados (Silva, 30/10/2026): usam o xmlrpc.php, que o servidor fecha no nginx em todos os sites WordPress
+ * (os robôs eram 13% dos pedidos do entrecamposblog.com). Não se instalam, não se activam e, se aparecerem por FTP, apagam-se.
+ */
+const VD_BLOCKED_JETPACK_PLUGINS = [
+	'jetpack/jetpack.php',
+	'jetpack-boost/jetpack-boost.php',
+	'jetpack-protect/jetpack-protect.php',
+	'jetpack-backup/jetpack-backup.php',
+	'jetpack-search/jetpack-search.php',
+	'jetpack-social/jetpack-social.php',
+	'jetpack-videopress/jetpack-videopress.php',
+	'jetpack-crm/ZeroBSCRM.php',
+];
+
 /** Slugs wordpress.org bloqueados (instalação via repositório). */
 const VD_BLOCKED_PLUGIN_SLUGS = [
 	'akismet',
+	'jetpack',
+	'jetpack-boost',
+	'jetpack-protect',
+	'jetpack-backup',
+	'jetpack-search',
+	'jetpack-social',
+	'jetpack-videopress',
+	'jetpack-crm',
 	'hello-dolly',
 	'wp-super-cache',
 	'w3-total-cache',
@@ -127,6 +150,7 @@ function vd_all_blocked_plugins(): array
 		VD_BLOCKED_CACHE_PLUGINS,
 		VD_BLOCKED_SPAM_PLUGINS,
 		VD_BLOCKED_FILE_MANAGER_PLUGINS,
+		VD_BLOCKED_JETPACK_PLUGINS,
 	);
 }
 
