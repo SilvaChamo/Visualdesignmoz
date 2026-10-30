@@ -215,6 +215,48 @@ garantir_tempo_limite() { # versão conta
   done
 }
 
+# Todo o pool dedicado grava os erros do PHP na pasta do site (30/10/2026, Silva: «o error_log tem limitações de registar erros, mas não devia»):
+# public_html/error_log com TODOS os erros que importam (fatais, avisos, erros de análise, recuperáveis; fora ficam só as notas e os «deprecated», que
+# enchem o ficheiro sem dizer nada) e public_html/slow_log com o rasto de todo o pedido com mais de 15 s. O workflow ops-php-erros-gravar só punha estas
+# linhas num pool de cada vez e o Hestia refaz os pools sem elas (passagem de conta: o entrecamposblog.com passou de vdadmin para entrecampos e o registo
+# deixou de existir); aqui voltam a pôr-se em cada passagem do sincronizar. Nível 7159 = E_ALL sem E_NOTICE, E_USER_NOTICE, E_DEPRECATED, E_USER_DEPRECATED.
+# Os dois ficheiros ficam do dono da conta, negados à web (nginx.conf_erros) e rodados a 5 MB (logrotate, como no workflow). Devolve 0 se mudou algum pool.
+NIVEL_ERROS=${VD_NIVEL_ERROS:-7159}
+garantir_registo_erros() { # versão conta
+  local v=$1 c=$2 f d dom raiz cn conf ini mudou=1 cop; d=$(pasta "$v" "$c"); conf="$d/php-fpm.conf"; ini="$d/php.ini"
+  for f in "$d"/pool.d/*.conf; do
+    [ -f "$f" ] || continue
+    dom=$(basename "$f" .conf); raiz=/home/$c/web/$dom/public_html
+    [ -d "$raiz" ] || continue
+    cop="$ARQ/$c-$dom.pool.$(date +%s)"
+    if grep -qE '^[[:space:]]*php_admin_value\[error_log\]' "$f"; then
+      # bloco do workflow com o nível antigo (4437: só erros graves) ou noutra pasta (conta antiga): põe-se o nível e o caminho certos
+      grep -qE "^php_admin_value\[error_reporting\] = $NIVEL_ERROS\$" "$f" && grep -qF "php_admin_value[error_log] = $raiz/error_log" "$f" && continue
+      cp -p "$f" "$cop"
+      sed -i -E "s#^(php_admin_value\[error_reporting\]) *=.*#\1 = $NIVEL_ERROS#; s#^(php_admin_value\[error_log\]) *=.*#\1 = $raiz/error_log#; s#^(slowlog) *=.*#\1 = $raiz/slow_log#" "$f"
+    else
+      cp -p "$f" "$cop"
+      sed -i -E '/^(php_admin_value\[(log_errors|error_log|error_reporting)\]|request_slowlog_timeout|slowlog) *=/d' "$f"
+      { printf '\n; vd-erros-inicio (erros do PHP gravados na pasta do site)\nphp_admin_value[log_errors] = on\n'
+        printf 'php_admin_value[error_log] = %s/error_log\nphp_admin_value[error_reporting] = %s\n' "$raiz" "$NIVEL_ERROS"
+        printf 'request_slowlog_timeout = 15s\nslowlog = %s/slow_log\n; vd-erros-fim\n' "$raiz"; } >> "$f"
+    fi
+    if [ -z "${VD_TESTE:-}" ] && ! "/usr/sbin/php-fpm$v" -t -y "$conf" -c "$ini" >/dev/null 2>&1; then
+      cp -p "$cop" "$f"; log "ERRO: $c: $dom: pool reposto (php-fpm -t falhou ao pôr o registo de erros)"; continue
+    fi
+    for a in error_log slow_log; do [ -f "$raiz/$a" ] || { touch "$raiz/$a"; chown "$c:$c" "$raiz/$a" 2>/dev/null; chmod 640 "$raiz/$a"; }; done
+    cn=/home/$c/conf/web/$dom
+    if [ -d "$cn" ] && [ ! -f "$cn/nginx.conf_erros" ]; then
+      printf 'location ~ ^/(error_log|slow_log)$ {\n    return 404;\n}\n' > "$cn/nginx.conf_erros"; chown root:"$c" "$cn/nginx.conf_erros" 2>/dev/null
+      NGINX_RECARREGAR=1
+    fi
+    log "$c: $dom: registo de erros do PHP em $raiz/error_log (nível $NIVEL_ERROS)"
+    mudou=0
+  done
+  [ -f /etc/logrotate.d/vd-erros-site ] || [ -n "${VD_TESTE:-}" ] || printf '/home/*/web/*/public_html/error_log /home/*/web/*/public_html/slow_log {\n    size 5M\n    rotate 2\n    compress\n    missingok\n    notifempty\n    copytruncate\n}\n' > /etc/logrotate.d/vd-erros-site 2>/dev/null
+  return $mudou
+}
+
 aplicar_versao() { # versão conta
   local v=$1 c=$2 d u; d=$(pasta "$v" "$c"); u=$(unidade "$v" "$c")
   gerar "$v" "$c"
@@ -222,6 +264,7 @@ aplicar_versao() { # versão conta
   mover_pools "$v" "$c" && mudou_partilhado=0
   limpar_pools "$v" "$c"
   garantir_tempo_limite "$v" "$c"
+  garantir_registo_erros "$v" "$c" || true
   if ! ls "$d"/pool.d/*.conf >/dev/null 2>&1; then
     svc_parar "$u" "$v" "$c"; rm -rf "$d"; log "$c: sem sites no PHP $v, serviço dedicado removido"; return 0
   fi
@@ -320,9 +363,15 @@ cmd_sincronizar() {
       [ -d "$d" ] || continue
       v=$(echo "$d" | sed -n "s#^$PHP/\([0-9]\.[0-9]\)/.*#\1#p")
       limpar_pools "$v" "$c"
-      ls "$d"/pool.d/*.conf >/dev/null 2>&1 || { svc_parar "$(unidade "$v" "$c")" "$v" "$c"; rm -rf "$d"; log "$c: sem sites no PHP $v, serviço dedicado removido"; }
+      ls "$d"/pool.d/*.conf >/dev/null 2>&1 || { svc_parar "$(unidade "$v" "$c")" "$v" "$c"; rm -rf "$d"; log "$c: sem sites no PHP $v, serviço dedicado removido"; continue; }
+      # pools que ficaram sem o registo de erros (ex.: refeitos pelo Hestia numa passagem de conta): volta a pôr-se e recarrega-se só esta conta
+      garantir_registo_erros "$v" "$c" && svc_iniciar_ou_recarregar "$(unidade "$v" "$c")" "$v" "$c"
     done
   done
+  # o nginx só se recarrega (suave, depois do teste) se se escreveu algum nginx.conf_erros novo
+  if [ -n "${NGINX_RECARREGAR:-}" ] && [ -z "${VD_TESTE:-}" ]; then
+    if nginx -t >/dev/null 2>&1; then systemctl reload nginx && log "nginx recarregado (registos de erros negados à web)"; else log "ERRO: nginx -t falhou; nginx.conf_erros novos não recarregados"; fi
+  fi
 }
 
 cd / || exit 1

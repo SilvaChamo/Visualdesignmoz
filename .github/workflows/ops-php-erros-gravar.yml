@@ -3,7 +3,7 @@ name: Ops - Gravar os erros do PHP na pasta do site (error_log e slow_log; sem �
 # Pedido do Silva a 28/10/2026: o Elementor falhava e nada ficava gravado na pasta do site para se ver o problema real. A leitura (ops-php-erros-leitura.yml)
 # mostrou que o pool do domínio não tem `error_log`: os erros fatais do PHP perdem-se, e o que existe (o registo do Apache, com os «timeout specified has expired»
 # do editor do Elementor) está em /var/log, fora do alcance do gestor de ficheiros. Com «aplicar», o pool do domínio passa a gravar:
-#   public_html/error_log  — erros graves do PHP (fatais, memória esgotada, erros de análise); os avisos e notas não, para não encher;
+#   public_html/error_log  — erros do PHP (fatais, memória esgotada, erros de análise e avisos); as notas e os «deprecated» não, para não encher;
 #   public_html/slow_log   — o rasto (backtrace) de todo o pedido que passe de 15 s, com o ficheiro e a linha onde estava preso (o do Elementor, por exemplo).
 # Os dois ficheiros ficam do utilizador da conta e são **negados à web** (nginx do domínio, ficheiro `nginx.conf_erros` em conf/web/<domínio>/, que o Hestia mantém
 # nas reconstruções) e rodados a 5 MB (`copytruncate`, 2 cópias). Só mexe no pool deste domínio e num ficheiro do nginx dele: nunca nos modelos do Hestia, nem
@@ -43,6 +43,9 @@ jobs:
           envs: DOMINIO,APLICAR
           script: |
             set -u
+            # o registo do GitHub nem sempre se consegue abrir: o resumo sai também como anotação da tarefa (uma linha, separada por «|»)
+            : > /tmp/saida-erros.txt; exec > >(tee -a /tmp/saida-erros.txt) 2>&1
+            trap 'sleep 1; echo "::notice title=Resumo::$(tr "\n" "|" < /tmp/saida-erros.txt | cut -c1-3500)"' EXIT
             echo "$DOMINIO" | grep -qE '^[a-z0-9.-]+$' || { echo "Domínio inválido"; exit 1; }
             titulo() { echo; echo "=================== $1"; }
             CONTA=""
@@ -66,11 +69,11 @@ jobs:
             cat <<LINHAS
             php_admin_value[log_errors] = on
             php_admin_value[error_log] = $RAIZ/error_log
-            php_admin_value[error_reporting] = 4437
+            php_admin_value[error_reporting] = 7159
             request_slowlog_timeout = 15s
             slowlog = $RAIZ/slow_log
             LINHAS
-            echo "(4437 = só erros graves: E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR, E_RECOVERABLE_ERROR)"
+            echo "(7159 = E_ALL sem notas e sem «deprecated»: erros graves, avisos, erros de análise e recuperáveis)"
             echo "nginx do domínio ($CONFNGINX/nginx.conf_erros): location ~ ^/(error_log|slow_log)\$ { return 404; }"
             if [ "$APLICAR" != "sim" ]; then titulo "Só mostrei: nada foi alterado (marca «aplicar» para gravar)"; exit 0; fi
 
@@ -83,7 +86,7 @@ jobs:
             { echo "; vd-erros-inicio (Silva, 28/10/2026: erros do PHP gravados na pasta do site)"
               echo "php_admin_value[log_errors] = on"
               echo "php_admin_value[error_log] = $RAIZ/error_log"
-              echo "php_admin_value[error_reporting] = 4437"
+              echo "php_admin_value[error_reporting] = 7159"
               echo "request_slowlog_timeout = 15s"
               echo "slowlog = $RAIZ/slow_log"
               echo "; vd-erros-fim"; } >> "$POOL"
