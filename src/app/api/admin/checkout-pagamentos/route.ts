@@ -74,6 +74,21 @@ export async function GET() {
     // URL temporário assinado para a equipa poder abrir o comprovativo.
     const signedUrls = await getAttachmentSignedUrls((data || []).map((s) => s.comprovativo_url));
 
+    // Hospedagens cuja conta já existe no servidor (o registo de renovação passa a «active» quando o servidor a cria): o botão
+    // «Criar conta de novo» só aparece enquanto isso não acontece.
+    const renovacoes: { user_id: string; domain_name: string | null; status: string | null; notes: string | null }[] = [];
+    if (userIds.length > 0) {
+      const { data: linhas } = await supabase.from('hosting_renewals').select('user_id, domain_name, status, notes').in('user_id', userIds);
+      renovacoes.push(...(linhas || []));
+    }
+    const contaExiste = (userId: string | null, pedidoId: string, itemIndex: number, dominio: unknown) => {
+      if (!userId) return false;
+      const dom = String(dominio || '').toLowerCase().trim();
+      return renovacoes.some(
+        (r) => r.user_id === userId && r.status === 'active' && (String(r.notes || '').includes(`[item:${pedidoId}:${itemIndex}]`) || (dom && String(r.domain_name || '').toLowerCase() === dom)),
+      );
+    };
+
     const pedidos = (data || []).map(({ cadastro: _cadastro, ...s }, idx) => {
       // pedido de quem ainda não tem conta (o login nasce ao confirmar): os dados digitados no checkout
       const c = s.user_id ? null : cadastroDoPedido({ cadastro: _cadastro });
@@ -88,9 +103,10 @@ export async function GET() {
       comprovativo_url: signedUrls[idx],
       user_email: cliente?.email || null,
       cliente,
-      items: (s.items as Array<Record<string, unknown>>).map((item) => ({
+      items: (s.items as Array<Record<string, unknown>>).map((item, itemIndex) => ({
         ...item,
         status: item.status ?? s.status,
+        ...(item.type === 'hosting' ? { contaCriada: contaExiste(s.user_id, s.id, itemIndex, item.hostingDomain) } : {}),
       })),
       };
     });

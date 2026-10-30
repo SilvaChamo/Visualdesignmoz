@@ -9,7 +9,7 @@ import { BarraPagina, ConsultaPagina, FaixaAbas, PesquisaPagina, TopoCartao, VHC
 import { GLOBAL, LEVELS, MENU, ROLES } from './generated/data';
 import { SEM_MENU } from './menu-contas';
 import { dominioVisivel, type DadosServidor } from './servidor';
-import { CACHE_DADOS_VHOST, apagarDadosVhost, guardarDadosVhost, lerDadosVhostGuardados, limparViaSite, tirarEntrada, viaSiteAgora } from '@/lib/vhost-cache';
+import { CACHE_DADOS_VHOST, abrirCompraPedido, apagarDadosVhost, limparAbrirCompra, guardarDadosVhost, lerDadosVhostGuardados, limparViaSite, tirarEntrada, viaSiteAgora } from '@/lib/vhost-cache';
 import { idDispositivoPresenca } from '@/lib/vhost-presenca-id';
 import { COOKIE_TEMA, lerTema, valorCookieTema, type TemaConta } from '@/lib/vhost-tema-conta';
 import { translate, type Lang } from './i18n';
@@ -298,11 +298,17 @@ function comDados(cur: St, d: DadosServidor, caminhoDesejado: string, doNavegado
     c.mails = c.mails.filter((m) => dominioVisivel(m.dom));
   }
   const primeira = cur.carga !== 'ok';
+  // acabou de comprar um plano com uma conta que já tem painel: abre o painel do plano comprado, não o principal
+  const daCompra = doNavegador && abrirCompraPedido() ? Object.keys(d.contas).find((k) => d.contas[k].propria && d.contas[k].aguarda) : undefined;
+  if (daCompra) {
+    limparAbrirCompra();
+    guardarContaActiva(d.me, daCompra);
+  }
   const n0: St = {
     ...cur,
     acc: d.contas,
     login: d.me,
-    activa: cur.activa && d.contas[cur.activa]?.propria ? cur.activa : lerContaActiva(d.me, d.contas),
+    activa: daCompra || (cur.activa && d.contas[cur.activa]?.propria ? cur.activa : lerContaActiva(d.me, d.contas)),
     pessoa: d.pessoa || null,
     stack: !primeira ? cur.stack.filter((x) => d.contas[x.u]) : doNavegador ? lerEntrarComo(d.me, d.contas) : [],
     srv: d.servidor,

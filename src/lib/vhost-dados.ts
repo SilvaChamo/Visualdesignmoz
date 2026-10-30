@@ -254,7 +254,10 @@ export function montarDados(srv: LeituraServidor, reg: RegistoSite, sessao: Sess
   }
 
   // Comprou e ainda não tem conta no servidor: conta provisória com o pacote pago (nunca para a equipa)
-  if ((!me || !contas[me]) && compra && sessao.role !== 'admin' && sessao.role !== 'reseller' && sessao.role !== 'manager') {
+  // O administrador que compra um plano vê o painel dele como uma conta sua à parte (`propria`): abre-a em vez de ficar no painel de
+  // administração, sem deixar de ser administrador (a conta provisória nunca é a sua principal, nem a equipa pode agir por ela).
+  const compraDeAdmin = Boolean(compra) && sessao.role === 'admin';
+  if (compra && (compraDeAdmin || ((!me || !contas[me]) && sessao.role !== 'reseller' && sessao.role !== 'manager'))) {
     const perfilCompra = reg.perfis.get(sessao.userId);
     const papel: Role = buyerRoleForPackage(compra.pacote) === 'profissional' ? 'profissional' : 'cliente';
     const dominiosCompra: Domain[] = compra.dominios.map((d) => ({
@@ -265,8 +268,8 @@ export function montarDados(srv: LeituraServidor, reg: RegistoSite, sessao: Sess
       status: 'ok',
       ...(compra.tipo === 'dominio' ? { soDominio: true } : compra.tipo === 'email' ? { soEmail: true } : {}),
     }));
-    me = CONTA_PROVISORIA;
-    contas[me] = {
+    if (!compraDeAdmin) me = CONTA_PROVISORIA;
+    contas[CONTA_PROVISORIA] = {
       name: (perfilCompra?.name || sessao.email.split('@')[0] || '').trim(),
       email: perfilCompra?.email || sessao.email,
       ...(perfilCompra?.empresa ? { empresa: perfilCompra.empresa } : {}),
@@ -285,14 +288,15 @@ export function montarDados(srv: LeituraServidor, reg: RegistoSite, sessao: Sess
       dbs: [],
       mails: [],
       aguarda: { motivo: compra.aguarda, plano: compra.plano },
+      ...(compraDeAdmin ? { propria: true } : {}),
     };
-    info[me] = { bw: '0 MB', ip: '', dbs: 0, criada: '—' };
+    info[CONTA_PROVISORIA] = { bw: '0 MB', ip: '', dbs: 0, criada: '—' };
   }
 
   // O que esta sessão pode ver
   const minha = contas[me];
   let visiveis: string[];
-  if (sessao.role === 'admin') visiveis = nomes;
+  if (sessao.role === 'admin') visiveis = compraDeAdmin ? [...nomes, CONTA_PROVISORIA] : nomes;
   else if (minha?.role === 'revenda') visiveis = nomes.filter((u) => u === me || contas[u].creator === me);
   else if (me) {
     // a sua conta e as contas de hospedagem adicionais da mesma pessoa (cada hospedagem comprada tem a sua conta)

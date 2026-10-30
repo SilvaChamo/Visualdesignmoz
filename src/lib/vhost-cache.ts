@@ -128,3 +128,25 @@ export function limparViaSite() {
     document.cookie = `${COOKIE_VIA_SITE}=; path=/; max-age=0`;
   } catch {}
 }
+
+/** O administrador (ou quem tem mais do que uma conta) que acaba de comprar um plano abre o painel desse plano e não o seu principal: o checkout
+ *  deixa esta marca (10 min) e o painel, ao ler os dados, passa para a conta do pedido que está à espera. */
+const ABRIR_COMPRA_LS = 'vh-abrir-compra';
+export function pedirAbrirCompra() {
+  try {
+    localStorage.setItem(ABRIR_COMPRA_LS, String(Date.now()));
+  } catch {}
+}
+export function abrirCompraPedido(): boolean {
+  try {
+    const t = Number(localStorage.getItem(ABRIR_COMPRA_LS));
+    return t > 0 && Date.now() - t < 10 * 60_000;
+  } catch {
+    return false;
+  }
+}
+export function limparAbrirCompra() {
+  try {
+    localStorage.removeItem(ABRIR_COMPRA_LS);
+  } catch {}
+}
