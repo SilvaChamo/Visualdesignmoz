@@ -1,0 +1,73 @@
+name: Ops - Quem gasta o CPU do servidor e do site (so leitura)
+
+# Só LÊ: que serviços gastam mais CPU agora (cgroups, duas amostras), e, no Apache do site, os endereços mais pedidos nos últimos minutos, os agentes
+# (robôs) mais frequentes, quantos pedidos levam parâmetros (furam a cache de página) e quantos vão a wp-cron.php e admin-ajax.php. Não altera nada.
+# Pedido do Silva a 30/10/2026: o entrecamposblog.com continua a cair com o limite de CPU a travar o PHP.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dominio:
+        description: 'Domínio'
+        required: true
+        default: 'entrecamposblog.com'
+
+concurrency:
+  group: ops-php-quem-gasta
+  cancel-in-progress: false
+
+jobs:
+  leitura:
+    runs-on: ubuntu-latest
+    steps:
+      - name: CPU por serviço e pedidos do site (servidor, só leitura)
+        uses: appleboy/ssh-action@v1.2.5
+        env:
+          DOMINIO: ${{ inputs.dominio }}
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          port: 2234
+          username: root
+          key: ${{ secrets.CONTABO_SSH_KEY }}
+          command_timeout: 5m
+          envs: DOMINIO
+          script: |
+            set -u
+            echo "$DOMINIO" | grep -qE '^[a-z0-9.-]{3,80}$' || { echo "Domínio inválido"; exit 1; }
+            t() { echo; echo "=================== $1"; }
+            t "1. CPU por serviço (média de 10 s; 100% = 1 núcleo; o servidor tem 6)"
+            systemd-cgtop -b -n 2 -d 10 --order=cpu 2>/dev/null | awk 'BEGIN{n=0} /^Control Group/ {n++} n==2' | head -16 | cut -c1-110
+            echo "carga: $(cut -d' ' -f1-3 /proc/loadavg) · CPU em espera (pressão): $(grep '^some' /proc/pressure/cpu)"
+            L=/var/log/apache2/domains/$DOMINIO.log
+            t "2. Pedidos ao Apache do site nos últimos 5 minutos ($L)"
+            AGORA=$(date +%s)
+            tail -n 6000 "$L" > /tmp/qg-acessos.log 2>/dev/null
+            python3 - "$AGORA" <<'PY'
+            import sys, re, collections, datetime
+            agora = int(sys.argv[1])
+            pad = re.compile(r'^(\S+) \S+ \S+ \[([^\]]+)\] "(\S+) (\S+) [^"]*" (\d+) \S+ "[^"]*" "([^"]*)"')
+            meses = {'Jan':1,'Feb':2,'Mar':3,'Apr':4,'May':5,'Jun':6,'Jul':7,'Aug':8,'Sep':9,'Oct':10,'Nov':11,'Dec':12}
+            urls = collections.Counter(); uas = collections.Counter(); ips = collections.Counter(); estados = collections.Counter(); comparam = 0; total = 0
+            for l in open('/tmp/qg-acessos.log', errors='replace'):
+                m = pad.match(l)
+                if not m: continue
+                ip, quando, met, url, est, ua = m.groups()
+                try:
+                    d, mes, resto = quando.split('/', 2); ano, h, mi, s = resto.split(':', 3); s = s.split()[0]
+                    t = datetime.datetime(int(ano), meses[mes], int(d), int(h), int(mi), int(s)).timestamp()
+                except Exception: continue
+                if agora - (t - 7200) > 300 and agora - t > 300: continue
+                total += 1; urls[met + ' ' + url.split('?')[0]] += 1; uas[ua[:70]] += 1; estados[est] += 1
+                ips[re.sub(r'(\d+)$', 'x', ip) if '.' in ip else ip] += 1
+                if '?' in url: comparam += 1
+            print('pedidos nos últimos 5 min:', total, '· com parâmetros (furam a cache de página):', comparam)
+            print('--- estados:', dict(estados.most_common(6)))
+            print('--- endereços mais pedidos:'); [print('  %5d %s' % (n, u)) for u, n in urls.most_common(14)]
+            print('--- agentes (robôs/navegadores) mais frequentes:'); [print('  %5d %s' % (n, u)) for u, n in uas.most_common(10)]
+            print('--- quem pede:'); [print('  %5d %s' % (n, u)) for u, n in ips.most_common(8)]
+            PY
+            t "3. Pool PHP do site agora: trabalhadores e fila"
+            U=$(/usr/local/hestia/bin/v-search-domain-owner "$DOMINIO" 2>/dev/null | head -1)
+            echo "processos php-fpm da conta: $(ps -u "$U" -o pid,etime,pcpu,stat,args 2>/dev/null | grep -c 'php-fpm: pool')"
+            ps -u "$U" -o pid,etime,pcpu,stat,args --sort=-pcpu 2>/dev/null | grep 'php-fpm: pool' | head -10 | cut -c1-90
+            t "fim da leitura (nada foi alterado)"

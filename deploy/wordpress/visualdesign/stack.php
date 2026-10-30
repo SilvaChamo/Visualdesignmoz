@@ -475,3 +475,141 @@ function vd_guardar_actualizacoes_plugins(): void
 	}
 	update_option('vd_plugin_updates', ['em' => time(), 'plugins' => $lista], false);
 }
+
+/**
+ * Imagens: comprimidas e convertidas em WebP ao subir, em todos os sites WordPress do servidor (Silva, 30/10/2026).
+ * Nada é recusado: uma imagem JPEG, PNG ou WebP, de qualquer tamanho, é redimensionada (lado maior até 2560 px), comprimida sem perda visível
+ * (WebP, qualidade 82 a descer até 58) até ficar com no máximo 250 KB, e grava-se como .webp. Se mesmo assim passar de 250 KB, reduz-se 15% de cada
+ * vez até caber (nunca abaixo de 800 px no lado maior). Imagens animadas, SVG, GIF e ficheiros que não sejam imagem ficam como estão. Qualquer erro
+ * deixa o ficheiro original: o envio nunca falha por causa disto.
+ */
+const VD_IMG_MAX_BYTES = 256000;
+const VD_IMG_MAX_LADO = 2560;
+const VD_IMG_MIN_LADO = 800;
+
+add_filter('wp_handle_upload', 'vd_img_otimizar_upload', 20, 1);
+
+function vd_img_otimizar_upload($upload)
+{
+	try {
+		return vd_img_otimizar_upload_interno($upload);
+	} catch (\Throwable $e) {
+		return $upload;
+	}
+}
+
+function vd_img_codificar($im, int $qualidade): string
+{
+	ob_start();
+	imagewebp($im, null, $qualidade);
+	return (string) ob_get_clean();
+}
+
+function vd_img_otimizar_upload_interno($upload)
+{
+	if (!is_array($upload) || !empty($upload['error']) || empty($upload['file']) || empty($upload['url'])) {
+		return $upload;
+	}
+	if (!function_exists('imagewebp') || !function_exists('imagecreatetruecolor')) {
+		return $upload;
+	}
+	$tipo = (string) ($upload['type'] ?? '');
+	$carregar = ['image/jpeg' => 'imagecreatefromjpeg', 'image/png' => 'imagecreatefrompng', 'image/webp' => 'imagecreatefromwebp'];
+	if (!isset($carregar[$tipo]) || !function_exists($carregar[$tipo])) {
+		return $upload;
+	}
+	$ficheiro = (string) $upload['file'];
+	if (!is_file($ficheiro) || !is_readable($ficheiro)) {
+		return $upload;
+	}
+	$cabeca = (string) @file_get_contents($ficheiro, false, null, 0, 4096);
+	if (str_contains($cabeca, 'ANIM') || str_contains($cabeca, 'acTL')) {
+		return $upload; // WebP ou PNG animado
+	}
+	$info = @getimagesize($ficheiro);
+	if (!$info || empty($info[0]) || empty($info[1]) || $info[0] * $info[1] > 80000000) {
+		return $upload;
+	}
+	@ini_set('memory_limit', '1024M');
+	@set_time_limit(120);
+
+	$im = @($carregar[$tipo])($ficheiro);
+	if (!$im) {
+		return $upload;
+	}
+	if ($tipo === 'image/jpeg' && function_exists('exif_read_data') && function_exists('imagerotate')) {
+		$exif = @exif_read_data($ficheiro);
+		$o = (int) ($exif['Orientation'] ?? 1);
+		$graus = [3 => 180, 6 => -90, 8 => 90][$o] ?? 0;
+		if ($graus) {
+			$rodada = @imagerotate($im, $graus, 0);
+			if ($rodada) {
+				$im = $rodada;
+			}
+		}
+	}
+	if (function_exists('imagepalettetotruecolor')) {
+		@imagepalettetotruecolor($im);
+	}
+	imagealphablending($im, false);
+	imagesavealpha($im, true);
+
+	$redimensionar = static function ($im, int $lado) {
+		$w = imagesx($im);
+		$h = imagesy($im);
+		$maior = max($w, $h);
+		if ($maior <= $lado) {
+			return $im;
+		}
+		$nw = max(1, (int) round($w * $lado / $maior));
+		$nh = max(1, (int) round($h * $lado / $maior));
+		$novo = @imagescale($im, $nw, $nh, IMG_BICUBIC);
+		if (!$novo) {
+			return $im;
+		}
+		imagealphablending($novo, false);
+		imagesavealpha($novo, true);
+		return $novo;
+	};
+	$im = $redimensionar($im, VD_IMG_MAX_LADO);
+
+	$blob = '';
+	for ($ronda = 0; $ronda < 6; $ronda++) {
+		foreach ([82, 78, 74, 70, 66, 62, 58] as $q) {
+			$blob = vd_img_codificar($im, $q);
+			if ($blob !== '' && strlen($blob) <= VD_IMG_MAX_BYTES) {
+				break 2;
+			}
+		}
+		$lado = (int) round(max(imagesx($im), imagesy($im)) * 0.85);
+		if ($lado < VD_IMG_MIN_LADO) {
+			break;
+		}
+		$im = $redimensionar($im, $lado);
+	}
+	imagedestroy($im);
+	if ($blob === '') {
+		return $upload;
+	}
+	$original = (int) filesize($ficheiro);
+	// nunca piorar: se o original já era pequeno e o resultado não é menor, fica o original
+	if ($original <= VD_IMG_MAX_BYTES && strlen($blob) >= $original) {
+		return $upload;
+	}
+
+	$dir = dirname($ficheiro);
+	$base = preg_replace('/\.[^.]+$/', '', basename($ficheiro));
+	$nome = $tipo === 'image/webp' ? basename($ficheiro) : wp_unique_filename($dir, $base . '.webp');
+	$novo = $dir . '/' . $nome;
+	if (@file_put_contents($novo, $blob) === false) {
+		return $upload;
+	}
+	@chmod($novo, 0644);
+	if ($novo !== $ficheiro) {
+		@unlink($ficheiro);
+	}
+	$upload['file'] = $novo;
+	$upload['url'] = substr((string) $upload['url'], 0, (int) strrpos((string) $upload['url'], '/') + 1) . $nome;
+	$upload['type'] = 'image/webp';
+	return $upload;
+}
