@@ -407,7 +407,7 @@ export async function fulfillCheckout(
    *  decide-se olhando para o pedido inteiro, não só para o item que se confirma. */
   itensDoPedido?: CatalogCartItem[],
   /** `chave`: identifica este item do pedido (`<pedido>:<posição>`); repetir o «Confirmar» depois de uma falha não duplica o registo da hospedagem. */
-  opcoes: { esperarServidor?: boolean; chave?: string } = {},
+  opcoes: { esperarServidor?: boolean; chave?: string; repetir?: boolean } = {},
 ) {
   const avisos: string[] = [];
   const today = new Date().toISOString().split('T')[0];
@@ -742,7 +742,11 @@ export async function fulfillCheckout(
           esperar: opcoes.esperarServidor,
           repetida: reutilizada,
         });
-        if (!feita.ok) avisos.push(`${domainName}: não foi possível registar a conta (${feita.error || 'erro desconhecido'}).`);
+        if (!feita.ok) {
+          // no «Confirmar» o pedido fica por confirmar para se poder repetir; os outros caminhos (cartão, saldo) só avisam
+          if (opcoes.chave) throw new Error(`${domainName}: não foi possível registar a conta (${feita.error || 'erro desconhecido'}). O pedido continua por confirmar.`);
+          avisos.push(`${domainName}: não foi possível registar a conta (${feita.error || 'erro desconhecido'}).`);
+        }
         else if (feita.servidor?.pendente) avisos.push(`${domainName}: a conta ainda está a ser criada no servidor; confirme daqui a pouco na lista de utilizadores.`);
         else if (feita.servidor?.ok && feita.servidor.aviso) avisos.push(`${domainName}: ${feita.servidor.aviso}`);
         else if (feita.servidor && !feita.servidor.ok) avisos.push(`${domainName}: a conta não foi criada no servidor (${feita.servidor.error || 'erro desconhecido'}).`);
@@ -805,7 +809,7 @@ export async function fulfillCheckout(
     if (!conta.ok) await alertAdminOfTrackingFailure('conta só de domínio', `${soDominios.join(', ')}: ${conta.error}`);
   }
 
-  await supabase.from('pagamentos').insert({
+  if (!opcoes.repetir) await supabase.from('pagamentos').insert({
     user_id: userId,
     domain: items.map((i) => i.name).join(', '),
     valor: total,
