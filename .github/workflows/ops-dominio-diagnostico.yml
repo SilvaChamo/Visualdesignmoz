@@ -10,6 +10,9 @@ on:
       dominio:
         description: 'Domínio (ex.: entrecamposblog.com)'
         required: true
+  push:
+    branches: [continuar-correccoes-contas-e-dominios]
+    paths: ['.github/workflows/ops-dominio-diagnostico.yml']
         default: 'entrecamposblog.com'
 
 concurrency:
@@ -23,7 +26,7 @@ jobs:
       - name: Diagnóstico do domínio (só leitura)
         uses: appleboy/ssh-action@v1.2.5
         env:
-          DOMINIO: ${{ inputs.dominio }}
+          DOMINIO: ${{ inputs.dominio || 'entrecamposblog.com' }}
         with:
           host: ${{ secrets.CONTABO_HOST }}
           port: 2234
@@ -102,6 +105,22 @@ jobs:
             ls -1t /root/vh-passagens 2>/dev/null | head -4; tail -n 4 /root/vh-passagens/registo.log 2>/dev/null
             echo "--- registo do Hestia sobre este domínio (últimas linhas):"
             grep -h "$DOMINIO" /usr/local/hestia/log/system.log 2>/dev/null | tail -n 12 | cut -c1-200
+            echo
+            echo "=== pools PHP: este domínio contra um que ficou bom (mltmark.com) e o basededadosagro.com"
+            ls -l /etc/php/*/fpm/pool.d/ 2>/dev/null | grep -E "entrecampos|mltmark|basededados" | awk '{print $3":"$4, $NF}'
+            for x in entrecamposblog.com mltmark.com basededadosagro.com; do
+              o=$($H/v-search-domain-owner "$x" 2>/dev/null | head -1)
+              echo "--- $x: dono=$o suspenso=$(grep "DOMAIN='$x'" /usr/local/hestia/data/users/$o/web.conf 2>/dev/null | grep -c "SUSPENDED='yes'") backend=$(grep "DOMAIN='$x'" /usr/local/hestia/data/users/$o/web.conf 2>/dev/null | grep -o "BACKEND='[^']*'")"
+              ls /home/$o/conf/web/$x/ 2>&1 | tr '\n' ' '; echo
+              grep -rl "$x" /etc/php /etc/systemd/system /home/$o/conf/web/$x 2>/dev/null | grep -iE "fpm|pool|\.service" | head -5
+            done
+            echo "--- unidades vd-php-fpm: $(systemctl list-units --all --no-legend 'vd-php-fpm-*' 2>/dev/null | awk '{print $1, $3, $4}' | head -12 | tr '\n' ';')"
+            echo "--- modelos de pool do Hestia: $(ls /usr/local/hestia/data/templates/web/php-fpm/ 2>/dev/null | tr '\n' ' ')"
+            echo "--- de onde vem o erro «pool doesn't exist»:"
+            grep -rn "pool doesn't exist" /usr/local/hestia/bin /usr/local/hestia/func 2>/dev/null | head -5
+            for f in $(grep -rln "pool doesn't exist" /usr/local/hestia/bin 2>/dev/null | head -2); do echo "== $f"; grep -n -B8 "pool doesn't exist" "$f" | head -25; done
+            echo "--- v-unsuspend-web-domain (o que faz):"
+            grep -vE "^#|^$" $H/v-unsuspend-web-domain | head -45 | cut -c1-150
             echo
             echo "=== erros recentes (nginx e Apache deste domínio)"
             for f in /var/log/nginx/domains/"$DOMINIO".error.log /var/log/apache2/domains/"$DOMINIO".error.log; do
