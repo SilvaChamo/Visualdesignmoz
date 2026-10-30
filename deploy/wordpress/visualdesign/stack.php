@@ -13,6 +13,29 @@ if (defined('WP_CLI') && WP_CLI && getenv('VD_CTX_ADMIN') === '1') {
 }
 
 /**
+ * vd-wpo-gzip (Silva, 30/10/2026): o separador «Gzip» do WP-Optimize pede, em PHP, o próprio endereço do site (WP_Optimize_Gzip_Compression::get_headers_information →
+ * wp_remote_get) para ver se a compressão está ligada. Neste servidor um site não consegue abrir-se a si próprio de forma fiável (o pedido fica pendurado até ao tempo
+ * limite) e a página das definições demorava 15 a 60 s, passava o tempo do Apache («AH01075 … timeout») e dava erro 500. A compressão faz-se no nginx e na Cloudflare, por
+ * isso essa verificação não serve; só se corta o pedido vindo dessa classe ao próprio site (nada mais), que devolve logo um erro e a página abre.
+ */
+add_filter('pre_http_request', static function ($pre, $args, $url) {
+	if ($pre !== false) {
+		return $pre;
+	}
+	$host = (string) wp_parse_url((string) $url, PHP_URL_HOST);
+	$meu  = (string) wp_parse_url(home_url(), PHP_URL_HOST);
+	if ($host === '' || $meu === '' || strcasecmp(preg_replace('/^www\./i', '', $host), preg_replace('/^www\./i', '', $meu)) !== 0) {
+		return $pre;
+	}
+	foreach (debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 16) as $f) {
+		if (isset($f['class']) && stripos((string) $f['class'], 'WP_Optimize_Gzip_Compression') !== false) {
+			return new WP_Error('vd_pedido_ao_proprio_site', 'Pedido ao próprio site não permitido neste servidor.');
+		}
+	}
+	return $pre;
+}, 1, 3);
+
+/**
  * vd-alias-jet-wp-error (Silva, 30/10/2026): o Jet Elements escreve `new WP_Error(...)` dentro do espaço de nomes `Jet_Elements\Endpoints`, sem a barra
  * inicial, e quando a verificação de permissão de um pedido REST falha o PHP procura `Jet_Elements\Endpoints\WP_Error`, que não existe, e dá erro fatal
  * (500; visto em entrecamposblog.com ao abrir as definições do WP-Optimize, elementor-template.php:255). O alias faz esse nome apontar para o WP_Error
