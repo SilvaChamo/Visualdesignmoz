@@ -144,6 +144,10 @@ export function montarDados(srv: LeituraServidor, reg: RegistoSite, sessao: Sess
   const perfil = reg.perfis.get(sessao.userId);
   let me = (perfil?.conta || '').toLowerCase();
   if (!me || !srv.users[me]) me = [...reg.contas].find(([, r]) => r.authUserId === sessao.userId)?.[0] || '';
+  // O administrador entra sempre na conta de administração do servidor: uma conta de hospedagem que ele comprou (plano Pro, por
+  // exemplo) é uma conta de cliente como as outras e não passa a ser «a sua conta» (Silva, 30/10/2026).
+  const eContaDeAdmin = (u: string) => (srv.users[u]?.ROLE || '').toLowerCase() === 'admin' || u === apiUser;
+  if (sessao.role === 'admin' && me && !eContaDeAdmin(me)) me = '';
   // Sem conta própria ligada, só uma sessão de administrador fica com a conta de administração do servidor. Antes
   // qualquer sessão caía aqui: um cliente sem conta ligada (ex.: só domínio ou só e-mail) via — e, pelas rotas que
   // autorizam com esta lista (domínio, e-mail, bd, avançado, sistema), alterava — a conta vdadmin, e tinha o Admin.
@@ -161,7 +165,7 @@ export function montarDados(srv: LeituraServidor, reg: RegistoSite, sessao: Sess
     // Profissional. Pacotes fora dos planos seguem o papel do perfil; "manager" é sempre Profissional.
     const doPlano = buyerRoleForPackage(x.PACKAGE);
     let role: Role =
-      (x.ROLE || '').toLowerCase() === 'admin' || u === apiUser || p?.role === 'admin'
+      (x.ROLE || '').toLowerCase() === 'admin' || u === apiUser || (p?.role === 'admin' && !doPlano)
         ? 'admin'
         : p?.role === 'reseller'
           ? 'revenda'

@@ -150,7 +150,9 @@ export async function provisionHostingAccountOnPanel(params: {
       .eq('user_id', userId)
       .eq('panel_slug', PANEL_SLUG.toLowerCase())
       .maybeSingle();
-    const adicional = Boolean(String(existingProfile?.da_username || '').trim()) || ligacao?.server_linked === true;
+    // A equipa (administrador, gestor, revendedor) nunca troca a sua conta principal por uma compra: cada hospedagem que compra é uma conta nova
+    const daEquipa = ['admin', 'manager', 'reseller'].includes(existingProfile?.role || '');
+    const adicional = Boolean(String(existingProfile?.da_username || '').trim()) || ligacao?.server_linked === true || daEquipa;
     if (!adicional) {
       const { saveProfileForAuthUser: savePassword } = await import('@/lib/profile-db');
       await savePassword(admin, userId, {
