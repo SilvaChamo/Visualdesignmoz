@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: mensagemContaExiste(dados.email, 'responsavel') }, { status: 409 });
     }
     const itensValidados = toValidatedCartItems(resolved);
-    const erroConta = await validarContasDeHospedagem(admin, itensValidados);
+    const erroConta = await validarContasDeHospedagem(admin, itensValidados, { email: dados.email });
     if (erroConta) return NextResponse.json({ error: erroConta }, { status: 400 });
 
     const { totalMt } = acrescentarIva(resolved.reduce((sum, r) => sum + r.priceMt, 0));

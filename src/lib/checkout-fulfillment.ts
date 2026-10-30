@@ -9,6 +9,7 @@ import { upsertMirrorUser, upsertMirrorSite } from '@/lib/panel-mirror-write';
 import { provisionPanelAccountToServer } from '@/lib/panel-server-provision';
 import { getAdminDirectAdminAPI } from '@/lib/directadmin-adapter';
 import { listPackages as listHestiaPackages } from '@/lib/hestia-adapter';
+import { nomeContaOcupado } from '@/lib/conta-hospedagem-servidor';
 import { getDaSyncAdmin } from '@/lib/da-sync-schema';
 import { autoProvisionPurchasedDomain } from '@/lib/domain-purchase-provision';
 import { requiresManualRegistration } from '@/lib/domain-registration-support';
@@ -80,7 +81,7 @@ async function resolveHostingPackageName(planId: string, provider: 'directadmin'
  * que faz a sincronização real de forma assíncrona e best-effort, com nova
  * tentativa automática mais tarde se falhar).
  */
-async function pickAvailableMirrorUsername(base: string, repetida: { userId: string; domain: string } | null): Promise<string> {
+async function pickAvailableMirrorUsername(base: string, dono: { id: string; email: string }, repetida: { userId: string; domain: string } | null): Promise<string> {
   const sb = getDaSyncAdmin();
   const sanitized = sanitizeDaUsername(base);
   if (!sb) return sanitized;
@@ -93,9 +94,9 @@ async function pickAvailableMirrorUsername(base: string, repetida: { userId: str
       if (dono?.auth_user_id === repetida.userId) return String(site.owner);
     }
   }
+  // o nome escolhido no checkout só passa para um parecido se ocupado de verdade (conta no servidor, ou reservado por outra pessoa)
   for (const candidate of [sanitized, `${sanitized}1`, `${sanitized}2`, `${sanitized}${Date.now().toString().slice(-4)}`]) {
-    const { data } = await sb.from('panel_users').select('username').eq('username', candidate).maybeSingle();
-    if (!data) return candidate;
+    if (!(await nomeContaOcupado(sb, candidate, dono))) return candidate;
   }
   return `${sanitized}${Date.now().toString().slice(-6)}`;
 }
@@ -136,7 +137,7 @@ export async function provisionHostingAccountOnPanel(params: {
   const { admin, userId, email, displayName, domainName, packageName, renewalId } = params;
   try {
     const password = params.sharedPassword || generateProvisionerPassword();
-    const daUsername = await pickAvailableMirrorUsername(params.username || domainName.split('.')[0] || email.split('@')[0], params.repetida ? { userId, domain: domainName } : null);
+    const daUsername = await pickAvailableMirrorUsername(params.username || domainName.split('.')[0] || email.split('@')[0], { id: userId, email }, params.repetida ? { userId, domain: domainName } : null);
 
     // Painel pelo plano (ver promoteBuyerAfterPurchase): Pro/Business/Enterprise
     // → 'profissional'; Básico → 'client'. Contas da equipa
