@@ -206,5 +206,9 @@ jobs:
             echo "$u -> $c (esperado 200)"; RES="$RES | $u $c"
             [ "$c" = 200 ] || falhou=1
           done
+          for a in error_log slow_log; do
+            curl -s -m 30 -D /tmp/h.txt -o /tmp/b.txt "https://entrecamposblog.com/$a" || true
+            RES="$RES | DETALHE $a: $(head -1 /tmp/h.txt | tr -d '\r') · $(grep -i '^content-type' /tmp/h.txt | tr -d '\r') · $(grep -i '^cf-cache-status' /tmp/h.txt | tr -d '\r') · $(wc -c < /tmp/b.txt) bytes · começa por PHP? $(head -c 300 /tmp/b.txt | grep -c 'PHP ')"
+          done
           echo "::notice title=Fora::$RES"
           exit $falhou
