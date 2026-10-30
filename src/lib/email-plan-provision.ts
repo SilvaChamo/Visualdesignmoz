@@ -12,6 +12,7 @@
  * DirectAdmin (Hetzner): continua só no espelho (licença do servidor sem
  * espaço para mais contas).
  */
+import { chavePacote } from '@/lib/pacote-nome';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { sanitizeDaUsername } from '@/lib/reseller-provision';
 import { generateProvisionerPassword } from '@/lib/reseller-auto-provision';
@@ -52,7 +53,7 @@ async function findLeftoverEmailPlanAccount(
   const hestia = await import('@/lib/hestia-adapter');
   const email = clientEmail.trim().toLowerCase();
   const candidates = (await hestia.listUsers()).filter(
-    (u) => u.email.trim().toLowerCase() === email && u.packageName === hestiaPackage,
+    (u) => u.email.trim().toLowerCase() === email && chavePacote(u.packageName) === chavePacote(hestiaPackage),
   );
   const sb = getDaSyncAdmin();
   for (const u of candidates) {

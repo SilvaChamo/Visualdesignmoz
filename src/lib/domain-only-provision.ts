@@ -16,6 +16,7 @@ import { upsertMirrorSite, upsertMirrorUser } from '@/lib/panel-mirror-write';
 import { pickAvailableMirrorUsername } from '@/lib/email-plan-provision';
 
 import { PACOTE_SO_DOMINIO } from '@/lib/pacotes-compra';
+import { chavePacote } from '@/lib/pacote-nome';
 export { PACOTE_SO_DOMINIO };
 const NOME_DO_PLANO = 'Só domínio';
 
@@ -37,7 +38,7 @@ export async function provisionDomainOnlyAccount(
   if (contaAtual && contas.some((u) => u.username === contaAtual)) {
     // já tem conta no servidor: só a do plano "só domínio" recebe os domínios novos; as outras (alojamento, e-mail)
     // gerem os domínios pelo próprio plano
-    if (contas.find((u) => u.username === contaAtual)?.packageName !== PACOTE_SO_DOMINIO) return { ok: true, username: null };
+    if (chavePacote(contas.find((u) => u.username === contaAtual)?.packageName) !== chavePacote(PACOTE_SO_DOMINIO)) return { ok: true, username: null };
     username = contaAtual;
   } else {
     const taken = new Set(contas.map((u) => u.username.toLowerCase()));

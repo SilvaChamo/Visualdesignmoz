@@ -1,3 +1,4 @@
+import { chavePacote, eHospedagemBasica, familiaDoPacote } from '@/lib/pacote-nome';
 import {
   ADMIN_BOOTSTRAP_EMAILS,
   resolveRegistryPanelRole,
@@ -49,21 +50,24 @@ function readRole(value: unknown): UserRole | null {
  * planos de e-mail e os domínios ficam no painel Cliente. Cada conta vê os limites do seu plano.
  */
 const PROFISSIONAL_HOSTING_PLANS = new Set(['hosting-pro', 'hosting-business', 'hosting-enterprise']);
-const PROFISSIONAL_PACKAGES = new Set(['vd-host-pro', 'vd-host-business', 'vd-host-enterprise']);
-// vd-dominio: quem compra só um domínio (painel só com o domínio, Silva 17/10/2026)
-const CLIENT_PACKAGES = new Set(['vd-host-basico', 'vd-email-basico', 'vd-email-premium', 'vd-email-enterprise', 'vd-dominio']);
+const PROFISSIONAL_PACKAGES = new Set(['vhost-pro', 'vhost-business', 'vhost-enterprise']);
+// vhost-dominio: quem compra só um domínio (painel só com o domínio, Silva 17/10/2026)
+const CLIENT_PACKAGES = new Set(['vhost-basico', 'vhost-email-basico', 'vhost-email-premium', 'vhost-email-enterprise', 'vhost-dominio']);
 
 /** Plano do carrinho (`hosting-pro`, …) que dá o painel Profissional. */
 export function isProfissionalHostingPlan(planId: string | null | undefined): boolean {
   return PROFISSIONAL_HOSTING_PLANS.has(String(planId || '').trim().toLowerCase());
 }
 
-/** Papel de comprador pelo pacote do servidor (VD-Host-*, VD-Email-*); null para pacotes fora dos planos. */
+/** Papel de comprador pelo pacote do servidor (vhost-*, e os nomes antigos VD-*); null para pacotes fora dos planos. */
 export function buyerRoleForPackage(packageName: string | null | undefined): 'profissional' | 'client' | null {
-  const key = String(packageName || '').trim().toLowerCase();
+  const key = chavePacote(packageName);
   if (PROFISSIONAL_PACKAGES.has(key)) return 'profissional';
   if (CLIENT_PACKAGES.has(key)) return 'client';
-  return null;
+  // pacote novo criado em Admin › Pacotes: só o «Básico» (e os de e-mail e domínio) dá o painel Cliente; os outros de hospedagem, o Profissional
+  const familia = familiaDoPacote(key);
+  if (!familia) return null;
+  return familia === 'hospedagem' && !eHospedagemBasica(key) ? 'profissional' : 'client';
 }
 
 /** Resolve o papel efectivo do utilizador */

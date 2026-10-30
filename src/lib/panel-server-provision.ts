@@ -13,6 +13,7 @@ import { getDaSyncAdmin } from '@/lib/da-sync-schema';
 import { PANEL_SLUG } from '@/lib/panel-tenant';
 import type { UserRole } from '@/lib/user-roles';
 import { patchMirrorUser } from '@/lib/panel-mirror-write';
+import { procurarPacote } from '@/lib/pacotes-compra';
 import { runHestiaFullSyncDeduped } from '@/lib/hestia-sync-engine';
 import { getProviderByUsername, isHestiaOnlyDeploy } from '@/lib/hosting-provider';
 import { getServerHost } from '@/lib/server-config';
@@ -138,7 +139,7 @@ export async function provisionPanelAccountToServer(userName: string, opcoes: { 
     .find((s) => (s.owner || '').toLowerCase() === username.toLowerCase());
 
   const domain = String(site?.domain || `${username}.com`).trim().toLowerCase();
-  const packageName = String(panelUser.package_name || site?.package || 'Default').trim() || 'Default';
+  let packageName = String(panelUser.package_name || site?.package || 'Default').trim() || 'Default';
   const email = String(site?.adminEmail || panelUser.email || authRow?.email || '').trim();
 
   if (!email.includes('@')) {
@@ -166,6 +167,14 @@ export async function provisionPanelAccountToServer(userName: string, opcoes: { 
   const provider = isHestiaOnlyDeploy()
     ? 'hestia'
     : await getProviderByUsername(username);
+
+  // O pacote da conta tem de existir no servidor (com o nome novo ou o antigo). Se não existir não se cria a conta noutro pacote:
+  // fica por criar, com a mensagem a dizer o que falta.
+  if (provider === 'hestia') {
+    const achado = procurarPacote(packageName, (await hestiaAdapter.listPackages()).map((p) => p.packageName));
+    if ('erro' in achado) return { ok: false, linked: false, error: achado.erro };
+    packageName = achado.nome;
+  }
 
   const result =
     provider === 'hestia'
