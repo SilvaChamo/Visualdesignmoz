@@ -20,6 +20,10 @@ on:
         description: 'Aplicar de verdade (desmarcado: só mostra)'
         type: boolean
         default: false
+      todos:
+        description: 'Todos os sites WordPress do servidor (ignora o domínio): corre o vd-php-conta registo-erros desta versão'
+        type: boolean
+        default: false
 
 concurrency:
   group: ops-php-erros
@@ -27,6 +31,7 @@ concurrency:
 
 jobs:
   gravar:
+    if: ${{ !inputs.todos }}
     runs-on: ubuntu-latest
     steps:
       - name: Pool do domínio (servidor)
@@ -115,6 +120,7 @@ jobs:
             titulo "fim"
 
   fora:
+    if: ${{ !inputs.todos }}
     # confirmação vista de fora (o servidor não abre os próprios sites): os registos não se abrem pela web (403 ou 404, nunca 200) e o site e os sites críticos respondem
     needs: gravar
     runs-on: ubuntu-latest
@@ -130,5 +136,74 @@ jobs:
             c=$(curl -s -o /dev/null -m 30 -L -w '%{http_code}' "$url")
             echo "$url -> $c (esperado $esperado)"
             case "$esperado:$c" in 40x:403|40x:404) ;; *) [ "$c" = "$esperado" ] || falhou=1;; esac
+          done
+          exit $falhou
+
+  # --- todos os sites WordPress (Silva, 30/10/2026): o mesmo registo de erros em cada pool dedicado de um site WordPress, não só num domínio ---
+  todos:
+    if: ${{ inputs.todos }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Empacotar o vd-php-conta
+        id: pacote
+        run: echo "script=$(base64 -w0 deploy/php-conta/vd-php-conta)" >> "$GITHUB_OUTPUT"
+
+      - name: Registo de erros nos sites WordPress (servidor)
+        uses: appleboy/ssh-action@v1.2.5
+        env:
+          SCRIPT: ${{ steps.pacote.outputs.script }}
+          APLICAR: ${{ inputs.aplicar && 'sim' || 'nao' }}
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          port: 2234
+          username: root
+          key: ${{ secrets.CONTABO_SSH_KEY }}
+          command_timeout: 8m
+          envs: SCRIPT,APLICAR
+          script: |
+            set -u
+            # o registo do GitHub nem sempre se consegue abrir: o resumo sai também como anotação da tarefa (uma linha, separada por «|»)
+            : > /tmp/saida-erros-todos.txt; exec > >(tee -a /tmp/saida-erros-todos.txt) 2>&1
+            trap 'sleep 1; echo "::notice title=Resumo::$(tr "\n" "|" < /tmp/saida-erros-todos.txt | cut -c1-3500)"' EXIT
+            T=/tmp/vd-php-conta-novo; echo "$SCRIPT" | base64 -d > "$T"; chmod 700 "$T"
+            bash -n "$T" || { echo "ERRO: o vd-php-conta novo tem erro de sintaxe; nada foi mudado"; exit 1; }
+            grep -q "cmd_registo_erros" "$T" || { echo "ERRO: o vd-php-conta não tem o registo-erros"; exit 1; }
+            echo "=== sites WordPress com PHP dedicado ($( [ "$APLICAR" = sim ] && echo aplicar || echo 'só leitura' ))"
+            if [ "$APLICAR" = sim ]; then nice -n 10 ionice -c3 "$T" registo-erros; else VD_SIMULAR=1 "$T" registo-erros; fi
+            rm -f "$T"
+            echo "=== sites WordPress sem PHP dedicado (nada a fazer aqui):"
+            for d in /home/*/web/*/public_html; do
+              [ -f "$d/wp-config.php" ] || continue
+              u=$(echo "$d" | cut -d/ -f3); dom=$(echo "$d" | cut -d/ -f5)
+              ls /etc/php/*/fpm-contas/"$u"/pool.d/"$dom".conf >/dev/null 2>&1 || echo "$u $dom"
+            done
+            echo "=== error_log na pasta de cada site WordPress"
+            for d in /home/*/web/*/public_html; do
+              [ -f "$d/wp-config.php" ] || continue
+              echo "$(echo "$d" | cut -d/ -f5): $(ls -la "$d/error_log" 2>/dev/null | awk '{print $5" bytes, "$6" "$7" "$8}' || true)$([ -f "$d/error_log" ] || echo 'sem error_log')"
+            done
+
+  fora-todos:
+    if: ${{ inputs.todos }}
+    # confirmação vista de fora (o servidor não abre os próprios sites): os registos não se abrem pela web (403 ou 404, nunca 200) e os sites respondem
+    needs: todos
+    runs-on: ubuntu-latest
+    steps:
+      - name: Códigos vistos de fora
+        run: |
+          falhou=0
+          for dom in desporto.entrecamposblog.com entrecamposblog.com mltmark.com lirandzojewelry.com msdn-moz.org oshercollective.com producoes.visualdesignmoz.com; do
+            for a in error_log slow_log; do
+              c=$(curl -s -o /dev/null -m 30 -L -w '%{http_code}' "https://$dom/$a")
+              echo "https://$dom/$a -> $c (esperado 403 ou 404)"
+              case "$c" in 403|404) ;; *) falhou=1;; esac
+            done
+          done
+          for u in https://entrecamposblog.com/ https://mltmark.com/ https://oshercollective.com/ https://basededadosagro.com/ https://visualdesignmoz.com/; do
+            c=$(curl -s -o /dev/null -m 30 -L -w '%{http_code}' "$u")
+            echo "$u -> $c (esperado 200)"
+            [ "$c" = 200 ] || falhou=1
           done
           exit $falhou
