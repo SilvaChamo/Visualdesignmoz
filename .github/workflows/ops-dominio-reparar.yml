@@ -5,9 +5,6 @@ name: Ops - Reparar um domínio suspenso depois da passagem de conta
 # antes e verificação depois (também os outros sites). Só toca neste domínio; reversível com v-suspend-web-domain.
 
 on:
-  push:
-    branches: [continuar-correccoes-contas-e-dominios]
-    paths: ['.github/workflows/ops-dominio-reparar.yml']
   workflow_dispatch:
     inputs:
       dominio:
@@ -26,7 +23,7 @@ jobs:
       - name: Reparar o domínio
         uses: appleboy/ssh-action@v1.2.5
         env:
-          DOMINIO: ${{ inputs.dominio || 'entrecamposblog.com' }}
+          DOMINIO: ${{ inputs.dominio }}
         with:
           host: ${{ secrets.CONTABO_HOST }}
           port: 2234

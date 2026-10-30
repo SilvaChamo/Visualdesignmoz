@@ -11,9 +11,6 @@ on:
         description: 'Domínio (ex.: entrecamposblog.com)'
         required: true
         default: 'entrecamposblog.com'
-  push:
-    branches: [continuar-correccoes-contas-e-dominios]
-    paths: ['.github/workflows/ops-dominio-diagnostico.yml']
 
 concurrency:
   group: ops-dominio-diagnostico
@@ -26,7 +23,7 @@ jobs:
       - name: Diagnóstico do domínio (só leitura)
         uses: appleboy/ssh-action@v1.2.5
         env:
-          DOMINIO: ${{ inputs.dominio || 'entrecamposblog.com' }}
+          DOMINIO: ${{ inputs.dominio }}
         with:
           host: ${{ secrets.CONTABO_HOST }}
           port: 2234
