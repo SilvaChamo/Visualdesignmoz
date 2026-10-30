@@ -1240,7 +1240,7 @@ function CheckoutItemsByType({ types }: { types: string[] }) {
       })
       const data = await res.json()
       if (!data.success) throw new Error(data.error || 'Não foi possível criar a conta.')
-      window.alert(data.avisos?.length ? 'Conta pedida, mas atenção:\n' + data.avisos.join('\n') : 'Conta criada.')
+      window.alert(data.avisos?.length ? 'Conta pedida, mas atenção:\n' + data.avisos.join('\n') : 'Conta pedida ao servidor: aparece na lista dentro de instantes. Se falhar, chega um aviso às notificações.')
       load()
     } catch (error: any) {
       window.alert(error.message || 'Falha ao comunicar com o servidor.')

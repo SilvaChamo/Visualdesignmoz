@@ -77,7 +77,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       if (currentItemStatus !== 'paid' || (item as { type?: string }).type !== 'hosting' || !session.user_id) {
         return NextResponse.json({ success: false, error: 'Só se repete a criação da conta de uma hospedagem já confirmada.' }, { status: 409 });
       }
-      const feito = await fulfillCheckout(supabase, session.user_id, [item], session.metodo_pagamento, items, { esperarServidor: true, chave: `${id}:${itemIndex}`, repetir: true });
+      const feito = await fulfillCheckout(supabase, session.user_id, [item], session.metodo_pagamento, items, { chave: `${id}:${itemIndex}`, repetir: true });
       return NextResponse.json({ success: true, avisos: feito.avisos || [] });
     }
     if (currentItemStatus !== 'pending') {
@@ -130,7 +130,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       dono = r.userId;
       contaCriada = r.contaCriada || r.senhaDefinida;
       // o pedido inteiro vai como contexto: a conta «só domínio» não pode ser criada por o item confirmado primeiro ser o domínio
-      const feito = await fulfillCheckout(supabase, dono, [item], session.metodo_pagamento, items, { esperarServidor: true, chave: `${id}:${itemIndex}` });
+      const feito = await fulfillCheckout(supabase, dono, [item], session.metodo_pagamento, items, { chave: `${id}:${itemIndex}` });
       avisosServidor = feito.avisos || [];
     }
 
