@@ -43,19 +43,23 @@ jobs:
           envs: STACK,APLICAR
           script: |
             set -u
+            FALHOU=0
+            # o registo do GitHub nem sempre se consegue abrir: o resumo sai também como anotação da tarefa (uma linha, separada por «|»)
+            : > /tmp/saida-stack.txt; exec > >(tee -a /tmp/saida-stack.txt) 2>&1
+            trap 'sleep 1; echo "::notice title=Resumo::$(tr "\n" "|" < /tmp/saida-stack.txt | cut -c1-3500)"' EXIT
             T=/tmp/stack-novo.php; echo "$STACK" | base64 -d > "$T"
             php -l "$T" >/dev/null 2>&1 || { echo "ERRO: o stack.php novo tem erro de sintaxe; nada foi mudado"; exit 1; }
-            grep -q "VD_BLOCKED_JETPACK_PLUGINS" "$T" && grep -q "vd_img_otimizar_upload" "$T" || { echo "ERRO: o stack.php não tem a lista do Jetpack e a compressão de imagens"; exit 1; }
+            grep -q "VD_BLOCKED_JETPACK_PLUGINS" "$T" && grep -q "vd_img_otimizar_upload" "$T" && grep -q "vd-alias-jet-wp-error" "$T" || { echo "ERRO: o stack.php não tem a lista do Jetpack, a compressão de imagens e o alias do Jet Elements"; exit 1; }
             B=/root/stack-actualizar-$(date +%Y%m%d-%H%M%S); [ "$APLICAR" = "true" ] && { install -d -m 700 "$B"; echo "cópias em $B"; }
             echo "=== sites WordPress (conta · domínio · stack · jetpack)"
             for f in /home/*/web/*/public_html/wp-content/mu-plugins/visualdesign/stack.php; do
               [ -f "$f" ] || continue
               u=$(echo "$f" | cut -d/ -f3); dom=$(echo "$f" | cut -d/ -f5); raiz=/home/$u/web/$dom/public_html
-              ja=$(grep -c "vd_img_otimizar_upload" "$f")
+              ja=$(grep -c "vd-alias-jet-wp-error" "$f")
               jp=$([ -d "$raiz/wp-content/plugins/jetpack" ] && echo "TEM O JETPACK" || echo "sem Jetpack")
               if [ "$APLICAR" = "true" ] && [ "$ja" = 0 ]; then
                 cp -p "$f" "$B/$u-$dom-stack.php"
-                cat "$T" > "$f" && chown --reference="$B/$u-$dom-stack.php" "$f" && echo "$u $dom: stack actualizado · $jp"
+                if cat "$T" > "$f" && chown --reference="$B/$u-$dom-stack.php" "$f"; then echo "$u $dom: stack actualizado · $jp"; else echo "$u $dom: FALHOU ao copiar o stack"; FALHOU=1; fi
               else
                 echo "$u $dom: stack $([ "$ja" -gt 0 ] && echo 'já actualizado' || echo 'POR ACTUALIZAR') · $jp"
               fi
@@ -66,4 +70,6 @@ jobs:
               [ -f "$d/wp-content/mu-plugins/visualdesign/stack.php" ] || echo "$(echo "$d" | cut -d/ -f3) $(echo "$d" | cut -d/ -f5)"
             done
             echo "=== sites críticos"
-            for s in https://basededadosagro.com https://entrecamposblog.com https://mltmark.com; do printf '%s %s\n' "$s" "$(curl -sS -o /dev/null -m 20 -w '%{http_code}' "$s" 2>&1 | cut -c1-40)"; done
+            for s in https://basededadosagro.com https://entrecamposblog.com https://mltmark.com; do c=$(curl -sS -o /dev/null -m 20 -w '%{http_code}' "$s" 2>&1 | cut -c1-40); printf '%s %s\n' "$s" "$c"; case "$c" in 200|301|302) ;; *) FALHOU=1;; esac; done
+            # a tarefa fica a vermelho se um site não actualizou ou um site crítico não respondeu (o registo do GitHub nem sempre se consegue abrir)
+            [ "${FALHOU:-0}" = 0 ] || { echo "ATENÇÃO: ver as linhas acima"; exit 1; }
