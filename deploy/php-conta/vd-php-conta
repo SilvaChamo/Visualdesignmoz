@@ -235,6 +235,11 @@ garantir_registo_erros() { # versão conta
     # já certo (caminho desta conta, nível actual e rasto dos pedidos lentos): nada a fazer
     if grep -qF "php_admin_value[error_log] = $raiz/error_log" "$f" && grep -qE "^php_admin_value\[error_reporting\] = $NIVEL_ERROS\$" "$f" \
       && grep -qF "slowlog = $raiz/slow_log" "$f"; then
+      # os ficheiros voltam sozinhos se alguém os apagar (Silva, 30/10/2026): o PHP recria o error_log no erro seguinte e aqui, de 5 em 5 minutos,
+      # recriam-se os dois vazios (o rasto dos pedidos lentos precisa do ficheiro; sem ele o PHP-FPM não escreve)
+      if [ -z "${VD_SIMULAR:-}" ]; then
+        for a in error_log slow_log; do [ -f "$raiz/$a" ] || { touch "$raiz/$a"; chown "$c:$c" "$raiz/$a" 2>/dev/null; chmod 640 "$raiz/$a"; log "$c: $dom: $a recriado (tinha sido apagado)"; }; done
+      fi
       [ -z "${VD_FALAR:-}" ] || echo "$c $dom: já certo"
       continue
     fi
