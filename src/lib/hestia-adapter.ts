@@ -9,6 +9,7 @@ import { executeServerCommand } from '@/lib/server-ssh-exec';
 import { getPhpMyAdminUrl } from '@/lib/server-config';
 import { juntarCamposPacote } from '@/lib/pacote-hestia';
 import { alojamentoVercel } from '@/lib/hospedagem-dns';
+import { pacoteNoServidor } from '@/lib/pacotes-compra';
 
 function isAlreadyExistsError(error?: string): boolean {
   return (error || '').toLowerCase().includes('exists');
@@ -91,6 +92,12 @@ async function finishLetsEncrypt(
 
 export type HestiaPackage = { packageName: string };
 
+/** O pacote pedido com o nome que ele tem no servidor (`vhost-pro` ou o antigo `VD-Host-Pro`); se não existe, o nome pedido. */
+async function nomeDoPacoteNoServidor(pedido: string): Promise<string> {
+  const { nome, recurso } = pacoteNoServidor(pedido, (await listPackages()).map((p) => p.packageName));
+  return recurso ? pedido : nome;
+}
+
 export async function listPackages(): Promise<HestiaPackage[]> {
   const result = await hestiaCallJson<Record<string, unknown>>('v-list-user-packages');
   if (!result.ok) return [];
@@ -120,7 +127,7 @@ export async function createAccount(input: {
     input.username,
     input.password,
     input.email,
-    input.packageName,
+    await nomeDoPacoteNoServidor(input.packageName),
   ]);
   if (!userResult.ok && isAlreadyExistsError(userResult.error) && input.requireNewUser) {
     return { ok: false, error: userResult.error, userExists: true };
@@ -1252,7 +1259,7 @@ export async function createUserOnly(input: {
     input.username,
     input.password,
     input.email,
-    input.packageName || 'default',
+    await nomeDoPacoteNoServidor(input.packageName || 'default'),
   ]);
   if (!result.ok && !isAlreadyExistsError(result.error)) {
     return { ok: false, error: result.error };

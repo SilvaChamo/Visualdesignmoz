@@ -2,6 +2,7 @@
 // /vhost:2026/<nivel>/<ecra> (na maquete era #/<nivel>/<ecra>).
 import { DESC, GLOBAL, LEVELS, MENU, ROLE_LEVELS } from './generated/data';
 import type { Lang } from './i18n';
+import { chavePacote } from '@/lib/pacote-nome';
 import type { Account, Level, MenuItem } from './types';
 import { dbInicial, featsEfetivas, pacoteCompleto, type Db } from './paginas/dados';
 import type { Pessoa, Servidor, ZonaDns } from './servidor';
@@ -142,8 +143,8 @@ export const allowedOf = (s: St) => (s.carga === 'ok' && !s.acc[meOf(s)] ? (['ut
 export const MENU_SO_DOMINIO = ['Gestão de domínios', 'Avançado', 'Sistema e ficheiros', 'Compras e encomendas', 'Suporte e ajuda'];
 /** Só no computador local: `?vista=so-dominio` mostra a vista de quem só tem domínio, para a poder ver sem uma conta dessas */
 const verSoDominio = () => typeof window !== 'undefined' && window.location.hostname === 'localhost' && new URLSearchParams(window.location.search).get('vista') === 'so-dominio';
-/** Conta do plano «só domínio» (VD-Dominio): vê o painel só do domínio, com as ofertas dos outros produtos (Silva, 17/10/2026) */
-const ePlanoSoDominio = (a: Account | undefined) => !!a && isUser(a.role) && (a.hpkg || a.pkg || '').toLowerCase() === 'vd-dominio';
+/** Conta do plano «só domínio» (vhost-dominio): vê o painel só do domínio, com as ofertas dos outros produtos (Silva, 17/10/2026) */
+const ePlanoSoDominio = (a: Account | undefined) => !!a && isUser(a.role) && chavePacote(a.hpkg || a.pkg) === 'vhost-dominio';
 export const soDominioDe = (s: St) => s.carga === 'ok' && s.level === 'utilizador' && (!s.acc[meOf(s)] || ePlanoSoDominio(s.acc[meOf(s)]) || verSoDominio());
 /** Separador aberto ao entrar no painel ou numa conta: sempre "Gestão" (os dados da própria conta), para todos os que o
  *  têm (pedido do Silva, 14/10/2026 — antes voltava ao último separador em que se tinha trabalhado). */
@@ -166,14 +167,14 @@ export const pacoteDe = (s: St, u: string) => {
   return s.db.custom[u] || s.db.pkgs[a.hpkg || a.pkg] || (a.role === 'admin' || a.role === 'revenda' ? pacoteCompleto() : undefined);
 };
 /** Páginas que um plano nunca tem, seja qual for o Admin › Acessos por plano (Silva, 17/10/2026):
- *  - planos de e-mail (VD-Email-*): sem "Gestão de domínios" — não têm site ("o plano email sem site não deve ter
+ *  - planos de e-mail (vhost-email-*): sem "Gestão de domínios" — não têm site ("o plano email sem site não deve ter
  *    gestão de domínios"); o "Brevemente" que alguns tenham é só uma página de cortesia;
- *  - só domínio (VD-Dominio): só o domínio — Domínios e DNS, mais Início, compras e suporte. */
+ *  - só domínio (vhost-dominio): só o domínio — Domínios e DNS, mais Início, compras e suporte. */
 const GRUPOS_SEMPRE = ['Início', 'Compras e encomendas', 'Suporte e ajuda'];
 export function fixoNoPlano(pkg: string | undefined, id: string): boolean {
-  const p = (pkg || '').toLowerCase();
-  if (p.startsWith('vd-email-')) return !!MENU.utilizador.find(([g]) => g === 'Gestão de domínios')?.[1].some((it) => it.id === id);
-  if (p === 'vd-dominio') {
+  const p = chavePacote(pkg);
+  if (p.startsWith('vhost-email-')) return !!MENU.utilizador.find(([g]) => g === 'Gestão de domínios')?.[1].some((it) => it.id === id);
+  if (p === 'vhost-dominio') {
     if (id === 'dominios' || id === 'dns') return false;
     return !MENU.utilizador.some(([g, itens]) => GRUPOS_SEMPRE.includes(g) && itens.some((it) => it.id === id));
   }

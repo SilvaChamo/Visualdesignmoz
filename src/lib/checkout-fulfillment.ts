@@ -8,7 +8,8 @@ import { upsertPanelAuthAccount } from '@/lib/panel-auth-accounts';
 import { upsertMirrorUser, upsertMirrorSite } from '@/lib/panel-mirror-write';
 import { provisionPanelAccountToServer } from '@/lib/panel-server-provision';
 import { getAdminDirectAdminAPI } from '@/lib/directadmin-adapter';
-import { listPackages as listHestiaPackages } from '@/lib/hestia-adapter';
+import { gravarPacote, listPackages as listHestiaPackages } from '@/lib/hestia-adapter';
+import { HOSTING_PLAN_PRESETS } from '@/lib/reseller-package-form';
 import { getDaSyncAdmin } from '@/lib/da-sync-schema';
 import { autoProvisionPurchasedDomain } from '@/lib/domain-purchase-provision';
 import { requiresManualRegistration } from '@/lib/domain-registration-support';
@@ -64,6 +65,24 @@ async function listRealPackageNames(provider: 'directadmin' | 'hestia'): Promise
   }
 }
 
+/** Cria no servidor o pacote de um plano de hospedagem, com os limites do plano (HOSTING_PLAN_PRESETS). Devolve false se o servidor recusar. */
+async function criarPacoteDoPlano(planId: string, nome: string): Promise<boolean> {
+  const limites = HOSTING_PLAN_PRESETS.find((p) => p.id === planId)?.form.limits;
+  if (!limites) return false;
+  const valor = (k: keyof typeof limites) => (limites[k].unlimited ? 'unlimited' : limites[k].value);
+  const feito = await gravarPacote(
+    nome,
+    { DISK_QUOTA: valor('quota'), BANDWIDTH: valor('bandwidth'), WEB_DOMAINS: valor('vdomains'), MAIL_ACCOUNTS: valor('nemails'), DATABASES: valor('mysql') },
+    false,
+  );
+  if (!feito.ok) {
+    console.error('[checkout-fulfillment] não foi possível criar o pacote do plano:', nome, feito.error);
+    return false;
+  }
+  packageNameCache = null;
+  return true;
+}
+
 /**
  * Cada plano do carrinho devia usar o seu próprio pacote DirectAdmin (limites
  * de espaço/banda/emails reais e diferentes por plano) — mas só se esse
@@ -75,7 +94,12 @@ async function listRealPackageNames(provider: 'directadmin' | 'hestia'): Promise
  */
 async function resolveHostingPackageName(planId: string, provider: 'directadmin' | 'hestia'): Promise<string> {
   const desired = HOSTING_PLAN_PACKAGE_NAMES[planId] || FALLBACK_PACKAGE;
-  const { nome, recurso } = pacoteNoServidor(desired, await listRealPackageNames(provider));
+  let { nome, recurso } = pacoteNoServidor(desired, await listRealPackageNames(provider));
+  if (recurso && provider === 'hestia' && HOSTING_PLAN_PACKAGE_NAMES[planId]) {
+    // o pacote do plano ainda não existe: cria-se com os limites do plano (Admin › Pacotes pode depois ajustá-los)
+    const criado = await criarPacoteDoPlano(planId, desired);
+    if (criado) ({ nome, recurso } = { nome: desired, recurso: false });
+  }
   if (recurso) {
     await alertAdminOfTrackingFailure(
       'pacote de hospedagem em falta',

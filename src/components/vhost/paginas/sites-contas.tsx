@@ -4,6 +4,7 @@
 // partir daqui (qualquer linguagem, também atrás da Cloudflare), a linguagem, e se é só a página de espera — lida com o
 // plano da conta: num plano de e-mail ou só domínio, "Brevemente" quer dizer que a conta não tem site; nos outros, que o
 // site está em preparação. A verificação corre no servidor (/api/vhost/sites) e demora alguns segundos.
+import { chavePacote } from '@/lib/pacote-nome';
 import { useState } from 'react';
 import { useVH, type VH } from '../context';
 import type { ScreenFn } from '../screens';
@@ -58,7 +59,7 @@ import { Confirmar } from './pacotes';
 type Site = { conta: string; plano: string; dominio: string; linguagem: string; titulo: string; onde: 'aqui' | 'fora' | 'sem-dns'; espera: boolean };
 type Aba = 'todos' | 'aqui' | 'espera' | 'fora';
 
-const semSite = (s: Site) => /^vd-(email-|dominio$)/i.test(s.plano);
+const semSite = (s: Site) => /^vhost-(email-|dominio$)/.test(chavePacote(s.plano));
 /** O que o site é, lido com o plano da conta */
 function estado(s: Site): [string, 'ok' | 'w' | 'off'] {
   if (s.espera) return semSite(s) ? ['Sem site', 'off'] : ['Site em preparação', 'w'];

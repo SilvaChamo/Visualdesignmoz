@@ -262,7 +262,7 @@ export const HOSTING_PLAN_PRESETS: HostingPlanPreset[] = [
     id: 'hosting-basico',
     label: 'Básico',
     description: 'Plano inicial para site institucional',
-    defaultPackageName: 'VD-Host-Basico',
+    defaultPackageName: 'vhost-basico',
     monthlyPriceMzn: officialMonthlyPrice('hosting-basico', 680),
     form: buildPresetForm({
       limits: {
@@ -286,7 +286,7 @@ export const HOSTING_PLAN_PRESETS: HostingPlanPreset[] = [
     id: 'hosting-pro',
     label: 'Profissional',
     description: 'Plano recomendado para a maioria dos sites',
-    defaultPackageName: 'VD-Host-Pro',
+    defaultPackageName: 'vhost-pro',
     monthlyPriceMzn: officialMonthlyPrice('hosting-pro', 1040),
     form: buildPresetForm({
       limits: {
@@ -310,7 +310,7 @@ export const HOSTING_PLAN_PRESETS: HostingPlanPreset[] = [
     id: 'hosting-business',
     label: 'Business',
     description: 'Plano para operação com vários sites activos',
-    defaultPackageName: 'VD-Host-Business',
+    defaultPackageName: 'vhost-business',
     monthlyPriceMzn: officialMonthlyPrice('hosting-business', 1360),
     form: buildPresetForm({
       limits: {
@@ -334,7 +334,7 @@ export const HOSTING_PLAN_PRESETS: HostingPlanPreset[] = [
     id: 'hosting-enterprise',
     label: 'Revenda',
     description: 'Plano de maior capacidade, com tudo ilimitado — serve também para revenda',
-    defaultPackageName: 'VD-Host-Enterprise',
+    defaultPackageName: 'vhost-enterprise',
     monthlyPriceMzn: officialMonthlyPrice('hosting-enterprise', 2040),
     form: buildPresetForm({
       limits: {
@@ -429,7 +429,7 @@ function isHostingPresetPackageName(name: string): boolean {
   const normalized = name.trim().toLowerCase();
   if (!normalized) return false;
   if (LEGACY_SERVER_PACKAGE_NAMES.has(normalized)) return true;
-  if (/^vd-/i.test(name.trim())) return true;
+  if (/^v(d|host)-/i.test(name.trim())) return true;
   return HOSTING_PLAN_PRESETS.some((preset) => preset.defaultPackageName.toLowerCase() === normalized);
 }
 
