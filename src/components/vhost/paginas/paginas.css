@@ -7485,6 +7485,44 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    color: var(--muted)
 }
 
+.vh .passar-nova {
+   display: flex;
+   justify-content: flex-start;
+   margin-top: calc(8px * var(--z, 1))
+}
+
+.vh .passar-bases {
+   display: grid;
+   grid-template-columns: repeat(2, minmax(0, 1fr));
+   gap: calc(8px * var(--z, 1)) calc(20px * var(--z, 1))
+}
+
+.vh .passar-bases .chk {
+   display: flex;
+   align-items: center;
+   gap: calc(12px * var(--z, 1))
+}
+
+.vh .passar-bases .chk {
+   white-space: normal;
+   overflow-wrap: anywhere
+}
+
+.vh .passar-bases .chk input {
+   flex: none;
+   margin: 0
+}
+
+@media (max-width: 520px) {
+   .vh .passar-bases {
+      grid-template-columns: minmax(0, 1fr)
+   }
+}
+
+.vh .passar-barra {
+   margin: calc(12px * var(--z, 1)) 0 0
+}
+
 .vh .passar-roda {
    flex: none;
    width: calc(16px * var(--z, 1));
