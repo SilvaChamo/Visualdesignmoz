@@ -5,7 +5,7 @@ import { createClient as createServerClient } from '@/utils/supabase/server';
 import { PANEL_SLUG } from '@/lib/panel-tenant';
 import { findProtectedEmailClaim, PROTECTED_EMAIL_MESSAGE } from '@/lib/protected-account-email';
 import { ENCOMENDAS_ACCOUNT_ORIGIN } from '@/lib/panel-origin';
-import { EXISTING_ACCOUNT_MESSAGE, authUserExists } from '@/lib/conta-existe';
+import { mensagemContaExiste, temContaReal, utilizadorPorEmail } from '@/lib/conta-existe';
 import { turnstileValido } from '@/lib/turnstile';
 
 
@@ -58,40 +58,58 @@ export async function POST(request: NextRequest) {
     // Se a conta já existir, responde como sempre ("Já existe") — o checkout e a
     // cotação usam essa resposta para entrar com a password indicada.
     if (await findProtectedEmailClaim(normalizedEmail)) {
-      if (await authUserExists(admin, normalizedEmail)) {
-        return NextResponse.json({ error: EXISTING_ACCOUNT_MESSAGE }, { status: 409 });
+      if (await utilizadorPorEmail(admin, normalizedEmail)) {
+        return NextResponse.json({ error: mensagemContaExiste(normalizedEmail) }, { status: 409 });
       }
       return NextResponse.json({ error: PROTECTED_EMAIL_MESSAGE }, { status: 403 });
     }
 
-    const { data, error } = await admin.auth.admin.createUser({
+    const metadados = {
+      role: 'guest',
+      nome: String(nome).trim(),
+      telefone: String(telefone).trim(),
+      empresa: empresa ? String(empresa).trim() : '',
+      endereco: endereco ? String(endereco).trim() : '',
+      provincia: provincia ? String(provincia).trim() : '',
+      pais: pais ? String(pais).trim() : '',
+      email_empresa: emailEmpresa ? String(emailEmpresa).trim() : '',
+      cargo: cargo ? String(cargo).trim().slice(0, 80) : '',
+      contacto: contacto ? String(contacto).trim() : '',
+      site: PANEL_SLUG,
+      // Conta criada no formulário das encomendas (/cotacao) — entra sempre
+      // na lista de contas das encomendas e no painel /encomendas.
+      ...(origem === ENCOMENDAS_ACCOUNT_ORIGIN ? { origem: ENCOMENDAS_ACCOUNT_ORIGIN } : {}),
+    };
+    let { data, error } = await admin.auth.admin.createUser({
       email: normalizedEmail,
       password: String(password),
       email_confirm: true,
-      user_metadata: {
-        role: 'guest',
-        nome: String(nome).trim(),
-        telefone: String(telefone).trim(),
-        empresa: empresa ? String(empresa).trim() : '',
-        endereco: endereco ? String(endereco).trim() : '',
-        provincia: provincia ? String(provincia).trim() : '',
-        pais: pais ? String(pais).trim() : '',
-        email_empresa: emailEmpresa ? String(emailEmpresa).trim() : '',
-        cargo: cargo ? String(cargo).trim().slice(0, 80) : '',
-        contacto: contacto ? String(contacto).trim() : '',
-        site: PANEL_SLUG,
-        // Conta criada no formulário das encomendas (/cotacao) — entra sempre
-        // na lista de contas das encomendas e no painel /encomendas.
-        ...(origem === ENCOMENDAS_ACCOUNT_ORIGIN ? { origem: ENCOMENDAS_ACCOUNT_ORIGIN } : {}),
-      },
+      user_metadata: metadados,
     });
 
     if (error) {
       const msg = error.message.toLowerCase();
       if (msg.includes('already') || msg.includes('registered') || msg.includes('exists')) {
-        return NextResponse.json({ error: EXISTING_ACCOUNT_MESSAGE }, { status: 409 });
+        // O e-mail já tinha um login. Se for uma conta a sério, quem chama entra com a palavra-passe (o checkout e a cotação fazem-no);
+        // se estiver vazio (sem hospedagem nem compras: sobra de uma compra a meio), não impede nada e passa a ser desta conta
+        // (Silva, 30/10/2026: «se não existe uma conta real não pode impedir criar conta»).
+        const existente = await utilizadorPorEmail(admin, normalizedEmail);
+        if (!existente || (await temContaReal(admin, existente))) {
+          return NextResponse.json({ error: mensagemContaExiste(normalizedEmail) }, { status: 409 });
+        }
+        const actualizado = await admin.auth.admin.updateUserById(existente.id, {
+          password: String(password),
+          email_confirm: true,
+          user_metadata: { ...(existente.user_metadata || {}), ...metadados },
+        });
+        if (actualizado.error || !actualizado.data.user) {
+          return NextResponse.json({ error: actualizado.error?.message || 'Não foi possível concluir o registo.' }, { status: 400 });
+        }
+        data = actualizado.data;
+        error = null;
+      } else {
+        return NextResponse.json({ error: error.message }, { status: 400 });
       }
-      return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
     if (data.user?.id) {

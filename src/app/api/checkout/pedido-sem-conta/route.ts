@@ -3,7 +3,7 @@ import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { acrescentarIva } from '@/lib/iva';
 import { resolveCartItems, toValidatedCartItems, type CatalogCartItem } from '@/lib/package-catalog';
 import { validarContasDeHospedagem } from '@/lib/conta-hospedagem-servidor';
-import { authUserExists, EXISTING_ACCOUNT_MESSAGE } from '@/lib/conta-existe';
+import { mensagemContaExiste, senhaConfere, temContaReal, utilizadorPorEmail } from '@/lib/conta-existe';
 import { garantirPedidosSemConta } from '@/lib/checkout-schema';
 import { mensagemEmailInvalido } from '@/lib/email-valido';
 import { cifrarSenhaPedido, novoTokenPedido, tokenDoPedidoConfere, type CadastroPedido } from '@/lib/pedido-sem-conta';
@@ -52,14 +52,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Indique o telefone, a morada e a província: são os dados da conta e, nos domínios, do registo oficial (WHOIS).' }, { status: 400 });
     }
     if (senha.length < 6 || senha.length > 20) return NextResponse.json({ error: 'A palavra-passe deve ter entre 6 e 20 caracteres.' }, { status: 400 });
-    if (await authUserExists(admin, dados.email)) return NextResponse.json({ error: EXISTING_ACCOUNT_MESSAGE }, { status: 409 });
-
-    const { resolved, rejected } = await resolveCartItems(items);
+    // Só o essencial e tudo ao mesmo tempo (o «Pagar» demorava uma eternidade): preços, e-mail e nome da conta em paralelo.
+    const [existente, { resolved, rejected }] = await Promise.all([utilizadorPorEmail(admin, dados.email), resolveCartItems(items)]);
     if (rejected.length > 0) {
       return NextResponse.json(
         { error: `Não foi possível validar o preço de: ${rejected.map((i) => i.name).join(', ')}. Remova estes itens do carrinho e tente novamente.` },
         { status: 400 },
       );
+    }
+    // O mesmo e-mail pode ter muitas contas (Silva, 30/10/2026): um login vazio (sem hospedagem, sem compras) não ocupa o e-mail, e
+    // quem já tem conta a sério compra outra com a sua palavra-passe. Só se recusa o que não se pode provar que é da pessoa.
+    if (existente && (await temContaReal(admin, existente)) && !(await senhaConfere(dados.email, senha))) {
+      return NextResponse.json({ error: mensagemContaExiste(dados.email, 'responsavel') }, { status: 409 });
     }
     const itensValidados = toValidatedCartItems(resolved);
     const erroConta = await validarContasDeHospedagem(admin, itensValidados);

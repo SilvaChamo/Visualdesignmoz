@@ -10,8 +10,9 @@ export async function nomeContaOcupado(admin: SupabaseClient, nome: string): Pro
   if (perfil && perfil.length) return true;
   try {
     const { listUsers } = await import('@/lib/hestia-adapter');
-    const contas = await listUsers();
-    if (contas.some((c) => c.username.toLowerCase() === nome)) return true;
+    // O servidor pode demorar: no «Pagar» não se espera mais de 3 s (o nome já foi visto enquanto se escrevia, e a activação escolhe outro se existir lá)
+    const contas = await Promise.race([listUsers(), new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000))]);
+    if (contas?.some((c) => c.username.toLowerCase() === nome)) return true;
   } catch {
     /* sem resposta do servidor: vale o registo do painel; a activação escolhe outro nome se este já existir lá */
   }

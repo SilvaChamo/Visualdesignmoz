@@ -120,7 +120,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (status === 'paid') {
       const r = await donoDoPedidoAoAprovar(supabase, session);
       dono = r.userId;
-      contaCriada = r.contaCriada;
+      contaCriada = r.contaCriada || r.senhaDefinida;
       // o pedido inteiro vai como contexto: a conta «só domínio» não pode ser criada por o item confirmado primeiro ser o domínio
       const feito = await fulfillCheckout(supabase, dono, [item], session.metodo_pagamento, items, { esperarServidor: true });
       avisosServidor = feito.avisos || [];

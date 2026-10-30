@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase-client';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { PUBLIC_PANEL_ENTRY } from '@/lib/panel-origin';
+import { marcarViaSite, preCarregarDadosVhost } from '@/lib/vhost-cache';
 import { destinoDepoisDoPagamento } from '@/lib/voltar-ao-painel';
 import Link from 'next/link';
 import { RenewalCheckout } from '@/app/checkout/RenewalCheckout';
@@ -775,7 +776,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                password: accountForm.password,
              });
              if (loginError) {
-               throw new Error('Já existe uma conta com este email. Por favor, faça login para continuar.');
+               throw new Error(`Já existe uma conta com o e-mail ${accountForm.email.trim().toLowerCase()} (e-mail da pessoa responsável). Escreva a palavra-passe dessa conta ou use «Entrar».`);
              }
           } else {
             throw new Error(data.error || 'Erro ao criar a sua conta.');
@@ -1145,6 +1146,12 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
             }}
             onContinue={async () => {
               const { data: { session: refreshedSession } } = await supabase.auth.refreshSession();
+              if (refreshedSession) {
+                // como o login do site: esquece a leitura de quem entrou antes neste navegador (ex.: o admin) e lê já a da conta nova,
+                // para o painel abrir com os dados do pacote comprado e não mostrar primeiro os de outra conta
+                await preCarregarDadosVhost();
+                marcarViaSite();
+              }
               router.push(refreshedSession ? redirectPathForSession(refreshedSession) : `/login?redirect=${encodeURIComponent(PUBLIC_PANEL_ENTRY)}`);
             }}
           />
@@ -1680,11 +1687,20 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                       >
                         <Lock className="w-5 h-5 animate-pulse" />{' '}
                         {isSubmitting
-                          ? 'A processar...'
+                          ? metodoPagamento === 'mpesa' || metodoPagamento === 'transferencia'
+                            ? 'A registar o pedido...'
+                            : 'A processar...'
                           : isEncomenda && !encomendaTemValor
                             ? 'Submeter'
                             : `Pagar ${payTotalLabel}`}
                       </button>
+                      {isSubmitting && (
+                        <p role="status" className="w-full text-xs text-slate-500 dark:text-zinc-400">
+                          {metodoPagamento === 'mpesa' || metodoPagamento === 'transferencia'
+                            ? 'A guardar os seus dados e a preparar os dados de pagamento. Aguarde alguns segundos.'
+                            : 'A processar o pagamento. Aguarde alguns segundos.'}
+                        </p>
+                      )}
                       <button
                         type="button"
                         onClick={() => (isEncomenda ? cancelarEncomenda() : window.history.back())}

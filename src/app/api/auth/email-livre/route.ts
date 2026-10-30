@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
-import { EXISTING_ACCOUNT_MESSAGE, authUserExists } from '@/lib/conta-existe';
+import { EXISTING_ACCOUNT_MESSAGE, emailOcupadoPorContaReal } from '@/lib/conta-existe';
 import { findProtectedEmailClaim, PROTECTED_EMAIL_MESSAGE } from '@/lib/protected-account-email';
 
 export const dynamic = 'force-dynamic';
@@ -39,7 +39,8 @@ export async function POST(req: NextRequest) {
   if (!url || !serviceKey) return NextResponse.json({ livre: true });
   try {
     const admin = createAdminClient(url, serviceKey);
-    if (await authUserExists(admin, email)) return NextResponse.json({ livre: false, erro: EXISTING_ACCOUNT_MESSAGE });
+    // um login vazio (sem hospedagem nem compras) não ocupa o e-mail (Silva, 30/10/2026)
+    if (await emailOcupadoPorContaReal(admin, email)) return NextResponse.json({ livre: false, erro: EXISTING_ACCOUNT_MESSAGE });
     if (await findProtectedEmailClaim(email)) return NextResponse.json({ livre: false, erro: PROTECTED_EMAIL_MESSAGE });
     return NextResponse.json({ livre: true });
   } catch (e) {
