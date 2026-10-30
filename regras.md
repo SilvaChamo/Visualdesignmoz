@@ -639,9 +639,10 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
   **WordPress:** `DISABLE_WP_CRON` só se usa com um cron do sistema que corra `wp cron event run --due-now` (aamihe.com: de 15 em 15 min, criado
   com `v-add-cron-job`); sem ele as tarefas do WordPress nunca correm. **Só Moçambique:** regra do Cloudflare "Só Moçambique" no aamihe.com
   (bloqueia tudo o que não vem de MZ, exceto o servidor e `/.well-known/`).
-- **`xmlrpc.php` bloqueado por completo (444) nos domínios de `/etc/nginx/vd-xmlrpc-bloquear.lista`** (cópia em `deploy/seguranca/`), só enquanto o site
-  não tiver o plugin Jetpack (que o usa). Hoje: os 6 sites da Osher. Para juntar um site, acrescenta-se o domínio à lista (o instalador aplica em
-  10 minutos, ou corre-se `/usr/local/sbin/vd-bloqueio-instalar`).
+- **`xmlrpc.php` bloqueado por completo (444) em TODOS os sites WordPress** (Silva, 30/10/2026: «garanta que nenhum domínio fique de fora»), antes do PHP, só enquanto o site não tiver o plugin Jetpack (que o usa).
+  O instalador (`vd-bloqueio-instalar`, cron de 10 em 10 minutos e no fim de cada passagem de domínio) vê se há `wp-config.php` ou `wp-includes` na pasta do site: um WordPress novo fica coberto em, no máximo, 10 minutos.
+  Só bloqueia o endereço `/xmlrpc.php` (e `//xmlrpc.php`): a instalação, o admin, a API REST, o cron e as actualizações não o usam. Excepções deliberadas: `/etc/nginx/vd-xmlrpc-permitir.lista` (cópia em `deploy/seguranca/`, vazia).
+  `/etc/nginx/vd-xmlrpc-bloquear.lista` continua a valer (bloqueia mesmo sem WordPress). Workflow `ops-bloqueio-xmlrpc.yml` (à mão) instala o instalador novo e mostra um a um os sites WordPress e o estado.
 - **A guarda procura por comportamento, não por assinaturas** (o Maldet/ClamAV deram 0 detecções neste código): pastas de nome repetido com
   `cache.php`/`index.php`, imagens/sons/fontes/vídeos que começam por `<?php`, `.htaccess` que só deixam correr `index.php|cache.php`, código ofuscado
   (goto + eval, md5(md5(md5()). Move para `/root/quarentena-guarda/<data>/` (nunca apaga, `chmod 000`), regista os hashes em `/var/log/vd-guarda.log` e

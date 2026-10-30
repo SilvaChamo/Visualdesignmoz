@@ -7,9 +7,6 @@ name: Ops - Bloquear o xmlrpc.php em todos os sites WordPress e passar o cron de
 # Nunca toca no pm2 nem reinicia o nginx (só recarrega, e só depois de nginx -t). No fim confirma os sites críticos.
 
 on:
-  push:
-    branches: [bloqueio-xmlrpc-todos-os-sites]
-    paths: ['.github/workflows/ops-bloqueio-xmlrpc.yml', 'deploy/seguranca/vd-bloqueio-instalar']
   workflow_dispatch:
     inputs:
       cron_dominios:
@@ -38,7 +35,7 @@ jobs:
         env:
           INST: ${{ steps.pacote.outputs.inst }}
           PERM: ${{ steps.pacote.outputs.perm }}
-          CRON_DOMINIOS: ${{ inputs.cron_dominios || 'entrecamposblog.com desporto.entrecamposblog.com' }}
+          CRON_DOMINIOS: ${{ inputs.cron_dominios }}
         with:
           host: ${{ secrets.CONTABO_HOST }}
           port: 2234
