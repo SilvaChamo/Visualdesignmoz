@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       dominio:
-        description: 'Domínio (ex.: entrecamposblog.com)'
+        description: 'Domínios separados por espaço (ex.: desporto.entrecamposblog.com)'
         required: true
         default: 'entrecamposblog.com'
 
@@ -23,18 +23,19 @@ jobs:
       - name: Diagnóstico do domínio (só leitura)
         uses: appleboy/ssh-action@v1.2.5
         env:
-          DOMINIO: ${{ inputs.dominio }}
+          LISTA: ${{ inputs.dominio }}
         with:
           host: ${{ secrets.CONTABO_HOST }}
           port: 2234
           username: root
           key: ${{ secrets.CONTABO_SSH_KEY }}
           command_timeout: 5m
-          envs: DOMINIO
+          envs: LISTA
           script: |
             set -u
+            case "$LISTA" in (*[!a-z0-9.\ -]*|'') echo "Lista inválida"; exit 1;; esac
             H=/usr/local/hestia/bin
-            for DOMINIO in entrecamposblog.com basededadosagro.com; do
+            for DOMINIO in $LISTA; do
               CONTA=$($H/v-search-domain-owner "$DOMINIO" 2>/dev/null | head -1)
               W=/usr/local/hestia/data/users/$CONTA/web.conf
               IPL=$(grep "DOMAIN='$DOMINIO'" "$W" | grep -o "IP='[^']*'" | cut -d"'" -f2)
@@ -53,6 +54,12 @@ jobs:
               echo "--- resposta do servidor a /wp-login.php (cabeçalhos):"; curl -sk -D - -o /dev/null -m 15 --resolve "$DOMINIO:443:$IPL" "https://$DOMINIO/wp-login.php" | head -8
               echo "--- resposta do servidor a / :"; curl -sk -D - -o /dev/null -m 15 --resolve "$DOMINIO:443:$IPL" "https://$DOMINIO/" | head -8
               echo "--- pelo DNS público (cabeçalhos):"; curl -sI -m 15 "https://$DOMINIO/" | head -10
+              echo "--- tempo de resposta (3 pedidos ao servidor): $(for i in 1 2 3; do curl -sk -o /dev/null -m 40 -w '%{http_code}/%{time_total}s ' --resolve "$DOMINIO:443:$IPL" "https://$DOMINIO/"; done)"
+              echo "--- carga: $(cut -d' ' -f1-3 /proc/loadavg) · PHP da conta: $(systemctl is-active vd-php-fpm-8.3-$CONTA 2>&1) · pools: $(ls /etc/php/8.3/fpm-contas/$CONTA/pool.d 2>/dev/null | tr '\n' ' ')"
+              echo "--- limites do pool: $(grep -hE '^(pm\.max_children|request_terminate_timeout)' $P 2>/dev/null | tr '\n' ' ') · aviso de limite: $(grep -c 'max_children' /var/log/php8.3-fpm-$CONTA.log 2>/dev/null)"
+              echo "--- WordPress (só nomes): $(grep -hE "DB_NAME|DB_USER|DB_HOST" $R/wp-config.php 2>/dev/null | sed -E "s/define\( *'([A-Z_]+)' *, *'([^']*)'.*/\1=\2/" | tr '\n' ' ')"
+              echo "--- bases da conta: $(grep -ho "DB='[^']*'" /usr/local/hestia/data/users/$CONTA/db.conf 2>/dev/null | tr '\n' ' ') · a conta antiga (vdadmin): $(grep -ho "DB='[^']*'" /usr/local/hestia/data/users/vdadmin/db.conf 2>/dev/null | grep -iE 'entre|desporto|noticias' | tr '\n' ' ')"
+              echo "--- mais lentos agora: $(ps -eo pcpu,comm --sort=-pcpu | head -4 | tail -3 | tr '\n' ';')"
               echo "--- DNS: $(getent ahostsv4 $DOMINIO | awk '{print $1}' | sort -u | tr '\n' ' ')"
               for f in /var/log/nginx/domains/$DOMINIO.error.log /var/log/apache2/domains/$DOMINIO.error.log /var/log/php8.3-fpm.log /var/log/php8.3-fpm-$CONTA.log; do [ -f "$f" ] && { echo "--- $f"; tail -n 6 "$f" | cut -c1-230; }; done
               echo "--- acessos recentes: $(tail -n 5 /var/log/nginx/domains/$DOMINIO.log 2>/dev/null | awk '{print $9, $7}' | tr '\n' ';')"

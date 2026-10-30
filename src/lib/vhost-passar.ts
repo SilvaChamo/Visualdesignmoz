@@ -149,9 +149,16 @@ desfazer() {
     webmail "$DE" || true
   fi
 }
+# o Hestia tem de ignorar as pastas do PHP por conta ao procurar o pool, senão a passagem falha a meio e deixa o site sem PHP nem nginx
+[ -x /usr/local/sbin/vd-php-conta ] && /usr/local/sbin/vd-php-conta corrigir-hestia >/dev/null 2>&1
 out=$($H/v-change-domain-owner "$D" "$PARA" 2>&1)
 if [ "$($H/v-search-domain-owner "$D" 2>/dev/null | head -1)" != "$PARA" ]; then echo "FALHA=O servidor não passou o domínio: $(echo "$out" | tail -1)"; exit 1; fi
 movido=1; echo "PASSO=Site, e-mails, certificado, DNS e FTP passaram para $PARA"
+# o PHP: o serviço da conta antiga larga os sockets do domínio que saiu (senão o PHP partilhado não arranca) e cada conta fica no seu serviço
+if [ -x /usr/local/sbin/vd-php-conta ]; then
+  for u in /etc/systemd/system/vd-php-fpm-*-$DE.service; do [ -f "$u" ] && systemctl reload "$(basename "$u" .service)" >/dev/null 2>&1; done
+  /usr/local/sbin/vd-php-conta sincronizar >/dev/null 2>&1 || echo "AVISO=O PHP das contas não foi sincronizado; o cron trata disso em 5 minutos."
+fi
 for b in $BASES; do
   r="\${b#\${DE}_}"
   out=$($H/v-change-database-owner "$b" "$PARA" 2>&1); rc=$?
