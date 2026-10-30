@@ -1,0 +1,64 @@
+name: Ops - Porque o painel do WordPress de um site da erro 500 (so leitura)
+
+# Só LÊ: os pedidos com estado 500, 502, 503 ou 504 mais recentes no Apache e no nginx do site (hora, método, endereço), os erros mais recentes do Apache,
+# do nginx e do PHP-FPM da conta, os limites de tempo em vigor (Apache, nginx, pool) e se algum plugin ficou a meio de uma actualização (pasta de actualização,
+# ficheiro .maintenance). Não altera nada. Pedido do Silva a 30/10/2026: o site responde mas o painel do WordPress dá 500.
+
+on:
+  push:
+    branches: [erros-do-painel-wordpress]
+    paths: ['.github/workflows/ops-erros-painel.yml']
+  workflow_dispatch:
+    inputs:
+      dominio:
+        description: 'Domínio'
+        required: true
+        default: 'entrecamposblog.com'
+
+concurrency:
+  group: ops-erros-painel
+  cancel-in-progress: false
+
+jobs:
+  leitura:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Erros do painel (servidor, só leitura)
+        uses: appleboy/ssh-action@v1.2.5
+        env:
+          DOMINIO: ${{ inputs.dominio || 'entrecamposblog.com' }}
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          port: 2234
+          username: root
+          key: ${{ secrets.CONTABO_SSH_KEY }}
+          command_timeout: 5m
+          envs: DOMINIO
+          script: |
+            set -u
+            echo "$DOMINIO" | grep -qE '^[a-z0-9.-]{3,80}$' || { echo "Domínio inválido"; exit 1; }
+            CONTA=$(/usr/local/hestia/bin/v-search-domain-owner "$DOMINIO" 2>/dev/null | head -1)
+            R=/home/$CONTA/web/$DOMINIO/public_html
+            t() { echo; echo "=================== $1"; }
+            t "hora do servidor: $(date '+%d/%m %H:%M:%S %Z')"
+            t "1. Pedidos com erro de servidor no Apache (últimos 6 000 registos): hora · método · estado · endereço"
+            tail -n 6000 /var/log/apache2/domains/$DOMINIO.log | awk '{st=$9; if (st ~ /^5[0-9][0-9]$/) {print $4" "$6" "st" "$7}}' | sed 's/\[//' | cut -c1-150 | tail -25
+            echo "--- contagem por estado e endereço (top 10):"
+            tail -n 6000 /var/log/apache2/domains/$DOMINIO.log | awk '$9 ~ /^5[0-9][0-9]$/ {split($7,u,"?"); print $9" "u[1]}' | sort | uniq -c | sort -rn | head -10
+            t "2. Erros mais recentes do Apache (sem os autoindex e ModSecurity)"
+            grep -vE 'autoindex|ModSecurity' /var/log/apache2/domains/$DOMINIO.error.log | tail -n 18 | cut -c1-230
+            t "3. nginx do site"
+            tail -n 10 /var/log/nginx/domains/$DOMINIO.error.log 2>/dev/null | cut -c1-200
+            tail -n 3000 /var/log/nginx/domains/$DOMINIO.log 2>/dev/null | awk '$9 ~ /^5[0-9][0-9]$/ {print $9}' | sort | uniq -c
+            t "4. PHP-FPM da conta (mortes, limites, lentidão): últimas 15 linhas relevantes"
+            grep -E 'SIGKILL|SIGSEGV|terminated|max_children|exited on signal|ERROR' /var/log/php8.3-fpm-$CONTA.log | tail -n 15 | cut -c1-220
+            t "5. Limites de tempo em vigor"
+            echo "Apache: $(grep -rhE '^(Timeout|ProxyTimeout)' /etc/apache2/apache2.conf /etc/apache2/conf.d /etc/apache2/conf-enabled 2>/dev/null | tr '\n' ' ')"
+            echo "nginx do site: $(grep -hE 'proxy_(read|send|connect)_timeout' /home/$CONTA/conf/web/$DOMINIO/nginx*.conf /etc/nginx/nginx.conf /etc/nginx/conf.d/*.conf 2>/dev/null | sort -u | tr '\n' ' ')"
+            echo "pool: $(grep -hE '^(request_terminate_timeout|pm\.max_children|request_slowlog_timeout)' /etc/php/8.3/fpm-contas/$CONTA/pool.d/$DOMINIO.conf | tr '\n' ' ') · php.ini: $(grep -E '^(max_execution_time|memory_limit)' /etc/php/8.3/fpm-contas/$CONTA/php.ini | tr '\n' ' ')"
+            t "6. Actualizações a meio? (modo de manutenção, pasta upgrade, plugins com pasta -old)"
+            ls -la $R/.maintenance 2>&1 | tail -1
+            echo "wp-content/upgrade: $(ls -A $R/wp-content/upgrade 2>/dev/null | head -5 | tr '\n' ' ')"
+            echo "plugins (data de alteração, 8 mais recentes):"; ls -lt --time-style=+%d/%m\ %H:%M $R/wp-content/plugins | sed -n 2,9p | awk '{print "  "$6" "$7" "$8}'
+            echo "plugins activos: $(sudo -u $CONTA /usr/local/bin/wp --path=$R --skip-plugins --skip-themes option get active_plugins --format=json 2>/dev/null | cut -c1-300)"
+            t "fim da leitura (nada foi alterado)"
