@@ -98,7 +98,7 @@ function siteAtual(vh: VH): string {
 type Item = { nome: string; pasta: boolean; atalho: boolean; tam: number; data: string; perm: string; dono?: string; grupo?: string; rel?: string };
 const juntar = (...p: string[]) => p.filter(Boolean).join('/').replace(/\/+/g, '/').replace(/^\/|\/$/g, '');
 const ARQUIVO = /\.(zip|tar|tar\.gz|tgz)$/i;
-const TEXTO = /\.(php|html?|css|js|mjs|json|txt|md|xml|svg|csv|ini|conf|htaccess|env|yml|yaml|sql|py|pl|sh|log|tsx?|jsx?|twig|tpl|vue)$|^\.(htaccess|user\.ini|env)$/i;
+const TEXTO = /\.(php|html?|css|js|mjs|json|txt|md|xml|svg|csv|ini|conf|htaccess|env|yml|yaml|sql|py|pl|sh|log|tsx?|jsx?|twig|tpl|vue)$|^\.(htaccess|user\.ini|env)$|^(error_log|slow_log|access_log|php_errorlog)(\.[0-9]+)?$/i;
 const icone = (x: Item) => (x.pasta ? 'fa-folder' : ARQUIVO.test(x.nome) ? 'fa-file-zipper' : /\.(png|jpe?g|gif|webp|svg|ico)$/i.test(x.nome) ? 'fa-file-image' : /\.(php|js|css|html?|py|sh|json)$/i.test(x.nome) ? 'fa-file-code' : /\.pdf$/i.test(x.nome) ? 'fa-file-pdf' : 'fa-file');
 
 function NomeModal({ titulo, rotulo, inicial, botao, onOk }: { titulo: string; rotulo: string; inicial?: string; botao: string; onOk: (v: string) => void }) {
@@ -1038,13 +1038,14 @@ function Ficheiros({ caminho, lixo = false }: { caminho: string; lixo?: boolean 
 function Editor({ caminho }: { caminho: string }) {
   const vh = useVH();
   const { t, nav } = vh;
-  const { dados, erro, ler } = useLer<{ caminho: string; texto: string }>('ler', { caminho });
+  const { dados, erro, ler } = useLer<{ caminho: string; texto: string; parcial?: boolean }>('ler', { caminho });
   const [texto, setTexto] = useState<string | null>(null);
   const pasta = caminho.split('/').slice(0, -1).join('/');
   const nome = caminho.split('/').pop() || '';
   const voltar = () => nav(rotaFm(pasta));
   const v = texto ?? dados?.texto ?? '';
-  const mudou = !!dados && texto !== null && texto !== dados.texto;
+  // registo grande aberto só pelo fim: não se guarda (gravar trocaria o ficheiro inteiro pelo bocado visto)
+  const mudou = !!dados && !dados.parcial && texto !== null && texto !== dados.texto;
   const guardar = async () => {
     if (await noServidor(vh, { acao: 'fm-guardar', pasta, nome, texto: v }, 'Guardado')) {
       setTexto(null);
@@ -1084,6 +1085,7 @@ function Editor({ caminho }: { caminho: string }) {
           )}
           <span className="sp" />
           {mudou && <span className="tag w">{t('Por guardar')}</span>}
+          {dados?.parcial && <span className="tag w">{t('Só leitura: últimas linhas do registo')}</span>}
         </div>
         {!dados ? (
           <Carregando erro={erro} ler={ler} />

@@ -111,7 +111,17 @@ try:
     if op == 'ler':
         p = seguro(a.get('caminho'))
         if not os.path.isfile(p): erro('Não é um ficheiro.')
-        if os.path.getsize(p) > 2 * 1024 * 1024: erro('O ficheiro passa de 2 MB; descarregue-o para o editar.')
+        tam = os.path.getsize(p)
+        # registos de erros (error_log, slow_log…) crescem até aos 5 MB: abre-se o fim (último 1 MB), só para ler, sem descarregar
+        if tam > 2 * 1024 * 1024:
+            if not re.match(r'^(error_log|slow_log|access_log|php_errorlog|debug\.log)(\.[0-9]+)?$', os.path.basename(p)):
+                erro('O ficheiro passa de 2 MB; descarregue-o para o editar.')
+            with open(p, 'rb') as f:
+                f.seek(tam - 1024 * 1024)
+                f.readline()
+                b = f.read()
+            if b'\0' in b: erro('Parece um ficheiro binário; não se edita aqui.')
+            fim({'caminho': rel(p), 'texto': b.decode('utf-8', 'replace'), 'parcial': True})
         b = open(p, 'rb').read()
         if b'\0' in b: erro('Parece um ficheiro binário; não se edita aqui.')
         fim({'caminho': rel(p), 'texto': b.decode('utf-8', 'replace')})

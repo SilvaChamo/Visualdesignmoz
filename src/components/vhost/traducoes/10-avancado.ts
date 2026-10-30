@@ -254,6 +254,7 @@ export const avancado: Record<string, string> = {
  "Última alteração": "Last change",
  "Página guardada": "Page saved",
  "Por guardar": "Unsaved",
+ "Só leitura: últimas linhas do registo": "Read-only: last lines of the log",
  "Ver a página": "View the page",
  "Instalar o WordPress": "Install WordPress",
  "Editar página": "Edit page",
