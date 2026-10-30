@@ -36,7 +36,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # Deploy em ~5 minutos (Silva, 24/10/2026): o site constrói-se UMA vez, aqui no GitHub (2 a 3 minutos), e o .next vai para o
       # servidor, que já não o reconstrói (a prioridade mínima do servidor fazia o mesmo build demorar 8 a 9 minutos).
