@@ -62,8 +62,13 @@ jobs:
               titulo "Jet Dashboard: código das actualizações (só leitura; sem comentários nem linhas vazias)"
               D="$RAIZ/wp-content/plugins/jet-engine/framework/jet-dashboard"
               lim() { sed -E 's/^[[:space:]]+//; /^(\/\/|\*|\/\*)/d; /^$/d' | cut -c1-120; }
-              echo "--- rasto do pedido lento de admin.php (WP-Optimize) de 23:28:55: funções e ficheiros, do fundo para o topo"
-              awk '/^\[30-Oct-2026 23:28:55\]/{f=1} f&&/^\[30-Oct-2026 23:29:20\]/{exit} f' "$RAIZ/slow_log" 2>/dev/null | grep -E "^\[0x" | sed -E 's#^\[0x[0-9a-f]+\] ##; s#/home/entrecampos/web/entrecamposblog.com/public_html/##; s#wp-content/plugins/##' | cut -c1-110 | head -n 24
+              echo "--- mu-plugin com o corte do Gzip do WP-Optimize? $(grep -c vd-wpo-gzip "$RAIZ/wp-content/mu-plugins/visualdesign/stack.php" 2>/dev/null)"
+              $W eval '
+              class WP_Optimize_Gzip_Compression_Teste { static function f($u) { return wp_remote_get($u, array("timeout" => 8)); } }
+              $t = microtime(true); $r = WP_Optimize_Gzip_Compression_Teste::f(home_url("/"));
+              echo "pedido vindo da classe do Gzip: ".(is_wp_error($r) ? $r->get_error_code() : "respondeu")." em ".round(microtime(true) - $t, 2)." s\n";
+              $t = microtime(true); $r = wp_remote_get(home_url("/"), array("timeout" => 8));
+              echo "pedido normal ao próprio site: ".(is_wp_error($r) ? $r->get_error_code() : wp_remote_retrieve_response_code($r))." em ".round(microtime(true) - $t, 2)." s\n";' 2>&1 | cut -c1-200 | head -n 6
               exit 0
             fi
 
