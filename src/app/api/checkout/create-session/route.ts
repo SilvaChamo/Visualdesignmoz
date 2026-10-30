@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const erroConta = await validarContasDeHospedagem(admin, toValidatedCartItems(resolved));
+    const erroConta = await validarContasDeHospedagem(admin, toValidatedCartItems(resolved), { id: actor.buyerUserId, email: actor.buyerEmail });
     if (erroConta) return NextResponse.json({ error: erroConta }, { status: 400 });
 
     const { data: session, error: insertError } = await admin

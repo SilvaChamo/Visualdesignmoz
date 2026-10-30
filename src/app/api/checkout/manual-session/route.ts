@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const erroConta = await validarContasDeHospedagem(admin, toValidatedCartItems(resolved));
+    const erroConta = await validarContasDeHospedagem(admin, toValidatedCartItems(resolved), { id: actor.buyerUserId, email: actor.buyerEmail });
     if (erroConta) return NextResponse.json({ error: erroConta }, { status: 400 });
 
     // Voltar atrás ao checkout e clicar outra vez em «Pagar» não cria outro pedido: o carrinho só esvazia depois de concluir a compra,

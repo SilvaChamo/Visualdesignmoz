@@ -17,6 +17,6 @@ export async function GET(request: NextRequest) {
 
   const admin = getSupabaseAdmin();
   if (!admin) return NextResponse.json({ error: 'Serviço indisponível.' }, { status: 503 });
-  const ocupado = await nomeContaOcupado(admin, nome);
+  const ocupado = await nomeContaOcupado(admin, nome, { id: user.id, email: user.email });
   return NextResponse.json({ valido: true, livre: !ocupado, error: ocupado ? 'Este nome de utilizador já existe.' : undefined });
 }
