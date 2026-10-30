@@ -10,10 +10,10 @@ on:
       dominio:
         description: 'Domínio (ex.: entrecamposblog.com)'
         required: true
+        default: 'entrecamposblog.com'
   push:
     branches: [continuar-correccoes-contas-e-dominios]
     paths: ['.github/workflows/ops-dominio-diagnostico.yml']
-        default: 'entrecamposblog.com'
 
 concurrency:
   group: ops-dominio-diagnostico
