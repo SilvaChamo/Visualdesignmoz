@@ -193,17 +193,18 @@ jobs:
     steps:
       - name: Códigos vistos de fora
         run: |
-          falhou=0
+          falhou=0; RES=''
           for dom in desporto.entrecamposblog.com entrecamposblog.com mltmark.com lirandzojewelry.com msdn-moz.org oshercollective.com producoes.visualdesignmoz.com; do
             for a in error_log slow_log; do
               c=$(curl -s -o /dev/null -m 30 -L -w '%{http_code}' "https://$dom/$a")
-              echo "https://$dom/$a -> $c (esperado 403 ou 404)"
+              echo "https://$dom/$a -> $c (esperado 403 ou 404)"; RES="$RES | $dom/$a $c"
               case "$c" in 403|404) ;; *) falhou=1;; esac
             done
           done
           for u in https://entrecamposblog.com/ https://mltmark.com/ https://oshercollective.com/ https://basededadosagro.com/ https://visualdesignmoz.com/; do
             c=$(curl -s -o /dev/null -m 30 -L -w '%{http_code}' "$u")
-            echo "$u -> $c (esperado 200)"
+            echo "$u -> $c (esperado 200)"; RES="$RES | $u $c"
             [ "$c" = 200 ] || falhou=1
           done
+          echo "::notice title=Fora::$RES"
           exit $falhou
