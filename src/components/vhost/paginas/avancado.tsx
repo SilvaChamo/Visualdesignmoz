@@ -2448,7 +2448,7 @@ function WpGerir({ d }: { d: string }) {
             titulo="Plugins"
             numeros={[['Plugins', String(dados.plugins.length)], ['Com atualização', String(dados.plugins.filter((p) => p.update === 'available').length)]]}
             extra={
-              <button className="btn sm btn-ed" disabled={!dados.plugins.some((p) => p.update === 'available')} onClick={() => plug('atualizar-todos')}>
+              <button className="btn sm r" disabled={!dados.plugins.some((p) => p.update === 'available')} onClick={() => plug('atualizar-todos')}>
                 <i className="fa-solid fa-arrows-rotate" />
                 {t('Atualizar todos os plugins')}
               </button>
@@ -2461,14 +2461,14 @@ function WpGerir({ d }: { d: string }) {
               onRecarregar={ler}
               empty="Sem plugins"
               cols={[
-                { k: 'n', t: 'Plugin', cell: (r) => <b>{r.title || r.name}</b> },
+                { k: 'n', t: 'Plugin', cell: (r) => <b style={r.update === 'available' ? { color: 'var(--red)' } : undefined}>{r.title || r.name}</b> },
                 { k: 'v', t: 'Versão', cell: (r) => r.version + (r.update === 'available' ? ' → ' + (r.update_version || '') : '') },
                 { k: 's', t: 'Estado', cell: (r) => <span className={'tag ' + (r.status === 'active' ? 'ok' : 'off')}>{t(r.status === 'active' ? 'Ativo' : 'Inativo')}</span> },
               ]}
               actions={(r) => (
                 <span className="dns-acoes">
                   {r.update === 'available' && (
-                    <button className="btn sm btn-ed" onClick={() => plug('atualizar', r.name)}>
+                    <button className="btn sm r" onClick={() => plug('atualizar', r.name)}>
                       {t('Atualizar')}
                     </button>
                   )}

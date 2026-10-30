@@ -85,6 +85,9 @@ por "de teste". Nada disto pode voltar a acontecer. Quem mexer em deploy, servid
    `pm2 update`, `pm2 kill`, `pm2 restart all`, `pm2 delete all`, `pm2 resurrect`, `pkill -f`, `killall`, `fuser -k` fora da porta 3002,
    `systemctl restart nginx`/`stop` de serviços que não sejam do VisualDesign. O pm2 é partilhado: um `pm2 update` mata tudo o que não esteja
    no `dump.pm2`. Uma app nova do servidor corre **fora do pm2 e do deploy do VisualDesign** (unidade systemd própria, `Restart=always`).
+2b. **Sites que nunca podem parar** (Silva, 30/10/2026: «a visualdesign é um site que nunca deve parar, seguindo a basededadosagro»): `visualdesignmoz.com` (site e painel) e `basededadosagro.com` têm o
+   mesmo cuidado. O `visualdesignmoz.com` **nunca se passa de conta** (o painel e a app dependem da conta do administrador; `passarDominio` recusa-o) e nenhuma operação do servidor (passagem,
+   reparação, recarga de serviços) pode deixá-los fora do ar: antes, só leitura e cópia; depois, ver os dois a responder. Quem os vigia de fora é o `vigiar-sites.yml` (de 15 em 15 minutos).
 3. **Depois de qualquer publicação ou mudança no servidor, confirma `https://basededadosagro.com` e `https://visualdesignmoz.com` (200).** O deploy
    já o faz no fim (passo "Verificar os outros sites") e falha se o basededadosagro não responder. Nunca digas "publicado" sem isto.
 4. **Ações no servidor** (Silva, 30/10/2026: «deve permitir trabalhar mesmo sem ter que usar workflow»): **por workflow ou directamente por SSH**, o que o agente tiver

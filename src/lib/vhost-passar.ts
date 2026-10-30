@@ -108,6 +108,8 @@ export async function passarDominio(dominio: string, para: string, bases: string
   const p = para.trim().toLowerCase();
   const falha = (erro: string): Passagem => ({ ok: false, erro, passos: [], avisos: [], bases: [] });
   if (!DOMINIO_OK.test(d)) return falha('Domínio inválido.');
+  // o site e o painel da VisualDesign nunca podem parar (Silva, 30/10/2026): este domínio não se passa de conta por aqui
+  if (d === 'visualdesignmoz.com' || d === 'www.visualdesignmoz.com') return falha('O visualdesignmoz.com é o site e o painel principais e nunca se passa de conta por aqui.');
   if (!CONTA_OK.test(p) || CONTAS_DO_SISTEMA.has(p)) return falha('Conta de destino inválida.');
   const prev = await preverPassagem(d);
   if ('erro' in prev) return falha(prev.erro);
