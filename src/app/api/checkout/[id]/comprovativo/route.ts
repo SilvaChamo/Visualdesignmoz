@@ -118,7 +118,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       await promoteBuyerAfterPurchase(admin, donoId, Array.isArray(session.items) ? session.items : []).catch((err) =>
         console.error('[checkout comprovativo] promoteBuyerAfterPurchase falhou:', err),
       );
-      if (dono.contaCriada && cad && senha) {
+      // entra com a palavra-passe do checkout: serve ao login novo, ao que estava vazio e a quem já tinha conta e a escreveu certa
+      if (cad && senha) {
         const { error: erroEntrada } = await supabase.auth.signInWithPassword({ email: cad.email, password: senha });
         sessaoIniciada = !erroEntrada;
       }
