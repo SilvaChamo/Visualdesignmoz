@@ -7528,6 +7528,7 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
 }
 
 .vh .passar-barra {
+   height: calc(42px * var(--z, 1));
    margin: calc(12px * var(--z, 1)) 0 0
 }
 
