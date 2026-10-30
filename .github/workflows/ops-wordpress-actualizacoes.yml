@@ -62,11 +62,17 @@ jobs:
               titulo "Jet Dashboard: código das actualizações (só leitura; sem comentários nem linhas vazias)"
               D="$RAIZ/wp-content/plugins/jet-engine/framework/jet-dashboard"
               lim() { sed -E 's/^[[:space:]]+//; /^(\/\/|\*|\/\*)/d; /^$/d' | cut -c1-120; }
-              echo "--- WordPress: $($W core version 2>/dev/null)"
-              echo "--- wp-admin/includes/ajax-actions.php linhas 4722 a 4745"
-              sed -n '4722,4745p' "$RAIZ/wp-admin/includes/ajax-actions.php" | sed -E 's/^[[:space:]]+//' | cut -c1-130
-              echo "--- error_log do site (últimas linhas)"
-              tail -n 6 "$RAIZ/error_log" 2>/dev/null | cut -c1-260
+              L=/var/log
+              echo "--- agora: $(date '+%H:%M:%S %Z') · UTC $(date -u '+%H:%M:%S')"
+              echo "--- error_log do site (últimas 8 linhas)"; tail -n 8 "$RAIZ/error_log" 2>/dev/null | cut -c1-230
+              echo "--- slow_log: últimos pedidos lentos (ficheiro e função onde estavam presos)"
+              grep -E "^\[|script_filename|wp-optimize|wp-content/plugins" "$RAIZ/slow_log" 2>/dev/null | tail -n 14 | cut -c1-170
+              echo "--- PHP-FPM da conta (tempo limite, processos mortos)"
+              tail -n 60 $L/php*-fpm-"$CONTA".log 2>/dev/null | grep -E "terminat|exited|timed out|WARNING|ERROR" | tail -n 6 | cut -c1-210
+              echo "--- pedidos ao WP-Optimize e código de resposta (nginx, últimos 6)"
+              grep -E "wp-optimize|page=WPO|wpo" $L/nginx/domains/"$DOMINIO".log 2>/dev/null | tail -n 6 | awk '{print $4, $7, $9, $10}' | cut -c1-170
+              echo "--- erros do Apache deste site (últimas 6 linhas com wp-optimize, timeout ou 500)"
+              grep -E "wp-optimize|timeout|Premature|AH0" $L/apache2/domains/"$DOMINIO".error.log 2>/dev/null | tail -n 6 | cut -c1-230
               exit 0
             fi
 
