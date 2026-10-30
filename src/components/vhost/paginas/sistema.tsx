@@ -193,8 +193,6 @@ EN['Raiz da conta'] ??= 'Account root';
 EN['Compactar ficheiros'] ??= 'Compress files';
 const rotaEditar = (c: string) => '/utilizador/ficheiros/_editar/' + encC(c);
 const rotaVer = (c: string) => '/utilizador/ficheiros/_ver/' + encC(c);
-// registos (error_log, slow_log, *.log): ao abrir abrem só para ver
-const REGISTO = /^(error_log|slow_log|access_log|php_errorlog)(\.[0-9]+)?$|\.log$/i;
 /** drwxr-xr-x a partir do número (644) e do tipo */
 const permTexto = (x: Item) => {
   const m = x.perm.slice(-3);
@@ -669,7 +667,7 @@ function Ficheiros({ caminho, lixo = false }: { caminho: string; lixo?: boolean 
   const escolhidos = itens.filter((x) => sel.includes(x.nome));
   const um = escolhidos.length === 1 ? escolhidos[0] : null;
   const caminhos = () => escolhidos.map((x) => juntar(caminho, x.nome));
-  const abrir = (x: Item) => (x.pasta ? ir(juntar(caminho, x.nome)) : TEXTO.test(x.nome) ? nav((REGISTO.test(x.nome) ? rotaVer : rotaEditar)(juntar(caminho, x.nome))) : window.location.assign(url(me, 'descarregar', { caminho: juntar(caminho, x.nome) })));
+  const abrir = (x: Item) => (x.pasta ? ir(juntar(caminho, x.nome)) : TEXTO.test(x.nome) ? nav(rotaEditar(juntar(caminho, x.nome))) : window.location.assign(url(me, 'descarregar', { caminho: juntar(caminho, x.nome) })));
   // "Carregar" abre a janela de envio (como no DA); arrastar ficheiros para a lista abre-a já com eles
   const carregar = (fs?: FileList | null) => openM(<CarregarModal pasta={caminho} iniciais={fs ? Array.from(fs) : []} onFeito={ler} />);
   const novaPasta = () => openM(<NomeModal titulo="Criar pasta" rotulo="Nome da pasta" inicial={t('Nova pasta')} botao="Criar" onOk={(n) => fazer({ acao: 'fm-pasta', pasta: caminho, nome: n }, 'Pasta criada')} />);
