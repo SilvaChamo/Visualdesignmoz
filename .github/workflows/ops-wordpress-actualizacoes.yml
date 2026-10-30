@@ -91,4 +91,12 @@ jobs:
             echo "verificados: ".(isset($t->checked) ? count($t->checked) : 0)." · sem actualização: ".(isset($t->no_update) ? count($t->no_update) : 0)." · falhas: ".json_encode(isset($t->failed_checks) ? $t->failed_checks : null)."\n";
             echo "is_admin() no wp-cli: ".(is_admin() ? "sim" : "não")."\n";
             ' 2>&1 | cut -c1-400 | head -n 12
+            titulo "7. Jet (Crocoblock): plugins instalados e onde o Jet Dashboard guarda as actualizações (nomes e tamanhos, nunca os valores)"
+            $W plugin list --fields=name,version,status --format=csv 2>/dev/null | grep -iE 'name,version|jet|croco|pro-elements|pro_elements'
+            echo "--- opções do Jet / Crocoblock ligadas a actualizações, dashboard ou licença (nome · tamanho do valor):"
+            $W eval 'global $wpdb; $q = "SELECT option_name, LENGTH(option_value) AS l FROM {$wpdb->options} WHERE (option_name LIKE \"%jet%\" OR option_name LIKE \"%croco%\") AND (option_name LIKE \"%updat%\" OR option_name LIKE \"%dashboard%\" OR option_name LIKE \"%licen%\" OR option_name LIKE \"%plugins%\") ORDER BY option_name LIMIT 40"; foreach ($wpdb->get_results($q) as $r) echo $r->option_name." · ".$r->l."\n";' 2>&1 | cut -c1-160 | head -n 40
+            echo "--- onde os plugins Jet se ligam às actualizações (ficheiro:linha):"
+            grep -rnE "pre_set_site_transient_update_plugins|site_transient_update_plugins|plugins_api" "$RAIZ"/wp-content/plugins/jet-*/ "$RAIZ"/wp-content/plugins/jet-dashboard/ 2>/dev/null | grep -v "/vendor/" | sed "s#$RAIZ/wp-content/plugins/##" | cut -c1-170 | head -n 15
+            echo "--- jet-dashboard: classes que tratam de actualizações:"
+            grep -rlE "check_update|plugins_update|get_remote_plugins|update_plugins" "$RAIZ"/wp-content/plugins/jet-dashboard/ 2>/dev/null | sed "s#$RAIZ/wp-content/plugins/##" | head -n 10
             titulo "fim da leitura"
