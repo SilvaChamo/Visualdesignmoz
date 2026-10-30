@@ -5,6 +5,9 @@ name: Ops - Reparar um domínio suspenso depois da passagem de conta
 # antes e verificação depois (também os outros sites). Só toca neste domínio; reversível com v-suspend-web-domain.
 
 on:
+  push:
+    branches: [continuar-correccoes-contas-e-dominios]
+    paths: ['.github/workflows/ops-dominio-reparar.yml']
   workflow_dispatch:
     inputs:
       dominio:
@@ -23,7 +26,7 @@ jobs:
       - name: Reparar o domínio
         uses: appleboy/ssh-action@v1.2.5
         env:
-          DOMINIO: ${{ inputs.dominio }}
+          DOMINIO: ${{ inputs.dominio || 'entrecamposblog.com' }}
         with:
           host: ${{ secrets.CONTABO_HOST }}
           port: 2234
@@ -54,13 +57,18 @@ jobs:
             PY
             echo "--- procuras que ainda sobram: $(grep -rlE 'find -L /etc/php[^|]*-name "pool.d"' /usr/local/hestia/func /usr/local/hestia/bin 2>/dev/null | xargs grep -L 'fpm-contas' 2>/dev/null | tr '\n' ' ')"
             # 2. cada domínio: pool, reactivar, reconstruir, e só então o nginx
-            for DOMINIO in entrecamposblog.com basededadosagro.com; do
+            for DOMINIO in entrecamposblog.com desporto.entrecamposblog.com basededadosagro.com; do
               CONTA=$($H/v-search-domain-owner "$DOMINIO" 2>/dev/null | head -1)
               [ -z "$CONTA" ] && { echo "== $DOMINIO: sem dono"; continue; }
               W=/usr/local/hestia/data/users/$CONTA/web.conf; cp -p "$W" "$B/web.conf.$CONTA"
               est() { echo "suspenso=$(grep "DOMAIN='$DOMINIO'" "$W" | grep -c "SUSPENDED='yes'") pasta-conf=$([ -f /home/$CONTA/conf/web/$DOMINIO/nginx.conf ] && echo sim || echo NAO) pool=$(find -L /etc/php -name "$DOMINIO.conf" 2>/dev/null | head -1)"; }
               echo; echo "=== $DOMINIO (conta $CONTA) antes: $(est)"
-              if [ -z "$(find -L /etc/php -name "$DOMINIO.conf" 2>/dev/null | head -1)" ]; then echo "pool: $($H/v-add-web-domain-backend "$CONTA" "$DOMINIO" default no 2>&1 | tail -2)"; fi
+              POOL=$(find -L /etc/php -name "$DOMINIO.conf" 2>/dev/null | head -1)
+              if [ -z "$POOL" ]; then echo "pool: $($H/v-add-web-domain-backend "$CONTA" "$DOMINIO" default no 2>&1 | tail -2)"
+              elif ! grep -qE "^user[[:space:]]*=[[:space:]]*$CONTA[[:space:]]*$" "$POOL"; then
+                cp -p "$POOL" "$B/pool-$DOMINIO.conf"
+                echo "pool da conta antiga ($(grep -E '^user' "$POOL" | head -1)): $($H/v-delete-web-domain-backend "$CONTA" "$DOMINIO" no 2>&1 | tail -1); $($H/v-add-web-domain-backend "$CONTA" "$DOMINIO" default no 2>&1 | tail -1)"
+              fi
               if grep "DOMAIN='$DOMINIO'" "$W" | grep -q "SUSPENDED='yes'"; then echo "reactivar: $($H/v-unsuspend-web-domain "$CONTA" "$DOMINIO" no 2>&1 | tail -2)"; fi
               if [ ! -f /home/$CONTA/conf/web/$DOMINIO/nginx.conf ]; then echo "reconstruir: $($H/v-rebuild-web-domain "$CONTA" "$DOMINIO" no 2>&1 | tail -3)"; fi
               echo "depois: $(est)"
@@ -76,7 +84,7 @@ jobs:
             /usr/local/sbin/vd-php-conta sincronizar 2>&1 | tail -3
             sleep 4
             echo; echo "=== verificação"
-            for DOMINIO in entrecamposblog.com basededadosagro.com; do
+            for DOMINIO in entrecamposblog.com desporto.entrecamposblog.com basededadosagro.com; do
               CONTA=$($H/v-search-domain-owner "$DOMINIO" 2>/dev/null | head -1)
               IPL=$(grep "DOMAIN='$DOMINIO'" /usr/local/hestia/data/users/$CONTA/web.conf | grep -o "IP='[^']*'" | cut -d"'" -f2)
               echo "--- $DOMINIO: conf=$(ls /home/$CONTA/conf/web/$DOMINIO 2>/dev/null | tr '\n' ' ')"
