@@ -223,6 +223,22 @@ garantir_tempo_limite() { # versão conta
 # deixou de existir); aqui voltam a pôr-se em cada passagem do sincronizar. Nível 7159 = E_ALL sem E_NOTICE, E_USER_NOTICE, E_DEPRECATED, E_USER_DEPRECATED.
 # Os dois ficheiros ficam do dono da conta, negados à web (nginx.conf_erros) e rodados a 5 MB (logrotate, como no workflow). Devolve 0 se mudou algum pool.
 NIVEL_ERROS=${VD_NIVEL_ERROS:-7159}
+# Os registos nunca se abrem pela web (30/10/2026): o Hestia tem dois servidores por domínio, o do porto 80 (inclui nginx.conf_*) e o HTTPS (inclui nginx.ssl.conf_*); a regra
+# só em nginx.conf_erros não chegava ao HTTPS e o error_log do entrecamposblog.com abriu pela web (200). Escrevem-se os dois ficheiros e os registos ficam 640 (o nginx não os lê).
+garantir_negacao_web() { # conta domínio raiz
+  local c=$1 dom=$2 raiz=$3 cn=/home/$1/conf/web/$2 n a
+  [ -d "$cn" ] || return 0
+  for n in nginx.conf_erros nginx.ssl.conf_erros; do
+    [ -f "$cn/$n" ] && grep -qF 'error_log|slow_log' "$cn/$n" && continue
+    if [ -n "${VD_SIMULAR:-}" ]; then echo "$c $dom: POR ACTUALIZAR ($n em falta)"; continue; fi
+    printf 'location ~ ^/(error_log|slow_log)$ {\n    return 404;\n}\n' > "$cn/$n"; chown root:"$c" "$cn/$n" 2>/dev/null
+    NGINX_RECARREGAR=1
+    log "$c: $dom: $n criado (registos de erros negados à web)"
+  done
+  [ -n "${VD_SIMULAR:-}" ] || for a in error_log slow_log; do [ -f "$raiz/$a" ] && chmod 640 "$raiz/$a" 2>/dev/null; done
+  return 0
+}
+
 garantir_registo_erros() { # versão conta
   local v=$1 c=$2 f d dom raiz cn conf ini mudou=1 cop; d=$(pasta "$v" "$c"); conf="$d/php-fpm.conf"; ini="$d/php.ini"
   for f in "$d"/pool.d/*.conf; do
@@ -240,6 +256,7 @@ garantir_registo_erros() { # versão conta
       if [ -z "${VD_SIMULAR:-}" ]; then
         for a in error_log slow_log; do [ -f "$raiz/$a" ] || { touch "$raiz/$a"; chown "$c:$c" "$raiz/$a" 2>/dev/null; chmod 640 "$raiz/$a"; log "$c: $dom: $a recriado (tinha sido apagado)"; }; done
       fi
+      garantir_negacao_web "$c" "$dom" "$raiz"
       [ -z "${VD_FALAR:-}" ] || echo "$c $dom: já certo"
       continue
     fi
@@ -255,11 +272,7 @@ garantir_registo_erros() { # versão conta
       cp -p "$cop" "$f"; log "ERRO: $c: $dom: pool reposto (php-fpm -t falhou ao pôr o registo de erros)"; continue
     fi
     for a in error_log slow_log; do [ -f "$raiz/$a" ] || { touch "$raiz/$a"; chown "$c:$c" "$raiz/$a" 2>/dev/null; chmod 640 "$raiz/$a"; }; done
-    cn=/home/$c/conf/web/$dom
-    if [ -d "$cn" ] && [ ! -f "$cn/nginx.conf_erros" ]; then
-      printf 'location ~ ^/(error_log|slow_log)$ {\n    return 404;\n}\n' > "$cn/nginx.conf_erros"; chown root:"$c" "$cn/nginx.conf_erros" 2>/dev/null
-      NGINX_RECARREGAR=1
-    fi
+    garantir_negacao_web "$c" "$dom" "$raiz"
     log "$c: $dom: registo de erros do PHP em $raiz/error_log (nível $NIVEL_ERROS)"
     [ -z "${VD_FALAR:-}" ] || echo "$c $dom: registo de erros posto em $raiz/error_log (nível $NIVEL_ERROS)"
     mudou=0

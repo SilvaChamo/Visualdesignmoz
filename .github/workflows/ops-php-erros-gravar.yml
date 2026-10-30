@@ -96,7 +96,7 @@ jobs:
               echo "slowlog = $RAIZ/slow_log"
               echo "; vd-erros-fim"; } >> "$POOL"
             for a in error_log slow_log; do touch "$RAIZ/$a"; chown "$CONTA:$CONTA" "$RAIZ/$a"; chmod 640 "$RAIZ/$a"; done
-            printf 'location ~ ^/(error_log|slow_log)$ {\n    return 404;\n}\n' > "$CONFNGINX/nginx.conf_erros"; chown root:"$CONTA" "$CONFNGINX/nginx.conf_erros" 2>/dev/null || true
+            for n in nginx.conf_erros nginx.ssl.conf_erros; do printf 'location ~ ^/(error_log|slow_log)$ {\n    return 404;\n}\n' > "$CONFNGINX/$n"; chown root:"$CONTA" "$CONFNGINX/$n" 2>/dev/null || true; done
             cat > /etc/logrotate.d/vd-erros-site <<'ROT'
             /home/*/web/*/public_html/error_log /home/*/web/*/public_html/slow_log {
                 size 5M
