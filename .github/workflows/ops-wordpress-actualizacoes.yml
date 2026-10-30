@@ -62,20 +62,8 @@ jobs:
               titulo "Jet Dashboard: código das actualizações (só leitura; sem comentários nem linhas vazias)"
               D="$RAIZ/wp-content/plugins/jet-engine/framework/jet-dashboard"
               lim() { sed -E 's/^[[:space:]]+//; /^(\/\/|\*|\/\*)/d; /^$/d' | cut -c1-120; }
-              L=/var/log
-              echo "--- agora: $(date '+%H:%M:%S')"
-              echo "--- PHP-FPM da conta: admin.php / wp-optimize (início e fim da linha)"
-              tail -n 200 $L/php*-fpm-"$CONTA".log 2>/dev/null | grep -E "admin\.php|wp-optimize|terminat|timed out" | tail -n 6 | sed -E 's#/home/entrecampos/web/entrecamposblog.com/public_html##g' | cut -c1-200
-              echo "--- slow_log: cabeçalhos dos últimos pedidos lentos de admin.php"
-              grep -nE "^\[[0-9]{2}-[A-Za-z]{3}-2026|script_filename" "$RAIZ/slow_log" 2>/dev/null | tail -n 8 | sed -E 's#/home/entrecampos/web/entrecamposblog.com/public_html##g' | cut -c1-140
-              echo "--- slow_log: plugins no rasto dos últimos 400 linhas (contagem)"
-              tail -n 400 "$RAIZ/slow_log" 2>/dev/null | grep -oE "plugins/[a-z0-9_-]+" | sort | uniq -c | sort -rn | head -n 6
-              echo "--- nginx: pedidos ao WP-Optimize e código (últimos 6)"
-              grep -E "wp-optimize|page=WPO|admin\.php\?page=wpo" $L/nginx/domains/"$DOMINIO".log 2>/dev/null | tail -n 6 | awk '{print $4, $7, $9}' | cut -c1-150
-              echo "--- nginx: últimos 5 pedidos com código 5xx"
-              awk '$9 ~ /^5/ {print $4, $7, $9}' $L/nginx/domains/"$DOMINIO".log 2>/dev/null | tail -n 5 | cut -c1-150
-              echo "--- Apache: últimas 5 linhas de erro"
-              tail -n 5 $L/apache2/domains/"$DOMINIO".error.log 2>/dev/null | sed -E 's#/home/entrecampos/web/entrecamposblog.com/public_html##g' | cut -c1-200
+              echo "--- rasto do pedido lento de admin.php (WP-Optimize) de 23:28:55: funções e ficheiros, do fundo para o topo"
+              awk '/^\[30-Oct-2026 23:28:55\]/{f=1} f&&/^\[30-Oct-2026 23:29:20\]/{exit} f' "$RAIZ/slow_log" 2>/dev/null | grep -E "^\[0x" | sed -E 's#^\[0x[0-9a-f]+\] ##; s#/home/entrecampos/web/entrecamposblog.com/public_html/##; s#wp-content/plugins/##' | cut -c1-110 | head -n 24
               exit 0
             fi
 
