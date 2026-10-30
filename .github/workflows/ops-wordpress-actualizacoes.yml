@@ -17,6 +17,10 @@ on:
         description: 'Forçar nova verificação das actualizações (só apaga e recria a lista guardada)'
         type: boolean
         default: false
+      jet_codigo:
+        description: 'Só mostrar o código do Jet Dashboard que trata das actualizações (linhas sem comentários)'
+        type: boolean
+        default: false
 
 concurrency:
   group: ops-wordpress-actualizacoes
@@ -31,13 +35,14 @@ jobs:
         env:
           DOMINIO: ${{ inputs.dominio || 'entrecamposblog.com' }}
           REFRESCAR: ${{ inputs.refrescar && 'sim' || 'nao' }}
+          JET_CODIGO: ${{ inputs.jet_codigo && 'sim' || 'nao' }}
         with:
           host: ${{ secrets.CONTABO_HOST }}
           port: 2234
           username: root
           key: ${{ secrets.CONTABO_SSH_KEY }}
           command_timeout: 6m
-          envs: DOMINIO,REFRESCAR
+          envs: DOMINIO,REFRESCAR,JET_CODIGO
           script: |
             set -u
             # o registo do GitHub nem sempre se consegue abrir: o resumo sai também como anotação da tarefa (uma linha, separada por «|»)
@@ -53,6 +58,15 @@ jobs:
             W="sudo -u $CONTA $WP --path=$RAIZ"
             LER_TRANSIENT='$t = get_site_transient("update_plugins"); echo "última verificação: ".(isset($t->last_checked) ? date("d/m/Y H:i:s", $t->last_checked)." (há ".round((time()-$t->last_checked)/60)." min)" : "nunca")."\n"; $n = isset($t->response) ? count($t->response) : 0; echo "plugins com actualização na lista guardada: $n\n"; if ($n) foreach ($t->response as $f => $o) echo "  $f -> ".($o->new_version ?? "?")."\n"; echo "cache de objectos externa: ".(wp_using_ext_object_cache() ? "sim" : "não")."\n";'
             titulo "$DOMINIO (conta $CONTA) · hora: $(date '+%d/%m/%Y %H:%M:%S %Z')"
+            if [ "$JET_CODIGO" = "sim" ]; then
+              titulo "Jet Dashboard: código das actualizações (só leitura; sem comentários nem linhas vazias)"
+              PM=$(ls "$RAIZ"/wp-content/plugins/jet-engine/framework/jet-dashboard/inc/plugin-manager.php 2>/dev/null | head -1)
+              echo "--- $(echo "$PM" | sed "s#$RAIZ/wp-content/plugins/##"): construtor e check_update"
+              grep -nE "function |add_action|add_filter|is_admin|wp_doing_cron|WP_CLI|get_site_transient|set_site_transient|DOING_CRON" "$PM" | cut -c1-150 | head -n 30
+              echo "--- quem cria o Plugin_Manager e em que condições:"
+              grep -rnE "Plugin_Manager|is_admin\(\)|admin_init|current_screen" "$RAIZ"/wp-content/plugins/jet-engine/framework/jet-dashboard/ 2>/dev/null | grep -vE "^\S+:[0-9]+:\s*(//|\*)" | sed "s#$RAIZ/wp-content/plugins/jet-engine/framework/jet-dashboard/##" | cut -c1-150 | head -n 25
+              exit 0
+            fi
 
             titulo "1. Cron do WordPress"
             echo "DISABLE_WP_CRON no wp-config: $(grep -E "DISABLE_WP_CRON" "$RAIZ/wp-config.php" | cut -c1-80 | head -1)"
