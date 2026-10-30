@@ -1,0 +1,101 @@
+name: Ops - Diagnóstico de um domínio depois da passagem de conta (só leitura)
+
+# Só LÊ, não altera nada: para um domínio que acabou de passar de uma conta para outra, mostra de que conta é agora, se sobrou configuração
+# da conta antiga, o que o nginx e o Apache têm para ele, o certificado que o servidor entrega de facto, o que respondem a página e o
+# wp-login (por este servidor e pelo DNS público) e os erros recentes. Sem wp-config nem variáveis. Pedido do Silva a 30/10/2026.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dominio:
+        description: 'Domínio (ex.: entrecamposblog.com)'
+        required: true
+        default: 'entrecamposblog.com'
+  push:
+    branches: [continuar-correccoes-contas-e-dominios]
+    paths: ['.github/workflows/ops-dominio-diagnostico.yml']
+
+concurrency:
+  group: ops-dominio-diagnostico
+  cancel-in-progress: false
+
+jobs:
+  diagnostico:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Diagnóstico do domínio (só leitura)
+        uses: appleboy/ssh-action@v1.2.5
+        env:
+          DOMINIO: ${{ inputs.dominio || 'entrecamposblog.com' }}
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          port: 2234
+          username: root
+          key: ${{ secrets.CONTABO_SSH_KEY }}
+          command_timeout: 5m
+          envs: DOMINIO
+          script: |
+            set -u
+            case "$DOMINIO" in (*[!a-z0-9.-]*|''|*..*) echo "Domínio inválido"; exit 1;; esac
+            H=/usr/local/hestia/bin
+            echo "=== hora: $(date '+%d/%m/%Y %H:%M:%S %Z') · domínio: $DOMINIO · IPs deste servidor: $(hostname -I)"
+            echo
+            echo "=== dono segundo o servidor: $($H/v-search-domain-owner "$DOMINIO" 2>&1 | head -1)"
+            echo "--- pastas do domínio em /home/*/web e /home/*/conf/web (mais de uma conta = sobra da conta antiga):"
+            ls -ld /home/*/web/"$DOMINIO" /home/*/conf/web/"$DOMINIO" 2>/dev/null
+            CONTA=$($H/v-search-domain-owner "$DOMINIO" 2>/dev/null | head -1)
+            [ -z "$CONTA" ] && { echo "Sem dono: o domínio não está em nenhuma conta."; exit 0; }
+            echo
+            echo "=== web.conf do domínio (conta $CONTA)"
+            grep "DOMAIN='$DOMINIO'" /usr/local/hestia/data/users/"$CONTA"/web.conf 2>/dev/null | tr ' ' '\n' | grep -E "^(IP|IP6|SSL|SSL_HOME|TPL|PROXY|PROXY_EXT|BACKEND|STATS|SUSPENDED|ALIAS|DOCUMENT_ROOT|FASTCGI_CACHE|REDIRECT)="
+            echo
+            echo "=== DNS público deste domínio, visto deste servidor"
+            getent ahostsv4 "$DOMINIO" | awk '{print $1}' | sort -u | tr '\n' ' '; echo
+            getent ahostsv4 "www.$DOMINIO" | awk '{print "www:", $1}' | sort -u
+            echo
+            echo "=== nginx: ficheiros que mencionam o domínio"
+            grep -rlE "server_name[^;]*\b$DOMINIO\b" /etc/nginx /home/*/conf/web/"$DOMINIO" 2>/dev/null | head -20
+            echo "--- /etc/nginx/conf.d/domains/$DOMINIO*.conf:"
+            ls -l /etc/nginx/conf.d/domains/"$DOMINIO"*.conf 2>/dev/null
+            for f in /etc/nginx/conf.d/domains/"$DOMINIO".conf /etc/nginx/conf.d/domains/"$DOMINIO".ssl.conf; do
+              [ -f "$f" ] && { echo "--- $f"; grep -E "listen|server_name|root |proxy_pass|ssl_certificate|include|error_log|access_log" "$f" | cut -c1-160 | head -30; }
+            done
+            echo "--- nginx -t: $(nginx -t 2>&1 | tail -2 | tr '\n' ' ')"
+            echo
+            echo "=== certificado que o servidor entrega para o domínio (porta 443 local)"
+            echo | timeout 10 openssl s_client -connect 127.0.0.1:443 -servername "$DOMINIO" 2>/dev/null | openssl x509 -noout -subject -issuer -dates -ext subjectAltName 2>&1 | head -8
+            echo "--- ficheiros do certificado da conta:"
+            ls -l /home/"$CONTA"/conf/web/"$DOMINIO"/ssl/ 2>&1 | head -10
+            echo "--- ficheiros de certificado do domínio noutras contas (sobras):"
+            ls -ld /home/*/conf/web/"$DOMINIO"/ssl 2>/dev/null
+            echo
+            echo "=== Apache"
+            ls -l /etc/apache2/conf.d/domains/"$DOMINIO"*.conf 2>/dev/null
+            grep -E "DocumentRoot|ServerName|SuexecUserGroup|proxy:|SetHandler" /etc/apache2/conf.d/domains/"$DOMINIO".conf 2>/dev/null | cut -c1-160 | head -12
+            echo "--- apache2 configtest: $(apache2ctl configtest 2>&1 | tail -1)"
+            echo
+            echo "=== PHP-FPM da conta $CONTA"
+            systemctl list-units --all --no-legend "vd-php-fpm-*$CONTA*" 2>/dev/null | head -3
+            ls -l /run/php/*"$CONTA"* /run/php/*"$DOMINIO"* 2>/dev/null | head -5
+            ls -l /etc/php/*/fpm/pool.d/"$DOMINIO".conf /home/"$CONTA"/conf/web/"$DOMINIO"/php-fpm.conf 2>/dev/null
+            echo
+            echo "=== ficheiros do site: dono e permissões"
+            ls -ld /home/"$CONTA"/web/"$DOMINIO" /home/"$CONTA"/web/"$DOMINIO"/public_html 2>&1
+            ls -l /home/"$CONTA"/web/"$DOMINIO"/public_html/index.php /home/"$CONTA"/web/"$DOMINIO"/public_html/wp-login.php /home/"$CONTA"/web/"$DOMINIO"/public_html/wp-config.php 2>&1 | awk '{print $1, $3":"$4, $NF}'
+            echo
+            echo "=== respostas (código · tempo): por este servidor (ignora o DNS) e pelo DNS público"
+            IPL=$(grep "DOMAIN='$DOMINIO'" /usr/local/hestia/data/users/"$CONTA"/web.conf | grep -o "IP='[^']*'" | cut -d"'" -f2)
+            for u in "https://$DOMINIO/" "https://$DOMINIO/wp-login.php" "http://$DOMINIO/"; do
+              p=$(echo "$u" | grep -q '^https' && echo 443 || echo 80)
+              printf '%-45s local(127.0.0.1): %s' "$u" "$(curl -sk -o /dev/null -m 12 -w '%{http_code} %{time_total}s %{redirect_url}' --resolve "$DOMINIO:$p:127.0.0.1" "$u" 2>&1 | cut -c1-90)"
+              echo
+              [ -n "$IPL" ] && printf '%-45s local(%s): %s\n' "$u" "$IPL" "$(curl -sk -o /dev/null -m 12 -w '%{http_code} %{time_total}s %{redirect_url}' --resolve "$DOMINIO:$p:$IPL" "$u" 2>&1 | cut -c1-90)"
+              printf '%-45s público:          %s\n' "$u" "$(curl -sk -o /dev/null -m 12 -w '%{http_code} %{time_total}s %{redirect_url}' "$u" 2>&1 | cut -c1-90)"
+            done
+            echo "--- certificado a validar a sério (sem -k), pelo DNS público:"
+            curl -sS -o /dev/null -m 12 -w '%{http_code}\n' "https://$DOMINIO/" 2>&1 | cut -c1-200
+            echo
+            echo "=== erros recentes (nginx e Apache deste domínio)"
+            for f in /var/log/nginx/domains/"$DOMINIO".error.log /var/log/apache2/domains/"$DOMINIO".error.log; do
+              [ -f "$f" ] && { echo "--- $f"; tail -n 12 "$f" | cut -c1-220; }
+            done
