@@ -1,0 +1,97 @@
+name: Ops - Limites de CPU e memória de um pacote de alojamento
+
+# Muda CPU_QUOTA, MEMORY_LIMIT e SWAP_LIMIT de um pacote do Hestia pelo comando validado do próprio Hestia (v-add-user-package com rewrite, nunca
+# escrevendo no ficheiro à mão) e volta a atribuir o pacote às contas que o têm; depois `vd-php-conta sincronizar` põe os limites novos no PHP de cada conta.
+# Sem «aplicar» só LÊ (mostra o pacote e as contas). Com «aplicar» guarda antes uma cópia em /root/pacotes-hestia-antes/ e no fim mostra CPUQuota,
+# MemoryHigh e MemoryMax de cada serviço PHP das contas e o estado dos sites. Pedido do Silva a 30/10/2026: o VHost-Pro (200% de CPU) travava o
+# entrecamposblog.com (pool de 8 trabalhadores cheio, 504, «Internal Server Error» intermitente). Um limite é um tecto, não uma reserva.
+
+on:
+  workflow_dispatch:
+    inputs:
+      pacote:
+        description: 'Nome do pacote'
+        required: true
+        default: 'VHost-Pro'
+      cpu:
+        description: 'CPU_QUOTA (ex.: 400%; 100% = 1 núcleo, o servidor tem 6)'
+        required: true
+        default: '400%'
+      memoria:
+        description: 'MEMORY_LIMIT (ex.: 3G)'
+        required: true
+        default: '3G'
+      swap:
+        description: 'SWAP_LIMIT (ex.: 1G)'
+        required: true
+        default: '1G'
+      aplicar:
+        description: 'Aplicar (desligado = só ler)'
+        type: boolean
+        default: false
+
+concurrency:
+  group: ops-pacote-cpu
+  cancel-in-progress: false
+
+jobs:
+  pacote:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pacote do Hestia (ler e, se pedido, alterar)
+        uses: appleboy/ssh-action@v1.2.5
+        env:
+          PACOTE: ${{ inputs.pacote }}
+          CPU: ${{ inputs.cpu }}
+          MEM: ${{ inputs.memoria }}
+          SWAP: ${{ inputs.swap }}
+          APLICAR: ${{ inputs.aplicar }}
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          port: 2234
+          username: root
+          key: ${{ secrets.CONTABO_SSH_KEY }}
+          command_timeout: 10m
+          envs: PACOTE,CPU,MEM,SWAP,APLICAR
+          script: |
+            set -u
+            export HESTIA=/usr/local/hestia
+            H=$HESTIA/bin
+            case "$PACOTE" in (*[!A-Za-z0-9_-]*|'') echo "Nome de pacote inválido"; exit 1;; esac
+            [[ "$CPU" =~ ^[1-9][0-9]{1,3}%$ ]] || { echo "CPU_QUOTA inválido"; exit 1; }
+            [[ "$MEM" =~ ^[1-9][0-9]*[MG]$ ]] || { echo "MEMORY_LIMIT inválido"; exit 1; }
+            [[ "$SWAP" =~ ^[0-9]+[MG]$ ]] || { echo "SWAP_LIMIT inválido"; exit 1; }
+            F=$HESTIA/data/packages/$PACOTE.pkg
+            [ -f "$F" ] || { echo "O pacote $PACOTE não existe"; exit 1; }
+            echo "=== pacote $PACOTE (agora) ==="; grep -E "^(CPU_QUOTA|CPU_QUOTA_PERIOD|MEMORY_LIMIT|SWAP_LIMIT|DISK_QUOTA)=" "$F"
+            CONTAS=$($H/v-list-users json | python3 -c "import sys,json; d=json.load(sys.stdin); print(' '.join(sorted(u for u,x in d.items() if x.get('PACKAGE')==sys.argv[1])))" "$PACOTE")
+            echo "=== contas com o pacote: $CONTAS"
+            echo "=== antes: $(for c in $CONTAS; do for u in /etc/systemd/system/vd-php-fpm-*-$c.service; do [ -f "$u" ] && echo "$(basename $u .service): $(grep -E '^(CPUQuota|MemoryHigh|MemoryMax)=' $u | tr '\n' ' ')"; done; done)"
+            if [ "$APLICAR" != "true" ]; then echo "Só leitura: nada foi alterado."; exit 0; fi
+            mkdir -p /root/pacotes-hestia-antes
+            cp -p "$F" "/root/pacotes-hestia-antes/$PACOTE.$(date +%Y%m%d-%H%M%S).pkg"
+            NOVO=/tmp/$PACOTE.novo.pkg; cp "$F" "$NOVO"
+            for par in "CPU_QUOTA=$CPU" "MEMORY_LIMIT=$MEM" "SWAP_LIMIT=$SWAP"; do
+              k=${par%%=*}; v=${par#*=}
+              if grep -q "^$k=" "$NOVO"; then sed -i "s/^$k=.*/$k='$v'/" "$NOVO"; else echo "$k='$v'" >> "$NOVO"; fi
+            done
+            echo "=== a escrever o pacote com v-add-user-package (rewrite) ==="
+            $H/v-add-user-package "$NOVO" "$PACOTE" yes
+            echo "=== pacote depois ==="; grep -E "^(CPU_QUOTA|MEMORY_LIMIT|SWAP_LIMIT)=" "$F"
+            for u in $CONTAS; do
+              echo "=== v-change-user-package $u $PACOTE yes ==="
+              $H/v-change-user-package "$u" "$PACOTE" yes && echo "ok: $u" || echo "FALHOU: $u"
+            done
+            echo "=== PHP das contas (vd-php-conta sincronizar) ==="
+            /usr/local/sbin/vd-php-conta sincronizar 2>&1 | tail -3
+            sleep 8
+            for c in $CONTAS; do
+              for u in /etc/systemd/system/vd-php-fpm-*-$c.service; do
+                [ -f "$u" ] || continue
+                n=$(basename $u .service)
+                echo "$n: $(systemctl is-active $n) · $(systemctl show $n -p CPUQuotaPerSecUSec -p MemoryHigh -p MemoryMax | tr '\n' ' ')"
+              done
+            done
+            echo "=== sites ==="
+            for D in entrecamposblog.com desporto.entrecamposblog.com basededadosagro.com mltmark.com; do printf '%s %s\n' "$D" "$(curl -sS -o /dev/null -m 15 -w '%{http_code}' https://$D/ 2>&1 | cut -c1-30)"; done
+            echo "app 3002: $(curl -s -o /dev/null -m 8 -w '%{http_code}' http://127.0.0.1:3002/)"
