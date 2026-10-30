@@ -1,6 +1,16 @@
 <?php
 defined('ABSPATH') || exit;
 
+/**
+ * vd-alias-jet-wp-error (Silva, 30/10/2026): o Jet Elements escreve `new WP_Error(...)` dentro do espaço de nomes `Jet_Elements\Endpoints`, sem a barra
+ * inicial, e quando a verificação de permissão de um pedido REST falha o PHP procura `Jet_Elements\Endpoints\WP_Error`, que não existe, e dá erro fatal
+ * (500; visto em entrecamposblog.com ao abrir as definições do WP-Optimize, elementor-template.php:255). O alias faz esse nome apontar para o WP_Error
+ * do WordPress e o pedido volta a responder «sem permissão» em vez de rebentar. Só actua se o plugin não o definir ele próprio.
+ */
+if (class_exists('WP_Error', false) && !class_exists('Jet_Elements\\Endpoints\\WP_Error', false)) {
+	class_alias('WP_Error', 'Jet_Elements\\Endpoints\\WP_Error');
+}
+
 const VD_HONEYPOT_PLUGIN = 'honeypot/honeypot.php';
 const VD_REDIS_PLUGIN    = 'redis-cache/redis-cache.php';
 const VD_WPO_PLUGIN      = 'wp-optimize/wp-optimize.php';
