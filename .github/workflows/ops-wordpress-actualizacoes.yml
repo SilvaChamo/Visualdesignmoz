@@ -62,17 +62,11 @@ jobs:
               titulo "Jet Dashboard: código das actualizações (só leitura; sem comentários nem linhas vazias)"
               D="$RAIZ/wp-content/plugins/jet-engine/framework/jet-dashboard"
               lim() { sed -E 's/^[[:space:]]+//; /^(\/\/|\*|\/\*)/d; /^$/d' | cut -c1-120; }
-              CN=/home/$CONTA/conf/web/$DOMINIO
-              echo "--- permissões ANTES"; ls -la "$RAIZ/error_log" "$RAIZ/slow_log" 2>&1 | cut -c1-120
-              echo "--- nginx.conf_erros"; ls -la "$CN/nginx.conf_erros" 2>&1 | cut -c1-120; cat "$CN/nginx.conf_erros" 2>&1 | head -5
-              echo "--- nginx -T: linhas sobre error_log/slow_log/conf_erros deste domínio"
-              nginx -T 2>/dev/null | grep -nE "location.*(error_log|slow_log)|conf_erros|nginx.conf_\*" | grep -F "$CONTA" | head -8
-              nginx -T 2>/dev/null | grep -nE "location.*(error_log|slow_log)" | head -8
-              echo "--- fecho já a fuga: error_log e slow_log só do dono (640)"
-              chmod 640 "$RAIZ/error_log" "$RAIZ/slow_log" 2>&1 | head -3
-              ls -la "$RAIZ/error_log" "$RAIZ/slow_log" 2>&1 | cut -c1-120
-              echo "--- de dentro do servidor, ordem dos blocos location do nginx.conf do domínio:"
-              grep -nE "^\s*(server|location|include|proxy_pass)" "$CN/nginx.ssl.conf" 2>/dev/null | cut -c1-120 | head -25
+              echo "--- WordPress: $($W core version 2>/dev/null)"
+              echo "--- wp-admin/includes/ajax-actions.php linhas 4722 a 4745"
+              sed -n '4722,4745p' "$RAIZ/wp-admin/includes/ajax-actions.php" | sed -E 's/^[[:space:]]+//' | cut -c1-130
+              echo "--- error_log do site (últimas linhas)"
+              tail -n 6 "$RAIZ/error_log" 2>/dev/null | cut -c1-260
               exit 0
             fi
 
