@@ -195,14 +195,15 @@ HTBLOCO
   fi
 }
 
-# Definições do Cache Enabler para um site de conteúdo: a cache expira ao fim de 24 h e limpa-se ao mudar de plugin; ao gravar um artigo limpa-se só a página dele e as
-# relacionadas (limpar o site inteiro a cada gravação esvaziava a cache sempre que o Elementor ou um plugin grava um artigo). O resto fica nos valores do plugin (sem minificar nada: o Elementor e os temas já o fazem).
+# Definições do Cache Enabler para um site de conteúdo: a cache dura 7 dias (168 h) e limpa-se ao mudar de plugin; ao gravar um artigo limpa-se só a página dele e as
+# relacionadas (limpar o site inteiro a cada gravação esvaziava a cache sempre que o Elementor ou um plugin grava um artigo). O conteúdo NOVO (publicar, retirar) e os
+# menus esvaziam o site inteiro: ver `vd_limpar_cache_do_site` em visualdesign/stack.php. O resto fica nos valores do plugin (sem minificar nada: o Elementor e os temas já o fazem).
 configurar_cache_enabler() {
   wpu eval '
 $o = get_option("cache_enabler", array());
 if (!is_array($o)) { $o = array(); }
 $o["cache_expires"] = 1;
-$o["cache_expiry_time"] = 24;
+$o["cache_expiry_time"] = 168;
 $o["clear_site_cache_on_saved_post"] = 0;
 $o["clear_site_cache_on_changed_plugin"] = 1;
 update_option("cache_enabler", $o);
