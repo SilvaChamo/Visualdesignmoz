@@ -26,7 +26,6 @@ export const metadata: Metadata = {
   },
   description: SITE_DESCRIPTION,
   keywords: ["VisualDesign", "VisualDesignMoz", "Visual Designer", "Visual Design", "Visual", "Design", "Design Gráfico", "Moçambique", "Maputo"],
-  manifest: "/manifest.json",
   icons: {
     icon: [
       { url: "/favicon.png", sizes: "48x48", type: "image/png" },
