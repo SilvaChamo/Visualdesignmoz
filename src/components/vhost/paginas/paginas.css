@@ -15763,3 +15763,44 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
 .vh .wp-gest-2c {
    border-bottom: 1px solid var(--line)
 }
+
+/* Gestão no telemóvel: tudo numa só coluna — o separador do navegador cabe no cartão, os botões ocupam a largura toda e cada selector fica por baixo do seu nome, à largura toda */
+@media (max-width: 768px) {
+   .vh .wp-ico-prev {
+      max-width: 100%;
+      min-width: 0
+   }
+
+   .vh .wp-ico-tab {
+      overflow: hidden
+   }
+
+   .vh .wp-gest-2c .wp-ico-botoes {
+      flex-direction: column
+   }
+
+   .vh .wp-gest-2c .wp-ico-botoes .btn:not(#x):not(#y),
+   .vh .wp-gest-2c .wp-gest-guardar:not(#x):not(#y) {
+      width: 100%;
+      justify-content: center
+   }
+
+   .vh .wp-leitura-sel {
+      padding-left: 0
+   }
+
+   .vh .wp-leitura-sel label {
+      flex-direction: column;
+      align-items: stretch;
+      gap: calc(4px * var(--z, 1))
+   }
+
+   .vh .wp-leitura-sel label > span {
+      min-width: 0
+   }
+
+   .vh .wp-leitura-sel select {
+      width: 100%;
+      max-width: none
+   }
+}
