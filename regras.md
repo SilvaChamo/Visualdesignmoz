@@ -384,24 +384,10 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
   (`https://169.58.148.144:2026/host:2026`) é só do programador, para resolver problemas, nunca para uso normal:** certificado próprio (um IP não
   tem certificado válido, o navegador avisa) e só abre para os endereços de `/etc/nginx/conf.d/vd-admin-ip.conf` (hoje o do Silva); os outros levam a
   ligação fechada (444). Para juntar um endereço acrescenta-se uma linha e recarrega-se o nginx.
-- **TAREFA AGENDADA — troca do endereço do Supabase (23/10/2026 às 00:00, hora de Maputo; lembrar o Silva hoje às 23:30)** (Silva, 22/10/2026).
-  Tirar o "contabo": a app passa de `https://supabase-contabo.visualdesignmoz.com` para `https://supabase.visualdesignmoz.com`. **Não se copia nada:**
-  os dois nomes já apontam para o mesmo Supabase (nginx → `127.0.0.1:8000`). Já feito a 22/10: o Silva tirou o proxy do Cloudflare ao registo
-  `supabase` (só DNS) e emitiu-se o certificado Let's Encrypt de `supabase.visualdesignmoz.com` (válido até 20/01/2027, o Hestia renova). Também se tirou o alias "no" que o Hestia tinha posto no site `supabase` (aparecia como `server_name … no;`).
-  **Falta fazer (à meia-noite; qualquer agente que veja esta nota e ainda não a encontre feita, faz — ver "Feito" no fim):**
-  1. *(Silva, antes)* Se há login Google: acrescentar `https://supabase.visualdesignmoz.com/auth/v1/callback` aos endereços de retorno na consola do
-     Google (manter o antigo).
-  2. No servidor, em `/opt/supabase-contabo/docker/.env`: `SUPABASE_PUBLIC_URL=https://supabase.visualdesignmoz.com` e
-     `API_EXTERNAL_URL=https://supabase.visualdesignmoz.com/auth/v1`; depois `cd /opt/supabase-contabo/docker && docker compose up -d` (recria só o que
-     mudou, uns segundos). `SITE_URL` e as listas de redirecionamento não mudam.
-  3. `gh secret set CONTABO_SUPABASE_URL --body https://supabase.visualdesignmoz.com` e publicar de novo (`gh workflow run "Deploy Visualdesign"`): o
-     deploy grava `NEXT_PUBLIC_SUPABASE_URL` no build e no `.env.local` (só se vê depois do deploy, ~15 min).
-  4. Verificar: entrar no painel; `curl https://supabase.visualdesignmoz.com/auth/v1/health` (401 é normal sem chave).
-  **Consequência avisada ao Silva:** o nome do cookie de sessão deriva do endereço (`sb-supabase-…` em vez de `sb-supabase-contabo-…`): **todos os
-  utilizadores têm de voltar a entrar uma vez, com o mesmo e-mail e a mesma palavra-passe** (contas e dados não mudam; só se perdem as sessões abertas). O nome antigo fica a funcionar (nginx serve os dois): `/opt/basededadosagro-site` e
-  `/opt/visualdesign-panel` ainda usam o antigo e não precisam de mudar já. Reverter: voltar `.env` do Supabase, o secret e publicar.
-  **Preparado a 28/10/2026:** workflow `Ops - Fecho do servidor`, fase `supabase` (sem «aplicar» lê; com «aplicar» faz cópia do `.env`, troca os dois endereços, `docker compose up -d` e repõe se um dos nomes deixar de responder); o `deploy-visualdesign.yml` já grava o endereço novo no site. Ordem: Google (callback novo) → «aplicar» → publicar.
-  **Feito:** (ainda não) — quem fizer, escreve aqui a data e o resultado.
+- **Troca do endereço do Supabase — feita a 30/10/2026** (era a tarefa agendada de 23/10). O serviço usa `SUPABASE_PUBLIC_URL=https://supabase.visualdesignmoz.com` e `API_EXTERNAL_URL=https://supabase.visualdesignmoz.com/auth/v1`;
+  o site e o deploy (`NEXT_PUBLIC_SUPABASE_URL`, secret do endereço) usam o endereço novo e o código do cliente já não contém o antigo (verificado a 31/10). O endereço antigo continua a responder (compatibilidade) e
+  `/auth/v1/health` dá 401 nos dois, o esperado sem chave. O nome do cookie de sessão deriva do endereço, por isso cada utilizador pode ter de entrar uma vez. **O login com Google funciona** (o Silva testou a 31/10; o
+  `/auth/v1/authorize?provider=google` redirecciona para o Google com o retorno `supabase.visualdesignmoz.com/auth/v1/callback`): qualquer nota que diga que o Google não está configurado está errada.
 - **TAREFA PENDENTE — M-Pesa em produção** (Silva, 22/10/2026): o M-Pesa está em sandbox (`MPESA_ENV` em `deploy-visualdesign.yml`). Fica pendente até a
   Vodacom entregar as credenciais de produção; a mensagem para a Vodacom está em `docs/mpesa-pedido-vodacom.md`. Passar a produção só com o "avança"
   do Silva (dinheiro real). **Feito:** (ainda não).
@@ -673,7 +659,7 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
   o Cloudflare põe nos TXT criados à mão e apaga o "órfão"; **nunca baixa um DMARC mais estrito** (`quarantine`/`reject`) para o padrão `p=none`.
 - **Padrão de um domínio novo:** SPF `v=spf1 include:spf.brevo.com ip4:<servidor> ~all`, DKIM do Brevo (`brevo1`/`brevo2._domainkey`) e do servidor (`mail._domainkey`), DMARC
   `p=none; rua=mailto:rua@dmarc.brevo.com; fo=1`. Só se sobe a política depois de um e-mail de teste do Brevo ao Gmail mostrar SPF, DKIM e DMARC em PASS
-  (Gmail › ⋮ › Mostrar original). Subida feita a 26/10/2026: `quarantine; pct=25` em 10 domínios, depois 100% se ninguém se queixar.
+  (Gmail › ⋮ › Mostrar original). Subida feita a 26/10/2026: `quarantine; pct=25` em 10 domínios, depois 100% se ninguém se queixar. **Estado a 31/10/2026 (lido nos servidores de nomes de cada domínio e em dois resolvers públicos): 12 domínios em `quarantine; pct=25`** (os 10 de antes mais `basededadosagro.com` e `elimservicos.com`, que já não estão em `p=none`); só o `shalomdeco.com` continua sem DMARC (DNS fora do nosso controlo). A subida a 100 % faz-se com `ops-dmarc-subir.yml` (sem «aplicar» só lê; a lista por omissão já tem os 12 domínios).
 - Os nameservers contam: um domínio com o DNS fora do Cloudflare (ex.: shalomdeco.com em ibspark.com) não recebe nada do que o site escreve na zona. O "Reprocessar DNS" (Gestão
   de domínios) só dá os nameservers por certos se forem `ns1`…`ns4.visualdesignmoz.com` ou os do Cloudflare, e pede a verificação da zona parada quando já os usa.
 
@@ -983,3 +969,10 @@ Repete isto para cada secção/UI em que trabalhares — não só para esta func
 Só **silva.chamo@gmail.com** e **admin@visualdesignmoz.com** são administradores por defeito (`ADMIN_BOOTSTRAP_EMAILS` em `panel-user-registry.ts`). Qualquer outro e-mail — incluindo `silvanochamo@gmail.com` e `silva.chamo@visualdesignmoz.com` — entra como cliente, a não ser que o perfil na base de dados (`profiles.role = 'admin'`) o torne administrador. Para testar compras como cliente, usar um e-mail fora desta lista.
 
 - **`panel_auth_accounts.role` não aceita «profissional»** (29/10/2026): a tabela só tem admin/manager/reseller/client/guest; `upsertPanelAuthAccount` grava «client» para os planos Pro, Business e Enterprise. Era o que impedia criar a conta (e o login) de quem comprava um plano Pro («violates check constraint panel_auth_accounts_role_check»).
+
+# Notas para a próxima auditoria (31/10/2026) — ler antes de dar algo como «em falta»
+
+- **Verificar sempre contra `origin/main`, o site em produção, o DNS e o GitHub, nunca contra `ESTADO_PROJECTO.md` nem contra a pasta local** (a pasta local pode estar dezenas de commits atrás de `main`, e esses documentos atrasam-se: a auditoria de 31/10 deu como em falta coisas já feitas por ler os documentos).
+- **«DA» e «DirectAdmin» no código:** `/api/da`, `daApi`, `da-*.ts`, `DirectAdminServerAPI` e `da-credential-store` são **nome herdado do painel VHost** (o conteúdo é o painel actual); não são chamadas ao DirectAdmin e não são lacuna. Código do protocolo real do DirectAdmin (`CMD_API_…`, em `directadmin-adapter.ts`, `da-api-ssh.ts`, `directadmin.ts`, `directadmin-credentials.ts` e os ramos de `reseller-provision`, `panel-server-provision`…) **existe mas nunca corre**: `getProviderByUsername` (`hosting-provider.ts`) devolve sempre `hestia` e `isHestiaOnlyDeploy()` está ligado (`DEFAULT_HOSTING_PROVIDER=hestia`). Está ligado por importações a cerca de 35 ficheiros do caminho do painel, por isso retirá-lo é uma refactorização à parte (com `tsc`, build e ensaio das rotas), não uma limpeza; enquanto não for feita, não é falha. O deploy ainda escreve os 6 `DIRECTADMIN_*` no servidor; podem sair juntos com esse código.
+- **O site já não é uma aplicação instalável nem funciona sem ligação** (Silva, 31/10/2026: «não quero o PWA»): saíram `@ducanh2912/next-pwa`, o `manifest.json`, o `offline.html` e o `fallback-*.js`. O `public/sw.js` é agora um ficheiro de 8 linhas que **apaga as caches e se desregista** em quem ainda tem o service worker antigo; não o apagar enquanto houver visitantes com o antigo. Com isto, `npm audit` em produção dá 0 (as 9 moderadas vinham todas do `next-pwa`/`workbox`; o `minimatch` que resta é do `eslint`, só de desenvolvimento).
+- **Em falta confirmado a 31/10/2026 (verificado, não copiado):** (1) SSH da porta 2234 ainda aceita palavra-passe (`publickey,password`; o «Fecho do servidor» só correu em leitura, a 28/10); (2) Stripe com chaves de teste (secrets sem alteração desde 09/08) e M-Pesa em `sandbox` (o deploy fixa-o); (3) Privacidade e Termos sem cookies, responsável, NUIT nem conservação, e sem faixa de cookies; (4) carrinho só emite recibo (sem factura), NUIT não obrigatório às empresas; (5) DMARC a 25 % (acima); (6) lint com 11 erros em `contas.tsx` (todos os PR ficam a vermelho desde 30/10); (7) ligações partidas no site público (`/servicos/*` e `/visualdesign`), deixadas para depois por ordem do Silva; (8) texto em português do Brasil em poucos sítios (`precos/ssl`, `ajuda/dominios/transferir`, `pagamento/renovacao`, `renewal-templates.ts`, `i18n.tsx`, «Baixar»).

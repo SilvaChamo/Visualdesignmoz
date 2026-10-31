@@ -1,11 +1,11 @@
-# Estado do projecto — VisualDesign (auditoria de 22/10/2026, actualizado a 27/10/2026)
+# Estado do projecto — VisualDesign (auditoria de 22/10/2026, actualizado a 31/10/2026)
 
 > **O Hetzner já está fechado** (servidor desligado a 19/10/2026; só falta cancelar a conta do balde de ficheiros). Nada depende dele.
 > O que falta para fechar está abaixo; o levantamento original e o detalhe estão em `docs/AUDITORIA_FECHO_PROJECTO.md`.
 
 ## Em produção
 - Site e painel no **Contabo** (Hestia), publicados por cada merge em `main`. Hetzner (servidor) desligado.
-- Supabase próprio no Contabo. CI: últimos deploys todos verdes. Traduções: 0 textos sem inglês.
+- Supabase próprio, no endereço `https://supabase.visualdesignmoz.com` (troca feita a 30/10/2026). CI: últimos deploys todos verdes. Traduções: 0 textos sem inglês.
 - Segurança do servidor: SSH na 2234, FTP e painel do Hestia fechados, bloqueio no nginx, guarda de sites, 2 passos opcional.
 
 ## Falta para fechar (28/10/2026, depois das decisões do Silva)
@@ -18,12 +18,12 @@
 5. **Palavra-passe de cifra das cópias do R2:** existe, num ficheiro no Mac do Silva (`~/Desktop/chave-cifra-backups-visualdesign.txt`, gravado a 26/10). Falta só guardá-la num gestor de palavras-passe e apagar o ficheiro do ambiente de trabalho; sem ela as cópias do R2 não se abrem (o cron `vd-backup-externo` existe e corre às 07:00).
 6. **GitHub › Settings:** `CONTABO_ROOT_PASSWORD` removido em 28/10/2026 (nenhum workflow o usa); alertas do Dependabot activos. Os secrets `DIRECTADMIN_*` ficam pendentes de confirmação individual.
 7. ~~Brevo / caixa `servidor@`~~ — feito (o Silva confirmou a 28/10/2026).
-8. **Google (login):** juntar `https://supabase.visualdesignmoz.com/auth/v1/callback` aos endereços de retorno **antes** de correr a troca do Supabase (manter o antigo).
+8. ~~**Google (login)**~~ — funciona (o Silva testou a 31/10/2026; o Google aceita o retorno do endereço novo).
 9. ~~**Ramos:** os 25 ramos já fundidos em `main` foram apagados a 28/10/2026, depois de confirmar os SHAs; registo e recuperação em `docs/ramos-para-apagar-2026-10-28.md`.~~
 
 **Prontos no ramo — depois de publicar, correr (Actions › Run workflow, primeiro sem «aplicar»)**
-10. `Ops - Fecho do servidor`, fase **supabase** (troca do endereço; depois publicar), fase **ssh** (só chave; recusa se alguma conta sem ser root usou palavra-passe), fases **chave-app** e **chave-app-concluir** (chave própria da aplicação, só aceite a partir do servidor, separada da chave do deploy). O deploy foi mudado para usar o endereço novo do Supabase e a chave própria quando existe — **fazer o ensaio do deploy** (`ensaio` marcado) antes de publicar.
-11. `Ops - DMARC de pct=25 para pct=100 (DNS)`: sobe só os domínios que já estão em `p=quarantine; pct=25`.
+10. `Ops - Fecho do servidor`: a fase do Supabase está feita (30/10). **Por fazer:** fase **ssh** (só chave; a 31/10 o servidor ainda aceita palavra-passe na 2234) e fases **chave-app** e **chave-app-concluir** (chave própria da aplicação). Só correram em leitura, a 28/10. Fazer o ensaio do deploy (`ensaio` marcado) antes.
+11. `Ops - DMARC de pct=25 para pct=100 (DNS)`: **12 domínios estão em `quarantine; pct=25`** (confirmado a 31/10 nos servidores de nomes); a subida a 100 % está ordenada pelo Silva e por aplicar. Falta só o `shalomdeco.com` (sem DMARC, DNS fora do nosso controlo).
 12. `Ops - Auditoria do servidor (só leitura)`: a secção 13 procura nos registos do nginx quem chamou as rotas protegidas; ler o resultado.
 13. `Ops - Limite de disco de um pacote de alojamento`: quota do `VD-Email-Basico`.
 
@@ -41,8 +41,8 @@
 
 **Notas que continuam a valer**
 - **Hetzner Object Storage:** nenhum site o usa (`verificar` dá 0 links e 0 ficheiros em falta); não é preciso listar o que mais existe no balde; a conta pode ser cancelada. A página estática `oshercollective.com/legacy/` foi regravada três vezes por quem a envia (conta do próprio site): tem de usar o URL do próprio domínio.
-- **PRs abertos:** só o #3 (repõe o basededadosagro.com em `domain_renewals`; escrita na base de dados, só com o OK do Silva) — nunca fechar.
-- **DMARC** (auditado a 26/10): `p=quarantine; pct=25` em aamihe.com, concordia.co.mz, entrecamposblog.com, lirandzojewelry.com, menocrazy.app, mltmark.com, msdn-moz.org, oshercollective.com, provisualcorporate.co.mz e visualdesignmoz.com (cópia dos antigos em `scratchpad/dmarc-antes-quarantine.json`; voltar atrás = repor `p=none`). Ficam em `p=none`: basededadosagro.com (falta a chave DKIM do servidor `mail._domainkey`), elimservicos.com (e-mail do Google, decidir) e shalomdeco.com (DNS fora do Cloudflare; o botão «Reprocessar DNS» repõe os registos quando a dona voltar). O site já não baixa um DMARC mais estrito.
+- **PRs abertos (31/10/2026):** o #3 (repõe o basededadosagro.com em `domain_renewals`; escrita na base de dados, só com o OK do Silva — nunca fechar) e os do Dependabot #239 a #245 (ficam vermelhos enquanto o lint de `main` tiver os 11 erros de `contas.tsx`).
+- **DMARC** (lido a 31/10 nos servidores de nomes): `p=quarantine; pct=25` em 12 domínios — aamihe.com, basededadosagro.com, concordia.co.mz, elimservicos.com, entrecamposblog.com, lirandzojewelry.com, menocrazy.app, mltmark.com, msdn-moz.org, oshercollective.com, provisualcorporate.co.mz e visualdesignmoz.com. Só o shalomdeco.com continua sem DMARC (DNS fora do Cloudflare; o botão «Reprocessar DNS» repõe os registos quando a dona voltar). O site já não baixa um DMARC mais estrito.
 - **Caixa `servidor@visualdesignmoz.com`:** criada e a funcionar (confirmado pelo Silva a 28/10/2026).
 - **Quem só tem encomendas** (sem hospedagem nem domínio) fica no painel das encomendas (`/encomendas`), com a faixa `PromoProdutos`; ao comprar só domínio passa à vista compacta do vhost.
 - **Endereço antigo `host`:** `/host:2026` e afins só redireccionam; o nginx da porta 2026 já aponta a `/vhost:2026` (resolvido, 307).
@@ -78,3 +78,8 @@ Resolvidos: certificados de e-mail do mltmark.com e do basededadosagro.com, ngin
 - **Supabase: migração ainda por fazer.** O `.env` do serviço ainda anuncia `https://supabase-contabo.visualdesignmoz.com`; o `.env.local` do site já aponta para `https://supabase.visualdesignmoz.com`. Os dois endereços dão 401 em `/auth/v1/health`, resposta esperada sem chave.
 - **Login Google:** o pedido actual ainda usa `https://supabase-contabo.visualdesignmoz.com/auth/v1/callback`. Antes de migrar o serviço, acrescentar `https://supabase.visualdesignmoz.com/auth/v1/callback` aos endereços autorizados no Google e manter o antigo.
 - **Palavra-passe de cifra das cópias:** continua por confirmar se foi guardada no gestor de palavras-passe; não foi lida nem alterada nesta verificação.
+
+## 31/10/2026 — auditoria verificada contra `main`, produção, DNS e GitHub
+- **Feito e confirmado:** sites e painel a responder 200; certificados válidos e a renovar; troca do Supabase; login Google; IVA no checkout; rotas de API protegidas; 0 textos sem inglês; sem ramos com nome de IA; secrets todos em uso; PWA removido (`npm audit` em produção: 0).
+- **Falta (ver o pormenor em `regras.md`, «Notas para a próxima auditoria»):** lint de `main` (11 erros em `contas.tsx`); SSH só com chave e chave própria da aplicação; Stripe e M-Pesa em teste; texto legal e cookies; factura e NUIT; DMARC a 100 %; ligações partidas do site público; poucos textos em português do Brasil.
+- **DirectAdmin:** `da-*`, `/api/da`, `daApi` são nome herdado do painel; o protocolo real existe mas nunca corre (ver `regras.md`). Não é lacuna.
