@@ -24,6 +24,7 @@ export type ReciboDocumentProps = {
     empresa: string | null;
     morada: string | null;
     telefone: string | null;
+    nuit?: string | null;
     email: string | null;
   };
   compra: {
@@ -44,6 +45,8 @@ export function ReciboDocument({ receiptNumber, issuedAt, cliente, compra }: Rec
   // Compras novas: IVA acrescentado ao preço das linhas; compras antigas: IVA já incluído nos preços (ver src/lib/iva.ts).
   const somaLinhas = compra.items.reduce((soma, item) => soma + (item.price ?? 0), 0);
   const iva = decomporCompra(somaLinhas, compra.totalMt);
+  // Os números novos são «FR» (Factura-Recibo); os já emitidos, «RC», continuam a ser recibos.
+  const tituloDocumento = receiptNumber?.startsWith('RC ') ? 'Recibo' : 'Factura-Recibo';
   const dataEmissao = new Date(issuedAt || compra.paidAt).toLocaleDateString('pt-PT', DATE_LONG);
 
   return (
@@ -55,12 +58,13 @@ export function ReciboDocument({ receiptNumber, issuedAt, cliente, compra }: Rec
           <div className="text-xs text-zinc-600 leading-relaxed">
             <p className="font-bold text-zinc-800">Cliente: {cliente.empresa || cliente.nome || cliente.email || '—'}</p>
             {cliente.empresa && cliente.nome && <p>Responsável: {cliente.nome}</p>}
+            {cliente.nuit && <p>NUIT: {cliente.nuit}</p>}
             {cliente.morada && <p>Morada: {cliente.morada}</p>}
             {cliente.telefone && <p>Tele: {cliente.telefone}</p>}
             {cliente.email && <p>Email: {cliente.email}</p>}
           </div>
           <div className="sm:text-right shrink-0">
-            <h1 className="text-xl font-bold text-black">Recibo Nº {receiptNumber ?? 'a emitir'}</h1>
+            <h1 className="text-xl font-bold text-black">{tituloDocumento} Nº {receiptNumber ?? 'a emitir'}</h1>
             <p className="text-xs font-bold text-red-600 mt-1">Pago na Totalidade</p>
             <p className="text-xs text-zinc-500 mt-1">Data de emissão: {dataEmissao}</p>
             <p className="text-xs text-zinc-500">

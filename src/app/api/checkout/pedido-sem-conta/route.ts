@@ -38,6 +38,7 @@ export async function POST(request: NextRequest) {
       empresa: texto(d.empresa, 120),
       emailEmpresa: texto(d.emailEmpresa, 160).toLowerCase(),
       cargo: texto(d.cargo, 80),
+      nuit: texto(d.nuit, 20).replace(/\D/g, ''),
     };
     const senha = String(body.senha || '');
 
@@ -48,6 +49,9 @@ export async function POST(request: NextRequest) {
     if (erroEmail) return NextResponse.json({ error: erroEmail }, { status: 400 });
     const erroEmailEmpresa = dados.emailEmpresa ? mensagemEmailInvalido(dados.emailEmpresa, 'O e-mail da empresa') : null;
     if (erroEmailEmpresa) return NextResponse.json({ error: erroEmailEmpresa }, { status: 400 });
+    if (!/^\d{9}$/.test(dados.nuit || '')) {
+      return NextResponse.json({ error: 'Indique o NUIT da empresa (9 dígitos): é obrigatório para a factura.' }, { status: 400 });
+    }
     if (!dados.telefone || !dados.morada || !dados.provincia) {
       return NextResponse.json({ error: 'Indique o telefone, a morada e a província: são os dados da conta e, nos domínios, do registo oficial (WHOIS).' }, { status: 400 });
     }

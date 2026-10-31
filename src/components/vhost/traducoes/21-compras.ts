@@ -86,4 +86,8 @@ export const compras: Record<string, string> = {
  "Nada ficou a meio: o site, os e-mails e as bases de dados voltaram para a conta {0} e o site continua a funcionar como antes.": "Nothing was left half-done: the site, the e-mails and the databases went back to account {0} and the site keeps working as before.",
  "Nada foi mudado: o domínio continua na conta {0}.": "Nothing was changed: the domain stays in account {0}.",
  "Cópia de segurança em {0}.": "Backup in {0}.",
+ "Indique o telefone, a morada, a província e o NUIT da empresa (9 dígitos): são os dados da conta, da factura e, nos domínios, do registo oficial (WHOIS).": "Enter the phone, address, province and the company's NUIT (9 digits): they are the account details, the invoice details and, for domains, the official registration (WHOIS) details.",
+ "Indique o NUIT da empresa (9 dígitos): é obrigatório para a factura.": "Enter the company's NUIT (9 digits): it is required for the invoice.",
+ "NUIT da empresa": "Company NUIT",
+ "NUIT da empresa *": "Company NUIT *",
 };
