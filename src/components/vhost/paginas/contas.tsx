@@ -742,6 +742,21 @@ function ContaModificar({ u }: { u: string }) {
 type TipoNova = 'cliente' | 'revenda' | 'admin';
 /** `embutido`: dentro da janela «Passar para outra conta» — o domínio é o que vai passar (não se escolhe nem passa daqui), e ao criar volta-se
  *  à janela com a conta nova escolhida (`aoCriar`) em vez de seguir para a lista de contas. */
+/** Versão da janela «Passar para outra conta»: os campos vão um por baixo do outro (a página usa duas colunas, largas de mais para a janela). Ficam fora de NovaConta para o React não os recriar a cada desenho. */
+function QuadroEmbutido({ children }: { children: React.ReactNode }) {
+  return <div>{children}</div>;
+}
+function LinhaEmbutida({ label, hint, children }: { label: string; hint?: string; tag?: string; children: React.ReactNode }) {
+  const { t } = useVH();
+  return (
+    <div className="f">
+      <label>{t(label)}</label>
+      {children}
+      {hint && <small style={{ color: 'var(--muted)' }}>{t(hint)}</small>}
+    </div>
+  );
+}
+
 export function NovaConta({ tipo, embutido }: { tipo: TipoNova; embutido?: { dominio: string; aoCriar: (user: string) => void; aoCancelar: () => void } }) {
   const vh = useVH();
   const { s, me, t, toast, nav } = vh;
@@ -823,16 +838,8 @@ export function NovaConta({ tipo, embutido }: { tipo: TipoNova; embutido?: { dom
   };
 
   // Na janela «Passar para outra conta» os campos vão um por baixo do outro (a página usa duas colunas, largas de mais para a janela)
-  const Quadro = embutido ? ({ children }: { children: React.ReactNode }) => <div>{children}</div> : Frm;
-  const Linha = embutido
-    ? ({ label, hint, children }: { label: string; hint?: string; tag?: string; children: React.ReactNode }) => (
-        <div className="f">
-          <label>{t(label)}</label>
-          {children}
-          {hint && <small style={{ color: 'var(--muted)' }}>{t(hint)}</small>}
-        </div>
-      )
-    : Row;
+  const Quadro = embutido ? QuadroEmbutido : Frm;
+  const Linha = embutido ? LinhaEmbutida : Row;
 
   return (
     <>
