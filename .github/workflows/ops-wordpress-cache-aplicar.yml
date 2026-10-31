@@ -28,6 +28,10 @@ on:
         description: 'Só o prefixo, o esvaziar selectivo e a validade do Redis (para sites que já têm a cache de objectos em Redis)'
         type: boolean
         default: false
+      desfazer_troca:
+        description: 'Só repor o WP-Optimize e tirar do .htaccess as regras do Cache Enabler (um site; precisa de «confirmar»)'
+        type: boolean
+        default: false
       trocar_cache:
         description: 'Trocar o WP-Optimize pelo Cache Enabler (um site; precisa de «confirmar»)'
         type: boolean
@@ -59,6 +63,7 @@ jobs:
           SO_REDIS: ${{ inputs.so_redis && 'sim' || 'nao' }}
           REPARAR: ${{ inputs.reparar && 'sim' || 'nao' }}
           TROCAR_CACHE: ${{ inputs.trocar_cache && 'sim' || 'nao' }}
+          DESFAZER_TROCA: ${{ inputs.desfazer_troca && 'sim' || 'nao' }}
           PACOTE_B64: ${{ steps.pacote.outputs.b64 }}
         with:
           host: ${{ secrets.CONTABO_HOST }}
@@ -66,7 +71,7 @@ jobs:
           username: root
           key: ${{ secrets.CONTABO_SSH_KEY }}
           command_timeout: 15m
-          envs: DOMINIOS,CONFIRMAR,SO_REDIS,REPARAR,TROCAR_CACHE,PACOTE_B64
+          envs: DOMINIOS,CONFIRMAR,SO_REDIS,REPARAR,TROCAR_CACHE,DESFAZER_TROCA,PACOTE_B64
           script: |
             set -u
             titulo() { echo; echo "=================== $1"; }
@@ -94,7 +99,7 @@ jobs:
               [ "$CONFIRMAR" = sim ] || continue
               cp -p "$RAIZ/wp-config.php" "$WORK/wp-config.$DOM.bak"
               $W plugin list --fields=name,status,version --format=csv > "$WORK/plugins.$DOM.csv" 2>/dev/null
-              VD_TROCAR_CACHE=$([ "$TROCAR_CACHE" = sim ] && echo 1 || echo 0) VD_REPARAR=$([ "$REPARAR" = sim ] && echo 1 || echo 0) VD_COPIA_DIR="$WORK" VD_SO_REDIS=$([ "$SO_REDIS" = sim ] && echo 1 || echo 0) nice -n 10 ionice -c3 bash "$SCRIPT" "$RAIZ" "$CONTA" "$DOM"
+              VD_DESFAZER_TROCA=$([ "$DESFAZER_TROCA" = sim ] && echo 1 || echo 0) VD_TROCAR_CACHE=$([ "$TROCAR_CACHE" = sim ] && echo 1 || echo 0) VD_REPARAR=$([ "$REPARAR" = sim ] && echo 1 || echo 0) VD_COPIA_DIR="$WORK" VD_SO_REDIS=$([ "$SO_REDIS" = sim ] && echo 1 || echo 0) nice -n 10 ionice -c3 bash "$SCRIPT" "$RAIZ" "$CONTA" "$DOM"
               # a primeira visita enche a cache; medem-se duas
               A=$(codigo "$DOM" "$IPSITE"); B=$(codigo "$DOM" "$IPSITE")
               echo "depois · página inicial: $A · segunda visita: $B"
