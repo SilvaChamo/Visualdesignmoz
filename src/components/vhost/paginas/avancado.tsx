@@ -1795,7 +1795,7 @@ const AUTO: Record<string, string> = { true: 'Todas', minor: 'Só de segurança'
 
 /** Abre o painel do WordPress já com sessão. A janela abre-se logo no clique (depois de esperar pelo servidor o
  *  navegador bloqueava-a) e recebe o endereço quando ele chega; se falhar, fecha-se e aparece o motivo. */
-async function entrarWp(vh: VH, d: string, user?: string, postId?: number, editor: 'wordpress' | 'elementor' = 'wordpress', destino?: 'plugins') {
+async function entrarWp(vh: VH, d: string, user?: string, postId?: number, editor: 'wordpress' | 'elementor' = 'wordpress', destino?: 'plugins' | 'paginas' | 'pagina-nova' | 'utilizadores' | 'utilizador-novo') {
   const w = window.open('about:blank', '_blank');
   const j = await noServidor(vh, { acao: 'wp-entrar', dominio: d, ...(user ? { user } : {}), ...(postId ? { postId } : {}), ...(destino ? { destino } : {}), editor }, editor === 'elementor' ? 'A abrir o Elementor…' : 'A abrir o painel do WordPress…');
   if (j?.url && w) {
@@ -1848,23 +1848,37 @@ function BotoesSiteWp({ d }: { d: string }) {
  *  que abre/fecha o cabeçalho de carregar .zip no corpo da página (Silva, 31/10/2026) */
 const EVENTO_ADICIONAR_PLUGINS = 'vd-wp-adicionar-plugins';
 function BotoesPluginsWp({ d }: { d: string }) {
+  return <BotoesSeparadorWp d={d} gerir="Gerir plugins no WordPress" destino="plugins" adicionar="Adicionar plugins" aoAdicionar={() => window.dispatchEvent(new Event(EVENTO_ADICIONAR_PLUGINS))} />;
+}
+
+/** Os dois botões da linha de cima do cartão de cada separador do Gerir WordPress: abrir a lista no WordPress e adicionar (Silva, 31/10/2026).
+ *  Sem `aoAdicionar`, «Adicionar» abre no WordPress o ecrã de novo (`destinoNovo`). */
+function BotoesSeparadorWp({ d, gerir, destino, adicionar, destinoNovo, aoAdicionar }: { d: string; gerir: string; destino: 'plugins' | 'paginas' | 'utilizadores'; adicionar: string; destinoNovo?: 'pagina-nova' | 'utilizador-novo'; aoAdicionar?: () => void }) {
   const vh = useVH();
   const [pisca, piscar] = usePisca();
+  const [piscaNovo, piscarNovo] = usePisca();
   return (
     <>
       <button
         className={'btn g sec-m' + (pisca ? ' pisca' : '')}
         onClick={() => {
           piscar();
-          entrarWp(vh, d, undefined, undefined, 'wordpress', 'plugins');
+          entrarWp(vh, d, undefined, undefined, 'wordpress', destino);
         }}
       >
         <i className="fa-brands fa-wordpress" />
-        {vh.t('Gerir plugins no WordPress')}
+        {vh.t(gerir)}
       </button>
-      <button className="btn r" onClick={() => window.dispatchEvent(new Event(EVENTO_ADICIONAR_PLUGINS))}>
+      <button
+        className={'btn r' + (piscaNovo ? ' pisca' : '')}
+        onClick={() => {
+          if (aoAdicionar) return aoAdicionar();
+          piscarNovo();
+          if (destinoNovo) entrarWp(vh, d, undefined, undefined, 'wordpress', destinoNovo);
+        }}
+      >
         <i className="fa-solid fa-plus" />
-        {vh.t('Adicionar plugins')}
+        {vh.t(adicionar)}
       </button>
     </>
   );
@@ -2150,6 +2164,7 @@ function WpUtilizadores({ d }: { d: string }) {
     <>
       <DataTable
         id="wp-users-da"
+        empilhar={false}
         rows={dados.users}
         rowKey={(r) => r.user_login}
         empty="Sem utilizadores"
@@ -3012,6 +3027,7 @@ function WpPaginas({ d }: { d: string }) {
     <Sec titulo="Páginas" desc="As páginas deste site. Edite-as aqui com o editor de blocos do WordPress, sem entrar no WordPress." numeros={[['Páginas', String(dados.paginas.length)]]}>
       <DataTable
         id="wp-paginas"
+        empilhar={false}
         rows={dados.paginas}
         rowKey={(r) => String(r.ID)}
         search={(r) => r.post_title}
@@ -3251,11 +3267,18 @@ export const wordpressPagina: ScreenFn = (vh) => {
     };
   if (a && (b === 'utilizadores' || b === 'paginas' || b === 'plugins'))
     return {
-      title: b === 'plugins' ? 'Gerir plugins' : 'Gerir WordPress',
+      title: b === 'plugins' ? 'Gerir plugins' : b === 'paginas' ? 'Gerir páginas' : 'Gerir utilizadores',
       desc: a,
       crumbs: [base, naPagina, { t: b === 'paginas' ? 'Páginas' : b === 'plugins' ? 'Plugins' : 'Utilizadores' }],
       ...noDominio('/' + b),
-      actions: b === 'plugins' ? <BotoesPluginsWp d={a} /> : sitePainel,
+      actions:
+        b === 'plugins' ? (
+          <BotoesPluginsWp d={a} />
+        ) : b === 'paginas' ? (
+          <BotoesSeparadorWp d={a} gerir="Gerir páginas no WordPress" destino="paginas" adicionar="Adicionar página" destinoNovo="pagina-nova" />
+        ) : (
+          <BotoesSeparadorWp d={a} gerir="Gerir utilizadores no WordPress" destino="utilizadores" adicionar="Adicionar utilizador" destinoNovo="utilizador-novo" />
+        ),
       body: (
         <>
           <WpAbas d={a} aba={b} />

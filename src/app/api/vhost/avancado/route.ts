@@ -4,7 +4,7 @@ import { requirePanelBootstrapAccess } from '@/lib/panel-api-auth';
 import { executeServerCommand, streamServerFile, uploadFileViaSsh } from '@/lib/server-ssh-exec';
 import { hestiaCall } from '@/lib/hestia-client';
 import * as hestia from '@/lib/hestia-adapter';
-import { generateWpAutoLoginToken, installWordPressSite, listWpPlugins, listWpUsers, toggleWpPlugin, updateAllWpPlugins, updateWpPlugin, updateWpUserPassword } from '@/lib/wp-cli-server';
+import { DESTINOS_ADMIN_WP, type DestinoAdminWp, generateWpAutoLoginToken, installWordPressSite, listWpPlugins, listWpUsers, toggleWpPlugin, updateAllWpPlugins, updateWpPlugin, updateWpUserPassword } from '@/lib/wp-cli-server';
 import { esquecerLeitura, lerServidor, type LeituraServidor } from '@/lib/vhost-servidor';
 import { lerRegisto, montarDados } from '@/lib/vhost-dados';
 import { VHOST_DIR } from '@/lib/vhost-email-scripts';
@@ -885,7 +885,7 @@ export async function POST(req: NextRequest) {
           if (modo.trim() !== 'builder') return recusa('Esta página não está editada com Elementor.');
         }
       }
-      const x = await generateWpAutoLoginToken(d, wpUser || undefined, postId, editor, c.destino === 'plugins' ? 'plugins' : undefined);
+      const x = await generateWpAutoLoginToken(d, wpUser || undefined, postId, editor, typeof c.destino === 'string' && c.destino in DESTINOS_ADMIN_WP ? (c.destino as DestinoAdminWp) : undefined);
       return resposta({ ok: x.success, error: x.error }, false, { url: x.url });
     }
     case 'wp-senha': {
