@@ -15260,3 +15260,217 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
 .vh .wp-edicao .f :is(input, select):not(#x):not(#y) {
    font-size: calc(12.5px * var(--fs, 1))
 }
+
+/* Gerir WordPress › Plugins (Silva, 31/10/2026): a lista como no ecrã Plugins do WordPress — opções de cada plugin por baixo do nome,
+   «Acções por lotes» em cima e em baixo e «Adicionar plugin» que abre o cabeçalho para carregar vários .zip. Medidas × --z como o resto do painel. */
+.vh .wp-plg-add {
+   margin: 0 0 calc(14px * var(--z, 1));
+   padding: calc(14px * var(--z, 1)) var(--recuo, 12px) calc(18px * var(--z, 1));
+   border-top: 1px solid var(--line);
+   border-bottom: 1px solid var(--line);
+   background: var(--soft)
+}
+
+.vh .wp-plg-add-cab {
+   display: flex;
+   align-items: center;
+   gap: calc(12px * var(--z, 1));
+   flex-wrap: wrap
+}
+
+.vh .wp-plg-add-cab h3 {
+   margin: 0;
+   font-size: calc(18px * var(--fs, 1));
+   font-weight: 400
+}
+
+.vh .wp-plg-add-cab .sp {
+   flex: 1
+}
+
+.vh .wp-plg-carregar:not(#x) {
+   background: var(--tint);
+   border-color: var(--red);
+   color: var(--red);
+   font-weight: 600
+}
+
+.vh .wp-plg-add-txt {
+   margin: calc(22px * var(--z, 1)) 0 calc(14px * var(--z, 1));
+   text-align: center;
+   font-size: calc(14px * var(--fs, 1));
+   color: var(--ink)
+}
+
+.vh .wp-plg-caixa {
+   display: flex;
+   align-items: center;
+   justify-content: center;
+   flex-wrap: wrap;
+   gap: calc(10px * var(--z, 1));
+   max-width: calc(640px * var(--z, 1));
+   margin: 0 auto;
+   padding: calc(18px * var(--z, 1));
+   border: 1px dashed var(--line);
+   border-radius: var(--r);
+   background: var(--card);
+   transition: border-color .15s, background .15s
+}
+
+.vh .wp-plg-caixa.on {
+   border-color: var(--red);
+   background: var(--tint)
+}
+
+.vh .wp-plg-caixa-n {
+   color: var(--muted);
+   font-size: calc(13px * var(--fs, 1))
+}
+
+.vh .wp-plg-envios {
+   list-style: none;
+   max-width: calc(640px * var(--z, 1));
+   margin: calc(10px * var(--z, 1)) auto 0;
+   padding: 0;
+   max-height: calc(300px * var(--z, 1));
+   overflow: auto;
+   border: 1px solid var(--line);
+   border-radius: var(--r);
+   background: var(--card)
+}
+
+.vh .wp-plg-envios li {
+   display: flex;
+   align-items: center;
+   gap: calc(12px * var(--z, 1));
+   padding: calc(10px * var(--z, 1)) calc(12px * var(--z, 1));
+   border-bottom: 1px solid var(--line)
+}
+
+.vh .wp-plg-envios li:last-child {
+   border-bottom: 0
+}
+
+.vh .wp-plg-envios li.est-ok .bar span {
+   background: var(--ok)
+}
+
+.vh .wp-plg-x:not(#x) {
+   flex: none;
+   padding: 0 calc(8px * var(--z, 1))
+}
+
+/* filtros por cima da lista: Todos (16) | Activos (14) | … — texto, como os do WordPress */
+.vh .wp-plg-filtros {
+   display: flex;
+   flex-wrap: wrap;
+   align-items: center;
+   column-gap: calc(10px * var(--z, 1));
+   padding: calc(8px * var(--z, 1)) var(--recuo, 12px);
+   font-size: calc(13px * var(--fs, 1))
+}
+
+.vh .wp-plg-filtros button {
+   border: 0;
+   background: none;
+   padding: calc(2px * var(--z, 1)) 0;
+   color: var(--ink);
+   font: inherit;
+   cursor: pointer
+}
+
+.vh .wp-plg-filtros button span {
+   color: var(--muted)
+}
+
+.vh .wp-plg-filtros button:hover,
+.vh .wp-plg-filtros button.on {
+   color: var(--red)
+}
+
+.vh .wp-plg-filtros button.on {
+   font-weight: 600
+}
+
+/* «Acções por lotes» + Aplicar (em cima, na barra por cima da lista, e em baixo, no fundo do cartão) */
+.vh .wp-plg-lote {
+   display: inline-flex;
+   align-items: center;
+   gap: calc(8px * var(--z, 1))
+}
+
+.vh .wp-plg-lote select {
+   min-width: calc(190px * var(--z, 1))
+}
+
+/* nome do plugin com as opções por baixo: Desactivar | Actualizar | Apagar */
+.vh .wp-plg-nome {
+   display: flex;
+   flex-direction: column;
+   gap: calc(3px * var(--z, 1));
+   white-space: nowrap
+}
+
+.vh .wp-plg-acoes {
+   display: inline-flex;
+   align-items: center;
+   gap: calc(6px * var(--z, 1));
+   font-size: calc(12.5px * var(--fs, 1));
+   color: var(--muted)
+}
+
+.vh .wp-plg-acoes button {
+   border: 0;
+   background: none;
+   padding: 0;
+   font: inherit;
+   color: var(--ink);
+   cursor: pointer
+}
+
+.vh .wp-plg-acoes button:hover {
+   color: var(--red);
+   text-decoration: underline
+}
+
+.vh .wp-plg-acoes button.nova {
+   color: var(--ok);
+   font-weight: 600
+}
+
+.vh .wp-plg-acoes button.perigo {
+   color: var(--red)
+}
+
+.vh .wp-plg-acoes button:disabled {
+   opacity: .5;
+   cursor: default;
+   text-decoration: none
+}
+
+.vh .wp-plg-desc:not(#x) {
+   display: flex;
+   flex-direction: column;
+   gap: calc(3px * var(--z, 1));
+   /* a descrição é texto corrido (não um nome nem um caminho): parte-se em linhas, como no WordPress */
+   white-space: normal;
+   width: calc(560px * var(--z, 1));
+   min-width: calc(260px * var(--z, 1));
+   max-width: 100%
+}
+
+.vh .tbl td .wp-plg-desc:not(#x),
+.vh .tbl td .wp-plg-desc:not(#x) * {
+   white-space: normal !important;
+   overflow-wrap: anywhere
+}
+
+/* o fundo da lista alinha com o início da barra de cima e da tabela */
+.vh .tbl[data-dt="wp-plugins-lista"] .dt-fundo:not(#x) {
+   padding-left: 0
+}
+
+.vh .wp-plg-desc small {
+   color: var(--muted);
+   font-size: calc(12px * var(--fs, 1))
+}

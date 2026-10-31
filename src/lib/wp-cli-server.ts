@@ -39,6 +39,9 @@ export interface WpPluginRow {
   version: string;
   update: string | null;
   update_version?: string;
+  /** só com `detalhes` (separador Plugins): a descrição e o autor do cabeçalho do plugin, como no ecrã «Plugins» do WordPress */
+  description?: string;
+  author?: string;
 }
 
 /** `admin`: o wp-cli corre como o admin-ajax (mu-plugin do stack, `VD_CTX_ADMIN=1`): os plugins Jet só se iniciam assim e só assim trazem o pacote de actualização. */
@@ -223,7 +226,7 @@ function parseWpJson<T>(raw: string): T {
   }
 }
 
-export async function listWpPlugins(domain: string): Promise<WpPluginRow[]> {
+export async function listWpPlugins(domain: string, detalhes = false): Promise<WpPluginRow[]> {
   const install = await resolveWpInstall(domain);
   if (!install) {
     throw new Error('WordPress não encontrado neste domínio');
@@ -234,10 +237,17 @@ export async function listWpPlugins(domain: string): Promise<WpPluginRow[]> {
   // A lista guardada pelo mu-plugin (vd_plugin_updates) vem em paralelo: o wp-cli não carrega os actualizadores que os plugins pagos só
   // registam no administrador, por isso sozinho não via as actualizações que o WordPress mostra.
   const [raw, guardadas] = await Promise.all([
-    runAsWpUser(install.user, install.path, 'plugin list --format=json --status=active,inactive'),
+    runAsWpUser(install.user, install.path, 'plugin list --format=json --status=active,inactive' + (detalhes ? ' --fields=name,title,status,version,update,update_version,description,author' : '')),
     runAsWpUser(install.user, install.path, '--skip-plugins --skip-themes option get vd_plugin_updates --format=json').catch(() => ''),
   ]);
-  const rows = parseWpJson<WpPluginRow[]>(raw);
+  let rows: WpPluginRow[] | null = null;
+  try {
+    rows = parseWpJson<WpPluginRow[]>(raw);
+  } catch (e) {
+    // um wp-cli mais antigo pode não conhecer os campos «de luxo»: a lista simples serve
+    if (!detalhes) throw e;
+    rows = parseWpJson<WpPluginRow[]>(await runAsWpUser(install.user, install.path, 'plugin list --format=json --status=active,inactive'));
+  }
   if (!Array.isArray(rows)) {
     throw new Error('Lista de plugins inválida');
   }
