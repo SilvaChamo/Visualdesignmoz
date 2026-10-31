@@ -15967,3 +15967,10 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    height: calc(34px * var(--z, 1)) !important;
    min-height: calc(34px * var(--z, 1)) !important
 }
+
+/* como no ecrã do WordPress: o círculo da opção fica sozinho à esquerda e o que vem por baixo (exemplo, campo e etiquetas) alinha com o texto da opção, não com o círculo */
+.vh .wp-perma-op > code,
+.vh .wp-perma-pers,
+.vh .wp-perma-etiquetas {
+   margin-left: calc(24px * var(--z, 1))
+}
