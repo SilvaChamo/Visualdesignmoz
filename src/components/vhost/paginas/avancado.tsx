@@ -1852,6 +1852,8 @@ function BotoesSiteWp({ d }: { d: string }) {
 /** Separador Plugins: os botões da linha de cima do cartão — «Gerir plugins no WordPress» (abre a lista de Plugins do WordPress) e «Adicionar plugins»,
  *  que abre/fecha o cabeçalho de carregar .zip no corpo da página (Silva, 31/10/2026) */
 const EVENTO_ADICIONAR_PLUGINS = 'vd-wp-adicionar-plugins';
+/** o título do site mudou no resumo: o separador do navegador da secção do ícone mostra-o logo */
+const EVENTO_TITULO_WP = 'vd-wp-titulo-site';
 function BotoesPluginsWp({ d }: { d: string }) {
   return <BotoesSeparadorWp d={d} gerir="Gerir plugins no WordPress" destino="plugins" adicionar="Adicionar plugins" aoAdicionar={() => window.dispatchEvent(new Event(EVENTO_ADICIONAR_PLUGINS))} />;
 }
@@ -2437,6 +2439,15 @@ function WpSiteGestao({ d }: { d: string }) {
   const [perma, setPerma] = useState('');
   const [personalizada, setPersonalizada] = useState('');
   const campoPerma = useRef<HTMLInputElement>(null);
+  const [nomeLocal, setNomeLocal] = useState<string | null>(null);
+  useEffect(() => {
+    const ouvir = (e: Event) => {
+      const x = (e as CustomEvent<{ d: string; titulo: string }>).detail;
+      if (x?.d === d) setNomeLocal(x.titulo || null);
+    };
+    window.addEventListener(EVENTO_TITULO_WP, ouvir);
+    return () => window.removeEventListener(EVENTO_TITULO_WP, ouvir);
+  }, [d]);
   // o que o servidor leu passa para os campos (e volta a passar depois de guardar)
   useEffect(() => {
     if (!dados) return;
@@ -2523,7 +2534,7 @@ function WpSiteGestao({ d }: { d: string }) {
               <span className="sep">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 {dados.icone && <img src={dados.icone} alt="" />}
-                <span>{dados.nome || d}</span>
+                <span>{nomeLocal ?? (dados.nome || d)}</span>
               </span>
             </div>
           </div>
@@ -2660,11 +2671,21 @@ function WpGerir({ d }: { d: string }) {
   // o título do site edita-se no próprio cartão, no mesmo lugar: Enter ou sair do campo guarda, Esc cancela
   const [aEditar, setAEditar] = useState(false);
   const [tituloNovo, setTituloNovo] = useState('');
+  // o título novo aparece logo, sem esperar pela leitura do servidor (que demora); se o servidor recusar, volta o de antes
+  const [tituloLocal, setTituloLocal] = useState<string | null>(null);
+  const tituloAtual = tituloLocal ?? (wp?.titulo || '');
   const guardarTitulo = async () => {
     const novo = tituloNovo.trim();
     setAEditar(false);
-    if (!novo || novo === (wp?.titulo || '')) return;
+    if (!novo || novo === tituloAtual) return;
+    const antes = tituloLocal;
+    setTituloLocal(novo);
+    window.dispatchEvent(new CustomEvent(EVENTO_TITULO_WP, { detail: { d, titulo: novo } }));
     if (await noServidor(vh, { acao: 'wp-titulo-guardar', dominio: d, titulo: novo }, 'Título do site alterado')) lista.ler(true);
+    else {
+      setTituloLocal(antes);
+      window.dispatchEvent(new CustomEvent(EVENTO_TITULO_WP, { detail: { d, titulo: antes ?? wp?.titulo ?? '' } }));
+    }
   };
   return (
     <>
@@ -2695,7 +2716,7 @@ function WpGerir({ d }: { d: string }) {
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
                       if (e.key === 'Escape') {
-                        setTituloNovo(wp?.titulo || '');
+                        setTituloNovo(tituloAtual);
                         setAEditar(false);
                       }
                     }}
@@ -2707,17 +2728,17 @@ function WpGerir({ d }: { d: string }) {
                     tabIndex={0}
                     title={t('Editar o título do site')}
                     onClick={() => {
-                      setTituloNovo(wp?.titulo || '');
+                      setTituloNovo(tituloAtual);
                       setAEditar(true);
                     }}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
-                        setTituloNovo(wp?.titulo || '');
+                        setTituloNovo(tituloAtual);
                         setAEditar(true);
                       }
                     }}
                   >
-                    {wp?.titulo || '…'}
+                    {tituloAtual || '…'}
                     <i className="fa-solid fa-pen" />
                   </span>
                 )}
