@@ -1,0 +1,99 @@
+name: Ops - WordPress sem a biblioteca de media na página inicial
+
+# Põe num site WordPress o mini mu-plugin `deploy/wordpress/visualdesign/sem-media-na-frente.php`, que tira da página inicial, das listas e da pesquisa
+# (só para visitantes) a biblioteca de media que o plugin «Custom Upload Buttons» carrega em todas as páginas (≈ 90 KB no HTML e 17 ficheiros JS).
+# Sem «confirmar» só LÊ (mede a página inicial). Com «confirmar»: verifica a sintaxe com o PHP do servidor, põe o ficheiro, esvazia só a cache de
+# páginas do site, mede outra vez e, se a página inicial deixar de dar 200, apaga o ficheiro. «desfazer» apaga-o. Nunca toca no resto do site nem
+# em mais nenhum site. Pedido do Silva a 31/10/2026 («trate disso» — o peso da página do entrecamposblog.com).
+
+on:
+  workflow_dispatch:
+    inputs:
+      dominio:
+        description: 'Domínio do site'
+        required: true
+        default: 'entrecamposblog.com'
+      confirmar:
+        description: 'Aplicar de verdade (desmarcado: só lê)'
+        type: boolean
+        default: false
+      desfazer:
+        description: 'Tirar o ficheiro e esvaziar a cache de páginas do site (precisa de «confirmar»)'
+        type: boolean
+        default: false
+
+concurrency:
+  group: ops-wordpress-sem-media-na-frente
+  cancel-in-progress: false
+
+jobs:
+  aplicar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Empacotar o ficheiro
+        id: pacote
+        run: echo "b64=$(tar -czf - -C deploy/wordpress/visualdesign sem-media-na-frente.php | base64 -w0)" >> "$GITHUB_OUTPUT"
+
+      - name: Aplicar no servidor
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
+        env:
+          DOMINIO: ${{ inputs.dominio || 'entrecamposblog.com' }}
+          CONFIRMAR: ${{ inputs.confirmar && 'sim' || 'nao' }}
+          DESFAZER: ${{ inputs.desfazer && 'sim' || 'nao' }}
+          PACOTE_B64: ${{ steps.pacote.outputs.b64 }}
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          port: 2234
+          username: root
+          key: ${{ secrets.CONTABO_SSH_KEY }}
+          command_timeout: 10m
+          envs: DOMINIO,CONFIRMAR,DESFAZER,PACOTE_B64
+          script: |
+            set -u
+            titulo() { echo; echo "=================== $1"; }
+            case "$DOMINIO" in (*[!a-z0-9.-]*|''|*..*) echo "Domínio inválido"; exit 1;; esac
+            CONTA=""; for d in /home/*/web/"$DOMINIO"; do [ -d "$d" ] && CONTA=$(echo "$d" | cut -d/ -f3) && break; done
+            [ -z "$CONTA" ] && { echo "Domínio não está no servidor"; exit 0; }
+            RAIZ=/home/$CONTA/web/$DOMINIO/public_html
+            [ -f "$RAIZ/wp-config.php" ] || { echo "Sem WordPress na raiz"; exit 0; }
+            IPSITE=$(/usr/local/hestia/bin/v-list-web-domain "$CONTA" "$DOMINIO" json 2>/dev/null | grep -oE '"IP": *"[0-9.]+"' | head -1 | grep -oE '[0-9.]+' | head -1); IPSITE=${IPSITE:-127.0.0.1}
+            DEST="$RAIZ/wp-content/mu-plugins/vd-sem-media-na-frente.php"
+            WORK=$(mktemp -d /root/wp-sem-media-XXXXXX); chmod 700 "$WORK"
+            echo "$PACOTE_B64" | base64 -d | tar -xz -C "$WORK"
+            pagina() { curl -sk -m 60 -H 'Accept: text/html' --resolve "$DOMINIO:443:$IPSITE" "https://$DOMINIO/"; }
+            medir() {
+              pagina > "$WORK/p.html"; local cod; cod=$(curl -sk -m 60 -H 'Accept: text/html' --resolve "$DOMINIO:443:$IPSITE" -o /dev/null -w '%{http_code} · %{time_total}s' "https://$DOMINIO/")
+              echo "$1 · página inicial: $cod · $(wc -c < "$WORK/p.html") bytes · «media-views»: $(grep -c 'media-views' "$WORK/p.html") · modelos de media (tmpl-attachment): $(grep -c 'tmpl-attachment' "$WORK/p.html") · ficheiros .js: $(grep -o '<script[^>]*src=' "$WORK/p.html" | wc -l)"
+            }
+            limpar_cache() { for dd in cache-enabler wpo-cache; do dir="$RAIZ/wp-content/cache/$dd"; [ -d "$dir" ] && sudo -u "$CONTA" find "$dir" -mindepth 1 -delete; done; true; }
+            titulo "$DOMINIO (conta $CONTA) · $([ "$CONFIRMAR" = sim ] && echo APLICAR || echo só leitura)"
+            echo "ficheiro já posto: $([ -f "$DEST" ] && echo sim || echo não) · plugin custom-upload-buttons: $(sudo -u "$CONTA" $(command -v wp || echo /usr/local/bin/wp) --path="$RAIZ" --skip-plugins --skip-themes plugin list --name=custom-upload-buttons --field=status 2>/dev/null)"
+            medir "antes"
+            if [ "$CONFIRMAR" = sim ]; then
+              if [ "$DESFAZER" = sim ]; then
+                rm -f "$DEST"; limpar_cache; echo "ficheiro retirado e cache de páginas esvaziada"; pagina >/dev/null; medir "depois de desfazer"
+              else
+                PHPBIN=$(command -v php8.3 || command -v php); LINT=$("$PHPBIN" -l "$WORK/sem-media-na-frente.php" 2>&1) || { echo "ALERTA: o PHP não aceitou o ficheiro, nada foi posto: $LINT"; exit 1; }
+                echo "sintaxe: $LINT"
+                sudo -u "$CONTA" mkdir -p "$RAIZ/wp-content/mu-plugins"
+                [ -f "$DEST" ] && cp -p "$DEST" "$WORK/anterior.php"
+                install -o "$CONTA" -g "$CONTA" -m 644 "$WORK/sem-media-na-frente.php" "$DEST"
+                limpar_cache
+                pagina >/dev/null; pagina >/dev/null
+                medir "depois"
+                COD=$(curl -sk -m 60 --resolve "$DOMINIO:443:$IPSITE" -o /dev/null -w '%{http_code}' "https://$DOMINIO/")
+                LOGIN=$(curl -sk -m 60 --resolve "$DOMINIO:443:$IPSITE" -o /dev/null -w '%{http_code}' "https://$DOMINIO/wp-login.php")
+                echo "wp-login.php: $LOGIN"
+                if [ "$COD" != "200" ]; then
+                  echo "ALERTA: a página inicial deu $COD: a retirar o ficheiro"
+                  rm -f "$DEST"; limpar_cache; [ -f "$WORK/anterior.php" ] && install -o "$CONTA" -g "$CONTA" -m 644 "$WORK/anterior.php" "$DEST"
+                  curl -sk -m 60 --resolve "$DOMINIO:443:$IPSITE" -o /dev/null -w 'página inicial depois de retirar: %{http_code}\n' "https://$DOMINIO/"
+                fi
+              fi
+            fi
+            titulo "os outros sites vistos de dentro"
+            for s in basededadosagro.com; do echo "$s -> $(curl -sk -m 30 -o /dev/null -w '%{http_code} · %{time_total}s' "https://$s/")"; done
+            rm -rf "${WORK:?}"
+            titulo "fim"

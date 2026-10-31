@@ -399,7 +399,17 @@ function ListaDominios({ abaDom = 'meus', abrirNovo = false }: { abaDom?: AbaDom
       sort: (r) => r.name,
       cell: (r) => (
         <div className="cell">
-          <div className={'ic ' + (r.soEmail ? 'c2' : r.soDominio ? 'c1' : r.wp ? 'c6' : 'c3')}>
+          {/* o ícone leva à plataforma do site (Silva, 1/11/2026): WordPress → Gerir WordPress; os outros sites (Next.js…) → a página de gestão do domínio */}
+          <div
+            className={'ic ic-ligacao ' + (r.soEmail ? 'c2' : r.soDominio ? 'c1' : r.wp ? 'c6' : 'c3')}
+            role="link"
+            tabIndex={0}
+            title={t(r.wp ? 'Gerir WordPress' : 'Gerir o site')}
+            onClick={() => nav(r.wp ? '/utilizador/wordpress/' + encodeURIComponent(r.name) : '/' + vh.s.level + '/dominios/' + encodeURIComponent(r.name))}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') nav(r.wp ? '/utilizador/wordpress/' + encodeURIComponent(r.name) : '/' + vh.s.level + '/dominios/' + encodeURIComponent(r.name));
+            }}
+          >
             <i className={r.soEmail ? 'fa-solid fa-envelope' : r.soDominio ? 'fa-solid fa-globe' : r.wp ? 'fa-brands fa-wordpress' : 'fa-solid fa-globe'} />
           </div>
           <div>
