@@ -119,6 +119,96 @@ echo "de " . $velho . " para " . $novo;
   exit 0
 fi
 
+# VD_TROCAR_CACHE=1: troca a cache de página do WP-Optimize pelo Cache Enabler num site (31/10/2026, entrecamposblog.com: o WP-Optimize serve as páginas
+# guardadas pelo PHP, por isso com os trabalhadores todos presos até elas ficavam à espera e o site caía). O Cache Enabler guarda cada página em ficheiro e
+# umas regras no .htaccess do site fazem o Apache entregá-lo SEM passar pelo PHP (cabeçalho X-VD-Cache: apache); quem tem sessão, comentou, envia dados ou
+# usa parâmetros no endereço continua a ir ao PHP. Só mexe neste site; o Redis fica como está. Se a página inicial deixar de dar 200 ou um pedido com
+# sessão for servido da cache, repõe o WP-Optimize (VD_DESFAZER_TROCA=1 faz só a reposição). Cópias em $VD_COPIA_DIR; nada se apaga (o WP-Optimize fica instalado).
+desfazer_troca() {
+  echo "[ALERTA] a repor o WP-Optimize e a tirar as regras do Cache Enabler"
+  [[ -f "$WP_PATH/.htaccess" ]] && sed -i '/# BEGIN VD-Cache-Enabler/,/# END VD-Cache-Enabler/d' "$WP_PATH/.htaccess"
+  wpu plugin deactivate cache-enabler >/dev/null 2>&1
+  [[ -f "$WP_PATH/wp-content/advanced-cache.php" ]] && grep -q "Cache Enabler" "$WP_PATH/wp-content/advanced-cache.php" 2>/dev/null && rm -f "$WP_PATH/wp-content/advanced-cache.php"
+  wpu plugin activate wp-optimize 2>&1 | tail -n 1
+  wpu eval 'if (class_exists("WPO_Page_Cache")) { WPO_Page_Cache::instance()->enable(); echo "cache de página do WP-Optimize ligada"; }' 2>&1 | tail -n 1
+  cfg WP_CACHE true --raw >/dev/null 2>&1
+}
+if [[ "${VD_DESFAZER_TROCA:-}" == "1" ]]; then desfazer_troca; exit 0; fi
+if [[ "${VD_TROCAR_CACHE:-}" == "1" ]]; then
+  COPIA="${VD_COPIA_DIR:-/root}"
+  HT="$WP_PATH/.htaccess"
+  IPSITE=$(/usr/local/hestia/bin/v-list-web-domain "$WP_USER" "$DOMINIO" json 2>/dev/null | grep -oE '"IP": *"[0-9.]+"' | head -1 | grep -oE '[0-9.]+' | head -1); IPSITE=${IPSITE:-127.0.0.1}
+  pedir() { curl -sk -m 40 --resolve "$DOMINIO:443:$IPSITE" "$@"; }
+  cp -p "$HT" "$COPIA/htaccess.$DOMINIO.bak" 2>/dev/null
+  wpu plugin list --fields=name,status,version --format=csv > "$COPIA/plugins-troca.$DOMINIO.csv" 2>/dev/null
+  echo "[..] 1/5 WP-Optimize desactivado (fica instalado)"
+  wpu plugin deactivate wp-optimize 2>&1 | tail -n 1
+  [[ -f "$WP_PATH/wp-content/advanced-cache.php" ]] && grep -q "WP-Optimize" "$WP_PATH/wp-content/advanced-cache.php" 2>/dev/null && rm -f "$WP_PATH/wp-content/advanced-cache.php" && echo "     advanced-cache.php do WP-Optimize retirado"
+  echo "[..] 2/5 Cache Enabler instalado e activo"
+  wpu plugin install cache-enabler 2>&1 | tail -n 1
+  wpu plugin activate cache-enabler 2>&1 | tail -n 1
+  cfg WP_CACHE true --raw >/dev/null 2>&1
+  echo "     WP_CACHE: $(wpu config get WP_CACHE --type=constant 2>/dev/null) · advanced-cache.php: $(grep -c "Cache Enabler" "$WP_PATH/wp-content/advanced-cache.php" 2>/dev/null) marca(s) do Cache Enabler"
+  echo "[..] 3/5 regras no .htaccess (o Apache entrega a página guardada, sem PHP)"
+  if grep -q "# BEGIN VD-Cache-Enabler" "$HT" 2>/dev/null; then
+    echo "     as regras já lá estavam"
+  else
+    BLK=$(mktemp)
+    cat > "$BLK" <<'HTBLOCO'
+# BEGIN VD-Cache-Enabler
+<IfModule mod_rewrite.c>
+RewriteEngine On
+RewriteCond %{REQUEST_METHOD} =GET
+RewriteCond %{QUERY_STRING} ^$
+RewriteCond %{HTTP:Cookie} !(wp-postpass|wordpress_logged_in|comment_author)_
+RewriteCond %{REQUEST_URI} !^/(wp-admin|wp-json|wp-login\.php|xmlrpc\.php|wp-cron\.php)
+RewriteCond %{REQUEST_URI} /$
+RewriteCond %{HTTP:X-Forwarded-Proto} =https
+RewriteCond %{DOCUMENT_ROOT}/wp-content/cache/cache-enabler/%{HTTP_HOST}%{REQUEST_URI}https-index.html -f
+RewriteRule ^ /wp-content/cache/cache-enabler/%{HTTP_HOST}%{REQUEST_URI}https-index.html [L,E=VD_CACHE:1]
+RewriteCond %{REQUEST_METHOD} =GET
+RewriteCond %{QUERY_STRING} ^$
+RewriteCond %{HTTP:Cookie} !(wp-postpass|wordpress_logged_in|comment_author)_
+RewriteCond %{REQUEST_URI} !^/(wp-admin|wp-json|wp-login\.php|xmlrpc\.php|wp-cron\.php)
+RewriteCond %{REQUEST_URI} /$
+RewriteCond %{HTTP:X-Forwarded-Proto} !=https
+RewriteCond %{DOCUMENT_ROOT}/wp-content/cache/cache-enabler/%{HTTP_HOST}%{REQUEST_URI}index.html -f
+RewriteRule ^ /wp-content/cache/cache-enabler/%{HTTP_HOST}%{REQUEST_URI}index.html [L,E=VD_CACHE:1]
+</IfModule>
+<IfModule mod_headers.c>
+Header set X-VD-Cache "apache" env=VD_CACHE
+Header set X-VD-Cache "apache" env=REDIRECT_VD_CACHE
+</IfModule>
+# END VD-Cache-Enabler
+
+HTBLOCO
+    NOVO=$(mktemp)
+    if grep -q "# BEGIN WordPress" "$HT" 2>/dev/null; then
+      awk -v blk="$BLK" '/# BEGIN WordPress/ && !feito { while ((getline l < blk) > 0) print l; feito=1 } { print }' "$HT" > "$NOVO"
+    else
+      cat "$BLK" "$HT" > "$NOVO" 2>/dev/null || cat "$BLK" > "$NOVO"
+    fi
+    cat "$NOVO" > "$HT"; rm -f "$BLK" "$NOVO"
+    chown "$WP_USER:$WP_USER" "$HT" 2>/dev/null
+    echo "     regras postas antes do bloco do WordPress"
+  fi
+  echo "[..] 4/5 a aquecer a cache (3 visitas à página inicial)"
+  for i in 1 2 3; do pedir -o /dev/null "https://$DOMINIO/"; sleep 2; done
+  echo "     ficheiros da cache do Cache Enabler: $(find "$WP_PATH/wp-content/cache/cache-enabler" -type f 2>/dev/null | wc -l)"
+  echo "[..] 5/5 provas"
+  C0=$(pedir -o /dev/null -w '%{http_code}' "https://$DOMINIO/")
+  H1=$(pedir -D - -o /dev/null -w 'TEMPO=%{time_total}\n' "https://$DOMINIO/" | tr -d '\r')
+  echo "     página inicial: $C0 · $(echo "$H1" | grep -E '^TEMPO=') · $(echo "$H1" | grep -i '^x-vd-cache' | head -1)"
+  if echo "$H1" | grep -qi '^x-vd-cache: apache'; then echo "     [ok] a página guardada é entregue pelo Apache, sem PHP"; else echo "     [AVISO] a página não foi entregue pelo Apache (o Cache Enabler entrega-a pelo PHP, como o WP-Optimize); ver as regras do .htaccess"; fi
+  H2=$(pedir -D - -o /dev/null -H 'Cookie: wordpress_logged_in_teste=1' "https://$DOMINIO/" | tr -d '\r')
+  H3=$(pedir -D - -o /dev/null "https://$DOMINIO/?teste=1" | tr -d '\r')
+  echo "     com sessão simulada: $(echo "$H2" | head -1) · $(echo "$H2" | grep -ci '^x-vd-cache') cabeçalho(s) da cache"
+  echo "     com parâmetro no endereço: $(echo "$H3" | head -1) · $(echo "$H3" | grep -ci '^x-vd-cache') cabeçalho(s) da cache"
+  if [[ "$C0" != "200" ]]; then echo "[ALERTA] a página inicial deu $C0"; desfazer_troca; exit 1; fi
+  if echo "$H2$H3" | grep -qi '^x-vd-cache'; then echo "[ALERTA] um pedido com sessão ou com parâmetros foi servido da cache"; desfazer_troca; exit 1; fi
+  exit 0
+fi
+
 # 1. mu-plugin do stack (versão desta pasta; se faltar, a que está em /usr/local/share)
 MU_ROOT="$AQUI"; [[ -f "$MU_ROOT/00-visualdesign-loader.php" && -f "$MU_ROOT/visualdesign/stack.php" ]] || MU_ROOT="${MU_PLUGIN_SRC:-/usr/local/share/wordpress-mu-plugins}"
 if [[ -f "$MU_ROOT/00-visualdesign-loader.php" && -f "$MU_ROOT/visualdesign/stack.php" ]]; then
