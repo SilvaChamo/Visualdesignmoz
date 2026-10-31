@@ -1116,6 +1116,15 @@ export async function POST(req: NextRequest) {
       await executeServerCommand(`for dd in cache-enabler wpo-cache; do dir=${q(raiz)}/wp-content/cache/$dd; [ -d "$dir" ] && sudo -u ${conta} find "$dir" -mindepth 1 -delete; done; true`, { timeoutMs: 60_000 }).catch(() => undefined);
       return resposta({ ok: true }, true);
     }
+    case 'wp-titulo-guardar': {
+      // título do site (Definições › Geral › Título do site), editado no próprio cartão do resumo
+      if (!d) return recusa('Escolha o domínio.');
+      const titulo = linha(c.titulo).slice(0, 200);
+      if (!titulo) return recusa('O título não pode ficar vazio.');
+      const raiz = raizSite(srv, conta, d);
+      const out = await executeServerCommand(`sudo -u ${conta} /usr/local/bin/wp --path=${q(raiz)} --skip-plugins --skip-themes option update blogname ${q(titulo)} 2>&1 | tail -n 1`, { timeoutMs: 40_000 });
+      return resposta({ ok: /Success/i.test(out), error: out.slice(0, 200) }, true);
+    }
     case 'wp-nucleo': {
       if (!d) return recusa('Escolha o domínio.');
       const raiz = raizSite(srv, conta, d);

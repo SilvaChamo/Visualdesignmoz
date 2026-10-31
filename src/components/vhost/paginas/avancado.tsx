@@ -2657,6 +2657,15 @@ function WpGerir({ d }: { d: string }) {
   const lista = useLer<{ instalados: Wp[] }>('wordpress');
   const { dados, ler } = useLer<{ plugins: Plugin[]; users: WpUser[]; nucleo?: { disponivel: boolean; versao: string } | null }>('wp', { d });
   const wp = lista.dados?.instalados.find((x) => x.d === d);
+  // o título do site edita-se no próprio cartão, no mesmo lugar: Enter ou sair do campo guarda, Esc cancela
+  const [aEditar, setAEditar] = useState(false);
+  const [tituloNovo, setTituloNovo] = useState('');
+  const guardarTitulo = async () => {
+    const novo = tituloNovo.trim();
+    setAEditar(false);
+    if (!novo || novo === (wp?.titulo || '')) return;
+    if (await noServidor(vh, { acao: 'wp-titulo-guardar', dominio: d, titulo: novo }, 'Título do site alterado')) lista.ler(true);
+  };
   return (
     <>
       <section className="da-sec">
@@ -2673,7 +2682,45 @@ function WpGerir({ d }: { d: string }) {
               <i className="fa-solid fa-heading" />
               <div>
                 <small>{t('Título')}</small>
-                <span>{wp?.titulo || '…'}</span>
+                {aEditar ? (
+                  <input
+                    className="cel-titulo-campo"
+                    data-ic-sem
+                    autoFocus
+                    value={tituloNovo}
+                    maxLength={200}
+                    aria-label={t('Título')}
+                    onChange={(e) => setTituloNovo(e.target.value)}
+                    onBlur={guardarTitulo}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                      if (e.key === 'Escape') {
+                        setTituloNovo(wp?.titulo || '');
+                        setAEditar(false);
+                      }
+                    }}
+                  />
+                ) : (
+                  <span
+                    className="cel-editavel"
+                    role="button"
+                    tabIndex={0}
+                    title={t('Editar o título do site')}
+                    onClick={() => {
+                      setTituloNovo(wp?.titulo || '');
+                      setAEditar(true);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        setTituloNovo(wp?.titulo || '');
+                        setAEditar(true);
+                      }
+                    }}
+                  >
+                    {wp?.titulo || '…'}
+                    <i className="fa-solid fa-pen" />
+                  </span>
+                )}
               </div>
             </div>
             <div className="da-cel">
@@ -2702,32 +2749,37 @@ function WpGerir({ d }: { d: string }) {
         </div>
         <div className="em-opcoes">
           <div>
-            <span>{t('Atualização automática do WordPress')}</span>
-            <select className="em-sel" value={wp?.auto || 'minor'} onChange={async (e) => (await noServidor(vh, { acao: 'wp-nucleo', dominio: d, op: 'auto', valor: e.target.value }, 'Guardado')) && lista.ler()}>
-              {Object.entries(AUTO).map(([k, v]) => (
-                <option key={k} value={k}>
-                  {t(v)}
-                </option>
-              ))}
-            </select>
+            {/* uma só linha: quando há versão nova, o texto passa a dizer isso e o botão aparece à frente do selector (Silva, 31/10/2026) */}
+            <span>
+              {dados?.nucleo?.disponivel
+                ? dados.nucleo.versao
+                  ? t('Atualizar o WordPress para a versão') + ' ' + dados.nucleo.versao
+                  : t('Atualizar o WordPress para a última versão')
+                : t('Atualização automática do WordPress')}
+            </span>
+            <span className="em-opcoes-dir">
+              {dados?.nucleo?.disponivel && (
+                <button
+                  className="btn sm btn-ed"
+                  onClick={async () => {
+                    if (await noServidor(vh, { acao: 'wp-nucleo', dominio: d, op: 'atualizar' }, 'WordPress atualizado')) {
+                      await Promise.all([lista.ler(), ler()]);
+                    }
+                  }}
+                >
+                  <i className="fa-solid fa-arrows-rotate" />
+                  {t('Atualizar')}
+                </button>
+              )}
+              <select className="em-sel" aria-label={t('Atualização automática do WordPress')} value={wp?.auto || 'minor'} onChange={async (e) => (await noServidor(vh, { acao: 'wp-nucleo', dominio: d, op: 'auto', valor: e.target.value }, 'Guardado')) && lista.ler()}>
+                {Object.entries(AUTO).map(([k, v]) => (
+                  <option key={k} value={k}>
+                    {t(v)}
+                  </option>
+                ))}
+              </select>
+            </span>
           </div>
-          {/* só há botão quando existe uma versão nova do WordPress; depois de atualizar, lê-se outra vez e o botão desaparece (Silva, 22/10/2026) */}
-          {dados?.nucleo?.disponivel && (
-            <div>
-              <span>{dados.nucleo.versao ? t('Atualizar o WordPress para a versão') + ' ' + dados.nucleo.versao : t('Atualizar o WordPress para a última versão')}</span>
-              <button
-                className="btn sm btn-ed"
-                onClick={async () => {
-                  if (await noServidor(vh, { acao: 'wp-nucleo', dominio: d, op: 'atualizar' }, 'WordPress atualizado')) {
-                    await Promise.all([lista.ler(), ler()]);
-                  }
-                }}
-              >
-                <i className="fa-solid fa-arrows-rotate" />
-                {t('Atualizar')}
-              </button>
-            </div>
-          )}
         </div>
       </section>
       <WpSiteGestao d={d} />
