@@ -279,19 +279,12 @@ export async function GET(req: NextRequest) {
       // separador Gestão do Gerir WordPress: o ícone do site e a página inicial (Opções de leitura), lidos numa só vez
       if (!d) return NextResponse.json({ erro: 'Escolha o domínio.' }, { status: 400 });
       const raiz = raizSite(srv, conta, d);
-      const php = 'echo json_encode(array("icone"=>(string)wp_get_attachment_image_url((int)get_option("site_icon"),"full"),"mostra"=>get_option("show_on_front")==="page"?"page":"posts","inicial"=>(int)get_option("page_on_front"),"artigos"=>(int)get_option("page_for_posts"),"nome"=>(string)get_bloginfo("name"),"paginas"=>array_map(function($p){return array("ID"=>$p->ID,"titulo"=>$p->post_title);},get_posts(array("post_type"=>"page","post_status"=>"publish","numberposts"=>-1,"orderby"=>"title","order"=>"ASC")))));';
+      const php = 'echo json_encode(array("icone"=>(function(){$id=(int)get_option("site_icon");if(!$id){return "";}$f=get_attached_file($id);$m=image_get_intermediate_size($id,"thumbnail");if($m&&!empty($m["file"])&&$f){$f=dirname($f)."/".$m["file"];}if(!$f||!is_readable($f)||filesize($f)>700000){return "";}$t=wp_check_filetype($f);return "data:".($t["type"]?:"image/png").";base64,".base64_encode(file_get_contents($f));})(),"mostra"=>get_option("show_on_front")==="page"?"page":"posts","inicial"=>(int)get_option("page_on_front"),"artigos"=>(int)get_option("page_for_posts"),"nome"=>(string)get_bloginfo("name"),"paginas"=>array_map(function($p){return array("ID"=>$p->ID,"titulo"=>$p->post_title);},get_posts(array("post_type"=>"page","post_status"=>"publish","numberposts"=>-1,"orderby"=>"title","order"=>"ASC")))));';
       const out = await executeServerCommand(`sudo -u ${conta} /usr/local/bin/wp --path=${q(raiz)} --skip-plugins --skip-themes eval ${q(php)} 2>/dev/null`, { timeoutMs: 40_000 });
       const ini = out.indexOf('{');
       try {
-        const r = JSON.parse(out.slice(ini)) as { icone?: string };
-        // o endereço do ícone vem do `siteurl` do WordPress (pode ser http, ou outro nome do domínio): usa-se só o caminho, no endereço seguro deste domínio, para a imagem aparecer sempre
-        if (r.icone) {
-          try {
-            r.icone = 'https://' + d + new URL(r.icone).pathname;
-          } catch {
-            r.icone = '';
-          }
-        }
+        const r = JSON.parse(out.slice(ini));
+        // o ícone vai dentro da resposta (data:): as imagens de outros endereços não passam na política de segurança do painel
         return ok(r);
       } catch {
         return NextResponse.json({ erro: 'WordPress não encontrado neste domínio.' }, { status: 400 });

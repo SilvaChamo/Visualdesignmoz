@@ -15748,3 +15748,18 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    font-style: normal;
    color: var(--muted)
 }
+
+/* o selector da actualização automática com a altura dos botões, como os da Gestão (as variáveis dos campos redefinidas só aqui) e uma linha por baixo da secção das duas colunas */
+.vh .em-opcoes {
+   --h-input: calc(34px * var(--z, 1));
+   --h-campo: calc(34px * var(--z, 1))
+}
+
+.vh .em-opcoes select.em-sel:not(#x):not(#y):not(#z) {
+   height: calc(34px * var(--z, 1)) !important;
+   min-height: calc(34px * var(--z, 1)) !important
+}
+
+.vh .wp-gest-2c {
+   border-bottom: 1px solid var(--line)
+}
