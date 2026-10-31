@@ -56,6 +56,69 @@ if [[ "${VD_SO_REDIS:-}" == "1" ]]; then
   exit 0
 fi
 
+# VD_REPARAR=1: um site que passou de uma conta do servidor para outra (31/10/2026, entrecamposblog.com: de vdadmin para entrecampos). Não mexe em
+# plugins, na cache de página nem no Redis: só corrige o que a mudança deixou para trás — (1) o caminho de `uploads` guardado na configuração da
+# cache do WP-Optimize (o `open_basedir` da conta nova bloqueia o da conta antiga a cada pedido), (2) os ficheiros de `uploads` que ficaram com
+# dono root, (3) o agendador do WordPress passa a ser um cron do sistema, como nos outros sites, e (4) o xmlrpc.php fica bloqueado no nginx se o
+# site não usa o Jetpack. As cópias do que muda ficam em $VD_COPIA_DIR (a pasta do workflow); nada se apaga.
+if [[ "${VD_REPARAR:-}" == "1" ]]; then
+  COPIA="${VD_COPIA_DIR:-/root}"
+  UPL="$WP_PATH/wp-content/uploads"
+  if wpu plugin is-active wp-optimize >/dev/null 2>&1; then
+    wpu option get wpo_cache_config --format=json > "$COPIA/wpo_cache_config.$DOMINIO.json" 2>/dev/null || true
+    echo "[..] caminho de uploads na cache do WP-Optimize:"
+    wpu eval '
+$cfg = WPO_Cache_Config::instance();
+$c = $cfg->get();
+$novo = wp_normalize_path(wp_upload_dir()["basedir"]);
+$velho = isset($c["uploads"]) ? $c["uploads"] : "";
+if ($velho === $novo) { echo "já certo: " . $novo; return; }
+$c["uploads"] = $novo;
+$r = $cfg->update($c);
+if (is_wp_error($r)) { echo "erro: " . $r->get_error_message(); exit(1); }
+echo "de " . $velho . " para " . $novo;
+' 2>&1 | tail -n 3 | cut -c1-240 | sed 's/^/     /'
+  else
+    echo "[--] WP-Optimize inactivo: nada a corrigir na cache de página"
+  fi
+
+  N=$(find "$UPL" -xdev ! -user "$WP_USER" 2>/dev/null | wc -l)
+  echo "[..] ficheiros de uploads com outro dono: $N"
+  if [[ "$N" -gt 0 ]]; then
+    find "$UPL" -xdev ! -user "$WP_USER" -printf '%u:%g %p\n' > "$COPIA/donos.$DOMINIO.txt" 2>/dev/null
+    find "$UPL" -xdev ! -user "$WP_USER" -exec chown -h "$WP_USER:$WP_USER" {} + 2>&1 | tail -n 3
+    echo "     depois: $(find "$UPL" -xdev ! -user "$WP_USER" 2>/dev/null | wc -l) com outro dono (lista de antes em $COPIA/donos.$DOMINIO.txt)"
+  fi
+
+  HESTIA=/usr/local/hestia/bin
+  CMD="flock -n /tmp/vd-wpcron-${DOMINIO//[^a-z0-9]/_}.lock nice -n 10 $WP --path=$WP_PATH cron event run --due-now >/dev/null 2>&1"
+  EXISTE=$("$HESTIA/v-list-cron-jobs" "$WP_USER" plain 2>/dev/null | grep -F "cron event run" | grep -cF "$WP_PATH")
+  if [[ "$EXISTE" -eq 0 ]]; then
+    "$HESTIA/v-add-cron-job" "$WP_USER" "4,19,34,49" "*" "*" "*" "*" "$CMD" 2>&1 | tail -n 2
+    EXISTE=$("$HESTIA/v-list-cron-jobs" "$WP_USER" plain 2>/dev/null | grep -F "cron event run" | grep -cF "$WP_PATH")
+  fi
+  if [[ "$EXISTE" -gt 0 ]]; then
+    echo "[ok] cron do sistema de 15 em 15 minutos para o WordPress de $DOMINIO"
+    passo "DISABLE_WP_CRON (as tarefas passam a correr pelo cron do sistema)" cfg DISABLE_WP_CRON true --raw
+  else
+    echo "[AVISO] não consegui criar o cron do sistema: o agendador do WordPress fica como estava"
+  fi
+
+  LISTA=/etc/nginx/vd-xmlrpc-bloquear.lista
+  if wpu plugin is-active jetpack >/dev/null 2>&1; then
+    echo "[--] Jetpack activo: o xmlrpc.php não se bloqueia"
+  elif [[ -f "$LISTA" ]]; then
+    if grep -qx "$DOMINIO" "$LISTA"; then
+      echo "[ok] xmlrpc.php: $DOMINIO já está na lista de bloqueio"
+    else
+      cp -p "$LISTA" "$COPIA/vd-xmlrpc-bloquear.lista.bak" && echo "$DOMINIO" >> "$LISTA" && echo "[ok] xmlrpc.php: $DOMINIO juntado à lista de bloqueio (o instalador aplica em até 10 minutos)"
+    fi
+  else
+    echo "[AVISO] a lista de bloqueio do xmlrpc.php não existe neste servidor"
+  fi
+  exit 0
+fi
+
 # 1. mu-plugin do stack (versão desta pasta; se faltar, a que está em /usr/local/share)
 MU_ROOT="$AQUI"; [[ -f "$MU_ROOT/00-visualdesign-loader.php" && -f "$MU_ROOT/visualdesign/stack.php" ]] || MU_ROOT="${MU_PLUGIN_SRC:-/usr/local/share/wordpress-mu-plugins}"
 if [[ -f "$MU_ROOT/00-visualdesign-loader.php" && -f "$MU_ROOT/visualdesign/stack.php" ]]; then

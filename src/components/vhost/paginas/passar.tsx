@@ -3,7 +3,7 @@
 /**
  * "Passar para outra conta": janela que mostra o que tem o domínio (visto agora no servidor), deixa escolher a conta
  * de destino e as bases de dados, e faz a passagem em segundo plano, a mostrar como vai (plano
- * VisualHost/07-plano-passar-dominios-entre-contas.md). Só para administradores e revendedores.
+ * VisualHost/07-plano-passar-dominios-entre-contas.md). O ícone só aparece nas contas de revenda.
  */
 import { Fragment, useEffect, useRef, useState } from 'react';
 import type { VH } from '../context';
@@ -30,8 +30,8 @@ export type RespostaPrevisao =
   | { erro: string; previsao?: undefined; existeNoutraConta?: undefined; contaAdmin?: undefined; destinos?: undefined };
 type Resultado = { ok: boolean; passos: string[]; avisos: string[]; erro?: string; de: string; para: string };
 
-/** Quem pode passar domínios: administrador e revendedor */
-export const podePassar = (vh: VH) => ['admin', 'revenda'].includes(vh.s.acc[vh.s.login]?.role || '');
+/** O ícone de passar domínio só aparece nas contas de revenda (Silva, 31/10/2026); o administrador passa pela página Contas, e o servidor continua a deixar passar a ambos */
+export const podePassar = (vh: VH) => (vh.s.acc[vh.s.login]?.role || '') === 'revenda';
 
 export const lerPrevisao = (dominio: string): Promise<RespostaPrevisao> =>
   fetch('/api/vhost/passar?dominio=' + encodeURIComponent(dominio), { cache: 'no-store' })
