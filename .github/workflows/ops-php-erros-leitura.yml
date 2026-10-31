@@ -177,4 +177,9 @@ jobs:
             echo "--- agora: $(date +%H:%M:%S) · pedidos POST e do painel nos últimos 600 registos do Apache (hora · método · endereço):"
             tail -n 600 /var/log/apache2/domains/$DOMINIO.log | awk '$6 ~ /POST/ || $7 ~ /wp-admin|wp-json|wp-cron/ {split($4,a,":"); u=$7; sub(/\?.*/,"",u); print a[2]":"a[3], $6, u}' | sed 's/"//g' | sort | uniq -c | sort -k2 | tail -n 14
             echo "--- eventos agendados (próximos) com nome de cache ou de actualização:"; sudo -u "$CONTA" nice -n 10 /usr/local/bin/wp --path="$PUB" cron event list --fields=hook,next_run_relative --format=csv 2>/dev/null | grep -iE "cache|update|clear|purge" | head -n 10
+            titulo "19. Definições que o motor do Cache Enabler lê e estrutura dos endereços (só leitura)"
+            PUB=$RAIZ/public_html
+            for f in "$PUB"/wp-content/settings/cache-enabler/*.php; do [ -f "$f" ] && { echo "--- $f ($(stat -c '%y' "$f" | cut -c1-19)):"; grep -v '^<?php\|^\s*$' "$f" | tr -s ' \t' ' ' | cut -c1-200 | head -n 40; }; done
+            for o in permalink_structure home siteurl show_on_front page_on_front; do echo "opção $o = $(sudo -u "$CONTA" nice -n 10 /usr/local/bin/wp --path="$PUB" option get $o 2>/dev/null | cut -c1-80)"; done
+            echo "--- redireccionamento sem barra final: $(curl -sk -m 30 -o /dev/null -w '%{http_code} %{redirect_url}' -H 'Accept: text/html' "https://$DOMINIO/category/agricultura")"
             titulo "fim da leitura"
