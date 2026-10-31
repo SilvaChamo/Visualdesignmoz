@@ -1276,7 +1276,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
               {/* PROCESSING STEPS */}
               {/* ERROR STATE */}
               {status === 'error' && errorMessage && (
-                <div ref={caixaErroRef} className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/50 rounded-lg p-5 flex items-start gap-3">
+                <div ref={caixaErroRef} className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/50 border-l-4 border-l-black dark:border-l-zinc-100 rounded-lg p-5 flex items-start gap-3">
                   <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
                   <div>
                     <h4 className="font-bold text-red-800 dark:text-red-300 text-sm font-panel">Falha na Transação</h4>
