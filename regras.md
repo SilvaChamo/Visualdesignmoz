@@ -803,6 +803,12 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
   da conta (`contactPreview`). Os valores aparecem só para ver (interruptores e botões desativados); o que nenhuma fonte diz (ex.: privacidade WHOIS) fica «—», nunca
   inventado. O nome de cada informação do cartão (`.dom-info-l > span`) fica numa só linha (coluna de 176 px).
 
+# Passar um domínio de uma conta para outra (Silva, 31/10/2026)
+
+- **Leva tudo, sem deixar nada atrás** (`passarDominio`, `src/lib/vhost-passar.ts`): além do site, e-mails, certificado, DNS, FTP, bases de dados e tarefas cron, depois de a passagem estar verificada passa também o que o WordPress guardou com o caminho da conta antiga — todos os ficheiros do site ficam com o dono novo, `/home/<antiga>/` troca-se por `/home/<nova>/` nos ficheiros de configuração (`wp-config.php`, `.htaccess`, `wp-content/*.php`, `mu-plugins`, `wp-optimize-config`, `wpo-cache/config`) e na base de dados (`wp search-replace --all-tables`, que respeita os dados serializados), esvazia a cache do site (`wp cache flush`, só as chaves dele) e corre `vd-php-conta sincronizar` (PHP-FPM da conta nova com os limites do pacote; o pool da conta antiga sai). O que acontece depois da verificação só avisa, nunca desfaz. Motivo: o entrecamposblog.com ficou lento depois de passar de vdadmin para entrecampos com o WP-Optimize a guardar `/home/vdadmin/…` (ver a nota de 31/10/2026 na secção «Redis do servidor»). Um domínio que já está noutra conta e foi passado à mão repara-se com `ops-wordpress-cache-aplicar.yml` (`reparar`).
+- **O ícone «Passar para outra conta» só aparece nas contas de revenda** (`podePassar` em `src/components/vhost/paginas/passar.tsx`). O administrador passa domínios pela página Contas; a rota `/api/vhost/passar` continua a aceitar administrador e revendedor (o revendedor só entre a sua conta e as dos seus clientes).
+- **Ainda não houve ensaio real** (só verificação de sintaxe e tipos): um ensaio verdadeiro precisa de um domínio de teste e de duas contas de teste (`protegidoPassagem`) e nunca se faz com contas reais.
+
 # Menu Admin do revendedor (Silva, 26/10/2026)
 O revendedor só vê a sua conta e as dos clientes que criou (`vhost-dados.ts`, `visiveis`; `src/lib/vhost-revenda.ts` → `clientesDaRevenda`). Cada página do
 nível Revenda parte dessa lista ou de uma rota que a aplica no servidor; **nunca** se liga um ecrã do Admin a `/api/vhost/admin-servidor` (só o administrador).
