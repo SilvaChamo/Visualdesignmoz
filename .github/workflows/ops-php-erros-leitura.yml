@@ -166,4 +166,29 @@ jobs:
             echo "--- Apache: módulos rewrite e headers: $(apache2ctl -M 2>/dev/null | grep -E 'rewrite|headers' | tr -s ' ' | tr '\n' ' ')"
             echo "--- DocumentRoot do site no Apache: $(grep -h DocumentRoot /home/$CONTA/conf/web/$DOMINIO/apache2.conf 2>/dev/null | head -1)"
             echo "--- AllowOverride: $(grep -h AllowOverride /home/$CONTA/conf/web/$DOMINIO/apache2.conf 2>/dev/null | head -2 | tr -s ' ' | tr '\n' ' ')"
+            titulo "18. Porque a cache do Cache Enabler se esvazia (só leitura)"
+            PUB=$RAIZ/public_html; CD="$PUB"/wp-content/cache/cache-enabler
+            IPSITE=$(/usr/local/hestia/bin/v-list-web-domain "$CONTA" "$DOMINIO" json 2>/dev/null | grep -oE '"IP": *"[0-9.]+"' | head -1 | grep -oE '[0-9.]+' | head -1); IPSITE=${IPSITE:-127.0.0.1}
+            for i in 1 2 3 4; do
+              R=$(curl -sk -m 40 --resolve "$DOMINIO:443:$IPSITE" -H 'Accept: text/html' -H 'Accept-Encoding: gzip' -D - -o /dev/null -w 'TEMPO=%{time_total}\n' "https://$DOMINIO/category/agricultura/" | tr -d '\r')
+              echo "pedido $i: $(echo "$R" | grep -E '^TEMPO=') · $(echo "$R" | grep -ci '^x-vd-cache') apache · ficheiros na cache: $(find "$CD" -type f 2>/dev/null | wc -l)"; sleep 2
+            done
+            echo "--- ficheiros e datas (mais recentes):"; find "$CD" -type f -printf '%TH:%TM:%TS %p\n' 2>/dev/null | sed "s#$PUB/wp-content/cache/cache-enabler/##" | sort -r | head -n 6 | cut -c1-140
+            echo "--- agora: $(date +%H:%M:%S) · pedidos POST e do painel nos últimos 600 registos do Apache (hora · método · endereço):"
+            tail -n 600 /var/log/apache2/domains/$DOMINIO.log | awk '$6 ~ /POST/ || $7 ~ /wp-admin|wp-json|wp-cron/ {split($4,a,":"); u=$7; sub(/\?.*/,"",u); print a[2]":"a[3], $6, u}' | sed 's/"//g' | sort | uniq -c | sort -k2 | tail -n 14
+            echo "--- eventos agendados (próximos) com nome de cache ou de actualização:"; sudo -u "$CONTA" nice -n 10 /usr/local/bin/wp --path="$PUB" cron event list --fields=hook,next_run_relative --format=csv 2>/dev/null | grep -iE "cache|update|clear|purge" | head -n 10
+            titulo "19. Definições que o motor do Cache Enabler lê e estrutura dos endereços (só leitura)"
+            PUB=$RAIZ/public_html
+            for f in "$PUB"/wp-content/settings/cache-enabler/*.php; do [ -f "$f" ] && { echo "--- $f ($(stat -c '%y' "$f" | cut -c1-19)):"; grep -v '^<?php\|^\s*$' "$f" | tr -s ' \t' ' ' | cut -c1-200 | head -n 40; }; done
+            for o in permalink_structure home siteurl show_on_front page_on_front; do echo "opção $o = $(sudo -u "$CONTA" nice -n 10 /usr/local/bin/wp --path="$PUB" option get $o 2>/dev/null | cut -c1-80)"; done
+            echo "--- redireccionamento sem barra final: $(curl -sk -m 30 -o /dev/null -w '%{http_code} %{redirect_url}' -H 'Accept: text/html' "https://$DOMINIO/category/agricultura")"
+            titulo "20. O motor do Cache Enabler arranca e guarda? (só leitura)"
+            PUB=$RAIZ/public_html
+            echo "WP_CACHE no wp-config: $(grep -E "WP_CACHE" "$PUB"/wp-config.php | cut -c1-80 | head -2 | tr '\n' ' ')"
+            echo "constants.php do plugin: $(ls -la "$PUB"/wp-content/plugins/cache-enabler/constants.php 2>&1 | awk '{print $NF" "$5}')"
+            echo "advanced-cache.php: $(ls -la --time-style=+%H:%M "$PUB"/wp-content/advanced-cache.php 2>&1 | awk '{print $6" "$5" "$3}') · liga a: $(grep -o "constants_file = '[^']*'" "$PUB"/wp-content/advanced-cache.php | cut -c1-120)"
+            echo "pasta wp-content/cache: $(ls -ld "$PUB"/wp-content/cache | awk '{print $1" "$3}') · conteúdo: $(ls "$PUB"/wp-content/cache | tr '\n' ' ')"
+            echo "--- erros recentes do PHP-FPM da conta com «cache»:"; grep -aiE "cache.enabler|cache_enabler|advanced-cache" /var/log/php8.3-fpm-entrecampos.log 2>/dev/null | tail -n 5 | cut -c1-220
+            echo "--- último rasto do slow_log (se houver desde as 09:50): $(grep -c 'cache-enabler' "$PUB"/slow_log 2>/dev/null) referências ao Cache Enabler"
+            echo "--- teste em PHP: o motor consegue escrever na pasta da cache como a conta?"; sudo -u "$CONTA" sh -c "mkdir -p '$PUB/wp-content/cache/cache-enabler/_teste' && echo ok > '$PUB/wp-content/cache/cache-enabler/_teste/t.txt' && echo 'escrita ok' && rm -rf '$PUB/wp-content/cache/cache-enabler/_teste'" 2>&1 | head -n 2
             titulo "fim da leitura"
