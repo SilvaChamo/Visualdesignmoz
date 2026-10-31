@@ -137,6 +137,13 @@ function IconeCaixa({ icone: Icone }: { icone: React.ComponentType<{ className?:
 }
 /** NUIT de moçambicano: 9 dígitos (obrigatório para a factura; Silva, 31/10/2026). */
 const nuitValido = (v: string) => /^\d{9}$/.test(v.replace(/\s/g, ''));
+/** Diz só o que falta (Silva, 31/10/2026: «ir direito ao assunto»). */
+function mensagemDadosEmFalta(f: { telefone: string; endereco: string; estado: string; nuit: string }): string {
+  const nuitErrado = !nuitValido(f.nuit);
+  const faltam = [!f.telefone.trim() && 'telefone', !f.endereco.trim() && 'morada', !f.estado && 'província'].filter(Boolean) as string[];
+  if (!faltam.length) return 'O NUIT da empresa deve ter 9 dígitos.';
+  return `Indique ${faltam.join(', ').replace(/, ([^,]*)$/, ' e $1')}${nuitErrado ? ' e o NUIT da empresa (9 dígitos)' : ''}.`;
+}
 function LinhaDado({ icone: Icone, valor }: { icone: React.ComponentType<{ className?: string }>; valor: string }) {
   return (
     <p className="flex items-center gap-2.5 text-sm text-slate-700 dark:text-zinc-300 break-all">
@@ -622,7 +629,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
       setErrorMessage(
         contaHospedagemInvalida
           ? 'Confira o nome da empresa (utilizador): tem de ser válido e estar livre.'
-          : 'Indique o telefone, a morada, a província e o NUIT da empresa (9 dígitos): são os dados da conta, da factura e, nos domínios, do registo oficial (WHOIS).',
+          : mensagemDadosEmFalta(accountForm),
       );
       setStatus('error');
       return;
@@ -636,7 +643,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
 
     if (isAuthenticated === true && !buyingAs && !isEncomenda) {
       if (!accountForm.telefone.trim() || !accountForm.endereco.trim() || !accountForm.estado || !nuitValido(accountForm.nuit)) {
-        setErrorMessage('Indique o telefone, a morada, a província e o NUIT da empresa (9 dígitos): são os dados da conta, da factura e, nos domínios, do registo oficial (WHOIS).');
+        setErrorMessage(mensagemDadosEmFalta(accountForm));
         setStatus('error');
         setIsSubmitting(false);
         return;
@@ -1380,9 +1387,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                           </CampoIcone>
                           <CampoIcone icone={MapPin}>
                             <input type="text" aria-label="Morada" placeholder="Morada *" value={accountForm.endereco} onChange={e => setAccountForm(p => ({ ...p, endereco: e.target.value }))} className={campoCls} />
-                          </CampoIcone>
-                          <CampoIcone icone={MapaIcone}>
-                            <select aria-label="Província" value={accountForm.estado} onChange={e => setAccountForm(p => ({ ...p, estado: e.target.value }))} className={accountForm.estado ? campoCls : campoVazioCls}>
+                            <select aria-label="Província" value={accountForm.estado} onChange={e => setAccountForm(p => ({ ...p, estado: e.target.value }))} className={`${accountForm.estado ? campoCls : campoVazioCls} !w-44 !flex-none border-l border-zinc-300 dark:border-zinc-700`}>
                               <option value="">Província *</option>
                               {MOZAMBIQUE_PROVINCIAS.map((p) => (
                                 <option key={p} value={p}>{p}</option>
