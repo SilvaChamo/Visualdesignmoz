@@ -1249,19 +1249,19 @@ function CheckoutItemsByType({ types }: { types: string[] }) {
     }
   }
 
-  const deleteHostingItem = async (pedidoId: string, itemIndex: number, domain?: string) => {
-    const aviso = domain
-      ? `Apagar esta encomenda de hospedagem (${domain})? Isto remove o pedido, o registo de hospedagem e o site criado por esta encomenda no servidor (sites reais, como os da conta principal, ficam intactos; o registo do domínio também não é apagado). Não pode ser desfeito.`
-      : 'Apagar esta encomenda de hospedagem? Isto remove o pedido e o registo de hospedagem. Não pode ser desfeito.'
-    if (!window.confirm(aviso)) return
+  // Apagar uma encomenda de hospedagem pergunta sempre: só a entrada da encomenda (o site, a conta, a cota e o domínio ficam) ou tudo.
+  // Tudo o que sai do servidor vai antes para Admin › Lixeira, onde se pode repor.
+  const [apagarAlvo, setApagarAlvo] = useState<{ pedidoId: string; itemIndex: number; domain?: string } | null>(null)
 
+  const deleteHostingItem = async (pedidoId: string, itemIndex: number, apagarConta: boolean) => {
+    setApagarAlvo(null)
     const key = `${pedidoId}-${itemIndex}`
     setDeletingKey(key)
     try {
       const res = await fetch(`/api/admin/checkout-pagamentos/${pedidoId}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ itemIndex }),
+        body: JSON.stringify({ itemIndex, apagarConta }),
       })
       const data = await res.json()
       if (!data.success) throw new Error(data.error || 'Não foi possível apagar este item.')
@@ -1288,8 +1288,39 @@ function CheckoutItemsByType({ types }: { types: string[] }) {
     return <div className={`${panelSectionCard} p-8 text-center text-sm text-gray-500 dark:text-zinc-400`}>Ainda não há pedidos de pagamento manual do carrinho nesta categoria.</div>
   }
 
+  const modalApagar = apagarAlvo && (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 p-4" onClick={() => setApagarAlvo(null)}>
+      <div className="w-full max-w-md rounded-xl bg-white p-5 shadow-xl dark:bg-zinc-900" onClick={(e) => e.stopPropagation()}>
+        <h3 className="text-base font-bold text-gray-900 dark:text-zinc-100">Apagar a encomenda{apagarAlvo.domain ? ` de ${apagarAlvo.domain}` : ''}?</h3>
+        <p className="mt-2 text-sm text-gray-600 dark:text-zinc-400">
+          Escolha o que apagar. Nada do servidor se perde: o que for apagado fica em Admin › Lixeira, de onde se pode repor.
+        </p>
+        <div className="mt-4 flex flex-col gap-2">
+          <button
+            type="button"
+            onClick={() => deleteHostingItem(apagarAlvo.pedidoId, apagarAlvo.itemIndex, false)}
+            className="rounded-lg border border-gray-300 px-3 py-2 text-left text-sm font-medium text-gray-800 hover:bg-gray-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          >
+            Apagar só a encomenda — o site, a conta, a cota e o domínio ficam
+          </button>
+          <button
+            type="button"
+            onClick={() => deleteHostingItem(apagarAlvo.pedidoId, apagarAlvo.itemIndex, true)}
+            className="rounded-lg border border-red-300 px-3 py-2 text-left text-sm font-medium text-red-600 hover:bg-red-50 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950/40"
+          >
+            Apagar a encomenda e a conta com os seus dados (site, hospedagem e conta no servidor)
+          </button>
+          <button type="button" onClick={() => setApagarAlvo(null)} className="mt-1 text-sm text-gray-500 hover:underline dark:text-zinc-400">
+            Cancelar
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+
   return (
     <div className={`${panelSectionCard} overflow-hidden`}>
+      {modalApagar}
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
@@ -1417,9 +1448,9 @@ function CheckoutItemsByType({ types }: { types: string[] }) {
                         <button
                           type="button"
                           disabled={deletingKey === key}
-                          onClick={() => deleteHostingItem(p.id, itemIndex, item.hostingDomain)}
+                          onClick={() => setApagarAlvo({ pedidoId: p.id, itemIndex, domain: item.hostingDomain })}
                           className="text-xs font-medium text-gray-500 hover:underline disabled:opacity-50 dark:text-zinc-500"
-                          title="Apagar encomenda, registo de hospedagem e site real no servidor"
+                          title="Apagar a encomenda (pergunta se apaga também a conta e o site)"
                         >
                           Apagar
                         </button>
