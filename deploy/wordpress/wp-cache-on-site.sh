@@ -130,6 +130,13 @@ if [[ "${VD_SEM_WPO:-}" == "1" ]]; then
   echo "[ok] WP-Optimize desactivado (continua instalado); Redis como estava"
   exit 0
 fi
+# VD_REPOR_WP_CACHE=1: repõe a linha WP_CACHE no wp-config (31/10/2026: remover o WP-Optimize pelo painel do WordPress apagou-a e a pasta wp-content/cache, e
+# sem ela o WordPress não carrega o motor do Cache Enabler: nenhuma página era guardada). Não mexe em mais nada.
+if [[ "${VD_REPOR_WP_CACHE:-}" == "1" ]]; then
+  cfg WP_CACHE true --raw >/dev/null 2>&1
+  echo "[ok] WP_CACHE no wp-config: $(wpu config get WP_CACHE --type=constant 2>/dev/null)"
+  exit 0
+fi
 # VD_TESTE_WPO=1: mede, num só site, quanto demora uma página que NÃO vem da cache (endereço com parâmetro e robots.txt) com o WP-Optimize activo e sem ele,
 # e repõe-no (a cache de página volta a ser ligada mesmo que o script seja interrompido). Serve para provar se o WP-Optimize é o que torna o site lento.
 if [[ "${VD_TESTE_WPO:-}" == "1" ]]; then
@@ -161,7 +168,8 @@ if [[ "${VD_TROCAR_CACHE:-}" == "1" ]]; then
   COPIA="${VD_COPIA_DIR:-/root}"
   HT="$WP_PATH/.htaccess"
   IPSITE=$(/usr/local/hestia/bin/v-list-web-domain "$WP_USER" "$DOMINIO" json 2>/dev/null | grep -oE '"IP": *"[0-9.]+"' | head -1 | grep -oE '[0-9.]+' | head -1); IPSITE=${IPSITE:-127.0.0.1}
-  pedir() { curl -sk -m 40 --resolve "$DOMINIO:443:$IPSITE" "$@"; }
+  # o Cache Enabler só guarda pedidos que aceitam text/html (como os navegadores); o curl sem isto manda */* e a página nunca é guardada
+  pedir() { curl -sk -m 40 --resolve "$DOMINIO:443:$IPSITE" -H 'Accept: text/html' -H 'Accept-Encoding: gzip' "$@"; }
   cp -p "$HT" "$COPIA/htaccess.$DOMINIO.bak" 2>/dev/null
   wpu plugin list --fields=name,status,version --format=csv > "$COPIA/plugins-troca.$DOMINIO.csv" 2>/dev/null
   echo "[..] 1/5 WP-Optimize desactivado (fica instalado)"
