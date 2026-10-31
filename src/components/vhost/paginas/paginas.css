@@ -15911,8 +15911,8 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
 }
 
 .vh .wp-perma-etiquetas .btn:not(#x):not(#y) {
-   height: calc(34px * var(--z, 1));
-   min-height: calc(34px * var(--z, 1));
+   height: calc(28px * var(--z, 1));
+   min-height: calc(28px * var(--z, 1));
    padding: 0 calc(14px * var(--z, 1));
    border: 1px solid #3858e9;
    border-radius: var(--r);
