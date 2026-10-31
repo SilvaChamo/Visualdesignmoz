@@ -89,7 +89,13 @@ export async function prepararDnsDaHospedagem(dominio: string, quem?: { sb: Supa
   // 1) a zona: a que já cobre este nome (um subdomínio vive na zona do domínio principal) ou uma nova
   const existente = await findCloudflareZoneForHost(d);
   const zona = existente?.zoneName ?? zonaDe(d);
-  const z = await createCloudflareZone(zona);
+  // Numa compra com domínio novo (registar), a automação da compra do domínio cria a mesma zona ao mesmo tempo: se a criação falhar
+  // porque a outra acabou de a criar, espera um pouco e volta a perguntar (a criação é idempotente).
+  let z = await createCloudflareZone(zona);
+  for (let i = 0; i < 3 && !z.ok; i++) {
+    await new Promise((r) => setTimeout(r, 8000));
+    z = await createCloudflareZone(zona);
+  }
   if (!z.ok) {
     passos.push({ passo: 'Zona DNS', ok: false, detalhe: z.error });
     return { ok: false, passos };
