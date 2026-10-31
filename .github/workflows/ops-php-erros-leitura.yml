@@ -146,4 +146,22 @@ jobs:
               [ -f "$H/$f" ] && { echo "--- $f: linhas com suspend / SSL / rebuild:"; grep -nEi "suspend|SSL|rebuild|v-add-web|v-delete-web" "$H/$f" | cut -c1-170 | head -n 24; }
             done
             echo "--- v-change-domain-owner, passo do site (linhas 45 a 145):"; sed -n 45,145p "$H/v-change-domain-owner" 2>/dev/null | cut -c1-170
+            titulo "15. A cache de página do WP-Optimize funciona? (só leitura)"
+            PUB=$RAIZ/public_html
+            echo "--- WP_CACHE no wp-config: $(grep -E "WP_CACHE" "$PUB"/wp-config.php | cut -c1-90 | head -1)"
+            echo "--- advanced-cache.php: $(ls -la "$PUB"/wp-content/advanced-cache.php 2>/dev/null | awk '{print $5" bytes · "$6" "$7" "$8}')"; sed -n 5p "$PUB"/wp-content/advanced-cache.php 2>/dev/null | cut -c1-200
+            echo "--- definições da cache (WPO_Cache_Config):"
+            sudo -u "$CONTA" nice -n 10 /usr/local/bin/wp --path="$PUB" eval '$c = WPO_Cache_Config::instance()->get(); foreach (array("enable_page_caching","page_cache_length","enable_user_caching","enable_mobile_caching","cache_specific_urls_only","enable_rest_caching","cache_exception_urls","cache_exception_cookies","cache_ignore_query_variables","cache_exception_browser_agents","cache_exception_conditional_tags","uploads","last_cleared") as $k) { echo $k . " = " . (isset($c[$k]) ? json_encode($c[$k]) : "(sem valor)") . "\n"; } echo "wpo_page_cache_config: " . json_encode(get_option("wpo_page_cache_config")) . "\n";' 2>&1 | cut -c1-200 | head -n 20
+            echo "--- ficheiros de cache de página:"; for d in "$PUB"/wp-content/cache "$PUB"/wp-content/cache/wpo-cache "$PUB"/wp-content/wpo-cache; do [ -d "$d" ] && echo "$d: $(find "$d" -type f 2>/dev/null | wc -l) ficheiros · $(du -sh "$d" 2>/dev/null | cut -f1) · dono $(stat -c %U "$d")"; done
+            find "$PUB"/wp-content/cache -type f -printf '%TY-%Tm-%Td %TH:%TM %s %p\n' 2>/dev/null | sort -r | head -n 8 | sed "s#$PUB/##" | cut -c1-170
+            IPSITE=$(/usr/local/hestia/bin/v-list-web-domain "$CONTA" "$DOMINIO" json 2>/dev/null | grep -oE '"IP": *"[0-9.]+"' | head -1 | grep -oE '[0-9.]+' | head -1); IPSITE=${IPSITE:-127.0.0.1}
+            echo "--- dois pedidos seguidos à página inicial (por este servidor): cabeçalhos de cache e marca no HTML"
+            for i in 1 2; do
+              curl -sk -m 25 --resolve "$DOMINIO:443:$IPSITE" -D /tmp/vd-cab.$$ -o /tmp/vd-corpo.$$ -w "pedido $i: %{http_code} · %{time_total}s · %{size_download} bytes\n" "https://$DOMINIO/"
+              tr -d '\r' < /tmp/vd-cab.$$ | grep -iE '^(cache-control|x-cache|x-wp|wpo|age|vary|set-cookie|expires|last-modified)' | cut -c1-120 | sed 's/^/     /'
+              echo "     marca WP-Optimize no HTML: $(grep -aoiE 'Cached by WP-Optimize[^>]{0,80}|WP-Optimize[^>]{0,40}cache[^>]{0,60}' /tmp/vd-corpo.$$ | head -1)"
+            done
+            rm -f /tmp/vd-cab.$$ /tmp/vd-corpo.$$
+            echo "--- a mesma página pelo DNS público (cabeçalhos da CDN):"; curl -sI -m 25 "https://$DOMINIO/" | tr -d '\r' | grep -iE '^(HTTP|cf-cache-status|cache-control|age|set-cookie)' | cut -c1-120 | sed 's/^/     /'
+            echo "--- últimas linhas de error_log sobre cache/WP-Optimize:"; grep -aiE "wp-optimize|wpo|advanced-cache" "$PUB"/error_log 2>/dev/null | tail -n 5 | cut -c1-230
             titulo "fim da leitura"
