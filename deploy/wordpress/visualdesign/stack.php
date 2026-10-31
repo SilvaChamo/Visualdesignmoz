@@ -87,6 +87,7 @@ const VD_AUTO_UPDATE_PLUGINS = [
 	VD_HONEYPOT_PLUGIN,
 	VD_REDIS_PLUGIN,
 	VD_WPO_PLUGIN,
+	'cache-enabler/cache-enabler.php',
 ];
 
 const VD_BLOCKED_SPAM_PLUGINS = [
