@@ -15671,3 +15671,10 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
 .vh .wp-gest-guardar {
    margin-top: calc(14px * var(--z, 1))
 }
+
+/* o ícone de cada .zip da lista de plugins a carregar: a imagem do ficheiro zip, cinzenta e com o fecho visível, um pouco maior */
+.vh .wp-plg-envios .wp-plg-zip {
+   flex: none;
+   width: auto;
+   height: calc(34px * var(--z, 1))
+}

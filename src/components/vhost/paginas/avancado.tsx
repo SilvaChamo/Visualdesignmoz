@@ -2775,7 +2775,8 @@ function AdicionarPlugins({ d, fechar, depois }: { d: string; fechar: () => void
         <ul className="wp-plg-envios">
           {lista.map((e) => (
             <li key={e.id} className={'est-' + e.estado}>
-              <i className="fa-solid fa-file-zipper" />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img className="wp-plg-zip" src="/assets/zip-file.png" alt="" />
               <div className="fmda-up-info">
                 <div className="fmda-up-linha">
                   <b title={e.f.name}>{e.f.name}</b>
