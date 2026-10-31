@@ -119,6 +119,17 @@ echo "de " . $velho . " para " . $novo;
   exit 0
 fi
 
+# VD_SEM_WPO=1: deixa um site SEM o WP-Optimize (31/10/2026, entrecamposblog.com: sem ele as páginas sem cache passaram de 15-30 s a 1-5 s; nos outros sites com
+# WP-Optimize não há esse problema). O plugin só fica desactivado (continua instalado, para voltar atrás com a opção «desfazer_troca»), sai o advanced-cache.php
+# dele e o Redis fica como está. Nenhum outro site é tocado.
+if [[ "${VD_SEM_WPO:-}" == "1" ]]; then
+  cp -p "$WP_PATH/wp-config.php" "${VD_COPIA_DIR:-/root}/wp-config.sem-wpo.$DOMINIO.bak" 2>/dev/null
+  wpu plugin deactivate wp-optimize 2>&1 | tail -n 1
+  [[ -f "$WP_PATH/wp-content/advanced-cache.php" ]] && grep -q "WP-Optimize" "$WP_PATH/wp-content/advanced-cache.php" 2>/dev/null && rm -f "$WP_PATH/wp-content/advanced-cache.php" && echo "[ok] advanced-cache.php do WP-Optimize retirado"
+  cfg WP_CACHE false --raw >/dev/null 2>&1 && echo "[ok] WP_CACHE desligado (sem cache de página)"
+  echo "[ok] WP-Optimize desactivado (continua instalado); Redis como estava"
+  exit 0
+fi
 # VD_TESTE_WPO=1: mede, num só site, quanto demora uma página que NÃO vem da cache (endereço com parâmetro e robots.txt) com o WP-Optimize activo e sem ele,
 # e repõe-no (a cache de página volta a ser ligada mesmo que o script seja interrompido). Serve para provar se o WP-Optimize é o que torna o site lento.
 if [[ "${VD_TESTE_WPO:-}" == "1" ]]; then

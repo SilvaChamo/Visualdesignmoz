@@ -28,6 +28,10 @@ on:
         description: 'Só o prefixo, o esvaziar selectivo e a validade do Redis (para sites que já têm a cache de objectos em Redis)'
         type: boolean
         default: false
+      sem_wpo:
+        description: 'Deixar um site sem o WP-Optimize (fica desactivado e instalado; um site; precisa de «confirmar»)'
+        type: boolean
+        default: false
       testar_wpo:
         description: 'Medir uma página sem cache com e sem o WP-Optimize e repô-lo (um site; precisa de «confirmar»)'
         type: boolean
@@ -69,6 +73,7 @@ jobs:
           TROCAR_CACHE: ${{ inputs.trocar_cache && 'sim' || 'nao' }}
           DESFAZER_TROCA: ${{ inputs.desfazer_troca && 'sim' || 'nao' }}
           TESTAR_WPO: ${{ inputs.testar_wpo && 'sim' || 'nao' }}
+          SEM_WPO: ${{ inputs.sem_wpo && 'sim' || 'nao' }}
           PACOTE_B64: ${{ steps.pacote.outputs.b64 }}
         with:
           host: ${{ secrets.CONTABO_HOST }}
@@ -76,7 +81,7 @@ jobs:
           username: root
           key: ${{ secrets.CONTABO_SSH_KEY }}
           command_timeout: 15m
-          envs: DOMINIOS,CONFIRMAR,SO_REDIS,REPARAR,TROCAR_CACHE,DESFAZER_TROCA,TESTAR_WPO,PACOTE_B64
+          envs: DOMINIOS,CONFIRMAR,SO_REDIS,REPARAR,TROCAR_CACHE,DESFAZER_TROCA,TESTAR_WPO,SEM_WPO,PACOTE_B64
           script: |
             set -u
             titulo() { echo; echo "=================== $1"; }
@@ -104,12 +109,15 @@ jobs:
               [ "$CONFIRMAR" = sim ] || continue
               cp -p "$RAIZ/wp-config.php" "$WORK/wp-config.$DOM.bak"
               $W plugin list --fields=name,status,version --format=csv > "$WORK/plugins.$DOM.csv" 2>/dev/null
-              VD_TESTE_WPO=$([ "$TESTAR_WPO" = sim ] && echo 1 || echo 0) VD_DESFAZER_TROCA=$([ "$DESFAZER_TROCA" = sim ] && echo 1 || echo 0) VD_TROCAR_CACHE=$([ "$TROCAR_CACHE" = sim ] && echo 1 || echo 0) VD_REPARAR=$([ "$REPARAR" = sim ] && echo 1 || echo 0) VD_COPIA_DIR="$WORK" VD_SO_REDIS=$([ "$SO_REDIS" = sim ] && echo 1 || echo 0) nice -n 10 ionice -c3 bash "$SCRIPT" "$RAIZ" "$CONTA" "$DOM"
+              VD_SEM_WPO=$([ "$SEM_WPO" = sim ] && echo 1 || echo 0) VD_TESTE_WPO=$([ "$TESTAR_WPO" = sim ] && echo 1 || echo 0) VD_DESFAZER_TROCA=$([ "$DESFAZER_TROCA" = sim ] && echo 1 || echo 0) VD_TROCAR_CACHE=$([ "$TROCAR_CACHE" = sim ] && echo 1 || echo 0) VD_REPARAR=$([ "$REPARAR" = sim ] && echo 1 || echo 0) VD_COPIA_DIR="$WORK" VD_SO_REDIS=$([ "$SO_REDIS" = sim ] && echo 1 || echo 0) nice -n 10 ionice -c3 bash "$SCRIPT" "$RAIZ" "$CONTA" "$DOM"
               # a primeira visita enche a cache; medem-se duas
               A=$(codigo "$DOM" "$IPSITE"); B=$(codigo "$DOM" "$IPSITE")
               echo "depois · página inicial: $A · segunda visita: $B"
               if [ "${A%% *}" != "200" ] || [ "${B%% *}" != "200" ]; then
-                if [ "$TROCAR_CACHE" = sim ]; then
+                if [ "$SEM_WPO" = sim ]; then
+                  echo "ALERTA: $DOM não deu 200 sem o WP-Optimize: a repor o WP-Optimize"
+                  VD_DESFAZER_TROCA=1 bash "$SCRIPT" "$RAIZ" "$CONTA" "$DOM"
+                elif [ "$TROCAR_CACHE" = sim ]; then
                   echo "ALERTA: $DOM deixou de dar 200: a repor o WP-Optimize"
                   VD_DESFAZER_TROCA=1 bash "$SCRIPT" "$RAIZ" "$CONTA" "$DOM"
                 elif [ "$REPARAR" = sim ]; then
