@@ -135,11 +135,11 @@ export function VisualWebBody() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {[
                 { Icon: Globe, titleKey: 'home.hosting.domain.title', descKey: 'home.hosting.domain.desc', href: '/servicos/dominios' },
-                { Icon: AppWindow, titleKey: 'home.hosting.wordpress.title', descKey: 'home.hosting.wordpress.desc', href: '/servicos/hospedagem' },
-                { Icon: Mail, titleKey: 'home.hosting.email.title', descKey: 'home.hosting.email.desc', href: '/servicos/email' },
-                { Icon: ShieldCheck, titleKey: 'home.hosting.ssl.title', descKey: 'home.hosting.ssl.desc', href: '/servicos/ssl' },
-                { Icon: DatabaseBackup, titleKey: 'home.hosting.backup.title', descKey: 'home.hosting.backup.desc', href: '/servicos/suporte' },
-                { Icon: RefreshCw, titleKey: 'home.hosting.migration.title', descKey: 'home.hosting.migration.desc', href: '/servicos/transferencia' },
+                { Icon: AppWindow, titleKey: 'home.hosting.wordpress.title', descKey: 'home.hosting.wordpress.desc', href: '/precos/hospedagem' },
+                { Icon: Mail, titleKey: 'home.hosting.email.title', descKey: 'home.hosting.email.desc', href: '/precos/email' },
+                { Icon: ShieldCheck, titleKey: 'home.hosting.ssl.title', descKey: 'home.hosting.ssl.desc', href: '/precos/ssl' },
+                { Icon: DatabaseBackup, titleKey: 'home.hosting.backup.title', descKey: 'home.hosting.backup.desc', href: '/precos/suporte' },
+                { Icon: RefreshCw, titleKey: 'home.hosting.migration.title', descKey: 'home.hosting.migration.desc', href: '/ajuda/dominios/transferir' },
               ].map(({ Icon, titleKey, descKey }) => {
                 return (
                   <div
