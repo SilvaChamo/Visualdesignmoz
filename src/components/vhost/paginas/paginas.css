@@ -16078,3 +16078,15 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    outline: 0 !important;
    box-shadow: none !important
 }
+
+/* lista de domínios: o ícone do site é uma ligação (leva à plataforma do site) — Silva, 1/11/2026 */
+.vh .cell > .ic.ic-ligacao {
+   cursor: pointer;
+   transition: transform .12s, filter .12s
+}
+
+.vh .cell > .ic.ic-ligacao:hover,
+.vh .cell > .ic.ic-ligacao:focus-visible {
+   transform: scale(1.06);
+   filter: brightness(.96)
+}

@@ -59,6 +59,7 @@ export const plugins_wp: Record<string, string> = {
  "Editar o título do site": "Edit the site title",
  "Título do site alterado": "Site title changed",
  "O título não pode ficar vazio.": "The title cannot be empty.",
+ "Gerir o site": "Manage the site",
  "Adicionar plugins": "Add plugins",
  "Carregar plugin": "Upload plugin",
  "Se tem plugins no formato .zip pode instalá-los ou actualizá-los carregando-os aqui. Pode escolher vários de uma vez.": "If you have plugins in .zip format, you can install or update them by uploading them here. You can choose several at once.",
