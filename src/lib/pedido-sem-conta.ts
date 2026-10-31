@@ -20,6 +20,8 @@ export type CadastroPedido = {
   empresa: string;
   emailEmpresa?: string;
   cargo?: string;
+  /** NUIT da empresa (9 dígitos) */
+  nuit?: string;
   /** palavra-passe escolhida, cifrada; apaga-se quando o login é criado */
   senha?: string;
 };
@@ -52,6 +54,7 @@ export function cadastroDoPedido(row: { cadastro?: unknown } | null | undefined)
     empresa: String(c.empresa || ''),
     emailEmpresa: String(c.emailEmpresa || '').trim(),
     cargo: String(c.cargo || '').trim(),
+    nuit: String(c.nuit || '').replace(/\D/g, ''),
     senha: c.senha ? String(c.senha) : undefined,
   };
 }
@@ -80,7 +83,7 @@ export async function donoDoPedidoAoAprovar(
 
   const senha = c.senha ? decryptDaSecret(c.senha) : '';
   const nome = [c.nome, c.apelido].filter(Boolean).join(' ');
-  const metadados = { nome, telefone: c.telefone, empresa: c.empresa, email_empresa: c.emailEmpresa || '', cargo: c.cargo || '', endereco: c.morada, provincia: c.provincia, pais: 'Mozambique' };
+  const metadados = { nome, telefone: c.telefone, empresa: c.empresa, email_empresa: c.emailEmpresa || '', cargo: c.cargo || '', nuit: c.nuit || '', endereco: c.morada, provincia: c.provincia, pais: 'Mozambique' };
   const gravarPerfil = () =>
     saveProfileForAuthUser(admin, userId, {
       email: c.email,
@@ -90,6 +93,7 @@ export async function donoDoPedidoAoAprovar(
       empresa: c.empresa || undefined,
       morada: c.morada,
       cidade: c.provincia,
+      nuit: c.nuit || undefined,
     });
 
   let userId = '';

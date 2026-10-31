@@ -91,8 +91,8 @@ export function CompactFooter() {
               <nav className="flex flex-col space-y-2.5 text-sm text-zinc-400">
                 <Link href="/precos/hospedagem" className="hover:text-white hover:translate-x-1.5 transition-all duration-300 inline-block">Alojamento Web</Link>
                 <Link href="/precos/hospedagem" className="hover:text-white hover:translate-x-1.5 transition-all duration-300 inline-block">Revenda de Hospedagem</Link>
-                <Link href="/servicos/email" className="hover:text-white hover:translate-x-1.5 transition-all duration-300 inline-block">E-mail Profissional</Link>
-                <Link href="/servicos/ssl" className="hover:text-white hover:translate-x-1.5 transition-all duration-300 inline-block">Certificados SSL</Link>
+                <Link href="/precos/email" className="hover:text-white hover:translate-x-1.5 transition-all duration-300 inline-block">E-mail Profissional</Link>
+                <Link href="/precos/ssl" className="hover:text-white hover:translate-x-1.5 transition-all duration-300 inline-block">Certificados SSL</Link>
                 <Link href="/precos/hospedagem" className="hover:text-white hover:translate-x-1.5 transition-all duration-300 inline-block">Servidores VPS</Link>
               </nav>
             </div>

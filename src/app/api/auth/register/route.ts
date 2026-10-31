@@ -12,7 +12,7 @@ import { turnstileValido } from '@/lib/turnstile';
 export async function POST(request: NextRequest) {
   try {
     const corpo = await request.json();
-    const { email, password, nome, telefone, empresa, endereco, cidade, provincia, pais, emailEmpresa, cargo, contacto, honeypot, origem } = corpo;
+    const { email, password, nome, telefone, empresa, endereco, cidade, provincia, pais, emailEmpresa, cargo, nuit, contacto, honeypot, origem } = corpo;
 
     // Campo-armadilha: só bots que preenchem todos os campos do formulário
     // (incluindo os escondidos) chegam a mandar isto preenchido.
@@ -123,6 +123,7 @@ export async function POST(request: NextRequest) {
           empresa: empresa ? String(empresa).trim() : undefined,
           morada: endereco ? String(endereco).trim() : undefined,
           cidade: cidade ? String(cidade).trim() : undefined,
+          nuit: nuit && /^\d{9}$/.test(String(nuit).replace(/\s/g, '')) ? String(nuit).replace(/\s/g, '') : undefined,
         });
       } catch (profileError) {
         // Reverte o utilizador de Auth já criado para não deixar uma "conta fantasma"

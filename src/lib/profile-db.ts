@@ -46,6 +46,12 @@ export async function isProfileWhoisComplete(admin: SupabaseClient, authUserId: 
   });
 }
 
+/** O perfil tem o NUIT da empresa (9 dígitos)? É obrigatório em qualquer compra, para a factura (Silva, 31/10/2026). */
+export async function isProfileNuitComplete(admin: SupabaseClient, authUserId: string): Promise<boolean> {
+  const { data } = await admin.from('profiles').select('nuit').or(profileAuthOrFilter(authUserId)).maybeSingle();
+  return /^\d{9}$/.test(String((data as { nuit?: string | null } | null)?.nuit || '').replace(/\s/g, ''));
+}
+
 /** Filtro PostgREST para perfil ligado ao Auth (suporta `user_id` e legado `id`). */
 export function profileAuthOrFilter(authUserId: string): string {
   return `user_id.eq.${authUserId},id.eq.${authUserId}`;
@@ -129,6 +135,7 @@ export async function saveProfileForAuthUser(
     empresa?: string | null;
     morada?: string | null;
     cidade?: string | null;
+    nuit?: string | null;
   },
 ): Promise<void> {
   const displayName = fields.name ?? fields.nome ?? undefined;
@@ -154,6 +161,7 @@ export async function saveProfileForAuthUser(
   if (fields.empresa !== undefined) payload.empresa = fields.empresa;
   if (fields.morada !== undefined) payload.morada = fields.morada;
   if (fields.cidade !== undefined) payload.cidade = fields.cidade;
+  if (fields.nuit !== undefined) payload.nuit = fields.nuit;
 
   if (existing?.id) {
     const { error } = await admin.from('profiles').update(payload).eq('id', existing.id);
