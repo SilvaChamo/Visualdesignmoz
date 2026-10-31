@@ -2978,7 +2978,7 @@ function WpPlugins({ d }: { d: string }) {
   );
 }
 
-/** Separadores do Gerir WordPress (como os dos Domínios): Gestão (atualizações e plugins) · Plugins · Utilizadores · Páginas */
+/** Separadores do Gerir WordPress (como os dos Domínios): Gestão · Plugins · Páginas · Utilizadores */
 type AbaWp = 'gestao' | 'plugins' | 'utilizadores' | 'paginas';
 function WpAbas({ d, aba }: { d: string; aba: AbaWp }) {
   const { nav } = useVH();
@@ -2987,8 +2987,8 @@ function WpAbas({ d, aba }: { d: string; aba: AbaWp }) {
       tabs={[
         ['gestao', 'Gestão', 'fa-gauge-high'],
         ['plugins', 'Plugins', 'fa-plug'],
-        ['utilizadores', 'Utilizadores', 'fa-users'],
         ['paginas', 'Páginas', 'fa-file-lines'],
+        ['utilizadores', 'Utilizadores', 'fa-users'],
       ]}
       on={aba}
       onChange={(k) => nav('/utilizador/wordpress/' + encodeURIComponent(d) + (k === 'gestao' ? '' : '/' + k))}
