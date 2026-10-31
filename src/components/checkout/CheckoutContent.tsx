@@ -65,6 +65,15 @@ const MOZAMBIQUE_PROVINCIAS = [
   'Cidade de Maputo',
 ];
 
+/** A província escreve-se na própria morada; daqui sai a província certa (o servidor e o registo WHOIS precisam dela). «Maputo» sozinho é ambíguo: não conta. */
+function provinciaDaMorada(texto: string): string {
+  const t = ` ${texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z]+/g, ' ')} `;
+  if (/ (cidade de maputo|maputo cidade) /.test(t)) return 'Cidade de Maputo';
+  if (/ (maputo provincia|provincia de maputo|provincia maputo) /.test(t)) return 'Maputo Província';
+  const outras: [string, string][] = [['cabo delgado', 'Cabo Delgado'], ['niassa', 'Niassa'], ['nampula', 'Nampula'], ['zambezia', 'Zambézia'], ['tete', 'Tete'], ['manica', 'Manica'], ['sofala', 'Sofala'], ['inhambane', 'Inhambane'], ['gaza', 'Gaza']];
+  return outras.find(([chave]) => t.includes(` ${chave} `))?.[1] || '';
+}
+
 const DOMAIN_REGISTRATION_YEARS = [1, 2, 3, 5, 10];
 const HOSTING_CYCLE_MONTHS: Record<HostingBillingCycle, number> = { monthly: 1, semiannual: 6, annual: 12 };
 const HOSTING_CYCLE_LABELS: Record<HostingBillingCycle, string> = { monthly: 'Mensal', semiannual: 'Semestral', annual: 'Anual' };
@@ -141,7 +150,7 @@ const nuitValido = (v: string) => /^\d{9}$/.test(v.replace(/\s/g, ''));
 function erroDosDados(f: { telefone: string; endereco: string; estado: string; nuit: string }): { campo: string; mensagem: string } | null {
   if (!f.telefone.trim()) return { campo: 'Telefone', mensagem: 'Indique o telefone.' };
   if (!f.endereco.trim()) return { campo: 'Morada', mensagem: 'Indique a morada.' };
-  if (!f.estado) return { campo: 'Província', mensagem: 'Escolha a província.' };
+  if (!f.estado) return { campo: 'Morada', mensagem: 'Indique também a província na morada.' };
   if (!nuitValido(f.nuit)) return { campo: 'NUIT da empresa', mensagem: f.nuit.trim() ? 'O NUIT da empresa deve ter 9 dígitos.' : 'Indique o NUIT da empresa (9 dígitos).' };
   return null;
 }
@@ -1383,14 +1392,8 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                           <CampoIcone icone={CreditCard} erro={campoEmErro('NUIT da empresa')}>
                             <input type="text" inputMode="numeric" maxLength={9} aria-label="NUIT da empresa" placeholder="NUIT da empresa *" value={accountForm.nuit} onChange={e => setAccountForm(p => ({ ...p, nuit: e.target.value.replace(/\D/g, '').slice(0, 9) }))} className={nuitValido(accountForm.nuit) || !accountForm.nuit ? (accountForm.nuit ? campoCls : campoVazioCls) : campoCls} />
                           </CampoIcone>
-                          <CampoIcone icone={MapPin} erro={campoEmErro('Morada') || campoEmErro('Província')}>
-                            <input type="text" aria-label="Morada" placeholder="Morada *" value={accountForm.endereco} onChange={e => setAccountForm(p => ({ ...p, endereco: e.target.value }))} className={campoCls} />
-                            <select aria-label="Província" value={accountForm.estado} onChange={e => setAccountForm(p => ({ ...p, estado: e.target.value }))} className={`${accountForm.estado ? campoCls : campoVazioCls} !w-44 !flex-none border-l border-zinc-300 dark:border-zinc-700`}>
-                              <option value="">Província *</option>
-                              {MOZAMBIQUE_PROVINCIAS.map((p) => (
-                                <option key={p} value={p}>{p}</option>
-                              ))}
-                            </select>
+                          <CampoIcone icone={MapPin} erro={campoEmErro('Morada')}>
+                            <input type="text" aria-label="Morada" placeholder="Morada e província *" value={accountForm.endereco} onChange={e => setAccountForm(p => ({ ...p, endereco: e.target.value, estado: provinciaDaMorada(e.target.value) || p.estado }))} className={campoCls} />
                           </CampoIcone>
                       {isAuthenticated === true && !comoVisitante && editando && (
                         <div className="flex items-center justify-start gap-2 h-10">
