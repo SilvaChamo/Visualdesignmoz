@@ -4,6 +4,9 @@ name: Ops - Onde o PHP grava os erros de um site (só leitura)
 # ficheiros) para se consultar o problema real. Antes de mudar o que quer que seja, esta leitura mostra onde os erros vão parar hoje: o pool PHP-FPM
 # do domínio, os ficheiros de registo que existem (PHP, nginx, PHP-FPM da conta), o que têm de recente e se já há um `error_log` na pasta do site.
 # Só lê; não altera nada.
+# 31/10/2026 (site lento e 504 depois de passar da conta vdadmin para a conta própria): acrescentadas as leituras 7 a 11 — caminhos da conta antiga ainda
+# guardados no site (ficheiros e base de dados), ficheiros que a conta nova não consegue escrever, onde o `slow_log` mostra os pedidos parados, limites
+# das duas contas e quantos timeouts houve por dia antes e depois da mudança.
 
 on:
   workflow_dispatch:
@@ -12,6 +15,10 @@ on:
         description: 'Domínio do site (ex.: entrecamposblog.com)'
         required: true
         default: 'entrecamposblog.com'
+      antiga:
+        description: 'Conta antiga do site (para procurar caminhos que ficaram para trás)'
+        required: false
+        default: 'vdadmin'
 
 concurrency:
   group: ops-php-erros
@@ -25,13 +32,14 @@ jobs:
         uses: appleboy/ssh-action@v1.2.5
         env:
           DOMINIO: ${{ inputs.dominio || 'entrecamposblog.com' }}
+          ANTIGA: ${{ inputs.antiga || 'vdadmin' }}
         with:
           host: ${{ secrets.CONTABO_HOST }}
           port: 2234
           username: root
           key: ${{ secrets.CONTABO_SSH_KEY }}
           command_timeout: 5m
-          envs: DOMINIO
+          envs: DOMINIO,ANTIGA
           script: |
             set -u
             echo "$DOMINIO" | grep -qE '^[a-z0-9.-]+$' || { echo "Domínio inválido"; exit 1; }
@@ -67,4 +75,53 @@ jobs:
             grep -E "WP_DEBUG|WP_DEBUG_LOG|WP_DEBUG_DISPLAY" "$RAIZ"/public_html/wp-config.php 2>/dev/null | cut -c1-120
             echo "--- php.ini do pool: log_errors / error_log"
             for f in /etc/php/*/fpm/php.ini; do echo "$f: $(grep -E '^(log_errors|error_log|display_errors) *=' "$f" | tr '\n' ' ')"; done
+            titulo "7. Caminhos da conta antiga ($ANTIGA) ainda guardados no site"
+            echo "$ANTIGA" | grep -qE '^[a-z0-9_-]+$' || { echo "Conta antiga inválida"; exit 1; }
+            PUB=$RAIZ/public_html
+            echo "--- ficheiros de configuração do WordPress e do WP-Optimize com /home/$ANTIGA (linhas · ficheiro):"
+            for f in "$PUB"/wp-config.php "$PUB"/.htaccess "$PUB"/wp-content/*.php "$PUB"/wp-content/uploads/.htaccess "$PUB"/wp-content/mu-plugins/*.php "$PUB"/wp-content/wp-optimize-config/* "$PUB"/wp-content/cache/wpo-cache/*.php; do
+              [ -f "$f" ] && c=$(grep -c "/home/$ANTIGA" "$f" 2>/dev/null) && echo "$c · ${f#$PUB/}"
+            done
+            [ -f "$PUB"/wp-content/advanced-cache.php ] && { echo "--- advanced-cache.php (linhas com o caminho):"; grep -n "/home/" "$PUB"/wp-content/advanced-cache.php | cut -c1-200 | head -n 6; }
+            DBN=$(grep -E "DB_NAME" "$PUB"/wp-config.php 2>/dev/null | head -1 | sed -E "s/.*DB_NAME['\"] *, *['\"]([^'\"]+).*/\1/")
+            PFX=$(grep -E '^\$table_prefix' "$PUB"/wp-config.php 2>/dev/null | head -1 | sed -E "s/.*= *['\"]([^'\"]+).*/\1/")
+            if echo "$DBN$PFX" | grep -qE '^[A-Za-z0-9_]+$'; then
+              echo "--- base de dados $DBN (prefixo $PFX): opções com /home/$ANTIGA (nome · pedaço à volta do caminho):"
+              mysql -N -e "SELECT option_name, SUBSTRING(option_value, GREATEST(LOCATE('/home/$ANTIGA', option_value)-30, 1), 150) FROM ${PFX}options WHERE option_value LIKE '%/home/$ANTIGA%' LIMIT 25" "$DBN" 2>&1 | cut -c1-240
+              echo "--- upload_path, upload_url_path, siteurl e home:"
+              mysql -N -e "SELECT option_name, option_value FROM ${PFX}options WHERE option_name IN ('upload_path','upload_url_path','siteurl','home')" "$DBN" 2>&1 | cut -c1-160
+            else
+              echo "(não consegui ler o nome da base de dados nem o prefixo do wp-config.php)"
+            fi
+            titulo "8. Ficheiros do site que a conta $CONTA não é dona (podem não deixar escrever cache e CSS)"
+            echo "fora da conta: $(nice -n 10 ionice -c3 find "$PUB" -xdev ! -user "$CONTA" 2>/dev/null | wc -l) de $(nice -n 10 ionice -c3 find "$PUB" -xdev 2>/dev/null | wc -l) ficheiros e pastas"
+            nice -n 10 ionice -c3 find "$PUB" -xdev ! -user "$CONTA" -printf '%u:%g %m %p\n' 2>/dev/null | head -n 15 | cut -c1-200
+            echo "--- pastas onde o WordPress escreve (dono · permissões · pasta):"
+            for d in wp-content wp-content/uploads wp-content/cache wp-content/uploads/elementor wp-content/uploads/elementor/css wp-content/wp-optimize-cache wp-content/plugins/wp-optimize; do [ -e "$PUB/$d" ] && stat -c '%U:%G %a  %n' "$PUB/$d" | sed "s#$PUB/##"; done
+            titulo "9. slow_log: onde ficam parados os pedidos com mais de 15 s"
+            SL=$PUB/slow_log
+            if [ -f "$SL" ]; then
+              echo "tamanho: $(stat -c %s "$SL") bytes · primeira e última data:"; grep -aoE '^\[[0-9]{2}-[A-Za-z]{3}-[0-9]{4} [0-9:]+\]' "$SL" | sed -n '1p;$p'
+              echo "--- pedidos lentos por script e primeira linha do rasto (quantos · script :: onde está parado):"
+              awk '/^script_filename/{s=$3; sub(".*public_html/","",s); if ((getline l) > 0) { sub(/^\[0x[0-9a-f]+\] /,"",l); gsub(/\/home\/[a-z0-9_]+\/web\/[a-z0-9.-]+\/public_html\//,"",l); print s " :: " substr(l,1,130) } }' "$SL" | sort | uniq -c | sort -rn | head -n 15
+              echo "--- último rasto completo:"; awk -v RS= 'END{print}' "$SL" | cut -c1-210 | head -n 30
+            else
+              echo "(não há slow_log nesta pasta)"
+            fi
+            titulo "10. Limites e pool: $CONTA contra $ANTIGA"
+            for c in "$CONTA" "$ANTIGA"; do
+              echo "--- conta $c"
+              grep -E "^(PACKAGE|CPU_QUOTA|CPU_QUOTA_PERIOD|MEMORY_LIMIT|SWAP_LIMIT)=" /usr/local/hestia/data/users/"$c"/user.conf 2>/dev/null
+              U2=$(systemctl list-units --all --no-legend 'vd-php-fpm-*' 2>/dev/null | awk '{print $1}' | grep -- "-$c\.service" | head -1)
+              echo "unidade: ${U2:-nenhuma (usa o PHP-FPM partilhado)}"
+              [ -n "$U2" ] && systemctl show "$U2" -p CPUQuotaPerSecUSec -p MemoryHigh -p MemoryMax -p MemoryCurrent -p MemoryPeak
+              for d in /etc/php/*/fpm-contas/"$c"; do
+                [ -d "$d" ] && { echo "$d: módulos opcache: $(ls "$d"/conf.d 2>/dev/null | grep -ci opcache) · $(grep -E '^opcache\.(enable|memory_consumption|max_accelerated_files|validate_timestamps|revalidate_freq)' "$d"/php.ini 2>/dev/null | tr '\n' ' ')"; grep -hE '^(pm|pm\.[a-z_]+) *=' "$d"/pool.d/*.conf 2>/dev/null | sort | uniq -c | head -n 8; }
+              done
+            done
+            titulo "11. Por dia: pedidos, 504 e timeouts do PHP (a conta mudou a 30/10 às 16:02)"
+            echo "--- registo de acessos (dia · pedidos · com 504):"
+            for f in /var/log/apache2/domains/"$DOMINIO".log*; do zcat -f "$f" 2>/dev/null; done | awk '{d=substr($4,2,11); t[d]++; if ($9==504) e[d]++} END{for (d in t) printf "%s · %d pedidos · %d com 504\n", d, t[d], e[d]}' | sort -t/ -k2,2M -k1,1n
+            echo "--- registo de erros (dia · timeouts ou ligação cortada com o PHP):"
+            for f in /var/log/apache2/domains/"$DOMINIO".error.log*; do zcat -f "$f" 2>/dev/null; done | grep -aE 'proxy_fcgi:error' | grep -aE 'timeout specified|FastCGI header|Connection reset' | awk '{print $2, $3}' | sort -k1,1M -k2,2n | uniq -c
             titulo "fim da leitura"
