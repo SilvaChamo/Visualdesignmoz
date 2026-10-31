@@ -145,8 +145,10 @@ if [[ "${VD_TROCAR_CACHE:-}" == "1" ]]; then
   wpu plugin deactivate wp-optimize 2>&1 | tail -n 1
   [[ -f "$WP_PATH/wp-content/advanced-cache.php" ]] && grep -q "WP-Optimize" "$WP_PATH/wp-content/advanced-cache.php" 2>/dev/null && rm -f "$WP_PATH/wp-content/advanced-cache.php" && echo "     advanced-cache.php do WP-Optimize retirado"
   echo "[..] 2/5 Cache Enabler instalado e activo"
-  wpu plugin install cache-enabler 2>&1 | tail -n 1
-  wpu plugin activate cache-enabler 2>&1 | tail -n 1
+  wpu plugin install cache-enabler --activate 2>&1 | head -n 6 | cut -c1-220 | sed 's/^/     /'
+  if ! wpu plugin is-active cache-enabler >/dev/null 2>&1; then
+    echo "[ALERTA] o Cache Enabler não ficou activo (mensagem acima)"; desfazer_troca; exit 1
+  fi
   cfg WP_CACHE true --raw >/dev/null 2>&1
   echo "     WP_CACHE: $(wpu config get WP_CACHE --type=constant 2>/dev/null) · advanced-cache.php: $(grep -c "Cache Enabler" "$WP_PATH/wp-content/advanced-cache.php" 2>/dev/null) marca(s) do Cache Enabler"
   echo "[..] 3/5 regras no .htaccess (o Apache entrega a página guardada, sem PHP)"
