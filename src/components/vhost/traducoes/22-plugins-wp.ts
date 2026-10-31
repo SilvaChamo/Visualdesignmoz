@@ -27,6 +27,7 @@ export const plugins_wp: Record<string, string> = {
  "— Seleccione —": "— Select —",
  "Guardar alterações": "Save changes",
  "activos": "active",
+ "plugins activos": "active plugins",
  "com actualização": "with an update",
  "A imagem é inválida ou tem mais de 10 MB.": "The image is invalid or larger than 10 MB.",
  "Não foi possível ler a imagem.": "The image could not be read.",

@@ -2580,7 +2580,15 @@ function WpGerir({ d }: { d: string }) {
               <i className="fa-solid fa-plug" />
               <div>
                 <small>{t('Plugins')}</small>
-                <span>{dados ? dados.plugins.filter((p) => p.status === 'active').length : '…'}</span>
+                <span>
+                  {dados ? (
+                    <>
+                      {dados.plugins.filter((p) => p.status === 'active').length} <em className="cel-claro">{t('plugins activos')}</em>
+                    </>
+                  ) : (
+                    '…'
+                  )}
+                </span>
               </div>
             </div>
           </div>
