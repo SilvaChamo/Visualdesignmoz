@@ -159,4 +159,11 @@ jobs:
             echo "--- tamanho do HTML: $(wc -c < /tmp/vd-b.$$) · ficheiros da cache agora: $(find "$PUB"/wp-content/cache/cache-enabler -type f 2>/dev/null | wc -l)"
             rm -f /tmp/vd-c.$$ /tmp/vd-b.$$
             echo "--- error_log (cache):"; grep -aiE "cache.enabler|advanced-cache|cache_enabler" "$PUB"/error_log 2>/dev/null | tail -n 6 | cut -c1-230
+            titulo "17. Ficheiros da cache do Cache Enabler e regras no .htaccess (só leitura)"
+            PUB=$RAIZ/public_html
+            find "$PUB"/wp-content/cache/cache-enabler -printf '%y %m %u %s %p\n' 2>/dev/null | sed "s#$PUB/##" | head -n 20
+            echo "--- .htaccess: bloco do Cache Enabler e primeiras regras:"; grep -n "VD-Cache-Enabler" "$PUB"/.htaccess; sed -n '/BEGIN VD-Cache-Enabler/,/END VD-Cache-Enabler/p' "$PUB"/.htaccess | head -n 30
+            echo "--- Apache: módulos rewrite e headers: $(apache2ctl -M 2>/dev/null | grep -E 'rewrite|headers' | tr -s ' ' | tr '\n' ' ')"
+            echo "--- DocumentRoot do site no Apache: $(grep -h DocumentRoot /home/$CONTA/conf/web/$DOMINIO/apache2.conf 2>/dev/null | head -1)"
+            echo "--- AllowOverride: $(grep -h AllowOverride /home/$CONTA/conf/web/$DOMINIO/apache2.conf 2>/dev/null | head -2 | tr -s ' ' | tr '\n' ' ')"
             titulo "fim da leitura"
