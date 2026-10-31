@@ -15976,3 +15976,14 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
 .vh .wp-perma-etiquetas {
    margin-left: calc(24px * var(--z, 1))
 }
+
+/* o «Guardar alterações» das ligações permanentes alinha com o texto das opções (não com os círculos) */
+.vh .wp-perma > .wp-gest-guardar:not(#x):not(#y) {
+   margin-left: calc(24px * var(--z, 1))
+}
+
+@media (max-width: 768px) {
+   .vh .wp-perma > .wp-gest-guardar:not(#x):not(#y) {
+      width: calc(100% - 24px * var(--z, 1))
+   }
+}
