@@ -306,4 +306,5 @@ export const IGUAIS: string[] = [
  "'Exo 2', sans-serif",
  "[renewal-templates] Erro ao carregar do servidor:",
  "dark:bg-zinc-950",
+ "Av. Karl Marx, nº 177, Maputo, Moçambique",
 ];
