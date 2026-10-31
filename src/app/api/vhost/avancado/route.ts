@@ -281,7 +281,7 @@ export async function GET(req: NextRequest) {
       // separador Gestão do Gerir WordPress: o ícone do site e a página inicial (Opções de leitura), lidos numa só vez
       if (!d) return NextResponse.json({ erro: 'Escolha o domínio.' }, { status: 400 });
       const raiz = raizSite(srv, conta, d);
-      const php = 'echo json_encode(array("tem"=>((int)get_option("site_icon"))>0,"icone"=>(function(){$id=(int)get_option("site_icon");if(!$id){return "";}$u=get_site_icon_url(150);$up=wp_upload_dir();$f=$u?str_replace($up["baseurl"],$up["basedir"],$u):"";if(!$f||!is_readable($f)){$f=get_attached_file($id);}if(!$f||!is_readable($f)||filesize($f)>2000000){return "";}$t=wp_check_filetype($f);return "data:".($t["type"]?:"image/png").";base64,".base64_encode(file_get_contents($f));})(),"mostra"=>get_option("show_on_front")==="page"?"page":"posts","inicial"=>(int)get_option("page_on_front"),"artigos"=>(int)get_option("page_for_posts"),"nome"=>(string)get_bloginfo("name"),"paginas"=>array_map(function($p){return array("ID"=>$p->ID,"titulo"=>$p->post_title);},get_posts(array("post_type"=>"page","post_status"=>"publish","numberposts"=>-1,"orderby"=>"title","order"=>"ASC")))));';
+      const php = 'echo json_encode(array("tem"=>((int)get_option("site_icon"))>0,"icone"=>(function(){$id=(int)get_option("site_icon");if(!$id){return "";}$u=get_site_icon_url(150);$up=wp_upload_dir();$f=$u?str_replace($up["baseurl"],$up["basedir"],$u):"";if(!$f||!is_readable($f)){$f=get_attached_file($id);}if(!$f||!is_readable($f)||filesize($f)>2000000){return "";}$t=wp_check_filetype($f);return "data:".($t["type"]?:"image/png").";base64,".base64_encode(file_get_contents($f));})(),"mostra"=>get_option("show_on_front")==="page"?"page":"posts","inicial"=>(int)get_option("page_on_front"),"artigos"=>(int)get_option("page_for_posts"),"nome"=>(string)get_bloginfo("name"),"estrutura"=>(string)get_option("permalink_structure"),"home"=>rtrim((string)home_url(),"/"),"arquivo"=>(string)_x("archives","sample permalink base"),"exemplo"=>(string)_x("sample-post","sample permalink structure"),"paginas"=>array_map(function($p){return array("ID"=>$p->ID,"titulo"=>$p->post_title);},get_posts(array("post_type"=>"page","post_status"=>"publish","numberposts"=>-1,"orderby"=>"title","order"=>"ASC")))));';
       const out = await executeServerCommand(`sudo -u ${conta} /usr/local/bin/wp --path=${q(raiz)} --skip-plugins --skip-themes eval ${q(php)} 2>/dev/null`, { timeoutMs: 40_000 });
       const ini = out.indexOf('{');
       try {
@@ -1094,6 +1094,27 @@ export async function POST(req: NextRequest) {
       }
       const out = await executeServerCommand(cmd, { timeoutMs: 60_000 });
       return resposta({ ok: /Success/i.test(out), error: out.slice(0, 200) }, true);
+    }
+    case 'wp-ligacoes-guardar': {
+      // «Estrutura das ligações permanentes» (Definições › Ligações permanentes do WordPress): grava a estrutura e refaz as regras (também no .htaccess), como o WordPress
+      if (!d) return recusa('Escolha o domínio.');
+      let est = String(c.estrutura ?? '').trim();
+      if (est) {
+        est = ('/' + est).replace(/\/{2,}/g, '/');
+        const marcas: string[] = est.match(/%[a-z_]+%/g) || [];
+        if (est.length > 200 || !/^[A-Za-z0-9%/_.-]+$/.test(est)) return recusa('A estrutura só pode ter letras, números, barras, hífenes e etiquetas como %postname%.');
+        if (!marcas.length || marcas.some((m) => !['%year%', '%monthnum%', '%day%', '%hour%', '%minute%', '%second%', '%post_id%', '%postname%', '%category%', '%author%'].includes(m))) return recusa('Use pelo menos uma etiqueta válida, como %postname% ou %post_id%.');
+        if (!marcas.some((m) => m === '%postname%' || m === '%post_id%') && !(marcas.includes('%year%') && marcas.includes('%monthnum%') && marcas.includes('%day%') && marcas.includes('%hour%') && marcas.includes('%minute%') && marcas.includes('%second%'))) return recusa('A estrutura tem de acabar numa etiqueta que identifique o artigo: %postname% ou %post_id%.');
+      }
+      const raiz = raizSite(srv, conta, d);
+      const php = `global $wp_rewrite; require_once ABSPATH."wp-admin/includes/file.php"; require_once ABSPATH."wp-admin/includes/misc.php"; add_filter("got_rewrite","__return_true"); $wp_rewrite->set_permalink_structure(base64_decode("${Buffer.from(est, 'utf8').toString('base64')}")); $wp_rewrite->flush_rules(true); echo "VD_OK:".get_option("permalink_structure");`;
+      const wp = `sudo -u ${conta} /usr/local/bin/wp --path=${q(raiz)} --skip-plugins --skip-themes`;
+      const out = await executeServerCommand(`${wp} eval ${q(php)} 2>&1 | tail -n 3`, { timeoutMs: 90_000 });
+      const m = out.match(/VD_OK:(.*)$/m);
+      if (!m || m[1].trim() !== est) return recusa('O WordPress não gravou a estrutura: ' + out.replace(/\s+/g, ' ').slice(0, 160));
+      // as páginas guardadas na cache continuam com os endereços antigos: esvazia só a cache de páginas deste site
+      await executeServerCommand(`for dd in cache-enabler wpo-cache; do dir=${q(raiz)}/wp-content/cache/$dd; [ -d "$dir" ] && sudo -u ${conta} find "$dir" -mindepth 1 -delete; done; true`, { timeoutMs: 60_000 }).catch(() => undefined);
+      return resposta({ ok: true }, true);
     }
     case 'wp-nucleo': {
       if (!d) return recusa('Escolha o domínio.');

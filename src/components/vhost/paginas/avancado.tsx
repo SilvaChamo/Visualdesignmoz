@@ -2423,7 +2423,7 @@ function WpCredenciais({ url, user, senha }: { url: string; user: string; senha:
 
 /** Gerir WordPress › Gestão: à esquerda o ícone do site (o «favicon», como em Definições › Geral do WordPress) e à direita as Opções de leitura
  *  (o que a página inicial mostra), em duas colunas (Silva, 31/10/2026) */
-type WpSiteDados = { tem?: boolean; icone: string; mostra: 'page' | 'posts'; inicial: number; artigos: number; nome: string; paginas: { ID: number; titulo: string }[] };
+type WpSiteDados = { estrutura?: string; home?: string; arquivo?: string; exemplo?: string; tem?: boolean; icone: string; mostra: 'page' | 'posts'; inicial: number; artigos: number; nome: string; paginas: { ID: number; titulo: string }[] };
 function WpSiteGestao({ d }: { d: string }) {
   const vh = useVH();
   const { t } = vh;
@@ -2433,12 +2433,21 @@ function WpSiteGestao({ d }: { d: string }) {
   const [inicial, setInicial] = useState(0);
   const [artigos, setArtigos] = useState(0);
   const [aEnviar, setAEnviar] = useState(false);
+  // ligações permanentes: a opção escolhida (como no ecrã do WordPress) e o texto da estrutura personalizada
+  const [perma, setPerma] = useState('');
+  const [personalizada, setPersonalizada] = useState('');
+  const campoPerma = useRef<HTMLInputElement>(null);
   // o que o servidor leu passa para os campos (e volta a passar depois de guardar)
   useEffect(() => {
     if (!dados) return;
     setMostra(dados.mostra);
     setInicial(dados.inicial);
     setArtigos(dados.artigos);
+    const arq = dados.arquivo || 'archives';
+    const atual = dados.estrutura ?? '';
+    const conhecida = ['', '/%year%/%monthnum%/%day%/%postname%/', '/%year%/%monthnum%/%postname%/', '/' + arq + '/%post_id%', '/%postname%/'].indexOf(atual);
+    setPerma(conhecida >= 0 ? ['generica', 'dia', 'mes', 'num', 'nome'][conhecida] : 'custom');
+    setPersonalizada(atual);
   }, [dados]);
   if (!dados) return <Carregando erro={erro} ler={ler} />;
   const escolher = async (f: File | undefined) => {
@@ -2470,6 +2479,27 @@ function WpSiteGestao({ d }: { d: string }) {
   };
   const guardar = async () => {
     if (await noServidor(vh, { acao: 'wp-leitura-guardar', dominio: d, mostra, inicial, artigos }, 'Guardado')) ler(true);
+  };
+  // as opções das ligações permanentes: a estrutura que se grava e o exemplo, com o endereço do site e a data de hoje (como o ecrã do WordPress)
+  const arq = dados.arquivo || 'archives';
+  const ex = dados.exemplo || 'sample-post';
+  const hoje = new Date();
+  const ano = String(hoje.getFullYear());
+  const mes = String(hoje.getMonth() + 1).padStart(2, '0');
+  const dia = String(hoje.getDate()).padStart(2, '0');
+  const base = dados.home || 'https://' + d;
+  const OPCOES_PERMA: [string, string, string, string][] = [
+    ['generica', 'Genérica', '', '/?p=123'],
+    ['dia', 'Dia e nome', '/%year%/%monthnum%/%day%/%postname%/', '/' + ano + '/' + mes + '/' + dia + '/' + ex + '/'],
+    ['mes', 'Mês e nome', '/%year%/%monthnum%/%postname%/', '/' + ano + '/' + mes + '/' + ex + '/'],
+    ['num', 'Numérica', '/' + arq + '/%post_id%', '/' + arq + '/123'],
+    ['nome', 'Nome do artigo', '/%postname%/', '/' + ex + '/'],
+  ];
+  const TAGS_PERMA = ['%year%', '%monthnum%', '%day%', '%hour%', '%minute%', '%second%', '%post_id%', '%postname%', '%category%', '%author%'];
+  const estruturaEscolhida = perma === 'custom' ? personalizada.trim() : OPCOES_PERMA.find((o) => o[0] === perma)?.[2] ?? '';
+  const permaIgual = perma === '' || estruturaEscolhida === (dados.estrutura ?? '') || (perma === 'custom' && !personalizada.trim());
+  const guardarPerma = async () => {
+    if (await noServidor(vh, { acao: 'wp-ligacoes-guardar', dominio: d, estrutura: estruturaEscolhida }, 'Ligações permanentes guardadas')) ler(true);
   };
   const igual = mostra === dados.mostra && (mostra === 'posts' || (inicial === dados.inicial && artigos === dados.artigos));
   return (
@@ -2559,6 +2589,61 @@ function WpSiteGestao({ d }: { d: string }) {
             {t('Guardar alterações')}
           </button>
         </div>
+      </div>
+      <div className="wp-perma">
+        <div className="wp-perma-rotulo">{t('Estrutura das ligações permanentes')}</div>
+        <div className="wp-perma-opcoes">
+          {OPCOES_PERMA.map(([id, nome, , exemplo]) => (
+            <div key={id} className="wp-perma-op">
+              <label className="rd">
+                <input type="radio" name={'wp-perma-' + d} checked={perma === id} onChange={() => setPerma(id)} />
+                <b>{t(nome)}</b>
+              </label>
+              <code>{base + exemplo}</code>
+            </div>
+          ))}
+          <div className="wp-perma-op">
+            <label className="rd">
+              <input type="radio" name={'wp-perma-' + d} checked={perma === 'custom'} onChange={() => setPerma('custom')} />
+              <b>{t('Estrutura personalizada')}</b>
+            </label>
+            <div className="wp-perma-pers">
+              <code>{base}</code>
+              <input
+                ref={campoPerma}
+                value={personalizada}
+                spellCheck={false}
+                data-ic-sem
+                aria-label={t('Estrutura personalizada')}
+                onFocus={() => setPerma('custom')}
+                onChange={(e) => {
+                  setPerma('custom');
+                  setPersonalizada(e.target.value);
+                }}
+              />
+            </div>
+            <div className="wp-perma-etiquetas">
+              <span>{t('Etiquetas de estrutura disponíveis:')}</span>
+              {TAGS_PERMA.map((tag) => (
+                <button
+                  key={tag}
+                  type="button"
+                  className="btn g"
+                  onClick={() => {
+                    setPerma('custom');
+                    setPersonalizada((v) => (v.trim() ? v.replace(/\/?$/, '/') : '/') + tag + '/');
+                    campoPerma.current?.focus();
+                  }}
+                >
+                  {tag}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+        <button className="btn r wp-gest-guardar" disabled={permaIgual} onClick={guardarPerma}>
+          {t('Guardar alterações')}
+        </button>
       </div>
     </section>
   );

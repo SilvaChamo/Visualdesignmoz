@@ -1,5 +1,15 @@
 // Textos do painel iguais em português e inglês (nomes próprios, siglas, código) ou já escritos em inglês: não precisam de linha no dicionário.
 export const IGUAIS: string[] = [
+ "%year%",
+ "%monthnum%",
+ "%day%",
+ "%hour%",
+ "%minute%",
+ "%second%",
+ "%post_id%",
+ "%postname%",
+ "%category%",
+ "%author%",
  "{0}?ver=importar-autorizacoes",
  "try{var e=document.querySelector('.vh:not(.vh-carga)'),m=document.cookie.match(/(?:^|; )vd-theme=(light|dark)(?:;|$)/),t=m?m[1]:localStorage.getItem('vd-theme'),d=t==='dark'||(t!=='light'&&{0}),h=document.documentElement;if(e)e.dataset.theme=d?'dark':'light';h.classList.toggle('dark',d);h.style.colorScheme=d?'dark':'light'}catch(e){}",
  "[data-sem-traducao], [contenteditable=\"true\"], .ql-editor, .cm-editor",

@@ -15804,3 +15804,128 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
       max-width: none
    }
 }
+
+/* Gestão › ligações permanentes: igual ao ecrã do WordPress — o nome à esquerda, as opções com o exemplo do endereço em caixa cinzenta, a estrutura personalizada e as etiquetas */
+.vh .wp-perma {
+   display: grid;
+   grid-template-columns: calc(190px * var(--z, 1)) minmax(0, 1fr);
+   column-gap: calc(24px * var(--z, 1));
+   row-gap: calc(18px * var(--z, 1));
+   padding: calc(24px * var(--z, 1)) var(--recuo, 12px) calc(50px * var(--z, 1));
+   border-bottom: 1px solid var(--line)
+}
+
+.vh .wp-perma-rotulo {
+   font-weight: 700;
+   font-size: calc(14px * var(--fs, 1));
+   padding-top: calc(2px * var(--z, 1))
+}
+
+.vh .wp-perma-opcoes {
+   display: flex;
+   flex-direction: column;
+   gap: calc(16px * var(--z, 1));
+   min-width: 0
+}
+
+.vh .wp-perma-op {
+   display: flex;
+   flex-direction: column;
+   gap: calc(6px * var(--z, 1));
+   min-width: 0
+}
+
+.vh .wp-perma .rd {
+   display: flex;
+   align-items: center;
+   gap: calc(8px * var(--z, 1));
+   cursor: pointer;
+   font-size: calc(14px * var(--fs, 1))
+}
+
+.vh .wp-perma input[type=radio]:not(#x) {
+   appearance: auto;
+   -webkit-appearance: radio;
+   flex: none;
+   width: calc(16px * var(--z, 1));
+   height: calc(16px * var(--z, 1));
+   margin: 0;
+   accent-color: var(--red)
+}
+
+.vh .wp-perma code {
+   align-self: flex-start;
+   max-width: 100%;
+   padding: calc(3px * var(--z, 1)) calc(6px * var(--z, 1));
+   background: rgba(0, 0, 0, .07);
+   border-radius: calc(2px * var(--z, 1));
+   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+   font-size: calc(12.5px * var(--fs, 1));
+   color: var(--ink);
+   overflow-wrap: anywhere
+}
+
+.vh[data-theme=dark] .wp-perma code {
+   background: rgba(255, 255, 255, .08)
+}
+
+.vh .wp-perma-pers {
+   display: flex;
+   align-items: center;
+   flex-wrap: wrap;
+   gap: calc(8px * var(--z, 1))
+}
+
+.vh .wp-perma-pers input:not(#x):not(#y) {
+   width: calc(340px * var(--z, 1));
+   max-width: 100%;
+   height: calc(34px * var(--z, 1));
+   border: 1px solid var(--line);
+   border-radius: var(--r);
+   background: var(--card);
+   color: var(--ink);
+   padding: 0 calc(10px * var(--z, 1));
+   font-size: calc(12.5px * var(--fs, 1))
+}
+
+.vh .wp-perma-etiquetas {
+   display: flex;
+   align-items: center;
+   flex-wrap: wrap;
+   gap: calc(6px * var(--z, 1));
+   font-size: calc(12.5px * var(--fs, 1));
+   color: var(--muted)
+}
+
+.vh .wp-perma-etiquetas .btn:not(#x):not(#y) {
+   height: calc(26px * var(--z, 1));
+   min-height: calc(26px * var(--z, 1));
+   padding: 0 calc(8px * var(--z, 1));
+   font-size: calc(11.5px * var(--fs, 1));
+   font-weight: 500;
+   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace
+}
+
+.vh .wp-perma > .wp-gest-guardar {
+   grid-column: 2;
+   justify-self: start;
+   margin-top: 0
+}
+
+@media (max-width: 1050px) {
+   .vh .wp-perma {
+      grid-template-columns: minmax(0, 1fr)
+   }
+
+   .vh .wp-perma > .wp-gest-guardar {
+      grid-column: 1
+   }
+}
+
+@media (max-width: 768px) {
+   .vh .wp-perma > .wp-gest-guardar:not(#x):not(#y) {
+      width: 100%;
+      justify-self: stretch;
+      justify-content: center
+   }
+}
