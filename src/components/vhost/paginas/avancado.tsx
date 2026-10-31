@@ -2552,7 +2552,7 @@ function WpGerir({ d }: { d: string }) {
   const wp = lista.dados?.instalados.find((x) => x.d === d);
   return (
     <>
-      <Sec titulo="Resumo">
+      <section className="da-sec">
         <div className="da-grelha">
           <div className="da-lin n4">
             <div className="da-cel">
@@ -2577,10 +2577,10 @@ function WpGerir({ d }: { d: string }) {
               </div>
             </div>
             <div className="da-cel">
-              <i className="fa-solid fa-puzzle-piece" />
+              <i className="fa-solid fa-plug" />
               <div>
                 <small>{t('Plugins')}</small>
-                <span>{dados ? dados.plugins.filter((p) => p.status === 'active').length + ' ' + t('activos') + ' · ' + dados.plugins.filter((p) => p.update === 'available').length + ' ' + t('com actualização') : '…'}</span>
+                <span>{dados ? dados.plugins.filter((p) => p.status === 'active').length : '…'}</span>
               </div>
             </div>
           </div>
@@ -2614,7 +2614,7 @@ function WpGerir({ d }: { d: string }) {
             </div>
           )}
         </div>
-      </Sec>
+      </section>
       <WpSiteGestao d={d} />
     </>
   );
@@ -2978,7 +2978,7 @@ function WpAbas({ d, aba }: { d: string; aba: AbaWp }) {
     <Tabs<AbaWp>
       tabs={[
         ['gestao', 'Gestão', 'fa-gauge-high'],
-        ['plugins', 'Plugins', 'fa-puzzle-piece'],
+        ['plugins', 'Plugins', 'fa-plug'],
         ['utilizadores', 'Utilizadores', 'fa-users'],
         ['paginas', 'Páginas', 'fa-file-lines'],
       ]}
