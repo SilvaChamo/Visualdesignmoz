@@ -2478,6 +2478,7 @@ function WpSiteGestao({ d }: { d: string }) {
     if (await noServidor(vh, { acao: 'wp-icone-remover', dominio: d }, 'Ícone do site removido')) ler(true);
   };
   const guardar = async () => {
+    if (mostra === 'page' && !inicial) return vh.toast(t('Escolha a página inicial.'));
     if (await noServidor(vh, { acao: 'wp-leitura-guardar', dominio: d, mostra, inicial, artigos }, 'Guardado')) ler(true);
   };
   // as opções das ligações permanentes: a estrutura que se grava e o exemplo, com o endereço do site e a data de hoje (como o ecrã do WordPress)
@@ -2497,11 +2498,10 @@ function WpSiteGestao({ d }: { d: string }) {
   ];
   const TAGS_PERMA = ['%year%', '%monthnum%', '%day%', '%hour%', '%minute%', '%second%', '%post_id%', '%postname%', '%category%', '%author%'];
   const estruturaEscolhida = perma === 'custom' ? personalizada.trim() : OPCOES_PERMA.find((o) => o[0] === perma)?.[2] ?? '';
-  const permaIgual = perma === '' || estruturaEscolhida === (dados.estrutura ?? '') || (perma === 'custom' && !personalizada.trim());
   const guardarPerma = async () => {
+    if (perma === 'custom' && !personalizada.trim()) return vh.toast(t('Escreva a estrutura personalizada.'));
     if (await noServidor(vh, { acao: 'wp-ligacoes-guardar', dominio: d, estrutura: estruturaEscolhida }, 'Ligações permanentes guardadas')) ler(true);
   };
-  const igual = mostra === dados.mostra && (mostra === 'posts' || (inicial === dados.inicial && artigos === dados.artigos));
   return (
     <section className="da-sec">
       <div className="wp-gest-2c">
@@ -2585,7 +2585,7 @@ function WpSiteGestao({ d }: { d: string }) {
               </label>
             </div>
           </div>
-          <button className="btn r wp-gest-guardar" disabled={igual || (mostra === 'page' && !inicial)} onClick={guardar}>
+          <button className="btn r wp-gest-guardar" onClick={guardar}>
             {t('Guardar alterações')}
           </button>
         </div>
@@ -2623,7 +2623,8 @@ function WpSiteGestao({ d }: { d: string }) {
               />
             </div>
             <div className="wp-perma-etiquetas">
-              <span>{t('Etiquetas de estrutura disponíveis:')}</span>
+              <span>{t('Etiquetas disponíveis:')}</span>
+              <div className="botoes">
               {TAGS_PERMA.map((tag) => (
                 <button
                   key={tag}
@@ -2638,10 +2639,11 @@ function WpSiteGestao({ d }: { d: string }) {
                   {tag}
                 </button>
               ))}
+              </div>
             </div>
           </div>
         </div>
-        <button className="btn r wp-gest-guardar" disabled={permaIgual} onClick={guardarPerma}>
+        <button className="btn r wp-gest-guardar" onClick={guardarPerma}>
           {t('Guardar alterações')}
         </button>
       </div>
