@@ -4,7 +4,7 @@ name: Ops - DMARC de pct=25 para pct=100 (DNS)
 # Sem «aplicar» só LÊ o registo _dmarc de cada um. Com «aplicar» troca APENAS pct=25 por pct=100 nos registos que já são
 # p=quarantine (nunca mexe em p=none, nunca sobe a p=reject, nunca cria nem apaga registos). Guarda no registo da corrida o texto
 # anterior de cada um, para voltar atrás (basta repor pct=25). Chave do DNS: a mesma do painel, lida no servidor, nunca impressa.
-# Ficam de fora (p=none): basededadosagro.com (falta a chave DKIM do servidor), elimservicos.com, shalomdeco.com.
+# A 31/10/2026 basededadosagro.com e elimservicos.com também já estão em quarantine 25 % (entram na lista). Fica de fora o shalomdeco.com (sem DMARC, DNS fora do nosso controlo).
 
 on:
   workflow_dispatch:
@@ -12,7 +12,7 @@ on:
       dominios:
         description: 'Domínios separados por espaço'
         required: true
-        default: 'aamihe.com concordia.co.mz entrecamposblog.com lirandzojewelry.com menocrazy.app mltmark.com msdn-moz.org oshercollective.com provisualcorporate.co.mz visualdesignmoz.com'
+        default: 'aamihe.com basededadosagro.com concordia.co.mz elimservicos.com entrecamposblog.com lirandzojewelry.com menocrazy.app mltmark.com msdn-moz.org oshercollective.com provisualcorporate.co.mz visualdesignmoz.com'
       aplicar:
         description: 'Aplicar a troca (desligado = só ler)'
         type: boolean

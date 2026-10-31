@@ -296,3 +296,9 @@ e a configuração efectiva do SSH. Só depois dela se decide o endurecimento do
 Resposta do Silva ponto a ponto e o que ficou feito está em `ESTADO_PROJECTO.md` («Falta para fechar»). Em resumo: IVA discriminado nos recibos do carrinho; lint, testes e build nos PR; Dependabot;
 fluxos `Ops - Fecho do servidor` (Supabase, SSH só chave, chave própria da aplicação) e `Ops - DMARC` prontos a correr depois de publicar; português de Portugal nos últimos textos; fase 1 da saída do DirectAdmin
 (10 rotas sem chamadores apagadas); lista dos ramos já fundidos em `docs/ramos-para-apagar-2026-10-28.md`. Por tratar: M-Pesa, Stripe, texto legal, facturação certificada.
+
+---
+
+## 11. Auditoria de 31/10/2026 — verificada contra `main`, produção, DNS e GitHub
+
+Corrige o que as secções acima ainda dão como em falta: **feito** — troca do Supabase (30/10), login Google (funciona), IVA no checkout, rotas sem autenticação protegidas, cópias para fora do servidor, verificação nos PR, Dependabot, PWA removido, `basededadosagro.com` e `elimservicos.com` já com DMARC. **Em falta** — lint de `main` (11 erros em `contas.tsx`), SSH só com chave (a 31/10 ainda aceita palavra-passe), chave própria da aplicação, Stripe e M-Pesa em teste, texto legal e cookies, factura e NUIT, DMARC a 100 % (12 domínios em 25 %), ligações partidas em `/servicos/*`, algum português do Brasil. A secção «DirectAdmin» (nome herdado do painel vs protocolo real que nunca corre) e a regra de verificar sempre contra `main` estão em `regras.md`, «Notas para a próxima auditoria».
