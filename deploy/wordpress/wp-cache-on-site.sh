@@ -119,6 +119,18 @@ echo "de " . $velho . " para " . $novo;
   exit 0
 fi
 
+# VD_TESTE_WPO=1: mede, num só site, quanto demora uma página que NÃO vem da cache (endereço com parâmetro e robots.txt) com o WP-Optimize activo e sem ele,
+# e repõe-no (a cache de página volta a ser ligada mesmo que o script seja interrompido). Serve para provar se o WP-Optimize é o que torna o site lento.
+if [[ "${VD_TESTE_WPO:-}" == "1" ]]; then
+  IPSITE=$(/usr/local/hestia/bin/v-list-web-domain "$WP_USER" "$DOMINIO" json 2>/dev/null | grep -oE '"IP": *"[0-9.]+"' | head -1 | grep -oE '[0-9.]+' | head -1); IPSITE=${IPSITE:-127.0.0.1}
+  medir() { local i; for i in 1 2 3; do echo "     ?vd_teste: $(curl -sk -m 40 --resolve "$DOMINIO:443:$IPSITE" -o /dev/null -w '%{http_code} · %{time_total}s' "https://$DOMINIO/?vd_teste=$RANDOM")  ·  robots.txt: $(curl -sk -m 40 --resolve "$DOMINIO:443:$IPSITE" -o /dev/null -w '%{http_code} · %{time_total}s' "https://$DOMINIO/robots.txt?vd_teste=$RANDOM")"; done; }
+  repor_wpo() { wpu plugin activate wp-optimize >/dev/null 2>&1; wpu eval 'if (class_exists("WPO_Page_Cache")) { WPO_Page_Cache::instance()->enable(); }' >/dev/null 2>&1; cfg WP_CACHE true --raw >/dev/null 2>&1; echo "[ok] WP-Optimize reposto e cache de página ligada"; }
+  echo "[..] COM o WP-Optimize activo (3 pedidos sem cache):"; medir
+  trap repor_wpo EXIT
+  wpu plugin deactivate wp-optimize 2>&1 | tail -n 1
+  echo "[..] SEM o WP-Optimize (3 pedidos sem cache):"; medir
+  exit 0
+fi
 # VD_TROCAR_CACHE=1: troca a cache de página do WP-Optimize pelo Cache Enabler num site (31/10/2026, entrecamposblog.com: o WP-Optimize serve as páginas
 # guardadas pelo PHP, por isso com os trabalhadores todos presos até elas ficavam à espera e o site caía). O Cache Enabler guarda cada página em ficheiro e
 # umas regras no .htaccess do site fazem o Apache entregá-lo SEM passar pelo PHP (cabeçalho X-VD-Cache: apache); quem tem sessão, comentou, envia dados ou
