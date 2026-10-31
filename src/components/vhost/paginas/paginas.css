@@ -16007,3 +16007,14 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
       max-width: none
    }
 }
+
+/* o «Guardar alterações» da página inicial alinha com os selectores (depois do nome de cada um), e não com os círculos — Silva, 31/10/2026 */
+@media (min-width: 769px) {
+   .vh .wp-leitura-sel label > span:not(#x) {
+      width: calc(120px * var(--z, 1))
+   }
+
+   .vh .wp-gest-2c .wp-gest-guardar:not(#x):not(#y) {
+      margin-left: calc((26px + 120px + 10px) * var(--z, 1))
+   }
+}
