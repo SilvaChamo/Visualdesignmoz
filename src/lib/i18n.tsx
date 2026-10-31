@@ -348,7 +348,7 @@ const dict: Record<Lang, Dict> = {
     'courses.marketing': 'Marketing Digital',
     'courses.marketing.desc': 'Estratégias digitais para crescimento de negócios',
     'courses.uiux': 'UI/UX Design',
-    'courses.uiux.desc': 'Design de interfaces e experiência do usuário',
+    'courses.uiux.desc': 'Design de interfaces e experiência do utilizador',
     'courses.graphic': 'Design Gráfico',
     'courses.graphic.desc': 'Criação de identidade visual e materiais gráficos',
     'courses.ecommerce': 'E-commerce',
@@ -638,7 +638,7 @@ const dict: Record<Lang, Dict> = {
     'services.web.custom': 'Desenvolvimento Customizado',
     'services.web.custom.desc': 'Soluções sob medida para necessidades específicas do seu negócio',
     'services.web.uiux': 'UI/UX Design',
-    'services.web.uiux.desc': 'Design de interface moderno e focado na experiência do usuário',
+    'services.web.uiux.desc': 'Design de interface moderno e focado na experiência do utilizador',
     'services.web.performance': 'Performance e SEO',
     'services.web.performance.desc': 'Otimização de velocidade e posicionamento em buscadores',
     'services.web.methodology': 'Nossa Metodologia de Trabalho',
@@ -775,7 +775,7 @@ const dict: Record<Lang, Dict> = {
 
     // Pricing - Support
     'pricing.support.title': 'Suporte Técnico',
-    'pricing.support.subtitle': 'Estamos aqui para ajudar você a crescer',
+    'pricing.support.subtitle': 'Estamos aqui para ajudá-lo a crescer',
     'pricing.support.standard': 'Suporte Standard',
     'pricing.support.priority': 'Suporte Prioritário',
     'pricing.support.dedicated': 'Suporte Dedicado',

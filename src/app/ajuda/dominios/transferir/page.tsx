@@ -167,7 +167,7 @@ export default function TransferirDominioPage() {
 
                 {/* Introdução */}
                 <p className="text-sm text-gray-600 dark:text-zinc-400 leading-relaxed mb-8">
-                  Há algumas etapas de preparação que recomendamos fazer antes de você iniciar o processo de
+                  Há algumas etapas de preparação que recomendamos fazer antes de iniciar o processo de
                   transferência de domínio, seguido pelos{' '}
                   <strong className="font-semibold text-gray-800 dark:text-zinc-200">&quot;próximos passos&quot;</strong>{' '}
                   descritos abaixo.
@@ -194,7 +194,7 @@ export default function TransferirDominioPage() {
                       },
                       {
                         title: 'Email Whois correto e acessível',
-                        body: 'Verifique novamente se o seu Endereço de email Whois é exato e acessível. Certas transferências de TLD podem exigir que você receba um código de autorização ou envie e-mails de verificação por este endereço. Se não estiver correto, você deve atualizar seu e-mail Whois antes da transferência.',
+                        body: 'Verifique novamente se o seu Endereço de email Whois é exacto e acessível. Certas transferências de TLD podem exigir que receba um código de autorização ou envie e-mails de verificação por este endereço. Se não estiver correto, deve actualizar o seu e-mail Whois antes da transferência.',
                       },
                     ].map((item, i) => (
                       <li key={i} className="flex items-start gap-3.5">

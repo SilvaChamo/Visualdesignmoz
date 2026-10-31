@@ -153,7 +153,7 @@ export default function PagamentoRenovacaoPage() {
           </div>
           <h1 className="text-2xl font-bold text-gray-900 mb-2">Pagamento Confirmado!</h1>
           <p className="text-gray-600 mb-6">
-            Sua renovação foi processada com sucesso. Você receberá um email de confirmação em breve.
+            A sua renovação foi processada com sucesso. Receberá um e-mail de confirmação em breve.
           </p>
           <Link 
             href={PUBLIC_PANEL_ENTRY}
