@@ -50,11 +50,11 @@ export async function POST(request: NextRequest) {
     const erroEmailEmpresa = dados.emailEmpresa ? mensagemEmailInvalido(dados.emailEmpresa, 'O e-mail da empresa') : null;
     if (erroEmailEmpresa) return NextResponse.json({ error: erroEmailEmpresa }, { status: 400 });
     if (!/^\d{9}$/.test(dados.nuit || '')) {
-      return NextResponse.json({ error: 'Indique o NUIT da empresa (9 dígitos): é obrigatório para a factura.' }, { status: 400 });
+      return NextResponse.json({ error: 'O NUIT da empresa deve ter 9 dígitos.' }, { status: 400 });
     }
-    if (!dados.telefone || !dados.morada || !dados.provincia) {
-      return NextResponse.json({ error: 'Indique o telefone, a morada e a província: são os dados da conta e, nos domínios, do registo oficial (WHOIS).' }, { status: 400 });
-    }
+    if (!dados.telefone) return NextResponse.json({ error: 'Indique o telefone.' }, { status: 400 });
+    if (!dados.morada) return NextResponse.json({ error: 'Indique a morada.' }, { status: 400 });
+    if (!dados.provincia) return NextResponse.json({ error: 'Escolha a província.' }, { status: 400 });
     if (senha.length < 6 || senha.length > 20) return NextResponse.json({ error: 'A palavra-passe deve ter entre 6 e 20 caracteres.' }, { status: 400 });
     // Só o essencial e tudo ao mesmo tempo (o «Pagar» demorava uma eternidade): preços, e-mail e nome da conta em paralelo.
     const [existente, { resolved, rejected }] = await Promise.all([utilizadorPorEmail(admin, dados.email), resolveCartItems(items)]);
