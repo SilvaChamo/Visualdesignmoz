@@ -2460,7 +2460,7 @@ function WpSiteGestao({ d }: { d: string }) {
           <div className="wp-ico-prev">
             {dados.icone ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img className="ico" src={dados.icone} alt="" />
+              <img className="ico" src={dados.icone} alt="" onError={(e) => (e.currentTarget.style.visibility = 'hidden')} />
             ) : (
               <span className="wp-ico-vazio">
                 <i className="fa-solid fa-image" />

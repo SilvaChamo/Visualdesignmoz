@@ -283,7 +283,16 @@ export async function GET(req: NextRequest) {
       const out = await executeServerCommand(`sudo -u ${conta} /usr/local/bin/wp --path=${q(raiz)} --skip-plugins --skip-themes eval ${q(php)} 2>/dev/null`, { timeoutMs: 40_000 });
       const ini = out.indexOf('{');
       try {
-        return ok(JSON.parse(out.slice(ini)));
+        const r = JSON.parse(out.slice(ini)) as { icone?: string };
+        // o endereço do ícone vem do `siteurl` do WordPress (pode ser http, ou outro nome do domínio): usa-se só o caminho, no endereço seguro deste domínio, para a imagem aparecer sempre
+        if (r.icone) {
+          try {
+            r.icone = 'https://' + d + new URL(r.icone).pathname;
+          } catch {
+            r.icone = '';
+          }
+        }
+        return ok(r);
       } catch {
         return NextResponse.json({ erro: 'WordPress não encontrado neste domínio.' }, { status: 400 });
       }

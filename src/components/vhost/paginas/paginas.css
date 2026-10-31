@@ -15729,3 +15729,16 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
       border-top: 1px solid var(--line)
    }
 }
+
+/* selectores com os cantos do painel (4 px) e todos na mesma altura (34 px × --z): os do separador Plugins, os da Gestão e o da actualização automática do WordPress */
+.vh .wp-gest-2c select:not(#x):not(#y):not(#z),
+.vh .wp-plg-lote select:not(#x):not(#y):not(#z) {
+   border-radius: var(--r)
+}
+
+.vh .em-opcoes select.em-sel:not(#x):not(#y) {
+   height: calc(34px * var(--z, 1));
+   min-height: calc(34px * var(--z, 1));
+   font-size: calc(12.5px * var(--fs, 1));
+   border-radius: var(--r)
+}
