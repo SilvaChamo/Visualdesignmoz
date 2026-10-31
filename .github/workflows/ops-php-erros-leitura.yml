@@ -166,4 +166,15 @@ jobs:
             echo "--- Apache: módulos rewrite e headers: $(apache2ctl -M 2>/dev/null | grep -E 'rewrite|headers' | tr -s ' ' | tr '\n' ' ')"
             echo "--- DocumentRoot do site no Apache: $(grep -h DocumentRoot /home/$CONTA/conf/web/$DOMINIO/apache2.conf 2>/dev/null | head -1)"
             echo "--- AllowOverride: $(grep -h AllowOverride /home/$CONTA/conf/web/$DOMINIO/apache2.conf 2>/dev/null | head -2 | tr -s ' ' | tr '\n' ' ')"
+            titulo "18. Porque a cache do Cache Enabler se esvazia (só leitura)"
+            PUB=$RAIZ/public_html; CD="$PUB"/wp-content/cache/cache-enabler
+            IPSITE=$(/usr/local/hestia/bin/v-list-web-domain "$CONTA" "$DOMINIO" json 2>/dev/null | grep -oE '"IP": *"[0-9.]+"' | head -1 | grep -oE '[0-9.]+' | head -1); IPSITE=${IPSITE:-127.0.0.1}
+            for i in 1 2 3 4; do
+              R=$(curl -sk -m 40 --resolve "$DOMINIO:443:$IPSITE" -H 'Accept: text/html' -H 'Accept-Encoding: gzip' -D - -o /dev/null -w 'TEMPO=%{time_total}\n' "https://$DOMINIO/category/agricultura/" | tr -d '\r')
+              echo "pedido $i: $(echo "$R" | grep -E '^TEMPO=') · $(echo "$R" | grep -ci '^x-vd-cache') apache · ficheiros na cache: $(find "$CD" -type f 2>/dev/null | wc -l)"; sleep 2
+            done
+            echo "--- ficheiros e datas (mais recentes):"; find "$CD" -type f -printf '%TH:%TM:%TS %p\n' 2>/dev/null | sed "s#$PUB/wp-content/cache/cache-enabler/##" | sort -r | head -n 6 | cut -c1-140
+            echo "--- agora: $(date +%H:%M:%S) · pedidos POST e do painel nos últimos 600 registos do Apache (hora · método · endereço):"
+            tail -n 600 /var/log/apache2/domains/$DOMINIO.log | awk '$6 ~ /POST/ || $7 ~ /wp-admin|wp-json|wp-cron/ {split($4,a,":"); u=$7; sub(/\?.*/,"",u); print a[2]":"a[3], $6, u}' | sed 's/"//g' | sort | uniq -c | sort -k2 | tail -n 14
+            echo "--- eventos agendados (próximos) com nome de cache ou de actualização:"; sudo -u "$CONTA" nice -n 10 /usr/local/bin/wp --path="$PUB" cron event list --fields=hook,next_run_relative --format=csv 2>/dev/null | grep -iE "cache|update|clear|purge" | head -n 10
             titulo "fim da leitura"
