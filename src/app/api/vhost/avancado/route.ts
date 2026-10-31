@@ -4,7 +4,7 @@ import { requirePanelBootstrapAccess } from '@/lib/panel-api-auth';
 import { executeServerCommand, streamServerFile, uploadFileViaSsh } from '@/lib/server-ssh-exec';
 import { hestiaCall } from '@/lib/hestia-client';
 import * as hestia from '@/lib/hestia-adapter';
-import { deleteWpPlugin, generateWpAutoLoginToken, installWordPressSite, installWpPluginZipFile, listWpPlugins, listWpUsers, toggleWpPlugin, updateAllWpPlugins, updateWpPlugin, updateWpUserPassword } from '@/lib/wp-cli-server';
+import { definirIconeWp, deleteWpPlugin, generateWpAutoLoginToken, guardarLeituraWp, guardarLigacoesWp, installWordPressSite, installWpPluginZipFile, lerOpcoesWp, listWpPlugins, removerIconeWp, listWpUsers, toggleWpPlugin, updateAllWpPlugins, updateWpPlugin, updateWpUserPassword } from '@/lib/wp-cli-server';
 import { esquecerLeitura, lerServidor, type LeituraServidor } from '@/lib/vhost-servidor';
 import { lerRegisto, montarDados } from '@/lib/vhost-dados';
 import { VHOST_DIR } from '@/lib/vhost-email-scripts';
@@ -277,6 +277,15 @@ export async function GET(req: NextRequest) {
       if (!v('DB_NAME')) return NextResponse.json({ erro: 'WordPress não encontrado neste domínio.' }, { status: 400 });
       return ok({ nome: v('DB_NAME'), user: v('DB_USER'), host: v('DB_HOST'), prefixo: v('table_prefix'), daConta: Object.prototype.hasOwnProperty.call(srv.db[conta] || {}, v('DB_NAME')) });
     }
+    case 'wpopcoes': {
+      // separador «Gestão»: ícone do site, Leitura (página inicial) e ligações permanentes
+      if (!d) return NextResponse.json({ erro: 'Escolha o domínio.' }, { status: 400 });
+      try {
+        return ok(await lerOpcoesWp(d));
+      } catch (x) {
+        return NextResponse.json({ erro: x instanceof Error ? x.message : 'WordPress não encontrado.' }, { status: 400 });
+      }
+    }
     case 'wppaginas': {
       // separador "Páginas" do Gerir WordPress: as páginas do site (e quais foram feitas com o Elementor)
       if (!d) return NextResponse.json({ erro: 'Escolha o domínio.' }, { status: 400 });
@@ -370,6 +379,13 @@ async function carregarPlugin(req: NextRequest, r: { s: Sessao }): Promise<NextR
   if (e) return NextResponse.json({ erro: e }, { status: 403 });
   if (!d) return NextResponse.json({ erro: 'Escolha o domínio.' }, { status: 400 });
   const ficheiro = f.get('ficheiro');
+  if (f.get('acao') === 'wp-icone') {
+    // Gerir WordPress › Gestão › Ícone do site (favicon)
+    if (!(ficheiro instanceof File)) return NextResponse.json({ erro: 'Escolha a imagem.' }, { status: 400 });
+    if (ficheiro.size > 8 * 1024 * 1024) return NextResponse.json({ erro: 'A imagem pode ter até 8 MB.' }, { status: 400 });
+    const x = await definirIconeWp(d, Buffer.from(await ficheiro.arrayBuffer()), ficheiro.name);
+    return x.ok ? NextResponse.json({ ok: true }) : NextResponse.json({ erro: (x.output || 'O servidor recusou.').slice(-300) }, { status: 400 });
+  }
   if (!(ficheiro instanceof File)) return NextResponse.json({ erro: 'Escolha o plugin (.zip).' }, { status: 400 });
   if (!/\.zip$/i.test(ficheiro.name)) return NextResponse.json({ erro: 'O ficheiro tem de ser um .zip.' }, { status: 400 });
   if (ficheiro.size > 256 * 1024 * 1024) return NextResponse.json({ erro: 'Cada plugin pode ter até 256 MB.' }, { status: 400 });
@@ -954,6 +970,21 @@ export async function POST(req: NextRequest) {
         if (!x.ok) falhas.push(p + ': ' + x.output.slice(-160));
       }
       return resposta({ ok: falhas.length === 0, error: falhas.join(' · ') });
+    }
+    case 'wp-leitura': {
+      if (!d) return recusa('Escolha o domínio.');
+      const x = await guardarLeituraWp(d, String(c.mostra), Number(c.inicial), Number(c.artigos || 0));
+      return resposta({ ok: x.ok, error: x.output.slice(-300) });
+    }
+    case 'wp-ligacoes': {
+      if (!d) return recusa('Escolha o domínio.');
+      const x = await guardarLigacoesWp(d, String(c.estrutura));
+      return resposta({ ok: x.ok, error: x.output.slice(-300) });
+    }
+    case 'wp-icone-remover': {
+      if (!d) return recusa('Escolha o domínio.');
+      const x = await removerIconeWp(d);
+      return resposta({ ok: x.ok, error: x.output.slice(-300) });
     }
     case 'wp-nucleo': {
       if (!d) return recusa('Escolha o domínio.');

@@ -15543,3 +15543,39 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    }
 
 }
+
+/* Gerir WordPress › Gestão › Opções do WordPress: ícone do site e campos de Leitura e Ligações permanentes (Silva, 31/10/2026) */
+.vh .wpo-icone,
+.vh .wpo-campos {
+   display: flex;
+   align-items: center;
+   flex-wrap: wrap;
+   gap: calc(8px * var(--z, 1))
+}
+
+.vh .wpo-icone img {
+   border: 1px solid var(--line);
+   border-radius: calc(4px * var(--z, 1));
+   background: var(--soft);
+   object-fit: contain
+}
+
+.vh .wpo-icone > i {
+   font-size: calc(26px * var(--fs, 1));
+   color: var(--muted)
+}
+
+.vh .wpo-campos .em-sel:not(#x) {
+   max-width: 100%;
+   min-width: 0
+}
+
+@media (max-width: 768px) {
+   .vh .wpo-campos {
+      width: 100%
+   }
+
+   .vh .wpo-campos .em-sel:not(#x):not(#y) {
+      flex: 1 1 100%
+   }
+}

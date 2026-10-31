@@ -440,6 +440,108 @@ export async function installWpPluginZipFile(
   }
 }
 
+/** Opções do WordPress que o painel deixa mudar (Gerir WordPress › Gestão): ícone do site (favicon), Leitura (página inicial) e Ligações permanentes. */
+export interface WpOpcoes {
+  icone: string;
+  mostra: 'posts' | 'page';
+  inicial: number;
+  artigos: number;
+  ligacoes: string;
+  paginas: { ID: number; t: string }[];
+}
+
+/** Estruturas de ligações permanentes que o painel oferece (as do ecrã Definições › Ligações permanentes do WordPress). */
+export const WP_LIGACOES: Record<string, string> = {
+  simples: '',
+  dia: '/%year%/%monthnum%/%day%/%postname%/',
+  mes: '/%year%/%monthnum%/%postname%/',
+  numerica: '/archives/%post_id%',
+  nome: '/%postname%/',
+};
+
+export async function lerOpcoesWp(domain: string): Promise<WpOpcoes> {
+  const install = await resolveWpInstall(domain);
+  if (!install) throw new Error('WordPress não encontrado neste domínio');
+  const php =
+    'echo json_encode(array("icone"=>(string)get_site_icon_url(96),"mostra"=>get_option("show_on_front")==="page"?"page":"posts","inicial"=>(int)get_option("page_on_front"),"artigos"=>(int)get_option("page_for_posts"),"ligacoes"=>(string)get_option("permalink_structure"),"paginas"=>array_map(function($p){return array("ID"=>(int)$p->ID,"t"=>$p->post_title);},(array)get_pages(array("post_status"=>"publish")))));';
+  const out = await runAsWpUser(install.user, install.path, `--skip-plugins --skip-themes eval ${shellQuote(php)}`);
+  const ini = out.indexOf('{"icone"');
+  if (ini < 0) throw new Error(out.slice(0, 300) || 'Resposta vazia do wp-cli');
+  return JSON.parse(out.slice(ini, out.lastIndexOf('}') + 1)) as WpOpcoes;
+}
+
+/** Depois de mudar uma opção que se vê no site: esvazia a cache de páginas do site (só actua com o Cache Enabler; ver `vd_limpar_cache_do_site` no mu-plugin). */
+async function limparCacheDoSite(install: WpInstallInfo): Promise<void> {
+  await runAsWpUser(install.user, install.path, `eval ${shellQuote('if (function_exists("vd_limpar_cache_do_site")) { vd_limpar_cache_do_site(); }')}`).catch(() => undefined);
+}
+
+const wpSucesso = (out: string) => /Success/i.test(out) && !/^Error/im.test(out);
+
+/** Leitura: «A sua página inicial mostra» os artigos mais recentes ou uma página estática (e qual é a página dos artigos). */
+export async function guardarLeituraWp(domain: string, mostra: string, inicial: number, artigos: number): Promise<{ ok: boolean; output: string }> {
+  const install = await resolveWpInstall(domain);
+  if (!install) return { ok: false, output: 'WordPress não encontrado neste domínio' };
+  if (mostra !== 'page') {
+    const out = await runAsWpUser(install.user, install.path, '--skip-plugins --skip-themes option update show_on_front posts');
+    await limparCacheDoSite(install);
+    return { ok: wpSucesso(out), output: out };
+  }
+  if (!Number.isSafeInteger(inicial) || inicial <= 0) return { ok: false, output: 'Escolha a página inicial.' };
+  if (!Number.isSafeInteger(artigos) || artigos < 0) return { ok: false, output: 'Página dos artigos inválida.' };
+  if (artigos === inicial) return { ok: false, output: 'A página inicial e a página dos artigos têm de ser diferentes.' };
+  for (const id of [inicial, ...(artigos ? [artigos] : [])]) {
+    const tipo = await runAsWpUser(install.user, install.path, `--skip-plugins --skip-themes post get ${id} --field=post_type`);
+    if (tipo.trim() !== 'page') return { ok: false, output: 'Página não encontrada.' };
+  }
+  const w = '--skip-plugins --skip-themes option update ';
+  const out = [
+    await runAsWpUser(install.user, install.path, w + 'show_on_front page'),
+    await runAsWpUser(install.user, install.path, w + `page_on_front ${inicial}`),
+    await runAsWpUser(install.user, install.path, w + `page_for_posts ${artigos}`),
+  ].join('\n');
+  await limparCacheDoSite(install);
+  return { ok: !/^Error/im.test(out) && !/Could not update/i.test(out), output: out };
+}
+
+/** Ligações permanentes: grava a estrutura e refaz as regras (incluindo o .htaccess). Sem `--skip-plugins`, para os tipos de conteúdo dos plugins entrarem nas regras. */
+export async function guardarLigacoesWp(domain: string, chave: string): Promise<{ ok: boolean; output: string }> {
+  const install = await resolveWpInstall(domain);
+  if (!install) return { ok: false, output: 'WordPress não encontrado neste domínio' };
+  if (!(chave in WP_LIGACOES)) return { ok: false, output: 'Estrutura inválida.' };
+  const out = await runAsWpUser(install.user, install.path, `rewrite structure ${shellQuote(WP_LIGACOES[chave])} --hard`, true);
+  await limparCacheDoSite(install);
+  return { ok: wpSucesso(out), output: out };
+}
+
+/** Ícone do site (favicon): importa a imagem para a biblioteca de media e põe-na como `site_icon`. */
+export async function definirIconeWp(domain: string, imagem: Buffer, filename: string): Promise<{ ok: boolean; output: string }> {
+  const install = await resolveWpInstall(domain);
+  if (!install) return { ok: false, output: 'WordPress não encontrado neste domínio' };
+  const ext = (filename.toLowerCase().match(/\.(png|jpe?g|gif|webp|ico)$/) || [])[1];
+  if (!ext) return { ok: false, output: 'A imagem tem de ser PNG, JPG, GIF, WebP ou ICO.' };
+  const tmp = `/tmp/vd-wpico-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  await uploadFileViaSsh(tmp, imagem);
+  try {
+    await executeServerCommand(`chmod 644 ${shellQuote(tmp)}`);
+    const out = await runAsWpUser(install.user, install.path, `media import ${shellQuote(tmp)} --porcelain --title='Ícone do site'`, true);
+    const id = out.split('\n').map((l) => l.trim()).filter((l) => /^\d+$/.test(l)).pop();
+    if (!id) return { ok: false, output: out || 'Não foi possível importar a imagem.' };
+    const res = await runAsWpUser(install.user, install.path, `--skip-plugins --skip-themes option update site_icon ${id}`);
+    await limparCacheDoSite(install);
+    return { ok: wpSucesso(res), output: res };
+  } finally {
+    await executeServerCommand(`rm -f ${shellQuote(tmp)}`).catch(() => undefined);
+  }
+}
+
+export async function removerIconeWp(domain: string): Promise<{ ok: boolean; output: string }> {
+  const install = await resolveWpInstall(domain);
+  if (!install) return { ok: false, output: 'WordPress não encontrado neste domínio' };
+  const out = await runAsWpUser(install.user, install.path, '--skip-plugins --skip-themes option delete site_icon');
+  await limparCacheDoSite(install);
+  return { ok: !/^Error/im.test(out), output: out };
+}
+
 export interface WpUserRow {
   ID: string;
   user_login: string;

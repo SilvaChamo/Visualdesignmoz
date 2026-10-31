@@ -9,6 +9,7 @@ import type { ScreenFn } from '../screens';
 import { Check, DataTable, novaSenha, Senha, Switch, Tabs } from './componentes';
 import { Confirmar } from './pacotes';
 import { PluginsWp, type OpPluginWp } from './wp-plugins';
+import { OpcoesWordPress, type OpcoesWp } from './wp-opcoes';
 import { BOCADO, CampoEnvio, idEnvio, tam as tamTxt, type Envio } from './sistema';
 import { useGet } from '../carga';
 import { EN } from '../generated/data';
@@ -2382,31 +2383,6 @@ function WpGerir({ d }: { d: string }) {
   const lista = useLer<{ instalados: Wp[] }>('wordpress');
   const { dados, erro, ler } = useLer<{ plugins: Plugin[]; users: WpUser[]; nucleo?: { disponivel: boolean; versao: string } | null }>('wp', { d });
   const wp = lista.dados?.instalados.find((x) => x.d === d);
-  // acções dos plugins (um ou vários de uma vez, como as «Acções por lote» do WordPress) e envio de cada .zip (Adicionar plugin)
-  const plugins = async (op: OpPluginWp, nomes: string[]) => {
-    if (!(await noServidor(vh, { acao: 'wp-plugin', dominio: d, op, plugins: nomes }, 'Feito'))) return false;
-    await ler();
-    return true;
-  };
-  const atualizarTodos = async () => {
-    if (!(await noServidor(vh, { acao: 'wp-plugin', dominio: d, op: 'atualizar-todos' }, 'Feito'))) return false;
-    await ler();
-    return true;
-  };
-  const enviarPlugin = async (ficheiro: File): Promise<string | null> => {
-    const fd = new FormData();
-    fd.append('conta', vh.me);
-    fd.append('dominio', d);
-    fd.append('activar', '0'); // como no WordPress: instala; activa-se depois na lista
-    fd.append('ficheiro', ficheiro);
-    try {
-      const r = await fetch('/api/vhost/avancado', { method: 'POST', body: fd });
-      const j = (await r.json().catch(() => ({}))) as { erro?: string };
-      return r.ok ? null : String(j.erro || 'A instalação falhou');
-    } catch {
-      return 'Sem ligação ao site. Nada foi alterado.';
-    }
-  };
   return (
     <>
       <Sec titulo="Resumo">
@@ -2465,25 +2441,62 @@ function WpGerir({ d }: { d: string }) {
           )}
         </div>
       </Sec>
-      {!dados ? (
-        <Carregando erro={erro} ler={ler} />
-      ) : (
-        <>
-          <PluginsWp plugins={dados.plugins} executar={plugins} atualizarTodos={atualizarTodos} enviar={enviarPlugin} recarregar={ler} />
-        </>
-      )}
+      <WpOpcoes d={d} />
     </>
   );
 }
 
-/** Separadores do Gerir WordPress (como os dos Domínios): Gestão (atualizações e plugins) · Utilizadores · Páginas */
-type AbaWp = 'gestao' | 'utilizadores' | 'paginas';
+/** Separador «Plugins» do Gerir WordPress (Silva, 31/10/2026): a lista de plugins, que saiu do separador «Gestão» */
+function WpPlugins({ d }: { d: string }) {
+  const vh = useVH();
+  const { dados, erro, ler } = useLer<{ plugins: Plugin[] }>('wp', { d });
+  // acções dos plugins (um ou vários de uma vez, como as «Acções por lote» do WordPress) e envio de cada .zip (Adicionar plugin)
+  const plugins = async (op: OpPluginWp, nomes: string[]) => {
+    if (!(await noServidor(vh, { acao: 'wp-plugin', dominio: d, op, plugins: nomes }, 'Feito'))) return false;
+    await ler();
+    return true;
+  };
+  const atualizarTodos = async () => {
+    if (!(await noServidor(vh, { acao: 'wp-plugin', dominio: d, op: 'atualizar-todos' }, 'Feito'))) return false;
+    await ler();
+    return true;
+  };
+  const enviarPlugin = async (ficheiro: File): Promise<string | null> => {
+    const fd = new FormData();
+    fd.append('conta', vh.me);
+    fd.append('dominio', d);
+    fd.append('activar', '0'); // como no WordPress: instala; activa-se depois na lista
+    fd.append('ficheiro', ficheiro);
+    try {
+      const r = await fetch('/api/vhost/avancado', { method: 'POST', body: fd });
+      const j = (await r.json().catch(() => ({}))) as { erro?: string };
+      return r.ok ? null : String(j.erro || 'A instalação falhou');
+    } catch {
+      return 'Sem ligação ao site. Nada foi alterado.';
+    }
+  };
+  if (!dados) return <Carregando erro={erro} ler={ler} />;
+  return <PluginsWp plugins={dados.plugins} executar={plugins} atualizarTodos={atualizarTodos} enviar={enviarPlugin} recarregar={ler} />;
+}
+
+/** Opções do WordPress no separador «Gestão» (Silva, 31/10/2026): ícone do site (favicon), Leitura (página inicial) e Ligações permanentes */
+function WpOpcoes({ d }: { d: string }) {
+  const vh = useVH();
+  const { dados, erro, ler } = useLer<OpcoesWp>('wpopcoes', { d });
+  // com a leitura nova (depois de guardar) o formulário recomeça com o que o site tem agora
+  if (!dados) return <Carregando erro={erro} ler={ler} />;
+  return <OpcoesWordPress key={JSON.stringify(dados)} d={d} dados={dados} recarregar={ler} guardar={async (corpo, ok) => !!(await noServidor(vh, { ...corpo, dominio: d }, ok))} />;
+}
+
+/** Separadores do Gerir WordPress (como os dos Domínios): Gestão (atualização do WordPress e opções) · Plugins · Utilizadores · Páginas */
+type AbaWp = 'gestao' | 'plugins' | 'utilizadores' | 'paginas';
 function WpAbas({ d, aba }: { d: string; aba: AbaWp }) {
   const { nav } = useVH();
   return (
     <Tabs<AbaWp>
       tabs={[
         ['gestao', 'Gestão', 'fa-gauge-high'],
+        ['plugins', 'Plugins', 'fa-plug'],
         ['utilizadores', 'Utilizadores', 'fa-users'],
         ['paginas', 'Páginas', 'fa-file-lines'],
       ]}
@@ -2746,17 +2759,17 @@ export const wordpressPagina: ScreenFn = (vh) => {
       ...noDominio('/paginas'),
       body: <WpEditarPagina key={a + '/' + vh.s.sub[2]} d={a} id={Number(vh.s.sub[2])} />,
     };
-  if (a && (b === 'utilizadores' || b === 'paginas'))
+  if (a && (b === 'utilizadores' || b === 'paginas' || b === 'plugins'))
     return {
       title: 'Gerir WordPress',
       desc: a,
-      crumbs: [base, naPagina, { t: b === 'paginas' ? 'Páginas' : 'Utilizadores' }],
+      crumbs: [base, naPagina, { t: b === 'paginas' ? 'Páginas' : b === 'plugins' ? 'Plugins' : 'Utilizadores' }],
       ...noDominio('/' + b),
       actions: sitePainel,
       body: (
         <>
           <WpAbas d={a} aba={b} />
-          {b === 'paginas' ? <WpPaginas key={a} d={a} /> : <WpUtilizadores key={a} d={a} />}
+          {b === 'paginas' ? <WpPaginas key={a} d={a} /> : b === 'plugins' ? <WpPlugins key={a} d={a} /> : <WpUtilizadores key={a} d={a} />}
         </>
       ),
     };
