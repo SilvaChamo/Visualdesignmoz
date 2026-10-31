@@ -4,8 +4,9 @@ name: Ops - Cache da CDN do visualdesignmoz.com (regras de cache e limpeza)
 # basededadosagro.com já tem: (1) «respeitar a origem»: só se guarda o que o próprio Next.js marca como público (páginas já geradas,
 # `s-maxage=31536000`; as dinâmicas trazem `private, no-store` e nunca se guardam); (2) «nunca guardar» as rotas privadas (/api, /vhost, /host,
 # /auth, /login, /painel, /cliente, /guest, /checkout, /encomendas, /pagamento, /recibo, /webmail, /contabilidade, /renovacao). Só este domínio.
-# REQUISITO: o deploy já tem de limpar a cache da Cloudflare (scripts/limpar-cache-cdn.sh), senão, depois de cada publicação, a
-# Cloudflare serviria HTML antigo a apontar para ficheiros que já não existem.
+# NOTA (31/10/2026): o deploy já não limpa a cache em cada publicação: as páginas públicas têm validade de 5 minutos (`revalidate` em
+# src/app/layout.tsx) e cada versão leva os ficheiros `_next/static` da anterior. Estas regras só funcionam bem assim: com a validade antiga (1 ano)
+# a Cloudflare serviria HTML antigo. Nunca pôr «guardar durante muito tempo» por cima da origem.
 # Fases: «limpar» (só testa a limpeza da cache), «aplicar» (grava as regras, com cópia das de antes, e confirma de fora; se falhar, desfaz sozinho),
 # «desfazer» (repõe as regras de antes). Sem nenhuma só lê. Pedido do Silva a 28/10/2026.
 

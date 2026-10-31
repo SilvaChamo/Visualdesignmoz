@@ -70,6 +70,11 @@ export const metadata: Metadata = {
   },
 };
 
+// As páginas públicas já geradas renovam-se sozinhas de 5 em 5 minutos (Silva, 31/10/2026: «os deploys não limpem a cache»). Com a validade
+// por omissão (1 ano) a CDN só mostrava o HTML novo depois de a limpar à mão a cada publicação; assim ele troca sozinho em poucos minutos e
+// nada se limpa. As páginas dinâmicas (painel, login, API) não são afectadas: continuam `private, no-store`.
+export const revalidate = 300;
+
 export const viewport: Viewport = {
   themeColor: "#4f46e5",
   width: "device-width",

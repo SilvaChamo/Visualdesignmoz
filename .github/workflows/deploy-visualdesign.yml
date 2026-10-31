@@ -309,6 +309,23 @@ jobs:
             # O .next já vem construído do GitHub (passo "Build project"; o rsync não leva a cache): aqui não se constrói nada.
             # Sem ele, a publicação falha antes de mexer no site.
             test -f "$STAGE/.next/BUILD_ID" || { echo "O .next não chegou ao servidor." >&2; exit 1; }
+            # Os deploys não limpam nada (Silva, 31/10/2026: «os deploys não limpem a cache e quem está dentro não pode notar nem a página parar de
+            # funcionar»). O que a versão em uso já tem passa para a nova, sem apagar nem substituir nada do que a nova trouxe:
+            #  - `.next/static`: um separador aberto na versão anterior continua a achar os pedaços de código que ainda não tinha carregado, e o HTML que a
+            #    CDN ou o navegador guardaram continua a apontar para ficheiros que existem (os pedaços novos têm nomes novos). Saem os de há mais de 30 dias;
+            #  - `.next/cache`: imagens optimizadas e pedidos guardados do Next (o rsync não os leva e cada publicação começava com tudo vazio).
+            # Corre antes do ensaio, para o ensaio o exercitar de verdade. Se falhar só avisa: nunca impede a publicação.
+            ATUAL="$(readlink -f "$LIVE" 2>/dev/null || echo "$LIVE")"
+            if [ -d "$ATUAL/.next/static" ] && [ -d "$STAGE/.next/static" ]; then
+              $BAIXA rsync -a --ignore-existing "$ATUAL/.next/static/" "$STAGE/.next/static/" || echo "AVISO: não consegui juntar os ficheiros estáticos da versão em uso."
+              find "$STAGE/.next/static" -type f -mtime +30 -delete 2>/dev/null || true
+              echo "Ficheiros estáticos: $(find "$STAGE/.next/static" -type f | wc -l) (a versão em uso tinha $(find "$ATUAL/.next/static" -type f | wc -l))."
+            fi
+            if [ -d "$ATUAL/.next/cache" ]; then
+              mkdir -p "$STAGE/.next/cache"
+              $BAIXA rsync -a --ignore-existing "$ATUAL/.next/cache/" "$STAGE/.next/cache/" || echo "AVISO: não consegui levar a cache do Next da versão em uso."
+              echo "Cache do Next levada: $(du -sh "$STAGE/.next/cache" 2>/dev/null | cut -f1)."
+            fi
             # Ensaio (execução manual com ensaio=true): arranca a versão nova noutra porta (3099), confirma que responde e
             # termina — sem migrações, sem mexer no pm2 nem no atalho: o site em funcionamento não é tocado.
             if [ "$ENSAIO" = "1" ]; then
@@ -320,6 +337,10 @@ jobs:
                 c=$(curl -s -o /dev/null -w '%{http_code}' -m 10 -H "Host: teste.visualdesignmoz.com" http://127.0.0.1:3099/ || true)
                 case "$c" in 2*|3*) ENSAIO_OK=0; break ;; esac
                 sleep 2
+              done
+              # a validade que a versão nova dá às páginas públicas (só mostra; 5 minutos = «s-maxage=300»)
+              for pg in / /precos /sobre-nos; do
+                echo "ensaio ${pg}: $(curl -s -D - -o /dev/null -m 20 -H "Host: teste.visualdesignmoz.com" "http://127.0.0.1:3099${pg}" | tr -d '\r' | grep -iE '^(HTTP|cache-control)' | paste -sd' ' || true)"
               done
               kill "$ENSAIO_PID" 2>/dev/null || true
               sleep 2
@@ -473,10 +494,12 @@ jobs:
           done
           [ "$falhou" = 0 ]
 
-      # Cloudflare (Silva, 28/10/2026): as páginas públicas do Next.js trazem `s-maxage=31536000` e a Cloudflare guarda-as (regras de cache do
-      # visualdesignmoz.com, ver regras.md). Depois de cada publicação a cache tem de ser limpa, senão a Cloudflare serviria HTML antigo a apontar
-      # para ficheiros `_next/static` que já não existem. Corre por último: se falhar a publicação fica a vermelho e avisa, mas o site já está no ar.
-      - name: Limpar a cache da CDN do visualdesignmoz.com
+      # Cloudflare (Silva, 31/10/2026: «os deploys não limpem a cache»): as páginas públicas do Next.js agora têm validade de 5 minutos
+      # (`revalidate` em src/app/layout.tsx) e as versões anteriores mantêm os seus ficheiros em `_next/static`, por isso nada precisa de ser limpo
+      # em cada publicação. Só falta uma limpeza ÚNICA, na primeira publicação depois desta mudança: as páginas que a CDN já tinha guardadas
+      # trazem a validade antiga (1 ano). O ficheiro-marca impede que volte a limpar nas seguintes. Corre por último: se falhar a publicação fica a
+      # vermelho e avisa, mas o site já está no ar (e a limpeza repete-se na publicação seguinte, por não haver marca).
+      - name: Limpar a cache da CDN uma única vez (passagem para páginas de validade curta)
         if: ${{ !inputs.ensaio }}
         uses: appleboy/ssh-action@v1.2.5
         with:
@@ -486,4 +509,6 @@ jobs:
           key: ${{ secrets.CONTABO_SSH_KEY }}
           command_timeout: 3m
           script: |
-            bash /opt/visualdesignmoz/scripts/limpar-cache-cdn.sh visualdesignmoz.com
+            MARCA=/opt/visualdesign-releases/.cdn-validade-curta
+            if [ -f "$MARCA" ]; then echo "Já feito: os deploys não limpam a cache da CDN."; exit 0; fi
+            bash /opt/visualdesignmoz/scripts/limpar-cache-cdn.sh visualdesignmoz.com && touch "$MARCA"
