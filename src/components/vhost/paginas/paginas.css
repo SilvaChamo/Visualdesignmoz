@@ -15411,9 +15411,27 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    gap: calc(3px * var(--z, 1));
    /* a descrição é texto corrido (não um nome nem um caminho): parte-se em linhas, como no WordPress */
    white-space: normal;
-   width: calc(560px * var(--z, 1));
-   min-width: calc(260px * var(--z, 1));
-   max-width: 100%
+   /* ocupa o que sobra da linha (a 1.ª coluna fica com a sua largura): nos ecrãs mais estreitos encolhe, para o «Activo» ficar à vista, no limite direito, sem deslizar */
+   min-width: calc(220px * var(--z, 1))
+}
+
+.vh .tbl[data-dt="wp-plugins-lista"] :is(th, td):nth-child(3):not(#x) {
+   width: 100%
+}
+
+/* a última coluna (Estado) encosta ao limite direito da tabela, o mesmo do botão «Actualizar todos os plugins» */
+.vh .tbl[data-dt="wp-plugins-lista"] :is(th, td):last-child:not(#x) {
+   padding-right: 0 !important;
+   text-align: right !important
+}
+
+.vh .tbl[data-dt="wp-plugins-lista"] .dt-fundo:not(#x) {
+   padding-right: 0
+}
+
+/* plugin inactivo: a linha leva o fundo do realce (o da passagem do rato), para se ver logo que está desligado */
+.vh table tbody tr.wp-plg-inativo > td:not(#x) {
+   background: var(--hover) !important
 }
 
 .vh .tbl td .wp-plg-desc:not(#x),

@@ -2489,7 +2489,7 @@ function WpGerir({ d }: { d: string }) {
               cols={[
                 { k: 'n', t: 'Plugin', cell: (r) => <b style={r.update === 'available' ? { color: 'var(--red)' } : undefined}>{r.title || r.name}</b> },
                 { k: 'v', t: 'Versão', cell: (r) => r.version + (r.update === 'available' ? ' → ' + (r.update_version || '') : '') },
-                { k: 's', t: 'Estado', cell: (r) => <span className={'tag ' + (r.status === 'active' ? 'ok' : 'off')}>{t(r.status === 'active' ? 'Ativo' : 'Inativo')}</span> },
+                { k: 's', t: 'Estado', right: true, cell: (r) => <span className={'tag ' + (r.status === 'active' ? 'ok' : 'off')}>{t(r.status === 'active' ? 'Ativo' : 'Inativo')}</span> },
               ]}
               actions={(r) => (
                 <span className="dns-acoes">
@@ -2787,6 +2787,7 @@ function WpPlugins({ d }: { d: string }) {
           barra2={lote}
           rodape={lote}
           empilhar={false}
+          rowClass={(r) => (r.status === 'active' ? '' : 'wp-plg-inativo')}
           linhaExtra={(r) =>
             r.update === 'available' ? (
               <div className="wp-plg-aviso">
