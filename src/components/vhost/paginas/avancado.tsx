@@ -2388,11 +2388,16 @@ function WpGerir({ d }: { d: string }) {
     await ler();
     return true;
   };
-  const enviarPlugin = async (ficheiro: File, activar: boolean): Promise<string | null> => {
+  const atualizarTodos = async () => {
+    if (!(await noServidor(vh, { acao: 'wp-plugin', dominio: d, op: 'atualizar-todos' }, 'Feito'))) return false;
+    await ler();
+    return true;
+  };
+  const enviarPlugin = async (ficheiro: File): Promise<string | null> => {
     const fd = new FormData();
     fd.append('conta', vh.me);
     fd.append('dominio', d);
-    fd.append('activar', activar ? '1' : '0');
+    fd.append('activar', '0'); // como no WordPress: instala; activa-se depois na lista
     fd.append('ficheiro', ficheiro);
     try {
       const r = await fetch('/api/vhost/avancado', { method: 'POST', body: fd });
@@ -2464,7 +2469,7 @@ function WpGerir({ d }: { d: string }) {
         <Carregando erro={erro} ler={ler} />
       ) : (
         <>
-          <PluginsWp plugins={dados.plugins} executar={plugins} enviar={enviarPlugin} recarregar={ler} />
+          <PluginsWp plugins={dados.plugins} executar={plugins} atualizarTodos={atualizarTodos} enviar={enviarPlugin} recarregar={ler} />
         </>
       )}
     </>

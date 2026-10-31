@@ -1,9 +1,10 @@
 'use client';
 
 /**
- * Gerir WordPress › Plugins, como no WordPress (Silva, 31/10/2026): caixas de selecção, acções de cada plugin por baixo do nome (Desactivar | Actualizar | Eliminar),
- * «Acções por lote» + «Aplicar» por cima e por baixo da lista, e o botão «Adicionar plugin», que abre o ecrã «Adicionar plugins» para carregar vários .zip de uma vez.
- * Não há botões à direita da lista. As alterações vão ao servidor pelas funções que a página passa (`executar` e `enviar`).
+ * Gerir WordPress › Plugins (Silva, 31/10/2026). O cabeçalho é o de sempre da página (título, números, «Atualizar todos os plugins») com o botão
+ * «Adicionar plugin» logo a seguir; por baixo, a lista como a do WordPress: caixas de selecção, acções de cada plugin por baixo do nome e
+ * «Acções por lote» + «Aplicar» por cima e por baixo. «Adicionar plugin» troca tudo pelo ecrã «Adicionar plugins» do WordPress (igual), onde se
+ * carregam vários .zip de uma vez. As alterações vão ao servidor pelas funções que a página passa.
  */
 import { useRef, useState } from 'react';
 import { useVH } from '../context';
@@ -15,20 +16,21 @@ type Filtro = 'todos' | 'ativos' | 'inativos' | 'atualizacoes';
 type Lote = '' | OpPluginWp;
 type Resultado = { nome: string; estado: 'espera' | 'a-enviar' | 'ok' | 'erro'; detalhe?: string };
 
-const tamanho = (b: number) => (b >= 1024 * 1024 ? (b / 1024 / 1024).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB');
 const ativo = (p: PluginWp) => p.status === 'active';
 const comAtualizacao = (p: PluginWp) => p.update === 'available';
 
-/** `executar`: faz a operação no servidor para estes plugins (devolve true se correu bem). `enviar`: instala um .zip (devolve o erro, ou null se correu bem). */
+/** `executar`: faz a operação no servidor para estes plugins (true se correu bem). `atualizarTodos`: «Atualizar todos os plugins». `enviar`: instala um .zip (devolve o erro, ou null se correu bem). */
 export function PluginsWp({
   plugins,
   executar,
+  atualizarTodos,
   enviar,
   recarregar,
 }: {
   plugins: PluginWp[];
   executar: (op: OpPluginWp, nomes: string[]) => Promise<boolean>;
-  enviar: (ficheiro: File, activar: boolean) => Promise<string | null>;
+  atualizarTodos: () => Promise<boolean>;
+  enviar: (ficheiro: File) => Promise<string | null>;
   recarregar: () => void;
 }) {
   const { t, toast, openM } = useVH();
@@ -38,7 +40,6 @@ export function PluginsWp({
   const [loteCima, setLoteCima] = useState<Lote>('');
   const [loteBaixo, setLoteBaixo] = useState<Lote>('');
   const [ficheiros, setFicheiros] = useState<File[]>([]);
-  const [activar, setActivar] = useState(true);
   const [resultados, setResultados] = useState<Resultado[]>([]);
   const [aEnviar, setAEnviar] = useState(false);
   const [aTrabalhar, setATrabalhar] = useState(false);
@@ -53,12 +54,22 @@ export function PluginsWp({
   const visiveis = plugins.filter((p) => (filtro === 'ativos' ? ativo(p) : filtro === 'inativos' ? !ativo(p) : filtro === 'atualizacoes' ? comAtualizacao(p) : true));
   const nomesVisiveis = visiveis.map((p) => p.name);
   const todos = nomesVisiveis.length > 0 && nomesVisiveis.every((n) => sel.includes(n));
+  const alternarTodos = () => setSel(todos ? sel.filter((n) => !nomesVisiveis.includes(n)) : Array.from(new Set([...sel, ...nomesVisiveis])));
 
   const correr = async (op: OpPluginWp, nomes: string[]) => {
     if (aTrabalhar) return;
     setATrabalhar(true);
     try {
       if (await executar(op, nomes)) setSel((s) => s.filter((n) => !nomes.includes(n)));
+    } finally {
+      setATrabalhar(false);
+    }
+  };
+  const todosAtualizar = async () => {
+    if (aTrabalhar) return;
+    setATrabalhar(true);
+    try {
+      await atualizarTodos();
     } finally {
       setATrabalhar(false);
     }
@@ -91,7 +102,7 @@ export function PluginsWp({
     for (let i = 0; i < ficheiros.length; i++) {
       lista[i] = { ...lista[i], estado: 'a-enviar' };
       setResultados([...lista]);
-      const erro = await enviar(ficheiros[i], activar);
+      const erro = await enviar(ficheiros[i]);
       lista[i] = erro ? { nome: ficheiros[i].name, estado: 'erro', detalhe: erro } : { nome: ficheiros[i].name, estado: 'ok' };
       setResultados([...lista]);
     }
@@ -101,84 +112,67 @@ export function PluginsWp({
     recarregar();
   };
 
-  const filtros: [Filtro, string][] = [
-    ['todos', 'Todos'],
-    ['ativos', 'Activos'],
-    ['inativos', 'Inactivos'],
-    ['atualizacoes', 'Com actualização'],
-  ];
-
   if (vista === 'adicionar') {
+    // O ecrã «Adicionar plugins» do WordPress, igual: título, «Carregar plugin», texto ao centro, caixa com o campo de ficheiros e «Instalar agora», nota em baixo.
     return (
       <section className="da-sec wpp">
-        <div className="wpp-cab">
-          <h3>{t('Adicionar plugins')}</h3>
-          <button className="btn sm wpp-carregar" type="button" onClick={() => entrada.current?.click()}>
-            {t('Carregar plugin')}
-          </button>
-          <button
-            className="wpp-lnk wpp-voltar"
-            type="button"
-            onClick={() => {
-              setVista('lista');
-              setResultados([]);
-              setFicheiros([]);
-            }}
-          >
-            <i className="fa-solid fa-arrow-left" /> {t('Voltar aos plugins')}
-          </button>
+        <div className="wpp-wp">
+          <div className="wpp-wp-cab">
+            <h1>{t('Adicionar plugins')}</h1>
+            <button className="wpp-wp-btn on" type="button" onClick={() => entrada.current?.click()}>
+              {t('Carregar plugin')}
+            </button>
+            <button
+              className="wpp-lnk wpp-voltar"
+              type="button"
+              onClick={() => {
+                setVista('lista');
+                setResultados([]);
+                setFicheiros([]);
+              }}
+            >
+              <i className="fa-solid fa-arrow-left" /> {t('Voltar aos plugins')}
+            </button>
+          </div>
+          <p className="wpp-wp-ajuda">{t('Se tem um plugin no formato .zip pode instalá-lo ou actualizá-lo carregando-o aqui.')}</p>
+          <div className="wpp-wp-form">
+            <input
+              ref={entrada}
+              type="file"
+              multiple
+              accept=".zip,application/zip,application/x-zip-compressed"
+              data-ic-sem
+              aria-label={t('Escolher ficheiros')}
+              disabled={aEnviar}
+              onChange={(e) => {
+                setResultados([]);
+                setFicheiros(Array.from(e.target.files || []).filter((f) => /\.zip$/i.test(f.name)));
+              }}
+            />
+            <button className={'wpp-wp-btn' + (ficheiros.length && !aEnviar ? '' : ' off')} type="button" disabled={!ficheiros.length || aEnviar} onClick={instalar}>
+              {t(aEnviar ? 'A instalar…' : 'Instalar agora')}
+            </button>
+          </div>
+          {resultados.length > 0 && (
+            <ul className="wpp-wp-res">
+              {resultados.map((r, i) => (
+                <li key={r.nome + i} className={r.estado}>
+                  <i className={'fa-solid ' + (r.estado === 'ok' ? 'fa-circle-check' : r.estado === 'erro' ? 'fa-circle-xmark' : r.estado === 'a-enviar' ? 'fa-spinner fa-spin' : 'fa-file-zipper')} />
+                  <span>{r.nome}</span>
+                  {r.estado === 'ok' && <small>{t('Instalado')}</small>}
+                  {r.estado === 'erro' && <small className="erro">{r.detalhe}</small>}
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="wpp-wp-rodape">
+            {t('Os plugins expandem as funcionalidades do WordPress. Pode instalar plugins do')}{' '}
+            <a href="https://wordpress.org/plugins/" target="_blank" rel="noopener noreferrer">
+              {t('directório de plugins do WordPress')}
+            </a>{' '}
+            {t('nesta página, ou carregá-los em formato .zip, clicando no botão acima.')}
+          </p>
         </div>
-        <p className="wpp-texto">{t('Se tem plugins no formato .zip pode instalá-los ou actualizá-los carregando-os aqui. Pode escolher vários de uma só vez.')}</p>
-        <div className="wpp-caixa">
-          <input
-            ref={entrada}
-            type="file"
-            multiple
-            hidden
-            accept=".zip,application/zip,application/x-zip-compressed"
-            aria-label={t('Escolher ficheiros')}
-            disabled={aEnviar}
-            onChange={(e) => {
-              setResultados([]);
-              setFicheiros(Array.from(e.target.files || []).filter((f) => /\.zip$/i.test(f.name)));
-            }}
-          />
-          <button className="btn sm wpp-escolher" type="button" disabled={aEnviar} onClick={() => entrada.current?.click()}>
-            {t('Escolher ficheiros')}
-          </button>
-          <span className="wpp-nome">{ficheiros.length ? (ficheiros.length === 1 ? ficheiros[0].name : ficheiros.length + ' ' + t('ficheiros escolhidos')) : t('Nenhum ficheiro seleccionado')}</span>
-          <button className="btn sm wpp-aplicar" type="button" disabled={!ficheiros.length || aEnviar} onClick={instalar}>
-            {t(aEnviar ? 'A instalar…' : 'Instalar agora')}
-          </button>
-        </div>
-        <label className="wpp-activar">
-          <input type="checkbox" checked={activar} disabled={aEnviar} onChange={(e) => setActivar(e.target.checked)} />
-          {t('Activar os plugins depois de instalar')}
-        </label>
-        {(ficheiros.length > 0 || resultados.length > 0) && (
-          <ul className="wpp-ficheiros">
-            {(resultados.length ? resultados : ficheiros.map((f) => ({ nome: f.name, estado: 'espera' as const }))).map((r, i) => (
-              <li key={r.nome + i} className={'wpp-f ' + r.estado}>
-                <i
-                  className={
-                    'fa-solid ' + (r.estado === 'ok' ? 'fa-circle-check' : r.estado === 'erro' ? 'fa-circle-xmark' : r.estado === 'a-enviar' ? 'fa-spinner fa-spin' : 'fa-file-zipper')
-                  }
-                />
-                <span className="wpp-fn">{r.nome}</span>
-                {r.estado === 'espera' && ficheiros[i] && <small>{tamanho(ficheiros[i].size)}</small>}
-                {r.estado === 'ok' && <small>{t('Instalado')}</small>}
-                {r.estado === 'erro' && <small className="wpp-erro">{r.detalhe}</small>}
-              </li>
-            ))}
-          </ul>
-        )}
-        <p className="wpp-rodape">
-          {t('Os plugins expandem as funcionalidades do WordPress. Pode descarregar plugins do')}{' '}
-          <a href="https://wordpress.org/plugins/" target="_blank" rel="noopener noreferrer">
-            {t('directório de plugins do WordPress')}
-          </a>{' '}
-          {t('e carregá-los aqui em formato .zip.')}
-        </p>
       </section>
     );
   }
@@ -200,14 +194,35 @@ export function PluginsWp({
       </span>
     </div>
   );
+  const filtros: [Filtro, string][] = [
+    ['todos', 'Todos'],
+    ['ativos', 'Activos'],
+    ['inativos', 'Inactivos'],
+    ['atualizacoes', 'Com actualização'],
+  ];
 
   return (
     <section className="da-sec wpp">
-      <div className="wpp-cab">
-        <h3>{t('Plugins')}</h3>
-        <button className="btn sm wpp-novo" type="button" onClick={() => setVista('adicionar')}>
-          {t('Adicionar plugin')}
-        </button>
+      <div className="seccao-h">
+        <div>
+          <h3>{t('Plugins')}</h3>
+        </div>
+        <div className="numeros">
+          <span>
+            {t('Plugins')} <b>{plugins.length}</b>
+          </span>
+          <span>
+            {t('Com atualização')} <b>{contagem.atualizacoes}</b>
+          </span>
+          <button className="btn sm r" type="button" disabled={!contagem.atualizacoes || aTrabalhar} onClick={todosAtualizar}>
+            <i className="fa-solid fa-arrows-rotate" />
+            {t('Atualizar todos os plugins')}
+          </button>
+          <button className="btn sm wpp-novo" type="button" onClick={() => setVista('adicionar')}>
+            <i className="fa-solid fa-plus" />
+            {t('Adicionar plugin')}
+          </button>
+        </div>
       </div>
       <ul className="wpp-filtros">
         {filtros.map(([k, nome]) => (
@@ -224,7 +239,7 @@ export function PluginsWp({
           <thead>
             <tr>
               <th className="ck" data-t={t('Selecionar tudo')}>
-                <input type="checkbox" aria-label={t('Selecionar tudo')} checked={todos} disabled={!nomesVisiveis.length} onChange={() => setSel(todos ? sel.filter((n) => !nomesVisiveis.includes(n)) : Array.from(new Set([...sel, ...nomesVisiveis])))} />
+                <input type="checkbox" aria-label={t('Selecionar tudo')} checked={todos} disabled={!nomesVisiveis.length} onChange={alternarTodos} />
               </th>
               <th>{t('Plugin')}</th>
               <th>{t('Versão')}</th>
@@ -283,7 +298,7 @@ export function PluginsWp({
             <tfoot>
               <tr>
                 <th className="ck">
-                  <input type="checkbox" aria-label={t('Selecionar tudo')} checked={todos} onChange={() => setSel(todos ? sel.filter((n) => !nomesVisiveis.includes(n)) : Array.from(new Set([...sel, ...nomesVisiveis])))} />
+                  <input type="checkbox" aria-label={t('Selecionar tudo')} checked={todos} onChange={alternarTodos} />
                 </th>
                 <th>{t('Plugin')}</th>
                 <th>{t('Versão')}</th>

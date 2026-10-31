@@ -321,4 +321,7 @@ export const avancado: Record<string, string> = {
  "O ficheiro tem de ser um .zip.": "The file must be a .zip.",
  "Cada plugin pode ter até 256 MB.": "Each plugin can be up to 256 MB.",
  "A instalação falhou": "The installation failed",
+ "Se tem um plugin no formato .zip pode instalá-lo ou actualizá-lo carregando-o aqui.": "If you have a plugin in .zip format, you may install or update it by uploading it here.",
+ "Os plugins expandem as funcionalidades do WordPress. Pode instalar plugins do": "Plugins extend the functionality of WordPress. You may install plugins from the",
+ "nesta página, ou carregá-los em formato .zip, clicando no botão acima.": "on this page, or upload them in .zip format by clicking the button above.",
 };
