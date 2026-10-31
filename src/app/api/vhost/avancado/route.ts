@@ -21,6 +21,8 @@ export const dynamic = 'force-dynamic';
  * O que o Hestia não guarda (pastas protegidas, repositórios Git, análises do antivírus) fica em /usr/local/vhost/<conta>/.
  */
 
+/** Domínios que já passaram na prova de «Painel do WordPress» (quando), para não a repetir a cada clique */
+const PROVA_ENTRADA = new Map<string, number>();
 const DOM = /^(?=.{3,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/;
 const CONTA = /^[a-z0-9][a-z0-9_.-]{0,31}$/;
 const CRON = /^[0-9*/,-]{1,40}$/;
@@ -851,10 +853,15 @@ export async function POST(req: NextRequest) {
       // Duas provas: o endereço público (o que o painel vai abrir) e este servidor directamente (ignora o DNS), para
       // saber se o que falha é o DNS ou o próprio servidor depois de uma passagem de conta
       const url = q('https://' + d + '/vh-prova-' + prova + '.txt');
-      const visto = await executeServerCommand(
-        `f=${q(raiz + '/vh-prova-' + prova + '.txt')}; echo ${prova} | sudo -u ${conta} sh -c 'cat > "$1"' _ "$f" && { pub=$(curl -sk -m 8 -L ${url} | head -c 64); loc=$(curl -sk -m 8 -L --resolve ${q(d + ':443:127.0.0.1')} --resolve ${q(d + ':80:127.0.0.1')} ${url} | head -c 64); }; sudo -u ${conta} rm -f -- "$f"; echo "PUBLICO=$([ "\${pub:-}" = ${prova} ] && echo 1 || echo 0)"; echo "LOCAL=$([ "\${loc:-}" = ${prova} ] && echo 1 || echo 0)"; echo "DNS=$(getent ahostsv4 ${q(d)} | awk '{print $1}' | sort -u | tr '\\n' ' ')"; echo "SERVIDOR=$(hostname -I)"`,
+      const t0 = Date.now();
+      // se este domínio passou na prova há menos de 10 minutos, não se repete (cada prova são pedidos ao próprio site)
+      const provaFeita = (PROVA_ENTRADA.get(d) ?? 0) > Date.now() - 10 * 60_000;
+      const visto = provaFeita ? 'PUBLICO=1\n' : await executeServerCommand(
+        `f=${q(raiz + '/vh-prova-' + prova + '.txt')}; echo ${prova} | sudo -u ${conta} sh -c 'cat > "$1"' _ "$f" && { pf=$(mktemp); lf=$(mktemp); curl -sk -m 6 -L ${url} | head -c 64 > "$pf" & curl -sk -m 6 -L --resolve ${q(d + ':443:127.0.0.1')} --resolve ${q(d + ':80:127.0.0.1')} ${url} | head -c 64 > "$lf" & wait; pub=$(cat "$pf"); loc=$(cat "$lf"); rm -f "$pf" "$lf"; }; sudo -u ${conta} rm -f -- "$f"; echo "PUBLICO=$([ "\${pub:-}" = ${prova} ] && echo 1 || echo 0)"; echo "LOCAL=$([ "\${loc:-}" = ${prova} ] && echo 1 || echo 0)"; echo "DNS=$(getent ahostsv4 ${q(d)} | awk '{print $1}' | sort -u | tr '\\n' ' ')"; echo "SERVIDOR=$(hostname -I)"`,
         { timeoutMs: 30_000 },
       ).catch(() => '');
+      if (/^PUBLICO=1$/m.test(visto)) PROVA_ENTRADA.set(d, Date.now());
+      const tProva = Date.now() - t0;
       if (!/^PUBLICO=1$/m.test(visto)) {
         const dns = (/^DNS=(.*)$/m.exec(visto)?.[1] || '').trim();
         const servidor = (/^SERVIDOR=(.*)$/m.exec(visto)?.[1] || '').trim();
@@ -885,8 +892,12 @@ export async function POST(req: NextRequest) {
           if (modo.trim() !== 'builder') return recusa('Esta página não está editada com Elementor.');
         }
       }
+      const t1 = Date.now();
       const x = await generateWpAutoLoginToken(d, wpUser || undefined, postId, editor, typeof c.destino === 'string' && c.destino in DESTINOS_ADMIN_WP ? (c.destino as DestinoAdminWp) : undefined);
-      return resposta({ ok: x.success, error: x.error }, false, { url: x.url });
+      // quanto levou cada passo no servidor (o resto do tempo é o WordPress a abrir, no navegador)
+      const tempos = { provaMs: tProva, entradaMs: Date.now() - t1 };
+      console.log('[wp-entrar]', d, JSON.stringify(tempos));
+      return resposta({ ok: x.success, error: x.error }, false, { url: x.url, tempos });
     }
     case 'wp-senha': {
       // "Open Users List" do DA: mudar a palavra-passe de um utilizador do WordPress

@@ -554,24 +554,9 @@ export async function generateWpAutoLoginToken(
     return { success: false, error: 'Escolha uma página Elementor.' };
   }
 
-  // Sem utilizador indicado (botão "Painel do WordPress"): entra como o
-  // primeiro administrador do site.
-  let login = (username || '').trim();
-  if (!login) {
-    const raw = await runAsWpUser(
-      install.user,
-      install.path,
-      // sem plugins nem tema: só é preciso a tabela de utilizadores, e arrancar o WordPress inteiro custava 1 a 2 s a mais
-      '--skip-plugins --skip-themes user list --role=administrator --field=user_login --format=csv',
-    ).catch(() => '');
-    login = raw
-      .split('\n')
-      .map((l) => l.trim())
-      .filter((l) => l && !/^user_login$/i.test(l))[0] || '';
-    if (!login) {
-      return { success: false, error: 'Nenhum administrador encontrado neste WordPress.' };
-    }
-  }
+  // Sem utilizador indicado (botão "Painel do WordPress"): entra como o primeiro administrador do site. Quem o escolhe é o próprio ficheiro de
+  // entrada (já com o WordPress carregado), e não um `wp user list`: poupa um arranque inteiro do wp-cli, que neste servidor leva vários segundos.
+  const login = (username || '').trim();
 
   const token = crypto.randomUUID();
   const filename = `wp-login-${token}.php`;
@@ -586,7 +571,11 @@ export async function generateWpAutoLoginToken(
 // Autologin gerado pelo painel
 @unlink(__FILE__);
 require_once __DIR__ . '/wp-load.php';
-$user = get_user_by('login', '${login.replace(/'/g, "\\'")}');
+$user = ${login ? `get_user_by('login', '${login.replace(/'/g, "\\'")}')` : 'null'};
+if (!$user && ${login ? 'false' : 'true'}) {
+    $admins = get_users(array('role' => 'administrator', 'orderby' => 'ID', 'order' => 'ASC', 'number' => 1));
+    $user = $admins ? $admins[0] : null;
+}
 if ($user) {
     wp_clear_auth_cookie();
     wp_set_current_user($user->ID);

@@ -1797,6 +1797,11 @@ const AUTO: Record<string, string> = { true: 'Todas', minor: 'Só de segurança'
  *  navegador bloqueava-a) e recebe o endereço quando ele chega; se falhar, fecha-se e aparece o motivo. */
 async function entrarWp(vh: VH, d: string, user?: string, postId?: number, editor: 'wordpress' | 'elementor' = 'wordpress', destino?: 'plugins' | 'paginas' | 'pagina-nova' | 'utilizadores' | 'utilizador-novo') {
   const w = window.open('about:blank', '_blank');
+  // a janela nova já diz o que está a acontecer (em vez de ficar em branco enquanto o servidor prepara a entrada e o WordPress carrega)
+  try {
+    w?.document.write('<!doctype html><meta charset="utf-8"><title>WordPress</title><body style="font:15px system-ui,sans-serif;color:#42454D;display:grid;place-items:center;height:100vh;margin:0;text-align:center"><div><b>' + vh.t('A abrir o WordPress…') + '</b><p style="color:#6E6E73">' + vh.t('Pode demorar um pouco: o site está a carregar. Não feche esta janela.') + '</p></div>');
+    w?.document.close();
+  } catch {}
   const j = await noServidor(vh, { acao: 'wp-entrar', dominio: d, ...(user ? { user } : {}), ...(postId ? { postId } : {}), ...(destino ? { destino } : {}), editor }, editor === 'elementor' ? 'A abrir o Elementor…' : 'A abrir o painel do WordPress…');
   if (j?.url && w) {
     w.opener = null;

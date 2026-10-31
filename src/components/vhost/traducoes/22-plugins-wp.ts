@@ -41,6 +41,8 @@ export const plugins_wp: Record<string, string> = {
  "Gerir utilizadores no WordPress": "Manage users in WordPress",
  "Adicionar página": "Add page",
  "Adicionar utilizador": "Add user",
+ "A abrir o WordPress…": "Opening WordPress…",
+ "Pode demorar um pouco: o site está a carregar. Não feche esta janela.": "This may take a moment: the site is loading. Do not close this window.",
  "Adicionar plugins": "Add plugins",
  "Carregar plugin": "Upload plugin",
  "Se tem plugins no formato .zip pode instalá-los ou actualizá-los carregando-os aqui. Pode escolher vários de uma vez.": "If you have plugins in .zip format, you can install or update them by uploading them here. You can choose several at once.",
