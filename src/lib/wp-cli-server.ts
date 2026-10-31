@@ -7,7 +7,7 @@
  */
 
 import crypto from 'crypto';
-import { executeServerCommand } from '@/lib/server-ssh-exec';
+import { executeServerCommand, uploadFileViaSsh } from '@/lib/server-ssh-exec';
 
 function shellQuote(value: string): string {
   return `'${value.replace(/'/g, `'\\''`)}'`;
@@ -402,6 +402,37 @@ export async function uploadWpPluginZip(
       install.user,
       install.path,
       `plugin install ${shellQuote(tmpZip)} --activate`,
+    );
+    return { ok: !wpCommandFailed(output), output };
+  } finally {
+    await executeServerCommand(`rm -f ${shellQuote(tmpZip)}`).catch(() => undefined);
+  }
+}
+
+/** Instala (ou actualiza por cima, `--force`) um plugin a partir de um .zip já em memória: o ficheiro vai por SSH para uma pasta temporária,
+ *  o wp-cli instala-o como o utilizador do site e o temporário apaga-se sempre (Silva, 31/10/2026: carregar vários plugins de uma vez). */
+export async function installWpPluginZipFile(
+  domain: string,
+  zip: Buffer,
+  filename: string,
+  activate = true,
+): Promise<{ ok: boolean; output: string }> {
+  const install = await resolveWpInstall(domain);
+  if (!install) return { ok: false, output: 'WordPress não encontrado neste domínio' };
+
+  const safeName = filename.replace(/[^a-zA-Z0-9._-]/g, '') || 'plugin.zip';
+  if (!safeName.toLowerCase().endsWith('.zip')) {
+    return { ok: false, output: 'O ficheiro deve ser .zip' };
+  }
+
+  const tmpZip = `/tmp/vd-wpplg-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}.zip`;
+  await uploadFileViaSsh(tmpZip, zip);
+  try {
+    await executeServerCommand(`chmod 644 ${shellQuote(tmpZip)}`);
+    const output = await runAsWpUser(
+      install.user,
+      install.path,
+      `plugin install ${shellQuote(tmpZip)} --force${activate ? ' --activate' : ''}`,
     );
     return { ok: !wpCommandFailed(output), output };
   } finally {

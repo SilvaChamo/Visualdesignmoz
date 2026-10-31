@@ -15260,3 +15260,246 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
 .vh .wp-edicao .f :is(input, select):not(#x):not(#y) {
    font-size: calc(12.5px * var(--fs, 1))
 }
+
+/* Gerir WordPress › Plugins como no WordPress (Silva, 31/10/2026): acções de cada plugin por baixo do nome, «Acções por lote» por cima e por baixo da lista,
+   botão «Adicionar plugin» ao lado do título e ecrã «Adicionar plugins» para carregar vários .zip. Medidas sempre em `calc(Npx * var(--z, 1))`. */
+.vh .wpp-cab {
+   display: flex;
+   align-items: center;
+   flex-wrap: wrap;
+   gap: calc(12px * var(--z, 1));
+   margin-bottom: calc(10px * var(--z, 1))
+}
+
+.vh .wpp-cab h3 {
+   margin: 0;
+   font-size: calc(16px * var(--fs, 1));
+   font-weight: 800
+}
+
+.vh .btn.wpp-novo,
+.vh .btn.wpp-carregar,
+.vh .btn.wpp-aplicar {
+   background: var(--card);
+   color: var(--app);
+   border: 1px solid var(--app)
+}
+
+.vh .btn.wpp-novo:hover,
+.vh .btn.wpp-carregar:hover,
+.vh .btn.wpp-aplicar:hover:not(:disabled) {
+   background: var(--appbg)
+}
+
+.vh .btn.wpp-carregar {
+   outline: calc(2px * var(--z, 1)) solid var(--app);
+   outline-offset: calc(1px * var(--z, 1))
+}
+
+.vh .btn.wpp-aplicar:disabled {
+   opacity: .55
+}
+
+.vh .wpp-lnk {
+   background: none;
+   border: 0;
+   padding: 0;
+   font: inherit;
+   color: var(--app);
+   cursor: pointer
+}
+
+.vh .wpp-lnk:hover:not(:disabled) {
+   text-decoration: underline
+}
+
+.vh .wpp-lnk:disabled {
+   opacity: .55;
+   cursor: default
+}
+
+.vh .wpp-voltar {
+   margin-left: auto;
+   font-size: calc(12.5px * var(--fs, 1))
+}
+
+.vh .wpp-filtros {
+   display: flex;
+   flex-wrap: wrap;
+   list-style: none;
+   margin: 0 0 calc(8px * var(--z, 1));
+   padding: 0;
+   font-size: calc(12.5px * var(--fs, 1));
+   color: var(--muted)
+}
+
+.vh .wpp-filtros li + li::before {
+   content: "|";
+   margin: 0 calc(7px * var(--z, 1));
+   color: var(--muted)
+}
+
+.vh .wpp-filtros .wpp-lnk.on {
+   color: var(--ink);
+   font-weight: 700
+}
+
+.vh .wpp-filtros .wpp-lnk span {
+   color: var(--muted);
+   font-weight: 400
+}
+
+.vh .wpp-barra {
+   display: flex;
+   align-items: center;
+   gap: calc(8px * var(--z, 1));
+   margin: calc(5px * var(--z, 1)) 0
+}
+
+.vh .wpp-barra {
+   --h-input: calc(30px * var(--z, 1));
+   --h-campo: calc(30px * var(--z, 1))
+}
+
+.vh .wpp-barra .wpp-sel:not(#x):not(#y) {
+   height: calc(30px * var(--z, 1));
+   min-height: calc(30px * var(--z, 1));
+   min-width: calc(190px * var(--z, 1));
+   font-size: calc(12.5px * var(--fs, 1))
+}
+
+.vh .wpp-itens {
+   margin-left: auto;
+   color: var(--muted);
+   font-size: calc(12.5px * var(--fs, 1));
+   white-space: nowrap
+}
+
+.vh .wpp-acoes {
+   display: flex;
+   flex-wrap: wrap;
+   align-items: center;
+   gap: calc(6px * var(--z, 1));
+   margin-top: calc(2px * var(--z, 1));
+   font-size: calc(12px * var(--fs, 1));
+   font-weight: 400;
+   color: var(--muted)
+}
+
+.vh .wpp-acoes .wpp-apagar {
+   color: var(--red)
+}
+
+.vh .wpp-tabela tfoot th {
+   background: var(--soft);
+   border-bottom: 1px solid var(--line);
+   text-align: left;
+   font-weight: 600
+}
+
+.vh .wpp-tabela tfoot th.ck {
+   width: calc(38px * var(--z, 1))
+}
+
+.vh .wpp-texto {
+   margin: calc(14px * var(--z, 1)) 0;
+   font-size: calc(14px * var(--fs, 1));
+   color: var(--ink)
+}
+
+.vh .wpp-caixa {
+   display: flex;
+   align-items: center;
+   flex-wrap: wrap;
+   gap: calc(10px * var(--z, 1));
+   max-width: calc(560px * var(--z, 1));
+   padding: calc(18px * var(--z, 1)) calc(20px * var(--z, 1));
+   border: 1px solid var(--line);
+   background: var(--soft)
+}
+
+.vh .btn.wpp-escolher {
+   background: var(--card);
+   color: var(--ink);
+   border: 1px solid var(--line)
+}
+
+.vh .wpp-nome {
+   flex: 1;
+   min-width: 0;
+   overflow: hidden;
+   text-overflow: ellipsis;
+   white-space: nowrap;
+   font-size: calc(12.5px * var(--fs, 1));
+   color: var(--muted)
+}
+
+.vh .wpp-activar {
+   display: flex;
+   align-items: center;
+   gap: calc(8px * var(--z, 1));
+   margin-top: calc(12px * var(--z, 1));
+   font-size: calc(12.5px * var(--fs, 1))
+}
+
+.vh .wpp-ficheiros {
+   list-style: none;
+   margin: calc(12px * var(--z, 1)) 0 0;
+   padding: 0;
+   max-width: calc(560px * var(--z, 1))
+}
+
+.vh .wpp-f {
+   display: flex;
+   align-items: baseline;
+   gap: calc(8px * var(--z, 1));
+   padding: calc(5px * var(--z, 1)) 0;
+   border-bottom: 1px solid var(--line-soft);
+   font-size: calc(12.5px * var(--fs, 1))
+}
+
+.vh .wpp-f .wpp-fn {
+   overflow: hidden;
+   text-overflow: ellipsis;
+   white-space: nowrap
+}
+
+.vh .wpp-f small {
+   margin-left: auto;
+   color: var(--muted)
+}
+
+.vh .wpp-f .wpp-erro {
+   color: var(--red);
+   white-space: normal;
+   text-align: right
+}
+
+.vh .wpp-rodape {
+   margin-top: calc(26px * var(--z, 1));
+   font-size: calc(12.5px * var(--fs, 1));
+   color: var(--muted)
+}
+
+.vh .wpp-rodape a {
+   color: var(--app)
+}
+
+@media (max-width: 768px) {
+   .vh .wpp-tabela tfoot {
+      display: none
+   }
+
+   .vh .wpp-barra .wpp-sel {
+      flex: 1;
+      min-width: 0
+   }
+
+   .vh .wpp-itens {
+      display: none
+   }
+
+   .vh .wpp-caixa {
+      max-width: none
+   }
+}

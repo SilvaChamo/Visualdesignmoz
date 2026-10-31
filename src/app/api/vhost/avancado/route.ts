@@ -4,7 +4,7 @@ import { requirePanelBootstrapAccess } from '@/lib/panel-api-auth';
 import { executeServerCommand, streamServerFile, uploadFileViaSsh } from '@/lib/server-ssh-exec';
 import { hestiaCall } from '@/lib/hestia-client';
 import * as hestia from '@/lib/hestia-adapter';
-import { generateWpAutoLoginToken, installWordPressSite, listWpPlugins, listWpUsers, toggleWpPlugin, updateAllWpPlugins, updateWpPlugin, updateWpUserPassword } from '@/lib/wp-cli-server';
+import { deleteWpPlugin, generateWpAutoLoginToken, installWordPressSite, installWpPluginZipFile, listWpPlugins, listWpUsers, toggleWpPlugin, updateAllWpPlugins, updateWpPlugin, updateWpUserPassword } from '@/lib/wp-cli-server';
 import { esquecerLeitura, lerServidor, type LeituraServidor } from '@/lib/vhost-servidor';
 import { lerRegisto, montarDados } from '@/lib/vhost-dados';
 import { VHOST_DIR } from '@/lib/vhost-email-scripts';
@@ -361,6 +361,22 @@ type Corpo = { acao: string; conta: string; dominio?: string; [k: string]: unkno
  *  do gestor de ficheiros. Os bocados juntam-se numa pasta só do root; no último, o ficheiro é conferido (tar válido, sem caminhos absolutos
  *  nem "..", com a pasta pam/ que o Hestia põe em todas as cópias) e passa para /backup com o nome <conta>.<data>.tar, onde o Hestia o lista e
  *  restaura como as outras. Só o administrador: o restauro corre como root e não se deve entregar a um ficheiro de um cliente. */
+async function carregarPlugin(req: NextRequest, r: { s: Sessao }): Promise<NextResponse> {
+  const f = await req.formData();
+  const conta = String(f.get('conta') || '');
+  const d = f.get('dominio') ? String(f.get('dominio')).toLowerCase() : null;
+  const srv = await lerServidor();
+  const e = await verificar(r.s, conta, d, srv);
+  if (e) return NextResponse.json({ erro: e }, { status: 403 });
+  if (!d) return NextResponse.json({ erro: 'Escolha o domínio.' }, { status: 400 });
+  const ficheiro = f.get('ficheiro');
+  if (!(ficheiro instanceof File)) return NextResponse.json({ erro: 'Escolha o plugin (.zip).' }, { status: 400 });
+  if (!/\.zip$/i.test(ficheiro.name)) return NextResponse.json({ erro: 'O ficheiro tem de ser um .zip.' }, { status: 400 });
+  if (ficheiro.size > 256 * 1024 * 1024) return NextResponse.json({ erro: 'Cada plugin pode ter até 256 MB.' }, { status: 400 });
+  const x = await installWpPluginZipFile(d, Buffer.from(await ficheiro.arrayBuffer()), ficheiro.name, f.get('activar') !== '0');
+  return x.ok ? NextResponse.json({ ok: true, aviso: x.output.slice(-400) }) : NextResponse.json({ erro: (x.output || 'O servidor recusou.').slice(-400) }, { status: 400 });
+}
+
 async function carregarCopia(req: NextRequest, r: { s: Sessao }, envio: string): Promise<NextResponse> {
   if (r.s.role !== 'admin') return NextResponse.json({ erro: 'Só o administrador pode carregar cópias de segurança.' }, { status: 403 });
   const conta = req.headers.get('x-vh-conta') || '';
@@ -429,6 +445,8 @@ export async function POST(req: NextRequest) {
   if ('erro' in r) return r.erro;
   const envioCopia = req.headers.get('x-vh-bk');
   if (envioCopia) return carregarCopia(req, r, envioCopia);
+  // plugins do WordPress em .zip (Gerir WordPress › Plugins › Adicionar plugin): um formulário por ficheiro, instalado (ou actualizado por cima) no site
+  if ((req.headers.get('content-type') || '').includes('multipart/form-data')) return carregarPlugin(req, r);
   let c: Corpo;
   try {
     c = (await req.json()) as Corpo;
@@ -914,10 +932,28 @@ export async function POST(req: NextRequest) {
     }
     case 'wp-plugin': {
       if (!d) return recusa('Escolha o domínio.');
-      const p = linha(c.plugin);
       const op = String(c.op);
-      const x = op === 'atualizar-todos' ? await updateAllWpPlugins(d) : op === 'atualizar' ? await updateWpPlugin(d, p) : await toggleWpPlugin(d, p, op === 'ativar');
-      return resposta({ ok: x.ok, error: x.output });
+      if (op === 'atualizar-todos') {
+        const x = await updateAllWpPlugins(d);
+        return resposta({ ok: x.ok, error: x.output });
+      }
+      if (!['ativar', 'desativar', 'atualizar', 'apagar'].includes(op)) return recusa('Operação inválida.');
+      // um plugin (`plugin`) ou vários de uma vez (`plugins`, acções por lote); os que falham não impedem os outros
+      const alvos = Array.isArray(c.plugins) ? lista(c.plugins) : [linha(c.plugin)].filter(Boolean);
+      if (!alvos.length) return recusa('Escolha pelo menos um plugin.');
+      if (alvos.length > 100) return recusa('Escolha até 100 plugins de cada vez.');
+      // como no WordPress, um plugin activo não se elimina: desactiva-se primeiro
+      const activos = op === 'apagar' ? new Set((await listWpPlugins(d)).filter((x) => x.status === 'active').map((x) => x.name)) : new Set<string>();
+      const falhas: string[] = [];
+      for (const p of alvos) {
+        if (activos.has(p)) {
+          falhas.push(p + ': desactive o plugin antes de o eliminar');
+          continue;
+        }
+        const x = op === 'atualizar' ? await updateWpPlugin(d, p) : op === 'apagar' ? await deleteWpPlugin(d, p) : await toggleWpPlugin(d, p, op === 'ativar');
+        if (!x.ok) falhas.push(p + ': ' + x.output.slice(-160));
+      }
+      return resposta({ ok: falhas.length === 0, error: falhas.join(' · ') });
     }
     case 'wp-nucleo': {
       if (!d) return recusa('Escolha o domínio.');

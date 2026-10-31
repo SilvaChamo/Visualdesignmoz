@@ -8,6 +8,7 @@ import { useVH, type VH } from '../context';
 import type { ScreenFn } from '../screens';
 import { Check, DataTable, novaSenha, Senha, Switch, Tabs } from './componentes';
 import { Confirmar } from './pacotes';
+import { PluginsWp, type OpPluginWp } from './wp-plugins';
 import { BOCADO, CampoEnvio, idEnvio, tam as tamTxt, type Envio } from './sistema';
 import { useGet } from '../carga';
 import { EN } from '../generated/data';
@@ -2381,7 +2382,26 @@ function WpGerir({ d }: { d: string }) {
   const lista = useLer<{ instalados: Wp[] }>('wordpress');
   const { dados, erro, ler } = useLer<{ plugins: Plugin[]; users: WpUser[]; nucleo?: { disponivel: boolean; versao: string } | null }>('wp', { d });
   const wp = lista.dados?.instalados.find((x) => x.d === d);
-  const plug = async (op: string, plugin = '') => (await noServidor(vh, { acao: 'wp-plugin', dominio: d, op, plugin }, 'Feito')) && ler();
+  // acções dos plugins (um ou vários de uma vez, como as «Acções por lote» do WordPress) e envio de cada .zip (Adicionar plugin)
+  const plugins = async (op: OpPluginWp, nomes: string[]) => {
+    if (!(await noServidor(vh, { acao: 'wp-plugin', dominio: d, op, plugins: nomes }, 'Feito'))) return false;
+    await ler();
+    return true;
+  };
+  const enviarPlugin = async (ficheiro: File, activar: boolean): Promise<string | null> => {
+    const fd = new FormData();
+    fd.append('conta', vh.me);
+    fd.append('dominio', d);
+    fd.append('activar', activar ? '1' : '0');
+    fd.append('ficheiro', ficheiro);
+    try {
+      const r = await fetch('/api/vhost/avancado', { method: 'POST', body: fd });
+      const j = (await r.json().catch(() => ({}))) as { erro?: string };
+      return r.ok ? null : String(j.erro || 'A instalação falhou');
+    } catch {
+      return 'Sem ligação ao site. Nada foi alterado.';
+    }
+  };
   return (
     <>
       <Sec titulo="Resumo">
@@ -2444,41 +2464,7 @@ function WpGerir({ d }: { d: string }) {
         <Carregando erro={erro} ler={ler} />
       ) : (
         <>
-          <Sec
-            titulo="Plugins"
-            numeros={[['Plugins', String(dados.plugins.length)], ['Com atualização', String(dados.plugins.filter((p) => p.update === 'available').length)]]}
-            extra={
-              <button className="btn sm r" disabled={!dados.plugins.some((p) => p.update === 'available')} onClick={() => plug('atualizar-todos')}>
-                <i className="fa-solid fa-arrows-rotate" />
-                {t('Atualizar todos os plugins')}
-              </button>
-            }
-          >
-            <DataTable
-              id="wp-plugins"
-              rows={dados.plugins}
-              rowKey={(r) => r.name}
-              onRecarregar={ler}
-              empty="Sem plugins"
-              cols={[
-                { k: 'n', t: 'Plugin', cell: (r) => <b style={r.update === 'available' ? { color: 'var(--red)' } : undefined}>{r.title || r.name}</b> },
-                { k: 'v', t: 'Versão', cell: (r) => r.version + (r.update === 'available' ? ' → ' + (r.update_version || '') : '') },
-                { k: 's', t: 'Estado', cell: (r) => <span className={'tag ' + (r.status === 'active' ? 'ok' : 'off')}>{t(r.status === 'active' ? 'Ativo' : 'Inativo')}</span> },
-              ]}
-              actions={(r) => (
-                <span className="dns-acoes">
-                  {r.update === 'available' && (
-                    <button className="btn sm r" onClick={() => plug('atualizar', r.name)}>
-                      {t('Atualizar')}
-                    </button>
-                  )}
-                  <button className="btn sm g" onClick={() => plug(r.status === 'active' ? 'desativar' : 'ativar', r.name)}>
-                    {t(r.status === 'active' ? 'Desativar' : 'Ativar')}
-                  </button>
-                </span>
-              )}
-            />
-          </Sec>
+          <PluginsWp plugins={dados.plugins} executar={plugins} enviar={enviarPlugin} recarregar={ler} />
         </>
       )}
     </>
