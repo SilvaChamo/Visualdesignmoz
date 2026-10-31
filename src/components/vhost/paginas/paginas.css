@@ -15275,10 +15275,10 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    display: flex;
    align-items: center;
    gap: calc(12px * var(--z, 1));
-   flex-wrap: wrap
-;
+   flex-wrap: wrap;
    padding-bottom: calc(14px * var(--z, 1));
-   border-bottom: 1px solid var(--line)}
+   border-bottom: 1px solid var(--line)
+}
 
 .vh .wp-plg-add-cab h3 {
    margin: 0;
