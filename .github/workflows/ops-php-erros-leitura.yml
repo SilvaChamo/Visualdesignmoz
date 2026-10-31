@@ -138,4 +138,11 @@ jobs:
             top -b -n 2 -d 3 -w 160 -o %CPU 2>/dev/null | awk '/^top - /{n++} n==2' | sed -n '1,4p;7,20p' | cut -c1-160
             echo "--- trabalhos agendados do sistema (hora · utilizador · programa):"
             for f in /etc/cron.d/vd-*; do [ -f "$f" ] && awk -v f="${f##*/}" '!/^#/ && NF>6 && $1 !~ /=/ {print f ": " $1" "$2" "$3" "$4" "$5" "$6" "$7}' "$f" | cut -c1-150; done
+            titulo "14. Porque o servidor deixa um domínio suspenso depois de o passar de conta (só leitura)"
+            H=/usr/local/hestia/bin
+            for c in "$CONTA" "$ANTIGA"; do echo "--- conta $c: SUSPENDED=$(grep -m1 '^SUSPENDED=' /usr/local/hestia/data/users/$c/user.conf 2>/dev/null)"; done
+            echo "--- domínio $DOMINIO em web.conf (conta $CONTA): $(grep "DOMAIN='$DOMINIO'" /usr/local/hestia/data/users/"$CONTA"/web.conf 2>/dev/null | grep -oE "(SUSPENDED|SSL)='[a-z]*'" | tr '\n' ' ')"
+            for f in v-change-domain-owner v-change-web-domain-owner; do
+              [ -f "$H/$f" ] && { echo "--- $f: linhas com suspend / SSL / rebuild:"; grep -nEi "suspend|SSL|rebuild|v-add-web|v-delete-web" "$H/$f" | cut -c1-170 | head -n 24; }
+            done
             titulo "fim da leitura"
