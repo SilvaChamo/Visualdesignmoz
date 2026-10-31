@@ -15519,7 +15519,7 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    display: grid;
    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
    gap: calc(32px * var(--z, 1));
-   padding: calc(8px * var(--z, 1)) var(--recuo, 12px) calc(60px * var(--z, 1))
+   padding: calc(8px * var(--z, 1)) var(--recuo, 12px) calc(50px * var(--z, 1))
 }
 
 @media (max-width: 1050px) {

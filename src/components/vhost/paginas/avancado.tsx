@@ -2403,7 +2403,7 @@ function WpCredenciais({ url, user, senha }: { url: string; user: string; senha:
 
 /** Gerir WordPress › Gestão: à esquerda o ícone do site (o «favicon», como em Definições › Geral do WordPress) e à direita as Opções de leitura
  *  (o que a página inicial mostra), em duas colunas (Silva, 31/10/2026) */
-type WpSiteDados = { icone: string; mostra: 'page' | 'posts'; inicial: number; artigos: number; nome: string; paginas: { ID: number; titulo: string }[] };
+type WpSiteDados = { tem?: boolean; icone: string; mostra: 'page' | 'posts'; inicial: number; artigos: number; nome: string; paginas: { ID: number; titulo: string }[] };
 function WpSiteGestao({ d }: { d: string }) {
   const vh = useVH();
   const { t } = vh;
@@ -2479,9 +2479,9 @@ function WpSiteGestao({ d }: { d: string }) {
           </div>
           <div className="wp-ico-botoes">
             <button className="btn g" disabled={aEnviar} onClick={() => entrada.current?.click()}>
-              {t(aEnviar ? 'A enviar…' : dados.icone ? 'Alterar ícone do site' : 'Escolher ícone do site')}
+              {t(aEnviar ? 'A enviar…' : dados.icone || dados.tem ? 'Alterar ícone do site' : 'Escolher ícone do site')}
             </button>
-            {dados.icone && (
+            {(dados.icone || dados.tem) && (
               <button className="btn g rm" disabled={aEnviar} onClick={remover}>
                 {t('Remover ícone do site')}
               </button>
