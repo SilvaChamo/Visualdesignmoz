@@ -1795,9 +1795,9 @@ const AUTO: Record<string, string> = { true: 'Todas', minor: 'Só de segurança'
 
 /** Abre o painel do WordPress já com sessão. A janela abre-se logo no clique (depois de esperar pelo servidor o
  *  navegador bloqueava-a) e recebe o endereço quando ele chega; se falhar, fecha-se e aparece o motivo. */
-async function entrarWp(vh: VH, d: string, user?: string, postId?: number, editor: 'wordpress' | 'elementor' = 'wordpress') {
+async function entrarWp(vh: VH, d: string, user?: string, postId?: number, editor: 'wordpress' | 'elementor' = 'wordpress', destino?: 'plugins') {
   const w = window.open('about:blank', '_blank');
-  const j = await noServidor(vh, { acao: 'wp-entrar', dominio: d, ...(user ? { user } : {}), ...(postId ? { postId } : {}), editor }, editor === 'elementor' ? 'A abrir o Elementor…' : 'A abrir o painel do WordPress…');
+  const j = await noServidor(vh, { acao: 'wp-entrar', dominio: d, ...(user ? { user } : {}), ...(postId ? { postId } : {}), ...(destino ? { destino } : {}), editor }, editor === 'elementor' ? 'A abrir o Elementor…' : 'A abrir o painel do WordPress…');
   if (j?.url && w) {
     w.opener = null;
     w.location.href = String(j.url);
@@ -1839,6 +1839,32 @@ function BotoesSiteWp({ d }: { d: string }) {
       >
         <i className="fa-brands fa-wordpress" />
         {vh.t('Painel do WordPress')}
+      </button>
+    </>
+  );
+}
+
+/** Separador Plugins: os botões da linha de cima do cartão — «Gerir plugins no WordPress» (abre a lista de Plugins do WordPress) e «Adicionar plugins»,
+ *  que abre/fecha o cabeçalho de carregar .zip no corpo da página (Silva, 31/10/2026) */
+const EVENTO_ADICIONAR_PLUGINS = 'vd-wp-adicionar-plugins';
+function BotoesPluginsWp({ d }: { d: string }) {
+  const vh = useVH();
+  const [pisca, piscar] = usePisca();
+  return (
+    <>
+      <button
+        className={'btn g sec-m' + (pisca ? ' pisca' : '')}
+        onClick={() => {
+          piscar();
+          entrarWp(vh, d, undefined, undefined, 'wordpress', 'plugins');
+        }}
+      >
+        <i className="fa-brands fa-wordpress" />
+        {vh.t('Gerir plugins no WordPress')}
+      </button>
+      <button className="btn r" onClick={() => window.dispatchEvent(new Event(EVENTO_ADICIONAR_PLUGINS))}>
+        <i className="fa-solid fa-plus" />
+        {vh.t('Adicionar plugins')}
       </button>
     </>
   );
@@ -2463,7 +2489,7 @@ function WpGerir({ d }: { d: string }) {
               cols={[
                 { k: 'n', t: 'Plugin', cell: (r) => <b style={r.update === 'available' ? { color: 'var(--red)' } : undefined}>{r.title || r.name}</b> },
                 { k: 'v', t: 'Versão', cell: (r) => r.version + (r.update === 'available' ? ' → ' + (r.update_version || '') : '') },
-                { k: 's', t: 'Estado', cell: (r) => <span className={'tag ' + (r.status === 'active' ? 'ok' : 'off')}>{t(r.status === 'active' ? 'Ativo' : 'Inativo')}</span> },
+                { k: 's', t: 'Estado', right: true, cell: (r) => <span className={'tag ' + (r.status === 'active' ? 'ok' : 'off')}>{t(r.status === 'active' ? 'Ativo' : 'Inativo')}</span> },
               ]}
               actions={(r) => (
                 <span className="dns-acoes">
@@ -2485,14 +2511,364 @@ function WpGerir({ d }: { d: string }) {
   );
 }
 
-/** Separadores do Gerir WordPress (como os dos Domínios): Gestão (atualizações e plugins) · Utilizadores · Páginas */
-type AbaWp = 'gestao' | 'utilizadores' | 'paginas';
+/** Texto simples de um cabeçalho de plugin (a descrição vem com entidades como &amp; e, às vezes, marcas) */
+function textoSimples(v: string | undefined): string {
+  const x = String(v ?? '').replace(/<[^>]*>/g, '');
+  if (typeof document === 'undefined' || !/&[#a-z0-9]+;/i.test(x)) return x.trim();
+  const e = document.createElement('textarea');
+  e.innerHTML = x;
+  return e.value.trim();
+}
+
+type PluginDet = Plugin & { description?: string; author?: string };
+type FiltroPlg = 'todos' | 'ativos' | 'inativos' | 'atualizar';
+type EnvioPlg = { id: string; f: File; feito: number; estado: Envio['estado']; erro?: string };
+/** As «Acções por lotes» do ecrã Plugins do WordPress: o valor é o que o servidor recebe (`wp-plugin`, `op`) */
+const LOTE_PLG: [string, string][] = [
+  ['ativar', 'Activar'],
+  ['desativar', 'Desactivar'],
+  ['atualizar', 'Actualizar'],
+  ['apagar', 'Apagar'],
+];
+
+/** «Adicionar plugins» (como o «Carregar plugin» do WordPress, mas com vários .zip de uma vez): cada ficheiro vai aos bocados e instala-se por ordem;
+ *  fica desactivado na lista, para o activar quando quiser (Silva, 31/10/2026) */
+function AdicionarPlugins({ d, fechar, depois }: { d: string; fechar: () => void; depois: () => void }) {
+  const vh = useVH();
+  const { t, me, toast } = vh;
+  const [lista, setLista] = useState<EnvioPlg[]>([]);
+  const [aInstalar, setAInstalar] = useState(false);
+  const [arrasto, setArrasto] = useState(false);
+  const entrada = useRef<HTMLInputElement>(null);
+  const xhr = useRef<XMLHttpRequest | null>(null);
+  const fechado = useRef(false);
+  useEffect(() => {
+    fechado.current = false;
+    return () => {
+      fechado.current = true;
+      xhr.current?.abort();
+    };
+  }, []);
+  const juntar = (fs: FileList | File[] | null | undefined) => {
+    if (!fs || aInstalar) return;
+    const novos: EnvioPlg[] = [];
+    let recusados = 0;
+    for (const f of Array.from(fs)) {
+      if (!/\.zip$/i.test(f.name) || f.size === 0) recusados++;
+      else novos.push({ id: idEnvio(), f, feito: 0, estado: 'espera' });
+    }
+    if (recusados) toast(t('Só se instalam ficheiros .zip.'));
+    // uma nova escolha começa de novo (os que já se instalaram saem da lista); o mesmo ficheiro não entra duas vezes
+    setLista((antes) => {
+      const ficam = antes.filter((x) => x.estado !== 'ok');
+      return [...ficam, ...novos.filter((n) => !ficam.some((x) => x.f.name === n.f.name && x.f.size === n.f.size))];
+    });
+  };
+  const bocado = (env: EnvioPlg, ini: number, fim: number) =>
+    new Promise<void>((ok, ko) => {
+      const x = new XMLHttpRequest();
+      xhr.current = x;
+      x.upload.onprogress = (ev) => {
+        env.feito = Math.min(env.f.size, ini + ev.loaded);
+        if (!fechado.current) setLista((l) => l.map((y) => (y.id === env.id ? { ...env } : y)));
+      };
+      x.onload = () => {
+        let j: { ok?: boolean; erro?: string } = {};
+        try {
+          j = JSON.parse(x.responseText);
+        } catch {}
+        if (x.status === 200 && j.ok) ok();
+        else ko(new Error(j.erro || 'O envio falhou'));
+      };
+      x.onerror = () => ko(new Error('Sem ligação ao site.'));
+      x.onabort = () => ko(new Error('cancelado'));
+      x.open('POST', '/api/vhost/avancado');
+      x.setRequestHeader('Content-Type', 'application/octet-stream');
+      x.setRequestHeader('x-vh-plg', env.id);
+      x.setRequestHeader('x-vh-conta', me);
+      x.setRequestHeader('x-vh-dominio', d);
+      x.setRequestHeader('x-vh-inicio', String(ini));
+      x.setRequestHeader('x-vh-total', String(env.f.size));
+      if (fim >= env.f.size) {
+        x.setRequestHeader('x-vh-fim', '1');
+        x.setRequestHeader('x-vh-nome', encodeURIComponent(env.f.name));
+      }
+      x.send(env.f.slice(ini, fim));
+    });
+  const instalar = async () => {
+    const fila = lista.filter((x) => x.estado !== 'ok');
+    if (!fila.length || aInstalar) return;
+    setAInstalar(true);
+    let feitos = 0;
+    for (const env of fila) {
+      if (fechado.current) return;
+      const atual: EnvioPlg = { ...env, feito: 0, estado: 'envio', erro: undefined };
+      setLista((l) => l.map((y) => (y.id === env.id ? atual : y)));
+      try {
+        for (let ini = 0; ini < env.f.size; ini += BOCADO) await bocado(atual, ini, Math.min(env.f.size, ini + BOCADO));
+        atual.estado = 'ok';
+        atual.feito = env.f.size;
+        feitos++;
+      } catch (er) {
+        atual.estado = 'erro';
+        atual.erro = er instanceof Error ? er.message : 'O envio falhou';
+        if (atual.erro === 'cancelado') return;
+      }
+      if (!fechado.current) setLista((l) => l.map((y) => (y.id === env.id ? { ...atual } : y)));
+    }
+    if (fechado.current) return;
+    setAInstalar(false);
+    if (feitos) {
+      toast(feitos === 1 ? t('Plugin instalado. Active-o na lista.') : t('{0} plugins instalados. Active-os na lista.').replace('{0}', String(feitos)));
+      depois();
+    }
+  };
+  const porInstalar = lista.filter((x) => x.estado !== 'ok').length;
+  return (
+    <div className="wp-plg-add">
+      <p className="wp-plg-add-txt">{t('Se tem plugins no formato .zip pode instalá-los ou actualizá-los carregando-os aqui. Pode escolher vários de uma vez.')}</p>
+      <div
+        className={'wp-plg-caixa' + (arrasto ? ' on' : '')}
+        onDragOver={(ev) => {
+          ev.preventDefault();
+          setArrasto(true);
+        }}
+        onDragLeave={() => setArrasto(false)}
+        onDrop={(ev) => {
+          ev.preventDefault();
+          setArrasto(false);
+          juntar(ev.dataTransfer.files);
+        }}
+      >
+        <input
+          ref={entrada}
+          type="file"
+          accept=".zip,application/zip,application/x-zip-compressed"
+          multiple
+          hidden
+          onChange={(ev) => {
+            juntar(ev.target.files);
+            ev.target.value = '';
+          }}
+        />
+        <button className="btn g" onClick={() => entrada.current?.click()} disabled={aInstalar}>
+          {t('Escolher ficheiros')}
+        </button>
+        <span className="wp-plg-caixa-n">{lista.length ? (lista.length === 1 ? t('1 ficheiro seleccionado') : t('{0} ficheiros seleccionados').replace('{0}', String(lista.length))) : t('Nenhum ficheiro seleccionado')}</span>
+        <button className="btn r" onClick={instalar} disabled={!porInstalar || aInstalar}>
+          {t(aInstalar ? 'A instalar…' : 'Instalar agora')}
+        </button>
+        <button className="btn g" onClick={fechar} disabled={aInstalar}>
+          {t('Cancelar')}
+        </button>
+      </div>
+      {lista.length > 0 && (
+        <ul className="wp-plg-envios">
+          {lista.map((e) => (
+            <li key={e.id} className={'est-' + e.estado}>
+              <i className="fa-solid fa-file-zipper" />
+              <div className="fmda-up-info">
+                <div className="fmda-up-linha">
+                  <b title={e.f.name}>{e.f.name}</b>
+                  <span>{tamTxt(e.f.size)}</span>
+                </div>
+                {e.estado !== 'espera' && <CampoEnvio p={e.f.size ? Math.round((e.feito / e.f.size) * 100) : 0} estado={e.estado} erro={e.erro} />}
+              </div>
+              {e.estado !== 'envio' && e.estado !== 'ok' && !aInstalar && (
+                <button className="btn g wp-plg-x" aria-label={t('Tirar da lista')} title={t('Tirar da lista')} onClick={() => setLista((l) => l.filter((y) => y.id !== e.id))}>
+                  <i className="fa-solid fa-xmark" />
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/** Separador «Plugins» do Gerir WordPress: a lista como no ecrã Plugins do WordPress — as opções de cada plugin por baixo do nome, «Acções por lotes» em cima e
+ *  em baixo da lista, e «Adicionar plugin» para instalar vários .zip de uma vez (Silva, 31/10/2026). O separador Gestão fica como estava. */
+function WpPlugins({ d }: { d: string }) {
+  const vh = useVH();
+  const { t, openM } = vh;
+  const { dados, erro, ler } = useLer<{ plugins: PluginDet[] }>('wpplugins', { d });
+  const [aAdicionar, setAAdicionar] = useState(false);
+  const [filtro, setFiltro] = useState<FiltroPlg>('todos');
+  const [sel, setSel] = useState<string[]>([]);
+  const [acao, setAcao] = useState('');
+  const [ocupado, setOcupado] = useState(false);
+  // muda quando uma acção acaba: a lista desenha-se de novo e as caixas assinaladas desfazem-se
+  const [ronda, setRonda] = useState(0);
+  // o botão «Adicionar plugins» está na linha de cima do cartão (fora deste corpo): chama por um evento
+  useEffect(() => {
+    const abrir = () => setAAdicionar((v) => !v);
+    window.addEventListener(EVENTO_ADICIONAR_PLUGINS, abrir);
+    return () => window.removeEventListener(EVENTO_ADICIONAR_PLUGINS, abrir);
+  }, []);
+  if (!dados) return <Carregando erro={erro} ler={ler} />;
+  const todos = dados.plugins;
+  const ativos = todos.filter((p) => p.status === 'active');
+  const comNova = todos.filter((p) => p.update === 'available');
+  const linhas = filtro === 'ativos' ? ativos : filtro === 'inativos' ? todos.filter((p) => p.status !== 'active') : filtro === 'atualizar' ? comNova : todos;
+  const nomeDe = (n: string) => {
+    const p = todos.find((x) => x.name === n);
+    return textoSimples(p?.title) || n;
+  };
+  const correr = async (op: string, nomes: string[]) => {
+    if (ocupado || !nomes.length) return;
+    setOcupado(true);
+    await noServidor(vh, { acao: 'wp-plugin', dominio: d, op, plugins: nomes }, 'Feito');
+    // com vários, alguns podem ter falhado e outros não: lê-se sempre a lista outra vez
+    await ler(true);
+    setOcupado(false);
+    setSel([]);
+    setAcao('');
+    setRonda((x) => x + 1);
+  };
+  const pedir = (op: string, nomes: string[]) => {
+    if (op !== 'apagar') return void correr(op, nomes);
+    openM(
+      <Confirmar
+        titulo={nomes.length === 1 ? 'Apagar este plugin?' : 'Apagar estes plugins?'}
+        texto={(nomes.length === 1 ? nomeDe(nomes[0]) : nomes.length + ' ' + t('plugins')) + ' ' + t('vai ser apagado de {0}, com os seus ficheiros e dados. Não se pode desfazer.').replace('{0}', d)}
+        ok="Apagar"
+        onOk={() => void correr('apagar', nomes)}
+      />,
+    );
+  };
+  const aplicar = () => acao && sel.length && pedir(acao, sel);
+  // o mesmo seletor em cima e em baixo da lista (como no WordPress): uma só escolha
+  const lote = (
+    <span className="wp-plg-lote">
+      <select value={acao} onChange={(e) => setAcao(e.target.value)} aria-label={t('Acções por lotes')} disabled={ocupado}>
+        <option value="">{t('Acções por lotes')}</option>
+        {LOTE_PLG.map(([k, v]) => (
+          <option key={k} value={k}>
+            {t(v)}
+          </option>
+        ))}
+      </select>
+      <button className="btn g" onClick={aplicar} disabled={!acao || !sel.length || ocupado}>
+        {t('Aplicar')}
+      </button>
+      <span className="sp" />
+      <button className="btn r" onClick={() => correr('atualizar', comNova.map((p) => p.name))} disabled={!comNova.length || ocupado}>
+        <i className="fa-solid fa-arrows-rotate" />
+        {t('Actualizar todos os plugins')}
+      </button>
+    </span>
+  );
+  return (
+    <>
+      {aAdicionar && <AdicionarPlugins d={d} fechar={() => setAAdicionar(false)} depois={() => ler(true)} />}
+      {/* os filtros ficam por baixo da linha do título, à esquerda (Tabs abaixo), como as opções do DNS */}
+      <Tabs<FiltroPlg>
+        abaixo
+        tabs={[
+          ['todos', 'Todos (' + todos.length + ')'],
+          ['ativos', 'Activos (' + ativos.length + ')'],
+          ['inativos', 'Inactivos (' + (todos.length - ativos.length) + ')'],
+          ['atualizar', 'Com actualização (' + comNova.length + ')'],
+        ]}
+        on={filtro}
+        onChange={setFiltro}
+      />
+      <section className="da-sec">
+        <DataTable
+          key={ronda + filtro}
+          id="wp-plugins-lista"
+          rows={linhas}
+          rowKey={(r) => r.name}
+          onRecarregar={ler}
+          empty="Sem plugins"
+          comSelecao
+          onSelChange={setSel}
+          barra2={lote}
+          rodape={lote}
+          empilhar={false}
+          rowClass={(r) => (r.status === 'active' ? '' : 'wp-plg-inativo')}
+          linhaExtra={(r) =>
+            r.update === 'available' ? (
+              <div className="wp-plg-aviso">
+                <i className="fa-solid fa-arrows-rotate" />
+                <span>
+                  {r.update_version
+                    ? t('Está disponível a versão {0} de {1}.').replace('{0}', r.update_version).replace('{1}', textoSimples(r.title) || r.name)
+                    : t('Está disponível uma nova versão de {0}.').replace('{0}', textoSimples(r.title) || r.name)}{' '}
+                  <button disabled={ocupado} onClick={() => correr('atualizar', [r.name])}>
+                    {t('Actualizar agora')}
+                  </button>
+                  .
+                </span>
+              </div>
+            ) : null
+          }
+          cols={[
+            {
+              k: 'n',
+              t: 'Plugin',
+              cell: (r) => {
+                const ativo = r.status === 'active';
+                return (
+                  <div className="wp-plg-nome">
+                    <b style={r.update === 'available' ? { color: 'var(--red)' } : undefined}>{textoSimples(r.title) || r.name}</b>
+                    <span className="wp-plg-acoes">
+                      <button disabled={ocupado} onClick={() => correr(ativo ? 'desativar' : 'ativar', [r.name])}>
+                        {t(ativo ? 'Desactivar' : 'Activar')}
+                      </button>
+                      {r.update === 'available' && (
+                        <>
+                          <span aria-hidden="true">|</span>
+                          <button className="nova" disabled={ocupado} onClick={() => correr('atualizar', [r.name])}>
+                            {t('Actualizar')}
+                          </button>
+                        </>
+                      )}
+                      {!ativo && (
+                        <>
+                          <span aria-hidden="true">|</span>
+                          <button className="perigo" disabled={ocupado} onClick={() => pedir('apagar', [r.name])}>
+                            {t('Apagar')}
+                          </button>
+                        </>
+                      )}
+                    </span>
+                  </div>
+                );
+              },
+            },
+            {
+              k: 'd',
+              t: 'Descrição',
+              cell: (r) => (
+                <div className="wp-plg-desc">
+                  {textoSimples(r.description) && <div>{textoSimples(r.description)}</div>}
+                  <small>
+                    {t('Versão')} {r.version}
+                    {r.update === 'available' && r.update_version ? ' → ' + r.update_version : ''}
+                    {textoSimples(r.author) ? ' | ' + t('Por') + ' ' + textoSimples(r.author) : ''}
+                  </small>
+                </div>
+              ),
+            },
+            { k: 's', t: 'Estado', cell: (r) => <span className={'tag ' + (r.status === 'active' ? 'ok' : 'off')}>{t(r.status === 'active' ? 'Activo' : 'Inactivo')}</span> },
+          ]}
+        />
+      </section>
+    </>
+  );
+}
+
+/** Separadores do Gerir WordPress (como os dos Domínios): Gestão (atualizações e plugins) · Plugins · Utilizadores · Páginas */
+type AbaWp = 'gestao' | 'plugins' | 'utilizadores' | 'paginas';
 function WpAbas({ d, aba }: { d: string; aba: AbaWp }) {
   const { nav } = useVH();
   return (
     <Tabs<AbaWp>
       tabs={[
         ['gestao', 'Gestão', 'fa-gauge-high'],
+        ['plugins', 'Plugins', 'fa-puzzle-piece'],
         ['utilizadores', 'Utilizadores', 'fa-users'],
         ['paginas', 'Páginas', 'fa-file-lines'],
       ]}
@@ -2755,17 +3131,17 @@ export const wordpressPagina: ScreenFn = (vh) => {
       ...noDominio('/paginas'),
       body: <WpEditarPagina key={a + '/' + vh.s.sub[2]} d={a} id={Number(vh.s.sub[2])} />,
     };
-  if (a && (b === 'utilizadores' || b === 'paginas'))
+  if (a && (b === 'utilizadores' || b === 'paginas' || b === 'plugins'))
     return {
-      title: 'Gerir WordPress',
+      title: b === 'plugins' ? 'Gerir plugins' : 'Gerir WordPress',
       desc: a,
-      crumbs: [base, naPagina, { t: b === 'paginas' ? 'Páginas' : 'Utilizadores' }],
+      crumbs: [base, naPagina, { t: b === 'paginas' ? 'Páginas' : b === 'plugins' ? 'Plugins' : 'Utilizadores' }],
       ...noDominio('/' + b),
-      actions: sitePainel,
+      actions: b === 'plugins' ? <BotoesPluginsWp d={a} /> : sitePainel,
       body: (
         <>
           <WpAbas d={a} aba={b} />
-          {b === 'paginas' ? <WpPaginas key={a} d={a} /> : <WpUtilizadores key={a} d={a} />}
+          {b === 'paginas' ? <WpPaginas key={a} d={a} /> : b === 'plugins' ? <WpPlugins key={a} d={a} /> : <WpUtilizadores key={a} d={a} />}
         </>
       ),
     };

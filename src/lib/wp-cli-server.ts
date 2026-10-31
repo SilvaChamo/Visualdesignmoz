@@ -39,6 +39,9 @@ export interface WpPluginRow {
   version: string;
   update: string | null;
   update_version?: string;
+  /** só com `detalhes` (separador Plugins): a descrição e o autor do cabeçalho do plugin, como no ecrã «Plugins» do WordPress */
+  description?: string;
+  author?: string;
 }
 
 /** `admin`: o wp-cli corre como o admin-ajax (mu-plugin do stack, `VD_CTX_ADMIN=1`): os plugins Jet só se iniciam assim e só assim trazem o pacote de actualização. */
@@ -223,7 +226,7 @@ function parseWpJson<T>(raw: string): T {
   }
 }
 
-export async function listWpPlugins(domain: string): Promise<WpPluginRow[]> {
+export async function listWpPlugins(domain: string, detalhes = false): Promise<WpPluginRow[]> {
   const install = await resolveWpInstall(domain);
   if (!install) {
     throw new Error('WordPress não encontrado neste domínio');
@@ -234,10 +237,17 @@ export async function listWpPlugins(domain: string): Promise<WpPluginRow[]> {
   // A lista guardada pelo mu-plugin (vd_plugin_updates) vem em paralelo: o wp-cli não carrega os actualizadores que os plugins pagos só
   // registam no administrador, por isso sozinho não via as actualizações que o WordPress mostra.
   const [raw, guardadas] = await Promise.all([
-    runAsWpUser(install.user, install.path, 'plugin list --format=json --status=active,inactive'),
+    runAsWpUser(install.user, install.path, 'plugin list --format=json --status=active,inactive' + (detalhes ? ' --fields=name,title,status,version,update,update_version,description,author' : '')),
     runAsWpUser(install.user, install.path, '--skip-plugins --skip-themes option get vd_plugin_updates --format=json').catch(() => ''),
   ]);
-  const rows = parseWpJson<WpPluginRow[]>(raw);
+  let rows: WpPluginRow[] | null = null;
+  try {
+    rows = parseWpJson<WpPluginRow[]>(raw);
+  } catch (e) {
+    // um wp-cli mais antigo pode não conhecer os campos «de luxo»: a lista simples serve
+    if (!detalhes) throw e;
+    rows = parseWpJson<WpPluginRow[]>(await runAsWpUser(install.user, install.path, 'plugin list --format=json --status=active,inactive'));
+  }
   if (!Array.isArray(rows)) {
     throw new Error('Lista de plugins inválida');
   }
@@ -522,6 +532,8 @@ export async function generateWpAutoLoginToken(
   username?: string,
   postId?: number,
   editor: 'wordpress' | 'elementor' = 'wordpress',
+  /** `plugins`: entra directo na lista de Plugins do WordPress (botão «Gerir plugins no WordPress»; sem página indicada) */
+  destinoAdmin?: 'plugins',
 ): Promise<{ success: boolean; url?: string; error?: string }> {
   const install = await resolveWpInstall(domain);
   if (!install) return { success: false, error: 'WordPress não encontrado neste domínio' };
@@ -558,7 +570,7 @@ export async function generateWpAutoLoginToken(
   const acao = editor === 'elementor' ? 'elementor' : 'edit';
   // sem página indicada entra na lista de Páginas e não no Painel (wp-admin/): o Painel carrega os widgets e as notícias do WordPress
   // (e do Elementor) e demorava mais do dobro a abrir (7,8 s contra 3,3 s medidos no servidor; Silva, 22/10/2026)
-  const destino = postId === undefined ? "admin_url('edit.php?post_type=page')" : `admin_url('post.php?post=${postId}&action=${acao}')`;
+  const destino = postId === undefined ? (destinoAdmin === 'plugins' ? "admin_url('plugins.php')" : "admin_url('edit.php?post_type=page')") : `admin_url('post.php?post=${postId}&action=${acao}')`;
 
   const phpContent = `<?php
 // Autologin gerado pelo painel

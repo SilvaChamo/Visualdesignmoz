@@ -15260,3 +15260,251 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
 .vh .wp-edicao .f :is(input, select):not(#x):not(#y) {
    font-size: calc(12.5px * var(--fs, 1))
 }
+
+/* Gerir WordPress › Plugins (Silva, 31/10/2026): a lista como no ecrã Plugins do WordPress — opções de cada plugin por baixo do nome,
+   «Acções por lotes» em cima e em baixo e «Adicionar plugin» que abre o cabeçalho para carregar vários .zip. Medidas × --z como o resto do painel. */
+.vh .wp-plg-add {
+   margin: 0 0 calc(14px * var(--z, 1));
+   padding: calc(14px * var(--z, 1)) var(--recuo, 12px) calc(18px * var(--z, 1));
+   border-top: 1px solid var(--line);
+   border-bottom: 1px solid var(--line);
+   background: var(--soft)
+}
+
+.vh .wp-plg-add-txt {
+   margin: calc(4px * var(--z, 1)) 0 0;
+   text-align: center;
+   font-size: calc(14px * var(--fs, 1));
+   color: var(--ink)
+}
+
+.vh .wp-plg-caixa {
+   display: flex;
+   align-items: center;
+   justify-content: center;
+   flex-wrap: wrap;
+   gap: calc(10px * var(--z, 1));
+   max-width: calc(640px * var(--z, 1));
+   margin: calc(18px * var(--z, 1)) auto 0;
+   padding: calc(18px * var(--z, 1));
+   border: 1px dashed var(--line);
+   border-radius: var(--r);
+   background: var(--card);
+   transition: border-color .15s, background .15s
+}
+
+.vh .wp-plg-caixa.on {
+   border-color: var(--red);
+   background: var(--tint)
+}
+
+.vh .wp-plg-caixa-n {
+   color: var(--muted);
+   font-size: calc(13px * var(--fs, 1))
+}
+
+.vh .wp-plg-envios {
+   list-style: none;
+   max-width: calc(640px * var(--z, 1));
+   margin: calc(10px * var(--z, 1)) auto 0;
+   padding: 0;
+   max-height: calc(300px * var(--z, 1));
+   overflow: auto;
+   border: 1px solid var(--line);
+   border-radius: var(--r);
+   background: var(--card)
+}
+
+.vh .wp-plg-envios li {
+   display: flex;
+   align-items: center;
+   gap: calc(12px * var(--z, 1));
+   padding: calc(10px * var(--z, 1)) calc(12px * var(--z, 1));
+   border-bottom: 1px solid var(--line)
+}
+
+.vh .wp-plg-envios li:last-child {
+   border-bottom: 0
+}
+
+.vh .wp-plg-envios li.est-ok .bar span {
+   background: var(--ok)
+}
+
+.vh .wp-plg-x:not(#x) {
+   flex: none
+}
+
+/* «Acções por lotes» + Aplicar (em cima, na barra por cima da lista, e em baixo, no fundo do cartão) */
+.vh .wp-plg-lote {
+   display: flex;
+   flex: 1;
+   align-items: center;
+   gap: calc(8px * var(--z, 1))
+}
+
+.vh .wp-plg-lote .sp {
+   flex: 1
+}
+
+/* o selector e o Aplicar com contorno sempre visível (Silva, 31/10/2026), mesmo antes de os usar */
+.vh .wp-plg-lote select:not(#x) {
+   min-width: calc(190px * var(--z, 1));
+   border: 1px solid var(--line)
+}
+
+.vh .wp-plg-lote .btn.g:disabled:not(#x) {
+   opacity: 1;
+   border: 1px solid var(--line);
+   color: var(--muted);
+   background: var(--card)
+}
+
+/* nome do plugin com as opções por baixo: Desactivar | Actualizar | Apagar */
+.vh .wp-plg-nome {
+   display: flex;
+   flex-direction: column;
+   gap: calc(3px * var(--z, 1));
+   white-space: nowrap
+}
+
+.vh .wp-plg-acoes {
+   display: inline-flex;
+   align-items: center;
+   gap: calc(6px * var(--z, 1));
+   font-size: calc(12.5px * var(--fs, 1));
+   color: var(--muted)
+}
+
+.vh .wp-plg-acoes button {
+   border: 0;
+   background: none;
+   padding: 0;
+   font: inherit;
+   color: var(--ink);
+   cursor: pointer
+}
+
+.vh .wp-plg-acoes button:hover {
+   color: var(--red);
+   text-decoration: underline
+}
+
+.vh .wp-plg-acoes button.nova {
+   color: var(--ok);
+   font-weight: 600
+}
+
+.vh .wp-plg-acoes button.perigo {
+   color: var(--red)
+}
+
+.vh .wp-plg-acoes button:disabled {
+   opacity: .5;
+   cursor: default;
+   text-decoration: none
+}
+
+.vh .wp-plg-desc:not(#x) {
+   display: flex;
+   flex-direction: column;
+   gap: calc(3px * var(--z, 1));
+   /* a descrição é texto corrido (não um nome nem um caminho): parte-se em linhas, como no WordPress */
+   white-space: normal;
+   /* ocupa o que sobra da linha (a 1.ª coluna fica com a sua largura): nos ecrãs mais estreitos encolhe, para o «Activo» ficar à vista, no limite direito, sem deslizar */
+   min-width: calc(220px * var(--z, 1))
+}
+
+.vh .tbl[data-dt="wp-plugins-lista"] :is(th, td):nth-child(3):not(#x) {
+   width: 100%
+}
+
+/* a última coluna (Estado) fica à direita, com margem para a etiqueta não tocar na linha do fim da linha (Silva, 31/10/2026) */
+.vh .tbl[data-dt="wp-plugins-lista"] :is(th, td):last-child:not(#x) {
+   padding-right: var(--recuo, 12px) !important;
+   text-align: right !important
+}
+
+.vh .tbl[data-dt="wp-plugins-lista"] .dt-fundo:not(#x) {
+   padding-right: 0
+}
+
+/* etiqueta «Inactivo»: fundo preto e letras brancas */
+.vh .tbl tr.wp-plg-inativo .tag:not(#x) {
+   background: #111;
+   color: #fff
+}
+
+/* plugin inactivo: a linha leva o fundo rosado do realce (o da passagem do rato no painel), com a etiqueta «Inactivo» lá dentro, para se ver logo que está desligado */
+.vh table tbody tr.wp-plg-inativo > td:not(#x) {
+   background: var(--tint) !important
+}
+
+.vh .tbl td .wp-plg-desc:not(#x),
+.vh .tbl td .wp-plg-desc:not(#x) * {
+   white-space: normal !important;
+   overflow-wrap: anywhere
+}
+
+/* o fundo da lista alinha com o início da barra de cima e da tabela */
+.vh .tbl[data-dt="wp-plugins-lista"] .dt-fundo:not(#x) {
+   padding-left: 0
+}
+
+.vh .wp-plg-desc small {
+   color: var(--muted);
+   font-size: calc(12px * var(--fs, 1))
+}
+
+/* os botões e o selector deste separador têm a altura do botão base (34 px × --z, a dos botões da linha de cima do cartão), igual aos da linha de cima do cartão — Silva, 31/10/2026 */
+.vh .wp-plg-lote,
+.vh .wp-plg-add {
+   --h-input: calc(34px * var(--z, 1));
+   --h-campo: calc(34px * var(--z, 1))
+}
+
+.vh .wp-plg-lote .btn:not(#x):not(#y),
+.vh .wp-plg-add .btn:not(#x):not(#y),
+.vh .wp-plg-lote select:not(#x):not(#y) {
+   height: calc(34px * var(--z, 1));
+   min-height: calc(34px * var(--z, 1));
+   font-size: calc(12.5px * var(--fs, 1))
+}
+
+/* aviso de nova versão por baixo do plugin, como no WordPress («Está disponível a versão X de Y. Actualizar agora.») — Silva, 31/10/2026 */
+.vh .wp-plg-aviso {
+   display: flex;
+   align-items: center;
+   gap: calc(8px * var(--z, 1));
+   margin: 0 0 calc(6px * var(--z, 1)) 0;
+   padding: calc(6px * var(--z, 1)) calc(12px * var(--z, 1));
+   border-left: 4px solid var(--warn);
+   background: var(--warnbg);
+   color: var(--ink);
+   font-size: calc(12.5px * var(--fs, 1))
+}
+
+.vh .wp-plg-aviso i:not(#x) {
+   color: var(--warn)
+}
+
+.vh .wp-plg-aviso button {
+   border: 0;
+   background: none;
+   padding: 0;
+   font: inherit;
+   color: var(--red);
+   font-weight: 600;
+   cursor: pointer
+}
+
+.vh .wp-plg-aviso button:hover {
+   text-decoration: underline
+}
+
+/* telemóvel: a lista fica como no computador, a deslizar na horizontal; a barra do selector pode ir para a linha de baixo */
+@media (max-width: 768px) {
+   .vh .wp-plg-lote {
+      flex-wrap: wrap
+   }
+}

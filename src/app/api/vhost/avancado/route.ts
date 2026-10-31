@@ -16,6 +16,7 @@ export const dynamic = 'force-dynamic';
  * GET  ?conta=&ver=cron|backups|chaves|ssh|protegidas|git|wordpress|clamav   (e &d= para handlers, modsec, wp)
  * GET  ?conta=&ver=descarregar&f=<cópia>   descarrega uma cópia de segurança (aos poucos)
  * POST (cabeçalhos x-vh-bk…)   carrega uma cópia de segurança (.tar) do computador, aos bocados; só o administrador
+ * POST (cabeçalhos x-vh-plg…)  carrega um plugin do WordPress (.zip) do computador, aos bocados, e instala-o no site
  * POST { acao, conta, … }   alterações; só nas contas que a sessão pode ver
  * O que o Hestia não guarda (pastas protegidas, repositórios Git, análises do antivírus) fica em /usr/local/vhost/<conta>/.
  */
@@ -265,6 +266,15 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ erro: x instanceof Error ? x.message : 'WordPress não encontrado.' }, { status: 400 });
       }
     }
+    case 'wpplugins': {
+      // separador Plugins do Gerir WordPress: só a lista, com a descrição e o autor de cada plugin (não lê utilizadores nem o núcleo)
+      if (!d) return NextResponse.json({ erro: 'Escolha o domínio.' }, { status: 400 });
+      try {
+        return ok({ plugins: await listWpPlugins(d, true) });
+      } catch (x) {
+        return NextResponse.json({ erro: x instanceof Error ? x.message : 'WordPress não encontrado.' }, { status: 400 });
+      }
+    }
     case 'wpbd': {
       // "Manage Database Configurations" do DA: base, utilizador, servidor e prefixo (a palavra-passe nunca se lê)
       if (!d) return NextResponse.json({ erro: 'Escolha o domínio.' }, { status: 400 });
@@ -424,11 +434,69 @@ async function carregarCopia(req: NextRequest, r: { s: Sessao }, envio: string):
   return NextResponse.json({ ok: true, f: nome });
 }
 
+/** Carregar plugins do WordPress (.zip) do computador, como o «Carregar plugin» do WordPress (Silva, 31/10/2026): o ficheiro vai aos bocados de 16 MB
+ *  (como a cópia de segurança), junta-se numa pasta temporária do servidor e, no último bocado, instala-se com o wp-cli **como o dono da conta**
+ *  (nunca como root), por cima de uma versão antiga se já existir (`--force`, o «actualizá-lo» do WordPress). Não activa: fica na lista para
+ *  activar. Os plugins que o servidor bloqueia (gestores de ficheiros, Jetpack…) recusam-se aqui como em qualquer outro caminho (mu-plugin do stack). */
+async function carregarPlugin(req: NextRequest, r: { s: Sessao }, envio: string): Promise<NextResponse> {
+  const conta = req.headers.get('x-vh-conta') || '';
+  const d = (req.headers.get('x-vh-dominio') || '').toLowerCase();
+  const srv = await lerServidor();
+  const e = await verificar(r.s, conta, d, srv);
+  if (e) return NextResponse.json({ erro: e }, { status: 403 });
+  const inicio = Number(req.headers.get('x-vh-inicio'));
+  const total = Number(req.headers.get('x-vh-total'));
+  if (!/^[a-f0-9]{24}$/.test(envio) || !Number.isSafeInteger(inicio) || inicio < 0 || !Number.isSafeInteger(total) || total <= 0) return NextResponse.json({ erro: 'Envio inválido.' }, { status: 400 });
+  if (total > 256 * 1024 ** 2) return NextResponse.json({ erro: 'O plugin pode ter até 256 MB.' }, { status: 400 });
+  const dir = '/var/tmp/vhost-plg-up';
+  const junto = `${dir}/${envio}`;
+  const tam = async () => Number((await executeServerCommand(`stat -c %s ${junto} 2>/dev/null || echo 0`, { timeoutMs: 20_000 })).trim()) || 0;
+  if (inicio === 0) {
+    // a pasta fica legível para a conta (só quem sabe o nome do ficheiro, de 24 caracteres ao acaso, o abre); o que ficou parado há mais de 4 h apaga-se
+    const livre = Number((await executeServerCommand(`install -d -m 711 ${dir} && rm -f ${junto} && find ${dir} -maxdepth 1 -type f -mmin +240 -delete; df -B1 --output=avail /var/tmp | tail -n 1`, { timeoutMs: 20_000 })).trim().split('\n').pop()) || 0;
+    if (livre < total * 3 + 512 * 1024 ** 2) return NextResponse.json({ erro: 'Não há espaço livre no servidor para este plugin.' }, { status: 400 });
+  } else if ((await tam()) !== inicio) return NextResponse.json({ erro: 'O envio perdeu-se a meio; volte a tentar.' }, { status: 409 });
+  try {
+    await uploadFileViaSsh(`${junto}.p`, req.body ? (req.body as unknown as import('stream/web').ReadableStream) : Buffer.alloc(0));
+    await executeServerCommand(`cat ${junto}.p >> ${junto} && rm -f ${junto}.p`, { timeoutMs: 120_000 });
+  } catch {
+    await executeServerCommand(`rm -f ${junto} ${junto}.p`, { timeoutMs: 20_000 });
+    return NextResponse.json({ erro: 'O envio falhou; volte a tentar.' }, { status: 500 });
+  }
+  if (req.headers.get('x-vh-fim') !== '1') return NextResponse.json({ ok: true });
+  const falha = async (erro: string, status = 400) => {
+    await executeServerCommand(`rm -f ${junto} ${junto}.p`, { timeoutMs: 20_000 });
+    return NextResponse.json({ erro }, { status });
+  };
+  if ((await tam()) !== total) return falha('O ficheiro chegou incompleto; volte a tentar.');
+  const nome = decodeURIComponent(req.headers.get('x-vh-nome') || '');
+  if (!/\.zip$/i.test(nome)) return falha('O plugin tem de ser um ficheiro .zip.');
+  // um .zip começa por «PK»; o resto (conteúdo, pasta do plugin) é o WordPress que confere ao instalar
+  const zip = (await executeServerCommand(`head -c 2 ${junto} 2>/dev/null | od -An -c | tr -d ' \\n'`, { timeoutMs: 20_000 })).trim();
+  if (zip !== 'PK') return falha('Este ficheiro não é um .zip válido.');
+  await executeServerCommand(`mv -f ${junto} ${junto}.zip && chmod 644 ${junto}.zip`, { timeoutMs: 20_000 });
+  const raiz = raizSite(srv, conta, d);
+  let out = '';
+  try {
+    out = await executeServerCommand(`sudo -u ${conta} /usr/local/bin/wp --path=${q(raiz)} plugin install ${junto}.zip --force 2>&1`, { timeoutMs: 240_000 });
+  } finally {
+    await executeServerCommand(`rm -f ${junto}.zip ${junto} ${junto}.p`, { timeoutMs: 20_000 }).catch(() => undefined);
+  }
+  if (!/Success: Installed|Plugin installed successfully/i.test(out)) {
+    const msg = out.split('\n').map((x) => x.replace(/^(Error|Warning):\s*/i, '').trim()).filter((x) => x && !/^(Unpacking|Installing|Removing|Plugin updated|Downloading)/i.test(x)).join(' ').slice(0, 300);
+    return NextResponse.json({ erro: msg || 'O WordPress não conseguiu instalar este plugin.' }, { status: 400 });
+  }
+  esquecerLeitura();
+  return NextResponse.json({ ok: true });
+}
+
 export async function POST(req: NextRequest) {
   const r = await sessao();
   if ('erro' in r) return r.erro;
   const envioCopia = req.headers.get('x-vh-bk');
   if (envioCopia) return carregarCopia(req, r, envioCopia);
+  const envioPlugin = req.headers.get('x-vh-plg');
+  if (envioPlugin) return carregarPlugin(req, r, envioPlugin);
   let c: Corpo;
   try {
     c = (await req.json()) as Corpo;
@@ -802,7 +870,7 @@ export async function POST(req: NextRequest) {
           if (modo.trim() !== 'builder') return recusa('Esta página não está editada com Elementor.');
         }
       }
-      const x = await generateWpAutoLoginToken(d, wpUser || undefined, postId, editor);
+      const x = await generateWpAutoLoginToken(d, wpUser || undefined, postId, editor, c.destino === 'plugins' ? 'plugins' : undefined);
       return resposta({ ok: x.success, error: x.error }, false, { url: x.url });
     }
     case 'wp-senha': {
@@ -914,10 +982,34 @@ export async function POST(req: NextRequest) {
     }
     case 'wp-plugin': {
       if (!d) return recusa('Escolha o domínio.');
-      const p = linha(c.plugin);
       const op = String(c.op);
-      const x = op === 'atualizar-todos' ? await updateAllWpPlugins(d) : op === 'atualizar' ? await updateWpPlugin(d, p) : await toggleWpPlugin(d, p, op === 'ativar');
-      return resposta({ ok: x.ok, error: x.output });
+      if (op === 'atualizar-todos') {
+        const x = await updateAllWpPlugins(d);
+        return resposta({ ok: x.ok, error: x.output });
+      }
+      // um plugin (`plugin`) ou vários de uma vez (`plugins`, as «Acções por lotes» do separador Plugins): um a um, e diz-se o que falhou
+      const nomes = c.plugins !== undefined ? lista(c.plugins) : [linha(c.plugin)];
+      if (!nomes.length || nomes.length > 100) return recusa('Escolha pelo menos um plugin.');
+      const raiz = raizSite(srv, conta, d);
+      const wp = `sudo -u ${conta} /usr/local/bin/wp --path=${q(raiz)}`;
+      const falhas: string[] = [];
+      for (const p of nomes) {
+        if (!/^[a-zA-Z0-9_./-]{1,120}$/.test(p) || p.includes('..')) {
+          falhas.push(p + ': nome inválido');
+          continue;
+        }
+        if (op === 'apagar') {
+          // como o WordPress: só se apaga o que está desactivado, e apagar corre a desinstalação do plugin (uninstall) e tira os ficheiros
+          const out = await executeServerCommand(`if ${wp} --skip-plugins --skip-themes plugin is-active ${q(p)} >/dev/null 2>&1; then echo VD_ACTIVO; else ${wp} plugin uninstall ${q(p)} 2>&1; fi`, { timeoutMs: 120_000 });
+          if (/VD_ACTIVO/.test(out)) falhas.push(p + ': está activo; desactive-o primeiro');
+          else if (!/Success: Uninstalled and deleted|Success: Deleted/i.test(out) && /error|fatal|failed/i.test(out)) falhas.push(p + ': ' + out.replace(/\s+/g, ' ').trim().slice(0, 200));
+          continue;
+        }
+        const x = op === 'atualizar' ? await updateWpPlugin(d, p) : op === 'ativar' || op === 'desativar' ? await toggleWpPlugin(d, p, op === 'ativar') : null;
+        if (!x) return recusa('Operação inválida.');
+        if (!x.ok) falhas.push((nomes.length > 1 ? p + ': ' : '') + x.output.replace(/\s+/g, ' ').trim().slice(0, 200));
+      }
+      return resposta({ ok: !falhas.length, error: falhas.join(' · ').slice(0, 400) });
     }
     case 'wp-nucleo': {
       if (!d) return recusa('Escolha o domínio.');
