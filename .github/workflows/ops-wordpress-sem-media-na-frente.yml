@@ -37,7 +37,7 @@ jobs:
         run: echo "b64=$(tar -czf - -C deploy/wordpress/visualdesign sem-media-na-frente.php | base64 -w0)" >> "$GITHUB_OUTPUT"
 
       - name: Aplicar no servidor
-        uses: appleboy/ssh-action@v1.2.5
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         env:
           DOMINIO: ${{ inputs.dominio || 'entrecamposblog.com' }}
           CONFIRMAR: ${{ inputs.confirmar && 'sim' || 'nao' }}
