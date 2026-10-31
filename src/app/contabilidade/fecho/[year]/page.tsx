@@ -111,7 +111,7 @@ export default function FechoAnualDocumentPage() {
             </div>
             <div className="text-xs text-zinc-500 text-left sm:text-right leading-relaxed">
               <p className="font-bold text-zinc-800">VisualDESIGN Services, Lda.</p>
-              <p>Maputo, Moçambique</p>
+              <p>Av. Karl Marx, nº 177, Maputo, Moçambique</p>
               <p>NUIT: 400597243</p>
               <p>info@visualdesignmoz.com</p>
             </div>
