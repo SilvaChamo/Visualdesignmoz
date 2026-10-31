@@ -17,7 +17,12 @@ export async function pointHostingHostToServer(
 ): Promise<{ ok: boolean; error?: string }> {
   const clean = host.trim().toLowerCase().replace(/\.$/, '');
   if (!clean) return { ok: false, error: 'Hostname obrigatório' };
-  return pointDomainToServerIp(clean, getServerHost());
+  const r = await pointDomainToServerIp(clean, getServerHost());
+  if (r.ok || !/Sem zona/i.test(r.error || '')) return r;
+  // Sem zona na Cloudflare: cria-a e põe tudo (registos, e-mail e, quando é possível, os nameservers), como na compra do domínio
+  const { prepararDnsDaHospedagem } = await import('@/lib/dns-hospedagem');
+  const feito = await prepararDnsDaHospedagem(clean);
+  return { ok: feito.ok, error: feito.ok ? undefined : feito.passos.filter((x) => !x.ok).map((x) => `${x.passo}: ${x.detalhe}`).join('; ') };
 }
 
 export async function removeHostingHostDns(
