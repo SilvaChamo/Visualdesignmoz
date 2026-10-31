@@ -20,6 +20,7 @@ const routes: { path: string; priority: number; changeFrequency: MetadataRoute.S
   { path: "/diferencial", priority: 0.5, changeFrequency: "monthly" },
   { path: "/privacidade", priority: 0.2, changeFrequency: "yearly" },
   { path: "/termos", priority: 0.2, changeFrequency: "yearly" },
+  { path: "/visualdesign", priority: 0.8, changeFrequency: "monthly" },
   { path: "/web", priority: 0.8, changeFrequency: "monthly" },
   { path: "/eventos", priority: 0.8, changeFrequency: "monthly" },
   { path: "/eventos/catering", priority: 0.6, changeFrequency: "monthly" },

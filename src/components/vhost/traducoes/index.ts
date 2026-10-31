@@ -23,6 +23,7 @@ import { revenda } from './19-revenda';
 import { residuos } from './20-residuos';
 import { compras } from './21-compras';
 import { plugins_wp } from './22-plugins-wp';
+import { lixeira_e_checkout } from './23-lixeira-e-checkout';
 
-const TRADUCOES: Record<string, string> = { ...nucleo, ...nucleo_b, ...comuns_a, ...paginas_pequenas, ...admin_servidor, ...admin_servidor_2, ...contas_sistema, ...suporte, ...email, ...avancado, ...dominios, ...modelos, ...extras, ...mensagens_api, ...mensagens_lib, ...externos, ...php_extensoes, ...modelos_renovacao, ...revenda, ...residuos, ...compras, ...plugins_wp };
+const TRADUCOES: Record<string, string> = { ...nucleo, ...nucleo_b, ...comuns_a, ...paginas_pequenas, ...admin_servidor, ...admin_servidor_2, ...contas_sistema, ...suporte, ...email, ...avancado, ...dominios, ...modelos, ...extras, ...mensagens_api, ...mensagens_lib, ...externos, ...php_extensoes, ...modelos_renovacao, ...revenda, ...residuos, ...compras, ...plugins_wp, ...lixeira_e_checkout };
 for (const [pt, en] of Object.entries(TRADUCOES)) if (!(pt in EN)) EN[pt] = en;
