@@ -54,5 +54,3 @@ scratch/node_modules/
 /public/pdfjs/
 
 # PWA service worker
-/public/sw.js*
-/public/workbox-*.js*
