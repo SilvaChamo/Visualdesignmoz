@@ -532,6 +532,8 @@ export async function generateWpAutoLoginToken(
   username?: string,
   postId?: number,
   editor: 'wordpress' | 'elementor' = 'wordpress',
+  /** `plugins`: entra directo na lista de Plugins do WordPress (botão «Gerir plugins no WordPress»; sem página indicada) */
+  destinoAdmin?: 'plugins',
 ): Promise<{ success: boolean; url?: string; error?: string }> {
   const install = await resolveWpInstall(domain);
   if (!install) return { success: false, error: 'WordPress não encontrado neste domínio' };
@@ -568,7 +570,7 @@ export async function generateWpAutoLoginToken(
   const acao = editor === 'elementor' ? 'elementor' : 'edit';
   // sem página indicada entra na lista de Páginas e não no Painel (wp-admin/): o Painel carrega os widgets e as notícias do WordPress
   // (e do Elementor) e demorava mais do dobro a abrir (7,8 s contra 3,3 s medidos no servidor; Silva, 22/10/2026)
-  const destino = postId === undefined ? "admin_url('edit.php?post_type=page')" : `admin_url('post.php?post=${postId}&action=${acao}')`;
+  const destino = postId === undefined ? (destinoAdmin === 'plugins' ? "admin_url('plugins.php')" : "admin_url('edit.php?post_type=page')") : `admin_url('post.php?post=${postId}&action=${acao}')`;
 
   const phpContent = `<?php
 // Autologin gerado pelo painel

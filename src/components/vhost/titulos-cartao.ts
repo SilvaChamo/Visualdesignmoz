@@ -27,6 +27,7 @@ const TITULOS: Record<string, [string, string]> = {
   'Definições PHP': ['Versão e ajustes do PHP', 'PHP version and settings'],
   'Extensões PHP': ['Gestão de Módulos PHP', 'PHP modules management'],
   'Gerir WordPress': ['Gestão do site WordPress', 'WordPress site management'],
+  'Gerir plugins': ['Gestão de plugins', 'Plugin management'],
   'Pacotes de cliente': ['Pacotes e limites', 'Packages and limits'],
   Revendedores: ['Gestão de revendedores', 'Reseller management'],
   'Pacotes de revenda': ['Pacotes e limites das revendas', 'Reseller packages and limits'],

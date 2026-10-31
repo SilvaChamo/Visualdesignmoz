@@ -870,7 +870,7 @@ export async function POST(req: NextRequest) {
           if (modo.trim() !== 'builder') return recusa('Esta página não está editada com Elementor.');
         }
       }
-      const x = await generateWpAutoLoginToken(d, wpUser || undefined, postId, editor);
+      const x = await generateWpAutoLoginToken(d, wpUser || undefined, postId, editor, c.destino === 'plugins' ? 'plugins' : undefined);
       return resposta({ ok: x.success, error: x.error }, false, { url: x.url });
     }
     case 'wp-senha': {

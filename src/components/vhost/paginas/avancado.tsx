@@ -1795,9 +1795,9 @@ const AUTO: Record<string, string> = { true: 'Todas', minor: 'Só de segurança'
 
 /** Abre o painel do WordPress já com sessão. A janela abre-se logo no clique (depois de esperar pelo servidor o
  *  navegador bloqueava-a) e recebe o endereço quando ele chega; se falhar, fecha-se e aparece o motivo. */
-async function entrarWp(vh: VH, d: string, user?: string, postId?: number, editor: 'wordpress' | 'elementor' = 'wordpress') {
+async function entrarWp(vh: VH, d: string, user?: string, postId?: number, editor: 'wordpress' | 'elementor' = 'wordpress', destino?: 'plugins') {
   const w = window.open('about:blank', '_blank');
-  const j = await noServidor(vh, { acao: 'wp-entrar', dominio: d, ...(user ? { user } : {}), ...(postId ? { postId } : {}), editor }, editor === 'elementor' ? 'A abrir o Elementor…' : 'A abrir o painel do WordPress…');
+  const j = await noServidor(vh, { acao: 'wp-entrar', dominio: d, ...(user ? { user } : {}), ...(postId ? { postId } : {}), ...(destino ? { destino } : {}), editor }, editor === 'elementor' ? 'A abrir o Elementor…' : 'A abrir o painel do WordPress…');
   if (j?.url && w) {
     w.opener = null;
     w.location.href = String(j.url);
@@ -1839,6 +1839,32 @@ function BotoesSiteWp({ d }: { d: string }) {
       >
         <i className="fa-brands fa-wordpress" />
         {vh.t('Painel do WordPress')}
+      </button>
+    </>
+  );
+}
+
+/** Separador Plugins: os botões da linha de cima do cartão — «Gerir plugins no WordPress» (abre a lista de Plugins do WordPress) e «Adicionar plugins»,
+ *  que abre/fecha o cabeçalho de carregar .zip no corpo da página (Silva, 31/10/2026) */
+const EVENTO_ADICIONAR_PLUGINS = 'vd-wp-adicionar-plugins';
+function BotoesPluginsWp({ d }: { d: string }) {
+  const vh = useVH();
+  const [pisca, piscar] = usePisca();
+  return (
+    <>
+      <button
+        className={'btn g sec-m' + (pisca ? ' pisca' : '')}
+        onClick={() => {
+          piscar();
+          entrarWp(vh, d, undefined, undefined, 'wordpress', 'plugins');
+        }}
+      >
+        <i className="fa-brands fa-wordpress" />
+        {vh.t('Gerir plugins no WordPress')}
+      </button>
+      <button className="btn r" onClick={() => window.dispatchEvent(new Event(EVENTO_ADICIONAR_PLUGINS))}>
+        <i className="fa-solid fa-plus" />
+        {vh.t('Adicionar plugins')}
       </button>
     </>
   );
@@ -2602,11 +2628,11 @@ function AdicionarPlugins({ d, fechar, depois }: { d: string; fechar: () => void
     <div className="wp-plg-add">
       <div className="wp-plg-add-cab">
         <h3>{t('Adicionar plugins')}</h3>
-        <button className="btn sm wp-plg-carregar" onClick={() => entrada.current?.click()} disabled={aInstalar}>
+        <button className="btn wp-plg-carregar" onClick={() => entrada.current?.click()} disabled={aInstalar}>
           {t('Carregar plugin')}
         </button>
         <span className="sp" />
-        <button className="btn sm g" onClick={fechar} disabled={aInstalar}>
+        <button className="btn g" onClick={fechar} disabled={aInstalar}>
           <i className="fa-solid fa-xmark" />
           {t('Fechar')}
         </button>
@@ -2657,7 +2683,7 @@ function AdicionarPlugins({ d, fechar, depois }: { d: string; fechar: () => void
                 {e.estado !== 'espera' && <CampoEnvio p={e.f.size ? Math.round((e.feito / e.f.size) * 100) : 0} estado={e.estado} erro={e.erro} />}
               </div>
               {e.estado !== 'envio' && e.estado !== 'ok' && !aInstalar && (
-                <button className="btn sm g wp-plg-x" aria-label={t('Tirar da lista')} title={t('Tirar da lista')} onClick={() => setLista((l) => l.filter((y) => y.id !== e.id))}>
+                <button className="btn g wp-plg-x" aria-label={t('Tirar da lista')} title={t('Tirar da lista')} onClick={() => setLista((l) => l.filter((y) => y.id !== e.id))}>
                   <i className="fa-solid fa-xmark" />
                 </button>
               )}
@@ -2682,6 +2708,12 @@ function WpPlugins({ d }: { d: string }) {
   const [ocupado, setOcupado] = useState(false);
   // muda quando uma acção acaba: a lista desenha-se de novo e as caixas assinaladas desfazem-se
   const [ronda, setRonda] = useState(0);
+  // o botão «Adicionar plugins» está na linha de cima do cartão (fora deste corpo): chama por um evento
+  useEffect(() => {
+    const abrir = () => setAAdicionar((v) => !v);
+    window.addEventListener(EVENTO_ADICIONAR_PLUGINS, abrir);
+    return () => window.removeEventListener(EVENTO_ADICIONAR_PLUGINS, abrir);
+  }, []);
   if (!dados) return <Carregando erro={erro} ler={ler} />;
   const todos = dados.plugins;
   const ativos = todos.filter((p) => p.status === 'active');
@@ -2725,40 +2757,32 @@ function WpPlugins({ d }: { d: string }) {
           </option>
         ))}
       </select>
-      <button className="btn" onClick={aplicar} disabled={!acao || !sel.length || ocupado}>
+      <button className="btn g" onClick={aplicar} disabled={!acao || !sel.length || ocupado}>
         {t('Aplicar')}
+      </button>
+      <span className="sp" />
+      <button className="btn r" onClick={() => correr('atualizar', comNova.map((p) => p.name))} disabled={!comNova.length || ocupado}>
+        <i className="fa-solid fa-arrows-rotate" />
+        {t('Actualizar todos os plugins')}
       </button>
     </span>
   );
-  const FILTROS: [FiltroPlg, string, number][] = [
-    ['todos', 'Todos', todos.length],
-    ['ativos', 'Activos', ativos.length],
-    ['inativos', 'Inactivos', todos.length - ativos.length],
-    ['atualizar', 'Com actualização', comNova.length],
-  ];
   return (
     <>
       {aAdicionar && <AdicionarPlugins d={d} fechar={() => setAAdicionar(false)} depois={() => ler(true)} />}
-      <Sec
-        titulo="Plugins"
-        numeros={[['Plugins', String(todos.length)], ['Com atualização', String(comNova.length)]]}
-        extra={
-          <button className="btn sm r" aria-expanded={aAdicionar} onClick={() => setAAdicionar((v) => !v)}>
-            <i className="fa-solid fa-plus" />
-            {t('Adicionar plugin')}
-          </button>
-        }
-      >
-        <nav className="wp-plg-filtros" aria-label={t('Filtrar plugins')}>
-          {FILTROS.filter(([k, , n]) => k === 'todos' || n > 0 || filtro === k).map(([k, nome, n], i) => (
-            <Fragment key={k}>
-              {i > 0 && <span className="opcoes-sep" aria-hidden="true">|</span>}
-              <button className={filtro === k ? 'on' : ''} aria-current={filtro === k ? 'true' : undefined} onClick={() => setFiltro(k)}>
-                {t(nome)} <span>({n})</span>
-              </button>
-            </Fragment>
-          ))}
-        </nav>
+      {/* os filtros ficam por baixo da linha do título, à esquerda (Tabs abaixo), como as opções do DNS */}
+      <Tabs<FiltroPlg>
+        abaixo
+        tabs={[
+          ['todos', 'Todos (' + todos.length + ')'],
+          ['ativos', 'Activos (' + ativos.length + ')'],
+          ['inativos', 'Inactivos (' + (todos.length - ativos.length) + ')'],
+          ['atualizar', 'Com actualização (' + comNova.length + ')'],
+        ]}
+        on={filtro}
+        onChange={setFiltro}
+      />
+      <section className="da-sec">
         <DataTable
           key={ronda + filtro}
           id="wp-plugins-lista"
@@ -2821,7 +2845,7 @@ function WpPlugins({ d }: { d: string }) {
             { k: 's', t: 'Estado', cell: (r) => <span className={'tag ' + (r.status === 'active' ? 'ok' : 'off')}>{t(r.status === 'active' ? 'Activo' : 'Inactivo')}</span> },
           ]}
         />
-      </Sec>
+      </section>
     </>
   );
 }
@@ -3099,11 +3123,11 @@ export const wordpressPagina: ScreenFn = (vh) => {
     };
   if (a && (b === 'utilizadores' || b === 'paginas' || b === 'plugins'))
     return {
-      title: 'Gerir WordPress',
+      title: b === 'plugins' ? 'Gerir plugins' : 'Gerir WordPress',
       desc: a,
       crumbs: [base, naPagina, { t: b === 'paginas' ? 'Páginas' : b === 'plugins' ? 'Plugins' : 'Utilizadores' }],
       ...noDominio('/' + b),
-      actions: sitePainel,
+      actions: b === 'plugins' ? <BotoesPluginsWp d={a} /> : sitePainel,
       body: (
         <>
           <WpAbas d={a} aba={b} />

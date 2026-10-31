@@ -15356,51 +15356,32 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
 }
 
 .vh .wp-plg-x:not(#x) {
-   flex: none;
-   padding: 0 calc(8px * var(--z, 1))
-}
-
-/* filtros por cima da lista: Todos (16) | Activos (14) | … — texto, como os do WordPress */
-.vh .wp-plg-filtros {
-   display: flex;
-   flex-wrap: wrap;
-   align-items: center;
-   column-gap: calc(10px * var(--z, 1));
-   padding: calc(8px * var(--z, 1)) var(--recuo, 12px);
-   font-size: calc(13px * var(--fs, 1))
-}
-
-.vh .wp-plg-filtros button {
-   border: 0;
-   background: none;
-   padding: calc(2px * var(--z, 1)) 0;
-   color: var(--ink);
-   font: inherit;
-   cursor: pointer
-}
-
-.vh .wp-plg-filtros button span {
-   color: var(--muted)
-}
-
-.vh .wp-plg-filtros button:hover,
-.vh .wp-plg-filtros button.on {
-   color: var(--red)
-}
-
-.vh .wp-plg-filtros button.on {
-   font-weight: 600
+   flex: none
 }
 
 /* «Acções por lotes» + Aplicar (em cima, na barra por cima da lista, e em baixo, no fundo do cartão) */
 .vh .wp-plg-lote {
-   display: inline-flex;
+   display: flex;
+   flex: 1;
    align-items: center;
    gap: calc(8px * var(--z, 1))
 }
 
-.vh .wp-plg-lote select {
-   min-width: calc(190px * var(--z, 1))
+.vh .wp-plg-lote .sp {
+   flex: 1
+}
+
+/* o selector e o Aplicar com contorno sempre visível (Silva, 31/10/2026), mesmo antes de os usar */
+.vh .wp-plg-lote select:not(#x) {
+   min-width: calc(190px * var(--z, 1));
+   border: 1px solid var(--line)
+}
+
+.vh .wp-plg-lote .btn.g:disabled:not(#x) {
+   opacity: 1;
+   border: 1px solid var(--line);
+   color: var(--muted);
+   background: var(--card)
 }
 
 /* nome do plugin com as opções por baixo: Desactivar | Actualizar | Apagar */
@@ -15473,4 +15454,19 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
 .vh .wp-plg-desc small {
    color: var(--muted);
    font-size: calc(12px * var(--fs, 1))
+}
+
+/* os botões e o selector deste separador têm a altura do botão base (34 px × --z, a dos botões da linha de cima do cartão), igual aos da linha de cima do cartão — Silva, 31/10/2026 */
+.vh .wp-plg-lote,
+.vh .wp-plg-add {
+   --h-input: calc(34px * var(--z, 1));
+   --h-campo: calc(34px * var(--z, 1))
+}
+
+.vh .wp-plg-lote .btn:not(#x):not(#y),
+.vh .wp-plg-add .btn:not(#x):not(#y),
+.vh .wp-plg-lote select:not(#x):not(#y) {
+   height: calc(34px * var(--z, 1));
+   min-height: calc(34px * var(--z, 1));
+   font-size: calc(12.5px * var(--fs, 1))
 }

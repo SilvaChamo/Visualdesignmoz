@@ -1,7 +1,13 @@
 // Inglês do painel — 22-plugins-wp: Gerir WordPress › Plugins (lista como a do WordPress, «Acções por lotes» e «Adicionar plugin»), 31/10/2026.
 // Chave = texto em português tal como está no código.
 export const plugins_wp: Record<string, string> = {
- "Adicionar plugin": "Add plugin",
+ "Gerir plugins": "Manage plugins",
+ "Gerir plugins no WordPress": "Manage plugins in WordPress",
+ "Actualizar todos os plugins": "Update all plugins",
+ "Todos ({0})": "All ({0})",
+ "Activos ({0})": "Active ({0})",
+ "Inactivos ({0})": "Inactive ({0})",
+ "Com actualização ({0})": "With an update ({0})",
  "Adicionar plugins": "Add plugins",
  "Carregar plugin": "Upload plugin",
  "Se tem plugins no formato .zip pode instalá-los ou actualizá-los carregando-os aqui. Pode escolher vários de uma vez.": "If you have plugins in .zip format, you can install or update them by uploading them here. You can choose several at once.",
