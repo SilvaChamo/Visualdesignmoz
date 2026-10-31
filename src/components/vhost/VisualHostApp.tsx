@@ -10,7 +10,7 @@ import { BarraPagina, ConsultaPagina, FaixaAbas, PesquisaPagina, TopoCartao, VHC
 import { GLOBAL, LEVELS, MENU, ROLES } from './generated/data';
 import { SEM_MENU } from './menu-contas';
 import { dominioVisivel, type DadosServidor } from './servidor';
-import { CACHE_DADOS_VHOST, abrirCompraPedido, apagarDadosVhost, limparAbrirCompra, guardarDadosVhost, lerDadosVhostGuardados, limparViaSite, tirarEntrada, viaSiteAgora } from '@/lib/vhost-cache';
+import { CACHE_DADOS_VHOST, abrirCompraPedido, contaDaCompraPronta, apagarDadosVhost, limparAbrirCompra, guardarDadosVhost, lerDadosVhostGuardados, limparViaSite, tirarEntrada, viaSiteAgora } from '@/lib/vhost-cache';
 import { idDispositivoPresenca } from '@/lib/vhost-presenca-id';
 import { COOKIE_TEMA, lerTema, valorCookieTema, type TemaConta } from '@/lib/vhost-tema-conta';
 import { translate, type Lang } from './i18n';
@@ -303,16 +303,20 @@ function comDados(cur: St, d: DadosServidor, caminhoDesejado: string, doNavegado
   // administração»), e não o de administração. A conta provisória só entra na lista de contas do administrador enquanto a vê: fora
   // disso não aparece em nenhuma das suas listas.
   const pilhaGuardada = primeira ? (doNavegador ? lerEntrarComo(d.me, d.contas) : []) : cur.stack;
-  const daCompra = doNavegador && d.contas[CONTA_PROVISORIA]?.aguarda && d.contas[d.me]?.role === 'admin' && abrirCompraPedido();
+  const ehAdmin = doNavegador && d.contas[d.me]?.role === 'admin';
+  // A conta da compra já existe no servidor: o administrador passa a ver essa (a conta provisória deixa de ser precisa)
+  const contaComprada = ehAdmin ? contaDaCompraPronta(d.contas) : '';
+  const daProvisoria = !contaComprada && ehAdmin && Boolean(d.contas[CONTA_PROVISORIA]?.aguarda) && abrirCompraPedido();
+  const daCompra = Boolean(contaComprada) || daProvisoria;
   if (daCompra) limparAbrirCompra();
-  if (d.contas[CONTA_PROVISORIA] && d.contas[d.me]?.role === 'admin' && !daCompra && !pilhaGuardada.some((x) => x.u === CONTA_PROVISORIA)) delete d.contas[CONTA_PROVISORIA];
+  if (d.contas[CONTA_PROVISORIA] && d.contas[d.me]?.role === 'admin' && !daProvisoria && (contaComprada || !pilhaGuardada.some((x) => x.u === CONTA_PROVISORIA))) delete d.contas[CONTA_PROVISORIA];
   const n0: St = {
     ...cur,
     acc: d.contas,
     login: d.me,
     activa: cur.activa && d.contas[cur.activa]?.propria ? cur.activa : lerContaActiva(d.me, d.contas),
     pessoa: d.pessoa || null,
-    stack: daCompra ? [{ u: CONTA_PROVISORIA, lv: 'admin', pg: 'inicio' }] : !primeira ? cur.stack.filter((x) => d.contas[x.u]) : pilhaGuardada,
+    stack: daCompra ? [{ u: contaComprada || CONTA_PROVISORIA, lv: 'admin', pg: 'inicio' }] : !primeira ? cur.stack.filter((x) => d.contas[x.u]) : pilhaGuardada,
     srv: d.servidor,
     dns: d.dns,
     php: d.php || [],
