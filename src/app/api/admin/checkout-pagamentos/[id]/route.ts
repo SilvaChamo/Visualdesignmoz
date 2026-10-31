@@ -174,12 +174,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 }
 
 /**
- * Elimina UM item de hospedagem de um pedido — para limpar encomendas de
- * teste (ex.: durante a migração para o Hestia) sem deixar sobras: apaga o
- * site real no servidor (só o site, nunca a conta inteira — mesmo que o dono
- * real seja "admin"), o registo de renovação (hosting_renewals) e o espelho
- * do painel (panel_sites/panel_users), além do próprio item no pedido. Só
- * itens de hospedagem — domínios e outros tipos não passam por aqui.
+ * Apaga UM item de hospedagem de um pedido. Por omissão (`apagarConta` falso) apaga SÓ a entrada da encomenda: o site, a conta, o
+ * registo de renovação (a cota) e o domínio ficam como estão (Silva, 31/10/2026 — apagar uma encomenda por engano levou também o
+ * site e a hospedagem). Com `apagarConta: true` (o painel pergunta) apaga também tudo o que esta encomenda criou: o site real no
+ * servidor (só o site, nunca a conta principal nem domínios protegidos), o registo de renovação (hosting_renewals), o espelho do
+ * painel (panel_sites/panel_users) e, se ficou sem nenhum site, a conta do cliente. Tudo o que sai do servidor vai antes para a
+ * Lixeira (Admin › Lixeira) e, se essa cópia falhar, não se apaga nada. Só itens de hospedagem; domínios e outros tipos não passam aqui.
  */
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireAdminOrReseller();
@@ -201,6 +201,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     if (!Number.isInteger(itemIndex) || itemIndex < 0) {
       return NextResponse.json({ success: false, error: 'itemIndex obrigatório.' }, { status: 400 });
     }
+    const apagarConta = body?.apagarConta === true;
 
     const { data: session, error: sessionError } = await supabase
       .from('checkout_sessions')
@@ -223,7 +224,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     const domain = String(item.hostingDomain || '').toLowerCase().trim();
     const warnings: string[] = [];
 
-    if (domain) {
+    if (domain && apagarConta) {
       const { data: renewal } = await supabase
         .from('hosting_renewals')
         .select('id, server')
@@ -244,30 +245,41 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
         warnings.push(`O site ${domain} é um site real do servidor, não foi criado por esta encomenda; por isso foi mantido. Só apaguei a encomenda e o registo de hospedagem.`);
       } else if (site?.owner) {
         const provider = await getProviderByUsername(site.owner);
+        // O adaptador copia o site para a Lixeira antes de o apagar; se essa cópia ou o apagar falhar, não se mexe em mais nada
+        // (nem na encomenda): o Silva vê o erro e nada ficou a meio.
         const result = await deleteHostingWebDomain(provider, site.owner, domain);
         if (!result.ok) {
-          warnings.push(`Não foi possível remover o site do servidor (${site.owner}/${domain}): ${mensagemPublica(result.error, false, 'o servidor não confirmou a remoção')}. Confirme manualmente.`);
+          return NextResponse.json(
+            { success: false, error: `Não foi possível apagar o site ${domain} do servidor (${mensagemPublica(result.error, false, 'o servidor não confirmou a remoção')}). Nada foi apagado.` },
+            { status: 502 },
+          );
         }
         await supabase.from('panel_sites').delete().eq('domain', domain);
+
+        // A conta do cliente (criada por esta encomenda) só sai se ficou sem nenhum site e não é a principal nem uma conta de
+        // administração; o adaptador copia a conta inteira para a Lixeira antes de a apagar.
+        const dono = site.owner;
+        const contaCriada = sanitizeDaUsername(String(item.contaUtilizador || ''));
+        if (provider === 'hestia' && contaCriada && dono === contaCriada && dono !== contaPrincipal && dono !== 'admin') {
+          const hestiaAdapter = await import('@/lib/hestia-adapter');
+          const restantes = await hestiaAdapter.listWebDomains(dono).catch(() => null);
+          if (restantes && restantes.length === 0) {
+            const conta = await hestiaAdapter.deleteAccount(dono);
+            if (conta.ok) {
+              await supabase.from('panel_users').delete().eq('username', dono);
+            } else {
+              warnings.push(`O site foi apagado, mas não consegui apagar a conta ${dono}: ${mensagemPublica(conta.error, false, 'o servidor não confirmou')}. Ela continua no servidor.`);
+            }
+          } else {
+            warnings.push(`A conta ${dono} continua no servidor porque ainda tem outros sites.`);
+          }
+        }
       } else {
         warnings.push(`Não encontrei o dono deste domínio no servidor — só apaguei os registos do painel; confirme manualmente se ficou alguma coisa em ${domain}.`);
       }
 
       if (renewal?.id) {
         await supabase.from('hosting_renewals').delete().eq('id', renewal.id);
-      }
-
-      // Mirror panel_users criado no checkout (username = prefixo do domínio) —
-      // nunca toca em "admin" nem noutra conta, só no que tiver sido gerado
-      // para este utilizador a partir deste domínio (aceita sufixos "1"/"2"/
-      // timestamp de pickAvailableMirrorUsername).
-      const base = sanitizeDaUsername(domain.split('.')[0] || '');
-      if (base) {
-        await supabase
-          .from('panel_users')
-          .delete()
-          .eq('auth_user_id', session.user_id)
-          .ilike('username', `${base}%`);
       }
     }
 

@@ -6,6 +6,7 @@ import { alojamentoVercel } from '@/lib/hospedagem-dns';
 import { executeServerCommand } from '@/lib/server-ssh-exec';
 import { hestiaCall } from '@/lib/hestia-client';
 import * as hestia from '@/lib/hestia-adapter';
+import { arquivarSite, snapshotPainel } from '@/lib/lixeira-servidor';
 import { createCloudflareZone, deleteCloudflareDnsRecord, deleteHostARecord, findCloudflareZoneId, getCloudflareZoneStatus, listCloudflareDnsRecords, requestCloudflareActivationCheck, updateCloudflareDnsRecord, upsertCloudflareRecord, type CloudflareRecordInput } from '@/lib/cloudflare-dns';
 import { provisionEmailAuthForDomain } from '@/lib/domain-email-auth';
 import { dynadotAPI } from '@/lib/dynadot-adapter';
@@ -575,6 +576,13 @@ async function tratarPedido(req: NextRequest) {
     const x = await hestiaCall(cmd, args);
     return { ok: x.ok, error: x.error };
   };
+  // Apagar o site vai sempre primeiro para a lixeira (Admin › Lixeira): se a cópia falhar, não se apaga. `bases` = as bases de dados
+  // que vão ser apagadas com o site (ficam guardadas em .sql.gz na lixeira).
+  const apagarSite = async (bases: string[] = []) => {
+    const copia = await arquivarSite(conta, d, 'Apagar site (painel)', await snapshotPainel({ dominio: d }), bases);
+    if (!copia.ok) return { ok: false, error: copia.error };
+    return call('v-delete-web-domain', [conta, d]);
+  };
 
   // Criar domínio: a conta tem de ser visível; o domínio ainda não existe
   if (c.acao === 'dominio-criar' || c.acao === 'subdominio-criar') {
@@ -668,7 +676,7 @@ async function tratarPedido(req: NextRequest) {
       const x = await p.catch((err: unknown) => ({ ok: false, error: err instanceof Error ? err.message : 'erro' }));
       (x.ok ? feitos : falhas).push(x.ok ? nome : nome + ' (' + pub(x.error, 'erro') + ')');
     };
-    if (temWeb) await passo('site e ficheiros', call('v-delete-web-domain', [conta, d]));
+    if (temWeb) await passo('site e ficheiros', apagarSite(dados?.bases || []));
     if (dados && !falhas.length) {
       for (const b of dados.bases) await passo('base de dados ' + b, call('v-delete-database', [conta, b]));
       for (const id of dados.crons) await passo('agendamento ' + id, call('v-delete-cron-job', [conta, id]));
@@ -749,7 +757,7 @@ async function tratarPedido(req: NextRequest) {
       if (modo === 'site-bd') {
         if (!w) return NextResponse.json({ erro: 'Este domínio não tem site.' }, { status: 400 });
         const dados = await dadosSoDoSite(conta, d, srv);
-        const site = await call('v-delete-web-domain', [conta, d]);
+        const site = await apagarSite(dados.bases);
         if (!site.ok) {
           esquecerLeitura();
           return NextResponse.json({ erro: 'Não foi possível apagar o site (a base de dados ficou como estava): ' + pub(site.error) }, { status: 400 });
@@ -769,7 +777,7 @@ async function tratarPedido(req: NextRequest) {
         return NextResponse.json({ ok: true, aviso: 'Apagado: ' + feitos.join(', ') + '. O e-mail e o DNS ficam.' + (dados.aviso ? ' ' + dados.aviso : '') });
       }
       if (modo !== 'site') return NextResponse.json({ erro: 'Modo de apagar inválido.' }, { status: 400 });
-      return resposta(call(w ? 'v-delete-web-domain' : 'v-delete-mail-domain', [conta, d]));
+      return resposta(w ? apagarSite() : call('v-delete-mail-domain', [conta, d]));
     }
     case 'dominio-suspender':
       return resposta(call('v-suspend-web-domain', [conta, d]));

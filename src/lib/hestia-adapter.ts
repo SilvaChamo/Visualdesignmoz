@@ -10,6 +10,7 @@ import { getPhpMyAdminUrl } from '@/lib/server-config';
 import { juntarCamposPacote } from '@/lib/pacote-hestia';
 import { alojamentoVercel } from '@/lib/hospedagem-dns';
 import { procurarPacote } from '@/lib/pacotes-compra';
+import { arquivarConta, arquivarSite, snapshotPainel } from '@/lib/lixeira-servidor';
 
 function isAlreadyExistsError(error?: string): boolean {
   return (error || '').toLowerCase().includes('exists');
@@ -208,6 +209,9 @@ export async function addWebDomain(username: string, domain: string): Promise<{ 
 }
 
 export async function deleteWebDomain(username: string, domain: string): Promise<{ ok: boolean; error?: string }> {
+  // Lixeira (31/10/2026): antes de apagar, copia o site para /backup/lixeira; se a cópia falhar, não se apaga.
+  const copia = await arquivarSite(username, domain, 'Apagar site', await snapshotPainel({ dominio: domain }));
+  if (!copia.ok) return { ok: false, error: copia.error };
   const result = await hestiaCall('v-delete-web-domain', [username, domain]);
   if (result.ok) {
     const { runEmailDnsCleanup } = await import('@/lib/domain-email-auth');
@@ -253,6 +257,9 @@ export async function unsuspendAccount(username: string): Promise<{ ok: boolean;
 }
 
 export async function deleteAccount(username: string): Promise<{ ok: boolean; error?: string }> {
+  // Lixeira (31/10/2026): antes de apagar, copia a conta inteira para /backup/lixeira; se a cópia falhar, não se apaga.
+  const copia = await arquivarConta(username, 'Apagar conta', await snapshotPainel({ conta: username }));
+  if (!copia.ok) return { ok: false, error: copia.error };
   const result = await hestiaCall('v-delete-user', [username]);
   // Sem resposta a tempo: o pedido pode ter corrido na mesma. Se a conta já não existe no servidor, está apagada.
   if (!result.ok && result.exitCode === -1) {

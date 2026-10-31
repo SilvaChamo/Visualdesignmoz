@@ -412,7 +412,7 @@ function PopupManutencao({ fechar }: { fechar: () => void }) {
 export function ServerInfoCard() {
   const { s, me } = useVH();
   const [popup, setPopup] = useState(false);
-  const { data: vivo } = useSystemStatus();
+  const { data: vivo } = useSystemStatus(false, true); // o cartão actualiza-se sozinho de minuto a minuto (Silva, 31/10/2026)
   const v = s.srv;
   if (!v) return null;
   const label = { fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.4px' } as const;
@@ -490,12 +490,10 @@ export function ServerInfoCard() {
 
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 4 }}>
-            <span style={metric} title={'Carga ' + v.carga.join(' / ') + ' em ' + v.cpus + ' processadores'}>
+            <span style={metric} title={pct(cpu) + ' de ' + v.cpus + ' núcleos · carga ' + v.carga.join(' / ')}>
               <i className="fa-solid fa-gear" style={{ color: 'var(--red)' }} /> CONSUMO CPU <AtualizarEstado linha />
             </span>
-            <b style={{ color: 'var(--ink)' }}>
-              {pct(cpu)} <span style={{ color: 'var(--muted)', fontWeight: 600 }}>de {v.cpus} núcleos</span>
-            </b>
+            <b style={{ color: 'var(--ink)', whiteSpace: 'nowrap' }}>{pct(cpu)}</b>
           </div>
           <div className="bar" style={{ height: 6 }}>
             <span style={{ width: cpu + '%', background: cor(cpu) }} />
@@ -519,9 +517,9 @@ export function ServerInfoCard() {
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 4 }}>
             <span style={metric}>
-              <i className="fa-solid fa-hard-drive" style={{ color: '#7c3aed' }} /> DISCO USADO
+              <i className="fa-solid fa-hard-drive" style={{ color: '#7c3aed' }} /> DISCO
             </span>
-            <b style={{ color: 'var(--ink)' }}>
+            <b style={{ color: 'var(--ink)', whiteSpace: 'nowrap' }}>
               {gbT(v.discoUsadoGb)} <span style={{ color: 'var(--muted)', fontWeight: 600 }}>de {gbT(v.discoTotalGb)} · {pct(discoPct)}</span>
             </b>
           </div>

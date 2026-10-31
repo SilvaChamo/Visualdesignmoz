@@ -65,6 +65,15 @@ const MOZAMBIQUE_PROVINCIAS = [
   'Cidade de Maputo',
 ];
 
+/** A província escreve-se na própria morada; daqui sai a província certa (o servidor e o registo WHOIS precisam dela). «Maputo» sozinho é ambíguo: não conta. */
+function provinciaDaMorada(texto: string): string {
+  const t = ` ${texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z]+/g, ' ')} `;
+  if (/ (cidade de maputo|maputo cidade) /.test(t)) return 'Cidade de Maputo';
+  if (/ (maputo provincia|provincia de maputo|provincia maputo) /.test(t)) return 'Maputo Província';
+  const outras: [string, string][] = [['cabo delgado', 'Cabo Delgado'], ['niassa', 'Niassa'], ['nampula', 'Nampula'], ['zambezia', 'Zambézia'], ['tete', 'Tete'], ['manica', 'Manica'], ['sofala', 'Sofala'], ['inhambane', 'Inhambane'], ['gaza', 'Gaza']];
+  return outras.find(([chave]) => t.includes(` ${chave} `))?.[1] || '';
+}
+
 const DOMAIN_REGISTRATION_YEARS = [1, 2, 3, 5, 10];
 const HOSTING_CYCLE_MONTHS: Record<HostingBillingCycle, number> = { monthly: 1, semiannual: 6, annual: 12 };
 const HOSTING_CYCLE_LABELS: Record<HostingBillingCycle, string> = { monthly: 'Mensal', semiannual: 'Semestral', annual: 'Anual' };
@@ -137,6 +146,14 @@ function IconeCaixa({ icone: Icone }: { icone: React.ComponentType<{ className?:
 }
 /** NUIT de moçambicano: 9 dígitos (obrigatório para a factura; Silva, 31/10/2026). */
 const nuitValido = (v: string) => /^\d{9}$/.test(v.replace(/\s/g, ''));
+/** O primeiro campo com problema e o que há a corrigir nele (Silva, 31/10/2026: a mensagem só aparece por uma falha concreta num campo). */
+function erroDosDados(f: { telefone: string; endereco: string; estado: string; nuit: string }): { campo: string; mensagem: string } | null {
+  if (!f.telefone.trim()) return { campo: 'Telefone', mensagem: 'Indique o telefone.' };
+  if (!f.endereco.trim()) return { campo: 'Morada', mensagem: 'Indique a morada.' };
+  if (!f.estado) return { campo: 'Morada', mensagem: 'Indique também a província na morada.' };
+  if (!nuitValido(f.nuit)) return { campo: 'NUIT da empresa', mensagem: f.nuit.trim() ? 'O NUIT da empresa deve ter 9 dígitos.' : 'Indique o NUIT da empresa (9 dígitos).' };
+  return null;
+}
 function LinhaDado({ icone: Icone, valor }: { icone: React.ComponentType<{ className?: string }>; valor: string }) {
   return (
     <p className="flex items-center gap-2.5 text-sm text-slate-700 dark:text-zinc-300 break-all">
@@ -145,9 +162,9 @@ function LinhaDado({ icone: Icone, valor }: { icone: React.ComponentType<{ class
     </p>
   );
 }
-function CampoIcone({ icone, children }: { icone: React.ComponentType<{ className?: string }>; children: React.ReactNode }) {
+function CampoIcone({ icone, children, erro }: { icone: React.ComponentType<{ className?: string }>; children: React.ReactNode; erro?: boolean }) {
   return (
-    <div className={`relative ${caixaCampoCls}`}>
+    <div className={`relative ${caixaCampoCls}${erro ? ' !border-red-500 ring-2 ring-red-500/20' : ''}`}>
       <IconeCaixa icone={icone} />
       {children}
     </div>
@@ -276,6 +293,15 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
   const [comoVisitante, setComoVisitante] = useState(false);
   // Quem tem conta vê os seus dados escritos; «Editar» abre os campos.
   const [editando, setEditando] = useState(false);
+  // Campo que falhou ao pagar/guardar: fica a vermelho até estar certo (a validade lê-se ao vivo, por isso sai sozinho).
+  const [campoComErro, setCampoComErro] = useState<string | null>(null);
+  const campoEmErro = (campo: string) => campoComErro === campo && erroDosDados(accountForm)?.campo === campo;
+  const avisarCampo = (e: { campo: string; mensagem: string }) => {
+    setCampoComErro(e.campo);
+    setErrorMessage(e.mensagem);
+    setStatus('error');
+    setTimeout(() => (document.querySelector(`[aria-label="${e.campo}"]`) as HTMLElement | null)?.focus(), 80);
+  };
   const [savingDados, setSavingDados] = useState(false);
   const copiaAntesDeEditar = React.useRef<{ form: Record<string, string>; prefixo: string } | null>(null);
   useEffect(() => {
@@ -619,12 +645,12 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
         copiaAntesDeEditar.current = { form: { ...accountForm }, prefixo: telefonePrefixo };
         setEditando(true);
       }
-      setErrorMessage(
-        contaHospedagemInvalida
-          ? 'Confira o nome da empresa (utilizador): tem de ser válido e estar livre.'
-          : 'Indique o telefone, a morada, a província e o NUIT da empresa (9 dígitos): são os dados da conta, da factura e, nos domínios, do registo oficial (WHOIS).',
-      );
-      setStatus('error');
+      const erro = contaHospedagemInvalida ? null : erroDosDados(accountForm);
+      if (erro) avisarCampo(erro);
+      else {
+        setErrorMessage('Confira o nome da empresa (utilizador): tem de ser válido e estar livre.');
+        setStatus('error');
+      }
       return;
     }
     if (isAuthenticated === false && !isEncomenda) setComoVisitante(true);
@@ -635,9 +661,9 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
     setErrorMessage('');
 
     if (isAuthenticated === true && !buyingAs && !isEncomenda) {
-      if (!accountForm.telefone.trim() || !accountForm.endereco.trim() || !accountForm.estado || !nuitValido(accountForm.nuit)) {
-        setErrorMessage('Indique o telefone, a morada, a província e o NUIT da empresa (9 dígitos): são os dados da conta, da factura e, nos domínios, do registo oficial (WHOIS).');
-        setStatus('error');
+      const erroDados = erroDosDados(accountForm);
+      if (erroDados) {
+        avisarCampo(erroDados);
         setIsSubmitting(false);
         return;
       }
@@ -688,21 +714,9 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
         setIsSubmitting(false);
         return;
       }
-      if (!accountForm.telefone.trim()) {
-        setErrorMessage('Por favor, introduza o seu Telefone para criar a conta.');
-        setStatus('error');
-        setIsSubmitting(false);
-        return;
-      }
-      if (!accountForm.endereco.trim() || !accountForm.estado) {
-        setErrorMessage('Indique a sua morada e a província: são os dados da conta e, nos domínios, do registo oficial (WHOIS).');
-        setStatus('error');
-        setIsSubmitting(false);
-        return;
-      }
-      if (!nuitValido(accountForm.nuit)) {
-        setErrorMessage('Indique o NUIT da empresa (9 dígitos): é obrigatório para a factura.');
-        setStatus('error');
+      const erroDadosVisitante = erroDosDados(accountForm);
+      if (erroDadosVisitante) {
+        avisarCampo(erroDadosVisitante);
         setIsSubmitting(false);
         return;
       }
@@ -1262,7 +1276,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
               {/* PROCESSING STEPS */}
               {/* ERROR STATE */}
               {status === 'error' && errorMessage && (
-                <div ref={caixaErroRef} className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/50 rounded-lg p-5 flex items-start gap-3">
+                <div ref={caixaErroRef} className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/50 border-l-4 border-l-black dark:border-l-zinc-100 rounded-lg p-5 flex items-start gap-3">
                   <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
                   <div>
                     <h4 className="font-bold text-red-800 dark:text-red-300 text-sm font-panel">Falha na Transação</h4>
@@ -1332,7 +1346,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                           <CampoIcone icone={Mail}>
                             <input type="email" aria-label="E-mail" placeholder="E-mail *" disabled={isAuthenticated === true && !comoVisitante} value={isAuthenticated === true && !comoVisitante && authUser?.email ? authUser.email : accountForm.email} onChange={e => setAccountForm(p => ({ ...p, email: e.target.value }))} className={campoCls} />
                           </CampoIcone>
-                          <div className={caixaCampoCls}>
+                          <div className={`${caixaCampoCls}${campoEmErro('Telefone') ? ' !border-red-500 ring-2 ring-red-500/20' : ''}`}>
                             <IconeCaixa icone={Phone} />
                             <div className="relative flex items-center border-r border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950">
                               <select aria-label="Indicativo" value={telefonePrefixo} onChange={(e) => setTelefonePrefixo(e.target.value)} className="pl-3 pr-8 h-10 bg-transparent text-sm text-slate-700 dark:text-zinc-300 outline-none cursor-pointer appearance-none">
@@ -1375,19 +1389,11 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                           <CampoIcone icone={Mail}>
                             <input type="email" aria-label="E-mail da empresa" placeholder="E-mail da empresa" value={accountForm.emailEmpresa} onChange={e => setAccountForm(p => ({ ...p, emailEmpresa: e.target.value }))} className={campoCls} />
                           </CampoIcone>
-                          <CampoIcone icone={CreditCard}>
+                          <CampoIcone icone={CreditCard} erro={campoEmErro('NUIT da empresa')}>
                             <input type="text" inputMode="numeric" maxLength={9} aria-label="NUIT da empresa" placeholder="NUIT da empresa *" value={accountForm.nuit} onChange={e => setAccountForm(p => ({ ...p, nuit: e.target.value.replace(/\D/g, '').slice(0, 9) }))} className={nuitValido(accountForm.nuit) || !accountForm.nuit ? (accountForm.nuit ? campoCls : campoVazioCls) : campoCls} />
                           </CampoIcone>
-                          <CampoIcone icone={MapPin}>
-                            <input type="text" aria-label="Morada" placeholder="Morada *" value={accountForm.endereco} onChange={e => setAccountForm(p => ({ ...p, endereco: e.target.value }))} className={campoCls} />
-                          </CampoIcone>
-                          <CampoIcone icone={MapaIcone}>
-                            <select aria-label="Província" value={accountForm.estado} onChange={e => setAccountForm(p => ({ ...p, estado: e.target.value }))} className={accountForm.estado ? campoCls : campoVazioCls}>
-                              <option value="">Província *</option>
-                              {MOZAMBIQUE_PROVINCIAS.map((p) => (
-                                <option key={p} value={p}>{p}</option>
-                              ))}
-                            </select>
+                          <CampoIcone icone={MapPin} erro={campoEmErro('Morada')}>
+                            <input type="text" aria-label="Morada" placeholder="Morada e província *" value={accountForm.endereco} onChange={e => setAccountForm(p => ({ ...p, endereco: e.target.value, estado: provinciaDaMorada(e.target.value) || p.estado }))} className={campoCls} />
                           </CampoIcone>
                       {isAuthenticated === true && !comoVisitante && editando && (
                         <div className="flex items-center justify-start gap-2 h-10">
@@ -1395,9 +1401,9 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                             type="button"
                             disabled={savingDados}
                             onClick={async () => {
-                              if (!accountForm.telefone.trim() || !accountForm.endereco.trim() || !accountForm.estado) {
-                                setErrorMessage('Indique o telefone, a morada e a província: são os dados da conta e, nos domínios, do registo oficial (WHOIS).');
-                                setStatus('error');
+                              const erroGuardar = erroDosDados(accountForm);
+                              if (erroGuardar) {
+                                avisarCampo(erroGuardar);
                                 return;
                               }
                               const erroEmailEmpresa = accountForm.emailEmpresa.trim() ? mensagemEmailInvalido(accountForm.emailEmpresa, 'O e-mail da empresa') : null;
