@@ -16089,6 +16089,8 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
 .vh .cell > .ic.ic-ligacao:focus-visible {
    transform: scale(1.06);
    filter: brightness(.96)
+}
+
 /* a linha que divide as duas colunas fica ao centro entre elas: sem espaço entre as colunas e o mesmo recuo (32 px) de cada lado da linha */
 @media (min-width: 1051px) {
    .vh .wp-gest-2c:not(#x) {
