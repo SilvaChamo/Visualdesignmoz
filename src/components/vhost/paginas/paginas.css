@@ -15429,9 +15429,9 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    padding-right: 0
 }
 
-/* plugin inactivo: a linha leva o fundo do realce (o da passagem do rato), para se ver logo que está desligado */
+/* plugin inactivo: a linha leva o fundo rosado do realce (o da passagem do rato no painel), com a etiqueta «Inactivo» lá dentro, para se ver logo que está desligado */
 .vh table tbody tr.wp-plg-inativo > td:not(#x) {
-   background: var(--hover) !important
+   background: var(--tint) !important
 }
 
 .vh .tbl td .wp-plg-desc:not(#x),
