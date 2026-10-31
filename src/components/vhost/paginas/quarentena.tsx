@@ -53,7 +53,7 @@ type Dados = { itens: Item[]; total: number };
 const mem = (b: number) => (b >= 1048576 ? (b / 1048576).toFixed(1).replace('.', ',') + ' MB' : b >= 1024 ? Math.round(b / 1024) + ' kB' : b + ' B');
 
 /** Confirmação com o título e o texto numa só linha: a letra diminui até caber na janela (sem partir em duas linhas nem cortar com "…") */
-function ConfirmarUmaLinha({ titulo, texto, ok, perigo = false, onOk }: { titulo: string; texto: string; ok: string; perigo?: boolean; onOk: () => void }) {
+export function ConfirmarUmaLinha({ titulo, texto, ok, perigo = false, onOk }: { titulo: string; texto: string; ok: string; perigo?: boolean; onOk: () => void }) {
   const { t, closeM } = useVH();
   const caixa = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {

@@ -24,6 +24,7 @@ import { ClientProductsHub } from '@/components/vhost/comuns/ClientProductsHub';
 import { contabilidadePagina, contasEncomendasPagina, gestaoEncomendasPagina } from './paginas/encomendas-admin';
 import { renovacoesAdminPagina, renovacoesClientePagina } from './paginas/renovacoes';
 import { quarentenaPagina } from './paginas/quarentena';
+import { lixeiraPagina } from './paginas/lixeira';
 import { facturacaoPagina } from './paginas/facturacao';
 import { acessosPlanos } from './paginas/acessos';
 import { catchAllPagina, emailPagina, feriasPagina, listasPagina, mailmarketingPagina, migracaoPagina, mxPagina, rastreioPagina, reencaminhamentosPagina, respostasPagina, spamPagina, webmailPagina } from './paginas/email';
@@ -866,6 +867,7 @@ export const SCREENS: Record<string, ScreenFn> = {
   'admin/renovacoes': renovacoesAdminPagina,
   'utilizador/renovacoes': renovacoesClientePagina,
   'admin/quarentena': quarentenaPagina,
+  'admin/lixeira': lixeiraPagina,
   'admin/revendedores': contas('revenda'),
   'admin/profissionais': contas('profissional'),
   'admin/pacotes-revenda': pacotes('revenda'),
