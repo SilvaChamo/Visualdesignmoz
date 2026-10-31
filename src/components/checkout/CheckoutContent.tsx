@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabase-client';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { PUBLIC_PANEL_ENTRY } from '@/lib/panel-origin';
-import { marcarViaSite, preCarregarDadosVhost } from '@/lib/vhost-cache';
+import { marcarViaSite, pedirAbrirCompra, preCarregarDadosVhost } from '@/lib/vhost-cache';
 import { destinoDepoisDoPagamento } from '@/lib/voltar-ao-painel';
 import Link from 'next/link';
 import { RenewalCheckout } from '@/app/checkout/RenewalCheckout';
@@ -135,6 +135,8 @@ function IconeCaixa({ icone: Icone }: { icone: React.ComponentType<{ className?:
     </span>
   );
 }
+/** NUIT de moçambicano: 9 dígitos (obrigatório para a factura; Silva, 31/10/2026). */
+const nuitValido = (v: string) => /^\d{9}$/.test(v.replace(/\s/g, ''));
 function LinhaDado({ icone: Icone, valor }: { icone: React.ComponentType<{ className?: string }>; valor: string }) {
   return (
     <p className="flex items-center gap-2.5 text-sm text-slate-700 dark:text-zinc-300 break-all">
@@ -390,6 +392,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
     endereco: '',
     emailEmpresa: '',
     cargo: '',
+    nuit: '',
     cidade: '',
     estado: '',
     pais: 'Mozambique'
@@ -432,22 +435,22 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
 
   // Morada/telefone do perfil (WHOIS) — para o card "Faturado Para" de quem já
   // tem conta; não vem no user_metadata, só na tabela profiles.
-  const [profileExtra, setProfileExtra] = useState<{ telefone?: string | null; morada?: string | null; cidade?: string | null } | null>(null);
+  const [profileExtra, setProfileExtra] = useState<{ telefone?: string | null; morada?: string | null; cidade?: string | null; nuit?: string | null } | null>(null);
   useEffect(() => {
     if (!authUser) return;
     supabase
       .from('profiles')
-      .select('telefone, morada, cidade')
+      .select('telefone, morada, cidade, nuit')
       .or(profileAuthOrFilter(authUser.id))
       .maybeSingle()
-      .then(async ({ data }: { data: { telefone?: string | null; morada?: string | null; cidade?: string | null } | null }) => {
+      .then(async ({ data }: { data: { telefone?: string | null; morada?: string | null; cidade?: string | null; nuit?: string | null } | null }) => {
         // o que a tabela de perfis não tem, vem dos restantes dados pessoais da conta (telefone e endereço)
         let extra = data;
         if (!data?.telefone || !data?.morada) {
           try {
             const r = await fetch('/api/encomendas/perfil');
             const pf = r.ok ? await r.json() : null;
-            if (pf) extra = { telefone: data?.telefone || pf.telefone || null, morada: data?.morada || pf.endereco || null, cidade: data?.cidade || null };
+            if (pf) extra = { telefone: data?.telefone || pf.telefone || null, morada: data?.morada || pf.endereco || null, cidade: data?.cidade || null, nuit: data?.nuit || null };
           } catch {
             /* fica o que a tabela de perfis tem */
           }
@@ -464,6 +467,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
     telefone: texto(profileExtra?.telefone) || texto(metaConta.telefone),
     morada: texto(profileExtra?.morada) || texto(metaConta.endereco),
     cidade: texto(profileExtra?.cidade) || texto(metaConta.cidade),
+    nuit: texto(profileExtra?.nuit),
     provincia: texto(metaConta.provincia),
   };
 
@@ -503,6 +507,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
       endereco: f.endereco || fonte.morada,
       emailEmpresa: f.emailEmpresa || (buyingAs ? '' : texto(metaConta.email_empresa)),
       cargo: f.cargo || (buyingAs ? '' : texto(metaConta.cargo)),
+      nuit: f.nuit || (buyingAs ? '' : dadosConta.nuit),
       estado: f.estado || (MOZAMBIQUE_PROVINCIAS.includes(fonte.provincia) ? fonte.provincia : ''),
     }));
     if (prefixo && !accountForm.telefone) setTelefonePrefixo(prefixo);
@@ -510,7 +515,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
   }, [authUser, rascunhoLido, profileExtra, buyingAs]);
 
   // Grava telefone, morada, cidade e província da conta (a cidade segue igual à província quando não há outra).
-  const gravarPerfil = async (v: { telefone: string; morada: string; cidade: string; provincia: string; emailEmpresa?: string; cargo?: string }) => {
+  const gravarPerfil = async (v: { telefone: string; morada: string; cidade: string; provincia: string; emailEmpresa?: string; cargo?: string; nuit?: string }) => {
     if (!authUser) return;
     const { data: existing } = await supabase
       .from('profiles')
@@ -522,6 +527,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
       telefone: v.telefone || null,
       morada: v.morada || null,
       cidade: v.cidade || dadosConta.cidade || v.provincia || null,
+      nuit: v.nuit ? v.nuit.replace(/\s/g, '') : null,
       updated_at: new Date().toISOString(),
     };
     const { error } = existing?.id
@@ -534,7 +540,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
     if (v.provincia !== dadosConta.provincia || novoEmailEmpresa !== texto(metaConta.email_empresa) || novoCargo !== texto(metaConta.cargo)) {
       await supabase.auth.updateUser({ data: { provincia: v.provincia, email_empresa: novoEmailEmpresa, cargo: novoCargo } });
     }
-    setProfileExtra({ telefone: payload.telefone, morada: payload.morada, cidade: payload.cidade });
+    setProfileExtra({ telefone: payload.telefone, morada: payload.morada, cidade: payload.cidade, nuit: payload.nuit });
   };
   // Quem tem conta pode mudar a palavra-passe ao editar os dados (campo opcional: vazio = não muda).
   const mudarSenha = async () => {
@@ -606,7 +612,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
       setStatus('error');
       return;
     }
-    const faltamDados = !isEncomenda && isAuthenticated === true && !buyingAs && (!accountForm.telefone.trim() || !accountForm.endereco.trim() || !accountForm.estado);
+    const faltamDados = !isEncomenda && isAuthenticated === true && !buyingAs && (!accountForm.telefone.trim() || !accountForm.endereco.trim() || !accountForm.estado || !nuitValido(accountForm.nuit));
     if (!isEncomenda && (contaHospedagemInvalida || faltamDados)) {
       // quem tem conta vê os dados em texto: abre os campos para corrigir o que falta
       if (isAuthenticated === true && !comoVisitante && !editando) {
@@ -616,18 +622,21 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
       setErrorMessage(
         contaHospedagemInvalida
           ? 'Confira o nome da empresa (utilizador): tem de ser válido e estar livre.'
-          : 'Indique o telefone, a morada e a província: são os dados da conta e, nos domínios, do registo oficial (WHOIS).',
+          : 'Indique o telefone, a morada, a província e o NUIT da empresa (9 dígitos): são os dados da conta, da factura e, nos domínios, do registo oficial (WHOIS).',
       );
       setStatus('error');
       return;
     }
     if (isAuthenticated === false && !isEncomenda) setComoVisitante(true);
+    // Quem compra uma hospedagem (o administrador, por exemplo) abre depois o painel da conta comprada, e não o seu principal:
+    // o painel lê esta marca e, assim que a conta existir no servidor, passa para ela (sem deixar de ser administrador).
+    if (!isEncomenda) pedirAbrirCompra(items.filter((i) => i.type === 'hosting').map((i) => i.contaUtilizador || '').filter(Boolean));
     setIsSubmitting(true);
     setErrorMessage('');
 
     if (isAuthenticated === true && !buyingAs && !isEncomenda) {
-      if (!accountForm.telefone.trim() || !accountForm.endereco.trim() || !accountForm.estado) {
-        setErrorMessage('Indique o telefone, a morada e a província: são os dados da conta e, nos domínios, do registo oficial (WHOIS).');
+      if (!accountForm.telefone.trim() || !accountForm.endereco.trim() || !accountForm.estado || !nuitValido(accountForm.nuit)) {
+        setErrorMessage('Indique o telefone, a morada, a província e o NUIT da empresa (9 dígitos): são os dados da conta, da factura e, nos domínios, do registo oficial (WHOIS).');
         setStatus('error');
         setIsSubmitting(false);
         return;
@@ -647,6 +656,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
           provincia: accountForm.estado,
           emailEmpresa: accountForm.emailEmpresa,
           cargo: accountForm.cargo,
+          nuit: accountForm.nuit,
         });
         await mudarSenha();
       } catch (err: unknown) {
@@ -690,6 +700,12 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
         setIsSubmitting(false);
         return;
       }
+      if (!nuitValido(accountForm.nuit)) {
+        setErrorMessage('Indique o NUIT da empresa (9 dígitos): é obrigatório para a factura.');
+        setStatus('error');
+        setIsSubmitting(false);
+        return;
+      }
       if (accountForm.password.length < 6) {
         setErrorMessage('A Palavra-passe é demasiado curta. Deve ter no mínimo 6 caracteres.');
         setStatus('error');
@@ -720,6 +736,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
               provincia: accountForm.estado,
               emailEmpresa: accountForm.emailEmpresa,
               cargo: accountForm.cargo,
+              nuit: accountForm.nuit.replace(/\s/g, ''),
               empresa: items.find((i) => i.type === 'hosting')?.contaUtilizador || accountForm.empresa,
             },
           }),
@@ -761,6 +778,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
             provincia: accountForm.estado,
             emailEmpresa: accountForm.emailEmpresa,
             cargo: accountForm.cargo,
+            nuit: accountForm.nuit.replace(/\s/g, ''),
             pais: accountForm.pais,
           })
         });
@@ -1149,6 +1167,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
               if (refreshedSession) {
                 // como o login do site: esquece a leitura de quem entrou antes neste navegador (ex.: o admin) e lê já a da conta nova,
                 // para o painel abrir com os dados do pacote comprado e não mostrar primeiro os de outra conta
+                pedirAbrirCompra();
                 await preCarregarDadosVhost();
                 marcarViaSite();
               }
@@ -1232,6 +1251,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                         <LinhaDado key={i.id} icone={Building2} valor={i.contaUtilizador || ''} />
                       ))}
                       {accountForm.emailEmpresa ? <LinhaDado icone={Mail} valor={accountForm.emailEmpresa} /> : null}
+                      <LinhaDado icone={CreditCard} valor={accountForm.nuit ? 'NUIT ' + accountForm.nuit : ''} />
                       <LinhaDado icone={MapPin} valor={accountForm.endereco} />
                       <LinhaDado icone={MapaIcone} valor={accountForm.estado} />
                     </div>
@@ -1354,6 +1374,9 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                           )}
                           <CampoIcone icone={Mail}>
                             <input type="email" aria-label="E-mail da empresa" placeholder="E-mail da empresa" value={accountForm.emailEmpresa} onChange={e => setAccountForm(p => ({ ...p, emailEmpresa: e.target.value }))} className={campoCls} />
+                          </CampoIcone>
+                          <CampoIcone icone={CreditCard}>
+                            <input type="text" inputMode="numeric" maxLength={9} aria-label="NUIT da empresa" placeholder="NUIT da empresa *" value={accountForm.nuit} onChange={e => setAccountForm(p => ({ ...p, nuit: e.target.value.replace(/\D/g, '').slice(0, 9) }))} className={nuitValido(accountForm.nuit) || !accountForm.nuit ? (accountForm.nuit ? campoCls : campoVazioCls) : campoCls} />
                           </CampoIcone>
                           <CampoIcone icone={MapPin}>
                             <input type="text" aria-label="Morada" placeholder="Morada *" value={accountForm.endereco} onChange={e => setAccountForm(p => ({ ...p, endereco: e.target.value }))} className={campoCls} />

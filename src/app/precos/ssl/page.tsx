@@ -97,7 +97,7 @@ export default function PrecosSSL() {
               <ul className="space-y-2 text-gray-600">
                 <li className="flex items-start">
                   <span className="text-green-500 mr-2">✓</span>
-                  <span>Protege dados dos usuários</span>
+                  <span>Protege os dados dos utilizadores</span>
                 </li>
                 <li className="flex items-start">
                   <span className="text-green-500 mr-2">✓</span>

@@ -7,6 +7,7 @@
  * - O que cada um vê: administrador → tudo; revendedor → a sua conta e as dos seus clientes;
  *   restantes → só a sua conta.
  */
+import { CONTA_PROVISORIA } from '@/lib/conta-provisoria';
 import { pendentesDaConta, sslPendente } from '@/lib/vhost-ssl-pendente';
 import type { Account, BaseDados, Domain, Mailbox, Role } from '@/components/vhost/types';
 import { ACME, IDIOMAS, RECURSOS, TEMAS, type InfoConta, type Lim, type PacoteUtilizador } from '@/components/vhost/paginas/dados';
@@ -129,8 +130,7 @@ function uptimeTxt(min: number): string {
   return d ? `${d} dia${d === 1 ? '' : 's'}, ${h} h` : `${h} h ${Math.round(min % 60)} min`;
 }
 
-/** Nome da conta provisória de quem comprou e ainda não tem conta no servidor (nunca coincide com uma conta real). */
-export const CONTA_PROVISORIA = 'conta-pendente';
+export { CONTA_PROVISORIA };
 
 /** `compra`: o que a sessão comprou e ainda espera (confirmação ou criação da conta). Só serve a quem não tem conta no
  *  servidor: dá-lhe uma conta provisória com o pacote pago, para ver já o painel certo, com as configurações fechadas. */
@@ -144,6 +144,10 @@ export function montarDados(srv: LeituraServidor, reg: RegistoSite, sessao: Sess
   const perfil = reg.perfis.get(sessao.userId);
   let me = (perfil?.conta || '').toLowerCase();
   if (!me || !srv.users[me]) me = [...reg.contas].find(([, r]) => r.authUserId === sessao.userId)?.[0] || '';
+  // O administrador entra sempre na conta de administração do servidor: uma conta de hospedagem que ele comprou (plano Pro, por
+  // exemplo) é uma conta de cliente como as outras e não passa a ser «a sua conta» (Silva, 30/10/2026).
+  const eContaDeAdmin = (u: string) => (srv.users[u]?.ROLE || '').toLowerCase() === 'admin' || u === apiUser;
+  if (sessao.role === 'admin' && me && !eContaDeAdmin(me)) me = '';
   // Sem conta própria ligada, só uma sessão de administrador fica com a conta de administração do servidor. Antes
   // qualquer sessão caía aqui: um cliente sem conta ligada (ex.: só domínio ou só e-mail) via — e, pelas rotas que
   // autorizam com esta lista (domínio, e-mail, bd, avançado, sistema), alterava — a conta vdadmin, e tinha o Admin.
@@ -161,7 +165,7 @@ export function montarDados(srv: LeituraServidor, reg: RegistoSite, sessao: Sess
     // Profissional. Pacotes fora dos planos seguem o papel do perfil; "manager" é sempre Profissional.
     const doPlano = buyerRoleForPackage(x.PACKAGE);
     let role: Role =
-      (x.ROLE || '').toLowerCase() === 'admin' || u === apiUser || p?.role === 'admin'
+      (x.ROLE || '').toLowerCase() === 'admin' || u === apiUser || (p?.role === 'admin' && !doPlano)
         ? 'admin'
         : p?.role === 'reseller'
           ? 'revenda'
@@ -254,7 +258,10 @@ export function montarDados(srv: LeituraServidor, reg: RegistoSite, sessao: Sess
   }
 
   // Comprou e ainda não tem conta no servidor: conta provisória com o pacote pago (nunca para a equipa)
-  if ((!me || !contas[me]) && compra && sessao.role !== 'admin' && sessao.role !== 'reseller' && sessao.role !== 'manager') {
+  // O administrador que compra um plano vê o painel dele (o painel abre-o como «entrar como», com «Voltar ao painel de administração»), sem
+  // deixar de ser administrador: a conta provisória nunca é a sua principal, nem a equipa pode agir por ela.
+  const compraDeAdmin = Boolean(compra) && sessao.role === 'admin';
+  if (compra && (compraDeAdmin || ((!me || !contas[me]) && sessao.role !== 'reseller' && sessao.role !== 'manager'))) {
     const perfilCompra = reg.perfis.get(sessao.userId);
     const papel: Role = buyerRoleForPackage(compra.pacote) === 'profissional' ? 'profissional' : 'cliente';
     const dominiosCompra: Domain[] = compra.dominios.map((d) => ({
@@ -265,8 +272,8 @@ export function montarDados(srv: LeituraServidor, reg: RegistoSite, sessao: Sess
       status: 'ok',
       ...(compra.tipo === 'dominio' ? { soDominio: true } : compra.tipo === 'email' ? { soEmail: true } : {}),
     }));
-    me = CONTA_PROVISORIA;
-    contas[me] = {
+    if (!compraDeAdmin) me = CONTA_PROVISORIA;
+    contas[CONTA_PROVISORIA] = {
       name: (perfilCompra?.name || sessao.email.split('@')[0] || '').trim(),
       email: perfilCompra?.email || sessao.email,
       ...(perfilCompra?.empresa ? { empresa: perfilCompra.empresa } : {}),
@@ -286,13 +293,13 @@ export function montarDados(srv: LeituraServidor, reg: RegistoSite, sessao: Sess
       mails: [],
       aguarda: { motivo: compra.aguarda, plano: compra.plano },
     };
-    info[me] = { bw: '0 MB', ip: '', dbs: 0, criada: '—' };
+    info[CONTA_PROVISORIA] = { bw: '0 MB', ip: '', dbs: 0, criada: '—' };
   }
 
   // O que esta sessão pode ver
   const minha = contas[me];
   let visiveis: string[];
-  if (sessao.role === 'admin') visiveis = nomes;
+  if (sessao.role === 'admin') visiveis = compraDeAdmin ? [...nomes, CONTA_PROVISORIA] : nomes;
   else if (minha?.role === 'revenda') visiveis = nomes.filter((u) => u === me || contas[u].creator === me);
   else if (me) {
     // a sua conta e as contas de hospedagem adicionais da mesma pessoa (cada hospedagem comprada tem a sua conta)

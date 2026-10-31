@@ -1,0 +1,43 @@
+name: Ops - Auditar as imagens grandes dos sites WordPress (so leitura)
+
+# Só LÊ: por cada site WordPress do servidor, quantas imagens há em wp-content/uploads, quantas passam de 250 KB e de 1 MB, quanto espaço ocupam e quais
+# são as 6 maiores. Serve para decidir a compressão das imagens que já existem (as novas passam a ser comprimidas ao subir, pelo mu-plugin do stack).
+# Não altera nada. Pedido do Silva a 30/10/2026.
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: ops-imagens-auditar
+  cancel-in-progress: false
+
+jobs:
+  auditar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Imagens por site (servidor, so leitura)
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          port: 2234
+          username: root
+          key: ${{ secrets.CONTABO_SSH_KEY }}
+          command_timeout: 8m
+          script: |
+            set -u
+            echo "ferramentas no servidor: $(for f in cwebp jpegoptim optipng convert magick; do command -v $f >/dev/null && echo -n "$f "; done) · php gd/imagick: $(php -m | grep -iE '^(gd|imagick)$' | tr '\n' ' ') · WebP no GD: $(php -r 'echo function_exists("imagewebp") ? "sim" : "nao";')"
+            for raiz in /home/*/web/*/public_html; do
+              [ -f "$raiz/wp-config.php" ] || continue
+              up="$raiz/wp-content/uploads"; [ -d "$up" ] || continue
+              conta=$(echo "$raiz" | cut -d/ -f3); dom=$(echo "$raiz" | cut -d/ -f5)
+              echo; echo "=== $conta · $dom · uploads $(du -sh "$up" 2>/dev/null | cut -f1)"
+              find "$up" -type f \( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' -o -iname '*.webp' -o -iname '*.gif' \) -printf '%s %p\n' 2>/dev/null > /tmp/img-$$.lista
+              total=$(wc -l < /tmp/img-$$.lista)
+              g250=$(awk '$1>256000' /tmp/img-$$.lista | wc -l); g1m=$(awk '$1>1048576' /tmp/img-$$.lista | wc -l)
+              mb250=$(awk '$1>256000 {s+=$1} END {printf "%.0f", s/1048576}' /tmp/img-$$.lista)
+              webp=$(grep -ci '\.webp ' /tmp/img-$$.lista)
+              echo "imagens: $total (webp: $webp) · acima de 250 KB: $g250 (ocupam $mb250 MB) · acima de 1 MB: $g1m"
+              sort -rn /tmp/img-$$.lista | head -6 | awk '{printf "   %6.1f MB  %s\n", $1/1048576, $2}' | sed "s#$raiz/##"
+              rm -f /tmp/img-$$.lista
+            done
+            echo; echo "=== fim da leitura (nada foi alterado)"

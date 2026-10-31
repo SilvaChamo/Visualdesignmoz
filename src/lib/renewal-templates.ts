@@ -282,7 +282,7 @@ export const defaultRenewalTemplates: RenewalTemplate[] = [
 <div style="text-align:left;margin:24px 0;">
   <a href="{{renewalLink}}" class="vd-cta-btn-red" style="display:inline-block;background:#dc2626;color:white;padding:12px 30px;text-decoration:none;border-radius:5px;font-weight:bold;font-size:14px;">PAGAR AGORA</a>
 </div>
-<p style="font-size:14px;color:#64748b;">Renovando com antecedência, você garante continuidade do serviço sem interrupções e evita taxas de reativação.</p>
+<p style="font-size:14px;color:#64748b;">Renovando com antecedência, garante a continuidade do serviço sem interrupções e evita taxas de reactivação.</p>
     `.trim(),
     type: 'info',
     urgency: 'low'

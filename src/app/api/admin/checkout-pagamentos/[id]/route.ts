@@ -46,7 +46,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   try {
     const body = await request.json();
-    const { itemIndex, status, rejectionReason, hostingDomain, semComprovativo } = body || {};
+    const { itemIndex, status, rejectionReason, hostingDomain, semComprovativo, repetir } = body || {};
     // 'reenviar' = o comprovativo não serve: o item continua por pagar e o cliente envia outro (a rejeição final é 'failed')
     if (status !== 'paid' && status !== 'failed' && status !== 'reenviar') {
       return NextResponse.json({ success: false, error: 'Estado inválido.' }, { status: 400 });
@@ -72,6 +72,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       return NextResponse.json({ success: false, error: 'Item não encontrado neste pedido.' }, { status: 404 });
     }
     const currentItemStatus = item.status ?? session.status;
+    // Hospedagem já confirmada cuja conta não chegou a ser criada: repete só a criação da conta (sem novo pagamento nem aviso ao cliente)
+    if (repetir === true) {
+      if (currentItemStatus !== 'paid' || (item as { type?: string }).type !== 'hosting' || !session.user_id) {
+        return NextResponse.json({ success: false, error: 'Só se repete a criação da conta de uma hospedagem já confirmada.' }, { status: 409 });
+      }
+      const feito = await fulfillCheckout(supabase, session.user_id, [item], session.metodo_pagamento, items, { chave: `${id}:${itemIndex}`, repetir: true });
+      return NextResponse.json({ success: true, avisos: feito.avisos || [] });
+    }
     if (currentItemStatus !== 'pending') {
       return NextResponse.json({ success: false, error: 'Este item já foi respondido.' }, { status: 409 });
     }
@@ -122,7 +130,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       dono = r.userId;
       contaCriada = r.contaCriada || r.senhaDefinida;
       // o pedido inteiro vai como contexto: a conta «só domínio» não pode ser criada por o item confirmado primeiro ser o domínio
-      const feito = await fulfillCheckout(supabase, dono, [item], session.metodo_pagamento, items, { esperarServidor: true, chave: `${id}:${itemIndex}` });
+      const feito = await fulfillCheckout(supabase, dono, [item], session.metodo_pagamento, items, { chave: `${id}:${itemIndex}` });
       avisosServidor = feito.avisos || [];
     }
 

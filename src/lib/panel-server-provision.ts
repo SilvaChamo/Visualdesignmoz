@@ -16,9 +16,7 @@ import { patchMirrorUser } from '@/lib/panel-mirror-write';
 import { procurarPacote } from '@/lib/pacotes-compra';
 import { runHestiaFullSyncDeduped } from '@/lib/hestia-sync-engine';
 import { getProviderByUsername, isHestiaOnlyDeploy } from '@/lib/hosting-provider';
-import { getServerHost } from '@/lib/server-config';
 import { contaAdmin } from '@/lib/vhost-passar';
-import { pointDomainToServerIp } from '@/lib/cloudflare-dns';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
@@ -241,17 +239,28 @@ export async function provisionPanelAccountToServer(userName: string, opcoes: { 
     runHestiaFullSyncDeduped().catch((err) =>
       console.error('[panel-server-provision] sync Hestia pós-criação falhou:', err),
     );
-    const serverIp = getServerHost();
-    void pointDomainToServerIp(domain, serverIp).catch((err) =>
-      console.error('[panel-server-provision] A/www Cloudflare:', err),
-    );
-    void (async () => {
-      for (const waitMs of [20_000, 60_000, 180_000]) {
-        await new Promise((resolve) => setTimeout(resolve, waitMs));
-        const ssl = await hestiaAdapter.issueLetsEncrypt(username, domain);
-        if (ssl.ok) return;
-      }
-    })().catch((err) => console.error('[panel-server-provision] retry SSL:', err));
+    // O domínio da hospedagem vai para a Cloudflare sozinho, como o de uma compra de domínio: zona, registos A, DNS de e-mail e,
+    // quando é possível, os nameservers (ver dns-hospedagem.ts). Se o cliente tem o DNS noutro sítio, recebe o aviso com o que mudar.
+    void import('@/lib/dns-hospedagem')
+      .then(async (m) => {
+        const feito = await m.prepararDnsDaHospedagem(domain, { sb, userId });
+        if (feito.nameserversPorMudar?.length) {
+          await sb.from('notifications').insert({
+            user_id: userId,
+            title: 'Aponte o domínio ao servidor',
+            message: `Para ${domain} abrir e receber o certificado SSL, mude os nameservers no registador do domínio para: ${feito.nameserversPorMudar.join(' e ')}. Assim que o DNS responder, o certificado instala-se sozinho.`,
+            type: 'warning',
+            category: 'system',
+          });
+        } else if (!feito.ok) {
+          console.error('[panel-server-provision] DNS da hospedagem:', feito.passos.filter((p) => !p.ok));
+        }
+      })
+      .catch((err) => console.error('[panel-server-provision] DNS da hospedagem:', err));
+    // Certificado SSL logo que o domínio resolver (de imediato quando o DNS já aponta aqui); ver ssl-automatico.ts
+    void import('@/lib/ssl-automatico')
+      .then((m) => m.agendarSslImediato(username, domain))
+      .catch((err) => console.error('[panel-server-provision] SSL imediato:', err));
   }
 
   return { ok: true, linked: true, ...(aviso ? { aviso } : {}) };

@@ -106,6 +106,22 @@ export async function upsertPanelAuthAccount(
   };
   if (params.provider) payload.provider = params.provider;
 
+  // O e-mail só pode estar numa linha por painel. Uma linha de outro login com o mesmo e-mail é, quase sempre, sobra de um login que já
+  // não existe (apagado e criado de novo): essa sai e a nova entra; se esse login existir mesmo, é outra conta e não se mistura.
+  const { data: outras, error: erroOutras } = await admin
+    .from('panel_auth_accounts')
+    .select('user_id')
+    .eq('panel_slug', payload.panel_slug as string)
+    .eq('email', email)
+    .neq('user_id', params.userId);
+  if (erroOutras) throw new Error(erroOutras.message);
+  for (const outra of outras || []) {
+    const { data: login, error: erroLogin } = await admin.auth.admin.getUserById(outra.user_id);
+    if (login?.user) throw new Error(`O e-mail ${email} já está registado noutra conta do painel.`);
+    if (erroLogin && erroLogin.status !== 404 && !/not found/i.test(erroLogin.message)) throw new Error(erroLogin.message);
+    await admin.from('panel_auth_accounts').delete().eq('user_id', outra.user_id);
+  }
+
   const { error } = await admin.from('panel_auth_accounts').upsert(payload, { onConflict: 'user_id' });
   if (error) throw new Error(error.message);
 }

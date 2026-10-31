@@ -111,6 +111,8 @@ export async function passarDominio(dominio: string, para: string, bases: string
   const p = para.trim().toLowerCase();
   const falha = (erro: string): Passagem => ({ ok: false, erro, passos: [], avisos: [], bases: [] });
   if (!DOMINIO_OK.test(d)) return falha('Domínio inválido.');
+  // o site e o painel da VisualDesign nunca podem parar (Silva, 30/10/2026): este domínio não se passa de conta por aqui
+  if (d === 'visualdesignmoz.com' || d === 'www.visualdesignmoz.com') return falha('O visualdesignmoz.com é o site e o painel principais e nunca se passa de conta por aqui.');
   if (!CONTA_OK.test(p) || CONTAS_DO_SISTEMA.has(p)) return falha('Conta de destino inválida.');
   const prev = await preverPassagem(d);
   if ('erro' in prev) return falha(prev.erro);
@@ -130,9 +132,10 @@ for b in $BASES; do r="\${b#\${DE}_}"; if grep -q "^DB='\${PARA}_$r'" "$HD/$PARA
 B="/root/vh-passagens/$(date +%Y%m%d-%H%M%S)-$D"; install -d -m 700 /root/vh-passagens "$B"; echo "COPIA=$B"
 w=$(grep "DOMAIN='$D'" "$HD/$DE/web.conf" 2>/dev/null)
 ip=$(echo "$w" | grep -o "IP='[^']*'" | cut -d"'" -f2); ssl=0; echo "$w" | grep -q "SSL='yes'" && ssl=1
-url() { [ -z "$w" ] && { echo 000; return; }; if [ $ssl = 1 ]; then curl -sk -o /dev/null -w '%{http_code}' --max-time 20 --resolve "$D:443:$ip" "https://$D/"; else curl -s -o /dev/null -w '%{http_code}' --max-time 20 --resolve "$D:80:$ip" "http://$D/"; fi; }
+url() { [ -z "$w" ] && { echo 000; return; }; if [ $ssl = 1 ]; then ini="https://$D/"; else ini="http://$D/"; fi; curl -sk -L --max-redirs 5 -o /dev/null -w '%{http_code}' --max-time 20 --resolve "$D:443:$ip" --resolve "$D:80:$ip" --resolve "www.$D:443:$ip" --resolve "www.$D:80:$ip" "$ini"; }
+susp() { grep "DOMAIN='$D'" "$HD/$1/web.conf" 2>/dev/null | grep -c "SUSPENDED='yes'" || true; }
 emails() { f="$HD/$1/mail/$D.conf"; if [ -f "$f" ]; then grep -c "^ACCOUNT=" "$f" || true; else echo 0; fi; }
-ANTES=$(url); MA=$(emails "$DE"); echo "ANTES=$ANTES"
+ANTES=$(url); MA=$(emails "$DE"); echo "ANTES=$ANTES"; SA=$(susp "$DE")
 cfg_de="/home/$DE/web/$D/public_html/wp-config.php"
 [ -f "$cfg_de" ] && cp -p "$cfg_de" "$B/wp-config.php"
 cp -p "/home/$DE/conf/web/$D/"nginx*.conf_webmail "$B/" 2>/dev/null
@@ -161,9 +164,18 @@ desfazer() {
     webmail "$DE" || true
   fi
 }
+# o Hestia tem de ignorar as pastas do PHP por conta ao procurar o pool, senão a passagem falha a meio e deixa o site sem PHP nem nginx
+[ -x /usr/local/sbin/vd-php-conta ] && /usr/local/sbin/vd-php-conta corrigir-hestia >/dev/null 2>&1
 out=$($H/v-change-domain-owner "$D" "$PARA" 2>&1)
 if [ "$($H/v-search-domain-owner "$D" 2>/dev/null | head -1)" != "$PARA" ]; then echo "FALHA=O servidor não passou o domínio: $(echo "$out" | tail -1)"; exit 1; fi
 movido=1; echo "PASSO=Site, e-mails, certificado, DNS e FTP passaram para $PARA"
+# o PHP: o serviço da conta antiga larga os sockets do domínio que saiu (senão o PHP partilhado não arranca) e cada conta fica no seu serviço
+if [ -x /usr/local/sbin/vd-php-conta ]; then
+  for u in /etc/systemd/system/vd-php-fpm-*-$DE.service; do [ -f "$u" ] && systemctl reload "$(basename "$u" .service)" >/dev/null 2>&1; done
+  /usr/local/sbin/vd-php-conta sincronizar >/dev/null 2>&1 || echo "AVISO=O PHP das contas não foi sincronizado; o cron trata disso em 5 minutos."
+fi
+# o bloqueio do nginx (xmlrpc, sondas, limite de ritmo) volta a ir para a configuração nova do site, sem esperar pelo cron de 10 minutos
+[ -x /usr/local/sbin/vd-bloqueio-instalar ] && /usr/local/sbin/vd-bloqueio-instalar >/dev/null 2>&1
 for b in $BASES; do
   r="\${b#\${DE}_}"
   out=$($H/v-change-database-owner "$b" "$PARA" 2>&1); rc=$?
@@ -177,6 +189,13 @@ if [ -f "$cfg" ] && [ -n "$movidas" ]; then
   else echo "FALHA=Não foi possível ajustar o WordPress."; desfazer; exit 1; fi
 fi
 if webmail "$PARA"; then echo "PASSO=Webmail em https://$D/webmail"; else echo "AVISO=A regra do webmail não foi posta (o nginx recusou)."; fi
+# o site tem de ficar tal como estava: se o servidor o deixou suspenso ou sem a configuração do nginx (o painel do WordPress e o
+# certificado deixam de funcionar e nem a página de «suspenso» aparece), reactiva-o e reconstrói-o; se não conseguir, desfaz tudo
+if [ -n "$w" ] && [ "$SA" = 0 ]; then
+  if [ "$(susp "$PARA")" != 0 ]; then $H/v-unsuspend-web-domain "$PARA" "$D" >/dev/null 2>&1; echo "AVISO=O servidor deixou o site suspenso na conta nova; foi reactivado."; fi
+  [ -f "/home/$PARA/conf/web/$D/nginx.conf" ] || $H/v-rebuild-web-domain "$PARA" "$D" yes >/dev/null 2>&1
+  if [ "$(susp "$PARA")" != 0 ] || [ ! -f "/home/$PARA/conf/web/$D/nginx.conf" ]; then echo "FALHA=O site ficou suspenso ou sem configuração na conta nova."; desfazer; exit 1; fi
+fi
 # O WordPress deixa de apontar para a conta antiga (Silva, 31/10/2026: «leve tudo, sem deixar nada atrás»). Faz parte da passagem: se falhar, desfaz-se tudo.
 # (O caso que o motivou: entrecamposblog.com ficou lento por o WP-Optimize guardar /home/vdadmin/, que o open_basedir da conta nova bloqueia a cada pedido.)
 WPDIR="/home/$PARA/web/$D/public_html"

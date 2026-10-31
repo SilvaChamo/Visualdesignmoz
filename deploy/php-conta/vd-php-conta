@@ -17,6 +17,8 @@
 #   vd-php-conta aplicar <conta> <modulo,modulo,...>  a conta passa a ter exactamente estes módulos (mais os essenciais e o que eles exigem)
 #   vd-php-conta repor <conta>                        a conta volta ao PHP-FPM partilhado
 #   vd-php-conta sincronizar                          (cron) mantém as contas dedicadas em ordem: pools que o Hestia refez, versões mudadas…
+#   vd-php-conta registo-erros                        põe o error_log/slow_log na pasta de cada site WordPress (VD_SIMULAR=1 só mostra)
+#   vd-php-conta corrigir-hestia                      faz o Hestia ignorar as pastas das contas ao procurar o pool.d (ver abaixo); idempotente
 #
 # Variáveis para testes (sem systemd): VD_TESTE=1
 set -u
@@ -200,12 +202,113 @@ limpar_pools() { # versão conta
   done
 }
 
+# Todo o pool dedicado tem um tempo máximo REAL por pedido (30/10/2026): o max_execution_time só conta CPU, e pedidos do editor do Elementor ficavam
+# minutos presos, enchiam os 8 trabalhadores do pool e o site caía para os visitantes. O Hestia refaz os pools sem este ajuste (passagem de conta, mudar
+# o PHP, reconstruir); aqui volta a pôr-se em cada passagem do sincronizar. Quem já tiver um valor próprio (ex.: workflow ops-php-tempo-limite) não é mexido.
+TEMPO_LIMITE_PEDIDO=${VD_TEMPO_LIMITE:-90s}
+garantir_tempo_limite() { # versão conta
+  local f d; d=$(pasta "$1" "$2")
+  for f in "$d"/pool.d/*.conf; do
+    [ -f "$f" ] || continue
+    grep -qE '^[[:space:]]*request_terminate_timeout[[:space:]]*=' "$f" && continue
+    printf '\nrequest_terminate_timeout = %s\n' "$TEMPO_LIMITE_PEDIDO" >> "$f"
+    log "$2: $(basename "$f") ganhou request_terminate_timeout = $TEMPO_LIMITE_PEDIDO"
+  done
+}
+
+# Todo o pool dedicado grava os erros do PHP na pasta do site (30/10/2026, Silva: «o error_log tem limitações de registar erros, mas não devia»):
+# public_html/error_log com TODOS os erros que importam (fatais, avisos, erros de análise, recuperáveis; fora ficam só as notas e os «deprecated», que
+# enchem o ficheiro sem dizer nada) e public_html/slow_log com o rasto de todo o pedido com mais de 15 s. O workflow ops-php-erros-gravar só punha estas
+# linhas num pool de cada vez e o Hestia refaz os pools sem elas (passagem de conta: o entrecamposblog.com passou de vdadmin para entrecampos e o registo
+# deixou de existir); aqui voltam a pôr-se em cada passagem do sincronizar. Nível 7159 = E_ALL sem E_NOTICE, E_USER_NOTICE, E_DEPRECATED, E_USER_DEPRECATED.
+# Os dois ficheiros ficam do dono da conta, negados à web (nginx.conf_erros) e rodados a 5 MB (logrotate, como no workflow). Devolve 0 se mudou algum pool.
+NIVEL_ERROS=${VD_NIVEL_ERROS:-7159}
+# Os registos nunca se abrem pela web (30/10/2026): o Hestia tem dois servidores por domínio, o do porto 80 (inclui nginx.conf_*) e o HTTPS (inclui nginx.ssl.conf_*); a regra
+# só em nginx.conf_erros não chegava ao HTTPS e o error_log do entrecamposblog.com abriu pela web (200). Escrevem-se os dois ficheiros e os registos ficam 640 (o nginx não os lê).
+garantir_negacao_web() { # conta domínio raiz
+  local c=$1 dom=$2 raiz=$3 cn=/home/$1/conf/web/$2 n a
+  [ -d "$cn" ] || return 0
+  for n in nginx.conf_erros nginx.ssl.conf_erros; do
+    [ -f "$cn/$n" ] && grep -qF 'error_log|slow_log' "$cn/$n" && continue
+    if [ -n "${VD_SIMULAR:-}" ]; then echo "$c $dom: POR ACTUALIZAR ($n em falta)"; continue; fi
+    printf 'location ~ ^/(error_log|slow_log)$ {\n    return 404;\n}\n' > "$cn/$n"; chown root:"$c" "$cn/$n" 2>/dev/null
+    NGINX_RECARREGAR=1
+    log "$c: $dom: $n criado (registos de erros negados à web)"
+  done
+  [ -n "${VD_SIMULAR:-}" ] || for a in error_log slow_log; do [ -f "$raiz/$a" ] && chmod 640 "$raiz/$a" 2>/dev/null; done
+  return 0
+}
+
+garantir_registo_erros() { # versão conta
+  local v=$1 c=$2 f d dom raiz cn conf ini mudou=1 cop; d=$(pasta "$v" "$c"); conf="$d/php-fpm.conf"; ini="$d/php.ini"
+  for f in "$d"/pool.d/*.conf; do
+    [ -f "$f" ] || continue
+    dom=$(basename "$f" .conf); raiz=/home/$c/web/$dom/public_html
+    [ -d "$raiz" ] || continue
+    # só os sites WordPress (Silva, 30/10/2026): os outros PHP e os sites Node.js/Next.js não levam isto
+    [ -f "$raiz/wp-config.php" ] || [ -d "$raiz/wp-includes" ] || continue
+    cop="$ARQ/$c-$dom.pool.$(date +%s)"
+    # já certo (caminho desta conta, nível actual e rasto dos pedidos lentos): nada a fazer
+    if grep -qF "php_admin_value[error_log] = $raiz/error_log" "$f" && grep -qE "^php_admin_value\[error_reporting\] = $NIVEL_ERROS\$" "$f" \
+      && grep -qF "slowlog = $raiz/slow_log" "$f"; then
+      # os ficheiros voltam sozinhos se alguém os apagar (Silva, 30/10/2026): o PHP recria o error_log no erro seguinte e aqui, de 5 em 5 minutos,
+      # recriam-se os dois vazios (o rasto dos pedidos lentos precisa do ficheiro; sem ele o PHP-FPM não escreve)
+      if [ -z "${VD_SIMULAR:-}" ]; then
+        for a in error_log slow_log; do [ -f "$raiz/$a" ] || { touch "$raiz/$a"; chown "$c:$c" "$raiz/$a" 2>/dev/null; chmod 640 "$raiz/$a"; log "$c: $dom: $a recriado (tinha sido apagado)"; }; done
+      fi
+      garantir_negacao_web "$c" "$dom" "$raiz"
+      [ -z "${VD_FALAR:-}" ] || echo "$c $dom: já certo"
+      continue
+    fi
+    if [ -n "${VD_SIMULAR:-}" ]; then echo "$c $dom: POR ACTUALIZAR (o pool não grava o registo de erros na pasta do site)"; continue; fi
+    # senão tira-se o que lá houver (o do Hestia manda os erros para /var/log, fora do alcance do gestor de ficheiros; o do workflow pode ser de outra conta
+    # ou do nível antigo) e põe-se o bloco certo
+    cp -p "$f" "$cop"
+    sed -i -E '/^; vd-erros-inicio/,/^; vd-erros-fim/d; /^(php_admin_value|php_admin_flag)\[(log_errors|error_log|error_reporting)\] *=/d; /^(request_slowlog_timeout|slowlog) *=/d' "$f"
+    { printf '\n; vd-erros-inicio (erros do PHP gravados na pasta do site)\nphp_admin_value[log_errors] = on\n'
+      printf 'php_admin_value[error_log] = %s/error_log\nphp_admin_value[error_reporting] = %s\n' "$raiz" "$NIVEL_ERROS"
+      printf 'request_slowlog_timeout = 15s\nslowlog = %s/slow_log\n; vd-erros-fim\n' "$raiz"; } >> "$f"
+    if [ -z "${VD_TESTE:-}" ] && ! "/usr/sbin/php-fpm$v" -t -y "$conf" -c "$ini" >/dev/null 2>&1; then
+      cp -p "$cop" "$f"; log "ERRO: $c: $dom: pool reposto (php-fpm -t falhou ao pôr o registo de erros)"; continue
+    fi
+    for a in error_log slow_log; do [ -f "$raiz/$a" ] || { touch "$raiz/$a"; chown "$c:$c" "$raiz/$a" 2>/dev/null; chmod 640 "$raiz/$a"; }; done
+    garantir_negacao_web "$c" "$dom" "$raiz"
+    log "$c: $dom: registo de erros do PHP em $raiz/error_log (nível $NIVEL_ERROS)"
+    [ -z "${VD_FALAR:-}" ] || echo "$c $dom: registo de erros posto em $raiz/error_log (nível $NIVEL_ERROS)"
+    mudou=0
+  done
+  [ -f /etc/logrotate.d/vd-erros-site ] || [ -n "${VD_TESTE:-}" ] || printf '/home/*/web/*/public_html/error_log /home/*/web/*/public_html/slow_log {\n    size 5M\n    rotate 2\n    compress\n    missingok\n    notifempty\n    copytruncate\n}\n' > /etc/logrotate.d/vd-erros-site 2>/dev/null
+  return $mudou
+}
+
+# o nginx só se recarrega (suave, depois do teste) se se escreveu algum nginx.conf_erros novo
+recarregar_nginx_se_preciso() {
+  [ -n "${NGINX_RECARREGAR:-}" ] && [ -z "${VD_TESTE:-}" ] || return 0
+  if nginx -t >/dev/null 2>&1; then systemctl reload nginx && log "nginx recarregado (registos de erros negados à web)" && { [ -z "${VD_FALAR:-}" ] || echo "nginx recarregado (suave)"; }
+  else log "ERRO: nginx -t falhou; nginx.conf_erros novos não recarregados"; [ -z "${VD_FALAR:-}" ] || echo "ERRO: nginx -t falhou; nginx.conf_erros novos não recarregados"; fi
+}
+
+cmd_registo_erros() { # (VD_SIMULAR=1: só mostra o que faria)
+  local d v c
+  VD_FALAR=1
+  for d in "$PHP"/*/fpm-contas/*; do
+    [ -d "$d" ] || continue
+    c=$(basename "$d"); v=$(echo "$d" | sed -n "s#^$PHP/\([0-9]\.[0-9]\)/.*#\1#p")
+    if garantir_registo_erros "$v" "$c" && [ -z "${VD_SIMULAR:-}" ]; then
+      svc_iniciar_ou_recarregar "$(unidade "$v" "$c")" "$v" "$c" && echo "$c: PHP $v recarregado (suave)"
+    fi
+  done
+  recarregar_nginx_se_preciso
+}
+
 aplicar_versao() { # versão conta
   local v=$1 c=$2 d u; d=$(pasta "$v" "$c"); u=$(unidade "$v" "$c")
   gerar "$v" "$c"
   local mudou_partilhado=1
   mover_pools "$v" "$c" && mudou_partilhado=0
   limpar_pools "$v" "$c"
+  garantir_tempo_limite "$v" "$c"
+  garantir_registo_erros "$v" "$c" || true
   if ! ls "$d"/pool.d/*.conf >/dev/null 2>&1; then
     svc_parar "$u" "$v" "$c"; rm -rf "$d"; log "$c: sem sites no PHP $v, serviço dedicado removido"; return 0
   fi
@@ -261,8 +364,51 @@ cmd_estado() { # conta versão
   echo "essenciais=$(echo $ESSENCIAIS | tr ' ' ',')"
 }
 
+# O Hestia procura as pastas pool.d do PHP e só aceita uma; com o PHP por conta (fpm-contas/*) acha várias e falha («php-fpm pool doesn't
+# exist») ao passar um domínio para outra conta, ao criar ou reconstruir sites (30/10/2026: três sites ficaram em baixo e o PHP partilhado
+# parou). Aqui a procura passa a ignorar as pastas das contas. Idempotente, com cópia de cada ficheiro em $ARQ; se a sintaxe falhar repõe-no.
+# Corre a cada 5 minutos (sincronizar), por isso um upgrade do Hestia que o desfaça é refeito sozinho.
+corrigir_hestia() {
+  local raiz=${VD_HESTIA_RAIZ:-/usr/local/hestia} f cop
+  [ -d "$raiz/func" ] || return 0
+  for f in "$raiz"/func/* "$raiz"/bin/v-*; do
+    [ -f "$f" ] || continue
+    grep -F -- '-name "*fpm.d" \)' "$f" 2>/dev/null | grep -vqF 'fpm-contas' || continue
+    cop="$ARQ/$(basename "$f").hestia.$(date +%s)"
+    cp -p "$f" "$cop"
+    sed -i 's#-name "\*fpm\.d" \\)#-name "*fpm.d" \\) -not -path "*/fpm-contas/*"#' "$f"
+    if bash -n "$f" 2>/dev/null; then log "hestia: procura do pool.d corrigida em $f"; else cp -p "$cop" "$f"; log "ERRO: hestia: $f reposto (sintaxe)"; fi
+  done
+}
+
+# Actualizações dos plugins Jet (30/10/2026): o cron do WordPress corre fora do administrador e o Jet só se inicia lá, por isso a lista de actualizações que o painel
+# lê nunca os trazia. De hora a hora, um site WordPress de cada vez (a cada passagem do sincronizar), o servidor corre a verificação completa no contexto de
+# administração (mu-plugin do stack: `VD_CTX_ADMIN=1 wp eval vd_verificar_actualizacoes_admin()`), em segundo plano, como o dono da conta e com prioridade mínima.
+ACT_WP_MINUTOS=${VD_ACT_WP_MINUTOS:-60}
+verificar_actualizacoes_wp() {
+  [ -z "${VD_TESTE:-}" ] || return 0
+  local d f c dom raiz marca; mkdir -p "$ETC/act-wp" 2>/dev/null
+  for d in "$PHP"/*/fpm-contas/*; do
+    [ -d "$d" ] || continue
+    c=$(basename "$d")
+    for f in "$d"/pool.d/*.conf; do
+      [ -f "$f" ] || continue
+      dom=$(basename "$f" .conf); raiz=/home/$c/web/$dom/public_html
+      [ -f "$raiz/wp-config.php" ] || continue
+      grep -q "vd-contexto-admin" "$raiz/wp-content/mu-plugins/visualdesign/stack.php" 2>/dev/null || continue
+      marca="$ETC/act-wp/$c-$dom"
+      [ -n "$(find "$marca" -mmin -"$ACT_WP_MINUTOS" 2>/dev/null)" ] && continue
+      touch "$marca"
+      ( setsid timeout 180 sudo -u "$c" nice -n 10 ionice -c3 env VD_CTX_ADMIN=1 /usr/local/bin/wp --path="$raiz" eval 'if (function_exists("vd_verificar_actualizacoes_admin")) { vd_verificar_actualizacoes_admin(); }' >/dev/null 2>&1 9>&- & )
+      log "$c: $dom: verificação das actualizações dos plugins (contexto de administração) lançada"
+      return 0   # um site de cada vez
+    done
+  done
+}
+
 cmd_sincronizar() {
   local c v d f tem
+  corrigir_hestia
   # o PHP-FPM dedicado escreve os registos em /var/log/php<versão>-fpm-<conta>.log: roda-os (uma vez, aqui, para não depender do deploy)
   [ -f /etc/logrotate.d/vd-php-fpm ] || [ -n "${VD_TESTE:-}" ] || printf '/var/log/php*-fpm-*.log {\n    weekly\n    rotate 4\n    compress\n    missingok\n    notifempty\n    copytruncate\n}\n' > /etc/logrotate.d/vd-php-fpm 2>/dev/null
   # as contas com extensões escolhidas e as que têm limites no pacote
@@ -286,9 +432,13 @@ cmd_sincronizar() {
       [ -d "$d" ] || continue
       v=$(echo "$d" | sed -n "s#^$PHP/\([0-9]\.[0-9]\)/.*#\1#p")
       limpar_pools "$v" "$c"
-      ls "$d"/pool.d/*.conf >/dev/null 2>&1 || { svc_parar "$(unidade "$v" "$c")" "$v" "$c"; rm -rf "$d"; log "$c: sem sites no PHP $v, serviço dedicado removido"; }
+      ls "$d"/pool.d/*.conf >/dev/null 2>&1 || { svc_parar "$(unidade "$v" "$c")" "$v" "$c"; rm -rf "$d"; log "$c: sem sites no PHP $v, serviço dedicado removido"; continue; }
+      # pools que ficaram sem o registo de erros (ex.: refeitos pelo Hestia numa passagem de conta): volta a pôr-se e recarrega-se só esta conta
+      garantir_registo_erros "$v" "$c" && svc_iniciar_ou_recarregar "$(unidade "$v" "$c")" "$v" "$c"
     done
   done
+  recarregar_nginx_se_preciso
+  verificar_actualizacoes_wp
 }
 
 cd / || exit 1
@@ -299,5 +449,7 @@ case "${1:-}" in
   aplicar) cmd_aplicar "${2:-}" "${3:-}" ;;
   repor) cmd_repor "${2:-}" ;;
   sincronizar) cmd_sincronizar ;;
-  *) echo "uso: vd-php-conta estado|aplicar|repor|sincronizar …" >&2; exit 2 ;;
+  corrigir-hestia) corrigir_hestia ;;
+  registo-erros) cmd_registo_erros ;;
+  *) echo "uso: vd-php-conta estado|aplicar|repor|sincronizar|corrigir-hestia|registo-erros …" >&2; exit 2 ;;
 esac

@@ -17,6 +17,10 @@ on:
         description: 'Forçar nova verificação das actualizações (só apaga e recria a lista guardada)'
         type: boolean
         default: false
+      jet_codigo:
+        description: 'Só mostrar o código do Jet Dashboard que trata das actualizações (linhas sem comentários)'
+        type: boolean
+        default: false
 
 concurrency:
   group: ops-wordpress-actualizacoes
@@ -31,15 +35,19 @@ jobs:
         env:
           DOMINIO: ${{ inputs.dominio || 'entrecamposblog.com' }}
           REFRESCAR: ${{ inputs.refrescar && 'sim' || 'nao' }}
+          JET_CODIGO: ${{ inputs.jet_codigo && 'sim' || 'nao' }}
         with:
           host: ${{ secrets.CONTABO_HOST }}
           port: 2234
           username: root
           key: ${{ secrets.CONTABO_SSH_KEY }}
           command_timeout: 6m
-          envs: DOMINIO,REFRESCAR
+          envs: DOMINIO,REFRESCAR,JET_CODIGO
           script: |
             set -u
+            # o registo do GitHub nem sempre se consegue abrir: o resumo sai também como anotação da tarefa (uma linha, separada por «|»)
+            : > /tmp/saida-act.txt; exec > >(tee -a /tmp/saida-act.txt) 2>&1
+            trap 'sleep 1; echo "::notice title=Resumo::$(tr "\n" "|" < /tmp/saida-act.txt | cut -c1-3900)"' EXIT
             case "$DOMINIO" in (*[!a-z0-9.-]*|''|*..*) echo "Domínio inválido"; exit 1;; esac
             titulo() { echo; echo "=================== $1"; }
             CONTA=""
@@ -50,6 +58,19 @@ jobs:
             W="sudo -u $CONTA $WP --path=$RAIZ"
             LER_TRANSIENT='$t = get_site_transient("update_plugins"); echo "última verificação: ".(isset($t->last_checked) ? date("d/m/Y H:i:s", $t->last_checked)." (há ".round((time()-$t->last_checked)/60)." min)" : "nunca")."\n"; $n = isset($t->response) ? count($t->response) : 0; echo "plugins com actualização na lista guardada: $n\n"; if ($n) foreach ($t->response as $f => $o) echo "  $f -> ".($o->new_version ?? "?")."\n"; echo "cache de objectos externa: ".(wp_using_ext_object_cache() ? "sim" : "não")."\n";'
             titulo "$DOMINIO (conta $CONTA) · hora: $(date '+%d/%m/%Y %H:%M:%S %Z')"
+            if [ "$JET_CODIGO" = "sim" ]; then
+              titulo "Jet Dashboard: código das actualizações (só leitura; sem comentários nem linhas vazias)"
+              D="$RAIZ/wp-content/plugins/jet-engine/framework/jet-dashboard"
+              lim() { sed -E 's/^[[:space:]]+//; /^(\/\/|\*|\/\*)/d; /^$/d' | cut -c1-120; }
+              echo "--- mu-plugin com o corte do Gzip do WP-Optimize? $(grep -c vd-wpo-gzip "$RAIZ/wp-content/mu-plugins/visualdesign/stack.php" 2>/dev/null)"
+              $W eval '
+              class WP_Optimize_Gzip_Compression_Teste { static function f($u) { return wp_remote_get($u, array("timeout" => 8)); } }
+              $t = microtime(true); $r = WP_Optimize_Gzip_Compression_Teste::f(home_url("/"));
+              echo "pedido vindo da classe do Gzip: ".(is_wp_error($r) ? $r->get_error_code() : "respondeu")." em ".round(microtime(true) - $t, 2)." s\n";
+              $t = microtime(true); $r = wp_remote_get(home_url("/"), array("timeout" => 8));
+              echo "pedido normal ao próprio site: ".(is_wp_error($r) ? $r->get_error_code() : wp_remote_retrieve_response_code($r))." em ".round(microtime(true) - $t, 2)." s\n";' 2>&1 | cut -c1-200 | head -n 6
+              exit 0
+            fi
 
             titulo "1. Cron do WordPress"
             echo "DISABLE_WP_CRON no wp-config: $(grep -E "DISABLE_WP_CRON" "$RAIZ/wp-config.php" | cut -c1-80 | head -1)"
@@ -88,4 +109,12 @@ jobs:
             echo "verificados: ".(isset($t->checked) ? count($t->checked) : 0)." · sem actualização: ".(isset($t->no_update) ? count($t->no_update) : 0)." · falhas: ".json_encode(isset($t->failed_checks) ? $t->failed_checks : null)."\n";
             echo "is_admin() no wp-cli: ".(is_admin() ? "sim" : "não")."\n";
             ' 2>&1 | cut -c1-400 | head -n 12
+            titulo "7. Jet (Crocoblock): plugins instalados e onde o Jet Dashboard guarda as actualizações (nomes e tamanhos, nunca os valores)"
+            $W plugin list --fields=name,version,status --format=csv 2>/dev/null | grep -iE 'name,version|jet|croco|pro-elements|pro_elements'
+            echo "--- opções do Jet / Crocoblock ligadas a actualizações, dashboard ou licença (nome · tamanho do valor):"
+            $W eval 'global $wpdb; $q = "SELECT option_name, LENGTH(option_value) AS l FROM {$wpdb->options} WHERE (option_name LIKE \"%jet%\" OR option_name LIKE \"%croco%\") AND (option_name LIKE \"%updat%\" OR option_name LIKE \"%dashboard%\" OR option_name LIKE \"%licen%\" OR option_name LIKE \"%plugins%\") ORDER BY option_name LIMIT 40"; foreach ($wpdb->get_results($q) as $r) echo $r->option_name." · ".$r->l."\n";' 2>&1 | cut -c1-160 | head -n 40
+            echo "--- onde os plugins Jet se ligam às actualizações (ficheiro:linha):"
+            grep -rnE "pre_set_site_transient_update_plugins|site_transient_update_plugins|plugins_api" "$RAIZ"/wp-content/plugins/jet-*/ "$RAIZ"/wp-content/plugins/jet-dashboard/ 2>/dev/null | grep -v "/vendor/" | sed "s#$RAIZ/wp-content/plugins/##" | cut -c1-170 | head -n 15
+            echo "--- jet-dashboard: classes que tratam de actualizações:"
+            grep -rlE "check_update|plugins_update|get_remote_plugins|update_plugins" "$RAIZ"/wp-content/plugins/jet-dashboard/ 2>/dev/null | sed "s#$RAIZ/wp-content/plugins/##" | head -n 10
             titulo "fim da leitura"

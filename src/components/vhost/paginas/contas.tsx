@@ -740,7 +740,24 @@ function ContaModificar({ u }: { u: string }) {
 
 // ---------- Criar conta ----------
 type TipoNova = 'cliente' | 'revenda' | 'admin';
-function NovaConta({ tipo }: { tipo: TipoNova }) {
+/** `embutido`: dentro da janela «Passar para outra conta» — o domínio é o que vai passar (não se escolhe nem passa daqui), e ao criar volta-se
+ *  à janela com a conta nova escolhida (`aoCriar`) em vez de seguir para a lista de contas. */
+/** Versão da janela «Passar para outra conta»: os campos vão um por baixo do outro (a página usa duas colunas, largas de mais para a janela). Ficam fora de NovaConta para o React não os recriar a cada desenho. */
+function QuadroEmbutido({ children }: { children: React.ReactNode }) {
+  return <div>{children}</div>;
+}
+function LinhaEmbutida({ label, hint, children }: { label: string; hint?: string; tag?: string; children: React.ReactNode }) {
+  const { t } = useVH();
+  return (
+    <div className="f">
+      <label>{t(label)}</label>
+      {children}
+      {hint && <small style={{ color: 'var(--muted)' }}>{t(hint)}</small>}
+    </div>
+  );
+}
+
+export function NovaConta({ tipo, embutido }: { tipo: TipoNova; embutido?: { dominio: string; aoCriar: (user: string) => void; aoCancelar: () => void } }) {
   const vh = useVH();
   const { s, me, t, toast, nav } = vh;
   const [role, setRole] = useState<Role>(tipo === 'cliente' ? 'profissional' : tipo);
@@ -748,7 +765,7 @@ function NovaConta({ tipo }: { tipo: TipoNova }) {
   const [nome, setNome] = useState('');
   const [email, setEmail] = useState('');
   const [pass, setPass] = useState('');
-  const [dom, setDom] = useState('');
+  const [dom, setDom] = useState(embutido?.dominio || '');
   const nomes = Object.keys(tipo === 'revenda' ? s.db.rpkgs : pacotesDeCliente(s));
   const sugerido = (r: Role) => nomes.find((n) => (r === 'cliente' ? /mail/i : /basic|basico|starter/i).test(n)) || nomes[0];
   const [pk, setPk] = useState(nomes.includes(sugerido(role)) ? sugerido(role) : nomes[0]);
@@ -767,19 +784,9 @@ function NovaConta({ tipo }: { tipo: TipoNova }) {
   const [passar, setPassar] = useState(true);
   const [aPassar, setAPassar] = useState<number | null>(null);
   useEffect(() => {
-    // vindo de "Nova conta…" na janela de passar domínios
-    try {
-      const d0 = sessionStorage.getItem('vh-novo-dominio');
-      if (d0) {
-        setDom(d0);
-        sessionStorage.removeItem('vh-novo-dominio');
-      }
-    } catch {}
-  }, []);
-  useEffect(() => {
     setOnde(null);
     const d = dom.trim().toLowerCase();
-    if (tipo !== 'cliente' || !/^([a-z0-9-]+\.)+[a-z]{2,}$/.test(d)) return;
+    if (embutido || tipo !== 'cliente' || !/^([a-z0-9-]+\.)+[a-z]{2,}$/.test(d)) return;
     let vivo = true;
     const espera = setTimeout(() => {
       lerPrevisao(d).then((r) => {
@@ -814,10 +821,11 @@ function NovaConta({ tipo }: { tipo: TipoNova }) {
     if (tipo !== 'cliente') return toast('Criar ' + (tipo === 'revenda' ? 'revendedores' : 'administradores') + ' ainda não está ligado ao servidor');
     if (custom) return toast('Os limites próprios ainda não chegam ao servidor: escolha um pacote');
     if (onde?.bloqueia) return toast(onde.bloqueia);
-    const comPassagem = !!onde?.passa && passar;
+    const comPassagem = !embutido && !!onde?.passa && passar;
     // com passagem, a conta nasce sem domínio e o domínio passa para ela a seguir (cópia e desfazer no servidor)
-    noServidor(vh, { acao: 'criar', criar: { user: u, nome: nome.trim(), email: email.trim(), senha: pass, dominio: comPassagem ? '' : d, pacote: pk } }, () => ROLES[role] + ' ' + u + ' criado no servidor').then(async (feitas) => {
+    noServidor(vh, { acao: 'criar', criar: { user: u, nome: nome.trim(), email: email.trim(), senha: pass, dominio: comPassagem || embutido ? '' : d, pacote: pk } }, () => ROLES[role] + ' ' + u + ' criado no servidor').then(async (feitas) => {
       if (!feitas.length) return;
+      if (embutido) return embutido.aoCriar(u);
       if (comPassagem && onde?.prev) {
         setAPassar(0);
         const x = await correrPassagem(d, u, onde.prev.bases, setAPassar);
@@ -828,6 +836,10 @@ function NovaConta({ tipo }: { tipo: TipoNova }) {
       nav(destino);
     });
   };
+
+  // Na janela «Passar para outra conta» os campos vão um por baixo do outro (a página usa duas colunas, largas de mais para a janela)
+  const Quadro = embutido ? QuadroEmbutido : Frm;
+  const Linha = embutido ? LinhaEmbutida : Row;
 
   return (
     <>
@@ -840,16 +852,16 @@ function NovaConta({ tipo }: { tipo: TipoNova }) {
           </div>
         </div>
       )}
-      <Frm>
+      <Quadro>
         {v && v.limite !== null && (
-          <Row label="Contas de cliente" hint={'Pacote de revenda: ' + v.plano} tag="VisualHost">
+          <Linha label="Contas de cliente" hint={'Pacote de revenda: ' + v.plano} tag="VisualHost">
             <span style={{ color: cheio ? 'var(--red)' : 'var(--ink)', fontWeight: 600 }}>
               {v.usadas} {t('de')} {v.limite} {t('usadas')}
             </span>
-          </Row>
+          </Linha>
         )}
         {tipo === 'cliente' && (
-          <Row label="Tipo de conta" tag="VisualHost">
+          <Linha label="Tipo de conta" tag="VisualHost">
             <select
               value={role}
               onChange={(e) => {
@@ -861,28 +873,28 @@ function NovaConta({ tipo }: { tipo: TipoNova }) {
               <option value="profissional">{t('Profissional')} (com site)</option>
               <option value="cliente">{t('Cliente')} (só e-mail e domínio)</option>
             </select>
-          </Row>
+          </Linha>
         )}
-        <Row label="Utilizador" hint="3 a 18 letras ou números">
+        <Linha label="Utilizador" hint="3 a 18 letras ou números">
           <input value={user} onChange={(e) => setUser(e.target.value)} autoComplete="off" />
-        </Row>
-        <Row label="Nome" hint="Pessoa ou empresa (aparece no painel)" tag="VisualHost">
+        </Linha>
+        <Linha label="Nome" hint="Pessoa ou empresa (aparece no painel)" tag="VisualHost">
           <input value={nome} onChange={(e) => setNome(e.target.value)} />
-        </Row>
-        <Row label="E-mail">
+        </Linha>
+        <Linha label="E-mail">
           <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-        </Row>
-        <Row label="Palavra-passe">
+        </Linha>
+        <Linha label="Palavra-passe">
           <Senha value={pass} onChange={setPass} />
-        </Row>
+        </Linha>
         {tipo !== 'admin' && (
-          <Row label="Domínio">
+          <Linha label="Domínio">
             <div style={{ width: '100%' }}>
               <span className="igrp">
                 <span className="ib" style={{ cursor: 'default' }}>
                   <i className="fa-solid fa-globe" />
                 </span>
-                <input value={dom} onChange={(e) => setDom(e.target.value)} placeholder="ex.: empresa.co.mz" disabled={aPassar !== null} />
+                <input value={dom} onChange={(e) => setDom(e.target.value)} placeholder="ex.: empresa.co.mz" disabled={aPassar !== null || !!embutido} />
               </span>
               {onde?.passa && onde.prev && (
                 <div className="passar-aviso-dom">
@@ -902,10 +914,10 @@ function NovaConta({ tipo }: { tipo: TipoNova }) {
                 </div>
               )}
             </div>
-          </Row>
+          </Linha>
         )}
         {tipo !== 'admin' && (
-          <Row
+          <Linha
             label={tipo === 'revenda' ? 'Pacote de revenda' : 'Pacote'}
             hint={
               custom
@@ -920,7 +932,7 @@ function NovaConta({ tipo }: { tipo: TipoNova }) {
                 <option key={n}>{n}</option>
               ))}
             </select>
-            {custom ? (
+            {embutido ? null : custom ? (
               <button className="btn g" onClick={() => setCustom(null)}>
                 <i className="fa-solid fa-box" />
                 {t('Usar o pacote')}
@@ -931,29 +943,31 @@ function NovaConta({ tipo }: { tipo: TipoNova }) {
                 {t('Personalizar')}
               </button>
             )}
-          </Row>
+          </Linha>
         )}
-        {tipo !== 'admin' && (
-          <Row label="IP">
+        {tipo !== 'admin' && !embutido && (
+          <Linha label="IP">
             <select value={ip} onChange={(e) => setIp(e.target.value)}>
               {IPS.map((x) => (
                 <option key={x}>{x}</option>
               ))}
             </select>
-          </Row>
+          </Linha>
         )}
-        <Row label="Notificação">
-          <Check checked={notif} onChange={setNotif} label="Enviar e-mail com os dados de acesso" />
-        </Row>
-      </Frm>
+        {!embutido && (
+          <Linha label="Notificação">
+            <Check checked={notif} onChange={setNotif} label="Enviar e-mail com os dados de acesso" />
+          </Linha>
+        )}
+      </Quadro>
       {custom &&
         (tipo === 'revenda' ? (
           <FormPacoteRevenda value={custom as PacoteRevenda} onChange={setCustom} conta />
         ) : (
           <FormPacoteUtilizador value={custom as PacoteUtilizador} onChange={setCustom} conta />
         ))}
-      <div className="acoes-topo">
-        <button className="btn g" onClick={() => nav(destino)}>
+      <div className={embutido ? 'mfoot' : 'acoes-topo'}>
+        <button className="btn g" onClick={() => (embutido ? embutido.aoCancelar() : nav(destino))}>
           {t('Cancelar')}
         </button>
         <button className="btn r" onClick={criar} disabled={cheio || aPassar !== null}>

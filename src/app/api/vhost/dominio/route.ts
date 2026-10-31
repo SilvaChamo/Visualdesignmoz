@@ -16,6 +16,7 @@ import { mensagemPublica } from '@/lib/mensagem-publica';
 import { lerRegisto, montarDados } from '@/lib/vhost-dados';
 import { instalarWebmail } from '@/lib/vhost-passar';
 import { limparSslPendente, marcarSslPendente } from '@/lib/vhost-ssl-pendente';
+import { agendarSslImediato } from '@/lib/ssl-automatico';
 
 export const dynamic = 'force-dynamic';
 // o pedido do SSL ao ssl-le espera pelo DNS e pelo Let's Encrypt
@@ -57,20 +58,9 @@ async function verificar(s: Sessao, conta: string, d: string, srv: LeituraServid
 /** Pede o certificado por trás, sem fazer esperar quem criou o subdomínio: o painel mostra-o logo na lista com "A processar
  *  SSL…" (sslPendente) e tenta aos `pausa` ms, 20 s, 1 min e 3 min (o DNS novo pode demorar a chegar ao Let's Encrypt). */
 function emitirSslPorTras(conta: string, dominio: string, pausa: number): void {
-  marcarSslPendente(dominio, conta);
-  void (async () => {
-    try {
-      for (const espera of [pausa, 20_000, 60_000, 180_000]) {
-        await new Promise((r) => setTimeout(r, espera));
-        const r = await hestia.issueLetsEncrypt(conta, dominio).catch(() => ({ ok: false }));
-        esquecerLeitura();
-        if (r.ok) return;
-      }
-    } finally {
-      limparSslPendente(dominio);
-      esquecerLeitura();
-    }
-  })();
+  void pausa;
+  // vigia o DNS de 10 em 10 s e pede o certificado logo que o domínio resolver (ver ssl-automatico.ts); o painel mostra «A processar SSL…»
+  agendarSslImediato(conta, dominio);
 }
 
 /** O subdomínio só abre (e o Let's Encrypt só passa) se tiver registo no DNS. Sem ele, cria o A na Cloudflare e espera
@@ -576,10 +566,10 @@ async function tratarPedido(req: NextRequest) {
   // a releitura forçada garante que um domínio acabado de criar já aparece; se o servidor demorar a responder, vale a leitura que já havia
   if (c.acao === 'dominio-apagar') srv = await lerServidor(true).catch(() => srv);
   // `esquecer`: a alteração muda a lista de contas/domínios (os registos de DNS não mudam)
-  const resposta = async (p: Promise<{ ok: boolean; error?: string }> | { ok: boolean; error?: string }, esquecer = true) => {
+  const resposta = async (p: Promise<{ ok: boolean; error?: string; aviso?: string }> | { ok: boolean; error?: string; aviso?: string }, esquecer = true) => {
     const x = await p;
     if ((x.ok || c.acao === 'dominio-apagar') && esquecer) esquecerLeitura();
-    return NextResponse.json(x.ok ? { ok: true } : { erro: pub(x.error, 'O servidor recusou o pedido. Tente de novo; se continuar, contacte o suporte.') }, { status: x.ok ? 200 : 400 });
+    return NextResponse.json(x.ok ? { ok: true, ...(x.aviso ? { aviso: x.aviso } : {}) } : { erro: pub(x.error, 'O servidor recusou o pedido. Tente de novo; se continuar, contacte o suporte.') }, { status: x.ok ? 200 : 400 });
   };
   const call = async (cmd: string, args: string[]) => {
     const x = await hestiaCall(cmd, args);
@@ -625,7 +615,7 @@ async function tratarPedido(req: NextRequest) {
         emitirSslPorTras(conta, novo, 6000);
       }
     } else if (x.ok && c.ssl) {
-      hestia.issueLetsEncrypt(conta, novo).catch(() => null); // com o reload do nginx (o certificado vale logo)
+      agendarSslImediato(conta, novo); // pede o certificado logo que o domínio resolver (com o reload do nginx: vale logo)
     }
     // webmail em https://<domínio>/webmail (antes ficava por pôr à mão em cada domínio novo)
     if (x.ok && !(await instalarWebmail(conta, novo))) {
@@ -801,17 +791,15 @@ async function tratarPedido(req: NextRequest) {
       if (falhaDns) return NextResponse.json({ erro: 'O subdomínio não tem DNS e o painel não o conseguiu criar (' + falhaDns + '). Crie o registo A em DNS.' }, { status: 400 });
       if (!Array.isArray(c.nomes)) {
         marcarSslPendente(d, conta);
-        try {
-          return await resposta(hestia.issueLetsEncrypt(conta, d));
-        } finally {
-          limparSslPendente(d);
-        }
+        const pedido = hestia.issueLetsEncrypt(conta, d);
+        void pedido.finally(() => limparSslPendente(d)).catch(() => {});
+        return resposta(semDemorarDemais(pedido));
       }
       const existentes = String(w.ALIAS || '').split(',').map((x) => x.trim().toLowerCase()).filter(Boolean);
       const nomes = [...new Set((c.nomes as unknown[]).map((x) => linhaLimpa(x).toLowerCase()))].filter((x) => x && x !== d);
       const fora = nomes.find((x) => !existentes.includes(x));
       if (fora) return NextResponse.json({ erro: fora + ' não é apontador deste domínio.' }, { status: 400 });
-      return resposta(hestia.issueLetsEncrypt(conta, d, nomes));
+      return resposta(semDemorarDemais(hestia.issueLetsEncrypt(conta, d, nomes)));
     }
     case 'ssl-mail-le': {
       if (!w) return NextResponse.json({ erro: 'Este domínio não tem site.' }, { status: 400 });
@@ -821,7 +809,7 @@ async function tratarPedido(req: NextRequest) {
       // 403") e o painel mostrava erro com o SSL do e-mail a funcionar (Silva, 15/10/2026). Só se pede outro com `forcar`.
       if ((m.SSL || 'no').toLowerCase() === 'yes' && (m.LETSENCRYPT || 'no').toLowerCase() === 'yes' && !c.forcar)
         return NextResponse.json({ ok: true, aviso: 'O e-mail e o webmail de ' + d + ' já têm SSL válido (renova-se sozinho).' });
-      return resposta(hestia.issueMailLetsEncrypt(conta, d));
+      return resposta(semDemorarDemais(hestia.issueMailLetsEncrypt(conta, d)));
     }
     case 'ssl-apagar': {
       // Cancelar o certificado: o Let's Encrypt sai com a renovação automática; um certificado próprio sai só ele
@@ -964,6 +952,14 @@ async function tratarPedido(req: NextRequest) {
 
 /** Qualquer erro que rebente dentro do pedido (o servidor não responde, uma leitura falha, ...) devolve JSON com a causa; antes saía uma página de erro sem
  *  mensagem e o painel só mostrava «A alteração falhou» (Silva, 26/10/2026: o botão Apagar dos domínios). O administrador vê a causa; os outros, uma frase útil. */
+/** O Let's Encrypt pode demorar mais do que o site espera por uma resposta (era o erro 502 do «Renovar SSL»): passados 40 s responde que o pedido segue em curso, e o certificado acaba de se emitir por trás. */
+async function semDemorarDemais<T extends { ok: boolean; error?: string }>(pedido: Promise<T>, ms = 40_000): Promise<T | { ok: true; aviso: string }> {
+  const emCurso = new Promise<{ ok: true; aviso: string }>((resolve) =>
+    setTimeout(() => resolve({ ok: true, aviso: 'O pedido do certificado segue em curso no servidor (pode levar uns minutos). Actualize a página daqui a instantes e veja o Histórico de aprovisionamento.' }), ms),
+  );
+  return Promise.race([pedido, emCurso]);
+}
+
 export async function POST(req: NextRequest) {
   try {
     return await tratarPedido(req);

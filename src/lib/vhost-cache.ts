@@ -128,3 +128,44 @@ export function limparViaSite() {
     document.cookie = `${COOKIE_VIA_SITE}=; path=/; max-age=0`;
   } catch {}
 }
+
+/** O administrador (ou quem tem mais do que uma conta) que acaba de comprar um plano abre o painel desse plano e não o seu principal: o checkout
+ *  deixa esta marca (10 min) e o painel, ao ler os dados, passa para a conta do pedido que está à espera. */
+const ABRIR_COMPRA_LS = 'vh-abrir-compra';
+const ABRIR_COMPRA_CONTAS_LS = 'vh-abrir-compra-contas';
+/** `contas`: os nomes das contas de hospedagem que a compra vai criar. O pedido pode esperar pela confirmação ou pela criação no servidor;
+ *  assim que uma dessas contas existir, o administrador passa a vê-la (ver contaDaCompraPronta). */
+export function pedirAbrirCompra(contas?: string[]) {
+  try {
+    localStorage.setItem(ABRIR_COMPRA_LS, String(Date.now()));
+    const nomes = (contas || []).map((c) => c.trim()).filter(Boolean);
+    if (nomes.length) localStorage.setItem(ABRIR_COMPRA_CONTAS_LS, JSON.stringify({ t: Date.now(), contas: nomes }));
+  } catch {}
+}
+/** Das contas que a última compra ia criar, a primeira que já existe nos dados do painel; '' se nenhuma, ou se passou 1 h. Quem a usa chama limparAbrirCompra. */
+export function contaDaCompraPronta(existentes: Record<string, unknown>): string {
+  try {
+    const g = JSON.parse(localStorage.getItem(ABRIR_COMPRA_CONTAS_LS) || 'null') as { t?: number; contas?: string[] } | null;
+    if (!g || !Array.isArray(g.contas) || !g.t || Date.now() - g.t > 60 * 60_000) {
+      localStorage.removeItem(ABRIR_COMPRA_CONTAS_LS);
+      return '';
+    }
+    return g.contas.find((c) => existentes[c]) || '';
+  } catch {
+    return '';
+  }
+}
+export function abrirCompraPedido(): boolean {
+  try {
+    const t = Number(localStorage.getItem(ABRIR_COMPRA_LS));
+    return t > 0 && Date.now() - t < 10 * 60_000;
+  } catch {
+    return false;
+  }
+}
+export function limparAbrirCompra() {
+  try {
+    localStorage.removeItem(ABRIR_COMPRA_LS);
+    localStorage.removeItem(ABRIR_COMPRA_CONTAS_LS);
+  } catch {}
+}

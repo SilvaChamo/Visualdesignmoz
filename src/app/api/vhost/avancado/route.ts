@@ -765,11 +765,21 @@ export async function POST(req: NextRequest) {
       // ficheiro de entrada (criado aqui) não existe lá — confirma primeiro com um ficheiro de prova
       const raiz = raizSite(srv, conta, d);
       const prova = Array.from(crypto.getRandomValues(new Uint8Array(12)), (x) => x.toString(16).padStart(2, '0')).join('');
+      // Duas provas: o endereço público (o que o painel vai abrir) e este servidor directamente (ignora o DNS), para
+      // saber se o que falha é o DNS ou o próprio servidor depois de uma passagem de conta
+      const url = q('https://' + d + '/vh-prova-' + prova + '.txt');
       const visto = await executeServerCommand(
-        `f=${q(raiz + '/vh-prova-' + prova + '.txt')}; echo ${prova} | sudo -u ${conta} sh -c 'cat > "$1"' _ "$f" && r=$(curl -sk -m 8 -L ${q('https://' + d + '/vh-prova-' + prova + '.txt')} | head -c 64); sudo -u ${conta} rm -f -- "$f"; echo "$r"`,
+        `f=${q(raiz + '/vh-prova-' + prova + '.txt')}; echo ${prova} | sudo -u ${conta} sh -c 'cat > "$1"' _ "$f" && { pub=$(curl -sk -m 8 -L ${url} | head -c 64); loc=$(curl -sk -m 8 -L --resolve ${q(d + ':443:127.0.0.1')} --resolve ${q(d + ':80:127.0.0.1')} ${url} | head -c 64); }; sudo -u ${conta} rm -f -- "$f"; echo "PUBLICO=$([ "\${pub:-}" = ${prova} ] && echo 1 || echo 0)"; echo "LOCAL=$([ "\${loc:-}" = ${prova} ] && echo 1 || echo 0)"; echo "DNS=$(getent ahostsv4 ${q(d)} | awk '{print $1}' | sort -u | tr '\\n' ' ')"; echo "SERVIDOR=$(hostname -I)"`,
         { timeoutMs: 30_000 },
       ).catch(() => '');
-      if (!visto.includes(prova)) return recusa(d + ' ainda abre noutro servidor (o DNS ainda não aponta para este). O painel do WordPress abre aqui depois da mudança do DNS.');
+      if (!/^PUBLICO=1$/m.test(visto)) {
+        const dns = (/^DNS=(.*)$/m.exec(visto)?.[1] || '').trim();
+        const servidor = (/^SERVIDOR=(.*)$/m.exec(visto)?.[1] || '').trim();
+        if (/^LOCAL=1$/m.test(visto)) {
+          return recusa(d + ' abre neste servidor, mas o DNS aponta para ' + (dns || 'nenhum endereço') + (servidor ? ' (este servidor é ' + servidor + ')' : '') + '. O painel do WordPress abre aqui depois da mudança do DNS.');
+        }
+        return recusa('O servidor não está a servir ' + d + ' (o site não responde nem neste servidor). Veja o domínio e o certificado SSL em Gestão de domínios.' + (dns ? ' O DNS aponta para ' + dns + '.' : ''));
+      }
       // "Entrar" de um utilizador da lista (como "Sign In" no DA); sem utilizador: o primeiro administrador
       const wpUser = linha(c.user);
       if (wpUser && !/^[A-Za-z0-9._@ -]{1,60}$/.test(wpUser)) return recusa('Utilizador inválido.');

@@ -1,0 +1,2 @@
+# Domínios onde o xmlrpc.php NÃO é bloqueado (uma excepção deliberada, um por linha). Por defeito é bloqueado em todos os sites WordPress sem o plugin Jetpack.
+# Só se acrescenta um domínio aqui com ordem do Silva e depois de saber quem usa o xmlrpc.php (aplicação móvel do WordPress, Jetpack, ligações remotas).

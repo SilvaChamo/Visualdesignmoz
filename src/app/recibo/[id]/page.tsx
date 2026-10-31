@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { AlertCircle } from 'lucide-react';
 import { resolveEffectiveClientUser } from '@/lib/client-impersonation';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
+import { garantirSerieFactura } from '@/lib/serie-factura';
 import type { CheckoutItemLike } from '@/lib/checkout-item-labels';
 import { ReciboDocument } from './ReciboDocument';
 
@@ -49,6 +50,7 @@ export default async function ReciboPage({ params }: { params: Promise<{ id: str
   // Número da série de recibos — atribuído uma vez (idempotente). Se a série
   // ainda não existir na base de dados, o documento sai com "a emitir", tal
   // como a Factura antes de ter número.
+  await garantirSerieFactura(admin);
   let receiptNumber: string | null = null;
   let issuedAt: string | null = null;
   const { data: assigned, error: assignError } = await admin.rpc('assign_checkout_receipt_number', {
@@ -73,7 +75,7 @@ export default async function ReciboPage({ params }: { params: Promise<{ id: str
 
   const { data: profileRows } = await admin
     .from('profiles')
-    .select('name, email, telefone, morada, cidade, empresa')
+    .select('name, email, telefone, morada, cidade, empresa, nuit')
     .eq('user_id', user.id)
     .order('created_at', { ascending: true })
     .limit(1);
@@ -90,6 +92,7 @@ export default async function ReciboPage({ params }: { params: Promise<{ id: str
         empresa: profile?.empresa || null,
         morada: [profile?.morada, profile?.cidade].filter(Boolean).join(', ') || null,
         telefone: profile?.telefone || null,
+        nuit: profile?.nuit || null,
         email,
       }}
       compra={{

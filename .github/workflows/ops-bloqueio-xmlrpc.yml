@@ -1,0 +1,97 @@
+name: Ops - Bloquear o xmlrpc.php em todos os sites WordPress e passar o cron de um site para o sistema
+
+# Pedido do Silva a 30/10/2026 («avança e garanta que nenhum domínio fique de fora»). Instala o `deploy/seguranca/vd-bloqueio-instalar` novo (o xmlrpc.php fica
+# bloqueado no nginx, antes do PHP, em TODOS os sites WordPress sem o plugin Jetpack; excepções só em /etc/nginx/vd-xmlrpc-permitir.lista), corre-o,
+# mostra um por um que sites ficaram bloqueados e porque é que algum ficou de fora, e testa o bloqueio. Depois põe o cron dos sites indicados no
+# cron do sistema (DISABLE_WP_CRON + `wp cron event run --due-now` de 15 em 15 minutos). Cópia do instalador antigo e dos wp-config antes de mexer.
+# Nunca toca no pm2 nem reinicia o nginx (só recarrega, e só depois de nginx -t). No fim confirma os sites críticos.
+
+on:
+  workflow_dispatch:
+    inputs:
+      cron_dominios:
+        description: 'Domínios cujo cron do WordPress passa para o sistema (separados por espaço; vazio = nenhum)'
+        required: false
+        default: 'entrecamposblog.com desporto.entrecamposblog.com'
+
+concurrency:
+  group: ops-bloqueio-xmlrpc
+  cancel-in-progress: false
+
+jobs:
+  aplicar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Empacotar o instalador
+        id: pacote
+        run: |
+          echo "inst=$(base64 -w0 deploy/seguranca/vd-bloqueio-instalar)" >> "$GITHUB_OUTPUT"
+          echo "perm=$(base64 -w0 deploy/seguranca/vd-xmlrpc-permitir.lista)" >> "$GITHUB_OUTPUT"
+
+      - name: Aplicar no servidor
+        uses: appleboy/ssh-action@v1.2.5
+        env:
+          INST: ${{ steps.pacote.outputs.inst }}
+          PERM: ${{ steps.pacote.outputs.perm }}
+          CRON_DOMINIOS: ${{ inputs.cron_dominios }}
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          port: 2234
+          username: root
+          key: ${{ secrets.CONTABO_SSH_KEY }}
+          command_timeout: 8m
+          envs: INST,PERM,CRON_DOMINIOS
+          script: |
+            set -u
+            case "$CRON_DOMINIOS" in (*[!a-z0-9.\ -]*) echo "Lista inválida"; exit 1;; esac
+            B=/root/bloqueio-xmlrpc-$(date +%Y%m%d-%H%M%S); install -d -m 700 "$B"; echo "cópias em $B"
+            # 1. o instalador novo (cópia do antigo); a lista de excepções só se cria se não existir
+            cp -p /usr/local/sbin/vd-bloqueio-instalar "$B/vd-bloqueio-instalar.antes" 2>/dev/null
+            echo "$INST" | base64 -d > /usr/local/sbin/vd-bloqueio-instalar.novo
+            bash -n /usr/local/sbin/vd-bloqueio-instalar.novo || { echo "ERRO: o instalador novo tem erro de sintaxe; nada foi mudado"; rm -f /usr/local/sbin/vd-bloqueio-instalar.novo; exit 1; }
+            chmod 755 /usr/local/sbin/vd-bloqueio-instalar.novo && mv /usr/local/sbin/vd-bloqueio-instalar.novo /usr/local/sbin/vd-bloqueio-instalar
+            [ -f /etc/nginx/vd-xmlrpc-permitir.lista ] || echo "$PERM" | base64 -d > /etc/nginx/vd-xmlrpc-permitir.lista
+            echo "--- excepções (permitir): $(sed 's/#.*//; s/[[:space:]]//g' /etc/nginx/vd-xmlrpc-permitir.lista | grep -v '^$' | tr '\n' ' ')"
+            # 2. aplicar (recarrega o nginx só se mudou e só se nginx -t passar)
+            /usr/local/sbin/vd-bloqueio-instalar; echo "instalador: código $?"
+            echo "--- nginx -t: $(nginx -t 2>&1 | tail -1)"
+            # 3. cada site WordPress do servidor: bloqueado ou não, e porquê
+            echo; echo "=== sites WordPress (conta · domínio · xmlrpc)"
+            FALTAM=0
+            for d in /home/*/conf/web/*/; do
+              dom=$(basename "$d"); u=$(echo "$d" | cut -d/ -f3); raiz=/home/$u/web/$dom/public_html
+              { [ -f "$raiz/wp-config.php" ] || [ -d "$raiz/wp-includes" ]; } || continue
+              if [ -f "${d}nginx.ssl.conf_vd-xmlrpc" ] || [ -f "${d}nginx.conf_vd-xmlrpc" ]; then est="BLOQUEADO"
+              elif [ -d "$raiz/wp-content/plugins/jetpack" ]; then est="livre (tem o Jetpack)"
+              elif sed 's/#.*//; s/[[:space:]]//g' /etc/nginx/vd-xmlrpc-permitir.lista | grep -qxF "$dom"; then est="livre (excepção)"
+              else est="FALTA"; FALTAM=$((FALTAM+1)); fi
+              printf '%-16s %-40s %s\n' "$u" "$dom" "$est"
+            done
+            echo "sites WordPress sem bloqueio e sem razão: $FALTAM"
+            echo; echo "=== teste: pedidos a /xmlrpc.php (000 = ligação fechada = bloqueado)"
+            for dom in entrecamposblog.com desporto.entrecamposblog.com mltmark.com; do
+              u=$(/usr/local/hestia/bin/v-search-domain-owner "$dom" 2>/dev/null | head -1); ip=$(grep "DOMAIN='$dom'" /usr/local/hestia/data/users/$u/web.conf 2>/dev/null | grep -o "IP='[^']*'" | cut -d"'" -f2)
+              printf '%-34s xmlrpc: %s\n' "$dom" "$([ -n "$ip" ] && curl -sk -o /dev/null -m 8 -w '%{http_code}' --resolve "$dom:443:$ip" "https://$dom/xmlrpc.php" || echo -)"
+            done
+            # 4. o cron do WordPress pelo sistema, nos domínios pedidos (só se ainda não tiver DISABLE_WP_CRON)
+            echo; echo "=== cron do WordPress pelo sistema"
+            N=0
+            for dom in $CRON_DOMINIOS; do
+              u=$(/usr/local/hestia/bin/v-search-domain-owner "$dom" 2>/dev/null | head -1); [ -z "$u" ] && { echo "$dom: sem dono"; continue; }
+              raiz=/home/$u/web/$dom/public_html; cfg=$raiz/wp-config.php
+              [ -f "$cfg" ] || { echo "$dom: sem wp-config"; continue; }
+              if grep -q "DISABLE_WP_CRON" "$cfg"; then echo "$dom: já tem DISABLE_WP_CRON"; else
+                cp -p "$cfg" "$B/wp-config.$dom"
+                if sudo -u "$u" /usr/local/bin/wp --path="$raiz" config set DISABLE_WP_CRON true --raw --anchor="require_once ABSPATH . 'wp-settings.php';" --placement=before >/dev/null 2>&1 || sudo -u "$u" /usr/local/bin/wp --path="$raiz" config set DISABLE_WP_CRON true --raw >/dev/null 2>&1; then echo "$dom: DISABLE_WP_CRON posto"; else echo "$dom: FALHOU o wp config set (nada mudado)"; continue; fi
+              fi
+              if /usr/local/hestia/bin/v-list-cron-jobs "$u" plain 2>/dev/null | grep -qF "$dom"; then echo "$dom: o cron do sistema já existe"; else
+                M=$(( (N * 7 + 3) % 15 )); N=$((N+1))
+                CMD="flock -n /tmp/wpcron-$dom.lock nice -n 10 /usr/local/bin/wp --path=$raiz cron event run --due-now >/dev/null 2>&1"
+                /usr/local/hestia/bin/v-add-cron-job "$u" "$M,$((M+15)),$((M+30)),$((M+45))" '*' '*' '*' '*' "$CMD" && echo "$dom: cron do sistema criado (minuto $M)"
+              fi
+              echo "$dom: wp cron a correr à mão (teste): $(sudo -u "$u" timeout 60 /usr/local/bin/wp --path="$raiz" cron event run --due-now 2>&1 | tail -1 | cut -c1-120)"
+            done
+            echo; echo "=== sites críticos"
+            for s in https://visualdesignmoz.com https://basededadosagro.com https://entrecamposblog.com https://mltmark.com; do printf '%s %s\n' "$s" "$(curl -sS -o /dev/null -m 20 -w '%{http_code}' "$s" 2>&1 | cut -c1-40)"; done

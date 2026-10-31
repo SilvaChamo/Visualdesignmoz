@@ -1,0 +1,58 @@
+name: Ops - Repor o PHP partilhado e o PHP das contas depois de uma passagem
+
+# Urgência pedida pelo Silva a 30/10/2026 («avança»): depois de reparar os domínios passados, o PHP-FPM partilhado ficou parado porque o serviço
+# antigo da conta de origem (vd-php-fpm-8.3-vdadmin) ainda tinha abertos os sockets dos domínios que saíram. Recarrega esse serviço
+# (graça: liberta os sockets dos pools que já não existem), volta a ligar o PHP partilhado e põe cada conta no seu serviço
+# (vd-php-conta sincronizar). Só recarrega depois de testar a configuração. Verifica no fim os sites.
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: ops-php-fpm-restaurar
+  cancel-in-progress: false
+
+jobs:
+  restaurar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Repor o PHP
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          port: 2234
+          username: root
+          key: ${{ secrets.CONTABO_SSH_KEY }}
+          command_timeout: 6m
+          script: |
+            set -u
+            FPM=/usr/sbin/php-fpm8.3
+            echo "=== antes: partilhado=$(systemctl is-active php8.3-fpm) · $(systemctl list-units --all --no-legend 'vd-php-fpm-*' | awk '{print $1, $3, $4}' | tr '\n' ';')"
+            echo "--- pools do serviço antigo (vdadmin): $(ls /etc/php/8.3/fpm-contas/vdadmin/pool.d 2>&1 | tr '\n' ' ')"
+            echo "--- sockets antigos: $(ls -l /run/php/*entrecamposblog.com.sock /run/php/*basededadosagro.com.sock 2>&1 | awk '{print $3, $NF}' | tr '\n' ';')"
+            # 1. o serviço antigo larga os sockets dos pools que já não tem (recarga graciosa, só se a configuração estiver certa)
+            if $FPM -t -y /etc/php/8.3/fpm-contas/vdadmin/php-fpm.conf >/dev/null 2>&1; then
+              systemctl reload vd-php-fpm-8.3-vdadmin && echo "vdadmin recarregado" || echo "AVISO: a recarga do vdadmin falhou"
+            else echo "AVISO: configuração do vdadmin com erro: $($FPM -t -y /etc/php/8.3/fpm-contas/vdadmin/php-fpm.conf 2>&1 | tail -2 | tr '\n' ' ')"; fi
+            sleep 3
+            echo "--- sockets depois: $(ls -l /run/php/*entrecamposblog.com.sock /run/php/*basededadosagro.com.sock 2>&1 | awk '{print $3, $NF}' | tr '\n' ';')"
+            # 2. o PHP partilhado volta a ligar
+            if $FPM -t >/dev/null 2>&1; then
+              systemctl reset-failed php8.3-fpm 2>/dev/null; systemctl restart php8.3-fpm; sleep 3
+              echo "partilhado: $(systemctl is-active php8.3-fpm)"
+            else echo "AVISO: configuração do PHP partilhado com erro: $($FPM -t 2>&1 | tail -3 | tr '\n' ' ')"; fi
+            # 3. cada conta no seu serviço
+            /usr/local/sbin/vd-php-conta sincronizar 2>&1 | tail -3
+            sleep 4
+            echo; echo "=== depois: partilhado=$(systemctl is-active php8.3-fpm)"
+            systemctl list-units --all --no-legend 'vd-php-fpm-*' | awk '{print "  " $1, $3, $4}'
+            echo "--- sockets: $(ls -l /run/php/*entrecamposblog.com.sock /run/php/*basededadosagro.com.sock 2>&1 | awk '{print $3, $NF}' | tr '\n' ';')"
+            echo "--- últimos erros do PHP: $(tail -n 3 /var/log/php8.3-fpm.log 2>/dev/null | cut -c1-160 | tr '\n' '|')"
+            echo; echo "=== sites (código público · código pelo servidor)"
+            H=/usr/local/hestia/bin
+            for D in entrecamposblog.com desporto.entrecamposblog.com basededadosagro.com visualdesignmoz.com mltmark.com; do
+              C=$($H/v-search-domain-owner "$D" 2>/dev/null | head -1); IP=$(grep "DOMAIN='$D'" /usr/local/hestia/data/users/$C/web.conf 2>/dev/null | grep -o "IP='[^']*'" | cut -d"'" -f2)
+              printf '%-34s público %s · servidor %s\n' "$D" "$(curl -sS -o /dev/null -m 12 -w '%{http_code}' https://$D/ 2>&1 | cut -c1-30)" "$([ -n "$IP" ] && curl -sk -o /dev/null -m 12 -w '%{http_code}' --resolve $D:443:$IP https://$D/ || echo -)"
+            done
+            echo "--- sites no PHP partilhado (código público, até 25):"
+            for f in /etc/php/8.3/fpm/pool.d/*.conf; do d=$(basename "$f" .conf); [ "$d" = www ] && continue; printf '%s %s\n' "$d" "$(curl -sS -o /dev/null -m 10 -w '%{http_code}' https://$d/ 2>&1 | cut -c1-20)"; done | head -25

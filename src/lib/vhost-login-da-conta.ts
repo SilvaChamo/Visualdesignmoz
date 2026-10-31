@@ -7,10 +7,11 @@
  * Cria o utilizador do site com a palavra-passe dada e liga-o à conta (perfil com da_username e registo do painel).
  * O e-mail de entrada é o da própria pessoa, de qualquer domínio: o que está na conta (Editar dados: registo do painel
  * ou contacto no servidor). Se nenhum estiver livre, `admin@<domínio principal da conta>`. Nunca liga a conta a um utilizador do site
- * que já exista: isso daria a conta a outra pessoa.
+ * que já seja uma conta a sério: isso daria a conta a outra pessoa (um login vazio, sem hospedagem nem compras, reaproveita-se).
  * Só se chama quando a palavra-passe já foi confirmada no servidor (entrada) ou mudada pelo administrador.
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { temContaReal, utilizadorPorEmail } from '@/lib/conta-existe';
 
 const EMAIL_OK = /^[^\s@,;:"'<>()]+@([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/i;
 
@@ -43,15 +44,31 @@ export async function criarLoginDaConta(
 
   const nome = [info.FNAME, info.LNAME].filter(Boolean).join(' ').trim() || info.NAME || conta;
   for (const email of candidatos) {
-    // já é login de outra pessoa do site: não se usa
-    const { data: jaHa } = await sb.from('profiles').select('user_id').ilike('email', email).limit(1);
-    if (jaHa && jaHa.length) continue;
-    const { data, error } = await sb.auth.admin.createUser({ email, password: senha, email_confirm: true, user_metadata: { nome, role: 'client' } });
-    if (error || !data?.user) {
-      if (/already|registered|exists/i.test(error?.message || '')) continue;
-      return { ok: false, erro: 'Não foi possível criar o login do site: ' + (error?.message || 'erro') };
+    // Já é o login de uma conta a sério (de outra pessoa): não se usa. Um login vazio (sobra de uma compra a meio: sem hospedagem,
+    // sem compras) não impede nada e passa a ser o desta conta (Silva, 30/10/2026: «até ontem criava conta no painel»).
+    const existente = await utilizadorPorEmail(sb, email);
+    if (existente && (await temContaReal(sb, existente))) continue;
+    if (!existente) {
+      const { data: jaHa } = await sb.from('profiles').select('user_id').ilike('email', email).limit(1);
+      if (jaHa && jaHa.length) continue;
     }
-    const uid = data.user.id;
+    let uid: string;
+    if (existente) {
+      const { error } = await sb.auth.admin.updateUserById(existente.id, {
+        password: senha,
+        email_confirm: true,
+        user_metadata: { ...(existente.user_metadata || {}), nome, role: 'client' },
+      });
+      if (error) return { ok: false, erro: 'Não foi possível actualizar o login do site: ' + error.message };
+      uid = existente.id;
+    } else {
+      const { data, error } = await sb.auth.admin.createUser({ email, password: senha, email_confirm: true, user_metadata: { nome, role: 'client' } });
+      if (error || !data?.user) {
+        if (/already|registered|exists/i.test(error?.message || '')) continue;
+        return { ok: false, erro: 'Não foi possível criar o login do site: ' + (error?.message || 'erro') };
+      }
+      uid = data.user.id;
+    }
     const { encryptDaSecret } = await import('@/lib/da-credential-store');
     const enc = encryptDaSecret(senha);
     const { saveProfileForAuthUser } = await import('@/lib/profile-db');

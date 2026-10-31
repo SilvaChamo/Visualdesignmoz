@@ -10,6 +10,10 @@ on:
         description: 'Domínio do site'
         required: true
         default: 'entrecamposblog.com'
+      limitar_antivirus:
+        description: 'Limitar o antivírus do servidor a 1 núcleo e com menos prioridade do que os sites (aplica já, sem reiniciar o antivírus; desfaz-se com «systemctl revert»)'
+        type: boolean
+        default: false
       reiniciar:
         description: 'Depois de ler, reiniciar o PHP-FPM da conta (liberta os trabalhadores presos; ~2 s de interrupção nos sites da conta)'
         type: boolean
@@ -28,13 +32,14 @@ jobs:
         env:
           DOMINIO: ${{ inputs.dominio || 'entrecamposblog.com' }}
           REINICIAR: ${{ inputs.reiniciar && 'sim' || 'nao' }}
+          LIMITAR_AV: ${{ inputs.limitar_antivirus && 'sim' || 'nao' }}
         with:
           host: ${{ secrets.CONTABO_HOST }}
           port: 2234
           username: root
           key: ${{ secrets.CONTABO_SSH_KEY }}
           command_timeout: 5m
-          envs: DOMINIO,REINICIAR
+          envs: DOMINIO,REINICIAR,LIMITAR_AV
           script: |
             set -u
             titulo() { echo; echo "=================== $1"; }
@@ -88,6 +93,16 @@ jobs:
             echo "--- quem pede (quantos pedidos por endereço, último número escondido):"
             [ -f "$LOG" ] && tail -n 3000 "$LOG" | awk '{print $1}' | sed -E 's/\.[0-9]+$/.x/' | sort | uniq -c | sort -rn | head -n 6
             echo "--- pedidos a wp-cron.php e admin-ajax.php nos últimos 3 000:"; [ -f "$LOG" ] && tail -n 3000 "$LOG" | grep -cE 'wp-cron.php|admin-ajax.php'
+            if [ "$LIMITAR_AV" = "sim" ]; then
+              titulo "10. Limitar o antivírus (clamd): 1 núcleo e prioridade abaixo dos sites"
+              AV=$(systemctl list-units --all --no-legend 'clamav-daemon*' 2>/dev/null | awk '{print $1}' | head -1)
+              if [ -z "$AV" ]; then echo "(serviço do antivírus não encontrado)"; else
+                echo "antes: $(systemctl show "$AV" -p CPUQuotaPerSecUSec -p CPUWeight | tr '\n' ' ') · estado $(systemctl is-active "$AV")"
+                systemctl set-property "$AV" CPUQuota=100% CPUWeight=20 && echo "aplicado (efeito imediato, o antivírus não foi reiniciado)"
+                echo "depois: $(systemctl show "$AV" -p CPUQuotaPerSecUSec -p CPUWeight | tr '\n' ' ') · estado $(systemctl is-active "$AV")"
+                echo "para desfazer: systemctl revert $AV"
+              fi
+            fi
             if [ "$REINICIAR" = "sim" ] && [ -n "${U:-}" ]; then
               titulo "9. A reiniciar $U (liberta os trabalhadores presos)"
               systemctl restart "$U"; sleep 4

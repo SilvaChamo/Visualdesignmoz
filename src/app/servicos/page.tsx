@@ -10,13 +10,13 @@ export default function ServicesPage() {
 
   const mainServices = [
     { icon: <Monitor className="w-8 h-8" />, title: t('services.web'), desc: "Desenvolvimento de websites profissionais, responsivos e otimizados para motores de busca.", link: "/servicos/webdesign" },
-    { icon: <Palette className="w-8 h-8" />, title: t('services.graphic'), desc: "Identidade visual, branding, materiais promocionais e design para redes sociais.", link: "/servicos/design-grafico" },
-    { icon: <Megaphone className="w-8 h-8" />, title: t('services.marketing'), desc: "Gestão de redes sociais, campanhas de tráfego pago e estratégias de SEO.", link: "/servicos/marketing-digital" },
-    { icon: <Server className="w-8 h-8" />, title: "Alojamento Web", desc: "Servidores rápidos, seguros e com suporte 24/7 para o seu website.", link: "/servicos/hospedagem" },
-    { icon: <Shield className="w-8 h-8" />, title: "Certificados SSL", desc: "Proteja o seu site e os dados dos seus clientes com certificados SSL.", link: "/servicos/ssl" },
-    { icon: <Mail className="w-8 h-8" />, title: "Email Profissional", desc: "Comunique com profissionalismo usando contas de email com o seu domínio.", link: "/servicos/email" },
-    { icon: <HeadphonesIcon className="w-8 h-8" />, title: "Suporte Técnico", desc: "Assistência técnica e manutenção contínua para os seus serviços digitais.", link: "/servicos/suporte" },
-    { icon: <Tent className="w-8 h-8" />, title: "Feiras e Eventos", desc: "Design de stands, materiais promocionais e cobertura completa para eventos.", link: "/servicos/feiras-eventos" }
+    { icon: <Palette className="w-8 h-8" />, title: t('services.graphic'), desc: "Identidade visual, branding, materiais promocionais e design para redes sociais.", link: "/#design" },
+    { icon: <Megaphone className="w-8 h-8" />, title: t('services.marketing'), desc: "Gestão de redes sociais, campanhas de tráfego pago e estratégias de SEO.", link: "/web" },
+    { icon: <Server className="w-8 h-8" />, title: "Alojamento Web", desc: "Servidores rápidos, seguros e com suporte 24/7 para o seu website.", link: "/precos/hospedagem" },
+    { icon: <Shield className="w-8 h-8" />, title: "Certificados SSL", desc: "Proteja o seu site e os dados dos seus clientes com certificados SSL.", link: "/precos/ssl" },
+    { icon: <Mail className="w-8 h-8" />, title: "Email Profissional", desc: "Comunique com profissionalismo usando contas de email com o seu domínio.", link: "/precos/email" },
+    { icon: <HeadphonesIcon className="w-8 h-8" />, title: "Suporte Técnico", desc: "Assistência técnica e manutenção contínua para os seus serviços digitais.", link: "/precos/suporte" },
+    { icon: <Tent className="w-8 h-8" />, title: "Feiras e Eventos", desc: "Design de stands, materiais promocionais e cobertura completa para eventos.", link: "/eventos/feiras" }
   ]
 
   return (
@@ -49,7 +49,7 @@ export default function ServicesPage() {
             {SERVICE_BRANDS.map((brand) => (
               <Link
                 key={brand.slug}
-                href={`/${brand.slug}`}
+                href={brand.slug === 'visualdesign' ? '/' : `/${brand.slug}`}
                 className="bg-slate-50 hover:bg-slate-900 hover:text-white p-5 rounded-2xl transition-colors group flex flex-col justify-between min-h-[150px]"
               >
                 <div>

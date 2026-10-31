@@ -4,7 +4,7 @@ import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { getStripe, isStripeConfigured, mznToUsdCents } from '@/lib/stripe';
 import { acrescentarIva, IVA_TAXA } from '@/lib/iva';
 import { resolveCartItems, toValidatedCartItems, type CatalogCartItem } from '@/lib/package-catalog';
-import { isProfileWhoisComplete } from '@/lib/profile-db';
+import { isProfileNuitComplete, isProfileWhoisComplete } from '@/lib/profile-db';
 import { promoteBuyerAfterPurchase } from '@/lib/checkout-fulfillment';
 import { resolveCheckoutActor } from '@/lib/checkout-actor';
 import { validarContasDeHospedagem } from '@/lib/conta-hospedagem-servidor';
@@ -78,6 +78,18 @@ export async function POST(request: NextRequest) {
           error: actor.impersonating
             ? `A conta ${actor.impersonatedLabel} ainda não tem telefone, morada e cidade preenchidos — são os dados da conta e do registo oficial dos domínios. Complete o perfil dessa conta antes de comprar.`
             : 'Antes de comprar precisa de completar o telefone, morada e cidade em "A Minha Conta" — são os dados da sua conta e do registo oficial dos domínios.',
+        },
+        { status: 400 },
+      );
+    }
+
+    // O NUIT da empresa é obrigatório em qualquer compra: vai na factura (Silva, 31/10/2026)
+    if (!(await isProfileNuitComplete(admin, actor.buyerUserId))) {
+      return NextResponse.json(
+        {
+          error: actor.impersonating
+            ? `A conta ${actor.impersonatedLabel} ainda não tem o NUIT da empresa — é obrigatório para a factura. Complete o perfil dessa conta antes de comprar.`
+            : 'Antes de comprar indique o NUIT da empresa (9 dígitos) em «Editar», nos dados da empresa — é obrigatório para a factura.',
         },
         { status: 400 },
       );
