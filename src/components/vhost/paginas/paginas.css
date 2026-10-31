@@ -15419,14 +15419,20 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    width: 100%
 }
 
-/* a última coluna (Estado) encosta ao limite direito da tabela, o mesmo do botão «Actualizar todos os plugins» */
+/* a última coluna (Estado) fica à direita, com margem para a etiqueta não tocar na linha do fim da linha (Silva, 31/10/2026) */
 .vh .tbl[data-dt="wp-plugins-lista"] :is(th, td):last-child:not(#x) {
-   padding-right: 0 !important;
+   padding-right: var(--recuo, 12px) !important;
    text-align: right !important
 }
 
 .vh .tbl[data-dt="wp-plugins-lista"] .dt-fundo:not(#x) {
    padding-right: 0
+}
+
+/* etiqueta «Inactivo»: fundo preto e letras brancas */
+.vh .tbl tr.wp-plg-inativo .tag:not(#x) {
+   background: #111;
+   color: #fff
 }
 
 /* plugin inactivo: a linha leva o fundo rosado do realce (o da passagem do rato no painel), com a etiqueta «Inactivo» lá dentro, para se ver logo que está desligado */
