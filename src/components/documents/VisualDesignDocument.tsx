@@ -20,7 +20,7 @@ export function DocumentCompanyHeader() {
       </div>
       <div className="text-xs text-zinc-500 text-left sm:text-right leading-relaxed">
         <p className="font-bold text-zinc-800">VisualDESIGN Services, Lda.</p>
-        <p>Maputo, Moçambique</p>
+        <p>Av. Karl Marx, nº 177, Maputo, Moçambique</p>
         <p>NUIT: 400597243</p>
         <p>+258 82 52 88 318 / +258 84 73 96 739</p>
         <p>info@visualdesignmoz.com</p>
