@@ -1,0 +1,59 @@
+name: Ops - Quanto demora cada passo de «Painel do WordPress» (só leitura)
+
+# Só MEDE, não altera nada (não cria o ficheiro de entrada nem sessões): o tempo de cada passo que o painel faz ao clicar em «Painel do WordPress»
+# (a prova do endereço, o arranque do wp-cli, o arranque do WordPress com os plugins, a página de entrada e o administrador). Pedido do Silva a 31/10/2026
+# («a entrada no WordPress demora uns 3 minutos e depois mais 1»).
+
+on:
+  workflow_dispatch:
+    inputs:
+      dominio:
+        description: 'Domínio do site'
+        required: true
+        default: 'entrecamposblog.com'
+
+concurrency:
+  group: ops-wordpress-entrada-tempos
+  cancel-in-progress: false
+
+jobs:
+  medir:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Medir no servidor (só leitura)
+        uses: appleboy/ssh-action@v1.2.5
+        env:
+          DOMINIO: ${{ inputs.dominio || 'entrecamposblog.com' }}
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          port: 2234
+          username: root
+          key: ${{ secrets.CONTABO_SSH_KEY }}
+          command_timeout: 10m
+          envs: DOMINIO
+          script: |
+            set -u
+            case "$DOMINIO" in (*[!a-z0-9.-]*|''|*..*) echo "Domínio inválido"; exit 1;; esac
+            CONTA=""; for d in /home/*/web/"$DOMINIO"; do [ -d "$d" ] && CONTA=$(echo "$d" | cut -d/ -f3) && break; done
+            [ -z "$CONTA" ] && { echo "Domínio não está no servidor"; exit 0; }
+            RAIZ=/home/$CONTA/web/$DOMINIO/public_html
+            WP=/usr/local/bin/wp
+            t() { local n="$1"; shift; local a=$(date +%s.%N); "$@" >/tmp/vd-tempo.out 2>&1; local rc=$?; local b=$(date +%s.%N); printf '%-62s %6.1f s  (saída %s)\n' "$n" "$(echo "$b - $a" | bc)" "$rc"; }
+            echo "carga: $(uptime | sed 's/.*load average://')"
+            echo "=== o que o painel faz antes de devolver o endereço"
+            t "1. procurar a pasta do site (ls)" bash -c "ls -d /home/*/web/$DOMINIO/public_html/wp-config.php"
+            t "2. prova: curl ao endereço público (ficheiro estático)" bash -c "curl -sk -m 30 -L -o /dev/null https://$DOMINIO/robots.txt"
+            t "3. prova: curl directo a este servidor" bash -c "curl -sk -m 30 -L --resolve $DOMINIO:443:127.0.0.1 -o /dev/null https://$DOMINIO/robots.txt"
+            t "4. wp-cli: procurar o administrador (--skip-plugins --skip-themes)" sudo -u "$CONTA" $WP --path="$RAIZ" --skip-plugins --skip-themes user list --role=administrator --field=user_login --format=csv
+            t "5. wp-cli: arranque vazio (eval 1, 2.ª vez)" sudo -u "$CONTA" $WP --path="$RAIZ" --skip-plugins --skip-themes eval 'echo 1;'
+            t "6. wp-cli: arranque vazio sem o drop-in da cache de objectos" bash -c "sudo -u $CONTA $WP --path=$RAIZ --skip-plugins --skip-themes --skip-packages eval 'echo 1;'"
+            echo "=== o que o navegador faz depois (carregar o WordPress como o ficheiro de entrada)"
+            t "7. PHP-CLI: wp-load.php com todos os plugins (como o ficheiro de entrada)" sudo -u "$CONTA" php -d memory_limit=512M -r "define('WP_USE_THEMES',false); require '$RAIZ/wp-load.php'; echo 'ok';"
+            t "8. HTTP: wp-login.php (formulário, com plugins)" bash -c "curl -sk -m 120 --resolve $DOMINIO:443:127.0.0.1 -o /dev/null https://$DOMINIO/wp-login.php"
+            t "9. HTTP: wp-admin/admin-ajax.php (um pedido ao administrador)" bash -c "curl -sk -m 120 --resolve $DOMINIO:443:127.0.0.1 -o /dev/null https://$DOMINIO/wp-admin/admin-ajax.php"
+            t "10. HTTP: página inicial" bash -c "curl -sk -m 120 -H 'Accept: text/html' --resolve $DOMINIO:443:127.0.0.1 -o /dev/null https://$DOMINIO/"
+            echo "=== plugins activos e a cache"
+            sudo -u "$CONTA" $WP --path="$RAIZ" --skip-plugins --skip-themes plugin list --status=active --field=name 2>/dev/null | paste -sd' ' | cut -c1-600
+            echo "drop-ins: $(ls "$RAIZ/wp-content" | grep -E '^(object-cache|advanced-cache)\.php$' | paste -sd' ')"
+            echo "PHP-FPM da conta: $(ps -u "$CONTA" -o args= | grep -c 'php-fpm: pool') processos"
+            echo "=== fim (nada foi alterado)"
