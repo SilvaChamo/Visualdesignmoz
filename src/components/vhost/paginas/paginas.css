@@ -1931,6 +1931,10 @@
    grid-template-columns: 1fr 1fr 1fr
 }
 
+.vh .da-lin.n4 {
+   grid-template-columns: 1fr 1fr 1fr 1fr
+}
+
 .vh .da-lin+.da-lin {
    border-top: 1px solid var(--line)
 }
@@ -3050,7 +3054,8 @@
    }
 
    .vh .da-lin.n2,
-   .vh .da-lin.n3 {
+   .vh .da-lin.n3,
+   .vh .da-lin.n4 {
       grid-template-columns: 1fr
    }
 
@@ -9038,7 +9043,7 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    }
 
    /* as outras grelhas de 2 ou 3 colunas (datas, transferência, números e botões da coluna dos E-mails, opções, cron…) */
-   .vh :is(.da-lin.n2, .da-lin.n3, .da-ops, .em-datas, .trf-grelha, .trf-campos, .em-lado-botoes, .av-cron),
+   .vh :is(.da-lin.n2, .da-lin.n3, .da-lin.n4, .da-ops, .em-datas, .trf-grelha, .trf-campos, .em-lado-botoes, .av-cron),
    .vh .da-privs .privs {
       grid-template-columns: minmax(0, 1fr) !important
    }
@@ -15507,4 +15512,487 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    .vh .wp-plg-lote {
       flex-wrap: wrap
    }
+}
+
+/* Gerir WordPress › Gestão: o ícone do site (à esquerda) e a página inicial (à direita), em duas colunas (Silva, 31/10/2026) */
+.vh .wp-gest-2c {
+   display: grid;
+   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+   gap: calc(32px * var(--z, 1));
+   padding: calc(8px * var(--z, 1)) var(--recuo, 12px) calc(50px * var(--z, 1))
+}
+
+@media (max-width: 1050px) {
+   .vh .wp-gest-2c {
+      grid-template-columns: minmax(0, 1fr)
+   }
+}
+
+.vh .wp-gest-bloco h4 {
+   margin: 0 0 calc(10px * var(--z, 1));
+   font-size: calc(14px * var(--fs, 1));
+   font-weight: 700
+}
+
+.vh .wp-ico-prev {
+   display: flex;
+   align-items: center;
+   gap: calc(12px * var(--z, 1));
+   max-width: calc(420px * var(--z, 1));
+   padding: calc(10px * var(--z, 1));
+   border: 1px solid var(--line);
+   border-radius: var(--r);
+   background: var(--soft)
+}
+
+.vh .wp-ico-prev img.ico {
+   flex: none;
+   width: calc(64px * var(--z, 1));
+   height: calc(64px * var(--z, 1));
+   object-fit: cover;
+   border-radius: calc(10px * var(--z, 1))
+}
+
+.vh .wp-ico-vazio {
+   flex: none;
+   display: grid;
+   place-items: center;
+   width: calc(64px * var(--z, 1));
+   height: calc(64px * var(--z, 1));
+   border-radius: calc(10px * var(--z, 1));
+   background: var(--card);
+   border: 1px dashed var(--line);
+   color: var(--muted);
+   font-size: calc(22px * var(--fs, 1))
+}
+
+/* o separador do navegador, como no WordPress: pontos, ícone pequeno e o nome do site */
+.vh .wp-ico-tab {
+   flex: 1;
+   min-width: 0;
+   display: flex;
+   align-items: center;
+   gap: calc(8px * var(--z, 1));
+   padding: calc(10px * var(--z, 1));
+   border-radius: calc(8px * var(--z, 1));
+   background: #1f2024;
+   color: #fff;
+   font-size: calc(12.5px * var(--fs, 1))
+}
+
+.vh .wp-ico-tab .pt {
+   flex: none;
+   width: calc(9px * var(--z, 1));
+   height: calc(9px * var(--z, 1));
+   border-radius: 50%;
+   background: #6b6d75
+}
+
+.vh .wp-ico-tab .sep {
+   flex: none;
+   padding: calc(5px * var(--z, 1)) calc(8px * var(--z, 1));
+   border-radius: calc(6px * var(--z, 1));
+   background: #34353b;
+   display: flex;
+   align-items: center;
+   gap: calc(6px * var(--z, 1));
+   min-width: 0
+}
+
+.vh .wp-ico-tab .sep img {
+   width: calc(16px * var(--z, 1));
+   height: calc(16px * var(--z, 1));
+   border-radius: 3px
+}
+
+.vh .wp-ico-tab .sep span {
+   overflow: hidden;
+   text-overflow: ellipsis;
+   white-space: nowrap
+}
+
+.vh .wp-ico-botoes {
+   display: flex;
+   flex-wrap: wrap;
+   gap: calc(8px * var(--z, 1));
+   margin: calc(12px * var(--z, 1)) 0 calc(8px * var(--z, 1))
+}
+
+.vh .wp-ico-botoes .btn.rm:not(#x) {
+   color: var(--red)
+}
+
+.vh .wp-gest-dica {
+   margin: 0;
+   color: var(--muted);
+   font-size: calc(12.5px * var(--fs, 1))
+}
+
+.vh .wp-leitura-opcoes {
+   display: flex;
+   flex-direction: column;
+   gap: calc(10px * var(--z, 1))
+}
+
+.vh .wp-leitura-opcoes label.rd {
+   display: flex;
+   align-items: center;
+   gap: calc(8px * var(--z, 1));
+   cursor: pointer;
+   font-size: calc(13.5px * var(--fs, 1))
+}
+
+.vh .wp-leitura-sel {
+   display: flex;
+   flex-direction: column;
+   gap: calc(10px * var(--z, 1));
+   padding-left: calc(26px * var(--z, 1))
+}
+
+.vh .wp-leitura-sel label {
+   display: flex;
+   align-items: center;
+   gap: calc(10px * var(--z, 1));
+   font-size: calc(13px * var(--fs, 1));
+   color: var(--muted)
+}
+
+.vh .wp-leitura-sel label > span {
+   flex: none;
+   min-width: calc(120px * var(--z, 1))
+}
+
+.vh .wp-leitura-sel select {
+   flex: 1;
+   min-width: 0;
+   max-width: calc(320px * var(--z, 1))
+}
+
+.vh .wp-gest-guardar {
+   margin-top: calc(14px * var(--z, 1))
+}
+
+/* o ícone de cada .zip da lista de plugins a carregar: a imagem do ficheiro zip, cinzenta e com o fecho visível, um pouco maior */
+.vh .wp-plg-envios .wp-plg-zip {
+   flex: none;
+   width: auto;
+   height: calc(34px * var(--z, 1))
+}
+
+/* Gestão › ícone do site e página inicial: campos com contorno sempre visível, na altura dos botões (34 px × --z), e uma linha vertical a separar as duas colunas */
+.vh .wp-gest-2c {
+   --h-input: calc(34px * var(--z, 1));
+   --h-campo: calc(34px * var(--z, 1))
+}
+
+.vh .wp-gest-2c select:not(#x):not(#y) {
+   height: calc(34px * var(--z, 1));
+   min-height: calc(34px * var(--z, 1));
+   border: 1px solid var(--line);
+   background-color: var(--card);
+   color: var(--ink);
+   font-size: calc(12.5px * var(--fs, 1))
+}
+
+.vh .wp-gest-2c select:disabled:not(#x):not(#y) {
+   opacity: .7
+}
+
+.vh .wp-gest-2c input[type=radio]:not(#x) {
+   appearance: auto;
+   -webkit-appearance: radio;
+   flex: none;
+   width: calc(16px * var(--z, 1));
+   height: calc(16px * var(--z, 1));
+   margin: 0;
+   accent-color: var(--red);
+   opacity: 1
+}
+
+.vh .wp-gest-2c .wp-ico-botoes .btn:not(#x):not(#y),
+.vh .wp-gest-2c .wp-gest-guardar:not(#x):not(#y) {
+   height: calc(34px * var(--z, 1));
+   min-height: calc(34px * var(--z, 1));
+   font-size: calc(12.5px * var(--fs, 1))
+}
+
+@media (min-width: 1051px) {
+   .vh .wp-gest-2c .wp-gest-bloco + .wp-gest-bloco {
+      padding-left: calc(32px * var(--z, 1));
+      border-left: 1px solid var(--line)
+   }
+}
+
+@media (max-width: 1050px) {
+   .vh .wp-gest-2c .wp-gest-bloco + .wp-gest-bloco {
+      padding-top: calc(20px * var(--z, 1));
+      border-top: 1px solid var(--line)
+   }
+}
+
+/* selectores com os cantos do painel (4 px) e todos na mesma altura (34 px × --z): os do separador Plugins, os da Gestão e o da actualização automática do WordPress */
+.vh .wp-gest-2c select:not(#x):not(#y):not(#z),
+.vh .wp-plg-lote select:not(#x):not(#y):not(#z) {
+   border-radius: var(--r)
+}
+
+.vh .em-opcoes select.em-sel:not(#x):not(#y) {
+   height: calc(34px * var(--z, 1));
+   min-height: calc(34px * var(--z, 1));
+   font-size: calc(12.5px * var(--fs, 1));
+   border-radius: var(--r)
+}
+
+/* «16 plugins activos»: o número na cor normal e as palavras em cinzento claro */
+.vh .da-cel span em.cel-claro {
+   font-style: normal;
+   color: var(--muted)
+}
+
+/* o selector da actualização automática com a altura dos botões, como os da Gestão (as variáveis dos campos redefinidas só aqui) e uma linha por baixo da secção das duas colunas */
+.vh .em-opcoes {
+   --h-input: calc(34px * var(--z, 1));
+   --h-campo: calc(34px * var(--z, 1))
+}
+
+.vh .em-opcoes select.em-sel:not(#x):not(#y):not(#z) {
+   height: calc(34px * var(--z, 1)) !important;
+   min-height: calc(34px * var(--z, 1)) !important
+}
+
+.vh .wp-gest-2c {
+   border-bottom: 1px solid var(--line)
+}
+
+/* Gestão no telemóvel: tudo numa só coluna — o separador do navegador cabe no cartão, os botões ocupam a largura toda e cada selector fica por baixo do seu nome, à largura toda */
+@media (max-width: 768px) {
+   .vh .wp-ico-prev {
+      max-width: 100%;
+      min-width: 0
+   }
+
+   .vh .wp-ico-tab {
+      overflow: hidden
+   }
+
+   .vh .wp-gest-2c .wp-ico-botoes {
+      flex-direction: column
+   }
+
+   .vh .wp-gest-2c .wp-ico-botoes .btn:not(#x):not(#y),
+   .vh .wp-gest-2c .wp-gest-guardar:not(#x):not(#y) {
+      width: 100%;
+      justify-content: center
+   }
+
+   .vh .wp-leitura-sel {
+      padding-left: 0
+   }
+
+   .vh .wp-leitura-sel label {
+      flex-direction: column;
+      align-items: stretch;
+      gap: calc(4px * var(--z, 1))
+   }
+
+   .vh .wp-leitura-sel label > span {
+      min-width: 0
+   }
+
+   .vh .wp-leitura-sel select {
+      width: 100%;
+      max-width: none
+   }
+}
+
+/* Gestão › ligações permanentes: igual ao ecrã do WordPress — o nome à esquerda, as opções com o exemplo do endereço em caixa cinzenta, a estrutura personalizada e as etiquetas */
+.vh .wp-perma {
+   display: grid;
+   grid-template-columns: minmax(0, 1fr);
+   row-gap: calc(18px * var(--z, 1));
+   padding: calc(24px * var(--z, 1)) var(--recuo, 12px) calc(50px * var(--z, 1))
+}
+
+/* o título em cima da lista, com o tamanho e o peso light do título do cartão */
+.vh .wp-perma-rotulo {
+   margin: 0;
+   font-weight: 300;
+   font-size: calc(22px * var(--fs, 1));
+   line-height: 1.1;
+   color: var(--ink)
+}
+
+.vh .wp-perma-opcoes {
+   display: flex;
+   flex-direction: column;
+   gap: calc(16px * var(--z, 1));
+   min-width: 0
+}
+
+.vh .wp-perma-op {
+   display: flex;
+   flex-direction: column;
+   gap: calc(6px * var(--z, 1));
+   min-width: 0
+}
+
+.vh .wp-perma .rd {
+   display: flex;
+   align-items: center;
+   gap: calc(8px * var(--z, 1));
+   cursor: pointer;
+   font-size: calc(14px * var(--fs, 1))
+}
+
+.vh .wp-perma input[type=radio]:not(#x) {
+   appearance: auto;
+   -webkit-appearance: radio;
+   flex: none;
+   width: calc(16px * var(--z, 1));
+   height: calc(16px * var(--z, 1));
+   margin: 0;
+   accent-color: var(--red)
+}
+
+.vh .wp-perma code {
+   align-self: flex-start;
+   max-width: 100%;
+   padding: calc(3px * var(--z, 1)) calc(6px * var(--z, 1));
+   background: rgba(0, 0, 0, .07);
+   border-radius: calc(2px * var(--z, 1));
+   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+   font-size: calc(12.5px * var(--fs, 1));
+   color: var(--ink);
+   overflow-wrap: anywhere
+}
+
+.vh[data-theme=dark] .wp-perma code {
+   background: rgba(255, 255, 255, .08)
+}
+
+.vh .wp-perma-pers {
+   display: flex;
+   align-items: center;
+   flex-wrap: wrap;
+   gap: calc(10px * var(--z, 1));
+   margin-top: calc(2px * var(--z, 1))
+}
+
+.vh .wp-perma-pers code {
+   align-self: center
+}
+
+.vh .wp-perma-pers input:not(#x):not(#y) {
+   width: calc(350px * var(--z, 1));
+   max-width: 100%;
+   height: calc(34px * var(--z, 1));
+   min-height: calc(34px * var(--z, 1));
+   border: 1px solid var(--line);
+   border-radius: var(--r);
+   background: var(--card);
+   color: var(--ink);
+   padding: 0 calc(10px * var(--z, 1));
+   font-size: calc(12.5px * var(--fs, 1))
+}
+
+/* «Etiquetas disponíveis:» e os botões das etiquetas, como no ecrã do WordPress: a legenda por cima e os botões lado a lado, com contorno azul */
+.vh .wp-perma-etiquetas {
+   display: flex;
+   flex-direction: column;
+   align-items: flex-start;
+   gap: calc(10px * var(--z, 1));
+   margin-top: calc(6px * var(--z, 1));
+   font-size: calc(12.5px * var(--fs, 1));
+   color: var(--ink)
+}
+
+.vh .wp-perma-etiquetas .botoes {
+   display: flex;
+   flex-wrap: wrap;
+   gap: calc(8px * var(--z, 1))
+}
+
+.vh .wp-perma-etiquetas .btn:not(#x):not(#y) {
+   height: calc(28px * var(--z, 1));
+   min-height: calc(28px * var(--z, 1));
+   padding: 0 calc(14px * var(--z, 1));
+   border: 1px solid #3858e9;
+   border-radius: var(--r);
+   background: var(--soft);
+   color: #3858e9;
+   font-family: inherit;
+   font-size: calc(12.5px * var(--fs, 1));
+   font-weight: 600
+}
+
+.vh .wp-perma-etiquetas .btn:not(#x):not(#y):hover {
+   background: #e9ecfb
+}
+
+.vh[data-theme=dark] .wp-perma-etiquetas .btn:not(#x):not(#y) {
+   color: #9fb0ff;
+   border-color: #6b82ff;
+   background: transparent
+}
+
+.vh .wp-perma > .wp-gest-guardar {
+   grid-column: 1;
+   justify-self: start;
+   margin-top: 0
+}
+
+@media (max-width: 1050px) {
+   .vh .wp-perma {
+      grid-template-columns: minmax(0, 1fr)
+   }
+
+   .vh .wp-perma > .wp-gest-guardar {
+      grid-column: 1
+   }
+}
+
+@media (max-width: 768px) {
+   .vh .wp-perma > .wp-gest-guardar:not(#x):not(#y) {
+      width: 100%;
+      justify-self: stretch;
+      justify-content: center
+   }
+}
+
+/* o campo da estrutura personalizada com a altura dos botões (34 px × --z) */
+.vh .wp-perma {
+   --h-input: calc(34px * var(--z, 1));
+   --h-campo: calc(34px * var(--z, 1))
+}
+
+.vh .wp-perma-pers input:not(#x):not(#y):not(#z) {
+   height: calc(34px * var(--z, 1)) !important;
+   min-height: calc(34px * var(--z, 1)) !important
+}
+
+/* como no ecrã do WordPress: o círculo da opção fica sozinho à esquerda e o que vem por baixo (exemplo, campo e etiquetas) alinha com o texto da opção, não com o círculo */
+.vh .wp-perma-op > code,
+.vh .wp-perma-pers,
+.vh .wp-perma-etiquetas {
+   margin-left: calc(24px * var(--z, 1))
+}
+
+/* o «Guardar alterações» das ligações permanentes alinha com o texto das opções (não com os círculos) */
+.vh .wp-perma > .wp-gest-guardar:not(#x):not(#y) {
+   margin-left: calc(24px * var(--z, 1))
+}
+
+@media (max-width: 768px) {
+   .vh .wp-perma > .wp-gest-guardar:not(#x):not(#y) {
+      width: calc(100% - 24px * var(--z, 1))
+   }
+}
+
+/* mais espaço por baixo do título das ligações permanentes e por baixo da lista, antes do botão */
+.vh .wp-perma-rotulo:not(#x) {
+   margin-bottom: calc(14px * var(--z, 1))
+}
+
+.vh .wp-perma-opcoes:not(#x) {
+   margin-bottom: calc(14px * var(--z, 1))
 }

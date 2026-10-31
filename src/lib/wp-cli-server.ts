@@ -527,13 +527,23 @@ export async function deleteWpUser(
   return { ok: !wpCommandFailed(output), output };
 }
 
+export type DestinoAdminWp = 'plugins' | 'paginas' | 'pagina-nova' | 'utilizadores' | 'utilizador-novo';
+export const DESTINOS_ADMIN_WP: Record<DestinoAdminWp, string> = {
+  plugins: 'plugins.php',
+  paginas: 'edit.php?post_type=page',
+  'pagina-nova': 'post-new.php?post_type=page',
+  utilizadores: 'users.php',
+  'utilizador-novo': 'user-new.php',
+};
+
 export async function generateWpAutoLoginToken(
   domain: string,
   username?: string,
   postId?: number,
   editor: 'wordpress' | 'elementor' = 'wordpress',
-  /** `plugins`: entra directo na lista de Plugins do WordPress (botão «Gerir plugins no WordPress»; sem página indicada) */
-  destinoAdmin?: 'plugins',
+  /** onde entra no administrador do WordPress quando não se indica uma página: a lista de plugins, de páginas ou de utilizadores, ou o ecrã de uma página/utilizador novo
+   *  (botões «Gerir … no WordPress» e «Adicionar …» de cada separador do Gerir WordPress) */
+  destinoAdmin?: DestinoAdminWp,
 ): Promise<{ success: boolean; url?: string; error?: string }> {
   const install = await resolveWpInstall(domain);
   if (!install) return { success: false, error: 'WordPress não encontrado neste domínio' };
@@ -544,24 +554,9 @@ export async function generateWpAutoLoginToken(
     return { success: false, error: 'Escolha uma página Elementor.' };
   }
 
-  // Sem utilizador indicado (botão "Painel do WordPress"): entra como o
-  // primeiro administrador do site.
-  let login = (username || '').trim();
-  if (!login) {
-    const raw = await runAsWpUser(
-      install.user,
-      install.path,
-      // sem plugins nem tema: só é preciso a tabela de utilizadores, e arrancar o WordPress inteiro custava 1 a 2 s a mais
-      '--skip-plugins --skip-themes user list --role=administrator --field=user_login --format=csv',
-    ).catch(() => '');
-    login = raw
-      .split('\n')
-      .map((l) => l.trim())
-      .filter((l) => l && !/^user_login$/i.test(l))[0] || '';
-    if (!login) {
-      return { success: false, error: 'Nenhum administrador encontrado neste WordPress.' };
-    }
-  }
+  // Sem utilizador indicado (botão "Painel do WordPress"): entra como o primeiro administrador do site. Quem o escolhe é o próprio ficheiro de
+  // entrada (já com o WordPress carregado), e não um `wp user list`: poupa um arranque inteiro do wp-cli, que neste servidor leva vários segundos.
+  const login = (username || '').trim();
 
   const token = crypto.randomUUID();
   const filename = `wp-login-${token}.php`;
@@ -570,13 +565,17 @@ export async function generateWpAutoLoginToken(
   const acao = editor === 'elementor' ? 'elementor' : 'edit';
   // sem página indicada entra na lista de Páginas e não no Painel (wp-admin/): o Painel carrega os widgets e as notícias do WordPress
   // (e do Elementor) e demorava mais do dobro a abrir (7,8 s contra 3,3 s medidos no servidor; Silva, 22/10/2026)
-  const destino = postId === undefined ? (destinoAdmin === 'plugins' ? "admin_url('plugins.php')" : "admin_url('edit.php?post_type=page')") : `admin_url('post.php?post=${postId}&action=${acao}')`;
+  const destino = postId === undefined ? `admin_url('${destinoAdmin ? DESTINOS_ADMIN_WP[destinoAdmin] : 'edit.php?post_type=page'}')` : `admin_url('post.php?post=${postId}&action=${acao}')`;
 
   const phpContent = `<?php
 // Autologin gerado pelo painel
 @unlink(__FILE__);
 require_once __DIR__ . '/wp-load.php';
-$user = get_user_by('login', '${login.replace(/'/g, "\\'")}');
+$user = ${login ? `get_user_by('login', '${login.replace(/'/g, "\\'")}')` : 'null'};
+if (!$user && ${login ? 'false' : 'true'}) {
+    $admins = get_users(array('role' => 'administrator', 'orderby' => 'ID', 'order' => 'ASC', 'number' => 1));
+    $user = $admins ? $admins[0] : null;
+}
 if ($user) {
     wp_clear_auth_cookie();
     wp_set_current_user($user->ID);

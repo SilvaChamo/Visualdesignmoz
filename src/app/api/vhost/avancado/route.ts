@@ -4,7 +4,7 @@ import { requirePanelBootstrapAccess } from '@/lib/panel-api-auth';
 import { executeServerCommand, streamServerFile, uploadFileViaSsh } from '@/lib/server-ssh-exec';
 import { hestiaCall } from '@/lib/hestia-client';
 import * as hestia from '@/lib/hestia-adapter';
-import { generateWpAutoLoginToken, installWordPressSite, listWpPlugins, listWpUsers, toggleWpPlugin, updateAllWpPlugins, updateWpPlugin, updateWpUserPassword } from '@/lib/wp-cli-server';
+import { DESTINOS_ADMIN_WP, type DestinoAdminWp, generateWpAutoLoginToken, installWordPressSite, listWpPlugins, listWpUsers, toggleWpPlugin, updateAllWpPlugins, updateWpPlugin, updateWpUserPassword } from '@/lib/wp-cli-server';
 import { esquecerLeitura, lerServidor, type LeituraServidor } from '@/lib/vhost-servidor';
 import { lerRegisto, montarDados } from '@/lib/vhost-dados';
 import { VHOST_DIR } from '@/lib/vhost-email-scripts';
@@ -21,6 +21,8 @@ export const dynamic = 'force-dynamic';
  * O que o Hestia não guarda (pastas protegidas, repositórios Git, análises do antivírus) fica em /usr/local/vhost/<conta>/.
  */
 
+/** Domínios que já passaram na prova de «Painel do WordPress» (quando), para não a repetir a cada clique */
+const PROVA_ENTRADA = new Map<string, number>();
 const DOM = /^(?=.{3,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/;
 const CONTA = /^[a-z0-9][a-z0-9_.-]{0,31}$/;
 const CRON = /^[0-9*/,-]{1,40}$/;
@@ -273,6 +275,21 @@ export async function GET(req: NextRequest) {
         return ok({ plugins: await listWpPlugins(d, true) });
       } catch (x) {
         return NextResponse.json({ erro: x instanceof Error ? x.message : 'WordPress não encontrado.' }, { status: 400 });
+      }
+    }
+    case 'wpsite': {
+      // separador Gestão do Gerir WordPress: o ícone do site e a página inicial (Opções de leitura), lidos numa só vez
+      if (!d) return NextResponse.json({ erro: 'Escolha o domínio.' }, { status: 400 });
+      const raiz = raizSite(srv, conta, d);
+      const php = 'echo json_encode(array("tem"=>((int)get_option("site_icon"))>0,"icone"=>(function(){$id=(int)get_option("site_icon");if(!$id){return "";}$u=get_site_icon_url(150);$up=wp_upload_dir();$f=$u?str_replace($up["baseurl"],$up["basedir"],$u):"";if(!$f||!is_readable($f)){$f=get_attached_file($id);}if(!$f||!is_readable($f)||filesize($f)>2000000){return "";}$t=wp_check_filetype($f);return "data:".($t["type"]?:"image/png").";base64,".base64_encode(file_get_contents($f));})(),"mostra"=>get_option("show_on_front")==="page"?"page":"posts","inicial"=>(int)get_option("page_on_front"),"artigos"=>(int)get_option("page_for_posts"),"nome"=>(string)get_bloginfo("name"),"estrutura"=>(string)get_option("permalink_structure"),"home"=>rtrim((string)home_url(),"/"),"arquivo"=>(string)_x("archives","sample permalink base"),"exemplo"=>(string)_x("sample-post","sample permalink structure"),"paginas"=>array_map(function($p){return array("ID"=>$p->ID,"titulo"=>$p->post_title);},get_posts(array("post_type"=>"page","post_status"=>"publish","numberposts"=>-1,"orderby"=>"title","order"=>"ASC")))));';
+      const out = await executeServerCommand(`sudo -u ${conta} /usr/local/bin/wp --path=${q(raiz)} --skip-plugins --skip-themes eval ${q(php)} 2>/dev/null`, { timeoutMs: 40_000 });
+      const ini = out.indexOf('{');
+      try {
+        const r = JSON.parse(out.slice(ini));
+        // o ícone vai dentro da resposta (data:): as imagens de outros endereços não passam na política de segurança do painel
+        return ok(r);
+      } catch {
+        return NextResponse.json({ erro: 'WordPress não encontrado neste domínio.' }, { status: 400 });
       }
     }
     case 'wpbd': {
@@ -836,10 +853,15 @@ export async function POST(req: NextRequest) {
       // Duas provas: o endereço público (o que o painel vai abrir) e este servidor directamente (ignora o DNS), para
       // saber se o que falha é o DNS ou o próprio servidor depois de uma passagem de conta
       const url = q('https://' + d + '/vh-prova-' + prova + '.txt');
-      const visto = await executeServerCommand(
-        `f=${q(raiz + '/vh-prova-' + prova + '.txt')}; echo ${prova} | sudo -u ${conta} sh -c 'cat > "$1"' _ "$f" && { pub=$(curl -sk -m 8 -L ${url} | head -c 64); loc=$(curl -sk -m 8 -L --resolve ${q(d + ':443:127.0.0.1')} --resolve ${q(d + ':80:127.0.0.1')} ${url} | head -c 64); }; sudo -u ${conta} rm -f -- "$f"; echo "PUBLICO=$([ "\${pub:-}" = ${prova} ] && echo 1 || echo 0)"; echo "LOCAL=$([ "\${loc:-}" = ${prova} ] && echo 1 || echo 0)"; echo "DNS=$(getent ahostsv4 ${q(d)} | awk '{print $1}' | sort -u | tr '\\n' ' ')"; echo "SERVIDOR=$(hostname -I)"`,
+      const t0 = Date.now();
+      // se este domínio passou na prova há menos de 10 minutos, não se repete (cada prova são pedidos ao próprio site)
+      const provaFeita = (PROVA_ENTRADA.get(d) ?? 0) > Date.now() - 10 * 60_000;
+      const visto = provaFeita ? 'PUBLICO=1\n' : await executeServerCommand(
+        `f=${q(raiz + '/vh-prova-' + prova + '.txt')}; echo ${prova} | sudo -u ${conta} sh -c 'cat > "$1"' _ "$f" && { pf=$(mktemp); lf=$(mktemp); curl -sk -m 6 -L ${url} | head -c 64 > "$pf" & curl -sk -m 6 -L --resolve ${q(d + ':443:127.0.0.1')} --resolve ${q(d + ':80:127.0.0.1')} ${url} | head -c 64 > "$lf" & wait; pub=$(cat "$pf"); loc=$(cat "$lf"); rm -f "$pf" "$lf"; }; sudo -u ${conta} rm -f -- "$f"; echo "PUBLICO=$([ "\${pub:-}" = ${prova} ] && echo 1 || echo 0)"; echo "LOCAL=$([ "\${loc:-}" = ${prova} ] && echo 1 || echo 0)"; echo "DNS=$(getent ahostsv4 ${q(d)} | awk '{print $1}' | sort -u | tr '\\n' ' ')"; echo "SERVIDOR=$(hostname -I)"`,
         { timeoutMs: 30_000 },
       ).catch(() => '');
+      if (/^PUBLICO=1$/m.test(visto)) PROVA_ENTRADA.set(d, Date.now());
+      const tProva = Date.now() - t0;
       if (!/^PUBLICO=1$/m.test(visto)) {
         const dns = (/^DNS=(.*)$/m.exec(visto)?.[1] || '').trim();
         const servidor = (/^SERVIDOR=(.*)$/m.exec(visto)?.[1] || '').trim();
@@ -870,8 +892,12 @@ export async function POST(req: NextRequest) {
           if (modo.trim() !== 'builder') return recusa('Esta página não está editada com Elementor.');
         }
       }
-      const x = await generateWpAutoLoginToken(d, wpUser || undefined, postId, editor, c.destino === 'plugins' ? 'plugins' : undefined);
-      return resposta({ ok: x.success, error: x.error }, false, { url: x.url });
+      const t1 = Date.now();
+      const x = await generateWpAutoLoginToken(d, wpUser || undefined, postId, editor, typeof c.destino === 'string' && c.destino in DESTINOS_ADMIN_WP ? (c.destino as DestinoAdminWp) : undefined);
+      // quanto levou cada passo no servidor (o resto do tempo é o WordPress a abrir, no navegador)
+      const tempos = { provaMs: tProva, entradaMs: Date.now() - t1 };
+      console.log('[wp-entrar]', d, JSON.stringify(tempos));
+      return resposta({ ok: x.success, error: x.error }, false, { url: x.url, tempos });
     }
     case 'wp-senha': {
       // "Open Users List" do DA: mudar a palavra-passe de um utilizador do WordPress
@@ -1010,6 +1036,85 @@ export async function POST(req: NextRequest) {
         if (!x.ok) falhas.push((nomes.length > 1 ? p + ': ' : '') + x.output.replace(/\s+/g, ' ').trim().slice(0, 200));
       }
       return resposta({ ok: !falhas.length, error: falhas.join(' · ').slice(0, 400) });
+    }
+    case 'wp-icone-guardar': {
+      // «Alterar ícone do site»: a imagem (quadrada, pelo menos 512 por 512) entra na biblioteca de media e passa a ser o ícone do site
+      if (!d) return recusa('Escolha o domínio.');
+      const dados = String(c.dados || '').replace(/^data:[^,]*,/, '').replace(/\s/g, '');
+      if (!/^[A-Za-z0-9+/]+={0,2}$/.test(dados) || dados.length > 14_000_000) return recusa('A imagem é inválida ou tem mais de 10 MB.');
+      const img = Buffer.from(dados, 'base64');
+      const ext = img.subarray(0, 4).toString('hex') === '89504e47' ? 'png' : img.subarray(0, 3).toString('hex') === 'ffd8ff' ? 'jpg' : img.subarray(0, 4).toString('latin1') === 'GIF8' ? 'gif' : img.subarray(0, 4).toString('latin1') === 'RIFF' && img.subarray(8, 12).toString('latin1') === 'WEBP' ? 'webp' : '';
+      if (!ext) return recusa('Use uma imagem PNG, JPG, GIF ou WEBP.');
+      const nome = (linha(c.nome).replace(/\.[^.]*$/, '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 40) || 'icone-do-site') + '.' + ext;
+      const tmpDir = '/var/tmp/vhost-ico-up';
+      const tmp = `${tmpDir}/${Array.from(crypto.getRandomValues(new Uint8Array(8)), (x) => x.toString(16).padStart(2, '0')).join('')}-${nome}`;
+      const raiz = raizSite(srv, conta, d);
+      const wp = `sudo -u ${conta} /usr/local/bin/wp --path=${q(raiz)}`;
+      try {
+        await executeServerCommand(`install -d -m 711 ${tmpDir} && find ${tmpDir} -maxdepth 1 -type f -mmin +60 -delete`, { timeoutMs: 20_000 });
+        await uploadFileViaSsh(tmp, img);
+        await executeServerCommand(`chmod 644 ${q(tmp)}`, { timeoutMs: 20_000 });
+        const medidas = (await executeServerCommand(`${wp} --skip-plugins --skip-themes eval ${q('$s=@getimagesize(' + JSON.stringify(tmp) + '); echo $s?($s[0]."x".$s[1]):"";')} 2>/dev/null`, { timeoutMs: 30_000 })).trim().match(/(\d+)x(\d+)\s*$/);
+        if (!medidas) return recusa('Não foi possível ler a imagem.');
+        if (medidas[1] !== medidas[2] || Number(medidas[1]) < 512) return recusa('O ícone tem de ser quadrado e ter pelo menos 512 por 512 píxeis (esta imagem tem ' + medidas[1] + ' por ' + medidas[2] + ').');
+        const id = (await executeServerCommand(`${wp} media import ${q(tmp)} --porcelain 2>&1 | tail -n 1`, { timeoutMs: 120_000 })).trim();
+        if (!/^\d+$/.test(id)) return recusa('O WordPress não aceitou a imagem: ' + id.slice(0, 160));
+        const fim = await executeServerCommand(`${wp} --skip-plugins --skip-themes option update site_icon ${id} 2>&1 | tail -n 1`, { timeoutMs: 30_000 });
+        if (!/Success/i.test(fim)) return recusa('Não foi possível guardar o ícone: ' + fim.slice(0, 160));
+        return resposta({ ok: true }, true);
+      } finally {
+        await executeServerCommand(`rm -f ${q(tmp)}`, { timeoutMs: 20_000 }).catch(() => undefined);
+      }
+    }
+    case 'wp-icone-remover': {
+      if (!d) return recusa('Escolha o domínio.');
+      const raiz = raizSite(srv, conta, d);
+      const out = await executeServerCommand(`sudo -u ${conta} /usr/local/bin/wp --path=${q(raiz)} --skip-plugins --skip-themes option delete site_icon 2>&1 | tail -n 1`, { timeoutMs: 30_000 });
+      return resposta({ ok: /Success|Could not delete/i.test(out), error: out.slice(0, 200) }, true);
+    }
+    case 'wp-leitura-guardar': {
+      // «Opções de leitura» do WordPress: a página inicial mostra os artigos mais recentes ou uma página estática (e a página dos artigos)
+      if (!d) return recusa('Escolha o domínio.');
+      const mostra = linha(c.mostra);
+      if (mostra !== 'posts' && mostra !== 'page') return recusa('Escolha o que a página inicial mostra.');
+      const inicial = Number(c.inicial) || 0;
+      const artigos = Number(c.artigos) || 0;
+      const raiz = raizSite(srv, conta, d);
+      const wp = `sudo -u ${conta} /usr/local/bin/wp --path=${q(raiz)} --skip-plugins --skip-themes`;
+      let cmd = `${wp} option update show_on_front ${mostra} 2>&1 | tail -n 1`;
+      if (mostra === 'page') {
+        if (!Number.isSafeInteger(inicial) || inicial <= 0) return recusa('Escolha a página inicial.');
+        if (!Number.isSafeInteger(artigos) || artigos < 0) return recusa('Página de artigos inválida.');
+        if (artigos === inicial) return recusa('A página inicial e a página de artigos têm de ser diferentes.');
+        for (const id of [inicial, artigos].filter(Boolean)) {
+          const tipo = (await executeServerCommand(`${wp} post get ${id} --field=post_type 2>/dev/null`, { timeoutMs: 40_000 })).trim();
+          if (tipo !== 'page') return recusa('Uma das páginas escolhidas não existe.');
+        }
+        cmd = `${wp} option update page_on_front ${inicial} >/dev/null 2>&1 && ${wp} option update page_for_posts ${artigos} >/dev/null 2>&1 && ${cmd}`;
+      }
+      const out = await executeServerCommand(cmd, { timeoutMs: 60_000 });
+      return resposta({ ok: /Success/i.test(out), error: out.slice(0, 200) }, true);
+    }
+    case 'wp-ligacoes-guardar': {
+      // «Estrutura das ligações permanentes» (Definições › Ligações permanentes do WordPress): grava a estrutura e refaz as regras (também no .htaccess), como o WordPress
+      if (!d) return recusa('Escolha o domínio.');
+      let est = String(c.estrutura ?? '').trim();
+      if (est) {
+        est = ('/' + est).replace(/\/{2,}/g, '/');
+        const marcas: string[] = est.match(/%[a-z_]+%/g) || [];
+        if (est.length > 200 || !/^[A-Za-z0-9%/_.-]+$/.test(est)) return recusa('A estrutura só pode ter letras, números, barras, hífenes e etiquetas como %postname%.');
+        if (!marcas.length || marcas.some((m) => !['%year%', '%monthnum%', '%day%', '%hour%', '%minute%', '%second%', '%post_id%', '%postname%', '%category%', '%author%'].includes(m))) return recusa('Use pelo menos uma etiqueta válida, como %postname% ou %post_id%.');
+        if (!marcas.some((m) => m === '%postname%' || m === '%post_id%') && !(marcas.includes('%year%') && marcas.includes('%monthnum%') && marcas.includes('%day%') && marcas.includes('%hour%') && marcas.includes('%minute%') && marcas.includes('%second%'))) return recusa('A estrutura tem de acabar numa etiqueta que identifique o artigo: %postname% ou %post_id%.');
+      }
+      const raiz = raizSite(srv, conta, d);
+      const php = `global $wp_rewrite; require_once ABSPATH."wp-admin/includes/file.php"; require_once ABSPATH."wp-admin/includes/misc.php"; add_filter("got_rewrite","__return_true"); $wp_rewrite->set_permalink_structure(base64_decode("${Buffer.from(est, 'utf8').toString('base64')}")); $wp_rewrite->flush_rules(true); echo "VD_OK:".get_option("permalink_structure");`;
+      const wp = `sudo -u ${conta} /usr/local/bin/wp --path=${q(raiz)} --skip-plugins --skip-themes`;
+      const out = await executeServerCommand(`${wp} eval ${q(php)} 2>&1 | tail -n 3`, { timeoutMs: 90_000 });
+      const m = out.match(/VD_OK:(.*)$/m);
+      if (!m || m[1].trim() !== est) return recusa('O WordPress não gravou a estrutura: ' + out.replace(/\s+/g, ' ').slice(0, 160));
+      // as páginas guardadas na cache continuam com os endereços antigos: esvazia só a cache de páginas deste site
+      await executeServerCommand(`for dd in cache-enabler wpo-cache; do dir=${q(raiz)}/wp-content/cache/$dd; [ -d "$dir" ] && sudo -u ${conta} find "$dir" -mindepth 1 -delete; done; true`, { timeoutMs: 60_000 }).catch(() => undefined);
+      return resposta({ ok: true }, true);
     }
     case 'wp-nucleo': {
       if (!d) return recusa('Escolha o domínio.');

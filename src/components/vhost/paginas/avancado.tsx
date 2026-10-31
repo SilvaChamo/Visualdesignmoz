@@ -1795,8 +1795,13 @@ const AUTO: Record<string, string> = { true: 'Todas', minor: 'Só de segurança'
 
 /** Abre o painel do WordPress já com sessão. A janela abre-se logo no clique (depois de esperar pelo servidor o
  *  navegador bloqueava-a) e recebe o endereço quando ele chega; se falhar, fecha-se e aparece o motivo. */
-async function entrarWp(vh: VH, d: string, user?: string, postId?: number, editor: 'wordpress' | 'elementor' = 'wordpress', destino?: 'plugins') {
+async function entrarWp(vh: VH, d: string, user?: string, postId?: number, editor: 'wordpress' | 'elementor' = 'wordpress', destino?: 'plugins' | 'paginas' | 'pagina-nova' | 'utilizadores' | 'utilizador-novo') {
   const w = window.open('about:blank', '_blank');
+  // a janela nova já diz o que está a acontecer (em vez de ficar em branco enquanto o servidor prepara a entrada e o WordPress carrega)
+  try {
+    w?.document.write('<!doctype html><meta charset="utf-8"><title>WordPress</title><body style="font:15px system-ui,sans-serif;color:#42454D;display:grid;place-items:center;height:100vh;margin:0;text-align:center"><div><b>' + vh.t('A abrir o WordPress…') + '</b><p style="color:#6E6E73">' + vh.t('Pode demorar um pouco: o site está a carregar. Não feche esta janela.') + '</p></div>');
+    w?.document.close();
+  } catch {}
   const j = await noServidor(vh, { acao: 'wp-entrar', dominio: d, ...(user ? { user } : {}), ...(postId ? { postId } : {}), ...(destino ? { destino } : {}), editor }, editor === 'elementor' ? 'A abrir o Elementor…' : 'A abrir o painel do WordPress…');
   if (j?.url && w) {
     w.opener = null;
@@ -1848,23 +1853,37 @@ function BotoesSiteWp({ d }: { d: string }) {
  *  que abre/fecha o cabeçalho de carregar .zip no corpo da página (Silva, 31/10/2026) */
 const EVENTO_ADICIONAR_PLUGINS = 'vd-wp-adicionar-plugins';
 function BotoesPluginsWp({ d }: { d: string }) {
+  return <BotoesSeparadorWp d={d} gerir="Gerir plugins no WordPress" destino="plugins" adicionar="Adicionar plugins" aoAdicionar={() => window.dispatchEvent(new Event(EVENTO_ADICIONAR_PLUGINS))} />;
+}
+
+/** Os dois botões da linha de cima do cartão de cada separador do Gerir WordPress: abrir a lista no WordPress e adicionar (Silva, 31/10/2026).
+ *  Sem `aoAdicionar`, «Adicionar» abre no WordPress o ecrã de novo (`destinoNovo`). */
+function BotoesSeparadorWp({ d, gerir, destino, adicionar, destinoNovo, aoAdicionar }: { d: string; gerir: string; destino: 'plugins' | 'paginas' | 'utilizadores'; adicionar: string; destinoNovo?: 'pagina-nova' | 'utilizador-novo'; aoAdicionar?: () => void }) {
   const vh = useVH();
   const [pisca, piscar] = usePisca();
+  const [piscaNovo, piscarNovo] = usePisca();
   return (
     <>
       <button
         className={'btn g sec-m' + (pisca ? ' pisca' : '')}
         onClick={() => {
           piscar();
-          entrarWp(vh, d, undefined, undefined, 'wordpress', 'plugins');
+          entrarWp(vh, d, undefined, undefined, 'wordpress', destino);
         }}
       >
         <i className="fa-brands fa-wordpress" />
-        {vh.t('Gerir plugins no WordPress')}
+        {vh.t(gerir)}
       </button>
-      <button className="btn r" onClick={() => window.dispatchEvent(new Event(EVENTO_ADICIONAR_PLUGINS))}>
+      <button
+        className={'btn r' + (piscaNovo ? ' pisca' : '')}
+        onClick={() => {
+          if (aoAdicionar) return aoAdicionar();
+          piscarNovo();
+          if (destinoNovo) entrarWp(vh, d, undefined, undefined, 'wordpress', destinoNovo);
+        }}
+      >
         <i className="fa-solid fa-plus" />
-        {vh.t('Adicionar plugins')}
+        {vh.t(adicionar)}
       </button>
     </>
   );
@@ -2150,6 +2169,7 @@ function WpUtilizadores({ d }: { d: string }) {
     <>
       <DataTable
         id="wp-users-da"
+        empilhar={false}
         rows={dados.users}
         rowKey={(r) => r.user_login}
         empty="Sem utilizadores"
@@ -2401,18 +2421,247 @@ function WpCredenciais({ url, user, senha }: { url: string; user: string; senha:
   );
 }
 
+/** Gerir WordPress › Gestão: à esquerda o ícone do site (o «favicon», como em Definições › Geral do WordPress) e à direita as Opções de leitura
+ *  (o que a página inicial mostra), em duas colunas (Silva, 31/10/2026) */
+type WpSiteDados = { estrutura?: string; home?: string; arquivo?: string; exemplo?: string; tem?: boolean; icone: string; mostra: 'page' | 'posts'; inicial: number; artigos: number; nome: string; paginas: { ID: number; titulo: string }[] };
+function WpSiteGestao({ d }: { d: string }) {
+  const vh = useVH();
+  const { t } = vh;
+  const { dados, erro, ler } = useLer<WpSiteDados>('wpsite', { d });
+  const entrada = useRef<HTMLInputElement>(null);
+  const [mostra, setMostra] = useState<'page' | 'posts'>('posts');
+  const [inicial, setInicial] = useState(0);
+  const [artigos, setArtigos] = useState(0);
+  const [aEnviar, setAEnviar] = useState(false);
+  // ligações permanentes: a opção escolhida (como no ecrã do WordPress) e o texto da estrutura personalizada
+  const [perma, setPerma] = useState('');
+  const [personalizada, setPersonalizada] = useState('');
+  const campoPerma = useRef<HTMLInputElement>(null);
+  // o que o servidor leu passa para os campos (e volta a passar depois de guardar)
+  useEffect(() => {
+    if (!dados) return;
+    setMostra(dados.mostra);
+    setInicial(dados.inicial);
+    setArtigos(dados.artigos);
+    const arq = dados.arquivo || 'archives';
+    const atual = dados.estrutura ?? '';
+    const conhecida = ['', '/%year%/%monthnum%/%day%/%postname%/', '/%year%/%monthnum%/%postname%/', '/' + arq + '/%post_id%', '/%postname%/'].indexOf(atual);
+    setPerma(conhecida >= 0 ? ['generica', 'dia', 'mes', 'num', 'nome'][conhecida] : 'custom');
+    setPersonalizada(atual);
+  }, [dados]);
+  if (!dados) return <Carregando erro={erro} ler={ler} />;
+  const escolher = async (f: File | undefined) => {
+    if (!f) return;
+    if (!/^image\/(png|jpe?g|gif|webp)$/i.test(f.type)) return vh.toast(t('Use uma imagem PNG, JPG, GIF ou WEBP.'));
+    if (f.size > 10 * 1024 * 1024) return vh.toast(t('A imagem tem mais de 10 MB.'));
+    // quadrada e com pelo menos 512 por 512 (o servidor volta a conferir)
+    const url = URL.createObjectURL(f);
+    const medidas = await new Promise<[number, number]>((ok) => {
+      const im = new Image();
+      im.onload = () => ok([im.naturalWidth, im.naturalHeight]);
+      im.onerror = () => ok([0, 0]);
+      im.src = url;
+    });
+    URL.revokeObjectURL(url);
+    if (medidas[0] !== medidas[1] || medidas[0] < 512) return vh.toast(t('O ícone tem de ser quadrado e ter pelo menos 512 por 512 píxeis.'));
+    const dadosB64 = await new Promise<string>((ok) => {
+      const r = new FileReader();
+      r.onload = () => ok(String(r.result));
+      r.readAsDataURL(f);
+    });
+    setAEnviar(true);
+    const feito = await noServidor(vh, { acao: 'wp-icone-guardar', dominio: d, nome: f.name, dados: dadosB64 }, 'Ícone do site alterado');
+    setAEnviar(false);
+    if (feito) ler(true);
+  };
+  const remover = async () => {
+    if (await noServidor(vh, { acao: 'wp-icone-remover', dominio: d }, 'Ícone do site removido')) ler(true);
+  };
+  const guardar = async () => {
+    if (mostra === 'page' && !inicial) return vh.toast(t('Escolha a página inicial.'));
+    if (await noServidor(vh, { acao: 'wp-leitura-guardar', dominio: d, mostra, inicial, artigos }, 'Guardado')) ler(true);
+  };
+  // as opções das ligações permanentes: a estrutura que se grava e o exemplo, com o endereço do site e a data de hoje (como o ecrã do WordPress)
+  const arq = dados.arquivo || 'archives';
+  const ex = dados.exemplo || 'sample-post';
+  const hoje = new Date();
+  const ano = String(hoje.getFullYear());
+  const mes = String(hoje.getMonth() + 1).padStart(2, '0');
+  const dia = String(hoje.getDate()).padStart(2, '0');
+  const base = dados.home || 'https://' + d;
+  const OPCOES_PERMA: [string, string, string, string][] = [
+    ['generica', 'Genérica', '', '/?p=123'],
+    ['dia', 'Dia e nome', '/%year%/%monthnum%/%day%/%postname%/', '/' + ano + '/' + mes + '/' + dia + '/' + ex + '/'],
+    ['mes', 'Mês e nome', '/%year%/%monthnum%/%postname%/', '/' + ano + '/' + mes + '/' + ex + '/'],
+    ['num', 'Numérica', '/' + arq + '/%post_id%', '/' + arq + '/123'],
+    ['nome', 'Nome do artigo', '/%postname%/', '/' + ex + '/'],
+  ];
+  const TAGS_PERMA = ['%year%', '%monthnum%', '%day%', '%hour%', '%minute%', '%second%', '%post_id%', '%postname%', '%category%', '%author%'];
+  const estruturaEscolhida = perma === 'custom' ? personalizada.trim() : OPCOES_PERMA.find((o) => o[0] === perma)?.[2] ?? '';
+  const guardarPerma = async () => {
+    if (perma === 'custom' && !personalizada.trim()) return vh.toast(t('Escreva a estrutura personalizada.'));
+    if (await noServidor(vh, { acao: 'wp-ligacoes-guardar', dominio: d, estrutura: estruturaEscolhida }, 'Ligações permanentes guardadas')) ler(true);
+  };
+  return (
+    <section className="da-sec">
+      <div className="wp-gest-2c">
+        <div className="wp-gest-bloco">
+          <h4>{t('Ícone do site')}</h4>
+          <div className="wp-ico-prev">
+            {dados.icone ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img className="ico" src={dados.icone} alt="" onError={(e) => (e.currentTarget.style.visibility = 'hidden')} />
+            ) : (
+              <span className="wp-ico-vazio">
+                <i className="fa-solid fa-image" />
+              </span>
+            )}
+            <div className="wp-ico-tab" aria-hidden="true">
+              <span className="pt" />
+              <span className="pt" />
+              <span className="pt" />
+              <span className="sep">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                {dados.icone && <img src={dados.icone} alt="" />}
+                <span>{dados.nome || d}</span>
+              </span>
+            </div>
+          </div>
+          <div className="wp-ico-botoes">
+            <button className="btn g" disabled={aEnviar} onClick={() => entrada.current?.click()}>
+              {t(aEnviar ? 'A enviar…' : dados.icone || dados.tem ? 'Alterar ícone do site' : 'Escolher ícone do site')}
+            </button>
+            {(dados.icone || dados.tem) && (
+              <button className="btn g rm" disabled={aEnviar} onClick={remover}>
+                {t('Remover ícone do site')}
+              </button>
+            )}
+            <input
+              ref={entrada}
+              type="file"
+              accept="image/png,image/jpeg,image/gif,image/webp"
+              hidden
+              onChange={(ev) => {
+                void escolher(ev.target.files?.[0]);
+                ev.target.value = '';
+              }}
+            />
+          </div>
+          <p className="wp-gest-dica">{t('O ícone do site é o que vê nos separadores do navegador, nas barras de favoritos e nas aplicações móveis do WordPress. Deve ser quadrado e ter pelo menos 512 por 512 píxeis.')}</p>
+        </div>
+        <div className="wp-gest-bloco">
+          <h4>{t('A sua página inicial mostra')}</h4>
+          <div className="wp-leitura-opcoes">
+            <label className="rd">
+              <input type="radio" name={'wp-mostra-' + d} checked={mostra === 'posts'} onChange={() => setMostra('posts')} />
+              {t('Os seus artigos mais recentes')}
+            </label>
+            <label className="rd">
+              <input type="radio" name={'wp-mostra-' + d} checked={mostra === 'page'} onChange={() => setMostra('page')} />
+              {t('Uma página estática (seleccionar abaixo)')}
+            </label>
+            <div className="wp-leitura-sel">
+              <label>
+                <span>{t('Página inicial:')}</span>
+                <select value={inicial} disabled={mostra !== 'page'} onChange={(e) => setInicial(Number(e.target.value))}>
+                  <option value={0}>{t('— Seleccione —')}</option>
+                  {dados.paginas.map((p) => (
+                    <option key={p.ID} value={p.ID}>
+                      {p.titulo || t('(sem título)')}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span>{t('Página de artigos:')}</span>
+                <select value={artigos} disabled={mostra !== 'page'} onChange={(e) => setArtigos(Number(e.target.value))}>
+                  <option value={0}>{t('— Seleccione —')}</option>
+                  {dados.paginas.map((p) => (
+                    <option key={p.ID} value={p.ID}>
+                      {p.titulo || t('(sem título)')}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          </div>
+          <button className="btn r wp-gest-guardar" onClick={guardar}>
+            {t('Guardar alterações')}
+          </button>
+        </div>
+      </div>
+      <div className="wp-perma">
+        <div className="wp-perma-rotulo">{t('Estrutura das ligações permanentes')}</div>
+        <div className="wp-perma-opcoes">
+          {OPCOES_PERMA.map(([id, nome, , exemplo]) => (
+            <div key={id} className="wp-perma-op">
+              <label className="rd">
+                <input type="radio" name={'wp-perma-' + d} checked={perma === id} onChange={() => setPerma(id)} />
+                <b>{t(nome)}</b>
+              </label>
+              <code>{base + exemplo}</code>
+            </div>
+          ))}
+          <div className="wp-perma-op">
+            <label className="rd">
+              <input type="radio" name={'wp-perma-' + d} checked={perma === 'custom'} onChange={() => setPerma('custom')} />
+              <b>{t('Estrutura personalizada')}</b>
+            </label>
+            <div className="wp-perma-pers">
+              <code>{base}</code>
+              <input
+                ref={campoPerma}
+                value={personalizada}
+                spellCheck={false}
+                data-ic-sem
+                aria-label={t('Estrutura personalizada')}
+                onFocus={() => setPerma('custom')}
+                onChange={(e) => {
+                  setPerma('custom');
+                  setPersonalizada(e.target.value);
+                }}
+              />
+            </div>
+            <div className="wp-perma-etiquetas">
+              <span>{t('Etiquetas disponíveis:')}</span>
+              <div className="botoes">
+              {TAGS_PERMA.map((tag) => (
+                <button
+                  key={tag}
+                  type="button"
+                  className="btn g"
+                  onClick={() => {
+                    setPerma('custom');
+                    setPersonalizada((v) => (v.trim() ? v.replace(/\/?$/, '/') : '/') + tag + '/');
+                    campoPerma.current?.focus();
+                  }}
+                >
+                  {tag}
+                </button>
+              ))}
+              </div>
+            </div>
+          </div>
+        </div>
+        <button className="btn r wp-gest-guardar" onClick={guardarPerma}>
+          {t('Guardar alterações')}
+        </button>
+      </div>
+    </section>
+  );
+}
+
 function WpGerir({ d }: { d: string }) {
   const vh = useVH();
   const { t } = vh;
   const lista = useLer<{ instalados: Wp[] }>('wordpress');
-  const { dados, erro, ler } = useLer<{ plugins: Plugin[]; users: WpUser[]; nucleo?: { disponivel: boolean; versao: string } | null }>('wp', { d });
+  const { dados, ler } = useLer<{ plugins: Plugin[]; users: WpUser[]; nucleo?: { disponivel: boolean; versao: string } | null }>('wp', { d });
   const wp = lista.dados?.instalados.find((x) => x.d === d);
-  const plug = async (op: string, plugin = '') => (await noServidor(vh, { acao: 'wp-plugin', dominio: d, op, plugin }, 'Feito')) && ler();
   return (
     <>
-      <Sec titulo="Resumo">
+      <section className="da-sec">
         <div className="da-grelha">
-          <div className="da-lin n3">
+          <div className="da-lin n4">
             <div className="da-cel">
               <i className="fa-brands fa-wordpress" />
               <div>
@@ -2432,6 +2681,21 @@ function WpGerir({ d }: { d: string }) {
               <div>
                 <small>{t('Tema')}</small>
                 <span>{wp?.tema || '…'}</span>
+              </div>
+            </div>
+            <div className="da-cel">
+              <i className="fa-solid fa-plug" />
+              <div>
+                <small>{t('Plugins')}</small>
+                <span>
+                  {dados ? (
+                    <>
+                      {dados.plugins.filter((p) => p.status === 'active').length} <em className="cel-claro">{t('plugins activos')}</em>
+                    </>
+                  ) : (
+                    '…'
+                  )}
+                </span>
               </div>
             </div>
           </div>
@@ -2465,48 +2729,8 @@ function WpGerir({ d }: { d: string }) {
             </div>
           )}
         </div>
-      </Sec>
-      {!dados ? (
-        <Carregando erro={erro} ler={ler} />
-      ) : (
-        <>
-          <Sec
-            titulo="Plugins"
-            numeros={[['Plugins', String(dados.plugins.length)], ['Com atualização', String(dados.plugins.filter((p) => p.update === 'available').length)]]}
-            extra={
-              <button className="btn sm r" disabled={!dados.plugins.some((p) => p.update === 'available')} onClick={() => plug('atualizar-todos')}>
-                <i className="fa-solid fa-arrows-rotate" />
-                {t('Atualizar todos os plugins')}
-              </button>
-            }
-          >
-            <DataTable
-              id="wp-plugins"
-              rows={dados.plugins}
-              rowKey={(r) => r.name}
-              onRecarregar={ler}
-              empty="Sem plugins"
-              cols={[
-                { k: 'n', t: 'Plugin', cell: (r) => <b style={r.update === 'available' ? { color: 'var(--red)' } : undefined}>{r.title || r.name}</b> },
-                { k: 'v', t: 'Versão', cell: (r) => r.version + (r.update === 'available' ? ' → ' + (r.update_version || '') : '') },
-                { k: 's', t: 'Estado', right: true, cell: (r) => <span className={'tag ' + (r.status === 'active' ? 'ok' : 'off')}>{t(r.status === 'active' ? 'Ativo' : 'Inativo')}</span> },
-              ]}
-              actions={(r) => (
-                <span className="dns-acoes">
-                  {r.update === 'available' && (
-                    <button className="btn sm r" onClick={() => plug('atualizar', r.name)}>
-                      {t('Atualizar')}
-                    </button>
-                  )}
-                  <button className="btn sm g" onClick={() => plug(r.status === 'active' ? 'desativar' : 'ativar', r.name)}>
-                    {t(r.status === 'active' ? 'Desativar' : 'Ativar')}
-                  </button>
-                </span>
-              )}
-            />
-          </Sec>
-        </>
-      )}
+      </section>
+      <WpSiteGestao d={d} />
     </>
   );
 }
@@ -2666,7 +2890,8 @@ function AdicionarPlugins({ d, fechar, depois }: { d: string; fechar: () => void
         <ul className="wp-plg-envios">
           {lista.map((e) => (
             <li key={e.id} className={'est-' + e.estado}>
-              <i className="fa-solid fa-file-zipper" />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img className="wp-plg-zip" src="/assets/zip-file.png" alt="" />
               <div className="fmda-up-info">
                 <div className="fmda-up-linha">
                   <b title={e.f.name}>{e.f.name}</b>
@@ -2860,7 +3085,7 @@ function WpPlugins({ d }: { d: string }) {
   );
 }
 
-/** Separadores do Gerir WordPress (como os dos Domínios): Gestão (atualizações e plugins) · Plugins · Utilizadores · Páginas */
+/** Separadores do Gerir WordPress (como os dos Domínios): Gestão · Plugins · Páginas · Utilizadores */
 type AbaWp = 'gestao' | 'plugins' | 'utilizadores' | 'paginas';
 function WpAbas({ d, aba }: { d: string; aba: AbaWp }) {
   const { nav } = useVH();
@@ -2868,9 +3093,9 @@ function WpAbas({ d, aba }: { d: string; aba: AbaWp }) {
     <Tabs<AbaWp>
       tabs={[
         ['gestao', 'Gestão', 'fa-gauge-high'],
-        ['plugins', 'Plugins', 'fa-puzzle-piece'],
-        ['utilizadores', 'Utilizadores', 'fa-users'],
+        ['plugins', 'Plugins', 'fa-plug'],
         ['paginas', 'Páginas', 'fa-file-lines'],
+        ['utilizadores', 'Utilizadores', 'fa-users'],
       ]}
       on={aba}
       onChange={(k) => nav('/utilizador/wordpress/' + encodeURIComponent(d) + (k === 'gestao' ? '' : '/' + k))}
@@ -2894,6 +3119,7 @@ function WpPaginas({ d }: { d: string }) {
     <Sec titulo="Páginas" desc="As páginas deste site. Edite-as aqui com o editor de blocos do WordPress, sem entrar no WordPress." numeros={[['Páginas', String(dados.paginas.length)]]}>
       <DataTable
         id="wp-paginas"
+        empilhar={false}
         rows={dados.paginas}
         rowKey={(r) => String(r.ID)}
         search={(r) => r.post_title}
@@ -3133,11 +3359,18 @@ export const wordpressPagina: ScreenFn = (vh) => {
     };
   if (a && (b === 'utilizadores' || b === 'paginas' || b === 'plugins'))
     return {
-      title: b === 'plugins' ? 'Gerir plugins' : 'Gerir WordPress',
+      title: b === 'plugins' ? 'Gerir plugins' : b === 'paginas' ? 'Gerir páginas' : 'Gerir utilizadores',
       desc: a,
       crumbs: [base, naPagina, { t: b === 'paginas' ? 'Páginas' : b === 'plugins' ? 'Plugins' : 'Utilizadores' }],
       ...noDominio('/' + b),
-      actions: b === 'plugins' ? <BotoesPluginsWp d={a} /> : sitePainel,
+      actions:
+        b === 'plugins' ? (
+          <BotoesPluginsWp d={a} />
+        ) : b === 'paginas' ? (
+          <BotoesSeparadorWp d={a} gerir="Gerir páginas no WordPress" destino="paginas" adicionar="Adicionar página" destinoNovo="pagina-nova" />
+        ) : (
+          <BotoesSeparadorWp d={a} gerir="Gerir utilizadores no WordPress" destino="utilizadores" adicionar="Adicionar utilizador" destinoNovo="utilizador-novo" />
+        ),
       body: (
         <>
           <WpAbas d={a} aba={b} />
