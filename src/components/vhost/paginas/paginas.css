@@ -15987,3 +15987,12 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
       width: calc(100% - 24px * var(--z, 1))
    }
 }
+
+/* mais espaço por baixo do título das ligações permanentes e por baixo da lista, antes do botão */
+.vh .wp-perma-rotulo:not(#x) {
+   margin-bottom: calc(14px * var(--z, 1))
+}
+
+.vh .wp-perma-opcoes:not(#x) {
+   margin-bottom: calc(14px * var(--z, 1))
+}
