@@ -2626,13 +2626,7 @@ function AdicionarPlugins({ d, fechar, depois }: { d: string; fechar: () => void
   const porInstalar = lista.filter((x) => x.estado !== 'ok').length;
   return (
     <div className="wp-plg-add">
-      <div className="wp-plg-add-cab">
-        <p className="wp-plg-add-txt">{t('Se tem plugins no formato .zip pode instalá-los ou actualizá-los carregando-os aqui. Pode escolher vários de uma vez.')}</p>
-        <button className="btn g" onClick={fechar} disabled={aInstalar}>
-          <i className="fa-solid fa-xmark" />
-          {t('Fechar')}
-        </button>
-      </div>
+      <p className="wp-plg-add-txt">{t('Se tem plugins no formato .zip pode instalá-los ou actualizá-los carregando-os aqui. Pode escolher vários de uma vez.')}</p>
       <div
         className={'wp-plg-caixa' + (arrasto ? ' on' : '')}
         onDragOver={(ev) => {
@@ -2663,6 +2657,9 @@ function AdicionarPlugins({ d, fechar, depois }: { d: string; fechar: () => void
         <span className="wp-plg-caixa-n">{lista.length ? (lista.length === 1 ? t('1 ficheiro seleccionado') : t('{0} ficheiros seleccionados').replace('{0}', String(lista.length))) : t('Nenhum ficheiro seleccionado')}</span>
         <button className="btn r" onClick={instalar} disabled={!porInstalar || aInstalar}>
           {t(aInstalar ? 'A instalar…' : 'Instalar agora')}
+        </button>
+        <button className="btn g" onClick={fechar} disabled={aInstalar}>
+          {t('Cancelar')}
         </button>
       </div>
       {lista.length > 0 && (
