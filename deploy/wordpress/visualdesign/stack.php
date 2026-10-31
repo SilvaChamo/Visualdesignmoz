@@ -87,6 +87,7 @@ const VD_AUTO_UPDATE_PLUGINS = [
 	VD_HONEYPOT_PLUGIN,
 	VD_REDIS_PLUGIN,
 	VD_WPO_PLUGIN,
+	'cache-enabler/cache-enabler.php',
 ];
 
 const VD_BLOCKED_SPAM_PLUGINS = [
@@ -791,3 +792,37 @@ add_action('admin_print_footer_scripts', static function () {
 	</script>
 	<?php
 }, 99);
+
+
+/**
+ * Cache de páginas (Cache Enabler, 7 dias) sempre actualizada com o conteúdo novo (Silva, 31/10/2026): publicar, retirar ou apagar uma página ou um artigo, e mudar um
+ * menu, esvaziam a cache do site inteiro, porque o conteúdo novo aparece em muitas páginas (inicial, categorias, listas do Elementor). Gravar um artigo que já está
+ * publicado continua a limpar só a página dele e as relacionadas (o Cache Enabler já o faz): limpar tudo a cada gravação esvaziaria a cache sempre que o Elementor grava.
+ * Só actua em sites com o Cache Enabler activo; nos que usam outra cache não faz nada.
+ */
+function vd_limpar_cache_do_site(): void
+{
+	static $feito = false;
+	if ($feito || !class_exists('Cache_Enabler', false)) {
+		return;
+	}
+	$feito = true;
+	do_action('cache_enabler_clear_site_cache');
+}
+
+add_action('transition_post_status', static function ($novo, $antigo, $post) {
+	if ($novo === $antigo || !($post instanceof WP_Post) || wp_is_post_revision($post) || wp_is_post_autosave($post)) {
+		return;
+	}
+	if ($novo !== 'publish' && $antigo !== 'publish') {
+		return;
+	}
+	$tipo = get_post_type_object($post->post_type);
+	if (!$tipo || empty($tipo->public)) {
+		return;
+	}
+	vd_limpar_cache_do_site();
+}, 20, 3);
+
+add_action('wp_update_nav_menu', 'vd_limpar_cache_do_site');
+add_action('wp_delete_nav_menu', 'vd_limpar_cache_do_site');
