@@ -243,7 +243,7 @@ export async function provisionPanelAccountToServer(userName: string, opcoes: { 
     // quando é possível, os nameservers (ver dns-hospedagem.ts). Se o cliente tem o DNS noutro sítio, recebe o aviso com o que mudar.
     void import('@/lib/dns-hospedagem')
       .then(async (m) => {
-        const feito = await m.prepararDnsDaHospedagem(domain);
+        const feito = await m.prepararDnsDaHospedagem(domain, { sb, userId });
         if (feito.nameserversPorMudar?.length) {
           await sb.from('notifications').insert({
             user_id: userId,

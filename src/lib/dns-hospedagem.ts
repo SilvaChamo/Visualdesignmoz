@@ -15,6 +15,7 @@
  * Nunca para `visualdesignmoz.com`, `basededadosagro.com` nem os subdomínios internos, nem para sites que estão na Vercel.
  */
 import { Resolver } from 'dns/promises';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { createCloudflareZone, findCloudflareZoneForHost, pointDomainToServerIp } from '@/lib/cloudflare-dns';
 import { dynadotAPI } from '@/lib/dynadot-adapter';
 import { runEmailDnsAutomation } from '@/lib/domain-email-auth';
@@ -49,7 +50,22 @@ export type ResultadoDnsHospedagem = {
   nameserversPorMudar?: string[];
 };
 
-export async function prepararDnsDaHospedagem(dominio: string): Promise<ResultadoDnsHospedagem> {
+/** Quem tem este domínio (ou o domínio principal dele) nos nossos registos: compras de domínio e hospedagens. */
+async function donosDoDominio(sb: SupabaseClient, nomes: string[]): Promise<Set<string>> {
+  const donos = new Set<string>();
+  for (const tabela of ['domain_renewals', 'hosting_renewals']) {
+    const { data } = await sb.from(tabela).select('user_id').in('domain_name', nomes);
+    for (const l of (data || []) as { user_id: string | null }[]) if (l.user_id) donos.add(l.user_id);
+  }
+  return donos;
+}
+
+/**
+ * `quem` = a pessoa que está a criar a conta ou a juntar o domínio. Com ela, só se mexe no DNS de um domínio que é dela ou que ninguém
+ * tem nos nossos registos (um domínio de outro cliente nunca se toca), e os nameservers só mudam se o domínio foi COMPRADO por ela
+ * através do sistema. Sem `quem` (quem chama já verificou o domínio) não se mudam nameservers.
+ */
+export async function prepararDnsDaHospedagem(dominio: string, quem?: { sb: SupabaseClient; userId: string }): Promise<ResultadoDnsHospedagem> {
   const d = dominio.trim().toLowerCase().replace(/\.$/, '');
   const passos: PassoDns[] = [];
   if (!d.includes('.') || NUNCA.has(d) || d.endsWith('.visualdesignmoz.com')) {
@@ -57,6 +73,17 @@ export async function prepararDnsDaHospedagem(dominio: string): Promise<Resultad
   }
   if ((await alojamentoVercel(d).catch(() => null)) === true) {
     return { ok: true, passos: [{ passo: 'DNS', ok: true, detalhe: 'o site está na Vercel: o DNS é de lá' }] };
+  }
+
+  // 0) de quem é o domínio? Nunca se mexe no de outra pessoa
+  let meuPorCompra = false;
+  if (quem) {
+    const donos = await donosDoDominio(quem.sb, Array.from(new Set([d, zonaDe(d)])));
+    if (donos.size > 0 && !donos.has(quem.userId)) {
+      return { ok: false, passos: [{ passo: 'DNS', ok: false, detalhe: 'este domínio pertence a outra conta: não se mexe no DNS dele' }] };
+    }
+    const { data: compra } = await quem.sb.from('domain_renewals').select('id').eq('user_id', quem.userId).in('domain_name', [d, zonaDe(d)]).limit(1);
+    meuPorCompra = Boolean(compra?.length);
   }
 
   // 1) a zona: a que já cobre este nome (um subdomínio vive na zona do domínio principal) ou uma nova
@@ -90,7 +117,7 @@ export async function prepararDnsDaHospedagem(dominio: string): Promise<Resultad
       passos.push({ passo: 'Nameservers', ok: true, detalhe: 'já apontam para o servidor' });
     } else {
       const parqueados = ns.length === 0 || ns.every((n) => /dynadot|dyna-ns/.test(n));
-      const nossoNoRegistador = parqueados && z.nameServers.length >= 2 && (await dynadotAPI.getDomainDetails(zona)).success;
+      const nossoNoRegistador = meuPorCompra && parqueados && z.nameServers.length >= 2 && (await dynadotAPI.getDomainDetails(zona)).success;
       if (nossoNoRegistador) {
         const r = await dynadotAPI.setNameservers(zona, z.nameServers);
         passos.push({ passo: 'Nameservers', ok: r.success, detalhe: r.success ? 'mudados no registador' : r.error });
