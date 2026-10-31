@@ -2627,17 +2627,12 @@ function AdicionarPlugins({ d, fechar, depois }: { d: string; fechar: () => void
   return (
     <div className="wp-plg-add">
       <div className="wp-plg-add-cab">
-        <h3>{t('Adicionar plugins')}</h3>
-        <button className="btn wp-plg-carregar" onClick={() => entrada.current?.click()} disabled={aInstalar}>
-          {t('Carregar plugin')}
-        </button>
-        <span className="sp" />
+        <p className="wp-plg-add-txt">{t('Se tem plugins no formato .zip pode instalá-los ou actualizá-los carregando-os aqui. Pode escolher vários de uma vez.')}</p>
         <button className="btn g" onClick={fechar} disabled={aInstalar}>
           <i className="fa-solid fa-xmark" />
           {t('Fechar')}
         </button>
       </div>
-      <p className="wp-plg-add-txt">{t('Se tem plugins no formato .zip pode instalá-los ou actualizá-los carregando-os aqui. Pode escolher vários de uma vez.')}</p>
       <div
         className={'wp-plg-caixa' + (arrasto ? ' on' : '')}
         onDragOver={(ev) => {
@@ -2674,7 +2669,7 @@ function AdicionarPlugins({ d, fechar, depois }: { d: string; fechar: () => void
         <ul className="wp-plg-envios">
           {lista.map((e) => (
             <li key={e.id} className={'est-' + e.estado}>
-              <i className="fa-solid fa-puzzle-piece" />
+              <i className="fa-solid fa-file-zipper" />
               <div className="fmda-up-info">
                 <div className="fmda-up-linha">
                   <b title={e.f.name}>{e.f.name}</b>
@@ -2794,6 +2789,23 @@ function WpPlugins({ d }: { d: string }) {
           onSelChange={setSel}
           barra2={lote}
           rodape={lote}
+          empilhar={false}
+          linhaExtra={(r) =>
+            r.update === 'available' ? (
+              <div className="wp-plg-aviso">
+                <i className="fa-solid fa-arrows-rotate" />
+                <span>
+                  {r.update_version
+                    ? t('Está disponível a versão {0} de {1}.').replace('{0}', r.update_version).replace('{1}', textoSimples(r.title) || r.name)
+                    : t('Está disponível uma nova versão de {0}.').replace('{0}', textoSimples(r.title) || r.name)}{' '}
+                  <button disabled={ocupado} onClick={() => correr('atualizar', [r.name])}>
+                    {t('Actualizar agora')}
+                  </button>
+                  .
+                </span>
+              </div>
+            ) : null
+          }
           cols={[
             {
               k: 'n',

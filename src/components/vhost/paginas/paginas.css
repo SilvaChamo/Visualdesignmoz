@@ -15276,7 +15276,9 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    align-items: center;
    gap: calc(12px * var(--z, 1));
    flex-wrap: wrap
-}
+;
+   padding-bottom: calc(14px * var(--z, 1));
+   border-bottom: 1px solid var(--line)}
 
 .vh .wp-plg-add-cab h3 {
    margin: 0;
@@ -15284,20 +15286,9 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    font-weight: 400
 }
 
-.vh .wp-plg-add-cab .sp {
-   flex: 1
-}
-
-.vh .wp-plg-carregar:not(#x) {
-   background: var(--tint);
-   border-color: var(--red);
-   color: var(--red);
-   font-weight: 600
-}
-
 .vh .wp-plg-add-txt {
-   margin: calc(22px * var(--z, 1)) 0 calc(14px * var(--z, 1));
-   text-align: center;
+   flex: 1;
+   margin: 0;
    font-size: calc(14px * var(--fs, 1));
    color: var(--ink)
 }
@@ -15309,7 +15300,7 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    flex-wrap: wrap;
    gap: calc(10px * var(--z, 1));
    max-width: calc(640px * var(--z, 1));
-   margin: 0 auto;
+   margin: calc(18px * var(--z, 1)) auto 0;
    padding: calc(18px * var(--z, 1));
    border: 1px dashed var(--line);
    border-radius: var(--r);
@@ -15469,4 +15460,42 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    height: calc(34px * var(--z, 1));
    min-height: calc(34px * var(--z, 1));
    font-size: calc(12.5px * var(--fs, 1))
+}
+
+/* aviso de nova versão por baixo do plugin, como no WordPress («Está disponível a versão X de Y. Actualizar agora.») — Silva, 31/10/2026 */
+.vh .wp-plg-aviso {
+   display: flex;
+   align-items: center;
+   gap: calc(8px * var(--z, 1));
+   margin: 0 0 calc(6px * var(--z, 1)) 0;
+   padding: calc(6px * var(--z, 1)) calc(12px * var(--z, 1));
+   border-left: 4px solid var(--warn);
+   background: var(--warnbg);
+   color: var(--ink);
+   font-size: calc(12.5px * var(--fs, 1))
+}
+
+.vh .wp-plg-aviso i:not(#x) {
+   color: var(--warn)
+}
+
+.vh .wp-plg-aviso button {
+   border: 0;
+   background: none;
+   padding: 0;
+   font: inherit;
+   color: var(--red);
+   font-weight: 600;
+   cursor: pointer
+}
+
+.vh .wp-plg-aviso button:hover {
+   text-decoration: underline
+}
+
+/* telemóvel: a lista fica como no computador, a deslizar na horizontal; a barra do selector pode ir para a linha de baixo */
+@media (max-width: 768px) {
+   .vh .wp-plg-lote {
+      flex-wrap: wrap
+   }
 }
