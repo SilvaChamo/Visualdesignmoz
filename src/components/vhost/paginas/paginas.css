@@ -15519,7 +15519,7 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    display: grid;
    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
    gap: calc(32px * var(--z, 1));
-   padding: calc(16px * var(--z, 1)) var(--recuo, 12px)
+   padding: calc(8px * var(--z, 1)) var(--recuo, 12px) calc(16px * var(--z, 1))
 }
 
 @media (max-width: 1050px) {
@@ -15677,4 +15677,55 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    flex: none;
    width: auto;
    height: calc(34px * var(--z, 1))
+}
+
+/* Gestão › ícone do site e página inicial: campos com contorno sempre visível, na altura dos botões (34 px × --z), e uma linha vertical a separar as duas colunas */
+.vh .wp-gest-2c {
+   --h-input: calc(34px * var(--z, 1));
+   --h-campo: calc(34px * var(--z, 1))
+}
+
+.vh .wp-gest-2c select:not(#x):not(#y) {
+   height: calc(34px * var(--z, 1));
+   min-height: calc(34px * var(--z, 1));
+   border: 1px solid var(--line);
+   background-color: var(--card);
+   color: var(--ink);
+   font-size: calc(12.5px * var(--fs, 1))
+}
+
+.vh .wp-gest-2c select:disabled:not(#x):not(#y) {
+   opacity: .7
+}
+
+.vh .wp-gest-2c input[type=radio]:not(#x) {
+   appearance: auto;
+   -webkit-appearance: radio;
+   flex: none;
+   width: calc(16px * var(--z, 1));
+   height: calc(16px * var(--z, 1));
+   margin: 0;
+   accent-color: var(--red);
+   opacity: 1
+}
+
+.vh .wp-gest-2c .wp-ico-botoes .btn:not(#x):not(#y),
+.vh .wp-gest-2c .wp-gest-guardar:not(#x):not(#y) {
+   height: calc(34px * var(--z, 1));
+   min-height: calc(34px * var(--z, 1));
+   font-size: calc(12.5px * var(--fs, 1))
+}
+
+@media (min-width: 1051px) {
+   .vh .wp-gest-2c .wp-gest-bloco + .wp-gest-bloco {
+      padding-left: calc(32px * var(--z, 1));
+      border-left: 1px solid var(--line)
+   }
+}
+
+@media (max-width: 1050px) {
+   .vh .wp-gest-2c .wp-gest-bloco + .wp-gest-bloco {
+      padding-top: calc(20px * var(--z, 1));
+      border-top: 1px solid var(--line)
+   }
 }
