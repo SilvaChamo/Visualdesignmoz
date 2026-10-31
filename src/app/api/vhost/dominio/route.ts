@@ -16,6 +16,7 @@ import { mensagemPublica } from '@/lib/mensagem-publica';
 import { lerRegisto, montarDados } from '@/lib/vhost-dados';
 import { instalarWebmail } from '@/lib/vhost-passar';
 import { limparSslPendente, marcarSslPendente } from '@/lib/vhost-ssl-pendente';
+import { agendarSslImediato } from '@/lib/ssl-automatico';
 
 export const dynamic = 'force-dynamic';
 // o pedido do SSL ao ssl-le espera pelo DNS e pelo Let's Encrypt
@@ -57,20 +58,9 @@ async function verificar(s: Sessao, conta: string, d: string, srv: LeituraServid
 /** Pede o certificado por trás, sem fazer esperar quem criou o subdomínio: o painel mostra-o logo na lista com "A processar
  *  SSL…" (sslPendente) e tenta aos `pausa` ms, 20 s, 1 min e 3 min (o DNS novo pode demorar a chegar ao Let's Encrypt). */
 function emitirSslPorTras(conta: string, dominio: string, pausa: number): void {
-  marcarSslPendente(dominio, conta);
-  void (async () => {
-    try {
-      for (const espera of [pausa, 20_000, 60_000, 180_000]) {
-        await new Promise((r) => setTimeout(r, espera));
-        const r = await hestia.issueLetsEncrypt(conta, dominio).catch(() => ({ ok: false }));
-        esquecerLeitura();
-        if (r.ok) return;
-      }
-    } finally {
-      limparSslPendente(dominio);
-      esquecerLeitura();
-    }
-  })();
+  void pausa;
+  // vigia o DNS de 10 em 10 s e pede o certificado logo que o domínio resolver (ver ssl-automatico.ts); o painel mostra «A processar SSL…»
+  agendarSslImediato(conta, dominio);
 }
 
 /** O subdomínio só abre (e o Let's Encrypt só passa) se tiver registo no DNS. Sem ele, cria o A na Cloudflare e espera
@@ -625,7 +615,7 @@ async function tratarPedido(req: NextRequest) {
         emitirSslPorTras(conta, novo, 6000);
       }
     } else if (x.ok && c.ssl) {
-      hestia.issueLetsEncrypt(conta, novo).catch(() => null); // com o reload do nginx (o certificado vale logo)
+      agendarSslImediato(conta, novo); // pede o certificado logo que o domínio resolver (com o reload do nginx: vale logo)
     }
     // webmail em https://<domínio>/webmail (antes ficava por pôr à mão em cada domínio novo)
     if (x.ok && !(await instalarWebmail(conta, novo))) {

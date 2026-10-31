@@ -628,6 +628,9 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
       return;
     }
     if (isAuthenticated === false && !isEncomenda) setComoVisitante(true);
+    // Quem compra uma hospedagem (o administrador, por exemplo) abre depois o painel da conta comprada, e não o seu principal:
+    // o painel lê esta marca e, assim que a conta existir no servidor, passa para ela (sem deixar de ser administrador).
+    if (!isEncomenda) pedirAbrirCompra(items.filter((i) => i.type === 'hosting').map((i) => i.contaUtilizador || '').filter(Boolean));
     setIsSubmitting(true);
     setErrorMessage('');
 
