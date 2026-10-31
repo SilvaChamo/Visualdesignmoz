@@ -957,6 +957,36 @@ export async function POST(req: NextRequest) {
       const out = await executeServerCommand(cmd, { timeoutMs: 60_000 });
       return resposta({ ok: /Success: Updated post/i.test(out) && !/Error/i.test(out), error: out.slice(0, 300) }, true);
     }
+    case 'wp-pagina-apagar': {
+      // menu «⋯» das páginas › Eliminar: a página vai para o lixo do WordPress (recuperável lá), nunca é apagada de vez
+      if (!d) return recusa('Escolha o domínio.');
+      const id = Number(c.id);
+      if (!Number.isSafeInteger(id) || id <= 0) return recusa('Página inválida.');
+      const raiz = raizSite(srv, conta, d);
+      const wp = `sudo -u ${conta} /usr/local/bin/wp --path=${q(raiz)} --skip-plugins --skip-themes`;
+      const tipo = (await executeServerCommand(`${wp} post get ${id} --field=post_type 2>/dev/null`, { timeoutMs: 40_000 })).trim();
+      if (tipo !== 'page') return recusa('Página não encontrada.');
+      // a página inicial e a dos artigos não se eliminam: o site ficava sem elas (muda-se primeiro em Gestão)
+      const usadas = (await executeServerCommand(`${wp} option get page_on_front 2>/dev/null; ${wp} option get page_for_posts 2>/dev/null`, { timeoutMs: 40_000 })).split(/\s+/).map(Number);
+      if (usadas.includes(id)) return recusa('Esta página é a página inicial ou a dos artigos do site: mude-a primeiro em Gestão.');
+      const out = await executeServerCommand(`${wp} post delete ${id} 2>&1 | tail -n 1`, { timeoutMs: 60_000 });
+      return resposta({ ok: /Success/i.test(out), error: out.slice(0, 200) }, true);
+    }
+    case 'wp-utilizador-apagar': {
+      // lista de utilizadores › lixeira: o utilizador sai e os seus conteúdos passam para o primeiro administrador (senão o WordPress apagava-os); nunca o último administrador
+      if (!d) return recusa('Escolha o domínio.');
+      const login = linha(c.user);
+      if (!/^[A-Za-z0-9._@ -]{1,60}$/.test(login)) return recusa('Utilizador inválido.');
+      const raiz = raizSite(srv, conta, d);
+      const wp = `sudo -u ${conta} /usr/local/bin/wp --path=${q(raiz)} --skip-plugins --skip-themes`;
+      const out = await executeServerCommand(
+        `id=$(${wp} user get ${q(login)} --field=ID 2>/dev/null | tail -n 1); if ! echo "$id" | grep -qE '^[0-9]+$'; then echo VD_NAOEXISTE; else adm=$(${wp} user list --role=administrator --field=ID --orderby=ID 2>/dev/null | grep -vx "$id" | head -n 1); if [ -z "$adm" ]; then echo VD_ULTIMOADMIN; else ${wp} user delete "$id" --reassign="$adm" --yes 2>&1 | tail -n 1; fi; fi`,
+        { timeoutMs: 90_000 },
+      );
+      if (/VD_NAOEXISTE/.test(out)) return recusa('Esse utilizador já não existe.');
+      if (/VD_ULTIMOADMIN/.test(out)) return recusa('Não se elimina o único administrador do site.');
+      return resposta({ ok: /Success/i.test(out), error: out.slice(0, 200) }, true);
+    }
     case 'wp-pagina-renomear': {
       // menu "⋯" das páginas do WordPress › Mudar nome: só o título da página (o conteúdo e o endereço ficam como estão)
       if (!d) return recusa('Escolha o domínio.');

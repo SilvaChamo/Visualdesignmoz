@@ -2181,9 +2181,28 @@ function WpUtilizadores({ d }: { d: string }) {
           { k: 'r', t: 'Papéis', cell: (r) => r.roles || '—' },
         ]}
         actions={(r) => (
-          <button className="btn sm g" onClick={() => entrarWp(vh, d, r.user_login)} title={t('Entrar no WordPress como') + ' ' + r.user_login}>
-            {t('Entrar')}
-          </button>
+          <span className="dns-acoes">
+            <button className="btn sm g" onClick={() => entrarWp(vh, d, r.user_login)} title={t('Entrar no WordPress como') + ' ' + r.user_login}>
+              {t('Entrar')}
+            </button>
+            <button
+              className="btn sm g iconbtn"
+              title={t('Eliminar')}
+              aria-label={t('Eliminar') + ' ' + r.user_login}
+              onClick={() =>
+                vh.openM(
+                  <Confirmar
+                    titulo="Eliminar este utilizador?"
+                    texto={r.user_login + ' ' + t('vai ser eliminado e os seus conteúdos passam para o primeiro administrador do site. Não se pode desfazer.')}
+                    ok="Eliminar"
+                    onOk={async () => (await noServidor(vh, { acao: 'wp-utilizador-apagar', dominio: d, user: r.user_login }, 'Utilizador eliminado')) && ler(true)}
+                  />,
+                )
+              }
+            >
+              <i className="fa-solid fa-trash-can" />
+            </button>
+          </span>
         )}
       />
       <section className="wp-senha">
@@ -3205,6 +3224,20 @@ function WpPaginas({ d }: { d: string }) {
               ...(r.elementor ? [{ fa: 'fa-pen-to-square', t: 'Editar com Elementor', run: () => entrarWp(vh, d, undefined, r.ID, 'elementor') }] : []),
               { fa: 'fa-i-cursor', t: 'Mudar nome', run: () => vh.openM(<NomePaginaModal inicial={r.post_title} onOk={async (titulo) => { if (await noServidor(vh, { acao: 'wp-pagina-renomear', dominio: d, id: r.ID, titulo }, 'Página renomeada')) ler(); }} />) },
               { fa: 'fa-arrow-up-right-from-square', t: 'Ver a página online', run: () => r.url && window.open(r.url, '_blank', 'noopener,noreferrer') },
+              {
+                fa: 'fa-trash-can',
+                t: 'Eliminar',
+                perigo: true,
+                run: () =>
+                  vh.openM(
+                    <Confirmar
+                      titulo="Eliminar esta página?"
+                      texto={'«' + (r.post_title || t('(sem título)')) + '» ' + t('vai para o lixo do WordPress, de onde se pode recuperar.')}
+                      ok="Eliminar"
+                      onOk={async () => (await noServidor(vh, { acao: 'wp-pagina-apagar', dominio: d, id: r.ID }, 'Página eliminada')) && ler(true)}
+                    />,
+                  ),
+              },
             ]}
           />
         )}
