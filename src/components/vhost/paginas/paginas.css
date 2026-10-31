@@ -15544,9 +15544,9 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
 
 }
 
-/* Gerir WordPress › Gestão › Opções do WordPress: ícone do site e campos de Leitura e Ligações permanentes (Silva, 31/10/2026) */
+/* Gerir WordPress › Gestão: linhas das opções do WordPress por baixo do selector da atualização (Silva, 31/10/2026) */
 .vh .wpo-icone,
-.vh .wpo-campos {
+.vh .wpo-chips {
    display: flex;
    align-items: center;
    flex-wrap: wrap;
@@ -15561,21 +15561,92 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
 }
 
 .vh .wpo-icone > i {
-   font-size: calc(26px * var(--fs, 1));
+   font-size: calc(24px * var(--fs, 1));
    color: var(--muted)
 }
 
-.vh .wpo-campos .em-sel:not(#x) {
-   max-width: 100%;
-   min-width: 0
+.vh .wpo-chips {
+   justify-content: flex-end
+}
+
+.vh .wpo-chip {
+   height: calc(30px * var(--z, 1));
+   padding: 0 calc(12px * var(--z, 1));
+   border: 1px solid var(--line);
+   border-radius: var(--r);
+   background: var(--card);
+   color: var(--ink);
+   font: inherit;
+   font-size: calc(12.5px * var(--fs, 1));
+   cursor: pointer
+}
+
+.vh .wpo-chip:hover {
+   border-color: var(--app)
+}
+
+.vh .wpo-chip.on {
+   border-color: var(--app);
+   background: var(--appbg);
+   color: var(--app);
+   font-weight: 700;
+   cursor: default
+}
+
+.vh .wpo-pers {
+   color: var(--muted)
+}
+
+.vh .wpo-pag {
+   display: inline-flex;
+   align-items: center;
+   gap: calc(7px * var(--z, 1));
+   height: calc(30px * var(--z, 1));
+   padding: 0 calc(10px * var(--z, 1));
+   border: 1px solid var(--line);
+   border-radius: var(--r);
+   background: var(--card);
+   color: var(--ink);
+   font: inherit;
+   font-size: calc(12.5px * var(--fs, 1));
+   cursor: pointer
+}
+
+.vh .wpo-pag small {
+   color: var(--app);
+   font-weight: 700
+}
+
+.vh .wpo-lista {
+   display: flex;
+   flex-direction: column;
+   gap: calc(4px * var(--z, 1));
+   max-height: calc(320px * var(--z, 1));
+   overflow: auto
+}
+
+.vh .wpo-item {
+   display: flex;
+   align-items: center;
+   gap: calc(8px * var(--z, 1));
+   padding: calc(8px * var(--z, 1)) calc(10px * var(--z, 1));
+   border: 1px solid var(--line-soft, var(--line));
+   border-radius: var(--r);
+   background: var(--card);
+   color: var(--ink);
+   font: inherit;
+   text-align: left;
+   cursor: pointer
+}
+
+.vh .wpo-item:hover,
+.vh .wpo-item.on {
+   border-color: var(--app);
+   background: var(--appbg)
 }
 
 @media (max-width: 768px) {
-   .vh .wpo-campos {
-      width: 100%
-   }
-
-   .vh .wpo-campos .em-sel:not(#x):not(#y) {
-      flex: 1 1 100%
+   .vh .wpo-chips {
+      justify-content: flex-start
    }
 }

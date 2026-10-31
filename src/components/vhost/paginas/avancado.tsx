@@ -2439,9 +2439,9 @@ function WpGerir({ d }: { d: string }) {
               </button>
             </div>
           )}
+          <WpOpcoes d={d} />
         </div>
       </Sec>
-      <WpOpcoes d={d} />
     </>
   );
 }
@@ -2479,13 +2479,12 @@ function WpPlugins({ d }: { d: string }) {
   return <PluginsWp plugins={dados.plugins} executar={plugins} atualizarTodos={atualizarTodos} enviar={enviarPlugin} recarregar={ler} />;
 }
 
-/** Opções do WordPress no separador «Gestão» (Silva, 31/10/2026): ícone do site (favicon), Leitura (página inicial) e Ligações permanentes */
+/** Linhas das opções do WordPress por baixo do selector da atualização automática (ícone do site, página principal da home e ligações permanentes) */
 function WpOpcoes({ d }: { d: string }) {
   const vh = useVH();
-  const { dados, erro, ler } = useLer<OpcoesWp>('wpopcoes', { d });
-  // com a leitura nova (depois de guardar) o formulário recomeça com o que o site tem agora
-  if (!dados) return <Carregando erro={erro} ler={ler} />;
-  return <OpcoesWordPress key={JSON.stringify(dados)} d={d} dados={dados} recarregar={ler} guardar={async (corpo, ok) => !!(await noServidor(vh, { ...corpo, dominio: d }, ok))} />;
+  const { dados, ler } = useLer<OpcoesWp>('wpopcoes', { d });
+  if (!dados) return null; // a carregar: as linhas aparecem quando chegar a leitura
+  return <OpcoesWordPress d={d} dados={dados} recarregar={ler} guardar={async (corpo, ok) => !!(await noServidor(vh, { ...corpo, dominio: d }, ok))} />;
 }
 
 /** Separadores do Gerir WordPress (como os dos Domínios): Gestão (atualização do WordPress e opções) · Plugins · Utilizadores · Páginas */
