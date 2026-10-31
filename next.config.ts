@@ -1,6 +1,5 @@
 import type { NextConfig } from 'next';
 import path from 'path';
-import withPWA from '@ducanh2912/next-pwa';
 import dns from 'dns';
 
 if (dns && typeof dns.setDefaultResultOrder === 'function') {
@@ -79,67 +78,4 @@ const nextConfig: NextConfig = {
   }
 };
 
-const pwaConfig = {
-  dest: 'public',
-  register: true,
-  skipWaiting: true,
-  disable: process.env.NODE_ENV === 'development',
-  buildExcludes: [/middleware-manifest.json$/],
-  fallbacks: {
-    document: '/offline.html',
-    image: '/offline.html'
-  },
-  runtimeCaching: [
-    {
-      urlPattern: /\/api\/.*/i,
-      handler: 'NetworkOnly',
-    },
-    {
-      urlPattern: /\/_next\/static\/.*/i,
-      handler: 'CacheFirst',
-      options: {
-        cacheName: 'static-resources',
-        expiration: {
-          maxEntries: 100,
-          maxAgeSeconds: 30 * 24 * 60 * 60
-        }
-      }
-    },
-    {
-      urlPattern: /\/_next\/image\?url=.*/i,
-      handler: 'StaleWhileRevalidate',
-      options: {
-        cacheName: 'next-image',
-        expiration: {
-          maxEntries: 100,
-          maxAgeSeconds: 30 * 24 * 60 * 60
-        }
-      }
-    },
-    {
-      urlPattern: /\/_next\/data\/.*/i,
-      handler: 'NetworkFirst',
-      options: {
-        cacheName: 'next-data',
-        expiration: {
-          maxEntries: 50,
-          maxAgeSeconds: 24 * 60 * 60
-        },
-        networkTimeoutSeconds: 10
-      }
-    },
-    {
-      urlPattern: /^https:\/\/fonts\.(?:googleapis|gstatic)\.com\/.*/i,
-      handler: 'CacheFirst',
-      options: {
-        cacheName: 'google-fonts',
-        expiration: {
-          maxEntries: 20,
-          maxAgeSeconds: 365 * 24 * 60 * 60
-        }
-      }
-    }
-  ]
-};
-
-export default withPWA(pwaConfig)(nextConfig);
+export default nextConfig;
