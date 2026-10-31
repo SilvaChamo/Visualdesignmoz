@@ -145,4 +145,5 @@ jobs:
             for f in v-change-domain-owner v-change-web-domain-owner; do
               [ -f "$H/$f" ] && { echo "--- $f: linhas com suspend / SSL / rebuild:"; grep -nEi "suspend|SSL|rebuild|v-add-web|v-delete-web" "$H/$f" | cut -c1-170 | head -n 24; }
             done
+            echo "--- v-change-domain-owner, passo do site (linhas 45 a 145):"; sed -n 45,145p "$H/v-change-domain-owner" 2>/dev/null | cut -c1-170
             titulo "fim da leitura"
