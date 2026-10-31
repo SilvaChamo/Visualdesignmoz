@@ -8,8 +8,9 @@ import { hestiaCall, hestiaCallJson } from '@/lib/hestia-client';
  * escolhidas (`v-change-database-owner`, que muda o prefixo do nome), o WordPress a apontar para o nome novo
  * (só as linhas DB_NAME e DB_USER, escritas como o dono do site), a regra do webmail em /webmail e as tarefas cron
  * do domínio. Antes de tudo guarda uma cópia em /root/vh-passagens; se um passo falhar, desfaz o que já fez.
- * Depois de verificada, passa também tudo o que o WordPress guardou com o caminho da conta antiga (ficheiros de configuração, base de dados,
- * cache), põe todos os ficheiros com o dono novo e actualiza o PHP-FPM por conta.
+ * Passa também tudo o que o WordPress guardou com o caminho da conta antiga (ficheiros de configuração, base de dados, cache), põe todos os
+ * ficheiros com o dono novo e actualiza o PHP-FPM por conta. Antes de mexer guarda a cópia dos ficheiros e das bases; se qualquer passo falhar,
+ * tudo volta para a conta de origem (ficheiros, caminhos, bases e domínio) sem partir o site, com uma mensagem a dizer o que falhou.
  * O DNS não muda (é o mesmo servidor).
  */
 
@@ -139,6 +140,13 @@ cfg_de="/home/$DE/web/$D/public_html/wp-config.php"
 [ -f "$cfg_de" ] && cp -p "$cfg_de" "$B/wp-config.php"
 cp -p "/home/$DE/conf/web/$D/"nginx*.conf_webmail "$B/" 2>/dev/null
 echo "$DE" > "$B/de"; echo "$BASES" > "$B/bases"
+# Cópia do que a passagem pode mexer no WordPress (Silva, 31/10/2026): os ficheiros de configuração e as bases escolhidas. Se não se conseguir guardar, nada é mudado.
+WPF="wp-config.php .htaccess wp-content/*.php wp-content/uploads/.htaccess wp-content/mu-plugins wp-content/wp-optimize-config wp-content/wpo-cache/config"
+[ -d "/home/$DE/web/$D/public_html" ] && ( cd "/home/$DE/web/$D/public_html" && tar -cf "$B/wp-ficheiros.tar" $WPF 2>/dev/null; true )
+for b in $BASES; do
+  if ! ( set -o pipefail; mysqldump --single-transaction --quick "$b" 2>/dev/null | gzip > "$B/base-$b.sql.gz" ); then echo "FALHA=Não consegui guardar a cópia de segurança da base $b; nada foi mudado."; exit 1; fi
+done
+echo "PASSO=Cópia de segurança feita (ficheiros de configuração e bases de dados) em $B"
 movido=0; movidas=""
 webmail() { dir="/home/$1/conf/web/$D"; [ -d "$dir" ] || return 0
   echo '${b64(WEBMAIL_NGINX)}' | base64 -d > "$dir/nginx.conf_webmail"; cp "$dir/nginx.conf_webmail" "$dir/nginx.ssl.conf_webmail"
@@ -150,6 +158,9 @@ desfazer() {
   if [ $movido = 1 ]; then
     $H/v-change-domain-owner "$D" "$DE" >/dev/null 2>&1 || echo "AVISO=O domínio não voltou para $DE."
     [ -f "$B/wp-config.php" ] && [ -f "$cfg_de" ] && cat "$B/wp-config.php" | runuser -u "$DE" -- sh -c 'cat > "$1"' sh "$cfg_de"
+    if [ -f "$B/wp-ficheiros.tar" ] && [ -d "/home/$DE/web/$D/public_html" ]; then runuser -u "$DE" -- tar -xf "$B/wp-ficheiros.tar" -C "/home/$DE/web/$D/public_html" 2>/dev/null || echo "AVISO=Os ficheiros de configuração do WordPress não voltaram sozinhos; a cópia está em $B/wp-ficheiros.tar."; fi
+    find "/home/$DE/web/$D" -xdev ! -user "$DE" -exec chown -h "$DE:$DE" {} + 2>/dev/null
+    if [ "\${wpmexido:-0}" = 1 ] && [ -x /usr/local/bin/wp ]; then runuser -u "$DE" -- nice -n 10 ionice -c3 /usr/local/bin/wp --path="/home/$DE/web/$D/public_html" --skip-plugins --skip-themes search-replace "/home/$PARA/" "/home/$DE/" --all-tables --skip-columns=guid --quiet >/dev/null 2>&1 || echo "AVISO=Os caminhos na base de dados do WordPress não voltaram sozinhos; a cópia das bases está em $B."; fi
     webmail "$DE" || true
   fi
 }
@@ -185,32 +196,28 @@ if [ -n "$w" ] && [ "$SA" = 0 ]; then
   [ -f "/home/$PARA/conf/web/$D/nginx.conf" ] || $H/v-rebuild-web-domain "$PARA" "$D" yes >/dev/null 2>&1
   if [ "$(susp "$PARA")" != 0 ] || [ ! -f "/home/$PARA/conf/web/$D/nginx.conf" ]; then echo "FALHA=O site ficou suspenso ou sem configuração na conta nova."; desfazer; exit 1; fi
 fi
+# O WordPress deixa de apontar para a conta antiga (Silva, 31/10/2026: «leve tudo, sem deixar nada atrás»). Faz parte da passagem: se falhar, desfaz-se tudo.
+# (O caso que o motivou: entrecamposblog.com ficou lento por o WP-Optimize guardar /home/vdadmin/, que o open_basedir da conta nova bloqueia a cada pedido.)
+WPDIR="/home/$PARA/web/$D/public_html"
+if [ -f "$WPDIR/wp-config.php" ]; then
+  find "/home/$PARA/web/$D" -xdev ! -user "$PARA" -exec chown -h "$PARA:$PARA" {} + 2>/dev/null
+  for f in wp-config.php .htaccess wp-content/*.php wp-content/uploads/.htaccess wp-content/mu-plugins/*.php wp-content/mu-plugins/*/*.php wp-content/wp-optimize-config/* wp-content/wpo-cache/config/*; do
+    [ -f "$WPDIR/$f" ] && grep -qF "/home/$DE/" "$WPDIR/$f" 2>/dev/null && { runuser -u "$PARA" -- sed -i "s#/home/$DE/#/home/$PARA/#g" "$WPDIR/$f" || { echo "FALHA=Não consegui ajustar o ficheiro $f do WordPress."; desfazer; exit 1; }; }
+  done
+  [ -x /usr/local/bin/wp ] || { echo "FALHA=O wp-cli não existe neste servidor e o WordPress ficaria a apontar para a conta antiga."; desfazer; exit 1; }
+  WPC="runuser -u $PARA -- nice -n 10 ionice -c3 /usr/local/bin/wp --path=$WPDIR --skip-plugins --skip-themes"
+  wpmexido=1
+  if ! $WPC search-replace "/home/$DE/" "/home/$PARA/" --all-tables --skip-columns=guid --quiet >/dev/null 2>&1; then echo "FALHA=Não consegui trocar os caminhos da conta antiga na base de dados do WordPress."; desfazer; exit 1; fi
+  $WPC cache flush >/dev/null 2>&1 || true
+  RESTO=$($WPC search-replace "/home/$DE/" "/home/$PARA/" --all-tables --dry-run --format=count 2>/dev/null | tail -1)
+  if [ "\${RESTO:-x}" != 0 ]; then echo "FALHA=Ficaram \${RESTO:-?} referências a /home/$DE/ na base de dados do WordPress."; desfazer; exit 1; fi
+  echo "PASSO=WordPress sem nenhum caminho da conta antiga (ficheiros, base de dados e cache) e todos os ficheiros com o dono novo"
+fi
 sleep 2
 DEPOIS=$(url); MD=$(emails "$PARA"); echo "DEPOIS=$DEPOIS"
 if [ "$ANTES" != 000 ] && [ "\${ANTES:0:1}" != "\${DEPOIS:0:1}" ]; then echo "FALHA=O site respondia $ANTES e passou a responder $DEPOIS."; desfazer; exit 1; fi
 if [ "$MA" != "$MD" ]; then echo "FALHA=Havia $MA caixas de e-mail e ficaram $MD."; desfazer; exit 1; fi
 echo "PASSO=Verificado: o site responde ($DEPOIS) e as $MD caixas de e-mail estão na conta nova"
-# Nada fica para trás (Silva, 31/10/2026: «sempre que se transfira um site de uma conta para outra leve tudo, sem deixar nada atrás»). Depois de
-# verificado, o que o WordPress guardou com o caminho da conta antiga passa para o da nova. Daqui para a frente só se avisa (a passagem já está feita
-# e verificada): o caso que o motivou foi o entrecamposblog.com, que ficou lento por o WP-Optimize guardar /home/vdadmin/ (open_basedir a bloquear a cada pedido).
-WPDIR="/home/$PARA/web/$D/public_html"
-if [ -f "$WPDIR/wp-config.php" ]; then
-  find "/home/$PARA/web/$D" -xdev ! -user "$PARA" -exec chown -h "$PARA:$PARA" {} + 2>/dev/null
-  echo "PASSO=Todos os ficheiros do site são da conta $PARA"
-  for f in wp-config.php .htaccess wp-content/*.php wp-content/uploads/.htaccess wp-content/mu-plugins/*.php wp-content/mu-plugins/*/*.php wp-content/wp-optimize-config/* wp-content/wpo-cache/config/*; do
-    [ -f "$WPDIR/$f" ] && grep -qF "/home/$DE/" "$WPDIR/$f" 2>/dev/null && runuser -u "$PARA" -- sed -i "s#/home/$DE/#/home/$PARA/#g" "$WPDIR/$f"
-  done
-  WPC="runuser -u $PARA -- nice -n 10 ionice -c3 /usr/local/bin/wp --path=$WPDIR --skip-plugins --skip-themes"
-  if [ -x /usr/local/bin/wp ]; then
-    if $WPC search-replace "/home/$DE/" "/home/$PARA/" --all-tables --skip-columns=guid --quiet >/dev/null 2>&1; then
-      $WPC cache flush >/dev/null 2>&1
-      RESTO=$($WPC search-replace "/home/$DE/" "/home/$PARA/" --all-tables --dry-run --format=count 2>/dev/null | tail -1)
-      if [ "\${RESTO:-x}" = 0 ]; then echo "PASSO=Caminhos da conta antiga trocados na base de dados do WordPress (sem nenhum a sobrar)"; else echo "AVISO=Ficaram \${RESTO:-?} referências a /home/$DE/ na base de dados do WordPress."; fi
-    else echo "AVISO=Não consegui trocar os caminhos da conta antiga na base de dados do WordPress."; fi
-  else echo "AVISO=O wp-cli não existe neste servidor: os caminhos antigos na base de dados não foram trocados."; fi
-  FIM=$(url)
-  if [ "$ANTES" != 000 ] && [ "\${ANTES:0:1}" != "\${FIM:0:1}" ]; then echo "AVISO=Depois de ajustar o WordPress o site responde $FIM (respondia $ANTES). A cópia de antes está em $B."; fi
-fi
 # o PHP-FPM com os limites do pacote passa a servir o site na conta nova e o pool da conta antiga sai (o cron do servidor fá-lo de 5 em 5 minutos; assim é já)
 if [ -x /usr/local/sbin/vd-php-conta ]; then nice -n 10 /usr/local/sbin/vd-php-conta sincronizar >/dev/null 2>&1 && echo "PASSO=PHP da conta $PARA com os limites do pacote"; fi
 echo "$(date -Is) $D $DE -> $PARA bases:[$movidas ] por:$QUEM copia:$B" >> /root/vh-passagens/registo.log
@@ -230,7 +237,10 @@ echo "OK=1"`;
   const erro = ls.find((l) => l.startsWith('FALHA='))?.slice(6);
   if (!ls.includes('OK=1')) {
     const desfeito = ls.includes('DESFAZER=sim');
-    return { ok: false, erro: (erro || 'A passagem não terminou.') + (desfeito ? ' Tudo voltou para ' + de + '.' : ''), passos, avisos, bases: basesFeitas, copia };
+    const fim = desfeito
+      ? ' Nada ficou a meio: o site, os e-mails e as bases de dados voltaram para a conta ' + de + ' e o site continua a funcionar como antes.'
+      : ' Nada foi mudado: o domínio continua na conta ' + de + '.';
+    return { ok: false, erro: (erro || 'A passagem não terminou.') + fim + (copia ? ' Cópia de segurança em ' + copia + '.' : ''), passos, avisos, bases: basesFeitas, copia };
   }
 
   // tarefas cron do domínio: passam para a conta nova com o caminho trocado
