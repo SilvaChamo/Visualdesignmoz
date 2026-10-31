@@ -275,6 +275,19 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ erro: x instanceof Error ? x.message : 'WordPress não encontrado.' }, { status: 400 });
       }
     }
+    case 'wpsite': {
+      // separador Gestão do Gerir WordPress: o ícone do site e a página inicial (Opções de leitura), lidos numa só vez
+      if (!d) return NextResponse.json({ erro: 'Escolha o domínio.' }, { status: 400 });
+      const raiz = raizSite(srv, conta, d);
+      const php = 'echo json_encode(array("icone"=>(string)wp_get_attachment_image_url((int)get_option("site_icon"),"full"),"mostra"=>get_option("show_on_front")==="page"?"page":"posts","inicial"=>(int)get_option("page_on_front"),"artigos"=>(int)get_option("page_for_posts"),"nome"=>(string)get_bloginfo("name"),"paginas"=>array_map(function($p){return array("ID"=>$p->ID,"titulo"=>$p->post_title);},get_posts(array("post_type"=>"page","post_status"=>"publish","numberposts"=>-1,"orderby"=>"title","order"=>"ASC")))));';
+      const out = await executeServerCommand(`sudo -u ${conta} /usr/local/bin/wp --path=${q(raiz)} --skip-plugins --skip-themes eval ${q(php)} 2>/dev/null`, { timeoutMs: 40_000 });
+      const ini = out.indexOf('{');
+      try {
+        return ok(JSON.parse(out.slice(ini)));
+      } catch {
+        return NextResponse.json({ erro: 'WordPress não encontrado neste domínio.' }, { status: 400 });
+      }
+    }
     case 'wpbd': {
       // "Manage Database Configurations" do DA: base, utilizador, servidor e prefixo (a palavra-passe nunca se lê)
       if (!d) return NextResponse.json({ erro: 'Escolha o domínio.' }, { status: 400 });
@@ -1010,6 +1023,64 @@ export async function POST(req: NextRequest) {
         if (!x.ok) falhas.push((nomes.length > 1 ? p + ': ' : '') + x.output.replace(/\s+/g, ' ').trim().slice(0, 200));
       }
       return resposta({ ok: !falhas.length, error: falhas.join(' · ').slice(0, 400) });
+    }
+    case 'wp-icone-guardar': {
+      // «Alterar ícone do site»: a imagem (quadrada, pelo menos 512 por 512) entra na biblioteca de media e passa a ser o ícone do site
+      if (!d) return recusa('Escolha o domínio.');
+      const dados = String(c.dados || '').replace(/^data:[^,]*,/, '').replace(/\s/g, '');
+      if (!/^[A-Za-z0-9+/]+={0,2}$/.test(dados) || dados.length > 14_000_000) return recusa('A imagem é inválida ou tem mais de 10 MB.');
+      const img = Buffer.from(dados, 'base64');
+      const ext = img.subarray(0, 4).toString('hex') === '89504e47' ? 'png' : img.subarray(0, 3).toString('hex') === 'ffd8ff' ? 'jpg' : img.subarray(0, 4).toString('latin1') === 'GIF8' ? 'gif' : img.subarray(0, 4).toString('latin1') === 'RIFF' && img.subarray(8, 12).toString('latin1') === 'WEBP' ? 'webp' : '';
+      if (!ext) return recusa('Use uma imagem PNG, JPG, GIF ou WEBP.');
+      const nome = (linha(c.nome).replace(/\.[^.]*$/, '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 40) || 'icone-do-site') + '.' + ext;
+      const tmpDir = '/var/tmp/vhost-ico-up';
+      const tmp = `${tmpDir}/${Array.from(crypto.getRandomValues(new Uint8Array(8)), (x) => x.toString(16).padStart(2, '0')).join('')}-${nome}`;
+      const raiz = raizSite(srv, conta, d);
+      const wp = `sudo -u ${conta} /usr/local/bin/wp --path=${q(raiz)}`;
+      try {
+        await executeServerCommand(`install -d -m 711 ${tmpDir} && find ${tmpDir} -maxdepth 1 -type f -mmin +60 -delete`, { timeoutMs: 20_000 });
+        await uploadFileViaSsh(tmp, img);
+        await executeServerCommand(`chmod 644 ${q(tmp)}`, { timeoutMs: 20_000 });
+        const medidas = (await executeServerCommand(`${wp} --skip-plugins --skip-themes eval ${q('$s=@getimagesize(' + JSON.stringify(tmp) + '); echo $s?($s[0]."x".$s[1]):"";')} 2>/dev/null`, { timeoutMs: 30_000 })).trim().match(/(\d+)x(\d+)\s*$/);
+        if (!medidas) return recusa('Não foi possível ler a imagem.');
+        if (medidas[1] !== medidas[2] || Number(medidas[1]) < 512) return recusa('O ícone tem de ser quadrado e ter pelo menos 512 por 512 píxeis (esta imagem tem ' + medidas[1] + ' por ' + medidas[2] + ').');
+        const id = (await executeServerCommand(`${wp} media import ${q(tmp)} --porcelain 2>&1 | tail -n 1`, { timeoutMs: 120_000 })).trim();
+        if (!/^\d+$/.test(id)) return recusa('O WordPress não aceitou a imagem: ' + id.slice(0, 160));
+        const fim = await executeServerCommand(`${wp} --skip-plugins --skip-themes option update site_icon ${id} 2>&1 | tail -n 1`, { timeoutMs: 30_000 });
+        if (!/Success/i.test(fim)) return recusa('Não foi possível guardar o ícone: ' + fim.slice(0, 160));
+        return resposta({ ok: true }, true);
+      } finally {
+        await executeServerCommand(`rm -f ${q(tmp)}`, { timeoutMs: 20_000 }).catch(() => undefined);
+      }
+    }
+    case 'wp-icone-remover': {
+      if (!d) return recusa('Escolha o domínio.');
+      const raiz = raizSite(srv, conta, d);
+      const out = await executeServerCommand(`sudo -u ${conta} /usr/local/bin/wp --path=${q(raiz)} --skip-plugins --skip-themes option delete site_icon 2>&1 | tail -n 1`, { timeoutMs: 30_000 });
+      return resposta({ ok: /Success|Could not delete/i.test(out), error: out.slice(0, 200) }, true);
+    }
+    case 'wp-leitura-guardar': {
+      // «Opções de leitura» do WordPress: a página inicial mostra os artigos mais recentes ou uma página estática (e a página dos artigos)
+      if (!d) return recusa('Escolha o domínio.');
+      const mostra = linha(c.mostra);
+      if (mostra !== 'posts' && mostra !== 'page') return recusa('Escolha o que a página inicial mostra.');
+      const inicial = Number(c.inicial) || 0;
+      const artigos = Number(c.artigos) || 0;
+      const raiz = raizSite(srv, conta, d);
+      const wp = `sudo -u ${conta} /usr/local/bin/wp --path=${q(raiz)} --skip-plugins --skip-themes`;
+      let cmd = `${wp} option update show_on_front ${mostra} 2>&1 | tail -n 1`;
+      if (mostra === 'page') {
+        if (!Number.isSafeInteger(inicial) || inicial <= 0) return recusa('Escolha a página inicial.');
+        if (!Number.isSafeInteger(artigos) || artigos < 0) return recusa('Página de artigos inválida.');
+        if (artigos === inicial) return recusa('A página inicial e a página de artigos têm de ser diferentes.');
+        for (const id of [inicial, artigos].filter(Boolean)) {
+          const tipo = (await executeServerCommand(`${wp} post get ${id} --field=post_type 2>/dev/null`, { timeoutMs: 40_000 })).trim();
+          if (tipo !== 'page') return recusa('Uma das páginas escolhidas não existe.');
+        }
+        cmd = `${wp} option update page_on_front ${inicial} >/dev/null 2>&1 && ${wp} option update page_for_posts ${artigos} >/dev/null 2>&1 && ${cmd}`;
+      }
+      const out = await executeServerCommand(cmd, { timeoutMs: 60_000 });
+      return resposta({ ok: /Success/i.test(out), error: out.slice(0, 200) }, true);
     }
     case 'wp-nucleo': {
       if (!d) return recusa('Escolha o domínio.');

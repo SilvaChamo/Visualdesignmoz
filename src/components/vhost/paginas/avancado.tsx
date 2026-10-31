@@ -2401,18 +2401,160 @@ function WpCredenciais({ url, user, senha }: { url: string; user: string; senha:
   );
 }
 
+/** Gerir WordPress › Gestão: à esquerda o ícone do site (o «favicon», como em Definições › Geral do WordPress) e à direita as Opções de leitura
+ *  (o que a página inicial mostra), em duas colunas (Silva, 31/10/2026) */
+type WpSiteDados = { icone: string; mostra: 'page' | 'posts'; inicial: number; artigos: number; nome: string; paginas: { ID: number; titulo: string }[] };
+function WpSiteGestao({ d }: { d: string }) {
+  const vh = useVH();
+  const { t } = vh;
+  const { dados, erro, ler } = useLer<WpSiteDados>('wpsite', { d });
+  const entrada = useRef<HTMLInputElement>(null);
+  const [mostra, setMostra] = useState<'page' | 'posts'>('posts');
+  const [inicial, setInicial] = useState(0);
+  const [artigos, setArtigos] = useState(0);
+  const [aEnviar, setAEnviar] = useState(false);
+  // o que o servidor leu passa para os campos (e volta a passar depois de guardar)
+  useEffect(() => {
+    if (!dados) return;
+    setMostra(dados.mostra);
+    setInicial(dados.inicial);
+    setArtigos(dados.artigos);
+  }, [dados]);
+  if (!dados) return <Carregando erro={erro} ler={ler} />;
+  const escolher = async (f: File | undefined) => {
+    if (!f) return;
+    if (!/^image\/(png|jpe?g|gif|webp)$/i.test(f.type)) return vh.toast(t('Use uma imagem PNG, JPG, GIF ou WEBP.'));
+    if (f.size > 10 * 1024 * 1024) return vh.toast(t('A imagem tem mais de 10 MB.'));
+    // quadrada e com pelo menos 512 por 512 (o servidor volta a conferir)
+    const url = URL.createObjectURL(f);
+    const medidas = await new Promise<[number, number]>((ok) => {
+      const im = new Image();
+      im.onload = () => ok([im.naturalWidth, im.naturalHeight]);
+      im.onerror = () => ok([0, 0]);
+      im.src = url;
+    });
+    URL.revokeObjectURL(url);
+    if (medidas[0] !== medidas[1] || medidas[0] < 512) return vh.toast(t('O ícone tem de ser quadrado e ter pelo menos 512 por 512 píxeis.'));
+    const dadosB64 = await new Promise<string>((ok) => {
+      const r = new FileReader();
+      r.onload = () => ok(String(r.result));
+      r.readAsDataURL(f);
+    });
+    setAEnviar(true);
+    const feito = await noServidor(vh, { acao: 'wp-icone-guardar', dominio: d, nome: f.name, dados: dadosB64 }, 'Ícone do site alterado');
+    setAEnviar(false);
+    if (feito) ler(true);
+  };
+  const remover = async () => {
+    if (await noServidor(vh, { acao: 'wp-icone-remover', dominio: d }, 'Ícone do site removido')) ler(true);
+  };
+  const guardar = async () => {
+    if (await noServidor(vh, { acao: 'wp-leitura-guardar', dominio: d, mostra, inicial, artigos }, 'Guardado')) ler(true);
+  };
+  const igual = mostra === dados.mostra && (mostra === 'posts' || (inicial === dados.inicial && artigos === dados.artigos));
+  return (
+    <section className="da-sec">
+      <div className="wp-gest-2c">
+        <div className="wp-gest-bloco">
+          <h4>{t('Ícone do site')}</h4>
+          <div className="wp-ico-prev">
+            {dados.icone ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img className="ico" src={dados.icone} alt="" />
+            ) : (
+              <span className="wp-ico-vazio">
+                <i className="fa-solid fa-image" />
+              </span>
+            )}
+            <div className="wp-ico-tab" aria-hidden="true">
+              <span className="pt" />
+              <span className="pt" />
+              <span className="pt" />
+              <span className="sep">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                {dados.icone && <img src={dados.icone} alt="" />}
+                <span>{dados.nome || d}</span>
+              </span>
+            </div>
+          </div>
+          <div className="wp-ico-botoes">
+            <button className="btn g" disabled={aEnviar} onClick={() => entrada.current?.click()}>
+              {t(aEnviar ? 'A enviar…' : dados.icone ? 'Alterar ícone do site' : 'Escolher ícone do site')}
+            </button>
+            {dados.icone && (
+              <button className="btn g rm" disabled={aEnviar} onClick={remover}>
+                {t('Remover ícone do site')}
+              </button>
+            )}
+            <input
+              ref={entrada}
+              type="file"
+              accept="image/png,image/jpeg,image/gif,image/webp"
+              hidden
+              onChange={(ev) => {
+                void escolher(ev.target.files?.[0]);
+                ev.target.value = '';
+              }}
+            />
+          </div>
+          <p className="wp-gest-dica">{t('O ícone do site é o que vê nos separadores do navegador, nas barras de favoritos e nas aplicações móveis do WordPress. Deve ser quadrado e ter pelo menos 512 por 512 píxeis.')}</p>
+        </div>
+        <div className="wp-gest-bloco">
+          <h4>{t('A sua página inicial mostra')}</h4>
+          <div className="wp-leitura-opcoes">
+            <label className="rd">
+              <input type="radio" name={'wp-mostra-' + d} checked={mostra === 'posts'} onChange={() => setMostra('posts')} />
+              {t('Os seus artigos mais recentes')}
+            </label>
+            <label className="rd">
+              <input type="radio" name={'wp-mostra-' + d} checked={mostra === 'page'} onChange={() => setMostra('page')} />
+              {t('Uma página estática (seleccionar abaixo)')}
+            </label>
+            <div className="wp-leitura-sel">
+              <label>
+                <span>{t('Página inicial:')}</span>
+                <select value={inicial} disabled={mostra !== 'page'} onChange={(e) => setInicial(Number(e.target.value))}>
+                  <option value={0}>{t('— Seleccione —')}</option>
+                  {dados.paginas.map((p) => (
+                    <option key={p.ID} value={p.ID}>
+                      {p.titulo || t('(sem título)')}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span>{t('Página de artigos:')}</span>
+                <select value={artigos} disabled={mostra !== 'page'} onChange={(e) => setArtigos(Number(e.target.value))}>
+                  <option value={0}>{t('— Seleccione —')}</option>
+                  {dados.paginas.map((p) => (
+                    <option key={p.ID} value={p.ID}>
+                      {p.titulo || t('(sem título)')}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          </div>
+          <button className="btn r wp-gest-guardar" disabled={igual || (mostra === 'page' && !inicial)} onClick={guardar}>
+            {t('Guardar alterações')}
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function WpGerir({ d }: { d: string }) {
   const vh = useVH();
   const { t } = vh;
   const lista = useLer<{ instalados: Wp[] }>('wordpress');
-  const { dados, erro, ler } = useLer<{ plugins: Plugin[]; users: WpUser[]; nucleo?: { disponivel: boolean; versao: string } | null }>('wp', { d });
+  const { dados, ler } = useLer<{ plugins: Plugin[]; users: WpUser[]; nucleo?: { disponivel: boolean; versao: string } | null }>('wp', { d });
   const wp = lista.dados?.instalados.find((x) => x.d === d);
-  const plug = async (op: string, plugin = '') => (await noServidor(vh, { acao: 'wp-plugin', dominio: d, op, plugin }, 'Feito')) && ler();
   return (
     <>
       <Sec titulo="Resumo">
         <div className="da-grelha">
-          <div className="da-lin n3">
+          <div className="da-lin n4">
             <div className="da-cel">
               <i className="fa-brands fa-wordpress" />
               <div>
@@ -2432,6 +2574,13 @@ function WpGerir({ d }: { d: string }) {
               <div>
                 <small>{t('Tema')}</small>
                 <span>{wp?.tema || '…'}</span>
+              </div>
+            </div>
+            <div className="da-cel">
+              <i className="fa-solid fa-puzzle-piece" />
+              <div>
+                <small>{t('Plugins')}</small>
+                <span>{dados ? dados.plugins.filter((p) => p.status === 'active').length + ' ' + t('activos') + ' · ' + dados.plugins.filter((p) => p.update === 'available').length + ' ' + t('com actualização') : '…'}</span>
               </div>
             </div>
           </div>
@@ -2466,47 +2615,7 @@ function WpGerir({ d }: { d: string }) {
           )}
         </div>
       </Sec>
-      {!dados ? (
-        <Carregando erro={erro} ler={ler} />
-      ) : (
-        <>
-          <Sec
-            titulo="Plugins"
-            numeros={[['Plugins', String(dados.plugins.length)], ['Com atualização', String(dados.plugins.filter((p) => p.update === 'available').length)]]}
-            extra={
-              <button className="btn sm r" disabled={!dados.plugins.some((p) => p.update === 'available')} onClick={() => plug('atualizar-todos')}>
-                <i className="fa-solid fa-arrows-rotate" />
-                {t('Atualizar todos os plugins')}
-              </button>
-            }
-          >
-            <DataTable
-              id="wp-plugins"
-              rows={dados.plugins}
-              rowKey={(r) => r.name}
-              onRecarregar={ler}
-              empty="Sem plugins"
-              cols={[
-                { k: 'n', t: 'Plugin', cell: (r) => <b style={r.update === 'available' ? { color: 'var(--red)' } : undefined}>{r.title || r.name}</b> },
-                { k: 'v', t: 'Versão', cell: (r) => r.version + (r.update === 'available' ? ' → ' + (r.update_version || '') : '') },
-                { k: 's', t: 'Estado', right: true, cell: (r) => <span className={'tag ' + (r.status === 'active' ? 'ok' : 'off')}>{t(r.status === 'active' ? 'Ativo' : 'Inativo')}</span> },
-              ]}
-              actions={(r) => (
-                <span className="dns-acoes">
-                  {r.update === 'available' && (
-                    <button className="btn sm r" onClick={() => plug('atualizar', r.name)}>
-                      {t('Atualizar')}
-                    </button>
-                  )}
-                  <button className="btn sm g" onClick={() => plug(r.status === 'active' ? 'desativar' : 'ativar', r.name)}>
-                    {t(r.status === 'active' ? 'Desativar' : 'Ativar')}
-                  </button>
-                </span>
-              )}
-            />
-          </Sec>
-        </>
-      )}
+      <WpSiteGestao d={d} />
     </>
   );
 }
