@@ -399,6 +399,9 @@ pontos um a um — o Silva já teve de os repetir várias vezes.
   do Silva (dinheiro real). **Feito:** (ainda não).
 - **O CPU do servidor é um só** (Silva, 22/10/2026): tudo o que o mostra (janela de manutenção, cartão "Servidor" da barra lateral, cartão
   "Consumo CPU" do painel inicial) usa `useSystemStatus`, uma leitura ao vivo partilhada. Nunca outra medida ao lado.
+  **Cartão «Servidor» do painel inicial (Silva, 31/10/2026):** actualiza-se sozinho de 60 em 60 s enquanto está no ecrã e o separador está visível
+  (`useSystemStatus(false, true)`; a janela de manutenção continua a ler de 8 em 8 s). Linhas sem quebra: «CONSUMO CPU» só com a percentagem (os núcleos ficam
+  no texto ao passar o rato) e «DISCO» (não «disco usado»). Não voltar a leituras de 8 em 8 s com o cartão: foi isso que fez o CPU subir em 22/10.
 - **Nunca pesquisa à esquerda por cima do cartão principal** (13/10/2026). A "Busca" da barra de cima já procura na
   página aberta. Sem exceções.
 - **Modelo de página = a página Domínios do painel.** Barra de cima com o título e uma descrição pequena por baixo

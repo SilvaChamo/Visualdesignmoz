@@ -418,13 +418,16 @@ let estadoEmVoo = false;
 let estadoUltima = 0;
 let estadoRelogio: ReturnType<typeof setTimeout> | null = null;
 let estadoRapidos = 0; // quantos pedem leitura rápida (a janela de manutenção aberta)
+let estadoAutomaticos = 0; // quantos pedem leitura de minuto a minuto (o cartão do servidor no painel inicial)
 const estadoOuvintes = new Set<() => void>();
 const avisarEstado = () => estadoOuvintes.forEach((f) => f());
 // Cada leitura corre um script no servidor (top, free, systemctl…): ~0,2 s de CPU. Só alimenta os cartões de CPU/RAM e a janela de manutenção, por isso
-// NÃO há leituras automáticas: lê-se uma vez ao abrir a página (e outra ao voltar a um separador parado há mais de 5 minutos); só com a janela de
-// manutenção aberta se lê de 8 em 8 s. Antes lia-se sempre, de 8 em 8 s, o dia inteiro, e o CPU do servidor subia sem parar (Silva, 22/10/2026:
-// "porque não pára definitivamente estas verificações").
+// lê-se uma vez ao abrir a página (e outra ao voltar a um separador parado há mais de 5 minutos); com a janela de manutenção aberta lê-se de 8 em 8 s.
+// Antes lia-se sempre, de 8 em 8 s, o dia inteiro, e o CPU do servidor subia sem parar (Silva, 22/10/2026: "porque não pára definitivamente estas
+// verificações"). A 31/10/2026 o Silva pediu que o cartão do painel inicial se actualize sozinho (viu um 78% pontual e quer ver se volta a subir):
+// enquanto esse cartão está no ecrã lê-se de 60 em 60 s, só com o separador visível — uma leitura por minuto, não de 8 em 8 s.
 const INTERVALO_RAPIDO = 8_000;
+const INTERVALO_CARTAO = 60_000;
 const ATRASO_MAX_AO_VOLTAR = 5 * 60_000;
 
 async function lerEstado() {
@@ -448,12 +451,12 @@ async function lerEstado() {
 function agendarEstado() {
   if (estadoRelogio) clearTimeout(estadoRelogio);
   estadoRelogio = null;
-  // só há relógio com a janela de manutenção aberta
-  if (!estadoOuvintes.size || estadoRapidos <= 0) return;
+  // só há relógio com a janela de manutenção aberta (8 s) ou com o cartão do servidor no ecrã (60 s)
+  if (!estadoOuvintes.size || (estadoRapidos <= 0 && estadoAutomaticos <= 0)) return;
   estadoRelogio = setTimeout(async () => {
     if (typeof document === 'undefined' || !document.hidden) await lerEstado();
     agendarEstado();
-  }, INTERVALO_RAPIDO);
+  }, estadoRapidos > 0 ? INTERVALO_RAPIDO : INTERVALO_CARTAO);
 }
 
 function aoVoltarAoSeparador() {
@@ -476,8 +479,8 @@ function subscreverEstado(f: () => void) {
   };
 }
 
-/** `rapido`: a janela de manutenção está aberta e quer os números de 8 em 8 s (sem ela não há leituras automáticas) */
-export function useSystemStatus(rapido = false) {
+/** `rapido`: a janela de manutenção está aberta e quer os números de 8 em 8 s; `automatico`: o cartão do painel inicial quer-os de 60 em 60 s */
+export function useSystemStatus(rapido = false, automatico = false) {
   const data = useSyncExternalStore(subscreverEstado, () => estadoPartilhado, () => null);
   const loading = useSyncExternalStore(subscreverEstado, () => !estadoCarregado, () => true);
   const lendo = useSyncExternalStore(subscreverEstado, () => estadoEmVoo, () => false);
@@ -491,6 +494,15 @@ export function useSystemStatus(rapido = false) {
       agendarEstado();
     };
   }, [rapido]);
+  useEffect(() => {
+    if (!automatico) return;
+    estadoAutomaticos += 1;
+    agendarEstado();
+    return () => {
+      estadoAutomaticos -= 1;
+      agendarEstado();
+    };
+  }, [automatico]);
   const fetchStatus = useCallback(() => lerEstado(), []);
   return { data, loading, lendo, fetchStatus };
 }
