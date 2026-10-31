@@ -15996,3 +15996,25 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
 .vh .wp-perma-opcoes:not(#x) {
    margin-bottom: calc(14px * var(--z, 1))
 }
+
+/* ecrãs de 19 a 21 polegadas para cima: nada de espaço vazio à direita na secção da Gestão — os selectores da página inicial chegam à margem direita (a das tabelas) */
+@media (min-width: 1400px) {
+   .vh .wp-gest-2c:not(#x) {
+      padding-right: 0
+   }
+
+   .vh .wp-leitura-sel select:not(#x):not(#y) {
+      max-width: none
+   }
+}
+
+/* o «Guardar alterações» da página inicial alinha com os selectores (depois do nome de cada um), e não com os círculos — Silva, 31/10/2026 */
+@media (min-width: 769px) {
+   .vh .wp-leitura-sel label > span:not(#x) {
+      width: calc(120px * var(--z, 1))
+   }
+
+   .vh .wp-gest-2c .wp-gest-guardar:not(#x):not(#y) {
+      margin-left: calc((26px + 120px + 10px) * var(--z, 1))
+   }
+}
