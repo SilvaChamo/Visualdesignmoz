@@ -6,6 +6,7 @@ CREATE OR REPLACE FUNCTION assign_checkout_receipt_number(p_session_id UUID, p_u
 RETURNS TEXT
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public, pg_temp
 AS $$
 DECLARE
   v_existing TEXT;
@@ -38,6 +39,8 @@ BEGIN
   RETURN v_number;
 END;
 $$;
+REVOKE ALL ON FUNCTION assign_checkout_receipt_number(UUID, UUID) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION assign_checkout_receipt_number(UUID, UUID) TO service_role;
 `;
 
 let pronta = false;
