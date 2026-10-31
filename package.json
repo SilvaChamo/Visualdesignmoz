@@ -90,7 +90,7 @@
     "playwright": "^1.48.0",
     "postcss": "^8.4.38",
     "tailwindcss": "^4.3.2",
-    "typescript": "^5"
+    "typescript": "^7"
   },
   "overrides": {
     "deepmerge": "file:vendor/deepmerge",
