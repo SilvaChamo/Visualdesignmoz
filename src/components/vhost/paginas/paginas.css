@@ -16018,3 +16018,63 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
       margin-left: calc((26px + 120px + 10px) * var(--z, 1))
    }
 }
+
+/* Gestão: o botão «Atualizar» do WordPress à frente do selector da actualização automática, na mesma linha */
+.vh .em-opcoes > div > span.em-opcoes-dir {
+   display: flex;
+   align-items: center;
+   gap: calc(8px * var(--z, 1));
+   flex: none
+}
+
+@media (max-width: 768px) {
+   .vh .em-opcoes > div > span.em-opcoes-dir {
+      flex: 1 1 100%
+   }
+
+   .vh .em-opcoes > div > span.em-opcoes-dir .em-sel {
+      flex: 1
+   }
+}
+
+/* o título do site, editável no próprio cartão do resumo (Silva, 31/10/2026): o lápis aparece ao passar o rato e o campo ocupa o mesmo lugar */
+.vh .da-cel span.cel-editavel {
+   display: flex;
+   align-items: center;
+   gap: calc(8px * var(--z, 1));
+   cursor: text
+}
+
+.vh .da-cel span.cel-editavel i {
+   font-size: calc(11px * var(--fs, 1));
+   color: var(--muted);
+   opacity: 0;
+   transition: opacity .15s
+}
+
+.vh .da-cel span.cel-editavel:hover i,
+.vh .da-cel span.cel-editavel:focus i {
+   opacity: 1
+}
+
+.vh .da-cel input.cel-titulo-campo:not(#x):not(#y) {
+   width: 100%;
+   height: calc(28px * var(--z, 1)) !important;
+   min-height: calc(28px * var(--z, 1)) !important;
+   margin: calc(-4px * var(--z, 1)) 0 calc(-3px * var(--z, 1));
+   padding: 0;
+   border: 0 !important;
+   outline: 0 !important;
+   box-shadow: none !important;
+   border-radius: var(--r);
+   background: transparent;
+   color: var(--ink);
+   font: inherit;
+   font-size: calc(14px * var(--fs, 1))
+}
+
+.vh .da-cel input.cel-titulo-campo:not(#x):not(#y):focus {
+   border: 0 !important;
+   outline: 0 !important;
+   box-shadow: none !important
+}
