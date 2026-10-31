@@ -245,13 +245,10 @@ export async function provisionPanelAccountToServer(userName: string, opcoes: { 
     void pointDomainToServerIp(domain, serverIp).catch((err) =>
       console.error('[panel-server-provision] A/www Cloudflare:', err),
     );
-    void (async () => {
-      for (const waitMs of [20_000, 60_000, 180_000]) {
-        await new Promise((resolve) => setTimeout(resolve, waitMs));
-        const ssl = await hestiaAdapter.issueLetsEncrypt(username, domain);
-        if (ssl.ok) return;
-      }
-    })().catch((err) => console.error('[panel-server-provision] retry SSL:', err));
+    // Certificado SSL logo que o domínio resolver (de imediato quando o DNS já aponta aqui); ver ssl-automatico.ts
+    void import('@/lib/ssl-automatico')
+      .then((m) => m.agendarSslImediato(username, domain))
+      .catch((err) => console.error('[panel-server-provision] SSL imediato:', err));
   }
 
   return { ok: true, linked: true, ...(aviso ? { aviso } : {}) };

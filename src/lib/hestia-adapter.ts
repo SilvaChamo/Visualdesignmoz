@@ -43,10 +43,9 @@ export async function issueLetsEncrypt(
 
 /** O pedido de certificado ao criar uma conta ou um site, por trás e sem esperar: nunca para um site da Vercel (ver issueLetsEncrypt) */
 function pedirLetsEncryptPorTras(username: string, domain: string): void {
-  void (async () => {
-    if ((await alojamentoVercel(domain).catch(() => null)) === true) return;
-    await hestiaCall('v-add-letsencrypt-domain', [username, domain]).catch(() => {});
-  })();
+  // Vigia o DNS e pede o certificado logo que o domínio resolver (de imediato quando já aponta aqui); ver ssl-automatico.ts.
+  // (O issueLetsEncrypt que ele usa já ignora os sites que estão na Vercel.)
+  void import('@/lib/ssl-automatico').then((m) => m.agendarSslImediato(username, domain)).catch(() => undefined);
 }
 
 /** Nenhuma conta se cria sem e-mail (Silva, 17/10/2026): é o e-mail que dá à conta o login do site e do painel. A

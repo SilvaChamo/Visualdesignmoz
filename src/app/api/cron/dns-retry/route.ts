@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { autoProvisionPurchasedDomain } from '@/lib/domain-purchase-provision';
 import { alertAdminOfTrackingFailure } from '@/lib/checkout-fulfillment';
+import { emitirSslEmFalta } from '@/lib/ssl-automatico';
 
 // Domínios cujo dns_status ficou 'pending' há menos tempo do que isto não são
 // tocados — evita competir com o próprio auto-provisionamento do checkout,
@@ -114,7 +115,15 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({ success: true, timestamp: new Date().toISOString(), ...results });
+    // Certificado SSL dos sites que ainda não o têm (compras e domínios novos): pede-o sozinho, sem ninguém ter de o fazer à mão
+    let ssl: Awaited<ReturnType<typeof emitirSslEmFalta>> | { erro: string } = { erro: 'não correu' };
+    try {
+      ssl = await emitirSslEmFalta();
+    } catch (e) {
+      ssl = { erro: e instanceof Error ? e.message : 'falhou' };
+    }
+
+    return NextResponse.json({ success: true, timestamp: new Date().toISOString(), ...results, ssl });
   } catch (error: unknown) {
     console.error('[cron/dns-retry] GET:', error);
     const message = error instanceof Error ? error.message : 'Erro interno';
