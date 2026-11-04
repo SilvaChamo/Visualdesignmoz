@@ -3,7 +3,7 @@
 import React from 'react'
 import { useRouter } from 'next/navigation'
 import { useI18n } from '@/lib/i18n'
-import { Tent, Award, Clock, Users, CheckCircle2, ArrowRight } from 'lucide-react'
+import { Tent, CheckCircle2, ArrowRight } from 'lucide-react';
 import { NotchSection } from '@/components/home/NotchSection'
 
 export default function FeirasEventosSubPage() {

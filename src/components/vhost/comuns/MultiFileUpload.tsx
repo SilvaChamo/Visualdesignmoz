@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Upload, X, File as FileIcon, Loader2, Paperclip, Trash2, FileText, FileArchive, Image } from "lucide-react";
+import { X, File as FileIcon, Paperclip, Trash2, FileText, FileArchive } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";

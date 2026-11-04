@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { FileText, Trash2, Loader2, XCircle, Plus, X, Pencil } from 'lucide-react';
+import { FileText, Trash2, XCircle, Plus, X, Pencil } from 'lucide-react';
 import { formatMt } from '@/lib/pricing-catalog';
 import { statusMeta } from '@/lib/quotation-status-labels';
 import { groupIntoBatches, type BatchItem } from '@/lib/quotation-batch';

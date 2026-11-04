@@ -9,7 +9,7 @@ import { ConsultaPagina, TopoCartao, useVH } from './context';
 import { corUso } from './cor-uso';
 import { ChangeRoleModal } from './modals';
 import { noServidor } from './paginas/acoes';
-import { EN, HX, LEVELS, MENU, ROLES } from './generated/data';
+import { EN, HX, MENU, ROLES } from './generated/data';
 import { MENU_SO_DOMINIO, descFor, findItem, gItem, ico, initials, nomeNivel, route, rotuloItem, soDominioDe } from './state';
 import type { Account, HxState, MenuItem, Role } from './types';
 import type { Screen } from './screens';

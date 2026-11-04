@@ -7,10 +7,7 @@ import { createClient } from '@supabase/supabase-js';
 import crypto from 'node:crypto';
 import { daRequest } from '@/lib/directadmin';
 import { ensureResellerSchema } from '@/lib/reseller-schema';
-import {
-  loadResellerCredentialsByUserId,
-  saveResellerCredentials,
-} from '@/lib/da-credential-store';
+import { loadResellerCredentialsByUserId } from '@/lib/da-credential-store';
 import {
   deriveResellerDomain,
   provisionResellerAccount,

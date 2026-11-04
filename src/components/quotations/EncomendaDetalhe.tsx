@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { XCircle, Pencil, CreditCard, AlertCircle, Loader2, CheckCircle2, Trash2 } from 'lucide-react';
+import { Pencil, CreditCard, AlertCircle, CheckCircle2, Trash2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase-client';
 import { Spinner } from '@/components/ui/spinner';
 import { formatMt } from '@/lib/pricing-catalog';

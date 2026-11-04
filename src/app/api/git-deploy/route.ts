@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { exec } from 'child_process'
 import { promisify } from 'util'
-import { getServerHost, getHestiaUrl } from '@/lib/server-config'
+import { getServerHost } from '@/lib/server-config';
 import { requireAdminOrReseller } from '@/lib/panel-api-auth'
 
 /** Domínio tem de bater certo com um nome de host válido — evita injecção no comando SSH. */

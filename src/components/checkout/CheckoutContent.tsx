@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, Suspense } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useCart } from '@/contexts/CartContext';
 import { useCurrency } from '@/contexts/CurrencyContext';
 import { supabase } from '@/lib/supabase-client';
@@ -83,37 +83,7 @@ import { nomeContaValido, NOME_CONTA_ERRO } from '@/lib/conta-hospedagem';
 import { mensagemEmailInvalido } from '@/lib/email-valido';
 import { profileAuthOrFilter } from '@/lib/profile-db';
 import { acrescentarIva, IVA_TAXA } from '@/lib/iva';
-import {
-  CreditCard,
-  Lock,
-  Loader2,
-  AlertCircle,
-  ShoppingCart,
-  Globe,
-  Server,
-  Mail,
-  Shield,
-  Eye,
-  EyeOff,
-  Smartphone,
-  Landmark,
-  Briefcase,
-  ShieldCheck,
-  Zap,
-  ArrowLeft,
-  Info,
-  Building2,
-  Wallet,
-  CheckCircle2,
-  Paperclip,
-  Trash2,
-  User,
-  Phone,
-  MapPin,
-  Map as MapaIcone,
-  KeyRound,
-  Wand2
-} from 'lucide-react';
+import { CreditCard, Lock, AlertCircle, ShoppingCart, Globe, Server, Mail, Shield, Eye, EyeOff, Smartphone, Landmark, Briefcase, ShieldCheck, Zap, ArrowLeft, Info, Building2, Wallet, CheckCircle2, Paperclip, Trash2, User, Phone, MapPin, Map as MapaIcone, KeyRound, Wand2 } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
 
 type MetodoPagamento = 'stripe' | 'mpesa' | 'transferencia' | 'saldo';

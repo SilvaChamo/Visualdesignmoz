@@ -1,13 +1,4 @@
-import {
-  Globe, Mail, ShieldCheck, DatabaseBackup, RefreshCw, AppWindow,
-  Camera, Palette, Sparkles,
-  Tent, Coffee, Truck as TruckIcon, Users, Clock,
-  Video, Zap, Smile,
-  Car, Route, MapPin,
-  Gift, Shirt, PackageOpen, Award,
-  Inbox, Workflow, Headphones, Wallet, LayoutDashboard, Megaphone, Calendar, Monitor,
-  type LucideIcon,
-} from 'lucide-react';
+import { Globe, Mail, ShieldCheck, Camera, Palette, Sparkles, Tent, Coffee, Truck as TruckIcon, Users, Clock, Video, Zap, Smile, Car, Route, MapPin, Gift, Shirt, PackageOpen, Award, Inbox, Workflow, Headphones, Wallet, LayoutDashboard, Megaphone, Calendar, Monitor, type LucideIcon } from 'lucide-react';
 
 export type WhyUsItem = {
   Icon: LucideIcon;

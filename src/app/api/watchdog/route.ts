@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Client } from 'ssh2';
-import { getServerHost, getHestiaUrl } from '@/lib/server-config'
+import { getServerHost } from '@/lib/server-config';
 import { requireAdmin } from '@/lib/admin-api-auth'
 
 // SSH Connection

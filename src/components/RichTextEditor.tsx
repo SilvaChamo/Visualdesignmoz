@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { Bold, Italic, List, ListOrdered, Indent, Outdent, Image as ImageIcon, Loader2, Trash2, ZoomIn, ZoomOut, AlignCenter, AlignLeft, AlignRight, Link as LinkIcon, Unlink, ArrowUpDown } from "lucide-react";
+import { Italic, List, ListOrdered, Indent, Outdent, Image as ImageIcon, Trash2, ZoomIn, ZoomOut, AlignCenter, AlignLeft, AlignRight, Link as LinkIcon, Unlink, ArrowUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 import { toast } from "sonner";

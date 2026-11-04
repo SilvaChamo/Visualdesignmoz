@@ -2,11 +2,7 @@
 
 import Link from 'next/link'
 import Image from 'next/image'
-import {
-  ShieldCheck, Users, Gauge, ArrowRight,
-  Building2, Database, Smartphone, ShoppingCart, Code2, PenTool,
-  MonitorSmartphone, Settings, TrendingUp, Share2,
-} from 'lucide-react'
+import { ShieldCheck, Users, Gauge, Building2, Database, Smartphone, ShoppingCart, Code2, PenTool, MonitorSmartphone, Settings, TrendingUp, Share2 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n'
 import { NotchSection } from '@/components/home/NotchSection'
 import PortfolioShowcase from '@/components/PortfolioShowcase'

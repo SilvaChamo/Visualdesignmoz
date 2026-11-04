@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Check, X, Loader2, Globe } from 'lucide-react'
+import { Check, X, Globe } from 'lucide-react';
 import { useI18n } from '@/lib/i18n'
 import { useCart } from '@/contexts/CartContext'
 import { DomainPricingCarousel } from '@/components/DomainPricingCarousel'

@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { X, Download, Mail, Copy, Check } from 'lucide-react';
-import { panelBtnPrimary, panelBtnSecondary, panelField } from '@/lib/panel-ui';
+import { panelBtnPrimary, panelBtnSecondary } from '@/lib/panel-ui';
 import {
   downloadTextFile,
   shareEmailConfigByMail,

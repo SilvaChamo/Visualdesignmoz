@@ -2,14 +2,7 @@ import { mensagemPublica } from '@/lib/mensagem-publica';
 import { sendBrevoTransactionalEmail, isBrevoApiConfigured } from '@/lib/brevo-mail';
 import { getDefaultFromForDomain, getDomainFromEmail } from '@/lib/email-domains';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
-import {
-  getDefaultFrom,
-  isBrevoSmtpConfigured,
-  isBrevoTransactionalConfigured,
-  isDirectAdminSmtpHost,
-  isSmtpConfigured,
-  sendTransactionalSmtpMail,
-} from '@/lib/smtp-mail';
+import { getDefaultFrom, isBrevoTransactionalConfigured, isDirectAdminSmtpHost, isSmtpConfigured, sendTransactionalSmtpMail } from '@/lib/smtp-mail';
 
 function useSiteSmtpForPasswordReset(): boolean {
   const forced = process.env.PASSWORD_RESET_USE_SITE_SMTP?.trim().toLowerCase();

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Trash2, Mail } from "lucide-react";
+import { Plus, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
     Select,

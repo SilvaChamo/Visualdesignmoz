@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { CreditCard, Smartphone, Wallet, X, Loader2, Check } from 'lucide-react'
+import { CreditCard, Smartphone, Wallet, X, Check } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner'
 
 interface PaymentMethodFormProps {

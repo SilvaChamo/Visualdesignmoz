@@ -1,22 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef, useSyncExternalStore } from 'react';
-import {
-  Cpu,
-  HardDrive,
-  AlertTriangle,
-  Activity,
-  Power,
-  Wrench,
-  X,
-  Server,
-  Clock,
-  ShieldAlert,
-  RotateCcw,
-  Database,
-  Globe,
-  Layers,
-} from 'lucide-react';
+import { useState, useEffect, useCallback, useSyncExternalStore } from 'react';
+import { Cpu, HardDrive, AlertTriangle, Power, Wrench, X, Server, ShieldAlert, RotateCcw, Database, Globe } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getServerHost } from '@/lib/server-config';
 

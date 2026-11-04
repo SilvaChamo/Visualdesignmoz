@@ -1,32 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import {
-  Palette,
-  MessageSquare,
-  Save,
-  Undo2,
-  Redo2,
-  Variable,
-  Mail,
-  Eye,
-  Code,
-  Type,
-  Italic,
-  Underline,
-  AlignLeft,
-  AlignCenter,
-  AlignRight,
-  List,
-  Link,
-  Image,
-  Table2,
-  Type as TypeIcon,
-  Plus,
-  Trash2,
-  AlertTriangle,
-  AlignVerticalSpaceAround
-} from 'lucide-react'
+import { Palette, MessageSquare, Save, Undo2, Redo2, Variable, Mail, Eye, Code, Type, Italic, Underline, List, Link, Table2, Trash2, AlertTriangle, AlignVerticalSpaceAround } from 'lucide-react';
 import {
   defaultRenewalTemplates,
   RenewalTemplate,
