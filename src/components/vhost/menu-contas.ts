@@ -14,6 +14,7 @@ const ORDEM = [
   'profissionais',
   'pacotes',
   'mover',
+  'diagnostico-passagem',
   'modelos-mensagem',
   'senhas',
   'pacotes-revenda',
