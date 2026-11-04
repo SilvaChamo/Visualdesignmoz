@@ -10,6 +10,8 @@ const nextConfig: NextConfig = {
   turbopack: {},
   serverExternalPackages: ['ssh2'],
   allowedDevOrigins: ['127.0.0.1', 'localhost'],
+  // sem o círculo «N» do Next.js no canto do painel (só aparece em desenvolvimento e não interessa ao projecto)
+  devIndicators: false,
   outputFileTracingRoot: path.join(__dirname),
   experimental: {
     proxyClientMaxBodySize: '512mb',

@@ -16163,3 +16163,29 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
 .vh tbody tr[class*="hover:bg-"]:hover > td:not(#x):not(#y):not(#z) {
    background: transparent
 }
+
+/* Menu da barra lateral mais junto em ecrãs pequenos (tablet e telemóvel; Silva, 4/11/2026: «tem muito espaçamento no menu da barra lateral») */
+@media (max-width: 1050px) {
+   .vh .side .grp:not(#x) {
+      padding-top: calc(6px * var(--z, 1));
+      padding-bottom: calc(6px * var(--z, 1))
+   }
+
+   .vh .side a:not(#x) {
+      padding-top: calc(3px * var(--z, 1));
+      padding-bottom: calc(3px * var(--z, 1));
+      gap: calc(8px * var(--z, 1));
+      margin-bottom: 0
+   }
+
+   .vh .side a .ic:not(#x) {
+      width: calc(20px * var(--z, 1));
+      height: calc(20px * var(--z, 1));
+      font-size: calc(15px * var(--fs, 1))
+   }
+
+   .vh .side .items>.in:not(#x) {
+      padding-top: calc(2px * var(--z, 1));
+      padding-bottom: calc(2px * var(--z, 1))
+   }
+}
