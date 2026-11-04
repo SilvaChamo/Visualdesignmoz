@@ -90,6 +90,9 @@ export async function POST(req: NextRequest) {
     if ('erro' in p0) return NextResponse.json(p0, { status: 400 });
     if (!p0.dono) return NextResponse.json({ erro: 'Este domínio não existe no servidor.' }, { status: 404 });
     if (SISTEMA.has(p0.dono) || (!c.admin && !c.podem.has(p0.dono))) return NextResponse.json({ erro: 'Este domínio está numa conta fora do seu painel.' }, { status: 403 });
+    // a mesma proteção da passagem: sem VHOST_ACOES_TODAS=1 só se mexe em domínios e contas de teste (o diagnóstico, que só lê, fica livre)
+    const bloqueio = protegido(d, p0.dono);
+    if (bloqueio) return NextResponse.json({ erro: bloqueio }, { status: 403 });
     const r = await repararDominio(d, corpo.reparar as ReparoPassagem);
     esquecerLeitura();
     return NextResponse.json(r, { status: r.ok ? 200 : 502 });
