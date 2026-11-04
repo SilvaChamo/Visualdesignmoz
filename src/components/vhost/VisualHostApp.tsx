@@ -7,7 +7,7 @@ import { Component, Fragment, useCallback, useEffect, useLayoutEffect, useMemo, 
 import { usePathname } from 'next/navigation';
 import { useTheme } from '@/contexts/ThemeContext';
 import { BarraPagina, ConsultaPagina, FaixaAbas, PesquisaPagina, TopoCartao, VHContext, type ItemPesquisa, type VH } from './context';
-import { GLOBAL, LEVELS, MENU, ROLES } from './generated/data';
+import { GLOBAL, MENU, ROLES } from './generated/data';
 import { SEM_MENU } from './menu-contas';
 import { dominioVisivel, type DadosServidor } from './servidor';
 import { CACHE_DADOS_VHOST, abrirCompraPedido, contaDaCompraPronta, apagarDadosVhost, limparAbrirCompra, guardarDadosVhost, lerDadosVhostGuardados, limparViaSite, tirarEntrada, viaSiteAgora } from '@/lib/vhost-cache';
@@ -28,39 +28,12 @@ import { BarraTopo, EsperaPagina, atividadeComeca, instalarContador, type Espera
 import { BarrasDa } from './carregador-da';
 import { ClientSidePanel } from '@/components/vhost/comuns/ClientProductsHub';
 import { useAvisosEncomendas } from './avisos-encomendas';
-import { badgeColors, getThemeColors, hexToRgb, luminancia, type CustomComponents } from './theme';
+import { badgeColors, getThemeColors, hexToRgb, luminancia } from './theme';
 import { FUNDO } from './carga';
 
 /** nomes antigos dos temas → nome atual (as cores gravadas ficam sempre no mesmo nome) */
 const presetId = (id: string) => ({ red: 'visualdesign', blue: 'visualpro' })[id] || id;
-import {
-  BASE,
-  LOGO,
-  acctOf,
-  allowedOf,
-  isLevel,
-  nivelInicial,
-  descFor,
-  findItem,
-  fromPath,
-  gItem,
-  hasFeatOf,
-  comAcessos,
-  ico,
-  initialState,
-  isUser,
-  meOf,
-  MENU_SO_DOMINIO,
-  soDominioDe,
-  fechadoAteConfirmar,
-  nomeNivel,
-  dominioGuardado,
-  guardarDominio,
-  route,
-  rotuloItem,
-  type DashTab,
-  type St,
-} from './state';
+import { BASE, LOGO, acctOf, allowedOf, isLevel, nivelInicial, descFor, findItem, fromPath, gItem, hasFeatOf, comAcessos, ico, initialState, isUser, meOf, MENU_SO_DOMINIO, soDominioDe, fechadoAteConfirmar, nomeNivel, dominioGuardado, guardarDominio, route, rotuloItem, type St } from './state';
 import { Avatar, ImpBanner, NoTopoCartao, RouteFoot, SwitcherBar } from './ui';
 import { tituloDoCartao } from './titulos-cartao';
 import { useBotoesTelemovel } from './botoes-telemovel';

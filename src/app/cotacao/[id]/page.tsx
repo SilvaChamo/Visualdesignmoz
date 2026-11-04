@@ -5,7 +5,7 @@ import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { formatMt } from '@/lib/pricing-catalog';
 import { NotchSection } from '@/components/home/NotchSection';
-import { Loader2, AlertCircle, Printer, ArrowRight } from 'lucide-react';
+import { AlertCircle, Printer, ArrowRight } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
 import { useBatchNumeros, displayNumero } from '@/lib/use-batch-numeros';
 import {

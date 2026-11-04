@@ -3,7 +3,7 @@
 import React from 'react'
 import { useRouter } from 'next/navigation'
 import { useI18n } from '@/lib/i18n'
-import { Camera, ShieldCheck, Clock, Award, CheckCircle2, ArrowRight } from 'lucide-react'
+import { Camera, CheckCircle2, ArrowRight } from 'lucide-react';
 import { NotchSection } from '@/components/home/NotchSection'
 
 export default function FotografiaSubPage() {

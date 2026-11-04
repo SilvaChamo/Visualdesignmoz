@@ -6,7 +6,7 @@ import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
-import { Menu, X, ChevronDown, User, ShoppingCart, LogOut } from 'lucide-react'
+import { Menu, X, ChevronDown, User, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useI18n } from '@/lib/i18n'

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { User, Lock, Save, CheckCircle2, AlertCircle, Building2, Phone, Mail, Eye, EyeOff } from 'lucide-react';
+import { User, Lock, Save, CheckCircle2, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { panelCard, panelField, panelBtnPrimary, panelBtnSecondary } from '@/lib/panel-ui';
 
 interface PerfilData {

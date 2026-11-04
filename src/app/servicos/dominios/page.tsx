@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '@/components/auth/AuthProvider'
 import Image from 'next/image'
 import { useI18n } from '@/lib/i18n'
-import { Globe, Shield, RefreshCw, Search, Zap, Lock, HardDrive } from 'lucide-react'
+import { RefreshCw, Search, Zap, HardDrive } from 'lucide-react';
 import DomainSearch from '@/components/DomainSearch'
 import { NotchSection } from '@/components/home/NotchSection'
 

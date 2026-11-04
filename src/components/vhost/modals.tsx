@@ -2,9 +2,9 @@
 
 // Janelas (na maquete: openM(...) com o HTML de cada formulário).
 import { useState, type ReactNode } from 'react';
-import { useVH, type VH } from './context';
+import { useVH } from './context';
 import { noServidor } from './paginas/acoes';
-import { LEVELS, MENU, ROLE_LEVELS, ROLE_PKGS, ROLES } from './generated/data';
+import { LEVELS, MENU, ROLE_LEVELS, ROLES } from './generated/data';
 import { ico, nomeNivel } from './state';
 import type { Role } from './types';
 

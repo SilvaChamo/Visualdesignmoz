@@ -8,7 +8,7 @@ import {
   useStripe,
   useElements,
 } from '@stripe/react-stripe-js'
-import { CreditCard, CheckCircle, AlertTriangle, Loader2, Star } from 'lucide-react'
+import { CreditCard, CheckCircle, AlertTriangle, Star } from 'lucide-react';
 import Link from 'next/link'
 import { PUBLIC_PANEL_ENTRY } from '@/lib/panel-origin'
 import { Spinner } from '@/components/ui/spinner'

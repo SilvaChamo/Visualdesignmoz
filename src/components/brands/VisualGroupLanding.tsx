@@ -1,14 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react';
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
-import {
-  Globe, ShieldCheck, Users, Gauge, ArrowRight,
-  Monitor, Palette, Calendar, Film, Truck, Gift,
-  CheckCircle2, ChevronDown, Check, Award, Sparkles
-} from 'lucide-react'
+import { ShieldCheck, Users, Gauge, ArrowRight, Monitor, Palette, Calendar, Film, Truck, Gift, Award, Sparkles } from 'lucide-react';
 import { useI18n } from '@/lib/i18n'
 import ServicosWebCarousel from '@/components/ServicosWebCarousel'
 import { NotchSection } from '@/components/home/NotchSection'

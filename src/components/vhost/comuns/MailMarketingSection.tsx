@@ -2,14 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { 
-  Plus, Search, Download, Edit2, Trash2, RefreshCw, Send, Megaphone, Newspaper, 
-  File as FileIcon, Loader2, LayoutTemplate, Sparkles, X as XLucide, 
-  History as HistoryIcon, Calendar, Eye, Pencil, BarChart3, TrendingUp, 
-  ArrowUpRight, Check, AlertTriangle, X, Bell, Mail, Target, Package, Globe,
-  Shield, Database, Settings, ChevronRight, MessageSquare, ExternalLink,
-  ChevronLeft, FileText, Image as ImageIcon, Users, Upload
-} from 'lucide-react';
+import { Plus, Trash2, RefreshCw, Send, Newspaper, File as FileIcon, LayoutTemplate, History as HistoryIcon, Pencil, BarChart3, Check, AlertTriangle, Mail, Upload } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useAdminSectionChrome } from '@/components/vhost/comuns/AdminSectionChrome';
 import { Button } from "@/components/ui/button";
@@ -22,18 +15,7 @@ import { EmailTemplates } from "@/components/vhost/comuns/EmailTemplates";
 import { fetchCompanyLogoUrl } from "@/components/vhost/comuns/CompanyLogoUpload";
 import { toast } from "sonner";
 import directAdminAPI from '@/lib/directadmin-hosting-api';
-import {
-  adminListarSubscritores as listarSubscritores,
-  adminAdicionarSubscritor as adicionarSubscritor,
-  adminAtualizarSubscritor as atualizarSubscritor,
-  adminRemoverSubscritor as removerSubscritor,
-  adminListarListas as listarListas,
-  adminCriarLista as criarLista,
-  adminRemoverLista as removerLista,
-  adminListarCampanhas as listarCampanhas,
-  adminRemoverCampanha as removerCampanha,
-  adminLimparDadosCampanhas as limparDadosCampanhas
-} from '@/app/actions/mailmarketing';
+import { adminListarSubscritores as listarSubscritores, adminAdicionarSubscritor as adicionarSubscritor, adminAtualizarSubscritor as atualizarSubscritor, adminRemoverSubscritor as removerSubscritor, adminListarListas as listarListas, adminCriarLista as criarLista, adminRemoverLista as removerLista, adminListarCampanhas as listarCampanhas, adminRemoverCampanha as removerCampanha } from '@/app/actions/mailmarketing';
 import { Spinner } from '@/components/ui/spinner';
 
 const CORES_PALETA = [

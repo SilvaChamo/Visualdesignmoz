@@ -2,7 +2,7 @@
 
 import { useI18n } from '@/lib/i18n'
 import Link from 'next/link'
-import { ArrowLeft, ArrowRight } from 'lucide-react'
+import { ArrowRight } from 'lucide-react';
 
 export default function PrecosSuporte() {
 

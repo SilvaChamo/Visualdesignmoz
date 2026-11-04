@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useI18n } from '@/lib/i18n'
 import Link from 'next/link'
 import { useCart } from '@/contexts/CartContext'
-import { ArrowLeft, HardDrive, Mail, Send, Megaphone, Globe, GitBranch, FolderOpen, Database, Lock, LifeBuoy } from 'lucide-react'
+import { HardDrive, Mail, Send, Megaphone, Globe, GitBranch, FolderOpen, Database, Lock, LifeBuoy } from 'lucide-react';
 import { getHostingCyclePrice, getHostingMonthlyEquivalent, getHostingPlan } from '@/lib/hosting-plans'
 import { useCurrency } from '@/contexts/CurrencyContext'
 import { DOMAIN_STEP_PATH } from '@/lib/checkout-flow'

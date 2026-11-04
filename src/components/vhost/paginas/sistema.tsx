@@ -3,7 +3,7 @@
 // Menu "Sistema e ficheiros" do painel Utilizador (como no DirectAdmin: System Info & Files), ligado ao servidor
 // por /api/vhost/sistema: Gestor de ficheiros (+ editor), Terminal, Módulos Perl, Informação do sistema,
 // Estatísticas, Resumo do site e registos, Uso de recursos.
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import dynamic from 'next/dynamic';
 import { useVH, type VH } from '../context';
 import type { ScreenFn } from '../screens';

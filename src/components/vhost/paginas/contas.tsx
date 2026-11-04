@@ -15,22 +15,7 @@ import { EditarDadosModal } from './cliente-dados';
 import type { Account, Role } from '../types';
 import { Check, DataTable, Frm, Row, Senha, Tabs, type Bulk, type Col } from './componentes';
 import { ComoFuncionaRevenda, Confirmar, FormPacoteRevenda, FormPacoteUtilizador } from './pacotes';
-import {
-  FUNC_REVENDA,
-  FUNC_UTILIZADOR,
-  LIMITES_REVENDA,
-  LIMITES_UTILIZADOR,
-  MODELOS_PREDEFINIDOS,
-  RECURSOS,
-  featsEfetivas,
-  hoje,
-  limTxt,
-  pacoteRevendaVazio,
-  pacoteVazio,
-  type Lim,
-  type PacoteRevenda,
-  type PacoteUtilizador,
-} from './dados';
+import { FUNC_REVENDA, FUNC_UTILIZADOR, LIMITES_REVENDA, LIMITES_UTILIZADOR, MODELOS_PREDEFINIDOS, RECURSOS, featsEfetivas, limTxt, pacoteRevendaVazio, pacoteVazio, type Lim, type PacoteRevenda, type PacoteUtilizador } from './dados';
 
 type Kind = 'todos' | 'meus' | 'revenda' | 'profissional' | 'admin';
 type R = [string, Account];

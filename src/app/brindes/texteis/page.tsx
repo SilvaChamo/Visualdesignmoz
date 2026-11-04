@@ -3,7 +3,7 @@
 import React from 'react'
 import { useRouter } from 'next/navigation'
 import { useI18n } from '@/lib/i18n'
-import { Shirt, ShieldCheck, Clock, Award, CheckCircle2, ArrowRight } from 'lucide-react'
+import { Shirt, CheckCircle2, ArrowRight } from 'lucide-react';
 import { NotchSection } from '@/components/home/NotchSection'
 
 export default function TexteisSubPage() {

@@ -2,18 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
-import { 
-  Calendar, 
-  Globe, 
-  Server, 
-  CreditCard,
-  Smartphone,
-  Wallet,
-  CheckCircle,
-  AlertTriangle,
-  Loader2,
-  ArrowLeft
-} from 'lucide-react'
+import { Globe, Server, CreditCard, Smartphone, Wallet, CheckCircle, AlertTriangle, ArrowLeft } from 'lucide-react';
 import Link from 'next/link'
 import { PUBLIC_PANEL_ENTRY } from '@/lib/panel-origin'
 import { Spinner } from '@/components/ui/spinner'

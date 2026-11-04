@@ -4,7 +4,7 @@
 // Contas de e-mail (+ nova, uso), Reencaminhamentos (+ novo, a partir de texto), Respostas automáticas, Mensagens
 // de férias, Filtros anti-spam, Listas de correio, Registos MX, Rastreio de e-mail e Migração de e-mail; nos
 // Extras, Webmail (Roundcube) e Mailmarketing (a plataforma do site). Tudo usa o domínio escolhido no seletor.
-import { useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import dynamic from 'next/dynamic';
 import { useVH, type VH, TopoCartao } from '../context';
 import type { ScreenFn } from '../screens';

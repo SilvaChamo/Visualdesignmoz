@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { useI18n } from '@/lib/i18n'
-import { Globe, User, ShoppingCart, HelpCircle, Rocket, Server, CreditCard, Shield, Grid, Layers, Package, BookOpen, Lock, Camera, Palette, Monitor, Mail, FileText, Megaphone, PenTool, Film, Search as SearchIcon } from 'lucide-react'
+import { Globe, User, ShoppingCart, HelpCircle, Rocket, Server, CreditCard, Shield, Package, Lock, Camera, Palette, Monitor, Mail, FileText, Megaphone, PenTool, Film, Search as SearchIcon } from 'lucide-react';
 import Link from 'next/link'
 import { useCart } from '@/contexts/CartContext'
 import { useEncomendaDraft } from '@/lib/use-encomenda-draft'
