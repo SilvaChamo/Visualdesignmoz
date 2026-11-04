@@ -43,6 +43,10 @@ git fetch -q origin RAMO && bash <(git show origin/RAMO:scripts/atualizar-local.
 ```
 O agente que tem a pasta local faz o mesmo ele próprio (`bash scripts/atualizar-local.sh RAMO /CAMINHO`). Se o script precisar de mudar, muda-se o script (e esta regra), nunca se dá outro comando.
 
+**O agente actualiza o site local ele próprio e não manda comando ao Silva** (Silva, 04/11/2026: «o projecto local não seja actualizado com o código manual se você já tem tudo para executar actualizações»). Se o agente tem acesso à pasta (a principal ou a sua cópia de trabalho), corre ele o script ou arranca o servidor na 3003, confirma que a página responde e só diz «está em http://localhost:3003». O comando só se dá ao Silva quando ele o pede ou quando o agente não tem a pasta (agente na nuvem). Nunca se mexe na pasta principal `visualdesign-producao` se ela estiver noutro ramo com trabalho do Silva por gravar: o agente serve o site a partir da sua própria cópia de trabalho.
+
+**Cópia de trabalho nova (worktree `.claude/worktrees/…`): preparar antes de arrancar** (Silva, 04/11/2026). Uma cópia nova começa sem `node_modules` e sem `.env.local` (este está no `.gitignore`), por isso o site local não arranca nem liga à base de dados. Na primeira vez, antes de qualquer teste: `npm install` e `cp <pasta principal>/.env.local .env.local` (a pasta principal é a que está acima de `.claude/worktrees`). O `.env.local` nunca se escreve na conversa nem se grava no Git. Arranca-se com `npm run dev` (porta 3003); se a pasta principal já tiver o seu servidor na 3003, não se arrancam dois.
+
 # O servidor local arranca SÓ com `npm run dev` — nunca com flags nem outro modo (Silva, 28/10/2026)
 
 **Para qualquer agente, com qualquer IA, logo ao entrar no projecto:** o servidor local (porta 3003) é `npm run dev` (que corre `next dev --port 3003` com o Turbopack) e **nada mais**. Nunca `--webpack`, `--turbopack`, outra porta, `npx next dev` nem qualquer flag «para testar».
