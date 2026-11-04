@@ -1,6 +1,6 @@
 name: Ops - Auditoria do servidor (só leitura)
 
-# Lê o estado do servidor para fechar a auditoria (docs/AUDITORIA_FECHO_PROJECTO.md) SEM alterar nada e SEM imprimir segredos:
+# Lê o estado do servidor para fechar a auditoria (docs/arquivo/AUDITORIA_FECHO_PROJECTO.md) SEM alterar nada e SEM imprimir segredos:
 # quem chamou as rotas que se protegeram, o endereço do Supabase, o cron das cópias, o modo do Stripe (só o prefixo da chave),
 # variáveis que sobraram do fornecedor antigo (só os nomes), certificados de e-mail, o nginx da porta 2026, portas abertas,
 # fail2ban, SSH e actualizações de segurança pendentes. Pedido do Silva a 27/10/2026 (regra 4 de regras.md: só leitura primeiro).
