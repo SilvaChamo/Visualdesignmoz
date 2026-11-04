@@ -424,7 +424,7 @@ function DetailGrid({ columns }: { columns: DetailColumn[] }) {
           key={idx}
           className={`flex flex-col ${idx === columns.length - 1 ? 'min-w-0 flex-1' : 'flex-none'} ${idx > 0 ? 'border-l border-gray-200 dark:border-zinc-700' : ''}`}
         >
-          <p className="bg-gray-100 px-4 py-2 text-[11px] font-bold uppercase tracking-wide text-gray-500 dark:bg-zinc-800 dark:text-zinc-400">
+          <p className="bg-gray-200 px-4 py-2 text-[11px] font-bold uppercase tracking-wide text-gray-600 dark:bg-zinc-700 dark:text-zinc-300">
             {col.titulo || '\u00a0'}
           </p>
           <div className="px-4 py-2">{col.conteudo}</div>
