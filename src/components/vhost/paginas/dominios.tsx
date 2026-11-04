@@ -4277,6 +4277,19 @@ function Php() {
                 </option>
               ))}
             </select>
+            {/* resolução manual (administrador da conta): volta a aplicar a versão em uso a todos os sites da conta e ao PHP dela —
+                serve quando o site ficou sem PHP ou com a versão errada (ex.: depois de passar um domínio de conta) */}
+            {/^\d+\.\d+$/.test(ativa) && (
+              <button
+                type="button"
+                className="btn sm btn-ed"
+                title={t('Volta a aplicar a versão do PHP em uso a todos os sites da conta')}
+                onClick={async () => noServidor(vh, { acao: 'php-versao-conta', dominio: x.name, versao: ativa }, 'PHP ' + ativa + ' reaplicado em todos os sites da conta')}
+              >
+                <i className="fa-solid fa-rotate" />
+                {t('Reaplicar PHP')}
+              </button>
+            )}
           </div>
         </Row>
       </Frm>
