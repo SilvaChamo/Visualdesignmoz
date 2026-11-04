@@ -566,6 +566,8 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
   const searchRef = useRef<HTMLInputElement>(null);
   const temaSaveQueue = useRef<Promise<void>>(Promise.resolve());
   const temaEdicoes = useRef(0);
+  /** conta cujas preferências já chegaram do servidor: só então se guarda um tema nela (nunca o da conta vista antes) */
+  const temaCarregadoDe = useRef('');
 
   // Grava o estado novo (o painel de uma conta que deixou de ter acesso volta ao primeiro painel permitido)
   const commit = useCallback((next: St) => {
@@ -664,6 +666,12 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
   const guardarTema = useCallback(
     (next: St) => {
       if (next.carga !== 'ok') return;
+      // ao passar para outra conta, até chegarem as preferências dela o painel ainda tem as cores da anterior: guardá-las aqui
+      // era pôr o tema de uma conta noutra
+      if (temaCarregadoDe.current !== chaveTema(next)) {
+        toast('A carregar as preferências desta conta; tente outra vez daqui a instantes.');
+        return;
+      }
       temaEdicoes.current++;
       lembrarTema(next);
       const preferencias: TemaConta = {
@@ -764,6 +772,7 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
         const atual = ref.current;
         const chaveAtual = (atual.stack.length ? 'conta:' : 'pessoa:') + (atual.stack.length ? meOf(atual) : atual.login);
         if (chaveAtual !== chave) return;
+        temaCarregadoDe.current = chave;
         temaProprio.current = !!dados.preferencias;
         // sem tema próprio, o tema do plano da conta (Admin › Pacotes › Tema); senão o de origem
         const doPlano = atual.temasPlano?.[acctOf(atual).pkg];
