@@ -1445,6 +1445,8 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
     '--red': colors.primary,
     '--red-d': colors.dark,
     '--tint': isDark ? colors.tintDark : colors.tint,
+    // o fundo ao passar o rato nas linhas segue o tema (vermelho no vermelho, verde no verde…)
+    '--hover': isDark ? colors.tintDark : colors.tint,
     '--ok': colors.safe,
     '--warn': colors.warning,
     '--rail-bg': railBg,

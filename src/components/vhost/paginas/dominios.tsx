@@ -42,7 +42,7 @@ import { dataPt, dataSo } from '../datas';
     'Crie bases de dados do seu site, com o número de utilizadores que lhes acedem, o tamanho e o número de tabelas abaixo': "Create your site's databases, with the number of users that access them, the size and the number of tables below",
     'Registos DNS deste domínio, guardados neste servidor': 'DNS records of this domain, stored on this server',
     'O DNS deste domínio está fora da Visual Design': 'The DNS of this domain is outside Visual Design',
-    'Ligado ao DNS do Vhost: o que alterar aqui muda logo nos registos DNS dos seus domínios': "Connected to Vhost DNS: what you change here changes your domains' DNS records right away",
+    'Ligado ao DNS do Cloudflare: o que alterar aqui muda logo nos registos DNS dos seus domínios': "Connected to Cloudflare DNS: what you change here changes your domains' DNS records right away",
     'Gerir os domínios e os subdomínios desta conta': 'Manage the domains and subdomains of this account',
     'Os sites e os domínios desta conta': 'The sites and domains of this account',
     'Os subdomínios e as pastas deste domínio': 'The subdomains and folders of this domain',
@@ -160,7 +160,7 @@ export function RelatorioDns({ dominio, itens, onFechar }: { dominio: string; it
           <i className={'fa-solid ' + ICONE_REL[i.estado]} />
           <div>
             <span>{i.nome}</span>
-            {i.detalhe && <small>{i.detalhe}</small>}
+            {i.detalhe && <small style={{ whiteSpace: 'pre-line' }}>{i.detalhe}</small>}
           </div>
           <em>{t(TEXTO_REL[i.estado])}</em>
         </div>
@@ -2081,7 +2081,7 @@ function DescDns() {
   const x = dominioAtual(vh, false);
   const dados = useNaMemoria<{ dns: { fonte: string } }>(x ? '/api/vhost/dominio?conta=' + encodeURIComponent(vh.me) + '&d=' + encodeURIComponent(x.name) + '&so=dns' : '');
   const f = dados?.dns.fonte;
-  return <>{vh.t(f === 'hestia' ? 'Registos DNS deste domínio, guardados neste servidor' : f === 'nenhuma' ? 'O DNS deste domínio está fora da Visual Design' : 'Ligado ao DNS do Vhost: o que alterar aqui muda logo nos registos DNS dos seus domínios')}</>;
+  return <>{vh.t(f === 'hestia' ? 'Registos DNS deste domínio, guardados neste servidor' : f === 'nenhuma' ? 'O DNS deste domínio está fora da Visual Design' : 'Ligado ao DNS do Cloudflare: o que alterar aqui muda logo nos registos DNS dos seus domínios')}</>;
 }
 export const dnsPagina: ScreenFn = () => ({ title: 'DNS', descBarra: 'Para onde apontam o seu site e o seu e-mail', descEl: <DescDns />, actions: <NovoRegistoDns />, body: <Dns /> });
 

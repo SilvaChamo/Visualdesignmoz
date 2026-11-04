@@ -632,6 +632,8 @@ function BackupsAdmin() {
   const vh = useVH();
   const { t } = vh;
   const [aba, setAba] = useState<AbaK>('copias');
+  // contas com as cópias à vista (a seta da linha abre e fecha)
+  const [abertas, setAbertas] = useState<string[]>([]);
   const { dados, erro, ler } = useGet<Bk>(BK_URL);
   useAoMudar(ler);
   if (!dados) return <Carregando erro={erro} ler={ler} />;
@@ -642,6 +644,11 @@ function BackupsAdmin() {
     const ultima = cs.map((c) => c.data + ' ' + c.hora).sort().pop() || '';
     return { u, n: cs.length, mb: cs.reduce((s, c) => s + c.mb, 0), ultima };
   });
+  // as cópias vão dentro da linha da conta (Silva, 04/11/2026): a mais recente primeiro
+  const grupos = contas
+    .filter((u) => u.n > 0)
+    .map((u) => ({ ...u, cs: dados.backups.filter((c) => c.conta === u.u).sort((a, b) => (b.data + b.hora).localeCompare(a.data + a.hora)) }));
+  const alternarConta = (u: string) => setAbertas((a) => (a.includes(u) ? a.filter((x) => x !== u) : [...a, u]));
   const criar = (k: string[]) => void lancarBackup(vh, k);
   const restaurar = (c: Copia) =>
     confirmar(vh, 'Restaurar a conta?', c.conta + ' ← ' + nomeCopia(c.nome) + ' — ' + t('os sites, e-mails, bases de dados e tarefas da conta voltam ao estado desta cópia.'), 'Restaurar', { acao: 'bk-restaurar', conta: c.conta, nome: c.nome }, 'Restauro na fila');
@@ -664,46 +671,65 @@ function BackupsAdmin() {
           umaLinha
           barraFora
           empilhar={false}
-          rows={dados.backups}
-          rowKey={chave}
-          search={(r) => r.conta + ' ' + r.nome}
+          rows={grupos}
+          rowKey={(r) => r.u}
+          search={(r) => r.u + ' ' + r.cs.map((c) => c.nome).join(' ')}
           empty="Nenhum backup"
+          aoAbrirLinha={(r) => alternarConta(r.u)}
           cols={[
-            { k: 'c', t: 'Conta', sort: (r) => r.conta, cell: (r) => <b>{r.conta}</b> },
-            { k: 'n', t: 'Cópia', cell: (r) => <span className="pm-proc"><small className="ad-cmd ad-cmd-1l">{nomeCopia(r.nome)}</small></span> },
-            { k: 'd', t: 'Data', sort: (r) => r.data + r.hora, cell: (r) => dataPt(r.data + ' ' + r.hora.slice(0, 5)) },
-            { k: 'm', t: 'Tamanho', right: true, sort: (r) => r.mb, cell: (r) => mbTexto(r.mb) },
-            { k: 't', t: 'Demorou', ate: 1300, cell: (r) => (r.demorou ? r.demorou + ' min' : '—') },
+            {
+              k: 'c',
+              t: 'Conta',
+              sort: (r) => r.u,
+              cell: (r) => (
+                <span className="bk-conta">
+                  <i className={'fa-solid fa-chevron-right bk-seta' + (abertas.includes(r.u) ? ' aberta' : '')} aria-hidden="true" />
+                  <b>{r.u}</b>
+                </span>
+              ),
+            },
+            { k: 'n', t: 'Cópias', right: true, sort: (r) => r.n, cell: (r) => r.n },
+            { k: 'm', t: 'Espaço', right: true, sort: (r) => r.mb, cell: (r) => mbTexto(r.mb) },
+            { k: 'l', t: 'Última cópia', sort: (r) => r.ultima, cell: (r) => dataPt(r.ultima.slice(0, 16)) },
           ]}
           actions={(r) => (
             <span className="dns-acoes">
-              <button className="btn sm btn-ed" onClick={() => restaurar(r)}>
-                <i className="fa-solid fa-clock-rotate-left" />
-                {t('Restaurar')}
-              </button>
-              <a className="btn sm btn-ed" href={ROTA + '?ver=bk-descarregar&conta=' + encodeURIComponent(r.conta) + '&f=' + encodeURIComponent(r.nome)}>
-                <i className="fa-solid fa-download" />
-                {t('Baixar')}
-              </a>
-              <button className="btn sm btn-rm" onClick={() => apagar([r])}>
-                <i className="fa-solid fa-trash-can" />
-                {t('Apagar')}
+              <button className="btn sm btn-ed" onClick={() => criar([r.u])}>
+                <i className="fa-solid fa-box-archive" />
+                {t('Fazer backup agora')}
               </button>
             </span>
           )}
           acoesNaColuna
-          bulk={[
-            {
-              t: 'Restaurar',
-              fa: 'fa-clock-rotate-left',
-              run: (k) => {
-                const [c, ...mais] = escolhidas(k);
-                if (!c || mais.length) return vh.toast('Escolha só uma cópia');
-                restaurar(c);
-              },
-            },
-            { t: 'Apagar', fa: 'fa-trash-can', run: (k) => apagar(escolhidas(k)) },
-          ]}
+          bulk={[{ t: 'Fazer backup agora', fa: 'fa-box-archive', run: criar }]}
+          linhaExtra={(r) =>
+            abertas.includes(r.u) ? (
+              <div className="bk-grupo">
+                {r.cs.map((c) => (
+                  <div key={chave(c)} className="bk-grupo-l">
+                    <span className="pm-proc"><small className="ad-cmd ad-cmd-1l">{nomeCopia(c.nome)}</small></span>
+                    <span className="bk-grupo-d">{dataPt(c.data + ' ' + c.hora.slice(0, 5))}</span>
+                    <span className="bk-grupo-m">{mbTexto(c.mb)}</span>
+                    <span className="bk-grupo-t">{c.demorou ? c.demorou + ' min' : '—'}</span>
+                    <span className="dns-acoes">
+                      <button className="btn sm btn-ed" onClick={() => restaurar(c)}>
+                        <i className="fa-solid fa-clock-rotate-left" />
+                        {t('Restaurar')}
+                      </button>
+                      <a className="btn sm btn-ed" href={ROTA + '?ver=bk-descarregar&conta=' + encodeURIComponent(c.conta) + '&f=' + encodeURIComponent(c.nome)}>
+                        <i className="fa-solid fa-download" />
+                        {t('Baixar')}
+                      </a>
+                      <button className="btn sm btn-rm" onClick={() => apagar([c])}>
+                        <i className="fa-solid fa-trash-can" />
+                        {t('Apagar')}
+                      </button>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : null
+          }
         />
       ) : (
         <DataTable

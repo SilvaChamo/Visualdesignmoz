@@ -743,7 +743,7 @@ export function DataTable<T>({
           </thead>
           <tbody>
             {pagina.length ? (
-              pagina.map((r) => {
+              pagina.map((r, ordem) => {
                 const k = rowKey(r);
                 const on = selKeys.includes(k);
                 const extra = linhaExtra ? linhaExtra(r) : null;
@@ -751,6 +751,7 @@ export function DataTable<T>({
                   <Fragment key={k}>
                   <tr
                     data-k={k}
+                    data-par={ordem % 2}
                     className={(on ? 'sel ' : '') + (realce === k ? 'dt-realce ' : '') + (aoAbrirLinha ? 'dt-clicavel ' : '') + (rowClass ? rowClass(r) : '')}
                     {...(aoAbrirLinha
                       ? {
@@ -777,7 +778,7 @@ export function DataTable<T>({
                     {colFim && <td className="dt-acoes-linha" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{actions ? actions(r) : null}</td>}
                   </tr>
                   {extra && (
-                    <tr className="dt-extra">
+                    <tr className="dt-extra" data-par={ordem % 2}>
                       <td colSpan={span}>{extra}</td>
                     </tr>
                   )}

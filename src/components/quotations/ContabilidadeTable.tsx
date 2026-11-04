@@ -1,6 +1,6 @@
 'use client'
 
-import { Fragment, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ChevronDown, ChevronRight, RotateCcw } from 'lucide-react'
 import {
   panelSectionCard, panelBtnSecondary,
@@ -424,7 +424,7 @@ function DetailGrid({ columns }: { columns: DetailColumn[] }) {
           key={idx}
           className={`flex flex-col ${idx === columns.length - 1 ? 'min-w-0 flex-1' : 'flex-none'} ${idx > 0 ? 'border-l border-gray-200 dark:border-zinc-700' : ''}`}
         >
-          <p className="bg-gray-100 px-4 py-2 text-[11px] font-bold uppercase tracking-wide text-gray-500 dark:bg-zinc-800 dark:text-zinc-400">
+          <p className="bg-gray-200 px-4 py-2 text-[11px] font-bold uppercase tracking-wide text-gray-600 dark:bg-zinc-700 dark:text-zinc-300">
             {col.titulo || '\u00a0'}
           </p>
           <div className="px-4 py-2">{col.conteudo}</div>
@@ -1032,12 +1032,11 @@ function RenewalPaymentsTable() {
               <th className="px-4 py-2 align-middle text-left whitespace-nowrap">Aceitação</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100 dark:divide-zinc-800">
             {pedidos.map((p) => {
               const meta = CREDITO_STATUS_META[p.status]
               const isExpanded = expandedId === p.id
               return (
-                <Fragment key={p.id}>
+                <tbody className="contab-zebra" key={p.id}>
                 <tr className="hover:bg-gray-50 dark:hover:bg-zinc-800/30">
                   <td className="max-w-[16rem] px-4 py-2.5 font-medium text-gray-900 dark:text-white">
                     <div className="flex items-start gap-1.5">
@@ -1126,10 +1125,9 @@ function RenewalPaymentsTable() {
                     </td>
                   </tr>
                 )}
-                </Fragment>
+                </tbody>
               )
             })}
-          </tbody>
         </table>
       </div>
       {lightboxUrl && <ImageLightbox url={lightboxUrl} onClose={() => setLightboxUrl(null)} />}
@@ -1335,7 +1333,6 @@ function CheckoutItemsByType({ types }: { types: string[] }) {
               <th className="px-4 py-2 align-middle text-left whitespace-nowrap">Aceitação</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100 dark:divide-zinc-800">
             {rows.map(({ pedido: p, item, itemIndex }) => {
               const itemStatus = item.status ?? p.status
               const key = `${p.id}-${itemIndex}`
@@ -1343,7 +1340,7 @@ function CheckoutItemsByType({ types }: { types: string[] }) {
               const meta = ITEM_STATUS_META[itemStatus] || ITEM_STATUS_META.pending
               const isExpanded = expandedKey === key
               return (
-                <Fragment key={key}>
+                <tbody className="contab-zebra" key={key}>
                 <tr className="hover:bg-gray-50 dark:hover:bg-zinc-800/30">
                   <td className="max-w-[16rem] px-4 py-2.5 font-medium text-gray-900 dark:text-white">
                     <div className="flex items-start gap-1.5">
@@ -1496,10 +1493,9 @@ function CheckoutItemsByType({ types }: { types: string[] }) {
                     </td>
                   </tr>
                 )}
-                </Fragment>
+                </tbody>
               )
             })}
-          </tbody>
         </table>
       </div>
       {lightboxUrl && <ImageLightbox url={lightboxUrl} onClose={() => setLightboxUrl(null)} />}

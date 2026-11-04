@@ -494,7 +494,7 @@
 }
 
 .vh .tbl tr.dt-clicavel:hover td {
-   background: var(--tint)
+   background: var(--hover)
 }
 
 .vh .tbl tr.dt-clicavel:focus-visible {
@@ -2776,7 +2776,7 @@
 }
 
 .vh .dom-registar table tbody tr:hover {
-   background: var(--line-soft)
+   background: var(--hover)
 }
 
 /* Painel inicial (Widgets): a coluna da direita também dentro de um cartão, igual ao cartão principal (pedido do Silva, 10/10) */
@@ -10521,7 +10521,7 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
 }
 
 /* Linhas de todas as tabelas com o fundo alternado: branca e cinzento suave (Silva, 20/10/2026). Não cobre selecção, realce nem passagem do rato. */
-.vh table tbody tr:nth-child(even):not(.grp):not(.sel):not(.dt-realce):not(:hover) > td {
+.vh table tbody tr:is([data-par="1"], :nth-child(even):not([data-par])):not(.grp):not(.sel):not(.dt-realce):not(:hover) > td {
    background: var(--soft)
 }
 
@@ -11848,7 +11848,7 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
 }
 
 /* Tema escuro: as linhas alternadas mais escuras que o cartão (22% de preto) — visíveis mas suaves, nada de preto nem de cinzento brilhante (Silva, 20/10/2026) */
-.vh[data-theme=dark] table tbody tr:nth-child(even):not(.grp):not(.sel):not(.dt-realce):not(:hover) > td {
+.vh[data-theme=dark] table tbody tr:is([data-par="1"], :nth-child(even):not([data-par])):not(.grp):not(.sel):not(.dt-realce):not(:hover) > td {
    background: color-mix(in srgb, var(--card) 78%, #000)
 }
 
@@ -13757,7 +13757,7 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
       border-bottom-color: var(--linha-lista)
    }
 
-   .vh:not([data-theme=dark]) table tbody tr:nth-child(even):not(.grp):not(.sel):not(.dt-realce):not(:hover) > td:not(#x) {
+   .vh:not([data-theme=dark]) table tbody tr:is([data-par="1"], :nth-child(even):not([data-par])):not(.grp):not(.sel):not(.dt-realce):not(:hover) > td:not(#x) {
       background: var(--fundo-lista)
    }
 }
@@ -13765,11 +13765,11 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
 /* Telemóvel: cada linha é um bloco, por isso o fundo alternado pinta o bloco inteiro (não célula a célula, que deixava riscas) e a
    paginação lê-se "Página 1 de 2", sem a barra a mais (Silva, 23/10/2026) */
 @media (max-width: 768px) {
-   .vh:not([data-theme=dark]) .tbl.dt-empilhar tbody tr:nth-child(even):not(.grp):not(.sel):not(.dt-realce):not(:hover):not(#x) {
+   .vh:not([data-theme=dark]) .tbl.dt-empilhar tbody tr:is([data-par="1"], :nth-child(even):not([data-par])):not(.grp):not(.sel):not(.dt-realce):not(:hover):not(#x) {
       background-color: var(--fundo-lista)
    }
 
-   .vh .tbl.dt-empilhar tbody tr:nth-child(even):not(.grp):not(.sel):not(.dt-realce):not(:hover) > td:not(#x) {
+   .vh .tbl.dt-empilhar tbody tr:is([data-par="1"], :nth-child(even):not([data-par])):not(.grp):not(.sel):not(.dt-realce):not(:hover) > td:not(#x) {
       background: transparent
    }
 
@@ -13780,11 +13780,11 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
 
 /* Tablet ao alto (769–1000), tabelas em blocos: o mesmo do telemóvel — o fundo alternado pinta o bloco inteiro */
 @media (min-width: 769px) and (max-width: 1000px) {
-   .vh:not([data-theme=dark]) .tbl.dt-empilhar-tablet tbody tr:nth-child(even):not(.grp):not(.sel):not(.dt-realce):not(:hover):not(#x) {
+   .vh:not([data-theme=dark]) .tbl.dt-empilhar-tablet tbody tr:is([data-par="1"], :nth-child(even):not([data-par])):not(.grp):not(.sel):not(.dt-realce):not(:hover):not(#x) {
       background-color: var(--fundo-lista)
    }
 
-   .vh .tbl.dt-empilhar-tablet tbody tr:nth-child(even):not(.grp):not(.sel):not(.dt-realce):not(:hover) > td:not(#x) {
+   .vh .tbl.dt-empilhar-tablet tbody tr:is([data-par="1"], :nth-child(even):not([data-par])):not(.grp):not(.sel):not(.dt-realce):not(:hover) > td:not(#x) {
       background: transparent
    }
 }
@@ -16099,5 +16099,93 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
 
    .vh .wp-gest-2c .wp-gest-bloco:first-child:not(#x) {
       padding-right: calc(32px * var(--z, 1))
+   }
+}
+
+/* Backups agrupados por conta: a seta abre as cópias da conta por baixo da linha (Silva, 4/11/2026) */
+.vh .bk-conta {
+   display: inline-flex;
+   align-items: center;
+   gap: 10px
+}
+
+.vh .bk-seta {
+   font-size: 11px;
+   color: var(--muted);
+   transition: transform .15s
+}
+
+.vh .bk-seta.aberta {
+   transform: rotate(90deg)
+}
+
+.vh .bk-grupo {
+   padding: 0 0 4px 36px
+}
+
+.vh .bk-grupo-l {
+   display: grid;
+   grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) 90px 80px auto;
+   align-items: center;
+   gap: 12px;
+   padding: calc(6px * var(--z, 1)) 12px;
+   border-top: 1px solid var(--line-soft)
+}
+
+.vh .bk-grupo-m {
+   text-align: right
+}
+
+@media (max-width: 1050px) {
+   .vh .bk-grupo {
+      padding-left: 12px
+   }
+
+   .vh .bk-grupo-l {
+      grid-template-columns: minmax(0, 1fr) auto auto
+   }
+
+   .vh .bk-grupo-l .dns-acoes {
+      grid-column: 1 / -1
+   }
+}
+
+/* Contabilidade › Encomendas: a linha que abre por baixo de cada encomenda tem a mesma cor da encomenda (o fundo é do bloco inteiro) */
+.vh .enc-contab tbody.contab-zebra > tr > td:not(#x):not(#y):not(#z) {
+   background: transparent
+}
+
+/* Passar o rato nas linhas: o fundo é sempre o do tema activo, também nas listas feitas com classes Tailwind (Contabilidade, Mail marketing…) */
+.vh tbody tr[class*="hover:bg-"]:hover:not(#x):not(#y) {
+   background-color: var(--hover) !important
+}
+
+.vh tbody tr[class*="hover:bg-"]:hover > td:not(#x):not(#y):not(#z) {
+   background: transparent
+}
+
+/* Menu da barra lateral mais junto em ecrãs pequenos (tablet e telemóvel; Silva, 4/11/2026: «tem muito espaçamento no menu da barra lateral») */
+@media (max-width: 1050px) {
+   .vh .side .grp:not(#x) {
+      padding-top: calc(6px * var(--z, 1));
+      padding-bottom: calc(6px * var(--z, 1))
+   }
+
+   .vh .side a:not(#x) {
+      padding-top: calc(3px * var(--z, 1));
+      padding-bottom: calc(3px * var(--z, 1));
+      gap: calc(8px * var(--z, 1));
+      margin-bottom: 0
+   }
+
+   .vh .side a .ic:not(#x) {
+      width: calc(20px * var(--z, 1));
+      height: calc(20px * var(--z, 1));
+      font-size: calc(15px * var(--fs, 1))
+   }
+
+   .vh .side .items>.in:not(#x) {
+      padding-top: calc(2px * var(--z, 1));
+      padding-bottom: calc(2px * var(--z, 1))
    }
 }

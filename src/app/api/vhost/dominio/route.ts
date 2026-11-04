@@ -11,7 +11,7 @@ import { createCloudflareZone, deleteCloudflareDnsRecord, deleteHostARecord, fin
 import { provisionEmailAuthForDomain } from '@/lib/domain-email-auth';
 import { dynadotAPI } from '@/lib/dynadot-adapter';
 import { getServerHost } from '@/lib/server-config';
-import { VISUALDESIGN_NAMESERVERS } from '@/lib/visualdesign-dns';
+import { VISUALDESIGN_TODOS_NS } from '@/lib/visualdesign-dns';
 import { esquecerLeitura, lerServidor, type LeituraServidor } from '@/lib/vhost-servidor';
 import { mensagemPublica } from '@/lib/mensagem-publica';
 import { lerRegisto, montarDados } from '@/lib/vhost-dados';
@@ -265,9 +265,10 @@ async function reprocessarDns(conta: string, d: string, srv: LeituraServidor, li
           nome: 'Nameservers',
           estado: 'falhou',
           detalhe:
-            'O DNS está em ' + (ns.join(', ') || 'nameservers desconhecidos') + ', não no DNS do Vhost — mude os nameservers no registador' +
-            (z.nameServers.length ? ' para ' + z.nameServers.join(', ') : '') +
-            ' (ou para os do servidor: ' + VISUALDESIGN_NAMESERVERS.join(', ') + '). Enquanto o DNS estiver lá, ponha nesse DNS o SPF v=spf1 include:spf.brevo.com ip4:' + getServerHost() + ' ~all e os registos de DKIM e DMARC que o Vhost indica',
+            'Os nameservers deste domínio são desconhecidos ou não apontam para o DNS deste servidor — mude os nameservers no registador para:\n' +
+            (z.nameServers.length ? z.nameServers.map((x, k) => (k + 1) + ' - ' + x).join(';\n') + ' — ou para os do servidor:\n\n' : 'os do servidor:\n\n') +
+            '1 - ' + VISUALDESIGN_TODOS_NS[0] + '\n2 - ' + VISUALDESIGN_TODOS_NS[1] + '\n\n3 - ' + VISUALDESIGN_TODOS_NS[2] + '\n4 - ' + VISUALDESIGN_TODOS_NS[3] +
+            '\n\nDepois de alterar os nameservers, volte a reprocessar o DNS do seu domínio; a ativação é automática.',
         });
       }
     }
