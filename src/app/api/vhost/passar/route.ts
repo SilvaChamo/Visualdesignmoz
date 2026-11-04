@@ -98,12 +98,14 @@ export async function POST(req: NextRequest) {
           await sb.from('panel_users').update({ da_domain: d }).eq('username', para).is('da_domain', null);
           await sb.from('panel_users').update({ da_domain: null }).eq('username', de).eq('da_domain', d);
         }
-        esquecerLeitura();
         esquecerRegisto();
       }
+      // também quando falha e desfaz: uma leitura feita a meio da passagem não pode ficar guardada (o painel PHP mostraria a versão errada)
+      esquecerLeitura();
       tb.resultado = { ...r, de, para };
     })
     .catch((e) => {
+      esquecerLeitura();
       tb.resultado = { ok: false, erro: 'A passagem parou: ' + (e instanceof Error ? e.message : 'erro'), passos: [], avisos: [], bases: [], de, para };
     });
   return NextResponse.json({ trabalho: id, de, para }, { status: 202 });

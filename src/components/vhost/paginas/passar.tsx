@@ -117,8 +117,9 @@ export function PassarDominioModal({ dominio }: { dominio: string }) {
 
   const fechar = () => {
     closeM();
+    // também depois de uma falha (que desfaz): a lista e a versão do PHP mostradas voltam a ler-se do servidor
+    if (res) vh.recarregar(true);
     if (res?.ok) {
-      vh.recarregar(true);
       // o domínio já não é desta conta: volta à lista
       nav('/utilizador/dominios');
     }
