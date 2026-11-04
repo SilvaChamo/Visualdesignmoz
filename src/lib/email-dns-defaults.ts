@@ -23,13 +23,13 @@ export type EmailDnsRecord = {
 };
 
 /**
- * DMARC recomendado pela Brevo: começa em modo "monitor" (p=none) para não
- * arriscar bloquear email legítimo logo no dia 1 — dá para apertar para
- * quarantine/reject mais tarde, depois de confirmado que SPF/DKIM passam.
- * O endereço rua é o da Brevo (recebem e resumem os relatórios).
+ * DMARC de todos os domínios do servidor (Silva, 4/11/2026): `quarantine` a 100 %, como nos outros domínios. Antes o padrão
+ * era `p=none` (modo monitor da Brevo) e cada domínio novo ou reprocessado voltava a ficar sem protecção — foi o que se viu
+ * no entrecamposblog.com, que mesmo depois de «Reprocessar DNS» ficava em `p=none`. O endereço rua é o da Brevo (recebem e
+ * resumem os relatórios). Um registo já mais estrito (`reject`) nunca é baixado (ver cloudflare-dns.ts).
  */
 export function buildDmarcRecord(): string {
-  return 'v=DMARC1; p=none; rua=mailto:rua@dmarc.brevo.com; fo=1';
+  return 'v=DMARC1; p=quarantine; pct=100; rua=mailto:rua@dmarc.brevo.com; fo=1';
 }
 
 /** Registos MX+SPF+DMARC+A aplicados ao criar conta de email ou domínio novo.

@@ -16189,3 +16189,21 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
       padding-bottom: calc(2px * var(--z, 1))
    }
 }
+
+/* Passar o rato: cores sempre do tema activo (Silva, 4/11/2026: «todas as listas com o hover do tema»).
+   O contorno vermelho fixo dos cartões passa a ser a cor do tema; as linhas das cópias dentro de cada conta e os itens de lista feitos com
+   classes Tailwind (div, li, label) levam o mesmo fundo que as linhas das tabelas. */
+.vh .tool:hover:not(#x):not(#y),
+.vh .da-card:hover:not(#x):not(#y),
+.vh[data-theme=dark] .tool:hover:not(#x):not(#y),
+.vh[data-theme=dark] .da-card:hover:not(#x):not(#y) {
+   border-color: color-mix(in srgb, var(--red) 45%, transparent)
+}
+
+.vh .bk-grupo-l:hover:not(#x):not(#y) {
+   background: var(--hover)
+}
+
+.vh :is(div, li, label)[class*="hover:bg-"]:hover:not(#x):not(#y) {
+   background-color: var(--hover) !important
+}

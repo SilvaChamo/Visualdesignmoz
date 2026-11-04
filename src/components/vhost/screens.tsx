@@ -19,6 +19,7 @@ import { editorSistemaPagina, estatisticasAdminPagina, ticketsAdminPagina } from
 import { backupsClientesPagina, estatisticasRevendaPagina, importarCpanelPagina, ipsRevendaPagina, securityTxtRevendaPagina, usoClientesPagina } from './paginas/revenda-paginas';
 import { ligadosPagina } from './paginas/ligados';
 import { sitesContasPagina } from './paginas/sites-contas';
+import { diagnosticoPassagemPagina } from './paginas/diagnostico-passagem';
 import { encomendasPagina } from './paginas/encomendas';
 import { ClientProductsHub } from '@/components/vhost/comuns/ClientProductsHub';
 import { contabilidadePagina, contasEncomendasPagina, gestaoEncomendasPagina } from './paginas/encomendas-admin';
@@ -859,6 +860,7 @@ export const SCREENS: Record<string, ScreenFn> = {
   'admin/tickets': ticketsAdminPagina,
   'admin/ligados': ligadosPagina,
   'admin/sites-contas': sitesContasPagina,
+  'admin/diagnostico-passagem': diagnosticoPassagemPagina,
   'admin/acessos': acessosPlanos,
   'admin/mensagem-todos': mensagemTodos,
   'admin/gestao-encomendas': gestaoEncomendasPagina,
@@ -888,6 +890,7 @@ export const SCREENS: Record<string, ScreenFn> = {
   'revenda/ips': ipsRevendaPagina,
   'revenda/importar-contas': importarCpanelPagina,
   'revenda/nameservers': nameserversPagina,
+  'revenda/diagnostico-passagem': diagnosticoPassagemPagina,
   'revenda/security-txt': securityTxtRevendaPagina,
   'preferencias/aparencia': temaScreen,
   'preferencias/idioma': prefIdioma,
