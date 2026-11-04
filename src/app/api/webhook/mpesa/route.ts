@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { fulfillCheckout } from '@/lib/checkout-fulfillment';
@@ -13,6 +14,13 @@ export async function POST(request: NextRequest) {
   if ((process.env.MPESA_ENV || '').trim().toLowerCase() !== 'sandbox') {
     return NextResponse.json({ error: 'not enabled' }, { status: 403 });
   }
+  // Autenticação (4/11/2026): sem segredo configurado a rota fica desligada, e com ele só aceita quem o traz — no cabeçalho
+  // `x-webhook-secret` ou no endereço registado no portal (`?segredo=…`). Antes, no sandbox, qualquer pedido com uma
+  // referência válida activava os produtos.
+  const segredo = (process.env.MPESA_WEBHOOK_SECRET || '').trim();
+  const trazido = (request.headers.get('x-webhook-secret') || request.nextUrl.searchParams.get('segredo') || '').trim();
+  const igual = segredo.length >= 16 && trazido.length === segredo.length && timingSafeEqual(Buffer.from(trazido), Buffer.from(segredo));
+  if (!igual) return NextResponse.json({ error: 'not enabled' }, { status: 403 });
 
   let payload: Record<string, unknown>;
   try {

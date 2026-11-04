@@ -236,8 +236,8 @@ export async function upsertCloudflareRecord(
     const semAspas = (s: string) => s.trim().replace(/^"(.*)"$/, '$1');
     const alvo = semAspas(content);
     const familiaUnica = record.type === 'TXT' ? [/^v=spf1\b/i, /^v=DMARC1\b/i].find((re) => re.test(alvo)) : undefined;
-    // Um DMARC mais estrito do que o padrão (quarantine/reject) é uma decisão de alguém: o padrão do site é p=none, por isso
-    // reaplicá-lo (ex.: "Reprocessar DNS") não pode baixar a política. Fica o mais estrito e só se limpam os duplicados.
+    // Um DMARC já em quarantine/reject fica como está (pode ser reject, ou um pct diferente posto de propósito): reaplicar o padrão
+    // (ex.: "Reprocessar DNS") não o baixa; só se limpam os duplicados. Um DMARC em p=none sobe para o padrão (quarantine, 100 %).
     if (familiaUnica && /^v=DMARC1\b/i.test(alvo)) {
       const estrito = existing.find((r) => /\bp=(quarantine|reject)\b/i.test(semAspas(r.content)));
       if (estrito) {
