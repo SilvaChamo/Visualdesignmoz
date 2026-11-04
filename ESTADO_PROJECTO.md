@@ -1,85 +1,30 @@
-# Estado do projecto — VisualDesign (auditoria de 22/10/2026, actualizado a 31/10/2026)
+# Estado do projecto — VisualDesign (auditoria de 04/11/2026)
 
-> **O Hetzner já está fechado** (servidor desligado a 19/10/2026; só falta cancelar a conta do balde de ficheiros). Nada depende dele.
-> O que falta para fechar está abaixo; o levantamento original e o detalhe estão em `docs/AUDITORIA_FECHO_PROJECTO.md`.
+> Feita contra a realidade: código de `main` (`cf816015`), site em produção, DNS, GitHub e sondas ao servidor. Substitui os relatórios
+> anteriores, que ficam em `docs/arquivo/` só como história. O servidor antigo já está fechado e nada depende dele.
 
-## Em produção
-- Site e painel no **Contabo** (Hestia), publicados por cada merge em `main`. Hetzner (servidor) desligado.
-- Supabase próprio, no endereço `https://supabase.visualdesignmoz.com` (troca feita a 30/10/2026). CI: últimos deploys todos verdes. Traduções: 0 textos sem inglês.
-- Segurança do servidor: SSH na 2234, FTP e painel do Hestia fechados, bloqueio no nginx, guarda de sites, 2 passos opcional.
+## Verificado hoje — está fechado
+- `tsc` limpo, `npm test` 10/10, `eslint` 0 erros, `npm audit` (produção) 0 vulnerabilidades, deploys todos verdes, vigilância externa a cada 15 min.
+- `visualdesignmoz.com`, `basededadosagro.com`, `entrecamposblog.com`, `mltmark.com`, webmail e Supabase respondem; certificados até dezembro de 2026 ou mais; cabeçalhos de segurança no ar.
+- Rotas de API protegidas (`get-all-contacts`, `migrate-contacts` já com autenticação); Supabase no endereço próprio; verificação em PR e Dependabot activos.
+- Traduções: site e painel com 0 textos sem inglês; português de Portugal nos textos visíveis; IVA nas compras do carrinho.
+- DMARC em `quarantine; pct=100` nos domínios do servidor; o padrão de domínios novos ou reprocessados passou a ser o mesmo.
 
-## Falta para fechar (28/10/2026, depois das decisões do Silva)
+## Em aberto — só depende do Silva (nada a programar)
+1. **M-Pesa em `sandbox`** (a operadora ainda não deu as chaves reais). O webhook M-Pesa só aceita pedidos com `MPESA_WEBHOOK_SECRET`; sem segredo fica desligado.
+2. **Stripe**: confirmar no painel da Stripe se as chaves são de teste ou reais.
+3. **SSH na 2234 ainda aceita palavra-passe** (lido a 04/11). Fecha-se com o workflow `Ops - Fecho do servidor`, fase `ssh`, só com o «avança» do Silva.
+4. **Texto legal** (Privacidade e Termos): falta a identificação do responsável (NUIT, morada) e a menção a cookies.
+5. **Facturação**: certificação AT/SAF-T e factura-recibo, decisão com o contabilista.
+6. **Cópias fora do servidor**: o envio diário para o R2 está instalado; falta guardar a palavra-passe de cifra num gestor de palavras-passe.
+7. **Pull request #3** (repõe o `basededadosagro.com` em `domain_renewals`): fica aberto até o Silva dar o OK. **Nunca fechar.**
 
-**Só o Silva (decisões ou contas externas)**
-1. **M-Pesa em `sandbox`** — por tratar, pendente da Vodacom (`docs/mpesa-pedido-vodacom.md`); o webhook M-Pesa só se autentica no go-live.
-2. **Stripe em modo de teste** (`sk_test_`/`pk_test_`) — por tratar.
-3. **Texto legal** (Privacidade, Termos, cookies): fica como está até o Silva decidir; as decisões de pagamentos (1 e 2) ficam à frente.
-4. **Facturação:** IVA de 16 % **acrescentado no checkout e discriminado nos recibos do carrinho** (feito, `src/lib/iva.ts`). Continuam por decidir com o contabilista: certificação AT/SAF-T, factura além do recibo, NUIT obrigatório às empresas, nome legal e morada nos documentos.
-5. **Palavra-passe de cifra das cópias do R2:** existe, num ficheiro no Mac do Silva (`~/Desktop/chave-cifra-backups-visualdesign.txt`, gravado a 26/10). Falta só guardá-la num gestor de palavras-passe e apagar o ficheiro do ambiente de trabalho; sem ela as cópias do R2 não se abrem (o cron `vd-backup-externo` existe e corre às 07:00).
-6. **GitHub › Settings:** `CONTABO_ROOT_PASSWORD` removido em 28/10/2026 (nenhum workflow o usa); alertas do Dependabot activos. Os secrets `DIRECTADMIN_*` ficam pendentes de confirmação individual.
-7. ~~Brevo / caixa `servidor@`~~ — feito (o Silva confirmou a 28/10/2026).
-8. ~~**Google (login)**~~ — funciona (o Silva testou a 31/10/2026; o Google aceita o retorno do endereço novo).
-9. ~~**Ramos:** os 25 ramos já fundidos em `main` foram apagados a 28/10/2026, depois de confirmar os SHAs; registo e recuperação em `docs/ramos-para-apagar-2026-10-28.md`.~~
+## DirectAdmin — resolvido no uso, não no código
+O servidor DirectAdmin já não existe e nenhuma página depende dele (`DEFAULT_HOSTING_PROVIDER=hestia`: tudo lê e escreve no servidor actual).
+O que ainda existe é código dos dois modos (125 ficheiros em `src`, nomes `da-*` e `directadmin-*`) que em produção não corre, e os secrets
+`DIRECTADMIN_*`. `DIRECTADMIN_HOST` ainda dá o nome do servidor de correio (`getWebmailSmtpHost`), por isso não se apaga sem o trocar.
+Retirar tudo é uma limpeza em fases (sem pressa nem risco para os clientes), não um problema.
 
-**Prontos no ramo — depois de publicar, correr (Actions › Run workflow, primeiro sem «aplicar»)**
-10. `Ops - Fecho do servidor`: a fase do Supabase está feita (30/10). **Por fazer:** fase **ssh** (só chave; a 31/10 o servidor ainda aceita palavra-passe na 2234) e fases **chave-app** e **chave-app-concluir** (chave própria da aplicação). Só correram em leitura, a 28/10. Fazer o ensaio do deploy (`ensaio` marcado) antes.
-11. `Ops - DMARC de pct=25 para pct=100 (DNS)`: **12 domínios estão em `quarantine; pct=25`** (confirmado a 31/10 nos servidores de nomes); a subida a 100 % está ordenada pelo Silva e por aplicar. Falta só o `shalomdeco.com` (sem DMARC, DNS fora do nosso controlo).
-12. `Ops - Auditoria do servidor (só leitura)`: a secção 13 procura nos registos do nginx quem chamou as rotas protegidas; ler o resultado.
-13. `Ops - Limite de disco de um pacote de alojamento`: quota do `VD-Email-Basico`.
-
-**Feito nesta passagem (código)**
-- **Monitorização externa activa** (`.github/workflows/vigiar-sites.yml`): de 15 em 15 minutos, a partir do GitHub, pede visualdesignmoz.com, basededadosagro.com e o login da base de dados; se falharem 3 tentativas seguidas abre o aviso «Site em baixo» (e-mail para quem vigia o repositório) e fecha-o quando voltarem. Começa a correr depois de publicado.
-- **Checkout com IVA acrescentado** (Silva, 28/10/2026): o IVA de 16 % soma-se ao preço dos itens (subtotal, IVA e total no checkout, na Stripe como linha à parte, no saldo e nos pagamentos manuais); o recibo distingue as compras novas (IVA acrescentado) das antigas (IVA incluído).
-- **Nomes genéricos:** ficheiros dos workflows e scripts sem nomes de fornecedores (`deploy-visualdesign.yml`, `preparar-servidor.yml`, `scripts/servidor/`…); regra em `regras.md`. Ficam por mudar, por serem identificadores técnicos: os nomes dos secrets do GitHub, variáveis de ambiente e módulos `src/lib/*-adapter.ts`.
-- Lint a funcionar (estava partido: `eslint` 8 com configuração do 9; agora `eslint` 9 + `eslint-config-next` 16; `npm run lint` dá 0 erros e ~950 avisos que não travam), `npm test`, e o `verificar-pr.yml` passou a correr lint, testes e **build** além de tipos e traduções.
-- Dependabot (`.github/dependabot.yml`): alertas de segurança activos; npm semanal e agrupado, Actions mensal; Next/React major só à mão. As correcções dos quatro alertas de `serialize-javascript` e `deepmerge` estão no ramo `tratar-pendencias-github`; após o merge, confirmar que os alertas fecharam.
-- Português de Portugal nos últimos «usuário» e «padrão»; «Baixar» fica (decisão do Silva: é mais curto que «Descarregar»). Painel e site com 0 textos sem inglês.
-- **Fase 1 da saída do DirectAdmin:** apagadas 10 rotas só do DirectAdmin sem nenhum chamador (`da-users`, `da-emails`, `filemanager-sso`, `admin/sync-directadmin-users`, `panel-bridge`, `directadmin-access`, `client-directadmin-access`, `reseller/da-profile`, `admin/reseller-provision`, `cron/da-sync`). **Por fazer (fase 2):** o resto do DirectAdmin já não corre em produção (`DEFAULT_HOSTING_PROVIDER=hestia` recusa-o), mas está entrelaçado com o caminho do Hestia: `directadmin-adapter.ts` (1 663 linhas, 78 comandos `CMD_`), `da-api-ssh.ts`, `directadmin.ts`, `directadmin-credentials.ts` e os ramos `daApi` de `/api/da`, `server-exec`, `admin/clientes`, `panel-dns`, `da-sync-engine`. O nome `/api/da`, o tipo `DirectAdminServerAPI` e o ficheiro `da-credential-store` são só nome herdado do painel: o conteúdo é o Hestia e fica. Faz-se por partes, com `tsc` e build, sem pressa.
-- Chave que esteve em `mozserver-proxy`: nunca foi usada e a rota já não existe; assunto fechado (não se reescreve o histórico).
-
-**Menores, ficam como estão (decisão do Silva): ** «Mudar nome» das páginas WordPress, confirmar o 429 do bloqueio de login em produção, importar do cPanel (sem ligação ao servidor remoto). **Telemóvel:** aprovado pelo Silva.
-
-**Notas que continuam a valer**
-- **Hetzner Object Storage:** nenhum site o usa (`verificar` dá 0 links e 0 ficheiros em falta); não é preciso listar o que mais existe no balde; a conta pode ser cancelada. A página estática `oshercollective.com/legacy/` foi regravada três vezes por quem a envia (conta do próprio site): tem de usar o URL do próprio domínio.
-- **PRs abertos (31/10/2026):** o #3 (repõe o basededadosagro.com em `domain_renewals`; escrita na base de dados, só com o OK do Silva — nunca fechar) e os do Dependabot #239 a #245 (ficam vermelhos enquanto o lint de `main` tiver os 11 erros de `contas.tsx`).
-- **DMARC** (lido a 31/10 nos servidores de nomes): `p=quarantine; pct=25` em 12 domínios — aamihe.com, basededadosagro.com, concordia.co.mz, elimservicos.com, entrecamposblog.com, lirandzojewelry.com, menocrazy.app, mltmark.com, msdn-moz.org, oshercollective.com, provisualcorporate.co.mz e visualdesignmoz.com. Só o shalomdeco.com continua sem DMARC (DNS fora do Cloudflare; o botão «Reprocessar DNS» repõe os registos quando a dona voltar). O site já não baixa um DMARC mais estrito.
-- **Caixa `servidor@visualdesignmoz.com`:** criada e a funcionar (confirmado pelo Silva a 28/10/2026).
-- **Quem só tem encomendas** (sem hospedagem nem domínio) fica no painel das encomendas (`/encomendas`), com a faixa `PromoProdutos`; ao comprar só domínio passa à vista compacta do vhost.
-- **Endereço antigo `host`:** `/host:2026` e afins só redireccionam; o nginx da porta 2026 já aponta a `/vhost:2026` (resolvido, 307).
-- **Período de recuperação das renovações:** 30 dias (`src/lib/recuperacao-renovacao.ts`).
-
-## Credenciais que estiveram no código
-Saíram do código (agora vêm do ambiente). Eram todas do tempo do Hetzner (chave `service_role` do Supabase antigo, MySQL e DirectAdmin do
-Hetzner). O repositório é privado; decidido a 22/10/2026 não as mudar, para não afectar clientes.
-
-## Arquivo
-Notas e scripts antigos (Gmail/SMTP, DKIM, planos de 2026) estão em `docs/arquivo/` e `scripts/arquivo/`.
-Auditoria de segurança do painel: `docs/AUDITORIA_PAINEL_PLANO_CORRECAO.md`.
-
-## 27/10/2026 — auditoria de fecho (resumo do que mudou)
-- Rotas protegidas: `get-all-contacts`, `migrate-contacts` e `check-smtp-config` só com administrador (a primeira também com `CRON_SECRET`); rotas do fornecedor antigo (`mozserver-proxy`, `whmcs-proxy`) apagadas, com a chave que tinham no código.
-- Limite de pedidos (`src/lib/limite-pedidos.ts`) em `auth/reset-password`, `submit-ticket` e `domain-check`; `submit-ticket` escapa o HTML dos e-mails.
-- Regras num único ficheiro (`regras.md`; `AGENTS.md` só como porta de entrada). Nunca nomear o fornecedor do servidor.
-- Verificação em cada PR (`.github/workflows/verificar-pr.yml`): tipos e traduções do site e do painel. Painel e site com 0 textos sem inglês.
-- Lockfile regenerado com o Node 24 (`npm ci` volta a funcionar).
-
-## 27/10/2026, 20:34 — leitura do servidor
-Resolvidos: certificados de e-mail do mltmark.com e do basededadosagro.com, nginx da porta 2026. **Por fazer:** troca do endereço do Supabase (continua `supabase-contabo…`), cron das cópias no R2 (não existe), Stripe em modo real (as chaves são `sk_test_`/`pk_test_`), SSH só com chave. Detalhe em `docs/AUDITORIA_FECHO_PROJECTO.md`, secção 9.
-
-## 28/10/2026, 10:12 — segunda leitura do servidor (só leitura; workflows `ops-php-seguranca` fase `backups` e `ops-auditoria-leitura`)
-- **Envio das cópias para fora do servidor: confirmado.** O cron `/etc/cron.d/vd-backup-externo` existe e correu às 07:00:11 de hoje, acabando às 07:01:25 (19 objectos, 7,773 GiB no R2). As seis cópias mais recentes (vdadmin, provisualcorporate, aamihe, oshercollective, mltmark e concordia, feitas a 27/10 entre as 22:29 e as 22:52) estão lá. Não havia cópias novas desde ontem à noite, por isso o envio de hoje não acrescentou contas.
-- **Troca do endereço do Supabase: continua por fazer.** Naquela leitura, `SUPABASE_PUBLIC_URL`, `API_EXTERNAL_URL` e `NEXT_PUBLIC_SUPABASE_URL` ainda apontavam para `supabase-contabo…`; os dois nomes respondiam (401 no `/auth/v1/health` sem chave, o esperado).
-- **Certificados de e-mail: resolvidos.** `mail.mltmark.com` e `mail.basededadosagro.com` têm certificado Let's Encrypt de 26/10/2026, válido até 24/01/2027.
-- Sem actualizações de segurança por instalar nem reinício pendente; `unattended-upgrades` activo; pm2 só com o `visualdesignmoz` (online) e o `basededadosagro-site` activo; disco a 24%.
-- Ainda por decidir: Stripe em modo de teste (`sk_test_`/`pk_test_`), M-Pesa em `sandbox`, variáveis `DIRECTADMIN_*` ainda no `.env.local` (o aviso «nenhuma» do workflow engana: só procura nomes que começam por `DA_`, `WHMCS`, etc.) e o SSH com `permitrootlogin yes` e `passwordauthentication yes` na configuração (a porta 22 está fechada no firewall).
-
-## 28/10/2026 — verificação mais recente das cópias e do Supabase
-- **Cópias fora do servidor: cron confirmado a funcionar.** O ficheiro `/etc/cron.d/vd-backup-externo` agenda o envio diário às 07:00. O último registo confirma a execução de 28/10 às 07:01:25: 19 objectos, 7,773 GiB. Não falta instalar o cron.
-- **Supabase: migração ainda por fazer.** O `.env` do serviço ainda anuncia `https://supabase-contabo.visualdesignmoz.com`; o `.env.local` do site já aponta para `https://supabase.visualdesignmoz.com`. Os dois endereços dão 401 em `/auth/v1/health`, resposta esperada sem chave.
-- **Login Google:** o pedido actual ainda usa `https://supabase-contabo.visualdesignmoz.com/auth/v1/callback`. Antes de migrar o serviço, acrescentar `https://supabase.visualdesignmoz.com/auth/v1/callback` aos endereços autorizados no Google e manter o antigo.
-- **Palavra-passe de cifra das cópias:** continua por confirmar se foi guardada no gestor de palavras-passe; não foi lida nem alterada nesta verificação.
-
-## 31/10/2026 — auditoria verificada contra `main`, produção, DNS e GitHub
-- **Feito e confirmado:** sites e painel a responder 200; certificados válidos e a renovar; troca do Supabase; login Google; IVA no checkout; rotas de API protegidas; 0 textos sem inglês; sem ramos com nome de IA; secrets todos em uso; PWA removido (`npm audit` em produção: 0).
-- **Falta (ver o pormenor em `regras.md`, «Notas para a próxima auditoria»):** lint de `main` (11 erros em `contas.tsx`); SSH só com chave e chave própria da aplicação; Stripe e M-Pesa em teste; texto legal e cookies; factura e NUIT; DMARC a 100 %; ligações partidas do site público; poucos textos em português do Brasil.
-- **DirectAdmin:** `da-*`, `/api/da`, `daApi` são nome herdado do painel; o protocolo real existe mas nunca corre (ver `regras.md`). Não é lacuna.
+## Lixo — ver `docs/ramos-para-apagar-*.md` e o relatório de 04/11/2026
+Ramos já fundidos em `main` por apagar; `public/cloned`, os SVG de demonstração do Next.js e scripts SQL de depuração foram apagados a 04/11/2026
+(tudo recuperável pelo histórico do Git).
