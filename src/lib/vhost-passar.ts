@@ -230,7 +230,6 @@ DEPOIS=$(url); MD=$(emails "$PARA"); echo "DEPOIS=$DEPOIS"
 if [ "$ANTES" != 000 ] && [ "\${ANTES:0:1}" != "\${DEPOIS:0:1}" ]; then echo "FALHA=O site respondia $ANTES e passou a responder $DEPOIS."; desfazer; exit 1; fi
 if [ "$MA" != "$MD" ]; then echo "FALHA=Havia $MA caixas de e-mail e ficaram $MD."; desfazer; exit 1; fi
 echo "PASSO=Verificado: o site responde ($DEPOIS) e as $MD caixas de e-mail estão na conta nova"
-[ -n "$bk" ] && echo "PASSO=PHP do site na mesma versão de antes ($(echo "$bk" | grep -oE '[0-9]+_[0-9]+' | head -1 | tr _ .))"
 # o PHP-FPM com os limites do pacote passa a servir o site na conta nova e o pool da conta antiga sai (o cron do servidor fá-lo de 5 em 5 minutos; assim é já)
 if [ -x /usr/local/sbin/vd-php-conta ]; then nice -n 10 /usr/local/sbin/vd-php-conta sincronizar >/dev/null 2>&1 && echo "PASSO=PHP da conta $PARA com os limites do pacote"; fi
 echo "$(date -Is) $D $DE -> $PARA bases:[$movidas ] por:$QUEM copia:$B" >> /root/vh-passagens/registo.log
