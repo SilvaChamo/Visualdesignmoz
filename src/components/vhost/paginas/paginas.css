@@ -16101,3 +16101,51 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
       padding-right: calc(32px * var(--z, 1))
    }
 }
+
+/* Backups agrupados por conta: a seta abre as cópias da conta por baixo da linha (Silva, 4/11/2026) */
+.vh .bk-conta {
+   display: inline-flex;
+   align-items: center;
+   gap: 10px
+}
+
+.vh .bk-seta {
+   font-size: 11px;
+   color: var(--muted);
+   transition: transform .15s
+}
+
+.vh .bk-seta.aberta {
+   transform: rotate(90deg)
+}
+
+.vh .bk-grupo {
+   padding: 0 0 4px 36px
+}
+
+.vh .bk-grupo-l {
+   display: grid;
+   grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) 90px 80px auto;
+   align-items: center;
+   gap: 12px;
+   padding: calc(6px * var(--z, 1)) 12px;
+   border-top: 1px solid var(--line-soft)
+}
+
+.vh .bk-grupo-m {
+   text-align: right
+}
+
+@media (max-width: 1050px) {
+   .vh .bk-grupo {
+      padding-left: 12px
+   }
+
+   .vh .bk-grupo-l {
+      grid-template-columns: minmax(0, 1fr) auto auto
+   }
+
+   .vh .bk-grupo-l .dns-acoes {
+      grid-column: 1 / -1
+   }
+}
