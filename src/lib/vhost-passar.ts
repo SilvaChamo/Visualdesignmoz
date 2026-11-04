@@ -135,6 +135,9 @@ ip=$(echo "$w" | grep -o "IP='[^']*'" | cut -d"'" -f2); ssl=0; echo "$w" | grep 
 url() { [ -z "$w" ] && { echo 000; return; }; if [ $ssl = 1 ]; then ini="https://$D/"; else ini="http://$D/"; fi; curl -sk -L --max-redirs 5 -o /dev/null -w '%{http_code}' --max-time 20 --resolve "$D:443:$ip" --resolve "$D:80:$ip" --resolve "www.$D:443:$ip" --resolve "www.$D:80:$ip" "$ini"; }
 susp() { grep "DOMAIN='$D'" "$HD/$1/web.conf" 2>/dev/null | grep -c "SUSPENDED='yes'" || true; }
 emails() { f="$HD/$1/mail/$D.conf"; if [ -f "$f" ]; then grep -c "^ACCOUNT=" "$f" || true; else echo 0; fi; }
+# a versão do PHP do site (modelo BACKEND do Hestia): tem de ser a mesma na conta nova — e na de origem, se for preciso desfazer
+bk=$(echo "$w" | grep -o "BACKEND='[^']*'" | cut -d"'" -f2)
+bkdom() { grep "DOMAIN='$D'" "$HD/$1/web.conf" 2>/dev/null | grep -o "BACKEND='[^']*'" | cut -d"'" -f2; }
 ANTES=$(url); MA=$(emails "$DE"); echo "ANTES=$ANTES"; SA=$(susp "$DE")
 cfg_de="/home/$DE/web/$D/public_html/wp-config.php"
 [ -f "$cfg_de" ] && cp -p "$cfg_de" "$B/wp-config.php"
@@ -162,6 +165,11 @@ desfazer() {
     find "/home/$DE/web/$D" -xdev ! -user "$DE" -exec chown -h "$DE:$DE" {} + 2>/dev/null
     if [ "\${wpmexido:-0}" = 1 ] && [ -x /usr/local/bin/wp ]; then runuser -u "$DE" -- nice -n 10 ionice -c3 /usr/local/bin/wp --path="/home/$DE/web/$D/public_html" --skip-plugins --skip-themes search-replace "/home/$PARA/" "/home/$DE/" --all-tables --skip-columns=guid --quiet >/dev/null 2>&1 || echo "AVISO=Os caminhos na base de dados do WordPress não voltaram sozinhos; a cópia das bases está em $B."; fi
     webmail "$DE" || true
+    # o PHP da conta de origem volta a servir o site: mesma versão de antes e pools no serviço da conta (sem isto o site ficava sem PHP até ao cron)
+    [ -n "$bk" ] && [ "$(bkdom "$DE")" != "$bk" ] && $H/v-change-web-domain-backend-tpl "$DE" "$D" "$bk" >/dev/null 2>&1
+    if [ -x /usr/local/sbin/vd-php-conta ]; then /usr/local/sbin/vd-php-conta sincronizar >/dev/null 2>&1 || echo "AVISO=O PHP da conta $DE não foi sincronizado; o cron trata disso em 5 minutos."; fi
+    sleep 2; APOS=$(url); echo "APOS=$APOS"
+    if [ "$ANTES" != 000 ] && [ "\${APOS:0:1}" != "\${ANTES:0:1}" ]; then echo "AVISO=Depois de desfazer, o site responde $APOS (antes respondia $ANTES); em Domínios › PHP, na conta $DE, carregue em «Reaplicar PHP»."; fi
   fi
 }
 # o Hestia tem de ignorar as pastas do PHP por conta ao procurar o pool, senão a passagem falha a meio e deixa o site sem PHP nem nginx
@@ -169,6 +177,10 @@ desfazer() {
 out=$($H/v-change-domain-owner "$D" "$PARA" 2>&1)
 if [ "$($H/v-search-domain-owner "$D" 2>/dev/null | head -1)" != "$PARA" ]; then echo "FALHA=O servidor não passou o domínio: $(echo "$out" | tail -1)"; exit 1; fi
 movido=1; echo "PASSO=Site, e-mails, certificado, DNS e FTP passaram para $PARA"
+if [ -n "$bk" ] && [ "$(bkdom "$PARA")" != "$bk" ]; then
+  $H/v-change-web-domain-backend-tpl "$PARA" "$D" "$bk" >/dev/null 2>&1
+  if [ "$(bkdom "$PARA")" = "$bk" ]; then echo "AVISO=O servidor mudou a versão do PHP do site; foi reposta ($bk)."; else echo "FALHA=A versão do PHP do site ($bk) não se manteve na conta nova."; desfazer; exit 1; fi
+fi
 # o PHP: o serviço da conta antiga larga os sockets do domínio que saiu (senão o PHP partilhado não arranca) e cada conta fica no seu serviço
 if [ -x /usr/local/sbin/vd-php-conta ]; then
   for u in /etc/systemd/system/vd-php-fpm-*-$DE.service; do [ -f "$u" ] && systemctl reload "$(basename "$u" .service)" >/dev/null 2>&1; done
@@ -227,7 +239,9 @@ echo "OK=1"`;
   try {
     out = await executeServerCommand(`bash -s <<'VHOST_FIM'\n${script}\nVHOST_FIM`, { timeoutMs: 20 * 60_000 });
   } catch (e) {
-    return falha('O servidor não respondeu a tempo: ' + (e instanceof Error ? e.message : 'erro') + '. Veja o domínio antes de tentar outra vez.');
+    const msg = 'O servidor não respondeu a tempo: ' + (e instanceof Error ? e.message : 'erro') + '. Veja o domínio antes de tentar outra vez (Admin › Diagnóstico de passagem).';
+    await registarFalha(d, de, p, msg);
+    return falha(msg);
   }
   const ls = out.split('\n');
   const passos = ls.filter((l) => l.startsWith('PASSO=')).map((l) => l.slice(6));
@@ -236,6 +250,8 @@ echo "OK=1"`;
   const copia = ls.find((l) => l.startsWith('COPIA='))?.slice(6);
   const erro = ls.find((l) => l.startsWith('FALHA='))?.slice(6);
   if (!ls.includes('OK=1')) {
+    // guarda o motivo para o Diagnóstico de passagem o mostrar (a janela da passagem só o diz uma vez)
+    await registarFalha(d, de, p, erro || 'A passagem não terminou.', copia);
     const desfeito = ls.includes('DESFAZER=sim');
     const fim = desfeito
       ? ' Nada ficou a meio: o site, os e-mails e as bases de dados voltaram para a conta ' + de + ' e o site continua a funcionar como antes.'
@@ -314,4 +330,207 @@ echo '${b64(WEBMAIL_NGINX)}' | base64 -d > "$dir/nginx.conf_webmail"; cp "$dir/n
 if nginx -t >/dev/null 2>&1; then systemctl reload nginx; echo OK; else rm -f "$dir/nginx.conf_webmail" "$dir/nginx.ssl.conf_webmail"; nginx -t >/dev/null 2>&1 && systemctl reload nginx; echo NAO; fi`;
   const out = await executeServerCommand(`bash -s <<'VHOST_FIM'\n${script}\nVHOST_FIM`, { timeoutMs: 60_000 }).catch(() => '');
   return out.trim().split('\n').pop() === 'OK';
+}
+
+// ---------- Diagnóstico e resolução manual (Silva, 4/11/2026) ----------
+// Quando uma passagem não corre bem, o administrador ou o revendedor vê aqui o que aconteceu (o motivo guardado, o que está
+// agora no servidor) e o que fazer, com as ferramentas de reparação abaixo (todas seguras: nunca apagam nada).
+
+/** Guarda o motivo de uma passagem que falhou (para o diagnóstico o mostrar depois); nunca atrapalha a passagem */
+async function registarFalha(dominio: string, de: string, para: string, erro: string, copia?: string): Promise<void> {
+  const linha = JSON.stringify({ t: new Date().toISOString(), dominio, de, para, erro: erro.slice(0, 600), copia: copia || '' });
+  await executeServerCommand(`install -d -m 700 /root/vh-passagens && printf '%s\\n' "$(echo '${b64(linha)}' | base64 -d)" >> /root/vh-passagens/falhas.log`, { timeoutMs: 20_000 }).catch(() => '');
+}
+
+export type VerificacaoPassagem = { nome: string; estado: 'ok' | 'aviso' | 'erro'; detalhe: string };
+export type ReparoPassagem = 'php' | 'reconstruir' | 'reactivar' | 'donos';
+export type AccaoPassagem = { id: ReparoPassagem | 'voltar'; texto: string; porque: string };
+export type Diagnostico = {
+  dominio: string;
+  dono: string;
+  /** o que se sabe da última passagem deste domínio (vazio: nunca passou por aqui) */
+  historico: { quando: string; de: string; para: string; ok: boolean; erro: string; copia: string } | null;
+  /** conta onde o domínio estava antes da última passagem */
+  de: string;
+  verificacoes: VerificacaoPassagem[];
+  accoes: AccaoPassagem[];
+  resumo: string;
+};
+
+const REPAROS: Record<ReparoPassagem, string> = {
+  php: 'Sincronizar o PHP da conta',
+  reconstruir: 'Reconstruir o site',
+  reactivar: 'Reactivar o site',
+  donos: 'Pôr os ficheiros com o dono certo',
+};
+
+export async function diagnosticarPassagem(dominio: string): Promise<Diagnostico | { erro: string }> {
+  const d = dominio.trim().toLowerCase();
+  if (!DOMINIO_OK.test(d)) return { erro: 'Domínio inválido.' };
+  const script = `H=/usr/local/hestia/bin; HD=/usr/local/hestia/data/users; D='${d}'; L=/root/vh-passagens
+o=$($H/v-search-domain-owner "$D" 2>/dev/null | head -1)
+echo "DONO=$o"
+echo "ULTIMA=$(grep -h " $D " $L/registo.log 2>/dev/null | tail -1)"
+echo "FALHA=$(grep -h "\\"dominio\\":\\"$D\\"" $L/falhas.log 2>/dev/null | tail -1)"
+c=$(ls -d $L/*-$D 2>/dev/null | tail -1); de=""; [ -n "$c" ] && de=$(cat "$c/de" 2>/dev/null)
+echo "COPIA=$c"; echo "DE=$de"
+[ -z "$o" ] && exit 0
+w=$(grep "DOMAIN='$D'" "$HD/$o/web.conf" 2>/dev/null)
+echo "SITE=$([ -n "$w" ] && echo 1 || echo 0)"
+echo "SUSP=$(echo "$w" | grep -c "SUSPENDED='yes'" || true)"
+bk=$(echo "$w" | grep -o "BACKEND='[^']*'" | cut -d"'" -f2); echo "BACKEND=$bk"
+v=$(echo "$bk" | grep -oE '[0-9]+_[0-9]+' | head -1 | tr _ .); echo "PHPV=$v"
+if [ -n "$v" ]; then
+  [ -f "/etc/php/$v/fpm/pool.d/$D.conf" ] && echo "POOL=partilhado"
+  [ -f "/etc/php/$v/fpm-contas/$o/pool.d/$D.conf" ] && echo "POOL=conta"
+  echo "SVC=$(systemctl is-active "vd-php-fpm-$v-$o" 2>/dev/null)"
+fi
+echo "NGINX=$([ -f "/home/$o/conf/web/$D/nginx.conf" ] && echo 1 || echo 0)"
+ip=$(echo "$w" | grep -o "IP='[^']*'" | cut -d"'" -f2); ssl=0; echo "$w" | grep -q "SSL='yes'" && ssl=1
+echo "SSL=$ssl"
+if [ -n "$w" ]; then
+  if [ $ssl = 1 ]; then ini="https://$D/"; else ini="http://$D/"; fi
+  echo "HTTP=$(curl -sk -L --max-redirs 5 -o /dev/null -w '%{http_code}' --max-time 20 --resolve "$D:443:$ip" --resolve "$D:80:$ip" "$ini")"
+fi
+if [ -f "$HD/$o/mail/$D.conf" ]; then echo "EMAILS=$(grep -c "^ACCOUNT=" "$HD/$o/mail/$D.conf" || true)"; else echo EMAILS=0; fi
+echo "DNS=$(grep -c "DOMAIN='$D'" "$HD/$o/dns.conf" 2>/dev/null || true)"
+cfg="/home/$o/web/$D/public_html/wp-config.php"
+if [ -f "$cfg" ]; then
+  echo WP=1
+  echo "WPOUTRAS=$(grep -oE '/home/[A-Za-z0-9_.-]+/' "$cfg" | sort -u | grep -v "^/home/$o/$" | tr '\\n' ' ')"
+  db=$(grep -oP "define\\(\\s*['\\"]DB_NAME['\\"]\\s*,\\s*['\\"]\\K[^'\\"]+" "$cfg" | head -1); echo "WPBASE=$db"
+  if grep -q "^DB='$db'" "$HD/$o/db.conf" 2>/dev/null; then echo WPBASEOK=1; else echo WPBASEOK=0; fi
+fi
+echo "DONOS=$(find "/home/$o/web/$D" -xdev ! -user "$o" 2>/dev/null | head -50 | wc -l)"
+if [ -n "$de" ] && [ "$de" != "$o" ]; then
+  echo "RESTODE=$([ -d "/home/$de/web/$D" ] && echo 1 || echo 0)"
+  grep -q "DOMAIN='$D'" "$HD/$de/web.conf" 2>/dev/null && echo "WEBCONFDE=1"
+fi`;
+  const out = await executeServerCommand(`bash -s <<'VHOST_FIM'\n${script}\nVHOST_FIM`, { timeoutMs: 90_000 }).catch(() => null);
+  if (out === null) return { erro: 'O servidor não respondeu. Tente outra vez daqui a instantes.' };
+  const v = linhas(out);
+  const dono = (v.DONO || '').trim();
+  const de = (v.DE || '').trim();
+  let historico: Diagnostico['historico'] = null;
+  let falha: { t?: string; de?: string; para?: string; erro?: string; copia?: string } | null = null;
+  try {
+    falha = v.FALHA ? JSON.parse(v.FALHA) : null;
+  } catch {
+    falha = null;
+  }
+  const ultima = (v.ULTIMA || '').match(/^(\S+) \S+ (\S+) -> (\S+) .*copia:(\S+)/);
+  const tFalha = falha?.t ? Date.parse(falha.t) : 0;
+  const tUltima = ultima ? Date.parse(ultima[1]) : 0;
+  if (falha && tFalha >= tUltima) historico = { quando: falha.t || '', de: falha.de || '', para: falha.para || '', ok: false, erro: falha.erro || '', copia: falha.copia || '' };
+  else if (ultima) historico = { quando: ultima[1], de: ultima[2], para: ultima[3], ok: true, erro: '', copia: ultima[4] };
+
+  const ver: VerificacaoPassagem[] = [];
+  const acc: AccaoPassagem[] = [];
+  const add = (nome: string, estado: VerificacaoPassagem['estado'], detalhe: string) => ver.push({ nome, estado, detalhe });
+  const quer = (id: AccaoPassagem['id'], porque: string) => {
+    if (!acc.some((a) => a.id === id)) acc.push({ id, texto: id === 'voltar' ? 'Passar de volta para a conta ' + de : REPAROS[id], porque });
+  };
+  if (!dono) {
+    add('Domínio no servidor', 'erro', 'O domínio não existe em nenhuma conta do servidor.');
+    return { dominio: d, dono: '', historico, de, verificacoes: ver, accoes: acc, resumo: 'Este domínio não existe no servidor: não há nada para reparar aqui. Se a passagem o perdeu, a cópia de segurança está em ' + (v.COPIA || '/root/vh-passagens') + ' (peça ao administrador do servidor para a repor).' };
+  }
+  add('Conta onde está agora', 'ok', dono);
+  if (de && de !== dono) add('Conta onde estava antes', 'ok', de + (v.RESTODE === '1' ? ' — ainda tem uma pasta deste site (restos da passagem)' : ''));
+  if (v.RESTODE === '1' && v.WEBCONFDE === '1') add('Restos na conta antiga', 'aviso', 'O site aparece nas duas contas.');
+  if (v.SITE !== '1') add('Site', 'erro', 'A conta ' + dono + ' tem o domínio mas sem site.');
+  else {
+    add('Site', 'ok', 'Existe na conta ' + dono + '.');
+    if (v.SUSP !== '0' && v.SUSP) {
+      add('Suspensão', 'erro', 'O site está suspenso.');
+      quer('reactivar', 'O site está suspenso (o servidor deixa-o assim quando a passagem para a meio).');
+    }
+    if (v.NGINX !== '1') {
+      add('Configuração do nginx', 'erro', 'Falta a configuração do site no nginx.');
+      quer('reconstruir', 'Sem a configuração do nginx o site e o certificado não funcionam.');
+    } else add('Configuração do nginx', 'ok', 'Existe.');
+    const http = v.HTTP || '000';
+    if (/^[23]/.test(http)) add('Resposta do site', 'ok', 'Responde (' + http + ').');
+    else {
+      add('Resposta do site', 'erro', 'O site responde ' + http + (http === '000' ? ' (não responde)' : '') + '.');
+      quer('php', 'O site não responde: costuma ser o PHP da conta que ficou por sincronizar.');
+      quer('reconstruir', 'Se o PHP estiver certo, reconstrói-se a configuração do site.');
+    }
+    if (v.PHPV) {
+      const pool = v.POOL || '';
+      if (!pool) {
+        add('PHP', 'erro', 'O PHP ' + v.PHPV + ' não tem pool para este site.');
+        quer('php', 'O site não tem pool de PHP-FPM.');
+      } else if (pool === 'conta' && (v.SVC || '').trim() !== 'active') {
+        add('PHP', 'erro', 'O PHP ' + v.PHPV + ' da conta ' + dono + ' está parado (' + ((v.SVC || '').trim() || 'sem serviço') + ').');
+        quer('php', 'O serviço do PHP da conta está parado.');
+      } else add('PHP', 'ok', 'PHP ' + v.PHPV + ' (' + (pool === 'conta' ? 'serviço da conta' : 'partilhado') + ').');
+    } else add('PHP', 'aviso', 'O site usa o modelo de PHP padrão do servidor.');
+  }
+  const emails = Number(v.EMAILS) || 0;
+  add('Caixas de e-mail', emails ? 'ok' : 'aviso', emails ? emails + ' caixa(s) na conta ' + dono + '.' : 'Nenhuma caixa de e-mail neste domínio.');
+  if (de && de !== dono && historico && !historico.ok && emails === 0) add('Caixas de e-mail', 'aviso', 'Pode ter ficado alguma na conta ' + de + ': veja-a nessa conta.');
+  add('Zona DNS', Number(v.DNS) ? 'ok' : 'aviso', Number(v.DNS) ? 'Existe na conta.' : 'Não está na conta (se o DNS está noutro sítio, é normal).');
+  if (v.WP === '1') {
+    const outras = (v.WPOUTRAS || '').trim();
+    if (outras) add('WordPress', 'erro', 'O wp-config.php ainda aponta para outra conta: ' + outras + '.');
+    else add('WordPress', 'ok', 'Sem caminhos de outras contas no wp-config.php.');
+    if (v.WPBASEOK === '0') add('Base de dados do WordPress', 'erro', 'A base "' + v.WPBASE + '" não pertence à conta ' + dono + '.');
+    else if (v.WPBASE) add('Base de dados do WordPress', 'ok', v.WPBASE);
+    if (outras || v.WPBASEOK === '0') quer('voltar', 'O WordPress ficou a meio entre as duas contas: o mais seguro é passar o domínio de volta (a cópia de segurança e o desfazer tratam das bases) e voltar a tentar.');
+  }
+  const donos = Number(v.DONOS) || 0;
+  if (donos) {
+    add('Dono dos ficheiros', 'erro', donos + (donos >= 50 ? '+' : '') + ' ficheiro(s) com outro dono.');
+    quer('donos', 'Ficheiros com o dono da conta antiga não se conseguem escrever (cache, envios, actualizações).');
+  } else if (v.SITE === '1') add('Dono dos ficheiros', 'ok', 'Todos da conta ' + dono + '.');
+  if (historico && !historico.ok && de && de !== dono) quer('voltar', 'A última passagem falhou e o domínio está na conta ' + dono + ' em vez de ' + de + '.');
+
+  const erros = ver.filter((x) => x.estado === 'erro').length;
+  const quando = historico?.quando ? ' (' + historico.quando.slice(0, 16).replace('T', ' ') + ')' : '';
+  let resumo: string;
+  if (historico && !historico.ok) resumo = 'A última passagem falhou' + quando + ': ' + (historico.erro || 'sem motivo guardado') + (erros ? ' Agora encontrei ' + erros + ' problema(s); use as acções abaixo, pela ordem.' : ' O site está bem e o domínio está na conta ' + dono + '.');
+  else if (erros) resumo = 'Encontrei ' + erros + ' problema(s) neste domínio. Use as acções abaixo, pela ordem.';
+  else resumo = 'Está tudo certo: o site responde, o PHP está activo e os ficheiros são da conta ' + dono + '.' + (historico?.ok ? ' A última passagem (' + historico.de + ' → ' + historico.para + ') terminou bem.' : '');
+  return { dominio: d, dono, historico, de, verificacoes: ver, accoes: acc, resumo };
+}
+
+/** Uma reparação segura, na conta onde o domínio está agora. Devolve o que se fez e como o site responde depois. */
+export async function repararDominio(dominio: string, reparo: ReparoPassagem): Promise<{ ok: boolean; mensagem: string; http: string }> {
+  const d = dominio.trim().toLowerCase();
+  if (!DOMINIO_OK.test(d)) return { ok: false, mensagem: 'Domínio inválido.', http: '' };
+  if (!(reparo in REPAROS)) return { ok: false, mensagem: 'Acção desconhecida.', http: '' };
+  if ((d === 'visualdesignmoz.com' || d === 'www.visualdesignmoz.com') && reparo !== 'php') return { ok: false, mensagem: 'O site e o painel principais não se mexem por aqui.', http: '' };
+  const script = `H=/usr/local/hestia/bin; HD=/usr/local/hestia/data/users; D='${d}'; R='${reparo}'
+o=$($H/v-search-domain-owner "$D" 2>/dev/null | head -1)
+[ -z "$o" ] && { echo "FALHA=O domínio não existe no servidor."; exit 0; }
+w=$(grep "DOMAIN='$D'" "$HD/$o/web.conf" 2>/dev/null)
+[ -z "$w" ] && { echo "FALHA=A conta $o não tem site neste domínio."; exit 0; }
+case $R in
+  php)
+    [ -x /usr/local/sbin/vd-php-conta ] && { /usr/local/sbin/vd-php-conta corrigir-hestia >/dev/null 2>&1; /usr/local/sbin/vd-php-conta sincronizar >/dev/null 2>&1; }
+    bk=$(echo "$w" | grep -o "BACKEND='[^']*'" | cut -d"'" -f2)
+    v=$(echo "$bk" | grep -oE '[0-9]+_[0-9]+' | head -1 | tr _ .)
+    if [ -n "$v" ] && [ ! -f "/etc/php/$v/fpm/pool.d/$D.conf" ] && [ ! -f "/etc/php/$v/fpm-contas/$o/pool.d/$D.conf" ]; then $H/v-change-web-domain-backend-tpl "$o" "$D" "$bk" >/dev/null 2>&1; [ -x /usr/local/sbin/vd-php-conta ] && /usr/local/sbin/vd-php-conta sincronizar >/dev/null 2>&1; fi
+    echo "FEITO=PHP da conta $o sincronizado." ;;
+  reconstruir)
+    $H/v-rebuild-web-domain "$o" "$D" yes >/dev/null 2>&1
+    if nginx -t >/dev/null 2>&1; then systemctl reload nginx; echo "FEITO=Site reconstruído e nginx recarregado."; else echo "FALHA=O nginx recusou a configuração; nada foi recarregado."; fi ;;
+  reactivar)
+    $H/v-unsuspend-web-domain "$o" "$D" >/dev/null 2>&1
+    [ -f "/home/$o/conf/web/$D/nginx.conf" ] || $H/v-rebuild-web-domain "$o" "$D" yes >/dev/null 2>&1
+    echo "FEITO=Site reactivado." ;;
+  donos)
+    find "/home/$o/web/$D" -xdev ! -user "$o" -exec chown -h "$o:$o" {} + 2>/dev/null
+    echo "FEITO=Ficheiros postos com o dono $o." ;;
+esac
+sleep 2
+w=$(grep "DOMAIN='$D'" "$HD/$o/web.conf" 2>/dev/null); ip=$(echo "$w" | grep -o "IP='[^']*'" | cut -d"'" -f2); ssl=0; echo "$w" | grep -q "SSL='yes'" && ssl=1
+if [ $ssl = 1 ]; then ini="https://$D/"; else ini="http://$D/"; fi
+echo "HTTP=$(curl -sk -L --max-redirs 5 -o /dev/null -w '%{http_code}' --max-time 20 --resolve "$D:443:$ip" --resolve "$D:80:$ip" "$ini")"`;
+  const out = await executeServerCommand(`bash -s <<'VHOST_FIM'\n${script}\nVHOST_FIM`, { timeoutMs: 5 * 60_000 }).catch(() => null);
+  if (out === null) return { ok: false, mensagem: 'O servidor não respondeu a tempo. Veja o diagnóstico antes de tentar outra vez.', http: '' };
+  const v = linhas(out);
+  if (v.FALHA) return { ok: false, mensagem: v.FALHA, http: v.HTTP || '' };
+  const http = v.HTTP || '';
+  return { ok: true, mensagem: (v.FEITO || 'Feito.') + ' O site responde ' + (http || '—') + '.', http };
 }

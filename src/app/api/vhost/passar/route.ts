@@ -3,7 +3,7 @@ import { requireAdminOrReseller } from '@/lib/panel-api-auth';
 import { getDaSyncAdmin } from '@/lib/da-sync-schema';
 import { esquecerLeitura, lerServidor } from '@/lib/vhost-servidor';
 import { esquecerRegisto } from '@/lib/vhost-dados';
-import { CONTA_OK, DOMINIO_OK, contaAdmin, passarDominio, preverPassagem, protegidoPassagem, type Passagem } from '@/lib/vhost-passar';
+import { CONTA_OK, DOMINIO_OK, contaAdmin, diagnosticarPassagem, passarDominio, preverPassagem, protegidoPassagem, repararDominio, type Passagem, type ReparoPassagem } from '@/lib/vhost-passar';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,6 +12,8 @@ export const dynamic = 'force-dynamic';
  * GET  ?dominio=      o que vai passar (visto agora no servidor) e para que contas esta sessão o pode passar
  * POST { dominio, para, bases }   começa a passagem em segundo plano (com cópia e desfazer automático; ver
  *                                 src/lib/vhost-passar.ts) e devolve { trabalho }
+ * GET  ?diagnostico= o que aconteceu e o que está agora no servidor para um domínio (Admin › Diagnóstico de passagem)
+ * POST { dominio, reparar }       uma reparação segura (php, reconstruir, reactivar, donos) na conta onde o domínio está agora
  * GET  ?trabalho=     como vai a passagem e, no fim, o resultado (bases grandes podem demorar mais que o nginx espera)
  * Administrador: entre quaisquer contas (menos as do sistema). Revendedor: entre a sua conta e as dos seus clientes.
  * Proteção combinada com o Silva (como em /api/vhost/acoes): sem VHOST_ACOES_TODAS=1, só domínios e contas de teste.
@@ -55,6 +57,15 @@ export async function GET(req: NextRequest) {
     if (!tb || tb.dono !== c.auth.user.id) return NextResponse.json({ erro: 'Passagem desconhecida.' }, { status: 404 });
     return NextResponse.json({ feito: !!tb.resultado, segundos: Math.round((Date.now() - tb.inicio) / 1000), resultado: tb.resultado || null }, { headers: { 'Cache-Control': 'no-store' } });
   }
+  const diag = (req.nextUrl.searchParams.get('diagnostico') || '').trim().toLowerCase();
+  if (diag) {
+    if (!DOMINIO_OK.test(diag)) return NextResponse.json({ erro: 'Domínio inválido.' }, { status: 400 });
+    const r = await diagnosticarPassagem(diag);
+    if ('erro' in r) return NextResponse.json(r, { status: 400 });
+    // só quem vê a conta onde o domínio está (ou esteve) o pode diagnosticar: o administrador vê tudo
+    if (!c.admin && r.dono && !c.podem.has(r.dono)) return NextResponse.json({ erro: 'Este domínio está numa conta fora do seu painel.' }, { status: 403 });
+    return NextResponse.json(r, { headers: { 'Cache-Control': 'no-store' } });
+  }
   const d = (req.nextUrl.searchParams.get('dominio') || '').trim().toLowerCase();
   if (!DOMINIO_OK.test(d)) return NextResponse.json({ erro: 'Domínio inválido.' }, { status: 400 });
   const p = await preverPassagem(d);
@@ -68,9 +79,24 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const c = await contexto();
   if ('erro' in c) return c.erro;
-  const corpo = (await req.json().catch(() => ({}))) as { dominio?: string; para?: string; bases?: unknown };
+  const corpo = (await req.json().catch(() => ({}))) as { dominio?: string; para?: string; bases?: unknown; reparar?: string };
   const d = String(corpo.dominio || '').trim().toLowerCase();
   const para = String(corpo.para || '').trim().toLowerCase();
+  // resolução manual: reparações seguras (nunca apagam nada) na conta onde o domínio está agora
+  if (corpo.reparar) {
+    if (!DOMINIO_OK.test(d)) return NextResponse.json({ erro: 'Domínio inválido.' }, { status: 400 });
+    if (!['php', 'reconstruir', 'reactivar', 'donos'].includes(corpo.reparar)) return NextResponse.json({ erro: 'Acção desconhecida.' }, { status: 400 });
+    const p0 = await preverPassagem(d);
+    if ('erro' in p0) return NextResponse.json(p0, { status: 400 });
+    if (!p0.dono) return NextResponse.json({ erro: 'Este domínio não existe no servidor.' }, { status: 404 });
+    if (SISTEMA.has(p0.dono) || (!c.admin && !c.podem.has(p0.dono))) return NextResponse.json({ erro: 'Este domínio está numa conta fora do seu painel.' }, { status: 403 });
+    // a mesma proteção da passagem: sem VHOST_ACOES_TODAS=1 só se mexe em domínios e contas de teste (o diagnóstico, que só lê, fica livre)
+    const bloqueio = protegido(d, p0.dono);
+    if (bloqueio) return NextResponse.json({ erro: bloqueio }, { status: 403 });
+    const r = await repararDominio(d, corpo.reparar as ReparoPassagem);
+    esquecerLeitura();
+    return NextResponse.json(r, { status: r.ok ? 200 : 502 });
+  }
   const bases = Array.isArray(corpo.bases) ? corpo.bases.map((b) => String(b)) : [];
   if (!DOMINIO_OK.test(d)) return NextResponse.json({ erro: 'Domínio inválido.' }, { status: 400 });
   // administrador: qualquer conta (a lida há pouco pode ainda não ter uma conta acabada de criar; o servidor confirma)
@@ -98,12 +124,14 @@ export async function POST(req: NextRequest) {
           await sb.from('panel_users').update({ da_domain: d }).eq('username', para).is('da_domain', null);
           await sb.from('panel_users').update({ da_domain: null }).eq('username', de).eq('da_domain', d);
         }
-        esquecerLeitura();
         esquecerRegisto();
       }
+      // também quando falha e desfaz: uma leitura feita a meio da passagem não pode ficar guardada (o painel PHP mostraria a versão errada)
+      esquecerLeitura();
       tb.resultado = { ...r, de, para };
     })
     .catch((e) => {
+      esquecerLeitura();
       tb.resultado = { ok: false, erro: 'A passagem parou: ' + (e instanceof Error ? e.message : 'erro'), passos: [], avisos: [], bases: [], de, para };
     });
   return NextResponse.json({ trabalho: id, de, para }, { status: 202 });
