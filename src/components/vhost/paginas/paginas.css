@@ -494,7 +494,7 @@
 }
 
 .vh .tbl tr.dt-clicavel:hover td {
-   background: var(--tint)
+   background: var(--hover)
 }
 
 .vh .tbl tr.dt-clicavel:focus-visible {
@@ -2776,7 +2776,7 @@
 }
 
 .vh .dom-registar table tbody tr:hover {
-   background: var(--line-soft)
+   background: var(--hover)
 }
 
 /* Painel inicial (Widgets): a coluna da direita também dentro de um cartão, igual ao cartão principal (pedido do Silva, 10/10) */
@@ -16152,5 +16152,14 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
 
 /* Contabilidade › Encomendas: a linha que abre por baixo de cada encomenda tem a mesma cor da encomenda (o fundo é do bloco inteiro) */
 .vh .enc-contab tbody.contab-zebra > tr > td:not(#x):not(#y):not(#z) {
+   background: transparent
+}
+
+/* Passar o rato nas linhas: o fundo é sempre o do tema activo, também nas listas feitas com classes Tailwind (Contabilidade, Mail marketing…) */
+.vh tbody tr[class*="hover:bg-"]:hover:not(#x):not(#y) {
+   background-color: var(--hover) !important
+}
+
+.vh tbody tr[class*="hover:bg-"]:hover > td:not(#x):not(#y):not(#z) {
    background: transparent
 }
