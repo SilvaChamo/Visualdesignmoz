@@ -135,6 +135,9 @@ ip=$(echo "$w" | grep -o "IP='[^']*'" | cut -d"'" -f2); ssl=0; echo "$w" | grep 
 url() { [ -z "$w" ] && { echo 000; return; }; if [ $ssl = 1 ]; then ini="https://$D/"; else ini="http://$D/"; fi; curl -sk -L --max-redirs 5 -o /dev/null -w '%{http_code}' --max-time 20 --resolve "$D:443:$ip" --resolve "$D:80:$ip" --resolve "www.$D:443:$ip" --resolve "www.$D:80:$ip" "$ini"; }
 susp() { grep "DOMAIN='$D'" "$HD/$1/web.conf" 2>/dev/null | grep -c "SUSPENDED='yes'" || true; }
 emails() { f="$HD/$1/mail/$D.conf"; if [ -f "$f" ]; then grep -c "^ACCOUNT=" "$f" || true; else echo 0; fi; }
+# a versão do PHP do site (modelo BACKEND do Hestia): tem de ser a mesma na conta nova — e na de origem, se for preciso desfazer
+bk=$(echo "$w" | grep -o "BACKEND='[^']*'" | cut -d"'" -f2)
+bkdom() { grep "DOMAIN='$D'" "$HD/$1/web.conf" 2>/dev/null | grep -o "BACKEND='[^']*'" | cut -d"'" -f2; }
 ANTES=$(url); MA=$(emails "$DE"); echo "ANTES=$ANTES"; SA=$(susp "$DE")
 cfg_de="/home/$DE/web/$D/public_html/wp-config.php"
 [ -f "$cfg_de" ] && cp -p "$cfg_de" "$B/wp-config.php"
@@ -162,6 +165,11 @@ desfazer() {
     find "/home/$DE/web/$D" -xdev ! -user "$DE" -exec chown -h "$DE:$DE" {} + 2>/dev/null
     if [ "\${wpmexido:-0}" = 1 ] && [ -x /usr/local/bin/wp ]; then runuser -u "$DE" -- nice -n 10 ionice -c3 /usr/local/bin/wp --path="/home/$DE/web/$D/public_html" --skip-plugins --skip-themes search-replace "/home/$PARA/" "/home/$DE/" --all-tables --skip-columns=guid --quiet >/dev/null 2>&1 || echo "AVISO=Os caminhos na base de dados do WordPress não voltaram sozinhos; a cópia das bases está em $B."; fi
     webmail "$DE" || true
+    # o PHP da conta de origem volta a servir o site: mesma versão de antes e pools no serviço da conta (sem isto o site ficava sem PHP até ao cron)
+    [ -n "$bk" ] && [ "$(bkdom "$DE")" != "$bk" ] && $H/v-change-web-domain-backend-tpl "$DE" "$D" "$bk" >/dev/null 2>&1
+    if [ -x /usr/local/sbin/vd-php-conta ]; then /usr/local/sbin/vd-php-conta sincronizar >/dev/null 2>&1 || echo "AVISO=O PHP da conta $DE não foi sincronizado; o cron trata disso em 5 minutos."; fi
+    sleep 2; APOS=$(url); echo "APOS=$APOS"
+    if [ "$ANTES" != 000 ] && [ "\${APOS:0:1}" != "\${ANTES:0:1}" ]; then echo "AVISO=Depois de desfazer, o site responde $APOS (antes respondia $ANTES); veja o PHP da conta $DE."; fi
   fi
 }
 # o Hestia tem de ignorar as pastas do PHP por conta ao procurar o pool, senão a passagem falha a meio e deixa o site sem PHP nem nginx
@@ -169,6 +177,10 @@ desfazer() {
 out=$($H/v-change-domain-owner "$D" "$PARA" 2>&1)
 if [ "$($H/v-search-domain-owner "$D" 2>/dev/null | head -1)" != "$PARA" ]; then echo "FALHA=O servidor não passou o domínio: $(echo "$out" | tail -1)"; exit 1; fi
 movido=1; echo "PASSO=Site, e-mails, certificado, DNS e FTP passaram para $PARA"
+if [ -n "$bk" ] && [ "$(bkdom "$PARA")" != "$bk" ]; then
+  $H/v-change-web-domain-backend-tpl "$PARA" "$D" "$bk" >/dev/null 2>&1
+  if [ "$(bkdom "$PARA")" = "$bk" ]; then echo "AVISO=O servidor mudou a versão do PHP do site; foi reposta ($bk)."; else echo "FALHA=A versão do PHP do site ($bk) não se manteve na conta nova."; desfazer; exit 1; fi
+fi
 # o PHP: o serviço da conta antiga larga os sockets do domínio que saiu (senão o PHP partilhado não arranca) e cada conta fica no seu serviço
 if [ -x /usr/local/sbin/vd-php-conta ]; then
   for u in /etc/systemd/system/vd-php-fpm-*-$DE.service; do [ -f "$u" ] && systemctl reload "$(basename "$u" .service)" >/dev/null 2>&1; done
@@ -218,6 +230,7 @@ DEPOIS=$(url); MD=$(emails "$PARA"); echo "DEPOIS=$DEPOIS"
 if [ "$ANTES" != 000 ] && [ "\${ANTES:0:1}" != "\${DEPOIS:0:1}" ]; then echo "FALHA=O site respondia $ANTES e passou a responder $DEPOIS."; desfazer; exit 1; fi
 if [ "$MA" != "$MD" ]; then echo "FALHA=Havia $MA caixas de e-mail e ficaram $MD."; desfazer; exit 1; fi
 echo "PASSO=Verificado: o site responde ($DEPOIS) e as $MD caixas de e-mail estão na conta nova"
+[ -n "$bk" ] && echo "PASSO=PHP do site na mesma versão de antes ($(echo "$bk" | grep -oE '[0-9]+_[0-9]+' | head -1 | tr _ .))"
 # o PHP-FPM com os limites do pacote passa a servir o site na conta nova e o pool da conta antiga sai (o cron do servidor fá-lo de 5 em 5 minutos; assim é já)
 if [ -x /usr/local/sbin/vd-php-conta ]; then nice -n 10 /usr/local/sbin/vd-php-conta sincronizar >/dev/null 2>&1 && echo "PASSO=PHP da conta $PARA com os limites do pacote"; fi
 echo "$(date -Is) $D $DE -> $PARA bases:[$movidas ] por:$QUEM copia:$B" >> /root/vh-passagens/registo.log
