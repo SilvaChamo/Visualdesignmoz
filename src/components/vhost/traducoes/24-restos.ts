@@ -10,4 +10,5 @@ export const restos: Record<string, string> = {
  "Morada e província *": "Address and province *",
  "Escolha o que apagar. Nada do servidor se perde: o que for apagado fica em Admin › Lixeira, de onde se pode repor.": "Choose what to delete. Nothing on the server is lost: whatever is deleted goes to Admin › Trash, where it can be restored.",
  "{0} de {1} núcleos · carga {2}": "{0} of {1} cores · load {2}",
+ "A carregar as preferências desta conta; tente outra vez daqui a instantes.": "Loading this account's preferences; try again in a moment.",
 };
