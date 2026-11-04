@@ -10521,7 +10521,7 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
 }
 
 /* Linhas de todas as tabelas com o fundo alternado: branca e cinzento suave (Silva, 20/10/2026). Não cobre selecção, realce nem passagem do rato. */
-.vh table tbody tr:nth-child(even):not(.grp):not(.sel):not(.dt-realce):not(:hover) > td {
+.vh table tbody tr:is([data-par="1"], :nth-child(even):not([data-par])):not(.grp):not(.sel):not(.dt-realce):not(:hover) > td {
    background: var(--soft)
 }
 
@@ -11848,7 +11848,7 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
 }
 
 /* Tema escuro: as linhas alternadas mais escuras que o cartão (22% de preto) — visíveis mas suaves, nada de preto nem de cinzento brilhante (Silva, 20/10/2026) */
-.vh[data-theme=dark] table tbody tr:nth-child(even):not(.grp):not(.sel):not(.dt-realce):not(:hover) > td {
+.vh[data-theme=dark] table tbody tr:is([data-par="1"], :nth-child(even):not([data-par])):not(.grp):not(.sel):not(.dt-realce):not(:hover) > td {
    background: color-mix(in srgb, var(--card) 78%, #000)
 }
 
@@ -13757,7 +13757,7 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
       border-bottom-color: var(--linha-lista)
    }
 
-   .vh:not([data-theme=dark]) table tbody tr:nth-child(even):not(.grp):not(.sel):not(.dt-realce):not(:hover) > td:not(#x) {
+   .vh:not([data-theme=dark]) table tbody tr:is([data-par="1"], :nth-child(even):not([data-par])):not(.grp):not(.sel):not(.dt-realce):not(:hover) > td:not(#x) {
       background: var(--fundo-lista)
    }
 }
@@ -13765,11 +13765,11 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
 /* Telemóvel: cada linha é um bloco, por isso o fundo alternado pinta o bloco inteiro (não célula a célula, que deixava riscas) e a
    paginação lê-se "Página 1 de 2", sem a barra a mais (Silva, 23/10/2026) */
 @media (max-width: 768px) {
-   .vh:not([data-theme=dark]) .tbl.dt-empilhar tbody tr:nth-child(even):not(.grp):not(.sel):not(.dt-realce):not(:hover):not(#x) {
+   .vh:not([data-theme=dark]) .tbl.dt-empilhar tbody tr:is([data-par="1"], :nth-child(even):not([data-par])):not(.grp):not(.sel):not(.dt-realce):not(:hover):not(#x) {
       background-color: var(--fundo-lista)
    }
 
-   .vh .tbl.dt-empilhar tbody tr:nth-child(even):not(.grp):not(.sel):not(.dt-realce):not(:hover) > td:not(#x) {
+   .vh .tbl.dt-empilhar tbody tr:is([data-par="1"], :nth-child(even):not([data-par])):not(.grp):not(.sel):not(.dt-realce):not(:hover) > td:not(#x) {
       background: transparent
    }
 
@@ -13780,11 +13780,11 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
 
 /* Tablet ao alto (769–1000), tabelas em blocos: o mesmo do telemóvel — o fundo alternado pinta o bloco inteiro */
 @media (min-width: 769px) and (max-width: 1000px) {
-   .vh:not([data-theme=dark]) .tbl.dt-empilhar-tablet tbody tr:nth-child(even):not(.grp):not(.sel):not(.dt-realce):not(:hover):not(#x) {
+   .vh:not([data-theme=dark]) .tbl.dt-empilhar-tablet tbody tr:is([data-par="1"], :nth-child(even):not([data-par])):not(.grp):not(.sel):not(.dt-realce):not(:hover):not(#x) {
       background-color: var(--fundo-lista)
    }
 
-   .vh .tbl.dt-empilhar-tablet tbody tr:nth-child(even):not(.grp):not(.sel):not(.dt-realce):not(:hover) > td:not(#x) {
+   .vh .tbl.dt-empilhar-tablet tbody tr:is([data-par="1"], :nth-child(even):not([data-par])):not(.grp):not(.sel):not(.dt-realce):not(:hover) > td:not(#x) {
       background: transparent
    }
 }
@@ -16148,4 +16148,9 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    .vh .bk-grupo-l .dns-acoes {
       grid-column: 1 / -1
    }
+}
+
+/* Contabilidade › Encomendas: a linha que abre por baixo de cada encomenda tem a mesma cor da encomenda (o fundo é do bloco inteiro) */
+.vh .enc-contab tbody.contab-zebra > tr > td:not(#x):not(#y):not(#z) {
+   background: transparent
 }
