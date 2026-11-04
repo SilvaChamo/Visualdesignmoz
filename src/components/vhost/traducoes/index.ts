@@ -25,6 +25,7 @@ import { compras } from './21-compras';
 import { plugins_wp } from './22-plugins-wp';
 import { restos } from './24-restos';
 import { php_reaplicar } from './23-php-reaplicar';
+import { diagnostico_passagem } from './25-diagnostico-passagem';
 
-const TRADUCOES: Record<string, string> = { ...nucleo, ...nucleo_b, ...comuns_a, ...paginas_pequenas, ...admin_servidor, ...admin_servidor_2, ...contas_sistema, ...suporte, ...email, ...avancado, ...dominios, ...modelos, ...extras, ...mensagens_api, ...mensagens_lib, ...externos, ...php_extensoes, ...modelos_renovacao, ...revenda, ...residuos, ...compras, ...plugins_wp, ...restos, ...php_reaplicar };
+const TRADUCOES: Record<string, string> = { ...nucleo, ...nucleo_b, ...comuns_a, ...paginas_pequenas, ...admin_servidor, ...admin_servidor_2, ...contas_sistema, ...suporte, ...email, ...avancado, ...dominios, ...modelos, ...extras, ...mensagens_api, ...mensagens_lib, ...externos, ...php_extensoes, ...modelos_renovacao, ...revenda, ...residuos, ...compras, ...plugins_wp, ...restos, ...php_reaplicar, ...diagnostico_passagem };
 for (const [pt, en] of Object.entries(TRADUCOES)) if (!(pt in EN)) EN[pt] = en;
