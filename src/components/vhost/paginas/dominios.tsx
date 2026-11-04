@@ -160,7 +160,7 @@ export function RelatorioDns({ dominio, itens, onFechar }: { dominio: string; it
           <i className={'fa-solid ' + ICONE_REL[i.estado]} />
           <div>
             <span>{i.nome}</span>
-            {i.detalhe && <small>{i.detalhe}</small>}
+            {i.detalhe && <small style={{ whiteSpace: 'pre-line' }}>{i.detalhe}</small>}
           </div>
           <em>{t(TEXTO_REL[i.estado])}</em>
         </div>
