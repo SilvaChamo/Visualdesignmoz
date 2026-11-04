@@ -304,7 +304,7 @@ export const DESC: Record<string, [string, string]> = {
  "utilizador/inicio": ["Resumo da conta, dos domínios e ações rápidas","Account overview, domains and quick actions"],
  "utilizador/dominios": ["Adicionar e gerir os domínios da conta","Add and manage the account’s domains"],
  "utilizador/subdominios": ["Criar subdomínios com pasta própria","Create subdomains with their own folder"],
- "utilizador/dns": ["Ligado ao DNS do Vhost: o que alterar aqui muda logo nos registos DNS dos seus domínios","Connected to Vhost DNS: what you change here changes your domains' DNS records right away"],
+ "utilizador/dns": ["Ligado ao DNS do Cloudflare: o que alterar aqui muda logo nos registos DNS dos seus domínios","Connected to Cloudflare DNS: what you change here changes your domains' DNS records right away"],
  "utilizador/ssl": ["Ativar e renovar certificados de segurança","Enable and renew security certificates"],
  "utilizador/ftp": ["Criar acessos FTP para gestão remota do site","Create FTP access for remote management of the site"],
  "utilizador/bd": ["Criar bases de dados e os seus utilizadores","Create databases and their users"],
