@@ -18,7 +18,6 @@ import { requireAdminOrReseller } from '@/lib/panel-api-auth';
 import { runDaFullSyncDeduped, scheduleDaSync } from '@/lib/da-sync-engine';
 import { loadResellerCredentialsByDaUsername, encryptDaSecret } from '@/lib/da-credential-store';
 import { sendEmail } from '@/lib/email-service';
-import { pushUserEditToServer } from '@/lib/da-user-push-ssh';
 import { getDaSyncAdmin } from '@/lib/da-sync-schema';
 import { saveProfileForAuthUser, getProfileForAuthUser } from '@/lib/profile-db';
 import { upsertPanelAuthAccount } from '@/lib/panel-auth-accounts';
@@ -852,27 +851,12 @@ export async function PATCH(req: NextRequest) {
         }
       }
 
-      // pushUserEditToServer só sabe falar com o DirectAdmin (CMD_API_MODIFY_USER) —
-      // para uma conta Hestia isto falhava sempre (o utilizador nem existe no DA),
-      // sem trazer nenhum benefício. O Hestia ainda não tem um "editar utilizador"
-      // próprio (nome/email/limites individuais), por isso confiamos no espelho
-      // para esses campos — mas mudar de PACOTE já tem comando directo
-      // (v-change-user-package) e aplicamos a sério.
-      const editProvider = await getProviderByUsername(userName);
-      const pushed =
-        editProvider === 'hestia'
-          ? packageName
-            ? await hestiaAdapter.changeUserPackage(userName, packageName, forcePackageChange)
-            : { ok: true }
-          : await pushUserEditToServer({
-              userName,
-              email: email ?? String(data.email || ''),
-              firstName: body.firstName !== undefined ? String(body.firstName).trim() : String(data.first_name || ''),
-              lastName: body.lastName !== undefined ? String(body.lastName).trim() : String(data.last_name || ''),
-              websitesLimit: Number(data.websites_limit) || 0,
-              emailsLimit: Number(data.emails_limit) || 0,
-              packageName,
-            });
+      // O servidor é o Hestia: ainda não tem um "editar utilizador" próprio (nome/email/limites individuais), por isso
+      // confiamos no espelho para esses campos — mas mudar de PACOTE já tem comando directo (v-change-user-package)
+      // e aplicamos a sério.
+      const pushed = packageName
+        ? await hestiaAdapter.changeUserPackage(userName, packageName, forcePackageChange)
+        : { ok: true };
 
       // Só espelha no Supabase depois de confirmar que o DirectAdmin aceitou a
       // alteração — escrever antes (como acontecia aqui) deixava o Supabase a
