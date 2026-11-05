@@ -9,6 +9,7 @@ import * as hestia from '@/lib/hestia-adapter';
 import { arquivarSite, snapshotPainel } from '@/lib/lixeira-servidor';
 import { createCloudflareZone, deleteCloudflareDnsRecord, deleteHostARecord, findCloudflareZoneId, getCloudflareZoneStatus, listCloudflareDnsRecords, requestCloudflareActivationCheck, updateCloudflareDnsRecord, upsertCloudflareRecord, type CloudflareRecordInput } from '@/lib/cloudflare-dns';
 import { provisionEmailAuthForDomain } from '@/lib/domain-email-auth';
+import { ensureBrevoSender } from '@/lib/brevo-domain-auth';
 import { dynadotAPI } from '@/lib/dynadot-adapter';
 import { getServerHost } from '@/lib/server-config';
 import { VISUALDESIGN_TODOS_NS } from '@/lib/visualdesign-dns';
@@ -227,6 +228,17 @@ async function reprocessarDns(conta: string, d: string, srv: LeituraServidor, li
     const e = await provisionEmailAuthForDomain(d, { rapido: true });
     for (const x of e.records) itens.push({ nome: `${x.type} ${x.name}`, estado: !x.ok ? 'falhou' : x.action === 'skipped' ? 'certo' : 'novo', detalhe: !x.ok ? pub(x.error) : x.error });
     if (!e.brevoOk && e.brevoError) itens.push({ nome: 'DKIM de envio', estado: 'falhou', detalhe: pub(e.brevoError) });
+    // Como na compra do domínio: além do DNS, o domínio tem de estar autenticado na Brevo e ter o remetente principal (geral@),
+    // senão a Brevo aceita o e-mail mas recusa o envio ("sender not valid"). Antes só se punham os registos e nada disto se via.
+    if (e.brevoOk) {
+      itens.push(e.verified
+        ? { nome: 'Domínio na Brevo', estado: 'certo', detalhe: 'autenticado' }
+        : { nome: 'Domínio na Brevo', estado: 'pendente', detalhe: 'verificação pedida; confirma-se sozinha quando o DNS propagar' });
+      const rem = await ensureBrevoSender(`geral@${d}`, d);
+      itens.push(rem.ok
+        ? { nome: 'Remetente na Brevo', estado: rem.alreadyExisted ? 'certo' : 'novo', detalhe: `geral@${d}` }
+        : { nome: 'Remetente na Brevo', estado: 'falhou', detalhe: pub(rem.error) });
+    }
     const dkim = await dkimDoServidor(conta, d);
     if (!dkim) itens.push({ nome: 'DKIM do servidor', estado: 'falhou', detalhe: 'não foi possível criar a chave' });
     else {
