@@ -234,10 +234,13 @@ async function reprocessarDns(conta: string, d: string, srv: LeituraServidor, li
       itens.push(e.verified
         ? { nome: 'Domínio na Brevo', estado: 'certo', detalhe: 'autenticado' }
         : { nome: 'Domínio na Brevo', estado: 'pendente', detalhe: 'verificação pedida; confirma-se sozinha quando o DNS propagar' });
-      const rem = await ensureBrevoSender(`geral@${d}`, d);
-      itens.push(rem.ok
-        ? { nome: 'Remetente na Brevo', estado: rem.alreadyExisted ? 'certo' : 'novo', detalhe: `geral@${d}` }
-        : { nome: 'Remetente na Brevo', estado: 'falhou', detalhe: pub(rem.error) });
+      // geral@ (o mesmo da compra) e noreply@ (de onde os sites e as notificações do domínio costumam enviar)
+      for (const caixa of ['geral', 'noreply']) {
+        const rem = await ensureBrevoSender(`${caixa}@${d}`, d);
+        itens.push(rem.ok
+          ? { nome: 'Remetente na Brevo', estado: rem.alreadyExisted ? 'certo' : 'novo', detalhe: `${caixa}@${d}` }
+          : { nome: 'Remetente na Brevo', estado: 'falhou', detalhe: pub(rem.error) });
+      }
     }
     const dkim = await dkimDoServidor(conta, d);
     if (!dkim) itens.push({ nome: 'DKIM do servidor', estado: 'falhou', detalhe: 'não foi possível criar a chave' });
