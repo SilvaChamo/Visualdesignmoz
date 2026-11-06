@@ -39,7 +39,7 @@ const MARCA_EXIM = '# VisualHost: bloqueios por domínio';
 const SSO_DIR = '/var/lib/vh-sso';
 /** Domínios cujo https://<domínio>/webmail já abre o Roundcube deste servidor (cabeçalho X-VH-Webmail da regra do
  *  nginx); guardado 10 minutos para não perguntar a cada clique */
-const webmailAqui = new Map<string, { sim: boolean; ate: number }>();
+const webmailAqui = new Map<string, { sim: boolean; sub: boolean; ate: number }>();
 
 type Sessao = { userId: string; email: string; role: string };
 type Extra = { listas?: Record<string, string[]>; ferias?: { d: string; acc: string; de: string; ate: string; msg: string; ativa?: boolean }[] };
@@ -113,34 +113,47 @@ export async function GET(req: NextRequest) {
   if (wm) {
     if (wm !== '_' && !CAIXA.test(wm)) return NextResponse.json({ erro: 'Caixa inválida.' }, { status: 400 });
     const base = 'https://' + d + '/webmail/';
-    const ir = (Location: string) => new NextResponse(null, { status: 302, headers: { Location, 'Cache-Control': 'no-store' } });
-    // "Abrir webmail" sem caixa: o ecrã de entrada
-    if (wm === '_') return ir(base);
-    const n = Array.from(crypto.getRandomValues(new Uint8Array(32)), (x) => x.toString(16).padStart(2, '0')).join('');
-    const bilhete = JSON.stringify({ caixa: `${wm}@${d}`, exp: Math.floor(Date.now() / 1000) + 60 });
-    const guardado = webmailAqui.get(d);
-    const perguntar = !guardado || guardado.ate < Date.now();
-    // 1) a caixa existe; 2) o servidor já tem a entrada direta; 3) https://<domínio>/webmail abre aqui (e não noutro
-    // servidor, enquanto o DNS do domínio não muda); só então o bilhete, escrito como o Roundcube (hestiamail)
-    const out = await executeServerCommand(
-      `${H}/v-list-mail-account ${conta} ${d} ${wm} json >/dev/null 2>&1 || { echo SEM_CAIXA; exit 0; }; ` +
-        (perguntar ? `curl -skI -m 6 ${q(base)} 2>/dev/null | grep -qi '^x-vh-webmail' && echo AQUI; ` : '') +
-        `[ -d ${SSO_DIR} ] && [ -f /var/lib/roundcube/plugins/vh_sso/vh_sso.php ] || { echo SEM_SSO; exit 0; }; ` +
-        `echo ${b64(bilhete)} | base64 -d | sudo -u hestiamail sh -c 'umask 077; cat > "$1"' _ ${SSO_DIR}/${n} && sudo -u hestiamail find ${SSO_DIR} -type f -mmin +5 -delete; echo FEITO`,
-      { timeoutMs: 20_000 },
-    ).catch(() => '');
-    if (out.includes('SEM_CAIXA')) return NextResponse.json({ erro: 'Essa caixa não existe.' }, { status: 404 });
-    if (perguntar) webmailAqui.set(d, { sim: out.includes('AQUI'), ate: Date.now() + 10 * 60_000 });
-    const aqui = webmailAqui.get(d)?.sim;
+    // sítio do domínio noutro servidor (ex.: Vercel): <domínio>/webmail não existe; o Roundcube abre em webmail.<domínio>
+    const sub = 'https://webmail.' + d + '/';
     // webmail no endereço público do site (o que os clientes vêem), não no nome interno do servidor
     const srvHost =
       (process.env.NEXT_PUBLIC_SITE_URL || '').replace(/^https?:\/\//, '').replace(/\/.*$/, '').trim() ||
       (process.env.HESTIA_HOST || 'visualdesignmoz.com').trim();
     const fallbackBase = `https://${srvHost}/webmail/`;
-    // entrada direta: no domínio, se já abre aqui; senão no endereço do painel local (Roundcube do servidor atual)
-    if (out.includes('FEITO')) return ir((aqui ? base : fallbackBase) + '?_vhsso=' + n);
-    // sem entrada direta: o webmail com a caixa pré-preenchida
-    return ir((aqui ? base : fallbackBase) + '?_user=' + encodeURIComponent(`${wm}@${d}`));
+    const ir = (Location: string) => new NextResponse(null, { status: 302, headers: { Location, 'Cache-Control': 'no-store' } });
+    const guardado = webmailAqui.get(d);
+    const perguntar = !guardado || guardado.ate < Date.now();
+    // as duas perguntas ao servidor: <domínio>/webmail abre aqui? e, senão, webmail.<domínio> abre o Roundcube?
+    const perguntas = perguntar
+      ? `curl -skI -m 6 ${q(base)} 2>/dev/null | grep -qi '^x-vh-webmail' && echo AQUI; ` +
+        `curl -sI -m 6 ${q(sub)} 2>/dev/null | grep -qi 'roundcube_sessid' && echo SUB; `
+      : '';
+    const guardar = (out: string) => {
+      if (perguntar) webmailAqui.set(d, { sim: out.includes('AQUI'), sub: out.includes('SUB'), ate: Date.now() + 10 * 60_000 });
+      const g = webmailAqui.get(d);
+      return g?.sim ? base : g?.sub ? sub : fallbackBase;
+    };
+    // "Abrir webmail" sem caixa: o ecrã de entrada
+    if (wm === '_') {
+      const out = perguntas ? await executeServerCommand(perguntas + 'true', { timeoutMs: 20_000 }).catch(() => '') : '';
+      return ir(guardar(out));
+    }
+    const n = Array.from(crypto.getRandomValues(new Uint8Array(32)), (x) => x.toString(16).padStart(2, '0')).join('');
+    const bilhete = JSON.stringify({ caixa: `${wm}@${d}`, exp: Math.floor(Date.now() / 1000) + 60 });
+    // 1) a caixa existe; 2) onde abre o webmail deste domínio (aqui, em webmail.<domínio> ou no do painel); 3) o servidor
+    // já tem a entrada direta; só então o bilhete, escrito como o Roundcube (hestiamail)
+    const out = await executeServerCommand(
+      `${H}/v-list-mail-account ${conta} ${d} ${wm} json >/dev/null 2>&1 || { echo SEM_CAIXA; exit 0; }; ` +
+        perguntas +
+        `[ -d ${SSO_DIR} ] && [ -f /var/lib/roundcube/plugins/vh_sso/vh_sso.php ] || { echo SEM_SSO; exit 0; }; ` +
+        `echo ${b64(bilhete)} | base64 -d | sudo -u hestiamail sh -c 'umask 077; cat > "$1"' _ ${SSO_DIR}/${n} && sudo -u hestiamail find ${SSO_DIR} -type f -mmin +5 -delete; echo FEITO`,
+      { timeoutMs: 20_000 },
+    ).catch(() => '');
+    if (out.includes('SEM_CAIXA')) return NextResponse.json({ erro: 'Essa caixa não existe.' }, { status: 404 });
+    const destino = guardar(out);
+    // entrada direta, senão o webmail com a caixa pré-preenchida
+    if (out.includes('FEITO')) return ir(destino + '?_vhsso=' + n);
+    return ir(destino + '?_user=' + encodeURIComponent(`${wm}@${d}`));
   }
 
   // texto da resposta automática de uma caixa

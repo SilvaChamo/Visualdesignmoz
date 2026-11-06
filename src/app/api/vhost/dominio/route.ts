@@ -241,6 +241,29 @@ async function reprocessarDns(conta: string, d: string, srv: LeituraServidor, li
             : await upsertCloudflareRecord(zid, zona, { type: 'TXT', name: nome, content: dkim, ttl: 3600 });
       itens.push({ nome: 'DKIM do servidor', estado: !x.ok ? 'falhou' : x.action === 'skipped' ? 'certo' : 'novo', detalhe: !x.ok ? pub(x.error) : x.error });
     }
+    // webmail.<domínio> → este servidor: o endereço do Roundcube de quem tem o site noutro sítio (ex.: Vercel), onde
+    // <domínio>/webmail não existe (aamihe.com e entrecamposblog.com davam 404 — Silva, 06/11/2026). Sem proxy: o
+    // webmail tem o seu certificado aqui. Vale também para os domínios com o site neste servidor (fica como está se já certo).
+    const nomeWm = d === zona ? 'webmail' : 'webmail.' + d.slice(0, -(zona.length + 1));
+    const rotuloWm = 'A webmail.' + d;
+    const ipWm = (w?.IP || getServerHost()).trim();
+    const doWm = (await listCloudflareDnsRecords(zid, zona)).filter((x) => x.name === nomeWm && ['A', 'AAAA', 'CNAME'].includes(x.type));
+    if (doWm.some((x) => (x.type === 'A' && x.content === ipWm) || x.type === 'CNAME')) {
+      itens.push({ nome: rotuloWm, estado: 'certo' });
+    } else {
+      const aWm = doWm.find((x) => x.type === 'A');
+      const xWm = aWm
+        ? await updateCloudflareDnsRecord(zid, aWm.id, zona, { type: 'A', name: nomeWm, content: ipWm })
+        : await upsertCloudflareRecord(zid, zona, { type: 'A', name: nomeWm, content: ipWm, proxied: false });
+      itens.push({ nome: rotuloWm, estado: xWm.ok ? 'novo' : 'falhou', detalhe: xWm.ok ? '→ ' + ipWm : pub(xWm.error) });
+      // registo novo: pede já o certificado do e-mail (mail.<domínio> e webmail.<domínio>), para o endereço abrir com https
+      if (xWm.ok) {
+        const ssl = await semDemorarDemais(hestia.issueMailLetsEncrypt(conta, d), 25_000).catch((e: unknown) => ({ ok: false as const, error: e instanceof Error ? e.message : 'erro' }));
+        if (!ssl.ok) itens.push({ nome: 'SSL do e-mail', estado: 'falhou', detalhe: pub('error' in ssl ? ssl.error : undefined) });
+        else if ('aviso' in ssl) itens.push({ nome: 'SSL do e-mail', estado: 'pendente', detalhe: 'pedido em curso; o DNS novo pode demorar uns minutos — volte a reprocessar se não ficar' });
+        else itens.push({ nome: 'SSL do e-mail', estado: 'novo', detalhe: 'certificado pedido' });
+      }
+    }
   }
   // O DNS só vale se o registador apontar para quem o serve: Cloudflare, ou os ns do próprio servidor (que copiam a
   // Cloudflare). Só se mudam sozinhos os nameservers de um domínio na Dynadot que ainda está nos nameservers de
