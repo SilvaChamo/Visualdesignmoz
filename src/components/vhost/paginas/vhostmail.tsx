@@ -35,7 +35,14 @@ function Vhostmail({ pasta, conta }: { pasta: PastaVhostmail; conta: string }) {
     const ouvir = (e: MessageEvent) => {
       if (e.origin !== location.origin || e.source !== quadro.current?.contentWindow) return;
       const d = e.data as { vhostmail?: number; acao?: string } | null;
-      if (d?.vhostmail && d.acao === 'voltar') nav('/utilizador/email');
+      if (!d?.vhostmail || typeof d.acao !== 'string') return;
+      if (d.acao === 'voltar') nav('/utilizador/email');
+      else if (d.acao === 'criar') nav('/utilizador/email/nova');
+      else if (d.acao === 'migrar') nav('/utilizador/imapsync');
+      else if (d.acao.startsWith('abrir:')) {
+        const end = d.acao.slice(6).trim().toLowerCase();
+        if (/^[^\s@,;:"'<>()]+@([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/i.test(end)) nav(vhostmailPath('entrada', end));
+      }
     };
     window.addEventListener('message', ouvir);
     carregou.current = () => {
