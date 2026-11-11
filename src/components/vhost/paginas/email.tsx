@@ -77,7 +77,10 @@ function lerEmail(me: string, d: string, fundo = false): Promise<InfoEmail> {
 /** Domínio em que se trabalha: o escolhido no seletor (todos os domínios da conta, também os só de e-mail) */
 function dominioEmail(vh: VH): string {
   const doms = vh.a.domains.map((x) => x.name); // o primeiro é o principal da conta
-  return vh.s.dominio && doms.includes(vh.s.dominio) ? vh.s.dominio : doms[0] || '';
+  if (vh.s.dominio && doms.includes(vh.s.dominio)) return vh.s.dominio;
+  // sem escolha no seletor: o principal, salvo se só outro domínio da conta tiver e-mail (as caixas da Revista Terra estão em
+  // revistaterra.co.mz e o principal, revistaterraonline.com, não tem nenhuma: a lista aparecia vazia)
+  return (!vh.a.domains[0]?.temEmail && vh.a.domains.find((x) => x.temEmail)?.name) || doms[0] || '';
 }
 
 function useEmail() {
@@ -663,7 +666,11 @@ function ContasLista() {
         rows={rows}
         rowKey={(r) => r.nome}
         onRecarregar={() => void lerEmail(vh.me, d)}
-        empty="Este domínio ainda não tem contas de e-mail"
+        empty={
+          vh.a.domains.some((x) => x.temEmail && x.name !== d)
+            ? t('Este domínio ainda não tem contas de e-mail. Há caixas em {0}: escolha-o no seletor de domínio.').replace('{0}', vh.a.domains.find((x) => x.temEmail && x.name !== d)!.name)
+            : 'Este domínio ainda não tem contas de e-mail'
+        }
         rowClass={(r) => (r.suspensa ? 'off' : '')}
         cols={[
           {

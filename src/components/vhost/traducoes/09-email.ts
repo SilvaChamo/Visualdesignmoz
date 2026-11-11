@@ -3,6 +3,7 @@ export const email: Record<string, string> = {
  "Abrir no VhostMail": "Open in VhostMail",
  "Endereço de destinatário inválido.": "Invalid recipient address.",
  "Escolha uma data e hora.": "Choose a date and time.",
+ "Este domínio ainda não tem contas de e-mail. Há caixas em {0}: escolha-o no seletor de domínio.": "This domain has no email accounts yet. There are mailboxes on {0}: choose it in the domain selector.",
  "Escolha uma hora a partir de agora e até 90 dias.": "Choose a time from now up to 90 days ahead.",
  "Inicie sessão no painel.": "Sign in to the panel.",
  "Resposta inválida do servidor.": "Invalid response from the server.",
