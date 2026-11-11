@@ -1,7 +1,7 @@
 // VhostMail ↔ painel VisualHost: o que se acrescenta ao maquete aprovado (o desenho não muda).
 // Corre no fim do código do maquete, dentro da página do VhostMail (iframe do painel).
 //  • abre na pasta pedida (Entrada ou Enviados) e na conta pedida (a que vem em window.VM_CFG)
-//  • Sair volta ao painel (a sessão é a do painel, não há login próprio)
+//  • Sair volta logo às Contas de e-mail do painel (a sessão é a do painel, não há login próprio)
 //  • "Fazer upgrade" mostra os planos de e-mail que existem (src/lib/email-plans.ts) e "Escolher" abre Planos e preços
 //  • o tema claro/escuro do painel passa para o VhostMail
 // Escrito só com aspas simples e sem backticks: o texto vai para dentro de um <script>.
@@ -10,8 +10,12 @@ export const INTEGRACAO_JS = String.raw`
 (function(){
   var C=window.VM_CFG||{};
   function painel(m){try{parent.postMessage({vhostmail:1,acao:m},location.origin)}catch(e){}}
-  /* Sair: o utilizador já está dentro do painel, por isso regressa a ele */
+  /* Sair: o utilizador já está dentro do painel, por isso volta logo às Contas de e-mail (sem a pergunta de «iniciar sessão novamente»).
+     Apanha-se na janela, antes de qualquer outro tratamento do clique, em todos os botões Sair (barra de cima, menu, definições). */
   showLogin=function(){painel('voltar')};
+  window.addEventListener('click',function(e){
+    if(e.target&&e.target.closest&&e.target.closest('[data-act=logout]')){e.stopImmediatePropagation();e.preventDefault();painel('voltar')}
+  },true);
   /* Fazer upgrade: os planos de e-mail da VisualDesign */
   plansModal=function(){
     var P=C.planos||[];

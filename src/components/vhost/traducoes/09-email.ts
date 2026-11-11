@@ -1,5 +1,8 @@
 // Inglês do painel — 09-email (auditoria de 27/10/2026). Chave = texto em português tal como está no código.
 export const email: Record<string, string> = {
+ "Abrir no VhostMail": "Open in VhostMail",
+ "Entrada · {0}": "Inbox · {0}",
+ "Enviados · {0}": "Sent · {0}",
  "Mailmarketing": "Mail marketing",
  "Campanhas e newsletters": "Campaigns and newsletters",
  "Contactos e listas": "Contacts and lists",

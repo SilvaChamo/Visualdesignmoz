@@ -19,9 +19,7 @@ function Vhostmail({ pasta, conta }: { pasta: PastaVhostmail; conta: string }) {
   const tema = vh.s.theme;
   const plano = vh.a.hpkg || vh.a.pkg || '';
   const espera = useContext(EsperaPagina);
-  const moldura = useRef<HTMLDivElement>(null);
   const quadro = useRef<HTMLIFrameElement>(null);
-  const [alt, setAlt] = useState(640);
   const carregou = useRef<(() => void) | null>(null);
   // o tema só conta ao abrir; depois muda-se por mensagem, sem recarregar a caixa
   const [temaInicial] = useState(tema);
@@ -55,27 +53,10 @@ function Vhostmail({ pasta, conta }: { pasta: PastaVhostmail; conta: string }) {
     quadro.current?.contentWindow?.postMessage({ vhostmail: 1, tema }, location.origin);
   }, [tema]);
 
-  // altura: do topo da moldura até ao fim do ecrã
-  useEffect(() => {
-    const medir = () => {
-      const t = moldura.current?.getBoundingClientRect().top ?? 0;
-      setAlt(Math.max(520, Math.round(window.innerHeight - t - 16)));
-    };
-    medir();
-    window.addEventListener('resize', medir);
-    return () => window.removeEventListener('resize', medir);
-  }, []);
-
+  // a moldura ocupa o ecrã todo (a altura vem do CSS, sem medir nada)
   return (
-    <div className="vm-moldura" ref={moldura} style={{ height: alt }}>
-      <iframe
-        ref={quadro}
-        className="vm-quadro"
-        title="VhostMail"
-        src={src}
-        allow="clipboard-write"
-        onLoad={() => carregou.current?.()}
-      />
+    <div className="vm-moldura">
+      <iframe ref={quadro} className="vm-quadro" title="VhostMail" src={src} allow="clipboard-write" onLoad={() => carregou.current?.()} />
     </div>
   );
 }
@@ -83,15 +64,12 @@ function Vhostmail({ pasta, conta }: { pasta: PastaVhostmail; conta: string }) {
 /** Ecrã do VhostMail: /utilizador/email/vhostmail/<entrada|enviados>/<endereço> */
 export const vhostmailPagina = (pasta: string, endereco: string): ScreenFn => () => {
   const p: PastaVhostmail = pasta === 'enviados' ? 'enviados' : 'entrada';
-  const d = endereco.split('@')[1] || '';
   return {
     title: 'VhostMail',
     desc: endereco,
     crumbs: [{ t: 'E-mails', path: '/utilizador/email' }, { t: 'VhostMail' }, { t: (p === 'enviados' ? 'Enviados' : 'Entrada') + ' · ' + endereco }],
-    // mudar de domínio no seletor leva às contas de e-mail desse domínio
-    dominioUrl: d ? { d, ir: () => '/utilizador/email' } : undefined,
     semCartao: true,
-    voltar: '/utilizador/email',
+    ecraInteiro: true,
     body: <Vhostmail key={p + '|' + endereco} pasta={p} conta={endereco} />,
   };
 };

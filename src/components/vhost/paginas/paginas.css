@@ -16207,9 +16207,15 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
 .vh :is(div, li, label)[class*="hover:bg-"]:hover:not(#x):not(#y) {
    background-color: var(--hover) !important
 }
-/* VhostMail (iframe) por baixo da faixa do caminho; a coluna do menu dá lugar a um botão "Voltar" (11/11/2026) */
-.vh .vm-moldura{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:0 10px 32px rgba(0,0,0,.08);overflow:hidden;min-height:520px;flex:none}
-.vh[data-theme=dark] .vm-moldura{box-shadow:0 12px 36px rgba(0,0,0,.35)}
-.vh .vm-quadro{display:block;width:100%;height:100%;border:0;background:var(--card)}
-.vh .navvoltar{padding:18px 16px}
-.vh .navvoltar .btn{width:100%;justify-content:flex-start}
+/* VhostMail em ecrã inteiro (11/11/2026): sem menu à esquerda, sem faixa de cima, sem caminho nem barra de baixo;
+   o iframe preenche a janela toda e o botão Sair da própria página volta às Contas de e-mail */
+.vh .app.app-inteiro .sidebar,
+.vh .app.app-inteiro .top-impersonacao > header,
+.vh .app.app-inteiro ~ .tabbar{display:none}
+.vh .app.app-inteiro{height:100vh;height:100dvh;overflow:hidden}
+.vh .app.app-inteiro .right{height:100%;overflow:hidden}
+.vh .app.app-inteiro main:not(#x){padding:0;min-height:0}
+.vh .vm-moldura:not(#x){position:relative;flex:1;min-height:0;background:var(--card)}
+/* a regra geral dá 24 px por baixo ao último bloco de uma página sem cartão; aqui não pode haver margem */
+.vh main > .pg-slot > .vm-moldura:last-child:not(#x):not(#y):not(#z){margin:0}
+.vh .vm-quadro{position:absolute;inset:0;display:block;width:100%;height:100%;border:0;background:var(--card)}

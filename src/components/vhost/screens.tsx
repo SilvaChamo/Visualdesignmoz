@@ -68,8 +68,8 @@ export interface Screen {
   lado?: ReactNode;
   /** o corpo ocupa o lugar do cartão principal (VhostMail: sem a moldura de 24 px) */
   semCartao?: boolean;
-  /** a coluna do menu à esquerda dá lugar a um botão "Voltar" que abre este endereço (VhostMail) */
-  voltar?: string;
+  /** a página ocupa o ecrã todo: sem menu à esquerda, sem faixa de cima, sem caminho (VhostMail) */
+  ecraInteiro?: boolean;
 }
 export type ScreenFn = (vh: VH) => Screen;
 

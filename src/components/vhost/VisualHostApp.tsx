@@ -1578,7 +1578,8 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
     <VHContext.Provider value={vh}>
       <div className="vh" data-theme={st.theme} style={themeStyles as React.CSSProperties} lang={st.lang === 'en' ? 'en' : 'pt-PT'} suppressHydrationWarning>
         <BarraTopo />
-        <div className="app">
+        {/* páginas de ecrã inteiro (VhostMail): sem menu, sem faixa de cima, sem caminho; a própria página traz o botão de sair */}
+        <div className={'app' + (mostra.scr.ecraInteiro && !mostra.deny ? ' app-inteiro' : '')}>
           <aside className="sidebar">
             {/* Barra de ícones: símbolo · mensagens · perfil · preferências · ficheiros · idioma · pesquisa */}
             <div className="rail" id="rail">
@@ -1614,16 +1615,6 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
             </div>
 
             <div className="navcol">
-              {/* páginas com `voltar` (VhostMail): a coluna do menu dá lugar a um só botão "Voltar" */}
-              {mostra.scr.voltar ? (
-                <div className="navvoltar">
-                  <button className="btn g" onClick={() => nav(mostra.scr.voltar!)}>
-                    <i className="fa-solid fa-arrow-left" />
-                    {t('Voltar')}
-                  </button>
-                </div>
-              ) : (
-              <>
               <div className="navhead" id="navhead">
                 <h1 className={'dash' + (home ? ' on' : '')} onClick={() => go('inicio')} title={t('Ir para o Dashboard')}>
                   {tituloPainel}
@@ -1745,8 +1736,6 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
                   <small title={pessoaEmail}>{pessoaEmail}</small>
                 </div>
               </div>
-              </>
-              )}
             </div>
           </aside>
 
@@ -1803,7 +1792,7 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
               <ImpBanner />
             </div>
             <main id="main">
-              {!mostra.deny && <SwitcherBar title={mostra.scr.title} crumbs={mostra.scr.crumbs} dominios={mostra.scr.dominios} dominioUrl={mostra.scr.dominioUrl} />}
+              {!mostra.deny && !mostra.scr.ecraInteiro && <SwitcherBar title={mostra.scr.title} crumbs={mostra.scr.crumbs} dominios={mostra.scr.dominios} dominioUrl={mostra.scr.dominioUrl} />}
               {pesqPag.aberta && !mostra.deny && (
                 <PesquisaNaPagina
                   t={t}
@@ -1822,7 +1811,7 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
               {(aEspera ? [mostra, atual] : [atual]).map((p) => (
                 <PaginaSlot key={p.chave} p={p} oculta={aEspera && p === atual} onPronta={libertar} registar={registarFonte} />
               ))}
-              {!mostra.deny && <RouteFoot />}
+              {!mostra.deny && !mostra.scr.ecraInteiro && <RouteFoot />}
             </main>
           </div>
         </div>
