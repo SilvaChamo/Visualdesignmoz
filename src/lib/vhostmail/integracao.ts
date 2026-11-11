@@ -160,8 +160,8 @@ body.nobanner #drawer{top:40px}
    da cor da barra, com a linha vermelha a acompanhar o cartão aberto (em cima, à direita e em baixo) e a sombra só para o lado em que abre */
 #side .fold.sel svg,#side .fold:hover svg,#side .acct:hover svg,#side .addacct:hover svg,#side .sfoot button:hover svg,#side .appsw:hover svg{color:#FF2B3A}
 #side.col .fmore,#side.col .fold .fmore{display:none!important}
-.sidefly{position:fixed;z-index:300;display:flex;align-items:center;box-sizing:border-box;padding:0 22px 0 16px;background:var(--side,#1E1E20);color:#fff;border:2px solid var(--brand,#E5202E);border-left:0;border-radius:0;box-shadow:12px 0 30px rgba(0,0,0,.18);font-size:14px;font-weight:400;white-space:nowrap;pointer-events:none;animation:vmfly .22s ease}
-/* sai da barra a deslizar, como a gaveta do painel (transição de .22s): descobre-se da esquerda para a direita */
+.sidefly{position:fixed;z-index:300;display:flex;align-items:center;box-sizing:border-box;padding:0 22px 0 16px;background:var(--side,#1E1E20);color:#fff;border:2px solid var(--brand,#E5202E);border-left:0;border-radius:0;box-shadow:12px 0 30px rgba(0,0,0,.18);font-size:14px;font-weight:400;white-space:nowrap;pointer-events:none;animation:vmfly .6s cubic-bezier(.25,.1,.25,1)}
+/* sai da barra a deslizar devagar, como uma gaveta (Silva, 11/11/2026: o efeito de abrir não pode ser rápido): descobre-se da esquerda para a direita */
 @keyframes vmfly{from{clip-path:inset(-8px 100% -8px 0)}to{clip-path:inset(-8px -40px -8px 0)}}
 /* faixa vermelha das notificações: só surge uns segundos depois de entrar (a classe vm-bn-on põe-na); sem ela a página ocupa o lugar da faixa */
 body:not(.vm-bn-on) #banner{display:none}
