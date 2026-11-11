@@ -47,31 +47,33 @@ export const INTEGRACAO_JS = String.raw`
   /* barra lateral compacta (como a do Entrecampos): ao passar o rato num ícone, o nome sai à direita, colado à barra.
      Fica por cima de tudo (position:fixed) porque a lista da barra tem scroll e cortaria uma dica normal. */
   (function(){
-    var fly=null,mx=0,my=0;
-    function quita(){if(fly){fly.remove();fly=null}}
+    var fly=null,cur=null,mx=0,my=0;
+    function quita(){if(fly){fly.remove();fly=null}cur=null}
     function nome(t){
       var n=t.getAttribute('data-tip-side')||t.getAttribute('aria-label');
       if(!n){var s=t.querySelector('.em')||t.querySelector('span:not(.av):not(.cnt):not(.sq)');n=s?s.textContent:''}
       return (n||'').trim();
     }
     function mostra(el){
-      quita();
       var t=el&&el.closest&&el.closest('#side .fold,#side .acct,#side .addacct,#side .appsw,#side .sfoot button');
+      /* o rato passa por cima do ícone, do nome e do contador do mesmo item: a gaveta já aberta não se refaz (senão tremia) */
+      if(t&&t===cur&&fly&&fly.isConnected)return;
+      quita();
       var side=document.getElementById('side');
       if(!t||!side||side.offsetWidth>120)return;
       var n=nome(t);if(!n)return;
       var r=t.getBoundingClientRect(),sr=side.getBoundingClientRect();
-      fly=document.createElement('div');fly.className='sidefly';fly.textContent=n;
+      cur=t;fly=document.createElement('div');fly.className='sidefly';fly.textContent=n;
       document.body.appendChild(fly);
-      /* a gaveta nasce na linha vermelha da barra (cobre-a nesta altura) e abraça a linha do ícone, 2 px por cima e por baixo */
-      fly.style.left=Math.round(sr.right-2)+'px';
-      fly.style.top=Math.round(r.top-2)+'px';
-      fly.style.height=Math.round(r.height+4)+'px';
+      /* a gaveta nasce encostada à barra, na altura da linha do ícone; só tem a linha vermelha do lado direito */
+      fly.style.left=Math.round(sr.right)+'px';
+      fly.style.top=Math.round(r.top)+'px';
+      fly.style.height=Math.round(r.height)+'px';
     }
     document.addEventListener('mouseover',function(e){mx=e.clientX;my=e.clientY;mostra(e.target)});
     document.addEventListener('mouseout',function(e){var r=e.relatedTarget;if(!r||!r.closest||!r.closest('#side'))quita()});
     /* depois de um clique a barra volta a desenhar-se: mostra outra vez o nome do ícone que está debaixo do rato */
-    document.addEventListener('click',function(){quita();setTimeout(function(){mostra(document.elementFromPoint(mx,my))},80)},true);
+    document.addEventListener('click',function(){setTimeout(function(){mostra(document.elementFromPoint(mx,my))},80)},true);
     var sc=document.getElementById('sfolders');if(sc)sc.addEventListener('scroll',quita);
     window.addEventListener('blur',quita);
   })();
@@ -160,7 +162,7 @@ body.nobanner #drawer{top:40px}
    da cor da barra, com a linha vermelha a acompanhar o cartão aberto (em cima, à direita e em baixo) e a sombra só para o lado em que abre */
 #side .fold.sel svg,#side .fold:hover svg,#side .acct:hover svg,#side .addacct:hover svg,#side .sfoot button:hover svg,#side .appsw:hover svg{color:#FF2B3A}
 #side.col .fmore,#side.col .fold .fmore{display:none!important}
-.sidefly{position:fixed;z-index:300;display:flex;align-items:center;box-sizing:border-box;padding:0 22px 0 16px;background:var(--side,#1E1E20);color:#fff;border:2px solid var(--brand,#E5202E);border-left:0;border-radius:0;box-shadow:12px 0 30px rgba(0,0,0,.18);font-size:14px;font-weight:400;white-space:nowrap;pointer-events:none;animation:vmfly .6s cubic-bezier(.25,.1,.25,1)}
+.sidefly{position:fixed;z-index:300;display:flex;align-items:center;box-sizing:border-box;padding:0 22px 0 16px;background:var(--side,#1E1E20);color:#fff;border:0;border-right:2px solid var(--brand,#E5202E);border-radius:0;box-shadow:12px 0 30px rgba(0,0,0,.18);font-size:14px;font-weight:400;white-space:nowrap;pointer-events:none;animation:vmfly .6s cubic-bezier(.25,.1,.25,1)}
 /* sai da barra a deslizar devagar, como uma gaveta (Silva, 11/11/2026: o efeito de abrir não pode ser rápido): descobre-se da esquerda para a direita */
 @keyframes vmfly{from{clip-path:inset(-8px 100% -8px 0)}to{clip-path:inset(-8px -40px -8px 0)}}
 /* faixa vermelha das notificações: só surge uns segundos depois de entrar (a classe vm-bn-on põe-na); sem ela a página ocupa o lugar da faixa */
