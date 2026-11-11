@@ -15,6 +15,7 @@ import { Stat } from '../ui';
 import { Check, DataTable, MaisOpcoes, novaSenha, Senha, Switch, Tabs } from './componentes';
 import { Confirmar } from './pacotes';
 import { reprocessarVarios } from './dominios';
+import { vhostmailPagina, vhostmailPath } from './vhostmail';
 import { AO_ABRIR, EsperaPagina, FUNDO, useGet, useNaMemoria } from '../carga';
 import { corUso } from '../cor-uso';
 
@@ -76,7 +77,10 @@ function lerEmail(me: string, d: string, fundo = false): Promise<InfoEmail> {
 /** Domínio em que se trabalha: o escolhido no seletor (todos os domínios da conta, também os só de e-mail) */
 function dominioEmail(vh: VH): string {
   const doms = vh.a.domains.map((x) => x.name); // o primeiro é o principal da conta
-  return vh.s.dominio && doms.includes(vh.s.dominio) ? vh.s.dominio : doms[0] || '';
+  if (vh.s.dominio && doms.includes(vh.s.dominio)) return vh.s.dominio;
+  // sem escolha no seletor: o principal, salvo se só outro domínio da conta tiver e-mail (as caixas da Revista Terra estão em
+  // revistaterra.co.mz e o principal, revistaterraonline.com, não tem nenhuma: a lista aparecia vazia)
+  return (!vh.a.domains[0]?.temEmail && vh.a.domains.find((x) => x.temEmail)?.name) || doms[0] || '';
 }
 
 function useEmail() {
@@ -662,7 +666,11 @@ function ContasLista() {
         rows={rows}
         rowKey={(r) => r.nome}
         onRecarregar={() => void lerEmail(vh.me, d)}
-        empty="Este domínio ainda não tem contas de e-mail"
+        empty={
+          vh.a.domains.some((x) => x.temEmail && x.name !== d)
+            ? t('Este domínio ainda não tem contas de e-mail. Há caixas em {0}: escolha-o no seletor de domínio.').replace('{0}', vh.a.domains.find((x) => x.temEmail && x.name !== d)!.name)
+            : 'Este domínio ainda não tem contas de e-mail'
+        }
         rowClass={(r) => (r.suspensa ? 'off' : '')}
         cols={[
           {
@@ -767,11 +775,11 @@ function ContasLista() {
             right: true,
             cell: (r) => (
               <span className="em-log">
-                <a className="lk" onClick={() => nav('/utilizador/rastreio/entrada/' + encodeURIComponent(r.nome + '@' + d))}>
+                <a className="lk" onClick={() => nav(vhostmailPath('entrada', r.nome + '@' + d))}>
                   {t('Entrada')}
                 </a>{' '}
                 ⇄{' '}
-                <a className="lk" onClick={() => nav('/utilizador/rastreio/saida/' + encodeURIComponent(r.nome + '@' + d))}>
+                <a className="lk" onClick={() => nav(vhostmailPath('enviados', r.nome + '@' + d))}>
                   {t('Saída')}
                 </a>
               </span>
@@ -780,6 +788,9 @@ function ContasLista() {
         ]}
         actions={(r) => (
           <span className="dns-acoes">
+            <button className="btn g sm" onClick={() => nav(vhostmailPath('entrada', r.nome + '@' + d))} title={t('Abrir no VhostMail')}>
+              {t('Abrir')}
+            </button>
             <a className="btn g sm iconbtn" href={webmailUrl(vh.me, d, r.nome)} target="_blank" rel="noreferrer" title={t('Abrir webmail')} aria-label={t('Abrir webmail')}>
               <i className="fa-solid fa-inbox" />
             </a>
@@ -892,8 +903,9 @@ function UsoEmail() {
 }
 
 export const emailPagina: ScreenFn = (vh) => {
-  const [a] = vh.s.sub;
+  const [a, b, c] = vh.s.sub;
   const base = { t: 'E-mails', path: '/utilizador/email' };
+  if (a === 'vhostmail' && b && c) return vhostmailPagina(b, c)(vh);
   if (a === 'nova') return { title: 'Criar conta de e-mail', crumbs: [base, { t: 'Criar conta' }], body: <ContaNova /> };
   if (a === 'uso') return { title: 'Uso de e-mail', crumbs: [base, { t: 'Uso de e-mail' }], body: <UsoEmail /> };
   // estatísticas e botões integrados no cartão principal; a lista estica para toda a largura

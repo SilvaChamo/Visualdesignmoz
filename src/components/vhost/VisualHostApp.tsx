@@ -1294,7 +1294,7 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
   // A página anterior só sai quando a nova terminou as leituras; não se revela uma página vazia por timeout.
   // O domínio escolhido no seletor conta como página nova (pedido do Silva, 12/10): sem isto, mudar de domínio na
   // mesma página apagava o conteúdo e deixava-a vazia até chegarem os dados do domínio novo.
-  const semCartao = (s.page === 'inicio' || !s.page) && s.dashTab !== 'menu' && !s.deny;
+  const semCartao = ((s.page === 'inicio' || !s.page) && s.dashTab !== 'menu' && !s.deny) || (!s.deny && !!scr.semCartao);
   const chavePag = st.path + (st.dominio ? '@' + st.dominio : '') + (s.deny ? '#' + s.deny.type : '') + (semCartao ? '' : '#cartao');
   const atual: Pagina = { chave: chavePag, ok: st.carga === 'ok', vh, scr, title, desc, semCartao, deny: !!s.deny, home };
   const pronta = useRef<Pagina | null>(null);
@@ -1578,7 +1578,8 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
     <VHContext.Provider value={vh}>
       <div className="vh" data-theme={st.theme} style={themeStyles as React.CSSProperties} lang={st.lang === 'en' ? 'en' : 'pt-PT'} suppressHydrationWarning>
         <BarraTopo />
-        <div className="app">
+        {/* páginas de ecrã inteiro (VhostMail): sem menu, sem faixa de cima, sem caminho; a própria página traz o botão de sair */}
+        <div className={'app' + (mostra.scr.ecraInteiro && !mostra.deny ? ' app-inteiro' : '')}>
           <aside className="sidebar">
             {/* Barra de ícones: símbolo · mensagens · perfil · preferências · ficheiros · idioma · pesquisa */}
             <div className="rail" id="rail">
@@ -1791,7 +1792,7 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
               <ImpBanner />
             </div>
             <main id="main">
-              {!mostra.deny && <SwitcherBar title={mostra.scr.title} crumbs={mostra.scr.crumbs} dominios={mostra.scr.dominios} dominioUrl={mostra.scr.dominioUrl} />}
+              {!mostra.deny && !mostra.scr.ecraInteiro && <SwitcherBar title={mostra.scr.title} crumbs={mostra.scr.crumbs} dominios={mostra.scr.dominios} dominioUrl={mostra.scr.dominioUrl} />}
               {pesqPag.aberta && !mostra.deny && (
                 <PesquisaNaPagina
                   t={t}
@@ -1810,7 +1811,7 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
               {(aEspera ? [mostra, atual] : [atual]).map((p) => (
                 <PaginaSlot key={p.chave} p={p} oculta={aEspera && p === atual} onPronta={libertar} registar={registarFonte} />
               ))}
-              {!mostra.deny && <RouteFoot />}
+              {!mostra.deny && !mostra.scr.ecraInteiro && <RouteFoot />}
             </main>
           </div>
         </div>
