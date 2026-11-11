@@ -16,6 +16,33 @@ export const INTEGRACAO_JS = String.raw`
   window.addEventListener('click',function(e){
     if(e.target&&e.target.closest&&e.target.closest('[data-act=logout]')){e.stopImmediatePropagation();e.preventDefault();painel('voltar')}
   },true);
+  /* Adicionar ou criar conta: o que o maquete simulava passa a fazer de verdade com o painel.
+     - «Adicionar conta»: abre outra caixa que esta sessão já vê (o servidor confirma; não é preciso senha)
+     - «Criar um novo e-mail»: Contas de e-mail › Criar conta
+     - «Traga o Gmail / os seus e-mails»: Migração de e-mail do painel */
+  var _aam=addAcctModal;
+  addAcctModal=function(){
+    _aam();
+    var o=document.querySelector('.ov .addm')&&document.querySelector('.ov .addm').closest('.ov');if(!o)return;
+    var i=o.querySelector('#aae'),g=o.querySelector('#aago'),nw=o.querySelector('[data-nw]'),gm=o.querySelector('[data-gm]');
+    if(g&&i)g.onclick=function(){
+      if(!g.classList.contains('on'))return;
+      var v=i.value.trim().toLowerCase();
+      if(String(C.conta||'').toLowerCase()===v){o.remove();toast('Já está nesta caixa');return}
+      g.classList.remove('on');
+      fetch('/api/vhost/vhostmail/caixa',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({end:v,acao:'pastas'})})
+        .then(function(r){return r.json().catch(function(){return {}}).then(function(j){return {ok:r.ok,j:j}})})
+        .then(function(x){
+          if(x.ok){o.remove();painel('abrir:'+v)}
+          else{g.classList.add('on');toast(esc(x.j.erro||'Não foi possível abrir essa caixa.'))}
+        }).catch(function(){g.classList.add('on');toast('Não foi possível abrir essa caixa.')});
+    };
+    if(nw)nw.onclick=function(){o.remove();painel('criar')};
+    if(gm)gm.onclick=function(){o.remove();painel('migrar')};
+  };
+  newAddrModal=function(){painel('criar')};
+  gmailModal=function(){painel('migrar')};
+  bringModal=function(){painel('migrar')};
   /* Fazer upgrade: os planos de e-mail da VisualDesign */
   plansModal=function(){
     var P=C.planos||[];
