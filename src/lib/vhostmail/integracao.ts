@@ -44,6 +44,35 @@ export const INTEGRACAO_JS = String.raw`
         $('#list .items').insertAdjacentHTML('afterbegin','<div class="impnote">'+ic('info')+'<span>Mensagens de exemplo: a ligação à sua caixa de correio real ainda não está activa.</span></div>');
     };
   }
+  /* barra lateral compacta (como a do Entrecampos): ao passar o rato num ícone, o nome sai à direita, colado à barra.
+     Fica por cima de tudo (position:fixed) porque a lista da barra tem scroll e cortaria uma dica normal. */
+  (function(){
+    var fly=null,mx=0,my=0;
+    function quita(){if(fly){fly.remove();fly=null}}
+    function nome(t){
+      var n=t.getAttribute('data-tip-side')||t.getAttribute('aria-label');
+      if(!n){var s=t.querySelector('.em')||t.querySelector('span:not(.av):not(.cnt):not(.sq)');n=s?s.textContent:''}
+      return (n||'').trim();
+    }
+    function mostra(el){
+      quita();
+      var t=el&&el.closest&&el.closest('#side .fold,#side .acct,#side .addacct,#side .appsw,#side .sfoot button');
+      var side=document.getElementById('side');
+      if(!t||!side||side.offsetWidth>120)return;
+      var n=nome(t);if(!n)return;
+      var r=t.getBoundingClientRect(),sr=side.getBoundingClientRect();
+      fly=document.createElement('div');fly.className='sidefly';fly.textContent=n;
+      document.body.appendChild(fly);
+      fly.style.left=Math.round(sr.right)+'px';
+      fly.style.top=Math.round(r.top+r.height/2-fly.offsetHeight/2)+'px';
+    }
+    document.addEventListener('mouseover',function(e){mx=e.clientX;my=e.clientY;mostra(e.target)});
+    document.addEventListener('mouseout',function(e){var r=e.relatedTarget;if(!r||!r.closest||!r.closest('#side'))quita()});
+    /* depois de um clique a barra volta a desenhar-se: mostra outra vez o nome do ícone que está debaixo do rato */
+    document.addEventListener('click',function(){quita();setTimeout(function(){mostra(document.elementFromPoint(mx,my))},80)},true);
+    var sc=document.getElementById('sfolders');if(sc)sc.addEventListener('scroll',quita);
+    window.addEventListener('blur',quita);
+  })();
   /* abre na pasta pedida: Entrada ou Enviados */
   S.folder=(C.pasta==='sent')?'sent':'inbox';S.sel=null;S.checked.clear();
   renderAll();
@@ -65,4 +94,8 @@ body.nobanner #app{height:calc(100vh - 40px)}
 #drawer{top:80px}
 body.nobanner #drawer{top:40px}
 @media (max-width:900px){#ubar .ub svg{width:16px;height:16px}}
+/* barra lateral compacta como a do Entrecampos (Silva, 11/11/2026): o ícone da pasta aberta e o do que está debaixo do rato
+   ficam na cor da marca, e o nome sai à direita, colado à barra, em maiúsculas, com sombra */
+#side .fold.sel svg,#side .fold:hover svg,#side .acct:hover svg,#side .addacct:hover svg,#side .sfoot button:hover svg,#side .appsw:hover svg{color:#FF7A84}
+.sidefly{position:fixed;z-index:300;display:flex;align-items:center;height:36px;padding:0 22px 0 18px;background:#141416;color:#FF7A84;font-size:12.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;white-space:nowrap;border-radius:0 8px 8px 0;box-shadow:0 8px 22px rgba(0,0,0,.45);pointer-events:none}
 `;
