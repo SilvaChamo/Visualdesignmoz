@@ -270,33 +270,12 @@ def rascunho():
             pass
     return {}
 
-def importar():
-    # mensagens já escritas (cabeçalhos + texto); não repete a que já lá estiver (Message-ID)
-    feitas, ja = 0, 0
-    for x in A['mensagens']:
-        m = EmailMessage()
-        m['From'] = x['de']
-        m['To'] = x['para']
-        m['Subject'] = x['assunto']
-        m['Date'] = email.utils.format_datetime(__import__('datetime').datetime.fromtimestamp(x['quando'], __import__('datetime').timezone.utc))
-        m['Message-ID'] = x['mid']
-        m.set_content(x['texto'])
-        if x.get('html'):
-            m.add_alternative(x['html'], subtype='html')
-        existe = jlinhas(run(['-f', 'json', 'search', '-u', U, 'mailbox', A.get('pasta') or 'INBOX', 'header', 'message-id', x['mid']]))
-        if existe:
-            ja += 1
-            continue
-        entregar(m.as_bytes(), A.get('pasta') or 'INBOX', ['Seen'])
-        feitas += 1
-    return {'feitas': feitas, 'jaExistiam': ja}
-
 ACOES = {
     'pastas': lambda: {'pastas': pastas()},
     'lista': lista, 'ler': ler, 'anexo': anexo, 'original': original,
     'marcar': marcar, 'mover': mover, 'apagar': apagar,
     'criarPasta': lambda: (criar_pasta(A['nome']), {})[1],
-    'enviar': enviar, 'rascunho': rascunho, 'importar': importar,
+    'enviar': enviar, 'rascunho': rascunho,
 }
 try:
     r = ACOES[A['acao']]()

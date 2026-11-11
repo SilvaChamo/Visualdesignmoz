@@ -1,6 +1,16 @@
 // Inglês do painel — 09-email (auditoria de 27/10/2026). Chave = texto em português tal como está no código.
 export const email: Record<string, string> = {
  "Abrir no VhostMail": "Open in VhostMail",
+ "Inicie sessão no painel.": "Sign in to the panel.",
+ "Resposta inválida do servidor.": "Invalid response from the server.",
+ "Mensagem demasiado grande.": "Message is too large.",
+ "Essa caixa não é desta conta.": "That mailbox does not belong to this account.",
+ "O painel está ocupado. Tente outra vez dentro de instantes.": "The panel is busy. Please try again in a moment.",
+ "Não foi possível concluir.": "Could not complete the action.",
+ "Não foi possível ler a caixa agora. Tente outra vez.": "Could not read the mailbox right now. Please try again.",
+ "Não foi possível concluir. Tente outra vez.": "Could not complete the action. Please try again.",
+ "Anexo não encontrado.": "Attachment not found.",
+ "Não foi possível descarregar o anexo.": "Could not download the attachment.",
  "Entrada · {0}": "Inbox · {0}",
  "Enviados · {0}": "Sent · {0}",
  "Mailmarketing": "Mail marketing",

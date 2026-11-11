@@ -59,7 +59,7 @@ export const CLIENTE_JS = String.raw`
     });
     var usados={};usados.INBOX=1;for(var k2 in NOM)usados[NOM[k2]]=1;
     S.custom.length=0;
-    PAS.forEach(function(p){if(!usados[p.n])S.custom.push({id:'c:'+p.n,name:p.n.replace(/[<>&"]/g,'')})});
+    PAS.forEach(function(p){var base=p.n.split(/[\/.]/).pop(),especial=false;for(var k3 in pats)if(pats[k3].test(base))especial=true;if(!usados[p.n]&&!especial)S.custom.push({id:'c:'+p.n,name:p.n.replace(/[<>&"]/g,'')})});
   }
   function pasta(k){return A_FOLDERS[k]&&NOM[k]?NOM[k]:(String(k).indexOf('c:')===0?String(k).slice(2):NOM[k]||k)}
   function chave(p){
@@ -412,7 +412,7 @@ export const CLIENTE_CSS = String.raw`
 /* lista e leitura: sem fixar nem resumo/resposta com IA (não têm ligação) */
 .it .hact [data-ha=pin],[data-act=summary],[data-act=aireply],.mfoot .aib{display:none!important}
 /* barra lateral: sem pasta de opções (3 pontos), sem rótulos */
-#side .fmore,[data-act=newlabel]{display:none!important}
+#side .fmore,[data-act=newlabel],#side .fold[data-f=ai]{display:none!important}
 /* sem ligações mortas: o que o maquete mostrava e não tem ligação ao servidor (aplicações, calendário, chat, partilha, recibos,
    ajuda, novidades, erro/recurso, pesquisa avançada, conta extra, preferências de exemplo, tarefas iniciais) sai da vista.
    A palavra-passe, o reencaminhamento e a resposta automática da caixa continuam em Contas de e-mail, no painel. */
