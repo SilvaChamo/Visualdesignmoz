@@ -1,6 +1,7 @@
 // Inglês do painel — 09-email (auditoria de 27/10/2026). Chave = texto em português tal como está no código.
 export const email: Record<string, string> = {
  "Abrir no VhostMail": "Open in VhostMail",
+ "Endereço de destinatário inválido.": "Invalid recipient address.",
  "Inicie sessão no painel.": "Sign in to the panel.",
  "Resposta inválida do servidor.": "Invalid response from the server.",
  "Mensagem demasiado grande.": "Message is too large.",

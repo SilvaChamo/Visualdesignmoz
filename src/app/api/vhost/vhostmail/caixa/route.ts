@@ -16,7 +16,7 @@ export const dynamic = 'force-dynamic';
  */
 
 const EMAIL = /^[a-z0-9]([a-z0-9._+-]{0,62}[a-z0-9])?@([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/i;
-const PASTA = /^[^\u0000-\u001f"\\]{1,100}$/;
+const PASTA = /^[^\u0000-\u001f"\\-][^\u0000-\u001f"\\]{0,99}$/;
 const b64 = (s: string) => Buffer.from(s, 'utf8').toString('base64');
 const JSON_MAX = 8 * 1024 * 1024;
 /** o comando que vai por SSH tem um limite (~128 KB): acima disto, os argumentos seguem em pedaços para um ficheiro temporário */
@@ -146,6 +146,13 @@ export async function POST(req: NextRequest) {
         anexos: anexos.map((a) => ({ nome: String(a.nome || 'anexo').slice(0, 200), tipo: String(a.tipo || 'application/octet-stream').slice(0, 100), b64: String(a.b64 || '').replace(/[^A-Za-z0-9+/=]/g, '') })),
       };
       if (acao === 'enviar' && !String(m.para || '').trim()) throw new Error('Adicione pelo menos um destinatário.');
+      // cada destinatário é um endereço simples (nunca começa por «-»: o sendmail leria como opção)
+      for (const k of ['para', 'cc', 'cco']) {
+        for (const parte of String(m[k] || '').split(/[;,]/)) {
+          const e = (parte.match(/<([^>]*)>/)?.[1] ?? parte).trim();
+          if (e && (e.startsWith('-') || !/^[^\s@,;:<>()"'\\]+@[A-Za-z0-9.-]+$/.test(e))) throw new Error('Endereço de destinatário inválido.');
+        }
+      }
       if (b.pastaEnviados) args.pastaEnviados = pasta('pastaEnviados');
       if (b.pastaRascunhos) args.pastaRascunhos = pasta('pastaRascunhos');
       const velho = b.apagarRascunho as { pasta?: string; uid?: number } | undefined;

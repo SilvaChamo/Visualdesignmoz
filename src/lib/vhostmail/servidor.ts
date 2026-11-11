@@ -38,6 +38,12 @@ def jlinhas(txt):
                 pass
     return r
 
+def pasta_ok(n):
+    n = str(n)
+    if not n or n.startswith('-'):
+        raise RuntimeError('Nome de pasta inválido')
+    return n
+
 def so_nome(s):
     return re.sub(r'[\r\n]', ' ', str(s)).strip()
 
@@ -80,7 +86,7 @@ def cabecalho(h):
     return {'de': nome or end, 'end': end, 'para': pa, 'assunto': g('Subject'), 'quando': quando, 'tipo': g('Content-Type').lower(), 'mid': g('Message-ID')}
 
 def lista():
-    f = A['pasta']
+    f = pasta_ok(A['pasta'])
     st = [p for p in pastas() if p['n'] == f]
     total = st[0]['total'] if st else 0
     lim = int(A.get('max') or 150)
@@ -107,6 +113,7 @@ def lista():
     return {'mensagens': r, 'total': total}
 
 def cru(f, uid):
+    f = pasta_ok(f)
     xs = jlinhas(run(['-f', 'json', 'fetch', '-u', U, 'text', 'mailbox', f, 'uid', str(int(uid))]))
     if not xs:
         raise RuntimeError('Mensagem não encontrada')
@@ -184,11 +191,12 @@ def original():
     return {'texto': cru(A['pasta'], A['uid']).decode('utf-8', 'replace')}
 
 def criar_pasta(nome):
+    nome = pasta_ok(nome)
     run(['mailbox', 'create', '-u', U, nome], ok=(0, 65, 68))
     run(['mailbox', 'subscribe', '-u', U, nome], ok=(0, 65, 68))
 
 def marcar():
-    f = A['pasta']
+    f = pasta_ok(A['pasta'])
     for fl in A.get('juntar', []):
         run(['flags', 'add', '-u', U, '\\' + fl, 'mailbox', f, 'uid', uids(A['uids'])])
     for fl in A.get('tirar', []):
@@ -197,11 +205,11 @@ def marcar():
 
 def mover():
     criar_pasta(A['destino'])
-    run(['move', '-u', U, A['destino'], 'mailbox', A['pasta'], 'uid', uids(A['uids'])])
+    run(['move', '-u', U, pasta_ok(A['destino']), 'mailbox', pasta_ok(A['pasta']), 'uid', uids(A['uids'])])
     return {}
 
 def apagar():
-    run(['expunge', '-u', U, 'mailbox', A['pasta'], 'uid', uids(A['uids'])])
+    run(['expunge', '-u', U, 'mailbox', pasta_ok(A['pasta']), 'uid', uids(A['uids'])])
     return {}
 
 def entregar(msg_bytes, pasta, flags):
@@ -245,8 +253,11 @@ def enviar():
     alvo = [e for n, e in email.utils.getaddresses(destinos) if e]
     if not alvo:
         raise RuntimeError('Sem destinatário válido')
+    # só endereços simples, nunca algo que o sendmail/exim leia como opção
+    if any(e.startswith('-') or not re.fullmatch(r"[^\s@,;:<>()\"'\\]+@[A-Za-z0-9.-]+", e) for e in alvo):
+        raise RuntimeError('Destinatário inválido')
     # o exim entrega (local ou para fora) como faz com qualquer e-mail desta conta
-    p = subprocess.run(['/usr/sbin/sendmail', '-i', '-f', U] + alvo, input=m.as_bytes(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    p = subprocess.run(['/usr/sbin/sendmail', '-i', '-f', U, '--'] + alvo, input=m.as_bytes(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if p.returncode != 0:
         raise RuntimeError('O servidor recusou o envio: ' + p.stderr.decode('utf-8', 'replace').strip()[:200])
     entregar(m.as_bytes(), A.get('pastaEnviados') or 'Sent', ['Seen'])
@@ -258,7 +269,7 @@ def enviar():
     return {}
 
 def apagar_uids(pasta, lst):
-    run(['expunge', '-u', U, 'mailbox', pasta, 'uid', uids(lst)])
+    run(['expunge', '-u', U, 'mailbox', pasta_ok(pasta), 'uid', uids(lst)])
 
 def rascunho():
     m = montar_msg(A['msg'])
