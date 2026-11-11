@@ -19,10 +19,15 @@ export const CLIENTE_JS = String.raw`
   M=[];S.labels=[];S.more=S.more.filter(function(f){return f!=='sched'});
   S.sel=null;S.checked.clear();
 
-  function api(acao,d){
-    d=d||{};d.end=END;d.acao=acao;
+  /* o painel às vezes está ocupado (503): tenta mais duas vezes antes de avisar */
+  function api(acao,d,tent){
+    d=d||{};d.end=END;d.acao=acao;tent=tent||0;
     return fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify(d)}).then(function(r){
-      return r.json().catch(function(){return {}}).then(function(j){if(!r.ok)throw new Error(j.erro||'Não foi possível concluir.');return j});
+      return r.json().catch(function(){return {}}).then(function(j){
+        if(r.status===503&&tent<2)return new Promise(function(ok){setTimeout(ok,1500)}).then(function(){return api(acao,d,tent+1)});
+        if(!r.ok)throw new Error(j.erro||'Não foi possível concluir.');
+        return j;
+      });
     });
   }
   function falha(e){toast(esc((e&&e.message)||'Não foi possível concluir.'))}
@@ -254,6 +259,7 @@ export const CLIENTE_JS = String.raw`
     if(t.closest('[data-chip]')){e.stopImmediatePropagation();e.preventDefault();var m4=get(S.sel),i4=+t.closest('[data-chip]').dataset.chip;if(m4&&m4.att[i4])descarregar(m4,m4.att[i4].i);return}
     if(t.closest('[data-act=dlall]')){e.stopImmediatePropagation();e.preventDefault();var m5=get(S.sel);if(m5){todosAnexos(m5);toast('A descarregar '+m5.att.length+' anexo(s)')}return}
     if(t.closest('[data-act=forward]')){e.stopImmediatePropagation();e.preventDefault();encaminhar();return}
+    if(t.closest('[data-act=upd]')){e.stopImmediatePropagation();e.preventDefault();recarregar([S.folder]);toast('A actualizar a caixa…');return}
     if(t.closest('[data-cb=discard]')){ANEX=[];RASC=t.closest('#compose')?null:RASC}
     if(t.closest('[data-cb=attach]')){e.stopImmediatePropagation();e.preventDefault();anexar(t.closest('#compose')?'compose':'reply');return}
     if((x=t.closest('[data-anx]'))){e.stopImmediatePropagation();e.preventDefault();ANEX.splice(+x.dataset.anx,1);pintaAnexos();return}
@@ -264,7 +270,7 @@ export const CLIENTE_JS = String.raw`
   menu=function(items,anchor,o){
     var m=get(S.sel);
     function ajusta(l){
-      return l.filter(function(it){return !(it.t&&/^(Pino|Fixar|Desafixar|Rótulo|Adicionar a Tarefas|Adicionar aos contactos|Crie uma regra|Limpeza automática|Imprimir|Guardar como modelo|Adicionar à Lista de permissões|Bloquear|Denunciar phishing)/.test(it.t.replace(/<[^>]*>/g,'')))}).map(function(it){
+      return l.filter(function(it){return !(it.t&&/^(Pino|Fixar|Desafixar|Rótulo|Responder com IA|Adicionar a Tarefas|Adicionar aos contactos|Crie uma regra|Limpeza automática|Imprimir|Guardar como modelo|Adicionar à Lista de permissões|Bloquear|Denunciar phishing)/.test(it.t.replace(/<[^>]*>/g,'')))}).map(function(it){
         var n=it.t?it.t.replace(/<[^>]*>/g,''):'',c={};for(var k in it)c[k]=it[k];
         if(it.sub)c.sub=ajusta(it.sub);
         if(n==='Marcar como não lido')c.fn=function(){if(m){marcaLida([m.id],false);S.sel=null;renderAll()}};
@@ -407,4 +413,11 @@ export const CLIENTE_CSS = String.raw`
 .it .hact [data-ha=pin],[data-act=summary],[data-act=aireply],.mfoot .aib{display:none!important}
 /* barra lateral: sem pasta de opções (3 pontos), sem rótulos */
 #side .fmore,[data-act=newlabel]{display:none!important}
+/* sem ligações mortas: o que o maquete mostrava e não tem ligação ao servidor (aplicações, calendário, chat, partilha, recibos,
+   ajuda, novidades, erro/recurso, pesquisa avançada, conta extra, preferências de exemplo, tarefas iniciais) sai da vista.
+   A palavra-passe, o reencaminhamento e a resposta automática da caixa continuam em Contas de e-mail, no painel. */
+[data-act=ub-acct],[data-act=receipts],[data-act=help],[data-act=ub-chat],[data-act=ub-talk],[data-act=ub-share],[data-act=apps],
+[data-act=addacct],[data-act=bug],[data-act=feature],[data-act=news],[data-act=newmenu],[data-act=adv],[data-act=sidepanel],
+[data-act=prefs],[data-act=getapp],[data-act=default],[data-act=imap],[data-act=kbd],[data-act=popout],#setup,#side .sdiv,
+.dsec:has([data-act=grp-on]){display:none!important}
 `;

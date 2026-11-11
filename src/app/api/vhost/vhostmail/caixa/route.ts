@@ -32,7 +32,7 @@ async function sessao(): Promise<{ s: Sessao } | { erro: NextResponse }> {
   return { s: { userId: auth.user.id, email: auth.user.email || '', role: auth.user.role } };
 }
 
-/** A caixa tem de existir no servidor, numa conta que a sessão vê. O resultado guarda-se 3 minutos por sessão e caixa
+/** A caixa tem de existir no servidor, numa conta que a sessão vê. O resultado guarda-se 10 minutos por sessão e caixa
  *  (cada clique do VhostMail faz um pedido; o registo do painel não precisa de ser lido de cada vez) */
 const acessos = new Map<string, number>();
 async function podeVer(s: Sessao, end: string): Promise<boolean> {
@@ -44,7 +44,7 @@ async function podeVer(s: Sessao, end: string): Promise<boolean> {
   const dados = montarDados(srv, await lerRegisto(), s);
   const sim = Object.keys(dados.contas).some((conta) => !!srv.mailAcc[conta]?.[dominio]?.[utilizador]);
   if (sim) {
-    acessos.set(chave, Date.now() + 3 * 60_000);
+    acessos.set(chave, Date.now() + 10 * 60_000);
     if (acessos.size > 500) for (const [k, ate] of acessos) if (ate < Date.now()) acessos.delete(k);
   }
   return sim;
