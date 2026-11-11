@@ -63,8 +63,10 @@ export const INTEGRACAO_JS = String.raw`
       var r=t.getBoundingClientRect(),sr=side.getBoundingClientRect();
       fly=document.createElement('div');fly.className='sidefly';fly.textContent=n;
       document.body.appendChild(fly);
-      fly.style.left=Math.round(sr.right)+'px';
-      fly.style.top=Math.round(r.top+r.height/2-fly.offsetHeight/2)+'px';
+      /* a gaveta nasce na linha vermelha da barra (cobre-a nesta altura) e abraça a linha do ícone, 2 px por cima e por baixo */
+      fly.style.left=Math.round(sr.right-2)+'px';
+      fly.style.top=Math.round(r.top-2)+'px';
+      fly.style.height=Math.round(r.height+4)+'px';
     }
     document.addEventListener('mouseover',function(e){mx=e.clientX;my=e.clientY;mostra(e.target)});
     document.addEventListener('mouseout',function(e){var r=e.relatedTarget;if(!r||!r.closest||!r.closest('#side'))quita()});
@@ -72,6 +74,65 @@ export const INTEGRACAO_JS = String.raw`
     document.addEventListener('click',function(){quita();setTimeout(function(){mostra(document.elementFromPoint(mx,my))},80)},true);
     var sc=document.getElementById('sfolders');if(sc)sc.addEventListener('scroll',quita);
     window.addEventListener('blur',quita);
+  })();
+  /* Notificações a sério: a faixa vermelha só surge passados uns segundos (nunca logo ao entrar), «Ativar notificações» pede
+     a permissão ao navegador e, se for dada, a faixa desaparece e fica activa; se se fechar a faixa, volta na próxima vez que
+     se entrar, enquanto as notificações não estiverem activadas. Ao chegar um e-mail novo, vhostmailAvisar() toca e avisa. */
+  (function(){
+    var ac=null;
+    function perm(){return ('Notification' in window)?Notification.permission:'unsupported'}
+    function audio(){
+      try{
+        var A=window.AudioContext||window.webkitAudioContext;if(!A)return null;
+        if(!ac)ac=new A();
+        if(ac.state==='suspended')ac.resume();
+      }catch(e){ac=null}
+      return ac;
+    }
+    function som(){
+      var c=audio();if(!c)return;
+      var t=c.currentTime;
+      [[880,0],[1175,0.17]].forEach(function(n){
+        var o=c.createOscillator(),g=c.createGain(),i=t+n[1];
+        o.type='sine';o.frequency.value=n[0];
+        g.gain.setValueAtTime(0.0001,i);g.gain.exponentialRampToValueAtTime(0.25,i+0.02);g.gain.exponentialRampToValueAtTime(0.0001,i+0.45);
+        o.connect(g);g.connect(c.destination);o.start(i);o.stop(i+0.5);
+      });
+    }
+    /* o navegador só deixa tocar depois de um clique: o primeiro clique na página prepara o som */
+    document.addEventListener('click',function(){if(perm()==='granted')audio()},{capture:true,once:true});
+    window.vhostmailAvisar=function(de,assunto){
+      if(perm()!=='granted')return;
+      som();
+      try{var n=new Notification(de||'VhostMail',{body:assunto||'Novo e-mail',tag:'vhostmail-novo'});n.onclick=function(){window.focus();n.close()}}catch(e){}
+    };
+    function mostraFaixa(){document.body.classList.add('vm-bn-on')}
+    function escondeFaixa(){document.body.classList.remove('vm-bn-on')}
+    function ligar(doSetup){
+      if(!('Notification' in window)){toast('Este navegador não suporta notificações');return}
+      var p0=perm();
+      if(p0==='granted'){escondeFaixa();toast('As notificações já estão activadas');return}
+      if(p0==='denied'){escondeFaixa();toast('As notificações estão bloqueadas no navegador: active-as nas definições do site');return}
+      var feito=false;
+      function fim(p){
+        if(feito)return;feito=true;
+        if(p==='granted'){
+          escondeFaixa();audio();som();
+          try{new Notification('VhostMail',{body:'Vai receber um aviso quando chegar um e-mail novo.',tag:'vhostmail-novo'})}catch(e){}
+          toast('Notificações activadas');
+          if(doSetup&&typeof markDone==='function')markDone('notif');
+        }else if(p==='denied'){escondeFaixa();toast('Notificações bloqueadas no navegador')}
+      }
+      try{var r=Notification.requestPermission(fim);if(r&&r.then)r.then(fim)}catch(e){}
+    }
+    window.addEventListener('click',function(e){
+      var t=e.target;if(!t||!t.closest)return;
+      if(t.closest('[data-act=notif]')){e.stopImmediatePropagation();e.preventDefault();ligar(false);return}
+      if(t.closest('[data-act=banner-x]')){e.stopImmediatePropagation();e.preventDefault();escondeFaixa();return}
+      if(t.closest('[data-setup=notif]')){e.stopImmediatePropagation();e.preventDefault();ligar(true)}
+    },true);
+    /* enquanto não estiverem activadas (nem sequer bloqueadas no navegador, onde a faixa explica como desbloquear), a faixa volta em cada visita */
+    if(perm()!=='granted'&&perm()!=='unsupported')setTimeout(mostraFaixa,8000);
   })();
   /* abre na pasta pedida: Entrada ou Enviados */
   S.folder=(C.pasta==='sent')?'sent':'inbox';S.sel=null;S.checked.clear();
@@ -95,7 +156,15 @@ body.nobanner #app{height:calc(100vh - 40px)}
 body.nobanner #drawer{top:40px}
 @media (max-width:900px){#ubar .ub svg{width:16px;height:16px}}
 /* barra lateral compacta como a do Entrecampos (Silva, 11/11/2026): o ícone da pasta aberta e o do que está debaixo do rato
-   ficam na cor da marca, e o nome sai à direita, colado à barra, em maiúsculas, com sombra */
-#side .fold.sel svg,#side .fold:hover svg,#side .acct:hover svg,#side .addacct:hover svg,#side .sfoot button:hover svg,#side .appsw:hover svg{color:#FF7A84}
-.sidefly{position:fixed;z-index:300;display:flex;align-items:center;height:36px;padding:0 22px 0 18px;background:#141416;color:#FF7A84;font-size:12.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;white-space:nowrap;border-radius:0 8px 8px 0;box-shadow:0 8px 22px rgba(0,0,0,.45);pointer-events:none}
+   ficam na cor de realce e o menu abre como uma GAVETA, igual à do painel: encostada à barra, sem cantos arredondados,
+   da cor da barra, com a linha vermelha a acompanhar o cartão aberto (em cima, à direita e em baixo) e a sombra só para o lado em que abre */
+#side .fold.sel svg,#side .fold:hover svg,#side .acct:hover svg,#side .addacct:hover svg,#side .sfoot button:hover svg,#side .appsw:hover svg{color:#FF2B3A}
+.sidefly{position:fixed;z-index:300;display:flex;align-items:center;box-sizing:border-box;padding:0 22px 0 16px;background:var(--side,#1E1E20);color:#FF2B3A;border:2px solid var(--brand,#E5202E);border-left:0;border-radius:0;box-shadow:12px 0 30px rgba(0,0,0,.18);font-size:12.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;white-space:nowrap;pointer-events:none}
+/* faixa vermelha das notificações: só surge uns segundos depois de entrar (a classe vm-bn-on põe-na); sem ela a página ocupa o lugar da faixa */
+body:not(.vm-bn-on) #banner{display:none}
+body:not(.vm-bn-on) #app{height:calc(100vh - 40px)}
+body:not(.vm-bn-on) #drawer{top:40px}
+#banner{overflow:hidden;animation:vmbn .35s ease}
+@keyframes vmbn{from{height:0;opacity:0}to{height:40px;opacity:1}}
+#app{transition:height .35s ease}
 `;
