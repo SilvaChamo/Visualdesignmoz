@@ -323,7 +323,10 @@ def agendar():
 
 def devidos():
     # envia o que já passou da hora; um só de cada vez por caixa (a tarefa solta e as visitas podem cruzar-se)
-    lk = open('/var/tmp/vhm-prog-' + re.sub(r'[^a-z0-9]', '_', U.lower()) + '.lock', 'w')
+    # o bloqueio fica numa pasta só do root (nunca num sítio partilhado) e abre-se sem seguir ligações nem apagar o conteúdo
+    os.makedirs('/run/vhostmail', mode=0o700, exist_ok=True)
+    os.chmod('/run/vhostmail', 0o700)
+    lk = os.open('/run/vhostmail/prog-' + re.sub(r'[^a-z0-9]', '_', U.lower()) + '.lock', os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
     fcntl.flock(lk, fcntl.LOCK_EX)
     try:
         xs = jlinhas(run(['-f', 'json', 'fetch', '-u', U, 'uid hdr', 'mailbox', SCHED, 'all']))
