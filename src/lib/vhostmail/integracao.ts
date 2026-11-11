@@ -58,11 +58,13 @@ export const INTEGRACAO_JS = String.raw`
       var t=el&&el.closest&&el.closest('#side .fold,#side .acct,#side .addacct,#side .appsw,#side .sfoot button');
       /* o rato passa por cima do ícone, do nome e do contador do mesmo item: a gaveta já aberta não se refaz (senão tremia) */
       if(t&&t===cur&&fly&&fly.isConnected)return;
-      quita();
       var side=document.getElementById('side');
-      if(!t||!side||side.offsetWidth>120)return;
-      var n=nome(t);if(!n)return;
+      if(!t||!side||side.offsetWidth>120){quita();return}
+      var n=nome(t);if(!n){quita();return}
       var r=t.getBoundingClientRect(),sr=side.getBoundingClientRect();
+      /* depois de um clique a barra volta a desenhar-se com o mesmo item debaixo do rato: a gaveta fica como está, sem deslizar outra vez */
+      if(fly&&fly.isConnected&&fly.textContent===n){cur=t;fly.style.top=Math.round(r.top)+'px';fly.style.height=Math.round(r.height)+'px';return}
+      quita();
       cur=t;fly=document.createElement('div');fly.className='sidefly';fly.textContent=n;
       document.body.appendChild(fly);
       /* a gaveta nasce por cima da linha vermelha da barra (2 px) e interrompe-a na altura do item, dando-lhe lugar; só ela tem a linha vermelha, do lado direito */
