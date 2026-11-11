@@ -1,6 +1,7 @@
 import { EMAIL_PLANS, getEmailCyclePrice, type EmailPlanDef } from '@/lib/email-plans';
+import { CLIENTE_CSS, CLIENTE_JS } from './cliente';
 import { INTEGRACAO_CSS, INTEGRACAO_JS } from './integracao';
-import { MODELO_BASE, MODELO_IMPORTADOS } from './modelo';
+import { MODELO_BASE } from './modelo';
 
 export type PastaVhostmail = 'inbox' | 'sent';
 
@@ -11,8 +12,6 @@ export interface OpcoesVhostmail {
   tema: 'light' | 'dark';
   /** pacote da conta no servidor (ex.: VD-Email-Basico), só para dizer qual é o plano actual */
   plano: string;
-  /** o administrador recebe os e-mails reais importados do maquete; os outros, só mensagens de exemplo */
-  admin: boolean;
 }
 
 const milhares = (n: number) => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
@@ -57,8 +56,7 @@ export function montarVhostmail(o: OpcoesVhostmail): string {
     tema: o.tema,
     planos,
     planoTxt,
-    exemplo: !o.admin,
   };
-  const comCfg = MODELO_BASE.replace('</style></head>', () => INTEGRACAO_CSS + '</style></head>').replace('/*__VM_CFG__*/', () => 'window.VM_CFG=' + jsonSeguro(cfg) + ';');
-  return comCfg + (o.admin ? MODELO_IMPORTADOS : '') + '\n' + INTEGRACAO_JS + '</script></body></html>';
+  const comCfg = MODELO_BASE.replace('</style></head>', () => INTEGRACAO_CSS + CLIENTE_CSS + '</style></head>').replace('/*__VM_CFG__*/', () => 'window.VM_CFG=' + jsonSeguro(cfg) + ';');
+  return comCfg + '\n' + INTEGRACAO_JS + '\n' + CLIENTE_JS + '</script></body></html>';
 }

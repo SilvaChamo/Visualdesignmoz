@@ -7,8 +7,7 @@ export const dynamic = 'force-dynamic';
 /**
  * GET /api/vhost/vhostmail?conta=<endereço>&pasta=entrada|enviados&tema=light|dark&plano=<pacote>
  * A página do VhostMail (o maquete aprovado), mostrada num iframe do painel (Contas de e-mail › Entrada / Saída / Abrir).
- * Só para quem tem sessão no painel; o administrador vê também os e-mails reais importados do maquete.
- * Fase 1: dados de exemplo, ainda sem ligação às caixas reais (IMAP/SMTP do servidor).
+ * Só para quem tem sessão no painel. As mensagens vêm da caixa real da conta aberta (ver ./caixa/route.ts).
  */
 
 const EMAIL = /^[^\s@,;:"'<>()]+@([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/i;
@@ -29,7 +28,6 @@ export async function GET(req: NextRequest) {
     pasta,
     tema: sp.get('tema') === 'dark' ? 'dark' : 'light',
     plano: PACOTE.test(plano) ? plano : '',
-    admin: auth.user.role === 'admin',
   });
   return new NextResponse(html, { headers: HTML });
 }

@@ -36,14 +36,6 @@ export const INTEGRACAO_JS = String.raw`
   });
   /* letra da conta */
   var av=document.querySelector('.uav');if(av&&ME)av.textContent=ME.charAt(0).toUpperCase();
-  /* sem os e-mails importados (quem não é administrador) a caixa mostra só mensagens de exemplo, e diz-se */
-  if(C.exemplo){
-    var _rlx=renderList;
-    renderList=function(){_rlx();
-      if(S.folder==='inbox'&&!S.q&&!S.labelView&&$('#list .items')&&!$('#list .impnote'))
-        $('#list .items').insertAdjacentHTML('afterbegin','<div class="impnote">'+ic('info')+'<span>Mensagens de exemplo: a ligação à sua caixa de correio real ainda não está activa.</span></div>');
-    };
-  }
   /* barra lateral compacta (como a do Entrecampos): ao passar o rato num ícone, o nome sai à direita, colado à barra.
      Fica por cima de tudo (position:fixed) porque a lista da barra tem scroll e cortaria uma dica normal. */
   (function(){
@@ -55,6 +47,7 @@ export const INTEGRACAO_JS = String.raw`
       return (n||'').trim();
     }
     function mostra(el){
+      if(el&&el.closest&&el.closest('.sidefly'))return;
       var t=el&&el.closest&&el.closest('#side .fold,#side .acct,#side .addacct,#side .appsw,#side .sfoot button');
       /* o rato passa por cima do ícone, do nome e do contador do mesmo item: a gaveta já aberta não se refaz (senão tremia) */
       if(t&&t===cur&&fly&&fly.isConnected)return;
@@ -73,7 +66,12 @@ export const INTEGRACAO_JS = String.raw`
       fly.style.height=Math.round(r.height)+'px';
     }
     document.addEventListener('mouseover',function(e){mx=e.clientX;my=e.clientY;mostra(e.target)});
-    document.addEventListener('mouseout',function(e){var r=e.relatedTarget;if(!r||!r.closest||!r.closest('#side'))quita()});
+    document.addEventListener('mouseout',function(e){var r=e.relatedTarget;if(!r||!r.closest||!(r.closest('#side')||r.closest('.sidefly')))quita()});
+    /* as letras da gaveta aberta também se clicam: o clique vai para o item da barra a que ela pertence */
+    document.addEventListener('click',function(e){
+      var g=e.target&&e.target.closest&&e.target.closest('.sidefly');
+      if(g&&cur){e.stopPropagation();e.preventDefault();cur.click()}
+    },true);
     /* depois de um clique a barra volta a desenhar-se: mostra outra vez o nome do ícone que está debaixo do rato */
     document.addEventListener('click',function(){setTimeout(function(){mostra(document.elementFromPoint(mx,my))},80)},true);
     var sc=document.getElementById('sfolders');if(sc)sc.addEventListener('scroll',quita);
@@ -139,8 +137,6 @@ export const INTEGRACAO_JS = String.raw`
     if(perm()!=='granted'&&perm()!=='unsupported')setTimeout(mostraFaixa,8000);
   })();
   /* abre na pasta pedida: Entrada ou Enviados */
-  S.folder=(C.pasta==='sent')?'sent':'inbox';S.sel=null;S.checked.clear();
-  renderAll();
 })();
 `;
 
@@ -164,8 +160,10 @@ body.nobanner #drawer{top:40px}
    da cor da barra, com a linha vermelha a acompanhar o cartão aberto (em cima, à direita e em baixo) e a sombra só para o lado em que abre */
 #side .fold.sel svg,#side .fold:hover svg,#side .acct:hover svg,#side .addacct:hover svg,#side .sfoot button:hover svg,#side .appsw:hover svg{color:#FF2B3A}
 #side.col .fmore,#side.col .fold .fmore{display:none!important}
-.sidefly{position:fixed;z-index:300;display:flex;align-items:center;box-sizing:border-box;padding:0 22px 0 18px;background:var(--side,#1E1E20);color:#fff;border:0;border-right:2px solid var(--brand,#E5202E);border-radius:0;box-shadow:12px 0 30px rgba(0,0,0,.18);font-size:14px;font-weight:400;white-space:nowrap;pointer-events:none;animation:vmfly .6s cubic-bezier(.25,.1,.25,1)}
+.sidefly{position:fixed;z-index:300;display:flex;align-items:center;box-sizing:border-box;padding:0 22px 0 18px;background:var(--side,#1E1E20);color:#fff;border:0;border-right:2px solid var(--brand,#E5202E);border-radius:0;box-shadow:12px 0 30px rgba(0,0,0,.18);font-size:14px;font-weight:400;white-space:nowrap;cursor:pointer;animation:vmfly .6s cubic-bezier(.25,.1,.25,1)}
 /* sai da barra a deslizar devagar, como uma gaveta (Silva, 11/11/2026: o efeito de abrir não pode ser rápido): descobre-se da esquerda para a direita */
+/* o texto da gaveta fica vermelho ao apontar */
+.sidefly:hover{color:#FF2B3A}
 @keyframes vmfly{from{clip-path:inset(-8px 100% -8px 0)}to{clip-path:inset(-8px -40px -8px 0)}}
 /* faixa vermelha das notificações: só surge uns segundos depois de entrar (a classe vm-bn-on põe-na); sem ela a página ocupa o lugar da faixa */
 body:not(.vm-bn-on) #banner{display:none}
