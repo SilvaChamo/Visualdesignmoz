@@ -65,8 +65,8 @@ export const INTEGRACAO_JS = String.raw`
       var r=t.getBoundingClientRect(),sr=side.getBoundingClientRect();
       cur=t;fly=document.createElement('div');fly.className='sidefly';fly.textContent=n;
       document.body.appendChild(fly);
-      /* a gaveta nasce encostada à barra, na altura da linha do ícone; só tem a linha vermelha do lado direito */
-      fly.style.left=Math.round(sr.right)+'px';
+      /* a gaveta nasce por cima da linha vermelha da barra (2 px) e interrompe-a na altura do item, dando-lhe lugar; só ela tem a linha vermelha, do lado direito */
+      fly.style.left=Math.round(sr.right-2)+'px';
       fly.style.top=Math.round(r.top)+'px';
       fly.style.height=Math.round(r.height)+'px';
     }
@@ -162,7 +162,7 @@ body.nobanner #drawer{top:40px}
    da cor da barra, com a linha vermelha a acompanhar o cartão aberto (em cima, à direita e em baixo) e a sombra só para o lado em que abre */
 #side .fold.sel svg,#side .fold:hover svg,#side .acct:hover svg,#side .addacct:hover svg,#side .sfoot button:hover svg,#side .appsw:hover svg{color:#FF2B3A}
 #side.col .fmore,#side.col .fold .fmore{display:none!important}
-.sidefly{position:fixed;z-index:300;display:flex;align-items:center;box-sizing:border-box;padding:0 22px 0 16px;background:var(--side,#1E1E20);color:#fff;border:0;border-right:2px solid var(--brand,#E5202E);border-radius:0;box-shadow:12px 0 30px rgba(0,0,0,.18);font-size:14px;font-weight:400;white-space:nowrap;pointer-events:none;animation:vmfly .6s cubic-bezier(.25,.1,.25,1)}
+.sidefly{position:fixed;z-index:300;display:flex;align-items:center;box-sizing:border-box;padding:0 22px 0 18px;background:var(--side,#1E1E20);color:#fff;border:0;border-right:2px solid var(--brand,#E5202E);border-radius:0;box-shadow:12px 0 30px rgba(0,0,0,.18);font-size:14px;font-weight:400;white-space:nowrap;pointer-events:none;animation:vmfly .6s cubic-bezier(.25,.1,.25,1)}
 /* sai da barra a deslizar devagar, como uma gaveta (Silva, 11/11/2026: o efeito de abrir não pode ser rápido): descobre-se da esquerda para a direita */
 @keyframes vmfly{from{clip-path:inset(-8px 100% -8px 0)}to{clip-path:inset(-8px -40px -8px 0)}}
 /* faixa vermelha das notificações: só surge uns segundos depois de entrar (a classe vm-bn-on põe-na); sem ela a página ocupa o lugar da faixa */
