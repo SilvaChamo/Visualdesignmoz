@@ -139,7 +139,7 @@ export const nucleo: Record<string, string> = {
  "OBSIDIAN BLACK": "OBSIDIAN BLACK",
  "Elegância e mistério em preto profundo.": "Elegance and mystery in deep black.",
  "Estilo executivo em preto 100% absoluto com ícones brancos.": "Executive style in absolute 100% black with white icons.",
- "Fundo cinza suave clássico e limpo da maquete original.": "Classic, clean soft grey background from the original mockup.",
+ "Fundo cinza suave clássico e limpo.": "Classic, clean soft grey background.",
  "Barra lateral compacta em tom cinza suave e sóbrio.": "Compact sidebar in a soft, sober grey.",
  "Atualizar o CPU agora": "Refresh CPU now",
  "{0} domínios · {1} e-mails · nível Utilizador": "{0} domains · {1} e-mails · User level",
