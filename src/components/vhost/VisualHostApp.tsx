@@ -1294,7 +1294,7 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
   // A página anterior só sai quando a nova terminou as leituras; não se revela uma página vazia por timeout.
   // O domínio escolhido no seletor conta como página nova (pedido do Silva, 12/10): sem isto, mudar de domínio na
   // mesma página apagava o conteúdo e deixava-a vazia até chegarem os dados do domínio novo.
-  const semCartao = (s.page === 'inicio' || !s.page) && s.dashTab !== 'menu' && !s.deny;
+  const semCartao = ((s.page === 'inicio' || !s.page) && s.dashTab !== 'menu' && !s.deny) || (!s.deny && !!scr.semCartao);
   const chavePag = st.path + (st.dominio ? '@' + st.dominio : '') + (s.deny ? '#' + s.deny.type : '') + (semCartao ? '' : '#cartao');
   const atual: Pagina = { chave: chavePag, ok: st.carga === 'ok', vh, scr, title, desc, semCartao, deny: !!s.deny, home };
   const pronta = useRef<Pagina | null>(null);
@@ -1614,6 +1614,16 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
             </div>
 
             <div className="navcol">
+              {/* páginas com `voltar` (VhostMail): a coluna do menu dá lugar a um só botão "Voltar" */}
+              {mostra.scr.voltar ? (
+                <div className="navvoltar">
+                  <button className="btn g" onClick={() => nav(mostra.scr.voltar!)}>
+                    <i className="fa-solid fa-arrow-left" />
+                    {t('Voltar')}
+                  </button>
+                </div>
+              ) : (
+              <>
               <div className="navhead" id="navhead">
                 <h1 className={'dash' + (home ? ' on' : '')} onClick={() => go('inicio')} title={t('Ir para o Dashboard')}>
                   {tituloPainel}
@@ -1735,6 +1745,8 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
                   <small title={pessoaEmail}>{pessoaEmail}</small>
                 </div>
               </div>
+              </>
+              )}
             </div>
           </aside>
 

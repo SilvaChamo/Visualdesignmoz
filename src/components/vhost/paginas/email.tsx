@@ -15,6 +15,7 @@ import { Stat } from '../ui';
 import { Check, DataTable, MaisOpcoes, novaSenha, Senha, Switch, Tabs } from './componentes';
 import { Confirmar } from './pacotes';
 import { reprocessarVarios } from './dominios';
+import { vhostmailPagina, vhostmailPath } from './vhostmail';
 import { AO_ABRIR, EsperaPagina, FUNDO, useGet, useNaMemoria } from '../carga';
 import { corUso } from '../cor-uso';
 
@@ -767,11 +768,11 @@ function ContasLista() {
             right: true,
             cell: (r) => (
               <span className="em-log">
-                <a className="lk" onClick={() => nav('/utilizador/rastreio/entrada/' + encodeURIComponent(r.nome + '@' + d))}>
+                <a className="lk" onClick={() => nav(vhostmailPath('entrada', r.nome + '@' + d))}>
                   {t('Entrada')}
                 </a>{' '}
                 ⇄{' '}
-                <a className="lk" onClick={() => nav('/utilizador/rastreio/saida/' + encodeURIComponent(r.nome + '@' + d))}>
+                <a className="lk" onClick={() => nav(vhostmailPath('enviados', r.nome + '@' + d))}>
                   {t('Saída')}
                 </a>
               </span>
@@ -780,6 +781,9 @@ function ContasLista() {
         ]}
         actions={(r) => (
           <span className="dns-acoes">
+            <button className="btn g sm" onClick={() => nav(vhostmailPath('entrada', r.nome + '@' + d))} title={t('Abrir no VhostMail')}>
+              {t('Abrir')}
+            </button>
             <a className="btn g sm iconbtn" href={webmailUrl(vh.me, d, r.nome)} target="_blank" rel="noreferrer" title={t('Abrir webmail')} aria-label={t('Abrir webmail')}>
               <i className="fa-solid fa-inbox" />
             </a>
@@ -892,8 +896,9 @@ function UsoEmail() {
 }
 
 export const emailPagina: ScreenFn = (vh) => {
-  const [a] = vh.s.sub;
+  const [a, b, c] = vh.s.sub;
   const base = { t: 'E-mails', path: '/utilizador/email' };
+  if (a === 'vhostmail' && b && c) return vhostmailPagina(b, c)(vh);
   if (a === 'nova') return { title: 'Criar conta de e-mail', crumbs: [base, { t: 'Criar conta' }], body: <ContaNova /> };
   if (a === 'uso') return { title: 'Uso de e-mail', crumbs: [base, { t: 'Uso de e-mail' }], body: <UsoEmail /> };
   // estatísticas e botões integrados no cartão principal; a lista estica para toda a largura

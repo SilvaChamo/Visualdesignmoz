@@ -66,6 +66,10 @@ export interface Screen {
   dominioUrl?: { d: string; ir: (novo: string) => string };
   /** cartão à direita do cartão principal (ex.: números e botões de Contas de e-mail) */
   lado?: ReactNode;
+  /** o corpo ocupa o lugar do cartão principal (VhostMail: sem a moldura de 24 px) */
+  semCartao?: boolean;
+  /** a coluna do menu à esquerda dá lugar a um botão "Voltar" que abre este endereço (VhostMail) */
+  voltar?: string;
 }
 export type ScreenFn = (vh: VH) => Screen;
 
