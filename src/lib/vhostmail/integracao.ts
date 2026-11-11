@@ -39,8 +39,9 @@ export const INTEGRACAO_JS = String.raw`
   /* barra lateral compacta (como a do Entrecampos): ao passar o rato num ícone, o nome sai à direita, colado à barra.
      Fica por cima de tudo (position:fixed) porque a lista da barra tem scroll e cortaria uma dica normal. */
   (function(){
-    var fly=null,cur=null,mx=0,my=0;
-    function quita(){if(fly){fly.remove();fly=null}cur=null}
+    var fly=null,cur=null,mx=0,my=0,tm=null;
+    function cancela(){if(tm){clearTimeout(tm);tm=null}}
+    function quita(){cancela();if(fly){fly.remove();fly=null}cur=null}
     function nome(t){
       var n=t.getAttribute('data-tip-side')||t.getAttribute('aria-label');
       if(!n){var s=t.querySelector('.em')||t.querySelector('span:not(.av):not(.cnt):not(.sq)');n=s?s.textContent:''}
@@ -58,15 +59,16 @@ export const INTEGRACAO_JS = String.raw`
       /* depois de um clique a barra volta a desenhar-se com o mesmo item debaixo do rato: a gaveta fica como está, sem deslizar outra vez */
       if(fly&&fly.isConnected&&fly.textContent===n){cur=t;fly.style.top=Math.round(r.top)+'px';fly.style.height=Math.round(r.height)+'px';return}
       quita();
-      cur=t;fly=document.createElement('div');fly.className='sidefly';fly.textContent=n;
+      cur=t;fly=document.createElement('div');fly.className='sidefly';
+      var dentro=document.createElement('span');dentro.className='sidefly-in';dentro.textContent=n;fly.appendChild(dentro);
       document.body.appendChild(fly);
       /* a gaveta nasce por cima da linha vermelha da barra (2 px) e interrompe-a na altura do item, dando-lhe lugar; só ela tem a linha vermelha, do lado direito */
       fly.style.left=Math.round(sr.right-2)+'px';
       fly.style.top=Math.round(r.top)+'px';
       fly.style.height=Math.round(r.height)+'px';
     }
-    document.addEventListener('mouseover',function(e){mx=e.clientX;my=e.clientY;mostra(e.target)});
-    document.addEventListener('mouseout',function(e){var r=e.relatedTarget;if(!r||!r.closest||!(r.closest('#side')||r.closest('.sidefly')))quita()});
+    document.addEventListener('mouseover',function(e){mx=e.clientX;my=e.clientY;cancela();mostra(e.target)});
+    document.addEventListener('mouseout',function(e){var r=e.relatedTarget;if(!r||!r.closest||!(r.closest('#side')||r.closest('.sidefly'))){cancela();tm=setTimeout(quita,450)}});
     /* as letras da gaveta aberta também se clicam: o clique vai para o item da barra a que ela pertence */
     document.addEventListener('click',function(e){
       var g=e.target&&e.target.closest&&e.target.closest('.sidefly');
@@ -136,7 +138,22 @@ export const INTEGRACAO_JS = String.raw`
     /* enquanto não estiverem activadas (nem sequer bloqueadas no navegador, onde a faixa explica como desbloquear), a faixa volta em cada visita */
     if(perm()!=='granted'&&perm()!=='unsupported')setTimeout(mostraFaixa,8000);
   })();
-  /* abre na pasta pedida: Entrada ou Enviados */
+  /* a largura da lista de e-mails muda-se arrastando a linha entre a lista e a leitura (duplo clique repõe) */
+  (function(){
+    var lista=document.getElementById('list'),leitura=document.getElementById('read'),main=lista&&lista.parentElement;
+    if(!main||!lista||!leitura)return;
+    var h=document.createElement('div');h.id='vmrz';h.setAttribute('role','separator');h.setAttribute('aria-label','Redimensionar a lista');
+    main.insertBefore(h,leitura);
+    function larg(v){return Math.max(260,Math.min(v,main.clientWidth-380))}
+    function aplica(v){document.documentElement.style.setProperty('--vm-lw',larg(v)+'px')}
+    try{var g=parseInt(localStorage.getItem('vm-lw'),10);if(g)aplica(g)}catch(e){}
+    var x0=0,w0=0,on=false;
+    h.addEventListener('pointerdown',function(e){on=true;x0=e.clientX;w0=lista.getBoundingClientRect().width;try{h.setPointerCapture(e.pointerId)}catch(x){}document.body.classList.add('vm-rz');e.preventDefault()});
+    h.addEventListener('pointermove',function(e){if(on)aplica(w0+e.clientX-x0)});
+    function fim(){if(!on)return;on=false;document.body.classList.remove('vm-rz');try{localStorage.setItem('vm-lw',String(Math.round(lista.getBoundingClientRect().width)))}catch(x){}}
+    h.addEventListener('pointerup',fim);h.addEventListener('pointercancel',fim);
+    h.addEventListener('dblclick',function(){document.documentElement.style.removeProperty('--vm-lw');try{localStorage.removeItem('vm-lw')}catch(e){}});
+  })();
 })();
 `;
 
@@ -160,10 +177,13 @@ body.nobanner #drawer{top:40px}
    da cor da barra, com a linha vermelha a acompanhar o cartão aberto (em cima, à direita e em baixo) e a sombra só para o lado em que abre */
 #side .fold.sel svg,#side .fold:hover svg,#side .acct:hover svg,#side .addacct:hover svg,#side .sfoot button:hover svg,#side .appsw:hover svg{color:#FF2B3A}
 #side.col .fmore,#side.col .fold .fmore{display:none!important}
-.sidefly{position:fixed;z-index:300;display:flex;align-items:center;box-sizing:border-box;padding:0 22px 0 18px;background:var(--side,#1E1E20);color:#fff;border:0;border-right:2px solid var(--brand,#E5202E);border-radius:0;box-shadow:12px 0 30px rgba(0,0,0,.18);font-size:14px;font-weight:400;white-space:nowrap;cursor:pointer;animation:vmfly .6s cubic-bezier(.25,.1,.25,1)}
+.sidefly{position:fixed;z-index:300;cursor:pointer}
+.sidefly-in{display:flex;align-items:center;box-sizing:border-box;height:100%;padding:0 22px 0 18px;background:var(--side,#1E1E20);color:#fff;border:0;border-right:2px solid var(--brand,#E5202E);border-radius:0;box-shadow:12px 0 30px rgba(0,0,0,.18);font-size:14px;font-weight:400;white-space:nowrap;animation:vmfly .6s cubic-bezier(.25,.1,.25,1)}
 /* sai da barra a deslizar devagar, como uma gaveta (Silva, 11/11/2026: o efeito de abrir não pode ser rápido): descobre-se da esquerda para a direita */
 /* o texto da gaveta fica vermelho ao apontar */
-.sidefly:hover{color:#FF2B3A}
+.sidefly:hover .sidefly-in{color:#FF2B3A}
+/* o botão de recolher/abrir a barra fica por cima da gaveta */
+#side .collapse-btn{z-index:400}
 @keyframes vmfly{from{clip-path:inset(-8px 100% -8px 0)}to{clip-path:inset(-8px -40px -8px 0)}}
 /* faixa vermelha das notificações: só surge uns segundos depois de entrar (a classe vm-bn-on põe-na); sem ela a página ocupa o lugar da faixa */
 body:not(.vm-bn-on) #banner{display:none}

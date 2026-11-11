@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 
 /**
  * /api/vhost/vhostmail/caixa — o VhostMail a ler e a mexer na caixa de correio REAL da conta que está aberta.
- * POST { end: 'caixa@dominio', acao, … }   pastas | lista | ler | original | marcar | mover | apagar | criarPasta | enviar | rascunho
+ * POST { end: 'caixa@dominio', acao, … }   pastas | lista | ler | original | marcar | mover | apagar | criarPasta | enviar | agendar | rascunho
  * GET  ?end=&pasta=&uid=&i=                 descarrega um anexo
  * Só vê a caixa quem tem esse domínio de e-mail no seu painel (a mesma regra do menu E-mail); o resto (ler, mover,
  * enviar…) corre no servidor com o doveadm/exim, sem palavra-passe da caixa (programa em src/lib/vhostmail/servidor.ts).
@@ -22,7 +22,7 @@ const JSON_MAX = 8 * 1024 * 1024;
 /** o comando que vai por SSH tem um limite (~128 KB): acima disto, os argumentos seguem em pedaços para um ficheiro temporário */
 const PEDACO = 90_000;
 const SO_LEITURA = new Set(['pastas', 'lista', 'ler', 'original']);
-const ACOES = new Set(['pastas', 'lista', 'ler', 'original', 'marcar', 'mover', 'apagar', 'criarPasta', 'enviar', 'rascunho']);
+const ACOES = new Set(['pastas', 'lista', 'ler', 'original', 'marcar', 'mover', 'apagar', 'criarPasta', 'enviar', 'agendar', 'rascunho']);
 
 type Sessao = { userId: string; email: string; role: string };
 
@@ -129,7 +129,7 @@ export async function POST(req: NextRequest) {
       args.uids = lista('uids');
     } else if (acao === 'criarPasta') {
       args.nome = pasta('nome');
-    } else if (acao === 'enviar' || acao === 'rascunho') {
+    } else if (acao === 'enviar' || acao === 'agendar' || acao === 'rascunho') {
       const m = (b.msg || {}) as Record<string, unknown>;
       const texto = (k: string, max: number) => String(m[k] ?? '').slice(0, max);
       const anexos = Array.isArray(m.anexos) ? (m.anexos as Record<string, unknown>[]).slice(0, 10) : [];
@@ -145,13 +145,18 @@ export async function POST(req: NextRequest) {
         referencias: texto('referencias', 2000),
         anexos: anexos.map((a) => ({ nome: String(a.nome || 'anexo').slice(0, 200), tipo: String(a.tipo || 'application/octet-stream').slice(0, 100), b64: String(a.b64 || '').replace(/[^A-Za-z0-9+/=]/g, '') })),
       };
-      if (acao === 'enviar' && !String(m.para || '').trim()) throw new Error('Adicione pelo menos um destinatário.');
+      if (acao !== 'rascunho' && !String(m.para || '').trim()) throw new Error('Adicione pelo menos um destinatário.');
       // cada destinatário é um endereço simples (nunca começa por «-»: o sendmail leria como opção)
       for (const k of ['para', 'cc', 'cco']) {
         for (const parte of String(m[k] || '').split(/[;,]/)) {
           const e = (parte.match(/<([^>]*)>/)?.[1] ?? parte).trim();
           if (e && (e.startsWith('-') || !/^[^\s@,;:<>()"'\\]+@[A-Za-z0-9.-]+$/.test(e))) throw new Error('Endereço de destinatário inválido.');
         }
+      }
+      if (acao === 'agendar') {
+        args.quando = Math.floor(Number(b.quando));
+        if (!Number.isInteger(args.quando) || (args.quando as number) < 1) throw new Error('Escolha uma data e hora.');
+        args.fonte = b64(CAIXA_PY); // a tarefa que fica no servidor à espera da hora volta a correr este mesmo programa
       }
       if (b.pastaEnviados) args.pastaEnviados = pasta('pastaEnviados');
       if (b.pastaRascunhos) args.pastaRascunhos = pasta('pastaRascunhos');

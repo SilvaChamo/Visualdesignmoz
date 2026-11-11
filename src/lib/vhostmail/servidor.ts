@@ -3,7 +3,7 @@
 // «@@JSON{...}» com o resultado. Só faz as acções desta lista; a rota (api/vhost/vhostmail/caixa) já confirmou que a sessão
 // pode ver a conta antes de o chamar.
 export const CAIXA_PY = String.raw`
-import base64, email, email.policy, email.utils, json, re, subprocess, sys, time
+import base64, email, email.policy, email.utils, fcntl, json, os, re, subprocess, sys, time
 from email.message import EmailMessage
 
 A = json.load(sys.stdin)
@@ -246,20 +246,27 @@ def montar_msg(d):
         m.add_attachment(base64.b64decode(a['b64']), maintype=tipo[0], subtype=tipo[1], filename=so_nome(a['nome']))
     return m
 
-def enviar():
-    d = A['msg']
-    m = montar_msg(d)
-    destinos = [x for x in [d['para']] + ([d['cc']] if d.get('cc') else []) + ([d['cco']] if d.get('cco') else []) for x in [x]]
+def destinatarios(d):
+    destinos = [x for x in [d['para']] + ([d['cc']] if d.get('cc') else []) + ([d['cco']] if d.get('cco') else [])]
     alvo = [e for n, e in email.utils.getaddresses(destinos) if e]
     if not alvo:
         raise RuntimeError('Sem destinatário válido')
     # só endereços simples, nunca algo que o sendmail/exim leia como opção
     if any(e.startswith('-') or not re.fullmatch(r"[^\s@,;:<>()\"'\\]+@[A-Za-z0-9.-]+", e) for e in alvo):
         raise RuntimeError('Destinatário inválido')
+    return alvo
+
+def entrega(bytes_msg, alvo):
     # o exim entrega (local ou para fora) como faz com qualquer e-mail desta conta
-    p = subprocess.run(['/usr/sbin/sendmail', '-i', '-f', U, '--'] + alvo, input=m.as_bytes(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    p = subprocess.run(['/usr/sbin/sendmail', '-i', '-f', U, '--'] + alvo, input=bytes_msg, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if p.returncode != 0:
         raise RuntimeError('O servidor recusou o envio: ' + p.stderr.decode('utf-8', 'replace').strip()[:200])
+
+def enviar():
+    d = A['msg']
+    m = montar_msg(d)
+    alvo = destinatarios(d)
+    entrega(m.as_bytes(), alvo)
     entregar(m.as_bytes(), A.get('pastaEnviados') or 'Sent', ['Seen'])
     if A.get('apagarRascunho'):
         try:
@@ -281,8 +288,81 @@ def rascunho():
             pass
     return {}
 
+# ---- envio programado: a mensagem fica na pasta Programado com a hora no cabeçalho e sai à hora marcada ----
+SCHED = 'Programado'
+H_QUANDO = 'X-VhostMail-Enviar-Em'
+H_PARA = 'X-VhostMail-Para'
+H_SENT = 'X-VhostMail-Enviados'
+
+def arranca(seg):
+    # tarefa solta no servidor: espera a hora e manda enviar o que estiver vencido (se o servidor reiniciar, a próxima visita ao VhostMail envia)
+    a = base64.b64encode(json.dumps({'acao': 'devidos', 'user': U}).encode()).decode()
+    cmd = 'sleep %d; printf %%s %s | base64 -d | python3 -c "$(printf %%s %s | base64 -d)"' % (seg + 2, a, A['fonte'])
+    subprocess.Popen(['sh', '-c', cmd], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+
+def agendar():
+    d = A['msg']
+    quando = int(A['quando'])
+    agora = int(time.time())
+    if quando < agora + 20 or quando > agora + 90 * 86400:
+        raise RuntimeError('Escolha uma hora a partir de agora e até 90 dias.')
+    m = montar_msg(d)
+    alvo = destinatarios(d)
+    m[H_QUANDO] = str(quando)
+    m[H_PARA] = ', '.join(alvo)
+    m[H_SENT] = so_nome(A.get('pastaEnviados') or 'Sent')
+    entregar(m.as_bytes(), SCHED, ['Seen'])
+    if A.get('fonte'):
+        arranca(quando - agora)
+    if A.get('apagarRascunho'):
+        try:
+            apagar_uids(A['apagarRascunho']['pasta'], [A['apagarRascunho']['uid']])
+        except Exception:
+            pass
+    return {}
+
+def devidos():
+    # envia o que já passou da hora; um só de cada vez por caixa (a tarefa solta e as visitas podem cruzar-se)
+    lk = open('/var/tmp/vhm-prog-' + re.sub(r'[^a-z0-9]', '_', U.lower()) + '.lock', 'w')
+    fcntl.flock(lk, fcntl.LOCK_EX)
+    try:
+        xs = jlinhas(run(['-f', 'json', 'fetch', '-u', U, 'uid hdr', 'mailbox', SCHED, 'all']))
+    except Exception:
+        return {'enviados': 0}
+    n = 0
+    for x in xs:
+        mm = re.search(r'(?im)^' + H_QUANDO + r':\s*(\d+)', x.get('hdr', ''))
+        if not mm or int(mm.group(1)) > time.time():
+            continue
+        uid = int(x['uid'])
+        msg = email.message_from_bytes(cru(SCHED, uid))
+        alvo = [e for nome, e in email.utils.getaddresses([msg.get(H_PARA, '')]) if e]
+        if not alvo or any(e.startswith('-') or not re.fullmatch(r"[^\s@,;:<>()\"'\\]+@[A-Za-z0-9.-]+", e) for e in alvo):
+            continue
+        sent = msg.get(H_SENT) or 'Sent'
+        for h in (H_QUANDO, H_PARA, H_SENT):
+            del msg[h]
+        del msg['Date']
+        msg['Date'] = email.utils.formatdate(localtime=True)
+        out = msg.as_bytes()
+        entrega(out, alvo)
+        entregar(out, sent, ['Seen'])
+        apagar_uids(SCHED, [uid])
+        n += 1
+    return {'enviados': n}
+
+def acao_pastas():
+    p = pastas()
+    if any(x['n'] == SCHED and x['total'] > 0 for x in p):
+        try:
+            if devidos().get('enviados'):
+                p = pastas()
+        except Exception:
+            pass
+    return {'pastas': p}
+
 ACOES = {
-    'pastas': lambda: {'pastas': pastas()},
+    'pastas': acao_pastas, 'agendar': agendar, 'devidos': devidos,
     'lista': lista, 'ler': ler, 'anexo': anexo, 'original': original,
     'marcar': marcar, 'mover': mover, 'apagar': apagar,
     'criarPasta': lambda: (criar_pasta(A['nome']), {})[1],

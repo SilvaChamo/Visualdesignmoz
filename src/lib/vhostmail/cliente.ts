@@ -10,14 +10,32 @@ export const CLIENTE_JS = String.raw`
   var API='/api/vhost/vhostmail/caixa';
   var MESES=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
   var CORES=['#9BBF3A','#22A9B5','#6C5CE7','#F08A24','#2D7FF9','#B33771','#3B3B98','#1DB954'];
-  var NOM={inbox:'INBOX',sent:'Sent',drafts:'Drafts',trash:'Trash',spam:'Junk',archive:'Archive'};
+  var NOM={inbox:'INBOX',sent:'Sent',drafts:'Drafts',trash:'Trash',spam:'Junk',archive:'Archive',sched:'Programado'};
   var FIXO={};
   var PAS=[],IDS={},CARR={},CARG={},TENT={},PROX=0,ERRO={},ANEX=[],RASC=null,CHEIA=false;
-  var A_FOLDERS={inbox:1,sent:1,drafts:1,trash:1,spam:1,archive:1,starred:1};
+  var A_FOLDERS={inbox:1,sent:1,drafts:1,trash:1,spam:1,archive:1,starred:1,sched:1};
 
   /* a caixa de exemplo do maquete sai: tudo o que se vê vem do servidor */
-  M=[];S.labels=[];S.more=S.more.filter(function(f){return f!=='sched'});
-  S.sel=null;S.checked.clear();
+  M=[];S.sel=null;S.checked.clear();
+
+  /* ---- rótulos: a lista e o que cada mensagem leva ficam guardados neste navegador, por caixa ---- */
+  var ROT={},PIN={},CHR='vm-rot:'+END,ULT='';
+  S.labels=[];
+  try{var gr=JSON.parse(localStorage.getItem(CHR)||'{}');if(gr.l&&gr.l.length)S.labels=gr.l;ROT=gr.a||{};PIN=gr.p||{}}catch(e){}
+  S.labels.forEach(function(l){var n=parseInt(String(l.id).slice(1),10);if(n>NID)NID=n});
+  /* tarefas desta caixa (guardadas neste navegador; saem as de exemplo do maquete) */
+  var CHT='vm-tar:'+END,ULT2='';
+  tasks.length=0;
+  try{JSON.parse(localStorage.getItem(CHT)||'[]').forEach(function(t){tasks.push(t)})}catch(e){}
+  function gravaRot(){
+    try{var t2=JSON.stringify(tasks);if(t2!==ULT2){ULT2=t2;localStorage.setItem(CHT,t2)}}catch(e){}
+    try{
+      var ids={};S.labels.forEach(function(l){ids[l.id]=1});
+      M.forEach(function(m){var k=m._p+'|'+m._u;var ls=(m.labels||[]).filter(function(i){return ids[i]});if(ls.length)ROT[k]=ls;else delete ROT[k];if(m.pin)PIN[k]=1;else delete PIN[k]});
+      var t=JSON.stringify({l:S.labels,a:ROT,p:PIN});
+      if(t!==ULT){ULT=t;localStorage.setItem(CHR,t)}
+    }catch(e){}
+  }
 
   /* o painel às vezes está ocupado (503): tenta mais duas vezes antes de avisar */
   function api(acao,d,tent){
@@ -52,7 +70,7 @@ export const CLIENTE_JS = String.raw`
 
   /* ---- pastas: nomes do servidor ↔ chaves do maquete ---- */
   function mapa(){
-    var pats={sent:/^(sent|enviad)/i,drafts:/^(draft|rascunho)/i,trash:/^(trash|lixeira|deleted|bin)/i,spam:/^(junk|spam)/i,archive:/^(archive|arquiv)/i};
+    var pats={sched:/^(programad|scheduled)/i,sent:/^(sent|enviad)/i,drafts:/^(draft|rascunho)/i,trash:/^(trash|lixeira|deleted|bin)/i,spam:/^(junk|spam)/i,archive:/^(archive|arquiv)/i};
     PAS.forEach(function(p){
       var base=p.n.split(/[\/.]/).pop();
       for(var k in pats){if(!FIXO[k]&&pats[k].test(base)){NOM[k]=p.n;FIXO[k]=1}}
@@ -83,11 +101,11 @@ export const CLIENTE_JS = String.raw`
 
   /* ---- mensagens ---- */
   function conv(x,p){
-    var k=chave(p),env=(k==='sent'||k==='drafts'),pr=primeiro(x.para);
+    var k=chave(p),env=(k==='sent'||k==='drafts'||k==='sched'),pr=primeiro(x.para);
     var id=IDS[p+'|'+x.uid]||(IDS[p+'|'+x.uid]=++NID);
     var nome=env?('Para: '+(pr.n||'(sem destinatário)')):(x.de||x.end||'(sem remetente)');
     return {id:id,f:k,from:nome,email:env?pr.e:x.end,to:x.para||'',date:quando(x.quando),subj:x.assunto||'(sem assunto)',prev:(x.snippet||'').replace(/\s+/g,' ').slice(0,160),
-      body:['A carregar…'],unread:!x.lida,star:!!x.estrela,att:x.anexo?[{n:'',s:''}]:[],color:CORES[(x.uid||id)%CORES.length],draft:!!x.rascunho,_p:p,_u:x.uid,_dl:longa(x.quando),_q:x.quando||0};
+      body:['A carregar…'],unread:!x.lida,star:!!x.estrela,att:x.anexo?[{n:'',s:''}]:[],color:CORES[(x.uid||id)%CORES.length],draft:!!x.rascunho,pin:!!PIN[p+'|'+x.uid],labels:(ROT[p+'|'+x.uid]||[]).filter(function(i){return S.labels.some(function(l){return l.id===i})}),_p:p,_u:x.uid,_dl:longa(x.quando),_q:x.quando||0};
   }
   function carregar(k,forcar){
     if(CARR[k]&&!forcar)return CARR[k];
@@ -109,7 +127,8 @@ export const CLIENTE_JS = String.raw`
   renderList=function(){
     /* cada pasta tenta-se UMA vez sozinha; se falhar, mostra o erro e só volta a tentar no botão (nunca em ciclo) */
     if(S.folder==='starred'){['inbox','sent','archive','drafts'].forEach(function(k){if(!TENT[k])carregar(k)})}
-    else if(!S.labelView&&!TENT[S.folder])carregar(S.folder);
+    else if(S.labelView){['inbox','sent','archive','drafts'].forEach(function(k){if(!TENT[k])carregar(k)})}
+    else if(!TENT[S.folder])carregar(S.folder);
     _rl();
     var vazio=$('#list .empty');
     if(vazio&&ERRO[S.folder]){
@@ -174,6 +193,19 @@ export const CLIENTE_JS = String.raw`
     if(m&&m._u&&m.f==='drafts'){m._abrirRascunho=true;m.unread=false;abrirCorpo(m);S.sel=null;renderAll();return}
     _om(id);
     if(m&&m._u){m._erro='';abrirCorpo(m)}
+  };
+
+  /* ---- imprimir a mensagem aberta (cabeçalho + corpo), por um quadro invisível ---- */
+  printModal=function(m){
+    if(!m)return;
+    if(!m._cor){toast('A mensagem ainda está a carregar');return}
+    var corpo=m._cor.html||('<pre style="white-space:pre-wrap;font:inherit">'+String(m._cor.texto||'').replace(/&/g,'&amp;').replace(/</g,'&lt;')+'</pre>');
+    var cab='<h2 style="margin:0 0 6px;font:600 18px sans-serif">'+esc(m.subj)+'</h2><div style="color:#555;font:13px/1.5 sans-serif;border-bottom:2px solid #E5202E;padding-bottom:10px;margin-bottom:14px">De: '+esc(m.from)+(m.email?' &lt;'+esc(m.email)+'&gt;':'')+'<br>Para: '+esc(m._para||m.to||'')+'<br>Data: '+esc(m._dl||m.date)+'</div>';
+    var f=document.createElement('iframe');f.style.cssText='position:fixed;left:-9999px;top:0;width:800px;height:600px;border:0';
+    f.setAttribute('sandbox','allow-same-origin allow-modals');
+    f.srcdoc='<!doctype html><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src \'none\'; img-src data: https: http:; style-src \'unsafe-inline\'">'+cab+corpo;
+    f.onload=function(){try{f.contentWindow.focus();f.contentWindow.print()}catch(e){toast('Não foi possível imprimir')}setTimeout(function(){f.remove()},60000)};
+    document.body.appendChild(f);
   };
 
   /* ---- anexos: descarregar ---- */
@@ -270,7 +302,7 @@ export const CLIENTE_JS = String.raw`
   menu=function(items,anchor,o){
     var m=get(S.sel);
     function ajusta(l){
-      return l.filter(function(it){return !(it.t&&/^(Pino|Fixar|Desafixar|Rótulo|Responder com IA|Adicionar a Tarefas|Adicionar aos contactos|Crie uma regra|Limpeza automática|Imprimir|Guardar como modelo|Adicionar à Lista de permissões|Bloquear|Denunciar phishing)/.test(it.t.replace(/<[^>]*>/g,'')))}).map(function(it){
+      return l.map(function(it){
         var n=it.t?it.t.replace(/<[^>]*>/g,''):'',c={};for(var k in it)c[k]=it[k];
         if(it.sub)c.sub=ajusta(it.sub);
         if(n==='Marcar como não lido')c.fn=function(){if(m){marcaLida([m.id],false);S.sel=null;renderAll()}};
@@ -346,16 +378,41 @@ export const CLIENTE_JS = String.raw`
     if(!msg.texto&&!ANEX.length&&!msg.assunto){toast('Escreva a mensagem');return null}
     return msg;
   }
-  doSend=function(ctx,quandoEnviar){
-    if(quandoEnviar){toast('O envio programado ainda não está disponível');return}
+  doSend=function(ctx,quando){
     var msg=recolher(ctx);if(!msg)return;
+    var prog=quando&&quando.ts,rasc=RASC;
     var botao=document.querySelector('[data-send='+ctx+']');if(botao)botao.disabled=true;
-    toast('A enviar…');
-    api('enviar',{msg:msg,pastaEnviados:pasta('sent'),apagarRascunho:RASC?{pasta:RASC.p,uid:RASC.u}:undefined}).then(function(){
+    toast(prog?'A programar…':'A enviar…');
+    var dados={msg:msg,pastaEnviados:pasta('sent'),apagarRascunho:rasc?{pasta:rasc.p,uid:rasc.u}:undefined};
+    if(prog)dados.quando=quando.ts;
+    api(prog?'agendar':'enviar',dados).then(function(){
       if(ctx==='compose'){$('#compose').className='hidden';var ov=$('#cmpov');if(ov)ov.remove()}else{S.reply=null}
-      ANEX=[];RASC=null;renderAll();toast('E-mail enviado');
-      recarregar(['sent'].concat(RASC?['drafts']:[]));
+      ANEX=[];RASC=null;renderAll();toast(prog?'E-mail programado para '+esc(quando.txt):'E-mail enviado');
+      recarregar([prog?'sched':'sent'].concat(rasc?['drafts']:[]));
     }).catch(function(e){if(botao)botao.disabled=false;falha(e)});
+  };
+  /* enviar mais tarde: horas prontas ou data e hora à escolha; a mensagem fica em Programado e sai à hora marcada */
+  function emDia(dias,h,mi){var d=new Date();d.setDate(d.getDate()+dias);d.setHours(h,mi,0,0);return d}
+  function fmtHora(d){return ['dom','seg','ter','qua','qui','sex','sáb'][d.getDay()]+' '+d.getDate()+' '+MESES[d.getMonth()]+' às '+dois(d.getHours())+':'+dois(d.getMinutes())}
+  function programa(ctx,d){doSend(ctx,{ts:Math.floor(d.getTime()/1000),txt:fmtHora(d)})}
+  function escolherHora(ctx){
+    var d=emDia(1,9,0),ymd=d.getFullYear()+'-'+dois(d.getMonth()+1)+'-'+dois(d.getDate());
+    var o=modal('<h3>Enviar mais tarde</h3><p>Escolha quando o e-mail deve ser enviado.</p><div style="display:flex;gap:10px"><div class="fld" style="flex:1"><label>Data</label><input type="date" id="vmd" value="'+ymd+'"></div><div class="fld" style="flex:1"><label>Hora</label><input type="time" id="vmh" value="09:00"></div></div><div class="fbtns"><button class="btn g" data-c>Cancelar</button><button class="btn p" data-ok>Programar</button></div>','fm');
+    o.querySelector('[data-c]').onclick=function(){o.remove()};
+    o.querySelector('[data-ok]').onclick=function(){
+      var v=new Date($('#vmd').value+'T'+($('#vmh').value||'09:00'));
+      if(isNaN(v.getTime())||v.getTime()<Date.now()+30000){toast('Escolha uma hora a partir de agora');return}
+      o.remove();programa(ctx,v);
+    };
+  }
+  laterMenu=function(ctx,anchor){
+    var seg=new Date(),k=(8-seg.getDay())%7||7;
+    menu([{h:'Enviar mais tarde'},
+      {i:'sunrise',t:'Amanhã de manhã · 08:00',fn:function(){programa(ctx,emDia(1,8,0))}},
+      {i:'sun',t:'Amanhã à tarde · 13:00',fn:function(){programa(ctx,emDia(1,13,0))}},
+      {i:'calendar',t:'Segunda-feira · 08:00',fn:function(){programa(ctx,emDia(k,8,0))}},
+      {sep:1},
+      {i:'calendar-clock',t:'Escolher data e hora',fn:function(){escolherHora(ctx)}}],anchor,{above:true});
   };
   closeCompose=function(guardar){
     var c=$('#compose');
@@ -368,6 +425,8 @@ export const CLIENTE_JS = String.raw`
         .then(function(){toast('Rascunho guardado');recarregar(['drafts'])}).catch(falha);
     }else if(rasc){recarregar(['drafts'])}
   };
+
+  var _ra=renderAll;renderAll=function(){_ra.apply(this,arguments);gravaRot()};setInterval(gravaRot,5000);
 
   /* ---- e-mails novos: de 45 em 45 s e ao voltar à janela; avisa e toca ---- */
   function sonda(){
@@ -402,22 +461,18 @@ export const CLIENTE_JS = String.raw`
 
 // o que o maquete tinha e não faz nada na caixa real sai da vista (nada fica como ligação morta)
 export const CLIENTE_CSS = String.raw`
-/* escrever: sem as ferramentas de exemplo (rastrear, design, IA, modelos, faturas, campanhas, lembretes, Drive, imagem, assinatura, HTML, tarefas, enviar mais tarde) */
-#compose .ctools,#replybox .ctools{display:none!important}
-.cbar [data-cb=campaign],.cbar [data-cb=ai],.cbar [data-cb=remind],.cbar [data-cb=drive],.cbar [data-cb=image],.cbar [data-cb=sig],.cbar [data-cb=html],.cbar [data-cb=task],.cbar [data-later]{display:none!important}
-.vm-real{padding:0}
-.vm-corpo{min-height:60px}
-/* anexos da mensagem: sem Drive nem verificação de vírus de exemplo */
-.mfiles [data-act=drive],.mfiles [data-act=virus]{display:none!important}
-/* lista e leitura: sem fixar nem resumo/resposta com IA (não têm ligação) */
-.it .hact [data-ha=pin],[data-act=summary],[data-act=aireply],.mfoot .aib{display:none!important}
-/* barra lateral: sem pasta de opções (3 pontos), sem rótulos */
-#side .fmore,[data-act=newlabel],#side .fold[data-f=ai]{display:none!important}
-/* sem ligações mortas: o que o maquete mostrava e não tem ligação ao servidor (aplicações, calendário, chat, partilha, recibos,
-   ajuda, novidades, erro/recurso, pesquisa avançada, conta extra, preferências de exemplo, tarefas iniciais) sai da vista.
-   A palavra-passe, o reencaminhamento e a resposta automática da caixa continuam em Contas de e-mail, no painel. */
-[data-act=ub-acct],[data-act=receipts],[data-act=help],[data-act=ub-chat],[data-act=ub-talk],[data-act=ub-share],[data-act=apps],
-[data-act=addacct],[data-act=bug],[data-act=feature],[data-act=news],[data-act=newmenu],[data-act=adv],[data-act=sidepanel],
-[data-act=prefs],[data-act=getapp],[data-act=default],[data-act=imap],[data-act=kbd],[data-act=popout],#setup,#side .sdiv,
-.dsec:has([data-act=grp-on]){display:none!important}
+/* o corpo do e-mail real (quadro isolado) tem o mesmo espaço nos 4 lados, alinhado com o avatar */
+.mbody.vm-real{padding:22px}
+.vm-corpo{min-height:60px;display:block}
+/* a linha que se arrasta entre a lista e a leitura */
+#vmrz{flex:0 0 7px;width:7px;margin:0 -3px;cursor:col-resize;position:relative;z-index:6;background:transparent}
+#vmrz::after{content:'';position:absolute;left:3px;top:0;bottom:0;width:1px;background:transparent;transition:background .15s,width .15s,left .15s}
+#vmrz:hover::after,body.vm-rz #vmrz::after{background:var(--brand,#E5202E);width:3px;left:2px}
+body.vm-rz{cursor:col-resize;user-select:none}
+body.vm-rz iframe{pointer-events:none}
+#list{width:var(--vm-lw,351px)}
+/* favorito, ponto de não lido e caixa de seleção: cada um no seu sítio, sem se tocarem */
+.it .cb{top:16px}
+.it .star{top:40px;left:10px}
+.it .dot{top:62px;left:15px}
 `;
