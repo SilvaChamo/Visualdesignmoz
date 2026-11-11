@@ -340,6 +340,10 @@ def devidos():
         uid = int(x['uid'])
         msg = email.message_from_bytes(cru(SCHED, uid))
         alvo = [e for nome, e in email.utils.getaddresses([msg.get(H_PARA, '')]) if e]
+        # só sai o que foi mesmo programado por esta conta: remetente = a própria caixa e um número razoável de destinatários
+        de = [e.lower() for nome, e in email.utils.getaddresses([msg.get('From', '')]) if e]
+        if de != [U.lower()] or len(alvo) > 100:
+            continue
         if not alvo or any(e.startswith('-') or not re.fullmatch(r"[^\s@,;:<>()\"'\\]+@[A-Za-z0-9.-]+", e) for e in alvo):
             continue
         sent = msg.get(H_SENT) or 'Sent'
