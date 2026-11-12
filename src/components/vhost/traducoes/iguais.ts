@@ -2,6 +2,8 @@
 export const IGUAIS: string[] = [
  "Volume",
  "Rates By Exchange Rate API",
+ "China",
+ "Malawi",
  "rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 @xl:p-6",
  "%year%",
  "%monthnum%",
