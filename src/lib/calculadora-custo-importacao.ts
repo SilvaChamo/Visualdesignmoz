@@ -9,7 +9,7 @@
 //   direitos           = valor aduaneiro × taxa de direitos da linha
 //   taxas de entrada   = (EUA) MPF e HMF sobre o valor aduaneiro total, repartidas pelo valor aduaneiro de cada linha
 //   imposto de entrada = (IVA/GST) base × taxa; entra no custo só se não for recuperável
-//   partilhados        = corretor + porto + entrega interna + outros, repartidos pelo método escolhido
+//   partilhados        = corretor + porto + entrega interna + entrega ao domicílio + outros, repartidos pelo método escolhido
 //   comissão           = valor total da comissão (em dinheiro), repartido pelo valor de cada linha; entra nos partilhados
 //   custo posto        = mercadorias + frete + seguro + direitos + taxas/imposto + partilhados
 //   custo por unidade  = custo posto ÷ unidades que se conseguem vender
@@ -42,6 +42,8 @@ export interface EntradaCalculo {
   corretor: number
   porto: number
   entrega: number
+  /** entrega ao domicílio (do armazém ao cliente) */
+  entregaDomicilio: number
   outros: number
   /** comissão total (valor, não percentagem), repartida pelo valor de cada linha */
   comissao: number
@@ -124,6 +126,7 @@ export type ResultadoCalculo =
       corretor: number
       porto: number
       entrega: number
+      entregaDomicilio: number
       outros: number
       /** comissão total (já está dentro dos partilhados) */
       comissao: number
@@ -146,7 +149,7 @@ export function calcularCustoImportacao(e: EntradaCalculo): ResultadoCalculo {
   const linhas = e.linhas
   if (!linhas.length) return { ok: false, erro: 'sem-linhas' }
 
-  const campos = [e.frete, e.seguro, e.corretor, e.porto, e.entrega, e.outros, e.comissao, e.perdasPct, e.margemPct]
+  const campos = [e.frete, e.seguro, e.corretor, e.porto, e.entrega, e.entregaDomicilio, e.outros, e.comissao, e.perdasPct, e.margemPct]
   if (eua) campos.push(e.mpfPct, e.mpfMin, e.mpfMax, e.mpfFixo, e.hmfPct)
   else campos.push(e.impostoPct)
   if (!campos.every(finito)) return { ok: false, erro: 'campos-remessa' }
@@ -169,7 +172,7 @@ export function calcularCustoImportacao(e: EntradaCalculo): ResultadoCalculo {
 
   const freteNoValor = e.base === 'cfr' || e.base === 'cif'
   const seguroNoValor = e.base === 'cif'
-  const partilhadosTotal = e.corretor + e.porto + e.entrega + e.outros
+  const partilhadosTotal = e.corretor + e.porto + e.entrega + e.entregaDomicilio + e.outros
 
   // 1.ª passagem: mercadorias, repartições, valor aduaneiro e direitos de cada linha
   let VA = 0
@@ -278,6 +281,7 @@ export function calcularCustoImportacao(e: EntradaCalculo): ResultadoCalculo {
     corretor: e.corretor,
     porto: e.porto,
     entrega: e.entrega,
+    entregaDomicilio: e.entregaDomicilio,
     outros: e.outros,
     comissao: e.comissao,
     partilhados: T.partilhados,
@@ -306,6 +310,7 @@ export const EXEMPLO_ENTRADA: Omit<EntradaCalculo, 'linhas'> = {
   corretor: 150,
   porto: 240,
   entrega: 380,
+  entregaDomicilio: 0,
   outros: 120,
   comissao: 0,
   perdasPct: 0,

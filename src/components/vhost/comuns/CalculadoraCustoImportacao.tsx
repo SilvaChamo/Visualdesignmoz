@@ -51,6 +51,8 @@ interface Form {
   corretor: string
   porto: string
   entrega: string
+  /** entrega ao domicílio, do armazém ao cliente (total da remessa) */
+  entregaDom: string
   outros: string
   /** margem de erro, em % sobre o custo unitário de cada produto (nos produtos aparece em valor) */
   erroPct: string
@@ -159,6 +161,7 @@ function formDoExemplo(): Form {
     corretor: '0',
     porto: '0',
     entrega: '0',
+    entregaDom: '0',
     outros: '0',
     erroPct: '0',
     comissaoPct: '0',
@@ -218,6 +221,7 @@ function paraEntrada(f: Form, linhas: LinhaForm[], compra: number, reparticao: R
     corretor: num(f.corretor),
     porto: num(f.porto),
     entrega: num(f.entrega),
+    entregaDomicilio: num(f.entregaDom),
     outros: num(f.outros),
     comissao: Number.isFinite(comissao) ? comissao : 0,
     perdasPct: num(f.perdasPct),
@@ -483,7 +487,7 @@ export function CalculadoraCustoImportacao() {
   const comissaoPct = num(form.comissaoPct, true)
   const casas = (v: number) => (Number.isFinite(v) ? String(Math.round(v * 1e4) / 1e4) : '')
   const porUnidade = (total: string) => (unidadesTotal > 0 ? casas(num(total) / unidadesTotal) : '')
-  const editarPorUnidade = (campo: 'frete' | 'entrega') => (v: string) => {
+  const editarPorUnidade = (campo: 'frete' | 'entregaDom') => (v: string) => {
     if (v.trim() === '') return mudar(campo, '')
     const n = num(v)
     if (unidadesTotal > 0 && Number.isFinite(n)) mudar(campo, String(Math.round(n * unidadesTotal * 1e6) / 1e6))
@@ -615,6 +619,7 @@ export function CalculadoraCustoImportacao() {
     linhasBase.push(['Despachante ou corretor', nomeRep, r.corretor, true])
     linhasBase.push(['Manuseamento no porto ou terminal', nomeRep, r.porto, true])
     linhasBase.push(['Entrega interna', nomeRep, r.entrega, true])
+    linhasBase.push(['Entrega ao domicílio', nomeRep, r.entregaDomicilio, true])
     linhasBase.push(['Outros encargos', nomeRep, r.outros, true])
     if (r.comissao > 0) linhasBase.push(['Comissão', 'Repartida por valor', r.comissao, true])
     for (const [rot, como, valor, entra] of linhasBase) {
@@ -815,7 +820,7 @@ export function CalculadoraCustoImportacao() {
                     <div className="grid grid-cols-2 gap-3 @xl:grid-cols-3">
                       <CampoLigado id={ids(`l${l.id}-transporte`)} rotulo="Transporte por unidade" valor={porUnidade(form.frete)} aoEditar={editarPorUnidade('frete')} sufixo={sufixoMoeda} />
                       <Campo id={ids(`l${l.id}-direitos`)} rotulo="Taxa de direitos (%)" valor={l.direitos} aoMudar={(x) => mudarLinha(l.id, 'direitos', x)} />
-                      <CampoLigado id={ids(`l${l.id}-entrega`)} rotulo="Entrega domiciliária por unidade" valor={porUnidade(form.entrega)} aoEditar={editarPorUnidade('entrega')} sufixo={sufixoMoeda} />
+                      <CampoLigado id={ids(`l${l.id}-entrega`)} rotulo="Entrega domiciliária por unidade" valor={porUnidade(form.entregaDom)} aoEditar={editarPorUnidade('entregaDom')} sufixo={sufixoMoeda} />
                     </div>
                     {/* linha 5: valor da impressão, margem de erro e comissão por unidade (as % estão nos custos da remessa; aqui são valores) */}
                     <div className="grid grid-cols-2 gap-3 @xl:grid-cols-3">
@@ -862,6 +867,7 @@ export function CalculadoraCustoImportacao() {
             <Campo id={ids('corretor')} rotulo="Despachante ou corretor" valor={form.corretor} aoMudar={(v) => mudar('corretor', v)} sufixo={eua ? undefined : 'MZN'} />
             <Campo id={ids('porto')} rotulo="Manuseamento no porto ou terminal" valor={form.porto} aoMudar={(v) => mudar('porto', v)} sufixo={eua ? undefined : 'MZN'} />
             <Campo id={ids('entrega')} rotulo="Entrega interna" valor={form.entrega} aoMudar={(v) => mudar('entrega', v)} sufixo={eua ? undefined : 'MZN'} />
+            <Campo id={ids('entrega-dom')} rotulo="Entrega ao domicílio" valor={form.entregaDom} aoMudar={(v) => mudar('entregaDom', v)} sufixo={eua ? undefined : 'MZN'} />
             <Campo id={ids('outros')} rotulo="Outros encargos" valor={form.outros} aoMudar={(v) => mudar('outros', v)} sufixo={eua ? undefined : 'MZN'} />
           </div>
 
@@ -877,9 +883,9 @@ export function CalculadoraCustoImportacao() {
               </select>
             </div>
             <Campo id={ids('perdas')} rotulo="Unidades que não consegue vender (%)" valor={form.perdasPct} aoMudar={(v) => mudar('perdasPct', v)} />
-            <Campo id={ids('margem')} rotulo="Margem bruta pretendida (%)" valor={form.margemPct} aoMudar={(v) => mudar('margemPct', v)} />
             <Campo id={ids('erro')} rotulo="Margem de erro (%)" valor={form.erroPct} aoMudar={(v) => mudar('erroPct', v)} />
             <Campo id={ids('comissao')} rotulo="Comissão (%)" valor={form.comissaoPct} aoMudar={(v) => mudar('comissaoPct', v)} />
+            <Campo id={ids('margem')} rotulo="Margem bruta pretendida (%)" valor={form.margemPct} aoMudar={(v) => mudar('margemPct', v)} />
           </div>
 
           <p className={`${ROTULO} mb-2 mt-5`}>Repartir os custos partilhados por</p>
@@ -894,7 +900,7 @@ export function CalculadoraCustoImportacao() {
             ]}
           />
           <p className={`${NOTA} mt-3`}>
-            Os direitos e o imposto de importação calculam-se por linha. O seguro e as taxas dos EUA seguem o valor. O frete, o despachante, o porto, a entrega interna e os outros encargos seguem o método escolhido.
+            Os direitos e o imposto de importação calculam-se por linha. O seguro e as taxas dos EUA seguem o valor. O frete, o despachante, o porto, a entrega interna, a entrega ao domicílio e os outros encargos seguem o método escolhido.
           </p>
         </div>
 
