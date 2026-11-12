@@ -468,17 +468,28 @@ export function CalculadoraCustoImportacao() {
     setEstado('Exemplo reposto.')
   }
 
-  // campos ligados a um total da remessa: o transporte e a comissão por unidade (total ÷ unidades de todas as linhas) e a
-  // comissão em % (sobre o valor total sem imposto); ao editá-los muda o total
+  // campos ligados a um total da remessa. Transporte: o total ÷ as unidades de todas as linhas. Comissão: o total (nos custos da
+  // remessa) reparte-se pelo valor de cada produto; cada produto mostra a sua parte por unidade e a percentagem sobre o seu valor.
+  // Ao editar um destes campos muda o total.
   const unidadesTotal = linhas.reduce((t, l) => t + num(l.unidades), 0)
   const valorSemImposto = linhas.reduce((t, l) => t + num(l.unidades) * custoUnitario(l, compra), 0)
   const casas = (v: number) => (Number.isFinite(v) ? String(Math.round(v * 1e4) / 1e4) : '')
   const porUnidade = (total: string) => (unidadesTotal > 0 ? casas(num(total) / unidadesTotal) : '')
   const comissaoPct = valorSemImposto > 0 ? casas((num(form.comissao) / valorSemImposto) * 100) : ''
-  const editarPorUnidade = (campo: 'frete' | 'comissao') => (v: string) => {
+  const editarPorUnidade = (campo: 'frete') => (v: string) => {
     if (v.trim() === '') return mudar(campo, '')
     const n = num(v)
     if (unidadesTotal > 0 && Number.isFinite(n)) mudar(campo, String(Math.round(n * unidadesTotal * 1e6) / 1e6))
+  }
+  // a parte da comissão que cabe a um produto (pelo seu valor) e o que isso dá por unidade dele
+  const valorDaLinha = (l: LinhaForm) => num(l.unidades) * custoUnitario(l, compra)
+  const comissaoDaLinha = (l: LinhaForm) => (valorSemImposto > 0 ? (num(form.comissao) * valorDaLinha(l)) / valorSemImposto : NaN)
+  const comissaoPorUnidade = (l: LinhaForm) => (num(l.unidades) > 0 ? casas(comissaoDaLinha(l) / num(l.unidades)) : '')
+  const editarComissaoUnidade = (l: LinhaForm) => (v: string) => {
+    if (v.trim() === '') return mudar('comissao', '')
+    const n = num(v)
+    const vl = valorDaLinha(l)
+    if (Number.isFinite(n) && num(l.unidades) > 0 && vl > 0 && valorSemImposto > 0) mudar('comissao', String(Math.round(((n * num(l.unidades) * valorSemImposto) / vl) * 1e6) / 1e6))
   }
   const editarComissaoPct = (v: string) => {
     if (v.trim() === '') return mudar('comissao', '')
@@ -804,7 +815,7 @@ export function CalculadoraCustoImportacao() {
                     </div>
                     {/* 4.ª fila: comissão (valor por unidade e percentagem) e total das despesas */}
                     <div className="grid grid-cols-2 gap-3 @xl:grid-cols-3">
-                      <CampoLigado id={ids(`l${l.id}-comissao`)} rotulo="Comissão por unidade" valor={porUnidade(form.comissao)} aoEditar={editarPorUnidade('comissao')} sufixo={sufixoMoeda} />
+                      <CampoLigado id={ids(`l${l.id}-comissao`)} rotulo="Comissão por unidade" valor={comissaoPorUnidade(l)} aoEditar={editarComissaoUnidade(l)} sufixo={sufixoMoeda} />
                       <CampoLigado id={ids(`l${l.id}-comissao-pct`)} rotulo="Comissão (%)" valor={comissaoPct} aoEditar={editarComissaoPct} />
                       <CampoLeitura id={ids(`l${l.id}-despesas`)} rotulo="Valor total das despesas" valor={v.despesas} />
                     </div>
@@ -845,6 +856,7 @@ export function CalculadoraCustoImportacao() {
             <Campo id={ids('porto')} rotulo="Manuseamento no porto ou terminal" valor={form.porto} aoMudar={(v) => mudar('porto', v)} sufixo={eua ? undefined : 'MZN'} />
             <Campo id={ids('entrega')} rotulo="Entrega interna" valor={form.entrega} aoMudar={(v) => mudar('entrega', v)} sufixo={eua ? undefined : 'MZN'} />
             <Campo id={ids('outros')} rotulo="Outros encargos" valor={form.outros} aoMudar={(v) => mudar('outros', v)} sufixo={eua ? undefined : 'MZN'} />
+            <Campo id={ids('comissao')} rotulo="Comissão" valor={form.comissao} aoMudar={(v) => mudar('comissao', v)} sufixo={eua ? undefined : 'MZN'} />
           </div>
 
           <div className="mt-5 grid grid-cols-2 gap-3">
