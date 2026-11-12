@@ -52,8 +52,6 @@ interface Form {
   porto: string
   entrega: string
   outros: string
-  /** margem de erro, em % sobre o custo unitário de cada produto (nos produtos aparece em valor) */
-  erroPct: string
   /** comissão, em % sobre o valor total sem imposto de cada produto (nos produtos aparece em valor) */
   comissaoPct: string
   perdasPct: string
@@ -160,7 +158,6 @@ function formDoExemplo(): Form {
     porto: '0',
     entrega: '0',
     outros: '0',
-    erroPct: '0',
     comissaoPct: '0',
     perdasPct: String(e.perdasPct),
     margemPct: String(e.margemPct),
@@ -186,18 +183,15 @@ function num(s: string, vazioZero = false): number {
   return Number.isFinite(v) ? v : NaN
 }
 
-/** custo unitário cambiado de uma linha: (custo + impressão) × câmbio, sem a margem de erro */
+/** custo unitário cambiado de uma linha: (custo + impressão) × câmbio (no produto local não há impressão) */
 const custoCambiado = (l: LinhaForm, compra: number, local = false) => (num(l.custo) + (local ? 0 : num(l.impressao, true))) * compra
-/** o mesmo, com a margem de erro (em %, da remessa) somada */
-const custoUnitario = (l: LinhaForm, compra: number, local: boolean, erroPct: number) => custoCambiado(l, compra, local) * (1 + erroPct / 100)
 
 /** `compra` = quanto vale em meticais 1 unidade da moeda do fornecedor (1 se não há conversão): só o custo unitário das
  *  mercadorias se escreve na moeda do fornecedor; o frete, o seguro e os outros custos já são na moeda do resultado. */
 function paraEntrada(f: Form, linhas: LinhaForm[], compra: number, reparticao: Reparticao = f.reparticao): EntradaCalculo {
-  // o custo unitário do cálculo: (custo + impressão) na moeda do país, cambiado, com a margem de erro; no produto local não há impressão
+  // o custo unitário do cálculo: (custo + impressão) na moeda do país, cambiado; no produto local não há impressão
   const local = f.modo !== 'eua' && f.origem === 'MZN'
-  const erro = num(f.erroPct, true)
-  const custos = linhas.map((l) => custoUnitario(l, compra, local, erro))
+  const custos = linhas.map((l) => custoCambiado(l, compra, local))
   // a comissão é uma % do valor total sem imposto (unidades × custo unitário); se faltar algo nas linhas, o cálculo já o aponta
   const valorTotal = linhas.reduce((t, l, k) => t + num(l.unidades) * custos[k], 0)
   const comissao = (num(f.comissaoPct, true) / 100) * valorTotal
@@ -477,9 +471,8 @@ export function CalculadoraCustoImportacao() {
   }
 
   // campos ligados a um total da remessa: o transporte e a entrega domiciliária por unidade (o total ÷ as unidades de todas as
-  // linhas); ao editá-los muda o total. A margem de erro e a comissão são % da remessa; em cada produto aparecem em valor.
+  // linhas); ao editá-los muda o total. A comissão é uma % da remessa; em cada produto aparece em valor.
   const unidadesTotal = linhas.reduce((t, l) => t + num(l.unidades), 0)
-  const erro = num(form.erroPct, true)
   const comissaoPct = num(form.comissaoPct, true)
   const casas = (v: number) => (Number.isFinite(v) ? String(Math.round(v * 1e4) / 1e4) : '')
   const porUnidade = (total: string) => (unidadesTotal > 0 ? casas(num(total) / unidadesTotal) : '')
@@ -492,16 +485,14 @@ export function CalculadoraCustoImportacao() {
   const valoresLinha = (l: LinhaForm, k: number) => {
     const dinheiroOuVazio = (n: number) => (Number.isFinite(n) ? dinheiro(n) : '')
     const cambiado = custoCambiado(l, compra, local)
-    const u = custoUnitario(l, compra, local, erro)
     const rl = r.ok ? r.linhas[k] : undefined
     return {
-      cambiado: dinheiroOuVazio(custoCambiado(l, compra, local)),
-      unitario: dinheiroOuVazio(u),
-      totalSemImposto: dinheiroOuVazio(num(l.unidades) * u),
+      cambiado: dinheiroOuVazio(cambiado),
+      unitario: dinheiroOuVazio(cambiado),
+      totalSemImposto: dinheiroOuVazio(num(l.unidades) * cambiado),
       // a impressão do produto inteiro (custo unitário da impressão × unidades, cambiado)
       impressao: dinheiroOuVazio(local ? 0 : num(l.impressao, true) * num(l.unidades) * compra),
-      margemErro: dinheiroOuVazio((cambiado * erro) / 100),
-      comissao: dinheiroOuVazio((u * comissaoPct) / 100),
+      comissao: dinheiroOuVazio((cambiado * comissaoPct) / 100),
       despesas: rl ? dinheiro(rl.total - rl.mercadorias) : '',
       entrega: rl ? dinheiro(rl.total) : '',
     }
@@ -817,10 +808,9 @@ export function CalculadoraCustoImportacao() {
                       <Campo id={ids(`l${l.id}-direitos`)} rotulo="Taxa de direitos (%)" valor={l.direitos} aoMudar={(x) => mudarLinha(l.id, 'direitos', x)} />
                       <CampoLigado id={ids(`l${l.id}-entrega`)} rotulo="Entrega domiciliária por unidade" valor={porUnidade(form.entrega)} aoEditar={editarPorUnidade('entrega')} sufixo={sufixoMoeda} />
                     </div>
-                    {/* linha 5: valor da impressão, margem de erro e comissão por unidade (as % estão nos custos da remessa; aqui são valores) */}
+                    {/* linha 5: valor da impressão e comissão por unidade (a % da comissão está nos custos da remessa; aqui é valor) */}
                     <div className="grid grid-cols-2 gap-3 @xl:grid-cols-3">
                       <CampoLeitura id={ids(`l${l.id}-valor-impressao`)} rotulo="Valor da impressão" valor={v.impressao} />
-                      <CampoLeitura id={ids(`l${l.id}-margem-erro`)} rotulo="Margem de erro" valor={v.margemErro} />
                       <CampoLeitura id={ids(`l${l.id}-comissao`)} rotulo="Comissão por unidade" valor={v.comissao} />
                     </div>
                     {/* linha 6: peso e volume (dois campos), valor das despesas e valor total do produto na entrega */}
@@ -878,7 +868,6 @@ export function CalculadoraCustoImportacao() {
             </div>
             <Campo id={ids('perdas')} rotulo="Unidades que não consegue vender (%)" valor={form.perdasPct} aoMudar={(v) => mudar('perdasPct', v)} />
             <Campo id={ids('margem')} rotulo="Margem bruta pretendida (%)" valor={form.margemPct} aoMudar={(v) => mudar('margemPct', v)} />
-            <Campo id={ids('erro')} rotulo="Margem de erro (%)" valor={form.erroPct} aoMudar={(v) => mudar('erroPct', v)} />
             <Campo id={ids('comissao')} rotulo="Comissão (%)" valor={form.comissaoPct} aoMudar={(v) => mudar('comissaoPct', v)} />
           </div>
 
