@@ -11,6 +11,7 @@ import type { ScreenFn } from '../screens';
 import { DESC, MENU } from '../generated/data';
 import { pacoteDe } from '../state';
 import { emailPlanOfPackages } from '@/lib/email-plans';
+import { espacoDisponivelMb, limiteQuotasDoPlanoMb, type CaixaQuota } from '@/lib/email-quota-plan-limit';
 import { Stat } from '../ui';
 import { Check, DataTable, MaisOpcoes, novaSenha, Senha, Switch, Tabs } from './componentes';
 import { Confirmar } from './pacotes';
@@ -602,10 +603,17 @@ function ContasLista() {
     : diferencaContas !== null && diferencaContas < 0
       ? `de ${max} contas no plano · limite ultrapassado por ${Math.abs(diferencaContas)}`
       : `de ${max} contas no plano · ${diferencaContas ?? 0} restantes`;
-  const limitePlanoMb = planoEmail ? planoEmail.storageGb * 1024 : null;
+  // o espaço do plano: nos planos de e-mail, o do plano; nos de alojamento, o espaço em disco do plano (20 GB no Profissional): as quotas
+  // das caixas não podem somar mais do que isto (a rota /api/vhost/email recusa; Silva, 12/11/2026: 26 GB de quotas num plano de 20 GB)
+  const limitePlanoMb = planoEmail ? planoEmail.storageGb * 1024 : limiteQuotasDoPlanoMb(vh.a.discoLimMb);
   // o plano conta o espaço de todas as caixas da conta (todos os domínios), não só as do domínio escolhido
   const usadoConta = outrosMails.reduce((n, mail) => n + mail.used, 0) + info.caixas.reduce((n, c) => n + c.usadoMb, 0);
   const somaQuotasMb = todasRows.reduce((n, c) => n + c.quotaMb, 0);
+  const caixasQuota: CaixaQuota[] = [
+    ...outrosMails.map((mail) => ({ domain: mail.dom, user: mail.user, usedMb: mail.used, quotaMb: mail.quota > 0 ? mail.quota : null })),
+    ...info.caixas.map((c) => ({ domain: d, user: c.nome, usedMb: c.usadoMb, quotaMb: c.quotaMb > 0 ? c.quotaMb : null })),
+  ];
+  const somaQuotasConta = caixasQuota.reduce((n, c) => n + (c.quotaMb ?? 0), 0);
   // quanto do espaço está usado e quanto falta, em %, explícito no cartão: «68 MB · 1,3% de 5,00 GB do plano · faltam 98,7%»
   const pc = (n: number) => (Math.round(n * 10) / 10).toString().replace('.', ',');
   const espacoTotalMb = limitePlanoMb ?? (somaQuotasMb > 0 ? somaQuotasMb : null);
@@ -616,6 +624,10 @@ function ContasLista() {
         .replace('{0}', pc((usadoParaEspaco / espacoTotalMb) * 100))
         .replace('{1}', mb(espacoTotalMb))
         .replace('{2}', pc(Math.max(0, 1000 - Math.round((usadoParaEspaco / espacoTotalMb) * 1000)) / 10)); // soma 100 com a % usada mostrada
+  // conta que já ficou acima do plano (quotas somadas antes de a regra existir): o cartão diz-o, para se baixarem as quotas (baixar é sempre permitido)
+  const avisoAcimaDoPlano = limitePlanoMb !== null && somaQuotasConta > limitePlanoMb
+    ? ' · ' + t('as quotas somam {0}, acima do plano').replace('{0}', mb(somaQuotasConta))
+    : '';
   // caixas perto do limite: diz de quantas, a partir de que % conta e qual é a mais cheia
   const comQuota = todasRows.filter((c) => c.quotaMb > 0);
   const maisCheia = comQuota.reduce<Caixa | null>((a, c) => (!a || c.usadoMb / c.quotaMb > a.usadoMb / a.quotaMb ? c : a), null);
@@ -625,9 +637,13 @@ function ContasLista() {
         .replace('{1}', maisCheia.nome)
         .replace('{2}', pc((maisCheia.usadoMb / maisCheia.quotaMb) * 100))
     : t('de {0} caixas · sem quota definida').replace('{0}', String(todasRows.length));
-  const quotaMaximaMb = limitePlanoMb === null ? null : Math.max(0, limitePlanoMb - vh.a.mails
-    .filter((mail) => !quotaEdit || mail.user !== quotaEdit.user || mail.dom !== d)
-    .reduce((soma, mail) => soma + Math.max(1, Math.ceil(mail.used / 0.8)), 0));
+  const quotaMaximaMb = limitePlanoMb === null
+    ? null
+    : planoEmail
+      ? Math.max(0, limitePlanoMb - vh.a.mails
+        .filter((mail) => !quotaEdit || mail.user !== quotaEdit.user || mail.dom !== d)
+        .reduce((soma, mail) => soma + Math.max(1, Math.ceil(mail.used / 0.8)), 0))
+      : espacoDisponivelMb(caixasQuota, d, quotaEdit?.user ?? '', limitePlanoMb);
   const guardarQuota = async () => {
     if (!quotaEdit || aGuardarQuota) return;
     const quotaMb = quotaMbInserida(quotaEdit.value);
@@ -664,7 +680,7 @@ function ContasLista() {
           title="Espaço usado"
           uso
           v={mb(usadoConta)}
-          m={detalheEspaco}
+          m={detalheEspaco + avisoAcimaDoPlano}
           p={limitePlanoMb === null ? pct(usado, todasRows.reduce((n, c) => n + c.quotaMb, 0)) : pct(usadoConta, limitePlanoMb)}
         />
         <Stat title="Envios hoje" v={enviados} m="mensagens enviadas" p={0} />
@@ -742,7 +758,7 @@ function ContasLista() {
                   maxLength={20}
                   value={quotaEdit.value}
                   placeholder={t('ex.: 2 GB ou 500 MB')}
-                  title={quotaMaximaMb === null ? undefined : `${t('Máximo possível para esta caixa')}: ${quotaMaximaMb} MB / ${planoEmail?.storageGb ?? ''} GB`}
+                  title={quotaMaximaMb === null ? undefined : `${t('Máximo possível para esta caixa')}: ${quotaMaximaMb} MB / ${Math.round((limitePlanoMb ?? 0) / 1024)} GB`}
                   onChange={(e) => setQuotaEdit({ ...quotaEdit, value: e.target.value })}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
