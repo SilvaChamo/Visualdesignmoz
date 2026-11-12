@@ -17,6 +17,7 @@ import { Confirmar } from './pacotes';
 import { reprocessarVarios } from './dominios';
 import { vhostmailPagina, vhostmailPath } from './vhostmail';
 import { AO_ABRIR, EsperaPagina, FUNDO, useGet, useNaMemoria } from '../carga';
+import { guardarEmailVhost, lerEmailVhostGuardado } from '@/lib/vhost-cache';
 import { corUso } from '../cor-uso';
 
 // ---------- Menu: Mailmarketing nos Extras, a seguir ao Webmail (sem mexer nos ficheiros gerados da maquete) ----------
@@ -56,6 +57,16 @@ const lidos = new Map<string, InfoEmail>();
 const aLer = new Map<string, Promise<InfoEmail>>();
 const ouvintes = new Map<string, Set<(x: InfoEmail) => void>>();
 
+/** O que já se leu deste domínio: em memória ou, depois de recarregar a página, o que ficou guardado nesta aba */
+function lido(k: string): InfoEmail | undefined {
+  const m = lidos.get(k);
+  if (m) return m;
+  if (typeof window === 'undefined') return undefined;
+  const g = lerEmailVhostGuardado<InfoEmail>(k);
+  if (g) lidos.set(k, g);
+  return g ?? undefined;
+}
+
 function lerEmail(me: string, d: string, fundo = false): Promise<InfoEmail> {
   const k = me + '|' + d;
   let p = aLer.get(k);
@@ -65,6 +76,7 @@ function lerEmail(me: string, d: string, fundo = false): Promise<InfoEmail> {
         const j = await r.json();
         if (!r.ok) throw new Error(j.erro || 'Erro a ler o e-mail');
         lidos.set(k, j as InfoEmail);
+        guardarEmailVhost(k, j);
         ouvintes.get(k)?.forEach((f) => f(j as InfoEmail));
         return j as InfoEmail;
       })
@@ -88,14 +100,14 @@ function useEmail() {
   const espera = useContext(EsperaPagina);
   const d = dominioEmail(vh);
   const k = vh.me + '|' + d;
-  const [info, setInfo] = useState<InfoEmail | null>(() => lidos.get(k) || null);
+  const [info, setInfo] = useState<InfoEmail | null>(() => lido(k) || null);
   const [erro, setErro] = useState('');
   // Como no useGet: a leitura automática ao abrir, já em memória, atualiza por trás sem a linha do topo.
   const ler = useCallback(async (emFundo?: unknown) => {
     if (!d) return;
     setErro('');
     // sem nada em memória, a página nova espera por esta leitura antes de aparecer
-    const emMemoria = lidos.has(vh.me + '|' + d);
+    const emMemoria = !!lido(vh.me + '|' + d);
     const fim = !emMemoria && espera ? espera.comecar() : null;
     try {
       setInfo(await lerEmail(vh.me, d, emFundo === true || (emFundo === AO_ABRIR && emMemoria)));
@@ -106,7 +118,7 @@ function useEmail() {
     }
   }, [vh.me, d, espera]);
   useEffect(() => {
-    setInfo(lidos.get(k) || null);
+    setInfo(lido(k) || null);
     const s = ouvintes.get(k) || new Set();
     s.add(setInfo);
     ouvintes.set(k, s);
@@ -221,9 +233,9 @@ function ComEmail({ children }: { children: (x: { d: string; info: InfoEmail; le
 function DescEmail({ texto, conta }: { texto: string; conta?: (info: InfoEmail) => [number, string, string] }) {
   const vh = useVH();
   const k = vh.me + '|' + dominioEmail(vh);
-  const [info, setInfo] = useState<InfoEmail | null>(() => lidos.get(k) || null);
+  const [info, setInfo] = useState<InfoEmail | null>(() => lido(k) || null);
   useEffect(() => {
-    setInfo(lidos.get(k) || null);
+    setInfo(lido(k) || null);
     const s = ouvintes.get(k) || new Set();
     s.add(setInfo);
     ouvintes.set(k, s);
