@@ -668,7 +668,7 @@ export function CalculadoraCustoImportacao() {
                   )}
                 </div>
                 <div className="grid grid-cols-2 gap-3 @xl:grid-cols-3">
-                  <div className="col-span-2 @xl:col-span-3">
+                  <div className="col-span-2">
                     <label htmlFor={ids(`l${l.id}-nome`)} className={ROTULO}>
                       Produto
                     </label>
@@ -681,8 +681,8 @@ export function CalculadoraCustoImportacao() {
                       className={CAMPO}
                     />
                   </div>
-                  <Campo id={ids(`l${l.id}-unidades`)} rotulo="Unidades" valor={l.unidades} aoMudar={(v) => mudarLinha(l.id, 'unidades', v)} passo="1" />
                   <Campo id={ids(`l${l.id}-custo`)} rotulo={eua ? 'Custo unitário (FOB)' : (ORIGENS.find((o) => o.codigo === origem)?.custo ?? 'Custo unitário (FOB)')} valor={l.custo} aoMudar={(v) => mudarLinha(l.id, 'custo', v)} />
+                  <Campo id={ids(`l${l.id}-unidades`)} rotulo="Unidades" valor={l.unidades} aoMudar={(v) => mudarLinha(l.id, 'unidades', v)} passo="1" />
                   {comConversao && (
                     <div>
                       <label htmlFor={ids(`l${l.id}-custo-mzn`)} className={ROTULO}>
