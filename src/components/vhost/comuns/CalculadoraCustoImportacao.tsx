@@ -684,7 +684,7 @@ export function CalculadoraCustoImportacao() {
                   <Campo id={ids(`l${l.id}-custo`)} rotulo={eua ? 'Custo unitário (FOB)' : (ORIGENS.find((o) => o.codigo === origem)?.custo ?? 'Custo unitário (FOB)')} valor={l.custo} aoMudar={(v) => mudarLinha(l.id, 'custo', v)} />
                   <Campo id={ids(`l${l.id}-unidades`)} rotulo="Unidades" valor={l.unidades} aoMudar={(v) => mudarLinha(l.id, 'unidades', v)} passo="1" />
                   {comConversao && (
-                    <div>
+                    <div className="@xl:col-start-3">
                       <label htmlFor={ids(`l${l.id}-custo-mzn`)} className={ROTULO}>
                         Custo unitário em metical (MZN)
                       </label>
