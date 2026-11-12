@@ -243,7 +243,7 @@ export const THEME_PRESETS: ThemePreset[] = [
     id: 'gray',
     name: 'Cinza Suave',
     brandBadge: 'CINZA',
-    tagline: 'Fundo cinza suave clássico e limpo da maquete original.',
+    tagline: 'Fundo cinza suave clássico e limpo.',
     primary: '#475569',
     dark: '#334155',
     tint: '#F8FAFC',

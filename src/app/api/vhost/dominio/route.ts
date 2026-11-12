@@ -19,6 +19,7 @@ import { lerRegisto, montarDados } from '@/lib/vhost-dados';
 import { instalarWebmail } from '@/lib/vhost-passar';
 import { limparSslPendente, marcarSslPendente } from '@/lib/vhost-ssl-pendente';
 import { agendarSslImediato } from '@/lib/ssl-automatico';
+import { garantirWebmailNaVercel } from '@/lib/webmail-vercel';
 
 export const dynamic = 'force-dynamic';
 // o pedido do SSL ao ssl-le espera pelo DNS e pelo Let's Encrypt
@@ -255,6 +256,42 @@ async function reprocessarDns(conta: string, d: string, srv: LeituraServidor, li
             ? { ...(await updateCloudflareDnsRecord(zid, antiga.id, zona, { type: 'TXT', name: nome, content: dkim })), action: 'updated' as string | undefined }
             : await upsertCloudflareRecord(zid, zona, { type: 'TXT', name: nome, content: dkim, ttl: 3600 });
       itens.push({ nome: 'DKIM do servidor', estado: !x.ok ? 'falhou' : x.action === 'skipped' ? 'certo' : 'novo', detalhe: !x.ok ? pub(x.error) : x.error });
+    }
+    // webmail.<domínio> → este servidor: o endereço do Roundcube de quem tem o site noutro sítio (ex.: Vercel), onde
+    // <domínio>/webmail não existe (aamihe.com e entrecamposblog.com davam 404 — Silva, 06/11/2026). Sem proxy: o
+    // webmail tem o seu certificado aqui. Vale também para os domínios com o site neste servidor (fica como está se já certo).
+    const mailDoDominio = srv.mail[conta]?.[d];
+    let sslWebmail = (mailDoDominio?.SSL || 'no').toLowerCase() === 'yes' && (mailDoDominio?.LETSENCRYPT || 'no').toLowerCase() === 'yes';
+    const nomeWm = d === zona ? 'webmail' : 'webmail.' + d.slice(0, -(zona.length + 1));
+    const rotuloWm = 'A webmail.' + d;
+    const ipWm = (w?.IP || getServerHost()).trim();
+    const doWm = (await listCloudflareDnsRecords(zid, zona)).filter((x) => x.name === nomeWm && ['A', 'AAAA', 'CNAME'].includes(x.type));
+    if (doWm.some((x) => (x.type === 'A' && x.content === ipWm) || x.type === 'CNAME')) {
+      itens.push({ nome: rotuloWm, estado: 'certo' });
+    } else {
+      const aWm = doWm.find((x) => x.type === 'A');
+      const xWm = aWm
+        ? await updateCloudflareDnsRecord(zid, aWm.id, zona, { type: 'A', name: nomeWm, content: ipWm })
+        : await upsertCloudflareRecord(zid, zona, { type: 'A', name: nomeWm, content: ipWm, proxied: false });
+      itens.push({ nome: rotuloWm, estado: xWm.ok ? 'novo' : 'falhou', detalhe: xWm.ok ? '→ ' + ipWm : pub(xWm.error) });
+      // registo novo: pede já o certificado do e-mail (mail.<domínio> e webmail.<domínio>), para o endereço abrir com https
+      if (xWm.ok) {
+        const ssl = await semDemorarDemais(hestia.issueMailLetsEncrypt(conta, d), 25_000).catch((e: unknown) => ({ ok: false as const, error: e instanceof Error ? e.message : 'erro' }));
+        if (!ssl.ok) itens.push({ nome: 'SSL do e-mail', estado: 'falhou', detalhe: pub('error' in ssl ? ssl.error : undefined) });
+        else if ('aviso' in ssl) itens.push({ nome: 'SSL do e-mail', estado: 'pendente', detalhe: 'pedido em curso; o DNS novo pode demorar uns minutos — volte a reprocessar se não ficar' });
+        else {
+          itens.push({ nome: 'SSL do e-mail', estado: 'novo', detalhe: 'certificado pedido' });
+          sslWebmail = true;
+        }
+      }
+    }
+    // Site na Vercel: <domínio>/webmail não existe lá — põe a regra no vercel.json do site (ver webmail-vercel.ts), sem ninguém fundir à mão.
+    // Aponta para webmail.<domínio> se esse nome já tem SSL; senão para o webmail do painel, que abre sempre.
+    if ((await alojamentoVercelPublico(d)) === true) {
+      const painel = (process.env.NEXT_PUBLIC_SITE_URL || 'https://visualdesignmoz.com').replace(/\/+$/, '').replace(/^https?:\/\//, '');
+      const destino = sslWebmail ? `https://webmail.${d}/` : `https://webmail.${painel.replace(/^www\./, '')}/`;
+      const r = await garantirWebmailNaVercel(d, destino).catch((e: unknown) => ({ estado: 'falhou' as const, detalhe: e instanceof Error ? e.message : 'erro' }));
+      itens.push({ nome: `/webmail em ${d}`, estado: r.estado, detalhe: r.estado === 'falhou' ? pub(r.detalhe) : r.detalhe });
     }
   }
   // O DNS só vale se o registador apontar para quem o serve: Cloudflare, ou os ns do próprio servidor (que copiam a

@@ -23,6 +23,7 @@ import { diagnosticoPassagemPagina } from './paginas/diagnostico-passagem';
 import { encomendasPagina } from './paginas/encomendas';
 import { ClientProductsHub } from '@/components/vhost/comuns/ClientProductsHub';
 import { contabilidadePagina, contasEncomendasPagina, gestaoEncomendasPagina } from './paginas/encomendas-admin';
+import { calculadoraImportacaoPagina } from './paginas/calculadora-importacao';
 import { renovacoesAdminPagina, renovacoesClientePagina } from './paginas/renovacoes';
 import { quarentenaPagina } from './paginas/quarentena';
 import { lixeiraPagina } from './paginas/lixeira';
@@ -66,6 +67,10 @@ export interface Screen {
   dominioUrl?: { d: string; ir: (novo: string) => string };
   /** cartão à direita do cartão principal (ex.: números e botões de Contas de e-mail) */
   lado?: ReactNode;
+  /** o corpo ocupa o lugar do cartão principal (VhostMail: sem a moldura de 24 px) */
+  semCartao?: boolean;
+  /** a página ocupa o ecrã todo: sem menu à esquerda, sem faixa de cima, sem caminho (VhostMail) */
+  ecraInteiro?: boolean;
 }
 export type ScreenFn = (vh: VH) => Screen;
 
@@ -866,6 +871,7 @@ export const SCREENS: Record<string, ScreenFn> = {
   'admin/gestao-encomendas': gestaoEncomendasPagina,
   'admin/contabilidade': contabilidadePagina,
   'admin/contas-encomendas': contasEncomendasPagina,
+  'admin/calculadora': calculadoraImportacaoPagina,
   'admin/renovacoes': renovacoesAdminPagina,
   'utilizador/renovacoes': renovacoesClientePagina,
   'admin/quarentena': quarentenaPagina,

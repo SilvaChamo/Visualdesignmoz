@@ -11,11 +11,14 @@ import type { ScreenFn } from '../screens';
 import { DESC, MENU } from '../generated/data';
 import { pacoteDe } from '../state';
 import { emailPlanOfPackages } from '@/lib/email-plans';
+import { espacoDisponivelMb, limiteQuotasDoPlanoMb, type CaixaQuota } from '@/lib/email-quota-plan-limit';
 import { Stat } from '../ui';
 import { Check, DataTable, MaisOpcoes, novaSenha, Senha, Switch, Tabs } from './componentes';
 import { Confirmar } from './pacotes';
 import { reprocessarVarios } from './dominios';
+import { vhostmailPagina, vhostmailPath } from './vhostmail';
 import { AO_ABRIR, EsperaPagina, FUNDO, useGet, useNaMemoria } from '../carga';
+import { guardarEmailVhost, lerEmailVhostGuardado } from '@/lib/vhost-cache';
 import { corUso } from '../cor-uso';
 
 // ---------- Menu: Mailmarketing nos Extras, a seguir ao Webmail (sem mexer nos ficheiros gerados da maquete) ----------
@@ -55,6 +58,16 @@ const lidos = new Map<string, InfoEmail>();
 const aLer = new Map<string, Promise<InfoEmail>>();
 const ouvintes = new Map<string, Set<(x: InfoEmail) => void>>();
 
+/** O que já se leu deste domínio: em memória ou, depois de recarregar a página, o que ficou guardado nesta aba */
+function lido(k: string): InfoEmail | undefined {
+  const m = lidos.get(k);
+  if (m) return m;
+  if (typeof window === 'undefined') return undefined;
+  const g = lerEmailVhostGuardado<InfoEmail>(k);
+  if (g) lidos.set(k, g);
+  return g ?? undefined;
+}
+
 function lerEmail(me: string, d: string, fundo = false): Promise<InfoEmail> {
   const k = me + '|' + d;
   let p = aLer.get(k);
@@ -64,6 +77,7 @@ function lerEmail(me: string, d: string, fundo = false): Promise<InfoEmail> {
         const j = await r.json();
         if (!r.ok) throw new Error(j.erro || 'Erro a ler o e-mail');
         lidos.set(k, j as InfoEmail);
+        guardarEmailVhost(k, j);
         ouvintes.get(k)?.forEach((f) => f(j as InfoEmail));
         return j as InfoEmail;
       })
@@ -76,7 +90,10 @@ function lerEmail(me: string, d: string, fundo = false): Promise<InfoEmail> {
 /** Domínio em que se trabalha: o escolhido no seletor (todos os domínios da conta, também os só de e-mail) */
 function dominioEmail(vh: VH): string {
   const doms = vh.a.domains.map((x) => x.name); // o primeiro é o principal da conta
-  return vh.s.dominio && doms.includes(vh.s.dominio) ? vh.s.dominio : doms[0] || '';
+  if (vh.s.dominio && doms.includes(vh.s.dominio)) return vh.s.dominio;
+  // sem escolha no seletor: o principal, salvo se só outro domínio da conta tiver e-mail (as caixas da Revista Terra estão em
+  // revistaterra.co.mz e o principal, revistaterraonline.com, não tem nenhuma: a lista aparecia vazia)
+  return (!vh.a.domains[0]?.temEmail && vh.a.domains.find((x) => x.temEmail)?.name) || doms[0] || '';
 }
 
 function useEmail() {
@@ -84,14 +101,14 @@ function useEmail() {
   const espera = useContext(EsperaPagina);
   const d = dominioEmail(vh);
   const k = vh.me + '|' + d;
-  const [info, setInfo] = useState<InfoEmail | null>(() => lidos.get(k) || null);
+  const [info, setInfo] = useState<InfoEmail | null>(() => lido(k) || null);
   const [erro, setErro] = useState('');
   // Como no useGet: a leitura automática ao abrir, já em memória, atualiza por trás sem a linha do topo.
   const ler = useCallback(async (emFundo?: unknown) => {
     if (!d) return;
     setErro('');
     // sem nada em memória, a página nova espera por esta leitura antes de aparecer
-    const emMemoria = lidos.has(vh.me + '|' + d);
+    const emMemoria = !!lido(vh.me + '|' + d);
     const fim = !emMemoria && espera ? espera.comecar() : null;
     try {
       setInfo(await lerEmail(vh.me, d, emFundo === true || (emFundo === AO_ABRIR && emMemoria)));
@@ -102,7 +119,7 @@ function useEmail() {
     }
   }, [vh.me, d, espera]);
   useEffect(() => {
-    setInfo(lidos.get(k) || null);
+    setInfo(lido(k) || null);
     const s = ouvintes.get(k) || new Set();
     s.add(setInfo);
     ouvintes.set(k, s);
@@ -217,9 +234,9 @@ function ComEmail({ children }: { children: (x: { d: string; info: InfoEmail; le
 function DescEmail({ texto, conta }: { texto: string; conta?: (info: InfoEmail) => [number, string, string] }) {
   const vh = useVH();
   const k = vh.me + '|' + dominioEmail(vh);
-  const [info, setInfo] = useState<InfoEmail | null>(() => lidos.get(k) || null);
+  const [info, setInfo] = useState<InfoEmail | null>(() => lido(k) || null);
   useEffect(() => {
-    setInfo(lidos.get(k) || null);
+    setInfo(lido(k) || null);
     const s = ouvintes.get(k) || new Set();
     s.add(setInfo);
     ouvintes.set(k, s);
@@ -580,17 +597,53 @@ function ContasLista() {
   const outrosMails = vh.a.mails.filter((mail) => mail.dom !== d);
   const totalContas = outrosMails.length + info.caixas.length;
   const diferencaContas = max === null ? null : max - totalContas;
+  // o número grande do cartão é o total (ex.: 7); o texto ao lado diz de quantas o plano deixa e quantas faltam (ex.: «de 15 contas no plano · 8 restantes»)
   const detalheContas = max === null
     ? 'Sem limite de contas no plano'
     : diferencaContas !== null && diferencaContas < 0
-      ? `${max} contas no plano · limite ultrapassado por ${Math.abs(diferencaContas)}`
-      : `${max} contas no plano · ${diferencaContas ?? 0} restantes`;
-  const limitePlanoMb = planoEmail ? planoEmail.storageGb * 1024 : null;
+      ? `de ${max} contas no plano · limite ultrapassado por ${Math.abs(diferencaContas)}`
+      : `de ${max} contas no plano · ${diferencaContas ?? 0} restantes`;
+  // o espaço do plano: nos planos de e-mail, o do plano; nos de alojamento, o espaço em disco do plano (20 GB no Profissional): as quotas
+  // das caixas não podem somar mais do que isto (a rota /api/vhost/email recusa; Silva, 12/11/2026: 26 GB de quotas num plano de 20 GB)
+  const limitePlanoMb = planoEmail ? planoEmail.storageGb * 1024 : limiteQuotasDoPlanoMb(vh.a.discoLimMb);
   // o plano conta o espaço de todas as caixas da conta (todos os domínios), não só as do domínio escolhido
   const usadoConta = outrosMails.reduce((n, mail) => n + mail.used, 0) + info.caixas.reduce((n, c) => n + c.usadoMb, 0);
-  const quotaMaximaMb = limitePlanoMb === null ? null : Math.max(0, limitePlanoMb - vh.a.mails
-    .filter((mail) => !quotaEdit || mail.user !== quotaEdit.user || mail.dom !== d)
-    .reduce((soma, mail) => soma + Math.max(1, Math.ceil(mail.used / 0.8)), 0));
+  const somaQuotasMb = todasRows.reduce((n, c) => n + c.quotaMb, 0);
+  const caixasQuota: CaixaQuota[] = [
+    ...outrosMails.map((mail) => ({ domain: mail.dom, user: mail.user, usedMb: mail.used, quotaMb: mail.quota > 0 ? mail.quota : null })),
+    ...info.caixas.map((c) => ({ domain: d, user: c.nome, usedMb: c.usadoMb, quotaMb: c.quotaMb > 0 ? c.quotaMb : null })),
+  ];
+  const somaQuotasConta = caixasQuota.reduce((n, c) => n + (c.quotaMb ?? 0), 0);
+  // quanto do espaço está usado e quanto falta, em %, explícito no cartão: «68 MB · 1,3% de 5,00 GB do plano · faltam 98,7%»
+  const pc = (n: number) => (Math.round(n * 10) / 10).toString().replace('.', ',');
+  const espacoTotalMb = limitePlanoMb ?? (somaQuotasMb > 0 ? somaQuotasMb : null);
+  const usadoParaEspaco = limitePlanoMb === null ? usado : usadoConta;
+  const detalheEspaco = espacoTotalMb === null
+    ? 'em todas as caixas'
+    : t(limitePlanoMb === null ? '{0}% de {1} nas quotas · faltam {2}%' : '{0}% de {1} do plano · faltam {2}%')
+        .replace('{0}', pc((usadoParaEspaco / espacoTotalMb) * 100))
+        .replace('{1}', mb(espacoTotalMb))
+        .replace('{2}', pc(Math.max(0, 1000 - Math.round((usadoParaEspaco / espacoTotalMb) * 1000)) / 10)); // soma 100 com a % usada mostrada
+  // conta que já ficou acima do plano (quotas somadas antes de a regra existir): o cartão diz-o, para se baixarem as quotas (baixar é sempre permitido)
+  const avisoAcimaDoPlano = limitePlanoMb !== null && somaQuotasConta > limitePlanoMb
+    ? ' · ' + t('as quotas somam {0}, acima do plano').replace('{0}', mb(somaQuotasConta))
+    : '';
+  // caixas perto do limite: diz de quantas, a partir de que % conta e qual é a mais cheia
+  const comQuota = todasRows.filter((c) => c.quotaMb > 0);
+  const maisCheia = comQuota.reduce<Caixa | null>((a, c) => (!a || c.usadoMb / c.quotaMb > a.usadoMb / a.quotaMb ? c : a), null);
+  const detalheCheias = maisCheia
+    ? t('de {0} caixas acima de 80% da quota · a mais cheia: {1} ({2}%)')
+        .replace('{0}', String(todasRows.length))
+        .replace('{1}', maisCheia.nome)
+        .replace('{2}', pc((maisCheia.usadoMb / maisCheia.quotaMb) * 100))
+    : t('de {0} caixas · sem quota definida').replace('{0}', String(todasRows.length));
+  const quotaMaximaMb = limitePlanoMb === null
+    ? null
+    : planoEmail
+      ? Math.max(0, limitePlanoMb - vh.a.mails
+        .filter((mail) => !quotaEdit || mail.user !== quotaEdit.user || mail.dom !== d)
+        .reduce((soma, mail) => soma + Math.max(1, Math.ceil(mail.used / 0.8)), 0))
+      : espacoDisponivelMb(caixasQuota, d, quotaEdit?.user ?? '', limitePlanoMb);
   const guardarQuota = async () => {
     if (!quotaEdit || aGuardarQuota) return;
     const quotaMb = quotaMbInserida(quotaEdit.value);
@@ -627,11 +680,11 @@ function ContasLista() {
           title="Espaço usado"
           uso
           v={mb(usadoConta)}
-          m={limitePlanoMb === null ? 'em todas as caixas' : t('de {0} do plano').replace('{0}', mb(limitePlanoMb))}
+          m={detalheEspaco + avisoAcimaDoPlano}
           p={limitePlanoMb === null ? pct(usado, todasRows.reduce((n, c) => n + c.quotaMb, 0)) : pct(usadoConta, limitePlanoMb)}
         />
         <Stat title="Envios hoje" v={enviados} m="mensagens enviadas" p={0} />
-        <Stat title="Caixas quase cheias" v={cheias} m="acima de 80%" p={cheias * 20} cor={cheias === 0 ? corUso(0) : cheias < 3 ? corUso(70) : corUso(100)} />
+        <Stat title="Caixas quase cheias" v={cheias} m={detalheCheias} p={cheias * 20} cor={cheias === 0 ? corUso(0) : cheias < 3 ? corUso(70) : corUso(100)} />
       </div>
       {/* Card secundário: pesquisa + botões + lista de e-mails */}
       <div className="card em-lista-card">
@@ -662,7 +715,11 @@ function ContasLista() {
         rows={rows}
         rowKey={(r) => r.nome}
         onRecarregar={() => void lerEmail(vh.me, d)}
-        empty="Este domínio ainda não tem contas de e-mail"
+        empty={
+          vh.a.domains.some((x) => x.temEmail && x.name !== d)
+            ? t('Este domínio ainda não tem contas de e-mail. Há caixas em {0}: escolha-o no seletor de domínio.').replace('{0}', vh.a.domains.find((x) => x.temEmail && x.name !== d)!.name)
+            : 'Este domínio ainda não tem contas de e-mail'
+        }
         rowClass={(r) => (r.suspensa ? 'off' : '')}
         cols={[
           {
@@ -701,7 +758,7 @@ function ContasLista() {
                   maxLength={20}
                   value={quotaEdit.value}
                   placeholder={t('ex.: 2 GB ou 500 MB')}
-                  title={quotaMaximaMb === null ? undefined : `${t('Máximo possível para esta caixa')}: ${quotaMaximaMb} MB / ${planoEmail?.storageGb ?? ''} GB`}
+                  title={quotaMaximaMb === null ? undefined : `${t('Máximo possível para esta caixa')}: ${quotaMaximaMb} MB / ${Math.round((limitePlanoMb ?? 0) / 1024)} GB`}
                   onChange={(e) => setQuotaEdit({ ...quotaEdit, value: e.target.value })}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
@@ -767,11 +824,11 @@ function ContasLista() {
             right: true,
             cell: (r) => (
               <span className="em-log">
-                <a className="lk" onClick={() => nav('/utilizador/rastreio/entrada/' + encodeURIComponent(r.nome + '@' + d))}>
+                <a className="lk" onClick={() => nav(vhostmailPath('entrada', r.nome + '@' + d))}>
                   {t('Entrada')}
                 </a>{' '}
                 ⇄{' '}
-                <a className="lk" onClick={() => nav('/utilizador/rastreio/saida/' + encodeURIComponent(r.nome + '@' + d))}>
+                <a className="lk" onClick={() => nav(vhostmailPath('enviados', r.nome + '@' + d))}>
                   {t('Saída')}
                 </a>
               </span>
@@ -780,6 +837,9 @@ function ContasLista() {
         ]}
         actions={(r) => (
           <span className="dns-acoes">
+            <button className="btn g sm" onClick={() => nav(vhostmailPath('entrada', r.nome + '@' + d))} title={t('Abrir no VhostMail')}>
+              {t('Abrir')}
+            </button>
             <a className="btn g sm iconbtn" href={webmailUrl(vh.me, d, r.nome)} target="_blank" rel="noreferrer" title={t('Abrir webmail')} aria-label={t('Abrir webmail')}>
               <i className="fa-solid fa-inbox" />
             </a>
@@ -892,8 +952,9 @@ function UsoEmail() {
 }
 
 export const emailPagina: ScreenFn = (vh) => {
-  const [a] = vh.s.sub;
+  const [a, b, c] = vh.s.sub;
   const base = { t: 'E-mails', path: '/utilizador/email' };
+  if (a === 'vhostmail' && b && c) return vhostmailPagina(b, c)(vh);
   if (a === 'nova') return { title: 'Criar conta de e-mail', crumbs: [base, { t: 'Criar conta' }], body: <ContaNova /> };
   if (a === 'uso') return { title: 'Uso de e-mail', crumbs: [base, { t: 'Uso de e-mail' }], body: <UsoEmail /> };
   // estatísticas e botões integrados no cartão principal; a lista estica para toda a largura
