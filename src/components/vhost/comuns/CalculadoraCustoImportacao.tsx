@@ -613,7 +613,7 @@ export function CalculadoraCustoImportacao() {
                 aria-label="País de origem das mercadorias"
                 value={form.origem}
                 onChange={(e) => mudarOrigem(e.target.value)}
-                className={`${CAMPO} w-auto min-w-48 py-2.5`}
+                className={`${CAMPO.replace('w-full ', '')} min-w-48 py-2.5`}
               >
                 {ORIGENS.map((o) => (
                   <option key={o.codigo} value={o.codigo}>
