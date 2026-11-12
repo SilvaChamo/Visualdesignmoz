@@ -8226,6 +8226,24 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    background: revert-layer
 }
 
+/* Calculadora (Admin › Contabilidade): quando o cartão é estreito, cada linha da tabela passa a um bloco; os pares nome/valor levam a risca
+   e o fundo alternado das tabelas do painel (Silva, 12/11/2026: «linhas e fundo intercalado entre as linhas, tal como noutras linhas») */
+.vh .tw-livre .cci-linhas>div {
+   border-bottom: 1px solid color-mix(in srgb, var(--line-soft) 65%, var(--card))
+}
+
+.vh .tw-livre .cci-linhas>div:last-child {
+   border-bottom: 0
+}
+
+.vh .tw-livre .cci-linhas>div:nth-child(even) {
+   background: var(--soft)
+}
+
+.vh[data-theme=dark] .tw-livre .cci-linhas>div:nth-child(even) {
+   background: color-mix(in srgb, var(--card) 78%, #000)
+}
+
 .vh .tw-livre :is(code, kbd) {
    font-family: revert-layer;
    font-size: revert-layer;

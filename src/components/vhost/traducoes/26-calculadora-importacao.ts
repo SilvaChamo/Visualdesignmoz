@@ -9,8 +9,6 @@ export const calculadora_importacao: Record<string, string> = {
  "Preço com a margem pretendida": "Price at the target margin",
  "Calculadora de custo de importação": "Landed Cost Calculator",
  "Linha": "Line",
- "País de origem das mercadorias": "Country the goods come from",
- "Moçambique": "Mozambique",
  "África do Sul": "South Africa",
  "Brasil": "Brazil",
  "Índia": "India",

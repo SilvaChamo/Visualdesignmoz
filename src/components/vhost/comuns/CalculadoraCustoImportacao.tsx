@@ -204,20 +204,13 @@ const CARTAO = 'rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:
 const TITULO = 'text-lg font-bold text-slate-900 dark:text-slate-100'
 const NOTA = 'text-xs leading-relaxed text-slate-500 dark:text-slate-400'
 
-function Campo({ id, rotulo, valor, aoMudar, passo = 'any', sufixo }: { id: string; rotulo: string; valor: string; aoMudar: (v: string) => void; passo?: string; sufixo?: string }) {
+function Campo({ id, rotulo, valor, aoMudar, passo = 'any' }: { id: string; rotulo: string; valor: string; aoMudar: (v: string) => void; passo?: string }) {
   return (
     <div>
       <label htmlFor={id} className={ROTULO}>
         {rotulo}
       </label>
-      <div className="relative">
-        <input id={id} type="number" inputMode="decimal" min={0} step={passo} value={valor} onChange={(e) => aoMudar(e.target.value)} className={sufixo ? `${CAMPO} pr-14 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none` : CAMPO} />
-        {sufixo && (
-          <span aria-hidden className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs font-bold text-slate-400 dark:text-slate-500">
-            {sufixo}
-          </span>
-        )}
-      </div>
+      <input id={id} type="number" inputMode="decimal" min={0} step={passo} value={valor} onChange={(e) => aoMudar(e.target.value)} className={CAMPO} />
     </div>
   )
 }
@@ -302,12 +295,12 @@ export function Tabela({
       </div>
       <div className={`space-y-3 ${quebra === 'lg' ? '@5xl:hidden' : '@2xl:hidden'}`}>
         {linhas.map((l, i) => (
-          <div key={i} className={`rounded-xl border p-3.5 ${l.total ? 'border-slate-300 bg-slate-50 dark:border-slate-600 dark:bg-slate-800/60' : 'border-slate-200 dark:border-slate-700'}`}>
-            <p className="mb-2 text-sm font-bold text-slate-900 dark:text-slate-100">{l.celulas[0]}</p>
-            <dl className="space-y-1.5">
+          <div key={i} className={`overflow-hidden rounded-xl border pt-3.5 ${l.total ? 'border-slate-300 bg-slate-50 dark:border-slate-600 dark:bg-slate-800/60' : 'border-slate-200 dark:border-slate-700'}`}>
+            <p className="mb-2 px-3.5 text-sm font-bold text-slate-900 dark:text-slate-100">{l.celulas[0]}</p>
+            <dl className="cci-linhas border-t border-slate-200 dark:border-slate-700">
               {l.celulas.slice(1).map((c, k) =>
                 c ? (
-                  <div key={k} className="flex items-baseline justify-between gap-3 text-sm">
+                  <div key={k} className="flex items-baseline justify-between gap-3 px-3.5 py-2 text-sm">
                     <dt className="text-slate-500 dark:text-slate-400">{colunas[k + 1]}</dt>
                     <dd className="text-right font-medium tabular-nums text-slate-800 dark:text-slate-200">{c}</dd>
                   </div>
@@ -375,9 +368,15 @@ export function CalculadoraCustoImportacao() {
     setEstado('')
     setLinhas((ls) => ls.map((l) => (l.id === id ? { ...l, [k]: v } : l)))
   }
-  const mudarOrigem = (codigo: string) => {
+  // um só grupo de botões: o 1.º é o de sempre (meticais), a seguir os países de onde se compra (a moeda e o câmbio do dia) e, no fim, os EUA
+  const mudarDestino = (v: string) => {
+    if (v === 'eua') {
+      if (!eua) mudarModo('eua')
+      return
+    }
+    if (eua) mudarModo('iva')
     setEstado('')
-    setForm((f) => ({ ...f, origem: codigo }))
+    setForm((f) => ({ ...f, origem: v === 'iva' ? 'MZN' : v }))
   }
   const mudarModo = (modo: ModoImposto) => {
     setForm((f) => ({ ...f, modo, base: modo === 'eua' ? 'fob' : 'cif' }))
@@ -599,42 +598,37 @@ export function CalculadoraCustoImportacao() {
           <p className={`${ROTULO} mb-2`}>Tipo de destino</p>
           <Opcoes
             rotuloAria="Tipo de destino"
-            valor={form.modo}
-            aoMudar={mudarModo}
+            valor={eua ? 'eua' : form.origem === 'MZN' ? 'iva' : form.origem}
+            aoMudar={mudarDestino}
             opcoes={[
               { valor: 'iva', texto: 'País com IVA (ex.: Moçambique)' },
+              ...ORIGENS.filter((o) => o.codigo !== 'MZN').map((o) => ({ valor: o.codigo, texto: o.pais })),
               { valor: 'eua', texto: 'Importação nos EUA (CBP)' },
             ]}
           />
-          {!eua && (
-            <>
-              <p className={`${ROTULO} mb-2 mt-5`}>País de origem das mercadorias</p>
-              <Opcoes rotuloAria="País de origem das mercadorias" valor={form.origem} aoMudar={mudarOrigem} opcoes={ORIGENS.map((o) => ({ valor: o.codigo, texto: o.pais }))} />
-              {comConversao && (
-                <p className={`${NOTA} mt-3`} role="status" data-testid="cci-cambio">
-                  {cambio.dados ? (
-                    <>
-                      {cambio.estado === 'erro'
-                        ? `Sem ligação ao câmbio do dia: a usar o último guardado (${dataCambio}): 1 ${origem} = ${cambioFmt(compra)} ${moeda}. Fonte:`
-                        : `Câmbio do dia (${dataCambio}): 1 ${origem} = ${cambioFmt(compra)} ${moeda}. Fonte:`}{' '}
-                      <a href="https://www.exchangerate-api.com" target="_blank" rel="noopener noreferrer" className="font-semibold underline underline-offset-2">
-                        Rates By Exchange Rate API
-                      </a>
-                      . Pode ser diferente do câmbio do banco e da alfândega.
-                    </>
-                  ) : cambio.estado === 'a-ler' ? (
-                    'A obter o câmbio do dia…'
-                  ) : (
-                    <>
-                      Não foi possível obter o câmbio do dia.{' '}
-                      <button type="button" onClick={() => void cambio.ler()} className="font-bold text-red-600 underline underline-offset-2">
-                        Tentar de novo
-                      </button>
-                    </>
-                  )}
-                </p>
+          {comConversao && (
+            <p className={`${NOTA} mt-3`} role="status" data-testid="cci-cambio">
+              {cambio.dados ? (
+                <>
+                  {cambio.estado === 'erro'
+                    ? `Sem ligação ao câmbio do dia: a usar o último guardado (${dataCambio}): 1 ${origem} = ${cambioFmt(compra)} ${moeda}. Fonte:`
+                    : `Câmbio do dia (${dataCambio}): 1 ${origem} = ${cambioFmt(compra)} ${moeda}. Fonte:`}{' '}
+                  <a href="https://www.exchangerate-api.com" target="_blank" rel="noopener noreferrer" className="font-semibold underline underline-offset-2">
+                    Rates By Exchange Rate API
+                  </a>
+                  . Pode ser diferente do câmbio do banco e da alfândega.
+                </>
+              ) : cambio.estado === 'a-ler' ? (
+                'A obter o câmbio do dia…'
+              ) : (
+                <>
+                  Não foi possível obter o câmbio do dia.{' '}
+                  <button type="button" onClick={() => void cambio.ler()} className="font-bold text-red-600 underline underline-offset-2">
+                    Tentar de novo
+                  </button>
+                </>
               )}
-            </>
+            </p>
           )}
         </div>
 
@@ -707,12 +701,12 @@ export function CalculadoraCustoImportacao() {
         <div className={CARTAO}>
           <h2 className={TITULO}>Custos da remessa</h2>
           <div className="mt-4 grid grid-cols-2 gap-3 @xl:grid-cols-3">
-            <Campo id={ids('frete')} rotulo="Frete internacional" valor={form.frete} aoMudar={(v) => mudar('frete', v)} sufixo={eua ? undefined : 'MZN'} />
-            <Campo id={ids('seguro')} rotulo="Seguro de carga" valor={form.seguro} aoMudar={(v) => mudar('seguro', v)} sufixo={eua ? undefined : 'MZN'} />
-            <Campo id={ids('corretor')} rotulo="Despachante ou corretor" valor={form.corretor} aoMudar={(v) => mudar('corretor', v)} sufixo={eua ? undefined : 'MZN'} />
-            <Campo id={ids('porto')} rotulo="Manuseamento no porto ou terminal" valor={form.porto} aoMudar={(v) => mudar('porto', v)} sufixo={eua ? undefined : 'MZN'} />
-            <Campo id={ids('entrega')} rotulo="Entrega interna" valor={form.entrega} aoMudar={(v) => mudar('entrega', v)} sufixo={eua ? undefined : 'MZN'} />
-            <Campo id={ids('outros')} rotulo="Outros encargos" valor={form.outros} aoMudar={(v) => mudar('outros', v)} sufixo={eua ? undefined : 'MZN'} />
+            <Campo id={ids('frete')} rotulo="Frete internacional" valor={form.frete} aoMudar={(v) => mudar('frete', v)} />
+            <Campo id={ids('seguro')} rotulo="Seguro de carga" valor={form.seguro} aoMudar={(v) => mudar('seguro', v)} />
+            <Campo id={ids('corretor')} rotulo="Despachante ou corretor" valor={form.corretor} aoMudar={(v) => mudar('corretor', v)} />
+            <Campo id={ids('porto')} rotulo="Manuseamento no porto ou terminal" valor={form.porto} aoMudar={(v) => mudar('porto', v)} />
+            <Campo id={ids('entrega')} rotulo="Entrega interna" valor={form.entrega} aoMudar={(v) => mudar('entrega', v)} />
+            <Campo id={ids('outros')} rotulo="Outros encargos" valor={form.outros} aoMudar={(v) => mudar('outros', v)} />
           </div>
 
           <div className="mt-5 grid grid-cols-2 gap-3">
