@@ -8,8 +8,10 @@
 // Os textos estão em português; o inglês está em traducoes/26-calculadora-importacao.ts.
 
 import { useMemo, useRef, useState } from 'react'
-import { Copy, Plus, RotateCcw, Trash2 } from 'lucide-react'
+import { Copy, Plus, RefreshCw, RotateCcw, Trash2 } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
+import { cambioEntre } from '@/lib/cambio'
+import { useCambio } from './useCambio'
 import { translate } from '../i18n'
 import {
   EXEMPLO_ENTRADA,
@@ -40,7 +42,14 @@ interface Form {
   modo: ModoImposto
   reparticao: Reparticao
   base: BaseAduaneira
+  /** moeda do resultado (e dos custos locais) */
   moeda: string
+  /** moeda em que o fornecedor factura as mercadorias */
+  moedaCompra: string
+  /** moeda do frete e do seguro internacionais */
+  moedaFrete: string
+  /** câmbio escrito à mão por moeda (1 unidade da moeda = X da moeda do resultado); vazio ou em falta = o câmbio do dia */
+  cambios: Record<string, string>
   nomeImposto: 'IVA' | 'VAT' | 'GST'
   frete: string
   seguro: string
@@ -64,16 +73,25 @@ interface Form {
 }
 
 const MOEDAS: { codigo: string; nome: string }[] = [
-  { codigo: 'MZN', nome: 'MZN — Metical' },
+  { codigo: 'MZN', nome: 'MZN — Metical (Moçambique)' },
   { codigo: 'USD', nome: 'USD — Dólar dos EUA' },
-  { codigo: 'EUR', nome: 'EUR — Euro' },
-  { codigo: 'ZAR', nome: 'ZAR — Rand sul-africano' },
-  { codigo: 'GBP', nome: 'GBP — Libra esterlina' },
-  { codigo: 'CNY', nome: 'CNY — Yuan chinês' },
-  { codigo: 'AED', nome: 'AED — Dirham dos Emirados' },
+  { codigo: 'EUR', nome: 'EUR — Euro (Portugal e zona euro)' },
+  { codigo: 'ZAR', nome: 'ZAR — Rand (África do Sul)' },
+  { codigo: 'CNY', nome: 'CNY — Yuan (China)' },
+  { codigo: 'BRL', nome: 'BRL — Real (Brasil)' },
+  { codigo: 'GBP', nome: 'GBP — Libra esterlina (Reino Unido)' },
+  { codigo: 'AED', nome: 'AED — Dirham (Emirados Árabes Unidos)' },
+  { codigo: 'INR', nome: 'INR — Rupia (Índia)' },
+  { codigo: 'JPY', nome: 'JPY — Iene (Japão)' },
+  { codigo: 'TZS', nome: 'TZS — Xelim (Tanzânia)' },
+  { codigo: 'ZMW', nome: 'ZMW — Kwacha (Zâmbia)' },
+  { codigo: 'MWK', nome: 'MWK — Kwacha (Malawi)' },
 ]
 
-const ERROS: Record<CodigoErro, string> = {
+type CodigoUI = CodigoErro | 'cambio'
+
+const ERROS: Record<CodigoUI, string> = {
+  cambio: 'Falta o câmbio de uma das moedas: actualize-o ou escreva-o à mão.',
   'sem-linhas': 'Adicione pelo menos uma linha de produto.',
   'campos-remessa': 'Os campos da remessa não podem estar vazios nem negativos.',
   perdas: 'As unidades que não se vendem têm de ser menos de 100%.',
@@ -109,14 +127,18 @@ function formDoExemplo(): Form {
     modo: e.modo,
     reparticao: e.reparticao,
     base: e.base,
-    moeda: 'USD',
+    // o exemplo compra em dólares e vende em meticais: o frete e o seguro são em dólares; os custos locais, em meticais
+    moeda: 'MZN',
+    moedaCompra: 'USD',
+    moedaFrete: 'USD',
+    cambios: {},
     nomeImposto: 'IVA',
     frete: String(e.frete),
     seguro: String(e.seguro),
-    corretor: String(e.corretor),
-    porto: String(e.porto),
-    entrega: String(e.entrega),
-    outros: String(e.outros),
+    corretor: '9500',
+    porto: '15000',
+    entrega: '24000',
+    outros: '7500',
     perdasPct: String(e.perdasPct),
     margemPct: String(e.margemPct),
     entrada: e.entrada,
@@ -141,7 +163,12 @@ function num(s: string, vazioZero = false): number {
   return Number.isFinite(v) ? v : NaN
 }
 
-function paraEntrada(f: Form, linhas: LinhaForm[], reparticao: Reparticao = f.reparticao): EntradaCalculo {
+/** `tx(moeda)` = quanto vale 1 unidade dessa moeda na moeda do resultado. Mercadorias, frete e seguro escrevem-se nas suas
+ *  moedas e convertem-se aqui; os custos locais já estão na moeda do resultado; o MPF e o HMF dos EUA são em dólares. */
+function paraEntrada(f: Form, linhas: LinhaForm[], tx: (moeda: string) => number, reparticao: Reparticao = f.reparticao): EntradaCalculo {
+  const compra = tx(f.moedaCompra)
+  const frete = tx(f.moedaFrete)
+  const usd = f.modo === 'eua' ? tx('USD') : 1
   return {
     modo: f.modo,
     reparticao,
@@ -149,13 +176,13 @@ function paraEntrada(f: Form, linhas: LinhaForm[], reparticao: Reparticao = f.re
     linhas: linhas.map((l, k) => ({
       nome: l.nome.trim() || `Linha ${k + 1}`,
       unidades: num(l.unidades),
-      custo: num(l.custo),
+      custo: num(l.custo) * compra,
       direitos: num(l.direitos),
       peso: num(l.peso, true),
       volume: num(l.volume, true),
     })),
-    frete: num(f.frete),
-    seguro: num(f.seguro),
+    frete: num(f.frete) * frete,
+    seguro: num(f.seguro) * frete,
     corretor: num(f.corretor),
     porto: num(f.porto),
     entrega: num(f.entrega),
@@ -164,9 +191,9 @@ function paraEntrada(f: Form, linhas: LinhaForm[], reparticao: Reparticao = f.re
     margemPct: num(f.margemPct),
     entrada: f.entrada,
     mpfPct: num(f.mpfPct),
-    mpfMin: num(f.mpfMin),
-    mpfMax: num(f.mpfMax),
-    mpfFixo: num(f.mpfFixo),
+    mpfMin: num(f.mpfMin) * usd,
+    mpfMax: num(f.mpfMax) * usd,
+    mpfFixo: num(f.mpfFixo) * usd,
     hmfPct: num(f.hmfPct),
     maritimo: f.maritimo,
     impostoPct: num(f.impostoPct),
@@ -186,13 +213,20 @@ const CARTAO = 'rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:
 const TITULO = 'text-lg font-bold text-slate-900 dark:text-slate-100'
 const NOTA = 'text-xs leading-relaxed text-slate-500 dark:text-slate-400'
 
-function Campo({ id, rotulo, valor, aoMudar, passo = 'any' }: { id: string; rotulo: string; valor: string; aoMudar: (v: string) => void; passo?: string }) {
+function Campo({ id, rotulo, valor, aoMudar, passo = 'any', sufixo }: { id: string; rotulo: string; valor: string; aoMudar: (v: string) => void; passo?: string; sufixo?: string }) {
   return (
     <div>
       <label htmlFor={id} className={ROTULO}>
         {rotulo}
       </label>
-      <input id={id} type="number" inputMode="decimal" min={0} step={passo} value={valor} onChange={(e) => aoMudar(e.target.value)} className={CAMPO} />
+      <div className="relative">
+        <input id={id} type="number" inputMode="decimal" min={0} step={passo} value={valor} onChange={(e) => aoMudar(e.target.value)} className={sufixo ? `${CAMPO} pr-14 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none` : CAMPO} />
+        {sufixo && (
+          <span aria-hidden className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs font-bold text-slate-400 dark:text-slate-500">
+            {sufixo}
+          </span>
+        )}
+      </div>
     </div>
   )
 }
@@ -226,6 +260,23 @@ function Caixa({ id, texto, marcada, aoMudar }: { id: string; texto: string; mar
       <input id={id} type="checkbox" checked={marcada} onChange={(e) => aoMudar(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-red-600" />
       <span>{texto}</span>
     </label>
+  )
+}
+
+function SelectMoeda({ id, rotulo, valor, aoMudar }: { id: string; rotulo: string; valor: string; aoMudar: (v: string) => void }) {
+  return (
+    <div>
+      <label htmlFor={id} className={ROTULO}>
+        {rotulo}
+      </label>
+      <select id={id} value={valor} onChange={(e) => aoMudar(e.target.value)} className={CAMPO}>
+        {MOEDAS.map((m) => (
+          <option key={m.codigo} value={m.codigo}>
+            {m.nome}
+          </option>
+        ))}
+      </select>
+    </div>
   )
 }
 
@@ -319,12 +370,34 @@ export function CalculadoraCustoImportacao() {
   const pct = (v: number) => `${new Intl.NumberFormat(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1, useGrouping: 'always' }).format(v)}%`
   const inteiro = (v: number) => new Intl.NumberFormat(locale, { useGrouping: 'always' }).format(v)
   const taxaTexto = (s: string) => new Intl.NumberFormat(locale, { maximumFractionDigits: 4, useGrouping: 'always' }).format(num(s))
+  const cambioFmt = (v: number) => new Intl.NumberFormat(locale, { minimumFractionDigits: 2, maximumFractionDigits: 6, useGrouping: 'always' }).format(v)
 
   const eua = form.modo === 'eua'
-  const r: ResultadoCalculo = useMemo(() => calcularCustoImportacao(paraEntrada(form, linhas)), [form, linhas])
+
+  // câmbio: o escrito à mão, senão o do dia (1 unidade da moeda = X da moeda do resultado)
+  const cambio = useCambio()
+  const taxaDoDia = (moeda: string) => cambioEntre(cambio.dados?.taxas, moeda, form.moeda)
+  const taxaManual = (moeda: string) => {
+    const m = form.cambios[moeda]
+    return m === undefined ? null : num(m) // escrito e vazio dá NaN: falta o câmbio
+  }
+  const taxaDe = (moeda: string) => (moeda === form.moeda ? 1 : (taxaManual(moeda) ?? taxaDoDia(moeda)))
+  const taxaValida = (moeda: string) => taxaDe(moeda) > 0
+  const estrangeiras = [...new Set([form.moedaCompra, form.moedaFrete, ...(eua ? ['USD'] : [])])].filter((m) => m !== form.moeda)
+  const semCambio = estrangeiras.some((m) => !taxaValida(m))
+  const taxasUsadas = estrangeiras.map((m) => `${m}:${taxaDe(m)}`).join('|')
+  const dataCambio = cambio.dados?.atualizado ? new Intl.DateTimeFormat(locale, { dateStyle: 'short', timeZone: 'Africa/Maputo' }).format(new Date(cambio.dados.atualizado)) : ''
+  const valorNoCampo = (moeda: string) => form.cambios[moeda] ?? (taxaDoDia(moeda) > 0 ? String(Number(taxaDoDia(moeda).toFixed(6))) : '')
+
+  const r: ResultadoCalculo | { ok: false; erro: 'cambio' } = useMemo(
+    () => (semCambio ? { ok: false as const, erro: 'cambio' as const } : calcularCustoImportacao(paraEntrada(form, linhas, taxaDe))),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [form, linhas, semCambio, taxasUsadas],
+  )
   const alternativas = useMemo(
-    () => (['valor', 'peso', 'volume'] as Reparticao[]).map((m) => calcularCustoImportacao(paraEntrada(form, linhas, m))),
-    [form, linhas],
+    () => (['valor', 'peso', 'volume'] as Reparticao[]).map((m) => (semCambio ? { ok: false as const, erro: 'cambio' as const } : calcularCustoImportacao(paraEntrada(form, linhas, taxaDe, m)))),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [form, linhas, semCambio, taxasUsadas],
   )
 
   const mudar = <K extends keyof Form>(k: K, v: Form[K]) => {
@@ -334,6 +407,22 @@ export function CalculadoraCustoImportacao() {
   const mudarLinha = (id: number, k: keyof Omit<LinhaForm, 'id'>, v: string) => {
     setEstado('')
     setLinhas((ls) => ls.map((l) => (l.id === id ? { ...l, [k]: v } : l)))
+  }
+  const mudarMoedaResultado = (moeda: string) => {
+    setEstado('')
+    // os câmbios escritos à mão eram para a moeda de antes
+    setForm((f) => ({ ...f, moeda, cambios: {} }))
+  }
+  const mudarCambio = (moeda: string, v: string) => {
+    setEstado('')
+    setForm((f) => ({ ...f, cambios: { ...f.cambios, [moeda]: v } }))
+  }
+  const usarCambioDoDia = (moeda: string) => {
+    setEstado('')
+    setForm((f) => {
+      const { [moeda]: _fora, ...resto } = f.cambios
+      return { ...f, cambios: resto }
+    })
   }
   const mudarModo = (modo: ModoImposto) => {
     setForm((f) => ({ ...f, modo, base: modo === 'eua' ? 'fob' : 'cif' }))
@@ -371,6 +460,7 @@ export function CalculadoraCustoImportacao() {
       tr('Custo total posto no armazém: {0} ({1} acima do valor das mercadorias)', dinheiro(r.total), pct(r.acima)),
       tr('A pagar à alfândega na entrada: {0}', dinheiro(r.aPagarNaEntrada)),
       tr('Custos partilhados repartidos por {0}.', tr(nomeReparticao).toLowerCase()),
+      ...(estrangeiras.length ? [tr('Câmbio: {0}', estrangeiras.map((m) => `1 ${m} = ${cambioFmt(taxaDe(m))} ${form.moeda}${taxaManual(m) !== null ? ` ${tr('(à mão)')}` : ''}`).join('; '))] : []),
       ...r.linhas.map((l) => tr('{0}: {1} por unidade posto no armazém, {2} para {3} unidades vendáveis', l.nome, dinheiro(l.porUnidade), dinheiro(l.total), inteiro(l.vendaveis))),
       tr('Estimativa só para planeamento. As taxas foram indicadas por quem calculou: confirme-as na pauta aduaneira, com o transitário ou com o despachante.'),
     ]
@@ -511,6 +601,20 @@ export function CalculadoraCustoImportacao() {
               <dt className="text-xs text-slate-300">Repartido por</dt>
               <dd className="mt-0.5 text-base font-bold">{nomeReparticao}</dd>
             </div>
+            {estrangeiras.length > 0 && (
+              <div className="col-span-2">
+                <dt className="text-xs text-slate-300">Câmbio usado</dt>
+                <dd className="mt-0.5 space-y-0.5 text-sm font-bold tabular-nums">
+                  {estrangeiras.filter(taxaValida).map((m) => (
+                    <p key={m}>
+                      <span>{`1 ${m} = ${cambioFmt(taxaDe(m))} ${form.moeda}`}</span>
+                      {taxaManual(m) !== null && <span className="font-normal text-slate-300"> · à mão</span>}
+                    </p>
+                  ))}
+                  {estrangeiras.some((m) => taxaManual(m) === null && taxaValida(m)) && dataCambio && <p className="text-xs font-normal text-slate-300">{`Câmbio de ${dataCambio}`}</p>}
+                </dd>
+              </div>
+            )}
           </dl>
 
           {r.ok && (
@@ -564,6 +668,90 @@ export function CalculadoraCustoImportacao() {
         </div>
 
         <div className={CARTAO}>
+          <h2 className={TITULO}>Moedas e câmbio</h2>
+          <div className="mt-4 grid grid-cols-1 gap-3 @xl:grid-cols-3">
+            <SelectMoeda id={ids('moeda-compra')} rotulo="Moeda das mercadorias (factura do fornecedor)" valor={form.moedaCompra} aoMudar={(v) => mudar('moedaCompra', v)} />
+            <SelectMoeda id={ids('moeda-frete')} rotulo="Moeda do frete e do seguro" valor={form.moedaFrete} aoMudar={(v) => mudar('moedaFrete', v)} />
+            <SelectMoeda id={ids('moeda')} rotulo="Moeda do resultado e dos custos locais" valor={form.moeda} aoMudar={mudarMoedaResultado} />
+          </div>
+
+          {estrangeiras.length > 0 && (
+            <div className="mt-5 space-y-3">
+              {estrangeiras.map((m) => {
+                const manual = taxaManual(m) !== null
+                return (
+                  <div key={m} className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                    <label htmlFor={ids(`cambio-${m}`)} className="text-sm font-bold tabular-nums text-slate-700 dark:text-slate-200">{`1 ${m} =`}</label>
+                    <input
+                      id={ids(`cambio-${m}`)}
+                      type="number"
+                      inputMode="decimal"
+                      min={0}
+                      step="any"
+                      value={valorNoCampo(m)}
+                      onChange={(e) => mudarCambio(m, e.target.value)}
+                      className={`${CAMPO} max-w-40`}
+                    />
+                    <span className="text-sm font-bold text-slate-700 dark:text-slate-200">{form.moeda}</span>
+                    <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${manual ? 'bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-200' : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-200'}`}>
+                      {manual ? 'Câmbio à mão' : 'Câmbio do dia'}
+                    </span>
+                    {manual && (
+                      <button type="button" onClick={() => usarCambioDoDia(m)} className="text-xs font-bold text-red-600 underline-offset-2 hover:underline">
+                        Usar o câmbio do dia
+                      </button>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2">
+            <button
+              type="button"
+              onClick={() => void cambio.ler()}
+              disabled={cambio.estado === 'a-ler'}
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+            >
+              <RefreshCw className={`h-4 w-4 ${cambio.estado === 'a-ler' ? 'animate-spin' : ''}`} aria-hidden />
+              Actualizar o câmbio
+            </button>
+            <p className={`${NOTA} min-w-0 flex-1`} role="status" data-testid="cci-cambio">
+              {cambio.estado === 'a-ler' && !cambio.dados
+                ? 'A obter o câmbio do dia…'
+                : cambio.estado === 'erro' && cambio.dados
+                  ? `Sem ligação ao câmbio do dia: a usar o último guardado, de ${dataCambio}.`
+                  : cambio.dados
+                    ? `Câmbio do dia, actualizado a ${dataCambio}.`
+                    : 'Não foi possível obter o câmbio do dia. Escreva o câmbio à mão em cada moeda.'}
+            </p>
+          </div>
+
+          {cambio.dados && (
+            <details open className="mt-4 rounded-xl border border-slate-200 p-4 dark:border-slate-700">
+              <summary className="cursor-pointer text-sm font-bold text-slate-700 dark:text-slate-200">{`Câmbio do dia em ${form.moeda}`}</summary>
+              <ul className="mt-3 grid grid-cols-2 gap-2 @xl:grid-cols-3 @4xl:grid-cols-4">
+                {MOEDAS.filter((m) => m.codigo !== form.moeda && taxaDoDia(m.codigo) > 0).map((m) => (
+                  <li key={m.codigo} className="flex items-baseline justify-between gap-2 rounded-lg bg-slate-50 px-3 py-2 text-sm dark:bg-slate-800/60">
+                    <span className="font-bold text-slate-600 dark:text-slate-300">{`1 ${m.codigo}`}</span>
+                    <strong className="tabular-nums text-slate-900 dark:text-slate-100">{cambioFmt(taxaDoDia(m.codigo))}</strong>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+
+          <p className={`${NOTA} mt-4`}>
+            Câmbio de referência do mercado internacional, da{' '}
+            <a href="https://www.exchangerate-api.com" target="_blank" rel="noopener noreferrer" className="font-semibold underline underline-offset-2">
+              Rates By Exchange Rate API
+            </a>
+            , actualizado uma vez por dia. O câmbio do banco, do despachante e da alfândega pode ser diferente: escreva o seu se o tiver.
+          </p>
+        </div>
+
+        <div className={CARTAO}>
           <h2 className={TITULO}>Produtos desta remessa</h2>
           <div className="mt-4 space-y-4">
             {linhas.map((l, k) => (
@@ -592,7 +780,7 @@ export function CalculadoraCustoImportacao() {
                     />
                   </div>
                   <Campo id={ids(`l${l.id}-unidades`)} rotulo="Unidades" valor={l.unidades} aoMudar={(v) => mudarLinha(l.id, 'unidades', v)} passo="1" />
-                  <Campo id={ids(`l${l.id}-custo`)} rotulo="Custo unitário (FOB)" valor={l.custo} aoMudar={(v) => mudarLinha(l.id, 'custo', v)} />
+                  <Campo id={ids(`l${l.id}-custo`)} rotulo="Custo unitário (FOB)" valor={l.custo} aoMudar={(v) => mudarLinha(l.id, 'custo', v)} sufixo={form.moedaCompra} />
                   <Campo id={ids(`l${l.id}-direitos`)} rotulo="Taxa de direitos (%)" valor={l.direitos} aoMudar={(v) => mudarLinha(l.id, 'direitos', v)} />
                   <Campo id={ids(`l${l.id}-peso`)} rotulo="Peso por unidade" valor={l.peso} aoMudar={(v) => mudarLinha(l.id, 'peso', v)} />
                   <Campo id={ids(`l${l.id}-volume`)} rotulo="Volume por unidade" valor={l.volume} aoMudar={(v) => mudarLinha(l.id, 'volume', v)} />
@@ -617,13 +805,15 @@ export function CalculadoraCustoImportacao() {
         <div className={CARTAO}>
           <h2 className={TITULO}>Custos da remessa</h2>
           <div className="mt-4 grid grid-cols-2 gap-3 @xl:grid-cols-3">
-            <Campo id={ids('frete')} rotulo="Frete internacional" valor={form.frete} aoMudar={(v) => mudar('frete', v)} />
-            <Campo id={ids('seguro')} rotulo="Seguro de carga" valor={form.seguro} aoMudar={(v) => mudar('seguro', v)} />
-            <Campo id={ids('corretor')} rotulo="Despachante ou corretor" valor={form.corretor} aoMudar={(v) => mudar('corretor', v)} />
-            <Campo id={ids('porto')} rotulo="Manuseamento no porto ou terminal" valor={form.porto} aoMudar={(v) => mudar('porto', v)} />
-            <Campo id={ids('entrega')} rotulo="Entrega interna" valor={form.entrega} aoMudar={(v) => mudar('entrega', v)} />
-            <Campo id={ids('outros')} rotulo="Outros encargos" valor={form.outros} aoMudar={(v) => mudar('outros', v)} />
+            <Campo id={ids('frete')} rotulo="Frete internacional" valor={form.frete} aoMudar={(v) => mudar('frete', v)} sufixo={form.moedaFrete} />
+            <Campo id={ids('seguro')} rotulo="Seguro de carga" valor={form.seguro} aoMudar={(v) => mudar('seguro', v)} sufixo={form.moedaFrete} />
+            <Campo id={ids('corretor')} rotulo="Despachante ou corretor" valor={form.corretor} aoMudar={(v) => mudar('corretor', v)} sufixo={form.moeda} />
+            <Campo id={ids('porto')} rotulo="Manuseamento no porto ou terminal" valor={form.porto} aoMudar={(v) => mudar('porto', v)} sufixo={form.moeda} />
+            <Campo id={ids('entrega')} rotulo="Entrega interna" valor={form.entrega} aoMudar={(v) => mudar('entrega', v)} sufixo={form.moeda} />
+            <Campo id={ids('outros')} rotulo="Outros encargos" valor={form.outros} aoMudar={(v) => mudar('outros', v)} sufixo={form.moeda} />
           </div>
+
+          <p className={`${NOTA} mt-3`}>O frete e o seguro escrevem-se na moeda do frete; o despachante, o porto, a entrega interna e os outros encargos, na moeda do resultado.</p>
 
           <div className="mt-5 grid grid-cols-2 gap-3">
             <div>
@@ -634,18 +824,6 @@ export function CalculadoraCustoImportacao() {
                 <option value="fob">FOB: só as mercadorias</option>
                 <option value="cfr">CFR: mercadorias + frete</option>
                 <option value="cif">CIF: mercadorias + frete + seguro</option>
-              </select>
-            </div>
-            <div>
-              <label htmlFor={ids('moeda')} className={ROTULO}>
-                Moeda
-              </label>
-              <select id={ids('moeda')} value={form.moeda} onChange={(e) => mudar('moeda', e.target.value)} className={CAMPO}>
-                {MOEDAS.map((m) => (
-                  <option key={m.codigo} value={m.codigo}>
-                    {m.nome}
-                  </option>
-                ))}
               </select>
             </div>
             <Campo id={ids('perdas')} rotulo="Unidades que não consegue vender (%)" valor={form.perdasPct} aoMudar={(v) => mudar('perdasPct', v)} />
@@ -683,16 +861,16 @@ export function CalculadoraCustoImportacao() {
                 </select>
               </div>
               <Campo id={ids('mpfpct')} rotulo="Taxa MPF (%)" valor={form.mpfPct} aoMudar={(v) => mudar('mpfPct', v)} />
-              <Campo id={ids('mpfmin')} rotulo="MPF mínimo" valor={form.mpfMin} aoMudar={(v) => mudar('mpfMin', v)} />
-              <Campo id={ids('mpfmax')} rotulo="MPF máximo" valor={form.mpfMax} aoMudar={(v) => mudar('mpfMax', v)} />
-              <Campo id={ids('mpffixo')} rotulo="MPF fixo (informal)" valor={form.mpfFixo} aoMudar={(v) => mudar('mpfFixo', v)} />
+              <Campo id={ids('mpfmin')} rotulo="MPF mínimo" valor={form.mpfMin} aoMudar={(v) => mudar('mpfMin', v)} sufixo="USD" />
+              <Campo id={ids('mpfmax')} rotulo="MPF máximo" valor={form.mpfMax} aoMudar={(v) => mudar('mpfMax', v)} sufixo="USD" />
+              <Campo id={ids('mpffixo')} rotulo="MPF fixo (informal)" valor={form.mpfFixo} aoMudar={(v) => mudar('mpfFixo', v)} sufixo="USD" />
               <Campo id={ids('hmfpct')} rotulo="Taxa HMF (%)" valor={form.hmfPct} aoMudar={(v) => mudar('hmfPct', v)} />
             </div>
             <div className="mt-4">
               <Caixa id={ids('maritimo')} texto="Chega por mar a um porto dos EUA (aplica-se o HMF)" marcada={form.maritimo} aoMudar={(v) => mudar('maritimo', v)} />
             </div>
             <p className={`${NOTA} mt-4`}>
-              Valores de referência da CBP para o ano fiscal de 2027 (desde 1 de Outubro de 2026). A CBP actualiza-os todos os anos a 1 de Outubro: confirme-os antes de os usar.
+              Valores de referência da CBP para o ano fiscal de 2027 (desde 1 de Outubro de 2026). A CBP actualiza-os todos os anos a 1 de Outubro: confirme-os antes de os usar. O MPF e o HMF estão em dólares dos EUA e convertem-se para a moeda do resultado.
             </p>
           </div>
         ) : (
@@ -738,7 +916,7 @@ export function CalculadoraCustoImportacao() {
             <h2 className={`${TITULO} mb-4`}>Decomposição completa da remessa</h2>
             <Tabela rotuloAria="Decomposição do custo posto no armazém" colunas={['Componente', 'Como foi calculado', 'Valor', 'Peso no total']} linhas={linhasDecomposicao} />
           </div>
-          <p className={NOTA}>Estimativa só para planeamento: não é um orçamento de frete nem uma decisão da alfândega. O cálculo é feito no seu navegador e nada é enviado.</p>
+          <p className={NOTA}>Estimativa só para planeamento: não é um orçamento de frete nem uma decisão da alfândega. O cálculo é feito no seu navegador; do servidor só vem o câmbio do dia.</p>
         </div>
       )}
     </div>
