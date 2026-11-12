@@ -33,7 +33,11 @@ interface LinhaForm {
   nome: string
   unidades: string
   custo: string
+  /** custo unitário da impressão, na moeda do país (soma-se ao custo antes de cambiar) */
+  impressao: string
   direitos: string
+  /** margem de erro: folga em % sobre o custo do produto */
+  folga: string
   peso: string
   volume: string
 }
@@ -51,6 +55,8 @@ interface Form {
   porto: string
   entrega: string
   outros: string
+  /** comissão total, em dinheiro (a percentagem e o valor por unidade mostram-se a partir dela) */
+  comissao: string
   perdasPct: string
   margemPct: string
   entrada: TipoEntradaEua
@@ -104,7 +110,9 @@ const novaLinha = (id: number, v?: Partial<Omit<LinhaForm, 'id'>>): LinhaForm =>
   nome: '',
   unidades: '100',
   custo: '1',
+  impressao: '0',
   direitos: '0',
+  folga: '0',
   peso: '0',
   volume: '0',
   ...v,
@@ -133,6 +141,7 @@ function formDoExemplo(): Form {
     porto: '15000',
     entrega: '24000',
     outros: '7500',
+    comissao: String(e.comissao),
     perdasPct: String(e.perdasPct),
     margemPct: String(e.margemPct),
     entrada: e.entrada,
@@ -157,6 +166,11 @@ function num(s: string, vazioZero = false): number {
   return Number.isFinite(v) ? v : NaN
 }
 
+/** custo unitário cambiado de uma linha: (custo + impressão) × câmbio, sem a folga */
+const custoCambiado = (l: LinhaForm, compra: number) => (num(l.custo) + num(l.impressao, true)) * compra
+/** o mesmo, com a margem de erro (folga em %) somada */
+const custoUnitario = (l: LinhaForm, compra: number) => custoCambiado(l, compra) * (1 + num(l.folga, true) / 100)
+
 /** `compra` = quanto vale em meticais 1 unidade da moeda do fornecedor (1 se não há conversão): só o custo unitário das
  *  mercadorias se escreve na moeda do fornecedor; o frete, o seguro e os outros custos já são na moeda do resultado. */
 function paraEntrada(f: Form, linhas: LinhaForm[], compra: number, reparticao: Reparticao = f.reparticao): EntradaCalculo {
@@ -167,7 +181,8 @@ function paraEntrada(f: Form, linhas: LinhaForm[], compra: number, reparticao: R
     linhas: linhas.map((l, k) => ({
       nome: l.nome.trim() || `Linha ${k + 1}`,
       unidades: num(l.unidades),
-      custo: num(l.custo) * compra,
+      // o custo unitário do cálculo: (custo + impressão) na moeda do país, cambiado, com a folga da margem de erro
+      custo: custoUnitario(l, compra),
       direitos: num(l.direitos),
       peso: num(l.peso, true),
       volume: num(l.volume, true),
@@ -178,6 +193,7 @@ function paraEntrada(f: Form, linhas: LinhaForm[], compra: number, reparticao: R
     porto: num(f.porto),
     entrega: num(f.entrega),
     outros: num(f.outros),
+    comissao: num(f.comissao, true),
     perdasPct: num(f.perdasPct),
     margemPct: num(f.margemPct),
     entrada: f.entrada,
@@ -204,14 +220,14 @@ const CARTAO = 'rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:
 const TITULO = 'text-lg font-bold text-slate-900 dark:text-slate-100'
 const NOTA = 'text-xs leading-relaxed text-slate-500 dark:text-slate-400'
 
-function Campo({ id, rotulo, valor, aoMudar, passo = 'any', sufixo }: { id: string; rotulo: string; valor: string; aoMudar: (v: string) => void; passo?: string; sufixo?: string }) {
+function Campo({ id, rotulo, valor, aoMudar, aoSair, passo = 'any', sufixo }: { id: string; rotulo: string; valor: string; aoMudar: (v: string) => void; aoSair?: () => void; passo?: string; sufixo?: string }) {
   return (
     <div>
       <label htmlFor={id} className={ROTULO}>
         {rotulo}
       </label>
       <div className="relative">
-        <input id={id} type="number" inputMode="decimal" min={0} step={passo} value={valor} onChange={(e) => aoMudar(e.target.value)} className={sufixo ? `${CAMPO} pr-14 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none` : CAMPO} />
+        <input id={id} type="number" inputMode="decimal" min={0} step={passo} value={valor} onChange={(e) => aoMudar(e.target.value)} onBlur={aoSair} className={sufixo ? `${CAMPO} pr-14 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none` : CAMPO} />
         {sufixo && (
           <span aria-hidden className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs font-bold text-slate-400 dark:text-slate-500">
             {sufixo}
@@ -219,6 +235,37 @@ function Campo({ id, rotulo, valor, aoMudar, passo = 'any', sufixo }: { id: stri
         )}
       </div>
     </div>
+  )
+}
+
+/** campo só de leitura (um valor calculado) */
+function CampoLeitura({ id, rotulo, valor }: { id: string; rotulo: string; valor: string }) {
+  return (
+    <div>
+      <label htmlFor={id} className={ROTULO}>
+        {rotulo}
+      </label>
+      <input id={id} type="text" readOnly aria-readonly="true" value={valor} className={CAMPO.replace('bg-white', 'bg-slate-50').replace('dark:bg-slate-800', 'dark:bg-slate-800/60')} />
+    </div>
+  )
+}
+
+/** campo que mostra um valor calculado a partir de um total e deixa editá-lo: ao escrever, `aoEditar` muda o total; enquanto se
+ *  escreve mantém-se o texto tal como foi escrito (para não apagar a vírgula), e ao sair volta a mostrar o valor calculado */
+function CampoLigado({ id, rotulo, valor, aoEditar, sufixo }: { id: string; rotulo: string; valor: string; aoEditar: (v: string) => void; sufixo?: string }) {
+  const [texto, setTexto] = useState<string | null>(null)
+  return (
+    <Campo
+      id={id}
+      rotulo={rotulo}
+      valor={texto ?? valor}
+      aoMudar={(v) => {
+        setTexto(v)
+        aoEditar(v)
+      }}
+      aoSair={() => setTexto(null)}
+      sufixo={sufixo}
+    />
   )
 }
 
@@ -401,6 +448,37 @@ export function CalculadoraCustoImportacao() {
     setEstado('Exemplo reposto.')
   }
 
+  // campos ligados a um total da remessa: o transporte e a comissão por unidade (total ÷ unidades de todas as linhas) e a
+  // comissão em % (sobre o valor total sem imposto); ao editá-los muda o total
+  const unidadesTotal = linhas.reduce((t, l) => t + num(l.unidades), 0)
+  const valorSemImposto = linhas.reduce((t, l) => t + num(l.unidades) * custoUnitario(l, compra), 0)
+  const casas = (v: number) => (Number.isFinite(v) ? String(Math.round(v * 1e4) / 1e4) : '')
+  const porUnidade = (total: string) => (unidadesTotal > 0 ? casas(num(total) / unidadesTotal) : '')
+  const comissaoPct = valorSemImposto > 0 ? casas((num(form.comissao) / valorSemImposto) * 100) : ''
+  const editarPorUnidade = (campo: 'frete' | 'comissao') => (v: string) => {
+    if (v.trim() === '') return mudar(campo, '')
+    const n = num(v)
+    if (unidadesTotal > 0 && Number.isFinite(n)) mudar(campo, String(Math.round(n * unidadesTotal * 1e6) / 1e6))
+  }
+  const editarComissaoPct = (v: string) => {
+    if (v.trim() === '') return mudar('comissao', '')
+    const n = num(v)
+    if (valorSemImposto > 0 && Number.isFinite(n)) mudar('comissao', String(Math.round(((n * valorSemImposto) / 100) * 1e6) / 1e6))
+  }
+  // os valores calculados que cada linha de produto mostra
+  const valoresLinha = (l: LinhaForm, k: number) => {
+    const dinheiroOuVazio = (n: number) => (Number.isFinite(n) ? dinheiro(n) : '')
+    const u = custoUnitario(l, compra)
+    const rl = r.ok ? r.linhas[k] : undefined
+    return {
+      cambiado: dinheiroOuVazio(custoCambiado(l, compra)),
+      unitario: dinheiroOuVazio(u),
+      totalSemImposto: dinheiroOuVazio(num(l.unidades) * u),
+      despesas: rl ? dinheiro(rl.total - rl.mercadorias) : '',
+      entrega: rl ? dinheiro(rl.total) : '',
+    }
+  }
+
   const nomeReparticao = { valor: 'Valor', peso: 'Peso', volume: 'Volume' }[form.reparticao]
   const nomeBase = { fob: 'FOB', cfr: 'CFR', cif: 'CIF' }[form.base]
 
@@ -510,6 +588,7 @@ export function CalculadoraCustoImportacao() {
     linhasBase.push(['Manuseamento no porto ou terminal', nomeRep, r.porto, true])
     linhasBase.push(['Entrega interna', nomeRep, r.entrega, true])
     linhasBase.push(['Outros encargos', nomeRep, r.outros, true])
+    if (r.comissao > 0) linhasBase.push(['Comissão', 'Repartida por valor', r.comissao, true])
     for (const [rot, como, valor, entra] of linhasBase) {
       linhasDecomposicao.push({ celulas: [rot, como, dinheiro(valor), entra ? pct((valor / r.total) * 100) : '–'] })
     }
@@ -656,56 +735,68 @@ export function CalculadoraCustoImportacao() {
         <div className={CARTAO}>
           <h2 className={TITULO}>Produtos desta remessa</h2>
           <div className="mt-4 space-y-4">
-            {linhas.map((l, k) => (
-              <div key={l.id} data-linha className="rounded-xl border border-slate-200 p-4 dark:border-slate-700">
-                <div className="mb-3 flex items-center justify-between">
-                  <span className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">{`Linha ${k + 1}`}</span>
-                  {linhas.length > 1 && (
-                    <button type="button" onClick={() => removerLinha(l.id)} className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold text-red-600 transition hover:bg-red-50 dark:hover:bg-red-500/10">
-                      <Trash2 className="h-3.5 w-3.5" aria-hidden />
-                      Remover
-                    </button>
-                  )}
-                </div>
-                <div className="grid grid-cols-2 gap-3 @xl:grid-cols-3">
-                  <div className="col-span-2 grid grid-cols-2 gap-3 @xl:col-span-3">
-                    <div>
-                      <label htmlFor={ids(`l${l.id}-nome`)} className={ROTULO}>
-                        Produto
-                      </label>
-                      <input
-                        id={ids(`l${l.id}-nome`)}
-                        ref={k === linhas.length - 1 ? ultimaLinha : undefined}
-                        type="text"
-                        value={l.nome}
-                        onChange={(e) => mudarLinha(l.id, 'nome', e.target.value)}
-                        className={CAMPO}
-                      />
-                    </div>
-                    <Campo id={ids(`l${l.id}-custo`)} rotulo={eua ? 'Custo unitário (FOB)' : (ORIGENS.find((o) => o.codigo === origem)?.custo ?? 'Custo unitário (FOB)')} valor={l.custo} aoMudar={(v) => mudarLinha(l.id, 'custo', v)} />
+            {linhas.map((l, k) => {
+              const v = valoresLinha(l, k)
+              const sufixoMoeda = eua ? undefined : 'MZN'
+              return (
+                <div key={l.id} data-linha className="rounded-xl border border-slate-200 p-4 dark:border-slate-700">
+                  <div className="mb-3 flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">{`Linha ${k + 1}`}</span>
+                    {linhas.length > 1 && (
+                      <button type="button" onClick={() => removerLinha(l.id)} className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold text-red-600 transition hover:bg-red-50 dark:hover:bg-red-500/10">
+                        <Trash2 className="h-3.5 w-3.5" aria-hidden />
+                        Remover
+                      </button>
+                    )}
                   </div>
-                  <Campo id={ids(`l${l.id}-unidades`)} rotulo="Unidades" valor={l.unidades} aoMudar={(v) => mudarLinha(l.id, 'unidades', v)} passo="1" />
-                  {comConversao && (
-                    <div className="@xl:col-start-3">
-                      <label htmlFor={ids(`l${l.id}-custo-mzn`)} className={ROTULO}>
-                        Custo unitário em metical (MZN)
-                      </label>
-                      <input
-                        id={ids(`l${l.id}-custo-mzn`)}
-                        type="text"
-                        readOnly
-                        aria-readonly="true"
-                        value={convertido(l.custo)}
-                        className={CAMPO.replace('bg-white', 'bg-slate-50').replace('dark:bg-slate-800', 'dark:bg-slate-800/60')}
-                      />
+                  <div className="space-y-3">
+                    {/* 1.ª fila: nome do produto, custo na moeda do país, custo da impressão e o custo cambiado */}
+                    <div className={`grid grid-cols-2 gap-3 ${comConversao ? '@xl:grid-cols-4' : '@xl:grid-cols-3'}`}>
+                      <div className="col-span-2 @xl:col-span-1">
+                        <label htmlFor={ids(`l${l.id}-nome`)} className={ROTULO}>
+                          Produto
+                        </label>
+                        <input
+                          id={ids(`l${l.id}-nome`)}
+                          ref={k === linhas.length - 1 ? ultimaLinha : undefined}
+                          type="text"
+                          value={l.nome}
+                          onChange={(e) => mudarLinha(l.id, 'nome', e.target.value)}
+                          className={CAMPO}
+                        />
+                      </div>
+                      <Campo id={ids(`l${l.id}-custo`)} rotulo={eua ? 'Custo unitário (FOB)' : (ORIGENS.find((o) => o.codigo === origem)?.custo ?? 'Custo unitário (FOB)')} valor={l.custo} aoMudar={(x) => mudarLinha(l.id, 'custo', x)} />
+                      <Campo id={ids(`l${l.id}-impressao`)} rotulo={`Custo unitário da impressão (${origem})`} valor={l.impressao} aoMudar={(x) => mudarLinha(l.id, 'impressao', x)} />
+                      {comConversao && <CampoLeitura id={ids(`l${l.id}-custo-mzn`)} rotulo="Custo unitário em metical (MZN)" valor={v.cambiado} />}
                     </div>
-                  )}
-                  <Campo id={ids(`l${l.id}-direitos`)} rotulo="Taxa de direitos (%)" valor={l.direitos} aoMudar={(v) => mudarLinha(l.id, 'direitos', v)} />
-                  <Campo id={ids(`l${l.id}-peso`)} rotulo="Peso por unidade" valor={l.peso} aoMudar={(v) => mudarLinha(l.id, 'peso', v)} />
-                  <Campo id={ids(`l${l.id}-volume`)} rotulo="Volume por unidade" valor={l.volume} aoMudar={(v) => mudarLinha(l.id, 'volume', v)} />
+                    {/* 2.ª fila: unidades, custo unitário na moeda do resultado e valor total sem imposto */}
+                    <div className="grid grid-cols-2 gap-3 @xl:grid-cols-3">
+                      <Campo id={ids(`l${l.id}-unidades`)} rotulo="Unidades" valor={l.unidades} aoMudar={(x) => mudarLinha(l.id, 'unidades', x)} passo="1" />
+                      <CampoLeitura id={ids(`l${l.id}-custo-final`)} rotulo={`Custo unitário em (${moeda})`} valor={v.unitario} />
+                      <CampoLeitura id={ids(`l${l.id}-total-sem-imposto`)} rotulo={eua ? 'Valor total sem imposto' : `Valor total sem ${form.nomeImposto}`} valor={v.totalSemImposto} />
+                    </div>
+                    {/* 3.ª fila: direitos, margem de erro e o transporte por unidade (o total de transporte repartido pelas unidades) */}
+                    <div className="grid grid-cols-2 gap-3 @xl:grid-cols-3">
+                      <Campo id={ids(`l${l.id}-direitos`)} rotulo="Taxa de direitos (%)" valor={l.direitos} aoMudar={(x) => mudarLinha(l.id, 'direitos', x)} />
+                      <Campo id={ids(`l${l.id}-folga`)} rotulo="Margem de erro (%)" valor={l.folga} aoMudar={(x) => mudarLinha(l.id, 'folga', x)} />
+                      <CampoLigado id={ids(`l${l.id}-transporte`)} rotulo="Transporte por unidade" valor={porUnidade(form.frete)} aoEditar={editarPorUnidade('frete')} sufixo={sufixoMoeda} />
+                    </div>
+                    {/* 4.ª fila: comissão (valor por unidade e percentagem), total das despesas e total do produto na entrega */}
+                    <div className="grid grid-cols-2 gap-3 @xl:grid-cols-4">
+                      <CampoLigado id={ids(`l${l.id}-comissao`)} rotulo="Comissão por unidade" valor={porUnidade(form.comissao)} aoEditar={editarPorUnidade('comissao')} sufixo={sufixoMoeda} />
+                      <CampoLigado id={ids(`l${l.id}-comissao-pct`)} rotulo="Comissão (%)" valor={comissaoPct} aoEditar={editarComissaoPct} />
+                      <CampoLeitura id={ids(`l${l.id}-despesas`)} rotulo="Valor total das despesas" valor={v.despesas} />
+                      <CampoLeitura id={ids(`l${l.id}-entrega-total`)} rotulo="Valor total do produto na entrega" valor={v.entrega} />
+                    </div>
+                    {/* o peso e o volume por unidade (para repartir os custos) ficam por baixo, como estavam */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <Campo id={ids(`l${l.id}-peso`)} rotulo="Peso por unidade" valor={l.peso} aoMudar={(x) => mudarLinha(l.id, 'peso', x)} />
+                      <Campo id={ids(`l${l.id}-volume`)} rotulo="Volume por unidade" valor={l.volume} aoMudar={(x) => mudarLinha(l.id, 'volume', x)} />
+                    </div>
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
           <button
             type="button"

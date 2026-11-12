@@ -10,6 +10,7 @@
 //   taxas de entrada   = (EUA) MPF e HMF sobre o valor aduaneiro total, repartidas pelo valor aduaneiro de cada linha
 //   imposto de entrada = (IVA/GST) base × taxa; entra no custo só se não for recuperável
 //   partilhados        = corretor + porto + entrega interna + outros, repartidos pelo método escolhido
+//   comissão           = valor total da comissão (em dinheiro), repartido pelo valor de cada linha; entra nos partilhados
 //   custo posto        = mercadorias + frete + seguro + direitos + taxas/imposto + partilhados
 //   custo por unidade  = custo posto ÷ unidades que se conseguem vender
 //   preço com margem   = custo por unidade ÷ (1 − margem)
@@ -42,6 +43,8 @@ export interface EntradaCalculo {
   porto: number
   entrega: number
   outros: number
+  /** comissão total (valor, não percentagem), repartida pelo valor de cada linha */
+  comissao: number
   /** unidades que não se vendem, em % */
   perdasPct: number
   /** margem bruta pretendida, em % */
@@ -93,6 +96,8 @@ export interface LinhaResultado {
   /** o imposto que entra no custo (zero se for recuperável) */
   impostoNoCusto: number
   partilhados: number
+  /** a parte da comissão (já está dentro dos partilhados) */
+  comissao: number
   total: number
   porUnidade: number
   preco: number
@@ -120,6 +125,8 @@ export type ResultadoCalculo =
       porto: number
       entrega: number
       outros: number
+      /** comissão total (já está dentro dos partilhados) */
+      comissao: number
       partilhados: number
       total: number
       /** a pagar à alfândega à entrada: direitos + taxas + imposto (mesmo o recuperável, que é dinheiro à saída) */
@@ -139,7 +146,7 @@ export function calcularCustoImportacao(e: EntradaCalculo): ResultadoCalculo {
   const linhas = e.linhas
   if (!linhas.length) return { ok: false, erro: 'sem-linhas' }
 
-  const campos = [e.frete, e.seguro, e.corretor, e.porto, e.entrega, e.outros, e.perdasPct, e.margemPct]
+  const campos = [e.frete, e.seguro, e.corretor, e.porto, e.entrega, e.outros, e.comissao, e.perdasPct, e.margemPct]
   if (eua) campos.push(e.mpfPct, e.mpfMin, e.mpfMax, e.mpfFixo, e.hmfPct)
   else campos.push(e.impostoPct)
   if (!campos.every(finito)) return { ok: false, erro: 'campos-remessa' }
@@ -211,7 +218,8 @@ export function calcularCustoImportacao(e: EntradaCalculo): ResultadoCalculo {
         (e.impostoSobreFrete ? (freteNoValor ? 0 : b.frete) + (seguroNoValor ? 0 : b.seguro) : 0)
     const imposto = eua ? 0 : (baseImposto * e.impostoPct) / 100
     const impostoNoCusto = e.recuperavel && !eua ? 0 : imposto
-    const partilhados = partilhadosTotal * b.parte
+    const comissao = e.comissao * b.parteValor
+    const partilhados = partilhadosTotal * b.parte + comissao
     const total = b.mercadorias + b.frete + b.seguro + b.direitos + taxas + impostoNoCusto + partilhados
     // as unidades perdidas arredondam-se para cima, linha a linha
     const perdidas = Math.max(0, Math.ceil((b.l.unidades * e.perdasPct) / 100 - 1e-9))
@@ -234,6 +242,7 @@ export function calcularCustoImportacao(e: EntradaCalculo): ResultadoCalculo {
       imposto,
       impostoNoCusto,
       partilhados,
+      comissao,
       total,
       porUnidade,
       preco: porUnidade / (1 - e.margemPct / 100),
@@ -270,6 +279,7 @@ export function calcularCustoImportacao(e: EntradaCalculo): ResultadoCalculo {
     porto: e.porto,
     entrega: e.entrega,
     outros: e.outros,
+    comissao: e.comissao,
     partilhados: T.partilhados,
     total: T.total,
     aPagarNaEntrada: T.direitos + mpf + hmf + T.imposto,
@@ -297,6 +307,7 @@ export const EXEMPLO_ENTRADA: Omit<EntradaCalculo, 'linhas'> = {
   porto: 240,
   entrega: 380,
   outros: 120,
+  comissao: 0,
   perdasPct: 0,
   margemPct: 50,
   entrada: 'formal',
