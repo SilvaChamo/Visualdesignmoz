@@ -802,17 +802,17 @@ export function CalculadoraCustoImportacao() {
                       <Campo id={ids(`l${l.id}-folga`)} rotulo="Margem de erro (%)" valor={l.folga} aoMudar={(x) => mudarLinha(l.id, 'folga', x)} />
                       <CampoLigado id={ids(`l${l.id}-transporte`)} rotulo="Transporte por unidade" valor={porUnidade(form.frete)} aoEditar={editarPorUnidade('frete')} sufixo={sufixoMoeda} />
                     </div>
-                    {/* 4.ª fila: comissão (valor por unidade e percentagem), total das despesas e total do produto na entrega */}
-                    <div className="grid grid-cols-2 gap-3 @xl:grid-cols-4">
+                    {/* 4.ª fila: comissão (valor por unidade e percentagem) e total das despesas */}
+                    <div className="grid grid-cols-2 gap-3 @xl:grid-cols-3">
                       <CampoLigado id={ids(`l${l.id}-comissao`)} rotulo="Comissão por unidade" valor={porUnidade(form.comissao)} aoEditar={editarPorUnidade('comissao')} sufixo={sufixoMoeda} />
                       <CampoLigado id={ids(`l${l.id}-comissao-pct`)} rotulo="Comissão (%)" valor={comissaoPct} aoEditar={editarComissaoPct} />
                       <CampoLeitura id={ids(`l${l.id}-despesas`)} rotulo="Valor total das despesas" valor={v.despesas} />
-                      <CampoLeitura id={ids(`l${l.id}-entrega-total`)} rotulo="Valor total do produto na entrega" valor={v.entrega} />
                     </div>
-                    {/* o peso e o volume por unidade (para repartir os custos) ficam por baixo, como estavam */}
-                    <div className="grid grid-cols-2 gap-3">
+                    {/* última fila: o peso e o volume por unidade (para repartir os custos) e, no fim, o valor total do produto na entrega */}
+                    <div className="grid grid-cols-2 gap-3 @xl:grid-cols-3">
                       <Campo id={ids(`l${l.id}-peso`)} rotulo="Peso por unidade" valor={l.peso} aoMudar={(x) => mudarLinha(l.id, 'peso', x)} />
                       <Campo id={ids(`l${l.id}-volume`)} rotulo="Volume por unidade" valor={l.volume} aoMudar={(x) => mudarLinha(l.id, 'volume', x)} />
+                      <CampoLeitura id={ids(`l${l.id}-entrega-total`)} rotulo="Valor total do produto na entrega" valor={v.entrega} />
                     </div>
                   </div>
                 </div>
