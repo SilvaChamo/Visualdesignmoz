@@ -370,7 +370,7 @@ export function CalculadoraCustoImportacao() {
   const pct = (v: number) => `${new Intl.NumberFormat(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1, useGrouping: 'always' }).format(v)}%`
   const inteiro = (v: number) => new Intl.NumberFormat(locale, { useGrouping: 'always' }).format(v)
   const taxaTexto = (s: string) => new Intl.NumberFormat(locale, { maximumFractionDigits: 4, useGrouping: 'always' }).format(num(s))
-  const cambioFmt = (v: number) => new Intl.NumberFormat(locale, { minimumFractionDigits: 2, maximumFractionDigits: 6, useGrouping: 'always' }).format(v)
+  const cambioFmt = (v: number) => new Intl.NumberFormat(locale, { minimumFractionDigits: 2, maximumSignificantDigits: 6, useGrouping: 'always' }).format(v)
 
   const eua = form.modo === 'eua'
 

@@ -17,6 +17,22 @@ function valido(x: unknown): x is CambioDoDia {
   return !!t && typeof t === 'object' && typeof t.MZN === 'number' && t.MZN > 0
 }
 
+// a página pode montar-se duas vezes ao abrir: um só pedido de cada vez
+let aLer: Promise<CambioDoDia> | null = null
+
+function pedir(): Promise<CambioDoDia> {
+  aLer ??= fetch('/api/vhost/cambio', { cache: 'no-store', headers: FUNDO })
+    .then(async (r) => {
+      const j: unknown = await r.json().catch(() => null)
+      if (!r.ok || !valido(j)) throw new Error('sem câmbio')
+      return j
+    })
+    .finally(() => {
+      aLer = null
+    })
+  return aLer
+}
+
 export function useCambio() {
   const [dados, setDados] = useState<CambioDoDia | null>(null)
   const [estado, setEstado] = useState<EstadoCambio>('a-ler')
@@ -24,9 +40,7 @@ export function useCambio() {
   const ler = useCallback(async () => {
     setEstado((e) => (e === 'ok' ? e : 'a-ler'))
     try {
-      const r = await fetch('/api/vhost/cambio', { cache: 'no-store', headers: FUNDO })
-      const j: unknown = await r.json().catch(() => null)
-      if (!r.ok || !valido(j)) throw new Error('sem câmbio')
+      const j = await pedir()
       setDados(j)
       setEstado(j.desatualizado ? 'erro' : 'ok')
       try {
