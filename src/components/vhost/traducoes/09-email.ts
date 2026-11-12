@@ -276,4 +276,10 @@ export const email: Record<string, string> = {
  "O webmail está desligado neste domínio.": "Webmail is turned off on this domain.",
  "Editor de mensagem": "Message editor",
  "de {0} do plano": "of {0} in the plan",
+ "de {0} contas no plano · {1} restantes": "of {0} accounts in the plan · {1} remaining",
+ "de {0} contas no plano · limite ultrapassado por {1}": "of {0} accounts in the plan · over the limit by {1}",
+ "{0}% de {1} do plano · faltam {2}%": "{0}% of {1} in the plan · {2}% left",
+ "{0}% de {1} nas quotas · faltam {2}%": "{0}% of {1} in quotas · {2}% left",
+ "de {0} caixas acima de 80% da quota · a mais cheia: {1} ({2}%)": "of {0} mailboxes above 80% of quota · fullest: {1} ({2}%)",
+ "de {0} caixas · sem quota definida": "of {0} mailboxes · no quota set",
 };

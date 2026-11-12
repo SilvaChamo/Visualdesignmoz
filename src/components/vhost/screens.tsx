@@ -23,6 +23,7 @@ import { diagnosticoPassagemPagina } from './paginas/diagnostico-passagem';
 import { encomendasPagina } from './paginas/encomendas';
 import { ClientProductsHub } from '@/components/vhost/comuns/ClientProductsHub';
 import { contabilidadePagina, contasEncomendasPagina, gestaoEncomendasPagina } from './paginas/encomendas-admin';
+import { calculadoraImportacaoPagina } from './paginas/calculadora-importacao';
 import { renovacoesAdminPagina, renovacoesClientePagina } from './paginas/renovacoes';
 import { quarentenaPagina } from './paginas/quarentena';
 import { lixeiraPagina } from './paginas/lixeira';
@@ -870,6 +871,7 @@ export const SCREENS: Record<string, ScreenFn> = {
   'admin/gestao-encomendas': gestaoEncomendasPagina,
   'admin/contabilidade': contabilidadePagina,
   'admin/contas-encomendas': contasEncomendasPagina,
+  'admin/calculadora': calculadoraImportacaoPagina,
   'admin/renovacoes': renovacoesAdminPagina,
   'utilizador/renovacoes': renovacoesClientePagina,
   'admin/quarentena': quarentenaPagina,

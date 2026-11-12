@@ -60,6 +60,41 @@ export function apagarDadosVhost() {
   try {
     localStorage.removeItem(CACHE_DADOS_VHOST);
   } catch {}
+  esquecerEmailVhost();
+}
+
+// A última leitura do e-mail de cada domínio (caixas, quotas, reencaminhamentos), guardada só nesta aba: ao recarregar a página, a lista de
+// contas aparece logo e actualiza-se por trás, em vez de esperar de novo pelo servidor (Silva, 12/11/2026: «não tem cache para os próximos
+// carregamentos»). Leva o utilizador a quem pertence e apaga-se ao sair, como a leitura da conta.
+const CACHE_EMAIL = 'vh-email-1:';
+
+export function guardarEmailVhost(chave: string, dados: unknown) {
+  try {
+    sessionStorage.setItem(CACHE_EMAIL + chave, JSON.stringify({ u: utilizadorDaSessao() ?? '', dados }));
+  } catch {}
+}
+
+/** A leitura guardada deste domínio, se for do utilizador da sessão actual (senão apaga-a e devolve null) */
+export function lerEmailVhostGuardado<T>(chave: string): T | null {
+  try {
+    const v = sessionStorage.getItem(CACHE_EMAIL + chave);
+    if (!v) return null;
+    const x = JSON.parse(v) as { u?: string; dados?: T };
+    const agora = utilizadorDaSessao();
+    if (!x.dados || (x.u && agora && x.u !== agora)) {
+      sessionStorage.removeItem(CACHE_EMAIL + chave);
+      return null;
+    }
+    return x.dados;
+  } catch {
+    return null;
+  }
+}
+
+export function esquecerEmailVhost() {
+  try {
+    for (const k of Object.keys(sessionStorage)) if (k.startsWith(CACHE_EMAIL)) sessionStorage.removeItem(k);
+  } catch {}
 }
 
 /** Lê /api/vhost/dados (com a sessão acabada de abrir) e guarda a resposta; devolve true se ficou guardada. */

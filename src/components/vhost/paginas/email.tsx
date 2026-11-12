@@ -17,6 +17,7 @@ import { Confirmar } from './pacotes';
 import { reprocessarVarios } from './dominios';
 import { vhostmailPagina, vhostmailPath } from './vhostmail';
 import { AO_ABRIR, EsperaPagina, FUNDO, useGet, useNaMemoria } from '../carga';
+import { guardarEmailVhost, lerEmailVhostGuardado } from '@/lib/vhost-cache';
 import { corUso } from '../cor-uso';
 
 // ---------- Menu: Mailmarketing nos Extras, a seguir ao Webmail (sem mexer nos ficheiros gerados da maquete) ----------
@@ -56,6 +57,16 @@ const lidos = new Map<string, InfoEmail>();
 const aLer = new Map<string, Promise<InfoEmail>>();
 const ouvintes = new Map<string, Set<(x: InfoEmail) => void>>();
 
+/** O que já se leu deste domínio: em memória ou, depois de recarregar a página, o que ficou guardado nesta aba */
+function lido(k: string): InfoEmail | undefined {
+  const m = lidos.get(k);
+  if (m) return m;
+  if (typeof window === 'undefined') return undefined;
+  const g = lerEmailVhostGuardado<InfoEmail>(k);
+  if (g) lidos.set(k, g);
+  return g ?? undefined;
+}
+
 function lerEmail(me: string, d: string, fundo = false): Promise<InfoEmail> {
   const k = me + '|' + d;
   let p = aLer.get(k);
@@ -65,6 +76,7 @@ function lerEmail(me: string, d: string, fundo = false): Promise<InfoEmail> {
         const j = await r.json();
         if (!r.ok) throw new Error(j.erro || 'Erro a ler o e-mail');
         lidos.set(k, j as InfoEmail);
+        guardarEmailVhost(k, j);
         ouvintes.get(k)?.forEach((f) => f(j as InfoEmail));
         return j as InfoEmail;
       })
@@ -88,14 +100,14 @@ function useEmail() {
   const espera = useContext(EsperaPagina);
   const d = dominioEmail(vh);
   const k = vh.me + '|' + d;
-  const [info, setInfo] = useState<InfoEmail | null>(() => lidos.get(k) || null);
+  const [info, setInfo] = useState<InfoEmail | null>(() => lido(k) || null);
   const [erro, setErro] = useState('');
   // Como no useGet: a leitura automática ao abrir, já em memória, atualiza por trás sem a linha do topo.
   const ler = useCallback(async (emFundo?: unknown) => {
     if (!d) return;
     setErro('');
     // sem nada em memória, a página nova espera por esta leitura antes de aparecer
-    const emMemoria = lidos.has(vh.me + '|' + d);
+    const emMemoria = !!lido(vh.me + '|' + d);
     const fim = !emMemoria && espera ? espera.comecar() : null;
     try {
       setInfo(await lerEmail(vh.me, d, emFundo === true || (emFundo === AO_ABRIR && emMemoria)));
@@ -106,7 +118,7 @@ function useEmail() {
     }
   }, [vh.me, d, espera]);
   useEffect(() => {
-    setInfo(lidos.get(k) || null);
+    setInfo(lido(k) || null);
     const s = ouvintes.get(k) || new Set();
     s.add(setInfo);
     ouvintes.set(k, s);
@@ -221,9 +233,9 @@ function ComEmail({ children }: { children: (x: { d: string; info: InfoEmail; le
 function DescEmail({ texto, conta }: { texto: string; conta?: (info: InfoEmail) => [number, string, string] }) {
   const vh = useVH();
   const k = vh.me + '|' + dominioEmail(vh);
-  const [info, setInfo] = useState<InfoEmail | null>(() => lidos.get(k) || null);
+  const [info, setInfo] = useState<InfoEmail | null>(() => lido(k) || null);
   useEffect(() => {
-    setInfo(lidos.get(k) || null);
+    setInfo(lido(k) || null);
     const s = ouvintes.get(k) || new Set();
     s.add(setInfo);
     ouvintes.set(k, s);
@@ -584,14 +596,35 @@ function ContasLista() {
   const outrosMails = vh.a.mails.filter((mail) => mail.dom !== d);
   const totalContas = outrosMails.length + info.caixas.length;
   const diferencaContas = max === null ? null : max - totalContas;
+  // o número grande do cartão é o total (ex.: 7); o texto ao lado diz de quantas o plano deixa e quantas faltam (ex.: «de 15 contas no plano · 8 restantes»)
   const detalheContas = max === null
     ? 'Sem limite de contas no plano'
     : diferencaContas !== null && diferencaContas < 0
-      ? `${max} contas no plano · limite ultrapassado por ${Math.abs(diferencaContas)}`
-      : `${max} contas no plano · ${diferencaContas ?? 0} restantes`;
+      ? `de ${max} contas no plano · limite ultrapassado por ${Math.abs(diferencaContas)}`
+      : `de ${max} contas no plano · ${diferencaContas ?? 0} restantes`;
   const limitePlanoMb = planoEmail ? planoEmail.storageGb * 1024 : null;
   // o plano conta o espaço de todas as caixas da conta (todos os domínios), não só as do domínio escolhido
   const usadoConta = outrosMails.reduce((n, mail) => n + mail.used, 0) + info.caixas.reduce((n, c) => n + c.usadoMb, 0);
+  const somaQuotasMb = todasRows.reduce((n, c) => n + c.quotaMb, 0);
+  // quanto do espaço está usado e quanto falta, em %, explícito no cartão: «68 MB · 1,3% de 5,00 GB do plano · faltam 98,7%»
+  const pc = (n: number) => (Math.round(n * 10) / 10).toString().replace('.', ',');
+  const espacoTotalMb = limitePlanoMb ?? (somaQuotasMb > 0 ? somaQuotasMb : null);
+  const usadoParaEspaco = limitePlanoMb === null ? usado : usadoConta;
+  const detalheEspaco = espacoTotalMb === null
+    ? 'em todas as caixas'
+    : t(limitePlanoMb === null ? '{0}% de {1} nas quotas · faltam {2}%' : '{0}% de {1} do plano · faltam {2}%')
+        .replace('{0}', pc((usadoParaEspaco / espacoTotalMb) * 100))
+        .replace('{1}', mb(espacoTotalMb))
+        .replace('{2}', pc(Math.max(0, 1000 - Math.round((usadoParaEspaco / espacoTotalMb) * 1000)) / 10)); // soma 100 com a % usada mostrada
+  // caixas perto do limite: diz de quantas, a partir de que % conta e qual é a mais cheia
+  const comQuota = todasRows.filter((c) => c.quotaMb > 0);
+  const maisCheia = comQuota.reduce<Caixa | null>((a, c) => (!a || c.usadoMb / c.quotaMb > a.usadoMb / a.quotaMb ? c : a), null);
+  const detalheCheias = maisCheia
+    ? t('de {0} caixas acima de 80% da quota · a mais cheia: {1} ({2}%)')
+        .replace('{0}', String(todasRows.length))
+        .replace('{1}', maisCheia.nome)
+        .replace('{2}', pc((maisCheia.usadoMb / maisCheia.quotaMb) * 100))
+    : t('de {0} caixas · sem quota definida').replace('{0}', String(todasRows.length));
   const quotaMaximaMb = limitePlanoMb === null ? null : Math.max(0, limitePlanoMb - vh.a.mails
     .filter((mail) => !quotaEdit || mail.user !== quotaEdit.user || mail.dom !== d)
     .reduce((soma, mail) => soma + Math.max(1, Math.ceil(mail.used / 0.8)), 0));
@@ -631,11 +664,11 @@ function ContasLista() {
           title="Espaço usado"
           uso
           v={mb(usadoConta)}
-          m={limitePlanoMb === null ? 'em todas as caixas' : t('de {0} do plano').replace('{0}', mb(limitePlanoMb))}
+          m={detalheEspaco}
           p={limitePlanoMb === null ? pct(usado, todasRows.reduce((n, c) => n + c.quotaMb, 0)) : pct(usadoConta, limitePlanoMb)}
         />
         <Stat title="Envios hoje" v={enviados} m="mensagens enviadas" p={0} />
-        <Stat title="Caixas quase cheias" v={cheias} m="acima de 80%" p={cheias * 20} cor={cheias === 0 ? corUso(0) : cheias < 3 ? corUso(70) : corUso(100)} />
+        <Stat title="Caixas quase cheias" v={cheias} m={detalheCheias} p={cheias * 20} cor={cheias === 0 ? corUso(0) : cheias < 3 ? corUso(70) : corUso(100)} />
       </div>
       {/* Card secundário: pesquisa + botões + lista de e-mails */}
       <div className="card em-lista-card">

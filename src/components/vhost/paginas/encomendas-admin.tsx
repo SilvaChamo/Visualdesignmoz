@@ -40,11 +40,21 @@ import { LugarBarraAntiga, PonteBarraAntiga } from './mensagem-todos';
           f: ['Contas de clientes das encomendas', 'Criar, editar e apagar contas'],
           hx: { s: 'app', cmd: '', n: 'Contas de clientes das encomendas do site da VisualDesign' },
         },
+        {
+          id: 'calculadora',
+          fa: 'fa-money-bill-transfer',
+          t: 'Calculadora',
+          c: 'c6',
+          da: '—',
+          f: ['Custo por unidade posto no armazém', 'Direitos, IVA, frete e preço com margem'],
+          hx: { s: 'app', cmd: '', n: 'Calculadora de custo de importação' },
+        },
       ],
     ]);
   }
   DESC['admin/gestao-encomendas'] = ['As encomendas de todos os clientes e as contas de quem encomenda', 'Every client’s orders and the accounts of those who order'];
   DESC['admin/contas-encomendas'] = ['Contas de clientes das encomendas', 'Order clients’ accounts'];
+  DESC['admin/calculadora'] = ['Custo por unidade das mercadorias importadas, com direitos, IVA e frete', 'Cost per unit of imported goods, with duty, VAT and freight'];
   DESC['admin/contabilidade'] = ['Receitas, despesas, facturas e pagamentos das encomendas', 'Income, expenses, invoices and payments from orders'];
   const novas: Record<string, string> = {
     Encomendas: 'Orders',
