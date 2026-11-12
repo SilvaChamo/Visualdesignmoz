@@ -782,38 +782,39 @@ export function CalculadoraCustoImportacao() {
                     )}
                   </div>
                   <div className="space-y-3">
-                    {/* 1.ª fila: nome do produto, custo na moeda do país, custo da impressão e o custo cambiado */}
-                    <div className={`grid grid-cols-2 gap-3 ${comConversao ? '@xl:grid-cols-4' : '@xl:grid-cols-3'}`}>
-                      <div className="col-span-2 @xl:col-span-1">
-                        <label htmlFor={ids(`l${l.id}-nome`)} className={ROTULO}>
-                          Produto
-                        </label>
-                        <input
-                          id={ids(`l${l.id}-nome`)}
-                          ref={k === linhas.length - 1 ? ultimaLinha : undefined}
-                          type="text"
-                          value={l.nome}
-                          onChange={(e) => mudarLinha(l.id, 'nome', e.target.value)}
-                          className={CAMPO}
-                        />
-                      </div>
+                    {/* o nome do produto, numa só linha, em cima */}
+                    <div>
+                      <label htmlFor={ids(`l${l.id}-nome`)} className={ROTULO}>
+                        Produto
+                      </label>
+                      <input
+                        id={ids(`l${l.id}-nome`)}
+                        ref={k === linhas.length - 1 ? ultimaLinha : undefined}
+                        type="text"
+                        value={l.nome}
+                        onChange={(e) => mudarLinha(l.id, 'nome', e.target.value)}
+                        className={CAMPO}
+                      />
+                    </div>
+                    {/* 1.ª fila de campos: custo na moeda do país, custo da impressão e o custo cambiado */}
+                    <div className="grid grid-cols-2 gap-3 @xl:grid-cols-3">
                       <Campo id={ids(`l${l.id}-custo`)} rotulo={eua ? 'Custo unitário (FOB)' : (ORIGENS.find((o) => o.codigo === origem)?.custo ?? 'Custo unitário (FOB)')} valor={l.custo} aoMudar={(x) => mudarLinha(l.id, 'custo', x)} />
                       <Campo id={ids(`l${l.id}-impressao`)} rotulo={`Custo unitário da impressão (${origem})`} valor={l.impressao} aoMudar={(x) => mudarLinha(l.id, 'impressao', x)} />
                       {comConversao && <CampoLeitura id={ids(`l${l.id}-custo-mzn`)} rotulo="Custo unitário em metical (MZN)" valor={v.cambiado} />}
                     </div>
-                    {/* 2.ª fila: unidades, custo unitário na moeda do resultado e valor total sem imposto */}
+                    {/* 2.ª fila de campos: unidades, custo unitário na moeda do resultado e valor total sem imposto */}
                     <div className="grid grid-cols-2 gap-3 @xl:grid-cols-3">
                       <Campo id={ids(`l${l.id}-unidades`)} rotulo="Unidades" valor={l.unidades} aoMudar={(x) => mudarLinha(l.id, 'unidades', x)} passo="1" />
                       <CampoLeitura id={ids(`l${l.id}-custo-final`)} rotulo={`Custo unitário em (${moeda})`} valor={v.unitario} />
                       <CampoLeitura id={ids(`l${l.id}-total-sem-imposto`)} rotulo={eua ? 'Valor total sem imposto' : `Valor total sem ${form.nomeImposto}`} valor={v.totalSemImposto} />
                     </div>
-                    {/* 3.ª fila: direitos, margem de erro e o transporte por unidade (o total de transporte repartido pelas unidades) */}
+                    {/* 3.ª fila de campos: direitos, margem de erro e o transporte por unidade (o total de transporte repartido pelas unidades) */}
                     <div className="grid grid-cols-2 gap-3 @xl:grid-cols-3">
                       <Campo id={ids(`l${l.id}-direitos`)} rotulo="Taxa de direitos (%)" valor={l.direitos} aoMudar={(x) => mudarLinha(l.id, 'direitos', x)} />
                       <Campo id={ids(`l${l.id}-folga`)} rotulo="Margem de erro (%)" valor={l.folga} aoMudar={(x) => mudarLinha(l.id, 'folga', x)} />
                       <CampoLigado id={ids(`l${l.id}-transporte`)} rotulo="Transporte por unidade" valor={porUnidade(form.frete)} aoEditar={editarPorUnidade('frete')} sufixo={sufixoMoeda} />
                     </div>
-                    {/* 4.ª fila: comissão (valor por unidade e percentagem) e total das despesas */}
+                    {/* 4.ª fila de campos: comissão (valor por unidade e percentagem) e total das despesas */}
                     <div className="grid grid-cols-2 gap-3 @xl:grid-cols-3">
                       <CampoLigado id={ids(`l${l.id}-comissao`)} rotulo="Comissão por unidade" valor={comissaoPorUnidade(l)} aoEditar={editarComissaoUnidade(l)} sufixo={sufixoMoeda} />
                       <CampoLigado id={ids(`l${l.id}-comissao-pct`)} rotulo="Comissão (%)" valor={comissaoPct} aoEditar={editarComissaoPct} />
