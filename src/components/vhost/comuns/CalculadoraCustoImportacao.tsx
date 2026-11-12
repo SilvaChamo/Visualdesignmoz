@@ -597,19 +597,34 @@ export function CalculadoraCustoImportacao() {
       <div className="space-y-6">
         <div className={CARTAO}>
           <p className={`${ROTULO} mb-2`}>Tipo de destino</p>
-          <Opcoes
-            rotuloAria="Tipo de destino"
-            valor={form.modo}
-            aoMudar={mudarModo}
-            opcoes={[
-              { valor: 'iva', texto: 'País com IVA (ex.: Moçambique)' },
-              { valor: 'eua', texto: 'Importação nos EUA (CBP)' },
-            ]}
-          />
+          <div className="flex flex-wrap items-center gap-3">
+            <Opcoes
+              rotuloAria="Tipo de destino"
+              valor={form.modo}
+              aoMudar={mudarModo}
+              opcoes={[
+                { valor: 'eua', texto: 'Importação nos EUA (CBP)' },
+                { valor: 'iva', texto: 'País com IVA (ex.: Moçambique)' },
+              ]}
+            />
+            {!eua && (
+              <select
+                id={ids('origem')}
+                aria-label="País de origem das mercadorias"
+                value={form.origem}
+                onChange={(e) => mudarOrigem(e.target.value)}
+                className={`${CAMPO} w-auto min-w-48 py-2.5`}
+              >
+                {ORIGENS.map((o) => (
+                  <option key={o.codigo} value={o.codigo}>
+                    {o.pais}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
           {!eua && (
             <>
-              <p className={`${ROTULO} mb-2 mt-5`}>País de origem das mercadorias</p>
-              <Opcoes rotuloAria="País de origem das mercadorias" valor={form.origem} aoMudar={mudarOrigem} opcoes={ORIGENS.map((o) => ({ valor: o.codigo, texto: o.pais }))} />
               {comConversao && (
                 <p className={`${NOTA} mt-3`} role="status" data-testid="cci-cambio">
                   {cambio.dados ? (
