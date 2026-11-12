@@ -668,20 +668,22 @@ export function CalculadoraCustoImportacao() {
                   )}
                 </div>
                 <div className="grid grid-cols-2 gap-3 @xl:grid-cols-3">
-                  <div className="col-span-2">
-                    <label htmlFor={ids(`l${l.id}-nome`)} className={ROTULO}>
-                      Produto
-                    </label>
-                    <input
-                      id={ids(`l${l.id}-nome`)}
-                      ref={k === linhas.length - 1 ? ultimaLinha : undefined}
-                      type="text"
-                      value={l.nome}
-                      onChange={(e) => mudarLinha(l.id, 'nome', e.target.value)}
-                      className={CAMPO}
-                    />
+                  <div className="col-span-2 grid grid-cols-2 gap-3 @xl:col-span-3">
+                    <div>
+                      <label htmlFor={ids(`l${l.id}-nome`)} className={ROTULO}>
+                        Produto
+                      </label>
+                      <input
+                        id={ids(`l${l.id}-nome`)}
+                        ref={k === linhas.length - 1 ? ultimaLinha : undefined}
+                        type="text"
+                        value={l.nome}
+                        onChange={(e) => mudarLinha(l.id, 'nome', e.target.value)}
+                        className={CAMPO}
+                      />
+                    </div>
+                    <Campo id={ids(`l${l.id}-custo`)} rotulo={eua ? 'Custo unitário (FOB)' : (ORIGENS.find((o) => o.codigo === origem)?.custo ?? 'Custo unitário (FOB)')} valor={l.custo} aoMudar={(v) => mudarLinha(l.id, 'custo', v)} />
                   </div>
-                  <Campo id={ids(`l${l.id}-custo`)} rotulo={eua ? 'Custo unitário (FOB)' : (ORIGENS.find((o) => o.codigo === origem)?.custo ?? 'Custo unitário (FOB)')} valor={l.custo} aoMudar={(v) => mudarLinha(l.id, 'custo', v)} />
                   <Campo id={ids(`l${l.id}-unidades`)} rotulo="Unidades" valor={l.unidades} aoMudar={(v) => mudarLinha(l.id, 'unidades', v)} passo="1" />
                   {comConversao && (
                     <div className="@xl:col-start-3">
