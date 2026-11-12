@@ -332,4 +332,5 @@ export const IGUAIS: string[] = [
  "dark:bg-zinc-950",
  "Av. Karl Marx, nº 177, Maputo, Moçambique",
  "telefone, morada, cidade, nuit",
+ "A webmail.{0}",
 ];
