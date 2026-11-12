@@ -176,8 +176,6 @@ export const calculadora_importacao: Record<string, string> = {
  "Custos partilhados repartidos por {0}.": "Shared costs split by {0}.",
  "{0}: {1} por unidade posto no armazém, {2} para {3} unidades vendáveis": "{0}: {1} a unit landed, {2} for {3} sellable units",
  "Estimativa só para planeamento. As taxas foram indicadas por quem calculou: confirme-as na pauta aduaneira, com o transitário ou com o despachante.": "Estimate for planning only. The rates were entered by the user: confirm them with the tariff schedule, your forwarder or your customs broker.",
- "Canecas de cerâmica": "Ceramic mugs",
- "Sacos de algodão": "Cotton bags",
  "Custo unitário da impressão ({0})": "Printing cost per unit ({0})",
  "Custo unitário em ({0})": "Unit cost in ({0})",
  "Valor total sem imposto": "Total value excluding tax",
@@ -190,4 +188,5 @@ export const calculadora_importacao: Record<string, string> = {
  "Valor total do produto na entrega": "Total product value on delivery",
  "Comissão": "Commission",
  "Repartida por valor": "Split by value",
+ "Valores de partida: cotação BF-MWBWHJVJ-JHTJ da Brandful (África do Sul), de 11/11/2026 e válida até 11/12/2026, em rand e sem o IVA sul-africano. A impressão é a taxa de preparação da arte (setup) dividida pelas unidades. A cotação não traz o frete, o seguro, os direitos, o peso nem o volume: preencha-os.": "Starting values: Brandful (South Africa) quote BF-MWBWHJVJ-JHTJ, dated 11/11/2026 and valid until 11/12/2026, in rand and excluding South African VAT. Printing is the artwork setup fee divided by the units. The quote does not include freight, insurance, duties, weight or volume: fill them in.",
 };

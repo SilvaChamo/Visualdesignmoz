@@ -15,7 +15,6 @@ import { useCambio } from './useCambio'
 import { translate } from '../i18n'
 import {
   EXEMPLO_ENTRADA,
-  EXEMPLO_LINHAS,
   calcularCustoImportacao,
   type BaseAduaneira,
   type CodigoErro,
@@ -26,7 +25,7 @@ import {
   type TipoEntradaEua,
 } from '@/lib/calculadora-custo-importacao'
 
-const MAX_LINHAS = 8
+const MAX_LINHAS = 12
 
 interface LinhaForm {
   id: number
@@ -118,12 +117,32 @@ const novaLinha = (id: number, v?: Partial<Omit<LinhaForm, 'id'>>): LinhaForm =>
   ...v,
 })
 
-// o exemplo compra na África do Sul: o custo é em rand (R 100 ≈ 6 US$) e as restantes despesas são em meticais
-const CUSTOS_EXEMPLO_ZAR = [100, 25]
+/** Valores de partida: a cotação real BF-MWBWHJVJ-JHTJ da Brandful (África do Sul), de 11/11/2026 e válida até 11/12/2026.
+ *  Os preços são em rand e sem o IVA sul-africano (15%). `preparacao` é a taxa de preparação da arte (setup), paga uma vez por produto:
+ *  divide-se pelas unidades e entra como «custo unitário da impressão». */
+const COTACAO: { nome: string; unidades: number; preco: number; preparacao: number }[] = [
+  { nome: 'Altitude Doodle Ball Pen - Yellow', unidades: 400, preco: 7.3, preparacao: 400 },
+  { nome: 'Altitude Matrix Ball Pen', unidades: 2034, preco: 5.8, preparacao: 400 },
+  { nome: 'Altitude Zeta Ball Pen', unidades: 400, preco: 8.3, preparacao: 400 },
+  { nome: 'Altitude Jotter A5 Soft Cover Notebook', unidades: 200, preco: 28, preparacao: 400 },
+  { nome: 'Altitude Stanford A5 Hard Cover Notebook', unidades: 200, preco: 47, preparacao: 400 },
+  { nome: 'Altitude Vitality BMI Measuring Tape - 1.4 Metre', unidades: 200, preco: 33, preparacao: 400 },
+  { nome: 'Altitude Spector Pencil Case', unidades: 200, preco: 36, preparacao: 400 },
+  { nome: 'Altitude Oakridge A5 Soft Cover Notebook', unidades: 200, preco: 70, preparacao: 800 },
+  { nome: 'Altitude Silky Stylus Ball Pen', unidades: 400, preco: 15.5, preparacao: 400 },
+]
 
 function linhasDoExemplo(): LinhaForm[] {
-  return EXEMPLO_LINHAS.map((l, k) =>
-    novaLinha(k + 1, { nome: l.nome, unidades: String(l.unidades), custo: String(CUSTOS_EXEMPLO_ZAR[k] ?? l.custo), direitos: String(l.direitos), peso: String(l.peso), volume: String(l.volume) }),
+  return COTACAO.map((p, k) =>
+    novaLinha(k + 1, {
+      nome: p.nome,
+      unidades: String(p.unidades),
+      custo: String(p.preco),
+      impressao: String(Math.round((p.preparacao / p.unidades) * 1e8) / 1e8),
+      direitos: '0',
+      peso: '0',
+      volume: '0',
+    }),
   )
 }
 
@@ -135,12 +154,13 @@ function formDoExemplo(): Form {
     base: e.base,
     origem: 'ZAR',
     nomeImposto: 'IVA',
-    frete: '134000',
-    seguro: '5400',
-    corretor: '9500',
-    porto: '15000',
-    entrega: '24000',
-    outros: '7500',
+    // a cotação não traz frete, seguro nem despesas de entrega: preenchem-se à mão
+    frete: '0',
+    seguro: '0',
+    corretor: '0',
+    porto: '0',
+    entrega: '0',
+    outros: '0',
     comissao: String(e.comissao),
     perdasPct: String(e.perdasPct),
     margemPct: String(e.margemPct),
@@ -377,7 +397,7 @@ export function CalculadoraCustoImportacao() {
   const [estado, setEstado] = useState('')
   const ultimaLinha = useRef<HTMLInputElement | null>(null)
   // o número da próxima linha; as do exemplo são 1, 2… (iguais no servidor e no navegador)
-  const proximoId = useRef(EXEMPLO_LINHAS.length + 1)
+  const proximoId = useRef(COTACAO.length + 1)
 
   const locale = lang === 'en' ? 'en-US' : 'pt-MZ'
   const eua = form.modo === 'eua'
@@ -444,7 +464,7 @@ export function CalculadoraCustoImportacao() {
   const repor = () => {
     setForm(formDoExemplo())
     setLinhas(linhasDoExemplo())
-    proximoId.current = EXEMPLO_LINHAS.length + 1
+    proximoId.current = COTACAO.length + 1
     setEstado('Exemplo reposto.')
   }
 
@@ -810,6 +830,9 @@ export function CalculadoraCustoImportacao() {
           </button>
           <p className={`${NOTA} mt-4`}>
             As taxas de direitos são exemplos: tire as suas da pauta aduaneira, para cada código do SH e origem. O peso e o volume podem estar em qualquer unidade, desde que todas as linhas usem a mesma.
+          </p>
+          <p className={`${NOTA} mt-2`}>
+            Valores de partida: cotação BF-MWBWHJVJ-JHTJ da Brandful (África do Sul), de 11/11/2026 e válida até 11/12/2026, em rand e sem o IVA sul-africano. A impressão é a taxa de preparação da arte (setup) dividida pelas unidades. A cotação não traz o frete, o seguro, os direitos, o peso nem o volume: preencha-os.
           </p>
         </div>
 
