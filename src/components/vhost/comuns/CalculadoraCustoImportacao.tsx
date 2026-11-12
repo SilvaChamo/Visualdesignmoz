@@ -531,9 +531,9 @@ export function CalculadoraCustoImportacao() {
 
   return (
     <div className="@container">
-      <div className="grid grid-cols-[minmax(0,1fr)] gap-6 @4xl:grid-cols-[minmax(0,1fr)_380px] @4xl:items-start">
-      {/* resumo: no telemóvel vem primeiro; no computador fica ao lado e acompanha a página */}
-      <aside className="order-first space-y-3 @4xl:order-none @4xl:col-start-2 @4xl:row-start-1">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-6">
+      {/* resumo: em cima, a toda a largura (sem barra lateral) */}
+      <aside className="space-y-3">
         <div className="rounded-2xl bg-slate-900 p-5 text-white shadow-lg @xl:p-6">
           <p className="text-xs font-semibold uppercase tracking-wider text-slate-300">Custo total posto no armazém</p>
           <p className="mt-1 text-3xl font-black tabular-nums @xl:text-4xl" data-testid="cci-total">
@@ -594,7 +594,7 @@ export function CalculadoraCustoImportacao() {
       </aside>
 
       {/* formulário */}
-      <div className="space-y-6 @4xl:col-start-1 @4xl:row-start-1">
+      <div className="space-y-6">
         <div className={CARTAO}>
           <p className={`${ROTULO} mb-2`}>Tipo de destino</p>
           <Opcoes
@@ -803,7 +803,7 @@ export function CalculadoraCustoImportacao() {
 
       {/* quadros de resultados, a toda a largura */}
       {r.ok && (
-        <div className="space-y-6 @4xl:col-span-2">
+        <div className="space-y-6">
           <div className={CARTAO}>
             <h2 className={`${TITULO} mb-4`}>Custo por unidade, por produto</h2>
             <Tabela rotuloAria="Custo posto no armazém por produto" colunas={colunasProdutos} linhas={linhasProdutos} quebra="lg" />
