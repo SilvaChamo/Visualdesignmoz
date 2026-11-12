@@ -189,4 +189,7 @@ export const calculadora_importacao: Record<string, string> = {
  "Comissão": "Commission",
  "Repartida por valor": "Split by value",
  "Valores de partida: cotação BF-MWBWHJVJ-JHTJ da Brandful (África do Sul), de 11/11/2026 e válida até 11/12/2026, em rand e sem o IVA sul-africano. A impressão é a taxa de preparação da arte (setup) dividida pelas unidades. A cotação não traz o frete, o seguro, os direitos, o peso nem o volume: preencha-os.": "Starting values: Brandful (South Africa) quote BF-MWBWHJVJ-JHTJ, dated 11/11/2026 and valid until 11/12/2026, in rand and excluding South African VAT. Printing is the artwork setup fee divided by the units. The quote does not include freight, insurance, duties, weight or volume: fill them in.",
+ "Entrega domiciliária por unidade": "Home delivery per unit",
+ "Valor da impressão": "Printing value",
+ "Margem de erro": "Margin of error",
 };
