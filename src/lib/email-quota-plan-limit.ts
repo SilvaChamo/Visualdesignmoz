@@ -3,8 +3,9 @@
 //
 // Os planos de e-mail (Básico, Premium, Enterprise) já têm a sua regra em `email-quota-allocation.ts` (redistribui as quotas pelas caixas).
 // Aqui está a dos planos de alojamento (vhost-basico, vhost-pro…): as quotas de TODAS as caixas da conta, em todos os domínios, não
-// podem somar mais do que o espaço do plano. Quem sobe uma quota só pode subir até ao que ainda sobra; baixar é sempre permitido
-// (assim uma conta que já passou do plano corrige-se caixa a caixa). Funções puras: servem a rota (`/api/vhost/email`), o ecrã das
+// podem somar mais do que METADE do espaço do plano; a outra metade fica para o site (Silva, 12/11/2026: «se os e-mails ocupam todas as
+// quotas do plano, o que vai sobrar para o site?»). Quem sobe uma quota só pode subir até ao que ainda sobra; baixar é sempre permitido
+// (assim uma conta que já passou do limite corrige-se caixa a caixa). Funções puras: servem a rota (`/api/vhost/email`), o ecrã das
 // contas de e-mail e o teste (`email-quota-plan-limit.test.mjs`).
 
 export interface CaixaQuota {
@@ -26,6 +27,16 @@ export function limiteQuotasDoPlanoMb(discoMb: number | null | undefined): numbe
   if (typeof discoMb !== 'number' || !Number.isFinite(discoMb) || discoMb <= 0) return null;
   const mb = Math.round(discoMb);
   return mb % 1000 === 0 && mb % 1024 !== 0 ? (mb / 1000) * 1024 : mb;
+}
+
+/** Parte do espaço do plano de alojamento que as quotas das caixas de e-mail podem somar; o resto fica para o site. Os planos só de
+ *  e-mail não passam por aqui: nesses o espaço todo é das caixas (`email-quota-allocation.ts`). */
+export const PARTE_DO_PLANO_PARA_CAIXAS = 0.5;
+
+/** O que as quotas das caixas podem somar, em MB, num plano de alojamento: metade do espaço do plano (20 GB → 10 GB). `null` = sem limite. */
+export function limiteQuotasDasCaixasMb(discoMb: number | null | undefined): number | null {
+  const plano = limiteQuotasDoPlanoMb(discoMb);
+  return plano === null ? null : Math.floor(plano * PARTE_DO_PLANO_PARA_CAIXAS);
 }
 
 /** O que a caixa já tem «reservado» no plano: a quota; numa caixa sem limite, só o que usa (não se sabe mais). */
@@ -63,7 +74,7 @@ export function verificarSomaQuotas(p: {
   const disponivel = espacoDisponivelMb(caixas, domain, user, limiteMb);
   const recusa = (): SomaQuotas => ({
     ok: false,
-    erro: `A soma das quotas não pode exceder ${Math.max(1, Math.round(limiteMb / 1024))} GB neste plano. Disponível para esta caixa: ${disponivel} MB.`,
+    erro: `As caixas de e-mail podem ocupar no máximo ${Math.max(1, Math.round(limiteMb / 1024))} GB neste plano (o resto do espaço fica para o site). Disponível para esta caixa: ${disponivel} MB.`,
   });
   if (pedidaMb === null) return disponivel > 0 ? { ok: true, quotaMb: disponivel } : recusa();
   if (pedidaMb <= disponivel) return { ok: true, quotaMb: pedidaMb };

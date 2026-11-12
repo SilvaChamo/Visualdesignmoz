@@ -6,7 +6,7 @@ import { hestiaCall } from '@/lib/hestia-client';
 import { mensagemPublica } from '@/lib/mensagem-publica';
 import { EMAIL_PLANS } from '@/lib/email-plans';
 import { allocateEmailQuotas, type EmailQuotaChange } from '@/lib/email-quota-allocation';
-import { limiteQuotasDoPlanoMb, verificarSomaQuotas } from '@/lib/email-quota-plan-limit';
+import { limiteQuotasDasCaixasMb, verificarSomaQuotas } from '@/lib/email-quota-plan-limit';
 import { esquecerLeitura, lerServidor, type LeituraServidor } from '@/lib/vhost-servidor';
 import { lerRegisto, montarDados } from '@/lib/vhost-dados';
 import { COPIAR_PY, FERIAS_PY, RASTREIO_PY, VHOST_DIR } from '@/lib/vhost-email-scripts';
@@ -344,12 +344,13 @@ export async function POST(req: NextRequest) {
     const limitePacote = Number(valor);
     return !valor || /^(unlimited|-1)$/i.test(valor) || !Number.isFinite(limitePacote) || limitePacote <= 0 ? null : Math.floor(limitePacote);
   };
-  // Plano de alojamento (vhost-pro…): as quotas de todas as caixas da conta (todos os domínios) não podem somar mais do que o espaço do
-  // plano (Silva, 12/11/2026: 26 GB de quotas num plano de 20 GB). Os planos de e-mail têm a regra acima (`calcularRedistribuicaoQuota`).
+  // Plano de alojamento (vhost-pro…): as quotas de todas as caixas da conta (todos os domínios) não podem somar mais do que METADE do espaço
+  // do plano; a outra metade fica para o site (Silva, 12/11/2026: 26 GB de quotas num plano de 20 GB; «se os e-mails ocupam todas as
+  // quotas, o que vai sobrar para o site?»). Os planos só de e-mail têm a regra acima (`calcularRedistribuicaoQuota`): o espaço todo é das caixas.
   // Devolve a quota a gravar (a mesma, se o plano não limita) ou o erro a mostrar. A conta sem limite de espaço (admin) não é limitada.
   const quotaNoPlanoDeAlojamento = (user: string, quotaPedida: string, criar = false): { quota: string } | { erro: string } => {
     const discoBruto = String(srv.users[conta]?.DISK_QUOTA ?? '').trim();
-    const limiteMb = pacoteEmail || !/^\d+$/.test(discoBruto) ? null : limiteQuotasDoPlanoMb(Number(discoBruto));
+    const limiteMb = pacoteEmail || !/^\d+$/.test(discoBruto) ? null : limiteQuotasDasCaixasMb(Number(discoBruto));
     if (limiteMb === null) return { quota: quotaPedida };
     const caixasConta = Object.entries(srv.mailAcc[conta] || {}).flatMap(([dominio, contasDominio]) =>
       Object.entries(contasDominio).map(([nome, dados]) => {

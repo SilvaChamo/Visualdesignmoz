@@ -11,7 +11,7 @@ import type { ScreenFn } from '../screens';
 import { DESC, MENU } from '../generated/data';
 import { pacoteDe } from '../state';
 import { emailPlanOfPackages } from '@/lib/email-plans';
-import { espacoDisponivelMb, limiteQuotasDoPlanoMb, type CaixaQuota } from '@/lib/email-quota-plan-limit';
+import { espacoDisponivelMb, limiteQuotasDasCaixasMb, type CaixaQuota } from '@/lib/email-quota-plan-limit';
 import { Stat } from '../ui';
 import { Check, DataTable, MaisOpcoes, novaSenha, Senha, Switch, Tabs } from './componentes';
 import { Confirmar } from './pacotes';
@@ -603,9 +603,9 @@ function ContasLista() {
     : diferencaContas !== null && diferencaContas < 0
       ? `de ${max} contas no plano · limite ultrapassado por ${Math.abs(diferencaContas)}`
       : `de ${max} contas no plano · ${diferencaContas ?? 0} restantes`;
-  // o espaço do plano: nos planos de e-mail, o do plano; nos de alojamento, o espaço em disco do plano (20 GB no Profissional): as quotas
-  // das caixas não podem somar mais do que isto (a rota /api/vhost/email recusa; Silva, 12/11/2026: 26 GB de quotas num plano de 20 GB)
-  const limitePlanoMb = planoEmail ? planoEmail.storageGb * 1024 : limiteQuotasDoPlanoMb(vh.a.discoLimMb);
+  // o espaço que as quotas das caixas podem somar: nos planos de e-mail, o do plano; nos de alojamento, METADE do espaço em disco do plano
+  // (10 GB no Profissional, de 20 GB), e a outra metade fica para o site (a rota /api/vhost/email recusa o que passar; Silva, 12/11/2026)
+  const limitePlanoMb = planoEmail ? planoEmail.storageGb * 1024 : limiteQuotasDasCaixasMb(vh.a.discoLimMb);
   // o plano conta o espaço de todas as caixas da conta (todos os domínios), não só as do domínio escolhido
   const usadoConta = outrosMails.reduce((n, mail) => n + mail.used, 0) + info.caixas.reduce((n, c) => n + c.usadoMb, 0);
   const somaQuotasMb = todasRows.reduce((n, c) => n + c.quotaMb, 0);
@@ -620,13 +620,13 @@ function ContasLista() {
   const usadoParaEspaco = limitePlanoMb === null ? usado : usadoConta;
   const detalheEspaco = espacoTotalMb === null
     ? 'em todas as caixas'
-    : t(limitePlanoMb === null ? '{0}% de {1} nas quotas · faltam {2}%' : '{0}% de {1} do plano · faltam {2}%')
+    : t(limitePlanoMb === null ? '{0}% de {1} nas quotas · faltam {2}%' : planoEmail ? '{0}% de {1} do plano · faltam {2}%' : '{0}% de {1} para e-mail · faltam {2}%')
         .replace('{0}', pc((usadoParaEspaco / espacoTotalMb) * 100))
         .replace('{1}', mb(espacoTotalMb))
         .replace('{2}', pc(Math.max(0, 1000 - Math.round((usadoParaEspaco / espacoTotalMb) * 1000)) / 10)); // soma 100 com a % usada mostrada
-  // conta que já ficou acima do plano (quotas somadas antes de a regra existir): o cartão diz-o, para se baixarem as quotas (baixar é sempre permitido)
+  // conta que já ficou acima do limite (quotas somadas antes de a regra existir): o cartão diz-o, para se baixarem as quotas (baixar é sempre permitido)
   const avisoAcimaDoPlano = limitePlanoMb !== null && somaQuotasConta > limitePlanoMb
-    ? ' · ' + t('as quotas somam {0}, acima do plano').replace('{0}', mb(somaQuotasConta))
+    ? ' · ' + t('as quotas somam {0}, acima do limite').replace('{0}', mb(somaQuotasConta))
     : '';
   // caixas perto do limite: diz de quantas, a partir de que % conta e qual é a mais cheia
   const comQuota = todasRows.filter((c) => c.quotaMb > 0);
