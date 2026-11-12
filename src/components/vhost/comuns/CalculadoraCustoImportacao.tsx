@@ -12,6 +12,7 @@ import { Copy, Plus, RotateCcw, Trash2 } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
 import { cambioEntre } from '@/lib/cambio'
 import { useCambio } from './useCambio'
+import { CotacaoCliente } from './CotacaoCliente'
 import { translate } from '../i18n'
 import {
   EXEMPLO_ENTRADA,
@@ -511,6 +512,27 @@ export function CalculadoraCustoImportacao() {
     }
   }
 
+  // resumo geral de pagamentos (quadro escuro): o que se paga a cada um e o lucro com a margem pretendida
+  const resumo = r.ok
+    ? (() => {
+        const soma = (f: (l: LinhaForm) => number) => linhas.reduce((t, l) => t + f(l), 0)
+        const fornecedor = soma((l) => num(l.unidades) * num(l.custo) * compra)
+        const impressao = local ? 0 : soma((l) => num(l.unidades) * num(l.impressao, true) * compra)
+        const folga = r.mercadorias - fornecedor - impressao
+        const vendas = r.linhas.reduce((t, l) => t + l.vendaveis * l.preco, 0)
+        return {
+          fornecedor,
+          impressao,
+          folga: folga > 0.005 ? folga : 0,
+          alfandega: r.aPagarNaEntrada,
+          transporte: r.frete + r.seguro,
+          entregas: r.partilhados - r.comissao,
+          comissao: r.comissao,
+          vendas,
+          lucro: vendas - r.total,
+        }
+      })()
+    : null
   const nomeReparticao = { valor: 'Valor', peso: 'Peso', volume: 'Volume' }[form.reparticao]
   const nomeBase = { fob: 'FOB', cfr: 'CFR', cif: 'CIF' }[form.base]
 
@@ -656,16 +678,28 @@ export function CalculadoraCustoImportacao() {
             {r.ok ? `${pct(r.acima)} acima do valor de ${dinheiro(r.mercadorias)} das mercadorias · ${inteiro(r.vendaveis)} unidades vendáveis` : ERROS[r.erro]}
           </p>
 
-          <dl className="mt-5 grid grid-cols-2 gap-3 border-t border-white/15 pt-4">
+          <dl className="mt-5 grid grid-cols-2 gap-x-3 gap-y-4 border-t border-white/15 pt-4 @xl:grid-cols-3" data-testid="cci-resumo">
+            {(
+              [
+                ['Mercadorias ao fornecedor', resumo?.fornecedor, true, ''],
+                ['Impressão', resumo?.impressao, true, ''],
+                ['Margem de erro', resumo?.folga, !!resumo && resumo.folga > 0, ''],
+                ['A pagar à alfândega na entrada', resumo?.alfandega, true, ''],
+                ['Transporte (frete e seguro)', resumo?.transporte, true, ''],
+                ['Entregas e despesas', resumo?.entregas, true, ''],
+                ['Comissão', resumo?.comissao, !!resumo && resumo.comissao > 0, ''],
+                ['Vendas sem IVA', resumo?.vendas, true, ''],
+                ['Lucro com a margem pretendida', resumo?.lucro, true, 'text-emerald-300'],
+              ] as [string, number | undefined, boolean, string][]
+            )
+              .filter(([, , ver]) => ver)
+              .map(([rotulo, v, , cor]) => (
+                <div key={rotulo}>
+                  <dt className="text-xs text-slate-300">{rotulo}</dt>
+                  <dd className={`mt-0.5 text-base font-bold tabular-nums ${cor}`}>{v === undefined || !Number.isFinite(v) ? '–' : dinheiro(v)}</dd>
+                </div>
+              ))}
             <div>
-              <dt className="text-xs text-slate-300">A pagar à alfândega na entrada</dt>
-              <dd className="mt-0.5 text-base font-bold tabular-nums">{r.ok ? dinheiro(r.aPagarNaEntrada) : '–'}</dd>
-            </div>
-            <div>
-              <dt className="text-xs text-slate-300">Frete e entrega</dt>
-              <dd className="mt-0.5 text-base font-bold tabular-nums">{r.ok ? dinheiro(r.frete + r.seguro + r.partilhados) : '–'}</dd>
-            </div>
-            <div className="col-span-2">
               <dt className="text-xs text-slate-300">Repartido por</dt>
               <dd className="mt-0.5 text-base font-bold">{nomeReparticao}</dd>
             </div>
@@ -977,6 +1011,12 @@ export function CalculadoraCustoImportacao() {
           <p className={NOTA}>Estimativa só para planeamento: não é um orçamento de frete nem uma decisão da alfândega. O cálculo é feito no seu navegador; do servidor só vem o câmbio do dia.</p>
         </div>
       )}
+
+      {/* a cotação para o cliente, no fim das tabelas */}
+      <CotacaoCliente
+        moeda={moeda}
+        itens={linhas.map((l, k) => ({ id: l.id, nome: l.nome.trim() || `Linha ${k + 1}`, unidades: num(l.unidades), preco: r.ok ? r.linhas[k].preco : NaN }))}
+      />
     </div>
     </div>
   )
