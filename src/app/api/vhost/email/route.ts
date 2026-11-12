@@ -6,6 +6,7 @@ import { hestiaCall } from '@/lib/hestia-client';
 import { mensagemPublica } from '@/lib/mensagem-publica';
 import { EMAIL_PLANS } from '@/lib/email-plans';
 import { allocateEmailQuotas, type EmailQuotaChange } from '@/lib/email-quota-allocation';
+import { limiteQuotasDoPlanoMb, verificarSomaQuotas } from '@/lib/email-quota-plan-limit';
 import { esquecerLeitura, lerServidor, type LeituraServidor } from '@/lib/vhost-servidor';
 import { lerRegisto, montarDados } from '@/lib/vhost-dados';
 import { COPIAR_PY, FERIAS_PY, RASTREIO_PY, VHOST_DIR } from '@/lib/vhost-email-scripts';
@@ -343,6 +344,23 @@ export async function POST(req: NextRequest) {
     const limitePacote = Number(valor);
     return !valor || /^(unlimited|-1)$/i.test(valor) || !Number.isFinite(limitePacote) || limitePacote <= 0 ? null : Math.floor(limitePacote);
   };
+  // Plano de alojamento (vhost-pro…): as quotas de todas as caixas da conta (todos os domínios) não podem somar mais do que o espaço do
+  // plano (Silva, 12/11/2026: 26 GB de quotas num plano de 20 GB). Os planos de e-mail têm a regra acima (`calcularRedistribuicaoQuota`).
+  // Devolve a quota a gravar (a mesma, se o plano não limita) ou o erro a mostrar. A conta sem limite de espaço (admin) não é limitada.
+  const quotaNoPlanoDeAlojamento = (user: string, quotaPedida: string, criar = false): { quota: string } | { erro: string } => {
+    const discoBruto = String(srv.users[conta]?.DISK_QUOTA ?? '').trim();
+    const limiteMb = pacoteEmail || !/^\d+$/.test(discoBruto) ? null : limiteQuotasDoPlanoMb(Number(discoBruto));
+    if (limiteMb === null) return { quota: quotaPedida };
+    const caixasConta = Object.entries(srv.mailAcc[conta] || {}).flatMap(([dominio, contasDominio]) =>
+      Object.entries(contasDominio).map(([nome, dados]) => {
+        const usado = Number(String(dados.U_DISK ?? '').trim());
+        const quotaCaixa = quota(dados.QUOTA);
+        return { domain: dominio, user: nome, usedMb: Number.isFinite(usado) ? Math.ceil(usado) : 0, quotaMb: quotaCaixa && quotaCaixa !== 'unlimited' ? Number(quotaCaixa) : null };
+      }),
+    );
+    const soma = verificarSomaQuotas({ caixas: caixasConta, domain: d, user, pedidaMb: quotaPedida === 'unlimited' ? null : Number(quotaPedida), limiteMb, criar });
+    return soma.ok ? { quota: soma.quotaMb === null ? 'unlimited' : String(soma.quotaMb) } : { erro: soma.erro };
+  };
   const totalCaixasConta = Object.values(srv.mailAcc[conta] || {}).reduce((total, contasDominio) => total + Object.keys(contasDominio).length, 0);
   const aplicarQuotasRedistribuidas = async (
     mudancas: MudancaQuota[],
@@ -411,9 +429,11 @@ export async function POST(req: NextRequest) {
       if (maximoContas !== null && totalCaixasConta >= maximoContas) {
         return recusa(`Este plano permite no máximo ${maximoContas} contas de e-mail e já tem ${totalCaixasConta}.`);
       }
-      const distribuicao = calcularRedistribuicaoQuota(u, qt, true);
+      const noPlano = quotaNoPlanoDeAlojamento(u, qt, true);
+      if ('erro' in noPlano) return recusa(noPlano.erro);
+      const distribuicao = calcularRedistribuicaoQuota(u, noPlano.quota, true);
       if (distribuicao && !distribuicao.ok) return recusa(distribuicao.erro);
-      const quotaNova = distribuicao?.ok ? distribuicao.quotaAlvo : qt;
+      const quotaNova = distribuicao?.ok ? distribuicao.quotaAlvo : noPlano.quota;
       const x = await aplicarQuotasRedistribuidas(distribuicao?.ok ? distribuicao.mudancas : [], () =>
         call('v-add-mail-account', [conta, d, u, String(c.senha), quotaNova]),
       );
@@ -431,9 +451,11 @@ export async function POST(req: NextRequest) {
       if (!caixas[u]) return recusa('Conta inexistente.');
       const qt = quota(c.quota);
       if (!qt) return recusa('Quota inválida.');
-      const distribuicao = calcularRedistribuicaoQuota(u, qt);
+      const noPlano = quotaNoPlanoDeAlojamento(u, qt);
+      if ('erro' in noPlano) return recusa(noPlano.erro);
+      const distribuicao = calcularRedistribuicaoQuota(u, noPlano.quota);
       if (distribuicao && !distribuicao.ok) return recusa(distribuicao.erro);
-      const quotaNova = distribuicao?.ok ? distribuicao.quotaAlvo : qt;
+      const quotaNova = distribuicao?.ok ? distribuicao.quotaAlvo : noPlano.quota;
       return resposta(await aplicarQuotasRedistribuidas(distribuicao?.ok ? distribuicao.mudancas : [], () =>
         call('v-change-mail-account-quota', [conta, d, u, quotaNova]),
       ));
@@ -444,9 +466,11 @@ export async function POST(req: NextRequest) {
       const qt = quota(c.quota);
       const lim = limite(c.limite);
       if (!qt || lim === 'x') return recusa('Quota ou limite inválido.');
-      const distribuicao = calcularRedistribuicaoQuota(u, qt);
+      const noPlano = quotaNoPlanoDeAlojamento(u, qt);
+      if ('erro' in noPlano) return recusa(noPlano.erro);
+      const distribuicao = calcularRedistribuicaoQuota(u, noPlano.quota);
       if (distribuicao && !distribuicao.ok) return recusa(distribuicao.erro);
-      const quotaNova = distribuicao?.ok ? distribuicao.quotaAlvo : qt;
+      const quotaNova = distribuicao?.ok ? distribuicao.quotaAlvo : noPlano.quota;
       const resultadoQuota = await aplicarQuotasRedistribuidas(distribuicao?.ok ? distribuicao.mudancas : [], () =>
         call('v-change-mail-account-quota', [conta, d, u, quotaNova]),
       );
