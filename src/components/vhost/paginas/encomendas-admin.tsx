@@ -42,7 +42,7 @@ import { LugarBarraAntiga, PonteBarraAntiga } from './mensagem-todos';
         },
         {
           id: 'calculadora',
-          fa: 'fa-ship',
+          fa: 'fa-money-bill-transfer',
           t: 'Calculadora',
           c: 'c6',
           da: '—',
