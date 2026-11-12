@@ -10,6 +10,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { Copy, Plus, RotateCcw, Trash2 } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
+import { translate } from '../i18n'
 import {
   EXEMPLO_ENTRADA,
   EXEMPLO_LINHAS,
@@ -364,9 +365,8 @@ export function CalculadoraCustoImportacao() {
       setEstado(ERROS[r.erro])
       return
     }
-    // o texto copiado não passa pela tradução da página: traduz-se aqui, com o mesmo dicionário
-    const EN = lang === 'en' ? (await import('@/lib/i18n-textos')).EN : null
-    const tr = (k: string, ...a: string[]) => (EN?.[k] ?? k).replace(/\{(\d)\}/g, (_, i) => a[Number(i)] ?? '')
+    // o texto copiado não passa pela tradução da página: traduz-se aqui, com o dicionário do painel
+    const tr = (k: string, ...a: string[]) => translate(lang, k).replace(/\{(\d)\}/g, (_, i) => a[Number(i)] ?? '')
     const linhasTexto = [
       tr('Custo total posto no armazém: {0} ({1} acima do valor das mercadorias)', dinheiro(r.total), pct(r.acima)),
       tr('A pagar à alfândega na entrada: {0}', dinheiro(r.aPagarNaEntrada)),
