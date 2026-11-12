@@ -609,7 +609,8 @@ export function CalculadoraCustoImportacao() {
   const ids = (nome: string) => `cci-${nome}`
 
   return (
-    <div className="@container">
+    // data-ic-sem: o painel não põe ícone dentro dos campos da calculadora (icones-campos.ts)
+    <div className="@container" data-ic-sem>
       <div className="grid grid-cols-[minmax(0,1fr)] gap-6">
       {/* resumo: em cima, a toda a largura (sem barra lateral) */}
       <aside className="space-y-3">
