@@ -1360,6 +1360,15 @@ export const EN: Record<string, string> = {
   "Pen Drive Personalizado": "Personalised Pen Drive",
   "Servidor": "Server",
   "14 Anos": "14 Years",
+  // texto legal: NUIT, morada e cookies (14/11/2026)
+  "6. Cookies": "6. Cookies",
+  "O nosso site usa apenas os cookies necessários ao seu funcionamento e comodidade: cookies de sessão, que mantêm o utilizador autenticado na área de cliente, e cookies de preferências, que guardam o tema (claro ou escuro), as cores e o idioma escolhidos. Não utilizamos cookies de publicidade nem de análise de terceiros. Ao pagar com cartão, o processador de pagamento pode definir os seus próprios cookies, necessários à segurança da transacção. O utilizador pode apagar ou bloquear os cookies nas definições do navegador, mas a área de cliente não funciona sem os cookies de sessão.": "Our website only uses the cookies needed for it to work and for your convenience: session cookies, which keep you signed in to the client area, and preference cookies, which store the theme (light or dark), colours and language you chose. We do not use advertising cookies or third-party analytics cookies. When you pay by card, the payment processor may set its own cookies, which are needed for the security of the transaction. You can delete or block cookies in your browser settings, but the client area does not work without the session cookies.",
+  "7. Responsável pelo Tratamento dos Dados": "7. Data Controller",
+  "O responsável pelo tratamento dos dados pessoais é a VisualDESIGN Services, Lda., NUIT 400597243, com morada na Av. Karl Marx, nº 177, Maputo, Moçambique. Para qualquer questão sobre privacidade, contacte-nos por e-mail (info@visualdesignmoz.com) ou pelo telefone +258 83 44 70 073.": "The data controller is VisualDESIGN Services, Lda., NUIT 400597243, located at Av. Karl Marx, nº 177, Maputo, Mozambique. For any privacy question, contact us by email (info@visualdesignmoz.com) or by phone at +258 83 44 70 073.",
+  "8. Alterações à Política de Privacidade": "8. Changes to the Privacy Policy",
+  "7. Identificação da Empresa": "7. Company Details",
+  "VisualDESIGN Services, Lda., NUIT 400597243. Morada: Av. Karl Marx, nº 177, Maputo, Moçambique. E-mail: info@visualdesignmoz.com. Telefone: +258 83 44 70 073 / +258 87 75 75 288.": "VisualDESIGN Services, Lda., NUIT 400597243. Address: Av. Karl Marx, nº 177, Maputo, Mozambique. Email: info@visualdesignmoz.com. Phone: +258 83 44 70 073 / +258 87 75 75 288.",
+  "Última actualização: Novembro de 2026.": "Last updated: November 2026.",
 }
 
 /** Textos que aparecem iguais nas duas línguas (nomes próprios, siglas) — só para a verificação não os apontar. */

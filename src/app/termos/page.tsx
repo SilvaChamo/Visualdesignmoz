@@ -68,8 +68,15 @@ export default function TermsPage() {
               </p>
             </section>
 
+            <section className="space-y-3">
+              <h2 className="text-xl font-bold text-zinc-900 dark:text-white">7. Identificação da Empresa</h2>
+              <p className="text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
+                VisualDESIGN Services, Lda., NUIT 400597243. Morada: Av. Karl Marx, nº 177, Maputo, Moçambique. E-mail: info@visualdesignmoz.com. Telefone: +258 83 44 70 073 / +258 87 75 75 288.
+              </p>
+            </section>
+
             <div className="pt-6 border-t border-zinc-100 dark:border-white/5 text-xs text-zinc-400 text-center">
-              Última actualização: Julho de 2026.
+              Última actualização: Novembro de 2026.
             </div>
 
           </div>
