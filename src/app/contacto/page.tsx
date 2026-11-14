@@ -3,6 +3,7 @@
 import { ContactFormComponent } from '@/components/forms/ContactForm'
 import { useI18n } from '@/lib/i18n'
 import { Phone, Mail, MapPin } from 'lucide-react'
+import { NotchSection } from '@/components/home/NotchSection'
 
 export default function ContactPage() {
   const { t } = useI18n()
@@ -10,7 +11,7 @@ export default function ContactPage() {
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-black text-foreground">
       {/* Hero Section Standardized */}
-      <div className="bg-[#09090b] relative overflow-hidden border-b border-zinc-200 dark:border-zinc-800">
+      <NotchSection shape="start" bg="bg-[#09090b]" first>
         <div 
           className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-10"
           style={{ backgroundImage: "url('/assets/BG.jpg')" }}
@@ -27,7 +28,7 @@ export default function ContactPage() {
             </p>
           </div>
         </div>
-      </div>
+      </NotchSection>
 
       {/* Contact Content */}
       <div className="py-16">

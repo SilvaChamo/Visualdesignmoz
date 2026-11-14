@@ -2,6 +2,7 @@
 
 import { useI18n } from '@/lib/i18n'
 import Image from 'next/image'
+import { NotchSection } from '@/components/home/NotchSection'
 
 export default function PortfolioPage() {
   const { t } = useI18n()
@@ -33,7 +34,7 @@ export default function PortfolioPage() {
   return (
     <div className="min-h-screen bg-gray-100">
       {/* Hero Section Standardized */}
-      <div className="bg-[#404040] relative overflow-hidden">
+      <NotchSection shape="start" bg="bg-[#404040]" first>
         <div 
           className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-20"
           style={{ backgroundImage: "url('/assets/BG.jpg')" }}
@@ -50,7 +51,7 @@ export default function PortfolioPage() {
             </p>
           </div>
         </div>
-      </div>
+      </NotchSection>
 
       {/* Projects Content */}
       <div className="py-16">

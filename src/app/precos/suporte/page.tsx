@@ -3,6 +3,7 @@
 import { useI18n } from '@/lib/i18n'
 import Link from 'next/link'
 import { ArrowRight } from 'lucide-react';
+import { NotchSection } from '@/components/home/NotchSection'
 
 export default function PrecosSuporte() {
 
@@ -26,7 +27,7 @@ export default function PrecosSuporte() {
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-black text-foreground">
-      <div className="bg-[#09090b] relative overflow-hidden border-b border-zinc-200 dark:border-zinc-800">
+      <NotchSection shape="start" bg="bg-[#09090b]" first>
         <div className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-10" style={{ backgroundImage: "url('/assets/BG.jpg')" }} />
         <div className="absolute inset-0 bg-black/55" />
         <div className="container mx-auto max-w-7xl px-6 pt-[150px] pb-[80px] flex items-center justify-center min-h-[300px] relative z-10">
@@ -35,7 +36,7 @@ export default function PrecosSuporte() {
             <p className="text-base text-zinc-300 font-normal">{t('pricing.support.subtitle')}</p>
           </div>
         </div>
-      </div>
+      </NotchSection>
 
       <div className="py-16">
         <div className="container mx-auto max-w-7xl px-6">

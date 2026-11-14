@@ -9,6 +9,7 @@ import { HardDrive, Mail, Send, Megaphone, Globe, GitBranch, FolderOpen, Databas
 import { getHostingCyclePrice, getHostingMonthlyEquivalent, getHostingPlan } from '@/lib/hosting-plans'
 import { useCurrency } from '@/contexts/CurrencyContext'
 import { DOMAIN_STEP_PATH } from '@/lib/checkout-flow'
+import { NotchSection } from '@/components/home/NotchSection'
 
 export default function PrecosHospedagem() {
   const { t } = useI18n()
@@ -37,7 +38,7 @@ export default function PrecosHospedagem() {
   return (
     <div className="min-h-screen bg-white">
       {/* Header Section - Gray 25% */}
-      <div className="bg-[#404040] relative overflow-hidden">
+      <NotchSection shape="start" bg="bg-[#404040]" first>
         <div 
           className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-20"
           style={{ backgroundImage: "url('/assets/BG.jpg')" }}
@@ -53,7 +54,7 @@ export default function PrecosHospedagem() {
             </p>
           </div>
         </div>
-      </div>
+      </NotchSection>
 
       {/* Pricing Section */}
       <div className="bg-white dark:bg-zinc-800 py-[64px]">

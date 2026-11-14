@@ -1,11 +1,13 @@
 'use client'
 
+import { NotchSection } from '@/components/home/NotchSection'
+
 
 export default function PrivacyPage() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-zinc-950 transition-colors duration-200">
       {/* Hero Section */}
-      <div className="bg-[#404040] relative overflow-hidden">
+      <NotchSection shape="start" bg="bg-[#404040]" first>
         <div 
           className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-10"
           style={{ backgroundImage: "url('/assets/BG.jpg')" }}
@@ -19,7 +21,7 @@ export default function PrivacyPage() {
             </p>
           </div>
         </div>
-      </div>
+      </NotchSection>
 
       {/* Main Content */}
       <div className="py-16">
