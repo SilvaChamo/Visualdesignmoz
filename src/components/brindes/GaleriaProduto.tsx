@@ -6,10 +6,17 @@ import { useCallback, useEffect, useState } from 'react'
 import { ChevronLeft, ChevronRight, X, ZoomIn } from 'lucide-react'
 import { urlImagem } from '@/lib/catalogo-imagens'
 
+const ZOOM = 2.2
+
 export function GaleriaProduto({ imagens, nome, indice, aoMudar, selos }: { imagens: string[]; nome: string; indice: number; aoMudar: (i: number) => void; selos?: React.ReactNode }) {
   const [ampliada, setAmpliada] = useState(false)
-  // zoom ao passar o rato: a foto cresce e fica centrada no ponto onde o rato está (em %), como uma lupa
-  const [lupa, setLupa] = useState<{ x: number; y: number } | null>(null)
+  // zoom: um clique amplia a foto e o rato desliza-a para onde quiser (px, py = posição do rato, de 0 a 1); ao sair o rato, volta ao tamanho normal
+  const [lupa, setLupa] = useState<{ px: number; py: number } | null>(null)
+  const [ligada, setLigada] = useState(false)
+  const apontar = (e: React.MouseEvent<HTMLDivElement>) => {
+    const r = e.currentTarget.getBoundingClientRect()
+    setLupa({ px: Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)), py: Math.min(1, Math.max(0, (e.clientY - r.top) / r.height)) })
+  }
   const n = imagens.length
   const ir = useCallback((i: number) => aoMudar(((i % n) + n) % n), [aoMudar, n])
 
@@ -37,12 +44,13 @@ export function GaleriaProduto({ imagens, nome, indice, aoMudar, selos }: { imag
     <div>
       <div className="relative aspect-square overflow-hidden rounded-2xl bg-zinc-100 ring-1 ring-zinc-200/70 dark:bg-zinc-800/80 dark:ring-white/10">
         <div
-          className="absolute inset-0 cursor-zoom-in overflow-hidden"
-          onMouseMove={(e) => {
-            const r = e.currentTarget.getBoundingClientRect()
-            setLupa({ x: ((e.clientX - r.left) / r.width) * 100, y: ((e.clientY - r.top) / r.height) * 100 })
+          className={`absolute inset-0 overflow-hidden ${ligada ? 'cursor-zoom-out' : 'cursor-zoom-in'}`}
+          onClick={(e) => {
+            apontar(e)
+            setLigada((v) => !v)
           }}
-          onMouseLeave={() => setLupa(null)}
+          onMouseMove={(e) => ligada && apontar(e)}
+          onMouseLeave={() => setLigada(false)}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -50,8 +58,9 @@ export function GaleriaProduto({ imagens, nome, indice, aoMudar, selos }: { imag
             src={urlImagem(imagens[indice], 1200)}
             alt={nome}
             decoding="async"
-            className={`h-full w-full object-contain p-[6%] ${lupa ? 'scale-[2.2]' : 'scale-100 transition-transform duration-200'}`}
-            style={lupa ? { transformOrigin: `${lupa.x}% ${lupa.y}%` } : undefined}
+            draggable={false}
+            className={`h-full w-full origin-top-left select-none object-contain p-[6%] will-change-transform ${ligada ? 'transition-transform duration-150 ease-out' : 'transition-transform duration-500 ease-in-out'}`}
+            style={{ transform: ligada && lupa ? `translate(${-(ZOOM - 1) * lupa.px * 100}%, ${-(ZOOM - 1) * lupa.py * 100}%) scale(${ZOOM})` : 'translate(0, 0) scale(1)' }}
           />
         </div>
         {selos && <div className="absolute left-4 top-4 flex flex-col items-start gap-1.5">{selos}</div>}
