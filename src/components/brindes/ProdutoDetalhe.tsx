@@ -33,7 +33,7 @@ export interface ProdutoFicha {
 const num = (n: number) => n.toLocaleString('pt-PT')
 const data = (iso: string) => iso.split('-').reverse().join('/')
 
-const cartao = 'rounded-xl border border-zinc-200/80 bg-white p-5 dark:border-white/10 dark:bg-zinc-900'
+const cartao = 'rounded-lg border border-zinc-200/80 bg-white p-5 dark:border-white/10 dark:bg-zinc-900'
 const titulo = 'text-base font-extrabold text-zinc-900 dark:text-white'
 
 export function ProdutoDetalhe({ produto, ficha }: { produto: ProdutoFicha; ficha: Ficha | null }) {
@@ -343,7 +343,7 @@ export function ProdutoDetalhe({ produto, ficha }: { produto: ProdutoFicha; fich
             )}
           </div>
 
-          <div className={`rounded-xl border p-5 transition-colors ${personalizar ? 'border-red-600/40 bg-red-50/60 dark:border-red-500/30 dark:bg-red-500/5' : 'border-zinc-200/80 bg-white dark:border-white/10 dark:bg-zinc-900'}`}>
+          <div className={`rounded-lg border p-5 transition-colors ${personalizar ? 'border-red-600/40 bg-red-50/60 dark:border-red-500/30 dark:bg-red-500/5' : 'border-zinc-200/80 bg-white dark:border-white/10 dark:bg-zinc-900'}`}>
             <label className="flex cursor-pointer items-start gap-3">
               <input type="checkbox" checked={personalizar} onChange={(e) => setPersonalizar(e.target.checked)} className="mt-1 h-4 w-4 accent-red-600" />
               <span>
