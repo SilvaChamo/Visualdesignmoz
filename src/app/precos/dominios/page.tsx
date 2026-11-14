@@ -6,6 +6,7 @@ import { ArrowLeft } from 'lucide-react'
 
 import DomainSearch from '@/components/DomainSearch'
 import { useCurrency } from '@/contexts/CurrencyContext'
+import { NotchSection } from '@/components/home/NotchSection'
 import {
   DOMAIN_TLD_PRICES,
   domainRegistrationPriceMt,
@@ -29,7 +30,7 @@ export default function PrecosDominios() {
   return (
     <div className="min-h-screen bg-white">
       {/* Header Section */}
-      <div className="bg-[#404040] relative overflow-hidden">
+      <NotchSection shape="start" bg="bg-[#404040]" first>
         <div 
           className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-20"
           style={{ backgroundImage: "url('/assets/BG.jpg')" }}
@@ -49,7 +50,7 @@ export default function PrecosDominios() {
             </div>
           </div>
         </div>
-      </div>
+      </NotchSection>
 
       {/* Modern Pricing List Section */}
       <div className="bg-white py-12">

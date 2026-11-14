@@ -4,6 +4,7 @@ import { useI18n } from '@/lib/i18n'
 import Link from 'next/link'
 import { Monitor, Palette, Megaphone, Shield, Server, Mail, HeadphonesIcon, Tent, ArrowRight } from 'lucide-react'
 import { SERVICE_BRANDS } from '@/lib/services-catalog'
+import { NotchSection } from '@/components/home/NotchSection'
 
 export default function ServicesPage() {
   const { t } = useI18n()
@@ -22,7 +23,7 @@ export default function ServicesPage() {
   return (
     <div className="min-h-screen bg-gray-100">
       {/* Hero Section Standardized */}
-      <div className="bg-[#404040] relative overflow-hidden">
+      <NotchSection shape="start" bg="bg-[#404040]" first>
         <div 
           className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-20"
           style={{ backgroundImage: "url('/assets/BG.jpg')" }}
@@ -36,7 +37,7 @@ export default function ServicesPage() {
             </p>
           </div>
         </div>
-      </div>
+      </NotchSection>
 
       {/* Marcas VisualDesign */}
       <div className="py-16 bg-white">
