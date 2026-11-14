@@ -1,0 +1,44 @@
+name: Ops — repor basededadosagro.com em domain_renewals
+
+# Execução manual só.
+#
+# Nota (2026-08-09): esta workflow tinha originalmente um segundo job para
+# "limpar" 3 domínios (claude-ns-raw-*, claude-vd-teste-*, claude-vd-teste2-*)
+# que pareciam ter sido registados a sério por engano numa sessão anterior.
+# Confirmado directamente contra a API da Dynadot: esses domínios só existem
+# no ambiente de testes (sandbox, api-sandbox.dynadot.com) — nunca estiveram
+# na conta real, nunca custaram nada. O ecrã "Domínios" no localhost mostrou-os
+# porque o dev local usa DYNADOT_ENV=sandbox por omissão. Job removido — nada
+# para limpar aí.
+#
+# Fica só o passo que continua válido: repor o registo de basededadosagro.com
+# em domain_renewals, removido por engano antes de o utilizador confirmar que
+# é um domínio real (comprado via Dynadot, conta de produção) a manter.
+on:
+  workflow_dispatch:
+
+jobs:
+  repor-basededadosagro:
+    name: Repor basededadosagro.com em domain_renewals (é um domínio real)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Inserir de volta via psql
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.HETZNER_HOST }}
+          port: ${{ secrets.HETZNER_PORT }}
+          username: ${{ secrets.HETZNER_USER }}
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          command_timeout: 5m
+          script: |
+            set -e
+            CONTAINER=$(docker ps --format '{{.Names}}' | grep -iE 'supabase.*db|supabase-db|postgres' | head -n1)
+            DB_USER=$(docker exec "$CONTAINER" printenv POSTGRES_USER 2>/dev/null || echo postgres)
+            DB_NAME=$(docker exec "$CONTAINER" printenv POSTGRES_DB 2>/dev/null || echo postgres)
+            docker exec "$CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" -t -c \
+              "select count(*) from domain_renewals where domain_name = 'basededadosagro.com';"
+            docker exec "$CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 -c \
+              "insert into domain_renewals (user_id, domain_name, registration_date, expiration_date, renewal_price, currency, status, registrar, notes) select '8c185359-209f-49df-99a8-c6fdd40dd30e', 'basededadosagro.com', '2026-08-06', '2027-08-06', 0, 'MZN', 'active', 'Dynadot', 'Reposto — domínio real, confirmado pelo utilizador em 2026-08-09' where not exists (select 1 from domain_renewals where domain_name = 'basededadosagro.com');"
+            echo "--- Depois ---"
+            docker exec "$CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" -t -c \
+              "select domain_name, status, registrar from domain_renewals where domain_name = 'basededadosagro.com';"
