@@ -20,7 +20,7 @@ const VALORES: Record<string, string> = {
   StandardFit: 'Standard', SlimFit: 'Justo', RelaxedFit: 'Folgado', RegularFit: 'Regular', Mens: 'Homem', SADC: 'África Austral (SADC)', SouthAfrica: 'África do Sul', China: 'China', Ladies: 'Senhora', Unisex: 'Unissexo', Kids: 'Criança', Boys: 'Rapaz', Girls: 'Rapariga',
 }
 
-const caixa = 'rounded-xl border border-zinc-200/80 bg-white p-6 dark:border-white/10 dark:bg-zinc-900'
+const caixa = 'rounded-lg border border-zinc-200/80 bg-white p-6 dark:border-white/10 dark:bg-zinc-900'
 const h2 = 'flex items-center gap-2.5 text-xl font-extrabold text-zinc-900 dark:text-white'
 
 export interface Resumo {
@@ -107,7 +107,7 @@ export function InformacaoProduto({ sku, ficha, resumo, atualizadoEm }: { sku: s
               </p>
             </div>
             {ficha.pdf && (
-              <a href={`${PREFIXO_PDF}${ficha.pdf.split('/').map(encodeURIComponent).join('/')}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-full border border-zinc-300 px-4 py-2 text-sm font-semibold text-zinc-800 transition-colors hover:border-red-600 hover:text-red-600 dark:border-zinc-700 dark:text-zinc-200">
+              <a href={`${PREFIXO_PDF}${ficha.pdf.split('/').map(encodeURIComponent).join('/')}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-md border border-zinc-300 px-4 py-2 text-sm font-semibold text-zinc-800 transition-colors hover:border-red-600 hover:text-red-600 dark:border-zinc-700 dark:text-zinc-200">
                 <Download className="h-4 w-4" />
                 <span>Guia de personalização (PDF)</span>
               </a>
@@ -115,7 +115,7 @@ export function InformacaoProduto({ sku, ficha, resumo, atualizadoEm }: { sku: s
           </div>
           <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {ficha.pos.map((q, n) => (
-              <div key={q.p} className="rounded-xl border border-zinc-200/80 p-4 dark:border-white/10">
+              <div key={q.p} className="rounded-lg border border-zinc-200/80 p-4 dark:border-white/10">
                 <h3 className="flex items-center gap-2 text-sm font-extrabold text-zinc-900 dark:text-white">
                   <span className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-red-600 text-xs text-white">{n + 1}</span>
                   <span>{nomePosicao(q.n)}</span>
