@@ -26,7 +26,7 @@ export interface ProdutoFicha {
   /** da lista: fim dos endereços das fotos e cores, para quando não há ficha */
   imagens: string[]
   cores: { nome: string; hex: string }[]
-  /** valor do fornecedor por unidade, em meticais (null: sem câmbio) */
+  /** valor estimado por unidade, em meticais, sem personalização (null: sem câmbio) */
   precoMt: number | null
 }
 
@@ -140,7 +140,7 @@ export function ProdutoDetalhe({ produto, ficha }: { produto: ProdutoFicha; fich
         <div className="space-y-5 md:order-2 md:col-span-6">
           <div>
             {produto.marca && <span className="mb-2 block text-sm font-bold uppercase tracking-[0.2em] text-red-600 dark:text-red-500">{produto.marca}</span>}
-            <h1 className="text-xl font-bold leading-snug text-zinc-900 dark:text-white sm:text-2xl">{produto.nome}</h1>
+            <h1 className="text-[2rem] font-bold leading-tight text-zinc-900 dark:text-white sm:text-4xl">{produto.nome}</h1>
           </div>
 
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-y border-zinc-200/80 py-3 text-sm dark:border-white/10">
@@ -184,7 +184,7 @@ export function ProdutoDetalhe({ produto, ficha }: { produto: ProdutoFicha; fich
               <p className="mt-1 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
                 {produto.precoMt === null
                   ? 'Indicamos o valor na cotação, com a personalização incluída e a disponibilidade confirmada. O prazo de produção e de entrega também se confirma na cotação.'
-                  : 'O valor por unidade não inclui personalização. O valor final com a personalização, o prazo de produção e de entrega confirmam-se na cotação.'}
+                  : 'Valor estimado por unidade, com transporte, alfândega e IVA incluídos; não inclui a personalização. O valor da personalização, o valor final, o prazo de produção e de entrega confirmam-se na cotação.'}
               </p>
             </div>
           </div>

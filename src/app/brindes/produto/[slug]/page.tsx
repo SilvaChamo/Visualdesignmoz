@@ -60,8 +60,9 @@ export default async function ProdutoPage({ params }: Props) {
     <div className="min-h-screen bg-black/10 dark:bg-black">
       <div className="bg-zinc-50 dark:bg-zinc-950">
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }} />
-        <div className="container mx-auto max-w-7xl px-4 pb-28 pt-[140px] sm:px-6 sm:pt-[160px]">
-          <nav aria-label="Caminho" className="mb-6 flex flex-wrap items-center gap-1.5 text-xs font-semibold text-zinc-500 dark:text-zinc-400 sm:text-sm">
+        <div className="relative z-10 border-b border-zinc-200 bg-zinc-50 pb-3 pt-[124px] shadow-[0_8px_12px_-8px_rgba(0,0,0,0.25)] dark:border-zinc-800 dark:bg-zinc-950 sm:pt-[128px]">
+        <div className="container mx-auto max-w-7xl px-4 sm:px-6">
+          <nav aria-label="Caminho" className="flex flex-wrap items-center gap-1.5 text-xs font-semibold text-zinc-500 dark:text-zinc-400 sm:text-sm">
             {migalhas.map((m) => (
               <span key={m.href} className="flex items-center gap-1.5">
                 <Link href={m.href} className="transition-colors hover:text-red-600">
@@ -72,7 +73,9 @@ export default async function ProdutoPage({ params }: Props) {
             ))}
             <span className="max-w-[60vw] truncate text-zinc-900 dark:text-zinc-100">{produto.nome}</span>
           </nav>
-
+        </div>
+        </div>
+        <div className="container mx-auto max-w-7xl px-4 pb-28 pt-10 sm:px-6">
           <ProdutoDetalhe produto={{ ...comPreco, imagens }} ficha={lido?.ficha ?? null} />
 
           <div className="mt-14">
