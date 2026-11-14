@@ -23,7 +23,7 @@ const ts = require('typescript');
 const FORA = [
   /^src\/app\/(api|vhost|painel|webmail|dashboard|actions|cliente|guest|revendedor|profissional|contabilidade|recibo|pagamento|encomendas|renovacao|credito|checkout|dev-preview[^/]*)\//,
   /^src\/components\/(vhost|admin|dashboard|panel|client|guest|revendedor|encomendas|documents|ui)\//,
-  /^src\/lib\/(?!(brand-landing-content|pricing-catalog|services-catalog|package-catalog|email-plans|hosting-plans|quotation-status-labels|auth-messages)\.ts$)/,
+  /^src\/lib\/(?!(brand-landing-content|pricing-catalog|services-catalog|package-catalog|email-plans|hosting-plans|quotation-status-labels|auth-messages|catalogo-grupos)\.ts$)/,
   /^src\/(contexts|hooks|types|utils|services)\//,
 ];
 const fora = (rel) => FORA.some((r) => r.test(rel));
