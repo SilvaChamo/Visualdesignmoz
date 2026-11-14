@@ -1440,6 +1440,8 @@ export const EN: Record<string, string> = {
   "Adicionado ao pedido": "Added to the request",
   "Adicionar ao pedido": "Add to the request",
   "Limpar": "Clear",
+  "Brindes que representam": "Gifts that represent",
+  "a sua marca": "your brand",
   "unidades": "units",
   "disp.": "available",
   "chega": "arrives",

@@ -77,6 +77,7 @@ export default async function ProdutoPage({ params }: Props) {
 
           <div className="mt-14">
             <InformacaoProduto
+              sku={produto.sku}
               ficha={lido?.ficha ?? null}
               atualizadoEm={lido?.atualizadoEm ?? ATUALIZADO_EM}
               resumo={{ marca: produto.marca, gama: sub?.nome ?? null, grupoNome: grupo?.nome ?? null, ideal: grupo?.ideal ?? [] }}

@@ -4,13 +4,13 @@
 
 import { Download, Info, Ruler, Package, Palette, Layers } from 'lucide-react'
 import { nomeCor } from '@/lib/catalogo-cores'
-import { nomeMetodo, nomePosicao } from '@/lib/catalogo-personalizacao'
+import { metodosUnicos, nomeMetodo, nomePosicao } from '@/lib/catalogo-personalizacao'
+import { AmostraCor } from '@/components/brindes/AmostraCor'
 import { DetalheMetodo } from '@/components/brindes/DetalheMetodo'
 import { PREFIXO_PDF, type Ficha } from '@/lib/catalogo-fichas'
 
 const num = (n: number) => n.toLocaleString('pt-PT')
 const data = (iso: string) => iso.split('-').reverse().join('/')
-const fundo = (h: string[]) => (h.length > 1 ? `linear-gradient(135deg, ${h[0]} 50%, ${h[1]} 50%)` : h[0] || '#d4d4d8')
 
 const ROTULOS: Record<string, string> = {
   Fit: 'Corte', Gender: 'Género', Length: 'Comprimento', Width: 'Largura', Height: 'Altura', Depth: 'Profundidade', Weight: 'Peso', Capacity: 'Capacidade',
@@ -30,7 +30,7 @@ export interface Resumo {
   ideal: string[]
 }
 
-export function InformacaoProduto({ ficha, resumo, atualizadoEm }: { ficha: Ficha | null; resumo: Resumo; atualizadoEm: string }) {
+export function InformacaoProduto({ sku, ficha, resumo, atualizadoEm }: { sku: string; ficha: Ficha | null; resumo: Resumo; atualizadoEm: string }) {
   const linhas: [string, string][] = []
   if (resumo.marca) linhas.push(['Marca', resumo.marca])
   if (resumo.gama) linhas.push(['Gama', resumo.gama])
@@ -121,7 +121,7 @@ export function InformacaoProduto({ ficha, resumo, atualizadoEm }: { ficha: Fich
                   <span>{nomePosicao(q.n)}</span>
                 </h3>
                 <ul className="mt-3 space-y-1.5">
-                  {q.m.map((m, i) => (
+                  {metodosUnicos(q.m).map((m, i) => (
                     <li key={`${m.n}-${m.w}-${m.h}-${i}`} className="flex items-baseline justify-between gap-3 text-sm">
                       <span className="text-zinc-800 dark:text-zinc-200">{nomeMetodo(m.n)}</span>
                       <span className="text-right text-xs text-zinc-500 dark:text-zinc-400">
@@ -167,7 +167,7 @@ export function InformacaoProduto({ ficha, resumo, atualizadoEm }: { ficha: Fich
                     <tr key={c.c} className="border-b border-zinc-100 last:border-0 dark:border-white/5">
                       <td className="py-2.5 pr-4">
                         <span className="flex items-center gap-2.5">
-                          {c.n && <span className="h-5 w-5 shrink-0 rounded-md ring-1 ring-black/15" style={{ background: fundo(c.h) }} />}
+                          {c.n && <AmostraCor sku={sku} cor={c} className="h-5 w-5 shrink-0 rounded-md ring-1 ring-black/15" />}
                           <span className="font-semibold text-zinc-900 dark:text-zinc-100">{c.n ? nomeCor(c.n) : 'Stock'}</span>
                         </span>
                       </td>

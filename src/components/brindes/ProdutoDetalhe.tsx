@@ -11,7 +11,8 @@ import { usePedido } from '@/components/brindes/pedido'
 import { caminhoImagem } from '@/lib/catalogo-imagens'
 import { nomeCor } from '@/lib/catalogo-cores'
 import { useCurrency } from '@/contexts/CurrencyContext'
-import { nomeMetodo, nomePosicao } from '@/lib/catalogo-personalizacao'
+import { metodosUnicos, nomeMetodo, nomePosicao } from '@/lib/catalogo-personalizacao'
+import { AmostraCor } from '@/components/brindes/AmostraCor'
 import { DetalheMetodo } from '@/components/brindes/DetalheMetodo'
 import type { Ficha } from '@/lib/catalogo-fichas'
 
@@ -31,7 +32,6 @@ export interface ProdutoFicha {
 
 const num = (n: number) => n.toLocaleString('pt-PT')
 const data = (iso: string) => iso.split('-').reverse().join('/')
-const fundo = (h: string[]) => (h.length > 1 ? `linear-gradient(135deg, ${h[0]} 50%, ${h[1]} 50%)` : h[0] || '#d4d4d8')
 
 const cartao = 'rounded-xl border border-zinc-200/80 bg-white p-5 dark:border-white/10 dark:bg-zinc-900'
 const titulo = 'text-base font-extrabold text-zinc-900 dark:text-white'
@@ -95,7 +95,8 @@ export function ProdutoDetalhe({ produto, ficha }: { produto: ProdutoFicha; fich
   const [posIdx, setPosIdx] = useState(0)
   const [metodoIdx, setMetodoIdx] = useState<number | null>(null)
   const pos = posicoes[posIdx]
-  const metodo = pos && metodoIdx !== null ? pos.m[metodoIdx] : null
+  const metodos = useMemo(() => (pos ? metodosUnicos(pos.m) : []), [pos])
+  const metodo = metodoIdx !== null ? (metodos[metodoIdx] ?? null) : null
 
   const valido = tamanhos.length ? total > 0 : total >= min
   const detalhe = [
@@ -207,9 +208,9 @@ export function ProdutoDetalhe({ produto, ficha }: { produto: ProdutoFicha; fich
                       aria-label={nomeCor(c.n)}
                       title={nomeCor(c.n)}
                       onClick={() => mudaCor(i)}
-                      className={`relative h-10 w-10 cursor-pointer rounded-lg ring-1 ring-black/15 transition ${i === corIdx ? 'outline outline-2 outline-offset-2 outline-red-600' : 'hover:scale-105'} ${sem ? 'opacity-40' : ''}`}
-                      style={{ background: fundo(c.h) }}
+                      className={`relative h-10 w-10 cursor-pointer overflow-hidden rounded-lg ring-1 ring-black/15 transition ${i === corIdx ? 'outline outline-2 outline-offset-2 outline-red-600' : 'hover:scale-105'} ${sem ? 'opacity-40' : ''}`}
                     >
+                      <AmostraCor sku={produto.sku} cor={c} className="absolute inset-0" />
                       {i === corIdx && <Check className="absolute inset-0 m-auto h-5 w-5 text-white mix-blend-difference" />}
                     </button>
                   )
@@ -377,7 +378,7 @@ export function ProdutoDetalhe({ produto, ficha }: { produto: ProdutoFicha; fich
                     ))}
                   </div>
                 </div>
-                {pos && pos.m.length > 0 && (
+                {pos && metodos.length > 0 && (
                   <div>
                     <p className="mb-2 text-xs font-bold uppercase tracking-wider text-zinc-500">Método</p>
                     <div className="grid gap-2 sm:grid-cols-2">
@@ -390,7 +391,7 @@ export function ProdutoDetalhe({ produto, ficha }: { produto: ProdutoFicha; fich
                         <span className="block font-semibold text-zinc-900 dark:text-white">Definir na cotação</span>
                         <span className="block text-xs text-zinc-500">Aconselhamos o melhor método</span>
                       </button>
-                      {pos.m.map((m, i) => (
+                      {metodos.map((m, i) => (
                         <button
                           key={`${m.n}-${m.w}-${m.h}-${i}`}
                           type="button"
@@ -423,7 +424,7 @@ export function ProdutoDetalhe({ produto, ficha }: { produto: ProdutoFicha; fich
           <div className="hidden flex-wrap items-center gap-2 text-xs font-semibold sm:flex">
             {cor && (
               <span className="inline-flex items-center gap-1.5 rounded-full bg-zinc-100 px-3 py-1 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
-                <span className="h-3 w-3 rounded-full ring-1 ring-black/20" style={{ background: fundo(cor.h) }} />
+                <AmostraCor sku={produto.sku} cor={cor} className="h-3 w-3 rounded-full ring-1 ring-black/20" />
                 <span>{nomeCor(cor.n)}</span>
               </span>
             )}

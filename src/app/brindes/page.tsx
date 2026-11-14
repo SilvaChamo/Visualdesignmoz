@@ -5,23 +5,13 @@ import { BrindesSobre } from '@/components/brindes/BrindesSobre'
 import { BrindesHero } from '@/components/brindes/BrindesHero'
 import { BarraPedido } from '@/components/brindes/BarraPedido'
 import { GrelhaProdutos, SeccaoProdutos } from '@/components/brindes/SeccaoProdutos'
-import { ATUALIZADO_EM, CONTAGENS, CONTAGEM_CORES, MARCAS, TOTAL_PRODUTOS, destaques, emMt, listarCatalogo, seccoesDestaque, seccoesDoGrupo } from '@/lib/catalogo-brindes'
+import { ATUALIZADO_EM, CONTAGENS, CONTAGEM_CORES, MARCAS, TOTAL_PRODUTOS, emMt, listarCatalogo, seccoesDestaque, seccoesDoGrupo } from '@/lib/catalogo-brindes'
 import { cambioZarMzn } from '@/lib/cambio-brindes'
 import { FAMILIAS_COR } from '@/lib/catalogo-cores'
 import { GRUPOS, grupoPorId, hrefGrupo, subPorId } from '@/lib/catalogo-grupos'
 import { BRAND_LANDING_CONTENT } from '@/lib/brand-landing-content'
 
 const DADOS = BRAND_LANDING_CONTENT['brindes']
-
-// um produto de cada tipo, para o cartão do banner: o cliente vê logo a variedade que há
-const ESCOLHAS: [grupo: string, sub: string][] = [
-  ['brindes', 'garrafas-de-agua'],
-  ['uniformes', 'polos'],
-  ['brindes', 'power-banks'],
-  ['mais-produtos', 'mochilas'],
-  ['seguranca', 'alta-visibilidade'],
-  ['brindes', 'canetas'],
-]
 
 const ORDENS: { id: string; nome: string }[] = [
   { id: '', nome: 'Destaques' },
@@ -72,13 +62,12 @@ export default async function VisualGiftsPage({ searchParams }: { searchParams: 
         : 'border-zinc-300 bg-white text-zinc-700 hover:border-red-600 hover:text-red-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:text-white'
     }`
 
-  const cartao = ESCOLHAS.flatMap(([g, s]) => destaques([[g, s]]).map((produto) => ({ produto, grupo: g, sub: s })))
   const seccoes = modo === 'inicio' ? seccoesDestaque(8).map((x) => ({ ...x, produtos: emMt(x.produtos, taxa) })) : []
   const seccoesGrupo = modo === 'grupo' && grupo ? seccoesDoGrupo(grupo.id, 4).map((x) => ({ ...x, produtos: emMt(x.produtos, taxa) })) : []
 
   return (
     <div className="min-h-screen bg-black/10 dark:bg-black">
-      <BrindesHero hero={DADOS.hero} destaques={cartao} total={TOTAL_PRODUTOS} />
+      <BrindesHero hero={DADOS.hero} />
 
       <NotchSection shape="end" bg="bg-zinc-50 dark:bg-zinc-950">
         <div id="catalogo" className="scroll-mt-[90px] pb-14 pt-12">

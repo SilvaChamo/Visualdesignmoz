@@ -1,6 +1,8 @@
 // Nomes em português dos métodos e das posições de personalização do catálogo de brindes (o fornecedor dá-os em inglês).
 // O que não se conhece fica como vem. Sem dependências: seguro em componentes de cliente.
 
+import type { FichaMetodo } from '@/lib/catalogo-fichas'
+
 const METODOS: [RegExp, string][] = [
   [/^embroider/i, 'Bordado'],
   [/screen ?print/i, 'Serigrafia'],
@@ -74,4 +76,15 @@ export function nomePosicao(en: string): string {
     return letra ? `Posição ${letra[1].toUpperCase()}` : (POSICOES[t.toLowerCase()] ?? t)
   })
   return [...new Set(partes)].join(' / ')
+}
+
+/** O fornecedor dá variantes do mesmo método («Screen Print (A)», «(B)», «(C)») que em português são o mesmo: mostra-se uma vez cada nome com a mesma cor e área. */
+export function metodosUnicos(ms: FichaMetodo[]): FichaMetodo[] {
+  const vistos = new Set<string>()
+  return ms.filter((m) => {
+    const k = `${nomeMetodo(m.n)}|${corMetodo(m.c) ?? ''}|${m.w ?? ''}x${m.h ?? ''}`
+    if (vistos.has(k)) return false
+    vistos.add(k)
+    return true
+  })
 }
