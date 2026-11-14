@@ -8,6 +8,8 @@ import { urlImagem } from '@/lib/catalogo-imagens'
 
 export function GaleriaProduto({ imagens, nome, indice, aoMudar, selos }: { imagens: string[]; nome: string; indice: number; aoMudar: (i: number) => void; selos?: React.ReactNode }) {
   const [ampliada, setAmpliada] = useState(false)
+  // zoom ao passar o rato: a foto cresce e fica centrada no ponto onde o rato está (em %), como uma lupa
+  const [lupa, setLupa] = useState<{ x: number; y: number } | null>(null)
   const n = imagens.length
   const ir = useCallback((i: number) => aoMudar(((i % n) + n) % n), [aoMudar, n])
 
@@ -34,8 +36,24 @@ export function GaleriaProduto({ imagens, nome, indice, aoMudar, selos }: { imag
   return (
     <div>
       <div className="relative aspect-square overflow-hidden rounded-2xl bg-zinc-100 ring-1 ring-zinc-200/70 dark:bg-zinc-800/80 dark:ring-white/10">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img key={imagens[indice]} src={urlImagem(imagens[indice], 900)} alt={nome} decoding="async" className="absolute inset-0 h-full w-full object-contain p-[6%]" />
+        <div
+          className="absolute inset-0 cursor-zoom-in overflow-hidden"
+          onMouseMove={(e) => {
+            const r = e.currentTarget.getBoundingClientRect()
+            setLupa({ x: ((e.clientX - r.left) / r.width) * 100, y: ((e.clientY - r.top) / r.height) * 100 })
+          }}
+          onMouseLeave={() => setLupa(null)}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            key={imagens[indice]}
+            src={urlImagem(imagens[indice], 1200)}
+            alt={nome}
+            decoding="async"
+            className={`h-full w-full object-contain p-[6%] ${lupa ? 'scale-[2.2]' : 'scale-100 transition-transform duration-200'}`}
+            style={lupa ? { transformOrigin: `${lupa.x}% ${lupa.y}%` } : undefined}
+          />
+        </div>
         {selos && <div className="absolute left-4 top-4 flex flex-col items-start gap-1.5">{selos}</div>}
         {n > 1 && (
           <>
