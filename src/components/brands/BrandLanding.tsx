@@ -69,7 +69,9 @@ export function BrandHero({ data, breadcrumb }: { data: BrandLandingContent; bre
   )
 }
 
-export function BrandLandingBody({ data }: { data: BrandLandingContent }) {
+export function BrandLandingBody({ data, recuo = false }: { data: BrandLandingContent; recuo?: boolean }) {
+  // recuo: 25 px a mais nas laterais, para o conteúdo ficar dentro do recorte das secções (Silva, 14/11/2026, página /brindes)
+  const lados = recuo ? 'px-[41px] sm:px-[49px]' : 'px-4 sm:px-6'
   const [openWhyUs, setOpenWhyUs] = useState<Record<number, boolean>>({})
   const [subscribed, setSubscribed] = useState(false)
 
@@ -85,7 +87,7 @@ export function BrandLandingBody({ data }: { data: BrandLandingContent }) {
     <>
       {/* Introdução + Serviços */}
       <div className="-mt-[16px] relative z-20 bg-zinc-200 dark:bg-[#212121]">
-        <div className="container mx-auto max-w-7xl px-4 sm:px-6 pt-0 pb-8">
+        <div className={`container mx-auto max-w-7xl ${lados} pt-0 pb-8`}>
           <div className="text-center pt-[30px] max-w-3xl mx-auto">
             <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-black dark:text-white mb-4">
               <span className="text-zinc-400 dark:text-zinc-500 font-normal">—</span> {data.intro.title} <span className="text-zinc-400 dark:text-zinc-500 font-normal">—</span>
@@ -98,7 +100,7 @@ export function BrandLandingBody({ data }: { data: BrandLandingContent }) {
       </div>
 
       <NotchSection shape="end" bg="bg-white dark:bg-[#212121]" first className="pt-16 pb-16 sm:pt-24 sm:pb-24">
-          <div className="container mx-auto max-w-7xl px-4 sm:px-6">
+          <div className={`container mx-auto max-w-7xl ${lados}`}>
             <div className="text-center mb-10 sm:mb-12 flex flex-col items-center max-w-3xl mx-auto">
               <span className="text-xs sm:text-sm font-bold uppercase tracking-wider flex items-center gap-1.5 text-red-600 dark:text-red-500 mb-2">
                 <span className="font-normal inline-block transform scale-x-[2.5] mx-2.5">—</span>
@@ -147,7 +149,7 @@ export function BrandLandingBody({ data }: { data: BrandLandingContent }) {
 
       {/* Como Trabalhamos */}
       <NotchSection shape="mid" bg="bg-zinc-200 dark:bg-[#141414]" className="pt-16 pb-16 sm:pt-24 sm:pb-24">
-        <div className="container mx-auto max-w-7xl px-4 sm:px-6 relative z-10">
+        <div className={`container mx-auto max-w-7xl ${lados} relative z-10`}>
           <div className="text-center flex flex-col items-center max-w-3xl mx-auto mb-12">
             <span className="text-xs sm:text-sm font-bold uppercase tracking-wider flex items-center gap-1.5 text-red-600 dark:text-red-500 mb-2">
               <span className="font-normal inline-block transform scale-x-[2.5] mx-2.5">—</span>
@@ -186,7 +188,7 @@ export function BrandLandingBody({ data }: { data: BrandLandingContent }) {
 
       {/* Porquê nós */}
       <NotchSection shape="mid-alt" bg="bg-white dark:bg-[#212121]" className="pt-16 pb-16 sm:pt-24 sm:pb-24">
-        <div className="container mx-auto max-w-7xl px-4 sm:px-6 relative z-10">
+        <div className={`container mx-auto max-w-7xl ${lados} relative z-10`}>
           <div className="text-center flex flex-col items-center max-w-3xl mx-auto mb-0">
             <span className="text-xs sm:text-sm font-bold uppercase tracking-wider flex items-center gap-1.5 text-red-600 dark:text-red-500 mb-2">
               <span className="font-normal inline-block transform scale-x-[2.5] mx-2.5">—</span>
@@ -250,7 +252,7 @@ export function BrandLandingBody({ data }: { data: BrandLandingContent }) {
 
       {/* CTA */}
       <NotchSection shape="mid" bg="bg-zinc-200 dark:bg-[#141414]" className="py-16 sm:py-20">
-        <div className="container mx-auto max-w-7xl px-4 sm:px-6 relative z-10">
+        <div className={`container mx-auto max-w-7xl ${lados} relative z-10`}>
           <div className="text-center flex flex-col items-center max-w-2xl mx-auto gap-4">
             <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-black dark:text-white">
               {data.cta.title}
@@ -268,7 +270,7 @@ export function BrandLandingBody({ data }: { data: BrandLandingContent }) {
 
       {/* Newsletter */}
       <NotchSection shape="mid-alt" bg="bg-white dark:bg-[#212121]" className="py-8 sm:py-10">
-        <div className="container mx-auto max-w-7xl px-4 sm:px-6 relative z-10">
+        <div className={`container mx-auto max-w-7xl ${lados} relative z-10`}>
           <div className="mx-5 flex flex-col md:flex-row items-center justify-between gap-6 py-2">
             <div className="text-center md:text-left">
               <h3 className="text-xl sm:text-2xl md:text-3xl font-extrabold text-black dark:text-white mb-1">

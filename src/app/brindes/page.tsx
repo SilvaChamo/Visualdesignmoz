@@ -1,11 +1,12 @@
 import Link from 'next/link'
-import { ArrowLeft, ArrowRight, Search } from 'lucide-react'
+import { ArrowLeft, ArrowRight } from 'lucide-react'
 import { NotchSection } from '@/components/home/NotchSection'
 import { BrindesSobre } from '@/components/brindes/BrindesSobre'
 import { BrindesHero } from '@/components/brindes/BrindesHero'
 import { BarraPedido } from '@/components/brindes/BarraPedido'
+import { PesquisaBrindes } from '@/components/brindes/PesquisaBrindes'
 import { GrelhaProdutos, SeccaoProdutos } from '@/components/brindes/SeccaoProdutos'
-import { ATUALIZADO_EM, CONTAGENS, CONTAGEM_CORES, MARCAS, TOTAL_PRODUTOS, emMt, listarCatalogo, seccoesDestaque, seccoesDoGrupo } from '@/lib/catalogo-brindes'
+import { ATUALIZADO_EM, CONTAGENS, MARCAS, TOTAL_PRODUTOS, emMt, listarCatalogo, seccoesDestaque, seccoesDoGrupo } from '@/lib/catalogo-brindes'
 import { cambioZarMzn } from '@/lib/cambio-brindes'
 import { FAMILIAS_COR } from '@/lib/catalogo-cores'
 import { GRUPOS, grupoPorId, hrefGrupo, subPorId } from '@/lib/catalogo-grupos'
@@ -23,8 +24,9 @@ const texto = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v
 
 export default async function VisualGiftsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const sp = await searchParams
-  const grupo = grupoPorId(texto(sp.grupo))
-  const sub = subPorId(grupo, texto(sp.sub))
+  const [catGrupo, catSub] = texto(sp.categoria).split('/')
+  const grupo = grupoPorId(catGrupo || texto(sp.grupo))
+  const sub = subPorId(grupo, catSub || texto(sp.sub))
   const cor = FAMILIAS_COR.find((c) => c.id === texto(sp.cor))?.id ?? ''
   const ordem = ORDENS.find((o) => o.id === texto(sp.ordem))?.id ?? ''
   const filtro = { q: texto(sp.q).slice(0, 80), marca: texto(sp.marca), grupo: grupo?.id ?? '', sub: sub?.id ?? '', cor, stock: texto(sp.stock) === '1', ordem }
@@ -69,10 +71,43 @@ export default async function VisualGiftsPage({ searchParams }: { searchParams: 
     <div className="min-h-screen bg-black/10 dark:bg-black">
       <BrindesHero hero={DADOS.hero} />
 
+      <NotchSection shape="mid" bg="bg-zinc-200 dark:bg-black">
+        <div className="container mx-auto max-w-7xl px-[41px] py-[46px] sm:px-[49px]">
+          <form method="get" action="/brindes#catalogo" className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_190px_170px_auto_auto]">
+            {cor && <input type="hidden" name="cor" value={cor} />}
+            {ordem && <input type="hidden" name="ordem" value={ordem} />}
+            <PesquisaBrindes defaultValue={filtro.q} className={campo} />
+            <select name="marca" defaultValue={filtro.marca} aria-label="Marca" className={campo}>
+              <option value="">Todas as marcas</option>
+              {MARCAS.map((m) => (
+                <option key={m.nome} value={m.nome}>{`${m.nome} (${m.n})`}</option>
+              ))}
+            </select>
+            <select name="categoria" defaultValue={grupo ? (sub ? `${grupo.id}/${sub.id}` : grupo.id) : ''} aria-label="Categoria" className={campo}>
+              <option value="">Todas categorias</option>
+              {GRUPOS.flatMap((g) => [
+                <option key={g.id} value={g.id} className="font-bold">{g.nome}</option>,
+                ...g.colunas.flatMap((c) => c.subs).map((x) => (
+                  <option key={`${g.id}/${x.id}`} value={`${g.id}/${x.id}`}>{x.nome}</option>
+                )),
+              ])}
+            </select>
+            <label className="inline-flex h-11 cursor-pointer items-center gap-2 rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
+              <input type="checkbox" name="stock" value="1" defaultChecked={filtro.stock} className="h-4 w-4 accent-red-600" />
+              <span>Em stock</span>
+            </label>
+            <button type="submit" className="h-11 cursor-pointer rounded-md bg-red-600 px-6 text-sm font-bold text-white transition-colors hover:bg-red-700">
+              Procurar
+            </button>
+          </form>
+        </div>
+      </NotchSection>
+
       <NotchSection shape="end" bg="bg-zinc-50 dark:bg-zinc-950">
         <div id="catalogo" className="scroll-mt-[90px] pb-14 pt-12">
-          <div className="container mx-auto max-w-7xl px-4 sm:px-6">
-            <div className="mb-5 flex flex-wrap gap-2" role="navigation" aria-label="Categorias de produtos">
+          <div className="container mx-auto max-w-7xl px-[41px] sm:px-[49px]">
+            <div className="mb-5 flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+            <div className="flex flex-wrap gap-2" role="navigation" aria-label="Categorias de produtos">
               <Link href={ligacao({ grupo: '', sub: '' })} className={chip(!grupo)}>
                 <span>Todos</span>
                 <span className="text-xs opacity-70">{TOTAL_PRODUTOS.toLocaleString('pt-PT')}</span>
@@ -83,6 +118,20 @@ export default async function VisualGiftsPage({ searchParams }: { searchParams: 
                   <span className="text-xs opacity-70">{CONTAGENS[g.id].toLocaleString('pt-PT')}</span>
                 </Link>
               ))}
+            </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-zinc-500">Ordenar por</span>
+                {ORDENS.map((o) => (
+                  <Link key={o.id} href={ligacao({ ordem: o.id })} aria-current={o.id === ordem} className={chip(o.id === ordem)}>
+                    {o.nome}
+                  </Link>
+                ))}
+                {!semFiltros && (
+                  <Link href="/brindes#catalogo" className="inline-flex h-9 items-center rounded-md border border-zinc-300 px-4 text-sm font-semibold text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800">
+                    Limpar filtros
+                  </Link>
+                )}
+              </div>
             </div>
 
             {grupo && (
@@ -100,58 +149,6 @@ export default async function VisualGiftsPage({ searchParams }: { searchParams: 
                   ))}
               </div>
             )}
-
-            <form method="get" action="/brindes#catalogo" className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-[1fr_200px_170px_auto]">
-              {grupo && <input type="hidden" name="grupo" value={grupo.id} />}
-              {grupo && sub && <input type="hidden" name="sub" value={sub.id} />}
-              {cor && <input type="hidden" name="cor" value={cor} />}
-              <label className="relative block">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
-                <input type="search" name="q" defaultValue={filtro.q} placeholder="Procurar por nome ou referência" aria-label="Procurar por nome ou referência" className={`${campo} w-full pl-9`} />
-              </label>
-              <select name="marca" defaultValue={filtro.marca} aria-label="Marca" className={campo}>
-                <option value="">Todas as marcas</option>
-                {MARCAS.map((m) => (
-                  <option key={m.nome} value={m.nome}>{`${m.nome} (${m.n})`}</option>
-                ))}
-              </select>
-              <select name="ordem" defaultValue={ordem} aria-label="Ordenar por" className={campo}>
-                {ORDENS.map((o) => (
-                  <option key={o.id} value={o.id}>
-                    {o.nome}
-                  </option>
-                ))}
-              </select>
-              <div className="flex gap-2">
-                <label className="inline-flex h-11 cursor-pointer items-center gap-2 rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
-                  <input type="checkbox" name="stock" value="1" defaultChecked={filtro.stock} className="h-4 w-4 accent-red-600" />
-                  <span>Em stock</span>
-                </label>
-                <button type="submit" className="h-11 flex-1 cursor-pointer rounded-md bg-red-600 px-6 text-sm font-bold text-white transition-colors hover:bg-red-700">
-                  Procurar
-                </button>
-              </div>
-            </form>
-
-            <div className="mb-6 flex flex-wrap items-center gap-2" role="navigation" aria-label="Filtrar por cor">
-              <span className="mr-1 text-xs font-bold uppercase tracking-wider text-zinc-500">Cor</span>
-              {FAMILIAS_COR.map((c) => (
-                <Link
-                  key={c.id}
-                  href={ligacao({ cor: c.id === cor ? '' : c.id })}
-                  title={`${c.nome} (${CONTAGEM_CORES[c.id] ?? 0})`}
-                  aria-label={c.nome}
-                  aria-current={c.id === cor}
-                  className={`h-7 w-7 rounded-full ring-1 ring-black/20 transition ${c.id === cor ? 'outline outline-2 outline-offset-2 outline-red-600' : 'hover:scale-110'}`}
-                  style={{ background: c.hex }}
-                />
-              ))}
-              {!semFiltros && (
-                <Link href="/brindes#catalogo" className="ml-auto inline-flex h-9 items-center rounded-md border border-zinc-300 px-4 text-sm font-semibold text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800">
-                  Limpar filtros
-                </Link>
-              )}
-            </div>
 
             {modo === 'lista' && lista && (
               <>

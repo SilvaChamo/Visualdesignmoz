@@ -7,7 +7,7 @@
 
 import dados from '@/data/catalogo-brindes.json'
 import { GRUPOS, grupoPorId, subPorId, type Grupo, type Sub } from '@/lib/catalogo-grupos'
-import { familiaDaCor } from '@/lib/catalogo-cores'
+import { familiaDaCor, nomeCor } from '@/lib/catalogo-cores'
 
 export interface ProdutoImportado {
   sku: string
@@ -87,7 +87,8 @@ const INDICE = PRODUTOS.map((p, ordem) => {
   return {
     p,
     ordem,
-    texto: semAcentos(`${p.nome} ${p.sku} ${p.marca ?? ''}`),
+    // os nomes do fornecedor são em inglês: quem escreve «garrafa» ou «azul» encontra pelo grupo, subcategoria, categoria e cores em português
+    texto: semAcentos(`${p.nome} ${p.sku} ${p.marca ?? ''} ${grupo?.nome ?? ''} ${sub?.nome ?? ''} ${(p.categoria && CATEGORIAS_PT[p.categoria]) ?? ''} ${(p.cores ?? []).map((c) => nomeCor(c.nome)).join(' ')}`),
     cat,
     filtro,
     grupo,
@@ -169,8 +170,12 @@ const ordenar = (lista: Entrada[], ordem?: string) => {
   return r
 }
 
+// «garrafa» acha «garrafas»; «canetas» acha «caneta»
+const casa = (texto: string, t: string) => texto.includes(t) || (t.length > 3 && t.endsWith('s') && texto.includes(t.slice(0, -1)))
+const termosDe = (q: string) => semAcentos(q).split(/\s+/).filter(Boolean)
+
 const filtrar = (f: FiltroCatalogo) => {
-  const termos = semAcentos(f.q ?? '').split(/\s+/).filter(Boolean)
+  const termos = termosDe(f.q ?? '')
   const grupo = grupoPorId(f.grupo)
   const sub = subPorId(grupo, f.sub)
   return INDICE.filter(
@@ -181,7 +186,7 @@ const filtrar = (f: FiltroCatalogo) => {
       (!f.marca || i.p.marca === f.marca) &&
       (!f.cor || i.familias.has(f.cor)) &&
       (!f.stock || !i.p.esgotado) &&
-      termos.every((t) => i.texto.includes(t)),
+      termos.every((t) => casa(i.texto, t)),
   )
 }
 
@@ -192,6 +197,22 @@ export function listarCatalogo(f: FiltroCatalogo) {
   const pagina = Math.min(Math.max(1, Math.floor(f.pagina || 1)), paginas)
   const produtos = achados.slice((pagina - 1) * POR_PAGINA, pagina * POR_PAGINA).map(publico)
   return { produtos, total, pagina, paginas }
+}
+
+/** Sugestões enquanto se escreve: até `n` produtos (sem repetir o nome), primeiro os que têm o texto no próprio nome, e `total` achados. */
+export function sugerir(q: string, n = 6) {
+  const achados = ordenar(filtrar({ q }))
+  const termos = termosDe(q)
+  const noNome = (i: Entrada) => termos.every((t) => casa(i.filtro.n, t))
+  const nomes = new Set<string>()
+  const produtos: Entrada[] = []
+  for (const i of [...achados.filter(noNome), ...achados.filter((x) => !noNome(x))]) {
+    if (produtos.length >= n) break
+    if (nomes.has(i.p.nome)) continue
+    nomes.add(i.p.nome)
+    produtos.push(i)
+  }
+  return { total: achados.length, produtos: produtos.map(publico) }
 }
 
 /** quantos produtos há com estes filtros (sem os trazer): os números dos separadores */
