@@ -4,6 +4,7 @@ import { useI18n } from '@/lib/i18n'
 import Link from 'next/link'
 import { useCurrency } from '@/contexts/CurrencyContext'
 import { ArrowLeft } from 'lucide-react'
+import { NotchSection } from '@/components/home/NotchSection'
 
 // #1: SSL ainda não tem catálogo server-side (resolveCartItems em
 // package-catalog.ts rejeita sempre item.type==='ssl') — adicionar ao
@@ -17,7 +18,7 @@ export default function PrecosSSL() {
   return (
     <div className="min-h-screen bg-white">
       {/* Header Section - Gray 25% */}
-      <div className="bg-[#404040] relative overflow-hidden">
+      <NotchSection shape="start" bg="bg-[#404040]" first>
         <div 
           className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-20"
           style={{ backgroundImage: "url('/assets/BG.jpg')" }}
@@ -33,7 +34,7 @@ export default function PrecosSSL() {
             </p>
           </div>
         </div>
-      </div>
+      </NotchSection>
 
       {/* Pricing Section */}
       <div className="bg-white py-16">

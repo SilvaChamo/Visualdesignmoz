@@ -112,7 +112,7 @@ export default function AboutPage() {
     <div className="min-h-screen bg-black/10 dark:bg-black text-zinc-900 dark:text-zinc-100 font-sans selection:bg-red-500 selection:text-white">
       
       {/* Hero Section Standardized */}
-      <div className="bg-[#404040] relative overflow-hidden">
+      <NotchSection shape="start" bg="bg-[#404040]" first>
         <div 
           className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-20"
           style={{ backgroundImage: "url('/assets/BG.jpg')" }}
@@ -129,7 +129,7 @@ export default function AboutPage() {
             </p>
           </div>
         </div>
-      </div>
+      </NotchSection>
 
       {/* Stats Counter Bar - Match VisualWeb color sections */}
       <NotchSection shape="mid" bg="bg-white dark:bg-zinc-950" className="py-14 border-b border-zinc-200/50 dark:border-white/5">
