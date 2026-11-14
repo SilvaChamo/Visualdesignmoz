@@ -5,6 +5,7 @@
 // Não importar este ficheiro a partir de componentes 'use client'.
 
 import dados from '@/data/catalogo-brindes.json'
+import { GRUPOS, grupoPorId, subPorId } from '@/lib/catalogo-grupos'
 
 export interface ProdutoImportado {
   sku: string
@@ -59,7 +60,10 @@ const semAcentos = (s: string) => s.normalize('NFD').replace(/\p{Diacritic}/gu, 
 const idDaCategoria = (c: string) => semAcentos(c).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 
 // índice feito uma vez por processo: o texto onde se procura e as contagens dos filtros
-const INDICE = PRODUTOS.map((p) => ({ p, texto: semAcentos(`${p.nome} ${p.sku} ${p.marca ?? ''}`), cat: p.categoria ? idDaCategoria(p.categoria) : null }))
+const INDICE = PRODUTOS.map((p) => {
+  const cat = p.categoria ? idDaCategoria(p.categoria) : null
+  return { p, texto: semAcentos(`${p.nome} ${p.sku} ${p.marca ?? ''}`), cat, filtro: { n: semAcentos(p.nome), c: cat ?? '' } }
+})
 
 const contar = (chaves: (string | null)[]) => {
   const m = new Map<string, number>()
@@ -83,6 +87,9 @@ export const MARCAS = (() => {
 
 export interface FiltroCatalogo {
   q?: string
+  /** grupo do menu (brindes, uniformes, seguranca, mais-produtos) e, dentro dele, a subcategoria */
+  grupo?: string
+  sub?: string
   categoria?: string
   marca?: string
   pagina?: number
@@ -92,8 +99,15 @@ export const POR_PAGINA = 48
 
 export function listarCatalogo(f: FiltroCatalogo) {
   const termos = semAcentos(f.q ?? '').split(/\s+/).filter(Boolean)
+  const grupo = grupoPorId(f.grupo)
+  const sub = subPorId(grupo, f.sub)
   const achados = INDICE.filter(
-    (i) => (!f.categoria || i.cat === f.categoria) && (!f.marca || i.p.marca === f.marca) && termos.every((t) => i.texto.includes(t)),
+    (i) =>
+      (!grupo || grupo.todos(i.filtro)) &&
+      (!sub || sub.teste(i.filtro)) &&
+      (!f.categoria || i.cat === f.categoria) &&
+      (!f.marca || i.p.marca === f.marca) &&
+      termos.every((t) => i.texto.includes(t)),
   )
   const total = achados.length
   const paginas = Math.max(1, Math.ceil(total / POR_PAGINA))
@@ -109,3 +123,27 @@ export function listarCatalogo(f: FiltroCatalogo) {
   }))
   return { produtos, total, pagina, paginas }
 }
+
+/** quantos produtos tem cada grupo e subcategoria (para os separadores da página) */
+export const CONTAGENS = (() => {
+  const r: Record<string, number> = {}
+  for (const g of GRUPOS) {
+    r[g.id] = INDICE.filter((i) => g.todos(i.filtro)).length
+    for (const c of g.colunas) for (const sb of c.subs) r[`${g.id}/${sb.id}`] = INDICE.filter((i) => g.todos(i.filtro) && sb.teste(i.filtro)).length
+  }
+  return r
+})()
+
+/** o primeiro produto com stock de cada subcategoria indicada (grupo, subcategoria): as imagens do banner */
+export function destaques(escolhas: [grupo: string, sub: string][]): ProdutoPublico[] {
+  const r: ProdutoPublico[] = []
+  for (const [g, s] of escolhas) {
+    const grupo = grupoPorId(g)
+    const sub = subPorId(grupo, s)
+    const i = INDICE.find((x) => !x.p.esgotado && grupo?.todos(x.filtro) && sub?.teste(x.filtro))
+    if (i) r.push({ sku: i.p.sku, nome: i.p.nome, marca: i.p.marca, categoria: i.cat, esgotado: false, kit: i.p.kit, imagem: i.p.imagens[0] })
+  }
+  return r
+}
+
+export const TOTAL_PRODUTOS = PRODUTOS.length

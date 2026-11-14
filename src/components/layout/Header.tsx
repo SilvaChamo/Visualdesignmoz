@@ -14,6 +14,7 @@ import { useCart } from '@/contexts/CartContext'
 import { PANEL_LOGIN_HREF } from '@/lib/panel-origin'
 import { ThemeToggle } from '@/components/theme/ThemeToggle'
 import { useAuth } from '@/components/auth/AuthProvider'
+import { GRUPOS, grupoPorId, hrefGrupo } from '@/lib/catalogo-grupos'
 
 const webNavigation = [
   { id: 'brands', nameKey: 'header.nav.services', isMega: true, items: [
@@ -116,7 +117,17 @@ const transporteNavigation = [
   { id: 'contacto', nameKey: 'Contacto', href: '/contacto' }
 ]
 
-const giftsNavigation = [
+type ItemDeMenu = {
+  id: string
+  nameKey: string
+  href?: string
+  isMega?: boolean
+  grupo?: string
+  items?: { nameKey: string; descKey?: string; href: string; icon: string }[]
+  dropdown?: { nameKey: string; href: string }[]
+}
+
+const giftsNavigation: ItemDeMenu[] = [
   { id: 'brands', nameKey: 'header.nav.services', isMega: true, items: [
       { nameKey: 'header.nav.brands.web', descKey: 'header.nav.brands.web.desc', href: '/web', icon: 'monitor' },
       { nameKey: 'header.nav.brands.design', descKey: 'header.nav.brands.design.desc', href: '/', icon: 'palette' },
@@ -126,9 +137,15 @@ const giftsNavigation = [
       { nameKey: 'header.nav.brands.gifts', descKey: 'header.nav.brands.gifts.desc', href: '/brindes', icon: 'gift' }
     ]
   },
-  { id: 'merchandising', nameKey: 'Merchandising', href: '/brindes/catalogo' },
-  { id: 'texteis', nameKey: 'Têxteis & Fardamento', href: '/brindes/texteis' },
-  { id: 'kits', nameKey: 'Kits Onboarding', href: '/brindes/kits' },
+  // categorias de produtos do catálogo, cada uma com o seu mega menu de subcategorias (a lista está em catalogo-grupos.ts)
+  ...GRUPOS.map((g) => ({
+    id: `grupo-${g.id}`,
+    nameKey: g.nome,
+    isMega: true,
+    grupo: g.id,
+    // no telemóvel o menu é uma lista simples
+    dropdown: [{ nameKey: 'Ver tudo', href: hrefGrupo(g) }, ...g.colunas.flatMap((c) => c.subs.map((sb) => ({ nameKey: sb.nome, href: hrefGrupo(g, sb) })))],
+  })),
   { id: 'contacto', nameKey: 'Contacto', href: '/contacto' }
 ]
 
@@ -251,6 +268,7 @@ export function Header({ isScrolled = false }: { isScrolled?: boolean }) {
             <nav className={cn('hidden items-stretch justify-center w-full', !isCheckout && 'lg:flex')}>
               <div className="flex items-stretch space-x-6">
                 {!isCheckout && navigation.map((item) => {
+                  const grupo = grupoPorId((item as any).grupo)
                   return (
                     <div 
                       key={item.id} 
@@ -274,7 +292,50 @@ export function Header({ isScrolled = false }: { isScrolled?: boolean }) {
                         </button>
                       )}
                       
-                      {item.isMega && (
+                      {grupo && (
+                        <div className={cn(
+                          'absolute top-full left-1/2 -translate-x-1/2 pt-1 z-[70]',
+                          grupo.colunas.length > 2 ? 'w-[900px]' : 'w-[520px]',
+                          activeDropdown === item.id ? 'visible' : 'invisible'
+                        )}>
+                          <div className={cn(
+                            'bg-white border border-slate-200 rounded-xl shadow-xl p-6 transition-all duration-300 dark:bg-black dark:border-white/25',
+                            activeDropdown === item.id ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'
+                          )}>
+                            <div className={cn('grid gap-6', grupo.colunas.length > 2 ? 'grid-cols-4' : 'grid-cols-2')}>
+                              {grupo.colunas.map((coluna) => (
+                                <div key={coluna.titulo}>
+                                  <h4 className="mb-2 text-xs font-bold uppercase tracking-wider text-red-600 dark:text-red-500">{t(coluna.titulo)}</h4>
+                                  <ul className="space-y-0.5">
+                                    {coluna.subs.map((sb) => (
+                                      <li key={sb.id}>
+                                        <Link
+                                          href={hrefGrupo(grupo, sb)}
+                                          className="block rounded-md px-2 py-1.5 -mx-2 text-sm text-slate-700 hover:bg-slate-100 hover:text-red-600 dark:text-zinc-300 dark:hover:bg-white/10 dark:hover:text-white transition-colors"
+                                          onClick={() => setActiveDropdown(null)}
+                                        >
+                                          {t(sb.nome)}
+                                        </Link>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              ))}
+                            </div>
+                            <Link
+                              href={hrefGrupo(grupo)}
+                              className="mt-5 inline-flex items-center gap-1.5 border-t border-slate-200 pt-4 text-sm font-bold text-red-600 hover:text-red-700 dark:border-white/15 dark:text-red-500 w-full"
+                              onClick={() => setActiveDropdown(null)}
+                            >
+                              <span>{t('Ver tudo')}:</span>
+                              <span className="font-extrabold">{t(grupo.nome)}</span>
+                              <span aria-hidden>→</span>
+                            </Link>
+                          </div>
+                        </div>
+                      )}
+
+                      {item.isMega && !grupo && (
                         <div className={cn(
                           "absolute top-full left-1/2 -translate-x-1/2 pt-1 w-[900px] z-[70]",
                           activeDropdown === item.id ? 'visible' : 'invisible'
@@ -465,7 +526,7 @@ export function Header({ isScrolled = false }: { isScrolled?: boolean }) {
                     <div
                       className={cn(
                         'overflow-hidden transition-all duration-200 ease-in-out',
-                        activeDropdown === item.id ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+                        activeDropdown === item.id ? 'max-h-[32rem] opacity-100' : 'max-h-0 opacity-0'
                       )}
                     >
                       <div className="space-y-0 bg-slate-100 dark:bg-zinc-800 border-y border-slate-200 dark:border-white/10">
