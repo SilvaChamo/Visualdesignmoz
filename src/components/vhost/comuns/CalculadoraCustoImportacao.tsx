@@ -7,13 +7,15 @@
 // contentor @xl/@2xl/@4xl/@5xl), não à do ecrã, porque o menu do painel já ocupa um bom bocado.
 // Os textos estão em português; o inglês está em traducoes/26-calculadora-importacao.ts.
 
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Copy, Plus, RotateCcw, Trash2 } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
 import { cambioEntre } from '@/lib/cambio'
 import { useCambio } from './useCambio'
 import { CotacaoCliente } from './CotacaoCliente'
-import { CartaoBrindesEstimativa } from './CartaoBrindesEstimativa'
+import { gravarEstado, lerEstado } from './estado-calculadora'
+import { GravarValorBrindes } from './GravarValorBrindes'
+import { configValida, type ConfigBrindes } from '@/lib/preco-brindes'
 import { translate } from '../i18n'
 import {
   EXEMPLO_ENTRADA,
@@ -56,6 +58,10 @@ interface Form {
   /** entrega ao domicílio, do armazém ao cliente (total da remessa) */
   entregaDom: string
   outros: string
+  /** alfândega: valor total em MT; acima de zero substitui a taxa de direitos de cada produto */
+  alfandega: string
+  /** lucro: valor total em MT; acima de zero substitui a margem (%) */
+  lucro: string
   /** margem de erro, em % sobre o custo unitário de cada produto (nos produtos aparece em valor) */
   erroPct: string
   /** comissão, em % sobre o valor total sem imposto de cada produto (nos produtos aparece em valor) */
@@ -165,6 +171,8 @@ function formDoExemplo(): Form {
     entrega: '0',
     entregaDom: '0',
     outros: '0',
+    alfandega: '0',
+    lucro: '0',
     erroPct: '0',
     comissaoPct: '0',
     perdasPct: String(e.perdasPct),
@@ -228,6 +236,8 @@ function paraEntrada(f: Form, linhas: LinhaForm[], compra: number, reparticao: R
     comissao: Number.isFinite(comissao) ? comissao : 0,
     perdasPct: num(f.perdasPct),
     margemPct: num(f.margemPct),
+    alfandega: num(f.alfandega, true),
+    lucro: num(f.lucro, true),
     entrada: f.entrada,
     mpfPct: num(f.mpfPct),
     mpfMin: num(f.mpfMin),
@@ -404,12 +414,45 @@ export function Tabela({
 
 export function CalculadoraCustoImportacao() {
   const { lang } = useI18n()
+  const tr = (k: string) => translate(lang, k)
   const [form, setForm] = useState<Form>(formDoExemplo)
   const [linhas, setLinhas] = useState<LinhaForm[]>(linhasDoExemplo)
   const [estado, setEstado] = useState('')
   const ultimaLinha = useRef<HTMLInputElement | null>(null)
   // o número da próxima linha; as do exemplo são 1, 2… (iguais no servidor e no navegador)
   const proximoId = useRef(COTACAO.length + 1)
+
+  // os produtos da lista ficam guardados no servidor (tabela calculadora_estado): o que se remove não volta ao abrir de novo; só se grava depois de alterar
+  const ultimoGuardado = useRef<string | null>(null)
+  const [listaLida, setListaLida] = useState(false)
+  useEffect(() => {
+    let vivo = true
+    lerEstado<{ linhas?: LinhaForm[]; proximo?: number }>('calculadora').then((g) => {
+      if (!vivo) return
+      if (g && Array.isArray(g.linhas) && g.linhas.length > 0 && g.linhas.every((l) => typeof l?.id === 'number')) {
+        setLinhas(g.linhas)
+        proximoId.current = Math.max(typeof g.proximo === 'number' ? g.proximo : 0, ...g.linhas.map((l) => l.id + 1))
+        ultimoGuardado.current = JSON.stringify({ linhas: g.linhas, proximo: proximoId.current })
+      }
+      setListaLida(true)
+    })
+    return () => {
+      vivo = false
+    }
+  }, [])
+  const listaAtual = JSON.stringify({ linhas, proximo: proximoId.current })
+  useEffect(() => {
+    if (!listaLida) return
+    // a primeira lista (sem nada guardado) é a base: abrir a calculadora não grava nada
+    if (ultimoGuardado.current === null) ultimoGuardado.current = listaAtual
+    if (ultimoGuardado.current === listaAtual) return
+    const t = setTimeout(() => {
+      gravarEstado('calculadora', JSON.parse(listaAtual)).then((ok) => {
+        if (ok) ultimoGuardado.current = listaAtual
+      })
+    }, 800)
+    return () => clearTimeout(t)
+  }, [listaAtual, listaLida])
 
   const locale = lang === 'en' ? 'en-US' : 'pt-MZ'
   const eua = form.modo === 'eua'
@@ -494,6 +537,32 @@ export function CalculadoraCustoImportacao() {
     const n = num(v)
     if (unidadesTotal > 0 && Number.isFinite(n)) mudar(campo, String(Math.round(n * unidadesTotal * 1e6) / 1e6))
   }
+  // o que o valor dos brindes do site usa (preço do fornecedor sem impressão): os custos da remessa repartidos pelo valor das mercadorias, as margens e os direitos
+  const configSite: ConfigBrindes | null = (() => {
+    if (eua || !(compra > 0)) return null
+    const custos = linhas.map((l) => num(l.custo) * compra * (1 + erro / 100))
+    const G = linhas.reduce((t, l, k) => t + num(l.unidades) * custos[k], 0)
+    if (!(G > 0)) return null
+    const direitosPct = linhas.reduce((t, l, k) => t + num(l.unidades) * custos[k] * num(l.direitos), 0) / G
+    return configValida({
+      base: form.base,
+      freteRatio: num(form.frete) / G,
+      seguroRatio: num(form.seguro) / G,
+      partilhadosRatio: (num(form.corretor) + num(form.porto) + num(form.entrega) + num(form.entregaDom) + num(form.outros)) / G + comissaoPct / 100,
+      erroPct: erro,
+      perdasPct: num(form.perdasPct),
+      margemPct: num(form.margemPct),
+      direitosPct,
+      alfandegaRatio: num(form.alfandega, true) / G,
+      lucroRatio: num(form.lucro, true) / G,
+      impostoPct: num(form.impostoPct),
+      impostoSobreDireitos: form.impostoSobreDireitos,
+      impostoSobreFrete: form.impostoSobreFrete,
+      recuperavel: form.recuperavel,
+      campos: Object.fromEntries(['frete', 'seguro', 'corretor', 'porto', 'entrega', 'entregaDom', 'outros', 'alfandega', 'lucro', 'erroPct', 'comissaoPct', 'perdasPct', 'margemPct', 'impostoPct'].map((c) => [c, String((form as unknown as Record<string, string>)[c])])),
+    })
+  })()
+
   // os valores calculados que cada linha de produto mostra (por unidade, salvo onde se diz que é total)
   const valoresLinha = (l: LinhaForm, k: number) => {
     const dinheiroOuVazio = (n: number) => (Number.isFinite(n) ? dinheiro(n) : '')
@@ -510,6 +579,24 @@ export function CalculadoraCustoImportacao() {
       comissao: dinheiroOuVazio((u * comissaoPct) / 100),
       despesas: rl ? dinheiro(rl.total - rl.mercadorias) : '',
       entrega: rl ? dinheiro(rl.total) : '',
+      // o resumo do produto inteiro (todas as unidades): compra, margem de falha, transporte, alfândega, despesas, custo, venda e lucro
+      resumo: rl
+        ? (() => {
+            const falha = (cambiado * erro) / 100 * num(l.unidades)
+            const venda = rl.preco * rl.vendaveis
+            return {
+              compra: dinheiro(rl.mercadorias - falha),
+              falha: dinheiro(falha),
+              transporte: dinheiro(rl.frete + rl.seguro),
+              alfandega: dinheiro(rl.direitos + rl.taxas + rl.impostoNoCusto),
+              despesas: dinheiro(rl.partilhados),
+              custo: dinheiro(rl.total),
+              venda: dinheiro(venda),
+              lucro: dinheiro(venda - rl.total),
+              margem: pct(venda > 0 ? ((venda - rl.total) / venda) * 100 : 0),
+            }
+          })()
+        : null,
     }
   }
 
@@ -872,6 +959,32 @@ export function CalculadoraCustoImportacao() {
                       <CampoLeitura id={ids(`l${l.id}-despesas`)} rotulo="Valor total das despesas" valor={v.despesas} />
                       <CampoLeitura id={ids(`l${l.id}-entrega-total`)} rotulo="Valor total do produto na entrega" valor={v.entrega} />
                     </div>
+                    {/* resumo do produto com todas as unidades: do valor de compra ao lucro (a margem de lucro soma-se ao custo, cada parte do transporte e das despesas já está nele) */}
+                    {v.resumo && (
+                      <div className="rounded-lg bg-slate-900 p-4 text-white shadow-sm">
+                        <p className="mb-3 text-sm font-bold text-white">{`${tr('Resumo')}: ${l.nome.trim() || `${tr('Linha')} ${k + 1}`} (${inteiro(num(l.unidades))} ${tr('unidades')})`}</p>
+                        <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm @xl:grid-cols-3">
+                          {(
+                            [
+                              ['Valor de compra', v.resumo.compra],
+                              ['Margem de falha', v.resumo.falha],
+                              ['Transporte e seguro', v.resumo.transporte],
+                              ['Valor de alfândega', v.resumo.alfandega],
+                              ['Outras despesas', v.resumo.despesas],
+                              ['Custo total', v.resumo.custo],
+                              ['Valor de venda com a margem', v.resumo.venda],
+                              ['Lucro', v.resumo.lucro],
+                              ['Margem de lucro', v.resumo.margem],
+                            ] as const
+                          ).map(([rot, val]) => (
+                            <div key={rot} className="flex items-baseline justify-between gap-2 border-b border-slate-700 pb-1">
+                              <dt className="text-xs font-semibold text-slate-300">{tr(rot)}</dt>
+                              <dd className={`tabular-nums font-bold ${rot === 'Lucro' || rot === 'Margem de lucro' ? 'text-emerald-300' : 'text-white'}`}>{val}</dd>
+                            </div>
+                          ))}
+                        </dl>
+                      </div>
+                    )}
                   </div>
                 </div>
               )
@@ -903,6 +1016,8 @@ export function CalculadoraCustoImportacao() {
             <Campo id={ids('porto')} rotulo="Manuseamento no porto ou terminal" valor={form.porto} aoMudar={(v) => mudar('porto', v)} sufixo={eua ? undefined : 'MZN'} />
             <Campo id={ids('entrega')} rotulo="Entrega interna" valor={form.entrega} aoMudar={(v) => mudar('entrega', v)} sufixo={eua ? undefined : 'MZN'} />
             <Campo id={ids('entrega-dom')} rotulo="Entrega ao domicílio" valor={form.entregaDom} aoMudar={(v) => mudar('entregaDom', v)} sufixo={eua ? undefined : 'MZN'} />
+            <Campo id={ids('alfandega')} rotulo="Alfândega (valor total)" valor={form.alfandega} aoMudar={(v) => mudar('alfandega', v)} sufixo={eua ? undefined : 'MZN'} />
+            <Campo id={ids('lucro')} rotulo="Lucro (valor total)" valor={form.lucro} aoMudar={(v) => mudar('lucro', v)} sufixo={eua ? undefined : 'MZN'} />
           </div>
 
           <div className="mt-5 grid grid-cols-2 gap-3 @xl:grid-cols-3">
@@ -937,6 +1052,7 @@ export function CalculadoraCustoImportacao() {
           <p className={`${NOTA} mt-3`}>
             Os direitos e o imposto de importação calculam-se por linha. O seguro e as taxas dos EUA seguem o valor. O frete, o despachante, o porto, a entrega interna, a entrega ao domicílio e os outros encargos seguem o método escolhido.
           </p>
+          <GravarValorBrindes config={configSite} aoCarregar={(c) => setForm((x) => ({ ...x, ...c }))} />
         </div>
 
         {eua ? (
@@ -1013,16 +1129,10 @@ export function CalculadoraCustoImportacao() {
         </div>
       )}
 
-      {/* as percentagens do valor estimado dos brindes do site (/brindes) */}
-      <CartaoBrindesEstimativa
-        fixos={{ frete: form.frete, seguro: form.seguro, corretor: form.corretor, porto: form.porto, entrega: form.entrega, entregaDom: form.entregaDom, outros: form.outros }}
-        unidades={linhas.reduce((t, l) => t + (Number.isFinite(num(l.unidades)) ? num(l.unidades) : 0), 0)}
-        aoCarregar={(f) => setForm((x) => ({ ...x, ...f }))}
-      />
-
       {/* a cotação para o cliente, no fim das tabelas */}
       <CotacaoCliente
         moeda={moeda}
+        aoRemover={removerLinha}
         itens={linhas.map((l, k) => ({ id: l.id, nome: l.nome.trim() || `Linha ${k + 1}`, unidades: num(l.unidades), preco: r.ok ? r.linhas[k].preco : NaN }))}
       />
     </div>

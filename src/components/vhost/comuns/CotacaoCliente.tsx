@@ -5,8 +5,9 @@
 // (cabeçalho, caixa do cliente, tabela, total a pagar, aprovação do cliente e rodapé). Os campos do cliente, do prazo e
 // do pagamento escrevem-se aqui; «Imprimir ou guardar em PDF» abre o documento sozinho numa janela, pronto a imprimir.
 
-import { useEffect, useState } from 'react'
-import { Printer } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Plus, Printer, Trash2 } from 'lucide-react'
+import { gravarEstado, lerEstado } from './estado-calculadora'
 
 export interface ItemCotacao {
   id: number
@@ -26,6 +27,8 @@ const NOTA = 'text-xs leading-relaxed text-slate-500 dark:text-slate-400'
 const VERMELHO = '#b00020'
 
 const ID_DOCUMENTO = 'cci-cotacao-documento'
+// campo de texto em linha dentro da tabela: parece texto até se passar o rato ou escrever
+const EDITAR = 'w-full min-w-0 rounded border border-transparent bg-transparent px-1 py-0.5 text-inherit outline-none transition hover:border-zinc-300 focus:border-red-500 focus:bg-white'
 
 function CampoTexto({ id, rotulo, valor, aoMudar, tipo = 'text', exemplo }: { id: string; rotulo: string; valor: string; aoMudar: (v: string) => void; tipo?: 'text' | 'number'; exemplo?: string }) {
   return (
@@ -51,7 +54,7 @@ const lerNumero = (s: string, padrao: number) => {
   return s.trim() !== '' && Number.isFinite(v) && v >= 0 ? v : padrao
 }
 
-export function CotacaoCliente({ itens, moeda }: { itens: ItemCotacao[]; moeda: string }) {
+export function CotacaoCliente({ itens, moeda, aoRemover }: { itens: ItemCotacao[]; moeda: string; aoRemover?: (id: number) => void }) {
   const [cliente, setCliente] = useState('')
   const [contacto, setContacto] = useState('')
   const [numero, setNumero] = useState('')
@@ -62,7 +65,60 @@ export function CotacaoCliente({ itens, moeda }: { itens: ItemCotacao[]; moeda: 
   const [ivaIncluido, setIvaIncluido] = useState(true)
   const [ivaPct, setIvaPct] = useState('16')
   const [personalizacao, setPersonalizacao] = useState<Record<number, string>>({})
+  // a tabela da cotação edita-se aqui, sem mexer na calculadora: o que se escreve numa linha (nome, quantidade, preço) vale só para a cotação, as linhas
+  // podem ser eliminadas e acrescentam-se outras; o que não se editou continua a seguir a calculadora
+  const [edicoes, setEdicoes] = useState<Record<number, { nome?: string; unidades?: string; preco?: string }>>({})
+  const [extras, setExtras] = useState<{ id: number; nome: string; unidades: string; preco: string }[]>([])
+  const proximoExtra = useRef(100000)
   const [aviso, setAviso] = useState('')
+  // a tabela só mostra os campos editáveis e o eliminar/adicionar quando se clica em «Editar»; «Gravar» guarda e volta à vista normal
+  const [editar, setEditar] = useState(false)
+
+  // «Gravar»: guarda a cotação editada (campos, tabela, personalização) no servidor (tabela calculadora_estado) e volta a pô-la ao abrir
+  const estado = { cliente, contacto, numero, validade, prazo, pagamento, ivaIncluido, ivaPct, personalizacao, edicoes, extras }
+  const cargaFeita = useRef(false)
+  useEffect(() => {
+    if (cargaFeita.current) return
+    cargaFeita.current = true
+    lerEstado<Partial<typeof estado>>('cotacao').then((g) => {
+      if (g) {
+        setCliente(g.cliente ?? '')
+        setContacto(g.contacto ?? '')
+        setNumero(g.numero ?? '')
+        setValidade(g.validade ?? '10')
+        setPrazo(g.prazo ?? '')
+        setPagamento(g.pagamento ?? '')
+        setIvaIncluido(g.ivaIncluido ?? true)
+        setIvaPct(g.ivaPct ?? '16')
+        setPersonalizacao(g.personalizacao ?? {})
+        setEdicoes(g.edicoes ?? {})
+        setExtras(g.extras ?? [])
+        proximoExtra.current = Math.max(100000, ...(g.extras ?? []).map((x) => x.id + 1))
+      }
+      // produtos escolhidos no catálogo à ida de «Adicionar produto»: entram na tabela com o valor do catálogo (sem IVA), a quantidade e a personalização
+      try {
+        const novos = JSON.parse(localStorage.getItem('vd-cotacao-novos') ?? '[]') as { nome: string; unidades: number; preco: number | null; detalhe: string }[]
+        if (novos.length) {
+          localStorage.removeItem('vd-cotacao-novos')
+          const base = proximoExtra.current
+          proximoExtra.current += novos.length
+          setEditar(true)
+          setExtras((xs) => [...xs, ...novos.map((n, k) => ({ id: base + k, nome: n.nome, unidades: String(n.unidades || 1), preco: n.preco === null ? '' : String(n.preco) }))])
+          setPersonalizacao((p) => ({
+            ...p,
+            ...Object.fromEntries(novos.map((n, k) => [base + k, /Personalização: ([^·]+)/.exec(n.detalhe)?.[1].trim() || (n.detalhe.includes('Sem personalização') ? 'Sem personalização' : 'Logo impresso')])),
+          }))
+        }
+      } catch {
+        /* sem produtos novos */
+      }
+    })
+  }, [])
+  const gravar = async () => {
+    const ok = await gravarEstado('cotacao', estado)
+    if (!ok) setAviso('Não foi possível gravar a cotação no servidor.')
+    return ok
+  }
 
   // a data de hoje (só no navegador, para o servidor e o navegador não discordarem)
   useEffect(() => {
@@ -77,15 +133,99 @@ export function CotacaoCliente({ itens, moeda }: { itens: ItemCotacao[]; moeda: 
 
   // cada linha: preço por unidade (com IVA, se vai incluído) arredondado a 2 casas, e o total = preço × unidades, para a tabela somar certo
   const fator = ivaIncluido ? 1 + iva / 100 : 1
-  const linhas = itens.map((i) => {
+  const numeroOuNaN = (t: string) => (t.trim() === '' ? NaN : Number(t.replace(/\s/g, '').replace(',', '.')))
+  const rotulos = [
+    ...itens
+      .map((i) => {
+        const e = edicoes[i.id] ?? {}
+        return {
+          id: i.id,
+          nome: e.nome ?? i.nome,
+          unidades: e.unidades !== undefined ? numeroOuNaN(e.unidades) : i.unidades,
+          preco: e.preco !== undefined ? numeroOuNaN(e.preco) : i.preco,
+        }
+      }),
+    ...extras.map((x) => ({
+      id: x.id,
+      nome: x.nome,
+      unidades: numeroOuNaN(x.unidades),
+      preco: numeroOuNaN(x.preco),
+    })),
+  ]
+  const linhas = rotulos.map((i) => {
+    const unidades = Number.isInteger(i.unidades) && i.unidades > 0 ? i.unidades : NaN
     const unitario = arredondar2(i.preco * fator)
-    return { ...i, unitario, total: arredondar2(unitario * i.unidades) }
+    return {
+      ...i,
+      unidades,
+      unitario: i.preco >= 0 ? unitario : NaN,
+      total: arredondar2(unitario * unidades),
+    }
   })
   const valido = linhas.length > 0 && linhas.every((l) => Number.isFinite(l.total))
   const somaLinhas = linhas.reduce((t, l) => t + (Number.isFinite(l.total) ? l.total : 0), 0)
-  const ivaValor = arredondar2(somaLinhas * (iva / 100))
+  // no fim da cotação, sempre: subtotal (sem IVA), IVA e total da factura; com o IVA incluído nos preços, o subtotal e o IVA tiram-se do total
+  const subtotal = ivaIncluido ? arredondar2(somaLinhas / (1 + iva / 100)) : somaLinhas
+  const ivaValor = ivaIncluido ? arredondar2(somaLinhas - subtotal) : arredondar2(somaLinhas * (iva / 100))
   const totalAPagar = ivaIncluido ? somaLinhas : somaLinhas + ivaValor
   const nomeCliente = cliente.trim()
+
+  // miniatura do produto no início de cada linha: procura no catálogo de brindes o produto com este nome (só se o nome for igual); sem correspondência, a linha fica sem foto
+  const [fotos, setFotos] = useState<Record<string, string>>({})
+  const nomesChave = linhas.map((i) => i.nome.trim()).join('\n')
+  useEffect(() => {
+    const norm = (t: string) => t.toLowerCase().replace(/\s+/g, ' ').trim()
+    let vivo = true
+    for (const nome of new Set(nomesChave.split('\n').filter((n) => n.length > 2))) {
+      if (fotos[norm(nome)] !== undefined) continue
+      fetch(`/api/brindes/pesquisa?q=${encodeURIComponent(nome)}`)
+        .then((r) => r.json())
+        .then((j: { produtos?: { nome: string; imagem: string }[] }) => {
+          const achado = j.produtos?.find((p) => norm(p.nome) === norm(nome))
+          if (vivo)
+            setFotos((f) => ({
+              ...f,
+              [norm(nome)]: achado ? `/api/brindes/imagem?p=${encodeURIComponent(achado.imagem)}&w=96` : '',
+            }))
+        })
+        .catch(() => vivo && setFotos((f) => ({ ...f, [norm(nome)]: '' })))
+    }
+    return () => {
+      vivo = false
+    }
+    // só quando mudam os nomes dos produtos
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nomesChave])
+  const fotoDe = (nome: string) => fotos[nome.toLowerCase().replace(/\s+/g, ' ').trim()] || ''
+
+  // edição em linha: o preço que se escreve é o da tabela (com IVA, se vai incluído); guarda-se sem IVA, e enquanto se escreve mostra-se o texto tal como está
+  const [foco, setFoco] = useState<{ id: number; texto: string } | null>(null)
+  const ehExtra = (id: number) => extras.some((x) => x.id === id)
+  const mudarLinha = (id: number, campo: 'nome' | 'unidades' | 'preco', v: string) => (ehExtra(id) ? setExtras((xs) => xs.map((x) => (x.id === id ? { ...x, [campo]: v } : x))) : setEdicoes((d) => ({ ...d, [id]: { ...d[id], [campo]: v } })))
+  const mudarPreco = (id: number, texto: string) => {
+    setFoco({ id, texto })
+    const n = numeroOuNaN(texto)
+    mudarLinha(id, 'preco', Number.isFinite(n) ? String(n / fator) : texto)
+  }
+  // um produto da calculadora remove-se da calculadora (é o mesmo «Remover» da lista de produtos); um acrescentado aqui só desta cotação
+  const eliminar = (id: number) => (ehExtra(id) ? setExtras((xs) => xs.filter((x) => x.id !== id)) : aoRemover?.(id))
+  // «Adicionar produto»: grava a cotação e vai ao catálogo; ao adicionar lá um produto, o catálogo volta aqui (ver pedido.ts)
+  const acrescentar = async () => {
+    await gravar()
+    try {
+      sessionStorage.setItem(
+        'vd-cotacao-retorno',
+        JSON.stringify({
+          url: window.location.pathname + window.location.search,
+          ate: Date.now() + 30 * 60 * 1000,
+        }),
+      )
+    } catch {
+      /* sem armazenamento: não há regresso automático */
+    }
+    window.location.assign('/brindes')
+  }
+  const textoQtd = (id: number, n: number) => (ehExtra(id) ? extras.find((x) => x.id === id)?.unidades : edicoes[id]?.unidades) ?? (Number.isFinite(n) ? String(n) : '')
 
   function imprimir() {
     const doc = document.getElementById(ID_DOCUMENTO)
@@ -106,7 +246,18 @@ export function CotacaoCliente({ itens, moeda }: { itens: ItemCotacao[]; moeda: 
     const folha = d.createElement('style')
     folha.textContent = `@page{size:A4;margin:12mm}html,body{background:#fff!important;margin:0;padding:0}#${ID_DOCUMENTO}{max-width:none!important;border:0!important;box-shadow:none!important;padding:0!important}`
     d.head.appendChild(folha)
-    d.body.appendChild(d.importNode(doc, true))
+    // os campos editáveis passam a texto e os controlos de edição (eliminar, acrescentar, ampliar a foto) não vão para a folha
+    const copia = doc.cloneNode(true) as HTMLElement
+    const originais = doc.querySelectorAll('input')
+    copia.querySelectorAll('input').forEach((inp, k) => {
+      const sp = document.createElement('span')
+      sp.textContent = originais[k].value
+      sp.style.display = 'block'
+      sp.style.textAlign = getComputedStyle(originais[k]).textAlign
+      inp.replaceWith(sp)
+    })
+    copia.querySelectorAll('[data-sem-imprimir]').forEach((n) => n.remove())
+    d.body.appendChild(d.importNode(copia, true))
     // dá tempo aos estilos e à imagem de carregarem antes de abrir a impressão
     window.setTimeout(() => {
       janela.focus()
@@ -152,30 +303,57 @@ export function CotacaoCliente({ itens, moeda }: { itens: ItemCotacao[]; moeda: 
         </div>
       </div>
 
-      {linhas.length > 0 && (
-        <>
-          <p className={`${ROTULO} mb-2 mt-5`}>Personalização de cada produto</p>
-          <div className="grid grid-cols-1 gap-3 @xl:grid-cols-2">
-            {linhas.map((l) => (
-              <div key={l.id}>
-                <label htmlFor={`cci-cot-pers-${l.id}`} className="mb-1 block truncate text-xs text-slate-500 dark:text-slate-400" title={l.nome}>
-                  {l.nome}
-                </label>
-                <input
-                  id={`cci-cot-pers-${l.id}`}
-                  type="text"
-                  value={personalizacao[l.id] ?? 'Logo impresso'}
-                  onChange={(e) => setPersonalizacao((p) => ({ ...p, [l.id]: e.target.value }))}
-                  className={CAMPO}
-                />
-              </div>
-            ))}
-          </div>
-        </>
-      )}
+      {/* a tabela da cotação edita-se no próprio documento, em linha; aqui só o aviso e o regresso aos produtos da calculadora */}
+      <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2">
+        <p className={NOTA}>Clique em «Editar» para alterar a tabela da cotação (nome, personalização, quantidade e preço); o nome, a quantidade e o preço valem só para esta cotação; «Remover» tira o produto também da lista da calculadora.</p>
+        {editar ? (
+          <button
+            type="button"
+            onClick={() => {
+              void gravar()
+              setEditar(false)
+            }}
+            className="cursor-pointer rounded-md bg-red-600 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-red-700"
+          >
+            Gravar
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setEditar(true)}
+            className="cursor-pointer rounded-md border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-700 transition hover:border-red-500 hover:text-red-600 dark:border-slate-700 dark:text-slate-300"
+          >
+            Editar
+          </button>
+        )}
+        {editar && (extras.length > 0 || Object.keys(edicoes).length > 0) && (
+          <button
+            type="button"
+            onClick={() => {
+              setExtras([])
+              setEdicoes({})
+            }}
+            className="cursor-pointer rounded-md px-3 py-1.5 text-sm font-semibold text-slate-600 underline-offset-2 hover:text-red-600 hover:underline dark:text-slate-300"
+          >
+            Repor os produtos da calculadora
+          </button>
+        )}
+      </div>
 
       {!valido ? (
-        <p className={`${NOTA} mt-5`}>A cotação aparece aqui quando os produtos e os custos acima estiverem todos preenchidos.</p>
+        <div className="mt-5 flex flex-wrap items-center gap-3">
+          <p className={NOTA}>A cotação aparece aqui quando os produtos e os custos acima estiverem todos preenchidos.</p>
+          {editar && (
+            <button
+              type="button"
+              onClick={acrescentar}
+              className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-red-500 hover:text-red-600 dark:border-slate-700 dark:text-slate-300"
+            >
+              <Plus className="h-3.5 w-3.5" aria-hidden />
+              Adicionar produto
+            </button>
+          )}
+        </div>
       ) : (
         <div className="mt-6 overflow-x-auto rounded-xl bg-slate-100 p-3 dark:bg-slate-800 @xl:p-5">
           {/* o documento (sempre claro, como a folha impressa); é o que a janela de impressão leva */}
@@ -212,34 +390,122 @@ export function CotacaoCliente({ itens, moeda }: { itens: ItemCotacao[]; moeda: 
                 </tr>
               </thead>
               <tbody>
-                {linhas.map((l) => (
-                  <tr key={l.id} className="border-b border-zinc-200">
-                    <td className="px-3 py-2.5">{l.nome}</td>
-                    <td className="px-3 py-2.5">{personalizacaoDe(l.id)}</td>
-                    <td className="px-3 py-2.5 text-right tabular-nums">{l.unidades}</td>
-                    <td className="whitespace-nowrap px-3 py-2.5 text-right tabular-nums">{valor2(l.unitario)}</td>
-                    <td className="whitespace-nowrap px-3 py-2.5 text-right tabular-nums">{valor2(l.total)}</td>
+                {linhas.map((l, k) => (
+                  // linhas intercaladas com fundo cinzento claro (também na folha impressa)
+                  <tr key={l.id} className="border-b border-zinc-200 align-middle" style={k % 2 === 1 ? { backgroundColor: '#f4f4f5', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' } : undefined}>
+                    <td className="px-3 py-2">
+                      <div className="flex items-center gap-2.5">
+                        {fotoDe(l.nome) && (
+                          // a miniatura amplia-se ao passar o rato (só no ecrã, não na folha impressa)
+                          <span className="group/foto relative shrink-0">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={fotoDe(l.nome)}
+                              alt=""
+                              width={40}
+                              height={40}
+                              style={{
+                                width: 40,
+                                height: 40,
+                                objectFit: 'contain',
+                              }}
+                              className="cursor-zoom-in rounded-md border border-zinc-200 bg-white"
+                            />
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              data-sem-imprimir
+                              src={fotoDe(l.nome).replace('&w=96', '&w=480')}
+                              alt=""
+                              loading="lazy"
+                              className="pointer-events-none absolute left-0 top-1/2 z-30 hidden h-44 w-44 -translate-y-1/2 rounded-lg border border-zinc-200 bg-white object-contain p-1 shadow-xl group-hover/foto:block"
+                            />
+                          </span>
+                        )}
+                        {editar ? (
+                          <input type="text" aria-label="Produto" value={l.nome} onChange={(e) => mudarLinha(l.id, 'nome', e.target.value)} className={`${EDITAR} text-[11px] leading-tight`} />
+                        ) : (
+                          <span className="text-[11px] leading-tight">{l.nome}</span>
+                        )}
+                        {editar && (ehExtra(l.id) || (aoRemover && itens.length > 1)) && (
+                          <button type="button" data-sem-imprimir onClick={() => eliminar(l.id)} className="inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold text-red-600 transition hover:bg-red-50">
+                            <Trash2 className="h-3.5 w-3.5" aria-hidden />
+                            Remover
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2">
+                      {editar ? (
+                        <input
+                          type="text"
+                          aria-label="Personalização"
+                          value={personalizacao[l.id] ?? 'Logo impresso'}
+                          onChange={(e) =>
+                            setPersonalizacao((p) => ({
+                              ...p,
+                              [l.id]: e.target.value,
+                            }))
+                          }
+                          className={EDITAR}
+                        />
+                      ) : (
+                        personalizacaoDe(l.id)
+                      )}
+                    </td>
+                    <td className="w-20 px-3 py-2">
+                      {editar ? (
+                        <input type="text" inputMode="numeric" aria-label="Quantidade" value={textoQtd(l.id, l.unidades)} onChange={(e) => mudarLinha(l.id, 'unidades', e.target.value)} className={`${EDITAR} text-right tabular-nums`} />
+                      ) : (
+                        <span className="block text-right tabular-nums">{Number.isFinite(l.unidades) ? l.unidades : '–'}</span>
+                      )}
+                    </td>
+                    <td className="w-28 px-3 py-2">
+                      {editar ? (
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          aria-label="Preço unitário"
+                          value={foco?.id === l.id ? foco.texto : Number.isFinite(l.unitario) ? valor2(l.unitario) : ''}
+                          onChange={(e) => mudarPreco(l.id, e.target.value)}
+                          onBlur={() => setFoco(null)}
+                          className={`${EDITAR} text-right tabular-nums`}
+                        />
+                      ) : (
+                        <span className="block text-right tabular-nums">{Number.isFinite(l.unitario) ? valor2(l.unitario) : '–'}</span>
+                      )}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums">{valor2(l.total)}</td>
                   </tr>
                 ))}
-                {!ivaIncluido && (
-                  <>
-                    <tr className="border-b border-zinc-200">
-                      <td colSpan={4} className="px-3 py-2 text-right font-semibold">
-                        Total sem IVA
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums">{valor2(somaLinhas)}</td>
-                    </tr>
-                    <tr className="border-b border-zinc-200">
-                      <td colSpan={4} className="px-3 py-2 text-right font-semibold">
-                        IVA ({iva}%)
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums">{valor2(ivaValor)}</td>
-                    </tr>
-                  </>
+                {editar && (
+                  <tr data-sem-imprimir>
+                    <td colSpan={5} className="px-3 py-2">
+                      <button
+                        type="button"
+                        onClick={acrescentar}
+                        className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-dashed border-zinc-300 px-3 py-1.5 text-xs font-semibold text-zinc-600 transition hover:border-red-500 hover:text-red-600"
+                      >
+                        <Plus className="h-3.5 w-3.5" aria-hidden />
+                        Adicionar produto
+                      </button>
+                    </td>
+                  </tr>
                 )}
                 <tr className="border-b border-zinc-200">
+                  <td colSpan={4} className="px-3 py-2 text-right font-semibold">
+                    Subtotal (sem IVA)
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums">{valor2(subtotal)}</td>
+                </tr>
+                <tr className="border-b border-zinc-200">
+                  <td colSpan={4} className="px-3 py-2 text-right font-semibold">
+                    IVA ({iva}%)
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums">{valor2(ivaValor)}</td>
+                </tr>
+                <tr className="border-b border-zinc-200">
                   <td colSpan={4} className="px-3 py-3 text-right text-[15px] font-extrabold text-zinc-900">
-                    {ivaIncluido ? `TOTAL A PAGAR (IVA ${iva}% e transporte incluídos)` : 'TOTAL A PAGAR'}
+                    TOTAL DA FACTURA
                   </td>
                   <td className="whitespace-nowrap px-3 py-3 text-right text-[15px] font-extrabold tabular-nums" style={{ color: VERMELHO }}>
                     {valor2(totalAPagar)}
@@ -276,9 +542,7 @@ export function CotacaoCliente({ itens, moeda }: { itens: ItemCotacao[]; moeda: 
           </div>
         </div>
       )}
-      <p className={`${NOTA} mt-3`}>
-        Os preços da cotação são os preços de venda calculados acima (o custo por unidade com a margem bruta pretendida). O IVA da venda soma-se por cima, à taxa que indicar.
-      </p>
+      <p className={`${NOTA} mt-3`}>Os preços da cotação são os preços de venda calculados acima (o custo por unidade com a margem bruta pretendida). O IVA da venda soma-se por cima, à taxa que indicar.</p>
     </div>
   )
 }
