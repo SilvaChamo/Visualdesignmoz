@@ -36,8 +36,8 @@ export function CompactFooter() {
                   <a href="tel:+258825288318" className="text-zinc-300 hover:text-white transition-colors">
                     +258 82 52 88 318
                   </a>
-                  <a href="tel:+258841234567" className="text-zinc-300 hover:text-white transition-colors">
-                    +258 84 123 4567
+                  <a href="tel:+258877575288" className="text-zinc-300 hover:text-white transition-colors">
+                    +258 87 75 75 288
                   </a>
                 </div>
                 <div className="flex flex-col space-y-1">
@@ -126,7 +126,7 @@ export function CompactFooter() {
 
           {/* Lado Esquerdo: Redes Sociais */}
           <div className="flex items-center gap-5">
-            <a href="https://wa.me/258841234567" target="_blank" rel="noopener noreferrer" className="text-zinc-500 hover:text-green-500 transition-colors" title="WhatsApp">
+            <a href="https://wa.me/258825288318" target="_blank" rel="noopener noreferrer" className="text-zinc-500 hover:text-green-500 transition-colors" title="WhatsApp">
               <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
                 <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.514 2.266 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.5-5.729-1.448L0 24zm6.59-4.846c1.6.95 3.188 1.449 4.825 1.451 5.436 0 9.86-4.37 9.864-9.799.002-2.63-1.023-5.101-2.885-6.965C16.588 2.015 14.113.99 11.516.99c-5.44 0-9.866 4.372-9.87 9.802 0 1.714.452 3.39 1.312 4.869l-1.01 3.693 3.818-1.006zm11.03-5.309c-.273-.137-1.616-.797-1.866-.889-.25-.092-.432-.137-.613.137-.182.273-.706.889-.865 1.072-.158.182-.318.204-.592.068-.274-.136-1.156-.427-2.202-1.359-.815-.728-1.365-1.626-1.526-1.898-.16-.272-.017-.418.12-.554.123-.122.274-.32.411-.479.137-.16.183-.273.273-.456.09-.183.046-.342-.023-.479-.069-.137-.613-1.477-.84-2.023-.222-.534-.467-.461-.643-.47l-.549-.009c-.19 0-.501.071-.762.355-.262.284-1.001.977-1.001 2.384 0 1.407 1.024 2.77 1.168 2.964.144.193 2.017 3.081 4.885 4.318.682.294 1.214.47 1.63.604.686.218 1.31.187 1.8.114.548-.081 1.616-.66 1.843-1.298.228-.639.228-1.186.16-1.298-.069-.113-.25-.183-.524-.32z" />
               </svg>
