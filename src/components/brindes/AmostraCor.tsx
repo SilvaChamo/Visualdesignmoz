@@ -10,6 +10,23 @@ import { caminhoImagem, urlImagem } from '@/lib/catalogo-imagens'
 
 export const fundo = (h: string[]) => (h.length > 1 ? `linear-gradient(135deg, ${h[0]} 50%, ${h[1]} 50%)` : h[0] || '#d4d4d8')
 
+/** matiz (graus) e saturação (0 a 1) de uma cor #rrggbb */
+function matizSat(h: string): { m: number; s: number } {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255)
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min
+  const m = d === 0 ? 0 : max === r ? ((g - b) / d + 6) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4
+  return { m: m * 60, s: max === 0 ? 0 : d / max }
+}
+
+/** A foto só vale se a peça tem a cor do hexadecimal: há fotos em que a peça é igual em todas as cores (preta, com só a tampa colorida) e a média ficaria cinzenta. */
+function compativel(medida: string, hex?: string): boolean {
+  if (!hex || !/^#[0-9a-f]{6}$/i.test(hex) || !/^#[0-9a-f]{6}$/i.test(medida)) return true
+  const a = matizSat(hex), b = matizSat(medida)
+  if (a.s < 0.2) return true
+  const dif = Math.abs(a.m - b.m)
+  return b.s >= a.s * 0.5 && Math.min(dif, 360 - dif) <= 45
+}
+
 const medidas = new Map<string, string | null>()
 const pedidos = new Map<string, Promise<string | null>>()
 
@@ -57,6 +74,7 @@ function medir(caminho: string): Promise<string | null> {
 export function AmostraCor({ sku, cor, className = '' }: { sku: string; cor: { h: string[]; i: string | null }; className?: string }) {
   const caminho = cor.i && cor.h.length <= 1 ? caminhoImagem(sku, cor.i) : null
   const [real, setReal] = useState<string | null>(() => (caminho ? (medidas.get(caminho) ?? null) : null))
+  const aceite = real && compativel(real, cor.h[0]) ? real : null
 
   useEffect(() => {
     if (!caminho) return
@@ -67,5 +85,5 @@ export function AmostraCor({ sku, cor, className = '' }: { sku: string; cor: { h
     }
   }, [caminho])
 
-  return <span aria-hidden className={className} style={{ background: real ?? fundo(cor.h) }} />
+  return <span aria-hidden className={className} style={{ background: aceite ?? fundo(cor.h) }} />
 }
