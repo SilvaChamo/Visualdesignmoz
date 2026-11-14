@@ -83,7 +83,7 @@ export function CartaoProduto({ p }: { p: ProdutoCartao }) {
 
       <div className="mt-[clamp(0.4rem,3cqw,0.7rem)] flex flex-1 flex-col gap-[clamp(0.15rem,1.4cqw,0.3rem)] px-[clamp(0.15rem,1.5cqw,0.35rem)]">
         <span className="h-[1.2em] truncate text-[clamp(0.58rem,3.9cqw,0.7rem)] font-bold uppercase tracking-wider text-red-600 dark:text-red-500">{p.marca ?? ' '}</span>
-        <h3 className="line-clamp-2 h-[2.6em] text-[clamp(0.8rem,5.8cqw,0.9rem)] font-semibold leading-snug text-zinc-900 group-hover:text-red-600 dark:text-zinc-100">
+        <h3 className="line-clamp-2 h-[2.6em] text-[clamp(0.85rem,6.3cqw,1rem)] font-semibold leading-snug text-zinc-900 group-hover:text-red-600 dark:text-zinc-100">
           <Link href={`/brindes/produto/${p.slug}`} tabIndex={-1}>
             {p.nome}
           </Link>

@@ -15,7 +15,7 @@ export function BrindesHero({ hero }: { hero: BrandLandingContent['hero'] }) {
     <NotchSection shape="start" bg="bg-[#141414]" first className="z-30">
       <Image src="/assets/brindes-hero.jpg" alt="" fill priority sizes="100vw" className="object-cover object-center opacity-45" aria-hidden />
       <div className="absolute inset-0 bg-gradient-to-r from-[#141414]/90 via-[#141414]/55 to-transparent" />
-      <div className="relative z-10 mx-auto flex w-full max-w-7xl items-center px-4 pb-[80px] pt-[145px] sm:px-6 sm:pt-[160px] md:pt-[170px]">
+      <div className="relative z-10 mx-auto flex w-full max-w-7xl items-center px-[41px] pb-[80px] pt-[145px] sm:px-[49px] sm:pt-[160px] md:pt-[170px]">
         <div className="grid w-full grid-cols-1 items-center gap-12 lg:min-h-[418px] lg:grid-cols-12">
           <div className="flex flex-col items-start space-y-6 text-left lg:col-span-7">
             <div className="mb-1 text-xs font-bold uppercase tracking-widest text-zinc-400 sm:text-sm">Início / Marcas / VisualGifts</div>

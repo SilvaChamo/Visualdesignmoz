@@ -208,10 +208,10 @@ export function ProdutoDetalhe({ produto, ficha }: { produto: ProdutoFicha; fich
                       aria-label={nomeCor(c.n)}
                       title={nomeCor(c.n)}
                       onClick={() => mudaCor(i)}
-                      className={`relative h-10 w-10 cursor-pointer overflow-hidden rounded-lg ring-1 ring-black/15 transition ${i === corIdx ? 'outline outline-2 outline-offset-2 outline-red-600' : 'hover:scale-105'} ${sem ? 'opacity-40' : ''}`}
+                      className={`relative h-7 w-7 cursor-pointer overflow-hidden rounded-md ring-1 ring-black/15 transition ${i === corIdx ? 'outline outline-2 outline-offset-2 outline-red-600' : 'hover:scale-105'} ${sem ? 'opacity-40' : ''}`}
                     >
                       <AmostraCor sku={produto.sku} cor={c} className="absolute inset-0" />
-                      {i === corIdx && <Check className="absolute inset-0 m-auto h-5 w-5 text-white mix-blend-difference" />}
+                      {i === corIdx && <Check className="absolute inset-0 m-auto h-4 w-4 text-white mix-blend-difference" />}
                     </button>
                   )
                 })}
