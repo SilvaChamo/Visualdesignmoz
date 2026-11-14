@@ -1369,6 +1369,26 @@ export const EN: Record<string, string> = {
   "7. Identificação da Empresa": "7. Company Details",
   "VisualDESIGN Services, Lda., NUIT 400597243. Morada: Av. Karl Marx, nº 177, Maputo, Moçambique. E-mail: info@visualdesignmoz.com. Telefone: +258 83 44 70 073 / +258 87 75 75 288.": "VisualDESIGN Services, Lda., NUIT 400597243. Address: Av. Karl Marx, nº 177, Maputo, Mozambique. Email: info@visualdesignmoz.com. Phone: +258 83 44 70 073 / +258 87 75 75 288.",
   "Última actualização: Novembro de 2026.": "Last updated: November 2026.",
+  // Catálogo de brindes (/brindes/catalogo)
+  "VisualGifts — Catálogo de Brindes": "VisualGifts — Gifts Catalogue",
+  "Brindes para personalizar com a sua marca": "Gifts to personalise with your brand",
+  "Escolha os produtos que lhe interessam, junte-os ao pedido e peça a cotação com a personalização.": "Choose the products you like, add them to the request and ask for a quote with the personalisation.",
+  "Procurar por nome ou referência": "Search by name or reference",
+  "Categoria": "Category",
+  "Todas as categorias": "All categories",
+  "Todas as marcas": "All brands",
+  "Procurar": "Search",
+  "Limpar filtros": "Clear filters",
+  "Preço sob consulta: indicamos o valor na cotação. A disponibilidade de cada produto confirma-se ao responder ao pedido. Catálogo actualizado em {0}.": "Price on request: we give the amount in the quote. The availability of each product is confirmed when we reply to the request. Catalogue updated on {0}.",
+  "Nenhum produto encontrado. Tente outra pesquisa ou limpe os filtros.": "No products found. Try another search or clear the filters.",
+  "Páginas do catálogo": "Catalogue pages",
+  "Página {0} de {1}": "Page {0} of {1}",
+  "Sem stock": "Out of stock",
+  "Kit": "Kit",
+  "Adicionado ao pedido": "Added to the request",
+  "Adicionar ao pedido": "Add to the request",
+  "{0} produto(s) no pedido": "{0} product(s) in the request",
+  "Limpar": "Clear",
 }
 
 /** Textos que aparecem iguais nas duas línguas (nomes próprios, siglas) — só para a verificação não os apontar. */

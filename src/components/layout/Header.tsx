@@ -126,7 +126,7 @@ const giftsNavigation = [
       { nameKey: 'header.nav.brands.gifts', descKey: 'header.nav.brands.gifts.desc', href: '/brindes', icon: 'gift' }
     ]
   },
-  { id: 'merchandising', nameKey: 'Merchandising', href: '/brindes' },
+  { id: 'merchandising', nameKey: 'Merchandising', href: '/brindes/catalogo' },
   { id: 'texteis', nameKey: 'Têxteis & Fardamento', href: '/brindes/texteis' },
   { id: 'kits', nameKey: 'Kits Onboarding', href: '/brindes/kits' },
   { id: 'contacto', nameKey: 'Contacto', href: '/contacto' }

@@ -223,7 +223,7 @@ export const BRAND_LANDING_CONTENT: Record<string, BrandLandingContent> = {
     servicesTitle: 'Merchandising e Artigos Promocionais',
     servicesSubtitle: 'Artigos personalizados sob medida com a identidade visual da sua marca.',
     services: [
-      { Icon: Gift, title: 'Merchandising Promocional', desc: 'Canetas, agendas e brindes personalizados diversos.', href: '/brindes' },
+      { Icon: Gift, title: 'Merchandising Promocional', desc: 'Canetas, agendas e brindes personalizados diversos.', href: '/brindes/catalogo' },
       { Icon: Shirt, title: 'Fardamento e Têxteis', desc: 'Polos, t-shirts e vestuário técnico estampado ou bordado.', href: '/brindes/texteis' },
       { Icon: PackageOpen, title: 'Kits Onboarding', desc: 'Welcome packs e kits corporativos completos.', href: '/brindes/kits' },
     ],
