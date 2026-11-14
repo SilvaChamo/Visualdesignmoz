@@ -33,8 +33,8 @@ export function CompactFooter() {
               <div className="flex flex-col space-y-2 text-sm text-zinc-400 pt-1">
                 <div className="flex flex-col space-y-1">
                   <span className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Telefone / Suporte</span>
-                  <a href="tel:+258825288318" className="text-zinc-300 hover:text-white transition-colors">
-                    +258 82 52 88 318
+                  <a href="tel:+258834470073" className="text-zinc-300 hover:text-white transition-colors">
+                    +258 83 44 70 073
                   </a>
                   <a href="tel:+258877575288" className="text-zinc-300 hover:text-white transition-colors">
                     +258 87 75 75 288
