@@ -156,7 +156,7 @@ export function Navbar() {
     <>
       {/* Top Menu Bar - Esconde ao scrollar para baixo, mostra ao scrollar para cima */}
       <div
-        className={`fixed left-0 right-0 z-[60] bg-black dark:bg-black h-[40px] flex items-center transition-transform duration-300 shadow-lg dark:shadow-none dark:border-b dark:border-white/10 ${showTopBar ? 'translate-y-0 top-0' : '-translate-y-full top-0'
+        className={`fixed left-0 right-0 z-[60] bg-black dark:bg-black h-[40px] flex items-center transition-transform duration-200 shadow-lg dark:shadow-none dark:border-b dark:border-white/10 ${showTopBar ? 'translate-y-0 top-0' : '-translate-y-full top-0'
           }`}
       >
         <div className="max-w-7xl mx-auto w-full px-4 flex justify-between items-center h-full">

@@ -1,12 +1,12 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ChevronRight } from 'lucide-react'
+import { FaixaCaminho } from '@/components/brindes/FaixaCaminho'
 import { ProdutoDetalhe } from '@/components/brindes/ProdutoDetalhe'
 import { InformacaoProduto } from '@/components/brindes/InformacaoProduto'
 import { SeccaoProdutos } from '@/components/brindes/SeccaoProdutos'
 import { ATUALIZADO_EM, emMt, produtoPorSlug, relacionados } from '@/lib/catalogo-brindes'
 import { cambioZarMzn } from '@/lib/cambio-brindes'
+import { estimativaBrindes } from '@/lib/estimativa-brindes'
 import { fichaDoProduto } from '@/lib/catalogo-fichas'
 import { urlImagem } from '@/lib/catalogo-imagens'
 import { hrefGrupo } from '@/lib/catalogo-grupos'
@@ -36,8 +36,9 @@ export default async function ProdutoPage({ params }: Props) {
 
   const lido = await fichaDoProduto(produto.sku)
   const taxa = await cambioZarMzn()
+  const est = await estimativaBrindes()
   const rel = relacionados(produto.sku, 8)
-  const [comPreco] = emMt([produto], taxa)
+  const [comPreco] = emMt([produto], taxa, est)
 
   const migalhas: { nome: string; href: string }[] = [
     { nome: 'Início', href: '/' },
@@ -60,21 +61,7 @@ export default async function ProdutoPage({ params }: Props) {
     <div className="min-h-screen bg-black/10 dark:bg-black">
       <div className="bg-zinc-50 dark:bg-zinc-950">
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }} />
-        <div className="relative z-10 border-b border-zinc-200 bg-zinc-50 pb-3 pt-[124px] shadow-[0_8px_12px_-8px_rgba(0,0,0,0.25)] dark:border-zinc-800 dark:bg-zinc-950 sm:pt-[128px]">
-        <div className="container mx-auto max-w-7xl px-4 sm:px-6">
-          <nav aria-label="Caminho" className="flex flex-wrap items-center gap-1.5 text-xs font-semibold text-zinc-500 dark:text-zinc-400 sm:text-sm">
-            {migalhas.map((m) => (
-              <span key={m.href} className="flex items-center gap-1.5">
-                <Link href={m.href} className="transition-colors hover:text-red-600">
-                  {m.nome}
-                </Link>
-                <ChevronRight className="h-3.5 w-3.5 opacity-60" />
-              </span>
-            ))}
-            <span className="max-w-[60vw] truncate text-zinc-900 dark:text-zinc-100">{produto.nome}</span>
-          </nav>
-        </div>
-        </div>
+        <FaixaCaminho migalhas={migalhas} atual={produto.nome} linha />
         <div className="container mx-auto max-w-7xl px-4 pb-28 pt-10 sm:px-6">
           <ProdutoDetalhe produto={{ ...comPreco, imagens }} ficha={lido?.ficha ?? null} />
 
@@ -88,9 +75,9 @@ export default async function ProdutoPage({ params }: Props) {
           </div>
 
           <div className="mt-6">
-            <SeccaoProdutos antetitulo={grupo?.nome} titulo={sub ? <><span>Mais</span> <span>{sub.nome}</span></> : 'Mais produtos'} texto="Outros produtos parecidos, para comparar." produtos={emMt(rel.daSub, taxa)} href={grupo && sub ? hrefGrupo(grupo, sub) : undefined} rotulo="Ver todos" />
-            <SeccaoProdutos antetitulo="Explore mais" titulo={grupo ? <><span>Mais em</span> <span>{grupo.nome}</span></> : 'Mais produtos'} texto="Combine com outros artigos da mesma gama." produtos={emMt(rel.doGrupo, taxa)} href={grupo ? hrefGrupo(grupo) : '/brindes#catalogo'} rotulo="Ver todos" />
-            {produto.marca && <SeccaoProdutos antetitulo="Da mesma marca" titulo={<><span>Mais</span> <span>{produto.marca}</span></>} produtos={emMt(rel.daMarca, taxa)} href={`/brindes?marca=${encodeURIComponent(produto.marca)}#catalogo`} rotulo="Ver todos" />}
+            <SeccaoProdutos antetitulo={grupo?.nome} titulo={sub ? <><span>Mais</span> <span>{sub.nome}</span></> : 'Mais produtos'} texto="Outros produtos parecidos, para comparar." produtos={emMt(rel.daSub, taxa, est)} href={grupo && sub ? hrefGrupo(grupo, sub) : undefined} rotulo="Ver todos" />
+            <SeccaoProdutos antetitulo="Explore mais" titulo={grupo ? <><span>Mais em</span> <span>{grupo.nome}</span></> : 'Mais produtos'} texto="Combine com outros artigos da mesma gama." produtos={emMt(rel.doGrupo, taxa, est)} href={grupo ? hrefGrupo(grupo) : '/brindes#catalogo'} rotulo="Ver todos" />
+            {produto.marca && <SeccaoProdutos antetitulo="Da mesma marca" titulo={<><span>Mais</span> <span>{produto.marca}</span></>} produtos={emMt(rel.daMarca, taxa, est)} href={`/brindes?marca=${encodeURIComponent(produto.marca)}#catalogo`} rotulo="Ver todos" />}
           </div>
         </div>
       </div>

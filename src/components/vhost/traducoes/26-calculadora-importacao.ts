@@ -2,7 +2,16 @@
 // Chave = texto em português tal como está no código.
 export const calculadora_importacao: Record<string, string> = {
  "Calculadora": "Calculator",
- "Valor das mercadorias": "Goods value",
+ "Valor dos brindes no site": "Gift prices on the website",
+ "Margem de falha (%)": "Failure margin (%)",
+ "Transporte até Maputo (%)": "Transport to Maputo (%)",
+ "Direitos aduaneiros (%)": "Customs duty (%)",
+ "IVA (%)": "VAT (%)",
+ "Guardar": "Save",
+ "Repor os valores de partida": "Restore the starting values",
+ "Guardado. O valor dos brindes no site muda em menos de um minuto.": "Saved. The gift prices on the website change within a minute.",
+ "Estas percentagens dão o valor estimado por unidade que o catálogo de brindes mostra: preço do fornecedor cambiado, com a margem de falha, o transporte e os direitos, dividido por (1 − margem), mais o IVA. A impressão fica de fora (especifica-se na cotação). O câmbio do rand é automático, o do dia.": "These percentages give the estimated price per unit shown in the gifts catalogue: the supplier price converted, with the failure margin, transport and duty, divided by (1 − margin), plus VAT. Printing is left out (it is specified in the quote). The rand exchange rate is automatic, the day's rate.",
+  "Valor das mercadorias": "Goods value",
  "Valor aduaneiro": "Customs value",
  "Direitos aduaneiros": "Customs duty",
  "Custo por unidade": "Landed cost per unit",

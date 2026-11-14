@@ -233,7 +233,7 @@ export function Header({ isScrolled = false }: { isScrolled?: boolean }) {
     'h-8 w-9 sm:w-10 rounded lg:rounded-lg border border-gray-600 dark:border-zinc-700 flex items-center justify-center transition-colors'
 
   return (
-    <header className={`fixed left-0 right-0 z-50 transition-all duration-300 bg-white shadow-sm dark:bg-white/10 dark:backdrop-blur-md dark:shadow-none dark:border-b dark:border-white/15 ${scrolled ? 'shadow-md dark:shadow-none' : ''} ${showTopBar ? 'top-[40px]' : 'top-0'}`}>
+    <header className={`fixed left-0 right-0 z-50 transition-all duration-200 before:pointer-events-none before:absolute before:inset-x-0 before:bottom-full before:h-[40px] before:bg-black before:content-[''] bg-white shadow-sm dark:bg-white/10 dark:backdrop-blur-md dark:shadow-none dark:border-b dark:border-white/15 ${scrolled ? 'shadow-md dark:shadow-none' : ''} ${showTopBar ? 'top-[40px]' : 'top-0'}`}>
       {/* Linha superior — mais suave no layout escuro */}
       <div className={`h-[2.5px] bg-red-600 transition-all duration-300 dark:h-[1px] dark:bg-red-950/45 dark:opacity-80 ${showTopBar ? 'opacity-100' : 'opacity-0'}`}></div>
       

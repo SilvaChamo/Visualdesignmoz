@@ -1,5 +1,6 @@
 // Banner da página /brindes (VisualGifts): fundo de brindes (gradiente da cor do fundo, mais claro à direita) e o texto à esquerda.
-// Só servidor. A altura mínima (418 px em ecrã largo) é a que o banner tinha com o cartão de produtos, já retirado.
+// Só servidor. Imagem webp de 94 KB, com a altura dos banners das outras marcas (560/640/760 px, como em BrandLanding) e o fundo
+// escurecido à esquerda (a direita fica sem fundo) para se lerem as letras (Silva, 14/11/2026).
 
 import Image from 'next/image'
 import Link from 'next/link'
@@ -13,10 +14,10 @@ export function BrindesHero({ hero }: { hero: BrandLandingContent['hero'] }) {
 
   return (
     <NotchSection shape="start" bg="bg-[#141414]" first className="z-30">
-      <Image src="/assets/brindes-hero.jpg" alt="" fill priority sizes="100vw" className="object-cover object-center opacity-45" aria-hidden />
-      <div className="absolute inset-0 bg-gradient-to-r from-[#141414]/90 via-[#141414]/55 to-transparent" />
-      <div className="relative z-10 mx-auto flex w-full max-w-7xl items-center px-[41px] pb-[80px] pt-[145px] sm:px-[49px] sm:pt-[160px] md:pt-[170px]">
-        <div className="grid w-full grid-cols-1 items-center gap-12 lg:min-h-[418px] lg:grid-cols-12">
+      <Image src="/assets/brindes-hero.webp" alt="" fill priority unoptimized sizes="100vw" className="object-cover object-center" aria-hidden />
+      <div className="absolute inset-0 bg-gradient-to-r from-[#141414]/95 via-[#141414]/70 to-transparent" />
+      <div className="relative z-10 mx-auto flex h-[560px] w-full max-w-7xl items-center px-[41px] pb-[50px] pt-[145px] sm:h-[640px] sm:px-[49px] sm:pb-[60px] sm:pt-[160px] md:h-[760px] md:pb-[70px] md:pt-[180px]">
+        <div className="grid w-full grid-cols-1 items-center gap-12 lg:grid-cols-12">
           <div className="flex flex-col items-start space-y-6 text-left lg:col-span-7">
             <div className="mb-1 text-xs font-bold uppercase tracking-widest text-zinc-400 sm:text-sm">Início / Marcas / VisualGifts</div>
             <h1 className="max-w-2xl text-[clamp(1.75rem,3.2vw+1rem,2.75rem)] font-bold leading-[1.15] text-white">{linhas.length > 1 ? linhas.map((l) => <span key={l} className="block">{l}</span>) : hero.title}</h1>

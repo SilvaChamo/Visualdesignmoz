@@ -184,7 +184,7 @@ export function ProdutoDetalhe({ produto, ficha }: { produto: ProdutoFicha; fich
               <p className="mt-1 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
                 {produto.precoMt === null
                   ? 'Indicamos o valor na cotação, com a personalização incluída e a disponibilidade confirmada. O prazo de produção e de entrega também se confirma na cotação.'
-                  : 'Valor estimado por unidade, com transporte, alfândega e IVA incluídos; não inclui a personalização. O valor da personalização, o valor final, o prazo de produção e de entrega confirmam-se na cotação.'}
+                  : 'Valor estimado por unidade e não inclui a personalização. O valor da personalização, o valor final, o prazo de produção e de entrega confirmam-se na cotação.'}
               </p>
             </div>
           </div>
