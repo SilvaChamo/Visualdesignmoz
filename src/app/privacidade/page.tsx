@@ -62,14 +62,28 @@ export default function PrivacyPage() {
             </section>
 
             <section className="space-y-3">
-              <h2 className="text-xl font-bold text-zinc-900 dark:text-white">6. Alterações à Política de Privacidade</h2>
+              <h2 className="text-xl font-bold text-zinc-900 dark:text-white">6. Cookies</h2>
+              <p className="text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
+                O nosso site usa apenas os cookies necessários ao seu funcionamento e comodidade: cookies de sessão, que mantêm o utilizador autenticado na área de cliente, e cookies de preferências, que guardam o tema (claro ou escuro), as cores e o idioma escolhidos. Não utilizamos cookies de publicidade nem de análise de terceiros. Ao pagar com cartão, o processador de pagamento pode definir os seus próprios cookies, necessários à segurança da transacção. O utilizador pode apagar ou bloquear os cookies nas definições do navegador, mas a área de cliente não funciona sem os cookies de sessão.
+              </p>
+            </section>
+
+            <section className="space-y-3">
+              <h2 className="text-xl font-bold text-zinc-900 dark:text-white">7. Responsável pelo Tratamento dos Dados</h2>
+              <p className="text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
+                O responsável pelo tratamento dos dados pessoais é a VisualDESIGN Services, Lda., NUIT 400597243, com morada na Av. Karl Marx, nº 177, Maputo, Moçambique. Para qualquer questão sobre privacidade, contacte-nos por e-mail (info@visualdesignmoz.com) ou pelo telefone +258 83 44 70 073.
+              </p>
+            </section>
+
+            <section className="space-y-3">
+              <h2 className="text-xl font-bold text-zinc-900 dark:text-white">8. Alterações à Política de Privacidade</h2>
               <p className="text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
                 A VisualDesign reserva-se o direito de actualizar esta política a qualquer momento para refletir melhorias técnicas ou alterações regulatórias. Recomendamos a consulta periódica desta página para estar a par de qualquer actualização.
               </p>
             </section>
 
             <div className="pt-6 border-t border-zinc-100 dark:border-white/5 text-xs text-zinc-400 text-center">
-              Última actualização: Julho de 2026.
+              Última actualização: Novembro de 2026.
             </div>
 
           </div>
