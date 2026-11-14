@@ -5,7 +5,8 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
 import { NotchSection } from '@/components/home/NotchSection'
-import { PREFIXO_IMAGENS, type ProdutoPublico } from '@/lib/catalogo-brindes'
+import type { ProdutoPublico } from '@/lib/catalogo-brindes'
+import { urlImagem } from '@/lib/catalogo-imagens'
 import { hrefGrupo, grupoPorId, subPorId } from '@/lib/catalogo-grupos'
 import type { BrandLandingContent } from '@/lib/brand-landing-content'
 
@@ -53,12 +54,12 @@ export function BrindesHero({ hero, destaques, total }: { hero: BrandLandingCont
                   return (
                     <Link key={produto.sku} href={hrefGrupo(g, s)} className="group/tile flex flex-col overflow-hidden rounded-lg bg-white">
                       <div className="relative aspect-square">
-                        <Image
-                          src={`${PREFIXO_IMAGENS}${encodeURI(produto.imagem)}`}
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={urlImagem(produto.imagem, 320)}
                           alt={s.nome}
-                          fill
-                          sizes="160px"
-                          className="object-contain p-2 transition-transform duration-300 group-hover/tile:scale-105"
+                          decoding="async"
+                          className="absolute inset-0 h-full w-full object-contain p-2 transition-transform duration-300 group-hover/tile:scale-105"
                         />
                       </div>
                       <span className="truncate bg-zinc-100 px-2 py-1.5 text-center text-[11px] font-bold text-zinc-800 group-hover/tile:text-red-600">{s.nome}</span>

@@ -12,10 +12,6 @@ const nextConfig: NextConfig = {
   allowedDevOrigins: ['127.0.0.1', 'localhost'],
   // sem o círculo «N» do Next.js no canto do painel (só aparece em desenvolvimento e não interessa ao projecto)
   devIndicators: false,
-  // imagens do catálogo de brindes (/brindes): o servidor busca-as, reduz-as e serve-as do próprio domínio
-  images: {
-    remotePatterns: [{ protocol: 'https', hostname: 'amrcdn.amrod.co.za', pathname: '/amrodprod-blob/ProductImages/**' }],
-  },
   outputFileTracingRoot: path.join(__dirname),
   experimental: {
     proxyClientMaxBodySize: '512mb',

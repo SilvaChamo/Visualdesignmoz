@@ -28,6 +28,8 @@ export interface Grupo {
   colunas: Coluna[]
   /** o grupo inteiro («Ver tudo»): inclui o que não cabe em nenhuma subcategoria */
   todos: Teste
+  /** para que serve (ficha do produto) */
+  ideal: string[]
 }
 
 const nome = (re: RegExp): Teste => (p) => re.test(p.n)
@@ -49,6 +51,7 @@ const naoSeguranca = nao(SEGURANCA)
 
 const BRINDES: Grupo = {
   id: 'brindes',
+  ideal: ['Ofertas a clientes e parceiros', 'Kits de boas-vindas e onboarding', 'Campanhas, feiras e eventos', 'Brindes de fim de ano'],
   nome: 'Brindes',
   todos: e(nao(cat('apparel', ...MAIS_PRODUTOS_CATEGORIAS)), naoSeguranca),
   colunas: [
@@ -87,6 +90,7 @@ const BRINDES: Grupo = {
 
 const UNIFORMES: Grupo = {
   id: 'uniformes',
+  ideal: ['Fardamento de equipas e colaboradores', 'Eventos, feiras e promotores', 'Imagem da marca no dia a dia', 'Equipas de campo e de atendimento'],
   nome: 'Uniformes',
   todos: e(cat('apparel'), naoSeguranca),
   colunas: [
@@ -117,6 +121,7 @@ const UNIFORMES: Grupo = {
 
 const SEGURANCA_GRUPO: Grupo = {
   id: 'seguranca',
+  ideal: ['Obras, indústria e armazéns', 'Visibilidade e protecção da equipa', 'Equipas de campo e manutenção', 'Fardamento de trabalho'],
   nome: 'Material de segurança',
   todos: SEGURANCA,
   colunas: [
@@ -136,6 +141,7 @@ const SEGURANCA_GRUPO: Grupo = {
 
 const MAIS_PRODUTOS: Grupo = {
   id: 'mais-produtos',
+  ideal: ['Conferências e eventos', 'Viagens e deslocações da equipa', 'Stands, feiras e activações', 'Campanhas de marca'],
   nome: 'Mais produtos',
   todos: e(cat(...MAIS_PRODUTOS_CATEGORIAS), naoSeguranca),
   colunas: [
