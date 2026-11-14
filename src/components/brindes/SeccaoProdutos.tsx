@@ -25,7 +25,7 @@ export function SeccaoProdutos({ antetitulo, titulo, texto, produtos, href, rotu
           {texto && <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{texto}</p>}
         </div>
         {href && (
-          <Link href={href} className="inline-flex items-center gap-2 rounded-full border border-zinc-300 px-5 py-2 text-sm font-semibold text-zinc-800 transition-colors hover:border-red-600 hover:text-red-600 dark:border-zinc-700 dark:text-zinc-200">
+          <Link href={href} className="inline-flex items-center gap-2 rounded-full px-5 py-2 text-sm font-semibold text-zinc-800 transition-colors hover:text-red-600 dark:text-zinc-200">
             <span>{rotulo}</span>
             <ArrowRight className="h-4 w-4" />
           </Link>

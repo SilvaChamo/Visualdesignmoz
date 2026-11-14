@@ -25,8 +25,8 @@ export function BrindesHero({ hero }: { hero: BrandLandingContent['hero'] }) {
               <div className="mr-0 flex flex-nowrap items-start bg-transparent text-zinc-300 sm:mr-[30px]">
                 {hero.badges.map((badge, idx) => (
                   <div key={badge} className="contents">
-                    {idx > 0 && <span className="h-10 w-px shrink-0 bg-white/20" />}
-                    <span className={`min-w-0 flex-1 text-sm font-bold leading-snug sm:text-base ${idx === 0 ? 'pr-4' : idx === hero.badges.length - 1 ? 'pl-4' : 'px-4'}`}>{badge}</span>
+                    {idx > 0 && <span className="h-5 w-px shrink-0 self-center bg-white/25" />}
+                    <span className={`min-w-0 flex-1 text-sm font-bold leading-snug sm:flex-none sm:whitespace-nowrap sm:text-base ${idx === 0 ? 'pr-5' : idx === hero.badges.length - 1 ? 'pl-5' : 'px-5'}`}>{badge}</span>
                   </div>
                 ))}
               </div>

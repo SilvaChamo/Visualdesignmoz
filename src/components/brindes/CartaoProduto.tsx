@@ -23,7 +23,7 @@ export interface ProdutoCartao {
   imagem: string
   imagem2: string | null
   cores: { nome: string; hex: string }[]
-  /** valor do fornecedor por unidade, em meticais (null: sem câmbio, mostra «Preço sob consulta») */
+  /** valor estimado por unidade, em meticais, sem personalização (null: sem câmbio, mostra «Preço sob consulta») */
   precoMt: number | null
 }
 
@@ -36,10 +36,10 @@ export function CartaoProduto({ p }: { p: ProdutoCartao }) {
   const resto = p.cores.length - MAX_CORES
 
   return (
-    <article className="@container group relative flex h-full flex-col" data-testid="cartao-produto">
+    <article className="@container group relative flex h-full flex-col overflow-hidden rounded-lg border border-zinc-200 bg-white transition-shadow hover:border-red-600/40 hover:shadow-lg dark:border-zinc-800 dark:bg-zinc-900" data-testid="cartao-produto">
       <Link
         href={`/brindes/produto/${p.slug}`}
-        className="relative block aspect-square overflow-hidden rounded-[clamp(0.5rem,4cqw,0.875rem)] bg-zinc-100 ring-1 ring-transparent transition-shadow hover:shadow-lg hover:ring-red-600/30 dark:bg-zinc-800/80"
+        className="relative block aspect-square overflow-hidden bg-zinc-100 dark:bg-zinc-800/80"
         aria-label={p.nome}
       >
         {/* eslint-disable @next/next/no-img-element */}
@@ -81,7 +81,7 @@ export function CartaoProduto({ p }: { p: ProdutoCartao }) {
         {escolhido ? <Check className="h-[55%] w-[55%]" /> : <Plus className="h-[55%] w-[55%]" />}
       </button>
 
-      <div className="mt-[clamp(0.4rem,3cqw,0.7rem)] flex flex-1 flex-col gap-[clamp(0.15rem,1.4cqw,0.3rem)] px-[clamp(0.15rem,1.5cqw,0.35rem)]">
+      <div className="flex flex-1 flex-col gap-[clamp(0.15rem,1.4cqw,0.3rem)] p-[clamp(0.6rem,4.5cqw,0.9rem)]">
         <span className="h-[1.2em] truncate text-[clamp(0.58rem,3.9cqw,0.7rem)] font-bold uppercase tracking-wider text-red-600 dark:text-red-500">{p.marca ?? ' '}</span>
         <h3 className="line-clamp-2 h-[2.6em] text-[clamp(0.85rem,6.3cqw,1rem)] font-semibold leading-snug text-zinc-900 group-hover:text-red-600 dark:text-zinc-100">
           <Link href={`/brindes/produto/${p.slug}`} tabIndex={-1}>

@@ -1,13 +1,15 @@
 // Catálogo de brindes (VisualGifts): lê src/data/catalogo-brindes.json, que o script scripts/importar-catalogo-brindes.mjs escreve.
 //
 // SÓ PARA O SERVIDOR: o ficheiro de dados é grande e traz o preço do fornecedor em rand de cada produto.
-// A página mostra o valor do fornecedor convertido em meticais (Silva, 14/11/2026: «tirar sob consulta e colocar o valor deles
-// cambiado»): `emMt` troca o rand pelo metical ao câmbio do dia, e só o metical vai para o browser.
+// A página mostra o valor por unidade em meticais, já com transporte, alfândega, margem de falha, margem e IVA, sem a impressão
+// (Silva, 14/11/2026: «mostrar o valor real do produto, que já inclui tudo»; ver preco-brindes.ts): `emMt` troca o rand por esse
+// valor ao câmbio do dia, e só o metical vai para o browser.
 // Não importar este ficheiro a partir de componentes 'use client'.
 
 import dados from '@/data/catalogo-brindes.json'
 import { GRUPOS, grupoPorId, subPorId, type Grupo, type Sub } from '@/lib/catalogo-grupos'
 import { familiaDaCor, nomeCor } from '@/lib/catalogo-cores'
+import { valorPorUnidadeMt } from '@/lib/preco-brindes'
 
 export interface ProdutoImportado {
   sku: string
@@ -42,16 +44,16 @@ export interface ProdutoPublico {
   /** a segunda foto (aparece ao passar o rato) */
   imagem2: string | null
   cores: { nome: string; hex: string }[]
-  /** valor do fornecedor por unidade, em rand (a página só mostra o metical: ver `emMt`) */
+  /** preço do fornecedor por unidade, em rand (a página só mostra o valor estimado em metical: ver `emMt`) */
   precoZar: number
 }
 
-/** o produto como a página o recebe: com o valor do fornecedor em meticais (null se não houve câmbio) em vez de rand */
+/** o produto como a página o recebe: com o valor estimado por unidade em meticais (null se não houve câmbio) em vez do rand do fornecedor */
 export type ProdutoComPreco = Omit<ProdutoPublico, 'precoZar'> & { precoMt: number | null }
 
-/** Troca o rand pelo metical ao câmbio dado (1 rand = `taxa` meticais). */
+/** Troca o rand do fornecedor pelo valor estimado em metical ao câmbio dado (1 rand = `taxa` meticais). */
 export const emMt = (lista: ProdutoPublico[], taxa: number | null): ProdutoComPreco[] =>
-  lista.map(({ precoZar, ...resto }) => ({ ...resto, precoMt: taxa ? Math.round(precoZar * taxa) : null }))
+  lista.map(({ precoZar, ...resto }) => ({ ...resto, precoMt: taxa ? Math.round(valorPorUnidadeMt(precoZar, taxa)) : null }))
 
 const PRODUTOS = (dados as unknown as { produtos: ProdutoImportado[] }).produtos
 export const ATUALIZADO_EM: string = (dados as unknown as { atualizadoEm: string }).atualizadoEm

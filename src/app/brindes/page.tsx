@@ -6,8 +6,9 @@ import { BrindesHero } from '@/components/brindes/BrindesHero'
 import { BarraPedido } from '@/components/brindes/BarraPedido'
 import { PesquisaBrindes } from '@/components/brindes/PesquisaBrindes'
 import { GrelhaProdutos, SeccaoProdutos } from '@/components/brindes/SeccaoProdutos'
-import { ATUALIZADO_EM, CONTAGENS, MARCAS, TOTAL_PRODUTOS, emMt, listarCatalogo, seccoesDestaque, seccoesDoGrupo } from '@/lib/catalogo-brindes'
+import { CONTAGENS, MARCAS, TOTAL_PRODUTOS, emMt, listarCatalogo, seccoesDestaque, seccoesDoGrupo } from '@/lib/catalogo-brindes'
 import { cambioZarMzn } from '@/lib/cambio-brindes'
+import { SeletorLigacao } from '@/components/brindes/SeletorLigacao'
 import { FAMILIAS_COR } from '@/lib/catalogo-cores'
 import { GRUPOS, grupoPorId, hrefGrupo, subPorId } from '@/lib/catalogo-grupos'
 import { BRAND_LANDING_CONTENT } from '@/lib/brand-landing-content'
@@ -54,9 +55,16 @@ export default async function VisualGiftsPage({ searchParams }: { searchParams: 
     return `/brindes${str ? `?${str}` : ''}#catalogo`
   }
   const semFiltros = !filtro.q && !filtro.marca && !filtro.grupo && !filtro.cor && !filtro.stock && !filtro.ordem
-  const dataAtualizacao = ATUALIZADO_EM.split('-').reverse().join('/')
   const campo =
     'h-11 rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-900 focus:border-red-600 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100'
+  // a seta nativa dos selectores fica colada à beira: desenha-se a nossa, a 14 px dela
+  const selector = `${campo} cursor-pointer appearance-none pr-10`
+  const seta = {
+    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2371717a' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`,
+    backgroundRepeat: 'no-repeat',
+    backgroundPosition: 'right 14px center',
+    backgroundSize: '16px',
+  } as const
   const chip = (ativo: boolean) =>
     `inline-flex items-center gap-1.5 rounded-full border px-4 py-1.5 text-sm font-semibold transition-colors ${
       ativo
@@ -77,13 +85,13 @@ export default async function VisualGiftsPage({ searchParams }: { searchParams: 
             {cor && <input type="hidden" name="cor" value={cor} />}
             {ordem && <input type="hidden" name="ordem" value={ordem} />}
             <PesquisaBrindes defaultValue={filtro.q} className={campo} />
-            <select name="marca" defaultValue={filtro.marca} aria-label="Marca" className={campo}>
+            <select name="marca" defaultValue={filtro.marca} aria-label="Marca" className={selector} style={seta}>
               <option value="">Todas as marcas</option>
               {MARCAS.map((m) => (
                 <option key={m.nome} value={m.nome}>{`${m.nome} (${m.n})`}</option>
               ))}
             </select>
-            <select name="categoria" defaultValue={grupo ? (sub ? `${grupo.id}/${sub.id}` : grupo.id) : ''} aria-label="Categoria" className={campo}>
+            <select name="categoria" defaultValue={grupo ? (sub ? `${grupo.id}/${sub.id}` : grupo.id) : ''} aria-label="Categoria" className={selector} style={seta}>
               <option value="">Todas categorias</option>
               {GRUPOS.flatMap((g) => [
                 <option key={g.id} value={g.id} className="font-bold">{g.nome}</option>,
@@ -107,62 +115,20 @@ export default async function VisualGiftsPage({ searchParams }: { searchParams: 
         <div id="catalogo" className="scroll-mt-[90px] pb-14 pt-12">
           <div className="container mx-auto max-w-7xl px-[41px] sm:px-[49px]">
             <div className="mb-5 flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
-            <div className="flex flex-wrap gap-2" role="navigation" aria-label="Categorias de produtos">
-              <Link href={ligacao({ grupo: '', sub: '' })} className={chip(!grupo)}>
-                <span>Todos</span>
-                <span className="text-xs opacity-70">{TOTAL_PRODUTOS.toLocaleString('pt-PT')}</span>
-              </Link>
-              {GRUPOS.map((g) => (
-                <Link key={g.id} href={ligacao({ grupo: g.id, sub: '' })} className={chip(g.id === grupo?.id)}>
-                  <span>{g.nome}</span>
-                  <span className="text-xs opacity-70">{CONTAGENS[g.id].toLocaleString('pt-PT')}</span>
-                </Link>
-              ))}
+            <div className="flex flex-wrap gap-2" aria-label="Categoria seleccionada">
+              <span className="inline-flex items-baseline gap-2 text-zinc-900 dark:text-white">
+                <span className="text-xl font-bold">{sub?.nome ?? grupo?.nome ?? 'Todos'}</span>
+                <span className="text-sm font-semibold text-zinc-500 dark:text-zinc-400">{(sub && grupo ? CONTAGENS[`${grupo.id}/${sub.id}`] : grupo ? CONTAGENS[grupo.id] : TOTAL_PRODUTOS).toLocaleString('pt-PT')}</span>
+              </span>
             </div>
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-xs font-bold uppercase tracking-wider text-zinc-500">Ordenar por</span>
-                {ORDENS.map((o) => (
-                  <Link key={o.id} href={ligacao({ ordem: o.id })} aria-current={o.id === ordem} className={chip(o.id === ordem)}>
-                    {o.nome}
-                  </Link>
-                ))}
-                {!semFiltros && (
-                  <Link href="/brindes#catalogo" className="inline-flex h-9 items-center rounded-md border border-zinc-300 px-4 text-sm font-semibold text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800">
-                    Limpar filtros
-                  </Link>
-                )}
+                <SeletorLigacao rotulo="Ordenar por" opcoes={ORDENS.map((o) => ({ ...o, href: ligacao({ ordem: o.id }) }))} atual={ordem} className={`${selector} w-[130px]`} style={seta} />
               </div>
             </div>
 
-            {grupo && (
-              <div className="mb-5 flex flex-wrap gap-2 border-l-2 border-red-600 pl-4" role="navigation" aria-label="Subcategorias">
-                <Link href={ligacao({ grupo: grupo.id, sub: '' })} className={chip(!sub)}>
-                  <span>Tudo</span>
-                </Link>
-                {grupo.colunas
-                  .flatMap((c) => c.subs)
-                  .map((s) => (
-                    <Link key={s.id} href={ligacao({ grupo: grupo.id, sub: s.id })} className={chip(s.id === sub?.id)}>
-                      <span>{s.nome}</span>
-                      <span className="text-xs opacity-70">{CONTAGENS[`${grupo.id}/${s.id}`]}</span>
-                    </Link>
-                  ))}
-              </div>
-            )}
-
             {modo === 'lista' && lista && (
               <>
-                <div className="mb-6 flex flex-col gap-1 text-sm text-zinc-600 dark:text-zinc-400 sm:flex-row sm:items-center sm:justify-between">
-                  <p className="flex gap-1.5">
-                    <span className="font-bold text-zinc-900 dark:text-white">{lista.total.toLocaleString('pt-PT')}</span>
-                    <span>produtos encontrados</span>
-                  </p>
-                  <p className="text-xs">
-                    <span>{taxa ? 'Valores do fornecedor por unidade, convertidos ao câmbio do dia e sem personalização.' : 'Preço sob consulta: indicamos o valor na cotação.'}</span>{' '}
-                    <span>O valor final e a disponibilidade confirmam-se na cotação.</span>{' '}
-                    <span>Catálogo actualizado em</span> <span>{dataAtualizacao}</span>.
-                  </p>
-                </div>
                 {lista.produtos.length === 0 ? (
                   <p className="rounded-lg border border-zinc-200/80 bg-white p-10 text-center text-zinc-600 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-400">
                     Nenhum produto encontrado. Tente outra pesquisa ou limpe os filtros.
