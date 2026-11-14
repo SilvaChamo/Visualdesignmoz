@@ -14,7 +14,7 @@ export function GrelhaProdutos({ produtos }: { produtos: ProdutoCartao[] }) {
   )
 }
 
-export function SeccaoProdutos({ antetitulo, titulo, texto, produtos, href, rotulo = 'Ver mais' }: { antetitulo?: string; titulo: React.ReactNode; texto?: string; produtos: ProdutoCartao[]; href?: string; rotulo?: React.ReactNode }) {
+export function SeccaoProdutos({ antetitulo, titulo, texto, textoVermelho, produtos, href, rotulo = 'Ver mais' }: { antetitulo?: string; titulo: React.ReactNode; texto?: string; textoVermelho?: boolean; produtos: ProdutoCartao[]; href?: string; rotulo?: React.ReactNode }) {
   if (produtos.length === 0) return null
   return (
     <section className="py-8">
@@ -22,10 +22,10 @@ export function SeccaoProdutos({ antetitulo, titulo, texto, produtos, href, rotu
         <div>
           {antetitulo && <p className="mb-1 text-xs font-bold uppercase tracking-[0.2em] text-red-600 dark:text-red-500">{antetitulo}</p>}
           <h2 className="text-2xl font-extrabold uppercase tracking-tight text-zinc-900 dark:text-white sm:text-3xl">{titulo}</h2>
-          {texto && <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{texto}</p>}
+          {texto && <p className={`mt-1 text-sm ${textoVermelho ? 'font-semibold text-red-600 dark:text-red-500' : 'text-zinc-600 dark:text-zinc-400'}`}>{texto}</p>}
         </div>
         {href && (
-          <Link href={href} className="inline-flex items-center gap-2 rounded-full px-5 py-2 text-sm font-semibold text-zinc-800 transition-colors hover:text-red-600 dark:text-zinc-200">
+          <Link href={href} className="inline-flex items-center gap-2 rounded-md border border-zinc-300 bg-transparent px-5 py-2 text-sm font-semibold text-zinc-800 transition-colors hover:border-red-600 hover:text-red-600 dark:border-zinc-700 dark:text-zinc-200">
             <span>{rotulo}</span>
             <ArrowRight className="h-4 w-4" />
           </Link>

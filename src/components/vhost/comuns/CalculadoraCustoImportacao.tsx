@@ -13,6 +13,7 @@ import { useI18n } from '@/lib/i18n'
 import { cambioEntre } from '@/lib/cambio'
 import { useCambio } from './useCambio'
 import { CotacaoCliente } from './CotacaoCliente'
+import { CartaoBrindesEstimativa } from './CartaoBrindesEstimativa'
 import { translate } from '../i18n'
 import {
   EXEMPLO_ENTRADA,
@@ -1011,6 +1012,9 @@ export function CalculadoraCustoImportacao() {
           <p className={NOTA}>Estimativa só para planeamento: não é um orçamento de frete nem uma decisão da alfândega. O cálculo é feito no seu navegador; do servidor só vem o câmbio do dia.</p>
         </div>
       )}
+
+      {/* as percentagens do valor estimado dos brindes do site (/brindes) */}
+      <CartaoBrindesEstimativa />
 
       {/* a cotação para o cliente, no fim das tabelas */}
       <CotacaoCliente

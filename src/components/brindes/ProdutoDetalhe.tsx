@@ -33,7 +33,7 @@ export interface ProdutoFicha {
 const num = (n: number) => n.toLocaleString('pt-PT')
 const data = (iso: string) => iso.split('-').reverse().join('/')
 
-const cartao = 'rounded-xl border border-zinc-200/80 bg-white p-5 dark:border-white/10 dark:bg-zinc-900'
+const cartao = 'rounded-lg border border-zinc-200/80 bg-white p-5 dark:border-white/10 dark:bg-zinc-900'
 const titulo = 'text-base font-extrabold text-zinc-900 dark:text-white'
 
 export function ProdutoDetalhe({ produto, ficha }: { produto: ProdutoFicha; ficha: Ficha | null }) {
@@ -161,7 +161,7 @@ export function ProdutoDetalhe({ produto, ficha }: { produto: ProdutoFicha; fich
               type="button"
               onClick={() => (escolhidoBase ? removerProduto(produto.sku) : adicionar({ sku: produto.sku, nome: produto.nome, marca: produto.marca }))}
               aria-pressed={escolhidoBase}
-              className={`ml-auto inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${escolhidoBase ? 'border-red-600 bg-red-600 text-white' : 'border-zinc-300 text-zinc-700 hover:border-red-600 hover:text-red-600 dark:border-zinc-700 dark:text-zinc-300'}`}
+              className={`ml-auto inline-flex cursor-pointer items-center gap-1.5 rounded-md border px-3 py-1 text-xs font-semibold transition-colors ${escolhidoBase ? 'border-red-600 bg-red-600 text-white' : 'border-zinc-300 text-zinc-700 hover:border-red-600 hover:text-red-600 dark:border-zinc-700 dark:text-zinc-300'}`}
             >
               <Heart className={`h-3.5 w-3.5 ${escolhidoBase ? 'fill-current' : ''}`} />
               <span>{escolhidoBase ? 'Na selecção' : 'Juntar à selecção'}</span>
@@ -184,7 +184,7 @@ export function ProdutoDetalhe({ produto, ficha }: { produto: ProdutoFicha; fich
               <p className="mt-1 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
                 {produto.precoMt === null
                   ? 'Indicamos o valor na cotação, com a personalização incluída e a disponibilidade confirmada. O prazo de produção e de entrega também se confirma na cotação.'
-                  : 'Valor estimado por unidade, com transporte, alfândega e IVA incluídos; não inclui a personalização. O valor da personalização, o valor final, o prazo de produção e de entrega confirmam-se na cotação.'}
+                  : 'Valor estimado por unidade e não inclui a personalização. O valor da personalização, o valor final, o prazo de produção e de entrega confirmam-se na cotação.'}
               </p>
             </div>
           </div>
@@ -261,7 +261,7 @@ export function ProdutoDetalhe({ produto, ficha }: { produto: ProdutoFicha; fich
                         placeholder="0"
                         onChange={(e) => altera(t, Number(e.target.value))}
                         aria-label={`Quantidade tamanho ${t}`}
-                        className="h-11 w-full rounded-lg border border-zinc-300 bg-white px-2 text-center text-sm font-semibold text-zinc-900 focus:border-red-600 focus:outline-none dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
+                        className="h-11 w-full rounded-md border border-zinc-300 bg-white px-2 text-center text-sm font-semibold text-zinc-900 focus:border-red-600 focus:outline-none dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
                       />
                       {s && (
                         <span className={`mt-1 block text-center text-[11px] ${sem ? 'text-amber-600' : 'text-zinc-500 dark:text-zinc-400'}`}>
@@ -287,7 +287,7 @@ export function ProdutoDetalhe({ produto, ficha }: { produto: ProdutoFicha; fich
             ) : (
               <div>
                 <div className="flex items-center gap-2">
-                  <button type="button" onClick={() => setUnica((u) => Math.max(min, u - passo))} aria-label="Menos" className="inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-lg border border-zinc-300 text-zinc-700 hover:border-red-600 hover:text-red-600 dark:border-zinc-700 dark:text-zinc-300">
+                  <button type="button" onClick={() => setUnica((u) => Math.max(min, u - passo))} aria-label="Menos" className="inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-md border border-zinc-300 text-zinc-700 hover:border-red-600 hover:text-red-600 dark:border-zinc-700 dark:text-zinc-300">
                     <Minus className="h-4 w-4" />
                   </button>
                   <input
@@ -298,16 +298,16 @@ export function ProdutoDetalhe({ produto, ficha }: { produto: ProdutoFicha; fich
                     value={unica}
                     onChange={(e) => setUnica(Math.max(min, Math.floor(Number(e.target.value)) || min))}
                     aria-label="Quantidade"
-                    className="h-11 w-32 rounded-lg border border-zinc-300 bg-white px-3 text-center text-base font-bold text-zinc-900 focus:border-red-600 focus:outline-none dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
+                    className="h-11 w-32 rounded-md border border-zinc-300 bg-white px-3 text-center text-base font-bold text-zinc-900 focus:border-red-600 focus:outline-none dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
                   />
-                  <button type="button" onClick={() => setUnica((u) => u + passo)} aria-label="Mais" className="inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-lg border border-zinc-300 text-zinc-700 hover:border-red-600 hover:text-red-600 dark:border-zinc-700 dark:text-zinc-300">
+                  <button type="button" onClick={() => setUnica((u) => u + passo)} aria-label="Mais" className="inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-md border border-zinc-300 text-zinc-700 hover:border-red-600 hover:text-red-600 dark:border-zinc-700 dark:text-zinc-300">
                     <Plus className="h-4 w-4" />
                   </button>
                   <span className="text-sm text-zinc-500">unidades</span>
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {[25, 50, 100, 250, 500, 1000].filter((q) => q >= min).map((q) => (
-                    <button key={q} type="button" onClick={() => setUnica(q)} className={`cursor-pointer rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${unica === q ? 'border-red-600 bg-red-600 text-white' : 'border-zinc-300 text-zinc-700 hover:border-red-600 hover:text-red-600 dark:border-zinc-700 dark:text-zinc-300'}`}>
+                    <button key={q} type="button" onClick={() => setUnica(q)} className={`cursor-pointer rounded-md border px-3 py-1 text-xs font-semibold transition-colors ${unica === q ? 'border-red-600 bg-red-600 text-white' : 'border-zinc-300 text-zinc-700 hover:border-red-600 hover:text-red-600 dark:border-zinc-700 dark:text-zinc-300'}`}>
                       {num(q)}
                     </button>
                   ))}
@@ -343,7 +343,7 @@ export function ProdutoDetalhe({ produto, ficha }: { produto: ProdutoFicha; fich
             )}
           </div>
 
-          <div className={`rounded-xl border p-5 transition-colors ${personalizar ? 'border-red-600/40 bg-red-50/60 dark:border-red-500/30 dark:bg-red-500/5' : 'border-zinc-200/80 bg-white dark:border-white/10 dark:bg-zinc-900'}`}>
+          <div className={`rounded-lg border p-5 transition-colors ${personalizar ? 'border-red-600/40 bg-red-50/60 dark:border-red-500/30 dark:bg-red-500/5' : 'border-zinc-200/80 bg-white dark:border-white/10 dark:bg-zinc-900'}`}>
             <label className="flex cursor-pointer items-start gap-3">
               <input type="checkbox" checked={personalizar} onChange={(e) => setPersonalizar(e.target.checked)} className="mt-1 h-4 w-4 accent-red-600" />
               <span>
@@ -371,7 +371,7 @@ export function ProdutoDetalhe({ produto, ficha }: { produto: ProdutoFicha; fich
                           setMetodoIdx(null)
                         }}
                         aria-pressed={i === posIdx}
-                        className={`cursor-pointer rounded-lg border px-3 py-1.5 text-sm font-semibold transition-colors ${i === posIdx ? 'border-red-600 bg-red-600 text-white' : 'border-zinc-300 bg-white text-zinc-700 hover:border-red-600 hover:text-red-600 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-300'}`}
+                        className={`cursor-pointer rounded-md border px-3 py-1.5 text-sm font-semibold transition-colors ${i === posIdx ? 'border-red-600 bg-red-600 text-white' : 'border-zinc-300 bg-white text-zinc-700 hover:border-red-600 hover:text-red-600 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-300'}`}
                       >
                         {nomePosicao(q.n)}
                       </button>
@@ -386,7 +386,7 @@ export function ProdutoDetalhe({ produto, ficha }: { produto: ProdutoFicha; fich
                         type="button"
                         onClick={() => setMetodoIdx(null)}
                         aria-pressed={metodoIdx === null}
-                        className={`cursor-pointer rounded-lg border px-3 py-2 text-left text-sm transition-colors ${metodoIdx === null ? 'border-red-600 bg-white ring-1 ring-red-600 dark:bg-zinc-950' : 'border-zinc-300 bg-white hover:border-red-600 dark:border-zinc-700 dark:bg-zinc-950'}`}
+                        className={`cursor-pointer rounded-md border px-3 py-2 text-left text-sm transition-colors ${metodoIdx === null ? 'border-red-600 bg-white ring-1 ring-red-600 dark:bg-zinc-950' : 'border-zinc-300 bg-white hover:border-red-600 dark:border-zinc-700 dark:bg-zinc-950'}`}
                       >
                         <span className="block font-semibold text-zinc-900 dark:text-white">Definir na cotação</span>
                         <span className="block text-xs text-zinc-500">Aconselhamos o melhor método</span>
@@ -397,7 +397,7 @@ export function ProdutoDetalhe({ produto, ficha }: { produto: ProdutoFicha; fich
                           type="button"
                           onClick={() => setMetodoIdx(i)}
                           aria-pressed={metodoIdx === i}
-                          className={`cursor-pointer rounded-lg border px-3 py-2 text-left text-sm transition-colors ${metodoIdx === i ? 'border-red-600 bg-white ring-1 ring-red-600 dark:bg-zinc-950' : 'border-zinc-300 bg-white hover:border-red-600 dark:border-zinc-700 dark:bg-zinc-950'}`}
+                          className={`cursor-pointer rounded-md border px-3 py-2 text-left text-sm transition-colors ${metodoIdx === i ? 'border-red-600 bg-white ring-1 ring-red-600 dark:bg-zinc-950' : 'border-zinc-300 bg-white hover:border-red-600 dark:border-zinc-700 dark:bg-zinc-950'}`}
                         >
                           <span className="block font-semibold text-zinc-900 dark:text-white">{nomeMetodo(m.n)}</span>
                           <span className="block min-h-4 text-xs text-zinc-500">
@@ -445,7 +445,7 @@ export function ProdutoDetalhe({ produto, ficha }: { produto: ProdutoFicha; fich
               type="button"
               disabled={!valido || jaNoPedido}
               onClick={juntar}
-              className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-red-600 px-4 py-2.5 text-sm font-bold text-red-600 transition-colors hover:bg-red-600/5 disabled:cursor-not-allowed disabled:opacity-40"
+              className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-red-600 px-4 py-2.5 text-sm font-bold text-red-600 transition-colors hover:bg-red-600/5 disabled:cursor-not-allowed disabled:opacity-40"
             >
               <Plus className="h-4 w-4" />
               <span>{!valido ? (tamanhos.length ? 'Escolha os tamanhos' : 'Indique a quantidade') : jaNoPedido ? 'Já no pedido' : 'Adicionar ao pedido'}</span>
@@ -454,7 +454,7 @@ export function ProdutoDetalhe({ produto, ficha }: { produto: ProdutoFicha; fich
               type="button"
               disabled={!valido && itens.length === 0}
               onClick={() => pedirCotacao(valido && !jaNoPedido ? item : undefined)}
-              className="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-red-600 px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-40"
+              className="inline-flex cursor-pointer items-center gap-2 rounded-md bg-red-600 px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-40"
             >
               <span>Pedir cotação</span>
               {itens.length > 0 && <span className="rounded-full bg-white/25 px-2 text-xs">{itens.length}</span>}

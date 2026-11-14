@@ -74,7 +74,7 @@ export function CartaoProduto({ p }: { p: ProdutoCartao }) {
         aria-pressed={escolhido}
         aria-label={escolhido ? 'Retirar do pedido' : 'Adicionar ao pedido'}
         title={escolhido ? 'Retirar do pedido' : 'Adicionar ao pedido'}
-        className={`absolute right-[4%] top-[4%] inline-flex h-[clamp(1.6rem,11cqw,2.1rem)] w-[clamp(1.6rem,11cqw,2.1rem)] cursor-pointer items-center justify-center rounded-full shadow-md transition-colors ${
+        className={`absolute right-[4%] top-[4%] inline-flex h-[clamp(1.6rem,11cqw,2.1rem)] w-[clamp(1.6rem,11cqw,2.1rem)] cursor-pointer items-center justify-center rounded-md shadow-md transition-colors ${
           escolhido ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-white text-zinc-700 hover:bg-red-600 hover:text-white'
         }`}
       >

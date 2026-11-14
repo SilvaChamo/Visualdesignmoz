@@ -3,6 +3,7 @@
 
 import { NextResponse } from 'next/server'
 import { cambioZarMzn } from '@/lib/cambio-brindes'
+import { estimativaBrindes } from '@/lib/estimativa-brindes'
 import { emMt, sugerir } from '@/lib/catalogo-brindes'
 
 export const runtime = 'nodejs'
@@ -13,10 +14,11 @@ export async function GET(req: Request) {
 
   const { total, produtos } = sugerir(q, 6)
   const taxa = await cambioZarMzn()
+  const est = await estimativaBrindes()
   return NextResponse.json(
     {
       total,
-      produtos: emMt(produtos, taxa).map(({ sku, slug, nome, marca, imagem, esgotado, precoMt }) => ({ sku, slug, nome, marca, imagem, esgotado, precoMt })),
+      produtos: emMt(produtos, taxa, est).map(({ sku, slug, nome, marca, imagem, esgotado, precoMt }) => ({ sku, slug, nome, marca, imagem, esgotado, precoMt })),
     },
     { headers: { 'cache-control': 'public, max-age=60' } },
   )

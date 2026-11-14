@@ -9,7 +9,7 @@
 import dados from '@/data/catalogo-brindes.json'
 import { GRUPOS, grupoPorId, subPorId, type Grupo, type Sub } from '@/lib/catalogo-grupos'
 import { familiaDaCor, nomeCor } from '@/lib/catalogo-cores'
-import { valorPorUnidadeMt } from '@/lib/preco-brindes'
+import { valorPorUnidadeMt, type EstimativaBrindes } from '@/lib/preco-brindes'
 
 export interface ProdutoImportado {
   sku: string
@@ -51,9 +51,9 @@ export interface ProdutoPublico {
 /** o produto como a página o recebe: com o valor estimado por unidade em meticais (null se não houve câmbio) em vez do rand do fornecedor */
 export type ProdutoComPreco = Omit<ProdutoPublico, 'precoZar'> & { precoMt: number | null }
 
-/** Troca o rand do fornecedor pelo valor estimado em metical ao câmbio dado (1 rand = `taxa` meticais). */
-export const emMt = (lista: ProdutoPublico[], taxa: number | null): ProdutoComPreco[] =>
-  lista.map(({ precoZar, ...resto }) => ({ ...resto, precoMt: taxa ? Math.round(valorPorUnidadeMt(precoZar, taxa)) : null }))
+/** Troca o rand do fornecedor pelo valor estimado em metical ao câmbio dado (1 rand = `taxa` meticais) e com as percentagens `est` (as da calculadora). */
+export const emMt = (lista: ProdutoPublico[], taxa: number | null, est: EstimativaBrindes): ProdutoComPreco[] =>
+  lista.map(({ precoZar, ...resto }) => ({ ...resto, precoMt: taxa ? Math.round(valorPorUnidadeMt(precoZar, taxa, est)) : null }))
 
 const PRODUTOS = (dados as unknown as { produtos: ProdutoImportado[] }).produtos
 export const ATUALIZADO_EM: string = (dados as unknown as { atualizadoEm: string }).atualizadoEm

@@ -9,7 +9,7 @@ export function BarraPedido() {
   const { itens, limpar, pedirCotacao } = usePedido()
   if (itens.length === 0) return null
   return (
-    <div className="fixed inset-x-4 bottom-4 z-40 mx-auto flex max-w-3xl items-center gap-3 rounded-xl bg-zinc-900 px-4 py-3 text-white shadow-2xl ring-1 ring-white/10">
+    <div className="fixed inset-x-4 bottom-4 z-40 mx-auto flex max-w-3xl items-center gap-3 rounded-lg bg-zinc-900 px-4 py-3 text-white shadow-2xl ring-1 ring-white/10">
       <span className="flex flex-1 items-baseline gap-1.5 text-sm">
         <span className="font-extrabold">{itens.length}</span>
         <span>produto(s) no pedido</span>

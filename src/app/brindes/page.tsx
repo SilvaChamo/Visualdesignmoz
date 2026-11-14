@@ -8,12 +8,25 @@ import { PesquisaBrindes } from '@/components/brindes/PesquisaBrindes'
 import { GrelhaProdutos, SeccaoProdutos } from '@/components/brindes/SeccaoProdutos'
 import { CONTAGENS, MARCAS, TOTAL_PRODUTOS, emMt, listarCatalogo, seccoesDestaque, seccoesDoGrupo } from '@/lib/catalogo-brindes'
 import { cambioZarMzn } from '@/lib/cambio-brindes'
+import { estimativaBrindes } from '@/lib/estimativa-brindes'
 import { SeletorLigacao } from '@/components/brindes/SeletorLigacao'
 import { FAMILIAS_COR } from '@/lib/catalogo-cores'
 import { GRUPOS, grupoPorId, hrefGrupo, subPorId } from '@/lib/catalogo-grupos'
+import { FaixaCaminho } from '@/components/brindes/FaixaCaminho'
 import { BRAND_LANDING_CONTENT } from '@/lib/brand-landing-content'
 
 const DADOS = BRAND_LANDING_CONTENT['brindes']
+
+// Fundo do catálogo: na página inicial encaixa com recorte no topo; nas interiores é liso e sobe 16 px para ficar por baixo das pontas do cinzento da busca
+function FundoLista({ interior, children }: { interior: boolean; children: React.ReactNode }) {
+  return interior ? (
+    <div className="relative z-10 -mt-[16px] bg-zinc-50 dark:bg-zinc-950">{children}</div>
+  ) : (
+    <NotchSection shape="end" bg="bg-zinc-50 dark:bg-zinc-950">
+      {children}
+    </NotchSection>
+  )
+}
 
 const ORDENS: { id: string; nome: string }[] = [
   { id: '', nome: 'Destaques' },
@@ -37,8 +50,9 @@ export default async function VisualGiftsPage({ searchParams }: { searchParams: 
   const semFiltrosExtra = !filtro.q && !filtro.marca && !filtro.cor && !filtro.stock && !filtro.ordem
   const modo: 'inicio' | 'grupo' | 'lista' = !semFiltrosExtra || sub ? 'lista' : grupo ? 'grupo' : 'inicio'
   const taxa = await cambioZarMzn()
+  const est = await estimativaBrindes()
   const achados = modo === 'lista' ? listarCatalogo({ ...filtro, pagina }) : null
-  const lista = achados && { ...achados, produtos: emMt(achados.produtos, taxa) }
+  const lista = achados && { ...achados, produtos: emMt(achados.produtos, taxa, est) }
 
   const ligacao = (mudar: Partial<Record<'grupo' | 'sub' | 'cor' | 'stock' | 'ordem', string>> & { pagina?: number }) => {
     const v = { ...filtro, stock: filtro.stock ? '1' : '', ...mudar }
@@ -72,19 +86,32 @@ export default async function VisualGiftsPage({ searchParams }: { searchParams: 
         : 'border-zinc-300 bg-white text-zinc-700 hover:border-red-600 hover:text-red-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:text-white'
     }`
 
-  const seccoes = modo === 'inicio' ? seccoesDestaque(8).map((x) => ({ ...x, produtos: emMt(x.produtos, taxa) })) : []
-  const seccoesGrupo = modo === 'grupo' && grupo ? seccoesDoGrupo(grupo.id, 4).map((x) => ({ ...x, produtos: emMt(x.produtos, taxa) })) : []
+  const seccoes = modo === 'inicio' ? seccoesDestaque(8).map((x) => ({ ...x, produtos: emMt(x.produtos, taxa, est) })) : []
+  const seccoesGrupo = modo === 'grupo' && grupo ? seccoesDoGrupo(grupo.id, 4).map((x) => ({ ...x, produtos: emMt(x.produtos, taxa, est) })) : []
 
   return (
     <div className="min-h-screen bg-black/10 dark:bg-black">
-      <BrindesHero hero={DADOS.hero} />
+      {modo === 'inicio' ? (
+        <BrindesHero hero={DADOS.hero} />
+      ) : (
+        <FaixaCaminho
+          migalhas={[
+            { nome: 'Início', href: '/' },
+            { nome: 'VisualGifts', href: '/brindes' },
+            ...(grupo && sub ? [{ nome: grupo.nome, href: hrefGrupo(grupo) }] : []),
+          ]}
+          atual={sub?.nome ?? grupo?.nome ?? 'Pesquisa'}
+          margens="px-[41px] sm:px-[49px]"
+        />
+      )}
 
-      <NotchSection shape="mid" bg="bg-zinc-200 dark:bg-black">
-        <div className="container mx-auto max-w-7xl px-[41px] py-[46px] sm:px-[49px]">
-          <form method="get" action="/brindes#catalogo" className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_190px_170px_auto_auto]">
+      {/* interiores: o topo do cinzento é liso (encostado à faixa do caminho) e só o fundo tem recorte: pontas para baixo e meio recuado */}
+      <NotchSection shape={modo === 'inicio' ? 'mid' : 'start'} bg="bg-zinc-200 dark:bg-black" first={modo !== 'inicio'} className={modo !== 'inicio' ? 'z-20' : ''}>
+        <div className={`container mx-auto max-w-7xl px-[41px] sm:px-[49px] ${modo === 'inicio' ? 'py-[46px]' : 'pb-[54px] pt-[38px]'}`}>
+          <form method="get" action="/brindes#catalogo" className="grid grid-cols-1 items-center gap-3 md:grid-cols-[minmax(0,380px)_190px_170px_auto_auto] md:justify-center">
             {cor && <input type="hidden" name="cor" value={cor} />}
             {ordem && <input type="hidden" name="ordem" value={ordem} />}
-            <PesquisaBrindes defaultValue={filtro.q} className={campo} />
+            <PesquisaBrindes defaultValue={filtro.q} className={campo.replace('h-11', 'h-10')} />
             <select name="marca" defaultValue={filtro.marca} aria-label="Marca" className={selector} style={seta}>
               <option value="">Todas as marcas</option>
               {MARCAS.map((m) => (
@@ -111,9 +138,10 @@ export default async function VisualGiftsPage({ searchParams }: { searchParams: 
         </div>
       </NotchSection>
 
-      <NotchSection shape="end" bg="bg-zinc-50 dark:bg-zinc-950">
-        <div id="catalogo" className="scroll-mt-[90px] pb-14 pt-12">
+      <FundoLista interior={modo !== 'inicio'}>
+        <div id="catalogo" className="scroll-mt-[90px] pb-14 pt-4">
           <div className="container mx-auto max-w-7xl px-[41px] sm:px-[49px]">
+            {modo === 'lista' && (
             <div className="mb-5 flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
             <div className="flex flex-wrap gap-2" aria-label="Categoria seleccionada">
               <span className="inline-flex items-baseline gap-2 text-zinc-900 dark:text-white">
@@ -126,6 +154,7 @@ export default async function VisualGiftsPage({ searchParams }: { searchParams: 
                 <SeletorLigacao rotulo="Ordenar por" opcoes={ORDENS.map((o) => ({ ...o, href: ligacao({ ordem: o.id }) }))} atual={ordem} className={`${selector} w-[130px]`} style={seta} />
               </div>
             </div>
+            )}
 
             {modo === 'lista' && lista && (
               <>
@@ -160,7 +189,7 @@ export default async function VisualGiftsPage({ searchParams }: { searchParams: 
               seccoes.map(({ grupo: gid, produtos }) => {
                 const g = grupoPorId(gid)
                 if (!g) return null
-                return <SeccaoProdutos key={gid} antetitulo="Explore" titulo={g.nome} texto={g.ideal[0]} produtos={produtos} href={hrefGrupo(g)} rotulo={<><span>Ver todos</span> <span>{`(${CONTAGENS[g.id].toLocaleString('pt-PT')})`}</span></>} />
+                return <SeccaoProdutos key={gid} titulo={g.id === 'brindes' ? 'Brindes personalizáveis' : g.nome} texto={g.id === 'brindes' ? 'Explore diversos brindes para a sua empresa e lazer' : g.ideal[0]} textoVermelho={g.id === 'brindes'} produtos={produtos} href={hrefGrupo(g)} rotulo={<><span>Explorar todos os</span> <span>{`(${CONTAGENS[g.id].toLocaleString('pt-PT')})`}</span></>} />
               })}
 
             {modo === 'grupo' &&
@@ -168,11 +197,11 @@ export default async function VisualGiftsPage({ searchParams }: { searchParams: 
               seccoesGrupo.map(({ sub: sid, produtos }) => {
                 const s = subPorId(grupo, sid)
                 if (!s) return null
-                return <SeccaoProdutos key={sid} antetitulo={grupo.nome} titulo={s.nome} produtos={produtos} href={hrefGrupo(grupo, s)} rotulo={<><span>Ver todos</span> <span>{`(${CONTAGENS[`${grupo.id}/${s.id}`]})`}</span></>} />
+                return <SeccaoProdutos key={sid} antetitulo={grupo.nome} titulo={s.nome} produtos={produtos} href={hrefGrupo(grupo, s)} rotulo={<><span>Explorar todos os</span> <span>{`(${CONTAGENS[`${grupo.id}/${s.id}`]})`}</span></>} />
               })}
           </div>
         </div>
-      </NotchSection>
+      </FundoLista>
 
       <BrindesSobre />
       <BarraPedido />
