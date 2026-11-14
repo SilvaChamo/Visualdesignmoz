@@ -347,6 +347,8 @@ export const IGUAIS: string[] = [
  "Total sem IVA",
  "TOTAL A PAGAR (IVA {0}% e transporte incluídos)",
  "TOTAL A PAGAR",
+ "Subtotal (sem IVA)",
+ "TOTAL DA FACTURA",
  "Preços por unidade com logo, transporte até Maputo e IVA de {0}% incluídos.",
  "Preços por unidade com logo e transporte até Maputo, sem IVA.",
  "Prazo de entrega:",

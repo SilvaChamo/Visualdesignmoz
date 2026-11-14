@@ -8,6 +8,7 @@
 import { useCallback, useSyncExternalStore } from 'react'
 import { useRouter } from 'next/navigation'
 import { CUSTOM_CATEGORIA_ID, SELECAO_STORAGE_KEY } from '@/lib/pricing-catalog'
+import { IVA_VENDA_PCT } from '@/lib/preco-brindes'
 
 export interface ItemPedido {
   /** identifica a linha (o mesmo produto pode entrar mais de uma vez, com outra cor) */
@@ -17,7 +18,15 @@ export interface ItemPedido {
   marca: string | null
   /** o que o cliente escolheu: cor, tamanhos, quantidade, personalização */
   detalhe?: string
+  /** quantidade pedida e valor estimado por unidade (MT, com IVA): só servem para devolver o produto à cotação da calculadora */
+  unidades?: number
+  precoMt?: number | null
 }
+
+// «Adicionar produto» na cotação da calculadora (admin) leva ao catálogo e, ao adicionar um produto, volta à cotação com ele na tabela
+// shortcut: o regresso fica pendente 30 min; se o Silva sair do catálogo sem adicionar, expira sozinho
+export const RETORNO_COTACAO = 'vd-cotacao-retorno'
+export const NOVOS_COTACAO = 'vd-cotacao-novos'
 
 const CHAVE = 'visualdesign_brindes_selecao'
 const EVENTO = 'vd-pedido-brindes'
@@ -65,6 +74,20 @@ export function usePedido() {
     // uma linha com o que o cliente escolheu substitui a do mesmo produto sem detalhe (não vai duas vezes à cotação)
     const antes = item.detalhe ? ler().filter((x) => x.sku !== item.sku || x.detalhe) : ler()
     guardar([...antes, { ...item, id: `${item.sku}-${Date.now()}` }])
+    try {
+      const r = JSON.parse(sessionStorage.getItem(RETORNO_COTACAO) ?? 'null') as { url: string; ate: number } | null
+      if (r && r.ate > Date.now() && r.url.startsWith('/')) {
+        const novos = JSON.parse(localStorage.getItem(NOVOS_COTACAO) ?? '[]') as unknown[]
+        localStorage.setItem(
+          NOVOS_COTACAO,
+          JSON.stringify([...novos, { nome: item.nome, unidades: item.unidades ?? 1, preco: item.precoMt ? Math.round((item.precoMt / (1 + IVA_VENDA_PCT / 100)) * 100) / 100 : null, detalhe: item.detalhe ?? '' }]),
+        )
+        sessionStorage.removeItem(RETORNO_COTACAO)
+        window.location.assign(r.url)
+      }
+    } catch {
+      /* sem armazenamento: o produto fica só no pedido */
+    }
   }, [])
   const remover = useCallback((id: string) => guardar(ler().filter((x) => x.id !== id)), [])
   const removerProduto = useCallback((sku: string) => guardar(ler().filter((x) => x.sku !== sku)), [])

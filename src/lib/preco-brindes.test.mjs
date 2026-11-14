@@ -1,51 +1,63 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ESTIMATIVA_BRINDES as E, valorPorUnidadeMt, custoFixoPorUnidadeMt } from './preco-brindes.ts';
+import { CONFIG_BRINDES_PADRAO as P, IVA_VENDA_PCT, configValida, valorPorUnidadeMt } from './preco-brindes.ts';
 import { calcularCustoImportacao, EXEMPLO_ENTRADA } from './calculadora-custo-importacao.ts';
 import { IVA_TAXA } from './iva.ts';
 
-test('o valor dos brindes dá o mesmo que a calculadora (1 unidade, CFR, IVA da importação recuperável) mais o IVA da venda', () => {
-  for (const [precoZar, taxa] of [[5.8, 3.6], [28, 3.55], [70, 3.7], [0.5, 3.6]]) {
-    const custo = precoZar * taxa * (1 + E.erroPct / 100);
-    const r = calcularCustoImportacao({
-      ...EXEMPLO_ENTRADA,
-      base: 'cfr',
-      frete: (custo * E.transportePct) / 100,
-      seguro: 0, corretor: 0, porto: 0, entrega: 0, entregaDomicilio: 0, outros: 0, comissao: 0,
-      perdasPct: 0,
-      margemPct: E.margemPct,
-      impostoPct: E.ivaPct,
-      recuperavel: true,
-      linhas: [{ nome: 'x', unidades: 1, custo, direitos: E.direitosPct, peso: 0, volume: 0 }],
-    });
-    assert.equal(r.ok, true);
-    const esperado = r.linhas[0].preco * (1 + E.ivaPct / 100);
-    assert.ok(Math.abs(valorPorUnidadeMt(precoZar, taxa) - esperado) < 1e-9, `${precoZar} × ${taxa}`);
+// o mesmo produto (1 unidade) na calculadora: o frete, o seguro e as despesas são a fracção `Ratio` do custo (a repartição por valor de uma remessa
+// em que todos os produtos levam a mesma fracção), e o IVA da venda soma-se por cima do preço com margem
+function naCalculadora(precoZar, taxa, c) {
+  const custo = precoZar * taxa * (1 + c.erroPct / 100);
+  const r = calcularCustoImportacao({
+    ...EXEMPLO_ENTRADA,
+    base: c.base,
+    frete: custo * c.freteRatio,
+    seguro: custo * c.seguroRatio,
+    corretor: 0, porto: 0, entrega: 0, entregaDomicilio: 0, outros: custo * c.partilhadosRatio, comissao: 0,
+    alfandega: custo * c.alfandegaRatio,
+    lucro: custo * c.lucroRatio,
+    perdasPct: 0,
+    margemPct: c.margemPct,
+    impostoPct: c.impostoPct,
+    impostoSobreDireitos: c.impostoSobreDireitos,
+    impostoSobreFrete: c.impostoSobreFrete,
+    recuperavel: c.recuperavel,
+    linhas: [{ nome: 'x', unidades: 1, custo, direitos: c.direitosPct, peso: 0, volume: 0 }],
+  });
+  assert.equal(r.ok, true);
+  return r.linhas[0].preco * (1 + IVA_VENDA_PCT / 100);
+}
+
+test('o valor dos brindes dá o mesmo que a calculadora, com ou sem custos da remessa', () => {
+  const configs = [
+    P,
+    { ...P, base: 'cfr', freteRatio: 0.12, seguroRatio: 0.01, partilhadosRatio: 0.05, direitosPct: 20, erroPct: 10, recuperavel: true },
+    { ...P, base: 'cif', freteRatio: 0.12, seguroRatio: 0.01, partilhadosRatio: 0.05, direitosPct: 20, erroPct: 5, recuperavel: false },
+    { ...P, base: 'cfr', freteRatio: 0.1, seguroRatio: 0, partilhadosRatio: 0.03, alfandegaRatio: 0.15, lucroRatio: 0.4, erroPct: 10, recuperavel: true },
+    { ...P, base: 'cif', freteRatio: 0.1, seguroRatio: 0.01, partilhadosRatio: 0.03, alfandegaRatio: 0.15, lucroRatio: 0, recuperavel: false },
+    { ...P, base: 'fob', freteRatio: 0.2, seguroRatio: 0.02, partilhadosRatio: 0, direitosPct: 7.5, recuperavel: false, impostoSobreFrete: false, impostoSobreDireitos: false },
+  ];
+  for (const c of configs) for (const [precoZar, taxa] of [[5.8, 3.6], [28, 3.55], [70, 3.7], [0.5, 3.6]]) {
+    assert.ok(Math.abs(valorPorUnidadeMt(precoZar, taxa, c) - naCalculadora(precoZar, taxa, c)) < 1e-9, `${JSON.stringify(c)} ${precoZar}`);
   }
 });
 
-test('o valor é sempre maior do que o preço do fornecedor cambiado, e as constantes batem com o IVA e a margem do projecto', () => {
-  assert.ok(valorPorUnidadeMt(10, 3.6) > 36);
-  assert.equal(E.ivaPct / 100, IVA_TAXA);
-  assert.equal(E.margemPct, EXEMPLO_ENTRADA.margemPct);
+test('sem nada definido o valor é o câmbio com a margem e o IVA; cada custo da remessa sobe-o', () => {
+  assert.equal(IVA_VENDA_PCT / 100, IVA_TAXA);
+  const base = valorPorUnidadeMt(10, 3.6);
+  assert.ok(Math.abs(base - 36 / (1 - P.margemPct / 100) * 1.16) < 1e-9);
+  assert.ok(valorPorUnidadeMt(10, 3.6, { ...P, freteRatio: 0.1 }) > base);
+  assert.ok(valorPorUnidadeMt(10, 3.6, { ...P, partilhadosRatio: 0.1 }) > base);
+  assert.ok(valorPorUnidadeMt(10, 3.6, { ...P, alfandegaRatio: 0.1 }) > base);
+  assert.ok(valorPorUnidadeMt(10, 3.6, { ...P, lucroRatio: 1.2 }) > base);
 });
 
-test('os custos fixos da remessa repartidos por unidade entram no custo antes da margem, como os partilhados da calculadora', () => {
-  const c = { frete: 0, seguro: 0, corretor: 3000, porto: 1000, entrega: 0, entregaDom: 0, outros: 0, unidades: 1000 };
-  assert.equal(custoFixoPorUnidadeMt(c), 4);
-  assert.equal(custoFixoPorUnidadeMt(null), 0);
-  assert.equal(custoFixoPorUnidadeMt({ ...c, unidades: 0 }), 0);
-  const precoZar = 28, taxa = 3.55;
-  const custo = precoZar * taxa * (1 + E.erroPct / 100);
-  const r = calcularCustoImportacao({
-    ...EXEMPLO_ENTRADA,
-    base: 'cfr',
-    frete: (custo * E.transportePct) / 100,
-    seguro: 0, corretor: 4, porto: 0, entrega: 0, entregaDomicilio: 0, outros: 0, comissao: 0,
-    perdasPct: 0, margemPct: E.margemPct, impostoPct: E.ivaPct, recuperavel: true,
-    linhas: [{ nome: 'x', unidades: 1, custo, direitos: E.direitosPct, peso: 0, volume: 0 }],
-  });
-  const esperado = r.linhas[0].preco * (1 + E.ivaPct / 100);
-  assert.ok(Math.abs(valorPorUnidadeMt(precoZar, taxa, { ...E, fixoMt: 4 }) - esperado) < 1e-9);
-  assert.equal(valorPorUnidadeMt(precoZar, taxa, { ...E, fixoMt: 0 }), valorPorUnidadeMt(precoZar, taxa));
+test('configValida recusa valores inválidos e aceita os de partida', () => {
+  assert.deepEqual(configValida(P), P);
+  const { alfandegaRatio, lucroRatio, ...antiga } = P; // o que se guardou antes dos dois campos novos
+  assert.deepEqual(configValida(antiga), P);
+  assert.equal(configValida({ ...P, margemPct: 100 }), null);
+  assert.equal(configValida({ ...P, freteRatio: -1 }), null);
+  assert.equal(configValida({ ...P, base: 'xxx' }), null);
+  assert.equal(configValida(null), null);
 });
