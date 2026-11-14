@@ -3,8 +3,13 @@
 // Calculadora › «Valor dos brindes no site»: as percentagens que o catálogo /brindes usa para mostrar o valor estimado por unidade
 // (preço do fornecedor cambiado + margem de falha + transporte + direitos, ÷ (1 − margem), + IVA). Ao guardar, mudam o valor de todos os
 // produtos do catálogo (em menos de um minuto). O câmbio rand → metical é automático (o mesmo do dia que a calculadora usa).
+// Os valores de «Custos da remessa» (os fixos, em MT) gravam-se sozinhos ao alterar um: o total ÷ as unidades da remessa soma-se a cada produto,
+// antes da margem. Sem nenhum valor definido não se soma nada e o valor fica com o câmbio e as percentagens acima.
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useI18n } from '@/lib/i18n'
+import { translate } from '../i18n'
+import { CHAVES_REMESSA, custoFixoPorUnidadeMt, type CustosRemessa } from '@/lib/preco-brindes'
 
 const CAMPO =
   'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 tabular-nums shadow-sm outline-none transition focus:border-red-500 focus:ring-2 focus:ring-red-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100'
@@ -23,7 +28,12 @@ type Valores = Record<Chave, string>
 
 const paraTexto = (v: Record<Chave, number>): Valores => Object.fromEntries(CAMPOS.map(([k]) => [k, String(v[k])])) as Valores
 
-export function CartaoBrindesEstimativa() {
+type Fixos = Record<(typeof CHAVES_REMESSA)[number], string>
+
+const texto = (x: number) => String(x)
+const numero = (s: string) => (s.trim() === '' ? 0 : Number(s.trim().replace(',', '.')))
+
+export function CartaoBrindesEstimativa({ fixos, unidades, aoCarregar }: { fixos: Fixos; unidades: number; aoCarregar: (f: Fixos) => void }) {
   const [v, setV] = useState<Valores | null>(null)
   const [padrao, setPadrao] = useState<Valores | null>(null)
   const [estado, setEstado] = useState('')
@@ -39,6 +49,57 @@ export function CartaoBrindesEstimativa() {
       })
       .catch(() => setEstado('Não foi possível ler os valores.'))
   }, [])
+
+  // custos fixos da remessa: lê o que está guardado ao abrir e grava sozinho (um instante depois) sempre que se altera um valor
+  const ultimo = useRef<string | null>(null)
+  const chave = (c: CustosRemessa) => JSON.stringify([...CHAVES_REMESSA.map((k) => c[k]), c.unidades])
+  const atuais: CustosRemessa | null = (() => {
+    const v = {} as CustosRemessa
+    for (const k of CHAVES_REMESSA) {
+      const n = numero(fixos[k])
+      if (!Number.isFinite(n) || n < 0) return null
+      v[k] = n
+    }
+    v.unidades = Number.isFinite(unidades) && unidades > 0 ? Math.round(unidades) : 0
+    return v
+  })()
+  const [fixosEstado, setFixosEstado] = useState('')
+  const { lang } = useI18n()
+  const tr = (k: string, ...a: string[]) => translate(lang, k).replace(/\{(\d)\}/g, (_, i) => a[Number(i)] ?? '')
+  const fmt = (v: number) => v.toLocaleString(lang === 'en' ? 'en-US' : 'pt-PT', { maximumFractionDigits: 2 })
+
+  useEffect(() => {
+    fetch('/api/admin/brindes-estimativa/custos', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((j) => {
+        const c = j.success ? (j.custos as CustosRemessa | null) : null
+        ultimo.current = c ? chave(c) : chave({ ...Object.fromEntries(CHAVES_REMESSA.map((k) => [k, 0])), unidades: 0 } as unknown as CustosRemessa)
+        if (c) aoCarregar(Object.fromEntries(CHAVES_REMESSA.map((k) => [k, texto(c[k])])) as Fixos)
+      })
+      .catch(() => setFixosEstado(tr('Não foi possível ler os custos da remessa.')))
+    // só ao abrir
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const chaveAtual = atuais ? chave(atuais) : null
+  useEffect(() => {
+    if (!atuais || ultimo.current === null || chaveAtual === ultimo.current) return
+    const t = setTimeout(async () => {
+      try {
+        const r = await fetch('/api/admin/brindes-estimativa/custos', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(atuais) })
+        const j = await r.json()
+        if (j.success) ultimo.current = chaveAtual
+        setFixosEstado(j.success ? tr('Guardado: já conta no valor dos brindes.') : j.error || tr('Não foi possível guardar os custos da remessa.'))
+      } catch {
+        setFixosEstado(tr('Não foi possível guardar os custos da remessa.'))
+      }
+    }, 800)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chaveAtual])
+
+  const total = atuais ? CHAVES_REMESSA.reduce((t, k) => t + atuais[k], 0) : 0
+  const porUnidade = custoFixoPorUnidadeMt(atuais)
 
   async function guardar() {
     if (!v) return
@@ -92,6 +153,14 @@ export function CartaoBrindesEstimativa() {
           {estado || 'A carregar…'}
         </p>
       )}
+      <p className="mt-5 border-t border-slate-200 pt-4 text-xs leading-relaxed text-slate-500 dark:border-slate-800 dark:text-slate-400">
+        {total > 0
+          ? atuais && atuais.unidades > 0
+            ? tr('Custos da remessa: {0} MT ÷ {1} unidades = {2} MT somados a cada produto, antes da margem. Alterar um valor em «Custos da remessa» grava-se sozinho.', fmt(total), fmt(atuais.unidades), fmt(porUnidade))
+            : tr('Há custos da remessa, mas sem unidades nas linhas não há por onde os repartir: indique as unidades dos produtos.')
+          : tr('Custos da remessa: nenhum valor definido, por isso não se soma nada ao valor dos brindes. Ao indicar um valor em «Custos da remessa», grava-se sozinho e soma-se a cada produto (o total ÷ as unidades das linhas).')}{' '}
+        <span role="status">{fixosEstado}</span>
+      </p>
     </div>
   )
 }

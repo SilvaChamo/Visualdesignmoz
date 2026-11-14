@@ -1014,7 +1014,11 @@ export function CalculadoraCustoImportacao() {
       )}
 
       {/* as percentagens do valor estimado dos brindes do site (/brindes) */}
-      <CartaoBrindesEstimativa />
+      <CartaoBrindesEstimativa
+        fixos={{ frete: form.frete, seguro: form.seguro, corretor: form.corretor, porto: form.porto, entrega: form.entrega, entregaDom: form.entregaDom, outros: form.outros }}
+        unidades={linhas.reduce((t, l) => t + (Number.isFinite(num(l.unidades)) ? num(l.unidades) : 0), 0)}
+        aoCarregar={(f) => setForm((x) => ({ ...x, ...f }))}
+      />
 
       {/* a cotação para o cliente, no fim das tabelas */}
       <CotacaoCliente
