@@ -278,6 +278,14 @@ export function produtoPorSlug(slug: string) {
   return { produto: publico(i), imagens: i.p.imagens, grupo: i.grupo ?? null, sub: i.sub ?? null }
 }
 
+/** o produto pelo código, com o preço do fornecedor em rand: só para rotas de administrador (a calculadora); nunca para a página pública */
+export function produtoPorSku(sku: string): { nome: string; precoZar: number } | null {
+  const e = INDICE.find((i) => i.p.sku === sku)
+  if (!e) return null
+  const p = publico(e)
+  return { nome: p.nome, precoZar: p.precoZar }
+}
+
 /** o que mostrar por baixo de um produto: mais da mesma subcategoria, mais do mesmo grupo e mais da mesma marca */
 export function relacionados(sku: string, n = 8) {
   const e = INDICE.find((i) => i.p.sku === sku)

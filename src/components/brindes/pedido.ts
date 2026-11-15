@@ -8,7 +8,6 @@
 import { useCallback, useSyncExternalStore } from 'react'
 import { useRouter } from 'next/navigation'
 import { CUSTOM_CATEGORIA_ID, SELECAO_STORAGE_KEY } from '@/lib/pricing-catalog'
-import { IVA_VENDA_PCT } from '@/lib/preco-brindes'
 
 export interface ItemPedido {
   /** identifica a linha (o mesmo produto pode entrar mais de uma vez, com outra cor) */
@@ -18,12 +17,11 @@ export interface ItemPedido {
   marca: string | null
   /** o que o cliente escolheu: cor, tamanhos, quantidade, personalização */
   detalhe?: string
-  /** quantidade pedida e valor estimado por unidade (MT, com IVA): só servem para devolver o produto à cotação da calculadora */
+  /** quantidade pedida: serve para pôr o produto na lista da calculadora ao voltar à cotação */
   unidades?: number
-  precoMt?: number | null
 }
 
-// «Adicionar produto» na cotação da calculadora (admin) leva ao catálogo e, ao adicionar um produto, volta à cotação com ele na tabela
+// «Adicionar produto» na cotação da calculadora (admin) leva ao catálogo e, ao adicionar um produto, volta à calculadora, que o põe na lista (e por isso na cotação)
 // shortcut: o regresso fica pendente 30 min; se o Silva sair do catálogo sem adicionar, expira sozinho
 export const RETORNO_COTACAO = 'vd-cotacao-retorno'
 export const NOVOS_COTACAO = 'vd-cotacao-novos'
@@ -80,7 +78,7 @@ export function usePedido() {
         const novos = JSON.parse(localStorage.getItem(NOVOS_COTACAO) ?? '[]') as unknown[]
         localStorage.setItem(
           NOVOS_COTACAO,
-          JSON.stringify([...novos, { nome: item.nome, unidades: item.unidades ?? 1, preco: item.precoMt ? Math.round((item.precoMt / (1 + IVA_VENDA_PCT / 100)) * 100) / 100 : null, detalhe: item.detalhe ?? '' }]),
+          JSON.stringify([...novos, { sku: item.sku, nome: item.nome, unidades: item.unidades ?? 1 }]),
         )
         sessionStorage.removeItem(RETORNO_COTACAO)
         window.location.assign(r.url)

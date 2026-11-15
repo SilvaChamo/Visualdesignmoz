@@ -70,7 +70,7 @@ export function CartaoProduto({ p }: { p: ProdutoCartao }) {
 
       <button
         type="button"
-        onClick={() => (escolhido ? removerProduto(p.sku) : adicionar({ sku: p.sku, nome: p.nome, marca: p.marca, unidades: 1, precoMt: p.precoMt }))}
+        onClick={() => (escolhido ? removerProduto(p.sku) : adicionar({ sku: p.sku, nome: p.nome, marca: p.marca, unidades: 1 }))}
         aria-pressed={escolhido}
         aria-label={escolhido ? 'Retirar do pedido' : 'Adicionar ao pedido'}
         title={escolhido ? 'Retirar do pedido' : 'Adicionar ao pedido'}

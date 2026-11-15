@@ -106,7 +106,7 @@ export function ProdutoDetalhe({ produto, ficha }: { produto: ProdutoFicha; fich
   ]
     .filter(Boolean)
     .join(' · ')
-  const item = { sku: produto.sku, nome: produto.nome, marca: produto.marca, detalhe, unidades: total, precoMt: produto.precoMt }
+  const item = { sku: produto.sku, nome: produto.nome, marca: produto.marca, detalhe, unidades: total }
   const jaNoPedido = itens.some((x) => x.sku === produto.sku && x.detalhe === detalhe)
 
   const [aviso, setAviso] = useState(false)
@@ -159,7 +159,7 @@ export function ProdutoDetalhe({ produto, ficha }: { produto: ProdutoFicha; fich
             </span>
             <button
               type="button"
-              onClick={() => (escolhidoBase ? removerProduto(produto.sku) : adicionar({ sku: produto.sku, nome: produto.nome, marca: produto.marca, unidades: Math.max(1, min), precoMt: produto.precoMt }))}
+              onClick={() => (escolhidoBase ? removerProduto(produto.sku) : adicionar({ sku: produto.sku, nome: produto.nome, marca: produto.marca, unidades: Math.max(1, min) }))}
               aria-pressed={escolhidoBase}
               className={`ml-auto inline-flex cursor-pointer items-center gap-1.5 rounded-md border px-3 py-1 text-xs font-semibold transition-colors ${escolhidoBase ? 'border-red-600 bg-red-600 text-white' : 'border-zinc-300 text-zinc-700 hover:border-red-600 hover:text-red-600 dark:border-zinc-700 dark:text-zinc-300'}`}
             >
