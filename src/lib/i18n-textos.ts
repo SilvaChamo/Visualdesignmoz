@@ -19,7 +19,7 @@ export const EN: Record<string, string> = {
   'Vamos usar {0} para este plano de e-mail.': 'We will use {0} for this e-mail plan.',
   // painel das encomendas › faixa de publicidade de quem só tem encomendas (26/10/2026)
   'Precisa de domínio, hospedagem ou e-mail profissional?': 'Need a domain, hosting or professional email?',
-  'Domínio, hospedagem e e-mail a funcionar em conjunto, geridos num só painel.': 'Domain, hosting and email working together, managed from a single panel.',
+  'Compre os nossos serviços dinâmicos, rápidos e seguros.': 'Buy our dynamic, fast and secure services.',
   'Comprar domínio': 'Buy a domain',
   'Comprar hospedagem': 'Buy hosting',
   'E-mail profissional': 'Professional email',
