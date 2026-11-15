@@ -8,6 +8,8 @@ export const calculadora_importacao: Record<string, string> = {
  "Não foi possível gravar a cotação no servidor.": "Could not save the quote on the server.",
  "Editar": "Edit",
  "Preço unitário": "Unit price",
+ "Produto(s) adicionado(s) à lista.": "Product(s) added to the list.",
+ "Não foi possível adicionar um produto à lista.": "Could not add a product to the list.",
  "Gravar": "Save",
  "Adicionar produto": "Add product",
  "Repor os produtos da calculadora": "Restore the calculator's products",

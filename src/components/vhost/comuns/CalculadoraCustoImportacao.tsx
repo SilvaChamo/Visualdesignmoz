@@ -13,6 +13,7 @@ import { useI18n } from '@/lib/i18n'
 import { cambioEntre } from '@/lib/cambio'
 import { useCambio } from './useCambio'
 import { CotacaoCliente } from './CotacaoCliente'
+import { Miniatura, useFotosProdutos } from './fotos-produtos'
 import { gravarEstado, lerEstado } from './estado-calculadora'
 import { GravarValorBrindes } from './GravarValorBrindes'
 import { configValida, type ConfigBrindes } from '@/lib/preco-brindes'
@@ -29,7 +30,7 @@ import {
   type TipoEntradaEua,
 } from '@/lib/calculadora-custo-importacao'
 
-const MAX_LINHAS = 12
+const MAX_LINHAS = 40
 
 interface LinhaForm {
   id: number
@@ -423,6 +424,7 @@ export function CalculadoraCustoImportacao() {
   const proximoId = useRef(COTACAO.length + 1)
 
   // os produtos da lista ficam guardados no servidor (tabela calculadora_estado): o que se remove não volta ao abrir de novo; só se grava depois de alterar
+  const fotoDe = useFotosProdutos(linhas.map((l) => l.nome))
   const ultimoGuardado = useRef<string | null>(null)
   const [listaLida, setListaLida] = useState(false)
   useEffect(() => {
@@ -440,6 +442,30 @@ export function CalculadoraCustoImportacao() {
       vivo = false
     }
   }, [])
+  // produtos escolhidos no catálogo à ida de «Adicionar produto» na cotação: entram na lista com o custo do fornecedor (em rand) e a quantidade escolhida
+  useEffect(() => {
+    if (!listaLida) return
+    let novos: { sku: string; unidades: number }[] = []
+    try {
+      novos = JSON.parse(localStorage.getItem('vd-cotacao-novos') ?? '[]')
+      localStorage.removeItem('vd-cotacao-novos')
+    } catch {
+      return
+    }
+    if (!novos.length) return
+    Promise.all(
+      novos.map((n) =>
+        fetch(`/api/admin/brindes-custo?sku=${encodeURIComponent(n.sku)}`)
+          .then((r) => r.json())
+          .then((j: { success?: boolean; nome?: string; precoZar?: number }) => (j.success && j.nome && typeof j.precoZar === 'number' ? { n, nome: j.nome, custo: j.precoZar } : null))
+          .catch(() => null),
+      ),
+    ).then((res) => {
+      const novas = res.filter((x) => x !== null).map((x) => novaLinha(proximoId.current++, { nome: x.nome, unidades: String(Math.max(1, x.n.unidades || 1)), custo: String(x.custo) }))
+      if (novas.length) setLinhas((ls) => [...ls, ...novas].slice(0, MAX_LINHAS))
+      setEstado(novas.length === novos.length ? 'Produto(s) adicionado(s) à lista.' : 'Não foi possível adicionar um produto à lista.')
+    })
+  }, [listaLida])
   const listaAtual = JSON.stringify({ linhas, proximo: proximoId.current })
   useEffect(() => {
     if (!listaLida) return
@@ -897,7 +923,10 @@ export function CalculadoraCustoImportacao() {
               return (
                 <div key={l.id} data-linha className="rounded-xl border border-slate-200 p-4 dark:border-slate-700">
                   <div className="mb-3 flex items-center justify-between">
-                    <span className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">{`Linha ${k + 1}`}</span>
+                    <span className="flex items-center gap-2.5">
+                      {fotoDe(l.nome) && <Miniatura src={fotoDe(l.nome)} />}
+                      <span className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">{`Linha ${k + 1}`}</span>
+                    </span>
                     {linhas.length > 1 && (
                       <button type="button" onClick={() => removerLinha(l.id)} className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold text-red-600 transition hover:bg-red-50 dark:hover:bg-red-500/10">
                         <Trash2 className="h-3.5 w-3.5" aria-hidden />

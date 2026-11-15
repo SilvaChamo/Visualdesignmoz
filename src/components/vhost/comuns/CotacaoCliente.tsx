@@ -8,6 +8,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Plus, Printer, Trash2 } from 'lucide-react'
 import { gravarEstado, lerEstado } from './estado-calculadora'
+import { Miniatura, useFotosProdutos } from './fotos-produtos'
 
 export interface ItemCotacao {
   id: number
@@ -68,14 +69,12 @@ export function CotacaoCliente({ itens, moeda, aoRemover }: { itens: ItemCotacao
   // a tabela da cotação edita-se aqui, sem mexer na calculadora: o que se escreve numa linha (nome, quantidade, preço) vale só para a cotação, as linhas
   // podem ser eliminadas e acrescentam-se outras; o que não se editou continua a seguir a calculadora
   const [edicoes, setEdicoes] = useState<Record<number, { nome?: string; unidades?: string; preco?: string }>>({})
-  const [extras, setExtras] = useState<{ id: number; nome: string; unidades: string; preco: string }[]>([])
-  const proximoExtra = useRef(100000)
   const [aviso, setAviso] = useState('')
   // a tabela só mostra os campos editáveis e o eliminar/adicionar quando se clica em «Editar»; «Gravar» guarda e volta à vista normal
   const [editar, setEditar] = useState(false)
 
   // «Gravar»: guarda a cotação editada (campos, tabela, personalização) no servidor (tabela calculadora_estado) e volta a pô-la ao abrir
-  const estado = { cliente, contacto, numero, validade, prazo, pagamento, ivaIncluido, ivaPct, personalizacao, edicoes, extras }
+  const estado = { cliente, contacto, numero, validade, prazo, pagamento, ivaIncluido, ivaPct, personalizacao, edicoes }
   const cargaFeita = useRef(false)
   useEffect(() => {
     if (cargaFeita.current) return
@@ -92,25 +91,6 @@ export function CotacaoCliente({ itens, moeda, aoRemover }: { itens: ItemCotacao
         setIvaPct(g.ivaPct ?? '16')
         setPersonalizacao(g.personalizacao ?? {})
         setEdicoes(g.edicoes ?? {})
-        setExtras(g.extras ?? [])
-        proximoExtra.current = Math.max(100000, ...(g.extras ?? []).map((x) => x.id + 1))
-      }
-      // produtos escolhidos no catálogo à ida de «Adicionar produto»: entram na tabela com o valor do catálogo (sem IVA), a quantidade e a personalização
-      try {
-        const novos = JSON.parse(localStorage.getItem('vd-cotacao-novos') ?? '[]') as { nome: string; unidades: number; preco: number | null; detalhe: string }[]
-        if (novos.length) {
-          localStorage.removeItem('vd-cotacao-novos')
-          const base = proximoExtra.current
-          proximoExtra.current += novos.length
-          setEditar(true)
-          setExtras((xs) => [...xs, ...novos.map((n, k) => ({ id: base + k, nome: n.nome, unidades: String(n.unidades || 1), preco: n.preco === null ? '' : String(n.preco) }))])
-          setPersonalizacao((p) => ({
-            ...p,
-            ...Object.fromEntries(novos.map((n, k) => [base + k, /Personalização: ([^·]+)/.exec(n.detalhe)?.[1].trim() || (n.detalhe.includes('Sem personalização') ? 'Sem personalização' : 'Logo impresso')])),
-          }))
-        }
-      } catch {
-        /* sem produtos novos */
       }
     })
   }, [])
@@ -145,12 +125,6 @@ export function CotacaoCliente({ itens, moeda, aoRemover }: { itens: ItemCotacao
           preco: e.preco !== undefined ? numeroOuNaN(e.preco) : i.preco,
         }
       }),
-    ...extras.map((x) => ({
-      id: x.id,
-      nome: x.nome,
-      unidades: numeroOuNaN(x.unidades),
-      preco: numeroOuNaN(x.preco),
-    })),
   ]
   const linhas = rotulos.map((i) => {
     const unidades = Number.isInteger(i.unidades) && i.unidades > 0 ? i.unidades : NaN
@@ -170,45 +144,19 @@ export function CotacaoCliente({ itens, moeda, aoRemover }: { itens: ItemCotacao
   const totalAPagar = ivaIncluido ? somaLinhas : somaLinhas + ivaValor
   const nomeCliente = cliente.trim()
 
-  // miniatura do produto no início de cada linha: procura no catálogo de brindes o produto com este nome (só se o nome for igual); sem correspondência, a linha fica sem foto
-  const [fotos, setFotos] = useState<Record<string, string>>({})
-  const nomesChave = linhas.map((i) => i.nome.trim()).join('\n')
-  useEffect(() => {
-    const norm = (t: string) => t.toLowerCase().replace(/\s+/g, ' ').trim()
-    let vivo = true
-    for (const nome of new Set(nomesChave.split('\n').filter((n) => n.length > 2))) {
-      if (fotos[norm(nome)] !== undefined) continue
-      fetch(`/api/brindes/pesquisa?q=${encodeURIComponent(nome)}`)
-        .then((r) => r.json())
-        .then((j: { produtos?: { nome: string; imagem: string }[] }) => {
-          const achado = j.produtos?.find((p) => norm(p.nome) === norm(nome))
-          if (vivo)
-            setFotos((f) => ({
-              ...f,
-              [norm(nome)]: achado ? `/api/brindes/imagem?p=${encodeURIComponent(achado.imagem)}&w=96` : '',
-            }))
-        })
-        .catch(() => vivo && setFotos((f) => ({ ...f, [norm(nome)]: '' })))
-    }
-    return () => {
-      vivo = false
-    }
-    // só quando mudam os nomes dos produtos
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nomesChave])
-  const fotoDe = (nome: string) => fotos[nome.toLowerCase().replace(/\s+/g, ' ').trim()] || ''
+  // miniatura do produto no início de cada linha (só se o nome for igual ao de um produto do catálogo)
+  const fotoDe = useFotosProdutos(linhas.map((i) => i.nome))
 
   // edição em linha: o preço que se escreve é o da tabela (com IVA, se vai incluído); guarda-se sem IVA, e enquanto se escreve mostra-se o texto tal como está
   const [foco, setFoco] = useState<{ id: number; texto: string } | null>(null)
-  const ehExtra = (id: number) => extras.some((x) => x.id === id)
-  const mudarLinha = (id: number, campo: 'nome' | 'unidades' | 'preco', v: string) => (ehExtra(id) ? setExtras((xs) => xs.map((x) => (x.id === id ? { ...x, [campo]: v } : x))) : setEdicoes((d) => ({ ...d, [id]: { ...d[id], [campo]: v } })))
+  const mudarLinha = (id: number, campo: 'nome' | 'unidades' | 'preco', v: string) => setEdicoes((d) => ({ ...d, [id]: { ...d[id], [campo]: v } }))
   const mudarPreco = (id: number, texto: string) => {
     setFoco({ id, texto })
     const n = numeroOuNaN(texto)
     mudarLinha(id, 'preco', Number.isFinite(n) ? String(n / fator) : texto)
   }
-  // um produto da calculadora remove-se da calculadora (é o mesmo «Remover» da lista de produtos); um acrescentado aqui só desta cotação
-  const eliminar = (id: number) => (ehExtra(id) ? setExtras((xs) => xs.filter((x) => x.id !== id)) : aoRemover?.(id))
+  // um produto da calculadora remove-se da calculadora (é o mesmo «Remover» da lista de produtos)
+  const eliminar = (id: number) => aoRemover?.(id)
   // «Adicionar produto»: grava a cotação e vai ao catálogo; ao adicionar lá um produto, o catálogo volta aqui (ver pedido.ts)
   const acrescentar = async () => {
     await gravar()
@@ -225,7 +173,7 @@ export function CotacaoCliente({ itens, moeda, aoRemover }: { itens: ItemCotacao
     }
     window.location.assign('/brindes')
   }
-  const textoQtd = (id: number, n: number) => (ehExtra(id) ? extras.find((x) => x.id === id)?.unidades : edicoes[id]?.unidades) ?? (Number.isFinite(n) ? String(n) : '')
+  const textoQtd = (id: number, n: number) => edicoes[id]?.unidades ?? (Number.isFinite(n) ? String(n) : '')
 
   function imprimir() {
     const doc = document.getElementById(ID_DOCUMENTO)
@@ -326,11 +274,10 @@ export function CotacaoCliente({ itens, moeda, aoRemover }: { itens: ItemCotacao
             Editar
           </button>
         )}
-        {editar && (extras.length > 0 || Object.keys(edicoes).length > 0) && (
+        {editar && Object.keys(edicoes).length > 0 && (
           <button
             type="button"
             onClick={() => {
-              setExtras([])
               setEdicoes({})
             }}
             className="cursor-pointer rounded-md px-3 py-1.5 text-sm font-semibold text-slate-600 underline-offset-2 hover:text-red-600 hover:underline dark:text-slate-300"
@@ -395,38 +342,13 @@ export function CotacaoCliente({ itens, moeda, aoRemover }: { itens: ItemCotacao
                   <tr key={l.id} className="border-b border-zinc-200 align-middle" style={k % 2 === 1 ? { backgroundColor: '#f4f4f5', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' } : undefined}>
                     <td className="px-3 py-2">
                       <div className="flex items-center gap-2.5">
-                        {fotoDe(l.nome) && (
-                          // a miniatura amplia-se ao passar o rato (só no ecrã, não na folha impressa)
-                          <span className="group/foto relative shrink-0">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={fotoDe(l.nome)}
-                              alt=""
-                              width={40}
-                              height={40}
-                              style={{
-                                width: 40,
-                                height: 40,
-                                objectFit: 'contain',
-                              }}
-                              className="cursor-zoom-in rounded-md border border-zinc-200 bg-white"
-                            />
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              data-sem-imprimir
-                              src={fotoDe(l.nome).replace('&w=96', '&w=480')}
-                              alt=""
-                              loading="lazy"
-                              className="pointer-events-none absolute left-0 top-1/2 z-30 hidden h-44 w-44 -translate-y-1/2 rounded-lg border border-zinc-200 bg-white object-contain p-1 shadow-xl group-hover/foto:block"
-                            />
-                          </span>
-                        )}
+                        {fotoDe(l.nome) && <Miniatura src={fotoDe(l.nome)} />}
                         {editar ? (
                           <input type="text" aria-label="Produto" value={l.nome} onChange={(e) => mudarLinha(l.id, 'nome', e.target.value)} className={`${EDITAR} text-[11px] leading-tight`} />
                         ) : (
                           <span className="text-[11px] leading-tight">{l.nome}</span>
                         )}
-                        {editar && (ehExtra(l.id) || (aoRemover && itens.length > 1)) && (
+                        {editar && aoRemover && itens.length > 1 && (
                           <button type="button" data-sem-imprimir onClick={() => eliminar(l.id)} className="inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold text-red-600 transition hover:bg-red-50">
                             <Trash2 className="h-3.5 w-3.5" aria-hidden />
                             Remover
