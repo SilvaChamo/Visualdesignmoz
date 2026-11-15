@@ -27,7 +27,7 @@ export function PromoProdutos() {
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-red-200 bg-red-50 px-4 py-2 text-sm text-gray-800 dark:border-red-900/50 dark:bg-red-950/30 dark:text-zinc-200">
       <span className="font-semibold">Precisa de domínio, hospedagem ou e-mail profissional?</span>
-      <span className="hidden text-gray-600 dark:text-zinc-400 md:inline">Ao comprar, passa para o painel de gestão do serviço.</span>
+      <span className="hidden text-gray-600 dark:text-zinc-400 md:inline">Domínio, hospedagem e e-mail a funcionar em conjunto, geridos num só painel.</span>
       <div className="flex flex-wrap items-center gap-2">
         {OFERTAS.map(({ href, texto, Icone }) => (
           <a
