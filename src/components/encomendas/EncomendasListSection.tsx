@@ -164,7 +164,7 @@ export function EncomendasListSection({ onNova, textoNova }: { onNova?: () => vo
                   <p className="font-bold text-base text-black dark:text-white truncate">Encomenda Nº {displayNumero(numeros, batch.batchId)}</p>
                   <p className="text-sm text-gray-500 dark:text-zinc-400 mt-0.5 truncate">{resumo}</p>
                   <p className="text-sm text-gray-500 dark:text-zinc-400 mt-0.5">
-                    {batch.sobConsulta ? 'Sob Consulta' : `${formatMt(encomendaPaymentSplit(batch.totalMt).totalComIvaMt)} MT (c/ IVA)`}
+                    {batch.sobConsulta ? 'Sob aprovação' : `${formatMt(encomendaPaymentSplit(batch.totalMt).totalComIvaMt)} MT (c/ IVA)`}
                   </p>
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     <span className={`inline-block px-2 py-0.5 rounded-md text-[11px] font-bold border ${meta.color}`}>
