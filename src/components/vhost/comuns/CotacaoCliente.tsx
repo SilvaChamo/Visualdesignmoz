@@ -82,6 +82,19 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda, m
   const chaveEstado = modoCliente && encomenda ? (`cotacao:${encomenda.batchId}` as const) : ('cotacao' as const)
   const chaveImagens = modoCliente && encomenda ? (`cotacao-imagens:${encomenda.batchId}` as const) : ('cotacao-imagens' as const)
   const [cliente, setCliente] = useState('')
+  // painel do cliente: a folha A4 encolhe à largura do ecrã (zoom) em vez de se cortar ou rolar de lado
+  const caixaFolha = useRef<HTMLDivElement>(null)
+  const [zoom, setZoom] = useState(1)
+  useEffect(() => {
+    const el = caixaFolha.current
+    if (!modoCliente || !el) return
+    const ro = new ResizeObserver(() => {
+      const cs = getComputedStyle(el)
+      setZoom(Math.min(1, (el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)) / 794) || 1)
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [modoCliente, caixaFolha.current])
   const [contacto, setContacto] = useState('')
   const [numero, setNumero] = useState('')
   // o número é escrito pelo sistema (série «COT ano/nnnn», como a factura): a chave identifica a cotação (o lote da encomenda do site, ou um código próprio da cotação livre)
@@ -524,10 +537,13 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda, m
   }
 
   return (
-    <div className={CARTAO}>
-      <h2 className={TITULO}>Cotação ao cliente</h2>
+    <div className={modoCliente ? '' : CARTAO}>
+      {!modoCliente && <h2 className={TITULO}>Cotação ao cliente</h2>}
       {aviso && <p className="mt-2 text-sm font-semibold text-red-600">{aviso}</p>}
 
+      {/* no painel do cliente só se vê a folha: os dados (cliente, número, prazos, IVA…) são do administrador e vêm da base de dados */}
+      {!modoCliente && (
+        <>
       <div className="mt-4 grid grid-cols-2 gap-3 @xl:grid-cols-3">
         <CampoTexto id="cci-cot-cliente" rotulo="Cliente" valor={cliente} aoMudar={setCliente} exemplo="Nome da empresa" />
         <CampoTexto id="cci-cot-contacto" rotulo="Contacto" valor={contacto} aoMudar={setContacto} exemplo="Nome e telefone" />
@@ -549,6 +565,8 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda, m
           <span>Preços com o IVA incluído</span>
         </label>
       </div>
+        </>
+      )}
 
       {!valido ? (
         <div className="mt-5 flex flex-wrap items-center gap-3">
@@ -566,7 +584,7 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda, m
           )}
         </div>
       ) : (
-        <div className="mt-6 rounded-xl bg-slate-100 p-3 dark:bg-slate-800 @xl:p-5">
+        <div ref={caixaFolha} className="mt-6 rounded-xl bg-slate-100 p-3 dark:bg-slate-800 @xl:p-5">
           {/* o botão fica na própria cotação, por cima da folha */}
           <div className="mx-auto mb-3 flex w-[210mm] max-w-full flex-wrap items-center justify-end gap-2">
             <button
@@ -579,7 +597,7 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda, m
             </button>
             {botoesEditar}
           </div>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto" style={modoCliente ? ({ zoom } as React.CSSProperties) : undefined}>
             {/* o documento (sempre claro, folha A4 com a margem de 12 mm da impressão); é o que se imprime */}
             <div id={ID_DOCUMENTO} className="mx-auto flex min-h-[297mm] w-[210mm] shrink-0 flex-col bg-white p-[12mm] text-[13px] leading-snug text-zinc-800 shadow-sm" style={{ fontFamily: 'var(--font-site), sans-serif' }}>
               <div className="flex items-start justify-between gap-6 pb-3">
