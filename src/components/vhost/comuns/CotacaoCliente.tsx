@@ -79,8 +79,9 @@ const lerNumero = (s: string, padrao: number) => {
 }
 
 export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda, modoCliente }: { itens: ItemCotacao[]; moeda: string; /** painel do cliente: a mesma folha e as mesmas opções de edição, guardada por encomenda */ modoCliente?: boolean; encomenda?: { batchId: string; cliente: string; contacto: string; numero: string; email?: string; itens?: { id: string; nome: string }[] }; aoRemover?: (id: number) => void; aoTrocar?: (id: number, sku: string) => Promise<void> }) {
-  const chaveEstado = modoCliente && encomenda ? (`cotacao:${encomenda.batchId}` as const) : ('cotacao' as const)
-  const chaveImagens = modoCliente && encomenda ? (`cotacao-imagens:${encomenda.batchId}` as const) : ('cotacao-imagens' as const)
+  // uma encomenda do site tem a sua folha guardada à parte («cotacao:<lote>»): o administrador na calculadora e o cliente no painel editam a mesma, e cada um vê o resultado final do outro
+  const chaveEstado = encomenda ? (`cotacao:${encomenda.batchId}` as const) : ('cotacao' as const)
+  const chaveImagens = encomenda ? (`cotacao-imagens:${encomenda.batchId}` as const) : ('cotacao-imagens' as const)
   const [cliente, setCliente] = useState('')
   // painel do cliente: a folha A4 encolhe à largura do ecrã (zoom) em vez de se cortar ou rolar de lado
   const caixaFolha = useRef<HTMLDivElement>(null)
@@ -121,52 +122,56 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda, m
 
   // «Gravar»: guarda a cotação editada (campos, tabela, personalização) no servidor (tabela calculadora_estado) e volta a pô-la ao abrir
   const estado = { cliente, contacto, numero, chave, validade, prazo, pagamento, ivaIncluido, ivaPct, personalizacao, edicoes }
+  // a folha (de que lote) que já foi lida do servidor: só depois disso o que se escreve se grava (senão os valores de partida apagavam o guardado)
+  const [lido, setLido] = useState<string | null>(null)
+  const aplicar = (g: Partial<typeof estado>) => {
+    setCliente(g.cliente ?? '')
+    setContacto(g.contacto ?? '')
+    // números antigos escritos à mão não valem: só fica o que o sistema atribuiu (tem chave)
+    if (g.chave) {
+      setChave(g.chave)
+      setNumero(g.numero ?? '')
+    }
+    setValidade(g.validade ?? '10')
+    setPrazo(g.prazo || PRAZO_PADRAO)
+    setPagamento(g.pagamento || PAGAMENTO_PADRAO)
+    setIvaIncluido(g.ivaIncluido ?? true)
+    setIvaPct(g.ivaPct ?? '16')
+    setPersonalizacao(g.personalizacao ?? {})
+    setEdicoes(g.edicoes ?? {})
+  }
+  const carregar = (lote: typeof encomenda) => {
+    const id = lote?.batchId ?? ''
+    const ch = lote ? (`cotacao:${id}` as const) : ('cotacao' as const)
+    const chImg = lote ? (`cotacao-imagens:${id}` as const) : ('cotacao-imagens' as const)
+    lerEstadoSeguro<Partial<typeof estado>>(ch).then(({ ok, estado: g }) => {
+      // sem conseguir ler o que estava guardado (sessão expirada), nada se grava por cima: fica por carregar
+      if (!ok) return
+      // primeira vez nesta encomenda: parte dos dados da própria encomenda
+      if (g) aplicar(g)
+      else if (lote) aplicar({ cliente: lote.cliente, contacto: lote.contacto })
+      setLido(id)
+      setCarregado(true)
+    })
+    lerEstadoSeguro<Record<number, string>>(chImg).then(({ ok, estado: g }) => ok && setImagens(g ?? {}))
+  }
   const cargaFeita = useRef(false)
   useEffect(() => {
     if (cargaFeita.current) return
     cargaFeita.current = true
-    lerEstadoSeguro<Partial<typeof estado>>(chaveEstado).then(async ({ ok, estado: g0 }) => {
-      // sem conseguir ler o que estava guardado (sessão expirada), nada se grava por cima: fica por carregar
-      if (!ok) return
-      let g = g0
-      if (modoCliente && encomenda) {
-        // primeira vez no painel do cliente: parte do que a equipa já deixou nesta encomenda (se a tinha na calculadora), senão dos dados da encomenda
-        if (!g) {
-          const antes = await lerEstadoSeguro<Partial<typeof estado>>('cotacao')
-          g = antes.ok && antes.estado?.chave === encomenda.batchId ? antes.estado : { cliente: encomenda.cliente, contacto: encomenda.contacto }
-        }
-      }
-      if (g) {
-        setCliente(g.cliente ?? '')
-        setContacto(g.contacto ?? '')
-        // números antigos escritos à mão não valem: só fica o que o sistema atribuiu (tem chave)
-        if (g.chave) {
-          setChave(g.chave)
-          setNumero(g.numero ?? '')
-        }
-        setValidade(g.validade ?? '10')
-        setPrazo(g.prazo || PRAZO_PADRAO)
-        setPagamento(g.pagamento || PAGAMENTO_PADRAO)
-        setIvaIncluido(g.ivaIncluido ?? true)
-        setIvaPct(g.ivaPct ?? '16')
-        setPersonalizacao(g.personalizacao ?? {})
-        setEdicoes(g.edicoes ?? {})
-      }
-      setCarregado(true)
-    })
-    lerEstadoSeguro<Record<number, string>>(chaveImagens).then(({ ok, estado: g }) => ok && g && setImagens(g))
+    carregar(encomenda)
   }, [])
-  // ao carregar uma encomenda do site na calculadora, a cotação passa a ser a dela (empresa, responsável e número); ao abrir a página não se mexe no que está guardado
+  // ao carregar outra encomenda do site na calculadora, a cotação passa a ser a dela (o que ficou guardado, ou a empresa, o responsável e o número); ao abrir a página não se mexe no que está guardado
   const encomendaAnterior = useRef(encomenda?.batchId)
   useEffect(() => {
     if (!encomenda || encomenda.batchId === encomendaAnterior.current) return
     encomendaAnterior.current = encomenda.batchId
-    setCliente(encomenda.cliente)
-    setContacto(encomenda.contacto)
+    setLido(null)
     setNumero('')
     setChave('')
     setEdicoes({})
     setImagens({})
+    carregar(encomenda)
   }, [encomenda])
   const gravar = async () => {
     const ok = await gravarEstado(chaveEstado, estado)
@@ -221,7 +226,7 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda, m
   // com uma encomenda do site na calculadora, o cliente vê em Encomendas › Cotação só a cópia desta folha: cada alteração aqui actualiza-a (um instante depois, e nunca a meio de uma edição)
   // os preços da cotação (sem IVA) passam às linhas da encomenda, que deixam de estar «sob consulta»: o cartão do cliente mostra o valor da factura
   // shortcut: liga cada linha da cotação à da encomenda pelo nome do produto; se ficarem sem par (nome repetido a mais), essas linhas ficam como estavam
-  const precosFixados = useRef<Record<string, number>>({})
+  const precosFixados = useRef<Record<string, string>>({})
   const fixarPrecos = () => {
     if (modoCliente) return
     const usadas = new Set<string>()
@@ -230,9 +235,10 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda, m
       const par = encomenda?.itens?.find((x) => !usadas.has(x.id) && x.nome === original?.nome.trim())
       if (!par) continue
       usadas.add(par.id)
-      if (!(l.preco > 0) || precosFixados.current[par.id] === l.preco) continue
-      precosFixados.current[par.id] = l.preco
-      fetch('/api/admin/cotacoes', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: par.id, precoUnitarioMt: l.preco, semAviso: true }) }).catch(() => undefined)
+      const sinal = `${l.preco}|${l.unidades}`
+      if (!(l.preco > 0) || precosFixados.current[par.id] === sinal) continue
+      precosFixados.current[par.id] = sinal
+      fetch('/api/admin/cotacoes', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: par.id, precoUnitarioMt: l.preco, quantidade: l.unidades, semAviso: true }) }).catch(() => undefined)
     }
   }
   const copiaChave = valido && !editar && encomenda && !modoCliente ? JSON.stringify([encomenda.batchId, estado, itens]) : ''
@@ -257,7 +263,7 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda, m
   // pede o número ao sistema assim que há cotação: a mesma chave devolve sempre o mesmo número, e guarda-se logo para não gastar outro ao reabrir
   const chaveDevida = encomenda?.batchId ?? chave
   useEffect(() => {
-    if (!carregado || !valido || aEmitir.current || (numero && (!encomenda || chave === encomenda.batchId))) return
+    if (!carregado || lido !== (encomenda?.batchId ?? '') || !valido || aEmitir.current || (numero && (!encomenda || chave === encomenda.batchId))) return
     aEmitir.current = true
     const k = chaveDevida || crypto.randomUUID()
     fetch('/api/admin/cotacoes/numero', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chave: k }) })
@@ -273,28 +279,28 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda, m
         aEmitir.current = false
       })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [carregado, valido, numero, chave, encomenda?.batchId])
+  }, [carregado, lido, valido, numero, chave, encomenda?.batchId])
 
   // o que se escreve (cliente, contacto, prazo…) fica guardado sozinho um instante depois, sem carregar em «Gravar»: ao recarregar a página volta tudo
   const estadoTexto = JSON.stringify(estado)
   useEffect(() => {
-    if (!carregado) return
+    if (!carregado || lido !== (encomenda?.batchId ?? '')) return
     const t = window.setTimeout(() => void gravarEstado(chaveEstado, estado), 600)
     return () => window.clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [carregado, estadoTexto])
+  }, [carregado, lido, estadoTexto])
 
   // as fotos trocadas guardam-se sozinhas (e só depois de lidas as guardadas, para não as apagar)
   const imagensLidas = useRef(false)
   useEffect(() => {
-    if (!carregado) return
+    if (!carregado || lido !== (encomenda?.batchId ?? '')) return
     if (!imagensLidas.current) {
       imagensLidas.current = true
       return
     }
     const t = window.setTimeout(() => void gravarEstado(chaveImagens, imagens), 600)
     return () => window.clearTimeout(t)
-  }, [carregado, imagens])
+  }, [carregado, lido, imagens])
 
   // miniatura do produto no início de cada linha (só se o nome for igual ao de um produto do catálogo)
   const fotoDe = useFotosProdutos(linhas.map((i) => i.nome))
