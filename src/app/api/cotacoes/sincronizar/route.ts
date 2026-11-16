@@ -29,6 +29,8 @@ export async function POST(req: Request) {
     let produto: string = atual.produto
     const sku = REF.exec(atual.produto)?.[1]
     if (pedido.sku && pedido.sku !== sku) {
+      // só se troca o produto das linhas cujo valor vem da calculadora; as outras têm o valor do produto que lá está
+      if (!atual.sob_consulta_original) continue
       const novo = produtoPorSku(pedido.sku.slice(0, 80))
       if (novo) produto = `${novo.nome} — ref. ${pedido.sku}${REF.exec(atual.produto)?.[2] ? ` — ${REF.exec(atual.produto)![2]}` : ''}`.slice(0, 255)
     }
