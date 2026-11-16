@@ -344,7 +344,9 @@ export function EncomendaDetalhe({
               />
             </div>
           ) : (
-            <CopiaCotacao id={primary.id} />
+            <div className="p-4">
+              <CopiaCotacao id={primary.id} />
+            </div>
           )
         )}
         {tab === 'facturas' && (
