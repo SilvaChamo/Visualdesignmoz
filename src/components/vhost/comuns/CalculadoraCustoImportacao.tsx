@@ -1267,7 +1267,7 @@ export function CalculadoraCustoImportacao() {
 
       {/* a cotação para o cliente, no fim das tabelas */}
       <CotacaoCliente
-        encomenda={encomenda ? { batchId: encomenda.batchId, cliente: encomenda.empresa, contacto: [encomenda.responsavel, encomenda.telefone, encomenda.email].filter(Boolean).join(' · '), numero: encomenda.numero, email: encomenda.email, itens: encomenda.itens.map((i) => ({ id: i.id, nome: i.nome.trim() })) } : undefined}
+        encomenda={encomenda ? { batchId: encomenda.batchId, cliente: encomenda.empresa, contacto: [encomenda.responsavel, encomenda.telefone].filter(Boolean).join(' · '), numero: encomenda.numero, email: encomenda.email, endereco: encomenda.endereco || undefined, itens: encomenda.itens.map((i) => ({ id: i.id, nome: i.nome.trim() })) } : undefined}
         moeda={moeda}
         aoRemover={removerLinha}
         aoTrocar={trocarProduto}

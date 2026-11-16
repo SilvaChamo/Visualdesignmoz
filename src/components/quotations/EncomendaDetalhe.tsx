@@ -32,6 +32,7 @@ type QuotationRow = {
   responsavel?: string;
   telefone?: string;
   email?: string;
+  endereco?: string | null;
 };
 
 type Tab = 'detalhes' | 'historico' | 'mensagens' | 'cotacao' | 'facturas';
@@ -338,9 +339,10 @@ export function EncomendaDetalhe({
                 encomenda={{
                   batchId: primary.batch_id,
                   cliente: primary.empresa,
-                  contacto: [primary.responsavel, primary.telefone, primary.email].filter(Boolean).join(' · '),
+                  contacto: [primary.responsavel, primary.telefone].filter(Boolean).join(' · '),
                   numero: '',
                   email: primary.email,
+                  endereco: primary.endereco ?? undefined,
                   itens: items.map((i, k) => ({ id: i.id, nome: i.produto.split(' — ref. ')[0].trim() })),
                 }}
               />

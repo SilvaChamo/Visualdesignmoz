@@ -78,7 +78,7 @@ const lerNumero = (s: string, padrao: number) => {
   return s.trim() !== '' && Number.isFinite(v) && v >= 0 ? v : padrao
 }
 
-export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda, modoCliente }: { itens: ItemCotacao[]; moeda: string; /** painel do cliente: a mesma folha e as mesmas opções de edição, guardada por encomenda */ modoCliente?: boolean; encomenda?: { batchId: string; cliente: string; contacto: string; numero: string; email?: string; itens?: { id: string; nome: string }[] }; aoRemover?: (id: number) => void; aoTrocar?: (id: number, sku: string) => Promise<void> }) {
+export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda, modoCliente }: { itens: ItemCotacao[]; moeda: string; /** painel do cliente: a mesma folha e as mesmas opções de edição, guardada por encomenda */ modoCliente?: boolean; encomenda?: { batchId: string; cliente: string; contacto: string; numero: string; email?: string; endereco?: string; itens?: { id: string; nome: string }[] }; aoRemover?: (id: number) => void; aoTrocar?: (id: number, sku: string) => Promise<void> }) {
   // uma encomenda do site tem a sua folha guardada à parte («cotacao:<lote>»): o administrador na calculadora e o cliente no painel editam a mesma, e cada um vê o resultado final do outro
   const chaveEstado = encomenda ? (`cotacao:${encomenda.batchId}` as const) : ('cotacao' as const)
   const chaveImagens = encomenda ? (`cotacao-imagens:${encomenda.batchId}` as const) : ('cotacao-imagens' as const)
@@ -222,6 +222,8 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda, m
   const ivaValor = ivaIncluido ? arredondar2(somaLinhas - subtotal) : arredondar2(somaLinhas * (iva / 100))
   const totalAPagar = ivaIncluido ? somaLinhas : somaLinhas + ivaValor
   const nomeCliente = cliente.trim()
+  // o e-mail vai numa linha própria: tira-se do contacto, onde estava junto (cotações guardadas antes)
+  const contactoSemEmail = encomenda?.email ? contacto.split(' · ').filter((x) => x.trim().toLowerCase() !== encomenda.email!.toLowerCase()).join(' · ') : contacto
 
   // com uma encomenda do site na calculadora, o cliente vê em Encomendas › Cotação só a cópia desta folha: cada alteração aqui actualiza-a (um instante depois, e nunca a meio de uma edição)
   // os preços da cotação (sem IVA) passam às linhas da encomenda, que deixam de estar «sob consulta»: o cartão do cliente mostra o valor da factura
@@ -307,6 +309,17 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda, m
 
   // edição em linha: o preço que se escreve é o da tabela (com IVA, se vai incluído); guarda-se sem IVA, e enquanto se escreve mostra-se o texto tal como está
   const [foco, setFoco] = useState<{ id: number; texto: string } | null>(null)
+  // painel do cliente: trocar por um produto semelhante leva o nome e o valor do produto novo (a calculadora, no administrador, faz o mesmo pela lista própria)
+  const trocarCliente = async (id: number, sku: string) => {
+    try {
+      const j = (await (await fetch(`/api/brindes/valor?sku=${encodeURIComponent(sku)}`)).json()) as { success?: boolean; nome?: string; valorSemIva?: number }
+      if (!j.success || !j.nome || !(j.valorSemIva && j.valorSemIva > 0)) throw new Error()
+      mudarLinha(id, 'nome', j.nome)
+      mudarLinha(id, 'preco', String(j.valorSemIva))
+    } catch {
+      setAviso('Não foi possível trocar o produto.')
+    }
+  }
   const mudarLinha = (id: number, campo: 'nome' | 'unidades' | 'preco', v: string) => setEdicoes((d) => ({ ...d, [id]: { ...d[id], [campo]: v } }))
   const mudarPreco = (id: number, texto: string) => {
     setFoco({ id, texto })
@@ -643,7 +656,9 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda, m
               >
                 <p className="text-zinc-600">Cliente</p>
                 <p className="text-xl font-extrabold text-zinc-900">{nomeCliente || '[NOME DO CLIENTE]'}</p>
-                <p className="text-zinc-600">Contacto: {contacto.trim() || '[NOME E TELEFONE]'}</p>
+                {encomenda?.endereco && <p className="text-zinc-600">{encomenda.endereco}</p>}
+                <p className="text-zinc-600">Contacto: {contactoSemEmail.trim() || '[NOME E TELEFONE]'}</p>
+                {encomenda?.email && <p className="text-zinc-600">{encomenda.email}</p>}
               </div>
 
               <table className="mt-5 w-full border-collapse text-left">
@@ -680,10 +695,11 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda, m
                           ) : (
                             <span className="text-[11px] font-bold leading-tight">{l.nome}</span>
                           )}
-                          {editar && aoTrocar && (
+                          {editar && (aoTrocar || modoCliente) && (
                             <SeletorSemelhantes
                               nome={l.nome}
                               aoEscolher={async (sku) => {
+                                if (!aoTrocar) return trocarCliente(l.id, sku)
                                 await aoTrocar(l.id, sku)
                                 // a troca dá o nome e o preço do produto novo: largam-se as edições anteriores destes dois campos
                                 setEdicoes((d) => {
@@ -761,16 +777,16 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda, m
                     </tr>
                   )}
                   <tr className="border-b border-zinc-200">
-                    <td colSpan={4} className="px-3 py-2 text-right font-semibold">
+                    <td colSpan={4} className="px-3 py-2 text-right font-bold">
                       Subtotal (sem IVA)
                     </td>
-                    <td className="whitespace-nowrap px-2 py-2 text-right tabular-nums">{valor2(subtotal)}</td>
+                    <td className="whitespace-nowrap px-2 py-2 text-right font-bold tabular-nums">{valor2(subtotal)}</td>
                   </tr>
                   <tr className="border-b border-zinc-200">
-                    <td colSpan={4} className="px-3 py-2 text-right font-semibold">
+                    <td colSpan={4} className="px-3 py-2 text-right font-bold">
                       IVA ({iva}%)
                     </td>
-                    <td className="whitespace-nowrap px-2 py-2 text-right tabular-nums">{valor2(ivaValor)}</td>
+                    <td className="whitespace-nowrap px-2 py-2 text-right font-bold tabular-nums">{valor2(ivaValor)}</td>
                   </tr>
                   <tr className="border-b border-zinc-200">
                     <td colSpan={4} className="px-3 py-3 text-right text-[15px] font-extrabold text-zinc-900">
