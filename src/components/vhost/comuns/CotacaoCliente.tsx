@@ -78,7 +78,7 @@ const lerNumero = (s: string, padrao: number) => {
   return s.trim() !== '' && Number.isFinite(v) && v >= 0 ? v : padrao
 }
 
-export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda }: { itens: ItemCotacao[]; moeda: string; encomenda?: { batchId: string; cliente: string; contacto: string; numero: string; email?: string }; aoRemover?: (id: number) => void; aoTrocar?: (id: number, sku: string) => Promise<void> }) {
+export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda }: { itens: ItemCotacao[]; moeda: string; encomenda?: { batchId: string; cliente: string; contacto: string; numero: string; email?: string; itens?: { id: string; nome: string }[] }; aoRemover?: (id: number) => void; aoTrocar?: (id: number, sku: string) => Promise<void> }) {
   const [cliente, setCliente] = useState('')
   const [contacto, setContacto] = useState('')
   const [numero, setNumero] = useState('')
@@ -196,6 +196,21 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda }:
   const nomeCliente = cliente.trim()
 
   // com uma encomenda do site na calculadora, o cliente vê em Encomendas › Cotação só a cópia desta folha: cada alteração aqui actualiza-a (um instante depois, e nunca a meio de uma edição)
+  // os preços da cotação (sem IVA) passam às linhas da encomenda, que deixam de estar «sob consulta»: o cartão do cliente mostra o valor da factura
+  // shortcut: liga cada linha da cotação à da encomenda pelo nome do produto; se ficarem sem par (nome repetido a mais), essas linhas ficam como estavam
+  const precosFixados = useRef<Record<string, number>>({})
+  const fixarPrecos = () => {
+    const usadas = new Set<string>()
+    for (const l of rotulos) {
+      const original = itens.find((i) => i.id === l.id)
+      const par = encomenda?.itens?.find((x) => !usadas.has(x.id) && x.nome === original?.nome.trim())
+      if (!par) continue
+      usadas.add(par.id)
+      if (!(l.preco > 0) || precosFixados.current[par.id] === l.preco) continue
+      precosFixados.current[par.id] = l.preco
+      fetch('/api/admin/cotacoes', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: par.id, precoUnitarioMt: l.preco, semAviso: true }) }).catch(() => undefined)
+    }
+  }
   const copiaChave = valido && !editar && encomenda ? JSON.stringify([encomenda.batchId, estado, itens]) : ''
   useEffect(() => {
     if (!copiaChave || !encomenda) return
@@ -207,7 +222,9 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda }:
         img.setAttribute('src', img.src)
         img.removeAttribute('srcset')
       })
-      fetch(`/api/admin/cotacoes/${encomenda.batchId}/copia`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ html: copia.outerHTML }) }).catch(() => undefined)
+      fetch(`/api/admin/cotacoes/${encomenda.batchId}/copia`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ html: copia.outerHTML }) })
+        .then(() => fixarPrecos())
+        .catch(() => undefined)
     }, 1200)
     return () => window.clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps

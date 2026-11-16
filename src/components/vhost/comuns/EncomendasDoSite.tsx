@@ -9,6 +9,8 @@ import { computeNumeroMap } from '@/lib/quotation-numero'
 import { computeBatchStatus, statusMeta } from '@/lib/quotation-status-labels'
 
 export interface ItemEncomenda {
+  /** linha da encomenda (quotation_requests), para fixar o preço depois */
+  id: string
   sku: string | null
   nome: string
   unidades: number
@@ -55,7 +57,7 @@ const REF = / — ref\. (\S+)(?: \([^)]*\))?(?: — (.*))?$/
 
 function lerItem(l: Linha): ItemEncomenda {
   const m = REF.exec(l.produto)
-  return { sku: m?.[1] ?? null, nome: m ? l.produto.slice(0, m.index) : l.produto, unidades: Math.max(1, Math.round(Number(l.quantidade) || 1)), detalhe: m?.[2] ?? '' }
+  return { id: l.id, sku: m?.[1] ?? null, nome: m ? l.produto.slice(0, m.index) : l.produto, unidades: Math.max(1, Math.round(Number(l.quantidade) || 1)), detalhe: m?.[2] ?? '' }
 }
 
 export function encomendasDoSite(linhas: Linha[]): EncomendaSite[] {
