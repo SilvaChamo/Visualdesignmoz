@@ -788,7 +788,7 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda, m
               </div>
             </div>
           </div>
-          {!modoCliente && <div className="mx-auto mt-3 flex w-[210mm] max-w-full flex-wrap items-center justify-end gap-2">{partilhar}</div>}
+          <div className="mx-auto mt-3 flex w-[210mm] max-w-full flex-wrap items-center justify-end gap-2">{partilhar}</div>
         </div>
       )}
       <p className={`${NOTA} mt-3`}>Os preços da cotação são os preços de venda calculados acima (o custo por unidade com a margem bruta pretendida). O IVA da venda soma-se por cima, à taxa que indicar.</p>
