@@ -51,7 +51,7 @@ async function fetchClientAttachments(
 }
 
 /**
- * Pagamentos de encomendas VisualDesign (adiantamento 70% e remanescente 30%)
+ * Pagamentos de encomendas VisualDesign (adiantamento 75% e remanescente 25%)
  * para a Contabilidade — mesmo papel dos separadores Domínios/Hospedagem/
  * E-mails para as compras do carrinho: ver o comprovativo e confirmar ou
  * rejeitar. Uma linha por encomenda e por fase em que o cliente já escolheu
@@ -239,7 +239,7 @@ export async function PATCH(request: Request) {
     }
 
     const motivoTexto = typeof motivo === 'string' && motivo.trim() ? motivo.trim() : null;
-    const faseLabel = phase === 'advance' ? 'adiantamento (70%)' : 'remanescente (30%)';
+    const faseLabel = phase === 'advance' ? 'adiantamento (75%)' : 'remanescente (25%)';
 
     if (phase === 'advance') {
       const { error: historyError } = await supabase.from('quotation_status_history').insert(

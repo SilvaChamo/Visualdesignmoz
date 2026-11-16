@@ -9,7 +9,6 @@ import { carregarPerfilConta } from '@/lib/perfil-conta';
 import { resolveRoleForAuthUser } from '@/lib/server-auth-role';
 import { resolveEffectiveClientUserId } from '@/lib/client-impersonation';
 import { computeUnreadByBatch } from '@/lib/quotation-unread';
-import { valorBrindeSemIva } from '@/lib/valor-brinde';
 import { abaixoDoMinimoImportacao, pedidoLocal } from '@/lib/brinde-importacao';
 
 const VALID_PAYMENT_METHODS = ['mpesa', 'transferencia'];
@@ -159,19 +158,18 @@ export async function POST(request: NextRequest) {
         if (descricao.length > 255) {
           return NextResponse.json({ error: 'A descrição do pedido personalizado é demasiado longa (máx. 255 caracteres).' }, { status: 400 });
         }
-        // brinde do catálogo: o valor já está calculado (sem impressão), por isso não fica «sob consulta»
+        // também os brindes do catálogo: ficam «sob consulta» até a equipa juntar os custos da remessa na calculadora e autorizar o valor; só então o cliente o vê e é avisado
         // menos do que o mínimo para importar: não se importa, pede-se um produto local (sempre por contacto)
         const local = abaixoDoMinimoImportacao(descricao, quantidadeNum);
-        const valor = local ? null : await valorBrindeSemIva(descricao);
         validatedItems.push({
           categoriaId: CUSTOM_CATEGORIA_ID,
           categoriaLabel: 'Pedido Personalizado',
           produto: local ? pedidoLocal(descricao) : descricao,
-          precoUnitario: valor ?? 0,
+          precoUnitario: 0,
           quantidadeNum,
-          sobConsulta: valor === null,
+          sobConsulta: true,
           sobOriginal: true,
-          totalMt: valor === null ? 0 : Math.round(valor * quantidadeNum * 100) / 100,
+          totalMt: 0,
         });
         continue;
       }
@@ -181,7 +179,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Produto ou categoria não reconhecidos.' }, { status: 400 });
       }
       // Sem preço fixo (ex.: serviços de outras marcas ainda "Sob Consulta") — não
-      // faz sentido calcular um total nem exigir adiantamento de 70% sobre nada.
+      // faz sentido calcular um total nem exigir adiantamento de 75% sobre nada.
       const sobConsulta = Boolean(found.item.sobConsulta);
       const totalMt = sobConsulta ? 0 : Math.round(found.item.price * quantidadeNum * 100) / 100;
       validatedItems.push({

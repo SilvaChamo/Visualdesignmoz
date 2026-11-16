@@ -123,7 +123,7 @@ export function EncomendasPagamentosSection() {
 
               {isRemainder ? (
                 <div className="mt-2 text-sm text-gray-600 dark:text-zinc-400 space-y-1">
-                  <p className="font-semibold text-gray-800 dark:text-zinc-200">Remanescente a pagar (30%): {formatMt(remanescenteValor)} MT</p>
+                  <p className="font-semibold text-gray-800 dark:text-zinc-200">Remanescente a pagar (25%): {formatMt(remanescenteValor)} MT</p>
                   {remanescenteMetodo ? (
                     <>
                       <p className="font-semibold text-gray-800 dark:text-zinc-200">Método escolhido: {metodoPagamentoLabel(remanescenteMetodo)}</p>

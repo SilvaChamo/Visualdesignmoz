@@ -117,6 +117,8 @@ function UmaEncomenda({ e, atual, aoCarregar }: { e: EncomendaSite; atual: strin
 export function useEncomendasDoSite() {
   const [lista, setLista] = useState<EncomendaSite[] | null>(null)
   const [erro, setErro] = useState(false)
+  // volta a ler a lista (depois de autorizar o valor de uma encomenda, que deixa de estar por responder)
+  const [leitura, setLeitura] = useState(0)
   useEffect(() => {
     let vivo = true
     fetch('/api/admin/cotacoes', { cache: 'no-store' })
@@ -130,20 +132,31 @@ export function useEncomendasDoSite() {
     return () => {
       vivo = false
     }
-  }, [])
+  }, [leitura])
   const pendentes = (lista ?? []).filter((e) => e.porResponder)
   const anteriores = (lista ?? []).filter((e) => !e.porResponder)
-  return { lista, erro, pendentes, anteriores }
+  return { lista, erro, pendentes, anteriores, recarregar: () => setLeitura((n) => n + 1) }
 }
 
 // separadores «Pendentes» e «Anteriores» da calculadora: cada linha traz a empresa, a data e a situação (como o histórico da facturação)
-export function ListaEncomendas({ itens, erro, vazio, atual, aoCarregar }: { itens: EncomendaSite[]; erro: boolean; vazio: string; atual: string | null; aoCarregar: (e: EncomendaSite) => void }) {
+export function ListaEncomendas({ itens, erro, vazio, atual, aoCarregar, propria }: { itens: EncomendaSite[]; erro: boolean; vazio: string; atual: string | null; aoCarregar: (e: EncomendaSite) => void; /** a lista própria da calculadora (sem cliente) também fica à vista no histórico */ propria?: { produtos: number; naCalculadora: boolean; aoVoltar: () => void } }) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900" data-testid="cci-encomendas">
       {erro ? (
         <p className="text-sm text-red-600">Não foi possível ler as encomendas do site. Se a sessão expirou, entre de novo no painel.</p>
-      ) : itens.length > 0 ? (
+      ) : itens.length > 0 || propria ? (
         <ul>
+          {propria && (
+            <li className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-slate-200 py-2.5 first:border-t-0 dark:border-slate-700">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-bold text-slate-900 dark:text-slate-100">Lista própria</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">{propria.produtos} produto(s)</p>
+              </div>
+              <button type="button" disabled={propria.naCalculadora} onClick={propria.aoVoltar} className={BOTAO}>
+                {propria.naCalculadora ? 'Na calculadora' : 'Carregar na calculadora'}
+              </button>
+            </li>
+          )}
           {itens.slice(0, 50).map((e) => (
             <UmaEncomenda key={e.batchId} e={e} atual={atual} aoCarregar={aoCarregar} />
           ))}

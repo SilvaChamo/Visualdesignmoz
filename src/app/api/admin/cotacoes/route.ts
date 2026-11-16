@@ -296,7 +296,7 @@ export async function PATCH(request: Request) {
 
     // Livro de pagamentos: regista o valor confirmado nos dois momentos em
     // que o admin efectivamente confirma dinheiro recebido — 'approved'
-    // (adiantamento, 70%) e 'done' (remanescente, 30%). Como o estado é
+    // (adiantamento, 75%) e 'done' (remanescente, 25%). Como o estado é
     // actualizado item-a-item (uma encomenda com vários serviços pode
     // disparar este PATCH várias vezes para o mesmo lote), o upsert com
     // `ignoreDuplicates` garante um único registo por fase, sem sobrescrever

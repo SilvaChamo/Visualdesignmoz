@@ -7,7 +7,6 @@ import { QUOTATION_ATTACHMENTS_BUCKET, extractStoragePath } from '@/lib/quotatio
 import { QUOTATION_LAYOUTS_BUCKET } from '@/lib/quotation-layouts-bucket';
 import { computeBatchStatus } from '@/lib/quotation-status-labels';
 import { resolveRoleForAuthUser } from '@/lib/server-auth-role';
-import { valorBrindeSemIva } from '@/lib/valor-brinde';
 
 // Uma encomenda (linha + irmãs do mesmo batch) — usada pelo documento de
 // cotação e pelo painel de detalhe. Consulta com service role (não a sessão
@@ -78,19 +77,9 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: 'Não foi possível encontrar esta cotação.' }, { status: 404 });
     }
 
-    // linhas de brindes ainda sem preço: o valor do catálogo, só para mostrar (não se grava) — deixa a cotação editável com valores
-    const estimativa: Record<string, number> = {};
-    for (const i of items) {
-      if (i.sob_consulta && !(Number(i.preco_unitario_mt) > 0)) {
-        const v = await valorBrindeSemIva(String(i.produto));
-        if (v) estimativa[i.id] = v;
-      }
-    }
-
     return NextResponse.json({
       success: true,
       items,
-      estimativa,
       invoiceNumber: invoices?.find((i) => i.phase === 'advance')?.invoice_number ?? null,
       remainderInvoiceNumber: invoices?.find((i) => i.phase === 'remainder')?.invoice_number ?? null,
       payments: payments ?? [],
@@ -154,6 +143,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     // recalculado) fica só na linha específica que o cliente está a editar.
     const sharedUpdate: Record<string, unknown> = {};
     const rowUpdate: Record<string, unknown> = {};
+    // os custos da remessa repartem-se por todas as linhas personalizadas do lote: mudar a quantidade de uma, ou juntar uma nova, desfaz o valor de todas
+    let refazerLote = false;
     if (quotation.status === 'rejected') rowUpdate.status = 'pending';
 
     if (notas !== undefined) {
@@ -189,6 +180,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
           rowUpdate.total_mt = Math.round(found.item.price * quantidadeNum * 100) / 100;
         }
       }
+      // pedido personalizado (brindes): o valor foi calculado com a quantidade antiga; mudá-la manda o lote para a equipa refazer e autorizar de novo (ver refazerLote)
+      if (quotation.categoria_id === CUSTOM_CATEGORIA_ID && quantidadeNum !== Number(quotation.quantidade)) refazerLote = true;
     }
 
     // Novos serviços adicionados nesta edição — cada um vira uma linha nova,
@@ -233,9 +226,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
             data_limite_entrega: sharedUpdate.data_limite_entrega ?? quotation.data_limite_entrega,
             total_mt: 0,
             sob_consulta: true,
+            sob_consulta_original: true,
             notas: sharedUpdate.notas ?? quotation.notas,
             status: 'pending',
           });
+          refazerLote = true;
           continue;
         }
 
@@ -269,6 +264,19 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
           notas: sharedUpdate.notas ?? quotation.notas,
           status: 'pending',
         });
+      }
+    }
+
+    if (refazerLote) {
+      const { error: refazerError } = await admin
+        .from('quotation_requests')
+        .update({ sob_consulta: true, preco_unitario_mt: 0, total_mt: 0, updated_at: new Date().toISOString() })
+        .eq('batch_id', quotation.batch_id)
+        .eq('categoria_id', CUSTOM_CATEGORIA_ID)
+        .eq('sob_consulta_original', true);
+      if (refazerError) {
+        console.error('[cotacoes/[id] PATCH] refazer lote error:', refazerError);
+        return NextResponse.json({ error: 'Não foi possível actualizar a encomenda.' }, { status: 500 });
       }
     }
 

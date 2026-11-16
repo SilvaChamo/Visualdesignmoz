@@ -27,7 +27,7 @@ const DRAFT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 export const ENCOMENDA_DRAFT_EVENT = 'visualdesign:encomenda-draft';
 
 export const ENCOMENDA_IVA_RATE = 0.16;
-export const ENCOMENDA_ADIANTAMENTO_RATE = 0.7;
+export const ENCOMENDA_ADIANTAMENTO_RATE = 0.75;
 
 export type EncomendaDraftItem = {
   categoriaId: string;
@@ -185,7 +185,7 @@ export async function descartarEncomendaRegistada(
 const round2 = (value: number) => Math.round(value * 100) / 100;
 
 /**
- * Adiantamento (70%) e remanescente (30%) sobre o total COM IVA acrescido —
+ * Adiantamento (75%) e remanescente (25%) sobre o total COM IVA acrescido —
  * a mesma conta da pré-visualização em /cotacao e do documento de cotação
  * (/cotacao/[id]), para o valor pedido no checkout bater certo com o que foi
  * prometido ao cliente nesses dois sítios. `totalMt` é a soma sem IVA dos

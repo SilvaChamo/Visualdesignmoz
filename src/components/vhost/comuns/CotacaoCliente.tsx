@@ -11,6 +11,8 @@ import { VHContext } from '../context'
 import { cotacaoParaPdf } from './cotacao-pdf'
 import { gravarEstado, lerEstadoSeguro } from './estado-calculadora'
 import { Miniatura, SeletorSemelhantes, useFotosProdutos } from './fotos-produtos'
+import { totaisDaEncomenda } from '@/lib/cotacao-totais'
+import { ENCOMENDA_ADIANTAMENTO_RATE, encomendaPaymentSplit } from '@/lib/encomenda-checkout'
 
 export interface ItemCotacao {
   id: number
@@ -18,6 +20,8 @@ export interface ItemCotacao {
   unidades: number
   /** preço de venda por unidade, sem IVA (o custo por unidade com a margem bruta) */
   preco: number
+  /** linha da encomenda do cliente (quotation_requests) a que esta linha corresponde: é por ela, e não pelo nome, que se autoriza o valor */
+  linhaId?: string
   /** painel do cliente: referência do brinde, para refazer o valor por unidade quando a quantidade muda */
   sku?: string
 }
@@ -35,7 +39,7 @@ const ID_DOCUMENTO = 'cci-cotacao-documento'
 const ID_QUADRO = 'cci-cotacao-impressao'
 // o que a cotação diz por omissão (prazo e pagamento); o campo pode mudar-se, e um campo vazio volta a isto
 const PRAZO_PADRAO = '15 dias depois da adjudicação da factura'
-const PAGAMENTO_PADRAO = '75% do valor da encomenda'
+const PAGAMENTO_PADRAO = `${Math.round(ENCOMENDA_ADIANTAMENTO_RATE * 100)}% do valor da encomenda`
 
 // a folha da cotação como página solta: os campos passam a texto e os controlos de edição saem
 function copiaLimpa(doc: HTMLElement): HTMLElement {
@@ -80,7 +84,7 @@ const lerNumero = (s: string, padrao: number) => {
   return s.trim() !== '' && Number.isFinite(v) && v >= 0 ? v : padrao
 }
 
-export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda, modoCliente, aoSincronizar, aplicarToken }: { /** administrador: quando muda, grava de novo nas linhas da encomenda os preços da cotação (botão «Guardar» dos custos da remessa) */ aplicarToken?: number; /** painel do cliente: chamado depois de a quantidade/produto editados passarem às linhas da encomenda */ aoSincronizar?: () => void; itens: ItemCotacao[]; moeda: string; /** painel do cliente: a mesma folha e as mesmas opções de edição, guardada por encomenda */ modoCliente?: boolean; encomenda?: { batchId: string; cliente: string; contacto: string; numero: string; email?: string; endereco?: string; itens?: { id: string; nome: string }[] }; aoRemover?: (id: number) => void; aoTrocar?: (id: number, sku: string) => Promise<void> }) {
+export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, aoAutorizado, encomenda, modoCliente, aoSincronizar, aplicarToken }: { /** administrador: quando muda («Guardar» dos custos da remessa), uma encomenda já autorizada manda ao cliente os valores rectificados */ aplicarToken?: number; /** painel do cliente: chamado depois de a quantidade/produto editados passarem às linhas da encomenda */ aoSincronizar?: () => void; itens: ItemCotacao[]; moeda: string; /** painel do cliente: a mesma folha e as mesmas opções de edição, guardada por encomenda */ modoCliente?: boolean; encomenda?: { batchId: string; cliente: string; contacto: string; numero: string; email?: string; endereco?: string; itens?: { id: string; nome: string }[]; /** o cliente ainda não vê o valor: a equipa não o autorizou */ porResponder?: boolean }; aoRemover?: (id: number) => void; aoTrocar?: (id: number, sku: string) => Promise<void>; /** depois de autorizar o valor (a calculadora volta a ler o estado da encomenda) */ aoAutorizado?: () => void }) {
   // uma encomenda do site tem a sua folha guardada à parte («cotacao:<lote>»): o administrador na calculadora e o cliente no painel editam a mesma, e cada um vê o resultado final do outro
   const chaveEstado = encomenda ? (`cotacao:${encomenda.batchId}` as const) : ('cotacao' as const)
   const chaveImagens = encomenda ? (`cotacao-imagens:${encomenda.batchId}` as const) : ('cotacao-imagens' as const)
@@ -224,15 +228,17 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda, m
   // cada linha: preço por unidade (com IVA, se vai incluído) arredondado a 2 casas, e o total = preço × unidades, para a tabela somar certo
   const fator = ivaIncluido ? 1 + iva / 100 : 1
   const numeroOuNaN = (t: string) => (t.trim() === '' ? NaN : Number(t.replace(/\s/g, '').replace(',', '.')))
+  // numa encomenda do site a quantidade é a que o cliente definiu (nunca se edita aqui) e o preço, no painel do cliente, é o que a equipa autorizou: as edições guardadas não os mudam
   const rotulos = [
     ...itens
       .map((i) => {
         const e = edicoes[i.id] ?? {}
+        const preco = e.preco !== undefined && !modoCliente ? numeroOuNaN(e.preco) : i.preco
         return {
           id: i.id,
           nome: e.nome ?? i.nome,
-          unidades: e.unidades !== undefined ? numeroOuNaN(e.unidades) : i.unidades,
-          preco: e.preco !== undefined ? numeroOuNaN(e.preco) : i.preco,
+          unidades: e.unidades !== undefined && !encomenda ? numeroOuNaN(e.unidades) : i.unidades,
+          preco: encomenda ? arredondar2(preco) : preco,
         }
       }),
   ]
@@ -249,39 +255,59 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda, m
   const valido = linhas.length > 0 && linhas.every((l) => Number.isFinite(l.total))
   const somaLinhas = linhas.reduce((t, l) => t + (Number.isFinite(l.total) ? l.total : 0), 0)
   // no fim da cotação, sempre: subtotal (sem IVA), IVA e total da factura; com o IVA incluído nos preços, o subtotal e o IVA tiram-se do total
-  const subtotal = ivaIncluido ? arredondar2(somaLinhas / (1 + iva / 100)) : somaLinhas
-  const ivaValor = ivaIncluido ? arredondar2(somaLinhas - subtotal) : arredondar2(somaLinhas * (iva / 100))
-  const totalAPagar = ivaIncluido ? somaLinhas : somaLinhas + ivaValor
+  // numa encomenda do site os totais são os da factura e do cartão do cliente (a soma sem IVA das linhas, o IVA sobre ela e o total), iguais nas duas folhas
+  const daEncomenda = totaisDaEncomenda(linhas.map((l) => ({ precoSemIva: l.preco, unidades: l.unidades })), iva)
+  const subtotal = encomenda ? daEncomenda.subtotal : ivaIncluido ? arredondar2(somaLinhas / (1 + iva / 100)) : somaLinhas
+  const ivaValor = encomenda ? daEncomenda.ivaValor : ivaIncluido ? arredondar2(somaLinhas - subtotal) : arredondar2(somaLinhas * (iva / 100))
+  const totalAPagar = encomenda ? daEncomenda.total : ivaIncluido ? somaLinhas : somaLinhas + ivaValor
   const nomeCliente = cliente.trim()
   // o e-mail vai numa linha própria: tira-se do contacto, onde estava junto (cotações guardadas antes)
   const contactoSemEmail = encomenda?.email ? contacto.split(' · ').filter((x) => x.trim().toLowerCase() !== encomenda.email!.toLowerCase()).join(' · ') : contacto
 
-  // com uma encomenda do site na calculadora, o cliente vê em Encomendas › Cotação só a cópia desta folha: cada alteração aqui actualiza-a (um instante depois, e nunca a meio de uma edição)
-  // os preços da cotação (sem IVA) passam às linhas da encomenda, que deixam de estar «sob consulta»: o cartão do cliente mostra o valor da factura
-  // shortcut: liga cada linha da cotação à da encomenda pelo nome do produto; se ficarem sem par (nome repetido a mais), essas linhas ficam como estavam
-  const precosFixados = useRef<Record<string, string>>({})
-  const fixarPrecos = (forcar = false) => {
-    if (modoCliente) return
-    const usadas = new Set<string>()
-    for (const l of rotulos) {
-      const original = itens.find((i) => i.id === l.id)
-      const par = encomenda?.itens?.find((x) => !usadas.has(x.id) && x.nome === original?.nome.trim())
-      if (!par) continue
-      usadas.add(par.id)
-      const sinal = `${l.preco}|${l.unidades}`
-      if (!(l.preco > 0) || (!forcar && precosFixados.current[par.id] === sinal)) continue
-      precosFixados.current[par.id] = sinal
-      fetch('/api/admin/cotacoes', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: par.id, precoUnitarioMt: l.preco, quantidade: l.unidades, semAviso: true }) }).catch(() => undefined)
+  // numa encomenda do site, as condições de pagamento por omissão trazem os valores que o cliente paga (os mesmos do checkout e da factura: adiantamento e remanescente sobre o total com IVA)
+  const divisao = encomendaPaymentSplit(daEncomenda.subtotal)
+  const pctAdiantamento = Math.round(ENCOMENDA_ADIANTAMENTO_RATE * 100)
+  const pagamentoNaFolha = encomenda && pagamento === PAGAMENTO_PADRAO && valido
+    ? `${pctAdiantamento}% do valor da encomenda (${valor2(divisao.adiantamentoMt)} ${moeda}) com a aprovação e ${100 - pctAdiantamento}% (${valor2(divisao.remanescenteMt)} ${moeda}) na entrega`
+    : pagamento
+
+  // autorizar o valor: só a equipa o faz, num botão (nada chega ao cliente antes). Cada linha vai pela sua ligação à encomenda (não pelo nome) e o servidor grava o preço sem IVA com a
+  // quantidade que o CLIENTE definiu; na primeira vez o cliente recebe um só e-mail a avisar que a cotação já está no painel dele
+  const [aAutorizar, setAAutorizar] = useState(false)
+  const [confirmacao, setConfirmacao] = useState('')
+  const autorizar = async () => {
+    if (!encomenda || modoCliente) return
+    const precos = linhas.map((l) => ({ id: itens.find((i) => i.id === l.id)?.linhaId, precoUnitarioMt: l.preco }))
+    if (precos.some((p) => !p.id || !(p.precoUnitarioMt > 0))) {
+      setConfirmacao('')
+      setAviso('Há produtos sem valor ou que não são da encomenda do cliente: só se autorizam os produtos que ele pediu.')
+      return
+    }
+    setAAutorizar(true)
+    setAviso('')
+    setConfirmacao('')
+    try {
+      const r = await fetch(`/api/admin/cotacoes/${encomenda.batchId}/autorizar`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ precos }) })
+      const j = (await r.json().catch(() => null)) as { success?: boolean; error?: string; enviado?: boolean } | null
+      if (!r.ok || !j?.success) return setAviso(j?.error || 'Não foi possível autorizar a cotação.')
+      setConfirmacao(j.enviado ? 'Valor autorizado: o cliente foi avisado por e-mail e já vê a cotação no painel.' : 'Valor actualizado no painel do cliente.')
+      aoAutorizado?.()
+    } catch {
+      setAviso('Não foi possível autorizar a cotação.')
+    } finally {
+      setAAutorizar(false)
     }
   }
+  // «Guardar» dos custos da remessa: com o valor já autorizado, a rectificação segue para o cliente (sem novo e-mail), para as duas folhas ficarem iguais; antes de autorizado o cliente não recebe nada
   const tokenVisto = useRef(aplicarToken ?? 0)
   useEffect(() => {
     if (!aplicarToken || aplicarToken === tokenVisto.current) return
     tokenVisto.current = aplicarToken
-    fixarPrecos(true)
+    if (encomenda && !modoCliente && !encomenda.porResponder && valido && !editar) void autorizar()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aplicarToken])
-  const copiaChave = valido && !editar && encomenda && !modoCliente ? JSON.stringify([encomenda.batchId, estado, itens]) : ''
+  // enquanto o cliente não vê o valor, nada da folha lhe chega (nem a cópia em HTML): a cópia só se grava depois de autorizado
+  const copiaChave = valido && !editar && encomenda && !modoCliente && !encomenda.porResponder ? JSON.stringify([encomenda.batchId, estado, itens]) : ''
   useEffect(() => {
     if (!copiaChave || !encomenda) return
     const t = window.setTimeout(() => {
@@ -292,9 +318,7 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda, m
         img.setAttribute('src', img.src)
         img.removeAttribute('srcset')
       })
-      fetch(`/api/admin/cotacoes/${encomenda.batchId}/copia`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ html: copia.outerHTML }) })
-        .then(() => fixarPrecos())
-        .catch(() => undefined)
+      fetch(`/api/admin/cotacoes/${encomenda.batchId}/copia`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ html: copia.outerHTML }) }).catch(() => undefined)
     }, 1200)
     return () => window.clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -347,29 +371,18 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda, m
 
   // edição em linha: o preço que se escreve é o da tabela (com IVA, se vai incluído); guarda-se sem IVA, e enquanto se escreve mostra-se o texto tal como está
   const [foco, setFoco] = useState<{ id: number; texto: string } | null>(null)
-  // painel do cliente: trocar por um produto semelhante leva o nome e o valor do produto novo (a calculadora, no administrador, faz o mesmo pela lista própria)
+  // painel do cliente: trocar por um produto semelhante leva o nome do produto novo; o valor não muda aqui: a linha volta a ficar por consulta e só a equipa autoriza o valor novo (a calculadora, no administrador, troca pela lista própria)
   const trocarCliente = async (id: number, sku: string) => {
     try {
-      const j = (await (await fetch(`/api/brindes/valor?sku=${encodeURIComponent(sku)}`)).json()) as { success?: boolean; nome?: string; valorSemIva?: number }
-      if (!j.success || !j.nome || !(j.valorSemIva && j.valorSemIva > 0)) throw new Error()
+      const j = (await (await fetch(`/api/brindes/valor?sku=${encodeURIComponent(sku)}`)).json()) as { success?: boolean; nome?: string }
+      if (!j.success || !j.nome) throw new Error()
       mudarLinha(id, 'nome', j.nome)
-      mudarLinha(id, 'preco', String(j.valorSemIva))
       mudarLinha(id, 'sku', sku)
     } catch {
       setAviso('Não foi possível trocar o produto.')
     }
   }
   const mudarLinha = (id: number, campo: 'nome' | 'unidades' | 'preco' | 'sku', v: string) => setEdicoes((d) => ({ ...d, [id]: { ...d[id], [campo]: v } }))
-  // painel do cliente: o preço por unidade que vem da calculadora diluiu custos fixos (transporte, despesas) pela quantidade pedida; ao mudar a quantidade, o valor por unidade volta ao do catálogo (o do site) em vez de se multiplicar o antigo
-  const mudarQuantidade = (id: number, v: string) => {
-    mudarLinha(id, 'unidades', v)
-    const sku = edicoes[id]?.sku ?? itens.find((i) => i.id === id)?.sku
-    if (!modoCliente || !sku) return
-    fetch(`/api/brindes/valor?sku=${encodeURIComponent(sku)}`)
-      .then((r) => r.json())
-      .then((j: { success?: boolean; valorSemIva?: number }) => j.success && j.valorSemIva && j.valorSemIva > 0 && mudarLinha(id, 'preco', String(j.valorSemIva)))
-      .catch(() => undefined)
-  }
   const mudarPreco = (id: number, texto: string) => {
     setFoco({ id, texto })
     const n = numeroOuNaN(texto)
@@ -414,6 +427,16 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda, m
           className="inline-flex cursor-pointer items-center rounded-[5px] border border-slate-300 bg-white px-4 py-1.5 text-sm font-bold text-slate-700 shadow-sm transition hover:border-red-500 hover:text-red-600 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
         >
           Editar
+        </button>
+      )}
+      {encomenda && !modoCliente && !editar && (
+        <button
+          type="button"
+          onClick={() => void autorizar()}
+          disabled={aAutorizar}
+          className="inline-flex cursor-pointer items-center rounded-[5px] bg-red-600 px-4 py-1.5 text-sm font-bold text-white shadow-sm transition hover:bg-red-700 disabled:cursor-default disabled:opacity-60"
+        >
+          {encomenda.porResponder ? 'Autorizar e enviar ao cliente' : 'Actualizar o valor do cliente'}
         </button>
       )}
       {editar && Object.keys(edicoes).length > 0 && (
@@ -608,6 +631,7 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda, m
     <div className={modoCliente ? '' : CARTAO}>
       {!modoCliente && <h2 className={TITULO}>Cotação ao cliente</h2>}
       {aviso && <p className="mt-2 text-sm font-semibold text-red-600">{aviso}</p>}
+      {confirmacao && <p className="mt-2 text-sm font-semibold text-emerald-700">{confirmacao}</p>}
 
       {/* no painel do cliente só se vê a folha: os dados (cliente, número, prazos, IVA…) são do administrador e vêm da base de dados */}
       {!modoCliente && (
@@ -787,14 +811,14 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda, m
                         )}
                       </td>
                       <td className="w-16 px-2 py-2">
-                        {editar ? (
-                          <input type="text" inputMode="numeric" aria-label="Quantidade" value={textoQtd(l.id, l.unidades)} onChange={(e) => mudarQuantidade(l.id, e.target.value)} className={`${EDITAR} text-right tabular-nums`} />
+                        {editar && (!encomenda || modoCliente) ? (
+                          <input type="text" inputMode="numeric" aria-label="Quantidade" value={textoQtd(l.id, l.unidades)} onChange={(e) => mudarLinha(l.id, 'unidades', e.target.value)} className={`${EDITAR} text-right tabular-nums`} />
                         ) : (
                           <span className="block text-right tabular-nums">{Number.isFinite(l.unidades) ? l.unidades : '–'}</span>
                         )}
                       </td>
                       <td className="w-24 px-2 py-2">
-                        {editar ? (
+                        {editar && !modoCliente ? (
                           <input
                             type="text"
                             inputMode="decimal"
@@ -852,7 +876,7 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda, m
               {/* da descrição ao fim: informação e aprovação do cliente ficam sempre encostadas ao fundo da folha */}
               <div className="mt-auto pt-4">
               <p className="text-zinc-600">
-                {ivaIncluido ? `Preços por unidade com logo e IVA de ${iva}% incluídos.` : 'Preços por unidade com logo, sem IVA.'} Prazo de entrega: {prazo.trim() || '[PRAZO]'}. Pagamento: {pagamento.trim() || '[CONDIÇÕES DE PAGAMENTO]'}.
+                {ivaIncluido ? `Preços por unidade com logo e IVA de ${iva}% incluídos.` : 'Preços por unidade com logo, sem IVA.'} Prazo de entrega: {prazo.trim() || '[PRAZO]'}. Pagamento: {pagamentoNaFolha.trim() || '[CONDIÇÕES DE PAGAMENTO]'}.
               </p>
 
               <div className="mt-5 rounded-xl p-4" style={{ border: `1px solid ${VERMELHO}` }}>
@@ -881,7 +905,7 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda, m
           <div className="mx-auto mt-3 flex w-[210mm] max-w-full flex-wrap items-center justify-end gap-2">{partilhar}</div>
         </div>
       )}
-      <p className={`${NOTA} mt-3`}>Os preços da cotação são os preços de venda calculados acima (o custo por unidade com a margem bruta pretendida). O IVA da venda soma-se por cima, à taxa que indicar.</p>
+      {!modoCliente && <p className={`${NOTA} mt-3`}>Os preços da cotação são os preços de venda calculados acima (o custo por unidade com a margem bruta pretendida). O IVA da venda soma-se por cima, à taxa que indicar.</p>}
     </div>
   )
 }

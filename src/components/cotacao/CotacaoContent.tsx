@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase-client';
 import { ENCOMENDAS_ACCOUNT_ORIGIN } from '@/lib/panel-origin';
 import { BRANDS, CATEGORIES, findItem, formatMt, SELECAO_STORAGE_KEY, CUSTOM_CATEGORIA_ID, type SelectedCatalogItem } from '@/lib/pricing-catalog';
 import {
+  ENCOMENDA_ADIANTAMENTO_RATE,
   ENCOMENDA_CHECKOUT_PATH,
   descartarEncomendaRegistada,
   encomendaDraftSignature,
@@ -1241,7 +1242,7 @@ export function CotacaoContent({ painel = false, aoContinuar }: { painel?: boole
                         <p className="text-xs text-red-600 dark:text-red-500 italic leading-relaxed">
                           A entrega pretendida é até {dataLimite ? new Date(dataLimite).toLocaleDateString('pt-PT') : '—'}, com prazo mínimo de execução de 7 dias úteis.{' '}
                           {multiTotal > 0
-                            ? `Para dar início à produção, é necessário adiantar 70% do valor total da factura: ${formatMt(multiTotal * 1.16 * 0.7)} MT.${hasSobConsultaItem ? ' Os serviços Sob Consulta são confirmados por contacto à parte.' : ''}`
+                            ? `Para dar início à produção, é necessário adiantar 75% do valor total da factura: ${formatMt(multiTotal * 1.16 * ENCOMENDA_ADIANTAMENTO_RATE)} MT.${hasSobConsultaItem ? ' Os serviços Sob Consulta são confirmados por contacto à parte.' : ''}`
                             : 'Estes serviços são Sob Consulta — entraremos em contacto para confirmar o valor e as condições de pagamento.'}
                         </p>
                       </div>

@@ -4,6 +4,7 @@ import { useEffect, useState, Suspense } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { formatMt } from '@/lib/pricing-catalog';
+import { ENCOMENDA_ADIANTAMENTO_RATE } from '@/lib/encomenda-checkout';
 import { NotchSection } from '@/components/home/NotchSection';
 import { AlertCircle, Printer, ArrowRight } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
@@ -50,7 +51,7 @@ const IVA_PERCENT = 16;
 
 type PaymentRow = { phase: string; metodo: string | null; valor_mt: number; confirmed_at: string };
 
-const PHASE_LABEL: Record<string, string> = { advance: 'Adiantamento (70%)', remainder: 'Remanescente (30%)' };
+const PHASE_LABEL: Record<string, string> = { advance: 'Adiantamento (75%)', remainder: 'Remanescente (25%)' };
 const METODO_LABEL: Record<string, string> = { mpesa: 'M-Pesa', transferencia: 'Transferência' };
 
 function CotacaoDocumentContent() {
@@ -69,8 +70,8 @@ function CotacaoDocumentContent() {
   // Factura em vez de Cotação — mesmo layout, só muda o rótulo.
   const isFactura = searchParams.get('tipo') === 'factura';
   const documentLabel = isFactura ? 'Factura' : 'Cotação';
-  // Há duas facturas por encomenda — uma emitida no adiantamento (70%), outra
-  // no remanescente (30%, quando a encomenda fica totalmente paga). ?fase=
+  // Há duas facturas por encomenda — uma emitida no adiantamento (75%), outra
+  // no remanescente (25%, quando a encomenda fica totalmente paga). ?fase=
   // escolhe qual mostrar; por omissão é a do adiantamento.
   const facturaPhase: 'advance' | 'remainder' = searchParams.get('fase') === 'remanescente' ? 'remainder' : 'advance';
 
@@ -141,7 +142,7 @@ function CotacaoDocumentContent() {
   });
   const ivaMt = totalMt * (IVA_PERCENT / 100);
   const totalComIvaMt = totalMt + ivaMt;
-  const adiantamento = Math.round(totalComIvaMt * 0.7 * 100) / 100;
+  const adiantamento = Math.round(totalComIvaMt * ENCOMENDA_ADIANTAMENTO_RATE * 100) / 100;
   const remanescenteValor = Math.round((totalComIvaMt - adiantamento) * 100) / 100;
   const numeroCotacao = displayNumero(numeros, quotation.batch_id);
   const facturaInvoiceNumber = facturaPhase === 'remainder' ? remainderInvoiceNumber : advanceInvoiceNumber;
@@ -177,7 +178,7 @@ function CotacaoDocumentContent() {
               </h1>
               {isFactura && (
                 <p className="text-xs font-bold text-red-600 mt-1">
-                  {facturaPhase === 'remainder' ? 'Remanescente — Pago na Totalidade' : 'Adiantamento (70%)'}
+                  {facturaPhase === 'remainder' ? 'Remanescente — Pago na Totalidade' : 'Adiantamento (75%)'}
                 </p>
               )}
               <p className="text-xs text-zinc-500 mt-1">Data de emissão: {dataEmissao}</p>
@@ -225,7 +226,7 @@ function CotacaoDocumentContent() {
                 {isFactura && (
                   <tr>
                     <td colSpan={3} className="pt-2 text-right font-bold text-red-600">
-                      Valor desta factura ({facturaPhase === 'remainder' ? 'Remanescente 30%' : 'Adiantamento 70%'})
+                      Valor desta factura ({facturaPhase === 'remainder' ? 'Remanescente 25%' : 'Adiantamento 75%'})
                     </td>
                     <td className="pt-2 text-right font-bold text-red-600">{formatMt(valorDestaFactura)} MT</td>
                   </tr>
@@ -278,7 +279,7 @@ function CotacaoDocumentContent() {
               ) : (
                 <>
                   <p className="text-zinc-800">
-                    <span className="font-bold">Condições de pagamento:</span> 70% de adiantamento na aprovação da cotação
+                    <span className="font-bold">Condições de pagamento:</span> 75% de adiantamento na aprovação da cotação
                     ({formatMt(adiantamento)} MT), restante na entrega.
                   </p>
                   <p className="text-xs text-zinc-600 mt-1">Adiantamento via M-Pesa: {MPESA_NUMBER}</p>

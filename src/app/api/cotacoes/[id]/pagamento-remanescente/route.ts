@@ -8,7 +8,7 @@ import { encomendaPaymentSplit } from '@/lib/encomenda-checkout';
 
 const VALID_METHODS = ['mpesa', 'transferencia'];
 
-// Pagamento do remanescente (30% restante, pago na entrega/levantamento) —
+// Pagamento do remanescente (25% restante, pago na entrega/levantamento) —
 // só depois de a equipa marcar os itens como 'delivered' ("Concluída", pronta
 // para levantamento). Não muda o estado (fica 'delivered' até a equipa
 // confirmar o recebimento e marcar 'done', "Entregue") — só regista o método
