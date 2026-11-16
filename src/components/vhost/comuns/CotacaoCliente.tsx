@@ -12,6 +12,7 @@ import { cotacaoParaPdf } from './cotacao-pdf'
 import { gravarEstado, lerEstadoSeguro } from './estado-calculadora'
 import { Miniatura, SeletorSemelhantes, useFotosProdutos } from './fotos-produtos'
 import { totaisDaEncomenda } from '@/lib/cotacao-totais'
+import { ENCOMENDA_ADIANTAMENTO_RATE, encomendaPaymentSplit } from '@/lib/encomenda-checkout'
 
 export interface ItemCotacao {
   id: number
@@ -36,7 +37,7 @@ const ID_DOCUMENTO = 'cci-cotacao-documento'
 const ID_QUADRO = 'cci-cotacao-impressao'
 // o que a cotação diz por omissão (prazo e pagamento); o campo pode mudar-se, e um campo vazio volta a isto
 const PRAZO_PADRAO = '15 dias depois da adjudicação da factura'
-const PAGAMENTO_PADRAO = '75% do valor da encomenda'
+const PAGAMENTO_PADRAO = `${Math.round(ENCOMENDA_ADIANTAMENTO_RATE * 100)}% do valor da encomenda`
 
 // a folha da cotação como página solta: os campos passam a texto e os controlos de edição saem
 function copiaLimpa(doc: HTMLElement): HTMLElement {
@@ -224,6 +225,12 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, aoAutorizado
   const ivaValor = encomenda ? daEncomenda.ivaValor : ivaIncluido ? arredondar2(somaLinhas - subtotal) : arredondar2(somaLinhas * (iva / 100))
   const totalAPagar = encomenda ? daEncomenda.total : ivaIncluido ? somaLinhas : somaLinhas + ivaValor
   const nomeCliente = cliente.trim()
+  // numa encomenda do site, as condições de pagamento por omissão trazem os valores que o cliente paga (os mesmos do checkout e da factura: adiantamento e remanescente sobre o total com IVA)
+  const divisao = encomendaPaymentSplit(daEncomenda.subtotal)
+  const pctAdiantamento = Math.round(ENCOMENDA_ADIANTAMENTO_RATE * 100)
+  const pagamentoNaFolha = encomenda && pagamento === PAGAMENTO_PADRAO && valido
+    ? `${pctAdiantamento}% do valor da encomenda (${valor2(divisao.adiantamentoMt)} ${moeda}) com a aprovação e ${100 - pctAdiantamento}% (${valor2(divisao.remanescenteMt)} ${moeda}) na entrega`
+    : pagamento
 
   // autorizar o valor: só a equipa o faz, num botão (nada chega ao cliente antes). Cada linha vai pela sua ligação à encomenda (não pelo nome) e o servidor grava o preço sem IVA com a
   // quantidade que o CLIENTE definiu; na primeira vez o cliente recebe um só e-mail a avisar que a cotação já está no painel dele
@@ -824,7 +831,7 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, aoAutorizado
               {/* da descrição ao fim: informação e aprovação do cliente ficam sempre encostadas ao fundo da folha */}
               <div className="mt-auto pt-4">
               <p className="text-zinc-600">
-                {ivaIncluido ? `Preços por unidade com logo e IVA de ${iva}% incluídos.` : 'Preços por unidade com logo, sem IVA.'} Prazo de entrega: {prazo.trim() || '[PRAZO]'}. Pagamento: {pagamento.trim() || '[CONDIÇÕES DE PAGAMENTO]'}.
+                {ivaIncluido ? `Preços por unidade com logo e IVA de ${iva}% incluídos.` : 'Preços por unidade com logo, sem IVA.'} Prazo de entrega: {prazo.trim() || '[PRAZO]'}. Pagamento: {pagamentoNaFolha.trim() || '[CONDIÇÕES DE PAGAMENTO]'}.
               </p>
 
               <div className="mt-5 rounded-xl p-4" style={{ border: `1px solid ${VERMELHO}` }}>

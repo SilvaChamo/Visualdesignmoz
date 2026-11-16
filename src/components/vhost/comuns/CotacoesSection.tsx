@@ -103,7 +103,7 @@ function deliveryCountdown(dateStr: string, createdAtStr: string): { label: stri
 }
 
 // Ordem = fluxo real da encomenda: Pendentes -> Em produção -> Concluídas (pronta,
-// falta o cliente pagar o remanescente de 30%) -> Entregues (tudo terminado, incl.
+// falta o cliente pagar o remanescente de 25%) -> Entregues (tudo terminado, incl.
 // pagamento). Rejeitadas (a equipa recusou) e Canceladas (o cliente desistiu)
 // ficam fora do fluxo principal, por isso vão no fim — e são baldes distintos,
 // para não misturar as duas origens diferentes.

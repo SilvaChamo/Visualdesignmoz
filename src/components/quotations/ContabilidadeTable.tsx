@@ -797,7 +797,7 @@ function RegistosTable({ registos, variant }: { registos: RegistoRow[]; variant:
                   <td className="whitespace-nowrap px-4 py-2.5 text-right tabular-nums text-gray-400 dark:text-zinc-500">{idx + 1}</td>
                   <td className="whitespace-nowrap px-4 py-2.5 font-mono text-xs font-bold text-red-600 dark:text-red-400">{d.numero}</td>
                   <td className="whitespace-nowrap px-4 py-2.5 text-gray-500 dark:text-zinc-400">
-                    {d.fase === 'adiantamento' ? 'Adiantamento (70%)' : 'Remanescente (30%)'}
+                    {d.fase === 'adiantamento' ? 'Adiantamento (75%)' : 'Remanescente (25%)'}
                   </td>
                   <td className="max-w-[14rem] truncate px-4 py-2.5 font-medium text-gray-900 dark:text-white">{d.empresa}</td>
                   <td className="max-w-[16rem] truncate px-4 py-2.5 text-gray-500 dark:text-zinc-400">{d.resumo}</td>
@@ -1518,8 +1518,8 @@ type EncomendaPagamento = {
 }
 
 const ENCOMENDA_FASE_LABEL: Record<EncomendaPagamento['phase'], string> = {
-  advance: 'Adiantamento (70%)',
-  remainder: 'Remanescente (30%)',
+  advance: 'Adiantamento (75%)',
+  remainder: 'Remanescente (25%)',
 }
 
 /**

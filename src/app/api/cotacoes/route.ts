@@ -176,7 +176,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Produto ou categoria não reconhecidos.' }, { status: 400 });
       }
       // Sem preço fixo (ex.: serviços de outras marcas ainda "Sob Consulta") — não
-      // faz sentido calcular um total nem exigir adiantamento de 70% sobre nada.
+      // faz sentido calcular um total nem exigir adiantamento de 75% sobre nada.
       const sobConsulta = Boolean(found.item.sobConsulta);
       const totalMt = sobConsulta ? 0 : Math.round(found.item.price * quantidadeNum * 100) / 100;
       validatedItems.push({

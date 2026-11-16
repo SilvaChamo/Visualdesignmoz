@@ -84,7 +84,7 @@ function EncomendaPendenteCard({ draft, onNavigate }: { draft: EncomendaDraft; o
           {pricing.adiantamentoMt > 0 && (
             <div className="text-right flex-shrink-0">
               <div className="font-black text-slate-900 text-base">{formatMt(pricing.adiantamentoMt)} MT</div>
-              <div className="text-[10px] text-slate-400">adiantamento 70%</div>
+              <div className="text-[10px] text-slate-400">adiantamento 75%</div>
             </div>
           )}
         </div>

@@ -1,6 +1,6 @@
 /**
- * Comprovativos de pagamento de uma encomenda (adiantamento 70% /
- * remanescente 30%). Vivem em quotation_attachments como qualquer anexo, mas
+ * Comprovativos de pagamento de uma encomenda (adiantamento 75% /
+ * remanescente 25%). Vivem em quotation_attachments como qualquer anexo, mas
  * a fase fica marcada no próprio caminho do ficheiro no bucket — sem coluna
  * nova na tabela (a base de dados é partilhada com produção) — para a
  * Contabilidade › Encomendas e a página de pagamento saberem qual é qual.

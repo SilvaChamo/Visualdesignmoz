@@ -1726,7 +1726,7 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                   </p>
                   {isEncomenda && encomendaTemValor && encomendaPricing && (
                     <p className="text-[11px] text-slate-400 dark:text-zinc-500 mt-0.5">
-                      Adiantamento de 70% da factura de {formatMt(encomendaPricing.totalComIvaMt)} MT
+                      Adiantamento de 75% da factura de {formatMt(encomendaPricing.totalComIvaMt)} MT
                     </p>
                   )}
                 </div>
@@ -1829,11 +1829,11 @@ export function CheckoutContent({ painel }: { painel?: CheckoutPainel } = {}) {
                 {isEncomenda ? (
                   <>
                     <p className="text-xs text-slate-500 dark:text-zinc-400 leading-relaxed">
-                      A produção começa depois de confirmado o adiantamento de 70% — a nossa equipa verifica o comprovativo do M-Pesa ou da Transferência.
+                      A produção começa depois de confirmado o adiantamento de 75% — a nossa equipa verifica o comprovativo do M-Pesa ou da Transferência.
                     </p>
                     <div className="border-t border-dashed border-slate-200 dark:border-zinc-800 my-3" />
                     <p className="text-xs text-slate-500 dark:text-zinc-400 leading-relaxed">
-                      Os restantes 30% pagam-se na entrega, a partir do painel das encomendas.
+                      Os restantes 25% pagam-se na entrega, a partir do painel das encomendas.
                     </p>
                   </>
                 ) : (

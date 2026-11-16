@@ -167,7 +167,7 @@ export function EncomendaLoginNecessario({ loginHref }: { loginHref: string }) {
   );
 }
 
-/** Resumo da encomenda no checkout — mesmos valores da pré-visualização em /cotacao (IVA acrescido, adiantamento de 70%). */
+/** Resumo da encomenda no checkout — mesmos valores da pré-visualização em /cotacao (IVA acrescido, adiantamento de 75%). */
 export function EncomendaResumoCard({ draft, pricing }: { draft: EncomendaDraft; pricing: EncomendaPricing }) {
   const temValor = pricing.subtotalMt > 0;
   return (
@@ -236,11 +236,11 @@ export function EncomendaResumoCard({ draft, pricing }: { draft: EncomendaDraft;
               <span>{formatMt(pricing.totalComIvaMt)} MT</span>
             </div>
             <div className="flex justify-between items-center pt-1.5 mt-1.5 border-t border-slate-200 dark:border-zinc-800">
-              <span className="font-black text-slate-800 dark:text-zinc-100 uppercase">A pagar agora — adiantamento 70%</span>
+              <span className="font-black text-slate-800 dark:text-zinc-100 uppercase">A pagar agora — adiantamento 75%</span>
               <span className="font-black text-xl text-red-600 dark:text-red-400">{formatMt(pricing.adiantamentoMt)} MT</span>
             </div>
             <p className="text-[11px] text-slate-400 dark:text-zinc-500 text-right">
-              Remanescente de {formatMt(pricing.remanescenteMt)} MT (30%) pago na entrega.
+              Remanescente de {formatMt(pricing.remanescenteMt)} MT (25%) pago na entrega.
             </p>
           </>
         )}
