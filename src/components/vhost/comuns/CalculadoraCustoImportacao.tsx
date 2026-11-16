@@ -16,6 +16,7 @@ import { CotacaoCliente } from './CotacaoCliente'
 import { Miniatura, SeletorSemelhantes, useFotosProdutos } from './fotos-produtos'
 import { gravarEstado, lerEstadoSeguro } from './estado-calculadora'
 import { GravarValorBrindes } from './GravarValorBrindes'
+import { impressaoUnitariaFixa } from '@/lib/impressao-fixa'
 import { ListaEncomendas, useEncomendasDoSite, type EncomendaSite } from './EncomendasDoSite'
 import { Tabs } from '../paginas/componentes'
 import { configValida, type ConfigBrindes } from '@/lib/preco-brindes'
@@ -132,7 +133,10 @@ type Rascunho = { linhas: LinhaForm[]; proximo: number; custos?: Custos }
 function alinharComEncomenda(ls: LinhaForm[], e: EncomendaSite): LinhaForm[] {
   return ls.map((l) => {
     const it = e.itens.find((x) => x.id === l.linhaId) ?? (l.linhaId ? undefined : e.itens.find((x) => x.nome.trim() === l.nome.trim() && !ls.some((o) => o.linhaId === x.id)))
-    return it ? { ...l, linhaId: it.id, unidades: String(it.unidades) } : l
+    if (!it) return l
+    // a impressão é a preparação fixa (R460) repartida pelas unidades do cliente: acompanha-as, salvo se alguém lhe pôs outro valor
+    const automatica = !(num(l.impressao, true) > 0) || l.impressao === impressaoUnitariaFixa(num(l.unidades))
+    return { ...l, linhaId: it.id, unidades: String(it.unidades), ...(automatica ? { impressao: impressaoUnitariaFixa(it.unidades) } : {}) }
   })
 }
 
@@ -643,7 +647,7 @@ export function CalculadoraCustoImportacao() {
             : '',
         ),
       )
-      setLinhas(e.itens.slice(0, MAX_LINHAS).map((it, k) => novaLinha(k + 1, { linhaId: it.id, nome: it.nome, unidades: String(it.unidades), custo: custos[k] })))
+      setLinhas(e.itens.slice(0, MAX_LINHAS).map((it, k) => novaLinha(k + 1, { linhaId: it.id, nome: it.nome, unidades: String(it.unidades), custo: custos[k], impressao: impressaoUnitariaFixa(it.unidades) })))
       proximoId.current = Math.min(e.itens.length, MAX_LINHAS) + 1
     }
     setRascunhos(Object.fromEntries(Object.entries(guardados).filter(([k]) => k !== e.batchId)))
@@ -1197,7 +1201,7 @@ export function CalculadoraCustoImportacao() {
             As taxas de direitos são exemplos: tire as suas da pauta aduaneira, para cada código do SH e origem. O peso e o volume podem estar em qualquer unidade, desde que todas as linhas usem a mesma.
           </p>
           <p className={`${NOTA} mt-2`}>
-            Valores de partida: cotação BF-MWBWHJVJ-JHTJ da Brandful (África do Sul), de 11/11/2026 e válida até 11/12/2026, em rand e sem o IVA sul-africano. A impressão é a taxa de preparação da arte (setup) dividida pelas unidades. A cotação não traz o frete, o seguro, os direitos, o peso nem o volume: preencha-os.
+            Valores de partida: cotação BF-MWBWHJVJ-JHTJ da Brandful (África do Sul), de 11/11/2026 e válida até 11/12/2026, em rand e sem o IVA sul-africano. A impressão é a taxa de preparação da arte (setup) dividida pelas unidades; nas encomendas do site fica fixa em R460 por produto (R400 mais o IVA sul-africano de 15 %) e reparte-se pelas unidades que o cliente pediu. A cotação não traz o frete, o seguro, os direitos, o peso nem o volume: preencha-os.
           </p>
         </div>
 
