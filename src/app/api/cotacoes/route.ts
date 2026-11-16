@@ -10,6 +10,7 @@ import { resolveRoleForAuthUser } from '@/lib/server-auth-role';
 import { resolveEffectiveClientUserId } from '@/lib/client-impersonation';
 import { computeUnreadByBatch } from '@/lib/quotation-unread';
 import { valorBrindeSemIva } from '@/lib/valor-brinde';
+import { abaixoDoMinimoImportacao, pedidoLocal } from '@/lib/brinde-importacao';
 
 const VALID_PAYMENT_METHODS = ['mpesa', 'transferencia'];
 
@@ -159,11 +160,13 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ error: 'A descrição do pedido personalizado é demasiado longa (máx. 255 caracteres).' }, { status: 400 });
         }
         // brinde do catálogo: o valor já está calculado (sem impressão), por isso não fica «sob consulta»
-        const valor = await valorBrindeSemIva(descricao);
+        // menos do que o mínimo para importar: não se importa, pede-se um produto local (sempre por contacto)
+        const local = abaixoDoMinimoImportacao(descricao, quantidadeNum);
+        const valor = local ? null : await valorBrindeSemIva(descricao);
         validatedItems.push({
           categoriaId: CUSTOM_CATEGORIA_ID,
           categoriaLabel: 'Pedido Personalizado',
-          produto: descricao,
+          produto: local ? pedidoLocal(descricao) : descricao,
           precoUnitario: valor ?? 0,
           quantidadeNum,
           sobConsulta: valor === null,
