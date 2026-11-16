@@ -123,6 +123,8 @@ const CAMPOS_REMESSA = ['frete', 'seguro', 'corretor', 'porto', 'entrega', 'entr
 const CAMPOS_PERCENTAGENS = ['erroPct', 'comissaoPct', 'perdasPct', 'margemPct'] as const
 type Custos = Record<(typeof CAMPOS_REMESSA)[number] | (typeof CAMPOS_PERCENTAGENS)[number], string>
 const CUSTOS_ZERO = Object.fromEntries(CAMPOS_REMESSA.map((c) => [c, '0'])) as Partial<Custos>
+// os custos de uma encomenda que ainda não tem os seus: a zero, com as margens gerais
+const custosNovos = (gerais: Record<string, string>): Partial<Custos> => ({ ...CUSTOS_ZERO, ...Object.fromEntries(CAMPOS_PERCENTAGENS.filter((c) => gerais[c] !== undefined).map((c) => [c, gerais[c]])) })
 const custosDe = (f: Form): Custos => Object.fromEntries([...CAMPOS_REMESSA, ...CAMPOS_PERCENTAGENS].map((c) => [c, f[c]])) as Custos
 type Rascunho = { linhas: LinhaForm[]; proximo: number; custos?: Custos }
 
@@ -459,6 +461,8 @@ export function CalculadoraCustoImportacao() {
   const [rascunhos, setRascunhos] = useState<Record<string, Rascunho>>({})
   // os custos da remessa da encomenda que está na calculadora: lêem-se com a lista e só se aplicam depois de o formulário ter lido os seus (senão estes passavam por cima)
   const custosLidos = useRef<Custos | null>(null)
+  // uma encomenda guardada antes de os custos serem por encomenda (sem custos seus) entra como uma nova: custos a zero, não os valores gerais
+  const semCustosGuardados = useRef(false)
   // as margens gerais guardadas (as que valem sem encomenda): são o ponto de partida das margens de uma encomenda nova
   const geraisLidos = useRef<Record<string, string>>({})
   const [custosProntos, setCustosProntos] = useState(false)
@@ -478,6 +482,7 @@ export function CalculadoraCustoImportacao() {
         proximoId.current = Math.max(typeof g.proximo === 'number' ? g.proximo : 0, ...g.linhas.map((l) => l.id + 1))
         if (g.encomenda?.batchId) setEncomenda(g.encomenda)
         if (g.encomenda?.batchId && g.custos) custosLidos.current = g.custos
+        else if (g.encomenda?.batchId) semCustosGuardados.current = true
         if (g.rascunhos) setRascunhos(g.rascunhos)
         ultimoGuardado.current = JSON.stringify({ linhas: g.linhas, proximo: proximoId.current, ...(g.encomenda ? { encomenda: g.encomenda } : {}), ...(g.encomenda && g.custos ? { custos: g.custos } : {}), ...(g.rascunhos ? { rascunhos: g.rascunhos } : {}) })
       }
@@ -516,7 +521,9 @@ export function CalculadoraCustoImportacao() {
   useEffect(() => {
     if (!listaLida || !formLido || custosProntos) return
     if (custosLidos.current) setForm((f) => ({ ...f, ...custosLidos.current }))
+    else if (semCustosGuardados.current) setForm((f) => ({ ...f, ...custosNovos(geraisLidos.current) }))
     custosLidos.current = null
+    semCustosGuardados.current = false
     setCustosProntos(true)
   }, [listaLida, formLido, custosProntos])
   // as quantidades da encomenda são as do cliente, lidas do servidor: a lista de encomendas do site (sempre actual) manda nas unidades e na ligação de cada linha
@@ -621,8 +628,7 @@ export function CalculadoraCustoImportacao() {
     const guardados: Record<string, Rascunho> = { ...rascunhos, [encomenda?.batchId ?? LIVRE]: { linhas, proximo: proximoId.current, custos: custosDe(form) } }
     const antes = guardados[e.batchId]
     // os custos da remessa são desta encomenda: os que tinha guardados, ou a zero (e as margens gerais)
-    const gerais = Object.fromEntries(CAMPOS_PERCENTAGENS.filter((c) => geraisLidos.current[c] !== undefined).map((c) => [c, geraisLidos.current[c]]))
-    setForm((f) => ({ ...f, ...(antes?.custos ?? { ...CUSTOS_ZERO, ...gerais }) }))
+    setForm((f) => ({ ...f, ...(antes?.custos ?? custosNovos(geraisLidos.current)) }))
     if (antes) {
       setLinhas(alinharComEncomenda(antes.linhas, e))
       proximoId.current = antes.proximo
@@ -649,7 +655,7 @@ export function CalculadoraCustoImportacao() {
     const livre = rascunhos[LIVRE]
     if (!livre || !encomenda) return
     setRascunhos({ ...Object.fromEntries(Object.entries(rascunhos).filter(([k]) => k !== LIVRE)), [encomenda.batchId]: { linhas, proximo: proximoId.current, custos: custosDe(form) } })
-    if (livre.custos) setForm((f) => ({ ...f, ...livre.custos }))
+    setForm((f) => ({ ...f, ...(livre.custos ?? Object.fromEntries([...CAMPOS_REMESSA, ...CAMPOS_PERCENTAGENS].filter((c) => geraisLidos.current[c] !== undefined).map((c) => [c, geraisLidos.current[c]]))) }))
     setLinhas(livre.linhas)
     proximoId.current = livre.proximo
     setEncomenda(null)
@@ -896,6 +902,9 @@ export function CalculadoraCustoImportacao() {
     carregarEncomenda(e)
     setAba('actual')
   }
+  // a lista própria (sem cliente) também está no histórico: com uma encomenda aberta é a que ficou guardada à parte; sem ela, é a que está na calculadora
+  const produtosPropria = encomenda ? (rascunhos[LIVRE]?.linhas.length ?? 0) : linhas.length
+  const listaPropria = produtosPropria > 0 ? { produtos: produtosPropria, naCalculadora: !encomenda, aoVoltar: () => { voltarALivre(); setAba('actual') } } : undefined
 
   return (
     <>
@@ -904,7 +913,7 @@ export function CalculadoraCustoImportacao() {
       tabs={[
         ['actual', 'Encomenda actual'],
         ['pendentes', `Pendentes (${pendentes.length})`],
-        ['anteriores', `Anteriores (${anteriores.length})`],
+        ['anteriores', `Anteriores (${anteriores.length + (listaPropria ? 1 : 0)})`],
       ]}
       on={aba}
       onChange={setAba}
@@ -925,7 +934,7 @@ export function CalculadoraCustoImportacao() {
         </div>
       )}
       {aba === 'pendentes' && <ListaEncomendas itens={pendentes} erro={erroEnc} vazio="Não há encomendas por responder." atual={encomenda?.batchId ?? null} aoCarregar={aoCarregarDaLista} />}
-      {aba === 'anteriores' && <ListaEncomendas itens={anteriores} erro={erroEnc} vazio="Não há encomendas anteriores." atual={encomenda?.batchId ?? null} aoCarregar={aoCarregarDaLista} />}
+      {aba === 'anteriores' && <ListaEncomendas itens={anteriores} erro={erroEnc} vazio="Não há encomendas anteriores." atual={encomenda?.batchId ?? null} aoCarregar={aoCarregarDaLista} propria={listaPropria} />}
       {/* a calculadora fica sempre montada (só se esconde) para não perder o que está a ser feito */}
       <div className={`grid grid-cols-[minmax(0,1fr)] gap-6 ${aba === 'actual' ? '' : 'hidden'}`}>
       {encomenda && rascunhos[LIVRE] && (

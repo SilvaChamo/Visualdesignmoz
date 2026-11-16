@@ -288,4 +288,5 @@ export const calculadora_importacao: Record<string, string> = {
  "Valor actualizado no painel do cliente.": "Value updated in the client's panel.",
  "Autorizar e enviar ao cliente": "Authorise and send to the client",
  "Actualizar o valor do cliente": "Update the client's value",
+ "Lista própria": "Own list",
 };
