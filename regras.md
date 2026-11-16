@@ -58,6 +58,13 @@ Porquê: em 28/10/2026 um agente sugeriu `next dev --webpack`; esse modo não co
 - **Um só servidor por pasta:** antes de ligar outro, ver se a 3003 já responde (`lsof -ti tcp:3003 -sTCP:LISTEN`). Dois `next dev` na mesma pasta disputam a cache `.next` e o site pisca.
 - Nunca se dá ao Silva um comando que o agente não tenha confirmado; se não pode testar (agente na nuvem), diz-o.
 
+# A janela do navegador do Silva fica sempre aberta; navega-se, nunca se fecha (Silva, 16/11/2026)
+
+**Para qualquer agente, com qualquer IA:** o Silva abre uma janela do navegador (a do painel, em `localhost:3003`) e entra nela com a palavra-passe. O agente **usa essa janela e nunca a fecha**: não fecha a aba nem o painel do navegador, não termina a sessão dele, não limpa cookies nem `localStorage` do painel, e não cria abas novas para testar (não herdam a sessão e pedem o login outra vez). O que o irrita é ter de pôr a palavra-passe «milhões de vezes», não a navegação em si: **navegar na janela dele é permitido**.
+- **Alterações de código aplicam-se sem reiniciar** o servidor e sem recarregar a página (o `next dev` actualiza a aba aberta sozinho). Recarregar só quando o teste exige o estado de partida, e nunca como rotina.
+- Testar na janela aberta (texto, estrutura da página, consola, rede). Páginas temporárias só se forem mesmo precisas e nunca como motivo para o deixar sem sessão.
+- Se a sessão cair (`401` nas rotas do painel), dizê-lo ao Silva e pedir que entre uma vez; o agente nunca escreve a palavra-passe dele.
+
 # Agentes na nuvem (online): conversa curta, tudo nos bastidores (Silva, 23/10/2026)
 
 **Só para os agentes que trabalham online (na nuvem, sem acesso à pasta local).** Os que trabalham no IDE (Cursor, Copilot, Codex, Gemini

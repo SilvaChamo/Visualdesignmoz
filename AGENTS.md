@@ -23,6 +23,10 @@ Qualquer agente, com qualquer IA, actualiza o site local **só com `scripts/atua
 
 O site local arranca **só com `npm run dev`** (Turbopack, porta 3003). Nunca `--webpack`, `--turbopack`, `npx next dev` nem outro modo «para testar»: o `--webpack` não compila este projecto (`node:child_process`), deixa o servidor a dar erro 500 e deita o site local abaixo. Se o site local falhar, pede-se primeiro o registo (`tail -50 /tmp/visualdesign-dev.log`) e não se experimentam modos de arranque. Detalhes em `regras.md`.
 
+## A janela do navegador do Silva fica sempre aberta (Silva, 16/11/2026)
+
+O agente **nunca fecha** a janela/aba do navegador que o Silva abriu e onde ele já entrou com a palavra-passe (nem limpa a sessão, nem cria abas novas): navegar nela é permitido, e as alterações aplicam-se sem reiniciar o servidor nem recarregar a página. Ver `regras.md`.
+
 ## Língua: sempre português, nunca inglês (Silva, 17/10/2026)
 
 Fala-se sempre em português com o Silva — nunca em inglês, em nenhuma circunstância ("nunca falar inglês neste

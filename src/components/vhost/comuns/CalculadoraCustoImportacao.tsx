@@ -13,9 +13,10 @@ import { useI18n } from '@/lib/i18n'
 import { cambioEntre } from '@/lib/cambio'
 import { useCambio } from './useCambio'
 import { CotacaoCliente } from './CotacaoCliente'
-import { Miniatura, useFotosProdutos } from './fotos-produtos'
+import { Miniatura, SeletorSemelhantes, useFotosProdutos } from './fotos-produtos'
 import { gravarEstado, lerEstado } from './estado-calculadora'
 import { GravarValorBrindes } from './GravarValorBrindes'
+import { EncomendasDoSite, type EncomendaSite } from './EncomendasDoSite'
 import { configValida, type ConfigBrindes } from '@/lib/preco-brindes'
 import { translate } from '../i18n'
 import {
@@ -257,7 +258,7 @@ function paraEntrada(f: Form, linhas: LinhaForm[], compra: number, reparticao: R
 // peças de interface
 
 const CAMPO =
-  'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 tabular-nums shadow-sm outline-none transition focus:border-red-500 focus:ring-2 focus:ring-red-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100'
+  'w-full rounded-[5px] border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 tabular-nums shadow-sm outline-none transition focus:border-red-500 focus:ring-2 focus:ring-red-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100'
 const ROTULO = 'mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-400'
 const CARTAO = 'rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 @xl:p-6'
 const TITULO = 'text-lg font-bold text-slate-900 dark:text-slate-100'
@@ -323,7 +324,7 @@ function Opcoes<T extends string>({ rotuloAria, valor, opcoes, aoMudar }: { rotu
             type="button"
             aria-pressed={ligado}
             onClick={() => aoMudar(o.valor)}
-            className={`rounded-lg px-3.5 py-2 text-sm font-semibold transition ${
+            className={`rounded-[5px] px-3.5 py-2 text-sm font-semibold transition ${
               ligado ? 'bg-red-600 text-white shadow-sm' : 'text-slate-600 hover:bg-white dark:text-slate-300 dark:hover:bg-slate-700'
             }`}
           >
@@ -413,6 +414,9 @@ export function Tabela({
 
 // ---------------------------------------------------------------------------------------------------------------------
 
+// chave, entre os rascunhos, da lista própria (sem encomenda do site)
+const LIVRE = '|livre|'
+
 export function CalculadoraCustoImportacao() {
   const { lang } = useI18n()
   const tr = (k: string) => translate(lang, k)
@@ -427,14 +431,21 @@ export function CalculadoraCustoImportacao() {
   const fotoDe = useFotosProdutos(linhas.map((l) => l.nome))
   const ultimoGuardado = useRef<string | null>(null)
   const [listaLida, setListaLida] = useState(false)
+  // a encomenda do site que está na calculadora (com os dados da empresa) e as listas das outras, guardadas à parte para voltarem como estavam
+  const [encomenda, setEncomenda] = useState<EncomendaSite | null>(null)
+  const [rascunhos, setRascunhos] = useState<Record<string, { linhas: LinhaForm[]; proximo: number }>>({})
+  // os valores do formulário também vêm do servidor: até chegarem os dois, a calculadora fica escondida (senão aparece primeiro o exemplo)
+  const [formLido, setFormLido] = useState(false)
   useEffect(() => {
     let vivo = true
-    lerEstado<{ linhas?: LinhaForm[]; proximo?: number }>('calculadora').then((g) => {
+    lerEstado<{ linhas?: LinhaForm[]; proximo?: number; encomenda?: EncomendaSite | null; rascunhos?: Record<string, { linhas: LinhaForm[]; proximo: number }> }>('calculadora').then((g) => {
       if (!vivo) return
       if (g && Array.isArray(g.linhas) && g.linhas.length > 0 && g.linhas.every((l) => typeof l?.id === 'number')) {
         setLinhas(g.linhas)
         proximoId.current = Math.max(typeof g.proximo === 'number' ? g.proximo : 0, ...g.linhas.map((l) => l.id + 1))
-        ultimoGuardado.current = JSON.stringify({ linhas: g.linhas, proximo: proximoId.current })
+        if (g.encomenda?.batchId) setEncomenda(g.encomenda)
+        if (g.rascunhos) setRascunhos(g.rascunhos)
+        ultimoGuardado.current = JSON.stringify({ linhas: g.linhas, proximo: proximoId.current, ...(g.encomenda ? { encomenda: g.encomenda } : {}), ...(g.rascunhos ? { rascunhos: g.rascunhos } : {}) })
       }
       setListaLida(true)
     })
@@ -466,7 +477,7 @@ export function CalculadoraCustoImportacao() {
       setEstado(novas.length === novos.length ? 'Produto(s) adicionado(s) à lista.' : 'Não foi possível adicionar um produto à lista.')
     })
   }, [listaLida])
-  const listaAtual = JSON.stringify({ linhas, proximo: proximoId.current })
+  const listaAtual = JSON.stringify({ linhas, proximo: proximoId.current, ...(encomenda ? { encomenda } : {}), ...(Object.keys(rascunhos).length ? { rascunhos } : {}) })
   useEffect(() => {
     if (!listaLida) return
     // a primeira lista (sem nada guardado) é a base: abrir a calculadora não grava nada
@@ -539,6 +550,54 @@ export function CalculadoraCustoImportacao() {
     setLinhas((ls) => [...ls, novaLinha(id)])
     setEstado('Linha adicionada. Indique as unidades, o custo, os direitos, o peso e o volume.')
     setTimeout(() => ultimaLinha.current?.focus(), 0)
+  }
+  // trocar um produto por outro da mesma família: leva o nome e o custo do produto novo (as unidades e o resto da linha ficam)
+  const trocarProduto = async (id: number, sku: string) => {
+    try {
+      const j = (await (await fetch(`/api/admin/brindes-custo?sku=${encodeURIComponent(sku)}`)).json()) as { success?: boolean; nome?: string; precoZar?: number }
+      if (!j.success || !j.nome || typeof j.precoZar !== 'number') return setEstado('Não foi possível trocar o produto.')
+      const nome = j.nome
+      const custo = String(j.precoZar)
+      setLinhas((ls) => ls.map((l) => (l.id === id ? { ...l, nome, custo } : l)))
+      setEstado('Produto trocado.')
+    } catch {
+      setEstado('Não foi possível trocar o produto.')
+    }
+  }
+  // carrega na calculadora uma encomenda do site: a lista em que se estava guarda-se à parte; a encomenda volta como a deixou, ou nasce dos produtos pedidos (com o custo do catálogo)
+  const carregarEncomenda = async (e: EncomendaSite) => {
+    const guardados = { ...rascunhos, [encomenda?.batchId ?? LIVRE]: { linhas, proximo: proximoId.current } }
+    const antes = guardados[e.batchId]
+    if (antes) {
+      setLinhas(antes.linhas)
+      proximoId.current = antes.proximo
+    } else {
+      const custos = await Promise.all(
+        e.itens.map((it) =>
+          it.sku
+            ? fetch(`/api/admin/brindes-custo?sku=${encodeURIComponent(it.sku)}`)
+                .then((r) => r.json())
+                .then((j: { success?: boolean; precoZar?: number }) => (j.success && typeof j.precoZar === 'number' ? String(j.precoZar) : ''))
+                .catch(() => '')
+            : '',
+        ),
+      )
+      setLinhas(e.itens.slice(0, MAX_LINHAS).map((it, k) => novaLinha(k + 1, { nome: it.nome, unidades: String(it.unidades), custo: custos[k] })))
+      proximoId.current = Math.min(e.itens.length, MAX_LINHAS) + 1
+    }
+    setRascunhos(Object.fromEntries(Object.entries(guardados).filter(([k]) => k !== e.batchId)))
+    setEncomenda(e)
+    setEstado('Encomenda carregada na calculadora.')
+  }
+  // volta à lista própria (a que se tinha antes de carregar a primeira encomenda); a da encomenda fica guardada
+  const voltarALivre = () => {
+    const livre = rascunhos[LIVRE]
+    if (!livre || !encomenda) return
+    setRascunhos({ ...Object.fromEntries(Object.entries(rascunhos).filter(([k]) => k !== LIVRE)), [encomenda.batchId]: { linhas, proximo: proximoId.current } })
+    setLinhas(livre.linhas)
+    proximoId.current = livre.proximo
+    setEncomenda(null)
+    setEstado('Lista própria reposta.')
   }
   const removerLinha = (id: number) => {
     setLinhas((ls) => ls.filter((l) => l.id !== id))
@@ -779,8 +838,9 @@ export function CalculadoraCustoImportacao() {
 
   return (
     // data-ic-sem: o painel não põe ícone dentro dos campos da calculadora (icones-campos.ts)
-    <div className="@container" data-ic-sem>
+    <div className={`@container ${listaLida && formLido ? '' : 'invisible'}`} data-ic-sem aria-busy={!(listaLida && formLido)}>
       <div className="grid grid-cols-[minmax(0,1fr)] gap-6">
+      <EncomendasDoSite atual={encomenda?.batchId ?? null} aoCarregar={carregarEncomenda} aoVoltar={encomenda && rascunhos[LIVRE] ? voltarALivre : undefined} />
       {/* resumo: em cima, a toda a largura (sem barra lateral) */}
       <aside className="space-y-3">
         <div className="rounded-2xl bg-slate-900 p-5 text-white shadow-lg @xl:p-6">
@@ -840,11 +900,11 @@ export function CalculadoraCustoImportacao() {
         )}
 
         <div className="flex flex-wrap gap-2">
-          <button type="button" onClick={copiar} className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-red-700">
+          <button type="button" onClick={copiar} className="inline-flex items-center gap-2 rounded-[5px] bg-red-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-red-700">
             <Copy className="h-4 w-4" aria-hidden />
             Copiar resultados
           </button>
-          <button type="button" onClick={repor} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800">
+          <button type="button" onClick={repor} className="inline-flex items-center gap-2 rounded-[5px] border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800">
             <RotateCcw className="h-4 w-4" aria-hidden />
             Repor o exemplo
           </button>
@@ -926,9 +986,10 @@ export function CalculadoraCustoImportacao() {
                     <span className="flex items-center gap-2.5">
                       {fotoDe(l.nome) && <Miniatura src={fotoDe(l.nome)} />}
                       <span className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">{`Linha ${k + 1}`}</span>
+                      {l.nome.trim() && <SeletorSemelhantes nome={l.nome} aoEscolher={(sku) => trocarProduto(l.id, sku)} />}
                     </span>
                     {linhas.length > 1 && (
-                      <button type="button" onClick={() => removerLinha(l.id)} className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold text-red-600 transition hover:bg-red-50 dark:hover:bg-red-500/10">
+                      <button type="button" onClick={() => removerLinha(l.id)} className="inline-flex items-center gap-1.5 rounded-[5px] px-2 py-1 text-xs font-semibold text-red-600 transition hover:bg-red-50 dark:hover:bg-red-500/10">
                         <Trash2 className="h-3.5 w-3.5" aria-hidden />
                         Remover
                       </button>
@@ -1023,7 +1084,7 @@ export function CalculadoraCustoImportacao() {
             type="button"
             onClick={adicionarLinha}
             disabled={linhas.length >= MAX_LINHAS}
-            className="mt-4 inline-flex items-center gap-2 rounded-lg border border-dashed border-slate-300 px-4 py-2.5 text-sm font-bold text-slate-700 transition hover:border-red-400 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:text-slate-200"
+            className="mt-4 inline-flex items-center gap-2 rounded-[5px] border border-dashed border-slate-300 px-4 py-2.5 text-sm font-bold text-slate-700 transition hover:border-red-400 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:text-slate-200"
           >
             <Plus className="h-4 w-4" aria-hidden />
             Adicionar linha de produto
@@ -1081,7 +1142,7 @@ export function CalculadoraCustoImportacao() {
           <p className={`${NOTA} mt-3`}>
             Os direitos e o imposto de importação calculam-se por linha. O seguro e as taxas dos EUA seguem o valor. O frete, o despachante, o porto, a entrega interna, a entrega ao domicílio e os outros encargos seguem o método escolhido.
           </p>
-          <GravarValorBrindes config={configSite} aoCarregar={(c) => setForm((x) => ({ ...x, ...c }))} />
+          <GravarValorBrindes config={configSite} aoCarregar={(c) => setForm((x) => ({ ...x, ...c }))} aoLer={() => setFormLido(true)} />
         </div>
 
         {eua ? (
@@ -1160,8 +1221,10 @@ export function CalculadoraCustoImportacao() {
 
       {/* a cotação para o cliente, no fim das tabelas */}
       <CotacaoCliente
+        encomenda={encomenda ? { batchId: encomenda.batchId, cliente: encomenda.empresa, contacto: [encomenda.responsavel, encomenda.telefone, encomenda.email].filter(Boolean).join(' · '), numero: encomenda.numero } : undefined}
         moeda={moeda}
         aoRemover={removerLinha}
+        aoTrocar={trocarProduto}
         itens={linhas.map((l, k) => ({ id: l.id, nome: l.nome.trim() || `Linha ${k + 1}`, unidades: num(l.unidades), preco: r.ok ? r.linhas[k].preco : NaN }))}
       />
     </div>
