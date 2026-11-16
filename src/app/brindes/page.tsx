@@ -165,7 +165,7 @@ export default async function VisualGiftsPage({ searchParams }: { searchParams: 
                     'polygon(0 0, 100% 0, 100% calc(100% - 24px), calc(100% - var(--cl)) calc(100% - 24px), calc(100% - var(--cl) - 22px) 100%, calc(var(--cl) + 22px) 100%, var(--cl) calc(100% - 24px), 0 calc(100% - 24px))',
                 } as React.CSSProperties}
               />
-              <div className="container relative mx-auto flex min-h-10 max-w-7xl flex-wrap items-center justify-between gap-x-6 gap-y-2 px-[41px] py-1 sm:px-[49px]">
+              <div className="container relative mx-auto flex min-h-10 max-w-7xl flex-wrap items-center justify-between gap-x-6 gap-y-2 px-[41px] py-1 sm:px-[49px] [&_nav]:text-zinc-800 dark:[&_nav]:text-zinc-400">
                 <Migalhas
                   migalhas={[
                     { nome: 'Início', href: '/' },
