@@ -6,13 +6,15 @@ import { BrindesHero } from '@/components/brindes/BrindesHero'
 import { BarraPedido } from '@/components/brindes/BarraPedido'
 import { PesquisaBrindes } from '@/components/brindes/PesquisaBrindes'
 import { GrelhaProdutos, SeccaoProdutos } from '@/components/brindes/SeccaoProdutos'
-import { CONTAGENS, MARCAS, TOTAL_PRODUTOS, emMt, listarCatalogo, seccoesDestaque, seccoesDoGrupo } from '@/lib/catalogo-brindes'
+import { CONTAGENS, MARCAS, TOTAL_PRODUTOS, emMt, faixaDePrecos, listarCatalogo, seccoesDestaque, seccoesDoGrupo } from '@/lib/catalogo-brindes'
+import { valorPorUnidadeMt } from '@/lib/preco-brindes'
 import { cambioZarMzn } from '@/lib/cambio-brindes'
 import { estimativaBrindes } from '@/lib/estimativa-brindes'
 import { SeletorLigacao } from '@/components/brindes/SeletorLigacao'
 import { FAMILIAS_COR } from '@/lib/catalogo-cores'
 import { GRUPOS, grupoPorId, hrefGrupo, subPorId } from '@/lib/catalogo-grupos'
-import { FaixaCaminho } from '@/components/brindes/FaixaCaminho'
+import { Migalhas } from '@/components/brindes/FaixaCaminho'
+import { FiltroPreco } from '@/components/brindes/FiltroPreco'
 import { BRAND_LANDING_CONTENT } from '@/lib/brand-landing-content'
 
 const DADOS = BRAND_LANDING_CONTENT['brindes']
@@ -32,9 +34,13 @@ const ORDENS: { id: string; nome: string }[] = [
   { id: '', nome: 'Destaques' },
   { id: 'nome', nome: 'Nome (A–Z)' },
   { id: 'marca', nome: 'Marca' },
+  { id: 'preco-asc', nome: 'Preço: menor → maior' },
+  { id: 'preco-desc', nome: 'Preço: maior → menor' },
 ]
 
 const texto = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? ''
+// margem de preços (MT): só números inteiros não negativos
+const preco = (v: string) => (/^\d{1,7}$/.test(v) ? Number(v) : null)
 
 export default async function VisualGiftsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const sp = await searchParams
@@ -45,17 +51,23 @@ export default async function VisualGiftsPage({ searchParams }: { searchParams: 
   const ordem = ORDENS.find((o) => o.id === texto(sp.ordem))?.id ?? ''
   const filtro = { q: texto(sp.q).slice(0, 80), marca: texto(sp.marca), grupo: grupo?.id ?? '', sub: sub?.id ?? '', cor, stock: texto(sp.stock) === '1', ordem }
   const pagina = Number(texto(sp.pagina))
+  const pmin = preco(texto(sp.pmin))
+  const pmax = preco(texto(sp.pmax))
 
   // sem filtros mostram-se secções (cada tipo de produto no seu lugar); com filtros, a lista com páginas
-  const semFiltrosExtra = !filtro.q && !filtro.marca && !filtro.cor && !filtro.stock && !filtro.ordem
+  const semFiltrosExtra = !filtro.q && !filtro.marca && !filtro.cor && !filtro.stock && !filtro.ordem && pmin === null && pmax === null
   const modo: 'inicio' | 'grupo' | 'lista' = !semFiltrosExtra || sub ? 'lista' : grupo ? 'grupo' : 'inicio'
   const taxa = await cambioZarMzn()
   const est = await estimativaBrindes()
-  const achados = modo === 'lista' ? listarCatalogo({ ...filtro, pagina }) : null
+  const mt = taxa ? (zar: number) => valorPorUnidadeMt(zar, taxa, est) : undefined
+  const achados = modo === 'lista' ? listarCatalogo({ ...filtro, pagina, mt, precoMin: pmin ?? undefined, precoMax: pmax ?? undefined }) : null
+  // os extremos dos niveladores: o menor e o maior preço do que se está a ver
+  const extremos = mt && modo !== 'inicio' ? faixaDePrecos(filtro, mt) : null
+  const faixa = extremos && extremos.max > extremos.min ? extremos : null
   const lista = achados && { ...achados, produtos: emMt(achados.produtos, taxa, est) }
 
-  const ligacao = (mudar: Partial<Record<'grupo' | 'sub' | 'cor' | 'stock' | 'ordem', string>> & { pagina?: number }) => {
-    const v = { ...filtro, stock: filtro.stock ? '1' : '', ...mudar }
+  const parametros = (mudar: Partial<Record<'grupo' | 'sub' | 'cor' | 'stock' | 'ordem' | 'pmin' | 'pmax', string>> & { pagina?: number }) => {
+    const v = { ...filtro, stock: filtro.stock ? '1' : '', pmin: pmin === null ? '' : String(pmin), pmax: pmax === null ? '' : String(pmax), ...mudar }
     const q = new URLSearchParams()
     if (v.q) q.set('q', v.q)
     if (v.marca) q.set('marca', v.marca)
@@ -64,11 +76,16 @@ export default async function VisualGiftsPage({ searchParams }: { searchParams: 
     if (v.cor) q.set('cor', v.cor)
     if (v.stock) q.set('stock', '1')
     if (v.ordem) q.set('ordem', v.ordem)
+    if (v.pmin) q.set('pmin', v.pmin)
+    if (v.pmax) q.set('pmax', v.pmax)
     if (mudar.pagina && mudar.pagina > 1) q.set('pagina', String(mudar.pagina))
-    const str = q.toString()
+    return q.toString()
+  }
+  const ligacao = (mudar: Parameters<typeof parametros>[0]) => {
+    const str = parametros(mudar)
     return `/brindes${str ? `?${str}` : ''}#catalogo`
   }
-  const semFiltros = !filtro.q && !filtro.marca && !filtro.grupo && !filtro.cor && !filtro.stock && !filtro.ordem
+  const semFiltros = !filtro.q && !filtro.marca && !filtro.grupo && !filtro.cor && !filtro.stock && !filtro.ordem && pmin === null && pmax === null
   const campo =
     'h-11 rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-900 focus:border-red-600 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100'
   // a seta nativa dos selectores fica colada à beira: desenha-se a nossa, a 14 px dela
@@ -91,23 +108,11 @@ export default async function VisualGiftsPage({ searchParams }: { searchParams: 
 
   return (
     <div className="min-h-screen bg-black/10 dark:bg-black">
-      {modo === 'inicio' ? (
-        <BrindesHero hero={DADOS.hero} />
-      ) : (
-        <FaixaCaminho
-          migalhas={[
-            { nome: 'Início', href: '/' },
-            { nome: 'VisualGifts', href: '/brindes' },
-            ...(grupo && sub ? [{ nome: grupo.nome, href: hrefGrupo(grupo) }] : []),
-          ]}
-          atual={sub?.nome ?? grupo?.nome ?? 'Pesquisa'}
-          margens="px-[41px] sm:px-[49px]"
-        />
-      )}
+      {modo === 'inicio' && <BrindesHero hero={DADOS.hero} />}
 
       {/* interiores: o topo do cinzento é liso (encostado à faixa do caminho) e só o fundo tem recorte: pontas para baixo e meio recuado */}
       <NotchSection shape={modo === 'inicio' ? 'mid' : 'start'} bg="bg-zinc-200 dark:bg-black" first={modo !== 'inicio'} className={modo !== 'inicio' ? 'z-20' : ''}>
-        <div className={`container mx-auto max-w-7xl px-[41px] sm:px-[49px] ${modo === 'inicio' ? 'py-[46px]' : 'pb-[54px] pt-[38px]'}`}>
+        <div className={`container mx-auto max-w-7xl px-[41px] sm:px-[49px] ${modo === 'inicio' ? 'py-[46px]' : 'pb-[54px] pt-[157px]'}`}>
           <form method="get" action="/brindes#catalogo" className="grid grid-cols-1 items-center gap-3 md:grid-cols-[minmax(0,380px)_190px_170px_auto_auto] md:justify-center">
             {cor && <input type="hidden" name="cor" value={cor} />}
             {ordem && <input type="hidden" name="ordem" value={ordem} />}
@@ -141,6 +146,19 @@ export default async function VisualGiftsPage({ searchParams }: { searchParams: 
       <FundoLista interior={modo !== 'inicio'}>
         <div id="catalogo" className="scroll-mt-[90px] pb-14 pt-4">
           <div className="container mx-auto max-w-7xl px-[41px] sm:px-[49px]">
+            {modo !== 'inicio' && (
+              <div className="mb-5 flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
+                <Migalhas
+                  migalhas={[
+                    { nome: 'Início', href: '/' },
+                    { nome: 'VisualGifts', href: '/brindes' },
+                    ...(grupo && sub ? [{ nome: grupo.nome, href: hrefGrupo(grupo) }] : []),
+                  ]}
+                  atual={sub?.nome ?? grupo?.nome ?? 'Pesquisa'}
+                />
+                {faixa && <FiltroPreco key={`${faixa.min}-${faixa.max}-${pmin}-${pmax}`} min={faixa.min} max={faixa.max} de={pmin} ate={pmax} base={parametros({ pmin: '', pmax: '' })} />}
+              </div>
+            )}
             {modo === 'lista' && (
             <div className="mb-5 flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
             <div className="flex flex-wrap gap-2" aria-label="Categoria seleccionada">
