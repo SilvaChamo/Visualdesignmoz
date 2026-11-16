@@ -141,6 +141,36 @@ export async function notifyQuoteClientPriceDefined(params: {
 }
 
 /**
+ * Avisa o cliente (email), uma só vez por encomenda, quando a equipa autoriza o
+ * valor da cotação na calculadora: a cotação já está no painel dele. Mesmo
+ * padrão das outras notificações (uma falha de email nunca impede a acção).
+ */
+export async function notifyQuoteClientQuotationReady(params: {
+  to: string;
+  clientName: string;
+  totalComIvaMt: number;
+  userId?: string | null;
+}) {
+  const { to, totalComIvaMt, userId } = params;
+  const clientName = await nomeDoPerfil(getSupabaseAdmin(), userId, params.clientName);
+  const title = 'A sua cotação já está no painel';
+  const message = `A equipa preparou a cotação do seu pedido: ${formatMt(totalComIvaMt)} MT (com IVA).\n\nAceda ao painel, em Encomendas, para a ver e avançar com o pagamento.`;
+  const ctaLink = `${SITE_URL}/encomendas`;
+
+  try {
+    await sendEmail({
+      to,
+      subject: title,
+      html: buildClientEmailHtml({ clientName, title, message, ctaLink, ctaText: 'Ver a cotação' }),
+      from: NOREPLY_EMAIL,
+      category: 'transactional',
+    });
+  } catch (err) {
+    console.error('[notify-quote-client] falha ao enviar email de cotação pronta:', err);
+  }
+}
+
+/**
  * Avisa o cliente (email) quando a equipa envia um novo layout de design
  * para aprovação (quotation_layouts). Assunto inclui a descrição e a fase,
  * para o cliente identificar de imediato do que se trata.
