@@ -82,7 +82,7 @@ const lerNumero = (s: string, padrao: number) => {
   return s.trim() !== '' && Number.isFinite(v) && v >= 0 ? v : padrao
 }
 
-export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, aoAutorizado, encomenda, modoCliente }: { itens: ItemCotacao[]; moeda: string; /** painel do cliente: a mesma folha e as mesmas opções de edição, guardada por encomenda */ modoCliente?: boolean; encomenda?: { batchId: string; cliente: string; contacto: string; numero: string; email?: string; itens?: { id: string; nome: string }[]; /** o cliente ainda não vê o valor: a equipa não o autorizou */ porResponder?: boolean }; aoRemover?: (id: number) => void; aoTrocar?: (id: number, sku: string) => Promise<void>; /** depois de autorizar o valor (a calculadora volta a ler o estado da encomenda) */ aoAutorizado?: () => void }) {
+export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, aoAutorizado, pronto = true, encomenda, modoCliente }: { itens: ItemCotacao[]; moeda: string; /** painel do cliente: a mesma folha e as mesmas opções de edição, guardada por encomenda */ modoCliente?: boolean; encomenda?: { batchId: string; cliente: string; contacto: string; numero: string; email?: string; itens?: { id: string; nome: string }[]; /** o cliente ainda não vê o valor: a equipa não o autorizou */ porResponder?: boolean }; aoRemover?: (id: number) => void; aoTrocar?: (id: number, sku: string) => Promise<void>; /** depois de autorizar o valor (a calculadora volta a ler o estado da encomenda) */ aoAutorizado?: () => void; /** a calculadora já leu tudo o que guardou (lista, custos e encomenda): só então se vigiam as alterações dos valores */ pronto?: boolean }) {
   const chaveEstado = modoCliente && encomenda ? (`cotacao:${encomenda.batchId}` as const) : ('cotacao' as const)
   const chaveImagens = modoCliente && encomenda ? (`cotacao-imagens:${encomenda.batchId}` as const) : ('cotacao-imagens' as const)
   const [cliente, setCliente] = useState('')
@@ -264,18 +264,31 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, aoAutorizado
   // Abrir a encomenda não envia nada (só uma alteração envia) e enquanto o valor não está autorizado o cliente não recebe nada.
   const chavePrecos = encomenda && !modoCliente && valido && !editar ? JSON.stringify(linhas.map((l) => [itens.find((i) => i.id === l.id)?.linhaId, l.preco])) : ''
   const ultimoEnviado = useRef<{ lote: string; chave: string } | null>(null)
+  // ao abrir, a calculadora ainda põe os custos, as unidades e as margens guardados (os valores mudam sozinhos durante 1 ou 2 segundos): isso não é uma rectificação e nunca vai para o cliente;
+  // só as alterações feitas depois de uma pausa de 3 s sem mudanças (e com tudo lido) seguem
+  const calmaDesde = useRef(0)
   useEffect(() => {
     if (!encomenda || !chavePrecos || encomenda.porResponder) return
+    if (!pronto) {
+      ultimoEnviado.current = null
+      return
+    }
     const base = ultimoEnviado.current
     if (!base || base.lote !== encomenda.batchId) {
       ultimoEnviado.current = { lote: encomenda.batchId, chave: chavePrecos }
+      calmaDesde.current = Date.now() + 3000
+      return
+    }
+    if (Date.now() < calmaDesde.current) {
+      ultimoEnviado.current = { lote: encomenda.batchId, chave: chavePrecos }
+      calmaDesde.current = Date.now() + 3000
       return
     }
     if (base.chave === chavePrecos) return
     const t = window.setTimeout(() => void autorizar(), 1500)
     return () => window.clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chavePrecos, encomenda?.porResponder, encomenda?.batchId])
+  }, [chavePrecos, encomenda?.porResponder, encomenda?.batchId, pronto])
   // enquanto o cliente não vê o valor, nada da folha lhe chega (nem a cópia em HTML): a cópia só se grava depois de autorizado
   const copiaChave = valido && !editar && encomenda && !modoCliente && !encomenda.porResponder ? JSON.stringify([encomenda.batchId, estado, itens]) : ''
   useEffect(() => {

@@ -1236,7 +1236,7 @@ export function CalculadoraCustoImportacao() {
           <p className={`${NOTA} mt-3`}>
             Os direitos e o imposto de importação calculam-se por linha. O seguro e as taxas dos EUA seguem o valor. O frete, o despachante, o porto, a entrega interna, a entrega ao domicílio e os outros encargos seguem o método escolhido.
           </p>
-          <GravarValorBrindes config={encomenda ? null : configSite} aoCarregar={(c) => {
+          <GravarValorBrindes config={encomenda || !listaLida ? null : configSite} aoCarregar={(c) => {
             geraisLidos.current = c
             setForm((x) => ({ ...x, ...c }))
           }} aoLer={() => setFormLido(true)} />
@@ -1320,6 +1320,7 @@ export function CalculadoraCustoImportacao() {
       <CotacaoCliente
         encomenda={encomenda ? { batchId: encomenda.batchId, cliente: encomenda.empresa, contacto: [encomenda.responsavel, encomenda.telefone, encomenda.email].filter(Boolean).join(' · '), numero: encomenda.numero, email: encomenda.email, itens: encomenda.itens.map((i) => ({ id: i.id, nome: i.nome.trim() })), porResponder: listaEnc?.find((x) => x.batchId === encomenda.batchId)?.porResponder ?? true } : undefined}
         aoAutorizado={recarregar}
+        pronto={listaLida && formLido && custosProntos && listaEnc !== null}
         moeda={moeda}
         aoRemover={removerLinha}
         aoTrocar={trocarProduto}
