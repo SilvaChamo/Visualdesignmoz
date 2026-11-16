@@ -618,7 +618,7 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda }:
                     <th className="px-2 py-2 font-bold">Personalização</th>
                     <th className="px-2 py-2 text-right font-bold">Qtd</th>
                     <th className="whitespace-nowrap px-2 py-2 text-right font-bold">{`P.un. (${moeda})`}</th>
-                    <th className="px-2 py-2 text-right font-bold">{`Total (${moeda})`}</th>
+                    <th className="whitespace-nowrap px-2 py-2 text-right font-bold">{`Total (${moeda})`}</th>
                   </tr>
                 </thead>
                 <tbody>
