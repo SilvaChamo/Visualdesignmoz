@@ -1158,6 +1158,7 @@ export function CalculadoraCustoImportacao() {
             <Campo id={ids('entrega')} rotulo="Entrega interna" valor={form.entrega} aoMudar={(v) => mudar('entrega', v)} sufixo={eua ? undefined : 'MZN'} />
             <Campo id={ids('entrega-dom')} rotulo="Entrega ao domicílio" valor={form.entregaDom} aoMudar={(v) => mudar('entregaDom', v)} sufixo={eua ? undefined : 'MZN'} />
             <Campo id={ids('alfandega')} rotulo="Alfândega (valor total)" valor={form.alfandega} aoMudar={(v) => mudar('alfandega', v)} sufixo={eua ? undefined : 'MZN'} />
+            <Campo id={ids('outros')} rotulo="Outros encargos" valor={form.outros} aoMudar={(v) => mudar('outros', v)} sufixo={eua ? undefined : 'MZN'} />
             <Campo id={ids('lucro')} rotulo="Lucro (valor total)" valor={form.lucro} aoMudar={(v) => mudar('lucro', v)} sufixo={eua ? undefined : 'MZN'} />
           </div>
 
@@ -1174,7 +1175,6 @@ export function CalculadoraCustoImportacao() {
             </div>
             <Campo id={ids('perdas')} rotulo="Unidades que não consegue vender (%)" valor={form.perdasPct} aoMudar={(v) => mudar('perdasPct', v)} />
             <Campo id={ids('erro')} rotulo="Margem de erro (%)" valor={form.erroPct} aoMudar={(v) => mudar('erroPct', v)} />
-            <Campo id={ids('outros')} rotulo="Outros encargos" valor={form.outros} aoMudar={(v) => mudar('outros', v)} sufixo={eua ? undefined : 'MZN'} />
             <Campo id={ids('comissao')} rotulo="Comissão (%)" valor={form.comissaoPct} aoMudar={(v) => mudar('comissaoPct', v)} />
             <Campo id={ids('margem')} rotulo="Margem bruta pretendida (%)" valor={form.margemPct} aoMudar={(v) => mudar('margemPct', v)} />
           </div>
