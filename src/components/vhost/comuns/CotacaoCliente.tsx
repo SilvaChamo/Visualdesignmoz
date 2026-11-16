@@ -80,7 +80,7 @@ const lerNumero = (s: string, padrao: number) => {
   return s.trim() !== '' && Number.isFinite(v) && v >= 0 ? v : padrao
 }
 
-export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda, modoCliente }: { itens: ItemCotacao[]; moeda: string; /** painel do cliente: a mesma folha e as mesmas opções de edição, guardada por encomenda */ modoCliente?: boolean; encomenda?: { batchId: string; cliente: string; contacto: string; numero: string; email?: string; endereco?: string; itens?: { id: string; nome: string }[] }; aoRemover?: (id: number) => void; aoTrocar?: (id: number, sku: string) => Promise<void> }) {
+export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda, modoCliente, aoSincronizar, aplicarToken }: { /** administrador: quando muda, grava de novo nas linhas da encomenda os preços da cotação (botão «Guardar» dos custos da remessa) */ aplicarToken?: number; /** painel do cliente: chamado depois de a quantidade/produto editados passarem às linhas da encomenda */ aoSincronizar?: () => void; itens: ItemCotacao[]; moeda: string; /** painel do cliente: a mesma folha e as mesmas opções de edição, guardada por encomenda */ modoCliente?: boolean; encomenda?: { batchId: string; cliente: string; contacto: string; numero: string; email?: string; endereco?: string; itens?: { id: string; nome: string }[] }; aoRemover?: (id: number) => void; aoTrocar?: (id: number, sku: string) => Promise<void> }) {
   // uma encomenda do site tem a sua folha guardada à parte («cotacao:<lote>»): o administrador na calculadora e o cliente no painel editam a mesma, e cada um vê o resultado final do outro
   const chaveEstado = encomenda ? (`cotacao:${encomenda.batchId}` as const) : ('cotacao' as const)
   const chaveImagens = encomenda ? (`cotacao-imagens:${encomenda.batchId}` as const) : ('cotacao-imagens' as const)
@@ -157,6 +157,18 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda, m
     })
     lerEstadoSeguro<Record<number, string>>(chImg).then(({ ok, estado: g }) => ok && setImagens(g ?? {}))
   }
+  // a folha segue o que o outro painel (administrador ou cliente) gravou: lê de novo de tempos a tempos, nunca a meio de uma edição
+  const aEditar = useRef(false)
+  aEditar.current = editar
+  useEffect(() => {
+    if (!encomenda) return
+    const t = window.setInterval(() => {
+      if (aEditar.current || document.hidden) return
+      lerEstadoSeguro<Partial<typeof estado>>(`cotacao:${encomenda.batchId}`).then(({ ok, estado: g }) => ok && g && !aEditar.current && aplicar(g))
+    }, 20_000)
+    return () => window.clearInterval(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [encomenda?.batchId])
   const cargaFeita = useRef(false)
   useEffect(() => {
     if (cargaFeita.current) return
@@ -178,7 +190,24 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda, m
   const gravar = async () => {
     const ok = await gravarEstado(chaveEstado, estado)
     if (!ok) setAviso('Não foi possível gravar a cotação no servidor.')
+    if (ok && modoCliente) await sincronizarLinhas()
     return ok
+  }
+  // painel do cliente: a quantidade e o produto editados passam às linhas da encomenda (o valor por unidade é o do servidor, não o do navegador), para o administrador, o cartão e os pagamentos mostrarem o mesmo
+  const sincronizarLinhas = async () => {
+    if (!encomenda?.itens) return
+    const pedidas = linhas.flatMap((l) => {
+      const par = encomenda.itens?.[l.id - 1]
+      return par && Number.isFinite(l.unidades) ? [{ id: par.id, quantidade: l.unidades, sku: edicoes[l.id]?.sku }] : []
+    })
+    if (!pedidas.length) return
+    try {
+      const j = (await (await fetch('/api/cotacoes/sincronizar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ batchId: encomenda.batchId, linhas: pedidas }) })).json()) as { success?: boolean; error?: string }
+      if (!j.success) setAviso(j.error || 'Não foi possível actualizar a encomenda.')
+      else aoSincronizar?.()
+    } catch {
+      setAviso('Não foi possível actualizar a encomenda.')
+    }
   }
 
   // a data de hoje (só no navegador, para o servidor e o navegador não discordarem)
@@ -231,7 +260,7 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda, m
   // os preços da cotação (sem IVA) passam às linhas da encomenda, que deixam de estar «sob consulta»: o cartão do cliente mostra o valor da factura
   // shortcut: liga cada linha da cotação à da encomenda pelo nome do produto; se ficarem sem par (nome repetido a mais), essas linhas ficam como estavam
   const precosFixados = useRef<Record<string, string>>({})
-  const fixarPrecos = () => {
+  const fixarPrecos = (forcar = false) => {
     if (modoCliente) return
     const usadas = new Set<string>()
     for (const l of rotulos) {
@@ -240,11 +269,18 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda, m
       if (!par) continue
       usadas.add(par.id)
       const sinal = `${l.preco}|${l.unidades}`
-      if (!(l.preco > 0) || precosFixados.current[par.id] === sinal) continue
+      if (!(l.preco > 0) || (!forcar && precosFixados.current[par.id] === sinal)) continue
       precosFixados.current[par.id] = sinal
       fetch('/api/admin/cotacoes', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: par.id, precoUnitarioMt: l.preco, quantidade: l.unidades, semAviso: true }) }).catch(() => undefined)
     }
   }
+  const tokenVisto = useRef(aplicarToken ?? 0)
+  useEffect(() => {
+    if (!aplicarToken || aplicarToken === tokenVisto.current) return
+    tokenVisto.current = aplicarToken
+    fixarPrecos(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aplicarToken])
   const copiaChave = valido && !editar && encomenda && !modoCliente ? JSON.stringify([encomenda.batchId, estado, itens]) : ''
   useEffect(() => {
     if (!copiaChave || !encomenda) return
@@ -765,6 +801,7 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda, m
                             aria-label="Preço unitário"
                             value={foco?.id === l.id ? foco.texto : Number.isFinite(l.unitario) ? valor2(l.unitario) : ''}
                             onChange={(e) => mudarPreco(l.id, e.target.value)}
+                            readOnly={modoCliente}
                             onBlur={() => setFoco(null)}
                             className={`${EDITAR} text-right tabular-nums`}
                           />
