@@ -352,13 +352,13 @@ export const CLIENTE_JS = String.raw`
   }
 
   /* ---- escrever, responder, encaminhar, anexar, rascunhos ---- */
-  /* cada anexo da mensagem nova aparece como cartão: símbolo do tipo (PDF a vermelho), nome e tamanho; ao clicar abre a pré-visualização */
+  /* cada anexo da mensagem nova aparece como cartão: símbolo do tipo (o ícone PDF do próprio VhostMail, o dos anexos recebidos), nome e tamanho; ao clicar abre a pré-visualização */
   function pintaAnexos(){
     var box=$('#catt')||$('#ratt');
     if(!box)return;
     box.innerHTML=ANEX.map(function(a,i){
       var pdf=/pdf/i.test(a.tipo||'')||/\.pdf$/i.test(a.nome||'');
-      var ic=pdf?'<span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:34px;border-radius:4px;background:#E5202E;color:#fff;font:700 10px sans-serif;letter-spacing:.3px;flex:none">PDF</span>':'<span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:34px;border-radius:4px;background:#888;color:#fff;font:700 9px sans-serif;flex:none">'+esc(((a.nome||'').split('.').pop()||'').slice(0,4).toUpperCase())+'</span>';
+      var ic=pdf?'<svg class="pdf" viewBox="0 0 20 22" aria-hidden="true"><path d="M2 1h11l5 5v15H2z" fill="#E3343B"/><path d="M13 1v5h5" fill="#F59A9E"/><text x="10" y="17" text-anchor="middle" font-size="5.5" font-weight="700" fill="#fff" font-family="Arial">PDF</text></svg>':'<span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:34px;border-radius:4px;background:#888;color:#fff;font:700 9px sans-serif;flex:none">'+esc(((a.nome||'').split('.').pop()||'').slice(0,4).toUpperCase())+'</span>';
       return '<span class="mtag" style="display:inline-flex;align-items:center;gap:9px;padding:6px 10px">'+ic+'<a data-anv="'+i+'" title="Pré-visualizar" style="cursor:pointer;display:flex;flex-direction:column;line-height:1.3"><b style="font-weight:600">'+esc(a.nome)+'</b><small style="opacity:.7">'+(pdf?'PDF · ':'')+tam(a.tam)+' · Pré-visualizar</small></a><a data-anx="'+i+'" style="cursor:pointer;margin-left:4px" aria-label="Remover">×</a></span>';
     }).join('');
   }

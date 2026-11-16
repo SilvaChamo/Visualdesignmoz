@@ -139,7 +139,7 @@ export function ListaEncomendas({ itens, erro, vazio, atual, aoCarregar }: { ite
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900" data-testid="cci-encomendas">
       {erro ? (
-        <p className="text-sm text-red-600">Não foi possível ler as encomendas do site.</p>
+        <p className="text-sm text-red-600">Não foi possível ler as encomendas do site. Se a sessão expirou, entre de novo no painel.</p>
       ) : itens.length > 0 ? (
         <ul>
           {itens.slice(0, 50).map((e) => (

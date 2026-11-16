@@ -17,3 +17,14 @@ export async function gravarEstado(chave: 'calculadora' | 'cotacao' | 'cotacao-i
     return false
   }
 }
+
+// como lerEstado, mas distingue «não há nada guardado» (ok, estado null) de «não foi possível ler» (sessão expirada, rede): só no primeiro caso se pode mostrar o exemplo
+export async function lerEstadoSeguro<T>(chave: 'calculadora' | 'cotacao' | 'cotacao-imagens'): Promise<{ ok: boolean; estado: T | null }> {
+  try {
+    const r = await fetch(`/api/admin/calculadora-estado?chave=${chave}`, { cache: 'no-store' })
+    const j = (await r.json()) as { success?: boolean; estado?: T | null }
+    return j.success ? { ok: true, estado: j.estado ?? null } : { ok: false, estado: null }
+  } catch {
+    return { ok: false, estado: null }
+  }
+}
