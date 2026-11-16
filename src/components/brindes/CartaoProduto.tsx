@@ -7,6 +7,7 @@
 import Link from 'next/link'
 import { Check, Plus } from 'lucide-react'
 import { usePedido } from '@/components/brindes/pedido'
+import { FotoProduto } from '@/components/brindes/FotoProduto'
 import { urlImagem } from '@/lib/catalogo-imagens'
 import { nomeCor } from '@/lib/catalogo-cores'
 import { useCurrency } from '@/contexts/CurrencyContext'
@@ -42,8 +43,7 @@ export function CartaoProduto({ p }: { p: ProdutoCartao }) {
         className="relative block aspect-square overflow-hidden bg-zinc-100 dark:bg-zinc-800/80"
         aria-label={p.nome}
       >
-        {/* eslint-disable @next/next/no-img-element */}
-        <img
+        <FotoProduto
           src={urlImagem(p.imagem, 480)}
           alt={p.nome}
           loading="lazy"
@@ -51,16 +51,15 @@ export function CartaoProduto({ p }: { p: ProdutoCartao }) {
           className={`absolute inset-0 h-full w-full object-contain p-[9%] transition-opacity duration-300 ${p.imagem2 ? 'group-hover:opacity-0' : ''} ${p.esgotado ? 'opacity-60' : ''}`}
         />
         {p.imagem2 && (
-          <img
+          <FotoProduto
             src={urlImagem(p.imagem2, 480)}
-            alt=""
+            substituir="nada"
             loading="lazy"
             decoding="async"
             aria-hidden
             className="absolute inset-0 h-full w-full object-contain p-[9%] opacity-0 transition-opacity duration-300 group-hover:opacity-100"
           />
         )}
-        {/* eslint-enable @next/next/no-img-element */}
         <div className="absolute left-[4%] top-[4%] flex flex-col items-start gap-1">
           {p.esgotado && <span className="rounded-full bg-zinc-900 px-2.5 py-0.5 text-[clamp(0.55rem,3.6cqw,0.68rem)] font-bold text-white">Sem stock</span>}
           {p.promo && !p.esgotado && <span className="rounded-full bg-red-600 px-2.5 py-0.5 text-[clamp(0.55rem,3.6cqw,0.68rem)] font-bold text-white">Promoção</span>}

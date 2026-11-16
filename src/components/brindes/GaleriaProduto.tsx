@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { ChevronLeft, ChevronRight, X, ZoomIn } from 'lucide-react'
 import { urlImagem } from '@/lib/catalogo-imagens'
+import { FotoProduto } from '@/components/brindes/FotoProduto'
 
 const ZOOM = 2.2
 
@@ -52,8 +53,7 @@ export function GaleriaProduto({ imagens, nome, indice, aoMudar, selos }: { imag
           onMouseMove={(e) => ligada && apontar(e)}
           onMouseLeave={() => setLigada(false)}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <FotoProduto
             key={imagens[indice]}
             src={urlImagem(imagens[indice], 1200)}
             alt={nome}
@@ -91,8 +91,7 @@ export function GaleriaProduto({ imagens, nome, indice, aoMudar, selos }: { imag
               aria-current={i === indice}
               className={`relative aspect-square cursor-pointer overflow-hidden rounded-md bg-zinc-100 transition dark:bg-zinc-800/80 ${i === indice ? 'ring-2 ring-red-600' : 'ring-1 ring-zinc-200 hover:ring-red-600/50 dark:ring-white/10'}`}
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={urlImagem(src, 160)} alt="" loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-contain p-1.5" />
+              <FotoProduto src={urlImagem(src, 160)} loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-contain p-1.5" />
             </button>
           ))}
         </div>
