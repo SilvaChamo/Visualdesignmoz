@@ -1,5 +1,5 @@
-// Brindes do catálogo (importados da África do Sul): só se importa a partir de 50 unidades de cada produto; abaixo disso o pedido passa a ser de produtos locais (Moçambique).
-export const MINIMO_IMPORTACAO_BRINDE = 50
+// Brindes do catálogo (importados da África do Sul): só se importa a partir de 25 unidades de cada produto; abaixo disso o pedido passa a ser de produtos locais (Moçambique).
+export const MINIMO_IMPORTACAO_BRINDE = 25
 
 export const AVISO_IMPORTACAO_BRINDE = `Para importar da África do Sul só se aceitam ${MINIMO_IMPORTACAO_BRINDE} unidades ou mais de cada produto. Abaixo disso, este pedido é substituído por produtos locais, em Moçambique.`
 
