@@ -155,8 +155,17 @@ export default async function VisualGiftsPage({ searchParams }: { searchParams: 
         <div id="catalogo" className="scroll-mt-[90px] pb-14 pt-4">
           {modo !== 'inicio' && (
             <div className="relative -mt-4 mb-5 min-h-10">
-              {/* caminho e margem de preços, no meio da faixa; por baixo, a linha vermelha com as pontas do recorte do cinzento */}
-              <div className="container mx-auto flex min-h-10 max-w-7xl flex-wrap items-center justify-between gap-x-6 gap-y-2 px-[41px] py-1 sm:px-[49px]">
+              {/* faixa de fundo cinzento suave, em toda a largura, recortada como o cinzento de cima (as pontas inclinadas nos limites do conteúdo) */}
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-x-0 top-0 -bottom-[3px] bg-zinc-200 dark:bg-zinc-900"
+                style={{
+                  '--cl': 'max(24px, calc(50% - 616px))',
+                  clipPath:
+                    'polygon(0 0, 100% 0, 100% calc(100% - 24px), calc(100% - var(--cl)) calc(100% - 24px), calc(100% - var(--cl) - 22px) 100%, calc(var(--cl) + 22px) 100%, var(--cl) calc(100% - 24px), 0 calc(100% - 24px))',
+                } as React.CSSProperties}
+              />
+              <div className="container relative mx-auto flex min-h-10 max-w-7xl flex-wrap items-center justify-between gap-x-6 gap-y-2 px-[41px] py-1 sm:px-[49px] [&_nav]:text-zinc-800 dark:[&_nav]:text-zinc-400">
                 <Migalhas
                   migalhas={[
                     { nome: 'Início', href: '/' },
@@ -167,15 +176,6 @@ export default async function VisualGiftsPage({ searchParams }: { searchParams: 
                 />
                 {faixa && <FiltroPreco key={`${faixa.min}-${faixa.max}-${pmin}-${pmax}`} min={faixa.min} max={faixa.max} de={pmin} ate={pmax} base={parametros({ pmin: '', pmax: '' })} />}
               </div>
-              <div
-                aria-hidden="true"
-                className="pointer-events-none absolute inset-x-0 -bottom-[3px] h-[27px] bg-red-600"
-                style={{
-                  '--cl': 'max(24px, calc(50% - 616px))',
-                  clipPath:
-                    'polygon(var(--cl) 0, calc(var(--cl) + 22px) 24px, calc(100% - var(--cl) - 22px) 24px, calc(100% - var(--cl)) 0, calc(100% - var(--cl)) 3px, calc(100% - var(--cl) - 22px) 27px, calc(var(--cl) + 22px) 27px, var(--cl) 3px)',
-                } as React.CSSProperties}
-              />
             </div>
           )}
           <div className="container mx-auto max-w-7xl px-[41px] sm:px-[49px]">

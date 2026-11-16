@@ -44,8 +44,8 @@ export function FiltroPreco({ min, max, de, ate, base }: { min: number; max: num
     'pointer-events-none absolute inset-0 h-5 w-full cursor-pointer appearance-none bg-transparent accent-red-600 [&::-moz-range-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:pointer-events-auto'
   const [a, b] = [(posicao(lo) / PASSOS) * 100, (posicao(hi) / PASSOS) * 100]
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-semibold text-zinc-600 dark:text-zinc-300 sm:text-sm">
-      <span className="font-bold uppercase tracking-wider text-zinc-500">Preço</span>
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-semibold text-zinc-900 dark:text-zinc-300 sm:text-sm">
+      <span className="font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-500">Preço</span>
       <span className="tabular-nums">{fmt(lo)}</span>
       <div className="relative h-5 w-44 sm:w-56">
         <div className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 rounded bg-zinc-300 dark:bg-zinc-700" />
