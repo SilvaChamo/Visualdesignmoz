@@ -49,6 +49,8 @@ export interface EntradaCalculo {
   comissao: number
   /** alfândega: valor total em dinheiro, repartido pelo método escolhido; acima de zero substitui a taxa de direitos de cada linha */
   alfandega?: number
+  /** lucro: valor total em dinheiro, repartido pelo valor de cada linha e somado ao custo de cada unidade; acima de zero substitui a margem (%) */
+  lucro?: number
   /** unidades que não se vendem, em % */
   perdasPct: number
   /** margem bruta pretendida, em % */
@@ -151,7 +153,7 @@ export function calcularCustoImportacao(e: EntradaCalculo): ResultadoCalculo {
   const linhas = e.linhas
   if (!linhas.length) return { ok: false, erro: 'sem-linhas' }
 
-  const campos = [e.frete, e.seguro, e.corretor, e.porto, e.entrega, e.entregaDomicilio, e.outros, e.comissao, e.perdasPct, e.margemPct, e.alfandega ?? 0]
+  const campos = [e.frete, e.seguro, e.corretor, e.porto, e.entrega, e.entregaDomicilio, e.outros, e.comissao, e.perdasPct, e.margemPct, e.alfandega ?? 0, e.lucro ?? 0]
   if (eua) campos.push(e.mpfPct, e.mpfMin, e.mpfMax, e.mpfFixo, e.hmfPct)
   else campos.push(e.impostoPct)
   if (!campos.every(finito)) return { ok: false, erro: 'campos-remessa' }
@@ -176,6 +178,7 @@ export function calcularCustoImportacao(e: EntradaCalculo): ResultadoCalculo {
   const seguroNoValor = e.base === 'cif'
   const partilhadosTotal = e.corretor + e.porto + e.entrega + e.entregaDomicilio + e.outros
   const alfandegaFixa = (e.alfandega ?? 0) > 0
+  const lucroFixo = (e.lucro ?? 0) > 0
 
   // 1.ª passagem: mercadorias, repartições, valor aduaneiro e direitos de cada linha
   let VA = 0
@@ -251,7 +254,7 @@ export function calcularCustoImportacao(e: EntradaCalculo): ResultadoCalculo {
       comissao,
       total,
       porUnidade,
-      preco: porUnidade / (1 - e.margemPct / 100),
+      preco: lucroFixo ? porUnidade + ((e.lucro ?? 0) * b.parteValor) / vendaveis : porUnidade / (1 - e.margemPct / 100),
     })
     T.mercadorias += b.mercadorias
     T.frete += b.frete
