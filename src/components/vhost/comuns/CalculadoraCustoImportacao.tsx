@@ -846,7 +846,8 @@ export function CalculadoraCustoImportacao() {
   const ids = (nome: string) => `cci-${nome}`
 
   const aoCarregarDaLista = (e: EncomendaSite) => {
-    carregarEncomenda(e)
+    // a que já está na calculadora só se mostra (recarregá-la não faria nada)
+    if (e.batchId !== encomenda?.batchId) carregarEncomenda(e)
     setAba('actual')
   }
 
