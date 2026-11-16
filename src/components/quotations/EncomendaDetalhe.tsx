@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { Pencil, CreditCard, AlertCircle, CheckCircle2, Trash2 } from 'lucide-react';
-import { supabase } from '@/lib/supabase-client';
 import { Spinner } from '@/components/ui/spinner';
 import { formatMt } from '@/lib/pricing-catalog';
 import { statusMeta, computeBatchStatus } from '@/lib/quotation-status-labels';
@@ -89,10 +88,12 @@ export function EncomendaDetalhe({
   quotationId,
   onChanged,
   editarToken = 0,
+  verToken = 0,
 }: {
   quotationId: string;
   onChanged: () => void;
   editarToken?: number;
+  verToken?: number;
 }) {
   const [items, setItems] = useState<QuotationRow[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -103,18 +104,14 @@ export function EncomendaDetalhe({
 
   const fetchQuotation = useCallback(async () => {
     setLoading(true);
-    const { data: row } = await supabase.from('quotation_requests').select('*').eq('id', quotationId).single();
-    if (!row) {
+    // Rota existente (já trata a personificação do admin); o cliente do browser falha por RLS.
+    try {
+      const res = await fetch(`/api/cotacoes/${quotationId}`);
+      const data = await res.json().catch(() => null);
+      setItems(res.ok && data?.items?.length ? (data.items as QuotationRow[]) : null);
+    } catch {
       setItems(null);
-      setLoading(false);
-      return;
     }
-    const { data: siblings } = await supabase
-      .from('quotation_requests')
-      .select('*')
-      .eq('batch_id', row.batch_id)
-      .order('created_at', { ascending: true });
-    setItems((siblings && siblings.length > 0 ? siblings : [row]) as QuotationRow[]);
     setLoading(false);
   }, [quotationId]);
 
@@ -127,11 +124,19 @@ export function EncomendaDetalhe({
 
   const editarFeito = useRef(0);
   useEffect(() => {
-    if (!editarToken || editarToken === editarFeito.current || !items) return;
+    // só quando as linhas carregadas já são desta encomenda (evita agir sobre a anterior)
+    if (!editarToken || editarToken === editarFeito.current || !items?.some((i) => i.id === quotationId)) return;
     const alvo = items.find((i) => i.status === 'pending' || i.status === 'rejected');
     editarFeito.current = editarToken;
     if (alvo) setEditingItemId(alvo.id);
-  }, [editarToken, items]);
+  }, [editarToken, items, quotationId]);
+
+  const verFeito = useRef(0);
+  useEffect(() => {
+    if (!verToken || verToken === verFeito.current || !items?.some((i) => i.id === quotationId)) return;
+    verFeito.current = verToken;
+    setTab('cotacao');
+  }, [verToken, items, quotationId]);
 
   const handleCancelar = async () => {
     if (!window.confirm('Tem a certeza que quer cancelar esta encomenda?')) return;
