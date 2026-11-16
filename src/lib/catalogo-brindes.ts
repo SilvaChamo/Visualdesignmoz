@@ -157,9 +157,14 @@ export interface FiltroCatalogo {
   cor?: string
   /** só o que está em stock */
   stock?: boolean
-  /** destaques (por defeito), nome (A–Z) ou marca */
+  /** destaques (por defeito), nome (A–Z), marca ou preço (preco-asc, preco-desc) */
   ordem?: string
   pagina?: number
+  /** margem de preços escolhida, em meticais por unidade (como o site os mostra); só vale com `mt` */
+  precoMin?: number
+  precoMax?: number
+  /** converte o preço do fornecedor (rand) no que o site mostra em metical, para filtrar pela margem */
+  mt?: (precoZar: number) => number
 }
 
 export const POR_PAGINA = 48
@@ -167,6 +172,8 @@ export const POR_PAGINA = 48
 const ordenar = (lista: Entrada[], ordem?: string) => {
   const r = [...lista]
   if (ordem === 'nome') r.sort((a, b) => a.p.nome.localeCompare(b.p.nome, 'en'))
+  else if (ordem === 'preco-asc') r.sort((a, b) => a.p.precoZar - b.p.precoZar || a.p.nome.localeCompare(b.p.nome, 'en'))
+  else if (ordem === 'preco-desc') r.sort((a, b) => b.p.precoZar - a.p.precoZar || a.p.nome.localeCompare(b.p.nome, 'en'))
   else if (ordem === 'marca') r.sort((a, b) => (a.p.marca ?? '~').localeCompare(b.p.marca ?? '~', 'en') || a.p.nome.localeCompare(b.p.nome, 'en'))
   else r.sort((a, b) => b.pontos - a.pontos || a.ordem - b.ordem)
   return r
@@ -175,6 +182,12 @@ const ordenar = (lista: Entrada[], ordem?: string) => {
 // «garrafa» acha «garrafas»; «canetas» acha «caneta»
 const casa = (texto: string, t: string) => texto.includes(t) || (t.length > 3 && t.endsWith('s') && texto.includes(t.slice(0, -1)))
 const termosDe = (q: string) => semAcentos(q).split(/\s+/).filter(Boolean)
+
+const dentroDaMargem = (precoZar: number, f: FiltroCatalogo) => {
+  if (!f.mt || (f.precoMin == null && f.precoMax == null)) return true
+  const v = Math.round(f.mt(precoZar))
+  return v >= (f.precoMin ?? 0) && v <= (f.precoMax ?? Infinity)
+}
 
 const filtrar = (f: FiltroCatalogo) => {
   const termos = termosDe(f.q ?? '')
@@ -188,8 +201,15 @@ const filtrar = (f: FiltroCatalogo) => {
       (!f.marca || i.p.marca === f.marca) &&
       (!f.cor || i.familias.has(f.cor)) &&
       (!f.stock || !i.p.esgotado) &&
+      dentroDaMargem(i.p.precoZar, f) &&
       termos.every((t) => casa(i.texto, t)),
   )
+}
+
+/** Menor e maior preço (em metical, como o site os mostra) do que o filtro acha sem a margem de preços: os extremos dos niveladores. */
+export function faixaDePrecos(f: FiltroCatalogo, mt: (precoZar: number) => number): { min: number; max: number } | null {
+  const v = filtrar({ ...f, precoMin: undefined, precoMax: undefined }).map((i) => Math.round(mt(i.p.precoZar))).filter((n) => Number.isFinite(n) && n > 0)
+  return v.length ? { min: Math.min(...v), max: Math.max(...v) } : null
 }
 
 export function listarCatalogo(f: FiltroCatalogo) {
