@@ -36,17 +36,13 @@ export async function GET(req: Request) {
   if (error) return NextResponse.json({ success: false, error: error.message }, { status: 500 })
   const lote = POR_LOTE.exec(chave)
   if (!lote) return NextResponse.json({ success: true, estado: data?.estado ?? null })
-  // painel do cliente: se a cotação do administrador é a desta encomenda, os dados dele (cliente, número, prazos, IVA) e as fotos vêm sempre da base de dados; o resto é do que o cliente editou
+  // folha de uma encomenda ainda sem versão própria: parte da que o administrador tinha na calculadora, se era a desta encomenda
+  if (data?.estado) return NextResponse.json({ success: true, estado: data.estado })
   const { data: cot } = await supabase.from('calculadora_estado').select('estado').eq('chave', 'cotacao').maybeSingle()
-  if ((cot?.estado as { chave?: string } | null)?.chave !== lote[2]) return NextResponse.json({ success: true, estado: data?.estado ?? null })
-  if (lote[1] === 'cotacao-imagens') {
-    const { data: fotos } = await supabase.from('calculadora_estado').select('estado').eq('chave', 'cotacao-imagens').maybeSingle()
-    return NextResponse.json({ success: true, estado: data?.estado ?? fotos?.estado ?? null })
-  }
-  const admin = cot?.estado as Record<string, unknown>
-  const base = { ...((data?.estado ?? admin) as Record<string, unknown>) }
-  for (const k of ['cliente', 'contacto', 'numero', 'chave', 'validade', 'prazo', 'pagamento', 'ivaIncluido', 'ivaPct']) if (k in admin) base[k] = admin[k]
-  return NextResponse.json({ success: true, estado: base })
+  if ((cot?.estado as { chave?: string } | null)?.chave !== lote[2]) return NextResponse.json({ success: true, estado: null })
+  if (lote[1] === 'cotacao') return NextResponse.json({ success: true, estado: cot?.estado ?? null })
+  const { data: fotos } = await supabase.from('calculadora_estado').select('estado').eq('chave', 'cotacao-imagens').maybeSingle()
+  return NextResponse.json({ success: true, estado: fotos?.estado ?? null })
 }
 
 export async function PUT(req: Request) {

@@ -18,6 +18,7 @@ import {
 import { NotchSection } from '@/components/home/NotchSection';
 import { AlertCircle, ArrowRight, ArrowLeft, Building2, User, Lock, Package, ChevronDown, Trash2, Plus, Sparkles, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
+import { abaixoDoMinimoImportacao, AVISO_IMPORTACAO_BRINDE } from '@/lib/brinde-importacao';
 
 interface OrderLineItem {
   id: string;
@@ -241,7 +242,7 @@ export function CotacaoContent({ painel = false, aoContinuar }: { painel?: boole
                 ? item.categoriaId
                 : CATEGORIES[0].id,
             produto: item.produto,
-            quantidade: 1,
+            quantidade: item.quantidade && item.quantidade > 0 ? Math.round(item.quantidade) : 1,
           }));
           setLineItems(selecao);
         }
@@ -948,6 +949,7 @@ export function CotacaoContent({ painel = false, aoContinuar }: { painel?: boole
                               <div className="min-w-0">
                                 <p className="text-sm font-bold text-zinc-900 dark:text-white truncate">{categoriaLabel}</p>
                                 <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate">{li.produto}</p>
+                                {abaixoDoMinimoImportacao(li.produto, qty) && <p className="mt-1 text-xs font-semibold text-amber-700 dark:text-amber-400">{AVISO_IMPORTACAO_BRINDE}</p>}
                               </div>
                               <div className="flex items-center gap-4 shrink-0">
                                 {/* a quantidade edita-se aqui mesmo, sem remover e voltar a adicionar o serviço */}

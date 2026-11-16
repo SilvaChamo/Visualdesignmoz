@@ -427,4 +427,6 @@ export type SelectedCatalogItem = {
   categoriaId: string
   produto: string
   categoriaLabel: string
+  /** brindes: as unidades escolhidas no catálogo */
+  quantidade?: number
 }

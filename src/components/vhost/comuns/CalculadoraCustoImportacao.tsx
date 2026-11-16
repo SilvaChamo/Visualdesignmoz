@@ -184,7 +184,8 @@ function formDoExemplo(): Form {
     mpfFixo: String(e.mpfFixo),
     hmfPct: String(e.hmfPct),
     maritimo: e.maritimo,
-    impostoPct: String(e.impostoPct),
+    // a alfândega só se cobra se estiver nos custos da remessa (campo «Alfândega»): o imposto de importação parte a 0 e não de uma taxa que ninguém definiu
+    impostoPct: '0',
     impostoSobreDireitos: e.impostoSobreDireitos,
     impostoSobreFrete: e.impostoSobreFrete,
     recuperavel: e.recuperavel,
@@ -437,6 +438,8 @@ export function CalculadoraCustoImportacao() {
   const [tentativa, setTentativa] = useState(0)
   // a encomenda do site que está na calculadora (com os dados da empresa) e as listas das outras, guardadas à parte para voltarem como estavam
   const [encomenda, setEncomenda] = useState<EncomendaSite | null>(null)
+  // «Guardar» nos custos da remessa com uma encomenda carregada: manda a cotação gravar na encomenda os valores recalculados
+  const [aplicarCustos, setAplicarCustos] = useState(0)
   const [rascunhos, setRascunhos] = useState<Record<string, { linhas: LinhaForm[]; proximo: number }>>({})
   // os valores do formulário também vêm do servidor: até chegarem os dois, a calculadora fica escondida (senão aparece primeiro o exemplo)
   const [formLido, setFormLido] = useState(false)
@@ -846,7 +849,8 @@ export function CalculadoraCustoImportacao() {
   const ids = (nome: string) => `cci-${nome}`
 
   const aoCarregarDaLista = (e: EncomendaSite) => {
-    carregarEncomenda(e)
+    // a que já está na calculadora só se mostra (recarregá-la não faria nada)
+    if (e.batchId !== encomenda?.batchId) carregarEncomenda(e)
     setAba('actual')
   }
 
@@ -1188,7 +1192,8 @@ export function CalculadoraCustoImportacao() {
           <p className={`${NOTA} mt-3`}>
             Os direitos e o imposto de importação calculam-se por linha. O seguro e as taxas dos EUA seguem o valor. O frete, o despachante, o porto, a entrega interna, a entrega ao domicílio e os outros encargos seguem o método escolhido.
           </p>
-          <GravarValorBrindes config={configSite} aoCarregar={(c) => setForm((x) => ({ ...x, ...c }))} aoLer={() => setFormLido(true)} />
+          {/* «Guardar» com uma encomenda carregada só aplica os custos à encomenda: o valor do site vem da lista própria (poucas unidades diluiriam o transporte e inflariam o preço de todos os brindes) */}
+          <GravarValorBrindes config={configSite} encomendaCarregada={Boolean(encomenda)} aoAplicar={() => setAplicarCustos((n) => n + 1)} aoCarregar={(c) => setForm((x) => ({ ...x, ...c }))} aoLer={() => setFormLido(true)} />
         </div>
 
         {eua ? (
@@ -1267,7 +1272,8 @@ export function CalculadoraCustoImportacao() {
 
       {/* a cotação para o cliente, no fim das tabelas */}
       <CotacaoCliente
-        encomenda={encomenda ? { batchId: encomenda.batchId, cliente: encomenda.empresa, contacto: [encomenda.responsavel, encomenda.telefone, encomenda.email].filter(Boolean).join(' · '), numero: encomenda.numero, email: encomenda.email, itens: encomenda.itens.map((i) => ({ id: i.id, nome: i.nome.trim() })) } : undefined}
+        aplicarToken={aplicarCustos}
+        encomenda={encomenda ? { batchId: encomenda.batchId, cliente: encomenda.empresa, contacto: [encomenda.responsavel, encomenda.telefone].filter(Boolean).join(' · '), numero: encomenda.numero, email: encomenda.email, endereco: encomenda.endereco || undefined, itens: encomenda.itens.map((i) => ({ id: i.id, nome: i.nome.trim() })) } : undefined}
         moeda={moeda}
         aoRemover={removerLinha}
         aoTrocar={trocarProduto}
