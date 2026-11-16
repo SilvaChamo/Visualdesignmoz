@@ -166,6 +166,8 @@ export const INGLES: Record<string, string> = {
   'Minimizar': 'Minimise',
   'Maximizar': 'Maximise',
   'Abrir em janela': 'Open in window',
+  'Abrir': 'Open',
+  'Descarregar': 'Download',
   'Anexar ficheiros': 'Attach files',
   'Anexar do Drive': 'Attach from Drive',
   'Inserir imagem': 'Insert image',

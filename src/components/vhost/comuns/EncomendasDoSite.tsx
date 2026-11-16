@@ -6,7 +6,7 @@
 
 import { useEffect, useState } from 'react'
 import { computeNumeroMap } from '@/lib/quotation-numero'
-import { statusMeta } from '@/lib/quotation-status-labels'
+import { computeBatchStatus, statusMeta } from '@/lib/quotation-status-labels'
 
 export interface ItemEncomenda {
   sku: string | null
@@ -27,6 +27,8 @@ export interface EncomendaSite {
   endereco: string
   criada: string
   estado: string
+  /** classes da etiqueta da situação (cor) */
+  estadoCor?: string
   porResponder: boolean
   itens: ItemEncomenda[]
 }
@@ -75,7 +77,10 @@ export function encomendasDoSite(linhas: Linha[]): EncomendaSite[] {
       nif: p.nif ?? '',
       endereco: p.endereco ?? '',
       criada: p.created_at,
-      estado: statusMeta(p.status, p.sob_consulta).label,
+      ...(() => {
+        const m = statusMeta(computeBatchStatus(ls), ls.some((l) => l.sob_consulta && l.status === 'pending'))
+        return { estado: m.label, estadoCor: m.color }
+      })(),
       // fica por responder enquanto algum produto está «sob consulta» e ainda a aguardar (ver Cotações recebidas)
       porResponder: ls.some((l) => l.sob_consulta && l.status === 'pending'),
       itens: brindes.map(lerItem),
@@ -95,9 +100,10 @@ function UmaEncomenda({ e, atual, aoCarregar }: { e: EncomendaSite; atual: strin
           {e.numero} · {e.empresa}
         </p>
         <p className="text-xs text-slate-500 dark:text-slate-400">
-          {e.responsavel} · {e.telefone} · {e.email} · {data} · {e.itens.length} produto(s) · {e.estado}
+          {e.responsavel} · {e.telefone} · {e.email} · {data} · {e.itens.length} produto(s)
         </p>
       </div>
+      <span className={`rounded-full border px-2.5 py-0.5 text-xs font-semibold ${e.estadoCor ?? 'border-slate-200 bg-slate-50 text-slate-700'}`}>{e.estado}</span>
       <button type="button" disabled={atual === e.batchId} onClick={() => aoCarregar(e)} className={BOTAO}>
         {atual === e.batchId ? 'Na calculadora' : 'Carregar na calculadora'}
       </button>
@@ -105,7 +111,8 @@ function UmaEncomenda({ e, atual, aoCarregar }: { e: EncomendaSite; atual: strin
   )
 }
 
-export function EncomendasDoSite({ atual, aoCarregar, aoVoltar }: { atual: string | null; aoCarregar: (e: EncomendaSite) => void; aoVoltar?: () => void }) {
+// as encomendas do site (já separadas em pendentes e anteriores); lê-as uma vez ao abrir a calculadora
+export function useEncomendasDoSite() {
   const [lista, setLista] = useState<EncomendaSite[] | null>(null)
   const [erro, setErro] = useState(false)
   useEffect(() => {
@@ -122,38 +129,25 @@ export function EncomendasDoSite({ atual, aoCarregar, aoVoltar }: { atual: strin
       vivo = false
     }
   }, [])
+  const pendentes = (lista ?? []).filter((e) => e.porResponder)
+  const anteriores = (lista ?? []).filter((e) => !e.porResponder)
+  return { lista, erro, pendentes, anteriores }
+}
 
-  if (erro) return <p className="text-xs text-red-600">Não foi possível ler as encomendas do site.</p>
-  if (!lista || !lista.length) return null
-  const porResponder = lista.filter((e) => e.porResponder)
-  const anteriores = lista.filter((e) => !e.porResponder)
+// separadores «Pendentes» e «Anteriores» da calculadora: cada linha traz a empresa, a data e a situação (como o histórico da facturação)
+export function ListaEncomendas({ itens, erro, vazio, atual, aoCarregar }: { itens: EncomendaSite[]; erro: boolean; vazio: string; atual: string | null; aoCarregar: (e: EncomendaSite) => void }) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900" data-testid="cci-encomendas">
-      <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Encomendas do site</h2>
-      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Os pedidos de brindes que os clientes enviam ficam aqui até serem respondidos no painel.</p>
-      {aoVoltar && (
-        <button type="button" onClick={aoVoltar} className={`${BOTAO} mt-3`}>
-          Voltar à lista própria
-        </button>
-      )}
-      {porResponder.length > 0 ? (
-        <ul className="mt-3">
-          {porResponder.map((e) => (
+      {erro ? (
+        <p className="text-sm text-red-600">Não foi possível ler as encomendas do site.</p>
+      ) : itens.length > 0 ? (
+        <ul>
+          {itens.slice(0, 50).map((e) => (
             <UmaEncomenda key={e.batchId} e={e} atual={atual} aoCarregar={aoCarregar} />
           ))}
         </ul>
       ) : (
-        <p className="mt-3 text-sm text-slate-600 dark:text-slate-400">Não há encomendas por responder.</p>
-      )}
-      {anteriores.length > 0 && (
-        <details className="mt-3">
-          <summary className="cursor-pointer text-sm font-semibold text-slate-700 dark:text-slate-300">Encomendas anteriores ({anteriores.length})</summary>
-          <ul className="mt-2">
-            {anteriores.slice(0, 30).map((e) => (
-              <UmaEncomenda key={e.batchId} e={e} atual={atual} aoCarregar={aoCarregar} />
-            ))}
-          </ul>
-        </details>
+        <p className="text-sm text-slate-600 dark:text-slate-400">{vazio}</p>
       )}
     </div>
   )

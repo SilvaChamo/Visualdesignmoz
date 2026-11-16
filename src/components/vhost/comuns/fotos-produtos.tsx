@@ -1,7 +1,7 @@
 'use client'
 
 // A foto de cada produto na calculadora e na cotação: procura no catálogo de brindes o produto com este nome (só se o nome for igual); sem correspondência, não há foto.
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { ChevronsUpDown } from 'lucide-react'
 
@@ -32,21 +32,69 @@ export function useFotosProdutos(nomes: string[]) {
   return (nome: string) => fotos[norm(nome)] || ''
 }
 
-/** A miniatura do produto; ao passar o rato abre ao lado uma foto grande (por cima do resto, sem ser cortada pela tabela), com entrada suave. Só no ecrã. */
-export function Miniatura({ src }: { src: string }) {
+// a imagem escolhida no computador reduz-se (lado maior 500 px, fundo branco, JPEG) para caber na cotação e no PDF
+function reduzirImagem(f: File): Promise<string> {
+  return new Promise((ok, falha) => {
+    const url = URL.createObjectURL(f)
+    const im = new Image()
+    im.onload = () => {
+      const k = Math.min(1, 500 / Math.max(im.naturalWidth, im.naturalHeight))
+      const c = document.createElement('canvas')
+      c.width = Math.max(1, Math.round(im.naturalWidth * k))
+      c.height = Math.max(1, Math.round(im.naturalHeight * k))
+      const x = c.getContext('2d')!
+      x.fillStyle = '#fff'
+      x.fillRect(0, 0, c.width, c.height)
+      x.drawImage(im, 0, 0, c.width, c.height)
+      URL.revokeObjectURL(url)
+      ok(c.toDataURL('image/jpeg', 0.82))
+    }
+    im.onerror = () => {
+      URL.revokeObjectURL(url)
+      falha(new Error('imagem'))
+    }
+    im.src = url
+  })
+}
+
+const BOTAO_ZOOM = 'cursor-pointer rounded-[5px] border border-zinc-300 bg-white/95 px-2.5 py-1 text-xs font-semibold text-zinc-700 shadow-sm hover:border-red-500 hover:text-red-600'
+
+/** A miniatura do produto; ao passar o rato abre ao lado uma foto grande (por cima do resto, sem ser cortada pela tabela), com entrada suave. Só no ecrã.
+ *  Com `aoTrocar`, a foto grande deixa trocar a imagem por uma do computador (só para esta cotação, o produto não muda) e repor a original. */
+export function Miniatura({ src, aoTrocar, personalizada }: { src: string; aoTrocar?: (imagem: string | null) => void; personalizada?: boolean }) {
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null)
   const [visivel, setVisivel] = useState(false)
+  const [erro, setErro] = useState(false)
+  const temporizador = useRef<number | undefined>(undefined)
+  const ficheiro = useRef<HTMLInputElement>(null)
   const L = 300
   const abrir = (e: import('react').MouseEvent<HTMLElement>) => {
+    window.clearTimeout(temporizador.current)
+    if (pos) return
     const r = e.currentTarget.getBoundingClientRect()
     const x = r.right + 14 + L > window.innerWidth ? Math.max(8, r.left - 14 - L) : r.right + 14
     const y = Math.min(Math.max(8, r.top + r.height / 2 - L / 2), window.innerHeight - L - 8)
     setPos({ x, y })
     requestAnimationFrame(() => setVisivel(true))
   }
+  // fecha um instante depois de o rato sair: dá tempo de passar da miniatura à foto grande (e aos botões dela)
   const fechar = () => {
-    setVisivel(false)
-    setPos(null)
+    window.clearTimeout(temporizador.current)
+    temporizador.current = window.setTimeout(() => {
+      setVisivel(false)
+      setPos(null)
+    }, 220)
+  }
+  const escolhida = async (f: File | undefined) => {
+    if (!f || !aoTrocar) return
+    setErro(false)
+    try {
+      aoTrocar(await reduzirImagem(f))
+      setVisivel(false)
+      setPos(null)
+    } catch {
+      setErro(true)
+    }
   }
   return (
     <span className="shrink-0" onMouseEnter={abrir} onMouseLeave={fechar}>
@@ -54,15 +102,47 @@ export function Miniatura({ src }: { src: string }) {
       <img src={src} alt="" width={40} height={40} style={{ width: 40, height: 40, objectFit: 'contain' }} className="cursor-zoom-in rounded-[5px] border border-zinc-200 bg-white" />
       {pos &&
         createPortal(
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={src.replace('&w=96', '&w=640')}
-            alt=""
-            style={{ position: 'fixed', left: pos.x, top: pos.y, width: L, height: L, zIndex: 9999, pointerEvents: 'none', opacity: visivel ? 1 : 0, transform: visivel ? 'scale(1)' : 'scale(0.94)', transition: 'opacity 160ms ease, transform 160ms ease' }}
-            className="rounded-[5px] border border-zinc-200 bg-white object-contain p-3 shadow-2xl"
-          />,
+          <div
+            data-sem-imprimir
+            style={{ position: 'fixed', left: pos.x, top: pos.y, width: L, height: L, zIndex: 9999, opacity: visivel ? 1 : 0, transform: visivel ? 'scale(1)' : 'scale(0.94)', transition: 'opacity 160ms ease, transform 160ms ease', pointerEvents: aoTrocar ? 'auto' : 'none' }}
+            className="rounded-[5px] border border-zinc-200 bg-white shadow-2xl"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={src.replace('&w=96', '&w=640')} alt="" className="h-full w-full rounded-[5px] object-contain p-3" />
+            {aoTrocar && (
+              <div className="absolute inset-x-0 bottom-2 flex flex-wrap items-center justify-center gap-1.5 px-2">
+                <button type="button" className={BOTAO_ZOOM} onClick={() => ficheiro.current?.click()}>
+                  Trocar imagem
+                </button>
+                {personalizada && (
+                  <button
+                    type="button"
+                    className={BOTAO_ZOOM}
+                    onClick={() => {
+                      aoTrocar(null)
+                      setVisivel(false)
+                      setPos(null)
+                    }}
+                  >
+                    Repor original
+                  </button>
+                )}
+                {erro && <span className="w-full text-center text-xs font-semibold text-red-600">Não foi possível ler a imagem.</span>}
+              </div>
+            )}
+          </div>,
           document.body,
         )}
+      <input
+        ref={ficheiro}
+        type="file"
+        accept="image/*"
+        hidden
+        onChange={(e) => {
+          void escolhida(e.target.files?.[0])
+          e.target.value = ''
+        }}
+      />
     </span>
   )
 }

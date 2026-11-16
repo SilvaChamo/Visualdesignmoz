@@ -4,7 +4,7 @@ import { getSupabaseAdmin } from '@/lib/supabase-admin'
 
 // A calculadora grava aqui a folha da cotação da encomenda que tem carregada (tabela cotacao_site_copia); o cliente vê esta cópia em Encomendas › Cotação.
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-const MAX_BYTES = 600_000
+const MAX_BYTES = 2_000_000
 
 export async function PUT(req: Request, { params }: { params: Promise<{ batchId: string }> }) {
   const auth = await requireAdminOrReseller()

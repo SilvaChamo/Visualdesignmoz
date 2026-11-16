@@ -8,6 +8,7 @@
 import { useContext, useEffect, useRef, useState } from 'react'
 import { Mail, MessageCircle, Plus, Printer, Trash2 } from 'lucide-react'
 import { VHContext } from '../context'
+import { cotacaoParaPdf } from './cotacao-pdf'
 import { gravarEstado, lerEstado } from './estado-calculadora'
 import { Miniatura, SeletorSemelhantes, useFotosProdutos } from './fotos-produtos'
 
@@ -53,13 +54,13 @@ const CONTA_VENDAS = 'vendas@visualdesignmoz.com'
 // campo de texto em linha dentro da tabela: parece texto até se passar o rato ou escrever
 const EDITAR = 'w-full min-w-0 rounded-[5px] border border-transparent bg-transparent px-1 py-0.5 text-inherit outline-none transition hover:border-zinc-300 focus:border-red-500 focus:bg-white'
 
-function CampoTexto({ id, rotulo, valor, aoMudar, tipo = 'text', exemplo }: { id: string; rotulo: string; valor: string; aoMudar: (v: string) => void; tipo?: 'text' | 'number'; exemplo?: string }) {
+function CampoTexto({ id, rotulo, valor, aoMudar, tipo = 'text', exemplo, somenteLeitura }: { id: string; rotulo: string; valor: string; aoMudar: (v: string) => void; tipo?: 'text' | 'number'; exemplo?: string; somenteLeitura?: boolean }) {
   return (
     <div>
       <label htmlFor={id} className={ROTULO}>
         {rotulo}
       </label>
-      <input id={id} type={tipo} {...(tipo === 'number' ? { inputMode: 'decimal' as const, min: 0, step: 'any' } : {})} value={valor} placeholder={exemplo} onChange={(e) => aoMudar(e.target.value)} className={CAMPO} />
+      <input id={id} type={tipo} {...(tipo === 'number' ? { inputMode: 'decimal' as const, min: 0, step: 'any' } : {})} value={valor} placeholder={exemplo} readOnly={somenteLeitura} onChange={(e) => aoMudar(e.target.value)} className={CAMPO} />
     </div>
   )
 }
@@ -77,10 +78,14 @@ const lerNumero = (s: string, padrao: number) => {
   return s.trim() !== '' && Number.isFinite(v) && v >= 0 ? v : padrao
 }
 
-export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda }: { itens: ItemCotacao[]; moeda: string; encomenda?: { batchId: string; cliente: string; contacto: string; numero: string }; aoRemover?: (id: number) => void; aoTrocar?: (id: number, sku: string) => Promise<void> }) {
+export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda }: { itens: ItemCotacao[]; moeda: string; encomenda?: { batchId: string; cliente: string; contacto: string; numero: string; email?: string }; aoRemover?: (id: number) => void; aoTrocar?: (id: number, sku: string) => Promise<void> }) {
   const [cliente, setCliente] = useState('')
   const [contacto, setContacto] = useState('')
   const [numero, setNumero] = useState('')
+  // o número é escrito pelo sistema (série «COT ano/nnnn», como a factura): a chave identifica a cotação (o lote da encomenda do site, ou um código próprio da cotação livre)
+  const [chave, setChave] = useState('')
+  const [carregado, setCarregado] = useState(false)
+  const aEmitir = useRef(false)
   const [data, setData] = useState('')
   const [validade, setValidade] = useState('10')
   const [prazo, setPrazo] = useState(PRAZO_PADRAO)
@@ -91,6 +96,8 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda }:
   // a tabela da cotação edita-se aqui, sem mexer na calculadora: o que se escreve numa linha (nome, quantidade, preço) vale só para a cotação, as linhas
   // podem ser eliminadas e acrescentam-se outras; o que não se editou continua a seguir a calculadora
   const [edicoes, setEdicoes] = useState<Record<number, { nome?: string; unidades?: string; preco?: string }>>({})
+  // fotos trocadas só para a cotação (escolhidas no computador, na foto grande): linha → imagem; guardam-se à parte, são grandes
+  const [imagens, setImagens] = useState<Record<number, string>>({})
   const [aviso, setAviso] = useState('')
   // a tabela só mostra os campos editáveis e o eliminar/adicionar quando se clica em «Editar»; «Gravar» guarda e volta à vista normal
   const [editar, setEditar] = useState(false)
@@ -98,7 +105,7 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda }:
   const tituloPagina = useRef<string | null>(null)
 
   // «Gravar»: guarda a cotação editada (campos, tabela, personalização) no servidor (tabela calculadora_estado) e volta a pô-la ao abrir
-  const estado = { cliente, contacto, numero, validade, prazo, pagamento, ivaIncluido, ivaPct, personalizacao, edicoes }
+  const estado = { cliente, contacto, numero, chave, validade, prazo, pagamento, ivaIncluido, ivaPct, personalizacao, edicoes }
   const cargaFeita = useRef(false)
   useEffect(() => {
     if (cargaFeita.current) return
@@ -107,7 +114,11 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda }:
       if (g) {
         setCliente(g.cliente ?? '')
         setContacto(g.contacto ?? '')
-        setNumero(g.numero ?? '')
+        // números antigos escritos à mão não valem: só fica o que o sistema atribuiu (tem chave)
+        if (g.chave) {
+          setChave(g.chave)
+          setNumero(g.numero ?? '')
+        }
         setValidade(g.validade ?? '10')
         setPrazo(g.prazo || PRAZO_PADRAO)
         setPagamento(g.pagamento || PAGAMENTO_PADRAO)
@@ -116,7 +127,9 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda }:
         setPersonalizacao(g.personalizacao ?? {})
         setEdicoes(g.edicoes ?? {})
       }
+      setCarregado(true)
     })
+    lerEstado<Record<number, string>>('cotacao-imagens').then((g) => g && setImagens(g))
   }, [])
   // ao carregar uma encomenda do site na calculadora, a cotação passa a ser a dela (empresa, responsável e número); ao abrir a página não se mexe no que está guardado
   const encomendaAnterior = useRef(encomenda?.batchId)
@@ -125,8 +138,10 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda }:
     encomendaAnterior.current = encomenda.batchId
     setCliente(encomenda.cliente)
     setContacto(encomenda.contacto)
-    setNumero(encomenda.numero)
+    setNumero('')
+    setChave('')
     setEdicoes({})
+    setImagens({})
   }, [encomenda])
   const gravar = async () => {
     const ok = await gravarEstado('cotacao', estado)
@@ -196,6 +211,48 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda }:
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [copiaChave])
 
+  // pede o número ao sistema assim que há cotação: a mesma chave devolve sempre o mesmo número, e guarda-se logo para não gastar outro ao reabrir
+  const chaveDevida = encomenda?.batchId ?? chave
+  useEffect(() => {
+    if (!carregado || !valido || aEmitir.current || (numero && (!encomenda || chave === encomenda.batchId))) return
+    aEmitir.current = true
+    const k = chaveDevida || crypto.randomUUID()
+    fetch('/api/admin/cotacoes/numero', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chave: k }) })
+      .then((r) => r.json())
+      .then((j: { numero?: string }) => {
+        if (!j.numero) throw new Error()
+        setChave(k)
+        setNumero(j.numero)
+        return gravarEstado('cotacao', { ...estado, chave: k, numero: j.numero })
+      })
+      .catch(() => setAviso('Não foi possível obter o número da cotação do sistema.'))
+      .finally(() => {
+        aEmitir.current = false
+      })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [carregado, valido, numero, chave, encomenda?.batchId])
+
+  // o que se escreve (cliente, contacto, prazo…) fica guardado sozinho um instante depois, sem carregar em «Gravar»: ao recarregar a página volta tudo
+  const estadoTexto = JSON.stringify(estado)
+  useEffect(() => {
+    if (!carregado) return
+    const t = window.setTimeout(() => void gravarEstado('cotacao', estado), 600)
+    return () => window.clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [carregado, estadoTexto])
+
+  // as fotos trocadas guardam-se sozinhas (e só depois de lidas as guardadas, para não as apagar)
+  const imagensLidas = useRef(false)
+  useEffect(() => {
+    if (!carregado) return
+    if (!imagensLidas.current) {
+      imagensLidas.current = true
+      return
+    }
+    const t = window.setTimeout(() => void gravarEstado('cotacao-imagens', imagens), 600)
+    return () => window.clearTimeout(t)
+  }, [carregado, imagens])
+
   // miniatura do produto no início de cada linha (só se o nome for igual ao de um produto do catálogo)
   const fotoDe = useFotosProdutos(linhas.map((i) => i.nome))
 
@@ -256,10 +313,10 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda }:
     </>
   )
 
-  // partilhar a cotação: o e-mail abre o VhostMail com uma mensagem nova, já com a cotação em anexo (ficheiro que se abre no navegador e se imprime em PDF); o WhatsApp abre com o resumo escrito; nada se envia daqui
+  // partilhar a cotação: o e-mail abre o VhostMail com uma mensagem nova, já com a cotação em anexo (PDF igual à folha); o WhatsApp abre com o resumo escrito; nada se envia daqui
   const textoCotacao = () =>
     [
-      `Cotação VisualDesign Nº ${numero.trim() || `VD-${ano}-____`}`,
+      `Cotação VisualDesign Nº ${numero.trim() || `COT ${ano}/____`}`,
       nomeCliente ? `Cliente: ${nomeCliente}` : '',
       '',
       ...linhas.map((l) => `- ${l.nome}: ${l.unidades} × ${valor2(l.unitario)} = ${valor2(l.total)} ${moeda}`),
@@ -271,18 +328,15 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda }:
     ]
       .filter((l, k, a) => l !== '' || a[k - 1] !== '')
       .join('\n')
-  const assuntoCotacao = `Cotação VisualDesign Nº ${numero.trim() || `VD-${ano}-____`}`
+  const assuntoCotacao = `Cotação VisualDesign Nº ${numero.trim() || `COT ${ano}/____`}`
   const vh = useContext(VHContext)
-  async function enviarPorEmail() {
+  // o PDF da folha da cotação, igual ao que se vê (usado no e-mail e no WhatsApp)
+  async function pdfDaCotacao(): Promise<{ nome: string; b64: string } | null> {
     const doc = document.getElementById(ID_DOCUMENTO)
-    // fora do painel não há VhostMail: abre o programa de e-mail do utilizador, como antes
-    if (!doc || !vh) {
-      window.location.href = `mailto:?subject=${encodeURIComponent(assuntoCotacao)}&body=${encodeURIComponent(textoCotacao())}`
-      return
-    }
+    if (!doc) return null
     setAviso('')
     try {
-      // a cotação vai como página única: campos passam a texto, controlos de edição saem, fotos vão dentro do ficheiro e os estilos da página também
+      // campos passam a texto, controlos de edição saem, fotos vão dentro e os estilos da página também
       const copia = copiaLimpa(doc)
       await Promise.all(
         Array.from(copia.querySelectorAll('img')).map(async (img) => {
@@ -304,25 +358,55 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda }:
       const css = Array.from(document.styleSheets)
         .map((f) => {
           try {
+            // os url(...) relativos (ficheiros dos tipos de letra) valem em relação à folha de estilos, não à página: passam a absolutos
             return Array.from(f.cssRules)
               .map((r) => r.cssText)
               .join('\n')
+              .replace(/url\(["']?(?!data:|https?:|\/)([^"')]+)["']?\)/g, (_m, u: string) => `url("${new URL(u, f.href || window.location.href).href}")`)
           } catch {
             return ''
           }
         })
         .join('\n')
-      const titulo = `Cotação ${numero.trim() || `VD-${ano}`}${nomeCliente ? ` · ${nomeCliente}` : ''}`
-      const pagina = `<!doctype html><html lang="pt"><head><meta charset="utf-8"><title>${titulo.replace(/</g, '&lt;')}</title><style>${css}</style><style>@page{size:A4;margin:12mm}html,body{background:#fff!important;margin:0;padding:0}body *{visibility:visible!important}#${ID_DOCUMENTO}{width:auto!important;min-width:0!important;max-width:210mm;margin:0 auto!important;border:0!important;box-shadow:none!important}</style></head><body>${copia.outerHTML}</body></html>`
-      const bytes = new TextEncoder().encode(pagina)
-      let bin = ''
-      for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000))
-      const nome = `Cotacao-${(numero.trim() || `VD-${ano}`).replace(/[^\w.-]+/g, '-')}.html`
-      sessionStorage.setItem('vd-vhostmail-novo', JSON.stringify({ assunto: assuntoCotacao, texto: `${textoCotacao()}\n\nA cotação completa segue em anexo.`, anexo: { nome, tipo: 'text/html', b64: btoa(bin) } }))
-      vh.nav('/utilizador/email/vhostmail/entrada/' + encodeURIComponent(CONTA_VENDAS))
+      const b64 = await cotacaoParaPdf(copia, css, doc.offsetWidth, doc.scrollHeight, getComputedStyle(doc).fontFamily)
+      return { nome: `Cotacao-${(numero.trim() || `COT ${ano}`).replace(/[^\w.-]+/g, '-')}.pdf`, b64 }
     } catch {
-      setAviso('Não foi possível preparar a cotação para o e-mail.')
+      setAviso('Não foi possível preparar a cotação em PDF.')
+      return null
     }
+  }
+  async function enviarPorEmail() {
+    // fora do painel não há VhostMail: abre o programa de e-mail do utilizador, como antes
+    if (!vh) {
+      window.location.href = `mailto:?subject=${encodeURIComponent(assuntoCotacao)}&body=${encodeURIComponent(textoCotacao())}`
+      return
+    }
+    const pdf = await pdfDaCotacao()
+    if (!pdf) return
+    // o PDF vai inteiro como anexo (o mesmo que se descarrega); o texto da mensagem é só o aviso, sem repetir os itens
+    sessionStorage.setItem('vd-vhostmail-novo', JSON.stringify({ para: encomenda?.email ?? '', assunto: assuntoCotacao, texto: `Bom dia,\n\nSegue em anexo a cotação Nº ${numero.trim() || '____'}${nomeCliente ? ` (${nomeCliente})` : ''}, em PDF.\n\nCumprimentos,\nVisualDesign`, anexo: { nome: pdf.nome, tipo: 'application/pdf', b64: pdf.b64 } }))
+    vh.nav('/utilizador/email/vhostmail/entrada/' + encodeURIComponent(CONTA_VENDAS))
+  }
+  // WhatsApp: vai o próprio PDF; se o aparelho não deixar partilhar ficheiros, o PDF descarrega e o WhatsApp abre para o anexar (uma ligação do WhatsApp não leva ficheiros)
+  async function enviarPorWhatsapp() {
+    const pdf = await pdfDaCotacao()
+    if (!pdf) return
+    const ficheiro = new File([Uint8Array.from(atob(pdf.b64), (c) => c.charCodeAt(0))], pdf.nome, { type: 'application/pdf' })
+    if (navigator.canShare?.({ files: [ficheiro] })) {
+      try {
+        await navigator.share({ files: [ficheiro], title: assuntoCotacao })
+        return
+      } catch (e) {
+        if ((e as Error).name === 'AbortError') return
+      }
+    }
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(ficheiro)
+    a.download = pdf.nome
+    a.click()
+    setTimeout(() => URL.revokeObjectURL(a.href), 10000)
+    window.open(`https://wa.me/?text=${encodeURIComponent(`${assuntoCotacao} (PDF em anexo)`)}`, '_blank', 'noopener')
+    setAviso('O PDF foi descarregado: anexe-o na conversa do WhatsApp.')
   }
   const botaoPartilha = 'inline-flex cursor-pointer items-center gap-1.5 rounded-[5px] border border-slate-300 bg-white px-4 py-1.5 text-sm font-bold text-slate-700 shadow-sm transition hover:border-red-500 hover:text-red-600 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200'
   const partilhar = (
@@ -331,7 +415,7 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda }:
         <Mail className="h-4 w-4" aria-hidden />
         E-mail
       </button>
-      <button type="button" onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent(textoCotacao())}`, '_blank', 'noopener')} className={botaoPartilha}>
+      <button type="button" onClick={enviarPorWhatsapp} className={botaoPartilha}>
         <MessageCircle className="h-4 w-4" aria-hidden />
         WhatsApp
       </button>
@@ -359,7 +443,7 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda }:
     const janela = quadro.contentWindow!
     const d = quadro.contentDocument!
     // o quadro leva os mesmos estilos da página e só o documento (montado com o DOM, sem escrever HTML à mão)
-    const titulo = `Cotação ${numero.trim() || `VD-${ano}`}${nomeCliente ? ` · ${nomeCliente}` : ''}`
+    const titulo = `Cotação ${numero.trim() || `COT ${ano}`}${nomeCliente ? ` · ${nomeCliente}` : ''}`
     d.title = titulo
     const base = d.createElement('base')
     base.href = `${window.location.origin}/`
@@ -367,7 +451,7 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda }:
     document.querySelectorAll('link[rel="stylesheet"], style').forEach((n) => d.head.appendChild(d.importNode(n, true)))
     const folha = d.createElement('style')
     // o CSS global de impressão (globals.css) esconde tudo menos #quote-print-area: aqui o documento tem de ficar visível; a folha usa a largura da página A4 menos as margens
-    folha.textContent = `@page{size:A4;margin:12mm}html,body{background:#fff!important;margin:0;padding:0}body *{visibility:visible!important}#${ID_DOCUMENTO}{width:auto!important;min-width:0!important;max-width:none!important;border:0!important;box-shadow:none!important;padding:0!important}`
+    folha.textContent = `@page{size:A4;margin:12mm}html,body{background:#fff!important;margin:0;padding:0}body *{visibility:visible!important}#${ID_DOCUMENTO}{width:auto!important;min-width:0!important;max-width:none!important;border:0!important;box-shadow:none!important;padding:0!important;min-height:272mm!important}`
     d.head.appendChild(folha)
     // os campos editáveis passam a texto e os controlos de edição (eliminar, acrescentar) não vão para a folha
     const copia = doc.cloneNode(true) as HTMLElement
@@ -415,7 +499,7 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda }:
       <div className="mt-4 grid grid-cols-2 gap-3 @xl:grid-cols-3">
         <CampoTexto id="cci-cot-cliente" rotulo="Cliente" valor={cliente} aoMudar={setCliente} exemplo="Nome da empresa" />
         <CampoTexto id="cci-cot-contacto" rotulo="Contacto" valor={contacto} aoMudar={setContacto} exemplo="Nome e telefone" />
-        <CampoTexto id="cci-cot-numero" rotulo="Número da cotação" valor={numero} aoMudar={setNumero} exemplo={`VD-${ano}-001`} />
+        <CampoTexto id="cci-cot-numero" rotulo="Número da cotação" valor={numero} aoMudar={() => undefined} somenteLeitura exemplo="Atribuído pelo sistema" />
         <CampoTexto id="cci-cot-data" rotulo="Data da cotação" valor={data} aoMudar={setData} />
         <CampoTexto id="cci-cot-validade" rotulo="Validade (dias)" valor={validade} aoMudar={setValidade} tipo="number" />
         <CampoTexto id="cci-cot-prazo" rotulo="Prazo de entrega" valor={prazo} aoMudar={setPrazo} exemplo="Ex.: 15 dias úteis" />
@@ -465,7 +549,7 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda }:
           </div>
           <div className="overflow-x-auto">
             {/* o documento (sempre claro, folha A4 com a margem de 12 mm da impressão); é o que se imprime */}
-            <div id={ID_DOCUMENTO} className="mx-auto w-[210mm] shrink-0 bg-white p-[12mm] text-[13px] leading-snug text-zinc-800 shadow-sm" style={{ fontFamily: 'Inter, Arial, Helvetica, sans-serif' }}>
+            <div id={ID_DOCUMENTO} className="mx-auto flex min-h-[297mm] w-[210mm] shrink-0 flex-col bg-white p-[12mm] text-[13px] leading-snug text-zinc-800 shadow-sm" style={{ fontFamily: 'var(--font-site), sans-serif' }}>
               <div className="flex items-start justify-between gap-6 pb-3">
                 <div>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -474,7 +558,7 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda }:
                 <div className="text-right text-zinc-600">
                   <p className="text-2xl font-extrabold tracking-wide text-zinc-900">COTAÇÃO</p>
                   <p className="mt-1">
-                    Nº {numero.trim() || `VD-${ano}-____`} · Data: {data}
+                    Nº {numero.trim() || `COT ${ano}/____`} · Data: {data}
                   </p>
                   <p>Validade: {diasValidade} dias a contar da entrega da cotação</p>
                 </div>
@@ -510,10 +594,10 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda }:
                 <thead>
                   <tr style={{ backgroundColor: VERMELHO }} className="text-white">
                     <th className="px-3 py-2 font-bold">Produto</th>
-                    <th className="px-3 py-2 font-bold">Personalização</th>
-                    <th className="px-3 py-2 text-right font-bold">Qtd</th>
-                    <th className="whitespace-nowrap px-3 py-2 text-right font-bold">{`P.un. (${moeda})`}</th>
-                    <th className="px-3 py-2 text-right font-bold">{`Total (${moeda})`}</th>
+                    <th className="px-2 py-2 font-bold">Personalização</th>
+                    <th className="px-2 py-2 text-right font-bold">Qtd</th>
+                    <th className="whitespace-nowrap px-2 py-2 text-right font-bold">{`P.un. (${moeda})`}</th>
+                    <th className="px-2 py-2 text-right font-bold">{`Total (${moeda})`}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -522,11 +606,23 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda }:
                     <tr key={l.id} className="border-b border-zinc-200 align-middle" style={k % 2 === 1 ? { backgroundColor: '#f4f4f5', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' } : undefined}>
                       <td className="px-3 py-2">
                         <div className="flex items-center gap-2.5">
-                          {fotoDe(l.nome) && <Miniatura src={fotoDe(l.nome)} />}
+                          {(imagens[l.id] || fotoDe(l.nome)) && (
+                            <Miniatura
+                              src={imagens[l.id] || fotoDe(l.nome)}
+                              personalizada={!!imagens[l.id]}
+                              aoTrocar={(d) =>
+                                setImagens((m) => {
+                                  const { [l.id]: _antiga, ...resto } = m
+                                  void _antiga
+                                  return d ? { ...resto, [l.id]: d } : resto
+                                })
+                              }
+                            />
+                          )}
                           {editar ? (
-                            <input type="text" aria-label="Produto" value={l.nome} onChange={(e) => mudarLinha(l.id, 'nome', e.target.value)} className={`${EDITAR} text-[11px] leading-tight`} />
+                            <input type="text" aria-label="Produto" value={l.nome} onChange={(e) => mudarLinha(l.id, 'nome', e.target.value)} className={`${EDITAR} text-[11px] font-bold leading-tight`} />
                           ) : (
-                            <span className="text-[11px] leading-tight">{l.nome}</span>
+                            <span className="text-[11px] font-bold leading-tight">{l.nome}</span>
                           )}
                           {editar && aoTrocar && (
                             <SeletorSemelhantes
@@ -551,7 +647,7 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda }:
                           )}
                         </div>
                       </td>
-                      <td className="px-3 py-2">
+                      <td className="px-2 py-2">
                         {editar ? (
                           <input
                             type="text"
@@ -569,14 +665,14 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda }:
                           personalizacaoDe(l.id)
                         )}
                       </td>
-                      <td className="w-20 px-3 py-2">
+                      <td className="w-16 px-2 py-2">
                         {editar ? (
                           <input type="text" inputMode="numeric" aria-label="Quantidade" value={textoQtd(l.id, l.unidades)} onChange={(e) => mudarLinha(l.id, 'unidades', e.target.value)} className={`${EDITAR} text-right tabular-nums`} />
                         ) : (
                           <span className="block text-right tabular-nums">{Number.isFinite(l.unidades) ? l.unidades : '–'}</span>
                         )}
                       </td>
-                      <td className="w-28 px-3 py-2">
+                      <td className="w-24 px-2 py-2">
                         {editar ? (
                           <input
                             type="text"
@@ -591,7 +687,7 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda }:
                           <span className="block text-right tabular-nums">{Number.isFinite(l.unitario) ? valor2(l.unitario) : '–'}</span>
                         )}
                       </td>
-                      <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums">{valor2(l.total)}</td>
+                      <td className="whitespace-nowrap px-2 py-2 text-right tabular-nums">{valor2(l.total)}</td>
                     </tr>
                   ))}
                   {editar && (
@@ -612,31 +708,32 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda }:
                     <td colSpan={4} className="px-3 py-2 text-right font-semibold">
                       Subtotal (sem IVA)
                     </td>
-                    <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums">{valor2(subtotal)}</td>
+                    <td className="whitespace-nowrap px-2 py-2 text-right tabular-nums">{valor2(subtotal)}</td>
                   </tr>
                   <tr className="border-b border-zinc-200">
                     <td colSpan={4} className="px-3 py-2 text-right font-semibold">
                       IVA ({iva}%)
                     </td>
-                    <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums">{valor2(ivaValor)}</td>
+                    <td className="whitespace-nowrap px-2 py-2 text-right tabular-nums">{valor2(ivaValor)}</td>
                   </tr>
                   <tr className="border-b border-zinc-200">
                     <td colSpan={4} className="px-3 py-3 text-right text-[15px] font-extrabold text-zinc-900">
                       TOTAL DA FACTURA
                     </td>
-                    <td className="whitespace-nowrap px-3 py-3 text-right text-[15px] font-extrabold tabular-nums" style={{ color: VERMELHO }}>
+                    <td className="whitespace-nowrap px-2 py-3 text-right text-[15px] font-extrabold tabular-nums" style={{ color: VERMELHO }}>
                       {valor2(totalAPagar)}
                     </td>
                   </tr>
                 </tbody>
               </table>
 
-              <p className="mt-4 text-zinc-600">
-                {ivaIncluido ? `Preços por unidade com logo, transporte até Maputo e IVA de ${iva}% incluídos.` : 'Preços por unidade com logo e transporte até Maputo, sem IVA.'} Prazo de entrega: {prazo.trim() || '[PRAZO]'}. Pagamento:{' '}
-                {pagamento.trim() || '[CONDIÇÕES DE PAGAMENTO]'}.
+              {/* da descrição ao fim: informação e aprovação do cliente ficam sempre encostadas ao fundo da folha */}
+              <div className="mt-auto pt-4">
+              <p className="text-zinc-600">
+                {ivaIncluido ? `Preços por unidade com logo e IVA de ${iva}% incluídos.` : 'Preços por unidade com logo, sem IVA.'} Prazo de entrega: {prazo.trim() || '[PRAZO]'}. Pagamento: {pagamento.trim() || '[CONDIÇÕES DE PAGAMENTO]'}.
               </p>
 
-              <div className="mt-5 rounded-xl p-4" style={{ border: `2px solid ${VERMELHO}` }}>
+              <div className="mt-5 rounded-xl p-4" style={{ border: `1px solid ${VERMELHO}` }}>
                 <p className="text-lg font-extrabold text-zinc-900">Aprovação do cliente</p>
                 <p className="mt-1 text-zinc-600">Ao assinar, {nomeCliente || 'o cliente'} aprova o design (posição e cores do logo), os modelos escolhidos e esta cotação.</p>
                 <div className="mt-8 grid grid-cols-4 gap-4 text-zinc-600">
@@ -655,6 +752,7 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda }:
                   <br />
                   vendas@visualdesignmoz.com
                 </span>
+              </div>
               </div>
             </div>
           </div>

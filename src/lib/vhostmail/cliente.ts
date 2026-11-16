@@ -302,6 +302,19 @@ export const CLIENTE_JS = String.raw`
     if(t.closest('[data-act=dlall]')){e.stopImmediatePropagation();e.preventDefault();var m5=get(S.sel);if(m5){todosAnexos(m5);toast('A descarregar '+m5.att.length+' anexo(s)')}return}
     if(t.closest('[data-act=forward]')){e.stopImmediatePropagation();e.preventDefault();encaminhar();return}
     if(t.closest('[data-act=upd]')){e.stopImmediatePropagation();e.preventDefault();recarregar([S.folder]);toast('A actualizar a caixa…');return}
+    if((x=t.closest('[data-anv]'))){
+      e.stopImmediatePropagation();e.preventDefault();
+      var an=ANEX[+x.dataset.anv];
+      if(an)previaAnexo(an);
+      return;
+    }
+    if(t.closest('[data-act=aireply]')){
+      e.stopImmediatePropagation();e.preventDefault();
+      var ma=get(S.sel);if(!ma)return;
+      var en=linguaDe((ma._cor&&(ma._cor.texto||htmlParaTexto(ma._cor.html)))||(ma.subj+' '+(ma.prev||ma.snip||'')))==='en',nm=esc(String(ma.from||'').split(' ')[0]);
+      S.reply={type:'reply',text:en?'Hello '+nm+',<br><br>Thank you for your message. We have received the information and will follow up as soon as possible.<br><br>Kind regards,':'Olá '+nm+',<br><br>Obrigado pela sua mensagem. Recebemos a informação e vamos dar seguimento com a maior brevidade.<br><br>Cumprimentos,'};
+      renderRead();return;
+    }
     if((x=t.closest('[data-act=aiwrite],[data-cb=ai]'))){
       e.stopImmediatePropagation();e.preventDefault();
       var cx=x.closest('#compose,#replybox'),ed=cx&&cx.querySelector('.cbody');
@@ -339,10 +352,29 @@ export const CLIENTE_JS = String.raw`
   }
 
   /* ---- escrever, responder, encaminhar, anexar, rascunhos ---- */
+  /* cada anexo da mensagem nova aparece como cartão: símbolo do tipo (PDF a vermelho), nome e tamanho; ao clicar abre a pré-visualização */
   function pintaAnexos(){
     var box=$('#catt')||$('#ratt');
     if(!box)return;
-    box.innerHTML=ANEX.map(function(a,i){return '<span class="mtag" style="padding:4px 8px">'+esc(a.nome)+' · '+tam(a.tam)+' <a data-anx="'+i+'" style="cursor:pointer;margin-left:4px" aria-label="Remover">×</a></span>'}).join('');
+    box.innerHTML=ANEX.map(function(a,i){
+      var pdf=/pdf/i.test(a.tipo||'')||/\.pdf$/i.test(a.nome||'');
+      var ic=pdf?'<span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:34px;border-radius:4px;background:#E5202E;color:#fff;font:700 10px sans-serif;letter-spacing:.3px;flex:none">PDF</span>':'<span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:34px;border-radius:4px;background:#888;color:#fff;font:700 9px sans-serif;flex:none">'+esc(((a.nome||'').split('.').pop()||'').slice(0,4).toUpperCase())+'</span>';
+      return '<span class="mtag" style="display:inline-flex;align-items:center;gap:9px;padding:6px 10px">'+ic+'<a data-anv="'+i+'" title="Pré-visualizar" style="cursor:pointer;display:flex;flex-direction:column;line-height:1.3"><b style="font-weight:600">'+esc(a.nome)+'</b><small style="opacity:.7">'+(pdf?'PDF · ':'')+tam(a.tam)+' · Pré-visualizar</small></a><a data-anx="'+i+'" style="cursor:pointer;margin-left:4px" aria-label="Remover">×</a></span>';
+    }).join('');
+  }
+  /* pré-visualização do anexo (PDF e imagens) numa janela por cima; outros tipos abrem noutro separador */
+  function previaAnexo(a){
+    var bi=atob(a.b64),by=new Uint8Array(bi.length);for(var q=0;q<bi.length;q++)by[q]=bi.charCodeAt(q);
+    var url=URL.createObjectURL(new Blob([by],{type:a.tipo||'application/octet-stream'}));
+    if(!/pdf|^image\//i.test(a.tipo||'')){window.open(url,'_blank');return}
+    var o=document.createElement('div');
+    o.style.cssText='position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center';
+    o.innerHTML='<div style="width:min(900px,92vw);height:92vh;background:#fff;border-radius:8px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.4)"><div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid #e5e5e5;font:600 14px sans-serif;color:#222"><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(a.nome)+'</span><a href="'+url+'" download="'+esc(a.nome)+'" style="color:#E5202E;text-decoration:none;font-weight:600">Descarregar</a><a data-fx style="cursor:pointer;font-size:22px;line-height:1;color:#555" aria-label="Fechar">×</a></div><iframe src="'+url+'" style="flex:1;border:0;width:100%"></iframe></div>';
+    var fecha=function(){document.removeEventListener('keydown',tecla,true);o.remove();URL.revokeObjectURL(url)};
+    var tecla=function(ev){if(ev.key==='Escape'){ev.stopPropagation();fecha()}};
+    o.addEventListener('click',function(ev){if(ev.target===o||ev.target.closest('[data-fx]'))fecha()});
+    document.addEventListener('keydown',tecla,true);
+    document.body.appendChild(o);
   }
   function anexar(ctx){
     var inp=document.createElement('input');inp.type='file';inp.multiple=true;
@@ -363,6 +395,14 @@ export const CLIENTE_JS = String.raw`
   var _oc=openCompose;
   openCompose=function(o){if(!RASC)ANEX=[];_oc(o);pintaAnexos()};
   /* escrita com IA nas duas línguas: o texto de abertura entra na mensagem em português ou em inglês, à escolha */
+  /* língua da mensagem recebida (só para «Responder com IA»): ganha a que tiver mais palavras comuns no texto; em empate, português */
+  function linguaDe(t){
+    var pal=String(t||'').toLowerCase().match(/[a-zà-ú]+/g)||[],en=0,pt=0;
+    var EN={the:1,and:1,you:1,for:1,with:1,this:1,that:1,have:1,are:1,please:1,thank:1,thanks:1,would:1,your:1,regards:1,hello:1,dear:1,from:1,will:1,can:1,our:1,not:1,attached:1};
+    var PT={de:1,que:1,para:1,com:1,uma:1,não:1,nao:1,por:1,obrigado:1,obrigada:1,bom:1,dia:1,cumprimentos:1,olá:1,ola:1,vos:1,favor:1,em:1,os:1,as:1,um:1,anexo:1,cotação:1,cotacao:1,preço:1,gostaria:1,você:1,seu:1,sua:1};
+    pal.forEach(function(w){if(EN[w])en++;if(PT[w])pt++});
+    return en>pt?'en':'pt';
+  }
   function escreveIA(ed,lg){
     var tx=lg==='en'?'Good morning,\n\nI hope you are well. I am writing to follow up on the matter referred to above.\n\nKind regards,':'Bom dia,\n\nEspero que esteja bem. Escrevo para dar seguimento ao assunto em referência.\n\nCumprimentos,';
     ed.focus();document.execCommand('insertText',false,tx);

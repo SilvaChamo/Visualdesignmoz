@@ -3,8 +3,10 @@ import { requireAdminOrReseller } from '@/lib/panel-api-auth'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 
 // Estado da calculadora de importação e da cotação ao cliente, guardado no servidor (tabela calculadora_estado). Só administradores.
-const CHAVES = ['calculadora', 'cotacao']
+// 'cotacao-imagens': as fotos que o Silva troca na cotação (reduzidas no navegador), por linha
+const CHAVES = ['calculadora', 'cotacao', 'cotacao-imagens']
 const MAX_BYTES = 200_000
+const MAX_IMAGENS = 1_500_000
 
 async function soAdmin() {
   const auth = await requireAdminOrReseller()
@@ -30,7 +32,7 @@ export async function PUT(req: Request) {
   if ('erro' in a) return a.erro
   const corpo = (await req.json().catch(() => null)) as { chave?: string; estado?: unknown } | null
   if (!corpo || !CHAVES.includes(corpo.chave ?? '')) return NextResponse.json({ success: false, error: 'Chave inválida.' }, { status: 400 })
-  if (!corpo.estado || typeof corpo.estado !== 'object' || JSON.stringify(corpo.estado).length > MAX_BYTES) return NextResponse.json({ success: false, error: 'Estado inválido.' }, { status: 400 })
+  if (!corpo.estado || typeof corpo.estado !== 'object' || JSON.stringify(corpo.estado).length > (corpo.chave === 'cotacao-imagens' ? MAX_IMAGENS : MAX_BYTES)) return NextResponse.json({ success: false, error: 'Estado inválido.' }, { status: 400 })
   const supabase = getSupabaseAdmin()
   if (!supabase) return NextResponse.json({ success: false, error: 'Supabase Service Role não configurado.' }, { status: 503 })
   const { error } = await supabase.from('calculadora_estado').upsert({ chave: corpo.chave, estado: corpo.estado, updated_at: new Date().toISOString(), updated_by: a.user.email ?? a.user.id })

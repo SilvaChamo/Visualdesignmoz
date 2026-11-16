@@ -16,7 +16,8 @@ import { CotacaoCliente } from './CotacaoCliente'
 import { Miniatura, SeletorSemelhantes, useFotosProdutos } from './fotos-produtos'
 import { gravarEstado, lerEstado } from './estado-calculadora'
 import { GravarValorBrindes } from './GravarValorBrindes'
-import { EncomendasDoSite, type EncomendaSite } from './EncomendasDoSite'
+import { ListaEncomendas, useEncomendasDoSite, type EncomendaSite } from './EncomendasDoSite'
+import { Tabs } from '../paginas/componentes'
 import { configValida, type ConfigBrindes } from '@/lib/preco-brindes'
 import { translate } from '../i18n'
 import {
@@ -417,7 +418,11 @@ export function Tabela({
 // chave, entre os rascunhos, da lista própria (sem encomenda do site)
 const LIVRE = '|livre|'
 
+type AbaEncomenda = 'actual' | 'pendentes' | 'anteriores'
+
 export function CalculadoraCustoImportacao() {
+  const [aba, setAba] = useState<AbaEncomenda>('actual')
+  const { erro: erroEnc, pendentes, anteriores } = useEncomendasDoSite()
   const { lang } = useI18n()
   const tr = (k: string) => translate(lang, k)
   const [form, setForm] = useState<Form>(formDoExemplo)
@@ -836,11 +841,37 @@ export function CalculadoraCustoImportacao() {
 
   const ids = (nome: string) => `cci-${nome}`
 
+  const aoCarregarDaLista = (e: EncomendaSite) => {
+    carregarEncomenda(e)
+    setAba('actual')
+  }
+
   return (
-    // data-ic-sem: o painel não põe ícone dentro dos campos da calculadora (icones-campos.ts)
+    <>
+    {/* a regra dos separadores do cartão principal: a faixa em cima (como em Domínios) — a encomenda actual (a calculadora), as pendentes e as anteriores */}
+    <Tabs<AbaEncomenda>
+      tabs={[
+        ['actual', 'Encomenda actual'],
+        ['pendentes', `Pendentes (${pendentes.length})`],
+        ['anteriores', `Anteriores (${anteriores.length})`],
+      ]}
+      on={aba}
+      onChange={setAba}
+    />
+    <div className="tw-livre">
+    {/* data-ic-sem: o painel não põe ícone dentro dos campos da calculadora (icones-campos.ts) */}
     <div className={`@container ${listaLida && formLido ? '' : 'invisible'}`} data-ic-sem aria-busy={!(listaLida && formLido)}>
-      <div className="grid grid-cols-[minmax(0,1fr)] gap-6">
-      <EncomendasDoSite atual={encomenda?.batchId ?? null} aoCarregar={carregarEncomenda} aoVoltar={encomenda && rascunhos[LIVRE] ? voltarALivre : undefined} />
+      {aba === 'pendentes' && <ListaEncomendas itens={pendentes} erro={erroEnc} vazio="Não há encomendas por responder." atual={encomenda?.batchId ?? null} aoCarregar={aoCarregarDaLista} />}
+      {aba === 'anteriores' && <ListaEncomendas itens={anteriores} erro={erroEnc} vazio="Não há encomendas anteriores." atual={encomenda?.batchId ?? null} aoCarregar={aoCarregarDaLista} />}
+      {/* a calculadora fica sempre montada (só se esconde) para não perder o que está a ser feito */}
+      <div className={`grid grid-cols-[minmax(0,1fr)] gap-6 ${aba === 'actual' ? '' : 'hidden'}`}>
+      {encomenda && rascunhos[LIVRE] && (
+        <div>
+          <button type="button" onClick={voltarALivre} className="inline-flex cursor-pointer items-center rounded-[5px] border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 shadow-sm transition hover:border-red-500 hover:text-red-600 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200">
+            Voltar à lista própria
+          </button>
+        </div>
+      )}
       {/* resumo: em cima, a toda a largura (sem barra lateral) */}
       <aside className="space-y-3">
         <div className="rounded-2xl bg-slate-900 p-5 text-white shadow-lg @xl:p-6">
@@ -1221,7 +1252,7 @@ export function CalculadoraCustoImportacao() {
 
       {/* a cotação para o cliente, no fim das tabelas */}
       <CotacaoCliente
-        encomenda={encomenda ? { batchId: encomenda.batchId, cliente: encomenda.empresa, contacto: [encomenda.responsavel, encomenda.telefone, encomenda.email].filter(Boolean).join(' · '), numero: encomenda.numero } : undefined}
+        encomenda={encomenda ? { batchId: encomenda.batchId, cliente: encomenda.empresa, contacto: [encomenda.responsavel, encomenda.telefone, encomenda.email].filter(Boolean).join(' · '), numero: encomenda.numero, email: encomenda.email } : undefined}
         moeda={moeda}
         aoRemover={removerLinha}
         aoTrocar={trocarProduto}
@@ -1229,5 +1260,7 @@ export function CalculadoraCustoImportacao() {
       />
     </div>
     </div>
+    </div>
+    </>
   )
 }
