@@ -279,4 +279,13 @@ export const calculadora_importacao: Record<string, string> = {
  "Não há encomendas anteriores.": "There are no previous orders.",
  "Não foi possível preparar a cotação em PDF.": "Could not prepare the quotation as a PDF.",
  "O PDF foi descarregado: anexe-o na conversa do WhatsApp.": "The PDF was downloaded: attach it in the WhatsApp chat.",
+ "Unidades (definidas pelo cliente)": "Units (set by the client)",
+ "{0}% do valor da encomenda": "{0}% of the order value",
+ "{0}% do valor da encomenda ({1} {2}) com a aprovação e {3}% ({4} {5}) na entrega": "{0}% of the order value ({1} {2}) on approval and {3}% ({4} {5}) on delivery",
+ "Há produtos sem valor ou que não são da encomenda do cliente: só se autorizam os produtos que ele pediu.": "Some products have no value or are not part of the client's order: only the products the client asked for can be authorised.",
+ "Não foi possível autorizar a cotação.": "Could not authorise the quotation.",
+ "Valor autorizado: o cliente foi avisado por e-mail e já vê a cotação no painel.": "Value authorised: the client has been notified by e-mail and can now see the quotation in the panel.",
+ "Valor actualizado no painel do cliente.": "Value updated in the client's panel.",
+ "Autorizar e enviar ao cliente": "Authorise and send to the client",
+ "Actualizar o valor do cliente": "Update the client's value",
 };
