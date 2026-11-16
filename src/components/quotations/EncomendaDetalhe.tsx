@@ -128,7 +128,10 @@ export function EncomendaDetalhe({
     if (!editarToken || editarToken === editarFeito.current || !items?.some((i) => i.id === quotationId)) return;
     const alvo = items.find((i) => i.status === 'pending' || i.status === 'rejected');
     editarFeito.current = editarToken;
-    if (alvo) setEditingItemId(alvo.id);
+    if (alvo) {
+      setTab('detalhes');
+      setEditingItemId(alvo.id);
+    }
   }, [editarToken, items, quotationId]);
 
   const verFeito = useRef(0);
