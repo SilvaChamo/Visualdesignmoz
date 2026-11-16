@@ -64,7 +64,7 @@ export function GravarValorBrindes({ config, aoCarregar, aoLer }: { config: Conf
 
   return (
     <p className={`${NOTA} mt-3`}>
-      {tr('Os valores desta secção, as margens, os direitos e o imposto gravam-se sozinhos no valor dos brindes do site: cada produto leva a sua parte do transporte, da alfândega, do lucro e das outras despesas, repartida pelo valor. A alfândega e o lucro indicados em valor total substituem a taxa de direitos e a margem (%). Sem nenhum valor definido, o site mostra só o câmbio com a margem e o IVA.')}{' '}
+      {tr('Os valores desta secção, as margens, os direitos e o imposto gravam-se sozinhos no valor dos brindes do site: cada produto leva a sua parte do transporte, da alfândega e das outras despesas, repartida pelo valor. A alfândega indicada em valor total substitui a taxa de direitos. Sem nenhum valor definido, o site mostra só o câmbio com a margem e o IVA.')}{' '}
       <span role="status">{estado}</span>
     </p>
   )
