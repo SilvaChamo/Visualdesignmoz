@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { requireAdminOrReseller } from '@/lib/panel-api-auth'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { podeEditarCotacao } from '@/lib/cotacao-acesso'
+import { semPrecosDoCliente } from '@/lib/folha-sem-precos-do-cliente'
 
 // Estado da calculadora de importação e da cotação ao cliente, guardado no servidor (tabela calculadora_estado). Só administradores.
 // 'cotacao-imagens': as fotos que o Silva troca na cotação (reduzidas no navegador), por linha
@@ -15,7 +16,7 @@ async function acesso(chave: string) {
   const m = POR_LOTE.exec(chave)
   if (!m) return soAdmin()
   const r = await podeEditarCotacao(m[2])
-  return 'erro' in r ? { erro: r.erro } : { user: { email: r.email, id: r.email } }
+  return 'erro' in r ? { erro: r.erro } : { user: { email: r.email, id: r.email }, admin: r.admin }
 }
 
 async function soAdmin() {
@@ -53,7 +54,12 @@ export async function PUT(req: Request) {
   if (!corpo.estado || typeof corpo.estado !== 'object' || JSON.stringify(corpo.estado).length > (corpo.chave?.startsWith('cotacao-imagens') ? MAX_IMAGENS : MAX_BYTES)) return NextResponse.json({ success: false, error: 'Estado inválido.' }, { status: 400 })
   const supabase = getSupabaseAdmin()
   if (!supabase) return NextResponse.json({ success: false, error: 'Supabase Service Role não configurado.' }, { status: 503 })
-  const { error } = await supabase.from('calculadora_estado').upsert({ chave: corpo.chave, estado: corpo.estado, updated_at: new Date().toISOString(), updated_by: a.user.email ?? a.user.id })
+  let estado: object = corpo.estado
+  if ('admin' in a && !a.admin && corpo.chave?.startsWith('cotacao:')) {
+    const { data: atual } = await supabase.from('calculadora_estado').select('estado').eq('chave', corpo.chave).maybeSingle()
+    estado = semPrecosDoCliente(estado, atual?.estado)
+  }
+  const { error } = await supabase.from('calculadora_estado').upsert({ chave: corpo.chave, estado, updated_at: new Date().toISOString(), updated_by: a.user.email ?? a.user.id })
   if (error) return NextResponse.json({ success: false, error: `Não foi possível guardar: ${error.message}` }, { status: 500 })
   return NextResponse.json({ success: true })
 }
