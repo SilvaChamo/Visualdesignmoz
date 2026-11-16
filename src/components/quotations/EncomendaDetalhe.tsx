@@ -98,7 +98,6 @@ export function EncomendaDetalhe({
   editarToken?: number;
 }) {
   const [items, setItems] = useState<QuotationRow[] | null>(null);
-  const [estimativa, setEstimativa] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>('detalhes');
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
@@ -112,7 +111,6 @@ export function EncomendaDetalhe({
       const res = await fetch(`/api/cotacoes/${quotationId}`);
       const data = await res.json().catch(() => null);
       setItems(res.ok && data?.items?.length ? (data.items as QuotationRow[]) : null);
-      setEstimativa(data?.estimativa ?? {});
     } catch {
       setItems(null);
     }
@@ -125,6 +123,20 @@ export function EncomendaDetalhe({
     setActionError('');
     fetchQuotation();
   }, [quotationId, fetchQuotation]);
+
+  // na aba da cotação, as rectificações da equipa (autorizadas) chegam sozinhas: lê-se de novo de 30 em 30 segundos, sem piscar nem mexer no resto
+  useEffect(() => {
+    if (tab !== 'cotacao') return;
+    const t = window.setInterval(() => {
+      fetch(`/api/cotacoes/${quotationId}`, { cache: 'no-store' })
+        .then((r) => r.json())
+        .then((d) => {
+          if (d?.items?.length) setItems((antes) => (JSON.stringify(antes) === JSON.stringify(d.items) ? antes : (d.items as QuotationRow[])));
+        })
+        .catch(() => undefined);
+    }, 30_000);
+    return () => window.clearInterval(t);
+  }, [tab, quotationId]);
 
   const editarFeito = useRef(0);
   useEffect(() => {
@@ -328,13 +340,13 @@ export function EncomendaDetalhe({
         {tab === 'historico' && <div className="p-4"><QuotationHistoryTimeline quotationId={primary.id} /></div>}
         {tab === 'mensagens' && <div className="p-4 h-[520px] mx-auto max-w-xl"><QuotationMessagesThread quotationId={primary.id} viewerRole="client" /></div>}
         {tab === 'cotacao' && (
-          // com os preços já definidos, a mesma folha e as mesmas opções de edição da calculadora, guardadas por encomenda; sem preços, a cópia/documento de sempre
-          items.every((i) => Number(i.preco_unitario_mt) > 0 || estimativa[i.id] > 0) ? (
+          // com o valor já autorizado pela equipa, a mesma folha da calculadora (quantidade e preço são os da encomenda); enquanto não, o documento de sempre, sem valores
+          items.every((i) => !i.sob_consulta && Number(i.preco_unitario_mt) > 0) ? (
             <div className="@container p-4">
               <CotacaoCliente
                 modoCliente
                 moeda="MZN"
-                itens={items.map((i, k) => ({ id: k + 1, nome: i.produto.split(' — ref. ')[0], unidades: i.quantidade, preco: Number(i.preco_unitario_mt) > 0 ? Number(i.preco_unitario_mt) : estimativa[i.id] }))}
+                itens={items.map((i, k) => ({ id: k + 1, nome: i.produto.split(' — ref. ')[0], unidades: i.quantidade, preco: Number(i.preco_unitario_mt) }))}
                 encomenda={{
                   batchId: primary.batch_id,
                   cliente: primary.empresa,

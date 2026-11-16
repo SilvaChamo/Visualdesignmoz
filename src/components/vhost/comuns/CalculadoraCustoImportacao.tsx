@@ -36,6 +36,8 @@ const MAX_LINHAS = 40
 
 interface LinhaForm {
   id: number
+  /** linha da encomenda do cliente (quotation_requests) de onde veio esta linha: as unidades são as que ele definiu e não se editam aqui */
+  linhaId?: string
   nome: string
   unidades: string
   custo: string
@@ -113,6 +115,21 @@ const ERROS: Record<CodigoUI, string> = {
   'sem-peso': 'Indique o peso por unidade para repartir pelo peso.',
   'sem-volume': 'Indique o volume por unidade para repartir pelo volume.',
   'sem-vendaveis': 'Cada linha precisa de pelo menos uma unidade vendável.',
+}
+
+// os custos da remessa de uma encomenda do site são só dessa encomenda: ao carregar outra começam a zero (não herdam os da anterior); as margens e os impostos são regras gerais
+const CAMPOS_REMESSA = ['frete', 'seguro', 'corretor', 'porto', 'entrega', 'entregaDom', 'outros', 'alfandega'] as const
+type Custos = Record<(typeof CAMPOS_REMESSA)[number], string>
+const CUSTOS_ZERO = Object.fromEntries(CAMPOS_REMESSA.map((c) => [c, '0'])) as Custos
+const custosDe = (f: Form): Custos => Object.fromEntries(CAMPOS_REMESSA.map((c) => [c, f[c]])) as Custos
+type Rascunho = { linhas: LinhaForm[]; proximo: number; custos?: Custos }
+
+/** as unidades de uma encomenda do site são as que o cliente definiu (as do servidor): as linhas ligadas a ela voltam a tê-las sempre que se lê a encomenda; as antigas, sem ligação, ligam-se pelo nome */
+function alinharComEncomenda(ls: LinhaForm[], e: EncomendaSite): LinhaForm[] {
+  return ls.map((l) => {
+    const it = e.itens.find((x) => x.id === l.linhaId) ?? (l.linhaId ? undefined : e.itens.find((x) => x.nome.trim() === l.nome.trim() && !ls.some((o) => o.linhaId === x.id)))
+    return it ? { ...l, linhaId: it.id, unidades: String(it.unidades) } : l
+  })
 }
 
 const novaLinha = (id: number, v?: Partial<Omit<LinhaForm, 'id'>>): LinhaForm => ({
@@ -418,7 +435,7 @@ type AbaEncomenda = 'actual' | 'pendentes' | 'anteriores'
 
 export function CalculadoraCustoImportacao() {
   const [aba, setAba] = useState<AbaEncomenda>('actual')
-  const { erro: erroEnc, pendentes, anteriores } = useEncomendasDoSite()
+  const { lista: listaEnc, erro: erroEnc, pendentes, anteriores, recarregar } = useEncomendasDoSite()
   const { lang } = useI18n()
   const tr = (k: string) => translate(lang, k)
   const [form, setForm] = useState<Form>(formDoExemplo)
@@ -437,12 +454,15 @@ export function CalculadoraCustoImportacao() {
   const [tentativa, setTentativa] = useState(0)
   // a encomenda do site que está na calculadora (com os dados da empresa) e as listas das outras, guardadas à parte para voltarem como estavam
   const [encomenda, setEncomenda] = useState<EncomendaSite | null>(null)
-  const [rascunhos, setRascunhos] = useState<Record<string, { linhas: LinhaForm[]; proximo: number }>>({})
+  const [rascunhos, setRascunhos] = useState<Record<string, Rascunho>>({})
+  // os custos da remessa da encomenda que está na calculadora: lêem-se com a lista e só se aplicam depois de o formulário ter lido os seus (senão estes passavam por cima)
+  const custosLidos = useRef<Custos | null>(null)
+  const [custosProntos, setCustosProntos] = useState(false)
   // os valores do formulário também vêm do servidor: até chegarem os dois, a calculadora fica escondida (senão aparece primeiro o exemplo)
   const [formLido, setFormLido] = useState(false)
   useEffect(() => {
     let vivo = true
-    lerEstadoSeguro<{ linhas?: LinhaForm[]; proximo?: number; encomenda?: EncomendaSite | null; rascunhos?: Record<string, { linhas: LinhaForm[]; proximo: number }> }>('calculadora').then(({ ok, estado: g }) => {
+    lerEstadoSeguro<{ linhas?: LinhaForm[]; proximo?: number; encomenda?: EncomendaSite | null; custos?: Custos; rascunhos?: Record<string, Rascunho> }>('calculadora').then(({ ok, estado: g }) => {
       if (!vivo) return
       if (!ok) {
         setErroLista(true)
@@ -453,8 +473,9 @@ export function CalculadoraCustoImportacao() {
         setLinhas(g.linhas)
         proximoId.current = Math.max(typeof g.proximo === 'number' ? g.proximo : 0, ...g.linhas.map((l) => l.id + 1))
         if (g.encomenda?.batchId) setEncomenda(g.encomenda)
+        if (g.encomenda?.batchId && g.custos) custosLidos.current = g.custos
         if (g.rascunhos) setRascunhos(g.rascunhos)
-        ultimoGuardado.current = JSON.stringify({ linhas: g.linhas, proximo: proximoId.current, ...(g.encomenda ? { encomenda: g.encomenda } : {}), ...(g.rascunhos ? { rascunhos: g.rascunhos } : {}) })
+        ultimoGuardado.current = JSON.stringify({ linhas: g.linhas, proximo: proximoId.current, ...(g.encomenda ? { encomenda: g.encomenda } : {}), ...(g.encomenda && g.custos ? { custos: g.custos } : {}), ...(g.rascunhos ? { rascunhos: g.rascunhos } : {}) })
       }
       setListaLida(true)
     })
@@ -486,9 +507,27 @@ export function CalculadoraCustoImportacao() {
       setEstado(novas.length === novos.length ? 'Produto(s) adicionado(s) à lista.' : 'Não foi possível adicionar um produto à lista.')
     })
   }, [listaLida])
-  const listaAtual = JSON.stringify({ linhas, proximo: proximoId.current, ...(encomenda ? { encomenda } : {}), ...(Object.keys(rascunhos).length ? { rascunhos } : {}) })
+  const listaAtual = JSON.stringify({ linhas, proximo: proximoId.current, ...(encomenda ? { encomenda } : {}), ...(encomenda && custosProntos ? { custos: custosDe(form) } : {}), ...(Object.keys(rascunhos).length ? { rascunhos } : {}) })
+  // aplica os custos guardados da encomenda quando a lista e o formulário já foram lidos (o formulário traz primeiro os custos gerais guardados e estes têm de ficar por cima)
   useEffect(() => {
-    if (!listaLida) return
+    if (!listaLida || !formLido || custosProntos) return
+    if (custosLidos.current) setForm((f) => ({ ...f, ...custosLidos.current }))
+    custosLidos.current = null
+    setCustosProntos(true)
+  }, [listaLida, formLido, custosProntos])
+  // as quantidades da encomenda são as do cliente, lidas do servidor: a lista de encomendas do site (sempre actual) manda nas unidades e na ligação de cada linha
+  useEffect(() => {
+    if (!listaLida || !encomenda || !listaEnc) return
+    const viva = listaEnc.find((x) => x.batchId === encomenda.batchId)
+    if (!viva) return
+    setLinhas((ls) => {
+      const novas = alinharComEncomenda(ls, viva)
+      return JSON.stringify(novas) === JSON.stringify(ls) ? ls : novas
+    })
+    setEncomenda((e) => (e && JSON.stringify(e) !== JSON.stringify(viva) ? viva : e))
+  }, [listaLida, encomenda, listaEnc])
+  useEffect(() => {
+    if (!listaLida || !custosProntos) return
     // a primeira lista (sem nada guardado) é a base: abrir a calculadora não grava nada
     if (ultimoGuardado.current === null) ultimoGuardado.current = listaAtual
     if (ultimoGuardado.current === listaAtual) return
@@ -498,7 +537,7 @@ export function CalculadoraCustoImportacao() {
       })
     }, 800)
     return () => clearTimeout(t)
-  }, [listaAtual, listaLida])
+  }, [listaAtual, listaLida, custosProntos])
 
   const locale = lang === 'en' ? 'en-US' : 'pt-MZ'
   const eua = form.modo === 'eua'
@@ -575,10 +614,12 @@ export function CalculadoraCustoImportacao() {
   }
   // carrega na calculadora uma encomenda do site: a lista em que se estava guarda-se à parte; a encomenda volta como a deixou, ou nasce dos produtos pedidos (com o custo do catálogo)
   const carregarEncomenda = async (e: EncomendaSite) => {
-    const guardados = { ...rascunhos, [encomenda?.batchId ?? LIVRE]: { linhas, proximo: proximoId.current } }
+    const guardados: Record<string, Rascunho> = { ...rascunhos, [encomenda?.batchId ?? LIVRE]: { linhas, proximo: proximoId.current, custos: custosDe(form) } }
     const antes = guardados[e.batchId]
+    // os custos da remessa são desta encomenda: os que tinha guardados, ou a zero
+    setForm((f) => ({ ...f, ...(antes?.custos ?? CUSTOS_ZERO) }))
     if (antes) {
-      setLinhas(antes.linhas)
+      setLinhas(alinharComEncomenda(antes.linhas, e))
       proximoId.current = antes.proximo
     } else {
       const custos = await Promise.all(
@@ -591,7 +632,7 @@ export function CalculadoraCustoImportacao() {
             : '',
         ),
       )
-      setLinhas(e.itens.slice(0, MAX_LINHAS).map((it, k) => novaLinha(k + 1, { nome: it.nome, unidades: String(it.unidades), custo: custos[k] })))
+      setLinhas(e.itens.slice(0, MAX_LINHAS).map((it, k) => novaLinha(k + 1, { linhaId: it.id, nome: it.nome, unidades: String(it.unidades), custo: custos[k] })))
       proximoId.current = Math.min(e.itens.length, MAX_LINHAS) + 1
     }
     setRascunhos(Object.fromEntries(Object.entries(guardados).filter(([k]) => k !== e.batchId)))
@@ -602,7 +643,8 @@ export function CalculadoraCustoImportacao() {
   const voltarALivre = () => {
     const livre = rascunhos[LIVRE]
     if (!livre || !encomenda) return
-    setRascunhos({ ...Object.fromEntries(Object.entries(rascunhos).filter(([k]) => k !== LIVRE)), [encomenda.batchId]: { linhas, proximo: proximoId.current } })
+    setRascunhos({ ...Object.fromEntries(Object.entries(rascunhos).filter(([k]) => k !== LIVRE)), [encomenda.batchId]: { linhas, proximo: proximoId.current, custos: custosDe(form) } })
+    if (livre.custos) setForm((f) => ({ ...f, ...livre.custos }))
     setLinhas(livre.linhas)
     proximoId.current = livre.proximo
     setEncomenda(null)
@@ -1067,7 +1109,8 @@ export function CalculadoraCustoImportacao() {
                     )}
                     {/* 2.ª fila de campos: unidades, custo unitário na moeda do resultado e valor total sem imposto */}
                     <div className="grid grid-cols-2 gap-3 @xl:grid-cols-3">
-                      <Campo id={ids(`l${l.id}-unidades`)} rotulo="Unidades" valor={l.unidades} aoMudar={(x) => mudarLinha(l.id, 'unidades', x)} passo="1" />
+                      {/* numa encomenda do site as unidades são as que o cliente definiu: só se vêem */}
+                      {l.linhaId ? <CampoLeitura id={ids(`l${l.id}-unidades`)} rotulo="Unidades (definidas pelo cliente)" valor={l.unidades} /> : <Campo id={ids(`l${l.id}-unidades`)} rotulo="Unidades" valor={l.unidades} aoMudar={(x) => mudarLinha(l.id, 'unidades', x)} passo="1" />}
                       {local ? (
                         <Campo id={ids(`l${l.id}-custo`)} rotulo={`Custo unitário em (${moeda})`} valor={l.custo} aoMudar={(x) => mudarLinha(l.id, 'custo', x)} />
                       ) : (
@@ -1188,7 +1231,7 @@ export function CalculadoraCustoImportacao() {
           <p className={`${NOTA} mt-3`}>
             Os direitos e o imposto de importação calculam-se por linha. O seguro e as taxas dos EUA seguem o valor. O frete, o despachante, o porto, a entrega interna, a entrega ao domicílio e os outros encargos seguem o método escolhido.
           </p>
-          <GravarValorBrindes config={configSite} aoCarregar={(c) => setForm((x) => ({ ...x, ...c }))} aoLer={() => setFormLido(true)} />
+          <GravarValorBrindes config={encomenda ? null : configSite} aoCarregar={(c) => setForm((x) => ({ ...x, ...c }))} aoLer={() => setFormLido(true)} />
         </div>
 
         {eua ? (
@@ -1267,11 +1310,12 @@ export function CalculadoraCustoImportacao() {
 
       {/* a cotação para o cliente, no fim das tabelas */}
       <CotacaoCliente
-        encomenda={encomenda ? { batchId: encomenda.batchId, cliente: encomenda.empresa, contacto: [encomenda.responsavel, encomenda.telefone, encomenda.email].filter(Boolean).join(' · '), numero: encomenda.numero, email: encomenda.email, itens: encomenda.itens.map((i) => ({ id: i.id, nome: i.nome.trim() })) } : undefined}
+        encomenda={encomenda ? { batchId: encomenda.batchId, cliente: encomenda.empresa, contacto: [encomenda.responsavel, encomenda.telefone, encomenda.email].filter(Boolean).join(' · '), numero: encomenda.numero, email: encomenda.email, itens: encomenda.itens.map((i) => ({ id: i.id, nome: i.nome.trim() })), porResponder: listaEnc?.find((x) => x.batchId === encomenda.batchId)?.porResponder ?? true } : undefined}
+        aoAutorizado={recarregar}
         moeda={moeda}
         aoRemover={removerLinha}
         aoTrocar={trocarProduto}
-        itens={linhas.map((l, k) => ({ id: l.id, nome: l.nome.trim() || `Linha ${k + 1}`, unidades: num(l.unidades), preco: r.ok ? r.linhas[k].preco : NaN }))}
+        itens={linhas.map((l, k) => ({ id: l.id, linhaId: l.linhaId, nome: l.nome.trim() || `Linha ${k + 1}`, unidades: num(l.unidades), preco: r.ok ? r.linhas[k].preco : NaN }))}
       />
     </div>
     </div>

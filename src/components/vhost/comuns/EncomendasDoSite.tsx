@@ -117,6 +117,8 @@ function UmaEncomenda({ e, atual, aoCarregar }: { e: EncomendaSite; atual: strin
 export function useEncomendasDoSite() {
   const [lista, setLista] = useState<EncomendaSite[] | null>(null)
   const [erro, setErro] = useState(false)
+  // volta a ler a lista (depois de autorizar o valor de uma encomenda, que deixa de estar por responder)
+  const [leitura, setLeitura] = useState(0)
   useEffect(() => {
     let vivo = true
     fetch('/api/admin/cotacoes', { cache: 'no-store' })
@@ -130,10 +132,10 @@ export function useEncomendasDoSite() {
     return () => {
       vivo = false
     }
-  }, [])
+  }, [leitura])
   const pendentes = (lista ?? []).filter((e) => e.porResponder)
   const anteriores = (lista ?? []).filter((e) => !e.porResponder)
-  return { lista, erro, pendentes, anteriores }
+  return { lista, erro, pendentes, anteriores, recarregar: () => setLeitura((n) => n + 1) }
 }
 
 // separadores «Pendentes» e «Anteriores» da calculadora: cada linha traz a empresa, a data e a situação (como o histórico da facturação)
