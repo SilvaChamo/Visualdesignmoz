@@ -17,10 +17,11 @@ CREATE TABLE IF NOT EXISTS cotacoes_emitidas (
 ALTER TABLE cotacao_counters ENABLE ROW LEVEL SECURITY;
 ALTER TABLE cotacoes_emitidas ENABLE ROW LEVEL SECURITY;
 
-CREATE OR REPLACE FUNCTION assign_cotacao_number(p_chave TEXT)
+CREATE OR REPLACE FUNCTION public.assign_cotacao_number(p_chave TEXT)
 RETURNS TEXT
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public, pg_temp
 AS $$
 DECLARE
   v_existing TEXT;
@@ -44,3 +45,7 @@ BEGIN
   RETURN v_number;
 END;
 $$;
+
+-- só o servidor (service role) atribui números: sem isto qualquer visitante podia gastar números pela API pública do Supabase
+REVOKE ALL ON FUNCTION public.assign_cotacao_number(TEXT) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.assign_cotacao_number(TEXT) TO service_role;
