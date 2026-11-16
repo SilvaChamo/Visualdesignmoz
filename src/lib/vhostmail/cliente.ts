@@ -107,13 +107,23 @@ export const CLIENTE_JS = String.raw`
     return {id:id,f:k,from:nome,email:env?pr.e:x.end,to:x.para||'',date:quando(x.quando),subj:x.assunto||'(sem assunto)',prev:(x.snippet||'').replace(/\s+/g,' ').slice(0,160),
       body:['A carregar…'],unread:!x.lida,star:!!x.estrela,att:x.anexo?[{n:'',s:''}]:[],color:CORES[(x.uid||id)%CORES.length],draft:!!x.rascunho,pin:!!PIN[p+'|'+x.uid],labels:(ROT[p+'|'+x.uid]||[]).filter(function(i){return S.labels.some(function(l){return l.id===i})}),_p:p,_u:x.uid,_dl:longa(x.quando),_q:x.quando||0};
   }
+  /* a lista de cada pasta guarda-se neste navegador: ao abrir, pinta logo a da última vez e a do servidor chega a seguir e substitui-a */
+  var CHL='vm-lista:'+END+':';
+  function lerCache(p){try{return JSON.parse(localStorage.getItem(CHL+p)||'null')}catch(e){return null}}
+  function gravaCache(p,ms){try{localStorage.setItem(CHL+p,JSON.stringify(ms.slice(0,150)))}catch(e){}}
   function carregar(k,forcar){
     if(CARR[k]&&!forcar)return CARR[k];
     var p=pasta(k);delete ERRO[k];CARG[k]=true;TENT[k]=true;
+    if(!M.some(function(m){return m._p===p})){
+      var cc=lerCache(p);
+      if(cc&&cc.length){var ms=cc.map(function(x){return conv(x,p)});ms.sort(function(a,b){return b._q-a._q});M=M.concat(ms);CARG[k]=false;renderAll();CARG[k]=true}
+    }
     var pr=api('lista',{pasta:p,max:150}).then(function(r){
+      gravaCache(p,r.mensagens||[]);
       var novos=(r.mensagens||[]).map(function(x){var m=conv(x,p);var antigo=M.filter(function(o){return o._p===p&&o._u===x.uid})[0];if(antigo&&antigo._cor){m._cor=antigo._cor;m.att=antigo.att;m.body=antigo.body}return m});
-      M=M.filter(function(m){return m._p!==p}).concat(novos);
+      /* o mais recente em cima: ordena-se antes de entrar na caixa (depois de juntar, a ordem já não mudava) */
       novos.sort(function(a,b){return b._q-a._q});
+      M=M.filter(function(m){return m._p!==p}).concat(novos);
       CHEIA=true;
       return novos;
     }).catch(function(e){ERRO[k]=e.message||'Não foi possível ler a pasta.';CARR[k]=null;return []}).then(function(n){CARG[k]=false;renderAll();return n});
@@ -292,6 +302,12 @@ export const CLIENTE_JS = String.raw`
     if(t.closest('[data-act=dlall]')){e.stopImmediatePropagation();e.preventDefault();var m5=get(S.sel);if(m5){todosAnexos(m5);toast('A descarregar '+m5.att.length+' anexo(s)')}return}
     if(t.closest('[data-act=forward]')){e.stopImmediatePropagation();e.preventDefault();encaminhar();return}
     if(t.closest('[data-act=upd]')){e.stopImmediatePropagation();e.preventDefault();recarregar([S.folder]);toast('A actualizar a caixa…');return}
+    if((x=t.closest('[data-act=aiwrite],[data-cb=ai]'))){
+      e.stopImmediatePropagation();e.preventDefault();
+      var cx=x.closest('#compose,#replybox'),ed=cx&&cx.querySelector('.cbody');
+      if(ed)menu([{h:'Escrita com IA'},{i:'wand-sparkles',t:'Português',fn:function(){escreveIA(ed,'pt')}},{i:'wand-sparkles',t:'English',fn:function(){escreveIA(ed,'en')}}],x);
+      return;
+    }
     if(t.closest('[data-cb=discard]')){ANEX=[];RASC=t.closest('#compose')?null:RASC}
     if(t.closest('[data-cb=attach]')){e.stopImmediatePropagation();e.preventDefault();anexar(t.closest('#compose')?'compose':'reply');return}
     if((x=t.closest('[data-anx]'))){e.stopImmediatePropagation();e.preventDefault();ANEX.splice(+x.dataset.anx,1);pintaAnexos();return}
@@ -346,6 +362,11 @@ export const CLIENTE_JS = String.raw`
   }
   var _oc=openCompose;
   openCompose=function(o){if(!RASC)ANEX=[];_oc(o);pintaAnexos()};
+  /* escrita com IA nas duas línguas: o texto de abertura entra na mensagem em português ou em inglês, à escolha */
+  function escreveIA(ed,lg){
+    var tx=lg==='en'?'Good morning,\n\nI hope you are well. I am writing to follow up on the matter referred to above.\n\nKind regards,':'Bom dia,\n\nEspero que esteja bem. Escrevo para dar seguimento ao assunto em referência.\n\nCumprimentos,';
+    ed.focus();document.execCommand('insertText',false,tx);
+  }
   function htmlParaTexto(h){var d=document.createElement('div');d.innerHTML=String(h||'').replace(/<br\s*\/?>/gi,'\n');return d.textContent||''}
   function encaminhar(){
     var m=get(S.sel);if(!m)return;
@@ -451,11 +472,47 @@ export const CLIENTE_JS = String.raw`
   setInterval(sonda,45000);
   window.addEventListener('focus',sonda);
 
+  /* ---- várias caixas na barra: as que se adicionam ficam por baixo da que está aberta (a lista guarda-se neste navegador); tocar numa abre-a ---- */
+  function contas(){
+    var L=[];try{L=JSON.parse(localStorage.getItem('vd-vhostmail-contas')||'[]')}catch(e){}
+    if(!Array.isArray(L))L=[];
+    if(END&&L.indexOf(END)<0){L.push(END);try{localStorage.setItem('vd-vhostmail-contas',JSON.stringify(L))}catch(e){}}
+    return L;
+  }
+  var _rsCaixas=renderSide;
+  renderSide=function(){
+    _rsCaixas();
+    var div=$('#sfolders .sdiv');if(!div)return;
+    contas().filter(function(c){return c!==END}).forEach(function(c){
+      div.insertAdjacentHTML('beforebegin','<div class="acct closed" data-vmc="'+esc(c)+'">'+ic('chevron-down','chev')+'<span class="av">'+esc(c.charAt(0).toUpperCase())+'</span><span class="em">'+esc(c)+'</span></div>');
+    });
+  };
+  document.addEventListener('click',function(e){
+    var x=e.target&&e.target.closest&&e.target.closest('[data-vmc]');
+    if(x){e.stopImmediatePropagation();e.preventDefault();try{parent.postMessage({vhostmail:1,acao:'abrir:'+x.dataset.vmc},location.origin)}catch(er){}}
+  },true);
+
+  /* o aviso «Actualização pronta» do maquete não aparece: só deve surgir quando o servidor de e-mail (Hestia) tiver uma actualização de e-mail (C.actualizacao, ainda por ligar) */
+  var upd=$('#upd');if(upd&&!C.actualizacao)upd.remove();
+
   /* ---- arranque ---- */
   if(!END){toast('Abra o VhostMail a partir de uma conta de e-mail');return}
   S.folder=(C.pasta==='sent')?'sent':'inbox';
   renderAll();
-  refPastas().then(function(){S.folder=(C.pasta==='sent')?'sent':'inbox';return carregar(S.folder)}).catch(function(e){ERRO[S.folder]=e.message||'Não foi possível ler a caixa.';renderAll()});
+  /* a cotação enviada pela calculadora: abre a mensagem nova já com o assunto, o texto e a cotação em anexo (só falta escolher o destinatário e enviar) */
+  try{
+    var pj=sessionStorage.getItem('vd-vhostmail-novo');
+    if(pj){
+      sessionStorage.removeItem('vd-vhostmail-novo');
+      var nv=JSON.parse(pj);
+      openCompose({to:nv.para||'',subj:nv.assunto||'',body:esc(nv.texto||'').replace(/\n/g,'<br>')});
+      if(nv.anexo&&nv.anexo.b64){ANEX.push({nome:nv.anexo.nome,tipo:nv.anexo.tipo,tam:Math.round(nv.anexo.b64.length*3/4),b64:nv.anexo.b64});pintaAnexos()}
+    }
+  }catch(er){}
+  /* a caixa de entrada e a lista de pastas pedem-se ao mesmo tempo (antes uma esperava pela outra) */
+  var pp=refPastas();
+  if(S.folder==='inbox')carregar('inbox');
+  pp.then(function(){S.folder=(C.pasta==='sent')?'sent':'inbox';return carregar(S.folder)}).catch(function(e){ERRO[S.folder]=e.message||'Não foi possível ler a caixa.';renderAll()});
 })();
 `;
 

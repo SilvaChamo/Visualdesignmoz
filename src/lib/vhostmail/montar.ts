@@ -2,6 +2,7 @@ import { EMAIL_PLANS, getEmailCyclePrice, type EmailPlanDef } from '@/lib/email-
 import { CLIENTE_CSS, CLIENTE_JS } from './cliente';
 import { INTEGRACAO_CSS, INTEGRACAO_JS } from './integracao';
 import { MODELO_BASE } from './modelo';
+import { INGLES, INGLES_JS, MESES_EN } from './ingles';
 
 export type PastaVhostmail = 'inbox' | 'sent';
 
@@ -10,6 +11,8 @@ export interface OpcoesVhostmail {
   conta: string;
   pasta: PastaVhostmail;
   tema: 'light' | 'dark';
+  /** língua do painel: em inglês a interface do VhostMail traduz-se (ver ingles.ts) */
+  lang?: 'pt' | 'en';
   /** pacote da conta no servidor (ex.: VD-Email-Basico), só para dizer qual é o plano actual */
   plano: string;
 }
@@ -56,7 +59,8 @@ export function montarVhostmail(o: OpcoesVhostmail): string {
     tema: o.tema,
     planos,
     planoTxt,
+    ...(o.lang === 'en' ? { dic: INGLES, meses: MESES_EN } : {}),
   };
   const comCfg = MODELO_BASE.replace('</style></head>', () => INTEGRACAO_CSS + CLIENTE_CSS + '</style></head>').replace('/*__VM_CFG__*/', () => 'window.VM_CFG=' + jsonSeguro(cfg) + ';');
-  return comCfg + '\n' + INTEGRACAO_JS + '\n' + CLIENTE_JS + '</script></body></html>';
+  return comCfg + '\n' + INTEGRACAO_JS + '\n' + CLIENTE_JS + '\n' + INGLES_JS + '</script></body></html>';
 }

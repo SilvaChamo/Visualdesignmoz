@@ -33,7 +33,11 @@ export const INTEGRACAO_JS = String.raw`
       fetch('/api/vhost/vhostmail/caixa',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({end:v,acao:'pastas'})})
         .then(function(r){return r.json().catch(function(){return {}}).then(function(j){return {ok:r.ok,j:j}})})
         .then(function(x){
-          if(x.ok){o.remove();painel('abrir:'+v)}
+          if(x.ok){
+            /* a caixa nova junta-se à lista da barra (fica por baixo da actual) em vez de a substituir */
+            try{var L=JSON.parse(localStorage.getItem('vd-vhostmail-contas')||'[]');if(!Array.isArray(L))L=[];[String(C.conta||'').toLowerCase(),v].forEach(function(c){if(c&&L.indexOf(c)<0)L.push(c)});localStorage.setItem('vd-vhostmail-contas',JSON.stringify(L))}catch(e){}
+            o.remove();painel('abrir:'+v)
+          }
           else{g.classList.add('on');toast(esc(x.j.erro||'Não foi possível abrir essa caixa.'))}
         }).catch(function(){g.classList.add('on');toast('Não foi possível abrir essa caixa.')});
     };

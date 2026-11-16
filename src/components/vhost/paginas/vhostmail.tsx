@@ -5,6 +5,7 @@
 // (com o seletor de domínio); a coluna do menu à esquerda dá lugar a um botão "Voltar".
 import { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useVH } from '../context';
+import { useI18n } from '@/lib/i18n';
 import { EsperaPagina } from '../carga';
 import type { ScreenFn } from '../screens';
 
@@ -15,6 +16,7 @@ export const vhostmailPath = (pasta: PastaVhostmail, endereco: string) => '/util
 
 function Vhostmail({ pasta, conta }: { pasta: PastaVhostmail; conta: string }) {
   const vh = useVH();
+  const { lang } = useI18n();
   const { nav } = vh;
   const tema = vh.s.theme;
   const plano = vh.a.hpkg || vh.a.pkg || '';
@@ -24,8 +26,8 @@ function Vhostmail({ pasta, conta }: { pasta: PastaVhostmail; conta: string }) {
   // o tema só conta ao abrir; depois muda-se por mensagem, sem recarregar a caixa
   const [temaInicial] = useState(tema);
   const src = useMemo(
-    () => '/api/vhost/vhostmail?' + new URLSearchParams({ conta, pasta, tema: temaInicial, plano }).toString(),
-    [conta, pasta, plano, temaInicial],
+    () => '/api/vhost/vhostmail?' + new URLSearchParams({ conta, pasta, tema: temaInicial, plano, lang: lang === 'en' ? 'en' : 'pt' }).toString(),
+    [conta, pasta, plano, temaInicial, lang],
   );
 
   // a página só aparece quando o VhostMail carregou (nunca uma tela branca)
