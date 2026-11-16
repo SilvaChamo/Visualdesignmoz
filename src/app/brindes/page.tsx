@@ -111,8 +111,16 @@ export default async function VisualGiftsPage({ searchParams }: { searchParams: 
       {modo === 'inicio' && <BrindesHero hero={DADOS.hero} />}
 
       {/* interiores: o topo do cinzento é liso (encostado à faixa do caminho) e só o fundo tem recorte: pontas para baixo e meio recuado */}
-      <NotchSection shape={modo === 'inicio' ? 'mid' : 'start'} bg="bg-zinc-200 dark:bg-black" first={modo !== 'inicio'} className={modo !== 'inicio' ? 'z-20' : ''}>
-        <div className={`container mx-auto max-w-7xl px-[41px] sm:px-[49px] ${modo === 'inicio' ? 'py-[46px]' : 'pb-[54px] pt-[157px]'}`}>
+      <NotchSection shape={modo === 'inicio' ? 'mid' : 'start'} bg={modo === 'inicio' ? 'bg-zinc-200 dark:bg-black' : 'bg-black'} first={modo !== 'inicio'} className={modo !== 'inicio' ? 'z-20' : ''}>
+        {/* interiores: fundo preto com a foto de um brinde por baixo (a fila de cores do fundo da foto, ajustada para cima) */}
+        {modo !== 'inicio' && (
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/api/brindes/imagem?p=GF-AM-623-B%2FDEFAULT_1024X1024.jpg&w=1200" alt="" aria-hidden="true" className="absolute inset-0 h-full w-full object-cover object-bottom opacity-60" />
+            <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-b from-black via-black/60 to-black/10" />
+          </>
+        )}
+        <div className={`container relative mx-auto max-w-7xl px-[41px] sm:px-[49px] ${modo === 'inicio' ? 'py-[46px]' : 'pb-[54px] pt-[157px]'}`}>
           <form method="get" action="/brindes#catalogo" className="grid grid-cols-1 items-center gap-3 md:grid-cols-[minmax(0,380px)_190px_170px_auto_auto] md:justify-center">
             {cor && <input type="hidden" name="cor" value={cor} />}
             {ordem && <input type="hidden" name="ordem" value={ordem} />}
