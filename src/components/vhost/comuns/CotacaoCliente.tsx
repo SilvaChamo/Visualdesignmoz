@@ -389,12 +389,14 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda }:
     sessionStorage.setItem('vd-vhostmail-novo', JSON.stringify({ para: encomenda?.email ?? '', assunto: assuntoCotacao, texto: `Bom dia,\n\nSegue em anexo a cotação Nº ${numero.trim() || '____'}${nomeCliente ? ` (${nomeCliente})` : ''}, em PDF.\n\nCumprimentos,\nVisualDesign`, anexo: { nome: pdf.nome, tipo: 'application/pdf', b64: pdf.b64 } }))
     vh.nav('/utilizador/email/vhostmail/entrada/' + encodeURIComponent(CONTA_VENDAS))
   }
-  // WhatsApp: vai o próprio PDF; se o aparelho não deixar partilhar ficheiros, o PDF descarrega e o WhatsApp abre para o anexar (uma ligação do WhatsApp não leva ficheiros)
+  // WhatsApp: no telemóvel partilha o próprio PDF; no computador o PDF descarrega e o WhatsApp abre para o anexar (uma ligação do WhatsApp não leva ficheiros)
   async function enviarPorWhatsapp() {
     const pdf = await pdfDaCotacao()
     if (!pdf) return
     const ficheiro = new File([Uint8Array.from(atob(pdf.b64), (c) => c.charCodeAt(0))], pdf.nome, { type: 'application/pdf' })
-    if (navigator.canShare?.({ files: [ficheiro] })) {
+    // a folha de partilha só serve no telemóvel (lá o WhatsApp aparece nela); no computador (Mac) não traz o WhatsApp, por isso descarrega-se o PDF e abre-se o WhatsApp
+    const telemovel = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+    if (telemovel && navigator.canShare?.({ files: [ficheiro] })) {
       try {
         await navigator.share({ files: [ficheiro], title: assuntoCotacao })
         return
