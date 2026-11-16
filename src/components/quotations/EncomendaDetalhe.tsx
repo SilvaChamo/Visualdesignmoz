@@ -92,12 +92,10 @@ export function EncomendaDetalhe({
   quotationId,
   onChanged,
   editarToken = 0,
-  verToken = 0,
 }: {
   quotationId: string;
   onChanged: () => void;
   editarToken?: number;
-  verToken?: number;
 }) {
   const [items, setItems] = useState<QuotationRow[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -137,13 +135,6 @@ export function EncomendaDetalhe({
       setEditingItemId(alvo.id);
     }
   }, [editarToken, items, quotationId]);
-
-  const verFeito = useRef(0);
-  useEffect(() => {
-    if (!verToken || verToken === verFeito.current || !items?.some((i) => i.id === quotationId)) return;
-    verFeito.current = verToken;
-    setTab('cotacao');
-  }, [verToken, items, quotationId]);
 
   const handleCancelar = async () => {
     if (!window.confirm('Tem a certeza que quer cancelar esta encomenda?')) return;
@@ -258,7 +249,7 @@ export function EncomendaDetalhe({
                     <div className="min-w-0">
                       <p className="font-bold text-sm text-gray-900 dark:text-white truncate">{item.categoria_label}</p>
                       <p className="text-xs text-gray-500 dark:text-zinc-400 truncate">
-                        {item.produto} · Qtd: {item.quantidade} · {item.sob_consulta ? 'Sob aprovação' : `${formatMt(item.total_mt)} MT`}
+                        {item.produto} · Qtd: {item.quantidade}{item.sob_consulta ? '' : ` · ${formatMt(item.total_mt)} MT`}
                       </p>
                     </div>
                     {item.status === 'rejected' && !isEditing && (
