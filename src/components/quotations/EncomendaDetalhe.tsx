@@ -10,6 +10,7 @@ import { QuotationHistoryTimeline } from '@/components/quotations/QuotationHisto
 import { QuotationMessagesThread } from '@/components/quotations/QuotationMessagesThread';
 import { EncomendaEditForm } from '@/components/quotations/EncomendaEditForm';
 import { CopiaCotacao } from '@/components/quotations/CopiaCotacao';
+import { CotacaoCliente } from '@/components/vhost/comuns/CotacaoCliente';
 
 type QuotationRow = {
   id: string;
@@ -28,6 +29,9 @@ type QuotationRow = {
   cancellation_reason: string | null;
   rejection_reason: string | null;
   created_at: string;
+  responsavel?: string;
+  telefone?: string;
+  email?: string;
 };
 
 type Tab = 'detalhes' | 'historico' | 'mensagens' | 'cotacao' | 'facturas';
@@ -254,7 +258,7 @@ export function EncomendaDetalhe({
                     <div className="min-w-0">
                       <p className="font-bold text-sm text-gray-900 dark:text-white truncate">{item.categoria_label}</p>
                       <p className="text-xs text-gray-500 dark:text-zinc-400 truncate">
-                        {item.produto} · Qtd: {item.quantidade} · {item.sob_consulta ? 'Sob Consulta' : `${formatMt(item.total_mt)} MT`}
+                        {item.produto} · Qtd: {item.quantidade} · {item.sob_consulta ? 'Sob aprovação' : `${formatMt(item.total_mt)} MT`}
                       </p>
                     </div>
                     {item.status === 'rejected' && !isEditing && (
@@ -331,7 +335,26 @@ export function EncomendaDetalhe({
         {tab === 'historico' && <div className="p-4"><QuotationHistoryTimeline quotationId={primary.id} /></div>}
         {tab === 'mensagens' && <div className="p-4 h-[520px] mx-auto max-w-xl"><QuotationMessagesThread quotationId={primary.id} viewerRole="client" /></div>}
         {tab === 'cotacao' && (
-          <CopiaCotacao id={primary.id} />
+          // com os preços já definidos, a mesma folha e as mesmas opções de edição da calculadora, guardadas por encomenda; sem preços, a cópia/documento de sempre
+          items.every((i) => !i.sob_consulta && Number(i.preco_unitario_mt) > 0) ? (
+            <div className="@container p-4">
+              <CotacaoCliente
+                modoCliente
+                moeda="MZN"
+                itens={items.map((i, k) => ({ id: k + 1, nome: i.produto.split(' — ref. ')[0], unidades: i.quantidade, preco: Number(i.preco_unitario_mt) }))}
+                encomenda={{
+                  batchId: primary.batch_id,
+                  cliente: primary.empresa,
+                  contacto: [primary.responsavel, primary.telefone, primary.email].filter(Boolean).join(' · '),
+                  numero: '',
+                  email: primary.email,
+                  itens: items.map((i, k) => ({ id: i.id, nome: i.produto.split(' — ref. ')[0].trim() })),
+                }}
+              />
+            </div>
+          ) : (
+            <CopiaCotacao id={primary.id} />
+          )
         )}
         {tab === 'facturas' && (
           <div className="p-4 space-y-4">
