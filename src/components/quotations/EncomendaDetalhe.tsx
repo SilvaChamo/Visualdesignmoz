@@ -197,8 +197,8 @@ export function EncomendaDetalhe({
     <div className="flex flex-col h-full">
       <div className={`${panelTabBar} px-4 pt-3`}>
         {/* os separadores assentam em baixo e a linha vermelha do ativo cobre a linha cinzenta da barra (Silva, 23/10/2026) */}
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div className="flex flex-wrap gap-5 -mb-px">
+        <div className="flex items-end justify-between gap-3">
+          <div className="flex gap-4 -mb-px min-w-0 overflow-x-auto whitespace-nowrap">
             {TABS.map((t) => (
               <button
                 key={t.id}
@@ -211,7 +211,7 @@ export function EncomendaDetalhe({
             ))}
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 shrink-0 pb-2.5">
+          <div className="flex items-center gap-2 shrink-0 pb-2.5 whitespace-nowrap">
             {/* o botão Cancelar (e Editar/Eliminar) está no cartão da encomenda, na lista à esquerda */}
             <span className={`px-2.5 py-1 rounded-full text-xs font-bold border shrink-0 ${meta.color}`}>{meta.label}</span>
           </div>

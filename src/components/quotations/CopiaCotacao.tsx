@@ -10,8 +10,9 @@ function estilosDestaPagina(): string {
   return Array.from(document.styleSheets)
     .map((f) => {
       try {
+        // os url() das fontes são relativos à folha de estilos, não à página: passam a absolutos
         return Array.from(f.cssRules)
-          .map((r) => r.cssText)
+          .map((r) => (f.href ? r.cssText.replace(/url\(\s*(["']?)(?!data:|https?:|\/)([^"')]+)\1\s*\)/g, (_m, q, u) => `url(${q}${new URL(u, f.href as string).href}${q})`) : r.cssText))
           .join('\n');
       } catch {
         return '';
@@ -39,6 +40,8 @@ export function CopiaCotacao({ id }: { id: string }) {
 
   if (html === undefined) return <div className="min-h-[600px]" />;
   if (html === null) return <iframe key={id} src={`/cotacao/${id}?embed=1&payment=1`} className="w-full h-full min-h-[600px] border-0" title="Cotação" />;
-  const pagina = `<!doctype html><html lang="pt"><head><meta charset="utf-8"><base href="${window.location.origin}/"><style>${estilosDestaPagina()}</style><style>html,body{background:#fff!important;margin:0;padding:0}body *{visibility:visible!important}#${ID_DOCUMENTO}{width:auto!important;min-width:0!important;max-width:210mm;margin:0 auto!important;border:0!important;box-shadow:none!important}</style></head><body>${html}</body></html>`;
-  return <iframe key={id} sandbox="" srcDoc={pagina} className="w-full h-full min-h-[900px] border-0" title="Cotação" />;
+  // a variável da fonte do site (Exo 2) vive na página, não no iframe: leva-se o valor para lá, senão a folha cai numa fonte de sistema
+  const fonteSite = getComputedStyle(document.body).getPropertyValue('--font-exo2').trim();
+  const pagina = `<!doctype html><html lang="pt"><head><meta charset="utf-8"><base href="${window.location.origin}/"><style>${estilosDestaPagina()}</style><style>:root{${fonteSite ? `--font-exo2:${fonteSite};` : ''}}</style><style>html,body{background:#fff!important;margin:0;padding:0}body *{visibility:visible!important}#${ID_DOCUMENTO}{width:auto!important;min-width:0!important;max-width:210mm;margin:0 auto!important;border:0!important;box-shadow:none!important}</style></head><body>${html}</body></html>`;
+  return <iframe key={id} sandbox="allow-same-origin" srcDoc={pagina} className="w-full h-full min-h-[900px] border-0" title="Cotação" />;
 }

@@ -147,7 +147,7 @@ export async function PATCH(request: Request) {
 
   try {
     const body = await request.json();
-    const { id, status, rejectionReason, batchId, dataLimiteEntrega, precoUnitarioMt } = body || {};
+    const { id, status, rejectionReason, batchId, dataLimiteEntrega, precoUnitarioMt, semAviso } = body || {};
 
     // Alterar a data limite de entrega prevista — aplica-se a todos os itens da mesma
     // encomenda (batch), já que foram todos submetidos com o mesmo prazo original.
@@ -203,7 +203,8 @@ export async function PATCH(request: Request) {
 
       if (error) throw error;
 
-      if (wasSobConsulta) {
+      // semAviso: a calculadora fixa os preços da cotação que o cliente já vê (sem um email por produto)
+      if (wasSobConsulta && !semAviso) {
         notifyQuoteClientPriceDefined({
           to: existing.email,
           clientName: existing.responsavel || existing.empresa,
