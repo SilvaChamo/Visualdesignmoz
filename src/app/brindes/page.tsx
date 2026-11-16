@@ -155,17 +155,17 @@ export default async function VisualGiftsPage({ searchParams }: { searchParams: 
         <div id="catalogo" className="scroll-mt-[90px] pb-14 pt-4">
           {modo !== 'inicio' && (
             <div className="relative -mt-4 mb-5 min-h-10">
-              {/* faixa de fundo cinzento suave, em toda a largura, recortada como o cinzento de cima (as pontas inclinadas nos limites do conteúdo) */}
+              {/* faixa de fundo preto, em toda a largura, recortada como o cinzento de cima (as pontas inclinadas nos limites do conteúdo) */}
               <div
                 aria-hidden="true"
-                className="pointer-events-none absolute inset-x-0 top-0 -bottom-[3px] bg-zinc-200 dark:bg-zinc-900"
+                className="pointer-events-none absolute inset-x-0 top-0 -bottom-[3px] bg-black"
                 style={{
                   '--cl': 'max(24px, calc(50% - 616px))',
                   clipPath:
-                    'polygon(0 0, 100% 0, 100% calc(100% - 24px), calc(100% - var(--cl)) calc(100% - 24px), calc(100% - var(--cl) - 22px) 100%, calc(var(--cl) + 22px) 100%, var(--cl) calc(100% - 24px), 0 calc(100% - 24px))',
+                    'polygon(var(--cl) 0, calc(100% - var(--cl)) 0, calc(100% - var(--cl)) calc(100% - 24px), calc(100% - var(--cl) - 14px) 100%, calc(var(--cl) + 14px) 100%, var(--cl) calc(100% - 24px))',
                 } as React.CSSProperties}
               />
-              <div className="container relative mx-auto flex min-h-10 max-w-7xl flex-wrap items-center justify-between gap-x-6 gap-y-2 px-[41px] py-1 sm:px-[49px] [&_nav]:text-zinc-800 dark:[&_nav]:text-zinc-400">
+              <div className="container relative mx-auto flex min-h-10 max-w-7xl flex-wrap items-center justify-between gap-x-6 gap-y-2 px-[41px] py-1 sm:px-[49px] [&_nav]:text-zinc-100">
                 <Migalhas
                   migalhas={[
                     { nome: 'Início', href: '/' },
