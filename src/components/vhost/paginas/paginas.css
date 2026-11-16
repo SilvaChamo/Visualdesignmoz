@@ -16237,3 +16237,9 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
 /* a regra geral dá 24 px por baixo ao último bloco de uma página sem cartão; aqui não pode haver margem */
 .vh main > .pg-slot > .vm-moldura:last-child:not(#x):not(#y):not(#z){margin:0}
 .vh .vm-quadro{position:absolute;inset:0;display:block;width:100%;height:100%;border:0;background:var(--card)}
+
+/* Silva, 16/11/2026: menos espaço vertical nos submenus da barra lateral (era 6px por cima e por baixo) */
+.vh .side .items a {
+  padding-top: calc(4px * var(--z, 1));
+  padding-bottom: calc(4px * var(--z, 1));
+}
