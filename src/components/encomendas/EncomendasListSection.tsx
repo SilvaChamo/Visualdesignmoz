@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { FileText, Trash2, XCircle, Plus, X, Pencil, Eye } from 'lucide-react';
 import { formatMt } from '@/lib/pricing-catalog';
+import { encomendaPaymentSplit } from '@/lib/encomenda-checkout';
 import { statusMeta } from '@/lib/quotation-status-labels';
 import { groupIntoBatches, type BatchItem } from '@/lib/quotation-batch';
 import { useBatchNumeros, displayNumero } from '@/lib/use-batch-numeros';
@@ -145,14 +146,25 @@ export function EncomendasListSection({ onNova, textoNova }: { onNova?: () => vo
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedId(anchor.id) } }}
                 className="w-full text-left flex items-start gap-3 p-4 cursor-pointer"
               >
-                <div className="w-9 h-9 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <FileText className="w-4 h-4 text-red-600 dark:text-red-500" />
+                <div className="flex flex-col items-center gap-2 flex-shrink-0">
+                  <div className="w-9 h-9 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/30 rounded-lg flex items-center justify-center">
+                    <FileText className="w-4 h-4 text-red-600 dark:text-red-500" />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setCreatingNew(false); setSelectedId(anchor.id); setVerToken((n) => n + 1); }}
+                    className="w-9 h-9 flex items-center justify-center rounded-lg border border-zinc-300 text-gray-700 hover:bg-gray-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800 transition-colors"
+                    title="Ver a encomenda e a cotação"
+                    aria-label="Ver a encomenda e a cotação"
+                  >
+                    <Eye className="w-4 h-4" />
+                  </button>
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="font-bold text-base text-black dark:text-white truncate">Encomenda Nº {displayNumero(numeros, batch.batchId)}</p>
                   <p className="text-sm text-gray-500 dark:text-zinc-400 mt-0.5 truncate">{resumo}</p>
                   <p className="text-sm text-gray-500 dark:text-zinc-400 mt-0.5">
-                    {batch.sobConsulta ? 'Sob Consulta' : `${formatMt(batch.totalMt)} MT`}
+                    {batch.sobConsulta ? 'Sob Consulta' : `${formatMt(encomendaPaymentSplit(batch.totalMt).totalComIvaMt)} MT (c/ IVA)`}
                   </p>
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     <span className={`inline-block px-2 py-0.5 rounded-md text-[11px] font-bold border ${meta.color}`}>
@@ -169,15 +181,6 @@ export function EncomendasListSection({ onNova, textoNova }: { onNova?: () => vo
                         Cancelar
                       </button>
                     )}
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); setCreatingNew(false); setSelectedId(anchor.id); setVerToken((n) => n + 1); }}
-                      className="inline-flex items-center gap-1 rounded-md border border-zinc-300 px-2 py-0.5 text-[11px] font-bold text-gray-700 hover:bg-gray-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800 transition-colors"
-                      title="Ver a encomenda e a cotação"
-                    >
-                      <Eye className="w-3 h-3" />
-                      Ver
-                    </button>
                     {(batch.status === 'pending' || batch.status === 'rejected') && (
                       <button
                         type="button"
