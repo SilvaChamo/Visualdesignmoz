@@ -145,9 +145,10 @@ export default async function VisualGiftsPage({ searchParams }: { searchParams: 
 
       <FundoLista interior={modo !== 'inicio'}>
         <div id="catalogo" className="scroll-mt-[90px] pb-14 pt-4">
-          <div className="container mx-auto max-w-7xl px-[41px] sm:px-[49px]">
-            {modo !== 'inicio' && (
-              <div className="mb-5 flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
+          {modo !== 'inicio' && (
+            <div className="relative -mt-4 mb-5 min-h-10">
+              {/* caminho e margem de preços, no meio da faixa; por baixo, a linha vermelha com as pontas do recorte do cinzento */}
+              <div className="container mx-auto flex min-h-10 max-w-7xl flex-wrap items-center justify-between gap-x-6 gap-y-2 px-[41px] py-1 sm:px-[49px]">
                 <Migalhas
                   migalhas={[
                     { nome: 'Início', href: '/' },
@@ -158,7 +159,18 @@ export default async function VisualGiftsPage({ searchParams }: { searchParams: 
                 />
                 {faixa && <FiltroPreco key={`${faixa.min}-${faixa.max}-${pmin}-${pmax}`} min={faixa.min} max={faixa.max} de={pmin} ate={pmax} base={parametros({ pmin: '', pmax: '' })} />}
               </div>
-            )}
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-x-0 -bottom-[3px] h-[27px] bg-red-600"
+                style={{
+                  '--cl': 'max(24px, calc(50% - 616px))',
+                  clipPath:
+                    'polygon(var(--cl) 0, calc(var(--cl) + 22px) 24px, calc(100% - var(--cl) - 22px) 24px, calc(100% - var(--cl)) 0, calc(100% - var(--cl)) 3px, calc(100% - var(--cl) - 22px) 27px, calc(var(--cl) + 22px) 27px, var(--cl) 3px)',
+                } as React.CSSProperties}
+              />
+            </div>
+          )}
+          <div className="container mx-auto max-w-7xl px-[41px] sm:px-[49px]">
             {modo === 'lista' && (
             <div className="mb-5 flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
             <div className="flex flex-wrap gap-2" aria-label="Categoria seleccionada">
