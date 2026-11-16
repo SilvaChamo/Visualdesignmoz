@@ -32,6 +32,7 @@ type QuotationRow = {
   responsavel?: string;
   telefone?: string;
   email?: string;
+  endereco?: string | null;
 };
 
 type Tab = 'detalhes' | 'historico' | 'mensagens' | 'cotacao' | 'facturas';
@@ -116,6 +117,23 @@ export function EncomendaDetalhe({
     }
     setLoading(false);
   }, [quotationId]);
+
+  // lê de novo as linhas sem esconder o ecrã (a cotação aberta não perde o que se está a editar): serve para seguir o que o administrador mudou
+  const carregar = useCallback(async () => {
+    try {
+      const data = await fetch(`/api/cotacoes/${quotationId}`).then((r) => r.json());
+      if (data?.items?.length) {
+        setItems(data.items as QuotationRow[]);
+      }
+    } catch {
+      /* fica o que estava */
+    }
+  }, [quotationId]);
+  useEffect(() => {
+    if (tab !== 'cotacao') return;
+    const t = window.setInterval(() => { if (!document.hidden) void carregar(); }, 20_000);
+    return () => window.clearInterval(t);
+  }, [tab, carregar]);
 
   useEffect(() => {
     setTab('detalhes');
@@ -345,14 +363,16 @@ export function EncomendaDetalhe({
             <div className="@container p-4">
               <CotacaoCliente
                 modoCliente
+                aoSincronizar={() => { void carregar(); onChanged?.() }}
                 moeda="MZN"
-                itens={items.map((i, k) => ({ id: k + 1, nome: i.produto.split(' — ref. ')[0], unidades: i.quantidade, preco: Number(i.preco_unitario_mt) }))}
+                itens={items.map((i, k) => ({ id: k + 1, nome: i.produto.split(' — ref. ')[0], sku: /— ref\. (\S+)/.exec(i.produto)?.[1], unidades: i.quantidade, preco: Number(i.preco_unitario_mt) }))}
                 encomenda={{
                   batchId: primary.batch_id,
                   cliente: primary.empresa,
-                  contacto: [primary.responsavel, primary.telefone, primary.email].filter(Boolean).join(' · '),
+                  contacto: [primary.responsavel, primary.telefone].filter(Boolean).join(' · '),
                   numero: '',
                   email: primary.email,
+                  endereco: primary.endereco ?? undefined,
                   itens: items.map((i, k) => ({ id: i.id, nome: i.produto.split(' — ref. ')[0].trim() })),
                 }}
               />

@@ -106,7 +106,7 @@ function UmaEncomenda({ e, atual, aoCarregar }: { e: EncomendaSite; atual: strin
         </p>
       </div>
       <span className={`rounded-full border px-2.5 py-0.5 text-xs font-semibold ${e.estadoCor ?? 'border-slate-200 bg-slate-50 text-slate-700'}`}>{e.estado}</span>
-      <button type="button" disabled={atual === e.batchId} onClick={() => aoCarregar(e)} className={BOTAO}>
+      <button type="button" onClick={() => aoCarregar(e)} className={BOTAO}>
         {atual === e.batchId ? 'Na calculadora' : 'Carregar na calculadora'}
       </button>
     </li>

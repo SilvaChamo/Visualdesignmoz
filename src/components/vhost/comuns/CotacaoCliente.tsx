@@ -22,6 +22,8 @@ export interface ItemCotacao {
   preco: number
   /** linha da encomenda do cliente (quotation_requests) a que esta linha corresponde: é por ela, e não pelo nome, que se autoriza o valor */
   linhaId?: string
+  /** painel do cliente: referência do brinde, para refazer o valor por unidade quando a quantidade muda */
+  sku?: string
 }
 
 // as peças de interface são as da calculadora (copiadas, para não haver importações a andar em círculo)
@@ -82,9 +84,10 @@ const lerNumero = (s: string, padrao: number) => {
   return s.trim() !== '' && Number.isFinite(v) && v >= 0 ? v : padrao
 }
 
-export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, aoAutorizado, pronto = true, encomenda, modoCliente }: { itens: ItemCotacao[]; moeda: string; /** painel do cliente: a mesma folha e as mesmas opções de edição, guardada por encomenda */ modoCliente?: boolean; encomenda?: { batchId: string; cliente: string; contacto: string; numero: string; email?: string; itens?: { id: string; nome: string }[]; /** o cliente ainda não vê o valor: a equipa não o autorizou */ porResponder?: boolean }; aoRemover?: (id: number) => void; aoTrocar?: (id: number, sku: string) => Promise<void>; /** depois de autorizar o valor (a calculadora volta a ler o estado da encomenda) */ aoAutorizado?: () => void; /** a calculadora já leu tudo o que guardou (lista, custos e encomenda): só então se vigiam as alterações dos valores */ pronto?: boolean }) {
-  const chaveEstado = modoCliente && encomenda ? (`cotacao:${encomenda.batchId}` as const) : ('cotacao' as const)
-  const chaveImagens = modoCliente && encomenda ? (`cotacao-imagens:${encomenda.batchId}` as const) : ('cotacao-imagens' as const)
+export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, aoAutorizado, encomenda, modoCliente, aoSincronizar, aplicarToken }: { /** administrador: quando muda («Guardar» dos custos da remessa), uma encomenda já autorizada manda ao cliente os valores rectificados */ aplicarToken?: number; /** painel do cliente: chamado depois de a quantidade/produto editados passarem às linhas da encomenda */ aoSincronizar?: () => void; itens: ItemCotacao[]; moeda: string; /** painel do cliente: a mesma folha e as mesmas opções de edição, guardada por encomenda */ modoCliente?: boolean; encomenda?: { batchId: string; cliente: string; contacto: string; numero: string; email?: string; endereco?: string; itens?: { id: string; nome: string }[]; /** o cliente ainda não vê o valor: a equipa não o autorizou */ porResponder?: boolean }; aoRemover?: (id: number) => void; aoTrocar?: (id: number, sku: string) => Promise<void>; /** depois de autorizar o valor (a calculadora volta a ler o estado da encomenda) */ aoAutorizado?: () => void }) {
+  // uma encomenda do site tem a sua folha guardada à parte («cotacao:<lote>»): o administrador na calculadora e o cliente no painel editam a mesma, e cada um vê o resultado final do outro
+  const chaveEstado = encomenda ? (`cotacao:${encomenda.batchId}` as const) : ('cotacao' as const)
+  const chaveImagens = encomenda ? (`cotacao-imagens:${encomenda.batchId}` as const) : ('cotacao-imagens' as const)
   const [cliente, setCliente] = useState('')
   // painel do cliente: a folha A4 encolhe à largura do ecrã (zoom) em vez de se cortar ou rolar de lado
   const caixaFolha = useRef<HTMLDivElement>(null)
@@ -114,7 +117,7 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, aoAutorizado
   const [personalizacao, setPersonalizacao] = useState<Record<number, string>>({})
   // a tabela da cotação edita-se aqui, sem mexer na calculadora: o que se escreve numa linha (nome, quantidade, preço) vale só para a cotação, as linhas
   // podem ser eliminadas e acrescentam-se outras; o que não se editou continua a seguir a calculadora
-  const [edicoes, setEdicoes] = useState<Record<number, { nome?: string; unidades?: string; preco?: string }>>({})
+  const [edicoes, setEdicoes] = useState<Record<number, { nome?: string; unidades?: string; preco?: string; sku?: string }>>({})
   // fotos trocadas só para a cotação (escolhidas no computador, na foto grande): linha → imagem; guardam-se à parte, são grandes
   const [imagens, setImagens] = useState<Record<number, string>>({})
   const [aviso, setAviso] = useState('')
@@ -125,57 +128,90 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, aoAutorizado
 
   // «Gravar»: guarda a cotação editada (campos, tabela, personalização) no servidor (tabela calculadora_estado) e volta a pô-la ao abrir
   const estado = { cliente, contacto, numero, chave, validade, prazo, pagamento, ivaIncluido, ivaPct, personalizacao, edicoes }
+  // a folha (de que lote) que já foi lida do servidor: só depois disso o que se escreve se grava (senão os valores de partida apagavam o guardado)
+  const [lido, setLido] = useState<string | null>(null)
+  const aplicar = (g: Partial<typeof estado>) => {
+    setCliente(g.cliente ?? '')
+    setContacto(g.contacto ?? '')
+    // números antigos escritos à mão não valem: só fica o que o sistema atribuiu (tem chave)
+    if (g.chave) {
+      setChave(g.chave)
+      setNumero(g.numero ?? '')
+    }
+    setValidade(g.validade ?? '10')
+    setPrazo(g.prazo || PRAZO_PADRAO)
+    setPagamento(g.pagamento || PAGAMENTO_PADRAO)
+    setIvaIncluido(g.ivaIncluido ?? true)
+    setIvaPct(g.ivaPct ?? '16')
+    setPersonalizacao(g.personalizacao ?? {})
+    setEdicoes(g.edicoes ?? {})
+  }
+  const carregar = (lote: typeof encomenda) => {
+    const id = lote?.batchId ?? ''
+    const ch = lote ? (`cotacao:${id}` as const) : ('cotacao' as const)
+    const chImg = lote ? (`cotacao-imagens:${id}` as const) : ('cotacao-imagens' as const)
+    lerEstadoSeguro<Partial<typeof estado>>(ch).then(({ ok, estado: g }) => {
+      // sem conseguir ler o que estava guardado (sessão expirada), nada se grava por cima: fica por carregar
+      if (!ok) return
+      // primeira vez nesta encomenda: parte dos dados da própria encomenda
+      if (g) aplicar(g)
+      else if (lote) aplicar({ cliente: lote.cliente, contacto: lote.contacto })
+      setLido(id)
+      setCarregado(true)
+    })
+    lerEstadoSeguro<Record<number, string>>(chImg).then(({ ok, estado: g }) => ok && setImagens(g ?? {}))
+  }
+  // a folha segue o que o outro painel (administrador ou cliente) gravou: lê de novo de tempos a tempos, nunca a meio de uma edição
+  const aEditar = useRef(false)
+  aEditar.current = editar
+  useEffect(() => {
+    if (!encomenda) return
+    const t = window.setInterval(() => {
+      if (aEditar.current || document.hidden) return
+      lerEstadoSeguro<Partial<typeof estado>>(`cotacao:${encomenda.batchId}`).then(({ ok, estado: g }) => ok && g && !aEditar.current && aplicar(g))
+    }, 20_000)
+    return () => window.clearInterval(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [encomenda?.batchId])
   const cargaFeita = useRef(false)
   useEffect(() => {
     if (cargaFeita.current) return
     cargaFeita.current = true
-    lerEstadoSeguro<Partial<typeof estado>>(chaveEstado).then(async ({ ok, estado: g0 }) => {
-      // sem conseguir ler o que estava guardado (sessão expirada), nada se grava por cima: fica por carregar
-      if (!ok) return
-      let g = g0
-      if (modoCliente && encomenda) {
-        // primeira vez no painel do cliente: parte do que a equipa já deixou nesta encomenda (se a tinha na calculadora), senão dos dados da encomenda
-        if (!g) {
-          const antes = await lerEstadoSeguro<Partial<typeof estado>>('cotacao')
-          g = antes.ok && antes.estado?.chave === encomenda.batchId ? antes.estado : { cliente: encomenda.cliente, contacto: encomenda.contacto }
-        }
-      }
-      if (g) {
-        setCliente(g.cliente ?? '')
-        setContacto(g.contacto ?? '')
-        // números antigos escritos à mão não valem: só fica o que o sistema atribuiu (tem chave)
-        if (g.chave) {
-          setChave(g.chave)
-          setNumero(g.numero ?? '')
-        }
-        setValidade(g.validade ?? '10')
-        setPrazo(g.prazo || PRAZO_PADRAO)
-        setPagamento(g.pagamento || PAGAMENTO_PADRAO)
-        setIvaIncluido(g.ivaIncluido ?? true)
-        setIvaPct(g.ivaPct ?? '16')
-        setPersonalizacao(g.personalizacao ?? {})
-        setEdicoes(g.edicoes ?? {})
-      }
-      setCarregado(true)
-    })
-    lerEstadoSeguro<Record<number, string>>(chaveImagens).then(({ ok, estado: g }) => ok && g && setImagens(g))
+    carregar(encomenda)
   }, [])
-  // ao carregar uma encomenda do site na calculadora, a cotação passa a ser a dela (empresa, responsável e número); ao abrir a página não se mexe no que está guardado
+  // ao carregar outra encomenda do site na calculadora, a cotação passa a ser a dela (o que ficou guardado, ou a empresa, o responsável e o número); ao abrir a página não se mexe no que está guardado
   const encomendaAnterior = useRef(encomenda?.batchId)
   useEffect(() => {
     if (!encomenda || encomenda.batchId === encomendaAnterior.current) return
     encomendaAnterior.current = encomenda.batchId
-    setCliente(encomenda.cliente)
-    setContacto(encomenda.contacto)
+    setLido(null)
     setNumero('')
     setChave('')
     setEdicoes({})
     setImagens({})
+    carregar(encomenda)
   }, [encomenda])
   const gravar = async () => {
     const ok = await gravarEstado(chaveEstado, estado)
     if (!ok) setAviso('Não foi possível gravar a cotação no servidor.')
+    if (ok && modoCliente) await sincronizarLinhas()
     return ok
+  }
+  // painel do cliente: a quantidade e o produto editados passam às linhas da encomenda (o valor por unidade é o do servidor, não o do navegador), para o administrador, o cartão e os pagamentos mostrarem o mesmo
+  const sincronizarLinhas = async () => {
+    if (!encomenda?.itens) return
+    const pedidas = linhas.flatMap((l) => {
+      const par = encomenda.itens?.[l.id - 1]
+      return par && Number.isFinite(l.unidades) ? [{ id: par.id, quantidade: l.unidades, sku: edicoes[l.id]?.sku }] : []
+    })
+    if (!pedidas.length) return
+    try {
+      const j = (await (await fetch('/api/cotacoes/sincronizar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ batchId: encomenda.batchId, linhas: pedidas }) })).json()) as { success?: boolean; error?: string }
+      if (!j.success) setAviso(j.error || 'Não foi possível actualizar a encomenda.')
+      else aoSincronizar?.()
+    } catch {
+      setAviso('Não foi possível actualizar a encomenda.')
+    }
   }
 
   // a data de hoje (só no navegador, para o servidor e o navegador não discordarem)
@@ -225,6 +261,9 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, aoAutorizado
   const ivaValor = encomenda ? daEncomenda.ivaValor : ivaIncluido ? arredondar2(somaLinhas - subtotal) : arredondar2(somaLinhas * (iva / 100))
   const totalAPagar = encomenda ? daEncomenda.total : ivaIncluido ? somaLinhas : somaLinhas + ivaValor
   const nomeCliente = cliente.trim()
+  // o e-mail vai numa linha própria: tira-se do contacto, onde estava junto (cotações guardadas antes)
+  const contactoSemEmail = encomenda?.email ? contacto.split(' · ').filter((x) => x.trim().toLowerCase() !== encomenda.email!.toLowerCase()).join(' · ') : contacto
+
   // numa encomenda do site, as condições de pagamento por omissão trazem os valores que o cliente paga (os mesmos do checkout e da factura: adiantamento e remanescente sobre o total com IVA)
   const divisao = encomendaPaymentSplit(daEncomenda.subtotal)
   const pctAdiantamento = Math.round(ENCOMENDA_ADIANTAMENTO_RATE * 100)
@@ -244,7 +283,6 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, aoAutorizado
       setAviso('Há produtos sem valor ou que não são da encomenda do cliente: só se autorizam os produtos que ele pediu.')
       return
     }
-    ultimoEnviado.current = { lote: encomenda.batchId, chave: chavePrecos }
     setAAutorizar(true)
     setAviso('')
     setConfirmacao('')
@@ -260,35 +298,14 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, aoAutorizado
       setAAutorizar(false)
     }
   }
-  // depois de autorizado, qualquer rectificação (custos da remessa, margens…) segue sozinha para o cliente, um instante depois de se parar de escrever, sem novo e-mail: as duas folhas ficam sempre iguais.
-  // Abrir a encomenda não envia nada (só uma alteração envia) e enquanto o valor não está autorizado o cliente não recebe nada.
-  const chavePrecos = encomenda && !modoCliente && valido && !editar ? JSON.stringify(linhas.map((l) => [itens.find((i) => i.id === l.id)?.linhaId, l.preco])) : ''
-  const ultimoEnviado = useRef<{ lote: string; chave: string } | null>(null)
-  // ao abrir, a calculadora ainda põe os custos, as unidades e as margens guardados (os valores mudam sozinhos durante 1 ou 2 segundos): isso não é uma rectificação e nunca vai para o cliente;
-  // só as alterações feitas depois de uma pausa de 3 s sem mudanças (e com tudo lido) seguem
-  const calmaDesde = useRef(0)
+  // «Guardar» dos custos da remessa: com o valor já autorizado, a rectificação segue para o cliente (sem novo e-mail), para as duas folhas ficarem iguais; antes de autorizado o cliente não recebe nada
+  const tokenVisto = useRef(aplicarToken ?? 0)
   useEffect(() => {
-    if (!encomenda || !chavePrecos || encomenda.porResponder) return
-    if (!pronto) {
-      ultimoEnviado.current = null
-      return
-    }
-    const base = ultimoEnviado.current
-    if (!base || base.lote !== encomenda.batchId) {
-      ultimoEnviado.current = { lote: encomenda.batchId, chave: chavePrecos }
-      calmaDesde.current = Date.now() + 3000
-      return
-    }
-    if (Date.now() < calmaDesde.current) {
-      ultimoEnviado.current = { lote: encomenda.batchId, chave: chavePrecos }
-      calmaDesde.current = Date.now() + 3000
-      return
-    }
-    if (base.chave === chavePrecos) return
-    const t = window.setTimeout(() => void autorizar(), 1500)
-    return () => window.clearTimeout(t)
+    if (!aplicarToken || aplicarToken === tokenVisto.current) return
+    tokenVisto.current = aplicarToken
+    if (encomenda && !modoCliente && !encomenda.porResponder && valido && !editar) void autorizar()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chavePrecos, encomenda?.porResponder, encomenda?.batchId, pronto])
+  }, [aplicarToken])
   // enquanto o cliente não vê o valor, nada da folha lhe chega (nem a cópia em HTML): a cópia só se grava depois de autorizado
   const copiaChave = valido && !editar && encomenda && !modoCliente && !encomenda.porResponder ? JSON.stringify([encomenda.batchId, estado, itens]) : ''
   useEffect(() => {
@@ -310,7 +327,7 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, aoAutorizado
   // pede o número ao sistema assim que há cotação: a mesma chave devolve sempre o mesmo número, e guarda-se logo para não gastar outro ao reabrir
   const chaveDevida = encomenda?.batchId ?? chave
   useEffect(() => {
-    if (!carregado || !valido || aEmitir.current || (numero && (!encomenda || chave === encomenda.batchId))) return
+    if (!carregado || lido !== (encomenda?.batchId ?? '') || !valido || aEmitir.current || (numero && (!encomenda || chave === encomenda.batchId))) return
     aEmitir.current = true
     const k = chaveDevida || crypto.randomUUID()
     fetch('/api/admin/cotacoes/numero', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chave: k }) })
@@ -326,35 +343,46 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, aoAutorizado
         aEmitir.current = false
       })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [carregado, valido, numero, chave, encomenda?.batchId])
+  }, [carregado, lido, valido, numero, chave, encomenda?.batchId])
 
   // o que se escreve (cliente, contacto, prazo…) fica guardado sozinho um instante depois, sem carregar em «Gravar»: ao recarregar a página volta tudo
   const estadoTexto = JSON.stringify(estado)
   useEffect(() => {
-    if (!carregado) return
+    if (!carregado || lido !== (encomenda?.batchId ?? '')) return
     const t = window.setTimeout(() => void gravarEstado(chaveEstado, estado), 600)
     return () => window.clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [carregado, estadoTexto])
+  }, [carregado, lido, estadoTexto])
 
   // as fotos trocadas guardam-se sozinhas (e só depois de lidas as guardadas, para não as apagar)
   const imagensLidas = useRef(false)
   useEffect(() => {
-    if (!carregado) return
+    if (!carregado || lido !== (encomenda?.batchId ?? '')) return
     if (!imagensLidas.current) {
       imagensLidas.current = true
       return
     }
     const t = window.setTimeout(() => void gravarEstado(chaveImagens, imagens), 600)
     return () => window.clearTimeout(t)
-  }, [carregado, imagens])
+  }, [carregado, lido, imagens])
 
   // miniatura do produto no início de cada linha (só se o nome for igual ao de um produto do catálogo)
   const fotoDe = useFotosProdutos(linhas.map((i) => i.nome))
 
   // edição em linha: o preço que se escreve é o da tabela (com IVA, se vai incluído); guarda-se sem IVA, e enquanto se escreve mostra-se o texto tal como está
   const [foco, setFoco] = useState<{ id: number; texto: string } | null>(null)
-  const mudarLinha = (id: number, campo: 'nome' | 'unidades' | 'preco', v: string) => setEdicoes((d) => ({ ...d, [id]: { ...d[id], [campo]: v } }))
+  // painel do cliente: trocar por um produto semelhante leva o nome do produto novo; o valor não muda aqui: a linha volta a ficar por consulta e só a equipa autoriza o valor novo (a calculadora, no administrador, troca pela lista própria)
+  const trocarCliente = async (id: number, sku: string) => {
+    try {
+      const j = (await (await fetch(`/api/brindes/valor?sku=${encodeURIComponent(sku)}`)).json()) as { success?: boolean; nome?: string }
+      if (!j.success || !j.nome) throw new Error()
+      mudarLinha(id, 'nome', j.nome)
+      mudarLinha(id, 'sku', sku)
+    } catch {
+      setAviso('Não foi possível trocar o produto.')
+    }
+  }
+  const mudarLinha = (id: number, campo: 'nome' | 'unidades' | 'preco' | 'sku', v: string) => setEdicoes((d) => ({ ...d, [id]: { ...d[id], [campo]: v } }))
   const mudarPreco = (id: number, texto: string) => {
     setFoco({ id, texto })
     const n = numeroOuNaN(texto)
@@ -701,7 +729,9 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, aoAutorizado
               >
                 <p className="text-zinc-600">Cliente</p>
                 <p className="text-xl font-extrabold text-zinc-900">{nomeCliente || '[NOME DO CLIENTE]'}</p>
-                <p className="text-zinc-600">Contacto: {contacto.trim() || '[NOME E TELEFONE]'}</p>
+                {encomenda?.endereco && <p className="text-zinc-600">{encomenda.endereco}</p>}
+                <p className="text-zinc-600">Contacto: {contactoSemEmail.trim() || '[NOME E TELEFONE]'}</p>
+                {encomenda?.email && <p className="text-zinc-600">{encomenda.email}</p>}
               </div>
 
               <table className="mt-5 w-full border-collapse text-left">
@@ -738,10 +768,11 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, aoAutorizado
                           ) : (
                             <span className="text-[11px] font-bold leading-tight">{l.nome}</span>
                           )}
-                          {editar && aoTrocar && (
+                          {editar && (aoTrocar || modoCliente) && (
                             <SeletorSemelhantes
                               nome={l.nome}
                               aoEscolher={async (sku) => {
+                                if (!aoTrocar) return trocarCliente(l.id, sku)
                                 await aoTrocar(l.id, sku)
                                 // a troca dá o nome e o preço do produto novo: largam-se as edições anteriores destes dois campos
                                 setEdicoes((d) => {
@@ -780,7 +811,7 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, aoAutorizado
                         )}
                       </td>
                       <td className="w-16 px-2 py-2">
-                        {editar && !encomenda ? (
+                        {editar && (!encomenda || modoCliente) ? (
                           <input type="text" inputMode="numeric" aria-label="Quantidade" value={textoQtd(l.id, l.unidades)} onChange={(e) => mudarLinha(l.id, 'unidades', e.target.value)} className={`${EDITAR} text-right tabular-nums`} />
                         ) : (
                           <span className="block text-right tabular-nums">{Number.isFinite(l.unidades) ? l.unidades : '–'}</span>
@@ -794,6 +825,7 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, aoAutorizado
                             aria-label="Preço unitário"
                             value={foco?.id === l.id ? foco.texto : Number.isFinite(l.unitario) ? valor2(l.unitario) : ''}
                             onChange={(e) => mudarPreco(l.id, e.target.value)}
+                            readOnly={modoCliente}
                             onBlur={() => setFoco(null)}
                             className={`${EDITAR} text-right tabular-nums`}
                           />
@@ -819,16 +851,16 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, aoAutorizado
                     </tr>
                   )}
                   <tr className="border-b border-zinc-200">
-                    <td colSpan={4} className="px-3 py-2 text-right font-semibold">
+                    <td colSpan={4} className="px-3 py-2 text-right font-bold">
                       Subtotal (sem IVA)
                     </td>
-                    <td className="whitespace-nowrap px-2 py-2 text-right tabular-nums">{valor2(subtotal)}</td>
+                    <td className="whitespace-nowrap px-2 py-2 text-right font-bold tabular-nums">{valor2(subtotal)}</td>
                   </tr>
                   <tr className="border-b border-zinc-200">
-                    <td colSpan={4} className="px-3 py-2 text-right font-semibold">
+                    <td colSpan={4} className="px-3 py-2 text-right font-bold">
                       IVA ({iva}%)
                     </td>
-                    <td className="whitespace-nowrap px-2 py-2 text-right tabular-nums">{valor2(ivaValor)}</td>
+                    <td className="whitespace-nowrap px-2 py-2 text-right font-bold tabular-nums">{valor2(ivaValor)}</td>
                   </tr>
                   <tr className="border-b border-zinc-200">
                     <td colSpan={4} className="px-3 py-3 text-right text-[15px] font-extrabold text-zinc-900">

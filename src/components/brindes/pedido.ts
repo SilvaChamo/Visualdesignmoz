@@ -101,6 +101,7 @@ export function usePedido() {
         categoriaLabel: 'Pedido Personalizado',
         // o texto livre do pedido personalizado (máx. 255): nome, referência, marca e o que foi escolhido
         produto: `${e.nome} — ref. ${e.sku}${e.marca ? ` (${e.marca})` : ''}${e.detalhe ? ` — ${e.detalhe}` : ''}`.slice(0, 255),
+        quantidade: e.unidades,
       }))
       sessionStorage.setItem(SELECAO_STORAGE_KEY, JSON.stringify(linhas))
       router.push(`/cotacao?categoria=${CUSTOM_CATEGORIA_ID}`)

@@ -9,6 +9,7 @@ import { carregarPerfilConta } from '@/lib/perfil-conta';
 import { resolveRoleForAuthUser } from '@/lib/server-auth-role';
 import { resolveEffectiveClientUserId } from '@/lib/client-impersonation';
 import { computeUnreadByBatch } from '@/lib/quotation-unread';
+import { abaixoDoMinimoImportacao, pedidoLocal } from '@/lib/brinde-importacao';
 
 const VALID_PAYMENT_METHODS = ['mpesa', 'transferencia'];
 
@@ -158,10 +159,12 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ error: 'A descrição do pedido personalizado é demasiado longa (máx. 255 caracteres).' }, { status: 400 });
         }
         // também os brindes do catálogo: ficam «sob consulta» até a equipa juntar os custos da remessa na calculadora e autorizar o valor; só então o cliente o vê e é avisado
+        // menos do que o mínimo para importar: não se importa, pede-se um produto local (sempre por contacto)
+        const local = abaixoDoMinimoImportacao(descricao, quantidadeNum);
         validatedItems.push({
           categoriaId: CUSTOM_CATEGORIA_ID,
           categoriaLabel: 'Pedido Personalizado',
-          produto: descricao,
+          produto: local ? pedidoLocal(descricao) : descricao,
           precoUnitario: 0,
           quantidadeNum,
           sobConsulta: true,

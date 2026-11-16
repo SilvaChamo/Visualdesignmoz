@@ -209,7 +209,8 @@ function formDoExemplo(): Form {
     mpfFixo: String(e.mpfFixo),
     hmfPct: String(e.hmfPct),
     maritimo: e.maritimo,
-    impostoPct: String(e.impostoPct),
+    // a alfândega só se cobra se estiver nos custos da remessa (campo «Alfândega»): o imposto de importação parte a 0 e não de uma taxa que ninguém definiu
+    impostoPct: '0',
     impostoSobreDireitos: e.impostoSobreDireitos,
     impostoSobreFrete: e.impostoSobreFrete,
     recuperavel: e.recuperavel,
@@ -470,6 +471,8 @@ export function CalculadoraCustoImportacao() {
   // as margens gerais guardadas (as que valem sem encomenda): são o ponto de partida das margens de uma encomenda nova
   const geraisLidos = useRef<Record<string, string>>({})
   const [custosProntos, setCustosProntos] = useState(false)
+  // «Guardar» nos custos da remessa com uma encomenda carregada: manda a cotação enviar ao cliente os valores rectificados (só se já estiverem autorizados)
+  const [aplicarCustos, setAplicarCustos] = useState(0)
   // os valores do formulário também vêm do servidor: até chegarem os dois, a calculadora fica escondida (senão aparece primeiro o exemplo)
   const [formLido, setFormLido] = useState(false)
   useEffect(() => {
@@ -903,7 +906,8 @@ export function CalculadoraCustoImportacao() {
   const ids = (nome: string) => `cci-${nome}`
 
   const aoCarregarDaLista = (e: EncomendaSite) => {
-    carregarEncomenda(e)
+    // a que já está na calculadora só se mostra (recarregá-la não faria nada)
+    if (e.batchId !== encomenda?.batchId) carregarEncomenda(e)
     setAba('actual')
   }
   // a lista própria (sem cliente) também está no histórico: com uma encomenda aberta é a que ficou guardada à parte; sem ela, é a que está na calculadora
@@ -1249,7 +1253,8 @@ export function CalculadoraCustoImportacao() {
           <p className={`${NOTA} mt-3`}>
             Os direitos e o imposto de importação calculam-se por linha. O seguro e as taxas dos EUA seguem o valor. O frete, o despachante, o porto, a entrega interna, a entrega ao domicílio e os outros encargos seguem o método escolhido.
           </p>
-          <GravarValorBrindes config={encomenda || !listaLida ? null : configSite} aoCarregar={(c) => {
+          {/* «Guardar» com uma encomenda carregada só aplica os custos à encomenda: o valor do site vem da lista própria (poucas unidades diluiriam o transporte e inflariam o preço de todos os brindes) */}
+          <GravarValorBrindes config={encomenda || !listaLida ? null : configSite} encomendaCarregada={Boolean(encomenda)} aoAplicar={() => setAplicarCustos((n) => n + 1)} aoCarregar={(c) => {
             geraisLidos.current = c
             setForm((x) => ({ ...x, ...c }))
           }} aoLer={() => setFormLido(true)} />
@@ -1331,9 +1336,9 @@ export function CalculadoraCustoImportacao() {
 
       {/* a cotação para o cliente, no fim das tabelas */}
       <CotacaoCliente
-        encomenda={encomenda ? { batchId: encomenda.batchId, cliente: encomenda.empresa, contacto: [encomenda.responsavel, encomenda.telefone, encomenda.email].filter(Boolean).join(' · '), numero: encomenda.numero, email: encomenda.email, itens: encomenda.itens.map((i) => ({ id: i.id, nome: i.nome.trim() })), porResponder: listaEnc?.find((x) => x.batchId === encomenda.batchId)?.porResponder ?? true } : undefined}
+        aplicarToken={aplicarCustos}
+        encomenda={encomenda ? { batchId: encomenda.batchId, cliente: encomenda.empresa, contacto: [encomenda.responsavel, encomenda.telefone].filter(Boolean).join(' · '), numero: encomenda.numero, email: encomenda.email, endereco: encomenda.endereco || undefined, itens: encomenda.itens.map((i) => ({ id: i.id, nome: i.nome.trim() })), porResponder: listaEnc?.find((x) => x.batchId === encomenda.batchId)?.porResponder ?? true } : undefined}
         aoAutorizado={recarregar}
-        pronto={listaLida && formLido && custosProntos && listaEnc !== null}
         moeda={moeda}
         aoRemover={removerLinha}
         aoTrocar={trocarProduto}

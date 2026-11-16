@@ -4,6 +4,7 @@
 // personalização (posição e método) e a barra de baixo para juntar ao pedido de cotação. As secções de informação
 // (especificações, personalização, stock, medidas) vêm por baixo, feitas no servidor.
 
+import { AVISO_IMPORTACAO_BRINDE, MINIMO_IMPORTACAO_BRINDE } from '@/lib/brinde-importacao'
 import { useMemo, useState } from 'react'
 import { AlertTriangle, ArrowRight, Check, Heart, Minus, Palette, Plus, Truck } from 'lucide-react'
 import { GaleriaProduto } from '@/components/brindes/GaleriaProduto'
@@ -245,6 +246,7 @@ export function ProdutoDetalhe({ produto, ficha }: { produto: ProdutoFicha; fich
                 </span>
               )}
             </div>
+            {total < MINIMO_IMPORTACAO_BRINDE && <p className="mb-3 text-xs font-semibold text-amber-700 dark:text-amber-400">{AVISO_IMPORTACAO_BRINDE}</p>}
             {tamanhos.length > 0 ? (
               <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
                 {tamanhos.map((t) => {

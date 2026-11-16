@@ -147,7 +147,7 @@ export async function PATCH(request: Request) {
 
   try {
     const body = await request.json();
-    const { id, status, rejectionReason, batchId, dataLimiteEntrega, precoUnitarioMt, semAviso } = body || {};
+    const { id, status, rejectionReason, batchId, dataLimiteEntrega, precoUnitarioMt, semAviso, quantidade } = body || {};
 
     // Alterar a data limite de entrega prevista — aplica-se a todos os itens da mesma
     // encomenda (batch), já que foram todos submetidos com o mesmo prazo original.
@@ -193,10 +193,12 @@ export async function PATCH(request: Request) {
       }
       const wasSobConsulta = existing.sob_consulta;
 
-      const totalMt = Math.round(valor * existing.quantidade * 100) / 100;
+      // a calculadora também acerta a quantidade com a da cotação (o cliente ou a equipa podem tê-la mudado)
+      const qtd = Number.isInteger(quantidade) && quantidade > 0 ? quantidade : existing.quantidade;
+      const totalMt = Math.round(valor * qtd * 100) / 100;
       const { data, error } = await supabase
         .from('quotation_requests')
-        .update({ preco_unitario_mt: valor, total_mt: totalMt, sob_consulta: false, updated_at: new Date().toISOString() })
+        .update({ preco_unitario_mt: valor, quantidade: qtd, total_mt: totalMt, sob_consulta: false, updated_at: new Date().toISOString() })
         .eq('id', id)
         .select()
         .single();
