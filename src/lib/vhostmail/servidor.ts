@@ -87,8 +87,12 @@ def cabecalho(h):
 
 def lista():
     f = pasta_ok(A['pasta'])
-    st = [p for p in pastas() if p['n'] == f]
-    total = st[0]['total'] if st else 0
+    # só o estado desta pasta (antes lia o de todas e a lista de pastas, três chamadas ao doveadm à toa)
+    try:
+        st = jlinhas(run(['-f', 'json', 'mailbox', 'status', '-u', U, 'messages', f]))
+        total = int(st[0].get('messages') or 0) if st else 0
+    except Exception:
+        total = 0
     lim = int(A.get('max') or 150)
     if total == 0:
         return {'mensagens': [], 'total': 0}

@@ -10,6 +10,7 @@ import { panelTabBar, panelTabBtn, panelTabBtnActive, panelTabBtnInactive, panel
 import { QuotationHistoryTimeline } from '@/components/quotations/QuotationHistoryTimeline';
 import { QuotationMessagesThread } from '@/components/quotations/QuotationMessagesThread';
 import { EncomendaEditForm } from '@/components/quotations/EncomendaEditForm';
+import { CopiaCotacao } from '@/components/quotations/CopiaCotacao';
 
 type QuotationRow = {
   id: string;
@@ -322,12 +323,7 @@ export function EncomendaDetalhe({
         {tab === 'historico' && <div className="p-4"><QuotationHistoryTimeline quotationId={primary.id} /></div>}
         {tab === 'mensagens' && <div className="p-4 h-[520px] mx-auto max-w-xl"><QuotationMessagesThread quotationId={primary.id} viewerRole="client" /></div>}
         {tab === 'cotacao' && (
-          <iframe
-            key={primary.id}
-            src={`/cotacao/${primary.id}?embed=1&payment=1`}
-            className="w-full h-full min-h-[600px] border-0"
-            title="Cotação"
-          />
+          <CopiaCotacao id={primary.id} />
         )}
         {tab === 'facturas' && (
           <div className="p-4 space-y-4">

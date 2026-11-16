@@ -1,0 +1,44 @@
+'use client';
+
+// Encomendas › Cotação: se a equipa tem esta encomenda na calculadora, o cliente vê aqui só a cópia da cotação de lá (sem editar nada) e qualquer alteração
+// na calculadora actualiza-a sozinha; sem cópia, mostra o documento de sempre. A folha chega como HTML e vê-se com os estilos desta página.
+import { useEffect, useState } from 'react';
+
+const ID_DOCUMENTO = 'cci-cotacao-documento';
+
+function estilosDestaPagina(): string {
+  return Array.from(document.styleSheets)
+    .map((f) => {
+      try {
+        return Array.from(f.cssRules)
+          .map((r) => r.cssText)
+          .join('\n');
+      } catch {
+        return '';
+      }
+    })
+    .join('\n');
+}
+
+export function CopiaCotacao({ id }: { id: string }) {
+  const [html, setHtml] = useState<string | null | undefined>(undefined);
+  useEffect(() => {
+    let vivo = true;
+    const ler = () =>
+      fetch(`/api/cotacoes/${id}/copia`, { cache: 'no-store' })
+        .then((r) => r.json())
+        .then((j: { success?: boolean; html?: string | null }) => vivo && setHtml(j.success ? (j.html ?? null) : null))
+        .catch(() => vivo && setHtml((h) => h ?? null));
+    ler();
+    const t = window.setInterval(ler, 30_000);
+    return () => {
+      vivo = false;
+      window.clearInterval(t);
+    };
+  }, [id]);
+
+  if (html === undefined) return <div className="min-h-[600px]" />;
+  if (html === null) return <iframe key={id} src={`/cotacao/${id}?embed=1&payment=1`} className="w-full h-full min-h-[600px] border-0" title="Cotação" />;
+  const pagina = `<!doctype html><html lang="pt"><head><meta charset="utf-8"><base href="${window.location.origin}/"><style>${estilosDestaPagina()}</style><style>html,body{background:#fff!important;margin:0;padding:0}body *{visibility:visible!important}#${ID_DOCUMENTO}{width:auto!important;min-width:0!important;max-width:210mm;margin:0 auto!important;border:0!important;box-shadow:none!important}</style></head><body>${html}</body></html>`;
+  return <iframe key={id} sandbox="" srcDoc={pagina} className="w-full h-full min-h-[900px] border-0" title="Cotação" />;
+}

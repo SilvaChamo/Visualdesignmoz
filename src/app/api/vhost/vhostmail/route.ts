@@ -27,6 +27,7 @@ export async function GET(req: NextRequest) {
     conta: EMAIL.test(conta) ? conta : '',
     pasta,
     tema: sp.get('tema') === 'dark' ? 'dark' : 'light',
+    lang: sp.get('lang') === 'en' ? 'en' : 'pt',
     plano: PACOTE.test(plano) ? plano : '',
   });
   return new NextResponse(html, { headers: HTML });

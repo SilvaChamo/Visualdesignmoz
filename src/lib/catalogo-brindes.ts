@@ -286,6 +286,32 @@ export function produtoPorSku(sku: string): { nome: string; precoZar: number } |
   return { nome: p.nome, precoZar: p.precoZar }
 }
 
+/** produtos da mesma família do produto com este nome, para a calculadora os poder trocar: primeiro os que partilham palavras do nome (outra «fita métrica» para uma fita métrica), depois os da mesma subcategoria (ou grupo). Sem preços. */
+const PALAVRAS_COMUNS = new Set(['with', 'and', 'the', 'for', 'set', 'pack', 'premium', 'metre', 'litre', 'ml', 'pcs', 'black', 'white', 'blue', 'red', 'green', 'yellow', 'grey', 'gray', 'navy', 'orange', 'pink', 'purple', 'silver', 'gold', 'brown'])
+export function semelhantesPorNome(nome: string, n = 12): { sku: string; nome: string; imagem: string; esgotado: boolean }[] {
+  const norm = (t: string) => t.toLowerCase().replace(/\s+/g, ' ').trim()
+  const e = INDICE.find((i) => norm(publico(i).nome) === norm(nome))
+  if (!e) return []
+  const marca = new Set(norm(e.p.marca ?? '').split(/[^a-z]+/))
+  // as palavras comparam-se pelas 5 primeiras letras (measuring ≈ measure, pens ≈ pen)
+  const chaves = (t: string) => new Set(norm(t).split(/[^a-z]+/).filter((w) => w.length >= 3 && !PALAVRAS_COMUNS.has(w) && !marca.has(w)).map((w) => w.slice(0, 5)))
+  const minhas = chaves(publico(e).nome)
+  const doNome = INDICE.filter((i) => i.p.sku !== e.p.sku)
+    .map((i) => ({ i, pontos: [...chaves(publico(i).nome)].filter((w) => minhas.has(w)).length }))
+    .filter((x) => x.pontos >= Math.min(2, minhas.size) && x.pontos > 0)
+    .sort((a, b) => b.pontos - a.pontos || Number(a.i.p.esgotado) - Number(b.i.p.esgotado))
+    .slice(0, n)
+    .map((x) => publico(x.i))
+  // sem nenhum parecido pelo nome, valem os da mesma família (subcategoria ou grupo)
+  const r = relacionados(e.p.sku, n)
+  const familia = doNome.length ? [] : r.daSub.length ? r.daSub : r.doGrupo
+  const vistos = new Set<string>()
+  return [...doNome, ...familia]
+    .filter((p) => !vistos.has(p.sku) && vistos.add(p.sku))
+    .slice(0, n)
+    .map(({ sku, nome, imagem, esgotado }) => ({ sku, nome, imagem, esgotado }))
+}
+
 /** o que mostrar por baixo de um produto: mais da mesma subcategoria, mais do mesmo grupo e mais da mesma marca */
 export function relacionados(sku: string, n = 8) {
   const e = INDICE.find((i) => i.p.sku === sku)

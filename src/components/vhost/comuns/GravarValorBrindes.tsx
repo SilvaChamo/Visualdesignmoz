@@ -11,7 +11,7 @@ import type { ConfigBrindes } from '@/lib/preco-brindes'
 
 const NOTA = 'text-xs leading-relaxed text-slate-500 dark:text-slate-400'
 
-export function GravarValorBrindes({ config, aoCarregar }: { config: ConfigBrindes | null; aoCarregar: (campos: Record<string, string>) => void }) {
+export function GravarValorBrindes({ config, aoCarregar, aoLer }: { config: ConfigBrindes | null; aoCarregar: (campos: Record<string, string>) => void; aoLer?: () => void }) {
   const { lang } = useI18n()
   const tr = (k: string) => translate(lang, k)
   const [estado, setEstado] = useState('')
@@ -30,8 +30,12 @@ export function GravarValorBrindes({ config, aoCarregar }: { config: ConfigBrind
         } else {
           semGuardado.current = true
         }
+        aoLer?.()
       })
-      .catch(() => setEstado(tr('Não foi possível ler os custos da remessa.')))
+      .catch(() => {
+        setEstado(tr('Não foi possível ler os custos da remessa.'))
+        aoLer?.()
+      })
     // só ao abrir
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
