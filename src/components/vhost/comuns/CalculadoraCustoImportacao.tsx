@@ -14,7 +14,7 @@ import { cambioEntre } from '@/lib/cambio'
 import { useCambio } from './useCambio'
 import { CotacaoCliente } from './CotacaoCliente'
 import { Miniatura, SeletorSemelhantes, useFotosProdutos } from './fotos-produtos'
-import { gravarEstado, lerEstado } from './estado-calculadora'
+import { gravarEstado, lerEstadoSeguro } from './estado-calculadora'
 import { GravarValorBrindes } from './GravarValorBrindes'
 import { ListaEncomendas, useEncomendasDoSite, type EncomendaSite } from './EncomendasDoSite'
 import { Tabs } from '../paginas/componentes'
@@ -436,6 +436,9 @@ export function CalculadoraCustoImportacao() {
   const fotoDe = useFotosProdutos(linhas.map((l) => l.nome))
   const ultimoGuardado = useRef<string | null>(null)
   const [listaLida, setListaLida] = useState(false)
+  // a lista guardada não se conseguiu ler (sessão expirada, rede): não se mostra o exemplo no lugar dela nem se grava nada por cima
+  const [erroLista, setErroLista] = useState(false)
+  const [tentativa, setTentativa] = useState(0)
   // a encomenda do site que está na calculadora (com os dados da empresa) e as listas das outras, guardadas à parte para voltarem como estavam
   const [encomenda, setEncomenda] = useState<EncomendaSite | null>(null)
   const [rascunhos, setRascunhos] = useState<Record<string, { linhas: LinhaForm[]; proximo: number }>>({})
@@ -443,8 +446,13 @@ export function CalculadoraCustoImportacao() {
   const [formLido, setFormLido] = useState(false)
   useEffect(() => {
     let vivo = true
-    lerEstado<{ linhas?: LinhaForm[]; proximo?: number; encomenda?: EncomendaSite | null; rascunhos?: Record<string, { linhas: LinhaForm[]; proximo: number }> }>('calculadora').then((g) => {
+    lerEstadoSeguro<{ linhas?: LinhaForm[]; proximo?: number; encomenda?: EncomendaSite | null; rascunhos?: Record<string, { linhas: LinhaForm[]; proximo: number }> }>('calculadora').then(({ ok, estado: g }) => {
       if (!vivo) return
+      if (!ok) {
+        setErroLista(true)
+        return
+      }
+      setErroLista(false)
       if (g && Array.isArray(g.linhas) && g.linhas.length > 0 && g.linhas.every((l) => typeof l?.id === 'number')) {
         setLinhas(g.linhas)
         proximoId.current = Math.max(typeof g.proximo === 'number' ? g.proximo : 0, ...g.linhas.map((l) => l.id + 1))
@@ -457,7 +465,7 @@ export function CalculadoraCustoImportacao() {
     return () => {
       vivo = false
     }
-  }, [])
+  }, [tentativa])
   // produtos escolhidos no catálogo à ida de «Adicionar produto» na cotação: entram na lista com o custo do fornecedor (em rand) e a quantidade escolhida
   useEffect(() => {
     if (!listaLida) return
@@ -861,6 +869,18 @@ export function CalculadoraCustoImportacao() {
     <div className="tw-livre">
     {/* data-ic-sem: o painel não põe ícone dentro dos campos da calculadora (icones-campos.ts) */}
     <div className={`@container ${listaLida && formLido ? '' : 'invisible'}`} data-ic-sem aria-busy={!(listaLida && formLido)}>
+      {erroLista && (
+        <div className="rounded-2xl border border-red-200 bg-white p-5 shadow-sm dark:border-red-900/40 dark:bg-slate-900">
+          <p className="text-sm font-semibold text-red-600">Não foi possível ler a lista guardada da calculadora. A sessão pode ter expirado: entre de novo no painel e tente outra vez.</p>
+          <button
+            type="button"
+            onClick={() => setTentativa((n) => n + 1)}
+            className="mt-3 inline-flex cursor-pointer items-center rounded-[5px] border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 shadow-sm transition hover:border-red-500 hover:text-red-600 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+          >
+            Tentar outra vez
+          </button>
+        </div>
+      )}
       {aba === 'pendentes' && <ListaEncomendas itens={pendentes} erro={erroEnc} vazio="Não há encomendas por responder." atual={encomenda?.batchId ?? null} aoCarregar={aoCarregarDaLista} />}
       {aba === 'anteriores' && <ListaEncomendas itens={anteriores} erro={erroEnc} vazio="Não há encomendas anteriores." atual={encomenda?.batchId ?? null} aoCarregar={aoCarregarDaLista} />}
       {/* a calculadora fica sempre montada (só se esconde) para não perder o que está a ser feito */}
