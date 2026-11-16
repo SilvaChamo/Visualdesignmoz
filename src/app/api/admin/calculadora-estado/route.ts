@@ -34,7 +34,19 @@ export async function GET(req: Request) {
   if (!supabase) return NextResponse.json({ success: false, error: 'Supabase Service Role não configurado.' }, { status: 503 })
   const { data, error } = await supabase.from('calculadora_estado').select('estado').eq('chave', chave).maybeSingle()
   if (error) return NextResponse.json({ success: false, error: error.message }, { status: 500 })
-  return NextResponse.json({ success: true, estado: data?.estado ?? null })
+  const lote = POR_LOTE.exec(chave)
+  if (!lote) return NextResponse.json({ success: true, estado: data?.estado ?? null })
+  // painel do cliente: se a cotação do administrador é a desta encomenda, os dados dele (cliente, número, prazos, IVA) e as fotos vêm sempre da base de dados; o resto é do que o cliente editou
+  const { data: cot } = await supabase.from('calculadora_estado').select('estado').eq('chave', 'cotacao').maybeSingle()
+  if ((cot?.estado as { chave?: string } | null)?.chave !== lote[2]) return NextResponse.json({ success: true, estado: data?.estado ?? null })
+  if (lote[1] === 'cotacao-imagens') {
+    const { data: fotos } = await supabase.from('calculadora_estado').select('estado').eq('chave', 'cotacao-imagens').maybeSingle()
+    return NextResponse.json({ success: true, estado: data?.estado ?? fotos?.estado ?? null })
+  }
+  const admin = cot?.estado as Record<string, unknown>
+  const base = { ...((data?.estado ?? admin) as Record<string, unknown>) }
+  for (const k of ['cliente', 'contacto', 'numero', 'chave', 'validade', 'prazo', 'pagamento', 'ivaIncluido', 'ivaPct']) if (k in admin) base[k] = admin[k]
+  return NextResponse.json({ success: true, estado: base })
 }
 
 export async function PUT(req: Request) {
