@@ -18,6 +18,8 @@ export interface ItemCotacao {
   unidades: number
   /** preço de venda por unidade, sem IVA (o custo por unidade com a margem bruta) */
   preco: number
+  /** painel do cliente: referência do brinde, para refazer o valor por unidade quando a quantidade muda */
+  sku?: string
 }
 
 // as peças de interface são as da calculadora (copiadas, para não haver importações a andar em círculo)
@@ -111,7 +113,7 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda, m
   const [personalizacao, setPersonalizacao] = useState<Record<number, string>>({})
   // a tabela da cotação edita-se aqui, sem mexer na calculadora: o que se escreve numa linha (nome, quantidade, preço) vale só para a cotação, as linhas
   // podem ser eliminadas e acrescentam-se outras; o que não se editou continua a seguir a calculadora
-  const [edicoes, setEdicoes] = useState<Record<number, { nome?: string; unidades?: string; preco?: string }>>({})
+  const [edicoes, setEdicoes] = useState<Record<number, { nome?: string; unidades?: string; preco?: string; sku?: string }>>({})
   // fotos trocadas só para a cotação (escolhidas no computador, na foto grande): linha → imagem; guardam-se à parte, são grandes
   const [imagens, setImagens] = useState<Record<number, string>>({})
   const [aviso, setAviso] = useState('')
@@ -316,11 +318,22 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda, m
       if (!j.success || !j.nome || !(j.valorSemIva && j.valorSemIva > 0)) throw new Error()
       mudarLinha(id, 'nome', j.nome)
       mudarLinha(id, 'preco', String(j.valorSemIva))
+      mudarLinha(id, 'sku', sku)
     } catch {
       setAviso('Não foi possível trocar o produto.')
     }
   }
-  const mudarLinha = (id: number, campo: 'nome' | 'unidades' | 'preco', v: string) => setEdicoes((d) => ({ ...d, [id]: { ...d[id], [campo]: v } }))
+  const mudarLinha = (id: number, campo: 'nome' | 'unidades' | 'preco' | 'sku', v: string) => setEdicoes((d) => ({ ...d, [id]: { ...d[id], [campo]: v } }))
+  // painel do cliente: o preço por unidade que vem da calculadora diluiu custos fixos (transporte, despesas) pela quantidade pedida; ao mudar a quantidade, o valor por unidade volta ao do catálogo (o do site) em vez de se multiplicar o antigo
+  const mudarQuantidade = (id: number, v: string) => {
+    mudarLinha(id, 'unidades', v)
+    const sku = edicoes[id]?.sku ?? itens.find((i) => i.id === id)?.sku
+    if (!modoCliente || !sku) return
+    fetch(`/api/brindes/valor?sku=${encodeURIComponent(sku)}`)
+      .then((r) => r.json())
+      .then((j: { success?: boolean; valorSemIva?: number }) => j.success && j.valorSemIva && j.valorSemIva > 0 && mudarLinha(id, 'preco', String(j.valorSemIva)))
+      .catch(() => undefined)
+  }
   const mudarPreco = (id: number, texto: string) => {
     setFoco({ id, texto })
     const n = numeroOuNaN(texto)
@@ -739,7 +752,7 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda, m
                       </td>
                       <td className="w-16 px-2 py-2">
                         {editar ? (
-                          <input type="text" inputMode="numeric" aria-label="Quantidade" value={textoQtd(l.id, l.unidades)} onChange={(e) => mudarLinha(l.id, 'unidades', e.target.value)} className={`${EDITAR} text-right tabular-nums`} />
+                          <input type="text" inputMode="numeric" aria-label="Quantidade" value={textoQtd(l.id, l.unidades)} onChange={(e) => mudarQuantidade(l.id, e.target.value)} className={`${EDITAR} text-right tabular-nums`} />
                         ) : (
                           <span className="block text-right tabular-nums">{Number.isFinite(l.unidades) ? l.unidades : '–'}</span>
                         )}

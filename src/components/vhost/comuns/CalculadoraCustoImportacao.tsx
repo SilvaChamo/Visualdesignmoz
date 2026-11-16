@@ -1189,7 +1189,8 @@ export function CalculadoraCustoImportacao() {
           <p className={`${NOTA} mt-3`}>
             Os direitos e o imposto de importação calculam-se por linha. O seguro e as taxas dos EUA seguem o valor. O frete, o despachante, o porto, a entrega interna, a entrega ao domicílio e os outros encargos seguem o método escolhido.
           </p>
-          <GravarValorBrindes config={configSite} aoCarregar={(c) => setForm((x) => ({ ...x, ...c }))} aoLer={() => setFormLido(true)} />
+          {/* só a lista própria define o valor do site: uma encomenda carregada (poucas unidades) dilui o transporte e as despesas por muito pouco valor e inflaria o preço de todos os brindes */}
+          <GravarValorBrindes config={encomenda ? null : configSite} aoCarregar={(c) => setForm((x) => ({ ...x, ...c }))} aoLer={() => setFormLido(true)} />
         </div>
 
         {eua ? (

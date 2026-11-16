@@ -335,7 +335,7 @@ export function EncomendaDetalhe({
               <CotacaoCliente
                 modoCliente
                 moeda="MZN"
-                itens={items.map((i, k) => ({ id: k + 1, nome: i.produto.split(' — ref. ')[0], unidades: i.quantidade, preco: Number(i.preco_unitario_mt) > 0 ? Number(i.preco_unitario_mt) : estimativa[i.id] }))}
+                itens={items.map((i, k) => ({ id: k + 1, nome: i.produto.split(' — ref. ')[0], sku: /— ref\. (\S+)/.exec(i.produto)?.[1], unidades: i.quantidade, preco: Number(i.preco_unitario_mt) > 0 ? Number(i.preco_unitario_mt) : estimativa[i.id] }))}
                 encomenda={{
                   batchId: primary.batch_id,
                   cliente: primary.empresa,
