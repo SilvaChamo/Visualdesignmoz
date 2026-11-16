@@ -369,7 +369,27 @@ export const CLIENTE_JS = String.raw`
     if(!/pdf|^image\//i.test(a.tipo||'')){window.open(url,'_blank');return}
     var o=document.createElement('div');
     o.style.cssText='position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center';
-    o.innerHTML='<div style="width:min(900px,92vw);height:92vh;background:#fff;border-radius:8px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.4)"><div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid #e5e5e5;font:600 14px sans-serif;color:#222"><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(a.nome)+'</span><a href="'+url+'" download="'+esc(a.nome)+'" style="color:#E5202E;text-decoration:none;font-weight:600">Descarregar</a><a data-fx style="cursor:pointer;font-size:22px;line-height:1;color:#555" aria-label="Fechar">×</a></div><iframe src="'+url+'" style="flex:1;border:0;width:100%"></iframe></div>';
+    o.innerHTML='<div style="width:min(900px,92vw);height:92vh;background:#fff;border-radius:8px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.4)"><div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid #e5e5e5;font:600 14px sans-serif;color:#222"><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(a.nome)+'</span><a href="'+url+'" download="'+esc(a.nome)+'" style="color:#E5202E;text-decoration:none;font-weight:600">Descarregar</a><a data-fx style="cursor:pointer;font-size:22px;line-height:1;color:#555" aria-label="Fechar">×</a></div><div data-pv style="flex:1;overflow:auto;background:#6b6b6b;padding:14px;text-align:center"></div></div>';
+    /* as páginas do PDF desenham-se com o PDF.js (o navegador do painel pode não ter visualizador de PDF); as imagens mostram-se tal como são */
+    var pv=o.querySelector('[data-pv]');
+    if(/^image\//i.test(a.tipo||'')){pv.innerHTML='<img src="'+url+'" style="max-width:100%;background:#fff">'}
+    else{
+      pv.textContent='A abrir…';pv.style.color='#fff';
+      import('/pdfjs/pdf.min.mjs').then(function(P){
+        P.GlobalWorkerOptions.workerSrc='/pdfjs/pdf.worker.min.mjs';
+        return P.getDocument({data:by.slice()}).promise;
+      }).then(async function(doc){
+        pv.textContent='';
+        var dpr=window.devicePixelRatio||1;
+        for(var n=1;n<=doc.numPages;n++){
+          var pg=await doc.getPage(n),w=Math.min(pv.clientWidth-28,860),v0=pg.getViewport({scale:1}),vp=pg.getViewport({scale:w/v0.width*dpr});
+          var cv=document.createElement('canvas');cv.width=vp.width;cv.height=vp.height;
+          cv.style.cssText='display:block;margin:0 auto 14px;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.35);width:'+(vp.width/dpr)+'px;height:'+(vp.height/dpr)+'px';
+          pv.appendChild(cv);
+          await pg.render({canvasContext:cv.getContext('2d'),viewport:vp}).promise;
+        }
+      }).catch(function(){pv.innerHTML='<iframe src="'+url+'" style="width:100%;height:100%;border:0;background:#fff"></iframe>'});
+    }
     var fecha=function(){document.removeEventListener('keydown',tecla,true);o.remove();URL.revokeObjectURL(url)};
     var tecla=function(ev){if(ev.key==='Escape'){ev.stopPropagation();fecha()}};
     o.addEventListener('click',function(ev){if(ev.target===o||ev.target.closest('[data-fx]'))fecha()});
