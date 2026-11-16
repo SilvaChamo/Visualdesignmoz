@@ -63,8 +63,6 @@ interface Form {
   outros: string
   /** alfândega: valor total em MT; acima de zero substitui a taxa de direitos de cada produto */
   alfandega: string
-  /** lucro: valor total em MT; acima de zero substitui a margem (%) */
-  lucro: string
   /** margem de erro, em % sobre o custo unitário de cada produto (nos produtos aparece em valor) */
   erroPct: string
   /** comissão, em % sobre o valor total sem imposto de cada produto (nos produtos aparece em valor) */
@@ -175,7 +173,6 @@ function formDoExemplo(): Form {
     entregaDom: '0',
     outros: '0',
     alfandega: '0',
-    lucro: '0',
     erroPct: '0',
     comissaoPct: '0',
     perdasPct: String(e.perdasPct),
@@ -240,7 +237,6 @@ function paraEntrada(f: Form, linhas: LinhaForm[], compra: number, reparticao: R
     perdasPct: num(f.perdasPct),
     margemPct: num(f.margemPct),
     alfandega: num(f.alfandega, true),
-    lucro: num(f.lucro, true),
     entrada: f.entrada,
     mpfPct: num(f.mpfPct),
     mpfMin: num(f.mpfMin),
@@ -652,12 +648,12 @@ export function CalculadoraCustoImportacao() {
       margemPct: num(form.margemPct),
       direitosPct,
       alfandegaRatio: num(form.alfandega, true) / G,
-      lucroRatio: num(form.lucro, true) / G,
+      lucroRatio: 0,
       impostoPct: num(form.impostoPct),
       impostoSobreDireitos: form.impostoSobreDireitos,
       impostoSobreFrete: form.impostoSobreFrete,
       recuperavel: form.recuperavel,
-      campos: Object.fromEntries(['frete', 'seguro', 'corretor', 'porto', 'entrega', 'entregaDom', 'outros', 'alfandega', 'lucro', 'erroPct', 'comissaoPct', 'perdasPct', 'margemPct', 'impostoPct'].map((c) => [c, String((form as unknown as Record<string, string>)[c])])),
+      campos: Object.fromEntries(['frete', 'seguro', 'corretor', 'porto', 'entrega', 'entregaDom', 'outros', 'alfandega', 'erroPct', 'comissaoPct', 'perdasPct', 'margemPct', 'impostoPct'].map((c) => [c, String((form as unknown as Record<string, string>)[c])])),
     })
   })()
 
@@ -1157,8 +1153,6 @@ export function CalculadoraCustoImportacao() {
             <Campo id={ids('porto')} rotulo="Manuseamento no porto ou terminal" valor={form.porto} aoMudar={(v) => mudar('porto', v)} sufixo={eua ? undefined : 'MZN'} />
             <Campo id={ids('entrega')} rotulo="Entrega interna" valor={form.entrega} aoMudar={(v) => mudar('entrega', v)} sufixo={eua ? undefined : 'MZN'} />
             <Campo id={ids('entrega-dom')} rotulo="Entrega ao domicílio" valor={form.entregaDom} aoMudar={(v) => mudar('entregaDom', v)} sufixo={eua ? undefined : 'MZN'} />
-            <Campo id={ids('alfandega')} rotulo="Alfândega (valor total)" valor={form.alfandega} aoMudar={(v) => mudar('alfandega', v)} sufixo={eua ? undefined : 'MZN'} />
-            <Campo id={ids('lucro')} rotulo="Lucro (valor total)" valor={form.lucro} aoMudar={(v) => mudar('lucro', v)} sufixo={eua ? undefined : 'MZN'} />
           </div>
 
           <div className="mt-5 grid grid-cols-2 gap-3 @xl:grid-cols-3">
@@ -1172,6 +1166,7 @@ export function CalculadoraCustoImportacao() {
                 <option value="cif">CIF: mercadorias + frete + seguro</option>
               </select>
             </div>
+            <Campo id={ids('alfandega')} rotulo="Alfândega (valor total)" valor={form.alfandega} aoMudar={(v) => mudar('alfandega', v)} sufixo={eua ? undefined : 'MZN'} />
             <Campo id={ids('perdas')} rotulo="Unidades que não consegue vender (%)" valor={form.perdasPct} aoMudar={(v) => mudar('perdasPct', v)} />
             <Campo id={ids('erro')} rotulo="Margem de erro (%)" valor={form.erroPct} aoMudar={(v) => mudar('erroPct', v)} />
             <Campo id={ids('outros')} rotulo="Outros encargos" valor={form.outros} aoMudar={(v) => mudar('outros', v)} sufixo={eua ? undefined : 'MZN'} />
