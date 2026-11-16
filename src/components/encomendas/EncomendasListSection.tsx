@@ -102,7 +102,7 @@ export function EncomendasListSection({ onNova, textoNova }: { onNova?: () => vo
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-4 lg:gap-6 items-start">
+    <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-4 lg:gap-6 items-start">
       <div className="space-y-3">
         <button type="button" onClick={() => (onNova ? onNova() : setCreatingNew(true))} className={`${panelBtnPrimary} w-full justify-center`}>
           <Plus className="w-4 h-4" /> {textoNova || 'Nova Encomenda'}
