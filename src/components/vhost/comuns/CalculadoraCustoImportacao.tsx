@@ -117,11 +117,13 @@ const ERROS: Record<CodigoUI, string> = {
   'sem-vendaveis': 'Cada linha precisa de pelo menos uma unidade vendável.',
 }
 
-// os custos da remessa de uma encomenda do site são só dessa encomenda: ao carregar outra começam a zero (não herdam os da anterior); as margens e os impostos são regras gerais
+// os valores da secção «Custos da remessa» de uma encomenda do site são só dessa encomenda e editam-se sempre: ao carregar outra, os custos começam a zero e as margens nos valores gerais
+// (não herdam os da anterior); guardam-se com a encomenda, por isso o que se escreve não volta atrás
 const CAMPOS_REMESSA = ['frete', 'seguro', 'corretor', 'porto', 'entrega', 'entregaDom', 'outros', 'alfandega'] as const
-type Custos = Record<(typeof CAMPOS_REMESSA)[number], string>
-const CUSTOS_ZERO = Object.fromEntries(CAMPOS_REMESSA.map((c) => [c, '0'])) as Custos
-const custosDe = (f: Form): Custos => Object.fromEntries(CAMPOS_REMESSA.map((c) => [c, f[c]])) as Custos
+const CAMPOS_PERCENTAGENS = ['erroPct', 'comissaoPct', 'perdasPct', 'margemPct'] as const
+type Custos = Record<(typeof CAMPOS_REMESSA)[number] | (typeof CAMPOS_PERCENTAGENS)[number], string>
+const CUSTOS_ZERO = Object.fromEntries(CAMPOS_REMESSA.map((c) => [c, '0'])) as Partial<Custos>
+const custosDe = (f: Form): Custos => Object.fromEntries([...CAMPOS_REMESSA, ...CAMPOS_PERCENTAGENS].map((c) => [c, f[c]])) as Custos
 type Rascunho = { linhas: LinhaForm[]; proximo: number; custos?: Custos }
 
 /** as unidades de uma encomenda do site são as que o cliente definiu (as do servidor): as linhas ligadas a ela voltam a tê-las sempre que se lê a encomenda; as antigas, sem ligação, ligam-se pelo nome */
@@ -457,6 +459,8 @@ export function CalculadoraCustoImportacao() {
   const [rascunhos, setRascunhos] = useState<Record<string, Rascunho>>({})
   // os custos da remessa da encomenda que está na calculadora: lêem-se com a lista e só se aplicam depois de o formulário ter lido os seus (senão estes passavam por cima)
   const custosLidos = useRef<Custos | null>(null)
+  // as margens gerais guardadas (as que valem sem encomenda): são o ponto de partida das margens de uma encomenda nova
+  const geraisLidos = useRef<Record<string, string>>({})
   const [custosProntos, setCustosProntos] = useState(false)
   // os valores do formulário também vêm do servidor: até chegarem os dois, a calculadora fica escondida (senão aparece primeiro o exemplo)
   const [formLido, setFormLido] = useState(false)
@@ -616,8 +620,9 @@ export function CalculadoraCustoImportacao() {
   const carregarEncomenda = async (e: EncomendaSite) => {
     const guardados: Record<string, Rascunho> = { ...rascunhos, [encomenda?.batchId ?? LIVRE]: { linhas, proximo: proximoId.current, custos: custosDe(form) } }
     const antes = guardados[e.batchId]
-    // os custos da remessa são desta encomenda: os que tinha guardados, ou a zero
-    setForm((f) => ({ ...f, ...(antes?.custos ?? CUSTOS_ZERO) }))
+    // os custos da remessa são desta encomenda: os que tinha guardados, ou a zero (e as margens gerais)
+    const gerais = Object.fromEntries(CAMPOS_PERCENTAGENS.filter((c) => geraisLidos.current[c] !== undefined).map((c) => [c, geraisLidos.current[c]]))
+    setForm((f) => ({ ...f, ...(antes?.custos ?? { ...CUSTOS_ZERO, ...gerais }) }))
     if (antes) {
       setLinhas(alinharComEncomenda(antes.linhas, e))
       proximoId.current = antes.proximo
@@ -1231,7 +1236,10 @@ export function CalculadoraCustoImportacao() {
           <p className={`${NOTA} mt-3`}>
             Os direitos e o imposto de importação calculam-se por linha. O seguro e as taxas dos EUA seguem o valor. O frete, o despachante, o porto, a entrega interna, a entrega ao domicílio e os outros encargos seguem o método escolhido.
           </p>
-          <GravarValorBrindes config={encomenda ? null : configSite} aoCarregar={(c) => setForm((x) => ({ ...x, ...c }))} aoLer={() => setFormLido(true)} />
+          <GravarValorBrindes config={encomenda ? null : configSite} aoCarregar={(c) => {
+            geraisLidos.current = c
+            setForm((x) => ({ ...x, ...c }))
+          }} aoLer={() => setFormLido(true)} />
         </div>
 
         {eua ? (
