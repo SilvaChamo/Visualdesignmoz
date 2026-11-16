@@ -9,6 +9,7 @@ import { carregarPerfilConta } from '@/lib/perfil-conta';
 import { resolveRoleForAuthUser } from '@/lib/server-auth-role';
 import { resolveEffectiveClientUserId } from '@/lib/client-impersonation';
 import { computeUnreadByBatch } from '@/lib/quotation-unread';
+import { valorBrindeSemIva } from '@/lib/valor-brinde';
 
 const VALID_PAYMENT_METHODS = ['mpesa', 'transferencia'];
 
@@ -137,6 +138,8 @@ export async function POST(request: NextRequest) {
       precoUnitario: number;
       quantidadeNum: number;
       sobConsulta: boolean;
+      /** nasceu por consulta: a equipa pode ajustar o valor depois (ver PATCH em admin/cotacoes) */
+      sobOriginal: boolean;
       totalMt: number;
     }[] = [];
     for (const raw of itens) {
@@ -155,14 +158,17 @@ export async function POST(request: NextRequest) {
         if (descricao.length > 255) {
           return NextResponse.json({ error: 'A descrição do pedido personalizado é demasiado longa (máx. 255 caracteres).' }, { status: 400 });
         }
+        // brinde do catálogo: o valor já está calculado (sem impressão), por isso não fica «sob consulta»
+        const valor = await valorBrindeSemIva(descricao);
         validatedItems.push({
           categoriaId: CUSTOM_CATEGORIA_ID,
           categoriaLabel: 'Pedido Personalizado',
           produto: descricao,
-          precoUnitario: 0,
+          precoUnitario: valor ?? 0,
           quantidadeNum,
-          sobConsulta: true,
-          totalMt: 0,
+          sobConsulta: valor === null,
+          sobOriginal: true,
+          totalMt: valor === null ? 0 : Math.round(valor * quantidadeNum * 100) / 100,
         });
         continue;
       }
@@ -182,6 +188,7 @@ export async function POST(request: NextRequest) {
         precoUnitario: found.item.price,
         quantidadeNum,
         sobConsulta,
+        sobOriginal: sobConsulta,
         totalMt,
       });
     }
@@ -203,7 +210,7 @@ export async function POST(request: NextRequest) {
     const metodoPagamento =
       rawMetodoPagamento && validatedItems.some((i) => !i.sobConsulta) ? (rawMetodoPagamento as string) : null;
 
-    const rows = validatedItems.map(({ categoriaId, categoriaLabel, produto, precoUnitario, quantidadeNum, sobConsulta, totalMt }) => ({
+    const rows = validatedItems.map(({ categoriaId, categoriaLabel, produto, precoUnitario, quantidadeNum, sobConsulta, sobOriginal, totalMt }) => ({
       user_id: user.id,
       batch_id: batchId,
       empresa,
@@ -224,7 +231,7 @@ export async function POST(request: NextRequest) {
       data_limite_entrega: dataLimiteEntrega,
       total_mt: totalMt,
       sob_consulta: sobConsulta,
-      sob_consulta_original: sobConsulta,
+      sob_consulta_original: sobOriginal,
       notas: notas || null,
       status: metodoPagamento ? 'payment_selected' : 'pending',
       metodo_pagamento: metodoPagamento,
