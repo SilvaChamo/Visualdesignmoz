@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { FileText, Trash2, XCircle, Plus, X, Pencil } from 'lucide-react';
+import { FileText, Trash2, XCircle, Plus, X, Pencil, Eye } from 'lucide-react';
 import { formatMt } from '@/lib/pricing-catalog';
 import { statusMeta } from '@/lib/quotation-status-labels';
 import { groupIntoBatches, type BatchItem } from '@/lib/quotation-batch';
@@ -57,6 +57,7 @@ export function EncomendasListSection({ onNova, textoNova }: { onNova?: () => vo
   const numeros = useBatchNumeros();
 
   const [editarToken, setEditarToken] = useState(0);
+  const [verToken, setVerToken] = useState(0);
   const selectedBatch = batches.find((b) => b.items.some((i) => i.id === selectedId));
 
   const handleDeleteFromCard = async (e: React.MouseEvent, anchorId: string) => {
@@ -168,10 +169,19 @@ export function EncomendasListSection({ onNova, textoNova }: { onNova?: () => vo
                         Cancelar
                       </button>
                     )}
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); setCreatingNew(false); setSelectedId(anchor.id); setVerToken((n) => n + 1); }}
+                      className="inline-flex items-center gap-1 rounded-md border border-zinc-300 px-2 py-0.5 text-[11px] font-bold text-gray-700 hover:bg-gray-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800 transition-colors"
+                      title="Ver a encomenda e a cotação"
+                    >
+                      <Eye className="w-3 h-3" />
+                      Ver
+                    </button>
                     {(batch.status === 'pending' || batch.status === 'rejected') && (
                       <button
                         type="button"
-                        onClick={(e) => { e.stopPropagation(); setSelectedId(anchor.id); setEditarToken((n) => n + 1); }}
+                        onClick={(e) => { e.stopPropagation(); setCreatingNew(false); setSelectedId(anchor.id); setEditarToken((n) => n + 1); }}
                         className="inline-flex items-center gap-1 rounded-md border border-zinc-300 px-2 py-0.5 text-[11px] font-bold text-gray-700 hover:bg-gray-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800 transition-colors"
                       >
                         <Pencil className="w-3 h-3" />
@@ -218,6 +228,7 @@ export function EncomendasListSection({ onNova, textoNova }: { onNova?: () => vo
             quotationId={selectedBatch.primaryItem.id}
             onChanged={fetchQuotations}
             editarToken={editarToken}
+            verToken={verToken}
           />
         ) : (
           !loading && (
