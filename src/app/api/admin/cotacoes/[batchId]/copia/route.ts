@@ -7,6 +7,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const MAX_BYTES = 2_000_000
 
 export async function PUT(req: Request, { params }: { params: Promise<{ batchId: string }> }) {
+  // HTML cru que se mostra a outros: só o administrador o escreve (o dono da encomenda edita pelo estado em JSON, nunca por aqui)
   const auth = await requireAdminOrReseller()
   if ('error' in auth) return auth.error
   if (auth.user.role !== 'admin') return NextResponse.json({ success: false, error: 'Acção restrita a administradores.' }, { status: 403 })

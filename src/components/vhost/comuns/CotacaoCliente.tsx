@@ -78,7 +78,9 @@ const lerNumero = (s: string, padrao: number) => {
   return s.trim() !== '' && Number.isFinite(v) && v >= 0 ? v : padrao
 }
 
-export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda }: { itens: ItemCotacao[]; moeda: string; encomenda?: { batchId: string; cliente: string; contacto: string; numero: string; email?: string; itens?: { id: string; nome: string }[] }; aoRemover?: (id: number) => void; aoTrocar?: (id: number, sku: string) => Promise<void> }) {
+export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda, modoCliente }: { itens: ItemCotacao[]; moeda: string; /** painel do cliente: a mesma folha e as mesmas opções de edição, guardada por encomenda */ modoCliente?: boolean; encomenda?: { batchId: string; cliente: string; contacto: string; numero: string; email?: string; itens?: { id: string; nome: string }[] }; aoRemover?: (id: number) => void; aoTrocar?: (id: number, sku: string) => Promise<void> }) {
+  const chaveEstado = modoCliente && encomenda ? (`cotacao:${encomenda.batchId}` as const) : ('cotacao' as const)
+  const chaveImagens = modoCliente && encomenda ? (`cotacao-imagens:${encomenda.batchId}` as const) : ('cotacao-imagens' as const)
   const [cliente, setCliente] = useState('')
   const [contacto, setContacto] = useState('')
   const [numero, setNumero] = useState('')
@@ -110,9 +112,17 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda }:
   useEffect(() => {
     if (cargaFeita.current) return
     cargaFeita.current = true
-    lerEstadoSeguro<Partial<typeof estado>>('cotacao').then(({ ok, estado: g }) => {
+    lerEstadoSeguro<Partial<typeof estado>>(chaveEstado).then(async ({ ok, estado: g0 }) => {
       // sem conseguir ler o que estava guardado (sessão expirada), nada se grava por cima: fica por carregar
       if (!ok) return
+      let g = g0
+      if (modoCliente && encomenda) {
+        // primeira vez no painel do cliente: parte do que a equipa já deixou nesta encomenda (se a tinha na calculadora), senão dos dados da encomenda
+        if (!g) {
+          const antes = await lerEstadoSeguro<Partial<typeof estado>>('cotacao')
+          g = antes.ok && antes.estado?.chave === encomenda.batchId ? antes.estado : { cliente: encomenda.cliente, contacto: encomenda.contacto }
+        }
+      }
       if (g) {
         setCliente(g.cliente ?? '')
         setContacto(g.contacto ?? '')
@@ -131,7 +141,7 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda }:
       }
       setCarregado(true)
     })
-    lerEstadoSeguro<Record<number, string>>('cotacao-imagens').then(({ ok, estado: g }) => ok && g && setImagens(g))
+    lerEstadoSeguro<Record<number, string>>(chaveImagens).then(({ ok, estado: g }) => ok && g && setImagens(g))
   }, [])
   // ao carregar uma encomenda do site na calculadora, a cotação passa a ser a dela (empresa, responsável e número); ao abrir a página não se mexe no que está guardado
   const encomendaAnterior = useRef(encomenda?.batchId)
@@ -146,7 +156,7 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda }:
     setImagens({})
   }, [encomenda])
   const gravar = async () => {
-    const ok = await gravarEstado('cotacao', estado)
+    const ok = await gravarEstado(chaveEstado, estado)
     if (!ok) setAviso('Não foi possível gravar a cotação no servidor.')
     return ok
   }
@@ -200,6 +210,7 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda }:
   // shortcut: liga cada linha da cotação à da encomenda pelo nome do produto; se ficarem sem par (nome repetido a mais), essas linhas ficam como estavam
   const precosFixados = useRef<Record<string, number>>({})
   const fixarPrecos = () => {
+    if (modoCliente) return
     const usadas = new Set<string>()
     for (const l of rotulos) {
       const original = itens.find((i) => i.id === l.id)
@@ -211,7 +222,7 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda }:
       fetch('/api/admin/cotacoes', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: par.id, precoUnitarioMt: l.preco, semAviso: true }) }).catch(() => undefined)
     }
   }
-  const copiaChave = valido && !editar && encomenda ? JSON.stringify([encomenda.batchId, estado, itens]) : ''
+  const copiaChave = valido && !editar && encomenda && !modoCliente ? JSON.stringify([encomenda.batchId, estado, itens]) : ''
   useEffect(() => {
     if (!copiaChave || !encomenda) return
     const t = window.setTimeout(() => {
@@ -242,7 +253,7 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda }:
         if (!j.numero) throw new Error()
         setChave(k)
         setNumero(j.numero)
-        return gravarEstado('cotacao', { ...estado, chave: k, numero: j.numero })
+        return gravarEstado(chaveEstado, { ...estado, chave: k, numero: j.numero })
       })
       .catch(() => setAviso('Não foi possível obter o número da cotação do sistema.'))
       .finally(() => {
@@ -255,7 +266,7 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda }:
   const estadoTexto = JSON.stringify(estado)
   useEffect(() => {
     if (!carregado) return
-    const t = window.setTimeout(() => void gravarEstado('cotacao', estado), 600)
+    const t = window.setTimeout(() => void gravarEstado(chaveEstado, estado), 600)
     return () => window.clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [carregado, estadoTexto])
@@ -268,7 +279,7 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda }:
       imagensLidas.current = true
       return
     }
-    const t = window.setTimeout(() => void gravarEstado('cotacao-imagens', imagens), 600)
+    const t = window.setTimeout(() => void gravarEstado(chaveImagens, imagens), 600)
     return () => window.clearTimeout(t)
   }, [carregado, imagens])
 

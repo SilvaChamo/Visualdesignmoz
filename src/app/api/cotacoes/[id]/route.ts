@@ -7,6 +7,7 @@ import { QUOTATION_ATTACHMENTS_BUCKET, extractStoragePath } from '@/lib/quotatio
 import { QUOTATION_LAYOUTS_BUCKET } from '@/lib/quotation-layouts-bucket';
 import { computeBatchStatus } from '@/lib/quotation-status-labels';
 import { resolveRoleForAuthUser } from '@/lib/server-auth-role';
+import { valorBrindeSemIva } from '@/lib/valor-brinde';
 
 // Uma encomenda (linha + irmãs do mesmo batch) — usada pelo documento de
 // cotação e pelo painel de detalhe. Consulta com service role (não a sessão
@@ -77,9 +78,19 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: 'Não foi possível encontrar esta cotação.' }, { status: 404 });
     }
 
+    // linhas de brindes ainda sem preço: o valor do catálogo, só para mostrar (não se grava) — deixa a cotação editável com valores
+    const estimativa: Record<string, number> = {};
+    for (const i of items) {
+      if (i.sob_consulta && !(Number(i.preco_unitario_mt) > 0)) {
+        const v = await valorBrindeSemIva(String(i.produto));
+        if (v) estimativa[i.id] = v;
+      }
+    }
+
     return NextResponse.json({
       success: true,
       items,
+      estimativa,
       invoiceNumber: invoices?.find((i) => i.phase === 'advance')?.invoice_number ?? null,
       remainderInvoiceNumber: invoices?.find((i) => i.phase === 'remainder')?.invoice_number ?? null,
       payments: payments ?? [],
