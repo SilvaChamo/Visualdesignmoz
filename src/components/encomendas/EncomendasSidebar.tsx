@@ -37,7 +37,7 @@ export function EncomendasSidebar({
 
   return (
     <div
-      className="font-panel relative z-50 flex h-screen shrink-0 flex-col overflow-visible border-r border-zinc-200 bg-white transition-all duration-300 dark:border-zinc-800 dark:bg-zinc-950"
+      className="font-panel relative z-50 flex h-full shrink-0 flex-col overflow-visible border-r border-zinc-200 bg-white transition-all duration-300 dark:border-zinc-800 dark:bg-zinc-950"
       style={{ width: `${currentSidebarWidth}px` }}
     >
       <div
