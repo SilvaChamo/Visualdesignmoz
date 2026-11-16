@@ -222,7 +222,7 @@ export function CotacaoCliente({ itens, moeda, aoRemover, aoTrocar, encomenda, m
       fetch('/api/admin/cotacoes', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: par.id, precoUnitarioMt: l.preco, semAviso: true }) }).catch(() => undefined)
     }
   }
-  const copiaChave = valido && !editar && encomenda ? JSON.stringify([encomenda.batchId, estado, itens]) : ''
+  const copiaChave = valido && !editar && encomenda && !modoCliente ? JSON.stringify([encomenda.batchId, estado, itens]) : ''
   useEffect(() => {
     if (!copiaChave || !encomenda) return
     const t = window.setTimeout(() => {
