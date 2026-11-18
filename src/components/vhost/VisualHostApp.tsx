@@ -1818,15 +1818,43 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
 
         {/* Barra de baixo (só no telemóvel) */}
         <nav className="tabbar" id="tabbar">
-          {/* sem o Início: a casa já está na faixa por baixo da barra de cima (Silva, 16/10/2026) */}
-          {/* só as páginas que o plano da conta deixa ver (Admin › Acessos por plano) */}
-          {/* o último botão abre o menu extra (Webmail, Mailmarketing e phpMyAdmin: o grupo «Extras»); o menu completo abre pelo ☰ da barra de cima (Silva, 26/10/2026) */}
-          {[...TABBAR[level].filter(([id]) => id !== 'inicio' && vh.hasFeat(findItem(level, id)?.feat, id)), ...(extrasVisiveis.length ? [['extra', 'fa-puzzle-piece', 'Extra'] as [string, string, string]] : [])].map(([id, fa, label]) => (
-            <a key={id} className={s.page === id ? 'on' : ''} onClick={() => (id === 'extra' ? setGavetaExtra(true) : go(id))}>
-              <i className={'fa-solid ' + fa} />
-              {t(label)}
-            </a>
-          ))}
+          {allowed.length > 1 ? (
+            // Admin e Revenda (que têm os dois níveis): em vez dos 4 menus, só «Admin» e «Gestão», com o «Início» no meio
+            // (Silva, 18/11/2026). Os restantes painéis ficam como estavam.
+            <>
+              {(() => {
+                const nivelAdmin = allowed.find((k) => k !== 'utilizador') ?? allowed[0];
+                return (
+                  <>
+                    <a className={level === nivelAdmin && s.page !== 'inicio' ? 'on' : ''} onClick={() => setLevel(nivelAdmin)}>
+                      <i className="fa-solid fa-user-shield" />
+                      {t(nomeNivel(nivelAdmin))}
+                    </a>
+                    <a className={s.page === 'inicio' ? 'on' : ''} onClick={() => go('inicio')}>
+                      <i className="fa-solid fa-house" />
+                      {t('Início')}
+                    </a>
+                    <a className={level === 'utilizador' && s.page !== 'inicio' ? 'on' : ''} onClick={() => setLevel('utilizador')}>
+                      <i className="fa-solid fa-sliders" />
+                      {t(nomeNivel('utilizador'))}
+                    </a>
+                  </>
+                );
+              })()}
+            </>
+          ) : (
+            <>
+              {/* sem o Início: a casa já está na faixa por baixo da barra de cima (Silva, 16/10/2026) */}
+              {/* só as páginas que o plano da conta deixa ver (Admin › Acessos por plano) */}
+              {/* o último botão abre o menu extra (Webmail, Mailmarketing e phpMyAdmin: o grupo «Extras»); o menu completo abre pelo ☰ da barra de cima (Silva, 26/10/2026) */}
+              {[...TABBAR[level].filter(([id]) => id !== 'inicio' && vh.hasFeat(findItem(level, id)?.feat, id)), ...(extrasVisiveis.length ? [['extra', 'fa-puzzle-piece', 'Extra'] as [string, string, string]] : [])].map(([id, fa, label]) => (
+                <a key={id} className={s.page === id ? 'on' : ''} onClick={() => (id === 'extra' ? setGavetaExtra(true) : go(id))}>
+                  <i className={'fa-solid ' + fa} />
+                  {t(label)}
+                </a>
+              ))}
+            </>
+          )}
         </nav>
 
         {/* menu deslizante do ☰ (telemóvel): o mesmo conteúdo do "Mais" */}
