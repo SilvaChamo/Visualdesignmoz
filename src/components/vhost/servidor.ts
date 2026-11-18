@@ -61,6 +61,8 @@ export interface Pessoa {
   nome: string;
   email: string;
   empresa: string;
+  /** super administrador: o único que cria administradores (os outros administradores são normais) */
+  superAdmin?: boolean;
 }
 
 /** Resposta de erro da API (sem sessão, sem acesso, servidor indisponível) */

@@ -5,12 +5,13 @@ import {
   type PanelMenuItemDef,
 } from '@/lib/panel-admin-menu';
 
-/** Níveis de revenda — Essencial (limitado) · Expandido (mais contas e espaço). */
-export type ResellerTier = 'essencial' | 'expandido';
+/** Níveis de revenda — Essencial (limitado) · Expandido (mais contas e espaço) · Completo (sem limites). */
+export type ResellerTier = 'essencial' | 'expandido' | 'completo';
 
 export const RESELLER_TIER_LABELS: Record<ResellerTier, string> = {
   essencial: 'Revendedor Essencial',
   expandido: 'Revendedor Expandido',
+  completo: 'Revendedor Completo',
 };
 
 export const RESELLER_TIER_LIMITS: Record<
@@ -19,6 +20,8 @@ export const RESELLER_TIER_LIMITS: Record<
 > = {
   essencial: { maxChildAccounts: 15, maxDiskGb: 50, label: RESELLER_TIER_LABELS.essencial },
   expandido: { maxChildAccounts: 150, maxDiskGb: 500, label: RESELLER_TIER_LABELS.expandido },
+  // Completo: sem limites de contas nem de espaço (como no pacote «Revenda Completo» do painel)
+  completo: { maxChildAccounts: Number.POSITIVE_INFINITY, maxDiskGb: Number.POSITIVE_INFINITY, label: RESELLER_TIER_LABELS.completo },
 };
 
 export type PanelCapabilities = {
@@ -76,7 +79,8 @@ const MANAGER_DENIED_SUB_IDS = new Set([
 ]);
 
 export function normalizeResellerTier(value: unknown): ResellerTier {
-  return String(value || '').toLowerCase() === 'expandido' ? 'expandido' : 'essencial';
+  const v = String(value || '').toLowerCase();
+  return v === 'expandido' || v === 'completo' ? v : 'essencial';
 }
 
 export function resolvePanelCapabilities(input: {
@@ -205,7 +209,7 @@ export function assertResellerCanCreateChildAccount(params: {
   if (params.currentChildCount >= limits.maxChildAccounts) {
     return {
       ok: false,
-      error: `Limite de contas do plano ${limits.label} (${limits.maxChildAccounts}). Actualize para Expandido.`,
+      error: `Limite de contas do plano ${limits.label} (${limits.maxChildAccounts}). Peça ao administrador para mudar para um pacote de revenda maior.`,
     };
   }
   return { ok: true };

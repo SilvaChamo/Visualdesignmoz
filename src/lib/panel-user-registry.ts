@@ -8,6 +8,16 @@ export const ADMIN_BOOTSTRAP_EMAILS = new Set([
   'admin@visualdesignmoz.com',
 ]);
 
+/** Super administrador (Silva, 18/11/2026): é o único que cria administradores e que mexe nas contas deles. Os administradores que
+ *  ele cria são administradores normais. Lista por e-mail em SUPER_ADMIN_EMAILS (separada por vírgulas); sem ela, só o do Silva. */
+export const SUPER_ADMIN_EMAILS = new Set(
+  (process.env.SUPER_ADMIN_EMAILS || 'silva.chamo@gmail.com')
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean),
+);
+export const isSuperAdmin = (email?: string | null): boolean => SUPER_ADMIN_EMAILS.has((email || '').trim().toLowerCase());
+
 type PanelRegistry = {
   managers: Set<string>;
   resellers: Set<string>;

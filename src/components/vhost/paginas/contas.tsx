@@ -29,7 +29,7 @@ function verPath(s: St, u: string) {
   if (s.level === 'revenda') return '/revenda/clientes/' + enc(u);
   return (a?.role === 'revenda' ? '/admin/revendedores/' : a?.role === 'admin' ? '/admin/administradores/' : '/admin/utilizadores/') + enc(u);
 }
-const pacoteRevendaDe = (s: St, u: string): PacoteRevenda => s.db.rcustom[u] || s.db.rpkgs[s.acc[u]?.pkg] || s.db.rpkgs['Completo'] || pacoteRevendaVazio();
+const pacoteRevendaDe = (s: St, u: string): PacoteRevenda => s.db.rcustom[u] || s.db.rpkgs[s.acc[u]?.pkg] || s.db.rpkgs['Revenda Completo'] || pacoteRevendaVazio();
 /** Limites da conta (administrador: sem limites) */
 function limConta(s: St, u: string): Record<string, Lim> | null {
   const a = s.acc[u];
@@ -189,12 +189,16 @@ function DescerPlanoModal({ contas, pacote, oQue }: { contas: string[]; pacote: 
 function MudarPacoteModal({ users }: { users: string[] }) {
   const vh = useVH();
   const { s, t, closeM } = vh;
-  const nomes = Object.keys(pacotesDeCliente(s));
+  // Revendedores têm os 3 pacotes de revenda (Essencial, Expandido, Completo); os outros, os pacotes de cliente. Não se misturam.
+  const revendas = users.filter((u) => s.acc[u]?.role === 'revenda').length;
+  const misturado = revendas > 0 && revendas < users.length;
+  const nomes = Object.keys(revendas === users.length && users.length ? s.db.rpkgs : pacotesDeCliente(s));
   const [p, setP] = useState(nomes[0]);
   return (
     <>
       <h3>{t('Mudar pacote')}</h3>
       <p style={{ color: 'var(--muted)', marginBottom: 12 }}>Contas: {users.join(', ')}</p>
+      {misturado && <p style={{ color: 'var(--red)', marginBottom: 12 }}>{t('Escolha só revendedores ou só contas de cliente: têm pacotes diferentes.')}</p>}
       <div className="f">
         <label>{t('Novo pacote')}</label>
         <select value={p} onChange={(e) => setP(e.target.value)}>
@@ -209,6 +213,7 @@ function MudarPacoteModal({ users }: { users: string[] }) {
         </button>
         <button
           className="btn r"
+          disabled={misturado}
           onClick={() => {
             closeM();
             void mudarPacote(vh, users, p);
@@ -330,7 +335,7 @@ function ListaContas({ kind }: { kind: Kind }) {
       : kind === 'revenda'
         ? [
             { t: 'Adicionar cliente', fa: 'fa-user-plus', sempre: true, run: ir('/' + s.level + '/novo-cliente') },
-            { t: 'Novo administrador', fa: 'fa-user-gear', sempre: true, run: ir('/admin/administradores/novo') },
+            ...(s.pessoa?.superAdmin ? [{ t: 'Novo administrador', fa: 'fa-user-gear', sempre: true, run: ir('/admin/administradores/novo') }] : []),
           ]
         : kind === 'admin'
           ? [
@@ -345,7 +350,7 @@ function ListaContas({ kind }: { kind: Kind }) {
     { t: 'Reativar', fa: 'fa-play', run: (k) => estado(k, 'ok') },
   ];
   // Mudar pacote também na lista de todas as contas (antes só em "Os meus clientes")
-  if (kind === 'meus' || kind === 'todos' || kind === 'profissional') bulk.push({ t: 'Mudar pacote', fa: 'fa-box', run: (k) => openM(<MudarPacoteModal users={k} />) });
+  if (kind === 'meus' || kind === 'todos' || kind === 'profissional' || kind === 'revenda') bulk.push({ t: 'Mudar pacote', fa: 'fa-box', run: (k) => openM(<MudarPacoteModal users={k} />) });
   if (kind === 'meus') {
     bulk.push({ t: 'Mudar IP', fa: 'fa-ethernet', run: (k) => openM(<MudarIpModal users={k} />) });
   }
@@ -802,13 +807,13 @@ export function NovaConta({ tipo, embutido }: { tipo: TipoNova; embutido?: { dom
     if (pass.length < 8) return toast('A palavra-passe precisa de pelo menos 8 caracteres');
     const d = dom.trim().toLowerCase();
     if (tipo !== 'admin' && !/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(d)) return toast('Escreva um domínio válido');
-    // Revendedores e administradores precisam também de um login no site (papel e pacote de revenda): ainda não
-    if (tipo !== 'cliente') return toast('Criar ' + (tipo === 'revenda' ? 'revendedores' : 'administradores') + ' ainda não está ligado ao servidor');
+    // Só o super administrador cria administradores (o servidor confirma); os que cria são administradores normais
+    if (tipo === 'admin' && !s.pessoa?.superAdmin) return toast('Só o super administrador cria administradores');
     if (custom) return toast('Os limites próprios ainda não chegam ao servidor: escolha um pacote');
     if (onde?.bloqueia) return toast(onde.bloqueia);
     const comPassagem = !embutido && !!onde?.passa && passar;
     // com passagem, a conta nasce sem domínio e o domínio passa para ela a seguir (cópia e desfazer no servidor)
-    noServidor(vh, { acao: 'criar', criar: { user: u, nome: nome.trim(), email: email.trim(), senha: pass, dominio: comPassagem || embutido ? '' : d, pacote: pk } }, () => ROLES[role] + ' ' + u + ' criado no servidor').then(async (feitas) => {
+    noServidor(vh, { acao: 'criar', criar: { user: u, nome: nome.trim(), email: email.trim(), senha: pass, dominio: comPassagem || embutido ? '' : d, pacote: pk, tipo: tipo === 'cliente' ? 'cliente' : tipo } }, () => ROLES[role] + ' ' + u + ' criado no servidor').then(async (feitas) => {
       if (!feitas.length) return;
       if (embutido) return embutido.aoCriar(u);
       if (comPassagem && onde?.prev) {
@@ -1033,9 +1038,9 @@ export function contas(kind: Kind): ScreenFn {
         novoCliente('r')
       ) : kind === 'revenda' ? (
         botao('r', b + '/novo', 'Novo revendedor', 'fa-user-tie')
-      ) : (
+      ) : s.pessoa?.superAdmin ? (
         botao('r', b + '/novo', 'Novo administrador', 'fa-user-gear')
-      );
+      ) : undefined;
     const v = kind === 'meus' ? vagas(s, me) : null;
     const desc = v && v.limite !== null ? t('Contas de cliente: ' + v.usadas + ' de ' + v.limite + ' · pacote ' + v.plano) : undefined;
     return { title: listaT, desc, actions, body: <ListaContas kind={kind} /> };
