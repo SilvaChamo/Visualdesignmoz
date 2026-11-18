@@ -29,45 +29,32 @@ jobs:
           command_timeout: 5m
           script: |
             set -u
-            EX=$(command -v exim4 || command -v exim)
-            echo "### exim: $EX · $($EX -bV 2>&1 | head -1) · fila: $($EX -bpc 2>&1) mensagens"
-            echo; echo "### Como o Exim encaminha (exim -bt)"
-            for E in silva.chamo@visualdesignmoz.com Mailer-Daemon@visualdesignmoz.com postmaster@visualdesignmoz.com silva.chamo@basededadosagro.com; do
-              echo "--- $E"; $EX -bt "$E" 2>&1 | head -8
-            done
-            echo; echo "### Domínios de e-mail de cada conta do servidor (Hestia)"
-            for F in /usr/local/hestia/data/users/*/mail.conf; do
-              U=$(echo "$F" | cut -d/ -f6)
-              echo "conta $U: $(grep -o "DOMAIN='[^']*'" "$F" | cut -d"'" -f2 | tr '\n' ' ')"
-            done
-            echo; echo "### Pastas de domínios do Exim e caixas (só nomes)"
-            for D in visualdesignmoz.com basededadosagro.com; do
-              echo "--- $D: $(ls -ld /etc/exim4/domains/$D 2>&1 | awk '{print $1,$3,$NF}')"
-              echo "    ficheiros: $(ls /etc/exim4/domains/$D 2>&1 | tr '\n' ' ')"
-              echo "    aliases: $(cut -c1-150 /etc/exim4/domains/$D/aliases 2>/dev/null | head -8 | tr '\n' ';')"
-              echo "    caixas (passwd, só os nomes): $(cut -d: -f1 /etc/exim4/domains/$D/passwd 2>/dev/null | tr '\n' ' ')"
-            done
-            echo; echo "### Registos do Exim: o endereço, o Mailer-Daemon e o basededadosagro (últimos)"
+            EX=/usr/sbin/exim4
+            echo "### Como o Exim decide (routers) para silva.chamo@visualdesignmoz.com"
+            $EX -d+route -bt silva.chamo@visualdesignmoz.com 2>&1 | grep -iE "router|local_domains|domain|check_local|require_files|file|passwd|transport|lookup|failed|deferred" | cut -c1-200 | head -45
+            echo; echo "### Routers e autenticadores do Exim (nomes e linhas-chave)"
+            T=/etc/exim4/exim4.conf.template
+            grep -nE '^(begin |[a-zA-Z_0-9]+:[[:space:]]*$)' $T | tr '\n' ' ' | cut -c1-1800; echo
+            echo "--- trecho do router localuser:"; awk '/^localuser:/{f=1} f{print; if(++n>14) exit}' $T
+            echo "--- trecho do router dovecot_virtual_delivery:"; awk '/^dovecot_virtual_delivery:/{f=1} f{print; if(++n>14) exit}' $T
+            echo "--- local_domains / domínios locais:"; grep -nE 'domainlist (local_domains|relay_to_domains)|^hostlist|MAIN_LOCAL_DOMAINS' $T | cut -c1-200 | head -8
+            echo "--- utilizador de sistema com este nome? $(getent passwd silva.chamo | cut -d: -f1,3,6)"
+            echo; echo "### Fila do Exim (12 mensagens): remetente, destinatário, idade, estado"
+            $EX -bp 2>&1 | head -60 | cut -c1-200
+            echo; echo "### Registos de hoje e de ontem: autenticação e envios de silva.chamo (qualquer domínio)"
             L=/var/log/exim4/mainlog
-            echo "--- silva.chamo (últimas 25):"; grep -i "silva.chamo" $L | tail -25 | cut -c1-260
-            echo "--- Mailer-Daemon@visualdesignmoz (últimas 10):"; grep -i "mailer-daemon@visualdesignmoz" $L | tail -10 | cut -c1-260
-            echo "--- falhas (** e ==) recentes:"; { zcat -f ${L}.1.gz 2>/dev/null | tail -n 4000; tail -n 6000 $L; } | grep -E ' (\*\*|==) ' | tail -25 | cut -c1-300
-            echo "--- basededadosagro nos registos (últimas 15):"; grep -i "basededadosagro" $L | tail -15 | cut -c1-260
-            echo "--- rejeições (rejectlog, últimas 15):"; tail -n 15 /var/log/exim4/rejectlog 2>/dev/null | cut -c1-260
-            echo; echo "### Configuração do Exim que menciona os dois domínios (sem segredos)"
-            grep -rnE "visualdesignmoz|basededadosagro" /etc/exim4/exim4.conf.template /etc/exim4/conf.d /etc/exim4/*.conf /etc/exim4/*.list 2>/dev/null | cut -c1-200 | head -20
-            echo "--- remetente/relay: $(grep -nE '^(smtp_relay|dkim|hide mysql|primary_hostname|qualify_domain|MAIN_.*DOMAIN)' /etc/exim4/exim4.conf.template 2>/dev/null | head -8 | tr '\n' ';')"
-            echo; echo "### DNS de envio (por este servidor)"
-            IP=$(curl -s -m 8 https://api.ipify.org)
-            echo "IP público: $IP · PTR: $(dig +short -x $IP | head -2 | tr '\n' ' ') · hostname: $(hostname -f)"
-            for D in visualdesignmoz.com basededadosagro.com; do
-              echo "--- $D"
-              echo "MX:    $(dig +short MX $D | tr '\n' ';')"
-              echo "SPF:   $(dig +short TXT $D | grep -i 'v=spf1' | tr '\n' ';')"
-              echo "DKIM:  $(dig +short TXT mail._domainkey.$D | cut -c1-80 | tr '\n' ';')"
-              echo "DMARC: $(dig +short TXT _dmarc.$D | tr '\n' ';')"
+            for F in $L ${L}.1; do [ -f $F ] && { echo "--- $F: $(wc -l < $F) linhas"; grep -ciE "silva\.chamo" $F | sed 's/^/ocorrências de silva.chamo: /'; grep -iE "silva\.chamo" $F | tail -12 | cut -c1-280; }; done
+            echo "--- autenticações recentes (A=) com falhas:"; grep -E "authenticator failed|A=.*(dovecot|login|plain)" $L | tail -12 | cut -c1-250
+            echo "--- todas as linhas com Mailer-Daemon@visualdesignmoz hoje/ontem:"; { cat ${L}.1 2>/dev/null; cat $L; } | grep -i "mailer-daemon@visualdesignmoz" | tail -8 | cut -c1-250
+            echo "--- paniclog do Exim:"; tail -n 10 /var/log/exim4/paniclog 2>/dev/null | cut -c1-250
+            echo; echo "### Dovecot (autenticação) e submissão"
+            for F in /var/log/dovecot.log /var/log/mail.log; do [ -f $F ] && { echo "--- $F (silva.chamo, últimas 15):"; grep -i "silva.chamo" $F | tail -15 | cut -c1-260; }; done
+            echo "--- portas à escuta: $(ss -ltn 2>/dev/null | awk '{print $4}' | grep -E ':(25|465|587|993|143)$' | sort -u | tr '\n' ' ')"
+            echo; echo "### Certificado do servidor de correio (o nome que o cliente vê em 587/465)"
+            for H in mail.visualdesignmoz.com mail.basededadosagro.com; do
+              echo "--- $H: $(getent hosts $H | awk '{print $1}' | tr '\n' ' ')"
+              echo | timeout 8 openssl s_client -starttls smtp -connect $H:587 -servername $H 2>/dev/null | openssl x509 -noout -subject -ext subjectAltName 2>/dev/null | tr '\n' ' ' | cut -c1-260; echo
             done
-            echo; echo "### Ligação ao exterior (porta 25 de saída) e listas negras do IP"
-            timeout 8 bash -c 'exec 3<>/dev/tcp/gmail-smtp-in.l.google.com/25 && head -c 60 <&3' 2>&1 | head -1
-            R=$(echo $IP | awk -F. '{print $4"."$3"."$2"."$1}')
-            for BL in zen.spamhaus.org b.barracudacentral.org bl.spamcop.net; do echo "$BL: $(dig +short $R.$BL | head -2 | tr '\n' ' ')(vazio = fora da lista)"; done
+            echo; echo "### O que o servidor configura para o cliente de e-mail (autoconfig) da conta"
+            grep -rn "basededadosagro" /etc/nginx/conf.d /etc/nginx/vd* /etc/dovecot/conf.d /etc/dovecot/*.conf 2>/dev/null | cut -c1-200 | head -10
+            echo "autoconfig/autodiscover: $(curl -sk -m 8 https://autoconfig.visualdesignmoz.com/mail/config-v1.1.xml?emailaddress=silva.chamo@visualdesignmoz.com | grep -oE '<(hostname|username|domain)>[^<]*<' | head -8 | tr '\n' ' ')"
