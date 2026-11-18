@@ -1070,3 +1070,13 @@ O correio (**Contas de e-mail**, onde se abre o VhostMail, e o **Webmail**) abre
 só «Contas de e-mail». No servidor, `/api/vhost/vhostmail/caixa` lê o servidor na hora antes de recusar uma caixa recém-criada
 (no máximo uma vez por minuto por sessão e caixa). As configurações de entrada (IMAP, SMTP, webmail, ficheiro para iPhone/Mac)
 estão em «Contas de e-mail», a mesma página em todos os painéis.
+
+# VhostMail: avisos com o VhostMail fechado — Web Push (Silva, 18/11/2026)
+O navegador subscreve-se no servidor para cada caixa (`/api/vhost/push`; subscrições, chaves VAPID e último UID visto em
+`/usr/local/vhost/push-*.json`). Um vigia dentro do site (`iniciarVigia` em `src/lib/vhost-push.ts`, arrancado por `instrumentation-node.ts`, só em
+produção, de minuto a minuto) pergunta a cada caixa **com aparelhos subscritos** qual é o próximo UID da entrada e, se subiu, envia o aviso
+(remetente e assunto). `VHOST_PUSH=0` desliga o vigia. A cifra e o VAPID estão em `src/lib/web-push.ts` **sem dependências** (módulo `crypto`
+do Node; o deploy usa `npm ci` e o `package-lock.json` não se mexe por isto) e foram validados contra a biblioteca de referência `http_ece`.
+O service worker `public/vhostmail-sw.js` mostra o aviso (não o repete se o VhostMail estiver à vista e com foco) e, ao tocar, abre a caixa.
+Ao abrir o VhostMail com a permissão por dar, aparece logo o pop-up «Avisos de e-mail novo» (o mesmo estilo do das Novidades).
+

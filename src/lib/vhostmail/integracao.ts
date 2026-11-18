@@ -157,11 +157,45 @@ export const INTEGRACAO_JS = String.raw`
     }
     window.vhostmailAvisar=function(de,assunto){
       if(perm()!=='granted')return;
+      /* com os avisos do servidor (Web Push) activos, é o service worker que mostra a notificação com a página em segundo plano;
+         a página só toca quando está à vista */
+      if(window.__vmPush){if(!document.hidden)som();return}
       som();
       mostra(de||'VhostMail',assunto||'Novo e-mail');
     };
+    /* Avisos com o VhostMail fechado (Web Push): o navegador subscreve-se no servidor para esta caixa; o servidor vigia o correio novo e
+       envia o aviso a cada aparelho. Repete-se em cada abertura (o endereço da subscrição pode mudar). */
+    function chaveApp(b){
+      var p='='.repeat((4-b.length%4)%4),r=atob((b+p).replace(/-/g,'+').replace(/_/g,'/')),a=new Uint8Array(r.length);
+      for(var i=0;i<r.length;i++)a[i]=r.charCodeAt(i);
+      return a;
+    }
+    function igualBytes(x,y){if(x.length!==y.length)return false;for(var i=0;i<x.length;i++)if(x[i]!==y[i])return false;return true}
+    function subscreverPush(teste){
+      var conta=window.VM_CFG&&window.VM_CFG.conta;
+      if(!conta||!('PushManager' in window)||perm()!=='granted')return Promise.resolve(false);
+      return registo().then(function(reg){
+        return fetch('/api/vhost/push',{credentials:'same-origin',cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('chave');return r.json()}).then(function(j){
+          var k=chaveApp(j.chave);
+          return reg.pushManager.getSubscription().then(function(s){
+            if(!s)return reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:k});
+            var ak=s.options&&s.options.applicationServerKey;
+            /* as chaves do servidor mudaram: refaz-se a subscrição */
+            if(ak&&!igualBytes(new Uint8Array(ak),k))return s.unsubscribe().then(function(){return reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:k})});
+            return s;
+          });
+        }).then(function(s){
+          return fetch('/api/vhost/push',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({end:conta,sub:s.toJSON(),teste:!!teste})}).then(function(r){
+            if(!r.ok)throw new Error('subscrição');
+            window.__vmPush=true;return true;
+          });
+        });
+      }).catch(function(){return false});
+    }
+    window.vhostmailSubscrever=subscreverPush;
     var sozinho=false;try{sozinho=window.top===window}catch(e){}
     if(perm()==='granted'||sozinho)registo().catch(function(){});
+    if(perm()==='granted')subscreverPush(false);
     function mostraFaixa(){document.body.classList.add('vm-bn-on')}
     function escondeFaixa(){document.body.classList.remove('vm-bn-on')}
     /* a faixa volta em cada visita até as notificações ficarem activadas; se o navegador as tiver bloqueado, explica como desbloquear */
@@ -181,7 +215,8 @@ export const INTEGRACAO_JS = String.raw`
         if(feito)return;feito=true;
         if(p==='granted'){
           escondeFaixa();audio();som();
-          mostra('VhostMail','Vai receber um aviso quando chegar um e-mail novo.');
+          /* o aviso de teste vem do servidor (prova que chega mesmo com o VhostMail fechado); sem Web Push, mostra-se aqui */
+          subscreverPush(true).then(function(feito){if(!feito)mostra('VhostMail','Vai receber um aviso quando chegar um e-mail novo.')});
           toast('Notificações activadas');
           if(doSetup&&typeof markDone==='function')markDone('notif');
         }else if(p==='denied'){textoFaixa();toast('Notificações bloqueadas no navegador')}
@@ -196,6 +231,19 @@ export const INTEGRACAO_JS = String.raw`
     },true);
     /* enquanto não estiverem activadas (nem sequer bloqueadas no navegador, onde a faixa explica como desbloquear), a faixa volta em cada visita */
     if(perm()!=='granted'&&perm()!=='unsupported'){textoFaixa();setTimeout(mostraFaixa,8000)}
+    /* Ao abrir o VhostMail (no navegador ou na aplicação instalada) aparece logo o pop-up dos avisos, igual ao das «Novidades»: um clique
+       em «Ativar notificações» pede a permissão e liga os avisos com o VhostMail fechado. Só enquanto a permissão não foi dada nem recusada. */
+    function popAviso(){
+      if(perm()!=='default'||window.__vmPopAviso)return;
+      var a=document.querySelector('[data-act=news]');
+      if(!a||document.querySelector('.pop,.menu,.ov'))return;
+      window.__vmPopAviso=true;
+      var p=pop('<button class="mx" aria-label="Fechar">'+ic('x')+'</button><h6>'+ic('bell')+'Avisos de e-mail novo</h6><p>Receba um aviso no telemóvel e no computador quando chegar um e-mail, mesmo com o VhostMail fechado.</p><a data-vmpop>Ativar notificações</a>',a,'whatsnew',{above:true});
+      p.style.left=Math.max(8,a.getBoundingClientRect().left-24)+'px';
+      p.querySelector('.mx').onclick=closeFloating;
+      p.querySelector('[data-vmpop]').onclick=function(){closeFloating();ligar(false)};
+    }
+    if(perm()==='default')setTimeout(popAviso,900);
   })();
   /* VhostMail como aplicação no computador (PWA só do VhostMail; Silva, 18/11/2026): «Baixar o app do VhostMail» na gaveta instala-o.
      Dentro do painel (quadro) o navegador não oferece a instalação: abre-se a página própria (?app=1&instalar=1), que a oferece. */

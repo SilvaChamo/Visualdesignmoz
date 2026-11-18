@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requirePanelBootstrapAccess } from '@/lib/panel-api-auth';
 import { executeServerCommand } from '@/lib/server-ssh-exec';
-import { lerServidor } from '@/lib/vhost-servidor';
-import { lerRegisto, montarDados } from '@/lib/vhost-dados';
 import { CAIXA_PY } from '@/lib/vhostmail/servidor';
+import { podeVer, type Sessao } from '@/lib/vhostmail/acesso';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,7 +14,6 @@ export const dynamic = 'force-dynamic';
  * enviar…) corre no servidor com o doveadm/exim, sem palavra-passe da caixa (programa em src/lib/vhostmail/servidor.ts).
  */
 
-const EMAIL = /^[a-z0-9]([a-z0-9._+-]{0,62}[a-z0-9])?@([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/i;
 const PASTA = /^[^\u0000-\u001f"\\-][^\u0000-\u001f"\\]{0,99}$/;
 const b64 = (s: string) => Buffer.from(s, 'utf8').toString('base64');
 const JSON_MAX = 8 * 1024 * 1024;
@@ -24,41 +22,10 @@ const PEDACO = 90_000;
 const SO_LEITURA = new Set(['pastas', 'lista', 'ler', 'original']);
 const ACOES = new Set(['pastas', 'lista', 'ler', 'original', 'marcar', 'mover', 'apagar', 'criarPasta', 'enviar', 'agendar', 'rascunho']);
 
-type Sessao = { userId: string; email: string; role: string };
-
 async function sessao(): Promise<{ s: Sessao } | { erro: NextResponse }> {
   const auth = await requirePanelBootstrapAccess();
   if ('error' in auth) return { erro: NextResponse.json({ erro: 'Inicie sessão no painel.' }, { status: auth.error.status }) };
   return { s: { userId: auth.user.id, email: auth.user.email || '', role: auth.user.role } };
-}
-
-/** A caixa tem de existir no servidor, numa conta que a sessão vê. O resultado guarda-se 10 minutos por sessão e caixa
- *  (cada clique do VhostMail faz um pedido; o registo do painel não precisa de ser lido de cada vez) */
-const acessos = new Map<string, number>();
-const recusadas = new Map<string, number>();
-async function podeVer(s: Sessao, end: string): Promise<boolean> {
-  if (!EMAIL.test(end)) return false;
-  const chave = s.userId + '|' + end;
-  if ((acessos.get(chave) || 0) > Date.now()) return true;
-  const [utilizador, dominio] = end.toLowerCase().split('@');
-  const procura = async (forcar: boolean) => {
-    const srv = await lerServidor(forcar);
-    const dados = montarDados(srv, await lerRegisto(), s);
-    return Object.keys(dados.contas).some((conta) => !!srv.mailAcc[conta]?.[dominio]?.[utilizador]);
-  };
-  let sim = await procura(false);
-  // Uma caixa criada há pouco ainda não está na leitura guardada do servidor (até 1 hora): antes de recusar, lê o servidor na hora
-  // (no máximo uma vez por minuto para cada sessão e caixa), para o cliente não ficar à porta da caixa que acabou de ter.
-  if (!sim && (recusadas.get(chave) || 0) < Date.now()) {
-    recusadas.set(chave, Date.now() + 60_000);
-    if (recusadas.size > 500) for (const [k, ate] of recusadas) if (ate < Date.now()) recusadas.delete(k);
-    sim = await procura(true);
-  }
-  if (sim) {
-    acessos.set(chave, Date.now() + 10 * 60_000);
-    if (acessos.size > 500) for (const [k, ate] of acessos) if (ate < Date.now()) acessos.delete(k);
-  }
-  return sim;
 }
 
 async function correr(args: Record<string, unknown>): Promise<{ ok: boolean; r?: Record<string, unknown>; erro?: string }> {
