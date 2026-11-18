@@ -192,11 +192,15 @@ export function fechadoAteConfirmar(s: St, id: string, lv: Level = s.level): boo
 }
 /** A página `id` da Gestão está escondida pelo plano da conta que se vê (Admin › Acessos por plano)? Só vale para
  *  contas de clientes (cliente/profissional): administradores e revendedores vêem sempre tudo. */
+const EMAIL_SEMPRE = new Set(['email', 'webmail']);
 export const ocultoNoPlano = (s: St, id: string, lv: Level = s.level) => {
   if (lv !== 'utilizador') return false;
   const a = acctOf(s);
   if (!isUser(a.role)) return false;
   if (fixoNoPlano(a.hpkg || a.pkg, id) || (a.hpkg && fixoNoPlano(a.pkg, id))) return true;
+  // O e-mail (contas de e-mail, VhostMail e webmail) abre sempre, seja qual for o plano e o que o Admin › Acessos por plano esconda:
+  // todas as contas têm de poder entrar no correio (Silva, 18/11/2026: «um cliente diz que não consegue»)
+  if (EMAIL_SEMPRE.has(id)) return false;
   const esc = s.acessos || {};
   // nos clientes "pkg" e "hpkg" são o mesmo pacote do servidor; vê os dois para não depender disso
   return !!(esc[a.pkg]?.includes(id) || (a.hpkg && esc[a.hpkg]?.includes(id)));
