@@ -12,6 +12,7 @@ import { assertResellerHostingQuota } from '@/lib/panel-reseller-tier';
 import { upsertPanelAuthAccount } from '@/lib/panel-auth-accounts';
 import { isSuperAdmin } from '@/lib/panel-user-registry';
 import { buyerRoleForPackage } from '@/lib/user-roles';
+import { contasCriadasPor, registarCriadoPor } from '@/lib/vhost-criado-por';
 import { RESELLER_TIER_LABELS, type ResellerTier } from '@/lib/panel-role-capabilities';
 
 export const dynamic = 'force-dynamic';
@@ -95,6 +96,8 @@ export async function POST(req: NextRequest) {
   // Super administrador (só o Silva): cria administradores e mexe nas contas deles; os outros administradores são normais
   const superAdmin = admin && isSuperAdmin(auth.user.email);
   const contasDeAdmin = new Set<string>();
+  // Administrador normal: só mexe nas contas que ele próprio criou (as de antes e as de outros ficam para o super administrador)
+  const criadasPorMim = admin && !superAdmin && sb ? await contasCriadasPor(sb, auth.user.id) : new Set<string>();
   if (admin && !superAdmin && sb) {
     const [{ data: perfis }, { data: registo }] = await Promise.all([
       sb.from('profiles').select('user_id, da_username').eq('role', 'admin'),
@@ -121,6 +124,7 @@ export async function POST(req: NextRequest) {
     if (!x) return 'conta não encontrada no servidor';
     if ((x.ROLE || '').toLowerCase() === 'admin' || u === (process.env.HESTIA_USER || 'vdadmin')) return 'conta de administrador do servidor';
     if (!admin && !meus.has(u)) return 'conta fora do seu painel';
+    if (admin && !superAdmin && !criadasPorMim.has(u)) return 'só pode alterar as contas que criou';
     if (contasDeAdmin.has(u)) return 'só o super administrador altera contas de administrador';
     return null;
   };
@@ -392,6 +396,7 @@ export async function POST(req: NextRequest) {
           }
         }
       }
+      if (sb && admin) await registarCriadoPor(sb, u, auth.user.id);
       esquecerRegisto();
       feitas.push(u);
       break;
