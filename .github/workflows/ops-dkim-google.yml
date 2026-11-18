@@ -4,7 +4,7 @@ name: Ops - DKIM do Google Workspace num domínio (DNS)
 # Só mexe no registo `<nome>.<domínio>` pedido: se não existe cria-o; se existe igual não faz nada; se existe diferente actualiza-o (e imprime o valor anterior para voltar atrás).
 # Nunca apaga nem toca noutros registos (MX, SPF, DMARC ficam como estão; só os lê e imprime). Chave do DNS: a mesma do painel, lida no servidor, nunca impressa.
 # Depois de escrever, lê o registo de volta na zona e nos servidores de nomes públicos.
-# O push no ramo de trabalho serve só para a primeira execução; depois deste ficheiro estar em `main` corre-se à mão (Actions › Run workflow).
+# Corre-se à mão (Actions › Run workflow). Feito a 18/11/2026 para o elimservicos.com: registo criado na zona e confirmado.
 
 on:
   workflow_dispatch:
@@ -21,9 +21,6 @@ on:
         description: 'Valor do registo TXT (a chave DKIM do Google)'
         required: true
         default: 'v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAgmC6cnXktFdbyASOxJ/IZtuunLLGLcPMlhmaX/tZ7Vt9WQmWB3ZM0TXLVR9/6D12WHAA8E8tYdRValQ8D7VjcMZJ/L7avIv1QHZjbb5gRxdrLVs3EnhNxK/AhbzqAk2LfEKdfGfkrxzw/t1yE9+MBHjbXueHRBlu+eWQ/iLPZFp28aJvzFacm+vALQWth5nKhO9ACneaMUQ3jO8TAqP/IddkkKmQiJd4r4rNwD9pdQRUp0ok7pIDdED4csWVfFSI2fnE8t+eMfzTjNQcqOVcoIb/zv4YGjPq0ulbS5igxWb2gmMEM+UMC0hiHfgL45QNR3aFBFQV5pMA5xEzf1uK+QIDAQAB'
-  push:
-    branches: [configurar-dkim-google-elim]
-    paths: ['.github/workflows/ops-dkim-google.yml']
 
 concurrency:
   group: ops-dkim-google
