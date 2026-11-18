@@ -29,21 +29,10 @@ jobs:
           command_timeout: 5m
           script: |
             set -u
-            L=/var/log/exim4/mainlog; T=/etc/exim4/exim4.conf.template
-            echo "### Ligações do IP do Silva (41.220.200.53) ao Exim, ontem e hoje"
-            for F in ${L}.1 $L /var/log/exim4/rejectlog /var/log/exim4/rejectlog.1; do [ -f $F ] && { echo "--- $F"; grep -F "41.220.200.53" $F | tail -15 | cut -c1-300; }; done
-            echo; echo "### Falhas de autenticação SMTP (qualquer utilizador) ontem e hoje"
-            { cat ${L}.1 2>/dev/null; cat $L; } | grep -iE "authenticator failed|dovecot_(login|plain)" | tail -15 | cut -c1-300
-            echo; echo "### Dovecot: autenticações do serviço smtp e falhas de silva.chamo (últimas 20)"
-            grep -E "service=smtp|smtp" /var/log/dovecot.log 2>/dev/null | grep -i "silva" | tail -10 | cut -c1-260
-            grep -i "silva.chamo" /var/log/dovecot.log | grep -viE "Disconnected|Logged out" | tail -12 | cut -c1-260
-            echo "--- passdb do Dovecot:"; grep -rnE "passdb|userdb|args *=|username_format|auth_default_realm|auth_username" /etc/dovecot/conf.d/10-auth.conf /etc/dovecot/conf.d/auth-*.conf.ext /etc/dovecot/dovecot.conf 2>/dev/null | grep -v '^.*:[0-9]*:#' | cut -c1-200 | head -20
-            echo; echo "### Assinatura DKIM e remetente no Exim"
-            grep -nE "DKIM|dkim" $T | cut -c1-210 | head -14
-            echo "--- transporte remote_smtp:"; awk '/^remote_smtp:/{f=1} f{print; if(++n>12) exit}' $T
-            echo "--- DKIM dos dois domínios (selector): visualdesignmoz=$(cat /etc/exim4/domains/visualdesignmoz.com/selector 2>/dev/null) basededadosagro=$(cat /etc/exim4/domains/basededadosagro.com/selector 2>/dev/null)"
-            echo "--- as chaves são diferentes? $(md5sum /etc/exim4/domains/visualdesignmoz.com/dkim.pem /etc/exim4/domains/basededadosagro.com/dkim.pem | awk '{print substr($1,1,8)}' | tr '\n' ' ')"
-            echo; echo "### Últimas mensagens que SAÍRAM para fora (R=dnslookup), ontem e hoje: remetente e destino"
-            { cat ${L}.1 2>/dev/null; cat $L; } | grep -E " => .*R=dnslookup" | grep -iE "visualdesignmoz|basededadosagro" | tail -12 | cut -c1-230
-            echo; echo "### Mensagens recebidas da VhostMail e de clientes (<=) com remetente dos dois domínios, últimas 12"
-            { cat ${L}.1 2>/dev/null; cat $L; } | grep -E " <= [^ ]*@(visualdesignmoz|basededadosagro)\.com " | tail -12 | cut -c1-230
+            T="Thank you for setting this out so clearly, and for checking with us before publishing any product content."
+            echo "### Google (gtx)"
+            curl -s -m 15 -X POST "https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=pt&dt=t" --data-urlencode "q=$T" | head -c 400; echo
+            echo; echo "### MyMemory"
+            curl -s -m 15 -G "https://api.mymemory.translated.net/get" --data-urlencode "q=$T" --data-urlencode "langpair=en|pt" | head -c 500; echo
+            echo; echo "### Lingva"
+            curl -s -m 15 "https://lingva.ml/api/v1/en/pt/Thank%20you%20for%20checking%20with%20us" | head -c 300; echo
