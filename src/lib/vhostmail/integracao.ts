@@ -111,7 +111,7 @@ export const INTEGRACAO_JS = String.raw`
     window.addEventListener('blur',quita);
   })();
   /* Notificações a sério: a faixa vermelha só surge passados uns segundos (nunca logo ao entrar), «Ativar notificações» pede
-     a permissão ao navegador e, se for dada, a faixa desaparece e fica activa; se se fechar a faixa, volta na próxima vez que
+     a permissão ao navegador e, se for dada, a faixa desaparece e fica activa; se se fechar a faixa (X), volta na próxima vez que
      se entrar, enquanto as notificações não estiverem activadas. Ao chegar um e-mail novo, vhostmailAvisar() toca e avisa. */
   (function(){
     var ac=null;
@@ -155,7 +155,7 @@ export const INTEGRACAO_JS = String.raw`
     if(perm()==='granted')registo().catch(function(){});
     function mostraFaixa(){document.body.classList.add('vm-bn-on')}
     function escondeFaixa(){document.body.classList.remove('vm-bn-on')}
-    /* a faixa só desaparece quando as notificações ficam activadas; se o navegador as tiver bloqueado, continua e explica como desbloquear */
+    /* a faixa volta em cada visita até as notificações ficarem activadas; se o navegador as tiver bloqueado, explica como desbloquear */
     function textoFaixa(){
       var b=document.getElementById('banner');if(!b||!b.firstChild)return;
       var bloq=perm()==='denied';
@@ -182,7 +182,7 @@ export const INTEGRACAO_JS = String.raw`
     window.addEventListener('click',function(e){
       var t=e.target;if(!t||!t.closest)return;
       if(t.closest('[data-act=notif]')){e.stopImmediatePropagation();e.preventDefault();ligar(false);return}
-      if(t.closest('[data-act=banner-x]')){e.stopImmediatePropagation();e.preventDefault();return} /* a faixa não se fecha: só desaparece com as notificações activadas */
+      if(t.closest('[data-act=banner-x]')){e.stopImmediatePropagation();e.preventDefault();escondeFaixa();return} /* fecha-se, mas volta na próxima vez que se entrar, até as notificações ficarem activadas */
       if(t.closest('[data-setup=notif]')){e.stopImmediatePropagation();e.preventDefault();ligar(true)}
     },true);
     /* enquanto não estiverem activadas (nem sequer bloqueadas no navegador, onde a faixa explica como desbloquear), a faixa volta em cada visita */
@@ -240,9 +240,6 @@ body:not(.vm-bn-on) #banner{display:none}
 body:not(.vm-bn-on) #app{height:calc(100vh - 40px)}
 body:not(.vm-bn-on) #drawer{top:40px}
 #banner{overflow:hidden;animation:vmbn .35s ease}
-/* a faixa não tem botão de fechar: só desaparece quando as notificações ficam activadas */
-#banner .bx{display:none!important}
-#banner{padding-right:10px}
 @keyframes vmbn{from{height:0;opacity:0}to{height:40px;opacity:1}}
 #app{transition:height .35s ease}
 `;
