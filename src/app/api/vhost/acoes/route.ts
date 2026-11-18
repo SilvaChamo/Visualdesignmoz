@@ -11,6 +11,7 @@ import { DOMINIO_OK, instalarWebmail, preverPassagem } from '@/lib/vhost-passar'
 import { assertResellerHostingQuota } from '@/lib/panel-reseller-tier';
 import { upsertPanelAuthAccount } from '@/lib/panel-auth-accounts';
 import { isSuperAdmin } from '@/lib/panel-user-registry';
+import { buyerRoleForPackage } from '@/lib/user-roles';
 import { RESELLER_TIER_LABELS, type ResellerTier } from '@/lib/panel-role-capabilities';
 
 export const dynamic = 'force-dynamic';
@@ -200,31 +201,54 @@ export async function POST(req: NextRequest) {
       break;
     case 'pacote': {
       const p = String(corpo.pacote || '');
-      // Pacote de revenda: muda o nível do revendedor no registo do site (só o administrador)
       const nivelNovo = nivelDeRevenda(p);
-      if (nivelNovo) {
-        if (!admin) return NextResponse.json({ erro: 'Só o administrador muda o pacote de um revendedor.' }, { status: 403 });
-        if (!sb) return NextResponse.json({ erro: 'Registo do site indisponível.' }, { status: 503 });
-        const { data: registo } = await sb.from('panel_users').select('username, auth_user_id');
-        for (const u of contas)
-          await correr(u, async () => {
-            const authId = (registo || []).find((r) => String(r.username).toLowerCase() === u)?.auth_user_id;
-            if (!authId) return { ok: false, error: 'esta conta não tem utilizador do site ligado' };
-            const { data: perfil } = await sb.from('profiles').select('role, email, name').eq('user_id', authId).maybeSingle();
-            if (perfil?.role !== 'reseller') return { ok: false, error: 'esta conta não é de revendedor: mude primeiro o tipo de conta' };
-            try {
-              await upsertPanelAuthAccount(sb, { userId: String(authId), email: String(perfil.email || ''), role: 'reseller', name: perfil.name, serverLinked: true, daUsername: u, resellerTier: nivelNovo });
-            } catch (e) {
-              return { ok: false, error: e instanceof Error ? e.message : 'o registo do site recusou' };
+      if (!nivelNovo && !pacotePermitido(p)) return NextResponse.json({ erro: 'Esse pacote não existe ou não pode ser atribuído por esta conta.' }, { status: 403 });
+      // Os pacotes de revenda também estão neste selector: escolher um torna a conta revendedora (ou muda o nível) e escolher um pacote de
+      // cliente numa conta revendedora deixa-a de o ser. Só o administrador (Silva, 18/11/2026).
+      if (nivelNovo && !admin) return NextResponse.json({ erro: 'Só o administrador muda o pacote de um revendedor.' }, { status: 403 });
+      if (nivelNovo && !sb) return NextResponse.json({ erro: 'Registo do site indisponível.' }, { status: 503 });
+      const registo = admin && sb ? (await sb.from('panel_users').select('username, auth_user_id, parent_username')).data || [] : [];
+      const lerPerfil = async (u: string) => {
+        const authId = registo.find((r) => String(r.username).toLowerCase() === u)?.auth_user_id;
+        if (!authId || !sb) return null;
+        const { data } = await sb.from('profiles').select('role, email, name').eq('user_id', authId).maybeSingle();
+        return data ? { authId: String(authId), role: String(data.role || ''), email: String(data.email || ''), name: (data.name as string | null) ?? null } : null;
+      };
+      /** Papel «papel» no site: perfil, metadados do login, registo do painel e (revendedor) o nível */
+      const darPapel = async (u: string, perfil: { authId: string; email: string; name: string | null }, papel: 'reseller' | 'client' | 'profissional', nivel?: ResellerTier) => {
+        if (!sb) return;
+        const { saveProfileForAuthUser } = await import('@/lib/profile-db');
+        await saveProfileForAuthUser(sb, perfil.authId, { role: papel });
+        const { data: au } = await sb.auth.admin.getUserById(perfil.authId);
+        await sb.auth.admin.updateUserById(perfil.authId, { user_metadata: { ...(au?.user?.user_metadata || {}), role: papel } });
+        await sb.from('panel_users').update({ acl: papel === 'reseller' ? 'reseller' : 'user' }).eq('username', u);
+        await upsertPanelAuthAccount(sb, { userId: perfil.authId, email: perfil.email, role: papel === 'reseller' ? 'reseller' : 'client', name: perfil.name, serverLinked: true, daUsername: u, resellerTier: nivel ?? null });
+      };
+      for (const u of contas)
+        await correr(u, async () => {
+          const perfil = admin && sb ? await lerPerfil(u) : null;
+          if (perfil?.role === 'admin') return { ok: false, error: 'conta de administrador: o pacote não se muda por aqui' };
+          try {
+            if (nivelNovo) {
+              if (!perfil) return { ok: false, error: 'esta conta não tem utilizador do site ligado' };
+              await darPapel(u, perfil, 'reseller', nivelNovo);
+              return { ok: true };
             }
-            return { ok: true };
-          });
-        if (feitas.length) esquecerRegisto();
-        break;
-      }
-      if (!pacotePermitido(p)) return NextResponse.json({ erro: 'Esse pacote não existe ou não pode ser atribuído por esta conta.' }, { status: 403 });
-      // forcar: descer de plano mesmo que a conta use mais do que o pacote novo deixa (o painel pergunta antes)
-      for (const u of contas) await correr(u, () => hestia.changeUserPackage(u, p, corpo.forcar === true));
+            const eraRevenda = perfil?.role === 'reseller';
+            if (eraRevenda) {
+              const clientes = registo.filter((r) => String(r.parent_username || '').toLowerCase() === u).length;
+              if (clientes) return { ok: false, error: 'tem ' + clientes + ' cliente(s) ligados: passe-os primeiro para outro revendedor («Mover clientes») e só depois deixa de ser revendedor' };
+            }
+            // forcar: descer de plano mesmo que a conta use mais do que o pacote novo deixa (o painel pergunta antes)
+            const r = await hestia.changeUserPackage(u, p, corpo.forcar === true);
+            if (!r.ok || !eraRevenda || !perfil) return r;
+            await darPapel(u, perfil, buyerRoleForPackage(p) === 'profissional' ? 'profissional' : 'client');
+            return r;
+          } catch (e) {
+            return { ok: false, error: e instanceof Error ? e.message : 'o registo do site recusou' };
+          }
+        });
+      if (feitas.length) esquecerRegisto();
       break;
     }
     case 'senha': {
