@@ -173,8 +173,9 @@ export const CLIENTE_JS = String.raw`
   function corpoHTML(m){
     if(!m._cor)return m._erro?esc(m._erro):'A carregar…';
     var x=m._cor,miolo=x.html||('<pre>'+String(x.texto||'').replace(/&/g,'&amp;').replace(/</g,'&lt;')+'</pre>');
+    if(m._mostrarTrad&&m._trad)miolo='<div class="vmt">Traduzido automaticamente para português</div><pre>'+String(m._trad.texto||'').replace(/&/g,'&amp;').replace(/</g,'&lt;')+'</pre>';
     var doc='<!doctype html><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src \'none\'; img-src data: https: http:; style-src \'unsafe-inline\'"><base target="_blank">'+
-      '<style>html{background:#fff;color:#222}body{margin:0;font:14px/1.55 -apple-system,system-ui,Segoe UI,sans-serif;word-wrap:break-word}img{max-width:100%;height:auto}pre{white-space:pre-wrap;font:inherit;margin:0}blockquote{margin:0 0 0 8px;padding-left:10px;border-left:3px solid #ddd}a{color:#c01825}</style>'+miolo;
+      '<style>html{background:#fff;color:#222}body{margin:0;font:14px/1.55 -apple-system,system-ui,Segoe UI,sans-serif;word-wrap:break-word}img{max-width:100%;height:auto}pre{white-space:pre-wrap;font:inherit;margin:0}blockquote{margin:0 0 0 8px;padding-left:10px;border-left:3px solid #ddd}a{color:#c01825}.vmt{font-size:12px;color:#777;margin:0 0 10px;padding-bottom:8px;border-bottom:1px dashed #ddd}</style>'+miolo;
     return '<iframe class="vm-corpo" sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin" referrerpolicy="no-referrer" srcdoc="'+attr(doc)+'" onload="vmAjusta(this)" style="width:100%;border:0;display:block;height:140px;border-radius:4px;background:#fff"></iframe>';
   }
   var _mc=msgCard;
@@ -204,6 +205,46 @@ export const CLIENTE_JS = String.raw`
     _om(id);
     if(m&&m._u){m._erro='';abrirCorpo(m)}
   };
+
+  /* ---- traduzir a mensagem para português (botão ao lado de «Resumo com IA») ---- */
+  function textoDe(m){
+    var x=m._cor||{};
+    if(x.texto&&String(x.texto).trim())return String(x.texto);
+    try{
+      var d=new DOMParser().parseFromString(x.html||'','text/html');
+      [].forEach.call(d.querySelectorAll('style,script'),function(n){n.remove()});
+      [].forEach.call(d.querySelectorAll('br,p,div,tr,li,h1,h2,h3,h4'),function(n){n.insertAdjacentText('afterend','\n')});
+      return (d.body.textContent||'').replace(/\n{3,}/g,'\n\n').trim();
+    }catch(e){return ''}
+  }
+  var _rrT=renderRead;
+  renderRead=function(){
+    _rrT();
+    var m=S.sel&&get(S.sel);if(!m||!m._u||!m._cor)return;
+    var t=document.querySelector('#read .rtitle');if(!t||t.querySelector('[data-vmtrad]'))return;
+    var b=document.createElement('button');b.className='ai';b.setAttribute('data-vmtrad','1');
+    b.innerHTML=ic('globe')+(m._tradBusy?'A traduzir…':m._mostrarTrad?'Ver original':'Traduzir');
+    t.appendChild(b);
+    if(m._mostrarTrad&&m._trad&&m._trad.assunto){var h=t.querySelector('h1');if(h)h.textContent=m._trad.assunto}
+  };
+  document.addEventListener('click',function(e){
+    var b=e.target.closest&&e.target.closest('#read [data-vmtrad]');if(!b)return;
+    e.stopImmediatePropagation();e.preventDefault();
+    var m=S.sel&&get(S.sel);if(!m||!m._cor||m._tradBusy)return;
+    if(m._mostrarTrad){m._mostrarTrad=false;renderRead();return}
+    if(m._trad){m._mostrarTrad=true;renderRead();return}
+    var texto=textoDe(m);
+    if(!texto.trim()){toast('Esta mensagem não tem texto para traduzir');return}
+    m._tradBusy=true;renderRead();
+    fetch('/api/vhost/traduzir',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({textos:[m.subj||'',texto],para:'pt'})})
+      .then(function(r){return r.json().catch(function(){return {}}).then(function(j){if(!r.ok)throw new Error(j.erro||'Não foi possível traduzir.');return j})})
+      .then(function(j){
+        m._tradBusy=false;
+        if(j.idioma==='pt'){toast('A mensagem já está em português');renderRead();return}
+        m._trad={assunto:(j.traducoes||[])[0]||'',texto:(j.traducoes||[])[1]||''};m._mostrarTrad=true;renderRead();
+      })
+      .catch(function(err){m._tradBusy=false;renderRead();falha(err)});
+  },true);
 
   /* ---- imprimir a mensagem aberta (cabeçalho + corpo), por um quadro invisível ---- */
   printModal=function(m){
@@ -578,6 +619,25 @@ export const CLIENTE_JS = String.raw`
 
 // o que o maquete tinha e não faz nada na caixa real sai da vista (nada fica como ligação morta)
 export const CLIENTE_CSS = String.raw`
+/* leitura no telemóvel (Silva, 18/11/2026): uma só coluna, sem a margem nem a moldura do cartão, título mais pequeno */
+@media (max-width:900px){
+  .rscroll{padding:0 0 24px}
+  .rtitle{flex-wrap:wrap;align-items:center;gap:2px 16px;padding:14px 14px 10px}
+  .rtitle h1{flex:0 0 100%;font-size:17px;line-height:1.3;overflow-wrap:anywhere}
+  .rtitle .ai{padding:4px 0;font-size:13px}
+  .mcard{border:0;border-top:1px solid var(--line);border-radius:0;margin-bottom:0;background:var(--bg)}
+  .vm-corpo{border-radius:0}
+  .mhead{flex-wrap:wrap;gap:6px 10px;padding:12px 14px 0}
+  .mwho{flex:1 1 0;min-width:0}
+  .mwho .n{font-size:14px}
+  .mwho .to{font-size:12.5px}
+  .mright{flex:0 0 100%;order:3;height:auto;flex-wrap:wrap;gap:6px 10px;padding-left:44px}
+  .mbody,.mbody.vm-real{padding:10px 14px 4px;font-size:14.5px}
+  .mfiles{margin:10px 14px 0}
+  .chips{gap:8px}
+  .chip{width:100%}
+  .mfoot{flex-wrap:wrap;padding:10px 14px;margin-top:12px}
+}
 /* o corpo do e-mail real (quadro isolado) tem o mesmo espaço nos 4 lados, alinhado com o avatar */
 .mbody.vm-real{padding:22px}
 .vm-corpo{min-height:60px;display:block}
