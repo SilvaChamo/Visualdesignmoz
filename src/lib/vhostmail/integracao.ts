@@ -9,7 +9,15 @@ export const INTEGRACAO_JS = String.raw`
 /* ===== VhostMail: ligação ao painel ===== */
 (function(){
   var C=window.VM_CFG||{};
-  function painel(m){try{parent.postMessage({vhostmail:1,acao:m},location.origin)}catch(e){}}
+  function painel(m){
+    try{
+      if(window.parent!==window){parent.postMessage({vhostmail:1,acao:m},location.origin);return}
+    }catch(e){}
+    /* aberto sozinho (aplicação instalada): não há painel à volta, por isso vai-se às páginas do painel */
+    var B='/vhost:2026',u={voltar:B+'/utilizador/email',criar:B+'/utilizador/email/nova',migrar:B+'/utilizador/imapsync'}[m];
+    if(u)location.href=u;
+    else if(String(m).indexOf('abrir:')===0)location.href='/api/vhost/vhostmail?app=1&conta='+encodeURIComponent(String(m).slice(6));
+  }
   /* Sair: o utilizador já está dentro do painel, por isso volta logo às Contas de e-mail (sem a pergunta de «iniciar sessão novamente»).
      Apanha-se na janela, antes de qualquer outro tratamento do clique, em todos os botões Sair (barra de cima, menu, definições). */
   showLogin=function(){painel('voltar')};
@@ -111,7 +119,7 @@ export const INTEGRACAO_JS = String.raw`
     window.addEventListener('blur',quita);
   })();
   /* Notificações a sério: a faixa vermelha só surge passados uns segundos (nunca logo ao entrar), «Ativar notificações» pede
-     a permissão ao navegador e, se for dada, a faixa desaparece e fica activa; se se fechar a faixa, volta na próxima vez que
+     a permissão ao navegador e, se for dada, a faixa desaparece e fica activa; se se fechar a faixa (X), volta na próxima vez que
      se entrar, enquanto as notificações não estiverem activadas. Ao chegar um e-mail novo, vhostmailAvisar() toca e avisa. */
   (function(){
     var ac=null;
@@ -140,7 +148,7 @@ export const INTEGRACAO_JS = String.raw`
        Regista-se o /vhostmail-sw.js (o do site antigo é apagado em cada página; este volta a registar-se cada vez que o VhostMail abre). */
     function registo(){
       if(!('serviceWorker' in navigator))return Promise.reject(new Error('sem service worker'));
-      return navigator.serviceWorker.register('/vhostmail-sw.js').then(function(){return navigator.serviceWorker.ready});
+      return navigator.serviceWorker.register('/vhostmail-sw.js',{scope:'/api/vhost/vhostmail'}).then(function(){return navigator.serviceWorker.ready});
     }
     function mostra(titulo,corpo){
       var op={body:corpo,tag:'vhostmail-novo',icon:'/favicon.png',renotify:true};
@@ -152,10 +160,11 @@ export const INTEGRACAO_JS = String.raw`
       som();
       mostra(de||'VhostMail',assunto||'Novo e-mail');
     };
-    if(perm()==='granted')registo().catch(function(){});
+    var sozinho=false;try{sozinho=window.top===window}catch(e){}
+    if(perm()==='granted'||sozinho)registo().catch(function(){});
     function mostraFaixa(){document.body.classList.add('vm-bn-on')}
     function escondeFaixa(){document.body.classList.remove('vm-bn-on')}
-    /* a faixa só desaparece quando as notificações ficam activadas; se o navegador as tiver bloqueado, continua e explica como desbloquear */
+    /* a faixa volta em cada visita até as notificações ficarem activadas; se o navegador as tiver bloqueado, explica como desbloquear */
     function textoFaixa(){
       var b=document.getElementById('banner');if(!b||!b.firstChild)return;
       var bloq=perm()==='denied';
@@ -182,11 +191,51 @@ export const INTEGRACAO_JS = String.raw`
     window.addEventListener('click',function(e){
       var t=e.target;if(!t||!t.closest)return;
       if(t.closest('[data-act=notif]')){e.stopImmediatePropagation();e.preventDefault();ligar(false);return}
-      if(t.closest('[data-act=banner-x]')){e.stopImmediatePropagation();e.preventDefault();return} /* a faixa não se fecha: só desaparece com as notificações activadas */
+      if(t.closest('[data-act=banner-x]')){e.stopImmediatePropagation();e.preventDefault();escondeFaixa();return} /* fecha-se, mas volta na próxima vez que se entrar, até as notificações ficarem activadas */
       if(t.closest('[data-setup=notif]')){e.stopImmediatePropagation();e.preventDefault();ligar(true)}
     },true);
     /* enquanto não estiverem activadas (nem sequer bloqueadas no navegador, onde a faixa explica como desbloquear), a faixa volta em cada visita */
     if(perm()!=='granted'&&perm()!=='unsupported'){textoFaixa();setTimeout(mostraFaixa,8000)}
+  })();
+  /* VhostMail como aplicação no computador (PWA só do VhostMail; Silva, 18/11/2026): «Baixar o app do VhostMail» na gaveta instala-o.
+     Dentro do painel (quadro) o navegador não oferece a instalação: abre-se a página própria (?app=1&instalar=1), que a oferece. */
+  (function(){
+    var pi=null,sozinho=false;try{sozinho=window.top===window}catch(e){}
+    try{if(VM_CFG&&VM_CFG.conta)document.cookie='vm_conta='+encodeURIComponent(VM_CFG.conta)+';path=/api/vhost;max-age=31536000;SameSite=Lax'}catch(e){}
+    function instalada(){try{return window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true}catch(e){return false}}
+    function instrucoes(){
+      var ua=navigator.userAgent,ios=/iphone|ipad|ipod/i.test(ua),mac=/Macintosh/.test(ua)&&!/Chrome|Edg/.test(ua);
+      if(ios)return 'No iPhone ou iPad: toque em Partilhar e depois em «Adicionar ao ecrã principal».';
+      if(mac)return 'No Safari do Mac: menu Ficheiro › «Adicionar ao Dock».';
+      if(/Firefox/.test(ua))return 'O Firefox não instala aplicações: abra o VhostMail no Chrome ou no Edge.';
+      return 'No Chrome ou no Edge: clique no ícone de instalar, ao lado do endereço, ou no menu ⋮ › «Instalar VhostMail».';
+    }
+    function dialogo(corpo,botoes){
+      var o=modal('<h3>Instalar o VhostMail no computador</h3><p>Abre numa janela só dele, sem a barra do navegador, e fica no menu de aplicações.</p>'+corpo+'<div class="fbtns" style="margin-top:16px"><button class="btn g" data-c>Fechar</button>'+botoes+'</div>');
+      var c=o.querySelector('[data-c]');if(c)c.onclick=function(){o.remove()};
+      return o;
+    }
+    function modalInstrucoes(){dialogo('<p style="color:var(--text-2)">'+instrucoes()+'</p>','')}
+    function modalInstalar(){
+      var o=dialogo('','<button class="btn p" data-i>Instalar</button>');
+      var b=o.querySelector('[data-i]');
+      if(b)b.onclick=function(){
+        if(!pi){o.remove();modalInstrucoes();return}
+        try{pi.prompt();pi.userChoice.then(function(r){pi=null;o.remove();if(r&&r.outcome==='accepted')toast('A instalar o VhostMail…')})}catch(e){o.remove();modalInstrucoes()}
+      };
+    }
+    window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();pi=e;if(sozinho&&/[?&]instalar=1/.test(location.search)&&!instalada())modalInstalar()});
+    window.addEventListener('appinstalled',function(){pi=null;toast('VhostMail instalado: abra-o pelo menu de aplicações')});
+    /* aberto de propósito para instalar e o navegador não ofereceu (já instalado ou sem suporte): diz como se faz */
+    if(sozinho&&/[?&]instalar=1/.test(location.search))setTimeout(function(){if(!pi&&!instalada()&&!document.querySelector('.ov'))modalInstrucoes()},3500);
+    window.addEventListener('click',function(e){
+      var t=e.target;if(!t||!t.closest||!t.closest('[data-act=getapp]'))return;
+      e.stopImmediatePropagation();e.preventDefault();
+      var d=document.getElementById('drawer');if(d)d.classList.remove('open');
+      if(instalada()){toast('Já está a usar o VhostMail como aplicação');return}
+      if(!sozinho){window.open('/api/vhost/vhostmail?app=1&instalar=1','_blank','noopener');return}
+      if(pi)modalInstalar();else modalInstrucoes();
+    },true);
   })();
   /* a largura da lista de e-mails muda-se arrastando a linha entre a lista e a leitura (duplo clique repõe) */
   (function(){
@@ -240,9 +289,6 @@ body:not(.vm-bn-on) #banner{display:none}
 body:not(.vm-bn-on) #app{height:calc(100vh - 40px)}
 body:not(.vm-bn-on) #drawer{top:40px}
 #banner{overflow:hidden;animation:vmbn .35s ease}
-/* a faixa não tem botão de fechar: só desaparece quando as notificações ficam activadas */
-#banner .bx{display:none!important}
-#banner{padding-right:10px}
 @keyframes vmbn{from{height:0;opacity:0}to{height:40px;opacity:1}}
 #app{transition:height .35s ease}
 `;

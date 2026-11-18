@@ -61,6 +61,8 @@ export function montarVhostmail(o: OpcoesVhostmail): string {
     planoTxt,
     ...(o.lang === 'en' ? { dic: INGLES, meses: MESES_EN } : {}),
   };
-  const comCfg = MODELO_BASE.replace('</style></head>', () => INTEGRACAO_CSS + CLIENTE_CSS + '</style></head>').replace('/*__VM_CFG__*/', () => 'window.VM_CFG=' + jsonSeguro(cfg) + ';');
+  // VhostMail instalável no computador (PWA só do VhostMail; Silva, 18/11/2026): manifesto, cor da janela e ícone para o iPhone/Mac
+  const instalavel = '<link rel="manifest" href="/vhostmail.webmanifest"><meta name="theme-color" content="#E5202E"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="VhostMail"><link rel="apple-touch-icon" href="/icons/icon-192x192.png">';
+  const comCfg = MODELO_BASE.replace('<title>VhostMail</title>', () => '<title>VhostMail</title>' + instalavel).replace('</style></head>', () => INTEGRACAO_CSS + CLIENTE_CSS + '</style></head>').replace('/*__VM_CFG__*/', () => 'window.VM_CFG=' + jsonSeguro(cfg) + ';');
   return comCfg + '\n' + INTEGRACAO_JS + '\n' + CLIENTE_JS + '\n' + INGLES_JS + '</script></body></html>';
 }

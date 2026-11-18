@@ -227,6 +227,23 @@ def entregar(msg_bytes, pasta, flags):
         for fl in flags:
             run(['flags', 'add', '-u', U, '\\' + fl, 'mailbox', pasta, 'header', 'message-id', mid], ok=(0, 65))
 
+def html_com_cid(html):
+    # <img src="data:image/png;base64,..."> → <img src="cid:..."> e a imagem sai como parte inline da mensagem
+    imgs = []
+    def troca(mo):
+        tipo = mo.group(2).lower()
+        try:
+            raw = base64.b64decode(re.sub(r'\s+', '', mo.group(3)), validate=False)
+        except Exception:
+            return mo.group(0)
+        if not raw or len(raw) > 3000000:
+            return mo.group(0)
+        cid = email.utils.make_msgid(domain=U.split('@')[1])
+        imgs.append((cid, tipo.split('/', 1), raw))
+        return mo.group(1) + 'cid:' + cid[1:-1] + mo.group(4)
+    novo = re.sub(r'''(src\s*=\s*["'])data:(image/[A-Za-z0-9.+-]+);base64,([A-Za-z0-9+/=\s]+)(["'])''', troca, html, flags=re.I)
+    return novo, imgs
+
 def montar_msg(d):
     m = EmailMessage()
     m['From'] = email.utils.formataddr((d.get('nome', ''), U))
@@ -242,7 +259,13 @@ def montar_msg(d):
     txt = d.get('texto', '')
     m.set_content(txt or ' ')
     if d.get('html'):
-        m.add_alternative(d['html'], subtype='html')
+        html, imgs = html_com_cid(d['html'])
+        m.add_alternative(html, subtype='html')
+        if imgs:
+            # as imagens da assinatura/corpo vão como anexos «inline» (multipart/related): o Gmail, o Outlook e o Hotmail não mostram imagens data:
+            h = m.get_payload()[-1]
+            for cid, tipo, raw in imgs:
+                h.add_related(raw, maintype=tipo[0], subtype=tipo[1], cid=cid, disposition='inline')
     for a in d.get('anexos', []):
         tipo = (a.get('tipo') or 'application/octet-stream').split('/', 1)
         if len(tipo) != 2:

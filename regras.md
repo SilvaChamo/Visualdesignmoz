@@ -1053,6 +1053,11 @@ Só **silva.chamo@gmail.com** e **admin@visualdesignmoz.com** são administrador
 
 O site e o painel **não têm** o aviso/botão «Instalar App» (PWA): não é relevante para o projecto. Foi removido (`PWAInstallPrompt` e o seu uso em `src/app/layout.tsx`). Nunca voltar a pôr `beforeinstallprompt`, cartões de «Instalar App» nem manifesto de aplicação instalável.
 
+**Única excepção — o VhostMail (Silva, 18/11/2026: «activar PWA para o utilizador baixar e usar a partir do computador»)**: só a página do
+VhostMail (`/api/vhost/vhostmail`) é instalável (`public/vhostmail.webmanifest`, âmbito `/api/vhost/vhostmail`, `public/vhostmail-sw.js` com
+o mesmo âmbito). Instala-se de propósito, por «Baixar o app do VhostMail» na gaveta do VhostMail (`integracao.ts`), nunca por aviso ou cartão
+a aparecer sozinho. O resto do site e do painel continua sem manifesto, sem `beforeinstallprompt` e sem «Instalar App».
+
 # VhostMail: acesso para todas as contas, sem excepção (Silva, 18/11/2026)
 O correio (**Contas de e-mail**, onde se abre o VhostMail, e o **Webmail**) abre em **todas as contas e planos**: nada o esconde
 (nem «Acessos por plano», nem o plano «só domínio», nem a conta que ainda espera confirmação). Ver `EMAIL_SEMPRE`,

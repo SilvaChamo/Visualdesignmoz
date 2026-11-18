@@ -2,6 +2,8 @@
 // tocar numa, volta à janela do painel. Não guarda nada em cache nem muda o resto do site.
 self.addEventListener('install', function () { self.skipWaiting(); });
 self.addEventListener('activate', function (e) { e.waitUntil(self.clients.claim()); });
+// sem cache: o pedido segue sempre pela rede (o VhostMail é o correio real); o «fetch» existe só para o navegador permitir instalar a app
+self.addEventListener('fetch', function () {});
 self.addEventListener('notificationclick', function (e) {
   e.notification.close();
   e.waitUntil(

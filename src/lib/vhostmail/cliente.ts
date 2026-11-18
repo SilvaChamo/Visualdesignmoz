@@ -498,6 +498,7 @@ export const CLIENTE_JS = String.raw`
       if(tipo!=='forward'){msg.responde=m._mid||'';msg.referencias=m._ref||''}
     }
     if(!msg.texto&&!ANEX.length&&!msg.assunto){toast('Escreva a mensagem');return null}
+    if((msg.html||'').length>1900000){toast('A mensagem, com as imagens, é grande demais: use imagens mais pequenas');return null}
     return msg;
   }
   doSend=function(ctx,quando){
@@ -549,6 +550,50 @@ export const CLIENTE_JS = String.raw`
   };
 
   var _ra=renderAll;renderAll=function(){_ra.apply(this,arguments);gravaRot()};setInterval(gravaRot,5000);
+
+  /* ---- assinaturas: guardam-se neste navegador, por caixa (antes perdiam-se ao recarregar a página) ---- */
+  var CHS='vm-sig:'+END,ULS='',AVS=false;
+  try{
+    var gs=JSON.parse(localStorage.getItem(CHS)||'{}');
+    if(Array.isArray(gs.s)&&gs.s.length){S.sigs=gs.s;S.sigNew=typeof gs.n==='number'&&gs.s[gs.n]?gs.n:null;S.sigReply=typeof gs.r==='number'&&gs.s[gs.r]?gs.r:null}
+  }catch(e){}
+  function gravaSig(){
+    try{
+      var t=JSON.stringify({s:S.sigs||[],n:S.sigNew,r:S.sigReply});
+      if(t!==ULS){localStorage.setItem(CHS,t);ULS=t;AVS=false}
+    }catch(e){if(!AVS){AVS=true;toast('Não foi possível guardar a assinatura neste navegador (sem espaço): use uma imagem mais pequena')}}
+  }
+  ULS=JSON.stringify({s:S.sigs||[],n:S.sigNew,r:S.sigReply});
+  setInterval(gravaSig,1000);
+  /* a imagem da assinatura (logótipo): reduz-se antes de entrar (no máximo 320 × 160), para a mensagem não ficar enorme nem ser cortada
+     ao enviar; os PNG/GIF/WebP mantêm a transparência. Ao enviar, o servidor põe a imagem como parte inline (cid:), que o Gmail, o Outlook
+     e o Hotmail mostram (as imagens data: eles bloqueiam). */
+  document.addEventListener('click',function(e){
+    var b=e.target.closest&&e.target.closest('[data-sgimg]');if(!b)return;
+    e.stopImmediatePropagation();e.preventDefault();
+    var ed=document.getElementById('sgb');if(!ed)return;
+    var i=document.createElement('input');i.type='file';i.accept='image/*';
+    i.onchange=function(){
+      var f=i.files&&i.files[0];if(!f)return;
+      if(f.size>8*1048576){toast('Imagem demasiado grande (máximo 8 MB)');return}
+      var url=URL.createObjectURL(f),img=new Image();
+      img.onload=function(){
+        var w=img.naturalWidth||1,h=img.naturalHeight||1,k=Math.min(1,320/w,160/h),cw=Math.max(1,Math.round(w*k)),ch=Math.max(1,Math.round(h*k));
+        var cv=document.createElement('canvas');cv.width=cw;cv.height=ch;
+        var cx=cv.getContext('2d');
+        var png=/png|gif|webp|svg/i.test(f.type);
+        if(!png){cx.fillStyle='#fff';cx.fillRect(0,0,cw,ch)}
+        cx.drawImage(img,0,0,cw,ch);
+        var dados=cv.toDataURL(png?'image/png':'image/jpeg',0.88);
+        URL.revokeObjectURL(url);
+        ed.focus();
+        document.execCommand('insertHTML',false,'<img src="'+dados+'" width="'+cw+'" height="'+ch+'" alt="Logótipo" style="display:block;max-width:100%;height:auto"><br>');
+      };
+      img.onerror=function(){URL.revokeObjectURL(url);toast('Não foi possível abrir essa imagem')};
+      img.src=url;
+    };
+    i.click();
+  },true);
 
   /* ---- e-mails novos: de 45 em 45 s e ao voltar à janela; avisa e toca ---- */
   function sonda(){
