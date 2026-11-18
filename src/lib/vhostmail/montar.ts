@@ -59,6 +59,7 @@ export function montarVhostmail(o: OpcoesVhostmail): string {
     tema: o.tema,
     planos,
     planoTxt,
+    planoCodigo: o.plano,
     ...(o.lang === 'en' ? { dic: INGLES, meses: MESES_EN } : {}),
   };
   // VhostMail instalável no computador (PWA só do VhostMail; Silva, 18/11/2026): manifesto, cor da janela e ícone para o iPhone/Mac

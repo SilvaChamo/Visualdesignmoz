@@ -21,3 +21,11 @@ if (process.env.NODE_ENV === 'production' && process.env.NEXT_PHASE !== 'phase-p
     import('@/lib/vhost-servidor').then((m) => m.lerServidor()).catch(() => {})
   }, 2000).unref()
 }
+
+// VhostMail: vigia do correio novo para os avisos Web Push com o VhostMail fechado (ver vhost-push.ts). De minuto a minuto, só em
+// produção e só para as caixas com aparelhos subscritos; VHOST_PUSH=0 desliga-o.
+if (process.env.NODE_ENV === 'production' && process.env.NEXT_PHASE !== 'phase-production-build' && process.env.VHOST_PUSH !== '0') {
+  setTimeout(() => {
+    import('@/lib/vhost-push').then((m) => m.iniciarVigia()).catch(() => {})
+  }, 20_000).unref()
+}

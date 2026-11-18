@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requirePanelBootstrapAccess } from '@/lib/panel-api-auth';
 import { montarVhostmail, type PastaVhostmail } from '@/lib/vhostmail/montar';
-import { lerServidor } from '@/lib/vhost-servidor';
-import { lerRegisto, montarDados } from '@/lib/vhost-dados';
+import { caixasDaSessao } from '@/lib/vhostmail/acesso';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,9 +21,7 @@ const MSG = (t: string, entrar = true) =>
 /** Aberto como aplicação instalada (start_url ?app=1, sem conta): a caixa da última vez (cookie vm_conta) ou a primeira desta sessão */
 async function caixaPorOmissao(req: NextRequest, auth: { user: { id: string; email?: string; role: string } }): Promise<{ conta: string; plano: string }> {
   const cookie = decodeURIComponent(req.cookies.get('vm_conta')?.value || '').trim().toLowerCase();
-  const srv = await lerServidor();
-  const dados = montarDados(srv, await lerRegisto(), { userId: auth.user.id, email: auth.user.email || '', role: auth.user.role });
-  const todas = Object.values(dados.contas).flatMap((a) => a.mails.map((m) => ({ end: `${m.user}@${m.dom}`.toLowerCase(), plano: a.hpkg || a.pkg || '' })));
+  const todas = await caixasDaSessao({ userId: auth.user.id, email: auth.user.email || '', role: auth.user.role });
   // o cookie só vale se a caixa ainda for desta sessão (a rota da caixa confirma sempre, mas assim nem se abre uma que não é dela)
   const escolhida = todas.find((x) => x.end === cookie) || todas[0];
   return { conta: escolhida?.end || '', plano: escolhida?.plano || '' };

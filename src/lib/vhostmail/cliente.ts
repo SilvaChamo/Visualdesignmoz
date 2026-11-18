@@ -120,7 +120,7 @@ export const CLIENTE_JS = String.raw`
     }
     var pr=api('lista',{pasta:p,max:150}).then(function(r){
       gravaCache(p,r.mensagens||[]);
-      var novos=(r.mensagens||[]).map(function(x){var m=conv(x,p);var antigo=M.filter(function(o){return o._p===p&&o._u===x.uid})[0];if(antigo&&antigo._cor){m._cor=antigo._cor;m.att=antigo.att;m.body=antigo.body}return m});
+      var novos=(r.mensagens||[]).map(function(x){var m=conv(x,p);var antigo=M.filter(function(o){return o._p===p&&o._u===x.uid})[0];if(antigo&&antigo._cor){m._cor=antigo._cor;m.att=antigo.att;m.body=antigo.body;['_para','_cc','_mid','_ref','_trad','_mostrarTrad','_dl'].forEach(function(k){if(antigo[k]!==undefined)m[k]=antigo[k]});if(antigo._para)m.to=antigo.to}return m});
       /* o mais recente em cima: ordena-se antes de entrar na caixa (depois de juntar, a ordem já não mudava) */
       novos.sort(function(a,b){return b._q-a._q});
       M=M.filter(function(m){return m._p!==p}).concat(novos);
@@ -595,6 +595,41 @@ export const CLIENTE_JS = String.raw`
     i.click();
   },true);
 
+  /* ---- como no Outlook: o e-mail aberto e a pasta ficam guardados (por caixa) e voltam ao entrar de novo; a atualização de fundo
+         (chegou correio novo) não refaz o e-mail que se está a ler (o texto, a posição e a resposta em curso ficam como estão) ---- */
+  var CHE='vm-estado:'+END,ULE='',SALVO={},GRAVA_E=false,FUNDO=false,HR='';
+  try{SALVO=JSON.parse(localStorage.getItem(CHE)||'{}')||{}}catch(e){SALVO={}}
+  function pastaInicial(){
+    if(C.pasta==='sent')return 'sent';
+    return SALVO.f&&A_FOLDERS[SALVO.f]?SALVO.f:'inbox';
+  }
+  function chaveAberta(){var m=S.sel&&get(S.sel);return m&&m._u?m._p+'|'+m._u:''}
+  function gravaEstado(){
+    if(!GRAVA_E)return;
+    try{var t=JSON.stringify({f:S.folder,k:chaveAberta()});if(t!==ULE){ULE=t;localStorage.setItem(CHE,t)}}catch(e){}
+  }
+  setInterval(gravaEstado,1000);
+  /* depois da primeira lista: reabre o e-mail que estava aberto (só em ecrãs largos: no telemóvel a leitura tapa a lista) */
+  function restaurarAberta(){
+    try{
+      if(SALVO.k&&window.innerWidth>900&&!S.sel){
+        var alvo=M.filter(function(m){return m._p+'|'+m._u===SALVO.k})[0];
+        if(alvo)openMail(alvo.id);
+      }
+    }catch(e){}
+    GRAVA_E=true;
+  }
+  function huella(){
+    var m=S.sel&&get(S.sel);if(!m)return '';
+    return [m.id,!!m._cor,m._erro||'',m.star,m.unread,m.pin,(m.labels||[]).join(','),(m.att||[]).length,!!m._mostrarTrad,!!m._tradBusy,S.reply?S.reply.type+(S.reply.saved?'s':''):'',S.summary&&S.summary[m.id]?1:0,S.checked.size,S.folder].join('|');
+  }
+  var _rrG=renderRead;
+  renderRead=function(){
+    var h=huella();
+    if(FUNDO&&h&&h===HR&&document.querySelector('#read .rscroll'))return;
+    HR=h;_rrG.apply(this,arguments);
+  };
+
   /* ---- e-mails novos: de 45 em 45 s e ao voltar à janela; avisa e toca ---- */
   function sonda(){
     if(!PAS.length)return; /* também com a janela em segundo plano: é aí que o aviso serve (o navegador abranda o relógio para 1 vez por minuto) */
@@ -604,13 +639,15 @@ export const CLIENTE_JS = String.raw`
       if(ib&&antes&&ib.proximo>antes){
         PROX=ib.proximo;
         CARR.inbox=null;
+        FUNDO=true;
         carregar('inbox',true).then(function(l){
+          FUNDO=false;
           var chegou=l.filter(function(m){return m._u>=antes&&m.unread});
           if(chegou.length){
             if(window.vhostmailAvisar)window.vhostmailAvisar(chegou.length>1?chegou.length+' novos e-mails':chegou[0].from,chegou.length>1?'Caixa de entrada':chegou[0].subj);
             toast(chegou.length>1?chegou.length+' novos e-mails':'Novo e-mail de '+esc(chegou[0].from));
           }
-        });
+        },function(){FUNDO=false});
       }else if(ib)PROX=ib.proximo;
       renderSide();
     }).catch(function(){});
@@ -636,7 +673,7 @@ export const CLIENTE_JS = String.raw`
   };
   document.addEventListener('click',function(e){
     var x=e.target&&e.target.closest&&e.target.closest('[data-vmc]');
-    if(x){e.stopImmediatePropagation();e.preventDefault();try{parent.postMessage({vhostmail:1,acao:'abrir:'+x.dataset.vmc},location.origin)}catch(er){}}
+    if(x){e.stopImmediatePropagation();e.preventDefault();if(window.vhostmailAbrirConta)window.vhostmailAbrirConta(x.dataset.vmc);else try{parent.postMessage({vhostmail:1,acao:'abrir:'+x.dataset.vmc},location.origin)}catch(er){}}
   },true);
 
   /* o aviso «Actualização pronta» do maquete não aparece: só deve surgir quando o servidor de e-mail (Hestia) tiver uma actualização de e-mail (C.actualizacao, ainda por ligar) */
@@ -644,7 +681,7 @@ export const CLIENTE_JS = String.raw`
 
   /* ---- arranque ---- */
   if(!END){toast('Abra o VhostMail a partir de uma conta de e-mail');return}
-  S.folder=(C.pasta==='sent')?'sent':'inbox';
+  S.folder=pastaInicial();
   renderAll();
   /* a cotação enviada pela calculadora: abre a mensagem nova já com o assunto, o texto e a cotação em anexo (só falta escolher o destinatário e enviar) */
   try{
@@ -659,7 +696,7 @@ export const CLIENTE_JS = String.raw`
   /* a caixa de entrada e a lista de pastas pedem-se ao mesmo tempo (antes uma esperava pela outra) */
   var pp=refPastas();
   if(S.folder==='inbox')carregar('inbox');
-  pp.then(function(){S.folder=(C.pasta==='sent')?'sent':'inbox';return carregar(S.folder)}).catch(function(e){ERRO[S.folder]=e.message||'Não foi possível ler a caixa.';renderAll()});
+  pp.then(function(){S.folder=pastaInicial();return carregar(S.folder)}).then(function(){restaurarAberta()}).catch(function(e){ERRO[S.folder]=e.message||'Não foi possível ler a caixa.';renderAll()});
 })();
 `;
 
