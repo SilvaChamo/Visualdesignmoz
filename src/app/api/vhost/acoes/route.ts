@@ -9,6 +9,8 @@ import { esquecerRegisto } from '@/lib/vhost-dados';
 import { excludeResellerSelfPackages } from '@/lib/panel-contas-enrich';
 import { DOMINIO_OK, instalarWebmail, preverPassagem } from '@/lib/vhost-passar';
 import { assertResellerHostingQuota } from '@/lib/panel-reseller-tier';
+import { upsertPanelAuthAccount } from '@/lib/panel-auth-accounts';
+import { RESELLER_TIER_LABELS, type ResellerTier } from '@/lib/panel-role-capabilities';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,6 +24,16 @@ export const dynamic = 'force-dynamic';
 const PREFIXO_TESTE = 'teste';
 const todasLiberadas = () => process.env.VHOST_ACOES_TODAS === '1';
 const conta_ok = (u: string) => /^[a-z][a-z0-9_-]{2,30}$/.test(u);
+
+/** Pacotes de revenda do painel («Revenda Essencial», «Revenda Expandido», «Revenda Completo») → nível guardado no registo do
+ *  site (panel_auth_accounts.reseller_tier). Não são pacotes do servidor: o servidor só conhece pacotes de cliente. */
+const nivelDeRevenda = (pacote: string): ResellerTier | null => {
+  const n = pacote.trim().toLowerCase();
+  if (n === 'revenda completo') return 'completo';
+  if (n === 'revenda expandido') return 'expandido';
+  if (n === 'revenda essencial') return 'essencial';
+  return null;
+};
 
 type Corpo = {
   acao: 'suspender' | 'reativar' | 'apagar' | 'pacote' | 'senha' | 'criar' | 'mover' | 'tipo' | 'pacote-gravar' | 'pacote-apagar';
@@ -48,7 +60,8 @@ type Corpo = {
   forcar?: boolean;
   /** tipo: admin | revenda | profissional | cliente */
   tipo?: string;
-  criar?: { user: string; nome?: string; email: string; senha: string; dominio?: string; pacote: string };
+  /** pacote: para um revendedor é o pacote de revenda do painel (Revenda Essencial/Expandido/Completo) e o domínio é obrigatório */
+  criar?: { user: string; nome?: string; email: string; senha: string; dominio?: string; pacote: string; tipo?: 'cliente' | 'revenda' };
 };
 
 export async function POST(req: NextRequest) {
@@ -172,6 +185,28 @@ export async function POST(req: NextRequest) {
       break;
     case 'pacote': {
       const p = String(corpo.pacote || '');
+      // Pacote de revenda: muda o nível do revendedor no registo do site (só o administrador)
+      const nivelNovo = nivelDeRevenda(p);
+      if (nivelNovo) {
+        if (!admin) return NextResponse.json({ erro: 'Só o administrador muda o pacote de um revendedor.' }, { status: 403 });
+        if (!sb) return NextResponse.json({ erro: 'Registo do site indisponível.' }, { status: 503 });
+        const { data: registo } = await sb.from('panel_users').select('username, auth_user_id');
+        for (const u of contas)
+          await correr(u, async () => {
+            const authId = (registo || []).find((r) => String(r.username).toLowerCase() === u)?.auth_user_id;
+            if (!authId) return { ok: false, error: 'esta conta não tem utilizador do site ligado' };
+            const { data: perfil } = await sb.from('profiles').select('role, email, name').eq('user_id', authId).maybeSingle();
+            if (perfil?.role !== 'reseller') return { ok: false, error: 'esta conta não é de revendedor: mude primeiro o tipo de conta' };
+            try {
+              await upsertPanelAuthAccount(sb, { userId: String(authId), email: String(perfil.email || ''), role: 'reseller', name: perfil.name, serverLinked: true, daUsername: u, resellerTier: nivelNovo });
+            } catch (e) {
+              return { ok: false, error: e instanceof Error ? e.message : 'o registo do site recusou' };
+            }
+            return { ok: true };
+          });
+        if (feitas.length) esquecerRegisto();
+        break;
+      }
       if (!pacotePermitido(p)) return NextResponse.json({ erro: 'Esse pacote não existe ou não pode ser atribuído por esta conta.' }, { status: 403 });
       // forcar: descer de plano mesmo que a conta use mais do que o pacote novo deixa (o painel pergunta antes)
       for (const u of contas) await correr(u, () => hestia.changeUserPackage(u, p, corpo.forcar === true));
@@ -239,7 +274,22 @@ export async function POST(req: NextRequest) {
       const { emailDeContaValido, SEM_EMAIL } = await import('@/lib/hestia-adapter');
       if (!emailDeContaValido(c.email)) return NextResponse.json({ erro: c.email ? 'E-mail inválido.' : SEM_EMAIL }, { status: 400 });
       if ((c.senha || '').length < 8) return NextResponse.json({ erro: 'A palavra-passe precisa de pelo menos 8 caracteres.' }, { status: 400 });
-      if (!pacotePermitido(String(c.pacote || ''))) return NextResponse.json({ erro: 'Esse pacote não existe ou não pode ser atribuído por esta conta.' }, { status: 403 });
+      const revendedor = c.tipo === 'revenda';
+      const nivel = revendedor ? nivelDeRevenda(String(c.pacote || '')) : null;
+      // Revendedor: só o administrador o cria, com um dos 3 pacotes de revenda e sempre com domínio (Silva, 18/11/2026)
+      if (revendedor) {
+        if (!admin) return NextResponse.json({ erro: 'Só o administrador cria revendedores.' }, { status: 403 });
+        if (!nivel) return NextResponse.json({ erro: 'Escolha um pacote de revenda (Essencial, Expandido ou Completo).' }, { status: 400 });
+        if (!String(c.dominio || '').trim()) return NextResponse.json({ erro: 'O domínio é obrigatório para criar um revendedor.' }, { status: 400 });
+      }
+      // Na conta do servidor do revendedor: um pacote de cliente do servidor (VHOST_PACOTE_REVENDA, ou o que tem «revenda» no
+      // nome, ou o padrão); o que o revendedor pode ter (contas, espaço) é o nível, guardado no registo do site.
+      const pacoteServidor = revendedor
+        ? [process.env.VHOST_PACOTE_REVENDA || '', ...Object.keys(srv.packages).filter((n) => /revend|reseller/i.test(n)), 'default'].find((n) => n && n !== 'system' && srv.packages[n]) ||
+          Object.keys(srv.packages).find((n) => n !== 'system') ||
+          ''
+        : String(c.pacote || '');
+      if (revendedor ? !pacoteServidor : !pacotePermitido(pacoteServidor)) return NextResponse.json({ erro: revendedor ? 'O servidor não tem nenhum pacote para a conta do revendedor.' : 'Esse pacote não existe ou não pode ser atribuído por esta conta.' }, { status: revendedor ? 409 : 403 });
       // Domínio escrito: tem de ser válido e ainda não existir no servidor. Um domínio que já está na conta do
       // administrador (ou na do revendedor que cria) cria-se sem domínio e passa depois, pelo botão "Passar para outra
       // conta" (/api/vhost/passar, com cópia e desfazer); verifica-se antes de criar a conta, para não ficar a meio.
@@ -256,7 +306,7 @@ export async function POST(req: NextRequest) {
         if (!quota.ok) return NextResponse.json({ erro: quota.error }, { status: 403 });
       }
       // Só a conta e o site no Hestia (sem Let's Encrypt nem configuração de DNS/e-mail em serviços externos)
-      const r = await hestiaCall('v-add-user', [u, c.senha, c.email, c.pacote]);
+      const r = await hestiaCall('v-add-user', [u, c.senha, c.email, pacoteServidor]);
       if (!r.ok) return NextResponse.json({ erro: 'O servidor recusou: ' + (r.error || 'erro'), falhas: [{ conta: u, erro: r.error || 'erro' }] }, { status: 502 });
       if (c.nome) {
         const [primeiro, ...resto] = c.nome.trim().split(/\s+/);
@@ -268,12 +318,25 @@ export async function POST(req: NextRequest) {
         // webmail em https://<domínio>/webmail, como nos outros sites (antes ficava por pôr à mão)
         else if (!(await instalarWebmail(u, d))) falhas.push({ conta: u, erro: 'conta e domínio criados, mas a regra do webmail não foi posta' });
       }
-      if (sb) await sb.from('panel_users').upsert({ username: u, parent_username: admin ? null : eu || null, email: c.email, package_name: c.pacote, created_at: new Date().toISOString() }, { onConflict: 'username' });
+      if (sb) await sb.from('panel_users').upsert({ username: u, parent_username: admin ? null : eu || null, email: c.email, package_name: revendedor ? pacoteServidor : c.pacote, created_at: new Date().toISOString() }, { onConflict: 'username' });
       // a conta nasce já com login do site (o e-mail escrito e esta palavra-passe): sem ele não entrava no painel
       if (sb) {
         const { criarLoginDaConta } = await import('@/lib/vhost-login-da-conta');
         const login = await criarLoginDaConta(sb, u, c.senha, c.email).catch((e: unknown) => ({ ok: false as const, erro: e instanceof Error ? e.message : String(e) }));
-        if (!login.ok) falhas.push({ conta: u, erro: 'conta criada, mas sem login do site: ' + login.erro });
+        if (!login.ok) falhas.push({ conta: u, erro: 'conta criada, mas sem login do site' + (revendedor ? ' (não ficou revendedor)' : '') + ': ' + login.erro });
+        else if (revendedor && nivel) {
+          // o login nasce como cliente: passa a revendedor, com o nível do pacote escolhido
+          try {
+            const { saveProfileForAuthUser } = await import('@/lib/profile-db');
+            await saveProfileForAuthUser(sb, login.uid, { role: 'reseller' });
+            const { data: au } = await sb.auth.admin.getUserById(login.uid);
+            await sb.auth.admin.updateUserById(login.uid, { user_metadata: { ...(au?.user?.user_metadata || {}), role: 'reseller' } });
+            await sb.from('panel_users').update({ acl: 'reseller' }).eq('username', u);
+            await upsertPanelAuthAccount(sb, { userId: login.uid, email: login.email, role: 'reseller', name: c.nome?.trim() || u, serverLinked: true, daUsername: u, resellerTier: nivel, provider: 'hestia' });
+          } catch (e) {
+            falhas.push({ conta: u, erro: 'conta criada, mas não ficou revendedor (' + RESELLER_TIER_LABELS[nivel] + '): ' + (e instanceof Error ? e.message : String(e)) });
+          }
+        }
       }
       esquecerRegisto();
       feitas.push(u);

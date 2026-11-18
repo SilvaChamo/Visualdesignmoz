@@ -71,6 +71,7 @@ export const paginas_pequenas: Record<string, string> = {
  "Endereço do servidor (partilhado)": "Server address (shared)",
  "Revenda Essencial": "Essential Reseller",
  "Revenda Expandido": "Expanded Reseller",
+ "Revenda Completo": "Full Reseller",
  "Encomendas de produção gráfica, brindes e webdesign": "Graphic production, promotional items and web design orders",
  "Mensagens com a equipa, layouts e anexos": "Messages with the team, layouts and attachments",
  "Pagamentos e facturas": "Payments and invoices",

@@ -239,7 +239,7 @@ export function montarDados(srv: LeituraServidor, reg: RegistoSite, sessao: Sess
       ...(p?.empresa ? { empresa: p.empresa } : {}),
       role,
       creator: r?.parent && srv.users[r.parent] ? r.parent : u === adminConta ? u : adminConta,
-      pkg: revenda ? (revenda === 'expandido' ? 'Revenda Expandido' : 'Revenda Essencial') : x.PACKAGE || '',
+      pkg: revenda ? (revenda === 'completo' ? 'Revenda Completo' : revenda === 'expandido' ? 'Revenda Expandido' : 'Revenda Essencial') : x.PACKAGE || '',
       hpkg: x.PACKAGE || '',
       ...(srv.subpastas?.[u]?.length ? { subpastas: srv.subpastas[u] } : {}),
       state: (x.SUSPENDED || 'no').toLowerCase() === 'yes' ? 'off' : 'ok',

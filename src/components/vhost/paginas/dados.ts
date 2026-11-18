@@ -209,7 +209,7 @@ function pacotesRevendaIniciais(): Record<string, PacoteRevenda> {
     feats: Object.fromEntries(FUNC_REVENDA.map((c) => [c.k, c.k !== 'aftp'])),
     nsProprios: true,
   };
-  return { 'Revenda Essencial': essencial, 'Revenda Expandido': expandido, Completo: completo };
+  return { 'Revenda Essencial': essencial, 'Revenda Expandido': expandido, 'Revenda Completo': completo };
 }
 
 // ---------- Modelos de mensagem (adaptados dos predefinidos do DirectAdmin) ----------

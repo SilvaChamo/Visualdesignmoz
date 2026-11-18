@@ -22,7 +22,7 @@ export type AcaoServidor =
       };
     }
   | { acao: 'pacote-apagar'; pacotes: string[] }
-  | { acao: 'criar'; criar: { user: string; nome?: string; email: string; senha: string; dominio?: string; pacote: string } };
+  | { acao: 'criar'; criar: { user: string; nome?: string; email: string; senha: string; dominio?: string; pacote: string; tipo?: 'cliente' | 'revenda' } };
 
 /** Faz a alteração no servidor; devolve as contas alteradas (vazio se nada mudou) */
 export async function noServidor(vh: VH, corpo: AcaoServidor, msgOk: (n: number) => string): Promise<string[]> {
