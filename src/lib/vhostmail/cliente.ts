@@ -552,7 +552,7 @@ export const CLIENTE_JS = String.raw`
 
   /* ---- e-mails novos: de 45 em 45 s e ao voltar à janela; avisa e toca ---- */
   function sonda(){
-    if(document.hidden||!PAS.length)return;
+    if(!PAS.length)return; /* também com a janela em segundo plano: é aí que o aviso serve (o navegador abranda o relógio para 1 vez por minuto) */
     api('pastas').then(function(r){
       var antes=PROX;PAS=r.pastas||[];mapa();
       var ib=PAS.filter(function(p){return p.n==='INBOX'})[0];
@@ -572,6 +572,7 @@ export const CLIENTE_JS = String.raw`
   }
   setInterval(sonda,45000);
   window.addEventListener('focus',sonda);
+  document.addEventListener('visibilitychange',function(){if(!document.hidden)sonda()});
 
   /* ---- várias caixas na barra: as que se adicionam ficam por baixo da que está aberta (a lista guarda-se neste navegador); tocar numa abre-a ---- */
   function contas(){

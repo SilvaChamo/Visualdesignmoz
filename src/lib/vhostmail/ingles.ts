@@ -88,6 +88,8 @@ export const INGLES: Record<string, string> = {
   'Responder com IA': 'Reply with AI',
   'Encaminhar': 'Forward',
   'Resumo com IA': 'AI summary',
+  'Notificações bloqueadas. Permita-as no cadeado junto ao endereço.': 'Notifications blocked. Allow them via the padlock next to the address.',
+  'Já permiti': 'I have allowed them',
   'Traduzir': 'Translate',
   'A traduzir…': 'Translating…',
   'A mensagem já está em português': 'The message is already in Portuguese',

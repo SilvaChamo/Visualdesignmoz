@@ -136,38 +136,57 @@ export const INTEGRACAO_JS = String.raw`
     }
     /* o navegador só deixa tocar depois de um clique: o primeiro clique na página prepara o som */
     document.addEventListener('click',function(){if(perm()==='granted')audio()},{capture:true,once:true});
+    /* No telemóvel (Chrome/Android) o navegador não deixa criar notificações com «new Notification»: só pelo service worker.
+       Regista-se o /vhostmail-sw.js (o do site antigo é apagado em cada página; este volta a registar-se cada vez que o VhostMail abre). */
+    function registo(){
+      if(!('serviceWorker' in navigator))return Promise.reject(new Error('sem service worker'));
+      return navigator.serviceWorker.register('/vhostmail-sw.js').then(function(){return navigator.serviceWorker.ready});
+    }
+    function mostra(titulo,corpo){
+      var op={body:corpo,tag:'vhostmail-novo',icon:'/favicon.png',renotify:true};
+      function direto(){try{var n=new Notification(titulo,op);n.onclick=function(){window.focus();n.close()}}catch(e){}}
+      registo().then(function(r){return r.showNotification(titulo,op)}).catch(direto);
+    }
     window.vhostmailAvisar=function(de,assunto){
       if(perm()!=='granted')return;
       som();
-      try{var n=new Notification(de||'VhostMail',{body:assunto||'Novo e-mail',tag:'vhostmail-novo'});n.onclick=function(){window.focus();n.close()}}catch(e){}
+      mostra(de||'VhostMail',assunto||'Novo e-mail');
     };
+    if(perm()==='granted')registo().catch(function(){});
     function mostraFaixa(){document.body.classList.add('vm-bn-on')}
     function escondeFaixa(){document.body.classList.remove('vm-bn-on')}
+    /* a faixa só desaparece quando as notificações ficam activadas; se o navegador as tiver bloqueado, continua e explica como desbloquear */
+    function textoFaixa(){
+      var b=document.getElementById('banner');if(!b||!b.firstChild)return;
+      var bloq=perm()==='denied';
+      b.firstChild.nodeValue=bloq?'Notificações bloqueadas. Permita-as no cadeado junto ao endereço. ':'Saiba assim que receber novos e-mails! ';
+      var bt=b.querySelector('.bbtn');if(bt)bt.textContent=bloq?'Já permiti':'Ativar notificações';
+    }
     function ligar(doSetup){
       if(!('Notification' in window)){toast('Este navegador não suporta notificações');return}
       var p0=perm();
       if(p0==='granted'){escondeFaixa();toast('As notificações já estão activadas');return}
-      if(p0==='denied'){escondeFaixa();toast('As notificações estão bloqueadas no navegador: active-as nas definições do site');return}
+      if(p0==='denied'){textoFaixa();toast('As notificações estão bloqueadas no navegador: active-as nas definições do site');return}
       var feito=false;
       function fim(p){
         if(feito)return;feito=true;
         if(p==='granted'){
           escondeFaixa();audio();som();
-          try{new Notification('VhostMail',{body:'Vai receber um aviso quando chegar um e-mail novo.',tag:'vhostmail-novo'})}catch(e){}
+          mostra('VhostMail','Vai receber um aviso quando chegar um e-mail novo.');
           toast('Notificações activadas');
           if(doSetup&&typeof markDone==='function')markDone('notif');
-        }else if(p==='denied'){escondeFaixa();toast('Notificações bloqueadas no navegador')}
+        }else if(p==='denied'){textoFaixa();toast('Notificações bloqueadas no navegador')}
       }
       try{var r=Notification.requestPermission(fim);if(r&&r.then)r.then(fim)}catch(e){}
     }
     window.addEventListener('click',function(e){
       var t=e.target;if(!t||!t.closest)return;
       if(t.closest('[data-act=notif]')){e.stopImmediatePropagation();e.preventDefault();ligar(false);return}
-      if(t.closest('[data-act=banner-x]')){e.stopImmediatePropagation();e.preventDefault();escondeFaixa();return}
+      if(t.closest('[data-act=banner-x]')){e.stopImmediatePropagation();e.preventDefault();return} /* a faixa não se fecha: só desaparece com as notificações activadas */
       if(t.closest('[data-setup=notif]')){e.stopImmediatePropagation();e.preventDefault();ligar(true)}
     },true);
     /* enquanto não estiverem activadas (nem sequer bloqueadas no navegador, onde a faixa explica como desbloquear), a faixa volta em cada visita */
-    if(perm()!=='granted'&&perm()!=='unsupported')setTimeout(mostraFaixa,8000);
+    if(perm()!=='granted'&&perm()!=='unsupported'){textoFaixa();setTimeout(mostraFaixa,8000)}
   })();
   /* a largura da lista de e-mails muda-se arrastando a linha entre a lista e a leitura (duplo clique repõe) */
   (function(){
@@ -221,6 +240,9 @@ body:not(.vm-bn-on) #banner{display:none}
 body:not(.vm-bn-on) #app{height:calc(100vh - 40px)}
 body:not(.vm-bn-on) #drawer{top:40px}
 #banner{overflow:hidden;animation:vmbn .35s ease}
+/* a faixa não tem botão de fechar: só desaparece quando as notificações ficam activadas */
+#banner .bx{display:none!important}
+#banner{padding-right:10px}
 @keyframes vmbn{from{height:0;opacity:0}to{height:40px;opacity:1}}
 #app{transition:height .35s ease}
 `;
