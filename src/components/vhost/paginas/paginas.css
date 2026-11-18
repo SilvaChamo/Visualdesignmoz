@@ -16288,8 +16288,7 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
   padding-bottom: calc(4px * var(--z, 1));
 }
 
-/* Mudar pacote: o campo fica como está e a lista aparece só por cima, como a do computador. Letra e espaços ligeiramente mais pequenos que os
-   da lista do sistema do telemóvel (Silva, 18/11/2026); o círculo de escolha acompanha a letra */
+/* Mudar pacote: o campo e a lista dentro da janela. Letra e espaços ligeiramente mais pequenos que os da lista do sistema do telemóvel (Silva, 18/11/2026); o círculo de escolha acompanha a letra */
 .vh .sp-btn {
    display: flex;
    align-items: center;
@@ -16323,31 +16322,21 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    font-size: calc(12px * var(--fs, 1))
 }
 
-.vh .sp-fundo {
-   position: fixed;
-   inset: 0;
-   z-index: 100000;
-   display: flex;
-   align-items: center;
-   justify-content: center;
-   padding: 16px;
-   background: rgba(0, 0, 0, .35)
-}
-
 .vh .sp-lista {
-   width: min(100%, 420px);
-   max-height: 72vh;
+   margin-top: calc(6px * var(--z, 1));
+   max-height: min(58vh, calc(420px * var(--z, 1)));
    overflow-y: auto;
+   border: 1px solid var(--line);
    border-radius: var(--r);
-   background: var(--card);
-   box-shadow: 0 14px 34px rgba(0, 0, 0, .28);
-   padding: calc(4px * var(--z, 1)) 0
+   background: var(--card)
 }
 
 .vh .sp-grupo {
-   padding: calc(12px * var(--z, 1)) calc(16px * var(--z, 1)) calc(4px * var(--z, 1));
-   font-size: calc(12px * var(--fs, 1));
+   padding: calc(10px * var(--z, 1)) calc(14px * var(--z, 1)) calc(2px * var(--z, 1));
+   font-size: calc(11.5px * var(--fs, 1));
    font-weight: 600;
+   letter-spacing: .04em;
+   text-transform: uppercase;
    color: var(--muted)
 }
 
@@ -16360,9 +16349,9 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    background: none;
    color: var(--ink);
    font: inherit;
-   font-size: calc(15px * var(--fs, 1));
+   font-size: calc(14px * var(--fs, 1));
    text-align: left;
-   padding: calc(12px * var(--z, 1)) calc(16px * var(--z, 1));
+   padding: calc(9px * var(--z, 1)) calc(14px * var(--z, 1));
    cursor: pointer
 }
 
@@ -16378,8 +16367,8 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
 .vh .sp-op .rd {
    flex: none;
    box-sizing: border-box;
-   width: 1.3em;
-   height: 1.3em;
+   width: 1.45em;
+   height: 1.45em;
    border: 2px solid var(--muted);
    border-radius: 50%;
    display: grid;

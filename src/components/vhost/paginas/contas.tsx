@@ -3,7 +3,6 @@
 // Gestão de contas: listas, ver/modificar conta, criar contas, mudar senhas, mover clientes e modelos de mensagem.
 // Campos e colunas copiados do DirectAdmin (ver VisualHost/04-da-gestao-de-contas.md).
 import { useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { useVH, type VH } from '../context';
 import type { ScreenFn } from '../screens';
 import { ChangeRoleModal } from '../modals';
@@ -187,51 +186,45 @@ function DescerPlanoModal({ contas, pacote, oQue }: { contas: string[]; pacote: 
   );
 }
 
-/** Escolha de pacote: o campo fica como está e ao tocar aparece só a lista por cima (como a do computador), com letra e espaços ligeiramente
- *  mais pequenos que os do sistema. Os pacotes de revenda vêm num grupo à parte: escolher um torna a conta revendedora, e um de cliente numa
- *  conta revendedora deixa-a de o ser. A lista sai para dentro do painel (portal) para a janela não a cortar. */
+/** Escolha de pacote: o campo e, por baixo, a lista dentro da própria janela (a do telemóvel é a do sistema: letra grande e linhas altas que não
+ *  se mudam). Os pacotes de revenda vêm num grupo à parte: escolher um torna a conta revendedora, e um de cliente numa conta revendedora
+ *  deixa-a de o ser. */
 function SeletorPacote({ valor, grupos, onChange }: { valor: string; grupos: { titulo: string; nomes: string[] }[]; onChange: (n: string) => void }) {
   const { t } = useVH();
   const [aberto, setAberto] = useState(false);
-  const campo = useRef<HTMLButtonElement>(null);
   const com = grupos.filter((g) => g.nomes.length);
-  const raiz = aberto ? (campo.current?.closest('.vh') as HTMLElement | null) : null;
   return (
     <div className="sp">
-      <button ref={campo} type="button" className={'sp-btn' + (aberto ? ' on' : '')} aria-haspopup="listbox" aria-expanded={aberto} onClick={() => setAberto(true)}>
+      <button type="button" className={'sp-btn' + (aberto ? ' on' : '')} aria-haspopup="listbox" aria-expanded={aberto} aria-label={t('Novo pacote')} onClick={() => setAberto(!aberto)}>
         <i className="fa-solid fa-list-ul" />
         <span>{valor}</span>
         <i className="fa-solid fa-chevron-down sp-seta" />
       </button>
-      {raiz &&
-        createPortal(
-          <div className="sp-fundo" onClick={() => setAberto(false)}>
-            <div className="sp-lista" role="listbox" onClick={(e) => e.stopPropagation()}>
-              {com.map((g) => (
-                <div key={g.titulo}>
-                  {com.length > 1 && <div className="sp-grupo">{t(g.titulo)}</div>}
-                  {g.nomes.map((n) => (
-                    <button
-                      type="button"
-                      key={n}
-                      role="option"
-                      aria-selected={n === valor}
-                      className={'sp-op' + (n === valor ? ' on' : '')}
-                      onClick={() => {
-                        onChange(n);
-                        setAberto(false);
-                      }}
-                    >
-                      <span>{n}</span>
-                      <i className="rd" aria-hidden />
-                    </button>
-                  ))}
-                </div>
+      {aberto && (
+        <div className="sp-lista" role="listbox">
+          {com.map((g) => (
+            <div key={g.titulo}>
+              {com.length > 1 && <div className="sp-grupo">{t(g.titulo)}</div>}
+              {g.nomes.map((n) => (
+                <button
+                  type="button"
+                  key={n}
+                  role="option"
+                  aria-selected={n === valor}
+                  className={'sp-op' + (n === valor ? ' on' : '')}
+                  onClick={() => {
+                    onChange(n);
+                    setAberto(false);
+                  }}
+                >
+                  <span>{n}</span>
+                  <i className="rd" aria-hidden />
+                </button>
               ))}
             </div>
-          </div>,
-          raiz,
-        )}
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -244,21 +237,17 @@ function MudarPacoteModal({ users }: { users: string[] }) {
   const clientes = Object.keys(pacotesDeCliente(s));
   const revenda = s.level === 'admin' ? Object.keys(s.db.rpkgs) : [];
   const [p, setP] = useState(clientes[0] || revenda[0] || '');
+  // sem título nem descrição por cima: o campo e a lista ocupam a janela, com Cancelar e Guardar por baixo
   return (
     <>
-      <h3>{t('Mudar pacote')}</h3>
-      <p style={{ color: 'var(--muted)', marginBottom: 12 }}>Contas: {users.join(', ')}</p>
-      <div className="f">
-        <label>{t('Novo pacote')}</label>
-        <SeletorPacote
-          valor={p}
-          grupos={[
-            { titulo: 'Pacotes de cliente', nomes: clientes },
-            { titulo: 'Pacotes de revenda', nomes: revenda },
-          ]}
-          onChange={setP}
-        />
-      </div>
+      <SeletorPacote
+        valor={p}
+        grupos={[
+          { titulo: 'Pacotes de cliente', nomes: clientes },
+          { titulo: 'Pacotes de revenda', nomes: revenda },
+        ]}
+        onChange={setP}
+      />
       <div className="mfoot">
         <button className="btn g" onClick={closeM}>
           {t('Cancelar')}
