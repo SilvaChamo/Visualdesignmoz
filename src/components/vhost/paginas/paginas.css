@@ -16358,7 +16358,7 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    font: inherit;
    font-size: calc(14px * var(--fs, 1));
    text-align: left;
-   padding: calc(9px * var(--z, 1)) calc(14px * var(--z, 1));
+   padding: calc(7px * var(--z, 1)) calc(14px * var(--z, 1));
    cursor: pointer
 }
 
@@ -16374,8 +16374,8 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
 .vh .sp-op .rd {
    flex: none;
    box-sizing: border-box;
-   width: 1.45em;
-   height: 1.45em;
+   width: 1.25em;
+   height: 1.25em;
    border: 1.5px solid color-mix(in srgb, var(--muted), var(--card) 25%);
    border-radius: 50%;
    background: var(--card);
