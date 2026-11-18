@@ -330,6 +330,8 @@ export function SwitcherBar({ title, crumbs, dominios, dominioUrl }: { title: st
               resto da faixa (Silva, 14/10/2026) */}
           <a className="da-bc-casa" onClick={() => go('inicio')} title={t('Início')} aria-label={t('Início')}>
             <i className="fa-solid fa-house" />
+            {/* o texto «Início» ao lado da casa (Silva, 18/11/2026) */}
+            <span className="da-bc-casa-txt">{t('Início')}</span>
           </a>
           <i className="fa-solid fa-folder-tree" style={{ color: 'var(--red)', fontSize: 13, marginRight: 2 }} />
           <a onClick={() => go('inicio')} style={{ cursor: 'pointer', color: 'var(--muted)', textDecoration: 'none' }}>
