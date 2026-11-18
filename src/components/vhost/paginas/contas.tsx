@@ -186,26 +186,70 @@ function DescerPlanoModal({ contas, pacote, oQue }: { contas: string[]; pacote: 
   );
 }
 
+/** Escolha de pacote com lista própria (a do telemóvel é a do sistema: letra grande e linhas altas que não se mudam). Os pacotes de revenda
+ *  vêm num grupo à parte: escolher um torna a conta revendedora, escolher um de cliente numa conta revendedora deixa-a de o ser. */
+function SeletorPacote({ valor, grupos, onChange }: { valor: string; grupos: { titulo: string; nomes: string[] }[]; onChange: (n: string) => void }) {
+  const { t } = useVH();
+  const [aberto, setAberto] = useState(false);
+  const com = grupos.filter((g) => g.nomes.length);
+  return (
+    <div className="sp">
+      <button type="button" className={'sp-btn' + (aberto ? ' on' : '')} aria-haspopup="listbox" aria-expanded={aberto} onClick={() => setAberto(!aberto)}>
+        <i className="fa-solid fa-list-ul" />
+        <span>{valor}</span>
+        <i className="fa-solid fa-chevron-down sp-seta" />
+      </button>
+      {aberto && (
+        <div className="sp-lista" role="listbox">
+          {com.map((g) => (
+            <div key={g.titulo}>
+              {com.length > 1 && <div className="sp-grupo">{t(g.titulo)}</div>}
+              {g.nomes.map((n) => (
+                <button
+                  type="button"
+                  key={n}
+                  role="option"
+                  aria-selected={n === valor}
+                  className={'sp-op' + (n === valor ? ' on' : '')}
+                  onClick={() => {
+                    onChange(n);
+                    setAberto(false);
+                  }}
+                >
+                  <span>{n}</span>
+                  <i className="rd" aria-hidden />
+                </button>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function MudarPacoteModal({ users }: { users: string[] }) {
   const vh = useVH();
   const { s, t, closeM } = vh;
-  // Revendedores têm os 3 pacotes de revenda (Essencial, Expandido, Completo); os outros, os pacotes de cliente. Não se misturam.
-  const revendas = users.filter((u) => s.acc[u]?.role === 'revenda').length;
-  const misturado = revendas > 0 && revendas < users.length;
-  const nomes = Object.keys(revendas === users.length && users.length ? s.db.rpkgs : pacotesDeCliente(s));
-  const [p, setP] = useState(nomes[0]);
+  // O administrador vê também os 3 pacotes de revenda: escolher um torna a conta revendedora, e um pacote de cliente numa conta revendedora
+  // deixa-a de o ser (o servidor recusa se ainda tiver clientes ligados).
+  const clientes = Object.keys(pacotesDeCliente(s));
+  const revenda = s.level === 'admin' ? Object.keys(s.db.rpkgs) : [];
+  const [p, setP] = useState(clientes[0] || revenda[0] || '');
   return (
     <>
       <h3>{t('Mudar pacote')}</h3>
       <p style={{ color: 'var(--muted)', marginBottom: 12 }}>Contas: {users.join(', ')}</p>
-      {misturado && <p style={{ color: 'var(--red)', marginBottom: 12 }}>{t('Escolha só revendedores ou só contas de cliente: têm pacotes diferentes.')}</p>}
       <div className="f">
         <label>{t('Novo pacote')}</label>
-        <select value={p} onChange={(e) => setP(e.target.value)}>
-          {nomes.map((n) => (
-            <option key={n}>{n}</option>
-          ))}
-        </select>
+        <SeletorPacote
+          valor={p}
+          grupos={[
+            { titulo: 'Pacotes de cliente', nomes: clientes },
+            { titulo: 'Pacotes de revenda (a conta passa a revendedora)', nomes: revenda },
+          ]}
+          onChange={setP}
+        />
       </div>
       <div className="mfoot">
         <button className="btn g" onClick={closeM}>
@@ -213,7 +257,6 @@ function MudarPacoteModal({ users }: { users: string[] }) {
         </button>
         <button
           className="btn r"
-          disabled={misturado}
           onClick={() => {
             closeM();
             void mudarPacote(vh, users, p);
@@ -704,11 +747,18 @@ function ContaModificar({ u }: { u: string }) {
       <VerModificar u={u} on="modificar" />
       <Frm title="Pacote" desc={personalizado(s, u) ? 'Esta conta tem limites próprios. Escolher um pacote substitui-os.' : 'Os limites abaixo vêm do pacote da conta'}>
         <Row label="Definir o pacote">
-          <select value={pk} onChange={(e) => setPk(e.target.value)}>
-            {nomes.map((n) => (
-              <option key={n}>{n}</option>
-            ))}
-          </select>
+          <SeletorPacote
+            valor={pk}
+            grupos={
+              s.level === 'admin'
+                ? [
+                    { titulo: 'Pacotes de cliente', nomes: Object.keys(pacotesDeCliente(s)) },
+                    { titulo: 'Pacotes de revenda (a conta passa a revendedora)', nomes: Object.keys(s.db.rpkgs) },
+                  ]
+                : [{ titulo: 'Pacotes', nomes }]
+            }
+            onChange={setPk}
+          />
           <button className="btn g" disabled={pk === a.pkg && !personalizado(s, u)} onClick={aplicar}>
             {t('Aplicar pacote')}
           </button>
