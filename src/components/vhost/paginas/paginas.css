@@ -1110,7 +1110,14 @@
       color: var(--red);
       font-size: calc(16px * var(--fs, 1));
       cursor: pointer;
-      text-decoration: none
+      text-decoration: none;
+      gap: calc(6px * var(--z, 1))
+   }
+
+   /* o texto «Início» ao lado da casa */
+   .vh .da-bc-casa-txt {
+      font-size: calc(13px * var(--fs, 1));
+      font-weight: 700
    }
 
    .vh .da-breadcrumb {

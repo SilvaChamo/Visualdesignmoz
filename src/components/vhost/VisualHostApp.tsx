@@ -1819,22 +1819,19 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
         {/* Barra de baixo (só no telemóvel) */}
         <nav className="tabbar" id="tabbar">
           {allowed.length > 1 ? (
-            // Admin e Revenda (que têm os dois níveis): em vez dos 4 menus, só «Admin» e «Gestão», com o «Início» no meio
-            // (Silva, 18/11/2026). Os restantes painéis ficam como estavam.
+            // Admin e Revenda (que têm os dois níveis): em vez dos 4 menus, só «Admin» e «Gestão» (Silva, 18/11/2026).
+            // O «Início» não vai aqui: é o botão da casa da faixa do selector de domínios (SwitcherBar), que agora leva o texto.
+            // Os restantes painéis ficam como estavam.
             <>
               {(() => {
                 const nivelAdmin = allowed.find((k) => k !== 'utilizador') ?? allowed[0];
                 return (
                   <>
-                    <a className={level === nivelAdmin && s.page !== 'inicio' ? 'on' : ''} onClick={() => setLevel(nivelAdmin)}>
+                    <a className={level === nivelAdmin ? 'on' : ''} onClick={() => setLevel(nivelAdmin)}>
                       <i className="fa-solid fa-user-shield" />
                       {t(nomeNivel(nivelAdmin))}
                     </a>
-                    <a className={s.page === 'inicio' ? 'on' : ''} onClick={() => go('inicio')}>
-                      <i className="fa-solid fa-house" />
-                      {t('Início')}
-                    </a>
-                    <a className={level === 'utilizador' && s.page !== 'inicio' ? 'on' : ''} onClick={() => setLevel('utilizador')}>
+                    <a className={level === 'utilizador' ? 'on' : ''} onClick={() => setLevel('utilizador')}>
                       <i className="fa-solid fa-sliders" />
                       {t(nomeNivel('utilizador'))}
                     </a>
