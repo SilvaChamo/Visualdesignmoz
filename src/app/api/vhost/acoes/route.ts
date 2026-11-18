@@ -10,6 +10,7 @@ import { excludeResellerSelfPackages } from '@/lib/panel-contas-enrich';
 import { DOMINIO_OK, instalarWebmail, preverPassagem } from '@/lib/vhost-passar';
 import { assertResellerHostingQuota } from '@/lib/panel-reseller-tier';
 import { upsertPanelAuthAccount } from '@/lib/panel-auth-accounts';
+import { isSuperAdmin } from '@/lib/panel-user-registry';
 import { RESELLER_TIER_LABELS, type ResellerTier } from '@/lib/panel-role-capabilities';
 
 export const dynamic = 'force-dynamic';
@@ -61,7 +62,7 @@ type Corpo = {
   /** tipo: admin | revenda | profissional | cliente */
   tipo?: string;
   /** pacote: para um revendedor é o pacote de revenda do painel (Revenda Essencial/Expandido/Completo) e o domínio é obrigatório */
-  criar?: { user: string; nome?: string; email: string; senha: string; dominio?: string; pacote: string; tipo?: 'cliente' | 'revenda' };
+  criar?: { user: string; nome?: string; email: string; senha: string; dominio?: string; pacote: string; tipo?: 'cliente' | 'revenda' | 'admin' };
 };
 
 export async function POST(req: NextRequest) {
@@ -90,6 +91,19 @@ export async function POST(req: NextRequest) {
     meus = new Set((registo || []).filter((r) => eu && String(r.parent_username || '').toLowerCase() === eu).map((r) => String(r.username).toLowerCase()));
   }
 
+  // Super administrador (só o Silva): cria administradores e mexe nas contas deles; os outros administradores são normais
+  const superAdmin = admin && isSuperAdmin(auth.user.email);
+  const contasDeAdmin = new Set<string>();
+  if (admin && !superAdmin && sb) {
+    const [{ data: perfis }, { data: registo }] = await Promise.all([
+      sb.from('profiles').select('user_id, da_username').eq('role', 'admin'),
+      sb.from('panel_users').select('username, auth_user_id'),
+    ]);
+    const ids = new Set((perfis || []).map((p) => String(p.user_id)));
+    for (const p of perfis || []) if (p.da_username) contasDeAdmin.add(String(p.da_username).toLowerCase());
+    for (const r of registo || []) if (r.auth_user_id && ids.has(String(r.auth_user_id))) contasDeAdmin.add(String(r.username).toLowerCase());
+  }
+
   if (!admin && !eu) return NextResponse.json({ erro: 'A sua conta do site ainda não está ligada a uma conta do servidor.' }, { status: 403 });
 
   /** Pacote que esta sessão pode atribuir: existe no servidor, não é "system" e, para revendedores, é um dos Pro-… (Pro-Basico,
@@ -106,6 +120,7 @@ export async function POST(req: NextRequest) {
     if (!x) return 'conta não encontrada no servidor';
     if ((x.ROLE || '').toLowerCase() === 'admin' || u === (process.env.HESTIA_USER || 'vdadmin')) return 'conta de administrador do servidor';
     if (!admin && !meus.has(u)) return 'conta fora do seu painel';
+    if (contasDeAdmin.has(u)) return 'só o super administrador altera contas de administrador';
     return null;
   };
 
@@ -274,6 +289,8 @@ export async function POST(req: NextRequest) {
       const { emailDeContaValido, SEM_EMAIL } = await import('@/lib/hestia-adapter');
       if (!emailDeContaValido(c.email)) return NextResponse.json({ erro: c.email ? 'E-mail inválido.' : SEM_EMAIL }, { status: 400 });
       if ((c.senha || '').length < 8) return NextResponse.json({ erro: 'A palavra-passe precisa de pelo menos 8 caracteres.' }, { status: 400 });
+      const novoAdmin = c.tipo === 'admin';
+      if (novoAdmin && !superAdmin) return NextResponse.json({ erro: 'Só o super administrador cria administradores.' }, { status: 403 });
       const revendedor = c.tipo === 'revenda';
       const nivel = revendedor ? nivelDeRevenda(String(c.pacote || '')) : null;
       // Revendedor: só o administrador o cria, com um dos 3 pacotes de revenda e sempre com domínio (Silva, 18/11/2026)
@@ -323,8 +340,21 @@ export async function POST(req: NextRequest) {
       if (sb) {
         const { criarLoginDaConta } = await import('@/lib/vhost-login-da-conta');
         const login = await criarLoginDaConta(sb, u, c.senha, c.email).catch((e: unknown) => ({ ok: false as const, erro: e instanceof Error ? e.message : String(e) }));
-        if (!login.ok) falhas.push({ conta: u, erro: 'conta criada, mas sem login do site' + (revendedor ? ' (não ficou revendedor)' : '') + ': ' + login.erro });
-        else if (revendedor && nivel) {
+        if (!login.ok) falhas.push({ conta: u, erro: 'conta criada, mas sem login do site' + (revendedor ? ' (não ficou revendedor)' : novoAdmin ? ' (não ficou administrador)' : '') + ': ' + login.erro });
+        else if (novoAdmin) {
+          // Administrador normal: papel «admin» no site, mas a conta do servidor continua a ser de utilizador comum (nunca a função de
+          // administrador do servidor, que é a do super administrador). Entra no painel pela conta de administração, como os outros.
+          try {
+            const { saveProfileForAuthUser } = await import('@/lib/profile-db');
+            await saveProfileForAuthUser(sb, login.uid, { role: 'admin' });
+            const { data: au } = await sb.auth.admin.getUserById(login.uid);
+            await sb.auth.admin.updateUserById(login.uid, { user_metadata: { ...(au?.user?.user_metadata || {}), role: 'admin' } });
+            await sb.from('panel_users').update({ acl: 'admin' }).eq('username', u);
+            await upsertPanelAuthAccount(sb, { userId: login.uid, email: login.email, role: 'admin', name: c.nome?.trim() || u, serverLinked: true, daUsername: u, provider: 'hestia' });
+          } catch (e) {
+            falhas.push({ conta: u, erro: 'conta criada, mas não ficou administrador: ' + (e instanceof Error ? e.message : String(e)) });
+          }
+        } else if (revendedor && nivel) {
           // o login nasce como cliente: passa a revendedor, com o nível do pacote escolhido
           try {
             const { saveProfileForAuthUser } = await import('@/lib/profile-db');
@@ -369,6 +399,7 @@ export async function POST(req: NextRequest) {
       if (!sb) return NextResponse.json({ erro: 'Registo do site indisponível.' }, { status: 503 });
       const papel = ({ admin: 'admin', revenda: 'reseller', profissional: 'profissional', cliente: 'client' } as Record<string, string>)[String(corpo.tipo || '')];
       if (!papel) return NextResponse.json({ erro: 'Tipo inválido.' }, { status: 400 });
+      if (papel === 'admin' && !superAdmin) return NextResponse.json({ erro: 'Só o super administrador cria administradores.' }, { status: 403 });
       const { data: registo } = await sb.from('panel_users').select('username, auth_user_id');
       for (const u of contas) {
         await correr(u, async () => {

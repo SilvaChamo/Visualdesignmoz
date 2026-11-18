@@ -9,6 +9,7 @@ export const contas_sistema: Record<string, string> = {
  "conta(s) passaram ao pacote": "account(s) moved to the package",
  "Mudar pacote": "Change package",
  "Novo pacote": "New package",
+ "Só o super administrador cria administradores": "Only the super administrator creates administrators",
  "Escolha só revendedores ou só contas de cliente: têm pacotes diferentes.": "Choose only resellers or only client accounts: they have different packages.",
  "Mudar IP": "Change IP",
  "Mudar o IP ainda não está ligado ao servidor: nada foi alterado (": "Changing the IP is not connected to the server yet: nothing was changed (",

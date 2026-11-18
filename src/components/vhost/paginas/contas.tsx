@@ -335,7 +335,7 @@ function ListaContas({ kind }: { kind: Kind }) {
       : kind === 'revenda'
         ? [
             { t: 'Adicionar cliente', fa: 'fa-user-plus', sempre: true, run: ir('/' + s.level + '/novo-cliente') },
-            { t: 'Novo administrador', fa: 'fa-user-gear', sempre: true, run: ir('/admin/administradores/novo') },
+            ...(s.pessoa?.superAdmin ? [{ t: 'Novo administrador', fa: 'fa-user-gear', sempre: true, run: ir('/admin/administradores/novo') }] : []),
           ]
         : kind === 'admin'
           ? [
@@ -807,13 +807,13 @@ export function NovaConta({ tipo, embutido }: { tipo: TipoNova; embutido?: { dom
     if (pass.length < 8) return toast('A palavra-passe precisa de pelo menos 8 caracteres');
     const d = dom.trim().toLowerCase();
     if (tipo !== 'admin' && !/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(d)) return toast('Escreva um domínio válido');
-    // Administradores ainda não estão ligados ao servidor (poder total: fica para depois, por decisão do Silva)
-    if (tipo === 'admin') return toast('Criar administradores ainda não está ligado ao servidor');
+    // Só o super administrador cria administradores (o servidor confirma); os que cria são administradores normais
+    if (tipo === 'admin' && !s.pessoa?.superAdmin) return toast('Só o super administrador cria administradores');
     if (custom) return toast('Os limites próprios ainda não chegam ao servidor: escolha um pacote');
     if (onde?.bloqueia) return toast(onde.bloqueia);
     const comPassagem = !embutido && !!onde?.passa && passar;
     // com passagem, a conta nasce sem domínio e o domínio passa para ela a seguir (cópia e desfazer no servidor)
-    noServidor(vh, { acao: 'criar', criar: { user: u, nome: nome.trim(), email: email.trim(), senha: pass, dominio: comPassagem || embutido ? '' : d, pacote: pk, tipo: tipo === 'revenda' ? 'revenda' : 'cliente' } }, () => ROLES[role] + ' ' + u + ' criado no servidor').then(async (feitas) => {
+    noServidor(vh, { acao: 'criar', criar: { user: u, nome: nome.trim(), email: email.trim(), senha: pass, dominio: comPassagem || embutido ? '' : d, pacote: pk, tipo: tipo === 'cliente' ? 'cliente' : tipo } }, () => ROLES[role] + ' ' + u + ' criado no servidor').then(async (feitas) => {
       if (!feitas.length) return;
       if (embutido) return embutido.aoCriar(u);
       if (comPassagem && onde?.prev) {
@@ -1038,9 +1038,9 @@ export function contas(kind: Kind): ScreenFn {
         novoCliente('r')
       ) : kind === 'revenda' ? (
         botao('r', b + '/novo', 'Novo revendedor', 'fa-user-tie')
-      ) : (
+      ) : s.pessoa?.superAdmin ? (
         botao('r', b + '/novo', 'Novo administrador', 'fa-user-gear')
-      );
+      ) : undefined;
     const v = kind === 'meus' ? vagas(s, me) : null;
     const desc = v && v.limite !== null ? t('Contas de cliente: ' + v.usadas + ' de ' + v.limite + ' · pacote ' + v.plano) : undefined;
     return { title: listaT, desc, actions, body: <ListaContas kind={kind} /> };

@@ -15,6 +15,7 @@ import { mbTexto, type DadosServidor, type Servidor, type ZonaDns } from '@/comp
 import type { LeituraServidor } from '@/lib/vhost-servidor';
 import { getDaSyncAdmin } from '@/lib/da-sync-schema';
 import { buyerRoleForPackage } from '@/lib/user-roles';
+import { isSuperAdmin } from '@/lib/panel-user-registry';
 import type { CompraPendente } from '@/lib/vhost-compra-pendente';
 
 type Linha = Record<string, string>;
@@ -349,7 +350,7 @@ export function montarDados(srv: LeituraServidor, reg: RegistoSite, sessao: Sess
   );
 
   // quem entrou (perfil do site): nome, e-mail e empresa para o cabeçalho e o rodapé do painel
-  const pessoa = { nome: (perfil?.name || minha?.name || '').trim(), email: perfil?.email || sessao.email || minha?.email || '', empresa: perfil?.empresa || '' };
+  const pessoa = { nome: (perfil?.name || minha?.name || '').trim(), email: perfil?.email || sessao.email || minha?.email || '', empresa: perfil?.empresa || '', ...(sessao.role === 'admin' && isSuperAdmin(sessao.email) ? { superAdmin: true } : {}) };
   return { me, pessoa, contas: filtra(contas), pacotes, info: filtra(info), dns, servidor, php: srv.php, lidoEm: srv.lidoEm };
 }
 
