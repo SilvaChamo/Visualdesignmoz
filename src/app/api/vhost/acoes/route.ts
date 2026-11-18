@@ -13,6 +13,7 @@ import { upsertPanelAuthAccount } from '@/lib/panel-auth-accounts';
 import { isSuperAdmin } from '@/lib/panel-user-registry';
 import { buyerRoleForPackage } from '@/lib/user-roles';
 import { contasCriadasPor, registarCriadoPor } from '@/lib/vhost-criado-por';
+import { baseDoProprio, nomeProprio } from '@/lib/vhost-limites-proprios';
 import { RESELLER_TIER_LABELS, type ResellerTier } from '@/lib/panel-role-capabilities';
 
 export const dynamic = 'force-dynamic';
@@ -38,8 +39,10 @@ const nivelDeRevenda = (pacote: string): ResellerTier | null => {
   return null;
 };
 
+type LimitesForm = { lim: Record<string, { v: string; unl: boolean; unit?: string }>; feats: Record<string, boolean>; rec?: Record<string, { v: string; unl: boolean; unit?: string }>; hestia?: Record<string, string> };
+
 type Corpo = {
-  acao: 'suspender' | 'reativar' | 'apagar' | 'pacote' | 'senha' | 'criar' | 'mover' | 'tipo' | 'pacote-gravar' | 'pacote-apagar';
+  acao: 'suspender' | 'reativar' | 'apagar' | 'pacote' | 'senha' | 'criar' | 'mover' | 'tipo' | 'pacote-gravar' | 'pacote-apagar' | 'limites' | 'ip';
   /** pacote-gravar: limites e funcionalidades do formulário (como em paginas/pacotes.tsx); editar = o pacote já existe */
   gravar?: {
     nome: string;
@@ -64,7 +67,11 @@ type Corpo = {
   /** tipo: admin | revenda | profissional | cliente */
   tipo?: string;
   /** pacote: para um revendedor é o pacote de revenda do painel (Revenda Essencial/Expandido/Completo) e o domínio é obrigatório */
-  criar?: { user: string; nome?: string; email: string; senha: string; dominio?: string; pacote: string; tipo?: 'cliente' | 'revenda' | 'admin' };
+  /** ip: endereço IP do servidor para os sites das contas */
+  ip?: string;
+  /** limites: limites próprios da conta (Personalizar), como o formulário de pacotes */
+  limites?: LimitesForm;
+  criar?: { user: string; nome?: string; email: string; senha: string; dominio?: string; pacote: string; tipo?: 'cliente' | 'revenda' | 'admin'; limites?: LimitesForm };
 };
 
 export async function POST(req: NextRequest) {
@@ -139,6 +146,18 @@ export async function POST(req: NextRequest) {
     else falhas.push({ conta: u, erro: r.error || 'o servidor recusou' });
   };
 
+  /** Grava os limites próprios da conta (pacote só dela) e aplica-os já; `base` = pacote de origem */
+  const aplicarLimites = async (u: string, base: string, g: LimitesForm): Promise<{ ok: boolean; error?: string }> => {
+    const nome = nomeProprio(u, base);
+    if (!/^[A-Za-z0-9_-]{1,40}$/.test(nome)) return { ok: false, error: 'o nome da conta com o do pacote é comprido de mais para o servidor' };
+    const { campos, erros, exatos } = camposDoFormulario(g.lim || {}, g.feats || {}, g.rec || {}, g.hestia || {});
+    if (erros.length) return { ok: false, error: erros.join(' ') };
+    const r = await hestia.gravarPacote(nome, campos, !!srv.packages[nome], undefined, exatos);
+    if (!r.ok) return r;
+    // FORCE: a conta que já usa mais do que o limite novo fica com o que tem, só não pode criar mais até ficar dentro dele
+    return hestia.changeUserPackage(u, nome, true);
+  };
+
   // Pacotes de cliente no servidor (Admin › Pacotes): criar, editar e apagar — só o administrador
   if (corpo.acao === 'pacote-gravar' || corpo.acao === 'pacote-apagar') {
     if (!admin) return NextResponse.json({ erro: 'Só o administrador cria, edita ou apaga pacotes.' }, { status: 403 });
@@ -188,6 +207,37 @@ export async function POST(req: NextRequest) {
 
   const contas = (corpo.contas || []).map((u) => String(u).trim().toLowerCase()).filter(Boolean);
   switch (corpo.acao) {
+    case 'ip': {
+      // Mudar o IP dos sites das contas para outro IP do servidor (só o administrador)
+      if (!admin) return NextResponse.json({ erro: 'Só o administrador muda o IP das contas.' }, { status: 403 });
+      const ip = String(corpo.ip || '').trim();
+      if (!srv.ips[ip]) return NextResponse.json({ erro: 'Esse IP não é um dos IPs do servidor.' }, { status: 400 });
+      for (const u of contas)
+        await correr(u, async () => {
+          const sites = Object.keys(srv.web[u] || {});
+          if (!sites.length) return { ok: false, error: 'a conta não tem sites' };
+          const erros: string[] = [];
+          for (const d of sites) {
+            const r = await hestiaCall('v-change-web-domain-ip', [u, d, ip]);
+            if (!r.ok) erros.push(d + ': ' + (r.error || 'o servidor recusou'));
+          }
+          return erros.length ? { ok: false, error: erros.join('; ') } : { ok: true };
+        });
+      break;
+    }
+    case 'limites': {
+      // Mudar os limites de uma conta que já existe (disco, memória, CPU, etc.), sem avisar o dono. Só o administrador (CPU e memória).
+      if (!admin) return NextResponse.json({ erro: 'Só o administrador muda os limites de uma conta.' }, { status: 403 });
+      if (!corpo.limites) return NextResponse.json({ erro: 'Faltam os limites.' }, { status: 400 });
+      for (const u of contas)
+        await correr(u, async () => {
+          const atual = srv.users[u]?.PACKAGE || '';
+          const base = baseDoProprio(u, atual) ?? atual;
+          if (!base || base === 'system') return { ok: false, error: 'a conta não tem um pacote de origem' };
+          return aplicarLimites(u, base, corpo.limites as LimitesForm);
+        });
+      break;
+    }
     case 'suspender':
       for (const u of contas) await correr(u, () => hestia.suspendAccount(u));
       break;
@@ -197,7 +247,9 @@ export async function POST(req: NextRequest) {
     case 'apagar':
       for (const u of contas)
         await correr(u, async () => {
+          const pacoteAntes = srv.users[u]?.PACKAGE || '';
           const r = await hestia.deleteAccount(u);
+          if (r.ok && baseDoProprio(u, pacoteAntes) !== null) await hestia.apagarPacote(pacoteAntes).catch(() => null);
           if (r.ok && sb) await sb.from('panel_users').delete().eq('username', u);
           esquecerRegisto();
           return r;
@@ -244,7 +296,10 @@ export async function POST(req: NextRequest) {
               if (clientes) return { ok: false, error: 'tem ' + clientes + ' cliente(s) ligados: passe-os primeiro para outro revendedor («Mover clientes») e só depois deixa de ser revendedor' };
             }
             // forcar: descer de plano mesmo que a conta use mais do que o pacote novo deixa (o painel pergunta antes)
+            const antes = srv.users[u]?.PACKAGE || '';
             const r = await hestia.changeUserPackage(u, p, corpo.forcar === true);
+            // escolher um pacote tira os limites próprios: o pacote só da conta já não serve
+            if (r.ok && baseDoProprio(u, antes) !== null && antes !== p) await hestia.apagarPacote(antes).catch(() => null);
             if (!r.ok || !eraRevenda || !perfil) return r;
             await darPapel(u, perfil, buyerRoleForPackage(p) === 'profissional' ? 'profissional' : 'client');
             return r;
@@ -351,6 +406,8 @@ export async function POST(req: NextRequest) {
         if (!quota.ok) return NextResponse.json({ erro: quota.error }, { status: 403 });
       }
       // Só a conta e o site no Hestia (sem Let's Encrypt nem configuração de DNS/e-mail em serviços externos)
+      if (c.limites && (revendedor || novoAdmin)) return NextResponse.json({ erro: 'Os limites próprios só se aplicam a contas de cliente: um revendedor tem os do seu nível.' }, { status: 400 });
+      if (c.limites && !admin) return NextResponse.json({ erro: 'Só o administrador define limites próprios.' }, { status: 403 });
       const r = await hestiaCall('v-add-user', [u, c.senha, c.email, pacoteServidor]);
       if (!r.ok) return NextResponse.json({ erro: 'O servidor recusou: ' + (r.error || 'erro'), falhas: [{ conta: u, erro: r.error || 'erro' }] }, { status: 502 });
       if (c.nome) {
@@ -362,6 +419,11 @@ export async function POST(req: NextRequest) {
         if (!w.ok) falhas.push({ conta: u, erro: 'conta criada, mas o domínio não: ' + (w.error || 'erro') });
         // webmail em https://<domínio>/webmail, como nos outros sites (antes ficava por pôr à mão)
         else if (!(await instalarWebmail(u, d))) falhas.push({ conta: u, erro: 'conta e domínio criados, mas a regra do webmail não foi posta' });
+      }
+      // os limites próprios entram depois do site: um limite baixo não pode impedir de o criar
+      if (c.limites) {
+        const l = await aplicarLimites(u, pacoteServidor, c.limites);
+        if (!l.ok) falhas.push({ conta: u, erro: 'conta criada, mas os limites próprios não ficaram: ' + (l.error || 'erro') });
       }
       if (sb) await sb.from('panel_users').upsert({ username: u, parent_username: admin ? null : eu || null, email: c.email, package_name: revendedor ? pacoteServidor : c.pacote, created_at: new Date().toISOString() }, { onConflict: 'username' });
       // a conta nasce já com login do site (o e-mail escrito e esta palavra-passe): sem ele não entrava no painel

@@ -16,13 +16,14 @@ import type { LeituraServidor } from '@/lib/vhost-servidor';
 import { getDaSyncAdmin } from '@/lib/da-sync-schema';
 import { buyerRoleForPackage } from '@/lib/user-roles';
 import { isSuperAdmin } from '@/lib/panel-user-registry';
+import { baseDoProprio } from '@/lib/vhost-limites-proprios';
 import type { CompraPendente } from '@/lib/vhost-compra-pendente';
 
 type Linha = Record<string, string>;
 
 export type RegistoSite = {
   /** panel_users: conta → revendedor que a criou, login ligado, data */
-  contas: Map<string, { parent: string | null; authUserId: string | null; criada: string | null; dominio?: string }>;
+  contas: Map<string, { parent: string | null; authUserId: string | null; criada: string | null; dominio?: string; criadoPor?: string }>;
   /** profiles por user_id e por conta do servidor (da_username) */
   perfis: Map<string, { userId: string; role: string; name: string; email: string; conta: string; dominio?: string; empresa?: string }>;
   /** pacote de revenda (essencial/expandido) por user_id */
@@ -164,7 +165,7 @@ export function montarDados(srv: LeituraServidor, reg: RegistoSite, sessao: Sess
     // Cliente ou Profissional pelo plano (pedido do Silva, 12/10): VD-Host-Pro/Business/Enterprise → Profissional;
     // VD-Host-Basico e planos de e-mail → Cliente. Antes bastava a conta ter um site, e todo o plano Básico caía em
     // Profissional. Pacotes fora dos planos seguem o papel do perfil; "manager" é sempre Profissional.
-    const doPlano = buyerRoleForPackage(x.PACKAGE);
+    const doPlano = buyerRoleForPackage(baseDoProprio(u, x.PACKAGE || '') ?? x.PACKAGE);
     let role: Role =
       (x.ROLE || '').toLowerCase() === 'admin' || u === apiUser || (p?.role === 'admin' && !doPlano)
         ? 'admin'
@@ -240,8 +241,12 @@ export function montarDados(srv: LeituraServidor, reg: RegistoSite, sessao: Sess
       ...(p?.empresa ? { empresa: p.empresa } : {}),
       role,
       creator: r?.parent && srv.users[r.parent] ? r.parent : u === adminConta ? u : adminConta,
-      pkg: revenda ? (revenda === 'completo' ? 'Revenda Completo' : revenda === 'expandido' ? 'Revenda Expandido' : 'Revenda Essencial') : x.PACKAGE || '',
-      hpkg: x.PACKAGE || '',
+      // conta com limites próprios: o pacote só dela chama-se «conta__origem»; o painel continua a ver o de origem (páginas do plano) e
+      // `limitesProprios` diz qual é o pacote só dela (os limites que se mostram e se mudam)
+      pkg: revenda ? (revenda === 'completo' ? 'Revenda Completo' : revenda === 'expandido' ? 'Revenda Expandido' : 'Revenda Essencial') : baseDoProprio(u, x.PACKAGE || '') ?? (x.PACKAGE || ''),
+      hpkg: baseDoProprio(u, x.PACKAGE || '') ?? (x.PACKAGE || ''),
+      ...(r?.criadoPor && reg.perfis.get(r.criadoPor)?.conta ? { criadoPor: reg.perfis.get(r.criadoPor)!.conta } : {}),
+      ...(baseDoProprio(u, x.PACKAGE || '') !== null ? { limitesProprios: x.PACKAGE } : {}),
       ...(srv.subpastas?.[u]?.length ? { subpastas: srv.subpastas[u] } : {}),
       state: (x.SUSPENDED || 'no').toLowerCase() === 'yes' ? 'off' : 'ok',
       disk: mbTexto(num(x.U_DISK)),
@@ -425,6 +430,9 @@ async function lerRegistoAgora(): Promise<RegistoSite> {
       reg.perfis.set(String(p.user_id), { userId: String(p.user_id), role: String(p.role || ''), name: String(p.name || ''), email: String(p.email || ''), conta: String(p.da_username || '').trim().toLowerCase(), dominio: p.da_domain ? String(p.da_domain).trim().toLowerCase() : undefined, empresa: p.empresa ? String(p.empresa).trim() : undefined });
     }
     for (const r of revendas.data || []) if (r.user_id && r.reseller_tier) reg.revendas.set(String(r.user_id), String(r.reseller_tier).toLowerCase());
+    // quem criou cada conta (administrador): coluna acrescentada à parte; se ainda não existir, fica sem esta informação e nada mais falha
+    const cp = await sb.from('panel_users').select('username, criado_por');
+    if (!cp.error) for (const r of cp.data || []) if (r.criado_por) { const x = reg.contas.get(String(r.username || '').trim().toLowerCase()); if (x) x.criadoPor = String(r.criado_por); }
   } catch (err) {
     // nunca contas inventadas no lugar das reais (pedido do Silva, 13/10/2026)
     console.error('[vhost-dados] Não foi possível ler o registo do VisualHost:', err);

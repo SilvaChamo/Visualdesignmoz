@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { baseDoProprio } from '@/lib/vhost-limites-proprios';
 import { hestiaCall } from '@/lib/hestia-client';
 import { esquecerLeitura } from '@/lib/vhost-servidor';
 import { esquecerRegisto } from '@/lib/vhost-dados';
@@ -79,7 +80,8 @@ export async function POST(req: NextRequest) {
     if (jaExisteSb) return NextResponse.json({ erro: 'Já existe um utilizador registado como "' + novoNome + '".' }, { status: 409 });
 
     const u = c.srv.users[c.conta];
-    const pkg = u?.PACKAGE || 'default';
+    // uma conta com limites próprios (pacote «conta__origem») passa a nova conta com o pacote de origem
+    const pkg = baseDoProprio(c.conta, u?.PACKAGE || '') ?? (u?.PACKAGE || 'default');
     const email = u?.CONTACT || '';
     const nomeCompleto = u?.NAME || c.conta;
     const [pNome, ...rNome] = nomeCompleto.split(/\s+/);

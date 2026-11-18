@@ -22,7 +22,9 @@ export type AcaoServidor =
       };
     }
   | { acao: 'pacote-apagar'; pacotes: string[] }
-  | { acao: 'criar'; criar: { user: string; nome?: string; email: string; senha: string; dominio?: string; pacote: string; tipo?: 'cliente' | 'revenda' | 'admin' } };
+  | { acao: 'criar'; criar: { user: string; nome?: string; email: string; senha: string; dominio?: string; pacote: string; tipo?: 'cliente' | 'revenda' | 'admin'; limites?: { lim: Record<string, unknown>; feats: Record<string, boolean>; rec?: Record<string, unknown>; hestia?: Record<string, string> } } }
+  | { acao: 'ip'; contas: string[]; ip: string }
+  | { acao: 'limites'; contas: string[]; limites: { lim: Record<string, unknown>; feats: Record<string, boolean>; rec?: Record<string, unknown>; hestia?: Record<string, string> } };
 
 /** Faz a alteração no servidor; devolve as contas alteradas (vazio se nada mudou) */
 export async function noServidor(vh: VH, corpo: AcaoServidor, msgOk: (n: number) => string): Promise<string[]> {

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { baseDoProprio } from '@/lib/vhost-limites-proprios';
 import { requirePanelBootstrapAccess } from '@/lib/panel-api-auth';
 import { lerRegisto } from '@/lib/vhost-dados';
 import { lerServidor } from '@/lib/vhost-servidor';
@@ -130,7 +131,7 @@ async function externasAgora(srv: Awaited<ReturnType<typeof lerServidor>> | null
     for (const p of reg?.perfis.values() || []) if (p.conta === conta) return p;
     return null;
   };
-  const planoDe = (conta: string) => (conta && srv?.users[conta]?.PACKAGE) || '';
+  const planoDe = (conta: string) => (conta && (baseDoProprio(conta, srv?.users[conta]?.PACKAGE || '') ?? srv?.users[conta]?.PACKAGE)) || '';
   const wp = leitura.wordpress.map((s): ExternaAgora => {
     const p = pessoaDe(s.conta);
     return {
@@ -173,7 +174,7 @@ export async function GET(req: NextRequest) {
   // tudo o que é de todo o servidor (presenças de outros, WordPress, webmail) só sai para o administrador e fora de `proprias`
   const verTudo = !proprias && auth.user.role === 'admin';
   const srv = verTudo ? await lerServidor().catch(() => null) : null;
-  const plano = (u: string) => (u && srv?.users[u]?.PACKAGE) || '';
+  const plano = (u: string) => (u && (baseDoProprio(u, srv?.users[u]?.PACKAGE || '') ?? srv?.users[u]?.PACKAGE)) || '';
   const presencas = listarPresencas().filter((p) => verTudo || p.uid === auth.user.id);
   const ligadas = presencas.map((p) => ({ ...p, plano: plano(p.conta), planoAVer: plano(p.aVer) }));
   return NextResponse.json({ ligadas, externas: verTudo ? await externasAgora(srv) : [], agora: Date.now() }, { headers: { 'Cache-Control': 'no-store' } });

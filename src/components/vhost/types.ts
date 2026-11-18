@@ -100,6 +100,10 @@ export interface Account {
   // Dados reais do servidor (Hestia), quando vêm de /api/vhost/dados
   /** pacote da conta no servidor (nos revendedores, "pkg" é o pacote de revenda) */
   hpkg?: string;
+  /** a conta tem limites próprios: nome do pacote só dela no servidor (os limites vêm de `pacotes`) */
+  limitesProprios?: string;
+  /** conta do administrador que criou esta conta (quando se sabe) */
+  criadoPor?: string;
   discoMb?: number;
   /** null = sem limite */
   discoLimMb?: number | null;
