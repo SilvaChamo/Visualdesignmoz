@@ -33,7 +33,7 @@ import { FUNDO } from './carga';
 
 /** nomes antigos dos temas → nome atual (as cores gravadas ficam sempre no mesmo nome) */
 const presetId = (id: string) => ({ red: 'visualdesign', blue: 'visualpro' })[id] || id;
-import { BASE, LOGO, acctOf, allowedOf, isLevel, nivelInicial, descFor, findItem, fromPath, gItem, hasFeatOf, comAcessos, ico, initialState, isUser, meOf, MENU_SO_DOMINIO, soDominioDe, fechadoAteConfirmar, nomeNivel, dominioGuardado, guardarDominio, route, rotuloItem, type St } from './state';
+import { BASE, LOGO, acctOf, allowedOf, isLevel, nivelInicial, descFor, findItem, fromPath, gItem, hasFeatOf, comAcessos, ico, initialState, isUser, meOf, MENU_SO_DOMINIO, itemSoDominio, soDominioDe, fechadoAteConfirmar, nomeNivel, dominioGuardado, guardarDominio, route, rotuloItem, type St } from './state';
 import { Avatar, ImpBanner, NoTopoCartao, RouteFoot, SwitcherBar } from './ui';
 import { tituloDoCartao } from './titulos-cartao';
 import { useBotoesTelemovel } from './botoes-telemovel';
@@ -1670,9 +1670,9 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
                   </>
                 ) : (
                   MENU[level]
-                    .filter(([g]) => g !== 'Início' && (!soDominio || MENU_SO_DOMINIO.includes(g)))
+                    .filter(([g]) => g !== 'Início' && (!soDominio || MENU_SO_DOMINIO.includes(g) || g === 'E-mail'))
                     .map(([g, items]) => {
-                      const vis = items.filter((it) => !SEM_MENU.has(it.id) && vh.hasFeat(it.feat, it.id));
+                      const vis = items.filter((it) => !SEM_MENU.has(it.id) && vh.hasFeat(it.feat, it.id) && (!soDominio || itemSoDominio(g, it.id)));
                       if (!vis.length) return null;
                       const k = level + '/' + g;
                       return (

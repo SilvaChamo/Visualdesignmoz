@@ -142,6 +142,9 @@ export const acctOf = (s: St) => s.acc[meOf(s)] || VAZIA;
 export const allowedOf = (s: St) => (s.carga === 'ok' && !s.acc[meOf(s)] ? (['utilizador'] as Level[]) : ROLE_LEVELS[acctOf(s).role]);
 /** Quem só tem domínio (sem conta no servidor) vê um menu reduzido e os seus dados na barra da esquerda (Silva, 24/10/2026) */
 export const MENU_SO_DOMINIO = ['Gestão de domínios', 'Avançado', 'Sistema e ficheiros', 'Compras e encomendas', 'Suporte e ajuda'];
+/** Quem só tem domínio também entra no correio: do grupo «E-mail» só aparece «Contas de e-mail» (onde se abre o VhostMail) —
+ *  o acesso ao VhostMail é de todas as contas, sem excepção (Silva, 18/11/2026) */
+export const itemSoDominio = (g: string, id: string) => MENU_SO_DOMINIO.includes(g) || (g === 'E-mail' && id === 'email');
 /** Só no computador local: `?vista=so-dominio` mostra a vista de quem só tem domínio, para a poder ver sem uma conta dessas */
 const verSoDominio = () => typeof window !== 'undefined' && window.location.hostname === 'localhost' && new URLSearchParams(window.location.search).get('vista') === 'so-dominio';
 /** Conta do plano «só domínio» (vhost-dominio): vê o painel só do domínio, com as ofertas dos outros produtos (Silva, 17/10/2026) */
@@ -178,7 +181,7 @@ export function fixoNoPlano(pkg: string | undefined, id: string): boolean {
   const p = chavePacote(pkg);
   if (p.startsWith('vhost-email-')) return !!MENU.utilizador.find(([g]) => g === 'Gestão de domínios')?.[1].some((it) => it.id === id);
   if (p === 'vhost-dominio') {
-    if (id === 'dominios' || id === 'dns') return false;
+    if (id === 'dominios' || id === 'dns' || id === 'email') return false;
     return !MENU.utilizador.some(([g, itens]) => GRUPOS_SEMPRE.includes(g) && itens.some((it) => it.id === id));
   }
   return false;
@@ -188,6 +191,7 @@ export function fixoNoPlano(pkg: string | undefined, id: string): boolean {
 export const aguardaDe = (s: St) => acctOf(s).aguarda;
 export function fechadoAteConfirmar(s: St, id: string, lv: Level = s.level): boolean {
   if (lv !== 'utilizador' || !aguardaDe(s)) return false;
+  if (id === 'email') return false; // o correio (VhostMail) abre a todas as contas, também às que esperam
   return !MENU.utilizador.some(([g, itens]) => GRUPOS_SEMPRE.includes(g) && itens.some((it) => it.id === id));
 }
 /** A página `id` da Gestão está escondida pelo plano da conta que se vê (Admin › Acessos por plano)? Só vale para

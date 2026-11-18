@@ -10,7 +10,7 @@ import { corUso } from './cor-uso';
 import { ChangeRoleModal } from './modals';
 import { noServidor } from './paginas/acoes';
 import { EN, HX, MENU, ROLES } from './generated/data';
-import { MENU_SO_DOMINIO, descFor, findItem, gItem, ico, initials, nomeNivel, route, rotuloItem, soDominioDe } from './state';
+import { MENU_SO_DOMINIO, itemSoDominio, descFor, findItem, gItem, ico, initials, nomeNivel, route, rotuloItem, soDominioDe } from './state';
 import type { Account, HxState, MenuItem, Role } from './types';
 import type { Screen } from './screens';
 import { GLOBAL } from './generated/data';
@@ -556,12 +556,12 @@ export function ServerInfoCard() {
 export function DaHomeCards() {
   const { s, t, go, hasFeat } = useVH();
   const soDominio = soDominioDe(s);
-  const categories = MENU[s.level].filter(([g]) => g !== 'Início' && (!soDominio || MENU_SO_DOMINIO.includes(g)));
+  const categories = MENU[s.level].filter(([g]) => g !== 'Início' && (!soDominio || MENU_SO_DOMINIO.includes(g) || g === 'E-mail'));
   return (
     <div className="da-home-wrapper">
       <div className="da-home-grid">
         {categories.map(([g, items]) => {
-          const vis = items.filter((it) => hasFeat(it.feat, it.id));
+          const vis = items.filter((it) => hasFeat(it.feat, it.id) && (!soDominio || itemSoDominio(g, it.id)));
           if (!vis.length) return null;
           return (
             <div className="da-cat-section" style={{ marginBottom: 24 }} key={g}>
