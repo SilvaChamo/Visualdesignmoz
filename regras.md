@@ -995,6 +995,11 @@ resposta ao Silva diz-se só onde se mexeu e manda-se **o comando único do pont
 **os dois ecrãs** (computador e telemóvel lado a lado, `/dev-preview-telemovel`) — essa janela de dois ecrãs
 mantém-se sempre que se dá o código para ver alterações. O Silva vê no projecto local e manda os prints dele.
 
+**O ecrã mais pequeno de teste é 320 px, não 360** (Silva, 18/11/2026). Ao confirmar alterações visuais no telemóvel
+(Playwright, `viewport` de 320 de largura), a largura mínima testada é **320 px**; 360 não chega. Tudo tem de caber a 320
+(ver «Nada passa da largura, a partir de 320 px»), sem deslocação horizontal (`scrollWidth ≤ largura do ecrã`) e sem
+nada cortado. Para o resto vale também 390/430, mas o 320 nunca fica de fora.
+
 ## Como tirar o screenshot neste Mac
 
 O download automático do Chromium do Playwright falha aqui (`ERROR: Playwright does
