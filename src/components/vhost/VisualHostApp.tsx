@@ -1817,7 +1817,7 @@ export function VisualHostApp({ versao = 'dev', dados = null, tema = null, semSe
         </div>
 
         {/* Barra de baixo (só no telemóvel) */}
-        <nav className="tabbar" id="tabbar">
+        <nav className={'tabbar' + (allowed.length > 1 ? ' tabbar-niveis' : '')} id="tabbar">
           {allowed.length > 1 ? (
             // Admin e Revenda (que têm os dois níveis): em vez dos 4 menus, só «Admin» e «Gestão» (Silva, 18/11/2026).
             // O «Início» não vai aqui: é o botão da casa da faixa do selector de domínios (SwitcherBar), que agora leva o texto.
