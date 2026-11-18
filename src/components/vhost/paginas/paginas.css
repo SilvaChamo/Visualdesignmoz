@@ -7382,6 +7382,43 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
    .vh .tabbar i {
       font-size: clamp(calc(16px * var(--z, 1)), 5vw, calc(18px * var(--z, 1)))
    }
+
+   /* Admin | Gestão (painéis com dois níveis): os dois botões como os do desktop (.lvl) — texto ao lado do ícone, o activo
+      com o fundo suave, a cor e a linha de baixo a vermelho, e uma linha suave a separá-los (Silva, 18/11/2026) */
+   .vh .tabbar.tabbar-niveis {
+      padding: 0 0 env(safe-area-inset-bottom, 0px)
+   }
+
+   .vh .tabbar.tabbar-niveis a {
+      flex-direction: row;
+      justify-content: center;
+      gap: calc(8px * var(--z, 1));
+      height: calc(48px * var(--z, 1));
+      font-size: calc(13.5px * var(--fs, 1));
+      font-weight: 600;
+      letter-spacing: 0;
+      border-bottom: 2px solid transparent;
+      transition: color .2s, border-color .2s, background .2s
+   }
+
+   .vh .tabbar.tabbar-niveis a+a {
+      border-left: 1px solid var(--line)
+   }
+
+   .vh .tabbar.tabbar-niveis a i {
+      font-size: calc(15px * var(--fs, 1))
+   }
+
+   .vh .tabbar.tabbar-niveis a.on {
+      background: color-mix(in srgb, var(--soft) 92%, #000);
+      color: var(--red);
+      border-bottom-color: var(--red);
+      font-weight: 700
+   }
+
+   .vh[data-theme=dark] .tabbar.tabbar-niveis a.on {
+      background: color-mix(in srgb, var(--soft) 65%, #000)
+   }
 }
 
 /* Formulários do Perfil e do Suporte (.frm com .row/.field): como os outros do painel e do DA — uma linha por campo, título
