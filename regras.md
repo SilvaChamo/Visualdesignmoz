@@ -1052,3 +1052,11 @@ Só **silva.chamo@gmail.com** e **admin@visualdesignmoz.com** são administrador
 # Nunca o aviso «Instalar App» (Silva, 04/11/2026)
 
 O site e o painel **não têm** o aviso/botão «Instalar App» (PWA): não é relevante para o projecto. Foi removido (`PWAInstallPrompt` e o seu uso em `src/app/layout.tsx`). Nunca voltar a pôr `beforeinstallprompt`, cartões de «Instalar App» nem manifesto de aplicação instalável.
+
+# VhostMail: acesso para todas as contas, sem excepção (Silva, 18/11/2026)
+O correio (**Contas de e-mail**, onde se abre o VhostMail, e o **Webmail**) abre em **todas as contas e planos**: nada o esconde
+(nem «Acessos por plano», nem o plano «só domínio», nem a conta que ainda espera confirmação). Ver `EMAIL_SEMPRE`,
+`fixoNoPlano`, `fechadoAteConfirmar` e `itemSoDominio` em `src/components/vhost/state.ts`. Quem só tem domínio vê, do grupo «E-mail»,
+só «Contas de e-mail». No servidor, `/api/vhost/vhostmail/caixa` lê o servidor na hora antes de recusar uma caixa recém-criada
+(no máximo uma vez por minuto por sessão e caixa). As configurações de entrada (IMAP, SMTP, webmail, ficheiro para iPhone/Mac)
+estão em «Contas de e-mail», a mesma página em todos os painéis.
