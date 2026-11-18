@@ -1,0 +1,129 @@
+name: Ops - DKIM do Google Workspace num domínio (DNS)
+
+# Silva, 18/11/2026: o DKIM do Google (google._domainkey) do elimservicos.com estava por configurar. Este workflow põe (ou actualiza) esse registo TXT na zona DNS do domínio.
+# Só mexe no registo `<nome>.<domínio>` pedido: se não existe cria-o; se existe igual não faz nada; se existe diferente actualiza-o (e imprime o valor anterior para voltar atrás).
+# Nunca apaga nem toca noutros registos (MX, SPF, DMARC ficam como estão; só os lê e imprime). Chave do DNS: a mesma do painel, lida no servidor, nunca impressa.
+# Depois de escrever, lê o registo de volta na zona e nos servidores de nomes públicos.
+# Corre-se à mão (Actions › Run workflow). Feito a 18/11/2026 para o elimservicos.com: registo criado na zona e confirmado.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dominio:
+        description: 'Domínio (ex.: elimservicos.com)'
+        required: true
+        default: 'elimservicos.com'
+      nome:
+        description: 'Nome do registo TXT, sem o domínio'
+        required: true
+        default: 'google._domainkey'
+      valor:
+        description: 'Valor do registo TXT (a chave DKIM do Google)'
+        required: true
+        default: 'v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAgmC6cnXktFdbyASOxJ/IZtuunLLGLcPMlhmaX/tZ7Vt9WQmWB3ZM0TXLVR9/6D12WHAA8E8tYdRValQ8D7VjcMZJ/L7avIv1QHZjbb5gRxdrLVs3EnhNxK/AhbzqAk2LfEKdfGfkrxzw/t1yE9+MBHjbXueHRBlu+eWQ/iLPZFp28aJvzFacm+vALQWth5nKhO9ACneaMUQ3jO8TAqP/IddkkKmQiJd4r4rNwD9pdQRUp0ok7pIDdED4csWVfFSI2fnE8t+eMfzTjNQcqOVcoIb/zv4YGjPq0ulbS5igxWb2gmMEM+UMC0hiHfgL45QNR3aFBFQV5pMA5xEzf1uK+QIDAQAB'
+
+concurrency:
+  group: ops-dkim-google
+  cancel-in-progress: false
+
+jobs:
+  dkim:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Preparar os valores (base64 para viajarem sem estragar)
+        id: v
+        env:
+          DOMINIO: ${{ inputs.dominio || 'elimservicos.com' }}
+          NOME: ${{ inputs.nome || 'google._domainkey' }}
+          VALOR: ${{ inputs.valor || 'v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAgmC6cnXktFdbyASOxJ/IZtuunLLGLcPMlhmaX/tZ7Vt9WQmWB3ZM0TXLVR9/6D12WHAA8E8tYdRValQ8D7VjcMZJ/L7avIv1QHZjbb5gRxdrLVs3EnhNxK/AhbzqAk2LfEKdfGfkrxzw/t1yE9+MBHjbXueHRBlu+eWQ/iLPZFp28aJvzFacm+vALQWth5nKhO9ACneaMUQ3jO8TAqP/IddkkKmQiJd4r4rNwD9pdQRUp0ok7pIDdED4csWVfFSI2fnE8t+eMfzTjNQcqOVcoIb/zv4YGjPq0ulbS5igxWb2gmMEM+UMC0hiHfgL45QNR3aFBFQV5pMA5xEzf1uK+QIDAQAB' }}
+        run: |
+          echo "$DOMINIO" | grep -qE '^[a-z0-9.-]+$' || { echo "Domínio inválido"; exit 1; }
+          echo "$NOME" | grep -qE '^[a-z0-9._-]+$' || { echo "Nome inválido"; exit 1; }
+          echo "dominio=$DOMINIO" >> "$GITHUB_OUTPUT"
+          echo "nome=$NOME" >> "$GITHUB_OUTPUT"
+          echo "valor_b64=$(printf %s "$VALOR" | base64 -w0)" >> "$GITHUB_OUTPUT"
+
+      - name: Escrever o registo no DNS e confirmar
+        uses: appleboy/ssh-action@v1.2.5
+        env:
+          DOMINIO: ${{ steps.v.outputs.dominio }}
+          NOME: ${{ steps.v.outputs.nome }}
+          VALOR_B64: ${{ steps.v.outputs.valor_b64 }}
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          port: 2234
+          username: root
+          key: ${{ secrets.CONTABO_SSH_KEY }}
+          command_timeout: 5m
+          envs: DOMINIO,NOME,VALOR_B64
+          script: |
+            set -u
+            ENVF=/opt/visualdesignmoz/.env.local
+            lerenv() { grep -E "^$1=" "$ENVF" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'"; }
+            export CF_EMAIL="$(lerenv CLOUDFLARE_EMAIL)" CF_KEY="$(lerenv CLOUDFLARE_GLOBAL_API_KEY)" CF_TOKEN="$(lerenv CLOUDFLARE_API_TOKEN_ACCOUNT)"
+            [ -n "$CF_EMAIL$CF_TOKEN" ] || { echo "Sem chave do DNS no servidor"; exit 1; }
+            python3 - <<'PY'
+            import os, sys, json, base64, urllib.request, urllib.error
+            H = {'Content-Type': 'application/json'}
+            if os.environ.get('CF_EMAIL') and os.environ.get('CF_KEY'):
+                H['X-Auth-Email'] = os.environ['CF_EMAIL']; H['X-Auth-Key'] = os.environ['CF_KEY']
+            else:
+                H['Authorization'] = 'Bearer ' + os.environ['CF_TOKEN']
+            def api(method, path, body=None):
+                req = urllib.request.Request('https://api.cloudflare.com/client/v4' + path,
+                    data=json.dumps(body).encode() if body is not None else None, headers=H, method=method)
+                try:
+                    return json.load(urllib.request.urlopen(req, timeout=30))
+                except urllib.error.HTTPError as e:
+                    try: return json.load(e)
+                    except Exception: return {'success': False, 'errors': [{'message': 'HTTP %s' % e.code}]}
+                except Exception as e:
+                    return {'success': False, 'errors': [{'message': str(e)[:100]}]}
+            def doh(nome, tipo):
+                try:
+                    req = urllib.request.Request('https://cloudflare-dns.com/dns-query?name=%s&type=%s' % (nome, tipo), headers={'accept': 'application/dns-json'})
+                    return [a.get('data', '') for a in (json.load(urllib.request.urlopen(req, timeout=20)).get('Answer') or [])]
+                except Exception as e:
+                    return ['(erro: %s)' % str(e)[:80]]
+            def norm(s): return s.replace('"', '').replace(' ', '')
+            dom = os.environ['DOMINIO']; nome = os.environ['NOME'] + '.' + dom
+            valor = base64.b64decode(os.environ['VALOR_B64']).decode()
+            z = api('GET', '/zones?name=' + dom).get('result') or []
+            if not z:
+                print('Zona não encontrada para', dom); sys.exit(1)
+            zid = z[0]['id']
+            print('Zona %s: estado %s, servidores de nomes %s' % (dom, z[0].get('status'), ', '.join(z[0].get('name_servers') or [])))
+            # só leitura: o que já lá está de e-mail
+            for tipo, nm in (('MX', dom), ('TXT', dom), ('TXT', '_dmarc.' + dom)):
+                rs = api('GET', '/zones/%s/dns_records?type=%s&name=%s' % (zid, tipo, nm)).get('result') or []
+                for r in rs:
+                    c = r['content']
+                    if tipo == 'TXT' and 'p=' in c and 'DKIM' in c: c = c[:60] + '…'
+                    print('  [lido] %-3s %-28s %s' % (tipo, nm, c))
+            recs = api('GET', '/zones/%s/dns_records?type=TXT&name=%s' % (zid, nome)).get('result') or []
+            print('Registos TXT em %s antes: %d' % (nome, len(recs)))
+            alvo = norm(valor)
+            if len(recs) > 1:
+                print('Mais de um registo no mesmo nome: não mexo (decisão para o Silva).'); sys.exit(1)
+            body = {'type': 'TXT', 'name': nome, 'content': valor, 'ttl': 1}
+            if recs and norm(recs[0]['content']) == alvo:
+                print('FEITO (já estava igual, nada mudou)')
+            elif recs:
+                print('Valor anterior (para voltar atrás):', recs[0]['content'])
+                p = api('PUT', '/zones/%s/dns_records/%s' % (zid, recs[0]['id']), body)
+                print('ACTUALIZADO' if p.get('success') else 'FALHOU %s' % [e.get('message') for e in p.get('errors', [])])
+                if not p.get('success'): sys.exit(1)
+            else:
+                p = api('POST', '/zones/%s/dns_records' % zid, body)
+                print('CRIADO' if p.get('success') else 'FALHOU %s' % [e.get('message') for e in p.get('errors', [])])
+                if not p.get('success'): sys.exit(1)
+            # confirmar na zona
+            rs = api('GET', '/zones/%s/dns_records?type=TXT&name=%s' % (zid, nome)).get('result') or []
+            ok_zona = len(rs) == 1 and norm(rs[0]['content']) == alvo
+            print('Na zona: %d registo(s), igual ao pedido: %s' % (len(rs), 'SIM' if ok_zona else 'NÃO'))
+            # confirmar nos servidores públicos (pode demorar uns minutos)
+            pub = doh(nome, 'TXT')
+            ok_pub = any(norm(x) == alvo for x in pub)
+            print('Em DNS público (1.1.1.1): %s' % ('SIM, a chave já responde' if ok_pub else 'ainda não visível (%s)' % ' | '.join(x[:50] for x in pub)))
+            if not ok_zona: sys.exit(1)
+            PY
