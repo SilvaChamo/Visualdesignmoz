@@ -296,7 +296,13 @@ function comDados(cur: St, d: DadosServidor, caminhoDesejado: string, doNavegado
     lidoEm: d.lidoEm,
     carga: 'ok',
     erro: null,
-    db: { ...cur.db, pkgs: d.pacotes, info: d.info },
+    // limites próprios das contas (Personalizar): vêm do pacote só da conta, no servidor
+    db: {
+      ...cur.db,
+      pkgs: d.pacotes,
+      info: d.info,
+      custom: Object.fromEntries(Object.entries(d.contas).flatMap(([u, a]) => (a.limitesProprios && d.pacotes[a.limitesProprios] ? [[u, structuredClone(d.pacotes[a.limitesProprios])]] : []))),
+    },
   };
   // Se o caminho inicial pedido (ex: /admin vindo de outra sessão) não for permitido para esta conta,
   // abre diretamente o nível inicial da conta em vez de mostrar "Sem acesso" logo ao entrar

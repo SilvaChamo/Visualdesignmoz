@@ -1,4 +1,5 @@
 import { chavePacote } from '@/lib/pacote-nome';
+import { baseDoProprio } from '@/lib/vhost-limites-proprios';
 import { NextRequest, NextResponse } from 'next/server';
 import { requirePanelBootstrapAccess } from '@/lib/panel-api-auth';
 import { executeServerCommand } from '@/lib/server-ssh-exec';
@@ -300,7 +301,7 @@ export async function POST(req: NextRequest) {
   const senhaOk = (v: unknown) => String(v ?? '').length >= 8 && !/[\r\n]/.test(String(v));
   const quota = (v: unknown) => (v === 'unlimited' || v === 0 || v === '0' || v === '' || v == null ? 'unlimited' : /^\d{1,7}$/.test(String(v)) ? String(v) : null);
   const limite = (v: unknown) => (v === '' || v == null || v === 0 || v === '0' ? null : /^\d{1,6}$/.test(String(v)) ? String(v) : 'x');
-  const pacoteEmail = EMAIL_PLANS.find((p) => chavePacote(p.hestiaPackage) === chavePacote(srv.users[conta]?.PACKAGE));
+  const pacoteEmail = EMAIL_PLANS.find((p) => chavePacote(p.hestiaPackage) === chavePacote(baseDoProprio(conta, srv.users[conta]?.PACKAGE || '') ?? srv.users[conta]?.PACKAGE));
   type MudancaQuota = EmailQuotaChange;
   const calcularRedistribuicaoQuota = (
     user: string,

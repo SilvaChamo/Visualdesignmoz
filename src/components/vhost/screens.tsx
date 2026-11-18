@@ -109,6 +109,8 @@ function AdminWidgets() {
   const { data: vivo } = useSystemStatus();
   // o mesmo CPU do cartão do servidor e da janela de manutenção (leitura ao vivo partilhada)
   const cpuAgora = vivo?.cpu.usage ?? (v ? cpuServidor(v) : 0);
+  // a mesma percentagem do cartão SERVIDOR da barra lateral (uma casa decimal, com vírgula), para os dois mostrarem o mesmo
+  const discoPct = v && v.discoTotalGb ? String(Math.min(100, Math.round((v.discoUsadoGb / v.discoTotalGb) * 1000) / 10)).replace('.', ',') : '0';
   return (
     <div className="cols">
       <div className="da-main-card cols-main">
@@ -118,7 +120,7 @@ function AdminWidgets() {
           <Stat title="Revendedores" v={all.filter(([, a]) => a.role === 'revenda').length} m="/ ∞" p={0} />
           {/* números reais do servidor, explícitos (Silva, 14/10/2026): "41,8 GB de 300 GB" (a percentagem vai no título, para cada informação ficar numa linha), "13% de 6 núcleos" */}
           <Stat
-            title={<>{t('Disco')}{v ? ' · ' + pctDe(v.discoUsadoGb, v.discoTotalGb) + '%' : ''}</>}
+            title={<>{t('Disco')}{v ? ' · ' + discoPct + '%' : ''}</>}
             uso
             v={v ? gbTxt(v.discoUsadoGb) : '—'}
             m={v ? 'de ' + gbTxt(v.discoTotalGb) : ''}

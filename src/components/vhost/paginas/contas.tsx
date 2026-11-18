@@ -15,7 +15,8 @@ import { EditarDadosModal } from './cliente-dados';
 import type { Account, Role } from '../types';
 import { Check, DataTable, Frm, Row, Senha, Tabs, type Bulk, type Col } from './componentes';
 import { ComoFuncionaRevenda, Confirmar, FormPacoteRevenda, FormPacoteUtilizador } from './pacotes';
-import { FUNC_REVENDA, FUNC_UTILIZADOR, LIMITES_REVENDA, LIMITES_UTILIZADOR, MODELOS_PREDEFINIDOS, RECURSOS, featsEfetivas, limTxt, pacoteRevendaVazio, pacoteVazio, type Lim, type PacoteRevenda, type PacoteUtilizador } from './dados';
+import { FUNC_REVENDA, FUNC_UTILIZADOR, LIMITES_REVENDA, LIMITES_UTILIZADOR, MODELOS_PREDEFINIDOS, RECURSOS, extrasDoPacote, featsEfetivas, limTxt, pacoteRevendaVazio, pacoteVazio, type Lim, type PacoteRevenda, type PacoteUtilizador } from './dados';
+import { nomeProprio } from '@/lib/vhost-limites-proprios';
 
 type Kind = 'todos' | 'meus' | 'revenda' | 'profissional' | 'admin';
 type R = [string, Account];
@@ -131,10 +132,17 @@ function MensagemModal({ users }: { users: string[] }) {
         </button>
         <button
           className="btn r"
-          onClick={() => {
+          onClick={async () => {
             if (!assunto.trim() || !msg.trim()) return toast('Escreva o assunto e a mensagem');
             closeM();
-            toast('Enviar mensagens às contas ainda não está ligado: nada foi enviado');
+            try {
+              const r = await fetch('/api/vhost/mensagem', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contas: users, assunto, mensagem: msg, prioridade: prio, soEmail }) });
+              const j = (await r.json()) as { feitas?: string[]; falhas?: { conta: string; erro: string }[]; erro?: string };
+              if (j.feitas?.length) toast('Mensagem enviada a ' + j.feitas.join(', ') + (j.falhas?.length ? '. Não saiu para: ' + j.falhas.map((f) => f.conta + ' (' + f.erro + ')').join('; ') : ''));
+              else toast(j.erro || 'Nada foi enviado: ' + (j.falhas || []).map((f) => f.conta + ' (' + f.erro + ')').join('; '));
+            } catch {
+              toast('Não foi possível enviar a mensagem. Tente de novo.');
+            }
           }}
         >
           <i className="fa-solid fa-paper-plane" />
@@ -267,7 +275,8 @@ function MudarPacoteModal({ users }: { users: string[] }) {
 }
 
 function MudarIpModal({ users }: { users: string[] }) {
-  const { s, t, toast, closeM, updateDb } = useVH();
+  const vh = useVH();
+  const { s, t, closeM } = vh;
   const IPS = ipsDe(s);
   const [ip, setIp] = useState(IPS[0] || '');
   return (
@@ -290,7 +299,7 @@ function MudarIpModal({ users }: { users: string[] }) {
           className="btn r"
           onClick={() => {
             closeM();
-            toast('Mudar o IP ainda não está ligado ao servidor: nada foi alterado (' + ip + ')');
+            noServidor(vh, { acao: 'ip', contas: users, ip }, (n) => 'O IP dos sites de ' + n + ' conta(s) passou a ' + ip);
           }}
         >
           {t('Guardar')}
@@ -311,7 +320,7 @@ function ListaContas({ kind }: { kind: Kind }) {
   if (kind === 'todos') {
     // até 1600 px sai: o ícone do utilizador já mostra o tipo (administrador, revendedor, cliente)
     cols.push({ k: 'tipo', t: 'Tipo', ate: 1600, sort: (r) => ROLES[r[1].role], cell: ([, a]) => <span className="tag off">{t(ROLES[a.role])}</span> });
-    cols.push({ k: 'criador', t: 'Criado por', ate: 1600, oculta: true, sort: (r) => r[1].creator, cell: ([, a]) => a.creator });
+    cols.push({ k: 'criador', t: 'Criado por', ate: 1600, oculta: true, sort: (r) => r[1].criadoPor || r[1].creator, cell: ([, a]) => a.criadoPor || a.creator });
   }
   cols.push({ k: 'bw', t: 'Tráfego', ate: 1600, cls: 'num-peq', cell: ([u]) => comLimite(info(s, u).bw, L(u)?.bw) });
   cols.push({ k: 'disk', t: 'Espaço usado', cls: 'num-peq', cell: ([u, a]) => comLimite(a.disk, L(u)?.disk) });
@@ -731,12 +740,19 @@ function ContaModificar({ u }: { u: string }) {
     const feitas = await mudarPacote(vh, [u], pk);
     if (feitas.includes(u)) setP(structuredClone(revenda ? s.db.rpkgs[pk] : s.db.pkgs[pk]));
   };
-  const gravar = () => {
-    updateDb((db) => {
-      if (revenda) db.rcustom[u] = p as PacoteRevenda;
-      else db.custom[u] = p as PacoteUtilizador;
-    });
-    toast('Limites de ' + u + ' gravados');
+  // Limites próprios da conta (disco, memória, CPU, etc.): gravam-se no servidor e aplicam-se já, sem avisar o dono da conta
+  const gravar = async () => {
+    if (revenda) return toast('Os limites de um revendedor vêm do nível (Essencial, Expandido ou Completo): escolha um pacote de revenda');
+    const pu = p as PacoteUtilizador;
+    const { feitas } = await noServidorDetalhe(
+      vh,
+      { acao: 'limites', contas: [u], limites: { lim: pu.lim, feats: pu.feats, rec: pu.rec, hestia: pu.hestia } },
+      () => 'Limites de ' + u + ' gravados no servidor',
+    );
+    if (!feitas.length) return;
+    // o que o servidor não guarda por pacote (inodes, listas, funcionalidades do painel…) guarda-se à parte, no pacote só desta conta
+    await fetch('/api/vhost/acessos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ extras: { [a.limitesProprios || nomeProprio(u, a.hpkg || a.pkg)]: extrasDoPacote(pu) } }) }).catch(() => {});
+    await vh.recarregar(true);
     nav(ver);
   };
   return (
@@ -856,12 +872,13 @@ export function NovaConta({ tipo, embutido }: { tipo: TipoNova; embutido?: { dom
     if (tipo !== 'admin' && !/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(d)) return toast('Escreva um domínio válido');
     // Só o super administrador cria administradores (o servidor confirma); os que cria são administradores normais
     if (tipo === 'admin' && !s.pessoa?.superAdmin) return toast('Só o super administrador cria administradores');
-    if (custom) return toast('Os limites próprios ainda não chegam ao servidor: escolha um pacote');
+    if (custom && tipo !== 'cliente') return toast('Os limites próprios só se aplicam a contas de cliente: um revendedor tem os do seu nível');
     if (onde?.bloqueia) return toast(onde.bloqueia);
     const comPassagem = !embutido && !!onde?.passa && passar;
     // com passagem, a conta nasce sem domínio e o domínio passa para ela a seguir (cópia e desfazer no servidor)
-    noServidor(vh, { acao: 'criar', criar: { user: u, nome: nome.trim(), email: email.trim(), senha: pass, dominio: comPassagem || embutido ? '' : d, pacote: pk, tipo: tipo === 'cliente' ? 'cliente' : tipo } }, () => ROLES[role] + ' ' + u + ' criado no servidor').then(async (feitas) => {
+    noServidor(vh, { acao: 'criar', criar: { user: u, nome: nome.trim(), email: email.trim(), senha: pass, dominio: comPassagem || embutido ? '' : d, pacote: pk, tipo: tipo === 'cliente' ? 'cliente' : tipo, ...(custom && tipo === 'cliente' ? { limites: { lim: (custom as PacoteUtilizador).lim, feats: (custom as PacoteUtilizador).feats, rec: (custom as PacoteUtilizador).rec, hestia: (custom as PacoteUtilizador).hestia } } : {}) } }, () => ROLES[role] + ' ' + u + ' criado no servidor').then(async (feitas) => {
       if (!feitas.length) return;
+      if (custom && tipo === 'cliente') await fetch('/api/vhost/acessos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ extras: { [nomeProprio(u, pk)]: extrasDoPacote(custom as PacoteUtilizador) } }) }).catch(() => {});
       if (embutido) return embutido.aoCriar(u);
       if (comPassagem && onde?.prev) {
         setAPassar(0);

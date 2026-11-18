@@ -1,5 +1,6 @@
 // Estado do painel (igual ao objeto S da maquete) e navegação: cada ecrã tem endereço próprio
 // /vhost:2026/<nivel>/<ecra> (na maquete era #/<nivel>/<ecra>).
+import { ePacoteProprio } from '@/lib/vhost-limites-proprios';
 import { DESC, GLOBAL, LEVELS, MENU, ROLE_LEVELS } from './generated/data';
 import type { Lang } from './i18n';
 import { chavePacote } from '@/lib/pacote-nome';
@@ -157,7 +158,8 @@ export const nivelInicial = (s: St): Level => {
 export const ehPacotePro = (n: string) => /^pro-/i.test(n);
 /** Pacotes de cliente que esta sessão vê e atribui: o administrador todos; o revendedor só os Pro-… */
 export const pacotesDeCliente = (s: St): Db['pkgs'] =>
-  s.level === 'revenda' ? (Object.fromEntries(Object.entries(s.db.pkgs).filter(([n]) => ehPacotePro(n))) as Db['pkgs']) : s.db.pkgs;
+  // os pacotes só de uma conta (limites próprios: «conta__origem») não se escolhem nos selectores nem aparecem na lista de pacotes
+  Object.fromEntries(Object.entries(s.db.pkgs).filter(([n]) => !ePacoteProprio(n) && (s.level !== 'revenda' || ehPacotePro(n)))) as Db['pkgs'];
 /** Pacote efetivo da conta: os limites próprios (se tiver) ou os do pacote */
 export const pacoteDe = (s: St, u: string) => {
   const a = s.acc[u];
