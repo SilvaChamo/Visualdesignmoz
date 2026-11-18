@@ -11,7 +11,7 @@ export const contas_sistema: Record<string, string> = {
  "Novo pacote": "New package",
  "Só o super administrador cria administradores": "Only the super administrator creates administrators",
  "Pacotes de cliente": "Client packages",
- "Pacotes de revenda (a conta passa a revendedora)": "Reseller packages (the account becomes a reseller)",
+ "Pacotes de revenda": "Reseller packages",
  "Mudar IP": "Change IP",
  "Mudar o IP ainda não está ligado ao servidor: nada foi alterado (": "Changing the IP is not connected to the server yet: nothing was changed (",
  "A sua conta e as de administrador não podem ser suspensas": "Your account and administrator accounts cannot be suspended",

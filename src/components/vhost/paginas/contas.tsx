@@ -186,15 +186,16 @@ function DescerPlanoModal({ contas, pacote, oQue }: { contas: string[]; pacote: 
   );
 }
 
-/** Escolha de pacote com lista própria (a do telemóvel é a do sistema: letra grande e linhas altas que não se mudam). Os pacotes de revenda
- *  vêm num grupo à parte: escolher um torna a conta revendedora, escolher um de cliente numa conta revendedora deixa-a de o ser. */
+/** Escolha de pacote: o campo e, por baixo, a lista dentro da própria janela (a do telemóvel é a do sistema: letra grande e linhas altas que não
+ *  se mudam). Os pacotes de revenda vêm num grupo à parte: escolher um torna a conta revendedora, e um de cliente numa conta revendedora
+ *  deixa-a de o ser. */
 function SeletorPacote({ valor, grupos, onChange }: { valor: string; grupos: { titulo: string; nomes: string[] }[]; onChange: (n: string) => void }) {
   const { t } = useVH();
   const [aberto, setAberto] = useState(false);
   const com = grupos.filter((g) => g.nomes.length);
   return (
     <div className="sp">
-      <button type="button" className={'sp-btn' + (aberto ? ' on' : '')} aria-haspopup="listbox" aria-expanded={aberto} onClick={() => setAberto(!aberto)}>
+      <button type="button" className={'sp-btn' + (aberto ? ' on' : '')} aria-haspopup="listbox" aria-expanded={aberto} aria-label={t('Novo pacote')} onClick={() => setAberto(!aberto)}>
         <i className="fa-solid fa-list-ul" />
         <span>{valor}</span>
         <i className="fa-solid fa-chevron-down sp-seta" />
@@ -236,21 +237,17 @@ function MudarPacoteModal({ users }: { users: string[] }) {
   const clientes = Object.keys(pacotesDeCliente(s));
   const revenda = s.level === 'admin' ? Object.keys(s.db.rpkgs) : [];
   const [p, setP] = useState(clientes[0] || revenda[0] || '');
+  // sem título nem descrição por cima: o campo e a lista ocupam a janela, com Cancelar e Guardar por baixo
   return (
     <>
-      <h3>{t('Mudar pacote')}</h3>
-      <p style={{ color: 'var(--muted)', marginBottom: 12 }}>Contas: {users.join(', ')}</p>
-      <div className="f">
-        <label>{t('Novo pacote')}</label>
-        <SeletorPacote
-          valor={p}
-          grupos={[
-            { titulo: 'Pacotes de cliente', nomes: clientes },
-            { titulo: 'Pacotes de revenda (a conta passa a revendedora)', nomes: revenda },
-          ]}
-          onChange={setP}
-        />
-      </div>
+      <SeletorPacote
+        valor={p}
+        grupos={[
+          { titulo: 'Pacotes de cliente', nomes: clientes },
+          { titulo: 'Pacotes de revenda', nomes: revenda },
+        ]}
+        onChange={setP}
+      />
       <div className="mfoot">
         <button className="btn g" onClick={closeM}>
           {t('Cancelar')}
@@ -753,7 +750,7 @@ function ContaModificar({ u }: { u: string }) {
               s.level === 'admin'
                 ? [
                     { titulo: 'Pacotes de cliente', nomes: Object.keys(pacotesDeCliente(s)) },
-                    { titulo: 'Pacotes de revenda (a conta passa a revendedora)', nomes: Object.keys(s.db.rpkgs) },
+                    { titulo: 'Pacotes de revenda', nomes: Object.keys(s.db.rpkgs) },
                   ]
                 : [{ titulo: 'Pacotes', nomes }]
             }

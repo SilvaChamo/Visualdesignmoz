@@ -16288,8 +16288,7 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
   padding-bottom: calc(4px * var(--z, 1));
 }
 
-/* Mudar pacote: lista própria (a do sistema, no telemóvel, tem letra grande e linhas altas que não se mudam). Letra e espaço vertical um pouco
-   mais pequenos; o círculo de escolha acompanha a letra do aparelho (Silva, 18/11/2026) */
+/* Mudar pacote: o campo e a lista dentro da janela. Letra e espaços ligeiramente mais pequenos que os da lista do sistema do telemóvel (Silva, 18/11/2026); o círculo de escolha acompanha a letra */
 .vh .sp-btn {
    display: flex;
    align-items: center;
@@ -16324,8 +16323,8 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
 }
 
 .vh .sp-lista {
-   margin-top: calc(4px * var(--z, 1));
-   max-height: min(46vh, calc(320px * var(--z, 1)));
+   margin-top: calc(6px * var(--z, 1));
+   max-height: min(58vh, calc(420px * var(--z, 1)));
    overflow-y: auto;
    border: 1px solid var(--line);
    border-radius: var(--r);
@@ -16333,26 +16332,33 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
 }
 
 .vh .sp-grupo {
-   padding: calc(8px * var(--z, 1)) calc(12px * var(--z, 1)) calc(2px * var(--z, 1));
-   font-size: calc(11px * var(--fs, 1));
-   font-weight: 600;
-   letter-spacing: .04em;
+   padding: calc(7px * var(--z, 1)) calc(14px * var(--z, 1));
+   font-size: calc(11.5px * var(--fs, 1));
+   font-weight: 700;
+   letter-spacing: .05em;
    text-transform: uppercase;
-   color: var(--muted)
+   color: var(--ink);
+   background: color-mix(in srgb, var(--soft), var(--ink) 5%);
+   border-top: 1px solid var(--line-soft);
+   border-bottom: 1px solid var(--line-soft)
+}
+
+.vh .sp-lista > div:first-child > .sp-grupo {
+   border-top: 0
 }
 
 .vh .sp-op {
    display: flex;
    align-items: center;
-   gap: calc(10px * var(--z, 1));
+   gap: calc(12px * var(--z, 1));
    width: 100%;
    border: 0;
    background: none;
    color: var(--ink);
    font: inherit;
-   font-size: calc(13px * var(--fs, 1));
+   font-size: calc(14px * var(--fs, 1));
    text-align: left;
-   padding: calc(6px * var(--z, 1)) calc(12px * var(--z, 1));
+   padding: calc(7px * var(--z, 1)) calc(14px * var(--z, 1));
    cursor: pointer
 }
 
@@ -16368,22 +16374,29 @@ html.vh-barras-no-cartao .vh .vh-barra-topo.on {
 .vh .sp-op .rd {
    flex: none;
    box-sizing: border-box;
-   width: 1.15em;
-   height: 1.15em;
-   border: 2px solid var(--muted);
+   width: 1.25em;
+   height: 1.25em;
+   border: 1.5px solid color-mix(in srgb, var(--muted), var(--card) 25%);
    border-radius: 50%;
+   background: var(--card);
    display: grid;
-   place-items: center
+   place-items: center;
+   transition: border-color .12s, box-shadow .12s
+}
+
+.vh .sp-op:hover .rd {
+   border-color: var(--red)
 }
 
 .vh .sp-op.on .rd {
-   border-color: var(--red)
+   border-color: var(--red);
+   box-shadow: 0 0 0 3px color-mix(in srgb, var(--red) 14%, transparent)
 }
 
 .vh .sp-op.on .rd::after {
    content: "";
-   width: 50%;
-   height: 50%;
+   width: 52%;
+   height: 52%;
    border-radius: 50%;
    background: var(--red)
 }
