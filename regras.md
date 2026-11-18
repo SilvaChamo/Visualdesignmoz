@@ -1080,3 +1080,11 @@ do Node; o deploy usa `npm ci` e o `package-lock.json` não se mexe por isto) e 
 O service worker `public/vhostmail-sw.js` mostra o aviso (não o repete se o VhostMail estiver à vista e com foco) e, ao tocar, abre a caixa.
 Ao abrir o VhostMail com a permissão por dar, aparece logo o pop-up «Avisos de e-mail novo» (o mesmo estilo do das Novidades).
 
+# VhostMail: como o Outlook — caixas, e-mail aberto e sessão (Silva, 18/11/2026)
+- **Outras caixas sem sair nem entrar de novo**: «Adicionar conta» lista as caixas da própria pessoa (`/api/vhost/vhostmail/contas`, sem senha: a
+  sessão do painel já as vê) e um toque abre-a na mesma página (`vhostmailAbrirConta` em `integracao.ts`); as caixas ficam na barra lateral.
+- **O e-mail aberto não fecha**: a atualização de fundo (chegou correio novo) não refaz o e-mail que se lê (o texto, a posição, a tradução e a
+  resposta em curso ficam); a pasta e o e-mail aberto guardam-se por caixa (`vm-estado:<caixa>`) e voltam ao entrar (só em ecrãs largos).
+- **Pop-up «Novidades» ao entrar**: «Já pode programar e-mails e baixar o VhostMail para o seu computador.» com «Saiba mais» (programar e-mails)
+  e «Baixar agora» (instalar a app). O pop-up dos avisos de e-mail novo espera que ele se feche.
+

@@ -34,3 +34,26 @@ export async function podeVer(s: Sessao, end: string): Promise<boolean> {
   return sim;
 }
 
+
+/** As caixas de e-mail que esta sessão vê, para «Adicionar conta» (sem senha) e para abrir a app na caixa certa: as da própria pessoa
+ *  (conta com sessão e contas de hospedagem suas); sem nenhuma delas, as que a sessão vê (no máximo 60) */
+export async function caixasDaSessao(s: Sessao): Promise<{ end: string; plano: string }[]> {
+  const srv = await lerServidor();
+  const dados = montarDados(srv, await lerRegisto(), s);
+  const lista = (soSuas: boolean) => {
+    const vistas = new Set<string>();
+    const out: { end: string; plano: string }[] = [];
+    for (const [u, a] of Object.entries(dados.contas)) {
+      if (soSuas && u !== dados.me && !a.propria) continue;
+      for (const m of a.mails) {
+        const end = `${m.user}@${m.dom}`.toLowerCase();
+        if (vistas.has(end)) continue;
+        vistas.add(end);
+        out.push({ end, plano: a.hpkg || a.pkg || '' });
+      }
+    }
+    return out;
+  };
+  const suas = lista(true);
+  return (suas.length ? suas : lista(false)).slice(0, 60);
+}

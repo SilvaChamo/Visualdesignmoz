@@ -28,11 +28,34 @@ export const INTEGRACAO_JS = String.raw`
      - «Adicionar conta»: abre outra caixa que esta sessão já vê (o servidor confirma; não é preciso senha)
      - «Criar um novo e-mail»: Contas de e-mail › Criar conta
      - «Traga o Gmail / os seus e-mails»: Migração de e-mail do painel */
+  /* Abrir outra caixa sem sair do VhostMail nem voltar a entrar: a sessão do painel já vê as caixas da pessoa (não há senha). A página
+     recarrega-se só a ela própria (a lista de cada caixa já está guardada e pinta-se logo); o resto do painel não se mexe. */
+  window.vhostmailAbrirConta=function(end){
+    end=String(end||'').trim().toLowerCase();if(!end)return;
+    try{
+      var L=JSON.parse(localStorage.getItem('vd-vhostmail-contas')||'[]');if(!Array.isArray(L))L=[];
+      [String(C.conta||'').toLowerCase(),end].forEach(function(c){if(c&&L.indexOf(c)<0)L.push(c)});
+      localStorage.setItem('vd-vhostmail-contas',JSON.stringify(L));
+    }catch(e){}
+    var q=new URLSearchParams({conta:end,pasta:'entrada',tema:(typeof S!=='undefined'&&S.dark)?'dark':'light',lang:C.dic?'en':'pt'});
+    if(C.planoCodigo)q.set('plano',C.planoCodigo);
+    if(/[?&]app=1/.test(location.search))q.set('app','1');
+    location.replace('/api/vhost/vhostmail?'+q.toString());
+  };
   var _aam=addAcctModal;
   addAcctModal=function(){
     _aam();
     var o=document.querySelector('.ov .addm')&&document.querySelector('.ov .addm').closest('.ov');if(!o)return;
     var i=o.querySelector('#aae'),g=o.querySelector('#aago'),nw=o.querySelector('[data-nw]'),gm=o.querySelector('[data-gm]');
+    /* as caixas desta pessoa: um toque abre-a (sem escrever o endereço nem a senha) */
+    fetch('/api/vhost/vhostmail/contas',{credentials:'same-origin',cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
+      var atual=String(C.conta||'').toLowerCase(),tp=o.querySelector('.tp');
+      var outras=((j&&j.contas)||[]).filter(function(c){return c!==atual});
+      if(!tp||!outras.length||tp.querySelector('.vm-minhas'))return;
+      var h3=tp.querySelector('h3');
+      h3.insertAdjacentHTML('afterend','<div class="vm-minhas"><label>As suas caixas</label>'+outras.map(function(c){return '<button type="button" data-vmcx="'+esc(c)+'"><span class="av">'+esc(c.charAt(0).toUpperCase())+'</span><span class="em">'+esc(c)+'</span></button>'}).join('')+'<div class="vm-ou">ou adicione outra</div></div>');
+      tp.querySelectorAll('[data-vmcx]').forEach(function(b){b.onclick=function(){o.remove();window.vhostmailAbrirConta(b.dataset.vmcx)}});
+    }).catch(function(){});
     if(g&&i)g.onclick=function(){
       if(!g.classList.contains('on'))return;
       var v=i.value.trim().toLowerCase();
@@ -42,9 +65,8 @@ export const INTEGRACAO_JS = String.raw`
         .then(function(r){return r.json().catch(function(){return {}}).then(function(j){return {ok:r.ok,j:j}})})
         .then(function(x){
           if(x.ok){
-            /* a caixa nova junta-se à lista da barra (fica por baixo da actual) em vez de a substituir */
-            try{var L=JSON.parse(localStorage.getItem('vd-vhostmail-contas')||'[]');if(!Array.isArray(L))L=[];[String(C.conta||'').toLowerCase(),v].forEach(function(c){if(c&&L.indexOf(c)<0)L.push(c)});localStorage.setItem('vd-vhostmail-contas',JSON.stringify(L))}catch(e){}
-            o.remove();painel('abrir:'+v)
+            /* a caixa nova junta-se à lista da barra (fica por baixo da actual) e abre-se logo, sem sair do VhostMail */
+            o.remove();window.vhostmailAbrirConta(v)
           }
           else{g.classList.add('on');toast(esc(x.j.erro||'Não foi possível abrir essa caixa.'))}
         }).catch(function(){g.classList.add('on');toast('Não foi possível abrir essa caixa.')});
@@ -243,7 +265,13 @@ export const INTEGRACAO_JS = String.raw`
       p.querySelector('.mx').onclick=closeFloating;
       p.querySelector('[data-vmpop]').onclick=function(){closeFloating();ligar(false)};
     }
-    if(perm()==='default')setTimeout(popAviso,900);
+    /* se o pop-up das Novidades estiver aberto, espera que se feche (volta a tentar de 1,5 em 1,5 s durante meio minuto) */
+    function tentaPopAviso(n){
+      if(perm()!=='default'||window.__vmPopAviso)return;
+      if(document.querySelector('.pop,.menu,.ov')){if(n<20)setTimeout(function(){tentaPopAviso(n+1)},1500);return}
+      popAviso();
+    }
+    if(perm()==='default')setTimeout(function(){tentaPopAviso(0)},1700);
   })();
   /* VhostMail como aplicação no computador (PWA só do VhostMail; Silva, 18/11/2026): «Baixar o app do VhostMail» na gaveta instala-o.
      Dentro do painel (quadro) o navegador não oferece a instalação: abre-se a página própria (?app=1&instalar=1), que a oferece. */
@@ -276,14 +304,25 @@ export const INTEGRACAO_JS = String.raw`
     window.addEventListener('appinstalled',function(){pi=null;toast('VhostMail instalado: abra-o pelo menu de aplicações')});
     /* aberto de propósito para instalar e o navegador não ofereceu (já instalado ou sem suporte): diz como se faz */
     if(sozinho&&/[?&]instalar=1/.test(location.search))setTimeout(function(){if(!pi&&!instalada()&&!document.querySelector('.ov'))modalInstrucoes()},3500);
-    window.addEventListener('click',function(e){
-      var t=e.target;if(!t||!t.closest||!t.closest('[data-act=getapp]'))return;
-      e.stopImmediatePropagation();e.preventDefault();
+    function instalar(){
       var d=document.getElementById('drawer');if(d)d.classList.remove('open');
       if(instalada()){toast('Já está a usar o VhostMail como aplicação');return}
       if(!sozinho){window.open('/api/vhost/vhostmail?app=1&instalar=1','_blank','noopener');return}
       if(pi)modalInstalar();else modalInstrucoes();
+    }
+    window.vhostmailInstalar=instalar;
+    window.addEventListener('click',function(e){
+      var t=e.target;if(!t||!t.closest||!t.closest('[data-act=getapp]'))return;
+      e.stopImmediatePropagation();e.preventDefault();instalar();
     },true);
+    /* pop-up «Novidades» que aparece logo ao entrar: programar e-mails («Saiba mais») e baixar o VhostMail para o computador («Baixar agora») */
+    newsPop=function(a){
+      var p=pop('<button class="mx" aria-label="Fechar">'+ic('x')+'</button><h6>'+ic('megaphone')+'Novidades no VhostMail</h6><p>Já pode programar e-mails e baixar o VhostMail para o seu computador.</p><div class="vm-lks"><a data-vmsm>Saiba mais</a><a data-vmbx>Baixar agora</a></div>',a,'whatsnew',{above:true});
+      p.style.left=Math.max(8,a.getBoundingClientRect().left-24)+'px';
+      p.querySelector('.mx').onclick=closeFloating;
+      p.querySelector('[data-vmsm]').onclick=function(){closeFloating();featuresModal(imapOk)};
+      p.querySelector('[data-vmbx]').onclick=function(){closeFloating();instalar()};
+    };
   })();
   /* a largura da lista de e-mails muda-se arrastando a linha entre a lista e a leitura (duplo clique repõe) */
   (function(){
@@ -337,6 +376,14 @@ body:not(.vm-bn-on) #banner{display:none}
 body:not(.vm-bn-on) #app{height:calc(100vh - 40px)}
 body:not(.vm-bn-on) #drawer{top:40px}
 #banner{overflow:hidden;animation:vmbn .35s ease}
+.vm-minhas{margin:0 0 16px}
+.vm-minhas label{font-size:13px;font-weight:600;display:block;margin-bottom:8px}
+.vm-minhas button{display:flex;align-items:center;gap:10px;width:100%;padding:9px 10px;margin-bottom:6px;border:1px solid var(--line-2);border-radius:4px;background:var(--bg);color:var(--text);text-align:left;cursor:pointer}
+.vm-minhas button:hover{border-color:var(--brand);background:var(--hover)}
+.vm-minhas .av{width:28px;height:28px;border-radius:50%;background:var(--brand);color:#fff;display:grid;place-items:center;font-weight:600;flex:none}
+.vm-minhas .em{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vm-minhas .vm-ou{margin:10px 0 0;color:var(--muted);font-size:12.5px}
+.whatsnew .vm-lks{display:flex;justify-content:space-between;gap:14px}
 @keyframes vmbn{from{height:0;opacity:0}to{height:40px;opacity:1}}
 #app{transition:height .35s ease}
 `;
