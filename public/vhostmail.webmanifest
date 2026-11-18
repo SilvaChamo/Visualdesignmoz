@@ -1,0 +1,16 @@
+{
+  "id": "/api/vhost/vhostmail",
+  "name": "VhostMail",
+  "short_name": "VhostMail",
+  "description": "O correio da VisualDesign no seu computador",
+  "lang": "pt",
+  "start_url": "/api/vhost/vhostmail?app=1",
+  "scope": "/api/vhost/vhostmail",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#E5202E",
+  "icons": [
+    { "src": "/icons/icon-192x192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

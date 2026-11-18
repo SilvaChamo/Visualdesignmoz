@@ -88,6 +88,11 @@ export const INGLES: Record<string, string> = {
   'Responder com IA': 'Reply with AI',
   'Encaminhar': 'Forward',
   'Resumo com IA': 'AI summary',
+  'Instalar o VhostMail no computador': 'Install VhostMail on your computer',
+  'Abre numa janela só dele, sem a barra do navegador, e fica no menu de aplicações.': 'It opens in its own window, without the browser bar, and sits in your applications menu.',
+  'Instalar': 'Install',
+  'Já está a usar o VhostMail como aplicação': 'You are already using VhostMail as an app',
+
   'Notificações bloqueadas. Permita-as no cadeado junto ao endereço.': 'Notifications blocked. Allow them via the padlock next to the address.',
   'Já permiti': 'I have allowed them',
   'Traduzir': 'Translate',
