@@ -1,4 +1,4 @@
-// Menu Admin › Gestão de contas (Silva, 20/10/2026): ordem fixa, sem "Adicionar cliente" à cabeça (o botão "+ Adicionar
+// Menu Admin › Gestão de contas (Silva, 20/10/2026; Administradores em primeiro lugar, 18/11/2026): ordem fixa, sem "Adicionar cliente" à cabeça (o botão "+ Adicionar
 // cliente" das listas já lá leva), Revendedores e Profissionais a seguir a "Os meus clientes", e "Sites das contas" em
 // penúltimo. Vários módulos acrescentam itens a este grupo em tempo de execução, por isso a função é idempotente e cada um
 // chama-a depois de mexer no menu.
@@ -8,6 +8,7 @@ import { DESC, EN, MENU } from './generated/data';
 export const SEM_MENU = new Set(['novo-cliente']);
 
 const ORDEM = [
+  'administradores',
   'utilizadores',
   'meus-clientes',
   'revendedores',
@@ -18,7 +19,6 @@ const ORDEM = [
   'modelos-mensagem',
   'senhas',
   'pacotes-revenda',
-  'administradores',
   'sites-contas',
   'ligados',
 ];
